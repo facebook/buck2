@@ -53,7 +53,6 @@ use buck2_execute_impl::executors::caching::CacheUploader;
 use buck2_execute_impl::executors::hybrid::FallbackTracker;
 use buck2_execute_impl::executors::hybrid::HybridExecutor;
 use buck2_execute_impl::executors::local::ForkserverAccess;
-use buck2_execute_impl::executors::local::LocalActionCounter;
 use buck2_execute_impl::executors::local::LocalExecutor;
 use buck2_execute_impl::executors::re::ReExecutor;
 use buck2_execute_impl::executors::stacked::StackedExecutor;
@@ -94,7 +93,6 @@ pub struct CommandExecutorFactory {
     fallback_tracker: Arc<FallbackTracker>,
     re_use_case_override: Option<RemoteExecutorUseCase>,
     memory_tracker: Option<MemoryTrackerHandle>,
-    local_action_counter: Option<Arc<LocalActionCounter>>,
     incremental_db_state: Arc<IncrementalDbState>,
     deduplicate_get_digests_ttl_calls: bool,
     output_trees_download_config: OutputTreesDownloadConfig,
@@ -127,7 +125,6 @@ impl CommandExecutorFactory {
         daemon_id: DaemonId,
     ) -> Self {
         let cache_upload_permission_checker = Arc::new(ActionCacheUploadPermissionChecker::new());
-        let local_action_counter = memory_tracker.as_ref().map(|_| LocalActionCounter::new());
 
         Self {
             re_connection,
@@ -150,7 +147,6 @@ impl CommandExecutorFactory {
             fallback_tracker: Arc::new(FallbackTracker::new()),
             re_use_case_override,
             memory_tracker,
-            local_action_counter,
             incremental_db_state,
             deduplicate_get_digests_ttl_calls,
             output_trees_download_config,
@@ -193,7 +189,6 @@ impl HasCommandExecutor for CommandExecutorFactory {
                 self.executor_global_knobs.dupe(),
                 worker_pool,
                 self.memory_tracker.dupe(),
-                self.local_action_counter.dupe(),
                 self.daemon_id.dupe(),
             )
         };

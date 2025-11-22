@@ -14,7 +14,6 @@ import json
 import os
 import re
 from pathlib import Path
-from typing import Any, Dict
 
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.buck_workspace import buck_test, env
@@ -24,15 +23,6 @@ from buck2.tests.e2e_util.helper.utils import filter_events
 # To not fail listing on Mac or Windows
 def test_dummy() -> None:
     pass
-
-
-def _get(data: Dict[str, Any], *key: str) -> Any:
-    for k in key:
-        data = data.get(k)
-        if data is None:
-            return None
-
-    return data
 
 
 def _use_some_memory_args(buck: Buck) -> list[str]:
@@ -108,24 +98,6 @@ async def test_resource_control_events_created(
     # 10 means scheduled event
     assert len(list(filter(lambda e: e["kind"] == 10, event))) > 0
     assert len(list(filter(lambda e: e["kind"] != 10, event))) > 0
-
-
-@buck_test(skip_for_os=["darwin", "windows"])
-@env("BUCK2_HARD_ERROR", "panic")
-async def test_local_action_running_count(
-    buck: Buck,
-) -> None:
-    await buck.build(
-        ":sleep_merge",
-        "--no-remote-cache",
-        "--local-only",
-    )
-
-    local_action_running_count = await filter_events(
-        buck, "Event", "data", "Instant", "data", "LocalActionRunningCount"
-    )
-
-    assert len(local_action_running_count) > 0
 
 
 # get the daemon cgroup path
