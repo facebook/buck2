@@ -53,7 +53,6 @@ use crate::provider::label::NonDefaultProvidersName;
 use crate::provider::label::ProviderName;
 use crate::provider::label::ProvidersLabel;
 use crate::provider::label::ProvidersName;
-use crate::soft_error;
 use crate::target::label::label::TargetLabel;
 use crate::target::name::TargetName;
 use crate::target::name::TargetNameRef;
@@ -84,8 +83,6 @@ enum TargetPatternParseError {
     ExpectingPatternOfType(&'static str, String),
     #[error("Configuration part of the pattern must be enclosed in `()`")]
     ConfigurationPartMustBeEnclosedInParentheses,
-    #[error("Pattern `{0}` is parsed as `{1}` which crosses cell boundaries. Try `{2}` instead")]
-    PatternCrossesCellBoundaries(String, String, String),
 }
 
 #[derive(Debug, buck2_error::Error)]
@@ -285,14 +282,6 @@ impl ParsedPattern<ProvidersPatternExtra> {
 }
 
 impl<T: PatternType> ParsedPattern<T> {
-    pub(crate) fn cell_path(&self) -> CellPathRef<'_> {
-        match self {
-            ParsedPattern::Target(pkg, _, _) => pkg.as_cell_path(),
-            ParsedPattern::Package(pkg) => pkg.as_cell_path(),
-            ParsedPattern::Recursive(cell_path) => cell_path.as_ref(),
-        }
-    }
-
     pub fn try_map<U: PatternType>(
         self,
         f: impl FnOnce(T) -> buck2_error::Result<U>,
@@ -1056,45 +1045,8 @@ fn parse_target_pattern<T>(
 where
     T: PatternType,
 {
-    let res: buck2_error::Result<_> = try {
-        let parsed_pattern_with_modifiers = parse_target_pattern_no_validate::<T>(
-            cell_resolver,
-            cell_alias_resolver,
-            opts,
-            pattern,
-        )?;
-
-        let parsed_pattern = &parsed_pattern_with_modifiers.parsed_pattern;
-        let crossed_path =
-            cell_resolver.resolve_path_crossing_cell_boundaries(parsed_pattern.cell_path())?;
-        if crossed_path != parsed_pattern.cell_path() {
-            let new_pattern = match parsed_pattern {
-                ParsedPattern::Target(_, target_name, extra) => ParsedPattern::Target(
-                    PackageLabel::from_cell_path(crossed_path)?,
-                    target_name.dupe(),
-                    extra.clone(),
-                ),
-                ParsedPattern::Package(_) => {
-                    ParsedPattern::Package(PackageLabel::from_cell_path(crossed_path)?)
-                }
-                ParsedPattern::Recursive(_) => ParsedPattern::Recursive(crossed_path.to_owned()),
-            };
-
-            soft_error!(
-                "pattern_crosses_cell_boundary",
-                TargetPatternParseError::PatternCrossesCellBoundaries(
-                    pattern.to_owned(),
-                    parsed_pattern.to_string(),
-                    new_pattern.to_string(),
-                )
-                .into()
-            )?;
-        }
-
-        parsed_pattern_with_modifiers
-    };
-
-    res.tag(buck2_error::ErrorTag::Input)
+    parse_target_pattern_no_validate::<T>(cell_resolver, cell_alias_resolver, opts, pattern)
+        .tag(buck2_error::ErrorTag::Input)
 }
 
 fn parse_target_pattern_no_validate<T>(
@@ -2302,37 +2254,6 @@ mod tests {
             "foo//...",
             ParsedPattern::<TargetPatternExtra>::testing_parse("foo//...").to_string()
         );
-    }
-
-    #[test]
-    fn test_cross_cell_boundary() {
-        if !cfg!(fbcode_build) {
-            return;
-        }
-        let cell_resolver = CellResolver::testing_with_names_and_paths(&[
-            (
-                CellName::testing_new("root"),
-                CellRootPathBuf::testing_new(""),
-            ),
-            (
-                CellName::testing_new("cell1"),
-                CellRootPathBuf::testing_new("cell1"),
-            ),
-            (
-                CellName::testing_new("cell2"),
-                CellRootPathBuf::testing_new("cell1/xx/cell2"),
-            ),
-        ]);
-
-        // FIXME(JakobDegen): These were previously checking the opposite, but just in the soft
-        // error case, which isn't very useful.
-        ParsedPattern::<TargetPatternExtra>::parse_precise(
-            "root//cell1/xx/cell2/yy/...",
-            CellName::testing_new("root"),
-            &cell_resolver,
-            &alias_resolver(),
-        )
-        .unwrap();
     }
 
     #[test]
