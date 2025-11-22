@@ -213,10 +213,10 @@ impl MethodsBuilder {
         name: &str,
         components: NativeCallableComponents,
         sig: ParametersSpec<FrozenValue>,
+        ty: Option<Ty>,
         f: NativeMethFn,
     ) {
-        // TODO(nga): do not unwrap.
-        let ty = Ty::from_native_callable_components(&components, None).unwrap();
+        let ty = ty.unwrap_or_else(|| Ty::from_native_callable_components(&components, None));
 
         self.members.insert(
             name,
