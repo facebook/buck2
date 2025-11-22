@@ -19,6 +19,7 @@ use async_trait::async_trait;
 use buck2_cli_proto::CommandResult;
 use buck2_cli_proto::command_result;
 use buck2_error::BuckErrorContext;
+use buck2_error::ErrorTag;
 use buck2_event_log::stream_value::StreamValue;
 use buck2_events::BuckEvent;
 use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
@@ -167,7 +168,7 @@ impl<'a> DaemonEventsCtx<'a> {
                 Ok(next) => next,
                 Err(e) => {
                     self.inner.handle_events(events, shutdown).await?;
-                    return Err(e).buck_error_context("Buck daemon event bus encountered an error, the root cause (if available) is displayed above this message.");
+                    return Err(e).buck_error_context("Buck daemon event bus encountered an error, the root cause (if available) is displayed above this message.").tag(ErrorTag::ClientGrpcStream);
                 }
             };
             match next {

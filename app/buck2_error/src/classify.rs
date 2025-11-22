@@ -168,8 +168,6 @@ fn tag_metadata(tag: ErrorTag) -> TagMetadata {
         ErrorTag::WatchmanCheckoutInProgress => rank!(environment),
         ErrorTag::ServerTransportError => rank!(environment),
         ErrorTag::ServerMemoryPressure => rank!(environment),
-        // Daemon was likely SIGKILLed, otherwise it should have written something to stderr
-        ErrorTag::ServerStderrEmpty => rank!(environment),
         // Note: This is only true internally due to buckwrapper
         ErrorTag::NoBuckRoot => rank!(environment),
         ErrorTag::InstallerEnvironment => rank!(environment).hidden(),
@@ -195,8 +193,6 @@ fn tag_metadata(tag: ErrorTag) -> TagMetadata {
         ErrorTag::ServerSegv => rank!(tier0),
         ErrorTag::ServerSigbus => rank!(tier0),
         ErrorTag::ServerSigabrt => rank!(tier0),
-        ErrorTag::ServerStderrUnknown => rank!(tier0),
-        ErrorTag::InternalError => rank!(tier0),
         ErrorTag::ClientStartupTimeout => rank!(tier0),
         ErrorTag::DaemonLaunchFailed => rank!(tier0),
         ErrorTag::DaemonStartupFailed => rank!(tier0),
@@ -240,8 +236,6 @@ fn tag_metadata(tag: ErrorTag) -> TagMetadata {
         ErrorTag::Regex => rank!(tier0),
         ErrorTag::RelativePath => rank!(tier0),
         ErrorTag::Rusqlite => rank!(tier0),
-        ErrorTag::Tokio => rank!(tier0),
-        ErrorTag::Tonic => rank!(tier0),
         ErrorTag::Uuid => rank!(tier0),
         ErrorTag::SerdeJson => rank!(tier0),
         ErrorTag::StdSlice => rank!(tier0),
@@ -371,9 +365,11 @@ fn tag_metadata(tag: ErrorTag) -> TagMetadata {
         ErrorTag::DiceDuplicateActivationData => rank!(tier0),
         ErrorTag::InstallerUnknown => rank!(tier0),
         ErrorTag::InstallerTier0 => rank!(tier0).hidden(),
-
+        ErrorTag::InternalError => rank!(tier0),
         ErrorTag::Environment => rank!(environment).hidden(),
         ErrorTag::Tier0 => rank!(tier0).hidden(),
+        // Daemon disconnected with nothing in stderr, likely SIGKILLed.
+        ErrorTag::DaemonDisconnect => rank!(environment),
 
         // Input errors
         ErrorTag::ClapMatch => rank!(input),
@@ -422,6 +418,7 @@ fn tag_metadata(tag: ErrorTag) -> TagMetadata {
         // - A phase of the build.
         // By default these are generic (excluded from category keys)
         ErrorTag::ClientGrpc => rank!(unspecified),
+        ErrorTag::ClientGrpcStream => rank!(unspecified),
         ErrorTag::CompatibilityError => rank!(unspecified),
         ErrorTag::IoBrokenPipe => rank!(unspecified),
         ErrorTag::IoWindowsSharingViolation => rank!(unspecified),
@@ -441,6 +438,8 @@ fn tag_metadata(tag: ErrorTag) -> TagMetadata {
         ErrorTag::UnexpectedNone => rank!(unspecified),
         ErrorTag::UnusedDefaultTag => rank!(unspecified),
         ErrorTag::BuildSketchError => rank!(unspecified),
+        ErrorTag::Tokio => rank!(unspecified),
+        ErrorTag::Tonic => rank!(unspecified),
         // Build phases
         ErrorTag::DaemonStateInitFailed => rank!(unspecified),
         ErrorTag::DaemonConnect => rank!(unspecified),
@@ -604,7 +603,7 @@ mod tests {
     fn test_ranked_tags() {
         let errors = vec![ErrorReport {
             tags: vec![
-                ErrorTag::ServerStderrEmpty as i32,
+                ErrorTag::DaemonDisconnect as i32,
                 ErrorTag::ClientGrpc as i32,
             ],
             ..ErrorReport::default()
@@ -619,7 +618,7 @@ mod tests {
     #[test]
     fn test_source_area() {
         assert_eq!(
-            ErrorTag::ServerStderrEmpty.source_area(),
+            ErrorTag::DaemonDisconnect.source_area(),
             ErrorSourceArea::Buck2
         );
         assert_eq!(ErrorTag::ReAborted.source_area(), ErrorSourceArea::Re);
