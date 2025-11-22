@@ -41,5 +41,10 @@ async def test_unified_constraint_cfg_transition(buck: Buck) -> None:
 
 
 @buck_test(allow_soft_errors=True)
+async def test_unified_constraint_cfg_transition_v2(buck: Buck) -> None:
+    await buck.bxl("//test_unified_constraint.bxl:test_cfg_transition_v2")
+
+
+@buck_test(allow_soft_errors=True)
 async def test_unified_constraint_for_constraint_v2(buck: Buck) -> None:
     await buck.bxl("//test_unified_constraint.bxl:constraint_v2")

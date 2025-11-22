@@ -1,6 +1,6 @@
 # Basic unified constraint
 load("@prelude//:native.bzl", "native")
-load(":defs.bzl", "unified_build_mode", "unified_foo", "unified_with_transition")
+load(":defs.bzl", "unified_build_mode", "unified_foo", "unified_with_transition", "unified_with_transition_v2")
 
 constraint = native.constraint
 platform = native.platform
@@ -91,6 +91,17 @@ unified_build_mode(
 
 unified_with_transition(
     name = "force_opt_dep",
+    build_mode = select({
+        ":build_mode[dev]": "dev",
+        ":build_mode[opt]": "opt",
+    }),
+    dep = ":foo_with_build_mode",
+    opt_dep = ":bar_with_build_mode",
+    default_target_platform = ":linux_platform",
+)
+
+unified_with_transition_v2(
+    name = "force_opt_dep_v2",
     build_mode = select({
         ":build_mode[dev]": "dev",
         ":build_mode[opt]": "opt",

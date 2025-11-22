@@ -6,7 +6,7 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
-load(":transitions.bzl", "force_opt_mode")
+load(":transitions.bzl", "force_opt_mode", "force_opt_mode_v2")
 
 BuildModeInfo = provider(
     fields = {
@@ -67,5 +67,14 @@ unified_with_transition = rule(
         "build_mode": attrs.string(),
         "dep": attrs.dep(),
         "opt_dep": attrs.transition_dep(cfg = force_opt_mode),
+    },
+)
+
+unified_with_transition_v2 = rule(
+    impl = _unified_with_transition_impl,
+    attrs = {
+        "build_mode": attrs.string(),
+        "dep": attrs.dep(),
+        "opt_dep": attrs.transition_dep(cfg = force_opt_mode_v2),
     },
 )

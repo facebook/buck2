@@ -41,8 +41,8 @@ main = bxl_main(
     cli_args = {},
 )
 
-def _test_cfg_transition(ctx: bxl.Context):
-    cnode = ctx.configured_targets("//:force_opt_dep")
+def _test_cfg_transition(ctx: bxl.Context, target_name: str):
+    cnode = ctx.configured_targets(target_name)
     analysis_res = ctx.analysis(cnode)
     build_mode_info = analysis_res.providers()[TransitionBuildModeInfo]
     _assert_eq(build_mode_info.dep, "dev")
@@ -55,8 +55,19 @@ def _test_cfg_transition(ctx: bxl.Context):
     build_mode_info = analysis_res.providers()[BuildModeInfo]
     _assert_eq(build_mode_info.mode, "dev")
 
+def _test_cfg_transition_impl(ctx: bxl.Context):
+    _test_cfg_transition(ctx, "//:force_opt_dep")
+
 test_cfg_transition = bxl_main(
-    impl = _test_cfg_transition,
+    impl = _test_cfg_transition_impl,
+    cli_args = {},
+)
+
+def _test_cfg_transition_v2_impl(ctx: bxl.Context):
+    _test_cfg_transition(ctx, "//:force_opt_dep_v2")
+
+test_cfg_transition_v2 = bxl_main(
+    impl = _test_cfg_transition_v2_impl,
     cli_args = {},
 )
 

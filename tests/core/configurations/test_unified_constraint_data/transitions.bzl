@@ -30,3 +30,27 @@ force_opt_mode = transition(
         "opt": "root//:build_mode[opt]",
     },
 )
+
+def _force_opt_mode_impl_v2(platform: PlatformInfo, refs: struct) -> PlatformInfo:
+    opt_value = refs.opt[ConstraintValueInfo]
+
+    new_constraints = platform.configuration.constraints_v2
+
+    new_constraints.insert(opt_value)
+
+    new_cfg = ConfigurationInfo(
+        constraints = new_constraints,
+        values = platform.configuration.values,
+    )
+
+    return PlatformInfo(
+        label = "<transitioned-to-opt-v2>",
+        configuration = new_cfg,
+    )
+
+force_opt_mode_v2 = transition(
+    impl = _force_opt_mode_impl_v2,
+    refs = {
+        "opt": "root//:build_mode[opt]",
+    },
+)
