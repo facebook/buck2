@@ -95,7 +95,6 @@ use std::fmt::Debug;
 use std::sync::Arc;
 
 use allocative::Allocative;
-use buck2_error::BuckErrorContext;
 use buck2_fs::paths::abs_path::AbsPath;
 use buck2_fs::paths::file_name::FileNameBuf;
 use dupe::Dupe;
@@ -457,27 +456,6 @@ impl CellResolver {
 
         CellResolver::new(instances, root_aliases).unwrap()
     }
-
-    pub(crate) fn resolve_path_crossing_cell_boundaries<'a>(
-        &self,
-        mut path: CellPathRef<'a>,
-    ) -> buck2_error::Result<CellPathRef<'a>> {
-        let mut rem: u32 = 1000;
-        loop {
-            // Sanity check. Should never happen.
-            rem = rem
-                .checked_sub(1)
-                .buck_error_context("Overflow computing cell boundaries")?;
-
-            let nested_cells = self.get(path.cell())?.nested_cells();
-            match nested_cells.matches_checked(path.path()) {
-                None => return Ok(path),
-                Some((_, new_cell_path)) => {
-                    path = new_cell_path;
-                }
-            }
-        }
-    }
 }
 
 #[cfg(test)]
@@ -569,91 +547,5 @@ mod tests {
         );
 
         Ok(())
-    }
-
-    #[test]
-    fn test_resolve_path_crossing_cell_boundaries() {
-        let cell_resolver = CellResolver::testing_with_names_and_paths(&[
-            (
-                CellName::testing_new("fbsource"),
-                CellRootPathBuf::testing_new(""),
-            ),
-            (
-                CellName::testing_new("fbcode"),
-                CellRootPathBuf::testing_new("fbcode"),
-            ),
-            (
-                CellName::testing_new("fbcode_macros"),
-                CellRootPathBuf::testing_new("fbcode/something/macros"),
-            ),
-        ]);
-        // Test starting with `fbsource//`.
-        assert_eq!(
-            CellPathRef::testing_new("fbsource//"),
-            cell_resolver
-                .resolve_path_crossing_cell_boundaries(CellPathRef::testing_new("fbsource//"))
-                .unwrap()
-        );
-        assert_eq!(
-            CellPathRef::testing_new("fbcode//"),
-            cell_resolver
-                .resolve_path_crossing_cell_boundaries(CellPathRef::testing_new("fbsource//fbcode"))
-                .unwrap()
-        );
-        assert_eq!(
-            CellPathRef::testing_new("fbcode//something"),
-            cell_resolver
-                .resolve_path_crossing_cell_boundaries(CellPathRef::testing_new(
-                    "fbsource//fbcode/something"
-                ))
-                .unwrap()
-        );
-        assert_eq!(
-            CellPathRef::testing_new("fbcode_macros//"),
-            cell_resolver
-                .resolve_path_crossing_cell_boundaries(CellPathRef::testing_new(
-                    "fbsource//fbcode/something/macros"
-                ))
-                .unwrap()
-        );
-        assert_eq!(
-            CellPathRef::testing_new("fbcode_macros//xx"),
-            cell_resolver
-                .resolve_path_crossing_cell_boundaries(CellPathRef::testing_new(
-                    "fbsource//fbcode/something/macros/xx"
-                ))
-                .unwrap()
-        );
-        // Now test starting with `fbcode//`.
-        assert_eq!(
-            CellPathRef::testing_new("fbcode//"),
-            cell_resolver
-                .resolve_path_crossing_cell_boundaries(CellPathRef::testing_new("fbcode//"))
-                .unwrap()
-        );
-        assert_eq!(
-            CellPathRef::testing_new("fbcode//something"),
-            cell_resolver
-                .resolve_path_crossing_cell_boundaries(CellPathRef::testing_new(
-                    "fbcode//something"
-                ))
-                .unwrap()
-        );
-        assert_eq!(
-            CellPathRef::testing_new("fbcode_macros//"),
-            cell_resolver
-                .resolve_path_crossing_cell_boundaries(CellPathRef::testing_new(
-                    "fbcode//something/macros"
-                ))
-                .unwrap()
-        );
-        assert_eq!(
-            CellPathRef::testing_new("fbcode_macros//xx"),
-            cell_resolver
-                .resolve_path_crossing_cell_boundaries(CellPathRef::testing_new(
-                    "fbcode//something/macros/xx"
-                ))
-                .unwrap()
-        );
     }
 }
