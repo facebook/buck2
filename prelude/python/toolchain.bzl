@@ -63,6 +63,7 @@ PythonToolchainInfo = provider(
         "extension_linker_flags": provider_field(ArgLike, default = []),
         "wheel_extension_linker_flags": provider_field(ArgLike, default = []),
         "wheel_linker_flags": provider_field(ArgLike, default = []),
+        "extension_preprocessor_flags": provider_field(list[ArgLike], default = []),
         # site-packages-relative rpaths to emebed into libs/bins in the wheel
         "wheel_rpaths": provider_field(ArgLike, default = []),
         "gen_lpar_bootstrap": provider_field(Dependency | None, default = None),

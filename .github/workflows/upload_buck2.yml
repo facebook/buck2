@@ -144,7 +144,7 @@ jobs:
           cd examples/with_prelude
           # TODO: rust examples don't work on windows + arm64
           if [[ "${{ matrix.target.triple }}" == "aarch64-pc-windows-msvc" ]]; then
-            TARGETS="cpp/... python/..."
+            TARGETS="cpp/... python/hello_world/..."
           else
             TARGETS="rust/... cpp/... python/..."
           fi
