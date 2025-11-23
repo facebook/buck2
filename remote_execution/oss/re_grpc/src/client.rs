@@ -28,6 +28,7 @@ use async_compression::tokio::bufread::ZstdDecoder;
 use async_compression::tokio::bufread::ZstdEncoder;
 use buck2_re_configuration::Buck2OssReConfiguration;
 use buck2_re_configuration::HttpHeader;
+use dashmap::DashMap;
 use dupe::Dupe;
 use futures::Stream;
 use futures::future::BoxFuture;
@@ -593,6 +594,13 @@ impl FindMissingCache {
     }
 }
 
+#[derive(Clone)]
+enum OngoingUploadStatus {
+    Active(tokio::sync::watch::Receiver<Result<(), ()>>),
+    Done,
+    Error,
+}
+
 pub struct REClient {
     runtime_opts: RERuntimeOpts,
     grpc_clients: GRPCClients,
@@ -601,6 +609,7 @@ pub struct REClient {
     // buck2 calls find_missing for same blobs
     find_missing_cache: Mutex<FindMissingCache>,
     bystream_compressor: Option<Compressor>,
+    prev_uploads: DashMap<TDigest, OngoingUploadStatus>,
 }
 
 impl Drop for REClient {
@@ -683,6 +692,7 @@ impl REClient {
                 last_check: Instant::now(),
             }),
             bystream_compressor,
+            prev_uploads: DashMap::new(),
         }
     }
 
@@ -873,6 +883,7 @@ impl REClient {
             self.bystream_compressor,
             self.capabilities.max_total_batch_size,
             self.runtime_opts.max_concurrent_uploads_per_action,
+            &self.prev_uploads,
             |re_request| async {
                 let metadata = metadata.clone();
                 let mut cas_client = self.grpc_clients.cas_client.clone();
@@ -1467,6 +1478,7 @@ async fn upload_impl<Byt, Cas>(
     bystream_compressor: Option<Compressor>,
     max_total_batch_size: usize,
     max_concurrent_uploads: Option<usize>,
+    prev_uploads: &DashMap<TDigest, OngoingUploadStatus>,
     cas_f: impl Fn(BatchUpdateBlobsRequest) -> Cas + Sync + Send + Copy,
     bystream_fut: impl Fn(Vec<WriteRequest>) -> Byt + Sync + Send + Copy,
 ) -> anyhow::Result<UploadResponse>
@@ -1579,10 +1591,9 @@ where
 
     // Create futures for any files that needs uploading.
     for file in request.files_with_digest.unwrap_or_default() {
-        let hash = file.digest.hash.clone();
-        let size = file.digest.size_in_bytes;
+        let digest = file.digest.clone();
         let name = file.name.clone();
-        if size < max_total_batch_size as i64 {
+        if digest.size_in_bytes < max_total_batch_size as i64 {
             batched_blob_updates.push(BatchUploadRequest::File(file));
             continue;
         }
@@ -1591,16 +1602,60 @@ where
             &instance_name,
             &client_uuid,
             bystream_compressor,
-            &file.digest,
+            &digest,
         );
 
-        let fut = async move {
-            let file = tokio::fs::File::open(&name)
-                .await
-                .with_context(|| format!("Opening `{name}` for reading failed"))?;
+        enum UploadStatus {
+            New(tokio::sync::watch::Sender<Result<(), ()>>),
+            Ongoing(OngoingUploadStatus),
+        }
 
-            bystream_fut(resource_name, Box::new(BufReader::new(file))).await?;
-            Ok(vec![hash])
+        let upload_status = match prev_uploads.entry(digest.clone()) {
+            dashmap::mapref::entry::Entry::Occupied(o) => UploadStatus::Ongoing(o.get().clone()),
+            dashmap::mapref::entry::Entry::Vacant(v) => {
+                let (tx, rx) = tokio::sync::watch::channel(Err(()));
+                v.insert(OngoingUploadStatus::Active(rx));
+                UploadStatus::New(tx)
+            }
+        };
+
+        let fut = async move {
+            match upload_status {
+                UploadStatus::Ongoing(OngoingUploadStatus::Active(mut rx)) => {
+                    // Another task was already uploading this artifact, wait for it complete and report result.
+                    rx.changed().await?;
+                    rx.borrow_and_update().as_ref().map_err(|_e| {
+                        anyhow::anyhow!("Upload queued for previous action failed.")
+                    })?;
+                }
+                UploadStatus::Ongoing(OngoingUploadStatus::Done) => {
+                    // Another task has already completed the upload of this artifact, no need to do any work.
+                }
+                UploadStatus::Ongoing(OngoingUploadStatus::Error) => {
+                    // Another task tried to perform the transmission, but failed.
+                    return Err(anyhow::anyhow!("Upload queued for previous action failed."));
+                }
+                UploadStatus::New(tx) => {
+                    let file = tokio::fs::File::open(&name)
+                         .await
+                         .with_context(|| format!("Opening `{name}` for reading failed"))?;
+                    let upload_ret = bystream_fut(resource_name, Box::new(BufReader::new(file))).await;
+
+                    // Mark artifact as uploaded and notify other potentially waiting tasks.
+                    if upload_ret.is_ok() {
+                        prev_uploads.alter(&digest, |_, _| OngoingUploadStatus::Done);
+                        let _ = tx.send(upload_ret.as_ref().map_err(|_| ()).cloned());
+                    } else {
+                        prev_uploads.alter(&digest, |_, _| OngoingUploadStatus::Error);
+                        let _ = tx.send(Err(()));
+                    }
+
+                    // Only propage errors _after_ notifying other waiting tasks that this task is complete.
+                    upload_ret?;
+                }
+            }
+
+            Ok(vec![digest.hash])
         };
         upload_futures.push(Box::pin(fut));
     }
@@ -2384,6 +2439,7 @@ mod tests {
             None,
             10000,
             None,
+            &DashMap::new(),
             |req| {
                 let res = res.clone();
                 let digest1 = digest1.clone();
@@ -2468,6 +2524,7 @@ mod tests {
             None,
             10, // kept small to simulate a large file upload
             None,
+            &DashMap::new(),
             |req| {
                 let res = res.clone();
                 let digest1 = digest1.clone();
@@ -2543,6 +2600,7 @@ mod tests {
             None,
             10, // kept small to simulate a large inlined upload
             None,
+            &DashMap::new(),
             |req| {
                 let res = res.clone();
                 let digest1 = digest1.clone();
@@ -2605,6 +2663,7 @@ mod tests {
             None,
             10,
             None,
+            &DashMap::new(),
             |_req| async move {
                 panic!("This should not be called as there are no blobs to upload in batch");
             },
@@ -2667,6 +2726,7 @@ mod tests {
             None,
             3,
             None,
+            &DashMap::new(),
             |_req| async move {
                 panic!("Not called");
             },
@@ -2714,6 +2774,7 @@ mod tests {
                     compressor,
                     0, // max_total_batch_size=0 forces bytestream API
                     None,
+                    &DashMap::new(),
                     |_req| async move {
                         panic!("Not called");
                     },
@@ -2739,6 +2800,7 @@ mod tests {
                     compressor,
                     1024, // forces the batch API
                     None,
+                    &DashMap::new(),
                     |_req| async move {
                         panic!("Not called");
                     },
@@ -2786,6 +2848,7 @@ mod tests {
             None,
             1,
             None,
+            &DashMap::new(),
             |_req| async move {
                 panic!("Not called");
             },
