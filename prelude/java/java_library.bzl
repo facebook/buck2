@@ -344,7 +344,8 @@ def compile_to_jar(
         additional_compiled_srcs: Artifact | None = None,
         custom_jdk_info: CustomJdkInfo | None = None,
         is_creating_subtarget: bool = False,
-        debug_port: [int, None] = None) -> JavaCompileOutputs:
+        debug_port: [int, None] = None,
+        enable_depfiles: [bool, None] = True) -> JavaCompileOutputs:
     if not extra_arguments:
         extra_arguments = cmd_args()
     if not resources:
@@ -395,6 +396,7 @@ def compile_to_jar(
         is_building_android_binary,
         is_creating_subtarget,
         debug_port,
+        enable_depfiles,
     )
 
 def _create_jar_artifact(
@@ -423,7 +425,8 @@ def _create_jar_artifact(
         custom_jdk_info: CustomJdkInfo | None,
         _is_building_android_binary: bool,
         _is_creating_subtarget: bool = False,
-        _debug_port: [int, None] = None) -> JavaCompileOutputs:
+        _debug_port: [int, None] = None,
+        _enable_depfiles: [bool, None] = True) -> JavaCompileOutputs:
     """
     Creates jar artifact.
 
@@ -634,6 +637,7 @@ def build_java_library(
             "custom_jdk_info": custom_jdk_info,
             "debug_port": getattr(ctx.attrs, "debug_port", None),
             "deps": first_order_deps,
+            "enable_depfiles": getattr(ctx.attrs, "enable_depfiles", True),
             "javac_tool": derive_javac(ctx.attrs.javac) if ctx.attrs.javac else None,
             "manifest_file": manifest_file,
             "remove_classes": ctx.attrs.remove_classes,

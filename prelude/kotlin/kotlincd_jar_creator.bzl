@@ -87,7 +87,8 @@ def create_jar_artifact_kotlincd(
         jar_postprocessor: [RunInfo, None] = None,
         debug_port: [int, None] = None,
         should_kosabi_jvm_abi_gen_use_k2: bool | None = False,
-        uses_content_based_path_for_jar_snapshot: bool = False) -> (JavaCompileOutputs, Artifact):
+        uses_content_based_path_for_jar_snapshot: bool = False,
+        enable_depfiles: [bool, None] = True) -> (JavaCompileOutputs, Artifact):
     resources_map = get_resources_map(
         java_toolchain = java_toolchain,
         package = label.package,
@@ -124,7 +125,7 @@ def create_jar_artifact_kotlincd(
 
     compiling_deps_tset = get_compiling_deps_tset(actions, deps, additional_classpath_entries)
 
-    track_class_usage = enable_used_classes and kotlin_toolchain.track_class_usage_plugin != None
+    track_class_usage = enable_used_classes and enable_depfiles and kotlin_toolchain.track_class_usage_plugin != None
 
     define_kotlincd_action = partial(
         _define_kotlincd_action,

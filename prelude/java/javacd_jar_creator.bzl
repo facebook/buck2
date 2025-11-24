@@ -79,7 +79,8 @@ def create_jar_artifact_javacd(
         custom_jdk_info: CustomJdkInfo | None,
         is_building_android_binary: bool,
         is_creating_subtarget: bool = False,
-        debug_port: [int, None] = None) -> JavaCompileOutputs:
+        debug_port: [int, None] = None,
+        enable_depfiles: [bool, None] = True) -> JavaCompileOutputs:
     if javac_tool != None:
         fail("cannot set explicit javac on library when using javacd")
 
@@ -108,7 +109,7 @@ def create_jar_artifact_javacd(
 
     compiling_deps_tset = get_compiling_deps_tset(actions, deps, additional_classpath_entries)
 
-    track_class_usage = java_toolchain.track_class_usage
+    track_class_usage = java_toolchain.track_class_usage and enable_depfiles
     define_javacd_action = partial(
         _define_javacd_action,
         actions,
