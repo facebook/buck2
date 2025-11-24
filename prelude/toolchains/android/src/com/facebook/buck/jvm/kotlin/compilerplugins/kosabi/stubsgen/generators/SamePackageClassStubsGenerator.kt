@@ -42,11 +42,15 @@ class SamePackageClassStubsGenerator : StubsGenerator {
 
     allKnownSymbols.addAll(sdkInternalTypes)
 
-    // Imported types, declared types, and external types from classpaths
+    // Imported types, declared types, and auto-imported external types from classpaths
+    // Only include auto-imported types (java.lang.*) from externalTypeReferences
+    // to avoid name collisions with non-auto-imported types that have the same simple name.
+    // Types like android.*, javax.*, etc. require explicit imports and should not be included here.
+    val autoImportedExternalTypes = context.externalTypeReferences.filter { it.isAutoImported() }
     allKnownSymbols.addAll(
         (context.importedTypes +
                 context.declaredTypes +
-                context.externalTypeReferences +
+                autoImportedExternalTypes +
                 context.fullQualifierTypes)
             .flatMap { it.segments + it.names }
     )
