@@ -567,7 +567,11 @@ impl DiceUpdater for DiceCommandUpdater<'_, '_> {
     async fn update(
         &self,
         mut ctx: DiceTransactionUpdater,
-    ) -> buck2_error::Result<(DiceTransactionUpdater, UserComputationData)> {
+    ) -> buck2_error::Result<(
+        DiceTransactionUpdater,
+        UserComputationData,
+        std::time::Duration,
+    )> {
         let existing_state = &mut ctx.existing_state().await.clone();
         let cells_and_configs = self.cmd_ctx.load_new_configs(existing_state).await?;
         let cell_resolver = cells_and_configs.cell_resolver;
@@ -607,6 +611,7 @@ impl DiceUpdater for DiceCommandUpdater<'_, '_> {
             self.cmd_ctx.unstable_typecheck,
         )?;
 
+        let start = std::time::Instant::now();
         let (ctx, mergebase) = self
             .cmd_ctx
             .base_context
@@ -614,11 +619,12 @@ impl DiceUpdater for DiceCommandUpdater<'_, '_> {
             .file_watcher
             .sync(ctx)
             .await?;
+        let wait_duration = start.elapsed();
 
         let mut user_data = self.make_user_computation_data(&cells_and_configs.root_config)?;
         user_data.set_mergebase(mergebase);
 
-        Ok((ctx, user_data))
+        Ok((ctx, user_data, wait_duration))
     }
 }
 

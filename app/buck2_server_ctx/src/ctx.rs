@@ -46,7 +46,9 @@ use crate::concurrency::ConcurrencyHandler;
 use crate::concurrency::DiceUpdater;
 use crate::stderr_output_guard::StderrOutputGuard;
 
-const TIME_SPENT_SYNCHRONIZING_AND_WAITING: &str = "synchronizing-and-waiting";
+const OTHER_COMMAND_START_OVERHEAD: &str = "other-command-start-overhead";
+const EXCLUSIVE_COMMAND_WAIT: &str = "exclusive-command-wait";
+const FILE_WATCHER_WAIT: &str = "file-watcher-wait";
 
 #[derive(Allocative, Debug)]
 pub struct PreviousCommandDataInternal {
@@ -230,7 +232,7 @@ impl ServerCommandDiceContext for dyn ServerCommandContextTrait + '_ {
                         .enter(
                             self.events().dupe(),
                             &*setup,
-                            |mut dice| async move {
+                            |mut dice, exclusive_wait_elapsed, file_watcher_sync_duration| async move {
                                 let events = self.events().dupe();
 
                                 let request_metadata = self.request_metadata().await?;
@@ -242,17 +244,35 @@ impl ServerCommandDiceContext for dyn ServerCommandContextTrait + '_ {
                                             dice_version: dice.equality_token().to_string(),
                                         },
                                         async move {
-                                            let early_command_entries =
-                                                command_start.map_or(vec![], |t| {
-                                                    // The period of time between CommandStart and CommandCriticalStart is
-                                                    // the time spent synchronizing changes and waiting for concurrent commands to
-                                                    // finish.
-                                                    vec![EarlyCommandEntry {
-                                                        kind: TIME_SPENT_SYNCHRONIZING_AND_WAITING
-                                                            .to_owned(),
-                                                        duration: t.elapsed(),
-                                                    }]
+                                            let mut early_command_entries = vec![];
+                                            if !exclusive_wait_elapsed.is_zero() {
+                                                early_command_entries.push(EarlyCommandEntry {
+                                                    kind: EXCLUSIVE_COMMAND_WAIT.to_owned(),
+                                                    duration: exclusive_wait_elapsed,
                                                 });
+                                            }
+                                            if !file_watcher_sync_duration.is_zero() {
+                                                early_command_entries.push(EarlyCommandEntry {
+                                                    kind: FILE_WATCHER_WAIT.to_owned(),
+                                                    duration: file_watcher_sync_duration,
+                                                });
+                                            }
+                                            if let Some(t) = command_start {
+                                                // The period of time between CommandStart and CommandCriticalStart
+                                                // minus the time spent in exclusive command wait and file watcher sync.
+                                                // This represents miscellaneous overhead.
+                                                let total_elapsed = t.elapsed();
+                                                let other_overhead = total_elapsed
+                                                    .saturating_sub(exclusive_wait_elapsed)
+                                                    .saturating_sub(file_watcher_sync_duration);
+                                                if !other_overhead.is_zero() {
+                                                    early_command_entries.push(EarlyCommandEntry {
+                                                        kind: OTHER_COMMAND_START_OVERHEAD
+                                                            .to_owned(),
+                                                        duration: other_overhead,
+                                                    });
+                                                }
+                                            }
                                             let res = buck2_build_signals::env::scope(
                                                 build_signals,
                                                 self.events().dupe(),
