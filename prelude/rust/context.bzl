@@ -19,6 +19,7 @@ load("@prelude//rust/tools:attrs.bzl", "RustInternalToolsInfo")
 load("@prelude//utils:cmd_script.bzl", "cmd_script")
 load(":build_params.bzl", "BuildParams", "CrateType", "Emit", "ProfileMode")
 load(":rust_toolchain.bzl", "PanicRuntime", "RustExplicitSysrootDeps", "RustToolchainInfo")
+load(":sources.bzl", "symlinked_srcs")
 
 CrateName = record(
     simple = field(str | ResolvedStringWithMacros),
@@ -80,42 +81,6 @@ def compile_context(ctx: AnalysisContext, binary: bool = False) -> CompileContex
     internal_tools_info = ctx.attrs._rust_internal_tools_toolchain[RustInternalToolsInfo]
     cxx_toolchain_info = get_cxx_toolchain_info(ctx)
 
-    # Setup source symlink tree.
-    srcs = {src.short_path: src for src in ctx.attrs.srcs}
-    srcs.update({k: v for v, k in ctx.attrs.mapped_srcs.items()})
-
-    # Decide whether to use symlinked_dir or copied_dir.
-    prefixes = {}
-    symlinked_srcs = None
-
-    if "generated" in ctx.attrs.labels:
-        # For generated code targets, we always want to copy files in the [sources]
-        # subtarget, never symlink.
-        #
-        # This ensures that IDEs that open the generated file always see the correct
-        # directory structure.
-        #
-        # VS Code will expand symlinks when doing go-to-definition. In normal source
-        # files this takes us back to the correct path, but for generated files the
-        # expanded path may not be a well-formed crate layout.
-        symlinked_srcs = ctx.actions.copied_dir("__srcs", srcs)
-    else:
-        # If a source is a prefix of any other source, use copied_dir. This supports
-        # e.g. `srcs = [":foo.crate"]` where :foo.crate is an http_archive, together
-        # with a `mapped_srcs` which overlays additional generated files into that
-        # directory. Symlinked_dir would error in this situation.
-        for src in sorted(srcs.keys(), key = len, reverse = True):
-            if src in prefixes:
-                symlinked_srcs = ctx.actions.copied_dir("__srcs", srcs)
-                break
-            components = src.split("/")
-            for i in range(1, len(components)):
-                prefixes["/".join(components[:i])] = None
-
-    # Otherwise, symlink it.
-    if not symlinked_srcs:
-        symlinked_srcs = ctx.actions.symlinked_dir("__srcs", srcs)
-
     linker = _linker_args(ctx, cxx_toolchain_info.linker_info, binary = binary)
     clippy_wrapper = _clippy_wrapper(ctx, toolchain_info)
 
@@ -156,7 +121,7 @@ def compile_context(ctx: AnalysisContext, binary: bool = False) -> CompileContex
         linker_args = linker,
         path_sep = path_sep,
         soname = _attr_soname(ctx),
-        symlinked_srcs = symlinked_srcs,
+        symlinked_srcs = symlinked_srcs(ctx),
         sysroot_args = sysroot_args,
         toolchain_info = toolchain_info,
         transitive_dependency_dirs = set(),

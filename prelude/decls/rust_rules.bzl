@@ -113,6 +113,7 @@ rust_binary = prelude_rule(
     attrs = (
         # @unsorted-dict-items
         rust_common.srcs_arg() |
+        rust_common.srcs_filegroup_arg() |
         rust_common.mapped_srcs_arg() |
         rust_common.edition_arg() |
         rust_common.features_arg() |
@@ -169,6 +170,7 @@ rust_library = prelude_rule(
     attrs = (
         # @unsorted-dict-items
         rust_common.srcs_arg() |
+        rust_common.srcs_filegroup_arg() |
         rust_common.mapped_srcs_arg() |
         rust_common.deps_arg(is_binary = False) |
         rust_common.named_deps_arg(is_binary = False) |
@@ -255,6 +257,7 @@ rust_test = prelude_rule(
         # @unsorted-dict-items
         buck.inject_test_env_arg() |
         rust_common.srcs_arg() |
+        rust_common.srcs_filegroup_arg() |
         rust_common.mapped_srcs_arg() |
         rust_common.edition_arg() |
         rust_common.features_arg() |
