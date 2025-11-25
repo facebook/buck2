@@ -15,7 +15,7 @@ load("@prelude//apple:apple_test_device_types.bzl", "AppleTestDeviceType", "get_
 load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolchainInfo")
 load("@prelude//apple:apple_xctest_frameworks_utility.bzl", "get_xctest_frameworks_bundle_parts")
 # @oss-disable[end= ]: load("@prelude//apple/meta_only:apple_test_re_capabilities.bzl", "apple_test_re_capabilities")
-# @oss-disable[end= ]: load("@prelude//apple/meta_only:apple_test_re_enabled.bzl", "is_test_execution_on_re_enabled")
+# @oss-disable[end= ]: load("@prelude//apple/meta_only:apple_test_re_enabled.bzl", "is_test_execution_on_re_enabled", "local_test_execution_is_available")
 # @oss-disable[end= ]: load("@prelude//apple/meta_only:apple_test_re_use_case.bzl", "apple_test_re_use_case")
 load("@prelude//apple/swift:swift_compilation.bzl", "get_swift_anonymous_targets")
 load("@prelude//apple/swift:swift_helpers.bzl", "uses_explicit_modules")
@@ -256,19 +256,31 @@ def _get_test_info(ctx: AnalysisContext, xctest_bundle: Artifact, test_host_app_
         test_device_type = get_default_test_device(sdk = sdk_name, platform = ctx.attrs.default_target_platform.name)
     labels.append(tpx_label_for_test_device_type(test_device_type))
 
-    remote_execution_properties = None
-    remote_execution_use_case = None
+    # @oss-enable local_enabled = True
+    # @oss-enable remote_enabled = False
+    # @oss-enable remote_execution_properties = None
+    # @oss-enable remote_execution_use_case = None
 
-    # @oss-disable[end= ]: if is_test_execution_on_re_enabled():
+    # @oss-disable[end= ]: if ctx.attrs.test_re_capabilities:
+        # @oss-disable[end= ]: remote_execution_properties = ctx.attrs.test_re_capabilities
+    # @oss-disable[end= ]: else:
+        # @oss-disable[end= ]: uses_test_host = test_host_app_bundle != None or ui_test_target_app_bundle != None
+        # @oss-disable[end= ]: remote_execution_properties = apple_test_re_capabilities(test_device_type = test_device_type, uses_test_host = uses_test_host)
+    # @oss-disable[end= ]: remote_execution_use_case = ctx.attrs.test_re_use_case or apple_test_re_use_case(test_device_type = test_device_type)
+
+    # @oss-disable[end= ]: if local_test_execution_is_available():
+        # @oss-disable[end= ]: labels.append("tpx:apple_test:local_execution_available")
+
+    # @oss-disable[end= ]: remote_enabled = is_test_execution_on_re_enabled()
+    # @oss-disable[end= ]: local_enabled = remote_enabled == False
+
+    # @oss-disable[end= ]: if remote_enabled:
         # @oss-disable[end= ]: if ctx.attrs.test_re_capabilities:
             # @oss-disable[end= ]: remote_execution_properties = ctx.attrs.test_re_capabilities
         # @oss-disable[end= ]: else:
             # @oss-disable[end= ]: uses_test_host = test_host_app_bundle != None or ui_test_target_app_bundle != None
             # @oss-disable[end= ]: remote_execution_properties = apple_test_re_capabilities(test_device_type = test_device_type, uses_test_host = uses_test_host)
         # @oss-disable[end= ]: remote_execution_use_case = ctx.attrs.test_re_use_case or apple_test_re_use_case(test_device_type = test_device_type)
-
-    local_enabled = remote_execution_use_case == None
-    remote_enabled = remote_execution_use_case != None
 
     if local_enabled and tpx_needs_local_simulator(test_device_type):
         if (read_root_config("apple", "test_execution", "").lower() != "local_from_od"):
@@ -286,6 +298,18 @@ def _get_test_info(ctx: AnalysisContext, xctest_bundle: Artifact, test_host_app_
             "ios-simulator": CommandExecutorConfig(
                 local_enabled = local_enabled,
                 remote_enabled = remote_enabled,
+                remote_execution_properties = remote_execution_properties,
+                remote_execution_use_case = remote_execution_use_case,
+            ),
+            "ios-simulator-local": CommandExecutorConfig(
+                local_enabled = True,
+                remote_enabled = False,
+                remote_execution_properties = None,
+                remote_execution_use_case = None,
+            ),
+            "ios-simulator-remote": CommandExecutorConfig(
+                local_enabled = False,
+                remote_enabled = True,
                 remote_execution_properties = remote_execution_properties,
                 remote_execution_use_case = remote_execution_use_case,
             ),
