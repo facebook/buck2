@@ -66,6 +66,14 @@ class BuildToolsKotlinc : Kotlinc {
             "with arguments:[${compilerArgs.joinToString()}] "
     )
 
+    // Machine-parseable log entry for tooling
+    // Format: KOTLINCD_INVOCATION|target|type|incremental|arg_count
+    // Followed by: KOTLINCD_ARG|<arg> for each argument
+    LOG.info(
+        "KOTLINCD_INVOCATION|${invokingRule.fullyQualifiedName}|${invokingRule.type}|${getIncrementalInfoMessage(mode)}|${compilerArgs.size}"
+    )
+    compilerArgs.forEach { arg -> LOG.info("KOTLINCD_ARG|$arg") }
+
     val kotlinCompilationService =
         KotlinCompilationService(
             CompilationService.loadImplementation(
