@@ -7,6 +7,7 @@
 # above-listed licenses.
 
 load("@prelude//:validation_deps.bzl", "get_validation_deps_outputs")
+load("@prelude//android:android_apk.bzl", "get_install_info")
 load("@prelude//android:android_binary.bzl", "get_binary_info")
 load("@prelude//android:android_providers.bzl", "AndroidAabInfo", "AndroidBinaryNativeLibsInfo", "AndroidBinaryPrimaryPlatformInfo", "AndroidBinaryResourcesInfo", "AndroidDerivedApkInfo", "DexFilesInfo")
 load("@prelude//android:android_toolchain.bzl", "AndroidToolchainInfo")
@@ -42,6 +43,14 @@ def android_bundle_impl(ctx: AnalysisContext) -> list[Provider]:
             keystore = keystore,
         )
         extra_providers.append(AndroidDerivedApkInfo(apk = default_output))
+        extra_providers.append(
+            get_install_info(
+                ctx,
+                exopackage_info = None,
+                manifest = android_binary_info.resources_info.manifest,
+                output_apk = default_output,
+            ),
+        )
         sub_targets["aab"] = [DefaultInfo(
             default_outputs = [output_bundle],
         )]
