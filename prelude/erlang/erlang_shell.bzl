@@ -36,7 +36,10 @@ def _do_build_run_info(
         additional_args: [cmd_args, None],
         shell_dep_info: ErlangDependencyInfo) -> RunInfo:
     tools = get_toolchain(ctx).otp_binaries
-    erl = cmd_args(cmd_args(tools.erl, delimiter = " "), format = "\"${REPO_ROOT}\"/{}")
+    if len(tools.erl.inputs) != 0:
+        erl = cmd_args(cmd_args(tools.erl, delimiter = " "), format = "\"${REPO_ROOT}\"/{}")
+    else:
+        erl = cmd_args(cmd_args(tools.erl, delimiter = " "), format = "{}")
     erl_args = cmd_args("exec", erl, delimiter = " \\\n")
 
     # add paths
