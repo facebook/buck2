@@ -30,11 +30,11 @@ buck2_client_ctx = { workspace = true }
 buck2_cmd_audit_client = { workspace = true }
 buck2_common = { workspace = true }
 buck2_core = { workspace = true }
-buck2_fs = { workspace = true }
 buck2_data = { workspace = true }
 buck2_error = { workspace = true }
 buck2_events = { workspace = true }
 buck2_execute = { workspace = true }
+buck2_fs = { workspace = true }
 buck2_interpreter = { workspace = true }
 buck2_node = { workspace = true }
 buck2_query = { workspace = true }
