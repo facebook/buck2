@@ -397,15 +397,13 @@ def get_android_binary_native_library_info(
         if False: # @oss-enable
         # @oss-disable[end= ]: if is_late_gatorade_enabled(ctx):
             # Prevent Buildifier from moving comments in a way that breaks things.
-            # gatorade_libraries expects dict[str, Artifact], so filter out None values
-            gatorade_outputs = {k: v for k, v in native_lib_dynamic_outputs.items() if v != None}
             args = [
                 ctx,
                 final_shared_libs_by_platform,
                 _post_native_lib_graph_finalization_steps,
                 all_prebuilt_native_library_dirs,
                 get_module_from_target,
-                gatorade_outputs,
+                native_lib_dynamic_outputs,
             ]
             # @oss-disable[end= ]: subtarget_shared_libs_by_platform = gatorade_libraries(*args)
         else:
