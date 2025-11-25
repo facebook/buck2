@@ -100,8 +100,67 @@ impl<'v> StarlarkValue<'v> for StarlarkActionErrorContext<'v> {
     }
 }
 
-/// Methods available on `ActionErrorCtx` to help categorize the action failure. These
-/// categorizations should be finer grain, and most likely language specific.
+/// Context object passed to action error handlers containing information about the failed action.
+///
+/// `ActionErrorCtx` provides access to the stdout, stderr, and optionally output artifacts
+/// from a failed action. Error handler functions receive this context and use it to analyze
+/// the failure and produce structured [`ActionSubError`](../ActionSubError) objects for better
+/// error diagnostics and categorization.
+///
+/// The context object has three main attributes:
+/// - `stderr`: The stderr output from the failed action (as a string)
+/// - `stdout`: The stdout output from the failed action (as a string)
+/// - `output_artifacts`: A dictionary of output artifacts (if `outputs_for_error_handler` was specified in [`AnalysisActions.run`](../AnalysisActions/#analysisactionsrun))
+///
+/// Error handlers use this information to create categorized errors via `new_sub_error()` or
+/// parse compiler output using `parse_with_errorformat()`.
+///
+/// Example:
+/// ```python
+/// def my_error_handler(ctx: ActionErrorCtx) -> list[ActionSubError]:
+///     errors = []
+///
+///     # Check stderr for specific error patterns
+///     if "compilation failed" in ctx.stderr.lower():
+///         errors.append(ctx.new_sub_error(
+///             category = "compilation_error",
+///             message = "Compilation failed - check syntax and imports",
+///             show_in_stderr = True,
+///         ))
+///
+///     # Parse structured error output using errorformat
+///     if "error:" in ctx.stderr:
+///         # Parse errors like "file.rs:42:10: error: expected semicolon"
+///         parsed_errors = ctx.parse_with_errorformat(
+///             category = "syntax_error",
+///             error = ctx.stderr,
+///             errorformats = ["%f:%l:%c: %m"],
+///         )
+///         errors.extend(parsed_errors)
+///
+///     # Access output artifacts for structured error data
+///     if ctx.output_artifacts:
+///         for artifact, value in ctx.output_artifacts.items():
+///             error_json = value.read_json()
+///             if "errors" in error_json:
+///                 for err in error_json["errors"]:
+///                     errors.append(ctx.new_sub_error(
+///                         category = err.get("code", "unknown"),
+///                         message = err.get("message"),
+///                         file = err.get("file"),
+///                         lnum = err.get("line"),
+///                     ))
+///
+///     return errors
+///
+/// # Use the error handler in an action
+/// def _impl(ctx):
+///     ctx.actions.run(
+///         cmd_args(["compiler", "main.rs"]),
+///         category = "compile",
+///         error_handler = my_error_handler,
+///     )
+/// ```
 #[starlark_module]
 fn action_error_context_methods(builder: &mut MethodsBuilder) {
     /// Retrieve the stderr of the failed action.
@@ -118,7 +177,7 @@ fn action_error_context_methods(builder: &mut MethodsBuilder) {
         Ok(&this.stdout)
     }
 
-    /// Allows the output artifacts to be retrieve if [`outputs_for_error_handler`](https://buck2.build/docs/api/build/AnalysisActions/#analysisactionsrun)
+    /// Allows the output artifacts to be retrieve if [`outputs_for_error_handler`](../AnalysisActions/#analysisactionsrun)
     /// is set and the output artifact exists. This is useful for languages with structured error output, making the error retrieval process simpler.
     ///
     /// This is also the recommended way to retrieve file path and line number, as reliably extracting that information
