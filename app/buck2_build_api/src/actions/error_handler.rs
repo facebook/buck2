@@ -356,8 +356,14 @@ impl<'v> StarlarkValue<'v> for StarlarkActionSubError {
     }
 }
 
-/// Methods available on `StarlarkActionSubError` to help with testing the error
-/// handler implementation
+/// Represents a structured action sub-error.
+///
+/// `ActionSubError` captures detailed information about errors that occur during build actions,
+/// including location information (file, line, column), error messages, and categorization.
+/// These objects are created in error handlers (`error_handler` in [`AnalysisActions.run`](../AnalysisActions/#analysisactionsrun)) and are used to provide better error diagnostics.
+///
+/// ActionSubError objects are typically created using [`ActionErrorCtx.new_sub_error`](../ActionErrorCtx/#actionerrorctxnew_sub_error)
+/// or parsed from error output using [`ActionErrorCtx.parse_with_errorformat`](../ActionErrorCtx/#actionerrorctxparse_with_errorformat).
 #[starlark_module]
 fn action_sub_error_methods(builder: &mut MethodsBuilder) {
     /// A more granular category for the action error.
@@ -366,7 +372,7 @@ fn action_sub_error_methods(builder: &mut MethodsBuilder) {
         Ok(this.category.borrow().clone())
     }
 
-    /// An optional message to be displayed with the error, used to provide additoinal context
+    /// An optional message to be displayed with the error, used to provide additional context
     #[starlark(attribute)]
     fn message<'v>(this: &'v StarlarkActionSubError) -> starlark::Result<NoneOr<&'v str>> {
         Ok(match &this.message {
