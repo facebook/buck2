@@ -35,6 +35,10 @@ load(
     "LinkStyle",
 )
 load("@prelude//linking:lto.bzl", "LtoMode")
+load(
+    "@prelude//linking:shared_libraries.bzl",
+    "SharedLibraryInfo",
+)
 load("@prelude//user:rule_spec.bzl", "RuleRegistrationSpec")
 load("@prelude//utils:pick.bzl", _pick = "pick", _pick_and_add = "pick_and_add", _pick_bin = "pick_bin", _pick_dep = "pick_dep", _pick_raw = "pick_raw")
 load("@prelude//utils:utils.bzl", "flatten", "map_val", "value_or")
@@ -192,6 +196,7 @@ def _cxx_toolchain_override(ctx):
         cxx_compiler_info = cxx_info,
         objc_compiler_info = objc_info,
         objcxx_compiler_info = objcxx_info,
+        libclang = value_or(ctx.attrs.libclang, base_toolchain.libclang),
         llvm_link = ctx.attrs.llvm_link[RunInfo] if ctx.attrs.llvm_link != None else base_toolchain.llvm_link,
         # the rest are used without overrides
         cuda_compiler_info = base_toolchain.cuda_compiler_info,
@@ -242,6 +247,7 @@ cxx_toolchain_override_registration_spec = RuleRegistrationSpec(
         "generate_linker_maps": attrs.option(attrs.bool(), default = None),
         "header_mode": attrs.option(attrs.enum(HeaderMode.values()), default = None),
         "internal_tools": attrs.exec_dep(providers = [CxxInternalTools], default = "prelude//cxx/tools:internal_tools"),
+        "libclang": attrs.option(attrs.exec_dep(providers = [SharedLibraryInfo]), default = None),
         "link_binaries_locally": attrs.option(attrs.bool(), default = None),
         "link_libraries_locally": attrs.option(attrs.bool(), default = None),
         "link_metadata_flag": attrs.option(attrs.string(), default = None),

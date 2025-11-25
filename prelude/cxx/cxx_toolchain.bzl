@@ -35,8 +35,16 @@ load("@prelude//cxx:debug.bzl", "SplitDebugMode")
 load("@prelude//cxx:headers.bzl", "HeaderMode", "HeadersAsRawHeadersMode", "RawHeadersAsHeadersMode")
 load("@prelude//cxx:linker.bzl", "LINKERS", "is_pdb_generated")
 load("@prelude//decls:cxx_rules.bzl", "cxx_rules")
-load("@prelude//linking:link_info.bzl", "LinkOrdering", "LinkStyle")
+load(
+    "@prelude//linking:link_info.bzl",
+    "LinkOrdering",
+    "LinkStyle",
+)
 load("@prelude//linking:lto.bzl", "LtoMode", "lto_compiler_flags")
+load(
+    "@prelude//linking:shared_libraries.bzl",
+    "SharedLibraryInfo",
+)
 load("@prelude//utils:utils.bzl", "flatten", "value_or")
 
 def cxx_toolchain_impl(ctx):
@@ -218,6 +226,7 @@ def cxx_toolchain_impl(ctx):
         headers_as_raw_headers_mode = HeadersAsRawHeadersMode(ctx.attrs.headers_as_raw_headers_mode) if ctx.attrs.headers_as_raw_headers_mode != None else None,
         hip_compiler_info = hip_info,
         internal_tools = ctx.attrs.internal_tools[CxxInternalTools],
+        libclang = ctx.attrs.libclang,
         linker_info = linker_info,
         lipo = ctx.attrs.lipo[RunInfo] if ctx.attrs.lipo else None,
         llvm_cgdata = ctx.attrs.llvm_cgdata[RunInfo] if ctx.attrs.llvm_cgdata else None,
@@ -268,6 +277,7 @@ def cxx_toolchain_extra_attributes(is_toolchain_rule):
         "generate_linker_maps": attrs.bool(default = False),
         "hip_compiler": attrs.option(dep_type(providers = [RunInfo]), default = None),
         "internal_tools": dep_type(providers = [CxxInternalTools], default = "prelude//cxx/tools:internal_tools"),
+        "libclang": attrs.option(dep_type(providers = [SharedLibraryInfo]), default = None),
         "link_ordering": attrs.enum(LinkOrdering.values(), default = "preorder"),
         "link_weight": attrs.int(default = 1),
         "linker": dep_type(providers = [RunInfo]),
