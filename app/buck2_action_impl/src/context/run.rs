@@ -168,6 +168,10 @@ pub(crate) fn analysis_actions_methods_run(methods: &mut MethodsBuilder) {
     ///     from the host.
     ///  * `meta_internal_extra_params`: a dictionary to pass extra parameters to RE, can add more keys in the future:
     ///     * `remote_execution_policy`: refer to TExecutionPolicy.
+    ///  * `error_handler`: an optional function that analyzes action failures and produces structured error information.
+    ///     * Type signature: `def error_handler(ctx: ActionErrorCtx) -> list[ActionSubError]`
+    ///     * The function receives an [`ActionErrorCtx`](../ActionErrorCtx) parameter and should return a list of [`ActionSubError`](../ActionSubError) objects
+    ///     * Error handlers enable better error diagnostics and language-specific error categorization
     ///  * `outputs_for_error_handler`: Output files to be provided to the action error handler and read by
     /// [error handler](https://buck2.build/docs/api/build/ActionErrorCtx/#actionerrorctxoutput_artifacts) in the event of a failure..
     ///     * The output must also be declared as an output of the action
