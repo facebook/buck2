@@ -99,14 +99,6 @@ third_party_jar(
         ":protobuf",
     ],
 )
-
-third_party_jar(
-    name = "manifest-merger",
-    # @oss-disable[end= ]: internal_alias = "fbsource//third-party/java/com/android/tools/build/manifest-merger:manifest-merger",
-    sha1 = "0d0489e76e4eb785336317add6b65d57b928a429",
-    url = "mvn:com.android.tools.build:manifest-merger:31.7.3",
-    visibility = ["PUBLIC"],
-)
 # ===   End: android
 
 # === Begin: args4j

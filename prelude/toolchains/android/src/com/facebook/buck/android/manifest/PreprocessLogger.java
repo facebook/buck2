@@ -10,7 +10,7 @@
 
 package com.facebook.buck.android.manifest;
 
-import com.android.utils.ILogger;
+import com.android.common.utils.ILogger;
 import java.io.BufferedWriter;
 import java.io.Closeable;
 import java.io.FileWriter;

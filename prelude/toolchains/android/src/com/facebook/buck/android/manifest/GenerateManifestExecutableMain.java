@@ -10,7 +10,7 @@
 
 package com.facebook.buck.android.manifest;
 
-import com.android.utils.StdLogger;
+import com.android.common.utils.StdLogger;
 import com.facebook.buck.util.ThrowingPrintWriter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
