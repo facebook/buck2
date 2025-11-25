@@ -14,8 +14,8 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 
-import com.android.common.utils.ILogger;
-import com.android.common.utils.NullLogger;
+import com.android.utils.ILogger;
+import com.android.utils.NullLogger;
 import com.google.common.collect.ImmutableMap;
 import java.io.File;
 import java.io.IOException;

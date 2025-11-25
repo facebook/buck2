@@ -13,6 +13,5 @@ buck_java_test(
         "prelude//toolchains/android/third-party:guava",
         "prelude//toolchains/android/third-party:junit",
         "prelude//toolchains/android/third-party:tools-sdk-common",
-        "prelude//toolchains/android/third-party/aosp:aosp",
     ],
 )

@@ -19,12 +19,18 @@ buck_java_library(
         "prelude//toolchains/android/src/com/facebook/buck/util/environment:platform",
         "prelude//toolchains/android/third-party:args4j",
         "prelude//toolchains/android/third-party:guava",
-        "prelude//toolchains/android/third-party/aosp:aosp",
+        "prelude//toolchains/android/third-party:manifest-merger",
+        "prelude//toolchains/android/third-party:tools-sdk-common",
     ],
 )
 
 buck_java_binary(
     name = "generate_manifest_binary",
+    blocklist = [
+        "META-INF/.*\\.DSA",
+        "META-INF/.*\\.SF",
+        "META-INF/.*\\.RSA",
+    ],
     main_class = "com.facebook.buck.android.manifest.GenerateManifestExecutableMain",
     visibility = [
         "PUBLIC",
@@ -36,6 +42,11 @@ buck_java_binary(
 
 buck_java_binary(
     name = "replace_application_id_placeholders_binary",
+    blocklist = [
+        "META-INF/.*\\.DSA",
+        "META-INF/.*\\.SF",
+        "META-INF/.*\\.RSA",
+    ],
     main_class = "com.facebook.buck.android.manifest.ReplaceApplicationIdPlaceholdersExecutableMain",
     visibility = [
         "PUBLIC",
