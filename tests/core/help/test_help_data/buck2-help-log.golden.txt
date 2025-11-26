@@ -5,7 +5,8 @@ Commands for interacting with buck2 logs
 Usage: buck2 log [OPTIONS] <COMMAND>
 
 Commands:
-  what-ran           Output everything Buck2 ran from selected invocation
+  what-ran           Output everything that buck ran from the selected invocation. If no invocation
+                     was specified, use the last buck invocation from this isolation directory
   what-failed        Outputs every command that failed in the selected invocation
   path               Output the path to the selected log
   show               Outputs the log in JSON format from selected invocation
