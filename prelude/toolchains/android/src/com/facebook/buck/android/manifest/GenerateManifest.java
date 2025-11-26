@@ -10,13 +10,13 @@
 
 package com.facebook.buck.android.manifest;
 
-import com.android.common.ide.common.xml.XmlFormatPreferences;
-import com.android.common.ide.common.xml.XmlFormatStyle;
-import com.android.common.ide.common.xml.XmlPrettyPrinter;
-import com.android.common.utils.ILogger;
+import com.android.ide.common.xml.XmlFormatPreferences;
+import com.android.ide.common.xml.XmlFormatStyle;
+import com.android.ide.common.xml.XmlPrettyPrinter;
 import com.android.manifmerger.ManifestMerger2;
 import com.android.manifmerger.MergingReport;
 import com.android.manifmerger.PlaceholderHandler;
+import com.android.utils.ILogger;
 import com.facebook.buck.android.DefaultAndroidManifestReader;
 import com.facebook.buck.android.apkmodule.APKModule;
 import com.facebook.buck.util.environment.Platform;
@@ -163,7 +163,7 @@ public class GenerateManifest {
       Path mergeReportPath,
       ILogger logger) {
     try {
-      ManifestMerger2.Invoker<?> manifestInvoker =
+      ManifestMerger2.Invoker manifestInvoker =
           ManifestMerger2.newMerger(
               mainManifestFile, logger, ManifestMerger2.MergeType.APPLICATION);
       if (!APKModule.isRootModule(moduleName)) {
@@ -176,7 +176,7 @@ public class GenerateManifest {
           manifestInvoker
               .withFeatures(
                   ManifestMerger2.Invoker.Feature.REMOVE_TOOLS_DECLARATIONS,
-                  ManifestMerger2.Invoker.Feature.SKIP_BLAME)
+                  ManifestMerger2.Invoker.Feature.DISABLE_PACKAGE_NAME_UNIQUENESS_CHECK)
               .addLibraryManifests(Iterables.toArray(libraryManifestFiles, File.class))
               .setMergeReportFile(mergeReportPath.toFile())
               .merge();
