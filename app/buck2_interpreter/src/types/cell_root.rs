@@ -16,6 +16,9 @@ use buck2_core::cells::paths::CellRelativePathBuf;
 use derive_more::Display;
 use starlark::any::ProvidesStaticType;
 use starlark::environment::GlobalsBuilder;
+use starlark::environment::Methods;
+use starlark::environment::MethodsBuilder;
+use starlark::environment::MethodsStatic;
 use starlark::starlark_module;
 use starlark::starlark_simple_value;
 use starlark::values::NoSerialize;
@@ -42,7 +45,21 @@ impl CellRoot {
 starlark_simple_value!(CellRoot);
 
 #[starlark_value(type = "CellRoot")]
-impl<'v> StarlarkValue<'v> for CellRoot {}
+impl<'v> StarlarkValue<'v> for CellRoot {
+    fn get_methods() -> Option<&'static Methods> {
+        static RES: MethodsStatic = MethodsStatic::new();
+        RES.methods(cell_root_methods)
+    }
+}
+
+/// A `CellRoot` represents the root directory of a cell in Buck2.
+///
+/// `CellRoot` is typically accessed via the `cell_root` attribute on labels (e.g., `ctx.label.cell_root`).
+/// For example, given a label `root//foo:bar`, the `cell_root` would represent `root//`.
+///
+/// This type is commonly used with [`cmd_args.relative_to()`](../cmd_args/#cmd_argsrelative_to) to make artifact paths relative to the cell root.
+#[starlark_module]
+fn cell_root_methods(_builder: &mut MethodsBuilder) {}
 
 #[starlark_module]
 pub fn register_cell_root(globals: &mut GlobalsBuilder) {
