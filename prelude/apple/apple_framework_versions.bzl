@@ -1110,7 +1110,7 @@ FRAMEWORK_INTRODUCED_VERSIONS = {
 
 def _parse_version(version: str) -> (int, int, int):
     result = [0, 0, 0]
-    components = [int(x) for x in version.split(".")]
+    components = [int(x) if x != "0" else 0 for x in version.split(".")]
     for i in range(0, len(components)):
         result[i] = components[i]
     return (result[0], result[1], result[2])
