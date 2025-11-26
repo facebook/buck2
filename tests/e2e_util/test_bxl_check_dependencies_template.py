@@ -127,5 +127,30 @@ elif FLAVOR == "assert_dependencies_test":
         else:
             await expect_failure(bxl_call, stderr_regex=expect_failure_msg)
 
+elif FLAVOR == "check_mutually_exclusive_dependencies_test":
+
+    @buck_test(inplace=True)
+    async def test_check_mutually_exclusive_dependencies_bxl(buck) -> None:
+        expect_failure_msg = os.environ["EXPECT_FAILURE_MSG"]
+        bxl_call = buck.bxl(
+            os.environ["BXL_MAIN"],
+            "--",
+            "--target",
+            os.environ["TARGET"],
+            "--mutually_exclusive_group",
+            os.environ["MUTUALLY_EXCLUSIVE_GROUP"],
+            "--target_deps",
+            os.environ["TARGET_DEPS"],
+            env={
+                "BUCK2_TEST_DISABLE_LOG_UPLOAD": "false",
+                "BUCK2_RUNTIME_THREADS": "8",
+                "BUCK2_MAX_BLOCKING_THREADS": "8",
+            },
+        )
+        if expect_failure_msg == "":
+            await bxl_call
+        else:
+            await expect_failure(bxl_call, stderr_regex=expect_failure_msg)
+
 else:
     raise Exception(f"Found unknown test flavor: {FLAVOR}")
