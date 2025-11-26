@@ -7,7 +7,7 @@
       "buildfile_path": "prelude/python/sourcedb/tests/test_files/BUCK",
       "deps": [],
       "python_platform": "linux",
-      "python_version": "3.10",
+      "python_version": "3.12",
       "srcs": {
         "alias": [
           "prelude/python/sourcedb/tests/test_files/alias.py"
@@ -21,7 +21,7 @@
         "prelude//python/sourcedb/tests/test_files:subdir"
       ],
       "python_platform": "linux",
-      "python_version": "3.10",
+      "python_version": "3.12",
       "srcs": {
         "python.sourcedb.tests.test_files.lib": [
           "prelude/python/sourcedb/tests/test_files/lib.py"
@@ -34,7 +34,7 @@
         "prelude//python/sourcedb/tests/test_files:lib"
       ],
       "python_platform": "linux",
-      "python_version": "3.10",
+      "python_version": "3.12",
       "srcs": {
         "python.sourcedb.tests.test_files.main": [
           "prelude/python/sourcedb/tests/test_files/main.py"
@@ -45,7 +45,7 @@
       "buildfile_path": "prelude/python/sourcedb/tests/test_files/BUCK",
       "deps": [],
       "python_platform": "linux",
-      "python_version": "3.10",
+      "python_version": "3.12",
       "srcs": {
         "python.sourcedb.tests.test_files.subdir": [
           "prelude/python/sourcedb/tests/test_files/subdir/__init__.py",
