@@ -141,6 +141,17 @@ pub(crate) fn analysis_actions_methods_run(methods: &mut MethodsBuilder) {
     ///     * Both `metadata_env_var` and `metadata_path` are useful when making actions behave in
     ///       an incremental manner (for details, see [Incremental
     ///       Actions](https://buck2.build/docs/rule_authors/incremental_actions/))
+    /// * `dep_files`: a dictionary mapping labels to `ArtifactTag` instances for tracking actual
+    ///   dependencies via dependency files (depfiles). This enables precise incremental builds by
+    ///   allowing the build tool to report which inputs it actually used.
+    ///     * Each entry maps a string label (e.g., `"headers"`) to an `ArtifactTag` created via
+    ///       `ctx.actions.artifact_tag()`
+    ///     * The tag should be used to mark both the potential inputs (via `tag.tag_artifacts()`)
+    ///       and the depfile output that will list the actual inputs used
+    ///     * After execution, Buck2 reads the depfile and only tracks changes to inputs listed in it,
+    ///       rather than all tagged inputs
+    ///     * Depfiles must use Makefile syntax: `output: input1 input2 input3`
+    ///     * For complete documentation and examples, see [`ctx.actions.artifact_tag()`](../AnalysisActions#analysisactionsartifact_tag)
     /// * The `prefer_local`, `prefer_remote` and `local_only` options allow selecting where the
     /// action should run if the executor selected for this target is a hybrid executor.
     ///     * All those options disable concurrent execution: the action will run on the preferred
