@@ -200,11 +200,11 @@ def apple_xcuitest_extra_attrs():
         "incremental_bundling_enabled": attrs.bool(default = False),
         "info_plist": attrs.source(),
         "info_plist_substitutions": attrs.dict(key = attrs.string(), value = attrs.string(), sorted = False, default = {}),
-        "target_sdk_version": attrs.option(attrs.string(), default = None),
         # The test bundle to package in the UI test runner app.
         "test_bundle": attrs.dep(),
         "_enable_library_evolution": get_enable_library_evolution(),
     }
+    attribs.update(apple_common.target_sdk_version())
     attribs.update(apple_common.apple_toolchain_arg())
     attribs.update(_apple_bundle_like_common_attrs())
 
