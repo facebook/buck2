@@ -42,6 +42,7 @@ import java.util.logging.Logger; // NOPMD
 /** Installs an Android Apk */
 class AndroidInstall {
   private static final Logger LOG = Logger.getLogger(AndroidInstall.class.getName());
+  private static final Set<String> ENABLE_APP_LINKS_ALLOWLIST = Set.of("com.facebook.wakizashi");
 
   private final IsolatedApkInfo apkInfo;
   private final Optional<IsolatedExopackageInfo> exopackageInfo;
@@ -161,6 +162,33 @@ class AndroidInstall {
                 "Install of %s finished in %d seconds",
                 apkInfo.getApkPath().getFileName(),
                 Duration.between(start, Instant.now()).getSeconds()));
+
+        String packageName =
+            AdbHelper.tryToExtractPackageNameFromManifest(apkInfo.getManifestPath().getPath());
+
+        // Determine if app links should be enabled based on command line option or allowlist
+        boolean shouldEnableAppLinks = false;
+        if (cliOptions.enableAppLinks != null) {
+          // Explicit option provided by user
+          shouldEnableAppLinks = cliOptions.enableAppLinks;
+        } else {
+          // No option provided, check allowlist
+          shouldEnableAppLinks = ENABLE_APP_LINKS_ALLOWLIST.contains(packageName);
+        }
+
+        if (shouldEnableAppLinks) {
+          try {
+            adbHelper.adbCall(
+                "enable app links",
+                (device) -> {
+                  device.enableAppLinks(packageName);
+                  return true;
+                },
+                true);
+          } catch (Exception e) {
+            logger.warning("Failed to enable app links: " + e.getMessage());
+          }
+        }
 
         if (cliOptions.run || cliOptions.activity != null || cliOptions.intentUri != null) {
           adbHelper.startActivityForIsolatedApk(

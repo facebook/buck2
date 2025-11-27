@@ -158,4 +158,9 @@ public class TestAndroidDevice implements AndroidDevice {
   public boolean setDebugAppPackageName(String packageName) throws Exception {
     throw new UnsupportedOperationException();
   }
+
+  @Override
+  public void enableAppLinks(String packageName) throws Exception {
+    throw new UnsupportedOperationException();
+  }
 }

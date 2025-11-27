@@ -89,4 +89,6 @@ public interface AndroidDevice {
   default void fixRootDir(String rootDir) {}
 
   boolean setDebugAppPackageName(String packageName) throws Exception;
+
+  void enableAppLinks(String packageName) throws Exception;
 }

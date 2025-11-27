@@ -421,6 +421,12 @@ class AndroidDeviceImpl(val serial: String, val adbUtils: AdbUtils) : AndroidDev
     return true
   }
 
+  override fun enableAppLinks(packageName: String?) {
+    if (packageName != null) {
+      executeAdbShellCommand("pm set-app-links --package $packageName 1 all")
+    }
+  }
+
   override fun getInstallerMethodName(): String = "adb_installer"
 
   override fun getDiskSpace(): List<String> {
