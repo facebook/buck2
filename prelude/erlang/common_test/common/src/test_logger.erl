@@ -24,7 +24,7 @@ set_up_logger(LogDir, AppName, Type) ->
         no_capture_stdout ->
             ok;
         capture_stdout ->
-            {ok, LogFileOpened} = file:open(StdOut, [write]),
+            {ok, LogFileOpened} = file:open(StdOut, [write, {encoding, utf8}]),
             group_leader(
                 LogFileOpened, self()
             )

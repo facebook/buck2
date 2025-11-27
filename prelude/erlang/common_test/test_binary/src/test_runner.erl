@@ -20,6 +20,7 @@
 -import(common_util, [unicode_characters_to_list/1, unicode_characters_to_binary/1]).
 
 -define(DEFAULT_OUTPUT_FORMAT, json).
+-define(MAX_STDOUT_BYTES_PER_TESTCASE, (16 * 1024)).
 
 -spec run_tests(Tests, TestInfo, OutputDir, Listing, Timeout) -> ok when
     Tests :: [string()],
@@ -190,10 +191,11 @@ provide_output_file(
     Status
 ) ->
     LogFile = test_logger:get_log_file(OutputDir, ct_executor),
-    StdOutFile = test_logger:get_std_out(OutputDir, ct_executor),
+    RawStdOutFile = test_logger:get_std_out(OutputDir, ct_executor),
+    StdOutFile = ct_stdout:filename(OutputDir),
     LogFilesForCrashes = #{
         ct_executor_log => LogFile,
-        ct_executor_stdout => StdOutFile
+        ct_executor_stdout => RawStdOutFile
     },
 
     ResultsFile = filename:join(OutputDir, "result.json"),
@@ -203,8 +205,10 @@ provide_output_file(
                 collect_results_broken_run(Tests, Suite, ~"internal crash", ResultExec, LogFilesForCrashes);
             timeout ->
                 % Suite timeout: this is typically a user error, so we don't want to display the
-                % executor logs.
-                StdOutLogFile = #{ct_executor_stdout => StdOutFile},
+                % executor logs. The raw stdout files are useful here, as they include the
+                % "progress" of the suite, which helps to understand what it was doing when the crash
+                % happened
+                StdOutLogFile = #{ct_executor_stdout => RawStdOutFile},
                 collect_results_broken_run(Tests, Suite, ~"", ResultExec, StdOutLogFile);
             passed ->
                 % Here we either passed or timeout.
@@ -221,6 +225,12 @@ provide_output_file(
                                     ),
                                 collect_results_broken_run(Tests, Suite, ErrorMsg, ResultExec, LogFilesForCrashes);
                             _ ->
+                                {ok, _} = ct_stdout:process_raw_stdout_log(
+                                    RawStdOutFile,
+                                    StdOutFile,
+                                    TreeResults,
+                                    ?MAX_STDOUT_BYTES_PER_TESTCASE
+                                ),
                                 collect_results_fine_run(TreeResults, Tests)
                         end;
                     {error, _Reason} ->
@@ -230,9 +240,14 @@ provide_output_file(
                         collect_results_broken_run(Tests, Suite, ErrorMsg, ResultExec, LogFilesForCrashes)
                 end
         end,
+
+    % If we didn't manage to process the raw stdout log, just rename it, so that it is
+    % always available under that name
+    filelib:is_file(StdOutFile) orelse file:rename(RawStdOutFile, StdOutFile),
+
     {ok, _ResultOuptuFile} = json_interfacer:write_json_output(OutputDir, Results),
     test_artifact_directory:link_to_artifact_dir(
-        test_logger:get_std_out(OutputDir, ct_executor), OutputDir, ArtifactAnnotationFunction
+        StdOutFile, OutputDir, ArtifactAnnotationFunction
     ),
     test_artifact_directory:link_to_artifact_dir(
         test_logger:get_std_out(OutputDir, test_runner), OutputDir, ArtifactAnnotationFunction
