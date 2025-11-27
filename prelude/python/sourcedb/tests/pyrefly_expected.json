@@ -8,9 +8,37 @@
       "deps": [],
       "python_platform": "linux",
       "python_version": "3.12",
+      "relative_to": null,
       "srcs": {
         "alias": [
           "prelude/python/sourcedb/tests/test_files/alias.py"
+        ]
+      }
+    },
+    "prelude//python/sourcedb/tests/test_files:generated_file": {
+      "buildfile_path": "prelude/python/sourcedb/tests/test_files/BUCK",
+      "deps": [],
+      "python_platform": "linux",
+      "python_version": "3.12",
+      "relative_to": null,
+      "srcs": {
+        "generated_file": [
+          "buck-out/v2/gen/prelude/<more generated path output>/out/generated_file.py"
+        ]
+      }
+    },
+    "prelude//python/sourcedb/tests/test_files:generated_files": {
+      "buildfile_path": "prelude/python/sourcedb/tests/test_files/BUCK",
+      "deps": [],
+      "python_platform": "linux",
+      "python_version": "3.12",
+      "relative_to": "buck-out/<some generated path>/out/",
+      "srcs": {
+        "generated1": [
+          "generated1.py"
+        ],
+        "generated2": [
+          "generated2.py"
         ]
       }
     },
@@ -18,10 +46,12 @@
       "buildfile_path": "prelude/python/sourcedb/tests/test_files/BUCK",
       "deps": [
         "prelude//python/sourcedb/tests/test_files:alias",
+        "prelude//python/sourcedb/tests/test_files:generated_files",
         "prelude//python/sourcedb/tests/test_files:subdir"
       ],
       "python_platform": "linux",
       "python_version": "3.12",
+      "relative_to": null,
       "srcs": {
         "python.sourcedb.tests.test_files.lib": [
           "prelude/python/sourcedb/tests/test_files/lib.py"
@@ -35,6 +65,7 @@
       ],
       "python_platform": "linux",
       "python_version": "3.12",
+      "relative_to": null,
       "srcs": {
         "python.sourcedb.tests.test_files.main": [
           "prelude/python/sourcedb/tests/test_files/main.py"
@@ -43,9 +74,12 @@
     },
     "prelude//python/sourcedb/tests/test_files:subdir": {
       "buildfile_path": "prelude/python/sourcedb/tests/test_files/BUCK",
-      "deps": [],
+      "deps": [
+        "prelude//python/sourcedb/tests/test_files:generated_file"
+      ],
       "python_platform": "linux",
       "python_version": "3.12",
+      "relative_to": null,
       "srcs": {
         "python.sourcedb.tests.test_files.subdir": [
           "prelude/python/sourcedb/tests/test_files/subdir/__init__.py",

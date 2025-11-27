@@ -13,6 +13,7 @@ python_library(
 python_library(
     name = "lib",
     srcs = ["lib.py"],
+    type_stubs = [":generated_files"],
     deps = [
         ":alias",
         ":subdir",
@@ -27,6 +28,7 @@ python_library(
         "subdir/util.py",
         "subdir/util.pyi",
     ],
+    deps = [":generated_file"],
 )
 
 alias(
@@ -39,4 +41,23 @@ python_library(
     srcs = ["alias.py"],
     # @lint-ignore BUCKLINT tests Python type checking sourcedb functionality with base_module
     base_module = "",
+)
+
+genrule(
+    name = "generated_files",
+    outs = {
+        "generated1.py": [
+            "generated1.py",
+        ],
+        "generated2.py": [
+            "generated2.py",
+        ],
+    },
+    cmd = "touch ${OUT}/generated1.py && touch ${OUT}/generated2.py",
+)
+
+genrule(
+    name = "generated_file",
+    out = "generated_file.py",
+    cmd = "touch ${OUT}",
 )

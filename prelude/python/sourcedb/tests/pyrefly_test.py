@@ -21,9 +21,13 @@ PATH_PREFIX: str = "prelude/python"
 
 
 def strip_prefix(path: str) -> str:
-    if PATH_PREFIX not in str(path):
+    if PATH_PREFIX in str(path):
+        return PATH_PREFIX + str(path).split(PATH_PREFIX)[1]
+    elif path.startswith("buck-out"):
+        path = Path(path)
+        return f"buck-out/v2/gen/prelude/<more generated path output>/out/{path.name}"
+    else:
         return path
-    return PATH_PREFIX + str(path).split(PATH_PREFIX)[1]
 
 
 @dataclasses.dataclass
@@ -38,6 +42,7 @@ class Manifest:
     buildfile_path: str
     python_version: str
     python_platform: str
+    relative_to: str | None
 
     def strip_root(self) -> None:
         for paths in self.srcs.values():
@@ -45,6 +50,9 @@ class Manifest:
             paths.clear()
             for path in old_paths:
                 paths.append(strip_prefix(path))
+
+        if self.relative_to is not None:
+            self.relative_to = "buck-out/<some generated path>/out/"
 
         self.buildfile_path = strip_prefix(self.buildfile_path)
 
@@ -62,6 +70,9 @@ class Manifest:
                     f"Unknown type for manifest, does not have '{key}' key. Keys are: "
                     + ", ".join(json.keys())
                 )
+        # make sure relative_to is set
+        json["relative_to"] = json.get("relative_to")
+
         manifest = Manifest(**json)
         for paths in manifest.srcs.values():
             paths.sort()
