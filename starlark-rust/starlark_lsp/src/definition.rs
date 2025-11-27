@@ -658,7 +658,7 @@ pub(crate) mod helpers {
 
             let mut fixture_idx = 0;
             for matches in re.captures_iter(fixture) {
-                let full_tag = matches.get(0).unwrap();
+                let full_tag = matches.get_match();
                 let is_end_tag = matches.get(1).is_some();
                 let identifier = matches.get(2).unwrap().as_str().to_owned();
 

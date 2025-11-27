@@ -192,7 +192,7 @@ impl ConfigResolver {
 
         // TODO(cjhopman): Should add support for escaping the call, I guess.
         for capture in re.captures_iter(raw_value) {
-            let m = capture.get(0).unwrap();
+            let m = capture.get_match();
 
             resolved.push_str(&raw_value[last..m.start()]);
             last = m.end();
