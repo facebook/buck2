@@ -540,8 +540,7 @@ add_result(
         groups = Groups,
         start_info = StartInfo0,
         tree_results = TreeResults,
-        io_buffer = IoBuffer,
-        output = {file, OutputFile}
+        io_buffer = IoBuffer
     }
 ) ->
     StdOut =
@@ -549,27 +548,8 @@ add_result(
             undefined ->
                 "";
             BufferPid ->
-                {Io, Truncated} = io_buffer:flush(BufferPid),
-                case Truncated of
-                    true ->
-                        StdOutLocation =
-                            case is_running_in_sandcastle() of
-                                true ->
-                                    "tab Diagnostics: Artifacts/ct_executor.stdout.txt";
-                                _ ->
-                                    filename:join(
-                                        filename:dirname(OutputFile), "ct_executor.stdout.txt"
-                                    )
-                            end,
-                        unicode_characters_to_list(
-                            io_lib:format(
-                                "The stdout logs have been truncated, see ~ts for the full suite stdout. Showing tail below\n~s",
-                                [StdOutLocation, Io]
-                            )
-                        );
-                    false ->
-                        Io
-                end
+                {Io, _Truncated} = io_buffer:flush(BufferPid),
+                Io
         end,
 
     QualifiedName = method_name(Method, Groups),

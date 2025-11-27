@@ -441,7 +441,15 @@ to_collected_method_result(MethodResult, CollectedStdOut) ->
     StdOut =
         case MethodResult of
             #{start_progress_marker := Marker} ->
-                maps:get(Marker, CollectedStdOut);
+                case maps:get(Marker, CollectedStdOut) of
+                    StdOutBin when is_binary(StdOutBin) -> StdOutBin;
+                    {truncated, StdOutBin} ->
+                        io_lib:format(
+                            "NOTICE: stdout was truncated! See ~ts for the full logs of the suite.~n~n...~ts", [
+                                ct_stdout:filename(), StdOutBin
+                            ]
+                        )
+                end;
             _ ->
                 ~""
         end,

@@ -41,7 +41,7 @@ the stdout for that marker.
 Mapping from a "start" marker to the stdout contents associated to that marker.
 """.
 -type collected_stdout() :: #{
-    progress_line() => binary()
+    progress_line() => binary() | {truncated, binary()}
 }.
 
 %% ---------------------------------------------------------------------------
@@ -223,7 +223,7 @@ process_raw_stdout_log_loop(InH, OutH, PendingMarkers, HasPendingNewLine, Acc) -
             end
     end.
 
--spec collect_stdout(InH, What, Max) -> binary() when
+-spec collect_stdout(InH, What, Max) -> binary() | {truncated, binary()} when
     InH :: file:fd(),
     What :: no_stdout | #{first => integer(), last => integer()},
     Max :: non_neg_integer().
@@ -245,7 +245,7 @@ collect_stdout(InH, #{first := First, last := Last}, Max) ->
                     % in the middle of one of the chars taking 2-3 bytes,
                     % then we get an invalid binary, which we can fix by
                     % dropping the first 1 or 2 bytes
-                    fix_unicode_encoding(Result)
+                    {truncated, fix_unicode_encoding(Result)}
             end
     end.
 
