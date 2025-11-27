@@ -57,7 +57,7 @@ summary(omitted) -> ?OMITTED.
         endedTime => float()
     }.
 
--type case_result() :: cth_tpx_test_tree:case_result().
+-type collected_result() :: cth_tpx_test_tree:collected_result().
 
 -type formatted_case_result() ::
     #{
@@ -66,17 +66,17 @@ summary(omitted) -> ?OMITTED.
         ends := [formatted_result()]
     }.
 
--spec write_json_output(file:filename_all(), [case_result()]) -> {ok, file:filename_all()}.
+-spec write_json_output(file:filename_all(), [collected_result()]) -> {ok, file:filename_all()}.
 write_json_output(OutputDir, TpxResults) ->
     OuptputFile = filename:join(OutputDir, "result_exec.json"),
     file:write_file(OuptputFile, format_json(TpxResults), [raw, binary]),
     {ok, OuptputFile}.
 
--spec format_json([case_result()]) -> iodata().
+-spec format_json([collected_result()]) -> iodata().
 format_json(TpxResults) ->
     json:encode([format_case(CaseResult) || CaseResult <- TpxResults]).
 
--spec format_case(case_result()) -> formatted_case_result().
+-spec format_case(collected_result()) -> formatted_case_result().
 format_case(
     #{
         inits := Inits,
@@ -90,7 +90,7 @@ format_case(
         ends => lists:map(fun(MethodResult) -> format_method_result(MethodResult) end, Ends)
     }.
 
--spec format_method_result(cth_tpx_test_tree:method_result()) -> formatted_result().
+-spec format_method_result(cth_tpx_test_tree:collected_method_result()) -> formatted_result().
 format_method_result(
     #{
         name := Name,

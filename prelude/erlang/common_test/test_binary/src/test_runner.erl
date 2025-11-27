@@ -291,7 +291,7 @@ trimmed_content_file(File) ->
 Provide tpx with a result when CT failed to provide results for tests.
 """.
 -spec collect_results_broken_run(Tests, Suite, ErrorMsg, ResultExec, RelevantLogFiles) ->
-    [cth_tpx_test_tree:case_result()]
+    [cth_tpx_test_tree:collected_result()]
 when
     Tests :: [#ct_test{}],
     Suite :: module(),
@@ -348,9 +348,9 @@ collect_results_broken_run(Tests, _Suite, ErrorMsg, ResultExec, RelevantLogFiles
 Provide the results from the tests as specified by tpx protocol, from the json file
 provided by ct displaying results of all the tests ran.
 """.
--spec collect_results_fine_run(cth_tpx_test_tree:tree_node(), [#ct_test{}]) -> [cth_tpx_test_tree:case_result()].
+-spec collect_results_fine_run(cth_tpx_test_tree:tree_node(), [#ct_test{}]) -> [cth_tpx_test_tree:collected_result()].
 collect_results_fine_run(TreeResults, Tests) ->
-    cth_tpx_test_tree:get_result(TreeResults, maps:from_list(get_requested_tests(Tests))).
+    cth_tpx_test_tree:collect_results(TreeResults, maps:from_list(get_requested_tests(Tests))).
 
 -doc """
 Returns a list of the tests by classifying from the (sequence) of groups they belong.
