@@ -132,7 +132,10 @@ pub(super) fn extended_ignore_error<'a>(
                                 return Some(ReadDirError::DirectoryDoesNotExist {
                                     path: path.to_owned(),
                                     suggestion: DirectoryDoesNotExistSuggestion::Typo(
-                                        suggestion.to_owned(),
+                                        match parent.path().join_normalized(suggestion) {
+                                            Ok(p) => p.as_str().to_owned(),
+                                            Err(_) => suggestion.to_owned()
+                                        }
                                     ),
                                 });
                             }
