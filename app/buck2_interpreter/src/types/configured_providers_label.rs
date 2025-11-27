@@ -141,7 +141,7 @@ fn configured_label_methods(builder: &mut MethodsBuilder) {
         })
     }
 
-    /// For the label `fbcode//buck2/hello:world (ovr_config//platform/linux:x86_64-fbcode-46b26edb4b80a905)` this gives back `fbcode/buck2/hello`
+    /// For the label `fbcode//buck2/hello:world (ovr_config//platform/linux:x86_64-fbcode-46b26edb4b80a905)` this gives back `fbcode//buck2/hello`
     #[starlark(attribute)]
     fn path<'v>(this: &StarlarkConfiguredProvidersLabel) -> starlark::Result<StarlarkCellPath> {
         Ok(StarlarkCellPath(this.label.target().pkg().to_cell_path()))
