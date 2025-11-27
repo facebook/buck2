@@ -64,8 +64,10 @@
 
 -type method_result() :: #{
     name := name(),
-    startedTime => float(),
-    endedTime => float(),
+    start_time => float(),
+    end_time => float(),
+    start_progress_marker => binary(),
+    end_progress_marker => binary(),
     outcome := outcome(),
     details := unicode:chardata(),
     std_out := unicode:chardata()

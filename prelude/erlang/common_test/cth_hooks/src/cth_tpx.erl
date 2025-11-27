@@ -61,10 +61,11 @@
 -type outcome() :: cth_tpx_test_tree:outcome().
 
 -record(state, {
+    cached_user_process :: pid(),
     io_buffer :: pid() | undefined,
     suite :: ct_suite(),
     groups :: group_path(),
-    starting_times :: starting_times(),
+    start_info :: #{method_id() => start_info()},
     tree_results :: tree_node(),
     previous_group_failed :: boolean() | undefined,
     output :: {file, string()} | stdout
@@ -78,7 +79,10 @@
     role := cth_tpx_role:role(),
     server := cth_tpx_server:handle()
 }.
--type starting_times() :: #{method_id() => float()}.
+-type start_info() :: #{
+    timestamp := float(),
+    stdout_progress_line := ct_stdout:progress_line()
+}.
 
 -type ct_suite() :: module().
 -type ct_groupname() :: ct_suite:ct_groupname().
@@ -188,9 +192,16 @@ init_role_top(Id, ServerName, Output) ->
             unregister(cth_tpx_io_buffer),
             register(user, Pid)
     end,
+
+    CachedUserProcess =
+        case whereis(user) of
+            UserPid when is_pid(UserPid) -> UserPid
+        end,
+
     SharedState = #state{
+        cached_user_process = CachedUserProcess,
         output = Output,
-        starting_times = #{},
+        start_info = #{},
         io_buffer = IoBuffer,
         groups = [],
         tree_results = cth_tpx_test_tree:new_node(unknown_suite)
@@ -226,7 +237,7 @@ Called before init_per_suite is called.
 pre_init_per_suite(Suite, Config, HookState) ->
     on_shared_state(HookState, ?FUNCTION_NAME, Config, fun(State) ->
         initialize_stdout_capture(State),
-        State1 = capture_starting_time(State, ?INIT_PER_SUITE),
+        State1 = collect_start_info(State, ?INIT_PER_SUITE, Suite),
         {Config, State1#state{
             suite = Suite,
             groups = [],
@@ -265,10 +276,10 @@ post_init_per_suite(_Suite, _Config, Return, HookState) ->
     end).
 
 -spec pre_end_per_suite(ct_suite(), ct_config(), hook_state()) -> {ct_config(), hook_state()}.
-pre_end_per_suite(_Suite, Config, HookState) ->
+pre_end_per_suite(Suite, Config, HookState) ->
     on_shared_state(HookState, ?FUNCTION_NAME, Config, fun(State) ->
         initialize_stdout_capture(State),
-        {Config, capture_starting_time(State, ?END_PER_SUITE)}
+        {Config, collect_start_info(State, ?END_PER_SUITE, Suite)}
     end).
 
 -spec post_end_per_suite(ct_suite(), ct_config(), ct_config_or_skip_or_fail_or_term(), hook_state()) ->
@@ -323,19 +334,19 @@ clear_suite(#state{io_buffer = IoBuffer} = State) ->
         io_buffer = undefined,
         suite = undefined,
         groups = [],
-        starting_times = #{}
+        start_info = #{}
     }.
 
 -spec pre_init_per_group(ct_suite(), ct_groupname(), ct_config(), hook_state()) -> {ct_config(), hook_state()}.
-pre_init_per_group(_SuiteName, _Group, Config, HookState) ->
+pre_init_per_group(_SuiteName, Group, Config, HookState) ->
     on_shared_state(HookState, ?FUNCTION_NAME, Config, fun
         (State = #state{groups = [_ | Groups], previous_group_failed = true}) ->
             initialize_stdout_capture(State),
-            State1 = capture_starting_time(State, ?INIT_PER_GROUP),
+            State1 = collect_start_info(State, ?INIT_PER_GROUP, Group),
             {Config, State1#state{groups = Groups, previous_group_failed = false}};
         (#state{} = State) ->
             initialize_stdout_capture(State),
-            {Config, capture_starting_time(State, ?INIT_PER_GROUP)}
+            {Config, collect_start_info(State, ?INIT_PER_GROUP, Group)}
     end).
 
 -spec post_init_per_group(ct_suite(), ct_groupname(), ct_config(), ct_config_or_skip_or_fail_or_term(), hook_state()) ->
@@ -402,10 +413,10 @@ fail_group(State) ->
     State#state{previous_group_failed = true}.
 
 -spec pre_end_per_group(ct_suite(), ct_groupname(), ct_config(), hook_state()) -> {ct_config(), hook_state()}.
-pre_end_per_group(_SuiteName, _Group, Config, HookState) ->
+pre_end_per_group(_SuiteName, Group, Config, HookState) ->
     on_shared_state(HookState, ?FUNCTION_NAME, Config, fun(State) ->
         initialize_stdout_capture(State),
-        {Config, capture_starting_time(State, ?END_PER_GROUP)}
+        {Config, collect_start_info(State, ?END_PER_GROUP, Group)}
     end).
 
 -spec post_end_per_group(ct_suite(), ct_groupname(), ct_config(), ct_config_or_skip_or_fail_or_term(), hook_state()) ->
@@ -462,10 +473,9 @@ pre_init_per_testcase(_Suite, TestCase, Config, HookState) ->
         %%  2) For the whole testcase = init + actual_testcase + end
         %% The reason behind is that capturing the timing for the actual_testcase
         %% is not straightforward, as there is no pre/post method for it.
-        State1 = capture_starting_time(
-            capture_starting_time(State, {TestCase, ?INIT_PER_TESTCASE}), {TestCase, ?MAIN_TESTCASE}
-        ),
-        {Config, State1}
+        State1 = collect_start_info(State, {TestCase, ?INIT_PER_TESTCASE}, TestCase),
+        State2 = collect_start_info(State1, {TestCase, ?MAIN_TESTCASE}, TestCase),
+        {Config, State2}
     end).
 
 -spec post_init_per_testcase(ct_suite(), ct_testname(), ct_config(), ct_config_or_skip_or_fail_or_term(), hook_state()) ->
@@ -526,8 +536,9 @@ add_result(
     Outcome,
     Desc,
     State = #state{
+        cached_user_process = UserProcess,
         groups = Groups,
-        starting_times = ST0,
+        start_info = StartInfo0,
         tree_results = TreeResults,
         io_buffer = IoBuffer,
         output = {file, OutputFile}
@@ -570,20 +581,24 @@ add_result(
         std_out => StdOut
     },
     Result =
-        case ST0 of
-            #{Method := StartedTime} ->
+        case StartInfo0 of
+            #{Method := #{timestamp := StartTime, stdout_progress_line := StartStdOutLine}} ->
+                EndStdOutLine = ct_stdout:emit_progress(UserProcess, method_progress_label(Method), finished),
+
                 Result0#{
-                    startedTime => StartedTime,
-                    endedTime => TS
+                    start_time => StartTime,
+                    end_time => TS,
+                    start_progress_marker => StartStdOutLine,
+                    end_progress_marker => EndStdOutLine
                 };
             _ ->
-                %% If no test data (skipped test cases/groups/suits)
+                %% If no test data (skipped test cases/groups/suite)
                 %% then started time doesn't exist.
                 Result0
         end,
-    ST1 = maps:remove(Method, ST0),
+    ST1 = maps:remove(Method, StartInfo0),
     NewTreeResults = cth_tpx_test_tree:register_result(TreeResults, Result, Groups, Method),
-    State#state{starting_times = ST1, tree_results = NewTreeResults}.
+    State#state{start_info = ST1, tree_results = NewTreeResults}.
 
 -spec method_name(method_id(), group_path()) -> string().
 method_name(Method, Groups) ->
@@ -599,7 +614,7 @@ method_name(Method, Groups) ->
 -spec pre_end_per_testcase(ct_suite(), ct_testname(), ct_config(), hook_state()) -> {ct_config(), hook_state()}.
 pre_end_per_testcase(_Suite, TC, Config, HookState) ->
     on_shared_state(HookState, ?FUNCTION_NAME, Config, fun(State) ->
-        {Config, capture_starting_time(State, {TC, ?END_PER_TESTCASE})}
+        {Config, collect_start_info(State, {TC, ?END_PER_TESTCASE}, TC)}
     end).
 
 -spec post_end_per_testcase(ct_suite(), ct_testname(), ct_config(), ct_config_or_skip_or_fail_or_term(), hook_state()) ->
@@ -732,9 +747,23 @@ initialize_stdout_capture(#state{io_buffer = IoBuffer} = _State) ->
             io_buffer:start_capture(Pid)
     end.
 
--spec capture_starting_time(shared_state(), method_id()) -> shared_state().
-capture_starting_time(#state{starting_times = ST0} = State, MethodId) ->
-    State#state{starting_times = ST0#{MethodId => second_timestamp()}}.
+-spec collect_start_info(State, MethodId, Context) -> shared_state() when
+    State :: shared_state(),
+    MethodId :: method_id(),
+    Context :: atom().
+collect_start_info(#state{cached_user_process = UserProcess, start_info = ST0} = State, MethodId, _Context) ->
+    ProgressLine = ct_stdout:emit_progress(UserProcess, method_progress_label(MethodId), started),
+
+    StartInfo = #{
+        timestamp => second_timestamp(),
+        stdout_progress_line => ProgressLine
+    },
+    State#state{start_info = ST0#{MethodId => StartInfo}}.
+
+-spec method_progress_label(Method) -> unicode:chardata() when
+    Method :: method_id().
+method_progress_label(Method) ->
+    io_lib:format("~tw", [Method]).
 
 -spec on_shared_state(hook_state(), Caller, Default, Action) -> {A, hook_state()} when
     Caller :: cth_tpx_role:responsibility(),

@@ -322,8 +322,6 @@ collect_results_broken_run(Tests, _Suite, ErrorMsg, ResultExec, RelevantLogFiles
                             [FormattedErrorMsg, ResultExec]
                         )
                     ),
-                startedTime => 0.0,
-                endedTime => 0.0,
                 outcome => failed,
                 std_out => unicode_characters_to_list(StdOut)
             }

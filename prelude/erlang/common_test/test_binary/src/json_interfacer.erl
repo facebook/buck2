@@ -94,8 +94,8 @@ format_case(
 format_method_result(
     #{
         name := Name,
-        startedTime := Start,
-        endedTime := End,
+        start_time := Start,
+        end_time := End,
         outcome := Outcome,
         details := Details,
         std_out := StdOut
