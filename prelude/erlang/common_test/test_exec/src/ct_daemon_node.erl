@@ -74,9 +74,11 @@ start(
     OutputDir = gen_output_dir(RandomName),
     FullOptions = [{output_dir, OutputDir} | Options],
     Args = build_daemon_args(Type, Node, Cookie, FullOptions, OutputDir),
-    % Replay = maps:get(replay, Config, false),
-    Port =
-        ct_runner:start_test_node(
+
+    MainProc = self(),
+    Pid = erlang:spawn(fun() ->
+        true = erlang:register(?MODULE, self()),
+        Port = ct_runner:start_test_node(
             ErlCommand,
             [],
             [],
@@ -84,24 +86,50 @@ start(
             ConfigFiles,
             OutputDir,
             [{args, Args}, {cd, OutputDir}],
-            false
+            true
         ),
-    %% wait for the ct_daemon gen_server to be started
-    true = erlang:register(?MODULE, self()),
-    port_loop(Port, []),
-    ok.
+        port_loop_1(Port, MainProc)
+    end),
 
--spec port_loop(port(), list()) -> ok | {error, {crash_on_startup, integer()}}.
-port_loop(Port, Acc) ->
+    %% wait for the ct_daemon gen_server to be started
     receive
-        {Port, {data, {eol, Line}}} ->
-            port_loop(Port, [Line | Acc]);
+        {Pid, ready} ->
+            ok;
+        {Pid, Error = {crash_on_startup, N}} when is_integer(N) ->
+            ?LOG_DEBUG("Test Node Crashed on Startup"),
+            {error, Error}
+    end.
+
+-spec port_loop_1(port(), pid()) -> ok.
+port_loop_1(Port, MainProc) ->
+    receive
         ready ->
             true = erlang:unregister(?MODULE),
-            ok = global:sync();
+            ok = global:sync(),
+            MainProc ! {self(), ready},
+            port_loop_2(Port);
         {Port, {exit_status, N}} ->
-            ?LOG_DEBUG("Test Node Crashed on Startup: ~n~ts~n", [lists:join("\n", lists:reverse(Acc))]),
-            {error, {crash_on_startup, N}}
+            MainProc ! {self(), {crash_on_startup, N}},
+            ok;
+        {Port, {data, {noeol, Line}}} ->
+            io:put_chars(Line),
+            port_loop_1(Port, MainProc);
+        {Port, {data, {eol, Line}}} ->
+            io:put_chars([Line, ~"\n"]),
+            port_loop_1(Port, MainProc)
+    end.
+
+-spec port_loop_2(port()) -> ok.
+port_loop_2(Port) ->
+    receive
+        {Port, {exit_status, _}} ->
+            ok;
+        {Port, {data, {noeol, Line}}} ->
+            io:put_chars(Line),
+            port_loop_2(Port);
+        {Port, {data, {eol, Line}}} ->
+            io:put_chars([Line, ~"\n"]),
+            port_loop_2(Port)
     end.
 
 -spec stop() -> node().

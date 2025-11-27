@@ -21,7 +21,6 @@ Daemon for running Common Test in an iterative way from an Erlang Shell
     ping/0,
     push_module/1,
     push_paths/1,
-    set_gl/0,
     discover/1,
     load_changed/0,
     setup_state/0,
@@ -81,10 +80,6 @@ ping() ->
 -spec load_changed() -> [module()] | node_down.
 load_changed() ->
     do_call(load_changed).
-
--spec set_gl() -> ok | node_down.
-set_gl() ->
-    do_call({gl, group_leader()}).
 
 -spec list() -> [{module(), [{non_neg_integer(), string()}]}] | node_down.
 list() ->

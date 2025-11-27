@@ -64,8 +64,6 @@ communicates the result to the test runner.
 
 -export_type([port_settings/0]).
 
--define(DEFAULT_LAUNCH_PORT_OPTIONS, [exit_status, nouse_stdio]).
-
 -type initial_state() :: #{
     test_env := #test_env{}
 }.
@@ -339,8 +337,8 @@ start_test_node(
 
     DefaultOptions =
         case ReplayIo of
-            true -> [stderr_to_stdout, exit_status, {line, 1024}];
-            false -> ?DEFAULT_LAUNCH_PORT_OPTIONS
+            true -> [in, binary, stderr_to_stdout, exit_status, {line, 1024}];
+            false -> [exit_status, nouse_stdio]
         end,
     ?LOG_DEBUG("default options ~tp", [DefaultOptions]),
     LaunchSettings = [

@@ -272,8 +272,7 @@ ensure_initialized() ->
         false,
         [
             fun init_utility_apps/0,
-            fun init_node/0,
-            fun init_group_leader/0
+            fun init_node/0
         ]
     ),
     case PrintInit of
@@ -371,14 +370,6 @@ watchdog() ->
             ),
             erlang:halt()
     end.
-
--spec init_group_leader() -> boolean().
-init_group_leader() ->
-    %% set the group leader unconditionally, we need to do this since
-    %% during init, the group leader is different then the one from the
-    %% started shell
-    ct_daemon:set_gl(),
-    false.
 
 -spec print_tests([{module(), [{non_neg_integer(), string()}]}]) -> string().
 print_tests([]) ->

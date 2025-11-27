@@ -77,8 +77,6 @@ init([InitState]) ->
         RegExOrTestId :: regex() | test_id(),
         Tests :: [#{suite := module(), name := string()}],
         Reason :: discover_error();
-    ({gl, GL}, gen_server:from(), state()) -> {reply, true, state()} when
-        GL :: pid();
     (load_changed, gen_server:from(), state()) -> {reply, [module()], state()};
     (setup, gen_server:from(), state()) -> {reply, undefined | [atom()], state()};
     (output_dir, gen_server:from(), state()) -> {reply, file:filename_all(), state()};
@@ -122,16 +120,6 @@ handle_call({discover, RegExOrTestId}, _From, State) ->
                 ],
                 State}
     end;
-handle_call({gl, GL}, _From, State) ->
-    UserReplayPid = spawn(fun Loop() ->
-        receive
-            Msg -> GL ! Msg
-        end,
-        Loop()
-    end),
-    erlang:unregister(user),
-    erlang:register(user, UserReplayPid),
-    {reply, erlang:group_leader(GL, self()), State};
 handle_call(load_changed, _From, State) ->
     {reply, load_changed_modules(), State};
 handle_call(setup, _From, #{setup := #{setup_state := {Names, _}}} = State) ->
