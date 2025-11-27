@@ -70,8 +70,7 @@
     start_progress_marker => binary(),
     end_progress_marker => binary(),
     outcome := outcome(),
-    details := unicode:chardata(),
-    std_out := unicode:chardata()
+    details := unicode:chardata()
 }.
 
 -type collected_method_result() :: #{
@@ -370,8 +369,7 @@ get_missing_result(Inits, QualifiedName, CollectedStdOut) ->
                 io_lib:format("~ts.[main_testcase]", [QualifiedName])
             ),
             outcome => failed,
-            details => ~"no results for this test were recorded",
-            std_out => ""
+            details => ~"no results for this test were recorded"
         },
     handle_skipped_result(Inits, MainResult, CollectedStdOut).
 

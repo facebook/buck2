@@ -62,7 +62,6 @@
 
 -record(state, {
     cached_user_process :: pid(),
-    io_buffer :: pid() | undefined,
     suite :: ct_suite(),
     groups :: group_path(),
     start_info :: #{method_id() => start_info()},
@@ -182,16 +181,9 @@ init(Id, Opts = #{role := Role}) ->
 -spec init_role_top(Id :: term(), ServerName :: atom(), Output :: stdout | {file, string()}) ->
     {ok, hook_state(), integer()}.
 init_role_top(Id, ServerName, Output) ->
-    % IoBuffer that will catpures all the output produced by ct
-    IoBuffer = whereis(cth_tpx_io_buffer),
-    case IoBuffer of
-        undefined ->
-            undefined;
-        Pid when is_pid(Pid) ->
-            unregister(user),
-            unregister(cth_tpx_io_buffer),
-            register(user, Pid)
-    end,
+    % Currently the GL is configured to log to a file
+    unregister(user),
+    register(user, erlang:group_leader()),
 
     CachedUserProcess =
         case whereis(user) of
@@ -202,7 +194,6 @@ init_role_top(Id, ServerName, Output) ->
         cached_user_process = CachedUserProcess,
         output = Output,
         start_info = #{},
-        io_buffer = IoBuffer,
         groups = [],
         tree_results = cth_tpx_test_tree:new_node(unknown_suite)
     },
@@ -236,7 +227,6 @@ Called before init_per_suite is called.
 -spec pre_init_per_suite(ct_suite(), ct_config(), hook_state()) -> {ct_config_or_skip_or_fail(), hook_state()}.
 pre_init_per_suite(Suite, Config, HookState) ->
     on_shared_state(HookState, ?FUNCTION_NAME, Config, fun(State) ->
-        initialize_stdout_capture(State),
         State1 = collect_start_info(State, ?INIT_PER_SUITE, Suite),
         {Config, State1#state{
             suite = Suite,
@@ -278,7 +268,6 @@ post_init_per_suite(_Suite, _Config, Return, HookState) ->
 -spec pre_end_per_suite(ct_suite(), ct_config(), hook_state()) -> {ct_config(), hook_state()}.
 pre_end_per_suite(Suite, Config, HookState) ->
     on_shared_state(HookState, ?FUNCTION_NAME, Config, fun(State) ->
-        initialize_stdout_capture(State),
         {Config, collect_start_info(State, ?END_PER_SUITE, Suite)}
     end).
 
@@ -325,13 +314,8 @@ post_end_per_suite(_Suite, _Config, Return, HookState) ->
     end).
 
 -spec clear_suite(#state{}) -> #state{}.
-clear_suite(#state{io_buffer = IoBuffer} = State) ->
-    case IoBuffer of
-        undefined -> ok;
-        Pid -> io_buffer:stop_capture(Pid)
-    end,
+clear_suite(State) ->
     State#state{
-        io_buffer = undefined,
         suite = undefined,
         groups = [],
         start_info = #{}
@@ -341,11 +325,9 @@ clear_suite(#state{io_buffer = IoBuffer} = State) ->
 pre_init_per_group(_SuiteName, Group, Config, HookState) ->
     on_shared_state(HookState, ?FUNCTION_NAME, Config, fun
         (State = #state{groups = [_ | Groups], previous_group_failed = true}) ->
-            initialize_stdout_capture(State),
             State1 = collect_start_info(State, ?INIT_PER_GROUP, Group),
             {Config, State1#state{groups = Groups, previous_group_failed = false}};
         (#state{} = State) ->
-            initialize_stdout_capture(State),
             {Config, collect_start_info(State, ?INIT_PER_GROUP, Group)}
     end).
 
@@ -415,7 +397,6 @@ fail_group(State) ->
 -spec pre_end_per_group(ct_suite(), ct_groupname(), ct_config(), hook_state()) -> {ct_config(), hook_state()}.
 pre_end_per_group(_SuiteName, Group, Config, HookState) ->
     on_shared_state(HookState, ?FUNCTION_NAME, Config, fun(State) ->
-        initialize_stdout_capture(State),
         {Config, collect_start_info(State, ?END_PER_GROUP, Group)}
     end).
 
@@ -466,7 +447,6 @@ post_end_per_group(_Suite, _Group, _Config, Return, HookState) ->
 -spec pre_init_per_testcase(ct_suite(), ct_testname(), ct_config(), hook_state()) -> {ct_config(), hook_state()}.
 pre_init_per_testcase(_Suite, TestCase, Config, HookState) ->
     on_shared_state(HookState, ?FUNCTION_NAME, Config, fun(State) ->
-        initialize_stdout_capture(State),
         %% store name and start time for current test case
         %% We capture time twice:
         %%  1) For the init_per_testcase.
@@ -539,26 +519,15 @@ add_result(
         cached_user_process = UserProcess,
         groups = Groups,
         start_info = StartInfo0,
-        tree_results = TreeResults,
-        io_buffer = IoBuffer
+        tree_results = TreeResults
     }
 ) ->
-    StdOut =
-        case IoBuffer of
-            undefined ->
-                "";
-            BufferPid ->
-                {Io, _Truncated} = io_buffer:flush(BufferPid),
-                Io
-        end,
-
     QualifiedName = method_name(Method, Groups),
     TS = second_timestamp(),
     Result0 = #{
         name => QualifiedName,
         outcome => Outcome,
-        details => unicode_characters_to_list(Desc),
-        std_out => StdOut
+        details => unicode_characters_to_list(Desc)
     },
     Result =
         case StartInfo0 of
@@ -715,17 +684,6 @@ write_output({file, FN}, JSON) ->
     ok = file:write_file(FN, JSON, [raw, binary]);
 write_output(stdout, JSON) ->
     io:format(user, "~tp", [JSON]).
-
--spec initialize_stdout_capture(shared_state()) -> ok.
-initialize_stdout_capture(#state{io_buffer = IoBuffer} = _State) ->
-    case IoBuffer of
-        undefined ->
-            ok;
-        Pid when erlang:is_pid(Pid) ->
-            io_buffer:stop_capture(Pid),
-            io_buffer:flush(Pid),
-            io_buffer:start_capture(Pid)
-    end.
 
 -spec collect_start_info(State, MethodId, Context) -> shared_state() when
     State :: shared_state(),
