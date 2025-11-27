@@ -37,7 +37,7 @@ impl StarlarkProfileDataAndStatsDyn for StarlarkProfileDataAndStats {
 }
 
 impl StarlarkProfileDataAndStats {
-    pub fn elapsed(&self) -> Duration {
+    pub fn duration(&self) -> Duration {
         self.finalized_at.duration_since(self.initialized_at)
     }
 

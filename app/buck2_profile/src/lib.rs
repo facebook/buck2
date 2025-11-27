@@ -173,7 +173,7 @@ pub fn get_profile_response(
     write_starlark_profile(profile_data.as_ref(), targets, output)?;
 
     Ok(buck2_cli_proto::ProfileResponse {
-        elapsed: Some(profile_data.elapsed().try_into()?),
+        elapsed: Some(profile_data.duration().try_into()?),
         total_retained_bytes: profile_data.total_retained_bytes() as u64,
     })
 }
