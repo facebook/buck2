@@ -354,7 +354,7 @@ impl LocalExecutor {
                     .await
                 };
 
-                let execution_time = execution_start.elapsed();
+                let execution_time = Instant::now() - execution_start;
 
                 (execution_time, start_time, r)
             },
@@ -560,7 +560,7 @@ impl LocalExecutor {
                 let scratch_path = r1?.scratch;
                 r2?;
 
-                buck2_error::Ok((scratch_path, start.elapsed()))
+                buck2_error::Ok((scratch_path, Instant::now() - start))
             },
         )
         .boxed()

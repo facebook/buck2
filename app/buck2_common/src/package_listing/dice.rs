@@ -60,7 +60,7 @@ impl Key for PackageListingKey {
         .await;
 
         ctx.store_evaluation_data(PackageListingKeyActivationData {
-            duration: now.elapsed(),
+            duration: Instant::now() - now,
             spans,
         })?;
 

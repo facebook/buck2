@@ -574,7 +574,7 @@ impl EventsCtx {
         async fn finalize(subscriber: &mut dyn EventSubscriber, errors: &mut Vec<String>) {
             let start = Instant::now();
             let res = subscriber.finalize().await;
-            let elapsed = start.elapsed();
+            let elapsed = Instant::now() - start;
             if elapsed > Duration::from_millis(1000) {
                 tracing::warn!("Finalizing \'{}\' took {:?}", subscriber.name(), elapsed);
             } else {

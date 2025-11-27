@@ -356,7 +356,7 @@ mod tests {
             assert!(critical_path_cost >= replacement_costs[cp_idx]);
         }
 
-        let fast = fast.elapsed();
+        let fast = Instant::now() - fast;
 
         let naive = naive_critical_path_cost(dag, None);
         assert_eq!(naive, critical_path_cost);
@@ -369,7 +369,7 @@ mod tests {
             let naive = naive_critical_path_cost(dag, Some((*idx, 0)));
             assert_eq!(naive, *replacement, "replacing node {idx:?} fails");
         }
-        let slow = slow.elapsed();
+        let slow = Instant::now() - slow;
 
         eprintln!("fast: {} us", fast.as_micros());
         eprintln!("slow: {} us", slow.as_micros());

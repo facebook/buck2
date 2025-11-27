@@ -474,7 +474,7 @@ where
             top_level_targets,
         } = self.backend.finish()?;
 
-        let elapsed_compute_critical_path = now.elapsed();
+        let elapsed_compute_critical_path = Instant::now() - now;
 
         let meta_entry_data = NodeData {
             action_node_data: None,

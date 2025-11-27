@@ -10,6 +10,7 @@
 
 use std::collections::HashMap;
 use std::sync::Arc;
+use std::time::Instant;
 
 use buck2_core::io_counters::IoCounterKey;
 use buck2_error::BuckErrorContext;
@@ -265,7 +266,7 @@ impl SnapshotCollector {
         if let Some(system_cpu_us) = process_stats.system_cpu_us {
             snapshot.buck2_system_cpu_us = system_cpu_us;
         }
-        snapshot.daemon_uptime_s = self.daemon.start_time.elapsed().as_secs();
+        snapshot.daemon_uptime_s = (Instant::now() - self.daemon.start_time).as_secs();
         snapshot.buck2_rss = process_stats.rss_bytes;
         let allocator_stats = get_allocator_stats().ok();
         if let Some(alloc_stats) = allocator_stats {

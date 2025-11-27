@@ -1049,7 +1049,7 @@ impl RemoteExecutionClientImpl {
                             // counting. This might not be as accurate as the RE
                             // logging but at least it works even if we get cancelled.
                             if matches!(previous_stage, Stage::QUEUED) {
-                                queue_stats.cumulative_queue_duration += now.elapsed();
+                                queue_stats.cumulative_queue_duration += Instant::now() - now;
                             }
 
                             match next {

@@ -180,7 +180,7 @@ impl DetailedAggregatedMetricsStateTracker {
             }
         }
 
-        all_targets_data.set_compute_time(now.elapsed());
+        all_targets_data.set_compute_time(Instant::now() - now);
 
         Ok(DetailedAggregatedMetrics {
             all_targets_build_metrics: all_targets_data,

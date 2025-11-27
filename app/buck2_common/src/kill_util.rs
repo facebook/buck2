@@ -99,7 +99,7 @@ mod unix {
         check_result(pid, nix::sys::signal::kill(pid, signal))?;
         loop {
             if let Some(timeout) = timeout {
-                if start.elapsed() > timeout {
+                if Instant::now() - start > timeout {
                     break;
                 }
             }

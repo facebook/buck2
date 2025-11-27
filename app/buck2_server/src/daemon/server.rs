@@ -931,7 +931,7 @@ impl DaemonApi for BuckdServer {
 
             let io_provider = daemon_state.data().io.name().to_owned();
 
-            let uptime = self.0.start_instant.elapsed();
+            let uptime = Instant::now() - self.0.start_instant;
 
             let mut base = StatusResponse {
                 process_info: Some(self.0.process_info.clone()),

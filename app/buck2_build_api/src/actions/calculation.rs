@@ -192,7 +192,7 @@ async fn build_action_no_redirect(
         },
         duration: NodeDuration {
             user: action_execution_data.wall_time.unwrap_or_default(),
-            total: now.elapsed(),
+            total: Instant::now() - now,
             queue: action_execution_data.queue_duration,
         },
         spans,

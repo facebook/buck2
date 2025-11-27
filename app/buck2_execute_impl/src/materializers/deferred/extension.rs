@@ -13,6 +13,7 @@ use std::fmt::Debug;
 use std::fmt::Display;
 use std::fmt::Write;
 use std::sync::Arc;
+use std::time::Instant;
 
 use async_trait::async_trait;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
@@ -306,7 +307,7 @@ impl<T> ExtensionCommand<T> for TestIter {
             &mut out,
             "Elapsed for iter() ({} times): {:?}",
             self.count,
-            now.elapsed()
+            Instant::now() - now
         )
         .unwrap();
 
@@ -324,7 +325,7 @@ impl<T> ExtensionCommand<T> for TestIter {
             &mut out,
             "Elapsed for iter().with_paths() ({} times): {:?}",
             self.count,
-            now.elapsed()
+            Instant::now() - now
         )
         .unwrap();
 

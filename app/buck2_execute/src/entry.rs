@@ -196,7 +196,7 @@ fn build_file_metadata(
         let _permit = SEMAPHORE.acquire().await.unwrap();
         let hashing_start = Instant::now();
         let file_digest = file_digest.await??;
-        let hashing_duration = HashingInfo::new(hashing_start.elapsed(), 1);
+        let hashing_duration = HashingInfo::new(Instant::now() - hashing_start, 1);
         let file_metadata = FileMetadata {
             digest: TrackedFileDigest::new(file_digest, digest_config.as_cas_digest_config()),
             is_executable: executable.await?,

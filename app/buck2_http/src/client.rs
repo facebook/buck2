@@ -143,7 +143,7 @@ impl HttpClient {
             if is_hyper_error_due_to_timeout(&e) {
                 HttpError::Timeout {
                     uri,
-                    duration: now.elapsed().as_secs(),
+                    duration: (tokio::time::Instant::now() - now).as_secs(),
                 }
             } else {
                 HttpError::SendRequest { uri, source: e }

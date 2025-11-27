@@ -511,7 +511,7 @@ impl ActionCgroups {
         // This maybe not be enough, but we don't want to wait too long that we encounter OOMs
         if self
             .last_suspend_time
-            .is_some_and(|t| t.elapsed() < Duration::from_secs(1))
+            .is_some_and(|t| Instant::now() - t < Duration::from_secs(1))
         {
             return;
         }
@@ -550,7 +550,7 @@ impl ActionCgroups {
         // to take effect. This ensures that we don't wake too quickly
         if self
             .last_wake_time
-            .is_some_and(|t| t.elapsed() < Duration::from_secs(3))
+            .is_some_and(|t| Instant::now() - t < Duration::from_secs(3))
         {
             return;
         }
@@ -596,7 +596,7 @@ impl ActionCgroups {
         );
 
         if let Some(suspend_start) = suspended_cgroup.suspend_start {
-            let suspend_elapsed = suspend_start.elapsed();
+            let suspend_elapsed = Instant::now() - suspend_start;
 
             suspended_cgroup.cgroup.suspend_duration =
                 Some(match suspended_cgroup.cgroup.suspend_duration {

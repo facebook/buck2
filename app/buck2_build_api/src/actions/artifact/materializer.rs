@@ -62,7 +62,7 @@ impl ArtifactMaterializer for DiceComputations<'_> {
                 };
 
                 if let Some(signals) = self.per_transaction_data().get_build_signals() {
-                    let duration = now.elapsed();
+                    let duration = Instant::now() - now;
 
                     signals.final_materialization(
                         artifact.dupe(),

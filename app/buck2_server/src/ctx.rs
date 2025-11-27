@@ -15,6 +15,7 @@ use std::io::BufWriter;
 use std::marker::PhantomData;
 use std::sync::Arc;
 use std::time::Duration;
+use std::time::Instant;
 
 use allocative::Allocative;
 use async_trait::async_trait;
@@ -619,7 +620,7 @@ impl DiceUpdater for DiceCommandUpdater<'_, '_> {
             .file_watcher
             .sync(ctx)
             .await?;
-        let wait_duration = start.elapsed();
+        let wait_duration = Instant::now() - start;
 
         let mut user_data = self.make_user_computation_data(&cells_and_configs.root_config)?;
         user_data.set_mergebase(mergebase);

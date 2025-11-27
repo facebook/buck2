@@ -337,7 +337,7 @@ impl Span {
             })
         });
 
-        let elapsed = now.elapsed();
+        let elapsed = Instant::now() - now;
         self.stats.max_poll_time = std::cmp::max(elapsed, self.stats.max_poll_time);
         self.stats.total_poll_time += elapsed;
 
@@ -349,7 +349,7 @@ impl Span {
 
         self.dispatcher.event_with_span_id(
             SpanEndEvent {
-                duration: self.start_instant.elapsed().try_into().ok(),
+                duration: (Instant::now() - self.start_instant).try_into().ok(),
                 data: Some(data),
                 stats: Some(buck2_data::SpanStats {
                     max_poll_time_us: self.stats.max_poll_time.as_micros() as u64,

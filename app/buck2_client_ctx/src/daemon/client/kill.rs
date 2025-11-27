@@ -128,7 +128,7 @@ pub(crate) async fn kill(
                     if !kill::process_exists(pid)? {
                         return Ok(());
                     }
-                    if time_req_sent.elapsed() > GRACEFUL_SHUTDOWN_TIMEOUT {
+                    if Instant::now() - time_req_sent > GRACEFUL_SHUTDOWN_TIMEOUT {
                         crate::eprintln!(
                             "Timed out waiting for graceful shutdown of buck2 daemon pid {}",
                             pid
@@ -196,7 +196,7 @@ async fn hard_kill_impl(
         return Ok(());
     };
     let timestamp_after_kill = Instant::now();
-    while start_at.elapsed() < deadline {
+    while Instant::now() - start_at < deadline {
         if handle.has_exited()? {
             return Ok(());
         }
@@ -210,7 +210,7 @@ async fn hard_kill_impl(
         return Ok(());
     }
 
-    let elapsed_s = timestamp_after_kill.elapsed().as_secs_f32();
+    let elapsed_s = (Instant::now() - timestamp_after_kill).as_secs_f32();
     Err(buck2_error!(
         ErrorTag::DaemonWontDieFromKill,
         "Daemon pid {pid} did not die after kill within {elapsed_s:.1}s (status: {status})"

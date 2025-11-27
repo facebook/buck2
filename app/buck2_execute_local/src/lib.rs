@@ -584,7 +584,7 @@ mod tests {
         // ```
         // or it can be empty, which depends on which process is killed first by killpg.
 
-        assert!(now.elapsed() < Duration::from_secs(9)); // Lots of leeway here.
+        assert!(Instant::now() - now < Duration::from_secs(9)); // Lots of leeway here.
 
         Ok(())
     }

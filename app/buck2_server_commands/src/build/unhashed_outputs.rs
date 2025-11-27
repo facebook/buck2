@@ -10,6 +10,7 @@
 
 use std::collections::HashSet;
 use std::path;
+use std::time::Instant;
 
 use buck2_artifact::artifact::artifact_type::BaseArtifactKind;
 use buck2_build_api::build::BuildProviderType;
@@ -80,7 +81,7 @@ pub(crate) fn create_unhashed_outputs(
             );
         }
     }
-    let duration = start.elapsed();
+    let duration = Instant::now() - start;
     info!(
         "Creating {} output compatibility symlinks in {:3}s",
         num_unhashed_links_made,

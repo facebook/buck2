@@ -227,9 +227,8 @@ impl Action for WriteMacrosToFileAction {
             }))
             .await?;
 
-        let wall_time = execution_start
-            .buck_error_context("Action did not set execution_start")?
-            .elapsed();
+        let wall_time = Instant::now()
+            - execution_start.buck_error_context("Action did not set execution_start")?;
 
         let output_values = std::iter::zip(self.outputs.iter(), values.into_iter())
             .map(|(output, value)| (output.get_path().dupe(), value))

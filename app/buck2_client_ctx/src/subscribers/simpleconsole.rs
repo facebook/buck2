@@ -656,7 +656,9 @@ where
     }
 
     async fn tick(&mut self, _: &Tick) -> buck2_error::Result<()> {
-        if self.verbosity.print_status() && self.last_print_time.elapsed() > KEEPALIVE_TIME_LIMIT {
+        if self.verbosity.print_status()
+            && Instant::now() - self.last_print_time > KEEPALIVE_TIME_LIMIT
+        {
             let mut show_stats = self.expect_spans;
 
             for report in self

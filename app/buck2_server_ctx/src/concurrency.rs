@@ -17,6 +17,7 @@
 use std::collections::VecDeque;
 use std::fmt::Debug;
 use std::sync::Arc;
+use std::time::Instant;
 
 use allocative::Allocative;
 use async_condvar_fair::Condvar;
@@ -385,7 +386,7 @@ impl ConcurrencyHandler {
                         let start = std::time::Instant::now();
                         let guard = self.exclusive_command_lock.exclusive_lock(cmd_name).await;
                         self.dice.wait_for_idle().await;
-                        let elapsed = start.elapsed();
+                        let elapsed = Instant::now() - start;
                         (guard, elapsed)
                     } else {
                         (

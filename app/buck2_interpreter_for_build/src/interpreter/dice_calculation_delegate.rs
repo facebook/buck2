@@ -664,7 +664,7 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
 
             if eval_result.starlark_profile.is_some() {
                 return (
-                    now.unwrap().elapsed(),
+                    Instant::now() - now.unwrap(),
                     Err(internal_error!("starlark_profile field must not be set yet").into()),
                 );
             }
@@ -673,7 +673,7 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
         };
 
         (
-            now.map_or(Duration::ZERO, |v| v.elapsed()),
+            now.map_or(Duration::ZERO, |v| Instant::now() - v),
             eval_result.map(Arc::new),
         )
     }

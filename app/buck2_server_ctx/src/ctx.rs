@@ -261,7 +261,7 @@ impl ServerCommandDiceContext for dyn ServerCommandContextTrait + '_ {
                                                 // The period of time between CommandStart and CommandCriticalStart
                                                 // minus the time spent in exclusive command wait and file watcher sync.
                                                 // This represents miscellaneous overhead.
-                                                let total_elapsed = t.elapsed();
+                                                let total_elapsed = Instant::now() - t;
                                                 let other_overhead = total_elapsed
                                                     .saturating_sub(exclusive_wait_elapsed)
                                                     .saturating_sub(file_watcher_sync_duration);

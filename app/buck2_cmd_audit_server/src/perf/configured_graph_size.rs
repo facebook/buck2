@@ -62,7 +62,7 @@ pub(crate) async fn server_execute(
                     // TODO: add a flag to enable this
                     false,
                 )?;
-                let duration = now.elapsed();
+                let duration = Instant::now() - now;
                 results.insert(
                     target,
                     Res {

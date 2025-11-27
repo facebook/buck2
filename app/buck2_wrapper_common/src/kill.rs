@@ -110,7 +110,7 @@ mod tests {
                     break;
                 }
                 assert!(
-                    start.elapsed() < Duration::from_secs(20),
+                    Instant::now() - start < Duration::from_secs(20),
                     "Timed out waiting for process to die"
                 );
                 std::thread::sleep(Duration::from_millis(100));
