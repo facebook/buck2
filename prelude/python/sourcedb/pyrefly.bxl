@@ -55,12 +55,12 @@ def _list_targets(ctx: bxl.Context) -> bxl.ConfiguredTargetSet:
     cquery = ctx.cquery()
     uquery = ctx.uquery()
     files = cquery.deps(uquery.owner(ctx.cli_args.file), 0)  # deps(0) to convert to configured
-    targets = cquery.eval("kind('python_library|alias', %s)", ctx.cli_args.target)
+    targets = cquery.eval("kind('python_library|alias|genrule', %s)", ctx.cli_args.target)
     res = files
     for target in targets.values():
         res += target
 
-    return cquery.deps(res, filter = "kind('python_library|alias', target_deps())")
+    return cquery.deps(res, filter = "kind('python_library|alias|genrule', target_deps())")
 
 def _clean_module(base_module: str, module: str) -> str:
     base_module = base_module.removesuffix("/").replace("/", ".")
@@ -68,7 +68,7 @@ def _clean_module(base_module: str, module: str) -> str:
     sep = ""
     if len(base_module) != 0 and len(module) != 0:
         sep = "."
-    return base_module + sep + module
+    return (base_module + sep + module).removeprefix("gen-py3.").removeprefix("gen-python.")
 
 def _get_and_materialize_sources(
         to_add: list[typing.Any] | dict[str, typing.Any],
@@ -106,6 +106,7 @@ def _main(ctx: bxl.Context) -> None:
 
     to_build = []  # List of targets I need to build
     to_insert = []  # Triples of (target srcs ref, module name, artifact) to insert after building
+    genrule_to_insert = []  # Doubles of (target, entry) to insert after building
     entries = {}  # dict[target, {"deps": list[target], "srcs": dict[qualified_path, list[files]]}]
     json = {"db": entries, "root": ctx.root()}
 
@@ -118,10 +119,13 @@ def _main(ctx: bxl.Context) -> None:
             "prelude//rules.bzl:command_alias",
             "prelude//rules.bzl:export_file",
             "prelude//rules.bzl:filegroup",
-        )
+        ) and x.label.name != "restricted_bin"
     }
 
     for x in targets:
+        if x.label.raw_target() not in known_targets:
+            continue
+
         attrs = x.attrs_lazy()
         entry = {}
         entries[str(x.label.raw_target())] = entry
@@ -150,13 +154,49 @@ def _main(ctx: bxl.Context) -> None:
 
         # TOOD(connernilsen): replace with actual platform later
         entry["python_platform"] = "linux"
-        if attrs.get("deps") == None:
+
+        attr_deps = attrs.get("buck.deps") or attrs.get("deps")
+        if attr_deps == None:
             fail(x.rule_type)
-        attr_deps = attrs.get("deps").value()
+        attr_deps = attr_deps.value()
         for dep in attr_deps:
             dep = dep.raw_target()
             if dep in known_targets:
                 deps.append(str(dep))
+
+        if x.rule_type == "prelude//rules.bzl:genrule":
+            labels = attrs.get("labels")
+            if "custom_rule_internal" in labels.value():
+                # skip internal targets, since they will be materialized later
+                continue
+            to_build.append(x)
+            out = attrs.get("out")
+            outs = attrs.get("outs")
+            if out == None and outs == None:
+                continue
+
+            if out != None and out.value() != None:
+                path = out.value()
+                for suffix in _MODULE_SUFFIXES:
+                    if path.endswith(suffix):
+                        to_build.append(x)
+                        to_insert.append((srcs, _clean_module("", path), x.label.with_sub_target()))
+                        continue
+            elif outs != None and outs.value() != None:
+                if len(outs.value()) == 1:
+                    module_path = list(outs.value().keys())[0]
+                    to_build.append(x)
+                    to_insert.append((srcs, _clean_module("", module_path), x.label.with_sub_target()))
+                    continue
+                genrule_to_insert.append((x, entry))
+                for (module_path, src_paths) in outs.value().items():
+                    for suffix in _MODULE_SUFFIXES:
+                        if len(src_paths) < 1:
+                            fail("Target src has no output path: {}".format(x.label))
+                        if module_path.endswith(suffix):
+                            _append_or_default_if_module(srcs, _clean_module("", module_path), src_paths[0])
+                        continue
+            continue
 
         # add type stubs first, so that they're preferred by Pyrefly
         type_stubs = attrs.get("type_stubs")
@@ -187,6 +227,10 @@ def _main(ctx: bxl.Context) -> None:
         ensured = ctx.output.ensure_multiple(built)
         for srcs, module_name, target in to_insert:
             _append_or_default_if_module(srcs, module_name, ensured[target][0].rel_path())
+        for target, entry in genrule_to_insert:
+            label = target.label.with_sub_target()
+            relative_to = ensured[label][0].rel_path()
+            entry["relative_to"] = relative_to
 
     ctx.output.print_json(json)
 
