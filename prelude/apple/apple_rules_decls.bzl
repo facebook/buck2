@@ -361,7 +361,7 @@ apple_binary = prelude_rule(
             "prefer_stripped_objects": attrs.bool(default = False),
             "preferred_linkage": attrs.enum(Linkage.values(), default = "any"),
             "prefix_header": attrs.option(attrs.source(), default = None),
-            "propagated_target_sdk_version": attrs.option(attrs.string(), default = None),
+            "minimum_os_version": attrs.option(attrs.string(), default = None),
             "public_include_directories": attrs.set(attrs.string(), sorted = True, default = []),
             "public_system_include_directories": attrs.set(attrs.string(), sorted = True, default = []),
             "raw_headers": attrs.set(attrs.source(), sorted = True, default = []),
@@ -677,7 +677,7 @@ apple_library = prelude_rule(
             "precompiled_header": attrs.option(attrs.dep(providers = [CPrecompiledHeaderInfo]), default = None),
             "preferred_linkage": attrs.enum(Linkage.values(), default = "any"),
             "prefix_header": attrs.option(attrs.source(), default = None),
-            "propagated_target_sdk_version": attrs.option(attrs.string(), default = None),
+            "minimum_os_version": attrs.option(attrs.string(), default = None),
             "public_framework_headers": attrs.named_set(attrs.source(), sorted = True, default = []),
             "sdk_modules": attrs.list(attrs.string(), default = []),
             # Mach-O file type for binary when the target is built as a shared library.

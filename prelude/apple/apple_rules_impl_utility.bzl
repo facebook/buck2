@@ -157,8 +157,8 @@ def apple_test_extra_attrs():
         "extension": attrs.string(),
         "link_execution_preference": link_execution_preference_attr(),
         "link_ordering": attrs.option(attrs.enum(LinkOrdering.values()), default = None),
+        "minimum_os_version": attrs.option(attrs.string(), default = None),
         "precompiled_header": attrs.option(attrs.dep(providers = [CPrecompiledHeaderInfo]), default = None),
-        "propagated_target_sdk_version": attrs.option(attrs.string(), default = None),
         # Expected by `apple_bundle`, for `apple_test` this field is always None.
         "resource_group": attrs.option(attrs.string(), default = None),
         # Expected by `apple_bundle`, for `apple_test` this field is always None.
@@ -224,8 +224,8 @@ def apple_bundle_extra_attrs():
         "bundle_type": attrs.option(attrs.enum(AppleBundleTypeAttributeType.values()), default = None),
         "copy_public_framework_headers": attrs.option(attrs.bool(), default = None),
         "embed_xctest_frameworks": attrs.bool(default = _embed_xctest_frameworks_default_value()),
+        "minimum_os_version": attrs.option(attrs.string(), default = None),
         "module_map": attrs.option(attrs.one_of(attrs.enum(AppleFrameworkBundleModuleMapType), attrs.source()), default = None),
-        "propagated_target_sdk_version": attrs.option(attrs.string(), default = None),
         "resource_group_map": RESOURCE_GROUP_MAP_ATTR,
         "selective_debugging": attrs.option(attrs.dep(providers = [AppleSelectiveDebuggingInfo]), default = None),
         "split_arch_dsym": attrs.bool(default = False),
