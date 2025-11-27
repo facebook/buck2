@@ -225,13 +225,13 @@ provide_output_file(
                                     ),
                                 collect_results_broken_run(Tests, Suite, ErrorMsg, ResultExec, LogFilesForCrashes);
                             _ ->
-                                {ok, _} = ct_stdout:process_raw_stdout_log(
+                                {ok, CollectedStdOut} = ct_stdout:process_raw_stdout_log(
                                     RawStdOutFile,
                                     StdOutFile,
                                     TreeResults,
                                     ?MAX_STDOUT_BYTES_PER_TESTCASE
                                 ),
-                                collect_results_fine_run(TreeResults, Tests)
+                                collect_results_fine_run(TreeResults, Tests, CollectedStdOut)
                         end;
                     {error, _Reason} ->
                         ErrorMsg = io_lib:format(~"ct failed to produced results file ~tp", [
@@ -348,9 +348,12 @@ collect_results_broken_run(Tests, _Suite, ErrorMsg, ResultExec, RelevantLogFiles
 Provide the results from the tests as specified by tpx protocol, from the json file
 provided by ct displaying results of all the tests ran.
 """.
--spec collect_results_fine_run(cth_tpx_test_tree:tree_node(), [#ct_test{}]) -> [cth_tpx_test_tree:collected_result()].
-collect_results_fine_run(TreeResults, Tests) ->
-    cth_tpx_test_tree:collect_results(TreeResults, maps:from_list(get_requested_tests(Tests))).
+-spec collect_results_fine_run(TestResults, Tests, CollectedStdOut) -> [cth_tpx_test_tree:collected_result()] when
+    TestResults :: cth_tpx_test_tree:tree_node(),
+    Tests :: [#ct_test{}],
+    CollectedStdOut :: ct_stdout:collected_stdout().
+collect_results_fine_run(TreeResults, Tests, CollectedStdOut) ->
+    cth_tpx_test_tree:collect_results(TreeResults, maps:from_list(get_requested_tests(Tests)), CollectedStdOut).
 
 -doc """
 Returns a list of the tests by classifying from the (sequence) of groups they belong.
