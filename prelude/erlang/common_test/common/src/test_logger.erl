@@ -17,20 +17,20 @@
 set_up_logger(LogDir, AppName, Type) ->
     Log = get_log_file(LogDir, AppName),
     filelib:ensure_dir(Log),
-    StdOut = get_std_out(LogDir, AppName),
-    filelib:ensure_dir(StdOut),
     [logger:update_handler_config(Id, level, none) || Id <- logger:get_handler_ids()],
     case Type of
         no_capture_stdout ->
             ok;
         capture_stdout ->
+            StdOut = get_std_out(LogDir, AppName),
+            filelib:ensure_dir(StdOut),
             {ok, LogFileOpened} = file:open(StdOut, [write, {encoding, utf8}]),
+            test_artifact_directory:link_to_artifact_dir(StdOut, LogDir, fun artifact_annotations:default_annotation/1),
             group_leader(
                 LogFileOpened, self()
             )
     end,
-    configure_logger(Log),
-    test_artifact_directory:link_to_artifact_dir(StdOut, LogDir, fun artifact_annotations:default_annotation/1).
+    configure_logger(Log).
 
 -spec configure_logger(file:filename_all()) -> ok.
 configure_logger(LogFile) ->

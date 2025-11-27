@@ -181,10 +181,6 @@ init(Id, Opts = #{role := Role}) ->
 -spec init_role_top(Id :: term(), ServerName :: atom(), Output :: stdout | {file, string()}) ->
     {ok, hook_state(), integer()}.
 init_role_top(Id, ServerName, Output) ->
-    % Currently the GL is configured to log to a file
-    unregister(user),
-    register(user, erlang:group_leader()),
-
     CachedUserProcess =
         case whereis(user) of
             UserPid when is_pid(UserPid) -> UserPid

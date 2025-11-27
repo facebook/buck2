@@ -31,7 +31,7 @@ communicates the result to the test runner.
 
 -export([
     start_test_node/6,
-    start_test_node/8,
+    start_test_node/7,
     cookie/0,
     generate_arg_tuple/2,
     project_root/0
@@ -70,6 +70,7 @@ communicates the result to the test runner.
 -type state() ::
     #{
         test_env := #test_env{},
+        stdout_file_handle := file:fd(),
         port := erlang:port()
     }.
 
@@ -93,9 +94,14 @@ init(#test_env{} = TestEnv) ->
     State1 :: state(),
     Reason :: ct_runner_failed.
 handle_continue({run, PortEpmd}, #{test_env := TestEnv} = State0) ->
+    RawStdOutFile = test_logger:get_std_out(TestEnv#test_env.output_dir, ct_executor),
+    {ok, FileHandle} = file:open(RawStdOutFile, [write, binary, raw, delayed_write]),
     try run_test(TestEnv, PortEpmd) of
         Port ->
-            State1 = State0#{port => Port},
+            State1 = State0#{
+                port => Port,
+                stdout_file_handle => FileHandle
+            },
             {noreply, State1}
     catch
         Class:Reason:Stack ->
@@ -113,9 +119,9 @@ handle_continue({run, PortEpmd}, #{test_env := TestEnv} = State0) ->
     when
         Port :: erlang:port(),
         ExitStatus :: integer();
-    ({Port, {data, Data}}, state()) -> {noreply, state()} when
+    ({Port, {data, {eol | noeol, Data}}}, state()) -> {noreply, state()} when
         Port :: erlang:port(),
-        Data :: string();
+        Data :: binary();
     ({Port, closed}, state()) -> {stop, ct_port_closed, state()} | {noreply, state()} when
         Port :: erlang:port();
     ({'EXIT', Port, Reason}, state()) -> {stop, {ct_port_exit, Reason}, state()} | {noreply, state()} when
@@ -149,8 +155,9 @@ handle_info(
             test_runner:mark_failure(ErrorMsg)
     end,
     {stop, {ct_run_finished, ExitStatus}, State};
-handle_info({_Port, {data, Data}}, State) ->
-    ?LOG_DEBUG("~ts", [Data]),
+handle_info({_Port, {data, {eol, Data}}}, State) ->
+    Handle = maps:get(stdout_file_handle, State),
+    file:write(Handle, [Data, "\n"]),
     {noreply, State};
 handle_info({Port, closed}, #{port := Port} = State) ->
     {stop, ct_port_closed, State};
@@ -168,7 +175,8 @@ handle_cast(_Request, _State) -> error(not_implemented).
 -spec terminate(Reason, State) -> ok when
     Reason :: normal | shutdown | {shutdown, term()} | term(),
     State :: initial_state() | state().
-terminate(_Reason, #{port := Port}) ->
+terminate(_Reason, #{port := Port} = State) ->
+    close_stdout_file(State),
     test_exec:kill_process(Port);
 terminate(_Reason, _State) ->
     ok.
@@ -218,8 +226,7 @@ run_test(
                 {"ERL_EPMD_PORT", integer_to_list(PortEpmd)},
                 {"PROJECT_ROOT", ProjectRoot}
             ]}
-        ],
-        false
+        ]
     ).
 
 -spec build_common_args(
@@ -283,8 +290,7 @@ start_test_node(
         CodePath,
         ConfigFiles,
         OutputDir,
-        PortSettings0,
-        false
+        PortSettings0
     ).
 
 -spec start_test_node(
@@ -294,8 +300,7 @@ start_test_node(
     CodePath :: [file:filename_all()],
     ConfigFiles :: [file:filename_all()],
     OutputDir :: file:filename_all(),
-    PortSettings :: port_settings(),
-    ReplayIo :: boolean()
+    PortSettings :: port_settings()
 ) -> port().
 start_test_node(
     ErlCmd,
@@ -304,8 +309,7 @@ start_test_node(
     CodePath,
     ConfigFiles,
     OutputDir,
-    PortSettings0,
-    ReplayIo
+    PortSettings0
 ) ->
     % we handle ErlCmd and Trampolines as one and execute the first
     % executale in the chain
@@ -334,12 +338,11 @@ start_test_node(
         [args, env, cd]
     ),
 
-    DefaultOptions =
-        case ReplayIo of
-            true -> [in, binary, stderr_to_stdout, exit_status, {line, 1024}];
-            false -> [exit_status, nouse_stdio]
-        end,
-    ?LOG_DEBUG("default options ~tp", [DefaultOptions]),
+    % NB using stderr_to_stdout here can make it so that we don't get the
+    % exit_status once the port exits if it opened another port with use_stdio
+    % as in blocking_process_SUITE (see https://github.com/erlang/otp/issues/10411)
+    DefaultOptions = [in, binary, use_stdio, exit_status, {line, 1024}],
+
     LaunchSettings = [
         {args, LaunchArgs},
         {env, LaunchEnv},
@@ -434,3 +437,9 @@ project_root() ->
             ?LOG_ERROR(#{directory => Dir, stat => FileInfo}),
             error({project_root_not_found, Dir})
     end.
+
+-spec close_stdout_file(State) -> ok when
+    State :: state().
+close_stdout_file(#{stdout_file_handle := Handle}) ->
+    file:close(Handle),
+    ok.

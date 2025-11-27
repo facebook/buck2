@@ -85,8 +85,7 @@ start(
             CodePaths,
             ConfigFiles,
             OutputDir,
-            [{args, Args}, {cd, OutputDir}],
-            true
+            [{args, Args}, {cd, OutputDir}]
         ),
         port_loop_1(Port, MainProc)
     end),
