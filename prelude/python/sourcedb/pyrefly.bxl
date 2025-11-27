@@ -72,6 +72,7 @@ def _clean_module(base_module: str, module: str) -> str:
 
 def _get_and_materialize_sources(
         to_add: list[typing.Any] | dict[str, typing.Any],
+        to_remove: dict[str, typing.Any],
         base_module: str,
         srcs: dict[str, list[str | bxl.EnsuredArtifact]],
         to_build: list[typing.Any],
@@ -88,6 +89,15 @@ def _get_and_materialize_sources(
             elif type(v) != "Label" and getattr(v, "short_path"):
                 to_build.append(v)
                 to_insert.append((srcs, _clean_module(base_module, v.short_path), v))
+            elif type(v) == "Label" and "=" in str(v.raw_target()):
+                split_target = str(v.raw_target()).split("=")
+                if len(split_target) != 2:
+                    return
+                to_remove[str(v.raw_target())] = None
+                to_remove[str(split_target[0])] = None
+                relative_path = split_target[1]
+                to_build.append(v)
+                to_insert.append((srcs, _clean_module("", relative_path), v))
     elif type(to_add) == type({}):
         for k, v in to_add.items():
             if getattr(v, "is_source", False):
@@ -104,6 +114,7 @@ def _main(ctx: bxl.Context) -> None:
     targets = _list_targets(ctx)
     fs = ctx.fs
 
+    to_remove = {}  # Set of targets to remove at the end
     to_build = []  # List of targets I need to build
     to_insert = []  # Triples of (target srcs ref, module name, artifact) to insert after building
     genrule_to_insert = []  # Doubles of (target, entry) to insert after building
@@ -123,7 +134,7 @@ def _main(ctx: bxl.Context) -> None:
     }
 
     for x in targets:
-        if x.label.raw_target() not in known_targets:
+        if x.label.raw_target() not in known_targets or str(x.label.raw_target()) in to_remove:
             continue
 
         attrs = x.attrs_lazy()
@@ -167,7 +178,9 @@ def _main(ctx: bxl.Context) -> None:
         if x.rule_type == "prelude//rules.bzl:genrule":
             labels = attrs.get("labels")
             if "custom_rule_internal" in labels.value():
-                # skip internal targets, since they will be materialized later
+                # skip internal targets, since they will be materialized as part
+                # of their including target
+                to_remove[str(x.label.raw_target())] = None
                 continue
             to_build.append(x)
             out = attrs.get("out")
@@ -203,6 +216,7 @@ def _main(ctx: bxl.Context) -> None:
         type_stubs = {} if type_stubs == None else type_stubs.value()
         _get_and_materialize_sources(
             type_stubs,
+            to_remove,
             base_module,
             srcs,
             to_build,
@@ -215,6 +229,7 @@ def _main(ctx: bxl.Context) -> None:
         attr_srcs = {} if attr_srcs == None else attr_srcs.value()
         _get_and_materialize_sources(
             attr_srcs,
+            to_remove,
             base_module,
             srcs,
             to_build,
@@ -231,6 +246,9 @@ def _main(ctx: bxl.Context) -> None:
             label = target.label.with_sub_target()
             relative_to = ensured[label][0].rel_path()
             entry["relative_to"] = relative_to
+
+    for remove in to_remove:
+        entries.pop(remove)
 
     ctx.output.print_json(json)
 
