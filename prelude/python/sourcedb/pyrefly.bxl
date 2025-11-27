@@ -70,29 +70,58 @@ def _clean_module(base_module: str, module: str) -> str:
         sep = "."
     return base_module + sep + module
 
+def _get_and_materialize_sources(
+        to_add: list[typing.Any] | dict[str, typing.Any],
+        base_module: str,
+        srcs: dict[str, list[str | bxl.EnsuredArtifact]],
+        to_build: list[typing.Any],
+        to_insert: list[typing.Any],
+        fs: bxl.Filesystem):
+    if type(to_add) == type([]):
+        for v in to_add:
+            if getattr(v, "is_source", False):
+                _append_or_default_if_module(
+                    srcs,
+                    _clean_module(base_module, v.short_path),
+                    fs.project_rel_path(v),
+                )
+            elif type(v) != "Label" and getattr(v, "short_path"):
+                to_build.append(v)
+                to_insert.append((srcs, _clean_module(base_module, v.short_path), v))
+    elif type(to_add) == type({}):
+        for k, v in to_add.items():
+            if getattr(v, "is_source", False):
+                _append_or_default_if_module(
+                    srcs,
+                    _clean_module(base_module, k),
+                    fs.project_rel_path(v),
+                )
+            else:
+                to_build.append(v)
+                to_insert.append((srcs, _clean_module(base_module, k), v))
+
 def _main(ctx: bxl.Context) -> None:
     targets = _list_targets(ctx)
     fs = ctx.fs
 
     to_build = []  # List of targets I need to build
-    to_insert = []  # Triples of (module, key, target) to insert after building
+    to_insert = []  # Triples of (target srcs ref, module name, artifact) to insert after building
     entries = {}  # dict[target, {"deps": list[target], "srcs": dict[qualified_path, list[files]]}]
     json = {"db": entries, "root": ctx.root()}
 
     # We only want to add `deps` to targets that are in the output.
-    known_targets = {x.label.raw_target(): None for x in targets}
-
-    for x in targets:
-        # TODO(connernilsen): is this how we should be excluding this alias type,
-        # or should it instead be done in the `kind` filter
-        if x.rule_type in (
+    known_targets = {
+        x.label.raw_target(): None
+        for x in targets
+        if x.rule_type not in (
             "forward",
             "prelude//rules.bzl:command_alias",
             "prelude//rules.bzl:export_file",
             "prelude//rules.bzl:filegroup",
-        ):
-            continue
+        )
+    }
 
+    for x in targets:
         attrs = x.attrs_lazy()
         entry = {}
         entries[str(x.label.raw_target())] = entry
@@ -129,37 +158,35 @@ def _main(ctx: bxl.Context) -> None:
             if dep in known_targets:
                 deps.append(str(dep))
 
+        # add type stubs first, so that they're preferred by Pyrefly
+        type_stubs = attrs.get("type_stubs")
+        type_stubs = {} if type_stubs == None else type_stubs.value()
+        _get_and_materialize_sources(
+            type_stubs,
+            base_module,
+            srcs,
+            to_build,
+            to_insert,
+            fs,
+        )
+
         # python_binary might be the root target, which doesn't have `srcs`.
         attr_srcs = attrs.get("srcs")
         attr_srcs = {} if attr_srcs == None else attr_srcs.value()
-        if type(attr_srcs) == type([]):
-            for v in attr_srcs:
-                if getattr(v, "is_source", False):
-                    _append_or_default_if_module(
-                        srcs,
-                        _clean_module(base_module, v.short_path),
-                        fs.project_rel_path(v),
-                    )
-                elif type(v) != "Label" and getattr(v, "short_path"):
-                    to_build.append(v)
-                    to_insert.append((srcs, _clean_module(base_module, v.short_path), v))
-        elif type(attr_srcs) == type({}):
-            for k, v in attr_srcs.items():
-                if getattr(v, "is_source", False):
-                    _append_or_default_if_module(
-                        srcs,
-                        _clean_module(base_module, k),
-                        fs.project_rel_path(v),
-                    )
-                else:
-                    to_build.append(v)
-                    to_insert.append((srcs, _clean_module(base_module, k), v))
+        _get_and_materialize_sources(
+            attr_srcs,
+            base_module,
+            srcs,
+            to_build,
+            to_insert,
+            fs,
+        )
 
     if to_build:
         built = ctx.build(to_build)
         ensured = ctx.output.ensure_multiple(built)
-        for srcs, key, target in to_insert:
-            _append_or_default_if_module(srcs, key, ensured[target][0].rel_path())
+        for srcs, module_name, target in to_insert:
+            _append_or_default_if_module(srcs, module_name, ensured[target][0].rel_path())
 
     ctx.output.print_json(json)
 
