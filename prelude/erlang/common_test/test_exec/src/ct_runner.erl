@@ -70,7 +70,6 @@ communicates the result to the test runner.
 -type state() ::
     #{
         test_env := #test_env{},
-        std_out := [string()],
         port := erlang:port()
     }.
 
@@ -96,7 +95,7 @@ init(#test_env{} = TestEnv) ->
 handle_continue({run, PortEpmd}, #{test_env := TestEnv} = State0) ->
     try run_test(TestEnv, PortEpmd) of
         Port ->
-            State1 = State0#{std_out => [], port => Port},
+            State1 = State0#{port => Port},
             {noreply, State1}
     catch
         Class:Reason:Stack ->
@@ -150,9 +149,9 @@ handle_info(
             test_runner:mark_failure(ErrorMsg)
     end,
     {stop, {ct_run_finished, ExitStatus}, State};
-handle_info({_Port, {data, Data}}, #{std_out := StdOut} = State) ->
+handle_info({_Port, {data, Data}}, State) ->
     ?LOG_DEBUG("~ts", [Data]),
-    {noreply, State#{std_out => [Data | StdOut]}};
+    {noreply, State};
 handle_info({Port, closed}, #{port := Port} = State) ->
     {stop, ct_port_closed, State};
 handle_info({'EXIT', Port, Reason}, #{port := Port} = State) ->
