@@ -1315,9 +1315,21 @@ where
             // Wrap the blob reader in a compression reader
             let reader: Pin<Box<dyn AsyncRead + Unpin + Send>> = match bystream_compressor {
                 None => Pin::new(Box::new(blob_reader)),
-                Some(Compressor::Zstd) => Pin::new(Box::new(ZstdDecoder::new(blob_reader))),
-                Some(Compressor::Deflate) => Pin::new(Box::new(DeflateDecoder::new(blob_reader))),
-                Some(Compressor::Brotli) => Pin::new(Box::new(BrotliDecoder::new(blob_reader))),
+                Some(Compressor::Zstd) => {
+                    let mut decoder = ZstdDecoder::new(blob_reader);
+                    decoder.multiple_members(true);
+                    Pin::new(Box::new(decoder))
+                }
+                Some(Compressor::Deflate) => {
+                    let mut decoder = DeflateDecoder::new(blob_reader);
+                    decoder.multiple_members(true);
+                    Pin::new(Box::new(decoder))
+                }
+                Some(Compressor::Brotli) => {
+                    let mut decoder = BrotliDecoder::new(blob_reader);
+                    decoder.multiple_members(true);
+                    Pin::new(Box::new(decoder))
+                }
             };
 
             reader
