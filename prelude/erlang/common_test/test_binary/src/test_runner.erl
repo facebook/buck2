@@ -427,22 +427,21 @@ Collect all the ct_hooks entries provided by the user, and add the cth_tpx hook 
     CtHooks :: {ct_hooks, [term()]},
     CtOpts1 :: [term()].
 getCtHook(CtOpts0, ResultOutput) ->
-    {CtOpts1, Hooks} = addOptsHook(CtOpts0, []),
-    CthTpxHooks = [
+    {CtHooksOpts, CtOpts1} = lists:splitwith(
+        fun
+            ({ct_hooks, _}) -> true;
+            (_) -> false
+        end,
+        CtOpts0
+    ),
+    CtHooks0 = [CtHook || {ct_hooks, CtHooks = [_ | _]} <- CtHooksOpts, CtHook <- CtHooks],
+    CtHooks1 = [
         {cth_tpx, #{role => top, result_json => ResultOutput}},
         {cth_tpx, #{role => bot}}
+        | CtHooks0
     ],
-    CtHookHandle = {ct_hooks, CthTpxHooks ++ lists:reverse(Hooks)},
+    CtHookHandle = {ct_hooks, CtHooks1},
     {CtHookHandle, CtOpts1}.
-
--spec addOptsHook([term()], [term()]) -> {[term()], [term()]}.
-addOptsHook(CtOpts, Hooks) ->
-    case lists:keyfind(ct_hooks, 1, CtOpts) of
-        false ->
-            {CtOpts, Hooks};
-        {ct_hooks, NewHooks} when is_list(NewHooks) ->
-            addOptsHook(lists:keydelete(ct_hooks, 1, CtOpts), NewHooks ++ Hooks)
-    end.
 
 -doc """
 Add a spec tuple to the list of ct_options if a tuple defining the property isn't present yet.
