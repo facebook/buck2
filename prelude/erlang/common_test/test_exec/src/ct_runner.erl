@@ -155,9 +155,13 @@ handle_info(
             test_runner:mark_failure(ErrorMsg)
     end,
     {stop, {ct_run_finished, ExitStatus}, State};
-handle_info({_Port, {data, {eol, Data}}}, State) ->
+handle_info({Port, {data, {eol, Data}}}, State = #{port := Port}) ->
     Handle = maps:get(stdout_file_handle, State),
     file:write(Handle, [Data, "\n"]),
+    {noreply, State};
+handle_info({Port, {data, {noeol, Data}}}, State = #{port := Port}) ->
+    Handle = maps:get(stdout_file_handle, State),
+    file:write(Handle, Data),
     {noreply, State};
 handle_info({Port, closed}, #{port := Port} = State) ->
     {stop, ct_port_closed, State};
