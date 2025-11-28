@@ -256,10 +256,10 @@ def _get_test_info(ctx: AnalysisContext, xctest_bundle: Artifact, test_host_app_
         test_device_type = get_default_test_device(sdk = sdk_name, platform = ctx.attrs.default_target_platform.name)
     labels.append(tpx_label_for_test_device_type(test_device_type))
 
-    # @oss-enable local_enabled = True
-    # @oss-enable remote_enabled = False
-    # @oss-enable remote_execution_properties = None
-    # @oss-enable remote_execution_use_case = None
+    local_enabled = True # @oss-enable
+    remote_enabled = False # @oss-enable
+    remote_execution_properties = None # @oss-enable
+    remote_execution_use_case = None # @oss-enable
 
     # @oss-disable[end= ]: if ctx.attrs.test_re_capabilities:
         # @oss-disable[end= ]: remote_execution_properties = ctx.attrs.test_re_capabilities
