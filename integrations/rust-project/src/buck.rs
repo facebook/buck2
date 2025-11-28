@@ -602,6 +602,7 @@ impl Buck {
     ) -> anyhow::Result<FxHashMap<Target, AliasedTargetInfo>> {
         let mut alias_map = self.query_aliased_dependencies(targets, universe_targets)?;
 
+        info!("resolving aliased targets");
         // Recursively expand aliases until we find a target that isn't an alias, or
         // we've queried buck 5 times.
         for _ in 0..5 {
@@ -657,7 +658,6 @@ impl Buck {
             .join(",");
         command.args(["--target-universe", &universe_arg]);
 
-        info!("resolving aliased targets");
         deserialize_output(command.output(), &command)
     }
 
