@@ -410,7 +410,7 @@ build_test_spec(Suite, Tests, TestDir0, OutputDir, CtOpts) ->
         end,
         ListGroupTest
     ),
-    ResultOutput = filename:join(OutputDir, "result.json"),
+    ResultOutput = filename:join(OutputDir, ~"result.json"),
     {TpxCtHook, CtOpts1} = getCtHook(CtOpts, ResultOutput),
     LogDir = set_up_log_dir(OutputDir),
     CtOpts2 = add_spec_if_absent(
@@ -419,17 +419,21 @@ build_test_spec(Suite, Tests, TestDir0, OutputDir, CtOpts) ->
     SpecTests ++ [TpxCtHook] ++ CtOpts2.
 
 -doc """
-Create a ct_hook for the test spec by plugging together
+Collect all the ct_hooks entries provided by the user, and add the cth_tpx hook config.
 """.
--spec getCtHook([term()], string()) -> {term(), [term()]}.
-getCtHook(CtOpts, ResultOutput) ->
-    {NewOpts, Hooks} = addOptsHook(CtOpts, []),
+-spec getCtHook(CtOpts0, ResultOutput) -> {CtHooks, CtOpts1} when
+    CtOpts0 :: [term()],
+    ResultOutput :: file:filename_all(),
+    CtHooks :: {ct_hooks, [term()]},
+    CtOpts1 :: [term()].
+getCtHook(CtOpts0, ResultOutput) ->
+    {CtOpts1, Hooks} = addOptsHook(CtOpts0, []),
     CthTpxHooks = [
         {cth_tpx, #{role => top, result_json => ResultOutput}},
         {cth_tpx, #{role => bot}}
     ],
     CtHookHandle = {ct_hooks, CthTpxHooks ++ lists:reverse(Hooks)},
-    {CtHookHandle, NewOpts}.
+    {CtHookHandle, CtOpts1}.
 
 -spec addOptsHook([term()], [term()]) -> {[term()], [term()]}.
 addOptsHook(CtOpts, Hooks) ->

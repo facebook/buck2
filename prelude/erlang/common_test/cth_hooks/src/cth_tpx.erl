@@ -67,10 +67,10 @@
     start_info :: #{method_id() => start_info()},
     tree_results :: tree_node(),
     previous_group_failed :: boolean() | undefined,
-    output :: {file, string()} | stdout
+    output :: {file, file:filename_all()} | stdout
 }).
 
--type hook_opts() :: #{role := cth_tpx_role:role(), result_json => string()}.
+-type hook_opts() :: #{role := cth_tpx_role:role(), result_json => file:filename_all()}.
 
 -type shared_state() :: #state{}.
 -type hook_state() :: #{
@@ -178,7 +178,7 @@ init(Id, Opts = #{role := Role}) ->
             init_role_bot(Id, ServerName)
     end.
 
--spec init_role_top(Id :: term(), ServerName :: atom(), Output :: stdout | {file, string()}) ->
+-spec init_role_top(Id :: term(), ServerName :: atom(), Output :: stdout | {file, file:filename_all()}) ->
     {ok, hook_state(), integer()}.
 init_role_top(Id, ServerName, Output) ->
     CachedUserProcess =
@@ -673,7 +673,7 @@ terminate(#{role := top, server := Handle}) ->
 terminate(#{role := bot}) ->
     ok.
 
--spec write_output({file, string()} | stdout, binary()) -> ok.
+-spec write_output({file, file:filename_all()} | stdout, binary()) -> ok.
 write_output({file, FN}, JSON) ->
     io:format("Writing result file ~tp~n", [FN]),
     ok = filelib:ensure_dir(FN),
