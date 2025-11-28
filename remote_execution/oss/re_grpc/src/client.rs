@@ -470,8 +470,17 @@ impl REClientBuilder {
             cache_cap
                 .supported_compressors
                 .iter()
-                .cloned()
-                .filter_map(Compressor::from_grpc)
+                .filter_map(
+                    |&compressor_id| match Compressor::from_grpc(compressor_id) {
+                        // The async-compression crate has a bug that truncates
+                        // zstd decompression to the first frame in the stream:
+                        // https://github.com/Nullus157/async-compression/pull/400
+                        // This causes truncated materializations from BuildBuddy:
+                        // https://github.com/facebook/buck2/pull/1103#issuecomment-3413866377
+                        Some(Compressor::Zstd) => None,
+                        compressor => compressor,
+                    },
+                )
                 .collect()
         } else {
             Vec::new()
