@@ -276,11 +276,12 @@ pub enum Compressor {
 
 impl Compressor {
     fn from_grpc(val: i32) -> Option<Self> {
-        // TODO: brotli cannot be supported until google proto definitions are updated
         if val == compressor::Value::Zstd as i32 {
             Some(Self::Zstd)
         } else if val == compressor::Value::Deflate as i32 {
             Some(Self::Deflate)
+        } else if val == compressor::Value::Brotli as i32 {
+            Some(Self::Brotli)
         } else {
             None
         }
@@ -398,12 +399,16 @@ impl REClientBuilder {
         }
 
         // Choose a ByteStream compressor
-        // TODO: brotli cannot be supported until google proto definitions are updated
         let bystream_compressor = if capabilities
             .supported_compressors
             .contains(&Compressor::Zstd)
         {
             Some(Compressor::Zstd)
+        } else if capabilities
+            .supported_compressors
+            .contains(&Compressor::Brotli)
+        {
+            Some(Compressor::Brotli)
         } else if capabilities
             .supported_compressors
             .contains(&Compressor::Deflate)
