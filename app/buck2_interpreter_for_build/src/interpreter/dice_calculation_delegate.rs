@@ -216,13 +216,19 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
                     ctx.get_loaded_module(import.borrow())
                         .await
                         .with_buck_error_context(|| {
-                            format!(
-                                "From load at {}",
-                                span.as_ref()
-                                    .map_or("implicit location".to_owned(), |file_span| file_span
-                                        .resolve()
-                                        .begin_file_line()
-                                        .to_string())
+                            buck2_error::starlark_error::create_starlark_context(
+                                format!(
+                                    "From load at {}",
+                                    span.as_ref().map_or(
+                                        "implicit location".to_owned(),
+                                        |file_span| file_span
+                                            .resolve()
+                                            .begin_file_line()
+                                            .to_string()
+                                    )
+                                ),
+                                span.clone(),
+                                false,
                             )
                         })
                 }
