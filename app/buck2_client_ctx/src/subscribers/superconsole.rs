@@ -1001,10 +1001,20 @@ fn truncate(contents: &str) -> Option<String> {
     const MAX_LENGTH: usize = 200;
     const BUFFER: usize = " ...<omitted>... ".len();
     if contents.len() > MAX_LENGTH + BUFFER {
+        let first_slice_end = contents
+            .char_indices()
+            .map(|(i, _)| i)
+            .nth(MAX_LENGTH / 2)
+            .unwrap();
+        let last_slice_start = contents
+            .char_indices()
+            .map(|(i, _)| i)
+            .nth(contents.len() - MAX_LENGTH / 2)
+            .unwrap();
         Some(format!(
             "{} ...<omitted>... {}",
-            &contents[0..MAX_LENGTH / 2],
-            &contents[contents.len() - MAX_LENGTH / 2..contents.len()]
+            &contents[0..first_slice_end],
+            &contents[last_slice_start..contents.len()]
         ))
     } else {
         None
