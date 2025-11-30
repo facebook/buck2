@@ -67,15 +67,15 @@ def cfg_constructor_pre_constraint_analysis(
     Returns `(refs, PostConstraintAnalysisParams)`, where `refs` is a list of fully qualified configuration
     targets we need providers for.
     """
-    package_modifiers = package_modifiers or []
+    package_modifiers_1 = package_modifiers or []
     target_modifiers = target_modifiers or []
 
     # Convert JSONs back to TaggedModifiers
-    package_modifiers = [json_to_tagged_modifiers(modifier_json) for modifier_json in package_modifiers]
+    tagged_package_modifiers: list[TaggedModifiers] = [json_to_tagged_modifiers(modifier_json) for modifier_json in package_modifiers_1]
 
     # Filter PACKAGE modifiers based on rule name.
     # This only filters out PACKAGE modifiers from `extra_cfg_modifiers_per_rule` argument of `set_cfg_modifiers` function.
-    package_modifiers = [tagged_modifiers for tagged_modifiers in package_modifiers if tagged_modifiers.rule_name == None or tagged_modifiers.rule_name == rule_name]
+    tagged_package_modifiers = [tagged_modifiers for tagged_modifiers in tagged_package_modifiers if tagged_modifiers.rule_name == None or tagged_modifiers.rule_name == rule_name]
 
     # Resolve all aliases in CLI modifiers
     cli_modifiers = [resolved_modifier for modifier in cli_modifiers for resolved_modifier in resolve_alias(modifier, aliases)]
@@ -85,7 +85,7 @@ def cfg_constructor_pre_constraint_analysis(
     if buckconfig_backed_modifiers:
         refs.append(buckconfig_backed_modifiers)
 
-    for tagged_modifiers in package_modifiers:
+    for tagged_modifiers in tagged_package_modifiers:
         for modifier in tagged_modifiers.modifiers:
             refs.extend(modifier_to_refs(modifier, tagged_modifiers.location))
     for modifier in target_modifiers:
@@ -95,7 +95,7 @@ def cfg_constructor_pre_constraint_analysis(
 
     return refs, PostConstraintAnalysisParams(
         legacy_platform = legacy_platform,
-        package_modifiers = package_modifiers,
+        package_modifiers = tagged_package_modifiers,
         target_modifiers = target_modifiers,
         cli_modifiers = cli_modifiers,
         extra_data = extra_data,

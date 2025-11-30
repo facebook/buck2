@@ -6,21 +6,21 @@
 
 Code:
 load("foo.bzl", "foo")
-test = int | foo()
-def test() -> test:
+test_type = int | foo()
+def test() -> test_type:
     pass
 
 No errors.
 
 Approximations:
-Approximation: Unknown type = "Span { begin: Pos(57), end: Pos(61) }"
+Approximation: Unknown type = "Span { begin: Pos(62), end: Pos(71) }"
 
 Compiler typechecker (eval):
 Compiler typechecker and eval results mismatch.
 
 error: String literals are not allowed in type expressions: `"test"`
- --> filename:3:8
+ --> filename:3:13
   |
-3 | test = int | foo()
-  |        ^^^^^^^^^^^
+3 | test_type = int | foo()
+  |             ^^^^^^^^^^^
   |

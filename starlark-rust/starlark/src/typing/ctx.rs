@@ -52,13 +52,45 @@ use crate::typing::oracle::traits::TypingUnOp;
 use crate::typing::ty::Approximation;
 use crate::typing::ty::Ty;
 
+pub(crate) enum BindingType {
+    /// Do not modify during type solver, user provided
+    Annotated(Ty),
+    /// Please solve this binding type
+    Solver(Ty),
+}
+
+impl BindingType {
+    pub(crate) fn into_inner(self) -> Ty {
+        match self {
+            Self::Annotated(x) => x,
+            Self::Solver(x) => x,
+        }
+    }
+}
+
+impl AsRef<Ty> for BindingType {
+    fn as_ref(&self) -> &Ty {
+        self
+    }
+}
+
+impl std::ops::Deref for BindingType {
+    type Target = Ty;
+    fn deref(&self) -> &Self::Target {
+        match self {
+            Self::Annotated(x) => x,
+            Self::Solver(x) => x,
+        }
+    }
+}
+
 pub(crate) struct TypingContext<'a> {
     pub(crate) oracle: TypingOracleCtx<'a>,
     // We'd prefer this to be a &mut self,
     // but that makes writing the code more fiddly, so just RefCell the errors
     pub(crate) errors: RefCell<Vec<TypingError>>,
     pub(crate) approximoations: RefCell<Vec<Approximation>>,
-    pub(crate) types: UnorderedMap<BindingId, Ty>,
+    pub(crate) types: UnorderedMap<BindingId, BindingType>,
     pub(crate) module_var_types: &'a ModuleVarTypes,
 }
 
@@ -240,7 +272,7 @@ impl TypingContext<'_> {
             AssignTargetP::Identifier(x) => {
                 if let Some(i) = x.payload {
                     if let Some(ty) = self.types.get(&i) {
-                        return Ok(ty.clone());
+                        return Ok(ty.as_ref().clone());
                     }
                 }
                 Err(InternalError::msg(
@@ -390,7 +422,7 @@ impl TypingContext<'_> {
                 .unwrap_or_else(Ty::any),
             Some(ResolvedIdent::Slot(_, i)) => {
                 if let Some(ty) = self.types.get(i) {
-                    ty.clone()
+                    ty.as_ref().clone()
                 } else {
                     // All types must be resolved to this point,
                     // this code is unreachable.

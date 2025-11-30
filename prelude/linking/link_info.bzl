@@ -1039,9 +1039,9 @@ LinkCommandDebugOutput = record(
 
 # NB: Debug output is _not_ transitive over deps, so tsets are not used here.
 LinkCommandDebugOutputInfo = provider(
-    fields = [
-        "debug_outputs",  # ["LinkCommandDebugOutput"]
-    ],
+    fields = {
+        "debug_outputs": provider_field(list[LinkCommandDebugOutput]),
+    },
 )
 
 UnstrippedLinkOutputInfo = provider(fields = {

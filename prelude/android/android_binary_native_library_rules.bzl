@@ -232,13 +232,13 @@ def get_android_binary_native_library_info(
         if native_library_merge_non_asset_libs:
             mergemap_cmd.add(cmd_args("--merge-non-asset-libs"))
         native_library_merge_dir = ctx.actions.declare_output("merge_sequence_output")
-        native_library_merge_map = native_library_merge_dir.project("merge.map")
+        native_library_merge_map_file = native_library_merge_dir.project("merge.map")
         split_groups_map = native_library_merge_dir.project("split_groups.map")
         mergemap_cmd.add(cmd_args(native_library_merge_dir.as_output(), format = "--output={}"))
         ctx.actions.run(mergemap_cmd, category = "compute_mergemap", allow_cache_upload = True)
         enhance_ctx.debug_output("compute_merge_sequence", native_library_merge_dir)
 
-        dynamic_inputs.append(native_library_merge_map)
+        dynamic_inputs.append(native_library_merge_map_file)
         dynamic_inputs.append(split_groups_map)
 
     mergemap_gencode_jar = None
@@ -268,7 +268,7 @@ def get_android_binary_native_library_info(
             # When changing this dynamic_output, the workflow is a lot better if you compute the module graph once and
             # then set it as the binary's precomputed_apk_module_graph attr.
             if native_library_merge_sequence:
-                merge_map_by_platform = artifacts[native_library_merge_map].read_json()
+                merge_map_by_platform = artifacts[native_library_merge_map_file].read_json()
                 split_groups = artifacts[split_groups_map].read_json()
                 native_library_merge_debug_outputs["merge_sequence_output"] = native_library_merge_dir
             elif native_library_merge_map:

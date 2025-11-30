@@ -183,11 +183,11 @@ def _parse_filter(entry: str) -> GroupFilterInfo:
         if target_regex != None:
             regex_expr = regex("^{}$".format(target_regex), fancy = True)
 
-            def matches_regex(_r, t, _labels):
+            def matches_regex2(_r, t, _labels):
                 return regex_expr.match(str(t.raw_target()))
 
             return GroupFilterInfo(
-                matches = matches_regex,
+                matches = matches_regex2,
                 info = {"target_regex": str(regex_expr)},
             )
 

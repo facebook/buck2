@@ -468,8 +468,8 @@ def foo() -> str:
         "test_bit_or_with_load",
         r#"
 load("foo.bzl", "foo")
-test = int | foo()
-def test() -> test:
+test_type = int | foo()
+def test() -> test_type:
     pass
 "#,
     );
