@@ -148,7 +148,8 @@ impl Ty {
         }
     }
 
-    pub(crate) const fn basic(basic: TyBasic) -> Self {
+    /// Create a type that is not a union
+    pub const fn basic(basic: TyBasic) -> Self {
         Ty {
             alternatives: SmallArcVec1::one(basic),
         }
@@ -303,6 +304,21 @@ impl Ty {
             [x] => x.as_function(),
             _ => None,
         }
+    }
+
+    /// Typecheck through a callable to its return type.
+    pub fn as_callable_return(&self) -> Option<Ty> {
+        self.typecheck_union_simple(|basic| match basic {
+            TyBasic::Callable(c) => Ok(c.result().dupe()),
+            TyBasic::Custom(custom) => custom
+                .0
+                .as_callable_dyn()
+                .map(|callable| callable.result().dupe())
+                .ok_or(TypingNoContextError),
+            TyBasic::Any => Ok(Ty::any()),
+            _ => Err(TypingNoContextError),
+        })
+        .ok()
     }
 
     /// Create a unions type, which will be normalised before being created.
@@ -494,14 +510,14 @@ impl Ty {
     pub(crate) fn from_native_callable_components(
         comp: &NativeCallableComponents,
         as_type: Option<Ty>,
-    ) -> starlark::Result<Self> {
+    ) -> Self {
         let result = comp.return_type.clone();
 
         let params = comp.param_spec.param_spec();
 
         match as_type {
-            None => Ok(Ty::function(params, result)),
-            Some(type_attr) => Ok(Ty::ctor_function(type_attr, params, result)),
+            None => Ty::function(params, result),
+            Some(type_attr) => Ty::ctor_function(type_attr, params, result),
         }
     }
 

@@ -11,6 +11,7 @@
 mod build_defs;
 mod builtin;
 mod collection;
+mod dependency;
 mod field_types;
 mod provider_symbol;
 mod tests;
