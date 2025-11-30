@@ -622,6 +622,7 @@ impl StatefulSuperConsoleImpl {
             StyledContent::new(
                 ContentStyle {
                     attributes: Attribute::Bold.into(),
+                    foreground_color: Some(Color::Red),
                     ..Default::default()
                 },
                 format!("Action failed: {action_id}",),
@@ -904,9 +905,9 @@ fn lines_for_command_details(
                     }
                 };
 
-                lines.push(Line::from_iter([Span::new_styled_lossy(
-                    format!("Reproduce locally: `{command}`").with(Color::DarkRed),
-                )]));
+                lines.push(Line::from_iter([Span::new_unstyled_lossy(format!(
+                    "Reproduce locally: `{command}`"
+                ))]));
             }
             Some(Command::RemoteCommand(remote_command)) => {
                 let help_message = if buck2_core::is_open_source() {
@@ -939,9 +940,9 @@ fn lines_for_command_details(
                     }
                 };
 
-                lines.push(Line::from_iter([Span::new_styled_lossy(
-                    format!("Reproduce locally: `{command}`").with(Color::DarkRed),
-                )]));
+                lines.push(Line::from_iter([Span::new_unstyled_lossy(format!(
+                    "Reproduce locally: `{command}`"
+                ))]));
             }
             Some(Command::WorkerCommand(worker_command)) => {
                 let command = worker_command_as_fallback_to_string(worker_command);
@@ -957,9 +958,9 @@ fn lines_for_command_details(
                     }
                 };
 
-                lines.push(Line::from_iter([Span::new_styled_lossy(
-                    format!("Reproduce locally: `{command}`").with(Color::DarkRed),
-                )]));
+                lines.push(Line::from_iter([Span::new_unstyled_lossy(format!(
+                    "Reproduce locally: `{command}`"
+                ))]));
             }
         };
     }
