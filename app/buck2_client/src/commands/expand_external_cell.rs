@@ -45,7 +45,7 @@ pub struct ExpandExternalCellsCommand {
 
 const REMINDER_TEXT: &str = "Reminder: For edits to the expanded cell to take effect on \
 your build, you must additionally remove the entry from the `external_cells` section of your \
-buckconfig";
+buckconfig\n";
 
 #[async_trait::async_trait(?Send)]
 impl StreamingCommand for ExpandExternalCellsCommand {
