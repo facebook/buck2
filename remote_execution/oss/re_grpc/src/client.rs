@@ -383,10 +383,6 @@ impl REClientBuilder {
             }
         };
 
-        if !capabilities.exec_enabled {
-            return Err(anyhow::anyhow!("Server has remote execution disabled."));
-        }
-
         let max_decoding_msg_size = opts
             .max_decoding_message_size
             .unwrap_or(capabilities.max_total_batch_size * 2);
