@@ -1,0 +1,5 @@
+# It's a bit tricky to convince GitHub to do this by default (and they probably
+# never will for PACKAGE):
+# https://github.com/github-linguist/linguist/pull/7562
+*.bxl linguist-language=Starlark
+PACKAGE linguist-language=Starlark
