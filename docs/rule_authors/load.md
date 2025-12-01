@@ -41,16 +41,16 @@ load("//path/to/file:name.bzl", alias1="symbol1", alias2="symbol2")
 ## Arguments
 
 - **Path** (required): The first argument is a string specifying the label of
-  the `.bzl` file to load. This follows Buck2's target label syntax:
-  - Absolute: `//package/path:file.bzl`
-  - Relative to cell: `//package:defs.bzl`
-  - From external cell: `@cell//package:defs.bzl`
+  the `.bzl` file to load. This is similar to Buck2's target label syntax but diverges in the `cell` syntax with a prefixed `@`:
+  - Absolute to cell: `//package/path:file.bzl`
+  - Relative to package: `:file.bzl`
+  - From external cell: `@cell//package/path:file.bzl`
 
 - **Symbols** (required): One or more symbols to import from the specified file.
   These can be:
   - **Positional arguments** - Import symbols with their original names:
     `"symbol1", "symbol2"`
-  - **Keyword arguments** - Import symbols with different names:
+  - **Keyword arguments** - Import symbols with aliased names:
     `local_name="remote_name"`
 
 ## Examples
@@ -65,17 +65,12 @@ COMPILER_FLAGS = [
     "-Werror",
     "-O2",
 ]
-
-JARS_TO_EXCLUDE = [
-    "//third_party/guava:guava",
-    "//third_party/jackson:jackson-core",
-]
 ```
 
 You can load these constants in a `BUCK` file:
 
 ```python
-load("//core:defs.bzl", "COMPILER_FLAGS", "JARS_TO_EXCLUDE")
+load("//core:defs.bzl", "COMPILER_FLAGS")
 
 cxx_binary(
     name = "example",
@@ -156,17 +151,22 @@ load(
 - Use `snake_case` for functions and macros
 - Use descriptive names that indicate purpose
 
+### Organization
+
+- `load()` statements must be top level statements and cannot be conditionally executed
+- `load()` statements should be kept at the top of files for clarity
+
 ### Visibility
 
 - `.bzl` files are automatically visible to any target that can see the package
   they're in
 - Use [package visibility](./package.md) to control access to `.bzl` files
+- Keep `load()` statements at the top of files for clarity
 
 ### Performance
 
 - Avoid expensive computation in `.bzl` files during load time
 - `.bzl` files are evaluated once and cached, so minimize side effects
-- Keep `load()` statements at the top of files for clarity
 
 ## Common Patterns
 
@@ -195,7 +195,8 @@ load("//defs:cpp.bzl", "cpp_macro")
 load("//defs:python.bzl", "py_macro")
 
 # Re-export for convenience
-__all__ = ["cpp_macro", "py_macro"]
+export_cpp = cpp_macro
+export_py = py_macro
 ```
 
 ## See Also
