@@ -96,8 +96,11 @@ init(#test_env{} = TestEnv) ->
 handle_continue({run, PortEpmd}, #{test_env := TestEnv} = State0) ->
     OutputDir = TestEnv#test_env.output_dir,
     StdOutFile = ct_stdout:filename(OutputDir),
-    Fingerprint = TestEnv#test_env.ct_stdout_fingerprint,
-    CtStdOutState = ct_stdout:init_process_stdout_state(Fingerprint, StdOutFile),
+    CtStdOutState = ct_stdout:init_process_stdout_state(
+        TestEnv#test_env.ct_stdout_fingerprint,
+        StdOutFile,
+        TestEnv#test_env.ct_stdout_streaming
+    ),
     try run_test(TestEnv, PortEpmd) of
         Port ->
             State1 = State0#{

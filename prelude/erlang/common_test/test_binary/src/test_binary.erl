@@ -185,13 +185,14 @@ running(Args) ->
     Listing = get_listing(TestInfo0, AbsOutputDir),
     ExtraEmuFlags = edb_extra_emu_flags(EdbCode),
     Timeout = max_timeout(TestInfo0, EdbCode),
+    StdoutStreaming = stdout_streaming(EdbCode),
 
     TestInfo1 = TestInfo0#test_info{extra_flags = ExtraEmuFlags ++ TestInfo0#test_info.extra_flags},
     case StartEpmd of
         false -> application:set_env(test_exec, global_epmd_port, global_epmd_port());
         true -> ok
     end,
-    test_runner:run_tests(Tests, TestInfo1, AbsOutputDir, Listing, Timeout).
+    test_runner:run_tests(Tests, TestInfo1, AbsOutputDir, Listing, Timeout, StdoutStreaming).
 
 -spec get_listing(TestInfo, OutputDir) -> #test_spec_test_case{} when
     TestInfo :: #test_info{},
@@ -279,6 +280,11 @@ max_timeout(TestInfo, _EdbCode = none) ->
                 _ -> error("Please allow at least 30s for the binary to execute")
             end
     end.
+
+-spec stdout_streaming(EdbCode) -> output_to_stdout | no_output_to_stdout when
+    EdbCode :: string() | none.
+stdout_streaming(none) -> no_output_to_stdout;
+stdout_streaming(_) -> output_to_stdout.
 
 -spec print_results(file:filename()) -> boolean().
 print_results(ResultsFile) ->

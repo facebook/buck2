@@ -17,7 +17,7 @@ to delimit the output of each test-case.
 -export([make_fingerprint/0]).
 -export([emit_progress/4]).
 -export([process_raw_stdout_log/3, collect_method_stdout/4]).
--export([init_process_stdout_state/2, process_stdout_line/2]).
+-export([init_process_stdout_state/3, process_stdout_line/2]).
 
 -import(common_util, [unicode_characters_to_binary/1]).
 
@@ -49,6 +49,7 @@ Mapping from a "start" marker to the stdout contents associated to that marker.
 -type process_stdout_state() :: #{
     fingerprint := fingerprint(),
     out_handle := file:fd(),
+    write_to_stdout := boolean(),
     progress_markers_seen := #{progress_line() => offset()},
     has_pending_new_line := boolean(),
     pending_progress_marker := [binary()]
@@ -144,21 +145,28 @@ The returned value contains the offset in `OutputFile` for each progress marker 
 process_raw_stdout_log(Fingerprint, RawStdoutFile, OutputFile) ->
     {ok, InHandle} = file:open(RawStdoutFile, [raw, binary, read, read_ahead]),
 
-    State = init_process_stdout_state(Fingerprint, OutputFile),
+    State = init_process_stdout_state(Fingerprint, OutputFile, no_output_to_stdout),
     try
         {ok, process_raw_stdout_log_loop(InHandle, State)}
     after
         file:close(InHandle)
     end.
 
--spec init_process_stdout_state(Fingerprint, OutputFile) -> process_stdout_state() when
+-spec init_process_stdout_state(Fingerprint, OutputFile, StdOutput) -> process_stdout_state() when
     Fingerprint :: fingerprint(),
-    OutputFile :: file:filename_all().
-init_process_stdout_state(Fingerprint, OutputFile) ->
+    OutputFile :: file:filename_all(),
+    StdOutput :: output_to_stdout | no_output_to_stdout.
+init_process_stdout_state(Fingerprint, OutputFile, StdOutOutput) ->
     {ok, OutHandle} = file:open(OutputFile, [raw, write, delayed_write]),
+    WriteToStdout =
+        case StdOutOutput of
+            output_to_stdout -> true;
+            no_output_to_stdout -> false
+        end,
     #{
         fingerprint => Fingerprint,
         out_handle => OutHandle,
+        write_to_stdout => WriteToStdout,
         progress_markers_seen => #{},
         has_pending_new_line => false,
         pending_progress_marker => []
@@ -294,8 +302,9 @@ log_stdout(Chars, State0) ->
         ~"" ->
             ok;
         _ ->
-            #{out_handle := OutH} = State0,
-            file:write(OutH, Chars1)
+            #{out_handle := OutH, write_to_stdout := WriteToStdout} = State0,
+            file:write(OutH, Chars1),
+            not WriteToStdout orelse io:put_chars(Chars1)
     end,
     State1.
 

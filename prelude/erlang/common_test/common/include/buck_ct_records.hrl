@@ -46,7 +46,8 @@
     raw_target :: binary() | undefined,
     trampolines :: [binary()],
     timeout :: timeout(),
-    ct_stdout_fingerprint :: ct_stdout:fingerprint()
+    ct_stdout_fingerprint :: ct_stdout:fingerprint(),
+    ct_stdout_streaming :: output_to_stdout | no_output_to_stdout
 }).
 
 -record(run_specs, {

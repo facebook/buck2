@@ -13,7 +13,7 @@
 -include_lib("common/include/buck_ct_records.hrl").
 -include_lib("kernel/include/logger.hrl").
 
--export([run_tests/5, mark_success/2, mark_failure/2]).
+-export([run_tests/6, mark_success/2, mark_failure/2]).
 
 -export([parse_test_name/2]).
 
@@ -22,13 +22,14 @@
 -define(DEFAULT_OUTPUT_FORMAT, json).
 -define(MAX_STDOUT_BYTES_PER_TESTCASE, (16 * 1024)).
 
--spec run_tests(Tests, TestInfo, OutputDir, Listing, Timeout) -> ok when
+-spec run_tests(Tests, TestInfo, OutputDir, Listing, Timeout, StdoutStreaming) -> ok when
     Tests :: [string()],
     TestInfo :: #test_info{},
     OutputDir :: file:filename_all(),
     Listing :: #test_spec_test_case{},
-    Timeout :: timeout().
-run_tests(Tests, #test_info{} = TestInfo, OutputDir, Listing, Timeout) ->
+    Timeout :: timeout(),
+    StdoutStreaming :: output_to_stdout | no_output_to_stdout.
+run_tests(Tests, #test_info{} = TestInfo, OutputDir, Listing, Timeout, StdoutStreaming) ->
     check_ct_opts(TestInfo#test_info.ct_opts),
     Suite =
         case filename:basename(TestInfo#test_info.test_suite, ".beam") of
@@ -62,7 +63,8 @@ run_tests(Tests, #test_info{} = TestInfo, OutputDir, Listing, Timeout) ->
                     raw_target = TestInfo#test_info.raw_target,
                     trampolines = TestInfo#test_info.trampolines,
                     timeout = Timeout,
-                    ct_stdout_fingerprint = ct_stdout:make_fingerprint()
+                    ct_stdout_fingerprint = ct_stdout:make_fingerprint(),
+                    ct_stdout_streaming = StdoutStreaming
                 }
             )
     end.
