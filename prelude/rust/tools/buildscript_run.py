@@ -102,7 +102,9 @@ def create_cwd(path: Path, manifest_dir: Path) -> Path:
         if dir_entry.name not in ["rust-toolchain", "rust-toolchain.toml"]:
             link = path.joinpath(dir_entry.name)
             link.unlink(missing_ok=True)
-            link.symlink_to(os.path.relpath(dir_entry, path))
+            link.symlink_to(
+                os.path.relpath(dir_entry, path), target_is_directory=dir_entry.is_dir()
+            )
 
     return path
 
