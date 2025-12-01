@@ -153,12 +153,13 @@ async def test_stale_snapshot(buck: Buck, tmp_path: Path) -> None:
     assert stale_message not in res.stderr
 
 
-def _get(data: dict[str, Any], *key: str) -> dict[str, Any]:
+def _get(data: dict[str, Any], *key: str) -> dict[str, Any] | None:
     for k in key:
-        data = data.get(k)
-        if data is None:
-            break
-
+        res = data.get(k)
+        if res is None:
+            return None
+        else:
+            data = res
     return data
 
 
