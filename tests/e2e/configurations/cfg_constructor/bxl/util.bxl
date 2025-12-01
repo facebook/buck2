@@ -56,7 +56,10 @@ TestRefs = record(
 
 def _get_providers(ctx: bxl.Context, targets: list[str]) -> dict[str, ProviderCollection]:
     analysis_result = ctx.analysis(targets)
-    return {str(target.raw_target()): v.providers() for target, v in analysis_result.items()}
+    return {
+        str(target.raw_target().with_sub_target(target.sub_target)) if target.sub_target else str(target.raw_target()): v.providers()
+        for target, v in analysis_result.items()
+    }
 
 def get_test_refs(ctx: bxl.Context) -> TestRefs:
     def get(target: str) -> ProviderCollection:
