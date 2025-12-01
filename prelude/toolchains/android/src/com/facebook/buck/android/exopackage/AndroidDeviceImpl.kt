@@ -449,7 +449,15 @@ class AndroidDeviceImpl(val serial: String, val adbUtils: AdbUtils) : AndroidDev
   }
 
   private fun getState(): String {
-    return adbUtils.executeAdbCommand("get-state", serialNumber)
+    return try {
+      adbUtils.executeAdbCommand("get-state", serialNumber)
+    } catch (e: AdbCommandFailedException) {
+      // When a device is offline, adb get-state fails with exit code 1.
+      // Return "offline" to indicate the device state instead of throwing an exception.
+      // This allows the installer to continue with other available devices.
+      LOG.warn("Failed to get state for device $serialNumber: ${e.message}")
+      "offline"
+    }
   }
 
   /**
