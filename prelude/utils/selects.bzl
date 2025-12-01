@@ -13,15 +13,9 @@ def _is_select(thing):
 
 def _apply(obj, function):
     """
-    If the object is a select, runs `select_map` with `function`.
-    Otherwise, if the object is not a select, invokes `function` on `obj` directly.
+    Runs select_map(obj, function, recurse=True)
     """
-    if not _is_select(obj):
-        return function(obj)
-    return select_map(
-        obj,
-        lambda obj: _apply(obj, function),
-    )
+    return select_map(obj, function, recurse = True)
 
 def _tie_n_impl_inner(objs, pvals, val):
     return _tie_n_impl(objs[1:], pvals + [val])
@@ -30,9 +24,10 @@ def _tie_n_impl(objs, pvals):
     if not objs:
         return tuple(pvals)
 
-    return _apply(
+    return select_map(
         objs[0],
         partial(_tie_n_impl_inner, objs, pvals),
+        recurse = True,
     )
 
 def _tie_n(*objs):
@@ -55,10 +50,11 @@ def _apply_n(objs, func):
     Return a new `select` formed by applying the given function to all possible
     combinations of the given select objects.
     """
-    return _apply(
+    return select_map(
         _tie_n(*objs),
         # Unpack n-tuple and call user-supplied function.
         partial(_apply_n_inner, func),
+        recurse = True,
     )
 
 selects = struct(
