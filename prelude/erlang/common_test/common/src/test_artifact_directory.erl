@@ -104,7 +104,14 @@ prepare(ExecutionDir, ArtifactAnnotationFunction) ->
                         link_to_artifact_dir(File, LogPrivate, ArtifactAnnotationFunction)
                      || File <- LogFiles,
                         filelib:is_regular(File, ?raw_file_access)
-                    ]
+                    ],
+                    link_to_artifact_dir(
+                        join_paths(LogPrivate, "test_metrics.log.json"),
+                        LogPrivate,
+                        fun(FileName) ->
+                            #{type => #{generic_blob => #{}}, description => list_to_binary(FileName)}
+                        end
+                    )
             end,
             ok
         end
