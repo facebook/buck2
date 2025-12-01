@@ -1003,8 +1003,9 @@ fn truncate(contents: &str) -> Option<String> {
     if contents.len() > MAX_LENGTH + BUFFER {
         Some(format!(
             "{} ...<omitted>... {}",
-            &contents[0..MAX_LENGTH / 2],
-            &contents[contents.len() - MAX_LENGTH / 2..contents.len()]
+            &contents[0..contents.ceil_char_boundary(MAX_LENGTH / 2)],
+            &contents
+                [contents.floor_char_boundary(contents.len() - MAX_LENGTH / 2)..contents.len()]
         ))
     } else {
         None
