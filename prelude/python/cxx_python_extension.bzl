@@ -155,6 +155,7 @@ def cxx_python_extension_impl(ctx: AnalysisContext) -> list[Provider]:
         coverage_instrumentation_compiler_flags = ctx.attrs.coverage_instrumentation_compiler_flags,
         separate_debug_info = ctx.attrs.separate_debug_info,
         cuda_compile_style = CudaCompileStyle(ctx.attrs.cuda_compile_style),
+        supports_stripping = ctx.attrs.supports_stripping,
     )
 
     cxx_library_info = cxx_library_parameterized(ctx, impl_params)

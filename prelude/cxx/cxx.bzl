@@ -249,6 +249,7 @@ def cxx_library_generate(ctx: AnalysisContext, rule_type: str) -> list[Provider]
         cuda_compile_style = CudaCompileStyle(ctx.attrs.cuda_compile_style),
         # @oss-disable[end= ]: extra_linker_outputs_factory = get_extra_linker_outputs,
         # @oss-disable[end= ]: extra_linker_outputs_flags_factory = get_extra_linker_output_flags,
+        supports_stripping = ctx.attrs.supports_stripping,
     )
     output = cxx_library_parameterized(ctx, params)
     return output.providers

@@ -1214,10 +1214,10 @@ def _get_library_compile_output(
         src_compile_cmds: list[CxxSrcCompileCommand],
         outs: list[CxxCompileOutput],
         extra_link_input: list[Artifact],
+        supports_stripping: bool,
         has_content_based_path: bool) -> _CxxLibraryCompileOutput:
     objects = [out.object for out in outs]
     cxx_toolchain_info = get_cxx_toolchain_info(ctx)
-    supports_stripping = getattr(ctx.attrs, "supports_stripping", True)
     stripped_objects = _strip_objects(ctx.actions, cxx_toolchain_info, objects, supports_stripping, has_content_based_path)
 
     pch_object_output = [out.pch_object_output for out in outs if out.pch_object_output]
@@ -1341,6 +1341,7 @@ def cxx_compile_srcs(
         src_compile_cmds = compile_cmd_output.src_compile_cmds,
         outs = pic_cxx_outs,
         extra_link_input = impl_params.extra_link_input,
+        supports_stripping = impl_params.supports_stripping,
         has_content_based_path = impl_params.use_content_based_paths,
     )
 
@@ -1367,6 +1368,7 @@ def cxx_compile_srcs(
             src_compile_cmds = compile_cmd_output.src_compile_cmds,
             outs = non_pic_cxx_outs,
             extra_link_input = impl_params.extra_link_input,
+            supports_stripping = impl_params.supports_stripping,
             has_content_based_path = impl_params.use_content_based_paths,
         )
 
@@ -1389,6 +1391,7 @@ def cxx_compile_srcs(
                 src_compile_cmds = compile_cmd_output.src_compile_cmds,
                 outs = optimized_cxx_outs,
                 extra_link_input = impl_params.extra_link_input,
+                supports_stripping = impl_params.supports_stripping,
                 has_content_based_path = impl_params.use_content_based_paths,
             )
 
@@ -1412,6 +1415,7 @@ def cxx_compile_srcs(
             src_compile_cmds = compile_cmd_output.src_compile_cmds,
             outs = debuggable_cxx_outs,
             extra_link_input = impl_params.extra_link_input,
+            supports_stripping = impl_params.supports_stripping,
             has_content_based_path = impl_params.use_content_based_paths,
         )
     return _CxxCompiledSourcesOutput(
