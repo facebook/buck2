@@ -32,6 +32,7 @@ load(
     "CxxResourceSpec",
 )
 load("@prelude//apple:resource_groups.bzl", "create_resource_graph")
+load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxToolchainInfo")
 load(
     "@prelude//cxx:headers.bzl",
     "CPrecompiledHeaderInfo",
@@ -1215,7 +1216,9 @@ def _get_library_compile_output(
         extra_link_input: list[Artifact],
         has_content_based_path: bool) -> _CxxLibraryCompileOutput:
     objects = [out.object for out in outs]
-    stripped_objects = _strip_objects(ctx, objects, has_content_based_path)
+    cxx_toolchain_info = get_cxx_toolchain_info(ctx)
+    supports_stripping = getattr(ctx.attrs, "supports_stripping", True)
+    stripped_objects = _strip_objects(ctx.actions, cxx_toolchain_info, objects, supports_stripping, has_content_based_path)
 
     pch_object_output = [out.pch_object_output for out in outs if out.pch_object_output]
 
@@ -1710,12 +1713,10 @@ def _form_library_outputs(
         sanitizer_runtime_files = sanitizer_runtime_files,
     )
 
-def _strip_objects(ctx: AnalysisContext, objects: list[Artifact], has_content_based_path: bool) -> list[Artifact]:
+def _strip_objects(actions: AnalysisActions, cxx_toolchain_info: CxxToolchainInfo, objects: list[Artifact], supports_stripping: bool, has_content_based_path: bool) -> list[Artifact]:
     """
     Return new objects with debug info stripped.
     """
-
-    cxx_toolchain_info = get_cxx_toolchain_info(ctx)
 
     # Stripping is not supported on Windows
     linker_type = cxx_toolchain_info.linker_info.type
@@ -1728,7 +1729,7 @@ def _strip_objects(ctx: AnalysisContext, objects: list[Artifact], has_content_ba
         return objects
 
     # Disable stripping if library opted out from it
-    if not getattr(ctx.attrs, "supports_stripping", True):
+    if not supports_stripping:
         return objects
 
     outs = []
@@ -1736,7 +1737,7 @@ def _strip_objects(ctx: AnalysisContext, objects: list[Artifact], has_content_ba
     for obj in objects:
         base, ext = paths.split_extension(obj.short_path)
         expect(ext == ".o")
-        outs.append(strip_debug_info(ctx.actions, base + ".stripped.o", obj, cxx_toolchain_info, has_content_based_path = has_content_based_path))
+        outs.append(strip_debug_info(actions, base + ".stripped.o", obj, cxx_toolchain_info, has_content_based_path = has_content_based_path))
 
     return outs
 
