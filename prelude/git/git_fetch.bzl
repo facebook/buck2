@@ -8,8 +8,8 @@
 
 _HEX_DIGITS = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "a", "b", "c", "d", "e", "f"]
 
-def _is_40_hex(rev: str) -> bool:
-    if len(rev) != 40:
+def _is_hex(rev: str, *, length: int) -> bool:
+    if len(rev) != length:
         return False
     for digit in rev.elems():
         if digit not in _HEX_DIGITS:
@@ -17,9 +17,19 @@ def _is_40_hex(rev: str) -> bool:
     return True
 
 def git_fetch_impl(ctx: AnalysisContext) -> list[Provider]:
+    object_format = ctx.attrs.object_format
     rev = ctx.attrs.rev
-    if not _is_40_hex(rev):
-        fail("git_fetch's `rev` must be a 40-hex-digit commit hash: {}".format(rev))
+    if object_format == None:
+        if not _is_hex(rev, length = 40):
+            fail("git_fetch's `rev` must be a 40-hex-digit commit hash: {}".format(rev))
+    elif object_format == "sha1":
+        if not _is_hex(rev, length = 40):
+            fail("git_fetch's `rev` must be a 40-hex-digit commit hash when the chosen object format is sha1: {}".format(rev))
+    elif object_format == "sha256":
+        if not _is_hex(rev, length = 64):
+            fail("git_fetch's `rev` must be a 64-hex-digit commit hash when the chosen object format is sha256: {}".format(rev))
+    else:
+        fail("Invalid git_fetch `object_format`: Must be one of sha1 or sha256: {}".format(object_format))
 
     git_dir = ctx.actions.declare_output(".git", dir = True)
 
@@ -35,6 +45,8 @@ def git_fetch_impl(ctx: AnalysisContext) -> list[Provider]:
         cmd_args("--repo=", ctx.attrs.repo, delimiter = ""),
         cmd_args("--rev=", rev, delimiter = ""),
     ]
+    if object_format != None:
+        cmd.append(cmd_args("--object-format=", object_format, delimiter = ""))
 
     ctx.actions.run(
         cmd,

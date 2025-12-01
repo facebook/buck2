@@ -29,11 +29,19 @@ git_fetch = prelude_rule(
             "allow_cache_upload": attrs.bool(doc = """
                 Whether the results of the fetch can be written to the action cache and CAS.
             """, default = True),
+            "object_format": attrs.option(
+                attrs.enum(["sha1", "sha256"]),
+                default = None,
+                doc = """
+                The object format to use for the underlying Git repository.
+                Must be one of `sha1` or `sha256`.
+                """,
+            ),
             "repo": attrs.string(doc = """
                 Url suitable as a git remote.
             """),
             "rev": attrs.string(doc = """
-                40-digit hex SHA-1 of the git commit.
+                Commit hash. 40 hex digits for sha1, 64 hex digits for sha256.
             """),
             "sub_targets": attrs.list(
                 attrs.string(),
