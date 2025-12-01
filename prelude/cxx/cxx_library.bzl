@@ -32,7 +32,7 @@ load(
     "CxxResourceSpec",
 )
 load("@prelude//apple:resource_groups.bzl", "create_resource_graph")
-load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxToolchainInfo")
+load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxPlatformInfo", "CxxToolchainInfo")
 load(
     "@prelude//cxx:headers.bzl",
     "CPrecompiledHeaderInfo",
@@ -474,7 +474,10 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
 
     exported_needs_coverage = build_exported_needs_coverage(ctx, exported_deps + non_exported_deps)
     compiled_srcs = cxx_compile_srcs(
-        ctx = ctx,
+        actions = ctx.actions,
+        target_label = ctx.label,
+        cxx_toolchain_info = get_cxx_toolchain_info(ctx),
+        cxx_platform_info = get_cxx_platform_info(ctx),
         impl_params = impl_params,
         own_preprocessors = own_preprocessors,
         own_exported_preprocessors = own_exported_preprocessors,
@@ -1275,7 +1278,10 @@ _CxxSharedLibraryResult = record(
 )
 
 def cxx_compile_srcs(
-        ctx: AnalysisContext,
+        actions: AnalysisActions,
+        target_label: Label,
+        cxx_toolchain_info: CxxToolchainInfo,
+        cxx_platform_info: CxxPlatformInfo,
         impl_params: CxxRuleConstructorParams,
         own_preprocessors: list[CPreprocessor],
         inherited_non_exported_preprocessor_infos: list[CPreprocessorInfo],
@@ -1288,14 +1294,11 @@ def cxx_compile_srcs(
     Compile objects we'll need for archives and shared libraries.
     """
 
-    toolchain = get_cxx_toolchain_info(ctx)
-    cxx_platform_info = get_cxx_platform_info(ctx)
-
     # Create the commands and argsfiles to use for compiling each source file
     compile_cmd_output = create_compile_cmds(
-        actions = ctx.actions,
-        target_label = ctx.label,
-        toolchain = toolchain,
+        actions = actions,
+        target_label = target_label,
+        toolchain = cxx_toolchain_info,
         cxx_platform_info = cxx_platform_info,
         impl_params = impl_params,
         own_preprocessors = own_preprocessors,
@@ -1308,14 +1311,14 @@ def cxx_compile_srcs(
     header_unit_preprocessors = []
     if own_exported_preprocessors:
         header_preprocessor_info = cxx_merge_cpreprocessors(
-            ctx.actions,
+            actions,
             own_exported_preprocessors,
             inherited_exported_preprocessor_infos,
         )
         header_unit_preprocessors.extend(precompile_cxx(
-            actions = ctx.actions,
-            target_label = ctx.label,
-            toolchain = toolchain,
+            actions = actions,
+            target_label = target_label,
+            toolchain = cxx_toolchain_info,
             cxx_platform_info = cxx_platform_info,
             impl_params = impl_params,
             preprocessors = own_exported_preprocessors,
@@ -1324,9 +1327,9 @@ def cxx_compile_srcs(
 
     # Define object files.
     pic_cxx_outs = compile_cxx(
-        actions = ctx.actions,
-        target_label = ctx.label,
-        toolchain = toolchain,
+        actions = actions,
+        target_label = target_label,
+        toolchain = cxx_toolchain_info,
         src_compile_cmds = compile_cmd_output.src_compile_cmds,
         flavors = set([CxxCompileFlavor("pic")]),
         provide_syntax_only = True,
@@ -1337,8 +1340,8 @@ def cxx_compile_srcs(
         cuda_compile_style = impl_params.cuda_compile_style,
     )
     pic = _get_library_compile_output(
-        actions = ctx.actions,
-        cxx_toolchain_info = toolchain,
+        actions = actions,
+        cxx_toolchain_info = cxx_toolchain_info,
         src_compile_cmds = compile_cmd_output.src_compile_cmds,
         outs = pic_cxx_outs,
         extra_link_input = impl_params.extra_link_input,
@@ -1350,9 +1353,9 @@ def cxx_compile_srcs(
     pic_optimized = None
     if preferred_linkage != Linkage("shared"):
         non_pic_cxx_outs = compile_cxx(
-            actions = ctx.actions,
-            target_label = ctx.label,
-            toolchain = toolchain,
+            actions = actions,
+            target_label = target_label,
+            toolchain = cxx_toolchain_info,
             src_compile_cmds = compile_cmd_output.src_compile_cmds,
             flavors = set(),
             # Diagnostics from the pic and non-pic compilation would be
@@ -1365,8 +1368,8 @@ def cxx_compile_srcs(
             cuda_compile_style = impl_params.cuda_compile_style,
         )
         non_pic = _get_library_compile_output(
-            actions = ctx.actions,
-            cxx_toolchain_info = toolchain,
+            actions = actions,
+            cxx_toolchain_info = cxx_toolchain_info,
             src_compile_cmds = compile_cmd_output.src_compile_cmds,
             outs = non_pic_cxx_outs,
             extra_link_input = impl_params.extra_link_input,
@@ -1374,11 +1377,11 @@ def cxx_compile_srcs(
             has_content_based_path = impl_params.use_content_based_paths,
         )
 
-        if toolchain_supports_flavor(toolchain, CxxCompileFlavor("optimized")):
+        if toolchain_supports_flavor(cxx_toolchain_info, CxxCompileFlavor("optimized")):
             optimized_cxx_outs = compile_cxx(
-                actions = ctx.actions,
-                target_label = ctx.label,
-                toolchain = toolchain,
+                actions = actions,
+                target_label = target_label,
+                toolchain = cxx_toolchain_info,
                 src_compile_cmds = compile_cmd_output.src_compile_cmds,
                 flavors = set([CxxCompileFlavor("pic"), CxxCompileFlavor("optimized")]),
                 # Diagnostics from the pic and non-pic compilation would be
@@ -1389,8 +1392,8 @@ def cxx_compile_srcs(
                 cuda_compile_style = impl_params.cuda_compile_style,
             )
             pic_optimized = _get_library_compile_output(
-                actions = ctx.actions,
-                cxx_toolchain_info = toolchain,
+                actions = actions,
+                cxx_toolchain_info = cxx_toolchain_info,
                 src_compile_cmds = compile_cmd_output.src_compile_cmds,
                 outs = optimized_cxx_outs,
                 extra_link_input = impl_params.extra_link_input,
@@ -1399,11 +1402,11 @@ def cxx_compile_srcs(
             )
 
     pic_debuggable = None
-    if toolchain_supports_flavor(toolchain, CxxCompileFlavor("debug")):
+    if toolchain_supports_flavor(cxx_toolchain_info, CxxCompileFlavor("debug")):
         debuggable_cxx_outs = compile_cxx(
-            actions = ctx.actions,
-            target_label = ctx.label,
-            toolchain = toolchain,
+            actions = actions,
+            target_label = target_label,
+            toolchain = cxx_toolchain_info,
             src_compile_cmds = compile_cmd_output.src_compile_cmds,
             flavors = set([CxxCompileFlavor("pic"), CxxCompileFlavor("debug")]),
             # Diagnostics from the pic and non-pic compilation would be
@@ -1414,8 +1417,8 @@ def cxx_compile_srcs(
             cuda_compile_style = impl_params.cuda_compile_style,
         )
         pic_debuggable = _get_library_compile_output(
-            actions = ctx.actions,
-            cxx_toolchain_info = toolchain,
+            actions = actions,
+            cxx_toolchain_info = cxx_toolchain_info,
             src_compile_cmds = compile_cmd_output.src_compile_cmds,
             outs = debuggable_cxx_outs,
             extra_link_input = impl_params.extra_link_input,

@@ -7,6 +7,7 @@
 # above-listed licenses.
 
 load("@prelude//:paths.bzl", "paths")
+load("@prelude//cxx:cxx_context.bzl", "get_cxx_platform_info", "get_cxx_toolchain_info")
 load("@prelude//cxx:cxx_library.bzl", "cxx_compile_srcs")
 load(
     "@prelude//cxx:cxx_sources.bzl",
@@ -184,9 +185,15 @@ def build_cgo(
 
     go_toolchain = ctx.attrs._go_toolchain[GoToolchainInfo]
 
+    cxx_toolchain_info = get_cxx_toolchain_info(ctx)
+    cxx_platform_info = get_cxx_platform_info(ctx)
+
     # Compile C++ sources into object files.
     c_compile_cmds = cxx_compile_srcs(
-        ctx,
+        ctx.actions,
+        ctx.label,
+        cxx_toolchain_info,
+        cxx_platform_info,
         CxxRuleConstructorParams(
             rule_type = "cgo_sources",
             headers_layout = cxx_get_regular_cxx_headers_layout(ctx),
