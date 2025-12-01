@@ -13,7 +13,7 @@
 -include_lib("common/include/buck_ct_records.hrl").
 -include_lib("kernel/include/logger.hrl").
 
--export([run_tests/5, mark_success/1, mark_failure/1]).
+-export([run_tests/5, mark_success/2, mark_failure/2]).
 
 -export([parse_test_name/2]).
 
@@ -101,9 +101,7 @@ execute_test_suite(TestEnv) ->
                 erl_error:format_exception(Class, Reason, StackTrace)
             ]),
             ?LOG_ERROR(ErrorMsg),
-            test_run_fail(
-                NewTestEnv, ErrorMsg
-            )
+            test_run_fail(NewTestEnv, ErrorMsg, #{})
     end.
 
 -spec run_test(TestEnv, Timeout) -> ok when
@@ -123,14 +121,15 @@ run_test(TestEnv, Timeout) ->
                             "unexpected exception in the buck2 Common Test runner:\n"
                             "                        application test_exec crashed (~tp ~tp) ~n",
                             [Object, Info]
-                        )
+                        ),
+                        #{}
                     );
-                {run_succeed, Result} ->
+                {run_succeed, Result, ProgressMarkersOffsets} ->
                     ensure_test_exec_stopped(),
-                    test_run_succeed(TestEnv, Result);
-                {run_failed, Result} ->
+                    test_run_succeed(TestEnv, Result, ProgressMarkersOffsets);
+                {run_failed, Result, ProgressMarkersOffsets} ->
                     ensure_test_exec_stopped(),
-                    test_run_fail(TestEnv, Result)
+                    test_run_fail(TestEnv, Result, ProgressMarkersOffsets)
             after Timeout ->
                 ensure_test_exec_stopped(),
                 ErrorMsg =
@@ -143,9 +142,7 @@ run_test(TestEnv, Timeout) ->
             ErrorMsg = io_lib:format("TextExec failed to start due to ~tp", [Reason]),
 
             ?LOG_ERROR(ErrorMsg),
-            test_run_fail(
-                TestEnv, ErrorMsg
-            )
+            test_run_fail(TestEnv, ErrorMsg, #{})
     end.
 
 -spec ensure_test_exec_stopped() -> ok.
@@ -159,50 +156,56 @@ ensure_test_exec_stopped() ->
 -doc """
 Provides result as specified by the tpx protocol when test failed to ran.
 """.
--spec test_run_fail(#test_env{}, unicode:chardata()) -> ok.
-test_run_fail(#test_env{} = TestEnv, Reason) ->
+-spec test_run_fail(TestEnv, Reason, ProgressMarkersOffsets) -> ok when
+    TestEnv :: #test_env{},
+    Reason :: unicode:chardata(),
+    ProgressMarkersOffsets :: #{ct_stdout:progress_line() => ct_stdout:offset()}.
+test_run_fail(TestEnv, Reason, ProgressMarkersOffsets) ->
     provide_output_file(
         TestEnv,
         io_lib:format("Test failed to ran due to ~ts", [Reason]),
-        failed
+        failed,
+        ProgressMarkersOffsets
     ).
 
 -spec test_run_timeout(#test_env{}, string()) -> ok.
-test_run_timeout(#test_env{} = TestEnv, Reason) ->
-    provide_output_file(
-        TestEnv, Reason, timeout
-    ).
+test_run_timeout(TestEnv, Reason) ->
+    provide_output_file(TestEnv, Reason, timeout, #{}).
 
 -doc """
 Provides result as specified by the tpx protocol when test succeed to ran.
 """.
--spec test_run_succeed(#test_env{}, string()) -> ok.
-test_run_succeed(#test_env{} = TestEnv, Reason) ->
-    provide_output_file(TestEnv, Reason, passed).
+-spec test_run_succeed(TestEnv, Reason, ProgressMarkersOffsets) -> ok when
+    TestEnv :: #test_env{},
+    Reason :: unicode:chardata(),
+    ProgressMarkersOffsets :: #{ct_stdout:progress_line() => ct_stdout:offset()}.
+test_run_succeed(TestEnv, Reason, ProgressMarkersOffsets) ->
+    provide_output_file(TestEnv, Reason, passed, ProgressMarkersOffsets).
 
 -doc """
 Provides result as specified by the tpx protocol.
 """.
--spec provide_output_file(TestEnv, ResultExec, Status) -> ok when
+-spec provide_output_file(TestEnv, ResultExec, Status, ProgressMarkersOffsets) -> ok when
     TestEnv :: #test_env{},
     ResultExec :: unicode:chardata(),
-    Status :: failed | passed | timeout.
+    Status :: failed | passed | timeout,
+    ProgressMarkersOffsets :: #{ct_stdout:progress_line() => ct_stdout:offset()}.
 provide_output_file(
-    TestEnv = #test_env{
+    #test_env{
         output_dir = OutputDir,
         tests = Tests,
         suite = Suite,
         artifact_annotation_mfa = ArtifactAnnotationFunction
     },
     ResultExec,
-    Status
+    Status,
+    ProgressMarkersOffsets
 ) ->
     LogFile = test_logger:get_log_file(OutputDir, ct_executor),
-    RawStdOutFile = test_logger:get_std_out(OutputDir, ct_executor),
     StdOutFile = ct_stdout:filename(OutputDir),
     LogFilesForCrashes = #{
         ct_executor_log => LogFile,
-        ct_executor_stdout => RawStdOutFile
+        ct_executor_stdout => StdOutFile
     },
 
     ResultsFile = filename:join(OutputDir, "result.json"),
@@ -212,10 +215,8 @@ provide_output_file(
                 collect_results_broken_run(Tests, Suite, ~"internal crash", ResultExec, LogFilesForCrashes);
             timeout ->
                 % Suite timeout: this is typically a user error, so we don't want to display the
-                % executor logs. The raw stdout files are useful here, as they include the
-                % "progress" of the suite, which helps to understand what it was doing when the crash
-                % happened
-                StdOutLogFile = #{ct_executor_stdout => RawStdOutFile},
+                % executor logs.
+                StdOutLogFile = #{ct_executor_stdout => StdOutFile},
                 collect_results_broken_run(Tests, Suite, ~"", ResultExec, StdOutLogFile);
             passed ->
                 % Here we either passed or timeout.
@@ -232,14 +233,9 @@ provide_output_file(
                                     ),
                                 collect_results_broken_run(Tests, Suite, ErrorMsg, ResultExec, LogFilesForCrashes);
                             _ ->
-                                {ok, Offsets} = ct_stdout:process_raw_stdout_log(
-                                    TestEnv#test_env.ct_stdout_fingerprint,
-                                    RawStdOutFile,
-                                    StdOutFile
-                                ),
                                 {ok, CollectedStdOut} = ct_stdout:collect_method_stdout(
                                     StdOutFile,
-                                    Offsets,
+                                    ProgressMarkersOffsets,
                                     TreeResults,
                                     ?MAX_STDOUT_BYTES_PER_TESTCASE
                                 ),
@@ -252,10 +248,6 @@ provide_output_file(
                         collect_results_broken_run(Tests, Suite, ErrorMsg, ResultExec, LogFilesForCrashes)
                 end
         end,
-
-    % If we didn't manage to process the raw stdout log, just rename it, so that it is
-    % always available under that name
-    filelib:is_file(StdOutFile) orelse file:rename(RawStdOutFile, StdOutFile),
 
     {ok, _ResultOuptuFile} = json_interfacer:write_json_output(OutputDir, Results),
     test_artifact_directory:link_to_artifact_dir(
@@ -519,17 +511,21 @@ set_up_log_dir(OutputDir) ->
 -doc """
 Informs the test runner of a successful test run.
 """.
--spec mark_success(unicode:chardata()) -> ok.
-mark_success(Result) ->
-    ?MODULE ! {run_succeed, Result},
+-spec mark_success(Result, ProgressMarkersOffsets) -> ok when
+    Result :: unicode:chardata(),
+    ProgressMarkersOffsets :: #{ct_stdout:progress_line() => ct_stdout:offset()}.
+mark_success(Result, ProgressMarkersOffsets) ->
+    ?MODULE ! {run_succeed, Result, ProgressMarkersOffsets},
     ok.
 
 -doc """
 Informs the test runner of a fataled test run.
 """.
--spec mark_failure(unicode:chardata()) -> ok.
-mark_failure(Error) ->
-    ?MODULE ! {run_failed, Error},
+-spec mark_failure(Result, ProgressMarkersOffsets) -> ok when
+    Result :: unicode:chardata(),
+    ProgressMarkersOffsets :: #{ct_stdout:progress_line() => ct_stdout:offset()}.
+mark_failure(Error, ProgressMarkersOffsets) ->
+    ?MODULE ! {run_failed, Error, ProgressMarkersOffsets},
     ok.
 
 -doc """

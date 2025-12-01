@@ -17,6 +17,7 @@ to delimit the output of each test-case.
 -export([make_fingerprint/0]).
 -export([emit_progress/4]).
 -export([process_raw_stdout_log/3, collect_method_stdout/4]).
+-export([init_process_stdout_state/2, process_stdout_line/2]).
 
 -import(common_util, [unicode_characters_to_binary/1]).
 
@@ -25,6 +26,7 @@ to delimit the output of each test-case.
 %% ---------------------------------------------------------------------------
 
 -export_type([progress/0, callback/0, progress_line/0, offset/0, fingerprint/0, collected_stdout/0]).
+-export_type([process_stdout_state/0]).
 
 -type progress() :: started | finished.
 -type callback() :: init_per | end_per.
@@ -48,7 +50,8 @@ Mapping from a "start" marker to the stdout contents associated to that marker.
     fingerprint := fingerprint(),
     out_handle := file:fd(),
     progress_markers_seen := #{progress_line() => offset()},
-    has_pending_new_line := boolean()
+    has_pending_new_line := boolean(),
+    pending_progress_marker := [binary()]
 }.
 
 %% ---------------------------------------------------------------------------
@@ -95,13 +98,13 @@ emit_progress(UserProcess, Fingerprint, What, Progress) ->
         end,
     Uniq = erlang:unique_integer([positive]),
     ProgressLine = unicode_characters_to_binary(
-        io_lib:format(~"~ts[~ts] ~ts ~ts [~tp]~n", [Fingerprint, timestamp_str(), ProgressStr, What, Uniq])
+        io_lib:format(~"~ts[~ts] ~ts ~ts [~tp]", [Fingerprint, timestamp_str(), ProgressStr, What, Uniq])
     ),
 
     % NB. We emit a leading newling in case the last print statement
     % didn't finish the line. We'll manually remove it, if necessary when
     % processing the markers
-    io:format(UserProcess, "~n~s", [ProgressLine]),
+    io:format(UserProcess, "~n~s~n", [ProgressLine]),
 
     ProgressLine.
 
@@ -147,6 +150,36 @@ process_raw_stdout_log(Fingerprint, RawStdoutFile, OutputFile) ->
     after
         file:close(InHandle)
     end.
+
+-spec init_process_stdout_state(Fingerprint, OutputFile) -> process_stdout_state() when
+    Fingerprint :: fingerprint(),
+    OutputFile :: file:filename_all().
+init_process_stdout_state(Fingerprint, OutputFile) ->
+    {ok, OutHandle} = file:open(OutputFile, [raw, write, delayed_write]),
+    #{
+        fingerprint => Fingerprint,
+        out_handle => OutHandle,
+        progress_markers_seen => #{},
+        has_pending_new_line => false,
+        pending_progress_marker => []
+    }.
+
+-spec process_stdout_line
+    (eof, State) -> {eof, #{progress_line() => offset()}} when
+        State :: process_stdout_state();
+    ({eol | noeol, Line}, State0) -> {ok, State1} when
+        Line :: binary(),
+        State0 :: process_stdout_state(),
+        State1 :: process_stdout_state().
+process_stdout_line(eof, State0) ->
+    State1 = flush_pending_newline(State0),
+    #{out_handle := OutH, progress_markers_seen := Result} = State1,
+    file:close(OutH),
+    {eof, Result};
+process_stdout_line({eol, Line}, State0) ->
+    {ok, process_stdout_line_aux(eol, Line, State0)};
+process_stdout_line({noeol, Line}, State0) ->
+    {ok, process_stdout_line_aux(noeol, Line, State0)}.
 
 %% ---------------------------------------------------------------------------
 %% Helpers
@@ -194,51 +227,47 @@ process_raw_stdout_log_loop(InH, State0) ->
             {eof, Result} = process_stdout_line(eof, State0),
             Result;
         {ok, Line} when is_binary(Line) ->
-            {ok, State1} = process_stdout_line(Line, State0),
+            <<Line1:(byte_size(Line) - 1)/binary, "\n">> = Line,
+            {ok, State1} = process_stdout_line({eol, Line1}, State0),
             process_raw_stdout_log_loop(InH, State1)
     end.
 
--spec init_process_stdout_state(Fingerprint, OutputFile) -> process_stdout_state() when
-    Fingerprint :: fingerprint(),
-    OutputFile :: file:filename_all().
-init_process_stdout_state(Fingerprint, OutputFile) ->
-    {ok, OutHandle} = file:open(OutputFile, [raw, write, delayed_write]),
-    #{
-        fingerprint => Fingerprint,
-        out_handle => OutHandle,
-        progress_markers_seen => #{},
-        has_pending_new_line => false
-    }.
-
--spec process_stdout_line
-    (eof, State) -> {eof, #{progress_line() => offset()}} when
-        State :: process_stdout_state();
-    (Line, State0) -> {ok, State1} when
-        Line :: binary(),
-        State0 :: process_stdout_state(),
-        State1 :: process_stdout_state().
-process_stdout_line(eof, State0) ->
-    State1 = flush_pending_newline(State0),
-    #{out_handle := OutH, progress_markers_seen := Result} = State1,
-    file:close(OutH),
-    {eof, Result};
-process_stdout_line(Line, State0) when is_binary(Line) ->
+-spec process_stdout_line_aux(Eol, Line, State0) -> State1 when
+    Eol :: eol | noeol,
+    Line :: binary(),
+    State0 :: process_stdout_state(),
+    State1 :: process_stdout_state().
+process_stdout_line_aux(noeol, Line, State0 = #{pending_progress_marker := Chunks = [_ | _]}) ->
+    % A progress marker split on several chunks, here's a new, non-terminal chunk
+    State0#{pending_progress_marker := [Line | Chunks]};
+process_stdout_line_aux(eol, Line, State0 = #{pending_progress_marker := Chunks = [_ | _]}) ->
+    % A progress marker split on several chunks, here's the last chunk
+    ProgressLine = unicode_characters_to_binary(lists:reverse([Line | Chunks])),
+    State1 = State0#{pending_progress_marker => []},
+    process_stdout_line_aux(eol, ProgressLine, State1);
+process_stdout_line_aux(Eol, Line, State0) ->
     #{fingerprint := Fingerprint} = State0,
     case Line of
+        <<Fingerprint:(byte_size(Fingerprint))/binary, _/binary>> when Eol =:= noeol ->
+            % A progress marker split on several chunks, here's the first chunk
+            State0#{pending_progress_marker => [Line]};
         <<Fingerprint:(byte_size(Fingerprint))/binary, _/binary>> ->
             #{out_handle := OutH, progress_markers_seen := Acc} = State0,
             {ok, Offset} = file:position(OutH, cur),
             Acc1 = Acc#{Line => Offset},
             State1 = State0#{progress_markers_seen => Acc1, has_pending_new_line => false},
-            {ok, State1};
-        ~"\n" ->
+            State1;
+        ~"" when Eol =:= eol ->
             % This could be the leading newline of a marker, so postpone until we are sure. However
             State1 = flush_pending_newline(State0),
             State2 = State1#{has_pending_new_line => true},
-            {ok, State2};
+            State2;
+        _ when Eol =:= eol ->
+            State1 = log_stdout([Line, ~"\n"], State0),
+            State1;
         _ ->
             State1 = log_stdout(Line, State0),
-            {ok, State1}
+            State1
     end.
 
 -spec flush_pending_newline(State0) -> State1 when

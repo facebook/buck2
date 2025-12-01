@@ -70,7 +70,7 @@ communicates the result to the test runner.
 -type state() ::
     #{
         test_env := #test_env{},
-        stdout_file_handle := file:fd(),
+        ct_stdout_state := ct_stdout:process_stdout_state(),
         port := erlang:port()
     }.
 
@@ -94,13 +94,15 @@ init(#test_env{} = TestEnv) ->
     State1 :: state(),
     Reason :: ct_runner_failed.
 handle_continue({run, PortEpmd}, #{test_env := TestEnv} = State0) ->
-    RawStdOutFile = test_logger:get_std_out(TestEnv#test_env.output_dir, ct_executor),
-    {ok, FileHandle} = file:open(RawStdOutFile, [write, binary, raw, delayed_write]),
+    OutputDir = TestEnv#test_env.output_dir,
+    StdOutFile = ct_stdout:filename(OutputDir),
+    Fingerprint = TestEnv#test_env.ct_stdout_fingerprint,
+    CtStdOutState = ct_stdout:init_process_stdout_state(Fingerprint, StdOutFile),
     try run_test(TestEnv, PortEpmd) of
         Port ->
             State1 = State0#{
                 port => Port,
-                stdout_file_handle => FileHandle
+                ct_stdout_state => CtStdOutState
             },
             {noreply, State1}
     catch
@@ -109,7 +111,7 @@ handle_continue({run, PortEpmd}, #{test_env := TestEnv} = State0) ->
                 erl_error:format_exception(Class, Reason, Stack)
             ]),
             ?LOG_ERROR(ErrorMsg),
-            test_runner:mark_failure(ErrorMsg),
+            test_runner:mark_failure(ErrorMsg, #{}),
             {stop, ct_runner_failed, State0}
     end.
 
@@ -128,15 +130,14 @@ handle_continue({run, PortEpmd}, #{test_env := TestEnv} = State0) ->
         Port :: erlang:port(),
         Reason :: term().
 
-handle_info(
-    {Port, {exit_status, ExitStatus}},
-    #{port := Port} = State
-) ->
+handle_info({Port, {exit_status, ExitStatus}}, #{port := Port} = State) ->
+    CtStdoutState = maps:get(ct_stdout_state, State),
+    {eof, ProgressMarkersOffsets} = ct_stdout:process_stdout_line(eof, CtStdoutState),
     case ExitStatus of
         0 ->
             ResultMsg = "ct_runner finished successfully with exit status 0",
             ?LOG_DEBUG(ResultMsg),
-            test_runner:mark_success(ResultMsg);
+            test_runner:mark_success(ResultMsg, ProgressMarkersOffsets);
         _ ->
             ErrorMsg =
                 case ExitStatus of
@@ -152,17 +153,14 @@ handle_info(
                         ])
                 end,
             ?LOG_ERROR(ErrorMsg),
-            test_runner:mark_failure(ErrorMsg)
+            test_runner:mark_failure(ErrorMsg, ProgressMarkersOffsets)
     end,
     {stop, {ct_run_finished, ExitStatus}, State};
-handle_info({Port, {data, {eol, Data}}}, State = #{port := Port}) ->
-    Handle = maps:get(stdout_file_handle, State),
-    file:write(Handle, [Data, "\n"]),
-    {noreply, State};
-handle_info({Port, {data, {noeol, Data}}}, State = #{port := Port}) ->
-    Handle = maps:get(stdout_file_handle, State),
-    file:write(Handle, Data),
-    {noreply, State};
+handle_info({Port, {data, Data}}, State0 = #{port := Port}) ->
+    CtStdoutState0 = maps:get(ct_stdout_state, State0),
+    {ok, CtStdoutState1} = ct_stdout:process_stdout_line(Data, CtStdoutState0),
+    State1 = State0#{ct_stdout_state => CtStdoutState1},
+    {noreply, State1};
 handle_info({Port, closed}, #{port := Port} = State) ->
     {stop, ct_port_closed, State};
 handle_info({'EXIT', Port, Reason}, #{port := Port} = State) ->
@@ -179,8 +177,7 @@ handle_cast(_Request, _State) -> error(not_implemented).
 -spec terminate(Reason, State) -> ok when
     Reason :: normal | shutdown | {shutdown, term()} | term(),
     State :: initial_state() | state().
-terminate(_Reason, #{port := Port} = State) ->
-    close_stdout_file(State),
+terminate(_Reason, #{port := Port}) ->
     test_exec:kill_process(Port);
 terminate(_Reason, _State) ->
     ok.
@@ -342,10 +339,16 @@ start_test_node(
         [args, env, cd]
     ),
 
+    % NB. It is important that this value is large enough to fit the
+    % ct_stdout fingerprint as we rely on that to (simplify) the
+    % detection of progress markers. The fingerprint is <40 bytes, so
+    % in practice any large number here will work
+    LineLen = 1024,
+
     % NB using stderr_to_stdout here can make it so that we don't get the
     % exit_status once the port exits if it opened another port with use_stdio
     % as in blocking_process_SUITE (see https://github.com/erlang/otp/issues/10411)
-    DefaultOptions = [in, binary, use_stdio, exit_status, {line, 1024}],
+    DefaultOptions = [in, binary, use_stdio, exit_status, {line, LineLen}],
 
     LaunchSettings = [
         {args, LaunchArgs},
@@ -441,9 +444,3 @@ project_root() ->
             ?LOG_ERROR(#{directory => Dir, stat => FileInfo}),
             error({project_root_not_found, Dir})
     end.
-
--spec close_stdout_file(State) -> ok when
-    State :: state().
-close_stdout_file(#{stdout_file_handle := Handle}) ->
-    file:close(Handle),
-    ok.
