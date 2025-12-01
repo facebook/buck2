@@ -1210,15 +1210,15 @@ def get_default_cxx_library_product_name(ctx, impl_params) -> str:
         return _base_static_library_name(ctx, optimized = False, debuggable = False, stripped = False)
 
 def _get_library_compile_output(
-        ctx: AnalysisContext,
+        actions: AnalysisActions,
+        cxx_toolchain_info: CxxToolchainInfo,
         src_compile_cmds: list[CxxSrcCompileCommand],
         outs: list[CxxCompileOutput],
         extra_link_input: list[Artifact],
         supports_stripping: bool,
         has_content_based_path: bool) -> _CxxLibraryCompileOutput:
     objects = [out.object for out in outs]
-    cxx_toolchain_info = get_cxx_toolchain_info(ctx)
-    stripped_objects = _strip_objects(ctx.actions, cxx_toolchain_info, objects, supports_stripping, has_content_based_path)
+    stripped_objects = _strip_objects(actions, cxx_toolchain_info, objects, supports_stripping, has_content_based_path)
 
     pch_object_output = [out.pch_object_output for out in outs if out.pch_object_output]
 
@@ -1337,7 +1337,8 @@ def cxx_compile_srcs(
         cuda_compile_style = impl_params.cuda_compile_style,
     )
     pic = _get_library_compile_output(
-        ctx = ctx,
+        actions = ctx.actions,
+        cxx_toolchain_info = toolchain,
         src_compile_cmds = compile_cmd_output.src_compile_cmds,
         outs = pic_cxx_outs,
         extra_link_input = impl_params.extra_link_input,
@@ -1364,7 +1365,8 @@ def cxx_compile_srcs(
             cuda_compile_style = impl_params.cuda_compile_style,
         )
         non_pic = _get_library_compile_output(
-            ctx = ctx,
+            actions = ctx.actions,
+            cxx_toolchain_info = toolchain,
             src_compile_cmds = compile_cmd_output.src_compile_cmds,
             outs = non_pic_cxx_outs,
             extra_link_input = impl_params.extra_link_input,
@@ -1387,7 +1389,8 @@ def cxx_compile_srcs(
                 cuda_compile_style = impl_params.cuda_compile_style,
             )
             pic_optimized = _get_library_compile_output(
-                ctx = ctx,
+                actions = ctx.actions,
+                cxx_toolchain_info = toolchain,
                 src_compile_cmds = compile_cmd_output.src_compile_cmds,
                 outs = optimized_cxx_outs,
                 extra_link_input = impl_params.extra_link_input,
@@ -1411,7 +1414,8 @@ def cxx_compile_srcs(
             cuda_compile_style = impl_params.cuda_compile_style,
         )
         pic_debuggable = _get_library_compile_output(
-            ctx = ctx,
+            actions = ctx.actions,
+            cxx_toolchain_info = toolchain,
             src_compile_cmds = compile_cmd_output.src_compile_cmds,
             outs = debuggable_cxx_outs,
             extra_link_input = impl_params.extra_link_input,
