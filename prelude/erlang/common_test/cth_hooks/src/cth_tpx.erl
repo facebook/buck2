@@ -65,12 +65,17 @@
     suite :: ct_suite(),
     groups :: group_path(),
     start_info :: #{method_id() => start_info()},
+    ct_stdout_fingerprint :: ct_stdout:fingerprint(),
     tree_results :: tree_node(),
     previous_group_failed :: boolean() | undefined,
     output :: {file, file:filename_all()} | stdout
 }).
 
--type hook_opts() :: #{role := cth_tpx_role:role(), result_json => file:filename_all()}.
+-type hook_opts() :: #{
+    role := cth_tpx_role:role(),
+    ct_stdout_fingerprint := ct_stdout:fingerprint(),
+    result_json => file:filename_all()
+}.
 
 -type shared_state() :: #state{}.
 -type hook_state() :: #{
@@ -173,14 +178,20 @@ init(Id, Opts = #{role := Role}) ->
                     undefined -> stdout;
                     FN -> {file, FN}
                 end,
-            init_role_top(Id, ServerName, Output);
+            #{ct_stdout_fingerprint := Fingerprint} = Opts,
+            init_role_top(Id, ServerName, Fingerprint, Output);
         bot ->
             init_role_bot(Id, ServerName)
     end.
 
--spec init_role_top(Id :: term(), ServerName :: atom(), Output :: stdout | {file, file:filename_all()}) ->
-    {ok, hook_state(), integer()}.
-init_role_top(Id, ServerName, Output) ->
+-spec init_role_top(Id, ServerName, Fingerprint, Output) ->
+    {ok, hook_state(), integer()}
+when
+    Id :: term(),
+    ServerName :: atom(),
+    Fingerprint :: ct_stdout:fingerprint(),
+    Output :: stdout | {file, file:filename_all()}.
+init_role_top(Id, ServerName, Fingerprint, Output) ->
     CachedUserProcess =
         case whereis(user) of
             UserPid when is_pid(UserPid) -> UserPid
@@ -189,6 +200,7 @@ init_role_top(Id, ServerName, Output) ->
     SharedState = #state{
         cached_user_process = CachedUserProcess,
         output = Output,
+        ct_stdout_fingerprint = Fingerprint,
         start_info = #{},
         groups = [],
         tree_results = cth_tpx_test_tree:new_node(unknown_suite)
@@ -203,7 +215,8 @@ init_role_top(Id, ServerName, Output) ->
     },
     {ok, HookState, cth_tpx_role:role_priority(top)}.
 
--spec init_role_bot(Id :: term(), ServerName :: atom()) -> {ok, hook_state(), integer()}.
+-spec init_role_bot(Id, ServerName) -> {ok, hook_state(), integer()} when
+    Id :: term(), ServerName :: atom().
 init_role_bot(Id, ServerName) ->
     % Put there by init_role_top
     case whereis(ServerName) of
@@ -512,7 +525,6 @@ add_result(
     Outcome,
     Desc,
     State = #state{
-        cached_user_process = UserProcess,
         groups = Groups,
         start_info = StartInfo0,
         tree_results = TreeResults
@@ -528,7 +540,12 @@ add_result(
     Result =
         case StartInfo0 of
             #{Method := #{timestamp := StartTime, stdout_progress_line := StartStdOutLine}} ->
-                EndStdOutLine = ct_stdout:emit_progress(UserProcess, method_progress_label(Method), finished),
+                EndStdOutLine = ct_stdout:emit_progress(
+                    State#state.cached_user_process,
+                    State#state.ct_stdout_fingerprint,
+                    method_progress_label(Method),
+                    finished
+                ),
 
                 Result0#{
                     start_time => StartTime,
@@ -685,8 +702,13 @@ write_output(stdout, JSON) ->
     State :: shared_state(),
     MethodId :: method_id(),
     Context :: atom().
-collect_start_info(#state{cached_user_process = UserProcess, start_info = ST0} = State, MethodId, _Context) ->
-    ProgressLine = ct_stdout:emit_progress(UserProcess, method_progress_label(MethodId), started),
+collect_start_info(#state{start_info = ST0} = State, MethodId, _Context) ->
+    ProgressLine = ct_stdout:emit_progress(
+        State#state.cached_user_process,
+        State#state.ct_stdout_fingerprint,
+        method_progress_label(MethodId),
+        started
+    ),
 
     StartInfo = #{
         timestamp => second_timestamp(),

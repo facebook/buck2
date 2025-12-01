@@ -14,8 +14,9 @@ to delimit the output of each test-case.
 -compile(warn_missing_spec_all).
 
 -export([filename/0, filename/1]).
--export([emit_progress/3]).
--export([process_raw_stdout_log/4]).
+-export([make_fingerprint/0]).
+-export([emit_progress/4]).
+-export([process_raw_stdout_log/3, collect_method_stdout/4]).
 
 -import(common_util, [unicode_characters_to_binary/1]).
 
@@ -23,25 +24,31 @@ to delimit the output of each test-case.
 %% Types
 %% ---------------------------------------------------------------------------
 
--export_type([progress/0, callback/0, progress_line/0, collected_stdout/0]).
+-export_type([progress/0, callback/0, progress_line/0, offset/0, fingerprint/0, collected_stdout/0]).
 
 -type progress() :: started | finished.
 -type callback() :: init_per | end_per.
 -type progress_line() :: binary().
+-type offset() :: integer().
 
 -doc """
-Mapping from a "start" marker to the offsets in the stdout log with
-the stdout for that marker.
+A marker that is included on every progress line and can be used to distinguish such
+markers among the rest of the stdout.
 """.
--type stdout_file_offsets() :: #{
-    progress_line() => no_stdout | #{first => integer(), last => integer()}
-}.
+-type fingerprint() :: binary().
 
 -doc """
 Mapping from a "start" marker to the stdout contents associated to that marker.
 """.
 -type collected_stdout() :: #{
     progress_line() => binary() | {truncated, binary()}
+}.
+
+-type process_stdout_state() :: #{
+    fingerprint := fingerprint(),
+    out_handle := file:fd(),
+    progress_markers_seen := #{progress_line() => offset()},
+    has_pending_new_line := boolean()
 }.
 
 %% ---------------------------------------------------------------------------
@@ -63,20 +70,24 @@ Like `m:filename/0` but will prefix the given `OutputDir`.
 filename(OutputDir) ->
     filename:join(OutputDir, filename()).
 
+-spec make_fingerprint() -> fingerprint().
+make_fingerprint() ->
+    base64:encode(crypto:strong_rand_bytes(24)).
+
 -doc """
 Emit a unique line to stdout to mark the start/end of a ct_suite callback.
 
-The logged line is returned so it can later be used to find the marker
-in a stdout log.
+The logged line is returned so the relevant offset in the stdout file can later be found.
 
 NB. `UserProcess` is expected to be the `user` process, but we demand an
 explicit (cached) version, in case testcases mess with this process
 """.
--spec emit_progress(UserProcess, What, Progress) -> progress_line() when
+-spec emit_progress(UserProcess, Fingerprint, What, Progress) -> progress_line() when
     UserProcess :: pid(),
+    Fingerprint :: fingerprint(),
     What :: unicode:chardata(),
     Progress :: progress().
-emit_progress(UserProcess, What, Progress) ->
+emit_progress(UserProcess, Fingerprint, What, Progress) ->
     ProgressStr =
         case Progress of
             started -> ~"START";
@@ -84,7 +95,7 @@ emit_progress(UserProcess, What, Progress) ->
         end,
     Uniq = erlang:unique_integer([positive]),
     ProgressLine = unicode_characters_to_binary(
-        io_lib:format(~"[~ts] ~ts ~ts [~tp]~n", [timestamp_str(), ProgressStr, What, Uniq])
+        io_lib:format(~"~ts[~ts] ~ts ~ts [~tp]~n", [Fingerprint, timestamp_str(), ProgressStr, What, Uniq])
     ),
 
     % NB. We emit a leading newling in case the last print statement
@@ -95,34 +106,46 @@ emit_progress(UserProcess, What, Progress) ->
     ProgressLine.
 
 -doc """
-Writes to `OutputFile` a copy of `RawStdoutFile` where all progress markers
-mantioned in `TreeResults` have been removed.
-
 The returned value contains the collected stdout for each "start" marker, capped to
 the last `MaxPerCollected` bytes.
 """.
--spec process_raw_stdout_log(RawStdoutFile, OutputFile, TreeResults, MaxPerCollected) -> {ok, collected_stdout()} when
-    RawStdoutFile :: file:filename_all(),
+-spec collect_method_stdout(OutputFile, Offsets, TreeResults, MaxPerCollected) -> {ok, collected_stdout()} when
     OutputFile :: file:filename_all(),
+    Offsets :: #{progress_line() => offset()},
     TreeResults :: cth_tpx_test_tree:tree_node(),
     MaxPerCollected :: non_neg_integer().
-process_raw_stdout_log(RawStdoutFile, OutputFile, TreeResults, MaxPerCollected) ->
+collect_method_stdout(OutputFile, Offsets, TreeResults, MaxPerCollected) ->
     MethodResults = get_method_results(TreeResults),
-    ProgressMarkers = lists:foldl(fun add_progress_markers/2, #{}, MethodResults),
-    {ok, InHandle} = file:open(RawStdoutFile, [raw, binary, read, read_ahead]),
-    {ok, OutHandle} = file:open(OutputFile, [raw, write, delayed_write]),
-    Offsets =
-        try
-            process_raw_stdout_log_loop(InHandle, OutHandle, ProgressMarkers, false, #{})
-        after
-            file:close(OutHandle),
-            file:close(InHandle)
-        end,
-    {ok, RereadHandle} = file:open(OutputFile, [raw, binary, read, read_ahead]),
+    {ok, InH} = file:open(OutputFile, [raw, binary, read, read_ahead]),
     try
-        {ok, #{K => collect_stdout(RereadHandle, V, MaxPerCollected) || K := V <- Offsets}}
+        {ok,
+            #{
+                Start => collect_stdout(InH, StartOffset, EndOffset, MaxPerCollected)
+             || #{start_progress_marker := Start, end_progress_marker := End} <- MethodResults,
+                #{Start := StartOffset, End := EndOffset} <- [Offsets]
+            }}
     after
-        file:close(RereadHandle)
+        file:close(InH)
+    end.
+
+-doc """
+Writes to `OutputFile` a copy of `RawStdoutFile` where all progress markers
+have been removed.
+
+The returned value contains the offset in `OutputFile` for each progress marker seen.
+""".
+-spec process_raw_stdout_log(Fingerprint, RawStdoutFile, OutputFile) -> {ok, #{progress_line() => offset()}} when
+    Fingerprint :: fingerprint(),
+    RawStdoutFile :: file:filename_all(),
+    OutputFile :: file:filename_all().
+process_raw_stdout_log(Fingerprint, RawStdoutFile, OutputFile) ->
+    {ok, InHandle} = file:open(RawStdoutFile, [raw, binary, read, read_ahead]),
+
+    State = init_process_stdout_state(Fingerprint, OutputFile),
+    try
+        {ok, process_raw_stdout_log_loop(InHandle, State)}
+    after
+        file:close(InHandle)
     end.
 
 %% ---------------------------------------------------------------------------
@@ -157,87 +180,112 @@ get_method_results(Node = #{type := node}, Acc0) ->
     Acc3 = get_method_results(maps:values(SubGroups), Acc2),
     Acc3.
 
--spec add_progress_markers(MethodResult, Acc) -> Acc when
-    MethodResult :: cth_tpx_test_tree:method_result(),
-    Acc :: #{progress_line() => progress_line()}.
-add_progress_markers(#{start_progress_marker := StartMarker, end_progress_marker := EndMarker}, Acc) ->
-    case Acc of
-        #{StartMarker := EndMarker} ->
-            Acc;
-        #{StartMarker := OtherEndMarker} ->
-            % Sanity-check
-            error({inconsistent_start_markers, StartMarker, EndMarker, OtherEndMarker});
-        _ ->
-            Acc#{StartMarker => EndMarker}
-    end;
-add_progress_markers(_MethodResult, Acc) ->
-    Acc.
-
 -spec filter_none([none | A]) -> [A].
 filter_none([]) -> [];
 filter_none([none | As]) -> filter_none(As);
 filter_none([A | As]) when A /= none -> [A | filter_none(As)].
 
--spec process_raw_stdout_log_loop(InH, OutH, PendingMarkers, HasPendingNewLine, Acc) -> Acc when
+-spec process_raw_stdout_log_loop(InH, State) -> #{progress_line() => offset()} when
     InH :: file:fd(),
-    OutH :: file:fd(),
-    PendingMarkers :: #{progress_line() => progress_line() | {progress_line(), integer()}},
-    HasPendingNewLine :: boolean(),
-    Acc :: stdout_file_offsets().
-process_raw_stdout_log_loop(InH, OutH, PendingMarkers, HasPendingNewLine, Acc) ->
+    State :: process_stdout_state().
+process_raw_stdout_log_loop(InH, State0) ->
     case file:read_line(InH) of
         eof ->
-            case maps:size(PendingMarkers) of
-                0 ->
-                    not HasPendingNewLine orelse file:write(OutH, ~"\n"),
-                    Acc;
-                _ ->
-                    error({stdout_markers_not_found, PendingMarkers})
-            end;
+            {eof, Result} = process_stdout_line(eof, State0),
+            Result;
         {ok, Line} when is_binary(Line) ->
-            case maps:take(Line, PendingMarkers) of
-                {EndMarker, PendingMarkers1} when is_binary(EndMarker) ->
-                    {ok, StartOffset} = file:position(OutH, cur),
-                    PendingMarkers2 = PendingMarkers1#{EndMarker => {Line, StartOffset}},
-                    process_raw_stdout_log_loop(InH, OutH, PendingMarkers2, _HasPendingNewLine = false, Acc);
-                {{StartMarker, StartOffset}, PendingMarkers1} when is_binary(StartMarker), is_integer(StartOffset) ->
-                    {ok, EndOffset} = file:position(OutH, cur),
-                    Offsets =
-                        case StartOffset =:= EndOffset of
-                            true -> no_stdout;
-                            false -> #{first => StartOffset, last => EndOffset - 1}
-                        end,
-                    Acc1 = Acc#{StartMarker => Offsets},
-                    process_raw_stdout_log_loop(InH, OutH, PendingMarkers1, _HasPendingNewLine = false, Acc1);
-                error ->
-                    % No marker found, copy the stdout log
-                    not HasPendingNewLine orelse file:write(OutH, ~"\n"),
-                    case Line of
-                        <<"\n">> ->
-                            % This may be the leading newline of a marker, so postpone until we are sure
-                            process_raw_stdout_log_loop(InH, OutH, PendingMarkers, _HasPendingNewLine = true, Acc);
-                        _ ->
-                            file:write(OutH, Line),
-                            process_raw_stdout_log_loop(InH, OutH, PendingMarkers, _HasPendingNewLine = false, Acc)
-                    end
-            end
+            {ok, State1} = process_stdout_line(Line, State0),
+            process_raw_stdout_log_loop(InH, State1)
     end.
 
--spec collect_stdout(InH, What, Max) -> binary() | {truncated, binary()} when
+-spec init_process_stdout_state(Fingerprint, OutputFile) -> process_stdout_state() when
+    Fingerprint :: fingerprint(),
+    OutputFile :: file:filename_all().
+init_process_stdout_state(Fingerprint, OutputFile) ->
+    {ok, OutHandle} = file:open(OutputFile, [raw, write, delayed_write]),
+    #{
+        fingerprint => Fingerprint,
+        out_handle => OutHandle,
+        progress_markers_seen => #{},
+        has_pending_new_line => false
+    }.
+
+-spec process_stdout_line
+    (eof, State) -> {eof, #{progress_line() => offset()}} when
+        State :: process_stdout_state();
+    (Line, State0) -> {ok, State1} when
+        Line :: binary(),
+        State0 :: process_stdout_state(),
+        State1 :: process_stdout_state().
+process_stdout_line(eof, State0) ->
+    State1 = flush_pending_newline(State0),
+    #{out_handle := OutH, progress_markers_seen := Result} = State1,
+    file:close(OutH),
+    {eof, Result};
+process_stdout_line(Line, State0) when is_binary(Line) ->
+    #{fingerprint := Fingerprint} = State0,
+    case Line of
+        <<Fingerprint:(byte_size(Fingerprint))/binary, _/binary>> ->
+            #{out_handle := OutH, progress_markers_seen := Acc} = State0,
+            {ok, Offset} = file:position(OutH, cur),
+            Acc1 = Acc#{Line => Offset},
+            State1 = State0#{progress_markers_seen => Acc1, has_pending_new_line => false},
+            {ok, State1};
+        ~"\n" ->
+            % This could be the leading newline of a marker, so postpone until we are sure. However
+            State1 = flush_pending_newline(State0),
+            State2 = State1#{has_pending_new_line => true},
+            {ok, State2};
+        _ ->
+            State1 = log_stdout(Line, State0),
+            {ok, State1}
+    end.
+
+-spec flush_pending_newline(State0) -> State1 when
+    State0 :: process_stdout_state(),
+    State1 :: process_stdout_state().
+flush_pending_newline(State0) ->
+    log_stdout([], State0).
+
+-spec log_stdout(Chars, State0) -> State1 when
+    Chars :: unicode:chardata(),
+    State0 :: process_stdout_state(),
+    State1 :: process_stdout_state().
+log_stdout(Chars, State0) ->
+    {Chars1, State1} =
+        case State0 of
+            #{has_pending_new_line := true} ->
+                {[~"\n", Chars], State0#{has_pending_new_line => false}};
+            _ ->
+                {Chars, State0}
+        end,
+    case Chars1 of
+        [] ->
+            ok;
+        ~"" ->
+            ok;
+        _ ->
+            #{out_handle := OutH} = State0,
+            file:write(OutH, Chars1)
+    end,
+    State1.
+
+-spec collect_stdout(InH, StartOffset, EndOffset, Max) -> binary() | {truncated, binary()} when
     InH :: file:fd(),
-    What :: no_stdout | #{first => integer(), last => integer()},
+    StartOffset :: offset(),
+    EndOffset :: offset(),
     Max :: non_neg_integer().
-collect_stdout(_InH, no_stdout, _Max) ->
+collect_stdout(_InH, StartOffset, EndOffset, _Max) when StartOffset =:= EndOffset ->
     ~"";
-collect_stdout(InH, #{first := First, last := Last}, Max) ->
-    Count = Last - First + 1,
+collect_stdout(InH, StartOffset, EndOffset, Max) when StartOffset < EndOffset ->
+    Count = EndOffset - StartOffset,
     case Count =< Max of
         true ->
-            case file:pread(InH, First, Count) of
+            case file:pread(InH, StartOffset, Count) of
                 {ok, Result} when is_binary(Result) -> Result
             end;
         false ->
-            First1 = Last - Max + 1,
+            First1 = EndOffset - Max,
             Count1 = Max,
             case file:pread(InH, First1, Count1) of
                 {ok, Result} when is_binary(Result) ->

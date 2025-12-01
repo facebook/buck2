@@ -45,7 +45,8 @@
     artifact_annotation_mfa :: artifact_annotations:annotation_function(),
     raw_target :: binary() | undefined,
     trampolines :: [binary()],
-    timeout :: timeout()
+    timeout :: timeout(),
+    ct_stdout_fingerprint :: ct_stdout:fingerprint()
 }).
 
 -record(run_specs, {

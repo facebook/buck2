@@ -42,6 +42,7 @@ run_tests(Tests, #test_info{} = TestInfo, OutputDir, Listing, Timeout) ->
         [_ | _] ->
             TestSpecFile = filename:join(OutputDir, "test_spec.spec"),
             OrderedTests = reorder_tests(StructuredTests, Listing),
+
             execute_test_suite(
                 #test_env{
                     output_format = ?DEFAULT_OUTPUT_FORMAT,
@@ -60,7 +61,8 @@ run_tests(Tests, #test_info{} = TestInfo, OutputDir, Listing, Timeout) ->
                     artifact_annotation_mfa = TestInfo#test_info.artifact_annotation_mfa,
                     raw_target = TestInfo#test_info.raw_target,
                     trampolines = TestInfo#test_info.trampolines,
-                    timeout = Timeout
+                    timeout = Timeout,
+                    ct_stdout_fingerprint = ct_stdout:make_fingerprint()
                 }
             )
     end.
@@ -81,7 +83,12 @@ execute_test_suite(TestEnv) ->
         timeout = Timeout
     } = TestEnv,
     TestSpec = build_test_spec(
-        Suite, Tests, filename:absname(filename:dirname(SuitePath)), OutputDir, CtOpts
+        Suite,
+        Tests,
+        filename:absname(filename:dirname(SuitePath)),
+        OutputDir,
+        CtOpts,
+        TestEnv#test_env.ct_stdout_fingerprint
     ),
     FormattedSpec = [io_lib:format("~tp.~n", [Entry]) || Entry <- TestSpec],
     file:write_file(TestSpecFile, FormattedSpec, [raw, binary]),
@@ -181,7 +188,7 @@ Provides result as specified by the tpx protocol.
     ResultExec :: unicode:chardata(),
     Status :: failed | passed | timeout.
 provide_output_file(
-    #test_env{
+    TestEnv = #test_env{
         output_dir = OutputDir,
         tests = Tests,
         suite = Suite,
@@ -225,9 +232,14 @@ provide_output_file(
                                     ),
                                 collect_results_broken_run(Tests, Suite, ErrorMsg, ResultExec, LogFilesForCrashes);
                             _ ->
-                                {ok, CollectedStdOut} = ct_stdout:process_raw_stdout_log(
+                                {ok, Offsets} = ct_stdout:process_raw_stdout_log(
+                                    TestEnv#test_env.ct_stdout_fingerprint,
                                     RawStdOutFile,
+                                    StdOutFile
+                                ),
+                                {ok, CollectedStdOut} = ct_stdout:collect_method_stdout(
                                     StdOutFile,
+                                    Offsets,
                                     TreeResults,
                                     ?MAX_STDOUT_BYTES_PER_TESTCASE
                                 ),
@@ -391,13 +403,14 @@ add_or_append(List, {Key, Value}) ->
 Built the test_spec selecting the requested tests and
 specifying the result output.
 """.
--spec build_test_spec(Suite, Tests, TestDir, OutputDir, CtOpts) -> [term()] when
+-spec build_test_spec(Suite, Tests, TestDir, OutputDir, CtOpts, ProgressLineFingerprint) -> [term()] when
     Suite :: module(),
     Tests :: [#ct_test{}],
     TestDir :: file:filename_all(),
     OutputDir :: file:filename_all(),
-    CtOpts :: [term()].
-build_test_spec(Suite, Tests, TestDir0, OutputDir, CtOpts) ->
+    CtOpts :: [term()],
+    ProgressLineFingerprint :: ct_stdout:fingerprint().
+build_test_spec(Suite, Tests, TestDir0, OutputDir, CtOpts, ProgressLineFingerprint) ->
     TestDir = unicode_characters_to_list(TestDir0),
     ListGroupTest = get_requested_tests(Tests),
     SpecTests = lists:map(
@@ -411,7 +424,7 @@ build_test_spec(Suite, Tests, TestDir0, OutputDir, CtOpts) ->
         ListGroupTest
     ),
     ResultOutput = filename:join(OutputDir, ~"result.json"),
-    {TpxCtHook, CtOpts1} = getCtHook(CtOpts, ResultOutput),
+    {TpxCtHook, CtOpts1} = getCtHook(CtOpts, ResultOutput, ProgressLineFingerprint),
     LogDir = set_up_log_dir(OutputDir),
     CtOpts2 = add_spec_if_absent(
         {auto_compile, false}, add_spec_if_absent({logdir, LogDir}, CtOpts1)
@@ -421,12 +434,13 @@ build_test_spec(Suite, Tests, TestDir0, OutputDir, CtOpts) ->
 -doc """
 Collect all the ct_hooks entries provided by the user, and add the cth_tpx hook config.
 """.
--spec getCtHook(CtOpts0, ResultOutput) -> {CtHooks, CtOpts1} when
+-spec getCtHook(CtOpts0, ResultOutput, ProgressLineFingerprint) -> {CtHooks, CtOpts1} when
     CtOpts0 :: [term()],
     ResultOutput :: file:filename_all(),
+    ProgressLineFingerprint :: ct_stdout:fingerprint(),
     CtHooks :: {ct_hooks, [term()]},
     CtOpts1 :: [term()].
-getCtHook(CtOpts0, ResultOutput) ->
+getCtHook(CtOpts0, ResultOutput, ProgressLineFingerprint) ->
     {CtHooksOpts, CtOpts1} = lists:splitwith(
         fun
             ({ct_hooks, _}) -> true;
@@ -436,7 +450,7 @@ getCtHook(CtOpts0, ResultOutput) ->
     ),
     CtHooks0 = [CtHook || {ct_hooks, CtHooks = [_ | _]} <- CtHooksOpts, CtHook <- CtHooks],
     CtHooks1 = [
-        {cth_tpx, #{role => top, result_json => ResultOutput}},
+        {cth_tpx, #{role => top, ct_stdout_fingerprint => ProgressLineFingerprint, result_json => ResultOutput}},
         {cth_tpx, #{role => bot}}
         | CtHooks0
     ],
