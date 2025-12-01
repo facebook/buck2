@@ -11,7 +11,6 @@
 #![feature(decl_macro)]
 #![feature(error_generic_member_access)]
 #![feature(once_cell_try)]
-#![feature(round_char_boundary)]
 
 pub mod arc_str;
 pub mod async_move_clone;
