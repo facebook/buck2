@@ -59,7 +59,13 @@ use tonic::transport::Channel;
 
 use crate::executors::local::ForkserverAccess;
 
-const MAX_MESSAGE_SIZE_BYTES: usize = 8 * 1024 * 1024; // 8MB
+// Request to the worker can contain a command to run the tests, and that command
+// might explicitly spell out the lists of tests to run. In case of a large target
+// and/or very lengthy test names, this part of a request can be very large.
+// Response of the worker can contain a stderr of the command => also can be very large.
+// To avoid unnecessarily limiting the usecases, let's use a maximum allowed value
+// for the request/response.
+const MAX_MESSAGE_SIZE_BYTES: usize = usize::MAX;
 
 #[derive(buck2_error::Error, Debug)]
 #[buck2(tag = WorkerInit)]
