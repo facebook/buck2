@@ -233,8 +233,6 @@ pub struct RECapabilities {
     /// Largest size of a message before being uploaded using bytestream service.
     /// 0 indicates no limit beyond constraint of underlying transport (which is unknown).
     max_total_batch_size: usize,
-    /// Does the remote server support execution.
-    exec_enabled: bool,
     /// Compressors supported by the "compressed-blobs" bytestream resources.
     supported_compressors: Vec<Compressor>,
 }
@@ -377,7 +375,6 @@ impl REClientBuilder {
             .await?
         } else {
             RECapabilities {
-                exec_enabled: true,
                 max_total_batch_size: DEFAULT_MAX_TOTAL_BATCH_SIZE,
                 supported_compressors: Vec::new(),
             }
@@ -460,8 +457,6 @@ impl REClientBuilder {
             .context("Failed to query capabilities of remote")?
             .into_inner();
 
-        let mut exec_enabled = true;
-
         let supported_compressors = if let Some(cache_cap) = &resp.cache_capabilities {
             cache_cap
                 .supported_compressors
@@ -490,13 +485,8 @@ impl REClientBuilder {
                 (None, None) => DEFAULT_MAX_TOTAL_BATCH_SIZE,
             };
 
-        if let Some(exec_cap) = resp.execution_capabilities {
-            exec_enabled = exec_cap.exec_enabled;
-        }
-
         Ok(RECapabilities {
             max_total_batch_size,
-            exec_enabled,
             supported_compressors,
         })
     }
