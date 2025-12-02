@@ -111,7 +111,7 @@ pub(crate) fn analysis_actions_methods_unsorted(builder: &mut MethodsBuilder) {
     /// file (depfile), enabling more accurate incremental builds by tracking which inputs were
     /// actually used during action execution.
     ///
-    /// ## How Dependency Files Work
+    /// ### How Dependency Files Work
     ///
     /// Traditional build systems face a dilemma: if an action depends on 1000 header files but only
     /// uses 10, should changing any of the 1000 trigger a rebuild? Being conservative (always rebuild)
@@ -124,7 +124,7 @@ pub(crate) fn analysis_actions_methods_unsorted(builder: &mut MethodsBuilder) {
     /// 2. **Tool generates depfile**: The compiler writes a file listing only the inputs it actually read
     /// 3. **Subsequent builds**: Buck2 only triggers rebuilds when files listed in the depfile change
     ///
-    /// ## Usage Pattern
+    /// ### Usage Pattern
     ///
     /// The typical workflow involves three steps:
     ///
@@ -134,7 +134,7 @@ pub(crate) fn analysis_actions_methods_unsorted(builder: &mut MethodsBuilder) {
     ///    - The depfile output
     /// 3. Associate the tag with a label in the `dep_files` parameter of `ctx.actions.run()`
     ///
-    /// ## Example: C++ Compilation
+    /// ### Example: C++ Compilation
     ///
     /// ```python
     /// def _compile_impl(ctx):
@@ -169,7 +169,7 @@ pub(crate) fn analysis_actions_methods_unsorted(builder: &mut MethodsBuilder) {
     /// - On subsequent builds, only changes to those 10 headers trigger recompilation
     ///
     ///
-    /// ## Depfile Format
+    /// ### Depfile Format
     ///
     /// Dependency files use Makefile syntax:
     ///
@@ -181,12 +181,12 @@ pub(crate) fn analysis_actions_methods_unsorted(builder: &mut MethodsBuilder) {
     /// after the action completes and uses it to determine which tagged inputs to track for
     /// future incremental builds.
     ///
-    /// ## Return Value
+    /// ### Return Value
     ///
     /// Returns a new `ArtifactTag` instance. Each call creates a unique tag that can be compared
     /// for equality, allowing Buck2 to match tagged inputs with their corresponding depfiles.
     ///
-    /// ## See Also
+    /// ### See Also
     ///
     /// - [`ArtifactTag.tag_artifacts()`](../ArtifactTag#artifacttagtag_artifacts): Tag both inputs and outputs
     /// - [`ArtifactTag.tag_inputs()`](../ArtifactTag#artifacttagtag_inputs): Tag only inputs

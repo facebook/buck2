@@ -4,12 +4,6 @@
 ## AnalysisActions.anon\_target
 ## AnalysisActions.anon\_targets
 ## AnalysisActions.artifact\_tag
-## How Dependency Files Work
-## Usage Pattern
-## Example: C++ Compilation
-## Depfile Format
-## Return Value
-## See Also
 ## AnalysisActions.assert\_has\_content\_based\_path
 ## AnalysisActions.assert\_short\_path
 ## AnalysisActions.cas\_artifact
