@@ -23,7 +23,7 @@
       "relative_to": null,
       "srcs": {
         "generated_file": [
-          "buck-out/v2/gen/prelude/<more generated path output>/out/generated_file.py"
+          "buck-out/v2/gen/prelude/<more generated path output>/out/generated_file.pyi"
         ]
       }
     },
@@ -46,7 +46,7 @@
       "buildfile_path": "prelude/python/sourcedb/tests/test_files/BUCK",
       "deps": [
         "prelude//python/sourcedb/tests/test_files:alias",
-        "prelude//python/sourcedb/tests/test_files:generated_files",
+        "prelude//python/sourcedb/tests/test_files:generated_file",
         "prelude//python/sourcedb/tests/test_files:subdir"
       ],
       "python_platform": "linux",
@@ -75,7 +75,7 @@
     "prelude//python/sourcedb/tests/test_files:subdir": {
       "buildfile_path": "prelude/python/sourcedb/tests/test_files/BUCK",
       "deps": [
-        "prelude//python/sourcedb/tests/test_files:generated_file"
+        "prelude//python/sourcedb/tests/test_files:generated_files"
       ],
       "python_platform": "linux",
       "python_version": "3.12",

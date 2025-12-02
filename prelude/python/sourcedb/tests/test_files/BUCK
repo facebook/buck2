@@ -13,7 +13,7 @@ python_library(
 python_library(
     name = "lib",
     srcs = ["lib.py"],
-    type_stubs = [":generated_files"],
+    type_stubs = [":generated_file"],
     deps = [
         ":alias",
         ":subdir",
@@ -28,7 +28,7 @@ python_library(
         "subdir/util.py",
         "subdir/util.pyi",
     ],
-    deps = [":generated_file"],
+    deps = [":generated_files"],
 )
 
 alias(
@@ -58,6 +58,6 @@ genrule(
 
 genrule(
     name = "generated_file",
-    out = "generated_file.py",
+    out = "generated_file.pyi",
     cmd = "touch ${OUT}",
 )
