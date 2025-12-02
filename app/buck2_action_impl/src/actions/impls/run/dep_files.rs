@@ -1548,14 +1548,23 @@ impl ConcreteDepFiles {
             return Ok(());
         }
 
-        let path_iter = path.as_ref().iter();
+        let mut before_content_hash_parts = vec![];
+        let mut path_iter = path.as_ref().iter();
         // Paths always begin with "buck-out/<ISOLATION_DIR>/gen/<CELL>", so
         // we can skip the first 4 segments.
-        let mut path_iter = path_iter.skip(4);
+        for _ in 0..4 {
+            if let Some(segment) = path_iter.next() {
+                before_content_hash_parts.push(segment);
+            }
+        }
+
         // If the path uses a configuration-based hash, it will come next.
         let potential_configuration_hash = path_iter.next();
         let should_look_for_content_based_hash = match potential_configuration_hash {
-            Some(s) => !is_hash(s.as_str()),
+            Some(s) => {
+                before_content_hash_parts.push(s);
+                !is_hash(s.as_str())
+            }
             None => false,
         };
 
@@ -1564,70 +1573,53 @@ impl ConcreteDepFiles {
             return Ok(());
         }
 
-        let mut content_based_hash: Option<&str> = None;
-        for segment in path_iter {
-            if is_hash(segment.as_str()) {
-                content_based_hash = match content_based_hash {
-                    Some(_) => {
+        for segment in &mut path_iter {
+            if !is_hash(segment.as_str()) {
+                before_content_hash_parts.push(segment);
+            } else {
+                // We found a content-based hash.
+                let dir_in_builder = find(builder.as_ref(), before_content_hash_parts.clone())?;
+                let after = path_iter.as_path();
+                for after_segment in after.iter() {
+                    if is_hash(after_segment.as_str()) {
                         return Err(buck2_error::internal_error!(
                                 "Path {} cannot be normalized for dep-files because it has two path segments that look like a content-based hash!",
                                 path,
                             )
                             .into());
                     }
-                    None => Some(segment.as_str()),
                 }
-            }
-        }
-
-        match content_based_hash {
-            Some(content_based_hash) => {
-                let mut split_path = path.as_str().split(content_based_hash).into_iter();
-                let (before, after) = match (
-                    split_path.next(),
-                    split_path.next(),
-                    split_path.next(),
-                ) {
-                    (Some(before), Some(after), None) => (before, after),
-                    _ => {
-                        return Err(buck2_error::internal_error!(
-                                "Found content-based hash {} in path {} that didn't split the path in two!",
-                                content_based_hash,
-                                path,
-                            )
-                            .into());
-                    }
-                };
-
-                let dir_in_builder =
-                    find(builder.as_ref(), ForwardRelativePath::unchecked_new(before))?;
                 if let Some(dir_in_builder) = dir_in_builder {
                     match dir_in_builder {
                         DirectoryEntry::Dir(d) => {
                             for (name, _entry) in d.entries() {
                                 if is_hash(name.as_str()) {
-                                    let parts = [before, name.as_str(), after];
-                                    selector
-                                        .select(&ForwardRelativePathBuf::try_from(parts.concat())?);
+                                    let full_path: ForwardRelativePathBuf =
+                                        before_content_hash_parts
+                                            .iter()
+                                            .copied()
+                                            .chain(std::iter::once(name))
+                                            .chain(after.iter())
+                                            .collect();
+                                    selector.select(&full_path);
                                 }
                             }
                         }
                         DirectoryEntry::Leaf(..) => {
                             return Err(buck2_error::internal_error!(
                                 "Found content-based hash {} in path {} that was a leaf in the input directory!",
-                                content_based_hash,
+                                segment,
                                 path,
                             )
                             .into());
                         }
                     }
                 }
-            }
-            None => {
-                selector.select(path.as_ref());
+                return Ok(());
             }
         }
 
+        selector.select(path.as_ref());
         Ok(())
     }
 }
