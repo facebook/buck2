@@ -1,4 +1,4 @@
-load("@prelude//toolchains/android/tools:build_rules.bzl", "buck_java_binary", "buck_java_library")
+load("@prelude//toolchains/android/tools:build_rules.bzl", "buck_java_binary", "buck_java_library", "buck_kotlin_library")
 load("@prelude//toolchains/android/tools/build_rules:fb_native.bzl", "fb_native")
 load("@prelude//utils:source_listing.bzl", "source_listing")
 
@@ -32,7 +32,7 @@ buck_java_library(
     ],
 )
 
-buck_java_library(
+buck_kotlin_library(
     name = "junit",
     srcs = [
         "BuckBlockJUnit4ClassRunner.java",
@@ -45,6 +45,7 @@ buck_java_library(
         "JulLogFormatter.java",
         "JupiterMain.java",
         "JupiterRunner.java",
+        "RobolectricTimeoutEnforcingRunListener.kt",
         "SameThreadFailOnTimeout.java",
         "SkipTestCondition.java",
         "StandardOutputRecorder.java",
