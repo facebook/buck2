@@ -35,7 +35,6 @@ use starlark::values::dict::Dict;
 use starlark::values::starlark_value;
 use starlark::values::starlark_value_as_type::StarlarkValueAsType;
 
-/// The Starlark representation of an `Artifact` on disk which can be accessed.
 #[derive(Debug, ProvidesStaticType, NoSerialize, Allocative)]
 pub struct StarlarkArtifactValue {
     // We only keep the artifact for Display, since we don't want to leak the underlying path by default
@@ -101,8 +100,69 @@ fn json_convert<'v>(v: serde_json::Value, heap: &'v Heap) -> starlark::Result<Va
     }
 }
 
+/// A reference to an artifact whose contents can be accessed in starlark.
+///
+/// `Artifact`s normally only provide access to path information and do not allow starlark code to read the contents; this type represents access to an artifact in those cases where reading the contents is supported.
+///
+///
+/// # Where ArtifactValue is Used
+///
+/// ## 1. Dynamic Dependencies
+///
+/// Dynamic attributes declared with `dynattrs.artifact_value()` in `dynamic_actions()`
+/// provide access to artifact contents in the implementation function.
+///
+/// ## 2. Action Error Handlers
+///
+/// The `output_artifacts` field in `ActionErrorContext` provides access to output
+/// artifacts that can be read to extract structured error information.
+///
+/// # Examples
+///
+/// ## Example 1: Dynamic Dependencies
+///
+/// ```python
+/// def _dynamic_impl(actions: AnalysisActions, config: ArtifactValue, metadata: ArtifactValue, out: OutputArtifact):
+///     # Read configuration as string
+///     config_content = config.read_string()
+///
+///     # Parse JSON metadata
+///     data = metadata.read_json()
+///     version = data["version"]
+///
+///     # Make build decisions based on content
+///     if "feature_enabled" in config_content:
+///         actions.write(out, "Feature enabled for version {}".format(version))
+///     else:
+///         actions.write(out, "Feature disabled")
+///
+///     return [DefaultInfo()]
+/// ```
+///
+/// ## Example 2: Error Handler with ArtifactValue
+///
+/// ```python
+/// def _error_handler(ctx: ActionErrorContext) -> list[ActionSubError]:
+///     # Access output artifacts from failed action
+///     errors = []
+///     for artifact_value in ctx.output_artifacts:
+///         # Read error logs to extract structured information
+///         error_json = artifact_value.read_json()
+///         errors.append(
+///             ctx.new_sub_error(
+///                 category="category",
+///                 message=error_json["message"],
+///                 file=error_json["path"],
+///                 lnum=error_json["line"],
+///                 col=error_json["col"],
+///             ),
+///         )
+///
+///     return errors
+/// ```
 #[starlark_module]
 fn artifact_value_methods(builder: &mut MethodsBuilder) {
+    /// Reads the entire contents of the artifact as a string.
     fn read_string(this: &StarlarkArtifactValue) -> starlark::Result<String> {
         let path = this.fs.resolve(&this.path);
         let contents = fs_util::read_to_string(path)
@@ -110,6 +170,7 @@ fn artifact_value_methods(builder: &mut MethodsBuilder) {
         Ok(contents)
     }
 
+    /// Reads and parses the artifact as JSON
     fn read_json<'v>(this: &StarlarkArtifactValue, heap: &'v Heap) -> starlark::Result<Value<'v>> {
         let path = this.fs.resolve(&this.path);
         let file =
