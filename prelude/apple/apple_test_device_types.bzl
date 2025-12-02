@@ -44,8 +44,3 @@ def tpx_label_for_test_device_type(test_device_type: AppleTestDeviceType) -> str
     elif test_device_type == AppleTestDeviceType("watch"):
         return "tpx:apple_test:device_type:watch"
     return "tpx:apple_test:device_type:iphone"
-
-def tpx_needs_local_simulator(test_device_type: AppleTestDeviceType) -> bool:
-    if test_device_type in (AppleTestDeviceType("catalyst"), AppleTestDeviceType("mac")):
-        return False
-    return True
