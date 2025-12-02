@@ -200,33 +200,63 @@ pub(crate) fn analysis_actions_methods_dynamic_output(methods: &mut MethodsBuild
         Ok(NoneType)
     }
 
-    /// New version of `dynamic_output`.
+    /// Declares a dynamic action that reads artifact contents to produce outputs.
     ///
-    /// This is work in progress, and will eventually replace the old `dynamic_output`.
-    /// In contrast to the old `dynamic_output`, `dynamic_output_new()` allows calling dynamic
-    /// actions similarly to normal rules as function calls.
+    /// This is the new version of `dynamic_output` and will eventually replace it.
+    /// Dynamic actions enable build decisions based on the actual content of intermediate
+    /// artifacts.
     ///
-    /// This function allows defining deferred analysis actions that are executed in the action
-    /// graph on demand rather than at normal analysis time. Using `dynamic_output_new`, one can
-    /// write rules which can read the contents of artifacts built by other rules while determining
-    /// which actions to register.
+    /// # Workflow
     ///
-    /// It takes as input a `DynamicActions` obtained from calling a dynamic action defined with
-    /// [`dynamic_actions()`](../#dynamic_actions) or
-    /// [`bxl.dynamic_actions()`](../../bxl/#dynamic_actions).
+    /// 1. Define an implementation function with signature matching your dynamic attributes
+    /// 2. Create a factory (`DynamicActionsCallable`) using `dynamic_actions(impl=..., attrs=...)`
+    /// 3. Call that factory with concrete artifact values to create a `DynamicActions` instance
+    /// 4. Pass the `DynamicActions` to `ctx.actions.dynamic_output_new()`
     ///
-    /// This function is typically used in two distinct ways:
-    /// - Binding an artifact: passing in an unbound artifact to a
-    ///   [`dynattrs.output()`](../dynattrs#output) attr of a dynamic action. That dynamic action is
-    ///   then analyzed at build time when the artifact is required by another rule, then the
-    ///   actions bound to the artifact are executed. In this case, the return value of
-    ///   `dynamic_output_new()` is not used.
-    /// - Using the returned opaque [`DynamicValue`](../DynamicValue) as input to other dynamic
-    ///   actions' [`dynattrs.dynamic_value()`](../dynattrs/#dynamic_value) attrs.
+    /// # Arguments
     ///
-    /// The invoked dynamic actions will be analyzed at build time when a dependency requires them
-    /// through an artifact bound by [`dynattrs.output()`](../dynattrs#output) or if they are
-    /// required by other dynamic actions that use the returned `DynamicValue`.
+    /// * `dynamic_actions` - A `DynamicActions` instance created by calling a `DynamicActionsCallable`
+    ///
+    /// # Returns
+    ///
+    /// A `DynamicValue` that can be consumed by other dynamic actions via `dynattrs.dynamic_value()`.
+    ///
+    /// # Example
+    ///
+    /// ```python
+    /// # Step 1: Define the implementation function
+    /// def _my_impl(actions: AnalysisActions, config: ArtifactValue, out: OutputArtifact):
+    ///     content = config.read_string()
+    ///     if "feature_enabled" in content:
+    ///         actions.write(out, "feature output")
+    ///     else:
+    ///         actions.write(out, "default output")
+    ///     return [DefaultInfo()]
+    ///
+    /// # Step 2: Create a factory
+    /// _my_dynamic_action = dynamic_actions(
+    ///     impl = _my_impl,
+    ///     attrs = {
+    ///         "config": dynattrs.artifact_value(),
+    ///         "out": dynattrs.output(),
+    ///     },
+    /// )
+    ///
+    /// # Step 3 & 4: Use it in a rule or bxl script
+    /// def _rule_impl(ctx: AnalysisContext):
+    ///     config_file = ctx.actions.write("config.txt", "feature_enabled")
+    ///     output = ctx.actions.declare_output("result")
+    ///
+    ///     # Call the factory to create a DynamicActions instance
+    ///     dynamic_action = _my_dynamic_action(
+    ///         config = config_file,
+    ///         out = output.as_output(),
+    ///     )
+    ///
+    ///     # Execute it
+    ///     ctx.actions.dynamic_output_new(dynamic_action)
+    ///     return [DefaultInfo(default_output = output)]
+    /// ```
     ///
     /// See [Dynamic Dependencies](../../../rule_authors/dynamic_dependencies) for an overall
     /// overview of dynamic dependencies in buck2.
