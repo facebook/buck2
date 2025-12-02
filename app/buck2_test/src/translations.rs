@@ -30,6 +30,7 @@ pub(crate) fn build_configured_target_handle(
     session: &TestSession,
     cell_resolver: &CellResolver,
     test_config_unification_rollout: bool,
+    package_oncall: Option<String>,
 ) -> anyhow::Result<ConfiguredTarget> {
     let label = target.target().unconfigured();
     let cell = label.pkg().cell_name().to_string();
@@ -52,6 +53,7 @@ pub(crate) fn build_configured_target_handle(
         configuration,
         package_project_relative_path: package_project_relative_path.into(),
         test_config_unification_rollout,
+        package_oncall,
     })
 }
 

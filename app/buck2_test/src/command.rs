@@ -845,6 +845,7 @@ enum TestDriverTask {
         label: ConfiguredProvidersLabel,
         modifiers: Modifiers,
         test_config_unification_rollout: bool,
+        oncall: Option<String>,
     },
     TestTarget {
         label: ConfiguredProvidersLabel,
@@ -852,6 +853,7 @@ enum TestDriverTask {
         providers: FrozenProviderCollectionValue,
         build_target_result: BuildTargetResult,
         test_config_unification_rollout: bool,
+        oncall: Option<String>,
     },
 }
 
@@ -945,11 +947,13 @@ impl<'a, 'e> TestDriver<'a, 'e> {
                                 label,
                                 modifiers,
                                 test_config_unification_rollout,
+                                oncall,
                             } => {
                                 self.build_target(
                                     label,
                                     modifiers,
                                     test_config_unification_rollout,
+                                    oncall,
                                 );
                             }
                             TestDriverTask::TestTarget {
@@ -958,6 +962,7 @@ impl<'a, 'e> TestDriver<'a, 'e> {
                                 providers,
                                 build_target_result,
                                 test_config_unification_rollout,
+                                oncall,
                             } => {
                                 self.test_target(
                                     label,
@@ -965,6 +970,7 @@ impl<'a, 'e> TestDriver<'a, 'e> {
                                     providers,
                                     build_target_result,
                                     test_config_unification_rollout,
+                                    oncall,
                                 );
                             }
                         }
@@ -1157,11 +1163,14 @@ impl<'a, 'e> TestDriver<'a, 'e> {
                 MaybeCompatible::Compatible(node) => node,
             };
 
+            let oncall = node.oncall().map(|s| s.to_owned());
+
             // Build and then test this: it's compatible.
             let mut work = vec![TestDriverTask::BuildTarget {
                 label,
                 modifiers: modifiers.dupe(),
                 test_config_unification_rollout,
+                oncall,
             }];
 
             // If this node is a forward, it'll get flattened when we do analysis and run the
@@ -1198,6 +1207,7 @@ impl<'a, 'e> TestDriver<'a, 'e> {
         label: ConfiguredProvidersLabel,
         modifiers: Modifiers,
         test_config_unification_rollout: bool,
+        oncall: Option<String>,
     ) {
         if !self.labels_tested.insert(label.dupe()) {
             self.work.push(
@@ -1250,6 +1260,7 @@ impl<'a, 'e> TestDriver<'a, 'e> {
                 providers: result.1,
                 modifiers,
                 test_config_unification_rollout,
+                oncall,
             }])
         }
         .boxed();
@@ -1264,6 +1275,7 @@ impl<'a, 'e> TestDriver<'a, 'e> {
         providers: FrozenProviderCollectionValue,
         build_target_result: BuildTargetResult,
         test_config_unification_rollout: bool,
+        oncall: Option<String>,
     ) {
         let should_test = !build_target_result.build_failed && !build_target_result.is_empty();
         self.build_target_result.extend(build_target_result);
@@ -1284,6 +1296,7 @@ impl<'a, 'e> TestDriver<'a, 'e> {
                 state.cell_resolver,
                 state.working_dir_cell,
                 test_config_unification_rollout,
+                oncall,
             )
             .await
             {
@@ -1383,6 +1396,7 @@ async fn test_target(
     cell_resolver: &CellResolver,
     working_dir_cell: CellName,
     test_config_unification_rollout: bool,
+    oncall: Option<String>,
 ) -> anyhow::Result<Option<ConfiguredProvidersLabel>> {
     let collection = providers.provider_collection();
 
@@ -1399,6 +1413,7 @@ async fn test_target(
                 cell_resolver,
                 working_dir_cell,
                 test_config_unification_rollout,
+                oncall,
             )
             .map(|l| Some(l).transpose())
             .left_future()
@@ -1435,12 +1450,14 @@ fn run_tests<'a, 'b>(
     cell_resolver: &'b CellResolver,
     working_dir_cell: CellName,
     test_config_unification_rollout: bool,
+    oncall: Option<String>,
 ) -> BoxFuture<'a, anyhow::Result<ConfiguredProvidersLabel>> {
     let maybe_handle = build_configured_target_handle(
         providers_label.dupe(),
         session,
         cell_resolver,
         test_config_unification_rollout,
+        oncall,
     );
 
     match maybe_handle {
