@@ -94,6 +94,7 @@ struct BeforeSubcommandOptions {
         value_parser = parse_isolation_dir,
         env("BUCK_ISOLATION_DIR"),
         long,
+        global = true,
         default_value="v2"
     )]
     isolation_dir: FileNameBuf,
