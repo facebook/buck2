@@ -280,7 +280,7 @@ def _compute_pex_providers(
         extra: dict[str, typing.Any],
         link_extra_artifacts: dict[str, typing.Any],
         executable_type: ExecutableType) -> list[Provider] | Promise:
-    dbg_source_db_output = ctx.actions.declare_output("dbg-db.json")
+    dbg_source_db_output = ctx.actions.declare_output("dbg-db.json", has_content_based_path = True)
     dbg_source_db = create_dbg_source_db(ctx, dbg_source_db_output, src_manifest, python_deps)
 
     extra_artifacts = {key: value for key, value in link_extra_artifacts.items()}
