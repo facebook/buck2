@@ -113,6 +113,14 @@ public final class JUnitRunner extends BaseRunner {
           JUnitTpxStandardOutputListener tpxListener =
               new JUnitTpxStandardOutputListener(testResultsOutputSender.get());
           jUnitCore.addListener(tpxListener);
+
+          // Add Robolectric timeout enforcement listener if this is a Robolectric test
+          if (isRobolectricTest(testClass)
+              && "true".equals(System.getProperty("android.per.test.timeout.enabled"))) {
+            RobolectricTimeoutEnforcingRunListener timeoutListener =
+                new RobolectricTimeoutEnforcingRunListener(testResultsOutputSender.get());
+            jUnitCore.addListener(timeoutListener);
+          }
         } else {
           jUnitCore.addListener(new TestListener(results, stdOutLogLevel, stdErrLogLevel));
         }
@@ -315,6 +323,21 @@ public final class JUnitRunner extends BaseRunner {
         return jUnit4RunnerBuilder;
       }
     };
+  }
+
+  /** Checks if a test class is a Robolectric test by examining its @RunWith annotation. */
+  private boolean isRobolectricTest(Class<?> testClass) {
+    RunWith annotation = testClass.getAnnotation(RunWith.class);
+    if (annotation != null) {
+      Class<?> runnerClass = annotation.value();
+      try {
+        Class<?> robolectricTestRunner = Class.forName("org.robolectric.RobolectricTestRunner");
+        return robolectricTestRunner.isAssignableFrom(runnerClass);
+      } catch (ClassNotFoundException e) {
+        // Not a Robolectric test
+      }
+    }
+    return false;
   }
 
   /**
