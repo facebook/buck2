@@ -26,13 +26,13 @@ def crate_name_as_cmd_arg(crate: CrateName) -> cmd_args | str | ResolvedStringWi
 #
 def extern_arg(flags: list[str], crate: CrateName, lib: Artifact) -> cmd_args:
     if flags == []:
-        flags = ""
+        flags_ = ""
     else:
-        flags = ",".join(flags) + ":"
+        flags_ = ",".join(flags) + ":"
 
     return cmd_args(
         "--extern=",
-        flags,
+        flags_,
         crate_name_as_cmd_arg(crate),
         "=",
         lib,

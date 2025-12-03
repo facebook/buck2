@@ -35,15 +35,15 @@ def _generate_script(
         main_link = main_path if main_path.endswith(".bat") or main_path.endswith(".cmd") else main_path + ".bat"
     else:
         main_link = main_path if main_path.endswith(".sh") else main_path + ".sh"
-    resources = {_derive_link(src): src for src in resources}
-    resources[main_link] = main
+    resources_dict = {_derive_link(src): src for src in resources}
+    resources_dict[main_link] = main
 
     # windows isn't stable with resources passed in as symbolic links for
     # remote execution. Allow using copies instead.
     if copy_resources:
-        resources_dir = actions.copied_dir("resources", resources, has_content_based_path = has_content_based_path)
+        resources_dir = actions.copied_dir("resources", resources_dict, has_content_based_path = has_content_based_path)
     else:
-        resources_dir = actions.symlinked_dir("resources", resources, has_content_based_path = has_content_based_path)
+        resources_dir = actions.symlinked_dir("resources", resources_dict, has_content_based_path = has_content_based_path)
 
     script_name = name + (".bat" if is_windows else "")
     script = actions.declare_output(script_name, has_content_based_path = has_content_based_path)

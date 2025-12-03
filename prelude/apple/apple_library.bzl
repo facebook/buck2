@@ -630,13 +630,9 @@ def _get_link_style_sub_targets_and_providers(
         )
 
         if get_apple_stripped_attr_value_with_default_fallback(ctx):
-            if False:
-                # TODO(nga): `output.unstripped` is never `None`.
-                def unknown():
-                    pass
-
-                output = unknown()
-            expect(output.unstripped != None, "Expecting unstripped output to be non-null when stripping is enabled.")
+            # TODO(nga): `output.unstripped` is never `None`.
+            unstripped: None | typing.Any = output.unstripped
+            expect(unstripped != None, "Expecting unstripped output to be non-null when stripping is enabled.")
             dsym_executable = output.unstripped
         else:
             dsym_executable = output.default

@@ -88,12 +88,12 @@ def create_third_party_build_root(
     )
     cmd.add(cmd_args(argsfile, format = "@{}", hidden = [s.lib.output for s in shared_libs]))
 
-    out = ctx.actions.declare_output(out, dir = True)
-    cmd.add(out.as_output())
+    out_dir = ctx.actions.declare_output(out, dir = True)
+    cmd.add(out_dir.as_output())
 
     ctx.actions.run(cmd, category = "third_party_build_root")
 
-    return artifact_ext(out)
+    return artifact_ext(out_dir)
 
 def create_third_party_build_info(
         ctx: AnalysisContext,

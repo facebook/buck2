@@ -55,13 +55,6 @@ fn test_types_enable() {
 
 #[test]
 fn test_type_assign_annotation() {
-    assert::pass(
-        r#"
-x : str = "test"
-xs: typing.Any = [1,2]
-xs[0] : int = 4
-"#,
-    );
     assert::fail(
         "a, b : typing.Any = 1, 2",
         "not allowed on multiple assignments",
@@ -70,7 +63,115 @@ xs[0] : int = 4
         "a = 1\na : typing.Any += 1",
         "not allowed on augmented assignments",
     );
+    assert::fail(
+        r#"
+def check():
+    x = struct(y = 5)
+    x.y: int = 10
+"#,
+        "not allowed on complex assignments",
+    );
+    assert::fail(
+        r#"
+def check():
+    x = list()
+    x[0]: int = 10
+"#,
+        "not allowed on complex assignments",
+    );
     assert::fail("a : str = noop(1)", "does not match the type annotation");
+}
+
+#[test]
+fn test_type_annotation_is_definitive() {
+    assert::fail(
+        r#"
+def mk_any() -> typing.Any:
+   return 5
+def float_only(a: float):
+   pass
+def check():
+    x: str = mk_any()
+    float_only(x)
+"#,
+        "Expected type `float` but got `str`",
+    );
+}
+
+#[test]
+fn test_type_annotation_is_checked() {
+    assert::fail(
+        r#"
+def check():
+    x: float = "hello"
+"#,
+        "Expected type `float` but got `str`",
+    );
+    assert::fail(
+        r#"
+def check():
+    x: float = 5.5
+    x = "hello"
+"#,
+        "Expected type `float` but got `str`",
+    );
+    assert::fail(
+        r#"
+def check():
+    x: float = 5.5
+    x, _ = ("", "")
+"#,
+        "Expected type `float` but got `str`",
+    );
+}
+
+#[test]
+fn test_fail_double_type_declaration() {
+    assert::fail(
+        r#"
+def check():
+    x: str = "hello"
+    x: int = 5
+"#,
+        "Second declaration of binding `x`",
+    );
+}
+
+#[test]
+fn test_fail_second_type_declaration_only() {
+    assert::fail(
+        r#"
+def check():
+    x = "hello"
+    x: int = 5
+"#,
+        "Second declaration of binding `x`",
+    );
+}
+
+#[test]
+fn test_checks_assignment() {
+    assert::fail(
+        r#"
+def check():
+    x = "hello"
+    y: int = x
+"#,
+        "Expected type `int` but got `str`",
+    );
+}
+
+#[test]
+fn test_checks_second_assignment() {
+    assert::fail(
+        r#"
+def check():
+    y: int = 4
+    x = "hello"
+    y = x
+"#,
+        "Expected type `int` but got `str`",
+    );
 }
 
 #[test]
@@ -130,5 +231,74 @@ T = ""
 def foo(x: T): pass
 "#,
         "String literals are not allowed in type expressions",
+    );
+}
+
+#[test]
+fn test_double_def_toplevel() {
+    assert::fail(
+        r#"
+def foo(): pass
+def foo(): pass
+		"#,
+        "Second declaration of binding `foo`",
+    );
+}
+
+#[test]
+fn test_double_def_different_signatures_toplevel() {
+    assert::fail(
+        r#"
+def foo(): pass
+def foo(x: int): pass
+		"#,
+        "Second declaration of binding `foo`",
+    );
+}
+
+#[test]
+fn test_assign_to_def_toplevel() {
+    assert::fails(
+        r#"
+def foo(): pass
+foo = 5
+		"#,
+        &["Expected type", "but got `int`"],
+    );
+}
+
+#[test]
+fn test_double_def() {
+    assert::fail(
+        r#"
+def check():
+    def foo(): pass
+    def foo(): pass
+"#,
+        "Second declaration of binding `foo`",
+    );
+}
+
+#[test]
+fn test_double_def_different_signatures() {
+    assert::fail(
+        r#"
+def check():
+    def foo(): pass
+    def foo(x: int): pass
+"#,
+        "Second declaration of binding `foo`",
+    );
+}
+
+#[test]
+fn test_assign_to_def() {
+    assert::fails(
+        r#"
+def check():
+    def foo(): pass
+    foo = 5
+		"#,
+        &["Expected type", "but got `int`"],
     );
 }

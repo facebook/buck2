@@ -253,11 +253,13 @@ impl TyCustomImpl for TyUser {
     }
 
     fn as_callable(&self) -> Option<TyCallable> {
-        if self.base.is_callable() {
-            Some(TyCallable::any())
-        } else {
-            None
-        }
+        self.callable.as_ref().cloned().or_else(|| {
+            if self.base.is_callable() {
+                Some(TyCallable::any())
+            } else {
+                None
+            }
+        })
     }
 
     fn validate_call(
@@ -291,6 +293,15 @@ impl TyCustomImpl for TyUser {
             }
         }
         self.supertypes.iter().any(|x| x == other)
+    }
+
+    fn bin_op(
+        &self,
+        bin_op: super::TypingBinOp,
+        rhs: &TyBasic,
+        _ctx: &TypingOracleCtx,
+    ) -> Result<Ty, TypingNoContextOrInternalError> {
+        Ok(self.base.bin_op(bin_op, rhs)?)
     }
 }
 

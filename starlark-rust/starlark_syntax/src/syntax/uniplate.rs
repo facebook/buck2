@@ -86,6 +86,36 @@ impl<P: AstPayload> DefP<P> {
         f(Visit::Stmt(body));
     }
 
+    /// Visit the parameters and return type, but not the body
+    pub fn visit_header_err<'a, E>(
+        &'a self,
+        mut f: impl FnMut(Visit<'a, P>) -> Result<(), E>,
+    ) -> Result<(), E> {
+        let DefP {
+            name: _,
+            params,
+            return_type,
+            body: _,
+            payload: _,
+        } = self;
+        let mut result = Ok(());
+        params.iter().for_each(|x| {
+            x.visit_expr(|x| {
+                if result.is_ok() {
+                    result = f(Visit::Expr(x));
+                }
+            })
+        });
+        return_type.iter().for_each(|x| {
+            x.visit_expr(|x| {
+                if result.is_ok() {
+                    result = f(Visit::Expr(x));
+                }
+            })
+        });
+        result
+    }
+
     pub fn visit_children_err<'a, E>(
         &'a self,
         mut f: impl FnMut(Visit<'a, P>) -> Result<(), E>,

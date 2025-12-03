@@ -148,6 +148,10 @@ where
     fn provide(&'v self, demand: &mut Demand<'_, 'v>) {
         demand.provide_value::<&dyn ProviderLike>(self);
     }
+
+    fn typechecker_ty(&self) -> Option<Ty> {
+        Some(self.callable.ty_provider.dupe())
+    }
 }
 
 impl<'v, V: ValueLike<'v>> serde::Serialize for UserProviderGen<'v, V> {

@@ -1448,7 +1448,7 @@ def _form_library_outputs(
     outputs = {}
     solibs = {}
     link_infos = {}
-    providers = []
+    providers: list[Provider] = []
     sanitizer_runtime_files = []
     gcno_files = []
 
