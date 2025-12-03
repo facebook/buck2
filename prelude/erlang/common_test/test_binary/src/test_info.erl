@@ -41,7 +41,7 @@ load_from_file(TestInfoFile) ->
         providers = Providers1,
         artifact_annotation_mfa = ParsedArtifactAnnotationMFA,
         ct_opts = CtOpts1,
-        erl_cmd = [unicode_characters_to_binary(make_path_absolute(ErlExec)) | ErlFlags],
+        erl_cmd = [unicode_characters_to_binary(normalize_erl_cmd(ErlExec)) | ErlFlags],
         extra_flags = ExtraFlags,
         common_app_env = CommonAppEnv,
         raw_target = RawTarget,
@@ -80,6 +80,13 @@ write_to_file(FileName, TestInfo) ->
         <<"trampolines">> => Trampolines
     },
     file:write_file(FileName, json:encode(Json), [raw, binary]).
+
+-spec normalize_erl_cmd(file:filename_all()) -> file:filename_all().
+normalize_erl_cmd(ErlCmd) when is_binary(ErlCmd) ->
+    case os:find_executable(binary_to_list(ErlCmd)) of
+        false -> make_path_absolute(ErlCmd);
+        AbsolutePath -> AbsolutePath
+    end.
 
 -spec make_path_absolute(file:filename_all()) -> file:filename_all().
 make_path_absolute(Path) ->
