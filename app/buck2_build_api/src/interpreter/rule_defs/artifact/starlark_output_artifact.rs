@@ -244,6 +244,41 @@ where
     }
 }
 
+/// An artifact marked as an output of an action.
+///
+/// When you create custom actions with `ctx.actions.run()`, you need to tell Buck2 which artifacts
+/// the action will produce. `OutputArtifact` is how you mark a declared artifact as an output.
+///
+/// ### Common Usage
+///
+/// ```python
+/// def _impl(ctx):
+///     # Declare what file will be produced
+///     out = ctx.actions.declare_output("output.txt")
+///
+///     # Run an action that produces it
+///     # The artifact must be marked as output using .as_output()
+///     ctx.actions.run(
+///         cmd_args(["my_tool", "--output", out.as_output()]),
+///         category = "process",
+///     )
+///
+///     return [DefaultInfo(default_output = out)]
+/// ```
+///
+/// ### When is `.as_output()` needed?
+///
+/// - **Required**: When passing declared artifacts to `ctx.actions.run()` - the action needs to know
+///   which artifacts it's responsible for producing
+/// - **Not needed**: When using `ctx.actions.write()`, `ctx.actions.copy_file()`, etc. - these
+///   methods handle the output declaration automatically
+///
+/// ### Key Rules
+///
+/// - Every action must have at least one output
+/// - Each declared artifact can only be bound to one action
+/// - All declared artifacts must be bound before the rule finishes
+/// - If you forget to bind a declared artifact, Buck2 will raise an error
 #[starlark_module]
 fn output_artifact_methods(builder: &mut MethodsBuilder) {
     /// Returns the input artifact from which this output artifact was constructed
