@@ -142,6 +142,7 @@ impl CoreState {
     }
 
     pub(super) fn unstable_drop_everything(&mut self) {
+        debug!("Dropping all DICE nodes");
         self.version_tracker.clear();
 
         // Do the actual drop on a different thread because we may have to drop a lot of stuff
