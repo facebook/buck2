@@ -60,9 +60,11 @@ def _archive(
         args: cmd_args,
         thin: bool,
         prefer_local: bool,
-        allow_cache_upload: bool) -> Artifact:
-    archive_output = ctx.actions.declare_output(name)
+        allow_cache_upload: bool,
+        force_disable_content_based_path: bool = False) -> Artifact:
     toolchain = get_cxx_toolchain_info(ctx)
+    has_content_based_path = (toolchain.cxx_compiler_info.supports_content_based_paths == True) and not force_disable_content_based_path
+    archive_output = ctx.actions.declare_output(name, has_content_based_path = has_content_based_path)
     command = cmd_args(toolchain.linker_info.archiver)
     archiver_type = toolchain.linker_info.archiver_type
     command.add(_archive_flags(
@@ -89,6 +91,7 @@ def _archive(
             name = name + ".cxx_archive_argsfile",
             args = shell_quoted_args,
             allow_args = True,
+            has_content_based_path = has_content_based_path,
         ))
     else:
         command.add(args)
@@ -128,7 +131,8 @@ def make_archive(
         ctx: AnalysisContext,
         name: str,
         objects: list[Artifact],
-        hidden: list[Artifact] = []) -> Archive:
+        hidden: list[Artifact] = [],
+        force_disable_content_based_path: bool = False) -> Archive:
     if len(objects) == 0:
         fail("no objects to archive")
 
@@ -143,6 +147,7 @@ def make_archive(
         thin = thin,
         prefer_local = _archive_locally(ctx, linker_info),
         allow_cache_upload = _archive_allow_cache_upload(ctx),
+        force_disable_content_based_path = force_disable_content_based_path,
     )
 
     # TODO(T110378125): use argsfiles for GNU archiver for long lists of objects.

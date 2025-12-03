@@ -614,7 +614,8 @@ def _build_haskell_lib(
     else:  # static flavours
         # TODO: avoid making an archive for a single object, like cxx does
         # (but would that work with Template Haskell?)
-        archive = make_archive(ctx, lib_short_path, objfiles)
+        # TODO: Opt haskell actions into content based paths.
+        archive = make_archive(ctx, lib_short_path, objfiles, force_disable_content_based_path = True)
         lib = archive.artifact
         libs = [lib] + (archive.external_objects if archive.archive_contents_type == ArchiveContentsType("thin") else [])
         link_infos = LinkInfos(
