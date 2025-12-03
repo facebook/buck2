@@ -185,8 +185,8 @@ def sanitize_stderr(s: str) -> str:
     s = re.sub(r"Cache hits: .+", "Cache hits: <CACHE_STATS>", s)
     # Remove "Network" line
     s = re.sub(r"Network: .+", "Network: <NETWORK_STATS>", s)
-    # Remove path from "panicked at" line
-    s = re.sub(r"panicked at .+", "panicked at <PATH>", s)
+    # Remove thread ID & path from "panicked at" line
+    s = re.sub(r"\([0-9]+\) panicked at .+", "(<THREAD_ID>) panicked at <PATH>", s)
     return sanitize_hashes(s)
 
 
