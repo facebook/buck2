@@ -139,6 +139,9 @@ def _get_incremental_compilation_flags_and_objects(
     elif get_incremental_file_hashing_enabled(ctx):
         cmd.add(
             "-enable-incremental-file-hashing",
+            "-Xwrapper",
+            "--no-file-prefix-map",
+            "-dwarf-version=5",
         )
         if get_incremental_remote_outputs_enabled(ctx):
             incremental_remote_outputs = True
