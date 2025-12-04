@@ -31,11 +31,13 @@ IncrementalCompilationOutput = record(
     incremental_remote_outputs = field(bool),
     swiftdeps = field(list[Artifact]),
     depfiles = field(list[Artifact]),
+    swiftdoc = field(Artifact),
 )
 
 IncrementalCompilationInput = record(
     swiftdeps = field(list[Artifact]),
     depfiles = field(list[Artifact]),
+    swiftdoc = field(Artifact),
 )
 
 SwiftCompilationMode = enum(*SwiftCompilationModes)
@@ -62,12 +64,14 @@ def get_incremental_object_compilation_flags(
         ctx: AnalysisContext,
         srcs: list[CxxSrcWithFlags],
         output_swiftmodule: Artifact,
+        output_swiftdoc: Artifact,
         output_header: Artifact) -> IncrementalCompilationOutput:
     output_file_map_data = _get_output_file_map(ctx, srcs)
     return _get_incremental_compilation_flags_and_objects(
         ctx,
         output_file_map_data,
         output_swiftmodule,
+        output_swiftdoc,
         output_header,
         len(srcs),
     )
@@ -97,8 +101,10 @@ def _get_incremental_compilation_flags_and_objects(
         ctx: AnalysisContext,
         output_file_map_data: _OutputFileMapData,
         output_swiftmodule: Artifact,
+        output_swiftdoc: Artifact | None,
         output_header: Artifact,
         num_srcs: int) -> IncrementalCompilationOutput:
+    extra_hidden = [output_swiftdoc.as_output()] if output_swiftdoc else []
     cmd = cmd_args(
         [
             "-disable-cmo",
@@ -118,7 +124,7 @@ def _get_incremental_compilation_flags_and_objects(
             "-emit-module-path",
             output_swiftmodule.as_output(),
         ],
-        hidden = [output.as_output() for output in output_file_map_data.outputs],
+        hidden = [output.as_output() for output in output_file_map_data.outputs] + extra_hidden,
     )
 
     skip_incremental_outputs = _get_skip_swift_incremental_outputs(ctx)
@@ -156,6 +162,7 @@ def _get_incremental_compilation_flags_and_objects(
         swiftdeps = output_file_map_data.swiftdeps,
         depfiles = output_file_map_data.depfiles,
         incremental_remote_outputs = incremental_remote_outputs,
+        swiftdoc = output_swiftdoc,
     )
 
 def _get_output_file_map(

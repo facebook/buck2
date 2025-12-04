@@ -362,6 +362,7 @@ def compile_swift(
 
     swift_framework_output = None
     swiftinterface_output = None
+
     if _should_compile_with_evolution(ctx):
         swift_framework_output = SwiftLibraryForDistributionOutput(
             swiftinterface = ctx.actions.declare_output(module_name + ".swiftinterface", uses_experimental_content_based_path_hashing = uses_experimental_content_based_path_hashing),
@@ -667,9 +668,14 @@ def _compile_object(
     output_file_map = {}
     emit_depsfiles = toolchain.use_depsfiles
     skip_incremental_outputs = False
+    module_name = get_module_name(ctx)
+    uses_experimental_content_based_path_hashing = get_uses_experimental_content_based_path_hashing(ctx)
 
     if should_build_swift_incrementally(ctx):
-        incremental_compilation_output = get_incremental_object_compilation_flags(ctx, srcs, output_swiftmodule, output_header)
+        #define this here as we will only have an artifact for the purposes of incremental rebuilds.
+        output_swiftdoc = ctx.actions.declare_output(module_name + ".swiftdoc", uses_experimental_content_based_path_hashing = uses_experimental_content_based_path_hashing)
+
+        incremental_compilation_output = get_incremental_object_compilation_flags(ctx, srcs, output_swiftmodule, output_swiftdoc, output_header)
         cmd = incremental_compilation_output.incremental_flags_cmd
 
         # With -skip-incremental-output the output_file_map is an output, so
@@ -681,12 +687,12 @@ def _compile_object(
         skip_incremental_outputs = incremental_compilation_output.skip_incremental_outputs
         swiftdeps = incremental_compilation_output.swiftdeps
         depfiles = incremental_compilation_output.depfiles
+        incremental_artifacts = IncrementalCompilationInput(depfiles = depfiles, swiftdeps = swiftdeps, swiftdoc = output_swiftdoc)
     else:
-        uses_experimental_content_based_path_hashing = get_uses_experimental_content_based_path_hashing(ctx)
         num_threads = 1
         swiftdeps = []
         depfiles = []
-        output_object = ctx.actions.declare_output(get_module_name(ctx) + ".o", uses_experimental_content_based_path_hashing = uses_experimental_content_based_path_hashing)
+        output_object = ctx.actions.declare_output(module_name + ".o", uses_experimental_content_based_path_hashing = uses_experimental_content_based_path_hashing)
         objects = [output_object]
         object_format = toolchain.object_format.value
         embed_bitcode = False
@@ -700,6 +706,7 @@ def _compile_object(
             output_object.as_output(),
             "-wmo",
         ])
+        incremental_artifacts = None
 
         if embed_bitcode:
             cmd.add("--embed-bitcode")
@@ -724,7 +731,7 @@ def _compile_object(
         output_file_map = output_file_map,
         skip_incremental_outputs = skip_incremental_outputs,
         objects = objects,
-        incremental_artifacts = IncrementalCompilationInput(depfiles = depfiles, swiftdeps = swiftdeps),
+        incremental_artifacts = incremental_artifacts,
         artifact_tag = inputs_tag,
     )
 

@@ -55,6 +55,7 @@ def compile_with_argsfile_cmd(
         writable_incremental_args.extend(object_outputs)
         writable_incremental_args.extend([swiftdep.as_output() for swiftdep in incremental_artifacts.swiftdeps])
         writable_incremental_args.extend([depfile.as_output() for depfile in incremental_artifacts.depfiles])
+        writable_incremental_args.append(incremental_artifacts.swiftdoc.as_output())
 
     cmd = cmd_args(toolchain.compiler)
     cmd.add(additional_flags)
