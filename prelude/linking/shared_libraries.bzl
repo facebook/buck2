@@ -267,7 +267,7 @@ def gen_shared_libs_action(
         out: str,
         shared_libs: list[SharedLibrary],
         gen_action: typing.Callable,
-        dir = False):
+        dir = False) -> Artifact:
     """
     Produce an action by first resolving all SONAME of the given shlibs and
     enforcing that each SONAME is unique.
@@ -330,7 +330,7 @@ def zip_shlibs(
 
     return zipped
 
-def create_shlib_symlink_tree(actions: AnalysisActions, out: str, shared_libs: list[SharedLibrary]):
+def create_shlib_symlink_tree(actions: AnalysisActions, out: str, shared_libs: list[SharedLibrary]) -> Artifact:
     """
     Merged shared libs into a symlink tree mapping the library's SONAME to
     it's artifact.
