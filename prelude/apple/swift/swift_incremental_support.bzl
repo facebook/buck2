@@ -146,13 +146,19 @@ def _get_incremental_compilation_flags_and_objects(
     elif get_incremental_file_hashing_enabled(ctx):
         cmd.add(
             "-enable-incremental-file-hashing",
+            "-avoid-emit-module-source-info",
+        )
+    if get_incremental_remote_outputs_enabled(ctx):
+        incremental_remote_outputs = True
+        cmd.add(
             "-Xwrapper",
             "--no-file-prefix-map",
             "-dwarf-version=5",
-            "-avoid-emit-module-source-info",
+            "-Xcc",
+            "-working-directory",
+            "-Xcc",
+            ".",
         )
-        if get_incremental_remote_outputs_enabled(ctx):
-            incremental_remote_outputs = True
 
     return IncrementalCompilationOutput(
         artifacts = output_file_map_data.artifacts,
