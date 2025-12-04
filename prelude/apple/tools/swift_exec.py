@@ -93,6 +93,9 @@ def _make_path_user_writable(path: str) -> None:
     # Incremental Remote Actions, where this path may or may not be
     # pre-populated from a previous action. We need to check because we won't
     # know if we have these paths populated until runtime.
+    if "INSIDE_RE_WORKER" not in os.environ:
+        return
+
     if not os.path.exists(path):
         return
 
