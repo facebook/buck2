@@ -327,6 +327,7 @@ def main():
                     "swift-dependencies",
                     "dependencies",
                     "emit-module-dependencies",
+                    "emit-module-diagnostics",
                     "diagnostics",
                     "object",
                 ]:
