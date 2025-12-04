@@ -42,7 +42,8 @@ import java.util.logging.Logger; // NOPMD
 /** Installs an Android Apk */
 class AndroidInstall {
   private static final Logger LOG = Logger.getLogger(AndroidInstall.class.getName());
-  private static final Set<String> ENABLE_APP_LINKS_ALLOWLIST = Set.of("com.facebook.wakizashi");
+  private static final Set<String> ENABLE_APP_LINKS_ALLOWLIST =
+      Set.of("com.facebook.wakizashi", "com.facebook.lite", "com.instagram.lite");
 
   private final IsolatedApkInfo apkInfo;
   private final Optional<IsolatedExopackageInfo> exopackageInfo;
