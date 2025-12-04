@@ -285,6 +285,7 @@ def _content_based_path_for_jar_snapshot():
         "uses_content_based_path_for_jar_snapshot": attrs.bool(default = select({
             "DEFAULT": False,
             # @oss-disable[end= ]: "config//build_mode/constraints:whatsapp": True,
+            # @oss-disable[end= ]: "config//build_mode:arvr_mode": True,
         })),
     }
 
@@ -293,6 +294,7 @@ def _kotlincd_content_based_paths():
         "uses_content_based_paths_for_kotlincd": attrs.bool(default = select({
             "DEFAULT": False,
             # @oss-disable[end= ]: "config//build_mode/constraints:whatsapp": True,
+            # @oss-disable[end= ]: "config//build_mode:arvr_mode": True,
         })),
     }
 
@@ -301,6 +303,7 @@ def _classic_java_content_based_paths():
         "uses_content_based_paths_for_classic_java": attrs.bool(default = select({
             "DEFAULT": False,
             # @oss-disable[end= ]: "config//build_mode/constraints:whatsapp": True,
+            # @oss-disable[end= ]: "config//build_mode:arvr_mode": True,
         })),
     }
 
