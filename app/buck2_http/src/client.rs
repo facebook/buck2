@@ -718,8 +718,8 @@ mod tests {
 
         let client = HttpClientBuilder::https_with_system_roots()
             .await?
-            .with_x2p_proxy(hyper_proxy2::Proxy::new(
-                hyper_proxy2::Intercept::Http,
+            .with_x2p_proxy(hyper_http_proxy::Proxy::new(
+                hyper_http_proxy::Intercept::Http,
                 hyperlocal::Uri::new(proxy_server.socket, "/").into(),
             ))
             .build();
@@ -887,8 +887,8 @@ mod proxy_tests {
     use httptest::responders;
     use hyper::Request;
     use hyper::body::Incoming;
-    use hyper_proxy2::Intercept;
-    use hyper_proxy2::Proxy;
+    use hyper_http_proxy::Intercept;
+    use hyper_http_proxy::Proxy;
     use hyper_util::client::legacy::Client;
     use hyper_util::rt::TokioExecutor;
     use hyper_util::rt::TokioIo;
@@ -971,6 +971,7 @@ mod proxy_tests {
 
     #[tokio::test]
     async fn test_uses_http_proxy() -> buck2_error::Result<()> {
+        buck2_certs::certs::maybe_setup_cryptography();
         let test_server = httptest::Server::run();
         test_server.expect(
             Expectation::matching(all_of![

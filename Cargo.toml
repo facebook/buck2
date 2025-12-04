@@ -200,8 +200,8 @@ httparse = "1.7.1"
 httptest = "0.16"
 humantime = "2.0.1"
 hyper = { version = "1.5.1", features = ["client", "http1", "http2"] }
-hyper-proxy2 = { version = "0.1", features = ["rustls"], default-features = false }
-hyper-rustls = { version = "0.26.0", features = ["http2"] }
+hyper-http-proxy = "1.0"
+hyper-rustls = { version = "0.27.0", features = ["http2"] }
 hyper-timeout = "0.5"
 hyper-util = "0.1.10"
 hyperlocal = { version = "0.9", features = ["client"] }
@@ -270,7 +270,7 @@ regex = "1.5.4"
 relative-path = { version = "1.7.0", features = ["serde"] }
 rusqlite = { version = "0.36.0", features = ["bundled"] }
 rustc-hash = { version = "2.1" }
-rustls = "0.22"
+rustls = { package = "rustls", version = "0.23.29", features = ["aws-lc-rs"], default-features = false }
 rustls-native-certs = { version = "0.8.1" }
 rustls-pemfile = { package = "rustls-pemfile", version = "1.0.0" }
 rustls-pki-types = { version = "1.0", features = ["alloc", "std"] }
@@ -306,7 +306,7 @@ thiserror = "1.0.36"
 threadpool = "1.8.1"
 tikv-jemallocator = { version = "0.6.0", features = ["profiling"] }
 tokio = { version = "1.25.0", features = ["full", "test-util", "tracing"] }
-tokio-rustls = { version = "0.25" }
+tokio-rustls = { version = "0.26" }
 tokio-stream = { version = "0.1.14", features = ["fs", "io-util", "net", "sync", "time", "signal"] }
 tokio-util = { version = "0.6", features = ["full"] }
 toml = "0.5"

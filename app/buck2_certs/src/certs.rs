@@ -20,8 +20,23 @@ use rustls_pki_types::CertificateDer;
 use rustls_pki_types::PrivateKeyDer;
 use rustls_pki_types::pem::PemObject;
 
-pub fn maybe_setup_cryptography() {}
-pub fn setup_cryptography_or_fail() {}
+pub fn maybe_setup_cryptography() {
+    setup_cryptography().ok();
+}
+
+pub fn setup_cryptography_or_fail() {
+    setup_cryptography().unwrap();
+}
+
+fn setup_cryptography() -> std::result::Result<(), std::sync::Arc<rustls::crypto::CryptoProvider>> {
+    // https://fb.workplace.com/groups/rust.language/permalink/29117966747825230/
+    // Note that all but the first call will fail, so we callers should only use
+    // this function as early as possible in their lifetime
+    // Note that the use of 'ring' here is arbitrary and should not be
+    // taken as an intentional choice of cryptographic provider
+    rustls::crypto::ring::default_provider().install_default()
+}
+
 /// Load system root certs, trying a few different methods to get a valid root
 /// certificate store.
 async fn load_system_root_certs() -> buck2_error::Result<RootCertStore> {

@@ -12,13 +12,13 @@ use buck2_error::buck2_error;
 use http::HeaderMap;
 use http::HeaderValue;
 use http::Uri;
-use hyper_proxy2::Proxy;
+use hyper_http_proxy::Proxy;
 
 #[cfg(fbcode_build)]
 mod imp {
     use buck2_error::BuckErrorContext;
     use http::Uri;
-    use hyper_proxy2::Intercept;
+    use hyper_http_proxy::Intercept;
 
     use super::*;
 

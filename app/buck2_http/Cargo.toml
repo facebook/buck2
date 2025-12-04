@@ -12,7 +12,7 @@ futures = { workspace = true }
 http = { workspace = true }
 http-body-util = { workspace = true }
 hyper = { workspace = true }
-hyper-proxy2 = { workspace = true }
+hyper-http-proxy = { workspace = true }
 hyper-rustls = { workspace = true }
 hyper-timeout = { workspace = true }
 hyper-util = { workspace = true }
