@@ -104,17 +104,38 @@ def create_annotation_processor_properties(
                 isolate_class_loader = ap_plugin.isolate_class_loader,
             ))
 
-    annotation_processor_params = annotation_processor_params + [
+    annotation_processor_params = _update_first(
+        annotation_processor_params,
+        "buck.current_buck_target=<will_be_replaced>",
         "buck.current_buck_target=" + str(ctx.label.raw_target()),
-    ]
+    )
 
-    if hasattr(ctx.attrs, "required_for_source_only_abi"):
-        annotation_processor_params.append("buck.required_for_source_only_abi=" + str(ctx.attrs.required_for_source_only_abi))
+    annotation_processor_params = _update_first(
+        annotation_processor_params,
+        "buck.required_for_source_only_abi=<will_be_replaced>",
+        ("buck.required_for_source_only_abi=" + str(ctx.attrs.required_for_source_only_abi)) if hasattr(ctx.attrs, "required_for_source_only_abi") else None,
+    )
 
     return AnnotationProcessorProperties(
         annotation_processors = annotation_processors,
         annotation_processor_params = annotation_processor_params,
     )
+
+def _update_first(iterable, old_value, new_value):
+    """
+    Replaces the first occurrence of old_value with new_value.
+    If new_value is None, removes the first occurrence instead.
+    Returns the original iterable unchanged if old_value is not found.
+    """
+    if old_value not in iterable:
+        return iterable
+    result = list(iterable)
+    idx = result.index(old_value)
+    if new_value == None:
+        result.pop(idx)
+    else:
+        result[idx] = new_value
+    return result
 
 def create_ksp_annotation_processor_properties(plugins: list[[Dependency, (Dependency, list[str])]]) -> AnnotationProcessorProperties:
     annotation_processors = []
