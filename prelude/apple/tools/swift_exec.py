@@ -235,6 +235,11 @@ def _parse_wrapper_args(
         nargs="*",
         help="Paths that should be made writable for incremental compilation",
     )
+    parser.add_argument(
+        "--no-file-prefix-map",
+        action="store_true",
+        help="Don't use -file-prefix-map or -coverage-prefix-map options",
+    )
     parsed_args = parser.parse_args(wrapper_args)
 
     if (
@@ -275,29 +280,30 @@ def main():
     #
     # We need to use the path where the action is run (both locally and on RE),
     # which is not known when we define the action.
-    command += [
-        # Macro expansions get materialized in the temporary directory, which
-        # varies between local and remote actions. For local actions this will
-        # be a subdir of the CWD, so this needs to be the first map entry.
-        # We also need this prefix for the clang module cache path if we are
-        # not using explicit modules with remote actions.
-        "-file-prefix-map",
-        f"{env.get(_RE_TMPDIR_ENV_VAR, "/tmp").rstrip("/")}=/tmp",
-        "-file-prefix-map",
-        f"{os.getcwd()}/=",
-        "-file-prefix-map",
-        f"{os.getcwd()}=.",
-    ]
+    if not wrapper_args.no_file_prefix_map:
+        command += [
+            # Macro expansions get materialized in the temporary directory, which
+            # varies between local and remote actions. For local actions this will
+            # be a subdir of the CWD, so this needs to be the first map entry.
+            # We also need this prefix for the clang module cache path if we are
+            # not using explicit modules with remote actions.
+            "-file-prefix-map",
+            f"{env.get(_RE_TMPDIR_ENV_VAR, "/tmp").rstrip("/")}=/tmp",
+            "-file-prefix-map",
+            f"{os.getcwd()}/=",
+            "-file-prefix-map",
+            f"{os.getcwd()}=.",
+        ]
 
-    # Apply a coverage prefix map for the current directory
-    # to make file path metadata relocatable stripping
-    # the current directory from it.
-    #
-    # This overrides -file-prefix-map.
-    command += [
-        "-coverage-prefix-map",
-        f"{os.getcwd()}=.",
-    ]
+        # Apply a coverage prefix map for the current directory
+        # to make file path metadata relocatable stripping
+        # the current directory from it.
+        #
+        # This overrides -file-prefix-map.
+        command += [
+            "-coverage-prefix-map",
+            f"{os.getcwd()}=.",
+        ]
 
     if wrapper_args.skip_incremental_outputs:
         command = _process_skip_incremental_outputs(command)
