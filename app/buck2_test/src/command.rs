@@ -194,6 +194,7 @@ impl Default for CounterWithExamples {
 struct TestStatuses {
     passed: CounterWithExamples,
     skipped: CounterWithExamples,
+    omitted: CounterWithExamples,
     failed: CounterWithExamples,
     infra_failure: CounterWithExamples,
     fatals: CounterWithExamples,
@@ -206,7 +207,7 @@ impl TestStatuses {
             TestStatus::PASS => self.passed.add(&result.name),
             TestStatus::FAIL => self.failed.add(&result.name),
             TestStatus::SKIP => self.skipped.add(&result.name),
-            TestStatus::OMITTED => self.skipped.add(&result.name),
+            TestStatus::OMITTED => self.omitted.add(&result.name),
             TestStatus::FATAL => self.fatals.add(&result.name),
             TestStatus::TIMEOUT => self.failed.add(&result.name),
             TestStatus::INFRA_FAILURE => self.infra_failure.add(&result.name),
@@ -227,6 +228,9 @@ enum TestError {
     #[error("Test execution completed but tests were skipped")]
     #[buck2(tag = Input)]
     TestSkipped,
+    #[error("Tests were filtered out and not run")]
+    #[buck2(tag = Input)]
+    TestOmitted,
     #[error("Test listing failed")]
     #[buck2(tag = Input)]
     ListingFailed,
@@ -484,6 +488,13 @@ async fn test(
                 .skipped
                 .to_cli_proto_counter(),
         ),
+        omitted: Some(
+            test_outcome
+                .executor_report
+                .statuses
+                .omitted
+                .to_cli_proto_counter(),
+        ),
         failed: Some(
             test_outcome
                 .executor_report
@@ -588,6 +599,13 @@ async fn test(
         if skipped.count > 0 && exit_code.is_none_or(|code| code != 0) {
             errors.push(buck2_data::ErrorReport::from(
                 &TestError::TestSkipped.into(),
+            ));
+        }
+    }
+    if let Some(omitted) = &test_statuses.omitted {
+        if omitted.count > 0 {
+            errors.push(buck2_data::ErrorReport::from(
+                &TestError::TestOmitted.into(),
             ));
         }
     }

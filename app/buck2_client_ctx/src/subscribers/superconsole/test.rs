@@ -70,6 +70,12 @@ impl TestCounterColumn {
         get_from_test_state: |test_state| test_state.skipped,
         get_from_test_statues: |test_statuses| &test_statuses.skipped,
     };
+    pub const OMIT: TestCounterColumn = TestCounterColumn {
+        label: "Omit",
+        color: Some(Color::Magenta),
+        get_from_test_state: |test_state| test_state.omitted,
+        get_from_test_statues: |test_statuses| &test_statuses.omitted,
+    };
     const TIMEOUT: TestCounterColumn = TestCounterColumn {
         label: "Timeout",
         color: Some(Color::Yellow),
@@ -137,6 +143,8 @@ impl TestCounterComponent {
         spans.push(TestCounterColumn::FATAL.to_span_from_test_state(test_state)?);
         spans.push(". ".try_into()?);
         spans.push(TestCounterColumn::SKIP.to_span_from_test_state(test_state)?);
+        spans.push(". ".try_into()?);
+        spans.push(TestCounterColumn::OMIT.to_span_from_test_state(test_state)?);
         spans.push(". ".try_into()?);
         spans.push(TestCounterColumn::TIMEOUT.to_span_from_test_state(test_state)?);
         spans.push(". ".try_into()?);
