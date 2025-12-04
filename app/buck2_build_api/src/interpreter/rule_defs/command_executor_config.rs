@@ -55,10 +55,6 @@ enum CommandExecutorConfigErrors {
     MissingField(&'static str),
     #[error("invalid value in `{0}`")]
     InvalidField(&'static str),
-    #[error(
-        "executor config must specify at least `local_enabled = True` or `remote_enabled = True`"
-    )]
-    NoExecutor,
     #[error("expected a dict, got `{0}` (type `{1}`)")]
     RePolicyNotADict(String, String),
     #[error("expected an list, got `{0}` (type `{1}`)")]
@@ -318,11 +314,7 @@ pub fn register_command_executor_config(builder: &mut GlobalsBuilder) {
                 }
                 // If remote cache is disabled, also disable the remote dep file cache as well
                 (Some(local), None, false) => Executor::Local(local),
-                (None, None, _) => {
-                    return Err(
-                        buck2_error::Error::from(CommandExecutorConfigErrors::NoExecutor).into(),
-                    );
-                }
+                (None, None, _) => Executor::None,
             };
 
             let output_paths_behavior = remote_output_paths

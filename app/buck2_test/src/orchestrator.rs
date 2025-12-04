@@ -1262,7 +1262,9 @@ impl BuckTestOrchestrator<'_> {
                 };
                 Ok(Cow::Owned(executor_config))
             }
-            Executor::Local(_) | Executor::RemoteEnabled(_) => Ok(Cow::Borrowed(executor_config)),
+            Executor::Local(_) | Executor::RemoteEnabled(_) | Executor::None => {
+                Ok(Cow::Borrowed(executor_config))
+            }
         }
     }
 

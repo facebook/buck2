@@ -245,6 +245,7 @@ impl HasCommandExecutor for CommandExecutorFactory {
             };
 
         let response = match &executor_config.executor {
+            Executor::None => None,
             Executor::Local(local) => {
                 if self.strategy.ban_local() {
                     None

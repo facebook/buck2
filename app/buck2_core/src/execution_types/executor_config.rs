@@ -216,6 +216,8 @@ pub enum Executor {
     /// This executor interacts with a RE backend. It may use that to read or write to caches, or
     /// to execute commands.
     RemoteEnabled(RemoteEnabledExecutorOptions),
+    /// Can't run any actions
+    None,
 }
 
 impl Display for Executor {
@@ -243,6 +245,7 @@ impl Display for Executor {
                     options.executor, cache, options.cache_upload_behavior, dep_file_cache
                 )
             }
+            Self::None => write!(f, "None"),
         }
     }
 }
@@ -357,6 +360,7 @@ impl CommandExecutorConfig {
         match &self.executor {
             Executor::Local(_) => false,
             Executor::RemoteEnabled(options) => options.remote_cache_enabled,
+            Executor::None => false,
         }
     }
 }

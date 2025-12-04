@@ -1,0 +1,9 @@
+load(":defs.bzl", "execution_platforms", "run_action")
+
+execution_platforms(
+    name = "execution_platforms",
+)
+
+run_action(
+    name = "run_action",
+)
