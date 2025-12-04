@@ -142,6 +142,7 @@ def _get_incremental_compilation_flags_and_objects(
             "-Xwrapper",
             "--no-file-prefix-map",
             "-dwarf-version=5",
+            "-avoid-emit-module-source-info",
         )
         if get_incremental_remote_outputs_enabled(ctx):
             incremental_remote_outputs = True
