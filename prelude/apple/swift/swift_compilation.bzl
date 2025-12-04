@@ -666,7 +666,7 @@ def _compile_object(
         category: str) -> SwiftObjectOutput:
     dep_files = {}
     output_file_map = {}
-    emit_depsfiles = toolchain.use_depsfiles
+    emit_depsfiles = toolchain.use_depsfiles and not get_incremental_file_hashing_enabled(ctx)
     skip_incremental_outputs = False
     module_name = get_module_name(ctx)
     uses_experimental_content_based_path_hashing = get_uses_experimental_content_based_path_hashing(ctx)

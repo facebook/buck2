@@ -207,7 +207,7 @@ def _get_output_file_map(
             }
             swiftdeps.append(swiftdeps_artifact)
             all_outputs.append(swiftdeps_artifact)
-            if toolchain.use_depsfiles:
+            if toolchain.use_depsfiles and not get_incremental_file_hashing_enabled(ctx):
                 deps_artifact = ctx.actions.declare_output("__swift_incremental__/objects/" + file_name + ".d", uses_experimental_content_based_path_hashing = uses_experimental_content_based_path_hashing)
                 depfiles.append(deps_artifact)
                 all_outputs.append(deps_artifact)
