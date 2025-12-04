@@ -51,7 +51,7 @@ def git_fetch_impl(ctx: AnalysisContext) -> list[Provider]:
     ctx.actions.run(
         cmd,
         category = "git_fetch",
-        local_only = True,
+        # local_only = True,
         allow_cache_upload = ctx.attrs.allow_cache_upload,
     )
 
