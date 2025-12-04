@@ -10,9 +10,9 @@
 
 package com.facebook.buck.testrunner;
 
-import com.android.ddmlib.IDevice;
 import com.android.ddmlib.testrunner.TestIdentifier;
-import com.facebook.buck.android.TestDevice;
+import com.facebook.buck.android.TestAndroidDevice;
+import com.facebook.buck.android.exopackage.AndroidDevice;
 import com.facebook.buck.testresultsoutput.TestResultsOutputSender;
 import java.io.BufferedReader;
 import java.io.File;
@@ -30,19 +30,19 @@ import org.junit.rules.TemporaryFolder;
 // given a correct order of events and that it outputs the same count of lines.
 /** Tests {@link InstrumentationTpxStandardOutputTestListener} */
 public class InstrumentationTpxStandardOutputTestListenerTest {
-  IDevice testDevice;
+  AndroidDevice testDevice;
   File tempFile;
 
   @Before
   public void setUp() throws IOException {
-    testDevice = new TestDevice();
+    testDevice = new TestAndroidDevice();
     tempFile = folder.newFile("test_results.json");
   }
 
   public InstrumentationTpxStandardOutputTestListener createListener(
       FileOutputStream fileOutputStream) {
     return new InstrumentationTpxStandardOutputTestListener(
-        new TestResultsOutputSender(fileOutputStream), testDevice);
+        new TestResultsOutputSender(fileOutputStream), testDevice, null);
   }
 
   @Rule public TemporaryFolder folder = new TemporaryFolder();

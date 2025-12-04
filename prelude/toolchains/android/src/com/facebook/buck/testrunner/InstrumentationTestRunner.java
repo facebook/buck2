@@ -121,8 +121,8 @@ public class InstrumentationTestRunner extends DeviceRunner {
   private List<ReportLayer> reportLayers = new ArrayList<>();
 
   private IDevice device = null;
-  private AndroidDevice androidDevice = null;
-  private AdbUtils adbUtils = null;
+  protected final AndroidDevice androidDevice;
+  protected final AdbUtils adbUtils;
   private volatile boolean testRunFailed = false;
 
   public InstrumentationTestRunner(
@@ -175,6 +175,7 @@ public class InstrumentationTestRunner extends DeviceRunner {
     this.preTestSetupScript = preTestSetupScript;
     this.apexesToInstall = apexesToInstall;
     this.adbUtils = new AdbUtils(getAdbPath(), 0);
+    this.androidDevice = initializeAndroidDevice();
   }
 
   protected static class ArgsParser {
@@ -458,41 +459,41 @@ public class InstrumentationTestRunner extends DeviceRunner {
     androidDevice.installApkOnDevice(new File(path), false, false, false);
   }
 
-  protected void initializeAndroidDevice() throws Exception {
-    if (this.androidDevice == null) {
-      String deviceSerial = deviceArgs.deviceSerial;
+  protected AndroidDevice initializeAndroidDevice() {
+    String deviceSerial = deviceArgs.deviceSerial;
 
-      // Validate device selection arguments
-      if (deviceSerial == null && !deviceArgs.autoRunOnConnectedDevice) {
-        throw new IllegalArgumentException(
-            "Either deviceSerial must be provided or autoRunOnConnectedDevice must be enabled");
-      }
-
-      // If both deviceSerial and autoRunOnConnectedDevice are specified, deviceSerial takes
-      // precedence
-      if (deviceSerial == null && deviceArgs.autoRunOnConnectedDevice) {
-        List<AndroidDevice> devices = this.adbUtils.getDevices();
-        if (!devices.isEmpty()) {
-          // TODO: If more than one device is attached, we currently select the first one.
-          // Consider warning the user or providing a way to specify which device to use.
-          this.androidDevice = devices.get(0);
-        }
-      } else if (deviceSerial != null) {
-        this.androidDevice = new AndroidDeviceImpl(deviceSerial, this.adbUtils);
-      }
-
-      if (this.androidDevice == null) {
-        throw new RuntimeException("Failed to initialize AndroidDevice");
-      }
+    // Validate device selection arguments
+    if (deviceSerial == null && !deviceArgs.autoRunOnConnectedDevice) {
+      throw new IllegalArgumentException(
+          "Either deviceSerial must be provided or autoRunOnConnectedDevice must be enabled");
     }
+
+    AndroidDevice device = null;
+
+    // If both deviceSerial and autoRunOnConnectedDevice are specified, deviceSerial takes
+    // precedence
+    if (deviceSerial == null && deviceArgs.autoRunOnConnectedDevice) {
+      List<AndroidDevice> devices = this.adbUtils.getDevices();
+      if (!devices.isEmpty()) {
+        // TODO: If more than one device is attached, we currently select the first one.
+        // Consider warning the user or providing a way to specify which device to use.
+        device = devices.get(0);
+      }
+    } else if (deviceSerial != null) {
+      device = new AndroidDeviceImpl(deviceSerial, this.adbUtils);
+    }
+
+    if (device == null) {
+      throw new RuntimeException("Failed to initialize AndroidDevice");
+    }
+
+    return device;
   }
 
   @SuppressWarnings({"PMD.BlacklistedSystemGetenv", "PMD.BlacklistedDefaultProcessMethod"})
   public void run() throws Throwable {
     IDevice device = getAndroidDevice(deviceArgs.autoRunOnConnectedDevice, deviceArgs.deviceSerial);
     this.device = device;
-
-    initializeAndroidDevice();
 
     if (this.instrumentationApkPath != null) {
       if (this.apkUnderTestPath != null) {
@@ -719,7 +720,7 @@ public class InstrumentationTestRunner extends DeviceRunner {
         }
       }
 
-      BuckXmlTestRunListener buckXmlListener = new BuckXmlTestRunListener(device);
+      BuckXmlTestRunListener buckXmlListener = new BuckXmlTestRunListener(androidDevice, adbUtils);
       ITestRunListener trimLineListener =
           new ITestRunListener() {
             /**
@@ -773,7 +774,8 @@ public class InstrumentationTestRunner extends DeviceRunner {
           TestResultsOutputSender.fromDefaultEnvName();
       if (testResultsOutputSender.isPresent()) {
         InstrumentationTpxStandardOutputTestListener tpxListener =
-            new InstrumentationTpxStandardOutputTestListener(testResultsOutputSender.get(), device);
+            new InstrumentationTpxStandardOutputTestListener(
+                testResultsOutputSender.get(), androidDevice, adbUtils);
         listeners.add(tpxListener);
       }
 

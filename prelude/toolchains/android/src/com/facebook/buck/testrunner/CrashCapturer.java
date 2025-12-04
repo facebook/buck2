@@ -10,12 +10,10 @@
 
 package com.facebook.buck.testrunner;
 
-import com.android.ddmlib.IDevice;
-import com.android.ddmlib.IShellOutputReceiver;
-import com.android.ddmlib.MultiLineReceiver;
+import com.facebook.buck.android.exopackage.AdbUtils;
+import com.facebook.buck.android.exopackage.AndroidDevice;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.TimeUnit;
 
 /** Static methods to collect crash information from a device. */
 public class CrashCapturer {
@@ -32,42 +30,39 @@ public class CrashCapturer {
   /**
    * Adds device logcat trace lines to the given trace string.
    *
+   * @param androidDevice the AndroidDevice to get logcat from
+   * @param adbUtils the AdbUtils instance for executing commands
    * @param trace the trace string to add the logcat trace to
    * @return the trace string with the added logcat trace
    */
-  public static String addDeviceLogcatTrace(IDevice device, String trace) {
+  public static String addDeviceLogcatTrace(
+      AndroidDevice androidDevice, AdbUtils adbUtils, String trace) {
     try {
-      List<String> debugLines = new ArrayList<>();
-      IShellOutputReceiver receiver =
-          new MultiLineReceiver() {
-            private boolean inDebuggerdDump = false;
-
-            @Override
-            public boolean isCancelled() {
-              return false;
-            }
-
-            @Override
-            public void processNewLines(String[] lines) {
-              // Try to capture the last debuggerd dump in logcat.
-              for (String line : lines) {
-                if (!line.contains("DEBUG")) {
-                  continue;
-                }
-                if (line.contains("*** *** ***")) {
-                  debugLines.clear();
-                  inDebuggerdDump = true;
-                }
-                if (inDebuggerdDump) {
-                  debugLines.add(line);
-                }
-              }
-            }
-          };
-
       // Wait a short time for debuggerd to (hopefully) write some info out.
       Thread.sleep(1000);
-      device.executeShellCommand("logcat -d", receiver, 10, TimeUnit.SECONDS);
+
+      // Execute logcat command using AdbUtils
+      String logcatOutput =
+          adbUtils.executeAdbShellCommand(
+              "logcat -d", androidDevice.getSerialNumber(), true /* ignoreFailure */);
+
+      // Process the logcat output
+      List<String> debugLines = new ArrayList<>();
+      boolean inDebuggerdDump = false;
+
+      String[] lines = logcatOutput.split("\n");
+      for (String line : lines) {
+        if (!line.contains("DEBUG")) {
+          continue;
+        }
+        if (line.contains("*** *** ***")) {
+          debugLines.clear();
+          inDebuggerdDump = true;
+        }
+        if (inDebuggerdDump) {
+          debugLines.add(line);
+        }
+      }
 
       StringBuilder builder = new StringBuilder();
       builder.append(trace);

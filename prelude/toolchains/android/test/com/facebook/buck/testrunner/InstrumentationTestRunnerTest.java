@@ -18,6 +18,7 @@ import com.android.ddmlib.testrunner.InstrumentationResultParser;
 import com.android.ddmlib.testrunner.RemoteAndroidTestRunner;
 import com.facebook.buck.android.TestAndroidDevice;
 import com.facebook.buck.android.TestDevice;
+import com.facebook.buck.android.exopackage.AndroidDevice;
 import com.facebook.buck.testrunner.reportlayer.LogExtractorReportLayer;
 import com.facebook.buck.testrunner.reportlayer.TombstonesReportLayer;
 import com.facebook.buck.testrunner.reportlayer.VideoRecordingReportLayer;
@@ -500,8 +501,22 @@ public class InstrumentationTestRunnerTest {
             argsParser.extraApksToInstall) {
 
           @Override
-          protected void initializeAndroidDevice() throws Exception {
-            // Skip AndroidDevice initialization for tests
+          protected AndroidDevice initializeAndroidDevice() {
+            // Return TestAndroidDevice for tests
+            return new com.facebook.buck.android.TestAndroidDevice() {
+              @Override
+              public String getSerialNumber() {
+                return "test-device-123";
+              }
+
+              @Override
+              public String getProperty(String property) throws Exception {
+                if ("ro.build.version.sdk".equals(property)) {
+                  return "28"; // Android 9
+                }
+                return null;
+              }
+            };
           }
 
           @Override
@@ -572,7 +587,7 @@ public class InstrumentationTestRunnerTest {
   public void installsSingleApkWhenNoApkUnderTest() throws Throwable {
     List<String> installedPackages = new ArrayList<>();
 
-    TestAndroidDevice androidDevice =
+    final TestAndroidDevice testAndroidDevice =
         new TestAndroidDevice() {
           @Override
           public boolean installApkOnDevice(
@@ -583,6 +598,19 @@ public class InstrumentationTestRunnerTest {
               boolean stagedInstallMode) {
             installedPackages.add(apk.getPath());
             return true;
+          }
+
+          @Override
+          public String getSerialNumber() {
+            return "test-device-123";
+          }
+
+          @Override
+          public String getProperty(String property) throws Exception {
+            if ("ro.build.version.sdk".equals(property)) {
+              return "28"; // Android 9
+            }
+            return null;
           }
         };
 
@@ -652,13 +680,14 @@ public class InstrumentationTestRunnerTest {
           }
 
           @Override
-          protected void initializeAndroidDevice() throws Exception {
-            // Skip AndroidDevice initialization for tests
+          protected AndroidDevice initializeAndroidDevice() {
+            // Initialize with the test's tracking AndroidDevice
+            return testAndroidDevice;
           }
 
           @Override
           protected void installPackage(String path) throws Throwable {
-            androidDevice.installApkOnDevice(new File(path), false, false, false);
+            testAndroidDevice.installApkOnDevice(new File(path), false, false, false);
           }
         };
 
@@ -795,8 +824,22 @@ public class InstrumentationTestRunnerTest {
           }
 
           @Override
-          protected void initializeAndroidDevice() throws Exception {
-            // Skip AndroidDevice initialization for tests
+          protected AndroidDevice initializeAndroidDevice() {
+            // Return TestAndroidDevice for tests
+            return new com.facebook.buck.android.TestAndroidDevice() {
+              @Override
+              public String getSerialNumber() {
+                return "test-device-123";
+              }
+
+              @Override
+              public String getProperty(String property) throws Exception {
+                if ("ro.build.version.sdk".equals(property)) {
+                  return "28"; // Android 9
+                }
+                return null;
+              }
+            };
           }
 
           @Override
