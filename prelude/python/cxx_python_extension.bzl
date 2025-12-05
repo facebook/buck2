@@ -156,6 +156,7 @@ def cxx_python_extension_impl(ctx: AnalysisContext) -> list[Provider]:
         separate_debug_info = ctx.attrs.separate_debug_info,
         cuda_compile_style = CudaCompileStyle(ctx.attrs.cuda_compile_style),
         supports_stripping = ctx.attrs.supports_stripping,
+        use_content_based_paths = cxx_toolchain.cxx_compiler_info.supports_content_based_paths,
     )
 
     cxx_library_info = cxx_library_parameterized(ctx, impl_params)
