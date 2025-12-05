@@ -964,6 +964,7 @@ android_prebuilt_aar = prelude_rule(
             "required_for_source_only_abi": attrs.bool(default = False),
         } |
         jvm_common.content_based_path_for_jar_snapshot() |
+        jvm_common.classic_java_content_based_paths() |
         buck.licenses_arg() |
         buck.labels_arg() |
         buck.contacts_arg()

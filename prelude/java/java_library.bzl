@@ -432,7 +432,7 @@ def _create_jar_artifact(
 
     Returns a single artifacts that represents jar output file
     """
-    use_content_based_paths = getattr(ctx.attrs, "uses_content_based_paths_for_classic_java", False)
+    use_content_based_paths = ctx.attrs.uses_content_based_paths_for_classic_java
     javac_tool = javac_tool or derive_javac(java_toolchain.javac)
     jar_out = output or ctx.actions.declare_output(paths.join(actions_identifier or "jar", "{}.jar".format(label.name)), has_content_based_path = use_content_based_paths)
 
