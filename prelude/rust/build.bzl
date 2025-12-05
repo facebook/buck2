@@ -860,11 +860,6 @@ def dynamic_symlinked_dirs(
     name = "{}-dyn".format(prefix)
     transitive_dependency_dir = ctx.actions.declare_output(name, dir = True)
 
-    artifacts = {}
-    for dep in transitive_deps.traverse():
-        if dep.crate.dynamic:
-            artifacts[dep.artifact] = dep.crate
-
     artifacts = transitive_deps.project_as_args("dynamic_artifacts")
     crate_names = transitive_deps.project_as_args("dynamic_crate_names")
 
