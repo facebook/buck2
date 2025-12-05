@@ -224,18 +224,38 @@ def get_android_binary_native_library_info(
             "native_library_merge_sequence": native_library_merge_sequence,
             "native_library_merge_sequence_blocklist": native_library_merge_sequence_blocklist or [],
         })
-        # @oss-disable[end= ]: native_library_merge_input_file = early_gatorade_libraries(ctx, original_shared_libs_by_platform, linkable_nodes_by_platform, native_library_merge_input_file)
-        mergemap_cmd = cmd_args(ctx.attrs._android_toolchain[AndroidToolchainInfo].mergemap_tool)
-        mergemap_cmd.add(cmd_args(native_library_merge_input_file, format = "--mergemap-input={}"))
-        if apk_module_graph_file:
-            mergemap_cmd.add(cmd_args(apk_module_graph_file, format = "--apk-module-graph={}"))
-        if native_library_merge_non_asset_libs:
-            mergemap_cmd.add(cmd_args("--merge-non-asset-libs"))
-        native_library_merge_dir = ctx.actions.declare_output("merge_sequence_output")
-        native_library_merge_map = native_library_merge_dir.project("merge.map")
-        split_groups_map = native_library_merge_dir.project("split_groups.map")
-        mergemap_cmd.add(cmd_args(native_library_merge_dir.as_output(), format = "--output={}"))
-        ctx.actions.run(mergemap_cmd, category = "compute_mergemap", allow_cache_upload = True)
+
+        if not "early" in getattr(ctx.attrs, "gatorade_phases", []):
+            mergemap_cmd = cmd_args(ctx.attrs._android_toolchain[AndroidToolchainInfo].mergemap_tool)
+            mergemap_cmd.add(cmd_args(native_library_merge_input_file, format = "--mergemap-input={}"))
+            if apk_module_graph_file:
+                mergemap_cmd.add(cmd_args(apk_module_graph_file, format = "--apk-module-graph={}"))
+            if native_library_merge_non_asset_libs:
+                mergemap_cmd.add(cmd_args("--merge-non-asset-libs"))
+            native_library_merge_dir = ctx.actions.declare_output("merge_sequence_output")
+            native_library_merge_map = native_library_merge_dir.project("merge.map")
+            split_groups_map = native_library_merge_dir.project("split_groups.map")
+            mergemap_cmd.add(cmd_args(native_library_merge_dir.as_output(), format = "--output={}"))
+            ctx.actions.run(mergemap_cmd, category = "compute_mergemap", allow_cache_upload = True)
+        else:
+            native_library_merge_dir = ctx.actions.declare_output("merge_sequence_output", dir = True)
+            native_library_merge_map = native_library_merge_dir.project("merge.map")
+            split_groups_map = native_library_merge_dir.project("split_groups.map")
+
+            # Pass all merge sequence arguments to early_gatorade_libraries
+            # which will handle running either Python or C++ implementation
+            # Prevent Buildifier from moving comments in a way that breaks things.
+            args = [
+                ctx,
+                original_shared_libs_by_platform,
+                linkable_nodes_by_platform,
+                native_library_merge_input_file,
+                apk_module_graph_file,
+                native_library_merge_non_asset_libs,
+                native_library_merge_dir,
+            ]
+            # @oss-disable[end= ]: early_gatorade_libraries(*args)
+
         enhance_ctx.debug_output("compute_merge_sequence", native_library_merge_dir)
 
         dynamic_inputs.append(native_library_merge_map)
