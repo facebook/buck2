@@ -42,6 +42,10 @@ impl SandcastleScheduleType {
         self.schedule_type == Some(Self::SCHEDULE_TYPE_DIFF)
     }
 
+    pub fn as_str(&self) -> Option<&'static str> {
+        self.schedule_type
+    }
+
     pub fn testing_new(schedule_type: &'static str) -> Self {
         Self {
             schedule_type: Some(schedule_type),

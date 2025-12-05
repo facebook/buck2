@@ -71,6 +71,7 @@ use buck2_core::target::label::interner::ConcurrentTargetLabelInterner;
 use buck2_directory::directory::dashmap_directory_interner::DashMapDirectoryInterner;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_events::metadata;
+use buck2_events::schedule_type::SandcastleScheduleType;
 use buck2_execute::execute::blocking::SetBlockingExecutor;
 use buck2_execute::knobs::ExecutorGlobalKnobs;
 use buck2_execute::materialize::materializer::Materializer;
@@ -971,15 +972,12 @@ fn collect_config_metadata_into(config: &LegacyBuckConfig, data: &mut UserComput
         },
         "client",
     );
-    add_config(
-        &mut metadata,
-        &config,
-        BuckconfigKeyRef {
-            section: "cache",
-            property: "schedule_type",
-        },
-        "schedule_type",
-    );
+
+    if let Ok(schedule_type) = SandcastleScheduleType::new() {
+        if let Some(schedule_type_str) = schedule_type.as_str() {
+            metadata.insert("schedule_type".to_owned(), schedule_type_str.to_owned());
+        }
+    }
 
     data.data.set(ConfigMetadataHolder(metadata));
 }
