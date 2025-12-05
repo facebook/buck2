@@ -765,9 +765,9 @@ def main() -> int:  # noqa: C901
     if args.output:
         pathlib.Path(args.output).mkdir(parents=True, exist_ok=True)
         with open(os.path.join(args.output, "merge.map"), "w") as outfile:
-            json.dump(final_result, outfile, indent=2)
+            json.dump(final_result, outfile, indent=2, sort_keys=True)
         with open(os.path.join(args.output, "split_groups.map"), "w") as outfile:
-            json.dump(split_groups, outfile, indent=2)
+            json.dump(split_groups, outfile, indent=2, sort_keys=True)
 
         # When writing an output dir we also produce some debugging information.
         for platform, result in final_result.items():
