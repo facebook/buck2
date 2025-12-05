@@ -95,9 +95,11 @@ load(
 )
 load(
     ":link_info.bzl",
+    "RustArtifact",
     "RustCxxLinkGroupInfo",  #@unused Used as a type
     "RustDependency",
     "RustLinkInfo",
+    "TransitiveDeps",
     "attr_crate",
     "attr_simple_crate_for_filenames",
     "get_available_proc_macros",
@@ -686,6 +688,14 @@ def rust_compile(
     else:
         filtered_output = emit_op.output
 
+    singleton_tset = ctx.actions.tset(
+        TransitiveDeps,
+        value = RustArtifact(
+            artifact = filtered_output,
+            crate = attr_crate(ctx),
+        ),
+    )
+
     if link_with_split_debug:
         dwo_output_directory = emit_op.extra_out
 
@@ -745,6 +755,7 @@ def rust_compile(
 
     return RustcOutput(
         output = filtered_output,
+        singleton_tset = singleton_tset,
         stripped_output = stripped_output,
         diag_txt = invoke.diag_txt,
         diag_json = invoke.diag_json,
@@ -777,7 +788,7 @@ def dependency_args(
         dep_metadata_kind: MetadataKind,
         is_rustdoc_test: bool) -> (cmd_args, list[(CrateName, Label)]):
     args = cmd_args()
-    transitive_deps = {}
+    transitive_deps = []
     crate_targets = []
     available_proc_macros = get_available_proc_macros(ctx)
     for dep in deps:
@@ -797,7 +808,7 @@ def dependency_args(
         for marker in strategy.transitive_proc_macro_deps:
             info = available_proc_macros[marker.label][RustLinkInfo]
             strategy = strategy_info(toolchain_info, info, dep_link_strategy)
-            transitive_deps[strategy.outputs[MetadataKind("link")]] = info.crate
+            transitive_deps.append(strategy.singleton_tset[MetadataKind("link")])
 
         args.add(extern_arg(dep.flags, crate, artifact))
         crate_targets.append((crate, dep.label))
@@ -806,18 +817,20 @@ def dependency_args(
         # compiler invocation, pass the artifact (under its original crate name)
         # through `-L` unconditionally for doc tests.
         if is_rustdoc_test:
-            transitive_deps[artifact] = dep.info.crate
+            transitive_deps.append(strategy.singleton_tset[dep_metadata_kind])
 
         # Unwanted transitive_deps have already been excluded
-        transitive_deps.update(transitive_artifacts)
+        transitive_deps.append(transitive_artifacts)
+
+    transitive_deps = ctx.actions.tset(TransitiveDeps, children = transitive_deps)
 
     dynamic_artifacts = {}
     simple_artifacts = set()
-    for artifact, crate_name in transitive_deps.items():
-        if crate_name.dynamic:
-            dynamic_artifacts[artifact] = crate_name
+    for dep in transitive_deps.traverse():
+        if dep.crate.dynamic:
+            dynamic_artifacts[dep.artifact] = dep.crate
         else:
-            simple_artifacts.add(artifact)
+            simple_artifacts.add(dep.artifact)
 
     prefix = "{}-deps{}".format(subdir, dep_metadata_kind.value)
     if simple_artifacts:

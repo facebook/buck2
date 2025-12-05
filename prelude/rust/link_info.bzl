@@ -108,14 +108,32 @@ RustProcMacroMarker = provider(fields = {
     "label": typing.Any,
 })
 
+# Artifact produced by a Rust compiler invocation.
+#
+# The artifact is assigned a provisional filepath at analysis time. However, the
+# real name of the crate may not be known until build time. For loading this
+# artifact as a transitive dependency, the filename matters and must match the
+# real crate name. We keep track of the crate name in its own artifact and use
+# it to create a symlink to make the Rust artifact appear with the required name
+# to later rustc executions.
+RustArtifact = record(
+    artifact = field(Artifact),
+    crate = field(CrateName),
+)
+
+# Set of RustArtifact.
+TransitiveDeps = transitive_set()
+
 # Information which is keyed on link_style
 RustLinkStrategyInfo = record(
     # Path to the rlib, rmeta, dylib, etc.
     outputs = field(dict[MetadataKind, Artifact]),
+    # Same as `outputs`, but wrapped in a 1-element transitive set.
+    singleton_tset = field(dict[MetadataKind, TransitiveDeps]),
     # Transitive dependencies which are relevant to the consumer. For crate types which do not
     # propagate their deps (specifically proc macros), this set is empty
     # This does not include the proc macros, which are passed separately in `RustLinkInfo`
-    transitive_deps = field(dict[MetadataKind, dict[Artifact, CrateName]]),
+    transitive_deps = field(dict[MetadataKind, TransitiveDeps]),
     transitive_proc_macro_deps = field(set[RustProcMacroMarker]),
 
     # Path to PDB file with Windows debug data.

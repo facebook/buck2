@@ -10,9 +10,11 @@ load(
     "@prelude//:artifact_tset.bzl",
     "ArtifactTSet",  # @unused Used as a type
 )
+load(":link_info.bzl", "TransitiveDeps")
 
 RustcOutput = record(
     output = field(Artifact),
+    singleton_tset = field(TransitiveDeps),
     stripped_output = field(Artifact),
     diag_txt = field(Artifact),
     diag_json = field(Artifact),

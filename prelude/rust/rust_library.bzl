@@ -104,6 +104,7 @@ load(
     "RustLinkInfo",
     "RustLinkStrategyInfo",
     "RustProcMacroMarker",  # @unused Used as a type
+    "TransitiveDeps",
     "attr_crate",
     "inherited_exported_link_deps",
     "inherited_link_group_lib_infos",
@@ -593,6 +594,7 @@ def _handle_rust_artifact(
         )
         return RustLinkStrategyInfo(
             outputs = {m: x.output for m, x in outputs.items()},
+            singleton_tset = {m: x.singleton_tset for m, x in outputs.items()},
             transitive_deps = tdeps,
             transitive_proc_macro_deps = tprocmacrodeps,
             pdb = link_output.pdb,
@@ -600,9 +602,11 @@ def _handle_rust_artifact(
         )
     else:
         # Proc macro deps are always the real thing
+        no_transitive_deps = ctx.actions.tset(TransitiveDeps)
         return RustLinkStrategyInfo(
             outputs = {m: link_output.output for m in MetadataKind},
-            transitive_deps = {m: {} for m in MetadataKind},
+            singleton_tset = {m: link_output.singleton_tset for m in MetadataKind},
+            transitive_deps = {m: no_transitive_deps for m in MetadataKind},
             transitive_proc_macro_deps = set(),
             pdb = link_output.pdb,
             external_debug_info = ArtifactTSet(),
@@ -1021,12 +1025,12 @@ def _compute_transitive_deps(
         ctx: AnalysisContext,
         dep_ctx: DepCollectionContext,
         dep_link_strategy: LinkStrategy) -> (
-    dict[MetadataKind, dict[Artifact, CrateName]],
+    dict[MetadataKind, TransitiveDeps],
     list[ArtifactTSet],
     set[RustProcMacroMarker],
 ):
     toolchain_info = ctx.attrs._rust_toolchain[RustToolchainInfo]
-    transitive_deps = {m: {} for m in MetadataKind}
+    transitive_deps = {m: [] for m in MetadataKind}
     external_debug_info = []
     transitive_proc_macro_deps = set()
 
@@ -1038,12 +1042,17 @@ def _compute_transitive_deps(
             continue
         strategy = strategy_info(toolchain_info, dep.info, dep_link_strategy)
         for m in MetadataKind:
-            transitive_deps[m][strategy.outputs[m]] = dep.info.crate
-            transitive_deps[m].update(strategy.transitive_deps[m])
+            transitive_deps[m].append(strategy.singleton_tset[m])
+            transitive_deps[m].append(strategy.transitive_deps[m])
 
         external_debug_info.append(strategy.external_debug_info)
 
         transitive_proc_macro_deps.update(strategy.transitive_proc_macro_deps)
+
+    transitive_deps = {
+        m: ctx.actions.tset(TransitiveDeps, children = children)
+        for m, children in transitive_deps.items()
+    }
 
     return transitive_deps, external_debug_info, transitive_proc_macro_deps
 
