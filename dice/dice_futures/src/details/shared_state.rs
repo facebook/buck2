@@ -309,8 +309,8 @@ impl CancellationNotificationData {
         let updated = self.inner.notified.compare_exchange(
             CancellationNotificationStatus::Pending.into(),
             CancellationNotificationStatus::Notified.into(),
-            Ordering::SeqCst,
-            Ordering::SeqCst,
+            Ordering::Relaxed,
+            Ordering::Relaxed,
         );
         if updated.is_ok() {
             if let Some(mut wakers) = self.inner.wakers.lock().take() {
@@ -323,8 +323,8 @@ impl CancellationNotificationData {
         let maybe_updated = self.inner.notified.compare_exchange(
             CancellationNotificationStatus::Pending.into(),
             CancellationNotificationStatus::Disabled.into(),
-            Ordering::SeqCst,
-            Ordering::SeqCst,
+            Ordering::Relaxed,
+            Ordering::Relaxed,
         );
 
         match maybe_updated {
@@ -398,7 +398,17 @@ impl Future for CancellationNotificationFuture {
     type Output = ();
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        match CancellationNotificationStatus::from(self.data.inner.notified.load(Ordering::SeqCst))
+        self.waker.register(cx.waker());
+
+        // Note that the semantics of `AtomicWaker` are exactly designed for this to be correct, but
+        // nonetheless it's quite subtle. If this is racing with a `notify_cancelled` call, then
+        // either:
+        //  1. Our `register` came before the wake, in which case we'll get woken up and get to see
+        //     whatever happened at that time
+        //  2. Our `register` came after the wake, in which case the `register` acquires the change
+        //     to the `notified` state that preceded the `wake` in `notify_cancelled`; as such,
+        //     it's guaranteed it'll be visible here.
+        match CancellationNotificationStatus::from(self.data.inner.notified.load(Ordering::Relaxed))
         {
             CancellationNotificationStatus::Notified => {
                 // take the id so that we don't need to lock the wakers when this future is dropped
@@ -407,10 +417,7 @@ impl Future for CancellationNotificationFuture {
                 self.remove_waker(id);
                 Poll::Ready(())
             }
-            _ => {
-                self.waker.register(cx.waker());
-                Poll::Pending
-            }
+            _ => Poll::Pending,
         }
     }
 }
