@@ -128,6 +128,7 @@ class LinkableGraphNode(typing.NamedTuple):
     soname: str
     deps: list[Label]
     can_be_asset: bool
+    force_static: bool
     labels: list[str]
 
     @staticmethod

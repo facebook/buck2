@@ -1074,6 +1074,7 @@ _LinkableSharedNode = record(
     # Linkable deps of this target.
     deps = field(list[Label], []),
     can_be_asset = field(bool),
+    force_static = field(bool),
 )
 
 def encode_linkable_graph_for_mergemap(graph_node_map_by_platform: dict[str, dict[Label, LinkableNode]]) -> dict[str, dict[Label, _LinkableSharedNode]]:
@@ -1085,6 +1086,7 @@ def encode_linkable_graph_for_mergemap(graph_node_map_by_platform: dict[str, dic
                 labels = node.labels,
                 deps = node.deps + node.exported_deps,
                 can_be_asset = node.can_be_asset,  # and not node.exclude_from_android_merge
+                force_static = node.preferred_linkage == Linkage("static"),
             )
             for target, node in graph_node_map.items()
         }
