@@ -709,7 +709,7 @@ impl ServerState {
                         snapshot.this_handle = id.0;
                         state.events.instant_event(snapshot.clone());
                     }
-                    next_snapshot = Instant::now() + Duration::from_secs(60);
+                    next_snapshot = Instant::now() + Duration::from_mins(1);
                 }
                 msg = recv.next() => {
                     match msg {

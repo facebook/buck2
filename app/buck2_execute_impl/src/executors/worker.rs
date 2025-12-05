@@ -275,7 +275,7 @@ async fn spawn_worker(
     let initial_delay = Duration::from_millis(50);
     let max_delay = Duration::from_millis(500);
     // Might want to make this configurable, and/or measure impact of worker initialization on critical path
-    let timeout = Duration::from_secs(60);
+    let timeout = Duration::from_mins(1);
     let (channel, check_exit) = {
         let socket_path = &socket_path;
 
