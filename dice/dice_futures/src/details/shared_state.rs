@@ -220,19 +220,19 @@ impl PreventingCancellationCount {
 
 pub(crate) enum CancellationNotificationStatus {
     /// no notifications yet. maps to '0'
-    Pending,
+    Normal,
     /// notified, maps to '1'
-    Notified,
+    Cancelled,
     /// disabled notifications, maps to '2'
-    Disabled,
+    CancellationsDisabled,
 }
 
 impl From<u8> for CancellationNotificationStatus {
     fn from(value: u8) -> Self {
         match value {
-            0 => CancellationNotificationStatus::Pending,
-            1 => CancellationNotificationStatus::Notified,
-            2 => CancellationNotificationStatus::Disabled,
+            0 => CancellationNotificationStatus::Normal,
+            1 => CancellationNotificationStatus::Cancelled,
+            2 => CancellationNotificationStatus::CancellationsDisabled,
             _ => panic!("invalid status"),
         }
     }
@@ -241,9 +241,9 @@ impl From<u8> for CancellationNotificationStatus {
 impl From<CancellationNotificationStatus> for u8 {
     fn from(value: CancellationNotificationStatus) -> Self {
         match value {
-            CancellationNotificationStatus::Pending => 0,
-            CancellationNotificationStatus::Notified => 1,
-            CancellationNotificationStatus::Disabled => 2,
+            CancellationNotificationStatus::Normal => 0,
+            CancellationNotificationStatus::Cancelled => 1,
+            CancellationNotificationStatus::CancellationsDisabled => 2,
         }
     }
 }
@@ -251,8 +251,8 @@ impl From<CancellationNotificationStatus> for u8 {
 impl CancellationNotificationDataInner {
     fn notify_cancelled(&self) {
         let updated = self.notified.compare_exchange(
-            CancellationNotificationStatus::Pending.into(),
-            CancellationNotificationStatus::Notified.into(),
+            CancellationNotificationStatus::Normal.into(),
+            CancellationNotificationStatus::Cancelled.into(),
             Ordering::Relaxed,
             Ordering::Relaxed,
         );
@@ -265,8 +265,8 @@ impl CancellationNotificationDataInner {
 
     fn try_to_disable_cancellation(&self) -> bool {
         let maybe_updated = self.notified.compare_exchange(
-            CancellationNotificationStatus::Pending.into(),
-            CancellationNotificationStatus::Disabled.into(),
+            CancellationNotificationStatus::Normal.into(),
+            CancellationNotificationStatus::CancellationsDisabled.into(),
             Ordering::Relaxed,
             Ordering::Relaxed,
         );
@@ -275,7 +275,7 @@ impl CancellationNotificationDataInner {
             Ok(_) => true,
             Err(old) => {
                 let old = CancellationNotificationStatus::from(old);
-                matches!(old, CancellationNotificationStatus::Disabled)
+                matches!(old, CancellationNotificationStatus::CancellationsDisabled)
             }
         }
     }
@@ -359,7 +359,7 @@ impl Future for CancellationNotificationFuture {
         match CancellationNotificationStatus::from(
             self.inner.notifications.notified.load(Ordering::Relaxed),
         ) {
-            CancellationNotificationStatus::Notified => {
+            CancellationNotificationStatus::Cancelled => {
                 // take the id so that we don't need to lock the wakers when this future is dropped
                 // after completion
                 let id = self.id.take();
