@@ -46,6 +46,9 @@ ArtifactTSet = record(
     _tset = field([_ArtifactTSet, None], None),
 )
 
+# Simple empty `ArtifactTSet` that is shared to reduce memory usage.
+EmptyArtifactTSet = ArtifactTSet()
+
 def make_artifact_tset(
         actions: AnalysisActions,
         # Must be non-`None` if artifacts are passed in to `artifacts`.
@@ -68,9 +71,8 @@ def make_artifact_tset(
         values.append(ArtifactInfo(label = label, artifacts = artifacts, tags = tags))
     values.extend(infos)
 
-    # If there's no children or artifacts, return `None`.
     if not values and not children:
-        return ArtifactTSet()
+        return EmptyArtifactTSet
 
     # We only build a `_ArtifactTSet` if there's something to package.
     kwargs = {}
