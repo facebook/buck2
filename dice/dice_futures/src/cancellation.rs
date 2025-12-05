@@ -26,7 +26,6 @@ use crate::details::cancellation_context::ExplicitCancellationContext;
 use crate::details::cancellation_context::ExplicitCriticalSectionGuard;
 use crate::details::shared_state::CancellationContextSharedStateView;
 use crate::details::shared_state::CancellationHandleSharedStateView;
-use crate::details::shared_state::CancellationNotificationData;
 use crate::details::shared_state::CancellationNotificationFuture;
 
 static NEVER_CANCELLED: Lazy<CancellationContext> =
@@ -145,13 +144,9 @@ impl<'a> CriticalSectionGuard<'a> {
         }
     }
 
-    pub(crate) fn new_explicit(
-        context: &'a CancellationContextSharedStateView,
-        notification: CancellationNotificationData,
-    ) -> Self {
+    pub(crate) fn new_explicit(context: &'a CancellationContextSharedStateView) -> Self {
         Self::Explicit(ExplicitCriticalSectionGuard {
             context: Some(context),
-            notification,
         })
     }
 }

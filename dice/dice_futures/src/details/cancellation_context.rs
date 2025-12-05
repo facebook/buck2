@@ -13,7 +13,6 @@ use std::pin::Pin;
 use std::task::Context;
 use std::task::Poll;
 
-use dupe::Dupe;
 use futures::future::Either;
 
 use crate::cancellation::CancellationObserver;
@@ -21,18 +20,16 @@ use crate::cancellation::CancellationObserverInner;
 use crate::cancellation::CriticalSectionGuard;
 use crate::cancellation::DisableCancellationGuard;
 use crate::details::shared_state::CancellationContextSharedStateView;
-use crate::details::shared_state::CancellationNotificationData;
 use crate::details::shared_state::CancellationNotificationFuture;
 
 pub struct ExplicitCriticalSectionGuard<'a> {
     pub(crate) context: Option<&'a CancellationContextSharedStateView>,
-    pub(crate) notification: CancellationNotificationData,
 }
 
 impl<'a> ExplicitCriticalSectionGuard<'a> {
     pub(crate) fn cancellation_observer(&self) -> CancellationObserver {
         CancellationObserver(CancellationObserverInner::Explicit(
-            CancellationNotificationFuture::new(self.notification.dupe()),
+            CancellationNotificationFuture::new(self.context.unwrap()),
         ))
     }
 

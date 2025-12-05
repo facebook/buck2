@@ -66,7 +66,6 @@ impl CancellationHandleSharedStateView {
 /// This is the "outer" context, held by the task's spawned future impl within
 /// its poll loop.
 pub(crate) struct CancellableFutureSharedStateView {
-    context_data: Arc<Mutex<ExecutionContextData>>,
     inner: Arc<SharedStateData>,
 }
 
@@ -80,32 +79,21 @@ impl CancellableFutureSharedStateView {
             state: Mutex::new(State::Normal),
             cancellation_waker: AtomicWaker::new(),
             cancellation_requested: AtomicBool::new(false),
-        });
-        let context_data = Arc::new(Mutex::new(ExecutionContextData {
-            cancellation_notification: {
-                CancellationNotificationData {
-                    inner: Arc::new(CancellationNotificationDataInner {
-                        notified: Default::default(),
-                        wakers: Mutex::new(Some(Default::default())),
-                    }),
-                    shared: shared_data.dupe(),
-                }
+            prevent_cancellation: Mutex::new(PreventingCancellationCount(0)),
+            notifications: CancellationNotificationDataInner {
+                notified: Default::default(),
+                wakers: Mutex::new(Some(Default::default())),
             },
-            prevent_cancellation: 0,
-        }));
+        });
 
         (
             CancellationHandleSharedStateView {
                 inner: shared_data.dupe(),
             },
             CancellableFutureSharedStateView {
-                context_data: context_data.dupe(),
                 inner: shared_data.dupe(),
             },
-            CancellationContextSharedStateView {
-                context_data,
-                inner: shared_data,
-            },
+            CancellationContextSharedStateView { inner: shared_data },
         )
     }
 
@@ -127,20 +115,20 @@ impl CancellableFutureSharedStateView {
     }
 
     pub(crate) fn notify_cancelled(&self) -> bool {
-        let mut lock = self.context_data.lock();
+        let lock = self.inner.prevent_cancellation.lock();
         if lock.can_exit() {
             // Note that we make no effort to attempt to prevent this from racing with creation of a
             // critical section guard. That'd be unusual anyway so it doesn't matter, but it's not
             // statically prevented by the API
             true
         } else {
-            lock.notify_cancelled();
+            self.inner.notifications.notify_cancelled();
             false
         }
     }
 
     pub(crate) fn can_exit(&self) -> bool {
-        self.context_data.lock().can_exit()
+        self.inner.prevent_cancellation.lock().can_exit()
     }
 }
 
@@ -152,23 +140,22 @@ impl CancellableFutureSharedStateView {
 /// loop on the associated ExplicitCancellationFuture. Synchronous tasks that
 /// want to cancel can poll the `inner.cancel_requested` member.
 pub(crate) struct CancellationContextSharedStateView {
-    context_data: Arc<Mutex<ExecutionContextData>>,
     inner: Arc<SharedStateData>,
 }
 
 impl CancellationContextSharedStateView {
     pub(crate) fn enter_structured_cancellation(&self) -> CriticalSectionGuard<'_> {
-        let mut shared = self.context_data.lock();
+        let mut shared = self.inner.prevent_cancellation.lock();
 
-        let notification = shared.enter_structured_cancellation();
+        shared.enter_structured_cancellation();
 
-        CriticalSectionGuard::new_explicit(self, notification)
+        CriticalSectionGuard::new_explicit(self)
     }
 
     /// Also consumes an instance of a `CriticalSectionGuard`
     pub(crate) fn try_to_disable_cancellation(&self) -> bool {
-        let mut shared = self.context_data.lock();
-        if shared.try_to_disable_cancellation() {
+        let mut shared = self.inner.prevent_cancellation.lock();
+        if self.inner.notifications.try_to_disable_cancellation() {
             true
         } else {
             // couldn't prevent cancellation, so release our hold onto the counter
@@ -178,7 +165,7 @@ impl CancellationContextSharedStateView {
     }
 
     pub(crate) fn exit_prevent_cancellation(&self) -> bool {
-        let mut shared = self.context_data.lock();
+        let mut shared = self.inner.prevent_cancellation.lock();
         shared.exit_prevent_cancellation()
     }
 
@@ -201,6 +188,11 @@ struct SharedStateData {
 
     /// When set, this future has been cancelled and should attempt to exit as soon as possible.
     cancellation_requested: AtomicBool,
+
+    /// How many observers are preventing immediate cancellation.
+    prevent_cancellation: Mutex<PreventingCancellationCount>,
+
+    notifications: CancellationNotificationDataInner,
 }
 
 impl SharedStateData {
@@ -221,37 +213,23 @@ enum State {
     Exited,
 }
 
-struct ExecutionContextData {
-    cancellation_notification: CancellationNotificationData,
+/// How many observers are preventing immediate cancellation.
+struct PreventingCancellationCount(usize);
 
-    /// How many observers are preventing immediate cancellation.
-    prevent_cancellation: usize,
-}
-
-impl ExecutionContextData {
+impl PreventingCancellationCount {
     /// Does this future not currently prevent its cancellation?
     fn can_exit(&self) -> bool {
-        self.prevent_cancellation == 0
+        self.0 == 0
     }
 
-    fn enter_structured_cancellation(&mut self) -> CancellationNotificationData {
-        self.prevent_cancellation += 1;
-
-        self.cancellation_notification.dupe()
-    }
-
-    fn notify_cancelled(&mut self) {
-        self.cancellation_notification.notify_cancelled();
+    fn enter_structured_cancellation(&mut self) {
+        self.0 += 1;
     }
 
     fn exit_prevent_cancellation(&mut self) -> bool {
-        self.prevent_cancellation -= 1;
+        self.0 -= 1;
 
-        self.prevent_cancellation == 0
-    }
-
-    fn try_to_disable_cancellation(&mut self) -> bool {
-        self.cancellation_notification.try_to_disable_cancellation()
+        self.0 == 0
     }
 }
 
@@ -285,34 +263,23 @@ impl From<CancellationNotificationStatus> for u8 {
     }
 }
 
-#[derive(Clone, Dupe)]
-pub(crate) struct CancellationNotificationData {
-    inner: Arc<CancellationNotificationDataInner>,
-    shared: Arc<SharedStateData>,
-}
-
-impl CancellationNotificationData {
-    #[inline(always)]
-    pub(crate) fn is_cancellation_requested(&self) -> bool {
-        self.shared.is_cancellation_requested()
-    }
-
+impl CancellationNotificationDataInner {
     fn notify_cancelled(&self) {
-        let updated = self.inner.notified.compare_exchange(
+        let updated = self.notified.compare_exchange(
             CancellationNotificationStatus::Pending.into(),
             CancellationNotificationStatus::Notified.into(),
             Ordering::Relaxed,
             Ordering::Relaxed,
         );
         if updated.is_ok() {
-            if let Some(mut wakers) = self.inner.wakers.lock().take() {
+            if let Some(mut wakers) = self.wakers.lock().take() {
                 wakers.drain().for_each(|waker| waker.wake());
             }
         }
     }
 
     fn try_to_disable_cancellation(&self) -> bool {
-        let maybe_updated = self.inner.notified.compare_exchange(
+        let maybe_updated = self.notified.compare_exchange(
             CancellationNotificationStatus::Pending.into(),
             CancellationNotificationStatus::Disabled.into(),
             Ordering::Relaxed,
@@ -336,7 +303,7 @@ struct CancellationNotificationDataInner {
 }
 
 pub(crate) struct CancellationNotificationFuture {
-    data: CancellationNotificationData,
+    inner: Arc<SharedStateData>,
     // index into the waker for this future held by the Slab in 'CancellationNotificationData'
     id: Option<usize>,
     // duplicate of the waker held for us to update the waker on poll without acquiring lock
@@ -344,21 +311,25 @@ pub(crate) struct CancellationNotificationFuture {
 }
 
 impl CancellationNotificationFuture {
-    pub(crate) fn new(data: CancellationNotificationData) -> Self {
+    pub(crate) fn new(view: &CancellationContextSharedStateView) -> Self {
+        Self::new_from_state(view.inner.dupe())
+    }
+
+    fn new_from_state(inner: Arc<SharedStateData>) -> Self {
         let waker = Arc::new(AtomicWaker::new());
-        let id = data
-            .inner
+        let id = inner
+            .notifications
             .wakers
             .lock()
             .as_mut()
             .map(|wakers| wakers.insert(waker.dupe()));
-        CancellationNotificationFuture { data, id, waker }
+        CancellationNotificationFuture { inner, id, waker }
     }
 
     fn remove_waker(&mut self, id: Option<usize>) {
         if let Some(id) = id {
-            self.data
-                .inner
+            self.inner
+                .notifications
                 .wakers
                 .lock()
                 .as_mut()
@@ -367,14 +338,14 @@ impl CancellationNotificationFuture {
     }
 
     #[inline(always)]
-    pub fn is_cancellation_requested(&self) -> bool {
-        self.data.is_cancellation_requested()
+    pub(crate) fn is_cancellation_requested(&self) -> bool {
+        self.inner.is_cancellation_requested()
     }
 }
 
 impl Clone for CancellationNotificationFuture {
     fn clone(&self) -> Self {
-        CancellationNotificationFuture::new(self.data.dupe())
+        CancellationNotificationFuture::new_from_state(self.inner.dupe())
     }
 }
 
@@ -400,8 +371,9 @@ impl Future for CancellationNotificationFuture {
         //  2. Our `register` came after the wake, in which case the `register` acquires the change
         //     to the `notified` state that preceded the `wake` in `notify_cancelled`; as such,
         //     it's guaranteed it'll be visible here.
-        match CancellationNotificationStatus::from(self.data.inner.notified.load(Ordering::Relaxed))
-        {
+        match CancellationNotificationStatus::from(
+            self.inner.notifications.notified.load(Ordering::Relaxed),
+        ) {
             CancellationNotificationStatus::Notified => {
                 // take the id so that we don't need to lock the wakers when this future is dropped
                 // after completion
