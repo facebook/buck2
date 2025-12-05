@@ -142,6 +142,9 @@ impl CancellableFutureSharedStateView {
     pub(crate) fn notify_cancelled(&self) -> bool {
         let mut lock = self.context_data.lock();
         if lock.can_exit() {
+            // Note that we make no effort to attempt to prevent this from racing with creation of a
+            // critical section guard. That'd be unusual anyway so it doesn't matter, but it's not
+            // statically prevented by the API
             true
         } else {
             lock.notify_cancelled();
@@ -175,6 +178,7 @@ impl CancellationContextSharedStateView {
         CriticalSectionGuard::new_explicit(self, notification)
     }
 
+    /// Also consumes an instance of a `CriticalSectionGuard`
     pub(crate) fn try_to_disable_cancellation(&self) -> bool {
         let mut shared = self.context_data.lock();
         if shared.try_to_disable_cancellation() {

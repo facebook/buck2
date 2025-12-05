@@ -140,9 +140,7 @@ impl<'a> CriticalSectionGuard<'a> {
     pub fn try_disable_cancellation(self) -> Option<DisableCancellationGuard> {
         match self {
             CriticalSectionGuard::NeverCancelled => Some(DisableCancellationGuard),
-            CriticalSectionGuard::Explicit(inner) => {
-                inner.keep_going_on_cancellations_if_not_cancelled()
-            }
+            CriticalSectionGuard::Explicit(inner) => inner.try_disable_cancellation(),
         }
     }
 

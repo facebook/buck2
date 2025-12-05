@@ -78,9 +78,7 @@ impl<'a> ExplicitCriticalSectionGuard<'a> {
         }
     }
 
-    pub(crate) fn keep_going_on_cancellations_if_not_cancelled(
-        self,
-    ) -> Option<DisableCancellationGuard> {
+    pub(crate) fn try_disable_cancellation(self) -> Option<DisableCancellationGuard> {
         let context = self.take();
         if context.try_to_disable_cancellation() {
             Some(DisableCancellationGuard)
@@ -110,7 +108,7 @@ pub(crate) struct ExplicitCancellationContext {
 
 impl ExplicitCancellationContext {
     /// Ignore cancellations while 'PreventCancellation' is held
-    pub fn begin_ignore_cancellation(&self) -> CriticalSectionGuard<'_> {
+    pub(crate) fn begin_ignore_cancellation(&self) -> CriticalSectionGuard<'_> {
         self.inner.enter_structured_cancellation()
     }
 
@@ -119,7 +117,7 @@ impl ExplicitCancellationContext {
     /// it becomes non-cancellable during the critical section. If it *was* cancelled before
     /// entering the critical section (i.e. the last ref was dropped during `poll`), then the
     /// future is allowed to continue executing until this future resolves.
-    pub fn critical_section<'a, F, Fut>(
+    pub(crate) fn critical_section<'a, F, Fut>(
         &'a self,
         make: F,
     ) -> impl Future<Output = <Fut as Future>::Output> + 'a
@@ -140,7 +138,7 @@ impl ExplicitCancellationContext {
     /// Enter a structured cancellation section. The caller receives a CancellationObserver. The
     /// CancellationObserver is a future that resolves when cancellation is requested (or when this
     /// section exits).
-    pub fn with_structured_cancellation<'a, F, Fut>(
+    pub(crate) fn with_structured_cancellation<'a, F, Fut>(
         &'a self,
         make: F,
     ) -> impl Future<Output = <Fut as Future>::Output> + 'a
@@ -160,7 +158,7 @@ impl ExplicitCancellationContext {
     }
 
     #[inline(always)]
-    pub fn is_cancellation_requested(&self) -> bool {
+    pub(crate) fn is_cancellation_requested(&self) -> bool {
         self.inner.is_cancellation_requested()
     }
 }
@@ -179,7 +177,7 @@ impl CancellationContextInner {
     /// it becomes non-cancellable during the critical section. If it *was* cancelled before
     /// entering the critical section (i.e. the last ref was dropped during `poll`), then the
     /// future is allowed to continue executing until this future resolves.
-    pub fn critical_section<'a, F, Fut>(
+    pub(crate) fn critical_section<'a, F, Fut>(
         &'a self,
         make: F,
     ) -> impl Future<Output = <Fut as Future>::Output> + 'a
@@ -198,7 +196,7 @@ impl CancellationContextInner {
     /// Enter a structured cancellation section. The caller receives a CancellationObserver. The
     /// CancellationObserver is a future that resolves when cancellation is requested (or when this
     /// section exits).
-    pub fn with_structured_cancellation<'a, F, Fut>(
+    pub(crate) fn with_structured_cancellation<'a, F, Fut>(
         &'a self,
         make: F,
     ) -> impl Future<Output = <Fut as Future>::Output> + 'a
@@ -224,7 +222,7 @@ impl CancellationContextInner {
     }
 
     #[inline(always)]
-    pub fn is_cancellation_requested(&self) -> bool {
+    pub(crate) fn is_cancellation_requested(&self) -> bool {
         match self {
             CancellationContextInner::NeverCancelled => false,
             CancellationContextInner::Explicit(inner) => inner.is_cancellation_requested(),
