@@ -22,7 +22,9 @@
                   "error_type": null,
                   "file": "foo.cpp",
                   "lnum": 42,
-                  "message_content": "<STRING_HASH>"
+                  "message_content": "<STRING_HASH>",
+                  "remediation": null,
+                  "subcategory": null
                 }
               ]
             },

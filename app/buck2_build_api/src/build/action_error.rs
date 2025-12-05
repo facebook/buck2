@@ -57,6 +57,10 @@ struct BuildReportActionSubError {
     error_type: Option<String>,
     // Numeric error code (e.g., 404, 500)
     error_number: Option<u64>,
+    // Subcategory for finer-grained categorization
+    subcategory: Option<String>,
+    // Remediation steps for the error
+    remediation: Option<String>,
 }
 
 /// DO NOT UPDATE WITHOUT UPDATING `docs/users/build_observability/build_report.md`!
@@ -116,6 +120,8 @@ impl BuildReportActionError {
                             end_col: s.end_col,
                             error_type: s.error_type.clone(),
                             error_number: s.error_number,
+                            subcategory: s.subcategory.clone(),
+                            remediation: s.remediation.clone(),
                         })
                         .collect();
                     BuildReportActionErrorDiagnostics::SubErrors(sub_errors)
