@@ -14,6 +14,7 @@ use std::fs;
 /// Returns the version of the rustc compiler.
 fn rustc_version() -> String {
     let rustc = env::var("RUSTC").unwrap();
+    // @patternlint-disable-next-line buck2-no-command-new
     let version = std::process::Command::new(rustc)
         .arg("--version")
         .output()

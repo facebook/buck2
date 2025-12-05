@@ -1254,7 +1254,7 @@ mod state_machine {
             };
             // The first clean stale request is scheduled at roughly the same time as materialize_write so we may receive an initial clean event
             // before anything is materialized, if so ignore events until an artifact is found (retained != 0).
-            // It should only be neccesary to wait for a single clean (1 second) but wait for up to 5 just in case.
+            // It should only be necessary to wait for a single clean (1 second) but wait for up to 5 just in case.
             let mut i = 0;
             while i < 5 {
                 let res = receive_clean_result(&mut daemon_dispatcher_events);

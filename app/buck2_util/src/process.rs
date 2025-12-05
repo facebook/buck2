@@ -13,6 +13,7 @@ use std::ffi::OsStr;
 /// Creates `std::process::Command` which doesn't show any windows on Windows.
 pub fn background_command<S: AsRef<OsStr>>(program: S) -> std::process::Command {
     #[allow(unused_mut)]
+    // @patternlint-disable-next-line buck2-no-command-new
     let mut cmd = std::process::Command::new(program);
     #[cfg(windows)]
     {

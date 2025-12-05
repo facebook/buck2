@@ -109,6 +109,7 @@ pub fn main() -> anyhow::Result<()> {
     let counters = Counters::open();
 
     let status = args.next().context("No process to run").and_then(|bin| {
+        // @patternlint-disable-next-line buck2-no-command-new
         Command::new(bin)
             .args(args)
             .status()

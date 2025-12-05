@@ -208,7 +208,7 @@ impl HealthCheckClientInner {
                     // If the channel is full, skip sending these reports rather than OOMing due to huge buffers.
                     return Err(buck2_error::buck2_error!(
                         buck2_error::ErrorTag::HealthCheck,
-                        "Health check diplay reports channel full. Dropping reports."
+                        "Health check display reports channel full. Dropping reports."
                     ));
                 }
                 _ => {}

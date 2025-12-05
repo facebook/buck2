@@ -27,7 +27,7 @@ use crate::types::VertexId;
 /// - Its cost.
 /// - For each of the vertices in the critical path, the new critical path cost
 ///   if that were vertex's runtime was 0.
-/// - An accessor to obtain critical path for arbitary vertices.
+/// - An accessor to obtain critical path for arbitrary vertices.
 pub fn compute_critical_path_potentials(
     deps: &Graph,
     weights: &VertexData<u64>,
