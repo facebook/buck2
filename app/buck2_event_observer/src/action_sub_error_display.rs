@@ -44,6 +44,9 @@ impl ActionSubErrorDisplay for ActionSubError {
 
         let mut res = String::new();
         res.push_str(&format!("[{}]", self.category));
+        if let Some(subcategory) = &self.subcategory {
+            res.push_str(&format!("[{}]", subcategory));
+        }
         if let Some(location_str) = display_location(self) {
             res.push_str(&format!(" {}", location_str));
         }
@@ -59,6 +62,10 @@ impl ActionSubErrorDisplay for ActionSubError {
 
         if let Some(message) = &self.message {
             res.push_str(&format!(" {}", message));
+        }
+
+        if let Some(remediation) = &self.remediation {
+            res.push_str(&format!("\n  Hint: {}", remediation));
         }
 
         Some(res)
@@ -352,6 +359,60 @@ mod tests {
             display,
             Some(
                 "[complex_error] complex.rs:25-30:10-20 warning[1001]: comprehensive error message"
+                    .to_owned()
+            )
+        );
+    }
+
+    #[test]
+    fn test_action_sub_error_display_with_remediation() {
+        let error = ActionSubError {
+            category: "rustc".to_owned(),
+            message: Some("cannot borrow as mutable".to_owned()),
+            file: Some("borrow.rs".to_owned()),
+            lnum: Some(15),
+            end_lnum: None,
+            col: Some(9),
+            end_col: None,
+            error_type: Some("error".to_owned()),
+            error_number: Some(502),
+            show_in_stderr: false,
+            subcategory: None,
+            remediation: Some("Consider using `RefCell` for interior mutability".to_owned()),
+        };
+
+        let display = error.display();
+        assert_eq!(
+            display,
+            Some(
+                "[rustc] borrow.rs:15:9 error[502]: cannot borrow as mutable\n  Hint: Consider using `RefCell` for interior mutability"
+                    .to_owned()
+            )
+        );
+    }
+
+    #[test]
+    fn test_action_sub_error_display_with_subcategory() {
+        let error = ActionSubError {
+            category: "clang".to_owned(),
+            message: Some("implicit conversion loses precision".to_owned()),
+            file: Some("main.cpp".to_owned()),
+            lnum: Some(42),
+            end_lnum: None,
+            col: Some(10),
+            end_col: None,
+            error_type: Some("warning".to_owned()),
+            error_number: None,
+            show_in_stderr: false,
+            subcategory: Some("conversion".to_owned()),
+            remediation: None,
+        };
+
+        let display = error.display();
+        assert_eq!(
+            display,
+            Some(
+                "[clang][conversion] main.cpp:42:10 warning: implicit conversion loses precision"
                     .to_owned()
             )
         );
