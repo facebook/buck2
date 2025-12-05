@@ -242,14 +242,23 @@ impl std::fmt::Display for GatherPackageListingError {
                 if let Some(primary_candidate) =
                     candidates.iter().find(|v| v.extension() != Some("v2"))
                 {
-                    (
-                        package,
+                    let alternatives: Vec<_> = candidates
+                        .iter()
+                        .filter(|v| *v != primary_candidate)
+                        .map(|v| format!("`{v}`"))
+                        .collect();
+
+                    let message = if alternatives.is_empty() {
+                        format!("    missing `{}` file", primary_candidate)
+                    } else {
                         format!(
                             "    missing `{}` file (also missing alternatives {})",
                             primary_candidate,
-                            candidates.iter().map(|v| format!("`{v}`")).join(", ")
-                        ),
-                    )
+                            alternatives.join(", ")
+                        )
+                    };
+
+                    (package, message)
                 } else {
                     unreachable!()
                 }
