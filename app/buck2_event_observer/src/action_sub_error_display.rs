@@ -90,6 +90,8 @@ mod tests {
             error_type: None,
             error_number: None,
             show_in_stderr: false,
+            subcategory: None,
+            remediation: None,
         };
 
         let display = error.display();
@@ -109,6 +111,8 @@ mod tests {
             error_type: None,
             error_number: None,
             show_in_stderr: false,
+            subcategory: None,
+            remediation: None,
         };
 
         let display = error.display();
@@ -131,6 +135,8 @@ mod tests {
             error_type: None,
             error_number: None,
             show_in_stderr: false,
+            subcategory: None,
+            remediation: None,
         };
 
         let display = error.display();
@@ -153,6 +159,8 @@ mod tests {
             error_type: None,
             error_number: None,
             show_in_stderr: false,
+            subcategory: None,
+            remediation: None,
         };
 
         let display = error.display();
@@ -175,6 +183,8 @@ mod tests {
             error_type: None,
             error_number: None,
             show_in_stderr: false,
+            subcategory: None,
+            remediation: None,
         };
 
         let display = error.display();
@@ -197,6 +207,8 @@ mod tests {
             error_type: None,
             error_number: None,
             show_in_stderr: false,
+            subcategory: None,
+            remediation: None,
         };
 
         let display = error.display();
@@ -219,6 +231,8 @@ mod tests {
             error_type: Some("error".to_owned()),
             error_number: None,
             show_in_stderr: false,
+            subcategory: None,
+            remediation: None,
         };
 
         let display = error.display();
@@ -241,6 +255,8 @@ mod tests {
             error_type: None,
             error_number: Some(404),
             show_in_stderr: false,
+            subcategory: None,
+            remediation: None,
         };
 
         let display = error.display();
@@ -260,6 +276,8 @@ mod tests {
             error_type: Some("error".to_owned()),
             error_number: Some(502),
             show_in_stderr: false,
+            subcategory: None,
+            remediation: None,
         };
 
         let display = error.display();
@@ -282,6 +300,8 @@ mod tests {
             error_type: None,
             error_number: None,
             show_in_stderr: false,
+            subcategory: None,
+            remediation: None,
         };
 
         let display = error.display();
@@ -302,6 +322,8 @@ mod tests {
             error_type: None,
             error_number: None,
             show_in_stderr: false,
+            subcategory: None,
+            remediation: None,
         };
 
         let display = error.display();
@@ -321,6 +343,8 @@ mod tests {
             error_type: Some("warning".to_owned()),
             error_number: Some(1001),
             show_in_stderr: false,
+            subcategory: None,
+            remediation: None,
         };
 
         let display = error.display();

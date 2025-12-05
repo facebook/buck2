@@ -1779,6 +1779,13 @@ message ActionSubError {
 
   // Whether to show this error in stderr
   bool show_in_stderr = 11;
+
+  // Optional subcategory for finer-grained error categorization within a
+  // category
+  optional string subcategory = 12;
+
+  // Optional remediation steps to help users resolve the error
+  optional string remediation = 13;
 }
 
 message ActionErrorHandlerExecutionStart {}

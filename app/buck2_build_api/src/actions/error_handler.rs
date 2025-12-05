@@ -224,6 +224,8 @@ fn action_error_context_methods(builder: &mut MethodsBuilder) {
         #[starlark(require = named, default = NoneOr::None)] error_type: NoneOr<String>,
         #[starlark(require = named, default = NoneOr::None)] error_number: NoneOr<u64>,
         #[starlark(require = named, default = false)] show_in_stderr: bool,
+        #[starlark(require = named, default = NoneOr::None)] subcategory: NoneOr<String>,
+        #[starlark(require = named, default = NoneOr::None)] remediation: NoneOr<String>,
     ) -> starlark::Result<StarlarkActionSubError> {
         Ok(StarlarkActionSubError {
             category: RefCell::new(category),
@@ -236,6 +238,8 @@ fn action_error_context_methods(builder: &mut MethodsBuilder) {
             error_type: error_type.into_option(),
             error_number: error_number.into_option(),
             show_in_stderr: RefCell::new(show_in_stderr),
+            subcategory: RefCell::new(subcategory.into_option()),
+            remediation: RefCell::new(remediation.into_option()),
         })
     }
 
@@ -294,6 +298,10 @@ pub(crate) struct StarlarkActionSubError {
     error_number: Option<u64>,
     // Whether to show this error in stderr
     show_in_stderr: RefCell<bool>,
+    // Subcategory for finer-grained categorization
+    subcategory: RefCell<Option<String>>,
+    // Remediation steps for the error
+    remediation: RefCell<Option<String>>,
 }
 
 impl Display for StarlarkActionSubError {
@@ -334,6 +342,14 @@ impl Display for StarlarkActionSubError {
 
         write!(f, ", show_in_stderr={}", self.show_in_stderr.borrow())?;
 
+        if let Some(ref subcategory) = *self.subcategory.borrow() {
+            write!(f, ", subcategory={}", subcategory)?;
+        }
+
+        if let Some(ref remediation) = *self.remediation.borrow() {
+            write!(f, ", remediation={}", remediation)?;
+        }
+
         write!(f, ")")
     }
 }
@@ -350,6 +366,8 @@ impl PartialEq for StarlarkActionSubError {
             && self.error_type == other.error_type
             && self.error_number == other.error_number
             && *self.show_in_stderr.borrow() == *other.show_in_stderr.borrow()
+            && *self.subcategory.borrow() == *other.subcategory.borrow()
+            && *self.remediation.borrow() == *other.remediation.borrow()
     }
 }
 
@@ -371,6 +389,8 @@ impl StarlarkActionSubError {
             error_type: entry.error_type,
             error_number: entry.error_number.map(|x| x as u64),
             show_in_stderr: RefCell::new(false),
+            subcategory: RefCell::new(None),
+            remediation: RefCell::new(None),
         }
     }
 }
@@ -400,6 +420,16 @@ impl<'v> StarlarkValue<'v> for StarlarkActionSubError {
                     .unpack_bool()
                     .expect("show_in_stderr expected bool");
                 *self.show_in_stderr.borrow_mut() = new_show_in_stderr;
+                Ok(())
+            }
+            "subcategory" => {
+                let new_subcategory = new_value.unpack_str_err()?;
+                *self.subcategory.borrow_mut() = Some(new_subcategory.to_owned());
+                Ok(())
+            }
+            "remediation" => {
+                let new_remediation = new_value.unpack_str_err()?;
+                *self.remediation.borrow_mut() = Some(new_remediation.to_owned());
                 Ok(())
             }
             _ => ValueError::unsupported(self, &format!(".{attribute}=")),
@@ -493,6 +523,18 @@ fn action_sub_error_methods(builder: &mut MethodsBuilder) {
     fn show_in_stderr<'v>(this: &'v StarlarkActionSubError) -> starlark::Result<bool> {
         Ok(*this.show_in_stderr.borrow())
     }
+
+    /// Optional subcategory for finer-grained error categorization
+    #[starlark(attribute)]
+    fn subcategory<'v>(this: &'v StarlarkActionSubError) -> starlark::Result<NoneOr<String>> {
+        Ok(NoneOr::from_option(this.subcategory.borrow().clone()))
+    }
+
+    /// Optional remediation steps for the error
+    #[starlark(attribute)]
+    fn remediation<'v>(this: &'v StarlarkActionSubError) -> starlark::Result<NoneOr<String>> {
+        Ok(NoneOr::from_option(this.remediation.borrow().clone()))
+    }
 }
 
 impl StarlarkActionSubError {
@@ -508,6 +550,8 @@ impl StarlarkActionSubError {
             error_type: self.error_type.clone(),
             error_number: self.error_number,
             show_in_stderr: *self.show_in_stderr.borrow(),
+            subcategory: self.subcategory.borrow().clone(),
+            remediation: self.remediation.borrow().clone(),
         }
     }
 }
