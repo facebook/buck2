@@ -11,7 +11,6 @@
 use std::future::Future;
 use std::pin::Pin;
 use std::sync::Arc;
-use std::sync::atomic::AtomicBool;
 use std::sync::atomic::AtomicU8;
 use std::sync::atomic::Ordering;
 use std::task::Context;
@@ -33,16 +32,6 @@ pub(crate) struct CancellationHandleSharedStateView {
 
 impl CancellationHandleSharedStateView {
     pub(crate) fn cancel(&self) -> bool {
-        // Store to the boolean first before we write to state.
-        // This is because on `poll`, the future will update the state first then check the boolean.
-        // This ordering ensures that either the `poll` has read our cancellation, and hence will
-        // later notify the termination observer via the channel we store in `State::Cancelled`,
-        // or that we will observe the terminated state of the future and directly notify the
-        // `TerminationObserver` ourselves.
-        self.inner
-            .cancellation_requested
-            .store(true, Ordering::SeqCst);
-
         let future = std::mem::replace(&mut *self.inner.state.lock(), State::Cancelled);
         match future {
             State::Normal => {
@@ -78,7 +67,6 @@ impl CancellableFutureSharedStateView {
         let shared_data = Arc::new(SharedStateData {
             state: Mutex::new(State::Normal),
             cancellation_waker: AtomicWaker::new(),
-            cancellation_requested: AtomicBool::new(false),
             prevent_cancellation: Mutex::new(PreventingCancellationCount(0)),
             notifications: CancellationNotificationDataInner {
                 notified: Default::default(),
@@ -98,7 +86,7 @@ impl CancellableFutureSharedStateView {
     }
 
     pub(crate) fn is_cancelled(&self) -> bool {
-        self.inner.cancellation_requested.load(Ordering::SeqCst)
+        self.inner.is_cancellation_requested()
     }
 
     pub(crate) fn register_waker(&self, cx: &mut Context<'_>) {
@@ -186,9 +174,6 @@ struct SharedStateData {
     /// thing after modifying said state.
     cancellation_waker: AtomicWaker,
 
-    /// When set, this future has been cancelled and should attempt to exit as soon as possible.
-    cancellation_requested: AtomicBool,
-
     /// How many observers are preventing immediate cancellation.
     prevent_cancellation: Mutex<PreventingCancellationCount>,
 
@@ -197,8 +182,8 @@ struct SharedStateData {
 
 impl SharedStateData {
     #[inline(always)]
-    pub(crate) fn is_cancellation_requested(&self) -> bool {
-        self.cancellation_requested.load(Ordering::Relaxed)
+    fn is_cancellation_requested(&self) -> bool {
+        matches!(*self.state.lock(), State::Cancelled)
     }
 }
 
