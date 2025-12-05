@@ -306,18 +306,12 @@ impl CancellationNotificationData {
     }
 
     fn notify_cancelled(&self) {
-        let updated = self
-            .inner
-            .notified
-            .fetch_update(Ordering::SeqCst, Ordering::SeqCst, |old| {
-                match CancellationNotificationStatus::from(old) {
-                    CancellationNotificationStatus::Pending => {
-                        Some(CancellationNotificationStatus::Notified.into())
-                    }
-                    CancellationNotificationStatus::Notified => None,
-                    CancellationNotificationStatus::Disabled => None,
-                }
-            });
+        let updated = self.inner.notified.compare_exchange(
+            CancellationNotificationStatus::Pending.into(),
+            CancellationNotificationStatus::Notified.into(),
+            Ordering::SeqCst,
+            Ordering::SeqCst,
+        );
         if updated.is_ok() {
             if let Some(mut wakers) = self.inner.wakers.lock().take() {
                 wakers.drain().for_each(|waker| waker.wake());
@@ -326,18 +320,12 @@ impl CancellationNotificationData {
     }
 
     fn try_to_disable_cancellation(&self) -> bool {
-        let maybe_updated =
-            self.inner
-                .notified
-                .fetch_update(Ordering::SeqCst, Ordering::SeqCst, |old| {
-                    match CancellationNotificationStatus::from(old) {
-                        CancellationNotificationStatus::Pending => {
-                            Some(CancellationNotificationStatus::Disabled.into())
-                        }
-                        CancellationNotificationStatus::Notified => None,
-                        CancellationNotificationStatus::Disabled => None,
-                    }
-                });
+        let maybe_updated = self.inner.notified.compare_exchange(
+            CancellationNotificationStatus::Pending.into(),
+            CancellationNotificationStatus::Disabled.into(),
+            Ordering::SeqCst,
+            Ordering::SeqCst,
+        );
 
         match maybe_updated {
             Ok(_) => true,
