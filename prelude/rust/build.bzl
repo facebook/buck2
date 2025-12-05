@@ -803,6 +803,7 @@ def dependency_args(
         strategy = strategy_info(toolchain_info, dep.info, dep_link_strategy)
 
         artifact = strategy.outputs[dep_metadata_kind]
+        singleton_tset = strategy.singleton_tset[dep_metadata_kind]
         transitive_artifacts = strategy.transitive_deps[dep_metadata_kind]
 
         for marker in strategy.transitive_proc_macro_deps:
@@ -817,7 +818,7 @@ def dependency_args(
         # compiler invocation, pass the artifact (under its original crate name)
         # through `-L` unconditionally for doc tests.
         if is_rustdoc_test:
-            transitive_deps.append(strategy.singleton_tset[dep_metadata_kind])
+            transitive_deps.append(singleton_tset)
 
         # Unwanted transitive_deps have already been excluded
         transitive_deps.append(transitive_artifacts)
