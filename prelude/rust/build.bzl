@@ -822,35 +822,27 @@ def dependency_args(
         # Unwanted transitive_deps have already been excluded
         transitive_deps.append(transitive_artifacts)
 
-    transitive_deps = ctx.actions.tset(TransitiveDeps, children = transitive_deps)
-
-    dynamic_artifacts = {}
-    simple_artifacts = set()
-    for dep in transitive_deps.traverse():
-        if dep.crate.dynamic:
-            dynamic_artifacts[dep.artifact] = dep.crate
-        else:
-            simple_artifacts.add(dep.artifact)
-
     prefix = "{}-deps{}".format(subdir, dep_metadata_kind.value)
-    if simple_artifacts:
-        args.add(simple_symlinked_dirs(ctx, prefix, simple_artifacts))
-    if dynamic_artifacts:
-        args.add(dynamic_symlinked_dirs(ctx, compile_ctx, prefix, dynamic_artifacts))
+    transitive_deps = ctx.actions.tset(TransitiveDeps, children = transitive_deps)
+    if transitive_deps.reduce("has_simple_artifacts"):
+        args.add(simple_symlinked_dirs(ctx, prefix, transitive_deps))
+    if transitive_deps.reduce("has_dynamic_artifacts"):
+        args.add(dynamic_symlinked_dirs(ctx, compile_ctx, prefix, transitive_deps))
 
     return (args, crate_targets)
 
 def simple_symlinked_dirs(
         ctx: AnalysisContext,
         prefix: str,
-        artifacts: set[Artifact]) -> cmd_args:
+        transitive_deps: TransitiveDeps) -> cmd_args:
     # Add as many -Ldependency dirs as we need to avoid name conflicts
     deps_dirs = [{}]
-    for dep in artifacts:
-        name = dep.basename
-        if name in deps_dirs[-1]:
-            deps_dirs.append({})
-        deps_dirs[-1][name] = dep
+    for dep in transitive_deps.traverse():
+        if not dep.crate.dynamic:
+            name = dep.artifact.basename
+            if name in deps_dirs[-1]:
+                deps_dirs.append({})
+            deps_dirs[-1][name] = dep.artifact
 
     symlinked_dirs = []
     for idx, srcs in enumerate(deps_dirs):
@@ -863,9 +855,14 @@ def dynamic_symlinked_dirs(
         ctx: AnalysisContext,
         compile_ctx: CompileContext,
         prefix: str,
-        artifacts: dict[Artifact, CrateName]) -> cmd_args:
+        transitive_deps: TransitiveDeps) -> cmd_args:
     name = "{}-dyn".format(prefix)
     transitive_dependency_dir = ctx.actions.declare_output(name, dir = True)
+
+    artifacts = {}
+    for dep in transitive_deps.traverse():
+        if dep.crate.dynamic:
+            artifacts[dep.artifact] = dep.crate
 
     # Pass the list of rlibs to transitive_dependency_symlinks.py through a file
     # because there can be a lot of them. This avoids running out of command

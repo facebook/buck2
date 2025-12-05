@@ -121,8 +121,19 @@ RustArtifact = record(
     crate = field(CrateName),
 )
 
+def _has_dynamic_artifacts(children: list[bool], dep: [RustArtifact, None]) -> bool:
+    return (dep and dep.crate.dynamic != None) or any(children)
+
+def _has_simple_artifacts(children: list[bool], dep: [RustArtifact, None]) -> bool:
+    return (dep and dep.crate.dynamic == None) or any(children)
+
 # Set of RustArtifact.
-TransitiveDeps = transitive_set()
+TransitiveDeps = transitive_set(
+    reductions = {
+        "has_dynamic_artifacts": _has_dynamic_artifacts,
+        "has_simple_artifacts": _has_simple_artifacts,
+    },
+)
 
 # Information which is keyed on link_style
 RustLinkStrategyInfo = record(
