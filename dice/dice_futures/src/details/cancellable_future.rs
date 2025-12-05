@@ -135,7 +135,10 @@ impl<T> Future for ExplicitlyCancellableFutureInner<T> {
         // Once we start, the `poll_inner` will check whether we are actually canceled and return
         // the proper poll value.
         if !self.started {
-            self.view.set_waker(cx);
+            // We only update the Waker once on the first poll. For the same tokio runtime, this is
+            // always safe and behaves correctly, as such, this future is restricted to be ran on
+            // the same tokio executor and never moved from one runtime to another
+            self.view.register_waker(cx);
             self.started = true;
         }
 

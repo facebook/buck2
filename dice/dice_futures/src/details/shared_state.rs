@@ -16,7 +16,6 @@ use std::sync::atomic::AtomicU8;
 use std::sync::atomic::Ordering;
 use std::task::Context;
 use std::task::Poll;
-use std::task::Waker;
 
 use dupe::Dupe;
 use futures::task::AtomicWaker;
@@ -46,12 +45,8 @@ impl CancellationHandleSharedStateView {
 
         let future = std::mem::replace(&mut *self.inner.state.lock(), State::Cancelled);
         match future {
-            State::Pending => {
-                // When the future starts, it'll see its cancellation;
-                true
-            }
-            State::Polled { waker } => {
-                waker.wake();
+            State::Normal => {
+                self.inner.cancellation_waker.wake();
                 true
             }
             State::Cancelled => {
@@ -82,7 +77,8 @@ impl CancellableFutureSharedStateView {
         CancellationContextSharedStateView,
     ) {
         let shared_data = Arc::new(SharedStateData {
-            state: Mutex::new(State::Pending),
+            state: Mutex::new(State::Normal),
+            cancellation_waker: AtomicWaker::new(),
             cancellation_requested: AtomicBool::new(false),
         });
         let context_data = Arc::new(Mutex::new(ExecutionContextData {
@@ -117,17 +113,8 @@ impl CancellableFutureSharedStateView {
         self.inner.cancellation_requested.load(Ordering::SeqCst)
     }
 
-    pub(crate) fn set_waker(&self, cx: &mut Context<'_>) {
-        // we only update the Waker once at the beginning of the poll. For the same tokio
-        // runtime, this is always safe and behaves correctly, as such, this future is
-        // restricted to be ran on the same tokio executor and never moved from one runtime to
-        // another
-        let mut lock = self.inner.state.lock();
-        if let State::Pending = &*lock {
-            *lock = State::Polled {
-                waker: cx.waker().clone(),
-            }
-        };
+    pub(crate) fn register_waker(&self, cx: &mut Context<'_>) {
+        self.inner.cancellation_waker.register(cx.waker());
     }
 
     pub(crate) fn set_exited(&self) -> bool {
@@ -204,6 +191,14 @@ impl CancellationContextSharedStateView {
 struct SharedStateData {
     state: Mutex<State>,
 
+    /// This is the waker associated with the main future which we are executing; we store it here
+    /// so that we can wake it if there is a cancellation.
+    ///
+    /// The ordering associated with this thing is the expected one for wakers; registrars should
+    /// register themselves with this thing before checking other state, and wakers should wake this
+    /// thing after modifying said state.
+    cancellation_waker: AtomicWaker,
+
     /// When set, this future has been cancelled and should attempt to exit as soon as possible.
     cancellation_requested: AtomicBool,
 }
@@ -216,11 +211,8 @@ impl SharedStateData {
 }
 
 enum State {
-    /// This future has been constructed, but not polled yet.
-    Pending,
-
-    /// This future has been polled. A waker is available.
-    Polled { waker: Waker },
+    /// This future is running normally (or has not yet been started)
+    Normal,
 
     /// This future has already been cancelled.
     Cancelled,
