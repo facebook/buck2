@@ -249,22 +249,7 @@ impl ExecutionContextData {
     }
 
     fn notify_cancelled(&mut self) {
-        let updated = self.cancellation_notification.inner.notified.fetch_update(
-            Ordering::SeqCst,
-            Ordering::SeqCst,
-            |old| match CancellationNotificationStatus::from(old) {
-                CancellationNotificationStatus::Pending => {
-                    Some(CancellationNotificationStatus::Notified.into())
-                }
-                CancellationNotificationStatus::Notified => None,
-                CancellationNotificationStatus::Disabled => None,
-            },
-        );
-        if updated.is_ok() {
-            if let Some(mut wakers) = self.cancellation_notification.inner.wakers.lock().take() {
-                wakers.drain().for_each(|waker| waker.wake());
-            }
-        }
+        self.cancellation_notification.notify_cancelled();
     }
 
     fn exit_prevent_cancellation(&mut self) -> bool {
@@ -274,25 +259,7 @@ impl ExecutionContextData {
     }
 
     fn try_to_disable_cancellation(&mut self) -> bool {
-        let maybe_updated = self.cancellation_notification.inner.notified.fetch_update(
-            Ordering::SeqCst,
-            Ordering::SeqCst,
-            |old| match CancellationNotificationStatus::from(old) {
-                CancellationNotificationStatus::Pending => {
-                    Some(CancellationNotificationStatus::Disabled.into())
-                }
-                CancellationNotificationStatus::Notified => None,
-                CancellationNotificationStatus::Disabled => None,
-            },
-        );
-
-        match maybe_updated {
-            Ok(_) => true,
-            Err(old) => {
-                let old = CancellationNotificationStatus::from(old);
-                matches!(old, CancellationNotificationStatus::Disabled)
-            }
-        }
+        self.cancellation_notification.try_to_disable_cancellation()
     }
 }
 
@@ -336,6 +303,49 @@ impl CancellationNotificationData {
     #[inline(always)]
     pub(crate) fn is_cancellation_requested(&self) -> bool {
         self.shared.is_cancellation_requested()
+    }
+
+    fn notify_cancelled(&self) {
+        let updated = self
+            .inner
+            .notified
+            .fetch_update(Ordering::SeqCst, Ordering::SeqCst, |old| {
+                match CancellationNotificationStatus::from(old) {
+                    CancellationNotificationStatus::Pending => {
+                        Some(CancellationNotificationStatus::Notified.into())
+                    }
+                    CancellationNotificationStatus::Notified => None,
+                    CancellationNotificationStatus::Disabled => None,
+                }
+            });
+        if updated.is_ok() {
+            if let Some(mut wakers) = self.inner.wakers.lock().take() {
+                wakers.drain().for_each(|waker| waker.wake());
+            }
+        }
+    }
+
+    fn try_to_disable_cancellation(&self) -> bool {
+        let maybe_updated =
+            self.inner
+                .notified
+                .fetch_update(Ordering::SeqCst, Ordering::SeqCst, |old| {
+                    match CancellationNotificationStatus::from(old) {
+                        CancellationNotificationStatus::Pending => {
+                            Some(CancellationNotificationStatus::Disabled.into())
+                        }
+                        CancellationNotificationStatus::Notified => None,
+                        CancellationNotificationStatus::Disabled => None,
+                    }
+                });
+
+        match maybe_updated {
+            Ok(_) => true,
+            Err(old) => {
+                let old = CancellationNotificationStatus::from(old);
+                matches!(old, CancellationNotificationStatus::Disabled)
+            }
+        }
     }
 }
 
