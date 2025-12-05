@@ -76,7 +76,7 @@ def main():
     # Add as many -Ldependency dirs as we need to avoid name conflicts
     deps_dirs = [{}]
 
-    for artifact, crate_name in json.load(args.artifacts):
+    for artifact, crate_name in zip(*json.load(args.artifacts)):
         crate_name = Path(crate_name).read_text().strip()
         original_filename = os.path.basename(artifact)
         new_filename = "lib{}-{}".format(

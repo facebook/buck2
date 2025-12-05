@@ -864,20 +864,21 @@ def dynamic_symlinked_dirs(
         if dep.crate.dynamic:
             artifacts[dep.artifact] = dep.crate
 
+    artifacts = transitive_deps.project_as_args("dynamic_artifacts")
+    crate_names = transitive_deps.project_as_args("dynamic_crate_names")
+
     # Pass the list of rlibs to transitive_dependency_symlinks.py through a file
     # because there can be a lot of them. This avoids running out of command
     # line length, particularly on Windows.
-    relative_path = lambda artifact: cmd_args(
-        artifact,
-        delimiter = "",
-        ignore_artifacts = True,
-        relative_to = transitive_dependency_dir.project("i"),
-    )
     artifacts_json = ctx.actions.write_json(
         ctx.actions.declare_output("{}-dyn.json".format(prefix)),
         [
-            (relative_path(artifact), crate.dynamic)
-            for artifact, crate in artifacts.items()
+            cmd_args(
+                artifacts,
+                ignore_artifacts = True,
+                relative_to = transitive_dependency_dir.project("i"),
+            ),
+            crate_names,
         ],
         with_inputs = True,
         pretty = True,
@@ -894,7 +895,7 @@ def dynamic_symlinked_dirs(
     )
 
     compile_ctx.transitive_dependency_dirs.add(transitive_dependency_dir)
-    return cmd_args(transitive_dependency_dir, format = "@{}/dirs", hidden = artifacts.keys())
+    return cmd_args(transitive_dependency_dir, format = "@{}/dirs", hidden = artifacts)
 
 def _lintify(flag: str, clippy: bool, lints: list[ResolvedStringWithMacros]) -> cmd_args:
     return cmd_args(
