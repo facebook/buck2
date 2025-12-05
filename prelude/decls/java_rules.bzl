@@ -538,8 +538,9 @@ prebuilt_jar = prelude_rule(
             "never_mark_as_unused_dependency": attrs.bool(default = False),
             "required_for_source_only_abi": attrs.bool(default = False),
             "uses_content_based_paths": attrs.bool(default = select({
-                # @oss-disable[end= ]: "config//build_mode/constraints:whatsapp": True,
                 "DEFAULT": False,
+                # @oss-disable[end= ]: "config//build_mode/constraints:whatsapp": True,
+                # @oss-disable[end= ]: "config//runtime/constraints:android-host-test": True,
             })),
         } |
         buck.licenses_arg() |
