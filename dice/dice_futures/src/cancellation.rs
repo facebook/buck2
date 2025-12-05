@@ -19,6 +19,7 @@ use std::task::Poll;
 use dupe::Dupe;
 use futures::FutureExt;
 use once_cell::sync::Lazy;
+use thiserror::Error;
 
 use crate::details::cancellation_context::CancellationContextInner;
 use crate::details::cancellation_context::ExplicitCancellationContext;
@@ -243,3 +244,12 @@ impl Drop for DropcancelHandle {
         unsafe { ManuallyDrop::drop(&mut self.view) };
     }
 }
+
+/// A marker that indicates that an evaluation has been cancelled
+///
+/// FIXME(JakobDegen): Probably find a way to unify this with dice_error?
+#[derive(Debug, Error)]
+#[error("Cancelled")]
+pub struct CancelledError;
+
+pub type ExplicitlyCancellableResult<T> = Result<T, CancelledError>;

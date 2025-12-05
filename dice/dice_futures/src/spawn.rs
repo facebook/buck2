@@ -25,6 +25,7 @@ use thiserror::Error;
 use crate::cancellation::CancellationContext;
 use crate::cancellation::CancellationHandle;
 use crate::cancellation::DropcancelHandle;
+use crate::cancellation::ExplicitlyCancellableResult;
 use crate::details::cancellable_future::make_cancellable_future;
 use crate::spawner::Spawner;
 
@@ -66,9 +67,9 @@ where
     let task = task
         .map(|v| {
             v.map_err(|_e: tokio::task::JoinError| WeakFutureError::JoinError)?
-                .downcast::<Option<T>>()
+                .downcast::<ExplicitlyCancellableResult<T>>()
                 .expect("Spawned task returned the wrong type")
-                .ok_or(WeakFutureError::Cancelled)
+                .map_err(|_| WeakFutureError::Cancelled)
         })
         .boxed();
 

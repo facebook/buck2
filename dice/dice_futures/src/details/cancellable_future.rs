@@ -24,6 +24,8 @@ use pin_project::pin_project;
 
 use crate::cancellation::CancellationContext;
 use crate::cancellation::CancellationHandle;
+use crate::cancellation::CancelledError;
+use crate::cancellation::ExplicitlyCancellableResult;
 use crate::details::shared_state::CancellableFutureSharedStateView;
 use crate::drop_on_ready::DropOnReadyFuture;
 use crate::owning_future::OwningFuture;
@@ -88,7 +90,7 @@ impl<T> ExplicitlyCancellableFuture<T> {
 }
 
 impl<T> Future for ExplicitlyCancellableFuture<T> {
-    type Output = Option<T>;
+    type Output = ExplicitlyCancellableResult<T>;
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         let mut this = self.project();
@@ -97,21 +99,26 @@ impl<T> Future for ExplicitlyCancellableFuture<T> {
 }
 
 impl<T> ExplicitlyCancellableFutureInner<T> {
-    fn poll_inner(self: &mut Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<T>> {
+    fn poll_inner(
+        self: &mut Pin<&mut Self>,
+        cx: &mut Context<'_>,
+    ) -> Poll<ExplicitlyCancellableResult<T>> {
         let is_cancelled = self.view.is_cancelled();
 
         if is_cancelled {
             if self.view.notify_cancelled() {
-                return Poll::Ready(None);
+                return Poll::Ready(ExplicitlyCancellableResult::Err(CancelledError));
             }
         }
 
-        let res = Pin::new(&mut self.future).poll(cx).map(Some);
+        let res = Pin::new(&mut self.future)
+            .poll(cx)
+            .map(ExplicitlyCancellableResult::Ok);
 
         // If we were using structured cancellation but just exited the critical section, then we
         // should exit now.
         if is_cancelled && self.view.can_exit() {
-            return Poll::Ready(None);
+            return Poll::Ready(ExplicitlyCancellableResult::Err(CancelledError));
         }
 
         res
@@ -119,7 +126,7 @@ impl<T> ExplicitlyCancellableFutureInner<T> {
 }
 
 impl<T> Future for ExplicitlyCancellableFutureInner<T> {
-    type Output = Option<T>;
+    type Output = ExplicitlyCancellableResult<T>;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         // Update the state before we check for cancellation so that the cancellation logic can
@@ -140,7 +147,7 @@ impl<T> Future for ExplicitlyCancellableFutureInner<T> {
             let was_cancelled = self.view.set_exited();
             if was_cancelled {
                 if self.view.can_exit() {
-                    return Poll::Ready(None);
+                    return Poll::Ready(ExplicitlyCancellableResult::Err(CancelledError));
                 }
             }
         }
@@ -169,6 +176,7 @@ mod tests {
     use tokio::sync::Barrier;
 
     use crate::cancellation::CancellationHandle;
+    use crate::cancellation::CancelledError;
     use crate::details::cancellable_future::make_cancellable_future;
 
     #[derive(Debug)]
@@ -199,7 +207,7 @@ mod tests {
     async fn test_ready() {
         let (fut, _handle) = make_cancellable_future(|_| futures::future::ready(()).boxed());
         futures::pin_mut!(fut);
-        assert_matches!(futures::poll!(fut), Poll::Ready(Some(())));
+        assert_matches!(futures::poll!(fut), Poll::Ready(Ok(())));
     }
 
     #[tokio::test]
@@ -212,7 +220,7 @@ mod tests {
 
         handle.cancel();
 
-        assert_matches!(futures::poll!(&mut fut), Poll::Ready(None));
+        assert_matches!(futures::poll!(&mut fut), Poll::Ready(Err(CancelledError)));
     }
 
     #[tokio::test]
@@ -223,7 +231,7 @@ mod tests {
 
         handle.cancel();
 
-        assert_matches!(futures::poll!(&mut fut), Poll::Ready(None));
+        assert_matches!(futures::poll!(&mut fut), Poll::Ready(Err(CancelledError)));
     }
 
     #[tokio::test]
@@ -231,7 +239,7 @@ mod tests {
         let (fut, handle) = make_cancellable_future(|_| futures::future::ready::<()>(()).boxed());
 
         futures::pin_mut!(fut);
-        assert_matches!(futures::poll!(&mut fut), Poll::Ready(Some(())));
+        assert_matches!(futures::poll!(&mut fut), Poll::Ready(Ok(())));
 
         handle.cancel();
         // this is okay
@@ -253,7 +261,7 @@ mod tests {
 
         assert_matches!(
             tokio::time::timeout(Duration::from_millis(100), &mut task).await,
-            Ok(Ok(None))
+            Ok(Ok(Err(CancelledError)))
         );
     }
 
@@ -286,7 +294,7 @@ mod tests {
 
         let task = tokio::task::spawn(fut);
 
-        task.await.unwrap();
+        drop(task.await.unwrap());
         assert!(*dropped.lock());
     }
 
@@ -311,7 +319,7 @@ mod tests {
         handle.cancel();
 
         // Poll again, this time we don't enter the future's poll because it is cancelled.
-        assert_matches!(futures::poll!(&mut fut), Poll::Ready(None));
+        assert_matches!(futures::poll!(&mut fut), Poll::Ready(Err(CancelledError)));
     }
 
     #[tokio::test]
@@ -324,7 +332,7 @@ mod tests {
             .boxed()
         });
 
-        fut.await;
+        drop(fut.await);
     }
 
     #[tokio::test]
@@ -348,7 +356,7 @@ mod tests {
         handle.cancel();
         let res = fut.await;
 
-        assert_eq!(res, None);
+        assert_matches!(res, Err(CancelledError));
     }
 
     #[tokio::test]
@@ -386,7 +394,7 @@ mod tests {
 
         // Run the future. It'll drop the guard (and cancel itself) after entering the critical
         // section while it's being polled, but it'll proceed to the end.
-        fut.await;
+        drop(fut.await);
     }
 
     // Cases to test:
@@ -455,7 +463,7 @@ mod tests {
         assert_matches!(futures::poll!(&mut fut), Poll::Pending);
 
         handle.cancel();
-        assert_matches!(futures::poll!(&mut fut), Poll::Ready(None));
+        assert_matches!(futures::poll!(&mut fut), Poll::Ready(Err(CancelledError)));
     }
 
     // This is a bit of an implementation detail.
@@ -474,7 +482,7 @@ mod tests {
         assert_matches!(futures::poll!(&mut fut), Poll::Pending);
 
         handle.cancel();
-        assert_matches!(futures::poll!(&mut fut), Poll::Ready(None));
+        assert_matches!(futures::poll!(&mut fut), Poll::Ready(Err(CancelledError)));
     }
 
     #[tokio::test]
@@ -532,7 +540,7 @@ mod tests {
 
         // Drop our guard. We should resume and disarm the guard.
         handle.cancel();
-        assert_matches!(futures::poll!(&mut fut), Poll::Ready(None));
+        assert_matches!(futures::poll!(&mut fut), Poll::Ready(Err(CancelledError)));
     }
 
     #[tokio::test]
@@ -581,7 +589,7 @@ mod tests {
         assert_matches!(futures::poll!(&mut fut), Poll::Pending);
 
         handle.cancel();
-        assert_matches!(futures::poll!(&mut fut), Poll::Ready(None));
+        assert_matches!(futures::poll!(&mut fut), Poll::Ready(Err(CancelledError)));
     }
 
     #[tokio::test]
@@ -598,7 +606,7 @@ mod tests {
         assert_matches!(futures::poll!(&mut fut), Poll::Pending);
 
         handle.cancel();
-        assert_matches!(futures::poll!(&mut fut), Poll::Ready(Some(())));
+        assert_matches!(futures::poll!(&mut fut), Poll::Ready(Ok(())));
     }
 
     #[tokio::test]
@@ -614,7 +622,7 @@ mod tests {
         futures::pin_mut!(fut);
 
         handle.cancel();
-        assert_matches!(futures::poll!(&mut fut), Poll::Ready(None));
+        assert_matches!(futures::poll!(&mut fut), Poll::Ready(Err(CancelledError)));
     }
 
     #[tokio::test]
@@ -638,7 +646,7 @@ mod tests {
         assert_matches!(futures::poll!(&mut fut), Poll::Pending);
 
         handle.cancel();
-        assert_matches!(futures::poll!(&mut fut), Poll::Ready(None));
+        assert_matches!(futures::poll!(&mut fut), Poll::Ready(Err(CancelledError)));
     }
 
     #[tokio::test]
@@ -666,7 +674,7 @@ mod tests {
 
         handle.cancel();
 
-        assert_matches!(futures::poll!(&mut fut), Poll::Ready(Some(())));
+        assert_matches!(futures::poll!(&mut fut), Poll::Ready(Ok(())));
     }
 
     #[tokio::test]
@@ -695,7 +703,7 @@ mod tests {
         let (fut, _handle) = make_cancellable_future(|_cancellations| fut.boxed());
         futures::pin_mut!(fut);
 
-        assert_matches!(futures::poll!(&mut fut), Poll::Ready(Some(())));
+        assert_matches!(futures::poll!(&mut fut), Poll::Ready(Ok(())));
 
         assert!(is_dropped.load(Ordering::SeqCst));
     }
@@ -728,7 +736,7 @@ mod tests {
 
         handle.cancel();
 
-        assert_matches!(futures::poll!(&mut fut), Poll::Ready(None));
+        assert_matches!(futures::poll!(&mut fut), Poll::Ready(Err(CancelledError)));
         assert!(is_dropped.load(Ordering::SeqCst));
     }
 
@@ -750,7 +758,7 @@ mod tests {
 
         // cancel before any polls
         handle.cancel();
-        assert_matches!(futures::poll!(&mut fut), Poll::Ready(None));
+        assert_matches!(futures::poll!(&mut fut), Poll::Ready(Err(CancelledError)));
     }
 
     #[tokio::test]
@@ -777,7 +785,7 @@ mod tests {
         handle.cancel();
 
         // Poll again, this time we don't enter the future's poll because it is cancelled.
-        assert_matches!(futures::poll!(&mut fut), Poll::Ready(None));
+        assert_matches!(futures::poll!(&mut fut), Poll::Ready(Err(CancelledError)));
     }
 
     #[tokio::test]
@@ -798,7 +806,7 @@ mod tests {
 
         handle.cancel();
 
-        fut.await;
+        drop(fut.await);
     }
 
     #[tokio::test]
@@ -842,8 +850,7 @@ mod tests {
         barrier.wait().await;
         let res = fut.await;
 
-        assert!(res.is_ok());
-        assert_eq!(res.unwrap(), None);
+        assert_matches!(res.unwrap(), Err(CancelledError));
     }
 
     #[tokio::test]
@@ -884,6 +891,6 @@ mod tests {
         // Drop our guard. At this point we'll cancel, and notify the observer.
         handle.cancel();
 
-        fut.await;
+        drop(fut.await);
     }
 }
