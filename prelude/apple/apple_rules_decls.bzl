@@ -78,6 +78,7 @@ load(
     "get_enable_library_evolution",
     "get_skip_swift_incremental_outputs_attrs",
     "get_swift_incremental_file_hashing_attrs",
+    "get_swift_incremental_logging_attrs",
     "get_swift_incremental_remote_outputs_attrs",
 )
 load(":apple_test.bzl", "apple_test_impl")
@@ -718,6 +719,7 @@ apple_library = prelude_rule(
         } |
         buck.allow_cache_upload_arg() |
         get_swift_incremental_file_hashing_attrs() |
+        get_swift_incremental_logging_attrs() |
         get_swift_incremental_remote_outputs_attrs() |
         get_skip_swift_incremental_outputs_attrs()
     ),

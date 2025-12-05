@@ -102,6 +102,11 @@ def get_swift_incremental_remote_outputs_attrs():
         "incremental_remote_outputs": attrs.bool(default = read_bool("apple", "incremental_remote_outputs", False, False, True)),
     }
 
+def get_swift_incremental_logging_attrs():
+    return {
+        "swift_incremental_logging": attrs.bool(default = read_bool("apple", "swift_incremental_logging_enabled", False, False, True)),
+    }
+
 def _apple_bundle_like_common_attrs():
     # `apple_bundle()` and `apple_test()` share a common set of extra attrs
     attribs = {
@@ -186,6 +191,7 @@ def apple_test_extra_attrs():
     attribs.update(apple_common.apple_toolchain_arg())
     attribs.update(_apple_bundle_like_common_attrs())
     attribs.update(get_swift_incremental_file_hashing_attrs())
+    attribs.update(get_swift_incremental_logging_attrs())
     attribs.update(get_skip_swift_incremental_outputs_attrs())
     return attribs
 

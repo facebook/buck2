@@ -91,6 +91,9 @@ def get_incremental_file_hashing_enabled(ctx: AnalysisContext):
     toolchain = get_swift_toolchain_info(ctx)
     return toolchain.supports_incremental_file_hashing and getattr(ctx.attrs, "swift_incremental_file_hashing", False)
 
+def get_swift_incremental_logging_enabled(ctx: AnalysisContext):
+    return getattr(ctx.attrs, "swift_incremental_logging", False)
+
 def get_incremental_remote_outputs_enabled(ctx: AnalysisContext):
     return getattr(ctx.attrs, "incremental_remote_outputs", False)
 
@@ -131,6 +134,11 @@ def _get_incremental_compilation_flags_and_objects(
     skip_incremental_outputs = _get_skip_swift_incremental_outputs(ctx)
     incremental_remote_outputs = False
     uses_experimental_content_based_path_hashing = get_uses_experimental_content_based_path_hashing(ctx)
+    if get_swift_incremental_logging_enabled(ctx):
+        cmd.add([
+            "-driver-show-incremental",
+            "-driver-show-job-lifecycle",
+        ])
 
     if skip_incremental_outputs:
         # When skipping incremental outputs, we write the contents of the
