@@ -179,9 +179,9 @@ public class ErrorInterceptor extends PrintStream {
   private static final Pattern WARNING_PATTERN =
       Pattern.compile("\\bwarning\\b(:.*?)\\n", Pattern.CASE_INSENSITIVE);
   private static final Pattern JAVA_FILE_PATTERN =
-      Pattern.compile("\\b(/?(?:[\\w-]+/)*[\\w-]+\\.java)\\b:(\\d+):");
+      Pattern.compile("(?:\\x1b\\[[0-9;]*m)*(/?(?:[\\w-]+/)*[\\w-]+\\.java)\\b:(\\d+):");
   private static final Pattern KOTLIN_FILE_PATTERN =
-      Pattern.compile("\\b(/?(?:[\\w-]+/)*[\\w-]+\\.kt)\\b:(\\d+):(\\d+):");
+      Pattern.compile("(?:\\x1b\\[[0-9;]*m)*(/?(?:[\\w-]+/)*[\\w-]+\\.kt)\\b:(\\d+):(\\d+):");
 
   /** Enum representing supported file types with their associated patterns and keywords. */
   public enum FileType {
@@ -352,17 +352,24 @@ public class ErrorInterceptor extends PrintStream {
   private static String highlightJavaFile(Matcher match) {
     String file = match.group(1);
     int line = Integer.parseInt(match.group(2));
-    String displayText = GREEN + file + RESET;
 
-    return createHyperlink(file, line, displayText) + ":" + MAGENTA + match.group(2) + RESET + ":";
+    return GREEN
+        + createHyperlink(file, line, file)
+        + RESET
+        + ":"
+        + MAGENTA
+        + match.group(2)
+        + RESET
+        + ":";
   }
 
   private static String highlightKotlinFile(Matcher match) {
     String file = match.group(1);
     int line = Integer.parseInt(match.group(2));
-    String displayText = GREEN + file + RESET;
 
-    return createHyperlink(file, line, displayText)
+    return GREEN
+        + createHyperlink(file, line, file)
+        + RESET
         + ":"
         + MAGENTA
         + match.group(2)
