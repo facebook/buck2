@@ -55,6 +55,7 @@ load(
     "LinkInfo",
     "LinkStrategy",
     "MergedLinkInfo",
+    "create_merged_link_info_for_propagation",
 )
 load(
     "@prelude//linking:linkable_graph.bzl",
@@ -213,7 +214,7 @@ RustLinkInfo = provider(
         # With `advanced_unstable_linkin`, Rust libraries essentially behave just like C++
         # libraries in the link graph, with the handling of transitive dependencies being the only
         # difference.
-        "merged_link_infos": dict[ConfiguredTargetLabel, MergedLinkInfo],
+        "merged_link_info": MergedLinkInfo,
         "linkable_graphs": list[LinkableGraph],
         "shared_libs": SharedLibraryInfo,
         "third_party_build_info": ThirdPartyBuildInfo,
@@ -572,15 +573,15 @@ def inherited_rust_cxx_link_group_info(
         link_group_preferred_linkage = link_group_preferred_linkage,
     )
 
-def inherited_merged_link_infos(
+def inherited_merged_link_info(
         ctx: AnalysisContext,
-        dep_ctx: DepCollectionContext) -> dict[ConfiguredTargetLabel, MergedLinkInfo]:
-    infos = {}
+        dep_ctx: DepCollectionContext) -> MergedLinkInfo:
+    infos = []
     for d in _native_link_dependencies(ctx, dep_ctx):
-        infos[d.label.configured_target()] = d[MergedLinkInfo]
+        infos.append(d[MergedLinkInfo])
     for info in _rust_non_proc_macro_link_infos(ctx, dep_ctx):
-        infos.update(info.merged_link_infos)
-    return infos
+        infos.append(info.merged_link_info)
+    return create_merged_link_info_for_propagation(ctx, infos)
 
 def inherited_shared_libs(
         ctx: AnalysisContext,
@@ -628,7 +629,7 @@ def inherited_dep_external_debug_infos(
     for d in resolve_deps(ctx, dep_ctx):
         if RustLinkInfo in d.dep:
             inherited_debug_infos.append(strategy_info(toolchain_info, d.dep[RustLinkInfo], dep_link_strategy).external_debug_info)
-            inherited_link_infos.extend(d.dep[RustLinkInfo].merged_link_infos.values())
+            inherited_link_infos.append(d.dep[RustLinkInfo].merged_link_info)
         elif MergedLinkInfo in d.dep:
             inherited_link_infos.append(d.dep[MergedLinkInfo])
 

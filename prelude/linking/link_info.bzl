@@ -486,6 +486,16 @@ MergedLinkInfo = provider(fields = {
     "_infos": provider_field(dict[LinkStrategy, LinkInfosTSet]),
 })
 
+_empty_merged_link_info = MergedLinkInfo(
+    frameworks = {},
+    swiftmodules = {},
+    _external_debug_info = {},
+    _infos = {},
+)
+
+def empty_merged_link_info() -> MergedLinkInfo:
+    return _empty_merged_link_info
+
 # A map of linkages to all possible output styles it supports.
 _LIB_OUTPUT_STYLES_FOR_LINKAGE = {
     Linkage("any"): [LibOutputStyle("archive"), LibOutputStyle("pic_archive"), LibOutputStyle("shared_lib")],
