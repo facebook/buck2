@@ -146,7 +146,9 @@ def generate_rustdoc(
 
     plain_env, path_env = process_env(compile_ctx, toolchain_info.rustdoc_env | ctx.attrs.env)
     plain_env["RUSTDOC_BUCK_TARGET"] = cmd_args(str(ctx.label.raw_target()))
-    plain_env["RUST_TARGET_PATH"] = toolchain_info.rust_target_path[DefaultInfo].default_outputs[0]
+
+    if toolchain_info.rust_target_path != None:
+        path_env["RUST_TARGET_PATH"] = toolchain_info.rust_target_path[DefaultInfo].default_outputs[0]
 
     rustdoc_cmd = cmd_args(
         toolchain_info.rustdoc,
@@ -207,7 +209,9 @@ def generate_rustdoc_coverage(
 
     plain_env, path_env = process_env(compile_ctx, ctx.attrs.env)
     plain_env["RUSTDOC_BUCK_TARGET"] = cmd_args(str(ctx.label.raw_target()))
-    plain_env["RUST_TARGET_PATH"] = toolchain_info.rust_target_path[DefaultInfo].default_outputs[0]
+
+    if toolchain_info.rust_target_path != None:
+        path_env["RUST_TARGET_PATH"] = toolchain_info.rust_target_path[DefaultInfo].default_outputs[0]
 
     # `--show-coverage` is unstable.
     plain_env["RUSTC_BOOTSTRAP"] = cmd_args("1")
@@ -346,8 +350,10 @@ def generate_rustdoc_test(
 
     # `--runtool` is unstable.
     plain_env["RUSTC_BOOTSTRAP"] = cmd_args("1")
-    plain_env["RUST_TARGET_PATH"] = toolchain_info.rust_target_path[DefaultInfo].default_outputs[0]
     unstable_options = ["-Zunstable-options"]
+
+    if toolchain_info.rust_target_path != None:
+        path_env["RUST_TARGET_PATH"] = toolchain_info.rust_target_path[DefaultInfo].default_outputs[0]
 
     rustdoc_cmd = cmd_args(
         [cmd_args("--env=", k, "=", v, delimiter = "") for k, v in plain_env.items()],
