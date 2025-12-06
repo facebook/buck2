@@ -105,7 +105,7 @@ load(
     "get_available_proc_macros",
     "inherited_dep_external_debug_infos",
     "inherited_external_debug_info_from_dep_infos",
-    "inherited_merged_link_info",
+    "inherited_merged_link_infos",
     "inherited_rust_external_debug_info",
     "inherited_shared_libs",
     "normalize_crate",
@@ -309,16 +309,13 @@ def generate_rustdoc_test(
                 # Since we pass the rlib in and treat it as a dependency to the rustdoc test harness,
                 # we need to ensure that the rlib's link info is added to the linker, otherwise we may
                 # end up with missing symbols that are defined within the crate.
-                [
-                    create_merged_link_info(
-                        ctx,
-                        compile_ctx.cxx_toolchain_info.pic_behavior,
-                        link_infos,
-                        deps = [inherited_merged_link_info(ctx, doc_dep_ctx)],
-                        preferred_linkage = Linkage("static"),
-                    ),
-                    inherited_merged_link_info(ctx, doc_dep_ctx),
-                ],
+                [create_merged_link_info(
+                    ctx,
+                    compile_ctx.cxx_toolchain_info.pic_behavior,
+                    link_infos,
+                    deps = inherited_merged_link_infos(ctx, doc_dep_ctx).values(),
+                    preferred_linkage = Linkage("static"),
+                )] + inherited_merged_link_infos(ctx, doc_dep_ctx).values(),
                 params.dep_link_strategy,
                 prefer_stripped = False,
                 transformation_spec_context = None,
@@ -574,10 +571,10 @@ def rust_compile(
         else:
             inherited_link_args = apple_build_link_args_with_deduped_flags(
                 ctx,
-                deps_merged_link_infos = [inherited_merged_link_info(
+                deps_merged_link_infos = inherited_merged_link_infos(
                     ctx,
                     compile_ctx.dep_ctx,
-                )],
+                ).values(),
                 frameworks_linkable = None,
                 link_strategy = params.dep_link_strategy,
                 swiftmodule_linkable = None,
