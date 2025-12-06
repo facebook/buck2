@@ -577,9 +577,7 @@ def inherited_merged_link_infos(
         dep_ctx: DepCollectionContext) -> dict[ConfiguredTargetLabel, MergedLinkInfo]:
     infos = {}
     for d in _native_link_dependencies(ctx, dep_ctx):
-        g = d.get(MergedLinkInfo)
-        if g:
-            infos[d.label.configured_target()] = g
+        infos[d.label.configured_target()] = d[MergedLinkInfo]
     for info in _rust_non_proc_macro_link_infos(ctx, dep_ctx):
         infos.update(info.merged_link_infos)
     return infos
