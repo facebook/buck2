@@ -103,6 +103,7 @@ fn derive_allocative_impl(
     };
 
     Ok(quote! {
+        #[automatically_derived]
         impl #impl_generics allocative::Allocative for #name #type_generics #where_clause {
             #[allow(unused, warnings)]
             fn visit<'allocative_a, 'allocative_b: 'allocative_a>(

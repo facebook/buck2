@@ -136,6 +136,7 @@ use crate::Visitor;
 ///     visitor.exit()
 /// }
 /// ```
+#[cfg_attr(rust_nightly, rustc_trivial_field_reads)]
 pub trait Allocative {
     fn visit<'a, 'b: 'a>(&self, visitor: &'a mut Visitor<'b>);
 }
