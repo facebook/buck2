@@ -42,7 +42,7 @@ use tokio::time::Duration;
 use tokio::time::Instant;
 use tokio::time::sleep;
 
-const MAX_WAIT: Duration = Duration::from_secs(5 * 60);
+const MAX_WAIT: Duration = Duration::from_mins(5);
 
 #[derive(Debug, buck2_error::Error)]
 #[buck2(tag = Tier0)]
