@@ -143,6 +143,7 @@ mod tests {
         #[derive(Allocative, ProvidesStaticType)]
         struct FrozenData {
             string: FrozenStringValue,
+            #[expect(dead_code)]
             other: FrozenValue,
         }
 

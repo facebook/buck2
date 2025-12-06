@@ -648,7 +648,7 @@ impl RecordedAnalysisValues {
                 lambda_params: DYNAMIC_LAMBDA_PARAMS_STORAGES
                     .get()
                     .unwrap()
-                    .new_frozen_dynamic_lambda_params_storage(self_key.dupe()),
+                    .new_frozen_dynamic_lambda_params_storage(),
                 result_value: Some(
                     FrozenValueTyped::<FrozenProviderCollection>::new(heap.alloc(providers))
                         .unwrap(),

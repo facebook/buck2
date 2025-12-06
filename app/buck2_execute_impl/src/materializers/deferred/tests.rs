@@ -533,7 +533,6 @@ mod state_machine {
                     num_entries_from_sqlite: 0,
                 },
                 stats: Arc::new(DeferredMaterializerStats::default()),
-                verbose_materializer_log: true,
             },
             handle,
             daemon_dispatcher_events,

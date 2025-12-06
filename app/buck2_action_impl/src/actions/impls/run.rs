@@ -370,7 +370,6 @@ pub(crate) struct RunAction {
     starlark_values: OwnedFrozenValueTyped<FrozenStarlarkRunActionValues>,
     outputs: BoxSliceSet<BuildArtifact>,
     error_handler: Option<OwnedFrozenValue>,
-    input_files_bytes: u64,
 }
 
 #[allow(clippy::large_enum_variant)]
@@ -777,7 +776,6 @@ impl RunAction {
             starlark_values,
             outputs: BoxSliceSet::from(outputs),
             error_handler,
-            input_files_bytes: 0,
         })
     }
 

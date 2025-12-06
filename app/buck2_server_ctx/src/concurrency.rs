@@ -194,9 +194,6 @@ enum DiceStatus {
 #[derive(Allocative)]
 struct ActiveDice {
     version: DiceEquality,
-
-    /// Whether this DICE version had concurrent commands that executed on it.
-    tainted: bool,
 }
 
 impl DiceStatus {
@@ -206,10 +203,7 @@ impl DiceStatus {
 
     fn active(version: DiceEquality) -> Self {
         Self::Available {
-            active: Some(ActiveDice {
-                version,
-                tainted: false,
-            }),
+            active: Some(ActiveDice { version }),
         }
     }
 }

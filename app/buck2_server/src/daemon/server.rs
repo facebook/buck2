@@ -278,7 +278,7 @@ impl BuckdServer {
                 fb,
                 paths,
                 init_ctx,
-                rt.clone(),
+                &rt,
                 materializations,
                 cwd,
                 cgroup_tree,

@@ -233,6 +233,8 @@ impl NotifyFileData {
 #[derive(Allocative)]
 pub struct NotifyFileWatcher {
     #[allocative(skip)]
+    #[expect(unused)]
+    // FIXME(JakobDegen): Clarify if this just needs to be kept alive or can be removed?
     watcher: RecommendedWatcher,
     data: Arc<Mutex<buck2_error::Result<NotifyFileData>>>,
 }

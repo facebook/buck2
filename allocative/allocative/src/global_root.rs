@@ -32,6 +32,7 @@ mod tests {
     use crate::FlameGraphBuilder;
 
     #[derive(Allocative)]
+    #[expect(dead_code)]
     struct TestGlobalRoot {
         x: u32,
     }

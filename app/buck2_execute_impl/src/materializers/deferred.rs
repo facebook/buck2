@@ -124,6 +124,7 @@ pub struct DeferredMaterializerAccessor<T: IoHandler + 'static> {
     /// sure only one executes at a time and in the order they came in.
     /// TODO(rafaelc): aim to replace it with a simple mutex.
     #[allocative(skip)]
+    #[cfg_attr(not(test), expect(dead_code))]
     command_thread: Option<std::thread::JoinHandle<()>>,
     /// Determines what to do on `try_materialize_final_artifact`: if true,
     /// materializes them, otherwise skips them.
@@ -136,9 +137,6 @@ pub struct DeferredMaterializerAccessor<T: IoHandler + 'static> {
     materializer_state_info: buck2_data::MaterializerStateInfo,
 
     stats: Arc<DeferredMaterializerStats>,
-
-    /// Logs verbose events about materializer to the event log when enabled.
-    verbose_materializer_log: bool,
 }
 
 pub type DeferredMaterializer = DeferredMaterializerAccessor<DefaultIoHandler>;
@@ -706,7 +704,6 @@ impl DeferredMaterializerAccessor<DefaultIoHandler> {
             io,
             materializer_state_info,
             stats,
-            verbose_materializer_log: configs.verbose_materializer_log,
         })
     }
 }

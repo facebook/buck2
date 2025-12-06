@@ -107,9 +107,6 @@ pub struct DaemonState {
     /// This holds the main data shared across different commands.
     pub(crate) data: Arc<DaemonStateData>,
 
-    #[allocative(skip)]
-    rt: Handle,
-
     /// Our working directory, if we did set one.
     working_directory: Option<WorkingDirectory>,
 }
@@ -231,11 +228,11 @@ impl DaemonStatePanicDiceDump for DaemonStateData {
 
 impl DaemonState {
     #[tracing::instrument(name = "daemon_listener", skip_all)]
-    pub async fn new(
+    pub(crate) async fn new(
         fb: fbinit::FacebookInit,
         paths: InvocationPaths,
         init_ctx: BuckdServerInitPreferences,
-        rt: Handle,
+        rt: &Handle,
         materializations: MaterializationMethod,
         working_directory: Option<WorkingDirectory>,
         cgroup_tree: Option<BuckCgroupTree>,
@@ -245,7 +242,7 @@ impl DaemonState {
             fb,
             paths.clone(),
             init_ctx,
-            rt.clone(),
+            rt,
             materializations,
             cgroup_tree,
             daemon_id,
@@ -264,7 +261,6 @@ impl DaemonState {
             fb,
             paths,
             data,
-            rt,
             working_directory,
         };
         Ok(state)
@@ -276,7 +272,7 @@ impl DaemonState {
         fb: fbinit::FacebookInit,
         paths: InvocationPaths,
         init_ctx: BuckdServerInitPreferences,
-        rt: Handle,
+        rt: &Handle,
         materializations: MaterializationMethod,
         cgroup_tree: Option<BuckCgroupTree>,
         daemon_id: DaemonId,

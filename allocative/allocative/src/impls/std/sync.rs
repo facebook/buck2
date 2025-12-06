@@ -226,6 +226,7 @@ mod tests {
 
     #[derive(Allocative)]
     #[repr(align(64))]
+    #[expect(dead_code)]
     struct CacheLine(u8);
 
     #[test]
