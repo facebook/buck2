@@ -1057,12 +1057,11 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
     # C++ resource.
     if impl_params.generate_providers.resources:
         resources = cxx_attr_resources(ctx)
-        cxx_resource_info = ResourceInfo(resources = gather_resources(
+        providers.append(ResourceInfo(resources = gather_resources(
             label = ctx.label,
             resources = resources,
             deps = non_exported_deps + exported_deps,
-        ))
-        providers += [cxx_resource_info]
+        )))
         if impl_params.generate_providers.cxx_resources_as_apple_resources:
             apple_resource_graph = create_resource_graph(
                 ctx = ctx,
@@ -1071,7 +1070,7 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
                 exported_deps = exported_deps,
                 cxx_resource_spec = CxxResourceSpec(resources = resources) if resources else None,
             )
-            providers += [apple_resource_graph]
+            providers.append(apple_resource_graph)
 
     if impl_params.generate_providers.template_placeholders:
         templ_vars = {}
@@ -1187,12 +1186,14 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
             ),
         )
 
+    providers.extend(additional_providers)
+
     return _CxxLibraryParameterizedOutput(
         default_output = default_output,
         all_outputs = library_outputs,
         sub_targets = sub_targets,
         bitcode_bundle = bitcode_bundle,
-        providers = providers + additional_providers,
+        providers = providers,
         index_store_info = index_store_info,
         xcode_data_info = xcode_data_info,
         cxx_compilationdb_info = comp_db_info,
