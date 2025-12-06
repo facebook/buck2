@@ -37,7 +37,7 @@ fn get_panic_dump_dir() -> PathBuf {
 }
 
 async fn remove_old_panic_dumps() -> buck2_error::Result<()> {
-    const MAX_PANIC_AGE: Duration = Duration::from_secs(60 * 60 * 24); // 1 day
+    const MAX_PANIC_AGE: Duration = Duration::from_hours(24); // 1 day
     let dump_dir = get_panic_dump_dir();
     let now = SystemTime::now();
     if let Ok(dir_result) = std::fs::read_dir(dump_dir) {
