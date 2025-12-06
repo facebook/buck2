@@ -43,11 +43,20 @@ OBJECTS_SUBTARGET = "objects"
 # The dependencies
 def cxx_attr_deps(ctx: AnalysisContext) -> list[Dependency]:
     cxx_platform_info = get_cxx_platform_info(ctx)
-    return (
-        ctx.attrs.deps +
-        flatten(cxx_by_platform(cxx_platform_info, getattr(ctx.attrs, "platform_deps", []))) +
-        (getattr(ctx.attrs, "deps_query", []) or [])
-    )
+
+    deps = list(ctx.attrs.deps)
+
+    platform_deps_attr = getattr(ctx.attrs, "platform_deps", None)
+    if platform_deps_attr:
+        platform_deps = cxx_by_platform(cxx_platform_info, platform_deps_attr)
+        for platform_dep in platform_deps:
+            deps.extend(platform_dep)
+
+    deps_query_attr = getattr(ctx.attrs, "deps_query", None)
+    if deps_query_attr:
+        deps.extend(deps_query_attr)
+
+    return deps
 
 def cxx_attr_exported_deps(ctx: AnalysisContext) -> list[Dependency]:
     cxx_platform_info = get_cxx_platform_info(ctx)
