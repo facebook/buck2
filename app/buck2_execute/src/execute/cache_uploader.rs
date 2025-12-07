@@ -17,6 +17,7 @@ use remote_execution::TActionResult2;
 use crate::digest_config::DigestConfig;
 use crate::execute::action_digest_and_blobs::ActionDigestAndBlobs;
 use crate::execute::dep_file_digest::DepFileDigest;
+use crate::execute::request::CommandExecutionPaths;
 use crate::execute::result::CommandExecutionResult;
 use crate::execute::target::CommandExecutionTarget;
 use crate::materialize::materializer::Materializer;
@@ -26,6 +27,7 @@ pub struct CacheUploadInfo<'a> {
     pub digest_config: DigestConfig,
     pub mergebase: &'a Option<String>,
     pub re_platform: &'a remote_execution::Platform,
+    pub paths: &'a CommandExecutionPaths,
 }
 
 #[async_trait]

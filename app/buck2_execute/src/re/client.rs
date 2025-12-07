@@ -923,13 +923,16 @@ impl RemoteExecutionClientImpl {
         action_digest: ActionDigest,
         use_case: RemoteExecutorUseCase,
     ) -> buck2_error::Result<Option<ActionResultResponse>> {
+        let mut metadata = use_case.metadata(None);
+        metadata.action_id = Some(action_digest.raw_digest().to_string());
+
         let res = with_error_handler(
             "action_cache",
             self.get_session_id(),
             self.client()
                 .get_action_cache_client()
                 .get_action_result(
-                    use_case.metadata(None),
+                    metadata,
                     ActionResultRequest {
                         digest: action_digest.to_re(),
                         ..Default::default()
@@ -1298,6 +1301,7 @@ impl RemoteExecutionClientImpl {
                 ..Default::default()
             }),
             respect_file_symlinks: Some(self.respect_file_symlinks),
+            action_id: Some(action_digest.raw_digest().to_string()),
             ..use_case.metadata(Some(identity))
         };
 
@@ -1376,13 +1380,17 @@ impl RemoteExecutionClientImpl {
             return Ok((Vec::new(), TLocalCacheStats::default()));
         }
         let expected_blobs = digests.len();
+        let mut metadata = use_case.metadata(identity);
+        metadata.action_id = identity
+            .and_then(|id| id.action_id.clone())
+            .or(metadata.action_id);
         let response = with_error_handler(
             "download_typed_blobs",
             self.get_session_id(),
             self.client()
                 .get_cas_client()
                 .download(
-                    use_case.metadata(identity),
+                    metadata,
                     DownloadRequest {
                         inlined_digests: Some(digests),
                         ..Default::default()
@@ -1420,13 +1428,15 @@ impl RemoteExecutionClientImpl {
         use_case: RemoteExecutorUseCase,
     ) -> buck2_error::Result<(Vec<u8>, TLocalCacheStats)> {
         let re_action = format!("download_blob for digest {digest}");
+        let mut metadata = use_case.metadata(None);
+        metadata.action_id = Some(digest.hash.clone());
         let response = with_error_handler(
             re_action.as_str(),
             self.get_session_id(),
             self.client()
                 .get_cas_client()
                 .download(
-                    use_case.metadata(None),
+                    metadata,
                     DownloadRequest {
                         inlined_digests: Some(vec![digest.clone()]),
                         ..Default::default()
@@ -1601,6 +1611,7 @@ impl RemoteExecutionClientImpl {
                             attributes,
                             ..Default::default()
                         }),
+                        action_id: Some(digest.raw_digest().to_string()),
                         ..use_case.metadata(None)
                     },
                     WriteActionResultRequest {
