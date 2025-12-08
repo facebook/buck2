@@ -10,7 +10,7 @@
 import dotslash
 
 dotslash.export_multi_platform_python(
-    target="fbsource//fbcode/buck2/prelude/apple/tools/code_signing_using_manifest:codesign_bundle_using_manifest",
+    target="prelude//apple/tools/code_signing_using_manifest:codesign_bundle_using_manifest",
     install_platforms={
         dotslash.InstallPlatform.MAC_AARCH64,
         dotslash.InstallPlatform.MAC_X86_64,
