@@ -28,6 +28,8 @@ from .utils import MachOException
 FAKE_PATH = b"fake/path"
 # buck-out/isolation_dir/gen/project_cell/{hash}/....
 NUM_OF_COMPONENTS_IN_BUCK2_OUTPUT_PATH_BEFORE_PROJECT_PATH = 5
+# buck-out/isolation_dir/gen/project_cell//X/Y/__name__/{hash}/....
+NUM_OF_COMPONENTS_IN_BUCK2_OUTPUT_PATH_BEFORE_PROJECT_PATH_WITH_CONTENT_BASED_PATH = 4
 
 
 def _always_scrub(_: str) -> bool:
@@ -61,9 +63,14 @@ def _get_target_output_path_from_debug_file_path(
     debug_target_path: str,
 ) -> str:
     # This function assumes the debug file path created by buck2 in one of the following formats:
+    # Without content based path:
     # buck-out/isolation_dir/gen/project_cell/{hash}/.../__name__/libFoo.a
     # buck-out/isolation_dir/gen/project_cell/{hash}/.../__name__/__objects__/bar.o
     # buck-out/isolation_dir/gen/project_cell/{hash}/.../__name__/swift_object_file.o
+    # With content based path:
+    # buck-out/isolation_dir/gen/project_cell/.../__name__/{hash}/libFoo.a
+    # buck-out/isolation_dir/gen/project_cell/.../__name__/__objects__/{hash}/bar.o
+    # buck-out/isolation_dir/gen/project_cell/.../__name__/{hash}/swift_object_file.o
     parts = debug_target_path.split("/")
 
     # We are doing the traverse in reverse order because this way we'll find the first
@@ -84,8 +91,14 @@ def _get_target_output_path_from_debug_file_path(
             f"Unrecognized format for debug file path : {debug_target_path}"
         )
 
+    # This handles the two cases, one with content based path, and one without
     return "/".join(
         parts[NUM_OF_COMPONENTS_IN_BUCK2_OUTPUT_PATH_BEFORE_PROJECT_PATH : -i + 1]
+    ), "/".join(
+        parts[
+            NUM_OF_COMPONENTS_IN_BUCK2_OUTPUT_PATH_BEFORE_PROJECT_PATH_WITH_CONTENT_BASED_PATH : -i
+            + 1
+        ]
     )
 
 
@@ -104,10 +117,13 @@ def should_scrub_with_focused_targets_output_paths(
         debug_target_path = debug_file_path
 
     if debug_file_path.startswith("buck-out/"):
-        target_output_path = _get_target_output_path_from_debug_file_path(
-            debug_target_path
+        target_output_path, target_output_content_based_path = (
+            _get_target_output_path_from_debug_file_path(debug_target_path)
         )
-        return target_output_path not in focused_targets_output_paths
+        return (
+            target_output_path not in focused_targets_output_paths
+            and target_output_content_based_path not in focused_targets_output_paths
+        )
     else:
         # occasionally archive file can be directly from source.
         (package, name) = os.path.split(debug_file_path)
