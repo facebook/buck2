@@ -89,9 +89,6 @@ where
     }
 }
 
-/// An iterator over values of a TransitiveSet. Notionally a FilterMap, but defined as its own type
-/// since there are a few too many lifetimes involved to make a nice `impl Iterator<...>` work
-/// here.
 impl<'a, 'v, V> Iterator for PreorderTransitiveSetIteratorGen<'a, 'v, V>
 where
     V: 'v + Copy + ValueLike<'v>,
@@ -152,9 +149,6 @@ where
     }
 }
 
-/// An iterator over values of a TransitiveSet. Notionally a FilterMap, but defined as its own type
-/// since there are a few too many lifetimes involved to make a nice `impl Iterator<...>` work
-/// here.
 impl<'a, 'v, V> Iterator for PostorderTransitiveSetIteratorGen<'a, 'v, V>
 where
     V: 'v + Copy + ValueLike<'v>,
@@ -260,9 +254,6 @@ where
     }
 }
 
-/// An iterator over values of a TransitiveSet. Notionally a FilterMap, but defined as its own type
-/// since there are a few too many lifetimes involved to make a nice `impl Iterator<...>` work
-/// here.
 impl<'a, 'v, V> Iterator for TopologicalTransitiveSetIteratorGen<'a, 'v, V>
 where
     V: 'v + Copy + ValueLike<'v>,
@@ -319,9 +310,6 @@ where
     }
 }
 
-/// An iterator over values of a TransitiveSet. Notionally a FilterMap, but defined as its own type
-/// since there are a few too many lifetimes involved to make a nice `impl Iterator<...>` work
-/// here.
 impl<'a, 'v, V> Iterator for BfsTransitiveSetIteratorGen<'a, 'v, V>
 where
     V: 'v + Copy + ValueLike<'v>,
@@ -337,6 +325,9 @@ where
     }
 }
 
+/// An iterator over values of a TransitiveSet. Notionally a FilterMap, but defined as its own type
+/// since there are a few too many lifetimes involved to make a nice `impl Iterator<...>` work
+/// here.
 pub struct TransitiveSetValuesIteratorGen<'a, 'v, V: ValueLike<'v>> {
     inner: Box<dyn TransitiveSetIteratorLike<'a, 'v, V> + 'a>,
 }
