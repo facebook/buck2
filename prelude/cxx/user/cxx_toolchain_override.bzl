@@ -55,6 +55,7 @@ def _cxx_toolchain_override(ctx):
             preprocessor = _pick_bin(ctx.attrs.as_compiler, base_as_info.preprocessor),
             preprocessor_type = base_as_info.preprocessor_type,
             preprocessor_flags = _pick(ctx.attrs.as_preprocessor_flags, base_as_info.preprocessor_flags),
+            supports_content_based_paths = base_as_info.supports_content_based_paths,
         )
     asm_info = base_toolchain.asm_compiler_info
     if asm_info != None:
@@ -65,6 +66,7 @@ def _cxx_toolchain_override(ctx):
             preprocessor = _pick_bin(ctx.attrs.asm_compiler, asm_info.preprocessor),
             preprocessor_type = asm_info.preprocessor_type,
             preprocessor_flags = _pick(ctx.attrs.asm_preprocessor_flags, asm_info.preprocessor_flags),
+            supports_content_based_paths = asm_info.supports_content_based_paths,
         )
     base_c_info = base_toolchain.c_compiler_info
     c_info = CCompilerInfo(
@@ -75,6 +77,7 @@ def _cxx_toolchain_override(ctx):
         preprocessor_type = base_c_info.preprocessor_type,
         preprocessor_flags = _pick(ctx.attrs.c_preprocessor_flags, base_c_info.preprocessor_flags),
         allow_cache_upload = _pick_raw(ctx.attrs.c_compiler_allow_cache_upload, base_c_info.allow_cache_upload),
+        supports_content_based_paths = base_c_info.supports_content_based_paths,
     )
     base_objc_info = base_toolchain.objc_compiler_info
     objc_info = ObjcCompilerInfo(
@@ -85,6 +88,7 @@ def _cxx_toolchain_override(ctx):
         preprocessor_type = base_c_info.preprocessor_type,
         preprocessor_flags = _pick(ctx.attrs.c_preprocessor_flags, base_c_info.preprocessor_flags),
         allow_cache_upload = _pick_raw(ctx.attrs.c_compiler_allow_cache_upload, base_c_info.allow_cache_upload),
+        supports_content_based_paths = base_c_info.supports_content_based_paths,
     )
     base_cxx_info = base_toolchain.cxx_compiler_info
     cxx_info = CxxCompilerInfo(
@@ -95,6 +99,7 @@ def _cxx_toolchain_override(ctx):
         preprocessor_type = base_cxx_info.preprocessor_type,
         preprocessor_flags = _pick(ctx.attrs.cxx_preprocessor_flags, base_cxx_info.preprocessor_flags),
         allow_cache_upload = _pick_raw(ctx.attrs.cxx_compiler_allow_cache_upload, base_cxx_info.allow_cache_upload),
+        supports_content_based_paths = base_cxx_info.supports_content_based_paths,
     )
     base_objcxx_info = base_toolchain.objcxx_compiler_info
     objcxx_info = ObjcxxCompilerInfo(
@@ -105,6 +110,7 @@ def _cxx_toolchain_override(ctx):
         preprocessor_type = base_cxx_info.preprocessor_type,
         preprocessor_flags = _pick(ctx.attrs.cxx_preprocessor_flags, base_cxx_info.preprocessor_flags),
         allow_cache_upload = _pick_raw(ctx.attrs.cxx_compiler_allow_cache_upload, base_cxx_info.allow_cache_upload),
+        supports_content_based_paths = base_cxx_info.supports_content_based_paths,
     )
     base_linker_info = base_toolchain.linker_info
     linker_type = LinkerType(ctx.attrs.linker_type) if ctx.attrs.linker_type != None else base_linker_info.type
