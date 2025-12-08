@@ -413,7 +413,6 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
 
     non_exported_deps = cxx_attr_deps(ctx)
     exported_deps = cxx_attr_exported_deps(ctx)
-    deps_all = exported_deps + non_exported_deps
 
     compile_pch = None
     pch_clanguage = None
@@ -473,7 +472,7 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
 
     preferred_linkage = cxx_attr_preferred_linkage(ctx)
 
-    exported_needs_coverage = build_exported_needs_coverage(ctx, deps_all)
+    exported_needs_coverage = build_exported_needs_coverage(ctx, exported_deps + non_exported_deps)
     compiled_srcs = cxx_compile_srcs(
         actions = ctx.actions,
         target_label = ctx.label,
@@ -560,7 +559,7 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
             value = traces,
             children = [info.clang_traces for info in filter(None, [
                 x.get(ClangTracesInfo)
-                for x in deps_all
+                for x in exported_deps + non_exported_deps
             ])],
         )
         providers.append(ClangTracesInfo(clang_traces = clang_traces_tset))
@@ -588,7 +587,7 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
             value = pic_traces,
             children = [info.clang_traces for info in filter(None, [
                 x.get(PicClangTracesInfo)
-                for x in deps_all
+                for x in exported_deps + non_exported_deps
             ])],
         )
         providers.append(PicClangTracesInfo(clang_traces = pic_clang_traces_tset))
@@ -647,7 +646,7 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
         link_group_mappings = link_group_info.mappings
         link_group_deps = [link_group_info.graph]
         link_group_libs = gather_link_group_libs(
-            deps = deps_all,
+            deps = non_exported_deps + exported_deps,
         )
         providers.append(link_group_info)
     else:
@@ -658,7 +657,7 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
     link_group_preferred_linkage = get_link_group_preferred_linkage(link_groups.values())
 
     # Create the linkable graph from the library's deps, exported deps and any link group deps.
-    linkable_graph_deps = deps_all + link_group_deps
+    linkable_graph_deps = non_exported_deps + exported_deps + link_group_deps
     deps_linkable_graph = create_linkable_graph(
         ctx,
         deps = linkable_graph_deps,
@@ -812,7 +811,8 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
         providers.append(merge_shared_libraries(
             ctx.actions,
             shared_libs,
-            filter(None, [x.get(SharedLibraryInfo) for x in deps_all]),
+            filter(None, [x.get(SharedLibraryInfo) for x in non_exported_deps]) +
+            filter(None, [x.get(SharedLibraryInfo) for x in exported_deps]),
         ))
         providers.append(
             create_unix_env_info(
@@ -821,7 +821,7 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
                     label = ctx.label,
                     native_libs = [shared_libs],
                 ),
-                deps = deps_all,
+                deps = exported_deps + non_exported_deps,
             ),
         )
 
@@ -906,7 +906,7 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
             ctx = ctx,
             cxx_headers = [propagated_preprocessor],
             shared_libs = shared_libs.libraries,
-            deps = deps_all,
+            deps = exported_deps + non_exported_deps,
             project = ctx.attrs.third_party_project,
         )
         providers.append(third_party_build_info)
@@ -970,7 +970,7 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
     if compiled_srcs.pic:
         index_stores.extend(compiled_srcs.pic.index_stores)
 
-    index_store_subtargets, index_store_info = create_index_store_subtargets_and_provider(ctx, index_stores, swift_index_stores, deps_all)
+    index_store_subtargets, index_store_info = create_index_store_subtargets_and_provider(ctx, index_stores, swift_index_stores, non_exported_deps + exported_deps)
     sub_targets.update(index_store_subtargets)
     providers.append(index_store_info)
 
@@ -1018,7 +1018,7 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
                     metadata = cxx_attr_dep_metadata(ctx),
                 ),
             ),
-            deps = deps_all,
+            deps = non_exported_deps + exported_deps,
         )
         providers.append(linkable_root)
 
@@ -1060,7 +1060,7 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
         providers.append(ResourceInfo(resources = gather_resources(
             label = ctx.label,
             resources = resources,
-            deps = deps_all,
+            deps = non_exported_deps + exported_deps,
         )))
         if impl_params.generate_providers.cxx_resources_as_apple_resources:
             apple_resource_graph = create_resource_graph(
@@ -1129,14 +1129,14 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
     # anywhere else, so we need to expose them here to ensure that they are packaged into the
     # final binary.
     if impl_params.generate_providers.java_packaging_info:
-        providers.append(get_java_packaging_info(ctx, deps_all))
+        providers.append(get_java_packaging_info(ctx, non_exported_deps + exported_deps))
 
     if impl_params.generate_providers.java_global_code_info:
         providers.append(propagate_global_code_info(ctx, ctx.attrs.deps + getattr(ctx.attrs, "exported_deps", [])))
 
     # TODO(T107163344) this shouldn't be in cxx_library itself, use overlays to remove it.
     if impl_params.generate_providers.android_packageable_info:
-        providers.append(merge_android_packageable_info(ctx.label, ctx.actions, deps_all))
+        providers.append(merge_android_packageable_info(ctx.label, ctx.actions, non_exported_deps + exported_deps))
 
     bitcode_bundle = default_output.bitcode_bundle if default_output != None else None
     if bitcode_bundle:
@@ -1167,7 +1167,7 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
                 name = link_group,
                 shared_libs = shared_libs,
                 shared_link_infos = library_outputs.link_infos.get(LibOutputStyle("shared_lib")),
-                deps = deps_all,
+                deps = exported_deps + non_exported_deps,
             ),
         )
 
@@ -1175,7 +1175,7 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
         providers.append(cxx_transitive_diagnostics_combine(
             ctx = ctx,
             diagnostics = filter(None, [all_diagnostics]) + impl_params.extra_transitive_diagnostics,
-            deps = deps_all,
+            deps = exported_deps + non_exported_deps,
         ))
 
     if getattr(ctx.attrs, "_meta_apple_library_validation_enabled", False):
