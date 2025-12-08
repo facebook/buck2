@@ -29,6 +29,7 @@ class XCSimDevice:
 @dataclass
 class XCSimRuntime:
     name: str
+    platform: str
     version: str
     supported_device_types: list[XCSimDevice] = field(
         metadata=config(field_name="supportedDeviceTypes")

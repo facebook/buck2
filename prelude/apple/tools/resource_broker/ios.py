@@ -131,7 +131,7 @@ def _select_simulator_spec(
             runtime=runtime, simulator_type=simulator_type, device=device
         )
         if device_type:
-            return SimulatorSpec(device_type, runtime.name)
+            return SimulatorSpec(device_type, f"{runtime.platform} {runtime.version}")
     raise RuntimeError(
         "No Xcode simctl compatible os runtime and device available. Try to `sudo xcode-select -s <path_to_xcode>` and *open Xcode to install all required components*."
     )
