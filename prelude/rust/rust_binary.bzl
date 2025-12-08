@@ -235,28 +235,28 @@ def _rust_binary_common(
         )],
     )
 
-    # If we have some resources, write it to the resources JSON file and add
-    # it and all resources to "runtime_files" so that we make to materialize
-    # them with the final binary.
+    # If we have some resources, write it to the resources JSON file and add it and all
+    # resources to "runtime_files" so that we make sure to materialize them with the
+    # final binary.
     runtime_files = list(executable_args.runtime_files)
+    resources_db = None
+    resources_dir = None
     if resources:
-        resources_hidden = [create_resource_db(
+        resources_db, resources_dir, resources_deps = create_resource_db(
             ctx = ctx,
             name = name + ".resources.json",
             binary = final_output,
             resources = resources,
-        )]
-        for resource in resources.values():
-            resources_hidden.append(resource.default_output)
-            resources_hidden.extend(resource.other_outputs)
-        args.add(cmd_args(hidden = resources_hidden))
-        runtime_files.extend(resources_hidden)
+        )
+        args.add(cmd_args(hidden = resources_deps))
+        runtime_files.extend(resources_deps)
 
     # A simple dict of sub-target key to artifact, which we'll convert to
     # DefaultInfo providers at the end
     extra_compiled_targets = {
         "sources": compile_ctx.symlinked_srcs,
     }
+
     sub_targets = {}
 
     # TODO(agallagher) There appears to be pre-existing soname conflicts
@@ -466,6 +466,8 @@ def _rust_binary_common(
         DistInfo(
             shared_libs = shlib_info.set,
             nondebug_runtime_files = runtime_files,
+            relocatable_resource_json = resources_db,
+            relocatable_resource_contents = resources_dir,
         ),
     ]
     providers.append(rust_analyzer_provider(
