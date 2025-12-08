@@ -75,15 +75,21 @@ def cxx_attr_exported_deps(ctx: AnalysisContext) -> list[Dependency]:
     return exported_deps
 
 def cxx_attr_linker_flags_all(ctx: AnalysisContext) -> LinkerFlags:
-    cxx_platform_info = get_cxx_platform_info(ctx)
-    flags = (
-        cxx_attr_linker_flags(ctx) +
-        (ctx.attrs.local_linker_script_flags if hasattr(ctx.attrs, "local_linker_script_flags") else [])
-    )
-    post_flags = (
-        (ctx.attrs.post_linker_flags if hasattr(ctx.attrs, "post_linker_flags") else []) +
-        (flatten(cxx_by_platform(cxx_platform_info, ctx.attrs.post_platform_linker_flags)) if hasattr(ctx.attrs, "post_platform_linker_flags") else [])
-    )
+    flags = cxx_attr_linker_flags(ctx)
+
+    local_linker_script_flags_attr = getattr(ctx.attrs, "local_linker_script_flags", None)
+    if local_linker_script_flags_attr:
+        flags.extend(local_linker_script_flags_attr)
+
+    post_flags = getattr(ctx.attrs, "post_linker_flags", [])
+
+    post_platform_linker_flags_attr = getattr(ctx.attrs, "post_platform_linker_flags", None)
+    if post_platform_linker_flags_attr:
+        cxx_platform_info = get_cxx_platform_info(ctx)
+        post_platform_linker_flags = cxx_by_platform(cxx_platform_info, post_platform_linker_flags_attr)
+        for post_platform_linker_flag in post_platform_linker_flags:
+            post_flags.extend(post_platform_linker_flag)
+
     exported_flags = cxx_attr_exported_linker_flags(ctx)
     exported_post_flags = cxx_attr_exported_post_linker_flags(ctx)
     return LinkerFlags(
