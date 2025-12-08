@@ -586,9 +586,10 @@ def _define_kotlincd_action(
 def _create_incremental_config(actions: AnalysisActions, actions_identifier: [str, None], kotlin_build_command: struct, kotlin_version: str, uses_experimental_content_based_path_hashing: bool):
     incremental_meta_data_output = declare_prefixed_output(actions, actions_identifier, "incremental_config.json", uses_experimental_content_based_path_hashing)
     incremental_meta_data = struct(
-        version = 2,
+        version = 3,
         track_class_usage = kotlin_build_command.buildCommand.baseJarCommand.trackClassUsage,
         should_use_jvm_abi_gen = kotlin_build_command.buildCommand.kotlinExtraParams.shouldUseJvmAbiGen,
+        extra_kotlinc_arguments = kotlin_build_command.buildCommand.kotlinExtraParams.extraKotlincArguments,
         kotlin_version = kotlin_version,
     )
     return actions.write_json(incremental_meta_data_output, incremental_meta_data, with_inputs = True)
