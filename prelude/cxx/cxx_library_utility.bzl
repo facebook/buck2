@@ -112,11 +112,16 @@ def cxx_attr_exported_linker_flags(ctx: AnalysisContext) -> list[typing.Any]:
     return exported_linker_flags
 
 def cxx_attr_exported_post_linker_flags(ctx: AnalysisContext) -> list[typing.Any]:
-    cxx_platform_info = get_cxx_platform_info(ctx)
-    return (
-        ctx.attrs.exported_post_linker_flags +
-        (flatten(cxx_by_platform(cxx_platform_info, ctx.attrs.exported_post_platform_linker_flags)) if hasattr(ctx.attrs, "exported_post_platform_linker_flags") else [])
-    )
+    exported_post_linker_flags = list(ctx.attrs.exported_post_linker_flags)
+
+    exported_post_platform_linker_flags_attr = getattr(ctx.attrs, "exported_post_platform_linker_flags", None)
+    if exported_post_platform_linker_flags_attr:
+        cxx_platform_info = get_cxx_platform_info(ctx)
+        exported_post_platform_linker_flags = cxx_by_platform(cxx_platform_info, exported_post_platform_linker_flags_attr)
+        for exported_post_platform_linker_flag in exported_post_platform_linker_flags:
+            exported_post_linker_flags.extend(exported_post_platform_linker_flag)
+
+    return exported_post_linker_flags
 
 def cxx_inherited_link_info(first_order_deps: list[Dependency]) -> list[MergedLinkInfo]:
     """
