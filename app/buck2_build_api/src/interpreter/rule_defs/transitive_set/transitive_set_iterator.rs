@@ -107,8 +107,7 @@ where
 /// A postorder traversal iterator over a TransitiveSet.
 /// Traverses by children left-to-right, and then visits the current node.
 pub struct PostorderTransitiveSetIteratorGen<'a, 'v, V: ValueLike<'v>> {
-    stack: Vec<Option<&'a TransitiveSetGen<V>>>,
-    parent_stack: Vec<&'a TransitiveSetGen<V>>,
+    stack: Vec<(&'a TransitiveSetGen<V>, PostorderMark<'v>)>,
     seen: HashSet<ValueIdentity<'v>, BuckHasherBuilder>,
 }
 
@@ -119,20 +118,21 @@ where
     'v: 'a,
 {
     pub fn new(set: &'a TransitiveSetGen<V>) -> Self {
-        Self {
-            stack: vec![Some(set)],
-            parent_stack: vec![],
+        let mut iterator = Self {
+            stack: vec![(set, PostorderMark::Ready)],
             seen: Default::default(),
-        }
+        };
+        iterator.enqueue_children(&set.children);
+        iterator
     }
 
     fn enqueue_children(&mut self, children: &'a [V]) {
         for child in children.iter().rev() {
             let child = child.to_value();
-
-            if self.seen.insert(child.identity()) {
-                self.stack.push(Some(assert_transitive_set(child)));
-            }
+            self.stack.push((
+                assert_transitive_set(child),
+                PostorderMark::Pending(child.identity()),
+            ));
         }
     }
 }
@@ -149,6 +149,14 @@ where
     }
 }
 
+enum PostorderMark<'v> {
+    /// When the stack returns to this position, children have been visited.
+    Ready,
+    /// The stack may return to this position with some children not yet having
+    /// been visited. Check `seen`.
+    Pending(ValueIdentity<'v>),
+}
+
 impl<'a, 'v, V> Iterator for PostorderTransitiveSetIteratorGen<'a, 'v, V>
 where
     V: 'v + Copy + ValueLike<'v>,
@@ -158,18 +166,17 @@ where
     type Item = &'a TransitiveSetGen<V>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        while let Some(next) = self.stack.pop()? {
-            if next.children.is_empty() {
-                return Some(next);
+        loop {
+            match self.stack.pop()? {
+                (tset, PostorderMark::Ready) => return Some(tset),
+                (tset, PostorderMark::Pending(identity)) => {
+                    if self.seen.insert(identity) {
+                        self.stack.push((tset, PostorderMark::Ready));
+                        self.enqueue_children(&tset.children);
+                    }
+                }
             }
-
-            self.stack.push(None); // Add sentinel value to indicate end of the parent list.
-            self.parent_stack.push(next);
-            self.enqueue_children(&next.children);
         }
-
-        // Found a sentinel value indicating children are traversed, return parent.
-        self.parent_stack.pop()
     }
 }
 
