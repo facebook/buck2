@@ -23,7 +23,6 @@ import org.jetbrains.kotlin.cli.common.messages.CompilerMessageLocation
 import org.jetbrains.kotlin.cli.common.messages.CompilerMessageSeverity
 import org.jetbrains.kotlin.cli.common.messages.MessageCollector
 import org.jetbrains.kotlin.cli.jvm.compiler.EnvironmentConfigFiles
-import org.jetbrains.kotlin.cli.jvm.compiler.FirKotlinToJvmBytecodeCompiler
 import org.jetbrains.kotlin.cli.jvm.compiler.KotlinCoreEnvironment
 import org.jetbrains.kotlin.cli.jvm.compiler.VfsBasedProjectEnvironment
 import org.jetbrains.kotlin.cli.jvm.compiler.createContextForIncrementalCompilation
@@ -231,8 +230,7 @@ class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
       sourceFiles: List<KtFile>,
   ): ModuleCompilerOutput {
     // Ignore all FE errors
-    val cleanDiagnosticReporter =
-        FirKotlinToJvmBytecodeCompiler.createPendingReporter(messageCollector)
+    val cleanDiagnosticReporter = DiagnosticReporterFactory.createPendingReporter(messageCollector)
     val compilerEnvironment = ModuleCompilerEnvironment(projectEnvironment, cleanDiagnosticReporter)
     val irInput =
         convertAnalyzedFirToIr(
