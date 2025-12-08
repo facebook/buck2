@@ -668,6 +668,12 @@ class Jsr199JavacInvocation implements ResolvedJavac.Invocation {
           if (!hasZipFileBeenUsed) {
             zipFile.close();
           }
+        } else {
+          throw new RuntimeException(
+              String.format(
+                  "Unexpected file in java source paths: %s. Only .java files, .src.zip files, "
+                      + "and .src.jar files are allowed.",
+                  pathString));
         }
       }
 
