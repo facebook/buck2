@@ -28,10 +28,6 @@ def run_lazy_imports_analyzer(
         cmd,
         category = "py_lazy_import_analysis",
         error_handler = python_toolchain.python_error_handler,
-        # Without the prefer_local attribute set, we were seeing issues with
-        # remote execution hosts not having fbsource checkouts available. This
-        # was causing lifeguard to fail its static analysis
-        prefer_local = True,
     )
 
     return DefaultInfo(default_output = output)
