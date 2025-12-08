@@ -94,11 +94,16 @@ def cxx_attr_linker_flags_all(ctx: AnalysisContext) -> LinkerFlags:
     )
 
 def cxx_attr_exported_linker_flags(ctx: AnalysisContext) -> list[typing.Any]:
-    cxx_platform_info = get_cxx_platform_info(ctx)
-    return (
-        ctx.attrs.exported_linker_flags +
-        (flatten(cxx_by_platform(cxx_platform_info, ctx.attrs.exported_platform_linker_flags)) if hasattr(ctx.attrs, "exported_platform_linker_flags") else [])
-    )
+    exported_linker_flags = list(ctx.attrs.exported_linker_flags)
+
+    exported_platform_linker_flags_attr = getattr(ctx.attrs, "exported_platform_linker_flags", None)
+    if exported_platform_linker_flags_attr:
+        cxx_platform_info = get_cxx_platform_info(ctx)
+        exported_platform_linker_flags = cxx_by_platform(cxx_platform_info, exported_platform_linker_flags_attr)
+        for exported_platform_linker_flag in exported_platform_linker_flags:
+            exported_linker_flags.extend(exported_platform_linker_flag)
+
+    return exported_linker_flags
 
 def cxx_attr_exported_post_linker_flags(ctx: AnalysisContext) -> list[typing.Any]:
     cxx_platform_info = get_cxx_platform_info(ctx)
