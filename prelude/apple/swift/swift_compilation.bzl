@@ -881,7 +881,7 @@ def _compile_with_argsfile(
     if extension and explicit_modules_enabled:
         category += "_with_explicit_mods"
 
-    allow_cache_upload, action_execution_attributes = _get_action_properties(ctx, toolchain, cacheable, build_swift_incrementally, explicit_modules_enabled)
+    allow_cache_upload, action_execution_attributes = _get_action_properties(toolchain, cacheable, build_swift_incrementally, explicit_modules_enabled)
 
     argsfile, output_file_map = compile_with_argsfile(
         ctx = ctx,
@@ -915,7 +915,6 @@ def _compile_with_argsfile(
         return None, output_file_map
 
 def _get_action_properties(
-        ctx: AnalysisContext,
         toolchain: SwiftToolchainInfo,
         cacheable: bool,
         build_swift_incrementally: bool,
@@ -941,11 +940,11 @@ def _get_action_properties(
             allow_cache_upload = False
             local_only = True
             prefer_local = False
-        elif not (get_incremental_file_hashing_enabled(ctx) and get_incremental_remote_outputs_enabled(ctx)):
+        else:
             # Swift incremental compilation output is only portable when incremental file hashing is
-            # enabled (else timestamps invalidate swiftdeps). Similarly, if incremental remote outputs
-            # are enabled, we prefer to let Buck run hybrid/remote.
-
+            # enabled (else timestamps invalidate swiftdeps).
+            # Even with incremental file hashing, prefer_local is currently empirically faster and can
+            # leverage incremental outputs from remote hosts locally.
             if _IS_USER_BUILD or _IS_MAC_HOST:
                 # For CI builds, we'll run on RE so that we can cache output, but user builds output can run
                 # faster locally. Similarly prefer local when compiling on a Mac as its faster than Mac RE.
