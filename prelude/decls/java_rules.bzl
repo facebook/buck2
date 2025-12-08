@@ -540,6 +540,7 @@ prebuilt_jar = prelude_rule(
             "uses_content_based_paths": attrs.bool(default = select({
                 "DEFAULT": False,
                 # @oss-disable[end= ]: "config//build_mode/constraints:whatsapp": True,
+                # @oss-disable[end= ]: "config//os/constraints:android": True,
                 # @oss-disable[end= ]: "config//runtime/constraints:android-host-test": True,
             })),
         } |
