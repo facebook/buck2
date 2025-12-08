@@ -59,8 +59,20 @@ def cxx_attr_deps(ctx: AnalysisContext) -> list[Dependency]:
     return deps
 
 def cxx_attr_exported_deps(ctx: AnalysisContext) -> list[Dependency]:
-    cxx_platform_info = get_cxx_platform_info(ctx)
-    return getattr(ctx.attrs, "exported_deps", []) + flatten(cxx_by_platform(cxx_platform_info, ctx.attrs.exported_platform_deps))
+    exported_deps = []
+
+    exported_deps_attr = getattr(ctx.attrs, "exported_deps", None)
+    if exported_deps_attr:
+        exported_deps.extend(exported_deps_attr)
+
+    exported_platform_deps_attr = getattr(ctx.attrs, "exported_platform_deps", None)
+    if exported_platform_deps_attr:
+        cxx_platform_info = get_cxx_platform_info(ctx)
+        exported_platform_deps = cxx_by_platform(cxx_platform_info, exported_platform_deps_attr)
+        for exported_platform_dep in exported_platform_deps:
+            exported_deps.extend(exported_platform_dep)
+
+    return exported_deps
 
 def cxx_attr_linker_flags_all(ctx: AnalysisContext) -> LinkerFlags:
     cxx_platform_info = get_cxx_platform_info(ctx)
