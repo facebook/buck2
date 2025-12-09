@@ -10,4 +10,6 @@
 ## ActionSubError.file
 ## ActionSubError.lnum
 ## ActionSubError.message
+## ActionSubError.remediation
 ## ActionSubError.show\_in\_stderr
+## ActionSubError.subcategory
