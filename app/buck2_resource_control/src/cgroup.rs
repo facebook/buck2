@@ -9,7 +9,6 @@
  */
 
 use std::fs;
-use std::ops::Deref;
 use std::os::fd::OwnedFd;
 use std::os::unix::process::CommandExt;
 use std::path::PathBuf;
@@ -43,54 +42,36 @@ enum CgroupError {
     },
 }
 
-/// Like `Cgroup`, but more bare-bones.
+pub trait MemoryMonitoring {}
+
+pub struct NoMemoryMonitoring;
+
+impl MemoryMonitoring for NoMemoryMonitoring {}
+
+pub struct WithMemoryMonitoring {
+    memory_stat: CgroupFile,
+}
+
+impl MemoryMonitoring for WithMemoryMonitoring {}
+
+/// Handle to a cgroup
 ///
-/// Specifically, these kinds of cgroups do not have access to any of the memory files; however,
-/// that means they're a little bit cheaper to open, and also they can be used in cases where the
-/// memory controller has not been enabled on the cgroup
-pub struct CgroupMinimal {
+/// Generic over whether we are monitoring the memory use of the cgroup; having memory monitoring on
+/// is relatively cheap but does require holding open a couple extra FDs.
+pub struct CgroupGen<M: MemoryMonitoring> {
     /// Store the dirfd, not the more standard `DIR*`, because this one is thread safe
     dir: OwnedFd,
     /// `cgroup.procs`
     procs: Arc<CgroupFile>,
     path: CgroupPathBuf,
+    memory: M,
 }
 
-impl CgroupMinimal {
-    pub fn new(root_path: &CgroupPath, name: &FileName) -> buck2_error::Result<Self> {
-        let path = root_path.join(name.into());
-        fs::create_dir_all(path.as_path()).map_err(|e| CgroupError::CreationFailed {
-            cgroup_path: path.to_string_lossy().to_string(),
-            io_err: e,
-        })?;
+pub type CgroupMinimal = CgroupGen<NoMemoryMonitoring>;
 
-        Self::try_from_path(path)
-    }
+pub type Cgroup = CgroupGen<WithMemoryMonitoring>;
 
-    pub fn try_from_path(path: CgroupPathBuf) -> buck2_error::Result<Self> {
-        let dir = nix::fcntl::open(
-            path.as_path(),
-            OFlag::O_CLOEXEC | OFlag::O_DIRECTORY,
-            Mode::empty(),
-        )
-        .map_err(|e| CgroupError::Io {
-            msg: format!("Failed to open cgroup directory: {path:?}"),
-            io_err: e.into(),
-        })?;
-
-        let cgroup = Self {
-            procs: Arc::new(CgroupFile::open(
-                &dir,
-                FileName::unchecked_new("cgroup.procs"),
-                true,
-            )?),
-            path,
-            dir,
-        };
-
-        Ok(cgroup)
-    }
-
+impl<M: MemoryMonitoring> CgroupGen<M> {
     pub fn path(&self) -> &CgroupPath {
         &self.path
     }
@@ -189,33 +170,6 @@ impl CgroupMinimal {
             .map(|s| s.to_owned())
             .collect())
     }
-}
-
-pub struct Cgroup {
-    inner: CgroupMinimal,
-    memory_stat: CgroupFile,
-}
-
-impl Cgroup {
-    pub fn new(root_path: &CgroupPath, name: &FileName) -> buck2_error::Result<Self> {
-        Self::from_minimal(CgroupMinimal::new(root_path, name)?)
-    }
-
-    pub fn try_from_path(path: CgroupPathBuf) -> buck2_error::Result<Self> {
-        Self::from_minimal(CgroupMinimal::try_from_path(path)?)
-    }
-
-    pub fn from_minimal(m: CgroupMinimal) -> buck2_error::Result<Self> {
-        Ok(Cgroup {
-            memory_stat: CgroupFile::open(&m.dir, FileName::unchecked_new("memory.stat"), false)?,
-            inner: m,
-        })
-    }
-
-    #[allow(dead_code)]
-    fn memory_peak_path(&self) -> PathBuf {
-        self.path().as_path().join("memory.peak")
-    }
 
     fn memory_high_path(&self) -> PathBuf {
         self.path().as_path().join("memory.high")
@@ -232,17 +186,63 @@ impl Cgroup {
         })?;
         Ok(())
     }
+}
 
-    pub fn read_memory_stat(&self) -> buck2_error::Result<MemoryStat> {
-        self.memory_stat.read_memory_stat()
+impl CgroupGen<NoMemoryMonitoring> {
+    pub fn new(root_path: &CgroupPath, name: &FileName) -> buck2_error::Result<Self> {
+        let path = root_path.join(name.into());
+        fs::create_dir_all(path.as_path()).map_err(|e| CgroupError::CreationFailed {
+            cgroup_path: path.to_string_lossy().to_string(),
+            io_err: e,
+        })?;
+
+        Self::try_from_path(path)
+    }
+
+    pub fn try_from_path(path: CgroupPathBuf) -> buck2_error::Result<Self> {
+        let dir = nix::fcntl::open(
+            path.as_path(),
+            OFlag::O_CLOEXEC | OFlag::O_DIRECTORY,
+            Mode::empty(),
+        )
+        .map_err(|e| CgroupError::Io {
+            msg: format!("Failed to open cgroup directory: {path:?}"),
+            io_err: e.into(),
+        })?;
+
+        let cgroup = Self {
+            procs: Arc::new(CgroupFile::open(
+                &dir,
+                FileName::unchecked_new("cgroup.procs"),
+                true,
+            )?),
+            path,
+            dir,
+            memory: NoMemoryMonitoring,
+        };
+
+        Ok(cgroup)
+    }
+
+    pub fn enable_memory_monitoring(self) -> buck2_error::Result<CgroupGen<WithMemoryMonitoring>> {
+        Ok(Cgroup {
+            memory: WithMemoryMonitoring {
+                memory_stat: CgroupFile::open(
+                    &self.dir,
+                    FileName::unchecked_new("memory.stat"),
+                    false,
+                )?,
+            },
+            dir: self.dir,
+            procs: self.procs,
+            path: self.path,
+        })
     }
 }
 
-impl Deref for Cgroup {
-    type Target = CgroupMinimal;
-
-    fn deref(&self) -> &Self::Target {
-        &self.inner
+impl Cgroup {
+    pub fn read_memory_stat(&self) -> buck2_error::Result<MemoryStat> {
+        self.memory.memory_stat.read_memory_stat()
     }
 }
 
@@ -265,7 +265,7 @@ impl CgroupMinimal {
 }
 
 #[cfg(test)]
-impl Cgroup {
+impl CgroupMinimal {
     pub(crate) fn create_for_test() -> Option<Self> {
         use buck2_fs::paths::abs_norm_path::AbsNormPath;
         use buck2_util::process::background_command;
@@ -292,11 +292,11 @@ mod tests {
     use buck2_fs::paths::file_name::FileName;
     use buck2_util::process::background_command;
 
-    use crate::cgroup::Cgroup;
+    use crate::cgroup::CgroupMinimal;
 
     #[test]
     fn self_test_harness() {
-        let Some(cgroup) = Cgroup::create_for_test() else {
+        let Some(cgroup) = CgroupMinimal::create_for_test() else {
             return;
         };
 
@@ -309,7 +309,7 @@ mod tests {
 
     #[test]
     fn repro_drop_cgroup_before_command_spawn() {
-        let Some(cgroup) = Cgroup::create_for_test() else {
+        let Some(cgroup) = CgroupMinimal::create_for_test() else {
             return;
         };
 
@@ -326,13 +326,13 @@ mod tests {
         // FIXME(JakobDegen): This isn't really a good test, we should do it at a higher level and
         // actually run a command. But setting up tests inside cgroups is a bit hard right now, so
         // just do this
-        let Some(cgroup) = Cgroup::create_for_test() else {
+        let Some(cgroup) = CgroupMinimal::create_for_test() else {
             return;
         };
         cgroup
             .config_subtree_control(&cgroup.read_enabled_controllers().unwrap())
             .unwrap();
-        let leaf = Cgroup::new(cgroup.path(), FileName::unchecked_new("leaf")).unwrap();
+        let leaf = CgroupMinimal::new(cgroup.path(), FileName::unchecked_new("leaf")).unwrap();
 
         let enabled =
             fs_util::read_to_string(leaf.path().as_abs_path().join("cgroup.controllers")).unwrap();

@@ -17,6 +17,7 @@ use dupe::Dupe;
 use index_vec::IndexVec;
 
 use crate::cgroup::Cgroup;
+use crate::cgroup::CgroupMinimal;
 use crate::path::CgroupPath;
 use crate::path::CgroupPathBuf;
 
@@ -50,7 +51,8 @@ impl CgroupPool {
     fn reserve_additional_cgroup(&mut self) -> buck2_error::Result<CgroupID> {
         let cgroup_id = self.cgroups.next_idx();
         let worker_name = Self::worker_name(cgroup_id);
-        let cgroup = Cgroup::new(self.pool_cgroup.path(), &worker_name)?;
+        let cgroup = CgroupMinimal::new(self.pool_cgroup.path(), &worker_name)?
+            .enable_memory_monitoring()?;
 
         // Set memory.high limit if provided
         if let Some(per_cgroup_memory_high) = &self.per_cgroup_memory_high {
@@ -68,7 +70,8 @@ impl CgroupPool {
         config: &ResourceControlConfig,
         enabled_controllers: &[String],
     ) -> buck2_error::Result<Self> {
-        let pool_cgroup = Cgroup::new(parent, CgroupPool::POOL_NAME)?;
+        let pool_cgroup =
+            CgroupMinimal::new(parent, CgroupPool::POOL_NAME)?.enable_memory_monitoring()?;
         pool_cgroup.config_subtree_control(enabled_controllers)?;
 
         if let Some(pool_memory_high) = &config.memory_high_action_cgroup_pool {
@@ -85,7 +88,9 @@ impl CgroupPool {
 
     #[cfg(test)]
     pub(crate) fn testing_new() -> Option<Self> {
-        let pool_cgroup = Cgroup::create_for_test()?;
+        let pool_cgroup = CgroupMinimal::create_for_test()?
+            .enable_memory_monitoring()
+            .unwrap();
 
         Some(CgroupPool {
             cgroups: IndexVec::new(),

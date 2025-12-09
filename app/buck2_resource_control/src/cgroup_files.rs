@@ -155,7 +155,7 @@ impl MemoryStat {
 
 #[cfg(test)]
 mod tests {
-    use crate::cgroup::Cgroup;
+    use crate::cgroup::CgroupMinimal;
     use crate::cgroup_files::MemoryStat;
 
     #[test]
@@ -197,9 +197,10 @@ slab 262144"#;
 
     #[test]
     fn test_read_memory_stat() {
-        let Some(cgroup) = Cgroup::create_for_test() else {
+        let Some(cgroup) = CgroupMinimal::create_for_test() else {
             return;
         };
+        let cgroup = cgroup.enable_memory_monitoring().unwrap();
 
         let stat = cgroup.read_memory_stat().unwrap();
         // Never spawned a process into it, so should be empty

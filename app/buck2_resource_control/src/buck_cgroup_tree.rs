@@ -42,18 +42,20 @@ impl BuckCgroupTree {
             CgroupMinimal::new(root_cgroup.path(), FileName::unchecked_new("daemon").into())?;
         daemon_cgroup.add_process(std::process::id())?;
         root_cgroup.config_subtree_control(&enabled_controllers)?;
-        let root_cgroup = Cgroup::from_minimal(root_cgroup)?;
+        let root_cgroup = root_cgroup.enable_memory_monitoring()?;
 
-        let forkserver_and_actions = Cgroup::new(
+        let forkserver_and_actions = CgroupMinimal::new(
             root_cgroup.path(),
             FileName::unchecked_new("forkserver_and_actions").into(),
-        )?;
+        )?
+        .enable_memory_monitoring()?;
         forkserver_and_actions.config_subtree_control(&enabled_controllers)?;
 
-        let forkserver = Cgroup::new(
+        let forkserver = CgroupMinimal::new(
             forkserver_and_actions.path(),
             FileName::unchecked_new("forkserver").into(),
-        )?;
+        )?
+        .enable_memory_monitoring()?;
 
         Ok(Self {
             enabled_controllers,
