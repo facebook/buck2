@@ -70,7 +70,10 @@ pub struct CgroupKindInternal {}
 
 impl CgroupKind for CgroupKindInternal {}
 
-pub struct CgroupKindLeaf {}
+pub struct CgroupKindLeaf {
+    // `cgroup.procs`
+    procs: Arc<CgroupFile>,
+}
 
 impl CgroupKind for CgroupKindLeaf {}
 
@@ -86,8 +89,6 @@ impl CgroupKind for CgroupKindUndecided {}
 pub struct Cgroup<M: MemoryMonitoring, K: CgroupKind> {
     /// Store the dirfd, not the more standard `DIR*`, because this one is thread safe
     dir: OwnedFd,
-    /// `cgroup.procs`
-    procs: Arc<CgroupFile>,
     path: CgroupPathBuf,
     memory: M,
     kind: K,
@@ -102,49 +103,6 @@ pub type CgroupInternal = Cgroup<WithMemoryMonitoring, CgroupKindInternal>;
 impl<M: MemoryMonitoring, K: CgroupKind> Cgroup<M, K> {
     pub fn path(&self) -> &CgroupPath {
         &self.path
-    }
-
-    /// Configures a Command to run in this cgroup using pre_exec.
-    ///
-    /// Uses pre_exec hook which runs in the child process after fork() but before exec().
-    /// This ensures the process is migrated to the cgroup before it starts executing.
-    ///
-    /// Parent process: Command new() -> ... -> spwan()
-    ///                  ↓
-    /// System: fork() creates child process
-    ///                  ↓
-    /// Child process: pre_exec() closure runs (cgroup migration)
-    ///                  ↓
-    /// Child process: exec() run the command
-    pub fn setup_command(&self, command: &mut Command) -> buck2_error::Result<()> {
-        // NOTE: We need to make sure that this fd is kept alive until the point where the command
-        // is spawned/forked. The lifetimes on this type don't prevent the user from dropping the
-        // `Cgroup` before that happens.
-        //
-        // This is accomplished by capturing the `Arc<CgroupFile>` into the `pre_exec` closure. The
-        // closure is not dropped until the surrounding command is dropped, at which point the spawn
-        // must have happened.
-        //
-        // Some testing shows that the closure is not dropped in the child process at all; that's
-        // good, as we don't actually want to do the `free` that may be implicated by dropping the
-        // `Arc`
-        let procs = self.procs.dupe();
-
-        // 0 means current process
-        let pre_exec = move || procs.write(b"0");
-        // Safety: The unsafe block is required for pre_exec which is inherently unsafe due to fork/exec restrictions.
-        // However, it's safe here because:
-        // 1. We only call async-signal-safe functions (write to file)
-        // 2. No memory allocation or complex operations that could deadlock
-        unsafe {
-            command.pre_exec(pre_exec);
-        }
-        Ok(())
-    }
-
-    pub fn add_process(&self, pid: u32) -> buck2_error::Result<()> {
-        let pid = pid.to_string();
-        Ok(self.procs.write(pid.as_bytes())?)
     }
 
     pub(crate) fn read_enabled_controllers(&self) -> buck2_error::Result<EnabledControllers> {
@@ -202,11 +160,6 @@ impl Cgroup<NoMemoryMonitoring, CgroupKindUndecided> {
         })?;
 
         let cgroup = Self {
-            procs: Arc::new(CgroupFile::open(
-                &dir,
-                FileName::unchecked_new("cgroup.procs"),
-                true,
-            )?),
             path,
             dir,
             memory: NoMemoryMonitoring,
@@ -218,11 +171,16 @@ impl Cgroup<NoMemoryMonitoring, CgroupKindUndecided> {
 
     pub fn into_leaf(self) -> buck2_error::Result<Cgroup<NoMemoryMonitoring, CgroupKindLeaf>> {
         Ok(Cgroup {
+            kind: CgroupKindLeaf {
+                procs: Arc::new(CgroupFile::open(
+                    &self.dir,
+                    FileName::unchecked_new("cgroup.procs"),
+                    true,
+                )?),
+            },
             dir: self.dir,
-            procs: self.procs,
             path: self.path,
             memory: self.memory,
-            kind: CgroupKindLeaf {},
         })
     }
 
@@ -241,11 +199,55 @@ impl Cgroup<NoMemoryMonitoring, CgroupKindUndecided> {
 
         Ok(Cgroup {
             dir: self.dir,
-            procs: self.procs,
             path: self.path,
             memory: self.memory,
             kind: CgroupKindInternal {},
         })
+    }
+}
+
+impl<M: MemoryMonitoring> Cgroup<M, CgroupKindLeaf> {
+    /// Configures a Command to run in this cgroup using pre_exec.
+    ///
+    /// Uses pre_exec hook which runs in the child process after fork() but before exec().
+    /// This ensures the process is migrated to the cgroup before it starts executing.
+    ///
+    /// Parent process: Command new() -> ... -> spwan()
+    ///                  ↓
+    /// System: fork() creates child process
+    ///                  ↓
+    /// Child process: pre_exec() closure runs (cgroup migration)
+    ///                  ↓
+    /// Child process: exec() run the command
+    pub fn setup_command(&self, command: &mut Command) -> buck2_error::Result<()> {
+        // NOTE: We need to make sure that this fd is kept alive until the point where the command
+        // is spawned/forked. The lifetimes on this type don't prevent the user from dropping the
+        // `Cgroup` before that happens.
+        //
+        // This is accomplished by capturing the `Arc<CgroupFile>` into the `pre_exec` closure. The
+        // closure is not dropped until the surrounding command is dropped, at which point the spawn
+        // must have happened.
+        //
+        // Some testing shows that the closure is not dropped in the child process at all; that's
+        // good, as we don't actually want to do the `free` that may be implicated by dropping the
+        // `Arc`
+        let procs = self.kind.procs.dupe();
+
+        // 0 means current process
+        let pre_exec = move || procs.write(b"0");
+        // Safety: The unsafe block is required for pre_exec which is inherently unsafe due to fork/exec restrictions.
+        // However, it's safe here because:
+        // 1. We only call async-signal-safe functions (write to file)
+        // 2. No memory allocation or complex operations that could deadlock
+        unsafe {
+            command.pre_exec(pre_exec);
+        }
+        Ok(())
+    }
+
+    pub fn add_process(&self, pid: u32) -> buck2_error::Result<()> {
+        let pid = pid.to_string();
+        Ok(self.kind.procs.write(pid.as_bytes())?)
     }
 }
 
@@ -260,7 +262,6 @@ impl<K: CgroupKind> Cgroup<NoMemoryMonitoring, K> {
                 )?,
             },
             dir: self.dir,
-            procs: self.procs,
             path: self.path,
             kind: self.kind,
         })
@@ -283,7 +284,7 @@ impl Drop for CgroupFreezeGuard {
     }
 }
 
-impl CgroupMinimal {
+impl<M: MemoryMonitoring, K: CgroupKind> Cgroup<M, K> {
     pub fn freeze(&self) -> buck2_error::Result<CgroupFreezeGuard> {
         let f = CgroupFile::open(&self.dir, FileName::unchecked_new("cgroup.freeze"), true)?;
         f.write(b"1")?;
@@ -326,12 +327,13 @@ mod tests {
         let Some(cgroup) = CgroupMinimal::create_for_test() else {
             return;
         };
+        let cgroup = cgroup.into_leaf().unwrap();
 
         assert_eq!(
             fs_util::try_exists(cgroup.path().as_abs_path()).unwrap(),
             true
         );
-        assert_eq!(cgroup.procs.read_to_string().unwrap().len(), 0);
+        assert_eq!(cgroup.kind.procs.read_to_string().unwrap().len(), 0);
     }
 
     #[test]
@@ -339,6 +341,7 @@ mod tests {
         let Some(cgroup) = CgroupMinimal::create_for_test() else {
             return;
         };
+        let cgroup = cgroup.into_leaf().unwrap();
 
         let mut cmd = background_command("true");
         cgroup.setup_command(&mut cmd).unwrap();

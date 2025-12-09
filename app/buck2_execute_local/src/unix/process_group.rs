@@ -17,7 +17,10 @@ use buck2_common::kill_util::try_terminate_process_gracefully;
 use buck2_error::BuckErrorContext;
 use buck2_resource_control::ActionFreezeEvent;
 use buck2_resource_control::ActionFreezeEventReceiver;
+use buck2_resource_control::cgroup::Cgroup;
+use buck2_resource_control::cgroup::CgroupKindLeaf;
 use buck2_resource_control::cgroup::CgroupMinimal;
+use buck2_resource_control::cgroup::NoMemoryMonitoring;
 use buck2_resource_control::path::CgroupPathBuf;
 use futures::StreamExt;
 use futures::pin_mut;
@@ -35,7 +38,7 @@ use crate::process_group::SpawnError;
 
 pub(crate) struct ProcessCommandImpl {
     inner: Command,
-    cgroup: Option<CgroupMinimal>,
+    cgroup: Option<Cgroup<NoMemoryMonitoring, CgroupKindLeaf>>,
 }
 
 impl ProcessCommandImpl {
@@ -46,7 +49,7 @@ impl ProcessCommandImpl {
         cmd.process_group(0);
 
         let cgroup = if let Some(cgroup) = cgroup {
-            let cgroup = CgroupMinimal::try_from_path(cgroup.clone())?;
+            let cgroup = CgroupMinimal::try_from_path(cgroup.clone())?.into_leaf()?;
             cgroup.setup_command(&mut cmd)?;
             Some(cgroup)
         } else {
@@ -73,7 +76,7 @@ impl ProcessCommandImpl {
 
 pub(crate) struct ProcessGroupImpl {
     inner: Child,
-    cgroup: Option<CgroupMinimal>,
+    cgroup: Option<Cgroup<NoMemoryMonitoring, CgroupKindLeaf>>,
 }
 
 impl ProcessGroupImpl {

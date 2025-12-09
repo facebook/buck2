@@ -42,7 +42,8 @@ impl BuckCgroupTree {
         let enabled_controllers = root_cgroup.read_enabled_controllers()?;
 
         let daemon_cgroup =
-            CgroupMinimal::new(root_cgroup.path(), FileName::unchecked_new("daemon").into())?;
+            CgroupMinimal::new(root_cgroup.path(), FileName::unchecked_new("daemon").into())?
+                .into_leaf()?;
         daemon_cgroup.add_process(std::process::id())?;
         let root_cgroup = root_cgroup
             .into_internal(enabled_controllers.dupe())?
