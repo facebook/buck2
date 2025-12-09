@@ -113,6 +113,12 @@ impl BuckCgroupTree {
             }
         }
 
+        // SAFETY: This is called early enough in the process to be moving cgroups, so we can set
+        // env vars too
+        unsafe {
+            std::env::set_var("CHGDISABLE", "1");
+        }
+
         Ok(Self {
             allprocs: root_cgroup,
             forkserver_and_actions,

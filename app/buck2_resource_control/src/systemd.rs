@@ -74,8 +74,6 @@ impl ResourceControlRunner {
             "--scope".to_owned(),
             "--quiet".to_owned(),
             "--collect".to_owned(),
-            #[cfg(fbcode_build)]
-            "--setenv=CHGDISABLE=1".to_owned(),
             "--property=Delegate=yes".to_owned(),
         ];
 
