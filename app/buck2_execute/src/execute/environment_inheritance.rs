@@ -17,7 +17,15 @@ use dupe::Dupe;
 const ENV_ALLOW_LIST: &[&str] = test_env_allowlist::LEGACY_TESTPILOT_ALLOW_LIST;
 
 #[cfg(all(unix, not(fbcode_build)))]
-const ENV_ALLOW_LIST: &[&str] = &["PATH", "USER", "LOGNAME", "HOME", "TMPDIR"];
+const ENV_ALLOW_LIST: &[&str] = &[
+    "PATH",
+    "USER",
+    "LOGNAME",
+    "HOME",
+    "TMPDIR",
+    // Generally needed to keep systemd working
+    "XDG_RUNTIME_DIR",
+];
 
 // The standard (built-in) variables.
 // https://ss64.com/nt/syntax-variables.html

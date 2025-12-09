@@ -205,14 +205,6 @@ impl UnixForkserverService {
 
         Self::configure_environment(&mut cmd, &validated_cmd.env)?;
 
-        // Some actions clear env and don't pass XDG_RUNTIME_DIR
-        // This env var is required for systemd-run,
-        // without passing it systemd returns "Failed to connect to bus: No medium found"
-        #[cfg(fbcode_build)]
-        if let Ok(value) = std::env::var("XDG_RUNTIME_DIR") {
-            cmd.env("XDG_RUNTIME_DIR", value);
-        }
-
         // cmd: ready-to-spawn process command
         // miniperf_output: path to miniperf output file (if monitoring)
         Ok((cmd, miniperf_output))
