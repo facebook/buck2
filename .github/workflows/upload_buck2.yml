@@ -65,10 +65,10 @@ jobs:
           - os: 'ubuntu-22.04'
             triple: 'riscv64gc-unknown-linux-gnu'
             cross: true
-          - os: 'macos-13'
+          - os: 'macos-14'
             triple: 'aarch64-apple-darwin'
             cross: true
-          - os: 'macos-13'
+          - os: 'macos-14'
             triple: 'x86_64-apple-darwin'
           - os: 'windows-2022'
             triple: 'x86_64-pc-windows-msvc'
