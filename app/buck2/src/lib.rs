@@ -11,6 +11,7 @@
 #![feature(error_generic_member_access)]
 #![feature(used_with_arg)]
 
+use std::str::FromStr;
 use std::thread;
 
 use buck2_client::commands::build::BuildCommand;
@@ -237,6 +238,26 @@ pub fn exec(process: ProcessContext<'_>) -> ExitResult {
             .splice(0..0, client_metadata);
     }
 
+    // If --client-metadata=? was not set and from_env did not find "id", then
+    // if we are running in a terminal, we add id=terminal-fallback to
+    // opt.opt.common_opts.client_metadata to transmit to scuba that the client
+    // is an end user: https://fburl.com/scuba/buck2_builds/n4klo51d
+    let has_client_id = opt
+        .opt
+        .common_opts
+        .client_metadata
+        .iter()
+        .any(|m| m.key == "id");
+
+    if !has_client_id {
+        use std::io::IsTerminal;
+        if std::io::stdin().is_terminal() {
+            opt.opt.common_opts.client_metadata.push(ClientMetadata {
+                key: "id".to_owned(),
+                value: "terminal-fallback".to_owned(),
+            });
+        }
+    }
     opt.exec(process, &immediate_config)
 }
 
