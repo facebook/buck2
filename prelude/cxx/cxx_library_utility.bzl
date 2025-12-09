@@ -186,11 +186,14 @@ def cxx_attr_resources(ctx: AnalysisContext) -> dict[str, ArtifactOutputs]:
     """
 
     resources = {}
-    namespace = cxx_attr_header_namespace(ctx)
 
-    # Use getattr, as apple rules don't have a `resources` parameter.
-    for name, resource in from_named_set(getattr(ctx.attrs, "resources", {})).items():
-        resources[paths.join(namespace, name)] = single_artifact(resource)
+    resources_attr = getattr(ctx.attrs, "resources", None)
+    if resources_attr:
+        namespace = cxx_attr_header_namespace(ctx)
+
+        # Use getattr, as apple rules don't have a `resources` parameter.
+        for name, resource in from_named_set(resources_attr).items():
+            resources[paths.join(namespace, name)] = single_artifact(resource)
 
     return resources
 
