@@ -106,10 +106,14 @@ def compile_with_argsfile_cmd(
     if supports_serialized_errors and error_deserializer:
         json_error_output = ctx.actions.declare_output("__diagnostics__/{}.json".format(category), uses_experimental_content_based_path_hashing = uses_experimental_content_based_path_hashing).as_output()
         error_outputs.append(json_error_output)
+        is_incremental = incremental_artifacts != None
         add_serialized_diagnostics_output(
+            ctx = ctx,
             output_file_map = output_file_map if supports_output_file_map else None,
             cmd = cmd,
             diagnostics_output = json_error_output,
+            is_incremental = is_incremental,
+            skip_incremental_outputs = skip_incremental_outputs,
         )
         cmd.add(
             "-Xwrapper",

@@ -6,6 +6,7 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
+load("@prelude//apple:apple_utility.bzl", "get_module_name")
 load(
     "@prelude//cxx:cxx_sources.bzl",
     "CxxSrcWithFlags",  # @unused Used as a type
@@ -31,7 +32,13 @@ def add_dependencies_output(ctx: AnalysisContext, output_file_map: dict, cmd: cm
         cmd_args(inputs_tag.tag_artifacts(buck_dep_file), format = "-dependencies-file-output={}"),
     )
 
-def add_serialized_diagnostics_output(output_file_map: dict | None, cmd: cmd_args, diagnostics_output: OutputArtifact) -> None:
+def add_serialized_diagnostics_output(
+        ctx: AnalysisContext,
+        output_file_map: dict | None,
+        cmd: cmd_args,
+        diagnostics_output: OutputArtifact,
+        is_incremental: bool = False,
+        skip_incremental_outputs: bool = False) -> None:
     if output_file_map == None:
         # Some actions, eg -emit-pcm, do not support output file maps. In this
         # case we need to pass the frontend flags directly.
@@ -43,6 +50,13 @@ def add_serialized_diagnostics_output(output_file_map: dict | None, cmd: cmd_arg
         map = output_file_map.setdefault("", {})
         map["diagnostics"] = cmd_args(diagnostics_output, delimiter = "", format = "{}.dia")
         cmd.add(cmd_args("-serialize-diagnostics", hidden = [diagnostics_output]))
+
+        if is_incremental and not skip_incremental_outputs:
+            uses_experimental_content_based_path_hashing = get_uses_experimental_content_based_path_hashing(ctx)
+            module_name = get_module_name(ctx)
+            module_dia = ctx.actions.declare_output("__swift_incremental__/swiftdeps/" + module_name + ".emit-module.dia", uses_experimental_content_based_path_hashing = uses_experimental_content_based_path_hashing)
+            map["emit-module-diagnostics"] = module_dia
+            cmd.add(cmd_args(hidden = [module_dia.as_output()]))
 
 def add_output_file_map_flags(ctx: AnalysisContext, output_file_map: dict, cmd: cmd_args, category: str) -> Artifact:
     uses_experimental_content_based_path_hashing = get_uses_experimental_content_based_path_hashing(ctx)

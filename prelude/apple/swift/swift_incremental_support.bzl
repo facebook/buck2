@@ -6,7 +6,6 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
-load("@prelude//apple:apple_utility.bzl", "get_module_name")
 load("@prelude//apple/swift:swift_toolchain_types.bzl", "SwiftObjectFormat")
 load("@prelude//apple/swift:swift_types.bzl", "SwiftCompilationModes")
 load(
@@ -199,14 +198,12 @@ def _get_output_file_map(
     else:
         # swift-driver doesn't respect extension for root swiftdeps file and it always has to be `.priors`.
         module_swiftdeps = ctx.actions.declare_output("__swift_incremental__/swiftdeps/module-build-record.priors", uses_experimental_content_based_path_hashing = uses_experimental_content_based_path_hashing)
-        module_dia = ctx.actions.declare_output("__swift_incremental__/swiftdeps/" + get_module_name(ctx) + ".emit-module.dia", uses_experimental_content_based_path_hashing = uses_experimental_content_based_path_hashing)
         output_file_map = {
             "": {
-                "emit-module-diagnostics": module_dia,
                 "swift-dependencies": module_swiftdeps,
             },
         }
-        all_outputs = [module_swiftdeps, module_dia]
+        all_outputs = [module_swiftdeps]
         swiftdeps = [module_swiftdeps]
         artifacts = []
         depfiles = []
