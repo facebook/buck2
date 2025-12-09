@@ -54,24 +54,46 @@ pub struct WithMemoryMonitoring {
 
 impl MemoryMonitoring for WithMemoryMonitoring {}
 
+/// The kind of node in the cgroup tree this cgroup is.
+///
+/// Cgroups come in two flavors: Internal cgroups, which are those that can have child groups but
+/// cannot contain processes, and leaf cgroups, for which the opposite is the case.
+pub trait CgroupKind {}
+
+pub struct CgroupKindInternal {}
+
+impl CgroupKind for CgroupKindInternal {}
+
+pub struct CgroupKindLeaf {}
+
+impl CgroupKind for CgroupKindLeaf {}
+
+/// Just after creating a cgroup we may not yet know what kind it is.
+pub struct CgroupKindUndecided;
+
+impl CgroupKind for CgroupKindUndecided {}
+
 /// Handle to a cgroup
 ///
 /// Generic over whether we are monitoring the memory use of the cgroup; having memory monitoring on
 /// is relatively cheap but does require holding open a couple extra FDs.
-pub struct CgroupGen<M: MemoryMonitoring> {
+pub struct Cgroup<M: MemoryMonitoring, K: CgroupKind> {
     /// Store the dirfd, not the more standard `DIR*`, because this one is thread safe
     dir: OwnedFd,
     /// `cgroup.procs`
     procs: Arc<CgroupFile>,
     path: CgroupPathBuf,
     memory: M,
+    kind: K,
 }
 
-pub type CgroupMinimal = CgroupGen<NoMemoryMonitoring>;
+pub type CgroupMinimal = Cgroup<NoMemoryMonitoring, CgroupKindUndecided>;
 
-pub type Cgroup = CgroupGen<WithMemoryMonitoring>;
+pub type CgroupLeaf = Cgroup<WithMemoryMonitoring, CgroupKindLeaf>;
 
-impl<M: MemoryMonitoring> CgroupGen<M> {
+pub type CgroupInternal = Cgroup<WithMemoryMonitoring, CgroupKindInternal>;
+
+impl<M: MemoryMonitoring, K: CgroupKind> Cgroup<M, K> {
     pub fn path(&self) -> &CgroupPath {
         &self.path
     }
@@ -188,7 +210,7 @@ impl<M: MemoryMonitoring> CgroupGen<M> {
     }
 }
 
-impl CgroupGen<NoMemoryMonitoring> {
+impl Cgroup<NoMemoryMonitoring, CgroupKindUndecided> {
     pub fn new(root_path: &CgroupPath, name: &FileName) -> buck2_error::Result<Self> {
         let path = root_path.join(name.into());
         fs::create_dir_all(path.as_path()).map_err(|e| CgroupError::CreationFailed {
@@ -219,12 +241,37 @@ impl CgroupGen<NoMemoryMonitoring> {
             path,
             dir,
             memory: NoMemoryMonitoring,
+            kind: CgroupKindUndecided,
         };
 
         Ok(cgroup)
     }
 
-    pub fn enable_memory_monitoring(self) -> buck2_error::Result<CgroupGen<WithMemoryMonitoring>> {
+    pub fn into_leaf(self) -> buck2_error::Result<Cgroup<NoMemoryMonitoring, CgroupKindLeaf>> {
+        Ok(Cgroup {
+            dir: self.dir,
+            procs: self.procs,
+            path: self.path,
+            memory: self.memory,
+            kind: CgroupKindLeaf {},
+        })
+    }
+
+    pub fn into_internal(
+        self,
+    ) -> buck2_error::Result<Cgroup<NoMemoryMonitoring, CgroupKindInternal>> {
+        Ok(Cgroup {
+            dir: self.dir,
+            procs: self.procs,
+            path: self.path,
+            memory: self.memory,
+            kind: CgroupKindInternal {},
+        })
+    }
+}
+
+impl<K: CgroupKind> Cgroup<NoMemoryMonitoring, K> {
+    pub fn enable_memory_monitoring(self) -> buck2_error::Result<Cgroup<WithMemoryMonitoring, K>> {
         Ok(Cgroup {
             memory: WithMemoryMonitoring {
                 memory_stat: CgroupFile::open(
@@ -236,11 +283,12 @@ impl CgroupGen<NoMemoryMonitoring> {
             dir: self.dir,
             procs: self.procs,
             path: self.path,
+            kind: self.kind,
         })
     }
 }
 
-impl Cgroup {
+impl<K: CgroupKind> Cgroup<WithMemoryMonitoring, K> {
     pub fn read_memory_stat(&self) -> buck2_error::Result<MemoryStat> {
         self.memory.memory_stat.read_memory_stat()
     }

@@ -10,7 +10,8 @@
 
 use buck2_fs::paths::file_name::FileName;
 
-use crate::cgroup::Cgroup;
+use crate::cgroup::CgroupInternal;
+use crate::cgroup::CgroupLeaf;
 use crate::cgroup::CgroupMinimal;
 use crate::cgroup_info::CGroupInfo;
 
@@ -19,9 +20,9 @@ use crate::cgroup_info::CGroupInfo;
 /// Only in use with the action cgroup pool.
 pub struct BuckCgroupTree {
     pub(crate) enabled_controllers: Vec<String>,
-    allprocs: Cgroup,
-    forkserver_and_actions: Cgroup,
-    forkserver: Cgroup,
+    allprocs: CgroupInternal,
+    forkserver_and_actions: CgroupInternal,
+    forkserver: CgroupLeaf,
 }
 
 impl BuckCgroupTree {
@@ -42,12 +43,13 @@ impl BuckCgroupTree {
             CgroupMinimal::new(root_cgroup.path(), FileName::unchecked_new("daemon").into())?;
         daemon_cgroup.add_process(std::process::id())?;
         root_cgroup.config_subtree_control(&enabled_controllers)?;
-        let root_cgroup = root_cgroup.enable_memory_monitoring()?;
+        let root_cgroup = root_cgroup.into_internal()?.enable_memory_monitoring()?;
 
         let forkserver_and_actions = CgroupMinimal::new(
             root_cgroup.path(),
             FileName::unchecked_new("forkserver_and_actions").into(),
         )?
+        .into_internal()?
         .enable_memory_monitoring()?;
         forkserver_and_actions.config_subtree_control(&enabled_controllers)?;
 
@@ -55,6 +57,7 @@ impl BuckCgroupTree {
             forkserver_and_actions.path(),
             FileName::unchecked_new("forkserver").into(),
         )?
+        .into_leaf()?
         .enable_memory_monitoring()?;
 
         Ok(Self {
@@ -65,16 +68,16 @@ impl BuckCgroupTree {
         })
     }
 
-    pub fn forkserver_and_actions(&self) -> &Cgroup {
+    pub fn forkserver_and_actions(&self) -> &CgroupInternal {
         &self.forkserver_and_actions
     }
 
-    pub fn forkserver(&self) -> &Cgroup {
+    pub fn forkserver(&self) -> &CgroupLeaf {
         &self.forkserver
     }
 
     /// The parent cgroup that contains all other cgroups buck manages as descendants
-    pub fn allprocs(&self) -> &Cgroup {
+    pub fn allprocs(&self) -> &CgroupInternal {
         &self.allprocs
     }
 }

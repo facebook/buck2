@@ -16,7 +16,8 @@ use buck2_fs::paths::file_name::FileNameBuf;
 use dupe::Dupe;
 use index_vec::IndexVec;
 
-use crate::cgroup::Cgroup;
+use crate::cgroup::CgroupInternal;
+use crate::cgroup::CgroupLeaf;
 use crate::cgroup::CgroupMinimal;
 use crate::path::CgroupPath;
 use crate::path::CgroupPathBuf;
@@ -29,9 +30,9 @@ index_vec::define_index_type! {
 impl Dupe for CgroupID {}
 
 pub(crate) struct CgroupPool {
-    pool_cgroup: Cgroup,
+    pool_cgroup: CgroupInternal,
     per_cgroup_memory_high: Option<String>,
-    cgroups: IndexVec<CgroupID, Cgroup>,
+    cgroups: IndexVec<CgroupID, CgroupLeaf>,
     available: VecDeque<CgroupID>,
 }
 
@@ -52,6 +53,7 @@ impl CgroupPool {
         let cgroup_id = self.cgroups.next_idx();
         let worker_name = Self::worker_name(cgroup_id);
         let cgroup = CgroupMinimal::new(self.pool_cgroup.path(), &worker_name)?
+            .into_leaf()?
             .enable_memory_monitoring()?;
 
         // Set memory.high limit if provided
@@ -70,8 +72,9 @@ impl CgroupPool {
         config: &ResourceControlConfig,
         enabled_controllers: &[String],
     ) -> buck2_error::Result<Self> {
-        let pool_cgroup =
-            CgroupMinimal::new(parent, CgroupPool::POOL_NAME)?.enable_memory_monitoring()?;
+        let pool_cgroup = CgroupMinimal::new(parent, CgroupPool::POOL_NAME)?
+            .into_internal()?
+            .enable_memory_monitoring()?;
         pool_cgroup.config_subtree_control(enabled_controllers)?;
 
         if let Some(pool_memory_high) = &config.memory_high_action_cgroup_pool {
@@ -89,6 +92,8 @@ impl CgroupPool {
     #[cfg(test)]
     pub(crate) fn testing_new() -> Option<Self> {
         let pool_cgroup = CgroupMinimal::create_for_test()?
+            .into_internal()
+            .unwrap()
             .enable_memory_monitoring()
             .unwrap();
 
