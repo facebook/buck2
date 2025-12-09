@@ -16,23 +16,20 @@ set -o pipefail
 # `argv[1]` to specify the time until the scope should be automatically cleaned up
 scope_ttl=${1:-10m}
 
-# Systemd destroys and garbage collects scopes when they no longer contain any processes
-#
-# Control the time until the scope dies by spawning a process into it that sleeps for the
-# appropriate amount of time
-create_keepalive_proc='{ sleep '"$scope_ttl"' >/dev/null & disown; echo $!; } 2>/dev/null'
-
-keep_alive_pid=$(systemd-run \
+# Spawn a systemd service unit that sleeps for the specified time; once that process exits, systemd
+# will clean up everything else in the cgroup tree, so nothing can leak
+unit=testpcg$RANDOM
+systemd-run \
     --user \
     --quiet \
-    --unit testpcg$RANDOM \
-    --scope \
+    --unit $unit \
     --property=Delegate=yes \
     --slice-inherit \
     --expand-environment=no \
     --property=MemoryAccounting=yes \
     -- \
-    bash -c "$create_keepalive_proc")
+    bash -c "sleep $scope_ttl"
+keep_alive_pid=$(systemctl show --user --property MainPID $unit | cut -d= -f2)
 echo "Keep alive PID: $keep_alive_pid (kill to clean up)" >&2
 cgd=/sys/fs/cgroup$(cat /proc/"$keep_alive_pid"/cgroup | cut -c '4-')
 mkdir "$cgd"/_keep_alive
