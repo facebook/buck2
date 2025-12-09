@@ -137,6 +137,13 @@ impl CacheUploader {
                         return Ok(rejected);
                     }
 
+                    let identity = ReActionIdentity::new(
+                        info.target,
+                        None, // re_action_key not available in cache upload context
+                        info.paths,
+                        Some(digest.raw_digest().to_string()),
+                    );
+
                     // upload Action to CAS.
                     // This is necessary when writing to the ActionCache through CAS, since CAS needs to inspect the Action related to the ActionResult.
                     // Without storing the Action itself to CAS, ActionCache writes would fail.
@@ -145,6 +152,7 @@ impl CacheUploader {
                             vec![],
                             vec![],
                             action_digest_and_blobs.blobs.to_inlined_blobs(),
+                            &identity,
                         )
                         .await?;
 
@@ -254,6 +262,13 @@ impl CacheUploader {
                     };
                     action_result.execution_metadata.auxiliary_metadata = vec![dep_file_tany];
 
+                    let identity = ReActionIdentity::new(
+                        info.target,
+                        None, // re_action_key not available in cache upload context
+                        info.paths,
+                        Some(digest.raw_digest().to_string()),
+                    );
+
                     // upload Action to CAS.
                     // This is necessary when writing to the ActionCache through CAS, since CAS needs to inspect the Action related to the ActionResult.
                     // Without storing the Action itself to CAS, ActionCache writes would fail.
@@ -262,6 +277,7 @@ impl CacheUploader {
                             vec![],
                             vec![],
                             remote_dep_file_action.blobs.to_inlined_blobs(),
+                            &identity,
                         )
                         .await?;
 
@@ -350,6 +366,16 @@ impl CacheUploader {
                         ..Default::default()
                     });
 
+                    // ReActionIdentity contains references so it cannot be moved into the async
+                    // block. Create it inside the closure instead. The action_id is precomputed
+                    // above to avoid repeated string allocations.
+                    let identity = ReActionIdentity::new(
+                        info.target,
+                        None, // re_action_key not available in cache upload context
+                        info.paths,
+                        Some(action_id.clone()),
+                    );
+
                     let fut = async move {
                         let name = self
                             .artifact_fs
@@ -367,6 +393,7 @@ impl CacheUploader {
                                 }],
                                 vec![],
                                 vec![],
+                                &identity,
                             )
                             .await
                     };
@@ -404,7 +431,7 @@ impl CacheUploader {
                                 &action_blobs,
                                 output.path(),
                                 &d.dupe().as_immutable(),
-                                Some(&identity),
+                                &identity,
                                 digest_config,
                                 self.deduplicate_get_digests_ttl_calls,
                             )

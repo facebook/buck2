@@ -19,6 +19,7 @@ use buck2_common::legacy_configs::key::BuckconfigKeyRef;
 use buck2_common::legacy_configs::view::LegacyBuckConfigView;
 use buck2_core::execution_types::executor_config::RemoteExecutorUseCase;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
+use buck2_directory::directory::fingerprinted_directory::FingerprintedDirectory;
 use buck2_error::BuckErrorContext;
 use buck2_execute::artifact::artifact_dyn::ArtifactDyn;
 use buck2_execute::artifact_utils::ArtifactValueBuilder;
@@ -27,6 +28,7 @@ use buck2_execute::digest_config::HasDigestConfig;
 use buck2_execute::directory::ActionDirectoryBuilder;
 use buck2_execute::execute::blobs::ActionBlobs;
 use buck2_execute::materialize::materializer::HasMaterializer;
+use buck2_execute::re::action_identity::ReActionIdentity;
 use dashmap::DashSet;
 use dice::DiceComputations;
 use dice::UserComputationData;
@@ -190,7 +192,10 @@ async fn ensure_uploaded(
             &ActionBlobs::new(digest_config),
             ProjectRelativePath::empty(),
             &dir,
-            None,
+            &ReActionIdentity::minimal(
+                dir.fingerprint().raw_digest().to_string(),
+                Some(dir.fingerprint().raw_digest().to_string()),
+            ),
             digest_config,
             ctx.per_transaction_data()
                 .get_run_action_knobs()

@@ -17,7 +17,7 @@ use crate::execute::target::CommandExecutionTarget;
 pub struct ReActionIdentity<'a> {
     /// This is currently unused, but historically it has been useful to add logging in the RE
     /// client, so it's worth keeping around.
-    _target: &'a dyn CommandExecutionTarget,
+    _target: Option<&'a dyn CommandExecutionTarget>,
 
     /// Actions with the same action key share e.g. memory requirements learnt by RE.
     pub action_key: String,
@@ -26,7 +26,7 @@ pub struct ReActionIdentity<'a> {
     pub affinity_key: String,
 
     /// Details about the action collected while uploading
-    pub paths: &'a CommandExecutionPaths,
+    pub paths: Option<&'a CommandExecutionPaths>,
 
     /// Optional action id (usually the action digest hash) used for request metadata.
     pub action_id: Option<String>,
@@ -58,15 +58,31 @@ impl<'a> ReActionIdentity<'a> {
         let configuration_hash = target.configuration_hash();
 
         Self {
-            _target: target,
+            _target: Some(target),
             action_key,
             affinity_key: target.re_affinity_key(),
-            paths,
+            paths: Some(paths),
             action_id,
             action_mnemonic,
             target_label,
             configuration_hash,
             trace_id,
+        }
+    }
+
+    /// Create a minimal identity for operations that don't have a full action context,
+    /// such as permission checks.
+    pub fn minimal(action_key: String, action_id: Option<String>) -> Self {
+        Self {
+            _target: None,
+            action_key,
+            affinity_key: String::new(),
+            paths: None,
+            action_id,
+            action_mnemonic: None,
+            target_label: None,
+            configuration_hash: None,
+            trace_id: get_dispatcher().trace_id().to_owned(),
         }
     }
 }

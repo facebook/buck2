@@ -110,7 +110,7 @@ impl ReExecutor {
                     blobs,
                     ProjectRelativePath::empty(),
                     paths.input_directory(),
-                    Some(identity),
+                    identity,
                     digest_config,
                     self.deduplicate_get_digests_ttl_calls,
                 )

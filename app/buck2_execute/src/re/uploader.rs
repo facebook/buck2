@@ -82,7 +82,7 @@ impl Uploader {
         input_dir: &'a ActionImmutableDirectory,
         blobs: &'a ActionBlobs,
         use_case: &RemoteExecutorUseCase,
-        identity: Option<&ReActionIdentity<'_>>,
+        identity: &ReActionIdentity<'_>,
         digest_config: DigestConfig,
         deduplicate_get_digests_ttl_calls: bool,
     ) -> buck2_error::Result<(
@@ -175,8 +175,8 @@ impl Uploader {
             })
         } else {
             let client = client.clone();
-            let mut metadata = use_case.metadata(identity);
-            if let Some(id) = identity.and_then(|id| id.action_id.clone()) {
+            let mut metadata = use_case.metadata(Some(identity));
+            if let Some(id) = identity.action_id.clone() {
                 metadata.action_id = Some(id);
             }
             let request = GetDigestsTtlRequest {
@@ -236,7 +236,7 @@ impl Uploader {
         input_dir: &ActionImmutableDirectory,
         blobs: &ActionBlobs,
         use_case: RemoteExecutorUseCase,
-        identity: Option<&ReActionIdentity<'_>>,
+        identity: &ReActionIdentity<'_>,
         digest_config: DigestConfig,
         deduplicate_get_digests_ttl_calls: bool,
     ) -> buck2_error::Result<UploadStats> {
@@ -435,8 +435,8 @@ impl Uploader {
 
         // Upload
         if !upload_files.is_empty() || !upload_blobs.is_empty() {
-            let mut metadata = use_case.metadata(identity);
-            if let Some(id) = identity.and_then(|id| id.action_id.clone()) {
+            let mut metadata = use_case.metadata(Some(identity));
+            if let Some(id) = identity.action_id.clone() {
                 metadata.action_id = Some(id);
             }
             with_error_handler(
@@ -597,7 +597,7 @@ impl<'s> GetDigestsTtlDeduper<'s> {
         deduper: &'s Mutex<Self>,
         client: &'a RemoteExecutionClient,
         use_case: RemoteExecutorUseCase,
-        identity: Option<&'a ReActionIdentity<'a>>,
+        identity: &'a ReActionIdentity<'a>,
         digest_config: DigestConfig,
         digests: impl IntoIterator<Item = &'a TrackedFileDigest>,
     ) -> (
@@ -669,13 +669,13 @@ fn query_digest_ttls<'s>(
     request_id: RequestId,
     client: &RemoteExecutionClient,
     use_case: RemoteExecutorUseCase,
-    identity: Option<&ReActionIdentity<'_>>,
+    identity: &ReActionIdentity<'_>,
     digest_config: DigestConfig,
     input_digests: Vec<TrackedFileDigest>,
 ) -> BoxFuture<'s, buck2_error::Result<HashMap<TrackedFileDigest, i64>>> {
     let client = client.dupe();
-    let mut metadata = use_case.metadata(identity);
-    if let Some(id) = identity.and_then(|id| id.action_id.clone()) {
+    let mut metadata = use_case.metadata(Some(identity));
+    if let Some(id) = identity.action_id.clone() {
         metadata.action_id = Some(id);
     }
     let request = GetDigestsTtlRequest {

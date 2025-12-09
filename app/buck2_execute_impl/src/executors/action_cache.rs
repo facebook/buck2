@@ -107,12 +107,12 @@ async fn query_action_cache_and_download_result(
     )
     .await;
 
-    let identity = Some(ReActionIdentity::new(
+    let identity = ReActionIdentity::new(
         command.target,
         re_action_key.as_deref(),
         command.request.paths(),
         Some(action_digest.raw_digest().to_string()),
-    ));
+    );
     if upload_all_actions {
         match re_client
             .upload(
@@ -121,7 +121,7 @@ async fn query_action_cache_and_download_result(
                 action_blobs,
                 ProjectRelativePath::empty(),
                 request.paths().input_directory(),
-                identity.as_ref(),
+                &identity,
                 digest_config,
                 deduplicate_get_digests_ttl_calls,
             )
@@ -167,13 +167,6 @@ async fn query_action_cache_and_download_result(
             Some(dep_file_entry)
         }
     };
-
-    let identity = ReActionIdentity::new(
-        command.target,
-        re_action_key.as_deref(),
-        command.request.paths(),
-        Some(action_digest.raw_digest().to_string()),
-    );
 
     let response = ActionCacheResult(response, cache_type.to_proto());
     let res = download_action_results(

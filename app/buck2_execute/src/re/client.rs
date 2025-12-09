@@ -238,7 +238,7 @@ impl RemoteExecutionClient {
         dir_path: &ProjectRelativePath,
         input_dir: &ActionImmutableDirectory,
         use_case: RemoteExecutorUseCase,
-        identity: Option<&ReActionIdentity<'_>>,
+        identity: &ReActionIdentity<'_>,
         digest_config: DigestConfig,
         deduplicate_get_digests_ttl_calls: bool,
     ) -> buck2_error::Result<UploadStats> {
@@ -268,6 +268,7 @@ impl RemoteExecutionClient {
         directories: Vec<remote_execution::Path>,
         inlined_blobs_with_digest: Vec<InlinedBlobWithDigest>,
         use_case: RemoteExecutorUseCase,
+        identity: &ReActionIdentity<'_>,
     ) -> buck2_error::Result<()> {
         self.data
             .uploads
@@ -276,6 +277,7 @@ impl RemoteExecutionClient {
                 directories,
                 inlined_blobs_with_digest,
                 use_case,
+                identity,
             ))
             .await
     }
@@ -960,14 +962,19 @@ impl RemoteExecutionClientImpl {
         directories: Vec<remote_execution::Path>,
         inlined_blobs_with_digest: Vec<InlinedBlobWithDigest>,
         use_case: RemoteExecutorUseCase,
+        identity: &ReActionIdentity<'_>,
     ) -> buck2_error::Result<()> {
+        let mut metadata = use_case.metadata(Some(identity));
+        if let Some(action_id) = identity.action_id.as_ref() {
+            metadata.action_id = Some(action_id.clone());
+        }
         with_error_handler(
             "upload_files_and_directories",
             self.get_session_id(),
             self.client()
                 .get_cas_client()
                 .upload(
-                    use_case.metadata(None),
+                    metadata,
                     UploadRequest {
                         files_with_digest: Some(files_with_digest),
                         inlined_blobs_with_digest: Some(inlined_blobs_with_digest),
@@ -1329,7 +1336,10 @@ impl RemoteExecutionClientImpl {
             host_runtime_requirements: THostRuntimeRequirements {
                 platform: re_platform(platform),
                 host_resource_requirements: THostResourceRequirements {
-                    input_files_bytes: identity.paths.input_files_bytes() as i64,
+                    input_files_bytes: identity
+                        .paths
+                        .map(|p| p.input_files_bytes() as i64)
+                        .unwrap_or(0),
                     resource_units: re_resource_units.unwrap_or_default(),
                     ..Default::default()
                 },
