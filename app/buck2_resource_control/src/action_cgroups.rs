@@ -217,8 +217,7 @@ pub(crate) struct ActionCgroups {
     /// lists) is still hard capped by the local action parallelism limit (-j)
     running_cgroups: Vec<RunningActionCgroup>,
     suspended_cgroups: VecDeque<SuspendedActionCgroup>,
-    last_suspend_time: Option<Instant>,
-    last_wake_time: Option<Instant>,
+    last_correction_time: Option<Instant>,
     last_memory_pressure_state: MemoryPressureState,
     // Total memory of buck2.slice (Which contains daemon, forkserver and workers cgroups) when the last suspend happened.
     // Used to calculate when we should wake cgroups.
@@ -321,8 +320,7 @@ impl ActionCgroups {
             preferred_action_suspend_strategy,
             running_cgroups: Vec::new(),
             suspended_cgroups: VecDeque::new(),
-            last_suspend_time: None,
-            last_wake_time: None,
+            last_correction_time: None,
             last_memory_pressure_state: MemoryPressureState::BelowPressureLimit,
             total_memory_during_last_suspend: None,
             event_sender_state: EventSenderState::new(daemon_id, ancestor_cgroup_constraints),
@@ -509,7 +507,7 @@ impl ActionCgroups {
         // suspensions will take a few seconds to take effect. This maybe not be enough, but we don't
         // want to wait too long that we encounter OOMs
         if self
-            .last_suspend_time
+            .last_correction_time
             .is_some_and(|t| Instant::now() - t < Duration::from_secs(1))
         {
             return;
@@ -519,11 +517,13 @@ impl ActionCgroups {
         if self.running_cgroups.len() <= 1 {
             return;
         }
+        let now = Instant::now();
+        self.last_correction_time = Some(now);
 
         // Length checked above
         let cgroup = self.running_cgroups.pop().unwrap();
 
-        let (suspended_cgroup, event_kind) = suspend_cgroup(cgroup);
+        let (suspended_cgroup, event_kind) = suspend_cgroup(cgroup, now);
         tracing::debug!(
             "Froze action: {:?} (type: {:?})",
             suspended_cgroup.cgroup.path,
@@ -531,7 +531,6 @@ impl ActionCgroups {
         );
 
         self.total_memory_during_last_suspend = Some(memory_reading.buck2_slice_memory_current);
-        self.last_suspend_time = suspended_cgroup.suspend_start;
         // Push it onto the list before emitting the event so that the action count in the event is
         // correct
         self.suspended_cgroups.push_front(suspended_cgroup);
@@ -550,7 +549,7 @@ impl ActionCgroups {
         // previous suspensions will take several seconds to take effect. This ensures that we don't
         // wake too quickly
         if self
-            .last_wake_time
+            .last_correction_time
             .is_some_and(|t| Instant::now() - t < Duration::from_secs(3))
         {
             return;
@@ -587,7 +586,7 @@ impl ActionCgroups {
             return;
         }
 
-        self.last_wake_time = Some(Instant::now());
+        self.last_correction_time = Some(Instant::now());
         self.wake()
     }
 
@@ -634,8 +633,8 @@ impl ActionCgroups {
 
 fn suspend_cgroup(
     cgroup: RunningActionCgroup,
+    now: Instant,
 ) -> (SuspendedActionCgroup, buck2_data::ResourceControlEventKind) {
-    let suspend_start = Instant::now();
     let (wake_implementation, event_kind) = match cgroup.suspend_implementation {
         SuspendImplementation::CgroupFreeze(kill_sender, freeze_sender) => {
             drop(freeze_sender.send(ActionFreezeEvent::Freeze));
@@ -661,7 +660,7 @@ fn suspend_cgroup(
             memory_current_when_suspended: Some(cgroup.cgroup.memory_current),
             cgroup: cgroup.cgroup,
             wake_implementation,
-            suspend_start: Some(suspend_start),
+            suspend_start: Some(now),
         },
         event_kind,
     )
