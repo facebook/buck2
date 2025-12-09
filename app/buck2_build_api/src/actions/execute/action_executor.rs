@@ -449,10 +449,13 @@ impl ActionExecutionCtx for BuckActionExecutionContext<'_> {
     fn prepare_action(
         &mut self,
         request: &CommandExecutionRequest,
+        re_outputs_required: bool,
     ) -> buck2_error::Result<PreparedAction> {
-        self.executor
-            .command_executor
-            .prepare_action(request, self.digest_config())
+        self.executor.command_executor.prepare_action(
+            request,
+            self.digest_config(),
+            re_outputs_required,
+        )
     }
 
     async fn action_cache(
@@ -985,7 +988,7 @@ mod tests {
                 );
 
                 // on fake executor, this does nothing
-                let prepared_action = ctx.prepare_action(&req)?;
+                let prepared_action = ctx.prepare_action(&req, true)?;
                 let manager = ctx.command_execution_manager();
                 let res = ctx.exec_cmd(manager, &req, &prepared_action).await;
 

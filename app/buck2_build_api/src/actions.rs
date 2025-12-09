@@ -244,6 +244,7 @@ pub trait ActionExecutionCtx: Send + Sync {
     fn prepare_action(
         &mut self,
         request: &CommandExecutionRequest,
+        re_outputs_required: bool,
     ) -> buck2_error::Result<PreparedAction>;
 
     async fn action_cache(

@@ -1027,7 +1027,7 @@ impl BuckTestOrchestrator<'_> {
 
         // For test execution, we currently do not do any cache queries
 
-        let prepared_action = match executor.prepare_action(&request, digest_config) {
+        let prepared_action = match executor.prepare_action(&request, digest_config, false) {
             Ok(prepared_action) => prepared_action,
             Err(e) => return Err(ExecuteError::Error(e.into())),
         };
@@ -1706,7 +1706,8 @@ impl BuckTestOrchestrator<'_> {
         let local_resource_target = LocalResourceTarget {
             target: &context.target,
         };
-        let prepared_action = executor.prepare_action(&context.execution_request, digest_config)?;
+        let prepared_action =
+            executor.prepare_action(&context.execution_request, digest_config, false)?;
         let prepared_command = PreparedCommand {
             target: &local_resource_target as _,
             request: &context.execution_request,

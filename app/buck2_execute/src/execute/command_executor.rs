@@ -191,6 +191,7 @@ impl CommandExecutor {
         &self,
         request: &CommandExecutionRequest,
         digest_config: DigestConfig,
+        re_outputs_required: bool,
     ) -> buck2_error::Result<PreparedAction> {
         executor_stage(buck2_data::PrepareAction {}, || {
             let input_digest = request.paths().input_directory().fingerprint();
@@ -244,6 +245,7 @@ impl CommandExecutor {
                     .meta_internal_extra_params()
                     .remote_execution_caf_fbpkgs,
                 request.remote_worker(),
+                re_outputs_required,
             )?;
 
             buck2_error::Ok(action)
@@ -268,6 +270,7 @@ fn re_create_action(
     remote_execution_custom_image: &Option<RemoteExecutorCustomImage>,
     remote_execution_caf_fbpkgs: &[RemoteExecutorCafFbpkg],
     worker: &Option<RemoteWorkerSpec>,
+    re_outputs_required: bool,
 ) -> buck2_error::Result<PreparedAction> {
     let (worker_tool_init_action, command_args) = if let Some(worker) = worker {
         let mut action_and_blobs = ActionDigestAndBlobsBuilder::new(digest_config);
@@ -430,6 +433,11 @@ fn re_create_action(
     #[cfg(fbcode_build)]
     {
         action.respect_exec_bit = true;
+    }
+
+    #[cfg(fbcode_build)]
+    {
+        action.outputs_required = re_outputs_required;
     }
 
     #[cfg(not(fbcode_build))]
