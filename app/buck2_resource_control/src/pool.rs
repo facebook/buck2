@@ -19,6 +19,7 @@ use index_vec::IndexVec;
 use crate::cgroup::CgroupInternal;
 use crate::cgroup::CgroupLeaf;
 use crate::cgroup::CgroupMinimal;
+use crate::cgroup::EnabledControllers;
 use crate::path::CgroupPath;
 use crate::path::CgroupPathBuf;
 
@@ -70,12 +71,11 @@ impl CgroupPool {
     pub(crate) fn create_in_parent_cgroup(
         parent: &CgroupPath,
         config: &ResourceControlConfig,
-        enabled_controllers: &[String],
+        enabled_controllers: EnabledControllers,
     ) -> buck2_error::Result<Self> {
         let pool_cgroup = CgroupMinimal::new(parent, CgroupPool::POOL_NAME)?
-            .into_internal()?
+            .into_internal(enabled_controllers)?
             .enable_memory_monitoring()?;
-        pool_cgroup.config_subtree_control(enabled_controllers)?;
 
         if let Some(pool_memory_high) = &config.memory_high_action_cgroup_pool {
             pool_cgroup.set_memory_high(pool_memory_high)?;
@@ -91,8 +91,10 @@ impl CgroupPool {
 
     #[cfg(test)]
     pub(crate) fn testing_new() -> Option<Self> {
-        let pool_cgroup = CgroupMinimal::create_for_test()?
-            .into_internal()
+        let pool_cgroup = CgroupMinimal::create_for_test()?;
+        let controllers = pool_cgroup.read_enabled_controllers().unwrap();
+        let pool_cgroup = pool_cgroup
+            .into_internal(controllers)
             .unwrap()
             .enable_memory_monitoring()
             .unwrap();

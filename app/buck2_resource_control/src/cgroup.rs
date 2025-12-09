@@ -42,6 +42,12 @@ enum CgroupError {
     },
 }
 
+/// A list of enabled controllers.
+///
+/// Each one is formatted as `+controller`, as that's a bit easier to use in practice.
+#[derive(Dupe, Clone)]
+pub(crate) struct EnabledControllers(Arc<[String]>);
+
 pub trait MemoryMonitoring {}
 
 pub struct NoMemoryMonitoring;
@@ -98,45 +104,6 @@ impl<M: MemoryMonitoring, K: CgroupKind> Cgroup<M, K> {
         &self.path
     }
 
-    fn subtree_control_path(&self) -> PathBuf {
-        self.path().as_path().join("cgroup.subtree_control")
-    }
-
-    /// confgure cgroup.subtree_control to enable controllers for sub cgroups
-    ///
-    /// This enables resource memory controller on the current cgroup, allowing
-    /// child cgroups to use those controllers.
-    ///
-    /// Note: Due to the "no internal processes" rule in cgroups v2, once you enable any
-    /// controller in `cgroup.subtree_control`, this cgroup must not directly contain any
-    /// processes (i.e., `cgroup.procs` must be empty). All processes must be placed in
-    /// child(leaf) cgroups instead. Otherwise, writing to `cgroup.subtree_control` will fail with
-    /// a "Device or resource busy" error.
-    ///
-    /// For more info, see:
-    /// <https://www.kernel.org/doc/html/latest/admin-guide/cgroup-v2.html#no-internal-processes>
-    ///
-    /// Maybe need two types of cgroup to distinguish.
-    pub fn config_subtree_control(
-        &self,
-        enabled_controllers: &[String],
-    ) -> buck2_error::Result<()> {
-        // We only need to configure this once, so no need to hold the fd.
-        let sub_tree_control_file_path = self.subtree_control_path();
-
-        for controller in enabled_controllers {
-            let enable = format!("+{}", controller);
-            fs::write(&sub_tree_control_file_path, &enable).map_err(|e| {
-                CgroupError::ConfigurationFailed {
-                    path: sub_tree_control_file_path.to_string_lossy().to_string(),
-                    io_err: e,
-                }
-            })?;
-        }
-
-        Ok(())
-    }
-
     /// Configures a Command to run in this cgroup using pre_exec.
     ///
     /// Uses pre_exec hook which runs in the child process after fork() but before exec().
@@ -180,17 +147,19 @@ impl<M: MemoryMonitoring, K: CgroupKind> Cgroup<M, K> {
         Ok(self.procs.write(pid.as_bytes())?)
     }
 
-    pub fn read_enabled_controllers(&self) -> buck2_error::Result<Vec<String>> {
+    pub(crate) fn read_enabled_controllers(&self) -> buck2_error::Result<EnabledControllers> {
         let controllers_file = CgroupFile::open(
             &self.dir,
             FileName::unchecked_new("cgroup.controllers"),
             false,
         )?;
         let controllers = controllers_file.read_to_string()?;
-        Ok(controllers
-            .split_whitespace()
-            .map(|s| s.to_owned())
-            .collect())
+        Ok(EnabledControllers(
+            controllers
+                .split_whitespace()
+                .map(|s| format!("+{}", s))
+                .collect(),
+        ))
     }
 
     fn memory_high_path(&self) -> PathBuf {
@@ -257,9 +226,19 @@ impl Cgroup<NoMemoryMonitoring, CgroupKindUndecided> {
         })
     }
 
-    pub fn into_internal(
+    pub(crate) fn into_internal(
         self,
+        enabled_controllers: EnabledControllers,
     ) -> buck2_error::Result<Cgroup<NoMemoryMonitoring, CgroupKindInternal>> {
+        let subtree_control = CgroupFile::open(
+            &self.dir,
+            FileName::unchecked_new("cgroup.subtree_control"),
+            true,
+        )?;
+        for controller in &*enabled_controllers.0 {
+            subtree_control.write(controller.as_bytes())?;
+        }
+
         Ok(Cgroup {
             dir: self.dir,
             procs: self.procs,
@@ -377,9 +356,8 @@ mod tests {
         let Some(cgroup) = CgroupMinimal::create_for_test() else {
             return;
         };
-        cgroup
-            .config_subtree_control(&cgroup.read_enabled_controllers().unwrap())
-            .unwrap();
+        let controllers = cgroup.read_enabled_controllers().unwrap();
+        let cgroup = cgroup.into_internal(controllers).unwrap();
         let leaf = CgroupMinimal::new(cgroup.path(), FileName::unchecked_new("leaf")).unwrap();
 
         let enabled =

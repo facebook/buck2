@@ -9,17 +9,19 @@
  */
 
 use buck2_fs::paths::file_name::FileName;
+use dupe::Dupe;
 
 use crate::cgroup::CgroupInternal;
 use crate::cgroup::CgroupLeaf;
 use crate::cgroup::CgroupMinimal;
+use crate::cgroup::EnabledControllers;
 use crate::cgroup_info::CGroupInfo;
 
 /// Type that represents the daemon's view of the cgroups it manages
 ///
 /// Only in use with the action cgroup pool.
 pub struct BuckCgroupTree {
-    pub(crate) enabled_controllers: Vec<String>,
+    pub(crate) enabled_controllers: EnabledControllers,
     allprocs: CgroupInternal,
     forkserver_and_actions: CgroupInternal,
     forkserver: CgroupLeaf,
@@ -42,16 +44,16 @@ impl BuckCgroupTree {
         let daemon_cgroup =
             CgroupMinimal::new(root_cgroup.path(), FileName::unchecked_new("daemon").into())?;
         daemon_cgroup.add_process(std::process::id())?;
-        root_cgroup.config_subtree_control(&enabled_controllers)?;
-        let root_cgroup = root_cgroup.into_internal()?.enable_memory_monitoring()?;
+        let root_cgroup = root_cgroup
+            .into_internal(enabled_controllers.dupe())?
+            .enable_memory_monitoring()?;
 
         let forkserver_and_actions = CgroupMinimal::new(
             root_cgroup.path(),
             FileName::unchecked_new("forkserver_and_actions").into(),
         )?
-        .into_internal()?
+        .into_internal(enabled_controllers.dupe())?
         .enable_memory_monitoring()?;
-        forkserver_and_actions.config_subtree_control(&enabled_controllers)?;
 
         let forkserver = CgroupMinimal::new(
             forkserver_and_actions.path(),

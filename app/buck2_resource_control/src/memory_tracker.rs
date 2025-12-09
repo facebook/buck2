@@ -230,7 +230,7 @@ pub async fn create_memory_tracker(
     let cgroup_pool = CgroupPool::create_in_parent_cgroup(
         cgroup_tree.forkserver_and_actions().path(),
         &resource_control_config,
-        &cgroup_tree.enabled_controllers,
+        cgroup_tree.enabled_controllers.dupe(),
     )?;
     let action_cgroups =
         ActionCgroups::init(resource_control_config, daemon_id, cgroup_pool).await?;
