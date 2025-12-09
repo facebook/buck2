@@ -48,7 +48,8 @@ where
         .unwrap()
 }
 
-/// A DFS, left-to-right iterator over a TransitiveSet.
+/// Preorder depth-first traversal, visiting parent node first, then children in an unspecified
+/// order that minimizes memory usage during traversal.
 pub struct PreorderTransitiveSetIteratorGen<'a, 'v, V: ValueLike<'v>> {
     stack: Vec<&'a TransitiveSetGen<V>>,
     seen: HashSet<ValueIdentity<'v>, BuckHasherBuilder>,
@@ -104,8 +105,8 @@ where
     }
 }
 
-/// A postorder traversal iterator over a TransitiveSet.
-/// Traverses by children left-to-right, and then visits the current node.
+/// Postorder depth-first traversal, visiting children left-to-right before visiting their parent
+/// node.
 pub struct PostorderTransitiveSetIteratorGen<'a, 'v, V: ValueLike<'v>> {
     stack: Vec<(&'a TransitiveSetGen<V>, PostorderMark<'v>)>,
     seen: HashSet<ValueIdentity<'v>, BuckHasherBuilder>,
@@ -180,11 +181,11 @@ where
     }
 }
 
-/// A topological traversal iterator over a TransitiveSet, such that nodes are listed after all
-/// nodes that have them as descendants.
+/// Topological sort order, such that nodes are visited after all nodes that have them as
+/// descendants.
 ///
-/// This is equivalent to a pre-order traversal, except that when nodes are shared with more than
-/// one parent it is returned in the order of its last occurrence.
+/// This is similar to the pre-order traversal, except that when nodes are shared with more than one
+/// parent it is returned in the order of its last occurrence.
 pub struct TopologicalTransitiveSetIteratorGen<'a, 'v, V: ValueLike<'v>> {
     output_stack: Vec<&'a TransitiveSetGen<V>>,
     instance_counts: HashMap<ValueIdentity<'v>, u32, BuckHasherBuilder>,
@@ -276,7 +277,8 @@ where
     }
 }
 
-/// A breadth-first-search (BFS), left-to-right iterator over a TransitiveSet.
+/// Preorder breadth-first-search (BFS), visits parent node, then eagerly visits all children
+/// left-to-right before traversing to any grandchildren.
 pub struct BfsTransitiveSetIteratorGen<'a, 'v, V: ValueLike<'v>> {
     queue: VecDeque<&'a TransitiveSetGen<V>>,
     seen: HashSet<ValueIdentity<'v>, BuckHasherBuilder>,
@@ -329,6 +331,66 @@ where
         let next = self.queue.pop_front()?;
         self.enqueue_children(&next.children);
         Some(next)
+    }
+}
+
+/// Preorder depth-first-search (DFS).
+///
+/// This is similar to the pre-order traversal, except that children are guaranteed to be visited
+/// left-to-right.
+pub struct DfsTransitiveSetIteratorGen<'a, 'v, V: ValueLike<'v>> {
+    stack: Vec<(&'a TransitiveSetGen<V>, Option<ValueIdentity<'v>>)>,
+    seen: HashSet<ValueIdentity<'v>, BuckHasherBuilder>,
+}
+
+impl<'a, 'v, V> DfsTransitiveSetIteratorGen<'a, 'v, V>
+where
+    V: 'v + Copy + ValueLike<'v>,
+    TransitiveSetGen<V>: TransitiveSetLike<'v>,
+    'v: 'a,
+{
+    pub fn new(set: &'a TransitiveSetGen<V>) -> Self {
+        Self {
+            stack: vec![(set, None)],
+            seen: Default::default(),
+        }
+    }
+}
+
+impl<'a, 'v, V> TransitiveSetIteratorLike<'a, 'v, V> for DfsTransitiveSetIteratorGen<'a, 'v, V>
+where
+    V: 'v + Copy + ValueLike<'v>,
+    TransitiveSetGen<V>: TransitiveSetLike<'v>,
+    'v: 'a,
+{
+    fn values(self: Box<Self>) -> TransitiveSetValuesIteratorGen<'a, 'v, V> {
+        TransitiveSetValuesIteratorGen { inner: self }
+    }
+}
+
+impl<'a, 'v, V> Iterator for DfsTransitiveSetIteratorGen<'a, 'v, V>
+where
+    V: 'v + Copy + ValueLike<'v>,
+    TransitiveSetGen<V>: TransitiveSetLike<'v>,
+    'v: 'a,
+{
+    type Item = &'a TransitiveSetGen<V>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        loop {
+            let (tset, identity) = self.stack.pop()?;
+            if identity.is_none_or(|id| self.seen.insert(id)) {
+                for child in tset.children.iter().rev() {
+                    let child = child.to_value();
+                    let child_identity = child.identity();
+                    if !self.seen.contains(&child_identity) {
+                        self.stack
+                            .push((assert_transitive_set(child), Some(child_identity)));
+                    }
+                }
+                return Some(tset);
+            }
+        }
     }
 }
 

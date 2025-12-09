@@ -28,6 +28,7 @@ pub use self::transitive_set_definition::TransitiveSetOperations;
 pub use self::transitive_set_definition::TransitiveSetProjectionKind;
 pub use self::transitive_set_definition::TransitiveSetProjectionSpec;
 use self::transitive_set_iterator::BfsTransitiveSetIteratorGen;
+use self::transitive_set_iterator::DfsTransitiveSetIteratorGen;
 use self::transitive_set_iterator::PostorderTransitiveSetIteratorGen;
 use self::transitive_set_iterator::PreorderTransitiveSetIteratorGen;
 use self::transitive_set_iterator::TopologicalTransitiveSetIteratorGen;
@@ -108,6 +109,6 @@ pub(crate) enum TransitiveSetError {
         valid_reductions: Vec<String>,
     },
 
-    #[error("Expected ordering to be one of `preorder`, `postorder`, `topological`, or `bfs`,  but got `{0}`", .ordering)]
+    #[error("Expected ordering to be one of `preorder`, `postorder`, `topological`, `bfs`, or `dfs`,  but got `{0}`", .ordering)]
     OrderingUnexpectedValue { ordering: String },
 }

@@ -64,6 +64,7 @@ use crate::interpreter::rule_defs::cmd_args::CommandLineArgLike;
 use crate::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
 use crate::interpreter::rule_defs::cmd_args::SimpleCommandLineArtifactVisitor;
 use crate::interpreter::rule_defs::transitive_set::BfsTransitiveSetIteratorGen;
+use crate::interpreter::rule_defs::transitive_set::DfsTransitiveSetIteratorGen;
 use crate::interpreter::rule_defs::transitive_set::FrozenTransitiveSetDefinition;
 use crate::interpreter::rule_defs::transitive_set::PostorderTransitiveSetIteratorGen;
 use crate::interpreter::rule_defs::transitive_set::PreorderTransitiveSetIteratorGen;
@@ -308,6 +309,7 @@ where
                 Box::new(TopologicalTransitiveSetIteratorGen::new(self))
             }
             TransitiveSetOrdering::Bfs => Box::new(BfsTransitiveSetIteratorGen::new(self)),
+            TransitiveSetOrdering::Dfs => Box::new(DfsTransitiveSetIteratorGen::new(self)),
         }
     }
 

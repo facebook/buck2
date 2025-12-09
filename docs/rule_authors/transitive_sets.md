@@ -195,18 +195,19 @@ This will yield `["qux", "foo", "bar"]`.
 
 ### Ordering
 
-Transitive set iteration uses a left-to-right, pre-order traversal by default,
-and ignores nodes that have already been visited. This order is reflected in
-projections as well.
+Transitive set iteration uses a pre-order traversal by default, and ignores
+nodes that have already been visited. This order is reflected in projections as
+well.
 
 A few different traversal orders are supported with the `ordering` attribute:
 
-| Ordering             | Description                                                                                                                                                                                                                                             |
-| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `preorder` (default) | Traverses using a depth-first-search, visiting nodes left-to-right.                                                                                                                                                                                     |
-| `postorder`          | Traverses children left-to-right, and then visits the current node.                                                                                                                                                                                     |
-| `topological`        | A Topological sort, such that nodes are listed after all nodes that have them as descendants. This is similar to a pre-order traversal, except that when nodes are shared with more than one parent it is returned in the order of its last occurrence. |
-| `bfs`                | Breadth-first-search (BFS) traversal, traverses nodes left-to-right before traversing children.                                                                                                                                                         |
+| Ordering             | Description                                                                                                                                                                                                                                                    |
+| -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `preorder` (default) | Preorder depth-first traversal, visiting parent node first, then children in an unspecified order that minimizes memory usage during traversal.                                                                                                                |
+| `postorder`          | Postorder depth-first traversal, visiting children left-to-right before visiting their parent node.                                                                                                                                                            |
+| `topological`        | Topological sort order, such that nodes are visited after all nodes that have them as descendants. This is similar to the pre-order traversal, except that when nodes are shared with more than one parent it is returned in the order of its last occurrence. |
+| `bfs`                | Preorder breadth-first-search (BFS), visits parent node, then eagerly visits all children left-to-right before traversing to any grandchildren.                                                                                                                |
+| `dfs`                | Preorder depth-first-search (DFS). This is similar to the pre-order traversal, except that children are guaranteed to be visited left-to-right.                                                                                                                |
 
 For example:
 
@@ -254,6 +255,7 @@ style df display:none
 | `postorder`   | `["E", "F", "D", "B", "C", "A"]` |
 | `topological` | `["A", "B", "D", "F", "C", "E"]` |
 | `bfs`         | `["A", "B", "C", "D", "E", "F"]` |
+| `dfs`         | `["A", "B", "D", "E", "F", "C"]` |
 
 <FbInternalOnly>
 
@@ -266,6 +268,7 @@ assert_eq(["A", "B", "D", "F", "E", "C"], list(A.traverse(ordering = "preorder")
 assert_eq(["E", "F", "D", "B", "C", "A"], list(A.traverse(ordering = "postorder")))
 assert_eq(["A", "B", "D", "F", "C", "E"], list(A.traverse(ordering = "topological")))
 assert_eq(["A", "B", "C", "D", "E", "F"], list(A.traverse(ordering = "bfs")))
+assert_eq(["A", "B", "D", "E", "F", "C"], list(A.traverse(ordering = "dfs")))
 ```
 
 </FbInternalOnly>

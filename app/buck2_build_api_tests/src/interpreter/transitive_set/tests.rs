@@ -661,6 +661,7 @@ fn test_transitive_set_ordering_docs() -> anyhow::Result<()> {
             assert_eq(["E", "F", "D", "B", "C", "A"], list(A.traverse(ordering = "postorder")))
             assert_eq(["A", "B", "D", "F", "C", "E"], list(A.traverse(ordering = "topological")))
             assert_eq(["A", "B", "C", "D", "E", "F"], list(A.traverse(ordering = "bfs")))
+            assert_eq(["A", "B", "D", "E", "F", "C"], list(A.traverse(ordering = "dfs")))
         "#
     ))?;
 
