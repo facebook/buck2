@@ -30,6 +30,7 @@ import com.google.common.io.Files;
 import java.io.File;
 import java.io.IOException;
 import java.io.StringReader;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -101,7 +102,14 @@ public class GenerateManifest {
     SdkVersions sdkVersions = extractSdkVersions(skeletonManifestPath.toFile(), logger);
 
     // Preprocess library manifests to inject targetSdkVersion and minSdkVersion if missing
-    Path tempDir = java.nio.file.Files.createTempDirectory("preprocessed_manifests");
+    String tmpDirEnv = System.getenv("BUCK_SCRATCH_PATH");
+    if (tmpDirEnv == null || tmpDirEnv.isEmpty()) {
+      throw new RuntimeException(
+          "BUCK_SCRATCH_PATH environment variable must be set and non-empty");
+    }
+    Path tmpDirPath = java.nio.file.Paths.get(tmpDirEnv);
+    Path tempDir = tmpDirPath.resolve("preprocessed_manifests");
+    java.nio.file.Files.createDirectories(tempDir);
 
     List<File> libraryManifestFiles = new ArrayList<>();
     for (Path libraryManifestPath : libraryManifestPaths) {
@@ -118,6 +126,9 @@ public class GenerateManifest {
             libraryManifestFiles,
             mergeReportPath,
             logger);
+
+    // Post-process merge report to make all paths relative to current directory
+    makePathsRelativeInMergeReport(mergeReportPath, logger);
 
     String xmlText = mergingReport.getMergedDocument(MergingReport.MergedManifestKind.MERGED);
     xmlText = replacePlaceholders(xmlText, placeholders);
@@ -525,5 +536,58 @@ public class GenerateManifest {
 
     java.nio.file.Files.write(processedFile.toPath(), formattedXml.getBytes());
     return processedFile;
+  }
+
+  /**
+   * Post-processes the merge report file to convert all absolute paths to relative paths.
+   *
+   * @param mergeReportPath Path to the merge report file
+   * @param logger Logger for debugging information
+   */
+  private static void makePathsRelativeInMergeReport(Path mergeReportPath, ILogger logger) {
+    try {
+      if (!java.nio.file.Files.exists(mergeReportPath)) {
+        logger.warning("Merge report file does not exist: " + mergeReportPath);
+        return;
+      }
+
+      String content =
+          new String(java.nio.file.Files.readAllBytes(mergeReportPath), StandardCharsets.UTF_8);
+      Path currentDir = java.nio.file.Paths.get("").toAbsolutePath();
+      String modifiedContent = makePathsRelative(content, currentDir);
+      java.nio.file.Files.write(mergeReportPath, modifiedContent.getBytes(StandardCharsets.UTF_8));
+      logger.info("Made paths relative in merge report: " + mergeReportPath);
+    } catch (IOException e) {
+      logger.warning(
+          "Failed to make paths relative in merge report: "
+              + e.getMessage()
+              + ". Report will contain absolute paths.");
+    }
+  }
+
+  /**
+   * Replaces absolute paths in the content with relative paths from the current directory.
+   *
+   * <p>Only replaces paths that start with the current directory to avoid false matches with
+   * substring occurrences.
+   *
+   * @param content The content to process
+   * @param currentDir The current working directory
+   * @return Content with paths made relative
+   */
+  private static String makePathsRelative(String content, Path currentDir) {
+    String currentDirStr = currentDir.toString();
+    String result = content;
+
+    // Build patterns with path separators to match only actual path prefixes
+    // Handle both forward slashes and backslashes for cross-platform compatibility
+    String withForwardSlash = currentDirStr + "/";
+    String withBackslash = currentDirStr + "\\";
+
+    // Replace paths that start with currentDir followed by a separator
+    result = result.replace(withForwardSlash, "");
+    result = result.replace(withBackslash, "");
+
+    return result;
   }
 }
