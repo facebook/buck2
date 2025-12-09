@@ -1,0 +1,61 @@
+#!/usr/bin/env dotslash
+
+// @generated SignedSource<<6e667e14a55f2456ffb5cf4e9889fdb2>>
+// MSDK schedule URL: https://www.internalfb.com/intern/msdk/bump/?action=view&schedule_fbid=25153959554288830
+// Sandcastle build trigger URL: https://www.internalfb.com/intern/sandcastle/job/22518000508078268/
+
+{
+    "name": "codesign_using_manifest",
+    "oncall": "oncall+apple_workflows@xmail.facebook.com",
+    "build_info": {
+        "config_script": "fbcode/buck2/prelude/apple/tools/code_signing_using_manifest/code_signing.dotslash.py",
+        "commit_repo": "fbsource",
+        "commit_hash": "6c6d52a14d4862bd7fea12cd32418ecf0e049155",
+        "commit_date": "2025-12-08 13:21:40 PST",
+        "commit_timestamp": 1765228900,
+        "msdk_package_fbid": "837542842239982"
+    },
+    "signatures": {
+        "msdk": "<<crypto.managed_sdk.mac:AecyifwC-5g-vVOlmf6pv8l3fs0>>"
+    },
+    "platforms": {
+        "macos/aarch64": {
+            "scheme": "cas",
+            "use_case_id": "dotslash_msdk_prod",
+            "digest": "113b3f0dc03fd8b1974a9dc09548b06df5b8023ee2a055c0ba226cc93384d59f:57997",
+            "extract": {
+                "path": "codesign_bundle_using_manifest",
+                "decompress": "tar.zst"
+            },
+            "metadata": {
+                "build_inputs": {
+                    "codesign_bundle_using_manifest": {
+                        "flags": [
+                            "@fbcode//mode/opt-mac-arm64"
+                        ],
+                        "target": "prelude//apple/tools/code_signing_using_manifest:codesign_bundle_using_manifest"
+                    }
+                }
+            }
+        },
+        "macos/x86_64": {
+            "scheme": "cas",
+            "use_case_id": "dotslash_msdk_prod",
+            "digest": "2f3bc41c132d469516fb18a77e6d87cc8865bd6a909123aba34738018688c7e7:57993",
+            "extract": {
+                "path": "codesign_bundle_using_manifest",
+                "decompress": "tar.zst"
+            },
+            "metadata": {
+                "build_inputs": {
+                    "codesign_bundle_using_manifest": {
+                        "flags": [
+                            "@fbcode//mode/opt-mac"
+                        ],
+                        "target": "prelude//apple/tools/code_signing_using_manifest:codesign_bundle_using_manifest"
+                    }
+                }
+            }
+        }
+    }
+}
