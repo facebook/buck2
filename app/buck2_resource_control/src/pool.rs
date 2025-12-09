@@ -86,13 +86,9 @@ impl CgroupPool {
 
     #[cfg(test)]
     pub(crate) fn testing_new() -> Option<Self> {
-        use crate::cgroup::CgroupMinimal;
+        use crate::cgroup::Cgroup;
 
-        let pool_cgroup = CgroupMinimal::create_for_test()?;
-        let controllers = pool_cgroup.read_enabled_controllers().unwrap();
-        let pool_cgroup = pool_cgroup
-            .enable_subtree_control_and_into_internal(controllers)
-            .unwrap()
+        let pool_cgroup = Cgroup::create_internal_for_test()?
             .enable_memory_monitoring()
             .unwrap();
 

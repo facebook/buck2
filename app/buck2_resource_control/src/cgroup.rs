@@ -331,7 +331,7 @@ impl<M: MemoryMonitoring, K: CgroupKind> Cgroup<M, K> {
 
 #[cfg(test)]
 impl CgroupMinimal {
-    pub(crate) fn create_for_test() -> Option<Self> {
+    pub(crate) fn create_minimal_for_test() -> Option<Self> {
         use buck2_fs::paths::abs_norm_path::AbsNormPath;
         use buck2_util::process::background_command;
 
@@ -352,19 +352,38 @@ impl CgroupMinimal {
 }
 
 #[cfg(test)]
+impl Cgroup<NoMemoryMonitoring, CgroupKindLeaf> {
+    pub(crate) fn create_leaf_for_test() -> Option<Self> {
+        Some(Cgroup::create_minimal_for_test()?.into_leaf().unwrap())
+    }
+}
+
+#[cfg(test)]
+impl Cgroup<NoMemoryMonitoring, CgroupKindInternal> {
+    pub(crate) fn create_internal_for_test() -> Option<Self> {
+        let cgroup = Cgroup::create_minimal_for_test()?;
+        let controllers = cgroup.read_enabled_controllers().unwrap();
+        Some(
+            cgroup
+                .enable_subtree_control_and_into_internal(controllers)
+                .unwrap(),
+        )
+    }
+}
+
+#[cfg(test)]
 mod tests {
     use buck2_fs::fs_util;
     use buck2_fs::paths::file_name::FileName;
     use buck2_util::process::background_command;
 
-    use crate::cgroup::CgroupMinimal;
+    use crate::cgroup::Cgroup;
 
     #[test]
     fn self_test_harness() {
-        let Some(cgroup) = CgroupMinimal::create_for_test() else {
+        let Some(cgroup) = Cgroup::create_leaf_for_test() else {
             return;
         };
-        let cgroup = cgroup.into_leaf().unwrap();
 
         assert_eq!(
             fs_util::try_exists(cgroup.path().as_abs_path()).unwrap(),
@@ -375,10 +394,9 @@ mod tests {
 
     #[test]
     fn repro_drop_cgroup_before_command_spawn() {
-        let Some(cgroup) = CgroupMinimal::create_for_test() else {
+        let Some(cgroup) = Cgroup::create_leaf_for_test() else {
             return;
         };
-        let cgroup = cgroup.into_leaf().unwrap();
 
         let mut cmd = background_command("true");
         cgroup.setup_command(&mut cmd).unwrap();
@@ -393,13 +411,9 @@ mod tests {
         // FIXME(JakobDegen): This isn't really a good test, we should do it at a higher level and
         // actually run a command. But setting up tests inside cgroups is a bit hard right now, so
         // just do this
-        let Some(cgroup) = CgroupMinimal::create_for_test() else {
+        let Some(cgroup) = Cgroup::create_internal_for_test() else {
             return;
         };
-        let controllers = cgroup.read_enabled_controllers().unwrap();
-        let cgroup = cgroup
-            .enable_subtree_control_and_into_internal(controllers)
-            .unwrap();
         let leaf = cgroup
             .make_leaf_child(FileName::unchecked_new("leaf"))
             .unwrap();

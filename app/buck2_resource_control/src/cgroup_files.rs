@@ -197,7 +197,7 @@ slab 262144"#;
 
     #[test]
     fn test_read_memory_stat() {
-        let Some(cgroup) = CgroupMinimal::create_for_test() else {
+        let Some(cgroup) = CgroupMinimal::create_minimal_for_test() else {
             return;
         };
         let cgroup = cgroup.enable_memory_monitoring().unwrap();
