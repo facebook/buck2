@@ -41,7 +41,7 @@ pub async fn launch_forkserver(
 
     let mut command = background_command(exe);
     if let Some(cgroup_tree) = cgroup_tree {
-        cgroup_tree.forkserver().setup_command(&mut command)?;
+        cgroup_tree.forkserver().setup_command(&mut command);
     }
 
     command

@@ -263,7 +263,7 @@ impl<M: MemoryMonitoring> Cgroup<M, CgroupKindLeaf> {
     /// Child process: pre_exec() closure runs (cgroup migration)
     ///                  ↓
     /// Child process: exec() run the command
-    pub fn setup_command(&self, command: &mut Command) -> buck2_error::Result<()> {
+    pub fn setup_command(&self, command: &mut Command) {
         // NOTE: We need to make sure that this fd is kept alive until the point where the command
         // is spawned/forked. The lifetimes on this type don't prevent the user from dropping the
         // `Cgroup` before that happens.
@@ -286,7 +286,6 @@ impl<M: MemoryMonitoring> Cgroup<M, CgroupKindLeaf> {
         unsafe {
             command.pre_exec(pre_exec);
         }
-        Ok(())
     }
 
     pub fn add_process(&self, pid: u32) -> buck2_error::Result<()> {
@@ -407,7 +406,7 @@ impl CgroupMinimal {
             .into_leaf()
             .unwrap();
         let mut cmd = background_command("true");
-        cgroup.setup_command(&mut cmd).unwrap();
+        cgroup.setup_command(&mut cmd);
         let res = cmd.status();
         drop(cgroup);
 
@@ -509,7 +508,7 @@ mod tests {
         };
 
         let mut cmd = background_command("true");
-        cgroup.setup_command(&mut cmd).unwrap();
+        cgroup.setup_command(&mut cmd);
 
         drop(cgroup);
 

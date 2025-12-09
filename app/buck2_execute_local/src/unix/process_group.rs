@@ -50,7 +50,7 @@ impl ProcessCommandImpl {
 
         let cgroup = if let Some(cgroup) = cgroup {
             let cgroup = CgroupMinimal::try_from_path(cgroup.clone())?.into_leaf()?;
-            cgroup.setup_command(&mut cmd)?;
+            cgroup.setup_command(&mut cmd);
             Some(cgroup)
         } else {
             None
