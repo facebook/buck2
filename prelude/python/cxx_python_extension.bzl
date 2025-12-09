@@ -181,7 +181,7 @@ def cxx_python_extension_impl(ctx: AnalysisContext) -> list[Provider]:
         sub_targets = sub_targets,
     ))
 
-    cxx_deps = [dep for dep in cxx_attr_deps(ctx)]
+    cxx_deps = cxx_attr_deps(ctx)
 
     extension_artifacts = {}
     python_module_names = {}
