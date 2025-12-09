@@ -50,7 +50,7 @@ def srcs_filegroup_arg():
             doc = """
     Directory of sources already combined together from `srcs` + `mapped_srcs`.
     This allows sources to be located in a different Buck package than the one
-    containing the rust_library target which copmiles those sources.
+    containing the rust_library target which compiles those sources.
 
     When using `srcs_filegroup`, the attributes `srcs` and `mapped_srcs` cannot
     also be passed, and `crate_root` must be passed.
