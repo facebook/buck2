@@ -37,6 +37,20 @@ enum CgroupError {
     },
 }
 
+/// Resource constraints inherited from ancestor cgroups in the hierarchy.
+///
+/// For the various resource constraints that can be imposed on a cgroup, this struct represents the
+/// effective limit that a particular cgroup sees from the combination of its parents in aggregate.
+///
+/// Note that in containerized environments, we may not be able to see the limits imposed on us.
+#[derive(Debug, Clone, Copy, Default)]
+pub(crate) struct EffectiveResourceConstraints {
+    pub memory_max: Option<u64>,
+    pub memory_high: Option<u64>,
+    pub memory_swap_max: Option<u64>,
+    pub memory_swap_high: Option<u64>,
+}
+
 /// A list of enabled controllers.
 ///
 /// Each one is formatted as `+controller`, as that's a bit easier to use in practice.
@@ -131,6 +145,52 @@ impl<M: MemoryMonitoring, K: CgroupKind> Cgroup<M, K> {
             }
         })?;
         Ok(())
+    }
+
+    fn read_resource_constraints(&self) -> buck2_error::Result<EffectiveResourceConstraints> {
+        let memory_high =
+            CgroupFile::open(&self.dir, FileName::unchecked_new("memory.high"), false)?
+                .read_max_or_int()?;
+        let memory_max = CgroupFile::open(&self.dir, FileName::unchecked_new("memory.max"), false)?
+            .read_max_or_int()?;
+        let memory_swap_high = CgroupFile::open(
+            &self.dir,
+            FileName::unchecked_new("memory.swap.high"),
+            false,
+        )?
+        .read_max_or_int()?;
+        let memory_swap_max =
+            CgroupFile::open(&self.dir, FileName::unchecked_new("memory.swap.max"), false)?
+                .read_max_or_int()?;
+        Ok(EffectiveResourceConstraints {
+            memory_high,
+            memory_max,
+            memory_swap_high,
+            memory_swap_max,
+        })
+    }
+
+    pub(crate) fn read_effective_resouce_constraints(
+        &self,
+    ) -> buck2_error::Result<EffectiveResourceConstraints> {
+        let Some(parent_path) = self.path.parent() else {
+            // The root cgroup doesn't have memory restrictions (the files don't even exist)
+            return Ok(EffectiveResourceConstraints::default());
+        };
+        let parent = CgroupMinimal::try_from_path(parent_path.to_buf())?
+            .read_effective_resouce_constraints()?;
+        let me = self.read_resource_constraints()?;
+
+        fn min_options(a: Option<u64>, b: Option<u64>) -> Option<u64> {
+            a.into_iter().chain(b).reduce(std::cmp::min)
+        }
+
+        Ok(EffectiveResourceConstraints {
+            memory_max: min_options(parent.memory_max, me.memory_max),
+            memory_high: min_options(parent.memory_high, me.memory_high),
+            memory_swap_max: min_options(parent.memory_swap_max, me.memory_swap_max),
+            memory_swap_high: min_options(parent.memory_swap_high, me.memory_swap_high),
+        })
     }
 }
 
@@ -378,6 +438,7 @@ mod tests {
     use buck2_util::process::background_command;
 
     use crate::cgroup::Cgroup;
+    use crate::cgroup_files::CgroupFile;
 
     #[test]
     fn self_test_harness() {
@@ -422,5 +483,52 @@ mod tests {
             fs_util::read_to_string(leaf.path().as_abs_path().join("cgroup.controllers")).unwrap();
         assert!(enabled.contains("memory"));
         assert!(enabled.contains("cpu"));
+    }
+
+    #[test]
+    fn test_reading_effective_cgroup_constraints() {
+        let Some(cgroup) = Cgroup::create_internal_for_test() else {
+            return;
+        };
+
+        fn pages(b: u64) -> String {
+            (b * 4096).to_string()
+        }
+
+        let subg1 = cgroup
+            .make_internal_child(FileName::unchecked_new("subg1"))
+            .unwrap();
+        CgroupFile::open(&subg1.dir, FileName::unchecked_new("memory.high"), true)
+            .unwrap()
+            .write(pages(1000).as_bytes())
+            .unwrap();
+        CgroupFile::open(&subg1.dir, FileName::unchecked_new("memory.max"), true)
+            .unwrap()
+            .write(pages(1000).as_bytes())
+            .unwrap();
+
+        let subg2 = subg1
+            .make_internal_child(FileName::unchecked_new("subg2"))
+            .unwrap();
+        CgroupFile::open(&subg2.dir, FileName::unchecked_new("memory.high"), true)
+            .unwrap()
+            .write(pages(500).as_bytes())
+            .unwrap();
+
+        let constraints = subg2.read_effective_resouce_constraints().unwrap();
+        assert_eq!(constraints.memory_high, Some(500 * 4096));
+        assert_eq!(constraints.memory_max, Some(1000 * 4096));
+
+        // Depending on where this test runs, these might be non-zero and we can't really do much
+        // about that, so just do our best
+        let base_constraints = cgroup.read_effective_resouce_constraints().unwrap();
+        assert_eq!(
+            constraints.memory_swap_high,
+            base_constraints.memory_swap_high
+        );
+        assert_eq!(
+            constraints.memory_swap_max,
+            base_constraints.memory_swap_max
+        );
     }
 }

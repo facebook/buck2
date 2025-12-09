@@ -19,12 +19,12 @@ use tokio::sync::mpsc;
 
 use crate::CommandType;
 use crate::action_cgroups::ActionCgroup;
-use crate::action_cgroups::AncestorCgroupConstraints;
+use crate::cgroup::EffectiveResourceConstraints;
 use crate::memory_tracker::MemoryReading;
 
 pub(crate) struct EventSenderState {
     metadata: HashMap<String, String>,
-    ancestor_cgroup_constraints: Option<AncestorCgroupConstraints>,
+    effective_resource_constraints: EffectiveResourceConstraints,
     memory_reading: MemoryReading,
     last_scheduled_event_time: Option<Instant>,
     txs: Vec<mpsc::UnboundedSender<ResourceControlEventMostly>>,
@@ -33,11 +33,11 @@ pub(crate) struct EventSenderState {
 impl EventSenderState {
     pub(crate) fn new(
         daemon_id: &DaemonId,
-        ancestor_cgroup_constraints: Option<AncestorCgroupConstraints>,
+        effective_resource_constraints: EffectiveResourceConstraints,
     ) -> Self {
         Self {
             metadata: buck2_events::metadata::collect(daemon_id),
-            ancestor_cgroup_constraints,
+            effective_resource_constraints,
             last_scheduled_event_time: None,
             memory_reading: MemoryReading {
                 buck2_slice_memory_current: 0,
@@ -103,7 +103,7 @@ impl EventSenderState {
         ResourceControlEventMostly {
             event_time: SystemTime::now(),
             metadata: self.metadata.clone(),
-            ancestor_cgroup_constraints: self.ancestor_cgroup_constraints,
+            effective_resource_constraints: self.effective_resource_constraints,
             kind,
 
             memory_reading: self.memory_reading,
@@ -124,7 +124,7 @@ impl EventSenderState {
 pub(crate) struct ResourceControlEventMostly {
     event_time: SystemTime,
     metadata: HashMap<String, String>,
-    ancestor_cgroup_constraints: Option<AncestorCgroupConstraints>,
+    effective_resource_constraints: EffectiveResourceConstraints,
     kind: buck2_data::ResourceControlEventKind,
 
     memory_reading: MemoryReading,
@@ -167,14 +167,12 @@ impl ResourceControlEventMostly {
 
             metadata: self.metadata,
 
-            ancestor_cgroup_constraints: self.ancestor_cgroup_constraints.as_ref().map(
-                |constraints| buck2_data::AncestorCgroupConstraints {
-                    memory_max: constraints.memory_max,
-                    memory_high: constraints.memory_high,
-                    memory_swap_max: constraints.memory_swap_max,
-                    memory_swap_high: constraints.memory_swap_high,
-                },
-            ),
+            ancestor_cgroup_constraints: Some(buck2_data::AncestorCgroupConstraints {
+                memory_max: self.effective_resource_constraints.memory_max,
+                memory_high: self.effective_resource_constraints.memory_high,
+                memory_swap_max: self.effective_resource_constraints.memory_swap_max,
+                memory_swap_high: self.effective_resource_constraints.memory_swap_high,
+            }),
         }
     }
 }

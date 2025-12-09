@@ -13,6 +13,7 @@ use std::os::fd::OwnedFd;
 
 use buck2_error::BuckErrorContext;
 use buck2_fs::paths::file_name::FileName;
+use buck2_fs::paths::file_name::FileNameBuf;
 use nix::fcntl::OFlag;
 use nix::sys::stat::Mode;
 
@@ -21,10 +22,14 @@ use nix::sys::stat::Mode;
 enum CgroupFileError {
     #[error("File size doesn't fit in off_t: {0}")]
     FileTooBig(std::num::TryFromIntError),
+    #[error("{0} contents could not fit into 31 bytes: {1}")]
+    FileTooLong(FileNameBuf, String),
+    #[error("Unexpected format for {0}: {1}")]
+    UnexpectedFormat(FileNameBuf, String),
 }
 
 /// Represents an open handle to one of the standard kernel-supplied files in the cgroup
-pub(crate) struct CgroupFile(File);
+pub(crate) struct CgroupFile(File, FileNameBuf);
 
 impl CgroupFile {
     pub(crate) fn open(d: &OwnedFd, name: &FileName, write: bool) -> buck2_error::Result<Self> {
@@ -41,7 +46,7 @@ impl CgroupFile {
             Mode::empty(),
         )
         .with_buck_error_context(|| format!("Failed to open cgroup file {}", name))?;
-        Ok(CgroupFile(file.into()))
+        Ok(CgroupFile(file.into(), name.to_owned()))
     }
 
     /// Write the given buffer to the file
@@ -66,6 +71,33 @@ impl CgroupFile {
         }
 
         Ok(())
+    }
+
+    /// Reads files of length at most 31 bytes
+    ///
+    /// Semantically like `read_to_buf` but avoids a heap allocation
+    fn read_to_short_buf(&self) -> buck2_error::Result<([u8; 32], usize)> {
+        let mut data = [0u8; 32];
+        let mut filled = 0;
+        loop {
+            if filled == data.len() {
+                return Err(CgroupFileError::FileTooLong(
+                    self.1.clone(),
+                    String::from_utf8_lossy(&data).to_string(),
+                )
+                .into());
+            }
+
+            let buf = &mut data[filled..];
+            let filled_trunc: nix::libc::off_t =
+                filled.try_into().map_err(CgroupFileError::FileTooBig)?;
+            let read = nix::sys::uio::pread(&self.0, buf, filled_trunc)?;
+            if read == 0 {
+                break;
+            }
+            filled += read;
+        }
+        Ok((data, filled))
     }
 
     fn read_to_buf(&self) -> buck2_error::Result<Vec<u8>> {
@@ -97,6 +129,28 @@ impl CgroupFile {
     // FIXME(JakobDegen): Ought probably to have some types to represent the files
     pub(crate) fn read_memory_stat(&self) -> buck2_error::Result<MemoryStat> {
         MemoryStat::parse(&self.read_to_string()?).buck_error_context("Failed to parse memory.stat")
+    }
+
+    pub(crate) fn read_max_or_int(&self) -> buck2_error::Result<Option<u64>> {
+        let (data, filled) = self.read_to_short_buf()?;
+        let data = &data[..filled];
+        std::str::from_utf8(data)
+            .ok()
+            .map(|d| d.trim_end())
+            .and_then(|d| {
+                if d == "max" {
+                    Some(None)
+                } else {
+                    d.parse::<u64>().ok().map(Some)
+                }
+            })
+            .ok_or_else(|| {
+                CgroupFileError::UnexpectedFormat(
+                    self.1.clone(),
+                    String::from_utf8_lossy(&data).to_string(),
+                )
+                .into()
+            })
     }
 }
 

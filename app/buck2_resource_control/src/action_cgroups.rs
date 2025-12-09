@@ -28,7 +28,7 @@ use crate::ActionFreezeEvent;
 use crate::CommandType;
 use crate::KillFuture;
 use crate::RetryFuture;
-use crate::cgroup_info::CGroupInfo;
+use crate::cgroup::EffectiveResourceConstraints;
 use crate::event::EventSenderState;
 use crate::event::ResourceControlEventMostly;
 use crate::memory_tracker::MemoryPressureState;
@@ -40,62 +40,6 @@ use crate::path::CgroupPath;
 use crate::path::CgroupPathBuf;
 use crate::pool::CgroupID;
 use crate::pool::CgroupPool;
-use crate::systemd::CgroupMemoryFile;
-
-/// Memory constraints inherited from ancestor cgroups in the hierarchy.
-///
-/// When Buck2 operates within a systemd slice or cgroup hierarchy, ancestor cgroups
-/// may impose memory limits that affect buck2 processes. This struct captures those
-/// constraints by traversing up the cgroup tree to find the nearest non-"max" values.
-/// None means that no ancestor cgroup has set a memory limit.
-///
-/// These constraints are particularly important for:
-/// - Understanding the actual resource bounds available to Buck2 processes
-/// - Respecting system-level resource policies set by administrators or orchestrators
-/// - Most effective in non-container environments, note that in container environments, processes often cannot see memory limits
-#[derive(Debug, Clone, Copy, Default)]
-pub(crate) struct AncestorCgroupConstraints {
-    pub memory_max: Option<u64>,
-    pub memory_high: Option<u64>,
-    pub memory_swap_max: Option<u64>,
-    pub memory_swap_high: Option<u64>,
-}
-
-impl AncestorCgroupConstraints {
-    pub(crate) async fn new() -> buck2_error::Result<Option<Self>> {
-        let cgroup_info = CGroupInfo::read()?;
-        if let Some(slice_path) = cgroup_info.get_slice() {
-            let mut constraints = Self::default();
-            let memory_fields = [
-                (CgroupMemoryFile::MemoryMax, &mut constraints.memory_max),
-                (CgroupMemoryFile::MemoryHigh, &mut constraints.memory_high),
-                (
-                    CgroupMemoryFile::MemorySwapMax,
-                    &mut constraints.memory_swap_max,
-                ),
-                (
-                    CgroupMemoryFile::MemorySwapHigh,
-                    &mut constraints.memory_swap_high,
-                ),
-            ];
-
-            for (memory_file, constraint_field) in memory_fields {
-                if let Some(memory_limit) = memory_file
-                    .find_ancestor_memory_limit_async(slice_path.as_path())
-                    .await?
-                {
-                    *constraint_field = Some(memory_limit.parse::<u64>()?);
-                }
-            }
-
-            tracing::trace!("Ancestor cgroup constraints: {constraints:?}");
-
-            Ok(Some(constraints))
-        } else {
-            Ok(None)
-        }
-    }
-}
 
 #[derive(Debug, Clone)]
 pub struct ActionCgroupResult {
@@ -293,16 +237,15 @@ impl ActionCgroups {
     pub(crate) async fn init(
         resource_control_config: &ResourceControlConfig,
         daemon_id: &DaemonId,
+        effective_resource_constraints: EffectiveResourceConstraints,
         cgroup_pool: CgroupPool,
     ) -> buck2_error::Result<Self> {
         let enable_suspension = resource_control_config.enable_suspension;
 
-        let ancestor_cgroup_constraints = AncestorCgroupConstraints::new().await?;
-
         Ok(Self::new(
             enable_suspension,
             resource_control_config.preferred_action_suspend_strategy,
-            ancestor_cgroup_constraints,
+            effective_resource_constraints,
             daemon_id,
             cgroup_pool,
         ))
@@ -311,7 +254,7 @@ impl ActionCgroups {
     pub(crate) fn new(
         enable_suspension: bool,
         preferred_action_suspend_strategy: ActionSuspendStrategy,
-        ancestor_cgroup_constraints: Option<AncestorCgroupConstraints>,
+        effective_resource_constraints: EffectiveResourceConstraints,
         daemon_id: &DaemonId,
         cgroup_pool: CgroupPool,
     ) -> Self {
@@ -323,7 +266,7 @@ impl ActionCgroups {
             last_correction_time: None,
             last_memory_pressure_state: MemoryPressureState::BelowPressureLimit,
             total_memory_during_last_suspend: None,
-            event_sender_state: EventSenderState::new(daemon_id, ancestor_cgroup_constraints),
+            event_sender_state: EventSenderState::new(daemon_id, effective_resource_constraints),
             cgroup_pool,
         }
     }
@@ -333,7 +276,7 @@ impl ActionCgroups {
         Some(Self::new(
             true,
             ActionSuspendStrategy::KillAndRetry,
-            None,
+            EffectiveResourceConstraints::default(),
             &DaemonId::new(),
             CgroupPool::testing_new()?,
         ))

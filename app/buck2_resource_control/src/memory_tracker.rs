@@ -231,8 +231,16 @@ pub async fn create_memory_tracker(
         cgroup_tree.forkserver_and_actions(),
         &resource_control_config,
     )?;
-    let action_cgroups =
-        ActionCgroups::init(resource_control_config, daemon_id, cgroup_pool).await?;
+    let effective_resource_constraints = cgroup_tree
+        .allprocs()
+        .read_effective_resouce_constraints()?;
+    let action_cgroups = ActionCgroups::init(
+        resource_control_config,
+        daemon_id,
+        effective_resource_constraints,
+        cgroup_pool,
+    )
+    .await?;
     let handle = MemoryTrackerHandleInner::new(action_cgroups);
     const MAX_RETRIES: u32 = 5;
     let memory_tracker = MemoryTracker::new(
