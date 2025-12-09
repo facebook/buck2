@@ -9,19 +9,16 @@
  */
 
 use buck2_fs::paths::file_name::FileName;
-use dupe::Dupe;
 
 use crate::cgroup::CgroupInternal;
 use crate::cgroup::CgroupLeaf;
 use crate::cgroup::CgroupMinimal;
-use crate::cgroup::EnabledControllers;
 use crate::cgroup_info::CGroupInfo;
 
 /// Type that represents the daemon's view of the cgroups it manages
 ///
 /// Only in use with the action cgroup pool.
 pub struct BuckCgroupTree {
-    pub(crate) enabled_controllers: EnabledControllers,
     allprocs: CgroupInternal,
     forkserver_and_actions: CgroupInternal,
     forkserver: CgroupLeaf,
@@ -41,30 +38,26 @@ impl BuckCgroupTree {
 
         let enabled_controllers = root_cgroup.read_enabled_controllers()?;
 
-        let daemon_cgroup =
-            CgroupMinimal::new(root_cgroup.path(), FileName::unchecked_new("daemon").into())?
-                .into_leaf()?;
+        // This has to be done in a way that's a bit awkward, since we need to first create a child
+        // cgroup to move ourselves into, move ourselves, and only then enable subtree control on
+        // the parent
+        let daemon_cgroup = root_cgroup
+            .discouraged_make_child(FileName::unchecked_new("daemon"))?
+            .into_leaf()?;
         daemon_cgroup.add_process(std::process::id())?;
         let root_cgroup = root_cgroup
-            .into_internal(enabled_controllers.dupe())?
+            .enable_subtree_control_and_into_internal(enabled_controllers)?
             .enable_memory_monitoring()?;
 
-        let forkserver_and_actions = CgroupMinimal::new(
-            root_cgroup.path(),
-            FileName::unchecked_new("forkserver_and_actions").into(),
-        )?
-        .into_internal(enabled_controllers.dupe())?
-        .enable_memory_monitoring()?;
+        let forkserver_and_actions = root_cgroup
+            .make_internal_child(FileName::unchecked_new("forkserver_and_actions"))?
+            .enable_memory_monitoring()?;
 
-        let forkserver = CgroupMinimal::new(
-            forkserver_and_actions.path(),
-            FileName::unchecked_new("forkserver").into(),
-        )?
-        .into_leaf()?
-        .enable_memory_monitoring()?;
+        let forkserver = forkserver_and_actions
+            .make_leaf_child(FileName::unchecked_new("forkserver").into())?
+            .enable_memory_monitoring()?;
 
         Ok(Self {
-            enabled_controllers,
             allprocs: root_cgroup,
             forkserver_and_actions,
             forkserver,

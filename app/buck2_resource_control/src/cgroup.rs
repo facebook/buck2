@@ -30,11 +30,6 @@ use crate::path::CgroupPathBuf;
 enum CgroupError {
     #[error("{msg} IO error: {io_err}")]
     Io { msg: String, io_err: std::io::Error },
-    #[error("Failed to create cgroup: {cgroup_path}, because of error {io_err}")]
-    CreationFailed {
-        cgroup_path: String,
-        io_err: std::io::Error,
-    },
     #[error("Failed to configure cgroup at {path}, because of error {io_err}")]
     ConfigurationFailed {
         path: String,
@@ -66,7 +61,9 @@ impl MemoryMonitoring for WithMemoryMonitoring {}
 /// cannot contain processes, and leaf cgroups, for which the opposite is the case.
 pub trait CgroupKind {}
 
-pub struct CgroupKindInternal {}
+pub struct CgroupKindInternal {
+    controllers: EnabledControllers,
+}
 
 impl CgroupKind for CgroupKindInternal {}
 
@@ -138,16 +135,6 @@ impl<M: MemoryMonitoring, K: CgroupKind> Cgroup<M, K> {
 }
 
 impl Cgroup<NoMemoryMonitoring, CgroupKindUndecided> {
-    pub fn new(root_path: &CgroupPath, name: &FileName) -> buck2_error::Result<Self> {
-        let path = root_path.join(name.into());
-        fs::create_dir_all(path.as_path()).map_err(|e| CgroupError::CreationFailed {
-            cgroup_path: path.to_string_lossy().to_string(),
-            io_err: e,
-        })?;
-
-        Self::try_from_path(path)
-    }
-
     pub fn try_from_path(path: CgroupPathBuf) -> buck2_error::Result<Self> {
         let dir = nix::fcntl::open(
             path.as_path(),
@@ -169,6 +156,7 @@ impl Cgroup<NoMemoryMonitoring, CgroupKindUndecided> {
         Ok(cgroup)
     }
 
+    /// Treat this cgroup as a leaf cgroup
     pub fn into_leaf(self) -> buck2_error::Result<Cgroup<NoMemoryMonitoring, CgroupKindLeaf>> {
         Ok(Cgroup {
             kind: CgroupKindLeaf {
@@ -184,7 +172,8 @@ impl Cgroup<NoMemoryMonitoring, CgroupKindUndecided> {
         })
     }
 
-    pub(crate) fn into_internal(
+    /// Enable subtree controllers on this cgroup as specified and convert to an internal cgroup
+    pub(crate) fn enable_subtree_control_and_into_internal(
         self,
         enabled_controllers: EnabledControllers,
     ) -> buck2_error::Result<Cgroup<NoMemoryMonitoring, CgroupKindInternal>> {
@@ -201,7 +190,9 @@ impl Cgroup<NoMemoryMonitoring, CgroupKindUndecided> {
             dir: self.dir,
             path: self.path,
             memory: self.memory,
-            kind: CgroupKindInternal {},
+            kind: CgroupKindInternal {
+                controllers: enabled_controllers,
+            },
         })
     }
 }
@@ -251,8 +242,54 @@ impl<M: MemoryMonitoring> Cgroup<M, CgroupKindLeaf> {
     }
 }
 
+impl<M: MemoryMonitoring, K: CgroupKind> Cgroup<M, K> {
+    /// Make a child cgroup
+    ///
+    /// Use strongly discouraged; almost always use `make_internal_child` or `make_leaf_child` instead
+    pub(crate) fn discouraged_make_child(
+        &self,
+        child: &FileName,
+    ) -> buck2_error::Result<CgroupMinimal> {
+        nix::sys::stat::mkdirat(&self.dir, child.as_str(), Mode::all())?;
+
+        let fd = nix::fcntl::openat(
+            &self.dir,
+            child.as_str(),
+            OFlag::O_CLOEXEC | OFlag::O_DIRECTORY,
+            Mode::empty(),
+        )?;
+
+        Ok(CgroupMinimal {
+            dir: fd,
+            path: self.path.join(child.as_forward_rel_path()),
+            memory: NoMemoryMonitoring,
+            kind: CgroupKindUndecided,
+        })
+    }
+}
+
+impl<M: MemoryMonitoring> Cgroup<M, CgroupKindInternal> {
+    pub(crate) fn make_internal_child(
+        &self,
+        child: &FileName,
+    ) -> buck2_error::Result<Cgroup<NoMemoryMonitoring, CgroupKindInternal>> {
+        let c = self.discouraged_make_child(child)?;
+        c.enable_subtree_control_and_into_internal(self.kind.controllers.dupe())
+    }
+
+    pub(crate) fn make_leaf_child(
+        &self,
+        child: &FileName,
+    ) -> buck2_error::Result<Cgroup<NoMemoryMonitoring, CgroupKindLeaf>> {
+        let c = self.discouraged_make_child(child)?;
+        c.into_leaf()
+    }
+}
+
 impl<K: CgroupKind> Cgroup<NoMemoryMonitoring, K> {
-    pub fn enable_memory_monitoring(self) -> buck2_error::Result<Cgroup<WithMemoryMonitoring, K>> {
+    pub(crate) fn enable_memory_monitoring(
+        self,
+    ) -> buck2_error::Result<Cgroup<WithMemoryMonitoring, K>> {
         Ok(Cgroup {
             memory: WithMemoryMonitoring {
                 memory_stat: CgroupFile::open(
@@ -360,8 +397,12 @@ mod tests {
             return;
         };
         let controllers = cgroup.read_enabled_controllers().unwrap();
-        let cgroup = cgroup.into_internal(controllers).unwrap();
-        let leaf = CgroupMinimal::new(cgroup.path(), FileName::unchecked_new("leaf")).unwrap();
+        let cgroup = cgroup
+            .enable_subtree_control_and_into_internal(controllers)
+            .unwrap();
+        let leaf = cgroup
+            .make_leaf_child(FileName::unchecked_new("leaf"))
+            .unwrap();
 
         let enabled =
             fs_util::read_to_string(leaf.path().as_abs_path().join("cgroup.controllers")).unwrap();

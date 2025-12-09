@@ -18,9 +18,6 @@ use index_vec::IndexVec;
 
 use crate::cgroup::CgroupInternal;
 use crate::cgroup::CgroupLeaf;
-use crate::cgroup::CgroupMinimal;
-use crate::cgroup::EnabledControllers;
-use crate::path::CgroupPath;
 use crate::path::CgroupPathBuf;
 
 index_vec::define_index_type! {
@@ -38,8 +35,6 @@ pub(crate) struct CgroupPool {
 }
 
 impl CgroupPool {
-    const POOL_NAME: &'static FileName = FileName::unchecked_new("actions_cgroup_pool");
-
     fn worker_name(id: CgroupID) -> FileNameBuf {
         let i = id.index();
         if i < 1000 {
@@ -53,8 +48,9 @@ impl CgroupPool {
     fn reserve_additional_cgroup(&mut self) -> buck2_error::Result<CgroupID> {
         let cgroup_id = self.cgroups.next_idx();
         let worker_name = Self::worker_name(cgroup_id);
-        let cgroup = CgroupMinimal::new(self.pool_cgroup.path(), &worker_name)?
-            .into_leaf()?
+        let cgroup = self
+            .pool_cgroup
+            .make_leaf_child(&worker_name)?
             .enable_memory_monitoring()?;
 
         // Set memory.high limit if provided
@@ -69,12 +65,11 @@ impl CgroupPool {
 
     /// Create a cgroup pool in the provided parent cgroup.
     pub(crate) fn create_in_parent_cgroup(
-        parent: &CgroupPath,
+        parent: &CgroupInternal,
         config: &ResourceControlConfig,
-        enabled_controllers: EnabledControllers,
     ) -> buck2_error::Result<Self> {
-        let pool_cgroup = CgroupMinimal::new(parent, CgroupPool::POOL_NAME)?
-            .into_internal(enabled_controllers)?
+        let pool_cgroup = parent
+            .make_internal_child(FileName::unchecked_new("actions_cgroup_pool"))?
             .enable_memory_monitoring()?;
 
         if let Some(pool_memory_high) = &config.memory_high_action_cgroup_pool {
@@ -91,10 +86,12 @@ impl CgroupPool {
 
     #[cfg(test)]
     pub(crate) fn testing_new() -> Option<Self> {
+        use crate::cgroup::CgroupMinimal;
+
         let pool_cgroup = CgroupMinimal::create_for_test()?;
         let controllers = pool_cgroup.read_enabled_controllers().unwrap();
         let pool_cgroup = pool_cgroup
-            .into_internal(controllers)
+            .enable_subtree_control_and_into_internal(controllers)
             .unwrap()
             .enable_memory_monitoring()
             .unwrap();
