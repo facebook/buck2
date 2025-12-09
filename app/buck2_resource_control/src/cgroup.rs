@@ -400,7 +400,63 @@ impl CgroupMinimal {
             .stdout;
         let path = String::from_utf8(path).unwrap();
         let path = CgroupPath::new(AbsNormPath::new(path.trim()).unwrap());
-        Some(Self::try_from_path(path.to_buf()).unwrap())
+
+        // Attempt to actually spawn a process into the cgroup, see below for why
+        let cgroup = Self::try_from_path(path.to_buf())
+            .unwrap()
+            .into_leaf()
+            .unwrap();
+        let mut cmd = background_command("true");
+        cgroup.setup_command(&mut cmd).unwrap();
+        let res = cmd.status();
+        drop(cgroup);
+
+        // At this point the one process in that cgroup is dead, so it's ok to treat it as a minimal
+        // one again
+        let cgroup = Self::try_from_path(path.to_buf()).unwrap();
+
+        match res {
+            Ok(_) => Some(cgroup),
+            Err(e) if e.kind() == std::io::ErrorKind::PermissionDenied => {
+                // The script above generates a cgroup for us to use by starting a new systemd user
+                // service. However, depending on the cgroup in which *this test* is running, we may
+                // not be able to spawn or move any processes into there. Practically, this actually
+                // depends on whether the buck that is running this test has resource control
+                // enabled, since that effects the cgroup this test runs in.
+                //
+                // In case where that's an issue, work around it by attempting to use sudo perms to
+                // move ourselves somewhere from where we can do what we need. This unfortunately
+                // means that attempting to run multiple tests like this in the same process won't
+                // work, but alas this is the best we can do
+                let controllers = cgroup.read_enabled_controllers().unwrap();
+                let parent = cgroup
+                    .enable_subtree_control_and_into_internal(controllers)
+                    .unwrap();
+                let leaf = parent
+                    .discouraged_make_child(FileName::unchecked_new("_buck_leaf"))
+                    .unwrap();
+                // Move ourselves into the cgroup we just created
+                let cmd = format!(
+                    "echo {} | sudo tee {}/cgroup.procs",
+                    std::process::id(),
+                    leaf.path(),
+                );
+                assert!(
+                    background_command("bash")
+                        .arg("-c")
+                        .arg(cmd)
+                        .status()
+                        .unwrap()
+                        .success()
+                );
+                Some(
+                    parent
+                        .discouraged_make_child(FileName::unchecked_new("test_group"))
+                        .unwrap(),
+                )
+            }
+            Err(e) => panic!("Failed to open cgroup.procs: {e:?}"),
+        }
     }
 }
 
