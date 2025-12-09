@@ -231,9 +231,7 @@ pub async fn create_memory_tracker(
         cgroup_tree.forkserver_and_actions(),
         &resource_control_config,
     )?;
-    let effective_resource_constraints = cgroup_tree
-        .allprocs()
-        .read_effective_resouce_constraints()?;
+    let effective_resource_constraints = *cgroup_tree.effective_resource_constraints();
     let action_cgroups = ActionCgroups::init(
         resource_control_config,
         daemon_id,

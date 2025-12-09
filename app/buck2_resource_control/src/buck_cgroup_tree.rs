@@ -13,6 +13,7 @@ use buck2_fs::paths::file_name::FileName;
 use crate::cgroup::CgroupInternal;
 use crate::cgroup::CgroupLeaf;
 use crate::cgroup::CgroupMinimal;
+use crate::cgroup::EffectiveResourceConstraints;
 use crate::cgroup_info::CGroupInfo;
 
 /// Type that represents the daemon's view of the cgroups it manages
@@ -22,6 +23,10 @@ pub struct BuckCgroupTree {
     allprocs: CgroupInternal,
     forkserver_and_actions: CgroupInternal,
     forkserver: CgroupLeaf,
+    /// The resource constraints imposed by the ancestors of the buck cgroup tree
+    ///
+    /// This does not reflect any of our own configuration
+    effective_resource_constraints: EffectiveResourceConstraints,
 }
 
 impl BuckCgroupTree {
@@ -57,10 +62,13 @@ impl BuckCgroupTree {
             .make_leaf_child(FileName::unchecked_new("forkserver").into())?
             .enable_memory_monitoring()?;
 
+        let effective_resource_constraints = root_cgroup.read_effective_resouce_constraints()?;
+
         Ok(Self {
             allprocs: root_cgroup,
             forkserver_and_actions,
             forkserver,
+            effective_resource_constraints,
         })
     }
 
@@ -75,5 +83,9 @@ impl BuckCgroupTree {
     /// The parent cgroup that contains all other cgroups buck manages as descendants
     pub fn allprocs(&self) -> &CgroupInternal {
         &self.allprocs
+    }
+
+    pub(crate) fn effective_resource_constraints(&self) -> &EffectiveResourceConstraints {
+        &self.effective_resource_constraints
     }
 }
