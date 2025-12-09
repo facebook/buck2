@@ -13,7 +13,6 @@ use std::time::Duration;
 
 use allocative::Allocative;
 use buck2_common::init::ResourceControlConfig;
-use buck2_core::soft_error;
 use buck2_error::BuckErrorContext;
 use buck2_error::internal_error;
 use buck2_events::daemon_id::DaemonId;
@@ -34,13 +33,6 @@ use crate::buck_cgroup_tree::BuckCgroupTree;
 use crate::cgroup_info::CGroupInfo;
 use crate::path::CgroupPathBuf;
 use crate::pool::CgroupPool;
-
-#[derive(Allocative, Copy, Clone, Debug, PartialEq)]
-pub enum TrackedMemoryState {
-    Uninitialized,
-    Failure,
-    Reading(MemoryStates),
-}
 
 #[derive(Allocative, Copy, Clone, Debug, PartialEq)]
 pub enum MemoryPressureState {
@@ -69,41 +61,6 @@ pub struct MemoryReading {
     pub daemon_memory_current: u64,
     /// Contains value from `memory.swap.current` file for daemon cgroup.
     pub daemon_memory_swap_current: u64,
-}
-
-#[derive(Allocative)]
-struct BackoffData {
-    tick_counter: u32,
-    ticks_per_retry: u32,
-    retry_counter: u32,
-    max_retries: u32,
-}
-
-impl BackoffData {
-    fn new(max_retries: u32) -> Self {
-        Self {
-            tick_counter: 0,
-            ticks_per_retry: 1,
-            retry_counter: 0,
-            max_retries,
-        }
-    }
-
-    fn should_skip_tick(&mut self) -> bool {
-        self.tick_counter += 1;
-        self.tick_counter < self.ticks_per_retry
-    }
-
-    fn next_retry(&mut self) {
-        self.tick_counter = 0;
-        // Exponential
-        self.ticks_per_retry *= 2;
-        self.retry_counter += 1;
-    }
-
-    fn exceeded_retry_attempts(&self) -> bool {
-        self.retry_counter >= self.max_retries
-    }
 }
 
 pub type MemoryTrackerHandle = Arc<MemoryTrackerHandleInner>;
@@ -144,7 +101,6 @@ pub struct MemoryTracker {
 
     #[allocative(skip)]
     handle: MemoryTrackerHandle,
-    max_retries: u32,
     memory_pressure_threshold: u64,
 }
 
@@ -240,7 +196,6 @@ pub async fn create_memory_tracker(
     )
     .await?;
     let handle = MemoryTrackerHandleInner::new(action_cgroups);
-    const MAX_RETRIES: u32 = 5;
     let memory_tracker = MemoryTracker::new(
         handle,
         open_buck2_cgroup_memory_file(FileName::unchecked_new("memory.current")).await?,
@@ -248,7 +203,6 @@ pub async fn create_memory_tracker(
         open_buck2_cgroup_memory_file(FileName::unchecked_new("memory.pressure")).await?,
         open_daemon_memory_file(FileName::unchecked_new("memory.current")).await?,
         open_daemon_memory_file(FileName::unchecked_new("memory.swap.current")).await?,
-        MAX_RETRIES,
         resource_control_config.memory_pressure_threshold_percent,
     );
     let tracker_handle = memory_tracker.handle.dupe();
@@ -256,6 +210,7 @@ pub async fn create_memory_tracker(
     memory_tracker.spawn(TICK_DURATION).await?;
     Ok(Some(tracker_handle))
 }
+
 impl MemoryTracker {
     fn new(
         handle: MemoryTrackerHandleInner,
@@ -264,7 +219,6 @@ impl MemoryTracker {
         buck2_slice_memory_pressure: File,
         daemon_memory_current: File,
         daemon_memory_swap_current: File,
-        max_retries: u32,
         memory_pressure_threshold: u64,
     ) -> Self {
         Self {
@@ -274,7 +228,6 @@ impl MemoryTracker {
             buck2_slice_memory_pressure,
             daemon_memory_current,
             daemon_memory_swap_current,
-            max_retries,
             memory_pressure_threshold,
         }
     }
@@ -294,16 +247,8 @@ impl MemoryTracker {
     async fn run(mut self, duration: Duration) {
         let mut timer = tokio::time::interval(duration);
         timer.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
-        let mut backoff_data: Option<BackoffData> = None;
         loop {
             timer.tick().await;
-            // We might need to wait for extra ticks due to backoff
-            if backoff_data
-                .as_mut()
-                .is_some_and(|backoff| backoff.should_skip_tick())
-            {
-                continue;
-            }
 
             // Manual destructuring to allow parallel reads of different files
             let MemoryTracker {
@@ -314,72 +259,41 @@ impl MemoryTracker {
                 ref mut daemon_memory_swap_current,
                 ref handle,
                 memory_pressure_threshold,
-                ..
             } = self;
 
-            let state = match tokio::try_join!(
+            if let Ok((
+                buck2_slice_memory_current,
+                buck2_slice_memory_swap_current,
+                buck2_slice_avg_mem_pressure,
+                daemon_memory_current,
+                daemon_memory_swap_current,
+            )) = tokio::try_join!(
                 read_memory_current(buck2_slice_memory_current),
                 read_memory_swap_current(buck2_slice_memory_swap_current),
                 read_some_memory_pressure_avg10(buck2_slice_memory_pressure),
                 read_memory_current(daemon_memory_current),
                 read_memory_swap_current(daemon_memory_swap_current),
             ) {
-                Ok((
+                let pressure_percent = buck2_slice_avg_mem_pressure.round() as u64;
+                let memory_pressure_state = if pressure_percent < memory_pressure_threshold {
+                    MemoryPressureState::BelowPressureLimit
+                } else {
+                    MemoryPressureState::AbovePressureLimit
+                };
+
+                let memory_reading = MemoryReading {
                     buck2_slice_memory_current,
                     buck2_slice_memory_swap_current,
-                    buck2_slice_avg_mem_pressure,
+                    buck2_slice_memory_pressure: pressure_percent,
                     daemon_memory_current,
                     daemon_memory_swap_current,
-                )) => {
-                    let pressure_percent = buck2_slice_avg_mem_pressure.round() as u64;
-                    let memory_pressure_state = if pressure_percent < memory_pressure_threshold {
-                        MemoryPressureState::BelowPressureLimit
-                    } else {
-                        MemoryPressureState::AbovePressureLimit
-                    };
+                };
 
-                    let memory_reading = MemoryReading {
-                        buck2_slice_memory_current,
-                        buck2_slice_memory_swap_current,
-                        buck2_slice_memory_pressure: pressure_percent,
-                        daemon_memory_current,
-                        daemon_memory_swap_current,
-                    };
-
-                    let mut action_cgroups = handle.action_cgroups.as_ref().lock().await;
-                    action_cgroups
-                        .update(memory_pressure_state, &memory_reading)
-                        .await;
-
-                    TrackedMemoryState::Reading(MemoryStates {
-                        memory_pressure_state,
-                    })
-                }
-                _ => TrackedMemoryState::Failure,
+                let mut action_cgroups = handle.action_cgroups.as_ref().lock().await;
+                action_cgroups
+                    .update(memory_pressure_state, &memory_reading)
+                    .await;
             };
-
-            match state {
-                TrackedMemoryState::Failure => {
-                    if let Some(backoff) = backoff_data.as_mut() {
-                        backoff.next_retry()
-                    } else {
-                        _ = backoff_data.insert(BackoffData::new(self.max_retries))
-                    }
-                }
-                _ => _ = backoff_data.take(),
-            }
-
-            if let Some(ref backoff) = backoff_data
-                && backoff.exceeded_retry_attempts()
-            {
-                let _unused = soft_error!(
-                    "memory_tracker_failed",
-                    internal_error!(
-                        "Consistently failed to track memory usage, stopping the tracker."
-                    ),
-                );
-                break;
-            }
         }
     }
 }
@@ -500,7 +414,6 @@ mod tests {
             buck2_slice_memory_pressure,
             daemon_memory_current,
             daemon_memory_swap,
-            0,
             10,
         );
 
@@ -602,7 +515,6 @@ mod tests {
             buck2_slice_memory_pressure,
             daemon_memory_current,
             daemon_memory_swap_current,
-            0,
             10,
         );
 
