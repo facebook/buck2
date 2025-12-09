@@ -185,7 +185,7 @@ struct SuspendedActionCgroup {
     cgroup: ActionCgroup,
     // None indicates that this action was never started
     suspend_start: Option<Instant>,
-    memory_current_when_suspended: u64,
+    memory_current_when_suspended: Option<u64>,
     wake_implementation: WakeImplementation,
 }
 
@@ -205,6 +205,16 @@ pub(crate) struct ActionCgroups {
     /// first action in the running list is guaranteed to never be suspended before it finishes.
     /// Without this kind of a guarantee, we risk creating a deadlock where no action ever finishes
     /// before it's killed and retried.
+    ///
+    /// The high-level structure of our scheduling algorithm is as follows: By default, we hold the
+    /// number of running actions constant, scheduling an additional one whenever another finishes.
+    /// We may then additionally take corrective actions in the form of increasing or decreasing the
+    /// running count when we detect that we're doing a poor job; either because we're not using our
+    /// resources well enough, or because we're creating contention. The details of when we do that
+    /// are found in code-below.
+    ///
+    /// Note that the total number of actions being managed here (ie the sum of the lengths of these
+    /// lists) is still hard capped by the local action parallelism limit (-j)
     running_cgroups: Vec<RunningActionCgroup>,
     suspended_cgroups: VecDeque<SuspendedActionCgroup>,
     last_suspend_time: Option<Instant>,
@@ -387,11 +397,7 @@ impl ActionCgroups {
         let start_future = RetryFuture(start_rx);
         let start_wake_implemenation = WakeImplementation::UnblockStart(start_tx);
 
-        if self.last_memory_pressure_state == MemoryPressureState::BelowPressureLimit {
-            // Start the command immediately
-            //
-            // FIXME(JakobDegen): If there is memory pressure we should block new commands from
-            // spawning
+        if self.suspended_cgroups.is_empty() {
             let running_action_cgroup = wake_cgroup(action_cgroup, start_wake_implemenation).0;
 
             self.running_cgroups.push(running_action_cgroup);
@@ -400,7 +406,7 @@ impl ActionCgroups {
             let suspended_action_cgroup = SuspendedActionCgroup {
                 cgroup: action_cgroup,
                 suspend_start: None,
-                memory_current_when_suspended: 0,
+                memory_current_when_suspended: None,
                 wake_implementation: start_wake_implemenation,
             };
             self.suspended_cgroups.push_back(suspended_action_cgroup);
@@ -416,6 +422,7 @@ impl ActionCgroups {
             .position(|cg| &*cg.cgroup.path == cgroup_path)
         {
             let cgroup = self.running_cgroups.remove(i);
+            self.wake();
             ActionCgroupResult::from_info(cgroup.cgroup)
         } else if let Some(i) = self
             .suspended_cgroups
@@ -474,10 +481,10 @@ impl ActionCgroups {
         self.last_memory_pressure_state = pressure_state;
 
         if pressure_state == MemoryPressureState::AbovePressureLimit {
-            self.maybe_suspend(memory_reading);
+            self.maybe_decrease_running_count(memory_reading);
+        } else {
+            self.maybe_increase_running_count(memory_reading);
         }
-
-        self.maybe_wake(pressure_state, memory_reading);
 
         // Report resource control events every 10 seconds normally, but every second during times
         // of pressure
@@ -493,16 +500,14 @@ impl ActionCgroups {
         );
     }
 
-    // Currently we suspend the largest cgroup and we keep freezing until only one action is executing.
-    // What we really want is to suspend the cgroup that will have the least impact on the critical path,
-    // may be better to suspend at random, or suspend the cgroup with the most pressure stalls.
-    fn maybe_suspend(&mut self, memory_reading: &MemoryReading) {
+    fn maybe_decrease_running_count(&mut self, memory_reading: &MemoryReading) {
         if !self.enable_suspension {
             return;
         }
 
-        // We suspend at most 1 action every second since memory changes of previous suspensions will take a few seconds to take effect
-        // This maybe not be enough, but we don't want to wait too long that we encounter OOMs
+        // We decrease the running count at most once a second since memory changes of previous
+        // suspensions will take a few seconds to take effect. This maybe not be enough, but we don't
+        // want to wait too long that we encounter OOMs
         if self
             .last_suspend_time
             .is_some_and(|t| Instant::now() - t < Duration::from_secs(1))
@@ -540,9 +545,10 @@ impl ActionCgroups {
         );
     }
 
-    fn maybe_wake(&mut self, pressure_state: MemoryPressureState, memory_reading: &MemoryReading) {
-        // We wake at most 1 action every 3 seconds since memory changes of previous suspensions will take several seconds
-        // to take effect. This ensures that we don't wake too quickly
+    fn maybe_increase_running_count(&mut self, memory_reading: &MemoryReading) {
+        // We increase the running count at most once every 3 seconds since memory changes of
+        // previous suspensions will take several seconds to take effect. This ensures that we don't
+        // wake too quickly
         if self
             .last_wake_time
             .is_some_and(|t| Instant::now() - t < Duration::from_secs(3))
@@ -554,22 +560,28 @@ impl ActionCgroups {
             return;
         };
 
-        let memory_when_suspended = suspended_cgroup.memory_current_when_suspended;
+        // We suspend actions when there's memory pressure; there being memory pressure essentially
+        // guarantees that we're at our memory limit, so this value is really just a proxy for our
+        // memory cap
         let total_memory_during_last_suspend =
-            // We probably don't expect to end up here, but it does mean that we never suspened and
+            // We probably don't expect to end up here, but it does mean that we never suspended and
             // so allowing early wakeups is fine
             self.total_memory_during_last_suspend.unwrap_or(u64::MAX);
 
-        // If the current memory use is less than the sum of memory of cgroup at the time it was suspended +
-        // total memory when we last suspended an action, we can start wakeing earlier
-        let can_wake_early = memory_reading.buck2_slice_memory_current + memory_when_suspended
-            < total_memory_during_last_suspend;
+        let required_memory_headroom = match suspended_cgroup.memory_current_when_suspended {
+            Some(memory_current_when_suspended) => {
+                // FIXME(JakobDegen): Justify this a bit better
+                memory_current_when_suspended
+            }
+            None => {
+                // If we've never scheduled an action before, this is some kind of a default
+                // assumption as to how much memory it needs
+                std::cmp::min(1_000_000_000, total_memory_during_last_suspend / 5)
+            }
+        };
 
-        // If we can wake early or if there are no actions running, start wakeing.
-        // We wake even if there are no actions running to prevent the build from getting stuck
-        let should_wake = (pressure_state == MemoryPressureState::BelowPressureLimit
-            && can_wake_early)
-            || self.running_cgroups.is_empty();
+        let should_wake = memory_reading.buck2_slice_memory_current + required_memory_headroom
+            < total_memory_during_last_suspend;
 
         if !should_wake {
             return;
@@ -646,7 +658,7 @@ fn suspend_cgroup(
     };
     (
         SuspendedActionCgroup {
-            memory_current_when_suspended: cgroup.cgroup.memory_current,
+            memory_current_when_suspended: Some(cgroup.cgroup.memory_current),
             cgroup: cgroup.cgroup,
             wake_implementation,
             suspend_start: Some(suspend_start),
