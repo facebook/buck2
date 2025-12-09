@@ -7,6 +7,7 @@
 # above-listed licenses.
 
 load("@prelude//utils:expect.bzl", "expect")
+load("@prelude//utils:type_defs.bzl", "is_list")
 load(
     "@prelude//utils:utils.bzl",
     "flatten",
@@ -86,15 +87,18 @@ def make_artifact_tset(
 
 def project_artifacts(
         actions: AnalysisActions,
-        tsets: list[ArtifactTSet] = []) -> list[TransitiveSetArgsProjection]:
+        tsets: ArtifactTSet | list[ArtifactTSet] = []) -> list[TransitiveSetArgsProjection]:
     """
     Helper to project a list of optional tsets.
     """
 
-    tset = make_artifact_tset(
-        actions = actions,
-        children = tsets,
-    )
+    if is_list(tsets):
+        tset = make_artifact_tset(
+            actions = actions,
+            children = tsets,
+        )
+    else:
+        tset = tsets
 
     if tset._tset == None:
         return []

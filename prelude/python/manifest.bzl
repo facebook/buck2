@@ -126,7 +126,7 @@ def create_manifest_for_extensions(
     # in the manifest, as python packaging may also consume debug paths which
     # were referenced in native code.
     for name, (lib, _) in extensions.items():
-        for dbginfo in project_artifacts(ctx.actions, [lib.external_debug_info]):
+        for dbginfo in project_artifacts(ctx.actions, lib.external_debug_info):
             manifest.artifacts.append((dbginfo, name))
 
     return manifest

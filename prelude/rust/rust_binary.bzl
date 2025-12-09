@@ -227,12 +227,12 @@ def _rust_binary_common(
     args = cmd_args(final_output, hidden = executable_args.runtime_files)
     external_debug_info = project_artifacts(
         actions = ctx.actions,
-        tsets = [inherited_external_debug_info(
+        tsets = inherited_external_debug_info(
             ctx,
             compile_ctx.dep_ctx,
             link.dwo_output_directory,
             link_strategy,
-        )],
+        ),
     )
 
     # If we have some resources, write it to the resources JSON file and add it and all

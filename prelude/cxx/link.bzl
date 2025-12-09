@@ -327,7 +327,7 @@ def cxx_link_into(
         )
         separate_debug_info_path_file, _ = ctx.actions.write(
             output.short_path + ".split_debug_paths",
-            project_artifacts(ctx.actions, [links_to_rewrite]),
+            project_artifacts(ctx.actions, links_to_rewrite),
             allow_args = True,
         )
         separate_debug_info_args = cmd_args(
@@ -413,7 +413,7 @@ def cxx_link_into(
         else:
             for link in opts.links:
                 dwp_inputs.add(unpack_link_args(link))
-            dwp_inputs.add(project_artifacts(ctx.actions, [external_debug_info]))
+            dwp_inputs.add(project_artifacts(ctx.actions, external_debug_info))
 
         dwp_artifact = dwp(
             ctx,

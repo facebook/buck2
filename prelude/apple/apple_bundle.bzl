@@ -208,7 +208,7 @@ def _maybe_scrub_binary(ctx, binary_dep: Dependency) -> AppleBundleBinaryOutput:
 def _get_scrubbed_binary_dsym(ctx, binary: Artifact, debug_info_tset: ArtifactTSet) -> Artifact:
     debug_info = project_artifacts(
         actions = ctx.actions,
-        tsets = [debug_info_tset],
+        tsets = debug_info_tset,
     )
     dsym_artifact = get_apple_dsym(
         ctx = ctx,
@@ -270,7 +270,7 @@ def _get_bundle_binary_dsym_artifacts(ctx: AnalysisContext, binary_output: Apple
             executable = executable_arg,
             debug_info = project_artifacts(
                 actions = ctx.actions,
-                tsets = [binary_debuggable_info.debug_info_tset] if binary_debuggable_info else [],
+                tsets = binary_debuggable_info.debug_info_tset if binary_debuggable_info else [],
             ),
             action_identifier = get_bundle_dir_name(ctx),
             output_path = _get_bundle_dsym_name(ctx),
@@ -461,7 +461,7 @@ def apple_bundle_impl(ctx: AnalysisContext) -> list[Provider]:
     )
     transitive_diagnostic_artifacts = project_artifacts(
         actions = ctx.actions,
-        tsets = [diagnostics_info.transitive_diagnostics],
+        tsets = diagnostics_info.transitive_diagnostics,
     )
     sub_targets["check"] = [DefaultInfo(default_output = None, other_outputs = transitive_diagnostic_artifacts)]
 

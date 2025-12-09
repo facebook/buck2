@@ -878,7 +878,7 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
             impl_params.additional.static_external_debug_info
         ),
     )
-    external_debug_info_artifacts = project_artifacts(ctx.actions, [external_debug_info])
+    external_debug_info_artifacts = project_artifacts(ctx.actions, external_debug_info)
     materialize_external_debug_info = ctx.actions.write(
         "debuginfo.artifacts",
         external_debug_info_artifacts,

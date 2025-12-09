@@ -626,7 +626,7 @@ def _get_link_style_sub_targets_and_providers(
 
         debug_info = project_artifacts(
             actions = ctx.actions,
-            tsets = [output.external_debug_info],
+            tsets = output.external_debug_info,
         )
 
         if get_apple_stripped_attr_value_with_default_fallback(ctx):

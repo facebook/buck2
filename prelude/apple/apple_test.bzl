@@ -140,7 +140,7 @@ def apple_test_impl(ctx: AnalysisContext) -> [list[Provider], Promise]:
             if isinstance(p, XCTestSwiftSupportInfo):
                 xctest_swift_support_needed = p.support_needed
             elif isinstance(p, AppleDebuggableInfo):
-                debug_info = project_artifacts(ctx.actions, [p.debug_info_tset])
+                debug_info = project_artifacts(ctx.actions, p.debug_info_tset)
             elif isinstance(p, ValidationInfo):
                 cxx_providers.append(p)
         expect(xctest_swift_support_needed != None, "Expected `XCTestSwiftSupportInfo` provider to be present")

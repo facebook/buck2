@@ -1359,7 +1359,7 @@ def get_swiftmodule_linker_flags(ctx: AnalysisContext, swiftmodule_linkable: [Sw
         tset = swiftmodule_linkable.swiftmodules
         artifacts = project_artifacts(
             actions = ctx.actions,
-            tsets = [tset],
+            tsets = tset,
         )
         return cmd_args([cmd_args(swiftmodule, format = "-Wl,-add_ast_path,{}") for swiftmodule in artifacts])
     return cmd_args()

@@ -728,7 +728,7 @@ def rust_compile(
             dwo_output_directory = dwo_output_directory,
             dep_infos = dep_external_debug_infos,
         )
-        dwp_inputs.extend(project_artifacts(ctx.actions, [all_external_debug_info]))
+        dwp_inputs.extend(project_artifacts(ctx.actions, all_external_debug_info))
     else:
         dwo_output_directory = None
         extra_external_debug_info = []
