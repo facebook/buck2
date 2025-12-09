@@ -811,16 +811,16 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
         resources = cxx_attr_resources(ctx),
         deps = cxx_attr_deps(ctx),
     ).values())
-    resources_db = None
-    resources_dir = None
     if resources:
-        resources_db, resources_dir, resources_deps = create_resource_db(
+        runtime_files.append(create_resource_db(
             ctx = ctx,
             name = binary.output.basename + ".resources.json",
             binary = binary.output,
             resources = resources,
-        )
-        runtime_files.extend(resources_deps)
+        ))
+        for resource in resources.values():
+            runtime_files.append(resource.default_output)
+            runtime_files.extend(resource.other_outputs)
 
     if binary.dwp:
         # A `dwp` sub-target which generates the `.dwp` file for this binary and its shared lib dependencies.
@@ -919,8 +919,6 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
         dist_info = DistInfo(
             shared_libs = shlib_info.set,
             nondebug_runtime_files = runtime_files,
-            relocatable_resource_json = resources_db,
-            relocatable_resource_contents = resources_dir,
         ),
         sanitizer_runtime_files = link_result.sanitizer_runtime_files,
         index_stores = index_stores,

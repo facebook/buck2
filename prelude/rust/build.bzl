@@ -259,7 +259,7 @@ def generate_rustdoc_test(
         panic_runtime = compile_ctx.dep_ctx.panic_runtime,
     )
 
-    resources_db, _resources_dir, resources_deps = create_resource_db(
+    resources = create_resource_db(
         ctx = ctx,
         name = "doctest/resources.json",
         binary = rlib,
@@ -281,7 +281,7 @@ def generate_rustdoc_test(
     executable_args = executable_shared_lib_arguments(
         ctx,
         compile_ctx.cxx_toolchain_info,
-        resources_db,
+        resources,
         shared_libs,
     )
 
@@ -369,7 +369,7 @@ def generate_rustdoc_test(
         cmd_args(linker_argsfile, format = "-Clink-arg=@{}"),
         runtool,
         cmd_args(internal_tools_info.rustdoc_test_with_resources, format = "--test-runtool-arg={}"),
-        cmd_args("--test-runtool-arg=--resources=", resources_db, delimiter = ""),
+        cmd_args("--test-runtool-arg=--resources=", resources, delimiter = ""),
         "--color=always",
         "--test-args=--color=always",
         cmd_args("--remap-path-prefix=", compile_ctx.symlinked_srcs, compile_ctx.path_sep, "=", compile_ctx.symlinked_srcs.owner.path, compile_ctx.path_sep, delimiter = ""),
@@ -377,7 +377,6 @@ def generate_rustdoc_test(
             compile_ctx.symlinked_srcs,
             link_args_output.hidden,
             executable_args.runtime_files,
-            resources_deps,
         ],
     )
 

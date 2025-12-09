@@ -47,15 +47,6 @@ DistInfo = provider(fields = {
     # set of all the files for materialization purposes.
     "nondebug_runtime_files": provider_field(list[ArgLike]),
 
-    # The artifact is a directory pointed to by the relocatable_resource_json file,
-    # which contains symlinks to the resources used by the binary.
-    "relocatable_resource_contents": provider_field(Artifact | None, default = None),
-
-    # A JSON file containing a mapping of resources used in the binary to their path
-    # relative to the binary in question (all paths are within
-    # `relocatable_resource_contents`).
-    "relocatable_resource_json": provider_field(Artifact | None, default = None),
-
     # Transitive shared library dependencies.
     "shared_libs": provider_field(SharedLibrariesTSet | None, default = None),
 })
