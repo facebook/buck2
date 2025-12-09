@@ -81,7 +81,6 @@ load(
 )
 load("@prelude//third-party:providers.bzl", "ThirdPartyBuild", "third_party_build_info")
 load("@prelude//unix:providers.bzl", "UnixEnv", "create_unix_env_info")
-load("@prelude//utils:expect.bzl", "expect")
 load("@prelude//utils:utils.bzl", "value_or")
 load(":manifest.bzl", "create_manifest_for_source_map")
 load(":python.bzl", "NativeDepsInfo", "NativeDepsInfoTSet", "PythonLibraryInfo")
@@ -163,8 +162,10 @@ def cxx_python_extension_impl(ctx: AnalysisContext) -> list[Provider]:
     libraries = cxx_library_info.all_outputs
     shared_output = libraries.outputs[LibOutputStyle("shared_lib")][LinkableFlavor("default")]
 
-    expect(LinkableFlavor("default") in libraries.solibs, "Expected cxx_python_extension to produce a solib: {}".format(ctx.label))
-    extension = libraries.solibs[LinkableFlavor("default")].linked_object
+    solib_default = libraries.solibs.get(LinkableFlavor("default"), None)
+    if not solib_default:
+        fail("Expected cxx_python_extension to produce a solib: {}".format(ctx.label))
+    extension = solib_default.linked_object
 
     sub_targets = cxx_library_info.sub_targets
     if extension.pdb:
