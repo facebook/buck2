@@ -89,7 +89,7 @@ def _get_skip_swift_incremental_outputs(ctx: AnalysisContext):
 
 def get_incremental_file_hashing_enabled(ctx: AnalysisContext):
     toolchain = get_swift_toolchain_info(ctx)
-    return toolchain.supports_incremental_file_hashing and getattr(ctx.attrs, "swift_incremental_file_hashing", False)
+    return toolchain.supports_incremental_file_hashing and getattr(ctx.attrs, "swift_incremental_file_hashing", False) and should_build_swift_incrementally(ctx)
 
 def get_swift_incremental_logging_enabled(ctx: AnalysisContext):
     return getattr(ctx.attrs, "swift_incremental_logging", False)
