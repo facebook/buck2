@@ -93,7 +93,6 @@ load(
 load(
     ":context.bzl",
     "CompileContext",  # @unused Used as a type
-    "CrateName",  # @unused Used as a type
     "DepCollectionContext",
     "compile_context",
 )

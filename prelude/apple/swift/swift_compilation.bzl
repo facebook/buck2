@@ -691,7 +691,6 @@ def _compile_object(
     else:
         num_threads = 1
         swiftdeps = []
-        depfiles = []
         output_object = ctx.actions.declare_output(module_name + ".o", uses_experimental_content_based_path_hashing = uses_experimental_content_based_path_hashing)
         objects = [output_object]
         object_format = toolchain.object_format.value
