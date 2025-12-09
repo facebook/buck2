@@ -72,22 +72,28 @@ impl EventSenderState {
             .last_scheduled_event_time
             .is_none_or(|last| now.duration_since(last) > freq)
         {
-            let e = self.make_event(
+            self.last_scheduled_event_time = Some(now);
+            self.send_event(
                 buck2_data::ResourceControlEventKind::Scheduled,
                 None,
                 actions_running,
                 actions_suspended,
             );
-            self.last_scheduled_event_time = Some(now);
-            self.send_event_impl(e);
         }
     }
 
-    fn send_event_impl(&mut self, e: ResourceControlEventMostly) {
+    pub(crate) fn send_event(
+        &mut self,
+        kind: buck2_data::ResourceControlEventKind,
+        cgroup: Option<&ActionCgroup>,
+        actions_running: u64,
+        actions_suspended: u64,
+    ) {
+        let e = self.make_event(kind, cgroup, actions_running, actions_suspended);
         self.txs.retain_mut(|tx| tx.send(e.clone()).is_ok());
     }
 
-    pub(crate) fn make_event(
+    fn make_event(
         &self,
         kind: buck2_data::ResourceControlEventKind,
         cgroup: Option<&ActionCgroup>,

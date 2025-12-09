@@ -18,7 +18,6 @@ use buck2_common::init::ResourceControlConfig;
 use buck2_error::BuckErrorContext;
 use buck2_error::internal_error;
 use buck2_events::daemon_id::DaemonId;
-use buck2_events::dispatch::EventDispatcher;
 use dupe::Dupe;
 use tokio::fs::File;
 use tokio::sync::Mutex;
@@ -173,7 +172,6 @@ pub(crate) struct ActionCgroup {
     suspend_strategy: ActionSuspendStrategy,
     pub(crate) command_type: CommandType,
     pub(crate) action_digest: Option<String>,
-    dispatcher: EventDispatcher,
 }
 
 #[derive(Debug)]
@@ -233,7 +231,6 @@ pub struct ActionCgroupSession {
 impl ActionCgroupSession {
     pub async fn maybe_create(
         tracker: &Option<MemoryTrackerHandle>,
-        dispatcher: EventDispatcher,
         command_type: CommandType,
         action_digest: Option<String>,
         disable_kill_and_retry_suspend: bool,
@@ -249,7 +246,6 @@ impl ActionCgroupSession {
         let start_future = match action_cgroups
             .action_started(
                 path.clone(),
-                dispatcher.dupe(),
                 command_type,
                 action_digest.clone(),
                 disable_kill_and_retry_suspend,
@@ -348,7 +344,6 @@ impl ActionCgroups {
     async fn action_started(
         &mut self,
         cgroup_path: CgroupPathBuf,
-        dispatcher: EventDispatcher,
         command_type: CommandType,
         action_digest: Option<String>,
         disable_kill_and_retry_suspend: bool,
@@ -386,7 +381,6 @@ impl ActionCgroups {
             suspend_strategy,
             command_type,
             action_digest,
-            dispatcher,
         };
 
         let (start_tx, start_rx) = oneshot::channel();
@@ -538,10 +532,11 @@ impl ActionCgroups {
         self.suspended_cgroups.push_front(suspended_cgroup);
         let suspended_cgroup = self.suspended_cgroups.front().unwrap();
 
-        self.emit_resource_control_event(
-            &suspended_cgroup.cgroup.dispatcher,
+        self.event_sender_state.send_event(
             event_kind,
-            &suspended_cgroup.cgroup,
+            Some(&suspended_cgroup.cgroup),
+            self.running_cgroups.len() as u64,
+            self.suspended_cgroups.len() as u64,
         );
     }
 
@@ -616,27 +611,12 @@ impl ActionCgroups {
         self.running_cgroups.push(running_cgroup);
         let running_cgroup = self.running_cgroups.last().unwrap();
 
-        self.emit_resource_control_event(
-            &running_cgroup.cgroup.dispatcher,
+        self.event_sender_state.send_event(
             event_kind,
-            &running_cgroup.cgroup,
-        );
-    }
-
-    fn emit_resource_control_event(
-        &self,
-        dispatcher: &EventDispatcher,
-        kind: buck2_data::ResourceControlEventKind,
-        cgroup: &ActionCgroup,
-    ) {
-        let event = self.event_sender_state.make_event(
-            kind,
-            Some(cgroup),
+            Some(&running_cgroup.cgroup),
             self.running_cgroups.len() as u64,
             self.suspended_cgroups.len() as u64,
         );
-        let event = event.complete(dispatcher.trace_id());
-        dispatcher.instant_event(event);
     }
 }
 
@@ -750,7 +730,6 @@ mod tests {
         action_cgroups
             .action_started(
                 cgroup_1.clone(),
-                EventDispatcher::null(),
                 CommandType::Build,
                 Some("action_1".to_owned()),
                 false,
@@ -759,7 +738,6 @@ mod tests {
         action_cgroups
             .action_started(
                 cgroup_2.clone(),
-                EventDispatcher::null(),
                 CommandType::Build,
                 Some("action_2".to_owned()),
                 false,
@@ -812,22 +790,10 @@ mod tests {
             return Ok(());
         };
         action_cgroups
-            .action_started(
-                cgroup_1.clone(),
-                EventDispatcher::null(),
-                CommandType::Build,
-                None,
-                false,
-            )
+            .action_started(cgroup_1.clone(), CommandType::Build, None, false)
             .await?;
         action_cgroups
-            .action_started(
-                cgroup_2.clone(),
-                EventDispatcher::null(),
-                CommandType::Build,
-                None,
-                false,
-            )
+            .action_started(cgroup_2.clone(), CommandType::Build, None, false)
             .await?;
 
         fs::write(cgroup_1.as_path().join("memory.current"), "1")?;

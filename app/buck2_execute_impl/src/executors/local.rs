@@ -379,7 +379,6 @@ impl LocalExecutor {
         args: &[String],
         worker: Option<&WorkerHandle>,
         env: &[(&str, StrOrOsStr<'_>)],
-        dispatcher: EventDispatcher,
     ) -> Result<
         (
             Duration,
@@ -400,7 +399,6 @@ impl LocalExecutor {
             let disable_kill_and_retry_suspend = !request.outputs_cleanup;
             match ActionCgroupSession::maybe_create(
                 &self.memory_tracker,
-                dispatcher,
                 command_type,
                 Some(action_digest.to_string()),
                 disable_kill_and_retry_suspend,
@@ -672,7 +670,6 @@ impl LocalExecutor {
                 args,
                 worker.as_deref(),
                 &env,
-                dispatcher,
             )
             .await
         {
