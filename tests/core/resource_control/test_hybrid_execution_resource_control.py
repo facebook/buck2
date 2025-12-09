@@ -148,7 +148,7 @@ async def test_percentage_of_ancestor_memory_limit(buck: Buck) -> None:
         pid = await get_daemon_pid(buck)
         daemon_cgroup_path = get_daemon_cgroup_path(pid)
         # the cgroup that contains daemon, forkserver and workers cgroups
-        slice_cgroup_path = daemon_cgroup_path.parent.parent
+        slice_cgroup_path = daemon_cgroup_path.parent
         with open(slice_cgroup_path / "memory.high", "r") as f:
             slice_memory_high = int(f.read().strip())
         assert slice_memory_high == (parent_cgroup_memory_high * 0.5)

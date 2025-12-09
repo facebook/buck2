@@ -200,7 +200,9 @@ impl DaemonCommand {
             // FIXME(JakobDegen): It'd be better if we could do this even earlier, ideally spawning
             // the daemon directly into the cgroup it's supposed to be in. With memory controllers
             // enabled, moving an existing process is always a bit suspicious
-            Some(BuckCgroupTree::set_up_for_process()?)
+            Some(BuckCgroupTree::set_up_for_process(
+                &self.daemon_startup_config.resource_control,
+            )?)
         } else {
             None
         };

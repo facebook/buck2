@@ -8,6 +8,7 @@
  * above-listed licenses.
  */
 
+use buck2_common::init::ResourceControlConfig;
 use buck2_fs::paths::file_name::FileName;
 
 use crate::cgroup::CgroupInternal;
@@ -15,6 +16,37 @@ use crate::cgroup::CgroupLeaf;
 use crate::cgroup::CgroupMinimal;
 use crate::cgroup::EffectiveResourceConstraints;
 use crate::cgroup_info::CGroupInfo;
+
+#[derive(buck2_error::Error)]
+#[buck2(tag = Input)]
+enum CgroupConfigParsingError {
+    #[error("Not a percentage: {0}")]
+    NotAPercentage(String),
+    #[error("Expected an integer or percentage: {0}")]
+    NotAMemoryConfig(String),
+}
+
+// Resolves a user-specified memory restriction value
+fn resolve_memory_restriction_value(
+    config: &str,
+    from_ancestor: Option<u64>,
+) -> buck2_error::Result<Option<u64>> {
+    if let Some(perct) = config.strip_suffix("%") {
+        let Some(perct) = perct.parse::<u64>().ok().filter(|p| *p > 0 && *p <= 100) else {
+            return Err(CgroupConfigParsingError::NotAPercentage(perct.to_owned()).into());
+        };
+        match from_ancestor {
+            Some(base) => Ok(Some(base * perct / 100)),
+            // Maybe ideally we'd know the system memory but eh
+            None => Ok(None),
+        }
+    } else {
+        match config.parse::<u64>() {
+            Ok(m) => Ok(Some(m)),
+            Err(_) => Err(CgroupConfigParsingError::NotAMemoryConfig(config.to_owned()).into()),
+        }
+    }
+}
 
 /// Type that represents the daemon's view of the cgroups it manages
 ///
@@ -37,7 +69,7 @@ impl BuckCgroupTree {
     ///  1. The cgroup it's in has this process and no others
     ///  2. Buck2 may manage the child cgroups by itself without interference from outside things;
     ///     in systemd this is the `Delegate=yes` property.
-    pub fn set_up_for_process() -> buck2_error::Result<Self> {
+    pub fn set_up_for_process(config: &ResourceControlConfig) -> buck2_error::Result<Self> {
         let root_cgroup_path = CGroupInfo::read()?.path;
         let root_cgroup = CgroupMinimal::try_from_path(root_cgroup_path)?;
 
@@ -63,6 +95,23 @@ impl BuckCgroupTree {
             .enable_memory_monitoring()?;
 
         let effective_resource_constraints = root_cgroup.read_effective_resouce_constraints()?;
+
+        if let Some(config_memory_max) = &config.memory_max {
+            if let Some(allprocs_memory_max) = resolve_memory_restriction_value(
+                config_memory_max,
+                effective_resource_constraints.memory_max,
+            )? {
+                root_cgroup.set_memory_max(&allprocs_memory_max.to_string())?;
+            }
+        }
+        if let Some(config_memory_high) = &config.memory_high {
+            if let Some(allprocs_memory_high) = resolve_memory_restriction_value(
+                config_memory_high,
+                effective_resource_constraints.memory_high,
+            )? {
+                root_cgroup.set_memory_high(&allprocs_memory_high.to_string())?;
+            }
+        }
 
         Ok(Self {
             allprocs: root_cgroup,

@@ -221,16 +221,14 @@ pub struct ResourceControlConfig {
     /// The corresponding buckconfig is `buck2_resource_control.status` that can take
     /// one of `{off | if_available | required}`.
     pub status: ResourceControlStatus,
-    /// A memory threshold that buck2 daemon and workers are allowed to allocate. The units
-    /// like `M` and `G` may be used (e.g. 64G,) or also `%` is accepted in this field (e.g. 90%.)
-    /// The percentage is relative to the closest ancestor cgroup with memory.max set, or physical memory if none exists.
-    /// The behavior when the combined amount of memory usage of the daemon and workers exceeds this
-    /// is that all the processes are killed by OOMKiller.
+    /// Maximum allowed memory usage for all work buck2 manages.
+    ///
+    /// Accepts either a number of bytes or a percentage of the available resources.
+    ///
     /// The corresponding buckconfig is `buck2_resource_control.memory_max`.
     pub memory_max: Option<String>,
-    /// Memory threshold that buck2 daemon and workers can reach before getting throttled. can take in
-    /// the same units as `memory_max`. Processes won't be OOM killed if this threshold is exceeded, but
-    /// will be throttled to keep memory under control.
+    /// Like `memory_max`, but controls cgroupv2's `memory.high`
+    ///
     /// The corresponding buckconfig is `buck2_resource_control.memory_high`.
     pub memory_high: Option<String>,
     /// A memory threshold that any action is allowed to allocate.

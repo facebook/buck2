@@ -530,13 +530,6 @@ impl<'a> BuckdLifecycle<'a> {
                     }
                     .into())
                 } else {
-                    if let Some(resource_control_runner) = resource_control_runner {
-                        // set memory limits to buck2 daemon slice to control
-                        // the buck memory including daemon, fork-server and all actions
-                        resource_control_runner
-                            .set_slice_memory_info(&format!("{slice_name}.slice"))
-                            .await?;
-                    }
                     Ok(())
                 }
             }

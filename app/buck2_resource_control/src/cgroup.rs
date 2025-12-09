@@ -8,10 +8,8 @@
  * above-listed licenses.
  */
 
-use std::fs;
 use std::os::fd::OwnedFd;
 use std::os::unix::process::CommandExt;
-use std::path::PathBuf;
 use std::process::Command;
 use std::sync::Arc;
 
@@ -30,11 +28,6 @@ use crate::path::CgroupPathBuf;
 enum CgroupError {
     #[error("{msg} IO error: {io_err}")]
     Io { msg: String, io_err: std::io::Error },
-    #[error("Failed to configure cgroup at {path}, because of error {io_err}")]
-    ConfigurationFailed {
-        path: String,
-        io_err: std::io::Error,
-    },
 }
 
 /// Resource constraints inherited from ancestor cgroups in the hierarchy.
@@ -131,20 +124,20 @@ impl<M: MemoryMonitoring, K: CgroupKind> Cgroup<M, K> {
         ))
     }
 
-    fn memory_high_path(&self) -> PathBuf {
-        self.path().as_path().join("memory.high")
-    }
-
     /// Set the memory.high limit for this cgroup
     pub fn set_memory_high(&self, memory_high: &str) -> buck2_error::Result<()> {
-        let memory_high_file_path = self.memory_high_path();
-        fs::write(&memory_high_file_path, memory_high).map_err(|e| {
-            CgroupError::ConfigurationFailed {
-                path: memory_high_file_path.to_string_lossy().to_string(),
-                io_err: e,
-            }
-        })?;
-        Ok(())
+        Ok(
+            CgroupFile::open(&self.dir, FileName::unchecked_new("memory.high"), true)?
+                .write(memory_high.as_bytes())?,
+        )
+    }
+
+    /// Set the memory.max limit for this cgroup
+    pub fn set_memory_max(&self, memory_max: &str) -> buck2_error::Result<()> {
+        Ok(
+            CgroupFile::open(&self.dir, FileName::unchecked_new("memory.max"), true)?
+                .write(memory_max.as_bytes())?,
+        )
     }
 
     fn read_resource_constraints(&self) -> buck2_error::Result<EffectiveResourceConstraints> {
