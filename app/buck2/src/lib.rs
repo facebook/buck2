@@ -11,7 +11,6 @@
 #![feature(error_generic_member_access)]
 #![feature(used_with_arg)]
 
-use std::str::FromStr;
 use std::thread;
 
 use buck2_client::commands::build::BuildCommand;
@@ -251,10 +250,25 @@ pub fn exec(process: ProcessContext<'_>) -> ExitResult {
 
     if !has_client_id {
         use std::io::IsTerminal;
-        if std::io::stdin().is_terminal() {
+        let client_id = if std::io::stdin().is_terminal() {
+            Some("terminal-fallback")
+        } else {
+            // Check if running from VSCode
+            let is_vscode = std::env::var("VSCODE_PID")
+                .ok()
+                .is_some_and(|v| !v.is_empty())
+                || std::env::var("TERM_PROGRAM").ok().as_deref() == Some("vscode");
+            if is_vscode {
+                Some("vscode-fallback")
+            } else {
+                None
+            }
+        };
+
+        if let Some(val) = client_id {
             opt.opt.common_opts.client_metadata.push(ClientMetadata {
                 key: "id".to_owned(),
-                value: "terminal-fallback".to_owned(),
+                value: val.to_owned(),
             });
         }
     }

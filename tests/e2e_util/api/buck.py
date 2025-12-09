@@ -71,6 +71,7 @@ class Buck(Executable):
         input: Optional[bytes] = None,
         rel_cwd: Optional[Path] = None,
         env: Optional[Dict[str, str]] = None,
+        stdin: Optional[int] = None,
     ) -> Process[BuildResult, BuckException]:
         """
         Returns a Process with BuildResult type using a process
@@ -98,6 +99,7 @@ class Buck(Executable):
                 proc, stdout, stderr, buck_build_id, *args
             ),
             exception_type=BuckException,
+            stdin=stdin,
         )
 
     def build_without_report(
