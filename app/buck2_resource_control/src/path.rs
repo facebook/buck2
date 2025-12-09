@@ -14,7 +14,6 @@ use std::ops::Deref;
 use buck2_fs::paths::abs_norm_path::AbsNormPath;
 use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
-use ref_cast::RefCast;
 
 /// A path identifying a cgroup.
 ///
@@ -27,7 +26,7 @@ use ref_cast::RefCast;
     Eq,
     PartialOrd,
     Ord,
-    ref_cast::RefCast
+    ref_cast::RefCastCustom
 )]
 #[display("{}", _0.display())]
 #[repr(transparent)]
@@ -35,8 +34,11 @@ pub struct CgroupPath(AbsNormPath);
 
 impl CgroupPath {
     pub fn new<'a>(path: &'a AbsNormPath) -> &'a Self {
-        Self::ref_cast(path)
+        Self::from_abs_path(path)
     }
+
+    #[ref_cast::ref_cast_custom]
+    fn from_abs_path<'a>(path: &'a AbsNormPath) -> &'a Self;
 
     pub fn to_buf(&self) -> CgroupPathBuf {
         CgroupPathBuf(self.0.to_buf())
@@ -44,6 +46,14 @@ impl CgroupPath {
 
     pub fn join(&self, path: &ForwardRelativePath) -> CgroupPathBuf {
         CgroupPathBuf(self.0.join(path))
+    }
+
+    pub fn parent(&self) -> Option<&CgroupPath> {
+        if &self.0 == AbsNormPath::new("/sys/fs/cgroup").unwrap() {
+            None
+        } else {
+            Some(Self::from_abs_path(self.0.parent().unwrap()))
+        }
     }
 }
 
@@ -80,12 +90,33 @@ impl Deref for CgroupPathBuf {
     type Target = CgroupPath;
 
     fn deref(&self) -> &Self::Target {
-        RefCast::ref_cast(&*self.0)
+        CgroupPath::from_abs_path(&self.0)
     }
 }
 
 impl Borrow<CgroupPath> for CgroupPathBuf {
     fn borrow(&self) -> &CgroupPath {
         self
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use buck2_fs::paths::abs_norm_path::AbsNormPath;
+
+    use crate::path::CgroupPath;
+
+    #[test]
+    fn test_parent() {
+        if !cfg!(unix) {
+            return;
+        }
+        let p = CgroupPath::new(AbsNormPath::new("/sys/fs/cgroup/cg1/cg2").unwrap());
+        assert_eq!(&p.parent().unwrap().to_string(), "/sys/fs/cgroup/cg1");
+        assert_eq!(
+            &p.parent().unwrap().parent().unwrap().to_string(),
+            "/sys/fs/cgroup",
+        );
+        assert!(p.parent().unwrap().parent().unwrap().parent().is_none());
     }
 }
