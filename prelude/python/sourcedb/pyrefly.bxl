@@ -313,12 +313,12 @@ def _main(ctx: bxl.Context) -> None:
             _handle_alias(entry, attrs, x)
         elif x.rule_type == "prelude//rules.bzl:cxx_python_extension":
             _handle_python_extension(entry, attrs, fs, x, known_targets)
-        elif x.rule_type == "prelude//rules.bzl:genrule":
+        elif "genrule" in x.rule_type:
             _handle_genrule(entry, attrs, fs, x, known_targets, to_remove, to_build, to_insert, genrule_to_insert)
-        elif x.rule_type == "prelude//rules.bzl:python_library":
+        elif "python_library" in x.rule_type:
             _handle_python_library(entry, attrs, fs, x, known_targets, to_remove, to_build, to_insert)
         else:
-            fail("Unknown rule type: {}".format(x.rule_type))
+            fail("Unknown rule type `{}` for target `{}`".format(x.rule_type, x.label.raw_target()))
 
     _build_generated_files(ctx, to_build, to_insert, genrule_to_insert)
 
