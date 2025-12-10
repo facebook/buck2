@@ -10,10 +10,9 @@
 
 use allocative::Allocative;
 use buck2_error::BuckErrorContext;
+use buck2_fs::paths::file_name::FileName;
 use buck2_util::arc_str::ArcS;
 use dupe::Dupe;
-
-use crate::fs::paths::file_name::FileName;
 
 /// The unique identifier for this action within dynamic actions.
 #[derive(

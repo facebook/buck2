@@ -10,9 +10,10 @@
 
 package com.facebook.buck.testrunner;
 
-import com.android.ddmlib.IDevice;
 import com.android.ddmlib.testrunner.TestIdentifier;
 import com.android.ddmlib.testrunner.XmlTestRunListener;
+import com.facebook.buck.android.exopackage.AdbUtils;
+import com.facebook.buck.android.exopackage.AndroidDevice;
 import java.io.File;
 import java.io.IOException;
 import java.util.Map;
@@ -34,10 +35,12 @@ public class BuckXmlTestRunListener extends XmlTestRunListener {
   protected static final String TEST_RESULT_FILE = "test_result.xml";
   private String mRunFailureMessage = null;
   private File mReportDir;
-  private IDevice mDevice;
+  private AndroidDevice mAndroidDevice;
+  private AdbUtils mAdbUtils;
 
-  BuckXmlTestRunListener(IDevice device) {
-    mDevice = device;
+  BuckXmlTestRunListener(AndroidDevice androidDevice, AdbUtils adbUtils) {
+    mAndroidDevice = androidDevice;
+    mAdbUtils = adbUtils;
   }
 
   @Override
@@ -64,8 +67,8 @@ public class BuckXmlTestRunListener extends XmlTestRunListener {
 
   @Override
   public void testFailed(TestIdentifier test, String trace) {
-    if (mDevice != null && CrashCapturer.deviceHasCrashLogs(trace)) {
-      trace = CrashCapturer.addDeviceLogcatTrace(mDevice, trace);
+    if (mAndroidDevice != null && mAdbUtils != null && CrashCapturer.deviceHasCrashLogs(trace)) {
+      trace = CrashCapturer.addDeviceLogcatTrace(mAndroidDevice, mAdbUtils, trace);
     }
     super.testFailed(test, trace);
   }

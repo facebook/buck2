@@ -9,8 +9,8 @@
  */
 
 use buck2_certs::validate::validate_certs;
-use buck2_core::fs::paths::abs_path::AbsPathBuf;
 use buck2_error::ErrorTag;
+use buck2_fs::paths::abs_path::AbsPathBuf;
 use dupe::Dupe;
 use edenfs::BinaryHash;
 use edenfs::EdenErrorType;
@@ -176,7 +176,28 @@ fn eden_posix_error_tag(code: i32) -> ErrorTag {
         libc::ENOSPC => ErrorTag::IoStorageFull,
         libc::ECONNABORTED => ErrorTag::IoConnectionAborted,
         libc::ENOTCONN => ErrorTag::IoNotConnected,
+        libc::EBADMSG => ErrorTag::IoEdenDataCorruption,
         _ => ErrorTag::IoEdenUncategorized,
+    }
+}
+
+fn eden_network_error_tag(code_opt: Option<i32>) -> ErrorTag {
+    const CURLE_OPERATION_TIMEDOUT: i32 = curl_sys::CURLE_OPERATION_TIMEDOUT as i32;
+    const CURLE_RECV_ERROR: i32 = curl_sys::CURLE_RECV_ERROR as i32;
+    const CURLE_SSL_CERTPROBLEM: i32 = curl_sys::CURLE_SSL_CERTPROBLEM as i32;
+
+    match code_opt {
+        Some(code) => {
+            match code {
+                CURLE_OPERATION_TIMEDOUT => ErrorTag::IoEdenNetworkCurlTimedout, // 28
+                CURLE_RECV_ERROR | CURLE_SSL_CERTPROBLEM => ErrorTag::IoEdenNetworkTls, // 56 and 58
+                401 => ErrorTag::HttpUnauthorized, // http::StatusCode::UNAUTHORIZED
+                403 => ErrorTag::HttpForbidden,    // http::StatusCode::FORBIDDEN
+                503 => ErrorTag::HttpServiceUnavailable, // http::StatusCode::SERVICE_UNAVAILABLE
+                _ => ErrorTag::IoEdenNetworkUncategorized,
+            }
+        }
+        None => ErrorTag::IoEdenNetworkUncategorized,
     }
 }
 
@@ -202,6 +223,13 @@ pub enum EdenError {
     #[buck2(tag = eden_posix_error_tag(code))]
     PosixError { error: edenfs::EdenError, code: i32 },
 
+    #[error("Eden network error (code = {code:?}): {0}", error.message)]
+    #[buck2(tag = eden_network_error_tag(code))]
+    NetworkError {
+        error: edenfs::EdenError,
+        code: Option<i32>,
+    },
+
     #[error("Eden service error: {0}", error.message)]
     #[buck2(tag = eden_service_error_tag(&error))]
     ServiceError { error: edenfs::EdenError },
@@ -220,6 +248,12 @@ impl From<edenfs::EdenError> for EdenError {
                     code: error_code,
                 };
             }
+        } else if error.errorType == EdenErrorType::NETWORK_ERROR {
+            let code_opt = error.errorCode;
+            return Self::NetworkError {
+                error,
+                code: code_opt,
+            };
         } else if error.errorType == EdenErrorType::GENERIC_ERROR {
             // TODO(minglunli): Hacky solution to check if Eden errors are cert related
             if let Err(e) = futures::executor::block_on(validate_certs()) {

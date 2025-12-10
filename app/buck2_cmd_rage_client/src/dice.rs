@@ -17,11 +17,11 @@ use buck2_client_ctx::daemon::client::connect::BootstrapBuckdClient;
 use buck2_client_ctx::events_ctx::EventsCtx;
 use buck2_common::manifold::Bucket;
 use buck2_common::manifold::ManifoldClient;
-use buck2_core::fs::fs_util::create_dir_all;
-use buck2_core::fs::fs_util::remove_all;
-use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
-use buck2_core::fs::paths::abs_path::AbsPathBuf;
 use buck2_error::BuckErrorContext;
+use buck2_fs::fs_util::create_dir_all;
+use buck2_fs::fs_util::remove_all;
+use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
+use buck2_fs::paths::abs_path::AbsPathBuf;
 use buck2_util::process::async_background_command;
 
 use crate::manifold::manifold_leads;

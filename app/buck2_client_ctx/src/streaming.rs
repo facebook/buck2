@@ -14,6 +14,7 @@ use std::sync::atomic::AtomicU64;
 use async_trait::async_trait;
 use buck2_common::argv::Argv;
 use buck2_common::argv::SanitizedArgv;
+use buck2_common::init::DEFAULT_RETAINED_EVENT_LOGS;
 use buck2_common::invocation_paths::InvocationPaths;
 use buck2_error::ExitCode;
 use buck2_event_observer::span_tracker::EventTimestamp;
@@ -300,6 +301,10 @@ fn get_event_log_subscriber<T: StreamingCommand>(
         T::COMMAND_NAME.to_owned(),
         ctx.start_time,
         log_size_counter_bytes,
+        ctx.immediate_config
+            .daemon_startup_config()
+            .map(|daemon_startup_config| daemon_startup_config.retained_event_logs)
+            .unwrap_or(DEFAULT_RETAINED_EVENT_LOGS),
     );
     Box::new(log)
 }

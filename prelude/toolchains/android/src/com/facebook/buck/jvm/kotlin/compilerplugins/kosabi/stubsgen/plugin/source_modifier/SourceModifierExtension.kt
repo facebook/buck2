@@ -299,12 +299,12 @@ class SourceModifierExtension(
 
   private fun calculateRangesToStrip(file: KtFile): List<IntRange> {
     val untypedPrivateNameFunctions =
-        file.collectDescendantsOfType<KtNamedFunction>().filter {
+        file.collectDescendantsOfType<KtNamedFunction> {
           it.isPrivate() && it.typeReference == null
         }
 
     val privateProps =
-        file.collectDescendantsOfType<KtProperty>().filter {
+        file.collectDescendantsOfType<KtProperty> {
           (it.isMember || it.isTopLevel) &&
               it.isPrivate() &&
               // Avoid private const value due to missing info to generate public const

@@ -9,10 +9,10 @@
  */
 
 use buck2_error::BuckErrorContext;
+use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
 
 use crate::cells::CellAliasResolver;
 use crate::cells::paths::CellRelativePath;
-use crate::fs::paths::forward_rel_path::ForwardRelativePath;
 use crate::package::PackageLabel;
 
 #[derive(Debug, buck2_error::Error)]

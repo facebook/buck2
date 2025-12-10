@@ -7,7 +7,10 @@ root//:os (<unbound>):
       default_outputs=[],
       other_outputs=[]
     ),
-    ConstraintSettingInfo( label=root//:os )
+    ConstraintSettingInfo(
+      label=root//:os,
+      default=None
+    )
   ])
 root//:linux (<unbound>):
   Providers([
@@ -17,19 +20,28 @@ root//:linux (<unbound>):
       other_outputs=[]
     ),
     ConstraintValueInfo(
-      setting=ConstraintSettingInfo( label=root//:os ),
+      setting=ConstraintSettingInfo(
+        label=root//:os,
+        default=None
+      ),
       label=root//:linux
     ),
     ConfigurationInfo(
       constraints={ root//:os: ConstraintValueInfo(
-        setting=ConstraintSettingInfo( label=root//:os ),
+        setting=ConstraintSettingInfo(
+          label=root//:os,
+          default=None
+        ),
         label=root//:linux
       ) },
       values={}
     ),
     ConditionalModifierInfo(
       inner=ConstraintValueInfo(
-        setting=ConstraintSettingInfo( label=root//:os ),
+        setting=ConstraintSettingInfo(
+          label=root//:os,
+          default=None
+        ),
         label=root//:linux
       ),
       key=root//:os
@@ -43,19 +55,28 @@ root//:macos (<unbound>):
       other_outputs=[]
     ),
     ConstraintValueInfo(
-      setting=ConstraintSettingInfo( label=root//:os ),
+      setting=ConstraintSettingInfo(
+        label=root//:os,
+        default=None
+      ),
       label=root//:macos
     ),
     ConfigurationInfo(
       constraints={ root//:os: ConstraintValueInfo(
-        setting=ConstraintSettingInfo( label=root//:os ),
+        setting=ConstraintSettingInfo(
+          label=root//:os,
+          default=None
+        ),
         label=root//:macos
       ) },
       values={}
     ),
     ConditionalModifierInfo(
       inner=ConstraintValueInfo(
-        setting=ConstraintSettingInfo( label=root//:os ),
+        setting=ConstraintSettingInfo(
+          label=root//:os,
+          default=None
+        ),
         label=root//:macos
       ),
       key=root//:os
@@ -68,7 +89,10 @@ root//:cpu (<unbound>):
       default_outputs=[],
       other_outputs=[]
     ),
-    ConstraintSettingInfo( label=root//:cpu )
+    ConstraintSettingInfo(
+      label=root//:cpu,
+      default=None
+    )
   ])
 root//:arm (<unbound>):
   Providers([
@@ -78,19 +102,28 @@ root//:arm (<unbound>):
       other_outputs=[]
     ),
     ConstraintValueInfo(
-      setting=ConstraintSettingInfo( label=root//:cpu ),
+      setting=ConstraintSettingInfo(
+        label=root//:cpu,
+        default=None
+      ),
       label=root//:arm
     ),
     ConfigurationInfo(
       constraints={ root//:cpu: ConstraintValueInfo(
-        setting=ConstraintSettingInfo( label=root//:cpu ),
+        setting=ConstraintSettingInfo(
+          label=root//:cpu,
+          default=None
+        ),
         label=root//:arm
       ) },
       values={}
     ),
     ConditionalModifierInfo(
       inner=ConstraintValueInfo(
-        setting=ConstraintSettingInfo( label=root//:cpu ),
+        setting=ConstraintSettingInfo(
+          label=root//:cpu,
+          default=None
+        ),
         label=root//:arm
       ),
       key=root//:cpu

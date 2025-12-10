@@ -15,7 +15,6 @@ import static org.hamcrest.Matchers.containsString;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.fail;
 
-import com.facebook.buck.jvm.java.testutil.compiler.CompilerTreeApiParameterized;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableMap;
 import java.io.IOException;
@@ -33,8 +32,9 @@ import javax.lang.model.type.MirroredTypesException;
 import org.hamcrest.Matchers;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
 
-@RunWith(CompilerTreeApiParameterized.class)
+@RunWith(Parameterized.class)
 public class TreeBackedAnnotatedConstructTest extends CompilerTreeApiParameterizedTest {
   @Test
   public void testGetAnnotationForStringValue() throws IOException {

@@ -200,9 +200,68 @@ pub(crate) fn analysis_actions_methods_dynamic_output(methods: &mut MethodsBuild
         Ok(NoneType)
     }
 
-    /// New version of `dynamic_output`.
+    /// Declares a dynamic action that reads artifact contents to produce outputs.
     ///
-    /// This is work in progress, and will eventually replace the old `dynamic_output`.
+    /// This is the new version of `dynamic_output` and will eventually replace it.
+    /// Dynamic actions enable build decisions based on the actual content of intermediate
+    /// artifacts.
+    ///
+    /// # Workflow
+    ///
+    /// 1. Define an implementation function with signature matching your dynamic attributes
+    /// 2. Create a factory (`DynamicActionsCallable`) using `dynamic_actions(impl=..., attrs=...)`
+    /// 3. Call that factory with concrete artifact values to create a `DynamicActions` instance
+    /// 4. Pass the `DynamicActions` to `ctx.actions.dynamic_output_new()`
+    ///
+    /// # Arguments
+    ///
+    /// * `dynamic_actions` - A `DynamicActions` instance created by calling a `DynamicActionsCallable`
+    ///
+    /// # Returns
+    ///
+    /// A `DynamicValue` that can be consumed by other dynamic actions via `dynattrs.dynamic_value()`.
+    ///
+    /// # Example
+    ///
+    /// ```python
+    /// # Step 1: Define the implementation function
+    /// def _my_impl(actions: AnalysisActions, config: ArtifactValue, out: OutputArtifact):
+    ///     content = config.read_string()
+    ///     if "feature_enabled" in content:
+    ///         actions.write(out, "feature output")
+    ///     else:
+    ///         actions.write(out, "default output")
+    ///     return [DefaultInfo()]
+    ///
+    /// # Step 2: Create a factory
+    /// _my_dynamic_action = dynamic_actions(
+    ///     impl = _my_impl,
+    ///     attrs = {
+    ///         "config": dynattrs.artifact_value(),
+    ///         "out": dynattrs.output(),
+    ///     },
+    /// )
+    ///
+    /// # Step 3 & 4: Use it in a rule or bxl script
+    /// def _rule_impl(ctx: AnalysisContext):
+    ///     config_file = ctx.actions.write("config.txt", "feature_enabled")
+    ///     output = ctx.actions.declare_output("result")
+    ///
+    ///     # Call the factory to create a DynamicActions instance
+    ///     dynamic_action = _my_dynamic_action(
+    ///         config = config_file,
+    ///         out = output.as_output(),
+    ///     )
+    ///
+    ///     # Execute it
+    ///     ctx.actions.dynamic_output_new(dynamic_action)
+    ///     return [DefaultInfo(default_output = output)]
+    /// ```
+    ///
+    /// See [Dynamic Dependencies](../../../rule_authors/dynamic_dependencies) for an overall
+    /// overview of dynamic dependencies in buck2.
+    ///
+    /// For a guide on using this with BXL, see [How to run actions based on the content of artifacts](../../../bxl/how_tos/how_to_run_actions_based_on_the_content_of_artifact).
     fn dynamic_output_new<'v>(
         this: &'v AnalysisActions<'v>,
         #[starlark(require = pos)] dynamic_actions: ValueTyped<'v, StarlarkDynamicActions<'v>>,

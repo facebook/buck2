@@ -13,7 +13,7 @@ use std::any::Any;
 use allocative::Allocative;
 use buck2_common::events::HasEvents;
 use buck2_events::dispatch::with_dispatcher_async;
-use buck2_futures::spawner::Spawner;
+use dice_futures::spawner::Spawner;
 use dupe::Dupe;
 use futures::future::BoxFuture;
 use tokio::runtime::Handle;
@@ -57,13 +57,14 @@ mod tests {
     use buck2_data::CommandStart;
     use buck2_events::BuckEvent;
     use buck2_events::create_source_sink_pair;
+    use buck2_events::daemon_id::DaemonId;
     use buck2_events::dispatch::EventDispatcher;
     use buck2_events::dispatch::span;
     use buck2_events::source::ChannelEventSource;
-    use buck2_futures::spawn::spawn_dropcancel;
     use buck2_wrapper_common::invocation_id::TraceId;
     use dice::DiceData;
     use dice::UserComputationData;
+    use dice_futures::spawn::spawn_dropcancel;
     use futures::future::FutureExt;
 
     use super::*;
@@ -86,8 +87,7 @@ mod tests {
 
     fn create_start_end_events() -> (CommandStart, CommandEnd) {
         let start = CommandStart {
-            data: Default::default(),
-            metadata: Default::default(),
+            ..Default::default()
         };
         let end = CommandEnd {
             ..Default::default()
@@ -103,7 +103,7 @@ mod tests {
         // Create dispatcher
         let (mut events, sink) = create_source_sink_pair();
         let trace_id = TraceId::new();
-        let dispatcher = EventDispatcher::new(trace_id.dupe(), sink);
+        let dispatcher = EventDispatcher::new(trace_id.dupe(), DaemonId::new(), sink);
 
         let ctx = create_ctx(dispatcher);
         let (start, end) = create_start_end_events();
@@ -129,11 +129,11 @@ mod tests {
         // Create dispatchers
         let (mut events1, sink1) = create_source_sink_pair();
         let trace_id1 = TraceId::new();
-        let dispatcher1 = EventDispatcher::new(trace_id1.dupe(), sink1);
+        let dispatcher1 = EventDispatcher::new(trace_id1.dupe(), DaemonId::new(), sink1);
 
         let (mut events2, sink2) = create_source_sink_pair();
         let trace_id2 = TraceId::new();
-        let dispatcher2 = EventDispatcher::new(trace_id2.dupe(), sink2);
+        let dispatcher2 = EventDispatcher::new(trace_id2.dupe(), DaemonId::new(), sink2);
 
         let ctx1 = create_ctx(dispatcher1);
         let ctx2 = create_ctx(dispatcher2);

@@ -327,7 +327,6 @@ impl CommandExecutionPaths {
 #[derive(Copy, Clone, Dupe, Debug, Display, Allocative, Hash, PartialEq, Eq)]
 pub struct WorkerId(pub u64);
 
-#[derive(Clone, Debug)]
 pub struct WorkerSpec {
     pub id: WorkerId,
     pub exe: Vec<String>,
@@ -335,6 +334,13 @@ pub struct WorkerSpec {
     pub concurrency: Option<usize>,
     pub streaming: bool,
     pub remote_key: Option<TrackedFileDigest>,
+    pub input_paths: CommandExecutionPaths,
+}
+
+impl WorkerSpec {
+    pub fn inputs(&self) -> &[CommandExecutionInput] {
+        &self.input_paths.inputs
+    }
 }
 
 pub struct RemoteWorkerSpec {

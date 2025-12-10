@@ -15,28 +15,16 @@ use std::time::Instant;
 
 use allocative::Allocative;
 use buck2_common::starlark_profiler::StarlarkProfileDataAndStatsDyn;
-use buck2_core::package::PackageLabel;
-use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_error::BuckErrorContext;
 use starlark::eval::ProfileData;
 
-#[derive(Clone, Debug, derive_more::Display, Allocative)]
-pub enum ProfileTarget {
-    #[display("analysis:{}", _0)]
-    Analysis(ConfiguredTargetLabel),
-    #[display("loading:{}", _0)]
-    Loading(PackageLabel),
-    #[display("bxl")]
-    Bxl,
-    #[display("unknown")]
-    Unknown,
-}
+use crate::dice::starlark_provider::StarlarkEvalKind;
 
 #[derive(Debug, Clone, Allocative)]
 pub struct StarlarkProfileDataAndStats {
     #[allocative(skip)] // OK to skip because used only when profiling enabled.
     pub profile_data: ProfileData,
-    pub targets: Vec<ProfileTarget>,
+    pub targets: Vec<StarlarkEvalKind>,
     pub(crate) initialized_at: Instant,
     pub(crate) finalized_at: Instant,
     pub(crate) total_retained_bytes: usize,
@@ -49,7 +37,7 @@ impl StarlarkProfileDataAndStatsDyn for StarlarkProfileDataAndStats {
 }
 
 impl StarlarkProfileDataAndStats {
-    pub fn elapsed(&self) -> Duration {
+    pub fn duration(&self) -> Duration {
         self.finalized_at.duration_since(self.initialized_at)
     }
 

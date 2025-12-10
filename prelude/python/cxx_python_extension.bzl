@@ -7,6 +7,10 @@
 # above-listed licenses.
 
 load("@prelude//:paths.bzl", "paths")
+load(
+    "@prelude//cxx:cuda.bzl",
+    "CudaCompileStyle",
+)
 load("@prelude//cxx:cxx_context.bzl", "get_cxx_toolchain_info")
 load(
     "@prelude//cxx:cxx_library.bzl",
@@ -26,6 +30,7 @@ load(
     "CxxRuleProviderParams",
     "CxxRuleSubTargetParams",
 )
+load("@prelude//cxx:cxx_utility.bzl", "cxx_attrs_get_allow_cache_upload")
 load("@prelude//cxx:headers.bzl", "cxx_get_regular_cxx_headers_layout")
 load("@prelude//cxx:linker.bzl", "DUMPBIN_SUB_TARGET", "PDB_SUB_TARGET", "get_dumpbin_providers", "get_pdb_providers")
 load(
@@ -76,7 +81,6 @@ load(
 )
 load("@prelude//third-party:providers.bzl", "ThirdPartyBuild", "third_party_build_info")
 load("@prelude//unix:providers.bzl", "UnixEnv", "create_unix_env_info")
-load("@prelude//utils:expect.bzl", "expect")
 load("@prelude//utils:utils.bzl", "value_or")
 load(":manifest.bzl", "create_manifest_for_source_map")
 load(":python.bzl", "NativeDepsInfo", "NativeDepsInfoTSet", "PythonLibraryInfo")
@@ -143,14 +147,25 @@ def cxx_python_extension_impl(ctx: AnalysisContext) -> list[Provider]:
         platform_preprocessor_flags = ctx.attrs.platform_preprocessor_flags,
         lang_platform_preprocessor_flags = ctx.attrs.lang_platform_preprocessor_flags,
         error_handler = cxx_toolchain.cxx_error_handler,
+        allow_cache_upload = cxx_attrs_get_allow_cache_upload(ctx.attrs, get_cxx_toolchain_info(ctx).cxx_compiler_info.allow_cache_upload),
+        precompiled_header = ctx.attrs.precompiled_header,
+        prefix_header = ctx.attrs.prefix_header,
+        _cxx_toolchain = ctx.attrs._cxx_toolchain,
+        coverage_instrumentation_compiler_flags = ctx.attrs.coverage_instrumentation_compiler_flags,
+        separate_debug_info = ctx.attrs.separate_debug_info,
+        cuda_compile_style = CudaCompileStyle(ctx.attrs.cuda_compile_style),
+        supports_stripping = ctx.attrs.supports_stripping,
+        use_content_based_paths = cxx_toolchain.cxx_compiler_info.supports_content_based_paths,
     )
 
     cxx_library_info = cxx_library_parameterized(ctx, impl_params)
     libraries = cxx_library_info.all_outputs
     shared_output = libraries.outputs[LibOutputStyle("shared_lib")][LinkableFlavor("default")]
 
-    expect(LinkableFlavor("default") in libraries.solibs, "Expected cxx_python_extension to produce a solib: {}".format(ctx.label))
-    extension = libraries.solibs[LinkableFlavor("default")].linked_object
+    solib_default = libraries.solibs.get(LinkableFlavor("default"), None)
+    if not solib_default:
+        fail("Expected cxx_python_extension to produce a solib: {}".format(ctx.label))
+    extension = solib_default.linked_object
 
     sub_targets = cxx_library_info.sub_targets
     if extension.pdb:
@@ -166,7 +181,7 @@ def cxx_python_extension_impl(ctx: AnalysisContext) -> list[Provider]:
         sub_targets = sub_targets,
     ))
 
-    cxx_deps = [dep for dep in cxx_attr_deps(ctx)]
+    cxx_deps = cxx_attr_deps(ctx)
 
     extension_artifacts = {}
     python_module_names = {}
@@ -187,11 +202,17 @@ def cxx_python_extension_impl(ctx: AnalysisContext) -> list[Provider]:
             suffix = base_module.replace("/", "$") + module_name
             static_output = libraries.outputs[LibOutputStyle("archive")][LinkableFlavor("default")]
             static_pic_output = libraries.outputs[LibOutputStyle("pic_archive")][LinkableFlavor("default")]
+
+            debuggable_static_pic_objects = []
+            if LinkableFlavor("debug") in libraries.outputs[LibOutputStyle("pic_archive")]:
+                debuggable_static_pic_objects = libraries.outputs[LibOutputStyle("pic_archive")][LinkableFlavor("debug")].object_files
+
             link_infos = rewrite_static_symbols(
                 ctx,
                 suffix,
                 pic_objects = static_pic_output.object_files,
                 non_pic_objects = static_output.object_files,
+                debuggable_pic_objects = debuggable_static_pic_objects,
                 libraries = link_infos,
                 cxx_toolchain = cxx_toolchain,
                 suffix_all = ctx.attrs.suffix_all,

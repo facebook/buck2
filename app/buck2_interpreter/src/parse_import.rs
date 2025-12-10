@@ -17,8 +17,8 @@ use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::cell_path_with_allowed_relative_dir::CellPathWithAllowedRelativeDir;
 use buck2_core::cells::paths::CellRelativePath;
 use buck2_core::cells::paths::CellRelativePathBuf;
-use buck2_core::fs::paths::RelativePath;
-use buck2_core::fs::paths::file_name::FileName;
+use buck2_fs::paths::RelativePath;
+use buck2_fs::paths::file_name::FileName;
 
 #[derive(buck2_error::Error, Debug)]
 #[buck2(input)]

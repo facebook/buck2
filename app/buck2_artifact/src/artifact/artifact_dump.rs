@@ -16,8 +16,8 @@ use std::path::PathBuf;
 use buck2_common::cas_digest::CasDigest;
 use buck2_common::cas_digest::TrackedCasDigest;
 use buck2_common::file_ops::metadata::FileDigestKind;
-use buck2_core::fs::paths::RelativePathBuf;
-use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
+use buck2_fs::paths::RelativePathBuf;
+use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use serde::Serialize;
 use serde::Serializer;
 

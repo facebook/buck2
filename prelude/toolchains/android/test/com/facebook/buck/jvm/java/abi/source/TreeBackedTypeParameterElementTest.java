@@ -14,7 +14,6 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertSame;
 
-import com.facebook.buck.jvm.java.testutil.compiler.CompilerTreeApiParameterized;
 import java.io.IOException;
 import java.util.List;
 import javax.lang.model.element.Element;
@@ -25,8 +24,9 @@ import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.SimpleElementVisitor8;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
 
-@RunWith(CompilerTreeApiParameterized.class)
+@RunWith(Parameterized.class)
 public class TreeBackedTypeParameterElementTest extends CompilerTreeApiParameterizedTest {
   @Test
   public void testGetSimpleName() throws IOException {

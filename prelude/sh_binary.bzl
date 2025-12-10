@@ -26,7 +26,8 @@ def _generate_script(
         append_script_extension: bool,
         actions: AnalysisActions,
         is_windows: bool,
-        copy_resources: bool) -> (Artifact, Artifact):
+        copy_resources: bool,
+        has_content_based_path: bool) -> (Artifact, Artifact):
     main_path = main.short_path
     if not append_script_extension:
         main_link = main_path
@@ -40,12 +41,12 @@ def _generate_script(
     # windows isn't stable with resources passed in as symbolic links for
     # remote execution. Allow using copies instead.
     if copy_resources:
-        resources_dir = actions.copied_dir("resources", resources)
+        resources_dir = actions.copied_dir("resources", resources, has_content_based_path = has_content_based_path)
     else:
-        resources_dir = actions.symlinked_dir("resources", resources)
+        resources_dir = actions.symlinked_dir("resources", resources, has_content_based_path = has_content_based_path)
 
     script_name = name + (".bat" if is_windows else "")
-    script = actions.declare_output(script_name)
+    script = actions.declare_output(script_name, has_content_based_path = has_content_based_path)
 
     # This is much, much simpler than the buck1 sh_binary template. A couple reasons:
     # 1. we don't invoke the script through a symlink and so don't need to use and implement a cross-platform `readlink -e`
@@ -126,6 +127,7 @@ def sh_binary_impl(ctx):
         ctx.actions,
         is_windows,
         ctx.attrs.copy_resources,
+        ctx.attrs.has_content_based_path,
     )
 
     script = script.with_associated_artifacts([resources_dir])

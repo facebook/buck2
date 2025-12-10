@@ -8,6 +8,10 @@
 
 # pyre-strict
 
+import json
+import os
+import signal
+import time
 from pathlib import Path
 
 from buck2.tests.e2e_util.api.buck import Buck
@@ -228,8 +232,12 @@ async def test_daemon_crash(buck: Buck, tmp_path: Path) -> None:
     else:
         assert "stream closed because of a broken pipe" in error["message"]
 
-    assert error["tags"][0:3] == ["CLIENT_GRPC", "SERVER_PANICKED", "TONIC"]
-    assert error["tags"][3].startswith("crash")
+    assert error["tags"][0:3] == [
+        "CLIENT_GRPC",
+        "CLIENT_GRPC_STREAM",
+        "SERVER_PANICKED",
+    ]
+    assert error["tags"][4].startswith("crash")
     assert "buckd stderr:\n" in error["message"]
     assert "panicked at" in error["message"]
 
@@ -266,7 +274,7 @@ async def test_connection_timeout(buck: Buck, tmp_path: Path) -> None:
     assert record["daemon_connection_failure"] is True
     assert record["daemon_was_started"] is None
 
-    assert record["errors"][0]["best_tag"] == "SERVER_STDERR_UNKNOWN"
+    assert record["errors"][0]["category_key"] == "CLIENT_STARTUP_TIMEOUT"
 
     if not is_running_on_windows():
         golden(
@@ -294,7 +302,7 @@ async def test_daemon_abort(buck: Buck, tmp_path: Path) -> None:
     if is_running_on_windows():
         # TODO get windows to dump a stack trace / detect signals
         assert "buckd stderr is empty" in error["message"]
-        assert category_key == "SERVER_STDERR_EMPTY:TONIC"
+        assert category_key == "DAEMON_DISCONNECT"
     else:
         # Messages from folly's signal handler.
         assert "*** Aborted at" in error["message"]
@@ -307,6 +315,34 @@ async def test_daemon_abort(buck: Buck, tmp_path: Path) -> None:
         assert "crash(" in category_key
         # test string tags are in error_tags
         assert error["tags"][-1].startswith("crash(")
+
+
+async def wait_for_daemon_pid(buck: Buck) -> int:
+    for _ in range(10):
+        time.sleep(1)
+        status = await buck.status()
+        if status.stderr != "no buckd running":
+            return json.loads(status.stdout)["process_info"]["pid"]
+    raise Exception("Failed to find buckd pid")
+
+
+@buck_test(skip_for_os=["windows"])
+async def test_daemon_killed(buck: Buck, tmp_path: Path) -> None:
+    record = tmp_path / "record.json"
+    build = await buck.build(
+        ":slow_action", "--unstable-write-invocation-record", str(record)
+    ).start()
+
+    pid = await wait_for_daemon_pid(buck)
+    os.kill(pid, signal.SIGKILL)
+    await build.communicate()  # Wait for the client to exit
+
+    invocation_record = read_invocation_record(record)
+    errors = invocation_record["errors"]
+    assert len(errors) == 1
+    [error] = errors
+    assert error["category_key"] == "DAEMON_DISCONNECT"
+    assert error["category"] == "ENVIRONMENT"
 
 
 @buck_test()

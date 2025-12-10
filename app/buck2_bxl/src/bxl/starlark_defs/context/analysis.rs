@@ -18,13 +18,13 @@ use futures::FutureExt;
 use gazebo::prelude::*;
 
 use crate::bxl::starlark_defs::analysis_result::StarlarkAnalysisResult;
-use crate::bxl::starlark_defs::context::BxlContextNoDice;
+use crate::bxl::starlark_defs::context::BxlContext;
 use crate::bxl::starlark_defs::context::ErrorPrinter;
 use crate::bxl::starlark_defs::providers_expr::ProvidersExpr;
 
 pub(crate) async fn analysis<'v>(
     dice: &mut DiceComputations<'_>,
-    ctx: &BxlContextNoDice<'v>,
+    ctx: &BxlContext<'v>,
     expr: ProvidersExpr<ConfiguredProvidersLabel>,
     skip_incompatible: bool,
 ) -> buck2_error::Result<

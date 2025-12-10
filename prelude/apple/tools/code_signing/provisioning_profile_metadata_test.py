@@ -7,10 +7,9 @@
 # above-listed licenses.
 
 import datetime
+import importlib.resources
 import unittest
 from pathlib import Path
-
-import pkg_resources
 
 from .app_id import AppId
 from .provisioning_profile_metadata import ProvisioningProfileMetadata
@@ -19,7 +18,7 @@ from .provisioning_profile_metadata import ProvisioningProfileMetadata
 class TestParse(unittest.TestCase):
     def test_canary(self):
         path = Path("test_resources/sample.mobileprovision")
-        file_content = pkg_resources.resource_string(__name__, str(path))
+        file_content = (importlib.resources.files(__package__) / path).read_bytes()
         metadata = ProvisioningProfileMetadata.from_provisioning_profile_file_content(
             path, file_content
         )
@@ -42,7 +41,7 @@ class TestParse(unittest.TestCase):
 
     def test_qualified_entitlements_parsed(self):
         path = Path("test_resources/sample.mobileprovision")
-        file_content = pkg_resources.resource_string(__name__, str(path))
+        file_content = (importlib.resources.files(__package__) / path).read_bytes()
         metadata = ProvisioningProfileMetadata.from_provisioning_profile_file_content(
             path, file_content
         )
@@ -52,7 +51,7 @@ class TestParse(unittest.TestCase):
 
     def test_filtered_entitlements_stripped_out(self):
         path = Path("test_resources/sample.mobileprovision")
-        file_content = pkg_resources.resource_string(__name__, str(path))
+        file_content = (importlib.resources.files(__package__) / path).read_bytes()
         metadata = ProvisioningProfileMetadata.from_provisioning_profile_file_content(
             path, file_content
         )

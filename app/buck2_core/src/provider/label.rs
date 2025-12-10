@@ -123,7 +123,9 @@ pub enum NonDefaultProvidersName {
     Allocative,
     strong_hash::StrongHash
 )]
+#[derive(Default)]
 pub enum ProvidersName {
+    #[default]
     Default,
     NonDefault(Arc<NonDefaultProvidersName>),
 }
@@ -131,12 +133,6 @@ pub enum ProvidersName {
 assert_eq_size!(ProvidersName, [usize; 1]);
 
 impl Dupe for ProvidersName {}
-
-impl Default for ProvidersName {
-    fn default() -> Self {
-        Self::Default
-    }
-}
 
 impl Display for ProvidersName {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
@@ -362,6 +358,11 @@ pub mod testing {
             target: &str,
             name: Option<&[&str]>,
         ) -> ProvidersLabel;
+
+        fn testing_new_with_target_label(
+            target: TargetLabel,
+            name: Option<&[&str]>,
+        ) -> ProvidersLabel;
     }
 
     impl ProvidersLabelTestExt for ProvidersLabel {
@@ -371,11 +372,19 @@ pub mod testing {
             target: &str,
             name: Option<&[&str]>,
         ) -> ProvidersLabel {
+            let label = TargetLabel::new(
+                PackageLabel::testing_new(cell, package),
+                TargetNameRef::new(target).unwrap(),
+            );
+            Self::testing_new_with_target_label(label, name)
+        }
+
+        fn testing_new_with_target_label(
+            target: TargetLabel,
+            name: Option<&[&str]>,
+        ) -> ProvidersLabel {
             ProvidersLabel::new(
-                TargetLabel::new(
-                    PackageLabel::testing_new(cell, package),
-                    TargetNameRef::new(target).unwrap(),
-                ),
+                target,
                 match name {
                     Some(n) => ProvidersName::NonDefault(Arc::new(NonDefaultProvidersName::Named(
                         ArcSlice::from_iter(n.map(|s| ProviderName::new((*s).to_owned()).unwrap())),

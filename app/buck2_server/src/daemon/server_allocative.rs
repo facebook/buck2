@@ -12,10 +12,10 @@ use std::sync::Arc;
 
 use allocative::FlameGraph;
 use allocative::FlameGraphBuilder;
-use buck2_core::fs::fs_util;
-use buck2_core::fs::paths::abs_path::AbsPathBuf;
 use buck2_error::conversion::from_any_with_tag;
 use buck2_events::dispatch::EventDispatcher;
+use buck2_fs::fs_util;
+use buck2_fs::paths::abs_path::AbsPathBuf;
 use buck2_util::process_stats::process_stats;
 
 use crate::daemon::server::BuckdServerData;

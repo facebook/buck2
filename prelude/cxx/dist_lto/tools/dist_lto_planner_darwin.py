@@ -186,7 +186,6 @@ def main(argv):
     parser.add_argument("--meta")
     parser.add_argument("--index")
     parser.add_argument("--link-plan")
-    parser.add_argument("--final-link-index")
     parser.add_argument("--enable-premerger", action="store_true")
     parser.add_argument("index_args", nargs=argparse.REMAINDER)
     args = parser.parse_args(argv[1:])
@@ -226,19 +225,21 @@ def main(argv):
         args.index_args[1:],
     )
 
-    # Thin-link will write two "index" files, one named "index" the other "index.full". We read the first to get
-    # the set of bitcode files that were loaded. Notably this will not include native object files fed to the link directly.
-    # This set will be used to avoid creating opt action for bitcode we don't load anyways.
-    loaded_input_bitcode_files = set()
-    with open(index_path("index")) as indexfile:
-        for line in indexfile:
-            # Bitcode files that appear in the index are prefixed with the argument to --thinlto-prefix-replace
-            # which in our case is the directory index is placed in. Remove this prefix to get the original path.
-            input_bitcode_file_path = os.path.relpath(line.strip(), start=args.index)
-            loaded_input_bitcode_files.add(input_bitcode_file_path)
+    loaded_input_files_positions = {}
+    with open(index_path("index.full")) as indexfile:
+        for position, line in enumerate(indexfile):
+            if line.startswith(args.index):
+                # Bitcode files that appear in the index are prefixed with the argument to --thinlto-prefix-replace
+                # which in our case is the directory index is placed in. Remove this prefix to get the original path.
+                input_bitcode_file_path = os.path.relpath(
+                    line.strip(), start=args.index
+                )
+                loaded_input_files_positions[input_bitcode_file_path] = position
+            else:
+                loaded_input_files_positions[line.strip()] = position
 
-    def _input_bitcode_file_path_is_loaded_by_linker(path):
-        return path in loaded_input_bitcode_files
+    def _input_file_path_is_loaded_by_linker(path):
+        return path in loaded_input_files_positions
 
     absorbed_source_files = set()
     non_lto_objects = {}
@@ -257,6 +258,10 @@ def main(argv):
             if premerger_enabled
             else None
         )
+
+        final_link_line_position = -1
+        if path in loaded_input_files_positions:
+            final_link_line_position = loaded_input_files_positions[path]
 
         # import files are only written for bitcode files
         if os.path.exists(imports_file_path):
@@ -284,7 +289,8 @@ def main(argv):
                 imports=imports_list,
                 merge_state=merge_state,
                 is_bitcode=True,
-                loaded_by_linker=_input_bitcode_file_path_is_loaded_by_linker(path),
+                loaded_by_linker=_input_file_path_is_loaded_by_linker(path),
+                final_link_line_position=final_link_line_position,
             )
         else:
             # The linker will not generate an index shard, or a merged bitcode file if the input is not bitcode.
@@ -300,7 +306,8 @@ def main(argv):
                 imports=[],
                 merge_state=None,
                 is_bitcode=False,
-                loaded_by_linker=True,
+                loaded_by_linker=_input_file_path_is_loaded_by_linker(path),
+                final_link_line_position=final_link_line_position,
             )
 
         with open(data.output_plan_file_path, "w") as planout:
@@ -315,32 +322,6 @@ def main(argv):
             outfile,
             sort_keys=True,
         )
-
-    # The "index.full" file is a filelist that will be used as input to the filelink, providing a list and order
-    # in which to provide the native object files to the final link. However, it refers to input bitcode files by their name
-    # as provided to thin-link. Opt + codegen actions will consume these bitcode files and write them elsewhere. This step takes
-    # this filelist and translates input bitcode file paths to the final path where the native object files will be written.
-    with open(index_path("index.full")) as full_index_input, open(
-        args.final_link_index, "w"
-    ) as final_link_index_output:
-        for line in full_index_input:
-            line = line.strip()
-            path = os.path.relpath(line, start=args.index)
-            # Bitcode files that have been absorbed into other bitcode files by the pre-merger need to be removed from the filelist.
-            if path in absorbed_source_files:
-                continue
-
-            if path in loaded_input_bitcode_files:
-                # This is a roundabout method of getting the location opt actions will write the produced native object file for a bitcode file. This only works because the sharded index and the output native object file are written side by side with a different suffix.
-                output = object_file_records_map[
-                    path
-                ].output_index_shard_file_path.replace(
-                    BITCODE_SUFFIX, OPT_OBJECTS_SUFFIX
-                )
-                final_link_index_output.write(output + "\n")
-            else:
-                # handle input files that did not come from linker input, e.g. linkerscirpts
-                final_link_index_output.write(line + "\n")
 
 
 sys.exit(main(sys.argv))

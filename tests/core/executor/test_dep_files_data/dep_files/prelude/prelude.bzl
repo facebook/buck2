@@ -155,3 +155,57 @@ simple_dep_file = rule(
         "used_input2_contents": attrs.string(),
     },
 )
+
+def _shared_dir_dep_file_impl(ctx):
+    has_content_based_path = ctx.attrs.use_content_based_paths
+    used_input = ctx.actions.write("used_input1", ctx.attrs.used_input_contents, has_content_based_path = has_content_based_path)
+    unused_input = ctx.actions.write("unused_input", ctx.attrs.unused_input_contents, has_content_based_path = has_content_based_path)
+    dir_inputs = {
+        "unused_input": unused_input,
+        "used_input": used_input,
+    }
+    copied_dir = ctx.actions.copied_dir("dir", dir_inputs, has_content_based_path = has_content_based_path)
+
+    symlink_to_used_input_in_dir = ctx.actions.symlink_file("symlink_to_used_input_in_dir", copied_dir.project("used_input"), has_content_based_path = has_content_based_path)
+    symlink_to_unused_input_in_dir = ctx.actions.symlink_file("symlink_to_unused_input_in_dir", copied_dir.project("unused_input"), has_content_based_path = has_content_based_path)
+
+    dep_file = ctx.actions.declare_output("depfile", has_content_based_path = has_content_based_path)
+    out = ctx.actions.declare_output("out", has_content_based_path = has_content_based_path)
+
+    script = ctx.actions.write(
+        "script.py",
+        [
+            "import sys",
+            "with open(sys.argv[1], 'w') as f:",
+            "  f.write('output')",
+            "with open(sys.argv[2], 'w') as dep_file:",
+            "  for arg in sys.argv[3:]:",
+            "    dep_file.write('{}\\n'.format(arg))",
+        ],
+        has_content_based_path = has_content_based_path,
+    )
+
+    tag = ctx.actions.artifact_tag()
+    args = cmd_args(
+        [
+            "fbpython",
+            script,
+            out.as_output(),
+            tag.tag_artifacts(dep_file.as_output()),
+            tag.tag_artifacts(symlink_to_used_input_in_dir),
+        ],
+        hidden = tag.tag_artifacts(cmd_args([symlink_to_unused_input_in_dir])),
+    )
+
+    ctx.actions.run(args, category = "test_run", dep_files = {"used": tag})
+
+    return [DefaultInfo(default_output = out)]
+
+shared_dir_dep_file = rule(
+    impl = _shared_dir_dep_file_impl,
+    attrs = {
+        "unused_input_contents": attrs.string(),
+        "use_content_based_paths": attrs.bool(default = read_config("test", "use_content_based_paths", "true") == "true"),
+        "used_input_contents": attrs.string(),
+    },
+)

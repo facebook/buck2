@@ -25,12 +25,12 @@ import argparse
 import os
 import shutil
 from pathlib import Path
-from typing import List, NamedTuple
+from typing import NamedTuple
 
 
 class Args(NamedTuple):
     resources: Path
-    test: List[str]
+    test: list[str]
 
 
 def arg_parse() -> Args:

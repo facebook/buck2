@@ -1,7 +1,7 @@
 # This file is @generated, regenerate by re-running test with `-- --env BUCK2_UPDATE_GOLDEN=1` appended to the test command
 
 
-[<TIMESTAMP>] thread 'buck2-tn' panicked at <PATH>
+[<TIMESTAMP>] thread 'buck2-tn' (<THREAD_ID>) panicked at <PATH>
 [<TIMESTAMP>] explicitly requested panic (via unstable_crash)
 [<TIMESTAMP>] stack backtrace:
 [<TIMESTAMP>] note: Some details are omitted, run with `RUST_BACKTRACE=full` for a verbose backtrace.

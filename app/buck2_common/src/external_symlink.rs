@@ -14,8 +14,8 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use allocative::Allocative;
-use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
-use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
+use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
+use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use dupe::Dupe;
 
 type Utf8Path = String;

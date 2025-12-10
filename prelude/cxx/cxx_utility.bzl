@@ -6,6 +6,9 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
+def cxx_attrs_use_fbcc_rust_wrapper(attrs: struct) -> bool:
+    return attrs.use_fbcc_rust_wrapper if hasattr(attrs, "use_fbcc_rust_wrapper") else False
+
 def cxx_attrs_get_allow_cache_upload(attrs: struct, default: [None, bool] = None) -> bool:
     default_value = default if default != None else False
     if not hasattr(attrs, "allow_cache_upload"):

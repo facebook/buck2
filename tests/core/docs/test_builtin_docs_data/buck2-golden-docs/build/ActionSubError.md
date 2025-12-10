@@ -2,5 +2,14 @@
 
 # ActionSubError
 ## ActionSubError.category
-## ActionSubError.locations
+## ActionSubError.col
+## ActionSubError.end\_col
+## ActionSubError.end\_lnum
+## ActionSubError.error\_number
+## ActionSubError.error\_type
+## ActionSubError.file
+## ActionSubError.lnum
 ## ActionSubError.message
+## ActionSubError.remediation
+## ActionSubError.show\_in\_stderr
+## ActionSubError.subcategory

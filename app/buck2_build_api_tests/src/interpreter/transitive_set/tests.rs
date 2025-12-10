@@ -615,14 +615,21 @@ fn test_type_2() -> anyhow::Result<()> {
 fn test_transitive_set_ordering_docs() -> anyhow::Result<()> {
     let mut tester = transitive_set_tester();
 
-    /*
-     *  qux -> bar -> foo
-     *          \-----^
+    /*       [A] (root)
+     *       / \
+     *     [B] [C]
+     *     / \   \
+     *   [D]  \   \
+     *   / \   \  /
+     *   \ [F] / /
+     *    \   / /
+     *     \ / /
+     *      [E]
      */
     tester.run_starlark_bzl_test(indoc!(
         r#"
-        def project(value):
-            return value
+        def project(value: str) -> str:
+            return value.lower()
 
         MySet = transitive_set(args_projections = {
             "project": project
@@ -635,24 +642,26 @@ fn test_transitive_set_ordering_docs() -> anyhow::Result<()> {
         )
 
         def test():
-            set1 = ctx.actions.tset(MySet, value = "foo")
-            set2 = ctx.actions.tset(MySet, value = "bar", children = [set1])
-            set3 = ctx.actions.tset(MySet, value = "qux", children = [set1, set2])
+            F = ctx.actions.tset(MySet, value = "F")
+            E = ctx.actions.tset(MySet, value = "E")
+            D = ctx.actions.tset(MySet, value = "D", children = [E, F])
+            C = ctx.actions.tset(MySet, value = "C", children = [E])
+            B = ctx.actions.tset(MySet, value = "B", children = [D, E])
+            A = ctx.actions.tset(MySet, value = "A", children = [B, C])
 
-            values = list(set3.traverse(ordering = "topological"))
+            values = list(A.traverse(ordering = "topological"))
 
             # This also works for projections
-            args = set3.project_as_args("project", ordering = "topological")
-
-            assert_eq(values, ["qux", "bar", "foo"])
-            assert_eq(["qux", "bar", "foo"], get_args(args))
+            args = A.project_as_args("project", ordering = "topological")
+            assert_eq(["a", "b", "d", "f", "c", "e"], get_args(args))
 
             # Test all orderings which show up in the table.
-            assert_eq(list(set3.traverse()), ["qux", "foo", "bar"])
-            assert_eq(list(set3.traverse(ordering = "preorder")), ["qux", "foo", "bar"])
-            assert_eq(list(set3.traverse(ordering = "postorder")), ["foo", "bar", "qux"])
-            assert_eq(list(set3.traverse(ordering = "topological")), ["qux", "bar", "foo"])
-            assert_eq(list(set3.traverse(ordering = "bfs")), ["qux", "foo", "bar"])
+            assert_eq(["A", "B", "D", "F", "E", "C"], list(A.traverse()))
+            assert_eq(["A", "B", "D", "F", "E", "C"], list(A.traverse(ordering = "preorder")))
+            assert_eq(["E", "F", "D", "B", "C", "A"], list(A.traverse(ordering = "postorder")))
+            assert_eq(["A", "B", "D", "F", "C", "E"], list(A.traverse(ordering = "topological")))
+            assert_eq(["A", "B", "C", "D", "E", "F"], list(A.traverse(ordering = "bfs")))
+            assert_eq(["A", "B", "D", "E", "F", "C"], list(A.traverse(ordering = "dfs")))
         "#
     ))?;
 

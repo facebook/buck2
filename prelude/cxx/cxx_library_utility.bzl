@@ -42,24 +42,54 @@ OBJECTS_SUBTARGET = "objects"
 
 # The dependencies
 def cxx_attr_deps(ctx: AnalysisContext) -> list[Dependency]:
-    return (
-        ctx.attrs.deps +
-        flatten(cxx_by_platform(ctx, getattr(ctx.attrs, "platform_deps", []))) +
-        (getattr(ctx.attrs, "deps_query", []) or [])
-    )
+    cxx_platform_info = get_cxx_platform_info(ctx)
+
+    deps = list(ctx.attrs.deps)
+
+    platform_deps_attr = getattr(ctx.attrs, "platform_deps", None)
+    if platform_deps_attr:
+        platform_deps = cxx_by_platform(cxx_platform_info, platform_deps_attr)
+        for platform_dep in platform_deps:
+            deps.extend(platform_dep)
+
+    deps_query_attr = getattr(ctx.attrs, "deps_query", None)
+    if deps_query_attr:
+        deps.extend(deps_query_attr)
+
+    return deps
 
 def cxx_attr_exported_deps(ctx: AnalysisContext) -> list[Dependency]:
-    return getattr(ctx.attrs, "exported_deps", []) + flatten(cxx_by_platform(ctx, ctx.attrs.exported_platform_deps))
+    exported_deps = []
+
+    exported_deps_attr = getattr(ctx.attrs, "exported_deps", None)
+    if exported_deps_attr:
+        exported_deps.extend(exported_deps_attr)
+
+    exported_platform_deps_attr = getattr(ctx.attrs, "exported_platform_deps", None)
+    if exported_platform_deps_attr:
+        cxx_platform_info = get_cxx_platform_info(ctx)
+        exported_platform_deps = cxx_by_platform(cxx_platform_info, exported_platform_deps_attr)
+        for exported_platform_dep in exported_platform_deps:
+            exported_deps.extend(exported_platform_dep)
+
+    return exported_deps
 
 def cxx_attr_linker_flags_all(ctx: AnalysisContext) -> LinkerFlags:
-    flags = (
-        cxx_attr_linker_flags(ctx) +
-        (ctx.attrs.local_linker_script_flags if hasattr(ctx.attrs, "local_linker_script_flags") else [])
-    )
-    post_flags = (
-        (ctx.attrs.post_linker_flags if hasattr(ctx.attrs, "post_linker_flags") else []) +
-        (flatten(cxx_by_platform(ctx, ctx.attrs.post_platform_linker_flags)) if hasattr(ctx.attrs, "post_platform_linker_flags") else [])
-    )
+    flags = cxx_attr_linker_flags(ctx)
+
+    local_linker_script_flags_attr = getattr(ctx.attrs, "local_linker_script_flags", None)
+    if local_linker_script_flags_attr:
+        flags.extend(local_linker_script_flags_attr)
+
+    post_flags = getattr(ctx.attrs, "post_linker_flags", [])
+
+    post_platform_linker_flags_attr = getattr(ctx.attrs, "post_platform_linker_flags", None)
+    if post_platform_linker_flags_attr:
+        cxx_platform_info = get_cxx_platform_info(ctx)
+        post_platform_linker_flags = cxx_by_platform(cxx_platform_info, post_platform_linker_flags_attr)
+        for post_platform_linker_flag in post_platform_linker_flags:
+            post_flags.extend(post_platform_linker_flag)
+
     exported_flags = cxx_attr_exported_linker_flags(ctx)
     exported_post_flags = cxx_attr_exported_post_linker_flags(ctx)
     return LinkerFlags(
@@ -70,16 +100,28 @@ def cxx_attr_linker_flags_all(ctx: AnalysisContext) -> LinkerFlags:
     )
 
 def cxx_attr_exported_linker_flags(ctx: AnalysisContext) -> list[typing.Any]:
-    return (
-        ctx.attrs.exported_linker_flags +
-        (flatten(cxx_by_platform(ctx, ctx.attrs.exported_platform_linker_flags)) if hasattr(ctx.attrs, "exported_platform_linker_flags") else [])
-    )
+    exported_linker_flags = list(ctx.attrs.exported_linker_flags)
+
+    exported_platform_linker_flags_attr = getattr(ctx.attrs, "exported_platform_linker_flags", None)
+    if exported_platform_linker_flags_attr:
+        cxx_platform_info = get_cxx_platform_info(ctx)
+        exported_platform_linker_flags = cxx_by_platform(cxx_platform_info, exported_platform_linker_flags_attr)
+        for exported_platform_linker_flag in exported_platform_linker_flags:
+            exported_linker_flags.extend(exported_platform_linker_flag)
+
+    return exported_linker_flags
 
 def cxx_attr_exported_post_linker_flags(ctx: AnalysisContext) -> list[typing.Any]:
-    return (
-        ctx.attrs.exported_post_linker_flags +
-        (flatten(cxx_by_platform(ctx, ctx.attrs.exported_post_platform_linker_flags)) if hasattr(ctx.attrs, "exported_post_platform_linker_flags") else [])
-    )
+    exported_post_linker_flags = list(ctx.attrs.exported_post_linker_flags)
+
+    exported_post_platform_linker_flags_attr = getattr(ctx.attrs, "exported_post_platform_linker_flags", None)
+    if exported_post_platform_linker_flags_attr:
+        cxx_platform_info = get_cxx_platform_info(ctx)
+        exported_post_platform_linker_flags = cxx_by_platform(cxx_platform_info, exported_post_platform_linker_flags_attr)
+        for exported_post_platform_linker_flag in exported_post_platform_linker_flags:
+            exported_post_linker_flags.extend(exported_post_platform_linker_flag)
+
+    return exported_post_linker_flags
 
 def cxx_inherited_link_info(first_order_deps: list[Dependency]) -> list[MergedLinkInfo]:
     """
@@ -93,9 +135,10 @@ def cxx_inherited_link_info(first_order_deps: list[Dependency]) -> list[MergedLi
 
 # Linker flags
 def cxx_attr_linker_flags(ctx: AnalysisContext) -> list[typing.Any]:
+    cxx_platform_info = get_cxx_platform_info(ctx)
     return (
         ctx.attrs.linker_flags +
-        (flatten(cxx_by_platform(ctx, ctx.attrs.platform_linker_flags)) if hasattr(ctx.attrs, "platform_linker_flags") else [])
+        (flatten(cxx_by_platform(cxx_platform_info, ctx.attrs.platform_linker_flags)) if hasattr(ctx.attrs, "platform_linker_flags") else [])
     )
 
 # Even though we're returning the shared library links, we must still
@@ -143,11 +186,14 @@ def cxx_attr_resources(ctx: AnalysisContext) -> dict[str, ArtifactOutputs]:
     """
 
     resources = {}
-    namespace = cxx_attr_header_namespace(ctx)
 
-    # Use getattr, as apple rules don't have a `resources` parameter.
-    for name, resource in from_named_set(getattr(ctx.attrs, "resources", {})).items():
-        resources[paths.join(namespace, name)] = single_artifact(resource)
+    resources_attr = getattr(ctx.attrs, "resources", None)
+    if resources_attr:
+        namespace = cxx_attr_header_namespace(ctx)
+
+        # Use getattr, as apple rules don't have a `resources` parameter.
+        for name, resource in from_named_set(resources_attr).items():
+            resources[paths.join(namespace, name)] = single_artifact(resource)
 
     return resources
 
@@ -165,6 +211,9 @@ def cxx_use_shlib_intfs(ctx: AnalysisContext) -> bool:
 
     linker_info = get_cxx_toolchain_info(ctx).linker_info
     return linker_info.shlib_interfaces != ShlibInterfacesMode("disabled")
+
+def cxx_can_generate_shlib_interface_from_linkables(ctx: AnalysisContext) -> bool:
+    return get_cxx_toolchain_info(ctx).binary_utilities_info.custom_tools.get("llvm-tbd-gen", None) != None
 
 def cxx_use_shlib_intfs_mode(ctx: AnalysisContext, mode: ShlibInterfacesMode) -> bool:
     """
@@ -193,3 +242,9 @@ def cxx_attr_dep_metadata(ctx: AnalysisContext) -> list[DepMetadata]:
     if not getattr(ctx.attrs, "version", None):
         return []
     return [DepMetadata(version = ctx.attrs.version)]
+
+def cxx_attr_use_content_based_paths(ctx: AnalysisContext) -> bool:
+    """
+    Return whether this rule should use content-based paths.
+    """
+    return getattr(ctx.attrs, "use_content_based_paths", False)

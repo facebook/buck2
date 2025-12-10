@@ -33,12 +33,12 @@ use buck2_build_api::interpreter::rule_defs::resolved_macro::ResolvedMacro;
 use buck2_common::file_ops::metadata::TrackedFileDigest;
 use buck2_core::category::CategoryRef;
 use buck2_core::content_hash::ContentBasedPathHash;
-use buck2_core::fs::paths::RelativePathBuf;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_error::BuckErrorContext;
 use buck2_execute::artifact::fs::ExecutorFs;
 use buck2_execute::execute::command_executor::ActionExecutionTimingData;
 use buck2_execute::materialize::materializer::WriteRequest;
+use buck2_fs::paths::RelativePathBuf;
 use dupe::Dupe;
 use indexmap::IndexSet;
 use starlark::values::OwnedFrozenValue;
@@ -227,9 +227,8 @@ impl Action for WriteMacrosToFileAction {
             }))
             .await?;
 
-        let wall_time = execution_start
-            .buck_error_context("Action did not set execution_start")?
-            .elapsed();
+        let wall_time = Instant::now()
+            - execution_start.buck_error_context("Action did not set execution_start")?;
 
         let output_values = std::iter::zip(self.outputs.iter(), values.into_iter())
             .map(|(output, value)| (output.get_path().dupe(), value))

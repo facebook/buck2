@@ -8,7 +8,7 @@
 
 load("@prelude//:genrule.bzl", "process_genrule")
 load("@prelude//android:android_apk.bzl", "get_install_info")
-load("@prelude//android:android_providers.bzl", "AndroidAabInfo", "AndroidApkInfo", "AndroidApkUnderTestInfo")
+load("@prelude//android:android_providers.bzl", "AndroidAabInfo", "AndroidApkInfo", "AndroidApkUnderTestInfo", "AndroidDerivedApkInfo")
 load("@prelude//android:android_toolchain.bzl", "AndroidToolchainInfo")
 load("@prelude//android:bundletool_util.bzl", "derive_universal_apk")
 load("@prelude//java:class_to_srcs.bzl", "JavaClassToSourceMapInfo")
@@ -19,7 +19,6 @@ def apk_genrule_impl(ctx: AnalysisContext) -> list[Provider]:
     expect((ctx.attrs.apk == None) != (ctx.attrs.aab == None), "Exactly one of 'apk' and 'aab' must be specified")
 
     input_android_apk_under_test_info = None
-    input_unstripped_shared_libraries = None
     input_android_apk_subtargets = None
     input_android_apk_template_placeholder_info = None
     input_android_aab_subtargets = None
@@ -47,6 +46,7 @@ def apk_genrule_impl(ctx: AnalysisContext) -> list[Provider]:
         input_manifest = input_android_aab_info.manifest
         input_materialized_artifacts = input_android_aab_info.materialized_artifacts
         input_android_aab_subtargets = ctx.attrs.aab[DefaultInfo].sub_targets
+        input_unstripped_shared_libraries = input_android_aab_info.unstripped_shared_libraries
 
         env_vars = {
             "AAB": cmd_args(input_apk),
@@ -85,6 +85,7 @@ def apk_genrule_impl(ctx: AnalysisContext) -> list[Provider]:
                 aab = genrule_default_output,
                 manifest = input_manifest,
                 materialized_artifacts = input_materialized_artifacts,
+                unstripped_shared_libraries = input_unstripped_shared_libraries,
             )
             output_apk = None
         else:
@@ -108,21 +109,32 @@ def apk_genrule_impl(ctx: AnalysisContext) -> list[Provider]:
                         "aab": [DefaultInfo(
                             default_outputs = [genrule_default_output],
                         )],
+                        "linker_argsfiles": [input_android_aab_subtargets["linker_argsfiles"][DefaultInfo]],
+                        "linker_commands": [input_android_aab_subtargets["linker_commands"][DefaultInfo]],
                         "native_libs": [input_android_aab_subtargets["native_libs"][DefaultInfo]],
                         "unstripped_native_libraries": [input_android_aab_subtargets["unstripped_native_libraries"][DefaultInfo]],
                         "unstripped_native_libraries_files": [input_android_aab_subtargets["unstripped_native_libraries_files"][DefaultInfo]],
                         "unstripped_native_libraries_json": [input_android_aab_subtargets["unstripped_native_libraries_json"][DefaultInfo]],
-                    },
+                    } | ({
+                        "native_merge_debug": [input_android_aab_subtargets["native_merge_debug"][DefaultInfo]],
+                    } if "native_merge_debug" in input_android_aab_subtargets else {}),
+                ),
+                AndroidDerivedApkInfo(
+                    apk = output_apk,
                 ),
             ] + filter(lambda x: not isinstance(x, DefaultInfo), genrule_providers)
         else:
             sub_targets = {k: [v[DefaultInfo]] for k, v in genrule_default_info[0].sub_targets.items()}
             sub_targets.update({
+                "linker_argsfiles": [input_android_aab_subtargets["linker_argsfiles"][DefaultInfo]],
+                "linker_commands": [input_android_aab_subtargets["linker_commands"][DefaultInfo]],
                 "native_libs": [input_android_aab_subtargets["native_libs"][DefaultInfo]],
                 "unstripped_native_libraries": [input_android_aab_subtargets["unstripped_native_libraries"][DefaultInfo]],
                 "unstripped_native_libraries_files": [input_android_aab_subtargets["unstripped_native_libraries_files"][DefaultInfo]],
                 "unstripped_native_libraries_json": [input_android_aab_subtargets["unstripped_native_libraries_json"][DefaultInfo]],
-            })
+            } | ({
+                "native_merge_debug": [input_android_aab_subtargets["native_merge_debug"][DefaultInfo]],
+            } if "native_merge_debug" in input_android_aab_subtargets else {}))
             default_providers = [
                 DefaultInfo(
                     default_output = genrule_default_output,
@@ -136,12 +148,16 @@ def apk_genrule_impl(ctx: AnalysisContext) -> list[Provider]:
         sub_targets.update({
             "classpath": [input_android_apk_subtargets["classpath"][DefaultInfo]],
             "classpath_targets": [input_android_apk_subtargets["classpath_targets"][DefaultInfo]],
+            "linker_argsfiles": [input_android_apk_subtargets["linker_argsfiles"][DefaultInfo]],
+            "linker_commands": [input_android_apk_subtargets["linker_commands"][DefaultInfo]],
             "manifest": [input_android_apk_subtargets["manifest"][DefaultInfo]],
             "native_libs": [input_android_apk_subtargets["native_libs"][DefaultInfo]],
             "unstripped_native_libraries": [input_android_apk_subtargets["unstripped_native_libraries"][DefaultInfo]],
             "unstripped_native_libraries_files": [input_android_apk_subtargets["unstripped_native_libraries_files"][DefaultInfo]],
             "unstripped_native_libraries_json": [input_android_apk_subtargets["unstripped_native_libraries_json"][DefaultInfo]],
-        })
+        } | ({
+            "native_merge_debug": [input_android_apk_subtargets["native_merge_debug"][DefaultInfo]],
+        } if "native_merge_debug" in input_android_apk_subtargets else {}))
         expect(len(filter(lambda x: isinstance(x, TemplatePlaceholderInfo), genrule_providers)) == 0, "TemplatePlaceholderInfo from genrule_providers needs to be merged")
         templace_placeholder_info = TemplatePlaceholderInfo(
             keyed_variables = {

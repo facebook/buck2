@@ -29,10 +29,11 @@ use buck2_build_api::interpreter::rule_defs::context::AnalysisActions;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::run_info::RunInfo;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::worker_run_info::WorkerRunInfo;
 use buck2_core::category::CategoryRef;
+use buck2_core::deferred::base_deferred_key::BaseDeferredKey;
 use buck2_core::execution_types::executor_config::RemoteExecutorDependency;
-use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_error::BuckErrorContext;
 use buck2_error::conversion::from_any_with_tag;
+use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use dupe::Dupe;
 use either::Either;
 use host_sharing::WeightClass;
@@ -104,6 +105,14 @@ pub(crate) enum RunActionError {
         "Action is marked with `incremental_remote_outputs` but not `no_outputs_cleanup`, which is not allowed."
     )]
     IncrementalRemoteOutputsWithoutNoOutputsCleanup,
+    #[error(
+        "Action is marked with `expect_eligible_for_dedupe` but output `{}` is not content-based", .path
+    )]
+    ExpectEligibleForDedupeWithNonContentBasedOutput { path: String },
+    #[error(
+        "Action is marked with `expect_eligible_for_dedupe` but input `{}` is not eligible for dedupe", .input
+    )]
+    ExpectEligibleForDedupeWithIneligibleInput { input: ArtifactGroup },
 }
 
 #[starlark_module]
@@ -132,6 +141,17 @@ pub(crate) fn analysis_actions_methods_run(methods: &mut MethodsBuilder) {
     ///     * Both `metadata_env_var` and `metadata_path` are useful when making actions behave in
     ///       an incremental manner (for details, see [Incremental
     ///       Actions](https://buck2.build/docs/rule_authors/incremental_actions/))
+    /// * `dep_files`: a dictionary mapping labels to `ArtifactTag` instances for tracking actual
+    ///   dependencies via dependency files (depfiles). This enables precise incremental builds by
+    ///   allowing the build tool to report which inputs it actually used.
+    ///     * Each entry maps a string label (e.g., `"headers"`) to an `ArtifactTag` created via
+    ///       `ctx.actions.artifact_tag()`
+    ///     * The tag should be used to mark both the potential inputs (via `tag.tag_artifacts()`)
+    ///       and the depfile output that will list the actual inputs used
+    ///     * After execution, Buck2 reads the depfile and only tracks changes to inputs listed in it,
+    ///       rather than all tagged inputs
+    ///     * Depfiles must use Makefile syntax: `output: input1 input2 input3`
+    ///     * For complete documentation and examples, see [`ctx.actions.artifact_tag()`](../AnalysisActions#analysisactionsartifact_tag)
     /// * The `prefer_local`, `prefer_remote` and `local_only` options allow selecting where the
     /// action should run if the executor selected for this target is a hybrid executor.
     ///     * All those options disable concurrent execution: the action will run on the preferred
@@ -159,6 +179,10 @@ pub(crate) fn analysis_actions_methods_run(methods: &mut MethodsBuilder) {
     ///     from the host.
     ///  * `meta_internal_extra_params`: a dictionary to pass extra parameters to RE, can add more keys in the future:
     ///     * `remote_execution_policy`: refer to TExecutionPolicy.
+    ///  * `error_handler`: an optional function that analyzes action failures and produces structured error information.
+    ///     * Type signature: `def error_handler(ctx: ActionErrorCtx) -> list[ActionSubError]`
+    ///     * The function receives an [`ActionErrorCtx`](../ActionErrorCtx) parameter and should return a list of [`ActionSubError`](../ActionSubError) objects
+    ///     * Error handlers enable better error diagnostics and language-specific error categorization
     ///  * `outputs_for_error_handler`: Output files to be provided to the action error handler and read by
     /// [error handler](https://buck2.build/docs/api/build/ActionErrorCtx/#actionerrorctxoutput_artifacts) in the event of a failure..
     ///     * The output must also be declared as an output of the action
@@ -239,6 +263,7 @@ pub(crate) fn analysis_actions_methods_run(methods: &mut MethodsBuilder) {
         outputs_for_error_handler: UnpackListOrTuple<
             ValueTyped<'v, StarlarkOutputArtifact<'v>>,
         >,
+        #[starlark(require = named, default = false)] expect_eligible_for_dedupe: bool,
     ) -> starlark::Result<NoneType> {
         if incremental_remote_outputs && !no_outputs_cleanup {
             // Precaution to make sure content-based paths are not involved.
@@ -539,6 +564,39 @@ pub(crate) fn analysis_actions_methods_run(methods: &mut MethodsBuilder) {
             remote_execution_custom_image: re_custom_image,
             meta_internal_extra_params: extra_params,
         };
+
+        if expect_eligible_for_dedupe {
+            for o in artifacts.declared_outputs.iter() {
+                if !o.has_content_based_path() {
+                    return Err(buck2_error::Error::from(
+                        RunActionError::ExpectEligibleForDedupeWithNonContentBasedOutput {
+                            path: o.get_path().to_string(),
+                        },
+                    )
+                    .into());
+                }
+            }
+            let deferred_holder_key = &this.state()?.analysis_value_storage.self_key;
+            let target_platform = if let BaseDeferredKey::TargetLabel(configured_label) =
+                deferred_holder_key.owner()
+            {
+                Some(configured_label.cfg())
+            } else {
+                None
+            };
+
+            for i in artifacts.inputs.iter() {
+                if !i.is_eligible_for_dedupe(target_platform) {
+                    return Err(buck2_error::Error::from(
+                        RunActionError::ExpectEligibleForDedupeWithIneligibleInput {
+                            input: i.dupe(),
+                        },
+                    )
+                    .into());
+                }
+            }
+        }
+
         this.state()?.register_action(
             artifacts.declared_outputs,
             action,

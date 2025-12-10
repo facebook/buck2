@@ -25,7 +25,7 @@
 //!     use dice::{Key, InjectedKey, DiceComputations, DiceDataBuilder, DiceData, DiceTransactionUpdater};
 //!     use std::sync::Arc;
 //!     use allocative::Allocative;
-//! use buck2_futures::cancellation::CancellationContext;
+//! use dice_futures::cancellation::CancellationContext;
 //!
 //!     /// A configuration computation that consists of values that are pre-computed outside of DICE
 //!     pub struct InjectConfigs<'compute, 'd>(&'compute mut DiceComputations<'d>);
@@ -194,10 +194,10 @@ use std::io::Write;
 use std::sync::Arc;
 
 use allocative::Allocative;
-pub use buck2_futures::cancellation::CancellationContext; // expose cancellation context as api
-pub use buck2_futures::cancellation::CancellationHandle; // expose cancellation handle as api
-pub use buck2_futures::spawn::CancellableJoinHandle; // expose cancellation context as api
-pub use buck2_futures::spawn::WeakFutureError; // expose future errors as api
+pub use dice_futures::cancellation::CancellationContext; // expose cancellation context as api
+pub use dice_futures::cancellation::CancellationHandle; // expose cancellation handle as api
+pub use dice_futures::spawn::CancellableJoinHandle; // expose cancellation context as api
+pub use dice_futures::spawn::WeakFutureError; // expose future errors as api
 pub(crate) type HashMap<K, V> = std::collections::HashMap<K, V, fxhash::FxBuildHasher>;
 pub(crate) type HashSet<K> = std::collections::HashSet<K, fxhash::FxBuildHasher>;
 use futures::future::Future;

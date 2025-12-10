@@ -11,7 +11,6 @@
 package com.facebook.buck.jvm.cd.serialization.java;
 
 import com.facebook.buck.jvm.cd.serialization.SerializationUtil;
-import com.facebook.buck.jvm.java.ExternalJavac;
 import com.facebook.buck.jvm.java.JdkProvidedInMemoryJavac;
 import com.facebook.buck.jvm.java.ResolvedJavac;
 import com.google.common.collect.ImmutableList;
@@ -30,11 +29,7 @@ public class ResolvedJavacSerializer {
     var javacCase = javac.getJavacCase();
     switch (javacCase) {
       case EXTERNALJAVAC:
-        var externalJavac = javac.getExternalJavac();
-        String shortName = externalJavac.getShortName();
-        ImmutableList<String> commandPrefix = toImmutableList(externalJavac.getCommandPrefixList());
-
-        return new ExternalJavac.ResolvedExternalJavac(shortName, commandPrefix);
+        throw new IllegalArgumentException("ExternalJavac in CD worker is not supported");
 
       case JSR199JAVAC:
         return JdkProvidedInMemoryJavac.createJsr199Javac();

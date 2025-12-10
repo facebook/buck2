@@ -34,7 +34,7 @@ def bolt(ctx: AnalysisContext, prebolt_output: Artifact, external_debug_info: Ar
     if not bolt_msdk or not cxx_use_bolt(ctx):
         fail("Cannot use bolt if bolt_msdk is not available or bolt profile is not available")
 
-    materialized_external_debug_info = project_artifacts(ctx.actions, [external_debug_info])
+    materialized_external_debug_info = project_artifacts(ctx.actions, external_debug_info)
 
     # bolt command format:
     # {llvm_bolt} {input_bin} -o $OUT -data={fdata} {args}

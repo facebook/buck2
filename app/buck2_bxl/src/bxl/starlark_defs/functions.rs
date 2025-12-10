@@ -176,7 +176,7 @@ pub(crate) fn register_artifact_function(builder: &mut GlobalsBuilder) {
         #[starlark(require=pos)] cmd_line: ValueAsCommandLineLike<'v>,
         #[starlark(require=pos)] ctx: &'v BxlContext<'v>,
         #[starlark(require = named, default = false)] abs: bool,
-        heap: &'v Heap,
+        eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<Value<'v>> {
         let inputs = get_cmd_line_inputs(cmd_line.0)?;
         let mut result = Vec::new();
@@ -187,7 +187,9 @@ pub(crate) fn register_artifact_function(builder: &mut GlobalsBuilder) {
 
         let mut paths = Vec::new();
 
-        ctx.via_dice(|dice_ctx, bxl_ctx| {
+        let heap = eval.heap();
+
+        ctx.via_dice(eval, |dice_ctx| {
             dice_ctx.via(|dice_ctx| {
                 visit_artifact_path_without_associated_deduped(
                     &result,
@@ -196,8 +198,8 @@ pub(crate) fn register_artifact_function(builder: &mut GlobalsBuilder) {
                         let path = get_artifact_path_display(
                             artifact_path,
                             abs,
-                            bxl_ctx.project_fs(),
-                            bxl_ctx.artifact_fs(),
+                            ctx.project_fs(),
+                            ctx.artifact_fs(),
                         )?;
 
                         paths.push(path);
@@ -306,6 +308,7 @@ pub(crate) fn register_read_package_value_function(builder: &mut GlobalsBuilder)
     ///
     ///     pkg_value2 = bxl.read_package_value("root//path/to/pkg", "aaa.ccc")
     /// ```
+    // FIXME(JakobDegen): This ought to require a `BxlContext`
     fn read_package_value<'v>(
         #[starlark(require = pos)] package_path: PackagePathArg<'v>,
         #[starlark(require = pos)] key: &str,
@@ -314,11 +317,11 @@ pub(crate) fn register_read_package_value_function(builder: &mut GlobalsBuilder)
         let metadata_key = MetadataKeyRef::new(key).map_err(buck2_error::Error::from)?;
 
         let bxl_eval_extra = BxlEvalExtra::from_context(eval)?;
+        let package = package_path.pkg(bxl_eval_extra.core.cell_alias_resolver())?;
 
-        let super_package = bxl_eval_extra.via_dice(|dice, core_data| {
-            let package = package_path.pkg(core_data.cell_alias_resolver())?;
-            dice.via(|dice| async { dice.eval_package_file(package).await }.boxed_local())
-        })?;
+        let super_package = bxl_eval_extra
+            .dice
+            .via(|dice| async { dice.eval_package_file(package).await }.boxed_local())?;
 
         // Use this instead of `get_package_value_json()`` to get the native Starlark value directly,
         // rather than converting the Starlark value to JSON first

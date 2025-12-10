@@ -363,7 +363,7 @@ async fn get_analysis_result_inner(
         };
 
     ctx.store_evaluation_data(AnalysisKeyActivationData {
-        duration: now.elapsed(),
+        duration: Instant::now() - now,
         spans,
     })?;
 

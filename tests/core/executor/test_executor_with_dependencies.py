@@ -76,5 +76,5 @@ async def test_bad_target_with_dependencies(buck: Buck) -> None:
             "-c",
             f"test.cache_buster={random_string()}",
         ),
-        stderr_regex="error: too many fields set for RE dependency: `extra_field, id, smc_tier`",
+        stderr_regex="error: too many fields set for RE dependency: `enable_interpolation, extra_field, id, smc_tier`",
     )

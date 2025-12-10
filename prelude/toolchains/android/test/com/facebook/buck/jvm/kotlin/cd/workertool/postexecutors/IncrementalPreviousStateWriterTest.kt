@@ -25,32 +25,20 @@ internal class IncrementalPreviousStateWriterTest {
 
   private lateinit var incrementalStateDir: Path
   private lateinit var actionMetadataPath: Path
-  private lateinit var depFilePath: Path
-  private lateinit var usedJarsPath: Path
 
   @Before
   fun setup() {
     incrementalStateDir = temporaryFolder.newFolder("incremental-state").path
     actionMetadataPath = temporaryFolder.newFile("action-metadata.json").path
-    depFilePath = temporaryFolder.newFile("dep-file.txt").path
-    usedJarsPath = temporaryFolder.newFile("used-jars.json").path
   }
 
   @Test
   fun `when executed, existing files are copied`() {
-    val writer =
-        IncrementalPreviousStateWriter(
-            incrementalStateDir,
-            actionMetadataPath,
-            depFilePath,
-            usedJarsPath,
-        )
+    val writer = IncrementalPreviousStateWriter(incrementalStateDir, actionMetadataPath)
 
     writer.execute()
 
-    assertEquals(3, incrementalStateDir.toFile().listFiles()?.size)
+    assertEquals(1, incrementalStateDir.toFile().listFiles()?.size)
     assertTrue(Files.exists(incrementalStateDir.resolve(actionMetadataPath.fileName)))
-    assertTrue(Files.exists(incrementalStateDir.resolve(depFilePath.fileName)))
-    assertTrue(Files.exists(incrementalStateDir.resolve(usedJarsPath.fileName)))
   }
 }

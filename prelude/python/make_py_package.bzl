@@ -470,13 +470,7 @@ def _make_py_package_impl(
         else:
             hidden_resources = pex_modules.manifests.hidden_resources(standalone)
 
-    if not (standalone or
-            package_style == PackageStyle("outplace") or
-            package_style == PackageStyle("inplace") or
-            package_style == PackageStyle("inplace_lite")):
-        fail("unsupported package style: {}".format(package_style))
-
-    pyc_mode = PycInvalidationMode("unchecked_hash") if inplace else PycInvalidationMode("checked_hash")
+    pyc_mode = PycInvalidationMode("checked_hash") if inplace else PycInvalidationMode("unchecked_hash")
 
     # Accumulate all of the artifacts required by the build
     runtime_artifacts = []
@@ -504,7 +498,7 @@ def _make_py_package_impl(
         common_modules_args,
         runtime_artifacts,
         debug_artifacts,
-        standalone,
+        package_style,
         pyc_mode,
         symlink_tree_path,
         manifest_module,
@@ -768,7 +762,6 @@ def _make_py_package_live(
             metadata_path = "action_metadata-{}.json".format(name),
             category = "par",
             identifier = "make_live_par_incremental{}".format(output_suffix),
-            prefer_local = True,
             no_outputs_cleanup = True,
         )
     else:
@@ -1008,7 +1001,7 @@ def _pex_modules_args(
         common_args: cmd_args,
         dep_artifacts: list[ArgLike],
         debug_artifacts: list[(str | (str, SharedLibrary, str), ArgLike)],
-        is_standalone: bool,
+        package_style: PackageStyle,
         pyc_mode: PycInvalidationMode,
         symlink_tree_path: Artifact | None,
         manifest_module: ManifestModule | None,
@@ -1040,6 +1033,20 @@ def _pex_modules_args(
         cmd.append(cmd_args(bytecode_manifests_path, format = "@{}"))
         hidden.append(bytecode_manifests)
 
+        # If content-based path hashing is enabled, we need to pass in the actual
+        # bytecode artifacts alongside the manifest in order to replace the
+        # placeholder "output_artifacts" portion of the path with the resolved hash.
+        # This isn't needed for inplace builds which symlink to original bytecode artifacts without path resolution.
+        inplace = package_style in [PackageStyle("inplace"), PackageStyle("inplace_lite")]
+        if not inplace and ctx.attrs._python_toolchain[PythonToolchainInfo].supports_content_based_paths:
+            bytecode_artifacts = pex_modules.manifests.bytecode_artifacts(pyc_mode)
+
+            bytecode_artifacts_path = ctx.actions.write(
+                "__bytecode_artifacts{}.txt".format(output_suffix),
+                cmd_args(bytecode_artifacts),
+            )
+            cmd.append(cmd_args(bytecode_artifacts_path, format = "--bytecode-artifacts={}"))
+
     if symlink_tree_path != None:
         cmd.extend(["--modules-dir", symlink_tree_path.as_output()])
     else:
@@ -1049,7 +1056,8 @@ def _pex_modules_args(
 
     hidden.extend([s for _, s in debug_artifacts])
 
-    resources = pex_modules.manifests.resource_manifests(is_standalone)
+    standalone = package_style == PackageStyle("standalone")
+    resources = pex_modules.manifests.resource_manifests(standalone)
     if resources:
         resource_manifests_path = ctx.actions.write(
             "__resource_manifests{}.txt".format(output_suffix),

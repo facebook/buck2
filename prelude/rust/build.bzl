@@ -18,7 +18,7 @@ load(
     "apple_build_link_args_with_deduped_flags",
     "apple_get_link_info_by_deduping_link_infos",
 )
-load("@prelude//cxx:cxx_library_utility.bzl", "cxx_attr_deps")
+load("@prelude//cxx:cxx_library_utility.bzl", "cxx_attr_deps", "cxx_attr_use_content_based_paths")
 load(
     "@prelude//cxx:cxx_link_utility.bzl",
     "executable_shared_lib_arguments",
@@ -95,9 +95,11 @@ load(
 )
 load(
     ":link_info.bzl",
+    "RustArtifact",
     "RustCxxLinkGroupInfo",  #@unused Used as a type
     "RustDependency",
     "RustLinkInfo",
+    "TransitiveDeps",
     "attr_crate",
     "attr_simple_crate_for_filenames",
     "get_available_proc_macros",
@@ -144,6 +146,9 @@ def generate_rustdoc(
 
     plain_env, path_env = process_env(compile_ctx, toolchain_info.rustdoc_env | ctx.attrs.env)
     plain_env["RUSTDOC_BUCK_TARGET"] = cmd_args(str(ctx.label.raw_target()))
+
+    if toolchain_info.rust_target_path != None:
+        path_env["RUST_TARGET_PATH"] = toolchain_info.rust_target_path[DefaultInfo].default_outputs[0]
 
     rustdoc_cmd = cmd_args(
         toolchain_info.rustdoc,
@@ -204,6 +209,9 @@ def generate_rustdoc_coverage(
 
     plain_env, path_env = process_env(compile_ctx, ctx.attrs.env)
     plain_env["RUSTDOC_BUCK_TARGET"] = cmd_args(str(ctx.label.raw_target()))
+
+    if toolchain_info.rust_target_path != None:
+        path_env["RUST_TARGET_PATH"] = toolchain_info.rust_target_path[DefaultInfo].default_outputs[0]
 
     # `--show-coverage` is unstable.
     plain_env["RUSTC_BOOTSTRAP"] = cmd_args("1")
@@ -341,6 +349,9 @@ def generate_rustdoc_test(
     plain_env["RUSTC_BOOTSTRAP"] = cmd_args("1")
     unstable_options = ["-Zunstable-options"]
 
+    if toolchain_info.rust_target_path != None:
+        path_env["RUST_TARGET_PATH"] = toolchain_info.rust_target_path[DefaultInfo].default_outputs[0]
+
     rustdoc_cmd = cmd_args(
         [cmd_args("--env=", k, "=", v, delimiter = "") for k, v in plain_env.items()],
         [cmd_args("--path-env=", k, "=", v, delimiter = "") for k, v in path_env.items()],
@@ -361,7 +372,7 @@ def generate_rustdoc_test(
         cmd_args("--test-runtool-arg=--resources=", resources, delimiter = ""),
         "--color=always",
         "--test-args=--color=always",
-        cmd_args("--remap-path-prefix=", compile_ctx.symlinked_srcs, compile_ctx.path_sep, "=", ctx.label.path, compile_ctx.path_sep, delimiter = ""),
+        cmd_args("--remap-path-prefix=", compile_ctx.symlinked_srcs, compile_ctx.path_sep, "=", compile_ctx.symlinked_srcs.owner.path, compile_ctx.path_sep, delimiter = ""),
         hidden = [
             compile_ctx.symlinked_srcs,
             link_args_output.hidden,
@@ -441,7 +452,7 @@ def rust_compile(
         )
 
         linker_args = cmd_script(
-            ctx = ctx,
+            actions = ctx.actions,
             name = common_args.subdir + "/linker_wrapper",
             cmd = linker_cmd,
             language = ctx.attrs._exec_os_type[OsLookup].script,
@@ -462,7 +473,7 @@ def rust_compile(
         # Report unused --extern crates in the notification stream.
         ["--json=unused-externs-silent", "-Wunused-crate-dependencies"] if toolchain_info.report_unused_deps else [],
         common_args.args,
-        cmd_args("--remap-path-prefix=", compile_ctx.symlinked_srcs, compile_ctx.path_sep, "=", ctx.label.path, compile_ctx.path_sep, delimiter = ""),
+        cmd_args("--remap-path-prefix=", compile_ctx.symlinked_srcs, compile_ctx.path_sep, "=", compile_ctx.symlinked_srcs.owner.path, compile_ctx.path_sep, delimiter = ""),
         ["-Zremap-cwd-prefix=."] if toolchain_info.nightly_features else [],
         cmd_args(linker_args, format = "-Clinker={}"),
         extra_flags,
@@ -596,7 +607,11 @@ def rust_compile(
         # using split debug with content-based paths.
         if (
             dep_external_debug_infos and
-            compile_ctx.cxx_toolchain_info.cxx_compiler_info.supports_content_based_paths
+            compile_ctx.cxx_toolchain_info.cxx_compiler_info.supports_content_based_paths and
+            # Darwin does not embed paths in object files themselves, but rather
+            # the linker writes those paths based on the location of object files passed
+            # to the link.
+            compile_ctx.cxx_toolchain_info.linker_info.type != LinkerType("darwin")
         ):
             separate_debug_info_path_file, _ = ctx.actions.write(
                 "{}/__{}_dwo_paths.txt".format(subdir, tempfile),
@@ -682,6 +697,14 @@ def rust_compile(
     else:
         filtered_output = emit_op.output
 
+    singleton_tset = ctx.actions.tset(
+        TransitiveDeps,
+        value = RustArtifact(
+            artifact = filtered_output,
+            crate = attr_crate(ctx),
+        ),
+    )
+
     if link_with_split_debug:
         dwo_output_directory = emit_op.extra_out
 
@@ -704,7 +727,7 @@ def rust_compile(
             dwo_output_directory = dwo_output_directory,
             dep_infos = dep_external_debug_infos,
         )
-        dwp_inputs.extend(project_artifacts(ctx.actions, [all_external_debug_info]))
+        dwp_inputs.extend(project_artifacts(ctx.actions, all_external_debug_info))
     else:
         dwo_output_directory = None
         extra_external_debug_info = []
@@ -727,7 +750,7 @@ def rust_compile(
         dwp_output = None
 
     stripped_output = strip_debug_info(
-        ctx,
+        ctx.actions,
         paths.join(common_args.subdir, "stripped", output_filename(
             compile_ctx,
             attr_simple_crate_for_filenames(ctx),
@@ -735,10 +758,13 @@ def rust_compile(
             params,
         )),
         filtered_output,
+        compile_ctx.cxx_toolchain_info,
+        has_content_based_path = cxx_attr_use_content_based_paths(ctx),
     )
 
     return RustcOutput(
         output = filtered_output,
+        singleton_tset = singleton_tset,
         stripped_output = stripped_output,
         diag_txt = invoke.diag_txt,
         diag_json = invoke.diag_json,
@@ -771,7 +797,7 @@ def dependency_args(
         dep_metadata_kind: MetadataKind,
         is_rustdoc_test: bool) -> (cmd_args, list[(CrateName, Label)]):
     args = cmd_args()
-    transitive_deps = {}
+    transitive_deps = []
     crate_targets = []
     available_proc_macros = get_available_proc_macros(ctx)
     for dep in deps:
@@ -786,12 +812,13 @@ def dependency_args(
         strategy = strategy_info(toolchain_info, dep.info, dep_link_strategy)
 
         artifact = strategy.outputs[dep_metadata_kind]
+        singleton_tset = strategy.singleton_tset[dep_metadata_kind]
         transitive_artifacts = strategy.transitive_deps[dep_metadata_kind]
 
         for marker in strategy.transitive_proc_macro_deps:
             info = available_proc_macros[marker.label][RustLinkInfo]
             strategy = strategy_info(toolchain_info, info, dep_link_strategy)
-            transitive_deps[strategy.outputs[MetadataKind("link")]] = info.crate
+            transitive_deps.append(strategy.singleton_tset[MetadataKind("link")])
 
         args.add(extern_arg(dep.flags, crate, artifact))
         crate_targets.append((crate, dep.label))
@@ -800,38 +827,32 @@ def dependency_args(
         # compiler invocation, pass the artifact (under its original crate name)
         # through `-L` unconditionally for doc tests.
         if is_rustdoc_test:
-            transitive_deps[artifact] = dep.info.crate
+            transitive_deps.append(singleton_tset)
 
         # Unwanted transitive_deps have already been excluded
-        transitive_deps.update(transitive_artifacts)
-
-    dynamic_artifacts = {}
-    simple_artifacts = set()
-    for artifact, crate_name in transitive_deps.items():
-        if crate_name.dynamic:
-            dynamic_artifacts[artifact] = crate_name
-        else:
-            simple_artifacts.add(artifact)
+        transitive_deps.append(transitive_artifacts)
 
     prefix = "{}-deps{}".format(subdir, dep_metadata_kind.value)
-    if simple_artifacts:
-        args.add(simple_symlinked_dirs(ctx, prefix, simple_artifacts))
-    if dynamic_artifacts:
-        args.add(dynamic_symlinked_dirs(ctx, compile_ctx, prefix, dynamic_artifacts))
+    transitive_deps = ctx.actions.tset(TransitiveDeps, children = transitive_deps)
+    if transitive_deps.reduce("has_simple_artifacts"):
+        args.add(simple_symlinked_dirs(ctx, prefix, transitive_deps))
+    if transitive_deps.reduce("has_dynamic_artifacts"):
+        args.add(dynamic_symlinked_dirs(ctx, compile_ctx, prefix, transitive_deps))
 
     return (args, crate_targets)
 
 def simple_symlinked_dirs(
         ctx: AnalysisContext,
         prefix: str,
-        artifacts: set[Artifact]) -> cmd_args:
+        transitive_deps: TransitiveDeps) -> cmd_args:
     # Add as many -Ldependency dirs as we need to avoid name conflicts
     deps_dirs = [{}]
-    for dep in artifacts:
-        name = dep.basename
-        if name in deps_dirs[-1]:
-            deps_dirs.append({})
-        deps_dirs[-1][name] = dep
+    for dep in transitive_deps.traverse():
+        if not dep.crate.dynamic:
+            name = dep.artifact.basename
+            if name in deps_dirs[-1]:
+                deps_dirs.append({})
+            deps_dirs[-1][name] = dep.artifact
 
     symlinked_dirs = []
     for idx, srcs in enumerate(deps_dirs):
@@ -844,24 +865,25 @@ def dynamic_symlinked_dirs(
         ctx: AnalysisContext,
         compile_ctx: CompileContext,
         prefix: str,
-        artifacts: dict[Artifact, CrateName]) -> cmd_args:
+        transitive_deps: TransitiveDeps) -> cmd_args:
     name = "{}-dyn".format(prefix)
     transitive_dependency_dir = ctx.actions.declare_output(name, dir = True)
+
+    artifacts = transitive_deps.project_as_args("dynamic_artifacts")
+    crate_names = transitive_deps.project_as_args("dynamic_crate_names")
 
     # Pass the list of rlibs to transitive_dependency_symlinks.py through a file
     # because there can be a lot of them. This avoids running out of command
     # line length, particularly on Windows.
-    relative_path = lambda artifact: cmd_args(
-        artifact,
-        delimiter = "",
-        ignore_artifacts = True,
-        relative_to = transitive_dependency_dir.project("i"),
-    )
     artifacts_json = ctx.actions.write_json(
         ctx.actions.declare_output("{}-dyn.json".format(prefix)),
         [
-            (relative_path(artifact), crate.dynamic)
-            for artifact, crate in artifacts.items()
+            cmd_args(
+                artifacts,
+                ignore_artifacts = True,
+                relative_to = transitive_dependency_dir.project("i"),
+            ),
+            crate_names,
         ],
         with_inputs = True,
         pretty = True,
@@ -878,7 +900,7 @@ def dynamic_symlinked_dirs(
     )
 
     compile_ctx.transitive_dependency_dirs.add(transitive_dependency_dir)
-    return cmd_args(transitive_dependency_dir, format = "@{}/dirs", hidden = artifacts.keys())
+    return cmd_args(transitive_dependency_dir, format = "@{}/dirs", hidden = artifacts)
 
 def _lintify(flag: str, clippy: bool, lints: list[ResolvedStringWithMacros]) -> cmd_args:
     return cmd_args(
@@ -1276,24 +1298,17 @@ def _explain(
     if emit == Emit("expand"):
         base = "expand"
 
-    if emit == Emit("llvm-ir"):
-        link_strategy_suffix = {
-            LinkStrategy("static"): " [static]",
-            LinkStrategy("static_pic"): " [pic]",
-            LinkStrategy("shared"): " [shared]",
-        }[link_strategy]
-        base = "llvm-ir" + link_strategy_suffix
+    for emit_type in ["asm", "llvm-ir", "mir"]:
+        if emit == Emit(emit_type):
+            link_strategy_suffix = {
+                LinkStrategy("static"): " [static]",
+                LinkStrategy("static_pic"): " [pic]",
+                LinkStrategy("shared"): " [shared]",
+            }[link_strategy]
+            base = emit_type + link_strategy_suffix
 
     if emit == Emit("llvm-ir-noopt"):
         base = "llvm-ir-noopt"
-
-    if emit == Emit("mir"):
-        link_strategy_suffix = {
-            LinkStrategy("static"): " [static]",
-            LinkStrategy("static_pic"): " [pic]",
-            LinkStrategy("shared"): " [shared]",
-        }[link_strategy]
-        base = "mir" + link_strategy_suffix
 
     if base == None:
         fail("unrecognized rustc action:", crate_type, link_strategy, emit)

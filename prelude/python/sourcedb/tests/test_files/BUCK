@@ -1,0 +1,84 @@
+load("@prelude//utils:source_listing.bzl", "source_listing")
+
+oncall("pyre")
+
+source_listing()
+
+python_library(
+    name = "main",
+    srcs = ["main.py"],
+    deps = [
+        ":lib",
+        ":my_extension_lib",
+    ],
+)
+
+python_library(
+    name = "lib",
+    srcs = ["lib.py"],
+    type_stubs = [":generated_file"],
+    deps = [
+        ":alias",
+        ":subdir",
+    ],
+)
+
+python_library(
+    name = "subdir",
+    srcs = [
+        "subdir/__init__.py",
+        "subdir/__init__.pyi",
+        "subdir/util.py",
+        "subdir/util.pyi",
+    ],
+    deps = [":generated_files"],
+)
+
+alias(
+    name = "alias",
+    actual = ":alias_lib",
+)
+
+python_library(
+    name = "alias_lib",
+    srcs = ["alias.py"],
+    # @lint-ignore BUCKLINT tests Python type checking sourcedb functionality with base_module
+    base_module = "",
+)
+
+genrule(
+    name = "generated_files",
+    outs = {
+        "generated1.py": [
+            "generated1.py",
+        ],
+        "generated2.py": [
+            "generated2.py",
+        ],
+    },
+    cmd = "touch ${OUT}/generated1.py && touch ${OUT}/generated2.py",
+)
+
+genrule(
+    name = "generated_file",
+    out = "generated_file.pyi",
+    cmd = "touch ${OUT}",
+)
+
+python_library(
+    name = "my_extension_stub",
+    srcs = ["my_extension.pyi"],
+)
+
+cxx_python_extension(
+    name = "my_extension",
+    srcs = ["my_extension.cpp"],
+    base_module = "my_extension",
+    deps = [":my_extension_stub"],
+)
+
+python_library(
+    name = "my_extension_lib",
+    srcs = ["my_extension.py"],
+    deps = [":my_extension"],
+)

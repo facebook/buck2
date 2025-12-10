@@ -12,20 +12,20 @@ use std::fmt::Display;
 use std::fmt::Formatter;
 
 use allocative::Allocative;
+use buck2_fs::paths::file_name::FileName;
 
 use crate::cells::build_file_cell::BuildFileCell;
 use crate::cells::cell_path::CellPath;
 use crate::cells::cell_path::CellPathRef;
 use crate::cells::name::CellName;
 use crate::cells::paths::CellRelativePath;
-use crate::fs::paths::file_name::FileName;
 
 #[derive(Debug, buck2_error::Error)]
 #[buck2(input)]
 enum ImportPathError {
     #[error("Invalid import path `{0}`")]
     Invalid(CellPath),
-    #[error("Import path must have suffix `.bzl`: `{0}`")]
+    #[error("Import path must have suffix `.bzl`, `.json`, or `.toml`: `{0}`")]
     Suffix(CellPath),
 }
 
@@ -61,7 +61,7 @@ impl ImportPath {
             return Err(ImportPathError::Invalid(path).into());
         }
 
-        if path.path().extension() != Some("bzl") && path.path().extension() != Some("json") {
+        if !matches!(path.path().extension(), Some("bzl" | "json" | "toml")) {
             return Err(ImportPathError::Suffix(path).into());
         }
 

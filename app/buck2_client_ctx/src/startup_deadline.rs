@@ -31,6 +31,15 @@ pub struct StartupDeadline {
     deadline: Instant,
 }
 
+#[derive(buck2_error::Error, Debug)]
+#[buck2(tag = ClientStartupTimeout)]
+enum StartupDeadlineError {
+    #[error("timed out before {op}")]
+    TimeoutBefore { op: String },
+    #[error("{} timed out after {:.3}s", op, rem_duration.as_secs_f32())]
+    TimeoutDuring { op: String, rem_duration: Duration },
+}
+
 impl StartupDeadline {
     pub fn duration_from_now(duration: Duration) -> buck2_error::Result<StartupDeadline> {
         Ok(StartupDeadline {
@@ -61,7 +70,7 @@ impl StartupDeadline {
     pub(crate) fn rem_duration(&self, op: &str) -> buck2_error::Result<Duration> {
         self.deadline
             .checked_duration_since(Instant::now())
-            .with_buck_error_context(|| format!("timed out before {op}"))
+            .ok_or(StartupDeadlineError::TimeoutBefore { op: op.to_owned() }.into())
     }
 
     /// Decrease the deadline by 100ms and invoke the given function with the new deadline.
@@ -71,15 +80,21 @@ impl StartupDeadline {
         Fut: Future<Output = buck2_error::Result<R>>,
     {
         let rem_duration = self.rem_duration(op)?;
-        tokio::time::timeout_at(
+        let res = tokio::time::timeout_at(
             tokio::time::Instant::from_std(self.deadline),
             f(self.down_deadline()?),
         )
-        .await
-        .with_buck_error_context(|| {
-            format!("{} timed out after {:.3}s", op, rem_duration.as_secs_f32())
-        })?
-        .with_buck_error_context(|| op.to_owned())
+        .await;
+
+        match res {
+            Ok(Ok(v)) => Ok(v),
+            Ok(Err(e)) => Err(e.context(op.to_owned())),
+            Err(_elapsed) => Err(StartupDeadlineError::TimeoutDuring {
+                op: op.to_owned(),
+                rem_duration,
+            }
+            .into()),
+        }
     }
 
     pub(crate) async fn run<R, Fut>(&self, op: &str, f: Fut) -> buck2_error::Result<R>

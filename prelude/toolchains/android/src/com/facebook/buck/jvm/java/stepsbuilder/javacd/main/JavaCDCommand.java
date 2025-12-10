@@ -105,7 +105,7 @@ public class JavaCDCommand implements JvmCDCommand {
           postBuildParams.getUsedClassesPaths(),
           postBuildParams.getDepFile(),
           Optional.ofNullable(postBuildParams.getJarToJarDirMap()),
-          Optional.empty());
+          false);
     }
   }
 
@@ -115,7 +115,7 @@ public class JavaCDCommand implements JvmCDCommand {
     }
 
     DepFileUtils.usedClassesToUsedJars(
-        postBuildParams.getUsedClassesPaths(), postBuildParams.getUsedJarsPath(), Optional.empty());
+        postBuildParams.getUsedClassesPaths(), postBuildParams.getUsedJarsPath(), false);
   }
 
   @Override

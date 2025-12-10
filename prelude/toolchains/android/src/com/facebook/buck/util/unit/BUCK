@@ -13,10 +13,8 @@ buck_java_library(
     ],
     visibility = ["PUBLIC"],
     deps = [
-        "prelude//toolchains/android/src/com/facebook/buck/util/string:string",
         "prelude//toolchains/android/third-party:guava",
     ],
     exported_deps = [
-        "prelude//toolchains/android/src/com/facebook/buck/util/types:types",
     ],
 )

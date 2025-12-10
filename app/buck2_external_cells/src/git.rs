@@ -32,9 +32,6 @@ use buck2_core::cells::external::GitCellSetup;
 use buck2_core::cells::name::CellName;
 use buck2_core::cells::paths::CellRelativePath;
 use buck2_core::fs::buck_out_path::BuckOutPathResolver;
-use buck2_core::fs::fs_util;
-use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
-use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_directory::directory::directory::Directory;
@@ -50,6 +47,9 @@ use buck2_execute::execute::clean_output_paths::CleanOutputPaths;
 use buck2_execute::materialize::materializer::DeclareArtifactPayload;
 use buck2_execute::materialize::materializer::HasMaterializer;
 use buck2_execute::materialize::materializer::Materializer;
+use buck2_fs::fs_util;
+use buck2_fs::paths::abs_norm_path::AbsNormPath;
+use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_util::process::background_command;
 use cmp_any::PartialEqAny;
 use dice::CancellationContext;
@@ -108,7 +108,13 @@ impl IoRequest for GitFetchIoRequest {
         }
 
         run_git(&path, |c| {
-            c.arg("init");
+            match &self.setup.object_format {
+                None => c.arg("init"),
+                Some(object_format) => c
+                    .arg("init")
+                    .arg("--object-format")
+                    .arg(object_format.to_string()),
+            };
         })?;
 
         run_git(&path, |c| {

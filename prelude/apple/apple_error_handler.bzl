@@ -64,8 +64,11 @@ def _add_category_strings(ctx: ActionErrorCtx, lowercase_stderr: str, errors: li
         if _match(error_category.matcher, lowercase_stderr):
             errors.append(ctx.new_sub_error(category = "apple_" + error_category.category, message = error_category.message))
 
-def _category_match(message: str, categories: list[AppleErrorCategory]) -> AppleErrorCategory | None:
+def _category_match(message: str, path: str, categories: list[AppleErrorCategory]) -> AppleErrorCategory | None:
     for error_category in categories:
+        if error_category.file_matcher and error_category.file_matcher not in path:
+            continue
+
         if _match(error_category.matcher, message):
             return error_category
 
@@ -96,11 +99,6 @@ def cxx_error_handler(ctx: ActionErrorCtx) -> list[ActionSubError]:
             if not _valid_error(error_json):
                 continue
 
-            location = ctx.new_error_location(
-                file = error_json["path"],
-                line = error_json["line"],
-            )
-
             # Clang optionally populates a category and flag field. We are only
             # interested in the flag for now, which helps to know which flag to
             # disable to bypass an error.
@@ -119,7 +117,9 @@ def cxx_error_handler(ctx: ActionErrorCtx) -> list[ActionSubError]:
                 ctx.new_sub_error(
                     category = category,
                     message = error_json["message"] + postfix,
-                    locations = [location],
+                    file = error_json["path"],
+                    lnum = error_json["line"],
+                    col = error_json["col"],
                 ),
             )
 
@@ -130,6 +130,17 @@ def cxx_error_handler(ctx: ActionErrorCtx) -> list[ActionSubError]:
 
     return errors
 
+def _get_error_type(severity: str) -> str | None:
+    error_type = None
+    if severity == "error":
+        error_type = "E"
+    elif severity == "warning":
+        error_type = "W"
+    elif severity == "note":
+        error_type = "N"
+
+    return error_type
+
 def swift_error_handler(ctx: ActionErrorCtx) -> list[ActionSubError]:
     errors = []
     for val in ctx.output_artifacts.values():
@@ -137,34 +148,41 @@ def swift_error_handler(ctx: ActionErrorCtx) -> list[ActionSubError]:
             if not _valid_error(error_json):
                 continue
 
-            location = ctx.new_error_location(
-                file = error_json["path"],
-                line = error_json["line"],
-            )
-            category = "swift_" + error_json["severity"]
+            severity = error_json["severity"]
+            category = "swift_" + severity
+            message = error_json["message"]
+            show_in_stderr = False
 
             # Swift serializes the category in the form:
             # SendableClosureCaptures@https://docs.swift.org/compiler/documentation/diagnostics/sendable-closure-captures
             if "@" in error_json.get("category", ""):
                 # Convert to markdown links for phabricator
                 components = error_json["category"].split("@")
-                postfix = " [{}]({})".format(components[0], components[1])
+                message += " [{}]({})".format(components[0], components[1])
                 category += "_" + components[0].lower()
             else:
                 # With no category in the error itself we categorise based on
                 # the message content.
-                postfix = ""
-                custom_category = _category_match(error_json["message"], SWIFT_STDERR_CATEGORIES)
+                custom_category = _category_match(
+                    message = error_json["message"],
+                    path = error_json["path"],
+                    categories = SWIFT_STDERR_CATEGORIES,
+                )
                 if custom_category:
                     category += "_" + custom_category.category
                     if custom_category.message:
-                        postfix = ". " + custom_category.message
+                        show_in_stderr = True
+                        message = custom_category.message
 
             errors.append(
                 ctx.new_sub_error(
                     category = category,
-                    message = error_json["message"] + postfix,
-                    locations = [location],
+                    message = message,
+                    file = error_json["path"],
+                    lnum = error_json["line"],
+                    col = error_json["col"],
+                    error_type = _get_error_type(severity),
+                    show_in_stderr = show_in_stderr,
                 ),
             )
 

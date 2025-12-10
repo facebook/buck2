@@ -24,7 +24,7 @@ use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_directory::directory::fingerprinted_directory::FingerprintedDirectory;
 use buck2_error::BuckErrorContext;
 use buck2_error::buck2_error;
-use buck2_futures::cancellation::CancellationContext;
+use dice_futures::cancellation::CancellationContext;
 use dupe::Dupe;
 use remote_execution as RE;
 use remote_execution::TActionResult2;
@@ -191,6 +191,7 @@ impl CommandExecutor {
         &self,
         request: &CommandExecutionRequest,
         digest_config: DigestConfig,
+        re_outputs_required: bool,
     ) -> buck2_error::Result<PreparedAction> {
         executor_stage(buck2_data::PrepareAction {}, || {
             let input_digest = request.paths().input_directory().fingerprint();
@@ -244,6 +245,7 @@ impl CommandExecutor {
                     .meta_internal_extra_params()
                     .remote_execution_caf_fbpkgs,
                 request.remote_worker(),
+                re_outputs_required,
             )?;
 
             buck2_error::Ok(action)
@@ -268,11 +270,13 @@ fn re_create_action(
     remote_execution_custom_image: &Option<RemoteExecutorCustomImage>,
     remote_execution_caf_fbpkgs: &[RemoteExecutorCafFbpkg],
     worker: &Option<RemoteWorkerSpec>,
+    re_outputs_required: bool,
 ) -> buck2_error::Result<PreparedAction> {
     let (worker_tool_init_action, command_args) = if let Some(worker) = worker {
         let mut action_and_blobs = ActionDigestAndBlobsBuilder::new(digest_config);
         let command = RE::Command {
             arguments: worker.init.clone(),
+            #[allow(deprecated)]
             platform: Some(platform.clone()),
             working_directory: working_directory.as_str().to_owned(),
             environment_variables: worker
@@ -305,6 +309,7 @@ fn re_create_action(
 
     let mut command = RE::Command {
         arguments: command_args,
+        #[allow(deprecated)]
         platform: Some(platform),
         working_directory: working_directory.as_str().to_owned(),
         environment_variables: environment
@@ -322,6 +327,7 @@ fn re_create_action(
             for (output, output_type) in outputs {
                 let path = output.as_str().to_owned();
 
+                #[allow(deprecated)]
                 match output_type {
                     OutputType::FileOrDirectory => {
                         command.output_files.push(path.clone());
@@ -336,6 +342,7 @@ fn re_create_action(
             for (output, output_type) in outputs {
                 let path = output.as_str().to_owned();
 
+                #[allow(deprecated)]
                 match output_type {
                     OutputType::FileOrDirectory => {
                         command.output_files.push(path);
@@ -428,6 +435,11 @@ fn re_create_action(
         action.respect_exec_bit = true;
     }
 
+    #[cfg(fbcode_build)]
+    {
+        action.outputs_required = re_outputs_required;
+    }
+
     #[cfg(not(fbcode_build))]
     {
         let _unused = &mut action;
@@ -437,6 +449,7 @@ fn re_create_action(
 
     Ok(PreparedAction {
         action_and_blobs,
+        #[allow(deprecated)]
         platform: command
             .platform
             .expect("We did put a platform a few lines up"),

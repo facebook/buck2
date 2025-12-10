@@ -10,7 +10,6 @@
 
 package com.facebook.buck.jvm.java.abi;
 
-import com.facebook.buck.core.exceptions.HumanReadableException;
 import javax.lang.model.SourceVersion;
 import org.objectweb.asm.Opcodes;
 
@@ -77,7 +76,7 @@ public class SourceVersionUtils {
       case "17":
         return SourceVersion.RELEASE_17;
       default:
-        throw new HumanReadableException("target %s not supported", target);
+        throw new RuntimeException(String.format("target %s not supported", target));
     }
   }
 }

@@ -44,6 +44,7 @@ class PrimitiveStubsGenerator(private val postfixToSkip: String?) : StubsGenerat
 
 private const val KOTLIN_STDLIB_PREFIX = "kotlin"
 private const val JAVA_STDLIB_PREFIX = "java"
+private const val JAVA_LANG_PREFIX = "java.lang"
 
 // kotlin.Unit - is an SDK class
 // kotlinx.Parcelize - is not
@@ -53,8 +54,14 @@ private fun isKotlinSdk(pkg: String): Boolean =
 private fun isJavaSdk(pkg: String): Boolean =
     pkg == JAVA_STDLIB_PREFIX || pkg.startsWith("$JAVA_STDLIB_PREFIX.")
 
-// TODO: remove Kotlin/Java/Android SDK classes
 private fun String.isSdkImport(): Boolean = isKotlinSdk(this) || isJavaSdk(this)
 
 public fun FullTypeQualifier.isSdkQualifier(): Boolean =
     isKotlinSdk(segments.first()) || isJavaSdk(segments.first())
+
+// Types that don't require imports (auto-imported)
+public fun FullTypeQualifier.isAutoImported(): Boolean {
+  val pkgStr = pkgAsString()
+  // java.lang.* types are auto-imported
+  return pkgStr == JAVA_LANG_PREFIX || pkgStr.startsWith("$JAVA_LANG_PREFIX.")
+}

@@ -12,14 +12,26 @@ This module interfaces with the tpx listing protocol, presented in https://www.i
 for high level, see https://www.internalfb.com/code/fbsource/[0101a07bcb98bf8dbed51f55b7b5e4ab8346130f]/fbcode/testinfra/tpx/tpx-buck/src/listing/test_xml.rs?lines=39-55). for
 code implementation.
 """.
--compile(warn_missing_spec).
+-compile(warn_missing_spec_all).
 
 -include_lib("common/include/tpx_records.hrl").
 -export([produce_xml_file/2, test_case_constructor/2]).
 
+%% Copy-and-paste of `xmerl:simple_element`, that is not currently exported by xmerl
+-type 'xmerl:simple_element'() ::
+    {
+        Tag :: atom(),
+        Attributes :: [{Name :: atom(), Value :: iolist() | atom() | integer()}],
+        Content :: ['xmerl:simple_element'()]
+    }
+    | {Tag :: atom(), Content :: ['xmerl:simple_element'()]}
+    | Tag :: atom() | IOString :: iolist() | xmerl:element().
+
+-spec test_case_to_xml(TestCase) -> 'xmerl:simple_element'() when
+    TestCase :: #test_spec_test_case{}.
 test_case_to_xml(#test_spec_test_case{suite = Suite, testcases = TestInfos} = _TestCase) ->
-    TestElementsXml = lists:map(fun(TestInfo) -> test_info_to_xml(TestInfo) end, TestInfos),
-    {testcase, [{suite, Suite}], TestElementsXml}.
+    TestElementsXml = [test_info_to_xml(TestInfo) || TestInfo <- TestInfos],
+    {testcase, [{suite, binary_to_atom(Suite)}], TestElementsXml}.
 
 -spec test_case_constructor(atom(), [binary()]) -> #test_spec_test_case{}.
 test_case_constructor(Suite, Tests) ->
@@ -30,6 +42,7 @@ test_case_constructor(Suite, Tests) ->
         )
     }.
 
+-spec test_info_to_xml(#test_spec_test_info{}) -> 'xmerl:simple_element'().
 test_info_to_xml(#test_spec_test_info{name = TestName, filter = TestName}) ->
     {test, [{name, [TestName]}, {filter, [TestName]}], []}.
 

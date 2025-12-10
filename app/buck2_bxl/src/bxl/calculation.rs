@@ -15,9 +15,9 @@ use buck2_build_api::bxl::calculation::BXL_CALCULATION_IMPL;
 use buck2_build_api::bxl::calculation::BxlCalculationDyn;
 use buck2_build_api::bxl::calculation::BxlComputeResult;
 use buck2_core::deferred::base_deferred_key::BaseDeferredKeyBxl;
-use buck2_futures::cancellation::CancellationContext;
 use dice::DiceComputations;
 use dice::Key;
+use dice_futures::cancellation::CancellationContext;
 use dupe::Dupe;
 use futures::future::FutureExt;
 

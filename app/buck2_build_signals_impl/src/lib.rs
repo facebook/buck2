@@ -105,7 +105,7 @@ enum NodeKey {
 
 assert_eq_size!(BuildKey, [usize; 4]);
 assert_eq_size!(AnalysisKey, [usize; 2]);
-assert_eq_size!(EnsureTransitiveSetProjectionKey, [usize; 6]);
+assert_eq_size!(EnsureTransitiveSetProjectionKey, [usize; 5]);
 assert_eq_size!(EnsureProjectedArtifactKey, [usize; 7]);
 assert_eq_size!(InterpreterResultsKey, [usize; 1]);
 assert_eq_size!(PackageListingKey, [usize; 1]);
@@ -474,7 +474,7 @@ where
             top_level_targets,
         } = self.backend.finish()?;
 
-        let elapsed_compute_critical_path = now.elapsed();
+        let elapsed_compute_critical_path = Instant::now() - now;
 
         let meta_entry_data = NodeData {
             action_node_data: None,

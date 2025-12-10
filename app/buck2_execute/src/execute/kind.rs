@@ -82,7 +82,10 @@ impl CommandExecutionKind {
             Self::LocalWorker { .. } | Self::LocalWorkerInit { .. } => {
                 buck2_data::ActionExecutionKind::LocalWorker
             }
-            Self::Remote { .. } => buck2_data::ActionExecutionKind::Remote,
+            Self::Remote { details, .. } => match details.persistent_worker {
+                false => buck2_data::ActionExecutionKind::Remote,
+                true => buck2_data::ActionExecutionKind::RemoteWorker,
+            },
             Self::ActionCache { .. } => buck2_data::ActionExecutionKind::ActionCache,
             Self::RemoteDepFileCache { .. } => buck2_data::ActionExecutionKind::RemoteDepFileCache,
         }
@@ -136,7 +139,6 @@ impl CommandExecutionKind {
                     .map(|paths| paths.clone().map(|p| format!("{p}")))
                     .unwrap_or_default(),
             }),
-
             Self::ActionCache { details } => Command::RemoteCommand(buck2_data::RemoteCommand {
                 action_digest: details.action_digest.to_string(),
                 cache_hit: true,
@@ -208,6 +210,7 @@ pub struct RemoteCommandExecutionDetails {
     pub session_id: Option<String>,
     pub use_case: RemoteExecutorUseCase,
     pub platform: RePlatform,
+    pub persistent_worker: bool,
 }
 
 impl RemoteCommandExecutionDetails {
@@ -217,6 +220,7 @@ impl RemoteCommandExecutionDetails {
         session_id: Option<String>,
         use_case: RemoteExecutorUseCase,
         platform: &RE::Platform,
+        persistent_worker: bool,
     ) -> Self {
         Self {
             action_digest,
@@ -224,6 +228,7 @@ impl RemoteCommandExecutionDetails {
             session_id,
             use_case,
             platform: platform_to_proto(platform),
+            persistent_worker,
         }
     }
 
@@ -236,6 +241,7 @@ impl RemoteCommandExecutionDetails {
             session_id: self.session_id.clone(),
             use_case: self.use_case.to_string(),
             platform: Some(self.platform.clone()),
+            persistent_worker: self.persistent_worker,
         })
     }
 }

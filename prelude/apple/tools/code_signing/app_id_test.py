@@ -6,10 +6,9 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
+import importlib.resources
 import plistlib
 import unittest
-
-import pkg_resources
 
 from .app_id import AppId
 
@@ -38,8 +37,9 @@ class TestAppId(unittest.TestCase):
             "test_resources/test3.plist",
         ]
 
+        package = importlib.resources.files(__package__)
         for file in test_plist_files:
-            with pkg_resources.resource_stream(__name__, file) as f:
+            with (package / file).open("rb") as f:
                 entitlements = plistlib.load(f)
                 result = AppId.infer_from_entitlements(entitlements)
                 self.assertEqual(expected, result)

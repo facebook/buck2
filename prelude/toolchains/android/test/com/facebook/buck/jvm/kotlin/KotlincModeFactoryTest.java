@@ -22,6 +22,7 @@ import com.facebook.buck.jvm.java.ActionMetadata;
 import com.facebook.buck.jvm.kotlin.kotlinc.incremental.KotlincMode;
 import com.facebook.buck.testutil.TemporaryPaths;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Optional;
@@ -49,7 +50,9 @@ public class KotlincModeFactoryTest {
 
     when(mockActionMetadata.getPreviousDigest()).thenReturn(new HashMap<>());
     when(mockActionMetadata.getCurrentDigest()).thenReturn(new HashMap<>());
-    when(incrementalCompilationValidator.validate(mockActionMetadata, absPath, absPath, absPath))
+    when(mockKotlinExtraParams.getKotlinCompilerPlugins()).thenReturn(ImmutableMap.of());
+    when(incrementalCompilationValidator.validate(
+            ImmutableList.of(), mockActionMetadata, absPath, absPath, absPath))
         .thenReturn(null);
   }
 

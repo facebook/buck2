@@ -10,14 +10,15 @@
 
 use std::collections::HashMap;
 use std::sync::Arc;
+use std::time::Instant;
 
-use buck2_core::fs::fs_util::DiskSpaceStats;
-use buck2_core::fs::fs_util::disk_space_stats;
-use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::io_counters::IoCounterKey;
 use buck2_error::BuckErrorContext;
 use buck2_events::EventSinkStats;
 use buck2_execute::re::manager::ReConnectionManager;
+use buck2_fs::fs_util::DiskSpaceStats;
+use buck2_fs::fs_util::disk_space_stats;
+use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_util::process_stats::process_stats;
 use buck2_util::system_stats::UnixSystemStats;
 use dupe::Dupe;
@@ -70,6 +71,11 @@ impl SnapshotCollector {
     }
 
     fn add_io_metrics(&self, snapshot: &mut buck2_data::Snapshot) {
+        let metrics = tokio::runtime::Handle::current().metrics();
+        snapshot.tokio_blocking_queue_depth = metrics.blocking_queue_depth() as u64;
+        snapshot.tokio_num_idle_blocking_threads = metrics.num_idle_blocking_threads() as u64;
+        snapshot.tokio_num_blocking_threads = metrics.num_blocking_threads() as u64;
+
         // Using loop here to make sure no key is forgotten.
         for key in IoCounterKey::ALL {
             let pointer = match key {
@@ -260,7 +266,7 @@ impl SnapshotCollector {
         if let Some(system_cpu_us) = process_stats.system_cpu_us {
             snapshot.buck2_system_cpu_us = system_cpu_us;
         }
-        snapshot.daemon_uptime_s = self.daemon.start_time.elapsed().as_secs();
+        snapshot.daemon_uptime_s = (Instant::now() - self.daemon.start_time).as_secs();
         snapshot.buck2_rss = process_stats.rss_bytes;
         let allocator_stats = get_allocator_stats().ok();
         if let Some(alloc_stats) = allocator_stats {
@@ -306,9 +312,7 @@ impl SnapshotCollector {
         }
         #[cfg(unix)]
         {
-            use buck2_execute_impl::executors::local::ForkserverAccess;
-            use buck2_util::cgroup_info::CGroupInfo;
-            use buck2_util::cgroup_info::MemoryStat;
+            use buck2_resource_control::cgroup_files::MemoryStat;
 
             fn convert_stats(stats: &MemoryStat) -> buck2_data::UnixCgroupMemoryStats {
                 buck2_data::UnixCgroupMemoryStats {
@@ -320,23 +324,13 @@ impl SnapshotCollector {
 
             // Try to read Buck2 daemon memory information from cgroup
 
-            if self.daemon.has_cgroup {
-                if let Some(stat) = CGroupInfo::read()
-                    .ok()
-                    .and_then(|cg| Some(cg.get_slice()?.to_owned()))
-                    .and_then(|path| CGroupInfo { path }.read_memory_stat().ok())
-                {
-                    snapshot.daemon_cgroup = Some(convert_stats(&stat));
+            if let Some(cgroup_tree) = self.daemon.cgroup_tree.as_ref() {
+                if let Ok(stat) = cgroup_tree.allprocs().read_memory_stat() {
+                    snapshot.allprocs_cgroup = Some(convert_stats(&stat))
                 }
-            }
 
-            // Try to read forkserver memory information if available
-            if let ForkserverAccess::Client(f) = &self.daemon.forkserver {
-                if let Some(stat) = f
-                    .cgroup_info()
-                    .and_then(|cgroup| cgroup.slice.read_memory_stat().ok())
-                {
-                    snapshot.forkserver_cgroup = Some(convert_stats(&stat));
+                if let Ok(stat) = cgroup_tree.forkserver_and_actions().read_memory_stat() {
+                    snapshot.forkserver_actions_cgroup = Some(convert_stats(&stat))
                 }
             }
         }

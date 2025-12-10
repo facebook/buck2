@@ -46,6 +46,7 @@ use crate::typing::Ty;
 use crate::typing::callable::TyCallable;
 use crate::typing::starlark_value::TyStarlarkValue;
 use crate::typing::user::TyUser;
+use crate::typing::user::TyUserFields;
 use crate::typing::user::TyUserIndex;
 use crate::typing::user::TyUserParams;
 use crate::values::Freeze;
@@ -58,6 +59,7 @@ use crate::values::StringValue;
 use crate::values::Value;
 use crate::values::ValueLike;
 use crate::values::ValueTyped;
+use crate::values::dict::value::ValueStr;
 use crate::values::enumeration::EnumValue;
 use crate::values::enumeration::matcher::EnumTypeMatcher;
 use crate::values::enumeration::ty_enum_type::TyEnumData;
@@ -238,7 +240,8 @@ impl<'v, V> StarlarkValue<'v> for EnumTypeGen<V>
 where
     Self: ProvidesStaticType<'v>,
     Value<'v>: Equivalent<V>,
-    V: ValueLike<'v> + EnumCell,
+    V: ValueLike<'v> + EnumCell + Equivalent<V>,
+    for<'a> ValueStr<'a>: Equivalent<V>,
 {
     type Canonical = FrozenEnumType;
 
@@ -253,6 +256,21 @@ where
         args.no_named_args()?;
         let val = args.positional1(eval.heap())?;
         Ok(self.construct(val)?.to_value())
+    }
+
+    fn get_attr(&self, attribute: &str, _heap: &'v Heap) -> Option<Value<'v>> {
+        self.elements()
+            .get(&ValueStr(attribute))
+            .map(|v| v.to_value())
+    }
+
+    fn dir_attr(&self) -> Vec<String> {
+        // The unwrap here is safe because the new() method requires the elements be
+        // of type StringValue<'v>
+        self.elements()
+            .keys()
+            .map(|key| key.to_value().unpack_str().unwrap().to_owned())
+            .collect()
     }
 
     fn length(&self) -> crate::Result<i32> {
@@ -314,11 +332,29 @@ where
                     ..TyUserParams::default()
                 },
             )?);
+
+            // The unwrap here is safe because the new() method requires the elements be
+            // of type StringValue<'v>
+            let fields_map: starlark_map::sorted_map::SortedMap<String, Ty> = self
+                .elements()
+                .keys()
+                .map(|key| {
+                    (
+                        key.to_value().unpack_str().unwrap().to_owned(),
+                        ty_enum_value.dupe(),
+                    )
+                })
+                .collect();
+
             let ty_enum_type = Ty::custom(TyUser::new(
                 format!("enum[{variable_name}]"),
                 TyStarlarkValue::new::<EnumType>(),
                 TypeInstanceId::r#gen(),
                 TyUserParams {
+                    fields: TyUserFields {
+                        known: fields_map,
+                        unknown: false,
+                    },
                     index: Some(TyUserIndex {
                         index: Ty::int(),
                         result: ty_enum_value.dupe(),
@@ -520,6 +556,58 @@ def test():
     accept_str(Currency("GBP"))
 "#,
             "Expected type `str` but got `Currency`",
+        );
+    }
+
+    #[test]
+    fn test_enum_attribute_access() {
+        assert::pass(
+            r#"
+Color = enum("RED", "GREEN", "BLUE")
+
+def test():
+    red = Color.RED
+    green = Color.GREEN
+    blue = Color.BLUE
+
+    assert_eq(red, Color("RED"))
+    assert_eq(green, Color("GREEN"))
+    assert_eq(blue, Color("BLUE"))
+
+    assert_eq(red.value, "RED")
+    assert_eq(green.value, "GREEN")
+    assert_eq(blue.value, "BLUE")
+
+test()
+"#,
+        );
+    }
+
+    #[test]
+    fn test_enum_attribute_access_invalid() {
+        assert::fail(
+            r#"
+Color = enum("RED", "GREEN", "BLUE")
+
+def test():
+    purple = Color.PURPLE
+
+test()
+"#,
+            "Object of type `function` has no attribute `PURPLE`",
+        );
+    }
+
+    #[test]
+    fn test_enum_attribute_access_type() {
+        assert::fail(
+            r#"
+Color = enum("RED", "GREEN", "BLUE")
+
+def foo() -> str:
+    return Color.RED
+"#,
+            "Expected type `str` but got `Color`",
         );
     }
 }

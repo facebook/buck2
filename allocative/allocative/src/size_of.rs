@@ -124,6 +124,7 @@ mod tests {
     #[test]
     fn test_box() {
         #[derive(Allocative)]
+        #[expect(dead_code)]
         struct Boxed {
             data: Box<u32>,
         }
@@ -141,6 +142,7 @@ mod tests {
     #[test]
     fn test_box_slice() {
         #[derive(Allocative)]
+        #[expect(dead_code)]
         struct Boxed {
             data: Box<[u32]>,
         }
@@ -163,12 +165,14 @@ mod tests {
     #[test]
     fn test_struct_in_box() {
         #[derive(Allocative)]
+        #[expect(dead_code)]
         struct Data {
             a: u8,
             b: Box<u32>,
         }
 
         #[derive(Allocative)]
+        #[expect(dead_code)]
         struct Boxed {
             data: Box<Data>,
         }

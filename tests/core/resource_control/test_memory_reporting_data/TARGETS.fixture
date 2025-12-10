@@ -1,0 +1,5 @@
+load(":defs.bzl", "use_some_memory")
+
+use_some_memory(
+    name = "use_some_memory",
+)

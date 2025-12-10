@@ -13,7 +13,7 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use buck2_core::cells::cell_path::CellPathRef;
 use buck2_core::cells::name::CellName;
-use buck2_core::fs::paths::file_name::FileNameBuf;
+use buck2_fs::paths::file_name::FileNameBuf;
 use dice::LinearRecomputeDiceComputations;
 
 use crate::file_ops::dice::DiceFileComputations;

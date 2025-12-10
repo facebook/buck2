@@ -21,10 +21,10 @@ use buck2_common::init::LogDownloadMethod;
 use buck2_common::invocation_paths::InvocationPaths;
 use buck2_common::invocation_paths_result::InvocationPathsResult;
 use buck2_core::error::buck2_hard_error_env;
-use buck2_core::fs::paths::file_name::FileNameBuf;
-use buck2_core::fs::working_dir::AbsWorkingDir;
 use buck2_error::BuckErrorContext;
 use buck2_event_observer::verbosity::Verbosity;
+use buck2_fs::paths::file_name::FileNameBuf;
+use buck2_fs::working_dir::AbsWorkingDir;
 use buck2_wrapper_common::invocation_id::TraceId;
 use dupe::Dupe;
 use tokio::runtime::Runtime;
@@ -240,6 +240,7 @@ impl<'a> ClientCommandContext<'a> {
                 Some(ExitWhen::NotIdle) => GrpcExitWhen::ExitNotIdle,
             }
             .into(),
+            profile_pattern_opts: starlark_opts.profile_pattern_opts(&self.working_dir),
             ..self.empty_client_context(cmd.logging_name())?
         })
     }
@@ -282,6 +283,7 @@ impl<'a> ClientCommandContext<'a> {
             preemptible: Default::default(),
             representative_config_flags: Vec::new(),
             exit_when: Default::default(),
+            profile_pattern_opts: None,
         })
     }
 

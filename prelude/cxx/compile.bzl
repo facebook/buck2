@@ -27,8 +27,7 @@ load(
     "CudaCompileStyle",  # @unused Used as a type
     "cuda_compile",
 )
-load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxToolchainInfo")
-load("@prelude//cxx:cxx_utility.bzl", "cxx_attrs_get_allow_cache_upload")
+load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxPlatformInfo", "CxxToolchainInfo")
 load(
     "@prelude//ide_integrations/xcode:argsfiles.bzl",
     "XCODE_ARG_SUBSTITUTIONS",
@@ -37,7 +36,6 @@ load("@prelude//linking:lto.bzl", "LtoMode")
 load(
     "@prelude//utils:utils.bzl",
     "flatten",
-    "map_val",
 )
 load(":argsfiles.bzl", "CompileArgsfile", "CompileArgsfiles")
 load(":attr_selection.bzl", "cxx_by_language_ext")
@@ -69,6 +67,22 @@ load(
     "cxx_merge_cpreprocessors",
     "get_flags_for_compiler_type",
 )
+
+def _project_clang_traces_as_args(traces: list[Artifact]):
+    return cmd_args(traces)
+
+ClangTracesTSet = transitive_set(
+    args_projections = {
+        "clang_traces": _project_clang_traces_as_args,
+    },
+)
+
+ClangTracesInfo = provider(fields = {
+    "clang_traces": provider_field(typing.Any, default = None),  # "ClangTracesTSet"
+})
+PicClangTracesInfo = provider(fields = {
+    "clang_traces": provider_field(typing.Any, default = None),  # "ClangTracesTSet"
+})
 
 def get_source_extension_for_header(header_extension: str, default: CxxExtension) -> CxxExtension:
     """
@@ -170,7 +184,10 @@ def get_header_language_mode(source_extension: CxxExtension) -> str | None:
     return modes.get(source_extension)
 
 def create_compile_cmds(
-        ctx: AnalysisContext,
+        actions: AnalysisActions,
+        target_label: Label,
+        toolchain: CxxToolchainInfo,
+        cxx_platform_info: CxxPlatformInfo,
         impl_params: CxxRuleConstructorParams,
         own_preprocessors: list[CPreprocessor],
         inherited_preprocessor_infos: list[CPreprocessorInfo],
@@ -212,16 +229,16 @@ def create_compile_cmds(
     # TODO(T110378129): Buck v1 validates *all* headers used by a compilation
     # at compile time, but that doing that here/eagerly might be expensive (but
     # we should figure out something).
-    _validate_target_headers(ctx, own_preprocessors)
+    _validate_target_headers(target_label, own_preprocessors)
 
     # Combine all preprocessor info and prepare it for compilations.
     pre = cxx_merge_cpreprocessors(
-        ctx,
+        actions,
         filter(None, own_preprocessors + impl_params.extra_preprocessors),
         inherited_preprocessor_infos,
     )
 
-    headers_tag = ctx.actions.artifact_tag()
+    headers_tag = actions.artifact_tag()
 
     src_compile_cmds = []
     hdr_compile_cmds = []
@@ -237,7 +254,7 @@ def create_compile_cmds(
     # of the same extension they will have some of the same flags. Save on
     # allocations by caching and reusing these objects.
     for ext in src_extensions:
-        cmd = _generate_base_compile_command(ctx, impl_params, pre, headers_tag, ext)
+        cmd = _generate_base_compile_command(actions, target_label, toolchain, cxx_platform_info, impl_params, pre, headers_tag, ext)
         cxx_compile_cmd_by_ext[ext] = cmd
         argsfile_by_ext[ext.value] = cmd.argsfile
         xcode_argsfile_by_ext[ext.value] = cmd.xcode_argsfile
@@ -254,7 +271,7 @@ def create_compile_cmds(
         cxx_compile_cmd = cxx_compile_cmd_by_ext[ext]
 
         if add_coverage_instrumentation_compiler_flags and cxx_compile_cmd.compiler_type != "gcc":
-            src_args.extend(ctx.attrs.coverage_instrumentation_compiler_flags)
+            src_args.extend(impl_params.coverage_instrumentation_compiler_flags)
 
         if src.is_header or compile_pch:
             if cxx_compile_cmd.compiler_type in ["clang", "clang_windows", "gcc"]:
@@ -297,15 +314,16 @@ def create_compile_cmds(
         comp_db_compile_cmds = src_compile_cmds + hdr_compile_cmds,
     )
 
-def _compile_index_store(ctx: AnalysisContext, src_compile_cmd: CxxSrcCompileCommand, toolchain: CxxToolchainInfo, compile_cmd: cmd_args) -> Artifact | None:
+def _compile_index_store(actions: AnalysisActions, target_label: Label, src_compile_cmd: CxxSrcCompileCommand, toolchain: CxxToolchainInfo, compile_cmd: cmd_args) -> Artifact | None:
     if src_compile_cmd.index_store_factory:
-        return src_compile_cmd.index_store_factory(ctx, src_compile_cmd, toolchain, compile_cmd)
+        return src_compile_cmd.index_store_factory(actions, target_label, src_compile_cmd, toolchain, compile_cmd)
     return None
 
 COMMON_PREPROCESSOR_OUTPUT_ARGS = cmd_args("-E", "-dD")
 
 def _compile_single_cxx(
-        ctx: AnalysisContext,
+        actions: AnalysisActions,
+        target_label: Label,
         toolchain: CxxToolchainInfo,
         default_object_format: CxxObjectFormat,
         bitcode_args: list,
@@ -316,14 +334,13 @@ def _compile_single_cxx(
         use_header_units: bool,
         separate_debug_info: bool,
         cuda_compile_style: CudaCompileStyle | None,
-        precompiled_header: CPrecompiledHeaderInfo | None = None,
+        precompiled_header: Dependency | None = None,
         compile_pch: CxxPrecompiledHeader | None = None) -> CxxCompileOutput:
     """
     Construct a final compile command for a single CXX source based on
     `src_compile_command` and other compilation options.
     """
 
-    actions = ctx.actions
     short_path = src_compile_cmd.src.short_path
     if src_compile_cmd.index != None:
         # Add a unique postfix if we have duplicate source files with different flags
@@ -357,7 +374,7 @@ def _compile_single_cxx(
         output_args = None
     elif compile_pch:
         if src_compile_cmd.cxx_compile_cmd.compiler_type == "windows":
-            pch_object_output = ctx.actions.declare_output(
+            pch_object_output = actions.declare_output(
                 folder_name,
                 "{}.pch.o".format(filename_base),
             )
@@ -387,8 +404,8 @@ def _compile_single_cxx(
         output_args = output_args,
     )
 
-    if precompiled_header and precompiled_header.compiled:
-        pch_info = ctx.attrs.precompiled_header[DefaultInfo].sub_targets["pch"]
+    if precompiled_header and precompiled_header[CPrecompiledHeaderInfo] and precompiled_header[CPrecompiledHeaderInfo].compiled:
+        pch_info = precompiled_header[DefaultInfo].sub_targets["pch"]
         pch_subtargets = pch_info.get(DefaultInfo).sub_targets
 
         pch_flavor = "default"
@@ -396,7 +413,7 @@ def _compile_single_cxx(
             pch_flavor = flavor.value if flavor.value else pch_flavor
 
         target = pch_subtargets[pch_flavor].get(CPrecompiledHeaderInfo)
-        cmd.add(_get_use_pch_args(src_compile_cmd, target, precompiled_header))
+        cmd.add(_get_use_pch_args(src_compile_cmd, target, precompiled_header[CPrecompiledHeaderInfo]))
 
     action_dep_files = {}
 
@@ -476,7 +493,7 @@ def _compile_single_cxx(
     if serialized_diags_to_json and src_compile_cmd.error_handler and compiler_type == "clang" and src_compile_cmd.src.extension != ".cu":
         # We need to wrap the entire compile to provide serialized diagnostics
         # output and on error convert it to JSON.
-        json_error_output = actions.declare_output("__diagnostics__/{}.json".format(filename_base)).as_output()
+        json_error_output = actions.declare_output("__diagnostics__/{}.json".format(filename_base), uses_experimental_content_based_path_hashing = content_based).as_output()
         outputs_for_error_handler.append(json_error_output)
         cmd = cmd_args(
             toolchain.internal_tools.serialized_diagnostics_to_json_wrapper,
@@ -509,7 +526,7 @@ def _compile_single_cxx(
             dist_nvcc_dag, dist_nvcc_env = cuda_compile_output
     else:
         is_producing_compiled_pch = bool(compile_pch)
-        is_consuming_compiled_pch = bool(precompiled_header and precompiled_header.compiled)
+        is_consuming_compiled_pch = bool(precompiled_header and precompiled_header[CPrecompiledHeaderInfo].compiled)
         actions.run(
             cmd,
             category = src_compile_cmd.cxx_compile_cmd.category,
@@ -551,7 +568,7 @@ def _compile_single_cxx(
     index_store = None
 
     if CxxCompileFlavor("pic") in flavors:
-        index_store = _compile_index_store(ctx, src_compile_cmd, toolchain, compile_index_store_cmd)
+        index_store = _compile_index_store(actions, target_label, src_compile_cmd, toolchain, compile_index_store_cmd)
 
     # Generate asm for compiler which accept `-S` (TODO: support others)
     if compiler_type in ["clang", "gcc"]:
@@ -702,17 +719,20 @@ def build_flavor_flags(flavor_flags: dict[str, list[str]], compiler_type: str) -
     return flavor_flags
 
 def compile_cxx(
-        ctx: AnalysisContext,
+        actions: AnalysisActions,
+        target_label: Label,
+        toolchain: CxxToolchainInfo,
         src_compile_cmds: list[CxxSrcCompileCommand],
         flavors: set[CxxCompileFlavor],
         provide_syntax_only: bool,
+        separate_debug_info: bool,
         use_header_units: bool = False,
-        precompiled_header: CPrecompiledHeaderInfo | None = None,
+        precompiled_header: Dependency | None = None,
+        cuda_compile_style: CudaCompileStyle | None = None,
         compile_pch: CxxPrecompiledHeader | None = None) -> list[CxxCompileOutput]:
     """
     For a given list of src_compile_cmds, generate output artifacts.
     """
-    toolchain = get_cxx_toolchain_info(ctx)
     linker_info = toolchain.linker_info
 
     # Resolve the output format, which is a tristate of native (default being mach-o/elf/pe)
@@ -733,12 +753,11 @@ def compile_cxx(
         default_object_format = CxxObjectFormat("bitcode")
 
     objects = []
-    separate_debug_info = getattr(ctx.attrs, "separate_debug_info", False)
-    cuda_compile_style = map_val(CudaCompileStyle, getattr(ctx.attrs, "cuda_compile_style", None))
 
     for src_compile_cmd in src_compile_cmds:
         cxx_compile_output = _compile_single_cxx(
-            ctx = ctx,
+            actions = actions,
+            target_label = target_label,
             toolchain = toolchain,
             default_object_format = default_object_format,
             bitcode_args = bitcode_args,
@@ -760,17 +779,17 @@ def _compiler_supports_header_units(compiler_info: typing.Any):
     return ("clang" in compiler_info.compiler_type and
             compiler_info.supports_two_phase_compilation)
 
-def _get_module_name(ctx: AnalysisContext, group_name: str) -> str:
+def _get_module_name(target_label: Label, group_name: str) -> str:
     return paths.normalize(paths.join(
         "__header_units__",
-        ctx.label.package,
-        "{}{}.h".format(ctx.label.name, group_name),
+        target_label.package,
+        "{}{}.h".format(target_label.name, group_name),
     ))
 
-def _get_import_filename(ctx: AnalysisContext, group_name: str) -> str:
+def _get_import_filename(target_label: Label, group_name: str) -> str:
     return paths.normalize(paths.join(
-        ctx.label.package,
-        "__import__{}{}.h".format(ctx.label.name, group_name),
+        target_label.package,
+        "__import__{}{}.h".format(target_label.name, group_name),
     ))
 
 def _is_standalone_header(header: CHeader) -> bool:
@@ -787,10 +806,10 @@ def _is_standalone_header(header: CHeader) -> bool:
     return True
 
 def _convert_raw_header(
-        ctx: AnalysisContext,
+        target_label: Label,
         raw_header: Artifact,
         include_dirs: list[CellPath]) -> CHeader:
-    package_prefix = str(ctx.label.path)
+    package_prefix = str(target_label.path)
     ns = paths.dirname(raw_header.short_path)
     for d in include_dirs:
         abs_dir = str(d)
@@ -807,7 +826,8 @@ def _convert_raw_header(
     )
 
 def _create_precompile_cmd(
-        ctx: AnalysisContext,
+        actions: AnalysisActions,
+        target_label: Label,
         compiler_info: typing.Any,
         preprocessors: list[CPreprocessor],
         header_group: str | None,
@@ -816,7 +836,7 @@ def _create_precompile_cmd(
         cmd: CxxCompileCommand) -> CxxSrcPrecompileCommand:
     include_dirs = flatten([x.include_dirs for x in preprocessors])
     converted_headers = [
-        _convert_raw_header(ctx, raw_header, include_dirs)
+        _convert_raw_header(target_label, raw_header, include_dirs)
         for raw_header in flatten([x.raw_headers for x in preprocessors])
     ]
     header_group_regex = regex(header_group, fancy = False) if header_group else None
@@ -829,16 +849,16 @@ def _create_precompile_cmd(
 
     input_header_contents = cmd_args(header_paths, format = "#include \"{}\"")
 
-    module_name = _get_module_name(ctx, group_name)
-    import_name = _get_import_filename(ctx, group_name)
+    module_name = _get_module_name(target_label, group_name)
+    import_name = _get_import_filename(target_label, group_name)
 
-    input_header = ctx.actions.write(
+    input_header = actions.write(
         module_name,
         cmd_args(input_header_contents, cmd_args(["\n"])),
         uses_experimental_content_based_path_hashing = True,
     )
 
-    import_stub = ctx.actions.write(
+    import_stub = actions.write(
         import_name,
         """
 #ifdef FACEBOOK_CPP_HEADER_UNIT
@@ -859,13 +879,13 @@ module "{}" {{
   export *
 }}
 """.format(module_name, module_name)
-    modulemap_file = ctx.actions.write(
+    modulemap_file = actions.write(
         "module.modulemap" + group_name,
         modulemap_content,
         uses_experimental_content_based_path_hashing = True,
     )
 
-    src_dir = ctx.actions.symlinked_dir(
+    src_dir = actions.symlinked_dir(
         "header-unit" + group_name,
         symlinked_files | {
             module_name: input_header,
@@ -888,9 +908,9 @@ module "{}" {{
     extra_argsfile = None
     if extra_preprocessors:
         extra_argsfile = _mk_header_units_argsfile(
-            ctx = ctx,
+            actions = actions,
             compiler_info = compiler_info,
-            preprocessor = cxx_merge_cpreprocessors(ctx, extra_preprocessors, []),
+            preprocessor = cxx_merge_cpreprocessors(actions, extra_preprocessors, []),
             ext = CxxExtension(".cpp"),
             uses_experimental_content_based_path_hashing = True,
             filename_prefix = "export{}_".format(group_name),
@@ -910,7 +930,8 @@ module "{}" {{
     )
 
 def _precompile_single_cxx(
-        ctx: AnalysisContext,
+        actions: AnalysisActions,
+        target_label: Label,
         toolchain: CxxToolchainInfo,
         impl_params: CxxRuleConstructorParams,
         group_name: str,
@@ -918,7 +939,7 @@ def _precompile_single_cxx(
     identifier = src_compile_cmd.src.short_path
 
     filename = "{}.pcm".format(identifier)
-    module = ctx.actions.declare_output(
+    module = actions.declare_output(
         "__pcm_files__",
         filename,
         uses_experimental_content_based_path_hashing = True,
@@ -936,14 +957,14 @@ def _precompile_single_cxx(
     clang_trace = None
     if toolchain.clang_trace and toolchain.cxx_compiler_info.compiler_type == "clang":
         cmd.add(["-ftime-trace"])
-        clang_trace = ctx.actions.declare_output(
+        clang_trace = actions.declare_output(
             paths.join("__pcm_files__", "{}.json".format(identifier)),
             uses_experimental_content_based_path_hashing = True,
         )
         cmd.add(cmd_args(hidden = clang_trace.as_output()))
 
     # TODO(nml): We don't meaningfully support dep files. See T225373444.
-    ctx.actions.run(
+    actions.run(
         cmd,
         category = "cxx_modules_precompile",
         identifier = identifier,
@@ -952,15 +973,18 @@ def _precompile_single_cxx(
     )
 
     return HeaderUnit(
-        name = _get_module_name(ctx, group_name),
+        name = _get_module_name(target_label, group_name),
         module = module,
         include_dir = src_compile_cmd.src,
-        import_include = _get_import_filename(ctx, group_name) if impl_params.export_header_unit == "preload" else None,
+        import_include = _get_import_filename(target_label, group_name) if impl_params.export_header_unit == "preload" else None,
         clang_trace = clang_trace,
     )
 
 def precompile_cxx(
-        ctx: AnalysisContext,
+        actions: AnalysisActions,
+        target_label: Label,
+        toolchain: CxxToolchainInfo,
+        cxx_platform_info: CxxPlatformInfo,
         impl_params: CxxRuleConstructorParams,
         preprocessors: list[CPreprocessor],
         header_preprocessor_info: CPreprocessorInfo) -> list[CPreprocessor]:
@@ -968,7 +992,6 @@ def precompile_cxx(
     Produces header units for the target and returns a list of preprocessors enabling
     them; depending on those preprocessors will allow the corresponding module to load.
     """
-    toolchain = get_cxx_toolchain_info(ctx)
     compiler_info = toolchain.cxx_compiler_info
     if not _compiler_supports_header_units(compiler_info):
         return []
@@ -976,9 +999,11 @@ def precompile_cxx(
     def mk_base_cmd():
         base_compile_cmd = _get_compile_base(toolchain, compiler_info, use_wrapper = True)
         ext = CxxExtension(".cpp")
-        headers_tag = ctx.actions.artifact_tag()  # Currently ignored
+        headers_tag = actions.artifact_tag()  # Currently ignored
         argsfile = _mk_argsfiles(
-            ctx,
+            actions,
+            target_label,
+            cxx_platform_info,
             impl_params,
             compiler_info,
             header_preprocessor_info,
@@ -990,7 +1015,7 @@ def precompile_cxx(
             filename_prefix = "pre_",
         )
         header_units_argsfile = _mk_header_units_argsfile(
-            ctx,
+            actions,
             compiler_info,
             header_preprocessor_info,
             ext,
@@ -1005,7 +1030,7 @@ def precompile_cxx(
             headers_dep_files = None,
             compiler_type = compiler_info.compiler_type,
             category = "cxx_modules_precompile",
-            allow_cache_upload = cxx_attrs_get_allow_cache_upload(ctx.attrs, default = compiler_info.allow_cache_upload),
+            allow_cache_upload = impl_params.allow_cache_upload,
             allow_content_based_paths = True,  # Unused: we always use content-based paths for precompile
         )
 
@@ -1017,7 +1042,8 @@ def precompile_cxx(
         if impl_params.export_header_unit_filter:
             group = impl_params.export_header_unit_filter[0]
         precompile_cmd = _create_precompile_cmd(
-            ctx = ctx,
+            actions = actions,
+            target_label = target_label,
             compiler_info = toolchain.cxx_compiler_info,
             preprocessors = preprocessors,
             header_group = group,
@@ -1025,7 +1051,7 @@ def precompile_cxx(
             extra_preprocessors = [],
             cmd = cmd,
         )
-        header_unit = _precompile_single_cxx(ctx, toolchain, impl_params, "", precompile_cmd)
+        header_unit = _precompile_single_cxx(actions, target_label, toolchain, impl_params, "", precompile_cmd)
         header_unit_preprocessors.append(CPreprocessor(header_units = [header_unit]))
     else:
         # Chain preprocessors in order.
@@ -1033,7 +1059,8 @@ def precompile_cxx(
         for header_group in impl_params.export_header_unit_filter:
             name = ".{}".format(i)
             precompile_cmd = _create_precompile_cmd(
-                ctx = ctx,
+                actions = actions,
+                target_label = target_label,
                 compiler_info = toolchain.cxx_compiler_info,
                 preprocessors = preprocessors,
                 header_group = header_group,
@@ -1041,7 +1068,7 @@ def precompile_cxx(
                 extra_preprocessors = header_unit_preprocessors,
                 cmd = cmd,
             )
-            header_unit = _precompile_single_cxx(ctx, toolchain, impl_params, name, precompile_cmd)
+            header_unit = _precompile_single_cxx(actions, target_label, toolchain, impl_params, name, precompile_cmd)
             header_unit_preprocessors.append(CPreprocessor(header_units = [header_unit]))
             i += 1
 
@@ -1071,7 +1098,7 @@ def cxx_objects_sub_targets(outs: list[CxxCompileOutput]) -> dict[str, list[Prov
         )]
     return objects_sub_targets
 
-def _validate_target_headers(ctx: AnalysisContext, preprocessor: list[CPreprocessor]):
+def _validate_target_headers(label: Label, preprocessor: list[CPreprocessor]):
     path_to_artifact = {}
     all_headers = flatten([x.headers for x in preprocessor])
     for header in all_headers:
@@ -1079,7 +1106,7 @@ def _validate_target_headers(ctx: AnalysisContext, preprocessor: list[CPreproces
         artifact = path_to_artifact.get(header_path)
         if artifact != None:
             if artifact != header.artifact:
-                fail("Conflicting headers {} and {} map to {} in target {}".format(artifact, header.artifact, header_path, ctx.label))
+                fail("Conflicting headers {} and {} map to {} in target {}".format(artifact, header.artifact, header_path, label))
         else:
             path_to_artifact[header_path] = header.artifact
 
@@ -1176,9 +1203,9 @@ def _add_compiler_info_flags(compiler_info: typing.Any) -> list:
 
     return cmd
 
-def _add_compiler_type_flags(ctx: AnalysisContext, compiler_type: str, ext: CxxExtension) -> list:
+def _add_compiler_type_flags(target_label: Label, compiler_type: str, ext: CxxExtension) -> list:
     cmd = []
-    cmd.append(get_flags_for_reproducible_build(ctx, compiler_type))
+    cmd.append(get_flags_for_reproducible_build(target_label, compiler_type))
 
     if ext.value not in (".asm", ".asmpp"):
         # Clang's asm compiler doesn't support colorful output, so we skip this there.
@@ -1188,7 +1215,7 @@ def _add_compiler_type_flags(ctx: AnalysisContext, compiler_type: str, ext: CxxE
 
 def _compiler_type_flags_anon_impl(ctx: AnalysisContext):
     is_nasm = ctx.attrs.compiler_type == "nasm"
-    args = _add_compiler_type_flags(ctx, ctx.attrs.compiler_type, CxxExtension(ctx.attrs.src_extension))
+    args = _add_compiler_type_flags(ctx.label, ctx.attrs.compiler_type, CxxExtension(ctx.attrs.src_extension))
     content = create_cmd_args(is_nasm, ctx.attrs.is_xcode_argsfile, *args)
     argsfile_artifact, _ = ctx.actions.write("compiler_type_args", content, allow_args = True)
 
@@ -1275,7 +1302,9 @@ _filter_precompile_argsfile_anon_rule = anon_rule(
 )
 
 def _mk_argsfiles(
-        ctx: AnalysisContext,
+        actions: AnalysisActions,
+        target_label: Label,
+        cxx_platform_info: CxxPlatformInfo,
         impl_params: CxxRuleConstructorParams,
         compiler_info: typing.Any,
         preprocessor: CPreprocessorInfo,
@@ -1302,7 +1331,7 @@ def _mk_argsfiles(
 
     def mk_argsfile(filename: str, args, use_dep_files_placeholder_for_content_based_paths: bool = False) -> Artifact:
         content = create_cmd_args(is_nasm, is_xcode_argsfile, args)
-        argsfile, _ = ctx.actions.write(
+        argsfile, _ = actions.write(
             filename,
             content,
             allow_args = True,
@@ -1325,12 +1354,15 @@ def _mk_argsfiles(
             compiler_info_argsfile = mk_argsfile(compiler_info_filename, compiler_info_flags)
 
         if is_precompile:
-            filtered_info_argsfile = ctx.actions.anon_target(_filter_precompile_argsfile_anon_rule, {
-                "allow_cache_upload": cxx_attrs_get_allow_cache_upload(ctx.attrs, default = compiler_info.allow_cache_upload),
-                "src": compiler_info_argsfile,
+            if impl_params._cxx_toolchain == None:
                 # TODO(nml): Compared to get_cxx_toolchain_info(), we don't support
                 # AppleToolchain for C++20 modules. Update this if that changes.
-                "_cxx_toolchain": ctx.attrs._cxx_toolchain,
+                fail("C++20 modules are not supported for AppleToolchain")
+
+            filtered_info_argsfile = actions.anon_target(_filter_precompile_argsfile_anon_rule, {
+                "allow_cache_upload": impl_params.allow_cache_upload,
+                "src": compiler_info_argsfile,
+                "_cxx_toolchain": impl_params._cxx_toolchain,
             }).artifact("argsfile")
 
             # TODO(nml): Currently we need to copy the output file so its content-based
@@ -1338,7 +1370,7 @@ def _mk_argsfiles(
             # anon rule to the compiler_info target instead, but this would require some
             # refactoring, so we do this for now to experiment with content-based
             # configuration merging.
-            compiler_info_argsfile = ctx.actions.copy_file(
+            compiler_info_argsfile = actions.copy_file(
                 filename_prefix + "filtered_toolchain_cxx_args",
                 filtered_info_argsfile,
                 uses_experimental_content_based_path_hashing = True,
@@ -1350,10 +1382,10 @@ def _mk_argsfiles(
     make_toolchain_argsfile()
 
     def make_compiler_type_argsfile():
-        compiler_type_flags = _add_compiler_type_flags(ctx, compiler_info.compiler_type, ext)
+        compiler_type_flags = _add_compiler_type_flags(target_label, compiler_info.compiler_type, ext)
 
         if impl_params.anon_targets_allowed:
-            compiler_type_flags_anon_target = ctx.actions.anon_target(_compiler_type_flags_anon_rule, {
+            compiler_type_flags_anon_target = actions.anon_target(_compiler_type_flags_anon_rule, {
                 "compiler_type": compiler_info.compiler_type,
                 "is_xcode_argsfile": is_xcode_argsfile,
                 "src_extension": ext.value,
@@ -1413,14 +1445,14 @@ def _mk_argsfiles(
             # preprocessor
             impl_params.preprocessor_flags,
             cxx_by_language_ext(impl_params.lang_preprocessor_flags, ext.value),
-            cxx_by_platform(ctx, impl_params.platform_preprocessor_flags),
-            cxx_by_platform(ctx, cxx_by_language_ext(impl_params.lang_platform_preprocessor_flags, ext.value)),
+            cxx_by_platform(cxx_platform_info, impl_params.platform_preprocessor_flags),
+            cxx_by_platform(cxx_platform_info, cxx_by_language_ext(impl_params.lang_platform_preprocessor_flags, ext.value)),
             get_flags_for_compiler_type(compiler_info.compiler_type),
 
             # compiler
             cxx_by_language_ext(impl_params.lang_compiler_flags, ext.value),
-            cxx_by_platform(ctx, impl_params.platform_compiler_flags),
-            cxx_by_platform(ctx, cxx_by_language_ext(impl_params.lang_platform_compiler_flags, ext.value)),
+            cxx_by_platform(cxx_platform_info, impl_params.platform_compiler_flags),
+            cxx_by_platform(cxx_platform_info, cxx_by_language_ext(impl_params.lang_platform_compiler_flags, ext.value)),
 
             # ctx.attrs.compiler_flags need to come last to preserve buck1 ordering, this prevents compiler
             # flags ordering-dependent build errors
@@ -1433,10 +1465,10 @@ def _mk_argsfiles(
 
         # Workaround as that's not precompiled, but working just as prefix header.
         # Another thing is that it's clang specific, should be generalized.
-        if hasattr(ctx.attrs, "precompiled_header") and ctx.attrs.precompiled_header != None and not ctx.attrs.precompiled_header[CPrecompiledHeaderInfo].compiled:
-            target_args.add(["-include", headers_tag.tag_artifacts(ctx.attrs.precompiled_header[CPrecompiledHeaderInfo].header)])
-        if hasattr(ctx.attrs, "prefix_header") and ctx.attrs.prefix_header != None:
-            target_args.add(["-include", headers_tag.tag_artifacts(ctx.attrs.prefix_header)])
+        if impl_params.precompiled_header != None and not impl_params.precompiled_header[CPrecompiledHeaderInfo].compiled:
+            target_args.add(["-include", headers_tag.tag_artifacts(impl_params.precompiled_header[CPrecompiledHeaderInfo].header)])
+        if impl_params.prefix_header != None:
+            target_args.add(["-include", headers_tag.tag_artifacts(impl_params.prefix_header)])
 
         # filename example: .cpp.target_cxx_args
         target_argsfile_filename = filename_prefix + "target_cxx_args"
@@ -1475,7 +1507,7 @@ def _mk_argsfiles(
     file_name = filename_prefix + "cxx_compile_argsfile"
 
     # For Xcode to parse argsfiles of argsfiles, the paths in the former must be absolute.
-    argsfile, _ = ctx.actions.write(
+    argsfile, _ = actions.write(
         file_name,
         file_args,
         allow_args = True,
@@ -1500,7 +1532,7 @@ def _mk_argsfiles(
     )
 
 def _mk_header_units_argsfile(
-        ctx: AnalysisContext,
+        actions: AnalysisActions,
         compiler_info: typing.Any,
         preprocessor: CPreprocessorInfo,
         ext: CxxExtension,
@@ -1537,7 +1569,7 @@ def _mk_header_units_argsfile(
     # usage of PCMs. See T225373444 and _mk_header_units_argsfile() below.
     args.add(preprocessor.set.project_as_args("header_units_args"))
     file_args = cmd_args(args, quote = "shell")
-    argsfile, _ = ctx.actions.write(
+    argsfile, _ = actions.write(
         file_name,
         file_args,
         allow_args = True,
@@ -1566,7 +1598,10 @@ def get_compiler_type(ctx: AnalysisContext, ext: CxxExtension) -> typing.Any:
     return compiler_info.compiler_type
 
 def _generate_base_compile_command(
-        ctx: AnalysisContext,
+        actions: AnalysisActions,
+        target_label: Label,
+        toolchain: CxxToolchainInfo,
+        cxx_platform_info: CxxPlatformInfo,
         impl_params: CxxRuleConstructorParams,
         pre: CPreprocessorInfo,
         headers_tag: ArtifactTag,
@@ -1576,12 +1611,9 @@ def _generate_base_compile_command(
     Generate a common part of a compile command that is shared by all sources
     with a given extension.
     """
-    toolchain = get_cxx_toolchain_info(ctx)
     compiler_info = _get_compiler_info(toolchain, ext)
 
-    use_wrapper = ctx.attrs.use_fbcc_rust_wrapper if hasattr(ctx.attrs, "use_fbcc_rust_wrapper") else False
-
-    base_compile_cmd = _get_compile_base(toolchain, compiler_info, use_wrapper)
+    base_compile_cmd = _get_compile_base(toolchain, compiler_info, impl_params.use_fbcc_rust_wrapper)
     category = _get_category(ext)
 
     headers_dep_files = None
@@ -1599,7 +1631,9 @@ def _generate_base_compile_command(
 
     def gen_argsfiles(is_xcode_argsfile):
         return _mk_argsfiles(
-            ctx,
+            actions,
+            target_label,
+            cxx_platform_info,
             impl_params,
             compiler_info,
             pre,
@@ -1615,7 +1649,7 @@ def _generate_base_compile_command(
     xcode_argsfile = gen_argsfiles(is_xcode_argsfile = True)
 
     header_units_argsfile = _mk_header_units_argsfile(
-        ctx,
+        actions,
         compiler_info,
         pre,
         ext,
@@ -1623,8 +1657,7 @@ def _generate_base_compile_command(
         uses_experimental_content_based_path_hashing = True,
     )
 
-    allow_cache_upload = cxx_attrs_get_allow_cache_upload(ctx.attrs, default = compiler_info.allow_cache_upload)
-    allow_content_based_paths = bool(compiler_info.supports_content_based_paths and getattr(ctx.attrs, "use_content_based_paths", False))
+    allow_content_based_paths = bool(compiler_info.supports_content_based_paths and impl_params.use_content_based_paths)
     return CxxCompileCommand(
         base_compile_cmd = base_compile_cmd,
         argsfile = argsfile,
@@ -1633,7 +1666,7 @@ def _generate_base_compile_command(
         headers_dep_files = headers_dep_files,
         compiler_type = compiler_info.compiler_type,
         category = category,
-        allow_cache_upload = allow_cache_upload,
+        allow_cache_upload = impl_params.allow_cache_upload,
         allow_content_based_paths = allow_content_based_paths,
     )
 

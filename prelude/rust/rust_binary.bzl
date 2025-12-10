@@ -227,12 +227,12 @@ def _rust_binary_common(
     args = cmd_args(final_output, hidden = executable_args.runtime_files)
     external_debug_info = project_artifacts(
         actions = ctx.actions,
-        tsets = [inherited_external_debug_info(
+        tsets = inherited_external_debug_info(
             ctx,
             compile_ctx.dep_ctx,
             link.dwo_output_directory,
             link_strategy,
-        )],
+        ),
     )
 
     # If we have some resources, write it to the resources JSON file and add
@@ -409,24 +409,16 @@ def _rust_binary_common(
     )
     sub_targets["profile"] = profiles
 
-    extra_compiled_targets["llvm_ir"] = rust_compile(
-        ctx = ctx,
-        compile_ctx = compile_ctx,
-        emit = Emit("llvm-ir"),
-        params = params,
-        default_roots = default_roots,
-        extra_flags = extra_flags,
-        incremental_enabled = ctx.attrs.incremental_enabled,
-    ).output
-    extra_compiled_targets["mir"] = rust_compile(
-        ctx = ctx,
-        compile_ctx = compile_ctx,
-        emit = Emit("mir"),
-        params = params,
-        default_roots = default_roots,
-        extra_flags = extra_flags,
-        incremental_enabled = ctx.attrs.incremental_enabled,
-    ).output
+    for emit_type in ["asm", "llvm-ir", "mir"]:
+        extra_compiled_targets[emit_type] = rust_compile(
+            ctx = ctx,
+            compile_ctx = compile_ctx,
+            emit = Emit(emit_type),
+            params = params,
+            default_roots = default_roots,
+            extra_flags = extra_flags,
+            incremental_enabled = ctx.attrs.incremental_enabled,
+        ).output
 
     doc_output = generate_rustdoc(
         ctx = ctx,

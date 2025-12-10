@@ -11,9 +11,9 @@
 use async_compression::tokio::bufread::ZstdEncoder;
 use buck2_common::manifold::Bucket;
 use buck2_common::manifold::ManifoldClient;
-use buck2_core::fs::async_fs_util;
-use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
-use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
+use buck2_fs::async_fs_util;
+use buck2_fs::paths::abs_norm_path::AbsNormPath;
+use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
 use tokio::io::BufReader;
 
 pub async fn upload_re_logs(

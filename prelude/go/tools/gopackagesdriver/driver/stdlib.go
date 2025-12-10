@@ -18,6 +18,7 @@ import (
 	"go/token"
 	"log/slog"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"sort"
 	"strconv"
@@ -49,6 +50,14 @@ func queryStd(ctx context.Context, req *packages.DriverRequest, goBinPath string
 		mode |= packages.NeedExportFile | packages.NeedDeps
 	}
 
+	// HACK: if go distribution has been built with CGO_ENABLED=0, this changes default behaviour on "always disabled"
+	// Unfortunately we're relying on the original behaviour "lookup GCC" until we enable buck2 to build stdlib atonomously
+	// Let's emulate this behaviour it for now
+	cgoEnabled := "CGO_ENABLED=1"
+	if _, err := exec.LookPath("gcc"); err != nil {
+		cgoEnabled = "CGO_ENABLED=0"
+	}
+
 	loadcfg := &packages.Config{
 		Context:    ctx,
 		BuildFlags: req.BuildFlags,
@@ -58,7 +67,7 @@ func queryStd(ctx context.Context, req *packages.DriverRequest, goBinPath string
 		Logf: func(format string, args ...any) {
 			slog.Info(fmt.Sprintf(format, args...))
 		},
-		Env: append(os.Environ(), "CGO_ENABLED=1"),
+		Env: append(os.Environ(), cgoEnabled),
 	}
 
 	slog.Info("running stdlib load", "mode", loadcfg.Mode, "tests", loadcfg.Tests, "buildFlags", loadcfg.BuildFlags)

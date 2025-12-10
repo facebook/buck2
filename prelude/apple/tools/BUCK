@@ -19,6 +19,8 @@ apple_tools(
     make_modulemap = ":make_modulemap",
     make_vfsoverlay = ":make_vfsoverlay",
     selective_debugging_scrubber = apple_oso_scrubber_target(),
+    signing_context = "prelude//apple/tools/bundling:signing_context",
+    signing_context_tree_postprocessor = "prelude//apple/tools/signing_context_tree_postprocessor:signing_context_tree_postprocessor",
     split_arch_combine_dsym_bundles_tool = ":split_arch_combine_dsym_bundles_tool",
     spm_packager = ":spm_packager",
     static_archive_linker = ":static_archive_linker",
@@ -89,11 +91,12 @@ python_binary(
     visibility = ["PUBLIC"],
 )
 
-python_binary(
+python_bootstrap_binary(
     name = "swift_exec",
+    has_content_based_path = True,
     main = "swift_exec.py",
     visibility = ["PUBLIC"],
-    deps = ["prelude//apple/tools/re_compatibility_utils:re_compatibility_utils"],
+    deps = ["prelude//apple/tools/re_compatibility_utils:bootstrap_re_compatibility_utils"],
 )
 
 python_binary(

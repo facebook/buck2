@@ -57,10 +57,11 @@ buck2_core = { workspace = true }
 buck2_data = { workspace = true }
 buck2_error = { workspace = true }
 buck2_events = { workspace = true }
-buck2_futures = { workspace = true }
+buck2_fs = { workspace = true }
 buck2_http = { workspace = true }
 buck2_util = { workspace = true }
 buck2_wrapper_common = { workspace = true }
+dice_futures = { workspace = true }
 
 [target.'cfg(unix)'.dependencies]
 hyper-util = { workspace = true }

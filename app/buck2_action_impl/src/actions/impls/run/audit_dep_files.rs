@@ -57,11 +57,12 @@ async fn audit_dep_files(
         }
     };
 
+    let artifact_fs = ctx.clone().get_artifact_fs().await?;
     let dep_files = read_dep_files(
         state.has_signatures(),
         declared_dep_files,
         state.result(),
-        &ctx.clone().get_artifact_fs().await?,
+        &artifact_fs,
         ctx.per_transaction_data().get_materializer().as_ref(),
     )
     .await
@@ -72,7 +73,8 @@ async fn audit_dep_files(
         Cow::Owned(dep_files),
         true,
         ctx.global_data().get_digest_config(),
-    );
+        &artifact_fs,
+    )?;
 
     let dirs = match &*fingerprints {
         StoredFingerprints::Digests(..) => {

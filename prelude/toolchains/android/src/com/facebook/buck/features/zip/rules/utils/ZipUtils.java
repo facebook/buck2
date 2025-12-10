@@ -10,7 +10,6 @@
 
 package com.facebook.buck.features.zip.rules.utils;
 
-import com.facebook.buck.core.exceptions.HumanReadableException;
 import com.facebook.buck.core.filesystems.AbsPath;
 import com.facebook.buck.core.filesystems.RelPath;
 import com.facebook.buck.util.zip.collect.OnDuplicateEntry;
@@ -64,8 +63,11 @@ public class ZipUtils {
       try {
         builder.addZipFile(zipSourceAbsPath.getPath());
       } catch (IOException e) {
-        throw new HumanReadableException(
-            e, "Error while reading archive entries from %s: %s", zipSourceAbsPath, e.getMessage());
+        throw new RuntimeException(
+            String.format(
+                "Error while reading archive entries from %s: %s",
+                zipSourceAbsPath, e.getMessage()),
+            e);
       }
     }
     for (Map.Entry<RelPath, RelPath> pathEntry : entryMap.entrySet()) {

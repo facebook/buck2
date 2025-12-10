@@ -44,6 +44,7 @@ buck2_error = { workspace = true }
 buck2_events = { workspace = true }
 buck2_execute = { workspace = true }
 buck2_file_watcher = { workspace = true }
+buck2_fs = { workspace = true }
 buck2_http = { workspace = true }
 buck2_interpreter = { workspace = true }
 buck2_interpreter_for_build = { workspace = true }

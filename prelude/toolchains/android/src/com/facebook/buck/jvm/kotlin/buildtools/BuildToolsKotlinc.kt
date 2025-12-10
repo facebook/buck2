@@ -11,7 +11,6 @@
 package com.facebook.buck.jvm.kotlin.buildtools
 
 import com.facebook.buck.core.build.execution.context.IsolatedExecutionContext
-import com.facebook.buck.core.exceptions.HumanReadableException
 import com.facebook.buck.core.filesystems.AbsPath
 import com.facebook.buck.core.filesystems.RelPath
 import com.facebook.buck.core.util.log.Logger
@@ -66,6 +65,14 @@ class BuildToolsKotlinc : Kotlinc {
             "Running ${CompilationService::class.java.name} ${getIncrementalInfoMessage(mode)} " +
             "with arguments:[${compilerArgs.joinToString()}] "
     )
+
+    // Machine-parseable log entry for tooling
+    // Format: KOTLINCD_INVOCATION|target|type|incremental|arg_count
+    // Followed by: KOTLINCD_ARG|<arg> for each argument
+    LOG.info(
+        "KOTLINCD_INVOCATION|${invokingRule.fullyQualifiedName}|${invokingRule.type}|${getIncrementalInfoMessage(mode)}|${compilerArgs.size}"
+    )
+    compilerArgs.forEach { arg -> LOG.info("KOTLINCD_ARG|$arg") }
 
     val kotlinCompilationService =
         KotlinCompilationService(
@@ -157,7 +164,7 @@ class BuildToolsKotlinc : Kotlinc {
         getExpandedSourcePaths(ruleCellRoot, kotlinSourceFilePaths, workingDirectory)
       } catch (exception: IOException) {
         LOG.error(exception)
-        throw HumanReadableException(
+        throw RuntimeException(
             "Unable to expand sources for ${invokingRule.fullyQualifiedName} into $workingDirectory"
         )
       }
@@ -181,9 +188,7 @@ class BuildToolsKotlinc : Kotlinc {
                           allSources.firstOrNull { it.endsWith(fragmentPath) }
 
                       if (fragmentSourceAbsPath == null) {
-                        throw HumanReadableException(
-                            "Invalid fragment source path: $fragmentSourcePath"
-                        )
+                        throw RuntimeException("Invalid fragment source path: $fragmentSourcePath")
                       }
                       "$fragmentName:$fragmentSourceAbsPath"
                     }

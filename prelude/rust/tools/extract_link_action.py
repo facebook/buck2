@@ -20,7 +20,7 @@ import os
 import shutil
 import sys
 from pathlib import Path
-from typing import Any, IO, List, NamedTuple
+from typing import Any, IO, NamedTuple
 
 
 def eprint(*args: Any, **kwargs: Any) -> None:
@@ -30,7 +30,7 @@ def eprint(*args: Any, **kwargs: Any) -> None:
 class Args(NamedTuple):
     out_argsfile: IO[str]
     out_artifacts: Path
-    linker: List[str]
+    linker: list[str]
 
 
 def arg_parse() -> Args:
@@ -55,7 +55,7 @@ def arg_parse() -> Args:
     return Args(**vars(parser.parse_args()))
 
 
-def process_link_args(args: List[str], out_artifacts: Path) -> List[str]:
+def process_link_args(args: list[str], out_artifacts: Path) -> list[str]:
     new_args = []
 
     i = 0
@@ -68,7 +68,7 @@ def process_link_args(args: List[str], out_artifacts: Path) -> List[str]:
         if arg.startswith("-Wl,--version-script"):
             version_script = Path(arg.split("=")[1])
             new_path = shutil.copy(version_script, out_artifacts)
-            new_args.append("-Wl,--version-script={}".format(new_path))
+            new_args.append(f"-Wl,--version-script={new_path}")
             i += 1
             continue
 
@@ -77,7 +77,7 @@ def process_link_args(args: List[str], out_artifacts: Path) -> List[str]:
             arg = args[i + 1]
             exported_symbols_list = Path(arg.split("-Wl,")[1])
             new_path = shutil.copy(exported_symbols_list, out_artifacts)
-            new_args.append("-Wl,-exported_symbols_list,{}".format(new_path))
+            new_args.append(f"-Wl,-exported_symbols_list,{new_path}")
             i += 2
             continue
 
@@ -85,7 +85,7 @@ def process_link_args(args: List[str], out_artifacts: Path) -> List[str]:
         elif arg.startswith("/DEF:"):
             def_file = Path(arg[5:])
             new_path = shutil.copy(def_file, out_artifacts)
-            new_args.append("/DEF:{}".format(new_path))
+            new_args.append(f"/DEF:{new_path}")
             i += 1
             continue
 

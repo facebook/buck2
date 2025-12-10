@@ -62,6 +62,7 @@ mod imp {
     use buck2_core::error::StructuredErrorOptions;
     use buck2_data::Location;
     use buck2_events::BuckEvent;
+    use buck2_events::daemon_id::get_daemon_id_for_panics;
     use buck2_events::metadata;
     use buck2_events::sink::remote::ScribeConfig;
     use buck2_events::sink::remote::new_remote_event_sink_if_enabled;
@@ -127,7 +128,7 @@ mod imp {
     /// Collects metadata from the current environment for use in LogView.
     fn get_metadata_for_panic(options: &StructuredErrorOptions) -> HashMap<String, String> {
         #[cfg_attr(client_only, allow(unused_mut))]
-        let mut map = metadata::collect();
+        let mut map = metadata::collect(&get_daemon_id_for_panics());
         #[cfg(not(client_only))]
         if let Some(commands) = buck2_server::active_commands::try_active_commands() {
             let commands = commands.keys().map(|id| id.to_string()).collect::<Vec<_>>();

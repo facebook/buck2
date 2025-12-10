@@ -61,6 +61,7 @@ load(":cxx_context.bzl", "get_cxx_toolchain_info")
 load(
     ":cxx_library_utility.bzl",
     "cxx_attr_dep_metadata",
+    "cxx_attr_use_content_based_paths",
     "cxx_inherited_link_info",
     "cxx_use_shlib_intfs",
 )
@@ -162,7 +163,7 @@ def _get_static_link_infos(
             expect(macro == "lib")
             lib = libs[int(param)]
             linkables.append(archive_linkable(lib))
-            linkables_stripped.append(archive_linkable(strip_debug_info(ctx, lib.short_path, lib, anonymous = True)))
+            linkables_stripped.append(archive_linkable(strip_debug_info(ctx.actions, lib.short_path, lib, anonymous = True, cxx_toolchain = ctx.attrs._cxx_toolchain, has_content_based_path = cxx_attr_use_content_based_paths(ctx))))
         elif linkables:
             # If we've already seen linkables, put remaining flags/args into
             # post-linker flags.
@@ -284,7 +285,7 @@ def prebuilt_cxx_library_group_impl(ctx: AnalysisContext) -> list[Provider]:
         args += ["-isystem", inc_dir]
     preprocessor = CPreprocessor(args = CPreprocessorArgs(args = args, precompile_args = args))
     inherited_pp_info = cxx_inherited_preprocessor_infos(exported_deps)
-    providers.append(cxx_merge_cpreprocessors(ctx, [preprocessor], inherited_pp_info))
+    providers.append(cxx_merge_cpreprocessors(ctx.actions, [preprocessor], inherited_pp_info))
 
     # Figure out all the link styles we'll be building archives/shlibs for.
     preferred_linkage = _linkage(ctx)

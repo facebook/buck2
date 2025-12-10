@@ -42,11 +42,13 @@
 pub mod package_relative_path;
 pub mod source_path;
 
+// Re-export for use in submodules
 use std::hash::Hash;
 use std::hash::Hasher;
 
 use allocative::Allocative;
-use buck2_error::buck2_error;
+pub(crate) use buck2_fs::paths::fmt::quoted_display;
+use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_util::hash::BuckHasher;
 use derive_more::Display;
 use dupe::Dupe;
@@ -61,8 +63,6 @@ use crate::cells::cell_path::CellPath;
 use crate::cells::cell_path::CellPathRef;
 use crate::cells::name::CellName;
 use crate::cells::paths::CellRelativePath;
-use crate::fs::paths::fmt::quoted_display;
-use crate::fs::paths::forward_rel_path::ForwardRelativePath;
 use crate::pattern::pattern::Modifiers;
 
 /// A 'Package' as defined above.
@@ -144,16 +144,6 @@ impl PackageLabel {
 
     #[inline]
     pub fn from_cell_path(path: CellPathRef) -> buck2_error::Result<Self> {
-        if path.path().as_str().contains("?") {
-            soft_error!(
-                "path_has_question_mark",
-                buck2_error!(
-                    buck2_error::ErrorTag::Input,
-                    "Path: `{}` contains ? which is not allowed to better support the ?modifier syntax",
-                    path
-                )
-            )?;
-        }
         Ok(PackageLabel(INTERNER.intern(PackageLabelDataRef { path })))
     }
 
@@ -219,10 +209,6 @@ impl PackageLabel {
 
 #[cfg(test)]
 mod tests {
-    use crate::cells::cell_path::CellPathRef;
-    use crate::cells::name::CellName;
-    use crate::cells::paths::CellRelativePath;
-    use crate::fs::paths::forward_rel_path::ForwardRelativePath;
     use crate::package::PackageLabel;
 
     #[test]
@@ -230,36 +216,6 @@ mod tests {
         assert_eq!(
             r#""foo//bar/baz""#,
             serde_json::to_string(&PackageLabel::testing_parse("foo//bar/baz")).unwrap()
-        );
-    }
-
-    #[test]
-    fn test_fails_on_invalid_path() {
-        let invalid_forward_path = ForwardRelativePath::new("bar?baz").unwrap();
-        let invalid_path = CellRelativePath::new(invalid_forward_path);
-        let cell_name = CellName::testing_new("foo");
-        let cell_path = CellPathRef::new(cell_name, &invalid_path);
-
-        assert!(
-            PackageLabel::new(cell_name, &invalid_path)
-                .unwrap_err()
-                .to_string()
-                .contains("Path: `foo//bar?baz` contains ? which is not allowed to better support the ?modifier syntax")
-        );
-
-        assert!(
-            PackageLabel::from_cell_path(cell_path)
-                .unwrap_err()
-                .to_string()
-                .contains("Path: `foo//bar?baz` contains ? which is not allowed to better support the ?modifier syntax")
-        );
-
-        assert!(
-            PackageLabel::testing_new("foo", "")
-                .join(invalid_forward_path)
-                .unwrap_err()
-                .to_string()
-                .contains("Path: `foo//bar?baz` contains ? which is not allowed to better support the ?modifier syntax")
         );
     }
 }

@@ -12,7 +12,7 @@ derivative = { workspace = true }
 derive_more = { workspace = true }
 either = { workspace = true }
 fancy-regex = { workspace = true }
-futures = { workspace = true }
+itertools = { workspace = true }
 plist = { workspace = true }
 ref-cast = { workspace = true }
 regex = { workspace = true }
@@ -31,8 +31,9 @@ buck2_common = { workspace = true }
 buck2_core = { workspace = true }
 buck2_error = { workspace = true }
 buck2_events = { workspace = true }
-buck2_futures = { workspace = true }
+buck2_fs = { workspace = true }
 buck2_util = { workspace = true }
+dice_futures = { workspace = true }
 
 [dev-dependencies]
 tempfile = { workspace = true }

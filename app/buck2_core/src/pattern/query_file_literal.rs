@@ -10,11 +10,12 @@
 
 use std::path::Path;
 
+use buck2_fs::paths::abs_norm_path::AbsNormPath;
+
 use crate::cells::CellAliasResolver;
 use crate::cells::CellResolver;
 use crate::cells::cell_path::CellPath;
 use crate::cells::paths::CellRelativePath;
-use crate::fs::paths::abs_norm_path::AbsNormPath;
 use crate::fs::project::ProjectRoot;
 use crate::pattern::pattern::maybe_split_cell_alias_and_relative_path;
 

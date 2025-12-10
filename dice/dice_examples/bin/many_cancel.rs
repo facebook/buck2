@@ -55,7 +55,6 @@ use std::time::Instant;
 
 use allocative::Allocative;
 use async_trait::async_trait;
-use buck2_futures::cancellation::CancellationContext;
 use clap::Parser;
 use derive_more::Display;
 use dice::DetectCycles;
@@ -66,6 +65,7 @@ use dice::GlobalStats;
 use dice::InjectedKey;
 use dice::Key;
 use dice::UserComputationData;
+use dice_futures::cancellation::CancellationContext;
 use dupe::Dupe;
 use futures::FutureExt;
 use tokio::sync::Semaphore;

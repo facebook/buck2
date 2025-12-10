@@ -14,13 +14,13 @@
 use std::borrow::Cow;
 
 use allocative::Allocative;
-use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
-use buck2_core::fs::paths::file_name::FileName;
-use buck2_core::fs::paths::file_name::FileNameBuf;
-use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
+use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
+use buck2_fs::paths::file_name::FileName;
+use buck2_fs::paths::file_name::FileNameBuf;
+use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
 
 use crate::daemon_dir::DaemonDir;
 use crate::invocation_roots::InvocationRoots;
@@ -57,7 +57,7 @@ impl InvocationPaths {
     pub fn daemon_dir(&self) -> buck2_error::Result<DaemonDir> {
         #[cfg(windows)]
         let root_relative: Cow<ForwardRelativePath> = {
-            use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathNormalizer;
+            use buck2_fs::paths::forward_rel_path::ForwardRelativePathNormalizer;
 
             // Get drive letter, network share name, etc.
             // Network share contains '\' therefore it needs to be normalized.
@@ -72,7 +72,7 @@ impl InvocationPaths {
             .roots
             .project_root
             .root()
-            .strip_prefix(buck2_core::fs::paths::abs_norm_path::AbsNormPath::new("/")?)?;
+            .strip_prefix(buck2_fs::paths::abs_norm_path::AbsNormPath::new("/")?)?;
 
         let path = self
             .roots
@@ -180,19 +180,30 @@ impl InvocationPaths {
         self.buck_out_path()
             .join(ForwardRelativePath::unchecked_new("health_check"))
     }
+
+    /// Trash directory for background clean operations.
+    /// Files moved here can be deleted asynchronously without blocking the main clean operation.
+    /// This points to buck-out/tmp/stale-buck-out which is used as the trash directory.
+    pub fn trash_dir(&self) -> AbsNormPathBuf {
+        self.roots
+            .project_root
+            .root()
+            .join(Self::buck_out_dir_prefix())
+            .join(ForwardRelativePath::unchecked_new("tmp/stale-buck-out"))
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use std::ffi::OsStr;
 
-    use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
-    use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
-    use buck2_core::fs::paths::file_name::FileNameBuf;
-    use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
     use buck2_core::fs::project::ProjectRoot;
     use buck2_core::fs::project_rel_path::ProjectRelativePath;
     use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
+    use buck2_fs::paths::abs_norm_path::AbsNormPath;
+    use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
+    use buck2_fs::paths::file_name::FileNameBuf;
+    use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
 
     use crate::invocation_paths::InvocationPaths;
     use crate::invocation_roots::InvocationRoots;

@@ -41,7 +41,8 @@ enum ErrorTier {
 //
 // Feel free to continue using error types if you like.
 enum ErrorTag {
-  reserved 2001;
+  reserved 2001, 11, 19;
+
   // Same as above
   UNUSED_DEFAULT_TAG = 0;
 
@@ -80,14 +81,18 @@ enum ErrorTag {
   HTTP = 3;
   // Client error (4xx).
   HTTP_CLIENT = 301;
+  HTTP_UNAUTHORIZED = 3401;
   HTTP_FORBIDDEN = 3403;
   // Server error (5xx).
   HTTP_SERVER = 302;
+  HTTP_SERVICE_UNAVAILABLE = 3503;
   // gRPC protocol error between client and server from the client side.
   // - Protocol error (e.g. malformed frame, or too large frame)
   // - Transport error (e.g. connection closed)
   // - Not application error (e.g. bzl file not found)
   CLIENT_GRPC = 4;
+  CLIENT_STARTUP_TIMEOUT = 40;
+  CLIENT_GRPC_STREAM = 41;
   // Connect to buckd failed.
   DAEMON_CONNECT = 5;
   // Daemon is running another command.
@@ -98,12 +103,20 @@ enum ErrorTag {
   DAEMON_STATE_INIT_FAILED = 503;
   DAEMON_STATUS = 504;
   DAEMON_REDIRECT = 505;
+  DAEMON_STARTUP_FAILED = 507;
+  DAEMON_LAUNCH_FAILED = 508;
+  DAEMON_NESTED_CONSTRAINTS_MISMATCH = 509;
+  DAEMON_CONSTRAINTS_WRONG_AFTER_START = 510;
+  DAEMON_DIR_CLEANUP_FAILED = 511;
+  DAEMON_KILL_FAILED = 512;
+  BUCKD_LIFECYCLE_LOCK = 513;
+  BUCKD_INFO_MISSING = 514;
+  BUCKD_INFO_PARSE_ERROR = 515;
+  DAEMON_DISCONNECT = 516;
   // Too large gRPC message.
   GRPC_RESPONSE_MESSAGE_TOO_LARGE = 6;
   // `visibility`, `within_view`.
   VISIBILITY = 8;
-  // Server stderr is empty.
-  SERVER_STDERR_EMPTY = 11;
   // Server stderr indicates that the server panicked.
   SERVER_PANICKED = 12;
   // Server stack overflow.
@@ -122,8 +135,6 @@ enum ErrorTag {
   SERVER_JEMALLOC_ASSERT = 15;
   // Server transport errors. Eg. Channel not open
   SERVER_TRANSPORT_ERROR = 16;
-  // The reason for server failure is unknown.
-  SERVER_STDERR_UNKNOWN = 19;
   // Internal error in buck2. This is a bug.
   INTERNAL_ERROR = 21;
   // Artifact projection to a path that does not exist
@@ -217,6 +228,11 @@ enum ErrorTag {
   IO_EDEN_CONFIG_ERROR = 1164;
   IO_EDEN_VERSION_ERROR = 1165;
   IO_EDEN_THRIFT_ERROR = 1166;
+  IO_EDEN_DATA_CORRUPTION = 1167;
+
+  IO_EDEN_NETWORK_UNCATEGORIZED = 1170;
+  IO_EDEN_NETWORK_TLS = 1171;
+  IO_EDEN_NETWORK_CURL_TIMEDOUT = 11728;
 
   SAPLING = 12000;
 

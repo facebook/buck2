@@ -19,12 +19,12 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use async_trait::async_trait;
-use buck2_futures::cancellation::CancellationContext;
 use derive_more::Display;
 use dice::DiceComputations;
 use dice::DiceTransactionUpdater;
 use dice::InjectedKey;
 use dice::Key;
+use dice_futures::cancellation::CancellationContext;
 use dupe::Dupe;
 use futures::FutureExt;
 use futures::future;

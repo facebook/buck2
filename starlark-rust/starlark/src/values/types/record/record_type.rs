@@ -339,7 +339,6 @@ where
 
             Ok(Arc::new(TyRecordData {
                 name: variable_name.to_owned(),
-                id: self.id,
                 ty_record,
                 ty_record_type,
                 parameter_spec: Self::make_parameter_spec(variable_name, &self.fields),

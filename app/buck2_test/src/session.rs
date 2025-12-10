@@ -15,8 +15,8 @@ use std::sync::atomic::Ordering;
 
 use allocative::Allocative;
 use anyhow::Context as _;
-use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
+use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_test_api::data::ConfiguredTargetHandle;
 use chrono::Local;
 use dashmap::DashMap;

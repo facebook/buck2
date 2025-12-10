@@ -8,7 +8,6 @@
  * above-listed licenses.
  */
 
-use std::collections::BTreeMap;
 use std::collections::HashMap;
 use std::io::Write;
 use std::sync::Arc;
@@ -18,7 +17,7 @@ use async_trait::async_trait;
 use buck2_build_api::actions::artifact::get_artifact_fs::GetArtifactFs;
 use buck2_build_api::artifact_groups::ArtifactGroup;
 use buck2_build_api::build::build_report::BuildReportOpts;
-use buck2_build_api::build::build_report::generate_build_report;
+use buck2_build_api::build::build_report::generate_bxl_build_report;
 use buck2_build_api::bxl::result::BxlResult;
 use buck2_build_api::bxl::result::PendingStreamingOutput;
 use buck2_build_api::bxl::types::BxlFunctionLabel;
@@ -177,13 +176,19 @@ impl BxlServerCommand {
         self.emit_outputs(server_ctx, bxl_result, &mut streaming_output_writer)
             .await?;
 
+        let error_reports = errors
+            .iter()
+            .map(buck2_data::ErrorReport::from)
+            .unique_by(|e| e.message.clone())
+            .collect();
+
         let serialized_build_report = self
-            .generate_build_report(&bxl_cmd_ctx, &mut dice_ctx, server_ctx)
+            .generate_build_report(&bxl_cmd_ctx, &mut dice_ctx, server_ctx, errors)
             .await?;
 
         Ok(BxlResponse {
             project_root: bxl_cmd_ctx.project_root,
-            errors,
+            errors: error_reports,
             serialized_build_report,
         })
     }
@@ -277,13 +282,13 @@ impl BxlServerCommand {
 
     /// Materializes artifacts from the BXL result
     ///
-    /// Returns the build results and any errors encountered during materialization.
+    /// Returns errors encountered during materialization.
     async fn materialize_artifacts(
         &self,
         dice_ctx: &mut DiceTransaction,
         bxl_result: Arc<BxlResult>,
         output: &mut (impl Write + Send),
-    ) -> Vec<buck2_data::ErrorReport> {
+    ) -> Vec<buck2_error::Error> {
         let materialization_context = self.create_materialization_context();
 
         self.ensure_all_artifacts(dice_ctx, &materialization_context, bxl_result, output)
@@ -306,15 +311,16 @@ impl BxlServerCommand {
 
     /// Ensures that all artifacts from BXL execution are materialized.
     ///
-    /// Wraps the materialization process in tracing spans
-    /// and converts errors to a standardized report format.
+    /// Wraps the materialization process in tracing spans.
+    ///
+    /// Returns errors encountered during materialization.
     async fn ensure_all_artifacts(
         &self,
         ctx: &mut DiceComputations<'_>,
         materialization_context: &MaterializationAndUploadContext,
         bxl_result: Arc<BxlResult>,
         output: &mut (impl Write + Send),
-    ) -> Vec<buck2_data::ErrorReport> {
+    ) -> Vec<buck2_error::Error> {
         if bxl_result.artifacts().is_empty() {
             return vec![];
         }
@@ -336,17 +342,13 @@ impl BxlServerCommand {
 
         match result {
             Ok(_) => vec![],
-            Err(errors) => errors
-                .iter()
-                .map(buck2_data::ErrorReport::from)
-                .unique_by(|e| e.message.clone())
-                .collect(),
+            Err(errors) => errors,
         }
     }
 
     /// Collects and materializes artifacts
     ///
-    /// Returns the arggregated errors encountered during materialization.
+    /// Returns the aggregated errors encountered during materialization.
     async fn materialize_collected_artifacts(
         &self,
         ctx: &mut DiceComputations<'_>,
@@ -443,6 +445,7 @@ impl BxlServerCommand {
         ctx: &BxlCommandContext<'_>,
         dice_ctx: &mut DiceTransaction,
         server_ctx: &dyn ServerCommandContextTrait,
+        ensured_artifact_errors: Vec<buck2_error::Error>,
     ) -> buck2_error::Result<Option<String>> {
         let bxl_opts = self
             .req
@@ -460,18 +463,20 @@ impl BxlServerCommand {
                 unstable_include_artifact_hash_information: false,
                 unstable_build_report_filename: bxl_opts.unstable_build_report_filename.clone(),
                 graph_properties_opts: Default::default(),
+                unstable_streaming_build_report_filename: bxl_opts
+                    .unstable_streaming_build_report_filename
+                    .clone(),
             };
 
-            generate_build_report(
+            generate_bxl_build_report(
                 build_report_opts,
                 &artifact_fs,
                 &ctx.cell_resolver,
                 server_ctx.project_root(),
                 ctx.cwd,
                 server_ctx.events().trace_id(),
-                &BTreeMap::default(),
-                &HashMap::default(),
-                &BTreeMap::default(),
+                &ctx.bxl_label,
+                &ensured_artifact_errors,
                 None,
             )?
         } else {

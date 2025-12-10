@@ -74,6 +74,8 @@ apple_sdks = struct(
     VISIONOS = VISIONOS,
 )
 
+ALL_APPLE_SDKS = tuple([getattr(apple_sdks, field) for field in dir(apple_sdks)])  # convert the `apple_sdks` struct into a tuple (taking the values, not the keys)
+
 appletv_platforms = struct(
     APPLETVOS_ARM64 = APPLETVOS_ARM64,
     APPLETVSIMULATOR_ARM64 = APPLETVSIMULATOR_ARM64,

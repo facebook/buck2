@@ -18,14 +18,14 @@ use buck2_core::cells::CellResolver;
 use buck2_core::cells::name::CellName;
 use buck2_core::cells::paths::CellRelativePath;
 use buck2_core::cells::paths::CellRelativePathBuf;
-use buck2_core::fs::fs_util;
-use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
-use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
-use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
-use buck2_core::fs::working_dir::AbsWorkingDir;
 use buck2_error::buck2_error;
+use buck2_fs::fs_util;
+use buck2_fs::paths::abs_norm_path::AbsNormPath;
+use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
+use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
+use buck2_fs::working_dir::AbsWorkingDir;
 
 #[derive(Debug, Clone)]
 pub(crate) struct SanitizedPath {

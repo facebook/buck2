@@ -10,7 +10,9 @@
 
 package com.facebook
 
+import com.facebook.buck.jvm.kotlin.compilerplugins.common.isStub
 import java.io.File
+import org.jetbrains.kotlin.GeneratedDeclarationKey
 import org.jetbrains.kotlin.backend.common.extensions.IrGenerationExtension
 import org.jetbrains.kotlin.backend.common.extensions.IrPluginContext
 import org.jetbrains.kotlin.backend.jvm.JvmIrDeserializerImpl
@@ -21,7 +23,6 @@ import org.jetbrains.kotlin.cli.common.messages.CompilerMessageLocation
 import org.jetbrains.kotlin.cli.common.messages.CompilerMessageSeverity
 import org.jetbrains.kotlin.cli.common.messages.MessageCollector
 import org.jetbrains.kotlin.cli.jvm.compiler.EnvironmentConfigFiles
-import org.jetbrains.kotlin.cli.jvm.compiler.FirKotlinToJvmBytecodeCompiler
 import org.jetbrains.kotlin.cli.jvm.compiler.KotlinCoreEnvironment
 import org.jetbrains.kotlin.cli.jvm.compiler.VfsBasedProjectEnvironment
 import org.jetbrains.kotlin.cli.jvm.compiler.createContextForIncrementalCompilation
@@ -46,6 +47,10 @@ import org.jetbrains.kotlin.config.JVMConfigurationKeys
 import org.jetbrains.kotlin.config.JvmTarget
 import org.jetbrains.kotlin.config.languageVersionSettings
 import org.jetbrains.kotlin.config.messageCollector
+import org.jetbrains.kotlin.descriptors.ClassKind
+import org.jetbrains.kotlin.descriptors.EffectiveVisibility
+import org.jetbrains.kotlin.descriptors.Modality
+import org.jetbrains.kotlin.descriptors.Visibilities
 import org.jetbrains.kotlin.diagnostics.DiagnosticReporterFactory
 import org.jetbrains.kotlin.diagnostics.impl.BaseDiagnosticsCollector
 import org.jetbrains.kotlin.extensions.CompilerConfigurationExtension
@@ -55,11 +60,19 @@ import org.jetbrains.kotlin.fir.FirModuleData
 import org.jetbrains.kotlin.fir.FirModuleDataImpl
 import org.jetbrains.kotlin.fir.FirSession
 import org.jetbrains.kotlin.fir.backend.jvm.JvmFir2IrExtensions
+import org.jetbrains.kotlin.fir.declarations.impl.FirResolvedDeclarationStatusImpl
+import org.jetbrains.kotlin.fir.expressions.builder.buildLiteralExpression
+import org.jetbrains.kotlin.fir.extensions.ExperimentalTopLevelDeclarationsGenerationApi
 import org.jetbrains.kotlin.fir.extensions.FirAnalysisHandlerExtension
+import org.jetbrains.kotlin.fir.extensions.FirDeclarationGenerationExtension
 import org.jetbrains.kotlin.fir.extensions.FirExtensionRegistrar
+import org.jetbrains.kotlin.fir.extensions.FirExtensionSessionComponent
+import org.jetbrains.kotlin.fir.extensions.MemberGenerationContext
 import org.jetbrains.kotlin.fir.java.FirProjectSessionProvider
 import org.jetbrains.kotlin.fir.pipeline.FirResult
 import org.jetbrains.kotlin.fir.pipeline.buildResolveAndCheckFirFromKtFiles
+import org.jetbrains.kotlin.fir.plugin.createMemberProperty
+import org.jetbrains.kotlin.fir.plugin.createTopLevelClass
 import org.jetbrains.kotlin.fir.session.FirJvmIncrementalCompilationSymbolProviders
 import org.jetbrains.kotlin.fir.session.FirJvmSessionFactory
 import org.jetbrains.kotlin.fir.session.FirSessionConfigurator
@@ -68,6 +81,9 @@ import org.jetbrains.kotlin.fir.session.IncrementalCompilationContext
 import org.jetbrains.kotlin.fir.session.createSymbolProviders
 import org.jetbrains.kotlin.fir.session.environment.AbstractProjectFileSearchScope
 import org.jetbrains.kotlin.fir.session.firCachesFactoryForCliMode
+import org.jetbrains.kotlin.fir.symbols.impl.FirClassLikeSymbol
+import org.jetbrains.kotlin.fir.symbols.impl.FirClassSymbol
+import org.jetbrains.kotlin.fir.symbols.impl.FirPropertySymbol
 import org.jetbrains.kotlin.idea.KotlinFileType
 import org.jetbrains.kotlin.ir.IrBuiltIns
 import org.jetbrains.kotlin.ir.IrStatement
@@ -76,6 +92,7 @@ import org.jetbrains.kotlin.ir.declarations.IrClass
 import org.jetbrains.kotlin.ir.declarations.IrConstructor
 import org.jetbrains.kotlin.ir.declarations.IrDeclarationBase
 import org.jetbrains.kotlin.ir.declarations.IrDeclarationContainer
+import org.jetbrains.kotlin.ir.declarations.IrDeclarationOrigin.GeneratedByPlugin
 import org.jetbrains.kotlin.ir.declarations.IrDeclarationWithVisibility
 import org.jetbrains.kotlin.ir.declarations.IrFactory
 import org.jetbrains.kotlin.ir.declarations.IrFile
@@ -93,16 +110,23 @@ import org.jetbrains.kotlin.ir.symbols.UnsafeDuringIrConstructionAPI
 import org.jetbrains.kotlin.ir.types.IrSimpleType
 import org.jetbrains.kotlin.ir.types.IrType
 import org.jetbrains.kotlin.ir.types.makeNullable
-import org.jetbrains.kotlin.ir.util.statements
 import org.jetbrains.kotlin.ir.visitors.IrElementTransformer
 import org.jetbrains.kotlin.modules.Module
 import org.jetbrains.kotlin.modules.TargetId
+import org.jetbrains.kotlin.name.CallableId
+import org.jetbrains.kotlin.name.ClassId
+import org.jetbrains.kotlin.name.FqName
 import org.jetbrains.kotlin.name.Name
 import org.jetbrains.kotlin.platform.TargetPlatform
 import org.jetbrains.kotlin.platform.jvm.JvmPlatforms
+import org.jetbrains.kotlin.psi.KtAnnotationEntry
 import org.jetbrains.kotlin.psi.KtFile
+import org.jetbrains.kotlin.psi.KtTreeVisitorVoid
 import org.jetbrains.kotlin.resolve.multiplatform.hmppModuleName
 import org.jetbrains.kotlin.resolve.multiplatform.isCommonSource
+import org.jetbrains.kotlin.types.ConstantValueKind
+
+data object JvmAbiGenPlugin : GeneratedDeclarationKey()
 
 @SuppressWarnings("PackageLocationMismatch")
 class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
@@ -160,6 +184,7 @@ class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
           updatedConfiguration,
           module,
           analysisResults,
+          sourceFiles,
       )
     } finally {
       Disposer.dispose(disposable)
@@ -172,6 +197,7 @@ class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
       targetId: TargetId,
       analysisResults: FirResult,
       environment: ModuleCompilerEnvironment,
+      sourceFiles: List<KtFile>,
   ): ModuleCompilerIrBackendInput {
     val extensions = JvmFir2IrExtensions(configuration, JvmIrDeserializerImpl())
     val (moduleFragment, components, pluginContext, irActualizedResult, _, symbolTable) =
@@ -179,7 +205,7 @@ class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
             extensions,
             configuration,
             environment.diagnosticsReporter,
-            listOf(NonAbiDeclarationsStrippingIrExtension()),
+            listOf(NonAbiDeclarationsStrippingIrExtension(sourceFiles)),
         )
 
     return ModuleCompilerIrBackendInput(
@@ -201,10 +227,10 @@ class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
       configuration: CompilerConfiguration,
       module: Module,
       analysisResults: FirResult,
+      sourceFiles: List<KtFile>,
   ): ModuleCompilerOutput {
     // Ignore all FE errors
-    val cleanDiagnosticReporter =
-        FirKotlinToJvmBytecodeCompiler.createPendingReporter(messageCollector)
+    val cleanDiagnosticReporter = DiagnosticReporterFactory.createPendingReporter(messageCollector)
     val compilerEnvironment = ModuleCompilerEnvironment(projectEnvironment, cleanDiagnosticReporter)
     val irInput =
         convertAnalyzedFirToIr(
@@ -212,13 +238,28 @@ class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
             TargetId(module),
             analysisResults,
             compilerEnvironment,
+            sourceFiles,
         )
 
     return generateCodeFromIr(irInput, compilerEnvironment)
   }
 
-  private class NonAbiDeclarationsStrippingIrExtension : IrGenerationExtension {
+  private class NonAbiDeclarationsStrippingIrExtension(private val sourceFiles: List<KtFile>) :
+      IrGenerationExtension {
+    @OptIn(UnsafeDuringIrConstructionAPI::class)
     override fun generate(moduleFragment: IrModuleFragment, pluginContext: IrPluginContext) {
+      // Filter out files generated from stubs, similar to K1 implementation
+      val stubs = sourceFiles.filter { it.isStub() }
+      val stubPaths: Set<String> = stubs.map { it.viewProvider.virtualFile.path }.toSet()
+
+      // Remove IR files that were generated from stubs
+      moduleFragment.files.removeAll { irFile ->
+        stubPaths.contains(irFile.fileEntry.name) ||
+            irFile.declarations.any { declaration ->
+              (declaration.origin as? GeneratedByPlugin)?.pluginKey == JvmAbiGenPlugin
+            }
+      }
+
       moduleFragment.transform(
           NonAbiDeclarationsStrippingIrVisitor(pluginContext.irFactory, pluginContext.irBuiltIns),
           null,
@@ -452,6 +493,50 @@ class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
     return result
   }
 
+  private class MissingConstantsVisitor(private val usedConstants: MutableSet<String>) :
+      KtTreeVisitorVoid() {
+    override fun visitAnnotationEntry(annotationEntry: KtAnnotationEntry) {
+      annotationEntry.valueArgumentList?.arguments?.map { it.text }?.let(usedConstants::addAll)
+      return super.visitAnnotationEntry(annotationEntry)
+    }
+  }
+
+  // Collect missing constants from source files by analyzing imports
+  private fun collectMissingConstantsFromSourceFiles(
+      sourceFiles: List<KtFile>
+  ): Map<ClassId, Set<String>> {
+    val missingConstants = mutableMapOf<ClassId, MutableSet<String>>()
+
+    for (sourceFile in sourceFiles) {
+      val usedConstants = mutableSetOf<String>()
+      sourceFile.accept(MissingConstantsVisitor(usedConstants))
+
+      for (importDirective in sourceFile.importDirectives) {
+        val importPath = importDirective.importedFqName ?: continue
+        val segments = importPath.pathSegments()
+        if (segments.size < 2) continue
+
+        val importedName = importPath.shortNameOrSpecial().asString()
+
+        // Check if this import is used in annotations
+        val isUsed = usedConstants.any { it.contains(importedName) }
+        if (!isUsed) continue
+
+        // Handle static import: import package.ClassName.CONSTANT
+        val packageSegments = segments.dropLast(2)
+        val className = segments[segments.size - 2]
+
+        if (packageSegments.isNotEmpty()) {
+          val packageFqName = FqName.fromSegments(packageSegments.map { it.asString() })
+          val classId = ClassId(packageFqName, className)
+          missingConstants.getOrPut(classId) { mutableSetOf() }.add(importedName)
+        }
+      }
+    }
+
+    return missingConstants
+  }
+
   // A frontend entry point for Kosabi.
   // Generates FIR for all the sources in the module.
   fun runFrontendForKosabi(
@@ -515,6 +600,8 @@ class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
 
     val outputs =
         sessionsWithSources.map { (session, sources) ->
+          val missingConstants = collectMissingConstantsFromSourceFiles(sources)
+          session.jvmAbiGenService.state.missingConstants.putAll(missingConstants)
           buildResolveAndCheckFirFromKtFiles(session, sources, diagnosticsReporter)
         }
 
@@ -702,3 +789,132 @@ class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
     return SessionWithSources(session, files)
   }
 }
+
+class AbiGenFirExtensionRegistrar() : FirExtensionRegistrar() {
+  override fun ExtensionRegistrarContext.configurePlugin() {
+    +{ session: FirSession -> MissingConstantDeclarationGenerationExtension(session) }
+    +JvmAbiGenService.getFactory()
+  }
+}
+
+@OptIn(ExperimentalTopLevelDeclarationsGenerationApi::class)
+class MissingConstantDeclarationGenerationExtension(
+    session: FirSession,
+) : FirDeclarationGenerationExtension(session) {
+
+  override fun getTopLevelClassIds(): Set<ClassId> {
+    val missingConstants = session.jvmAbiGenService.state.missingConstants
+    // Generate classes for all missing constants that don't already exist
+    return missingConstants.keys
+        // .filter { classId -> session.symbolProvider.getClassLikeSymbolByClassId(classId) == null
+        // }
+        .toSet()
+  }
+
+  override fun getTopLevelCallableIds(): Set<CallableId> {
+    val missingConstants = session.jvmAbiGenService.state.missingConstants
+    return missingConstants
+        .flatMap { (classId, constants) ->
+          constants.map { constantName -> CallableId(classId, Name.identifier(constantName)) }
+        }
+        .toSet()
+  }
+
+  override fun generateTopLevelClassLikeDeclaration(classId: ClassId): FirClassLikeSymbol<*>? {
+    val missingConstants = session.jvmAbiGenService.state.missingConstants
+
+    // Only generate if this class has missing constants and doesn't exist
+    val constantsForClass = missingConstants[classId] ?: return null
+
+    val createdClass = createTopLevelClass(classId, JvmAbiGenPlugin, ClassKind.OBJECT)
+    createdClass.replaceStatus(
+        FirResolvedDeclarationStatusImpl(
+                Visibilities.Public,
+                Modality.FINAL,
+                EffectiveVisibility.Public,
+            )
+            .apply { isStatic = true }
+    )
+    return createdClass.symbol
+  }
+
+  override fun getCallableNamesForClass(
+      classSymbol: FirClassSymbol<*>,
+      context: MemberGenerationContext,
+  ): Set<Name> {
+    val missingConstants = session.jvmAbiGenService.state.missingConstants
+    val constantsForClass = missingConstants[classSymbol.classId] ?: return emptySet()
+    return constantsForClass.map { Name.identifier(it) }.toSet()
+  }
+
+  override fun generateProperties(
+      callableId: CallableId,
+      context: MemberGenerationContext?,
+  ): List<FirPropertySymbol> {
+    val owner = context?.owner ?: return emptyList()
+    val classId = callableId.classId ?: return emptyList()
+
+    val missingConstants = session.jvmAbiGenService.state.missingConstants
+    val constantsForClass = missingConstants[classId] ?: return emptyList()
+
+    val constantName = callableId.callableName.asString()
+    if (constantName in constantsForClass) {
+      return listOf(generateConstantProperty(constantName, owner))
+    }
+    return emptyList()
+  }
+
+  override fun hasPackage(packageFqName: FqName): Boolean {
+    val missingConstants = session.jvmAbiGenService.state.missingConstants
+
+    // Return true for any package that contains classes we're generating
+    return missingConstants.keys.any { classId -> classId.packageFqName == packageFqName }
+  }
+
+  private fun generateConstantProperty(
+      constantName: String,
+      owner: FirClassSymbol<*>,
+  ): FirPropertySymbol {
+    val property =
+        createMemberProperty(
+            owner,
+            JvmAbiGenPlugin,
+            Name.identifier(constantName),
+            session.builtinTypes.stringType.coneType,
+        )
+    property.replaceStatus(
+        FirResolvedDeclarationStatusImpl(
+                Visibilities.Public,
+                Modality.FINAL,
+                EffectiveVisibility.Public,
+            )
+            .apply { isConst = true }
+    )
+    property.replaceInitializer(
+        buildLiteralExpression(
+            source = null,
+            kind = ConstantValueKind.String,
+            value = "",
+            setType = true,
+        )
+    )
+    return property.symbol
+  }
+}
+
+class JvmAbiGenService(session: FirSession, state: AbiGenState) :
+    FirExtensionSessionComponent(session) {
+  companion object {
+    fun getFactory(): Factory {
+      return Factory { JvmAbiGenService(it, AbiGenState()) }
+    }
+  }
+
+  val state: AbiGenState = state
+}
+
+class AbiGenState {
+  val missingConstants: MutableMap<ClassId, Set<String>> = mutableMapOf()
+}
+
+val FirSession.jvmAbiGenService: JvmAbiGenService by FirSession.sessionComponentAccessor()

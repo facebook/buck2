@@ -41,7 +41,7 @@ def apple_universal_executable_impl(ctx: AnalysisContext) -> list[Provider]:
 
     debug_info = project_artifacts(
         actions = ctx.actions,
-        tsets = [binary_outputs.debuggable_info.debug_info_tset],
+        tsets = binary_outputs.debuggable_info.debug_info_tset,
     )
 
     sub_targets = {}

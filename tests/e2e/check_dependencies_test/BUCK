@@ -1,4 +1,4 @@
-load("@fbsource//tools/build_defs:check_dependencies_test.bzl", "assert_dependencies_test", "audit_dependents_test", "check_dependencies_test")
+load("@fbsource//tools/build_defs:check_dependencies_test.bzl", "assert_dependencies_test", "audit_dependents_test", "check_dependencies_test", "check_mutually_exclusive_dependencies_test")
 
 ### This file contains some "e2e tests" for the BXL check_dependencies_test infra.
 
@@ -133,4 +133,47 @@ audit_dependents_test(
     expect_failure_msg = "Disallowed rules were found",
     source_target = TARGET3,
     target = TARGET1,
+)
+
+# Tests for check_mutually_exclusive_dependencies_test
+
+check_mutually_exclusive_dependencies_test(
+    name = "mutually_exclusive_only_one_present",
+    contacts = CONTACTS,
+    mutually_exclusive_group = [
+        ".*:useless_target_1",
+        ".*:useless_target_999_nonexistent",
+    ],
+    target = TARGET2,
+)
+
+check_mutually_exclusive_dependencies_test(
+    name = "mutually_exclusive_none_present",
+    contacts = CONTACTS,
+    mutually_exclusive_group = [
+        ".*:useless_target_888_nonexistent",
+        ".*:useless_target_999_nonexistent",
+    ],
+    target = TARGET2,
+)
+
+check_mutually_exclusive_dependencies_test(
+    name = "mutually_exclusive_exact_targets_no_regex",
+    contacts = CONTACTS,
+    mutually_exclusive_group = [
+        "fbcode//buck2/tests/targets/check_dependencies_test:useless_target_1",
+        "fbcode//buck2/tests/targets/check_dependencies_test:useless_target_999_nonexistent",
+    ],
+    target = TARGET2,
+)
+
+check_mutually_exclusive_dependencies_test(
+    name = "fail_mutually_exclusive_multiple_present",
+    contacts = CONTACTS,
+    expect_failure_msg = "Found .* mutually exclusive dependencies",
+    mutually_exclusive_group = [
+        ".*:useless_target_1",
+        ".*:useless_target_2",
+    ],
+    target = TARGET3,
 )

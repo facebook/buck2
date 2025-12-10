@@ -19,6 +19,7 @@ flate2 = { workspace = true }
 futures = { workspace = true }
 host_sharing = { workspace = true }
 inferno = { workspace = true }
+itertools = { workspace = true }
 lsp-server = { workspace = true }
 lsp-types = { workspace = true }
 once_cell = { workspace = true }
@@ -60,7 +61,7 @@ buck2_events = { workspace = true }
 buck2_execute = { workspace = true }
 buck2_execute_impl = { workspace = true }
 buck2_file_watcher = { workspace = true }
-buck2_futures = { workspace = true }
+buck2_fs = { workspace = true }
 buck2_http = { workspace = true }
 buck2_interpreter = { workspace = true }
 buck2_interpreter_for_build = { workspace = true }
@@ -74,6 +75,7 @@ buck2_test = { workspace = true }
 buck2_util = { workspace = true }
 buck2_validation = { workspace = true }
 buck2_wrapper_common = { workspace = true }
+dice_futures = { workspace = true }
 
 [target.'cfg(any(target_os = "linux", target_os = "macos"))'.dependencies]
 buck2_forkserver = { workspace = true }

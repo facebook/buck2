@@ -10,7 +10,6 @@
 
 package com.facebook.buck.android;
 
-import static com.facebook.buck.util.concurrent.MostExecutors.newMultiThreadExecutor;
 import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
 
 import com.facebook.buck.android.device.TargetDeviceOptions;
@@ -22,16 +21,11 @@ import com.facebook.buck.android.exopackage.AndroidIntent;
 import com.facebook.buck.android.exopackage.ExopackageInstaller;
 import com.facebook.buck.android.exopackage.IsolatedExopackageInfo;
 import com.facebook.buck.android.exopackage.SetDebugAppMode;
-import com.facebook.buck.core.exceptions.BuckUncheckedExecutionException;
-import com.facebook.buck.core.exceptions.HumanReadableException;
 import com.facebook.buck.core.filesystems.AbsPath;
 import com.facebook.buck.core.util.log.Logger;
 import com.facebook.buck.util.Console;
 import com.facebook.buck.util.MoreSuppliers;
 import com.facebook.buck.util.Threads;
-import com.facebook.buck.util.concurrent.CommandThreadFactory;
-import com.facebook.buck.util.concurrent.CommonThreadFactoryState;
-import com.facebook.buck.util.concurrent.MostExecutors;
 import com.facebook.buck.util.environment.EnvVariablesProvider;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
@@ -43,6 +37,8 @@ import com.google.common.collect.Sets;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.ListeningExecutorService;
+import com.google.common.util.concurrent.MoreExecutors;
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -58,6 +54,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
@@ -176,7 +173,7 @@ public class AdbHelper implements AndroidDevicesHelper {
         androidPrinter.printMessage("Found " + result.devices.size() + " matching devices.\n");
       }
       if (result.errorMessage.isPresent()) {
-        throw new HumanReadableException(result.errorMessage.get());
+        throw new RuntimeException(result.errorMessage.get());
       } else if (result.devices.isEmpty()) {
         if (options.getIgnoreMissingDevice()) {
           androidPrinter.printMessage(
@@ -184,11 +181,9 @@ public class AdbHelper implements AndroidDevicesHelper {
                   + " devices/emulators.\n");
           return;
         }
-        throw new HumanReadableException("Didn't find any attached Android devices/emulators.");
+        throw new RuntimeException("Didn't find any attached Android devices/emulators.");
       }
       devices = result.devices;
-    } catch (HumanReadableException e) {
-      throw e;
     } catch (Exception e) {
       throw new RuntimeException(e.getMessage());
     }
@@ -209,7 +204,7 @@ public class AdbHelper implements AndroidDevicesHelper {
     try {
       results = Futures.allAsList(futures).get();
     } catch (ExecutionException ex) {
-      throw new BuckUncheckedExecutionException(ex.getCause());
+      throw new RuntimeException(ex.getCause());
     } catch (InterruptedException e) {
       try {
         Futures.allAsList(futures).cancel(true);
@@ -235,7 +230,8 @@ public class AdbHelper implements AndroidDevicesHelper {
     }
 
     if (failureCount != 0) {
-      throw new HumanReadableException("Failed to %s on %d device(s).", description, failureCount);
+      throw new RuntimeException(
+          String.format("Failed to %s on %d device(s).", description, failureCount));
     }
   }
 
@@ -252,9 +248,9 @@ public class AdbHelper implements AndroidDevicesHelper {
     adbThreadCount = Math.min(deviceCount, adbThreadCount);
     executorService =
         listeningDecorator(
-            newMultiThreadExecutor(
-                new CommandThreadFactory(getClass().getSimpleName(), CommonThreadFactoryState.NOOP),
-                adbThreadCount));
+            Executors.newFixedThreadPool(
+                adbThreadCount,
+                new ThreadFactoryBuilder().setNameFormat(getClass().getSimpleName()).build()));
     return executorService;
   }
 
@@ -355,7 +351,7 @@ public class AdbHelper implements AndroidDevicesHelper {
               apk.getName(),
               String.format(" (CPU(s): %s)", String.join(", ", apkAbis)),
               String.join(", ", abis));
-      getConsole().printFailure(errorMsg);
+      getConsole().printErrorText(errorMsg);
       throw new IncompatibleAbiException(errorMsg);
     }
   }
@@ -501,9 +497,9 @@ public class AdbHelper implements AndroidDevicesHelper {
 
         // Sanity check.
         if (launcherActivities.isEmpty()) {
-          throw new HumanReadableException("No launchable activities found.");
+          throw new RuntimeException("No launchable activities found.");
         } else if (launcherActivities.size() > 1) {
-          throw new HumanReadableException("Default activity is ambiguous.");
+          throw new RuntimeException("Default activity is ambiguous.");
         }
 
         // Construct a component for the '-n' argument of 'adb shell am start'.
@@ -571,14 +567,17 @@ public class AdbHelper implements AndroidDevicesHelper {
     // Note that the file may not exist if AndroidManifest.xml is a generated file
     // and the rule has not been built yet.
     if (!Files.isRegularFile(pathToManifest)) {
-      throw new HumanReadableException(
-          "Manifest file %s does not exist, so could not extract package name.", pathToManifest);
+      throw new RuntimeException(
+          String.format(
+              "Manifest file %s does not exist, so could not extract package name.",
+              pathToManifest));
     }
 
     try {
       return DefaultAndroidManifestReader.forPath(pathToManifest).getPackage();
     } catch (IOException e) {
-      throw new HumanReadableException("Could not extract package name from %s", pathToManifest);
+      throw new RuntimeException(
+          String.format("Could not extract package name from %s", pathToManifest));
     }
   }
 
@@ -729,11 +728,9 @@ public class AdbHelper implements AndroidDevicesHelper {
     // getExecutorService() requires the context for lazy initialization, so explicitly check if it
     // has been initialized.
     if (executorService != null) {
-      MostExecutors.shutdownOrThrow(
-          executorService,
-          10,
-          TimeUnit.MINUTES,
-          new RuntimeException("Failed to shutdown ExecutorService."));
+      if (!MoreExecutors.shutdownAndAwaitTermination(executorService, 10, TimeUnit.MINUTES)) {
+        throw new RuntimeException("Failed to shutdown ExecutorService.");
+      }
       executorService = null;
     }
   }

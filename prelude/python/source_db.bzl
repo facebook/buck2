@@ -49,6 +49,7 @@ def create_dbg_source_db(
         actions = ctx.actions,
         name = "dbg_source_db_dependencies",
         args = dependencies,
+        has_content_based_path = True,
     ))
 
     artifacts.append(dep_manifests.project_as_args("source_artifacts"))
@@ -60,13 +61,13 @@ def create_source_db_no_deps(
         ctx: AnalysisContext,
         srcs: [dict[str, Artifact], None]) -> DefaultInfo:
     content = {} if srcs == None else srcs
-    output = ctx.actions.write_json("db_no_deps.json", content)
+    output = ctx.actions.write_json("db_no_deps.json", content, has_content_based_path = True)
     return DefaultInfo(default_output = output, other_outputs = content.values())
 
 def create_source_db_no_deps_from_manifest(
         ctx: AnalysisContext,
         srcs: ManifestInfo) -> DefaultInfo:
-    output = ctx.actions.declare_output("db_no_deps.json")
+    output = ctx.actions.declare_output("db_no_deps.json", has_content_based_path = True)
     cmd = cmd_args(ctx.attrs._python_internal_tools[PythonInternalToolsInfo].make_source_db_no_deps)
     cmd.add(cmd_args(output.as_output(), format = "--output={}"))
     cmd.add(srcs.manifest)

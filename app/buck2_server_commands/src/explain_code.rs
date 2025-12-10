@@ -230,7 +230,7 @@ pub(crate) async fn explain(
                     &format!("owner(\"{file_change}\")"),
                     &[],
                     global_cfg_options.dupe(),
-                    Some(&[req.target.clone()]), // target universe
+                    Some(std::slice::from_ref(&req.target)), // target universe
                     false,
                 )
                 .await?;

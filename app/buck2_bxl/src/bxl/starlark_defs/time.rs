@@ -52,12 +52,8 @@ fn starlark_instant_methods(builder: &mut MethodsBuilder) {
     ///     ctx.output.print(time_b)
     /// ```
     fn elapsed_secs<'v>(this: Value<'v>) -> starlark::Result<f64> {
-        let secs = this
-            .downcast_ref::<StarlarkInstant>()
-            .unwrap()
-            .0
-            .elapsed()
-            .as_secs() as f64;
+        let secs =
+            (Instant::now() - this.downcast_ref::<StarlarkInstant>().unwrap().0).as_secs() as f64;
 
         Ok(secs)
     }
@@ -76,12 +72,8 @@ fn starlark_instant_methods(builder: &mut MethodsBuilder) {
     ///     ctx.output.print(time_b)
     /// ```
     fn elapsed_millis<'v>(this: Value<'v>) -> starlark::Result<f64> {
-        let millis = this
-            .downcast_ref::<StarlarkInstant>()
-            .unwrap()
-            .0
-            .elapsed()
-            .as_millis() as f64;
+        let millis =
+            (Instant::now() - this.downcast_ref::<StarlarkInstant>().unwrap().0).as_millis() as f64;
 
         Ok(millis)
     }

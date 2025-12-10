@@ -8,9 +8,7 @@
  * above-listed licenses.
  */
 
-use std::cell::RefCell;
 use std::collections::HashMap;
-use std::rc::Rc;
 use std::sync::Arc;
 use std::sync::LazyLock;
 
@@ -42,19 +40,18 @@ use buck2_error::internal_error;
 use buck2_execute::artifact_value::ArtifactValue;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::digest_config::HasDigestConfig;
-use buck2_futures::cancellation::CancellationObserver;
 use buck2_interpreter::dice::starlark_provider::StarlarkEvalKind;
+use buck2_interpreter::factory::BuckStarlarkModule;
 use buck2_interpreter::factory::StarlarkEvaluatorProvider;
-use buck2_interpreter::from_freeze::from_freeze_error;
 use buck2_interpreter::print_handler::EventDispatcherPrintHandler;
 use buck2_interpreter::soft_error::Buck2StarlarkSoftErrorHandler;
 use dice::DiceComputations;
+use dice_futures::cancellation::CancellationObserver;
 use dupe::Dupe;
 use indexmap::IndexMap;
 use itertools::Itertools;
 use starlark::collections::SmallMap;
 use starlark::environment::GlobalsBuilder;
-use starlark::environment::Module;
 use starlark::starlark_module;
 use starlark::values::OwnedRefFrozenRef;
 use starlark::values::ValueTyped;
@@ -66,7 +63,7 @@ use crate::bxl::key::BxlDynamicKey;
 use crate::bxl::starlark_defs::context::BxlContext;
 use crate::bxl::starlark_defs::context::BxlContextCoreData;
 use crate::bxl::starlark_defs::context::DynamicBxlContextData;
-use crate::bxl::starlark_defs::context::starlark_async::BxlSafeDiceComputations;
+use crate::bxl::starlark_defs::context::starlark_async::BxlDiceComputations;
 use crate::bxl::starlark_defs::eval_extra::BxlEvalExtra;
 
 pub(crate) async fn eval_bxl_for_dynamic_output<'v>(
@@ -134,8 +131,7 @@ pub(crate) async fn eval_bxl_for_dynamic_output<'v>(
             s.spawn_cancellable(
                 limited_executor.execute(async move {
                     let eval_kind = StarlarkEvalKind::BxlDynamic(Arc::new("foo".to_owned()));
-                    let eval_provider =
-                        StarlarkEvaluatorProvider::new(dice_ctx, &eval_kind).await?;
+                    let eval_provider = StarlarkEvaluatorProvider::new(dice_ctx, eval_kind).await?;
                     tokio::task::block_in_place(|| eval_ctx.do_eval(eval_provider, dice_ctx))
                 }),
                 || Err(buck2_error!(buck2_error::ErrorTag::Tier0, "cancelled")),
@@ -170,79 +166,84 @@ impl BxlDynamicOutputEvaluator<'_> {
         provider: StarlarkEvaluatorProvider,
         dice: &mut DiceComputations<'_>,
     ) -> buck2_error::Result<RecordedAnalysisValues> {
-        let env = Module::new();
+        BuckStarlarkModule::with_profiling(|env_provider| {
+            let env = env_provider.make();
 
-        let bxl_dice = Rc::new(RefCell::new(BxlSafeDiceComputations::new(
-            dice,
-            self.liveness.dupe(),
-        )));
+            let bxl_dice = BxlDiceComputations::new(dice, self.liveness.dupe());
 
-        let (_finished_eval, analysis_registry) = {
-            let data = Rc::new(self.data);
-            let extra = BxlEvalExtra::new_dynamic(bxl_dice.dupe(), data.dupe());
-            provider.with_evaluator(&env, self.liveness.into(), |eval, _| {
-                eval.set_print_handler(&self.print);
-                eval.set_soft_error_handler(&Buck2StarlarkSoftErrorHandler);
-                eval.extra = Some(&extra);
+            let (finished_eval, analysis_registry) = {
+                let data = Arc::new(self.data);
+                let mut extra = BxlEvalExtra::new_dynamic(bxl_dice, data.dupe());
+                provider.with_evaluator(&env, self.liveness.into(), |eval, _| {
+                    eval.set_print_handler(&self.print);
+                    eval.set_soft_error_handler(&Buck2StarlarkSoftErrorHandler);
+                    eval.extra_mut = Some(&mut extra);
 
-                let dynamic_lambda_ctx_data = dynamic_lambda_ctx_data(
-                    self.dynamic_lambda,
-                    self.self_key.dupe(),
-                    self.input_artifacts_materialized,
-                    self.ensured_artifacts,
-                    &self.resolved_dynamic_values,
-                    &self.artifact_fs,
-                    self.digest_config,
-                    &env,
-                )?;
+                    let dynamic_lambda_ctx_data = dynamic_lambda_ctx_data(
+                        self.dynamic_lambda,
+                        self.self_key.dupe(),
+                        self.input_artifacts_materialized,
+                        self.ensured_artifacts,
+                        &self.resolved_dynamic_values,
+                        &self.artifact_fs,
+                        self.digest_config,
+                        &env,
+                    )?;
 
-                let bxl_dynamic_ctx = BxlContext::new_dynamic(
-                    env.heap(),
-                    data,
-                    bxl_dice,
-                    self.digest_config,
-                    dynamic_lambda_ctx_data.registry,
-                    self.dynamic_data,
-                )?;
+                    let bxl_dynamic_ctx = BxlContext::new_dynamic(
+                        env.heap(),
+                        data,
+                        self.digest_config,
+                        dynamic_lambda_ctx_data.registry,
+                        self.dynamic_data,
+                    )?;
 
-                let ctx = ValueTyped::<BxlContext>::new_err(env.heap().alloc(bxl_dynamic_ctx))?;
+                    let ctx = ValueTyped::<BxlContext>::new_err(env.heap().alloc(bxl_dynamic_ctx))?;
 
-                let args = match (
-                    &dynamic_lambda_ctx_data.lambda.attr_values,
-                    &dynamic_lambda_ctx_data.spec,
-                ) {
-                    (
-                        None,
-                        DynamicLambdaCtxDataSpec::Old {
-                            outputs,
-                            artifact_values,
+                    let args = match (
+                        &dynamic_lambda_ctx_data.lambda.attr_values,
+                        &dynamic_lambda_ctx_data.spec,
+                    ) {
+                        (
+                            None,
+                            DynamicLambdaCtxDataSpec::Old {
+                                outputs,
+                                artifact_values,
+                            },
+                        ) => DynamicLambdaArgs::OldPositional {
+                            ctx: ctx.to_value(),
+                            artifact_values: *artifact_values,
+                            outputs: *outputs,
                         },
-                    ) => DynamicLambdaArgs::OldPositional {
-                        ctx: ctx.to_value(),
-                        artifact_values: *artifact_values,
-                        outputs: *outputs,
-                    },
-                    (Some(_arg), DynamicLambdaCtxDataSpec::New { attr_values }) => {
-                        DynamicLambdaArgs::DynamicActionsBxlNamed {
-                            bxl_ctx: ctx.to_value(),
-                            attr_values: attr_values.clone(),
+                        (Some(_arg), DynamicLambdaCtxDataSpec::New { attr_values }) => {
+                            DynamicLambdaArgs::DynamicActionsBxlNamed {
+                                bxl_ctx: ctx.to_value(),
+                                attr_values: attr_values.clone(),
+                            }
                         }
-                    }
-                    (None, DynamicLambdaCtxDataSpec::New { .. })
-                    | (Some(_), DynamicLambdaCtxDataSpec::Old { .. }) => {
-                        return Err(internal_error!("Inconsistent"));
-                    }
-                };
+                        (None, DynamicLambdaCtxDataSpec::New { .. })
+                        | (Some(_), DynamicLambdaCtxDataSpec::Old { .. }) => {
+                            return Err(internal_error!("Inconsistent"));
+                        }
+                    };
 
-                invoke_dynamic_output_lambda(eval, dynamic_lambda_ctx_data.lambda.lambda(), args)?;
+                    invoke_dynamic_output_lambda(
+                        eval,
+                        dynamic_lambda_ctx_data.lambda.lambda(),
+                        args,
+                    )?;
 
-                ctx.take_state_dynamic()
-            })?
-        };
+                    ctx.take_state_dynamic()
+                })?
+            };
 
-        let recorded_values =
-            analysis_registry.finalize(&env)?(&env.freeze().map_err(from_freeze_error)?)?;
-        Ok(recorded_values)
+            let finalizer = analysis_registry.finalize(&env)?;
+
+            let (token, frozen_env, _) = finished_eval.freeze_and_finish(env)?;
+            let recorded_values = finalizer(&frozen_env)?;
+
+            Ok((token, recorded_values))
+        })
     }
 }
 
@@ -281,6 +282,11 @@ static P_BXLCTX: DynamicActionsCallbackParam = DynamicActionsCallbackParam {
 pub(crate) fn register_dynamic_actions(globals: &mut GlobalsBuilder) {
     /// Create new bxl dynamic action callable. Returned object will be callable,
     /// and the result of calling it can be passed to `ctx.actions.dynamic_output_new`.
+    ///
+    /// Be aware that the context argument of the called impl function differs between
+    /// [`dynamic_actions`](../#dynamic_actions) where it is [`actions: AnalysisActions`](../build/AnalysisActions)
+    /// and [`bxl.dynamic_actions`](../../bxl/#dynamic_actions)
+    /// where it is [`bxl_ctx: bxl.Context`](../bxl/Context).
     fn dynamic_actions<'v>(
         #[starlark(require = named)] r#impl: StarlarkCallableChecked<
             'v,

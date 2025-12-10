@@ -21,7 +21,7 @@ storing data on the disk mid-build.
 
 For example:
 
-```starlark
+```python
 cxx_test(
     name = "my_test",
     srcs = ["main.cpp"],
@@ -51,7 +51,7 @@ the source tree, rather than a copy or symlink in `buck-out`.
 
 For example:
 
-```starlark
+```python
 cxx_test(
     name = "my_test",
     srcs = ["main.cpp"],
@@ -83,7 +83,7 @@ the target platform, rather than the execution platform.
 This is for example useful to get the paths to executables to be run as part of
 tests. For example:
 
-```starlark
+```python
 sh_test(
     name = "my_test",
     args = [
@@ -103,7 +103,7 @@ targets.
 
 For example:
 
-```starlark
+```python
 my_rule(
     name = "example",
     # Will be replaced by all dependencies of `some_target`.
@@ -118,7 +118,7 @@ matching targets.
 
 For example:
 
-```starlark
+```python
 my_rule(
     name = "example",
     # Will be replaced by the outputs of all dependencies of `some_target`.
@@ -134,7 +134,7 @@ space).
 
 For example:
 
-```starlark
+```python
 my_rule(
     name = "example",
     # Will be replaced by the space-separated dependencies of `some_target`, as
@@ -147,4 +147,113 @@ my_rule(
 
 Expands to the transitive classpath of the specified build rule, provided that
 the rule has a Java classpath. If the rule does not have (or contribute to) a
-classpath, then an exception is thrown and the build breaks.
+classpath, then an exception is thrown and the build breaks. It takes an
+optional second argument to limit the depth of the traversal, but only a depth
+of 1 is currently supported. Its behavior is similar to the corresponding
+operation in the `buck audit` command.
+
+## `$(location //path/to:target[output])`
+
+Expands to the named output file or directory of the given target, for rules
+that expose supplementary outputs.
+
+## How to manage long expanded values
+
+In some cases, the results of the expanded macro might be so long that they
+exceed a limit in your operating environment. For example, if you use the
+results of an expanded macro in Bash, it could exceed Bash's command-line
+limits.
+
+To work around these limits, prefix the macro name with the `@` character. Buck
+then writes the results of the expanded macro to a temporary file and replaces
+the macro with the path to that file _while keeping the `@` prefix_. For
+example:
+
+```sh
+$(@query_targets_and_outputs //...)
+```
+
+expands to something similar to:
+
+```sh
+@/tmp/tempfile
+```
+
+Many applications recognize the `@` prefix to mean: _read the contents of this
+file to obtain the necessary arguments_.
+
+## How to prevent expansion
+
+If you need to prevent expansion of a string parameter macro, prefix the macro
+with a backslash.
+
+```sh
+\$(dirname ...)
+```
+
+For example, the following rule passes the `dirname` command to the shell to
+execute in a subshell; `dirname` is a Unix/Linux command-line utility that
+returns the directory of a specified file. We need to use an escape because the
+syntax for subshells is the same as the syntax for string parameter macros:
+
+```python
+genrule(
+  name = 'gen',
+  out  = 'out.txt',
+  cmd  = 'cp $SRCS \$(dirname $OUT)',
+  srcs = [
+    'test1.txt',
+    'test2.txt',
+  ],
+)
+```
+
+## Query functions
+
+The `query_*` macros accept a quoted query expression which supports the
+following query functions:
+
+- `attrfilter`
+- `attrregexfilter`
+- `deps`
+- `except` (set-difference)
+- `filter`
+- `intersect`
+- `kind`
+- `rdeps`
+- `set`
+- `union`
+
+## Frequently Asked Questions (FAQ)
+
+- **When are macros evaluated?** Macros are evaluated before the command is
+  passed to the shell for execution. You can think of them as simple string
+  replacements.
+- **Can macros be nested?** Macros cannot be nested. If you need to run an
+  additional macro on the output of a previous macro, create a nested `genrule`
+  definition and use the `$(location)` macro to read the output of the previous
+  macro.
+- **Are parentheses okay inside a macro?** Inside a macro, parentheses must be
+  balanced. Parentheses which are part of a quoted string are ignored.
+- **Is white space okay inside a macro?** Macro arguments are white space
+  separated, so arguments which contain white space must be quoted.
+- **Are nested quotes allowed?** A single level of nested quotes is allowed,
+  such as `"My name is 'Buck'."` or `'My name is "Buck".'`. Note that when you
+  use a macro in a BUCK file, you must ensure that quotes are properly escaped,
+  so that the shell command that uses the macro forms a proper string.
+
+## Extended Backus-Naur form
+
+The Extended Backus-Naur form (EBNF) grammar for a macro is as follows:
+
+```python
+macro = "$(", macro_name, whitespace, [arg_list], ")";
+macro_name = {all_ascii_chars - whitespace - parens};
+whitespace = "\t" | "\n" | " " | "\r";
+parens = "(" | ")";
+arg_list = arg | arg, whitespace, arg_list;
+arg = {all_ascii_chars - whitespace - parens}
+      | "(", arg, ")"
+      | "\"", [{-"\""}], "\""
+      | "'", [{-"'"}], "'";
+```

@@ -20,6 +20,8 @@ use std::sync::Arc;
 use allocative::Allocative;
 use buck2_data::ToProtoMessage;
 use buck2_data::action_key_owner::BaseDeferredKeyProto;
+use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
+use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use cmp_any::PartialEqAny;
 use dupe::Dupe;
 use static_assertions::assert_eq_size;
@@ -27,8 +29,6 @@ use strong_hash::StrongHash;
 
 use crate::content_hash::ContentBasedPathHash;
 use crate::fs::buck_out_path::BuckOutPathKind;
-use crate::fs::paths::forward_rel_path::ForwardRelativePath;
-use crate::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use crate::fs::project_rel_path::ProjectRelativePath;
 use crate::fs::project_rel_path::ProjectRelativePathBuf;
 use crate::global_cfg_options::GlobalCfgOptions;

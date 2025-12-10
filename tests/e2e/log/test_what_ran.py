@@ -34,7 +34,7 @@ async def test_what_ran_json_target_without_explicit_test_cases(buck: Buck) -> N
 
     repro = out[0]
     assert repro["reason"] == "test.run"
-    assert repro["identity"] == "buck2/tests/targets/rules/sh_test:test"
+    assert repro["identity"] == "fbcode//buck2/tests/targets/rules/sh_test:test"
     assert repro["reproducer"]["executor"] == "Local"
     assert repro["reproducer"]["details"]["command"][1] == "arg1"
     assert repro["extra"]["testcases"] == []
@@ -104,12 +104,12 @@ if fbcode_linux_only():
 
         # test discovery
         discovery = repros["test.discovery"]
-        assert discovery["identity"] == "buck2/tests/targets/rules/go/test:test"
+        assert discovery["identity"] == "fbcode//buck2/tests/targets/rules/go/test:test"
 
         # test running
         repro = repros["test.run"]
         assert repro["reason"] == "test.run"
-        assert repro["identity"] == "buck2/tests/targets/rules/go/test:test"
+        assert repro["identity"] == "fbcode//buck2/tests/targets/rules/go/test:test"
         assert repro["reproducer"]["executor"] == "Local"
         assert repro["extra"]["testcases"] == ["TestFoo"]
 
@@ -129,12 +129,12 @@ if fbcode_linux_only():
 
         # test discovery
         discovery = repros["test.discovery"]
-        assert discovery["identity"] == "buck2/tests/targets/rules/go/test:test"
+        assert discovery["identity"] == "fbcode//buck2/tests/targets/rules/go/test:test"
 
         # test running
         repro = repros["test.run"]
         assert repro["reason"] == "test.run"
-        assert repro["identity"] == "buck2/tests/targets/rules/go/test:test"
+        assert repro["identity"] == "fbcode//buck2/tests/targets/rules/go/test:test"
 
 
 # TODO: This would be more reliable if it were an isolated test.

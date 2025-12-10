@@ -9,16 +9,13 @@
  */
 
 use std::env;
-use std::fs;
 use std::os::unix::process::ExitStatusExt;
-use std::path::Path;
 use std::process::Command;
 
 use anyhow::Context as _;
 use buck2_miniperf_proto::MiniperfCounter;
 use buck2_miniperf_proto::MiniperfCounters;
 use buck2_miniperf_proto::MiniperfOutput;
-use buck2_util::cgroup_info::CGroupInfo;
 use perf_event::Builder;
 use perf_event::events::Hardware;
 use smallvec::SmallVec;
@@ -80,17 +77,6 @@ impl Counters {
                     error: error.into(),
                 })?;
 
-        let memory_peak = if let Ok(s) = env::var("MINIPERF_READ_CGROUP")
-            && s == "1"
-        {
-            Some(read_memory_peak().map_err(|error| CounterError {
-                stage: "collect memory peak",
-                error,
-            })?)
-        } else {
-            None
-        };
-
         Ok(MiniperfCounters {
             user_instructions: MiniperfCounter {
                 count: user_value.count,
@@ -102,21 +88,8 @@ impl Counters {
                 time_enabled: kernel_value.time_enabled,
                 time_running: kernel_value.time_running,
             },
-            memory_peak,
         })
     }
-}
-
-fn read_memory_peak() -> anyhow::Result<u64> {
-    let cgroup_info = CGroupInfo::read()?;
-    let cgroup_path = Path::new(&cgroup_info.path).join("memory.peak");
-    fs::read_to_string(&cgroup_path)
-        .context("Failed to read memory.peak")?
-        .lines()
-        .next()
-        .context("Failed to get first line from memory.peak")?
-        .parse()
-        .context("Failed to parse memory.peak")
 }
 
 /// First argument is an output path to write output data into. The rest is the command to execute.
@@ -136,6 +109,7 @@ pub fn main() -> anyhow::Result<()> {
     let counters = Counters::open();
 
     let status = args.next().context("No process to run").and_then(|bin| {
+        // @patternlint-disable-next-line buck2-no-command-new
         Command::new(bin)
             .args(args)
             .status()

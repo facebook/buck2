@@ -9,11 +9,9 @@
 KotlincProtocol = enum("classic", "kotlincd")
 
 KotlinToolchainInfo = provider(
-    # @unsorted-dict-items
     doc = "Kotlin toolchain info",
     fields = {
         "allow_experimental_content_based_path_hashing": provider_field(bool, default = False),
-        "allow_k2_usage": provider_field(typing.Any, default = None),
         "annotation_processing_jar": provider_field(typing.Any, default = None),
         "class_loader_bootstrapper": provider_field(typing.Any, default = None),
         "compile_kotlin": provider_field(typing.Any, default = None),
@@ -33,13 +31,17 @@ KotlinToolchainInfo = provider(
         "kotlin_version": provider_field(str),
         "kotlinc": provider_field(typing.Any, default = None),
         "kotlinc_protocol": provider_field(typing.Any, default = None),
+        "kotlincd": provider_field(typing.Any, default = None),
         "kotlincd_debug_port": provider_field(typing.Any, default = None),
         "kotlincd_debug_target": provider_field(typing.Any, default = None),
         "kotlincd_jvm_args": provider_field(typing.Any, default = None),
         "kotlincd_jvm_args_target": provider_field(typing.Any, default = None),
         "kotlincd_main_class": provider_field(typing.Any, default = None),
+        "kotlincd_remote_worker": provider_field(typing.Any, default = None),
         "kotlincd_worker": provider_field(typing.Any, default = None),
         "ksp2_enable_incremental_processing": provider_field(typing.Any, default = None),
+        "semanticdb_kotlinc": provider_field(typing.Any, default = None),
+        "semanticdb_sourceroot": provider_field(typing.Any, default = None),
         "track_class_usage_plugin": provider_field(typing.Any, default = None),
     },
 )

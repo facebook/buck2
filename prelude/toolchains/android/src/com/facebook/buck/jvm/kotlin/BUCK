@@ -18,7 +18,6 @@ buck_kotlin_library(
     deps = [
         "prelude//toolchains/android/src/com/facebook/buck/cd/resources/proto:javacd-model",
         "prelude//toolchains/android/src/com/facebook/buck/cd/resources/proto:kotlincd-model",
-        "prelude//toolchains/android/src/com/facebook/buck/core/exceptions:exceptions",
         "prelude//toolchains/android/src/com/facebook/buck/jvm/core:core",
         "prelude//toolchains/android/src/com/facebook/buck/jvm/cd/serialization:serialization",
         "prelude//toolchains/android/src/com/facebook/buck/jvm/cd/serialization/java:java",

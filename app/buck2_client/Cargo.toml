@@ -32,6 +32,7 @@ tokio-stream = { workspace = true }
 tokio-util = { workspace = true }
 tonic = { workspace = true }
 tracing = { workspace = true }
+uuid = { workspace = true }
 walkdir = { workspace = true }
 
 # Please do not add dependency on `buck2_build_api`.
@@ -42,6 +43,7 @@ buck2_core = { workspace = true }
 buck2_data = { workspace = true }
 buck2_error = { workspace = true }
 buck2_event_log = { workspace = true }
+buck2_fs = { workspace = true }
 buck2_query_parser = { workspace = true }
 buck2_subscription_proto = { workspace = true }
 buck2_util = { workspace = true }

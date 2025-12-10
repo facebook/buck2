@@ -53,7 +53,6 @@ use buck2_common::argv::Argv;
 use buck2_common::invocation_paths_result::InvocationPathsResult;
 use buck2_common::invocation_roots::get_invocation_paths_result;
 use buck2_core::buck2_env;
-use buck2_core::fs::paths::file_name::FileNameBuf;
 use buck2_data::ErrorReport;
 use buck2_error::BuckErrorContext;
 use buck2_error::ErrorTag;
@@ -61,6 +60,7 @@ use buck2_error::ExitCode;
 use buck2_error::buck2_error;
 use buck2_error::conversion::from_any_with_tag;
 use buck2_event_observer::verbosity::Verbosity;
+use buck2_fs::paths::file_name::FileNameBuf;
 use buck2_util::threads::thread_spawn_scoped;
 use clap::CommandFactory;
 use clap::FromArgMatches;
@@ -94,6 +94,7 @@ struct BeforeSubcommandOptions {
         value_parser = parse_isolation_dir,
         env("BUCK_ISOLATION_DIR"),
         long,
+        global = true,
         default_value="v2"
     )]
     isolation_dir: FileNameBuf,
@@ -236,6 +237,41 @@ pub fn exec(process: ProcessContext<'_>) -> ExitResult {
             .splice(0..0, client_metadata);
     }
 
+    // If --client-metadata=? was not set and from_env did not find "id", then
+    // if we are running in a terminal, we add id=terminal-fallback to
+    // opt.opt.common_opts.client_metadata to transmit to scuba that the client
+    // is an end user: https://fburl.com/scuba/buck2_builds/n4klo51d
+    let has_client_id = opt
+        .opt
+        .common_opts
+        .client_metadata
+        .iter()
+        .any(|m| m.key == "id");
+
+    if !has_client_id {
+        use std::io::IsTerminal;
+        let client_id = if std::io::stdin().is_terminal() {
+            Some("terminal-fallback")
+        } else {
+            // Check if running from VSCode
+            let is_vscode = std::env::var("VSCODE_PID")
+                .ok()
+                .is_some_and(|v| !v.is_empty())
+                || std::env::var("TERM_PROGRAM").ok().as_deref() == Some("vscode");
+            if is_vscode {
+                Some("vscode-fallback")
+            } else {
+                None
+            }
+        };
+
+        if let Some(val) = client_id {
+            opt.opt.common_opts.client_metadata.push(ClientMetadata {
+                key: "id".to_owned(),
+                value: val.to_owned(),
+            });
+        }
+    }
     opt.exec(process, &immediate_config)
 }
 

@@ -64,8 +64,6 @@ use buck2_core::execution_types::executor_config::PathSeparatorKind;
 use buck2_core::execution_types::executor_config::RemoteExecutorCustomImage;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_core::fs::buck_out_path::BuckOutTestPath;
-use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
-use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
@@ -117,9 +115,12 @@ use buck2_execute_impl::executors::local::EnvironmentBuilder;
 use buck2_execute_impl::executors::local::apply_local_execution_environment;
 use buck2_execute_impl::executors::local::create_output_dirs;
 use buck2_execute_impl::executors::local::materialize_inputs;
-use buck2_futures::cancellation::CancellationContext;
+use buck2_execute_impl::executors::local::prep_scratch_path;
+use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
+use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_node::nodes::configured_frontend::ConfiguredTargetNodeCalculation;
+use buck2_resource_control::HasResourceControl;
 use buck2_test_api::data::ArgValue;
 use buck2_test_api::data::ArgValueContent;
 use buck2_test_api::data::ConfiguredTargetHandle;
@@ -142,6 +143,7 @@ use derive_more::From;
 use dice::DiceComputations;
 use dice::DiceTransaction;
 use dice::Key;
+use dice_futures::cancellation::CancellationContext;
 use display_container::fmt_container;
 use display_container::fmt_keyed_container;
 use dupe::Dupe;
@@ -185,6 +187,7 @@ pub struct BuckTestOrchestrator<'a: 'static> {
     events: EventDispatcher,
     liveliness_observer: Arc<dyn LivelinessObserver>,
     cancellations: &'a CancellationContext,
+    re_client: Arc<remote_storage::ReClientWithCache>,
 }
 
 impl<'a> BuckTestOrchestrator<'a> {
@@ -196,6 +199,9 @@ impl<'a> BuckTestOrchestrator<'a> {
         cancellations: &'a CancellationContext,
     ) -> anyhow::Result<BuckTestOrchestrator<'a>> {
         let events = dice.per_transaction_data().get_dispatcher().dupe();
+        let re_client = Arc::new(remote_storage::ReClientWithCache::new(
+            dice.per_transaction_data().get_re_client(),
+        ));
         Ok(Self::from_parts(
             dice,
             session,
@@ -203,6 +209,7 @@ impl<'a> BuckTestOrchestrator<'a> {
             results_channel,
             events,
             cancellations,
+            re_client,
         ))
     }
 
@@ -213,6 +220,7 @@ impl<'a> BuckTestOrchestrator<'a> {
         results_channel: UnboundedSender<anyhow::Result<ExecutorMessage>>,
         events: EventDispatcher,
         cancellations: &'a CancellationContext,
+        re_client: Arc<remote_storage::ReClientWithCache>,
     ) -> BuckTestOrchestrator<'a> {
         Self {
             dice,
@@ -221,6 +229,7 @@ impl<'a> BuckTestOrchestrator<'a> {
             events,
             liveliness_observer,
             cancellations,
+            re_client,
         }
     }
 
@@ -315,13 +324,11 @@ impl<'a> BuckTestOrchestrator<'a> {
                 // RE? Alternatively, when we make buck upload local testing
                 // artifacts to CAS, we can remove this condition altogether.
                 (true, Some(CommandExecutionKind::Remote { .. }), Some(remote_object)) => {
+                    let re_client = self.re_client.clone();
                     let future = async move {
-                        let _unused = remote_storage::apply_config(
-                            self.dice.per_transaction_data().get_re_client(),
-                            &artifact,
-                            &remote_storage_config,
-                        )
-                        .await;
+                        let _unused = re_client
+                            .apply_config(&artifact, &remote_storage_config)
+                            .await;
                         (output_name, remote_object)
                     };
                     remote_storage_config_update_futures.push(future);
@@ -908,13 +915,15 @@ impl TestOrchestrator for BuckTestOrchestrator<'_> {
         let materializer = self.dice.per_transaction_data().get_materializer();
         let blocking_executor = self.dice.get_blocking_executor();
 
-        materialize_inputs(
+        let materialized_inputs = materialize_inputs(
             &fs,
             materializer.as_ref(),
             &execution_request,
             self.dice.global_data().get_digest_config(),
         )
         .await?;
+
+        prep_scratch_path(&materialized_inputs.scratch, &fs).await?;
 
         create_output_dirs(
             &fs,
@@ -926,7 +935,7 @@ impl TestOrchestrator for BuckTestOrchestrator<'_> {
         .await?;
 
         for local_resource_setup_command in setup_commands.iter() {
-            materialize_inputs(
+            let materialized_inputs = materialize_inputs(
                 &fs,
                 materializer.as_ref(),
                 &local_resource_setup_command.execution_request,
@@ -934,6 +943,8 @@ impl TestOrchestrator for BuckTestOrchestrator<'_> {
             )
             .await?;
             let blocking_executor = self.dice.get_blocking_executor();
+
+            prep_scratch_path(&materialized_inputs.scratch, &fs).await?;
 
             create_output_dirs(
                 &fs,
@@ -1016,7 +1027,7 @@ impl BuckTestOrchestrator<'_> {
 
         // For test execution, we currently do not do any cache queries
 
-        let prepared_action = match executor.prepare_action(&request, digest_config) {
+        let prepared_action = match executor.prepare_action(&request, digest_config, false) {
             Ok(prepared_action) => prepared_action,
             Err(e) => return Err(ExecuteError::Error(e.into())),
         };
@@ -1032,6 +1043,7 @@ impl BuckTestOrchestrator<'_> {
         let command_exec_result = match stage {
             TestStage::Listing { suite, cacheable } => {
                 let start = TestDiscoveryStart {
+                    target_label: Some(test_target.target.as_proto()),
                     suite_name: suite.clone(),
                 };
                 let (result, cached) = events
@@ -1057,6 +1069,7 @@ impl BuckTestOrchestrator<'_> {
                         };
                         let end = TestDiscoveryEnd {
                             suite_name: suite.clone(),
+                            target_label: Some(test_target.target.as_proto()),
                             command_report: Some(
                                 result
                                     .report
@@ -1209,7 +1222,10 @@ impl BuckTestOrchestrator<'_> {
                 execution_kind,
                 outputs,
             },
-            CommandExecutionStatus::Cancelled { reason } => {
+            CommandExecutionStatus::Cancelled {
+                execution_kind: _,
+                reason,
+            } => {
                 let reason = reason.map(|reason| match reason {
                     CommandCancellationReason::NotSpecified => CancellationReason::NotSpecified,
                     CommandCancellationReason::ReQueueTimeout => CancellationReason::ReQueueTimeout,
@@ -1246,7 +1262,9 @@ impl BuckTestOrchestrator<'_> {
                 };
                 Ok(Cow::Owned(executor_config))
             }
-            Executor::Local(_) | Executor::RemoteEnabled(_) => Ok(Cow::Borrowed(executor_config)),
+            Executor::Local(_) | Executor::RemoteEnabled(_) | Executor::None => {
+                Ok(Cow::Borrowed(executor_config))
+            }
         }
     }
 
@@ -1262,6 +1280,7 @@ impl BuckTestOrchestrator<'_> {
             action_cache_checker,
             remote_dep_file_cache_checker: _,
             cache_uploader,
+            output_trees_download_config: _,
         } = dice.get_command_executor_from_dice(executor_config).await?;
 
         // Caching is enabled only for listings
@@ -1303,6 +1322,7 @@ impl BuckTestOrchestrator<'_> {
             action_cache_checker: _,
             remote_dep_file_cache_checker: _,
             cache_uploader: _,
+            output_trees_download_config: _,
         } = dice
             .get_command_executor_from_dice(&executor_config)
             .await?;
@@ -1416,6 +1436,7 @@ impl BuckTestOrchestrator<'_> {
                 fs: executor_fs,
                 cmd,
                 env,
+                digest_config: dice.global_data().get_digest_config(),
             };
 
             let inputs = expander.get_inputs()?;
@@ -1500,10 +1521,16 @@ impl BuckTestOrchestrator<'_> {
             )?,
             env,
         );
+        let has_resource_control = dice
+            .per_transaction_data()
+            .data
+            .get::<HasResourceControl>()
+            .unwrap()
+            .0;
         request = request
             .with_working_directory(cwd)
             .with_local_environment_inheritance(EnvironmentInheritance::test_allowlist())
-            .with_disable_miniperf(true)
+            .with_disable_miniperf(!has_resource_control)
             .with_worker(worker)
             .with_remote_execution_custom_image(re_dynamic_image)
             .with_meta_internal_extra_params(meta_internal_extra_params)
@@ -1679,7 +1706,8 @@ impl BuckTestOrchestrator<'_> {
         let local_resource_target = LocalResourceTarget {
             target: &context.target,
         };
-        let prepared_action = executor.prepare_action(&context.execution_request, digest_config)?;
+        let prepared_action =
+            executor.prepare_action(&context.execution_request, digest_config, false)?;
         let prepared_command = PreparedCommand {
             target: &local_resource_target as _,
             request: &context.execution_request,
@@ -1776,6 +1804,7 @@ struct Execute2RequestExpander<'a> {
     fs: &'a ExecutorFs<'a>,
     cmd: Cow<'a, [ArgValue]>,
     env: Cow<'a, SortedVectorMap<String, ArgValue>>,
+    digest_config: DigestConfig,
 }
 
 fn make_visit_arg_artifacts<'v>(
@@ -1859,6 +1888,7 @@ impl<'a> Execute2RequestExpander<'a> {
             fs,
             cmd,
             env,
+            digest_config,
         } = self;
         let cli_args_for_interpolation = test_info
             .command()
@@ -1964,6 +1994,14 @@ impl<'a> Execute2RequestExpander<'a> {
                     concurrency: worker.concurrency(),
                     streaming: worker.streaming(),
                     remote_key: None,
+                    // TODO(ianc): Support input_paths on test workers
+                    input_paths: CommandExecutionPaths::new(
+                        vec![],
+                        indexset![],
+                        fs.fs(),
+                        digest_config,
+                        None,
+                    )?,
                 })
             }
             _ => None,
@@ -2259,6 +2297,7 @@ mod tests {
     use buck2_core::cells::name::CellName;
     use buck2_core::configuration::data::ConfigurationData;
     use buck2_core::fs::project::ProjectRootTemp;
+    use buck2_execute::re::manager::UnconfiguredRemoteExecutionClient;
     use buck2_test_api::data::TestStage;
     use buck2_test_api::data::TestStatus;
     use dice::UserComputationData;
@@ -2291,6 +2330,10 @@ mod tests {
 
         let (sender, receiver) = mpsc::unbounded();
 
+        let re_client = Arc::new(remote_storage::ReClientWithCache::new(
+            UnconfiguredRemoteExecutionClient::testing_new_dummy(),
+        ));
+
         Ok((
             BuckTestOrchestrator::from_parts(
                 dice,
@@ -2299,6 +2342,7 @@ mod tests {
                 sender,
                 EventDispatcher::null(),
                 CancellationContext::testing(),
+                re_client,
             ),
             receiver,
         ))

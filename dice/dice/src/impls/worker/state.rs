@@ -12,10 +12,10 @@
 
 use std::sync::Arc;
 
-use buck2_futures::cancellation::CriticalSectionGuard;
-use buck2_futures::cancellation::DisableCancellationGuard;
 use dice_error::result::CancellableResult;
 use dice_error::result::CancellationReason;
+use dice_futures::cancellation::CriticalSectionGuard;
+use dice_futures::cancellation::DisableCancellationGuard;
 use dupe::Dupe;
 use itertools::Either;
 

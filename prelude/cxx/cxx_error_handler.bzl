@@ -26,15 +26,39 @@ def _match(matcher: str | BuckRegex, lowercase_stderr: str) -> bool:
         fail("Unknown matcher type: {}", type(matcher))
 
 def cxx_generic_error_handler(ctx: ActionErrorCtx) -> list[ActionSubError]:
+    structured_error = ctx.parse_with_errorformat(
+        category = "cxx_compiler_error",
+        error = ctx.stderr,
+        # reference partially: https://github.com/neovim/neovim/blob/07915941014307b054cbbb131369377647b7fb06/runtime/compiler/gcc.vim#L19-L37
+        errorformats = [
+            "%f:%l:%c:\\ %trror:\\ %m",
+            "%f:%l:%c:\\ %tarning:\\ %m",
+            "%f(%l,%c):\\ %trror:\\ %m",
+            "%f(%l,%c):\\ %tarning:\\ %m",
+            "%f:%l:\\ %trror:\\ %m",
+            "%f:%l:\\ %tarning:\\ %m",
+        ],
+    )
+
+    for e in structured_error:
+        if e.error_type != None and e.error_type.lower() == "w":
+            e.category = "cxx_compiler_warning"
+        else:
+            for error_type in CXX_GENERIC_ERROR_TYPES:
+                if _match(error_type.matcher, e.message.lower()):
+                    e.category = "cxx_{}".format(error_type.category_suffix)
+                    break
+
+    # If we didn't match any of the structured errors, try to get the category from the error message
     categories = []
+    if len(structured_error) == 0:
+        for error_type in CXX_GENERIC_ERROR_TYPES:
+            if _match(error_type.matcher, ctx.stderr.lower()):
+                categories.append(ctx.new_sub_error(
+                    category = "cxx_{}".format(error_type.category_suffix),
+                ))
 
-    for error_type in CXX_GENERIC_ERROR_TYPES:
-        if _match(error_type.matcher, ctx.stderr.lower()):
-            categories.append(ctx.new_sub_error(
-                category = "cxx_{}".format(error_type.category_suffix),
-            ))
-
-    return categories
+    return structured_error + categories
 
 # PLEASE READ BEFORE ADDING NEW ERROR TYPES!
 #

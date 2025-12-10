@@ -11,6 +11,11 @@ load(
     "make_artifact_tset",
 )
 load("@prelude//apple:apple_utility.bzl", "get_apple_architecture")
+# @oss-disable[end= ]: load("@prelude//apple/meta_only:shared_library_interfaces.bzl", "get_shared_library_interface_generation_linker_flags")
+load(
+    "@prelude//apple/swift:swift_incremental_support.bzl",
+    "get_uses_experimental_content_based_path_hashing",
+)
 load("@prelude//cxx:cxx_context.bzl", "get_cxx_toolchain_info")
 load(
     "@prelude//cxx:cxx_link_utility.bzl",
@@ -38,6 +43,7 @@ load(
 )
 load("@prelude//linking:strip.bzl", "strip_object")
 load("@prelude//utils:argfile.bzl", "at_argfile")
+load("@prelude//utils:arglike.bzl", "ArgLike")
 load(":common_types.bzl", "DThinLTOLinkData", "DynamicLibraryLinkData", "EagerBitcodeLinkData", "LazyBitcodeLinkData", "LinkDataType")
 load(":thin_link.bzl", "thin_link")
 load(":thin_link_record_defs.bzl", "BitcodeMergeState", "ObjectFileOptimizationPlan")
@@ -72,15 +78,29 @@ def _sort_index_link_data(input_list: list[DThinLTOLinkData]) -> list[DThinLTOLi
 
     return force_loaded_archives + object_files + dynamic_libraries + regular_archives
 
+# Generate linker flags that are common to thin-link, native-link, and the link invocation used
+# to generate a shared library interface
+def _get_common_linker_flags(ctx: AnalysisContext, link_infos: list[LinkInfo], executable_link: bool, sanitizer_runtime_args: list[ArgLike]):
+    cxx_toolchain = get_cxx_toolchain_info(ctx)
+    result = cmd_args(cxx_link_cmd_parts(cxx_toolchain, executable_link).linker_flags)
+    result.add(get_extra_darwin_linker_flags(ctx))
+    result.add(sanitizer_runtime_args)
+
+    for link in link_infos:
+        result.add(link.pre_flags)
+        result.add(link.post_flags)
+
+    return result
+
 DoubleCodegenState = enum(
     "disabled",
     "first_round",
     "second_round",
 )
 
-def create_output_first_codegen_round_native_object_file(ctx, name, double_codegen_enabled):
+def create_output_first_codegen_round_native_object_file(ctx, name, double_codegen_enabled, uses_content_based_paths):
     if double_codegen_enabled:
-        return ctx.actions.declare_output(name + ".opt.first_codegen_round.o")
+        return ctx.actions.declare_output(name + ".opt.first_codegen_round.o", has_content_based_path = uses_content_based_paths)
     return None
 
 def complete_distributed_link_with_expanded_archive_link_data(
@@ -102,7 +122,8 @@ def complete_distributed_link_with_expanded_archive_link_data(
         make_cat,
         premerger_enabled: bool,
         prepared_archive_artifacts,
-        sanitizer_runtime_args: CxxSanitizerRuntimeArguments):
+        sanitizer_runtime_args: CxxSanitizerRuntimeArguments,
+        uses_content_based_paths: bool):
     cxx_toolchain = get_cxx_toolchain_info(ctx)
     lto_planner = cxx_toolchain.internal_tools.dist_lto.planner[LinkerType("darwin")]
     lto_opt = cxx_toolchain.internal_tools.dist_lto.opt[LinkerType("darwin")]
@@ -154,7 +175,7 @@ def complete_distributed_link_with_expanded_archive_link_data(
     def declare_extra_opt_outputs(name: str) -> dict[str, Artifact]:
         result = {}
         for output_type_str in extra_lto_outputs.keys():
-            result[output_type_str] = ctx.actions.declare_output(name + "." + output_type_str)
+            result[output_type_str] = ctx.actions.declare_output(name + "." + output_type_str, has_content_based_path = uses_content_based_paths)
         return result
 
     for link in link_infos:
@@ -167,14 +188,17 @@ def complete_distributed_link_with_expanded_archive_link_data(
             if isinstance(linkable, ObjectsLinkable):
                 for obj in linkable.objects:
                     name = name_for_obj(link_name, obj)
-                    index_shard_output = ctx.actions.declare_output(name + ".thinlto.bc")
-                    plan_output = ctx.actions.declare_output(name + ".opt.plan")
-                    final_native_object_file_output = ctx.actions.declare_output(name + ".opt.o")
+                    index_shard_output = ctx.actions.declare_output(name + ".thinlto.bc", has_content_based_path = uses_content_based_paths)
+                    plan_output = ctx.actions.declare_output(name + ".opt.plan", has_content_based_path = uses_content_based_paths)
+                    final_native_object_file_output = ctx.actions.declare_output(name + ".opt.o", has_content_based_path = uses_content_based_paths)
                     merged_bc_output = None
                     if premerger_enabled:
-                        merged_bc_output = ctx.actions.declare_output(name + ".merged.bc")
+                        # Bitcode files are referenced by index shards by output path, and these merged bitcode files are produced during the
+                        # same thin-link action that produces the index shards. For this reason, we cannot enable content based path hashing
+                        # for these outputs because we need to know the final path before running the action.
+                        merged_bc_output = ctx.actions.declare_output(name + ".merged.bc", has_content_based_path = False)
 
-                    output_first_codegen_round_native_object_file = create_output_first_codegen_round_native_object_file(ctx, name, double_codegen_enabled)
+                    output_first_codegen_round_native_object_file = create_output_first_codegen_round_native_object_file(ctx, name, double_codegen_enabled, uses_content_based_paths)
 
                     data = DThinLTOLinkData(
                         data_type = LinkDataType("eager_bitcode"),
@@ -194,14 +218,17 @@ def complete_distributed_link_with_expanded_archive_link_data(
             elif isinstance(linkable, ArchiveLinkable) and linkable.archive.external_objects:
                 for virtual_archive_index, obj in enumerate(linkable.archive.external_objects):
                     name = name_for_obj(link_name, obj)
-                    index_shard_output = ctx.actions.declare_output(name + ".thinlto.bc")
-                    plan_output = ctx.actions.declare_output(name + ".opt.plan")
-                    final_native_object_file_output = ctx.actions.declare_output(name + ".opt.o")
+                    index_shard_output = ctx.actions.declare_output(name + ".thinlto.bc", has_content_based_path = uses_content_based_paths)
+                    plan_output = ctx.actions.declare_output(name + ".opt.plan", has_content_based_path = uses_content_based_paths)
+                    final_native_object_file_output = ctx.actions.declare_output(name + ".opt.o", has_content_based_path = uses_content_based_paths)
                     merged_bc_output = None
                     if premerger_enabled:
-                        merged_bc_output = ctx.actions.declare_output(name + ".merged.bc")
+                        # Bitcode files are referenced by index shards by output path, and these merged bitcode files are produced during the
+                        # same thin-link action that produces the index shards. For this reason, we cannot enable content based path hashing
+                        # for these outputs because we need to know the final path before running the action.
+                        merged_bc_output = ctx.actions.declare_output(name + ".merged.bc", has_content_based_path = False)
 
-                    output_first_codegen_round_native_object_file = create_output_first_codegen_round_native_object_file(ctx, name, double_codegen_enabled)
+                    output_first_codegen_round_native_object_file = create_output_first_codegen_round_native_object_file(ctx, name, double_codegen_enabled, uses_content_based_paths)
 
                     # The first member in a non force loaded virtual archive gets --start-lib prended on the command line
                     archive_start = (not linkable.link_whole) and virtual_archive_index == 0
@@ -235,14 +262,17 @@ def complete_distributed_link_with_expanded_archive_link_data(
                     archive_start = (not linkable.link_whole) and archive_index == 0
                     archive_end = (not linkable.link_whole) and archive_index == len(manifest["objects"]) - 1
                     name = "{}/{}".format(archive_name, object_basename)
-                    input_object_file = ctx.actions.declare_output(name)
-                    index_shard_output = ctx.actions.declare_output(name + ".thinlto.bc")
-                    plan_output = ctx.actions.declare_output(name + ".opt.plan")
-                    final_native_object_file_output = ctx.actions.declare_output(name + ".opt.o")
+                    input_object_file = ctx.actions.declare_output(name, has_content_based_path = uses_content_based_paths)
+                    index_shard_output = ctx.actions.declare_output(name + ".thinlto.bc", has_content_based_path = uses_content_based_paths)
+                    plan_output = ctx.actions.declare_output(name + ".opt.plan", has_content_based_path = uses_content_based_paths)
+                    final_native_object_file_output = ctx.actions.declare_output(name + ".opt.o", has_content_based_path = uses_content_based_paths)
                     merged_bc_output = None
                     if premerger_enabled:
-                        merged_bc_output = ctx.actions.declare_output(name + ".merged.bc")
-                    output_first_codegen_round_native_object_file = create_output_first_codegen_round_native_object_file(ctx, name, double_codegen_enabled)
+                        # Bitcode files are referenced by index shards by output path, and these merged bitcode files are produced during the
+                        # same thin-link action that produces the index shards. For this reason, we cannot enable content based path hashing
+                        # for these outputs because we need to know the final path before running the action.
+                        merged_bc_output = ctx.actions.declare_output(name + ".merged.bc", has_content_based_path = False)
+                    output_first_codegen_round_native_object_file = create_output_first_codegen_round_native_object_file(ctx, name, double_codegen_enabled, uses_content_based_paths)
 
                     raw_link_data.append(DThinLTOLinkData(
                         data_type = LinkDataType("lazy_bitcode"),
@@ -276,16 +306,11 @@ def complete_distributed_link_with_expanded_archive_link_data(
             else:
                 fail("Unhandled linkable type: {}".format(str(linkable)))
 
-    # linker flags that are common to both thin-link and native-link
-    common_link_flags = cmd_args(cxx_link_cmd_parts(cxx_toolchain, executable_link).linker_flags)
-    common_link_flags.add(get_extra_darwin_linker_flags(ctx))
-    common_link_flags.add(sanitizer_runtime_args.extra_link_args)
-    common_link_flags.add(deps_linker_flags)
+    common_link_flags = _get_common_linker_flags(ctx, link_infos, executable_link, sanitizer_runtime_args.extra_link_args)
 
     sorted_index_link_data = _sort_index_link_data(raw_link_data)
 
-    final_link_index = ctx.actions.declare_output(final_binary_out.basename + ".final_link_index")
-    link_plan_out = ctx.actions.declare_output(final_binary_out.basename + ".link-plan.json")
+    link_plan_out = ctx.actions.declare_output(final_binary_out.basename + ".link-plan.json", has_content_based_path = uses_content_based_paths)
 
     thin_link(
         ctx = ctx,
@@ -296,10 +321,10 @@ def complete_distributed_link_with_expanded_archive_link_data(
         lto_planner = lto_planner,
         post_linker_flags = cxx_link_cmd_parts(cxx_toolchain, executable_link).post_linker_flags,
         index_argsfile_out = outputs[index_argsfile_out],
-        final_link_index_out = final_link_index,
         link_plan_out = link_plan_out,
         identifier = link_options.identifier,
         premerger_enabled = premerger_enabled,
+        use_content_based_output_paths = uses_content_based_paths,
         make_cat = make_cat,
         make_id = make_id,
     )
@@ -307,7 +332,7 @@ def complete_distributed_link_with_expanded_archive_link_data(
     # Create an argsfile and dump all the flags to be processed later by lto_opt.
     # These flags are common to all opt actions, we don't need an argfile for each action, one
     # for the entire link unit will do.
-    opt_argsfile = ctx.actions.declare_output(final_binary_out.basename + ".lto_opt_argsfile")
+    opt_argsfile = ctx.actions.declare_output(final_binary_out.basename + ".lto_opt_argsfile", has_content_based_path = uses_content_based_paths)
     ctx.actions.write(opt_argsfile.as_output(), common_opt_cmd, allow_args = True)
 
     def optimize_object(ctx: AnalysisContext, artifacts, outputs, bitcode_link_data, double_codegen_state: DoubleCodegenState, merged_cgdata: Artifact | None):
@@ -443,7 +468,7 @@ def complete_distributed_link_with_expanded_archive_link_data(
         ctx.actions.run(merge_cmd, category = make_cat("thin_lto_merge_cgdata"), identifier = link_options.identifier)
 
     if double_codegen_enabled:
-        merged_cgdata_file = ctx.actions.declare_output(final_binary_out.basename + ".cgdata")
+        merged_cgdata_file = ctx.actions.declare_output(final_binary_out.basename + ".cgdata", has_content_based_path = uses_content_based_paths)
         ctx.actions.dynamic_output(
             dynamic = [artifact.link_data.plan for artifact in sorted_index_link_data if artifact.data_type == LinkDataType("lazy_bitcode") or artifact.data_type == LinkDataType("eager_bitcode")],
             inputs = [],
@@ -494,21 +519,34 @@ def complete_distributed_link_with_expanded_archive_link_data(
         # non_lto_objects are the ones that weren't compiled with thinlto
         # flags. In that case, we need to link against the original object.
         non_lto_objects = {int(k): 1 for k in plan["non_lto_objects"]}
-        opt_objects = []
+
+        object_file_linker_inputs = []
 
         for idx, artifact in enumerate(sorted_index_link_data):
             if artifact.data_type == LinkDataType("dynamic_library"):
                 append_linkable_args(link_args, artifact.link_data.linkable)
             elif artifact.data_type == LinkDataType("eager_bitcode") or artifact.data_type == LinkDataType("lazy_bitcode"):
+                optimization_plan = ObjectFileOptimizationPlan(**artifacts[artifact.link_data.plan].read_json())
+
+                # Input bitcode files that were loaded in thin-link, but merged into another bitcode file
+                # will not have a native object file output, so we skip them here.
+                if optimization_plan.merge_state == BitcodeMergeState("ABSORBED").value:
+                    continue
+
+                # Same for object files that are not loaded, do not include them in native link.
+                if not optimization_plan.loaded_by_linker:
+                    continue
+
+                link_line_position = optimization_plan.final_link_line_position
+
                 if idx in non_lto_objects:
-                    opt_objects.append(artifact.link_data.input_object_file)
+                    object_file_linker_inputs.append((link_line_position, artifact.link_data.input_object_file))
                 else:
-                    opt_objects.append(artifact.link_data.output_final_native_object_file)
+                    object_file_linker_inputs.append((link_line_position, artifact.link_data.output_final_native_object_file))
 
         link_cmd_parts = cxx_link_cmd_parts(cxx_toolchain, executable_link)
         link_cmd = cmd_args(link_cmd_parts.linker)
         link_args.add(common_link_flags)
-        link_cmd_hidden = []
 
         if link_options.extra_linker_outputs_flags_factory != None:
             # We need the inner artifacts here
@@ -521,19 +559,17 @@ def complete_distributed_link_with_expanded_archive_link_data(
         link_args.add("-o", outputs[final_binary_out].as_output())
         if linker_map_out:
             link_args.add(linker_map_args(cxx_toolchain, outputs[linker_map_out].as_output()).flags)
-        link_cmd_hidden.extend([
-            link_args,
-            opt_objects,
-        ])
+        ordered_object_file_linker_inputs = sorted(object_file_linker_inputs, key = lambda x: x[0])
+        for _, artifact in ordered_object_file_linker_inputs:
+            link_args.add(artifact)
         link_cmd.add(at_argfile(
             actions = ctx.actions,
             name = outputs[linker_argsfile_out],
             args = link_args,
             allow_args = True,
+            has_content_based_path = uses_content_based_paths,
         ))
-        link_cmd.add(cmd_args(final_link_index, format = "@{}"))
         link_cmd.add(link_cmd_parts.post_linker_flags)
-        link_cmd.add(cmd_args(hidden = link_cmd_hidden))
 
         ctx.actions.run(link_cmd, category = make_cat("thin_lto_link"), identifier = link_options.identifier)
 
@@ -548,7 +584,7 @@ def complete_distributed_link_with_expanded_archive_link_data(
     ]
 
     ctx.actions.dynamic_output(
-        dynamic = [link_plan_out, final_link_index],
+        dynamic = [link_plan_out] + [artifact.link_data.plan for artifact in sorted_index_link_data if artifact.data_type == LinkDataType("lazy_bitcode") or artifact.data_type == LinkDataType("eager_bitcode")],
         inputs = [],
         outputs = final_link_outputs,
         f = thin_lto_final_link,
@@ -559,6 +595,76 @@ PreparedArchiveArtitfacts = record(
     extracted_object_files_dir = field(Artifact),
 )
 
+def generate_shared_library_interface(
+        ctx: AnalysisContext,
+        identifier: str,
+        executable_link: bool,
+        link_infos: list[LinkInfo],
+        output: Artifact,
+        sanitizer_runtime_args: list[ArgLike],
+        shared_library_interface_out: Artifact):
+    # This flag generation logic must be at least semmantically equivalent to the logic used to create a thin-link invocation.
+    # Do not for example change the input order in one place, they must be kept in sync to generate an accurate interface.
+
+    common_linker_flags = _get_common_linker_flags(ctx, link_infos, executable_link, sanitizer_runtime_args)
+
+    eager_objects = cmd_args()
+    lazy_objects = cmd_args()
+    dynamic_libraries = cmd_args()
+
+    for link in link_infos:
+        for linkable in link.linkables:
+            if isinstance(linkable, ObjectsLinkable):
+                for obj in linkable.objects:
+                    eager_objects.add(obj)
+            elif isinstance(linkable, ArchiveLinkable) and linkable.archive.external_objects:
+                lazy_objects.add("-Wl,--start-lib")
+                for obj in linkable.archive.external_objects:
+                    lazy_objects.add(obj)
+                lazy_objects.add("-Wl,--end-lib")
+            elif isinstance(linkable, ArchiveLinkable):
+                # Thin link requires that we extract all archives beforehand via dynamic output so that we can declare various
+                # artifacts for each member. These artifacts are the link plan, the summary shard, the merged bitcode file etc.
+                # However, this linking invocation does not produce any of those, it only produces the shared library interface.
+                # Passing the archive directly instead of extracting it, then passing the members between --start-lib --end-lib
+                # flags should be semantically equivalent. Note however, that we only do this in this branch where we are dealing
+                # with some kind of pre-build static archive where Buck is not aware of the contents. If we built this static archive,
+                # just pass the members directly above, don't bother creating an archive for no reason.
+                lazy_objects.add(linkable.archive.artifact)
+            elif isinstance(linkable, SharedLibLinkable):
+                append_linkable_args(dynamic_libraries, linkable)
+            elif isinstance(linkable, FrameworksLinkable) or isinstance(linkable, SwiftmoduleLinkable):
+                # These linkables are handled separately for flag deduplication purposes, as in append_linkable_args:
+                # https://www.internalfb.com/code/fbsource/[c6d2c820b394]/fbcode/buck2/prelude/linking/link_info.bzl?lines=271-278
+                pass
+            else:
+                fail("Unhandled linkable type: {}".format(str(linkable)))
+
+    interface_generation_linker_args = cmd_args()
+    interface_generation_linker_args.add(common_linker_flags)
+    interface_generation_linker_args.add(eager_objects)
+    interface_generation_linker_args.add(lazy_objects)
+    interface_generation_linker_args.add(dynamic_libraries)
+    output_as_string = cmd_args(output, ignore_artifacts = True)
+    interface_generation_linker_args.add("-o", output_as_string)
+    interface_generation_linker_argsfile = ctx.actions.declare_output(output.basename + ".shared_library_interface_generation_argsfile")
+    interface_generation_linker_argsfile, _ = ctx.actions.write(
+        interface_generation_linker_argsfile,
+        interface_generation_linker_args,
+        with_inputs = True,
+        allow_args = True,
+    )
+    cxx_toolchain = get_cxx_toolchain_info(ctx)
+    linker = cxx_link_cmd_parts(cxx_toolchain, executable_link).linker
+    interface_generation_linker_invocation = cmd_args(linker)
+    interface_generation_linker_invocation.add(cmd_args(interface_generation_linker_argsfile, format = "@{}"))
+
+    interface_generation_linker_invocation.add(
+        # @oss-disable[end= ]: get_shared_library_interface_generation_linker_flags(shared_library_interface_out),
+        cmd_args(),
+    )
+    ctx.actions.run(interface_generation_linker_invocation, category = "generate_shared_library_interface", identifier = identifier)
+
 def cxx_darwin_dist_link(
         ctx: AnalysisContext,
         # The destination for the link output.
@@ -568,6 +674,7 @@ def cxx_darwin_dist_link(
         double_codegen_enabled: bool,
         executable_link: bool,
         sanitizer_runtime_args: CxxSanitizerRuntimeArguments,
+        shared_library_interface: Artifact | None,
         linker_map: Artifact | None = None) -> (LinkedObject, dict[str, list[DefaultInfo]]):
     """
     Perform a distributed thin-lto link into the supplied output
@@ -603,6 +710,8 @@ def cxx_darwin_dist_link(
 
     prepared_archive_artifacts = {}
 
+    uses_content_based_paths = get_uses_experimental_content_based_path_hashing(ctx)
+
     recorded_artifact_names = {}
     for link in link_infos:
         for linkable in link.linkables:
@@ -616,8 +725,8 @@ def cxx_darwin_dist_link(
                     recorded_artifact_names[archive_name_candidate] = 1
                     archive_name = archive_name_candidate
 
-                archive_manifest = ctx.actions.declare_output("%s/%s/manifest.json" % (prepare_cat, archive_name))
-                archive_objects = ctx.actions.declare_output("%s/%s/objects" % (prepare_cat, archive_name), dir = True)
+                archive_manifest = ctx.actions.declare_output("%s/%s/manifest.json" % (prepare_cat, archive_name), has_content_based_path = uses_content_based_paths)
+                archive_objects = ctx.actions.declare_output("%s/%s/objects" % (prepare_cat, archive_name), has_content_based_path = uses_content_based_paths, dir = True)
 
                 prepare_args = cmd_args([
                     lto_prepare,
@@ -640,8 +749,8 @@ def cxx_darwin_dist_link(
                 prepared_archive_artifacts[linkable.archive.artifact] = PreparedArchiveArtitfacts(manifest = archive_manifest, extracted_object_files_dir = archive_objects)
                 archive_manifests.append(archive_manifest)
 
-    linker_argsfile_out = ctx.actions.declare_output(output.basename + ".thinlto_link_argsfile")
-    index_argsfile_out = ctx.actions.declare_output(output.basename + ".thinlto_index_argsfile")
+    linker_argsfile_out = ctx.actions.declare_output(output.basename + ".thinlto_link_argsfile", has_content_based_path = uses_content_based_paths)
+    index_argsfile_out = ctx.actions.declare_output(output.basename + ".thinlto_index_argsfile", has_content_based_path = uses_content_based_paths)
 
     def prepare_opt_flags(link_infos: list[LinkInfo]) -> cmd_args:
         opt_flags = cmd_args(cxx_toolchain.linker_info.dist_thin_lto_codegen_flags)
@@ -652,16 +761,7 @@ def cxx_darwin_dist_link(
 
     common_opt_cmd = prepare_opt_flags(link_infos)
 
-    external_debug_info_container_directory = ctx.actions.declare_output(output.basename + ".debug_info_dir", dir = True)
-    external_debug_info = make_artifact_tset(
-        actions = ctx.actions,
-        artifacts = [external_debug_info_container_directory],
-        label = ctx.label,
-        children = [
-            unpack_external_debug_info(ctx.actions, link_args)
-            for link_args in links
-        ],
-    )
+    external_debug_info_container_directory = ctx.actions.declare_output(output.basename + ".debug_info_dir", dir = True, has_content_based_path = uses_content_based_paths)
 
     extra_linker_outputs_factory = opts.extra_linker_outputs_factory
     link_outputs = [output.as_output(), index_argsfile_out.as_output(), linker_argsfile_out.as_output(), external_debug_info_container_directory.as_output()]
@@ -677,6 +777,17 @@ def cxx_darwin_dist_link(
 
     if linker_map:
         link_outputs.append(linker_map.as_output())
+
+    if opts.produce_shared_library_interface:
+        generate_shared_library_interface(
+            ctx = ctx,
+            identifier = opts.identifier,
+            executable_link = executable_link,
+            link_infos = link_infos,
+            output = output,
+            sanitizer_runtime_args = sanitizer_runtime_args.extra_link_args,
+            shared_library_interface_out = shared_library_interface,
+        )
 
     ctx.actions.dynamic_output(
         dynamic = archive_manifests,
@@ -702,6 +813,7 @@ def cxx_darwin_dist_link(
             double_codegen_enabled = double_codegen_enabled,
             prepared_archive_artifacts = prepared_archive_artifacts,
             sanitizer_runtime_args = sanitizer_runtime_args,
+            uses_content_based_paths = uses_content_based_paths,
         ),
     )
 
@@ -710,6 +822,16 @@ def cxx_darwin_dist_link(
     if opts.strip:
         strip_args = opts.strip_args_factory(ctx) if opts.strip_args_factory else cmd_args()
         final_output = strip_object(ctx, cxx_toolchain, final_output, strip_args, opts.category_suffix)
+
+    external_debug_info = make_artifact_tset(
+        actions = ctx.actions,
+        artifacts = [external_debug_info_container_directory],
+        label = ctx.label,
+        children = [
+            unpack_external_debug_info(ctx.actions, link_args)
+            for link_args in links
+        ],
+    )
 
     return LinkedObject(
         output = final_output,

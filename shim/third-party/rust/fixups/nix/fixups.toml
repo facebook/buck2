@@ -6,4 +6,3 @@
 # of this source tree.
 
 buildscript.run = true
-extra_srcs = ["src/**/*.rs"]

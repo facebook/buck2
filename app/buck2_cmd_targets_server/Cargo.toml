@@ -34,12 +34,13 @@ buck2_core = { workspace = true }
 buck2_data = { workspace = true }
 buck2_error = { workspace = true }
 buck2_execute = { workspace = true }
-buck2_futures = { workspace = true }
+buck2_fs = { workspace = true }
 buck2_interpreter = { workspace = true }
 buck2_node = { workspace = true }
 buck2_query = { workspace = true }
 buck2_server_ctx = { workspace = true }
 buck2_util = { workspace = true }
+dice_futures = { workspace = true }
 
 [lints.rust]
 unexpected_cfgs = { level = "warn", check-cfg = ["cfg(fbcode_build)"] }

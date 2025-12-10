@@ -11,7 +11,6 @@
 
 import asyncio
 import re
-from typing import List
 
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.buck_workspace import buck_test
@@ -29,7 +28,7 @@ def _normalize(s: str) -> str:
     return "\n".join([x.rstrip() for x in s.splitlines()]) + "\n"
 
 
-def _find_subcommands(help: str) -> List[str]:
+def _find_subcommands(help: str) -> list[str]:
     help = re.sub(r".*SUBCOMMANDS:", "", help, flags=re.DOTALL)
     result = re.findall(r"^  ([a-z][a-z0-9_-]*)", help, flags=re.MULTILINE)
     result = list(result)
@@ -39,7 +38,7 @@ def _find_subcommands(help: str) -> List[str]:
 semaphore = asyncio.Semaphore(10)
 
 
-async def _test_help(buck: Buck, command_stack: List[str]) -> int:
+async def _test_help(buck: Buck, command_stack: list[str]) -> int:
     async with semaphore:
         result = await buck.help(*command_stack)
 

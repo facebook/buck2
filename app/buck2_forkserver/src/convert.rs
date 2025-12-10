@@ -15,7 +15,6 @@ use buck2_execute_local::GatherOutputStatus;
 use futures::stream::Stream;
 use futures::stream::StreamExt;
 
-#[allow(dead_code)]
 pub(crate) fn encode_event_stream<S>(
     s: S,
 ) -> impl Stream<Item = Result<buck2_forkserver_proto::CommandEvent, tonic::Status>>
@@ -37,7 +36,14 @@ where
                 execution_stats,
             }) => Data::Exit(buck2_forkserver_proto::ExitEvent {
                 exit_code,
-                execution_stats,
+                execution_stats: execution_stats.map(|s| {
+                    buck2_forkserver_proto::CollectedExecutionStats {
+                        cpu_instructions_user: s.cpu_instructions_user,
+                        cpu_instructions_kernel: s.cpu_instructions_kernel,
+                        userspace_events: s.userspace_events,
+                        kernel_events: s.kernel_events,
+                    }
+                }),
             }),
             CommandEvent::Exit(GatherOutputStatus::TimedOut(duration)) => {
                 Data::Timeout(buck2_forkserver_proto::TimeoutEvent {
@@ -50,7 +56,6 @@ where
             CommandEvent::Exit(GatherOutputStatus::SpawnFailed(reason)) => {
                 Data::SpawnFailed(buck2_forkserver_proto::SpawnFailedEvent { reason })
             }
-            CommandEvent::Cgroup(path) => Data::Cgroup(buck2_forkserver_proto::Cgroup { path }),
         };
 
         buck2_forkserver_proto::CommandEvent { data: Some(data) }
@@ -82,7 +87,14 @@ where
                 execution_stats,
             }) => CommandEvent::Exit(GatherOutputStatus::Finished {
                 exit_code,
-                execution_stats,
+                execution_stats: execution_stats.map(|s| {
+                    buck2_execute_local::CollectedExecutionStats {
+                        cpu_instructions_user: s.cpu_instructions_user,
+                        cpu_instructions_kernel: s.cpu_instructions_kernel,
+                        userspace_events: s.userspace_events,
+                        kernel_events: s.kernel_events,
+                    }
+                }),
             }),
             Data::Timeout(buck2_forkserver_proto::TimeoutEvent { duration }) => {
                 CommandEvent::Exit(GatherOutputStatus::TimedOut(
@@ -98,7 +110,6 @@ where
             Data::SpawnFailed(buck2_forkserver_proto::SpawnFailedEvent { reason }) => {
                 CommandEvent::Exit(GatherOutputStatus::SpawnFailed(reason))
             }
-            Data::Cgroup(buck2_forkserver_proto::Cgroup { path }) => CommandEvent::Cgroup(path),
         };
 
         Ok(event)

@@ -29,17 +29,15 @@ def _test_action_error_handler_types(ctx):
         expected_foo_error = action_error_ctx.new_sub_error(
             category = "foo_category",
             message = "foo message",
-            locations = [
-                action_error_ctx.new_error_location(file = "foo_file", line = 1),
-            ],
+            file = "foo_file",
+            lnum = 1,
         )
 
         expected_bar_error = action_error_ctx.new_sub_error(
             category = "bar_category",
             message = "bar message",
-            locations = [
-                action_error_ctx.new_error_location(file = "bar_file", line = 1),
-            ],
+            file = "bar_file",
+            lnum = 1,
         )
 
         expected_error_categories = [expected_foo_error, expected_bar_error]

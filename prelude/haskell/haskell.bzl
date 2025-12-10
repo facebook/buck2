@@ -360,7 +360,7 @@ def haskell_prebuilt_library_impl(ctx: AnalysisContext) -> list[Provider]:
     return [
         DefaultInfo(),
         haskell_lib_provider,
-        cxx_merge_cpreprocessors(ctx, [own_pp_info], inherited_pp_info),
+        cxx_merge_cpreprocessors(ctx.actions, [own_pp_info], inherited_pp_info),
         merge_shared_libraries(
             ctx.actions,
             shared_libs,
@@ -862,7 +862,7 @@ def haskell_library_impl(ctx: AnalysisContext) -> list[Provider]:
             prof_infos = prof_merged_link_info,
         ),
         linkable_graph,
-        cxx_merge_cpreprocessors(ctx, pp, inherited_pp_info),
+        cxx_merge_cpreprocessors(ctx.actions, pp, inherited_pp_info),
         merge_shared_libraries(
             ctx.actions,
             shared_libs,

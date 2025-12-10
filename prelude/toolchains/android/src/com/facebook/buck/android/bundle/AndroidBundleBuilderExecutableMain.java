@@ -14,7 +14,6 @@ import com.android.tools.build.bundletool.commands.BuildBundleCommand;
 import com.facebook.buck.android.apk.sdk.ApkCreationException;
 import com.facebook.buck.android.apk.sdk.DuplicateFileException;
 import com.facebook.buck.android.apk.sdk.SealedApkException;
-import com.facebook.buck.core.exceptions.HumanReadableException;
 import com.facebook.buck.util.zip.ZipScrubber;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -142,7 +141,7 @@ public class AndroidBundleBuilderExecutableMain {
     } catch (ApkCreationException | SealedApkException e) {
       throw new RuntimeException(e);
     } catch (DuplicateFileException e) {
-      throw new HumanReadableException(
+      throw new RuntimeException(
           String.format(
               "Found duplicate file for APK: %1$s\nOrigin 1: %2$s\nOrigin 2: %3$s",
               e.getArchivePath(), e.getFile1(), e.getFile2()));
@@ -241,7 +240,7 @@ public class AndroidBundleBuilderExecutableMain {
       } catch (ApkCreationException | SealedApkException e) {
         throw new RuntimeException(e);
       } catch (DuplicateFileException e) {
-        throw new HumanReadableException(
+        throw new RuntimeException(
             String.format(
                 "Found duplicate file for APK: %1$s\nOrigin 1: %2$s\nOrigin 2: %3$s",
                 e.getArchivePath(), e.getFile1(), e.getFile2()));

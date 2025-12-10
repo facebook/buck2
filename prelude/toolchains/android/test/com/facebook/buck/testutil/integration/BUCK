@@ -13,7 +13,6 @@ buck_java_library(
     visibility = [
         "prelude//toolchains/android/test/...",
         "prelude//toolchains/android/tools/...",
-        "//xplat/buck2/platform/apple/installer/test/...",
     ],
     deps = [
         "prelude//toolchains/android/src/com/facebook/buck/android:helpers",
@@ -32,11 +31,9 @@ buck_java_library(
         "prelude//toolchains/android/src/com/facebook/buck/test/selectors:selectors",
         "prelude//toolchains/android/src/com/facebook/buck/util:process_executor",
         "prelude//toolchains/android/src/com/facebook/buck/util:util",
-        "prelude//toolchains/android/src/com/facebook/buck/util/concurrent:concurrent",
         "prelude//toolchains/android/src/com/facebook/buck/util/environment:environment",
         "prelude//toolchains/android/src/com/facebook/buck/util/environment:platform",
         "prelude//toolchains/android/src/com/facebook/buck/util/json:json",
-        "prelude//toolchains/android/src/com/facebook/buck/util/string:string",
         "prelude//toolchains/android/src/com/facebook/buck/util/unit:unit",
         "prelude//toolchains/android/test/com/facebook/buck/testutil:testutil",
         "prelude//toolchains/android/test/com/facebook/buck/util:testutil",

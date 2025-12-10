@@ -18,6 +18,7 @@ import com.facebook.buck.jvm.core.BuildTargetValue;
 import com.facebook.buck.jvm.java.BaseJavacToJarStepFactory;
 import com.facebook.buck.jvm.java.CompilerOutputPathsValue;
 import com.facebook.buck.jvm.java.CompilerParameters;
+import com.facebook.buck.jvm.java.JarParameters;
 import com.facebook.buck.jvm.java.JavaExtraParams;
 import com.facebook.buck.jvm.java.ResolvedJavac;
 import com.facebook.buck.jvm.java.ResolvedJavacOptions;
@@ -43,21 +44,9 @@ public class JavacStepsBuilder {
       ResolvedJavacOptions resolvedJavacOptions,
       ImmutableList<RelPath> declaredClasspathEntries,
       ImmutableList<AbsPath> extraClassPaths,
-      RelPath outputDirectory,
-      ImmutableSortedSet.Builder<RelPath> sourceBuilder) {
-
-    // Kotlin source-only-abi is only available for pure-kotlin targets
-    // It's not applicable for:
-    // - Java targets
-    // - Mixed targets
-    //
-    // Buck doesn't check if it runs source-only-abi for non-pure-kotlin targets,
-    // source-only-abi applicability for target should be verified externally.
-    //
-    // source-only-abi.jar packing happens via [KotlincToJarStepFactory::createCompileToJarStepImpl]
-    if (invokingRule.isSourceOnlyAbi()) {
-      return;
-    }
+      ImmutableList<RelPath> outputDirectories,
+      ImmutableSortedSet.Builder<RelPath> sourceBuilder,
+      JarParameters abiJarParameter) {
 
     // Note that this filters out only .kt files, so this keeps both .java and .src.zip files.
     ImmutableSortedSet<RelPath> javaSourceFiles =
@@ -73,12 +62,8 @@ public class JavacStepsBuilder {
     CompilerParameters javacParameters =
         new CompilerParameters(
             javaSourceFiles,
-            ImmutableSortedSet.orderedBy(RelPath.comparator())
-                .add(outputDirectory)
-                .addAll(extraClassPaths.stream().map(buildCellRootPath::relativize).iterator())
-                .addAll(declaredClasspathEntries)
-                .build()
-                .asList(),
+            buildClasspathEntries(
+                buildCellRootPath, outputDirectories, extraClassPaths, declaredClasspathEntries),
             parameters.getClasspathSnapshots(),
             parameters.getOutputPaths(),
             parameters.getAbiGenerationMode(),
@@ -100,6 +85,25 @@ public class JavacStepsBuilder {
         resolvedJavac,
         null,
         JavaExtraParams.of(resolvedJavacOptions, /* addAnnotationPath */ false),
-        null);
+        abiJarParameter,
+        true);
+  }
+
+  private static ImmutableList<RelPath> buildClasspathEntries(
+      AbsPath buildCellRootPath,
+      ImmutableList<RelPath> outputDirectories,
+      ImmutableList<AbsPath> extraClassPaths,
+      ImmutableList<RelPath> declaredClasspathEntries) {
+    // Build classpath with outputDirectories first (preserving order), then other entries sorted
+    ImmutableList.Builder<RelPath> classpathBuilder = ImmutableList.builder();
+
+    classpathBuilder.addAll(outputDirectories);
+    classpathBuilder.addAll(
+        ImmutableSortedSet.orderedBy(RelPath.comparator())
+            .addAll(extraClassPaths.stream().map(buildCellRootPath::relativize).iterator())
+            .addAll(declaredClasspathEntries)
+            .build());
+
+    return classpathBuilder.build();
   }
 }

@@ -47,7 +47,7 @@ Error evaluating expression:
 
 Caused by:
     package `root//package_listing/missing_targets_file:` does not exist
-        missing `TARGETS.fixture` file (also missing alternatives `TARGETS.fixture.v2`, `TARGETS.fixture`)
+        missing `TARGETS.fixture` file (also missing alternatives `TARGETS.fixture.v2`)
 
 
 

@@ -27,6 +27,7 @@ def command_alias_impl(ctx: AnalysisContext):
         base,
         cmd_args(ctx.attrs.args),
         ctx.attrs.env,
+        ctx.attrs.default_env,
     )
 
     default_info = DefaultInfo(
@@ -96,7 +97,8 @@ def command_alias(
         # depending on `uname`
         base: RunInfo | dict[str, RunInfo],
         args: cmd_args,
-        env: dict[str, ArgLike]) -> CommandAliasOutput:
+        env: dict[str, ArgLike],
+        default_env: dict[str, ArgLike]) -> CommandAliasOutput:
     if path == "":
         fail("Path cannot be empty string")
 
@@ -113,9 +115,9 @@ def command_alias(
         windows_trampoline_path = "__command_alias_trampoline.bat"
 
     if target_os.script == ScriptLanguage("sh"):
-        trampoline, hidden = _command_alias_write_trampoline_unix(ctx, unix_trampoline_path, base, args, env)
+        trampoline, hidden = _command_alias_write_trampoline_unix(ctx, unix_trampoline_path, base, args, env, default_env)
     elif target_os.script == ScriptLanguage("bat"):
-        trampoline, hidden = _command_alias_write_trampoline_windows(ctx, windows_trampoline_path, base, args, env)
+        trampoline, hidden = _command_alias_write_trampoline_windows(ctx, windows_trampoline_path, base, args, env, default_env)
     else:
         fail("Unsupported script language: {}".format(target_os.script))
 
@@ -138,7 +140,8 @@ def _command_alias_write_trampoline_unix(
         path: str,
         base: RunInfo | dict[str, RunInfo],
         args: cmd_args,
-        env: dict[str, ArgLike]) -> (Artifact, cmd_args):
+        env: dict[str, ArgLike],
+        default_env: dict[str, ArgLike]) -> (Artifact, cmd_args):
     trampoline_args = cmd_args()
     trampoline_args.add("#!/usr/bin/env bash")
     trampoline_args.add("set -euo pipefail")
@@ -184,8 +187,12 @@ done
     )
 
     for (k, v) in env.items():
-        # TODO(akozhevnikov): maybe check environment variable is not conflicting with pre-existing one
         trampoline_args.add(cmd_args("export ", k, "=", cmd_args(v, quote = "shell"), delimiter = ""))
+        trampoline_args.add(cmd_args("export ", k, '="${', k, '//BUCK_COMMAND_ALIAS_ABSOLUTE_PREFIX/$BASE}"', delimiter = ""))
+    for (k, v) in default_env.items():
+        # not quoting ${...} should be safe as long as the value is quoted, variables names
+        # cannot contain spaces and anything after :- is unquoted before setting.
+        trampoline_args.add(cmd_args("export ", k, "=${", k, ":-", cmd_args(v, quote = "shell"), "}", delimiter = ""))
         trampoline_args.add(cmd_args("export ", k, '="${', k, '//BUCK_COMMAND_ALIAS_ABSOLUTE_PREFIX/$BASE}"', delimiter = ""))
 
     trampoline_args.add('exec "${R_ARGS[@]}" "$@"')
@@ -210,7 +217,8 @@ def _command_alias_write_trampoline_windows(
         path: str,
         base: RunInfo,
         args: cmd_args,
-        env: dict[str, ArgLike]) -> (Artifact, cmd_args):
+        env: dict[str, ArgLike],
+        default_env: dict[str, ArgLike]) -> (Artifact, cmd_args):
     trampoline_args = cmd_args()
     trampoline_args.add("@echo off")
 
@@ -225,8 +233,9 @@ def _command_alias_write_trampoline_windows(
     trampoline_args.add("set BUCK_COMMAND_ALIAS_ABSOLUTE=%~dp0")
 
     # Handle envs
+    for (k, v) in default_env.items():
+        trampoline_args.add(cmd_args(["if not defined ", k, " (set ", k, "=", v, ")"], delimiter = ""))
     for (k, v) in env.items():
-        # TODO(akozhevnikov): maybe check environment variable is not conflicting with pre-existing one
         trampoline_args.add(cmd_args(["set ", k, "=", v], delimiter = ""))
 
     # FIXME(JakobDegen): This should be batch quoting, not shell quoting

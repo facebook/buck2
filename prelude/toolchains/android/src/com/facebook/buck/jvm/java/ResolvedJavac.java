@@ -49,14 +49,6 @@ public interface ResolvedJavac {
   /** Returns a short name of the tool */
   String getShortName();
 
-  /** Enum that specify a type of java compiler. */
-  enum Source {
-    /** Shell out to the javac in the JDK */
-    EXTERNAL,
-    /** Run javac in-process, loading it from the JRE in which Buck is running. */
-    JDK,
-  }
-
   /** Interface that defines invocation object created during java compilation. */
   interface Invocation extends AutoCloseable {
 
@@ -64,7 +56,7 @@ public interface ResolvedJavac {
      * Produces a source-only ABI jar. {@link #buildClasses} may not be called on an invocation on
      * which this has been called.
      */
-    int buildSourceOnlyAbiJar() throws InterruptedException;
+    int buildSourceOnlyAbiJar(boolean isMixedModule) throws InterruptedException;
 
     /** Produces a source ABI jar. Must be called before {@link #buildClasses} */
     int buildSourceAbiJar() throws InterruptedException;

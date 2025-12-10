@@ -27,3 +27,9 @@ simple_dep_file(
     unused_input1_contents = read_config("test", "unused_input1_contents", "default"),
     unused_input2_contents = read_config("test", "unused_input2_contents", "default"),
 )
+
+shared_dir_dep_file(
+    name = "shared_dir_dep_file",
+    used_input_contents = read_config("test", "used_input_contents", "default"),
+    unused_input_contents = read_config("test", "unused_input_contents", "default"),
+)

@@ -235,10 +235,7 @@ impl LspContext for TestServerContext {
                 let start_pos = cap.get(1).unwrap().as_str().parse().unwrap();
                 let end_pos = cap.get(2).unwrap().as_str().parse().unwrap();
                 let span = Span::new(Pos::new(start_pos), Pos::new(end_pos));
-                (
-                    literal[0..cap.get(0).unwrap().start()].to_owned(),
-                    Some(span),
-                )
+                (literal[0..cap.get_match().start()].to_owned(), Some(span))
             }
             None => (literal.to_owned(), None),
         };

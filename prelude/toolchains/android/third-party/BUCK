@@ -99,6 +99,14 @@ third_party_jar(
         ":protobuf",
     ],
 )
+
+third_party_jar(
+    name = "manifest-merger",
+    # @oss-disable[end= ]: internal_alias = "fbsource//third-party/java/com/android/tools/build/manifest-merger:manifest-merger",
+    sha1 = "0d0489e76e4eb785336317add6b65d57b928a429",
+    url = "mvn:com.android.tools.build:manifest-merger:31.7.3",
+    visibility = ["PUBLIC"],
+)
 # ===   End: android
 
 # === Begin: args4j
@@ -174,9 +182,9 @@ buck_java_library(
 
 third_party_jar(
     name = "commons-compress",
-    # @oss-disable[end= ]: internal_alias = "fbsource//third-party/java/org/apache/commons/commons-compress:commons-compress__toolchain",
-    sha1 = "b4b1b5a3d9573b2970fddab236102c0a4d27d35e",
-    url = "mvn:org.apache.commons:commons-compress:jar:1.24.0",
+    # @oss-disable[end= ]: internal_alias = "fbsource//third-party/java/org/apache/commons/commons-compress:commons-compress",
+    sha1 = "659feffdd12280201c8aacb8f7be94f9a883c824",
+    url = "mvn:org.apache.commons:commons-compress:jar:1.26.0",
     visibility = ["PUBLIC"],
 )
 # ===   End: commons-compress
@@ -329,6 +337,7 @@ third_party_jar(
     # Plus consistency across the codebase is nice.
     visibility = [
         "prelude//toolchains/android/src/com/facebook/buck/android/bundle:bundle",
+        "prelude//toolchains/android/src/com/facebook/buck/jvm/kotlin/cd/workertool:main_lib",
         "prelude//toolchains/android/third-party/aosp:aosp",  # Sad transitive deps are sad
         ":remote-apis",  # Legacy caller which should probably use Jackson
     ],
@@ -711,7 +720,6 @@ third_party_jar(
     sha1 = "8ac9e16d933b6fb43bc7f576336b8f4d7eb5ba12",
     url = "mvn:junit:junit:jar:4.13.2",
     visibility = [
-        "fbsource//xplat/buck2/platform/apple/installer/test/...",
         "prelude//toolchains/android/src/com/facebook/buck/...",
         "prelude//toolchains/android/src/com/facebook/buck/testrunner:junit",
         "prelude//toolchains/android/test/com/facebook/buck/...",
@@ -991,17 +999,6 @@ third_party_jar(
 )
 # ===   End: kxml2
 
-# === Begin: nuprocess
-
-third_party_jar(
-    name = "nuprocess",
-    # @oss-disable[end= ]: internal_alias = "fbsource//third-party/java/com/zaxxer/nuprocess:nuprocess__toolchain",
-    sha1 = "d98f476eb858a64d8bad10abfa320b5d04b4d707",
-    url = "mvn:com.zaxxer:nuprocess:jar:2.0.5",
-    visibility = ["PUBLIC"],
-)
-# ===   End: nuprocess
-
 # === Begin: okhttp
 
 third_party_jar(
@@ -1218,22 +1215,9 @@ third_party_jar(
 
 third_party_jar(
     name = "mockito",
-    # @oss-disable[end= ]: internal_alias = "fbsource//third-party/java/org/mockito:mockito-robolectric",
-    sha1 = "3d1dffee9a8a1998ec782383ca2f818848f2d5f1",
-    url = "mvn:org.mockito:mockito-inline:jar:4.11.0",
-    visibility = [
-        "prelude//toolchains/android/test/...",
-    ],
-    deps = [
-        ":mockito-core",
-    ],
-)
-
-third_party_jar(
-    name = "mockito-core",
-    # @oss-disable[end= ]: internal_alias = "fbsource//third-party/java/org/mockito:mockito-library",
-    sha1 = "ce5226440c2ee78915716d4ce3d10aed2dbf26fb",
-    url = "mvn:org.mockito:mockito-core:jar:4.11.0",
+    # @oss-disable[end= ]: internal_alias = "fbsource//third-party/java/org/mockito/mockito-core:mockito-core",
+    sha1 = "a32f446f38acf636363c5693db6498047731b9e0",
+    url = "mvn:org.mockito:mockito-core:jar:5.20.0",
     visibility = [
         "PUBLIC",
     ],
@@ -1245,24 +1229,14 @@ third_party_jar(
 )
 
 third_party_jar(
-    name = "mockito-inline",
-    # @oss-disable[end= ]: internal_alias = "fbsource//third-party/java/org/mockito/mockito-inline:mockito-inline",
-    sha1 = "3d1dffee9a8a1998ec782383ca2f818848f2d5f1",
-    url = "mvn:org.mockito:mockito-inline:jar:4.11.0",
-    visibility = ["PUBLIC"],
-    deps = [
-        ":mockito-core",
-    ],
-)
-
-third_party_jar(
     name = "mockito-kotlin",
     # @oss-disable[end= ]: internal_alias = "fbsource//third-party/java/org/mockito/kotlin/mockito-kotlin:mockito-kotlin",
-    sha1 = "a89352b80ae4a2e3ce15a8046a09c85645fabf89",
-    url = "mvn:org.mockito.kotlin:mockito-kotlin:jar:4.1.0",
+    sha1 = "6c89533c7c38b1600ceea37b806cba3d9619c1ac",
+    url = "mvn:org.mockito.kotlin:mockito-kotlin:jar:6.1.0",
     visibility = ["PUBLIC"],
     deps = [
-        ":mockito-inline",
+        ":kotlin-reflect",
+        ":mockito",
     ],
 )
 # ===   End: mockito

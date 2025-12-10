@@ -11,8 +11,8 @@
 use std::path::Path;
 use std::str;
 
-use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_data::FileWatcherKind;
+use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
 use edenfs::Dtype;
 
 pub(crate) fn dtype_into_file_watcher_kind(dtype: Dtype) -> FileWatcherKind {

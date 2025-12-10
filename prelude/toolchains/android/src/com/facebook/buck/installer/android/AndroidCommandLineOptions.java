@@ -161,6 +161,14 @@ class AndroidCommandLineOptions {
       usage = "Do not exit with nonzero, even if ADB detects no devices connected.")
   public boolean ignoreMissingDevices = false;
 
+  @Option(
+      name = "--enable-app-links",
+      usage =
+          "Enable app links after installation. If not specified, only enables for allowlisted"
+              + " packages.")
+  @Nullable
+  public Boolean enableAppLinks = null;
+
   public AndroidCommandLineOptions() {}
 
   public int getTcpPort() {

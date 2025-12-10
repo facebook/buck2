@@ -28,12 +28,12 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.logging.Level;
+import javax.annotation.Nullable;
 import junit.framework.TestCase;
 import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.experimental.runners.Enclosed;
 import org.junit.internal.builders.AllDefaultPossibilitiesBuilder;
-import org.junit.internal.builders.AnnotatedBuilder;
 import org.junit.internal.builders.JUnit4Builder;
 import org.junit.runner.Computer;
 import org.junit.runner.Description;
@@ -113,6 +113,14 @@ public final class JUnitRunner extends BaseRunner {
           JUnitTpxStandardOutputListener tpxListener =
               new JUnitTpxStandardOutputListener(testResultsOutputSender.get());
           jUnitCore.addListener(tpxListener);
+
+          // Add Robolectric timeout enforcement listener if this is a Robolectric test
+          if (isRobolectricTest(testClass)
+              && "true".equals(System.getProperty("android.per.test.timeout.enabled"))) {
+            RobolectricTimeoutEnforcingRunListener timeoutListener =
+                new RobolectricTimeoutEnforcingRunListener(testResultsOutputSender.get());
+            jUnitCore.addListener(timeoutListener);
+          }
         } else {
           jUnitCore.addListener(new TestListener(results, stdOutLogLevel, stdErrLogLevel));
         }
@@ -148,7 +156,10 @@ public final class JUnitRunner extends BaseRunner {
       String configuredTestArtifacts = System.getenv("TEST_RESULT_ARTIFACTS_DIR");
       if (configuredTestArtifacts != null) {
         File testArtifactsDir = new File(configuredTestArtifacts);
-        testArtifactsDir.mkdirs();
+        if (!testArtifactsDir.mkdirs() && !testArtifactsDir.exists()) {
+          System.err.println(
+              "Failed to create test artifacts directory: " + testArtifactsDir.getAbsolutePath());
+        }
 
         String robolectricLogLocation =
             new File(testArtifactsDir, "robolectric-logs.txt").getAbsolutePath();
@@ -157,7 +168,11 @@ public final class JUnitRunner extends BaseRunner {
       String configuredTestAnnotations = System.getenv("TEST_RESULT_ARTIFACT_ANNOTATIONS_DIR");
       if (configuredTestAnnotations != null) {
         File artifactAnnotationsDir = new File(configuredTestAnnotations);
-        artifactAnnotationsDir.mkdirs();
+        if (!artifactAnnotationsDir.mkdirs() && !artifactAnnotationsDir.exists()) {
+          System.err.println(
+              "Failed to create artifact annotations directory: "
+                  + artifactAnnotationsDir.getAbsolutePath());
+        }
 
         try (BufferedWriter writer =
             new BufferedWriter(
@@ -172,7 +187,7 @@ public final class JUnitRunner extends BaseRunner {
     }
   }
 
-  private Class<?>[] collectTestClasses(Class<?> testClass) {
+  private static Class<?>[] collectTestClasses(Class<?> testClass) {
     ArrayList<Class<?>> classes = new ArrayList<>();
     // Get all nested classes
     Class<?>[] declaredClasses = testClass.getDeclaredClasses();
@@ -193,11 +208,11 @@ public final class JUnitRunner extends BaseRunner {
       }
     }
     classes.add(testClass);
-    return classes.toArray(new Class<?>[classes.size()]);
+    return classes.toArray(new Class<?>[0]);
   }
 
   /** Guessing whether or not a class is a test class is an imperfect art form. */
-  private boolean mightBeATestClass(Class<?> klass) {
+  private static boolean mightBeATestClass(Class<?> klass) {
     if (klass.getAnnotation(RunWith.class) != null) {
       return true; // If the class is explicitly marked with @RunWith, it's a test class.
     }
@@ -250,7 +265,8 @@ public final class JUnitRunner extends BaseRunner {
    * if you are using a filter then a class-without-tests will cause a NoTestsRemainException to be
    * thrown, which is propagated back as an error.
    */
-  List<TestResult> combineResults(List<TestResult> results, List<TestResult> filteredResults) {
+  static List<TestResult> combineResults(
+      List<TestResult> results, List<TestResult> filteredResults) {
     List<TestResult> combined = new ArrayList<>(filteredResults);
     if (!isSingleResultCausedByNoTestsRemainException(results)) {
       combined.addAll(results);
@@ -276,7 +292,7 @@ public final class JUnitRunner extends BaseRunner {
    * only run the test class and all its test methods and handle the erroneous exception JUnit
    * throws if no test-methods were actually run.)
    */
-  private boolean isSingleResultCausedByNoTestsRemainException(List<TestResult> results) {
+  private static boolean isSingleResultCausedByNoTestsRemainException(List<TestResult> results) {
     if (results.size() != 1) {
       return false;
     }
@@ -301,35 +317,27 @@ public final class JUnitRunner extends BaseRunner {
           }
         };
 
-    return new AllDefaultPossibilitiesBuilder(/* canUseSuiteMethod */ true) {
+    return new AllDefaultPossibilitiesBuilder() {
       @Override
       protected JUnit4Builder junit4Builder() {
         return jUnit4RunnerBuilder;
       }
-
-      @Override
-      protected AnnotatedBuilder annotatedBuilder() {
-        // If there is no default timeout specified in .buckconfig, then use
-        // the original behavior of AllDefaultPossibilitiesBuilder.
-        //
-        // Additionally, if we are using test selectors or doing a dry-run then
-        // we should use the original behavior to use our
-        // BuckBlockJUnit4ClassRunner, which provides the Descriptions needed
-        // to do test selecting properly.
-        if (defaultTestTimeoutMillis <= 0 || isDryRun || !testSelectorList.isEmpty()) {
-          return super.annotatedBuilder();
-        }
-
-        return new AnnotatedBuilder(this) {
-          @Override
-          public Runner buildRunner(Class<? extends Runner> runnerClass, Class<?> testClass)
-              throws Exception {
-            Runner originalRunner = super.buildRunner(runnerClass, testClass);
-            return new DelegateRunnerWithTimeout(originalRunner, defaultTestTimeoutMillis);
-          }
-        };
-      }
     };
+  }
+
+  /** Checks if a test class is a Robolectric test by examining its @RunWith annotation. */
+  private boolean isRobolectricTest(Class<?> testClass) {
+    RunWith annotation = testClass.getAnnotation(RunWith.class);
+    if (annotation != null) {
+      Class<?> runnerClass = annotation.value();
+      try {
+        Class<?> robolectricTestRunner = Class.forName("org.robolectric.RobolectricTestRunner");
+        return robolectricTestRunner.isAssignableFrom(runnerClass);
+      } catch (ClassNotFoundException e) {
+        // Not a Robolectric test
+      }
+    }
+    return false;
   }
 
   /**
@@ -340,16 +348,16 @@ public final class JUnitRunner extends BaseRunner {
     private final List<TestResult> results;
     private final Level stdErrLogLevel;
     private final Level stdOutLogLevel;
-    /* @Nullable */ private PrintStream originalOut, originalErr, stdOutStream, stdErrStream;
-    /* @Nullable */ private ByteArrayOutputStream rawStdOutBytes, rawStdErrBytes;
-    /* @Nullable */ private ByteArrayOutputStream julLogBytes, julErrLogBytes;
-    /* @Nullable */ private LogHandlers logHandlers;
-    /* @Nullable */ private Result result;
-    /* @Nullable */ private RunListener resultListener;
-    /* @Nullable */ private Failure assumptionFailure;
+    @Nullable private PrintStream originalOut, originalErr, stdOutStream, stdErrStream;
+    @Nullable private ByteArrayOutputStream rawStdOutBytes, rawStdErrBytes;
+    @Nullable private ByteArrayOutputStream julLogBytes, julErrLogBytes;
+    @Nullable private LogHandlers logHandlers;
+    @Nullable private Result result;
+    @Nullable private RunListener resultListener;
+    @Nullable private Failure assumptionFailure;
 
     // To help give a reasonable (though imprecise) guess at the runtime for unpaired failures
-    private long startTime = System.currentTimeMillis();
+    private final long startTime = System.currentTimeMillis();
 
     TestListener(List<TestResult> results, Level stdOutLogLevel, Level stdErrLogLevel) {
       this.results = results;

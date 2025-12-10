@@ -8,13 +8,12 @@
  * above-listed licenses.
  */
 
+#![feature(decl_macro)]
 #![feature(error_generic_member_access)]
 #![feature(once_cell_try)]
-#![feature(round_char_boundary)]
 
 pub mod arc_str;
-#[cfg(unix)]
-pub mod cgroup_info;
+pub mod async_move_clone;
 pub mod commas;
 pub mod cycle_detector;
 pub mod future;
@@ -37,3 +36,6 @@ pub mod thin_box;
 pub mod threads;
 pub mod tokio_runtime;
 pub mod truncate;
+
+// Re-export this to encourage people to use it in a fully qualified way.
+pub use async_move_clone::async_move_clone;

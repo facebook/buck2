@@ -8,12 +8,55 @@
  * above-listed licenses.
  */
 
+#![feature(trait_alias)]
+
+use futures::Stream;
+use tokio::sync::mpsc;
+use tokio::sync::oneshot;
+
+#[cfg(unix)]
+pub mod action_cgroups;
+#[cfg(unix)]
+pub mod buck_cgroup_tree;
+#[cfg(unix)]
+pub mod cgroup;
+#[cfg(unix)]
+pub mod cgroup_files;
+#[cfg(unix)]
+pub mod cgroup_info;
+#[cfg(unix)]
+pub mod event;
+#[cfg(unix)]
+pub mod memory_tracker;
+pub mod path;
+#[cfg(unix)]
+pub mod pool;
+pub mod systemd;
+
+pub struct HasResourceControl(pub bool);
+
+#[cfg(not(unix))]
+pub mod buck_cgroup_tree {
+    use buck2_common::init::ResourceControlConfig;
+
+    pub struct BuckCgroupTree;
+
+    impl BuckCgroupTree {
+        pub fn set_up_for_process(_c: &ResourceControlConfig) -> buck2_error::Result<Self> {
+            unreachable!("not used on windows")
+        }
+    }
+}
+
 #[cfg(not(unix))]
 pub mod memory_tracker {
     use std::sync::Arc;
 
     use allocative::Allocative;
     use buck2_common::init::ResourceControlConfig;
+    use buck2_events::daemon_id::DaemonId;
+
+    use crate::buck_cgroup_tree::BuckCgroupTree;
 
     #[derive(Allocative)]
     pub struct MemoryTracker {}
@@ -21,7 +64,9 @@ pub mod memory_tracker {
     pub type MemoryTrackerHandle = Arc<MemoryTracker>;
 
     pub async fn create_memory_tracker(
+        _cgroup_tree: Option<&BuckCgroupTree>,
         _resource_control_config: &ResourceControlConfig,
+        _daemon_id: &DaemonId,
     ) -> buck2_error::Result<Option<MemoryTrackerHandle>> {
         Ok(None)
     }
@@ -45,26 +90,51 @@ impl std::fmt::Display for CommandType {
     }
 }
 
+pub enum ActionFreezeEvent {
+    Freeze,
+    Unfreeze,
+}
+
+pub trait ActionFreezeEventReceiver = Stream<Item = ActionFreezeEvent> + Send + 'static;
+
+/// A channel associated with a running action that resolves when the action is killed for
+/// resource control
+#[derive(Debug)]
+pub struct KillFuture(pub oneshot::Receiver<RetryFuture>);
+
+/// A channel associated with a killed action that resolves when the action should be restarted
+#[derive(Debug)]
+pub struct RetryFuture(
+    pub oneshot::Receiver<(KillFuture, mpsc::UnboundedReceiver<ActionFreezeEvent>)>,
+);
+
 #[cfg(not(unix))]
 pub mod action_cgroups {
-    use std::path::PathBuf;
     use std::time::Duration;
 
-    use crate::CommandType;
-    use crate::memory_tracker::MemoryTrackerHandle;
+    use buck2_events::dispatch::EventDispatcher;
 
-    pub struct ActionCgroupSession {}
+    use crate::CommandType;
+    use crate::RetryFuture;
+    use crate::memory_tracker::MemoryTrackerHandle;
+    use crate::path::CgroupPathBuf;
+
+    pub struct ActionCgroupSession {
+        pub path: CgroupPathBuf,
+    }
     impl ActionCgroupSession {
-        pub fn maybe_create(
+        pub async fn maybe_create(
             _tracker: &Option<MemoryTrackerHandle>,
             _command_type: CommandType,
-        ) -> Option<Self> {
-            None
+            _action_digest: Option<String>,
+            _disable_kill_and_retry_suspend: bool,
+        ) -> buck2_error::Result<Option<(Self, RetryFuture)>> {
+            Ok(None)
         }
 
-        pub async fn command_started(&mut self, _cgroup_path: PathBuf) {}
+        pub async fn action_started(&mut self, _cgroup_path: CgroupPathBuf) {}
 
-        pub async fn command_finished(&mut self) -> ActionCgroupResult {
+        pub async fn action_finished(&mut self) -> ActionCgroupResult {
             unreachable!("not supported");
         }
     }
@@ -72,12 +142,7 @@ pub mod action_cgroups {
     pub struct ActionCgroupResult {
         pub memory_peak: Option<u64>,
         pub error: Option<buck2_error::Error>,
-        pub was_frozen: bool,
-        pub freeze_duration: Option<Duration>,
+        pub suspend_duration: Option<Duration>,
+        pub suspend_count: u64,
     }
 }
-
-#[cfg(unix)]
-pub mod action_cgroups;
-#[cfg(unix)]
-pub mod memory_tracker;

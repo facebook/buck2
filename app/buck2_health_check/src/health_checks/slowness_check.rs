@@ -211,9 +211,9 @@ mod tests {
     fn test_slow_build_detection_enabled() {
         let mut check = SlownessCheck::new();
         // Set up an enabled state with a short threshold
-        let command_start = SystemTime::now() - Duration::from_secs(120); // 2 minutes ago
+        let command_start = SystemTime::now() - Duration::from_mins(2); // 2 minutes ago
         check.state = SlownessCheckState::Enabled {
-            slowness_threshold: Duration::from_secs(60), // 1 minute threshold
+            slowness_threshold: Duration::from_mins(1), // 1 minute threshold
             command_start_timestamp: command_start,
             buildmate_url: "https://example.com".to_owned(),
         };
@@ -256,7 +256,7 @@ mod tests {
 
         let mut check = SlownessCheck::new();
         check.state = SlownessCheckState::Enabled {
-            slowness_threshold: Duration::from_secs(60),
+            slowness_threshold: Duration::from_mins(1),
             command_start_timestamp: SystemTime::now(),
             buildmate_url: "https://example.com".to_owned(),
         };

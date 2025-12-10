@@ -4,6 +4,7 @@
 ## AnalysisActions.anon\_target
 ## AnalysisActions.anon\_targets
 ## AnalysisActions.artifact\_tag
+## AnalysisActions.assert\_has\_content\_based\_path
 ## AnalysisActions.assert\_short\_path
 ## AnalysisActions.cas\_artifact
 ## AnalysisActions.copied\_dir
@@ -14,6 +15,11 @@
 ## AnalysisActions.download\_file
 ## AnalysisActions.dynamic\_output
 ## AnalysisActions.dynamic\_output\_new
+# Workflow
+# Example
+# Step 1: Define the implementation function
+# Step 2: Create a factory
+# Step 3 & 4: Use it in a rule or bxl script
 ## AnalysisActions.run
 ## AnalysisActions.symlink\_file
 ## AnalysisActions.symlinked\_dir

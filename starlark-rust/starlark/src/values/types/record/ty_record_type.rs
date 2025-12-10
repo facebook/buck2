@@ -20,15 +20,12 @@ use allocative::Allocative;
 use crate::eval::ParametersSpec;
 use crate::typing::Ty;
 use crate::values::FrozenValue;
-use crate::values::types::type_instance_id::TypeInstanceId;
 
 #[derive(Allocative, Debug)]
 #[doc(hidden)]
 pub struct TyRecordData {
     /// Name of the record type.
     pub(crate) name: String,
-    /// Globally unique id of the record type.
-    pub(crate) id: TypeInstanceId,
     /// Type of record instance.
     pub(crate) ty_record: Ty,
     /// Type of record type.

@@ -17,15 +17,14 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use buck2_error::BuckErrorContext;
+use buck2_fs::fs_util;
+use buck2_fs::paths::RelativePath;
+use buck2_fs::paths::abs_norm_path::AbsNormPath;
+use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
+use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
 use dupe::Dupe;
 use ref_cast::RefCast;
 use relative_path::RelativePathBuf;
-
-use crate::fs::fs_util;
-use crate::fs::paths::RelativePath;
-use crate::fs::paths::abs_norm_path::AbsNormPath;
-use crate::fs::paths::abs_norm_path::AbsNormPathBuf;
-use crate::fs::paths::forward_rel_path::ForwardRelativePath;
 
 #[derive(Debug, buck2_error::Error)]
 #[buck2(input)]
@@ -104,9 +103,9 @@ impl ProjectRoot {
     /// `project root`, yielding a 'AbsPathBuf'
     ///
     /// ```
-    /// use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
     /// use buck2_core::fs::project::ProjectRoot;
     /// use buck2_core::fs::project_rel_path::ProjectRelativePath;
+    /// use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
     ///
     /// if cfg!(not(windows)) {
     ///     let root = AbsNormPathBuf::from("/usr/local/fbsource/".into())?;
@@ -138,9 +137,9 @@ impl ProjectRoot {
     /// ```
     /// use std::path::PathBuf;
     ///
-    /// use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
     /// use buck2_core::fs::project::ProjectRoot;
     /// use buck2_core::fs::project_rel_path::ProjectRelativePath;
+    /// use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
     ///
     /// let root = if cfg!(not(windows)) {
     ///     AbsNormPathBuf::from("/usr/local/fbsource/".into())?
@@ -170,10 +169,10 @@ impl ProjectRoot {
     /// ```
     /// use std::borrow::Cow;
     ///
-    /// use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
-    /// use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
     /// use buck2_core::fs::project::ProjectRoot;
     /// use buck2_core::fs::project_rel_path::ProjectRelativePath;
+    /// use buck2_fs::paths::abs_norm_path::AbsNormPath;
+    /// use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
     ///
     /// if cfg!(not(windows)) {
     ///     let root = AbsNormPathBuf::from("/usr/local/fbsource/".into())?;
@@ -539,9 +538,9 @@ impl ProjectRoot {
 }
 
 use allocative::Allocative;
+use buck2_fs::paths::abs_path::AbsPath;
+use buck2_fs::paths::abs_path::AbsPathBuf;
 
-use crate::fs::paths::abs_path::AbsPath;
-use crate::fs::paths::abs_path::AbsPathBuf;
 use crate::fs::project_rel_path::ProjectRelativePath;
 use crate::fs::project_rel_path::ProjectRelativePathBuf;
 
@@ -550,9 +549,10 @@ mod tests {
     use std::path::Path;
     use std::path::PathBuf;
 
-    use crate::fs::fs_util;
-    use crate::fs::paths::abs_path::AbsPath;
-    use crate::fs::paths::forward_rel_path::ForwardRelativePath;
+    use buck2_fs::fs_util;
+    use buck2_fs::paths::abs_path::AbsPath;
+    use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
+
     use crate::fs::project::ProjectRoot;
     use crate::fs::project::ProjectRootTemp;
     use crate::fs::project_rel_path::ProjectRelativePath;

@@ -14,9 +14,6 @@ import com.facebook.buck.core.filesystems.RelPath
 import com.facebook.buck.io.file.FileExtensionMatcher
 import com.facebook.buck.jvm.java.ActionMetadata
 import java.nio.file.Path
-import kotlin.collections.Map
-import kotlin.collections.component1
-import kotlin.collections.component2
 
 class JarsActionMetadata(actionMetaData: ActionMetadata) {
 
@@ -32,14 +29,10 @@ class JarsActionMetadata(actionMetaData: ActionMetadata) {
         JAR_PATH_MATCHER.matches(relPath)
       }
 
-  fun hasClasspathChanged(): Boolean {
-    if (currentJarsDigest.size != previousJarsDigest.size) {
-      return true
-    }
+  fun hasChanged(relPath: RelPath): Boolean {
+    require(JAR_PATH_MATCHER.matches(relPath))
 
-    return currentJarsDigest.any { (path, digest) ->
-      !previousJarsDigest.contains(path) || digest != previousJarsDigest.getValue(path)
-    }
+    return previousJarsDigest[relPath.path] != currentJarsDigest[relPath.path]
   }
 
   companion object {

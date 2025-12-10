@@ -10,7 +10,6 @@
 
 
 import re
-from typing import List
 
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.buck_workspace import buck_test
@@ -20,7 +19,7 @@ def _replace_hash(s: str) -> str:
     return re.sub(r"\b[0-9a-f]{16}\b", "<HASH>", s)
 
 
-def _parse_audit_configurations(output: str) -> List[str]:
+def _parse_audit_configurations(output: str) -> list[str]:
     return [x.rstrip(":") for x in output.splitlines() if not x.startswith(" ")]
 
 

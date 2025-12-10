@@ -13,3 +13,12 @@ prelude.python_library(
     ],
     visibility = ["PUBLIC"],
 )
+
+prelude.python_bootstrap_library(
+    name = "bootstrap_re_compatibility_utils",
+    srcs = [
+        "writable.py",
+    ],
+    has_content_based_path = True,
+    visibility = ["PUBLIC"],
+)

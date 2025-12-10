@@ -9,7 +9,7 @@
  */
 
 use buck2_core::directory_digest::DirectoryDigest;
-use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
+use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
 
 use crate::directory::builder::DirectoryBuilder;
 use crate::directory::builder::DirectoryInsertError;

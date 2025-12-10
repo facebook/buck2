@@ -75,4 +75,5 @@ def remote_file_impl(ctx: AnalysisContext) -> list[Provider]:
         sha1 = ctx.attrs.sha1,
         sha256 = ctx.attrs.sha256,
         size_bytes = ctx.attrs.size_bytes,
+        has_content_based_path = ctx.attrs.has_content_based_path,
     )

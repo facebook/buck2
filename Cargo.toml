@@ -24,6 +24,7 @@ members = [
     "app/buck2_cmd_query_server",
     "app/buck2_cmd_rage_client",
     "app/buck2_common",
+    "app/buck2_env",
     "app/buck2_configured",
     "app/buck2_core",
     "app/buck2_cli_proto",
@@ -66,7 +67,7 @@ members = [
     "app/buck2_test_runner",
     "app/buck2_forkserver",
     "app/buck2_forkserver_proto",
-    "app/buck2_futures",
+    "app/buck2_fs",
     "app/buck2_profile",
     "app/buck2_protoc_dev",
     "app/buck2_query",
@@ -97,6 +98,7 @@ members = [
     "dice/dice",
     "dice/dice_error",
     "dice/dice_examples",
+    "dice/dice_futures",
     "dice/dice_tests",
     # @oss-disable: "dice/fuzzy_dice",
     "dice/read_dump",
@@ -137,7 +139,7 @@ anymap3 = "1.0.1"
 arc-swap = "1.6.0"
 argfile = "0.2"
 assert_matches = "1.5"
-async-compression = { version = "0.4.1", features = ["tokio", "gzip", "zstd"] }
+async-compression = { version = "=0.4.9", features = ["tokio", "brotli", "deflate", "gzip", "zstd"] }
 async-condvar-fair = { version = "1.0", features = ["parking_lot_0_11", "tokio"] }
 async-recursion = "1.0"
 async-scoped = { version = "0.9", features = ["use-tokio"] }
@@ -181,7 +183,7 @@ env_logger = "0.9.0"
 equivalent = "1.0.0"
 erased-serde = "0.3.20"
 faccess = "0.2.3"
-fancy-regex = "0.14.0"
+fancy-regex = "0.16.0"
 flate2 = "1.0.22"
 fs4 = { version = "0.9.1", features = ["sync"] }
 futures = { version = "0.3.28", features = ["async-await", "compat"] }
@@ -198,13 +200,14 @@ httparse = "1.7.1"
 httptest = "0.16"
 humantime = "2.0.1"
 hyper = { version = "1.5.1", features = ["client", "http1", "http2"] }
-hyper-proxy2 = { version = "0.1", features = ["rustls"], default-features = false }
-hyper-rustls = { version = "0.26.0", features = ["http2"] }
+hyper-http-proxy = "1.0"
+hyper-rustls = { version = "0.27.0", features = ["http2"] }
 hyper-timeout = "0.5"
 hyper-util = "0.1.10"
 hyperlocal = { version = "0.9", features = ["client"] }
 indent_write = "2.2.0"
 indenter = "0.3.3"
+index_vec = "0.1.4"
 indexmap = { version = "2.2.6", features = ["serde"] }
 indoc = "2.0.2"
 inferno = { version = "0.11.19", default-features = false }
@@ -265,9 +268,9 @@ rand_distr = "0.4"
 ref-cast = "1.0.0"
 regex = "1.5.4"
 relative-path = { version = "1.7.0", features = ["serde"] }
-rusqlite = { version = "0.36.0", features = ["bundled"] }
+rusqlite = { version = "0.37.0", features = ["bundled"] }
 rustc-hash = { version = "2.1" }
-rustls = "0.22"
+rustls = { package = "rustls", version = "0.23.29", features = ["aws-lc-rs"], default-features = false }
 rustls-native-certs = { version = "0.8.1" }
 rustls-pemfile = { package = "rustls-pemfile", version = "1.0.0" }
 rustls-pki-types = { version = "1.0", features = ["alloc", "std"] }
@@ -303,7 +306,7 @@ thiserror = "1.0.36"
 threadpool = "1.8.1"
 tikv-jemallocator = { version = "0.6.0", features = ["profiling"] }
 tokio = { version = "1.25.0", features = ["full", "test-util", "tracing"] }
-tokio-rustls = { version = "0.25" }
+tokio-rustls = { version = "0.26" }
 tokio-stream = { version = "0.1.14", features = ["fs", "io-util", "net", "sync", "time", "signal"] }
 tokio-util = { version = "0.6", features = ["full"] }
 toml = "0.5"
@@ -319,7 +322,7 @@ trybuild = "1.0.56"
 twox-hash = "1.6.1"
 typed-arena = "2.0"
 unicode-segmentation = "1.7"
-uuid = { version = "=1.17.0", features = ["v4"] }
+uuid = { version = "=1.18.1", features = ["v4"] }
 walkdir = "2.3.2"
 which = "4.3.0"
 winapi = { version = "0.3", features = ["everything", "std"] }
@@ -340,6 +343,7 @@ allocative.version = "0.3.1"
 cmp_any = { path = "gazebo/cmp_any" }
 dice = { path = "dice/dice" }
 dice_error = { path = "dice/dice_error" }
+dice_futures = { path = "dice/dice_futures" }
 display_container = { path = "gazebo/display_container" }
 dupe.path = "gazebo/dupe"
 dupe.version = "0.9.0"
@@ -399,6 +403,7 @@ buck2_directory = { path = "app/buck2_directory" }
 buck2_downward_api = { path = "app/buck2_downward_api" }
 buck2_downward_api_proto = { path = "app/buck2_downward_api_proto" }
 buck2_eden = { path = "app/buck2_eden" }
+buck2_env = { path = "app/buck2_env" }
 buck2_error = { path = "app/buck2_error" }
 buck2_error_derive = { path = "app/buck2_error_derive" }
 buck2_errorformat = { path = "app/buck2_errorformat" }
@@ -413,7 +418,7 @@ buck2_external_cells_bundled = { path = "app/buck2_external_cells_bundled" }
 buck2_file_watcher = { path = "app/buck2_file_watcher" }
 buck2_forkserver = { path = "app/buck2_forkserver" }
 buck2_forkserver_proto = { path = "app/buck2_forkserver_proto" }
-buck2_futures = { path = "app/buck2_futures" }
+buck2_fs = { path = "app/buck2_fs" }
 buck2_grpc = { path = "app/buck2_grpc" }
 buck2_health_check = { path = "app/buck2_health_check" }
 buck2_health_check_proto = { path = "app/buck2_health_check_proto" }

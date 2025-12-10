@@ -206,7 +206,7 @@ pub fn killall(who_is_asking: WhoIsAsking, write: impl Fn(String)) -> bool {
             Ok(false) => true,
         });
 
-        if start.elapsed() > Duration::from_secs(timeout_secs) {
+        if Instant::now() - start > Duration::from_secs(timeout_secs) {
             for process in processes_still_alive {
                 printer.failed_to_kill(
                     &process.0,

@@ -45,8 +45,7 @@ public interface CompileToJarStepFactory<T extends CompileToJarStepFactory.Extra
       ImmutableMap<RelPath, RelPath> resourcesMap,
       ResolvedJavac resolvedJavac,
       @Nullable ActionMetadata actionMetadata,
-      T extraParams,
-      @Nullable RelPath kotlinClassesDir);
+      T extraParams);
 
   /** Upcasts {@code extraParams} to the type of parameter expected by this factory. */
   T castExtraParams(ExtraParams extraParams);

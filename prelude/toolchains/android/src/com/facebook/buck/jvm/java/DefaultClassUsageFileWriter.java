@@ -10,7 +10,6 @@
 
 package com.facebook.buck.jvm.java;
 
-import com.facebook.buck.core.exceptions.HumanReadableException;
 import com.facebook.buck.core.filesystems.AbsPath;
 import com.facebook.buck.core.filesystems.RelPath;
 import com.facebook.buck.io.filesystem.impl.ProjectFilesystemUtils;
@@ -44,7 +43,7 @@ public class DefaultClassUsageFileWriter implements ClassUsageFileWriter {
           rootPath.resolve(relativePath).toFile(),
           relativizeMap(classUsages, rootPath, configuredBuckOut));
     } catch (IOException e) {
-      throw new HumanReadableException(e, "Unable to write used classes file.");
+      throw new RuntimeException("Unable to write used classes file.", e);
     }
   }
 

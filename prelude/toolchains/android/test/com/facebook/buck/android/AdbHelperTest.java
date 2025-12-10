@@ -23,11 +23,10 @@ import com.facebook.buck.android.exopackage.AdbUtils;
 import com.facebook.buck.android.exopackage.AndroidDevice;
 import com.facebook.buck.android.exopackage.AndroidDeviceImpl;
 import com.facebook.buck.android.exopackage.SetDebugAppMode;
-import com.facebook.buck.core.exceptions.HumanReadableException;
 import com.facebook.buck.installer.android.IsolatedAndroidInstallerPrinter;
 import com.facebook.buck.testutil.MoreAsserts;
-import com.facebook.buck.testutil.TestConsole;
 import com.facebook.buck.testutil.TestLogSink;
+import com.facebook.buck.util.Console;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import java.util.ArrayList;
@@ -48,7 +47,7 @@ import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.junit.MockitoJUnitRunner;
 
-@RunWith(MockitoJUnitRunner.class)
+@RunWith(MockitoJUnitRunner.Silent.class)
 public class AdbHelperTest {
 
   private static final Logger LOGGER = Logger.getLogger(AdbHelperTest.class.getName());
@@ -56,7 +55,7 @@ public class AdbHelperTest {
   @Rule public ExpectedException exceptionRule = ExpectedException.none();
   @Rule public TestLogSink testLogSink = new TestLogSink(AdbHelperTest.class);
 
-  private TestConsole testConsole;
+  private Console testConsole;
   private TestAdbExecutionContext adbExecutionContext;
   private AdbHelper basicAdbHelper;
 
@@ -64,8 +63,8 @@ public class AdbHelperTest {
 
   @Before
   public void setUp() {
-    adbExecutionContext = new TestAdbExecutionContext(new TestConsole());
-    testConsole = (TestConsole) adbExecutionContext.getConsole();
+    adbExecutionContext = new TestAdbExecutionContext(Console.createNullConsole());
+    testConsole = adbExecutionContext.getConsole();
     basicAdbHelper = createAdbHelper(createAdbOptions(), new TargetDeviceOptions());
   }
 
@@ -362,7 +361,7 @@ public class AdbHelperTest {
   public void testAdbCallShouldFailWhenNoDevices() throws Exception {
     AdbHelper adbHelper = createAdbHelper(ImmutableList.of());
 
-    exceptionRule.expect(HumanReadableException.class);
+    exceptionRule.expect(RuntimeException.class);
     exceptionRule.expectMessage("Didn't find any attached Android devices/emulators.");
     adbHelper.adbCall("dummy", d -> true, true);
   }
@@ -379,7 +378,7 @@ public class AdbHelperTest {
 
   @Test
   public void testAdbCallShouldFailForMultipleDevices() throws Exception {
-    exceptionRule.expect(HumanReadableException.class);
+    exceptionRule.expect(RuntimeException.class);
     exceptionRule.expectMessage("2 devices match specified device filter");
 
     List<AndroidDevice> devices =
@@ -391,7 +390,7 @@ public class AdbHelperTest {
 
   @Test
   public void testAdbCallShouldFailForNoDevices() throws Exception {
-    exceptionRule.expect(HumanReadableException.class);
+    exceptionRule.expect(RuntimeException.class);
     exceptionRule.expectMessage("Didn't find any attached Android devices/emulators.");
 
     when(adbUtils.getDevices()).thenReturn(Collections.emptyList());

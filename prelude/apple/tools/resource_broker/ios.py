@@ -10,7 +10,7 @@
 
 import os
 from dataclasses import dataclass
-from typing import List, Optional
+from typing import Optional
 
 from packaging.version import Version
 
@@ -39,7 +39,7 @@ def _device_set_path() -> str:
     return os.path.expanduser("~/Library/Developer/Buck2IdbDeviceSet")
 
 
-def _list_managed_simulators_command(simulator_manager: str) -> List[str]:
+def _list_managed_simulators_command(simulator_manager: str) -> list[str]:
     return [
         simulator_manager,
         "list",
@@ -50,7 +50,7 @@ def _list_managed_simulators_command(simulator_manager: str) -> List[str]:
     ]
 
 
-def _create_simulator_command(simulator_manager: str, sim_spec: str) -> List[str]:
+def _create_simulator_command(simulator_manager: str, sim_spec: str) -> list[str]:
     return [
         simulator_manager,
         "create",
@@ -61,7 +61,7 @@ def _create_simulator_command(simulator_manager: str, sim_spec: str) -> List[str
     ]
 
 
-def _boot_simulator_command(simulator_manager: str, udid: str) -> List[str]:
+def _boot_simulator_command(simulator_manager: str, udid: str) -> list[str]:
     return [
         simulator_manager,
         "boot",
@@ -81,7 +81,20 @@ def _compatible_device_type_from_runtime(
         if simulator_type.matches_device_identifier(device_type.identifier)
     ]
     if device:
-        device_types = [t for t in device_types if t.name == device]
+        if device.startswith("com.apple."):
+            # filter by device type identifier
+            device_types = [
+                device_type
+                for device_type in device_types
+                if device_type.identifier == device
+            ]
+        else:
+            # filter by device name
+            device_types = [
+                device_type
+                for device_type in device_types
+                if device_type.name == device
+            ]
     if not device_types:
         return None
     selected_device = next(
@@ -96,7 +109,7 @@ def _compatible_device_type_from_runtime(
 
 
 def _select_simulator_spec(
-    runtimes: List[XCSimRuntime],
+    runtimes: list[XCSimRuntime],
     simulator_type: SimulatorType,
     os_version: Optional[str],
     device: Optional[str],
@@ -118,20 +131,20 @@ def _select_simulator_spec(
             runtime=runtime, simulator_type=simulator_type, device=device
         )
         if device_type:
-            return SimulatorSpec(device_type, runtime.name)
+            return SimulatorSpec(device_type, f"{runtime.platform} {runtime.version}")
     raise RuntimeError(
         "No Xcode simctl compatible os runtime and device available. Try to `sudo xcode-select -s <path_to_xcode>` and *open Xcode to install all required components*."
     )
 
 
 async def _generic_managed_simulators_list_command(
-    name: str, cmd: List[str]
-) -> List[Simulator]:
+    name: str, cmd: list[str]
+) -> list[Simulator]:
     stdout = await execute_generic_text_producing_command(name=name, cmd=cmd)
     return managed_simulators_list_from_stdout(stdout)
 
 
-async def _list_managed_simulators(simulator_manager: str) -> List[Simulator]:
+async def _list_managed_simulators(simulator_manager: str) -> list[Simulator]:
     list_cmd = _list_managed_simulators_command(simulator_manager=simulator_manager)
     return await _generic_managed_simulators_list_command(
         name="list managed simulators", cmd=list_cmd
@@ -144,11 +157,11 @@ def normalize_os_version(os_version: str) -> Version:
 
 
 def choose_simulators(
-    simulators: List[Simulator],
+    simulators: list[Simulator],
     simulator_type: SimulatorType,
     os_version: Optional[str],
     device: Optional[str],
-) -> List[Simulator]:
+) -> list[Simulator]:
     # If no device or os_version is specified, filter by simulator type
     if not device and not os_version:
         simulators = list(
@@ -158,17 +171,28 @@ def choose_simulators(
             )
         )
 
+    # Check if device is a device type identifier
+    device_type_identifier: Optional[str] = None
+    if device is not None and device.startswith("com.apple."):
+        device_type_identifier = device
+        device = None
+
     filtered_simulators = filter(
-        lambda s: (
+        lambda simulator: (
             (
-                normalize_os_version(s.os_version).major
+                normalize_os_version(simulator.os_version).major
                 == normalize_os_version(os_version).major
-                and normalize_os_version(s.os_version).minor
+                and normalize_os_version(simulator.os_version).minor
                 == normalize_os_version(os_version).minor
                 if os_version
                 else True
             )
-            and (s.name == device if device is not None else True)
+            and (
+                simulator.device_type_identifier == device_type_identifier
+                if device_type_identifier is not None
+                else True
+            )
+            and (simulator.name == device if device is not None else True)
         ),
         simulators,
     )
@@ -198,7 +222,7 @@ async def _get_managed_simulators_create_if_needed(
     simulator_type: SimulatorType,
     os_version: Optional[str] = None,
     device: Optional[str] = None,
-) -> List[Simulator]:
+) -> list[Simulator]:
     managed_simulators = await _get_managed_simulators(
         simulator_manager=simulator_manager,
         simulator_type=simulator_type,
@@ -233,7 +257,7 @@ async def _get_managed_simulators(
     simulator_type: SimulatorType,
     os_version: Optional[str] = None,
     device: Optional[str] = None,
-) -> List[Simulator]:
+) -> list[Simulator]:
     managed_simulators = await _list_managed_simulators(
         simulator_manager=simulator_manager
     )
@@ -241,7 +265,7 @@ async def _get_managed_simulators(
 
 
 def _select_simulator(
-    only_booted: bool, all_simulators: List[Simulator]
+    only_booted: bool, all_simulators: list[Simulator]
 ) -> Optional[Simulator]:
     return next(
         filter(
@@ -253,7 +277,7 @@ def _select_simulator(
 
 
 def _select_simulator_with_preference(
-    prefer_booted: bool, all_simulators: List[Simulator]
+    prefer_booted: bool, all_simulators: list[Simulator]
 ) -> Simulator:
     simulator = _select_simulator(
         only_booted=prefer_booted, all_simulators=all_simulators

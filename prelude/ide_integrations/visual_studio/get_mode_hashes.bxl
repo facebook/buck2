@@ -7,10 +7,9 @@
 # above-listed licenses.
 
 def _main(bxl_ctx):
-    configured_targets = bxl_ctx.configured_targets(bxl_ctx.cli_args.target)
+    configured_targets = bxl_ctx.configured_targets(bxl_ctx.cli_args.target, modifiers = bxl_ctx.modifiers)
     output_json = {}
     for target in configured_targets:
-        # target = bxl_ctx.configured_targets(ulabel, modifiers = bxl_ctx.modifiers)
         config = str(target.label.config()).split("#")
         if len(config) == 2:
             config_hash = config[1]

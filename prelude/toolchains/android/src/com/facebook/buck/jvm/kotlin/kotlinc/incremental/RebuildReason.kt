@@ -16,4 +16,5 @@ enum class RebuildReason(val message: String) {
   NO_LAST_DEP_FILE("dep-file.txt not found"),
   NO_LAST_USED_JARS("used-jars.json not found"),
   NO_JVM_ABI_WORKING_DIR("jvm_abi_gen_working_dir not found"),
+  KOTLIN_COMPILER_PLUGIN_CHANGED("Kotlin compiler plugin has been changed"),
 }

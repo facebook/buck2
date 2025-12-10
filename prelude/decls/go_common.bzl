@@ -103,15 +103,12 @@ def _embedcfg_arg():
      For example:
 
     ```
-
     //go:embed *.txt
     var fs embed.FS
-
     ```
     If the folder contains two files (file1.txt and file2.txt), the embedcfg.json is:
 
     ```
-
     {
         "Patterns": {
             "*.txt": ["file1.txt","file2.txt"]
@@ -121,7 +118,6 @@ def _embedcfg_arg():
      "file2.txt": ""
      }
     }
-
     ```
 """),
     }

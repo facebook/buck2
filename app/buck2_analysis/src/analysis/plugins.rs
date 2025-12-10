@@ -25,7 +25,7 @@ use crate::attrs::resolve::ctx::AttrResolutionContext;
 
 pub fn plugins_to_starlark_value<'v>(
     node: ConfiguredTargetNodeRef,
-    ctx: &dyn AttrResolutionContext<'v>,
+    ctx: &mut dyn AttrResolutionContext<'v>,
 ) -> buck2_error::Result<ValueTyped<'v, AnalysisPlugins<'v>>> {
     let mut plugins = SmallMap::new();
     for kind in node.uses_plugins().iter().duped() {

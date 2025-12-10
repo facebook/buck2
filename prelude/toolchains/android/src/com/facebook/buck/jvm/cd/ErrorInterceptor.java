@@ -179,9 +179,9 @@ public class ErrorInterceptor extends PrintStream {
   private static final Pattern WARNING_PATTERN =
       Pattern.compile("\\bwarning\\b(:.*?)\\n", Pattern.CASE_INSENSITIVE);
   private static final Pattern JAVA_FILE_PATTERN =
-      Pattern.compile("\\b(/?(?:[\\w-]+/)*[\\w-]+\\.java)\\b:(\\d+):");
+      Pattern.compile("(?:\\x1b\\[[0-9;]*m)*(/?(?:[\\w-]+/)*[\\w-]+\\.java)\\b:(\\d+):");
   private static final Pattern KOTLIN_FILE_PATTERN =
-      Pattern.compile("\\b(/?(?:[\\w-]+/)*[\\w-]+\\.kt)\\b:(\\d+):(\\d+):");
+      Pattern.compile("(?:\\x1b\\[[0-9;]*m)*(/?(?:[\\w-]+/)*[\\w-]+\\.kt)\\b:(\\d+):(\\d+):");
 
   /** Enum representing supported file types with their associated patterns and keywords. */
   public enum FileType {
@@ -239,7 +239,7 @@ public class ErrorInterceptor extends PrintStream {
   // Creates a clickable hyperlink in the terminal using OSC 8 escape sequences.
   // Supports both VS Code and Android Studio links based on ANDROID_EDITOR environment variable.
   private static String createHyperlink(String file, int line, String text) {
-
+    // Keep in sync with fbcode/buck2/prelude/java/tools/utils.py
     boolean isVsCode =
         "vscode".equals(System.getenv("TERM_PROGRAM"))
             || "od".equals(System.getenv("FBVSCODE_REMOTE_ENV_NAME"));
@@ -255,7 +255,14 @@ public class ErrorInterceptor extends PrintStream {
     String ST = "\033\\";
     String uri;
 
-    if (System.getenv("ANDROID_EDITOR") != null) {
+    boolean isJetBrains =
+        System.getenv("ANDROID_EDITOR") != null
+            || new File(
+                    System.getProperty("user.home")
+                        + "/.jetbrains-fb/.buck_path_hyperlink_uses_jetbrains")
+                .isFile();
+
+    if (isJetBrains) {
       uri = "fb-ide-opener://open/?ide=intellij&filepath=/fbsource/" + file + "&line=" + line;
     } else {
       uri =
@@ -345,17 +352,24 @@ public class ErrorInterceptor extends PrintStream {
   private static String highlightJavaFile(Matcher match) {
     String file = match.group(1);
     int line = Integer.parseInt(match.group(2));
-    String displayText = GREEN + file + RESET;
 
-    return createHyperlink(file, line, displayText) + ":" + MAGENTA + match.group(2) + RESET + ":";
+    return GREEN
+        + createHyperlink(file, line, file)
+        + RESET
+        + ":"
+        + MAGENTA
+        + match.group(2)
+        + RESET
+        + ":";
   }
 
   private static String highlightKotlinFile(Matcher match) {
     String file = match.group(1);
     int line = Integer.parseInt(match.group(2));
-    String displayText = GREEN + file + RESET;
 
-    return createHyperlink(file, line, displayText)
+    return GREEN
+        + createHyperlink(file, line, file)
+        + RESET
         + ":"
         + MAGENTA
         + match.group(2)

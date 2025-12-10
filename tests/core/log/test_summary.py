@@ -18,5 +18,5 @@ async def test_summary_command(buck: Buck) -> None:
     await buck.build("//:my_rule")
     out = await buck.log("summary")
 
-    assert "Showing summary from:" in out.stderr
-    assert "Targets Analyzed: 1" in out.stderr
+    assert "Showing summary from:" in out.stdout
+    assert "Targets Analyzed: 1" in out.stdout

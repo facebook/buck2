@@ -11,24 +11,28 @@
 #![cfg_attr(windows, feature(windows_process_extensions_main_thread_handle))]
 
 use std::borrow::Cow;
+use std::fs::File;
 use std::path::Path;
-use std::path::PathBuf;
 use std::pin::Pin;
 use std::process::Command;
 use std::process::ExitStatus;
+use std::process::Stdio;
 use std::task::Context;
 use std::task::Poll;
 use std::time::Duration;
 
 use async_trait::async_trait;
-use buck2_core::fs::fs_util;
-use buck2_core::fs::paths::abs_path::AbsPath;
 use buck2_error::BuckErrorContext;
+use buck2_fs::fs_util;
+use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
+use buck2_fs::paths::abs_path::AbsPath;
+use buck2_resource_control::ActionFreezeEventReceiver;
 use buck2_resource_control::action_cgroups::ActionCgroupResult;
-use buck2_resource_control::action_cgroups::ActionCgroupSession;
+use buck2_resource_control::path::CgroupPathBuf;
 use bytes::Bytes;
 use futures::future::Future;
 use futures::future::FutureExt;
+use futures::future::select;
 use futures::stream::Stream;
 use futures::stream::StreamExt;
 use futures::stream::TryStreamExt;
@@ -42,7 +46,6 @@ use crate::process_group::ProcessCommand;
 use crate::process_group::ProcessGroup;
 use crate::process_group::SpawnError;
 use crate::status_decoder::DecodedStatus;
-use crate::status_decoder::DefaultStatusDecoder;
 use crate::status_decoder::StatusDecoder;
 
 mod interruptible_async_read;
@@ -56,11 +59,19 @@ mod unix;
 mod win;
 
 #[derive(Debug)]
+pub struct CollectedExecutionStats {
+    pub cpu_instructions_user: Option<u64>,
+    pub cpu_instructions_kernel: Option<u64>,
+    pub userspace_events: Option<buck2_data::CpuCounter>,
+    pub kernel_events: Option<buck2_data::CpuCounter>,
+}
+
+#[derive(Debug)]
 pub enum GatherOutputStatus {
     /// Contains the exit code.
     Finished {
         exit_code: i32,
-        execution_stats: Option<buck2_data::CommandExecutionStats>,
+        execution_stats: Option<CollectedExecutionStats>,
     },
     TimedOut(Duration),
     Cancelled,
@@ -87,7 +98,6 @@ pub enum CommandEvent {
     Stdout(Bytes),
     Stderr(Bytes),
     Exit(GatherOutputStatus),
-    Cgroup(String),
 }
 
 enum StdioEvent {
@@ -102,6 +112,12 @@ impl From<StdioEvent> for CommandEvent {
             StdioEvent::Stderr(bytes) => CommandEvent::Stderr(bytes),
         }
     }
+}
+
+#[derive(Clone)]
+pub struct StdRedirectPaths {
+    pub stdout: AbsNormPathBuf,
+    pub stderr: AbsNormPathBuf,
 }
 
 /// This stream will yield [CommandEvent] whenever we have something on stdout or stderr (this is
@@ -119,8 +135,6 @@ struct CommandEventStream<Status, Stdio> {
 
     #[pin]
     stdio: futures::stream::Fuse<Stdio>,
-
-    cgroup: Option<PathBuf>,
 }
 
 impl<Status, Stdio> CommandEventStream<Status, Stdio>
@@ -128,13 +142,12 @@ where
     Status: Future,
     Stdio: Stream,
 {
-    fn new(status: Status, stdio: Stdio, cgroup: Option<PathBuf>) -> Self {
+    fn new(status: Status, stdio: Stdio) -> Self {
         Self {
             exit: None,
             done: false,
             status: status.fuse(),
             stdio: stdio.fuse(),
-            cgroup,
         }
     }
 }
@@ -151,14 +164,6 @@ where
 
         if *this.done {
             return Poll::Ready(None);
-        }
-
-        // Take and send cgroup path as soon as the stream is polled. At this point the process
-        // should have spawned and the path should exist.
-        if let Some(cgroup) = this.cgroup.take() {
-            return Poll::Ready(Some(Ok(CommandEvent::Cgroup(
-                cgroup.to_string_lossy().to_string(),
-            ))));
         }
 
         // This future is fused so it's guaranteed to be ready once. If it does, capture the exit
@@ -185,7 +190,7 @@ where
     }
 }
 
-pub async fn timeout_into_cancellation(
+async fn timeout_into_cancellation(
     timeout: Option<Duration>,
 ) -> buck2_error::Result<GatherOutputStatus> {
     match timeout {
@@ -197,17 +202,48 @@ pub async fn timeout_into_cancellation(
     }
 }
 
-pub fn stream_command_events<T>(
-    process_group: buck2_error::Result<ProcessGroup>,
+#[expect(private_bounds)]
+pub async fn spawn_command_and_stream_events<T>(
+    mut cmd: Command,
+    timeout: Option<Duration>,
     cancellation: T,
     decoder: impl StatusDecoder,
     kill_process: impl KillProcess,
-    stream_stdio: bool,
+    std_redirects: Option<StdRedirectPaths>,
+    retry_on_txt_busy: bool,
+    cgroup_path: Option<CgroupPathBuf>,
+    freeze_rx: impl ActionFreezeEventReceiver,
 ) -> buck2_error::Result<impl Stream<Item = buck2_error::Result<CommandEvent>>>
 where
-    T: Future<Output = buck2_error::Result<GatherOutputStatus>> + Send,
+    T: Future<Output = buck2_error::Result<GatherOutputStatus>> + Send + Unpin,
 {
-    let mut process_group = match process_group {
+    cmd.stdin(Stdio::null());
+    if let Some(std_redirects) = &std_redirects {
+        cmd.stdout(File::create(std_redirects.stdout.as_path())?);
+        cmd.stderr(File::create(std_redirects.stderr.as_path())?);
+    } else {
+        cmd.stdout(Stdio::piped());
+        cmd.stderr(Stdio::piped());
+    }
+
+    let cmd = ProcessCommand::new(cmd, cgroup_path)?;
+
+    // Note: Process spawning is a fundamentally asynchronous operation that legitimately might
+    // block for a non-zero amount of time. Typically, that would mean that we should
+    // `spawn_blocking` this or similar; however, implementations of process spawning on unix
+    // generally use `vfork`, which anyway suspends the entire parent process until the spawn
+    // completes. So we don't bother trying anything else here.
+    let process_details = if retry_on_txt_busy {
+        spawn_retry_txt_busy(cmd, || tokio::time::sleep(Duration::from_millis(50))).await
+    } else {
+        cmd.spawn().map_err(|x| buck2_error::Error::from(x.0))
+    };
+
+    let timeout = timeout_into_cancellation(timeout);
+
+    let cancellation = select(timeout.boxed(), cancellation).map(|r| r.factor_first().0);
+
+    let mut process_group = match process_details {
         Ok(process_group) => process_group,
         Err(e) => {
             let event = Ok(CommandEvent::Exit(GatherOutputStatus::SpawnFailed(
@@ -216,9 +252,8 @@ where
             return Ok(futures::stream::once(futures::future::ready(event)).left_stream());
         }
     };
-    let cgroup = process_group.cgroup.take();
 
-    let stdio = if stream_stdio {
+    let stdio = if std_redirects.is_none() {
         let stdout = process_group
             .take_stdout()
             .buck_error_context("Child stdout is not piped")?;
@@ -255,7 +290,7 @@ where
         // NOTE: This wrapping here is so that we release the borrow of `child` that stems from
         // `wait()` by the time we call kill_process a few lines down.
         let execute = async {
-            let status = process_group.wait();
+            let status = process_group.wait(freeze_rx);
             futures::pin_mut!(status);
             futures::pin_mut!(cancellation);
 
@@ -281,7 +316,7 @@ where
                 // We just killed the child, so this should finish immediately. We should still call
                 // this to release any process.
                 process_group
-                    .wait()
+                    .wait(futures::stream::pending())
                     .await
                     .buck_error_context("Failed to await child after kill")?;
 
@@ -290,7 +325,7 @@ where
         })
     };
 
-    Ok(CommandEventStream::new(status, stdio, cgroup).right_stream())
+    Ok(CommandEventStream::new(status, stdio).right_stream())
 }
 
 pub struct CommandResult {
@@ -300,10 +335,7 @@ pub struct CommandResult {
     pub cgroup_result: Option<ActionCgroupResult>,
 }
 
-pub async fn decode_command_event_stream<S>(
-    stream: S,
-    mut cgroup_session: Option<ActionCgroupSession>,
-) -> buck2_error::Result<CommandResult>
+pub async fn decode_command_event_stream<S>(stream: S) -> buck2_error::Result<CommandResult>
 where
     S: Stream<Item = buck2_error::Result<CommandEvent>>,
 {
@@ -317,22 +349,13 @@ where
             CommandEvent::Stdout(bytes) => stdout.extend(&bytes),
             CommandEvent::Stderr(bytes) => stderr.extend(&bytes),
             CommandEvent::Exit(exit) => {
-                let cgroup_result = if let Some(session) = cgroup_session.as_mut() {
-                    Some(session.command_finished().await)
-                } else {
-                    None
-                };
                 return Ok(CommandResult {
                     status: exit,
                     stdout,
                     stderr,
-                    cgroup_result,
+                    // Filled in later
+                    cgroup_result: None,
                 });
-            }
-            CommandEvent::Cgroup(path) => {
-                if let Some(session) = cgroup_session.as_mut() {
-                    session.command_started(PathBuf::from(path)).await;
-                }
             }
         }
     }
@@ -343,28 +366,9 @@ where
     ))
 }
 
-pub async fn gather_output<T>(cmd: Command, cancellation: T) -> buck2_error::Result<CommandResult>
-where
-    T: Future<Output = buck2_error::Result<GatherOutputStatus>> + Send,
-{
-    let cmd = ProcessCommand::new(cmd, None);
-
-    let process_details =
-        spawn_retry_txt_busy(cmd, || tokio::time::sleep(Duration::from_millis(50))).await;
-
-    let stream = stream_command_events(
-        process_details,
-        cancellation,
-        DefaultStatusDecoder,
-        DefaultKillProcess::default(),
-        true,
-    )?;
-    decode_command_event_stream(stream, None).await
-}
-
 /// Dependency injection for kill. We use this in testing.
 #[async_trait]
-pub trait KillProcess {
+pub(crate) trait KillProcess {
     async fn kill(self, process: &mut ProcessGroup) -> buck2_error::Result<()>;
 }
 
@@ -437,16 +441,21 @@ where
     let mut attempts = 10;
 
     loop {
-        let res = cmd.spawn();
+        let err = match cmd.spawn() {
+            Ok(pg) => return Ok(pg),
+            Err((e, cmd_back)) => {
+                cmd = cmd_back;
+                e
+            }
+        };
 
-        let res_errno = res.as_ref().map_err(|e| match e {
-            SpawnError::IoError(e) => e.raw_os_error(),
-            SpawnError::GenericError(_) => None,
-        });
-        let is_txt_busy = matches!(res_errno, Err(Some(libc::ETXTBSY)));
+        let is_txt_busy = match &err {
+            SpawnError::IoError(e) => matches!(e.raw_os_error(), Some(libc::ETXTBSY)),
+            SpawnError::GenericError(_) => false,
+        };
 
         if attempts == 0 || !is_txt_busy {
-            return res.map_err(buck2_error::Error::from);
+            return Err(err.into());
         }
 
         delay().await;
@@ -457,6 +466,7 @@ where
 
 #[cfg(test)]
 mod tests {
+    use std::process::Command;
     use std::str;
     use std::str::FromStr;
     use std::sync::Arc;
@@ -469,6 +479,26 @@ mod tests {
     use dupe::Dupe;
 
     use super::*;
+    use crate::status_decoder::DefaultStatusDecoder;
+
+    async fn gather_output(
+        cmd: Command,
+        timeout: Option<Duration>,
+    ) -> buck2_error::Result<CommandResult> {
+        let stream = spawn_command_and_stream_events(
+            cmd,
+            timeout,
+            futures::future::pending(),
+            DefaultStatusDecoder,
+            DefaultKillProcess::default(),
+            None,
+            true,
+            None,
+            futures::stream::pending(),
+        )
+        .await?;
+        decode_command_event_stream(stream).await
+    }
 
     #[tokio::test]
     async fn test_gather_output() -> buck2_error::Result<()> {
@@ -484,7 +514,7 @@ mod tests {
             stdout,
             stderr,
             ..
-        } = gather_output(cmd, futures::future::pending()).await?;
+        } = gather_output(cmd, None).await?;
         assert!(matches!(status, GatherOutputStatus::Finished { exit_code, .. } if exit_code == 0));
         assert_eq!(str::from_utf8(&stdout)?.trim(), "hello");
         assert_eq!(stderr, b"");
@@ -515,11 +545,7 @@ mod tests {
             stdout,
             stderr,
             ..
-        } = gather_output(
-            cmd,
-            timeout_into_cancellation(Some(Duration::from_secs(timeout))),
-        )
-        .await?;
+        } = gather_output(cmd, Some(Duration::from_secs(timeout))).await?;
         assert!(
             matches!(status, GatherOutputStatus::Finished { exit_code, .. } if exit_code == 0),
             "status: {status:?}"
@@ -545,11 +571,8 @@ mod tests {
         };
 
         let timeout = if cfg!(windows) { 5 } else { 3 };
-        let CommandResult { status, stdout, .. } = gather_output(
-            cmd,
-            timeout_into_cancellation(Some(Duration::from_secs(timeout))),
-        )
-        .await?;
+        let CommandResult { status, stdout, .. } =
+            gather_output(cmd, Some(Duration::from_secs(timeout))).await?;
         assert!(
             matches!(status, GatherOutputStatus::TimedOut(..)),
             "status: {status:?}"
@@ -561,7 +584,7 @@ mod tests {
         // ```
         // or it can be empty, which depends on which process is killed first by killpg.
 
-        assert!(now.elapsed() < Duration::from_secs(9)); // Lots of leeway here.
+        assert!(Instant::now() - now < Duration::from_secs(9)); // Lots of leeway here.
 
         Ok(())
     }
@@ -569,7 +592,6 @@ mod tests {
     #[cfg(unix)]
     #[tokio::test]
     async fn test_spawn_retry_txt_busy() -> buck2_error::Result<()> {
-        use futures::future;
         use tokio::fs::OpenOptions;
         use tokio::io::AsyncWriteExt;
 
@@ -587,17 +609,17 @@ mod tests {
         file.write_all(b"#!/usr/bin/env bash\ntrue\n").await?;
 
         let cmd = background_command(&bin);
-        let cmd = ProcessCommand::new(cmd, None);
+        let cmd = ProcessCommand::new(cmd, None)?;
         let mut process_group = spawn_retry_txt_busy(cmd, {
             let mut file = Some(file);
             move || {
                 file.take();
-                future::ready(())
+                futures::future::ready(())
             }
         })
         .await?;
 
-        let status = process_group.wait().await?;
+        let status = process_group.wait(futures::stream::pending()).await?;
         assert_eq!(status.code(), Some(0));
 
         Ok(())
@@ -609,7 +631,7 @@ mod tests {
         let bin = tempdir.path().join("bin"); // Does not actually exist
 
         let cmd = background_command(&bin);
-        let cmd = ProcessCommand::new(cmd, None);
+        let cmd = ProcessCommand::new(cmd, None)?;
         let res = spawn_retry_txt_busy(cmd, || async { panic!("Should not be called!") }).await;
         assert!(res.is_err());
 
@@ -638,11 +660,8 @@ mod tests {
 
         // On windows we need more time to run powershell
         let timeout = if cfg!(windows) { 7 } else { 1 };
-        let CommandResult { stdout, .. } = gather_output(
-            cmd,
-            timeout_into_cancellation(Some(Duration::from_secs(timeout))),
-        )
-        .await?;
+        let CommandResult { stdout, .. } =
+            gather_output(cmd, Some(Duration::from_secs(timeout))).await?;
         let out = str::from_utf8(&stdout)?;
         let pids: Vec<&str> = out.split('\n').collect();
         let ppid = Pid::from_str(pids.first().buck_error_context("no ppid")?.trim())?;
@@ -674,15 +693,18 @@ mod tests {
         };
         cmd.args(["-c", "exit 0"]);
 
-        let mut cmd = ProcessCommand::new(cmd, None);
-        let process = cmd.spawn().map_err(buck2_error::Error::from);
-        let mut events = stream_command_events(
-            process,
+        let mut events = spawn_command_and_stream_events(
+            cmd,
+            None,
             futures::future::pending(),
             DefaultStatusDecoder,
             DefaultKillProcess::default(),
+            None,
             true,
-        )?
+            None,
+            futures::stream::pending(),
+        )
+        .await?
         .boxed();
         assert_matches!(events.next().await, Some(Ok(CommandEvent::Exit(..))));
         assert_matches!(futures::poll!(events.next()), Poll::Ready(None));
@@ -696,7 +718,7 @@ mod tests {
 
         let mut cmd = background_command("sh");
         cmd.arg("-c").arg("kill -KILL \"$$\"");
-        let CommandResult { status, .. } = gather_output(cmd, futures::future::pending()).await?;
+        let CommandResult { status, .. } = gather_output(cmd, None).await?;
 
         assert_matches!(
             status,
@@ -754,12 +776,10 @@ mod tests {
         };
         cmd.args(["-c", "sleep 10000"]);
 
-        let mut cmd = ProcessCommand::new(cmd, None);
-        let process = cmd.spawn().map_err(buck2_error::Error::from);
-
-        let stream = stream_command_events(
-            process,
-            timeout_into_cancellation(Some(Duration::from_secs(1))),
+        let stream = spawn_command_and_stream_events(
+            cmd,
+            Some(Duration::from_secs(1)),
+            futures::future::pending(),
             Decoder {
                 killed: killed.dupe(),
                 cancelled: cancelled.dupe(),
@@ -767,10 +787,14 @@ mod tests {
             Kill {
                 killed: killed.dupe(),
             },
+            None,
             true,
-        )?;
+            None,
+            futures::stream::pending(),
+        )
+        .await?;
 
-        let CommandResult { status, .. } = decode_command_event_stream(stream, None).await?;
+        let CommandResult { status, .. } = decode_command_event_stream(stream).await?;
         assert!(matches!(status, GatherOutputStatus::TimedOut(..)));
 
         assert!(*killed.lock().unwrap());
@@ -786,18 +810,24 @@ mod tests {
         cmd.args(["-c", "echo hello"]);
 
         let tempdir = tempfile::tempdir()?;
-        let stdout = tempdir.path().join("stdout");
-        let mut cmd = ProcessCommand::new(cmd, None);
-        cmd.stdout(std::fs::File::create(stdout.clone())?);
+        let stdout = AbsNormPathBuf::new(tempdir.path().join("stdout")).unwrap();
+        let stderr = AbsNormPathBuf::new(tempdir.path().join("stderr")).unwrap();
 
-        let process_group = cmd.spawn().map_err(buck2_error::Error::from);
-        let mut events = stream_command_events(
-            process_group,
+        let mut events = spawn_command_and_stream_events(
+            cmd,
+            None,
             futures::future::pending(),
             DefaultStatusDecoder,
             DefaultKillProcess::default(),
+            Some(StdRedirectPaths {
+                stdout: stdout.clone(),
+                stderr: stderr.clone(),
+            }),
             false,
-        )?
+            None,
+            futures::stream::pending(),
+        )
+        .await?
         .boxed();
         assert_matches!(events.next().await, Some(Ok(CommandEvent::Exit(..))));
         assert_matches!(futures::poll!(events.next()), Poll::Ready(None));

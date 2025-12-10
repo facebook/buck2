@@ -10,8 +10,6 @@
 
 package com.facebook.buck.core.util.graph;
 
-import com.facebook.buck.util.concurrent.AutoCloseableLocked;
-import com.facebook.buck.util.concurrent.AutoCloseableReadWriteLock;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableCollection;
@@ -25,8 +23,6 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.Objects;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
@@ -58,8 +54,7 @@ public class DirectedAcyclicGraph<T> implements TraversableGraph<T> {
   /**
    * Legacy constructor to convert form {@link MutableDirectedGraph}.
    *
-   * @deprecated Use {@link DirectedAcyclicGraph#serialBuilder()} or {@link
-   *     DirectedAcyclicGraph#concurrentBuilder()} to build a graph.
+   * @deprecated Use {@link DirectedAcyclicGraph#serialBuilder()} to build a graph.
    */
   @Deprecated
   @SuppressWarnings({"unchecked", "rawtypes"})
@@ -149,26 +144,18 @@ public class DirectedAcyclicGraph<T> implements TraversableGraph<T> {
   }
 
   public static <T> Builder<T> serialBuilder() {
-    return new DirectedAcyclicGraph.SingleThreadedBuilder<>();
+    return new DirectedAcyclicGraph.Builder<>();
   }
 
-  public static <T> Builder<T> concurrentBuilder() {
-    return new DirectedAcyclicGraph.MultiThreadedBuilder<>();
-  }
-
-  /** Base class for graph builders which avoid copying intermediate sets/maps. */
-  public abstract static class Builder<T> {
+  public static class Builder<T> {
 
     // To avoid copying, we only support a single use of this builder.
     protected boolean finished = false;
 
-    protected Collection<T> nodes;
-    protected Map<T, Collection<T>> outgoingEdges;
+    protected Collection<T> nodes = new ArrayList<>();
+    protected Map<T, Collection<T>> outgoingEdges = new HashMap<>();
 
-    public Builder(Collection<T> nodes, Map<T, Collection<T>> outgoingEdges) {
-      this.nodes = nodes;
-      this.outgoingEdges = outgoingEdges;
-    }
+    private Builder() {}
 
     /** Insert node into the graph. */
     public Builder<T> addNode(T node) {
@@ -226,52 +213,6 @@ public class DirectedAcyclicGraph<T> implements TraversableGraph<T> {
       this.outgoingEdges = null;
 
       return new DirectedAcyclicGraph<>(nodes, outgoingEdges);
-    }
-  }
-
-  /** Builder optimized for single-threaded use. */
-  private static class SingleThreadedBuilder<T> extends Builder<T> {
-    private SingleThreadedBuilder() {
-      super(new ArrayList<>(), new HashMap<>());
-    }
-  }
-
-  /** A thread-safe builder. */
-  private static class MultiThreadedBuilder<T> extends Builder<T> {
-
-    // Lock to make sure concurrent invocations can't modify collections while `build()` is running.
-    private final AutoCloseableReadWriteLock lock = new AutoCloseableReadWriteLock();
-
-    private MultiThreadedBuilder() {
-      super(new ConcurrentLinkedQueue<>(), new ConcurrentHashMap<>());
-    }
-
-    @Override
-    protected void putEdge(Collection<T> edges, T edge) {
-      synchronized (edges) {
-        super.putEdge(edges, edge);
-      }
-    }
-
-    @Override
-    public Builder<T> addNode(T node) {
-      try (AutoCloseableLocked readLock = lock.lockRead()) {
-        return super.addNode(node);
-      }
-    }
-
-    @Override
-    public Builder<T> addEdge(T source, T sink) {
-      try (AutoCloseableLocked readLock = lock.lockRead()) {
-        return super.addEdge(source, sink);
-      }
-    }
-
-    @Override
-    public DirectedAcyclicGraph<T> build() {
-      try (AutoCloseableLocked writeLock = lock.lockWrite()) {
-        return super.build();
-      }
     }
   }
 }

@@ -9,7 +9,6 @@
 import json
 import unittest
 from tempfile import NamedTemporaryFile
-from typing import Dict, List
 
 from .spec import BuildTargetPatternOutputPathMatcher, Spec
 
@@ -96,7 +95,7 @@ def _get_spec(test_spec) -> Spec:
         return Spec(tmp.name)
 
 
-def _base_spec() -> Dict[str, List[str]]:
+def _base_spec() -> dict[str, list[str]]:
     return {
         "include_build_target_patterns": [],
         "include_regular_expressions": [],

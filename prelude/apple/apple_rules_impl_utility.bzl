@@ -28,6 +28,9 @@ AppleFrameworkBundleModuleMapType = ["auto"]
 def get_apple_bundle_toolchain_attr():
     return attrs.toolchain_dep(default = "toolchains//:apple-bundle", providers = [AppleToolchainInfo])
 
+def get_apple_resources_toolchain_attr():
+    return attrs.toolchain_dep(default = "toolchains//:apple-resources", providers = [AppleToolchainInfo])
+
 def get_apple_xctoolchain_attr():
     return attrs.toolchain_dep(default = "toolchains//:apple-xctoolchain")
 
@@ -38,12 +41,6 @@ def get_enable_library_evolution():
     return attrs.bool(default = select({
         "DEFAULT": False,
         "config//features/apple:swift_library_evolution_enabled": True,
-    }))
-
-def _get_enable_dsym_uses_parallel_linker():
-    return attrs.bool(default = select({
-        "DEFAULT": False,
-        "config//features/apple:dsym_uses_parallel_linker_enabled": True,
     }))
 
 def _strict_provisioning_profile_search_default_attr():
@@ -84,13 +81,6 @@ APPLE_EMBED_PROVISIONING_PROFILE_WHEN_ADHOC_CODE_SIGNING_ATTR_NAME = "embed_prov
 APPLE_VALIDATION_DEPS_ATTR_NAME = "validation_deps"
 APPLE_VALIDATION_DEPS_ATTR_TYPE = attrs.set(attrs.dep(), sorted = True, default = [])
 
-def apple_dsymutil_attrs():
-    return {
-        "dsym_uses_parallel_linker": _get_enable_dsym_uses_parallel_linker(),
-        "_dsymutil_extra_flags": attrs.list(attrs.string()),
-        "_dsymutil_verify_dwarf": attrs.string(),
-    }
-
 def get_apple_info_plist_build_system_identification_attrs():
     return {
         "info_plist_identify_build_system": attrs.option(attrs.bool(), default = None),
@@ -110,6 +100,11 @@ def get_swift_incremental_file_hashing_attrs():
 def get_swift_incremental_remote_outputs_attrs():
     return {
         "incremental_remote_outputs": attrs.bool(default = read_bool("apple", "incremental_remote_outputs", False, False, True)),
+    }
+
+def get_swift_incremental_logging_attrs():
+    return {
+        "swift_incremental_logging": attrs.bool(default = read_bool("apple", "swift_incremental_logging_enabled", False, False, True)),
     }
 
 def _apple_bundle_like_common_attrs():
@@ -151,7 +146,6 @@ def _apple_bundle_like_common_attrs():
         XCODE_SCHEME_SETTINGS_ATTR_NAME: XCODE_SCHEME_SETTINGS_ATTR_TYPE,
     }
     attribs.update(get_apple_info_plist_build_system_identification_attrs())
-    attribs.update(apple_dsymutil_attrs())
     attribs.update(apple_common.apple_tools_arg())
     attribs.update(apple_common.enforce_minimum_os_plist_key())
     return attribs
@@ -168,8 +162,8 @@ def apple_test_extra_attrs():
         "extension": attrs.string(),
         "link_execution_preference": link_execution_preference_attr(),
         "link_ordering": attrs.option(attrs.enum(LinkOrdering.values()), default = None),
+        "minimum_os_version": attrs.option(attrs.string(), default = None),
         "precompiled_header": attrs.option(attrs.dep(providers = [CPrecompiledHeaderInfo]), default = None),
-        "propagated_target_sdk_version": attrs.option(attrs.string(), default = None),
         # Expected by `apple_bundle`, for `apple_test` this field is always None.
         "resource_group": attrs.option(attrs.string(), default = None),
         # Expected by `apple_bundle`, for `apple_test` this field is always None.
@@ -197,6 +191,7 @@ def apple_test_extra_attrs():
     attribs.update(apple_common.apple_toolchain_arg())
     attribs.update(_apple_bundle_like_common_attrs())
     attribs.update(get_swift_incremental_file_hashing_attrs())
+    attribs.update(get_swift_incremental_logging_attrs())
     attribs.update(get_skip_swift_incremental_outputs_attrs())
     return attribs
 
@@ -211,15 +206,13 @@ def apple_xcuitest_extra_attrs():
         "incremental_bundling_enabled": attrs.bool(default = False),
         "info_plist": attrs.source(),
         "info_plist_substitutions": attrs.dict(key = attrs.string(), value = attrs.string(), sorted = False, default = {}),
-        "target_sdk_version": attrs.option(attrs.string(), default = None),
         # The test bundle to package in the UI test runner app.
         "test_bundle": attrs.dep(),
         "_enable_library_evolution": get_enable_library_evolution(),
     }
+    attribs.update(apple_common.target_sdk_version())
     attribs.update(apple_common.apple_toolchain_arg())
     attribs.update(_apple_bundle_like_common_attrs())
-    attribs.pop("_dsymutil_extra_flags", None)
-    attribs.pop("_dsymutil_verify_dwarf", None)
 
     return attribs
 
@@ -237,8 +230,8 @@ def apple_bundle_extra_attrs():
         "bundle_type": attrs.option(attrs.enum(AppleBundleTypeAttributeType.values()), default = None),
         "copy_public_framework_headers": attrs.option(attrs.bool(), default = None),
         "embed_xctest_frameworks": attrs.bool(default = _embed_xctest_frameworks_default_value()),
+        "minimum_os_version": attrs.option(attrs.string(), default = None),
         "module_map": attrs.option(attrs.one_of(attrs.enum(AppleFrameworkBundleModuleMapType), attrs.source()), default = None),
-        "propagated_target_sdk_version": attrs.option(attrs.string(), default = None),
         "resource_group_map": RESOURCE_GROUP_MAP_ATTR,
         "selective_debugging": attrs.option(attrs.dep(providers = [AppleSelectiveDebuggingInfo]), default = None),
         "split_arch_dsym": attrs.bool(default = False),

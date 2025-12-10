@@ -19,6 +19,8 @@ def _go_toolchain_impl(ctx):
                     ctx.attrs.go_wrapper[RunInfo],
                     ["--go", go_distr.bin_go],
                     ["--goroot", go_distr.go_root],
+                    ["--default-goarch", ctx.attrs.env_go_arch],
+                    ["--default-goos", ctx.attrs.env_go_os],
                     "--",
                 )),
             ]},

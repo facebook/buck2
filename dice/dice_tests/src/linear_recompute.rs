@@ -12,12 +12,12 @@ use std::hash::Hash;
 
 use allocative::Allocative;
 use async_trait::async_trait;
-use buck2_futures::cancellation::CancellationContext;
 use derive_more::Display;
 use dice::DetectCycles;
 use dice::Dice;
 use dice::DiceComputations;
 use dice::Key;
+use dice_futures::cancellation::CancellationContext;
 use futures::future::FutureExt;
 
 #[tokio::test]

@@ -1,0 +1,19 @@
+[package]
+edition = "2024"
+license = { workspace = true }
+name = "dice_futures"
+repository = { workspace = true }
+version = "0.1.0"
+
+[dependencies]
+dupe = { workspace = true }
+futures = "0.3"
+once_cell = { workspace = true }
+parking_lot = { workspace = true }
+pin-project = "0.4"
+slab = "0.4.7"
+thiserror = { workspace = true }
+tokio = { version = "1.5", features = ["full"] }
+
+[dev-dependencies]
+assert_matches = { workspace = true }

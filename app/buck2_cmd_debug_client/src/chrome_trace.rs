@@ -26,7 +26,6 @@ use buck2_client_ctx::events_ctx::EventsCtx;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::path_arg::PathArg;
 use buck2_common::convert::ProstDurationExt;
-use buck2_core::fs::paths::abs_path::AbsPathBuf;
 use buck2_error::BuckErrorContext;
 use buck2_error::buck2_error;
 use buck2_event_log::read::EventLogPathBuf;
@@ -35,6 +34,7 @@ use buck2_event_log::utils::Invocation;
 use buck2_event_observer::display;
 use buck2_event_observer::display::TargetDisplayOptions;
 use buck2_events::BuckEvent;
+use buck2_fs::paths::abs_path::AbsPathBuf;
 use derive_more::Display;
 use dupe::Dupe;
 use futures::TryStreamExt;
@@ -887,8 +887,28 @@ impl ChromeTraceWriter {
                     }
                     self.snapshot_counters.set(
                         event.timestamp(),
+                        "deferred_materializer_queue_size",
+                        snapshot.deferred_materializer_queue_size,
+                    )?;
+                    self.snapshot_counters.set(
+                        event.timestamp(),
                         "blocking_executor_io_queue_size",
                         snapshot.blocking_executor_io_queue_size,
+                    )?;
+                    self.snapshot_counters.set(
+                        event.timestamp(),
+                        "tokio_blocking_queue_depth",
+                        snapshot.tokio_blocking_queue_depth,
+                    )?;
+                    self.snapshot_counters.set(
+                        event.timestamp(),
+                        "tokio_num_blocking_threads",
+                        snapshot.tokio_num_blocking_threads,
+                    )?;
+                    self.snapshot_counters.set(
+                        event.timestamp(),
+                        "tokio_num_idle_blocking_threads",
+                        snapshot.tokio_num_idle_blocking_threads,
                     )?;
                     for (nic, stats) in &snapshot.network_interface_stats {
                         self.rate_of_change_counters
@@ -922,6 +942,14 @@ impl ChromeTraceWriter {
                             "http_download_bytes",
                             snapshot.http_download_bytes,
                         )?;
+                } else if let buck2_data::instant_event::Data::ResourceControlEvents(events) =
+                    instant_data
+                {
+                    self.snapshot_counters.set(
+                        event.timestamp(),
+                        "allprocs_memory_pressure",
+                        events.allprocs_memory_pressure,
+                    )?
                 }
             }
             // Data field is oneof and `None` means the event is produced with newer version of `.proto` file

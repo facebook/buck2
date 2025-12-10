@@ -99,8 +99,27 @@ impl<'v> StarlarkValue<'v> for ArtifactTag {
     }
 }
 
+/// An `ArtifactTag` is used to associate inputs and outputs in an action.
+/// Tags are typically used with dependency files (dep files) to track which inputs are actually used
+/// during action execution, enabling more accurate incremental builds.
+///
+/// For complete documentation including examples and the full workflow, see
+/// [`ctx.actions.artifact_tag()`](../AnalysisActions#analysisactionsartifact_tag).
 #[starlark_module]
 fn artifact_tag_methods(_: &mut MethodsBuilder) {
+    /// Tag both input and output artifacts with this tag.
+    ///
+    /// When artifacts are tagged, artifact visitors (like those used during action execution)
+    /// can identify which artifacts belong to which category. This is commonly used with the
+    /// `dep_files` parameter in `ctx.actions.run()` to associate inputs with their dependency files.
+    ///
+    /// Args:
+    ///     inner: The artifact(s) or command line arguments. Can be a single artifact,
+    ///            a list of artifacts, or cmd_args containing artifacts.
+    ///
+    /// Returns:
+    ///     The tagged value. If `inner` is command-line-like, returns a tagged command line;
+    ///     otherwise returns a tagged value.
     fn tag_artifacts<'v>(
         this: &ArtifactTag,
         inner: Value<'v>,
@@ -114,6 +133,18 @@ fn artifact_tag_methods(_: &mut MethodsBuilder) {
         })
     }
 
+    /// Tag only input artifacts with this tag (outputs are not tagged).
+    ///
+    /// This is similar to `tag_artifacts()`, but only applies the tag to input artifacts.
+    /// This is useful when you want to track inputs separately from outputs.
+    ///
+    /// Args:
+    ///     inner: The artifact(s) or command line arguments. Can be a single artifact,
+    ///            a list of artifacts, or cmd_args containing artifacts.
+    ///
+    /// Returns:
+    ///     The tagged value with tags applied only to inputs. If `inner` is command-line-like,
+    ///     returns a tagged command line; otherwise returns a tagged value.
     fn tag_inputs<'v>(
         this: &ArtifactTag,
         inner: Value<'v>,

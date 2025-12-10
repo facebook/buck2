@@ -151,6 +151,8 @@ def _java_toolchain_impl(ctx):
             nullsafe = None,
             nullsafe_extra_args = [],
             nullsafe_signatures = None,
+            semanticdb_javac = None,
+            semanticdb_sourceroot = None,
             global_code_config = {},
             merge_class_to_source_maps = ctx.attrs.merge_class_to_source_maps,
             source_level = ctx.attrs.source_level,

@@ -8,7 +8,7 @@
 
 load(":types.bzl", "ConditionalModifierInfo", "Modifier", "ModifiersMatch", "ModifiersMatchInfo")
 
-def _get_constraint_setting(constraint_settings: dict[TargetLabel, None], modifier: ModifiersMatch) -> TargetLabel:
+def _get_constraint_setting(constraint_settings: set[TargetLabel], modifier: ModifiersMatch) -> TargetLabel:
     if len(constraint_settings) == 0:
         fail("Conditional modifier cannot be empty. Found empty modifier `{}`".format(modifier))
     if len(constraint_settings) > 1:
@@ -16,9 +16,9 @@ def _get_constraint_setting(constraint_settings: dict[TargetLabel, None], modifi
             "A single modifier can only modify a single constraint setting.\n" +
             "Modifier `{}` is found to modify the following constraint settings:\n".format(
                 modifier,
-            ) + "\n".join([str(k) for k in constraint_settings.keys()]),
+            ) + "\n".join([str(k) for k in constraint_settings]),
         )
-    return list(constraint_settings.keys())[0]
+    return list(constraint_settings)[0]
 
 def get_modifier_info(
         modifier: Modifier,
@@ -35,19 +35,19 @@ def get_modifier_info(
 
     default = None
     modifiers_match_info = []
-    constraint_settings = {}  # Used like a set
+    constraint_settings = set()
 
     for key, sub_modifier in modifier.items():
         if key == "DEFAULT":
             if sub_modifier:
                 sub_modifier_info = get_modifier_info(sub_modifier, key_to_provider, value_to_provider)
-                constraint_settings[sub_modifier_info.key] = None
+                constraint_settings.add(sub_modifier_info.key)
                 default = sub_modifier_info.inner
         else:
             cfg_info = key_to_provider[key]
             if sub_modifier:
                 sub_modifier_info = get_modifier_info(sub_modifier, key_to_provider, value_to_provider)
-                constraint_settings[sub_modifier_info.key] = None
+                constraint_settings.add(sub_modifier_info.key)
                 sub_modifier_info = sub_modifier_info.inner
             else:
                 sub_modifier_info = None
@@ -62,9 +62,18 @@ def get_modifier_info(
         ),
     )
 
+# currently we don't have the method can directly convert the ConfiguredProvidersLabel to ProvidersLabel
+# TODO(nero): after we provide such api, clean this.
+def _configured_providers_label_to_providers_label(label: ConfiguredProvidersLabel) -> ProvidersLabel:
+    sub_target_name = label.sub_target
+    if sub_target_name == None:
+        sub_target_name = []
+    target_label = label.raw_target()
+    return target_label.with_sub_target(sub_target_name)
+
 def _impl(ctx: AnalysisContext) -> list[Provider]:
-    key_to_provider = {str(dep.label.raw_target()): dep.get(ConfigurationInfo) for dep in ctx.attrs._conditional_keys}
-    value_to_provider = {str(dep.label.raw_target()): dep.get(ConditionalModifierInfo) for dep in ctx.attrs._conditional_values}
+    key_to_provider = {str(_configured_providers_label_to_providers_label(dep.label)): dep.get(ConfigurationInfo) for dep in ctx.attrs._conditional_keys}
+    value_to_provider = {str(_configured_providers_label_to_providers_label(dep.label)): dep.get(ConditionalModifierInfo) for dep in ctx.attrs._conditional_values}
     conditional_modifier_info = get_modifier_info(ctx.attrs.modifier, key_to_provider, value_to_provider)
     return [DefaultInfo(), conditional_modifier_info]
 
@@ -75,7 +84,7 @@ _conditional_modifier = rule(
         This is a private rule. You want to instantiate it through  the `conditional_modifier` function wrapper.
 
         The conditional modifier allows one to express a modifier in a dictionary form similar to a select, where
-        each key in the dictionary is a set of constraints to match on and each value in the dictionary is a modifier. 
+        each key in the dictionary is a set of constraints to match on and each value in the dictionary is a modifier.
 
         For example, below is a modifier for expressing "msvc if windows else clang".
 
@@ -84,12 +93,12 @@ _conditional_modifier = rule(
             name = "clang-msvc",
             modifier = {
                 "DEFAULT": "prelude//constraints/compiler:clang",
-                "prelude//constraints/os:windows": "prelude//constraints/compiler:msvc", 
+                "prelude//constraints/os:windows": "prelude//constraints/compiler:msvc",
             },
         )
         ```
 
-        A conditional modifier can be nested similar to a nested select. 
+        A conditional modifier can be nested similar to a nested select.
 
         ```python
         conditional_modifier(

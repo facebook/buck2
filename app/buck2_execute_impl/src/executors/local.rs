@@ -13,8 +13,6 @@ use std::ffi::OsString;
 use std::ops::ControlFlow;
 use std::process::Command;
 use std::sync::Arc;
-use std::sync::atomic::AtomicI32;
-use std::sync::atomic::Ordering;
 use std::time::Duration;
 use std::time::Instant;
 use std::time::SystemTime;
@@ -24,13 +22,11 @@ use async_trait::async_trait;
 use buck2_common::file_ops::metadata::FileDigestConfig;
 use buck2_common::liveliness_observer::LivelinessObserver;
 use buck2_common::liveliness_observer::LivelinessObserverExt;
+use buck2_common::liveliness_observer::NoopLivelinessObserver;
 use buck2_common::local_resource_state::LocalResourceHolder;
 use buck2_core::content_hash::ContentBasedPathHash;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_core::fs::buck_out_path::BuildArtifactPath;
-use buck2_core::fs::fs_util;
-use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
-use buck2_core::fs::paths::abs_path::AbsPath;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_core::soft_error;
@@ -38,6 +34,7 @@ use buck2_core::tag_error;
 use buck2_core::tag_result;
 use buck2_error::BuckErrorContext;
 use buck2_error::buck2_error;
+use buck2_events::daemon_id::DaemonId;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_events::dispatch::get_dispatcher_opt;
 use buck2_execute::artifact_utils::ArtifactValueBuilder;
@@ -73,86 +70,46 @@ use buck2_execute::materialize::materializer::DeclareArtifactPayload;
 use buck2_execute::materialize::materializer::MaterializationError;
 use buck2_execute::materialize::materializer::Materializer;
 use buck2_execute_local::CommandResult;
+use buck2_execute_local::DefaultKillProcess;
 use buck2_execute_local::GatherOutputStatus;
-use buck2_execute_local::gather_output;
+use buck2_execute_local::decode_command_event_stream;
 use buck2_execute_local::maybe_absolutize_exe;
-use buck2_execute_local::timeout_into_cancellation;
-use buck2_futures::cancellation::CancellationContext;
-use buck2_futures::cancellation::CancellationObserver;
+use buck2_execute_local::spawn_command_and_stream_events;
+use buck2_execute_local::status_decoder::DefaultStatusDecoder;
+use buck2_fs::async_fs_util;
+use buck2_fs::fs_util;
+use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
+use buck2_fs::paths::abs_path::AbsPath;
+use buck2_resource_control::ActionFreezeEvent;
+use buck2_resource_control::ActionFreezeEventReceiver;
 use buck2_resource_control::CommandType;
+use buck2_resource_control::action_cgroups::ActionCgroupSession;
+use buck2_resource_control::memory_tracker::MemoryTrackerHandle;
+use buck2_resource_control::path::CgroupPathBuf;
 use buck2_util::process::background_command;
 use derive_more::From;
+use dice_futures::cancellation::CancellationContext;
+use dice_futures::cancellation::CancellationObserver;
 use dupe::Dupe;
 use futures::future;
+use futures::future::Either;
 use futures::future::FutureExt;
+use futures::future::Shared;
 use futures::future::join_all;
-use futures::future::select;
 use futures::stream::StreamExt;
 use gazebo::prelude::*;
 use host_sharing::HostSharingBroker;
 use host_sharing::HostSharingRequirements;
 use host_sharing::host_sharing::HostSharingGuard;
 use indexmap::IndexMap;
+use tokio_stream::wrappers::UnboundedReceiverStream;
 use tracing::info;
-use uuid::Uuid;
 
 use crate::executors::worker::WorkerHandle;
 use crate::executors::worker::WorkerPool;
 use crate::incremental_actions_helper::get_incremental_path_map;
 use crate::incremental_actions_helper::save_content_based_incremental_state;
 use crate::sqlite::incremental_state_db::IncrementalDbState;
-
-pub struct LocalActionCounter {
-    curr_count: AtomicI32,
-    prev_sent: AtomicI32,
-}
-
-impl LocalActionCounter {
-    pub fn new() -> Arc<Self> {
-        let counter = Arc::new(Self {
-            curr_count: AtomicI32::new(0),
-            prev_sent: AtomicI32::new(0),
-        });
-
-        let state = counter.dupe();
-
-        match get_dispatcher_opt() {
-            Some(dispatcher) => {
-                tokio::task::spawn(async move {
-                    counter.log_loop(&dispatcher).await;
-                });
-            }
-            None => info!("No dispatcher available"),
-        };
-
-        state
-    }
-
-    fn increment(&self) {
-        self.curr_count.fetch_add(1, Ordering::Relaxed);
-    }
-
-    fn decrement(&self) {
-        self.curr_count.fetch_sub(1, Ordering::Relaxed);
-    }
-
-    pub async fn log_loop(&self, dispatcher: &EventDispatcher) {
-        info!("Starting local action counter logging loop");
-        let mut timer = tokio::time::interval(Duration::from_secs(1));
-        timer.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
-        loop {
-            timer.tick().await;
-            let count = self.curr_count.load(Ordering::Relaxed);
-            let prev_value = self.prev_sent.swap(count, Ordering::Relaxed);
-
-            if prev_value != count {
-                dispatcher.instant_event(buck2_data::LocalActionRunningCount {
-                    count: count as u32,
-                });
-            }
-        }
-    }
-}
 
 #[derive(Debug, buck2_error::Error)]
 #[buck2(input)]
@@ -183,7 +140,8 @@ pub struct LocalExecutor {
     #[allow(unused)]
     knobs: ExecutorGlobalKnobs,
     worker_pool: Option<Arc<WorkerPool>>,
-    local_action_counter: Option<Arc<LocalActionCounter>>,
+    memory_tracker: Option<MemoryTrackerHandle>,
+    daemon_id: DaemonId,
 }
 
 impl LocalExecutor {
@@ -197,7 +155,8 @@ impl LocalExecutor {
         forkserver: ForkserverAccess,
         knobs: ExecutorGlobalKnobs,
         worker_pool: Option<Arc<WorkerPool>>,
-        local_action_counter: Option<Arc<LocalActionCounter>>,
+        memory_tracker: Option<MemoryTrackerHandle>,
+        daemon_id: DaemonId,
     ) -> Self {
         Self {
             artifact_fs,
@@ -209,7 +168,8 @@ impl LocalExecutor {
             forkserver,
             knobs,
             worker_pool,
-            local_action_counter,
+            memory_tracker,
+            daemon_id,
         }
     }
 
@@ -225,19 +185,13 @@ impl LocalExecutor {
         env_inheritance: Option<&'a EnvironmentInheritance>,
         liveliness_observer: impl LivelinessObserver + 'static,
         disable_miniperf: bool,
-        action_digest: &'a str,
-        cgroup_command_id: &'a str,
-        command_type: CommandType,
-        dispatcher: EventDispatcher,
+        cgroup: Option<CgroupPathBuf>,
+        freeze_rx: impl ActionFreezeEventReceiver,
     ) -> impl futures::future::Future<Output = buck2_error::Result<CommandResult>> + Send + 'a {
         async move {
-            if let Some(counter) = self.local_action_counter.as_ref() {
-                counter.increment()
-            }
-
             let working_directory = self.root.join_cow(working_directory);
 
-            let result = match &self.forkserver {
+            match &self.forkserver {
                 #[cfg(unix)]
                 ForkserverAccess::Client(forkserver) => {
                     unix::exec_via_forkserver(
@@ -250,18 +204,13 @@ impl LocalExecutor {
                         env_inheritance,
                         liveliness_observer,
                         self.knobs.enable_miniperf && !disable_miniperf,
-                        action_digest,
-                        cgroup_command_id,
-                        command_type,
-                        dispatcher,
+                        cgroup,
+                        freeze_rx,
                     )
                     .await
                 }
                 ForkserverAccess::None => {
                     let _disable_miniperf = disable_miniperf;
-                    let _cgroup_command_id = cgroup_command_id;
-                    let _command_type = command_type;
-                    let _action_digest = action_digest;
                     let exe = maybe_absolutize_exe(exe, &working_directory)?;
                     let mut cmd = background_command(exe.as_ref());
                     cmd.current_dir(working_directory.as_path());
@@ -272,26 +221,280 @@ impl LocalExecutor {
                         env,
                         env_inheritance,
                     );
-                    let timeout = timeout_into_cancellation(timeout);
 
                     let alive = liveliness_observer
                         .while_alive()
                         .map(|()| Ok(GatherOutputStatus::Cancelled));
 
-                    let cancellation =
-                        select(timeout.boxed(), alive.boxed()).map(|r| r.factor_first().0);
-
-                    gather_output(cmd, cancellation).await
+                    let stream = spawn_command_and_stream_events(
+                        cmd,
+                        timeout,
+                        alive,
+                        DefaultStatusDecoder,
+                        DefaultKillProcess::default(),
+                        None,
+                        true,
+                        cgroup,
+                        freeze_rx,
+                    )
+                    .await?;
+                    decode_command_event_stream(stream).await
                 }
                 .with_buck_error_context(|| format!("Failed to gather output from command: {exe}")),
+            }
+        }
+    }
+
+    async fn exec_once(
+        &self,
+        action_digest: &ActionDigest,
+        request: &CommandExecutionRequest,
+        manager: CommandExecutionManagerWithClaim,
+        cancellations: &CancellationContext,
+        liveliness_observer: impl LivelinessObserver + 'static,
+        scratch_path: &ScratchPath,
+        args: &[String],
+        worker: Option<&WorkerHandle>,
+        env: &[(&str, StrOrOsStr<'_>)],
+        cgroup: Option<CgroupPathBuf>,
+        freeze_rx: impl ActionFreezeEventReceiver,
+    ) -> Result<
+        (
+            Duration,
+            SystemTime,
+            CommandResult,
+            CommandExecutionManagerWithClaim,
+        ),
+        CommandExecutionResult,
+    > {
+        if let Err(e) = executor_stage_async(
+            buck2_data::LocalStage {
+                stage: Some(buck2_data::LocalPrepareOutputDirs {}.into()),
+            },
+            async {
+                tokio::try_join!(
+                    create_output_dirs(
+                        &self.artifact_fs,
+                        request,
+                        self.materializer.dupe(),
+                        self.blocking_executor.dupe(),
+                        cancellations,
+                    ),
+                    prep_scratch_path(&scratch_path, &self.artifact_fs),
+                )
+                .buck_error_context("Error creating output directories")?;
+
+                buck2_error::Ok(())
+            },
+        )
+        .boxed()
+        .await
+        {
+            return Err(manager.error("prepare_output_dirs_failed", e));
+        };
+
+        let (execution_time, start_time, res) = executor_stage_async(
+            {
+                let env = env
+                    .iter()
+                    .copied()
+                    .map(|(k, v)| buck2_data::EnvironmentEntry {
+                        key: k.to_owned(),
+                        value: v.into_string_lossy(),
+                    })
+                    .collect();
+
+                let stage = match worker {
+                    None => buck2_data::LocalExecute {
+                        command: Some(buck2_data::LocalCommand {
+                            action_digest: action_digest.to_string(),
+                            argv: args.to_vec(),
+                            env,
+                        }),
+                    }
+                    .into(),
+                    Some(_) => buck2_data::WorkerExecute {
+                        command: Some(buck2_data::WorkerCommand {
+                            action_digest: action_digest.to_string(),
+                            argv: request.args().to_vec(),
+                            env,
+                            fallback_exe: request.exe().to_vec(),
+                        }),
+                    }
+                    .into(),
+                };
+                buck2_data::LocalStage { stage: Some(stage) }
+            },
+            async move {
+                let execution_start = Instant::now();
+                let start_time = SystemTime::now();
+
+                let env = env.iter().map(|(k, v)| (k, v.into_os_str()));
+                let r = if let Some(worker) = worker {
+                    let env: Vec<(OsString, OsString)> = env
+                        .into_iter()
+                        .map(|(k, v)| (OsString::from(k), v.to_owned()))
+                        .collect();
+                    Ok(worker
+                        .exec_cmd(request.args(), env, request.timeout())
+                        .await)
+                } else {
+                    self.exec(
+                        &args[0],
+                        &args[1..],
+                        env,
+                        request.working_directory(),
+                        request.timeout(),
+                        request.local_environment_inheritance(),
+                        liveliness_observer,
+                        request.disable_miniperf(),
+                        cgroup,
+                        freeze_rx,
+                    )
+                    .await
+                };
+
+                let execution_time = Instant::now() - execution_start;
+
+                (execution_time, start_time, r)
+            },
+        )
+        .boxed()
+        .await;
+
+        match res {
+            Ok(res) => Ok((execution_time, start_time, res, manager)),
+            Err(e) => Err(manager.error("exec_failed", e)),
+        }
+    }
+
+    async fn exec_with_resource_control(
+        &self,
+        action_digest: &ActionDigest,
+        request: &CommandExecutionRequest,
+        mut manager: CommandExecutionManagerWithClaim,
+        cancellations: &CancellationContext,
+        liveliness_observer: impl LivelinessObserver + 'static,
+        scratch_path: &ScratchPath,
+        args: &[String],
+        worker: Option<&WorkerHandle>,
+        env: &[(&str, StrOrOsStr<'_>)],
+    ) -> Result<
+        (
+            Duration,
+            SystemTime,
+            CommandResult,
+            CommandExecutionManagerWithClaim,
+        ),
+        CommandExecutionResult,
+    > {
+        let (cgroup_session, mut start_future) = if worker.is_some() {
+            (None, None)
+        } else {
+            let command_type = if request.is_test() {
+                CommandType::Test
+            } else {
+                CommandType::Build
+            };
+            let disable_kill_and_retry_suspend = !request.outputs_cleanup;
+            match ActionCgroupSession::maybe_create(
+                &self.memory_tracker,
+                command_type,
+                Some(action_digest.to_string()),
+                disable_kill_and_retry_suspend,
+            )
+            .await
+            {
+                Ok(Some((session, start_future))) => (Some(session), Some(start_future)),
+                Ok(None) => (None, None),
+                Err(e) => return Err(manager.error("initializing_resource_control", e)),
+            }
+        };
+
+        let liveliness_observer: Arc<dyn LivelinessObserver> = Arc::new(liveliness_observer);
+
+        let mut res = loop {
+            let (kill_future, freeze_rx) = if let Some(start_future) = start_future {
+                start_future.0.await.ok().unzip()
+            } else {
+                (None, None)
+            };
+            let freeze_rx = match freeze_rx {
+                Some(x) => Either::Left(UnboundedReceiverStream::new(x)),
+                None => Either::Right(futures::stream::pending::<ActionFreezeEvent>()),
             };
 
-            if let Some(counter) = self.local_action_counter.as_ref() {
-                counter.decrement();
-            }
+            let retry_future = Arc::new(std::sync::Mutex::new(None));
 
-            result
+            let kill_observer = if let Some(kill_future) = kill_future {
+                let kill_awaiter = buck2_util::async_move_clone!(retry_future, {
+                    if let Ok(r) = kill_future.0.await {
+                        *retry_future.lock().unwrap() = Some(r);
+                    } else {
+                        // If the other end hung up for some reason, we definitely do not want to
+                        // treat that as indicating a kill, so never return from this future
+                        std::future::pending().await
+                    }
+                });
+
+                struct FutureLivelinessObserver<F: Future<Output = ()> + Send + Sync>(Shared<F>);
+
+                #[async_trait::async_trait]
+                impl<F: Future<Output = ()> + Send + Sync> LivelinessObserver for FutureLivelinessObserver<F> {
+                    async fn while_alive(&self) {
+                        self.0.clone().await
+                    }
+                }
+
+                Arc::new(FutureLivelinessObserver(kill_awaiter.shared()))
+                    as Arc<dyn LivelinessObserver>
+            } else {
+                Arc::new(NoopLivelinessObserver) as Arc<dyn LivelinessObserver>
+            };
+
+            let liveliness_observer = liveliness_observer.dupe().and(kill_observer);
+            let res = self
+                .exec_once(
+                    action_digest,
+                    request,
+                    manager,
+                    cancellations,
+                    liveliness_observer,
+                    scratch_path,
+                    args,
+                    worker,
+                    env,
+                    cgroup_session.as_ref().map(|s| s.path.clone()),
+                    freeze_rx,
+                )
+                .await;
+
+            let res = match res {
+                Ok((duration, start_time, status, res_manager)) => {
+                    if matches!(status.status, GatherOutputStatus::Cancelled) {
+                        let f = retry_future.lock().unwrap().take();
+                        if let Some(retry_future) = f {
+                            start_future = Some(retry_future);
+                            manager = res_manager;
+                            continue;
+                        }
+                    }
+                    Ok((duration, start_time, status, res_manager))
+                }
+                Err(e) => Err(e),
+            };
+
+            break res;
+        };
+
+        if let Some(mut cgroup_session) = cgroup_session {
+            let cgroup_res = cgroup_session.action_finished().await;
+            if let Ok(res) = &mut res {
+                res.2.cgroup_result = Some(cgroup_res);
+            }
         }
+
+        res
     }
 
     async fn exec_request(
@@ -355,7 +558,7 @@ impl LocalExecutor {
                 let scratch_path = r1?.scratch;
                 r2?;
 
-                buck2_error::Ok((scratch_path, start.elapsed()))
+                buck2_error::Ok((scratch_path, Instant::now() - start))
             },
         )
         .boxed()
@@ -371,40 +574,30 @@ impl LocalExecutor {
         // TODO: Release here.
         let manager = manager.claim().boxed().await;
 
-        let scratch_path = &scratch_path.0;
-
-        if let Err(e) = executor_stage_async(
-            buck2_data::LocalStage {
-                stage: Some(buck2_data::LocalPrepareOutputDirs {}.into()),
-            },
-            async move {
-                create_output_dirs(
-                    &self.artifact_fs,
-                    request,
-                    self.materializer.dupe(),
-                    self.blocking_executor.dupe(),
-                    cancellations,
-                )
-                .await
-                .buck_error_context("Error creating output directories")?;
-
-                buck2_error::Ok(())
-            },
-        )
-        .boxed()
-        .await
-        {
-            return manager.error("prepare_output_dirs_failed", e);
-        };
-
         info!(
             "Local execution command line:\n```\n$ {}\n```",
             args.join(" "),
         );
 
+        let dispatcher = match get_dispatcher_opt() {
+            Some(dispatcher) => dispatcher,
+            None => {
+                return manager.error(
+                    "no_dispatcher",
+                    buck2_error!(
+                        buck2_error::ErrorTag::DispatcherUnavailable,
+                        "No dispatcher available"
+                    ),
+                );
+            }
+        };
+        let build_id: &str = &dispatcher.trace_id().to_string();
+
+        let mut env = vec![];
+
         let scratch_path_abs;
 
-        let tmpdirs = if let Some(scratch_path) = scratch_path {
+        if let Some(scratch_path) = &scratch_path.0 {
             // For the $TMPDIR - important it is absolute
             scratch_path_abs = self.artifact_fs.fs().resolve(scratch_path);
 
@@ -420,64 +613,31 @@ impl LocalExecutor {
                         ),
                     );
                 }
-                vec![
-                    ("TEMP", scratch_path_abs.as_os_str()),
-                    ("TMP", scratch_path_abs.as_os_str()),
-                ]
+                env.push(("TEMP", StrOrOsStr::OsStr(scratch_path_abs.as_os_str())));
+                env.push(("TMP", StrOrOsStr::OsStr(scratch_path_abs.as_os_str())));
             } else {
-                vec![("TMPDIR", scratch_path_abs.as_os_str())]
+                env.push(("TMPDIR", StrOrOsStr::OsStr(scratch_path_abs.as_os_str())));
             }
-        } else {
-            vec![]
-        };
-
-        let local_resource_env_vars: Vec<(&str, StrOrOsStr)> = local_resource_holders
-            .iter()
-            .flat_map(|h| {
-                h.as_ref().0.iter().map(|env_var| {
-                    (
-                        env_var.key.as_str(),
-                        StrOrOsStr::from(env_var.value.as_str()),
-                    )
-                })
-            })
-            .collect();
-
-        let daemon_uuid: &str = &buck2_events::daemon_id::DAEMON_UUID.to_string();
-        let dispatcher = match get_dispatcher_opt() {
-            Some(dispatcher) => dispatcher,
-            None => {
-                return manager.error(
-                    "no_dispatcher",
-                    buck2_error!(
-                        buck2_error::ErrorTag::DispatcherUnavailable,
-                        "No dispatcher available"
-                    ),
-                );
-            }
-        };
-        let build_id: &str = &dispatcher.trace_id().to_string();
-
-        let iter_env = || {
-            tmpdirs
+        }
+        env.extend(
+            request
+                .env()
                 .iter()
-                .map(|(k, v)| (*k, StrOrOsStr::from(*v)))
-                .chain(
-                    request
-                        .env()
-                        .iter()
-                        .map(|(k, v)| (k.as_str(), StrOrOsStr::from(v.as_str()))),
+                .map(|(k, v)| (k.as_str(), StrOrOsStr::from(v.as_str()))),
+        );
+
+        env.extend(local_resource_holders.iter().flat_map(|h| {
+            h.as_ref().0.iter().map(|env_var| {
+                (
+                    env_var.key.as_str(),
+                    StrOrOsStr::from(env_var.value.as_str()),
                 )
-                .chain(local_resource_env_vars.iter().copied())
-                .chain(std::iter::once((
-                    "BUCK2_DAEMON_UUID",
-                    StrOrOsStr::from(daemon_uuid),
-                )))
-                .chain(std::iter::once((
-                    "BUCK_BUILD_ID",
-                    StrOrOsStr::from(build_id),
-                )))
-        };
+            })
+        }));
+        let daemon_id = self.daemon_id.to_string();
+        env.push(("BUCK2_DAEMON_UUID", StrOrOsStr::from(&*daemon_id)));
+        env.push(("BUCK_BUILD_ID", StrOrOsStr::from(build_id)));
+
         let liveliness_observer = manager.inner.liveliness_observer.dupe().and(cancellation);
 
         let (worker, manager) = self
@@ -499,105 +659,43 @@ impl LocalExecutor {
             },
         };
 
-        let (mut timing, res) = executor_stage_async(
-            {
-                let env = iter_env()
-                    .map(|(k, v)| buck2_data::EnvironmentEntry {
-                        key: k.to_owned(),
-                        value: v.into_string_lossy(),
-                    })
-                    .collect();
-
-                let stage = match worker {
-                    None => buck2_data::LocalExecute {
-                        command: Some(buck2_data::LocalCommand {
-                            action_digest: action_digest.to_string(),
-                            argv: args.to_vec(),
-                            env,
-                        }),
-                    }
-                    .into(),
-                    Some(_) => buck2_data::WorkerExecute {
-                        command: Some(buck2_data::WorkerCommand {
-                            action_digest: action_digest.to_string(),
-                            argv: request.args().to_vec(),
-                            env,
-                            fallback_exe: request.exe().to_vec(),
-                        }),
-                    }
-                    .into(),
-                };
-                buck2_data::LocalStage { stage: Some(stage) }
-            },
-            async move {
-                let execution_start = Instant::now();
-                let start_time = SystemTime::now();
-
-                let env = iter_env().map(|(k, v)| (k, v.into_os_str()));
-                let r = if let Some(worker) = worker {
-                    let env: Vec<(OsString, OsString)> = env
-                        .into_iter()
-                        .map(|(k, v)| (OsString::from(k), v.to_owned()))
-                        .collect();
-                    Ok(worker
-                        .exec_cmd(request.args(), env, request.timeout())
-                        .await)
-                } else {
-                    let cgroup_command_id = Uuid::new_v4().to_string();
-                    let command_type = if request.is_test() {
-                        CommandType::Test
-                    } else {
-                        CommandType::Build
-                    };
-                    self.exec(
-                        &args[0],
-                        &args[1..],
-                        env,
-                        request.working_directory(),
-                        request.timeout(),
-                        request.local_environment_inheritance(),
-                        liveliness_observer,
-                        request.disable_miniperf(),
-                        &action_digest.to_string(),
-                        &cgroup_command_id,
-                        command_type,
-                        dispatcher,
-                    )
-                    .await
-                };
-
-                let execution_time = execution_start.elapsed();
-
-                let timing = Box::new(CommandExecutionMetadata {
-                    wall_time: execution_time,
-                    execution_time,
-                    start_time,
-                    execution_stats: None, // We fill this in later if available.
-                    input_materialization_duration,
-                    hashing_duration: Duration::ZERO, // We fill hashing info in later if available.
-                    hashed_artifacts_count: 0,
-                    queue_duration: None,
-                    was_frozen: false, // Will fill in later if avalable
-                    freeze_duration: None,
-                });
-
-                (timing, r)
-            },
-        )
-        .boxed()
-        .await;
+        let (execution_time, start_time, res, manager) = match self
+            .exec_with_resource_control(
+                action_digest,
+                request,
+                manager,
+                cancellations,
+                liveliness_observer,
+                &scratch_path,
+                args,
+                worker.as_deref(),
+                &env,
+            )
+            .await
+        {
+            Ok(x) => x,
+            Err(e) => return e,
+        };
 
         let CommandResult {
             status,
             stdout,
             stderr,
             cgroup_result,
-        } = match res {
-            Ok(res) => res,
-            Err(e) => {
-                return manager.error("exec_failed", e);
-            }
-        };
+        } = res;
+
+        let mut timing = Box::new(CommandExecutionMetadata {
+            wall_time: execution_time,
+            execution_time,
+            start_time,
+            execution_stats: None, // We fill this in later if available.
+            input_materialization_duration,
+            hashing_duration: Duration::ZERO, // We fill hashing info in later if available.
+            hashed_artifacts_count: 0,
+            queue_duration: None,
+            suspend_duration: None,
+            suspend_count: None,
+        });
 
         let std_streams = CommandStdStreams::Local { stdout, stderr };
 
@@ -617,16 +715,28 @@ impl LocalExecutor {
                     }
                 };
 
+                let mut execution_stats =
+                    execution_stats.map(|s| buck2_data::CommandExecutionStats {
+                        cpu_instructions_user: s.cpu_instructions_user,
+                        cpu_instructions_kernel: s.cpu_instructions_kernel,
+                        userspace_events: s.userspace_events,
+                        kernel_events: s.kernel_events,
+                        memory_peak: None,
+                    });
+
+                if let Some(memory_peak) =
+                    cgroup_result.as_ref().and_then(|r| r.memory_peak.as_ref())
+                {
+                    execution_stats.get_or_insert_default().memory_peak = Some(*memory_peak);
+                }
+
                 timing.execution_stats = execution_stats;
                 if let Some(cgroup_result) = cgroup_result {
-                    if let Some(mut stats) = execution_stats {
-                        stats.memory_peak = cgroup_result.memory_peak;
-                    }
                     if let Some(e) = cgroup_result.error {
                         let _unused = soft_error!("action_cgroup_error", e);
                     }
-                    timing.was_frozen = cgroup_result.was_frozen;
-                    timing.freeze_duration = cgroup_result.freeze_duration;
+                    timing.suspend_duration = cgroup_result.suspend_duration;
+                    timing.suspend_count = Some(cgroup_result.suspend_count);
                 }
 
                 timing.hashing_duration = hashing_time.hashing_duration;
@@ -717,7 +827,7 @@ impl LocalExecutor {
                     None,
                 )
             }
-            GatherOutputStatus::Cancelled => manager.cancel_claim(),
+            GatherOutputStatus::Cancelled => manager.cancel_claim(execution_kind, *timing),
         };
 
         if let Some(run_action_key) = request.run_action_key()
@@ -1063,17 +1173,9 @@ impl LocalExecutor {
                 }
             }
 
-            join_all(copy_futs).await.map(|result| {
-                if let Err(e) = result {
-                    // Builds can still pass without incremental outputs so we shouldn't error out, but would be good to track
-                    soft_error!(
-                        "content_based_incremental_copy_failed",
-                        buck2_error!(buck2_error::ErrorTag::Tier0, "{}", e).into(),
-                        quiet: true
-                    )
-                    .unwrap();
-                };
-            });
+            // The materialization we do for incremental action outputs is best-effort. The copy
+            // will fail if the materialization failed, and that's okay.
+            join_all(copy_futs).await;
         }
 
         Ok(())
@@ -1186,10 +1288,11 @@ pub struct MaterializedInputPaths {
     pub paths: Vec<ProjectRelativePathBuf>,
 }
 
-/// Materialize all inputs artifact for CommandExecutionRequest so the command can be executed locally.
+/// Materialize all inputs artifact for CommandExecutionRequest so the command can be executed
+/// locally.
 ///
-/// This also discovers the scratch directory if any was passed (if multiple are passed, one of
-/// them is returned).
+/// This also discovers the scratch directory if any was passed, but does not yet do anything with
+/// it - call `prep_scratch_path`.
 pub async fn materialize_inputs(
     artifact_fs: &ArtifactFs,
     materializer: &dyn Materializer,
@@ -1200,7 +1303,13 @@ pub async fn materialize_inputs(
     let mut scratch = ScratchPath(None);
     let mut configuration_path_to_content_based_path_symlinks = vec![];
 
-    for input in request.inputs() {
+    for input in request.inputs().iter().chain(
+        request
+            .worker()
+            .as_ref()
+            .map(|w| w.inputs())
+            .unwrap_or_default(),
+    ) {
         match input {
             CommandExecutionInput::Artifact(group) => {
                 for (artifact, artifact_value) in group.iter() {
@@ -1245,10 +1354,11 @@ pub async fn materialize_inputs(
             CommandExecutionInput::ScratchPath(path) => {
                 let path = artifact_fs.buck_out_path_resolver().resolve_scratch(path)?;
 
-                // Clean and produce it.
-                CleanOutputPaths::clean(std::iter::once(path.as_ref()), artifact_fs.fs())?;
-                fs_util::create_dir_all(artifact_fs.fs().resolve(&path))?;
-
+                if scratch.0.is_some() {
+                    return Err(buck2_error::internal_error!(
+                        "Multiple scratch paths for one action"
+                    ));
+                }
                 scratch.0 = Some(path);
             }
             CommandExecutionInput::IncrementalRemoteOutput(..) => {
@@ -1292,6 +1402,17 @@ pub async fn materialize_inputs(
 
 /// A scratch path discovered during `materialize_inputs`.
 pub struct ScratchPath(Option<ProjectRelativePathBuf>);
+
+pub async fn prep_scratch_path(
+    scratch_path: &ScratchPath,
+    artifact_fs: &ArtifactFs,
+) -> buck2_error::Result<()> {
+    let Some(path) = scratch_path.0.as_ref() else {
+        return Ok(());
+    };
+    CleanOutputPaths::clean(std::iter::once(path.as_ref()), artifact_fs.fs())?;
+    async_fs_util::create_dir_all(artifact_fs.fs().resolve(path)).await
+}
 
 async fn check_inputs(
     manager: CommandExecutionManagerWithClaim,
@@ -1500,8 +1621,6 @@ impl EnvironmentBuilder for Command {
 mod unix {
     use std::os::unix::ffi::OsStrExt;
 
-    use buck2_resource_control::CommandType;
-
     use super::*;
 
     pub async fn exec_via_forkserver(
@@ -1514,10 +1633,8 @@ mod unix {
         env_inheritance: Option<&EnvironmentInheritance>,
         liveliness_observer: impl LivelinessObserver + 'static,
         enable_miniperf: bool,
-        action_digest: &str,
-        cgroup_command_id: &str,
-        command_type: CommandType,
-        dispatcher: EventDispatcher,
+        cgroup_path: Option<CgroupPathBuf>,
+        freeze_rx: impl ActionFreezeEventReceiver,
     ) -> buck2_error::Result<CommandResult> {
         let exe = exe.as_ref();
 
@@ -1535,16 +1652,14 @@ mod unix {
             enable_miniperf,
             std_redirects: None,
             graceful_shutdown_timeout_s: None,
-            action_digest: Some(action_digest.to_owned()),
-            cgroup_command_id: Some(cgroup_command_id.to_owned()),
+            command_cgroup: cgroup_path.map(|p| p.to_string()),
         };
         apply_local_execution_environment(&mut req, working_directory, env, env_inheritance);
         forkserver
             .execute(
                 req,
                 async move { liveliness_observer.while_alive().await },
-                command_type,
-                dispatcher,
+                freeze_rx,
             )
             .await
     }
@@ -1644,6 +1759,7 @@ mod tests {
             ExecutorGlobalKnobs::default(),
             None,
             None,
+            DaemonId::new(),
         );
 
         Ok((executor, temp.path().root().to_buf(), temp))
@@ -1664,10 +1780,8 @@ mod tests {
                 None,
                 NoopLivelinessObserver::create(),
                 false,
-                "",
-                "",
-                CommandType::Build,
-                EventDispatcher::null(),
+                None,
+                futures::stream::pending(),
             )
             .await?;
         assert_matches!(status, GatherOutputStatus::Finished { exit_code, .. } if exit_code == 0);
@@ -1703,10 +1817,8 @@ mod tests {
                 None,
                 NoopLivelinessObserver::create(),
                 false,
-                "",
-                "",
-                CommandType::Build,
-                EventDispatcher::null(),
+                None,
+                futures::stream::pending(),
             )
             .await?;
         assert_matches!(status, GatherOutputStatus::TimedOut ( duration ) if duration == Duration::from_secs(1));
@@ -1731,10 +1843,8 @@ mod tests {
                 Some(&EnvironmentInheritance::empty()),
                 NoopLivelinessObserver::create(),
                 false,
-                "",
-                "",
-                CommandType::Build,
-                EventDispatcher::null(),
+                None,
+                futures::stream::pending(),
             )
             .await?;
         assert_matches!(status, GatherOutputStatus::Finished { exit_code, .. } if exit_code == 0);

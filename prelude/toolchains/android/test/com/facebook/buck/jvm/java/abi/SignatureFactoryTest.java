@@ -12,15 +12,15 @@ package com.facebook.buck.jvm.java.abi;
 
 import static org.junit.Assert.assertTrue;
 
-import com.facebook.buck.jvm.java.testutil.compiler.CompilerTreeApiParameterized;
 import com.google.common.base.Joiner;
 import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
 import org.objectweb.asm.signature.SignatureReader;
 import org.objectweb.asm.signature.SignatureWriter;
 
-@RunWith(CompilerTreeApiParameterized.class)
+@RunWith(Parameterized.class)
 public class SignatureFactoryTest extends DescriptorAndSignatureFactoryTestBase {
   @Test
   public void testAllTheThings() throws Exception {

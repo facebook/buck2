@@ -31,7 +31,15 @@ public interface AndroidDevice {
       boolean verifyTempWritable,
       boolean stagedInstallMode);
 
-  boolean installApexOnDevice(File apex, boolean quiet);
+  default boolean installApexOnDevice(File apex, boolean quiet) {
+    boolean softRebootAvailable = prepareForApexInstallation();
+    return installApexOnDevice(apex, quiet, true, softRebootAvailable);
+  }
+
+  boolean installApexOnDevice(
+      File apex, boolean quiet, boolean restart, boolean softRebootAvailable);
+
+  boolean prepareForApexInstallation();
 
   void stopPackage(String packageName) throws Exception;
 
@@ -81,4 +89,6 @@ public interface AndroidDevice {
   default void fixRootDir(String rootDir) {}
 
   boolean setDebugAppPackageName(String packageName) throws Exception;
+
+  void enableAppLinks(String packageName) throws Exception;
 }

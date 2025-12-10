@@ -17,9 +17,7 @@ def _jvm_arg_name_is_specified(arg_name: str, existing_jvm_args: list[str]) -> b
 
     return False
 
-def _worker_impl(ctx):
-    args = cmd_args()
-    args.add(ctx.attrs._java_toolchain[JavaToolchainInfo].java[RunInfo])
+def _get_jvm_args_for_worker(ctx):
     jvm_args = ctx.attrs.jvm_args
     if not "-XX:-MaxFDLimit" in jvm_args:
         jvm_args.insert(0, "-XX:-MaxFDLimit")
@@ -31,7 +29,13 @@ def _worker_impl(ctx):
     # Allow JVM compiler daemon to access internal jdk.compiler APIs
     jvm_args.extend(OPEN_JDK_COMPILER_ARGS)
     jvm_args.append("--add-opens=java.base/java.util=ALL-UNNAMED")
-    args.add(jvm_args)
+
+    return jvm_args
+
+def _get_args_for_worker(ctx):
+    args = cmd_args()
+    args.add(ctx.attrs._java_toolchain[JavaToolchainInfo].java[RunInfo])
+    args.add(_get_jvm_args_for_worker(ctx))
     args.add([
         "-cp",
         ctx.attrs.exe,
@@ -40,6 +44,10 @@ def _worker_impl(ctx):
         ctx.attrs.main_class,
     ])
 
+    return args
+
+def _worker_impl(ctx):
+    args = _get_args_for_worker(ctx)
     return [
         DefaultInfo(),
         WorkerInfo(
@@ -52,6 +60,18 @@ def _worker_impl(ctx):
     ]
 
 worker = rule(
+    impl = _worker_impl,
+    attrs = {
+        "class_loader_bootstrapper": attrs.source(default = "prelude//toolchains/android/src/com/facebook/buck/cli/bootstrapper:bootstrapper"),
+        "concurrency": attrs.option(attrs.int(), default = None),
+        "exe": attrs.source(),
+        "jvm_args": attrs.list(attrs.string(), default = []),
+        "main_class": attrs.string(),
+        "_java_toolchain": toolchains_common.java_bootstrap(),
+    },
+)
+
+remote_worker = rule(
     impl = _worker_impl,
     attrs = {
         "class_loader_bootstrapper": attrs.source(default = "prelude//toolchains/android/src/com/facebook/buck/cli/bootstrapper:bootstrapper"),

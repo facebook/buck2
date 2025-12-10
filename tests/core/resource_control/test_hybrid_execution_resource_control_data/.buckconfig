@@ -1,0 +1,10 @@
+[buildfile]
+    name = TARGETS.fixture
+
+[repositories]
+    root = .
+    prelude = .
+
+[buck2_resource_control]
+    status = required
+    enable_action_cgroup_pool_v2 = true

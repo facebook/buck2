@@ -15,6 +15,14 @@ use clap::Command;
 use clap::builder::PossibleValue;
 use regex::Regex;
 
+/// Common option headings that appear across multiple buck2 commands
+const COMMON_OPTION_HEADINGS: &[&str] = &[
+    "Universal Options",
+    "Event Log Options",
+    "Buckconfig Options",
+    "Console Options",
+];
+
 #[derive(Debug, clap::Parser)]
 #[clap(
     name = "markdown-help-doc",
@@ -30,6 +38,17 @@ pub(crate) struct MarkdownHelpDocCommand {
 
 impl MarkdownHelpDocCommand {
     pub(crate) fn exec(self, top_level_cmd: clap::Command) -> ExitResult {
+        if self.sub_cmd == "common-options" {
+            let markdown = generate_common_options_doc(&top_level_cmd);
+            return ExitResult::success().with_stdout(markdown.into_bytes());
+        }
+
+        // Handle "query" as an alias for "uquery"
+        if self.sub_cmd == "query" {
+            let markdown = generate_query_redirect_page();
+            return ExitResult::success().with_stdout(markdown.into_bytes());
+        }
+
         for subcommand in top_level_cmd.get_subcommands() {
             if subcommand.get_name() == self.sub_cmd {
                 let markdown = cmd_markdown_help(subcommand);
@@ -48,13 +67,114 @@ fn cmd_markdown_help(cmd: &Command) -> String {
     format!("{header}\n{content}")
 }
 
+fn generate_query_redirect_page() -> String {
+    let markdown = r#"# query
+
+`query` is an alias for the `uquery` command.
+
+Please see the [uquery](../uquery) documentation for details.
+"#;
+    markdown.to_owned()
+}
+
+fn generate_common_options_doc(cmd: &Command) -> String {
+    let mut markdown = String::new();
+
+    // Add a header
+    writeln!(markdown, "# Common Options").unwrap();
+    writeln!(markdown, "\nThis document provides an overview of common options that are available across multiple buck2 commands.\n").unwrap();
+
+    // Collect options from the top-level command
+    for section_name in COMMON_OPTION_HEADINGS {
+        if let Some(section_content) = extract_section_options(cmd, section_name) {
+            writeln!(markdown, "## {}\n", section_name).unwrap();
+            markdown.push_str(&section_content);
+            markdown.push('\n');
+        }
+    }
+
+    // If we couldn't find options in the top-level command, search in subcommands
+    // This is needed because some options might only appear in specific subcommands
+    for section_name in COMMON_OPTION_HEADINGS {
+        if markdown.contains(&format!("## {}", section_name)) {
+            continue; // Already found this section
+        }
+
+        for subcommand in cmd.get_subcommands() {
+            if let Some(section_content) = extract_section_options(subcommand, section_name) {
+                writeln!(markdown, "## {}\n", section_name).unwrap();
+                markdown.push_str(&section_content);
+                markdown.push('\n');
+                break;
+            }
+        }
+    }
+
+    markdown
+}
+
+fn extract_section_options(cmd: &Command, section_heading: &str) -> Option<String> {
+    let mut section_options = vec![];
+
+    // Get all arguments (both positional and options)
+    for arg in cmd.get_arguments() {
+        // Check if this argument belongs to the target help heading
+        if let Some(help_heading) = arg.get_help_heading() {
+            if help_heading == section_heading && !arg.is_hide_set() {
+                section_options.push(arg);
+            }
+        }
+    }
+
+    if section_options.is_empty() {
+        return None;
+    }
+
+    let mut output = String::new();
+    for arg in section_options {
+        write_arg_markdown(&mut output, arg).ok()?;
+    }
+
+    Some(output)
+}
+
 fn cmd_header_markdown(cmd: &clap::Command) -> String {
     let name = cmd.get_name();
+
+    let contents = if name == "install" {
+        "\
+The `buck2 install` command builds an installable target, typically a mobile app (.apk or .app bundle), and installs it using an installer server to some location, typically an emulator/simulator or external device.
+
+## How buck2 install works
+
+The `InstallInfo` provider is used to make targets installable, it specifies an installer implementation (e.g. Android or Apple installer) and a set of files to install. For example (from `buck2 audit providers`):
+```python
+InstallInfo(
+    installer = buck//src/com/facebook/buck/installer/apple:apple_installer,
+    files = {
+        \"app_bundle;\": <build artifact HelloWorldBundle.app>,
+        \"options\": <build artifact install_apple_data.json>
+    }
+)
+```
+
+Buck connects to the installer using GRPC and sends individual files to install once they have finished building.
+
+# Exopackage
+
+For Android apks, buck install supports a feature to speed up iterative development called Exopackage. An _exopackage_ is a small shell of an Android app that contains the minimal code and resources needed to bootstrap loading the code for a full-fledged Android application. Loading the application code at runtime avoids a full reinstall of the app when testing typical code changes, which dramatically reduces the length of edit/refresh cycles.
+".to_owned()
+    } else {
+        format!(
+            "This document provides an overview of the commands and options available under `buck2 {name}`."
+        )
+    };
+
     format!(
         "\
 # {name}
 
-This document provides an overview of the commands and options available under `buck2 {name}`.
+{contents}
 
 "
     )
@@ -110,10 +230,28 @@ fn cmd_content_markdown(
         writeln!(template).unwrap();
     }
 
+    // common options link
+    writeln!(
+        template,
+        "### Common Options:\n\n\
+        Common options are documented on the [Common Options](../common-options) page.\n"
+    )
+    .unwrap();
+
     // options
     let options = cmd
         .get_arguments()
-        .filter(|arg| !arg.is_positional() && !arg.is_hide_set())
+        .filter(|arg| {
+            if arg.is_positional() || arg.is_hide_set() {
+                return false;
+            }
+            // Filter out common options
+            if let Some(help_heading) = arg.get_help_heading() {
+                !COMMON_OPTION_HEADINGS.contains(&help_heading)
+            } else {
+                true
+            }
+        })
         .collect::<Vec<_>>();
 
     if !options.is_empty() {

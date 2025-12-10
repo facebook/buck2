@@ -41,6 +41,7 @@ use superconsole::style::Stylize;
 use termwiz::escape::Action;
 use termwiz::escape::ControlCode;
 
+use crate::action_sub_error_display::ActionSubErrorDisplay;
 use crate::fmt_duration;
 use crate::verbosity::Verbosity;
 use crate::what_ran::command_to_string;
@@ -400,7 +401,6 @@ pub fn display_event(event: &BuckEvent, opts: TargetDisplayOptions) -> buck2_err
             Data::ComputeDetailedAggregatedMetrics(..) => {
                 Ok("Computing detailed aggregated metrics".to_owned())
             }
-            Data::MemoryPressure(..) => Ok("Under memory pressure".to_owned()),
         };
 
         // This shouldn't really be necessary, but that's how try blocks work :(
@@ -599,6 +599,7 @@ pub fn format_test_result(
         TestStatus::OMITTED => Span::new_styled("\u{20E0} Omitted".to_owned().cyan()),
         TestStatus::FATAL => Span::new_styled("⚠ Fatal".to_owned().red()),
         TestStatus::TIMEOUT => Span::new_styled("✉ Timeout".to_owned().cyan()),
+        TestStatus::INFRA_FAILURE => Span::new_styled("🛠 Infra Failure".to_owned().magenta()),
         TestStatus::PASS => Span::new_styled("✓ Pass".to_owned().green()),
         TestStatus::LISTING_SUCCESS => Span::new_styled("✓ Listing success".to_owned().green()),
         TestStatus::UNKNOWN => Span::new_styled("? Unknown".to_owned().cyan()),
@@ -727,8 +728,8 @@ impl ActionErrorDisplay<'_> {
             }
         };
 
-        append_stream("Stdout", &command_failed.stdout);
-        append_stream("Stderr", &command_failed.stderr);
+        append_stream("Stdout", &command_failed.cmd_stdout);
+        append_stream("Stderr", &command_failed.cmd_stderr);
 
         if let Some(additional_info) = &command_failed.additional_message {
             if !additional_info.is_empty() {
@@ -743,20 +744,19 @@ impl ActionErrorDisplay<'_> {
                     if !sub_errors.is_empty() {
                         let mut all_sub_errors = String::new();
                         for sub_error in sub_errors {
-                            let mut sub_error_line = String::new();
-
-                            write!(sub_error_line, "[{}]", sub_error.category).unwrap();
-                            if let Some(message) = &sub_error.message {
-                                write!(sub_error_line, " {message}").unwrap();
+                            // Display errors based on show_in_stderr flag is true
+                            if sub_error.show_in_stderr {
+                                if let Some(display_msg) = sub_error.display() {
+                                    writeln!(all_sub_errors, "- {}", display_msg).unwrap();
+                                }
                             }
-
-                            // TODO(@wendyy) - handle locations later
-                            writeln!(all_sub_errors, "- {sub_error_line}").unwrap();
                         }
-                        append_stream(
-                            "\nAction sub-errors produced by error handlers",
-                            &all_sub_errors,
-                        );
+                        if !all_sub_errors.is_empty() {
+                            append_stream(
+                                "\nAction sub-errors produced by error handlers",
+                                &all_sub_errors,
+                            );
+                        }
                     }
                 }
                 buck2_data::action_error_diagnostics::Data::HandlerInvocationError(error) => {
@@ -902,7 +902,7 @@ pub fn success_stderr(
                 .details
                 .as_ref()
                 .buck_error_context("CommandExecution did not include a `command`")?
-                .stderr
+                .cmd_stderr
         }
         None => return Ok(None),
     };

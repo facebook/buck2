@@ -22,6 +22,7 @@ rust_protobuf_library_prost_0134(
         "//buck2/app/buck2_core:buck2_core",
         "//buck2/app/buck2_data:buck2_data",
         "//buck2/app/buck2_error:buck2_error",
+        "//buck2/app/buck2_fs:buck2_fs",
         "//buck2/app/buck2_subscription_proto:buck2_subscription_proto",
     ],
 )

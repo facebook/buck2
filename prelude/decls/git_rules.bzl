@@ -6,7 +6,7 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
-load(":common.bzl", "prelude_rule")
+load(":common.bzl", "buck", "prelude_rule")
 
 git_fetch = prelude_rule(
     name = "git_fetch",
@@ -29,11 +29,19 @@ git_fetch = prelude_rule(
             "allow_cache_upload": attrs.bool(doc = """
                 Whether the results of the fetch can be written to the action cache and CAS.
             """, default = True),
+            "object_format": attrs.option(
+                attrs.enum(["sha1", "sha256"]),
+                default = None,
+                doc = """
+                The object format to use for the underlying Git repository.
+                Must be one of `sha1` or `sha256`.
+                """,
+            ),
             "repo": attrs.string(doc = """
                 Url suitable as a git remote.
             """),
             "rev": attrs.string(doc = """
-                40-digit hex SHA-1 of the git commit.
+                Commit hash. 40 hex digits for sha1, 64 hex digits for sha256.
             """),
             "sub_targets": attrs.list(
                 attrs.string(),
@@ -45,12 +53,12 @@ git_fetch = prelude_rule(
                 to the serde_derive subdirectory of the repo as `":serde.git[serde_derive]"`.
             """,
             ),
-            "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
-            "labels": attrs.list(attrs.string(), default = []),
-            "licenses": attrs.list(attrs.source(), default = []),
             "_git_fetch_tool": attrs.default_only(attrs.exec_dep(providers = [RunInfo], default = "prelude//git/tools:git_fetch")),
-        }
+        } |
+        buck.licenses_arg() |
+        buck.labels_arg() |
+        buck.contacts_arg()
     ),
 )
 

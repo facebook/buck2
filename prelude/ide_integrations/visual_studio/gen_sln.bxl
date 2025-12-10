@@ -110,7 +110,7 @@ def _gen_project_configuration_platforms(target_node, vs_settings, explicit_targ
             ))
     return "\n".join(configs)
 
-def _set_startup_target(targets, vs_settings_list, startup_target_label):
+def _set_startup_target(targets, vs_settings_list, startup_target_label: TargetLabel):
     targets_labels = [target.label.raw_target() for target in targets]
     if startup_target_label in targets_labels:
         startup_target_index = targets_labels.index(startup_target_label)
@@ -137,7 +137,7 @@ def _dedup_targets(targets, vs_settings_list):
             deduped_vs_settings_list.append(vs_settings_list[i])
     return deduped_targets, deduped_vs_settings_list
 
-def gen_sln(targets, vs_settings_list, explicit_targets, startup_target_label, bxl_ctx):
+def gen_sln(targets, vs_settings_list, explicit_targets, startup_target_label: TargetLabel, bxl_ctx):
     log_debug("# Generating sln for {}", startup_target_label, bxl_ctx = bxl_ctx)
     if len(targets) != len(vs_settings_list):
         fail("targets and vs_settings_list are expected to be length.")
@@ -191,7 +191,7 @@ EndGlobal""".format(
 
 def _main(bxl_ctx):
     target_label = bxl_ctx.cli_args.target
-    target_node = bxl_ctx.configured_targets(target_label)
+    target_node = bxl_ctx.configured_targets(target_label, modifiers = bxl_ctx.modifiers)
 
     basic_vs_settings = get_basic_vs_settings(target_node, bxl_ctx.cli_args)
     sln_content = gen_sln([target_node], [basic_vs_settings], [target_label], target_node.label, bxl_ctx)

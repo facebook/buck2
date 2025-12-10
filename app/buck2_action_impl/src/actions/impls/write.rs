@@ -296,9 +296,8 @@ impl Action for WriteAction {
             .next()
             .buck_error_context("Write did not execute")?;
 
-        let wall_time = execution_start
-            .buck_error_context("Action did not set execution_start")?
-            .elapsed();
+        let wall_time = Instant::now()
+            - execution_start.buck_error_context("Action did not set execution_start")?;
 
         Ok((
             ActionOutputs::new(indexmap![self.output.get_path().dupe() => value]),

@@ -10,6 +10,7 @@
 -moduledoc """
 Daemon for running Common Test in an iterative way from an Erlang Shell
 """.
+-compile(warn_missing_spec_all).
 
 -export([
     start/1, start/2,
@@ -20,7 +21,6 @@ Daemon for running Common Test in an iterative way from an Erlang Shell
     ping/0,
     push_module/1,
     push_paths/1,
-    set_gl/0,
     discover/1,
     load_changed/0,
     setup_state/0,
@@ -32,7 +32,7 @@ Daemon for running Common Test in an iterative way from an Erlang Shell
 -doc """
 start a test-node with random name and shortname
 """.
--spec start(ErlCommand) -> ok when
+-spec start(ErlCommand) -> ok | {error, {crash_on_startup, integer()}} when
     ErlCommand :: [binary()].
 start(ErlCommand) ->
     ct_daemon_node:start(ErlCommand).
@@ -69,7 +69,7 @@ run test from scratch
         | non_neg_integer()
         | {discovered, [#{suite => module(), name => string()}]}
 ) ->
-    #{string() => ct_daemon_core:run_result()} | ct_daemon_runner:discover_error() | node_down.
+    #{string() => ct_daemon_core:run_result()} | {error, ct_daemon_runner:discover_error()} | node_down.
 run(Test) ->
     do_call({run, Test}).
 
@@ -80,10 +80,6 @@ ping() ->
 -spec load_changed() -> [module()] | node_down.
 load_changed() ->
     do_call(load_changed).
-
--spec set_gl() -> ok | node_down.
-set_gl() ->
-    do_call({gl, group_leader()}).
 
 -spec list() -> [{module(), [{non_neg_integer(), string()}]}] | node_down.
 list() ->
@@ -109,7 +105,7 @@ list(RegEx) ->
 
 -spec discover(pos_integer() | string()) ->
     [#{suite := module(), name := string()}]
-    | ct_daemon_runner:discover_error()
+    | {error, ct_daemon_runner:discover_error()}
     | node_down.
 discover(RegExOrId) ->
     do_call({discover, RegExOrId}).

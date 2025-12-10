@@ -10,10 +10,8 @@
 
 package com.facebook.buck.android.resources.filter;
 
-import com.facebook.buck.core.exceptions.HumanReadableException;
 import com.facebook.buck.core.filesystems.AbsPath;
 import com.facebook.buck.io.filesystem.impl.ProjectFilesystemUtils;
-import com.facebook.buck.util.string.MoreStrings;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.FluentIterable;
@@ -131,7 +129,7 @@ public class ResourceFilters {
         if (ResourceFilters.Density.isDensity(qualifier)) {
           density = Density.from(qualifier);
         } else {
-          othersBuilder.append(MoreStrings.isEmpty(othersBuilder) ? "" : "-").append(qualifier);
+          othersBuilder.append(othersBuilder.length() == 0 ? "" : "-").append(qualifier);
         }
       }
       return new Qualifiers(density, othersBuilder.toString());
@@ -261,11 +259,12 @@ public class ResourceFilters {
         return resourceFile.subpath(0, i + 1);
       }
     }
-    throw new HumanReadableException(
-        "Resource file at %s is not in a valid resource folder.  See "
-            + "http://developer.android.com/guide/topics/resources/providing-resources.html#table1 "
-            + "for a list of valid resource folders.",
-        resourceFile);
+    throw new RuntimeException(
+        String.format(
+            "Resource file at %s is not in a valid resource folder.  See"
+                + " http://developer.android.com/guide/topics/resources/providing-resources.html#table1"
+                + " for a list of valid resource folders.",
+            resourceFile));
   }
 
   /**

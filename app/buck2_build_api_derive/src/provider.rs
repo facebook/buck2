@@ -19,12 +19,37 @@ use syn::TypeParamBound;
 
 pub(crate) struct InternalProviderArgs {
     creator_func: syn::Ident,
+    methods_func: Option<syn::Ident>,
 }
 
 impl syn::parse::Parse for InternalProviderArgs {
     fn parse(input: syn::parse::ParseStream) -> syn::parse::Result<Self> {
         let creator_func = syn::Ident::parse(input)?;
-        Ok(InternalProviderArgs { creator_func })
+
+        // Parse optional methods parameter
+        let methods_func = if input.peek(syn::Token![,]) {
+            input.parse::<syn::Token![,]>()?;
+
+            // Check if it's methods = ...
+            if input.peek(syn::Ident) {
+                let key = syn::Ident::parse(input)?;
+                if key == "methods" {
+                    input.parse::<syn::Token![=]>()?;
+                    Some(syn::Ident::parse(input)?)
+                } else {
+                    return Err(syn::Error::new_spanned(key, "expected 'methods' parameter"));
+                }
+            } else {
+                None
+            }
+        } else {
+            None
+        };
+
+        Ok(InternalProviderArgs {
+            creator_func,
+            methods_func,
+        })
     }
 }
 
@@ -316,7 +341,12 @@ impl ProviderCodegen {
         let gen_name = &self.input.ident;
         let name = self.name()?;
         let name_str = self.name_str()?;
-        let provider_methods_func_name = self.provider_methods_func_name()?;
+        // Use custom methods function if provided, otherwise use auto-generated one
+        let provider_methods_func_name = if let Some(ref custom) = self.args.methods_func {
+            custom.clone()
+        } else {
+            self.provider_methods_func_name()?
+        };
         let field_names = self.field_names()?;
         Ok(vec![
             syn::parse_quote_spanned! { self.span=>
@@ -557,18 +587,22 @@ impl ProviderCodegen {
     }
 
     fn register(&self) -> syn::Result<Vec<syn::Item>> {
-        let provider_methods_func_name = self.provider_methods_func_name()?;
-        let (field_names, field_types): (Vec<_>, Vec<_>) = self
-            .fields()?
-            .into_iter()
-            .map(|f| (f.name, f.field_type))
-            .unzip();
         let name = self.name()?;
         let name_str = self.name_str()?;
         let callable_name = self.callable_name()?;
 
-        Ok(vec![
-            syn::parse_quote_spanned! { self.span=>
+        let mut items = vec![];
+
+        // Only generate default provider_methods if no custom methods_func was provided
+        if self.args.methods_func.is_none() {
+            let provider_methods_func_name = self.provider_methods_func_name()?;
+            let (field_names, field_types): (Vec<_>, Vec<_>) = self
+                .fields()?
+                .into_iter()
+                .map(|f| (f.name, f.field_type))
+                .unzip();
+
+            items.push(syn::parse_quote_spanned! { self.span=>
                 #[starlark::starlark_module]
                 fn #provider_methods_func_name(builder: &mut starlark::environment::MethodsBuilder) {
                     #(
@@ -580,13 +614,16 @@ impl ProviderCodegen {
                         }
                     )*
                 }
-            },
-            syn::parse_quote_spanned! { self.span=>
-                fn register_provider(builder: &mut starlark::environment::GlobalsBuilder) {
-                    builder.set(#name_str, #callable_name::new());
-                }
-            },
-        ])
+            });
+        }
+
+        items.push(syn::parse_quote_spanned! { self.span=>
+            fn register_provider(builder: &mut starlark::environment::GlobalsBuilder) {
+                builder.set(#name_str, #callable_name::new());
+            }
+        });
+
+        Ok(items)
     }
 
     fn inventory(&self) -> syn::Result<syn::Item> {

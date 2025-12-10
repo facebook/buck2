@@ -11,7 +11,8 @@ load(":cxx_context.bzl", "get_cxx_toolchain_info")
 
 def check_sub_target(
         ctx: AnalysisContext,
-        diagnostics: dict[str, Artifact]) -> (list[Provider], Artifact):
+        diagnostics: dict[str, Artifact],
+        error_handler: [typing.Callable, None] = None) -> (list[Provider], Artifact):
     expect(len(diagnostics) > 0)
 
     if len(diagnostics) == 1:
@@ -27,6 +28,7 @@ def check_sub_target(
                 diagnostics.values(),
             ],
             category = "diagnostics",
+            error_handler = error_handler,
         )
 
     return [DefaultInfo(

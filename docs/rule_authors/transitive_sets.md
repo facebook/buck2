@@ -195,50 +195,67 @@ This will yield `["qux", "foo", "bar"]`.
 
 ### Ordering
 
-Transitive set iteration uses a left-to-right, pre-order traversal by default,
-and ignores nodes that have already been visited. This order is reflected in
-projections as well.
+Transitive set iteration uses a pre-order traversal by default, and ignores
+nodes that have already been visited. This order is reflected in projections as
+well.
 
 A few different traversal orders are supported with the `ordering` attribute:
 
-| Ordering             | Description                                                                                                                                                                                                                                             |
-| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `preorder` (default) | Traverses using a depth-first-search, visiting nodes left-to-right.                                                                                                                                                                                     |
-| `postorder`          | Traverses children left-to-right, and then visits the current node.                                                                                                                                                                                     |
-| `topological`        | A Topological sort, such that nodes are listed after all nodes that have them as descendants. This is similar to a pre-order traversal, except that when nodes are shared with more than one parent it is returned in the order of its last occurrence. |
-| `bfs`                | Breadth-first-search (BFS) traversal, traverses nodes left-to-right before traversing children.                                                                                                                                                         |
+| Ordering             | Description                                                                                                                                                                                                                                                    |
+| -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `preorder` (default) | Preorder depth-first traversal, visiting parent node first, then children in an unspecified order that minimizes memory usage during traversal.                                                                                                                |
+| `postorder`          | Postorder depth-first traversal, visiting children left-to-right before visiting their parent node.                                                                                                                                                            |
+| `topological`        | Topological sort order, such that nodes are visited after all nodes that have them as descendants. This is similar to the pre-order traversal, except that when nodes are shared with more than one parent it is returned in the order of its last occurrence. |
+| `bfs`                | Preorder breadth-first-search (BFS), visits parent node, then eagerly visits all children left-to-right before traversing to any grandchildren.                                                                                                                |
+| `dfs`                | Preorder depth-first-search (DFS). This is similar to the pre-order traversal, except that children are guaranteed to be visited left-to-right.                                                                                                                |
 
 For example:
 
 ```python src=fbcode/buck2/app/buck2_build_api_tests/src/interpreter/transitive_set/tests.rs
-set1 = ctx.actions.tset(MySet, value = "foo")
-set2 = ctx.actions.tset(MySet, value = "bar", children = [set1])
-set3 = ctx.actions.tset(MySet, value = "qux", children = [set1, set2])
+F = ctx.actions.tset(MySet, value = "F")
+E = ctx.actions.tset(MySet, value = "E")
+D = ctx.actions.tset(MySet, value = "D", children = [E, F])
+C = ctx.actions.tset(MySet, value = "C", children = [E])
+B = ctx.actions.tset(MySet, value = "B", children = [D, E])
+A = ctx.actions.tset(MySet, value = "A", children = [B, C])
 
-values = list(set3.traverse(ordering = "topological"))
+values = list(A.traverse(ordering = "topological"))
 
 # This also works for projections
-args = set3.project_as_args("project", ordering = "topological"))
+args = A.project_as_args("project", ordering = "topological")
 ```
 
 Following is an example of how different orderings evaluate:
 
 ```mermaid
 flowchart TD
-  foo((foo))
-  bar((bar))
-  qux((qux))
-  qux --> foo
-  bar --> foo
-  qux --> bar
+  subgraph bc[" "]
+    B
+    C
+  end
+  subgraph df[" "]
+    D
+    F
+  end
+  A --> B
+  A --> C
+  B --> D
+  B ----> E
+  C ----> E
+  D ---> E
+  D --> F
+
+style bc display:none
+style df display:none
 ```
 
 | Ordering      | Result                  |
 | ------------- | ----------------------- |
-| `preorder`    | `["qux", "foo", "bar"]` |
-| `postorder`   | `["foo", "bar", "qux"]` |
-| `topological` | `["qux", "bar", "foo"]` |
-| `bfs`         | `["qux", "foo", "bar"]` |
+| `preorder`    | `["A", "B", "D", "F", "E", "C"]` |
+| `postorder`   | `["E", "F", "D", "B", "C", "A"]` |
+| `topological` | `["A", "B", "D", "F", "C", "E"]` |
+| `bfs`         | `["A", "B", "C", "D", "E", "F"]` |
+| `dfs`         | `["A", "B", "D", "E", "F", "C"]` |
 
 <FbInternalOnly>
 
@@ -246,11 +263,12 @@ This is verified by the test:
 
 ```python src=fbcode/buck2/app/buck2_build_api_tests/src/interpreter/transitive_set/tests.rs title=fbcode/buck2/app/buck2_build_api_tests/src/interpreter/transitive_set/tests.rs
 # Test all orderings which show up in the table.
-assert_eq(list(set3.traverse()), ["qux", "foo", "bar"])
-assert_eq(list(set3.traverse(ordering = "preorder")), ["qux", "foo", "bar"])
-assert_eq(list(set3.traverse(ordering = "postorder")), ["foo", "bar", "qux"])
-assert_eq(list(set3.traverse(ordering = "topological")), ["qux", "bar", "foo"])
-assert_eq(list(set3.traverse(ordering = "bfs")), ["qux", "foo", "bar"])
+assert_eq(["A", "B", "D", "F", "E", "C"], list(A.traverse()))
+assert_eq(["A", "B", "D", "F", "E", "C"], list(A.traverse(ordering = "preorder")))
+assert_eq(["E", "F", "D", "B", "C", "A"], list(A.traverse(ordering = "postorder")))
+assert_eq(["A", "B", "D", "F", "C", "E"], list(A.traverse(ordering = "topological")))
+assert_eq(["A", "B", "C", "D", "E", "F"], list(A.traverse(ordering = "bfs")))
+assert_eq(["A", "B", "D", "E", "F", "C"], list(A.traverse(ordering = "dfs")))
 ```
 
 </FbInternalOnly>

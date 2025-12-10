@@ -18,12 +18,12 @@ use buck2_cli_proto::new_generic::NewGenericRequest;
 use buck2_cli_proto::new_generic::NewGenericResponse;
 use buck2_cli_proto::*;
 use buck2_common::daemon_dir::DaemonDir;
-use buck2_core::fs::fs_util;
-use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
-use buck2_core::fs::paths::file_name::FileName;
 use buck2_data::error::ErrorTag;
 use buck2_error::BuckErrorContext;
 use buck2_event_log::stream_value::StreamValue;
+use buck2_fs::fs_util;
+use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
+use buck2_fs::paths::file_name::FileName;
 use futures::Stream;
 use futures::StreamExt;
 use futures::TryStreamExt;
@@ -78,6 +78,14 @@ pub struct BuckdLifecycleLock {
     lock_file: File,
 }
 
+#[derive(Debug, buck2_error::Error)]
+#[buck2(tag = BuckdLifecycleLock)]
+#[error("Error locking buckd.lifecycle: {error:#}")]
+pub struct LifecycleLockError {
+    #[source]
+    error: buck2_error::Error,
+}
+
 impl BuckdLifecycleLock {
     const BUCKD_LIFECYCLE: &'static str = "buckd.lifecycle";
     const BUCKD_PREV_DIR: &'static str = "prev";
@@ -85,24 +93,36 @@ impl BuckdLifecycleLock {
     pub async fn lock_with_timeout(
         daemon_dir: DaemonDir,
         deadline: StartupDeadline,
-    ) -> buck2_error::Result<BuckdLifecycleLock> {
-        create_dir_all(&daemon_dir.path)?;
-        let lifecycle_path = daemon_dir.path.as_path().join(Self::BUCKD_LIFECYCLE);
-        let file = File::create(lifecycle_path)?;
-        let fileref = &file;
-        deadline
-            .retrying(
-                "locking buckd lifecycle",
-                Duration::from_millis(5),
-                Duration::from_millis(100),
-                || async { Ok(fs4::fs_std::FileExt::try_lock_exclusive(fileref)?) },
-            )
-            .await?;
+    ) -> Result<BuckdLifecycleLock, LifecycleLockError> {
+        async fn lock_inner(
+            daemon_dir: DaemonDir,
+            deadline: StartupDeadline,
+        ) -> buck2_error::Result<BuckdLifecycleLock> {
+            create_dir_all(&daemon_dir.path)?;
+            let lifecycle_path = daemon_dir
+                .path
+                .as_path()
+                .join(BuckdLifecycleLock::BUCKD_LIFECYCLE);
+            let file = File::create(lifecycle_path)?;
+            let fileref = &file;
+            deadline
+                .retrying(
+                    "locking buckd lifecycle",
+                    Duration::from_millis(5),
+                    Duration::from_millis(100),
+                    || async { Ok(fs4::fs_std::FileExt::try_lock_exclusive(fileref)?) },
+                )
+                .await?;
 
-        Ok(BuckdLifecycleLock {
-            lock_file: file,
-            daemon_dir,
-        })
+            Ok(BuckdLifecycleLock {
+                lock_file: file,
+                daemon_dir,
+            })
+        }
+
+        lock_inner(daemon_dir, deadline)
+            .await
+            .map_err(|e| LifecycleLockError { error: e })
     }
 
     /// Remove everything except `buckd.lifecycle` file which is the lock file.

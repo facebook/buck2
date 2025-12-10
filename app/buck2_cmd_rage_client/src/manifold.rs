@@ -12,8 +12,8 @@ use std::io::Cursor;
 
 use buck2_common::manifold::Bucket;
 use buck2_common::manifold::ManifoldClient;
-use buck2_core::fs::paths::abs_path::AbsPath;
 use buck2_error::BuckErrorContext;
+use buck2_fs::paths::abs_path::AbsPath;
 use tokio::fs::File;
 
 #[derive(Debug, buck2_error::Error)]

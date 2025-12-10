@@ -11,7 +11,7 @@ load(":cxx_toolchain_types.bzl", "DepTrackingMode")
 
 # TODO(T110378132): Added here for compat with v1, but this might make more
 # sense on the toolchain definition.
-def get_flags_for_reproducible_build(ctx: AnalysisContext, compiler_type: str) -> list[[str, cmd_args]]:
+def get_flags_for_reproducible_build(target_label: Label, compiler_type: str) -> list[[str, cmd_args]]:
     """
     Return flags needed to make compilations reproducible (e.g. avoiding
     embedding the working directory into debug info.
@@ -23,7 +23,7 @@ def get_flags_for_reproducible_build(ctx: AnalysisContext, compiler_type: str) -
         flags.extend(["/Brepro", "/d2threads1"])
 
     if compiler_type in ["clang", "clang_windows", "clang_cl"]:
-        flags.extend(["-Xclang", "-fdebug-compilation-dir", "-Xclang", cmd_args(ctx.label.project_root)])
+        flags.extend(["-Xclang", "-fdebug-compilation-dir", "-Xclang", cmd_args(target_label.project_root)])
 
     if compiler_type == "clang_windows":
         flags.append("-mno-incremental-linker-compatible")

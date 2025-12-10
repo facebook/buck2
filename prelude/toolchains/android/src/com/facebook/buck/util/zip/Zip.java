@@ -15,7 +15,6 @@ import com.facebook.buck.core.util.log.Logger;
 import com.facebook.buck.io.file.PathMatcher;
 import com.facebook.buck.io.filesystem.impl.ProjectFilesystemUtils;
 import com.facebook.buck.io.pathformat.PathFormatter;
-import com.facebook.buck.util.types.Pair;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.hash.Hashing;
@@ -71,7 +70,7 @@ public class Zip {
   /** Walks the file tree rooted in baseDirectory to create zip entries */
   public static void walkBaseDirectoryToCreateEntries(
       AbsPath rootPath,
-      Map<String, Pair<CustomZipEntry, Optional<Path>>> entries,
+      Map<String, CustomZipEntryWithPath> entries,
       Path baseDir,
       ImmutableSet<PathMatcher> ignoredPaths,
       ImmutableSet<Path> paths,
@@ -128,7 +127,7 @@ public class Zip {
               throws IOException {
             if (!file.equals(baseDir) && !isSkipFile(file)) {
               CustomZipEntry entry = getZipEntry(getEntryName(file), file, attrs);
-              entries.put(entry.getName(), new Pair<>(entry, Optional.of(file)));
+              entries.put(entry.getName(), new CustomZipEntryWithPath(entry, Optional.of(file)));
             }
             return FileVisitResult.CONTINUE;
           }
@@ -138,7 +137,7 @@ public class Zip {
               throws IOException {
             if (!dir.equals(baseDir) && !isSkipFile(dir)) {
               CustomZipEntry entry = getZipEntry(getEntryName(dir), dir, attrs);
-              entries.put(entry.getName(), new Pair<>(entry, Optional.empty()));
+              entries.put(entry.getName(), new CustomZipEntryWithPath(entry, Optional.empty()));
             }
             return FileVisitResult.CONTINUE;
           }
@@ -156,16 +155,14 @@ public class Zip {
 
   /** Writes entries to zipOut stream. */
   public static void writeEntriesToZip(
-      AbsPath rootPath,
-      CustomZipOutputStream zipOut,
-      Map<String, Pair<CustomZipEntry, Optional<Path>>> entries)
+      AbsPath rootPath, CustomZipOutputStream zipOut, Map<String, CustomZipEntryWithPath> entries)
       throws IOException {
     // Write the entries out using the iteration order of the tree map above.
-    for (Pair<CustomZipEntry, Optional<Path>> entry : entries.values()) {
-      zipOut.putNextEntry(entry.getFirst());
-      if (entry.getSecond().isPresent()) {
+    for (CustomZipEntryWithPath entry : entries.values()) {
+      zipOut.putNextEntry(entry.getEntry());
+      if (entry.getPath().isPresent()) {
         try (InputStream input =
-            ProjectFilesystemUtils.newFileInputStream(rootPath, entry.getSecond().get())) {
+            ProjectFilesystemUtils.newFileInputStream(rootPath, entry.getPath().get())) {
           ByteStreams.copy(input, zipOut);
         }
       }

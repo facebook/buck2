@@ -13,6 +13,7 @@ load("@prelude//:native.bzl", "native")
 # @oss-disable[end= ]: load("@prelude//android/meta_only:android_build_tools_cas_artifact.bzl", "android_build_tools_cas_artifact")
 load("@prelude//toolchains/android/tools/build_rules:fb_native.bzl", "fb_native")
 load("@prelude//toolchains/android/tools/build_rules:utils.bzl", "add_os_labels")
+load("@prelude//utils:selects.bzl", "selects")
 
 OPEN_JDK_COMPILER_ARGS = [
     "--add-exports=jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED",
@@ -66,9 +67,17 @@ def _set_buck2_dex_toolchain(**kwargs):
 def _set_versioned_java_srcs(**kwargs):
     if not kwargs.pop("versioned_java_srcs", False):
         return kwargs
-    java_version = native.read_config("java", "buck2_java_version", "21")
-    versioned_srcs = native.glob(["java{}/*.java".format(java_version)])
-    kwargs["srcs"] = kwargs.get("srcs", []) + versioned_srcs
+    java_version = select({
+        "DEFAULT": native.read_config("java", "buck2_java_version", "21"),
+        # @oss-disable[end= ]: "fbsource//third-party/toolchains/jdk:constraint-value-version-11": "11",
+        # @oss-disable[end= ]: "fbsource//third-party/toolchains/jdk:constraint-value-version-17": "17",
+        # @oss-disable[end= ]: "fbsource//third-party/toolchains/jdk:constraint-value-version-21": "21",
+    })
+    versioned_srcs = selects.apply(
+        java_version,
+        lambda value: kwargs.get("srcs", []) + native.glob(["java{}/*.java".format(value)]),
+    )
+    kwargs["srcs"] = versioned_srcs
     return kwargs
 
 def _add_kotlin_deps(**kwargs):
@@ -230,6 +239,7 @@ def buck_kotlin_test(**kwargs):
     kwargs["labels"] += extra_labels
 
     kwargs = _add_kotlin_deps(**kwargs)
+    kwargs = _maybe_add_java_version(**kwargs)
 
     fb_native.kotlin_test(**kwargs)
 

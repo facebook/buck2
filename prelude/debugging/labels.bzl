@@ -24,6 +24,10 @@ DBG_INFO_REF = "dbg:info:ref"
 
 DBG_INFO_DISABLE_INCOMPATIBLE_SANITIZERS = "dbg:info:disable-sanitizers"
 
+# This label indicates we want to materialize debuginfo for the "native" (e.g.
+# C++) dependencies of a Python target.
+DBG_INFO_PYTHON_REQUIRES_SECONDARY_NATIVE_DEBUGINFO = "dbg:info:python-secondary-native-debuginfo-required"
+
 def dbg_info_exec(target_label) -> list[str]:
     return ["{}={}".format(DBG_INFO_EXEC, target_label)]
 

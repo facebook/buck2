@@ -33,11 +33,11 @@ alias = prelude_rule(
         # @unsorted-dict-items
         {
             "actual": attrs.option(attrs.dep(pulls_and_pushes_plugins = plugins.All)),
-            "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
-            "labels": attrs.list(attrs.string(), default = []),
-            "licenses": attrs.list(attrs.source(), default = []),
-        }
+        } |
+        buck.licenses_arg() |
+        buck.labels_arg() |
+        buck.contacts_arg()
     ),
 )
 
@@ -61,15 +61,11 @@ command_alias = prelude_rule(
 
 
         ```
-
-
         $(exe //path/to:target)
-
         ```
     """,
     examples = """
         ```
-
         # Combining an interpreter and a script
 
         cxx_binary(
@@ -93,11 +89,9 @@ command_alias = prelude_rule(
                 "$(location :scripts)/start-server.js",
             ],
         )
-
         ```
 
         ```
-
         # Exposing sub commands
 
         export_file(
@@ -122,11 +116,9 @@ command_alias = prelude_rule(
             exe = ":yarn",
             args = ["run"],
         )
-
         ```
 
         ```
-
         # Platform specific commands
 
         export_file(
@@ -152,7 +144,6 @@ command_alias = prelude_rule(
                 "macos": ":node-macos",
             },
         )
-
         ```
     """,
     further = None,
@@ -200,14 +191,16 @@ command_alias = prelude_rule(
                 A map of environment variables that will be passed to the executable represented
                  by `exe` on startup. Environment variables support the same macros as arguments.
             """),
+            "default_env": attrs.dict(key = attrs.string(), value = attrs.arg(), sorted = False, default = {}, doc = """
+                A map of environment variables that will be passed to the executable represented
+                 by `exe` on startup if they are not already set by the environment. Environment
+                 variables support the same macros as arguments.
+            """),
             "executable_name": attrs.option(attrs.string(), default = None, doc = """
                 If provided, use this name for the trampoline script (with an extension added if
                  required by the platform).
             """),
-            "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
-            "labels": attrs.list(attrs.string(), default = []),
-            "licenses": attrs.list(attrs.source(), default = []),
             "resources": attrs.list(attrs.source(), default = []),
             "run_using_single_arg": attrs.bool(default = False, doc = """
                 Ensure that the command alias can be run as a single argument (instead of
@@ -215,7 +208,10 @@ command_alias = prelude_rule(
             """),
             "_exec_os_type": buck.exec_os_type_arg(),
             "_target_os_type": buck.target_os_type_arg(),
-        }
+        } |
+        buck.licenses_arg() |
+        buck.labels_arg() |
+        buck.contacts_arg()
     ),
 )
 
@@ -269,15 +265,15 @@ configured_alias = prelude_rule(
             "actual": attrs.label(),
             "configured_actual": attrs.option(attrs.configured_dep(), default = None),
             "fallback_actual": attrs.option(attrs.dep(), default = None),
-            "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
-            "labels": attrs.list(attrs.string(), default = []),
-            "licenses": attrs.list(attrs.source(), default = []),
             # We use a separate field instead of re-purposing `actual`, as we want
             # to keep output format compatibility with v1.
             # If `configured_actual` is `None`, fallback to this unconfigured dep.
             "platform": attrs.option(attrs.configuration_label(), default = None),
-        }
+        } |
+        buck.licenses_arg() |
+        buck.labels_arg() |
+        buck.contacts_arg()
     ),
 )
 
@@ -305,6 +301,29 @@ constraint_value = prelude_rule(
     ),
 )
 
+constraint = prelude_rule(
+    name = "constraint",
+    docs = """
+        Unified constraint rule that defines both a constraint setting and its possible values.
+        Values are exposed as subtargets, e.g., cfg//:os[linux].
+    """,
+    examples = """
+        constraint(
+            name = "os",
+            values = ["linux", "macos", "windows"],
+            default = "linux",
+        )
+    """,
+    further = None,
+    attrs = (
+        # @unsorted-dict-items
+        {
+            "values": attrs.list(attrs.string()),
+            "default": attrs.string(),
+        }
+    ),
+)
+
 export_file = prelude_rule(
     name = "export_file",
     docs = """
@@ -317,7 +336,6 @@ export_file = prelude_rule(
 
 
         ```
-
         export_file(
           name = 'example.html',
         )
@@ -329,7 +347,6 @@ export_file = prelude_rule(
           src = 'example.html',
           out = 'example.html',
         )
-
         ```
 
 
@@ -337,7 +354,6 @@ export_file = prelude_rule(
 
 
         ```
-
         export_file(
           name = 'example',
           src = 'example.html',
@@ -350,7 +366,6 @@ export_file = prelude_rule(
           src = 'example.html',
           out = 'example.html',
         )
-
         ```
 
 
@@ -359,7 +374,6 @@ export_file = prelude_rule(
 
 
         ```
-
         export_file(
           name = 'runner',
           src = 'RemoteRunner.html',
@@ -370,7 +384,6 @@ export_file = prelude_rule(
           src = 'RemoteRunner.html',
           out = 'RemoteRunner.hta',
         )
-
         ```
 
 
@@ -378,7 +391,6 @@ export_file = prelude_rule(
 
 
         ```
-
         export_file(
           name = 'example',
           src = 'example.html',
@@ -389,7 +401,6 @@ export_file = prelude_rule(
           out = 'result.html',
           cmd = 'cp $(location :example) $OUT',
         )
-
         ```
     """,
     further = None,
@@ -413,12 +424,13 @@ export_file = prelude_rule(
                  However, this mode does not work across repositories or if the 'out' property is set.
                  For read-only operations, 'reference' can be more performant.
             """),
+            "has_content_based_path": attrs.bool(default = False),
             "uses_experimental_content_based_path_hashing": attrs.bool(default = False),
-            "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
-            "labels": attrs.list(attrs.string(), default = []),
-            "licenses": attrs.list(attrs.source(), default = []),
-        }
+        } |
+        buck.licenses_arg() |
+        buck.labels_arg() |
+        buck.contacts_arg()
     ),
     cfg = constraint_overrides.transition,
 )
@@ -432,11 +444,11 @@ external_test_runner = prelude_rule(
         # @unsorted-dict-items
         {
             "binary": attrs.dep(),
-            "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
-            "labels": attrs.list(attrs.string(), default = []),
-            "licenses": attrs.list(attrs.source(), default = []),
-        }
+        } |
+        buck.licenses_arg() |
+        buck.labels_arg() |
+        buck.contacts_arg()
     ),
 )
 
@@ -458,7 +470,6 @@ filegroup = prelude_rule(
 
 
         ```
-
         filegroup(
           name = 'example',
           srcs = glob(['resources/**/*.xml']),
@@ -469,7 +480,6 @@ filegroup = prelude_rule(
           out = 'processed.xml',
           cmd = '$(exe //example:tool) -in $(location :example)/resources/file.xml > $OUT',
         )
-
         ```
     """,
     further = None,
@@ -484,15 +494,16 @@ filegroup = prelude_rule(
                 Override the executable bit for every file in the filegroup. If not set, the executable bits are preserved.
                 Cannot be used if `copy` is set to false.
             """),
-            "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
-            "labels": attrs.list(attrs.string(), default = []),
-            "licenses": attrs.list(attrs.source(), default = []),
+            "has_content_based_path": attrs.bool(default = False),
             "out": attrs.option(attrs.string(), default = None, doc = """
                 The name of the output directory. Defaults to the rule's name.
             """),
             "uses_experimental_content_based_path_hashing": attrs.bool(default = False),
-        }
+        } |
+        buck.licenses_arg() |
+        buck.labels_arg() |
+        buck.contacts_arg()
     ),
     cfg = constraint_overrides.transition,
 )
@@ -513,7 +524,6 @@ genrule = prelude_rule(
 
 
         ```
-
         genrule(
           name = 'generate_manifest',
           srcs = [
@@ -525,11 +535,9 @@ genrule = prelude_rule(
               '%SRCDIR%\\AndroidManifest.xml > %OUT%',
           out = 'AndroidManifest.xml',
         )
-
         ```
 
         ```
-
         genrule(
           name = 'generate_manifest_with_named_outputs',
           srcs = [
@@ -544,45 +552,36 @@ genrule = prelude_rule(
           },
           default_outs = [ "AndroidManifest.xml" ],
         )
-
         ```
 
         For named outputs, build with any of the following:
 
 
         ```
-
           buck build //:generate_manifest_with_named_outputs
-
         ```
 
         ```
-
           buck build //:generate_manifest_with_named_outputs[manifest]
-
         ```
 
         Consume in `srcs` with:
 
 
         ```
-
         export_file(
             name = "magic1",
             src = ":generate_manifest_with_named_outputs",
             out = "some_dir_to_copy_to/AndroidManifest.xml",
         )
-
         ```
 
         ```
-
         export_file(
             name = "magic2",
             src = ":generate_manifest_with_named_outputs[manifest]",
             out = "some_dir_to_copy_to/AndroidManifest.xml",
         )
-
         ```
 
         Note that `magic1` consumes `generate_manifest_with_named_outputs`'s default
@@ -616,7 +615,6 @@ genrule = prelude_rule(
 
 
                 ```
-
                 genrule(
                   name = "named_outputs",
                   outs = {
@@ -630,33 +628,28 @@ genrule = prelude_rule(
                   default_outs = [ "out1.txt" ],
                   cmd = "echo something> $OUT/out1.txt && echo another> $OUT/out2.txt",
                 )
-
                 ```
 
                  Note that a maximum of one value may be present in the list in this map. For example:
 
 
                 ```
-
                 outs = {
                   "output1": [
                     "out1.txt",
                   ],
                 },
-
                 ```
                 is valid, whereas
 
 
                 ```
-
                 outs = {
                   "output1": [
                     "out1.txt",
                     "out2.txt",
                   ],
                 },
-
                 ```
                 is not.
             """),
@@ -686,6 +679,7 @@ genrule = prelude_rule(
                 Only valid if the `outs` arg is present. Dictates which of those named outputs are marked as
                 executable.
             """),
+            "has_content_based_path": attrs.bool(default = False),
             "uses_experimental_content_based_path_hashing": attrs.bool(default = False),
         } |
         genrule_common.env_arg() |
@@ -707,13 +701,14 @@ genrule = prelude_rule(
                  changes in the future.
             """),
             "cacheable": attrs.option(attrs.bool(), default = None),
-            "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
-            "labels": attrs.list(attrs.string(), default = []),
-            "licenses": attrs.list(attrs.source(), default = []),
             "need_android_tools": attrs.bool(default = False),
             "_exec_os_type": buck.exec_os_type_arg(),
-        }
+        } |
+        genrule_common.error_handler_arg() |
+        buck.licenses_arg() |
+        buck.labels_arg() |
+        buck.contacts_arg()
     ),
     cfg = constraint_overrides.transition,
 )
@@ -732,7 +727,6 @@ http_archive = prelude_rule(
 
 
         ```
-
         http_archive(
           name = 'thrift-archive',
           urls = [
@@ -755,7 +749,6 @@ http_archive = prelude_rule(
           cmd="$(exe :thrift-compiler-bin) --gen cpp2 -o $OUT $(location //:thrift-file)",
           out="gen-cpp2",
         )
-
         ```
     """,
     further = None,
@@ -765,13 +758,14 @@ http_archive = prelude_rule(
         remote_common.sha256_arg() |
         remote_common.unarchive_args() |
         {
-            "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
-            "labels": attrs.list(attrs.string(), default = []),
-            "licenses": attrs.list(attrs.source(), default = []),
             "sha1": attrs.option(attrs.string(), default = None),
             "size_bytes": attrs.option(attrs.int(), default = None),
-        }
+            "has_content_based_path": attrs.bool(default = False),
+        } |
+        buck.licenses_arg() |
+        buck.labels_arg() |
+        buck.contacts_arg()
     ),
 )
 
@@ -790,7 +784,6 @@ http_file = prelude_rule(
 
 
         ```
-
         http_file(
           name = 'guava-23-bin',
           urls = [
@@ -811,14 +804,12 @@ http_file = prelude_rule(
           binary_jar = ':guava-23-bin',
           source_jar = ':guava-23-source',
         )
-
         ```
 
          Tooling can also be fetched with `http_file()` and used by a `genrule()`.
 
 
         ```
-
         genrule(
           name="my-thrift-lib-cpp2",
           cmd="$(exe :thrift-compiler-bin) --gen cpp2 -o $OUT $(location //:thrift-file)",
@@ -831,14 +822,12 @@ http_file = prelude_rule(
           sha256 = 'c24932ccabb66fffb2d7122298f7f1f91e0b1f14e05168e3036333f84bdf58dc',
           executable = True,
         )
-
         ```
 
          Here's an example of a `http_file()` using a mvn URI which uses a Maven classifier.
 
 
         ```
-
         http_file(
           name = 'guava-23-bin',
           urls = [
@@ -846,7 +835,6 @@ http_file = prelude_rule(
           ],
           sha256 = '7baa80df284117e5b945b19b98d367a85ea7b7801bd358ff657946c3bd1b6596',
         )
-
         ```
     """,
     further = None,
@@ -864,13 +852,14 @@ http_file = prelude_rule(
                  this can also be used via `run` and the
                  `$(exe )` `string parameter macros`
             """),
-            "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
-            "labels": attrs.list(attrs.string(), default = []),
-            "licenses": attrs.list(attrs.source(), default = []),
             "sha1": attrs.option(attrs.string(), default = None),
             "size_bytes": attrs.option(attrs.int(), default = None),
-        }
+            "has_content_based_path": attrs.bool(default = False),
+        } |
+        buck.licenses_arg() |
+        buck.labels_arg() |
+        buck.contacts_arg()
     ),
 )
 
@@ -901,13 +890,11 @@ remote_file = prelude_rule(
 
 
         ```
-
         remote_file(
           name = 'android-ndk-r10e-darwin-x86_64',
           url = 'https://dl.google.com/android/ndk/android-ndk-r10e-darwin-x86_64.bin',
           sha1 = 'b57c2b9213251180dcab794352bfc9a241bf2557',
         )
-
         ```
 
          Here's an example of a `remote_file()` using a `mvn` URL being referenced
@@ -915,7 +902,6 @@ remote_file = prelude_rule(
 
 
         ```
-
         prebuilt_jar(
           name = 'jetty-all',
           binary_jar = 'jetty-all-9.2.10.v20150310.jar',
@@ -928,7 +914,6 @@ remote_file = prelude_rule(
           url = 'mvn:org.eclipse.jetty.aggregate:jetty-all:src:9.2.10.v20150310',
           sha1 = '311da310416d2feb3de227081d7c3f48742d7075',
         )
-
         ```
 
          Here's an example of a `remote_file()` using a `mvn` URI which uses a
@@ -936,14 +921,12 @@ remote_file = prelude_rule(
 
 
         ```
-
         remote_file(
           name = 'jetty-source',
           out = 'jetty-all-9.2.10.v20150310-sources.jar',
           url = 'mvn:https://maven-repo.com:org.eclipse.jetty.aggregate:jetty-all:src:9.2.10.v20150310',
           sha1 = '311da310416d2feb3de227081d7c3f48742d7075',
         )
-
         ```
 
          Here's an example of a `remote_file()` using a `mvn` URI which uses a
@@ -951,14 +934,12 @@ remote_file = prelude_rule(
 
 
         ```
-
         remote_file(
           name = 'groovy-groovysh-indy',
           out = 'jetty-all-9.2.10.v20150310-sources.jar',
           url = 'mvn:org.codehaus.groovy:groovy-groovysh:jar:indy:2.4.1',
           sha1 = '1600fde728c885cc9506cb102deb1b494bd7c130',
         )
-
         ```
     """,
     further = None,
@@ -1000,12 +981,13 @@ remote_file = prelude_rule(
 
                  Zip archive which will be automatically unzipped into an output directory.
             """),
-            "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
-            "labels": attrs.list(attrs.string(), default = []),
-            "licenses": attrs.list(attrs.source(), default = []),
             "sha256": attrs.option(attrs.string(), default = None),
-        }
+            "has_content_based_path": attrs.bool(default = False),
+        } |
+        buck.licenses_arg() |
+        buck.labels_arg() |
+        buck.contacts_arg()
     ),
 )
 
@@ -1024,7 +1006,6 @@ test_suite = prelude_rule(
 
 
         ```
-
         # instrumentation_tests/BUCK:
         sh_test(
             name = "instrumentation_tests",
@@ -1062,14 +1043,12 @@ test_suite = prelude_rule(
                 "//unit_tests:unit_tests",
             ],
         )
-
         ```
 
 
         Yields output like this when run:
 
         ```
-
         $ buck test //:slow_tests
         ...
         RESULTS FOR //instrumentation_tests:instrumentation_tests //integration_tests:integration_tests
@@ -1084,7 +1063,6 @@ test_suite = prelude_rule(
         PASS    <100ms  1 Passed   0 Skipped   0 Failed   //integration_tests:integration_tests
         PASS    <100ms  1 Passed   0 Skipped   0 Failed   //unit_tests:unit_tests
         TESTS PASSED
-
         ```
     """,
     further = None,
@@ -1096,11 +1074,11 @@ test_suite = prelude_rule(
             # This diff makes the behaviors match by adding a test_deps attribute to test_suite on buck2 that is used as a deps attribute. In the macro layer, we set test_deps = tests if we are using buck2.
             # For more context: https://fb.prod.workplace.com/groups/603286664133355/posts/682567096205311/?comment_id=682623719532982&reply_comment_id=682650609530293
             "test_deps": attrs.list(attrs.dep(), default = []),
-            "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
-            "labels": attrs.list(attrs.string(), default = []),
-            "licenses": attrs.list(attrs.source(), default = []),
-        }
+        } |
+        buck.licenses_arg() |
+        buck.labels_arg() |
+        buck.contacts_arg()
     ),
 )
 
@@ -1127,12 +1105,12 @@ versioned_alias = prelude_rule(
     attrs = (
         # @unsorted-dict-items
         {
-            "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
-            "labels": attrs.list(attrs.string(), default = []),
-            "licenses": attrs.list(attrs.source(), default = []),
             "versions": attrs.dict(key = attrs.string(), value = attrs.dep(), sorted = False, default = {}),
-        }
+        } |
+        buck.licenses_arg() |
+        buck.labels_arg() |
+        buck.contacts_arg()
     ),
 )
 
@@ -1152,10 +1130,7 @@ worker_tool = prelude_rule(
 
 
         ```
-
-
         $(exe //path/to:target)
-
         ```
     """,
     examples = """
@@ -1163,7 +1138,6 @@ worker_tool = prelude_rule(
 
 
         ```
-
         #
         # Buck
         #
@@ -1203,10 +1177,7 @@ worker_tool = prelude_rule(
 
 
         ```
-
-
         ./external_tool.sh --arg1 --arg2
-
         ```
 
 
@@ -1216,7 +1187,6 @@ worker_tool = prelude_rule(
 
 
         ```
-
         [
           {
             "id": 0,
@@ -1224,14 +1194,12 @@ worker_tool = prelude_rule(
             "protocol_version": "0",
             "capabilities": []
           }
-
         ```
 
          Buck then waits for the tool to reply on `stdout`:
 
 
         ```
-
         [
           {
             "id": 0,
@@ -1239,14 +1207,12 @@ worker_tool = prelude_rule(
             "protocol_version": "0",
             "capabilities": []
           }
-
         ```
 
          Then, when building the first `genrule`, Buck writes to `stdin`:
 
 
         ```
-
           ,{
             "id": 1,
             "type": "command",
@@ -1254,7 +1220,6 @@ worker_tool = prelude_rule(
             "stdout_path": "/tmp/1.out",
             "stderr_path": "/tmp/1.err"
           }
-
         ```
 
          The file `/tmp/1.args` contains `argA`. The tool should
@@ -1264,13 +1229,11 @@ worker_tool = prelude_rule(
 
 
         ```
-
           ,{
             "id": 1,
             "type": "result",
             "exit_code": 0
           }
-
         ```
 
          Once Buck hears back from the first genrule's job, it submits the second genrule's job in the
@@ -1279,18 +1242,14 @@ worker_tool = prelude_rule(
 
 
         ```
-
         ]
-
         ```
 
          which signals the tool that it should exit after replying on `stdout` with:
 
 
         ```
-
         ]
-
         ```
 
          In this example, Buck is guaranteed to invoke
@@ -1298,10 +1257,7 @@ worker_tool = prelude_rule(
 
 
         ```
-
-
         ./external_tool.sh --arg1 --arg2
-
         ```
 
 
@@ -1319,13 +1275,11 @@ worker_tool = prelude_rule(
 
 
         ```
-
         {
           "id": &ltn>,
           "type": "error",
           "exit_code": 1
         }
-
         ```
 
          If the tool receives a message type it can interpret, but the other attributes of the
@@ -1333,13 +1287,11 @@ worker_tool = prelude_rule(
 
 
         ```
-
         {
           "id": &ltn>,
           "type": "error",
           "exit_code": 2
         }
-
         ```
     """,
     further = None,
@@ -1375,13 +1327,13 @@ worker_tool = prelude_rule(
                  rule being built more than once. Be careful not to use this setting with tools that don't expect
                  to process the same input—with different contents—twice!
             """),
-            "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
-            "labels": attrs.list(attrs.string(), default = []),
-            "licenses": attrs.list(attrs.source(), default = []),
             # FIXME: prelude// should be standalone (not refer to fbsource//)
             "_worker_tool_runner": attrs.default_only(attrs.dep(default = "prelude//js/worker_runner:worker_tool_runner")),
-        }
+        } |
+        buck.licenses_arg() |
+        buck.labels_arg() |
+        buck.contacts_arg()
     ),
 )
 
@@ -1396,7 +1348,6 @@ zip_file = prelude_rule(
 
 
         ```
-
         zip_file(
           # The output will be "example.zip"
           name = 'example',
@@ -1418,7 +1369,6 @@ zip_file = prelude_rule(
             "com/example/amazinglibrary/Source1.java",
           ],
         )
-
         ```
         If you were to examine the generated zip, the contents would look
         something like (assuming the output of
@@ -1429,12 +1379,10 @@ zip_file = prelude_rule(
 
 
         ```
-
         dir/file1.txt
         dir/subdir/file2.txt
         hello.txt
         com/example/amazinglibrary/Source2.java
-
         ```
     """,
     further = None,
@@ -1486,11 +1434,11 @@ zip_file = prelude_rule(
                 * `append`: all entries are added to the output file.
                 * `fail`: fail the build when duplicate entries are present.
             """),
-            "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
-            "labels": attrs.list(attrs.string(), default = []),
-            "licenses": attrs.list(attrs.source(), default = []),
-        }
+        } |
+        buck.licenses_arg() |
+        buck.labels_arg() |
+        buck.contacts_arg()
     ),
 )
 
@@ -1501,6 +1449,7 @@ core_rules = struct(
     configuration_alias = configuration_alias,
     configured_alias = configured_alias,
     constraint_setting = constraint_setting,
+    constraint = constraint,
     constraint_value = constraint_value,
     export_file = export_file,
     external_test_runner = external_test_runner,

@@ -22,8 +22,8 @@ use std::time::SystemTime;
 use allocative::Allocative;
 use buck2_core::cells::name::CellName;
 use buck2_core::execution_types::executor_config::RemoteExecutorUseCase;
-use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
-use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
+use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
+use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
 pub use buck2_test_proto::CasDigest;
 pub use buck2_test_proto::ExecutionDetails;
 use derivative::Derivative;
@@ -49,6 +49,7 @@ pub struct ConfiguredTarget {
     pub configuration: String,
     pub package_project_relative_path: ForwardRelativePathBuf,
     pub test_config_unification_rollout: bool,
+    pub package_oncall: Option<String>,
 }
 
 /// Metadata about the execution to display
@@ -133,6 +134,7 @@ pub enum TestStatus {
     OMITTED,
     FATAL,
     TIMEOUT,
+    INFRA_FAILURE,
     // There is something called unknown, adding it here for now,
     // we can change it later on.
     UNKNOWN,

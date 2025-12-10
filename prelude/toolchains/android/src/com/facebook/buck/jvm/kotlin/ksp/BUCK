@@ -19,7 +19,6 @@ buck_kotlin_library(
         "prelude//toolchains/android/test/com/facebook/buck/jvm/kotlin/...",
     ],
     deps = [
-        "prelude//toolchains/android/src/com/facebook/buck/core/exceptions:exceptions",
         "prelude//toolchains/android/src/com/facebook/buck/jvm/cd/command/kotlin:language-version",
         "prelude//toolchains/android/src/com/facebook/buck/jvm/core:core",
         "prelude//toolchains/android/src/com/facebook/buck/jvm/java:support",

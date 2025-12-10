@@ -15,16 +15,13 @@ import static org.junit.Assert.assertEquals;
 
 import com.facebook.buck.jvm.java.abi.source.CompletionSimulator.CompletedType;
 import com.facebook.buck.jvm.java.testutil.compiler.CompilerTreeApiTest;
-import com.facebook.buck.jvm.java.testutil.compiler.CompilerTreeApiTestRunner;
 import java.io.IOException;
 import java.util.Map;
 import javax.lang.model.element.TypeElement;
 import org.hamcrest.Matchers;
 import org.junit.Before;
 import org.junit.Test;
-import org.junit.runner.RunWith;
 
-@RunWith(CompilerTreeApiTestRunner.class)
 public class CompletionSimulatorTest extends CompilerTreeApiTest {
   private final TestSourceOnlyAbiRuleInfo ruleInfo = new TestSourceOnlyAbiRuleInfo("//:test");
   private CompletionSimulator completer;

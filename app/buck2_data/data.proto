@@ -47,7 +47,7 @@ message BuckEvent {
 
 // An event that begins a span.
 message SpanStartEvent {
-  reserved 83;
+  reserved 83, 90;
   // TODO(swgillespie) add fields common to span events
   // bool suspending = 1;
   oneof data {
@@ -91,7 +91,6 @@ message SpanStartEvent {
     DepFileUploadStart dep_file_upload = 88;
     ComputeDetailedAggregatedMetricsStart compute_detailed_aggregated_metrics =
         89;
-    MemoryPressureStart memory_pressure = 90;
     // Used in Buck unit tests.
     FakeStart fake = 999;
   }
@@ -99,7 +98,7 @@ message SpanStartEvent {
 
 // An event that ends a span.
 message SpanEndEvent {
-  reserved 84;
+  reserved 84, 90;
   SpanStats stats = 1;
   // The total duration of this span, as observed by the client.
   google.protobuf.Duration duration = 2;
@@ -145,7 +144,6 @@ message SpanEndEvent {
     DepFileUploadEnd dep_file_upload = 88;
     ComputeDetailedAggregatedMetricsEnd compute_detailed_aggregated_metrics =
         89;
-    MemoryPressureEnd memory_pressure = 90;
     // Used in Buck unit tests.
     FakeEnd fake = 999;
   }
@@ -205,7 +203,7 @@ message StdoutStreamingOutput {
 
 // An event that represents a single point in time.
 message InstantEvent {
-  reserved 2, 8, 9, 12, 13, 22, 24, 38, 41;
+  reserved 2, 8, 9, 12, 13, 22, 24, 38, 41, 52, 53;
 
   oneof data {
     StructuredError structured_error = 1;
@@ -320,30 +318,9 @@ message InstantEvent {
     // Event that used for emitting streaming std output
     StdoutStreamingOutput streaming_output = 51;
 
-    // Event used to track the % of memory pressure experienced
-    MemoryPressure memory_pressure = 52;
-
-    // Event used to track the number of actions running concurrently
-    LocalActionRunningCount local_action_running_count = 53;
-
     // Used to track all resource control events as they happen
     ResourceControlEvents resource_control_events = 54;
   }
-}
-
-message MemoryPressureStart {}
-
-message MemoryPressureEnd {}
-
-message MemoryPressure {
-  // Peak % memory pressure experienced during the build if it exceeded the
-  // threshold
-  uint64 peak_pressure = 1;
-}
-
-message LocalActionRunningCount {
-  // Number of actions running concurrently
-  uint32 count = 1;
 }
 
 message PreviousCommandWithMismatchedConfig {
@@ -731,33 +708,56 @@ message TestDiscovery {
 
 message ResourceControlEvents {
   string uuid = 1;
-  string command = 2;
-  ResourceControlKind kind = 3;
+  ResourceControlEventKind kind = 3;
   google.protobuf.Timestamp event_time = 4;
 
-  // Information related to what's frozen
-  string action_digest = 5;
+  // Memory information regarding buck2.slice cgroup
+  uint64 allprocs_memory_current = 6;
+  uint64 allprocs_memory_pressure = 7;
+  uint64 allprocs_memory_swap_current = 12;
 
-  // Memory
-  uint64 memory_current = 6;
-  uint64 memory_pressure = 7;
-  uint64 memory_swap_current = 12;
+  // Memory information regarding the buck2 daemon cgroup
+  uint64 daemon_memory_current = 17;
+  uint64 daemon_swap_current = 18;
 
-  // Information related to the cgroup that's frozen
-  uint64 cgroup_memory_current = 8;
-  uint64 cgroup_memory_peak = 9;
-  uint64 frozen_cgroup_count = 10;
-  uint64 active_cgroup_count = 11;
+  // Information related to the action in question
+  optional string action_kind = 2;
+  optional string action_digest = 5;
+  optional uint64 action_cgroup_memory_current = 8;
+  optional uint64 action_cgroup_memory_peak = 9;
+  optional uint64 action_cgroup_swap_current = 15;
+  optional uint64 action_cgroup_swap_peak = 16;
+
+  uint64 actions_suspended_count = 10;
+  uint64 actions_running_count = 11;
 
   // Metadata associated with this build. ResourceControlEvents only cares
   // about CI information for now, but I don't see any benefits in parsing them
   // out over just including everything
   map<string, string> metadata = 13;
+
+  // Ancestor cgroup constraints that may limit Buck2 processes
+  optional AncestorCgroupConstraints ancestor_cgroup_constraints = 14;
 }
 
-enum ResourceControlKind {
-  FREEZE = 0;
-  UNFREEZE = 1;
+// Memory constraints inherited from ancestor cgroups in the hierarchy.
+// Captures memory limits that ancestor cgroups impose on Buck2 processes.
+message AncestorCgroupConstraints {
+  optional uint64 memory_max = 1;
+  optional uint64 memory_high = 2;
+  optional uint64 memory_swap_max = 3;
+  optional uint64 memory_swap_high = 4;
+}
+
+enum ResourceControlEventKind {
+  reserved 1;
+  RESOURCE_CONTROL_EVENT_KIND_UNKNOWN = 0;
+  SUSPEND_FREEZE = 2;
+  SUSPEND_KILL = 3;
+  WAKE_UNFREEZE = 4;
+  WAKE_RETRY = 5;
+  WAKE_DELAYED_START = 6;
+  SCHEDULED = 10;
 }
 
 // Result of invoking buck2 rage
@@ -823,6 +823,14 @@ message Snapshot {
   uint64 buck2_system_cpu_us = 3;
   // Queue size of the blocking executor.
   uint64 blocking_executor_io_queue_size = 4;
+  // Tokio blocking queue depth.
+  uint64 tokio_blocking_queue_depth = 14;
+  // Tokio num idle blocking threads.
+  uint64 tokio_num_idle_blocking_threads = 15;
+  // Tokio total number of blocking threads.
+  uint64 tokio_num_blocking_threads = 16;
+  // Memory pressure as seen from all Buck2 processes (under buck2.slice)
+  uint32 allprocs_memory_pressure = 17;
 
   uint64 re_download_bytes = 5;
   uint64 re_upload_bytes = 6;
@@ -963,9 +971,9 @@ message Snapshot {
   optional uint32 client_cpu_percents = 2002;
 
   // Memory usage of the buck2 daemon's slice from cgroup (if available)
-  optional UnixCgroupMemoryStats daemon_cgroup = 2003;
+  optional UnixCgroupMemoryStats allprocs_cgroup = 2003;
   // Memory usage of the forkserver daemon's slice from cgroup (if available)
-  optional UnixCgroupMemoryStats forkserver_cgroup = 2004;
+  optional UnixCgroupMemoryStats forkserver_actions_cgroup = 2004;
 }
 
 message UnixCgroupMemoryStats {
@@ -993,6 +1001,7 @@ enum TestStatus {
   RERUN = 8;
   LISTING_SUCCESS = 9;
   LISTING_FAILED = 10;
+  INFRA_FAILURE = 11;
 }
 
 message TestResult {
@@ -1032,6 +1041,10 @@ message CommandStart {
   //
   // The metadata cannot contain information from buckconfig or dice state
   map<string, string> metadata = 1;
+
+  repeated string cli_args = 2;
+  repeated string tags = 3;
+
   oneof data {
     BuildCommandStart build = 20;
     TargetsCommandStart targets = 21;
@@ -1371,6 +1384,8 @@ enum ActionExecutionKind {
   ACTION_EXECUTION_KIND_REMOTE_DEP_FILE_CACHE = 9;
   // This action was served via a local action cache
   ACTION_EXECUTION_KIND_LOCAL_ACTION_CACHE = 10;
+  // This action was executed remotely via a persistent worker.
+  ACTION_EXECUTION_KIND_REMOTE_WORKER = 11;
 }
 
 // A name for a particular action, suitable for offline analytics and user
@@ -1411,9 +1426,9 @@ message CommandExecutionDetails {
   // Same as exit_code but allowing negative values
   optional sint32 signed_exit_code = 4;
   // The stdout of the command. This may be omitted for successful commands.
-  string stdout = 2;
+  string cmd_stdout = 2;
   // The stderr of the command.
-  string stderr = 3;
+  string cmd_stderr = 3;
 
   CommandExecutionKind command_kind = 5;
   CommandExecutionMetadata metadata = 13;
@@ -1439,6 +1454,8 @@ message CommandExecutionKind {
 
 // Serialization of CommandExecutionMetadata
 message CommandExecutionMetadata {
+  reserved 9;
+
   /// How long this command actually waited for this action to complete
   google.protobuf.Duration wall_time = 1;
 
@@ -1463,11 +1480,13 @@ message CommandExecutionMetadata {
   /// How long this command spent waiting to run
   optional google.protobuf.Duration queue_duration = 8;
 
-  /// Whether this command was frozen due to memory pressure
-  optional bool was_frozen = 9;
+  /// The duration this command was suspended for. None if it was never
+  /// suspended
+  optional google.protobuf.Duration suspend_duration = 10;
 
-  /// The duration this command was frozen for
-  google.protobuf.Duration freeze_duration = 10;
+  /// The number of times this action was suspended. None indicates that
+  /// resource control was not enabled.
+  optional uint64 suspend_count = 11;
 }
 
 message CommandOutputsMissing {
@@ -1514,6 +1533,12 @@ message CommandExecution {
     Cancelled cancelled = 7;
     WorkerFailure worker_failure = 8;
   }
+
+  InlineCommandExecutionEnvironmentMetadata inline_environment_metadata = 20;
+}
+
+message InlineCommandExecutionEnvironmentMetadata {
+  optional uint64 sandcastle_instance_id = 1;
 }
 
 // NOTE: This is an empty message. When this is returned as an error, the
@@ -1626,6 +1651,9 @@ message ActionExecutionEnd {
   // Whether the action was incremental or not, and if it is, if it's
   // incremental locally or if it's incremental remotely
   optional IncrementalKind incremental_kind = 44;
+
+  // Whether the action is eligible for deduplication across configurations.
+  EligibleForDedupe eligible_for_dedupe = 45;
 }
 
 enum IncrementalKind {
@@ -1658,6 +1686,12 @@ enum SchedulingMode {
   FALLBACK = 13;
   // Remote queue estimate exceeded threshold, raced local with queued action
   FALLBACK_RE_QUEUE_ESTIMATE = 14;
+}
+
+enum EligibleForDedupe {
+  ELIGIBLE = 0;
+  INELIGIBLE_INPUT = 1;
+  INELIGIBLE_OUTPUT = 2;
 }
 
 message CommandInvalidationInfo {
@@ -1722,20 +1756,36 @@ message ActionSubError {
 
   optional string message = 2;
 
-  // Optional list of file locations/lines for rule author to populate.
-  optional ActionErrorLocations locations = 3;
-}
+  // File path for the error location
+  optional string file = 4;
 
-// Wrapper around `ActionErrorLocation` so we can differentiate between null and
-// empty locations
-message ActionErrorLocations {
-  repeated ActionErrorLocation locations = 1;
-}
+  // Line number
+  optional uint64 lnum = 5;
 
-message ActionErrorLocation {
-  // The file path of the error location. Should be project relative or absolute
-  string file = 1;
-  optional uint64 line = 2;
+  // End line (for multi-line spans)
+  optional uint64 end_lnum = 6;
+
+  // Column number
+  optional uint64 col = 7;
+
+  // End column (for ranges)
+  optional uint64 end_col = 8;
+
+  // Type of error (error, warning, info, etc.)
+  optional string error_type = 9;
+
+  // Numeric error code (e.g., 404, 500)
+  optional uint64 error_number = 10;
+
+  // Whether to show this error in stderr
+  bool show_in_stderr = 11;
+
+  // Optional subcategory for finer-grained error categorization within a
+  // category
+  optional string subcategory = 12;
+
+  // Optional remediation steps to help users resolve the error
+  optional string remediation = 13;
 }
 
 message ActionErrorHandlerExecutionStart {}
@@ -1853,6 +1903,7 @@ message ReExecute {
   RePlatform platform = 2;
   optional string action_key = 3;
   string use_case = 4;
+  bool persistent_worker = 5;
 }
 
 message RePlatform {
@@ -1961,6 +2012,7 @@ message ExecutorStageEnd {}
 message TestDiscoveryStart {
   // Trying to find the test suite(s) associated with this binary.
   string suite_name = 1;
+  ConfiguredTargetLabel target_label = 2;
 }
 
 message TestDiscoveryEnd {
@@ -1969,6 +2021,7 @@ message TestDiscoveryEnd {
   bool re_cache_enabled = 3;
   optional buck.host_sharing.HostSharingRequirements
       command_host_sharing_requirements = 4;
+  ConfiguredTargetLabel target_label = 5;
 }
 
 message TestRunStart {
@@ -2197,6 +2250,7 @@ message RemoteCommandDetails {
   optional string session_id = 1;
   string use_case = 2;
   RePlatform platform = 3;
+  bool persistent_worker = 4;
 }
 
 // Header in binary event log.
@@ -2255,7 +2309,8 @@ enum DaemonWasStartedReason {
 // This is the origin for every sample in buck2_builds scuba table
 // It's sent from the client to Scribe at the end of each invocation
 message InvocationRecord {
-  reserved 1, 22, 27, 28, 36, 61, 62, 66, 77, 82, 88, 89, 100, 234, 235;
+  reserved 1, 22, 27, 28, 36, 61, 62, 66, 77, 82, 88, 89, 100, 234, 235, 400,
+      401;
 
   // Optional - present if ever sent to client.
   // Will be missing on a cancelled build.
@@ -2542,12 +2597,8 @@ message InvocationRecord {
   optional uint64 time_to_first_skip_test_result_ms = 301;
   // Time elapsed from a build's start until first unknown test result.
   optional uint64 time_to_first_unknown_test_result_ms = 302;
-
-  // Number of memory pressure events fired by the memory tracker.
-  optional uint64 memory_tracker_pressure_events = 400;
-
-  // Peak % memory pressure percentage over the lifetime of the command.
-  optional uint64 peak_memory_pressure_percentage = 401;
+  // Time elapsed from a build's start until first infra failure test result.
+  optional uint64 time_to_first_infra_failure_test_result_ms = 305;
 
   // Maximum in-progress DICE key evaluations tracked during the command.
   optional uint64 max_dice_in_progress_keys = 402;
@@ -2567,22 +2618,33 @@ message InvocationRecord {
   // Maximum in-progress remote uploads tracked during the command.
   optional uint64 max_in_progress_remote_uploads = 407;
 
-  // Maximum buck2 daemon anonymous memory usage tracked during the command.
-  optional uint64 max_buck2_anon = 408;
-
-  // Maximum buck2 forkserver anonymous memory usage tracked during the command.
-  optional uint64 max_buck2_forkserver_anon = 409;
-
-  // Maximum total buck2 daemon memory usage (anon+file+kernel) tracked during
-  // the command.
-  optional uint64 max_buck2_total_memory = 410;
-
-  // Maximum total buck2 forkserver memory usage (anon+file+kernel) tracked
-  // during the command.
-  optional uint64 max_buck2_forkserver_total_memory = 411;
+  optional uint64 memory_max_anon_allprocs = 408;
+  optional uint64 memory_max_anon_forkserver_actions = 409;
+  optional uint64 memory_max_total_allprocs = 410;
+  optional uint64 memory_max_total_forkserver_actions = 411;
 
   // CommandOptions data
   optional CommandOptions command_options = 412;
+
+  // IO operation counts captured since the beginning of the invocation
+  optional uint32 io_copy_count = 413;
+  optional uint32 io_symlink_count = 414;
+  optional uint32 io_hardlink_count = 415;
+  optional uint32 io_mkdir_count = 416;
+  optional uint32 io_readdir_count = 417;
+  optional uint32 io_readdir_eden_count = 418;
+  optional uint32 io_rmdir_count = 419;
+  optional uint32 io_rmdir_all_count = 420;
+  optional uint32 io_stat_count = 421;
+  optional uint32 io_stat_eden_count = 422;
+  optional uint32 io_chmod_count = 423;
+  optional uint32 io_readlink_count = 424;
+  optional uint32 io_remove_count = 425;
+  optional uint32 io_rename_count = 426;
+  optional uint32 io_read_count = 427;
+  optional uint32 io_write_count = 428;
+  optional uint32 io_canonicalize_count = 429;
+  optional uint32 io_eden_settle_count = 430;
 }
 
 enum InvocationOutcome {

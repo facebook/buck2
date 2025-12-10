@@ -176,9 +176,8 @@ extra_attributes = {
         "manifest": attrs.option(attrs.one_of(attrs.transition_dep(cfg = cpu_transition), attrs.source()), default = None),
         "manifest_skeleton": attrs.option(attrs.one_of(attrs.transition_dep(cfg = cpu_transition), attrs.source()), default = None),
         "min_sdk_version": attrs.option(attrs.int(), default = None),
-        "native_library_merge_map": attrs.option(attrs.dict(key = attrs.string(), value = attrs.list(attrs.regex()), sorted = False), default = None),
-        "native_library_merge_sequence": attrs.option(attrs.list(attrs.any()), default = None),
         "_android_toolchain": toolchains_common.android(),
+        "_cxx_toolchain": attrs.split_transition_dep(cfg = cpu_split_transition, default = "toolchains//:android-hack"),
         "_dex_toolchain": toolchains_common.dex(),
         "_exec_os_type": buck.exec_os_type_arg(),
         "_is_building_android_binary": attrs.default_only(attrs.bool(default = True)),
@@ -226,6 +225,7 @@ extra_attributes = {
         "_dex_min_sdk_version": attrs.default_only(attrs.option(attrs.int(), default = dex_min_sdk_version())),
         "_dex_toolchain": toolchains_common.dex(),
         "_exec_os_type": buck.exec_os_type_arg(),
+        "_is_building_android_binary": attrs.default_only(attrs.bool(default = False)),
         "_java_toolchain": toolchains_common.java_for_android(),
     },
     "android_resource": {

@@ -124,7 +124,7 @@ class GenerationContext {
       this.usedUserTypes =
           projectFiles
               .flatMap {
-                it.collectDescendantsOfType<KtUserType>().filter { userType ->
+                it.collectDescendantsOfType<KtUserType> { userType ->
                   userType.calculateQualifierList().size == 1
                 }
               }

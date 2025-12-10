@@ -23,7 +23,6 @@ use buck2_core::configuration::pair::ConfigurationNoExec;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::target::label::label::TargetLabel;
 use buck2_error::BuckErrorContext;
-use buck2_futures::cancellation::CancellationContext;
 use buck2_node::attrs::attr_type::configuration_dep::ConfigurationDepKind;
 use buck2_node::configuration::calculation::CONFIGURATION_CALCULATION;
 use buck2_node::configuration::calculation::CellNameForConfigurationResolution;
@@ -36,6 +35,7 @@ use buck2_node::nodes::unconfigured::TargetNodeRef;
 use derive_more::Display;
 use dice::DiceComputations;
 use dice::Key;
+use dice_futures::cancellation::CancellationContext;
 use dupe::Dupe;
 use futures::FutureExt;
 use ref_cast::RefCast;
@@ -55,6 +55,10 @@ pub enum ConfigurationError {
         "Platform target `{0}` evaluation returned `ProviderInfo` label `{1}` which resolved to an unequal configuration"
     )]
     PlatformEvalUnequalConfiguration(TargetLabel, TargetLabel),
+    #[error(
+        "Expected `{0}` to be a `constraint_setting()` target, but it had no `ConstraintSettingInfo` provider."
+    )]
+    MissingConstraintSettingInfo(TargetLabel),
 }
 
 async fn configuration_matches(
@@ -65,8 +69,25 @@ async fn configuration_matches(
 ) -> buck2_error::Result<bool> {
     for (key, value) in &constraints_and_configs.constraints {
         match cfg.get_constraint_value(key)? {
-            Some(v) if v == value => {}
-            _ => return Ok(false),
+            Some(v) if v == value => {
+                // Configuration explicitly sets this constraint and it matches
+            }
+            Some(_) => {
+                // Configuration explicitly sets this constraint but it doesn't match
+                return Ok(false);
+            }
+            None => {
+                // Configuration doesn't set this constraint, check if there's a default
+                match &key.default {
+                    Some(default) if default == value => {
+                        // Default value matches the required value
+                    }
+                    _ => {
+                        // No default or default doesn't match
+                        return Ok(false);
+                    }
+                }
+            }
         }
     }
 

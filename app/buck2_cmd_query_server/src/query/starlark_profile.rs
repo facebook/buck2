@@ -10,10 +10,10 @@
 
 use std::path::Path;
 
-use buck2_core::fs::paths::abs_path::AbsPath;
 use buck2_core::package::PackageLabel;
 use buck2_error::BuckErrorContext;
 use buck2_events::dispatch::console_message;
+use buck2_fs::paths::abs_path::AbsPath;
 use buck2_interpreter::starlark_profiler::data::StarlarkProfileDataAndStats;
 use buck2_node::nodes::frontend::TargetGraphCalculation;
 use buck2_profile::write_starlark_profile;

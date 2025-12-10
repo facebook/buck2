@@ -30,7 +30,7 @@ use crate::bxl::starlark_defs::context::actions::BxlActions;
 use crate::bxl::starlark_defs::context::build::StarlarkFailedArtifactIterable;
 use crate::bxl::starlark_defs::context::build::StarlarkProvidersArtifactIterable;
 use crate::bxl::starlark_defs::context::fs::BxlFilesystem;
-use crate::bxl::starlark_defs::context::output::OutputStream;
+use crate::bxl::starlark_defs::context::output::StarlarkOutputStream;
 use crate::bxl::starlark_defs::cquery::StarlarkCQueryCtx;
 use crate::bxl::starlark_defs::file_set::StarlarkFileNode;
 use crate::bxl::starlark_defs::lazy_ctx::StarlarkLazyCtx;
@@ -79,7 +79,7 @@ pub(crate) fn register_bxl_type_names_in_bxl_namespace(globals: &mut GlobalsBuil
         StarlarkValueAsType::new();
     const ConfiguredAttr: StarlarkValueAsType<StarlarkConfiguredAttr> = StarlarkValueAsType::new();
     const TargetUniverse: StarlarkValueAsType<StarlarkTargetUniverse> = StarlarkValueAsType::new();
-    const OutputStream: StarlarkValueAsType<OutputStream> = StarlarkValueAsType::new();
+    const OutputStream: StarlarkValueAsType<StarlarkOutputStream> = StarlarkValueAsType::new();
     const LazyContext: StarlarkValueAsType<StarlarkLazyCtx> = StarlarkValueAsType::new();
     const Lazy: StarlarkValueAsType<StarlarkLazy> = StarlarkValueAsType::new();
     const Error: StarlarkValueAsType<StarlarkError> = StarlarkValueAsType::new();

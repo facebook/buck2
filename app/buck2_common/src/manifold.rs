@@ -13,7 +13,7 @@ use std::time::Duration;
 use std::time::SystemTime;
 use std::time::UNIX_EPOCH;
 
-use buck2_core::fs::paths::abs_path::AbsPath;
+use buck2_fs::paths::abs_path::AbsPath;
 use buck2_http::HttpClient;
 use buck2_http::HttpClientBuilder;
 use buck2_http::retries::AsBuck2Error;

@@ -201,7 +201,11 @@ impl StmtProfileData {
             count: usize,
         }
         // There should be one EMPTY span entry
-        let mut items = Vec::with_capacity(self.stmts.len() - 1);
+        let mut items = Vec::with_capacity(if self.stmts.is_empty() {
+            0
+        } else {
+            self.stmts.len() - 1
+        });
         let mut total_time = SmallDuration::default();
         let mut total_count = 0;
         for (file_span, &(count, time)) in &self.stmts {
@@ -390,6 +394,14 @@ xx(*[2])
             .as_slice(),
             coverage
         );
+    }
+
+    #[test]
+    fn test_empty() {
+        let mut a = StmtProfile::new();
+        a.enable();
+        let a = a.r#gen().unwrap();
+        a.gen_csv().unwrap();
     }
 
     #[test]

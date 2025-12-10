@@ -106,6 +106,9 @@ enum Command {
         #[clap(long)]
         buck2_command: Option<String>,
 
+        #[clap(long, default_value = "50", env = "RUST_PROJECT_EXTRA_TARGETS")]
+        max_extra_targets: Option<usize>,
+
         /// The name of the client invoking rust-project, such as 'vscode'.
         #[clap(long)]
         client: Option<String>,
@@ -136,9 +139,16 @@ enum Command {
         #[clap(long)]
         client: Option<String>,
 
+        /// Optional argument specifying build mode.
+        #[clap(short = 'm', long)]
+        mode: Option<String>,
+
         /// Command used to run `buck2`. Defaults to `"buck2"`.
         #[clap(long)]
         buck2_command: Option<String>,
+
+        #[clap(long, default_value = "50", env = "RUST_PROJECT_EXTRA_TARGETS")]
+        max_extra_targets: Option<usize>,
 
         args: JsonArguments,
     },
@@ -204,8 +214,11 @@ impl FromStr for SysrootMode {
 #[derive(PartialEq, Clone, Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 enum JsonArguments {
+    /// Path to a Rust source file.
     Path(PathBuf),
+    /// Path to BUCK file.
     Buildfile(PathBuf),
+    /// A named buck target.
     Label(String),
 }
 
@@ -213,10 +226,10 @@ impl FromStr for JsonArguments {
     type Err = anyhow::Error;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        serde_json::from_str(s).map_err(|_| {
+        serde_json::from_str(s).map_err(|e| {
             anyhow::anyhow!(
-                "Expected a JSON object with a key of `path`, `buildfile`, or `label`. Got: {}",
-                s
+                "Expected a JSON object with a key of `path`, `buildfile`, or `label`. Got serde error: {}",
+                e,
             )
         })
     }
@@ -394,6 +407,8 @@ fn json_args_pass() {
             sysroot_mode: SysrootMode::Rustc,
             client: None,
             buck2_command: None,
+            max_extra_targets: None,
+            mode: None,
         }),
         version: false,
     };
@@ -412,6 +427,8 @@ fn json_args_pass() {
             sysroot_mode: SysrootMode::Rustc,
             client: None,
             buck2_command: None,
+            max_extra_targets: None,
+            mode: None,
         }),
         version: false,
     };
@@ -430,6 +447,8 @@ fn json_args_pass() {
             sysroot_mode: SysrootMode::Rustc,
             client: None,
             buck2_command: None,
+            max_extra_targets: None,
+            mode: None,
         }),
         version: false,
     };

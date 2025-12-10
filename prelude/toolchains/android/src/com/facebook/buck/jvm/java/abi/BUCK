@@ -19,6 +19,7 @@ buck_java_library(
     ],
     versioned_java_srcs = True,
     visibility = [
+        "prelude//toolchains/android/meta_only/src/com/facebook/buck/jvm/remote_worker/...",
         "prelude//toolchains/android/src/com/facebook/buck/jvm/java:steps",
         "prelude//toolchains/android/src/com/facebook/buck/jvm/java:support",
         "prelude//toolchains/android/src/com/facebook/buck/jvm/java/stepsbuilder/javacd/main:command_lib",
@@ -29,7 +30,6 @@ buck_java_library(
     ],
     deps = [
         "prelude//toolchains/android/src/com/facebook/buck/cd/resources/proto:javacd-model",
-        "prelude//toolchains/android/src/com/facebook/buck/core/exceptions:exceptions",
         "prelude//toolchains/android/src/com/facebook/buck/io/filesystem/impl:utils",
         "prelude//toolchains/android/src/com/facebook/buck/io/pathformat:pathformat",
         "prelude//toolchains/android/src/com/facebook/buck/jvm/java/abi/kotlin:kotlin",

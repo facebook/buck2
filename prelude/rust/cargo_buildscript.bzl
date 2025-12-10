@@ -84,7 +84,7 @@ def _make_rustc_shim(ctx: AnalysisContext, cwd: Artifact) -> cmd_args:
         sysroot_args = cmd_args()
 
     shim = cmd_script(
-        ctx = ctx,
+        actions = ctx.actions,
         name = "__rustc_shim",
         cmd = cmd_args(toolchain_info.compiler, sysroot_args, relative_to = cwd),
         language = ctx.attrs._exec_os_type[OsLookup].script,

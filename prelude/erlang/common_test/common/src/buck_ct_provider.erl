@@ -7,10 +7,10 @@
 
 %% @format
 -module(buck_ct_provider).
--compile(warn_missing_spec).
 -moduledoc """
 behavior module defining callbacks for buck2 test providers
 """.
+-compile(warn_missing_spec_all).
 
 -include("buck_ct_records.hrl").
 

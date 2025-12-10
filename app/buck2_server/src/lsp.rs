@@ -24,8 +24,6 @@ use buck2_core::bzl::ImportPath;
 use buck2_core::cells::CellResolver;
 use buck2_core::cells::build_file_cell::BuildFileCell;
 use buck2_core::cells::cell_path::CellPathRef;
-use buck2_core::fs::paths::abs_path::AbsPath;
-use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::package::package_relative_path::PackageRelativePath;
@@ -39,6 +37,8 @@ use buck2_error::conversion::from_any_with_tag;
 use buck2_events::dispatch::span_async;
 use buck2_events::dispatch::with_dispatcher;
 use buck2_events::dispatch::with_dispatcher_async;
+use buck2_fs::paths::abs_path::AbsPath;
+use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_interpreter::allow_relative_paths::HasAllowRelativePaths;
 use buck2_interpreter::load_module::InterpreterCalculation;
 use buck2_interpreter::paths::module::OwnedStarlarkModulePath;
@@ -736,10 +736,9 @@ pub(crate) async fn run_lsp_server_command(
     partial_result_dispatcher: PartialResultDispatcher<buck2_cli_proto::LspMessage>,
     req: StreamingRequestHandler<buck2_cli_proto::LspRequest>,
 ) -> buck2_error::Result<buck2_cli_proto::LspResponse> {
-    let start_event = buck2_data::CommandStart {
-        metadata: ctx.request_metadata().await?,
-        data: Some(buck2_data::LspCommandStart {}.into()),
-    };
+    let start_event = ctx
+        .command_start_event(buck2_data::LspCommandStart {}.into())
+        .await?;
     span_async(start_event, async move {
         let result = run_lsp_server(ctx, partial_result_dispatcher, req)
             .await

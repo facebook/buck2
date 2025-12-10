@@ -12,7 +12,6 @@ package com.facebook.buck.jvm.java.abi;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 
-import com.facebook.buck.jvm.java.testutil.compiler.CompilerTreeApiTestRunner;
 import com.facebook.buck.jvm.java.testutil.compiler.TestCompiler;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -36,9 +35,7 @@ import javax.lang.model.util.Elements;
 import org.hamcrest.Matchers;
 import org.junit.Rule;
 import org.junit.Test;
-import org.junit.runner.RunWith;
 
-@RunWith(CompilerTreeApiTestRunner.class)
 public class TypeScanner8Test {
   @Rule public TestCompiler compiler = new TestCompiler();
 

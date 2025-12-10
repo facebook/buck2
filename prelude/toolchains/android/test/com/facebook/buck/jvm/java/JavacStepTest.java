@@ -25,9 +25,6 @@ import com.facebook.buck.step.StepExecutionResult;
 import com.facebook.buck.step.StepExecutionResults;
 import com.facebook.buck.step.TestExecutionContext;
 import com.facebook.buck.testutil.TemporaryPaths;
-import com.facebook.buck.testutil.TestConsole;
-import com.facebook.buck.util.FakeProcess;
-import com.facebook.buck.util.FakeProcessExecutor;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSortedSet;
@@ -49,7 +46,6 @@ public class JavacStepTest {
   private String target;
   private BuildTargetValue buildTargetValue;
   private RelPath configuredBuckOut;
-  private FakeJavac fakeJavac;
   private CompilerParameters compilerParameters;
 
   @Before
@@ -57,7 +53,6 @@ public class JavacStepTest {
     target = "//foo:bar";
     buildTargetValue = new BuildTargetValue(Type.LIBRARY, target);
     configuredBuckOut = RelPath.get("buck-out/v2");
-    fakeJavac = new FakeJavac();
     compilerParameters =
         new CompilerParameters(
             ImmutableSortedSet.of(),
@@ -76,21 +71,18 @@ public class JavacStepTest {
 
     JavacStep step =
         new JavacStep(
-            fakeJavac,
+            new FakeJavac(0, "javac stderr\n"),
             javacOptions,
             buildTargetValue,
             configuredBuckOut,
             getCompilerOutputPathsValue(),
             compilerParameters,
             null,
-            null);
-
-    FakeProcess fakeJavacProcess = new FakeProcess(0, "javac stdout\n", "javac stderr\n");
+            null,
+            false);
 
     AbsPath rootPath = tmp.getRoot();
-    IsolatedExecutionContext executionContext =
-        TestExecutionContext.newInstance(
-            rootPath, new FakeProcessExecutor(p -> fakeJavacProcess, new TestConsole()));
+    IsolatedExecutionContext executionContext = TestExecutionContext.newInstance(rootPath);
     StepExecutionResult result = step.executeIsolatedStep(executionContext);
 
     // Note that we don't include stderr in the step result on success.
@@ -103,21 +95,18 @@ public class JavacStepTest {
 
     JavacStep step =
         new JavacStep(
-            fakeJavac,
+            new FakeJavac(3, "javac stderr\n"),
             javacOptions,
             buildTargetValue,
             configuredBuckOut,
             getCompilerOutputPathsValue(),
             compilerParameters,
             null,
-            null);
-
-    FakeProcess fakeJavacProcess = new FakeProcess(3, "javac stdout\n", "javac stderr\n");
+            null,
+            false);
 
     AbsPath rootPath = tmp.getRoot();
-    IsolatedExecutionContext executionContext =
-        TestExecutionContext.newInstance(
-            rootPath, new FakeProcessExecutor(p -> fakeJavacProcess, new TestConsole()));
+    IsolatedExecutionContext executionContext = TestExecutionContext.newInstance(rootPath);
     StepExecutionResult result = step.executeIsolatedStep(executionContext);
 
     // JavacStep itself writes stdout to the console on error; we expect the Build class to write
@@ -136,21 +125,18 @@ public class JavacStepTest {
 
     JavacStep step =
         new JavacStep(
-            fakeJavac,
+            new FakeJavac(0, "javac stderr\n"),
             javacOptions,
             buildTargetValue,
             configuredBuckOut,
             getCompilerOutputPathsValue(),
             compilerParameters,
             null,
-            null);
-
-    FakeProcess fakeJavacProcess = new FakeProcess(0, "javac stdout\n", "javac stderr\n");
+            null,
+            false);
 
     AbsPath rootPath = tmp.getRoot();
-    IsolatedExecutionContext executionContext =
-        TestExecutionContext.newInstance(
-            rootPath, new FakeProcessExecutor(p -> fakeJavacProcess, new TestConsole()));
+    IsolatedExecutionContext executionContext = TestExecutionContext.newInstance(rootPath);
     StepExecutionResult result = step.executeIsolatedStep(executionContext);
 
     assertThat(result, equalTo(StepExecutionResults.SUCCESS));
@@ -163,21 +149,18 @@ public class JavacStepTest {
 
     JavacStep step =
         new JavacStep(
-            fakeJavac,
+            new FakeJavac(0, "javac stderr\n"),
             javacOptions,
             buildTargetValue,
             configuredBuckOut,
             getCompilerOutputPathsValue(),
             compilerParameters,
             null,
-            null);
-
-    FakeProcess fakeJavacProcess = new FakeProcess(0, "javac stdout\n", "javac stderr\n");
+            null,
+            false);
 
     AbsPath rootPath = tmp.getRoot();
-    IsolatedExecutionContext executionContext =
-        TestExecutionContext.newInstance(
-            rootPath, new FakeProcessExecutor(p -> fakeJavacProcess, new TestConsole()));
+    IsolatedExecutionContext executionContext = TestExecutionContext.newInstance(rootPath);
 
     String description = step.getIsolatedStepDescription(executionContext);
     List<String> options =

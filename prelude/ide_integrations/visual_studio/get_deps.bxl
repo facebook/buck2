@@ -8,16 +8,12 @@
 
 load("utils.bxl", "flatten_lists", "log_debug")
 
-def get_deps(bxl_ctx, targets: list[TargetLabel]) -> typing.Iterable:
+def get_deps(bxl_ctx, targets: bxl.ConfiguredTargetSet) -> typing.Iterable:
     log_debug("# Getting dependencies for {}", targets, bxl_ctx = bxl_ctx)
-
-    # Pass along modifiers as required by API to get same configuration as buck2 build.
-    # bxl_ctx.modifiers includes modifiers from both command line and mode file.
-    configured_targets = bxl_ctx.configured_targets(targets, modifiers = bxl_ctx.modifiers)
 
     # -1 or large value for unbounded traversal https://fburl.com/code/7vtwh6bu
     # Return dependencies in DFS post-order.
-    deps = bxl_ctx.cquery().deps(configured_targets, -1, "target_deps()")
+    deps = bxl_ctx.cquery().deps(targets, -1, "target_deps()")
 
     # Skip special targets that are going to cause trouble in generation and not useful in final solution.
     block_list = {

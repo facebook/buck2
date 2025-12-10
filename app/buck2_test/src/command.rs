@@ -52,8 +52,6 @@ use buck2_common::pattern::resolve::ResolvedPattern;
 use buck2_core::cells::CellResolver;
 use buck2_core::cells::name::CellName;
 use buck2_core::configuration::compatibility::MaybeCompatible;
-use buck2_core::fs::fs_util;
-use buck2_core::fs::paths::abs_path::AbsPathBuf;
 use buck2_core::global_cfg_options::GlobalCfgOptions;
 use buck2_core::package::PackageLabelWithModifiers;
 use buck2_core::pattern::pattern::Modifiers;
@@ -72,7 +70,8 @@ use buck2_error::ErrorTag;
 use buck2_error::conversion::from_any_with_tag;
 use buck2_events::dispatch::console_message;
 use buck2_events::dispatch::with_dispatcher_async;
-use buck2_futures::cancellation::CancellationContext;
+use buck2_fs::fs_util;
+use buck2_fs::paths::abs_path::AbsPathBuf;
 use buck2_interpreter::extra::InterpreterHostPlatform;
 use buck2_interpreter_for_build::interpreter::context::HasInterpreterContext;
 use buck2_node::load_patterns::MissingTargetBehavior;
@@ -93,6 +92,7 @@ use buck2_test_api::data::TestStatus;
 use buck2_test_api::protocol::TestExecutor;
 use dice::DiceTransaction;
 use dice::LinearRecomputeDiceComputations;
+use dice_futures::cancellation::CancellationContext;
 use dupe::Dupe;
 use dupe::IterDupedExt;
 use futures::channel::mpsc;
@@ -194,7 +194,9 @@ impl Default for CounterWithExamples {
 struct TestStatuses {
     passed: CounterWithExamples,
     skipped: CounterWithExamples,
+    omitted: CounterWithExamples,
     failed: CounterWithExamples,
+    infra_failure: CounterWithExamples,
     fatals: CounterWithExamples,
     listing_success: CounterWithExamples,
     listing_failed: CounterWithExamples,
@@ -205,9 +207,10 @@ impl TestStatuses {
             TestStatus::PASS => self.passed.add(&result.name),
             TestStatus::FAIL => self.failed.add(&result.name),
             TestStatus::SKIP => self.skipped.add(&result.name),
-            TestStatus::OMITTED => self.skipped.add(&result.name),
+            TestStatus::OMITTED => self.omitted.add(&result.name),
             TestStatus::FATAL => self.fatals.add(&result.name),
             TestStatus::TIMEOUT => self.failed.add(&result.name),
+            TestStatus::INFRA_FAILURE => self.infra_failure.add(&result.name),
             TestStatus::UNKNOWN => {}
             TestStatus::RERUN => {}
             TestStatus::LISTING_SUCCESS => self.listing_success.add(&result.name),
@@ -225,11 +228,16 @@ enum TestError {
     #[error("Test execution completed but tests were skipped")]
     #[buck2(tag = Input)]
     TestSkipped,
+    #[error("Tests were filtered out and not run")]
+    #[buck2(tag = Input)]
+    TestOmitted,
     #[error("Test listing failed")]
     #[buck2(tag = Input)]
     ListingFailed,
     #[error("Fatal error encountered during test execution")]
     Fatal,
+    #[error("Infra Failure error encountered during test execution")]
+    InfraFailure,
 }
 
 #[derive(Debug, buck2_error_derive::Error)]
@@ -480,6 +488,13 @@ async fn test(
                 .skipped
                 .to_cli_proto_counter(),
         ),
+        omitted: Some(
+            test_outcome
+                .executor_report
+                .statuses
+                .omitted
+                .to_cli_proto_counter(),
+        ),
         failed: Some(
             test_outcome
                 .executor_report
@@ -492,6 +507,13 @@ async fn test(
                 .executor_report
                 .statuses
                 .fatals
+                .to_cli_proto_counter(),
+        ),
+        infra_failure: Some(
+            test_outcome
+                .executor_report
+                .statuses
+                .infra_failure
                 .to_cli_proto_counter(),
         ),
         listing_success: Some(
@@ -552,6 +574,13 @@ async fn test(
             errors.push(buck2_data::ErrorReport::from(&TestError::TestFailed.into()));
         }
     }
+    if let Some(infra_failure) = &test_statuses.infra_failure {
+        if infra_failure.count > 0 {
+            errors.push(buck2_data::ErrorReport::from(
+                &TestError::InfraFailure.into(),
+            ));
+        }
+    }
     if let Some(fatal) = &test_statuses.fatals {
         if fatal.count > 0 {
             errors.push(buck2_data::ErrorReport::from(&TestError::Fatal.into()));
@@ -570,6 +599,13 @@ async fn test(
         if skipped.count > 0 && exit_code.is_none_or(|code| code != 0) {
             errors.push(buck2_data::ErrorReport::from(
                 &TestError::TestSkipped.into(),
+            ));
+        }
+    }
+    if let Some(omitted) = &test_statuses.omitted {
+        if omitted.count > 0 {
+            errors.push(buck2_data::ErrorReport::from(
+                &TestError::TestOmitted.into(),
             ));
         }
     }
@@ -754,7 +790,7 @@ async fn test_targets(
                     .context("Failed to release local resources")?;
 
                 // Process the build errors we've collected.
-                let mut builder = BuildTargetResultBuilder::new();
+                let mut builder = BuildTargetResultBuilder::new(None);
                 for event in driver.error_events {
                     builder.event(event)?;
                 }
@@ -827,6 +863,7 @@ enum TestDriverTask {
         label: ConfiguredProvidersLabel,
         modifiers: Modifiers,
         test_config_unification_rollout: bool,
+        oncall: Option<String>,
     },
     TestTarget {
         label: ConfiguredProvidersLabel,
@@ -834,6 +871,7 @@ enum TestDriverTask {
         providers: FrozenProviderCollectionValue,
         build_target_result: BuildTargetResult,
         test_config_unification_rollout: bool,
+        oncall: Option<String>,
     },
 }
 
@@ -927,11 +965,13 @@ impl<'a, 'e> TestDriver<'a, 'e> {
                                 label,
                                 modifiers,
                                 test_config_unification_rollout,
+                                oncall,
                             } => {
                                 self.build_target(
                                     label,
                                     modifiers,
                                     test_config_unification_rollout,
+                                    oncall,
                                 );
                             }
                             TestDriverTask::TestTarget {
@@ -940,6 +980,7 @@ impl<'a, 'e> TestDriver<'a, 'e> {
                                 providers,
                                 build_target_result,
                                 test_config_unification_rollout,
+                                oncall,
                             } => {
                                 self.test_target(
                                     label,
@@ -947,6 +988,7 @@ impl<'a, 'e> TestDriver<'a, 'e> {
                                     providers,
                                     build_target_result,
                                     test_config_unification_rollout,
+                                    oncall,
                                 );
                             }
                         }
@@ -1139,11 +1181,14 @@ impl<'a, 'e> TestDriver<'a, 'e> {
                 MaybeCompatible::Compatible(node) => node,
             };
 
+            let oncall = node.oncall().map(|s| s.to_owned());
+
             // Build and then test this: it's compatible.
             let mut work = vec![TestDriverTask::BuildTarget {
                 label,
                 modifiers: modifiers.dupe(),
                 test_config_unification_rollout,
+                oncall,
             }];
 
             // If this node is a forward, it'll get flattened when we do analysis and run the
@@ -1180,6 +1225,7 @@ impl<'a, 'e> TestDriver<'a, 'e> {
         label: ConfiguredProvidersLabel,
         modifiers: Modifiers,
         test_config_unification_rollout: bool,
+        oncall: Option<String>,
     ) {
         if !self.labels_tested.insert(label.dupe()) {
             self.work.push(
@@ -1232,6 +1278,7 @@ impl<'a, 'e> TestDriver<'a, 'e> {
                 providers: result.1,
                 modifiers,
                 test_config_unification_rollout,
+                oncall,
             }])
         }
         .boxed();
@@ -1246,6 +1293,7 @@ impl<'a, 'e> TestDriver<'a, 'e> {
         providers: FrozenProviderCollectionValue,
         build_target_result: BuildTargetResult,
         test_config_unification_rollout: bool,
+        oncall: Option<String>,
     ) {
         let should_test = !build_target_result.build_failed && !build_target_result.is_empty();
         self.build_target_result.extend(build_target_result);
@@ -1266,6 +1314,7 @@ impl<'a, 'e> TestDriver<'a, 'e> {
                 state.cell_resolver,
                 state.working_dir_cell,
                 test_config_unification_rollout,
+                oncall,
             )
             .await
             {
@@ -1325,7 +1374,7 @@ async fn build_target_result(
     }
 
     let materialization_and_upload = MaterializationAndUploadContext::skip();
-    let (result_builder, consumer) = AsyncBuildTargetResultBuilder::new();
+    let (result_builder, consumer) = AsyncBuildTargetResultBuilder::new(None);
     consumer.consume(BuildEvent::new_configured(
         label.dupe(),
         ConfiguredBuildEventVariant::MapModifiers { modifiers },
@@ -1365,6 +1414,7 @@ async fn test_target(
     cell_resolver: &CellResolver,
     working_dir_cell: CellName,
     test_config_unification_rollout: bool,
+    oncall: Option<String>,
 ) -> anyhow::Result<Option<ConfiguredProvidersLabel>> {
     let collection = providers.provider_collection();
 
@@ -1381,6 +1431,7 @@ async fn test_target(
                 cell_resolver,
                 working_dir_cell,
                 test_config_unification_rollout,
+                oncall,
             )
             .map(|l| Some(l).transpose())
             .left_future()
@@ -1417,12 +1468,14 @@ fn run_tests<'a, 'b>(
     cell_resolver: &'b CellResolver,
     working_dir_cell: CellName,
     test_config_unification_rollout: bool,
+    oncall: Option<String>,
 ) -> BoxFuture<'a, anyhow::Result<ConfiguredProvidersLabel>> {
     let maybe_handle = build_configured_target_handle(
         providers_label.dupe(),
         session,
         cell_resolver,
         test_config_unification_rollout,
+        oncall,
     );
 
     match maybe_handle {

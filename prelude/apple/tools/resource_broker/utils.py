@@ -11,7 +11,6 @@
 import asyncio
 import json
 import shlex
-from typing import List
 
 from .timeouts import DEFAULT_OPERATION_TIMEOUT
 
@@ -31,7 +30,7 @@ async def _read_until_valid_json(stream: asyncio.StreamReader) -> object:
 
 
 async def execute_generic_text_producing_command(
-    name: str, cmd: List[str], timeout: float = DEFAULT_OPERATION_TIMEOUT
+    name: str, cmd: list[str], timeout: float = DEFAULT_OPERATION_TIMEOUT
 ) -> str:
     process = await asyncio.create_subprocess_exec(
         *cmd,

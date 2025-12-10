@@ -17,7 +17,6 @@ use std::sync::atomic::Ordering;
 
 use allocative::Allocative;
 use async_trait::async_trait;
-use buck2_futures::cancellation::CancellationContext;
 use derive_more::Display;
 use dice::DetectCycles;
 use dice::Dice;
@@ -28,6 +27,7 @@ use dice::InjectedKey;
 use dice::Key;
 use dice::ProjectionKey;
 use dice::UserComputationData;
+use dice_futures::cancellation::CancellationContext;
 use dupe::Dupe;
 use parking_lot::Mutex;
 

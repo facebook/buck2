@@ -473,3 +473,24 @@ async def test_parallelism_logging(buck: Buck, tmp_path: Path) -> None:
     # The available parallelism should still be a positive integer (system dependent)
     assert isinstance(command_options_no_j["available_parallelism"], int)
     assert command_options_no_j["available_parallelism"] > 0
+
+
+@buck_test()
+async def test_client_metadata_vscode_fallback(buck: Buck, tmp_path: Path) -> None:
+    record = tmp_path / "record.json"
+
+    # Test that vscode-fallback is set when VSCODE_PID is present
+    await buck.build(
+        ":pass",
+        "--unstable-write-invocation-record",
+        str(record),
+        env={"VSCODE_PID": "12345"},
+        stdin=None,  # Ensure stdin is not a terminal
+    )
+
+    record = read_invocation_record(record)
+
+    # Should have vscode-fallback as client id
+    client_metadata_dict = {m["key"]: m["value"] for m in record["client_metadata"]}
+    assert client_metadata_dict.get("id") == "vscode-fallback"
+    assert record["metadata"]["strings"]["client"] == "vscode-fallback"

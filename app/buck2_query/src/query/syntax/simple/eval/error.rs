@@ -52,9 +52,9 @@ pub enum QueryError {
     #[error("query function {0} not available in this context")]
     NotAvailableInContext(&'static str),
     #[error(
-        "Operation + requires either two set types, or one set and one string, got `{0}` and `{1}`"
+        "Set operation requires either two set types, or one set and one string, got `{0}` and `{1}`"
     )]
-    UnionIncompatibleTypes(&'static str, &'static str),
+    SetIncompatibleTypes(&'static str, &'static str),
     /// Used to propagate up an inner error. The inner span will mark where the inner error was (which itself may be the
     /// propagation of another error). This error will end up in a Spanned that indicates where this error (the propagation) occurs.
     /// Since QueryError has an impl for `From<Spanned<QueryError>>`, just propagating inner eval errors via `?` will hit this case (and

@@ -15,11 +15,9 @@ use allocative::Allocative;
 use buck2_common::invocation_paths::InvocationPaths;
 use buck2_common::legacy_configs::configs::LegacyBuckConfig;
 use buck2_common::legacy_configs::key::BuckconfigKeyRef;
-use buck2_core::fs::fs_util;
-use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
-use buck2_core::fs::paths::file_name::FileName;
 use buck2_core::rollout_percentage::RolloutPercentage;
 use buck2_error::BuckErrorContext;
+use buck2_events::daemon_id::DaemonId;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::execute::blocking::BlockingExecutor;
 use buck2_execute::materialize::materializer::MaterializationMethod;
@@ -30,6 +28,9 @@ use buck2_execute_impl::sqlite::incremental_state_db::IncrementalStateSqliteDb;
 use buck2_execute_impl::sqlite::materializer_db::MATERIALIZER_DB_SCHEMA_VERSION;
 use buck2_execute_impl::sqlite::materializer_db::MaterializerState;
 use buck2_execute_impl::sqlite::materializer_db::MaterializerStateSqliteDb;
+use buck2_fs::fs_util;
+use buck2_fs::paths::abs_norm_path::AbsNormPath;
+use buck2_fs::paths::file_name::FileName;
 
 use crate::daemon::server::BuckdServerInitPreferences;
 
@@ -66,8 +67,9 @@ fn sqlite_db_setup_metadata_and_versions(
     schema_version: String,
     version_config: &str,
     deferred_materializer_config: Option<&DeferredMaterializerConfigs>,
+    daemon_id: &DaemonId,
 ) -> buck2_error::Result<(HashMap<String, String>, HashMap<String, String>)> {
-    let metadata = buck2_events::metadata::collect();
+    let metadata = buck2_events::metadata::collect(&daemon_id);
 
     let mut versions = HashMap::from([("schema_version".to_owned(), schema_version)]);
 
@@ -99,6 +101,7 @@ pub(crate) async fn maybe_initialize_materializer_sqlite_db(
     deferred_materializer_configs: &DeferredMaterializerConfigs,
     digest_config: DigestConfig,
     init_ctx: &BuckdServerInitPreferences,
+    daemon_id: &DaemonId,
 ) -> buck2_error::Result<(Option<MaterializerStateSqliteDb>, Option<MaterializerState>)> {
     if !options.sqlite_materializer_state {
         // When sqlite materializer state is disabled, we should always delete the materializer state db.
@@ -117,6 +120,7 @@ pub(crate) async fn maybe_initialize_materializer_sqlite_db(
         MATERIALIZER_DB_SCHEMA_VERSION.to_string(),
         "sqlite_materializer_state_version",
         Some(deferred_materializer_configs),
+        daemon_id,
     )?;
 
     // Most things in the rest of `metadata` should go in the metadata sqlite table.
@@ -143,6 +147,7 @@ pub(crate) async fn maybe_initialize_incremental_sqlite_db(
     paths: InvocationPaths,
     io_executor: Arc<dyn BlockingExecutor>,
     root_config: &LegacyBuckConfig,
+    daemon_id: &DaemonId,
 ) -> buck2_error::Result<IncrementalDbState> {
     // Rolling it out by default, but giving an option to disable in case something goes horribly wrong
     if !root_config
@@ -168,6 +173,7 @@ pub(crate) async fn maybe_initialize_incremental_sqlite_db(
         INCREMENTAL_DB_SCHEMA_VERSION.to_string(),
         "sqlite_incremental_state_version",
         None,
+        daemon_id,
     )?;
 
     let incremental_db_state = IncrementalStateSqliteDb::initialize(
@@ -232,9 +238,9 @@ pub(crate) fn delete_unknown_disk_state(
 
 #[cfg(test)]
 mod tests {
-    use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
     use buck2_core::fs::project::ProjectRootTemp;
     use buck2_core::fs::project_rel_path::ProjectRelativePath;
+    use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
 
     use super::*;
 

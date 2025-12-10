@@ -159,7 +159,6 @@ mod tests {
     use crate::configuration::constraints::ConstraintValue;
     use crate::configuration::data::ConfigurationData;
     use crate::configuration::data::ConfigurationDataData;
-    use crate::target::label::label::TargetLabel;
 
     #[test]
     fn test_diff() {
@@ -167,12 +166,12 @@ mod tests {
             "xx".to_owned(),
             ConfigurationDataData::new(BTreeMap::from_iter([
                 (
-                    ConstraintKey(TargetLabel::testing_parse("foo//bar:c")),
-                    ConstraintValue(TargetLabel::testing_parse("foo//bar:v")),
+                    ConstraintKey::testing_new("foo//bar:c"),
+                    ConstraintValue::testing_new("foo//bar:v", None),
                 ),
                 (
-                    ConstraintKey(TargetLabel::testing_parse("foo//qux:c")),
-                    ConstraintValue(TargetLabel::testing_parse("foo//qux:vx")),
+                    ConstraintKey::testing_new("foo//qux:c"),
+                    ConstraintValue::testing_new("foo//qux:vx", None),
                 ),
             ])),
         )
@@ -181,16 +180,16 @@ mod tests {
             "yy".to_owned(),
             ConfigurationDataData::new(BTreeMap::from_iter([
                 (
-                    ConstraintKey(TargetLabel::testing_parse("foo//bar:c")),
-                    ConstraintValue(TargetLabel::testing_parse("foo//bar:v")),
+                    ConstraintKey::testing_new("foo//bar:c"),
+                    ConstraintValue::testing_new("foo//bar:v", None),
                 ),
                 (
-                    ConstraintKey(TargetLabel::testing_parse("foo//baz:c")),
-                    ConstraintValue(TargetLabel::testing_parse("foo//baz:vy")),
+                    ConstraintKey::testing_new("foo//baz:c"),
+                    ConstraintValue::testing_new("foo//baz:vy", None),
                 ),
                 (
-                    ConstraintKey(TargetLabel::testing_parse("foo//qux:c")),
-                    ConstraintValue(TargetLabel::testing_parse("foo//qux:vy")),
+                    ConstraintKey::testing_new("foo//qux:c"),
+                    ConstraintValue::testing_new("foo//qux:vy", None),
                 ),
             ])),
         )
@@ -203,6 +202,54 @@ mod tests {
             + constraint: foo//baz:c -> foo//baz:vy\n\
             - constraint: foo//qux:c -> foo//qux:vx\n\
             + constraint: foo//qux:c -> foo//qux:vy\n\
+            ",
+            diff
+        );
+    }
+
+    #[test]
+    fn test_diff_with_subtargets() {
+        // Test configuration diff with the new unified constraint syntax (subtargets)
+        let x = ConfigurationData::from_platform(
+            "xx".to_owned(),
+            ConfigurationDataData::new(BTreeMap::from_iter([
+                (
+                    ConstraintKey::testing_new("foo//bar:os"),
+                    ConstraintValue::testing_new("foo//bar:os", Some("linux")),
+                ),
+                (
+                    ConstraintKey::testing_new("foo//qux:cpu"),
+                    ConstraintValue::testing_new("foo//qux:cpu", Some("x86_64")),
+                ),
+            ])),
+        )
+        .unwrap();
+        let y = ConfigurationData::from_platform(
+            "yy".to_owned(),
+            ConfigurationDataData::new(BTreeMap::from_iter([
+                (
+                    ConstraintKey::testing_new("foo//bar:os"),
+                    ConstraintValue::testing_new("foo//bar:os", Some("linux")),
+                ),
+                (
+                    ConstraintKey::testing_new("foo//baz:sanitizer"),
+                    ConstraintValue::testing_new("foo//baz:sanitizer", Some("asan")),
+                ),
+                (
+                    ConstraintKey::testing_new("foo//qux:cpu"),
+                    ConstraintValue::testing_new("foo//qux:cpu", Some("arm64")),
+                ),
+            ])),
+        )
+        .unwrap();
+        let diff = cfg_diff(&x, &y).unwrap_err();
+        assert_eq!(
+            "\
+            - label: xx\n\
+            + label: yy\n\
+            + constraint: foo//baz:sanitizer -> foo//baz:sanitizer[asan]\n\
+            - constraint: foo//qux:cpu -> foo//qux:cpu[x86_64]\n\
+            + constraint: foo//qux:cpu -> foo//qux:cpu[arm64]\n\
             ",
             diff
         );

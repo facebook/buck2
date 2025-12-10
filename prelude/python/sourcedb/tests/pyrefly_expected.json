@@ -1,0 +1,133 @@
+{
+  "db": {
+    "prelude//python/sourcedb/tests/test_files:alias": {
+      "alias": "prelude//python/sourcedb/tests/test_files:alias_lib"
+    },
+    "prelude//python/sourcedb/tests/test_files:alias_lib": {
+      "buildfile_path": "prelude/python/sourcedb/tests/test_files/BUCK",
+      "deps": [],
+      "python_platform": "linux",
+      "python_version": "3.12",
+      "relative_to": null,
+      "srcs": {
+        "alias": [
+          "prelude/python/sourcedb/tests/test_files/alias.py"
+        ]
+      }
+    },
+    "prelude//python/sourcedb/tests/test_files:generated_file": {
+      "buildfile_path": "prelude/python/sourcedb/tests/test_files/BUCK",
+      "deps": [],
+      "python_platform": "linux",
+      "python_version": "3.12",
+      "relative_to": null,
+      "srcs": {
+        "generated_file": [
+          "buck-out/v2/gen/prelude/<more generated path output>/out/generated_file.pyi"
+        ]
+      }
+    },
+    "prelude//python/sourcedb/tests/test_files:generated_files": {
+      "buildfile_path": "prelude/python/sourcedb/tests/test_files/BUCK",
+      "deps": [],
+      "python_platform": "linux",
+      "python_version": "3.12",
+      "relative_to": "buck-out/<some generated path>/out/",
+      "srcs": {
+        "generated1": [
+          "generated1.py"
+        ],
+        "generated2": [
+          "generated2.py"
+        ]
+      }
+    },
+    "prelude//python/sourcedb/tests/test_files:lib": {
+      "buildfile_path": "prelude/python/sourcedb/tests/test_files/BUCK",
+      "deps": [
+        "prelude//python/sourcedb/tests/test_files:alias",
+        "prelude//python/sourcedb/tests/test_files:generated_file",
+        "prelude//python/sourcedb/tests/test_files:subdir"
+      ],
+      "python_platform": "linux",
+      "python_version": "3.12",
+      "relative_to": null,
+      "srcs": {
+        "python.sourcedb.tests.test_files.lib": [
+          "prelude/python/sourcedb/tests/test_files/lib.py"
+        ]
+      }
+    },
+    "prelude//python/sourcedb/tests/test_files:main": {
+      "buildfile_path": "prelude/python/sourcedb/tests/test_files/BUCK",
+      "deps": [
+        "prelude//python/sourcedb/tests/test_files:lib",
+        "prelude//python/sourcedb/tests/test_files:my_extension_lib"
+      ],
+      "python_platform": "linux",
+      "python_version": "3.12",
+      "relative_to": null,
+      "srcs": {
+        "python.sourcedb.tests.test_files.main": [
+          "prelude/python/sourcedb/tests/test_files/main.py"
+        ]
+      }
+    },
+    "prelude//python/sourcedb/tests/test_files:my_extension": {
+      "buildfile_path": "prelude/python/sourcedb/tests/test_files/BUCK",
+      "deps": [
+        "prelude//python/sourcedb/tests/test_files:my_extension_stub"
+      ],
+      "python_platform": "linux",
+      "python_version": "3.12",
+      "relative_to": null,
+      "srcs": {}
+    },
+    "prelude//python/sourcedb/tests/test_files:my_extension_lib": {
+      "buildfile_path": "prelude/python/sourcedb/tests/test_files/BUCK",
+      "deps": [
+        "prelude//python/sourcedb/tests/test_files:my_extension"
+      ],
+      "python_platform": "linux",
+      "python_version": "3.12",
+      "relative_to": null,
+      "srcs": {
+        "python.sourcedb.tests.test_files.my_extension": [
+          "prelude/python/sourcedb/tests/test_files/my_extension.py"
+        ]
+      }
+    },
+    "prelude//python/sourcedb/tests/test_files:my_extension_stub": {
+      "buildfile_path": "prelude/python/sourcedb/tests/test_files/BUCK",
+      "deps": [],
+      "python_platform": "linux",
+      "python_version": "3.12",
+      "relative_to": null,
+      "srcs": {
+        "python.sourcedb.tests.test_files.my_extension": [
+          "prelude/python/sourcedb/tests/test_files/my_extension.pyi"
+        ]
+      }
+    },
+    "prelude//python/sourcedb/tests/test_files:subdir": {
+      "buildfile_path": "prelude/python/sourcedb/tests/test_files/BUCK",
+      "deps": [
+        "prelude//python/sourcedb/tests/test_files:generated_files"
+      ],
+      "python_platform": "linux",
+      "python_version": "3.12",
+      "relative_to": null,
+      "srcs": {
+        "python.sourcedb.tests.test_files.subdir": [
+          "prelude/python/sourcedb/tests/test_files/subdir/__init__.py",
+          "prelude/python/sourcedb/tests/test_files/subdir/__init__.pyi"
+        ],
+        "python.sourcedb.tests.test_files.subdir.util": [
+          "prelude/python/sourcedb/tests/test_files/subdir/util.py",
+          "prelude/python/sourcedb/tests/test_files/subdir/util.pyi"
+        ]
+      }
+    }
+  },
+  "root": ""
+}

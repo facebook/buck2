@@ -33,11 +33,13 @@ use buck2_execute::directory::ActionSharedDirectory;
 use buck2_execute::materialize::materializer::ArtifactNotMaterializedReason;
 use buck2_execute::materialize::materializer::DeclareArtifactPayload;
 use buck2_execute::materialize::materializer::MaterializationError;
-use buck2_futures::cancellation::CancellationContext;
+use buck2_fs::fs_util::disk_space_stats;
+use buck2_fs::paths::abs_path::AbsPath;
 use buck2_util::threads::check_stack_overflow;
 use buck2_wrapper_common::invocation_id::TraceId;
 use chrono::DateTime;
 use chrono::Utc;
+use dice_futures::cancellation::CancellationContext;
 use dupe::Dupe;
 use dupe::OptionDupedExt;
 use futures::Future;
@@ -391,6 +393,33 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
         }
     }
 
+    fn get_artifact_ttl(
+        decreased_ttl_hours_disk_threshold: Option<f64>,
+        decreased_ttl_hours: Option<std::time::Duration>,
+        default_ttl: std::time::Duration,
+    ) -> std::time::Duration {
+        let (threshold, lower_ttl) = match (decreased_ttl_hours_disk_threshold, decreased_ttl_hours)
+        {
+            (Some(t), Some(l)) => (t, l),
+            _ => return default_ttl,
+        };
+
+        let root_path_str = "/";
+
+        let disk_stats = match AbsPath::new(root_path_str).and_then(disk_space_stats) {
+            Ok(stats) => stats,
+            Err(e) => {
+                let _unused = soft_error!("disk_space_stats", e);
+                return default_ttl;
+            }
+        };
+        if (disk_stats.free_space as f64 / disk_stats.total_space as f64 * 100.0) <= threshold {
+            lower_ttl
+        } else {
+            default_ttl
+        }
+    }
+
     pub(super) fn spawn<F>(&self, f: F) -> JoinHandle<F::Output>
     where
         F: std::future::Future + Send + 'static,
@@ -500,13 +529,22 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                 Op::CleanStaleRequest => {
                     if let Some(config) = clean_stale_config.as_ref() {
                         let dispatcher = self.daemon_dispatcher.dupe();
+
+                        let artifact_ttl = Self::get_artifact_ttl(
+                            config.decreased_ttl_hours_disk_threshold,
+                            config.decreased_ttl_hours,
+                            config.artifact_ttl,
+                        );
+
+                        let daemon_id = dispatcher.daemon_id().dupe();
                         let cmd = CleanStaleArtifactsCommand {
-                            keep_since_time: chrono::Utc::now() - config.artifact_ttl,
+                            keep_since_time: chrono::Utc::now() - artifact_ttl,
                             dry_run: config.dry_run,
                             tracked_only: false,
                             dispatcher,
                         };
-                        stream.clean_stale_fut = Some(cmd.create_clean_fut(&mut self, None));
+                        stream.clean_stale_fut =
+                            Some(cmd.create_clean_fut(&mut self, None, daemon_id));
                     } else {
                         // This should never happen
                         soft_error!(
@@ -717,7 +755,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
             return format!(
                 "Finished flushing {} entries in {} ms",
                 size,
-                now.elapsed().as_millis(),
+                (Instant::now() - now).as_millis(),
             );
         }
         "Access time updates are disabled. Consider removing `update_access_times = false` from your .buckconfig".to_owned()

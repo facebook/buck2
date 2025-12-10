@@ -11,10 +11,10 @@
 use std::env;
 use std::mem;
 
-use buck2_core::fs::fs_util;
-use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
-use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
-use buck2_core::fs::paths::file_name::FileNameBuf;
+use buck2_fs::fs_util;
+use buck2_fs::paths::abs_norm_path::AbsNormPath;
+use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
+use buck2_fs::paths::file_name::FileNameBuf;
 use rand::Rng;
 
 /// Temporary path.

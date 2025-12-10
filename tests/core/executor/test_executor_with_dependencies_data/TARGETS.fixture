@@ -9,5 +9,10 @@ test(
 
 test(
     name = "bad_target_with_dependencies",
-    remote_execution_dependencies = [{"extra_field": "abc", "id": "foo", "smc_tier": "noop"}],
+    remote_execution_dependencies = [{
+        "enable_interpolation": "false",
+        "extra_field": "abc",
+        "id": "foo",
+        "smc_tier": "noop",
+    }],
 )

@@ -47,3 +47,15 @@ run_action = rule(
         "local_only": attrs.bool(default = False),
     },
 )
+
+def _slow(ctx):
+    slow = ctx.actions.declare_output("slow")
+
+    ctx.actions.run(
+        ["fbpython", "-c", "import time, sys; time.sleep(60); sys.exit(1)", slow.as_output()],
+        category = "slow_default_output",
+    )
+
+    return [DefaultInfo(slow)]
+
+slow = rule(impl = _slow, attrs = {})

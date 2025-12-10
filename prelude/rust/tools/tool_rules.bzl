@@ -24,6 +24,9 @@ def _get_rustc_cfg_impl(ctx: AnalysisContext) -> list[Provider]:
         cmd.append(cmd_args("--target=", toolchain_info.rustc_target_triple, delimiter = ""))
 
     env = {}
+    if ctx.attrs.enable_nightly_cfgs:
+        env["RUSTC_BOOTSTRAP"] = "1"
+
     if toolchain_info.rust_target_path != None:
         env["RUST_TARGET_PATH"] = toolchain_info.rust_target_path[DefaultInfo].default_outputs[0]
 
@@ -34,6 +37,7 @@ def _get_rustc_cfg_impl(ctx: AnalysisContext) -> list[Provider]:
 get_rustc_cfg = rule(
     impl = _get_rustc_cfg_impl,
     attrs = {
+        "enable_nightly_cfgs": attrs.bool(default = False),
         "_rust_toolchain": toolchains_common.rust(),
     },
 )

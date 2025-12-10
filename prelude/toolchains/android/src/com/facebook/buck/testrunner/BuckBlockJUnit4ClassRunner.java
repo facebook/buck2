@@ -10,10 +10,10 @@
 
 package com.facebook.buck.testrunner;
 
-import com.facebook.buck.util.concurrent.MostExecutors;
 import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import org.junit.Rule;
 import org.junit.Test;
@@ -38,15 +38,16 @@ import org.junit.runners.model.TestClass;
  */
 public class BuckBlockJUnit4ClassRunner extends BlockJUnit4ClassRunner {
 
-  // We create an ExecutorService based on the implementation of
-  // Executors.newSingleThreadExecutor(). The problem with Executors.newSingleThreadExecutor() is
-  // that it does not let us specify a RejectedExecutionHandler, which we need to ensure that
-  // garbage is not spewed to the user's console if the build fails.
   private final ThreadLocal<ExecutorService> executor =
       new ThreadLocal<ExecutorService>() {
         @Override
         protected ExecutorService initialValue() {
-          return MostExecutors.newSingleThreadExecutor(getClass().getSimpleName());
+          return Executors.newSingleThreadExecutor(
+              r -> {
+                Thread newThread = Executors.defaultThreadFactory().newThread(r);
+                newThread.setName(BuckBlockJUnit4ClassRunner.class.getSimpleName());
+                return newThread;
+              });
         }
       };
 

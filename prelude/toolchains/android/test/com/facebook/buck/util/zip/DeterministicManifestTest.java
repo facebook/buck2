@@ -10,16 +10,12 @@
 
 package com.facebook.buck.util.zip;
 
-import static org.hamcrest.Matchers.lessThanOrEqualTo;
 import static org.junit.Assert.assertArrayEquals;
 
-import com.facebook.buck.jvm.java.version.utils.JavaVersionUtils;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.jar.Attributes;
-import java.util.jar.Manifest;
-import org.junit.Assume;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -129,33 +125,6 @@ public class DeterministicManifestTest {
         "138-char value + 8 char key + 2 char padding = 148 chars.  |"
             + "69-character second line                                            |"
             + "X");
-  }
-
-  @Test
-  public void testLinesSplitLikeJavaImpl() throws IOException {
-    // TODO(jtorkkola): Re-enable and change behavior of {@link DeterministicManifest} to match new
-    //  behavior {@link java.util.jar.Manifest} once Java 11 migration is complete.
-    Assume.assumeThat(JavaVersionUtils.getMajorVersion(), lessThanOrEqualTo(8));
-
-    String entryName = "test";
-    String key = "12345678";
-    String value =
-        "138-char value + 8 char key + 2 char padding = 148 chars.  |"
-            + "69-character second line                                            |"
-            + "last line";
-
-    manifestWriter.setEntryAttribute(entryName, key, value);
-    manifestWriter.write(outputStream);
-
-    Manifest jdkManifest = new Manifest();
-    Attributes attrs = new Attributes();
-    attrs.putValue(key, value);
-    jdkManifest.getEntries().put(entryName, attrs);
-
-    ByteArrayOutputStream expected = new ByteArrayOutputStream();
-    jdkManifest.write(expected);
-
-    assertArrayEquals(expected.toByteArray(), outputStream.toByteArray());
   }
 
   private void assertEntryWrittenAs(String expected, String key, String value) throws IOException {

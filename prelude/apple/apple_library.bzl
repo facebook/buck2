@@ -16,6 +16,7 @@ load("@prelude//:paths.bzl", "paths")
 load("@prelude//:validation_deps.bzl", "get_validation_deps_outputs")
 load("@prelude//apple:apple_dsym.bzl", "DSYM_SUBTARGET", "get_apple_dsym")
 load("@prelude//apple:apple_stripping.bzl", "apple_strip_args")
+load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolchainInfo")
 # @oss-disable[end= ]: load("@prelude//apple/meta_only:apple_library_meta_validation.bzl", "apple_library_validate_for_meta_restrictions")
 # @oss-disable[end= ]: load("@prelude//apple/meta_only:linker_outputs.bzl", "extra_distributed_thin_lto_opt_outputs_merger", "get_extra_linker_output_flags", "get_extra_linker_outputs")
 load("@prelude//apple/mockingbird:mockingbird_types.bzl", "MockingbirdLibraryInfo", "MockingbirdLibraryInfoTSet", "MockingbirdLibraryRecord", "MockingbirdSourcesInfo", "MockingbirdTargetType")
@@ -30,6 +31,10 @@ load(
     "get_swiftmodule_linkable",
 )
 load("@prelude//apple/swift:swift_helpers.bzl", "uses_explicit_modules")
+load(
+    "@prelude//apple/swift:swift_incremental_support.bzl",
+    "get_uses_experimental_content_based_path_hashing",
+)
 load("@prelude//apple/swift:swift_toolchain_types.bzl", "SwiftToolchainInfo")
 load("@prelude//apple/swift:swift_types.bzl", "SWIFT_EXTENSION")
 load(
@@ -42,6 +47,7 @@ load(
     "AsmExtensions",
     "CxxSrcCompileCommand",  # @unused Used as a type
 )
+load("@prelude//cxx:cxx_context.bzl", "get_cxx_toolchain_info")
 load(
     "@prelude//cxx:cxx_library.bzl",
     "CxxLibraryOutput",  # @unused Used as a type
@@ -69,7 +75,12 @@ load(
     "CxxRuleProviderParams",
     "CxxRuleSubTargetParams",
 )
+load("@prelude//cxx:cxx_utility.bzl", "cxx_attrs_get_allow_cache_upload")
 load("@prelude//cxx:headers.bzl", "cxx_attr_exported_headers", "cxx_attr_headers_list")
+load(
+    "@prelude//cxx:link_groups.bzl",
+    "get_link_group_info",
+)
 load("@prelude//cxx:link_types.bzl", "ExtraLinkerOutputCategory")
 load(
     "@prelude//cxx:linker.bzl",
@@ -90,6 +101,7 @@ load(
 )
 load("@prelude//utils:arglike.bzl", "ArgLike")
 load("@prelude//utils:expect.bzl", "expect")
+load("@prelude//xplugins:utils.bzl", "get_xplugins_usage_info", "get_xplugins_usage_subtargets")
 load(":apple_bundle_types.bzl", "AppleBundleLinkerMapInfo", "AppleMinDeploymentVersionInfo")
 load(":apple_error_handler.bzl", "apple_build_error_handler", "cxx_error_deserializer", "cxx_error_handler")
 load(":apple_frameworks.bzl", "get_framework_search_path_flags")
@@ -198,7 +210,7 @@ def apple_library_impl(ctx: AnalysisContext) -> [Promise, list[Provider]]:
         providers = _create_apple_library_for_distribution_providers(ctx, providers)
     return providers
 
-def _compile_index_store(ctx: AnalysisContext, src_compile_cmd: CxxSrcCompileCommand, toolchain: CxxToolchainInfo, compile_cmd: cmd_args) -> Artifact | None:
+def _compile_index_store(actions: AnalysisActions, target_label: Label, src_compile_cmd: CxxSrcCompileCommand, toolchain: CxxToolchainInfo, compile_cmd: cmd_args) -> Artifact | None:
     identifier = src_compile_cmd.src.short_path
     if src_compile_cmd.index != None:
         # Add a unique postfix if we have duplicate source files with different flags
@@ -217,14 +229,14 @@ def _compile_index_store(ctx: AnalysisContext, src_compile_cmd: CxxSrcCompileCom
     # We use `-fsyntax-only` flag, so output will be not generated.
     # The output here is used for the identifier of the index unit file
     output_name = paths.join(
-        ctx.label.cell,
-        ctx.label.package,
-        ctx.label.name,
+        target_label.cell,
+        target_label.package,
+        target_label.name,
         "{}.{}".format(filename_base, toolchain.linker_info.object_file_extension),
     )
     cmd.add(["-o", output_name])
 
-    index_store = ctx.actions.declare_output(paths.join("__indexstore__", filename_base, "index_store"), dir = True)
+    index_store = actions.declare_output(paths.join("__indexstore__", filename_base, "index_store"), dir = True)
 
     # Haven't use `-fdebug-prefix-map` for now, will use index-import to remap the path. But it's not ideal.
     cmd.add([
@@ -235,7 +247,7 @@ def _compile_index_store(ctx: AnalysisContext, src_compile_cmd: CxxSrcCompileCom
     ])
 
     category = "apple_cxx_index_store"
-    ctx.actions.run(
+    actions.run(
         cmd,
         category = category,
         identifier = identifier,
@@ -341,7 +353,6 @@ def apple_library_rule_constructor_params_and_swift_providers(ctx: AnalysisConte
             module_name = module_name,
             headers = exported_hdrs,
             swift_header = None,
-            additional_args = None,
         ) if exported_hdrs else None
     else:
         exported_modulemap_pre = None
@@ -488,6 +499,16 @@ def apple_library_rule_constructor_params_and_swift_providers(ctx: AnalysisConte
     # Always provide the subtarget, so that clients don't need to handle conditional existence
     subtargets["swift.check"] = [DefaultInfo(default_output = swift_compile.typecheck_file if swift_compile else None)]
 
+    link_group_info = get_link_group_info(ctx)
+    xplugins_usage_info = get_xplugins_usage_info(ctx)
+    if xplugins_usage_info:
+        extra_apple_providers.append(xplugins_usage_info)
+        subtargets |= get_xplugins_usage_subtargets(
+            ctx,
+            usage_info = xplugins_usage_info,
+            link_group_info = link_group_info,
+        )
+
     return CxxRuleConstructorParams(
         rule_type = params.rule_type,
         is_test = (params.rule_type == "apple_test"),
@@ -512,7 +533,9 @@ def apple_library_rule_constructor_params_and_swift_providers(ctx: AnalysisConte
             external_debug_info_tags = [],  # This might be used to materialise all transitive Swift related object files with ArtifactInfoTag("swiftmodule")
         ),
         build_empty_so = hasattr(ctx.attrs, "distribution_dep"),
-        output_style_sub_targets_and_providers_factory = _get_link_style_sub_targets_and_providers(extra_apple_providers),
+        output_style_sub_targets_and_providers_factory = _get_link_style_sub_targets_and_providers(
+            extra_providers = extra_apple_providers,
+        ),
         shared_library_flags = params.shared_library_flags,
         # apple_library's 'stripped' arg only applies to shared subtargets, or,
         # targets with 'preferred_linkage = "shared"'
@@ -524,11 +547,11 @@ def apple_library_rule_constructor_params_and_swift_providers(ctx: AnalysisConte
         generate_providers = params.generate_providers,
         # Some apple rules rely on `static` libs *not* following dependents.
         link_groups_force_static_follows_dependents = False,
+        link_group_info = link_group_info,
         extra_linker_outputs_factory = _get_extra_linker_outputs,
         extra_linker_outputs_flags_factory = _get_extra_linker_outputs_flags,
         extra_distributed_thin_lto_opt_outputs_merger = _extra_distributed_thin_lto_opt_outputs_merger,
         swiftmodule_linkable = get_swiftmodule_linkable(swift_compile),
-        extra_shared_library_interfaces = [swift_compile.exported_symbols] if (swift_compile and swift_compile.exported_symbols) else None,
         compiler_flags = ctx.attrs.compiler_flags,
         lang_compiler_flags = ctx.attrs.lang_compiler_flags,
         platform_compiler_flags = ctx.attrs.platform_compiler_flags,
@@ -543,6 +566,13 @@ def apple_library_rule_constructor_params_and_swift_providers(ctx: AnalysisConte
         index_stores = [swift_compile.index_store] if swift_compile else None,
         extra_transitive_diagnostics = [swift_compile.typecheck_file] if swift_compile else [],
         extra_diagnostics = {"swift": swift_compile.typecheck_file} if swift_compile else None,
+        allow_cache_upload = cxx_attrs_get_allow_cache_upload(ctx.attrs, get_cxx_toolchain_info(ctx).cxx_compiler_info.allow_cache_upload),
+        precompiled_header = ctx.attrs.precompiled_header,
+        prefix_header = ctx.attrs.prefix_header,
+        # When modular_libraries_use_header_maps is set we rely on the cxx
+        # header map logic for exported_headers.
+        skip_exported_headers = ctx.attrs.modular and not ctx.attrs._apple_toolchain[AppleToolchainInfo].modular_libraries_use_header_maps,
+        use_content_based_paths = get_uses_experimental_content_based_path_hashing(ctx),
     )
 
 def _get_extra_linker_outputs(ctx: AnalysisContext, extra_linker_output_category: ExtraLinkerOutputCategory = ExtraLinkerOutputCategory("produced-during-local-link")) -> ExtraLinkerOutputs:
@@ -588,14 +618,15 @@ def _get_link_style_sub_targets_and_providers(
         )
 
         if output_style != LibOutputStyle("shared_lib") or output == None:
-            return ({}, [resource_graph] + extra_providers)
+            static_providers = [resource_graph] + extra_providers
+            return ({}, static_providers)
 
         min_version = get_min_deployment_version_for_node(ctx)
         min_version_providers = [AppleMinDeploymentVersionInfo(version = min_version)]
 
         debug_info = project_artifacts(
             actions = ctx.actions,
-            tsets = [output.external_debug_info],
+            tsets = output.external_debug_info,
         )
 
         if get_apple_stripped_attr_value_with_default_fallback(ctx):
@@ -624,6 +655,7 @@ def _get_link_style_sub_targets_and_providers(
             DSYM_SUBTARGET: [DefaultInfo(default_output = dsym_artifact)],
             DEBUGINFO_SUBTARGET: [DefaultInfo(default_output = debug_info_artifacts_manifest)],
         }
+
         providers = [
             AppleDebuggableInfo(dsyms = [dsym_artifact], debug_info_tset = output.external_debug_info),
             resource_graph,

@@ -14,11 +14,11 @@ use std::time::SystemTime;
 
 use async_trait::async_trait;
 use buck2_common::argv::SanitizedArgv;
-use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
-use buck2_core::fs::paths::abs_path::AbsPathBuf;
-use buck2_core::fs::working_dir::AbsWorkingDir;
 use buck2_event_log::write::WriteEventLog;
 use buck2_events::BuckEvent;
+use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
+use buck2_fs::paths::abs_path::AbsPathBuf;
+use buck2_fs::working_dir::AbsWorkingDir;
 
 use crate::subscribers::subscriber::EventSubscriber;
 use crate::ticker::Tick;
@@ -39,6 +39,7 @@ impl EventLog {
         command_name: String,
         start_time: SystemTime,
         log_size_counter_bytes: Option<Arc<AtomicU64>>,
+        retained_event_logs: usize,
     ) -> EventLog {
         Self {
             writer: WriteEventLog::new(
@@ -50,6 +51,7 @@ impl EventLog {
                 command_name,
                 start_time,
                 log_size_counter_bytes,
+                retained_event_logs,
             ),
         }
     }

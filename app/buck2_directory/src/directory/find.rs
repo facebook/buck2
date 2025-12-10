@@ -8,7 +8,7 @@
  * above-listed licenses.
  */
 
-use buck2_core::fs::paths::file_name::FileName;
+use buck2_fs::paths::file_name::FileName;
 
 use crate::directory::directory_ref::DirectoryRef;
 use crate::directory::entry::DirectoryEntry;
@@ -44,7 +44,7 @@ impl<T> FindConflict<T> for PathAccumulator {
 #[cfg(test)]
 struct PrefixLookupContainer<T> {
     leaf: T,
-    path: buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf,
+    path: buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf,
 }
 
 #[cfg(test)]
@@ -84,7 +84,7 @@ pub(crate) fn find_prefix<'a, 'b, D: DirectoryRef<'a>>(
     Option<(
         DirectoryEntry<D, &'a D::Leaf>,
         // Remaining path.
-        buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf,
+        buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf,
     )>,
     DirectoryFindError,
 > {
@@ -95,7 +95,7 @@ pub(crate) fn find_prefix<'a, 'b, D: DirectoryRef<'a>>(
         None => {
             return Ok(Some((
                 DirectoryEntry::Dir(dir),
-                buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf::default(),
+                buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf::default(),
             )));
         }
     };
@@ -104,7 +104,7 @@ pub(crate) fn find_prefix<'a, 'b, D: DirectoryRef<'a>>(
         Ok(maybe_leaf) => Ok(maybe_leaf.map(|l| {
             (
                 l,
-                buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf::default(),
+                buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf::default(),
             )
         })),
         Err(PrefixLookupContainer { leaf, path }) => Ok(Some((DirectoryEntry::Leaf(leaf), path))),

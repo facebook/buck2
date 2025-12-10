@@ -21,16 +21,13 @@ load(":re_test_common.bzl", "re_test_common")
 load(":rust_common.bzl", "rust_common", "rust_target_dep")
 
 def _rust_common_attributes(is_binary: bool):
-    return {
+    return buck.licenses_arg() | buck.labels_arg() | buck.contacts_arg() | {
         "clippy_configuration": attrs.option(attrs.dep(providers = [ClippyConfiguration]), default = None),
-        "contacts": attrs.list(attrs.string(), default = []),
         "coverage": attrs.bool(default = False),
         "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
         "default_platform": attrs.option(attrs.string(), default = None),
         "flagged_deps": attrs.list(attrs.tuple(rust_target_dep(is_binary), attrs.list(attrs.string())), default = []),
         "incremental_enabled": attrs.bool(default = False),
-        "labels": attrs.list(attrs.string(), default = []),
-        "licenses": attrs.list(attrs.source(), default = []),
         "resources": attrs.named_set(attrs.one_of(attrs.dep(), attrs.source()), sorted = True, default = []),
         "rustdoc_flags": attrs.list(attrs.arg(), default = []),
         "separate_debug_info": attrs.bool(default = False),
@@ -84,7 +81,6 @@ rust_binary = prelude_rule(
 
 
         ```
-
         rust_binary(
           name='greet',
           srcs=[
@@ -111,13 +107,13 @@ rust_binary = prelude_rule(
             'join.rs',
           ],
         )
-
         ```
     """,
     further = None,
     attrs = (
         # @unsorted-dict-items
         rust_common.srcs_arg() |
+        rust_common.srcs_filegroup_arg() |
         rust_common.mapped_srcs_arg() |
         rust_common.edition_arg() |
         rust_common.features_arg() |
@@ -159,7 +155,6 @@ rust_library = prelude_rule(
 
 
         ```
-
         rust_library(
           name='greeting',
           srcs=[
@@ -169,13 +164,13 @@ rust_library = prelude_rule(
             ':join',
           ],
         )
-
         ```
     """,
     further = None,
     attrs = (
         # @unsorted-dict-items
         rust_common.srcs_arg() |
+        rust_common.srcs_filegroup_arg() |
         rust_common.mapped_srcs_arg() |
         rust_common.deps_arg(is_binary = False) |
         rust_common.named_deps_arg(is_binary = False) |
@@ -229,7 +224,6 @@ rust_test = prelude_rule(
 
 
         ```
-
         rust_test(
           name='greet',
           srcs=[
@@ -256,7 +250,6 @@ rust_test = prelude_rule(
             'join.rs',
           ],
         )
-
         ```
     """,
     further = None,
@@ -264,6 +257,7 @@ rust_test = prelude_rule(
         # @unsorted-dict-items
         buck.inject_test_env_arg() |
         rust_common.srcs_arg() |
+        rust_common.srcs_filegroup_arg() |
         rust_common.mapped_srcs_arg() |
         rust_common.edition_arg() |
         rust_common.features_arg() |

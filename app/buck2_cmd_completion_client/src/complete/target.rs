@@ -29,7 +29,7 @@ use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::streaming::StreamingCommand;
 use buck2_common::invocation_roots::InvocationRoots;
 use buck2_common::legacy_configs::cells::BuckConfigBasedCells;
-use buck2_core::fs::working_dir::AbsWorkingDir;
+use buck2_fs::working_dir::AbsWorkingDir;
 use futures::FutureExt;
 use futures::future::BoxFuture;
 

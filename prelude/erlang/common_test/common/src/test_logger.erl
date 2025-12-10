@@ -8,49 +8,29 @@
 -module(test_logger).
 -compile(warn_missing_spec_all).
 
--include_lib("common/include/buck_ct_records.hrl").
+-export([set_up_logger/3, flush/0, get_std_out/2, get_log_file/2, configure_logger/1]).
 
--export([set_up_logger/2, set_up_logger/3, flush/0, get_std_out/2, get_log_file/2, configure_logger/1]).
-
--define(STUB_TEST_ENV, #test_env{
-    suite = ?MODULE,
-    tests = [],
-    suite_path = [],
-    output_dir = [],
-    dependencies = [],
-    test_spec_file = [],
-    output_format = json,
-    config_files = [],
-    providers = [],
-    ct_opts = [],
-    extra_flags = [],
-    common_app_env = #{},
-    erl_cmd = [],
-    artifact_annotation_mfa = fun artifact_annotations:default_annotation/1,
-    trampolines = []
-}).
-
--spec set_up_logger(file:filename(), atom()) -> ok.
-set_up_logger(LogDir, AppName) ->
-    set_up_logger(LogDir, AppName, false).
-
--spec set_up_logger(file:filename(), atom(), boolean()) -> ok.
-set_up_logger(LogDir, AppName, StandaloneConfig) ->
+-spec set_up_logger(LogDir, AppName, Type) -> ok when
+    LogDir :: file:filename(),
+    AppName :: atom(),
+    Type :: capture_stdout | no_capture_stdout.
+set_up_logger(LogDir, AppName, Type) ->
     Log = get_log_file(LogDir, AppName),
     filelib:ensure_dir(Log),
-    StdOut = get_std_out(LogDir, AppName),
-    filelib:ensure_dir(StdOut),
-    {ok, LogFileOpened} = file:open(StdOut, [write]),
-    case StandaloneConfig of
-        true ->
-            [logger:remove_handler(Id) || Id <- logger:get_handler_ids()];
-        false ->
+    [logger:update_handler_config(Id, level, none) || Id <- logger:get_handler_ids()],
+    case Type of
+        no_capture_stdout ->
+            ok;
+        capture_stdout ->
+            StdOut = get_std_out(LogDir, AppName),
+            filelib:ensure_dir(StdOut),
+            {ok, LogFileOpened} = file:open(StdOut, [write, {encoding, utf8}]),
+            test_artifact_directory:link_to_artifact_dir(StdOut, LogDir, fun artifact_annotations:default_annotation/1),
             group_leader(
                 LogFileOpened, self()
             )
     end,
-    configure_logger(Log),
-    test_artifact_directory:link_to_artifact_dir(StdOut, LogDir, ?STUB_TEST_ENV).
+    configure_logger(Log).
 
 -spec configure_logger(file:filename_all()) -> ok.
 configure_logger(LogFile) ->

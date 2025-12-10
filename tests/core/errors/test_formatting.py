@@ -10,7 +10,6 @@
 
 
 import re
-from typing import List
 
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.asserts import expect_failure
@@ -27,7 +26,7 @@ def _sanitize(s: str) -> str:
 
 
 def error_formatting_test(
-    name: str, command: List[str], command_name: str = "build"
+    name: str, command: list[str], command_name: str = "build"
 ) -> None:
     async def impl(buck: Buck) -> None:
         func = getattr(buck, command_name)

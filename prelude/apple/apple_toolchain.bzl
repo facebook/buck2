@@ -13,6 +13,9 @@ load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxPlatformInfo", "CxxToolchainIn
 def apple_toolchain_impl(ctx: AnalysisContext) -> list[Provider]:
     sdk_path = ctx.attrs._internal_sdk_path or ctx.attrs.sdk_path
     platform_path = ctx.attrs._internal_platform_path or ctx.attrs.platform_path
+    dsymutil_cmd = cmd_args(ctx.attrs.dsymutil[RunInfo].args)
+    dsymutil_cmd.add(ctx.attrs.dsymutil_flags)
+
     providers = [
         DefaultInfo(),
         AppleToolchainInfo(
@@ -27,7 +30,7 @@ def apple_toolchain_impl(ctx: AnalysisContext) -> list[Provider]:
             copy_scene_kit_assets = ctx.attrs.copy_scene_kit_assets[RunInfo],
             cxx_platform_info = ctx.attrs.cxx_toolchain[CxxPlatformInfo],
             cxx_toolchain_info = ctx.attrs.cxx_toolchain[CxxToolchainInfo],
-            dsymutil = ctx.attrs.dsymutil[RunInfo],
+            dsymutil = RunInfo(args = dsymutil_cmd),
             dwarfdump = ctx.attrs.dwarfdump[RunInfo] if ctx.attrs.dwarfdump else None,
             extra_linker_outputs = ctx.attrs.extra_linker_outputs,
             ibtool = ctx.attrs.ibtool[RunInfo],
@@ -37,6 +40,9 @@ def apple_toolchain_impl(ctx: AnalysisContext) -> list[Provider]:
             lipo = ctx.attrs.lipo[RunInfo],
             mapc = ctx.attrs.mapc[RunInfo] if ctx.attrs.mapc else None,
             merge_index_store = ctx.attrs.merge_index_store[RunInfo],
+            metal = ctx.attrs.metal[RunInfo] if ctx.attrs.metal else None,
+            metallib = ctx.attrs.metallib[RunInfo] if ctx.attrs.metallib else None,
+            modular_libraries_use_header_maps = ctx.attrs.modular_libraries_use_header_maps,
             momc = ctx.attrs.momc[RunInfo],
             objdump = ctx.attrs.objdump[RunInfo] if ctx.attrs.objdump else None,
             platform_path = platform_path,

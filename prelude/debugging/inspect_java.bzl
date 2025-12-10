@@ -16,6 +16,14 @@ def inspect_java_rule(ctx: bxl.Context, _actions: AnalysisActions, target: bxl.C
     if debuginfo:
         ctx.output.ensure(debuginfo)
 
+    program = None
+    env = {}
+    if ExternalRunnerTestInfo in providers:
+        env = providers[ExternalRunnerTestInfo].env
+        program = cmd_args(providers[ExternalRunnerTestInfo].command)
+
+        ctx.output.ensure_multiple(program)
+
     return ExecInfo(
         target_name = target_name(settings.target),
         target_info = create_target_info(settings.target),
@@ -25,5 +33,7 @@ def inspect_java_rule(ctx: bxl.Context, _actions: AnalysisActions, target: bxl.C
             java = JavaInfo(
                 classmap_file = debuginfo,
             ),
+            env = env,
+            program = program,
         ),
     )

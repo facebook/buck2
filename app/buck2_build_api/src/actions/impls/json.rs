@@ -361,7 +361,7 @@ pub fn visit_json_artifacts<'v>(
             }
         }
         JsonUnpack::TransitiveSetJsonProjection(x) => visitor.visit_input(
-            ArtifactGroup::TransitiveSetProjection(Arc::new(x.to_projection_key()?)),
+            ArtifactGroup::TransitiveSetProjection(Arc::new(x.to_projection_key_wrapper()?)),
             vec![],
         ),
         JsonUnpack::Artifact(_x) => {

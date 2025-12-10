@@ -10,6 +10,6 @@
 #     has a dependency on buck2 git trunk.
 # * Update `../monarch/rust-toolchain` (one instance)
 
-# @rustc_version: rustc 1.90.0-nightly (adcb3d3b4 2025-07-31)
-channel = "nightly-2025-08-01"
+# @rustc_version: rustc 1.91.0-nightly (02c7b1a7a 2025-09-13)
+channel = "nightly-2025-09-14"
 components = ["llvm-tools-preview","rust-src"]

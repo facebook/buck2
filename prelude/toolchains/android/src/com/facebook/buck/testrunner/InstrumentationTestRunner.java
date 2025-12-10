@@ -10,17 +10,14 @@
 
 package com.facebook.buck.testrunner;
 
-import com.android.ddmlib.AdbCommandRejectedException;
-import com.android.ddmlib.DdmPreferences;
-import com.android.ddmlib.FileListingService;
 import com.android.ddmlib.IDevice;
 import com.android.ddmlib.MultiLineReceiver;
-import com.android.ddmlib.ShellCommandUnresponsiveException;
-import com.android.ddmlib.SyncService;
-import com.android.ddmlib.TimeoutException;
 import com.android.ddmlib.testrunner.ITestRunListener;
 import com.android.ddmlib.testrunner.RemoteAndroidTestRunner;
 import com.android.ddmlib.testrunner.TestIdentifier;
+import com.facebook.buck.android.exopackage.AdbUtils;
+import com.facebook.buck.android.exopackage.AndroidDevice;
+import com.facebook.buck.android.exopackage.AndroidDeviceImpl;
 import com.facebook.buck.testresultsoutput.TestResultsOutputSender;
 import com.facebook.buck.testrunner.reportlayer.LogExtractorReportLayer;
 import com.facebook.buck.testrunner.reportlayer.ReportLayer;
@@ -43,6 +40,10 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 import java.util.stream.Stream;
@@ -115,9 +116,14 @@ public class InstrumentationTestRunner extends DeviceRunner {
   private final String preTestSetupScript;
   private final List<String> apexesToInstall;
 
+  private final CrashAnalyzer crashAnalyzer = new CrashAnalyzer();
+
   private List<ReportLayer> reportLayers = new ArrayList<>();
 
   private IDevice device = null;
+  protected final AndroidDevice androidDevice;
+  protected final AdbUtils adbUtils;
+  private volatile boolean testRunFailed = false;
 
   public InstrumentationTestRunner(
       DeviceArgs deviceArgs,
@@ -168,6 +174,8 @@ public class InstrumentationTestRunner extends DeviceRunner {
     this.disableAnimations = disableAnimations;
     this.preTestSetupScript = preTestSetupScript;
     this.apexesToInstall = apexesToInstall;
+    this.adbUtils = new AdbUtils(getAdbPath(), 0);
+    this.androidDevice = initializeAndroidDevice();
   }
 
   protected static class ArgsParser {
@@ -387,6 +395,10 @@ public class InstrumentationTestRunner extends DeviceRunner {
     return this.device;
   }
 
+  public boolean hasTestRunFailed() {
+    return this.testRunFailed;
+  }
+
   public void addReportLayer(ReportLayer reportLayer) {
     reportLayers.add(reportLayer);
   }
@@ -423,9 +435,7 @@ public class InstrumentationTestRunner extends DeviceRunner {
     if (argsParser.recordVideo) {
       runner.addReportLayer(new VideoRecordingReportLayer(runner));
     }
-    if (argsParser.collectTombstones) {
-      runner.addReportLayer(new TombstonesReportLayer(runner));
-    }
+    runner.addReportLayer(new TombstonesReportLayer(runner, argsParser.collectTombstones));
     if (!argsParser.logExtractors.isEmpty()) {
       runner.addReportLayer(new LogExtractorReportLayer(runner, argsParser.logExtractors));
     }
@@ -445,8 +455,39 @@ public class InstrumentationTestRunner extends DeviceRunner {
     }
   }
 
-  protected void installPackage(IDevice device, String path) throws Throwable {
-    device.installPackage(path, true);
+  protected void installPackage(String path) throws Throwable {
+    androidDevice.installApkOnDevice(new File(path), false, false, false);
+  }
+
+  protected AndroidDevice initializeAndroidDevice() {
+    String deviceSerial = deviceArgs.deviceSerial;
+
+    // Validate device selection arguments
+    if (deviceSerial == null && !deviceArgs.autoRunOnConnectedDevice) {
+      throw new IllegalArgumentException(
+          "Either deviceSerial must be provided or autoRunOnConnectedDevice must be enabled");
+    }
+
+    AndroidDevice device = null;
+
+    // If both deviceSerial and autoRunOnConnectedDevice are specified, deviceSerial takes
+    // precedence
+    if (deviceSerial == null && deviceArgs.autoRunOnConnectedDevice) {
+      List<AndroidDevice> devices = this.adbUtils.getDevices();
+      if (!devices.isEmpty()) {
+        // TODO: If more than one device is attached, we currently select the first one.
+        // Consider warning the user or providing a way to specify which device to use.
+        device = devices.get(0);
+      }
+    } else if (deviceSerial != null) {
+      device = new AndroidDeviceImpl(deviceSerial, this.adbUtils);
+    }
+
+    if (device == null) {
+      throw new RuntimeException("Failed to initialize AndroidDevice");
+    }
+
+    return device;
   }
 
   @SuppressWarnings({"PMD.BlacklistedSystemGetenv", "PMD.BlacklistedDefaultProcessMethod"})
@@ -455,26 +496,61 @@ public class InstrumentationTestRunner extends DeviceRunner {
     this.device = device;
 
     if (this.instrumentationApkPath != null) {
-      DdmPreferences.setTimeOut(60000);
-      installPackage(device, this.instrumentationApkPath);
       if (this.apkUnderTestPath != null) {
-        installPackage(device, this.apkUnderTestPath);
+        // Install both APKs in parallel to improve performance
+        ExecutorService executor = Executors.newFixedThreadPool(2);
+        try {
+          Future<Void> instrumentationFuture =
+              executor.submit(
+                  () -> {
+                    try {
+                      installPackage(this.instrumentationApkPath);
+                      return null;
+                    } catch (Throwable t) {
+                      throw new RuntimeException("Failed to install instrumentation APK", t);
+                    }
+                  });
+
+          Future<Void> apkUnderTestFuture =
+              executor.submit(
+                  () -> {
+                    try {
+                      installPackage(this.apkUnderTestPath);
+                      return null;
+                    } catch (Throwable t) {
+                      throw new RuntimeException("Failed to install APK under test", t);
+                    }
+                  });
+
+          // Wait for both installations to complete and handle any exceptions
+          try {
+            instrumentationFuture.get();
+            apkUnderTestFuture.get();
+          } catch (ExecutionException e) {
+            throw e.getCause();
+          }
+        } finally {
+          executor.shutdown();
+          executor.awaitTermination(60, TimeUnit.SECONDS);
+        }
+      } else {
+        // Single APK installation (no APK under test)
+        installPackage(this.instrumentationApkPath);
       }
     }
 
     if (this.exopackageLocalPath != null) {
       Path localBase = Paths.get(exopackageLocalPath);
-      syncExopackageDir(localBase, device);
+      syncExopackageDir(localBase);
     }
 
     if (this.apkUnderTestExopackageLocalPath != null) {
       Path localBase = Paths.get(apkUnderTestExopackageLocalPath);
-      syncExopackageDir(localBase, device);
+      syncExopackageDir(localBase);
     }
 
     String appScopedStorageDeviceArtifactsPath =
-        getAppScopedStoragePath(
-            device, packageName, targetPackageName, isSelfInstrumenting, "artifacts");
+        getAppScopedStoragePath(packageName, targetPackageName, isSelfInstrumenting, "artifacts");
     if (appScopedStorageDeviceArtifactsPath != null) {
       String testArtifactsPath = getenv(TEST_RESULT_ARTIFACTS_ENV);
       if (testArtifactsPath != null) {
@@ -488,12 +564,7 @@ public class InstrumentationTestRunner extends DeviceRunner {
     if (testDimensionsPath != null) {
       String appScopedStorageDeviceDimensionsPath =
           getAppScopedStoragePath(
-              device,
-              packageName,
-              targetPackageName,
-              isSelfInstrumenting,
-              "dimensions",
-              "dimensions.tsv");
+              packageName, targetPackageName, isSelfInstrumenting, "dimensions", "dimensions.tsv");
       if (appScopedStorageDeviceDimensionsPath != null) {
         extraFilesToPull.put(appScopedStorageDeviceDimensionsPath, testDimensionsPath);
         extraInstrumentationArguments.put(
@@ -515,19 +586,23 @@ public class InstrumentationTestRunner extends DeviceRunner {
     // that can be added in preTestSetupScript, e.g.
     // arvr/projects/codec_avatar/prod/pre_test_setup_script_with_apex.sh.
     if (this.apexesToInstall != null && !this.apexesToInstall.isEmpty()) {
-      // APEX install sometimes requires root.
-      if (!device.root()) {
-        throw new RuntimeException("Failed to root device.");
+      System.err.println(String.format("Installing %d APEX(es)...", this.apexesToInstall.size()));
+
+      // Prepare device for APEX installation once before the loop
+      final boolean softRebootAvailable = androidDevice.prepareForApexInstallation();
+
+      for (int i = 0; i < this.apexesToInstall.size(); i++) {
+        final String apexPath = this.apexesToInstall.get(i);
+        final boolean isLast = (i == this.apexesToInstall.size() - 1);
+
+        System.err.println(
+            String.format(
+                "Installing APEX %d/%d: %s...", i + 1, this.apexesToInstall.size(), apexPath));
+        androidDevice.installApexOnDevice(new File(apexPath), false, isLast, softRebootAvailable);
       }
 
-      for (final String apexPath : this.apexesToInstall) {
-        System.err.println(String.format("Installing APEX: %s...", apexPath));
-        DdmPreferences.setTimeOut(60000);
-        // If the APEX is not present, we will install it.
-        // If the APEX is already installed, we will update it.
-        device.installPackage(apexPath, false, "--apex");
-        System.err.println(String.format("APEX installed: %s.", apexPath));
-      }
+      System.err.println(
+          String.format("All %d APEX(es) installed successfully.", this.apexesToInstall.size()));
     }
 
     if (this.preTestSetupScript != null) {
@@ -555,7 +630,7 @@ public class InstrumentationTestRunner extends DeviceRunner {
 
     String appScopedStorageDeviceAnnotationsPath =
         getAppScopedStoragePath(
-            device, packageName, targetPackageName, isSelfInstrumenting, "artifact_annotations");
+            packageName, targetPackageName, isSelfInstrumenting, "artifact_annotations");
     if (appScopedStorageDeviceAnnotationsPath != null) {
       String testArtifactAnnotationsPath = System.getenv(TEST_RESULT_ARTIFACTS_ANNOTATIONS_ENV);
       if (testArtifactAnnotationsPath != null) {
@@ -588,13 +663,13 @@ public class InstrumentationTestRunner extends DeviceRunner {
     for (final String devicePath : this.extraDirsToPull.keySet()) {
       String output = executeAdbShellCommand("rm -fr " + devicePath, device);
 
-      if (directoryExists(devicePath, device)) {
+      if (directoryExists(devicePath)) {
         System.err.printf("Failed to clean up directory %s due to error: %s\n", devicePath, output);
         System.exit(1);
       }
 
       output = executeAdbShellCommand("mkdir -p " + devicePath, device);
-      if (!directoryExists(devicePath, device)) {
+      if (!directoryExists(devicePath)) {
         System.err.printf("Failed to create directory %s due to error: %s\n", devicePath, output);
       }
     }
@@ -645,7 +720,7 @@ public class InstrumentationTestRunner extends DeviceRunner {
         }
       }
 
-      BuckXmlTestRunListener buckXmlListener = new BuckXmlTestRunListener(device);
+      BuckXmlTestRunListener buckXmlListener = new BuckXmlTestRunListener(androidDevice, adbUtils);
       ITestRunListener trimLineListener =
           new ITestRunListener() {
             /**
@@ -664,6 +739,7 @@ public class InstrumentationTestRunner extends DeviceRunner {
             @Override
             public void testRunFailed(String errorMessage) {
               System.err.println("Test Run Failed: " + errorMessage);
+              testRunFailed = true;
             }
 
             @Override
@@ -698,7 +774,8 @@ public class InstrumentationTestRunner extends DeviceRunner {
           TestResultsOutputSender.fromDefaultEnvName();
       if (testResultsOutputSender.isPresent()) {
         InstrumentationTpxStandardOutputTestListener tpxListener =
-            new InstrumentationTpxStandardOutputTestListener(testResultsOutputSender.get(), device);
+            new InstrumentationTpxStandardOutputTestListener(
+                testResultsOutputSender.get(), androidDevice, adbUtils);
         listeners.add(tpxListener);
       }
 
@@ -722,7 +799,7 @@ public class InstrumentationTestRunner extends DeviceRunner {
             executeAdbShellCommand("su root cp " + covFileInEmu + " " + covFileInSdcard, device);
 
         System.out.println(cpOutput);
-        device.pullFile(covFileInSdcard, destCovFileInHost);
+        pullFile(covFileInSdcard, destCovFileInHost);
 
         String coverageParser = getenv("COVERAGE_PARSER");
         if (coverageParser != null) {
@@ -741,10 +818,10 @@ public class InstrumentationTestRunner extends DeviceRunner {
         }
       }
       for (Map.Entry<String, String> entry : this.extraFilesToPull.entrySet()) {
-        device.pullFile(entry.getKey(), entry.getValue());
+        pullFile(entry.getKey(), entry.getValue());
       }
       for (Map.Entry<String, String> entry : this.extraDirsToPull.entrySet()) {
-        pullDir(device, entry.getKey(), entry.getValue());
+        pullDir(entry.getKey(), entry.getValue());
       }
 
     } finally {
@@ -757,11 +834,18 @@ public class InstrumentationTestRunner extends DeviceRunner {
         layer.report();
       }
       if (this.attemptUninstallInstrumentationApk) {
-        // Best effort uninstall from the emulator/device.
-        device.uninstallPackage(this.packageName);
+        try {
+          androidDevice.uninstallPackage(this.packageName);
+        } catch (Exception e) {
+          System.err.printf("Failed to uninstall instrumentation package: %s\n", e);
+        }
       }
       if (this.attemptUninstallApkUnderTest) {
-        device.uninstallPackage(this.targetPackageName);
+        try {
+          androidDevice.uninstallPackage(this.targetPackageName);
+        } catch (Exception e) {
+          System.err.printf("Failed to uninstall target package: %s\n", e);
+        }
       }
     }
   }
@@ -771,15 +855,12 @@ public class InstrumentationTestRunner extends DeviceRunner {
   }
 
   @Nullable
-  private String getDeviceLogcatOutputForBuffer(IDevice device, LogcatBuffer buffer) {
+  private String getDeviceLogcatOutputForBuffer(LogcatBuffer buffer) {
     String adbCommand = String.format("logcat -d -b \"%s\"", buffer.getCliArgument());
 
     try {
-      return executeAdbShellCommand(adbCommand, device);
-    } catch (TimeoutException
-        | AdbCommandRejectedException
-        | ShellCommandUnresponsiveException
-        | IOException e) {
+      return adbUtils.executeAdbShellCommand(adbCommand, androidDevice.getSerialNumber(), true);
+    } catch (Exception e) {
       System.err.printf("Encountered an error attempting to pull logcat output %s\n", e);
       return null;
     }
@@ -801,20 +882,31 @@ public class InstrumentationTestRunner extends DeviceRunner {
   @SuppressWarnings("PMD.BlacklistedSystemGetenv")
   private void collectAdbLogs(IDevice device) {
     try {
+      StringBuilder allLogOutput = new StringBuilder();
+
       for (LogcatBuffer buffer : this.collectedLogcatBuffers) {
         String bufferName = buffer.getCliArgument();
         Path traPath = this.createPathForLogcatBuffer(bufferName);
         if (traPath == null) {
           return;
         }
-        String logOutput = getDeviceLogcatOutputForBuffer(device, buffer);
+        String logOutput = getDeviceLogcatOutputForBuffer(buffer);
         if (logOutput == null) {
           continue;
         }
+
+        // Accumulate all log output for crash analysis
+        allLogOutput.append("=== ").append(bufferName.toUpperCase()).append(" BUFFER ===\n");
+        allLogOutput.append(logOutput).append("\n");
+
         try (FileWriter logWriter = new FileWriter(traPath.toString())) {
           logWriter.write(logOutput);
         }
       }
+
+      // Analyze all collected logcat output for crash information
+      crashAnalyzer.analyzeCrashInformation(allLogOutput.toString());
+
     } catch (IOException e) {
       e.printStackTrace(System.err);
       System.err.printf("Failed to write logs from buffer failed with error: %s\n", e);
@@ -872,46 +964,34 @@ public class InstrumentationTestRunner extends DeviceRunner {
   }
 
   /**
-   * pull dir from device to local
+   * Pulls file directory from the device to local directory.
    *
-   * @param device the device to pull dir from
    * @param sourceDir the dir of the source
    * @param destinationDir the dir of the destination
    * @throws Exception exceptions may throw from file operations
    */
-  public void pullDir(IDevice device, String sourceDir, String destinationDir) throws Exception {
-    FileListingService listingService = device.getFileListingService();
-    FileListingService.FileEntry dir = locateDir(device, listingService, sourceDir);
-    if (dir == null) {
+  public void pullDir(String sourceDir, String destinationDir) throws Exception {
+    if (!directoryExists(sourceDir)) {
       // source dir or one of its parents doesn't exist, nothing to pull.
       System.err.printf("Failed to locate source directory: %s\n", sourceDir);
       return;
     }
-    FileListingService.FileEntry[] filesToPull = listingService.getChildrenSync(dir);
     File destinationDirFile = new File(destinationDir);
     if (!destinationDirFile.exists()) {
       destinationDirFile.mkdirs();
     }
-    pullWithSyncService(device, filesToPull, destinationDir);
-  }
-
-  // the SyncService cannot be mocked. This function gives us something we can overwrite in tests
-  protected void pullWithSyncService(
-      IDevice device, FileListingService.FileEntry[] filesToPull, String destinationDir)
-      throws Exception {
-    device.getSyncService().pull(filesToPull, destinationDir, SyncService.getNullProgressMonitor());
+    String sourceDirWithContents = sourceDir.endsWith("/") ? sourceDir + "." : sourceDir + "/.";
+    transferFile("pull", sourceDirWithContents, destinationDir);
   }
 
   // push single file
-  public void pushFileWithSyncService(IDevice device, String local, String remote)
-      throws Exception {
-    device.getSyncService().pushFile(local, remote, SyncService.getNullProgressMonitor());
+  public void pushFileWithSyncService(String local, String remote) throws Exception {
+    pushFile(local, remote);
   }
 
   // pull single file
-  public void pullFileWithSyncService(IDevice device, String remote, String local)
-      throws Exception {
-    device.getSyncService().pullFile(remote, local, SyncService.getNullProgressMonitor());
+  public void pullFileWithSyncService(String remote, String local) throws Exception {
+    pullFile(remote, local);
   }
 
   // Java has no setenv(), so this is needed to be able to overwrite env vars in tests
@@ -927,43 +1007,41 @@ public class InstrumentationTestRunner extends DeviceRunner {
     return System.getenv();
   }
 
-  public boolean directoryExists(final String dirPath, final IDevice device)
-      throws AdbCommandRejectedException,
-          IOException,
-          ShellCommandUnresponsiveException,
-          TimeoutException {
-    return executeAdbShellCommand(String.format("test -d %s && echo exists", dirPath), device)
-        .contains("exists");
+  public boolean directoryExists(final String dirPath) throws Exception {
+    String output =
+        adbUtils.executeAdbShellCommand(
+            String.format("test -d %s && echo exists", dirPath),
+            androidDevice.getSerialNumber(),
+            true);
+    return output.contains("exists");
   }
 
-  private FileListingService.FileEntry locateDir(
-      IDevice device, FileListingService listingService, String dirPath) throws Exception {
-    if (!directoryExists(dirPath, device)) {
-      return null;
-    }
+  protected void transferFile(String operation, String source, String destination)
+      throws Exception {
+    adbUtils.executeAdbCommand(
+        operation + " " + source + " " + destination, androidDevice.getSerialNumber(), false);
+  }
 
-    // Construct the file entry to the path manually as we can't dig through the FileListingService
-    // as some intermediate directories may be permissioned to disallow listing children.
-    FileListingService.FileEntry dir = listingService.getRoot();
-    if (dir == null) {
-      throw new RuntimeException("Couldn't retrieve root directory from file listing service.");
-    }
-    for (final String pathSegment : dirPath.split(FileListingService.FILE_SEPARATOR)) {
-      if (pathSegment.isEmpty()) {
-        // Ignore empty segments.
-        continue;
-      }
+  private void pullFile(String remotePath, String localPath) throws Exception {
+    transferFile("pull", remotePath, localPath);
+  }
 
-      dir =
-          new FileListingService.FileEntry(
-              dir, pathSegment, FileListingService.TYPE_DIRECTORY, false);
-    }
+  private void pushFile(String localPath, String remotePath) throws Exception {
+    transferFile("push", localPath, remotePath);
+  }
 
-    return dir;
+  @FunctionalInterface
+  protected interface FilePusher {
+    void pushFile(String localPath, String remotePath) throws Exception;
   }
 
   /** Copy all local files to the remote device location */
-  protected static void syncExopackageDir(Path localBase, IDevice device) throws Exception {
+  protected void syncExopackageDir(Path localBase) throws Exception {
+    syncExopackageDir(localBase, this::pushFile);
+  }
+
+  /** Copy all local files to the remote device location (static version for testing) */
+  protected static void syncExopackageDir(Path localBase, FilePusher pusher) throws Exception {
     String metadataContents = new String(Files.readAllBytes(localBase.resolve("metadata.txt")));
     Path remoteBase = Paths.get(metadataContents.trim());
     // TODO: speed this up by checking for already installed items
@@ -974,21 +1052,19 @@ public class InstrumentationTestRunner extends DeviceRunner {
         Path localSuffix = localBase.relativize(p);
         Path fullRemotePath = remoteBase.resolve(localSuffix);
         // Remote path is always a unix path
-        device.pushFile(p.toString(), fullRemotePath.toString().replace('\\', '/'));
+        pusher.pushFile(p.toString(), fullRemotePath.toString().replace('\\', '/'));
       }
     }
   }
 
   private String getAppScopedStoragePath(
-      IDevice device,
       String packageName,
       String targetPackageName,
       boolean isSelfInstrumenting,
       String folderName,
       String fileName) {
     String basePath =
-        getAppScopedStoragePath(
-            device, packageName, targetPackageName, isSelfInstrumenting, folderName);
+        getAppScopedStoragePath(packageName, targetPackageName, isSelfInstrumenting, folderName);
     if (basePath == null) {
       return null;
     }
@@ -996,12 +1072,11 @@ public class InstrumentationTestRunner extends DeviceRunner {
   }
 
   private String getAppScopedStoragePath(
-      IDevice device,
       String packageName,
       String targetPackageName,
       boolean isSelfInstrumenting,
       String folderName) {
-    int sdkVersion = getSdkVersion(device);
+    int sdkVersion = getSdkVersion();
     // App Scoped Storage was introduced in Android 11
     if (sdkVersion == -1 || sdkVersion < 30) {
       return null;
@@ -1021,12 +1096,14 @@ public class InstrumentationTestRunner extends DeviceRunner {
     return String.format(artifactsDirTemplate, devicePathPackage, folderName);
   }
 
-  private int getSdkVersion(IDevice device) {
-    String sdk = device.getProperty("ro.build.version.sdk");
+  private int getSdkVersion() {
     try {
+      String sdk = androidDevice.getProperty("ro.build.version.sdk");
       return Integer.parseInt(sdk);
     } catch (NumberFormatException e) {
       System.err.printf("Unable to determine SDK version for device: %s\n", e);
+    } catch (Exception e) {
+      System.err.printf("Unable to get SDK version property: %s\n", e);
     }
     return -1;
   }

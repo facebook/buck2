@@ -9,7 +9,7 @@
 import pathlib
 import unittest
 from tempfile import NamedTemporaryFile
-from typing import List, Optional, Tuple
+from typing import Optional
 from unittest.mock import call, patch
 
 import importlib_resources as resources
@@ -183,6 +183,13 @@ class Test(unittest.TestCase):
             ),
         )
         self.assertEqual(
+            True,
+            should_scrub_with_focused_targets_output_paths(
+                focused_targets_output_paths,
+                "buck-out/v2/gen/fbsource/fbobjc/some/path/__baz__/__objects__/56628b5feecfab0a/baz.mm.o",
+            ),
+        )
+        self.assertEqual(
             False,
             should_scrub_with_focused_targets_output_paths(
                 focused_targets_output_paths,
@@ -201,6 +208,13 @@ class Test(unittest.TestCase):
             should_scrub_with_focused_targets_output_paths(
                 focused_targets_output_paths,
                 "buck-out/v2/gen/fbsource/56628b5feecfab0a/fbobjc/some/path/__foo__/lib.a",
+            ),
+        )
+        self.assertEqual(
+            False,
+            should_scrub_with_focused_targets_output_paths(
+                focused_targets_output_paths,
+                "buck-out/v2/gen/fbsource/fbobjc/some/path/__foo__/56628b5feecfab0a/lib.a",
             ),
         )
         self.assertEqual(
@@ -244,7 +258,7 @@ def _get_focused_and_scrubbed_paths(
     targets_json_file_path: Optional[str] = None,
     spec_json_file_path: Optional[str] = None,
     adhoc_codesign_tool: Optional[str] = None,
-) -> (List[str], List[str]):
+) -> (list[str], list[str]):
     results, _ = _get_scrubber_results(
         targets_json_file_path=targets_json_file_path,
         spec_json_file_path=spec_json_file_path,
@@ -276,7 +290,7 @@ def _get_scrubber_results(
     targets_json_file_path: Optional[str] = None,
     spec_json_file_path: Optional[str] = None,
     adhoc_codesign_tool: Optional[str] = None,
-) -> Tuple[List[Tuple[str, str]], str]:
+) -> tuple[list[tuple[str, str]], str]:
     with resources.as_file(_get_test_resource_file("HelloWorld")) as test_binary_file:
         with NamedTemporaryFile() as out_file:
             if targets_json_file_path:

@@ -13,6 +13,7 @@ blake3 = { workspace = true }
 clap = { workspace = true }
 fbinit = { workspace = true }
 hex = { workspace = true }
+rustls = { workspace = true }
 tokio = { workspace = true }
 tracing = { workspace = true }
 
@@ -54,6 +55,7 @@ buck2_event_log = { workspace = true }
 buck2_event_observer = { workspace = true }
 buck2_events = { workspace = true }
 buck2_external_cells = { workspace = true }
+buck2_fs = { workspace = true }
 buck2_interpreter_for_build = { workspace = true }
 buck2_query_impls = { workspace = true }
 buck2_server = { workspace = true }

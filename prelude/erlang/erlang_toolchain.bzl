@@ -11,6 +11,10 @@ load(
     "paths",
 )
 load(
+    ":erlang_error_handler.bzl",
+    "erlang_action_error_handler",
+)
+load(
     ":erlang_info.bzl",
     "ErlangOTPBinariesInfo",
     "ErlangParseTransformInfo",
@@ -141,6 +145,7 @@ def _erlang_toolchain_impl(ctx: AnalysisContext) -> list[Provider]:
             parse_transforms_filters = ctx.attrs.parse_transforms_filters,
             utility_modules = utility_modules,
             erts = erts,
+            error_handler = erlang_action_error_handler,
         ),
     ]
 

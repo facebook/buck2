@@ -11,16 +11,18 @@
 use std::process::ExitStatus;
 
 use async_trait::async_trait;
-use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_error::BuckErrorContext;
 use buck2_error::conversion::from_any_with_tag;
+use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_miniperf_proto::MiniperfOutput;
+
+use crate::CollectedExecutionStats;
 
 pub enum DecodedStatus {
     /// An actual status.
     Status {
         exit_code: i32,
-        execution_stats: Option<buck2_data::CommandExecutionStats>,
+        execution_stats: Option<CollectedExecutionStats>,
     },
 
     /// Spawn failed, provide the error.
@@ -121,20 +123,14 @@ impl StatusDecoder for MiniperfStatusDecoder {
                 {
                     use std::os::unix::process::ExitStatusExt;
                     let exit_code = default_decode_exit_code(ExitStatus::from_raw(v));
-                    let execution_stats =
-                        status
-                            .counters
-                            .map(|counters| buck2_data::CommandExecutionStats {
-                                cpu_instructions_user: Some(
-                                    counters.user_instructions.adjusted_count(),
-                                ),
-                                cpu_instructions_kernel: Some(
-                                    counters.kernel_instructions.adjusted_count(),
-                                ),
-                                userspace_events: Some(counters.user_instructions.to_proto()),
-                                kernel_events: Some(counters.kernel_instructions.to_proto()),
-                                memory_peak: counters.memory_peak,
-                            });
+                    let execution_stats = status.counters.map(|counters| CollectedExecutionStats {
+                        cpu_instructions_user: Some(counters.user_instructions.adjusted_count()),
+                        cpu_instructions_kernel: Some(
+                            counters.kernel_instructions.adjusted_count(),
+                        ),
+                        userspace_events: Some(counters.user_instructions.to_proto()),
+                        kernel_events: Some(counters.kernel_instructions.to_proto()),
+                    });
 
                     if let Err(e) = execution_stats.as_ref() {
                         // TODO @torozco: report this in the event log? Might be verbose for little

@@ -21,12 +21,12 @@ use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_error::BuckErrorContext;
 use buck2_error::conversion::from_any_with_tag;
 use buck2_execute::digest_config::DigestConfig;
-use buck2_interpreter::factory::ReentrantStarlarkEvaluator;
 use buck2_interpreter::late_binding_ty::AnalysisContextReprLate;
 use buck2_interpreter::types::configured_providers_label::StarlarkConfiguredProvidersLabel;
 use buck2_util::late_binding::LateBinding;
 use derive_more::Display;
 use dice::DiceComputations;
+use futures::FutureExt;
 use starlark::any::ProvidesStaticType;
 use starlark::environment::GlobalsBuilder;
 use starlark::environment::Methods;
@@ -50,6 +50,7 @@ use starlark::values::starlark_value_as_type::StarlarkValueAsType;
 use starlark::values::structs::StructRef;
 use starlark::values::type_repr::StarlarkTypeRepr;
 
+use crate::analysis::anon_promises_dyn::RunAnonPromisesAccessor;
 use crate::analysis::registry::AnalysisRegistry;
 use crate::deferred::calculation::GET_PROMISED_ARTIFACT;
 use crate::interpreter::rule_defs::plugins::AnalysisPlugins;
@@ -82,23 +83,24 @@ impl<'v> AnalysisActions<'v> {
             .internal_error("state to be present during execution")
     }
 
-    pub async fn run_promises(
+    pub async fn run_promises<'a, 'e: 'a>(
         &self,
-        dice: &mut DiceComputations<'_>,
-        eval: &mut ReentrantStarlarkEvaluator<'_, 'v, '_, '_>,
+        accessor: &mut dyn RunAnonPromisesAccessor<'v, 'a, 'e>,
     ) -> buck2_error::Result<()> {
         // We need to loop here because running the promises evaluates promise.map, which might produce more promises.
         // We keep going until there are no promises left.
         loop {
             let promises = self.state()?.take_promises();
             if let Some(promises) = promises {
-                promises.run_promises(dice, eval).await?;
+                promises.run_promises(accessor).await?;
             } else {
                 break;
             }
         }
 
-        self.assert_short_paths_and_resolve(dice).await?;
+        accessor
+            .with_dice(|dice| self.assert_short_paths_and_resolve(dice).boxed_local())
+            .await?;
 
         Ok(())
     }
@@ -108,18 +110,24 @@ impl<'v> AnalysisActions<'v> {
         &self,
         dice: &mut DiceComputations<'_>,
     ) -> buck2_error::Result<()> {
-        let (short_path_assertions, consumer_analysis_artifacts) = {
+        let (short_path_assertions, content_based_path_assertions, consumer_analysis_artifacts) = {
             let state = self.state()?;
             (
                 state.short_path_assertions.clone(),
+                state.content_based_path_assertions.clone(),
                 state.consumer_analysis_artifacts(),
             )
         };
 
         for consumer_artifact in consumer_analysis_artifacts {
             let artifact = (GET_PROMISED_ARTIFACT.get()?)(&consumer_artifact, dice).await?;
-            let short_path = short_path_assertions.get(consumer_artifact.id()).cloned();
-            consumer_artifact.resolve(artifact.clone(), &short_path)?;
+            let id = consumer_artifact.id();
+            let short_path = short_path_assertions.get(id).cloned();
+            consumer_artifact.resolve(
+                artifact.clone(),
+                &short_path,
+                content_based_path_assertions.contains(id),
+            )?;
         }
         Ok(())
     }

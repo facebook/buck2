@@ -23,6 +23,7 @@ use buck2_client_ctx::common::CommonBuildConfigurationOptions;
 use buck2_client_ctx::common::CommonCommandOptions;
 use buck2_client_ctx::common::CommonEventLogOptions;
 use buck2_client_ctx::common::CommonStarlarkOptions;
+use buck2_client_ctx::common::profiling::BuckProfileMode;
 use buck2_client_ctx::common::target_cfg::TargetCfgWithUniverseOptions;
 use buck2_client_ctx::common::ui::CommonConsoleOptions;
 use buck2_client_ctx::daemon::client::BuckdClientConnector;
@@ -35,7 +36,6 @@ use buck2_common::argv::Argv;
 use buck2_common::argv::SanitizedArgv;
 use buck2_error::BuckErrorContext;
 use buck2_error::buck2_error;
-use dupe::Dupe;
 
 use super::bxl::BxlCommandOptions;
 
@@ -65,23 +65,6 @@ impl ProfileCommand {
     pub fn sanitize_argv(&self, argv: Argv) -> SanitizedArgv {
         argv.no_need_to_sanitize()
     }
-}
-
-#[derive(clap::ValueEnum, Dupe, Clone, Copy, Debug)]
-pub(crate) enum BuckProfileMode {
-    TimeFlame,
-    HeapAllocated,
-    HeapRetained,
-    HeapFlameAllocated,
-    HeapFlameRetained,
-    HeapSummaryAllocated,
-    HeapSummaryRetained,
-    Statement,
-    Bytecode,
-    BytecodePairs,
-    Typecheck,
-    Coverage,
-    None,
 }
 
 /// Profile BXL script.
@@ -159,24 +142,6 @@ struct ProfileSubcommand {
     subcommand: ProfileCommand,
 }
 
-pub(crate) fn profile_mode_to_profile(mode: BuckProfileMode) -> buck2_cli_proto::ProfileMode {
-    match mode {
-        BuckProfileMode::TimeFlame => buck2_cli_proto::ProfileMode::TimeFlame,
-        BuckProfileMode::HeapAllocated => buck2_cli_proto::ProfileMode::HeapAllocated,
-        BuckProfileMode::HeapRetained => buck2_cli_proto::ProfileMode::HeapRetained,
-        BuckProfileMode::HeapFlameAllocated => buck2_cli_proto::ProfileMode::HeapFlameAllocated,
-        BuckProfileMode::HeapFlameRetained => buck2_cli_proto::ProfileMode::HeapFlameRetained,
-        BuckProfileMode::HeapSummaryAllocated => buck2_cli_proto::ProfileMode::HeapSummaryAllocated,
-        BuckProfileMode::HeapSummaryRetained => buck2_cli_proto::ProfileMode::HeapSummaryRetained,
-        BuckProfileMode::Statement => buck2_cli_proto::ProfileMode::Statement,
-        BuckProfileMode::Bytecode => buck2_cli_proto::ProfileMode::Bytecode,
-        BuckProfileMode::BytecodePairs => buck2_cli_proto::ProfileMode::BytecodePairs,
-        BuckProfileMode::Typecheck => buck2_cli_proto::ProfileMode::Typecheck,
-        BuckProfileMode::Coverage => buck2_cli_proto::ProfileMode::Coverage,
-        BuckProfileMode::None => buck2_cli_proto::ProfileMode::None,
-    }
-}
-
 impl ProfileSubcommand {
     fn common_opts(&self) -> &ProfileCommonOptions {
         match &self.subcommand {
@@ -208,7 +173,7 @@ impl StreamingCommand for ProfileSubcommand {
 
         let console_opts = ctx.console_interaction_stream(self.console_opts());
 
-        let profiler = profile_mode_to_profile(profile_mode);
+        let profiler = profile_mode.to_proto();
 
         let profile_opts = match &self.subcommand {
             ProfileCommand::Loading(loading) => ProfileOpts::TargetProfile(TargetProfile {

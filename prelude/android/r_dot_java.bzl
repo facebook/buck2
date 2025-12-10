@@ -118,7 +118,7 @@ def _generate_r_dot_java_source_code(
     for (text_symbols, r_dot_java_package, raw_target) in deduped_android_resources:
         r_dot_txt_info.add(cmd_args([text_symbols, r_dot_java_package, raw_target], delimiter = " "))
 
-    r_dot_txt_info_file = ctx.actions.write("r_dot_txt_info_file_for_{}.txt".format(identifier), r_dot_txt_info, uses_experimental_content_based_path_hashing = True)
+    r_dot_txt_info_file = ctx.actions.write("r_dot_txt_info_file_for_{}.txt".format(identifier), r_dot_txt_info, has_content_based_path = True)
     merge_resources_cmd.add(["--symbol-file-info", r_dot_txt_info_file])
     merge_resources_cmd.add(cmd_args(
         hidden =
@@ -126,19 +126,19 @@ def _generate_r_dot_java_source_code(
             [android_resource.text_symbols for android_resource in android_resources],
     ))
 
-    output_dir = ctx.actions.declare_output("{}_source_code".format(identifier), dir = True, uses_experimental_content_based_path_hashing = True)
+    output_dir = ctx.actions.declare_output("{}_source_code".format(identifier), dir = True, has_content_based_path = True)
     merge_resources_cmd.add(["--output-dir", output_dir.as_output()])
-    output_dir_zipped = ctx.actions.declare_output("{}.src.zip".format(identifier), uses_experimental_content_based_path_hashing = True)
+    output_dir_zipped = ctx.actions.declare_output("{}.src.zip".format(identifier), has_content_based_path = True)
     merge_resources_cmd.add(["--output-dir-zipped", output_dir_zipped.as_output()])
 
     if generate_strings_and_ids_separately:
-        strings_output_dir = ctx.actions.declare_output("strings_source_code", dir = True, uses_experimental_content_based_path_hashing = True)
+        strings_output_dir = ctx.actions.declare_output("strings_source_code", dir = True, has_content_based_path = True)
         merge_resources_cmd.add(["--strings-output-dir", strings_output_dir.as_output()])
-        strings_output_dir_zipped = ctx.actions.declare_output("strings.src.zip", uses_experimental_content_based_path_hashing = True)
+        strings_output_dir_zipped = ctx.actions.declare_output("strings.src.zip", has_content_based_path = True)
         merge_resources_cmd.add(["--strings-output-dir-zipped", strings_output_dir_zipped.as_output()])
-        ids_output_dir = ctx.actions.declare_output("ids_source_code", dir = True, uses_experimental_content_based_path_hashing = True)
+        ids_output_dir = ctx.actions.declare_output("ids_source_code", dir = True, has_content_based_path = True)
         merge_resources_cmd.add(["--ids-output-dir", ids_output_dir.as_output()])
-        ids_output_dir_zipped = ctx.actions.declare_output("ids.src.zip", uses_experimental_content_based_path_hashing = True)
+        ids_output_dir_zipped = ctx.actions.declare_output("ids.src.zip", has_content_based_path = True)
         merge_resources_cmd.add(["--ids-output-dir-zipped", ids_output_dir_zipped.as_output()])
     else:
         strings_output_dir = None
@@ -150,15 +150,15 @@ def _generate_r_dot_java_source_code(
         merge_resources_cmd.add("--force-final-resource-ids")
 
     if len(banned_duplicate_resource_types) > 0:
-        banned_duplicate_resource_types_file = ctx.actions.write("banned_duplicate_resource_types_file", banned_duplicate_resource_types, uses_experimental_content_based_path_hashing = True)
+        banned_duplicate_resource_types_file = ctx.actions.write("banned_duplicate_resource_types_file", banned_duplicate_resource_types, has_content_based_path = True)
         merge_resources_cmd.add(["--banned-duplicate-resource-types", banned_duplicate_resource_types_file])
 
     if len(uber_r_dot_txt_files) > 0:
-        uber_r_dot_txt_files_list = argfile(actions = ctx.actions, name = "uber_r_dot_txt_files_list", args = uber_r_dot_txt_files, uses_experimental_content_based_path_hashing = True)
+        uber_r_dot_txt_files_list = argfile(actions = ctx.actions, name = "uber_r_dot_txt_files_list", args = uber_r_dot_txt_files, has_content_based_path = True)
         merge_resources_cmd.add(["--uber-r-dot-txt", uber_r_dot_txt_files_list])
 
     if len(override_symbols_paths) > 0:
-        override_symbols_paths_list = argfile(actions = ctx.actions, name = "override_symbols_paths_list", args = override_symbols_paths, uses_experimental_content_based_path_hashing = True)
+        override_symbols_paths_list = argfile(actions = ctx.actions, name = "override_symbols_paths_list", args = override_symbols_paths, has_content_based_path = True)
         merge_resources_cmd.add(["--override-symbols", override_symbols_paths_list])
 
     if duplicate_resources_allowlist != None:
@@ -168,7 +168,7 @@ def _generate_r_dot_java_source_code(
         merge_resources_cmd.add(["--union-package", union_package])
 
     if referenced_resources_lists:
-        referenced_resources_file = argfile(actions = ctx.actions, name = "referenced_resources_lists", args = referenced_resources_lists, uses_experimental_content_based_path_hashing = True)
+        referenced_resources_file = argfile(actions = ctx.actions, name = "referenced_resources_lists", args = referenced_resources_lists, has_content_based_path = True)
         merge_resources_cmd.add(["--referenced-resources-lists", referenced_resources_file])
 
     ctx.actions.run(merge_resources_cmd, category = "r_dot_java_merge_resources", identifier = identifier)
@@ -187,7 +187,7 @@ def _compile_r_dot_java(
         r_dot_java_source_code_zipped: Artifact,
         identifier: str,
         remove_classes: list[str] = []) -> RDotJavaInfo:
-    r_dot_java_out = ctx.actions.declare_output("{}.jar".format(identifier), uses_experimental_content_based_path_hashing = True)
+    r_dot_java_out = ctx.actions.declare_output("{}.jar".format(identifier), has_content_based_path = True)
     outputs = compile_to_jar(
         ctx,
         output = r_dot_java_out,

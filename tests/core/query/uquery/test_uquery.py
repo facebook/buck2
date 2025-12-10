@@ -12,7 +12,6 @@
 import json
 import re
 from pathlib import Path
-from typing import List
 
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.api.buck_result import BuckResult
@@ -189,7 +188,7 @@ async def test_deps(buck: Buck) -> None:
     # with the nodes themselves so we subtract them out. It's not quite right
     # if a node in the graph of target deps were to have an exec dep on another.
     result = await buck.uquery(
-        "deps(%s, 1, exec_deps()) - %s" % (target_deps_expr, target_deps_expr)
+        "deps({}, 1, exec_deps()) - {}".format(target_deps_expr, target_deps_expr)
     )
     assert (
         result.stdout
@@ -492,7 +491,7 @@ async def test_oncall(buck: Buck) -> None:
 
 @buck_test(data_dir="oncall")
 async def test_output_all_attributes(buck: Buck) -> None:
-    def contains(out: BuckResult, want: List[str], notwant: List[str]) -> None:
+    def contains(out: BuckResult, want: list[str], notwant: list[str]) -> None:
         x = json.loads(out.stdout)["root//:foo"]
         for w in want:
             assert w in x
@@ -556,3 +555,115 @@ async def test_query_attrfilter_special_attribute(buck: Buck) -> None:
         "attrfilter(buck.package, 'root//bin:TARGETS.fixture',root//bin:the_binary)"
     )
     assert out.stdout.strip() == "root//bin:the_binary"
+
+
+# Tests for intersect and except operators on FileSet, TargetSet, and String types
+# These tests verify the fix for https://github.com/facebook/buck2/issues/1109
+@buck_test(data_dir="set_operators")
+async def test_uquery_fileset_intersect(buck: Buck) -> None:
+    """Test FileSet intersect FileSet using inputs()."""
+    result = await buck.uquery(
+        """inputs(root//:lib_a) intersect inputs(root//:lib_b)"""
+    )
+    assert result.stdout == "common.txt\n"
+
+
+@buck_test(data_dir="set_operators")
+async def test_uquery_fileset_except(buck: Buck) -> None:
+    """Test FileSet except FileSet using inputs()."""
+    result = await buck.uquery("""inputs(root//:lib_a) except inputs(root//:lib_b)""")
+    assert result.stdout == "lib_a.txt\n"
+
+
+@buck_test(data_dir="set_operators")
+async def test_uquery_fileset_intersect_string(buck: Buck) -> None:
+    """Test FileSet intersect String."""
+    result = await buck.uquery("""inputs(root//:lib_a) intersect "common.txt" """)
+    assert result.stdout == "common.txt\n"
+
+
+@buck_test(data_dir="set_operators")
+async def test_uquery_fileset_except_string(buck: Buck) -> None:
+    """Test FileSet except String."""
+    result = await buck.uquery("""inputs(root//:lib_a) except "common.txt" """)
+    assert result.stdout == "lib_a.txt\n"
+
+
+@buck_test(data_dir="set_operators")
+async def test_uquery_string_intersect_fileset(buck: Buck) -> None:
+    """Test String intersect FileSet."""
+    result = await buck.uquery(""" "common.txt" intersect inputs(root//:lib_a)""")
+    assert result.stdout == "common.txt\n"
+
+
+@buck_test(data_dir="set_operators")
+async def test_uquery_string_except_fileset(buck: Buck) -> None:
+    """Test String except FileSet (string not in fileset)."""
+    result = await buck.uquery(""" "lib_a.txt" except inputs(root//:lib_b)""")
+    assert result.stdout == "lib_a.txt\n"
+
+
+@buck_test(data_dir="set_operators")
+async def test_uquery_targetset_intersect(buck: Buck) -> None:
+    """Test TargetSet intersect TargetSet using set()."""
+    result = await buck.uquery(
+        """set(root//:lib_a root//:app) intersect set(root//:lib_b root//:app)"""
+    )
+    assert result.stdout == "root//:app\n"
+
+
+@buck_test(data_dir="set_operators")
+async def test_uquery_targetset_except(buck: Buck) -> None:
+    """Test TargetSet except TargetSet using set()."""
+    result = await buck.uquery(
+        """set(root//:lib_a root//:app) except set(root//:app)"""
+    )
+    assert result.stdout == "root//:lib_a\n"
+
+
+@buck_test(data_dir="set_operators")
+async def test_uquery_targetset_intersect_string(buck: Buck) -> None:
+    """Test TargetSet intersect String."""
+    result = await buck.uquery(
+        """set(root//:lib_a root//:app) intersect "root//:lib_a" """
+    )
+    assert result.stdout == "root//:lib_a\n"
+
+
+@buck_test(data_dir="set_operators")
+async def test_uquery_targetset_except_string(buck: Buck) -> None:
+    """Test TargetSet except String."""
+    result = await buck.uquery("""set(root//:lib_a root//:app) except "root//:app" """)
+    assert result.stdout == "root//:lib_a\n"
+
+
+@buck_test(data_dir="set_operators")
+async def test_uquery_string_intersect_targetset(buck: Buck) -> None:
+    """Test String intersect TargetSet."""
+    result = await buck.uquery(
+        """ "root//:lib_a" intersect set(root//:lib_a root//:app)"""
+    )
+    assert result.stdout == "root//:lib_a\n"
+
+
+@buck_test(data_dir="set_operators")
+async def test_uquery_string_except_targetset(buck: Buck) -> None:
+    """Test String except TargetSet (string not in targetset)."""
+    result = await buck.uquery(
+        """ "root//:app" except set(root//:lib_a root//:lib_b)"""
+    )
+    assert result.stdout == "root//:app\n"
+
+
+@buck_test(data_dir="set_operators")
+async def test_uquery_string_intersect_string(buck: Buck) -> None:
+    """Test String intersect String for targets."""
+    result = await buck.uquery(""" "root//:lib_a" intersect "root//:lib_a" """)
+    assert result.stdout == "root//:lib_a\n"
+
+
+@buck_test(data_dir="set_operators")
+async def test_uquery_string_except_string(buck: Buck) -> None:
+    """Test String except String (different targets)."""
+    result = await buck.uquery(""" "root//:app" except "root//:lib_a" """)
+    assert result.stdout == "root//:app\n"

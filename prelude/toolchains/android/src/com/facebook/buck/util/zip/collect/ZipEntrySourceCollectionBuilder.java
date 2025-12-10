@@ -10,10 +10,8 @@
 
 package com.facebook.buck.util.zip.collect;
 
-import com.facebook.buck.core.exceptions.HumanReadableException;
 import com.facebook.buck.io.pathformat.PathFormatter;
 import com.facebook.buck.util.PatternsMatcher;
-import com.facebook.buck.util.types.Unit;
 import com.facebook.buck.util.zip.Zip;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -36,7 +34,7 @@ import java.util.regex.Pattern;
 public class ZipEntrySourceCollectionBuilder {
   private final PatternsMatcher excludedEntriesMatcher;
   private final OnDuplicateEntry onDuplicateEntryAction;
-  private final Function<ZipEntrySource, Unit> onDuplicateEntryHandler;
+  private final Function<ZipEntrySource, Void> onDuplicateEntryHandler;
   private final Multimap<String, ZipEntrySource> entryNameToEntry;
 
   public ZipEntrySourceCollectionBuilder(
@@ -96,27 +94,28 @@ public class ZipEntrySourceCollectionBuilder {
     return new ZipEntrySourceCollection(ImmutableList.copyOf(allEntries));
   }
 
-  private Function<ZipEntrySource, Unit> createDuplicateEntryHandler() {
+  private Function<ZipEntrySource, Void> createDuplicateEntryHandler() {
     switch (onDuplicateEntryAction) {
       case FAIL:
         return (entry) -> {
           Collection<ZipEntrySource> oldEntries = entryNameToEntry.get(entry.getEntryName());
-          throw new HumanReadableException(
-              "Duplicate entry \"%s\" is coming from %s and %s",
-              entry.getEntryName(),
-              Iterables.getOnlyElement(oldEntries).getSourceFilePath(),
-              entry.getSourceFilePath());
+          throw new RuntimeException(
+              String.format(
+                  "Duplicate entry \"%s\" is coming from %s and %s",
+                  entry.getEntryName(),
+                  Iterables.getOnlyElement(oldEntries).getSourceFilePath(),
+                  entry.getSourceFilePath()));
         };
       case APPEND:
         return (entry) -> {
           entryNameToEntry.put(entry.getEntryName(), entry);
-          return Unit.UNIT;
+          return null;
         };
       case OVERWRITE:
         return (entry) -> {
           entryNameToEntry.removeAll(entry.getEntryName());
           entryNameToEntry.put(entry.getEntryName(), entry);
-          return Unit.UNIT;
+          return null;
         };
       default:
         throw new IllegalArgumentException("Unknown action: " + onDuplicateEntryAction);

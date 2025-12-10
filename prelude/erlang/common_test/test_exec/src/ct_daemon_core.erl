@@ -10,7 +10,7 @@
 -moduledoc """
 Stateless Core functionality for ct_daemon
 """.
--eqwalizer(ignore).
+-compile(warn_missing_spec_all).
 
 -include_lib("common/include/tpx_records.hrl").
 -include_lib("common/include/buck_ct_records.hrl").
@@ -32,26 +32,53 @@ Stateless Core functionality for ct_daemon
 -type reason() :: term().
 -type run_result() :: term().
 
--type setup_state() :: {[atom()], [fun((proplists:proplist()) -> term())]}.
--type setup() :: #{config => proplists:proplist(), setup_state => setup_state()}.
+-type suite() :: module().
+-type groupname() :: atom().
+-type testname() :: atom().
+
+-type callback(A) :: fun((ct_suite:ct_config()) -> callback_result(A)).
+-type callback_result(A) :: {skip, reason()} | {fail, reason()} | {skip_and_save, reason(), ct_suite:ct_config()} | A.
+
+-type wrapped_init_callback() :: callback(ct_suite:ct_config()).
+-type wrapped_end_callback() :: callback(test_status()).
+
+-type setup_state() :: {[atom()], [{wrapped_end_callback(), ct_suite:ct_config()}]}.
+-type setup() :: #{config => ct_suite:ct_config(), setup_state => setup_state()}.
+
+-type init_and_ends() :: [
+    {
+        Id :: suite() | groupname(),
+        Init :: wrapped_init_callback(),
+        End :: wrapped_end_callback()
+    }
+].
+-type callback_error() ::
+    {error, {Where :: atom(), Reason :: term()}}
+    | {error, {term(), term(), term()}}
+    | {skip, Where :: atom(), Reason :: term()}
+    | {fail, Where :: atom(), Reason :: term()}.
 
 -export_type([reason/0, run_result/0, setup/0]).
 
 -define(DEFAULT_TIMETRAP, 30 * 60 * 1000).
 
 -type ct_test_result() ::
-    term()
+    none()
     | {skip, reason()}
     | {comment, Comment :: string()}
     | {save_config, SaveConfig :: ct_suite:ct_config()}
     | {skip_and_save, reason(), SaveConfig :: ct_suite:ct_config()}
+    | {fail, reason()}
     | {error, {init_per_testcase, reason()}}
     | {error, reason()}.
 
 -type test_status() ::
-    {error, {atom(), reason()}}
-    | {error, {atom(), {skip, reason()}}}
-    | {error, {atom(), {skip_and_save, reason()}}}
+    {error, {testname(), reason()}}
+    | {error, {testname(), {skip, reason()}}}
+    | {error, {testname(), {skip_and_save, reason()}}}
+    | {fail, {testname(), reason()}}
+    | {skip, init_per_testcase, reason()}
+    | {skip, {testname(), reason()}}
     | pass_result.
 
 %% listing and discovery
@@ -63,7 +90,8 @@ test_suites() ->
      || {Module, _Filename, _Loaded} <- code:all_available(), re:run(Module, Pattern) =/= nomatch
     ].
 
--spec list() -> #{module() => [string()]}.
+-spec list() -> #{module() => [string()]} | {error, Reason} when
+    Reason :: {could_not_find_module, module()} | {too_many_suites, Max :: pos_integer(), Actual :: pos_integer()}.
 list() ->
     Suites = test_suites(),
     case erlang:length(Suites) =< 10 of
@@ -83,14 +111,16 @@ list() ->
                 Suites
             );
         false ->
-            {too_many_suites, 10, erlang:length(Suites)}
+            {error, {too_many_suites, 10, erlang:length(Suites)}}
     end.
 
 -spec to_qualified(#{suite := module(), name := string()}) -> string().
 to_qualified(#{suite := Suite, name := Name}) ->
-    to_qualified(Suite, Name).
+    to_qualified(atom_to_binary(Suite), Name).
 
--spec to_qualified(Suite :: module(), Name :: string()) -> string().
+-spec to_qualified(Suite, Name) -> string() when
+    Suite :: unicode:chardata(),
+    Name :: unicode:chardata().
 to_qualified(Suite, Name) ->
     lists:flatten(io_lib:format("~ts - ~ts", [Suite, Name])).
 
@@ -102,7 +132,8 @@ from_qualified(FullName) ->
         name => string:slice(FullName, NameS, NameL)
     }.
 
--spec list(module()) -> [string()] | {error, {could_not_find_module, module()}}.
+-spec list(module()) -> [string()] | {error, Reason} when
+    Reason :: {could_not_find_module, module()}.
 list(Suite) ->
     case code:which(Suite) of
         non_existing ->
@@ -137,6 +168,13 @@ run_test(Spec, PreviousSetup, OutputDir) ->
             {{error, R}, #{setup_state => SetupState, config => SetupConfig}}
     end.
 
+-spec do_incremental_setup(Setup, Spec, OutputDir) -> {Result, Config, SetupState} when
+    Setup :: undefined | setup(),
+    Spec :: #ct_test{},
+    OutputDir :: file:filename_all(),
+    Result :: ok | callback_error(),
+    Config :: ct_suite:ct_config(),
+    SetupState :: setup_state().
 do_incremental_setup(undefined, Spec, OutputDir) ->
     do_fresh_setup(Spec, OutputDir);
 do_incremental_setup(
@@ -151,12 +189,25 @@ do_incremental_setup(
     ),
     do_setup_from(Suite, Config1, CommonPrefix, EndStack1, RemainingSetup).
 
+-spec do_fresh_setup(#ct_test{}, OutputDir) -> {Result, Config, SetupState} when
+    OutputDir :: file:filename_all(),
+    Config :: ct_suite:ct_config(),
+    SetupState :: setup_state(),
+    Result :: ok | callback_error().
 do_fresh_setup(#ct_test{suite = Suite, groups = Groups}, OutputDir) ->
     InitialConfig = get_fresh_config(Suite, OutputDir),
     RemainingSetup = [Suite | Groups],
     InitAndEnds = build_inits_and_ends(Suite, RemainingSetup, []),
     do_init(InitAndEnds, InitialConfig, {[], []}).
 
+-spec do_setup_from(Suite, Config, SetupPath, EndStack, RemainingSetup) -> {Result, Config, SetupState} when
+    Suite :: module(),
+    Config :: ct_suite:ct_config(),
+    SetupPath :: [suite() | groupname()],
+    EndStack :: [{wrapped_end_callback(), ct_suite:ct_config()}],
+    RemainingSetup :: [atom()],
+    Result :: ok | callback_error(),
+    SetupState :: setup_state().
 do_setup_from(Suite, Config, SetupPath, EndStack, RemainingSetup) ->
     InitAndEnds = build_inits_and_ends(Suite, RemainingSetup, []),
     %% return from the last config on the init path if applicable
@@ -167,6 +218,11 @@ do_setup_from(Suite, Config, SetupPath, EndStack, RemainingSetup) ->
         end,
     do_init(InitAndEnds, ConfigIn, {SetupPath, EndStack}).
 
+-spec do_init(InitAndEnds, Config, SetupState) -> {Result, Config, SetupState} when
+    InitAndEnds :: init_and_ends(),
+    Config :: ct_suite:ct_config(),
+    SetupState :: setup_state(),
+    Result :: ok | callback_error().
 do_init([], Config, SetupState) ->
     {ok, Config, SetupState};
 do_init([{Id, Init, End} | Rest], ConfigIn, SetupState = {PathStack, EndsStack}) ->
@@ -178,11 +234,22 @@ do_init([{Id, Init, End} | Rest], ConfigIn, SetupState = {PathStack, EndsStack})
         {ok, ConfigOut} -> do_init(Rest, ConfigOut, {[Id | PathStack], [{End, ConfigOut} | EndsStack]})
     end.
 
+-spec get_common_prefix(Ls, Rs, Acc) -> {Prefix, Remaining} when
+    Ls :: [X],
+    Rs :: [X],
+    Acc :: [X],
+    Prefix :: [X],
+    Remaining :: [X].
 get_common_prefix([L | RestL], [R | RestR], Acc) when L =:= R ->
     get_common_prefix(RestL, RestR, [L | Acc]);
 get_common_prefix(RemainingSetup, _, Acc) ->
     {Acc, RemainingSetup}.
 
+-spec do_teardown_until(Target, Setup, EndsStack, Config) -> {Config, Target, EndsStack} when
+    Target :: [atom()],
+    Setup :: [atom()],
+    EndsStack :: [{wrapped_end_callback(), ct_suite:ct_config()}],
+    Config :: ct_suite:ct_config().
 do_teardown_until(Target, Setup, EndsStack, Config) when Target =:= Setup ->
     {Config, Target, EndsStack};
 do_teardown_until(Target, Path = [Id | RemainingSetup], [{End, Config} | RemainingEndsStack], _) ->
@@ -196,6 +263,10 @@ do_teardown_until(Target, Path = [Id | RemainingSetup], [{End, Config} | Remaini
         end,
     do_teardown_until(Target, RemainingSetup, RemainingEndsStack, NextConfig).
 
+-spec build_inits_and_ends(Suite, Path, Acc) -> init_and_ends() when
+    Suite :: module(),
+    Path :: [suite() | groupname()],
+    Acc :: init_and_ends().
 build_inits_and_ends(_Suite, [], Acc) ->
     lists:reverse(Acc);
 build_inits_and_ends(Suite, [Suite | RemainingInit], []) ->
@@ -218,6 +289,10 @@ build_inits_and_ends(Suite, [Group | RemainingInit], Acc) ->
         ]
     ).
 
+-spec do_run_test(SetupConfig, Spec) -> {test_status() | {error, Reason}, ct_suite:ct_config()} when
+    SetupConfig :: ct_suite:ct_config(),
+    Spec :: #ct_test{},
+    Reason :: term().
 do_run_test(SetupConfig, #ct_test{suite = Suite, groups = Groups, test_name = Test}) ->
     Timetrap = path_timetrap([Suite | Groups], Test),
     Path = [Suite | Groups] ++ [Test],
@@ -230,6 +305,11 @@ do_run_test(SetupConfig, #ct_test{suite = Suite, groups = Groups, test_name = Te
         {ok, Result} -> Result
     end.
 
+-spec test_part(Config, Suite, Test, Path) -> {test_status(), ct_suite:ct_config()} when
+    Config :: ct_suite:ct_config(),
+    Suite :: module(),
+    Test :: atom(),
+    Path :: [atom()].
 test_part(Config, Suite, Test, Path) ->
     InitResult =
         case safe_call(wrap_ct_hook(init_per_testcase, Path, fun Suite:init_per_testcase/2), [Config]) of
@@ -266,12 +346,24 @@ test_part(Config, Suite, Test, Path) ->
         end,
     {status_from_test_result(TestResult, Test), FinalConfig}.
 
+-spec wrap_ct_hook(Part, Path, Fun) -> callback(Res) when
+    Part :: ct_daemon_hooks:part(),
+    Path :: [atom()],
+    Fun :: fun((Config) -> callback_result(Res)) | fun((GroupOrTest :: atom(), Config) -> callback_result(Res)),
+    Config :: ct_suite:ct_config().
 wrap_ct_hook(Part, Path, Fun) ->
     ct_daemon_hooks:wrap(Part, Path, Fun).
 
 -doc """
-transform exceptions into error tuples
+Transform exceptions into error tuples
 """.
+-spec safe_call(F, Args) -> Res | {fail, Failure} when
+    F :: fun(),
+    Args :: [term()],
+    Res :: dynamic(),
+    Failure :: {thrown, Reason, Stacktrace} | {Reason, Stacktrace} | Reason,
+    Reason :: term(),
+    Stacktrace :: erlang:stacktrace().
 safe_call(F, Args) ->
     try erlang:apply(F, Args) of
         Res -> Res
@@ -291,7 +383,7 @@ config_from_test_result(_, Config) -> Config.
 -spec status_from_test_result(ct_test_result(), atom()) -> test_status().
 status_from_test_result(InitError = {error, {init_per_testcase, _}}, _) ->
     InitError;
-status_from_test_result({error, SkipResult = {skip, _, _}}, _) ->
+status_from_test_result({error, SkipResult = {skip, init_per_testcase, _}}, _) ->
     SkipResult;
 status_from_test_result({skip_and_save, Reason, _SaveConfig}, Test) ->
     {error, {Test, {skip_and_save, Reason}}};
@@ -306,9 +398,15 @@ status_from_test_result({skip, R}, Test) ->
 status_from_test_result(_R, _) ->
     pass_result.
 
+-spec get_fresh_config(Suite, OutputDir) -> ct_suite:ct_config() when
+    Suite :: module(),
+    OutputDir :: file:filename_all().
 get_fresh_config(Suite, OutputDir) ->
     {module, Suite} = code:ensure_loaded(Suite),
-    SuitePath = code:which(Suite),
+    SuitePath =
+        case code:which(Suite) of
+            Which when Which /= non_existing -> Which
+        end,
     DataDir = filename:join(filename:dirname(SuitePath), io_lib:format("~ts_data", [Suite])) ++ "/",
     PrivDir =
         filename:join([
@@ -322,6 +420,11 @@ get_fresh_config(Suite, OutputDir) ->
 -doc """
 run an init or end or test in an isolated process like CT
 """.
+-spec do_part_safe(Id, Fun, Config, TimeTrap) -> {ok, Res} | callback_error() when
+    Id :: atom(),
+    Fun :: callback(Res),
+    Config :: ct_suite:ct_config(),
+    TimeTrap :: timeout().
 do_part_safe(Id, Fun, Config, TimeTrap) ->
     {Pid, ProcRef} = erlang:spawn_monitor(
         fun() ->
@@ -370,6 +473,8 @@ do_part_safe(Id, Fun, Config, TimeTrap) ->
     after TimeTrap -> {error, {Id, {timetrap, TimeTrap}}}
     end.
 
+-spec flush_monitor_msg(Ref) -> ok when
+    Ref :: erlang:reference().
 flush_monitor_msg(Ref) ->
     true = erlang:demonitor(Ref),
     receive
@@ -379,12 +484,20 @@ flush_monitor_msg(Ref) ->
 
 %% timetraps
 
+-spec path_timetrap(Path) -> timeout() when
+    Path :: nonempty_list(suite() | groupname()).
 path_timetrap([Suite | Groups]) ->
     do_path_timetrap(#{suite => Suite, groups => Groups}, ?DEFAULT_TIMETRAP).
 
+-spec path_timetrap(Path, Test) -> timeout() when
+    Path :: nonempty_list(suite() | groupname()),
+    Test :: atom().
 path_timetrap([Suite | Groups], Test) ->
     do_path_timetrap(#{suite => Suite, groups => Groups, test => Test}, ?DEFAULT_TIMETRAP).
 
+-spec do_path_timetrap(Spec, Current) -> timeout() when
+    Spec :: #{suite := module(), groups := [groupname()], test => testname()},
+    Current :: timeout().
 do_path_timetrap(#{suite := Suite, groups := Groups} = Spec, Current) ->
     TimeTrap0 = suite_timetrap(Suite, Current),
     Timetrap1 =
@@ -402,6 +515,9 @@ do_path_timetrap(#{suite := Suite, groups := Groups} = Spec, Current) ->
         end,
     scale_timetrap(UnscaledTimetrap).
 
+-spec suite_timetrap(Suite, Default) -> timeout() when
+    Suite :: module(),
+    Default :: timeout().
 suite_timetrap(Suite, Default) ->
     case erlang:function_exported(Suite, suite, 0) of
         false ->
@@ -411,6 +527,10 @@ suite_timetrap(Suite, Default) ->
             timetrap_to_ms(Timetrap)
     end.
 
+-spec group_timetrap(Suite, Group, Default) -> timeout() when
+    Suite :: module(),
+    Group :: groupname(),
+    Default :: timeout().
 group_timetrap(Suite, Group, Default) ->
     case erlang:function_exported(Suite, group, 1) of
         false ->
@@ -420,6 +540,10 @@ group_timetrap(Suite, Group, Default) ->
             timetrap_to_ms(Timetrap)
     end.
 
+-spec test_timetrap(Suite, Test, Default) -> timeout() when
+    Suite :: module(),
+    Test :: testname(),
+    Default :: timeout().
 test_timetrap(Suite, Test, Default) ->
     case erlang:function_exported(Suite, Test, 0) of
         false ->
@@ -429,18 +553,23 @@ test_timetrap(Suite, Test, Default) ->
             timetrap_to_ms(Timetrap)
     end.
 
+-spec timetrap_to_ms(Timetrap) -> timeout() when
+    Timetrap :: timeout() | {seconds, integer()} | {minutes, integer()} | {hours, integer()}.
 timetrap_to_ms(MS) when is_integer(MS) -> MS;
 timetrap_to_ms({seconds, S}) -> S * 1000;
 timetrap_to_ms({minutes, S}) -> S * 1000 * 60;
 timetrap_to_ms({hours, S}) -> S * 1000 * 60 * 60;
 timetrap_to_ms(_) -> ?DEFAULT_TIMETRAP.
 
-scale_timetrap(TimeTrap) ->
+-spec scale_timetrap(timeout()) -> timeout().
+scale_timetrap(infinity) ->
+    infinity;
+scale_timetrap(MS) ->
     case application:get_env(test_exec, daemon_options, []) of
         Options when is_list(Options) ->
             case proplists:get_value(multiply_timetraps, Options, 1) of
                 infinity -> infinity;
-                X when is_number(X) -> TimeTrap * X
+                X when is_number(X) -> MS * X
             end;
         BadOptions ->
             error({bad_options, BadOptions})

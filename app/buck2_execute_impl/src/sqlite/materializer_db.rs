@@ -15,13 +15,13 @@ use buck2_common::sqlite::sqlite_db::SqliteDb;
 use buck2_common::sqlite::sqlite_db::SqliteIdentity;
 use buck2_common::sqlite::sqlite_db::SqliteTable;
 use buck2_common::sqlite::sqlite_db::SqliteTables;
-use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
-use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::execute::blocking::BlockingExecutor;
+use buck2_fs::paths::abs_norm_path::AbsNormPath;
+use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
 use chrono::DateTime;
 use chrono::Utc;
 use derive_more::From;
@@ -193,13 +193,14 @@ mod tests {
     use buck2_common::file_ops::metadata::FileMetadata;
     use buck2_common::file_ops::metadata::Symlink;
     use buck2_common::file_ops::metadata::TrackedFileDigest;
-    use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
     use buck2_core::fs::project::ProjectRootTemp;
     use buck2_directory::directory::builder::DirectoryBuilder;
     use buck2_directory::directory::dashmap_directory_interner::DashMapDirectoryInterner;
     use buck2_directory::directory::entry::DirectoryEntry;
+    use buck2_events::daemon_id::DaemonId;
     use buck2_execute::directory::ActionDirectoryMember;
     use buck2_execute::directory::new_symlink;
+    use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
     use chrono::TimeZone;
     use itertools::Itertools;
     use parking_lot::Mutex;
@@ -395,7 +396,7 @@ mod tests {
     #[test]
     fn test_initialize_sqlite_db() -> buck2_error::Result<()> {
         fn testing_metadatas() -> Vec<HashMap<String, String>> {
-            let metadata = buck2_events::metadata::collect();
+            let metadata = buck2_events::metadata::collect(&DaemonId::new());
             let mut metadatas = vec![metadata; 5];
             for (i, metadata) in metadatas.iter_mut().enumerate() {
                 metadata.insert("version".to_owned(), i.to_string());

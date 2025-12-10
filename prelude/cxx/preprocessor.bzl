@@ -7,14 +7,16 @@
 # above-listed licenses.
 
 load("@prelude//:paths.bzl", "paths")
+load("@prelude//cxx:cxx_utility.bzl", "cxx_attrs_get_allow_cache_upload")
 load("@prelude//cxx:target_sdk_version.bzl", "get_target_sdk_version_flags")
 load(
     "@prelude//utils:utils.bzl",
     "flatten",
+    "map_val",
     "value_or",
 )
 load(":attr_selection.bzl", "cxx_by_language_ext")
-load(":cxx_context.bzl", "get_cxx_toolchain_info")
+load(":cxx_context.bzl", "get_cxx_platform_info", "get_cxx_toolchain_info")
 load(
     ":headers.bzl",
     "CHeader",  # @unused Used as a type
@@ -181,11 +183,12 @@ CPreprocessorForTestsInfo = provider(
 )
 
 def cxx_attr_exported_preprocessor_flags(ctx: AnalysisContext) -> list[typing.Any]:
+    cxx_platform_info = get_cxx_platform_info(ctx)
     return (
         ctx.attrs.exported_preprocessor_flags +
         _by_language_cxx(ctx.attrs.exported_lang_preprocessor_flags) +
-        flatten(cxx_by_platform(ctx, ctx.attrs.exported_platform_preprocessor_flags)) +
-        flatten(cxx_by_platform(ctx, _by_language_cxx(ctx.attrs.exported_lang_platform_preprocessor_flags)))
+        flatten(cxx_by_platform(cxx_platform_info, ctx.attrs.exported_platform_preprocessor_flags)) +
+        flatten(cxx_by_platform(cxx_platform_info, _by_language_cxx(ctx.attrs.exported_lang_platform_preprocessor_flags)))
     )
 
 def cxx_inherited_preprocessor_infos(first_order_deps: list[Dependency]) -> list[CPreprocessorInfo]:
@@ -194,12 +197,12 @@ def cxx_inherited_preprocessor_infos(first_order_deps: list[Dependency]) -> list
     # python_library "fbcode//third-party-buck/$platform/build/glibc:__project__"
     return filter(None, [x.get(CPreprocessorInfo) for x in first_order_deps])
 
-def cxx_merge_cpreprocessors(ctx: AnalysisContext, own: list[CPreprocessor], xs: list[CPreprocessorInfo]) -> CPreprocessorInfo:
+def cxx_merge_cpreprocessors(actions: AnalysisActions, own: list[CPreprocessor], xs: list[CPreprocessorInfo]) -> CPreprocessorInfo:
     kwargs = {"children": [x.set for x in xs]}
     if own:
         kwargs["value"] = own
     return CPreprocessorInfo(
-        set = ctx.actions.tset(CPreprocessorTSet, **kwargs),
+        set = actions.tset(CPreprocessorTSet, **kwargs),
     )
 
 def _format_include_arg(flag: str, path: cmd_args, compiler_type: str) -> list[cmd_args]:
@@ -214,15 +217,18 @@ def format_system_include_arg(path: cmd_args, compiler_type: str) -> list[cmd_ar
     else:
         return [cmd_args("-isystem"), path]
 
-def cxx_exported_preprocessor_info(ctx: AnalysisContext, headers_layout: CxxHeadersLayout, extra_preprocessors: list[CPreprocessor] = []) -> CPreprocessor:
+def cxx_exported_preprocessor_info(
+        ctx: AnalysisContext,
+        headers_layout: CxxHeadersLayout,
+        extra_preprocessors: list[CPreprocessor] = [],
+        skip_exported_headers: bool = False) -> CPreprocessor:
     """
     This rule's preprocessor info which is both applied to the compilation of
     its source and propagated to the compilation of dependent's sources.
     """
-
-    # Modular libraries will provide their exported headers via a symlink tree
-    # using extra_preprocessors, so should not be put into a header map.
-    if getattr(ctx.attrs, "modular", False):
+    if skip_exported_headers:
+        # Modular libraries will provide their exported headers via a symlink tree
+        # using extra_preprocessors, so should not be put into a header map.
         exported_headers = []
     else:
         exported_headers = cxx_attr_exported_headers(ctx, headers_layout)
@@ -294,17 +300,24 @@ def cxx_exported_preprocessor_info(ctx: AnalysisContext, headers_layout: CxxHead
     )
 
 def get_exported_preprocessor_args(ctx: AnalysisContext, headers: dict[str, Artifact], style: HeaderStyle, compiler_type: str, raw_headers: list[Artifact], extra_preprocessors: list[CPreprocessor]) -> CPreprocessorArgs:
+    cxx_toolchain_info = get_cxx_toolchain_info(ctx)
+    allow_cache_upload = cxx_attrs_get_allow_cache_upload(ctx.attrs)
     header_root = prepare_headers(
-        ctx,
+        ctx.actions,
+        cxx_toolchain_info,
         headers,
         "buck-headers",
+        map_val(HeaderMode, getattr(ctx.attrs, "header_mode", None)),
+        allow_cache_upload = allow_cache_upload,
         uses_experimental_content_based_path_hashing = True,
     )
     precompile_root = prepare_headers(
-        ctx,
+        ctx.actions,
+        cxx_toolchain_info,
         headers,
         "buck-pre-headers",
         HeaderMode("header_map_only"),
+        allow_cache_upload = allow_cache_upload,
         uses_experimental_content_based_path_hashing = True,
     )
 
@@ -437,8 +450,11 @@ def _cxx_private_preprocessor_info(
 def _get_private_preprocessor_args(ctx: AnalysisContext, headers: dict[str, Artifact], compiler_type: str, all_raw_headers: list[Artifact]) -> CPreprocessorArgs:
     # Create private header tree and propagate via args.
     args = get_target_sdk_version_flags(ctx)
+    cxx_toolchain_info = get_cxx_toolchain_info(ctx)
     file_prefix_args = []
-    header_root = prepare_headers(ctx, headers, "buck-private-headers")
+    header_mode = map_val(HeaderMode, getattr(ctx.attrs, "header_mode", None))
+    allow_cache_upload = cxx_attrs_get_allow_cache_upload(ctx.attrs)
+    header_root = prepare_headers(ctx.actions, cxx_toolchain_info, headers, "buck-private-headers", header_mode = header_mode, allow_cache_upload = allow_cache_upload, uses_experimental_content_based_path_hashing = True)
     if header_root != None:
         args.extend(_format_include_arg("-I", header_root.include_path, compiler_type))
         if header_root.file_prefix_args != None:

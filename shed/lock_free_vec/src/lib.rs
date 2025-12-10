@@ -54,7 +54,7 @@ impl<T> BucketAlloc<T> {
     #[inline]
     unsafe fn drop_data(&self, len: usize) {
         assert!(len <= self.cap);
-        let data: *mut [T] = unsafe { slice::from_raw_parts_mut(self.data, len) };
+        let data: *mut [T] = std::ptr::slice_from_raw_parts_mut(self.data, len);
         unsafe { ptr::drop_in_place(data) };
     }
 
@@ -70,7 +70,7 @@ impl<T> Drop for BucketAlloc<T> {
     fn drop(&mut self) {
         unsafe {
             let data: *mut MaybeUninit<T> = self.data as *mut MaybeUninit<T>;
-            let data: *mut [MaybeUninit<T>] = slice::from_raw_parts_mut(data, self.cap);
+            let data: *mut [MaybeUninit<T>] = std::ptr::slice_from_raw_parts_mut(data, self.cap);
             let data: Box<[MaybeUninit<T>]> = Box::from_raw(data);
             drop(data);
         }

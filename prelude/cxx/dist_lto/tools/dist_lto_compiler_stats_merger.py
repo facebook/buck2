@@ -11,14 +11,13 @@
 import argparse
 import json
 import sys
-from typing import Dict, List
 
 """
 A helper script designed to merge multiple JSON files storing LLVM stats produced by -stats -stats-json -info-out-file=. All stats are summed together, to form a new JSON file.
 """
 
 
-def main(argv: List[str]) -> int:
+def main(argv: list[str]) -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "--input-stats-filelist",
@@ -28,10 +27,10 @@ def main(argv: List[str]) -> int:
         "--output-stats-file", help="A path to write the merged JSON static file to."
     )
     args = parser.parse_args(argv[1:])
-    merged_stats: Dict[int, str] = {}
-    with open(args.input_stats_filelist, "r") as stats_filelist:
+    merged_stats: dict[int, str] = {}
+    with open(args.input_stats_filelist) as stats_filelist:
         for stats_file in stats_filelist:
-            with open(stats_file.strip(), "r") as f:
+            with open(stats_file.strip()) as f:
                 stats = json.load(f)
                 for key, value in stats.items():
                     if key in merged_stats:

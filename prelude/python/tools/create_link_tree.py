@@ -11,13 +11,19 @@
 import argparse
 import json
 import os
+import shutil
 from typing import Set
 
 
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--output", required=True)
-    parser.add_argument("--manifest", dest="manifests", action="append", default=[])
+    parser.add_argument(
+        "--link-manifest", dest="link_manifests", action="append", default=[]
+    )
+    parser.add_argument(
+        "--copy-manifest", dest="copy_manifests", action="append", default=[]
+    )
     args = parser.parse_args()
 
     os.makedirs(args.output)
@@ -31,7 +37,9 @@ def main() -> None:
         if parent:
             _add_pkg(parent)
 
-    for manifest in args.manifests:
+    for symlink, manifest in [(True, m) for m in args.link_manifests] + [
+        (False, m) for m in args.copy_manifests
+    ]:
         with open(manifest, "r") as f:
             for dst, src, _ in json.load(f):
                 # Record pkgs and the ones w/ `__init__.py` files already.
@@ -41,20 +49,25 @@ def main() -> None:
                     if os.path.basename(dst) == "__init__.py":
                         pkgs_with_init.add(pkg)
 
-                # Create symlink.
                 dst = os.path.join(args.output, dst)
                 os.makedirs(os.path.dirname(dst), exist_ok=True)
-                src = os.path.relpath(src, start=os.path.dirname(dst))
-                try:
-                    os.symlink(src, dst)
-                except FileExistsError:
-                    # Only fail is the symlink we're going to create would be
-                    # different.
-                    current_src = os.readlink(dst)
-                    if current_src != src:
-                        raise RuntimeError(
-                            f"conflict for source {dst}: {src} and {current_src}"
-                        )
+
+                # Create symlink.
+                if symlink:
+                    src = os.path.relpath(src, start=os.path.dirname(dst))
+                    try:
+                        os.symlink(src, dst)
+                    except FileExistsError:
+                        # Only fail is the symlink we're going to create would be
+                        # different.
+                        current_src = os.readlink(dst)
+                        if current_src != src:
+                            raise RuntimeError(
+                                f"conflict for source {dst}: {src} and {current_src}"
+                            )
+                else:
+                    assert not os.path.exists(dst)
+                    shutil.copy2(src, dst, follow_symlinks=False)
 
     # Create any missing ones.
     for pkg in pkgs - pkgs_with_init:

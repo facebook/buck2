@@ -53,6 +53,7 @@ def check_dependencies_test(
         deps = None,
         extra_buck_args = [],
         labels = [],
+        target_deps = True,
         **kwargs):
     """
     Creates a test target from a buck2 bxl script. BXL script must use "test" as entry
@@ -101,6 +102,11 @@ def check_dependencies_test(
     if mode not in ("allowlist", "blocklist"):
         fail("mode must be one of: allowlist, blocklist")
 
+    modifiers = kwargs.pop("modifiers", None)
+    if modifiers:
+        for m in modifiers:
+            extra_buck_args = extra_buck_args + ["--modifier", m]
+
     extra_buck_args_target = "%s_extra_buck_args" % (name)
     buck_args_str = "\n".join(extra_buck_args)
     buck_genrule(
@@ -124,6 +130,7 @@ def check_dependencies_test(
             "EXTRA_BUCK_ARGS_FILE": "@$(location :%s)" % (extra_buck_args_target),
             "FLAVOR": "check_dependencies_test",
             "TARGET": target,
+            "TARGET_DEPS": str(target_deps).lower(),
             "VERIFICATION_MODE": mode,
         } | (env or {}),
         labels = ["check_dependencies_test"] + labels,
@@ -138,6 +145,7 @@ def assert_dependencies_test(
         expected_deps,
         expect_failure_msg = None,
         deps = None,
+        labels = [],
         **kwargs):
     """
     Creates a test target fromfbcode//buck2/tests/assert_dependencies_test.bxl:test bxl script.
@@ -159,7 +167,7 @@ def assert_dependencies_test(
             "FLAVOR": "assert_dependencies_test",
             "TARGET": target,
         },
-        labels = ["assert_dependencies_test"],
+        labels = labels + ["assert_dependencies_test"],
         deps = deps,
         **kwargs
     )
@@ -198,6 +206,59 @@ def audit_dependents_test(
             "TARGET": target,
         },
         labels = ["audit_dependents_test"],
+        deps = deps,
+        **kwargs
+    )
+
+def check_mutually_exclusive_dependencies_test(
+        name,
+        target,
+        contacts,
+        mutually_exclusive_group,
+        expect_failure_msg = None,
+        deps = None,
+        labels = [],
+        target_deps = True,
+        **kwargs):
+    """
+    Creates a test target from a buck2 bxl script that checks for mutually exclusive dependencies.
+
+    This test verifies that the target does not depend on more than one dependency from the
+    mutually exclusive group. For example, if your group is:
+    [//third-party/volk:volk, //third-party/volk:volk-header, //third-party/toolchains:vulkan]
+
+    The test ensures at most one of these patterns has matches in the dependency tree.
+
+    Parameters:
+        name: Name of the test target.
+        contacts: List of oncalls for the test.
+        target: The target to check dependencies for
+        mutually_exclusive_group: List of dependency patterns where only one should be present.
+            Each pattern can be a specific target (e.g., "//foo/bar:baz") or a regex pattern
+            (e.g., "//foo/.*").
+            Example: ["//third-party/volk:volk", "//third-party/volk:volk-header"]
+        expect_failure_msg: Optional regex pattern for expected failure message
+        deps: Optional list of additional dependencies
+        labels: Optional list of labels for the test
+        target_deps: If True, only check target_deps() (default: True)
+    """
+
+    # Convert list to comma-separated string for BXL
+    group_str = ",".join(mutually_exclusive_group)
+
+    _check_dependencies_test(
+        name = name,
+        target = target,
+        contacts = contacts,
+        env = {
+            "BXL_MAIN": "fbcode//buck2/tests/check_mutually_exclusive_dependencies_test.bxl:test",
+            "EXPECT_FAILURE_MSG": expect_failure_msg or "",
+            "FLAVOR": "check_mutually_exclusive_dependencies_test",
+            "MUTUALLY_EXCLUSIVE_GROUP": group_str,
+            "TARGET": target,
+            "TARGET_DEPS": str(target_deps).lower(),
+        },
+        labels = labels + ["check_mutually_exclusive_dependencies_test"],
         deps = deps,
         **kwargs
     )

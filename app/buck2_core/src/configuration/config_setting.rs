@@ -62,7 +62,6 @@ mod tests {
     use crate::configuration::config_setting::ConfigSettingData;
     use crate::configuration::constraints::ConstraintKey;
     use crate::configuration::constraints::ConstraintValue;
-    use crate::target::label::label::TargetLabel;
 
     #[test]
     fn is_subset() {
@@ -85,11 +84,11 @@ mod tests {
     #[test]
     fn refines() {
         fn constraint_key(t: &str) -> ConstraintKey {
-            ConstraintKey(TargetLabel::testing_parse(t))
+            ConstraintKey::testing_new(t)
         }
 
         fn constraint_value(t: &str) -> ConstraintValue {
-            ConstraintValue(TargetLabel::testing_parse(t))
+            ConstraintValue::testing_new(t, None)
         }
 
         let os = constraint_key("config//:os");
@@ -151,5 +150,81 @@ mod tests {
         assert!(!c11.refines(&c11));
         assert!(!c1.refines(&c1));
         assert!(!c1.refines(&c11));
+    }
+
+    #[test]
+    fn subtarget_values_distinct() {
+        // Test that different subtarget values of the same constraint are distinct
+        let sanitizer_key = ConstraintKey::testing_new("config//:sanitizer");
+
+        let asan = ConstraintValue::testing_new("config//:sanitizer", Some("asan"));
+        let tsan = ConstraintValue::testing_new("config//:sanitizer", Some("tsan"));
+        let msan = ConstraintValue::testing_new("config//:sanitizer", Some("msan"));
+        let none = ConstraintValue::testing_new("config//:sanitizer", Some("none"));
+
+        let c_asan = ConfigSettingData {
+            constraints: BTreeMap::from_iter([(sanitizer_key.dupe(), asan.dupe())]),
+            buckconfigs: BTreeMap::new(),
+        };
+        let c_tsan = ConfigSettingData {
+            constraints: BTreeMap::from_iter([(sanitizer_key.dupe(), tsan.dupe())]),
+            buckconfigs: BTreeMap::new(),
+        };
+        let c_msan = ConfigSettingData {
+            constraints: BTreeMap::from_iter([(sanitizer_key.dupe(), msan.dupe())]),
+            buckconfigs: BTreeMap::new(),
+        };
+        let c_none = ConfigSettingData {
+            constraints: BTreeMap::from_iter([(sanitizer_key.dupe(), none.dupe())]),
+            buckconfigs: BTreeMap::new(),
+        };
+
+        // All should be different from each other
+        assert_ne!(c_asan, c_tsan);
+        assert_ne!(c_asan, c_msan);
+        assert_ne!(c_asan, c_none);
+        assert_ne!(c_tsan, c_msan);
+        assert_ne!(c_tsan, c_none);
+        assert_ne!(c_msan, c_none);
+
+        // None of them should refine each other (they're all single constraints)
+        assert!(!c_asan.refines(&c_tsan));
+        assert!(!c_tsan.refines(&c_asan));
+    }
+
+    #[test]
+    fn refines_mixed_old_and_new_syntax() {
+        // Test that old syntax (separate targets) and new syntax (subtargets) work together
+        fn constraint_key(t: &str) -> ConstraintKey {
+            ConstraintKey::testing_new(t)
+        }
+
+        // Old syntax - separate target for value
+        let build_mode_key = constraint_key("config//:build_mode");
+        let dev_old = ConstraintValue::testing_new("config//:dev", None);
+
+        // New syntax - subtarget
+        let os_key = constraint_key("config//:os");
+        let linux_new = ConstraintValue::testing_new("config//:os", Some("linux"));
+
+        let c_dev = ConfigSettingData {
+            constraints: BTreeMap::from_iter([(build_mode_key.dupe(), dev_old.dupe())]),
+            buckconfigs: BTreeMap::new(),
+        };
+        let c_linux = ConfigSettingData {
+            constraints: BTreeMap::from_iter([(os_key.dupe(), linux_new.dupe())]),
+            buckconfigs: BTreeMap::new(),
+        };
+        let c_dev_linux = ConfigSettingData {
+            constraints: BTreeMap::from_iter([
+                (build_mode_key.dupe(), dev_old.dupe()),
+                (os_key.dupe(), linux_new.dupe()),
+            ]),
+            buckconfigs: BTreeMap::new(),
+        };
+
+        // Combined should refine both
+        assert!(c_dev_linux.refines(&c_dev));
+        assert!(c_dev_linux.refines(&c_linux));
     }
 }

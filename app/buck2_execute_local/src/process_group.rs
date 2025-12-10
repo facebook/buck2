@@ -8,11 +8,11 @@
  * above-listed licenses.
  */
 
-use std::path::PathBuf;
 use std::process::Command as StdCommand;
 use std::process::ExitStatus;
-use std::process::Stdio;
 
+use buck2_resource_control::ActionFreezeEventReceiver;
+use buck2_resource_control::path::CgroupPathBuf;
 use tokio::io;
 use tokio::process::ChildStderr;
 use tokio::process::ChildStdout;
@@ -45,43 +45,28 @@ impl From<io::Error> for SpawnError {
     }
 }
 
-pub struct ProcessCommand {
+pub(crate) struct ProcessCommand {
     inner: imp::ProcessCommandImpl,
-    cgroup: Option<PathBuf>,
 }
 
 impl ProcessCommand {
-    pub fn new(mut cmd: StdCommand, cgroup: Option<PathBuf>) -> Self {
-        cmd.stdin(Stdio::null())
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped());
-        Self {
-            inner: imp::ProcessCommandImpl::new(cmd),
-            cgroup,
+    pub(crate) fn new(cmd: StdCommand, cgroup: Option<CgroupPathBuf>) -> buck2_error::Result<Self> {
+        Ok(Self {
+            inner: imp::ProcessCommandImpl::new(cmd, cgroup)?,
+        })
+    }
+
+    #[allow(clippy::result_large_err)]
+    pub(crate) fn spawn(self) -> Result<ProcessGroup, (SpawnError, Self)> {
+        match self.inner.spawn() {
+            Ok(inner) => Ok(ProcessGroup { inner }),
+            Err((e, inner)) => Err((e.into(), Self { inner })),
         }
-    }
-
-    pub fn spawn(&mut self) -> Result<ProcessGroup, SpawnError> {
-        let child = self.inner.spawn()?;
-        let inner = imp::ProcessGroupImpl::new(child)?;
-        let cgroup = self.cgroup.take();
-        Ok(ProcessGroup { inner, cgroup })
-    }
-
-    pub fn stdout<T: Into<Stdio>>(&mut self, cfg: T) -> &mut ProcessCommand {
-        self.inner.stdout(cfg.into());
-        self
-    }
-
-    pub fn stderr<T: Into<Stdio>>(&mut self, cfg: T) -> &mut ProcessCommand {
-        self.inner.stderr(cfg.into());
-        self
     }
 }
 
-pub struct ProcessGroup {
+pub(crate) struct ProcessGroup {
     inner: imp::ProcessGroupImpl,
-    pub(crate) cgroup: Option<PathBuf>,
 }
 
 impl ProcessGroup {
@@ -93,8 +78,11 @@ impl ProcessGroup {
         self.inner.take_stderr()
     }
 
-    pub(crate) async fn wait(&mut self) -> io::Result<ExitStatus> {
-        self.inner.wait().await
+    pub(crate) async fn wait(
+        &mut self,
+        freeze_rx: impl ActionFreezeEventReceiver,
+    ) -> io::Result<ExitStatus> {
+        self.inner.wait(freeze_rx).await
     }
 
     pub(crate) fn id(&self) -> Option<u32> {
@@ -129,17 +117,17 @@ mod tests {
         }
         cmd.arg("exit 2");
 
-        let mut cmd = ProcessCommand::new(cmd, None);
-        let mut child = cmd.spawn().unwrap();
+        let cmd = ProcessCommand::new(cmd, None).unwrap();
+        let mut child = cmd.spawn().map_err(|x| x.0).unwrap();
 
         let id = child.id().expect("missing id");
         assert!(id > 0);
 
-        let status = child.wait().await?;
+        let status = child.wait(futures::stream::pending()).await?;
         assert_eq!(status.code(), Some(2));
 
         // test that the `.wait()` method is fused like tokio
-        let status = child.wait().await?;
+        let status = child.wait(futures::stream::pending()).await?;
         assert_eq!(status.code(), Some(2));
 
         // Can't get id after process has exited

@@ -16,7 +16,6 @@ import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertSame;
 import static org.junit.Assert.assertTrue;
 
-import com.facebook.buck.jvm.java.testutil.compiler.CompilerTreeApiParameterized;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableMap;
 import java.io.IOException;
@@ -31,8 +30,9 @@ import javax.lang.model.util.SimpleElementVisitor8;
 import org.hamcrest.Matchers;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
 
-@RunWith(CompilerTreeApiParameterized.class)
+@RunWith(Parameterized.class)
 public class TreeBackedPackageElementTest extends CompilerTreeApiParameterizedTest {
   @Test
   public void testToStringUnnamedPackage() throws IOException {

@@ -1,0 +1,17 @@
+# This file is @generated, regenerate by re-running test with `-- --env BUCK2_UPDATE_GOLDEN=1` appended to the test command
+
+[
+  {
+    "buck.package":"root//a",
+    "buck.error":"Cannot specify modifiers with ?modifier syntax when global CLI modifiers are set with --modifier flag"
+  },
+  {
+    "buck.type":"nano_prelude//stub_rules.bzl:stub",
+    "buck.deps":[],
+    "buck.inputs":[],
+    "buck.package":"root//a",
+    "name":"target1",
+    "visibility":[],
+    "within_view":["PUBLIC"]
+  }
+]

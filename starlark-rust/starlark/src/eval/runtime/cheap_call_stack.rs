@@ -196,6 +196,14 @@ impl<'v> CheapCallStack<'v> {
         }
     }
 
+    pub(crate) fn nth_location(&self, n: usize) -> Option<FileSpan> {
+        if n >= self.count {
+            None
+        } else {
+            self.stack[self.count - 1 - n].location()
+        }
+    }
+
     /// `n`-th element from the top of the stack.
     pub(crate) fn top_nth_function(&self, n: usize) -> anyhow::Result<Value<'v>> {
         self.top_nth_function_opt(n)

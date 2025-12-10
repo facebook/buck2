@@ -49,8 +49,8 @@ use starlark::values::ValueOf;
 use starlark::values::list::UnpackList;
 use starlark::values::type_repr::StarlarkTypeRepr;
 
+use crate::bxl::starlark_defs::context::BxlContext;
 use crate::bxl::starlark_defs::context::BxlContextCoreData;
-use crate::bxl::starlark_defs::context::BxlContextNoDice;
 use crate::bxl::starlark_defs::context::ErrorPrinter;
 use crate::bxl::starlark_defs::eval_extra::BxlEvalExtra;
 use crate::bxl::starlark_defs::nodes::configured::StarlarkConfiguredTargetNode;
@@ -255,7 +255,7 @@ impl<'v> TargetListExpr<'v, ConfiguredTargetNode> {
     pub(crate) async fn unpack_opt(
         arg: ConfiguredTargetListExprArg<'v>,
         global_cfg_options: &GlobalCfgOptions,
-        ctx: &BxlContextNoDice<'v>,
+        ctx: &BxlContext<'v>,
         dice: &mut DiceComputations<'_>,
         allow_unconfigured: bool,
     ) -> buck2_error::Result<TargetListExpr<'v, ConfiguredTargetNode>> {
@@ -279,7 +279,7 @@ impl<'v> TargetListExpr<'v, ConfiguredTargetNode> {
         // TODO(nga): this does not accept unconfigured targets, so should be narrower type here.
         arg: ConfiguredTargetListExprArg<'v>,
         global_cfg_options: &GlobalCfgOptions,
-        ctx: &BxlContextNoDice<'v>,
+        ctx: &BxlContext<'v>,
         dice: &mut DiceComputations<'_>,
     ) -> buck2_error::Result<TargetListExpr<'v, ConfiguredTargetNode>> {
         Self::unpack_opt(arg, global_cfg_options, ctx, dice, false).await
@@ -288,7 +288,7 @@ impl<'v> TargetListExpr<'v, ConfiguredTargetNode> {
     pub(crate) async fn unpack_allow_unconfigured(
         arg: ConfiguredTargetListExprArg<'v>,
         global_cfg_options: &GlobalCfgOptions,
-        ctx: &BxlContextNoDice<'v>,
+        ctx: &BxlContext<'v>,
         dice: &mut DiceComputations<'_>,
     ) -> buck2_error::Result<TargetListExpr<'v, ConfiguredTargetNode>> {
         Self::unpack_opt(arg, global_cfg_options, ctx, dice, true).await
@@ -314,7 +314,7 @@ impl<'v> TargetListExpr<'v, ConfiguredTargetNode> {
     async fn unpack_literal(
         arg: ConfiguredTargetNodeArg<'v>,
         global_cfg_options: &GlobalCfgOptions,
-        ctx: &BxlContextNoDice<'_>,
+        ctx: &BxlContext<'_>,
         dice: &mut DiceComputations<'_>,
         allow_unconfigured: bool,
     ) -> buck2_error::Result<TargetListExpr<'v, ConfiguredTargetNode>> {
@@ -349,7 +349,7 @@ impl<'v> TargetListExpr<'v, ConfiguredTargetNode> {
     pub(crate) async fn unpack_keep_going(
         arg: ConfiguredTargetListExprArg<'v>,
         global_cfg_options: &GlobalCfgOptions,
-        ctx: &BxlContextNoDice<'v>,
+        ctx: &BxlContext<'v>,
         dice: &mut DiceComputations<'_>,
     ) -> buck2_error::Result<TargetListExpr<'v, ConfiguredTargetNode>> {
         match arg {
@@ -364,7 +364,7 @@ impl<'v> TargetListExpr<'v, ConfiguredTargetNode> {
     async fn unpack_string_literal(
         val: &str,
         global_cfg_options: &GlobalCfgOptions,
-        ctx: &BxlContextNoDice<'_>,
+        ctx: &BxlContext<'_>,
         dice: &mut DiceComputations<'_>,
         keep_going: bool,
     ) -> buck2_error::Result<TargetListExpr<'v, ConfiguredTargetNode>> {
@@ -408,7 +408,10 @@ impl<'v> TargetListExpr<'v, ConfiguredTargetNode> {
                 let loaded_patterns =
                     load_patterns(dice, vec![pattern], MissingTargetBehavior::Fail).await?;
 
-                let maybe_compatible = get_maybe_compatible_targets(
+                // TODO: Both package errors (_package_errors) and target errors (from the iterator)
+                // are currently discarded when even when keep_going = true. BXL should report these errors like
+                // ctargets does.
+                let (maybe_compatible_iter, _package_errors) = get_maybe_compatible_targets(
                     dice,
                     loaded_patterns.iter_loaded_targets_by_package(),
                     global_cfg_options,
@@ -417,9 +420,9 @@ impl<'v> TargetListExpr<'v, ConfiguredTargetNode> {
                 .await?;
 
                 let maybe_compatible: Vec<_> = if keep_going {
-                    maybe_compatible.filter_map(|r| r.ok()).collect()
+                    maybe_compatible_iter.filter_map(|r| r.ok()).collect()
                 } else {
-                    maybe_compatible.collect::<buck2_error::Result<_>>()?
+                    maybe_compatible_iter.collect::<buck2_error::Result<_>>()?
                 };
 
                 let result = filter_incompatible(maybe_compatible, ctx)?;
@@ -431,7 +434,7 @@ impl<'v> TargetListExpr<'v, ConfiguredTargetNode> {
     async fn unpack_iterable(
         value: ValueOf<'v, ConfiguredTargetListArg<'v>>,
         global_cfg_options: &GlobalCfgOptions,
-        ctx: &BxlContextNoDice<'_>,
+        ctx: &BxlContext<'_>,
         dice: &mut DiceComputations<'_>,
         allow_unconfigured: bool,
     ) -> buck2_error::Result<TargetListExpr<'v, ConfiguredTargetNode>> {
@@ -500,7 +503,7 @@ impl<'v> TargetListExpr<'v, ConfiguredTargetNode> {
 impl<'v> TargetListExpr<'v, TargetNode> {
     pub(crate) async fn unpack(
         value: TargetListExprArg<'v>,
-        ctx: &BxlContextNoDice<'_>,
+        ctx: &BxlContext<'_>,
         dice: &mut DiceComputations<'_>,
     ) -> buck2_error::Result<TargetListExpr<'v, TargetNode>> {
         match value {
@@ -511,7 +514,7 @@ impl<'v> TargetListExpr<'v, TargetNode> {
 
     async fn unpack_literal(
         value: TargetNodeOrTargetLabelOrStr<'v>,
-        ctx: &BxlContextNoDice<'_>,
+        ctx: &BxlContext<'_>,
         dice: &mut DiceComputations<'_>,
     ) -> buck2_error::Result<TargetListExpr<'v, TargetNode>> {
         match value {
@@ -551,7 +554,7 @@ impl<'v> TargetListExpr<'v, TargetNode> {
 
     async fn unpack_iterable(
         value: TargetSetOrTargetList<'v>,
-        ctx: &BxlContextNoDice<'_>,
+        ctx: &BxlContext<'_>,
         dice: &mut DiceComputations<'_>,
     ) -> buck2_error::Result<TargetListExpr<'v, TargetNode>> {
         match value {
@@ -632,7 +635,7 @@ async fn unpack_string_literal(
             let loaded_patterns =
                 load_patterns(dice, vec![pattern], MissingTargetBehavior::Fail).await?;
 
-            let maybe_compatible = get_maybe_compatible_targets(
+            let (maybe_compatible_iter, _package_errors) = get_maybe_compatible_targets(
                 dice,
                 loaded_patterns.iter_loaded_targets_by_package(),
                 global_cfg_options,
@@ -640,7 +643,7 @@ async fn unpack_string_literal(
             )
             .await?;
 
-            let maybe_compatible = maybe_compatible.collect::<buck2_error::Result<_>>()?;
+            let maybe_compatible = maybe_compatible_iter.collect::<buck2_error::Result<_>>()?;
             Ok(SingleOrCompatibleConfiguredTargets::Compatibles(
                 maybe_compatible,
             ))

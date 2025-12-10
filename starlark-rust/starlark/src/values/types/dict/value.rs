@@ -282,8 +282,8 @@ impl<'v> Dict<'v> {
     }
 
     /// Insert a key/value pair into the dictionary.
-    pub fn insert_hashed(&mut self, key: Hashed<Value<'v>>, value: Value<'v>) {
-        self.content.insert_hashed(key, value);
+    pub fn insert_hashed(&mut self, key: Hashed<Value<'v>>, value: Value<'v>) -> Option<Value<'v>> {
+        self.content.insert_hashed(key, value)
     }
 
     /// Remove given key from the dictionary.

@@ -94,13 +94,39 @@ pub struct RemoteExecutorDependency {
 
 impl RemoteExecutorDependency {
     pub fn parse(dep_map: SmallMap<&str, &str>) -> buck2_error::Result<RemoteExecutorDependency> {
+        fn username() -> Option<String> {
+            #[cfg(fbcode_build)]
+            {
+                user::current_username()
+                    .ok()
+                    .filter(|u| user::is_human_unixname(u))
+            }
+            #[cfg(not(fbcode_build))]
+            {
+                None
+            }
+        }
+
         let smc_tier = dep_map
             .get("smc_tier")
             .buck_error_context(RemoteExecutorDependencyErrors::MissingField("smc_tier"))?;
         let id = dep_map
             .get("id")
             .buck_error_context(RemoteExecutorDependencyErrors::MissingField("id"))?;
-        if dep_map.len() > 2 {
+        let interpolate = dep_map.get("enable_interpolation").unwrap_or(&"false");
+
+        let id = if *interpolate == "true" {
+            let username: Option<String> = username();
+            if let Some(username) = username {
+                id.replace("$(username)", &username)
+            } else {
+                id.replace("$(username)", "")
+            }
+        } else {
+            id.to_string()
+        };
+
+        if dep_map.len() > 3 {
             return Err(RemoteExecutorDependencyErrors::UnsupportedFields(
                 dep_map.keys().join(", "),
             )
@@ -108,7 +134,7 @@ impl RemoteExecutorDependency {
         }
         Ok(RemoteExecutorDependency {
             smc_tier: smc_tier.to_string(),
-            id: id.to_string(),
+            id,
         })
     }
 }
@@ -190,6 +216,8 @@ pub enum Executor {
     /// This executor interacts with a RE backend. It may use that to read or write to caches, or
     /// to execute commands.
     RemoteEnabled(RemoteEnabledExecutorOptions),
+    /// Can't run any actions
+    None,
 }
 
 impl Display for Executor {
@@ -217,6 +245,7 @@ impl Display for Executor {
                     options.executor, cache, options.cache_upload_behavior, dep_file_cache
                 )
             }
+            Self::None => write!(f, "None"),
         }
     }
 }
@@ -277,17 +306,13 @@ impl Default for OutputPathsBehavior {
 }
 
 #[derive(Display, Debug, Eq, PartialEq, Clone, Copy, Dupe, Hash, Allocative)]
+#[derive(Default)]
 pub enum CacheUploadBehavior {
     #[display("enabled")]
     Enabled { max_bytes: Option<u64> },
     #[display("disabled")]
+    #[default]
     Disabled,
-}
-
-impl Default for CacheUploadBehavior {
-    fn default() -> Self {
-        Self::Disabled
-    }
 }
 
 #[derive(Debug, Eq, PartialEq, Clone, Copy, Dupe, Hash, Allocative)]
@@ -335,6 +360,7 @@ impl CommandExecutorConfig {
         match &self.executor {
             Executor::Local(_) => false,
             Executor::RemoteEnabled(options) => options.remote_cache_enabled,
+            Executor::None => false,
         }
     }
 }

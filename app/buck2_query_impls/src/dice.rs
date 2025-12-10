@@ -29,8 +29,6 @@ use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::cell_path_with_allowed_relative_dir::CellPathWithAllowedRelativeDir;
 use buck2_core::cells::name::CellName;
 use buck2_core::configuration::compatibility::MaybeCompatible;
-use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
-use buck2_core::fs::paths::file_name::FileNameBuf;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::global_cfg_options::GlobalCfgOptions;
@@ -45,6 +43,8 @@ use buck2_core::provider::label::ProvidersName;
 use buck2_core::soft_error;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_core::target::label::label::TargetLabel;
+use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
+use buck2_fs::paths::file_name::FileNameBuf;
 use buck2_node::load_patterns::MissingTargetBehavior;
 use buck2_node::load_patterns::load_patterns;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
@@ -358,13 +358,15 @@ impl QueryLiterals<ConfiguredTargetNode> for DiceQueryData {
         let parsed_patterns =
             literals.try_map(|p| self.literal_parser.parse_target_pattern_with_modifiers(p))?;
 
-        Ok(load_compatible_patterns_with_modifiers(
+        let result = load_compatible_patterns_with_modifiers(
             ctx,
             parsed_patterns,
             &self.global_cfg_options,
             MissingTargetBehavior::Fail,
+            false,
         )
-        .await?)
+        .await?;
+        Ok(result.compatible_targets)
     }
 }
 

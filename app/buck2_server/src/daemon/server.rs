@@ -42,27 +42,26 @@ use buck2_common::sqlite::sqlite_db::SqliteIdentity;
 use buck2_core::buck2_env;
 use buck2_core::error::reload_hard_error_config;
 use buck2_core::error::reset_soft_error_counters;
-use buck2_core::fs::cwd::WorkingDirectory;
-use buck2_core::fs::fs_util;
-use buck2_core::fs::fs_util::DiskSpaceStats;
-use buck2_core::fs::fs_util::disk_space_stats;
-use buck2_core::fs::paths::abs_path::AbsPathBuf;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::logging::LogConfigurationReloadHandle;
 use buck2_core::pattern::unparsed::UnparsedPatternPredicate;
 use buck2_error::BuckErrorContext;
 use buck2_events::Event;
+use buck2_events::daemon_id::DaemonId;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_events::source::ChannelEventSource;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::materialize::materializer::MaterializationMethod;
 use buck2_execute_impl::executors::local::ForkserverAccess;
-use buck2_futures::cancellation::CancellationContext;
-use buck2_futures::drop::DropTogether;
-use buck2_futures::spawn::spawn_dropcancel;
+use buck2_fs::cwd::WorkingDirectory;
+use buck2_fs::fs_util;
+use buck2_fs::fs_util::DiskSpaceStats;
+use buck2_fs::fs_util::disk_space_stats;
+use buck2_fs::paths::abs_path::AbsPathBuf;
 use buck2_interpreter::starlark_profiler::config::StarlarkProfilerConfiguration;
 use buck2_profile::proto_to_profile_mode;
 use buck2_profile::starlark_profiler_configuration_from_request;
+use buck2_resource_control::buck_cgroup_tree::BuckCgroupTree;
 use buck2_server_ctx::bxl::BXL_SERVER_COMMANDS;
 use buck2_server_ctx::late_bindings::AUDIT_SERVER_COMMAND;
 use buck2_server_ctx::late_bindings::OTHER_SERVER_COMMANDS;
@@ -79,6 +78,9 @@ use buck2_util::system_stats::system_memory_stats;
 use buck2_util::threads::thread_spawn;
 use dice::DetectCycles;
 use dice::Dice;
+use dice_futures::cancellation::CancellationContext;
+use dice_futures::drop::DropTogether;
+use dice_futures::spawn::spawn_dropcancel;
 use dupe::Dupe;
 use futures::Future;
 use futures::FutureExt;
@@ -115,6 +117,7 @@ use crate::file_status::file_status_command;
 use crate::lsp::run_lsp_server_command;
 use crate::new_generic::new_generic_command;
 use crate::profile::profile_command;
+use crate::profiling_manager::StarlarkProfilingManager;
 use crate::snapshot;
 use crate::snapshot::SnapshotCollector;
 use crate::subscription::run_subscription_server_command;
@@ -168,7 +171,6 @@ pub struct BuckdServerInitPreferences {
     pub enable_trace_io: bool,
     pub reject_materializer_state: Option<SqliteIdentity>,
     pub daemon_startup_config: DaemonStartupConfig,
-    pub has_cgroup: bool,
 }
 
 impl BuckdServerInitPreferences {
@@ -241,9 +243,11 @@ impl BuckdServer {
         delegate: Box<dyn BuckdServerDelegate>,
         init_ctx: BuckdServerInitPreferences,
         process_info: DaemonProcessInfo,
+        cgroup_tree: Option<BuckCgroupTree>,
         base_daemon_constraints: buck2_cli_proto::DaemonConstraints,
         listener: Pin<Box<dyn Stream<Item = Result<tokio::net::TcpStream, io::Error>> + Send>>,
         rt: Handle,
+        daemon_id: DaemonId,
     ) -> buck2_error::Result<()> {
         let now = SystemTime::now();
         let now = now.duration_since(SystemTime::UNIX_EPOCH)?;
@@ -270,7 +274,17 @@ impl BuckdServer {
         certs_validation_background_job(cert_state.dupe()).await;
 
         let daemon_state = Arc::new(
-            DaemonState::new(fb, paths, init_ctx, rt.clone(), materializations, cwd).await?,
+            DaemonState::new(
+                fb,
+                paths,
+                init_ctx,
+                &rt,
+                materializations,
+                cwd,
+                cgroup_tree,
+                daemon_id,
+            )
+            .await?,
         );
 
         #[cfg(fbcode_build)]
@@ -475,10 +489,18 @@ impl BuckdServer {
                         let base_context =
                             daemon_state.prepare_command(dispatch.dupe(), guard).await?;
 
+                        let client_ctx = req.client_context()?;
+
+                        let profiling_manager = StarlarkProfilingManager::new(
+                            client_ctx.profile_pattern_opts.as_ref(),
+                            opts.starlark_profiler_instrumentation_override(&req)?,
+                            &base_context.events,
+                        )?;
+
                         let context = ServerCommandContext::new(
                             base_context,
-                            req.client_context()?,
-                            opts.starlark_profiler_instrumentation_override(&req)?,
+                            client_ctx,
+                            profiling_manager,
                             req.build_options(),
                             &daemon_state.paths,
                             cert_state.dupe(),
@@ -486,8 +508,14 @@ impl BuckdServer {
                             cancellations,
                         )?;
 
-                        func(&context, PartialResultDispatcher::new(dispatch.dupe()), req).await?
+                        let res =
+                            func(&context, PartialResultDispatcher::new(dispatch.dupe()), req)
+                                .await;
+
+                        context.finalize()?;
+                        res?
                     };
+
                     // Do not kill the process prematurely.
                     drop(version_control_revision_collector);
                     #[cfg(unix)]
@@ -903,7 +931,7 @@ impl DaemonApi for BuckdServer {
 
             let io_provider = daemon_state.data().io.name().to_owned();
 
-            let uptime = self.0.start_instant.elapsed();
+            let uptime = Instant::now() - self.0.start_instant;
 
             let mut base = StatusResponse {
                 process_info: Some(self.0.process_info.clone()),

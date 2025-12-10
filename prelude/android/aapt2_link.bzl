@@ -203,5 +203,6 @@ def aapt_link_error_handler(ctx: ActionErrorCtx) -> list[ActionSubError]:
         errors.append(ctx.new_sub_error(
             category = "aapt2_link",
             message = "Most probably there are too many res files in the apk (over 65535). Try filtering out some resources.",
+            show_in_stderr = True,
         ))
     return errors

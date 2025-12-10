@@ -13,7 +13,6 @@ package com.facebook.buck.jvm.java.abi;
 import static org.junit.Assert.assertEquals;
 
 import com.facebook.buck.jvm.java.lang.model.ElementsExtended;
-import com.facebook.buck.jvm.java.testutil.compiler.CompilerTreeApiTestRunner;
 import com.facebook.buck.jvm.java.testutil.compiler.TestCompiler;
 import java.io.IOException;
 import java.util.Arrays;
@@ -23,11 +22,9 @@ import javax.lang.model.element.Element;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.ExternalResource;
-import org.junit.runner.RunWith;
 import org.objectweb.asm.Opcodes;
 import org.objectweb.asm.tree.ClassNode;
 
-@RunWith(CompilerTreeApiTestRunner.class)
 public class InnerClassesTableTest {
   @Rule public Tester tester = new Tester();
 

@@ -18,10 +18,14 @@ use buck2_build_api::interpreter::rule_defs::provider::ty::abstract_provider::Ab
 use buck2_error::BuckErrorContext;
 use dupe::Dupe;
 use starlark::any::ProvidesStaticType;
+use starlark::environment::Methods;
+use starlark::environment::MethodsBuilder;
+use starlark::environment::MethodsStatic;
 use starlark::eval::Arguments;
 use starlark::eval::Evaluator;
 use starlark::eval::ParametersSpec;
 use starlark::eval::ParametersSpecParam;
+use starlark::starlark_module;
 use starlark::typing::ParamIsRequired;
 use starlark::typing::ParamSpec;
 use starlark::typing::Ty;
@@ -91,7 +95,6 @@ enum DynamicActionCallableError {
     NotExported,
 }
 
-/// Result of `dynamic_actions` rule invocation.
 #[derive(
     Debug,
     NoSerialize,
@@ -156,6 +159,12 @@ impl<'v> StarlarkValue<'v> for DynamicActionsCallable<'v> {
 
     fn typechecker_ty(&self) -> Option<Ty> {
         Some(self.self_ty.dupe())
+    }
+
+    // used for docs of `DynamicActionCallable`
+    fn get_methods() -> Option<&'static Methods> {
+        static RES: MethodsStatic = MethodsStatic::new();
+        RES.methods(dynamic_action_callable_methods)
     }
 }
 
@@ -235,3 +244,34 @@ impl<'v> Freeze for DynamicActionsCallable<'v> {
         })
     }
 }
+
+/// A factory function that creates `DynamicActions` instances.
+///
+/// `DynamicActionsCallable` is returned by calling `dynamic_actions()` with an implementation
+/// function and attribute definitions. When invoked with concrete artifact values, it produces
+/// a `DynamicActions` instance ready to be executed by `ctx.actions.dynamic_output_new()`.
+///
+/// This type must be assigned to a global variable before it can be called
+///
+/// # Usage
+///
+/// ```python
+/// # Create a DynamicActionsCallable
+/// _my_action = dynamic_actions(
+///     impl = _my_impl,
+///     attrs = {
+///         "config": dynattrs.artifact_value(),
+///         "out": dynattrs.output(),
+///     },
+/// )
+///
+/// # Later, call it with concrete values to create a DynamicActions
+/// dynamic_action = _my_action(
+///     config = config_file,
+///     out = output.as_output(),
+/// )
+/// ```
+///
+/// See `dynamic_actions()` and `ctx.actions.dynamic_output_new()` for complete workflow.
+#[starlark_module]
+fn dynamic_action_callable_methods(builder: &mut MethodsBuilder) {}

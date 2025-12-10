@@ -16,7 +16,6 @@ import com.facebook.buck.core.filesystems.RelPath;
 import com.facebook.buck.core.util.log.Logger;
 import com.facebook.buck.jvm.core.BuildTargetValue;
 import com.facebook.buck.util.CapturingPrintStream;
-import com.facebook.buck.util.ProcessExecutor;
 import com.facebook.buck.util.Verbosity;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
@@ -89,16 +88,12 @@ public class JavacPipelineState implements AutoCloseable {
           context.createSubContext(stdout, stderr, Optional.of(verbosity));
       closeables.add(firstOrderContext);
 
-      ProcessExecutor processExecutor = firstOrderContext.getProcessExecutor();
-
       JavacExecutionContext javacExecutionContext =
           new JavacExecutionContext(
               stderr,
               firstOrderContext.getClassLoaderCache(),
               verbosity,
               context.getRuleCellRoot(),
-              firstOrderContext.getEnvironment(),
-              processExecutor,
               configuredBuckOut);
 
       CompilerOutputPaths outputPaths = compilerParameters.getOutputPaths();

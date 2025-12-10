@@ -11,7 +11,6 @@
 package com.facebook.buck.jvm.kotlin;
 
 import com.facebook.buck.core.filesystems.AbsPath;
-import com.facebook.buck.core.filesystems.RelPath;
 import com.facebook.buck.jvm.cd.AbiStepsBuilder;
 import com.facebook.buck.jvm.cd.BuildCommandStepsBuilder;
 import com.facebook.buck.jvm.cd.DefaultCompileStepsBuilderFactory;
@@ -34,9 +33,8 @@ public class KotlinStepsBuilder implements BuildCommandStepsBuilder {
   public KotlinStepsBuilder(
       BuildKotlinCommand buildKotlinCommand,
       @Nullable ActionMetadata actionMetadata,
-      @Nullable RelPath kotlinClassesDir,
       KotlinCDAnalytics kotlinCDAnalytics) {
-    steps = buildSteps(buildKotlinCommand, actionMetadata, kotlinClassesDir, kotlinCDAnalytics);
+    steps = buildSteps(buildKotlinCommand, actionMetadata, kotlinCDAnalytics);
     ruleCellRoot = buildKotlinCommand.getBaseJarCommand().getBuildCellRootPath();
   }
 
@@ -59,7 +57,6 @@ public class KotlinStepsBuilder implements BuildCommandStepsBuilder {
   private ImmutableList<IsolatedStep> buildSteps(
       BuildKotlinCommand buildKotlinCommand,
       @Nullable ActionMetadata actionMetadata,
-      RelPath kotlinClassesDir,
       KotlinCDAnalytics kotlinCDAnalytics) {
     DaemonKotlincToJarStepFactory kotlincToJarStepFactory =
         new DaemonKotlincToJarStepFactory(kotlinCDAnalytics);
@@ -72,8 +69,7 @@ public class KotlinStepsBuilder implements BuildCommandStepsBuilder {
           stepsBuilderFactory,
           buildKotlinCommand.getBaseJarCommand(),
           buildKotlinCommand.getKotlinExtraParams(),
-          actionMetadata,
-          kotlinClassesDir);
+          actionMetadata);
     } else {
       return handleAbiJarCommand(
           stepsBuilderFactory,
@@ -86,8 +82,7 @@ public class KotlinStepsBuilder implements BuildCommandStepsBuilder {
       DefaultCompileStepsBuilderFactory<KotlinExtraParams> stepsBuilderFactory,
       BaseJarCommand baseJarCommand,
       KotlinExtraParams kotlinExtraParams,
-      @Nullable ActionMetadata actionMetadata,
-      @Nullable RelPath kotlinClassesDir) {
+      @Nullable ActionMetadata actionMetadata) {
 
     LibraryStepsBuilder libraryStepsBuilder = stepsBuilderFactory.getLibraryBuilder();
     libraryStepsBuilder.addBuildStepsForLibrary(
@@ -106,8 +101,7 @@ public class KotlinStepsBuilder implements BuildCommandStepsBuilder {
         baseJarCommand.getBuildCellRootPath(),
         baseJarCommand.getResolvedJavac(),
         actionMetadata,
-        kotlinExtraParams,
-        kotlinClassesDir);
+        kotlinExtraParams);
 
     libraryStepsBuilder.addMakeMissingOutputsStep(baseJarCommand.getAnnotationPath());
 

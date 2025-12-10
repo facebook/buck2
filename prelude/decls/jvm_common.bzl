@@ -170,9 +170,12 @@ def _k2():
 
 def _incremental():
     return {
-        "incremental": attrs.bool(default = False, doc = """
-    Enables Kotlin incremental compilation.
-    """),
+        "incremental": attrs.bool(
+            default = True,
+            doc = """
+                Enables Kotlin incremental compilation.
+            """,
+        ),
     }
 
 def _enable_used_classes():
@@ -192,8 +195,8 @@ def _plugins():
             default = [],
             doc = """
                 Plugins that do not use the execution platform. This exists for historical reasons,
-                and should not be used. Use `plugins` instead - plugins should be configured for 
-                the execution platform since that is where they are used. 
+                and should not be used. Use `plugins` instead - plugins should be configured for
+                the execution platform since that is where they are used.
                 """,
         ),
         "plugins": attrs.list(
@@ -203,9 +206,9 @@ def _plugins():
             ),
             default = [],
             doc = """
-                List of plugins that should be run during compilation of the target. A list of 
-                strings may additionally be provided in order to pass additional arguments to 
-                the plugin. 
+                List of plugins that should be run during compilation of the target. A list of
+                strings may additionally be provided in order to pass additional arguments to
+                the plugin.
                 """,
         ),
     }
@@ -231,7 +234,6 @@ fbcode/buck2/prelude/decls/jvm_common.bzl
                         "plugin:somePluginId:someDirectoryRelatedOptionKey": "__codegen_dir__",
                     },
                 },
-
                 ```
                 Each plugin source path will be prefixed with `-Xplugin=` and passed as extra
                  arguments to the compiler. Plugin options will be appended after its plugin with `-P`.
@@ -240,7 +242,6 @@ fbcode/buck2/prelude/decls/jvm_common.bzl
                  with `kotlin_library()`, you need to specify `kotlinx-serialization-compiler-plugin.jar` under `kotlin_compiler_plugins` and `kotlinx-serialization-runtime.jar` (which you may have to fetch from Maven) in your `deps`:
 
                 ```
-
                 kotlin_library(
                     name = "example",
                     srcs = glob(["*.kt"]),
@@ -268,7 +269,6 @@ fbcode/buck2/prelude/decls/jvm_common.bzl
                     url = "mvn:org.jetbrains.kotlinx:kotlinx-serialization-runtime:jar:0.10.0",
                     sha1 = "23d777a5282c1957c7ce35946374fff0adab114c"
                 )
-
                 ```
             """),
     }
@@ -280,20 +280,28 @@ def _annotation_processors():
         "annotation_processors": attrs.list(attrs.string(), default = []),
     }
 
+def _content_based_path_attr():
+    return attrs.bool(default = select({
+        "DEFAULT": False,
+        # @oss-disable[end= ]: "config//build_mode/constraints:whatsapp": True,
+        # @oss-disable[end= ]: "config//build_mode:arvr_mode": True,
+        # @oss-disable[end= ]: "config//os/constraints:android": True,
+        # @oss-disable[end= ]: "config//runtime/constraints:android-host-test": True,
+    }))
+
 def _content_based_path_for_jar_snapshot():
     return {
-        "uses_content_based_path_for_jar_snapshot": attrs.bool(default = select({
-            "DEFAULT": False,
-            # @oss-disable[end= ]: "config//build_mode/constraints:whatsapp": True,
-        })),
+        "uses_content_based_path_for_jar_snapshot": _content_based_path_attr(),
     }
 
 def _kotlincd_content_based_paths():
     return {
-        "uses_content_based_paths_for_kotlincd": attrs.bool(default = select({
-            "DEFAULT": False,
-            # @oss-disable[end= ]: "config//build_mode/constraints:whatsapp": True,
-        })),
+        "uses_content_based_paths_for_kotlincd": _content_based_path_attr(),
+    }
+
+def _classic_java_content_based_paths():
+    return {
+        "uses_content_based_paths_for_classic_java": _content_based_path_attr(),
     }
 
 def _javac():
@@ -331,6 +339,8 @@ jvm_common = struct(
     enable_used_classes = _enable_used_classes,
     multi_release_jar = _multi_release_jar,
     should_kosabi_jvm_abi_gen_use_k2 = _should_kosabi_jvm_abi_gen_use_k2,
+    classic_java_content_based_paths = _classic_java_content_based_paths,
     content_based_path_for_jar_snapshot = _content_based_path_for_jar_snapshot,
     kotlincd_content_based_paths = _kotlincd_content_based_paths,
+    content_based_path_attr = _content_based_path_attr,
 )

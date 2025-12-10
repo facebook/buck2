@@ -191,7 +191,7 @@ def compile_args(
 
     # Add args from preprocess-able inputs.
     inherited_pre = cxx_inherited_preprocessor_infos(ctx.attrs.deps)
-    pre = cxx_merge_cpreprocessors(ctx, [], inherited_pre)
+    pre = cxx_merge_cpreprocessors(ctx.actions, [], inherited_pre)
     pre_args = pre.set.project_as_args("args")
     compile_args.add(cmd_args(pre_args, format = "-optP={}"))
 

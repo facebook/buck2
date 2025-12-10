@@ -17,6 +17,10 @@ load(
     ":swift_debug_info_utils.bzl",
     "extract_and_merge_clang_debug_infos",
 )
+load(
+    ":swift_incremental_support.bzl",
+    "get_uses_experimental_content_based_path_hashing",
+)
 load(":swift_pcm_compilation_types.bzl", "SwiftPCMUncompiledInfo", "WrappedSwiftPCMCompiledInfo")
 load(":swift_sdk_flags.bzl", "get_sdk_flags")
 load(":swift_sdk_pcm_compilation.bzl", "get_shared_pcm_compilation_args", "get_swift_sdk_pcm_anon_targets")
@@ -57,6 +61,7 @@ def get_swift_pcm_anon_targets(
             "enable_cxx_interop": enable_cxx_interop,
             "name": uncompiled_dep.label,
             "swift_cxx_args": swift_cxx_args,
+            "uses_experimental_content_based_path_hashing": True,
             "_swift_toolchain": get_swift_toolchain_info_dep(ctx),
         }))
 
@@ -92,7 +97,11 @@ def _compiled_module_info(
 
     clang_importer_args = cmd_args(
         cmd_args(pcm_info.exported_preprocessor.args.args, prepend = "-Xcc"),
-        hidden = pcm_info.exported_preprocessor.modular_args,
+        # When using header maps for non-modular libraries, the symlink tree
+        # preprocessor will only be included in modular_args. This will add
+        # redundant -fmodule-map-file flags too while we work towards dropping
+        # header includes from Swift compilation entirely.
+        cmd_args(pcm_info.exported_preprocessor.modular_args, prepend = "-Xcc"),
     )
 
     return SwiftCompiledModuleInfo(
@@ -150,7 +159,7 @@ def _swift_pcm_compilation_impl(ctx: AnalysisContext) -> [Promise, list[Provider
         # (e.g `raw_headers`) because of that we need to provide search paths of such targets to
         # pcm compilation actions in order for them to be successful.
         inherited_preprocessor_infos = cxx_inherited_preprocessor_infos(uncompiled_pcm_info.exported_deps)
-        preprocessors = cxx_merge_cpreprocessors(ctx, [], inherited_preprocessor_infos)
+        preprocessors = cxx_merge_cpreprocessors(ctx.actions, [], inherited_preprocessor_infos)
         cmd.add(cmd_args(preprocessors.set.project_as_args("include_dirs"), prepend = "-Xcc"))
 
         # When compiling pcm files, module's exported pps and inherited pps
@@ -210,6 +219,7 @@ _swift_pcm_compilation = rule(
         "dep": attrs.dep(),
         "enable_cxx_interop": attrs.bool(),
         "swift_cxx_args": attrs.list(attrs.string(), default = []),
+        "uses_experimental_content_based_path_hashing": attrs.bool(),
         "_swift_toolchain": attrs.dep(),
     },
 )
@@ -302,9 +312,9 @@ def _get_base_pcm_flags(
         sdk_deps_tset: SwiftCompiledModuleTset,
         pcm_deps_tset: SwiftCompiledModuleTset,
         swift_cxx_args: list[str]) -> (cmd_args, cmd_args, Artifact):
+    uses_experimental_content_based_path_hashing = get_uses_experimental_content_based_path_hashing(ctx)
     modulemap_path = uncompiled_pcm_info.exported_preprocessor.modulemap_path
-    pcm_output = ctx.actions.declare_output(module_name + ".pcm")
-
+    pcm_output = ctx.actions.declare_output(module_name + ".pcm", uses_experimental_content_based_path_hashing = uses_experimental_content_based_path_hashing)
     cmd = cmd_args(
         get_shared_pcm_compilation_args(module_name),
         get_sdk_flags(ctx),
@@ -319,9 +329,14 @@ def _get_base_pcm_flags(
         # To correctly resolve modulemap's headers,
         # a search path to the root of modulemap should be passed.
         cmd_args(uncompiled_pcm_info.exported_preprocessor.args.args, prepend = "-Xcc"),
-        # Modular deps like `-Swift.h` have to be materialized.
-        hidden = uncompiled_pcm_info.exported_preprocessor.modular_args,
     )
+
+    # When using header maps for non-modular libraries, the symlink tree
+    # preprocessor will only be included in modular_args. This will add
+    # redundant -fmodule-map-file flags too while we work towards dropping
+    # header includes from Swift compilation entirely.
+    for modular_args in uncompiled_pcm_info.exported_preprocessor.modular_args:
+        cmd.add(cmd_args(modular_args, prepend = "-Xcc"))
 
     cmd.add(swift_cxx_args)
 

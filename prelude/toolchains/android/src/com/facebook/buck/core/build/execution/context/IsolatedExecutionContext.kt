@@ -11,12 +11,9 @@
 package com.facebook.buck.core.build.execution.context
 
 import com.facebook.buck.core.filesystems.AbsPath
-import com.facebook.buck.util.Ansi
 import com.facebook.buck.util.ClassLoaderCache
 import com.facebook.buck.util.Console
-import com.facebook.buck.util.ProcessExecutor
 import com.facebook.buck.util.Verbosity
-import com.google.common.collect.ImmutableMap
 import com.google.common.io.Closer
 import java.io.Closeable
 import java.io.IOException
@@ -27,9 +24,7 @@ import java.util.Optional
 data class IsolatedExecutionContext(
     val classLoaderCache: ClassLoaderCache,
     val console: Console,
-    val processExecutor: ProcessExecutor,
     val ruleCellRoot: AbsPath,
-    val environment: ImmutableMap<String?, String?>,
 ) : Closeable {
   val verbosity: Verbosity
     get() = console.verbosity
@@ -39,9 +34,6 @@ data class IsolatedExecutionContext(
 
   val stdOut: PrintStream
     get() = console.stdErr
-
-  val ansi: Ansi
-    get() = console.ansi
 
   @Throws(IOException::class)
   override fun close() {
@@ -61,16 +53,13 @@ data class IsolatedExecutionContext(
       verbosityOverride: Optional<Verbosity?>,
   ): IsolatedExecutionContext {
     val console = this.console
-    val newConsole =
-        Console(verbosityOverride.orElse(console.verbosity), newStdout, newStderr, console.ansi)
+    val newConsole = Console(verbosityOverride.orElse(console.verbosity), newStdout, newStderr)
 
     // This should replace (or otherwise retain) all of the closeable parts of the context.
     return IsolatedExecutionContext(
         classLoaderCache.addRef(),
         newConsole,
-        processExecutor.cloneWithOutputStreams(newStdout, newStderr),
         ruleCellRoot,
-        environment,
     )
   }
 
@@ -80,15 +69,12 @@ data class IsolatedExecutionContext(
     fun of(
         classLoaderCache: ClassLoaderCache,
         console: Console,
-        processExecutor: ProcessExecutor,
         ruleCellRoot: AbsPath,
     ): IsolatedExecutionContext {
       return IsolatedExecutionContext(
           classLoaderCache.addRef(),
           console,
-          processExecutor,
           ruleCellRoot,
-          ImmutableMap.of(),
       )
     }
   }

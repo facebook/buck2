@@ -10,16 +10,17 @@
 
 use std::collections::HashSet;
 use std::path;
+use std::time::Instant;
 
 use buck2_artifact::artifact::artifact_type::BaseArtifactKind;
 use buck2_build_api::build::BuildProviderType;
 use buck2_build_api::build::ProviderArtifacts;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
-use buck2_core::fs::fs_util;
-use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
-use buck2_core::fs::paths::abs_path::AbsPath;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_error::BuckErrorContext;
+use buck2_fs::fs_util;
+use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
+use buck2_fs::paths::abs_path::AbsPath;
 use buck2_query::__derive_refs::indexmap::IndexMap;
 use itertools::Itertools;
 use tracing::info;
@@ -80,7 +81,7 @@ pub(crate) fn create_unhashed_outputs(
             );
         }
     }
-    let duration = start.elapsed();
+    let duration = Instant::now() - start;
     info!(
         "Creating {} output compatibility symlinks in {:3}s",
         num_unhashed_links_made,

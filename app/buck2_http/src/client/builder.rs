@@ -18,8 +18,8 @@ use buck2_certs::certs::tls_config_with_single_cert;
 use buck2_certs::certs::tls_config_with_system_roots;
 use buck2_error::BuckErrorContext;
 use hyper::Uri;
-use hyper_proxy2::Proxy;
-use hyper_proxy2::ProxyConnector;
+use hyper_http_proxy::Proxy;
+use hyper_http_proxy::ProxyConnector;
 use hyper_rustls::HttpsConnector;
 use hyper_rustls::HttpsConnectorBuilder;
 use hyper_timeout::TimeoutConnector;
@@ -368,7 +368,7 @@ fn find_unix_proxy(proxies: &[Proxy]) -> Option<&Proxy> {
 
 #[cfg(test)]
 mod tests {
-    use hyper_proxy2::Intercept;
+    use hyper_http_proxy::Intercept;
 
     use super::*;
 

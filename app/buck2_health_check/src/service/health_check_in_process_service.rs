@@ -10,7 +10,7 @@
 
 #![allow(dead_code)] // Presently used only in oss
 
-use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
+use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
 
 use crate::interface::HealthCheckContextEvent;
 use crate::interface::HealthCheckService;

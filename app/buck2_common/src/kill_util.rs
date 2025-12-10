@@ -99,7 +99,7 @@ mod unix {
         check_result(pid, nix::sys::signal::kill(pid, signal))?;
         loop {
             if let Some(timeout) = timeout {
-                if start.elapsed() > timeout {
+                if Instant::now() - start > timeout {
                     break;
                 }
             }
@@ -151,6 +151,7 @@ mod tests {
         "#;
         child_file.write_all(child_script.as_bytes()).await?;
 
+        // @patternlint-disable-next-line buck2-no-command-new
         let mut command = tokio::process::Command::new("sh");
         command
             .args(["parent.sh"])
@@ -205,6 +206,7 @@ mod tests {
         "#;
         child_file.write_all(child_script.as_bytes()).await?;
 
+        // @patternlint-disable-next-line buck2-no-command-new
         let mut command = tokio::process::Command::new("sh");
         command
             .args(["parent.sh"])

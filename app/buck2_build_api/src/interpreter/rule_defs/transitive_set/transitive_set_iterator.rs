@@ -48,7 +48,8 @@ where
         .unwrap()
 }
 
-/// A DFS, left-to-right iterator over a TransitiveSet.
+/// Preorder depth-first traversal, visiting parent node first, then children in an unspecified
+/// order that minimizes memory usage during traversal.
 pub struct PreorderTransitiveSetIteratorGen<'a, 'v, V: ValueLike<'v>> {
     stack: Vec<&'a TransitiveSetGen<V>>,
     seen: HashSet<ValueIdentity<'v>, BuckHasherBuilder>,
@@ -89,9 +90,6 @@ where
     }
 }
 
-/// An iterator over values of a TransitiveSet. Notionally a FilterMap, but defined as its own type
-/// since there are a few too many lifetimes involved to make a nice `impl Iterator<...>` work
-/// here.
 impl<'a, 'v, V> Iterator for PreorderTransitiveSetIteratorGen<'a, 'v, V>
 where
     V: 'v + Copy + ValueLike<'v>,
@@ -107,11 +105,10 @@ where
     }
 }
 
-/// A postorder traversal iterator over a TransitiveSet.
-/// Traverses by children left-to-right, and then visits the current node.
+/// Postorder depth-first traversal, visiting children left-to-right before visiting their parent
+/// node.
 pub struct PostorderTransitiveSetIteratorGen<'a, 'v, V: ValueLike<'v>> {
-    stack: Vec<Option<&'a TransitiveSetGen<V>>>,
-    parent_stack: Vec<&'a TransitiveSetGen<V>>,
+    stack: Vec<(&'a TransitiveSetGen<V>, PostorderMark<'v>)>,
     seen: HashSet<ValueIdentity<'v>, BuckHasherBuilder>,
 }
 
@@ -122,20 +119,21 @@ where
     'v: 'a,
 {
     pub fn new(set: &'a TransitiveSetGen<V>) -> Self {
-        Self {
-            stack: vec![Some(set)],
-            parent_stack: vec![],
+        let mut iterator = Self {
+            stack: vec![(set, PostorderMark::Ready)],
             seen: Default::default(),
-        }
+        };
+        iterator.enqueue_children(&set.children);
+        iterator
     }
 
     fn enqueue_children(&mut self, children: &'a [V]) {
         for child in children.iter().rev() {
             let child = child.to_value();
-
-            if self.seen.insert(child.identity()) {
-                self.stack.push(Some(assert_transitive_set(child)));
-            }
+            self.stack.push((
+                assert_transitive_set(child),
+                PostorderMark::Pending(child.identity()),
+            ));
         }
     }
 }
@@ -152,9 +150,14 @@ where
     }
 }
 
-/// An iterator over values of a TransitiveSet. Notionally a FilterMap, but defined as its own type
-/// since there are a few too many lifetimes involved to make a nice `impl Iterator<...>` work
-/// here.
+enum PostorderMark<'v> {
+    /// When the stack returns to this position, children have been visited.
+    Ready,
+    /// The stack may return to this position with some children not yet having
+    /// been visited. Check `seen`.
+    Pending(ValueIdentity<'v>),
+}
+
 impl<'a, 'v, V> Iterator for PostorderTransitiveSetIteratorGen<'a, 'v, V>
 where
     V: 'v + Copy + ValueLike<'v>,
@@ -164,26 +167,25 @@ where
     type Item = &'a TransitiveSetGen<V>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        while let Some(next) = self.stack.pop()? {
-            if next.children.is_empty() {
-                return Some(next);
+        loop {
+            match self.stack.pop()? {
+                (tset, PostorderMark::Ready) => return Some(tset),
+                (tset, PostorderMark::Pending(identity)) => {
+                    if self.seen.insert(identity) {
+                        self.stack.push((tset, PostorderMark::Ready));
+                        self.enqueue_children(&tset.children);
+                    }
+                }
             }
-
-            self.stack.push(None); // Add sentinel value to indicate end of the parent list.
-            self.parent_stack.push(next);
-            self.enqueue_children(&next.children);
         }
-
-        // Found a sentinel value indicating children are traversed, return parent.
-        self.parent_stack.pop()
     }
 }
 
-/// A topological traversal iterator over a TransitiveSet, such that nodes are listed after all
-/// nodes that have them as descendants.
+/// Topological sort order, such that nodes are visited after all nodes that have them as
+/// descendants.
 ///
-/// This is equivalent to a pre-order traversal, except that when nodes are shared with more than
-/// one parent it is returned in the order of its last occurrence.
+/// This is similar to the pre-order traversal, except that when nodes are shared with more than one
+/// parent it is returned in the order of its last occurrence.
 pub struct TopologicalTransitiveSetIteratorGen<'a, 'v, V: ValueLike<'v>> {
     output_stack: Vec<&'a TransitiveSetGen<V>>,
     instance_counts: HashMap<ValueIdentity<'v>, u32, BuckHasherBuilder>,
@@ -260,9 +262,6 @@ where
     }
 }
 
-/// An iterator over values of a TransitiveSet. Notionally a FilterMap, but defined as its own type
-/// since there are a few too many lifetimes involved to make a nice `impl Iterator<...>` work
-/// here.
 impl<'a, 'v, V> Iterator for TopologicalTransitiveSetIteratorGen<'a, 'v, V>
 where
     V: 'v + Copy + ValueLike<'v>,
@@ -278,7 +277,8 @@ where
     }
 }
 
-/// A breadth-first-search (BFS), left-to-right iterator over a TransitiveSet.
+/// Preorder breadth-first-search (BFS), visits parent node, then eagerly visits all children
+/// left-to-right before traversing to any grandchildren.
 pub struct BfsTransitiveSetIteratorGen<'a, 'v, V: ValueLike<'v>> {
     queue: VecDeque<&'a TransitiveSetGen<V>>,
     seen: HashSet<ValueIdentity<'v>, BuckHasherBuilder>,
@@ -319,9 +319,6 @@ where
     }
 }
 
-/// An iterator over values of a TransitiveSet. Notionally a FilterMap, but defined as its own type
-/// since there are a few too many lifetimes involved to make a nice `impl Iterator<...>` work
-/// here.
 impl<'a, 'v, V> Iterator for BfsTransitiveSetIteratorGen<'a, 'v, V>
 where
     V: 'v + Copy + ValueLike<'v>,
@@ -337,6 +334,69 @@ where
     }
 }
 
+/// Preorder depth-first-search (DFS).
+///
+/// This is similar to the pre-order traversal, except that children are guaranteed to be visited
+/// left-to-right.
+pub struct DfsTransitiveSetIteratorGen<'a, 'v, V: ValueLike<'v>> {
+    stack: Vec<(&'a TransitiveSetGen<V>, Option<ValueIdentity<'v>>)>,
+    seen: HashSet<ValueIdentity<'v>, BuckHasherBuilder>,
+}
+
+impl<'a, 'v, V> DfsTransitiveSetIteratorGen<'a, 'v, V>
+where
+    V: 'v + Copy + ValueLike<'v>,
+    TransitiveSetGen<V>: TransitiveSetLike<'v>,
+    'v: 'a,
+{
+    pub fn new(set: &'a TransitiveSetGen<V>) -> Self {
+        Self {
+            stack: vec![(set, None)],
+            seen: Default::default(),
+        }
+    }
+}
+
+impl<'a, 'v, V> TransitiveSetIteratorLike<'a, 'v, V> for DfsTransitiveSetIteratorGen<'a, 'v, V>
+where
+    V: 'v + Copy + ValueLike<'v>,
+    TransitiveSetGen<V>: TransitiveSetLike<'v>,
+    'v: 'a,
+{
+    fn values(self: Box<Self>) -> TransitiveSetValuesIteratorGen<'a, 'v, V> {
+        TransitiveSetValuesIteratorGen { inner: self }
+    }
+}
+
+impl<'a, 'v, V> Iterator for DfsTransitiveSetIteratorGen<'a, 'v, V>
+where
+    V: 'v + Copy + ValueLike<'v>,
+    TransitiveSetGen<V>: TransitiveSetLike<'v>,
+    'v: 'a,
+{
+    type Item = &'a TransitiveSetGen<V>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        loop {
+            let (tset, identity) = self.stack.pop()?;
+            if identity.is_none_or(|id| self.seen.insert(id)) {
+                for child in tset.children.iter().rev() {
+                    let child = child.to_value();
+                    let child_identity = child.identity();
+                    if !self.seen.contains(&child_identity) {
+                        self.stack
+                            .push((assert_transitive_set(child), Some(child_identity)));
+                    }
+                }
+                return Some(tset);
+            }
+        }
+    }
+}
+
+/// An iterator over values of a TransitiveSet. Notionally a FilterMap, but defined as its own type
+/// since there are a few too many lifetimes involved to make a nice `impl Iterator<...>` work
+/// here.
 pub struct TransitiveSetValuesIteratorGen<'a, 'v, V: ValueLike<'v>> {
     inner: Box<dyn TransitiveSetIteratorLike<'a, 'v, V> + 'a>,
 }

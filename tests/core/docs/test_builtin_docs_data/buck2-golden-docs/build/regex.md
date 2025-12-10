@@ -3,3 +3,4 @@
 # regex
 ## Fanciness
 ## regex.match
+## regex.replace\_all

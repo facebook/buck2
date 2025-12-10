@@ -17,6 +17,7 @@ use dupe::Dupe;
 use strong_hash::StrongHash;
 
 use crate::ascii_char_set::AsciiCharSet;
+use crate::soft_error;
 
 pub const EQ_SIGN_SUBST: &str = "_eqsb_";
 

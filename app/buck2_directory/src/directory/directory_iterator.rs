@@ -11,8 +11,8 @@
 use std::fmt;
 use std::mem;
 
-use buck2_core::fs::paths::file_name::FileName;
-use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
+use buck2_fs::paths::file_name::FileName;
+use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
 
 use crate::directory::entry::DirectoryEntry;
 

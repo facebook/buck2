@@ -19,15 +19,15 @@ public class ActionMetadata {
 
   private final Map<Path, String> previousDigest;
   private final Map<Path, String> currentDigest;
-  private final Path incrementalMetadataFilePath;
+  private final Path incrementalConfigFilePath;
 
   public ActionMetadata(
-      Path incrementalMetadataFilePath,
+      Path incrementalConfigFilePath,
       Map<Path, String> previousDigest,
       Map<Path, String> currentDigest) {
     this.previousDigest = previousDigest;
     this.currentDigest = currentDigest;
-    this.incrementalMetadataFilePath = incrementalMetadataFilePath;
+    this.incrementalConfigFilePath = incrementalConfigFilePath;
   }
 
   public Map<Path, String> getPreviousDigest() {
@@ -39,13 +39,13 @@ public class ActionMetadata {
   }
 
   @Nullable
-  public String getPreviousIncrementalMetadataDigest() {
-    return previousDigest.get(incrementalMetadataFilePath);
+  public String getPreviousIncrementalConfigDigest() {
+    return previousDigest.get(incrementalConfigFilePath);
   }
 
   @Nullable
-  public String getCurrentIncrementalMetadataDigest() {
-    return currentDigest.get(incrementalMetadataFilePath);
+  public String getCurrentIncrementalConfigDigest() {
+    return currentDigest.get(incrementalConfigFilePath);
   }
 
   @Override
@@ -55,11 +55,11 @@ public class ActionMetadata {
     ActionMetadata that = (ActionMetadata) o;
     return Objects.equals(previousDigest, that.previousDigest)
         && Objects.equals(currentDigest, that.currentDigest)
-        && Objects.equals(incrementalMetadataFilePath, that.incrementalMetadataFilePath);
+        && Objects.equals(incrementalConfigFilePath, that.incrementalConfigFilePath);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(previousDigest, currentDigest, incrementalMetadataFilePath);
+    return Objects.hash(previousDigest, currentDigest, incrementalConfigFilePath);
   }
 }

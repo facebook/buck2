@@ -57,8 +57,7 @@ class DefaultLibraryStepsBuilder<T extends CompileToJarStepFactory.ExtraParams>
       AbsPath buildCellRootPath,
       ResolvedJavac resolvedJavac,
       @Nullable ActionMetadata actionMetadata,
-      CompileToJarStepFactory.ExtraParams extraParams,
-      @Nullable RelPath kotlinClassesDir) {
+      CompileToJarStepFactory.ExtraParams extraParams) {
 
     CompilerParameters compilerParameters =
         JavaLibraryRules.getCompilerParameters(
@@ -88,7 +87,6 @@ class DefaultLibraryStepsBuilder<T extends CompileToJarStepFactory.ExtraParams>
         resourcesMap,
         resolvedJavac,
         actionMetadata,
-        configuredCompiler.castExtraParams(extraParams),
-        kotlinClassesDir);
+        configuredCompiler.castExtraParams(extraParams));
   }
 }

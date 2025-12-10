@@ -5,6 +5,7 @@
 %% of this source tree.
 %%% % @format
 -module(test_cli_e2e_SUITE).
+-typing([eqwalizer]).
 
 -include_lib("stdlib/include/assert.hrl").
 -include_lib("common_test/include/ct.hrl").
@@ -28,13 +29,16 @@ init_per_suite(Config) ->
 
     {ok, [ErlCmd]} = init:get_argument(progname),
 
+    TestSuitePath = [_ | _] = code:which(test_list_SUITE),
     test_info:write_to_file(TestInfoFile, #test_info{
+        common_app_env = #{},
+        raw_target = ~"raw_target",
         dependencies = [],
-        test_suite = list_to_binary(code:which(test_list_SUITE)),
+        test_suite = list_to_binary(TestSuitePath),
         config_files = [],
         providers = [],
         ct_opts = [],
-        erl_cmd = ErlCmd,
+        erl_cmd = lists:map(fun list_to_binary/1, ErlCmd),
         extra_flags = [],
         artifact_annotation_mfa = fun artifact_annotations:default_annotation/1,
         trampolines = []

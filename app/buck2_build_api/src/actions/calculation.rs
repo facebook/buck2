@@ -36,7 +36,6 @@ use buck2_events::span::SpanId;
 use buck2_execute::execute::result::CommandExecutionReport;
 use buck2_execute::execute::result::CommandExecutionStatus;
 use buck2_execute::output_size::OutputSize;
-use buck2_futures::cancellation::CancellationContext;
 use buck2_interpreter::print_handler::EventDispatcherPrintHandler;
 use buck2_interpreter::soft_error::Buck2StarlarkSoftErrorHandler;
 use buck2_node::nodes::configured_frontend::ConfiguredTargetNodeCalculation;
@@ -44,6 +43,7 @@ use derive_more::Display;
 use dice::DiceComputations;
 use dice::DiceTrackedInvalidationPath;
 use dice::Key;
+use dice_futures::cancellation::CancellationContext;
 use dupe::Dupe;
 use futures::FutureExt;
 use futures::future::BoxFuture;
@@ -192,7 +192,7 @@ async fn build_action_no_redirect(
         },
         duration: NodeDuration {
             user: action_execution_data.wall_time.unwrap_or_default(),
-            total: now.elapsed(),
+            total: Instant::now() - now,
             queue: action_execution_data.queue_duration,
         },
         spans,
@@ -211,6 +211,7 @@ async fn build_action_inner(
     action: &Arc<RegisteredAction>,
     target_rule_type_name: Option<String>,
 ) -> (ActionExecutionData, Box<buck2_data::ActionExecutionEnd>) {
+    let is_eligible_for_dedupe = is_action_eligible_for_dedupe(action, &ensured_inputs);
     let (execute_result, command_reports) =
         executor.execute(ensured_inputs, action, cancellation).await;
 
@@ -421,8 +422,33 @@ async fn build_action_inner(
             target_rule_type_name,
             scheduling_mode: scheduling_mode.map(|h| h as i32),
             incremental_kind: incremental_kind.map(|k| k as i32),
+            eligible_for_dedupe: is_eligible_for_dedupe as i32,
         }),
     )
+}
+
+fn is_action_eligible_for_dedupe(
+    action: &Arc<RegisteredAction>,
+    inputs: &IndexMap<ArtifactGroup, ArtifactGroupValues>,
+) -> buck2_data::EligibleForDedupe {
+    if !action.all_outputs_are_content_based() {
+        return buck2_data::EligibleForDedupe::IneligibleOutput;
+    }
+
+    let target_platform =
+        if let BaseDeferredKey::TargetLabel(configured_label) = action.key().owner() {
+            Some(configured_label.cfg())
+        } else {
+            None
+        };
+
+    for (ag, _agv) in inputs.iter() {
+        if !ag.is_eligible_for_dedupe(target_platform) {
+            return buck2_data::EligibleForDedupe::IneligibleInput;
+        }
+    }
+
+    buck2_data::EligibleForDedupe::Eligible
 }
 
 // Attempt to run the error handler if one was specified. Returns either the error diagnostics, or
@@ -668,6 +694,7 @@ async fn command_execution_report_to_proto(
     buck2_data::CommandExecution {
         details: Some(details),
         status: Some(status),
+        inline_environment_metadata: Some(report.inline_environment_metadata),
     }
 }
 
@@ -701,8 +728,8 @@ pub async fn command_details(
         .map(|k| k.to_proto(omit_details));
 
     buck2_data::CommandExecutionDetails {
-        stdout,
-        stderr,
+        cmd_stdout: stdout,
+        cmd_stderr: stderr,
         command_kind,
         signed_exit_code,
         metadata: Some(command.timing.to_proto()),

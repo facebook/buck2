@@ -129,6 +129,15 @@ fn do_render(
         let cpu_str = cpu_str_parts.join("  ");
         parts.push(cpu_str);
     }
+
+    // Show Tokio IO metrics in compact format: busy/total+queue
+    parts.push(format!(
+        "Tokio IO = {}/{}+{}",
+        snapshot.tokio_num_blocking_threads - snapshot.tokio_num_idle_blocking_threads,
+        snapshot.tokio_num_blocking_threads,
+        snapshot.tokio_blocking_queue_depth
+    ));
+
     if snapshot.deferred_materializer_queue_size > 0 {
         parts.push(format!(
             "DM Queue = {}",

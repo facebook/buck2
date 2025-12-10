@@ -32,7 +32,8 @@ def kotlincd_toolchain(
             "prelude//toolchains/android/third-party:trove",
             "prelude//toolchains/android/third-party:kotlinx-coroutines-core-jvm",
         ],
-        kotlinc = "prelude//toolchains/android/src/com/facebook/buck/jvm/kotlin/cd/workertool:kotlincd_tool",
+        kotlinc = "prelude//toolchains/android/third-party:kotlin-compiler-binary",
+        kotlincd = "prelude//toolchains/android/src/com/facebook/buck/jvm/kotlin/cd/workertool:kotlincd_tool",
         kotlinc_protocol = "kotlincd",
         kotlincd_main_class = "com.facebook.buck.jvm.kotlin.cd.workertool.KotlinCDMain",
         visibility = visibility,
@@ -58,13 +59,13 @@ def _kotlin_toolchain_rule_impl(ctx):
     return [
         DefaultInfo(),
         KotlinToolchainInfo(
-            allow_k2_usage = ctx.attrs.allow_k2_usage,
             annotation_processing_jar = ctx.attrs.annotation_processing_jar,
             class_loader_bootstrapper = ctx.attrs.class_loader_bootstrapper,
             compile_kotlin = ctx.attrs.compile_kotlin,
             dep_files = DepFiles(ctx.attrs.dep_files),
             kapt_base64_encoder = ctx.attrs.kapt_base64_encoder,
             kotlinc = ctx.attrs.kotlinc,
+            kotlincd = ctx.attrs.kotlincd,
             kotlin_stdlib = ctx.attrs.kotlin_stdlib,
             kotlin_version = ctx.attrs.kotlin_version,
             kotlin_home_libraries = ctx.attrs.kotlin_home_libraries,
@@ -86,12 +87,13 @@ def _kotlin_toolchain_rule_impl(ctx):
             track_class_usage_plugin = ctx.attrs.track_class_usage_plugin,
             kotlin_error_handler = None,
             kosabi_jvm_abi_gen_k2_plugin = ctx.attrs.kosabi_jvm_abi_gen_k2_plugin,
+            semanticdb_kotlinc = None,
+            semanticdb_sourceroot = None,
         ),
     ]
 
 _kotlin_toolchain_rule = rule(
     attrs = {
-        "allow_k2_usage": attrs.option(attrs.bool(), default = None),
         "annotation_processing_jar": attrs.dep(),
         "class_loader_bootstrapper": attrs.option(attrs.source(), default = None),
         "compile_kotlin": attrs.dep(providers = [RunInfo]),
@@ -110,6 +112,7 @@ _kotlin_toolchain_rule = rule(
         "kotlin_version": attrs.string(),
         "kotlinc": attrs.dep(providers = [RunInfo]),
         "kotlinc_protocol": attrs.enum(KotlincProtocol.values(), default = "classic"),
+        "kotlincd": attrs.option(attrs.dep(providers = [RunInfo]), default = None),
         "kotlincd_debug_port": attrs.option(attrs.int(), default = None),
         "kotlincd_debug_target": attrs.option(attrs.label(), default = None),
         "kotlincd_jvm_args": attrs.list(attrs.string(), default = []),

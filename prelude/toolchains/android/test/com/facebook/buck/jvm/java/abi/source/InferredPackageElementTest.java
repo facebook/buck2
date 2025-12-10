@@ -13,7 +13,6 @@ package com.facebook.buck.jvm.java.abi.source;
 import static org.junit.Assert.assertEquals;
 
 import com.facebook.buck.jvm.java.testutil.compiler.CompilerTreeApiTest;
-import com.facebook.buck.jvm.java.testutil.compiler.CompilerTreeApiTestRunner;
 import com.google.common.base.Joiner;
 import java.io.IOException;
 import javax.lang.model.element.PackageElement;
@@ -21,9 +20,7 @@ import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.DeclaredType;
 import org.junit.Before;
 import org.junit.Test;
-import org.junit.runner.RunWith;
 
-@RunWith(CompilerTreeApiTestRunner.class)
 public class InferredPackageElementTest extends CompilerTreeApiTest {
   @Before
   public void setUp() {

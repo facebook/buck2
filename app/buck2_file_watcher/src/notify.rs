@@ -21,12 +21,12 @@ use buck2_common::invocation_paths::InvocationPaths;
 use buck2_core::cells::CellResolver;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::name::CellName;
-use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_data::FileWatcherEventType;
 use buck2_data::FileWatcherKind;
 use buck2_error::conversion::from_any_with_tag;
 use buck2_events::dispatch::span_async;
+use buck2_fs::paths::abs_norm_path::AbsNormPath;
 use dice::DiceTransactionUpdater;
 use dupe::Dupe;
 use notify::EventKind;
@@ -233,6 +233,8 @@ impl NotifyFileData {
 #[derive(Allocative)]
 pub struct NotifyFileWatcher {
     #[allocative(skip)]
+    #[expect(unused)]
+    // FIXME(JakobDegen): Clarify if this just needs to be kept alive or can be removed?
     watcher: RecommendedWatcher,
     data: Arc<Mutex<buck2_error::Result<NotifyFileData>>>,
 }

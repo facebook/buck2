@@ -11,7 +11,6 @@
 
 import os
 import subprocess
-from typing import Tuple
 
 from buck2.tests.core.common.io.file_watcher import (
     FileWatcherProvider,
@@ -26,7 +25,7 @@ from buck2.tests.e2e_util.api.buck import Buck
 
 
 # Setup repo structure to test these conditions: https://www.internalfb.com/excalidraw/EX346258
-async def setup_file_watcher_scm_test(buck: Buck) -> Tuple[str, str, str, str]:
+async def setup_file_watcher_scm_test(buck: Buck) -> tuple[str, str, str, str]:
     # Run after setup_file_watcher_test to create a simple stack of commits
     commit_a = subprocess.check_output(["sl", "whereami"], cwd=buck.cwd).decode()
 

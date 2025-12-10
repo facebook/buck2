@@ -8,10 +8,13 @@ version = "0.1.0"
 
 [dependencies]
 anyhow = { workspace = true }
+async-compression = { workspace = true }
 dupe = { workspace = true }
 futures = { workspace = true }
 gazebo = { workspace = true }
 http = { workspace = true }
+hyper = { workspace = true }
+hyper-util = { workspace = true }
 lru = { workspace = true }
 once_cell = { workspace = true }
 prost = { workspace = true }
@@ -19,9 +22,13 @@ prost-types = { workspace = true }
 regex = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true }
+tokio-stream = { workspace = true }
+tokio-util = { workspace = true }
 tonic = { workspace = true }
+tower = { workspace = true }
 tracing = { workspace = true }
 uuid = { workspace = true }
+zstd = { workspace = true }
 
 buck2_re_configuration = { workspace = true }
 buck2_util = { workspace = true }

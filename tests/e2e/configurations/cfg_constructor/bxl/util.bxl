@@ -20,12 +20,12 @@ _TARGETS = [
     "ovr_config//os/constraints:linux",
     "ovr_config//os/constraints:macos",
     "ovr_config//os/constraints:windows",
-    "ovr_config//build_mode/constraints:san",
+    "ovr_config//build_mode:sanitizer_type",
     "ovr_config//build_mode/constraints:no-san",
-    "ovr_config//build_mode/constraints:asan",
-    "ovr_config//build_mode/constraints:asan-ubsan",
-    "ovr_config//build_mode/constraints:hwasan",
-    "ovr_config//build_mode/constraints:tsan",
+    "ovr_config//build_mode:sanitizer_type[asan]",
+    "ovr_config//build_mode:sanitizer_type[asan-ubsan]",
+    "ovr_config//build_mode:sanitizer_type[hwasan]",
+    "ovr_config//build_mode:sanitizer_type[tsan]",
     # TODO: This will probably get broken by updates to clang constraints.
     # Figure out how to handle this.
     "ovr_config//toolchain/clang/constraints:15",
@@ -56,7 +56,10 @@ TestRefs = record(
 
 def _get_providers(ctx: bxl.Context, targets: list[str]) -> dict[str, ProviderCollection]:
     analysis_result = ctx.analysis(targets)
-    return {str(target.raw_target()): v.providers() for target, v in analysis_result.items()}
+    return {
+        str(target.raw_target().with_sub_target(target.sub_target)) if target.sub_target else str(target.raw_target()): v.providers()
+        for target, v in analysis_result.items()
+    }
 
 def get_test_refs(ctx: bxl.Context) -> TestRefs:
     def get(target: str) -> ProviderCollection:

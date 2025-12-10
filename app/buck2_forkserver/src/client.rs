@@ -16,14 +16,10 @@ use allocative::Allocative;
 use arc_swap::ArcSwapOption;
 use buck2_core::tag_error;
 use buck2_error::BuckErrorContext;
-use buck2_events::dispatch::EventDispatcher;
 use buck2_execute_local::CommandResult;
 use buck2_execute_local::decode_command_event_stream;
-use buck2_resource_control::CommandType;
-use buck2_resource_control::action_cgroups::ActionCgroupSession;
-use buck2_resource_control::memory_tracker::MemoryTrackerHandle;
-#[cfg(unix)]
-use buck2_util::cgroup_info::CGroupInfo;
+use buck2_resource_control::ActionFreezeEvent;
+use buck2_resource_control::ActionFreezeEventReceiver;
 use dupe::Dupe;
 use futures::future;
 use futures::future::Future;
@@ -39,7 +35,6 @@ use crate::convert::decode_event_stream;
 #[derive(Clone, Dupe, Allocative)]
 pub struct ForkserverClient {
     inner: Arc<ForkserverClientInner>,
-    memory_tracker: Option<MemoryTrackerHandle>,
 }
 
 #[derive(buck2_error::Error, Debug)]
@@ -59,28 +54,10 @@ struct ForkserverClientInner {
     pid: u32,
     #[allocative(skip)]
     rpc: buck2_forkserver_proto::forkserver_client::ForkserverClient<Channel>,
-    /// The cgroup info of the forkserver process, if available.
-    cgroup_info: Option<CGroupInfoWrapper>,
-}
-
-#[derive(Allocative)]
-pub struct CGroupInfoWrapper {
-    /// The forkserver itself.
-    #[cfg(unix)]
-    pub scope: CGroupInfo,
-
-    /// The forkserver and the processes it spawned.
-    #[cfg(unix)]
-    pub slice: CGroupInfo,
 }
 
 impl ForkserverClient {
-    #[allow(unused)] // Unused on Windows
-    pub(crate) async fn new(
-        mut child: Child,
-        channel: Channel,
-        memory_tracker: Option<MemoryTrackerHandle>,
-    ) -> buck2_error::Result<Self> {
+    pub(crate) async fn new(mut child: Child, channel: Channel) -> buck2_error::Result<Self> {
         let rpc = buck2_forkserver_proto::forkserver_client::ForkserverClient::new(channel)
             .max_encoding_message_size(usize::MAX)
             .max_decoding_message_size(usize::MAX);
@@ -89,51 +66,18 @@ impl ForkserverClient {
 
         let error = Arc::new(ArcSwapOption::empty());
 
-        tokio::task::spawn({
-            let error = error.clone();
+        tokio::task::spawn(buck2_util::async_move_clone!(error, {
+            let err = match child.wait().await {
+                Ok(status) => ForkserverError::Exited(status),
+                Err(e) => ForkserverError::WaitError(e),
+            };
 
-            async move {
-                let err = match child.wait().await {
-                    Ok(status) => ForkserverError::Exited(status),
-                    Err(e) => ForkserverError::WaitError(e),
-                };
-
-                let err = buck2_error::Error::from(err).context("Forkserver is unavailable");
-                error.swap(Some(Arc::new(err)));
-            }
-        });
-
-        // Query the forkserver's Cgroup now that it's started. This might return
-        // None if we didn't enable it.
-        let mut cgroup_info = None;
-
-        #[cfg(unix)]
-        {
-            let response = rpc
-                .clone()
-                .get_cgroup(tonic::Request::new(
-                    buck2_forkserver_proto::GetCgroupRequest {},
-                ))
-                .await
-                .buck_error_context("Failed to query forkserver cgroup")?;
-
-            cgroup_info = response.into_inner().cgroup_path.and_then(|path| {
-                let scope = CGroupInfo { path };
-                let slice = CGroupInfo {
-                    path: scope.get_slice()?.to_owned(),
-                };
-                Some(CGroupInfoWrapper { scope, slice })
-            });
-        };
+            let err = buck2_error::Error::from(err).context("Forkserver is unavailable");
+            error.swap(Some(Arc::new(err)));
+        }));
 
         Ok(Self {
-            inner: Arc::new(ForkserverClientInner {
-                error,
-                pid,
-                rpc,
-                cgroup_info,
-            }),
-            memory_tracker,
+            inner: Arc::new(ForkserverClientInner { error, pid, rpc }),
         })
     }
 
@@ -141,17 +85,11 @@ impl ForkserverClient {
         self.inner.pid
     }
 
-    #[cfg(unix)]
-    pub fn cgroup_info(&self) -> Option<&CGroupInfoWrapper> {
-        self.inner.cgroup_info.as_ref()
-    }
-
     pub async fn execute<C>(
         &self,
         req: buck2_forkserver_proto::CommandRequest,
         cancel: C,
-        command_type: CommandType,
-        dispatcher: EventDispatcher,
+        freeze_rx: impl ActionFreezeEventReceiver,
     ) -> buck2_error::Result<CommandResult>
     where
         C: Future<Output = ()> + Send + 'static,
@@ -167,15 +105,21 @@ impl ForkserverClient {
             .into());
         }
 
-        let action_digest = req.action_digest.clone();
+        let cancel_stream = stream::once(cancel.map(|()| buck2_forkserver_proto::RequestEvent {
+            data: Some(buck2_forkserver_proto::CancelRequest {}.into()),
+        }));
+        let freeze_stream = freeze_rx.map(|e| {
+            let data = match e {
+                ActionFreezeEvent::Freeze => buck2_forkserver_proto::FreezeRequest {}.into(),
+                ActionFreezeEvent::Unfreeze => buck2_forkserver_proto::UnfreezeRequest {}.into(),
+            };
+            buck2_forkserver_proto::RequestEvent { data: Some(data) }
+        });
+
         let stream = stream::once(future::ready(buck2_forkserver_proto::RequestEvent {
             data: Some(req.into()),
         }))
-        .chain(stream::once(cancel.map(|()| {
-            buck2_forkserver_proto::RequestEvent {
-                data: Some(buck2_forkserver_proto::CancelRequest {}.into()),
-            }
-        })));
+        .chain(futures::stream::select(cancel_stream, freeze_stream));
 
         let stream = self
             .inner
@@ -187,13 +131,7 @@ impl ForkserverClient {
             .into_inner();
         let stream = decode_event_stream(stream);
 
-        let cgroup_session = ActionCgroupSession::maybe_create(
-            &self.memory_tracker,
-            dispatcher,
-            command_type,
-            action_digest,
-        );
-        decode_command_event_stream(stream, cgroup_session).await
+        decode_command_event_stream(stream).await
     }
 
     pub async fn set_log_filter(&self, log_filter: String) -> buck2_error::Result<()> {

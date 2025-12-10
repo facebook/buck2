@@ -27,8 +27,7 @@ use buck2_common::build_count::BuildCountManager;
 use buck2_common::convert::ProstDurationExt;
 use buck2_common::invocation_paths::InvocationPaths;
 use buck2_core::buck2_env;
-use buck2_core::fs::fs_util;
-use buck2_core::fs::paths::abs_path::AbsPathBuf;
+use buck2_core::io_counters::IoCounterKey;
 use buck2_core::soft_error;
 use buck2_data::ErrorReport;
 use buck2_data::FileWatcherProvider;
@@ -56,8 +55,11 @@ use buck2_event_observer::last_command_execution_kind;
 use buck2_event_observer::last_command_execution_kind::LastCommandExecutionKind;
 use buck2_event_observer::last_command_execution_kind::get_last_command_execution_time;
 use buck2_events::BuckEvent;
+use buck2_events::daemon_id::DaemonId;
 use buck2_events::sink::remote::ScribeConfig;
 use buck2_events::sink::remote::new_remote_event_sink_if_enabled;
+use buck2_fs::fs_util;
+use buck2_fs::paths::abs_path::AbsPathBuf;
 use buck2_util::network_speed_average::NetworkSpeedAverage;
 use buck2_util::sliding_window::SlidingWindow;
 use buck2_wrapper_common::BUCK_WRAPPER_START_TIME_ENV_VAR;
@@ -159,6 +161,7 @@ pub struct InvocationRecorder {
     time_to_first_timeout_test_result: Option<Duration>,
     time_to_first_fatal_test_result: Option<Duration>,
     time_to_first_unknown_test_result: Option<Duration>,
+    time_to_first_infra_failure_test_result: Option<Duration>,
 
     system_info: SystemInfo,
     file_watcher_stats: Option<buck2_data::FileWatcherStats>,
@@ -245,8 +248,6 @@ pub struct InvocationRecorder {
     initial_local_cache_hits_files_from_filesystem_cache: Option<i64>,
     initial_local_cache_lookups: Option<i64>,
     initial_local_cache_lookup_latency_microseconds: Option<i64>,
-    memory_tracker_pressure_events: u64,
-    peak_memory_pressure_percentage: u64,
     max_dice_in_progress_keys: u64,
     max_dice_compute_keys: u64,
     current_in_progress_actions: u64,
@@ -260,15 +261,34 @@ pub struct InvocationRecorder {
     // Track executor stage types by span ID to know which counter to decrement on end
     executor_stages_by_span: HashMap<u64, ExecutorStageType>,
     // Track maximum buck2 daemon anon memory usage
-    max_buck2_anon: Option<u64>,
+    memory_max_anon_allprocs: Option<u64>,
     // Track maximum buck2 forkserver anon memory usage
-    max_buck2_forkserver_anon: Option<u64>,
+    memory_max_anon_forkserver_actions: Option<u64>,
     // Track maximum total buck2 daemon memory usage (anon+file+kernel)
-    max_buck2_total_memory: Option<u64>,
+    memory_max_total_allprocs: Option<u64>,
     // Track maximum total buck2 forkserver memory usage (anon+file+kernel)
-    max_buck2_forkserver_total_memory: Option<u64>,
+    memory_max_total_forkserver_actions: Option<u64>,
     // CommandOptions data
     command_options: Option<buck2_data::CommandOptions>,
+    // Initial IO counters captured at invocation start
+    initial_io_copy_count: u32,
+    initial_io_symlink_count: u32,
+    initial_io_hardlink_count: u32,
+    initial_io_mkdir_count: u32,
+    initial_io_readdir_count: u32,
+    initial_io_readdir_eden_count: u32,
+    initial_io_rmdir_count: u32,
+    initial_io_rmdir_all_count: u32,
+    initial_io_stat_count: u32,
+    initial_io_stat_eden_count: u32,
+    initial_io_chmod_count: u32,
+    initial_io_readlink_count: u32,
+    initial_io_remove_count: u32,
+    initial_io_rename_count: u32,
+    initial_io_read_count: u32,
+    initial_io_write_count: u32,
+    initial_io_canonicalize_count: u32,
+    initial_io_eden_settle_count: u32,
 }
 
 #[derive(Clone, Debug)]
@@ -344,6 +364,7 @@ impl InvocationRecorder {
             time_to_first_fatal_test_result: None,
             time_to_first_timeout_test_result: None,
             time_to_first_skip_test_result: None,
+            time_to_first_infra_failure_test_result: None,
             time_to_first_unknown_test_result: None,
             system_info: SystemInfo::default(),
             file_watcher_stats: None,
@@ -356,7 +377,9 @@ impl InvocationRecorder {
             sink_max_buffer_depth: 0,
             soft_error_categories: HashSet::new(),
             concurrent_command_blocking_duration: None,
-            metadata: buck2_events::metadata::collect(),
+            // Use a null daemon_id here initially - if we later get metadata back from the daemon,
+            // we'll overwrite this then
+            metadata: buck2_events::metadata::collect(&DaemonId::null()),
             analysis_count: 0,
             load_count: 0,
             daemon_in_memory_state_is_corrupted: false,
@@ -436,8 +459,6 @@ impl InvocationRecorder {
             initial_local_cache_hits_files_from_filesystem_cache: None,
             initial_local_cache_lookups: None,
             initial_local_cache_lookup_latency_microseconds: None,
-            memory_tracker_pressure_events: 0,
-            peak_memory_pressure_percentage: 0,
             max_dice_in_progress_keys: 0,
             max_dice_compute_keys: 0,
             current_in_progress_actions: 0,
@@ -449,11 +470,29 @@ impl InvocationRecorder {
             current_in_progress_remote_uploads: 0,
             max_in_progress_remote_uploads: 0,
             executor_stages_by_span: HashMap::new(),
-            max_buck2_anon: None,
-            max_buck2_forkserver_anon: None,
-            max_buck2_total_memory: None,
-            max_buck2_forkserver_total_memory: None,
+            memory_max_anon_allprocs: None,
+            memory_max_anon_forkserver_actions: None,
+            memory_max_total_allprocs: None,
+            memory_max_total_forkserver_actions: None,
             command_options: None,
+            initial_io_copy_count: IoCounterKey::Copy.get_finished(),
+            initial_io_symlink_count: IoCounterKey::Symlink.get_finished(),
+            initial_io_hardlink_count: IoCounterKey::Hardlink.get_finished(),
+            initial_io_mkdir_count: IoCounterKey::MkDir.get_finished(),
+            initial_io_readdir_count: IoCounterKey::ReadDir.get_finished(),
+            initial_io_readdir_eden_count: IoCounterKey::ReadDirEden.get_finished(),
+            initial_io_rmdir_count: IoCounterKey::RmDir.get_finished(),
+            initial_io_rmdir_all_count: IoCounterKey::RmDirAll.get_finished(),
+            initial_io_stat_count: IoCounterKey::Stat.get_finished(),
+            initial_io_stat_eden_count: IoCounterKey::StatEden.get_finished(),
+            initial_io_chmod_count: IoCounterKey::Chmod.get_finished(),
+            initial_io_readlink_count: IoCounterKey::ReadLink.get_finished(),
+            initial_io_remove_count: IoCounterKey::Remove.get_finished(),
+            initial_io_rename_count: IoCounterKey::Rename.get_finished(),
+            initial_io_read_count: IoCounterKey::Read.get_finished(),
+            initial_io_write_count: IoCounterKey::Write.get_finished(),
+            initial_io_canonicalize_count: IoCounterKey::Canonicalize.get_finished(),
+            initial_io_eden_settle_count: IoCounterKey::EdenSettle.get_finished(),
         }
     }
 
@@ -585,7 +624,9 @@ impl InvocationRecorder {
             // Should not have returned success.
             (Some(ExitCode::Success), true) => InvocationOutcome::Unknown,
             // Ignore errors if the command was cancelled.
-            (Some(ExitCode::SignalInterrupt), _) => InvocationOutcome::Cancelled,
+            (Some(ExitCode::SignalInterrupt) | Some(ExitCode::ClientIoBrokenPipe), _) => {
+                InvocationOutcome::Cancelled
+            }
             // Remaining exit codes indicate failed commands, these should always have errors.
             (Some(_), true) => match crashed {
                 true => InvocationOutcome::Crashed,
@@ -934,6 +975,9 @@ impl InvocationRecorder {
             time_to_first_timeout_test_result_ms: self
                 .time_to_first_timeout_test_result
                 .and_then(duration_as_millis),
+            time_to_first_infra_failure_test_result_ms: self
+                .time_to_first_infra_failure_test_result
+                .and_then(|d| u64::try_from(d.as_millis()).ok()),
             time_to_first_unknown_test_result_ms: self
                 .time_to_first_unknown_test_result
                 .and_then(duration_as_millis),
@@ -998,8 +1042,6 @@ impl InvocationRecorder {
             install_device_metadata: self.install_device_metadata.drain(..).collect(),
             installer_log_url: self.installer_log_url.take(),
             peak_process_memory_bytes: self.peak_process_memory_bytes.take(),
-            memory_tracker_pressure_events: Some(self.memory_tracker_pressure_events),
-            peak_memory_pressure_percentage: Some(self.peak_memory_pressure_percentage),
             event_log_manifold_ttl_s: manifold_event_log_ttl().ok().map(|t| t.as_secs()),
             total_disk_space_bytes: self.system_info.total_disk_space_bytes.take(),
             peak_used_disk_space_bytes: self.peak_used_disk_space_bytes.take(),
@@ -1054,11 +1096,101 @@ impl InvocationRecorder {
             max_in_progress_local_actions: Some(self.max_in_progress_local_actions),
             max_in_progress_remote_actions: Some(self.max_in_progress_remote_actions),
             max_in_progress_remote_uploads: Some(self.max_in_progress_remote_uploads),
-            max_buck2_anon: self.max_buck2_anon,
-            max_buck2_forkserver_anon: self.max_buck2_forkserver_anon,
-            max_buck2_total_memory: self.max_buck2_total_memory,
-            max_buck2_forkserver_total_memory: self.max_buck2_forkserver_total_memory,
+            memory_max_anon_allprocs: self.memory_max_anon_allprocs,
+            memory_max_anon_forkserver_actions: self.memory_max_anon_forkserver_actions,
+            memory_max_total_allprocs: self.memory_max_total_allprocs,
+            memory_max_total_forkserver_actions: self.memory_max_total_forkserver_actions,
             command_options: self.command_options,
+            io_copy_count: Some(
+                IoCounterKey::Copy
+                    .get_finished()
+                    .saturating_sub(self.initial_io_copy_count),
+            ),
+            io_symlink_count: Some(
+                IoCounterKey::Symlink
+                    .get_finished()
+                    .saturating_sub(self.initial_io_symlink_count),
+            ),
+            io_hardlink_count: Some(
+                IoCounterKey::Hardlink
+                    .get_finished()
+                    .saturating_sub(self.initial_io_hardlink_count),
+            ),
+            io_mkdir_count: Some(
+                IoCounterKey::MkDir
+                    .get_finished()
+                    .saturating_sub(self.initial_io_mkdir_count),
+            ),
+            io_readdir_count: Some(
+                IoCounterKey::ReadDir
+                    .get_finished()
+                    .saturating_sub(self.initial_io_readdir_count),
+            ),
+            io_readdir_eden_count: Some(
+                IoCounterKey::ReadDirEden
+                    .get_finished()
+                    .saturating_sub(self.initial_io_readdir_eden_count),
+            ),
+            io_rmdir_count: Some(
+                IoCounterKey::RmDir
+                    .get_finished()
+                    .saturating_sub(self.initial_io_rmdir_count),
+            ),
+            io_rmdir_all_count: Some(
+                IoCounterKey::RmDirAll
+                    .get_finished()
+                    .saturating_sub(self.initial_io_rmdir_all_count),
+            ),
+            io_stat_count: Some(
+                IoCounterKey::Stat
+                    .get_finished()
+                    .saturating_sub(self.initial_io_stat_count),
+            ),
+            io_stat_eden_count: Some(
+                IoCounterKey::StatEden
+                    .get_finished()
+                    .saturating_sub(self.initial_io_stat_eden_count),
+            ),
+            io_chmod_count: Some(
+                IoCounterKey::Chmod
+                    .get_finished()
+                    .saturating_sub(self.initial_io_chmod_count),
+            ),
+            io_readlink_count: Some(
+                IoCounterKey::ReadLink
+                    .get_finished()
+                    .saturating_sub(self.initial_io_readlink_count),
+            ),
+            io_remove_count: Some(
+                IoCounterKey::Remove
+                    .get_finished()
+                    .saturating_sub(self.initial_io_remove_count),
+            ),
+            io_rename_count: Some(
+                IoCounterKey::Rename
+                    .get_finished()
+                    .saturating_sub(self.initial_io_rename_count),
+            ),
+            io_read_count: Some(
+                IoCounterKey::Read
+                    .get_finished()
+                    .saturating_sub(self.initial_io_read_count),
+            ),
+            io_write_count: Some(
+                IoCounterKey::Write
+                    .get_finished()
+                    .saturating_sub(self.initial_io_write_count),
+            ),
+            io_canonicalize_count: Some(
+                IoCounterKey::Canonicalize
+                    .get_finished()
+                    .saturating_sub(self.initial_io_canonicalize_count),
+            ),
+            io_eden_settle_count: Some(
+                IoCounterKey::EdenSettle
+                    .get_finished()
+                    .saturating_sub(self.initial_io_eden_settle_count),
+            ),
         };
 
         let event = BuckEvent::new(
@@ -1545,6 +1677,10 @@ impl InvocationRecorder {
             buck2_data::TestStatus::Skip => {
                 self.time_to_first_skip_test_result.get_or_insert(duration);
             }
+            buck2_data::TestStatus::InfraFailure => {
+                self.time_to_first_infra_failure_test_result
+                    .get_or_insert(duration);
+            }
             buck2_data::TestStatus::Timeout => {
                 self.time_to_first_timeout_test_result
                     .get_or_insert(duration);
@@ -1560,20 +1696,6 @@ impl InvocationRecorder {
             | buck2_data::TestStatus::Rerun
             | buck2_data::TestStatus::NotSetTestStatus => (),
         };
-        Ok(())
-    }
-
-    fn handle_memory_pressure_start(&mut self) -> buck2_error::Result<()> {
-        self.memory_tracker_pressure_events += 1;
-        Ok(())
-    }
-
-    fn handle_memory_pressure(
-        &mut self,
-        pressure_info: buck2_data::MemoryPressure,
-    ) -> buck2_error::Result<()> {
-        self.peak_memory_pressure_percentage = pressure_info.peak_pressure;
-
         Ok(())
     }
 
@@ -1807,22 +1929,26 @@ impl InvocationRecorder {
         );
 
         // Track maximum buck2 daemon memory usage from cgroup
-        if let Some(daemon_cgroup) = &update.daemon_cgroup {
-            self.max_buck2_anon = max(self.max_buck2_anon, Some(daemon_cgroup.anon));
+        if let Some(allprocs_cgroup) = &update.allprocs_cgroup {
+            self.memory_max_anon_allprocs =
+                max(self.memory_max_anon_allprocs, Some(allprocs_cgroup.anon));
             let total_daemon_memory =
-                daemon_cgroup.anon + daemon_cgroup.file + daemon_cgroup.kernel;
-            self.max_buck2_total_memory =
-                max(self.max_buck2_total_memory, Some(total_daemon_memory));
+                allprocs_cgroup.anon + allprocs_cgroup.file + allprocs_cgroup.kernel;
+            self.memory_max_total_allprocs =
+                max(self.memory_max_total_allprocs, Some(total_daemon_memory));
         }
 
         // Track maximum buck2 forkserver memory usage from cgroup
-        if let Some(forkserver_cgroup) = &update.forkserver_cgroup {
-            self.max_buck2_forkserver_anon =
-                max(self.max_buck2_forkserver_anon, Some(forkserver_cgroup.anon));
-            let total_forkserver_memory =
-                forkserver_cgroup.anon + forkserver_cgroup.file + forkserver_cgroup.kernel;
-            self.max_buck2_forkserver_total_memory = max(
-                self.max_buck2_forkserver_total_memory,
+        if let Some(forkserver_actions_cgroup) = &update.forkserver_actions_cgroup {
+            self.memory_max_anon_forkserver_actions = max(
+                self.memory_max_anon_forkserver_actions,
+                Some(forkserver_actions_cgroup.anon),
+            );
+            let total_forkserver_memory = forkserver_actions_cgroup.anon
+                + forkserver_actions_cgroup.file
+                + forkserver_actions_cgroup.kernel;
+            self.memory_max_total_forkserver_actions = max(
+                self.memory_max_total_forkserver_actions,
                 Some(total_forkserver_memory),
             );
         }
@@ -2014,9 +2140,6 @@ impl InvocationRecorder {
                     buck2_data::span_start_event::Data::FileWatcher(file_watcher) => {
                         self.handle_file_watcher_start(*file_watcher)
                     }
-                    buck2_data::span_start_event::Data::MemoryPressure(_) => {
-                        self.handle_memory_pressure_start()
-                    }
                     _ => Ok(()),
                 }
             }
@@ -2126,9 +2249,6 @@ impl InvocationRecorder {
                     }
                     buck2_data::instant_event::Data::TestResult(result) => {
                         self.handle_test_result(result, event)
-                    }
-                    buck2_data::instant_event::Data::MemoryPressure(memory_pressure) => {
-                        self.handle_memory_pressure(*memory_pressure)
                     }
                     buck2_data::instant_event::Data::DiceStateSnapshot(dice_state_snapshot) => {
                         self.handle_dice_state_snapshot(dice_state_snapshot)
@@ -2393,7 +2513,9 @@ mod tests {
     use std::time::SystemTime;
 
     use buck2_data::InvocationOutcome;
+    use buck2_error::ErrorTag;
     use buck2_error::ExitCode;
+    use buck2_error::buck2_error;
     use buck2_error::internal_error;
     use buck2_wrapper_common::invocation_id::TraceId;
 
@@ -2434,5 +2556,9 @@ mod tests {
 
         let exit_result = ExitResult::exec(OsString::new(), vec![], None, vec![]);
         assert_eq!(recorder.outcome(&exit_result), InvocationOutcome::Success);
+
+        let err = buck2_error!(ErrorTag::IoClientBrokenPipe, "test");
+        let exit_result = ExitResult::err(err);
+        assert_eq!(recorder.outcome(&exit_result), InvocationOutcome::Cancelled);
     }
 }

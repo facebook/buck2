@@ -17,6 +17,7 @@ use async_trait::async_trait;
 use buck2_data::CommandExecutionDetails;
 use buck2_error::BuckErrorContext;
 use buck2_error::conversion::from_any_with_tag;
+use buck2_event_observer::action_sub_error_display::ActionSubErrorDisplay;
 use buck2_event_observer::display;
 use buck2_event_observer::display::TargetDisplayOptions;
 use buck2_event_observer::display::display_file_watcher_end;
@@ -621,6 +622,7 @@ impl StatefulSuperConsoleImpl {
             StyledContent::new(
                 ContentStyle {
                     attributes: Attribute::Bold.into(),
+                    foreground_color: Some(Color::Red),
                     ..Default::default()
                 },
                 format!("Action failed: {action_id}",),
@@ -643,11 +645,13 @@ impl StatefulSuperConsoleImpl {
                     let sub_errors = &sub_errors.sub_errors;
                     if !sub_errors.is_empty() {
                         for sub_error in sub_errors {
-                            if let Some(message) = &sub_error.message {
-                                lines.push(Line::from_iter([Span::new_styled_lossy(
-                                    format!("[{}] {}", sub_error.category, message)
-                                        .with(Color::DarkCyan),
-                                )]));
+                            // Display errors based on show_in_stderr flag is true
+                            if sub_error.show_in_stderr {
+                                if let Some(display_msg) = sub_error.display() {
+                                    lines.push(Line::from_iter([Span::new_styled_lossy(
+                                        display_msg.with(Color::DarkCyan),
+                                    )]))
+                                }
                             }
                         }
                     }
@@ -901,9 +905,9 @@ fn lines_for_command_details(
                     }
                 };
 
-                lines.push(Line::from_iter([Span::new_styled_lossy(
-                    format!("Reproduce locally: `{command}`").with(Color::DarkRed),
-                )]));
+                lines.push(Line::from_iter([Span::new_unstyled_lossy(format!(
+                    "Reproduce locally: `{command}`"
+                ))]));
             }
             Some(Command::RemoteCommand(remote_command)) => {
                 let help_message = if buck2_core::is_open_source() {
@@ -936,9 +940,9 @@ fn lines_for_command_details(
                     }
                 };
 
-                lines.push(Line::from_iter([Span::new_styled_lossy(
-                    format!("Reproduce locally: `{command}`").with(Color::DarkRed),
-                )]));
+                lines.push(Line::from_iter([Span::new_unstyled_lossy(format!(
+                    "Reproduce locally: `{command}`"
+                ))]));
             }
             Some(Command::WorkerCommand(worker_command)) => {
                 let command = worker_command_as_fallback_to_string(worker_command);
@@ -954,9 +958,9 @@ fn lines_for_command_details(
                     }
                 };
 
-                lines.push(Line::from_iter([Span::new_styled_lossy(
-                    format!("Reproduce locally: `{command}`").with(Color::DarkRed),
-                )]));
+                lines.push(Line::from_iter([Span::new_unstyled_lossy(format!(
+                    "Reproduce locally: `{command}`"
+                ))]));
             }
         };
     }
@@ -967,14 +971,18 @@ fn lines_for_command_details(
             .with(Color::DarkRed)
             .attribute(Attribute::Bold),
     )]));
-    lines.extend(Lines::from_colored_multiline_string(&command_failed.stdout));
+    lines.extend(Lines::from_colored_multiline_string(
+        &command_failed.cmd_stdout,
+    ));
     lines.push(Line::from_iter([Span::new_styled_lossy(
         "stderr:"
             .to_owned()
             .with(Color::DarkRed)
             .attribute(Attribute::Bold),
     )]));
-    lines.extend(Lines::from_colored_multiline_string(&command_failed.stderr));
+    lines.extend(Lines::from_colored_multiline_string(
+        &command_failed.cmd_stderr,
+    ));
 
     if let Some(additional_message) = &command_failed.additional_message {
         if !additional_message.is_empty() {
@@ -996,8 +1004,9 @@ fn truncate(contents: &str) -> Option<String> {
     if contents.len() > MAX_LENGTH + BUFFER {
         Some(format!(
             "{} ...<omitted>... {}",
-            &contents[0..MAX_LENGTH / 2],
-            &contents[contents.len() - MAX_LENGTH / 2..contents.len()]
+            &contents[0..contents.ceil_char_boundary(MAX_LENGTH / 2)],
+            &contents
+                [contents.floor_char_boundary(contents.len() - MAX_LENGTH / 2)..contents.len()]
         ))
     } else {
         None
@@ -1123,8 +1132,8 @@ mod tests {
                 buck2_data::buck_event::Data::SpanStart(SpanStartEvent {
                     data: Some(
                         buck2_data::CommandStart {
-                            metadata: Default::default(),
                             data: Some(buck2_data::BuildCommandStart {}.into()),
+                            ..Default::default()
                         }
                         .into(),
                     ),

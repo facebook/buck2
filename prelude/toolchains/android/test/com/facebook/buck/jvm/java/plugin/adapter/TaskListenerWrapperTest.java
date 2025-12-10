@@ -13,13 +13,10 @@ package com.facebook.buck.jvm.java.plugin.adapter;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 
-import com.facebook.buck.jvm.java.testutil.compiler.CompilerTreeApiTestRunner;
 import com.sun.source.util.TaskEvent;
 import com.sun.source.util.TaskListener;
 import org.junit.Test;
-import org.junit.runner.RunWith;
 
-@RunWith(CompilerTreeApiTestRunner.class)
 public class TaskListenerWrapperTest {
   private final TaskListener innerListener = mock(TaskListener.class);
 

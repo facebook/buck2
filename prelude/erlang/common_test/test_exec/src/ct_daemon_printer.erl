@@ -27,7 +27,7 @@ print_summary(Total, Passed, FailedOrSkipped) ->
     io:format("~ts   Passed: ~b~n", [?CHECK_MARK, Passed]),
     io:format("~ts/~ts Failed or Skipped: ~b~n", [?CROSS_MARK, ?SKIP_MARK, FailedOrSkipped]).
 
--spec print_result(string(), ct_daemon_core:run_result() | ct_daemon_runner:discover_error()) ->
+-spec print_result(string(), ct_daemon_core:run_result() | {error, ct_daemon_runner:discover_error()}) ->
     ok | fail | skip.
 print_result(Name, pass_result) ->
     io:format("~ts ~ts~n", [?CHECK_MARK, Name]);

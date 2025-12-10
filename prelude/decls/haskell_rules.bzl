@@ -24,14 +24,12 @@ haskell_binary = prelude_rule(
     """,
     examples = """
         ```
-
         haskell_binary(
           name = 'foo',
           srcs = [
             'Foo.hs',
           ],
         )
-
         ```
     """,
     further = None,
@@ -51,19 +49,19 @@ haskell_binary = prelude_rule(
         haskell_common.deps_arg() |
         buck.platform_deps_arg() |
         {
-            "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "deps_query": attrs.option(attrs.query(), default = None),
             "enable_profiling": attrs.bool(default = False),
             "ghci_platform_preload_deps": attrs.list(attrs.tuple(attrs.regex(), attrs.set(attrs.dep(), sorted = True)), default = []),
             "ghci_preload_deps": attrs.set(attrs.dep(), sorted = True, default = []),
-            "labels": attrs.list(attrs.string(), default = []),
-            "licenses": attrs.list(attrs.source(), default = []),
             "link_deps_query_whole": attrs.bool(default = False),
             "linker_flags": attrs.list(attrs.arg(), default = []),
             "platform": attrs.option(attrs.string(), default = None),
             "platform_linker_flags": attrs.list(attrs.tuple(attrs.regex(), attrs.list(attrs.arg())), default = []),
-        }
+        } |
+        buck.licenses_arg() |
+        buck.labels_arg() |
+        buck.contacts_arg()
     ),
 )
 
@@ -76,7 +74,6 @@ haskell_ghci = prelude_rule(
         # @unsorted-dict-items
         {
             "compiler_flags": attrs.list(attrs.string(), default = []),
-            "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "deps": attrs.list(attrs.dep(), default = []),
             "deps_query": attrs.option(attrs.query(), default = None),
@@ -84,15 +81,16 @@ haskell_ghci = prelude_rule(
             "extra_script_templates": attrs.list(attrs.source(), default = []),
             "ghci_bin_dep": attrs.option(attrs.dep(), default = None),
             "ghci_init": attrs.option(attrs.source(), default = None),
-            "labels": attrs.list(attrs.string(), default = []),
-            "licenses": attrs.list(attrs.source(), default = []),
             "linker_flags": attrs.list(attrs.arg(), default = []),
             "platform": attrs.option(attrs.string(), default = None),
             "platform_deps": attrs.list(attrs.tuple(attrs.regex(), attrs.set(attrs.dep(), sorted = True)), default = []),
             "platform_preload_deps": attrs.list(attrs.tuple(attrs.regex(), attrs.set(attrs.dep(), sorted = True)), default = []),
             "preload_deps": attrs.set(attrs.dep(), sorted = True, default = []),
             "srcs": attrs.named_set(attrs.source(), sorted = True, default = []),
-        }
+        } |
+        buck.licenses_arg() |
+        buck.labels_arg() |
+        buck.contacts_arg()
     ),
 )
 
@@ -104,16 +102,16 @@ haskell_haddock = prelude_rule(
     attrs = (
         # @unsorted-dict-items
         {
-            "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "deps": attrs.list(attrs.dep(), default = []),
             "deps_query": attrs.option(attrs.query(), default = None),
             "haddock_flags": attrs.list(attrs.arg(), default = []),
-            "labels": attrs.list(attrs.string(), default = []),
-            "licenses": attrs.list(attrs.source(), default = []),
             "platform": attrs.option(attrs.string(), default = None),
             "platform_deps": attrs.list(attrs.tuple(attrs.regex(), attrs.set(attrs.dep(), sorted = True)), default = []),
-        }
+        } |
+        buck.licenses_arg() |
+        buck.labels_arg() |
+        buck.contacts_arg()
     ),
 )
 
@@ -126,19 +124,19 @@ haskell_ide = prelude_rule(
         # @unsorted-dict-items
         {
             "compiler_flags": attrs.list(attrs.string(), default = []),
-            "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "deps": attrs.list(attrs.dep(), default = []),
             "deps_query": attrs.option(attrs.query(), default = None),
             "extra_script_templates": attrs.list(attrs.source(), default = []),
-            "labels": attrs.list(attrs.string(), default = []),
-            "licenses": attrs.list(attrs.source(), default = []),
             "link_style": attrs.enum(LinkableDepType),
             "linker_flags": attrs.list(attrs.arg(), default = []),
             "platform": attrs.option(attrs.string(), default = None),
             "platform_deps": attrs.list(attrs.tuple(attrs.regex(), attrs.set(attrs.dep(), sorted = True)), default = []),
             "srcs": attrs.named_set(attrs.source(), sorted = True, default = []),
-        }
+        } |
+        buck.licenses_arg() |
+        buck.labels_arg() |
+        buck.contacts_arg()
     ),
 )
 
@@ -150,14 +148,12 @@ haskell_library = prelude_rule(
     """,
     examples = """
         ```
-
         haskell_library(
           name = 'fileutil',
           srcs = [
             'FileUtil.hs',
           ],
         )
-
         ```
     """,
     further = None,
@@ -170,18 +166,18 @@ haskell_library = prelude_rule(
         native_common.link_whole(link_whole_type = attrs.bool(default = False)) |
         native_common.preferred_linkage(preferred_linkage_type = attrs.enum(Linkage.values())) |
         {
-            "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "enable_profiling": attrs.bool(default = False),
             "ghci_platform_preload_deps": attrs.list(attrs.tuple(attrs.regex(), attrs.set(attrs.dep(), sorted = True)), default = []),
             "ghci_preload_deps": attrs.set(attrs.dep(), sorted = True, default = []),
             "haddock_flags": attrs.list(attrs.arg(), default = []),
-            "labels": attrs.list(attrs.string(), default = []),
-            "licenses": attrs.list(attrs.source(), default = []),
             "linker_flags": attrs.list(attrs.arg(), default = []),
             "platform": attrs.option(attrs.string(), default = None),
             "platform_linker_flags": attrs.list(attrs.tuple(attrs.regex(), attrs.list(attrs.arg())), default = []),
-        }
+        } |
+        buck.licenses_arg() |
+        buck.labels_arg() |
+        buck.contacts_arg()
     ),
 )
 
@@ -193,7 +189,6 @@ haskell_prebuilt_library = prelude_rule(
     """,
     examples = """
         ```
-
         prebuilt_haskell_library(
           name = 'file',
           static_interfaces = [
@@ -209,7 +204,6 @@ haskell_prebuilt_library = prelude_rule(
             'libFileUtil.so': 'libFileUtil.so',
           },
         )
-
         ```
     """,
     further = None,
@@ -234,20 +228,20 @@ haskell_prebuilt_library = prelude_rule(
         haskell_common.exported_linker_flags_arg() |
         {
             "exported_post_linker_flags": attrs.list(attrs.arg(anon_target_compatible = True), default = []),
-            "contacts": attrs.list(attrs.string(), default = []),
             "cxx_header_dirs": attrs.list(attrs.source(), default = []),
             "db": attrs.source(),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "enable_profiling": attrs.bool(default = False),
             "id": attrs.string(default = ""),
             "import_dirs": attrs.list(attrs.source(), default = []),
-            "labels": attrs.list(attrs.string(), default = []),
-            "licenses": attrs.list(attrs.source(), default = []),
             "pic_profiled_static_libs": attrs.list(attrs.source(), default = []),
             "pic_static_libs": attrs.list(attrs.source(), default = []),
             "profiled_static_libs": attrs.list(attrs.source(), default = []),
             "version": attrs.string(default = ""),
-        }
+        } |
+        buck.licenses_arg() |
+        buck.labels_arg() |
+        buck.contacts_arg()
     ),
 )
 

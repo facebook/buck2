@@ -22,13 +22,13 @@ use buck2_core::cells::CellAliasResolver;
 use buck2_core::cells::CellResolver;
 use buck2_core::cells::cell_path::CellPathRef;
 use buck2_core::cells::cell_root_path::CellRootPathBuf;
-use buck2_core::fs::fs_util;
-use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
-use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
-use buck2_core::fs::paths::abs_path::AbsPath;
 use buck2_core::fs::project::ProjectRoot;
-use buck2_core::fs::working_dir::AbsWorkingDir;
 use buck2_error::BuckErrorContext;
+use buck2_fs::fs_util;
+use buck2_fs::paths::abs_norm_path::AbsNormPath;
+use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
+use buck2_fs::paths::abs_path::AbsPath;
+use buck2_fs::working_dir::AbsWorkingDir;
 use prost::Message;
 
 /// Limited view of the root config. This does not follow includes.

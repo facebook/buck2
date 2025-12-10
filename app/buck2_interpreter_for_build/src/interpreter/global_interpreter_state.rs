@@ -14,10 +14,10 @@ use allocative::Allocative;
 use async_trait::async_trait;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_core::cells::CellResolver;
-use buck2_futures::cancellation::CancellationContext;
 use buck2_interpreter::dice::starlark_types::GetStarlarkTypes;
 use dice::DiceComputations;
 use dice::Key;
+use dice_futures::cancellation::CancellationContext;
 use dupe::Dupe;
 use starlark::environment::Globals;
 

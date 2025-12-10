@@ -13,8 +13,8 @@ use std::path::Path;
 use std::path::PathBuf;
 use std::str::FromStr;
 
-use buck2_core::fs::paths::abs_path::AbsPathBuf;
-use buck2_core::fs::working_dir::AbsWorkingDir;
+use buck2_fs::paths::abs_path::AbsPathBuf;
+use buck2_fs::working_dir::AbsWorkingDir;
 use serde::Deserialize;
 use serde::Serialize;
 

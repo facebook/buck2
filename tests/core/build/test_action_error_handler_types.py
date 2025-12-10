@@ -40,4 +40,5 @@ async def test_output_for_error_handler_with_errorformat(buck: Buck) -> None:
         buck.build("//:error_handler_with_errorformat"),
     )
 
-    assert "[test_failure] expected `;`, found `}`" in failure.stderr
+    assert "- [test_failure] main.rs:10 expected `;`, found `}`" in failure.stderr
+    assert "manually created sub error" not in failure.stderr

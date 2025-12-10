@@ -19,13 +19,13 @@ use allocative::Allocative;
 use buck2_core::configuration::transition::id::TransitionId;
 use buck2_core::package::PackageLabel;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
-use buck2_futures::cancellation::CancellationContext;
-use buck2_futures::cancellation::CancellationObserver;
+use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_util::arc_str::ThinArcStr;
+use dice_futures::cancellation::CancellationContext;
+use dice_futures::cancellation::CancellationObserver;
 use dupe::Dupe;
 
 use crate::paths::module::OwnedStarlarkModulePath;
-use crate::starlark_profiler::data::ProfileTarget;
 
 pub trait DynEvalKindKey: Display + Send + Sync + Debug + Allocative + 'static {
     fn hash(&self, state: &mut dyn Hasher);
@@ -75,7 +75,6 @@ pub enum StarlarkEvalKind {
     Load(Arc<OwnedStarlarkModulePath>),
     LoadPackageFile(PackageLabel),
     LoadBuildFile(PackageLabel),
-    LoadJson(Arc<OwnedStarlarkModulePath>),
     Transition(Arc<TransitionId>),
     // These types are defined in higher crates, so we just accept dyn DynEvalKindKey here.
     AnonTarget(Arc<dyn DynEvalKindKey>),
@@ -83,32 +82,57 @@ pub enum StarlarkEvalKind {
     BxlDynamic(Arc<dyn DynEvalKindKey>),
     Unknown(ThinArcStr),
 }
-
 impl StarlarkEvalKind {
-    pub fn to_profile_target(&self) -> buck2_error::Result<ProfileTarget> {
-        match self {
-            StarlarkEvalKind::Analysis(label) => Ok(ProfileTarget::Analysis(label.dupe())),
-            StarlarkEvalKind::LoadBuildFile(package) => Ok(ProfileTarget::Loading(package.dupe())),
-            StarlarkEvalKind::Bxl(_) => Ok(ProfileTarget::Bxl),
-            StarlarkEvalKind::BxlDynamic(_) => Ok(ProfileTarget::Bxl),
-            _ => Ok(ProfileTarget::Unknown),
+    pub fn as_path(&self) -> buck2_error::Result<ForwardRelativePathBuf> {
+        let mut path = self.to_string();
+
+        // Just replace some characters to make a path that's a little easier to deal with in the shell.
+        for c in ",(): ".chars() {
+            path = path.replace(c, "_");
         }
+
+        ForwardRelativePathBuf::new(path)
     }
 }
 
 impl std::fmt::Display for StarlarkEvalKind {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        // The display result for StarlarkEvalKind is used for:
+        // 1. the name of the "thread" in the starlark debugger
+        // 2. the profile target when listed in targets.txt of a merged profile output
+        // 3. the identifier for matching with --profile-patterns
+        // 4. the output path when profiling with --profile-patterns
         match self {
-            StarlarkEvalKind::Analysis(target) => write!(f, "analysis:{target}"),
-            StarlarkEvalKind::Load(module) => write!(f, "load:{module}"),
-            StarlarkEvalKind::LoadPackageFile(package) => write!(f, "load_packagefile:{package}"),
-            StarlarkEvalKind::LoadBuildFile(package) => write!(f, "load_buildfile:{package}"),
-            StarlarkEvalKind::LoadJson(package) => write!(f, "load_json:{package}"),
-            StarlarkEvalKind::AnonTarget(key) => write!(f, "anon_analysis:{key}"),
-            StarlarkEvalKind::Transition(id) => write!(f, "transition:{id}"),
-            StarlarkEvalKind::Bxl(key) => write!(f, "bxl:{key}"),
-            StarlarkEvalKind::BxlDynamic(key) => write!(f, "bxl_dynamic:{key}"),
-            StarlarkEvalKind::Unknown(key) => write!(f, "generic_starlark:{key}"),
+            StarlarkEvalKind::Analysis(label) => write!(
+                f,
+                "analysis/{}/{}/{}",
+                label.pkg().cell_relative_path(),
+                label.name(),
+                label.cfg().full_name().replace("/", "_")
+            ),
+            StarlarkEvalKind::Load(arc) => match &**arc {
+                OwnedStarlarkModulePath::LoadFile(import_path) => {
+                    write!(f, "load_bzl/{}", import_path)
+                }
+                OwnedStarlarkModulePath::BxlFile(bxl_file_path) => {
+                    write!(f, "load_bxl/{}", bxl_file_path)
+                }
+                OwnedStarlarkModulePath::JsonFile(import_path) => {
+                    write!(f, "load_json/{}", import_path)
+                }
+                OwnedStarlarkModulePath::TomlFile(import_path) => {
+                    write!(f, "load_toml/{}", import_path)
+                }
+            },
+            StarlarkEvalKind::LoadPackageFile(package_label) => {
+                write!(f, "load_package/{}", package_label)
+            }
+            StarlarkEvalKind::LoadBuildFile(package_label) => write!(f, "load/{}", package_label),
+            StarlarkEvalKind::Transition(t) => write!(f, "transition/{}", t),
+            StarlarkEvalKind::AnonTarget(target) => write!(f, "anon_target/{}", target),
+            StarlarkEvalKind::Bxl(bxl) => write!(f, "bxl/{}", bxl),
+            StarlarkEvalKind::BxlDynamic(bxl_dynamic) => write!(f, "bxl_dynamic/{}", bxl_dynamic),
+            StarlarkEvalKind::Unknown(label) => write!(f, "unknown/{}", label),
         }
     }
 }

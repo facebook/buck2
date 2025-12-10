@@ -185,6 +185,7 @@ def buck2_e2e_test(
         test_with_deployed_buck2 = False,
         test_with_reverted_buck2 = False,
         use_compiled_buck2_client_and_tpx = False,
+        skip_deployed_buck2_version_dep = False,
         deps = (),
         env = None,
         skip_for_os = (),
@@ -223,6 +224,11 @@ def buck2_e2e_test(
     use_compiled_buck2_client_and_tpx:
         A full prod archive is distinct from a normal build of buck2 in that it uses a client-only
         binary and additionally makes TPX available. Needed if you want to be able to `buck.test`
+        Default is False.
+    skip_deployed_buck2_version_dep:
+        A boolean for whether to skip adding the dependency on tools/buck2-versions:stable when
+        test_with_deployed_buck2 is True. This is useful for tests that don't need the version
+        dependency for Target Determinator purposes (e.g., bxl tests that test Starlark logic).
         Default is False.
     """
     kwargs = {
@@ -289,7 +295,9 @@ def buck2_e2e_test(
         deps = deps or []
 
         # Add a buck2 version file as dep so we can run deployed buck2 tests on version bumps.
-        deps += ["fbsource//tools/buck2-versions:stable"]
+        # Skip this dependency if skip_deployed_buck2_version_dep is True (e.g., for bxl tests).
+        if not skip_deployed_buck2_version_dep:
+            deps += ["fbsource//tools/buck2-versions:stable"]
         buck_e2e_test(
             name = name,
             env = deployed_env,

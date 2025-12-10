@@ -10,13 +10,13 @@
 
 use allocative::Allocative;
 use async_trait::async_trait;
-use buck2_futures::cancellation::CancellationContext;
 use derive_more::Display;
 use dice::DetectCycles;
 use dice::Dice;
 use dice::DiceComputations;
 use dice::InjectedKey;
 use dice::Key;
+use dice_futures::cancellation::CancellationContext;
 use dupe::Dupe;
 
 // dice graph storage needs to not reuse deps just because the value hasn't changed

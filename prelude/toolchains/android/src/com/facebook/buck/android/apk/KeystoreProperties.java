@@ -10,7 +10,6 @@
 
 package com.facebook.buck.android.apk;
 
-import com.facebook.buck.core.exceptions.HumanReadableException;
 import com.google.common.base.Strings;
 import java.io.BufferedInputStream;
 import java.io.BufferedReader;
@@ -79,15 +78,16 @@ public class KeystoreProperties {
 
   /**
    * @return a non-null, non-empty value for the specified property
-   * @throws HumanReadableException if there is no value for the specified property
+   * @throws RuntimeException if there is no value for the specified property
    */
   private static String getOrThrowException(
       Properties properties, String propertyName, Path pathToKeystorePropertiesFile) {
     String value = Strings.nullToEmpty(properties.getProperty(propertyName)).trim();
     if (value.isEmpty()) {
-      throw new HumanReadableException(
-          "properties file %s did not contain a value for the property %s",
-          pathToKeystorePropertiesFile, propertyName);
+      throw new RuntimeException(
+          String.format(
+              "properties file %s did not contain a value for the property %s",
+              pathToKeystorePropertiesFile, propertyName));
     } else {
       return value;
     }

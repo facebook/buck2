@@ -15,6 +15,7 @@ use allocative::Key;
 use allocative::Visitor;
 use sequence_trie::SequenceTrie;
 
+#[allow(unused)] // Allocative impls are considered unused
 pub(crate) fn visit_sequence_trie<K: Allocative + Eq + Hash, V: Allocative>(
     t: &SequenceTrie<K, V>,
     visitor: &mut Visitor<'_>,

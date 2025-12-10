@@ -17,7 +17,7 @@ import json
 import os
 import shutil
 import sys
-from typing import Any, IO, List, NamedTuple, Optional, Tuple
+from typing import Any, IO, NamedTuple, Optional
 
 
 def eprint(*args: Any, **kwargs: Any) -> None:
@@ -26,7 +26,7 @@ def eprint(*args: Any, **kwargs: Any) -> None:
 
 class Args(NamedTuple):
     build_status: IO[str]
-    required_file: Optional[List[Tuple[str, str, str]]]
+    required_file: Optional[list[tuple[str, str, str]]]
     stderr: Optional[IO[str]]
 
 

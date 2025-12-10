@@ -19,6 +19,7 @@ use buck2_build_api::analysis::AnalysisResult;
 use buck2_build_api::analysis::registry::RecordedAnalysisValues;
 use buck2_build_api::artifact_groups::ArtifactGroup;
 use buck2_build_api::artifact_groups::TransitiveSetProjectionKey;
+use buck2_build_api::artifact_groups::TransitiveSetProjectionWrapper;
 use buck2_build_api::artifact_groups::calculation::ArtifactGroupCalculation;
 use buck2_build_api::artifact_groups::deferred::TransitiveSetKey;
 use buck2_build_api::context::SetBuildContextData;
@@ -54,6 +55,7 @@ use maplit::btreemap;
 use starlark::values::OwnedFrozenValue;
 use starlark::values::OwnedFrozenValueTyped;
 
+use crate::interpreter::transitive_set::testing::TSET_TEST_LOCK;
 use crate::interpreter::transitive_set::testing::new_transitive_set;
 
 fn mock_analysis_for_tsets(
@@ -101,6 +103,9 @@ fn mock_analysis_for_tsets(
 
 #[tokio::test]
 async fn test_ensure_artifact_group() -> anyhow::Result<()> {
+    // Serialize with other tests that use make_tset() and its shared global counter
+    let _guard = TSET_TEST_LOCK.lock().unwrap();
+
     let digest_config = DigestConfig::testing_default();
 
     let set = new_transitive_set(indoc!(
@@ -205,11 +210,14 @@ async fn test_ensure_artifact_group() -> anyhow::Result<()> {
 
     let result = dice
         .ensure_artifact_group(&ArtifactGroup::TransitiveSetProjection(Arc::new(
-            TransitiveSetProjectionKey {
-                key: set.key.dupe(),
-                projection: 0,
-                uses_content_based_paths: false,
-            },
+            TransitiveSetProjectionWrapper::new(
+                TransitiveSetProjectionKey {
+                    key: set.key.dupe(),
+                    projection: 0,
+                },
+                false,
+                false,
+            ),
         )))
         .await?
         .iter()

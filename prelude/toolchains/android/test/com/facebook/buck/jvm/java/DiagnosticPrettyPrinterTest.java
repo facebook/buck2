@@ -13,7 +13,6 @@ package com.facebook.buck.jvm.java;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
-import com.facebook.buck.util.string.MoreStrings;
 import java.nio.file.Paths;
 import java.util.Locale;
 import javax.annotation.Nullable;
@@ -60,22 +59,22 @@ public class DiagnosticPrettyPrinterTest {
 
   @Test
   public void ifThereAreLineNumbersErrorContextIsDisplayed() {
-    String code = MoreStrings.linesToText("some line of", "code with an", "error");
+    String code = String.join("\n", "some line of", "code with an", "error");
     //                           123
     String formatted =
         DiagnosticPrettyPrinter.format(createDiagnostic("EOL", "Example.java", code, 2, 3));
 
-    assertTrue(formatted, formatted.contains(MoreStrings.linesToText("code with an", "  ^")));
+    assertTrue(formatted, formatted.contains(String.join("\n", "code with an", "  ^")));
   }
 
   @Test
   public void errorContextIsDisplayedAfterTheSummaryButBeforeTheRemainderOfTheMessage() {
-    String code = MoreStrings.linesToText("some line of", "code with an", "error");
+    String code = String.join("\n", "some line of", "code with an", "error");
     //                           123
     String formatted =
         DiagnosticPrettyPrinter.format(
             createDiagnostic(
-                MoreStrings.linesToText("Oh noes!", "All your build", "Are Belong to Fail"),
+                String.join("\n", "Oh noes!", "All your build", "Are Belong to Fail"),
                 "Example.java",
                 code,
                 2,
@@ -85,7 +84,8 @@ public class DiagnosticPrettyPrinterTest {
     assertTrue(
         formatted,
         formatted.contains(
-            MoreStrings.linesToText(
+            String.join(
+                "\n",
                 "Example.java:2: error: Oh noes!",
                 "code with an",
                 "  ^",

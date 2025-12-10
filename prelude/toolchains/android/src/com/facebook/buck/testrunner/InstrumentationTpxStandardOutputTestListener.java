@@ -10,9 +10,10 @@
 
 package com.facebook.buck.testrunner;
 
-import com.android.ddmlib.IDevice;
 import com.android.ddmlib.testrunner.ITestRunListener;
 import com.android.ddmlib.testrunner.TestIdentifier;
+import com.facebook.buck.android.exopackage.AdbUtils;
+import com.facebook.buck.android.exopackage.AndroidDevice;
 import com.facebook.buck.testresultsoutput.TestResultsOutputSender;
 import java.util.Map;
 
@@ -30,12 +31,14 @@ import java.util.Map;
  */
 public class InstrumentationTpxStandardOutputTestListener implements ITestRunListener {
   private final TpxStandardOutputTestListener listener;
-  private final IDevice mDevice;
+  private final AndroidDevice mAndroidDevice;
+  private final AdbUtils mAdbUtils;
 
   public InstrumentationTpxStandardOutputTestListener(
-      TestResultsOutputSender sender, IDevice device) {
+      TestResultsOutputSender sender, AndroidDevice androidDevice, AdbUtils adbUtils) {
     this.listener = new TpxStandardOutputTestListener(sender);
-    this.mDevice = device;
+    this.mAndroidDevice = androidDevice;
+    this.mAdbUtils = adbUtils;
   }
 
   /**
@@ -68,8 +71,8 @@ public class InstrumentationTpxStandardOutputTestListener implements ITestRunLis
    */
   @Override
   public void testFailed(TestIdentifier test, String trace) {
-    if (mDevice != null && CrashCapturer.deviceHasCrashLogs(trace)) {
-      trace = CrashCapturer.addDeviceLogcatTrace(mDevice, trace);
+    if (mAndroidDevice != null && mAdbUtils != null && CrashCapturer.deviceHasCrashLogs(trace)) {
+      trace = CrashCapturer.addDeviceLogcatTrace(mAndroidDevice, mAdbUtils, trace);
     }
 
     listener.testFailed(getFullTestName(test), trace);

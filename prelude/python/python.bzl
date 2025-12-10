@@ -144,6 +144,8 @@ PythonLibraryInfo = provider(fields = {
     "manifests": provider_field(PythonLibraryManifestsTSet),
     # Native deps
     "native_deps": provider_field(NativeDepsInfoTSet),
+    # PAR style for python binaries (None for libraries)
+    "par_style": provider_field(str | None, default = None),
     # Shared libraries coming from python_library and others
     "shared_libraries": provider_field(SharedLibraryInfo),
 })

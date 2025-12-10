@@ -15,7 +15,6 @@ import static com.facebook.buck.util.zip.ZipOutputStreams.appendJarOutputStream;
 import static com.facebook.buck.util.zip.ZipOutputStreams.newJarOutputStream;
 import static java.util.Comparator.comparing;
 
-import com.facebook.buck.core.exceptions.HumanReadableException;
 import com.facebook.buck.core.filesystems.AbsPath;
 import com.google.common.base.Joiner;
 import com.google.common.base.Preconditions;
@@ -85,7 +84,8 @@ public class JarBuilder {
                       propName, mergedValues == null ? values : mergedValues + "," + values);
                 }
               } catch (IOException ex) {
-                throw new HumanReadableException("Unable to merge properties", file, ex);
+                throw new RuntimeException(
+                    String.format("Unable to merge properties for file %s", file), ex);
               }
             }
             ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
@@ -93,7 +93,7 @@ public class JarBuilder {
               mergedProps.store(byteArrayOutputStream, "");
               return byteArrayOutputStream.toByteArray();
             } catch (IOException ex) {
-              throw new HumanReadableException("Unable to merge properties", ex);
+              throw new RuntimeException("Unable to merge properties", ex);
             }
           }
         };
@@ -300,7 +300,7 @@ public class JarBuilder {
     addMergeableResources(jar);
 
     if (mainClass != null && !classPresent(mainClass)) {
-      throw new HumanReadableException("ERROR: Main class %s does not exist.", mainClass);
+      throw new RuntimeException(String.format("ERROR: Main class %s does not exist.", mainClass));
     }
 
     // Clean up any open file handles that we may have

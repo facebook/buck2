@@ -165,9 +165,9 @@ def python_executable(
     if srcs:
         src_manifest = create_manifest_for_source_map(ctx, "srcs", srcs)
 
-        # TODO(T230857912) enable pyc compilation for 3.14
+        # TODO(T245694881) let the toolchain decide whether pyc's should be precompiled
         py_version = ctx.attrs._python_toolchain[PythonToolchainInfo].version
-        if py_version == None or "3.14" not in py_version:
+        if py_version == None or "3.15" not in py_version:
             bytecode_manifest = compile_manifests(ctx, [src_manifest])
 
     all_default_resources = {}
@@ -196,6 +196,7 @@ def python_executable(
         shared_libraries = shared_deps,
         native_deps = merge_native_deps(ctx, raw_deps),
         is_native_dep = False,
+        par_style = ctx.attrs.par_style,
     )
 
     source_db_no_deps = create_source_db_no_deps(ctx, srcs)
@@ -279,7 +280,7 @@ def _compute_pex_providers(
         extra: dict[str, typing.Any],
         link_extra_artifacts: dict[str, typing.Any],
         executable_type: ExecutableType) -> list[Provider] | Promise:
-    dbg_source_db_output = ctx.actions.declare_output("dbg-db.json")
+    dbg_source_db_output = ctx.actions.declare_output("dbg-db.json", has_content_based_path = True)
     dbg_source_db = create_dbg_source_db(ctx, dbg_source_db_output, src_manifest, python_deps)
 
     extra_artifacts = {key: value for key, value in link_extra_artifacts.items()}
@@ -297,9 +298,9 @@ def _compute_pex_providers(
         extra_artifacts["dbg-db.json"] = dbg_source_db_output
 
     # Run lazy import analysis using the existing dbg-db.json only if the attribute is enabled
-    if getattr(ctx.attrs, "safer_lazy_imports", False):
+    if getattr(ctx.attrs, "lazy_imports_analyzer", None):
         lazy_import_analysis_output = ctx.actions.declare_output("lazy-import-analysis.json")
-        run_lazy_imports_analyzer(ctx, lazy_import_analysis_output, dbg_source_db_output)
+        run_lazy_imports_analyzer(ctx, dbg_source_db.other_outputs, lazy_import_analysis_output, dbg_source_db_output)
         if lazy_import_analysis_output:
             extra_artifacts["lazy-import-analysis.json"] = lazy_import_analysis_output
 
@@ -452,6 +453,7 @@ def _convert_python_library_to_executable(
                 "python_toolchain": ctx.attrs._python_toolchain,
                 "rpath": ctx.attrs.name,
                 "static_extension_utils": ctx.attrs.static_extension_utils,
+                "transformation_spec": ctx.attrs.transformation_spec,
                 "_cxx_toolchain": ctx.attrs._cxx_toolchain,
                 "_python_internal_tools": ctx.attrs._python_internal_tools,
             }

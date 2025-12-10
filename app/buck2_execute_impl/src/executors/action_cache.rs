@@ -31,8 +31,9 @@ use buck2_execute::knobs::ExecutorGlobalKnobs;
 use buck2_execute::materialize::materializer::Materializer;
 use buck2_execute::re::action_identity::ReActionIdentity;
 use buck2_execute::re::manager::ManagedRemoteExecutionClient;
+use buck2_execute::re::output_trees_download_config::OutputTreesDownloadConfig;
 use buck2_execute::re::remote_action_result::ActionCacheResult;
-use buck2_futures::cancellation::CancellationContext;
+use dice_futures::cancellation::CancellationContext;
 use dupe::Dupe;
 use prost::Message;
 
@@ -52,6 +53,7 @@ pub struct ActionCacheChecker {
     pub knobs: ExecutorGlobalKnobs,
     pub paranoid: Option<ParanoidDownloader>,
     pub deduplicate_get_digests_ttl_calls: bool,
+    pub output_trees_download_config: OutputTreesDownloadConfig,
 }
 
 enum CacheType {
@@ -85,6 +87,7 @@ async fn query_action_cache_and_download_result(
     log_action_keys: bool,
     details: RemoteCommandExecutionDetails,
     deduplicate_get_digests_ttl_calls: bool,
+    output_trees_download_config: &OutputTreesDownloadConfig,
 ) -> ControlFlow<CommandExecutionResult, CommandExecutionManager> {
     let request = command.request;
     let action_blobs = &command.prepared_action.action_and_blobs.blobs;
@@ -195,6 +198,7 @@ async fn query_action_cache_and_download_result(
         false,
         false,
         None,
+        output_trees_download_config,
     )
     .await;
 
@@ -246,6 +250,7 @@ impl PreparedCommandOptionalExecutor for ActionCacheChecker {
             self.re_client.get_session_id().await.ok(),
             self.re_client.use_case,
             &command.prepared_action.platform,
+            false,
         );
         let cache_type = CacheType::ActionCache;
         let manager = manager.with_execution_kind(command_execution_kind_for_cache_type(
@@ -268,6 +273,7 @@ impl PreparedCommandOptionalExecutor for ActionCacheChecker {
             self.knobs.log_action_keys,
             details,
             self.deduplicate_get_digests_ttl_calls,
+            &self.output_trees_download_config,
         )
         .await
     }
@@ -283,6 +289,7 @@ pub struct RemoteDepFileCacheChecker {
     pub knobs: ExecutorGlobalKnobs,
     pub paranoid: Option<ParanoidDownloader>,
     pub deduplicate_get_digests_ttl_calls: bool,
+    pub output_trees_download_config: OutputTreesDownloadConfig,
 }
 
 #[async_trait]
@@ -309,6 +316,7 @@ impl PreparedCommandOptionalExecutor for RemoteDepFileCacheChecker {
             self.re_client.get_session_id().await.ok(),
             self.re_client.use_case,
             &command.prepared_action.platform,
+            false,
         );
         let manager = manager.with_execution_kind(command_execution_kind_for_cache_type(
             &cache_type,
@@ -331,6 +339,7 @@ impl PreparedCommandOptionalExecutor for RemoteDepFileCacheChecker {
             self.knobs.log_action_keys,
             details,
             self.deduplicate_get_digests_ttl_calls,
+            &self.output_trees_download_config,
         )
         .await
     }

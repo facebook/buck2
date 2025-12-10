@@ -281,6 +281,7 @@ cxx_tools_info_toolchain = rule(
         ),
         "post_link_flags": attrs.list(attrs.arg(), default = []),
         "rc_flags": attrs.list(attrs.arg(), default = []),
+        "supports_content_based_paths": attrs.bool(default = False),
         "_target_os_type": buck.target_os_type_arg(),
     },
     is_toolchain_rule = True,

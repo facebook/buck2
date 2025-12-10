@@ -43,9 +43,16 @@ struct WriterWrapper<'a> {
 
 impl Write for WriterWrapper<'_> {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
-        self.inner.emit(buck2_cli_proto::StdoutBytes {
-            data: buf.to_owned(),
-        });
+        // Chunk writes to prevent gRPC transport failures with large messages.
+        // Without this, very large responses can cause the stream to terminate
+        // before sending the final CommandResult.
+        const CHUNK_SIZE: usize = 128 * 1024 * 1024; // 128MB
+
+        for chunk in buf.chunks(CHUNK_SIZE) {
+            self.inner.emit(buck2_cli_proto::StdoutBytes {
+                data: chunk.to_owned(),
+            });
+        }
 
         Ok(buf.len())
     }

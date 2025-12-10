@@ -10,7 +10,6 @@
 
 package com.facebook.buck.jvm.java.abi;
 
-import com.facebook.buck.core.exceptions.HumanReadableException;
 import com.facebook.buck.jvm.java.abi.source.api.SourceOnlyAbiRuleInfoFactory.SourceOnlyAbiRuleInfo;
 import com.facebook.buck.jvm.java.plugin.api.BuckJavacTaskListener;
 import com.facebook.buck.jvm.java.plugin.api.BuckJavacTaskProxy;
@@ -40,10 +39,10 @@ public final class SourceBasedAbiStubber {
       return BuckJavacTaskListener.wrapRealTaskListener(
           pluginLoader, constructor.newInstance(task, ruleInfo, errorsExist, messageKind));
     } catch (ReflectiveOperationException e) {
-      throw new HumanReadableException(
-          e,
+      throw new RuntimeException(
           "Could not load source-generated ABI validator. Your compiler might not support this. "
-              + "If it doesn't, you may need to disable source-based ABI generation.");
+              + "If it doesn't, you may need to disable source-based ABI generation.",
+          e);
     }
   }
 

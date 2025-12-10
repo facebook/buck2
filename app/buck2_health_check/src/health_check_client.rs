@@ -11,7 +11,7 @@
 #![allow(dead_code)] // TODO(rajneeshl): Remove this when the health checks are moved to the server.
 
 use buck2_common::invocation_paths::InvocationPaths;
-use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
+use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
 use tokio::sync::mpsc::Receiver;
 use tokio::sync::mpsc::Sender;
 use tokio::sync::mpsc::error::TrySendError;
@@ -208,7 +208,7 @@ impl HealthCheckClientInner {
                     // If the channel is full, skip sending these reports rather than OOMing due to huge buffers.
                     return Err(buck2_error::buck2_error!(
                         buck2_error::ErrorTag::HealthCheck,
-                        "Health check diplay reports channel full. Dropping reports."
+                        "Health check display reports channel full. Dropping reports."
                     ));
                 }
                 _ => {}

@@ -10,9 +10,9 @@
 
 use std::any::Any;
 
-use buck2_futures::owning_future::OwningFuture;
-use buck2_futures::spawn::spawn_dropcancel;
-use buck2_futures::spawner::Spawner;
+use dice_futures::owning_future::OwningFuture;
+use dice_futures::spawn::spawn_dropcancel;
+use dice_futures::spawner::Spawner;
 use dupe::Dupe;
 use futures::FutureExt;
 use futures::future::BoxFuture;

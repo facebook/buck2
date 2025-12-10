@@ -11,7 +11,7 @@
 
 import os
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 import pytest
 
@@ -21,7 +21,7 @@ from buck2.tests.e2e_util.api.lsp import LSPResponseError
 from buck2.tests.e2e_util.buck_workspace import buck_test
 
 
-def _assert_range(range: Dict[str, Any], expected: Optional[Span]) -> None:
+def _assert_range(range: dict[str, Any], expected: Optional[Span]) -> None:
     """Assert that this Span is equal to an LSP range dict"""
     if expected is None:
         expected = Span(0, 0, 0, 0)
@@ -42,7 +42,7 @@ def _assert_uris(actual: str, expected: str) -> None:
 
 
 def _assert_goto_result(
-    res: List[Dict[str, Any]],
+    res: list[dict[str, Any]],
     expected_src: Span,
     expected_dest_path: Path,
     expected_dest: Optional[Span],

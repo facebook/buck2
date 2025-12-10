@@ -19,7 +19,6 @@ use async_trait::async_trait;
 use buck2_core::cells::name::CellName;
 use buck2_error::BuckErrorContext;
 use buck2_events::dispatch::get_dispatcher;
-use buck2_futures::cancellation::CancellationContext;
 use derive_more::Display;
 use dice::DiceComputations;
 use dice::DiceProjectionComputations;
@@ -28,6 +27,7 @@ use dice::InjectedKey;
 use dice::Key;
 use dice::OpaqueValue;
 use dice::ProjectionKey;
+use dice_futures::cancellation::CancellationContext;
 use dupe::Dupe;
 
 use crate::dice::cells::HasCellResolver;

@@ -9,11 +9,11 @@
  */
 
 use std::borrow::Cow;
+use std::cell::RefCell;
 use std::collections::HashMap;
 use std::convert::Infallible;
 use std::fmt;
 use std::path::Path;
-use std::sync::OnceLock;
 
 use allocative::Allocative;
 use buck2_analysis::analysis::calculation::get_dep_analysis;
@@ -29,13 +29,13 @@ use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact::Starla
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::dice::data::HasIoProvider;
 use buck2_core::cells::cell_path::CellPath;
-use buck2_core::fs::paths::abs_path::AbsPath;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::package::PackageLabel;
 use buck2_core::package::source_path::SourcePathRef;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_error::BuckErrorContext;
+use buck2_fs::paths::abs_path::AbsPath;
 use buck2_interpreter::types::target_label::StarlarkConfiguredTargetLabel;
 use buck2_node::attrs::configured_attr::ConfiguredAttr;
 use buck2_node::attrs::configured_traversal::ConfiguredAttrTraversal;
@@ -55,7 +55,6 @@ use starlark::collections::SmallMap;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
 use starlark::environment::MethodsStatic;
-use starlark::environment::Module;
 use starlark::eval::Evaluator;
 use starlark::starlark_module;
 use starlark::starlark_simple_value;
@@ -77,6 +76,7 @@ use starlark::values::structs::AllocStruct;
 use super::node_attrs::NodeAttributeGetter;
 use crate::bxl::starlark_defs::context::BxlContext;
 use crate::bxl::starlark_defs::file_set::StarlarkFileNode;
+use crate::bxl::starlark_defs::nodes::configured::attr_resolution_ctx::LazyAttrResolutionCache;
 use crate::bxl::starlark_defs::nodes::configured::attr_resolution_ctx::LazyAttrResolutionContext;
 
 mod attr_resolution_ctx;
@@ -290,11 +290,10 @@ fn configured_target_node_value_methods(builder: &mut MethodsBuilder) {
     ///     ctx.output.print(attrs.get("some_attribute").label)
     /// ```
     fn resolved_attrs_lazy<'v>(
-        this: &'v StarlarkConfiguredTargetNode,
-        ctx: &'v BxlContext<'v>,
-        eval: &mut Evaluator<'v, '_, '_>,
+        this: ValueTyped<'v, StarlarkConfiguredTargetNode>,
+        ctx: ValueTyped<'v, BxlContext<'v>>,
     ) -> starlark::Result<StarlarkLazyResolvedAttrs<'v>> {
-        Ok(StarlarkLazyResolvedAttrs::new(this, ctx, eval.module()))
+        Ok(StarlarkLazyResolvedAttrs::new(this, ctx))
     }
 
     /// Returns a struct of all the resolved attributes of this target node. The structs fields are the
@@ -327,14 +326,13 @@ fn configured_target_node_value_methods(builder: &mut MethodsBuilder) {
         let configured_node = this.0.as_ref();
 
         let dep_analysis: buck2_error::Result<Vec<(&ConfiguredTargetLabel, AnalysisResult)>> = ctx
-            .async_ctx
-            .borrow_mut()
-            .via(|dice_ctx| get_dep_analysis(configured_node, dice_ctx).boxed_local());
+            .via_dice(eval, |ctx| {
+                ctx.via(|dice_ctx| get_dep_analysis(configured_node, dice_ctx).boxed_local())
+            });
 
-        let query_results = ctx
-            .async_ctx
-            .borrow_mut()
-            .via(|dice_ctx| resolve_queries(dice_ctx, configured_node).boxed_local())?;
+        let query_results = ctx.via_dice(eval, |ctx| {
+            ctx.via(|dice_ctx| resolve_queries(dice_ctx, configured_node).boxed_local())
+        })?;
 
         let resolution_ctx = RuleAnalysisAttrResolutionContext {
             module: eval.module(),
@@ -350,7 +348,7 @@ fn configured_target_node_value_methods(builder: &mut MethodsBuilder) {
             resolved_attrs.push((
                 a.name,
                 a.value
-                    .resolve_single(this.0.label().pkg(), &resolution_ctx)?,
+                    .resolve_single(this.0.label().pkg(), &mut &resolution_ctx)?,
             ));
         }
 
@@ -457,19 +455,16 @@ fn configured_target_node_value_methods(builder: &mut MethodsBuilder) {
     ///     artifact = owner.sources()[0]
     ///     ctx.output.print(artifact)
     /// ```
-    fn get_source(
+    fn get_source<'v>(
         this: &StarlarkConfiguredTargetNode,
         path: &str,
-        ctx: &BxlContext,
+        ctx: &BxlContext<'v>,
+        eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<NoneOr<StarlarkArtifact>> {
         let path = Path::new(path);
-        let fs = ctx
-            .async_ctx
-            .borrow()
-            .global_data()
-            .get_io_provider()
-            .project_root()
-            .dupe();
+        let fs = ctx.via_dice(eval, |ctx| {
+            ctx.global_data().get_io_provider().project_root().dupe()
+        });
         let path = if path.is_absolute() {
             Cow::Owned(
                 fs.relativize_any(AbsPath::new(path)?)
@@ -481,8 +476,10 @@ fn configured_target_node_value_methods(builder: &mut MethodsBuilder) {
             )?)
         };
 
-        let cell_path = ctx.async_ctx.borrow_mut().via(|ctx| {
-            async move { Ok(ctx.get_cell_resolver().await?.get_cell_path(&path)) }.boxed_local()
+        let cell_path = ctx.via_dice(eval, |ctx| {
+            ctx.via(|ctx| {
+                async move { Ok(ctx.get_cell_resolver().await?.get_cell_path(&path)) }.boxed_local()
+            })
         })?;
 
         struct SourceFinder {
@@ -738,14 +735,12 @@ fn lazy_attrs_methods(builder: &mut MethodsBuilder) {
 #[derivative(Debug)]
 #[display("{:?}", self)]
 pub(crate) struct StarlarkLazyResolvedAttrs<'v> {
-    #[trace(unsafe_ignore)]
     #[derivative(Debug = "ignore")]
-    #[allocative(skip)]
-    configured_node: &'v ConfiguredTargetNode,
-    #[trace(unsafe_ignore)]
+    configured_node: ValueTyped<'v, StarlarkConfiguredTargetNode>,
     #[derivative(Debug = "ignore")]
-    #[allocative(skip)]
-    resolution_ctx: LazyAttrResolutionContext<'v>,
+    bxl_context: ValueTyped<'v, BxlContext<'v>>,
+    #[derivative(Debug = "ignore")]
+    resolution_ctx_data: RefCell<LazyAttrResolutionCache>,
 }
 
 #[starlark_value(type = "bxl.LazyResolvedAttrs", StarlarkTypeRepr, UnpackValue)]
@@ -764,22 +759,30 @@ impl<'v> AllocValue<'v> for StarlarkLazyResolvedAttrs<'v> {
 
 impl<'v> StarlarkLazyResolvedAttrs<'v> {
     pub(crate) fn new(
-        configured_node: &'v StarlarkConfiguredTargetNode,
-        ctx: &'v BxlContext<'v>,
-        module: &'v Module,
+        configured_node: ValueTyped<'v, StarlarkConfiguredTargetNode>,
+        bxl_context: ValueTyped<'v, BxlContext<'v>>,
     ) -> StarlarkLazyResolvedAttrs<'v> {
-        let configured_node = &configured_node.0;
-        let resolution_ctx = LazyAttrResolutionContext {
-            module,
-            configured_node,
-            ctx,
-            dep_analysis_results: OnceLock::new(),
-            query_results: OnceLock::new(),
+        let resolution_ctx = LazyAttrResolutionCache {
+            dep_analysis_results: None,
+            query_results: None,
         };
 
         Self {
             configured_node,
-            resolution_ctx,
+            bxl_context,
+            resolution_ctx_data: RefCell::new(resolution_ctx),
+        }
+    }
+
+    fn resolution_ctx<'a, 'e, 'c>(
+        &'c self,
+        eval: &'c mut Evaluator<'v, 'a, 'e>,
+    ) -> LazyAttrResolutionContext<'v, 'a, 'e, 'c> {
+        LazyAttrResolutionContext {
+            eval,
+            configured_node: &self.configured_node.as_ref().0,
+            ctx: self.bxl_context.as_ref(),
+            cache: self.resolution_ctx_data.borrow_mut(),
         }
     }
 }
@@ -801,25 +804,27 @@ fn lazy_resolved_attrs_methods(builder: &mut MethodsBuilder) {
     fn get<'v>(
         this: &StarlarkLazyResolvedAttrs<'v>,
         attr: &str,
+        eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<NoneOr<Value<'v>>> {
         Ok(
-            match this.configured_node.get(attr, AttrInspectOptions::All) {
-                Some(attr) => NoneOr::Other(
-                    attr.value
-                        .resolve_single(this.configured_node.label().pkg(), &this.resolution_ctx)?,
-                ),
+            match this.configured_node.0.get(attr, AttrInspectOptions::All) {
+                Some(attr) => NoneOr::Other(attr.value.resolve_single(
+                    this.configured_node.0.label().pkg(),
+                    &mut this.resolution_ctx(eval),
+                )?),
                 None => {
                     // Check special attrs
                     let special_attrs = this
                         .configured_node
+                        .0
                         .special_attrs()
                         .collect::<HashMap<_, _>>();
                     let attr = special_attrs.get(attr);
                     match attr {
                         None => NoneOr::None,
                         Some(attr) => NoneOr::Other(attr.resolve_single(
-                            this.configured_node.label().pkg(),
-                            &this.resolution_ctx,
+                            this.configured_node.0.label().pkg(),
+                            &mut this.resolution_ctx(eval),
                         )?),
                     }
                 }

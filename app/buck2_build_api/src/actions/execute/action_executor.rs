@@ -61,13 +61,14 @@ use buck2_execute::output_size::OutputCountAndBytes;
 use buck2_execute::output_size::OutputSize;
 use buck2_execute::path::artifact_path::ArtifactPath;
 use buck2_execute::re::manager::UnconfiguredRemoteExecutionClient;
+use buck2_execute::re::output_trees_download_config::OutputTreesDownloadConfig;
 use buck2_file_watcher::mergebase::GetMergebase;
 use buck2_file_watcher::mergebase::Mergebase;
-use buck2_futures::cancellation::CancellationContext;
 use buck2_http::HttpClient;
 use derivative::Derivative;
 use derive_more::Display;
 use dice::DiceComputations;
+use dice_futures::cancellation::CancellationContext;
 use dupe::Dupe;
 use either::Either;
 use fxhash::FxHashMap;
@@ -269,6 +270,7 @@ impl HasActionExecutor for DiceComputations<'_> {
             action_cache_checker,
             remote_dep_file_cache_checker,
             cache_uploader,
+            output_trees_download_config,
         } = self.get_command_executor_from_dice(executor_config).await?;
         let blocking_executor = self.get_blocking_executor();
         let materializer = self.per_transaction_data().get_materializer();
@@ -300,6 +302,7 @@ impl HasActionExecutor for DiceComputations<'_> {
             http_client,
             mergebase,
             invalidation_tracking_enabled,
+            output_trees_download_config,
         )))
     }
 }
@@ -316,6 +319,7 @@ pub struct BuckActionExecutor {
     http_client: HttpClient,
     mergebase: Mergebase,
     invalidation_tracking_enabled: bool,
+    output_trees_download_config: OutputTreesDownloadConfig,
 }
 
 impl BuckActionExecutor {
@@ -331,6 +335,7 @@ impl BuckActionExecutor {
         http_client: HttpClient,
         mergebase: Mergebase,
         invalidation_tracking_enabled: bool,
+        output_trees_download_config: OutputTreesDownloadConfig,
     ) -> Self {
         BuckActionExecutor {
             command_executor,
@@ -344,6 +349,7 @@ impl BuckActionExecutor {
             http_client,
             mergebase,
             invalidation_tracking_enabled,
+            output_trees_download_config,
         }
     }
 }
@@ -443,10 +449,13 @@ impl ActionExecutionCtx for BuckActionExecutionContext<'_> {
     fn prepare_action(
         &mut self,
         request: &CommandExecutionRequest,
+        re_outputs_required: bool,
     ) -> buck2_error::Result<PreparedAction> {
-        self.executor
-            .command_executor
-            .prepare_action(request, self.digest_config())
+        self.executor.command_executor.prepare_action(
+            request,
+            self.digest_config(),
+            re_outputs_required,
+        )
     }
 
     async fn action_cache(
@@ -656,6 +665,10 @@ impl ActionExecutionCtx for BuckActionExecutionContext<'_> {
     fn http_client(&self) -> HttpClient {
         self.executor.http_client.dupe()
     }
+
+    fn output_trees_download_config(&self) -> &OutputTreesDownloadConfig {
+        &self.executor.output_trees_download_config
+    }
 }
 
 impl BuckActionExecutor {
@@ -806,7 +819,6 @@ mod tests {
     use buck2_core::execution_types::executor_config::PathSeparatorKind;
     use buck2_core::fs::artifact_path_resolver::ArtifactFs;
     use buck2_core::fs::buck_out_path::BuckOutPathResolver;
-    use buck2_core::fs::fs_util;
     use buck2_core::fs::project::ProjectRootTemp;
     use buck2_core::fs::project_rel_path::ProjectRelativePath;
     use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
@@ -830,8 +842,10 @@ mod tests {
     use buck2_execute::execute::testing_dry_run::DryRunExecutor;
     use buck2_execute::materialize::nodisk::NoDiskMaterializer;
     use buck2_execute::re::manager::UnconfiguredRemoteExecutionClient;
-    use buck2_futures::cancellation::CancellationContext;
+    use buck2_execute::re::output_trees_download_config::OutputTreesDownloadConfig;
+    use buck2_fs::fs_util;
     use buck2_http::HttpClientBuilder;
+    use dice_futures::cancellation::CancellationContext;
     use dupe::Dupe;
     use indexmap::indexset;
     use sorted_vector_map::SortedVectorMap;
@@ -901,6 +915,7 @@ mod tests {
                 .build(),
             Default::default(),
             true,
+            OutputTreesDownloadConfig::new(None, true),
         );
 
         #[derive(Debug, Allocative)]
@@ -973,7 +988,7 @@ mod tests {
                 );
 
                 // on fake executor, this does nothing
-                let prepared_action = ctx.prepare_action(&req)?;
+                let prepared_action = ctx.prepare_action(&req, true)?;
                 let manager = ctx.command_execution_manager();
                 let res = ctx.exec_cmd(manager, &req, &prepared_action).await;
 

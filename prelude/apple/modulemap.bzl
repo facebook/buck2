@@ -6,7 +6,11 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
-load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolsInfo")
+load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolchainInfo", "AppleToolsInfo")
+load(
+    "@prelude//apple/swift:swift_incremental_support.bzl",
+    "get_uses_experimental_content_based_path_hashing",
+)
 load(
     "@prelude//cxx:headers.bzl",
     "CHeader",  # @unused Used as a type
@@ -22,24 +26,29 @@ def preprocessor_info_for_modulemap(
         name: str,
         module_name: str,
         headers: list[CHeader],
-        swift_header: Artifact | None,
-        additional_args: CPreprocessorArgs | None) -> CPreprocessor:
-    preprocessor_info, _ = create_modulemap(ctx, name, module_name, headers, swift_header, additional_args)
+        swift_header: Artifact | None) -> CPreprocessor:
+    preprocessor_info, _ = create_modulemap(ctx, name, module_name, headers, swift_header)
     return preprocessor_info
+
+def _non_modular_libraries_use_header_maps(ctx: AnalysisContext) -> bool:
+    apple_toolchain = getattr(ctx.attrs, "_apple_toolchain", None)
+    if apple_toolchain:
+        return apple_toolchain[AppleToolchainInfo].modular_libraries_use_header_maps
+
+    return False
 
 def create_modulemap(
         ctx: AnalysisContext,
         name: str,
         module_name: str,
         headers: list[CHeader],
-        swift_header: Artifact | None,
-        additional_args: CPreprocessorArgs | None,
+        swift_header: Artifact | None = None,
         is_framework: bool = False) -> (CPreprocessor, Artifact):
     # We don't want to name this module.modulemap to avoid implicit importing
     if name == "module" and not is_framework:
         fail("Don't use the name `module` for modulemaps, this will allow for implicit importing.")
 
-    uses_experimental_content_based_path_hashing = getattr(ctx.attrs, "uses_experimental_content_based_path_hashing", False)
+    uses_experimental_content_based_path_hashing = get_uses_experimental_content_based_path_hashing(ctx)
 
     # Create a map of header import path to artifact location
     header_map = {}
@@ -89,12 +98,25 @@ def create_modulemap(
 
     ctx.actions.run(cmd, category = "modulemap", identifier = name)
 
-    return CPreprocessor(
-        args = CPreprocessorArgs(
-            args = [cmd_args(symlink_tree, format = "-I{}")] + (additional_args.args if additional_args else []),
-            file_prefix_args = additional_args.file_prefix_args if additional_args else [],
-        ),
-        modular_args = [cmd_args(output, format = "-fmodule-map-file={}")],
-        modulemap_path = cmd_args(output),
-        modulemap_artifacts = [output],
-    ), output
+    if _non_modular_libraries_use_header_maps(ctx):
+        # When using header maps for non-modular libraries we only set the
+        # symlink tree includes in modular_args for modular rdeps.
+        pp = CPreprocessor(
+            modular_args = [
+                cmd_args(output, format = "-fmodule-map-file={}"),
+                cmd_args(symlink_tree, format = "-I{}"),
+            ],
+            modulemap_path = cmd_args(output),
+            modulemap_artifacts = [output],
+        )
+    else:
+        pp = CPreprocessor(
+            args = CPreprocessorArgs(
+                args = [cmd_args(symlink_tree, format = "-I{}")],
+            ),
+            modular_args = [cmd_args(output, format = "-fmodule-map-file={}")],
+            modulemap_path = cmd_args(output),
+            modulemap_artifacts = [output],
+        )
+
+    return pp, output

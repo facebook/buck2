@@ -21,27 +21,41 @@ use derive_more::Display;
 use dupe::Dupe;
 use strong_hash::StrongHash;
 
+use crate::provider::label::ProvidersLabel;
+use crate::provider::label::testing::ProvidersLabelTestExt;
 use crate::target::label::label::TargetLabel;
 
 /// A ConstraintKey is a label for a `constraint_setting()` target.
 #[derive(
     Clone, Dupe, Debug, Display, Hash, Eq, PartialEq, Ord, PartialOrd, Allocative, StrongHash
 )]
-pub struct ConstraintKey(pub TargetLabel);
+#[display("{}", key)]
+pub struct ConstraintKey {
+    pub key: TargetLabel,
+    // TODO(nero): remove Option when when we migrated to unified constraint rule
+    pub default: Option<ConstraintValue>,
+}
 
 impl ConstraintKey {
     pub fn testing_new(label: &str) -> ConstraintKey {
-        ConstraintKey(TargetLabel::testing_parse(label))
+        ConstraintKey {
+            key: TargetLabel::testing_parse(label),
+            default: None,
+        }
     }
 }
 
 #[derive(
     Clone, Dupe, Debug, Display, Hash, Eq, PartialEq, Ord, PartialOrd, Allocative, StrongHash
 )]
-pub struct ConstraintValue(pub TargetLabel);
+pub struct ConstraintValue(pub ProvidersLabel);
 
 impl ConstraintValue {
-    pub fn testing_new(label: &str) -> ConstraintValue {
-        ConstraintValue(TargetLabel::testing_parse(label))
+    pub fn testing_new(label: &str, name: Option<&str>) -> ConstraintValue {
+        let name_array = name.map(|n| [n]);
+        ConstraintValue(ProvidersLabel::testing_new_with_target_label(
+            TargetLabel::testing_parse(label),
+            name_array.as_ref().map(|a| &a[..]),
+        ))
     }
 }

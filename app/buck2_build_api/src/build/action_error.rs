@@ -43,13 +43,24 @@ enum BuildReportActionErrorDiagnostics {
 struct BuildReportActionSubError {
     category: String,
     message_content: Option<String>,
-    locations: Option<Vec<BuildReportActionErrorLocation>>,
-}
-
-#[derive(Debug, Clone, Serialize, PartialOrd, Ord, PartialEq, Eq)]
-struct BuildReportActionErrorLocation {
-    file: String,
-    line: Option<u64>,
+    // file path for the error location
+    file: Option<String>,
+    // Line number
+    lnum: Option<u64>,
+    // End line (for multi-line spans)
+    end_lnum: Option<u64>,
+    //  Column number
+    col: Option<u64>,
+    // End column (for ranges)
+    end_col: Option<u64>,
+    // Type of error (error, warning, info, etc.)
+    error_type: Option<String>,
+    // Numeric error code (e.g., 404, 500)
+    error_number: Option<u64>,
+    // Subcategory for finer-grained categorization
+    subcategory: Option<String>,
+    // Remediation steps for the error
+    remediation: Option<String>,
 }
 
 /// DO NOT UPDATE WITHOUT UPDATING `docs/users/build_observability/build_report.md`!
@@ -96,25 +107,21 @@ impl BuildReportActionError {
                     let sub_errors = sub_errors
                         .sub_errors
                         .iter()
-                        .map(|s| {
-                            let locations = s.locations.as_ref().map(|locations| {
-                                locations
-                                    .locations
-                                    .iter()
-                                    .map(|l| BuildReportActionErrorLocation {
-                                        file: l.file.clone(),
-                                        line: l.line,
-                                    })
-                                    .collect()
-                            });
-                            BuildReportActionSubError {
-                                category: s.category.clone(),
-                                message_content: s
-                                    .message
-                                    .clone()
-                                    .map(|m| collector.update_string_cache(m)),
-                                locations,
-                            }
+                        .map(|s| BuildReportActionSubError {
+                            category: s.category.clone(),
+                            message_content: s
+                                .message
+                                .clone()
+                                .map(|m| collector.update_string_cache(m)),
+                            file: s.file.clone(),
+                            lnum: s.lnum,
+                            end_lnum: s.end_lnum,
+                            col: s.col,
+                            end_col: s.end_col,
+                            error_type: s.error_type.clone(),
+                            error_number: s.error_number,
+                            subcategory: s.subcategory.clone(),
+                            remediation: s.remediation.clone(),
                         })
                         .collect();
                     BuildReportActionErrorDiagnostics::SubErrors(sub_errors)
@@ -128,9 +135,9 @@ impl BuildReportActionError {
         });
 
         let stderr = command_details.map_or(String::default(), |c| {
-            console::strip_ansi_codes(&c.stderr).to_string()
+            console::strip_ansi_codes(&c.cmd_stderr).to_string()
         });
-        let stdout = command_details.map_or(String::default(), |c| c.stdout.clone());
+        let stdout = command_details.map_or(String::default(), |c| c.cmd_stdout.clone());
 
         let error_content = collector.update_string_cache(reason);
         let stderr_content = collector.update_string_cache(stderr);

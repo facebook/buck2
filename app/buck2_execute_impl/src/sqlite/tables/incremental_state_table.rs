@@ -11,9 +11,9 @@
 use std::borrow::Cow;
 use std::sync::Arc;
 
-use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_error::BuckErrorContext;
+use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use dashmap::DashMap;
 use once_cell::sync::Lazy;
 use parking_lot::Mutex;

@@ -8,6 +8,7 @@
  * above-listed licenses.
  */
 
+use std::sync::Arc;
 use std::time::Instant;
 
 use buck2_error::BuckErrorContext;
@@ -18,7 +19,7 @@ use starlark::eval::Evaluator;
 use starlark::eval::ProfileData;
 use starlark::eval::ProfileMode;
 
-use crate::starlark_profiler::data::ProfileTarget;
+use crate::dice::starlark_provider::StarlarkEvalKind;
 use crate::starlark_profiler::data::StarlarkProfileDataAndStats;
 
 #[derive(Debug, buck2_error::Error)]
@@ -31,37 +32,6 @@ enum StarlarkProfilerError {
     RetainedMemoryNotFrozen,
 }
 
-pub struct StarlarkProfiler {
-    pub(crate) profiler_data: ProfilerData,
-    target: ProfileTarget,
-}
-
-impl StarlarkProfiler {
-    pub fn new(profile_mode: Option<ProfileMode>, target: ProfileTarget) -> StarlarkProfiler {
-        Self {
-            profiler_data: ProfilerData {
-                profile_mode,
-                initialized_at: None,
-                finalized_at: None,
-                profile_data: None,
-            },
-            target,
-        }
-    }
-
-    pub fn disabled() -> Self {
-        Self::new(None, ProfileTarget::Unknown)
-    }
-
-    /// Collect all profiling data.
-    pub fn finish(
-        self,
-        frozen_module: Option<&FrozenModule>,
-    ) -> buck2_error::Result<Option<StarlarkProfileDataAndStats>> {
-        self.profiler_data.finish(frozen_module, self.target)
-    }
-}
-
 pub struct ProfilerData {
     profile_mode: Option<ProfileMode>,
 
@@ -71,6 +41,15 @@ pub struct ProfilerData {
 }
 
 impl ProfilerData {
+    pub(crate) fn new(profile_mode: Option<ProfileMode>) -> Self {
+        ProfilerData {
+            profile_mode,
+            initialized_at: None,
+            finalized_at: None,
+            profile_data: None,
+        }
+    }
+
     /// Prepare an Evaluator to capture output relevant to this profiler.
     pub(crate) fn initialize(&mut self, eval: &mut Evaluator) -> buck2_error::Result<bool> {
         self.initialized_at = Some(Instant::now());
@@ -99,8 +78,8 @@ impl ProfilerData {
     pub fn finish(
         mut self,
         frozen_module: Option<&FrozenModule>,
-        target: ProfileTarget,
-    ) -> buck2_error::Result<Option<StarlarkProfileDataAndStats>> {
+        target: StarlarkEvalKind,
+    ) -> buck2_error::Result<Option<Arc<StarlarkProfileDataAndStats>>> {
         let mode = match self.profile_mode {
             None => {
                 return Ok(None);
@@ -128,7 +107,7 @@ impl ProfilerData {
             (None, false) => 0,
         };
 
-        Ok(Some(StarlarkProfileDataAndStats {
+        Ok(Some(Arc::new(StarlarkProfileDataAndStats {
             initialized_at: self.initialized_at.internal_error("did not initialize")?,
             finalized_at: self.finalized_at.internal_error("did not finalize")?,
             total_retained_bytes,
@@ -136,6 +115,6 @@ impl ProfilerData {
                 .profile_data
                 .internal_error("profile_data not initialized")??,
             targets: vec![target],
-        }))
+        })))
     }
 }

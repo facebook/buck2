@@ -280,7 +280,7 @@ impl<T: StrongHash> VersionedSketcher<T> {
             Ok(())
         } else {
             Err(buck2_error::internal_error!(
-                // This is curently an internal error because users cannot specify sketch version to use.
+                // This is currently an internal error because users cannot specify sketch version to use.
                 "Set sketch version mismatch between {} and {}. Cannot merge.",
                 self.version,
                 other.version

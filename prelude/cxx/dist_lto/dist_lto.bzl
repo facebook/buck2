@@ -741,7 +741,7 @@ def cxx_gnu_dist_link(
             if split_debug_output:
                 referenced_objects += [split_debug_output]
             else:
-                referenced_objects += project_artifacts(ctx.actions, [external_debug_info])
+                referenced_objects += project_artifacts(ctx.actions, external_debug_info)
 
             run_dwp_action(
                 ctx = ctx,

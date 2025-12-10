@@ -70,11 +70,24 @@ impl TestCounterColumn {
         get_from_test_state: |test_state| test_state.skipped,
         get_from_test_statues: |test_statuses| &test_statuses.skipped,
     };
+    pub const OMIT: TestCounterColumn = TestCounterColumn {
+        label: "Omit",
+        color: Some(Color::Magenta),
+        get_from_test_state: |test_state| test_state.omitted,
+        get_from_test_statues: |test_statuses| &test_statuses.omitted,
+    };
     const TIMEOUT: TestCounterColumn = TestCounterColumn {
         label: "Timeout",
         color: Some(Color::Yellow),
         get_from_test_state: |test_state| test_state.timeout,
         get_from_test_statues: |_test_statuses| &None,
+    };
+
+    pub const INFRA_FAILURE: TestCounterColumn = TestCounterColumn {
+        label: "Infra Failure",
+        color: Some(Color::Magenta),
+        get_from_test_state: |test_state| test_state.infra_failure,
+        get_from_test_statues: |test_statuses| &test_statuses.infra_failure,
     };
 
     fn to_span_from_test_state(&self, test_state: &TestState) -> Result<Span, SpanError> {
@@ -131,7 +144,11 @@ impl TestCounterComponent {
         spans.push(". ".try_into()?);
         spans.push(TestCounterColumn::SKIP.to_span_from_test_state(test_state)?);
         spans.push(". ".try_into()?);
+        spans.push(TestCounterColumn::OMIT.to_span_from_test_state(test_state)?);
+        spans.push(". ".try_into()?);
         spans.push(TestCounterColumn::TIMEOUT.to_span_from_test_state(test_state)?);
+        spans.push(". ".try_into()?);
+        spans.push(TestCounterColumn::INFRA_FAILURE.to_span_from_test_state(test_state)?);
         Ok(Lines::from_iter([Line::from_iter(spans)]))
     }
 }

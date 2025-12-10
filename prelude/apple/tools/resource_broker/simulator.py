@@ -11,7 +11,7 @@
 import json
 from dataclasses import dataclass
 from enum import Enum
-from typing import List, Optional
+from typing import Optional
 
 from dataclasses_json import dataclass_json
 
@@ -85,7 +85,7 @@ def managed_simulator_from_stdout(stdout: Optional[str]) -> Simulator:
     return Simulator.from_dict(json.loads(stdout))
 
 
-def managed_simulators_list_from_stdout(stdout: Optional[str]) -> List[Simulator]:
+def managed_simulators_list_from_stdout(stdout: Optional[str]) -> list[Simulator]:
     if not stdout:
         return []
     targets = map(

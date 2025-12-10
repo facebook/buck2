@@ -18,7 +18,6 @@ use buck2_common::chunk_reader::ChunkReader;
 use buck2_common::manifold;
 use buck2_common::manifold::ManifoldChunkedUploader;
 use buck2_common::manifold::ManifoldClient;
-use buck2_core::fs::paths::abs_path::AbsPathBuf;
 use buck2_core::soft_error;
 use buck2_data::InstantEvent;
 use buck2_data::PersistEventLogSubprocess;
@@ -26,9 +25,11 @@ use buck2_data::instant_event::Data;
 use buck2_error::BuckErrorContext;
 use buck2_event_log::ttl::manifold_event_log_ttl;
 use buck2_events::BuckEvent;
+use buck2_events::daemon_id::DaemonId;
 use buck2_events::sink::remote::RemoteEventSink;
 use buck2_events::sink::remote::ScribeConfig;
 use buck2_events::sink::remote::new_remote_event_sink_if_enabled;
+use buck2_fs::paths::abs_path::AbsPathBuf;
 use buck2_wrapper_common::invocation_id::TraceId;
 use tokio::fs::File;
 use tokio::fs::OpenOptions;
@@ -41,7 +42,7 @@ use tokio::time::Duration;
 use tokio::time::Instant;
 use tokio::time::sleep;
 
-const MAX_WAIT: Duration = Duration::from_secs(5 * 60);
+const MAX_WAIT: Duration = Duration::from_mins(5);
 
 #[derive(Debug, buck2_error::Error)]
 #[buck2(tag = Tier0)]
@@ -96,7 +97,7 @@ impl PersistEventLogsCommand {
                 remote_error_messages,
                 remote_error_category,
                 remote_success,
-                metadata: buck2_events::metadata::collect(),
+                metadata: buck2_events::metadata::collect(&DaemonId::null()),
             };
             dispatch_event_to_scribe(sink.as_ref(), &trace_id, event_to_send).await;
         });

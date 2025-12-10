@@ -15,8 +15,6 @@ buildscript.run = false
 name = "ring-c-asm-elf-x86_84"
 srcs = [ "crypto/**/*.c", "pregenerated/*x86_64*-elf.S" ]
 headers = [ "include/**/*.h", "crypto/**/*.h", "third_party/**/*.h", "crypto/**/*.inl" ]
-# Exclude C AES because we've got the x86_64 one
-exclude = [ "crypto/fipsmodule/aes/aes.c" ]
 include_paths = ["include"]
 compiler_flags = ["-Wno-error"]
 
@@ -26,8 +24,6 @@ RING_CORE_PREFIX = "ring_core_0_17_5_"
 name = "ring-c-asm-elf-x86_84"
 srcs = [ "crypto/**/*.c", "pregenerated/*x86_64*-elf.S", "third_party/fiat/asm/fiat_curve25519_adx_mul.S", "third_party/fiat/asm/fiat_curve25519_adx_square.S" ]
 headers = [ "include/**/*.h", "crypto/**/*.h", "third_party/**/*.h", "crypto/**/*.inl" ]
-# Exclude C AES because we've got the x86_64 one
-exclude = [ "crypto/fipsmodule/aes/aes.c" ]
 include_paths = ["include"]
 compiler_flags = ["-Wno-error"]
 fixup_include_paths = ["include"]
@@ -46,7 +42,6 @@ RING_CORE_PREFIX = "ring_core_0_17_5_"
 name = "ring-c-asm-elf-aarch64"
 srcs = [ "crypto/**/*.c", "pregenerated/*armv8*-linux64.S", "pregenerated/*armx*-linux64.S" ]
 headers = [ "include/**/*.h", "crypto/**/*.h", "third_party/**/*.h", "crypto/**/*.inl" ]
-exclude = [ "crypto/cpu-intel.c" ]
 include_paths = ["include"]
 compiler_flags = ["-Wno-error"]
 fixup_include_paths = ["include"]
@@ -55,8 +50,6 @@ fixup_include_paths = ["include"]
 name = "ring-c-asm-macos-x86_64"
 srcs = [ "crypto/**/*.c", "pregenerated/*x86_64*-macosx.S" ]
 headers = [ "include/**/*.h", "crypto/**/*.h", "third_party/**/*.h", "crypto/**/*.inl" ]
-# Exclude C AES because we've got the x86_64 one
-exclude = [ "crypto/fipsmodule/aes/aes.c" ]
 include_paths = ["include"]
 compiler_flags = ["-Wno-error"]
 
@@ -66,8 +59,6 @@ RING_CORE_PREFIX = "ring_core_0_17_5_"
 name = "ring-c-asm-macos-x86_64"
 srcs = [ "crypto/**/*.c", "pregenerated/*x86_64*-macosx.S", "third_party/fiat/asm/fiat_curve25519_adx_mul.S", "third_party/fiat/asm/fiat_curve25519_adx_square.S" ]
 headers = [ "include/**/*.h", "crypto/**/*.h", "third_party/**/*.h", "crypto/**/*.inl" ]
-# Exclude C AES because we've got the x86_64 one
-exclude = [ "crypto/fipsmodule/aes/aes.c" ]
 include_paths = ["include"]
 compiler_flags = ["-Wno-error"]
 fixup_include_paths = ["include"]
@@ -86,7 +77,6 @@ RING_CORE_PREFIX = "ring_core_0_17_5_"
 name = "ring-c-asm-macos-arm64"
 srcs = [ "crypto/**/*.c", "pregenerated/*armv8*-ios64.S", "pregenerated/*armx*-ios64.S" ]
 headers = [ "include/**/*.h", "crypto/**/*.h", "third_party/**/*.h", "crypto/**/*.inl" ]
-exclude = [ "crypto/cpu-intel.c" ]
 include_paths = ["include"]
 compiler_flags = ["-Wno-error"]
 fixup_include_paths = ["include"]
@@ -95,8 +85,6 @@ fixup_include_paths = ["include"]
 name = "ring-c-win-x86_84"
 srcs = [ "crypto/**/*.c" ]
 headers = [ "include/**/*.h", "crypto/**/*.h", "third_party/**/*.h", "crypto/**/*.inl" ]
-# Exclude C AES because we've got the x86_64 one
-exclude = [ "crypto/fipsmodule/aes/aes.c" ]
 include_paths = ["include"]
 compiler_flags = ["-Wno-error"]
 
@@ -106,8 +94,6 @@ RING_CORE_PREFIX = "ring_core_0_17_5_"
 name = "ring-c-win-x86_84"
 srcs = [ "crypto/**/*.c" ]
 headers = [ "include/**/*.h", "crypto/**/*.h", "third_party/**/*.h", "crypto/**/*.inl" ]
-# Exclude C AES because we've got the x86_64 one
-exclude = [ "crypto/fipsmodule/aes/aes.c" ]
 include_paths = ["include"]
 compiler_flags = ["-Wno-error"]
 fixup_include_paths = ["include"]
@@ -116,16 +102,12 @@ fixup_include_paths = ["include"]
 name = "ring-c-win-msvc-x86_84"
 srcs = [ "crypto/**/*.c" ]
 headers = [ "include/**/*.h", "crypto/**/*.h", "third_party/**/*.h", "crypto/**/*.inl" ]
-# Exclude C AES because we've got the x86_64 one
-exclude = [ "crypto/fipsmodule/aes/aes.c" ]
 include_paths = ["include"]
 
 [['cfg(all(version = "=0.17.5", target_arch = "x86_64", target_os = "windows", target_env = "msvc"))'.cxx_library]]
 name = "ring-c-win-msvc-x86_84"
 srcs = [ "crypto/**/*.c" ]
 headers = [ "include/**/*.h", "crypto/**/*.h", "third_party/**/*.h", "crypto/**/*.inl" ]
-# Exclude C AES because we've got the x86_64 one
-exclude = [ "crypto/fipsmodule/aes/aes.c" ]
 include_paths = ["include"]
 fixup_include_paths = ["include"]
 

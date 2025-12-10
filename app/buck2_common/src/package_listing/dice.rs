@@ -17,9 +17,9 @@ use buck2_core::cells::cell_path::CellPathRef;
 use buck2_core::package::PackageLabel;
 use buck2_events::dispatch::async_record_root_spans;
 use buck2_events::span::SpanId;
-use buck2_futures::cancellation::CancellationContext;
 use dice::DiceComputations;
 use dice::Key;
+use dice_futures::cancellation::CancellationContext;
 use dupe::Dupe;
 use smallvec::SmallVec;
 
@@ -60,7 +60,7 @@ impl Key for PackageListingKey {
         .await;
 
         ctx.store_evaluation_data(PackageListingKeyActivationData {
-            duration: now.elapsed(),
+            duration: Instant::now() - now,
             spans,
         })?;
 

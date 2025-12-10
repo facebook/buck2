@@ -8,8 +8,8 @@
  * above-listed licenses.
  */
 
-use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
-use buck2_core::fs::paths::file_name::FileName;
+use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
+use buck2_fs::paths::file_name::FileName;
 
 /// `~/.buck/buckd/repo-path` directory.
 #[derive(Debug, Clone, derive_more::Display)]

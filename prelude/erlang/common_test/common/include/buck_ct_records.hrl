@@ -34,7 +34,7 @@
     suite_path :: file:filename_all(),
     output_dir :: file:filename_all(),
     dependencies :: [file:filename_all()],
-    test_spec_file :: file:filename_all() | undefined,
+    test_spec_file :: file:filename_all(),
     output_format :: xml | json,
     config_files :: [file:filename_all()],
     providers :: [{module(), [term()]}],
@@ -44,7 +44,10 @@
     extra_flags :: [binary()],
     artifact_annotation_mfa :: artifact_annotations:annotation_function(),
     raw_target :: binary() | undefined,
-    trampolines :: [binary()]
+    trampolines :: [binary()],
+    timeout :: timeout(),
+    ct_stdout_fingerprint :: ct_stdout:fingerprint(),
+    ct_stdout_streaming :: output_to_stdout | no_output_to_stdout
 }).
 
 -record(run_specs, {

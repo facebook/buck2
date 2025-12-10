@@ -108,14 +108,56 @@ RustProcMacroMarker = provider(fields = {
     "label": typing.Any,
 })
 
+# Artifact produced by a Rust compiler invocation.
+#
+# The artifact is assigned a provisional filepath at analysis time. However, the
+# real name of the crate may not be known until build time. For loading this
+# artifact as a transitive dependency, the filename matters and must match the
+# real crate name. We keep track of the crate name in its own artifact and use
+# it to create a symlink to make the Rust artifact appear with the required name
+# to later rustc executions.
+RustArtifact = record(
+    artifact = field(Artifact),
+    crate = field(CrateName),
+)
+
+def _project_dynamic_artifacts(dep: RustArtifact) -> cmd_args:
+    if dep.crate.dynamic:
+        return cmd_args(dep.artifact)
+    else:
+        return cmd_args()
+
+def _project_dynamic_crate_names(dep: RustArtifact) -> cmd_args:
+    return cmd_args(dep.crate.dynamic or [])
+
+def _has_dynamic_artifacts(children: list[bool], dep: [RustArtifact, None]) -> bool:
+    return (dep and dep.crate.dynamic != None) or any(children)
+
+def _has_simple_artifacts(children: list[bool], dep: [RustArtifact, None]) -> bool:
+    return (dep and dep.crate.dynamic == None) or any(children)
+
+# Set of RustArtifact.
+TransitiveDeps = transitive_set(
+    args_projections = {
+        "dynamic_artifacts": _project_dynamic_artifacts,
+        "dynamic_crate_names": _project_dynamic_crate_names,
+    },
+    reductions = {
+        "has_dynamic_artifacts": _has_dynamic_artifacts,
+        "has_simple_artifacts": _has_simple_artifacts,
+    },
+)
+
 # Information which is keyed on link_style
 RustLinkStrategyInfo = record(
     # Path to the rlib, rmeta, dylib, etc.
     outputs = field(dict[MetadataKind, Artifact]),
+    # Same as `outputs`, but wrapped in a 1-element transitive set.
+    singleton_tset = field(dict[MetadataKind, TransitiveDeps]),
     # Transitive dependencies which are relevant to the consumer. For crate types which do not
     # propagate their deps (specifically proc macros), this set is empty
     # This does not include the proc macros, which are passed separately in `RustLinkInfo`
-    transitive_deps = field(dict[MetadataKind, dict[Artifact, CrateName]]),
+    transitive_deps = field(dict[MetadataKind, TransitiveDeps]),
     transitive_proc_macro_deps = field(set[RustProcMacroMarker]),
 
     # Path to PDB file with Windows debug data.
@@ -123,6 +165,9 @@ RustLinkStrategyInfo = record(
     # Debug info which is referenced -- but not included -- by the linkable rlib.
     external_debug_info = field(ArtifactTSet),
 )
+
+# Set of list[(ConfiguredTargetLabel, MergedLinkInfo)]
+RustNativeLinkDeps = transitive_set()
 
 # Output of a Rust compilation
 RustLinkInfo = provider(
@@ -145,7 +190,7 @@ RustLinkInfo = provider(
         # codegen, the generated object files for a Rust library can generate symbol references to
         # any of the library's transitive Rust dependencies, as well as to the immediate C++
         # dependencies of those libraries. So to account for that, each Rust library reports direct
-        # dependencies on all of those libraries in the link graph. The `merged_link_infos` and
+        # dependencies on all of those libraries in the link graph. The `native_link_deps` and
         # `linkable_graphs` lists are the providers from all of those libraries.
         #
         # The second difference is unique to the case where `advanced_unstable_linking` is not set
@@ -171,7 +216,7 @@ RustLinkInfo = provider(
         # With `advanced_unstable_linkin`, Rust libraries essentially behave just like C++
         # libraries in the link graph, with the handling of transitive dependencies being the only
         # difference.
-        "merged_link_infos": dict[ConfiguredTargetLabel, MergedLinkInfo],
+        "native_link_deps": RustNativeLinkDeps,
         "linkable_graphs": list[LinkableGraph],
         "shared_libs": SharedLibraryInfo,
         "third_party_build_info": ThirdPartyBuildInfo,
@@ -530,17 +575,29 @@ def inherited_rust_cxx_link_group_info(
         link_group_preferred_linkage = link_group_preferred_linkage,
     )
 
+def inherited_native_link_deps(
+        ctx: AnalysisContext,
+        dep_ctx: DepCollectionContext) -> RustNativeLinkDeps:
+    return ctx.actions.tset(
+        RustNativeLinkDeps,
+        value = [
+            (dep.label.configured_target(), dep[MergedLinkInfo])
+            for dep in _native_link_dependencies(ctx, dep_ctx)
+        ],
+        children = [
+            info.native_link_deps
+            for info in _rust_non_proc_macro_link_infos(ctx, dep_ctx)
+        ],
+    )
+
 def inherited_merged_link_infos(
         ctx: AnalysisContext,
         dep_ctx: DepCollectionContext) -> dict[ConfiguredTargetLabel, MergedLinkInfo]:
-    infos = {}
-    for d in _native_link_dependencies(ctx, dep_ctx):
-        g = d.get(MergedLinkInfo)
-        if g:
-            infos[d.label.configured_target()] = g
-    for info in _rust_non_proc_macro_link_infos(ctx, dep_ctx):
-        infos.update(info.merged_link_infos)
-    return infos
+    return {
+        label: info
+        for infos in inherited_native_link_deps(ctx, dep_ctx).traverse(ordering = "dfs")
+        for label, info in infos
+    }
 
 def inherited_shared_libs(
         ctx: AnalysisContext,
@@ -586,9 +643,15 @@ def inherited_dep_external_debug_infos(
     toolchain_info = ctx.attrs._rust_toolchain[RustToolchainInfo]
 
     for d in resolve_deps(ctx, dep_ctx):
-        if RustLinkInfo in d.dep:
-            inherited_debug_infos.append(strategy_info(toolchain_info, d.dep[RustLinkInfo], dep_link_strategy).external_debug_info)
-            inherited_link_infos.extend(d.dep[RustLinkInfo].merged_link_infos.values())
+        rust_link_info = d.dep.get(RustLinkInfo)
+        if rust_link_info:
+            inherited_debug_infos.append(strategy_info(toolchain_info, rust_link_info, dep_link_strategy).external_debug_info)
+            merged_link_infos = {
+                label: info
+                for infos in rust_link_info.native_link_deps.traverse(ordering = "dfs")
+                for label, info in infos
+            }
+            inherited_link_infos.extend(merged_link_infos.values())
         elif MergedLinkInfo in d.dep:
             inherited_link_infos.append(d.dep[MergedLinkInfo])
 

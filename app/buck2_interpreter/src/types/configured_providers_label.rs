@@ -141,7 +141,7 @@ fn configured_label_methods(builder: &mut MethodsBuilder) {
         })
     }
 
-    /// For the label `fbcode//buck2/hello:world (ovr_config//platform/linux:x86_64-fbcode-46b26edb4b80a905)` this gives back `fbcode/buck2/hello`
+    /// For the label `fbcode//buck2/hello:world (ovr_config//platform/linux:x86_64-fbcode-46b26edb4b80a905)` this gives back `fbcode//buck2/hello`
     #[starlark(attribute)]
     fn path<'v>(this: &StarlarkConfiguredProvidersLabel) -> starlark::Result<StarlarkCellPath> {
         Ok(StarlarkCellPath(this.label.target().pkg().to_cell_path()))
@@ -287,6 +287,14 @@ fn label_methods(builder: &mut MethodsBuilder) {
     fn cell<'v>(this: &'v StarlarkProvidersLabel) -> starlark::Result<&'v str> {
         let cell = this.label.target().pkg().cell_name().as_str();
         Ok(cell)
+    }
+
+    #[starlark(attribute)]
+    fn package<'v>(
+        this: &'v StarlarkProvidersLabel,
+        heap: &'v Heap,
+    ) -> starlark::Result<StringValue<'v>> {
+        Ok(heap.alloc_str_intern(this.label.target().pkg().cell_relative_path().as_str()))
     }
 
     /// Returns the PackagePath for this providers label.

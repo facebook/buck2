@@ -14,15 +14,15 @@ use std::sync::Arc;
 
 use buck2_cli_proto::HasClientContext;
 use buck2_cli_proto::profile_request::ProfileOpts;
-use buck2_core::fs::fs_util;
-use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
-use buck2_core::fs::paths::abs_path::AbsPath;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::pattern::unparsed::UnparsedPatternPredicate;
 use buck2_core::pattern::unparsed::UnparsedPatterns;
 use buck2_error::BuckErrorContext;
 use buck2_error::buck2_error;
 use buck2_error::conversion::from_any_with_tag;
+use buck2_fs::fs_util;
+use buck2_fs::paths::abs_norm_path::AbsNormPath;
+use buck2_fs::paths::abs_path::AbsPath;
 use buck2_interpreter::starlark_profiler::config::StarlarkProfilerConfiguration;
 use buck2_interpreter::starlark_profiler::data::StarlarkProfileDataAndStats;
 use starlark::eval::ProfileMode;
@@ -173,7 +173,7 @@ pub fn get_profile_response(
     write_starlark_profile(profile_data.as_ref(), targets, output)?;
 
     Ok(buck2_cli_proto::ProfileResponse {
-        elapsed: Some(profile_data.elapsed().try_into()?),
+        elapsed: Some(profile_data.duration().try_into()?),
         total_retained_bytes: profile_data.total_retained_bytes() as u64,
     })
 }

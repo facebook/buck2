@@ -12,10 +12,10 @@ use async_trait::async_trait;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::cell_path::CellPathRef;
 use buck2_core::cells::paths::CellRelativePath;
-use buck2_core::fs::paths::file_name::FileNameBuf;
 use buck2_core::package::PackageLabel;
 use buck2_core::package::package_relative_path::PackageRelativePath;
 use buck2_core::package::package_relative_path::PackageRelativePathBuf;
+use buck2_fs::paths::file_name::FileNameBuf;
 use buck2_util::arc_str::ArcS;
 use dice::DiceComputations;
 use dupe::Dupe;
@@ -242,14 +242,23 @@ impl std::fmt::Display for GatherPackageListingError {
                 if let Some(primary_candidate) =
                     candidates.iter().find(|v| v.extension() != Some("v2"))
                 {
-                    (
-                        package,
+                    let alternatives: Vec<_> = candidates
+                        .iter()
+                        .filter(|v| *v != primary_candidate)
+                        .map(|v| format!("`{v}`"))
+                        .collect();
+
+                    let message = if alternatives.is_empty() {
+                        format!("    missing `{}` file", primary_candidate)
+                    } else {
                         format!(
                             "    missing `{}` file (also missing alternatives {})",
                             primary_candidate,
-                            candidates.iter().map(|v| format!("`{v}`")).join(", ")
-                        ),
-                    )
+                            alternatives.join(", ")
+                        )
+                    };
+
+                    (package, message)
                 } else {
                     unreachable!()
                 }

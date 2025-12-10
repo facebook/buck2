@@ -44,3 +44,14 @@ ensure_cmd_line_json_output = bxl_main(
     impl = _ensure_cmd_line_json_output,
     cli_args = {},
 )
+
+def _ensure_failures(ctx):
+    target = "root//build:fail"
+    analysis_res = ctx.analysis(target)
+    outputs = analysis_res.providers()[DefaultInfo].default_outputs
+    ctx.output.ensure_multiple(outputs)
+
+ensure_failures = bxl_main(
+    impl = _ensure_failures,
+    cli_args = {},
+)

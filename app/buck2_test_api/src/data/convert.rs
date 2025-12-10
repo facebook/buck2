@@ -14,8 +14,8 @@ use std::time::SystemTime;
 use anyhow::Context as _;
 use buck2_core::cells::name::CellName;
 use buck2_core::execution_types::executor_config::RemoteExecutorUseCase;
-use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_error::BuckErrorContext;
+use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use gazebo::prelude::*;
 use host_sharing::convert::host_sharing_requirements_from_grpc;
 use host_sharing::convert::host_sharing_requirements_to_grpc;
@@ -188,6 +188,7 @@ impl TryFrom<buck2_test_proto::ConfiguredTarget> for ConfiguredTarget {
             configuration,
             package_project_relative_path,
             test_config_unification_rollout,
+            package_oncall,
         } = s;
 
         Ok(Self {
@@ -203,6 +204,7 @@ impl TryFrom<buck2_test_proto::ConfiguredTarget> for ConfiguredTarget {
                 package_project_relative_path,
             )?,
             test_config_unification_rollout,
+            package_oncall,
         })
     }
 }
@@ -219,6 +221,7 @@ impl TryInto<buck2_test_proto::ConfiguredTarget> for ConfiguredTarget {
             configuration: self.configuration,
             package_project_relative_path: self.package_project_relative_path.as_str().to_owned(),
             test_config_unification_rollout: self.test_config_unification_rollout,
+            package_oncall: self.package_oncall,
         })
     }
 }
@@ -239,6 +242,7 @@ impl TryFrom<i32> for TestStatus {
             buck2_test_proto::TestStatus::Omitted => TestStatus::OMITTED,
             buck2_test_proto::TestStatus::Fatal => TestStatus::FATAL,
             buck2_test_proto::TestStatus::Timeout => TestStatus::TIMEOUT,
+            buck2_test_proto::TestStatus::InfraFailure => TestStatus::INFRA_FAILURE,
             buck2_test_proto::TestStatus::Unknown => TestStatus::UNKNOWN,
             buck2_test_proto::TestStatus::Rerun => TestStatus::RERUN,
             buck2_test_proto::TestStatus::ListingSuccess => TestStatus::LISTING_SUCCESS,
@@ -258,6 +262,7 @@ impl TryInto<i32> for TestStatus {
             TestStatus::OMITTED => buck2_test_proto::TestStatus::Omitted,
             TestStatus::FATAL => buck2_test_proto::TestStatus::Fatal,
             TestStatus::TIMEOUT => buck2_test_proto::TestStatus::Timeout,
+            TestStatus::INFRA_FAILURE => buck2_test_proto::TestStatus::InfraFailure,
             TestStatus::UNKNOWN => buck2_test_proto::TestStatus::Unknown,
             TestStatus::RERUN => buck2_test_proto::TestStatus::Rerun,
             TestStatus::LISTING_SUCCESS => buck2_test_proto::TestStatus::ListingSuccess,
@@ -1073,6 +1078,7 @@ mod tests {
                     "qux/foo".to_owned(),
                 ),
                 test_config_unification_rollout: false,
+                package_oncall: None,
             },
             test_type: "some_type".to_owned(),
             command: vec![

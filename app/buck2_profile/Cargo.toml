@@ -14,4 +14,5 @@ starlark = { workspace = true }
 buck2_cli_proto = { workspace = true }
 buck2_core = { workspace = true }
 buck2_error = { workspace = true }
+buck2_fs = { workspace = true }
 buck2_interpreter = { workspace = true }

@@ -85,6 +85,7 @@ impl TestProvider for FrozenExternalRunnerTestInfo {
                 )
             })
             .collect();
+        let package_oncall = target.package_oncall.clone();
 
         let spec = ExternalRunnerSpec {
             target,
@@ -93,7 +94,12 @@ impl TestProvider for FrozenExternalRunnerTestInfo {
             env,
             labels: self.labels().map(|l| l.to_owned()).collect(),
             contacts: self.contacts().map(|l| l.to_owned()).collect(),
-            oncall: self.contacts().exactly_one().ok().map(str::to_owned),
+            oncall: self
+                .contacts()
+                .exactly_one()
+                .ok()
+                .map(str::to_owned)
+                .or(package_oncall),
             working_dir_cell,
         };
 

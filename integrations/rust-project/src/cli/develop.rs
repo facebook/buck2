@@ -44,6 +44,7 @@ pub(crate) struct Develop {
 pub(crate) struct OutputCfg {
     out: Output,
     pretty: bool,
+    max_extra_targets: usize,
 }
 
 #[derive(Debug)]
@@ -66,6 +67,7 @@ impl Develop {
             check_cycles,
             buck2_command,
             include_all_buildfiles,
+            max_extra_targets,
             ..
         } = command
         {
@@ -93,7 +95,12 @@ impl Develop {
                 invoked_by_ra: false,
                 include_all_buildfiles,
             };
-            let out = OutputCfg { out, pretty };
+            let max_extra_targets = max_extra_targets.unwrap_or(DEFAULT_EXTRA_TARGETS);
+            let out = OutputCfg {
+                out,
+                pretty,
+                max_extra_targets,
+            };
 
             let input = if !targets.is_empty() {
                 let targets = targets.into_iter().map(Target::new).collect();
@@ -109,6 +116,8 @@ impl Develop {
             sysroot_mode,
             args,
             buck2_command,
+            max_extra_targets,
+            mode,
             ..
         } = command
         {
@@ -127,7 +136,8 @@ impl Develop {
                 }
             };
 
-            let buck = buck::Buck::new(buck2_command, None);
+            let mode = select_mode(mode.as_deref());
+            let buck = buck::Buck::new(buck2_command.clone(), mode);
 
             let develop = Develop {
                 sysroot,
@@ -136,7 +146,12 @@ impl Develop {
                 invoked_by_ra: true,
                 include_all_buildfiles: false,
             };
-            let out = OutputCfg { out, pretty: false };
+            let max_extra_targets = max_extra_targets.unwrap_or(DEFAULT_EXTRA_TARGETS);
+            let out = OutputCfg {
+                out,
+                pretty: false,
+                max_extra_targets,
+            };
 
             let input = match args {
                 crate::JsonArguments::Path(path) => Input::Files(vec![path]),
@@ -183,10 +198,35 @@ impl Develop {
             Output::Stdout => BufWriter::new(Box::new(std::io::stdout())),
         };
 
-        let targets = self.related_targets(input.clone())?;
+        let targets = self.related_targets(input.clone(), cfg.max_extra_targets)?;
         if targets.is_empty() {
-            let err = anyhow::anyhow!("No owning target found")
-                .context(format!("Could not find owning target for {input:?}"));
+            let err = match input {
+                Input::Targets(targets) => {
+                    let pretty_targets = targets
+                        .iter()
+                        .map(|t| format!("{}", t))
+                        .collect::<Vec<_>>()
+                        .join(", ");
+                    anyhow::anyhow!("Could not find targets {}", pretty_targets)
+                }
+                Input::Files(paths) => {
+                    let pretty_paths = paths
+                        .iter()
+                        .map(|p| format!("{}", p.display()))
+                        .collect::<Vec<_>>()
+                        .join(", ");
+                    anyhow::anyhow!("Could not find buck targets that own {}", pretty_paths)
+                }
+                Input::Buildfile(paths) => {
+                    let pretty_paths = paths
+                        .iter()
+                        .map(|p| format!("{}", p.display()))
+                        .collect::<Vec<_>>()
+                        .join(", ");
+                    anyhow::anyhow!("Could not find any Rust targets in {}", pretty_paths)
+                }
+            };
+
             return Err(err);
         }
 
@@ -237,7 +277,7 @@ impl Develop {
             ..
         } = self;
 
-        info!(kind = "progress", "fetching sysroot");
+        info!(kind = "progress", "finding std source code");
         let sysroot = match &sysroot {
             SysrootConfig::Sysroot(path) => Sysroot {
                 sysroot: safe_canonicalize(&expand_tilde(path)?),
@@ -275,14 +315,11 @@ impl Develop {
     pub(crate) fn related_targets(
         &self,
         input: Input,
+        max_extra_targets: usize,
     ) -> Result<FxHashMap<PathBuf, Vec<Target>>, anyhow::Error> {
         // We want to load additional targets from the enclosing buildfile, to help users
         // who have a bunch of small targets in their buildfile. However, we want to set a limit
         // so we don't try to load everything in very large generated buildfiles.
-        let max_extra_targets: usize = match std::env::var("RUST_PROJECT_EXTRA_TARGETS") {
-            Ok(s) => s.parse::<usize>().unwrap_or(DEFAULT_EXTRA_TARGETS),
-            Err(_) => DEFAULT_EXTRA_TARGETS,
-        };
 
         // We always want the targets that directly own these Rust files.
         self.buck.query_owners(input, max_extra_targets)
@@ -316,10 +353,7 @@ pub(crate) fn develop_with_sysroot(
     let aliased_libraries =
         buck.query_aliased_libraries(&expanded_and_resolved.expanded_targets, &targets)?;
 
-    info!(
-        kind = "progress",
-        "converting buck info to rust-project.json"
-    );
+    info!(kind = "progress", "generating rust-project.json");
     let rust_project = to_project_json(
         sysroot,
         expanded_and_resolved,

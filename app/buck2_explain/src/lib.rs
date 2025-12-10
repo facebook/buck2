@@ -16,7 +16,7 @@ use std::io::Cursor;
 use base64::Engine;
 use base64::engine::general_purpose::STANDARD;
 use buck2_core::buck2_env;
-use buck2_core::fs::paths::abs_path::AbsPathBuf;
+use buck2_fs::paths::abs_path::AbsPathBuf;
 
 #[allow(unsafe_op_in_unsafe_fn)]
 #[allow(unused_imports)]

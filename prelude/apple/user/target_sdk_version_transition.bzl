@@ -7,7 +7,7 @@
 # above-listed licenses.
 
 """
-Apply a constraint if the propagated_target_sdk_version attribute is set.
+Apply a constraint if the minimum_os_version attribute is set.
 This overrides any existing target_sdk_version select.
 """
 
@@ -15,7 +15,7 @@ load("@prelude//apple:versions.bzl", "TARGET_SDK_VERSIONS")
 load("@prelude//apple/user:enable_testing_transition.bzl", "enable_testing_transition_impl", "enable_testing_transition_refs")
 
 def _target_sdk_version_transition_impl(platform: PlatformInfo, refs: struct, attrs: struct) -> PlatformInfo:
-    target_sdk_version = attrs.propagated_target_sdk_version
+    target_sdk_version = attrs.minimum_os_version
     if not target_sdk_version:
         return platform
 
@@ -50,7 +50,7 @@ _target_sdk_version_transition_refs = {
     for version in TARGET_SDK_VERSIONS
 } | {"version": "@config//version:constraint-setting-target-sdk-version"}
 
-_target_sdk_version_attrs = ["propagated_target_sdk_version"]
+_target_sdk_version_attrs = ["minimum_os_version"]
 
 target_sdk_version_transition = transition(
     impl = _target_sdk_version_transition_impl,

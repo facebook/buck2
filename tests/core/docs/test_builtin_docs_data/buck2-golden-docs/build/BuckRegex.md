@@ -2,3 +2,4 @@
 
 # BuckRegex
 ## BuckRegex.match
+## BuckRegex.replace\_all

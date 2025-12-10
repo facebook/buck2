@@ -16,11 +16,11 @@ use buck2_core::buck2_env;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_error::BuckErrorContext;
 use buck2_error::conversion::from_any_with_tag;
-use buck2_futures::cancellation::CancellationContext;
 use buck2_util::threads::thread_spawn;
 use crossbeam_channel::unbounded;
 use dice::DiceComputations;
 use dice::UserComputationData;
+use dice_futures::cancellation::CancellationContext;
 use dupe::Dupe;
 use futures::future::BoxFuture;
 use futures::future::FutureExt;
@@ -158,6 +158,54 @@ impl BlockingExecutor for BuckBlockingExecutor {
 
     fn queue_size(&self) -> usize {
         self.command_sender.len()
+    }
+}
+
+/// Executor that bypasses the queue and executes IO directly using Tokio's
+/// blocking thread pool.
+
+#[derive(Allocative)]
+pub struct DirectIoExecutor {
+    #[allocative(skip)]
+    project_fs: ProjectRoot,
+}
+
+impl DirectIoExecutor {
+    pub fn new(project_fs: ProjectRoot) -> buck2_error::Result<Self> {
+        Ok(Self { project_fs })
+    }
+}
+
+#[async_trait]
+impl BlockingExecutor for DirectIoExecutor {
+    async fn execute_dyn_io_inline<'a>(
+        &self,
+        f: Box<dyn FnOnce() -> anyhow::Result<()> + Send + 'a>,
+    ) -> anyhow::Result<()> {
+        tokio::task::block_in_place(f)
+    }
+
+    fn execute_io<'a>(
+        &self,
+        io: Box<dyn IoRequest>,
+        cancellations: &'a CancellationContext,
+    ) -> BoxFuture<'a, buck2_error::Result<()>> {
+        let project_fs = self.project_fs.dupe();
+
+        cancellations
+            .critical_section(|| async move {
+                // Execute IO operation in Tokio's blocking thread pool
+                tokio::task::spawn_blocking(move || io.execute(&project_fs))
+                    .await
+                    .buck_error_context("Direct IO spawn_blocking failed")?
+            })
+            .boxed()
+    }
+
+    fn queue_size(&self) -> usize {
+        // This executor does not maintain its own queue. We are logging Tokio
+        // IO thread metrics separately.
+        0
     }
 }
 

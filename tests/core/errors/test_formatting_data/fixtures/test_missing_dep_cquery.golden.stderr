@@ -10,3 +10,7 @@ Caused by:
     0: looking up unconfigured target node `root//:xxx`
     1: Unknown target `xxx` from package `root//`.
        Did you mean one of the 2 targets in root//:TARGETS.fixture?
+       
+       Available targets:
+         root//:action_fail
+         root//:missing_dep

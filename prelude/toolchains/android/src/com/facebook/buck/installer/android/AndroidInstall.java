@@ -24,7 +24,6 @@ import com.facebook.buck.android.exopackage.SetDebugAppMode;
 import com.facebook.buck.core.filesystems.AbsPath;
 import com.facebook.buck.installer.InstallId;
 import com.facebook.buck.installer.InstallResult;
-import com.facebook.buck.util.Ansi;
 import com.facebook.buck.util.Console;
 import com.facebook.buck.util.Verbosity;
 import com.google.common.io.ByteStreams;
@@ -43,6 +42,8 @@ import java.util.logging.Logger; // NOPMD
 /** Installs an Android Apk */
 class AndroidInstall {
   private static final Logger LOG = Logger.getLogger(AndroidInstall.class.getName());
+  private static final Set<String> ENABLE_APP_LINKS_ALLOWLIST =
+      Set.of("com.facebook.wakizashi", "com.facebook.lite", "com.instagram.lite");
 
   private final IsolatedApkInfo apkInfo;
   private final Optional<IsolatedExopackageInfo> exopackageInfo;
@@ -94,8 +95,7 @@ class AndroidInstall {
         new Console(
             Verbosity.STANDARD_INFORMATION,
             new PrintStream(ByteStreams.nullOutputStream()),
-            new PrintStream(stderr),
-            Ansi.withoutTty());
+            new PrintStream(stderr));
     SetDebugAppMode setDebugAppMode = SetDebugAppMode.SET;
     if (cliOptions.skipSetDebugApp) {
       setDebugAppMode = SetDebugAppMode.SKIP;
@@ -163,6 +163,33 @@ class AndroidInstall {
                 "Install of %s finished in %d seconds",
                 apkInfo.getApkPath().getFileName(),
                 Duration.between(start, Instant.now()).getSeconds()));
+
+        String packageName =
+            AdbHelper.tryToExtractPackageNameFromManifest(apkInfo.getManifestPath().getPath());
+
+        // Determine if app links should be enabled based on command line option or allowlist
+        boolean shouldEnableAppLinks = false;
+        if (cliOptions.enableAppLinks != null) {
+          // Explicit option provided by user
+          shouldEnableAppLinks = cliOptions.enableAppLinks;
+        } else {
+          // No option provided, check allowlist
+          shouldEnableAppLinks = ENABLE_APP_LINKS_ALLOWLIST.contains(packageName);
+        }
+
+        if (shouldEnableAppLinks) {
+          try {
+            adbHelper.adbCall(
+                "enable app links",
+                (device) -> {
+                  device.enableAppLinks(packageName);
+                  return true;
+                },
+                true);
+          } catch (Exception e) {
+            logger.warning("Failed to enable app links: " + e.getMessage());
+          }
+        }
 
         if (cliOptions.run || cliOptions.activity != null || cliOptions.intentUri != null) {
           adbHelper.startActivityForIsolatedApk(

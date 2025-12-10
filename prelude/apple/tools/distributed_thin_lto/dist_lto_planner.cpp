@@ -35,7 +35,6 @@ namespace {
 static std::string metaFileInputPath;
 static std::string indexFileOutputPath;
 static std::string linkPlanFileOutputPath;
-static std::string finalIndexFileOutputPath;
 static bool enablePreMerger = false;
 static bool dumpLinkerInvocation = false;
 static std::vector<std::string> linkerInvocationCommand;
@@ -97,10 +96,6 @@ static void parseArgs(int argc, char** argv) {
       boundsCheckFlag("--link-plan");
       linkPlanFileOutputPath = argv[position + 1];
       position += 2;
-    } else if (strcmp(argv[position], "--final-link-index") == 0) {
-      boundsCheckFlag("--final-link-index");
-      finalIndexFileOutputPath = argv[position + 1];
-      position += 2;
     } else if (strcmp(argv[position], "--enable-premerger") == 0) {
       enablePreMerger = true;
       position += 1;
@@ -127,7 +122,6 @@ enum class MetaFileRecordType {
 constexpr std::string_view MERGED_BITCODE_SUFFIX = ".merged.bc";
 constexpr std::string_view SUMMARY_SHARD_SUFFIX = ".thinlto.bc";
 constexpr std::string_view IMPORTS_FILE_SUFFIX = ".imports";
-constexpr std::string_view OPTIMIZED_BITCODE_SUFFIX = ".opt.o";
 
 using ObjectFileRecordsMapTy =
     std::unordered_map<std::string, std::shared_ptr<const ObjectFileRecord>>;
@@ -219,21 +213,25 @@ static std::filesystem::path thinLTOPrefixReplacedPath(
   return std::filesystem::path(indexFileOutputPath) / path;
 }
 
-static std::unordered_set<std::string> parseLoadedInputBitcodeFiles() {
-  // Thin-link will write two "index" files, one named "index" the other
-  // "index.full". We read the first to get the set of bitcode files that were
-  // loaded. Notably this will not include native object files fed to the link
-  // directly. This set will be used to avoid creating opt action for bitcode we
-  // don't load anyways.
-  std::unordered_set<std::string> loadedInputBitcodeFiles;
-  std::ifstream stream(thinLTOPrefixReplacedPath("index"));
+static std::unordered_map<std::string, uint> parseLoadedObjectFiles() {
+  std::unordered_map<std::string, uint> loadedObjectFilesPositions;
+  std::ifstream stream(thinLTOPrefixReplacedPath("index.full"));
   std::string line;
+  uint position = 0;
   while (std::getline(stream, line)) {
-    std::string normalizedBitcodeFilePath =
-        line.substr(indexFileOutputPath.size() + 1);
-    loadedInputBitcodeFiles.insert(normalizedBitcodeFilePath);
+    // Paths to bitcode files will be prefixed with the argument to
+    // --thinlto-prefix-replace, so we need to remove that prefix first to get a
+    // normalized path.
+    if (line.size() >= indexFileOutputPath.size() &&
+        line.substr(0, indexFileOutputPath.size()) == indexFileOutputPath) {
+      std::string normalizedPath = line.substr(indexFileOutputPath.size() + 1);
+      loadedObjectFilesPositions[normalizedPath] = position;
+    } else {
+      loadedObjectFilesPositions[line] = position;
+    }
+    position++;
   }
-  return loadedInputBitcodeFiles;
+  return loadedObjectFilesPositions;
 }
 
 static const std::vector<std::string> readImportsFile(
@@ -315,7 +313,8 @@ static void writeObjectFileOptimizationPlanToJSONFile(
     const bool isBitcode,
     const std::optional<BitcodeMergeState> bitcodeMergeState,
     const bool loadedByLinker,
-    const std::string& outputPath) {
+    const std::string& outputPath,
+    const int finalLinkLinePosition) {
   std::ofstream stream(outputPath);
   folly::dynamic json = folly::dynamic::object();
   json["imports"] = folly::toDynamic(objectFileImports);
@@ -325,6 +324,7 @@ static void writeObjectFileOptimizationPlanToJSONFile(
         getBitcodeMergeStateSpelling(bitcodeMergeState.value());
   }
   json["loaded_by_linker"] = loadedByLinker;
+  json["final_link_line_position"] = finalLinkLinePosition;
   stream << folly::json::serialize(json, jsonSerializationOptions);
 }
 
@@ -339,76 +339,12 @@ static void writeLinkPlan(std::vector<int>& nonLTOObjectFiles) {
   stream << folly::json::serialize(json, jsonSerializationOptions);
 }
 
-// The "index.full" file is a filelist that will be used as input to the
-// filelink, providing a list and order in which to provide the native object
-// files to the final link. However, it refers to input bitcode files by their
-// name as provided to thin-link (potentially with a prefix as specified by
-// thinlto-prefix-replace). Opt + codegen actions will consume these bitcode
-// files and write them elsewhere. This step takes this filelist and translates
-// input bitcode file paths to the final path where the native object files will
-// be written.
-static void writeFinalLinkIndex(
-    const std::unordered_set<std::string>& absorbedBitcodeFiles,
-    const ObjectFileRecordsMapTy& objectFileRecordsMap) {
-  std::ofstream writeStream(finalIndexFileOutputPath);
-  std::ifstream readStream(thinLTOPrefixReplacedPath("index.full"));
-  std::string line;
-
-  auto replace = [](std::string& target,
-                    const std::string_view toReplace,
-                    const std::string_view replaceWith) {
-    auto pos = target.find(toReplace);
-    if (pos == std::string::npos) {
-      return;
-    }
-
-    target.replace(pos, toReplace.size(), replaceWith);
-  };
-
-  // This file will contain the set of loaded files, both bitcode and native
-  // object files. Bitcode files will be prefixed with the directory where we
-  // write the index file. This is because we pass
-  // thinlto-prefix-replace=";<index_out_dir>" to the linker.
-  while (std::getline(readStream, line)) {
-    // By checking if the file is prefixed with the index output path, we are
-    // checking if it is bitcode.
-    if (line.size() >= indexFileOutputPath.size() &&
-        line.substr(0, indexFileOutputPath.size()) == indexFileOutputPath) {
-      std::string normalizedPath = line.substr(indexFileOutputPath.size() + 1);
-
-      // The premerger will merge some bitcode files into others, and we need to
-      // remove the paths referring to absorbed files.
-      if (absorbedBitcodeFiles.contains(normalizedPath)) {
-        continue;
-      }
-
-      // For each standalone object file passed to the linker, in bzl logic
-      // we declare a few outputs side by side (.thinlto.bc index shard,
-      // .opt.plan optimization plan, .opt.o optimized bitcode file). We
-      // will eventually take the input bitcode .o file, and write a native
-      // object file to the declared .opt.o output location. We need to
-      // convert between the two paths. We start with the output inded shard
-      // file path, because the two are the same file with different
-      // extensions, then we remove the .thinlto.bc and add the .opt.o. We
-      // could include the optimized bitcode output location in the metafile
-      // instead.
-      std::string outputPath =
-          objectFileRecordsMap.at(normalizedPath)->outputIndexShardFilePath;
-      replace(outputPath, SUMMARY_SHARD_SUFFIX, OPTIMIZED_BITCODE_SUFFIX);
-      writeStream << outputPath << "\n";
-    } else {
-      // Non bitcode files should be included verbatim.
-      writeStream << line << "\n";
-    }
-  }
-}
-
 static folly::coro::Task<void> writeOptimizationPlanForObjectFile(
-    const std::string& inputBitcodeFilePath,
+    const std::string& inputObjectFilePath,
     const ObjectFileRecord* objectFile,
     const ObjectFileRecordsMapTy& objectFileRecordsMap,
     const std::unordered_map<std::string, std::string>& postMergeToPreMerge,
-    const std::unordered_set<std::string>& loadedInputBitcodeFiles,
+    const std::unordered_map<std::string, uint>& loadedObjectFilesPositions,
     std::unordered_set<std::string>& absorbedBitcodeFiles,
     std::vector<int>& nonLTOObjectFiles) {
   co_await folly::coro::co_reschedule_on_current_executor;
@@ -424,6 +360,12 @@ static folly::coro::Task<void> writeOptimizationPlanForObjectFile(
   const std::string importsFilePath =
       thinLTOPrefixReplacedPath(objectFile->inputObjectFilePath)
           .concat(IMPORTS_FILE_SUFFIX);
+
+  int finalLinkLinePosition = -1;
+  auto it = loadedObjectFilesPositions.find(inputObjectFilePath);
+  if (it != loadedObjectFilesPositions.end()) {
+    finalLinkLinePosition = it->second;
+  }
 
   if (std::filesystem::exists(importsFilePath)) {
     std::filesystem::rename(
@@ -453,8 +395,9 @@ static folly::coro::Task<void> writeOptimizationPlanForObjectFile(
         /* isBitcode */ true,
         bitcodeMergeState,
         /* loadedByLinker */
-        loadedInputBitcodeFiles.contains(inputBitcodeFilePath),
-        objectFile->outputPlanFilePath);
+        loadedObjectFilesPositions.contains(inputObjectFilePath),
+        objectFile->outputPlanFilePath,
+        finalLinkLinePosition);
   } else {
     co_await nonLTOObjectFilesMutex.co_lock();
     nonLTOObjectFiles.push_back(objectFile->starlarkArrayIndex);
@@ -473,12 +416,9 @@ static folly::coro::Task<void> writeOptimizationPlanForObjectFile(
         /* isBitcode */ false,
         // Native object files do no participate in bitcode merging
         /* bitcodeMergeState */ std::nullopt,
-        // The native object file might not actually be loaded by the linker,
-        // but it doesn't matter. The point of this field is to avoid optimizing
-        // + codegening a bitcode file that won't be loaded anyways, but this is
-        // already a native object file, there is no work to avoid doing.
-        /* loadedByLinker */ true,
-        objectFile->outputPlanFilePath);
+        loadedObjectFilesPositions.contains(inputObjectFilePath),
+        objectFile->outputPlanFilePath,
+        finalLinkLinePosition);
   }
   co_return;
 }
@@ -502,20 +442,20 @@ int main(int argc, char** argv) {
     return 0;
   }
 
-  std::unordered_set<std::string> loadedInputBitcodeFiles =
-      parseLoadedInputBitcodeFiles();
+  std::unordered_map<std::string, uint> loadedObjectFilesPositions =
+      parseLoadedObjectFiles();
 
   std::unordered_set<std::string> absorbedBitcodeFiles;
   std::vector<int> nonLTOObjectFiles;
   std::vector<folly::coro::Task<void>> tasks;
-  for (const auto& [inputBitcodeFilePath, objectFileRecord] :
+  for (const auto& [inputObjectFilePath, objectFileRecord] :
        objectFileRecordsMap) {
     tasks.push_back(writeOptimizationPlanForObjectFile(
-        inputBitcodeFilePath,
+        inputObjectFilePath,
         objectFileRecord.get(),
         objectFileRecordsMap,
         postMergeToPreMerge,
-        loadedInputBitcodeFiles,
+        loadedObjectFilesPositions,
         absorbedBitcodeFiles,
         nonLTOObjectFiles));
   }
@@ -525,5 +465,4 @@ int main(int argc, char** argv) {
       folly::coro::collectAllRange(std::move(tasks))));
 
   writeLinkPlan(nonLTOObjectFiles);
-  writeFinalLinkIndex(absorbedBitcodeFiles, objectFileRecordsMap);
 }

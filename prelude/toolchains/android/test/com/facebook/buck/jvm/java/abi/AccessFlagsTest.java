@@ -12,7 +12,6 @@ package com.facebook.buck.jvm.java.abi;
 
 import static org.junit.Assert.assertEquals;
 
-import com.facebook.buck.jvm.java.testutil.compiler.CompilerTreeApiParameterized;
 import com.facebook.buck.jvm.java.testutil.compiler.CompilerTreeApiTest;
 import com.google.common.base.Joiner;
 import java.io.IOException;
@@ -23,7 +22,7 @@ import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 import org.objectweb.asm.Opcodes;
 
-@RunWith(CompilerTreeApiParameterized.class)
+@RunWith(Parameterized.class)
 public class AccessFlagsTest extends CompilerTreeApiTest {
 
   @Parameterized.Parameter public String sourceVersion;

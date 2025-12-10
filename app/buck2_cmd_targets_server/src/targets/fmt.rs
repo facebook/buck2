@@ -56,6 +56,10 @@ fn package_error_to_stderr(package: PackageLabel, error: &buck2_error::Error, st
     writeln!(stderr, "Error parsing {package}\n{error:?}").unwrap();
 }
 
+fn target_error_to_stderr(error: &buck2_error::Error, stderr: &mut String) {
+    writeln!(stderr, "ERROR:{:#}\n", error).unwrap();
+}
+
 #[allow(unused_variables)]
 pub(crate) trait TargetFormatter: Send + Sync {
     fn begin(&self, buffer: &mut String) {}
@@ -93,6 +97,18 @@ pub trait ConfiguredTargetFormatter: Send + Sync {
         buffer: &mut String,
     ) -> buck2_error::Result<()> {
         Ok(())
+    }
+    fn package_error(
+        &self,
+        package: PackageLabel,
+        error: &buck2_error::Error,
+        stdout: &mut String,
+        stderr: &mut String,
+    ) {
+        package_error_to_stderr(package, error, stderr);
+    }
+    fn target_error(&self, error: &buck2_error::Error, stdout: &mut String, stderr: &mut String) {
+        target_error_to_stderr(error, stderr);
     }
 }
 
@@ -404,6 +420,50 @@ impl ConfiguredTargetFormatter for JsonFormat {
         self.writer.entry_end(buffer, is_first_entry);
 
         Ok(())
+    }
+
+    fn package_error(
+        &self,
+        package: PackageLabel,
+        error: &buck2_error::Error,
+        stdout: &mut String,
+        stderr: &mut String,
+    ) {
+        // When an error happens we print it to stdout (as a JSON entry) and to stderr (as a human message).
+        // If the user has keep-going turned on, they'll get the JSON on stdout, but also have the error message appear on stderr.
+        // If the user has keep-going turned off, they'll only see one error message and then abort.
+        package_error_to_stderr(package, error, stderr);
+        self.writer.entry_start(stdout);
+        let mut first = true;
+        self.writer.entry_item(
+            stdout,
+            &mut first,
+            PACKAGE,
+            QuotedJson::quote_display(package),
+        );
+        self.writer.entry_item(
+            stdout,
+            &mut first,
+            "buck.error",
+            QuotedJson::quote_str(&format!("{error:?}")),
+        );
+        self.writer.entry_end(stdout, first);
+    }
+
+    fn target_error(&self, error: &buck2_error::Error, stdout: &mut String, stderr: &mut String) {
+        // Similar to package_error, output to both stdout (JSON) and stderr (human readable).
+        // Target-level errors don't have package context, so we only include the error field.
+        target_error_to_stderr(error, stderr);
+
+        self.writer.entry_start(stdout);
+        let mut first = true;
+        self.writer.entry_item(
+            stdout,
+            &mut first,
+            "buck.error",
+            QuotedJson::quote_str(&format!("{error:?}")),
+        );
+        self.writer.entry_end(stdout, first);
     }
 }
 

@@ -65,7 +65,6 @@ use buck2_core::deferred::key::DeferredHolderKey;
 use buck2_core::execution_types::execution::ExecutionPlatformResolution;
 use buck2_core::execution_types::executor_config::CommandExecutorConfig;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
-use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_core::fs::project::ProjectRootTemp;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_core::package::source_path::SourcePath;
@@ -95,6 +94,7 @@ use buck2_execute::materialize::materializer::SetMaterializer;
 use buck2_execute::materialize::nodisk::NoDiskMaterializer;
 use buck2_execute::re::manager::UnconfiguredRemoteExecutionClient;
 use buck2_file_watcher::mergebase::SetMergebase;
+use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_http::HttpClientBuilder;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use dice::DiceTransaction;
@@ -225,6 +225,10 @@ async fn make_default_dice_state(
                 remote_dep_file_cache_checker: Arc::new(NoOpCommandOptionalExecutor {}),
                 platform: Default::default(),
                 cache_uploader: Arc::new(NoOpCacheUploader {}),
+                output_trees_download_config:
+                    buck2_execute::re::output_trees_download_config::OutputTreesDownloadConfig::new(
+                        None, true,
+                    ),
             })
         }
     }
@@ -561,19 +565,22 @@ async fn test_command_details_omission() {
         },
         exit_code: Some(1),
         additional_message: None,
+        inline_environment_metadata: buck2_data::InlineCommandExecutionEnvironmentMetadata {
+            sandcastle_instance_id: Some(123),
+        },
     };
 
     let proto = command_details(&report, false).await;
     let command_kind = proto.command_kind.unwrap();
     assert_matches!(command_kind.command, Some(Command::LocalCommand(..)));
-    assert_eq!(&proto.stdout, "stdout");
-    assert_eq!(&proto.stderr, "stderr");
+    assert_eq!(&proto.cmd_stdout, "stdout");
+    assert_eq!(&proto.cmd_stderr, "stderr");
 
     let proto = command_details(&report, true).await;
     let command_kind = proto.command_kind.unwrap();
     assert_matches!(command_kind.command, Some(Command::OmittedLocalCommand(..)));
-    assert_eq!(&proto.stdout, "");
-    assert_eq!(&proto.stderr, "stderr");
+    assert_eq!(&proto.cmd_stdout, "");
+    assert_eq!(&proto.cmd_stderr, "stderr");
 
     report.status = CommandExecutionStatus::Failure {
         execution_kind: CommandExecutionKind::Local {
@@ -585,6 +592,6 @@ async fn test_command_details_omission() {
     let proto = command_details(&report, true).await;
     let command_kind = proto.command_kind.unwrap();
     assert_matches!(command_kind.command, Some(Command::LocalCommand(..)));
-    assert_eq!(&proto.stdout, "stdout");
-    assert_eq!(&proto.stderr, "stderr");
+    assert_eq!(&proto.cmd_stdout, "stdout");
+    assert_eq!(&proto.cmd_stderr, "stderr");
 }

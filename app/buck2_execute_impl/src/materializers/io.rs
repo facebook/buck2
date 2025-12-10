@@ -10,9 +10,6 @@
 
 use std::collections::HashMap;
 
-use buck2_core::fs::fs_util;
-use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
-use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_directory::directory::directory::Directory;
@@ -23,6 +20,9 @@ use buck2_execute::directory::ActionDirectoryMember;
 use buck2_execute::directory::ActionDirectoryRef;
 use buck2_execute::directory::ActionSharedDirectory;
 use buck2_execute::execute::blocking::IoRequest;
+use buck2_fs::fs_util;
+use buck2_fs::paths::abs_norm_path::AbsNormPath;
+use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
 
 pub struct MaterializeTreeStructure {
     pub path: ProjectRelativePathBuf,

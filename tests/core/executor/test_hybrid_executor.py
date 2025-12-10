@@ -10,7 +10,7 @@
 
 
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 import pytest
 
@@ -368,7 +368,7 @@ async def test_hybrid_executor_remote_queuing_fallback(
     buck: Buck, tmp_path: Path
 ) -> None:
     async def build(
-        target: str, *opts: str, env: Optional[Dict[str, str]] = None
+        target: str, *opts: str, env: Optional[dict[str, str]] = None
     ) -> dict[str, Any]:
         record_path = tmp_path / "record.json"
         # kill to update env

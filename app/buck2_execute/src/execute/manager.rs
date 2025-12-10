@@ -13,6 +13,7 @@ use std::sync::atomic::AtomicBool;
 use std::time::Duration;
 
 use buck2_common::liveliness_observer::LivelinessObserver;
+use buck2_core::buck2_env;
 use buck2_events::dispatch::EventDispatcher;
 use futures::future::Future;
 use futures::future::FutureExt;
@@ -103,13 +104,21 @@ impl CommandExecutionManager {
             .store(true, std::sync::atomic::Ordering::Relaxed);
     }
 
-    pub fn cancel(self, reason: Option<CommandCancellationReason>) -> CommandExecutionResult {
+    pub fn cancel(
+        self,
+        execution_kind: CommandExecutionKind,
+        reason: CommandCancellationReason,
+        metadata: CommandExecutionMetadata,
+    ) -> CommandExecutionResult {
         self.result(
-            CommandExecutionStatus::Cancelled { reason },
+            CommandExecutionStatus::Cancelled {
+                execution_kind,
+                reason: Some(reason),
+            },
             IndexMap::new(),
             Default::default(),
             None,
-            CommandExecutionMetadata::default(),
+            metadata,
             None,
         )
     }
@@ -147,6 +156,7 @@ impl CommandExecutionManagerLike for CommandExecutionManager {
                 std_streams,
                 exit_code,
                 additional_message,
+                inline_environment_metadata: inline_environment_metadata(),
             },
             rejected_execution: None,
             did_cache_upload: false,
@@ -196,13 +206,20 @@ impl CommandExecutionManagerWithClaim {
         )
     }
 
-    pub fn cancel_claim(self) -> CommandExecutionResult {
+    pub fn cancel_claim(
+        self,
+        execution_kind: CommandExecutionKind,
+        timing: CommandExecutionMetadata,
+    ) -> CommandExecutionResult {
         self.result(
-            CommandExecutionStatus::Cancelled { reason: None },
+            CommandExecutionStatus::Cancelled {
+                execution_kind,
+                reason: None,
+            },
             IndexMap::new(),
             Default::default(),
             None,
-            CommandExecutionMetadata::default(),
+            timing,
             None,
         )
     }
@@ -232,6 +249,7 @@ impl CommandExecutionManagerLike for CommandExecutionManagerWithClaim {
                 std_streams,
                 exit_code,
                 additional_message,
+                inline_environment_metadata: inline_environment_metadata(),
             },
             rejected_execution: None,
             did_cache_upload: false,
@@ -377,5 +395,14 @@ where
             CommandExecutionMetadata::default(),
             None,
         )
+    }
+}
+
+fn inline_environment_metadata() -> buck2_data::InlineCommandExecutionEnvironmentMetadata {
+    buck2_data::InlineCommandExecutionEnvironmentMetadata {
+        sandcastle_instance_id:
+            buck2_env!("SANDCASTLE_INSTANCE_ID", type = u64, applicability = internal)
+                .ok()
+                .flatten(),
     }
 }

@@ -216,6 +216,8 @@ impl Action for CasArtifactAction {
 
         let value = match self.inner.kind {
             ArtifactKind::Directory(directory_kind) => {
+                // TODO: should honor the semaphore here from OutputTreesDownloadConfig.
+
                 let tree = match directory_kind {
                     DirectoryKind::Tree => re_client
                         .download_typed_blobs::<RE::Tree>(None, vec![self.inner.digest.to_re()])
@@ -257,6 +259,8 @@ impl Action for CasArtifactAction {
                     &tree,
                     &Utc.timestamp_opt(0, 0).unwrap(),
                     ctx.digest_config(),
+                    ctx.output_trees_download_config()
+                        .fingerprint_re_output_trees_eagerly(),
                 )
                 .buck_error_context("Invalid directory")?;
 

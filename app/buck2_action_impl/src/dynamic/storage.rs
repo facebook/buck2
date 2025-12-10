@@ -43,7 +43,6 @@ pub(crate) struct DynamicLambdaParamsStorageImpl<'v> {
 
 #[derive(Debug, Allocative, ProvidesStaticType)]
 pub(crate) struct FrozenDynamicLambdaParamsStorageImpl {
-    self_key: DeferredHolderKey,
     lambda_params: SmallMap<DynamicLambdaResultsKey, FrozenDynamicLambdaParams>,
 }
 
@@ -128,15 +127,14 @@ impl<'v> DynamicLambdaParamsStorage<'v> for DynamicLambdaParamsStorageImpl<'v> {
         freezer: &Freezer,
     ) -> FreezeResult<Box<dyn FrozenDynamicLambdaParamsStorage>> {
         let DynamicLambdaParamsStorageImpl {
-            self_key,
             lambda_params,
+            self_key: _,
         } = *self;
         let lambda_params = lambda_params
             .into_iter_hashed()
             .map(|(k, v)| Ok((k, v.freeze(freezer)?)))
             .collect::<FreezeResult<_>>()?;
         Ok(Box::new(FrozenDynamicLambdaParamsStorageImpl {
-            self_key,
             lambda_params,
         }))
     }
@@ -172,10 +170,8 @@ pub(crate) fn init_dynamic_lambda_params_storages() {
 
         fn new_frozen_dynamic_lambda_params_storage(
             &self,
-            self_key: DeferredHolderKey,
         ) -> Box<dyn FrozenDynamicLambdaParamsStorage> {
             Box::new(FrozenDynamicLambdaParamsStorageImpl {
-                self_key,
                 lambda_params: SmallMap::new(),
             })
         }

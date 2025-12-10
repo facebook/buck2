@@ -11,10 +11,10 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use buck2_core::fs::async_fs_util;
-use buck2_core::fs::paths::abs_path::AbsPathBuf;
 use buck2_error::BuckErrorContext;
 use buck2_events::BuckEvent;
+use buck2_fs::async_fs_util;
+use buck2_fs::paths::abs_path::AbsPathBuf;
 
 use crate::subscribers::subscriber::EventSubscriber;
 

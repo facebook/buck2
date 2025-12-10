@@ -22,7 +22,6 @@ d_binary = prelude_rule(
     """,
     examples = """
         ```
-
         # A rule that builds a D native executable from a single .d file
         # and a library dependency.
         d_binary(
@@ -51,7 +50,6 @@ d_binary = prelude_rule(
             'join.d',
           ],
         )
-
         ```
     """,
     further = None,
@@ -61,11 +59,11 @@ d_binary = prelude_rule(
         d_common.deps_arg() |
         d_common.linker_flags_arg() |
         {
-            "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
-            "labels": attrs.list(attrs.string(), default = []),
-            "licenses": attrs.list(attrs.source(), default = []),
-        }
+        } |
+        buck.licenses_arg() |
+        buck.labels_arg() |
+        buck.contacts_arg()
     ),
 )
 
@@ -76,7 +74,6 @@ d_library = prelude_rule(
     """,
     examples = """
         ```
-
         # A simple library with a single source file and a single dependency.
         d_library(
           name='greeting',
@@ -94,7 +91,6 @@ d_library = prelude_rule(
             'join.d',
           ],
         )
-
         ```
     """,
     further = None,
@@ -103,12 +99,12 @@ d_library = prelude_rule(
         d_common.srcs_arg() |
         d_common.deps_arg() |
         {
-            "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
-            "labels": attrs.list(attrs.string(), default = []),
-            "licenses": attrs.list(attrs.source(), default = []),
             "linker_flags": attrs.list(attrs.string(), default = []),
-        }
+        } |
+        buck.licenses_arg() |
+        buck.labels_arg() |
+        buck.contacts_arg()
     ),
 )
 
@@ -121,7 +117,6 @@ d_test = prelude_rule(
     """,
     examples = """
         ```
-
         # A rule that builds and runs D test with a single source file.
         d_test(
           name = 'test',
@@ -129,7 +124,6 @@ d_test = prelude_rule(
             'test.d',
           ],
         )
-
         ```
     """,
     further = None,
@@ -149,11 +143,11 @@ d_test = prelude_rule(
         buck.test_rule_timeout_ms() |
         d_common.deps_arg() |
         {
-            "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
-            "licenses": attrs.list(attrs.source(), default = []),
             "linker_flags": attrs.list(attrs.string(), default = []),
-        }
+        } |
+        buck.licenses_arg() |
+        buck.contacts_arg()
     ),
 )
 

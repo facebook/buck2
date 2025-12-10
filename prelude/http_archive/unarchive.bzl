@@ -124,7 +124,8 @@ def unarchive(
         strip_prefix,
         exec_deps: HttpArchiveExecDeps,
         prefer_local: bool,
-        sub_targets: list[str] | dict[str, list[str]]):
+        sub_targets: list[str] | dict[str, list[str]],
+        has_content_based_path: bool = False):
     exec_is_windows = exec_deps.exec_os_type[OsLookup].os == Os("windows")
 
     if exec_is_windows:
@@ -187,15 +188,15 @@ def unarchive(
 
     unarchive_cmd, needs_strip_prefix = _unarchive_cmd(ext_type, exec_is_windows, archive, strip_prefix)
 
-    output = ctx.actions.declare_output(output_name, dir = True)
+    output = ctx.actions.declare_output(output_name, dir = True, has_content_based_path = has_content_based_path)
     script_output = ctx.actions.declare_output(output_name + "_tmp", dir = True) if needs_strip_prefix else output
 
     script, _ = ctx.actions.write(
         "{}_unpack.{}".format(output_name, ext),
         [
-            cmd_args(script_output, format = mkdir),
-            cmd_args(script_output, format = "cd {}"),
-            cmd_args([unarchive_cmd] + exclude_flags, delimiter = " ", relative_to = script_output),
+            cmd_args(script_output.as_output(), format = mkdir),
+            cmd_args(script_output.as_output(), format = "cd {}"),
+            cmd_args([unarchive_cmd] + exclude_flags, delimiter = " ", relative_to = script_output.as_output()),
         ],
         is_executable = True,
         allow_args = True,
@@ -212,7 +213,7 @@ def unarchive(
     )
 
     if needs_strip_prefix:
-        ctx.actions.copy_dir(output.as_output(), script_output.project(strip_prefix))
+        ctx.actions.copy_dir(output.as_output(), script_output.project(strip_prefix), has_content_based_path = has_content_based_path)
 
     if type(sub_targets) == type([]):
         sub_targets = {

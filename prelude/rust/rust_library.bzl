@@ -93,7 +93,6 @@ load(
 load(
     ":context.bzl",
     "CompileContext",  # @unused Used as a type
-    "CrateName",  # @unused Used as a type
     "DepCollectionContext",
     "compile_context",
 )
@@ -103,12 +102,15 @@ load(
     "DEFAULT_STATIC_LINK_STRATEGY",
     "RustLinkInfo",
     "RustLinkStrategyInfo",
+    "RustNativeLinkDeps",
     "RustProcMacroMarker",  # @unused Used as a type
+    "TransitiveDeps",
     "attr_crate",
     "inherited_exported_link_deps",
     "inherited_link_group_lib_infos",
     "inherited_linkable_graphs",
     "inherited_merged_link_infos",
+    "inherited_native_link_deps",
     "inherited_shared_libs",
     "inherited_third_party_builds",
     "resolve_deps",
@@ -196,24 +198,17 @@ def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
                 MetadataKind("fast"): meta_fast,
             }
 
-            param_subtargets[params].update({
-                "llvm-ir": rust_compile(
+            subtargets_to_add = {}
+            for emit_type in ["asm", "llvm-ir", "mir"]:
+                subtargets_to_add[emit_type] = rust_compile(
                     ctx = ctx,
                     compile_ctx = compile_ctx,
-                    emit = Emit("llvm-ir"),
+                    emit = Emit(emit_type),
                     params = params,
                     default_roots = _DEFAULT_ROOTS,
                     incremental_enabled = ctx.attrs.incremental_enabled,
-                ),
-                "mir": rust_compile(
-                    ctx = ctx,
-                    compile_ctx = compile_ctx,
-                    emit = Emit("mir"),
-                    params = params,
-                    default_roots = _DEFAULT_ROOTS,
-                    incremental_enabled = ctx.attrs.incremental_enabled,
-                ),
-            })
+                )
+            param_subtargets[params].update(subtargets_to_add)
 
         if LinkageLang("native") in langs or LinkageLang("native-unbundled") in langs:
             native_param_artifact[params] = link
@@ -600,6 +595,7 @@ def _handle_rust_artifact(
         )
         return RustLinkStrategyInfo(
             outputs = {m: x.output for m, x in outputs.items()},
+            singleton_tset = {m: x.singleton_tset for m, x in outputs.items()},
             transitive_deps = tdeps,
             transitive_proc_macro_deps = tprocmacrodeps,
             pdb = link_output.pdb,
@@ -607,9 +603,11 @@ def _handle_rust_artifact(
         )
     else:
         # Proc macro deps are always the real thing
+        no_transitive_deps = ctx.actions.tset(TransitiveDeps)
         return RustLinkStrategyInfo(
             outputs = {m: link_output.output for m in MetadataKind},
-            transitive_deps = {m: {} for m in MetadataKind},
+            singleton_tset = {m: link_output.singleton_tset for m in MetadataKind},
+            transitive_deps = {m: no_transitive_deps for m in MetadataKind},
             transitive_proc_macro_deps = set(),
             pdb = link_output.pdb,
             external_debug_info = ArtifactTSet(),
@@ -708,7 +706,7 @@ def _proc_macro_link_providers(
     return [RustLinkInfo(
         crate = attr_crate(ctx),
         strategies = rust_artifacts,
-        merged_link_infos = {},
+        native_link_deps = ctx.actions.tset(RustNativeLinkDeps),
         exported_link_deps = [],
         shared_libs = merge_shared_libraries(ctx.actions),
         third_party_build_info = third_party_build_info(actions = ctx.actions),
@@ -832,7 +830,17 @@ def _advanced_unstable_link_providers(
     providers.append(RustLinkInfo(
         crate = crate,
         strategies = rust_artifacts,
-        merged_link_infos = inherited_link_infos | {ctx.label.configured_target(): merged_link_info},
+        native_link_deps = ctx.actions.tset(
+            RustNativeLinkDeps,
+            children = [
+                inherited_native_link_deps(ctx, dep_ctx),
+                # Must be visited after inherited_native_link_deps in dfs order.
+                ctx.actions.tset(
+                    RustNativeLinkDeps,
+                    value = [(ctx.label.configured_target(), merged_link_info)],
+                ),
+            ],
+        ),
         exported_link_deps = inherited_exported_deps,
         shared_libs = shared_library_info,
         third_party_build_info = third_party_build_info,
@@ -863,13 +871,13 @@ def _stable_link_providers(
 
     crate = attr_crate(ctx)
 
-    merged_link_infos, shared_libs, linkable_graphs, exported_link_deps, third_party_builds = _rust_link_providers(ctx, compile_ctx.dep_ctx)
+    native_link_deps, shared_libs, linkable_graphs, exported_link_deps, third_party_builds = _rust_link_providers(ctx, compile_ctx.dep_ctx)
 
     # Create rust library provider.
     rust_link_info = RustLinkInfo(
         crate = crate,
         strategies = rust_artifacts,
-        merged_link_infos = merged_link_infos,
+        native_link_deps = native_link_deps,
         exported_link_deps = exported_link_deps,
         shared_libs = shared_libs,
         third_party_build_info = third_party_build_info(
@@ -886,13 +894,13 @@ def _stable_link_providers(
 def _rust_link_providers(
         ctx: AnalysisContext,
         dep_ctx: DepCollectionContext) -> (
-    dict[ConfiguredTargetLabel, MergedLinkInfo],
+    RustNativeLinkDeps,
     SharedLibraryInfo,
     list[LinkableGraph],
     list[Dependency],
     list[ThirdPartyBuildInfo],
 ):
-    inherited_link_infos = inherited_merged_link_infos(ctx, dep_ctx)
+    native_link_deps = inherited_native_link_deps(ctx, dep_ctx)
     inherited_shlibs = inherited_shared_libs(ctx, dep_ctx)
     inherited_graphs = inherited_linkable_graphs(ctx, dep_ctx)
     inherited_exported_deps = inherited_exported_link_deps(ctx, dep_ctx)
@@ -902,7 +910,7 @@ def _rust_link_providers(
         ctx.actions,
         deps = inherited_shlibs,
     )
-    return (inherited_link_infos, shared_libs, inherited_graphs, inherited_exported_deps, inherited_third_party)
+    return (native_link_deps, shared_libs, inherited_graphs, inherited_exported_deps, inherited_third_party)
 
 def _native_link_providers(
         ctx: AnalysisContext,
@@ -917,11 +925,16 @@ def _native_link_providers(
     """
 
     # We collected transitive deps in the Rust link providers
-    inherited_link_infos = rust_link_info.merged_link_infos
     inherited_shlibs = [rust_link_info.shared_libs]
     inherited_link_graphs = rust_link_info.linkable_graphs
     inherited_exported_deps = rust_link_info.exported_link_deps
     inherited_third_party = rust_link_info.third_party_build_info
+
+    inherited_link_infos = {
+        label: info
+        for infos in rust_link_info.native_link_deps.traverse(ordering = "dfs")
+        for label, info in infos
+    }
 
     providers = []
 
@@ -1028,12 +1041,12 @@ def _compute_transitive_deps(
         ctx: AnalysisContext,
         dep_ctx: DepCollectionContext,
         dep_link_strategy: LinkStrategy) -> (
-    dict[MetadataKind, dict[Artifact, CrateName]],
+    dict[MetadataKind, TransitiveDeps],
     list[ArtifactTSet],
     set[RustProcMacroMarker],
 ):
     toolchain_info = ctx.attrs._rust_toolchain[RustToolchainInfo]
-    transitive_deps = {m: {} for m in MetadataKind}
+    transitive_deps = {m: [] for m in MetadataKind}
     external_debug_info = []
     transitive_proc_macro_deps = set()
 
@@ -1045,12 +1058,17 @@ def _compute_transitive_deps(
             continue
         strategy = strategy_info(toolchain_info, dep.info, dep_link_strategy)
         for m in MetadataKind:
-            transitive_deps[m][strategy.outputs[m]] = dep.info.crate
-            transitive_deps[m].update(strategy.transitive_deps[m])
+            transitive_deps[m].append(strategy.singleton_tset[m])
+            transitive_deps[m].append(strategy.transitive_deps[m])
 
         external_debug_info.append(strategy.external_debug_info)
 
         transitive_proc_macro_deps.update(strategy.transitive_proc_macro_deps)
+
+    transitive_deps = {
+        m: ctx.actions.tset(TransitiveDeps, children = children)
+        for m, children in transitive_deps.items()
+    }
 
     return transitive_deps, external_debug_info, transitive_proc_macro_deps
 

@@ -26,6 +26,6 @@ buck2_build_api_derive = { workspace = true }
 buck2_core = { workspace = true }
 buck2_error = { workspace = true }
 buck2_events = { workspace = true }
-buck2_futures = { workspace = true }
 buck2_interpreter = { workspace = true }
 buck2_node = { workspace = true }
+dice_futures = { workspace = true }

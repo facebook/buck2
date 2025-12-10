@@ -33,6 +33,7 @@ use buck2_core::execution_types::executor_config::RemoteExecutorUseCase;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_error::BuckErrorContext;
+use buck2_events::daemon_id::DaemonId;
 use buck2_execute::execute::blocking::BlockingExecutor;
 use buck2_execute::execute::cache_uploader::NoOpCacheUploader;
 use buck2_execute::execute::cache_uploader::force_cache_upload;
@@ -44,6 +45,7 @@ use buck2_execute::knobs::ExecutorGlobalKnobs;
 use buck2_execute::materialize::materializer::Materializer;
 use buck2_execute::re::manager::ManagedRemoteExecutionClient;
 use buck2_execute::re::manager::ReConnectionHandle;
+use buck2_execute::re::output_trees_download_config::OutputTreesDownloadConfig;
 use buck2_execute_impl::executors::action_cache::ActionCacheChecker;
 use buck2_execute_impl::executors::action_cache::RemoteDepFileCacheChecker;
 use buck2_execute_impl::executors::action_cache_upload_permission_checker::ActionCacheUploadPermissionChecker;
@@ -51,9 +53,7 @@ use buck2_execute_impl::executors::caching::CacheUploader;
 use buck2_execute_impl::executors::hybrid::FallbackTracker;
 use buck2_execute_impl::executors::hybrid::HybridExecutor;
 use buck2_execute_impl::executors::local::ForkserverAccess;
-use buck2_execute_impl::executors::local::LocalActionCounter;
 use buck2_execute_impl::executors::local::LocalExecutor;
-use buck2_execute_impl::executors::local_actions_throttle::LocalActionsThrottle;
 use buck2_execute_impl::executors::re::ReExecutor;
 use buck2_execute_impl::executors::stacked::StackedExecutor;
 use buck2_execute_impl::executors::to_re_platform::RePlatformFieldsToRePlatform;
@@ -92,10 +92,11 @@ pub struct CommandExecutorFactory {
     cache_upload_permission_checker: Arc<ActionCacheUploadPermissionChecker>,
     fallback_tracker: Arc<FallbackTracker>,
     re_use_case_override: Option<RemoteExecutorUseCase>,
-    local_actions_throttle: Option<Arc<LocalActionsThrottle>>,
-    local_action_counter: Option<Arc<LocalActionCounter>>,
+    memory_tracker: Option<MemoryTrackerHandle>,
     incremental_db_state: Arc<IncrementalDbState>,
     deduplicate_get_digests_ttl_calls: bool,
+    output_trees_download_config: OutputTreesDownloadConfig,
+    daemon_id: DaemonId,
 }
 
 impl CommandExecutorFactory {
@@ -120,12 +121,10 @@ impl CommandExecutorFactory {
         memory_tracker: Option<MemoryTrackerHandle>,
         incremental_db_state: Arc<IncrementalDbState>,
         deduplicate_get_digests_ttl_calls: bool,
+        output_trees_download_config: OutputTreesDownloadConfig,
+        daemon_id: DaemonId,
     ) -> Self {
         let cache_upload_permission_checker = Arc::new(ActionCacheUploadPermissionChecker::new());
-        let local_actions_throttle = LocalActionsThrottle::new(memory_tracker);
-        let local_action_counter = local_actions_throttle
-            .as_ref()
-            .map(|_| LocalActionCounter::new());
 
         Self {
             re_connection,
@@ -147,10 +146,11 @@ impl CommandExecutorFactory {
             cache_upload_permission_checker,
             fallback_tracker: Arc::new(FallbackTracker::new()),
             re_use_case_override,
-            local_actions_throttle,
-            local_action_counter,
+            memory_tracker,
             incremental_db_state,
             deduplicate_get_digests_ttl_calls,
+            output_trees_download_config,
+            daemon_id,
         }
     }
 
@@ -188,7 +188,8 @@ impl HasCommandExecutor for CommandExecutorFactory {
                 self.forkserver.dupe(),
                 self.executor_global_knobs.dupe(),
                 worker_pool,
-                self.local_action_counter.dupe(),
+                self.memory_tracker.dupe(),
+                self.daemon_id.dupe(),
             )
         };
 
@@ -212,6 +213,7 @@ impl HasCommandExecutor for CommandExecutorFactory {
                 action_cache_checker: Arc::new(NoOpCommandOptionalExecutor {}),
                 remote_dep_file_cache_checker: Arc::new(NoOpCommandOptionalExecutor {}),
                 cache_uploader: Arc::new(NoOpCacheUploader {}),
+                output_trees_download_config: self.output_trees_download_config.dupe(),
             });
         }
 
@@ -238,10 +240,12 @@ impl HasCommandExecutor for CommandExecutorFactory {
                     materialize_failed_outputs: self.materialize_failed_outputs,
                     dependencies: dependencies.to_vec(),
                     deduplicate_get_digests_ttl_calls: self.deduplicate_get_digests_ttl_calls,
+                    output_trees_download_config: self.output_trees_download_config.dupe(),
                 }
             };
 
         let response = match &executor_config.executor {
+            Executor::None => None,
             Executor::Local(local) => {
                 if self.strategy.ban_local() {
                     None
@@ -252,6 +256,7 @@ impl HasCommandExecutor for CommandExecutorFactory {
                         action_cache_checker: Arc::new(NoOpCommandOptionalExecutor {}),
                         remote_dep_file_cache_checker: Arc::new(NoOpCommandOptionalExecutor {}),
                         cache_uploader: Arc::new(NoOpCacheUploader {}),
+                        output_trees_download_config: self.output_trees_download_config.dupe(),
                     })
                 }
             }
@@ -295,6 +300,7 @@ impl HasCommandExecutor for CommandExecutorFactory {
                                 knobs: self.executor_global_knobs.dupe(),
                                 paranoid: self.paranoid.dupe(),
                                 deduplicate_get_digests_ttl_calls: self.deduplicate_get_digests_ttl_calls,
+                                output_trees_download_config: self.output_trees_download_config.dupe(),
                             }) as _
                         } else {
                             Arc::new(NoOpCommandOptionalExecutor {}) as _
@@ -314,6 +320,7 @@ impl HasCommandExecutor for CommandExecutorFactory {
                                 knobs: self.executor_global_knobs.dupe(),
                                 paranoid: self.paranoid.dupe(),
                                 deduplicate_get_digests_ttl_calls: self.deduplicate_get_digests_ttl_calls,
+                                output_trees_download_config: self.output_trees_download_config.dupe(),
                             }) as _
                         };
 
@@ -353,7 +360,6 @@ impl HasCommandExecutor for CommandExecutorFactory {
                             let executor_preference = self.strategy.hybrid_preference();
                             let low_pass_filter = self.low_pass_filter.dupe();
                             let fallback_tracker = self.fallback_tracker.dupe();
-                            let local_actions_throttle = self.local_actions_throttle.dupe();
 
                             if self.paranoid.is_some() {
                                 let executor_preference = executor_preference
@@ -376,7 +382,6 @@ impl HasCommandExecutor for CommandExecutorFactory {
                                     re_max_input_files_bytes,
                                     low_pass_filter,
                                     fallback_tracker,
-                                    local_actions_throttle,
                                 }))
                             } else {
                                 Some(Arc::new(HybridExecutor {
@@ -387,7 +392,6 @@ impl HasCommandExecutor for CommandExecutorFactory {
                                     re_max_input_files_bytes,
                                     low_pass_filter,
                                     fallback_tracker,
-                                    local_actions_throttle,
                                 }))
                             }
                         }
@@ -438,6 +442,7 @@ impl HasCommandExecutor for CommandExecutorFactory {
                     action_cache_checker,
                     remote_dep_file_cache_checker,
                     cache_uploader,
+                    output_trees_download_config: self.output_trees_download_config.dupe(),
                 })
             }
         };

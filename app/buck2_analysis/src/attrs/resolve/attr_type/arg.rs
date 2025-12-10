@@ -61,7 +61,7 @@ enum ResolveMacroError {
 pub trait ConfiguredStringWithMacrosExt {
     fn resolve<'v>(
         &self,
-        ctx: &dyn AttrResolutionContext<'v>,
+        ctx: &mut dyn AttrResolutionContext<'v>,
         pkg: PackageLabel,
     ) -> buck2_error::Result<Value<'v>>;
 }
@@ -69,7 +69,7 @@ pub trait ConfiguredStringWithMacrosExt {
 impl ConfiguredStringWithMacrosExt for ConfiguredStringWithMacros {
     fn resolve<'v>(
         &self,
-        ctx: &dyn AttrResolutionContext<'v>,
+        ctx: &mut dyn AttrResolutionContext<'v>,
         pkg: PackageLabel,
     ) -> buck2_error::Result<Value<'v>> {
         let resolved_parts = match &self.string_with_macros {
@@ -124,7 +124,7 @@ impl ConfiguredStringWithMacrosExt for ConfiguredStringWithMacros {
 
 fn resolve_configured_macro<'v>(
     configured_macro: &ConfiguredMacro,
-    ctx: &dyn AttrResolutionContext<'v>,
+    ctx: &mut dyn AttrResolutionContext<'v>,
     pkg: PackageLabel,
 ) -> buck2_error::Result<ResolvedMacro<'v>> {
     match configured_macro {

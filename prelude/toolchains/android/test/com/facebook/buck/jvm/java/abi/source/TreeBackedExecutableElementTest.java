@@ -14,7 +14,6 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
-import com.facebook.buck.jvm.java.testutil.compiler.CompilerTreeApiParameterized;
 import com.google.common.base.Joiner;
 import java.io.IOException;
 import java.util.stream.Collectors;
@@ -28,8 +27,9 @@ import javax.lang.model.type.TypeMirror;
 import org.hamcrest.Matchers;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
 
-@RunWith(CompilerTreeApiParameterized.class)
+@RunWith(Parameterized.class)
 public class TreeBackedExecutableElementTest extends CompilerTreeApiParameterizedTest {
   @Test
   public void testGetReturnType() throws IOException {

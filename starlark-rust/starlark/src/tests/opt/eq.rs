@@ -77,6 +77,20 @@ def test(x):
     );
 }
 
+/// Enum values do not override `equals` method, so we can use pointer equality.
+#[test]
+fn test_eq_enum_attr_is_ptr_eq() {
+    bc_golden_test(
+        "eq_enum_attr",
+        r#"
+Color = enum("RED", "GREEN", "BLUE")
+
+def test(x):
+    return x == Color.RED
+"#,
+    );
+}
+
 #[test]
 fn test_eq_const() {
     bc_golden_test(

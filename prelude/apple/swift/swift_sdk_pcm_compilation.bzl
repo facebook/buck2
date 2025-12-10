@@ -13,6 +13,10 @@ load(
     ":swift_debug_info_utils.bzl",
     "extract_and_merge_clang_debug_infos",
 )
+load(
+    ":swift_incremental_support.bzl",
+    "get_uses_experimental_content_based_path_hashing",
+)
 load(":swift_sdk_flags.bzl", "get_sdk_flags")
 load(":swift_toolchain.bzl", "get_swift_toolchain_info_dep")
 load(":swift_toolchain_types.bzl", "SdkUncompiledModuleInfo", "SwiftCompiledModuleInfo", "SwiftCompiledModuleTset", "SwiftToolchainInfo", "WrappedSdkCompiledModuleInfo")
@@ -99,6 +103,7 @@ def get_swift_sdk_pcm_anon_targets(
             "enable_cxx_interop": enable_cxx_interop,
             "name": module_dep.label,
             "swift_cxx_args": swift_cxx_args,
+            "uses_experimental_content_based_path_hashing": True,
             "_swift_toolchain": get_swift_toolchain_info_dep(ctx),
         })
         for module_dep in uncompiled_sdk_deps
@@ -108,6 +113,7 @@ def _swift_sdk_pcm_compilation_impl(ctx: AnalysisContext) -> [Promise, list[Prov
     def k(sdk_pcm_deps_providers) -> list[Provider]:
         uncompiled_sdk_module_info = ctx.attrs.dep[SdkUncompiledModuleInfo]
         sdk_deps_tset = get_compiled_sdk_clang_deps_tset(ctx, sdk_pcm_deps_providers)
+        uses_experimental_content_based_path_hashing = get_uses_experimental_content_based_path_hashing(ctx)
 
         # We pass in Swift and Clang SDK module deps to get the transitive
         # Clang dependencies compiled with the correct Swift cxx args. For
@@ -184,7 +190,7 @@ def _swift_sdk_pcm_compilation_impl(ctx: AnalysisContext) -> [Promise, list[Prov
         _add_sdk_module_search_path(argsfile_cmd, uncompiled_sdk_module_info, swift_toolchain)
 
         shell_quoted_args = cmd_args(argsfile_cmd, quote = "shell")
-        argsfile, _ = ctx.actions.write("sdk_pcm_compile_argsfile", shell_quoted_args, allow_args = True)
+        argsfile, _ = ctx.actions.write("sdk_pcm_compile_argsfile", shell_quoted_args, allow_args = True, uses_experimental_content_based_path_hashing = uses_experimental_content_based_path_hashing)
         cmd.add(cmd_args(argsfile, format = "@{}", delimiter = ""))
         cmd.add(cmd_args(hidden = [argsfile_cmd]))
 
@@ -192,7 +198,7 @@ def _swift_sdk_pcm_compilation_impl(ctx: AnalysisContext) -> [Promise, list[Prov
             swift_toolchain,
             uncompiled_sdk_module_info.input_relative_path,
         )
-        pcm_output = ctx.actions.declare_output(module_name + ".pcm")
+        pcm_output = ctx.actions.declare_output(module_name + ".pcm", uses_experimental_content_based_path_hashing = uses_experimental_content_based_path_hashing)
         cmd.add([
             "-o",
             pcm_output.as_output(),
@@ -278,6 +284,7 @@ _swift_sdk_pcm_compilation = rule(
         "dep": attrs.dep(),
         "enable_cxx_interop": attrs.bool(),
         "swift_cxx_args": attrs.list(attrs.string(), default = []),
+        "uses_experimental_content_based_path_hashing": attrs.bool(),
         "_swift_toolchain": attrs.dep(),
     },
 )

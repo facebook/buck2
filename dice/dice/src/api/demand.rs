@@ -89,7 +89,7 @@ impl<'a> Demand<'a> {
 mod tests {
     use allocative::Allocative;
     use async_trait::async_trait;
-    use buck2_futures::cancellation::CancellationContext;
+    use dice_futures::cancellation::CancellationContext;
 
     use crate::Demand;
     use crate::DiceComputations;

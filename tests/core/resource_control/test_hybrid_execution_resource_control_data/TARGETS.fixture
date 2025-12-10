@@ -1,0 +1,30 @@
+execution_platform(
+    name = "platform",
+)
+
+execution_platforms(
+    name = "platforms",
+    platforms = [":platform"],
+)
+
+merge_outputs(
+    name = "merge_100",
+    num_actions = 100,
+)
+
+merge_outputs(
+    name = "sleep_merge",
+    sleep = 1,
+    num_actions = 10,
+)
+
+allocate_memory(
+    name = "allocate_10_10M",
+    sleep = 3,
+    num_actions = 10,
+    each_action_memory_mb = "10",
+)
+
+freeze_unfreeze(
+    name = "freeze_unfreeze_target",
+)

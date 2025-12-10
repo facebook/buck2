@@ -96,5 +96,6 @@ def swift_toolchain_impl(ctx):
             uncompiled_clang_sdk_modules_deps = uncompiled_clang_sdk_modules_deps,
             uncompiled_swift_sdk_modules_deps = uncompiled_swift_sdk_modules_deps,
             use_depsfiles = ctx.attrs.use_depsfiles,
+            uses_experimental_content_based_path_hashing = ctx.attrs.uses_experimental_content_based_path_hashing,
         ),
     ]

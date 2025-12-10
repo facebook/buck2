@@ -39,10 +39,8 @@ pub trait DynamicLambdaParamStorages: Send + Sync + 'static {
         &self,
         self_key: DeferredHolderKey,
     ) -> Box<dyn DynamicLambdaParamsStorage<'v>>;
-    fn new_frozen_dynamic_lambda_params_storage(
-        &self,
-        self_key: DeferredHolderKey,
-    ) -> Box<dyn FrozenDynamicLambdaParamsStorage>;
+    fn new_frozen_dynamic_lambda_params_storage(&self)
+    -> Box<dyn FrozenDynamicLambdaParamsStorage>;
 }
 
 pub static DYNAMIC_LAMBDA_PARAMS_STORAGES: LateBinding<&'static dyn DynamicLambdaParamStorages> =

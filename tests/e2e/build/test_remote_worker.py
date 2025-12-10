@@ -11,7 +11,11 @@
 
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.buck_workspace import buck_test
-from buck2.tests.e2e_util.helper.utils import expect_exec_count, random_string
+from buck2.tests.e2e_util.helper.utils import (
+    expect_exec_count,
+    random_string,
+    read_what_ran,
+)
 
 
 @buck_test(inplace=True)
@@ -34,6 +38,15 @@ async def test_remote_worker(buck: Buck) -> None:
         # However, RE just does a best effort to use the same persistent worker,
         # so we can't guarantee this is the case.
         # assert output_lines[0].strip() == output_lines[1].strip()
+
+    whatran_json = await read_what_ran(buck)
+    worker_entries = [x for x in whatran_json if "run_remote_worker" in x["identity"]]
+    assert len(worker_entries) == 2, whatran_json
+    assert worker_entries[0]["reproducer"]["executor"] == "ReWorker"
+
+    whatran = (await buck.log("what-ran", "--skip-cache-hits")).stdout.split("\n")
+    worker_lines = [x for x in whatran if "re_worker(" in x]
+    assert len(worker_lines) == 2, whatran
 
 
 @buck_test(inplace=True)

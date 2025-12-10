@@ -10,14 +10,14 @@
 
 import plistlib
 from io import BytesIO
-from typing import Any, Dict, IO
+from typing import Any, IO
 
 
 def _is_fmt_binary(header: bytes) -> bool:
     return header[:8] == b"bplist00"
 
 
-def detect_format_and_load(fp: IO[bytes]) -> Dict[str, Any]:
+def detect_format_and_load(fp: IO[bytes]) -> dict[str, Any]:
     header = fp.read(32)
     fp.seek(0)
     if _is_fmt_binary(header):
@@ -27,6 +27,6 @@ def detect_format_and_load(fp: IO[bytes]) -> Dict[str, Any]:
     return plistlib.load(fp, fmt=fmt)
 
 
-def detect_format_and_loads(value: bytes) -> Dict[str, Any]:
+def detect_format_and_loads(value: bytes) -> dict[str, Any]:
     fp = BytesIO(value)
     return detect_format_and_load(fp)

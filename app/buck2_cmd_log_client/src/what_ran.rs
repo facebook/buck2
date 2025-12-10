@@ -41,24 +41,26 @@ use crate::LogCommandOutputFormat;
 use crate::LogCommandOutputFormatWithWriter;
 use crate::OutputFormatWithWriter;
 use crate::transform_format;
-/// Output everything Buck2 ran from selected invocation.
+
+/// Output everything that buck ran from the selected invocation. If no invocation was specified,
+/// use the last buck invocation from this isolation directory.
 ///
 /// The output is presented as a series of tab-delimited records with the following structure:
 ///
-/// The reason for executing a given command. That's either to build or to test.
+/// build    fbsource//your:target    local    clang foo.c
 ///
-/// The identity of this command. This will include the target that ran required it.
+/// 1: The reason for executing a given command. That's either to build or to test.
 ///
-/// The executor for this command. This will either be RE or local.
+/// 2: The identity of this command. This will include the target that required it.
 ///
-/// Details to reproduce it. For RE, that's the action digest. For local, the command.
+/// 3: The executor for this command. This will either be RE or local.
 ///
+/// 4: Details to reproduce it. For RE, that's the action digest. For local, the command.
 ///
 /// To reproduce an action that ran on RE, use the following command then follow the instructions.
 /// The DIGEST is of the form `hash:size`.
 ///
-/// frecli cas download-action DIGEST
-///
+/// $ frecli cas download-action DIGEST
 ///
 /// To reproduce an action that ran locally, make sure your working directory is the project root
 /// (if unsure, use `buck2 root --kind project` to find it), then run the command. The command is
@@ -288,17 +290,20 @@ impl WhatRanCommandState {
             // Emit WhatRanRelevantAction when we see the corresponding SpanEnd
             match &data {
                 buck2_data::buck_event::Data::SpanEnd(span) => {
-                    if let Some(entry) =
+                    if let Some(mut entry) =
                         self.known_actions.remove(&SpanId::from_u64(event.span_id)?)
                     {
                         if should_emit_finished_action(&span.data, options) {
                             // Get extra data out of SpanEnd event
-                            let (std_err, duration, scheduling_mode) = match &span.data {
+                            let (execution_kind, std_err, duration, scheduling_mode) = match &span
+                                .data
+                            {
                                 Some(buck2_data::span_end_event::Data::ActionExecution(
                                     action_exec,
                                 )) => (
+                                    Some(action_exec.execution_kind),
                                     action_exec.commands.iter().last().and_then(|cmd| {
-                                        cmd.details.as_ref().map(|d| d.stderr.as_ref())
+                                        cmd.details.as_ref().map(|d| d.cmd_stderr.as_ref())
                                     }),
                                     action_exec.wall_time.as_ref().map(
                                         |prost_types::Duration { seconds, nanos }| {
@@ -310,8 +315,16 @@ impl WhatRanCommandState {
                                         .as_ref()
                                         .and_then(|o| SchedulingMode::try_from(*o).ok()),
                                 ),
-                                _ => (None, None, None),
+                                _ => (None, None, None, None),
                             };
+
+                            if execution_kind
+                                == Some(buck2_data::ActionExecutionKind::LocalDepFile as i32)
+                            {
+                                entry
+                                    .reproducers
+                                    .push(CommandReproducer::LocalDepFileCacheHit);
+                            }
 
                             entry.emit_what_ran_entry(
                                 output,
@@ -403,11 +416,22 @@ impl WhatRanOutputWriter for OutputFormatWithWriter<'_> {
                             }
                         }
                     },
-                    CommandReproducer::ReExecute(re_execute) => JsonReproducer::Re {
-                        digest: &re_execute.action_digest,
-                        platform_properties: into_index_map(&re_execute.platform),
-                        action_key: re_execute.action_key.as_deref(),
-                    },
+                    CommandReproducer::LocalDepFileCacheHit => JsonReproducer::LocalDepFileCache,
+                    CommandReproducer::ReExecute(re_execute) => {
+                        if re_execute.persistent_worker {
+                            JsonReproducer::ReWorker {
+                                digest: &re_execute.action_digest,
+                                platform_properties: into_index_map(&re_execute.platform),
+                                action_key: re_execute.action_key.as_deref(),
+                            }
+                        } else {
+                            JsonReproducer::Re {
+                                digest: &re_execute.action_digest,
+                                platform_properties: into_index_map(&re_execute.platform),
+                                action_key: re_execute.action_key.as_deref(),
+                            }
+                        }
+                    }
                     CommandReproducer::LocalExecute(local_execute) => JsonReproducer::Local {
                         command: local_execute.command.as_ref().map_or_else(
                             || Cow::Owned(Vec::new()),
@@ -540,7 +564,14 @@ mod json_reproducer {
             #[serde(skip_serializing_if = "Option::is_none")]
             action_key: Option<&'a str>,
         },
+        LocalDepFileCache,
         Re {
+            digest: &'a str,
+            platform_properties: IndexMap<&'a str, &'a str>,
+            #[serde(skip_serializing_if = "Option::is_none")]
+            action_key: Option<&'a str>,
+        },
+        ReWorker {
             digest: &'a str,
             platform_properties: IndexMap<&'a str, &'a str>,
             #[serde(skip_serializing_if = "Option::is_none")]

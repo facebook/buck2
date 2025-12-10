@@ -100,7 +100,9 @@ pub struct AsyncBuildTargetResultBuilder {
 }
 
 impl AsyncBuildTargetResultBuilder {
-    pub fn new() -> (Self, impl BuildEventConsumer + Clone) {
+    pub fn new(
+        mut streaming_build_result_tx: Option<UnboundedSender<BuildTargetResult>>,
+    ) -> (Self, impl BuildEventConsumer + Clone) {
         let (event_tx, event_rx) = tokio::sync::mpsc::unbounded_channel();
         #[derive(Clone)]
         struct EventConsumer {
@@ -116,7 +118,7 @@ impl AsyncBuildTargetResultBuilder {
         (
             Self {
                 event_rx,
-                builder: BuildTargetResultBuilder::new(),
+                builder: BuildTargetResultBuilder::new(streaming_build_result_tx.take()),
             },
             EventConsumer { event_tx },
         )
@@ -170,16 +172,18 @@ pub struct BuildTargetResultBuilder {
     other_errors: BTreeMap<Option<ProvidersLabel>, Vec<buck2_error::Error>>,
     build_failed: bool,
     incompatible_targets: SmallSet<ConfiguredTargetLabel>,
+    streaming_build_result_tx: Option<UnboundedSender<BuildTargetResult>>,
 }
 
 impl BuildTargetResultBuilder {
-    pub fn new() -> Self {
+    pub fn new(mut streaming_build_result_tx: Option<UnboundedSender<BuildTargetResult>>) -> Self {
         Self {
             res: HashMap::new(),
             configured_to_pattern_modifiers: HashMap::new(),
             other_errors: BTreeMap::new(),
             incompatible_targets: SmallSet::new(),
             build_failed: false,
+            streaming_build_result_tx: streaming_build_result_tx.take(),
         }
     }
 
@@ -196,11 +200,11 @@ impl BuildTargetResultBuilder {
         match variant {
             ConfiguredBuildEventVariant::SkippedIncompatible => {
                 self.incompatible_targets.insert(label.target().dupe());
-                self.res.entry((*label).dupe()).or_insert(None);
+                self.res.entry(label.dupe()).or_insert(None);
             }
             ConfiguredBuildEventVariant::MapModifiers { modifiers } => {
                 self.configured_to_pattern_modifiers
-                    .entry((*label).dupe())
+                    .entry(label.dupe())
                     .or_default()
                     .push(modifiers);
             }
@@ -209,7 +213,7 @@ impl BuildTargetResultBuilder {
                 target_rule_type_name,
             } => {
                 self.res
-                    .entry((*label).dupe())
+                    .entry(label.dupe())
                     .or_insert(Some(ConfiguredBuildTargetResultGen {
                         outputs: Vec::new(),
                         provider_collection,
@@ -220,7 +224,7 @@ impl BuildTargetResultBuilder {
             }
             ConfiguredBuildEventVariant::Execution(execution_variant) => {
                 let is_err = {
-                    let results = self.res.get_mut(label.as_ref())
+                    let results = self.res.get_mut(&label)
                         .with_internal_error(|| format!("ConfiguredBuildEventVariant::Execution before ConfiguredBuildEventVariant::Prepared for {label}"))?
                         .as_mut()
                         .with_internal_error(|| format!("ConfiguredBuildEventVariant::Execution for a skipped target: `{label}`"))?;
@@ -236,6 +240,12 @@ impl BuildTargetResultBuilder {
                         ConfiguredBuildEventExecutionVariant::BuildOutput { index, output } => {
                             let is_err = output.is_err();
                             results.outputs.push((index, output));
+                            // update the streaming build result
+                            if let Some(tx) = &self.streaming_build_result_tx.clone() {
+                                let result = self.build();
+                                let _ignored = tx.send(result);
+                            }
+
                             is_err
                         }
                     }
@@ -246,14 +256,14 @@ impl BuildTargetResultBuilder {
                 }
             }
             ConfiguredBuildEventVariant::GraphProperties { graph_properties } => {
-                self.res.get_mut(label.as_ref())
+                self.res.get_mut(&label)
                      .with_internal_error(|| format!("ConfiguredBuildEventVariant::GraphProperties before ConfiguredBuildEventVariant::Prepared for {label}"))?
                      .as_mut()
                      .with_internal_error(|| format!("ConfiguredBuildEventVariant::GraphProperties for a skipped target: `{label}`"))?
                      .graph_properties = Some(graph_properties);
             }
             ConfiguredBuildEventVariant::Timeout => {
-                self.res.get_mut(label.as_ref())
+                self.res.get_mut(&label)
                      .with_internal_error(|| format!("ConfiguredBuildEventVariant::Timeout before ConfiguredBuildEventVariant::Prepared for {label}"))?
                      .as_mut()
                      .with_internal_error(|| format!("ConfiguredBuildEventVariant::Timeout for a skipped target: `{label}`"))?
@@ -264,7 +274,7 @@ impl BuildTargetResultBuilder {
             ConfiguredBuildEventVariant::Error { err } => {
                 self.build_failed = true;
                 self.res
-                    .entry((*label).dupe())
+                    .entry(label.dupe())
                     .or_insert(Some(ConfiguredBuildTargetResultGen {
                         outputs: Vec::new(),
                         provider_collection: None,
@@ -282,29 +292,27 @@ impl BuildTargetResultBuilder {
         Ok(FailFastState::Continue)
     }
 
-    pub fn build(self) -> BuildTargetResult {
-        let Self {
-            res,
-            configured_to_pattern_modifiers,
-            other_errors,
-            build_failed,
-            incompatible_targets,
-        } = self;
-        if !incompatible_targets.is_empty() {
+    pub fn build(&self) -> BuildTargetResult {
+        // This function can be called several times during a build in order to produce
+        // intermediary/streaming build reports as well as the final build report.
+        // It intentionally does not consume self and copies the arrays in the return object.
+
+        if !self.incompatible_targets.is_empty() {
             // TODO(cjhopman): Probably better to return this in the result and let the caller decide what to do with it.
             console_message(IncompatiblePlatformReason::skipping_message_for_multiple(
-                &incompatible_targets,
+                &self.incompatible_targets,
             ));
         }
 
         // Sort our outputs within each individual BuildTargetResult, then return those.
         // Also, turn our HashMap into a BTreeMap.
-        let res = res
-            .into_iter()
+        let res = self
+            .res
+            .iter()
             .map(|(label, result)| {
-                let result = result.map(|result| {
+                let result = result.as_ref().map(|result| {
                     let ConfiguredBuildTargetResultGen {
-                        mut outputs,
+                        outputs,
                         provider_collection,
                         target_rule_type_name,
                         graph_properties,
@@ -312,39 +320,46 @@ impl BuildTargetResultBuilder {
                     } = result;
 
                     // No need for a stable sort: the indices are unique (see below).
-                    outputs.sort_unstable_by_key(|(index, _outputs)| *index);
+                    let mut cloned_outputs = outputs.clone();
+                    cloned_outputs.sort_unstable_by_key(|(index, _outputs)| *index);
 
                     // TODO: This whole building thing needs quite a bit of refactoring. We might
                     // request the same targets multiple times here, but since we know that
                     // ConfiguredTargetLabel -> Output is going to be deterministic, we just dedupe
                     // them using the index.
                     ConfiguredBuildTargetResult {
-                        outputs: outputs
+                        outputs: cloned_outputs
                             .into_iter()
                             .unique_by(|(index, _outputs)| *index)
                             .map(|(_index, outputs)| outputs)
                             .collect(),
-                        provider_collection,
-                        target_rule_type_name,
-                        graph_properties,
-                        errors,
+                        provider_collection: provider_collection.clone(),
+                        target_rule_type_name: target_rule_type_name.clone(),
+                        graph_properties: graph_properties.clone(),
+                        errors: errors.clone(),
                     }
                 });
 
-                (label, result)
+                (label.clone(), result)
             })
             .collect();
 
-        let configured_to_pattern_modifiers = configured_to_pattern_modifiers
-            .into_iter()
-            .map(|(label, modifiers)| (label, BTreeSet::from_iter(modifiers.into_iter())))
+        let configured_to_pattern_modifiers = self
+            .configured_to_pattern_modifiers
+            .iter()
+            .map(|(label, modifiers)| {
+                (
+                    label.clone(),
+                    BTreeSet::from_iter(modifiers.iter().cloned()),
+                )
+            })
             .collect();
 
         BuildTargetResult {
             configured: res,
             configured_to_pattern_modifiers,
-            other_errors,
-            build_failed,
+            other_errors: self.other_errors.clone(),
+            build_failed: self.build_failed,
         }
     }
 }
@@ -419,7 +434,7 @@ pub enum ConfiguredBuildEventVariant {
 
 /// Events to be accumulated using BuildTargetResult::collect_stream.
 pub struct ConfiguredBuildEvent {
-    label: Arc<ConfiguredProvidersLabel>,
+    label: ConfiguredProvidersLabel,
     variant: ConfiguredBuildEventVariant,
 }
 
@@ -437,10 +452,7 @@ impl BuildEvent {
         label: ConfiguredProvidersLabel,
         variant: ConfiguredBuildEventVariant,
     ) -> Self {
-        Self::Configured(ConfiguredBuildEvent {
-            label: Arc::new(label),
-            variant,
-        })
+        Self::Configured(ConfiguredBuildEvent { label, variant })
     }
 }
 
@@ -471,7 +483,6 @@ pub async fn build_configured_label(
     opts: BuildConfiguredLabelOptions,
     timeout_observer: Option<&Arc<dyn LivelinessObserver>>,
 ) {
-    let providers_label = Arc::new(providers_label);
     if let Err(e) = build_configured_label_inner(
         event_consumer,
         ctx,
@@ -494,7 +505,7 @@ async fn build_configured_label_inner<'a>(
     event_consumer: &dyn BuildEventConsumer,
     ctx: &'a LinearRecomputeDiceComputations<'_>,
     materialization_and_upload: &'a MaterializationAndUploadContext,
-    providers_label: Arc<ConfiguredProvidersLabel>,
+    providers_label: ConfiguredProvidersLabel,
     providers_to_build: &ProvidersToBuild,
     opts: BuildConfiguredLabelOptions,
     timeout_observer: Option<&'a Arc<dyn LivelinessObserver>>,
@@ -539,7 +550,7 @@ async fn build_configured_label_inner<'a>(
     let provider_collection = if providers_to_build.run {
         let providers = ctx
             .get()
-            .get_providers(providers_label.as_ref())
+            .get_providers(&providers_label)
             .await?
             .require_compatible()?;
         Some(providers)

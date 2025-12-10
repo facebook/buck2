@@ -23,11 +23,11 @@ use buck2_core::deferred::base_deferred_key::BaseDeferredKey;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_core::fs::buck_out_path::BuckOutPathKind;
 use buck2_core::fs::buck_out_path::BuildArtifactPath;
-use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_execute::artifact::artifact_dyn::ArtifactDyn;
 use buck2_execute::execute::request::OutputType;
 use buck2_execute::path::artifact_path::ArtifactPath;
+use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_util::arc_str::ThinArcS;
 use derivative::Derivative;
 use derive_more::Display;
@@ -210,6 +210,13 @@ impl Artifact {
         match self.as_parts().0 {
             BaseArtifactKind::Source(_) => false,
             BaseArtifactKind::Build(b) => b.get_path().is_content_based_path(),
+        }
+    }
+
+    pub fn has_configuration_based_path(&self) -> bool {
+        match self.as_parts().0 {
+            BaseArtifactKind::Source(_) => false,
+            BaseArtifactKind::Build(b) => b.get_path().is_configuration_based_path(),
         }
     }
 }
@@ -473,6 +480,13 @@ impl<'v> DeclaredArtifact<'v> {
             DeclaredArtifactKind::Unbound(b) => b.0.is_content_based_path(),
         }
     }
+
+    pub fn has_configuration_based_path(&self) -> bool {
+        match &*self.artifact().borrow() {
+            DeclaredArtifactKind::Bound(b) => b.get_path().is_configuration_based_path(),
+            DeclaredArtifactKind::Unbound(b) => b.0.is_configuration_based_path(),
+        }
+    }
 }
 
 impl Hash for DeclaredArtifact<'_> {
@@ -595,9 +609,9 @@ pub mod testing {
     use buck2_core::deferred::key::DeferredHolderKey;
     use buck2_core::fs::buck_out_path::BuckOutPathKind;
     use buck2_core::fs::buck_out_path::BuildArtifactPath;
-    use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
     use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
     use buck2_execute::execute::request::OutputType;
+    use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
     use dupe::Dupe;
 
     use crate::actions::key::ActionIndex;
@@ -679,10 +693,6 @@ mod tests {
     use buck2_core::fs::buck_out_path::BuckOutPathKind;
     use buck2_core::fs::buck_out_path::BuckOutPathResolver;
     use buck2_core::fs::buck_out_path::BuildArtifactPath;
-    use buck2_core::fs::fs_util;
-    use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
-    use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
-    use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
     use buck2_core::fs::project::ProjectRoot;
     use buck2_core::fs::project::ProjectRootTemp;
     use buck2_core::fs::project_rel_path::ProjectRelativePath;
@@ -690,6 +700,10 @@ mod tests {
     use buck2_core::package::source_path::SourcePath;
     use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
     use buck2_execute::execute::request::OutputType;
+    use buck2_fs::fs_util;
+    use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
+    use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
+    use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
     use buck2_util::arc_str::ThinArcS;
     use dupe::Dupe;
     use starlark::values::Heap;

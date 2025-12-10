@@ -44,6 +44,7 @@ import com.facebook.buck.step.isolatedsteps.common.MkdirIsolatedStep;
 import com.facebook.buck.step.isolatedsteps.java.JarDirectoryStep;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableList.Builder;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSortedSet;
 import java.nio.file.Path;
 import java.util.Optional;
@@ -80,7 +81,8 @@ public class DaemonKotlincToJarStepFactory extends BaseCompileToJarStepFactory<K
       ResolvedJavac resolvedJavac,
       @Nullable ActionMetadata actionMetadata,
       KotlinExtraParams extraParams,
-      @Nullable RelPath kotlinClassesDir) {
+      @Nullable JarParameters abiJarParameters,
+      boolean mixedCompilation) {
 
     Kotlinc kotlinc = KotlincFactory.create();
 
@@ -90,7 +92,7 @@ public class DaemonKotlincToJarStepFactory extends BaseCompileToJarStepFactory<K
 
     ImmutableSortedSet<RelPath> sourceFilePaths = parameters.getSourceFilePaths();
     RelPath outputDirectory = compilerOutputPaths.getClassesDir();
-    RelPath kotlinOutputDirectory = kotlinClassesDir != null ? kotlinClassesDir : outputDirectory;
+    RelPath kotlinOutputDirectory = buildCellRootPath.relativize(extraParams.getKotlinClassesDir());
     steps.add(new MkdirIsolatedStep(kotlinOutputDirectory));
     RelPath annotationGenFolder = compilerOutputPaths.getAnnotationPath();
     Path pathToSrcsList = compilerOutputPaths.getPathToSourcesList().getPath();
@@ -262,6 +264,32 @@ public class DaemonKotlincToJarStepFactory extends BaseCompileToJarStepFactory<K
       if (invokingRule.isSourceOnlyAbi()
           && kspInvocationStatus == KspStepsBuilder.KSPInvocationStatus.KSP1_INVOKED) {
         steps.addAll(postKotlinCompilationSteps.build());
+
+        ResolvedJavacOptions resolvedJavacOptions = extraParams.getResolvedJavacOptions();
+        if (isKaptSupportedForCurrentKotlinLanguageVersion(extraParams.getLanguageVersion())
+            && extraParams.getAnnotationProcessingTool() == AnnotationProcessingTool.KAPT) {
+          // Most of the time, KotlinC have ran annotation processing,
+          // so only run "java on mix" processors (very uncommon) on Javac
+          resolvedJavacOptions =
+              resolvedJavacOptions.withJavaAnnotationProcessorParams(
+                  getRunsOnJavaOnlyProcessors(resolvedJavacOptions));
+        }
+
+        JavacStepsBuilder.prepareJavaCompilationIfNeeded(
+            invokingRule,
+            buildCellRootPath,
+            steps,
+            buckOut,
+            compilerOutputPathsValue,
+            parameters,
+            resolvedJavac,
+            resolvedJavacOptions,
+            parameters.getClasspathEntries(),
+            extraParams.getExtraClassPaths(),
+            ImmutableList.of(kotlinOutputDirectory, outputDirectory),
+            javacSourceBuilder,
+            abiJarParameters);
+
         return;
       }
 
@@ -273,7 +301,6 @@ public class DaemonKotlincToJarStepFactory extends BaseCompileToJarStepFactory<K
           steps,
           actionMetadata,
           extraParams,
-          kotlinClassesDir,
           friendPathsArg,
           kotlinPluginGeneratedFullPath,
           moduleName,
@@ -287,7 +314,6 @@ public class DaemonKotlincToJarStepFactory extends BaseCompileToJarStepFactory<K
           kspInvocationStatus,
           sourceOnlyAbiClasspathBuilder.build(),
           postKotlinCompilationFailureSteps,
-          outputDirectory,
           classpathSnapshots,
           kotlinCDAnalytics);
       steps.addAll(postKotlinCompilationSteps.build());
@@ -315,8 +341,11 @@ public class DaemonKotlincToJarStepFactory extends BaseCompileToJarStepFactory<K
         resolvedJavacOptions,
         parameters.getClasspathEntries(),
         extraParams.getExtraClassPaths(),
-        outputDirectory,
-        javacSourceBuilder);
+        hasKotlinSources
+            ? ImmutableList.of(kotlinOutputDirectory, outputDirectory)
+            : ImmutableList.of(outputDirectory),
+        javacSourceBuilder,
+        abiJarParameters);
   }
 
   @Override
@@ -331,8 +360,8 @@ public class DaemonKotlincToJarStepFactory extends BaseCompileToJarStepFactory<K
       Builder<IsolatedStep> steps,
       ResolvedJavac resolvedJavac,
       @Nullable ActionMetadata actionMetadata,
-      KotlinExtraParams extraParams,
-      RelPath kotlinClassesDir) {
+      KotlinExtraParams extraParams) {
+
     createCompileStep(
         buckOut,
         buildCellRootPath,
@@ -343,9 +372,12 @@ public class DaemonKotlincToJarStepFactory extends BaseCompileToJarStepFactory<K
         resolvedJavac,
         actionMetadata,
         extraParams,
-        kotlinClassesDir);
+        abiJarParameters,
+        true);
     steps.add(
-        new JarDirectoryStep(abiJarParameters == null ? libraryJarParameters : abiJarParameters));
+        new JarDirectoryStep(
+            abiJarParameters == null ? libraryJarParameters : abiJarParameters,
+            ImmutableSet.of(extraParams.getKotlinClassesDir())));
   }
 
   /**

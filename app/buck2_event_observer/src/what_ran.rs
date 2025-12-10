@@ -221,10 +221,11 @@ pub fn emit_what_ran_entry(
 }
 
 /// The reproduction details for this command.
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub enum CommandReproducer {
     CacheQuery(buck2_data::CacheQuery),
     CacheHit(buck2_data::CacheHit),
+    LocalDepFileCacheHit,
     ReExecute(buck2_data::ReExecute),
     LocalExecute(buck2_data::LocalExecute),
     WorkerExecute(buck2_data::WorkerExecute),
@@ -244,6 +245,7 @@ impl CommandReproducer {
                     _ => "cache".to_owned(),
                 }
             }
+            Self::LocalDepFileCacheHit => "dep_file".to_owned(),
             Self::ReExecute(execute) => executor_with_platform(execute),
             Self::LocalExecute(..) => "local".to_owned(),
             Self::WorkerExecute(..) => "worker".to_owned(),
@@ -328,6 +330,7 @@ impl fmt::Display for CommandReproducer {
             CommandReproducer::CacheHit(cache_hit) => {
                 write!(formatter, "{}", cache_hit.action_digest)
             }
+            CommandReproducer::LocalDepFileCacheHit => Ok(()),
             CommandReproducer::ReExecute(re_execute) => {
                 write!(formatter, "{}", re_execute.action_digest)
             }
@@ -454,6 +457,12 @@ impl fmt::Display for WhatRanCommandConsoleFormat<'_> {
 }
 
 fn executor_with_platform(execute: &buck2_data::ReExecute) -> String {
+    let exec = if execute.persistent_worker {
+        "re_worker"
+    } else {
+        "re"
+    };
+
     if let Some(platform) = &execute.platform {
         let platform = platform
             .properties
@@ -461,9 +470,9 @@ fn executor_with_platform(execute: &buck2_data::ReExecute) -> String {
             .map(|Property { name, value }| format!("{name}={value}"))
             .collect::<Vec<String>>()
             .join(",");
-        format!("re({platform})")
+        format!("{exec}({platform})")
     } else {
-        "re".to_owned()
+        exec.to_owned()
     }
 }
 
@@ -492,6 +501,7 @@ mod tests {
             }),
             action_key: None,
             use_case: "".to_owned(),
+            persistent_worker: false,
         };
         let result = executor_with_platform(&execute);
         assert_eq!(

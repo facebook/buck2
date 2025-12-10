@@ -11,6 +11,7 @@
 use std::collections::BTreeMap;
 use std::sync::Arc;
 use std::time::Duration;
+use std::time::Instant;
 
 use allocative::Allocative;
 use anyhow::Context;
@@ -48,7 +49,6 @@ use remote_execution::BuckInfo;
 use remote_execution::ClientBuilderCommonMethods;
 use remote_execution::DownloadRequest;
 use remote_execution::ExecuteRequest;
-use remote_execution::ExecuteResponse;
 use remote_execution::ExecuteWithProgressResponse;
 use remote_execution::ExtendDigestsTtlRequest;
 use remote_execution::GetDigestsTtlRequest;
@@ -93,6 +93,8 @@ use crate::re::error::test_re_error;
 use crate::re::error::with_error_handler;
 use crate::re::manager::RemoteExecutionConfig;
 use crate::re::metadata::RemoteExecutionMetadataExt;
+use crate::re::queue_stats::QueueStats;
+use crate::re::remote_action_result::ExecuteResponseWithQueueStats;
 use crate::re::stats::LocalCacheRemoteExecutionClientStats;
 use crate::re::stats::LocalCacheStats;
 use crate::re::stats::OpStats;
@@ -134,8 +136,8 @@ pub struct RemoteExecutionClient {
 // The large one is the actual default case
 #[allow(clippy::large_enum_variant)]
 pub enum ExecuteResponseOrCancelled {
-    Response(ExecuteResponse),
-    Cancelled(Cancelled),
+    Response(ExecuteResponseWithQueueStats),
+    Cancelled(Cancelled, QueueStats),
 }
 
 #[derive(Allocative)]
@@ -517,7 +519,7 @@ impl RemoteExecutionClientImpl {
             let mut persistent_cache_mode = None;
             #[cfg(fbcode_build)]
             let client = {
-                use buck2_core::fs::fs_util;
+                use buck2_fs::fs_util;
                 use remote_execution::CASDaemonClientCfg;
                 use remote_execution::CopyPolicy;
                 use remote_execution::CurlReactorConfig;
@@ -647,6 +649,7 @@ impl RemoteExecutionClientImpl {
                             {
                                 Buck2CopyPolicy::Copy => CopyPolicy::FULL_COPY,
                                 Buck2CopyPolicy::Reflink => CopyPolicy::SOFT_COPY,
+                                Buck2CopyPolicy::Hybrid => CopyPolicy::HYBRID_COPY,
                             },
                             ..Default::default()
                         };
@@ -809,7 +812,11 @@ impl RemoteExecutionClientImpl {
                     .as_deref()
                     .unwrap_or(
                         if static_metadata.use_zippy_rich_client && cfg!(target_os = "linux") {
-                            "remote_execution/features/client_buck2"
+                            if static_metadata.shared_casd_address.is_some() {
+                                "remote_execution/features/client_buck2_pc"
+                            } else {
+                                "remote_execution/features/client_buck2"
+                            }
                         } else {
                             "remote_execution/features/client_buck2_alternative"
                         },
@@ -981,6 +988,7 @@ impl RemoteExecutionClientImpl {
         re_max_queue_time: Option<Duration>,
         platform: &remote_execution::Platform,
         knobs: &ExecutorGlobalKnobs,
+        persistent_worker: bool,
     ) -> anyhow::Result<ExecuteResponseOrCancelled> {
         use buck2_data::ReAfterAction;
         use buck2_data::ReBeforeAction;
@@ -1015,6 +1023,7 @@ impl RemoteExecutionClientImpl {
             previous_stage: Stage,
             report_stage: re_stage::Stage,
             manager: &mut CommandExecutionManager,
+            queue_stats: &mut QueueStats,
             re_fallback_on_estimated_queue_time_exceeds_duration: Option<Duration>,
             re_cancel_on_estimated_queue_time_exceeds: Option<Duration>,
         ) -> anyhow::Result<ResponseOrStateChange> {
@@ -1024,28 +1033,42 @@ impl RemoteExecutionClientImpl {
                 },
                 async move {
                     loop {
-                        let next = futures::future::select(
-                            manager.inner.liveliness_observer.while_alive(),
-                            receiver.next(),
-                        );
+                        let now = Instant::now();
 
-                        let event = match next.await {
-                            futures::future::Either::Left((_dead, _)) => {
-                                return Ok(ResponseOrStateChange::Cancelled(Cancelled {
-                                    ..Default::default()
-                                }));
+                        let event = {
+                            let next = futures::future::select(
+                                manager.inner.liveliness_observer.while_alive(),
+                                receiver.next(),
+                            )
+                            .await;
+
+                            // Whenever time elapsed and we were previously in
+                            // queued stage, we add the time that elapsed. If we
+                            // just exited a queued stage, then we tracked how long
+                            // we spent queued. If we are still in queue, we'll keep
+                            // counting. This might not be as accurate as the RE
+                            // logging but at least it works even if we get cancelled.
+                            if matches!(previous_stage, Stage::QUEUED) {
+                                queue_stats.cumulative_queue_duration += Instant::now() - now;
                             }
-                            futures::future::Either::Right((event, _)) => match event {
-                                Some(event) => event,
-                                None => {
-                                    return Err(anyhow::anyhow!(
-                                        "RE execution did not yield a ExecuteResponse"
-                                    ));
-                                }
-                            },
-                        };
 
-                        let event = event.context("Error was returned on the stream by RE")?;
+                            match next {
+                                futures::future::Either::Left((_dead, _)) => {
+                                    return Ok(ResponseOrStateChange::Cancelled(Cancelled {
+                                        ..Default::default()
+                                    }));
+                                }
+                                futures::future::Either::Right((event, _)) => match event {
+                                    Some(event) => event,
+                                    None => {
+                                        return Err(anyhow::anyhow!(
+                                            "RE execution did not yield a ExecuteResponse"
+                                        ));
+                                    }
+                                },
+                            }
+                            .context("Error was returned on the stream by RE")?
+                        };
 
                         if event.execute_response.is_some() || event.stage != previous_stage {
                             return Ok(ResponseOrStateChange::Present(event));
@@ -1133,6 +1156,7 @@ impl RemoteExecutionClientImpl {
             platform: &remote_execution::Platform,
             action_key: &Option<String>,
             use_case: String,
+            persistent_worker: bool,
         ) -> re_stage::Stage {
             match stage {
                 Stage::QUEUED => get_queue_state(action_digest, use_case, operation_metadata),
@@ -1148,6 +1172,7 @@ impl RemoteExecutionClientImpl {
                     platform: Some(platform_to_proto(platform)),
                     action_key: action_key.clone(),
                     use_case,
+                    persistent_worker,
                 }),
                 Stage::AFTER_ACTION => {
                     re_stage::Stage::AfterActionExecution(ReAfterAction { action_digest })
@@ -1188,6 +1213,7 @@ impl RemoteExecutionClientImpl {
         // Now we wait until the ExecuteResponse shows up, and produce events accordingly. If
         // this doesn't give us an ExecuteResponse then this is case #1 again so we also fail.
         let action_digest_str = action_digest.to_string();
+        let mut queue_stats = QueueStats::default();
         let mut exe_stage = Stage::QUEUED;
         let mut operation_metadata = None;
 
@@ -1206,8 +1232,10 @@ impl RemoteExecutionClientImpl {
                     platform,
                     &action_key,
                     re_use_case.clone(),
+                    persistent_worker,
                 ),
                 manager,
+                &mut queue_stats,
                 re_fallback_on_estimated_queue_time_exceeds,
                 knobs.re_cancel_on_estimated_queue_time_exceeds,
             )
@@ -1216,13 +1244,18 @@ impl RemoteExecutionClientImpl {
             let progress_response = match progress_response {
                 ResponseOrStateChange::Present(r) => r,
                 ResponseOrStateChange::Cancelled(c) => {
-                    return Ok(ExecuteResponseOrCancelled::Cancelled(c));
+                    return Ok(ExecuteResponseOrCancelled::Cancelled(c, queue_stats));
                 }
             };
 
             // Return the result if we're done
             if let Some(execute_response) = progress_response.execute_response {
-                return Ok(ExecuteResponseOrCancelled::Response(execute_response));
+                return Ok(ExecuteResponseOrCancelled::Response(
+                    ExecuteResponseWithQueueStats {
+                        execute_response,
+                        queue_stats,
+                    },
+                ));
             }
 
             // Change the stage
@@ -1324,6 +1357,7 @@ impl RemoteExecutionClientImpl {
                 re_max_queue_time,
                 platform,
                 knobs,
+                worker_tool_action_digest.is_some(),
             )
             .await,
         )

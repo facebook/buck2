@@ -18,9 +18,9 @@ use std::task::Poll;
 
 use allocative::Allocative;
 use allocative::Visitor;
-use buck2_futures::cancellation::CancellationHandle;
 use dice_error::result::CancellableResult;
 use dice_error::result::CancellationReason;
+use dice_futures::cancellation::CancellationHandle;
 use dupe::Dupe;
 use dupe::OptionDupedExt;
 use futures::FutureExt;

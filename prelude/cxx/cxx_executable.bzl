@@ -116,6 +116,9 @@ load(
 )
 load(
     ":compile.bzl",
+    "ClangTracesInfo",
+    "ClangTracesTSet",
+    "PicClangTracesInfo",
     "compile_cxx",
     "create_compile_cmds",
     "cxx_objects_sub_targets",
@@ -227,7 +230,7 @@ CxxExecutableOutput = record(
 
 def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, is_cxx_test: bool = False) -> CxxExecutableOutput:
     # Gather preprocessor inputs.
-    preprocessor_deps = cxx_attr_deps(ctx) + filter(None, [ctx.attrs.precompiled_header])
+    preprocessor_deps = cxx_attr_deps(ctx) + filter(None, [impl_params.precompiled_header])
     (own_preprocessor_info, test_preprocessor_infos) = cxx_private_preprocessor_info(
         ctx,
         impl_params.headers_layout,
@@ -246,7 +249,10 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
 
     # Compile objects.
     compile_cmd_output = create_compile_cmds(
-        ctx,
+        ctx.actions,
+        ctx.label,
+        get_cxx_toolchain_info(ctx),
+        get_cxx_platform_info(ctx),
         impl_params,
         [own_preprocessor_info] + test_preprocessor_infos,
         inherited_preprocessor_infos,
@@ -265,16 +271,46 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
             compile_flavors.add(CxxCompileFlavor("optimized"))
 
     cxx_outs = compile_cxx(
-        ctx = ctx,
+        actions = ctx.actions,
+        target_label = ctx.label,
+        toolchain = get_cxx_toolchain_info(ctx),
         src_compile_cmds = compile_cmd_output.src_compile_cmds,
         flavors = compile_flavors,
         provide_syntax_only = True,
+        separate_debug_info = impl_params.separate_debug_info,
         use_header_units = impl_params.use_header_units,
+        cuda_compile_style = impl_params.cuda_compile_style,
     )
 
     sub_targets[ARGSFILES_SUBTARGET] = [get_argsfiles_output(ctx, compile_cmd_output.argsfiles.relative, ARGSFILES_SUBTARGET)]
     sub_targets[XCODE_ARGSFILES_SUB_TARGET] = [get_argsfiles_output(ctx, compile_cmd_output.argsfiles.xcode, XCODE_ARGSFILES_SUB_TARGET)]
     sub_targets[OBJECTS_SUBTARGET] = [DefaultInfo(sub_targets = cxx_objects_sub_targets(cxx_outs))]
+
+    if impl_params.generate_sub_targets and impl_params.generate_sub_targets.clang_traces:
+        traces = [out.clang_trace for out in cxx_outs if out.clang_trace != None]
+        sub_targets["clang-trace"] = [DefaultInfo(
+            default_outputs = traces,
+        )]
+
+        clang_traces_tset = ctx.actions.tset(
+            ClangTracesTSet,
+            value = traces,
+            children = [info.clang_traces for info in filter(None, [
+                x.get(PicClangTracesInfo) if link_strategy != LinkStrategy("static") else x.get(ClangTracesInfo)
+                for x in cxx_deps
+            ])],
+        )
+
+        clang_traces_args = clang_traces_tset.project_as_args("clang_traces")
+        all_traces = ctx.actions.write(
+            ctx.actions.declare_output("recursive_clang_traces.txt"),
+            clang_traces_args,
+        )
+
+        sub_targets["clang-traces"] = [DefaultInfo(
+            default_output = all_traces,
+            other_outputs = [clang_traces_args],
+        )]
 
     diagnostics = {
         compile_cmd.src.short_path: out.diagnostics
@@ -283,7 +319,11 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
     }
     all_diagnostics = None
     if len(diagnostics) > 0:
-        sub_targets["check"], all_diagnostics = check_sub_target(ctx, diagnostics)
+        sub_targets["check"], all_diagnostics = check_sub_target(
+            ctx,
+            diagnostics,
+            error_handler = impl_params.error_handler,
+        )
 
     # Compilation DB.
     comp_db = create_compilation_database(ctx, compile_cmd_output.src_compile_cmds, "compilation-database")
@@ -838,7 +878,7 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
             impl_params.additional.static_external_debug_info
         ),
     )
-    external_debug_info_artifacts = project_artifacts(ctx.actions, [external_debug_info])
+    external_debug_info_artifacts = project_artifacts(ctx.actions, external_debug_info)
     materialize_external_debug_info = ctx.actions.write(
         "debuginfo.artifacts",
         external_debug_info_artifacts,

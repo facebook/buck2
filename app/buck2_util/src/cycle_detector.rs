@@ -503,7 +503,7 @@ mod tests {
             g2.add_edge(0);
 
             let res = g0
-                .guard_this(tokio::time::sleep(Duration::from_secs(120)).boxed())
+                .guard_this(tokio::time::sleep(Duration::from_mins(2)).boxed())
                 .await;
             match res {
                 Ok(Err(..)) => {

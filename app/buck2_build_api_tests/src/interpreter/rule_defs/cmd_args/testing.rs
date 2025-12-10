@@ -13,10 +13,10 @@ use buck2_build_api::interpreter::rule_defs::cmd_args::value_as::ValueAsCommandL
 use buck2_core::execution_types::executor_config::PathSeparatorKind;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_core::fs::buck_out_path::BuckOutPathResolver;
-use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_execute::artifact::fs::ExecutorFs;
+use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_interpreter_for_build::interpreter::testing::cells;
 use fxhash::FxHashMap;
 use starlark::environment::GlobalsBuilder;

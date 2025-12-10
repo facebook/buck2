@@ -29,7 +29,7 @@ def http_archive_impl(ctx: AnalysisContext) -> list[Provider]:
     ext_type = archive_type(ctx.attrs.urls[0], ctx.attrs.type)
 
     # Download archive.
-    archive = ctx.actions.declare_output("archive." + ext_type)
+    archive = ctx.actions.declare_output("archive." + ext_type, has_content_based_path = ctx.attrs.has_content_based_path)
     url = ctx.attrs.urls[0]
     vpnless_url = None if len(ctx.attrs.vpnless_urls) == 0 else ctx.attrs.vpnless_urls[0]
     ctx.actions.download_file(
@@ -39,6 +39,7 @@ def http_archive_impl(ctx: AnalysisContext) -> list[Provider]:
         sha1 = ctx.attrs.sha1,
         sha256 = ctx.attrs.sha256,
         size_bytes = ctx.attrs.size_bytes,
+        has_content_based_path = ctx.attrs.has_content_based_path,
     )
 
     output, sub_targets = unarchive(
@@ -51,6 +52,7 @@ def http_archive_impl(ctx: AnalysisContext) -> list[Provider]:
         sub_targets = ctx.attrs.sub_targets,
         exec_deps = ctx.attrs.exec_deps[HttpArchiveExecDeps],
         prefer_local = prefer_local,
+        has_content_based_path = ctx.attrs.has_content_based_path,
     )
 
     return [

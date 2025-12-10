@@ -71,10 +71,10 @@ pub(crate) fn check_user_allowed() -> buck2_error::Result<()> {
 pub(crate) fn check_user_allowed() -> buck2_error::Result<()> {
     use std::os::unix::fs::MetadataExt;
 
-    use buck2_core::fs::fs_util;
-    use buck2_core::fs::paths::abs_path::AbsPath;
     use buck2_core::soft_error;
     use buck2_error::BuckErrorContext;
+    use buck2_fs::fs_util;
+    use buck2_fs::paths::abs_path::AbsPath;
 
     #[derive(Debug, buck2_error::Error)]
     #[error("buck2 is not allowed to run as root (unless home dir is owned by root)")]

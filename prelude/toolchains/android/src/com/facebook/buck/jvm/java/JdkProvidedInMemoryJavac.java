@@ -10,7 +10,6 @@
 
 package com.facebook.buck.jvm.java;
 
-import com.facebook.buck.core.exceptions.HumanReadableException;
 import com.facebook.buck.jvm.java.javax.SynchronizedToolProvider;
 import com.google.common.base.MoreObjects;
 import javax.tools.JavaCompiler;
@@ -29,7 +28,7 @@ public class JdkProvidedInMemoryJavac extends Jsr199Javac {
       protected JavaCompiler createCompiler(JavacExecutionContext context) {
         JavaCompiler compiler = SynchronizedToolProvider.getSystemJavaCompiler();
         if (compiler == null) {
-          throw new HumanReadableException(
+          throw new RuntimeException(
               "No system compiler found. Did you install the JRE instead of the JDK?");
         }
         return compiler;

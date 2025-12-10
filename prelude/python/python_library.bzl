@@ -127,7 +127,8 @@ def create_python_library_info(
         extensions: [dict[str, LinkedObject], None] = None,
         deps: list[PythonLibraryInfo] = [],
         shared_libraries: list[SharedLibraryInfo] = [],
-        extension_shared_libraries: list[SharedLibraryInfo] = []):
+        extension_shared_libraries: list[SharedLibraryInfo] = [],
+        par_style: str | None = None):
     """
     Create a `PythonLibraryInfo` for a set of sources and deps
 
@@ -171,6 +172,7 @@ def create_python_library_info(
         extension_shared_libraries = new_extension_shared_libraries,
         is_native_dep = is_native_dep,
         native_deps = native_deps,
+        par_style = par_style,
     )
 
 def gather_dep_libraries(
@@ -333,11 +335,11 @@ def python_library_impl(ctx: AnalysisContext) -> list[Provider]:
     python_toolchain = ctx.attrs._python_toolchain[PythonToolchainInfo]
     src_type_manifest = create_manifest_for_source_map(ctx, "type_stubs", src_types) if src_types else None
 
-    # TODO(T230857912) enable pyc compilation for 3.14
+    # TODO(T245694881) let the toolchain decide whether pyc's should be precompiled
     # Compile bytecode.
     bytecode = None
     py_version = ctx.attrs._python_toolchain[PythonToolchainInfo].version
-    if src_manifest != None and (py_version == None or "3.14" not in py_version):
+    if src_manifest != None and (py_version == None or "3.15" not in py_version):
         bytecode = compile_manifests(ctx, [src_manifest])
         sub_targets["compile"] = [DefaultInfo(default_output = bytecode[PycInvalidationMode("unchecked_hash")].artifacts[0][0])]
         sub_targets["src-manifest"] = [DefaultInfo(default_output = src_manifest.manifest, other_outputs = [a for a, _ in src_manifest.artifacts])]

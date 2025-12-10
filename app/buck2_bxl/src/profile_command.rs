@@ -16,10 +16,10 @@ use buck2_cli_proto::ProfileRequest;
 use buck2_cli_proto::ProfileResponse;
 use buck2_cli_proto::profile_request::ProfileOpts;
 use buck2_common::dice::cells::HasCellResolver;
-use buck2_core::fs::paths::abs_path::AbsPath;
 use buck2_error::BuckErrorContext;
 use buck2_error::buck2_error;
 use buck2_error::internal_error;
+use buck2_fs::paths::abs_path::AbsPath;
 use buck2_interpreter::starlark_profiler::config::GetStarlarkProfilerInstrumentation;
 use buck2_interpreter::starlark_profiler::mode::StarlarkProfileMode;
 use buck2_profile::get_profile_response;
@@ -138,7 +138,6 @@ impl ServerCommandTemplate for BxlProfileServerCommand {
                             .await
                             .map_err(|e| e.error)?
                             .1
-                            .map(Arc::new)
                             .expect("No bxl profile data found"),
                     )
                 }

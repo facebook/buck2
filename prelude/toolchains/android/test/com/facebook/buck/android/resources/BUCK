@@ -12,6 +12,7 @@ buck_java_test(
         ["testdata/**"],
     ),
     deps = [
+        "prelude//toolchains/android/src/com/facebook/buck/android/resources:merge_assets",
         "prelude//toolchains/android/src/com/facebook/buck/android/resources:resources",
         "prelude//toolchains/android/src/com/facebook/buck/core/filesystems:filesystems",
         "prelude//toolchains/android/src/com/facebook/buck/util/environment:platform",

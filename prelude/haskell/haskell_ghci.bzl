@@ -320,6 +320,7 @@ def _build_haskell_omnibus_so(ctx: AnalysisContext) -> HaskellOmnibusData:
             link_weight = linker_info.link_weight,
             identifier = soname,
             link_execution_preference = LinkExecutionPreference("any"),
+            produce_shared_library_interface = False,
         ),
     )
     omnibus = link_result.linked_object.output

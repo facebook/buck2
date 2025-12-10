@@ -70,6 +70,7 @@ pub enum CommandExecutionStatus {
     },
     // TODO: We should rename this.
     Cancelled {
+        execution_kind: CommandExecutionKind,
         reason: Option<CommandCancellationReason>,
     },
 }
@@ -82,7 +83,7 @@ impl CommandExecutionStatus {
             CommandExecutionStatus::WorkerFailure { execution_kind } => Some(execution_kind),
             CommandExecutionStatus::Error { execution_kind, .. } => execution_kind.as_ref(),
             CommandExecutionStatus::TimedOut { execution_kind, .. } => Some(execution_kind),
-            CommandExecutionStatus::Cancelled { reason: _ } => None,
+            CommandExecutionStatus::Cancelled { execution_kind, .. } => Some(execution_kind),
         }
     }
 }
@@ -118,11 +119,14 @@ impl Display for CommandExecutionStatus {
             CommandExecutionStatus::TimedOut { duration, .. } => {
                 write!(f, "timed out after {:.3}s", duration.as_secs_f64())
             }
-            CommandExecutionStatus::Cancelled { reason } => {
+            CommandExecutionStatus::Cancelled {
+                execution_kind,
+                reason,
+            } => {
                 if let Some(reason) = reason {
-                    write!(f, "Cancelled due to {reason:?}")
+                    write!(f, "Cancelled {execution_kind} due to {reason:?}")
                 } else {
-                    write!(f, "Cancelled")
+                    write!(f, "Cancelled {execution_kind}")
                 }
             }
         }
@@ -159,11 +163,9 @@ pub struct CommandExecutionMetadata {
     /// How long this command spent waiting to run
     pub queue_duration: Option<Duration>,
 
-    // Whether this command was frozen due to memory pressure.
-    pub was_frozen: bool,
+    pub suspend_duration: Option<Duration>,
 
-    // Total duration this command was frozen for.
-    pub freeze_duration: Option<Duration>,
+    pub suspend_count: Option<u64>,
 }
 
 impl CommandExecutionMetadata {
@@ -182,8 +184,8 @@ impl CommandExecutionMetadata {
             hashing_duration: metadata.hashing_duration.try_into().ok(),
             hashed_artifacts_count: metadata.hashed_artifacts_count.try_into().ok().unwrap_or(0),
             queue_duration: metadata.queue_duration.and_then(|d| d.try_into().ok()),
-            was_frozen: Some(metadata.was_frozen),
-            freeze_duration: metadata.freeze_duration.and_then(|d| d.try_into().ok()),
+            suspend_duration: metadata.suspend_duration.and_then(|d| d.try_into().ok()),
+            suspend_count: metadata.suspend_count,
         }
     }
 }
@@ -199,8 +201,8 @@ impl Default for CommandExecutionMetadata {
             hashing_duration: Duration::default(),
             hashed_artifacts_count: 0,
             queue_duration: None,
-            was_frozen: false,
-            freeze_duration: None,
+            suspend_duration: None,
+            suspend_count: None,
         }
     }
 }
@@ -328,6 +330,7 @@ pub struct CommandExecutionReport {
     /// Any additional message that a command's executor wants to be user visible in case of a
     /// failure. Provided by non-Meta RE server.
     pub additional_message: Option<String>,
+    pub inline_environment_metadata: buck2_data::InlineCommandExecutionEnvironmentMetadata,
 }
 
 impl CommandExecutionReport {
@@ -372,6 +375,7 @@ impl CommandExecutionReport {
         buck2_data::CommandExecution {
             details: Some(details),
             status: Some(status),
+            inline_environment_metadata: Some(self.inline_environment_metadata),
         }
     }
 
@@ -407,8 +411,8 @@ impl CommandExecutionReport {
             .map(|k| k.to_proto(omit_command_details));
 
         buck2_data::CommandExecutionDetails {
-            stdout,
-            stderr,
+            cmd_stdout: stdout,
+            cmd_stderr: stderr,
             command_kind,
             signed_exit_code,
             metadata: Some(self.timing.to_proto()),
@@ -470,8 +474,8 @@ mod tests {
             hashing_duration: Duration::from_secs(7),
             hashed_artifacts_count: 8,
             queue_duration: Some(Duration::from_secs(9)),
-            was_frozen: false,
-            freeze_duration: None,
+            suspend_duration: None,
+            suspend_count: None,
         };
         let std_streams = CommandStdStreams::Local {
             stdout: [65, 66, 67].to_vec(), // ABC
@@ -485,6 +489,9 @@ mod tests {
             std_streams,
             exit_code: Some(456),
             additional_message: None,
+            inline_environment_metadata: buck2_data::InlineCommandExecutionEnvironmentMetadata {
+                sandcastle_instance_id: Some(123),
+            },
         }
     }
 
@@ -547,13 +554,13 @@ mod tests {
                 seconds: 9,
                 nanos: 0,
             }),
-            was_frozen: Some(false),
-            freeze_duration: None,
+            suspend_duration: None,
+            suspend_count: None,
         };
         let command_execution_details = buck2_data::CommandExecutionDetails {
             signed_exit_code: Some(456),
-            stdout: "ABC".to_owned(),
-            stderr: "DEF".to_owned(),
+            cmd_stdout: "ABC".to_owned(),
+            cmd_stderr: "DEF".to_owned(),
             command_kind: Some(command_execution_kind),
             metadata: Some(command_execution_metadata),
             additional_message: None,
@@ -564,6 +571,11 @@ mod tests {
             status: Some(buck2_data::command_execution::Status::Success(
                 buck2_data::command_execution::Success {},
             )),
+            inline_environment_metadata: Some(
+                buck2_data::InlineCommandExecutionEnvironmentMetadata {
+                    sandcastle_instance_id: Some(123),
+                },
+            ),
         }
     }
 
@@ -582,7 +594,7 @@ mod tests {
         let proto = report.to_command_execution_proto(true, false, false).await;
         let mut expected_proto = make_simple_proto();
 
-        expected_proto.details.as_mut().unwrap().stdout = "".to_owned();
+        expected_proto.details.as_mut().unwrap().cmd_stdout = "".to_owned();
 
         assert_eq!(proto, expected_proto);
     }
@@ -593,7 +605,7 @@ mod tests {
         let proto = report.to_command_execution_proto(false, true, false).await;
         let mut expected_proto = make_simple_proto();
 
-        expected_proto.details.as_mut().unwrap().stderr = "".to_owned();
+        expected_proto.details.as_mut().unwrap().cmd_stderr = "".to_owned();
 
         assert_eq!(proto, expected_proto);
     }

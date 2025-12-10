@@ -10,6 +10,7 @@ load(
     "@prelude//utils:utils.bzl",
     "flatten",
 )
+load(":cxx_context.bzl", "get_cxx_platform_info")
 load(":platform.bzl", "cxx_by_platform")
 
 # An input to cxx compilation, consisting of a file to compile and optional
@@ -25,7 +26,8 @@ CxxSrcWithFlags = record(
 
 # The source files
 def get_srcs_with_flags(ctx: AnalysisContext, additional_srcs: list = []) -> list[CxxSrcWithFlags]:
-    all_srcs = ctx.attrs.srcs + flatten(cxx_by_platform(ctx, ctx.attrs.platform_srcs)) + additional_srcs
+    cxx_platform_info = get_cxx_platform_info(ctx)
+    all_srcs = ctx.attrs.srcs + flatten(cxx_by_platform(cxx_platform_info, ctx.attrs.platform_srcs)) + additional_srcs
 
     # src -> flags_hash -> flags
     flags_sets_by_src = {}

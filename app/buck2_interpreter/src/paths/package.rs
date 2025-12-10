@@ -13,7 +13,7 @@ use buck2_core::cells::build_file_cell::BuildFileCell;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::cell_path::CellPathRef;
 use buck2_core::cells::name::CellName;
-use buck2_core::fs::paths::file_name::FileName;
+use buck2_fs::paths::file_name::FileName;
 
 /// Represents the path to a PACKAGE file.
 ///

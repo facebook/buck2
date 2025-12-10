@@ -23,10 +23,9 @@ pub(crate) async fn materialize_command(
     context: &ServerCommandContext<'_>,
     req: MaterializeRequest,
 ) -> buck2_error::Result<MaterializeResponse> {
-    let start_event = buck2_data::CommandStart {
-        metadata: context.request_metadata().await?,
-        data: Some(buck2_data::MaterializeCommandStart {}.into()),
-    };
+    let start_event = context
+        .command_start_event(buck2_data::MaterializeCommandStart {}.into())
+        .await?;
     span_async(start_event, async move {
         let result = materialize(&context.base_context, req.paths)
             .await

@@ -33,7 +33,6 @@ use buck2_common::sqlite::sqlite_db::SqliteIdentity;
 use buck2_core::buck2_env;
 use buck2_core::cells::name::CellName;
 use buck2_core::facebook_only;
-use buck2_core::fs::cwd::WorkingDirectory;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_core::is_open_source;
@@ -43,6 +42,7 @@ use buck2_error::BuckErrorContext;
 use buck2_error::ErrorTag;
 use buck2_error::buck2_error;
 use buck2_events::EventSinkWithStats;
+use buck2_events::daemon_id::DaemonId;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_events::sink::remote;
 use buck2_events::sink::tee::TeeSink;
@@ -50,6 +50,7 @@ use buck2_events::source::ChannelEventSource;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::execute::blocking::BlockingExecutor;
 use buck2_execute::execute::blocking::BuckBlockingExecutor;
+use buck2_execute::execute::blocking::DirectIoExecutor;
 use buck2_execute::materialize::materializer::MaterializationMethod;
 use buck2_execute::materialize::materializer::Materializer;
 use buck2_execute::re::manager::ReConnectionManager;
@@ -64,10 +65,12 @@ use buck2_execute_impl::sqlite::incremental_state_db::IncrementalDbState;
 use buck2_execute_impl::sqlite::materializer_db::MaterializerState;
 use buck2_execute_impl::sqlite::materializer_db::MaterializerStateSqliteDb;
 use buck2_file_watcher::file_watcher::FileWatcher;
+use buck2_fs::cwd::WorkingDirectory;
 use buck2_http::HttpClient;
 use buck2_http::HttpClientBuilder;
 use buck2_re_configuration::RemoteExecutionStaticMetadata;
 use buck2_re_configuration::RemoteExecutionStaticMetadataImpl;
+use buck2_resource_control::buck_cgroup_tree::BuckCgroupTree;
 use buck2_resource_control::memory_tracker;
 use buck2_resource_control::memory_tracker::MemoryTrackerHandle;
 use buck2_server_ctx::concurrency::ConcurrencyHandler;
@@ -103,9 +106,6 @@ pub struct DaemonState {
 
     /// This holds the main data shared across different commands.
     pub(crate) data: Arc<DaemonStateData>,
-
-    #[allocative(skip)]
-    rt: Handle,
 
     /// Our working directory, if we did set one.
     working_directory: Option<WorkingDirectory>,
@@ -187,6 +187,9 @@ pub struct DaemonStateData {
     /// Config used to display system warnings
     pub system_warning_config: SystemWarningConfig,
 
+    #[allocative(skip)]
+    pub cgroup_tree: Option<BuckCgroupTree>,
+
     /// Tracks memory usage. Used to make scheduling decisions.
     #[allocative(skip)]
     pub memory_tracker: Option<MemoryTrackerHandle>,
@@ -198,8 +201,8 @@ pub struct DaemonStateData {
     #[allocative(skip)]
     pub incremental_db_state: Arc<IncrementalDbState>,
 
-    /// Whether this daemon has resource control enabled.
-    pub has_cgroup: bool,
+    /// A unique identifier for this instance of the daemon
+    pub daemon_id: DaemonId,
 }
 
 impl DaemonStateData {
@@ -225,20 +228,30 @@ impl DaemonStatePanicDiceDump for DaemonStateData {
 
 impl DaemonState {
     #[tracing::instrument(name = "daemon_listener", skip_all)]
-    pub async fn new(
+    pub(crate) async fn new(
         fb: fbinit::FacebookInit,
         paths: InvocationPaths,
         init_ctx: BuckdServerInitPreferences,
-        rt: Handle,
+        rt: &Handle,
         materializations: MaterializationMethod,
         working_directory: Option<WorkingDirectory>,
+        cgroup_tree: Option<BuckCgroupTree>,
+        daemon_id: DaemonId,
     ) -> Result<Self, buck2_error::Error> {
-        let data = Self::init_data(fb, paths.clone(), init_ctx, rt.clone(), materializations)
-            .await
-            .map_err(|e| {
-                e.context("Error initializing DaemonStateData")
-                    .tag([ErrorTag::DaemonStateInitFailed])
-            })?;
+        let data = Self::init_data(
+            fb,
+            paths.clone(),
+            init_ctx,
+            rt,
+            materializations,
+            cgroup_tree,
+            daemon_id,
+        )
+        .await
+        .map_err(|e| {
+            e.context("Error initializing DaemonStateData")
+                .tag([ErrorTag::DaemonStateInitFailed])
+        })?;
 
         crate::daemon::panic::initialize(data.dupe());
 
@@ -248,7 +261,6 @@ impl DaemonState {
             fb,
             paths,
             data,
-            rt,
             working_directory,
         };
         Ok(state)
@@ -260,8 +272,10 @@ impl DaemonState {
         fb: fbinit::FacebookInit,
         paths: InvocationPaths,
         init_ctx: BuckdServerInitPreferences,
-        rt: Handle,
+        rt: &Handle,
         materializations: MaterializationMethod,
+        cgroup_tree: Option<BuckCgroupTree>,
+        daemon_id: DaemonId,
     ) -> buck2_error::Result<Arc<DaemonStateData>> {
         if buck2_env!(
             "BUCK2_TEST_INIT_DAEMON_ERROR",
@@ -386,7 +400,14 @@ impl DaemonState {
             }
 
             let disk_state_options = DiskStateOptions::new(root_config, materializations.dupe())?;
-            let blocking_executor = Arc::new(BuckBlockingExecutor::default_concurrency(fs.dupe())?);
+
+            let blocking_executor: Arc<dyn BlockingExecutor> =
+                if cfg!(any(target_os = "macos", target_os = "windows")) {
+                    Arc::new(DirectIoExecutor::new(fs.dupe())?)
+                } else {
+                    Arc::new(BuckBlockingExecutor::default_concurrency(fs.dupe())?)
+                };
+
             let cache_dir_path = paths.cache_dir_path();
             let valid_cache_dirs = paths.valid_cache_dirs();
 
@@ -500,11 +521,13 @@ impl DaemonState {
                         &deferred_materializer_configs,
                         digest_config,
                         &init_ctx,
+                        &daemon_id,
                     ),
                     maybe_initialize_incremental_sqlite_db(
                         paths.clone(),
                         blocking_executor.dupe() as Arc<dyn BlockingExecutor>,
                         root_config,
+                        &daemon_id,
                     ),
                 )
                 .await?;
@@ -530,7 +553,7 @@ impl DaemonState {
             ));
             // Used only to dispatch events to scribe that are not associated with a specific command (ex. materializer clean up events)
             let daemon_dispatcher = if let Some(sink) = scribe_sink.dupe() {
-                EventDispatcher::new(TraceId::null(), sink.to_event_sync())
+                EventDispatcher::new(TraceId::null(), daemon_id.dupe(), sink.to_event_sync())
             } else {
                 // If needed this could log to a sink that redirects to a daemon event log (maybe `~/.buck/buckd/repo-path/event-log`)
                 // but for now seems fine to drop events if scribe isn't enabled.
@@ -551,7 +574,9 @@ impl DaemonState {
             )?;
 
             let memory_tracker = memory_tracker::create_memory_tracker(
+                cgroup_tree.as_ref(),
                 &init_ctx.daemon_startup_config.resource_control,
+                &daemon_id,
             )
             .await?;
 
@@ -560,8 +585,7 @@ impl DaemonState {
             let forkserver = maybe_launch_forkserver(
                 root_config,
                 &paths.forkserver_state_dir(),
-                &init_ctx.daemon_startup_config.resource_control,
-                memory_tracker.dupe(),
+                cgroup_tree.as_ref(),
             )
             .await?;
 
@@ -621,8 +645,7 @@ impl DaemonState {
             let action_freezing_enabled = init_ctx
                 .daemon_startup_config
                 .resource_control
-                .enable_action_freezing
-                .unwrap_or(false);
+                .enable_suspension;
 
             let tags = vec![
                 format!("dice-detect-cycles:{}", dice.detect_cycles().variant_name()),
@@ -646,7 +669,7 @@ impl DaemonState {
                 format!("use-eden-thrift-read:{}", use_eden_thrift_read),
                 format!("memory_tracker-enabled:{}", memory_tracker.is_some()),
                 format!("action-freezing-enabled:{}", action_freezing_enabled),
-                format!("has-cgroup:{}", init_ctx.has_cgroup),
+                format!("has-cgroup:{}", cgroup_tree.is_some()),
             ];
             let system_warning_config = SystemWarningConfig::from_config(root_config)?;
 
@@ -674,10 +697,11 @@ impl DaemonState {
                 spawner: Arc::new(BuckSpawner::new(daemon_state_data_rt)),
                 tags,
                 system_warning_config,
+                cgroup_tree,
                 memory_tracker,
                 previous_command_data: LockedPreviousCommandData::new(),
                 incremental_db_state,
-                has_cgroup: init_ctx.has_cgroup,
+                daemon_id: daemon_id.dupe(),
             }))
         })
         .await?
@@ -734,9 +758,13 @@ impl DaemonState {
         let (events, sink) = buck2_events::create_source_sink_pair();
         let data = self.data();
         let dispatcher = if let Some(scribe_sink) = data.scribe_sink.dupe() {
-            EventDispatcher::new(trace_id, TeeSink::new(scribe_sink.to_event_sync(), sink))
+            EventDispatcher::new(
+                trace_id,
+                self.data.daemon_id.dupe(),
+                TeeSink::new(scribe_sink.to_event_sync(), sink),
+            )
         } else {
-            EventDispatcher::new(trace_id, sink)
+            EventDispatcher::new(trace_id, self.data.daemon_id.dupe(), sink)
         };
         Ok((events, dispatcher))
     }
@@ -824,8 +852,8 @@ impl DaemonState {
     pub fn validate_buck_out_mount(&self) -> buck2_error::Result<()> {
         #[cfg(fbcode_build)]
         {
-            use buck2_core::fs::fs_util;
             use buck2_core::soft_error;
+            use buck2_fs::fs_util;
 
             let project_root = self.paths.project_root().root();
             if !detect_eden::is_eden(project_root.to_path_buf())? {

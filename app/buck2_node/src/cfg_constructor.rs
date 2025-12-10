@@ -16,9 +16,9 @@ use std::sync::Arc;
 use allocative::Allocative;
 use async_trait::async_trait;
 use buck2_core::configuration::data::ConfigurationData;
-use buck2_futures::cancellation::CancellationContext;
 use buck2_util::late_binding::LateBinding;
 use dice::DiceComputations;
+use dice_futures::cancellation::CancellationContext;
 
 use crate::metadata::key::MetadataKeyRef;
 use crate::metadata::value::MetadataValue;

@@ -32,6 +32,8 @@ pub struct RunActionKnobs {
         Option<DashMapDirectoryInterner<ActionDirectoryMember, TrackedFileDigest>>,
 
     pub deduplicate_get_digests_ttl_calls: bool,
+
+    pub re_outputs_required: bool,
 }
 
 pub trait HasRunActionKnobs {

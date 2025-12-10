@@ -21,8 +21,8 @@ use std::marker::PhantomData;
 use allocative::Allocative;
 use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_artifact::artifact::artifact_type::OutputArtifact;
-use buck2_core::fs::paths::RelativePathBuf;
 use buck2_error::BuckErrorContext;
+use buck2_fs::paths::RelativePathBuf;
 use display_container::display_pair;
 use display_container::fmt_container;
 use display_container::iter_display_chain;
@@ -873,8 +873,27 @@ fn cmd_args_methods(builder: &mut MethodsBuilder) {
     }
 
     /// Collect all the inputs (including hidden) referenced by this command line.
-    /// The output can be compared for equality and have its `len` requested to see whether
-    /// there are any inputs, but is otherwise mostly opaque.
+    ///
+    /// The returned collection is opaque and primarily useful for:
+    /// - Checking if the command has any artifact dependencies
+    /// - Comparing input sets between different `cmd_args` objects
+    ///
+    /// The collection supports `len()` and equality comparisons but cannot be iterated.
+    ///
+    /// Example:
+    /// ```python
+    /// def _impl(ctx):
+    ///     cmd = cmd_args(ctx.attrs.srcs)
+    ///
+    ///     # Check if command has any inputs
+    ///     if len(cmd.inputs) > 0:
+    ///         pass
+    ///
+    ///     # Compare input sets
+    ///     other_cmd = cmd_args(ctx.attrs.headers, hidden = ctx.attrs.resources)
+    ///     if cmd.inputs == other_cmd.inputs:
+    ///         pass
+    /// ```
     #[starlark(attribute)]
     fn inputs<'v>(this: Value<'v>) -> starlark::Result<StarlarkCommandLineInputs> {
         let mut visitor = SimpleCommandLineArtifactVisitor::new();
@@ -1095,6 +1114,11 @@ impl Display for StarlarkCommandLineInputs {
 
 #[starlark_value(type = "CommandLineInputs")]
 impl<'v> StarlarkValue<'v> for StarlarkCommandLineInputs {
+    fn get_methods() -> Option<&'static Methods> {
+        static RES: MethodsStatic = MethodsStatic::new();
+        RES.methods(command_line_inputs_methods)
+    }
+
     fn length(&self) -> starlark::Result<i32> {
         self.inputs
             .len()
@@ -1109,6 +1133,15 @@ impl<'v> StarlarkValue<'v> for StarlarkCommandLineInputs {
             Ok(false)
         }
     }
+}
+
+/// An opaque collection of input artifacts referenced by a `cmd_args` object.
+///
+/// Returned by the [`.inputs`](../cmd_args/#cmd_argsinputs) attribute. Supports `len()` and equality comparisons.
+/// See the [`.inputs`](../cmd_args/#cmd_argsinputs) attribute documentation for usage examples.
+#[starlark_module]
+fn command_line_inputs_methods(_builder: &mut MethodsBuilder) {
+    // No methods currently - this type only supports len() and equality via StarlarkValue trait
 }
 
 #[starlark_module]

@@ -7,14 +7,13 @@
 
 %% @format
 -module(test_artifact_directory).
--compile(warn_missing_spec).
 -moduledoc """
 Artefact directory file management.
 Used by TPX to upload diagnostic reports.
 """.
+-compile(warn_missing_spec_all).
 
 -include_lib("kernel/include/logger.hrl").
--include_lib("common/include/buck_ct_records.hrl").
 
 -import(common_util, [unicode_characters_to_list/1]).
 
@@ -65,30 +64,64 @@ with_artifact_annotation_dir(Func) ->
         Dir -> Func(Dir)
     end.
 
+-spec coverage_tmp_dir() -> file:filename_all() | undefined.
+coverage_tmp_dir() ->
+    case os:getenv("COVERAGE_COLLECTION_TMPDIR") of
+        false ->
+            undefined;
+        Dir ->
+            filename:absname(Dir)
+    end.
+
 % Collect, create and link the logs and other relevant files in
 % the artefacts directory.
--spec prepare(file:filename_all(), #test_env{}) -> ok.
-prepare(ExecutionDir, TestInfo) ->
+-spec prepare(ExecutionDir, ArtifactAnnotationFunction) -> ok when
+    ExecutionDir :: file:filename_all(),
+    ArtifactAnnotationFunction :: artifact_annotations:annotation_function().
+prepare(ExecutionDir, ArtifactAnnotationFunction) ->
     with_artifact_dir(
         fun(_ArtifactDir) ->
             link_tar_ball(ExecutionDir),
+            link_to_artifact_dir(
+                join_paths(ExecutionDir, "erlang.perfetto-trace"), ExecutionDir, ArtifactAnnotationFunction
+            ),
+            case coverage_tmp_dir() of
+                undefined ->
+                    ok;
+                CoverageTmpDir ->
+                    link_to_artifact_dir(
+                        join_paths(CoverageTmpDir, "feature_coverage.json"),
+                        CoverageTmpDir,
+                        ArtifactAnnotationFunction
+                    )
+            end,
             case find_log_private(ExecutionDir) of
                 {error, log_private_not_found} ->
                     ok;
                 LogPrivate ->
                     LogFiles = find_log_files(LogPrivate),
                     [
-                        link_to_artifact_dir(File, LogPrivate, TestInfo)
+                        link_to_artifact_dir(File, LogPrivate, ArtifactAnnotationFunction)
                      || File <- LogFiles,
                         filelib:is_regular(File, ?raw_file_access)
-                    ]
+                    ],
+                    link_to_artifact_dir(
+                        join_paths(LogPrivate, "test_metrics.log.json"),
+                        LogPrivate,
+                        fun(FileName) ->
+                            #{type => #{generic_blob => #{}}, description => list_to_binary(FileName)}
+                        end
+                    )
             end,
             ok
         end
     ).
 
--spec link_to_artifact_dir(file:filename_all(), file:filename_all(), #test_env{}) -> ok.
-link_to_artifact_dir(File, Root, TestEnv) ->
+-spec link_to_artifact_dir(File, Root, ArtifactAnnotationMFA) -> ok when
+    File :: file:filename_all(),
+    Root :: file:filename_all(),
+    ArtifactAnnotationMFA :: artifact_annotations:annotation_function().
+link_to_artifact_dir(File, Root, ArtifactAnnotationMFA) ->
     with_artifact_dir(
         fun(ArtifactDir) ->
             RelativePath =
@@ -104,7 +137,7 @@ link_to_artifact_dir(File, Root, TestEnv) ->
             case filelib:is_file(File, ?raw_file_access) of
                 true ->
                     file:make_symlink(File, join_paths(ArtifactDir, FullFileName)),
-                    Annotation = artifact_annotations:create_artifact_annotation(FullFileName, TestEnv),
+                    Annotation = artifact_annotations:create_artifact_annotation(FullFileName, ArtifactAnnotationMFA),
                     dump_annotation(Annotation, FullFileName);
                 _ ->
                     ok

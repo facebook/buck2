@@ -25,105 +25,105 @@ import org.junit.Test;
 public class ClasspathChangesFactoryTest {
 
   @Test
-  public void when_jarFileIsAddedInCurrentDigest_then_ToBeComputedByIncrementalCompiler() {
-    Path jarFile1 = Paths.get("lib/test1.jar");
-    Path jarFile2 = Paths.get("lib/test2.jar");
-    Path newJarFile = Paths.get("lib/new.jar");
+  public void when_snapshotFileIsAddedInCurrentDigest_then_ToBeComputedByIncrementalCompiler() {
+    Path snapshotFile1 = Paths.get("lib/test1.bin");
+    Path snapshotFile2 = Paths.get("lib/test2.bin");
+    Path newSnapshotFile = Paths.get("lib/new.bin");
     Path metadataFile = Paths.get("metadata.json");
     Map<Path, String> previousDigest = new HashMap<>();
-    previousDigest.put(jarFile1, "jar1-digest");
-    previousDigest.put(jarFile2, "jar2-digest");
+    previousDigest.put(snapshotFile1, "snapshot1-digest");
+    previousDigest.put(snapshotFile2, "snapshot2-digest");
     Map<Path, String> currentDigest = new HashMap<>();
-    currentDigest.put(jarFile1, "jar1-digest");
-    currentDigest.put(jarFile2, "jar2-digest");
-    currentDigest.put(newJarFile, "new-jar-digest");
+    currentDigest.put(snapshotFile1, "snapshot1-digest");
+    currentDigest.put(snapshotFile2, "snapshot2-digest");
+    currentDigest.put(newSnapshotFile, "new-snapshot-digest");
     ActionMetadata actionMetadata = new ActionMetadata(metadataFile, previousDigest, currentDigest);
-    JarsActionMetadata jarsActionMetadata = new JarsActionMetadata(actionMetadata);
+    SnapshotsActionMetadata snapshotsActionMetadata = new SnapshotsActionMetadata(actionMetadata);
 
     ClasspathChanges classpathChanges =
-        ClasspathChangesFactory.create(jarsActionMetadata, ImmutableList.of());
+        ClasspathChangesFactory.create(snapshotsActionMetadata, ImmutableList.of());
 
     assertTrue(classpathChanges instanceof ClasspathChanges.ToBeComputedByIncrementalCompiler);
   }
 
   @Test
-  public void when_jarFileIsRemovedFromCurrentDigest_then_ToBeComputedByIncrementalCompiler() {
-    Path jarFile1 = Paths.get("lib/test1.jar");
-    Path jarFile2 = Paths.get("lib/test2.jar");
-    Path removedJarFile = Paths.get("lib/removed.jar");
+  public void when_snapshotFileIsRemovedFromCurrentDigest_then_ToBeComputedByIncrementalCompiler() {
+    Path snapshotFile1 = Paths.get("lib/test1.bin");
+    Path snapshotFile2 = Paths.get("lib/test2.bin");
+    Path removedSnapshotFile = Paths.get("lib/removed.bin");
     Path metadataFile = Paths.get("metadata.json");
     Map<Path, String> previousDigest = new HashMap<>();
-    previousDigest.put(jarFile1, "jar1-digest");
-    previousDigest.put(jarFile2, "jar2-digest");
-    previousDigest.put(removedJarFile, "removed-jar-digest");
+    previousDigest.put(snapshotFile1, "snapshot1-digest");
+    previousDigest.put(snapshotFile2, "snapshot2-digest");
+    previousDigest.put(removedSnapshotFile, "removed-snapshot-digest");
     Map<Path, String> currentDigest = new HashMap<>();
-    currentDigest.put(jarFile1, "jar1-digest");
-    currentDigest.put(jarFile2, "jar2-digest");
+    currentDigest.put(snapshotFile1, "snapshot1-digest");
+    currentDigest.put(snapshotFile2, "snapshot2-digest");
     ActionMetadata actionMetadata = new ActionMetadata(metadataFile, previousDigest, currentDigest);
-    JarsActionMetadata jarsActionMetadata = new JarsActionMetadata(actionMetadata);
+    SnapshotsActionMetadata snapshotsActionMetadata = new SnapshotsActionMetadata(actionMetadata);
 
     ClasspathChanges classpathChanges =
-        ClasspathChangesFactory.create(jarsActionMetadata, ImmutableList.of());
+        ClasspathChangesFactory.create(snapshotsActionMetadata, ImmutableList.of());
 
     assertTrue(classpathChanges instanceof ClasspathChanges.ToBeComputedByIncrementalCompiler);
   }
 
   @Test
-  public void when_jarFileIsModifiedInCurrentDigest_then_ToBeComputedByIncrementalCompiler() {
-    Path jarFile1 = Paths.get("lib/test1.jar");
-    Path jarFile2 = Paths.get("lib/test2.jar");
+  public void when_snapshotFileIsModifiedInCurrentDigest_then_ToBeComputedByIncrementalCompiler() {
+    Path snapshotFile1 = Paths.get("lib/test1.bin");
+    Path snapshotFile2 = Paths.get("lib/test2.bin");
     Path metadataFile = Paths.get("metadata.json");
     Map<Path, String> previousDigest = new HashMap<>();
-    previousDigest.put(jarFile1, "jar1-digest");
-    previousDigest.put(jarFile2, "jar2-digest");
+    previousDigest.put(snapshotFile1, "snapshot1-digest");
+    previousDigest.put(snapshotFile2, "snapshot2-digest");
     Map<Path, String> currentDigest = new HashMap<>();
-    currentDigest.put(jarFile1, "jar1-digest-modified");
-    currentDigest.put(jarFile2, "jar2-digest");
+    currentDigest.put(snapshotFile1, "snapshot1-digest-modified");
+    currentDigest.put(snapshotFile2, "snapshot2-digest");
     ActionMetadata actionMetadata = new ActionMetadata(metadataFile, previousDigest, currentDigest);
-    JarsActionMetadata jarsActionMetadata = new JarsActionMetadata(actionMetadata);
+    SnapshotsActionMetadata snapshotsActionMetadata = new SnapshotsActionMetadata(actionMetadata);
 
     ClasspathChanges classpathChanges =
-        ClasspathChangesFactory.create(jarsActionMetadata, ImmutableList.of());
+        ClasspathChangesFactory.create(snapshotsActionMetadata, ImmutableList.of());
 
     assertTrue(classpathChanges instanceof ClasspathChanges.ToBeComputedByIncrementalCompiler);
   }
 
   @Test
-  public void when_multipleJarFilesAreModified_then_ToBeComputedByIncrementalCompiler() {
-    Path jarFile1 = Paths.get("lib/test1.jar");
-    Path jarFile2 = Paths.get("lib/test2.jar");
+  public void when_multipleSnapshotFilesAreModified_then_ToBeComputedByIncrementalCompiler() {
+    Path snapshotFile1 = Paths.get("lib/test1.bin");
+    Path snapshotFile2 = Paths.get("lib/test2.bin");
     Path metadataFile = Paths.get("metadata.json");
     Map<Path, String> previousDigest = new HashMap<>();
-    previousDigest.put(jarFile1, "jar1-digest");
-    previousDigest.put(jarFile2, "jar2-digest");
+    previousDigest.put(snapshotFile1, "snapshot1-digest");
+    previousDigest.put(snapshotFile2, "snapshot2-digest");
     Map<Path, String> currentDigest = new HashMap<>();
-    currentDigest.put(jarFile1, "jar1-digest-modified");
-    currentDigest.put(jarFile2, "jar2-digest-modified");
+    currentDigest.put(snapshotFile1, "snapshot1-digest-modified");
+    currentDigest.put(snapshotFile2, "snapshot2-digest-modified");
     ActionMetadata actionMetadata = new ActionMetadata(metadataFile, previousDigest, currentDigest);
-    JarsActionMetadata jarsActionMetadata = new JarsActionMetadata(actionMetadata);
+    SnapshotsActionMetadata snapshotsActionMetadata = new SnapshotsActionMetadata(actionMetadata);
 
     ClasspathChanges classpathChanges =
-        ClasspathChangesFactory.create(jarsActionMetadata, ImmutableList.of());
+        ClasspathChangesFactory.create(snapshotsActionMetadata, ImmutableList.of());
 
     assertTrue(classpathChanges instanceof ClasspathChanges.ToBeComputedByIncrementalCompiler);
   }
 
   @Test
-  public void when_noJarFilesAreChanged_then_NoChanges() {
-    Path jarFile1 = Paths.get("lib/test1.jar");
-    Path jarFile2 = Paths.get("lib/test2.jar");
+  public void when_noSnapshotFilesAreChanged_then_NoChanges() {
+    Path snapshotFile1 = Paths.get("lib/test1.bin");
+    Path snapshotFile2 = Paths.get("lib/test2.bin");
     Path metadataFile = Paths.get("metadata.json");
     Map<Path, String> previousDigest = new HashMap<>();
-    previousDigest.put(jarFile1, "jar1-digest");
-    previousDigest.put(jarFile2, "jar2-digest");
+    previousDigest.put(snapshotFile1, "snapshot1-digest");
+    previousDigest.put(snapshotFile2, "snapshot2-digest");
     Map<Path, String> currentDigest = new HashMap<>();
-    currentDigest.put(jarFile1, "jar1-digest");
-    currentDigest.put(jarFile2, "jar2-digest");
+    currentDigest.put(snapshotFile1, "snapshot1-digest");
+    currentDigest.put(snapshotFile2, "snapshot2-digest");
     ActionMetadata actionMetadata = new ActionMetadata(metadataFile, previousDigest, currentDigest);
-    JarsActionMetadata jarsActionMetadata = new JarsActionMetadata(actionMetadata);
+    SnapshotsActionMetadata snapshotsActionMetadata = new SnapshotsActionMetadata(actionMetadata);
 
     ClasspathChanges classpathChanges =
-        ClasspathChangesFactory.create(jarsActionMetadata, ImmutableList.of());
+        ClasspathChangesFactory.create(snapshotsActionMetadata, ImmutableList.of());
 
     assertTrue(classpathChanges instanceof ClasspathChanges.NoChanges);
   }
@@ -134,16 +134,16 @@ public class ClasspathChangesFactoryTest {
     Map<Path, String> previousDigest = new HashMap<>();
     Map<Path, String> currentDigest = new HashMap<>();
     ActionMetadata actionMetadata = new ActionMetadata(metadataFile, previousDigest, currentDigest);
-    JarsActionMetadata jarsActionMetadata = new JarsActionMetadata(actionMetadata);
+    SnapshotsActionMetadata snapshotsActionMetadata = new SnapshotsActionMetadata(actionMetadata);
 
     ClasspathChanges classpathChanges =
-        ClasspathChangesFactory.create(jarsActionMetadata, ImmutableList.of());
+        ClasspathChangesFactory.create(snapshotsActionMetadata, ImmutableList.of());
 
     assertTrue(classpathChanges instanceof ClasspathChanges.NoChanges);
   }
 
   @Test
-  public void when_onlyNonJarFilesExist_then_NoChanges() {
+  public void when_onlyNonSnapshotFilesExist_then_NoChanges() {
     Path classFile = Paths.get("src/main/Test.class");
     Path javaFile = Paths.get("src/main/Test.java");
     Path txtFile = Paths.get("src/main/Test.txt");
@@ -157,121 +157,121 @@ public class ClasspathChangesFactoryTest {
     currentDigest.put(javaFile, "java-digest-modified");
     currentDigest.put(txtFile, "txt-digest-modified");
     ActionMetadata actionMetadata = new ActionMetadata(metadataFile, previousDigest, currentDigest);
-    JarsActionMetadata jarsActionMetadata = new JarsActionMetadata(actionMetadata);
+    SnapshotsActionMetadata snapshotsActionMetadata = new SnapshotsActionMetadata(actionMetadata);
 
     ClasspathChanges classpathChanges =
-        ClasspathChangesFactory.create(jarsActionMetadata, ImmutableList.of());
+        ClasspathChangesFactory.create(snapshotsActionMetadata, ImmutableList.of());
 
     assertTrue(classpathChanges instanceof ClasspathChanges.NoChanges);
   }
 
   @Test
   public void
-      when_previousDigestIsEmptyAndCurrentContainsJars_then_ToBeComputedByIncrementalCompiler() {
-    Path jarFile1 = Paths.get("lib/test1.jar");
-    Path jarFile2 = Paths.get("lib/test2.jar");
+      when_previousDigestIsEmptyAndCurrentContainsSnapshots_then_ToBeComputedByIncrementalCompiler() {
+    Path snapshotFile1 = Paths.get("lib/test1.bin");
+    Path snapshotFile2 = Paths.get("lib/test2.bin");
     Path metadataFile = Paths.get("metadata.json");
     Map<Path, String> previousDigest = new HashMap<>();
     Map<Path, String> currentDigest = new HashMap<>();
-    currentDigest.put(jarFile1, "jar1-digest");
-    currentDigest.put(jarFile2, "jar2-digest");
+    currentDigest.put(snapshotFile1, "snapshot1-digest");
+    currentDigest.put(snapshotFile2, "snapshot2-digest");
     ActionMetadata actionMetadata = new ActionMetadata(metadataFile, previousDigest, currentDigest);
-    JarsActionMetadata jarsActionMetadata = new JarsActionMetadata(actionMetadata);
+    SnapshotsActionMetadata snapshotsActionMetadata = new SnapshotsActionMetadata(actionMetadata);
 
     ClasspathChanges classpathChanges =
-        ClasspathChangesFactory.create(jarsActionMetadata, ImmutableList.of());
+        ClasspathChangesFactory.create(snapshotsActionMetadata, ImmutableList.of());
 
     assertTrue(classpathChanges instanceof ClasspathChanges.ToBeComputedByIncrementalCompiler);
   }
 
   @Test
   public void
-      when_currentDigestIsEmptyAndPreviousContainsJars_then_ToBeComputedByIncrementalCompiler() {
+      when_currentDigestIsEmptyAndPreviousContainsSnapshots_then_ToBeComputedByIncrementalCompiler() {
     Path metadataFile = Paths.get("metadata.json");
     Map<Path, String> previousDigest = new HashMap<>();
-    previousDigest.put(Paths.get("lib/test1.jar"), "jar1-digest");
-    previousDigest.put(Paths.get("lib/test2.jar"), "jar2-digest");
+    previousDigest.put(Paths.get("lib/test1.bin"), "snapshot1-digest");
+    previousDigest.put(Paths.get("lib/test2.bin"), "snapshot2-digest");
     Map<Path, String> currentDigest = new HashMap<>();
     ActionMetadata actionMetadata = new ActionMetadata(metadataFile, previousDigest, currentDigest);
-    JarsActionMetadata jarsActionMetadata = new JarsActionMetadata(actionMetadata);
+    SnapshotsActionMetadata snapshotsActionMetadata = new SnapshotsActionMetadata(actionMetadata);
 
     ClasspathChanges classpathChanges =
-        ClasspathChangesFactory.create(jarsActionMetadata, ImmutableList.of());
+        ClasspathChangesFactory.create(snapshotsActionMetadata, ImmutableList.of());
 
     assertTrue(classpathChanges instanceof ClasspathChanges.ToBeComputedByIncrementalCompiler);
   }
 
   @Test
-  public void when_jarFilesWithDifferentCaseExtensions_then_filtersCorrectly() {
-    Path jarFile1 = Paths.get("lib/test1.jar");
-    Path jarFile2 = Paths.get("lib/test2.JAR");
-    Path jarFile3 = Paths.get("lib/test3.Jar");
+  public void when_snapshotFilesWithDifferentCaseExtensions_then_filtersCorrectly() {
+    Path snapshotFile1 = Paths.get("lib/test1.bin");
+    Path snapshotFile2 = Paths.get("lib/test2.BIN");
+    Path snapshotFile3 = Paths.get("lib/test3.Snapshot");
     Path classFile = Paths.get("src/main/Test.class");
     Path metadataFile = Paths.get("metadata.json");
     Map<Path, String> previousDigest = new HashMap<>();
-    previousDigest.put(jarFile1, "jar1-digest");
-    previousDigest.put(jarFile2, "jar2-digest");
-    previousDigest.put(jarFile3, "jar3-digest");
+    previousDigest.put(snapshotFile1, "snapshot1-digest");
+    previousDigest.put(snapshotFile2, "snapshot2-digest");
+    previousDigest.put(snapshotFile3, "snapshot3-digest");
     previousDigest.put(classFile, "class-digest");
     Map<Path, String> currentDigest = new HashMap<>();
-    currentDigest.put(jarFile1, "jar1-digest");
-    currentDigest.put(jarFile2, "jar2-digest");
-    currentDigest.put(jarFile3, "jar3-digest");
+    currentDigest.put(snapshotFile1, "snapshot1-digest");
+    currentDigest.put(snapshotFile2, "snapshot2-digest");
+    currentDigest.put(snapshotFile3, "snapshot3-digest");
     currentDigest.put(classFile, "class-digest");
     ActionMetadata actionMetadata = new ActionMetadata(metadataFile, previousDigest, currentDigest);
-    JarsActionMetadata jarsActionMetadata = new JarsActionMetadata(actionMetadata);
+    SnapshotsActionMetadata snapshotsActionMetadata = new SnapshotsActionMetadata(actionMetadata);
 
     ClasspathChanges classpathChanges =
-        ClasspathChangesFactory.create(jarsActionMetadata, ImmutableList.of());
+        ClasspathChangesFactory.create(snapshotsActionMetadata, ImmutableList.of());
 
     assertTrue(classpathChanges instanceof ClasspathChanges.NoChanges);
   }
 
   @Test
-  public void when_nonJarFilesChangeButJarsRemainSame_then_NoChanges() {
-    Path jarFile1 = Paths.get("lib/test1.jar");
-    Path jarFile2 = Paths.get("lib/test2.jar");
+  public void when_nonSnapshotFilesChangeButSnapshotsRemainSame_then_NoChanges() {
+    Path snapshotFile1 = Paths.get("lib/test1.bin");
+    Path snapshotFile2 = Paths.get("lib/test2.bin");
     Path classFile = Paths.get("src/main/Test.class");
     Path javaFile = Paths.get("src/main/Test.java");
     Path metadataFile = Paths.get("metadata.json");
     Map<Path, String> previousDigest = new HashMap<>();
-    previousDigest.put(jarFile1, "jar1-digest");
-    previousDigest.put(jarFile2, "jar2-digest");
+    previousDigest.put(snapshotFile1, "snapshot1-digest");
+    previousDigest.put(snapshotFile2, "snapshot2-digest");
     previousDigest.put(classFile, "class-digest");
     previousDigest.put(javaFile, "java-digest");
     Map<Path, String> currentDigest = new HashMap<>();
-    currentDigest.put(jarFile1, "jar1-digest");
-    currentDigest.put(jarFile2, "jar2-digest");
+    currentDigest.put(snapshotFile1, "snapshot1-digest");
+    currentDigest.put(snapshotFile2, "snapshot2-digest");
     currentDigest.put(classFile, "class-digest-modified");
     currentDigest.put(javaFile, "java-digest-modified");
     ActionMetadata actionMetadata = new ActionMetadata(metadataFile, previousDigest, currentDigest);
-    JarsActionMetadata jarsActionMetadata = new JarsActionMetadata(actionMetadata);
+    SnapshotsActionMetadata snapshotsActionMetadata = new SnapshotsActionMetadata(actionMetadata);
 
     ClasspathChanges classpathChanges =
-        ClasspathChangesFactory.create(jarsActionMetadata, ImmutableList.of());
+        ClasspathChangesFactory.create(snapshotsActionMetadata, ImmutableList.of());
 
     assertTrue(classpathChanges instanceof ClasspathChanges.NoChanges);
   }
 
   @Test
   public void when_classpathSnapshotsProvided_then_includesSnapshotsInResult() {
-    Path jarFile1 = Paths.get("lib/test1.jar");
-    Path jarFile2 = Paths.get("lib/test2.jar");
+    Path snapshotFile1 = Paths.get("lib/test1.bin");
+    Path snapshotFile2 = Paths.get("lib/test2.bin");
     Path metadataFile = Paths.get("metadata.json");
     Map<Path, String> previousDigest = new HashMap<>();
-    previousDigest.put(jarFile1, "jar1-digest");
+    previousDigest.put(snapshotFile1, "snapshot1-digest");
     Map<Path, String> currentDigest = new HashMap<>();
-    currentDigest.put(jarFile1, "jar1-digest");
-    currentDigest.put(jarFile2, "jar2-digest");
+    currentDigest.put(snapshotFile1, "snapshot1-digest");
+    currentDigest.put(snapshotFile2, "snapshot2-digest");
     ActionMetadata actionMetadata = new ActionMetadata(metadataFile, previousDigest, currentDigest);
-    JarsActionMetadata jarsActionMetadata = new JarsActionMetadata(actionMetadata);
+    SnapshotsActionMetadata snapshotsActionMetadata = new SnapshotsActionMetadata(actionMetadata);
 
-    AbsPath snapshot1 = AbsPath.of(Paths.get("/path/to/snapshot1.jar"));
-    AbsPath snapshot2 = AbsPath.of(Paths.get("/path/to/snapshot2.jar"));
+    AbsPath snapshot1 = AbsPath.of(Paths.get("/path/to/snapshot1.bin"));
+    AbsPath snapshot2 = AbsPath.of(Paths.get("/path/to/snapshot2.bin"));
     ImmutableList<AbsPath> classpathSnapshots = ImmutableList.of(snapshot1, snapshot2);
 
     ClasspathChanges classpathChanges =
-        ClasspathChangesFactory.create(jarsActionMetadata, classpathSnapshots);
+        ClasspathChangesFactory.create(snapshotsActionMetadata, classpathSnapshots);
 
     assertTrue(classpathChanges instanceof ClasspathChanges.ToBeComputedByIncrementalCompiler);
     ClasspathChanges.ToBeComputedByIncrementalCompiler incrementalChanges =
@@ -282,24 +282,24 @@ public class ClasspathChangesFactoryTest {
 
   @Test
   public void when_noChangesWithClasspathSnapshots_then_includesSnapshotsInResult() {
-    Path jarFile1 = Paths.get("lib/test1.jar");
-    Path jarFile2 = Paths.get("lib/test2.jar");
+    Path snapshotFile1 = Paths.get("lib/test1.bin");
+    Path snapshotFile2 = Paths.get("lib/test2.bin");
     Path metadataFile = Paths.get("metadata.json");
     Map<Path, String> previousDigest = new HashMap<>();
-    previousDigest.put(jarFile1, "jar1-digest");
-    previousDigest.put(jarFile2, "jar2-digest");
+    previousDigest.put(snapshotFile1, "snapshot1-digest");
+    previousDigest.put(snapshotFile2, "snapshot2-digest");
     Map<Path, String> currentDigest = new HashMap<>();
-    currentDigest.put(jarFile1, "jar1-digest");
-    currentDigest.put(jarFile2, "jar2-digest");
+    currentDigest.put(snapshotFile1, "snapshot1-digest");
+    currentDigest.put(snapshotFile2, "snapshot2-digest");
     ActionMetadata actionMetadata = new ActionMetadata(metadataFile, previousDigest, currentDigest);
-    JarsActionMetadata jarsActionMetadata = new JarsActionMetadata(actionMetadata);
+    SnapshotsActionMetadata snapshotsActionMetadata = new SnapshotsActionMetadata(actionMetadata);
 
-    AbsPath snapshot1 = AbsPath.of(Paths.get("/path/to/snapshot1.jar"));
-    AbsPath snapshot2 = AbsPath.of(Paths.get("/path/to/snapshot2.jar"));
+    AbsPath snapshot1 = AbsPath.of(Paths.get("/path/to/snapshot1.bin"));
+    AbsPath snapshot2 = AbsPath.of(Paths.get("/path/to/snapshot2.bin"));
     ImmutableList<AbsPath> classpathSnapshots = ImmutableList.of(snapshot1, snapshot2);
 
     ClasspathChanges classpathChanges =
-        ClasspathChangesFactory.create(jarsActionMetadata, classpathSnapshots);
+        ClasspathChangesFactory.create(snapshotsActionMetadata, classpathSnapshots);
 
     assertTrue(classpathChanges instanceof ClasspathChanges.NoChanges);
     ClasspathChanges.NoChanges noChanges = (ClasspathChanges.NoChanges) classpathChanges;

@@ -24,3 +24,17 @@ Caused by:
          root//deps_collapsed:mid1
          root//deps_collapsed:mid2
          root//deps_collapsed:mid3
+       
+       Available targets:
+         root//deps_collapsed:broken
+         root//deps_collapsed:exec
+         root//deps_collapsed:exec-cfg
+         root//deps_collapsed:exec1
+         root//deps_collapsed:exec_platforms
+         root//deps_collapsed:mid1
+         root//deps_collapsed:mid2
+         root//deps_collapsed:mid3
+         root//deps_collapsed:target
+         root//deps_collapsed:toolchain1
+         root//deps_collapsed:toolchain2
+         root//deps_collapsed:top

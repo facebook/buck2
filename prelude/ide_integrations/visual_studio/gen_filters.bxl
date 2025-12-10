@@ -121,7 +121,7 @@ def gen_filters(vs_settings: dict):
 
 def _main(bxl_ctx):
     target_label = bxl_ctx.cli_args.target
-    target_node = bxl_ctx.configured_targets(target_label)
+    target_node = bxl_ctx.configured_targets(target_label, modifiers = bxl_ctx.modifiers)
     actions = bxl_ctx.bxl_actions().actions
     attrs = get_attrs(target_node, bxl_ctx)
     toolchain = get_cxx_toolchain(target_node, bxl_ctx)

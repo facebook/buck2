@@ -16,6 +16,15 @@ python_binary(
     ],
 )
 
+python_binary(
+    name = "signing_context",
+    main = "signing_context_main.py",
+    visibility = ["PUBLIC"],
+    deps = [
+        ":lib",
+    ],
+)
+
 python_library(
     name = "lib",
     srcs = glob(
@@ -24,7 +33,7 @@ python_library(
         ],
         exclude = [
             "*_test.py",
-            "main.py",
+            "*main.py",
         ],
     ),
     deps = [

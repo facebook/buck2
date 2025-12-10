@@ -6,7 +6,7 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
-load("@prelude//cxx:cxx_apple_linker_flags.bzl", "apple_format_target_triple", "apple_target_triple_flags")
+load("@prelude//cxx:cxx_apple_linker_flags.bzl", "apple_format_metal_target_triple", "apple_format_target_triple", "apple_target_triple_flags")
 load("@prelude//cxx:cxx_context.bzl", "get_cxx_platform_info", "get_cxx_toolchain_info")
 
 def version_is_greater(left: str, right: str) -> bool:
@@ -25,25 +25,10 @@ def version_is_greater(left: str, right: str) -> bool:
 
     return len(left_components) > len(right_components)
 
-def get_toolchain_target_sdk_version(ctx: AnalysisContext) -> [None, str]:
-    min_version = ctx.attrs.min_sdk_version
-    target_version = ctx.attrs.target_sdk_version
-    if min_version == None and target_version == None:
-        return None
-    elif min_version != None and target_version == None:
-        return min_version
-    elif min_version == None and target_version != None:
-        fail("Cannot set target_sdk_version without min_sdk_version")
-    elif version_is_greater(min_version, target_version):
-        warning("Target SDK version {} is less than minimum supported version {}".format(target_version, min_version))
-        return min_version
-    else:
-        return target_version
-
 def get_target_sdk_version(ctx: AnalysisContext) -> [None, str]:
     if not (hasattr(ctx.attrs, "_cxx_toolchain") or hasattr(ctx.attrs, "_apple_toolchain")):
         return None
-    toolchain_target_sdk_version = get_cxx_toolchain_info(ctx).target_sdk_version
+    toolchain_target_sdk_version = get_cxx_toolchain_info(ctx).minimum_os_version
     target_sdk_version = getattr(ctx.attrs, "target_sdk_version", None)
     if toolchain_target_sdk_version == None and target_sdk_version == None:
         return None
@@ -73,6 +58,10 @@ def get_target_triple(ctx: AnalysisContext) -> [None, str]:
         return None
 
     return _format_target_triple(ctx, target_sdk_version)
+
+def get_versioned_metal_target_triple(ctx: AnalysisContext, version: str) -> str:
+    platform_info = get_cxx_platform_info(ctx)
+    return apple_format_metal_target_triple(platform_info.name, version)
 
 def get_unversioned_target_triple(ctx: AnalysisContext) -> str:
     return _format_target_triple(ctx, "")

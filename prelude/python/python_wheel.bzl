@@ -43,6 +43,7 @@ load(
     "get_linkable_graph_node_map_func",
     get_link_info_for_node = "get_link_info",
 )
+load("@prelude//linking:shared_libraries.bzl", "SharedLibraryInfo")
 load(
     "@prelude//python:manifest.bzl",
     "ManifestInfo",
@@ -116,7 +117,7 @@ def _whl_cmd(
 
     return cmd_args(cmd, hidden = hidden)
 
-def _rpath(dst, rpath):
+def _rpath(rpath, origin):
     """
     Relative the given `rpath` to `dst`, via `$ORIGIN`.
     If `rpath` is absolute, return it as-is.
@@ -124,12 +125,11 @@ def _rpath(dst, rpath):
     if paths.is_absolute(rpath):
         return rpath
 
-    expect(not paths.is_absolute(dst))
+    expect(not paths.is_absolute(origin))
 
     base = "$ORIGIN"
-    dirpath = paths.dirname(dst)
-    if dirpath:
-        base = paths.join(base, *[".." for _ in dirpath.split("/")])
+    if origin:
+        base = paths.join(base, *[".." for _ in origin.split("/")])
     return paths.join(base, rpath)
 
 def _impl(ctx: AnalysisContext) -> list[Provider]:
@@ -170,15 +170,17 @@ def _impl(ctx: AnalysisContext) -> list[Provider]:
             ctx.attrs._patchelf[RunInfo],
             "--output",
             out.as_output(),
-            cmd_args([_rpath(dst, p) for p in rpaths], format = "--rpath={}"),
+            cmd_args([_rpath(p, origin = paths.dirname(dst)) for p in rpaths], format = "--rpath={}"),
             src,
         )
         ctx.actions.run(cmd, category = "patchelf", identifier = dst)
         return out
 
     srcs = []
+    native_srcs = []
     extensions = {}
     shared_libs = []
+    native_deps = {}
     for dep in libraries.values():
         manifests = dep[PythonLibraryInfo].manifests.value
         if manifests.srcs != None:
@@ -192,12 +194,18 @@ def _impl(ctx: AnalysisContext) -> list[Provider]:
                 fail("Duplicate extension entry for {}. Did your library_query forget to filter by `target_deps()`?".format(extension))
             extensions[extension] = dep
 
+        # These are non-extension native deps that may be dlopen'ed at
+        # runtime and should be included in the search space for omnibus roots.
+        for native_dep in dep[PythonLibraryInfo].native_deps.value.native_deps.values():
+            if SharedLibraryInfo in native_dep:
+                native_deps[native_dep.label] = native_dep
+
     # We support two modes of linking:
     # - omnibus: All native deps of all extensions are linked into a shared DSO
     # - static-everything: Each extension statically links all its deps (note
     #       this can mean each extension gets its own copy of common deps).
     if ctx.attrs.omnibus:
-        deps = extensions.values()
+        deps = (extensions | native_deps).values()
         linkable_graph = create_linkable_graph(
             ctx = ctx,
             deps = deps,
@@ -207,6 +215,8 @@ def _impl(ctx: AnalysisContext) -> list[Provider]:
             roots = get_roots(deps),
             excluded = {},
         )
+
+        extension_labels = {dep.label: None for dep in extensions.values()}
 
         # Link omnibus libraries.
         omnibus_libs = create_omnibus_libraries(
@@ -219,11 +229,19 @@ def _impl(ctx: AnalysisContext) -> list[Provider]:
                     python_toolchain.extension_linker_flags +
                     python_toolchain.wheel_extension_linker_flags +
                     [
-                        "-Wl,-rpath,{}".format(_rpath(extension, rpath))
+                        "-Wl,-rpath,{}".format(_rpath(rpath, origin = paths.dirname(extension)))
                         for rpath in rpaths
                     ]
                 )
                 for extension, dep in extensions.items()
+            } | {
+                # For non-extension roots, set rpaths relative the lib dir.
+                root: [
+                    "-Wl,-rpath,{}".format(_rpath(rpath, origin = lib_dir))
+                    for rpath in rpaths
+                ]
+                for root in omnibus_graph.roots.keys()
+                if root not in extension_labels
             },
             anonymous = ctx.attrs.anonymous_link,
         )
@@ -276,7 +294,7 @@ def _impl(ctx: AnalysisContext) -> list[Provider]:
                         LinkArgs(flags = python_toolchain.extension_linker_flags),
                         LinkArgs(flags = python_toolchain.wheel_linker_flags),
                         LinkArgs(flags = [
-                            "-Wl,-rpath,{}".format(_rpath(extension, rpath))
+                            "-Wl,-rpath,{}".format(_rpath(rpath, origin = paths.dirname(extension)))
                             for rpath in rpaths
                         ]),
                         LinkArgs(flags = ctx.attrs.linker_flags),
@@ -310,7 +328,11 @@ def _impl(ctx: AnalysisContext) -> list[Provider]:
 
     # Add shlibs manifest.
     if shared_libs:
-        srcs.append(
+        # NOTE(agallaher): We copy shared libs/roots, rather than symlink, as
+        # some DSO loading frameworks `realpath` the DSO before opening them,
+        # causing the `$ORIGIN` in them to no longer be valid, e.g.
+        # https://github.com/pytorch/pytorch/blob/main/torch/_utils_internal.py#L62
+        native_srcs.append(
             create_manifest_for_shared_libs(
                 actions = ctx.actions,
                 name = "shared_libs.txt",
@@ -379,16 +401,24 @@ def _impl(ctx: AnalysisContext) -> list[Provider]:
 
     # Action to create wheel.
     wheel = ctx.actions.declare_output("{}.whl".format("-".join(name_parts)))
-    whl_cmd = _whl_cmd(ctx = ctx, output = wheel, manifests = srcs)
+    whl_cmd = _whl_cmd(ctx = ctx, output = wheel, manifests = srcs + native_srcs)
     ctx.actions.run(whl_cmd, category = "wheel")
 
     # Create symlink tree for inplace module layout.
     manifest_args = []
     manifest_srcs = []
     for manifest in srcs:
-        manifest_args.append(cmd_args(manifest.manifest, format = "--manifest={}"))
+        manifest_args.append(cmd_args(manifest.manifest, format = "--link-manifest={}"))
         for a, _ in manifest.artifacts:
             manifest_srcs.append(a)
+    for manifest in native_srcs:
+        manifest_args.append(
+            cmd_args(
+                manifest.manifest,
+                format = "--copy-manifest={}",
+                hidden = [a for (a, _) in manifest.artifacts],
+            ),
+        )
     link_tree = ctx.actions.declare_output("__editable__/tree.d", dir = True)
     link_tree_cmd = cmd_args(
         ctx.attrs._create_link_tree[RunInfo],

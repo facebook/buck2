@@ -21,12 +21,12 @@ use buck2_core::configuration::data::ConfigurationData;
 use buck2_core::execution_types::executor_config::PathSeparatorKind;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_core::fs::buck_out_path::BuckOutPathResolver;
-use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_core::package::PackageLabel;
 use buck2_core::plugins::PluginKindSet;
 use buck2_execute::artifact::fs::ExecutorFs;
+use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_interpreter_for_build::attrs::coerce::attr_type::AttrTypeExt;
 use buck2_interpreter_for_build::attrs::coerce::testing::coercion_ctx;
 use buck2_interpreter_for_build::attrs::coerce::testing::coercion_ctx_listing;
@@ -95,8 +95,8 @@ fn test() -> anyhow::Result<()> {
         configured.as_display_no_ctx().to_string()
     );
 
-    let ctx = resolution_ctx(&env);
-    let resolved = configured.resolve_single(PackageLabel::testing(), &ctx)?;
+    let mut ctx = resolution_ctx(&env);
+    let resolved = configured.resolve_single(PackageLabel::testing(), &mut ctx)?;
     assert_eq!(
         "[[[\"hello\", \"world!\", \"okay\", \"other\", \"...\", \"...\"]]]",
         resolved.to_string()
@@ -482,8 +482,8 @@ fn test_resolved_deps() -> anyhow::Result<()> {
     let attr = AttrType::list(AttrType::dep(ProviderIdSet::EMPTY, PluginKindSet::EMPTY));
     let coerced = attr.coerce(AttrIsConfigurable::Yes, &coercion_ctx(), value)?;
     let configured = coerced.configure(&attr, &configuration_ctx())?;
-    let resolution_ctx = resolution_ctx(&env);
-    let resolved = configured.resolve_single(PackageLabel::testing(), &resolution_ctx)?;
+    let mut resolution_ctx = resolution_ctx(&env);
+    let resolved = configured.resolve_single(PackageLabel::testing(), &mut resolution_ctx)?;
 
     env.set("res", resolved);
     let content = indoc!(
@@ -515,7 +515,7 @@ fn test_resolved_deps() -> anyhow::Result<()> {
 #[test]
 fn test_dep_requires_providers() -> anyhow::Result<()> {
     let env = Module::new();
-    let (resolution_ctx, provider_ids) = resolution_ctx_with_providers(&env);
+    let (mut resolution_ctx, provider_ids) = resolution_ctx_with_providers(&env);
 
     let heap = Heap::new();
     let foo_only = heap.alloc("//sub/dir:foo[foo_only]");
@@ -525,7 +525,7 @@ fn test_dep_requires_providers() -> anyhow::Result<()> {
     let configured = coerced.configure(&attr, &configuration_ctx())?;
 
     let err = configured
-        .resolve_single(PackageLabel::testing(), &resolution_ctx)
+        .resolve_single(PackageLabel::testing(), &mut resolution_ctx)
         .expect_err("Should have failed");
     assert!(
         err.to_string()
@@ -539,7 +539,7 @@ fn test_dep_requires_providers() -> anyhow::Result<()> {
     let configured = coerced.configure(&attr, &configuration_ctx())?;
 
     // This dep has both FooInfo and BarInfo, so it should resolve properly
-    configured.resolve_single(PackageLabel::testing(), &resolution_ctx)?;
+    configured.resolve_single(PackageLabel::testing(), &mut resolution_ctx)?;
 
     Ok(())
 }
@@ -694,8 +694,8 @@ fn test_source_label_resolution() -> anyhow::Result<()> {
             value,
         )?;
         let configured = coerced.configure(&attr, &configuration_ctx())?;
-        let resolution_ctx = resolution_ctx(&env);
-        let resolved = configured.resolve_single(PackageLabel::testing(), &resolution_ctx)?;
+        let mut resolution_ctx = resolution_ctx(&env);
+        let resolved = configured.resolve_single(PackageLabel::testing(), &mut resolution_ctx)?;
 
         env.set("res", resolved);
         let success = to_value(&env, &globals, test_content);
@@ -758,9 +758,9 @@ fn test_single_source_label_fails_if_multiple_returned() -> anyhow::Result<()> {
     let attr = AttrType::source(false);
     let coerced = attr.coerce(AttrIsConfigurable::Yes, &coercion_ctx(), value)?;
     let configured = coerced.configure(&attr, &configuration_ctx())?;
-    let resolution_ctx = resolution_ctx(&env);
+    let mut resolution_ctx = resolution_ctx(&env);
     let err = configured
-        .resolve_single(PackageLabel::testing(), &resolution_ctx)
+        .resolve_single(PackageLabel::testing(), &mut resolution_ctx)
         .expect_err("Getting multiple values when expecting a single one should fail");
 
     assert_eq!(true, err.to_string().contains("Expected a single artifact"));
@@ -870,8 +870,8 @@ fn test_bool() -> anyhow::Result<()> {
         configured.as_display_no_ctx().to_string()
     );
 
-    let ctx = resolution_ctx(&env);
-    let resolved = configured.resolve_single(PackageLabel::testing(), &ctx)?;
+    let mut ctx = resolution_ctx(&env);
+    let resolved = configured.resolve_single(PackageLabel::testing(), &mut ctx)?;
     assert_eq!("[True, False, False, True]", resolved.to_string());
 
     Ok(())
@@ -894,9 +894,9 @@ fn test_user_placeholders() -> anyhow::Result<()> {
             to_value(&env, &globals, value),
         )?;
         let configured = coerced.configure(&attr, &configuration_ctx())?;
-        let resolution_ctx = resolution_ctx(&env);
+        let mut resolution_ctx = resolution_ctx(&env);
         configured
-            .resolve_single(PackageLabel::testing(), &resolution_ctx)
+            .resolve_single(PackageLabel::testing(), &mut resolution_ctx)
             .map(|v| {
                 // TODO: this is way too unnecessarily verbose for a test.
                 let project_fs = ProjectRoot::new(

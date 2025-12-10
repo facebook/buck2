@@ -10,7 +10,6 @@
 
 package com.facebook.buck.testrunner.reportlayer;
 
-import com.android.ddmlib.IDevice;
 import com.facebook.buck.testrunner.InstrumentationTestRunner;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -42,19 +41,19 @@ public class VideoRecordingReportLayer extends ReportLayer {
 
   @Override
   public void initialize() {
-    this.videoRecordingProcess = this.startVideoRecording(runner.getDevice());
+    this.videoRecordingProcess = this.startVideoRecording();
   }
 
   @Override
   public void report() {
-    this.collectVideoRecording(runner.getDevice());
+    this.collectVideoRecording();
   }
 
   private String getVideoRecordingStoragePath() {
     return String.format(VIDEO_RECORDING_STORAGE_PATH, this.runner.getPackageName());
   }
 
-  private Process startVideoRecording(IDevice device) {
+  private Process startVideoRecording() {
     try {
       File scriptFile = File.createTempFile("video-recording-", ".sh");
       FileWriter scriptFileWriter = new FileWriter(scriptFile);
@@ -77,7 +76,7 @@ public class VideoRecordingReportLayer extends ReportLayer {
       // push script to device
       String remoteScriptPath =
           String.format("%s/%s", this.getVideoRecordingStoragePath(), VIDEO_RECORDING_SCRIPT_NAME);
-      this.runner.pushFileWithSyncService(device, scriptFile.getAbsolutePath(), remoteScriptPath);
+      this.runner.pushFileWithSyncService(scriptFile.getAbsolutePath(), remoteScriptPath);
       // start recording process
       String[] command = new String[] {"adb", "shell", "sh", remoteScriptPath};
       return new ProcessBuilder(command).redirectOutput(Redirect.PIPE).start();
@@ -87,7 +86,7 @@ public class VideoRecordingReportLayer extends ReportLayer {
     }
   }
 
-  private void collectVideoRecording(IDevice device) {
+  private void collectVideoRecording() {
     try {
       // stop video recording
       videoRecordingProcess.getOutputStream().write("STOP".getBytes());
@@ -122,7 +121,6 @@ public class VideoRecordingReportLayer extends ReportLayer {
         throw new Exception("Failed to create TRA for video recording");
       }
       this.runner.pullFileWithSyncService(
-          device,
           String.format("%s/%s", this.getVideoRecordingStoragePath(), VIDEO_RECORDING_FILE_NAME),
           video_artifact.toString());
     } catch (Exception e) {

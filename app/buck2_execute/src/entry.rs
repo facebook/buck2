@@ -17,13 +17,13 @@ use buck2_common::file_ops::metadata::FileDigestConfig;
 use buck2_common::file_ops::metadata::FileMetadata;
 use buck2_common::file_ops::metadata::FileType;
 use buck2_common::file_ops::metadata::TrackedFileDigest;
-use buck2_core::fs::fs_util;
-use buck2_core::fs::paths::RelativePath;
-use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
-use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
-use buck2_core::fs::paths::file_name::FileNameBuf;
 use buck2_directory::directory::entry::DirectoryEntry;
 use buck2_error::BuckErrorContext;
+use buck2_fs::fs_util;
+use buck2_fs::paths::RelativePath;
+use buck2_fs::paths::abs_norm_path::AbsNormPath;
+use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
+use buck2_fs::paths::file_name::FileNameBuf;
 use buck2_util::future::try_join_all;
 use derive_more::Add;
 use faccess::PathExt;
@@ -196,7 +196,7 @@ fn build_file_metadata(
         let _permit = SEMAPHORE.acquire().await.unwrap();
         let hashing_start = Instant::now();
         let file_digest = file_digest.await??;
-        let hashing_duration = HashingInfo::new(hashing_start.elapsed(), 1);
+        let hashing_duration = HashingInfo::new(Instant::now() - hashing_start, 1);
         let file_metadata = FileMetadata {
             digest: TrackedFileDigest::new(file_digest, digest_config.as_cas_digest_config()),
             is_executable: executable.await?,

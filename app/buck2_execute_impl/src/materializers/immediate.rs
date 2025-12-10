@@ -27,7 +27,7 @@ use buck2_execute::execute::clean_output_paths::cleanup_path;
 use buck2_execute::materialize::materializer::CasDownloadInfo;
 use buck2_execute::materialize::materializer::WriteRequest;
 use buck2_execute::re::manager::ReConnectionManager;
-use buck2_futures::cancellation::CancellationContext;
+use dice_futures::cancellation::CancellationContext;
 use dupe::Dupe;
 use gazebo::prelude::*;
 use remote_execution::NamedDigest;

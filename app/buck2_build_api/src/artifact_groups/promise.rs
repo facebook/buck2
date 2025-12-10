@@ -17,7 +17,7 @@ use std::sync::OnceLock;
 use allocative::Allocative;
 use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_core::deferred::base_deferred_key::BaseDeferredKey;
-use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
+use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use dupe::Dupe;
 use starlark::codemap::FileSpan;
 
@@ -51,9 +51,13 @@ pub enum PromiseArtifactResolveError {
     )]
     OwnerIsNotAnonTarget(PromiseArtifactId, BaseDeferredKey),
     #[error(
-        "Artifact promise resolved to artifact that uses content based paths, this isn't allowed"
+        "Artifact promise resolved to artifact that uses content based paths. Call `actions.assert_has_content_based_path` on the promised artifact to assert that."
     )]
     UsesContentBasedPath,
+    #[error(
+        "Artifact promise resolved to artifact that does not use content based paths. Remove the `actions.assert_has_content_based_path` on the promised artifact."
+    )]
+    DoesNotUseContentBasedPath,
 }
 
 fn maybe_declared_at(location: &Option<FileSpan>) -> String {
@@ -70,7 +74,7 @@ fn maybe_declared_at(location: &Option<FileSpan>) -> String {
 #[derive(Clone, Debug, Dupe, Allocative)]
 pub struct PromiseArtifact {
     artifact: Arc<OnceLock<Artifact>>,
-    pub id: Arc<PromiseArtifactId>,
+    pub id: PromiseArtifactId,
 }
 
 #[derive(
@@ -105,7 +109,7 @@ impl Display for PromiseArtifactId {
 }
 
 impl PromiseArtifact {
-    pub fn new(artifact: Arc<OnceLock<Artifact>>, id: Arc<PromiseArtifactId>) -> Self {
+    pub fn new(artifact: Arc<OnceLock<Artifact>>, id: PromiseArtifactId) -> Self {
         Self { artifact, id }
     }
 
@@ -128,15 +132,20 @@ impl PromiseArtifact {
         &self,
         artifact: Artifact,
         expected_short_path: &Option<ForwardRelativePathBuf>,
+        promise_has_content_based_path: bool,
     ) -> buck2_error::Result<()> {
         let bound = artifact;
         if bound.is_source() {
             return Err(PromiseArtifactResolveError::SourceArtifact.into());
         }
-        // TODO(T219919866) Add content-based paths support to promised artifacts.
-        if bound.has_content_based_path() {
+
+        let artifact_has_content_based_path = bound.has_content_based_path();
+        if artifact_has_content_based_path && !promise_has_content_based_path {
             return Err(PromiseArtifactResolveError::UsesContentBasedPath.into());
+        } else if !artifact_has_content_based_path && promise_has_content_based_path {
+            return Err(PromiseArtifactResolveError::DoesNotUseContentBasedPath.into());
         }
+
         if let Some(expected_short_path) = expected_short_path {
             bound.get_path().with_short_path(|artifact_short_path| {
                 if artifact_short_path != expected_short_path {
@@ -158,7 +167,7 @@ impl PromiseArtifact {
     }
 
     pub fn id(&self) -> &PromiseArtifactId {
-        self.id.as_ref()
+        &self.id
     }
 
     pub fn owner(&self) -> &BaseDeferredKey {
@@ -201,6 +210,7 @@ impl Eq for PromiseArtifact {}
 pub struct PromiseArtifactAttr {
     pub id: PromiseArtifactId,
     pub short_path: Option<ForwardRelativePathBuf>,
+    pub has_content_based_path: bool,
 }
 
 impl fmt::Display for PromiseArtifactAttr {
@@ -208,7 +218,11 @@ impl fmt::Display for PromiseArtifactAttr {
         // TODO(@wendyy) - we should figure out what to do about the declaration location.
         // It's possible that 2 targets produce the same promise artifact and try to pass
         // it into a downstream target, so then there would be 2 declaration locations.
-        write!(f, "<promise artifact attr (id = {})", self.id)?;
+        write!(
+            f,
+            "<promise artifact attr (id = {}, has_content_based_path = {})",
+            self.id, self.has_content_based_path
+        )?;
         if let Some(short_path) = &self.short_path {
             write!(f, " with short_path `{short_path}`")?;
         }

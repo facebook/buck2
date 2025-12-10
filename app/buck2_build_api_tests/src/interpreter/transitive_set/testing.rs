@@ -8,6 +8,7 @@
  * above-listed licenses.
  */
 
+use std::sync::Mutex;
 use std::sync::atomic::AtomicU32;
 use std::sync::atomic::Ordering;
 
@@ -32,6 +33,11 @@ use starlark::values::OwnedFrozenValueTyped;
 use starlark::values::Value;
 
 use crate::interpreter::rule_defs::artifact::testing::artifactory;
+
+/// Global mutex to serialize tests that use `make_tset()`, which increments a shared
+/// global counter (LAST_ID). Without serialization, parallel test execution causes
+/// non-deterministic TransitiveSetIndex assignment, leading to intermittent failures.
+pub static TSET_TEST_LOCK: Mutex<()> = Mutex::new(());
 
 #[starlark_module]
 pub(crate) fn tset_factory(builder: &mut GlobalsBuilder) {
@@ -92,6 +98,7 @@ pub(crate) fn new_transitive_set(
 
 #[test]
 fn test_new_transitive_set() -> anyhow::Result<()> {
+    let _guard = TSET_TEST_LOCK.lock().unwrap();
     let set = new_transitive_set(indoc!(
         r#"
         FooSet = transitive_set()

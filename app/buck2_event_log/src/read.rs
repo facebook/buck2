@@ -21,11 +21,11 @@ use async_compression::tokio::bufread::GzipDecoder;
 use async_compression::tokio::bufread::ZstdDecoder;
 use buck2_cli_proto::protobuf_util::ProtobufSplitter;
 use buck2_cli_proto::*;
-use buck2_core::fs::async_fs_util;
-use buck2_core::fs::paths::abs_path::AbsPath;
-use buck2_core::fs::paths::abs_path::AbsPathBuf;
 use buck2_error::BuckErrorContext;
 use buck2_events::BuckEvent;
+use buck2_fs::async_fs_util;
+use buck2_fs::paths::abs_path::AbsPath;
+use buck2_fs::paths::abs_path::AbsPathBuf;
 use buck2_wrapper_common::invocation_id::TraceId;
 use futures::StreamExt;
 use futures::stream::BoxStream;
@@ -352,12 +352,10 @@ impl EventLogPathBuf {
 
 #[cfg(test)]
 mod tests {
-    use std::collections::HashMap;
-
-    use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
     use buck2_data::CommandStart;
     use buck2_data::SpanStartEvent;
     use buck2_events::span::SpanId;
+    use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
 
     use super::*;
     use crate::file_names::get_logfile_name;
@@ -388,8 +386,7 @@ mod tests {
             SpanStartEvent {
                 data: Some(
                     CommandStart {
-                        data: None,
-                        metadata: HashMap::new(),
+                        ..Default::default()
                     }
                     .into(),
                 ),

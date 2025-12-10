@@ -15,7 +15,7 @@ import asyncio
 import os
 import sys
 import tempfile
-from typing import Any, List, NamedTuple
+from typing import Any, NamedTuple
 
 
 def eprint(*args: Any, **kwargs: Any) -> None:
@@ -23,7 +23,7 @@ def eprint(*args: Any, **kwargs: Any) -> None:
 
 
 class Args(NamedTuple):
-    linker: List[str]
+    linker: list[str]
 
 
 def arg_parse() -> Args:

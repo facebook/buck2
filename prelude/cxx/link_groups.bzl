@@ -721,10 +721,17 @@ def get_filtered_links(
     return infos
 
 def get_filtered_targets(labels_to_links_map: dict[Label, LinkGroupLinkInfo]):
-    return [label.raw_target() for label in labels_to_links_map.keys()]
+    # labels_to_links_map will include entries for shared link group libraries
+    # as well as libraries being statically linked into this link unit.
+    statically_linked_targets = []
+    for label, info in labels_to_links_map.items():
+        if info.output_style != LibOutputStyle("shared_lib"):
+            statically_linked_targets.append(label.raw_target())
+
+    return statically_linked_targets
 
 def get_link_group_map_json(ctx: AnalysisContext, targets: list[TargetLabel]) -> DefaultInfo:
-    json_map = ctx.actions.write_json(LINK_GROUP_MAP_DATABASE_FILENAME, sorted(targets))
+    json_map = ctx.actions.write_json(LINK_GROUP_MAP_DATABASE_FILENAME, sorted(targets), pretty = True)
     return DefaultInfo(default_output = json_map)
 
 def _find_all_relevant_roots(
@@ -886,6 +893,17 @@ def _create_link_group(
         # don't create empty shared libraries
         return None
 
+    # Determine link execution preference for this link group
+    # Default to "any" if not specified on the link group
+    link_exec_pref = spec.group.attrs.link_execution_preference
+    if link_exec_pref:
+        # If link_exec_pref is an Artifact (source file), extract the basename
+        # This happens when strings are specified in BUCK file attribute dictionaries
+        link_exec_pref = getattr(link_exec_pref, "basename", link_exec_pref)
+        link_execution_preference = LinkExecutionPreference(link_exec_pref)
+    else:
+        link_execution_preference = LinkExecutionPreference("any")
+
     # link the rule
     link_result = cxx_link_shared_library(
         ctx = ctx,
@@ -897,7 +915,7 @@ def _create_link_group(
             identifier = spec.name,
             # TODO: anonymous targets cannot be used with dynamic output yet
             enable_distributed_thinlto = False if params.anonymous else spec.group.attrs.enable_distributed_thinlto,
-            link_execution_preference = LinkExecutionPreference("any"),
+            link_execution_preference = link_execution_preference,
             allow_cache_upload = params.allow_cache_upload,
             error_handler = params.error_handler,
         ),

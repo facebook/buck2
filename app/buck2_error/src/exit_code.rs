@@ -27,7 +27,7 @@ pub enum ExitCode {
     Timeout,
     ConnectError,
     SignalInterrupt,
-    BrokenPipe,
+    ClientIoBrokenPipe,
     /// Test runner explicitly requested that this exit code be returned
     TestRunner(u8),
 }
@@ -47,8 +47,8 @@ impl ExitCode {
             // Exit codes after 129 should be reserved for exits caused by signals,
             // which should be 128 + signal number.
             // However, SIGINT and SIGPIPE are reversed..
-            BrokenPipe => 130,      // 128 + SIGINT(2)
-            SignalInterrupt => 141, // 128 + SIGPIPE(13)
+            ClientIoBrokenPipe => 130, // 128 + SIGINT(2)
+            SignalInterrupt => 141,    // 128 + SIGPIPE(13)
             TestRunner(code) => code as u32,
         }
     }
@@ -64,7 +64,7 @@ impl ExitCode {
             DaemonPreempted => "DAEMON_PREEMPTED",
             Timeout => "TIMEOUT",
             ConnectError => "CONNECT_ERROR",
-            BrokenPipe => "BROKEN_PIPE",
+            ClientIoBrokenPipe => "CLIENT_IO_BROKEN_PIPE",
             SignalInterrupt => "SIGNAL_INTERRUPT",
             TestRunner(_) => "TEST_RUNNER",
         }

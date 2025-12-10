@@ -12,12 +12,12 @@ import json
 import re
 import subprocess
 from pathlib import Path
-from typing import List, NamedTuple
+from typing import NamedTuple
 
 
 class Args(NamedTuple):
     out: Path
-    cmd: List[str]
+    cmd: list[str]
 
 
 def arg_parse() -> Args:

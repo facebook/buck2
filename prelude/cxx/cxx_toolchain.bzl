@@ -34,10 +34,17 @@ load("@prelude//cxx:cxx_utility.bzl", "cxx_toolchain_allow_cache_upload_args")
 load("@prelude//cxx:debug.bzl", "SplitDebugMode")
 load("@prelude//cxx:headers.bzl", "HeaderMode", "HeadersAsRawHeadersMode", "RawHeadersAsHeadersMode")
 load("@prelude//cxx:linker.bzl", "LINKERS", "is_pdb_generated")
-load("@prelude//cxx:target_sdk_version.bzl", "get_toolchain_target_sdk_version")
 load("@prelude//decls:cxx_rules.bzl", "cxx_rules")
-load("@prelude//linking:link_info.bzl", "LinkOrdering", "LinkStyle")
+load(
+    "@prelude//linking:link_info.bzl",
+    "LinkOrdering",
+    "LinkStyle",
+)
 load("@prelude//linking:lto.bzl", "LtoMode", "lto_compiler_flags")
+load(
+    "@prelude//linking:shared_libraries.bzl",
+    "SharedLibraryInfo",
+)
 load("@prelude//utils:utils.bzl", "flatten", "value_or")
 
 def cxx_toolchain_impl(ctx):
@@ -67,6 +74,7 @@ def cxx_toolchain_impl(ctx):
         preprocessor = c_compiler,
         preprocessor_flags = cmd_args(ctx.attrs.c_preprocessor_flags),
         allow_cache_upload = ctx.attrs.c_compiler_allow_cache_upload,
+        supports_content_based_paths = ctx.attrs.supports_content_based_paths,
     )
     cxx_compiler = _get_maybe_wrapped_msvc(ctx.attrs.cxx_compiler[RunInfo], ctx.attrs.cxx_compiler_type or ctx.attrs.compiler_type, ctx.attrs._msvc_hermetic_exec[RunInfo])
     cxx_info = CxxCompilerInfo(
@@ -86,18 +94,21 @@ def cxx_toolchain_impl(ctx):
         preprocessor = cxx_compiler,
         preprocessor_flags = cmd_args(ctx.attrs.cxx_preprocessor_flags),
         allow_cache_upload = ctx.attrs.cxx_compiler_allow_cache_upload,
+        supports_content_based_paths = ctx.attrs.supports_content_based_paths,
     )
     asm_info = AsmCompilerInfo(
         compiler = ctx.attrs.asm_compiler[RunInfo],
         compiler_type = ctx.attrs.asm_compiler_type or ctx.attrs.compiler_type,
         compiler_flags = cmd_args(ctx.attrs.asm_compiler_flags),
         preprocessor_flags = cmd_args(ctx.attrs.asm_preprocessor_flags),
+        supports_content_based_paths = ctx.attrs.supports_content_based_paths,
     ) if ctx.attrs.asm_compiler else None
     as_info = AsCompilerInfo(
         compiler = ctx.attrs.assembler[RunInfo],
         compiler_type = ctx.attrs.assembler_type or ctx.attrs.compiler_type,
         compiler_flags = cmd_args(ctx.attrs.assembler_flags),
         preprocessor_flags = cmd_args(ctx.attrs.assembler_preprocessor_flags),
+        supports_content_based_paths = ctx.attrs.supports_content_based_paths,
     ) if ctx.attrs.assembler else None
     cuda_info = CudaCompilerInfo(
         compiler = ctx.attrs.cuda_compiler[RunInfo],
@@ -136,6 +147,7 @@ def cxx_toolchain_impl(ctx):
         archive_objects_locally = False,
         archive_symbol_table = ctx.attrs.archive_symbol_table,
         binary_extension = value_or(ctx.attrs.binary_extension, ""),
+        extra_outputs = ctx.attrs.extra_linker_outputs,
         generate_linker_maps = ctx.attrs.generate_linker_maps,
         is_pdb_generated = is_pdb_generated(linker_type, ctx.attrs.linker_flags),
         link_binaries_locally = not value_or(ctx.attrs.cache_links, True),
@@ -214,6 +226,7 @@ def cxx_toolchain_impl(ctx):
         headers_as_raw_headers_mode = HeadersAsRawHeadersMode(ctx.attrs.headers_as_raw_headers_mode) if ctx.attrs.headers_as_raw_headers_mode != None else None,
         hip_compiler_info = hip_info,
         internal_tools = ctx.attrs.internal_tools[CxxInternalTools],
+        libclang = ctx.attrs.libclang,
         linker_info = linker_info,
         lipo = ctx.attrs.lipo[RunInfo] if ctx.attrs.lipo else None,
         llvm_cgdata = ctx.attrs.llvm_cgdata[RunInfo] if ctx.attrs.llvm_cgdata else None,
@@ -230,7 +243,7 @@ def cxx_toolchain_impl(ctx):
         remap_cwd = ctx.attrs.remap_cwd,
         split_debug_mode = SplitDebugMode(ctx.attrs.split_debug_mode),
         strip_flags_info = strip_flags_info,
-        target_sdk_version = get_toolchain_target_sdk_version(ctx),
+        minimum_os_version = ctx.attrs.minimum_os_version,
         # TODO(T138705365): Turn on dep files by default
         use_dep_files = value_or(ctx.attrs.use_dep_files, _get_default_use_dep_files(platform_name)),
     )
@@ -264,6 +277,7 @@ def cxx_toolchain_extra_attributes(is_toolchain_rule):
         "generate_linker_maps": attrs.bool(default = False),
         "hip_compiler": attrs.option(dep_type(providers = [RunInfo]), default = None),
         "internal_tools": dep_type(providers = [CxxInternalTools], default = "prelude//cxx/tools:internal_tools"),
+        "libclang": attrs.option(dep_type(providers = [SharedLibraryInfo]), default = None),
         "link_ordering": attrs.enum(LinkOrdering.values(), default = "preorder"),
         "link_weight": attrs.int(default = 1),
         "linker": dep_type(providers = [RunInfo]),
@@ -271,8 +285,8 @@ def cxx_toolchain_extra_attributes(is_toolchain_rule):
         "llvm_cgdata": attrs.option(dep_type(providers = [RunInfo]), default = None),
         "llvm_link": attrs.option(dep_type(providers = [RunInfo]), default = None),
         "lto_mode": attrs.enum(LtoMode.values(), default = "none"),
-        # Darwin only: the minimum deployment target supported
-        "min_sdk_version": attrs.option(attrs.string(), default = None),
+        # Darwin only: the deployment target to use for this build
+        "minimum_os_version": attrs.option(attrs.string(), default = None),
         "nm": dep_type(providers = [RunInfo]),
         "objcopy_for_shared_library_interface": dep_type(providers = [RunInfo]),
         "objdump": attrs.option(dep_type(providers = [RunInfo]), default = None),
@@ -301,8 +315,6 @@ def cxx_toolchain_extra_attributes(is_toolchain_rule):
         "supports_content_based_paths": attrs.bool(default = False),
         "supports_distributed_thinlto": attrs.bool(default = False),
         "supports_two_phase_compilation": attrs.bool(default = False),
-        # Darwin only: the deployment target to use for this build
-        "target_sdk_version": attrs.option(attrs.string(), default = None),
         "thin_lto_double_codegen_enabled": attrs.bool(default = False),
         "thin_lto_premerger_enabled": attrs.bool(default = False),
         "use_archiver_flags": attrs.bool(default = True),

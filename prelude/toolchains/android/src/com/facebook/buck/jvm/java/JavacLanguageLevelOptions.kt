@@ -21,7 +21,7 @@ data class JavacLanguageLevelOptions(val sourceLevel: String, val targetLevel: S
 
   companion object {
     // Default combined source and target level.
-    const val TARGETED_JAVA_VERSION: String = "7"
+    const val TARGETED_JAVA_VERSION: String = "8"
 
     @JvmField
     val DEFAULT: JavacLanguageLevelOptions =

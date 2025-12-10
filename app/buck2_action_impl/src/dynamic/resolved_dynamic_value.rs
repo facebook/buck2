@@ -55,9 +55,26 @@ impl<'v> AllocValue<'v> for StarlarkResolvedDynamicValue {
     }
 }
 
+/// The resolved form of a `DynamicValue` containing the actual providers produced by a dynamic action.
+///
+/// `ResolvedDynamicValue` is automatically created when a `DynamicValue` is passed to a dynamic
+/// action's implementation function via `dynattrs.dynamic_value()`. It provides access to the
+/// providers that were produced by the originating dynamic action through its `providers` attribute.
+///
+/// See [`DynamicValue`](../DynamicValue) for more information
+/// ```
 #[starlark_module]
 fn resolved_dynamic_value_methods(method: &mut MethodsBuilder) {
     /// Get providers from the resolved dynamic value.
+    ///
+    /// # Example
+    ///
+    /// ```python
+    /// def _impl(actions: AnalysisActions, v: ResolvedDynamicValue, out: OutputArtifact):
+    ///     # Access providers
+    ///     default_info = v.providers[DefaultInfo]
+    ///     custom_info = v.providers[MyInfo]
+    /// ```
     #[starlark(attribute)]
     fn providers<'v>(
         this: ValueTyped<'v, StarlarkResolvedDynamicValue>,

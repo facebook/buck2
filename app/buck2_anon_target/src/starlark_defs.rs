@@ -17,11 +17,12 @@ use buck2_build_api::artifact_groups::promise::PromiseArtifact;
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_promise_artifact::StarlarkPromiseArtifact;
 use buck2_build_api::interpreter::rule_defs::context::ANALYSIS_ACTIONS_METHODS_ANON_TARGET;
 use buck2_build_api::interpreter::rule_defs::context::AnalysisActions;
-use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
+use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_interpreter::downstream_crate_starlark_defs::REGISTER_BUCK2_ANON_TARGETS_GLOBALS;
 use buck2_interpreter::starlark_promise::StarlarkPromise;
 use buck2_interpreter_for_build::rule::FrozenArtifactPromiseMappings;
 use buck2_interpreter_for_build::rule::FrozenStarlarkRuleCallable;
+use dupe::Dupe;
 use gazebo::prelude::VecExt;
 use starlark::any::ProvidesStaticType;
 use starlark::codemap::FileSpan;
@@ -79,7 +80,7 @@ impl<'v> StarlarkAnonTarget<'v> {
         if let Some(artifacts) = frozen_artifact_mappings {
             for (id, name) in artifacts.mappings.keys().enumerate() {
                 let artifact =
-                    registry.register_artifact(declaration_location.clone(), key.clone(), id)?;
+                    registry.register_artifact(declaration_location.dupe(), key.clone(), id)?;
                 artifacts_map.insert(*name, artifact);
             }
         }
@@ -137,8 +138,9 @@ fn anon_target_methods(builder: &mut MethodsBuilder) {
                         k.to_value().get_hashed()?,
                         eval.heap().alloc(StarlarkPromiseArtifact::new(
                             eval.call_stack_top_location(),
-                            v.clone(),
+                            v.dupe(),
                             None,
+                            false,
                         )),
                     ))
                 })
@@ -156,8 +158,9 @@ fn anon_target_methods(builder: &mut MethodsBuilder) {
         match this.artifacts.get(name) {
             Some(v) => Ok(eval.heap().alloc(StarlarkPromiseArtifact::new(
                 eval.call_stack_top_location(),
-                v.clone(),
+                v.dupe(),
                 None,
+                false,
             ))),
             None => {
                 let buck2_error: buck2_error::Error =
@@ -263,7 +266,7 @@ fn analysis_actions_methods_anon_target(builder: &mut MethodsBuilder) {
         let registry = AnonTargetsRegistry::downcast_mut(&mut *this.anon_targets)?;
         let owner_key = this.analysis_value_storage.self_key.owner();
         let key = registry.anon_target_key(rule, attrs, owner_key)?;
-        registry.register_one(anon_target_promise, key.clone())?;
+        registry.register_one(anon_target_promise, key.dupe())?;
 
         Ok(StarlarkAnonTarget::new(
             eval.call_stack_top_location(),
@@ -297,12 +300,12 @@ fn analysis_actions_methods_anon_target(builder: &mut MethodsBuilder) {
 
             promises_to_join.push(anon_target_promise);
 
-            registry.register_one(anon_target_promise, key.clone())?;
+            registry.register_one(anon_target_promise, key.dupe())?;
             let anon_target = StarlarkAnonTarget::new(
-                declaration_location.clone(),
+                declaration_location.dupe(),
                 anon_target_promise,
                 rule.artifact_promise_mappings(),
-                key.clone(),
+                key.dupe(),
                 registry,
             )?;
 
@@ -330,15 +333,33 @@ fn analysis_actions_methods_anon_target(builder: &mut MethodsBuilder) {
         short_path: &'v str,
     ) -> starlark::Result<StarlarkPromiseArtifact> {
         let mut this = this.state()?;
-        let promise = artifact.artifact.clone();
+        let promise = artifact.artifact.dupe();
 
         let short_path = ForwardRelativePathBuf::new(short_path.to_owned())?;
-        (*this).record_short_path_assertion(short_path.clone(), promise.id.as_ref().clone());
+        (*this).record_short_path_assertion(short_path.clone(), promise.id.clone());
 
         Ok(StarlarkPromiseArtifact::new(
-            artifact.declaration_location.clone(),
+            artifact.declaration_location.dupe(),
             promise,
             Some(short_path),
+            artifact.has_content_based_path,
+        ))
+    }
+
+    fn assert_has_content_based_path<'v>(
+        this: &AnalysisActions<'v>,
+        artifact: ValueTyped<'v, StarlarkPromiseArtifact>,
+    ) -> starlark::Result<StarlarkPromiseArtifact> {
+        let mut this = this.state()?;
+        let promise = artifact.artifact.dupe();
+
+        (*this).record_has_content_based_path_assertion(promise.id.clone());
+
+        Ok(StarlarkPromiseArtifact::new(
+            artifact.declaration_location.dupe(),
+            promise,
+            artifact.short_path.clone(),
+            artifact.has_content_based_path,
         ))
     }
 }

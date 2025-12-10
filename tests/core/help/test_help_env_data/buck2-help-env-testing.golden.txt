@@ -75,6 +75,7 @@ FORCE_WANT_RESTART                      bool                  false
 SANDCASTLE                              String
 SANDCASTLE_ALIAS                        String
 SANDCASTLE_ID                           String
+SANDCASTLE_INSTANCE_ID                  u64
 SANDCASTLE_JOB_INFO                     String
 SANDCASTLE_SCHEDULE_TYPE                String
 SANDCASTLE_TYPE                         String

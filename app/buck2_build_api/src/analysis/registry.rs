@@ -10,6 +10,7 @@
 
 use std::cell::OnceCell;
 use std::collections::HashMap;
+use std::collections::HashSet;
 use std::fmt::Debug;
 use std::marker::PhantomData;
 use std::sync::Arc;
@@ -24,11 +25,11 @@ use buck2_core::deferred::base_deferred_key::BaseDeferredKey;
 use buck2_core::deferred::key::DeferredHolderKey;
 use buck2_core::execution_types::execution::ExecutionPlatformResolution;
 use buck2_core::fs::buck_out_path::BuckOutPathKind;
-use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
-use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_error::BuckErrorContext;
 use buck2_error::internal_error;
 use buck2_execute::execute::request::OutputType;
+use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
+use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use derivative::Derivative;
 use dupe::Dupe;
 use indexmap::IndexSet;
@@ -95,6 +96,7 @@ pub struct AnalysisRegistry<'v> {
     pub anon_targets: Box<dyn AnonTargetsRegistryDyn<'v>>,
     pub analysis_value_storage: AnalysisValueStorage<'v>,
     pub short_path_assertions: HashMap<PromiseArtifactId, ForwardRelativePathBuf>,
+    pub content_based_path_assertions: HashSet<PromiseArtifactId>,
 }
 
 #[derive(buck2_error::Error, Debug)]
@@ -125,6 +127,7 @@ impl<'v> AnalysisRegistry<'v> {
             anon_targets: (ANON_TARGET_REGISTRY_NEW.get()?)(PhantomData, execution_platform),
             analysis_value_storage: AnalysisValueStorage::new(self_key),
             short_path_assertions: HashMap::new(),
+            content_based_path_assertions: HashSet::new(),
         })
     }
 
@@ -299,6 +302,14 @@ impl<'v> AnalysisRegistry<'v> {
             .insert(promise_artifact_id, short_path);
     }
 
+    pub fn record_has_content_based_path_assertion(
+        &mut self,
+        promise_artifact_id: PromiseArtifactId,
+    ) {
+        self.content_based_path_assertions
+            .insert(promise_artifact_id);
+    }
+
     pub fn assert_no_promises(&self) -> buck2_error::Result<()> {
         self.anon_targets.assert_no_promises()
     }
@@ -324,6 +335,7 @@ impl<'v> AnalysisRegistry<'v> {
             anon_targets: _,
             analysis_value_storage,
             short_path_assertions: _,
+            content_based_path_assertions: _,
         } = self;
 
         let finalize_actions = actions.finalize()?;
@@ -636,7 +648,7 @@ impl RecordedAnalysisValues {
                 lambda_params: DYNAMIC_LAMBDA_PARAMS_STORAGES
                     .get()
                     .unwrap()
-                    .new_frozen_dynamic_lambda_params_storage(self_key.dupe()),
+                    .new_frozen_dynamic_lambda_params_storage(),
                 result_value: Some(
                     FrozenValueTyped::<FrozenProviderCollection>::new(heap.alloc(providers))
                         .unwrap(),

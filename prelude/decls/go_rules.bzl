@@ -33,7 +33,6 @@ go_binary = prelude_rule(
 
 
         ```
-
         go_binary(
           name='greet',
           srcs=[
@@ -60,7 +59,6 @@ go_binary = prelude_rule(
             'join.go',
           ],
         )
-
         ```
     """,
     further = None,
@@ -94,12 +92,12 @@ go_binary = prelude_rule(
                 Static files to be symlinked into the working directory of the test. You can access these in your
                  by opening the files as relative paths, e.g. `ioutil.ReadFile("testdata/input")`.
             """),
-            "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
-            "labels": attrs.list(attrs.string(), default = []),
-            "licenses": attrs.list(attrs.source(), default = []),
             "platform": attrs.option(attrs.string(), default = None),
-        }
+        } |
+        buck.licenses_arg() |
+        buck.labels_arg() |
+        buck.contacts_arg()
     ),
     cfg = go_binary_transition,
 )
@@ -115,7 +113,6 @@ go_exported_library = prelude_rule(
 
 
         ```
-
         go_exported_library(
             name = "shared",
             srcs = ["main.go"],
@@ -148,7 +145,6 @@ go_exported_library = prelude_rule(
             header_dirs = [":cgo_exported_headers"],
             shared_lib = ":shared",
         )
-
         ```
     """,
     further = None,
@@ -182,13 +178,13 @@ go_exported_library = prelude_rule(
                 Static files to be symlinked into the working directory of the test. You can access these in your
                  by opening the files as relative paths, e.g. `ioutil.ReadFile("testdata/input")`.
             """),
-            "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "embedcfg": attrs.option(attrs.source(), default = None),
-            "labels": attrs.list(attrs.string(), default = []),
-            "licenses": attrs.list(attrs.source(), default = []),
             "platform": attrs.option(attrs.string(), default = None),
-        }
+        } |
+        buck.licenses_arg() |
+        buck.labels_arg() |
+        buck.contacts_arg()
     ),
     cfg = go_exported_library_transition,
 )
@@ -204,7 +200,6 @@ go_library = prelude_rule(
 
 
         ```
-
         go_library(
           name='greeting',
           srcs=[
@@ -214,7 +209,6 @@ go_library = prelude_rule(
             ':join',
           ],
         )
-
         ```
     """,
     further = None,
@@ -236,11 +230,11 @@ go_library = prelude_rule(
         go_common.link_style_arg() |
         go_common.generate_exported_header() |
         {
-            "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
-            "labels": attrs.list(attrs.string(), default = []),
-            "licenses": attrs.list(attrs.source(), default = []),
-        }
+        } |
+        buck.licenses_arg() |
+        buck.labels_arg() |
+        buck.contacts_arg()
     ),
     cfg = go_library_transition,
 )
@@ -262,7 +256,6 @@ go_test = prelude_rule(
 
 
         ```
-
         go_library(
           name='greeting',
           srcs=[
@@ -302,8 +295,6 @@ go_test = prelude_rule(
           srcs=['greeting_test.go'],
           target_under_test=':greeting',
         )
-
-
         ```
     """,
     further = None,
@@ -365,13 +356,13 @@ go_test = prelude_rule(
         } |
         buck.run_test_separately_arg(run_test_separately_type = attrs.bool(default = False)) |
         {
-            "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
-            "licenses": attrs.list(attrs.source(), default = []),
             "platform": attrs.option(attrs.string(), default = None),
             "runner": attrs.option(attrs.dep(), default = None),
             "specs": attrs.option(attrs.arg(json = True), default = None),
         } |
+        buck.licenses_arg() |
+        buck.contacts_arg() |
         re_test_common.test_args() |
         test_common.attributes()
     ),

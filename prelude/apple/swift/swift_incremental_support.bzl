@@ -31,11 +31,13 @@ IncrementalCompilationOutput = record(
     incremental_remote_outputs = field(bool),
     swiftdeps = field(list[Artifact]),
     depfiles = field(list[Artifact]),
+    swiftdoc = field(Artifact),
 )
 
 IncrementalCompilationInput = record(
     swiftdeps = field(list[Artifact]),
     depfiles = field(list[Artifact]),
+    swiftdoc = field(Artifact),
 )
 
 SwiftCompilationMode = enum(*SwiftCompilationModes)
@@ -62,12 +64,14 @@ def get_incremental_object_compilation_flags(
         ctx: AnalysisContext,
         srcs: list[CxxSrcWithFlags],
         output_swiftmodule: Artifact,
+        output_swiftdoc: Artifact,
         output_header: Artifact) -> IncrementalCompilationOutput:
     output_file_map_data = _get_output_file_map(ctx, srcs)
     return _get_incremental_compilation_flags_and_objects(
         ctx,
         output_file_map_data,
         output_swiftmodule,
+        output_swiftdoc,
         output_header,
         len(srcs),
     )
@@ -84,20 +88,26 @@ def _get_skip_swift_incremental_outputs(ctx: AnalysisContext):
 
 def get_incremental_file_hashing_enabled(ctx: AnalysisContext):
     toolchain = get_swift_toolchain_info(ctx)
-    return toolchain.supports_incremental_file_hashing and getattr(ctx.attrs, "swift_incremental_file_hashing", False)
+    return toolchain.supports_incremental_file_hashing and getattr(ctx.attrs, "swift_incremental_file_hashing", False) and should_build_swift_incrementally(ctx)
+
+def get_swift_incremental_logging_enabled(ctx: AnalysisContext):
+    return getattr(ctx.attrs, "swift_incremental_logging", False)
 
 def get_incremental_remote_outputs_enabled(ctx: AnalysisContext):
     return getattr(ctx.attrs, "incremental_remote_outputs", False)
 
 def get_uses_experimental_content_based_path_hashing(ctx):
-    return getattr(ctx.attrs, "uses_experimental_content_based_path_hashing", False)
+    toolchain = get_swift_toolchain_info(ctx)
+    return toolchain.uses_experimental_content_based_path_hashing
 
 def _get_incremental_compilation_flags_and_objects(
         ctx: AnalysisContext,
         output_file_map_data: _OutputFileMapData,
         output_swiftmodule: Artifact,
+        output_swiftdoc: Artifact | None,
         output_header: Artifact,
         num_srcs: int) -> IncrementalCompilationOutput:
+    extra_hidden = [output_swiftdoc.as_output()] if output_swiftdoc else []
     cmd = cmd_args(
         [
             "-disable-cmo",
@@ -117,12 +127,17 @@ def _get_incremental_compilation_flags_and_objects(
             "-emit-module-path",
             output_swiftmodule.as_output(),
         ],
-        hidden = [output.as_output() for output in output_file_map_data.outputs],
+        hidden = [output.as_output() for output in output_file_map_data.outputs] + extra_hidden,
     )
 
     skip_incremental_outputs = _get_skip_swift_incremental_outputs(ctx)
     incremental_remote_outputs = False
     uses_experimental_content_based_path_hashing = get_uses_experimental_content_based_path_hashing(ctx)
+    if get_swift_incremental_logging_enabled(ctx):
+        cmd.add([
+            "-driver-show-incremental",
+            "-driver-show-job-lifecycle",
+        ])
 
     if skip_incremental_outputs:
         # When skipping incremental outputs, we write the contents of the
@@ -138,9 +153,19 @@ def _get_incremental_compilation_flags_and_objects(
     elif get_incremental_file_hashing_enabled(ctx):
         cmd.add(
             "-enable-incremental-file-hashing",
+            "-avoid-emit-module-source-info",
         )
-        if get_incremental_remote_outputs_enabled(ctx):
-            incremental_remote_outputs = True
+    if get_incremental_remote_outputs_enabled(ctx):
+        incremental_remote_outputs = True
+        cmd.add(
+            "-Xwrapper",
+            "--no-file-prefix-map",
+            "-dwarf-version=5",
+            "-Xcc",
+            "-working-directory",
+            "-Xcc",
+            ".",
+        )
 
     return IncrementalCompilationOutput(
         artifacts = output_file_map_data.artifacts,
@@ -151,12 +176,13 @@ def _get_incremental_compilation_flags_and_objects(
         swiftdeps = output_file_map_data.swiftdeps,
         depfiles = output_file_map_data.depfiles,
         incremental_remote_outputs = incremental_remote_outputs,
+        swiftdoc = output_swiftdoc,
     )
 
 def _get_output_file_map(
         ctx: AnalysisContext,
         srcs: list[CxxSrcWithFlags]) -> _OutputFileMapData:
-    uses_experimental_content_based_path_hashing = getattr(ctx.attrs, "uses_experimental_content_based_path_hashing", False)
+    uses_experimental_content_based_path_hashing = get_uses_experimental_content_based_path_hashing(ctx)
     if _get_skip_swift_incremental_outputs(ctx):
         all_outputs = []
         swiftdeps = []
@@ -195,7 +221,7 @@ def _get_output_file_map(
             }
             swiftdeps.append(swiftdeps_artifact)
             all_outputs.append(swiftdeps_artifact)
-            if toolchain.use_depsfiles:
+            if toolchain.use_depsfiles and not get_incremental_file_hashing_enabled(ctx):
                 deps_artifact = ctx.actions.declare_output("__swift_incremental__/objects/" + file_name + ".d", uses_experimental_content_based_path_hashing = uses_experimental_content_based_path_hashing)
                 depfiles.append(deps_artifact)
                 all_outputs.append(deps_artifact)

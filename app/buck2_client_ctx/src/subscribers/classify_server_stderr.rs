@@ -17,37 +17,41 @@ pub(crate) fn classify_server_stderr(
     error: buck2_error::Error,
     stderr: &str,
 ) -> buck2_error::Error {
-    let tag = if stderr.is_empty() {
-        ErrorTag::ServerStderrEmpty
+    let mut tag = if stderr.is_empty() {
+        None
     } else if stderr.contains("<jemalloc>: size mismatch detected") {
         // P1181704561
-        ErrorTag::ServerJemallocAssert
+        Some(ErrorTag::ServerJemallocAssert)
     } else if stderr.contains("panicked at") {
         // Sample output of `buck2 debug crash`: P1159041719
-        ErrorTag::ServerPanicked
+        Some(ErrorTag::ServerPanicked)
     } else if stderr.contains("has overflowed its stack") {
         // Stderr looks like this:
         // ```
         // thread 'buck2-dm' has overflowed its stack
         // ```
-        ErrorTag::ServerStackOverflow
+        Some(ErrorTag::ServerStackOverflow)
     } else if stderr.contains("Signal 11 (SIGSEGV)") {
         // P1180289404
-        ErrorTag::ServerSegv
+        Some(ErrorTag::ServerSegv)
     } else if stderr.contains("Signal 15 (SIGTERM)") {
-        ErrorTag::ServerSigterm
+        Some(ErrorTag::ServerSigterm)
     } else if stderr.contains("Signal 6 (SIGABRT)") {
-        ErrorTag::ServerSigabrt
+        Some(ErrorTag::ServerSigabrt)
     } else if stderr.contains("(SIGBUS)") {
         // Signal 7 or Signal 10 depending on OS
-        ErrorTag::ServerSigbus
+        Some(ErrorTag::ServerSigbus)
     } else {
-        ErrorTag::ServerStderrUnknown
+        None
     };
-    let mut tags = vec![tag];
+    if tag.is_none() && error.has_tag(ErrorTag::ClientGrpcStream) {
+        tag = Some(ErrorTag::DaemonDisconnect);
+    }
+
+    let mut tags = tag.into_iter().collect::<Vec<_>>();
 
     let error = if let Some(trace) = extract_trace(stderr) {
-        if tag != ErrorTag::ServerSigterm {
+        if tag != Some(ErrorTag::ServerSigterm) {
             if trace
                 .stack_trace_lines
                 .iter()

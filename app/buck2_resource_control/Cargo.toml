@@ -6,19 +6,24 @@ repository = { workspace = true }
 version = "0.1.0"
 
 [dependencies]
-parking_lot = { workspace = true }
+derive_more = { workspace = true }
+futures = { workspace = true }
+index_vec = { workspace = true }
+ref-cast = { workspace = true }
 tokio = { workspace = true }
+tokio-util = { workspace = true }
 tracing = { workspace = true }
 
 allocative = { workspace = true }
 dupe = { workspace = true }
 
 buck2_common = { workspace = true }
-buck2_core = { workspace = true }
 buck2_data = { workspace = true }
 buck2_error = { workspace = true }
 buck2_events = { workspace = true }
+buck2_fs = { workspace = true }
 buck2_util = { workspace = true }
+buck2_wrapper_common = { workspace = true }
 
 tempfile = { workspace = true }
 
@@ -26,4 +31,4 @@ tempfile = { workspace = true }
 nix = { workspace = true }
 
 [lints.rust]
-unexpected_cfgs = { level = "warn", check-cfg = ["cfg(fbcode_build)"] }
+unexpected_cfgs = { level = "warn", check-cfg = ["cfg(buck_build)", "cfg(fbcode_build)"] }

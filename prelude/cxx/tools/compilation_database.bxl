@@ -67,7 +67,7 @@ generate = bxl_main(
             doc = "Automatically include all dependent targets in the generated compilation db",
         ),
         "targets": cli_args.list(
-            cli_args.target_expr(),
+            cli_args.configured_target_expr(),
             doc = "Targets to generate the database for",
         ),
     },

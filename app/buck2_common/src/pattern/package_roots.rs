@@ -12,9 +12,9 @@ use std::collections::HashSet;
 
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::package::PackageLabel;
-use buck2_futures::drop::DropTogether;
-use buck2_futures::spawn::spawn_dropcancel;
 use dice::DiceTransaction;
+use dice_futures::drop::DropTogether;
+use dice_futures::spawn::spawn_dropcancel;
 use dupe::Dupe;
 use futures::Stream;
 use futures::StreamExt;

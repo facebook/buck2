@@ -45,7 +45,6 @@ use starlark::values::starlark_value;
 use starlark::values::type_repr::StarlarkTypeRepr;
 
 use crate::bxl::starlark_defs::context::BxlContext;
-use crate::bxl::starlark_defs::context::BxlContextNoDice;
 use crate::bxl::starlark_defs::context::ErrorPrinter;
 use crate::bxl::starlark_defs::nodes::action::StarlarkActionQueryNode;
 use crate::bxl::starlark_defs::providers_expr::AnyProvidersExprArg;
@@ -106,7 +105,7 @@ impl<'v> StarlarkAQueryCtx<'v> {
 }
 
 pub(crate) async fn get_aquery_env(
-    ctx: &BxlContextNoDice<'_>,
+    ctx: &BxlContext<'_>,
     global_cfg_options_override: &GlobalCfgOptions,
 ) -> buck2_error::Result<Box<dyn BxlAqueryFunctions>> {
     (NEW_BXL_AQUERY_FUNCTIONS.get()?)(
@@ -136,7 +135,7 @@ async fn unpack_action_nodes<'v>(
     dice: &mut DiceComputations<'_>,
     expr: UnpackActionNodes<'v>,
 ) -> buck2_error::Result<TargetSet<ActionQueryNode>> {
-    let aquery_env = get_aquery_env(&this.ctx.data, &this.global_cfg_options_override).await?;
+    let aquery_env = get_aquery_env(&this.ctx, &this.global_cfg_options_override).await?;
     let providers = match expr {
         UnpackActionNodes::ActionQueryNodes(action_nodes) => {
             return Ok(action_nodes.into_iter().map(|v| v.0).collect());
@@ -146,7 +145,7 @@ async fn unpack_action_nodes<'v>(
             ProvidersExpr::<ConfiguredProvidersLabel>::unpack(
                 arg,
                 &this.global_cfg_options_override,
-                &this.ctx.data,
+                &this.ctx,
                 dice,
             )
             .await?
@@ -158,7 +157,7 @@ async fn unpack_action_nodes<'v>(
             TargetListExpr::<ConfiguredTargetNode>::unpack_opt(
                 arg,
                 &this.global_cfg_options_override,
-                &this.ctx.data,
+                &this.ctx,
                 dice,
                 true,
             )
@@ -170,7 +169,7 @@ async fn unpack_action_nodes<'v>(
     let (incompatible_targets, result) = aquery_env.get_target_set(dice, providers).await?;
 
     if !incompatible_targets.is_empty() {
-        this.ctx.data.print_to_error_stream(
+        this.ctx.print_to_error_stream(
             IncompatiblePlatformReason::skipping_message_for_multiple(incompatible_targets.iter()),
         )?;
     }
@@ -193,10 +192,11 @@ fn aquery_methods(builder: &mut MethodsBuilder) {
         universe: UnpackActionNodes<'v>,
         #[starlark(default = NoneOr::None)] depth: NoneOr<i32>,
         #[starlark(default = NoneOr::None)] filter: NoneOr<&'v str>,
+        eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<StarlarkTargetSet<ActionQueryNode>> {
         Ok(this
             .ctx
-            .via_dice(|dice, ctx| {
+            .via_dice(eval, |dice| {
                 dice.via(|dice| {
                     async {
                         let filter = filter
@@ -206,7 +206,7 @@ fn aquery_methods(builder: &mut MethodsBuilder) {
                         let universe = unpack_action_nodes(this, dice, universe).await?;
 
                         let aquery_env =
-                            get_aquery_env(ctx, &this.global_cfg_options_override).await?;
+                            get_aquery_env(&this.ctx, &this.global_cfg_options_override).await?;
                         aquery_env
                             .deps(
                                 dice,
@@ -233,14 +233,15 @@ fn aquery_methods(builder: &mut MethodsBuilder) {
         this: &StarlarkAQueryCtx<'v>,
         // TODO(nga): parameters should be either positional or named, not both.
         targets: UnpackActionNodes<'v>,
+        eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<StarlarkTargetSet<ActionQueryNode>> {
         Ok(this
             .ctx
-            .via_dice(|dice, ctx| {
+            .via_dice(eval, |dice| {
                 dice.via(|dice| {
                     async {
                         let targets = unpack_action_nodes(this, dice, targets).await?;
-                        get_aquery_env(ctx, &this.global_cfg_options_override)
+                        get_aquery_env(&this.ctx, &this.global_cfg_options_override)
                             .await?
                             .all_actions(dice, &targets)
                             .await
@@ -260,15 +261,16 @@ fn aquery_methods(builder: &mut MethodsBuilder) {
         this: &StarlarkAQueryCtx<'v>,
         // TODO(nga): parameters should be either positional or named, not both.
         targets: UnpackActionNodes<'v>,
+        eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<StarlarkTargetSet<ActionQueryNode>> {
         Ok(this
             .ctx
-            .via_dice(|dice, ctx| {
+            .via_dice(eval, |dice| {
                 dice.via(|dice| {
                     async {
                         let targets = unpack_action_nodes(this, dice, targets).await?;
 
-                        get_aquery_env(ctx, &this.global_cfg_options_override)
+                        get_aquery_env(&this.ctx, &this.global_cfg_options_override)
                             .await?
                             .all_outputs(dice, &targets)
                             .await
@@ -286,8 +288,9 @@ fn aquery_methods(builder: &mut MethodsBuilder) {
         attr: &str,
         value: &str,
         targets: UnpackActionNodes<'v>,
+        eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<StarlarkTargetSet<ActionQueryNode>> {
-        Ok(this.ctx.via_dice(|dice, _| {
+        Ok(this.ctx.via_dice(eval, |dice| {
             dice.via(|dice| {
                 async {
                     let targets = unpack_action_nodes(this, dice, targets).await?;
@@ -322,7 +325,9 @@ fn aquery_methods(builder: &mut MethodsBuilder) {
             NoneOr::Other(query_args) => query_args.into_strings(),
         };
 
-        Ok(this.ctx.via_dice(|dice, ctx| {
+        let heap = eval.heap();
+
+        Ok(this.ctx.via_dice(eval, |dice| {
             dice.via(|dice| {
                 async {
                     parse_query_evaluation_result(
@@ -330,13 +335,13 @@ fn aquery_methods(builder: &mut MethodsBuilder) {
                             .get()?
                             .eval_aquery(
                                 dice,
-                                &ctx.working_dir()?,
+                                &this.ctx.working_dir()?,
                                 query,
                                 &query_args,
                                 this.global_cfg_options_override.clone(),
                             )
                             .await?,
-                        eval.heap(),
+                        heap,
                     )
                 }
                 .boxed_local()

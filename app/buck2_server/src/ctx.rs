@@ -15,6 +15,7 @@ use std::io::BufWriter;
 use std::marker::PhantomData;
 use std::sync::Arc;
 use std::time::Duration;
+use std::time::Instant;
 
 use allocative::Allocative;
 use async_trait::async_trait;
@@ -59,24 +60,18 @@ use buck2_configured::cycle::ConfiguredGraphCycleDescriptor;
 use buck2_core::execution_types::executor_config::CommandExecutorConfig;
 use buck2_core::execution_types::executor_config::RemoteExecutorUseCase;
 use buck2_core::facebook_only;
-use buck2_core::fs::fs_util;
-use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
-use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
-use buck2_core::fs::paths::file_name::FileName;
-use buck2_core::fs::paths::file_name::FileNameBuf;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
-use buck2_core::fs::working_dir::AbsWorkingDir;
 use buck2_core::pattern::pattern::ParsedPattern;
 use buck2_core::pattern::pattern::ParsedPatternWithModifiers;
 use buck2_core::pattern::pattern_type::ConfiguredProvidersPatternExtra;
 use buck2_core::rollout_percentage::RolloutPercentage;
 use buck2_core::target::label::interner::ConcurrentTargetLabelInterner;
 use buck2_directory::directory::dashmap_directory_interner::DashMapDirectoryInterner;
-use buck2_events::daemon_id;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_events::metadata;
+use buck2_events::schedule_type::SandcastleScheduleType;
 use buck2_execute::execute::blocking::SetBlockingExecutor;
 use buck2_execute::knobs::ExecutorGlobalKnobs;
 use buck2_execute::materialize::materializer::Materializer;
@@ -84,19 +79,26 @@ use buck2_execute::materialize::materializer::SetMaterializer;
 use buck2_execute::re::client::RemoteExecutionClient;
 use buck2_execute::re::manager::ReConnectionHandle;
 use buck2_execute::re::manager::ReConnectionObserver;
+use buck2_execute::re::output_trees_download_config::OutputTreesDownloadConfig;
 use buck2_execute_impl::executors::worker::WorkerPool;
 use buck2_execute_impl::low_pass_filter::LowPassFilter;
 use buck2_file_watcher::mergebase::SetMergebase;
-use buck2_futures::cancellation::CancellationContext;
+use buck2_fs::fs_util;
+use buck2_fs::paths::abs_norm_path::AbsNormPath;
+use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
+use buck2_fs::paths::file_name::FileName;
+use buck2_fs::paths::file_name::FileNameBuf;
+use buck2_fs::working_dir::AbsWorkingDir;
 use buck2_interpreter::dice::starlark_debug::SetStarlarkDebugger;
 use buck2_interpreter::extra::InterpreterHostArchitecture;
 use buck2_interpreter::extra::InterpreterHostPlatform;
 use buck2_interpreter::extra::xcode::XcodeVersionInfo;
+use buck2_interpreter::factory::SetProfileEventListener;
 use buck2_interpreter::prelude_path::prelude_path;
-use buck2_interpreter::starlark_profiler::config::StarlarkProfilerConfiguration;
 use buck2_interpreter_for_build::interpreter::configuror::BuildInterpreterConfiguror;
 use buck2_interpreter_for_build::interpreter::cycles::LoadCycleDescriptor;
 use buck2_interpreter_for_build::interpreter::interpreter_setup::setup_interpreter;
+use buck2_resource_control::HasResourceControl;
 use buck2_server_ctx::bxl::InitBxlStreamingTracker;
 use buck2_server_ctx::concurrency::DiceUpdater;
 use buck2_server_ctx::ctx::DiceAccessor;
@@ -116,6 +118,7 @@ use dice::DiceData;
 use dice::DiceTransactionUpdater;
 use dice::UserComputationData;
 use dice::UserCycleDetector;
+use dice_futures::cancellation::CancellationContext;
 use dupe::Dupe;
 use gazebo::prelude::SliceExt;
 use host_sharing::HostSharingBroker;
@@ -129,6 +132,8 @@ use crate::daemon::state::DaemonStateData;
 use crate::dice_tracker::BuckDiceTracker;
 use crate::heartbeat_guard::HeartbeatGuard;
 use crate::host_info;
+use crate::profile_patterns::FileWritingProfileEventListener;
+use crate::profiling_manager::StarlarkProfilingManager;
 use crate::snapshot::SnapshotCollector;
 
 #[derive(Debug, buck2_error::Error)]
@@ -195,7 +200,7 @@ pub struct ServerCommandContext<'a> {
 
     /// Starlark profiler instrumentation requested throughout the duration of this command. Usually associated with
     /// the `buck2 profile` command.
-    pub starlark_profiler_instrumentation_override: StarlarkProfilerConfiguration,
+    pub starlark_profiling_manager: StarlarkProfilingManager,
 
     debugger_handle: Option<BuckStarlarkDebuggerHandle>,
 
@@ -237,7 +242,7 @@ impl<'a> ServerCommandContext<'a> {
     pub fn new(
         base_context: BaseServerCommandContext,
         client_context: &ClientContext,
-        starlark_profiler_instrumentation_override: StarlarkProfilerConfiguration,
+        starlark_profiling_manager: StarlarkProfilingManager,
         build_options: Option<&CommonBuildOptions>,
         paths: &InvocationPaths,
         cert_state: CertState,
@@ -331,7 +336,7 @@ impl<'a> ServerCommandContext<'a> {
             client_id_from_client_metadata,
             _re_connection_handle: re_connection_handle,
             cert_state,
-            starlark_profiler_instrumentation_override,
+            starlark_profiling_manager,
             buck_out_dir: paths.buck_out_dir(),
             isolation_prefix: paths.isolation.clone(),
             build_options: build_options.cloned(),
@@ -389,6 +394,7 @@ impl<'a> ServerCommandContext<'a> {
             default_allow_cache_upload: false,
             action_paths_interner: None,
             deduplicate_get_digests_ttl_calls: false,
+            re_outputs_required: false,
         };
 
         let concurrency = self
@@ -438,6 +444,10 @@ impl<'a> ServerCommandContext<'a> {
                 .build_options
                 .as_ref()
                 .is_some_and(|opts| opts.materialize_failed_outputs),
+            profile_event_listener: self
+                .starlark_profiling_manager
+                .profile_event_listener
+                .dupe(),
         })
     }
 
@@ -446,6 +456,12 @@ impl<'a> ServerCommandContext<'a> {
             .daemon
             .re_client_manager
             .get_re_connection()
+    }
+
+    // Called at the end of the command to perform any necessary final actions or cleanup.
+    pub(crate) fn finalize(self) -> buck2_error::Result<()> {
+        self.starlark_profiling_manager.finalize()?;
+        Ok(())
     }
 }
 
@@ -528,6 +544,7 @@ struct DiceCommandUpdater<'s, 'a: 's> {
     concurrency: Option<usize>,
     executor_config: Arc<CommandExecutorConfig>,
     re_connection: Arc<ReConnectionHandle>,
+    profile_event_listener: Option<Arc<FileWritingProfileEventListener>>,
     build_signals: BuildSignalsInstaller,
     upload_all_actions: bool,
     run_action_knobs: RunActionKnobs,
@@ -553,7 +570,11 @@ impl DiceUpdater for DiceCommandUpdater<'_, '_> {
     async fn update(
         &self,
         mut ctx: DiceTransactionUpdater,
-    ) -> buck2_error::Result<(DiceTransactionUpdater, UserComputationData)> {
+    ) -> buck2_error::Result<(
+        DiceTransactionUpdater,
+        UserComputationData,
+        std::time::Duration,
+    )> {
         let existing_state = &mut ctx.existing_state().await.clone();
         let cells_and_configs = self.cmd_ctx.load_new_configs(existing_state).await?;
         let cell_resolver = cells_and_configs.cell_resolver;
@@ -580,18 +601,20 @@ impl DiceUpdater for DiceCommandUpdater<'_, '_> {
 
         ctx.set_enabled_optional_validations(optional_validations)?;
 
+        let profiler_instrumentation_override =
+            &self.cmd_ctx.starlark_profiling_manager.configuration;
+
         setup_interpreter(
             &mut ctx,
             cell_resolver,
             configuror,
             cells_and_configs.external_data,
-            self.cmd_ctx
-                .starlark_profiler_instrumentation_override
-                .clone(),
+            profiler_instrumentation_override.clone(),
             self.cmd_ctx.disable_starlark_types,
             self.cmd_ctx.unstable_typecheck,
         )?;
 
+        let start = std::time::Instant::now();
         let (ctx, mergebase) = self
             .cmd_ctx
             .base_context
@@ -599,11 +622,12 @@ impl DiceUpdater for DiceCommandUpdater<'_, '_> {
             .file_watcher
             .sync(ctx)
             .await?;
+        let wait_duration = Instant::now() - start;
 
         let mut user_data = self.make_user_computation_data(&cells_and_configs.root_config)?;
         user_data.set_mergebase(mergebase);
 
-        Ok((ctx, user_data))
+        Ok((ctx, user_data, wait_duration))
     }
 }
 
@@ -695,6 +719,9 @@ impl DiceCommandUpdater<'_, '_> {
 
         let mut data = DiceData::new();
         data.set(self.cmd_ctx.events().dupe());
+        data.set(HasResourceControl(
+            self.cmd_ctx.base_context.daemon.cgroup_tree.is_some(),
+        ));
 
         let cycle_detector = if root_config
             .parse::<bool>(BuckconfigKeyRef {
@@ -740,6 +767,30 @@ impl DiceCommandUpdater<'_, '_> {
             })?
             .unwrap_or(false);
 
+        run_action_knobs.re_outputs_required |= root_config
+            .parse::<bool>(BuckconfigKeyRef {
+                section: "buck2",
+                property: "re_outputs_required",
+            })?
+            .unwrap_or(false);
+
+        let output_trees_download_semaphore_size = root_config.parse::<u32>(BuckconfigKeyRef {
+            section: "buck2",
+            property: "output_trees_download_semaphore_size",
+        })?;
+
+        let fingerprint_re_output_trees_eagerly = root_config
+            .parse::<bool>(BuckconfigKeyRef {
+                section: "buck2",
+                property: "fingerprint_re_output_trees_eagerly",
+            })?
+            .unwrap_or(true);
+
+        let output_trees_download_config = OutputTreesDownloadConfig::new(
+            output_trees_download_semaphore_size,
+            fingerprint_re_output_trees_eagerly,
+        );
+
         _ = buck2_core::faster_directories::VALUE.store(
             root_config
                 .parse::<bool>(BuckconfigKeyRef {
@@ -778,6 +829,9 @@ impl DiceCommandUpdater<'_, '_> {
         // They currently use either a usecase specified in actions (cas_artifact), or a global default (buck2.default_remote_execution_use_case).
         // We should not override the cas_artifact usecase or else the ttl may not match the action declaration.
         data.set_re_client(self.re_connection.get_client());
+        if let Some(v) = &self.profile_event_listener {
+            SetProfileEventListener::set(&mut data, v.clone());
+        }
         data.set_command_executor(Box::new(CommandExecutorFactory::new(
             self.re_connection.dupe(),
             host_sharing_broker,
@@ -799,6 +853,8 @@ impl DiceCommandUpdater<'_, '_> {
             self.cmd_ctx.base_context.daemon.memory_tracker.dupe(),
             self.cmd_ctx.base_context.daemon.incremental_db_state.dupe(),
             run_action_knobs.deduplicate_get_digests_ttl_calls,
+            output_trees_download_config.dupe(),
+            self.cmd_ctx.base_context.daemon.daemon_id.dupe(),
         )));
         data.set_blocking_executor(self.cmd_ctx.base_context.daemon.blocking_executor.dupe());
         data.set_http_client(self.cmd_ctx.base_context.daemon.http_client.dupe());
@@ -924,15 +980,12 @@ fn collect_config_metadata_into(config: &LegacyBuckConfig, data: &mut UserComput
         },
         "client",
     );
-    add_config(
-        &mut metadata,
-        &config,
-        BuckconfigKeyRef {
-            section: "cache",
-            property: "schedule_type",
-        },
-        "schedule_type",
-    );
+
+    if let Ok(schedule_type) = SandcastleScheduleType::new() {
+        if let Some(schedule_type_str) = schedule_type.as_str() {
+            metadata.insert("schedule_type".to_owned(), schedule_type_str.to_owned());
+        }
+    }
 
     data.data.set(ConfigMetadataHolder(metadata));
 }
@@ -982,7 +1035,7 @@ impl ServerCommandContextTrait for ServerCommandContext<'_> {
         let (build_signals_installer, deferred_build_signals) = create_build_signals();
 
         let is_nested_invocation = if let Some(uuid) = &self.daemon_uuid_from_client {
-            uuid == &daemon_id::DAEMON_UUID.to_string()
+            uuid == &self.base_context.daemon.daemon_id.to_string()
         } else {
             false
         };
@@ -1017,12 +1070,26 @@ impl ServerCommandContextTrait for ServerCommandContext<'_> {
         })
     }
 
+    /// Create command start event with metadata
+    async fn command_start_event(
+        &self,
+        data: buck2_data::command_start::Data,
+    ) -> buck2_error::Result<buck2_data::CommandStart> {
+        Ok(buck2_data::CommandStart {
+            metadata: self.request_metadata().await?,
+            data: Some(data),
+            cli_args: self.sanitized_argv.clone(),
+            tags: self.base_context.daemon.tags.clone(),
+            ..Default::default()
+        })
+    }
+
     /// Gathers metadata to attach to events for when a command starts and stops.
     async fn request_metadata(&self) -> buck2_error::Result<HashMap<String, String>> {
         // Facebook only: metadata collection for Scribe writes
         facebook_only();
 
-        let mut metadata = metadata::collect();
+        let mut metadata = metadata::collect(&self.base_context.daemon.daemon_id);
 
         metadata.insert(
             "io_provider".to_owned(),

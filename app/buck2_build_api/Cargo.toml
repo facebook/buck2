@@ -43,6 +43,7 @@ display_container = { workspace = true }
 dupe = { workspace = true }
 gazebo = { workspace = true }
 remote_execution = { workspace = true }
+rustls = { workspace = true }
 sorted_vector_map = { workspace = true }
 starlark = { workspace = true }
 starlark_map = { workspace = true }
@@ -62,7 +63,7 @@ buck2_event_observer = { workspace = true }
 buck2_events = { workspace = true }
 buck2_execute = { workspace = true }
 buck2_file_watcher = { workspace = true }
-buck2_futures = { workspace = true }
+buck2_fs = { workspace = true }
 buck2_http = { workspace = true }
 buck2_interpreter = { workspace = true }
 buck2_node = { workspace = true }
@@ -70,6 +71,7 @@ buck2_query = { workspace = true }
 buck2_test_api = { workspace = true }
 buck2_util = { workspace = true }
 buck2_wrapper_common = { workspace = true }
+dice_futures = { workspace = true }
 
 [dev-dependencies]
 buck2_certs = { workspace = true }

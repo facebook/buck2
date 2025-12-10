@@ -12,7 +12,6 @@ package com.facebook.buck.util.zip.collect;
 
 import static org.junit.Assert.assertEquals;
 
-import com.facebook.buck.core.exceptions.HumanReadableException;
 import com.facebook.buck.testutil.integration.TestDataHelper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -41,7 +40,7 @@ public class ZipEntrySourceCollectionBuilderTest {
     ZipEntrySourceCollectionBuilder builder =
         new ZipEntrySourceCollectionBuilder(ImmutableSet.of(), OnDuplicateEntry.FAIL);
 
-    thrown.expect(HumanReadableException.class);
+    thrown.expect(RuntimeException.class);
     thrown.expectMessage("Duplicate entry \"entry1\" is coming from entry11 and entry12");
 
     builder.addFile("entry1", Paths.get("entry11"));

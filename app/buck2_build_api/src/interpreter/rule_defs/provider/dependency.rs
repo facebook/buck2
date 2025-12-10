@@ -170,9 +170,41 @@ where
     }
 }
 
-/// Dependency type. In Starlark typing it can be represented with `Dependency` global.
+/// Represents a dependency in a build rule. When you declare a dependency attribute using
+/// `attrs.dep()` in your rule definition, accessing that attribute gives you a Dependency object
+/// that provides access to the dependency's providers and metadata.
+///
+/// Key operations:
+/// - Index with `dep[ProviderType]` to access a provider (errors if absent)
+/// - Use `dep.get(ProviderType)` to optionally access a provider (returns None if absent)
+/// - Access the dependency's label with `dep.label`
+/// - Get subtargets with `dep.sub_target("name")`
+///
+/// Example usage in a rule:
+/// ```python
+/// my_library = rule(
+///     impl = my_library_impl,
+///     attrs = {
+///         "deps": attrs.list(attrs.dep()),
+///     },
+/// )
+///
+/// def my_library_impl(ctx):
+///     # Iterate over dependencies
+///     for dep in ctx.attrs.deps:
+///         # Access providers
+///         if dep.get(CxxLibraryInfo):
+///             libs = dep[CxxLibraryInfo].libraries
+///
+///         # Access outputs
+///         outputs = dep[DefaultInfo].default_outputs
+///
+///         # Get the label
+///         dep_target = dep.label.raw_target()
+/// ```
 #[starlark_module]
 fn dependency_methods(builder: &mut MethodsBuilder) {
+    /// The label of this dependency.
     #[starlark(attribute)]
     fn label<'v>(
         this: &Dependency<'v>,
@@ -180,6 +212,7 @@ fn dependency_methods(builder: &mut MethodsBuilder) {
         Ok(this.label)
     }
 
+    /// Returns a list of all providers available from this dependency.
     // TODO(nga): should return provider collection.
     #[starlark(attribute)]
     fn providers<'v>(this: &Dependency) -> starlark::Result<Vec<FrozenValue>> {
@@ -191,10 +224,22 @@ fn dependency_methods(builder: &mut MethodsBuilder) {
             .collect())
     }
 
-    /// Obtain the dependency representing a subtarget. In most cases you will want to use
-    /// `x[DefaultInfo].sub_targets["foo"]` to get the _providers_ of the subtarget, but if you
-    /// need a real `Dependency` type (e.g. for use with `ctx.action.anon_target`) then use
-    /// this method.
+    /// Returns a `Dependency` object of the subtarget of this target.
+    ///
+    /// In most cases, you can also use `dep[DefaultInfo].sub_targets["foo"]` to access subtarget
+    /// providers directly. This method is useful when you need a real `Dependency` object, such
+    /// as when passing to `ctx.actions.anon_target()`.
+    ///
+    /// Example:
+    /// ```python
+    /// def _impl(ctx):
+    ///     for dep in ctx.attrs.deps:
+    ///         # Get the dependency for a subtarget named "shared"
+    ///         shared_dep = dep.sub_target("shared")
+    ///         # Now shared_dep is a Dependency you can pass to other APIs
+    ///         # that require a Dependency object
+    ///         ctx.actions.anon_target(my_rule, {"dep": shared_dep})
+    /// ```
     fn sub_target<'v>(
         this: &Dependency<'v>,
         #[starlark(require = pos)] subtarget: &str,
@@ -214,13 +259,27 @@ fn dependency_methods(builder: &mut MethodsBuilder) {
         Ok(Dependency::new(heap, lbl, providers, None))
     }
 
-    /// Gets a provider by indexing on a `ProviderCallable` object.
+    /// Gets a specific provider from this dependency by provider type. Returns None if the
+    /// provider is not present. This is the same as using indexing syntax `dep[ProviderType]`,
+    /// but returns None instead of raising an error when the provider is absent.
     ///
-    /// e.g.
-    /// ```ignore
+    /// Example:
+    /// ```python
     /// FooInfo = provider(fields=["bar"])
-    /// ....
-    /// collection.get(FooInfo) # None if absent, a FooInfo instance if present
+    ///
+    /// def _impl(ctx):
+    ///     for dep in ctx.attrs.deps:
+    ///         # Try to get FooInfo provider, returns None if absent
+    ///         foo_info = dep.get(FooInfo)
+    ///         if foo_info:
+    ///             # Provider exists, use it
+    ///             value = foo_info.bar
+    ///         else:
+    ///             # Provider not available from this dependency
+    ///             pass
+    ///
+    ///         # Compare with indexing (raises error if absent):
+    ///         # foo_info = dep[FooInfo]  # Errors if FooInfo not provided
     /// ```
     fn get<'v>(
         this: &Dependency<'v>,

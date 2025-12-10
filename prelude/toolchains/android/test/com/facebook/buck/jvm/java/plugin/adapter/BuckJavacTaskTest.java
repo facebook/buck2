@@ -12,7 +12,6 @@ package com.facebook.buck.jvm.java.plugin.adapter;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 
-import com.facebook.buck.jvm.java.testutil.compiler.CompilerTreeApiTestRunner;
 import com.facebook.buck.jvm.java.testutil.compiler.TestCompiler;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -22,9 +21,7 @@ import org.hamcrest.Matchers;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
-import org.junit.runner.RunWith;
 
-@RunWith(CompilerTreeApiTestRunner.class)
 public class BuckJavacTaskTest {
   @Rule public TestCompiler testCompiler = new TestCompiler();
 

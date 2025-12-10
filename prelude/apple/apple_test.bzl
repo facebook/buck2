@@ -14,8 +14,8 @@ load("@prelude//apple:apple_library.bzl", "AppleLibraryAdditionalParams", "apple
 load("@prelude//apple:apple_test_device_types.bzl", "AppleTestDeviceType", "get_default_test_device", "tpx_label_for_test_device_type")
 load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolchainInfo")
 load("@prelude//apple:apple_xctest_frameworks_utility.bzl", "get_xctest_frameworks_bundle_parts")
+# @oss-disable[end= ]: load("@prelude//apple/meta_only:apple_test_local_execution.bzl", "local_test_execution_is_available")
 # @oss-disable[end= ]: load("@prelude//apple/meta_only:apple_test_re_capabilities.bzl", "apple_test_re_capabilities")
-# @oss-disable[end= ]: load("@prelude//apple/meta_only:apple_test_re_enabled.bzl", "is_test_execution_on_re_enabled")
 # @oss-disable[end= ]: load("@prelude//apple/meta_only:apple_test_re_use_case.bzl", "apple_test_re_use_case")
 load("@prelude//apple/swift:swift_compilation.bzl", "get_swift_anonymous_targets")
 load("@prelude//apple/swift:swift_helpers.bzl", "uses_explicit_modules")
@@ -48,6 +48,7 @@ load(":apple_dsym.bzl", "DSYM_SUBTARGET", "DWARF_AND_DSYM_SUBTARGET", "EXTENDED_
 load(":apple_entitlements.bzl", "entitlements_link_flags")
 load(":apple_rpaths.bzl", "get_rpath_flags_for_tests")
 load(":apple_sdk.bzl", "get_apple_sdk_name")
+load(":apple_sdk_metadata.bzl", "WatchSimulatorSdkMetadata")
 load(":debug.bzl", "AppleDebuggableInfo")
 load(":xcode.bzl", "apple_populate_xcode_attributes")
 load(":xctest_swift_support.bzl", "XCTestSwiftSupportInfo")
@@ -139,14 +140,14 @@ def apple_test_impl(ctx: AnalysisContext) -> [list[Provider], Promise]:
             if isinstance(p, XCTestSwiftSupportInfo):
                 xctest_swift_support_needed = p.support_needed
             elif isinstance(p, AppleDebuggableInfo):
-                debug_info = project_artifacts(ctx.actions, [p.debug_info_tset])
+                debug_info = project_artifacts(ctx.actions, p.debug_info_tset)
             elif isinstance(p, ValidationInfo):
                 cxx_providers.append(p)
         expect(xctest_swift_support_needed != None, "Expected `XCTestSwiftSupportInfo` provider to be present")
         expect(debug_info != None, "Expected `AppleDebuggableInfo` provider to be present")
 
         bundle_parts = part_list_output.parts
-        if not ctx.attrs.embed_xctest_frameworks_in_test_host_app:
+        if not ctx.attrs.embed_xctest_frameworks_in_test_host_app and get_apple_sdk_name(ctx) != WatchSimulatorSdkMetadata.name:
             # The XCTest frameworks should only be embedded in a single place,
             # either the test host (as per Xcode) or in the test itself
             if test_host_app_bundle != None or read_root_config("apple", "exclude_xctest_libraries", "false").lower() != "true":
@@ -173,6 +174,7 @@ def apple_test_impl(ctx: AnalysisContext) -> [list[Provider], Promise]:
             xctest_bundle,
             bundle_parts,
             part_list_output.codesign_manifest_parts,
+            part_list_output.signing_context_parts,
             part_list_output.info_plist_part,
             swift_stdlib_args,
             # Adhoc signing can be skipped because the test executable is adhoc signed
@@ -254,19 +256,18 @@ def _get_test_info(ctx: AnalysisContext, xctest_bundle: Artifact, test_host_app_
         test_device_type = get_default_test_device(sdk = sdk_name, platform = ctx.attrs.default_target_platform.name)
     labels.append(tpx_label_for_test_device_type(test_device_type))
 
-    remote_execution_properties = None
-    remote_execution_use_case = None
+    remote_execution_properties = None # @oss-enable
+    remote_execution_use_case = None # @oss-enable
 
-    # @oss-disable[end= ]: if is_test_execution_on_re_enabled():
-        # @oss-disable[end= ]: if ctx.attrs.test_re_capabilities:
-            # @oss-disable[end= ]: remote_execution_properties = ctx.attrs.test_re_capabilities
-        # @oss-disable[end= ]: else:
-            # @oss-disable[end= ]: uses_test_host = test_host_app_bundle != None or ui_test_target_app_bundle != None
-            # @oss-disable[end= ]: remote_execution_properties = apple_test_re_capabilities(test_device_type = test_device_type, uses_test_host = uses_test_host)
-        # @oss-disable[end= ]: remote_execution_use_case = ctx.attrs.test_re_use_case or apple_test_re_use_case(test_device_type = test_device_type)
+    # @oss-disable[end= ]: if ctx.attrs.test_re_capabilities:
+        # @oss-disable[end= ]: remote_execution_properties = ctx.attrs.test_re_capabilities
+    # @oss-disable[end= ]: else:
+        # @oss-disable[end= ]: uses_test_host = test_host_app_bundle != None or ui_test_target_app_bundle != None
+        # @oss-disable[end= ]: remote_execution_properties = apple_test_re_capabilities(test_device_type = test_device_type, uses_test_host = uses_test_host)
+    # @oss-disable[end= ]: remote_execution_use_case = ctx.attrs.test_re_use_case or apple_test_re_use_case(test_device_type = test_device_type)
 
-    local_enabled = remote_execution_use_case == None
-    remote_enabled = remote_execution_use_case != None
+    # @oss-disable[end= ]: if local_test_execution_is_available():
+        # @oss-disable[end= ]: labels.append("tpx:apple_test:local_execution_available")
 
     return ExternalRunnerTestInfo(
         type = "custom",  # We inherit a label via the macro layer that overrides this.
@@ -277,9 +278,15 @@ def _get_test_info(ctx: AnalysisContext, xctest_bundle: Artifact, test_host_app_
         run_from_project_root = True,
         contacts = ctx.attrs.contacts,
         executor_overrides = {
-            "ios-simulator": CommandExecutorConfig(
-                local_enabled = local_enabled,
-                remote_enabled = remote_enabled,
+            "ios-simulator-local": CommandExecutorConfig(
+                local_enabled = True,
+                remote_enabled = False,
+                remote_execution_properties = None,
+                remote_execution_use_case = None,
+            ),
+            "ios-simulator-remote": CommandExecutorConfig(
+                local_enabled = False,
+                remote_enabled = True,
                 remote_execution_properties = remote_execution_properties,
                 remote_execution_use_case = remote_execution_use_case,
             ),

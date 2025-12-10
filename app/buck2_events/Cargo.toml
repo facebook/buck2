@@ -12,7 +12,6 @@ derive_more = { workspace = true }
 futures = { workspace = true }
 hostname = { workspace = true }
 is_proc_translated = { workspace = true }
-once_cell = { workspace = true }
 pin-project = { workspace = true }
 serde = { workspace = true }
 smallvec = { workspace = true }

@@ -40,7 +40,6 @@ use starlark::values::none::NoneOr;
 use starlark::values::starlark_value;
 
 use crate::bxl::starlark_defs::context::BxlContext;
-use crate::bxl::starlark_defs::context::BxlContextNoDice;
 use crate::bxl::starlark_defs::file_set::FileSetExpr;
 use crate::bxl::starlark_defs::file_set::StarlarkFileSet;
 use crate::bxl::starlark_defs::query_util::parse_query_evaluation_result;
@@ -84,7 +83,7 @@ impl<'v> AllocValue<'v> for StarlarkCQueryCtx<'v> {
 }
 
 pub(crate) async fn get_cquery_env(
-    ctx: &BxlContextNoDice<'_>,
+    ctx: &BxlContext<'_>,
     global_cfg_options_override: &GlobalCfgOptions,
 ) -> buck2_error::Result<Box<dyn BxlCqueryFunctions>> {
     (NEW_BXL_CQUERY_FUNCTIONS.get()?)(
@@ -105,13 +104,13 @@ async fn unpack_targets<'v>(
         TargetListExpr::<'v, ConfiguredTargetNode>::unpack(
             targets,
             &this.global_cfg_options_override,
-            &this.ctx.data,
+            &this.ctx,
             dice,
         )
         .await?
         .get(dice)
         .await?,
-        &this.ctx.data,
+        &*this.ctx,
     )
 }
 
@@ -142,8 +141,9 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
         from: ConfiguredTargetListExprArg<'v>,
         to: ConfiguredTargetListExprArg<'v>,
         #[starlark(default = NoneOr::None)] filter: NoneOr<&'v str>,
+        eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<StarlarkTargetSet<ConfiguredTargetNode>> {
-        Ok(this.ctx.via_dice(move |dice, ctx| {
+        Ok(this.ctx.via_dice(eval, move |dice| {
             dice.via(|dice| {
                 async move {
                     let filter = filter
@@ -151,7 +151,7 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
                         .try_map(buck2_query_parser::parse_expr)?;
                     let from = unpack_targets(this, dice, from).await?;
                     let to = unpack_targets(this, dice, to).await?;
-                    get_cquery_env(ctx, &this.global_cfg_options_override)
+                    get_cquery_env(&this.ctx, &this.global_cfg_options_override)
                         .await?
                         .allpaths(
                             dice,
@@ -173,8 +173,9 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
         from: ConfiguredTargetListExprArg<'v>,
         to: ConfiguredTargetListExprArg<'v>,
         #[starlark(default = NoneOr::None)] filter: NoneOr<&'v str>,
+        eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<StarlarkTargetSet<ConfiguredTargetNode>> {
-        Ok(this.ctx.via_dice(|dice, ctx| {
+        Ok(this.ctx.via_dice(eval, |dice| {
             dice.via(|dice| {
                 async {
                     let filter = filter
@@ -183,7 +184,7 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
 
                     let from = unpack_targets(this, dice, from).await?;
                     let to = unpack_targets(this, dice, to).await?;
-                    get_cquery_env(ctx, &this.global_cfg_options_override)
+                    get_cquery_env(&this.ctx, &this.global_cfg_options_override)
                         .await?
                         .somepath(
                             dice,
@@ -205,8 +206,9 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
         attr: &str,
         value: &str,
         targets: ConfiguredTargetListExprArg<'v>,
+        eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<StarlarkTargetSet<ConfiguredTargetNode>> {
-        Ok(this.ctx.via_dice(|dice, _| {
+        Ok(this.ctx.via_dice(eval, |dice| {
             dice.via(|dice| {
                 async {
                     unpack_targets(this, dice, targets)
@@ -226,8 +228,9 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
         attr: &str,
         value: &str,
         targets: ConfiguredTargetListExprArg<'v>,
+        eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<StarlarkTargetSet<ConfiguredTargetNode>> {
-        Ok(this.ctx.via_dice(|dice, _| {
+        Ok(this.ctx.via_dice(eval, |dice| {
             dice.via(|dice| {
                 async {
                     unpack_targets(this, dice, targets)
@@ -253,8 +256,9 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
         this: &StarlarkCQueryCtx<'v>,
         regex: &str,
         targets: ConfiguredTargetListExprArg<'v>,
+        eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<StarlarkTargetSet<ConfiguredTargetNode>> {
-        Ok(this.ctx.via_dice(|dice, _| {
+        Ok(this.ctx.via_dice(eval, |dice| {
             dice.via(|dice| {
                 async {
                     unpack_targets(this, dice, targets)
@@ -280,8 +284,9 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
         attribute: &str,
         value: &str,
         targets: ConfiguredTargetListExprArg<'v>,
+        eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<StarlarkTargetSet<ConfiguredTargetNode>> {
-        Ok(this.ctx.via_dice(|dice, _| {
+        Ok(this.ctx.via_dice(eval, |dice| {
             dice.via(|dice| {
                 async {
                     unpack_targets(this, dice, targets)
@@ -309,10 +314,11 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
         this: &StarlarkCQueryCtx<'v>,
         files: FileSetExpr,
         #[starlark(default = NoneOr::None)] universe: NoneOr<ConfiguredTargetListExprArg<'v>>,
+        eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<StarlarkTargetSet<ConfiguredTargetNode>> {
         Ok(this
             .ctx
-            .via_dice(|dice, ctx| {
+            .via_dice(eval, |dice| {
                 dice.via(|dice| {
                     async {
                         let universe = match universe.into_option() {
@@ -320,9 +326,13 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
                             None => None,
                         };
 
-                        get_cquery_env(ctx, &this.global_cfg_options_override)
+                        get_cquery_env(&this.ctx, &this.global_cfg_options_override)
                             .await?
-                            .owner(dice, files.get(ctx).await?.as_ref(), universe.as_ref())
+                            .owner(
+                                dice,
+                                files.get(&this.ctx).await?.as_ref(),
+                                universe.as_ref(),
+                            )
                             .await
                     }
                     .boxed_local()
@@ -344,10 +354,11 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
         universe: ConfiguredTargetListExprArg<'v>,
         #[starlark(default = NoneOr::None)] depth: NoneOr<i32>,
         #[starlark(default = NoneOr::None)] filter: NoneOr<&'v str>,
+        eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<StarlarkTargetSet<ConfiguredTargetNode>> {
         Ok(this
             .ctx
-            .via_dice(|dice, ctx| {
+            .via_dice(eval, |dice| {
                 dice.via(|dice| {
                     async {
                         let filter = filter
@@ -356,7 +367,7 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
 
                         let targets = unpack_targets(this, dice, universe).await?;
 
-                        get_cquery_env(ctx, &this.global_cfg_options_override)
+                        get_cquery_env(&this.ctx, &this.global_cfg_options_override)
                             .await?
                             .deps(
                                 dice,
@@ -384,10 +395,11 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
         this: &StarlarkCQueryCtx<'v>,
         regex: &str,
         targets: ConfiguredTargetListExprArg<'v>,
+        eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<StarlarkTargetSet<ConfiguredTargetNode>> {
         Ok(this
             .ctx
-            .via_dice(|dice, _| {
+            .via_dice(eval, |dice| {
                 dice.via(|dice| {
                     async {
                         unpack_targets(this, dice, targets)
@@ -411,10 +423,11 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
     fn inputs<'v>(
         this: &StarlarkCQueryCtx<'v>,
         targets: ConfiguredTargetListExprArg<'v>,
+        eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<StarlarkFileSet> {
         Ok(this
             .ctx
-            .via_dice(|dice, _| {
+            .via_dice(eval, |dice| {
                 dice.via(|dice| {
                     async { unpack_targets(this, dice, targets).await?.inputs() }.boxed_local()
                 })
@@ -426,14 +439,15 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
     fn testsof<'v>(
         this: &StarlarkCQueryCtx<'v>,
         targets: ConfiguredTargetListExprArg<'v>,
+        eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<StarlarkTargetSet<ConfiguredTargetNode>> {
         Ok(this
             .ctx
-            .via_dice(|dice, ctx| {
+            .via_dice(eval, |dice| {
                 dice.via(|dice| {
                     async {
                         let targets = unpack_targets(this, dice, targets).await?;
-                        get_cquery_env(ctx, &this.global_cfg_options_override)
+                        get_cquery_env(&this.ctx, &this.global_cfg_options_override)
                             .await?
                             .testsof(dice, &targets)
                             .await
@@ -449,20 +463,21 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
     fn testsof_with_default_target_platform<'v>(
         this: &StarlarkCQueryCtx<'v>,
         targets: ConfiguredTargetListExprArg<'v>,
+        eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<StarlarkTargetSet<ConfiguredTargetNode>> {
         Ok(this
             .ctx
-            .via_dice(|dice, ctx| {
+            .via_dice(eval, |dice| {
                 dice.via(|dice| {
                     async {
                         let targets = unpack_targets(this, dice, targets).await?;
                         let maybe_compatibles =
-                            get_cquery_env(ctx, &this.global_cfg_options_override)
+                            get_cquery_env(&this.ctx, &this.global_cfg_options_override)
                                 .await?
                                 .testsof_with_default_target_platform(dice, &targets)
                                 .await?;
 
-                        filter_incompatible(maybe_compatibles, ctx)
+                        filter_incompatible(maybe_compatibles, &*this.ctx)
                     }
                     .boxed_local()
                 })
@@ -484,10 +499,11 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
         from: ConfiguredTargetListExprArg<'v>,
         depth: Option<i32>,
         #[starlark(default = NoneOr::None)] filter: NoneOr<&'v str>,
+        eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<StarlarkTargetSet<ConfiguredTargetNode>> {
         Ok(this
             .ctx
-            .via_dice(|dice, ctx| {
+            .via_dice(eval, |dice| {
                 dice.via(|dice| {
                     async {
                         let filter = filter
@@ -495,7 +511,7 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
                             .try_map(buck2_query_parser::parse_expr)?;
                         let universe = unpack_targets(this, dice, universe).await?;
                         let targets = unpack_targets(this, dice, from).await?;
-                        get_cquery_env(ctx, &this.global_cfg_options_override)
+                        get_cquery_env(&this.ctx, &this.global_cfg_options_override)
                             .await?
                             .rdeps(
                                 dice,
@@ -537,7 +553,9 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
             NoneOr::Other(query_args) => query_args.into_strings(),
         };
 
-        Ok(this.ctx.via_dice(|dice, ctx| {
+        let heap = eval.heap();
+
+        Ok(this.ctx.via_dice(eval, |dice| {
             dice.via(|dice| {
                 async {
                     parse_query_evaluation_result(
@@ -545,7 +563,7 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
                             .get()?
                             .eval_cquery(
                                 dice,
-                                &ctx.working_dir()?,
+                                &this.ctx.working_dir()?,
                                 query,
                                 &query_args,
                                 this.global_cfg_options_override.clone(),
@@ -554,7 +572,7 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
                             )
                             .await?
                             .0,
-                        eval.heap(),
+                        heap,
                     )
                 }
                 .boxed_local()
@@ -574,10 +592,11 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
     fn buildfile<'v>(
         this: &StarlarkCQueryCtx<'v>,
         targets: ConfiguredTargetListExprArg<'v>,
+        eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<StarlarkFileSet> {
         Ok(this
             .ctx
-            .via_dice(|dice, _| {
+            .via_dice(eval, |dice| {
                 dice.via(|dice| {
                     async {
                         let targets = unpack_targets(this, dice, targets).await?;

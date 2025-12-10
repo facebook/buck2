@@ -28,13 +28,10 @@ gwt_binary = prelude_rule(
     attrs = (
         # @unsorted-dict-items
         {
-            "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "deps": attrs.list(attrs.dep(), default = []),
             "draft_compile": attrs.bool(default = False),
             "experimental_args": attrs.list(attrs.string(), default = []),
-            "labels": attrs.list(attrs.string(), default = []),
-            "licenses": attrs.list(attrs.source(), default = []),
             "local_workers": attrs.int(default = 2),
             "module_deps": attrs.list(attrs.dep(), default = []),
             "modules": attrs.list(attrs.string(), default = []),
@@ -42,7 +39,10 @@ gwt_binary = prelude_rule(
             "strict": attrs.bool(default = False),
             "style": attrs.enum(Style, default = "obf"),
             "vm_args": attrs.list(attrs.string(), default = []),
-        }
+        } |
+        buck.licenses_arg() |
+        buck.labels_arg() |
+        buck.contacts_arg()
     ),
 )
 
@@ -58,18 +58,18 @@ jar_genrule = prelude_rule(
             "cacheable": attrs.option(attrs.bool(), default = None),
             "cmd": attrs.option(attrs.arg(), default = None),
             "cmd_exe": attrs.option(attrs.arg(), default = None),
-            "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "enable_sandbox": attrs.option(attrs.bool(), default = None),
             "environment_expansion_separator": attrs.option(attrs.string(), default = None),
-            "labels": attrs.list(attrs.string(), default = []),
             "weight": attrs.option(attrs.int(), default = None),
-            "licenses": attrs.list(attrs.source(), default = []),
             "need_android_tools": attrs.bool(default = False),
             "remote": attrs.option(attrs.bool(), default = None),
             "srcs": attrs.named_set(attrs.source(), sorted = False, default = []),
             "type": attrs.option(attrs.string(), default = None),
-        }
+        } |
+        buck.licenses_arg() |
+        buck.labels_arg() |
+        buck.contacts_arg()
     ),
 )
 
@@ -81,17 +81,17 @@ java_annotation_processor = prelude_rule(
     attrs = (
         # @unsorted-dict-items
         {
-            "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "deps": attrs.list(attrs.dep(), default = []),
             "does_not_affect_abi": attrs.bool(default = False),
             "isolate_class_loader": attrs.bool(default = False),
-            "labels": attrs.list(attrs.string(), default = []),
-            "licenses": attrs.list(attrs.source(), default = []),
             "processor_class": attrs.string(default = ""),
             "supports_abi_generation_from_source": attrs.bool(default = False),
             "runs_on_java_only": attrs.bool(default = False),
-        }
+        } |
+        buck.licenses_arg() |
+        buck.labels_arg() |
+        buck.contacts_arg()
     ),
 )
 
@@ -145,7 +145,6 @@ java_binary = prelude_rule(
 
 
                 ```
-
                 java_binary(
                   name = 'example',
                   blocklist = [
@@ -162,11 +161,9 @@ java_binary = prelude_rule(
                     ':third-party-stuff',
                   ],
                 )
-
                 ```
             """),
             "concat_deps": attrs.bool(default = False, doc = "Use zip concatenation instead of repacking all dependency jars, which is faster"),
-            "contacts": attrs.list(attrs.string(), default = []),
             "default_cxx_platform": attrs.option(attrs.string(), default = None),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "generate_wrapper": attrs.bool(default = False),
@@ -174,12 +171,13 @@ java_binary = prelude_rule(
             "incremental_target_prefix": attrs.option(attrs.string(), default = None),
             "java_version": attrs.option(attrs.string(), default = None, doc = "Expected java version used at compile time"),
             "java_runtime": attrs.option(attrs.string(), default = None, doc = "Expected java version used at runtime"),
-            "labels": attrs.list(attrs.string(), default = []),
-            "licenses": attrs.list(attrs.source(), default = []),
             "proguard_config": attrs.option(attrs.source(), default = None),
             "proguard_jvm_args": attrs.list(attrs.string(), default = []),
             "proguard_library_jars": attrs.list(attrs.source(), default = []),
-        }
+        } |
+        buck.licenses_arg() |
+        buck.labels_arg() |
+        buck.contacts_arg()
     ),
     cfg = constraint_overrides.transition,
 )
@@ -195,7 +193,6 @@ java_library = prelude_rule(
     """,
     examples = """
         ```
-
         # A rule that compiles a single .java file.
         java_library(
           name = 'JsonUtil',
@@ -240,7 +237,6 @@ java_library = prelude_rule(
             '//java/com/facebook/base:base',
           ],
         )
-
         ```
     """,
     further = None,
@@ -298,19 +294,21 @@ java_library = prelude_rule(
         jvm_common.multi_release_jar() |
         jvm_common.javac() |
         jvm_common.content_based_path_for_jar_snapshot() |
+        jvm_common.classic_java_content_based_paths() |
         {
-            "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "jar_postprocessor": attrs.option(attrs.exec_dep(), default = None),
-            "labels": attrs.list(attrs.string(), default = []),
-            "licenses": attrs.list(attrs.source(), default = []),
             "manifest_file": attrs.option(attrs.source(), default = None),
             "maven_coords": attrs.option(attrs.string(), default = None),
             "never_mark_as_unused_dependency": attrs.option(attrs.bool(), default = None),
             "proguard_config": attrs.option(attrs.source(), default = None),
             "runtime_deps": attrs.list(attrs.dep(), default = []),
             "source_abi_verification_mode": attrs.option(attrs.enum(SourceAbiVerificationMode), default = None),
-        } | validation_common.attrs_validators_arg()
+        } |
+        buck.licenses_arg() |
+        buck.labels_arg() |
+        buck.contacts_arg() |
+        validation_common.attrs_validators_arg()
     ),
 )
 
@@ -322,16 +320,16 @@ java_plugin = prelude_rule(
     attrs = (
         # @unsorted-dict-items
         {
-            "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "deps": attrs.list(attrs.dep(), default = []),
             "does_not_affect_abi": attrs.bool(default = False),
             "isolate_class_loader": attrs.bool(default = False),
-            "labels": attrs.list(attrs.string(), default = []),
-            "licenses": attrs.list(attrs.source(), default = []),
             "plugin_name": attrs.string(default = ""),
             "supports_abi_generation_from_source": attrs.bool(default = False),
-        }
+        } |
+        buck.licenses_arg() |
+        buck.labels_arg() |
+        buck.contacts_arg()
     ),
 )
 
@@ -411,7 +409,6 @@ java_test = prelude_rule(
         jvm_common.test_env() |
         {
             "abi_generation_mode": attrs.option(attrs.enum(AbiGenerationMode), default = None),
-            "contacts": attrs.list(attrs.string(), default = []),
             "default_cxx_platform": attrs.option(attrs.string(), default = None),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "deps_query": attrs.option(attrs.query(), default = None),
@@ -421,7 +418,6 @@ java_test = prelude_rule(
             "jar_postprocessor": attrs.option(attrs.exec_dep(), default = None),
             "java_version": attrs.option(attrs.string(), default = None),
             "java": attrs.option(attrs.dep(), default = None),
-            "licenses": attrs.list(attrs.source(), default = []),
             "manifest_file": attrs.option(attrs.source(), default = None),
             "maven_coords": attrs.option(attrs.string(), default = None),
             "never_mark_as_unused_dependency": attrs.option(attrs.bool(), default = None),
@@ -439,8 +435,10 @@ java_test = prelude_rule(
             "test_case_timeout_ms": attrs.option(attrs.int(), default = None),
             "unbundled_resources_root": attrs.option(attrs.source(allow_directory = True), default = None),
             "use_dependency_order_classpath": attrs.option(attrs.bool(), default = None),
-        }
-    ) | jvm_common.annotation_processors() | jvm_common.plugins() | jvm_common.javac() | test_common.attributes() | jvm_common.content_based_path_for_jar_snapshot(),
+        } |
+        buck.licenses_arg() |
+        buck.contacts_arg()
+    ) | jvm_common.annotation_processors() | jvm_common.plugins() | jvm_common.javac() | test_common.attributes() | jvm_common.content_based_path_for_jar_snapshot() | jvm_common.classic_java_content_based_paths(),
 )
 
 java_test_runner = prelude_rule(
@@ -452,15 +450,12 @@ java_test_runner = prelude_rule(
         # @unsorted-dict-items
         {
             "abi_generation_mode": attrs.option(attrs.enum(AbiGenerationMode), default = None),
-            "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "deps": attrs.list(attrs.dep(), default = []),
             "exported_deps": attrs.list(attrs.dep(), default = []),
             "exported_provided_deps": attrs.list(attrs.dep(), default = []),
             "extra_arguments": attrs.list(attrs.string(), default = []),
             "java_version": attrs.option(attrs.string(), default = None),
-            "labels": attrs.list(attrs.string(), default = []),
-            "licenses": attrs.list(attrs.source(), default = []),
             "main_class": attrs.string(default = ""),
             "manifest_file": attrs.option(attrs.source(), default = None),
             "maven_coords": attrs.option(attrs.string(), default = None),
@@ -478,7 +473,13 @@ java_test_runner = prelude_rule(
             "source_only_abi_deps": attrs.list(attrs.dep(), default = []),
             "srcs": attrs.list(attrs.source(), default = []),
             "target": attrs.option(attrs.string(), default = None),
-        } | jvm_common.annotation_processors() | jvm_common.plugins() | jvm_common.javac()
+        } |
+        buck.licenses_arg() |
+        buck.labels_arg() |
+        buck.contacts_arg() |
+        jvm_common.annotation_processors() |
+        jvm_common.plugins() |
+        jvm_common.javac()
     ),
 )
 
@@ -493,7 +494,6 @@ prebuilt_jar = prelude_rule(
     """,
     examples = """
         ```
-
         prebuilt_jar(
           name = 'junit',
           binary_jar = 'junit-4.8.2.jar',
@@ -508,7 +508,6 @@ prebuilt_jar = prelude_rule(
             ':junit',
           ],
         )
-
         ```
     """,
     further = None,
@@ -528,24 +527,22 @@ prebuilt_jar = prelude_rule(
                  `binary_jar`.
             """),
             "deps": attrs.list(attrs.dep(), default = [], doc = """
-                Rules that must be built before this rule. Because the
+                 Rules that must be built before this rule. Because the
                  `binary_jar` is already built, there should be nothing to
                  build, so this should be empty.
             """),
             "desugar_deps": attrs.list(attrs.dep(), default = []),
-            "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "generate_abi": attrs.bool(default = False),
-            "labels": attrs.list(attrs.string(), default = []),
-            "licenses": attrs.list(attrs.source(), default = []),
             "maven_coords": attrs.option(attrs.string(), default = None),
             "never_mark_as_unused_dependency": attrs.bool(default = False),
             "required_for_source_only_abi": attrs.bool(default = False),
-            "uses_content_based_paths": attrs.bool(default = select({
-                # @oss-disable[end= ]: "config//build_mode/constraints:whatsapp": True,
-                "DEFAULT": False,
-            })),
-        } | jvm_common.content_based_path_for_jar_snapshot()
+            "uses_content_based_paths": jvm_common.content_based_path_attr(),
+        } |
+        buck.licenses_arg() |
+        buck.labels_arg() |
+        buck.contacts_arg() |
+        jvm_common.content_based_path_for_jar_snapshot()
     ),
 )
 

@@ -14,6 +14,9 @@ use allocative::Allocative;
 use buck2_build_api::dynamic_value::DynamicValue;
 use starlark::any::ProvidesStaticType;
 use starlark::environment::GlobalsBuilder;
+use starlark::environment::Methods;
+use starlark::environment::MethodsBuilder;
+use starlark::environment::MethodsStatic;
 use starlark::starlark_module;
 use starlark::values::AllocValue;
 use starlark::values::Heap;
@@ -50,6 +53,12 @@ impl<'v> StarlarkValue<'v> for StarlarkDynamicValue {
         };
         Ok(self.dynamic_value == other.dynamic_value)
     }
+
+    // used for docs of `DynamicValue`
+    fn get_methods() -> Option<&'static Methods> {
+        static RES: MethodsStatic = MethodsStatic::new();
+        RES.methods(dynamic_value_methods)
+    }
 }
 
 impl<'v> AllocValue<'v> for StarlarkDynamicValue {
@@ -62,3 +71,46 @@ impl<'v> AllocValue<'v> for StarlarkDynamicValue {
 pub(crate) fn register_dynamic_value(globals: &mut GlobalsBuilder) {
     const DynamicValue: StarlarkValueAsType<StarlarkDynamicValue> = StarlarkValueAsType::new();
 }
+
+/// A value produced by a dynamic action that can be consumed by other dynamic actions.
+///
+/// `DynamicValue` is returned by `ctx.actions.dynamic_output_new()` and represents the
+/// providers that will be produced by executing a dynamic action. It can be passed as
+/// input to other dynamic actions via `dynattrs.dynamic_value()`, enabling chaining of
+/// dynamic actions where one action's output providers are consumed by another.
+///
+/// When a `DynamicValue` is passed to a dynamic action's implementation function, it
+/// is automatically resolved to a `ResolvedDynamicValue` containing the actual providers.
+///
+/// # Usage
+///
+/// ```python
+/// # First dynamic action produces a DynamicValue
+/// def _produce_impl(actions: AnalysisActions):
+///     return [DefaultInfo(), MyInfo(value = 42)]
+///
+/// _produce = dynamic_actions(impl = _produce_impl, attrs = {})
+///
+/// # Get the DynamicValue
+/// dynamic_val = ctx.actions.dynamic_output_new(_produce())
+///
+/// # Second dynamic action consumes the DynamicValue
+/// def _consume_impl(actions: AnalysisActions, v: ResolvedDynamicValue, out: OutputArtifact):
+///     # Access the providers from the resolved value
+///     value = v.providers[MyInfo].value
+///     actions.write(out, str(value))
+///     return [DefaultInfo()]
+///
+/// _consume = dynamic_actions(
+///     impl = _consume_impl,
+///     attrs = {
+///         "v": dynattrs.dynamic_value(),
+///         "out": dynattrs.output(),
+///     },
+/// )
+///
+/// # Pass the DynamicValue to the consuming action
+/// ctx.actions.dynamic_output_new(_consume(v = dynamic_val, out = output.as_output()))
+/// ```
+#[starlark_module]
+fn dynamic_value_methods(builder: &mut MethodsBuilder) {}

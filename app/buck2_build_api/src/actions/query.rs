@@ -25,12 +25,12 @@ use buck2_core::cells::CellResolver;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::content_hash::ContentBasedPathHash;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
-use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::global_cfg_options::GlobalCfgOptions;
 use buck2_core::package::PackageLabel;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_execute::artifact::fs::ExecutorFs;
+use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_node::attrs::configured_attr::ConfiguredAttr;
 use buck2_query::query::environment::QueryTarget;
 use buck2_query::query::graph::node::LabeledNode;
@@ -156,8 +156,6 @@ impl ActionQueryNode {
     }
 
     pub fn new_analysis(target: ConfiguredProvidersLabel, analysis: AnalysisResult) -> Self {
-        let target = Arc::new(target);
-
         Self {
             key: ActionQueryNodeRef::Analysis(target.dupe()),
             data: ActionQueryNodeData::Analysis(AnalysisData { target, analysis }),
@@ -198,7 +196,7 @@ impl LabeledNode for ActionQueryNode {
 #[derive(Derivative, Clone, Dupe)]
 #[derivative(Debug)]
 pub struct AnalysisData {
-    target: Arc<ConfiguredProvidersLabel>,
+    target: ConfiguredProvidersLabel,
     #[derivative(Debug = "ignore")]
     analysis: AnalysisResult,
 }
@@ -212,7 +210,7 @@ impl AnalysisData {
         &self.analysis
     }
 
-    pub fn target(&self) -> &Arc<ConfiguredProvidersLabel> {
+    pub fn target(&self) -> &ConfiguredProvidersLabel {
         &self.target
     }
 }
@@ -248,9 +246,32 @@ impl ActionData {
             },
         );
         attrs.insert(
-            "executor_configuration".to_owned(),
+            "buck.executor_configuration".to_owned(),
             self.action.execution_config().executor.to_string(),
         );
+        attrs.insert(
+            "buck.all_outputs_are_content_based".to_owned(),
+            self.action
+                .action()
+                .all_outputs_are_content_based()
+                .to_string(),
+        );
+        attrs.insert(
+            "buck.all_inputs_are_eligible_for_dedupe".to_owned(),
+            self.action
+                .action()
+                .all_inputs_are_eligible_for_dedupe()
+                .to_string(),
+        );
+
+        let all_ineligible = self.action.action().all_ineligible_for_dedup_inputs();
+        if !all_ineligible.is_empty() {
+            attrs.insert(
+                "buck.all_ineligible_for_dedup_inputs".to_owned(),
+                all_ineligible.join(", "),
+            );
+        }
+
         attrs
     }
 }
@@ -266,7 +287,7 @@ impl ActionData {
     Allocative
 )]
 pub enum ActionQueryNodeRef {
-    Analysis(Arc<ConfiguredProvidersLabel>),
+    Analysis(ConfiguredProvidersLabel),
     Action(ActionKey),
 }
 

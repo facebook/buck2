@@ -38,7 +38,7 @@ pub(crate) enum SysrootConfig {
 ///
 /// `sysroot_src` is the directory that contains the source to std crates:
 /// <https://rust-analyzer.github.io/manual.html#non-cargo-based-projects>
-#[instrument]
+#[instrument(skip_all)]
 pub(crate) fn resolve_buckconfig_sysroot(
     buck: &Buck,
     project_root: &Path,

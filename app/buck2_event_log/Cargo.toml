@@ -32,6 +32,7 @@ buck2_data = { workspace = true }
 buck2_error = { workspace = true }
 buck2_event_observer = { workspace = true }
 buck2_events = { workspace = true }
+buck2_fs = { workspace = true }
 buck2_util = { workspace = true }
 buck2_wrapper_common = { workspace = true }
 

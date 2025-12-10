@@ -258,8 +258,8 @@ JavaPackagingInfo = provider(
 KeystoreInfo = provider(
     # @unsorted-dict-items
     fields = {
-        "store": provider_field(typing.Any, default = None),  # artifact
-        "properties": provider_field(typing.Any, default = None),  # artifact
+        "store": provider_field(Artifact),
+        "properties": provider_field(Artifact),
     },
 )
 
@@ -273,6 +273,7 @@ JavaCompileOutputs = record(
     preprocessed_library = Artifact,
     incremental_state_dir = Artifact | None,
     used_jars_json = Artifact | None,
+    kotlin_classes = Artifact | None,
 )
 
 JavaProviders = record(
@@ -323,7 +324,8 @@ def make_compile_outputs(
         annotation_processor_output: Artifact | None = None,
         incremental_state_dir: Artifact | None = None,
         abi_jar_snapshot: Artifact | None = None,
-        used_jars_json: Artifact | None = None) -> JavaCompileOutputs:
+        used_jars_json: Artifact | None = None,
+        kotlin_classes: Artifact | None = None) -> JavaCompileOutputs:
     expect(classpath_abi != None or classpath_abi_dir == None, "A classpath_abi_dir should only be provided if a classpath_abi is provided!")
     return JavaCompileOutputs(
         full_library = full_library,
@@ -341,6 +343,7 @@ def make_compile_outputs(
         preprocessed_library = preprocessed_library,
         incremental_state_dir = incremental_state_dir,
         used_jars_json = used_jars_json,
+        kotlin_classes = kotlin_classes,
     )
 
 def create_abi(actions: AnalysisActions, class_abi_generator: Dependency, library: Artifact, keepSynthetic: bool = False) -> Artifact:
@@ -348,7 +351,7 @@ def create_abi(actions: AnalysisActions, class_abi_generator: Dependency, librar
     # itself some actions output artifact, so we replace directory
     # separators to get a path that we can uniquely own.
     # TODO(cjhopman): This probably should take in the output path.
-    class_abi = actions.declare_output("{}-class-abi.jar".format(library.short_path.replace("/", "_")), uses_experimental_content_based_path_hashing = True)
+    class_abi = actions.declare_output("{}-class-abi.jar".format(library.short_path.replace("/", "_")), has_content_based_path = True)
     cmd = [
         class_abi_generator[RunInfo],
         library,
@@ -382,7 +385,7 @@ def generate_java_classpath_snapshot(
             identifier,
             "cl" if ClasspathSnapshotGranularity("CLASS_LEVEL") == granularity else "cml",
         ),
-        uses_experimental_content_based_path_hashing = uses_content_based_path,
+        has_content_based_path = uses_content_based_path,
     )
     actions.run(
         [

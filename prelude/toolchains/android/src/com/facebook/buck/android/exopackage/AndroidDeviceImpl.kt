@@ -22,6 +22,7 @@ import java.nio.file.Path
 import java.nio.file.Paths
 import java.nio.file.StandardCopyOption
 import java.util.Optional
+import java.util.UUID
 import java.util.regex.Pattern
 import kotlin.system.measureTimeMillis
 
@@ -37,17 +38,29 @@ class AndroidDeviceImpl(val serial: String, val adbUtils: AdbUtils) : AndroidDev
     val elapsed = measureTimeMillis {
       if (verifyTempWritable) {
         try {
-          executeAdbShellCommand("echo exo > /data/local/tmp/buck-experiment")
-          executeAdbShellCommand("rm /data/local/tmp/buck-experiment")
+          val uniqueFileName = "buck-experiment-${UUID.randomUUID()}"
+          executeAdbShellCommand("echo exo > /data/local/tmp/$uniqueFileName")
+          executeAdbShellCommand("rm /data/local/tmp/$uniqueFileName")
         } catch (e: AdbCommandFailedException) {
           // TODO: we should check for specific failure here
           LOG.error("Failed to write to /data/local/tmp: ${e.message}")
           throw AndroidInstallException.tempFolderNotWritable()
         }
       }
-      // TODO consider using --fastdeploy after intaller is stable
+
+      val installArgs = buildString {
+        append("-r -d")
+        // --fastdeploy has a bug, it hides INSTALL_FAILED_UPDATE_INCOMPATIBLE error when there is a
+        // mismatch between the apk on the device and the one being installed. The operation will
+        // appear as successful without the apk being updated.
+        // https://issuetracker.google.com/231040652
+        // if (shouldUseFastDeploy()) append(" --fastdeploy")
+
+        if (stagedInstallMode) append(" --staged")
+      }
+
       executeAdbCommandCatching(
-          "install -r -d${if (stagedInstallMode) " --staged" else ""} ${apk.absolutePath}",
+          "install $installArgs ${apk.absolutePath}",
           "Failed to install ${apk.name}.",
       )
     }
@@ -56,22 +69,42 @@ class AndroidDeviceImpl(val serial: String, val adbUtils: AdbUtils) : AndroidDev
     return true
   }
 
-  override fun installApexOnDevice(apex: File, quiet: Boolean): Boolean {
-    var softRebootAvailable: Boolean
-    val elapsed = measureTimeMillis {
-      try {
-        executeAdbCommand("root")
-        // Root kills adbd, and sometimes, it takes a while for it to come back
-        for (i in 1..3) {
-          if (executeAdbShellCommand("whoami").equals("root")) {
-            break
-          }
-          sleep(1000)
+  private fun shouldUseFastDeploy(): Boolean {
+    val sdkVersion =
+        try {
+          getProperty("ro.build.version.sdk").toInt()
+        } catch (e: Exception) {
+          LOG.warn("Unable to determine SDK version, defaulting to legacy install: ${e.message}")
+          -1
         }
 
-        softRebootAvailable =
-            executeAdbShellCommand("pm", ignoreFailure = true).contains("force-non-staged")
-        LOG.info("Soft reboot available: $softRebootAvailable")
+    return sdkVersion >= MIN_SDK_VERSION_FOR_FASTDEPLOY
+  }
+
+  override fun prepareForApexInstallation(): Boolean {
+    executeAdbCommand("root")
+    // Root kills adbd, and sometimes, it takes a while for it to come back
+    for (i in 1..3) {
+      if (executeAdbShellCommand("whoami").equals("root")) {
+        break
+      }
+      sleep(1000)
+    }
+
+    val softRebootAvailable =
+        executeAdbShellCommand("pm", ignoreFailure = true).contains("force-non-staged")
+    LOG.info("Soft reboot available: $softRebootAvailable")
+    return softRebootAvailable
+  }
+
+  override fun installApexOnDevice(
+      apex: File,
+      quiet: Boolean,
+      restart: Boolean,
+      softRebootAvailable: Boolean,
+  ): Boolean {
+    val elapsed = measureTimeMillis {
+      try {
         val installArgs = "--apex ${if (softRebootAvailable) "--force-non-staged" else ""}".trim()
         executeAdbCommand("install $installArgs ${apex.absolutePath}")
       } catch (e: AdbCommandFailedException) {
@@ -116,18 +149,61 @@ class AndroidDeviceImpl(val serial: String, val adbUtils: AdbUtils) : AndroidDev
         )
       }
 
-      try {
-        executeAdbShellCommand("stop")
-        executeAdbShellCommand("start")
-      } catch (e: AdbCommandFailedException) {
-        throw AndroidInstallException.rebootRequired(
-            "Failed to stop+start shell; ${apex.name} was installed successfully but device will be in an unknown state until you run 'adb reboot'"
-        )
+      if (restart) {
+        try {
+          executeAdbShellCommand("stop")
+          executeAdbShellCommand("start")
+
+          // Wait for device to be fully ready after soft reboot
+          waitForBootComplete()
+          waitForPackageManagerReady()
+        } catch (e: AdbCommandFailedException) {
+          throw AndroidInstallException.rebootRequired(
+              "Failed to stop+start shell; ${apex.name} was installed successfully but device will be in an unknown state until you run 'adb reboot'"
+          )
+        }
       }
     }
     val kbps = (apex.length() / 1024.0) / (elapsed / 1000.0)
     LOG.info("Installed ${apex.name} (${apex.length()} bytes) in ${elapsed/1000.0} s ($kbps kB/s)")
     return true
+  }
+
+  private fun waitForBootComplete() {
+    val timeout = 30000 // 30 seconds
+    val startTime = System.currentTimeMillis()
+
+    while (System.currentTimeMillis() - startTime < timeout) {
+      val bootStatus =
+          executeAdbShellCommand("getprop sys.boot_completed", ignoreFailure = true).trim()
+      if (bootStatus == "1") {
+        LOG.info("Boot completed after soft reboot")
+        return
+      }
+      sleep(100)
+    }
+
+    throw AndroidInstallException.rebootRequired(
+        "Device did not complete boot after soft reboot within timeout"
+    )
+  }
+
+  private fun waitForPackageManagerReady() {
+    val timeout = 10000 // 10 seconds
+    val startTime = System.currentTimeMillis()
+
+    while (System.currentTimeMillis() - startTime < timeout) {
+      val pmOutput = executeAdbShellCommand("pm", ignoreFailure = true)
+      if (pmOutput.isNotEmpty() && !pmOutput.contains("Can't find service")) {
+        LOG.info("Package manager service ready")
+        return
+      }
+      sleep(100)
+    }
+
+    throw AndroidInstallException.rebootRequired(
+        "Package manager service did not become ready within timeout"
+    )
   }
 
   override fun stopPackage(packageName: String) {
@@ -345,6 +421,12 @@ class AndroidDeviceImpl(val serial: String, val adbUtils: AdbUtils) : AndroidDev
     return true
   }
 
+  override fun enableAppLinks(packageName: String?) {
+    if (packageName != null) {
+      executeAdbShellCommand("pm set-app-links --package $packageName 1 all")
+    }
+  }
+
   override fun getInstallerMethodName(): String = "adb_installer"
 
   override fun getDiskSpace(): List<String> {
@@ -367,7 +449,15 @@ class AndroidDeviceImpl(val serial: String, val adbUtils: AdbUtils) : AndroidDev
   }
 
   private fun getState(): String {
-    return adbUtils.executeAdbCommand("get-state", serialNumber)
+    return try {
+      adbUtils.executeAdbCommand("get-state", serialNumber)
+    } catch (e: AdbCommandFailedException) {
+      // When a device is offline, adb get-state fails with exit code 1.
+      // Return "offline" to indicate the device state instead of throwing an exception.
+      // This allows the installer to continue with other available devices.
+      LOG.warn("Failed to get state for device $serialNumber: ${e.message}")
+      "offline"
+    }
   }
 
   /**
@@ -434,5 +524,9 @@ class AndroidDeviceImpl(val serial: String, val adbUtils: AdbUtils) : AndroidDev
   companion object {
     private val LINE_ENDING: Pattern = Pattern.compile("\r?\n")
     private val LOG: Logger = Logger.get(AndroidDeviceImpl::class.java.name)
+
+    // --fastdeploy is only supported on Android 10+ (API 29+)
+    // https://developer.android.com/tools/releases/platform-tools#2905_october_2019
+    private const val MIN_SDK_VERSION_FOR_FASTDEPLOY = 29
   }
 }

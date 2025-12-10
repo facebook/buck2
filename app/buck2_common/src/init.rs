@@ -22,6 +22,8 @@ use serde::Serialize;
 use crate::legacy_configs::configs::LegacyBuckConfig;
 use crate::legacy_configs::key::BuckconfigKeyRef;
 
+pub const DEFAULT_RETAINED_EVENT_LOGS: usize = 12;
+
 /// Helper enum to categorize the kind of timeout we get from the startup config.
 #[derive(Clone, Debug)]
 pub enum Timeout {
@@ -213,57 +215,57 @@ impl SystemWarningConfig {
     }
 }
 
-#[derive(
-    Allocative,
-    Clone,
-    Debug,
-    Default,
-    Serialize,
-    Deserialize,
-    PartialEq,
-    Eq
-)]
+#[derive(Allocative, Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct ResourceControlConfig {
     /// A config to determine if the resource control should be activated or not.
     /// The corresponding buckconfig is `buck2_resource_control.status` that can take
     /// one of `{off | if_available | required}`.
     pub status: ResourceControlStatus,
-    /// A memory threshold that buck2 daemon and workers are allowed to allocate. The units
-    /// like `M` and `G` may be used (e.g. 64G,) or also `%` is accepted in this field (e.g. 90%.)
-    /// The percentage is relative to the closest ancestor cgroup with memory.max set, or physical memory if none exists.
-    /// The behavior when the combined amount of memory usage of the daemon and workers exceeds this
-    /// is that all the processes are killed by OOMKiller.
+    /// Maximum allowed memory usage for all work buck2 manages.
+    ///
+    /// Accepts either a number of bytes or a percentage of the available resources.
+    ///
     /// The corresponding buckconfig is `buck2_resource_control.memory_max`.
     pub memory_max: Option<String>,
-    /// Memory threshold that buck2 daemon and workers can reach before getting throttled. can take in
-    /// the same units as `memory_max`. Processes won't be OOM killed if this threshold is exceeded, but
-    /// will be throttled to keep memory under control.
+    /// Like `memory_max`, but controls cgroupv2's `memory.high`
+    ///
     /// The corresponding buckconfig is `buck2_resource_control.memory_high`.
     pub memory_high: Option<String>,
     /// A memory threshold that any action is allowed to allocate.
     pub memory_max_per_action: Option<String>,
     /// A memory threshold that any action is allowed to reach before being throttled.
     pub memory_high_per_action: Option<String>,
-    /// If provided and above the threshold, hybrid executor will stop scheduling local actions.
-    /// The corresponding buckconfig is `buck2_resource_control.hybrid_execution_memory_limit_gibibytes`.
-    pub hybrid_execution_memory_limit_gibibytes: Option<u64>,
-    /// Enable cgroup pool for action processes instead of using systemd scopes.
-    /// The corresponding buckconfig is `buck2_resource_control.enable_action_cgroup_pool`.
-    /// By default, it is false.
-    pub enable_action_cgroup_pool: Option<bool>,
     /// Memory high limit for action cgroup pool. Used when enable_action_cgroup_pool is true.
     /// The corresponding buckconfig is `buck2_resource_control.memory_high_action_cgroup_pool`.
     /// Mainly for testing purpose.
     pub memory_high_action_cgroup_pool: Option<String>,
-    /// It is valid only when `enable_action_cgroup_pool` is true.
-    /// It is used to set the capacity of the cgroup pool. it is not the hard limit of the cgroup.
-    /// When not provided, it is set to the number of logical cores.
-    pub cgroup_pool_size: Option<u64>,
     /// If provided and above the threshold, the cgroups will enforce this memory pressure and will freeze/kill actions
     /// to stay under this pressure limit. (Currently only used for logging purposes and doesn't actually do the above)
-    pub memory_pressure_threshold_percent: Option<u64>,
-    /// Enable action freezing when memory pressure is high.
-    pub enable_action_freezing: Option<bool>,
+    pub memory_pressure_threshold_percent: u64,
+    /// Enable suspension when memory pressure is high.
+    pub enable_suspension: bool,
+    pub preferred_action_suspend_strategy: ActionSuspendStrategy,
+}
+
+#[derive(Allocative, Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub enum ActionSuspendStrategy {
+    CgroupFreeze,
+    KillAndRetry,
+}
+
+impl FromStr for ActionSuspendStrategy {
+    type Err = buck2_error::Error;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "kill_and_retry" => Ok(Self::KillAndRetry),
+            "cgroup_freeze" => Ok(Self::CgroupFreeze),
+            _ => Err(buck2_error::buck2_error!(
+                buck2_error::ErrorTag::Input,
+                "Invalid suspend strategy: `{}`",
+                s
+            )),
+        }
+    }
 }
 
 #[derive(
@@ -303,6 +305,12 @@ impl FromStr for ResourceControlStatus {
     }
 }
 
+/// The current version of the resource control algorithm. Say you have some important change to the
+/// algo that fixes a bug. Incrementing this to `N + 1` and setting the
+/// `buck2_resource_control.enable_suspension_if_min_algo_version` buckconfig to `N + 1` enables
+/// suspension only if your bug fix is actually included in the version of buck in use
+const RESOURCE_CONTROL_ALGO_VERSION: u32 = 3;
+
 impl ResourceControlConfig {
     pub fn from_config(config: &LegacyBuckConfig) -> buck2_error::Result<Self> {
         if let Some(env_conf) = buck2_env!(
@@ -334,42 +342,44 @@ impl ResourceControlConfig {
                 section: "buck2_resource_control",
                 property: "memory_high_per_action",
             })?;
-            let hybrid_execution_memory_limit_gibibytes = config.parse(BuckconfigKeyRef {
-                section: "buck2_resource_control",
-                property: "hybrid_execution_memory_limit_gibibytes",
-            })?;
-            let enable_action_cgroup_pool = config.parse(BuckconfigKeyRef {
-                section: "buck2_resource_control",
-                property: "enable_action_cgroup_pool",
-            })?;
             let memory_high_action_cgroup_pool = config.parse(BuckconfigKeyRef {
                 section: "buck2_resource_control",
                 property: "memory_high_action_cgroup_pool",
             })?;
-            let cgroup_pool_size = config.parse(BuckconfigKeyRef {
+            let memory_pressure_threshold_percent = config
+                .parse(BuckconfigKeyRef {
+                    section: "buck2_resource_control",
+                    property: "memory_pressure_threshold_percent",
+                })?
+                .unwrap_or(10);
+            let enable_suspension = config.parse(BuckconfigKeyRef {
                 section: "buck2_resource_control",
-                property: "cgroup_pool_size",
+                property: "enable_suspension",
             })?;
-            let memory_pressure_threshold_percent = config.parse(BuckconfigKeyRef {
-                section: "buck2_resource_control",
-                property: "memory_pressure_threshold_percent",
-            })?;
-            let enable_action_freezing = config.parse(BuckconfigKeyRef {
-                section: "buck2_resource_control",
-                property: "enable_action_freezing",
-            })?;
+            let enable_suspension_if_min_algo_version: Option<u32> =
+                config.parse(BuckconfigKeyRef {
+                    section: "buck2_resource_control",
+                    property: "enable_suspension_if_min_algo_version",
+                })?;
+            let enable_suspension = enable_suspension.unwrap_or(false)
+                || enable_suspension_if_min_algo_version
+                    .is_some_and(|min_version| RESOURCE_CONTROL_ALGO_VERSION >= min_version);
+            let preferred_action_suspend_strategy = config
+                .parse(BuckconfigKeyRef {
+                    section: "buck2_resource_control",
+                    property: "preferred_action_suspend_strategy",
+                })?
+                .unwrap_or(ActionSuspendStrategy::KillAndRetry);
             Ok(Self {
                 status,
                 memory_max,
                 memory_high,
                 memory_max_per_action,
                 memory_high_per_action,
-                hybrid_execution_memory_limit_gibibytes,
-                enable_action_cgroup_pool,
                 memory_high_action_cgroup_pool,
-                cgroup_pool_size,
                 memory_pressure_threshold_percent,
-                enable_action_freezing,
+                enable_suspension,
+                preferred_action_suspend_strategy,
             })
         }
     }
@@ -446,6 +456,7 @@ pub struct DaemonStartupConfig {
     pub resource_control: ResourceControlConfig,
     pub log_download_method: LogDownloadMethod,
     pub health_check_config: HealthCheckConfig,
+    pub retained_event_logs: usize,
 }
 
 impl DaemonStartupConfig {
@@ -521,6 +532,13 @@ impl DaemonStartupConfig {
             resource_control: ResourceControlConfig::from_config(config)?,
             log_download_method,
             health_check_config: HealthCheckConfig::from_config(config)?,
+            retained_event_logs: config
+                .get(BuckconfigKeyRef {
+                    section: "buck2",
+                    property: "retained_event_logs",
+                })
+                .and_then(|s| s.parse::<usize>().ok())
+                .unwrap_or(DEFAULT_RETAINED_EVENT_LOGS),
         })
     }
 
@@ -541,13 +559,15 @@ impl DaemonStartupConfig {
             paranoid: false,
             materializations: None,
             http: HttpConfig::default(),
-            resource_control: ResourceControlConfig::default(),
+            resource_control: ResourceControlConfig::from_config(&LegacyBuckConfig::empty())
+                .unwrap(),
             log_download_method: if cfg!(fbcode_build) {
                 LogDownloadMethod::Manifold
             } else {
                 LogDownloadMethod::None
             },
             health_check_config: HealthCheckConfig::default(),
+            retained_event_logs: DEFAULT_RETAINED_EVENT_LOGS,
         }
     }
 }

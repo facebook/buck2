@@ -8,10 +8,8 @@
  * above-listed licenses.
  */
 
+use buck2_client_ctx::common::profiling::BuckProfileMode;
 use buck2_client_ctx::path_arg::PathArg;
-
-use crate::commands::profile::BuckProfileMode;
-use crate::commands::profile::profile_mode_to_profile;
 
 /// Starlark profiling options
 #[derive(Debug, Clone, clap::Parser)]
@@ -32,6 +30,6 @@ pub(crate) struct QueryProfileOptions {
 
 impl QueryProfileOptions {
     pub(crate) fn profile_mode_proto(&self) -> Option<buck2_cli_proto::ProfileMode> {
-        self.profile_mode.map(profile_mode_to_profile)
+        self.profile_mode.map(|v| v.to_proto())
     }
 }

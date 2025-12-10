@@ -18,7 +18,6 @@ use buck2_client_ctx::daemon::client::BuckdLifecycleLock;
 use buck2_client_ctx::events_ctx::EventsCtx;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::startup_deadline::StartupDeadline;
-use buck2_error::BuckErrorContext;
 
 /// Kill the buck daemon.
 ///
@@ -48,8 +47,7 @@ impl BuckSubcommand for KillCommand {
             daemon_dir.clone(),
             StartupDeadline::duration_from_now(Duration::from_secs(10))?,
         )
-        .await
-        .with_buck_error_context(|| "Error locking buckd lifecycle.lock")?;
+        .await?;
 
         buck2_client_ctx::daemon::client::kill::kill_command_impl(
             &lifecycle_lock,

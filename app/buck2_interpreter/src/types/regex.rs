@@ -90,6 +90,27 @@ fn regex_methods(builder: &mut MethodsBuilder) {
     ) -> starlark::Result<bool> {
         Ok(this.is_match(str)?)
     }
+
+    /// Replace all matches of the regex in the given string with the replacement string.
+    /// Takes the following parameters:
+    /// * haystack - The string you will be regex matching against
+    /// * replacement - The replacement string to replace the regex matches with
+    ///
+    /// Returns a new string with all regex matches replaced.
+    ///
+    /// Sample usage:
+    /// ```pytyon
+    /// regex_pattern = regex(r"foo")
+    /// result = regex_pattern.replace_all("foo bar foo", "baz")
+    /// ```
+    /// `result` equals `"baz bar baz"` in this example
+    fn r#replace_all(
+        this: &StarlarkBuckRegex,
+        #[starlark(require = pos)] haystack: &str,
+        #[starlark(require = pos)] replacement: &str,
+    ) -> starlark::Result<String> {
+        Ok(this.replace_all(haystack, replacement).into_owned())
+    }
 }
 
 #[starlark_module]
@@ -170,5 +191,35 @@ str(regex("foo")) == 'regex("foo")'
         a.globals_add(register_buck_regex);
         a.is_true("isinstance(regex('foo'), regex)");
         a.is_false("isinstance(1, regex)");
+    }
+
+    #[test]
+    fn test_replace_all() {
+        let mut a = Assert::new();
+        a.globals_add(register_buck_regex);
+
+        // Simple replacement
+        a.eq(
+            r#"regex("foo").replace_all("foo bar foo", "baz")"#,
+            r#""baz bar baz""#,
+        );
+
+        // No match, should return original string
+        a.eq(
+            r#"regex("qux").replace_all("foo bar foo", "baz")"#,
+            r#""foo bar foo""#,
+        );
+
+        // Replacement with capture group
+        a.eq(
+            r#"regex("f(o+)").replace_all("foo foo", "b$1")"#,
+            r#""boo boo""#,
+        );
+
+        // Fancy regex replacement
+        a.eq(
+            r#"regex("(?<=a)b", fancy=True).replace_all("ab ac ab", "X")"#,
+            r#""aX ac aX""#,
+        );
     }
 }

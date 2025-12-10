@@ -19,7 +19,6 @@ use std::sync::Arc;
 use allocative::Allocative;
 use buck2_build_api::configure_targets::load_compatible_patterns_with_modifiers;
 use buck2_common::dice::data::HasIoProvider;
-use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::global_cfg_options::GlobalCfgOptions;
 use buck2_core::pattern::pattern::ModifiersError;
@@ -33,6 +32,7 @@ use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_core::target::label::label::TargetLabel;
 use buck2_error::BuckErrorContext;
 use buck2_error::conversion::from_any_with_tag;
+use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_interpreter::types::configured_providers_label::StarlarkProvidersLabel;
 use buck2_interpreter::types::target_label::StarlarkConfiguredTargetLabel;
 use buck2_interpreter::types::target_label::StarlarkTargetLabel;
@@ -753,15 +753,17 @@ impl CliArgType {
                             &ctx.cell_resolver,
                             &ctx.cell_alias_resolver,
                         )?;
-                    let loaded = load_compatible_patterns_with_modifiers(
+                    let result = load_compatible_patterns_with_modifiers(
                         &mut ctx.dice.clone(),
                         vec![pattern_with_modifiers],
                         &ctx.global_cfg_options,
                         MissingTargetBehavior::Fail,
+                        false,
                     )
                     .await?;
                     Some(CliArgValue::List(
-                        loaded
+                        result
+                            .compatible_targets
                             .iter()
                             .map(|t| CliArgValue::ConfiguredTargetLabel(t.label().dupe()))
                             .collect(),

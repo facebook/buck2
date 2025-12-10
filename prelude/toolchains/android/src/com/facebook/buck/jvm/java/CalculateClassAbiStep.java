@@ -12,7 +12,6 @@ package com.facebook.buck.jvm.java;
 
 import com.facebook.buck.cd.model.java.AbiGenerationMode;
 import com.facebook.buck.core.build.execution.context.IsolatedExecutionContext;
-import com.facebook.buck.core.exceptions.HumanReadableException;
 import com.facebook.buck.core.filesystems.AbsPath;
 import com.facebook.buck.core.filesystems.RelPath;
 import com.facebook.buck.io.filesystem.impl.ProjectFilesystemUtils;
@@ -60,7 +59,7 @@ public class CalculateClassAbiStep implements IsolatedStep {
       }
       stubJar.writeTo(output);
     } catch (IllegalArgumentException e) {
-      throw new HumanReadableException(e, "Failed to calculate ABI for %s.", binaryJar);
+      throw new RuntimeException(String.format("Failed to calculate ABI for %s.", binaryJar), e);
     }
 
     return StepExecutionResults.SUCCESS;

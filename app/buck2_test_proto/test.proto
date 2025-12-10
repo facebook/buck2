@@ -63,6 +63,7 @@ message ConfiguredTarget {
   string configuration = 6;
   string package_project_relative_path = 7;
   bool test_config_unification_rollout = 8;
+  optional string package_oncall = 9;
 }
 
 enum TestStatus {
@@ -77,6 +78,7 @@ enum TestStatus {
   RERUN = 8;
   LISTING_SUCCESS = 9;
   LISTING_FAILED = 10;
+  INFRA_FAILURE = 11;
 }
 
 message TestResult {

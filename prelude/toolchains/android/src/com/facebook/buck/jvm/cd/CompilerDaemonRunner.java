@@ -12,15 +12,11 @@ package com.facebook.buck.jvm.cd;
 
 import com.facebook.buck.core.build.execution.context.IsolatedExecutionContext;
 import com.facebook.buck.jvm.cd.workertool.MainUtils;
-import com.facebook.buck.jvm.cd.workertool.StepExecutionUtils;
 import com.facebook.buck.step.StepExecutionResult;
 import com.facebook.buck.step.isolatedsteps.IsolatedStep;
 import com.facebook.buck.step.isolatedsteps.IsolatedStepsRunner;
-import com.facebook.buck.util.Ansi;
 import com.facebook.buck.util.ClassLoaderCache;
 import com.facebook.buck.util.Console;
-import com.facebook.buck.util.DefaultProcessExecutor;
-import com.facebook.buck.util.ProcessExecutor;
 import com.facebook.buck.util.Verbosity;
 import com.google.common.collect.ImmutableList;
 import java.io.Closeable;
@@ -38,7 +34,6 @@ public class CompilerDaemonRunner implements Closeable {
   private final OutputStream eventsOutputStream;
   private final ClassLoaderCache classLoaderCache;
   private final Console console;
-  private final ProcessExecutor processExecutor;
 
   private static final List<String> COMPILER_ERRORS =
       List.of(
@@ -56,7 +51,6 @@ public class CompilerDaemonRunner implements Closeable {
     this.eventsOutputStream = eventsOutputStream;
     this.classLoaderCache = new ClassLoaderCache();
     this.console = console;
-    this.processExecutor = new DefaultProcessExecutor(console);
   }
 
   @Override
@@ -70,11 +64,8 @@ public class CompilerDaemonRunner implements Closeable {
 
     public CommandExecutionContext(JvmCDCommand command) {
       this.executionContext =
-          StepExecutionUtils.createExecutionContext(
-              classLoaderCache,
-              processExecutor,
-              console,
-              command.getBuildCommand().getRuleCellRoot());
+          IsolatedExecutionContext.of(
+              classLoaderCache, console, command.getBuildCommand().getRuleCellRoot());
     }
 
     @Override
@@ -95,7 +86,7 @@ public class CompilerDaemonRunner implements Closeable {
   /** Create a new runner, execute a single build command, close it and return */
   public static void run(JvmCDCommand command) throws IOException {
     Verbosity verbosity = getVerbosityForLevel(command.getLoggingLevel());
-    Console console = new Console(verbosity, System.out, System.err, Ansi.withoutTty());
+    Console console = new Console(verbosity, System.out, System.err);
 
     Thread.setDefaultUncaughtExceptionHandler(
         (t, e) -> MainUtils.handleExceptionAndTerminate(t, console, e));

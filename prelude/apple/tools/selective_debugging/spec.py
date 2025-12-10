@@ -11,7 +11,6 @@
 import json
 import re
 from dataclasses import dataclass, field
-from typing import List
 
 
 @dataclass
@@ -46,17 +45,17 @@ class BuildTargetPatternOutputPathMatcher:
 @dataclass
 class Spec:
     spec_path: str
-    include_build_target_patterns: List[BuildTargetPatternOutputPathMatcher] = field(
+    include_build_target_patterns: list[BuildTargetPatternOutputPathMatcher] = field(
         init=False
     )
-    include_regular_expressions: List[re.Pattern[str]] = field(init=False)
-    exclude_build_target_patterns: List[BuildTargetPatternOutputPathMatcher] = field(
+    include_regular_expressions: list[re.Pattern[str]] = field(init=False)
+    exclude_build_target_patterns: list[BuildTargetPatternOutputPathMatcher] = field(
         init=False
     )
-    exclude_regular_expressions: List[re.Pattern[str]] = field(init=False)
+    exclude_regular_expressions: list[re.Pattern[str]] = field(init=False)
 
     def __post_init__(self) -> None:
-        with open(self.spec_path, "r") as f:
+        with open(self.spec_path) as f:
             data = json.load(f)
 
         self.include_build_target_patterns = [
@@ -104,8 +103,8 @@ def _sanitize_regex_pattern(pattern: str) -> str:
 
 def _path_matches_pattern_or_expression(
     debug_file_path: str,
-    patterns: List[BuildTargetPatternOutputPathMatcher],
-    expressions: List[re.Pattern[str]],
+    patterns: list[BuildTargetPatternOutputPathMatcher],
+    expressions: list[re.Pattern[str]],
 ) -> bool:
     for pattern in patterns:
         if pattern.match_path(debug_file_path):

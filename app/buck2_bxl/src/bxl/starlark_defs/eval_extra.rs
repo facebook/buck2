@@ -8,9 +8,8 @@
  * above-listed licenses.
  */
 
-use std::cell::RefCell;
 use std::io::Write;
-use std::rc::Rc;
+use std::sync::Arc;
 
 use buck2_events::dispatch::console_message;
 use starlark::eval::Evaluator;
@@ -30,9 +29,9 @@ enum BxlEvalExtraType {
 /// A tag that is only available when running in Bxl, to guard Bxl
 /// functions from a non-Bxl context.
 #[derive(ProvidesStaticType)]
-pub(crate) struct BxlEvalExtra<'e> {
-    pub(crate) dice: Rc<RefCell<dyn BxlDiceComputations + 'e>>,
-    core: Rc<BxlContextCoreData>,
+pub(crate) struct BxlEvalExtra<'d> {
+    pub(crate) dice: BxlDiceComputations<'d>,
+    pub(crate) core: Arc<BxlContextCoreData>,
     eval_extra_type: BxlEvalExtraType,
 }
 
@@ -43,10 +42,10 @@ pub(crate) enum BxlScopeError {
     UnavailableOutsideBxl,
 }
 
-impl<'e> BxlEvalExtra<'e> {
+impl<'d> BxlEvalExtra<'d> {
     pub(crate) fn new(
-        dice: Rc<RefCell<dyn BxlDiceComputations + 'e>>,
-        core: Rc<BxlContextCoreData>,
+        dice: BxlDiceComputations<'d>,
+        core: Arc<BxlContextCoreData>,
         stream_state: OutputStreamState,
     ) -> Self {
         Self {
@@ -57,8 +56,8 @@ impl<'e> BxlEvalExtra<'e> {
     }
 
     pub(crate) fn new_dynamic(
-        dice: Rc<RefCell<dyn BxlDiceComputations + 'e>>,
-        core: Rc<BxlContextCoreData>,
+        dice: BxlDiceComputations<'d>,
+        core: Arc<BxlContextCoreData>,
     ) -> Self {
         Self {
             dice,
@@ -67,10 +66,7 @@ impl<'e> BxlEvalExtra<'e> {
         }
     }
 
-    pub(crate) fn new_anon(
-        dice: Rc<RefCell<dyn BxlDiceComputations + 'e>>,
-        core: Rc<BxlContextCoreData>,
-    ) -> Self {
+    pub(crate) fn new_anon(dice: BxlDiceComputations<'d>, core: Arc<BxlContextCoreData>) -> Self {
         Self {
             dice,
             core,
@@ -78,22 +74,14 @@ impl<'e> BxlEvalExtra<'e> {
         }
     }
 
-    pub(crate) fn from_context<'v, 'a>(
-        eval: &Evaluator<'v, 'a, 'e>,
-    ) -> buck2_error::Result<&'a BxlEvalExtra<'e>> {
-        let f = || eval.extra?.downcast_ref::<BxlEvalExtra>();
-        f().ok_or_else(|| BxlScopeError::UnavailableOutsideBxl.into())
-    }
-
-    pub(crate) fn via_dice<'a, T>(
-        &'a self,
-        f: impl for<'x> FnOnce(
-            &'x mut dyn BxlDiceComputations,
-            &'a BxlContextCoreData,
-        ) -> buck2_error::Result<T>,
-    ) -> buck2_error::Result<T> {
-        let core = &self.core;
-        f(&mut *self.dice.borrow_mut(), core)
+    pub(crate) fn from_context<'s, 'v, 'a>(
+        eval: &'s mut Evaluator<'v, 'a, 'd>,
+    ) -> buck2_error::Result<&'s mut BxlEvalExtra<'d>> {
+        match &mut eval.extra_mut {
+            Some(extra) => extra.downcast_mut::<BxlEvalExtra>(),
+            None => None,
+        }
+        .ok_or_else(|| BxlScopeError::UnavailableOutsideBxl.into())
     }
 }
 

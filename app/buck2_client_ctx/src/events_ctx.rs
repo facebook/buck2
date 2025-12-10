@@ -18,11 +18,12 @@ use std::time::SystemTime;
 use async_trait::async_trait;
 use buck2_cli_proto::CommandResult;
 use buck2_cli_proto::command_result;
-use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
-use buck2_core::fs::paths::abs_path::AbsPathBuf;
 use buck2_error::BuckErrorContext;
+use buck2_error::ErrorTag;
 use buck2_event_log::stream_value::StreamValue;
 use buck2_events::BuckEvent;
+use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
+use buck2_fs::paths::abs_path::AbsPathBuf;
 use buck2_wrapper_common::invocation_id::TraceId;
 use futures::Future;
 use futures::FutureExt;
@@ -167,7 +168,7 @@ impl<'a> DaemonEventsCtx<'a> {
                 Ok(next) => next,
                 Err(e) => {
                     self.inner.handle_events(events, shutdown).await?;
-                    return Err(e).buck_error_context("Buck daemon event bus encountered an error, the root cause (if available) is displayed above this message.");
+                    return Err(e).buck_error_context("Buck daemon event bus encountered an error, the root cause (if available) is displayed above this message.").tag(ErrorTag::ClientGrpcStream);
                 }
             };
             match next {
@@ -573,7 +574,7 @@ impl EventsCtx {
         async fn finalize(subscriber: &mut dyn EventSubscriber, errors: &mut Vec<String>) {
             let start = Instant::now();
             let res = subscriber.finalize().await;
-            let elapsed = start.elapsed();
+            let elapsed = Instant::now() - start;
             if elapsed > Duration::from_millis(1000) {
                 tracing::warn!("Finalizing \'{}\' took {:?}", subscriber.name(), elapsed);
             } else {

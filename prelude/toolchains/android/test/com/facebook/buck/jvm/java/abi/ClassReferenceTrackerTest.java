@@ -13,7 +13,6 @@ package com.facebook.buck.jvm.java.abi;
 import static org.hamcrest.MatcherAssert.assertThat;
 
 import com.facebook.buck.jvm.java.testutil.compiler.Classes;
-import com.facebook.buck.jvm.java.testutil.compiler.CompilerTreeApiTestRunner;
 import com.facebook.buck.jvm.java.testutil.compiler.TestCompiler;
 import java.io.IOException;
 import java.util.SortedSet;
@@ -21,10 +20,8 @@ import org.hamcrest.Matchers;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
-import org.junit.runner.RunWith;
 import org.objectweb.asm.ClassReader;
 
-@RunWith(CompilerTreeApiTestRunner.class)
 public class ClassReferenceTrackerTest {
   @Rule public TestCompiler testCompiler = new TestCompiler();
   @Rule public TemporaryFolder temp = new TemporaryFolder();

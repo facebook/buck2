@@ -25,6 +25,7 @@ use buck2_core::cells::cell_root_path::CellRootPathBuf;
 use buck2_core::cells::name::CellName;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::target::label::interner::ConcurrentTargetLabelInterner;
+use buck2_interpreter::dice::starlark_provider::StarlarkEvalKind;
 use buck2_interpreter::extra::InterpreterHostArchitecture;
 use buck2_interpreter::extra::InterpreterHostPlatform;
 use buck2_interpreter::factory::StarlarkEvaluatorProvider;
@@ -246,11 +247,12 @@ impl Tester {
         let interpreter = self.interpreter()?;
         let ParseData(ast, _) =
             interpreter.parse(StarlarkPath::LoadFile(path), content.to_owned())??;
-        let provider = StarlarkEvaluatorProvider::passthrough();
+        let provider =
+            StarlarkEvaluatorProvider::passthrough(StarlarkEvalKind::Unknown("testing".into()));
         let mut buckconfigs =
             LegacyConfigsViewForStarlark::new(self.root_config.dupe(), self.root_config.dupe());
 
-        let (_finished_eval, env) = interpreter.eval_module(
+        let env = interpreter.eval_module(
             StarlarkModulePath::LoadFile(path),
             &mut buckconfigs,
             ast,
@@ -293,7 +295,8 @@ impl Tester {
         let interpreter = self.interpreter()?;
         let ParseData(ast, _) =
             interpreter.parse(StarlarkPath::BuildFile(path), content.to_owned())??;
-        let provider = StarlarkEvaluatorProvider::passthrough();
+        let provider =
+            StarlarkEvaluatorProvider::passthrough(StarlarkEvalKind::Unknown("testing".into()));
         let mut buckconfigs =
             LegacyConfigsViewForStarlark::new(self.root_config.dupe(), self.root_config.dupe());
         let (_finished_eval, eval_result_with_stats) = interpreter.eval_build_file(

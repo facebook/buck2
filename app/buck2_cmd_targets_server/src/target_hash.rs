@@ -27,8 +27,6 @@ use buck2_core::global_cfg_options::GlobalCfgOptions;
 use buck2_core::package::PackageLabelWithModifiers;
 use buck2_core::target::configured_or_unconfigured::ConfiguredOrUnconfiguredTargetLabel;
 use buck2_core::target::label::label::TargetLabel;
-use buck2_futures::spawn::DropcancelJoinHandle;
-use buck2_futures::spawn::spawn_dropcancel;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_node::nodes::unconfigured::TargetNode;
 use buck2_query::query::environment::QueryTarget;
@@ -38,6 +36,8 @@ use buck2_query::query::traversal::AsyncNodeLookup;
 use buck2_query::query::traversal::async_depth_first_postorder_traversal;
 use dice::DiceComputations;
 use dice::DiceTransaction;
+use dice_futures::spawn::DropcancelJoinHandle;
+use dice_futures::spawn::spawn_dropcancel;
 use dupe::Dupe;
 use futures::FutureExt;
 use futures::StreamExt;
@@ -218,7 +218,10 @@ impl TargetHashingTargetNode for ConfiguredTargetNode {
         )>,
         global_cfg_options: &GlobalCfgOptions,
     ) -> buck2_error::Result<TargetSet<Self>> {
-        Ok(get_compatible_targets(dice, loaded_targets.into_iter(), global_cfg_options).await?)
+        let result =
+            get_compatible_targets(dice, loaded_targets.into_iter(), global_cfg_options, false)
+                .await?;
+        Ok(result.compatible_targets)
     }
 }
 

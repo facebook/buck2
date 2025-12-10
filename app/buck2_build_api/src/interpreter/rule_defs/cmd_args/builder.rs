@@ -12,10 +12,10 @@ use std::fmt::Debug;
 
 use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_core::content_hash::ContentBasedPathHash;
-use buck2_core::fs::paths::RelativePathBuf;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_execute::artifact::artifact_dyn::ArtifactDyn;
 use buck2_execute::artifact::fs::ExecutorFs;
+use buck2_fs::paths::RelativePathBuf;
 use indexmap::IndexSet;
 
 use crate::interpreter::rule_defs::cmd_args::traits::CommandLineContext;
@@ -150,9 +150,9 @@ mod tests {
     use buck2_core::execution_types::executor_config::PathSeparatorKind;
     use buck2_core::fs::artifact_path_resolver::ArtifactFs;
     use buck2_core::fs::buck_out_path::BuckOutPathResolver;
-    use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
     use buck2_core::fs::project::ProjectRoot;
     use buck2_core::fs::project_rel_path::ProjectRelativePath;
+    use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
     use fxhash::FxHashMap;
 
     use super::*;

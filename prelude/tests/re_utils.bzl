@@ -84,6 +84,7 @@ def get_re_executors_from_props(ctx: AnalysisContext) -> ([CommandExecutorConfig
     local_enabled = re_props_copy.pop("local_enabled", False)
     local_listing_enabled = re_props_copy.pop("local_listing_enabled", False)
     re_resource_units = re_props_copy.pop("resource_units", None)
+    re_listing_resource_units = re_props_copy.pop("listing_resource_units", re_resource_units)
     re_dynamic_image = re_props_copy.pop("remote_execution_dynamic_image", None)
     if re_props_copy:
         unexpected_props = ", ".join(re_props_copy.keys())
@@ -108,7 +109,7 @@ def get_re_executors_from_props(ctx: AnalysisContext) -> ([CommandExecutorConfig
             remote_execution_properties = listing_capabilities,
             remote_execution_use_case = use_case or "tpx-default",
             remote_cache_enabled = remote_cache_enabled,
-            remote_execution_resource_units = re_resource_units,
+            remote_execution_resource_units = re_listing_resource_units,
             remote_execution_dynamic_image = re_dynamic_image,
         )
     return default_executor, {"listing": listing_executor}

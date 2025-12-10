@@ -12,6 +12,10 @@ use std::cell::RefCell;
 
 use allocative::Allocative;
 use starlark::any::ProvidesStaticType;
+use starlark::environment::Methods;
+use starlark::environment::MethodsBuilder;
+use starlark::environment::MethodsStatic;
+use starlark::starlark_module;
 use starlark::values::AllocValue;
 use starlark::values::FrozenValueTyped;
 use starlark::values::Heap;
@@ -43,8 +47,15 @@ pub(crate) struct StarlarkDynamicActions<'v> {
     pub(crate) data: RefCell<Option<StarlarkDynamicActionsData<'v>>>,
 }
 
+// TODO(nero): the type name is not aligan with the registered type `DynamicActions`, fix it.
 #[starlark_value(type = "DynamicAction")]
-impl<'v> StarlarkValue<'v> for StarlarkDynamicActions<'v> {}
+impl<'v> StarlarkValue<'v> for StarlarkDynamicActions<'v> {
+    // Used to add type documentation to the generated documentation
+    fn get_methods() -> Option<&'static Methods> {
+        static RES: MethodsStatic = MethodsStatic::new();
+        RES.methods(dynamic_actions_methods)
+    }
+}
 
 impl<'v> AllocValue<'v> for StarlarkDynamicActions<'v> {
     fn alloc_value(self, heap: &'v Heap) -> Value<'v> {
@@ -53,3 +64,26 @@ impl<'v> AllocValue<'v> for StarlarkDynamicActions<'v> {
         heap.alloc_complex_no_freeze(self)
     }
 }
+
+/// A dynamic action ready to be passed to `ctx.actions.dynamic_output_new()`.
+///
+/// `DynamicActions` represents a deferred computation that will read artifact contents and produce
+/// outputs based on those contents. It is created by calling a `DynamicActionsCallable` (returned
+/// by `dynamic_actions()`) with concrete artifact values.
+///
+/// # Usage
+///
+/// ```python
+/// # `my_dynamic` is a `DynamicActionsCallable` created with `dynamic_actions()`
+/// dynamic_action = my_dynamic(
+///     config = config_file,
+///     out = output.as_output(),
+/// )
+///
+/// # Declare the dynamic action in the build's action graph
+/// ctx.actions.dynamic_output_new(dynamic_action)
+/// ```
+///
+/// See `dynamic_actions()` and `DynamicActionsCallable` for details on creating the factory function.
+#[starlark_module]
+fn dynamic_actions_methods(builder: &mut MethodsBuilder) {}

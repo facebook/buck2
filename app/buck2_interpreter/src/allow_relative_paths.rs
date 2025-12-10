@@ -23,9 +23,9 @@ use buck2_core::cells::CellAliasResolver;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::cell_path_with_allowed_relative_dir::CellPathWithAllowedRelativeDir;
 use buck2_core::cells::paths::CellRelativePathBuf;
-use buck2_futures::cancellation::CancellationContext;
 use dice::DiceComputations;
 use dice::Key;
+use dice_futures::cancellation::CancellationContext;
 
 #[derive(buck2_error::Error, Debug)]
 #[buck2(input)]

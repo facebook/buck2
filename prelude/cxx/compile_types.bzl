@@ -6,6 +6,7 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
+load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxToolchainInfo")
 load(":argsfiles.bzl", "CompileArgsfile", "CompileArgsfiles")
 load(":cxx_toolchain_types.bzl", "CxxObjectFormat", "DepTrackingMode")
 
@@ -105,7 +106,7 @@ CxxSrcCompileCommand = record(
     # Whether to use content-based paths for the outputs of the compilation command.
     uses_experimental_content_based_path_hashing = field(bool),
     # The index store factory to use to generate index store for this source file.
-    index_store_factory = field(typing.Callable | None, None),
+    index_store_factory = field(typing.Callable[[AnalysisActions, Label, typing.Any, CxxToolchainInfo, cmd_args], Artifact | None] | None, None),  # use typing.Any as "self" seems to be not supported
     error_handler = field([typing.Callable, None], None),
 )
 

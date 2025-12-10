@@ -383,6 +383,11 @@ FRAMEWORK_INTRODUCED_VERSIONS = {
         "macosx": (12, 0, 0),
         "watchos": (8, 0, 0),
     },
+    "DeclaredAgeRange": {
+        "iphoneos": (26, 0, 0),
+        "maccatalyst": (26, 0, 0),
+        "macosx": (26, 0, 0),
+    },
     "DeveloperToolsSupport": {
         "appletvos": (14, 0, 0),
         "iphoneos": (14, 0, 0),
@@ -1088,10 +1093,14 @@ FRAMEWORK_INTRODUCED_VERSIONS = {
         "maccatalyst": (13, 0, 0),
         "macosx": (10, 2, 0),
     },
+    "WiFiAware": {
+        "iphoneos": (26, 0, 0),
+    },
     "WidgetKit": {
         "iphoneos": (14, 0, 0),
         "maccatalyst": (14, 0, 0),
         "macosx": (11, 0, 0),
+        "watchos": (9, 0, 0),
     },
     "iAd": {"iphoneos": (4, 0, 0), "maccatalyst": (13, 0, 0)},
     "iTunesLibrary": {"maccatalyst": (14, 0, 0), "macosx": (10, 13, 0)},
@@ -1101,7 +1110,7 @@ FRAMEWORK_INTRODUCED_VERSIONS = {
 
 def _parse_version(version: str) -> (int, int, int):
     result = [0, 0, 0]
-    components = [int(x) for x in version.split(".")]
+    components = [int(x) if x != "0" else 0 for x in version.split(".")]
     for i in range(0, len(components)):
         result[i] = components[i]
     return (result[0], result[1], result[2])

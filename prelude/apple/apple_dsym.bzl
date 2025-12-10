@@ -27,7 +27,6 @@ def get_apple_dsym_ext(ctx: AnalysisContext, executable: [ArgLike, Artifact], de
     cmd = cmd_args(
         [
             dsymutil,
-            "--verify-dwarf={}".format(ctx.attrs._dsymutil_verify_dwarf),
             # Reproducers are not useful, we can reproduce from the action digest.
             "--reproducer=Off",
         ],
@@ -36,16 +35,10 @@ def get_apple_dsym_ext(ctx: AnalysisContext, executable: [ArgLike, Artifact], de
         # So, those object files are needed for dsymutil to be to create the dSYM bundle.
         hidden = debug_info,
     )
-    if ctx.attrs.dsym_uses_parallel_linker:
-        cmd.add("--linker=parallel")
-
-    cmd.add(ctx.attrs._dsymutil_extra_flags)
     cmd.add(
-        [
-            "-o",
-            output.as_output(),
-            executable,
-        ],
+        "-o",
+        output.as_output(),
+        executable,
     )
     ctx.actions.run(cmd, category = "apple_dsym", identifier = action_identifier)
     return output

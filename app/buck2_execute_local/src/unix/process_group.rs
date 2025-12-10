@@ -11,52 +11,75 @@
 use std::os::unix::process::CommandExt;
 use std::process::Command as StdCommand;
 use std::process::ExitStatus;
-use std::process::Stdio;
 use std::time::Duration;
 
 use buck2_common::kill_util::try_terminate_process_gracefully;
 use buck2_error::BuckErrorContext;
+use buck2_resource_control::ActionFreezeEvent;
+use buck2_resource_control::ActionFreezeEventReceiver;
+use buck2_resource_control::cgroup::Cgroup;
+use buck2_resource_control::cgroup::CgroupKindLeaf;
+use buck2_resource_control::cgroup::CgroupMinimal;
+use buck2_resource_control::cgroup::NoMemoryMonitoring;
+use buck2_resource_control::path::CgroupPathBuf;
+use futures::StreamExt;
+use futures::pin_mut;
 use nix::sys::signal;
 use nix::sys::signal::Signal;
 use nix::unistd::Pid;
 use tokio::io;
+use tokio::pin;
 use tokio::process::Child;
 use tokio::process::ChildStderr;
 use tokio::process::ChildStdout;
 use tokio::process::Command;
 
+use crate::process_group::SpawnError;
+
 pub(crate) struct ProcessCommandImpl {
     inner: Command,
+    cgroup: Option<Cgroup<NoMemoryMonitoring, CgroupKindLeaf>>,
 }
 
 impl ProcessCommandImpl {
-    pub(crate) fn new(mut cmd: StdCommand) -> Self {
+    pub(crate) fn new(
+        mut cmd: StdCommand,
+        cgroup: Option<CgroupPathBuf>,
+    ) -> buck2_error::Result<Self> {
         cmd.process_group(0);
-        Self { inner: cmd.into() }
+
+        let cgroup = if let Some(cgroup) = cgroup {
+            let cgroup = CgroupMinimal::try_from_path(cgroup.clone())?.into_leaf()?;
+            cgroup.setup_command(&mut cmd);
+            Some(cgroup)
+        } else {
+            None
+        };
+
+        Ok(Self {
+            inner: cmd.into(),
+            cgroup,
+        })
     }
 
-    pub(crate) fn spawn(&mut self) -> io::Result<Child> {
-        self.inner.spawn()
-    }
-
-    pub(crate) fn stdout(&mut self, stdout: Stdio) {
-        self.inner.stdout(stdout);
-    }
-
-    pub(crate) fn stderr(&mut self, stdout: Stdio) {
-        self.inner.stderr(stdout);
+    #[allow(clippy::result_large_err)]
+    pub(crate) fn spawn(mut self) -> Result<ProcessGroupImpl, (SpawnError, Self)> {
+        match self.inner.spawn() {
+            Ok(inner) => Ok(ProcessGroupImpl {
+                inner,
+                cgroup: self.cgroup,
+            }),
+            Err(e) => Err((e.into(), self)),
+        }
     }
 }
 
 pub(crate) struct ProcessGroupImpl {
     inner: Child,
+    cgroup: Option<Cgroup<NoMemoryMonitoring, CgroupKindLeaf>>,
 }
 
 impl ProcessGroupImpl {
-    pub(crate) fn new(child: Child) -> buck2_error::Result<ProcessGroupImpl> {
-        Ok(ProcessGroupImpl { inner: child })
-    }
-
     pub(crate) fn take_stdout(&mut self) -> Option<ChildStdout> {
         self.inner.stdout.take()
     }
@@ -65,8 +88,40 @@ impl ProcessGroupImpl {
         self.inner.stderr.take()
     }
 
-    pub(crate) async fn wait(&mut self) -> io::Result<ExitStatus> {
-        self.inner.wait().await
+    /// It might seem surprising that we associate the freezing/unfreezing with the lifetime of a
+    /// `wait` future instead of with the lifetime of some higher level thing such as the process,
+    /// the command, the action, etc.
+    ///
+    /// But this is intentional and important; it ensures that we only freeze cgroups while we know
+    /// exactly what's going on in them. Any other choice risks leaving behind frozen cgroups or
+    /// freezing cgroups during critical times like when we're spawning into them or killing them.
+    pub(crate) async fn wait(
+        &mut self,
+        freeze_rx: impl ActionFreezeEventReceiver,
+    ) -> io::Result<ExitStatus> {
+        let child = self.inner.wait();
+        pin!(child);
+        pin_mut!(freeze_rx);
+        let mut freeze_guard = None;
+        loop {
+            tokio::select! {
+                res = &mut child => {
+                    break res;
+                },
+                Some(freeze_op) = freeze_rx.next() => {
+                    match freeze_op {
+                        ActionFreezeEvent::Unfreeze => {
+                            drop(freeze_guard.take());
+                        }
+                        ActionFreezeEvent::Freeze => {
+                            if let Some(cgroup) = self.cgroup.as_ref() {
+                                freeze_guard = cgroup.freeze().ok();
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 
     pub(crate) fn id(&self) -> Option<u32> {

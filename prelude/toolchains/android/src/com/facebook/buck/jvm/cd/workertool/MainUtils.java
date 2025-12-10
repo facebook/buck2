@@ -12,7 +12,6 @@ package com.facebook.buck.jvm.cd.workertool;
 
 import com.facebook.buck.core.util.log.Logger;
 import com.facebook.buck.util.Console;
-import com.facebook.buck.util.ErrorLogger;
 import com.facebook.buck.util.perf.PerfStatsTracking;
 import com.facebook.buck.util.unit.SizeUnit;
 import java.util.concurrent.TimeUnit;
@@ -61,14 +60,11 @@ public class MainUtils {
     Logger logger = Logger.get("");
     logger.cleanHandlers();
 
-    String errorMessage = ErrorLogger.getUserFriendlyMessage(throwable);
     // this method logs the message with log.warn that would be noop as all logger handlers have
     // been cleaned and prints the message into a std err.
-    console.printErrorText(
-        "Failed to execute compilation action. Thread: "
-            + thread
-            + System.lineSeparator()
-            + errorMessage);
+    console.printErrorText("Failed to execute compilation action. Thread: " + thread);
+    throwable.printStackTrace(console.getStdErr());
+
     System.exit(3);
   }
 }

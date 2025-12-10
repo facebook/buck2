@@ -105,11 +105,11 @@ fn truncate_action_execution_end(action_execution_end: &mut buck2_data::ActionEx
 
     let truncate_cmd = |cmd: &mut buck2_data::CommandExecution, truncate_all: bool| {
         if let Some(details) = &mut cmd.details {
-            details.stderr = if truncate_all {
+            details.cmd_stderr = if truncate_all {
                 "<<omitted>>".to_owned()
             } else {
                 truncate(
-                    &console::strip_ansi_codes(&details.stderr),
+                    &console::strip_ansi_codes(&details.cmd_stderr),
                     per_command_size_budget,
                 )
             };
@@ -186,11 +186,11 @@ fn truncate_test_end(test_end: &mut buck2_data::TestRunEnd) {
     // Scribe tailer logs neither stdout nor stderr of tests, so don't send these.
     if let Some(ref mut command_report) = test_end.command_report {
         if let Some(ref mut details) = command_report.details {
-            if !details.stdout.is_empty() {
-                details.stdout = "<<omitted>>".to_owned();
+            if !details.cmd_stdout.is_empty() {
+                details.cmd_stdout = "<<omitted>>".to_owned();
             }
-            if !details.stderr.is_empty() {
-                details.stderr = "<<omitted>>".to_owned();
+            if !details.cmd_stderr.is_empty() {
+                details.cmd_stderr = "<<omitted>>".to_owned();
             }
         }
     }
@@ -200,11 +200,11 @@ fn truncate_test_discovery_end(test_discovery_end: &mut buck2_data::TestDiscover
     // Scribe tailer logs neither stdout nor stderr of test discovery, so don't send these.
     if let Some(ref mut command_report) = test_discovery_end.command_report {
         if let Some(ref mut details) = command_report.details {
-            if !details.stdout.is_empty() {
-                details.stdout = "<<omitted>>".to_owned();
+            if !details.cmd_stdout.is_empty() {
+                details.cmd_stdout = "<<omitted>>".to_owned();
             }
-            if !details.stderr.is_empty() {
-                details.stderr = "<<omitted>>".to_owned();
+            if !details.cmd_stderr.is_empty() {
+                details.cmd_stderr = "<<omitted>>".to_owned();
             }
         }
     }
@@ -285,7 +285,7 @@ mod tests {
     fn make_command_execution_with_stderr(stderr: String) -> buck2_data::CommandExecution {
         buck2_data::CommandExecution {
             details: Some(buck2_data::CommandExecutionDetails {
-                stderr,
+                cmd_stderr: stderr,
                 ..Default::default()
             }),
             ..Default::default()
@@ -668,7 +668,7 @@ mod tests {
     fn make_command_execution_with_stdout(stdout: String) -> buck2_data::CommandExecution {
         buck2_data::CommandExecution {
             details: Some(buck2_data::CommandExecutionDetails {
-                stdout,
+                cmd_stderr: stdout,
                 ..Default::default()
             }),
             ..Default::default()

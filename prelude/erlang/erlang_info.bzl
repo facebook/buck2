@@ -120,6 +120,10 @@ Tools = record(
     _tools_binaries = field(ErlangOTPBinariesInfo),
 )
 
+ErlangErrorHandlers = record(
+    erlc = field(typing.Callable[[ActionErrorCtx], list[ActionSubError]]),
+)
+
 # toolchain provider
 ErlangToolchainInfo = provider(
     # @unsorted-dict-items
@@ -162,6 +166,8 @@ ErlangToolchainInfo = provider(
         "env": provider_field(dict[str, str]),
         # extracted erts from otp
         "erts": provider_field(Artifact),
+        # error handler
+        "error_handler": provider_field(ErlangErrorHandlers),
     },
 )
 

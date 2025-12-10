@@ -11,13 +11,13 @@
 use std::collections::HashMap;
 
 use buck2_common::file_ops::metadata::FileMetadata;
-use buck2_core::fs::fs_util::IoError;
-use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::directory::ActionDirectoryBuilder;
 use buck2_execute::directory::insert_file;
 use buck2_execute::materialize::materializer::DeferredMaterializerSubscription;
+use buck2_fs::fs_util::IoError;
+use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
 
 use super::*;
 
@@ -97,19 +97,20 @@ mod state_machine {
 
     use assert_matches::assert_matches;
     use buck2_common::file_ops::metadata::Symlink;
-    use buck2_core::fs::fs_util;
-    use buck2_core::fs::fs_util::ReadDir;
-    use buck2_core::fs::paths::RelativePathBuf;
-    use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
-    use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
     use buck2_core::fs::project::ProjectRootTemp;
     use buck2_error::BuckErrorContext;
     use buck2_error::buck2_error;
+    use buck2_events::daemon_id::DaemonId;
     use buck2_events::source::ChannelEventSource;
     use buck2_execute::directory::ActionDirectoryEntry;
     use buck2_execute::directory::ActionSharedDirectory;
     use buck2_execute::directory::INTERNER;
     use buck2_execute::execute::blocking::IoRequest;
+    use buck2_fs::fs_util;
+    use buck2_fs::fs_util::ReadDir;
+    use buck2_fs::paths::RelativePathBuf;
+    use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
+    use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
     use buck2_util::threads::ignore_stack_overflow_checks_for_future;
     use buck2_wrapper_common::invocation_id::TraceId;
     use futures::StreamExt;
@@ -444,7 +445,8 @@ mod state_machine {
 
         let (daemon_dispatcher_events, daemon_dispatcher_sink) =
             buck2_events::create_source_sink_pair();
-        let daemon_dispatcher = EventDispatcher::new(TraceId::null(), daemon_dispatcher_sink);
+        let daemon_dispatcher =
+            EventDispatcher::new(TraceId::null(), DaemonId::new(), daemon_dispatcher_sink);
 
         let (command_sender, command_receiver) = channel();
         (
@@ -531,7 +533,6 @@ mod state_machine {
                     num_entries_from_sqlite: 0,
                 },
                 stats: Arc::new(DeferredMaterializerStats::default()),
-                verbose_materializer_log: true,
             },
             handle,
             daemon_dispatcher_events,
@@ -1228,6 +1229,8 @@ mod state_machine {
                 clean_period: std::time::Duration::from_secs(1),
                 artifact_ttl: std::time::Duration::from_secs(0),
                 start_offset: std::time::Duration::from_secs(0),
+                decreased_ttl_hours_disk_threshold: None,
+                decreased_ttl_hours: None,
                 dry_run: true,
             };
             let io = Arc::new(StubIoHandler::new(project_root.dupe()));
@@ -1250,7 +1253,7 @@ mod state_machine {
             };
             // The first clean stale request is scheduled at roughly the same time as materialize_write so we may receive an initial clean event
             // before anything is materialized, if so ignore events until an artifact is found (retained != 0).
-            // It should only be neccesary to wait for a single clean (1 second) but wait for up to 5 just in case.
+            // It should only be necessary to wait for a single clean (1 second) but wait for up to 5 just in case.
             let mut i = 0;
             while i < 5 {
                 let res = receive_clean_result(&mut daemon_dispatcher_events);

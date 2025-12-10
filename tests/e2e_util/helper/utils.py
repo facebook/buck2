@@ -112,3 +112,46 @@ def read_invocation_record(record: Path) -> typing.Dict[str, typing.Any]:
     record = record_json["data"]["Record"]["data"]["InvocationRecord"]
     record["trace_id"] = record_json["trace_id"]
     return record
+
+
+async def get_last_execution_kind(
+    buck: Buck,
+    category: typing.Optional[str] = None,
+    excluded_execution_kinds: typing.Optional[typing.List[int]] = None,
+    target_name: typing.Optional[str] = None,
+) -> typing.Optional[int]:
+    if excluded_execution_kinds is None:
+        excluded_execution_kinds = []
+    action_executions = await filter_events(
+        buck,
+        "Event",
+        "data",
+        "SpanEnd",
+        "data",
+        "ActionExecution",
+    )
+    for action_execution in reversed(action_executions):
+        execution_kind = action_execution.get("execution_kind", None)
+
+        if execution_kind is None or execution_kind in excluded_execution_kinds:
+            continue
+
+        if category is not None:
+            action_category = action_execution.get("name", {}).get("category", None)
+            if action_category != category:
+                continue
+
+        if target_name is not None:
+            action_target_name = (
+                action_execution.get("key", {})
+                .get("owner", {})
+                .get("TargetLabel", {})
+                .get("label", {})
+                .get("name", None)
+            )
+            if action_target_name != target_name:
+                continue
+
+        return execution_kind
+
+    return None

@@ -11,7 +11,7 @@
 
 import asyncio
 from pathlib import Path
-from typing import Optional, Tuple
+from typing import Optional
 
 import pytest
 
@@ -46,7 +46,7 @@ async def test_exit_when_different_state(buck: Buck) -> None:
     # create a coroutine that can return a result
     async def process(
         p: Process[BuildResult, BuckException],
-    ) -> Tuple[Optional[int], str]:
+    ) -> tuple[Optional[int], str]:
         result = await expect_failure(p)
         return (result.process.returncode, result.stderr)
 
@@ -91,7 +91,7 @@ async def test_exit_when_preemptible_always(buck: Buck, same_state: bool) -> Non
     # create a coroutine that can return a result
     async def process(
         p: Process[BuildResult, BuckException],
-    ) -> Tuple[Optional[int], str]:
+    ) -> tuple[Optional[int], str]:
         result = await expect_failure(p)
         return (result.process.returncode, result.stderr)
 
@@ -151,7 +151,7 @@ async def test_exit_when_preemptible_on_different_state(
     # create a coroutine that can return a result
     async def process(
         p: Process[BuildResult, BuckException],
-    ) -> Tuple[Optional[int], str]:
+    ) -> tuple[Optional[int], str]:
         result = await expect_failure(p)
         return (result.process.returncode, result.stderr)
 
@@ -186,7 +186,7 @@ async def test_exit_when_not_idle_does_not_start_when_daemon_busy(
     # create a coroutine that can return a result
     async def process(
         p: Process[BuildResult, BuckException],
-    ) -> Tuple[Optional[int], str]:
+    ) -> tuple[Optional[int], str]:
         result = await expect_failure(p)
         return (result.process.returncode, result.stderr)
 
@@ -240,7 +240,7 @@ async def test_exit_when_not_idle_does_not_gets_preempted(
     # create a coroutine that can return a result
     async def process(
         p: Process[BuildResult, BuckException],
-    ) -> Tuple[Optional[int], str]:
+    ) -> tuple[Optional[int], str]:
         result = await expect_failure(p)
         return (result.process.returncode, result.stderr)
 
@@ -289,7 +289,7 @@ async def test_preemptible_exit_when_not_idle_gets_preempted(
     # create a coroutine that can return a result
     async def process(
         p: Process[BuildResult, BuckException],
-    ) -> Tuple[Optional[int], str]:
+    ) -> tuple[Optional[int], str]:
         result = await expect_failure(p)
         return (result.process.returncode, result.stderr)
 
@@ -348,7 +348,7 @@ async def test_multiple_exit_when_not_idle_commands(
     # create a coroutine that can return a result
     async def process(
         p: Process[BuildResult, BuckException],
-    ) -> Tuple[Optional[int], str]:
+    ) -> tuple[Optional[int], str]:
         result = await expect_failure(p)
         return (result.process.returncode, result.stderr)
 
@@ -402,7 +402,7 @@ async def test_exit_when_not_idle_after_command_exits(
     # create a coroutine that can return a result
     async def process(
         p: Process[BuildResult, BuckException],
-    ) -> Tuple[Optional[int], str]:
+    ) -> tuple[Optional[int], str]:
         result = await p
         return (result.process.returncode, result.stderr)
 

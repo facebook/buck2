@@ -51,14 +51,14 @@ pub trait DepAttrTypeExt {
     ) -> Value<'v>;
 
     fn resolve_single_impl<'v>(
-        ctx: &dyn AttrResolutionContext<'v>,
+        ctx: &mut dyn AttrResolutionContext<'v>,
         target: &ConfiguredProvidersLabel,
         required_providers: &ProviderIdSet,
         is_exec: bool,
     ) -> buck2_error::Result<Value<'v>>;
 
     fn resolve_single<'v>(
-        ctx: &dyn AttrResolutionContext<'v>,
+        ctx: &mut dyn AttrResolutionContext<'v>,
         dep_attr: &DepAttr<ConfiguredProvidersLabel>,
     ) -> buck2_error::Result<Value<'v>>;
 }
@@ -97,7 +97,7 @@ impl DepAttrTypeExt for DepAttrType {
     }
 
     fn resolve_single_impl<'v>(
-        ctx: &dyn AttrResolutionContext<'v>,
+        ctx: &mut dyn AttrResolutionContext<'v>,
         target: &ConfiguredProvidersLabel,
         required_providers: &ProviderIdSet,
         is_exec_dep: bool,
@@ -119,7 +119,7 @@ impl DepAttrTypeExt for DepAttrType {
     }
 
     fn resolve_single<'v>(
-        ctx: &dyn AttrResolutionContext<'v>,
+        ctx: &mut dyn AttrResolutionContext<'v>,
         dep_attr: &DepAttr<ConfiguredProvidersLabel>,
     ) -> buck2_error::Result<Value<'v>> {
         let is_exec = dep_attr.attr_type.transition == DepAttrTransition::Exec;
@@ -134,7 +134,7 @@ impl DepAttrTypeExt for DepAttrType {
 
 pub(crate) trait ExplicitConfiguredDepAttrTypeExt {
     fn resolve_single<'v>(
-        ctx: &dyn AttrResolutionContext<'v>,
+        ctx: &mut dyn AttrResolutionContext<'v>,
         dep_attr: &ConfiguredExplicitConfiguredDep,
     ) -> buck2_error::Result<Value<'v>> {
         DepAttrType::resolve_single_impl(
@@ -150,7 +150,7 @@ impl ExplicitConfiguredDepAttrTypeExt for ExplicitConfiguredDepAttrType {}
 
 pub(crate) trait TransitionDepAttrTypeExt {
     fn resolve_single<'v>(
-        ctx: &dyn AttrResolutionContext<'v>,
+        ctx: &mut dyn AttrResolutionContext<'v>,
         dep_attr: &ConfiguredTransitionDep,
     ) -> buck2_error::Result<Value<'v>> {
         DepAttrType::resolve_single_impl(ctx, &dep_attr.dep, &dep_attr.required_providers, false)

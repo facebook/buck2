@@ -11,7 +11,7 @@
 # the generated docs, and so those should be verified to be accurate and
 # well-formatted (and then delete this TODO)
 
-load(":common.bzl", "prelude_rule")
+load(":common.bzl", "buck", "prelude_rule")
 
 FrameworkVersion = ["net35", "net40", "net45", "net46"]
 
@@ -26,7 +26,6 @@ csharp_library = prelude_rule(
 
 
         ```
-
         csharp_library(
           name = 'simple',
           dll_name = 'Cake.dll',
@@ -47,7 +46,6 @@ csharp_library = prelude_rule(
           name = 'other',
           assembly = 'other-1.0.dll',
         )
-
         ```
     """,
     further = None,
@@ -80,11 +78,11 @@ csharp_library = prelude_rule(
             "compiler_flags": attrs.list(attrs.string(), default = [], doc = """
                 The set of additional compiler flags to pass to the compiler.
             """),
-            "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
-            "labels": attrs.list(attrs.string(), default = []),
-            "licenses": attrs.list(attrs.source(), default = []),
-        }
+        } |
+        buck.licenses_arg() |
+        buck.labels_arg() |
+        buck.contacts_arg()
     ),
 )
 
@@ -96,7 +94,6 @@ prebuilt_dotnet_library = prelude_rule(
     """,
     examples = """
         ```
-
         prebuilt_dotnet_library(
           name = 'log4net',
           assembly = 'log4net.dll',
@@ -113,7 +110,6 @@ prebuilt_dotnet_library = prelude_rule(
             'System.dll',
           ],
         )
-
         ```
     """,
     further = None,
@@ -123,11 +119,11 @@ prebuilt_dotnet_library = prelude_rule(
             "assembly": attrs.source(doc = """
                 The path to the DLL that this rule provides.
             """),
-            "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
-            "labels": attrs.list(attrs.string(), default = []),
-            "licenses": attrs.list(attrs.source(), default = []),
-        }
+        } |
+        buck.licenses_arg() |
+        buck.labels_arg() |
+        buck.contacts_arg()
     ),
 )
 

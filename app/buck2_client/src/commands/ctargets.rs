@@ -41,6 +41,10 @@ pub struct ConfiguredTargetsCommand {
     #[clap(long)]
     skip_missing_targets: bool,
 
+    /// On errors, put buck.error in the output stream and continue
+    #[clap(long)]
+    keep_going: bool,
+
     #[clap(flatten)]
     attributes: CommonAttributeArgs,
 
@@ -90,6 +94,7 @@ impl StreamingCommand for ConfiguredTargetsCommand {
                     skip_missing_targets: self.skip_missing_targets,
                     output_format: output_format as i32,
                     output_attributes: self.attributes.get()?,
+                    keep_going: self.keep_going,
                 },
                 events_ctx,
                 ctx.console_interaction_stream(&self.common_opts.console_opts),

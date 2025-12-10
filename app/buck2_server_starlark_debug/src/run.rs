@@ -47,10 +47,9 @@ pub async fn run_dap_server_command(
     partial_result_dispatcher: PartialResultDispatcher<buck2_cli_proto::DapMessage>,
     req: StreamingRequestHandler<buck2_cli_proto::DapRequest>,
 ) -> buck2_error::Result<buck2_cli_proto::DapResponse> {
-    let start_event = buck2_data::CommandStart {
-        metadata: ctx.request_metadata().await?,
-        data: Some(buck2_data::StarlarkDebugAttachCommandStart {}.into()),
-    };
+    let start_event = ctx
+        .command_start_event(buck2_data::StarlarkDebugAttachCommandStart {}.into())
+        .await?;
     span_async(start_event, async move {
         let result = run_dap_server(ctx, partial_result_dispatcher, req)
             .await

@@ -52,7 +52,7 @@ class AdbUtils(val adb: String, val adbServerPort: Int) {
         LOG.error(error)
         throw AdbCommandFailedException(error)
       } else {
-        LOG.warn(error)
+        LOG.info("ignoreFailure=true: " + error)
         adbCommandResult.output
       }
     } else {

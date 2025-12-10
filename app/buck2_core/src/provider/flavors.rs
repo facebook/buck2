@@ -15,6 +15,7 @@ use regex::RegexSet;
 use crate::provider::label::NonDefaultProvidersName;
 use crate::provider::label::ProviderName;
 use crate::provider::label::ProvidersName;
+use crate::soft_error;
 
 static PLATFORM_REGEX_SET: OnceLock<RegexSet> = OnceLock::new();
 

@@ -10,16 +10,12 @@
 
 package com.facebook.buck.step.isolatedsteps;
 
-import com.facebook.buck.core.exceptions.ExceptionWithContext;
-import com.facebook.buck.core.exceptions.HumanReadableException;
-import com.facebook.buck.core.exceptions.WrapsException;
 import com.facebook.buck.step.StepExecutionResult;
-import com.facebook.buck.util.string.MoreStrings;
 import com.google.common.annotations.VisibleForTesting;
 import java.util.Optional;
 import java.util.OptionalInt;
 
-public class StepFailedException extends Exception implements WrapsException, ExceptionWithContext {
+public class StepFailedException extends Exception {
 
   @VisibleForTesting static final int KEEP_FIRST_CHARS = 4 * 80;
 
@@ -38,7 +34,7 @@ public class StepFailedException extends Exception implements WrapsException, Ex
 
   @Override
   public String getMessage() {
-    return getCause().getMessage() + System.lineSeparator() + "  " + getContext().get();
+    return getCause().getMessage() + System.lineSeparator() + "  " + getContext();
   }
 
   /** Creates a StepFailedException based on a StepExecutionResult. */
@@ -52,32 +48,20 @@ public class StepFailedException extends Exception implements WrapsException, Ex
       errorMessage.append(System.lineSeparator()).append(error);
     }
     return new StepFailedException(
-        getHumanReadableException(executionResult, errorMessage.toString()),
+        getException(executionResult, errorMessage.toString()),
         step,
         descriptionForStep,
         OptionalInt.of(executionResult.getExitCode()));
   }
 
-  private static HumanReadableException getHumanReadableException(
+  private static RuntimeException getException(
       StepExecutionResult executionResult, String errorMessage) {
     Optional<Exception> executionResultCause = executionResult.getCause();
     if (executionResultCause.isPresent()) {
       Exception cause = executionResultCause.get();
-      if (cause instanceof HumanReadableException) {
-        return (HumanReadableException) cause;
-      }
-      return new HumanReadableException(cause, errorMessage);
+      return new RuntimeException(errorMessage, cause);
     }
-    return new HumanReadableException(errorMessage);
-  }
-
-  private static void appendToErrorMessage(
-      StringBuilder sb, String name, String value, boolean truncate) {
-    sb.append(System.lineSeparator())
-        .append(System.lineSeparator())
-        .append(name)
-        .append(": ")
-        .append(truncate ? MoreStrings.truncateTail(value, KEEP_FIRST_CHARS) : value);
+    return new RuntimeException(errorMessage);
   }
 
   public static StepFailedException createForFailingStepWithException(
@@ -93,8 +77,7 @@ public class StepFailedException extends Exception implements WrapsException, Ex
     return exitCode;
   }
 
-  @Override
-  public Optional<String> getContext() {
-    return Optional.of(String.format("When running <%s>.", description));
+  private String getContext() {
+    return String.format("When running <%s>.", description);
   }
 }

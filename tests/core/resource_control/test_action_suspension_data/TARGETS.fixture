@@ -1,0 +1,30 @@
+memory_allocating_actions(
+    name = "sleep_10",
+    depth = 1,
+    width = 10,
+    memory_per_tick_mb = 1,
+    tick_duration_ms = 1,
+    ticks = 0,
+    sleep_ms = 1000,
+)
+
+# Two actions that use too much memory to be able to run them at the same time
+memory_allocating_actions(
+    name = "two_mutually_incompatible",
+    depth = 1,
+    width = 2,
+    memory_per_tick_mb = 2,
+    tick_duration_ms = 100,
+    ticks = 75,
+    sleep_ms = 1000,
+)
+
+memory_allocating_actions(
+    name = "very_fast_100",
+    depth = 10,
+    width = 10,
+    memory_per_tick_mb = 1,
+    tick_duration_ms = 1,
+    ticks = 0,
+    sleep_ms = 50,
+)

@@ -8,7 +8,7 @@
 
 load("@prelude//erlang:erlang_application.bzl", "StartTypeValues")
 load("@prelude//erlang:erlang_info.bzl", "ErlangAppIncludeInfo", "ErlangAppInfo", "ErlangAppOrTestInfo")
-load(":common.bzl", "prelude_rule")
+load(":common.bzl", "buck", "prelude_rule")
 load(":re_test_common.bzl", "re_test_common")
 
 def re_test_args():
@@ -16,9 +16,7 @@ def re_test_args():
     args = re_test_common.test_args()
     return {"remote_execution": args["remote_execution"]}
 
-common_attributes = {
-    "contacts": attrs.list(attrs.string(), default = []),
-    "labels": attrs.list(attrs.string(), default = []),
+common_attributes = buck.labels_arg() | buck.contacts_arg() | {
     "os_env": attrs.option(attrs.dict(key = attrs.string(), value = attrs.string()), default = None, doc = """
                 This attribute allows to set additional values for the operating system environment for invocations to the
                 Erlang toolchain.
@@ -263,8 +261,6 @@ rules_attributes = {
         "extra_erl_flags": attrs.list(attrs.string(), default = [], doc = """
                 List of additional command line arguments given to the erl command invocation. These
                 arguments are added to the front of the argument list.
-            """),
-        "property_tests": attrs.list(attrs.dep(), default = [], doc = """
             """),
         "resources": attrs.list(attrs.dep(), default = [], doc = """
                 The `resources` field specifies targets whose default output are placed in the test `data_dir` directory for

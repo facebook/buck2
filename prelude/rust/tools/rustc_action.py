@@ -27,7 +27,7 @@ import subprocess
 import sys
 import tempfile
 from pathlib import Path
-from typing import Any, Dict, IO, List, NamedTuple, Optional, Tuple
+from typing import Any, IO, NamedTuple, Optional
 
 DEBUG = False
 
@@ -94,11 +94,11 @@ def eprint(*args: Any, **kwargs: Any) -> None:
 
 if sys.version_info[:2] < (3, 7):
     eprint("Python 3.7 or newer is required!")
-    eprint("Using {} from {}".format(platform.python_version(), sys.executable))
+    eprint(f"Using {platform.python_version()} from {sys.executable}")
     sys.exit(1)
 
 
-def key_value_arg(s: str) -> Tuple[str, str]:
+def key_value_arg(s: str) -> tuple[str, str]:
     s = arg_eval(s)
     key_value = s.split("=", maxsplit=1)
     if len(key_value) == 2:
@@ -109,15 +109,15 @@ def key_value_arg(s: str) -> Tuple[str, str]:
 class Args(NamedTuple):
     diag_json: Optional[IO[bytes]]
     diag_txt: Optional[IO[bytes]]
-    env: Optional[List[Tuple[str, str]]]
-    path_env: Optional[List[Tuple[str, str]]]
+    env: Optional[list[tuple[str, str]]]
+    path_env: Optional[list[tuple[str, str]]]
     remap_cwd_prefix: Optional[str]
-    crate_map: Optional[List[Tuple[str, str]]]
+    crate_map: Optional[list[tuple[str, str]]]
     buck_target: Optional[str]
     failure_filter: Optional[IO[bytes]]
-    required_output: Optional[List[Tuple[str, str]]]
+    required_output: Optional[list[tuple[str, str]]]
     echo: Optional[IO[bytes]]
-    rustc: List[str]
+    rustc: list[str]
 
 
 def arg_parse() -> Args:
@@ -221,7 +221,7 @@ def arg_eval(arg: str) -> str:
             arg = arg[begin + len("$(") :]
 
 
-def inherited_env() -> Dict[str, str]:
+def inherited_env() -> dict[str, str]:
     env = {}
     for pattern in INHERITED_ENV:
         if pattern.endswith("*"):
@@ -236,7 +236,7 @@ def inherited_env() -> Dict[str, str]:
 async def handle_output(  # noqa: C901
     proc: asyncio.subprocess.Process,
     args: Args,
-    crate_map: Dict[str, str],
+    crate_map: dict[str, str],
 ) -> bool:
     got_error_diag = False
 
@@ -275,9 +275,9 @@ async def handle_output(  # noqa: C901
                 rendered_unused = []
                 for name in unused_names:
                     if name in crate_map:
-                        rendered_unused.append("{}: {}".format(crate_map[name], name))
+                        rendered_unused.append(f"{crate_map[name]}: {name}")
                     else:
-                        rendered_unused.append("{}".format(name))
+                        rendered_unused.append(f"{name}")
                 rendered_unused.sort()
                 rendered_unused = "\n    ".join(rendered_unused)
 
@@ -354,7 +354,7 @@ async def main() -> int:  # noqa: C901
             flag, buck_out, mapped = arg.split("=", 2)
             if mapped.startswith("./"):
                 mapped = mapped[2:]
-            arg = "{}={}={}".format(flag, buck_out, mapped)
+            arg = f"{flag}={buck_out}={mapped}"
 
         # While the env-set feature is unstable, allow it to be used with stable
         # rustc by translating from a rustc flag to environment variables set
@@ -369,9 +369,7 @@ async def main() -> int:  # noqa: C901
         rustc_args.append(arg)
 
     if args.remap_cwd_prefix is not None:
-        rustc_args.append(
-            "--remap-path-prefix={}={}".format(os.getcwd(), args.remap_cwd_prefix)
-        )
+        rustc_args.append(f"--remap-path-prefix={os.getcwd()}={args.remap_cwd_prefix}")
         rustc_args.append(
             "--remap-path-prefix={}={}".format(
                 os.path.realpath(os.getcwd()), args.remap_cwd_prefix
@@ -421,7 +419,7 @@ async def main() -> int:  # noqa: C901
 
     # Check for death by signal - this is always considered a failure
     if res < 0:
-        cmdline = " ".join(shlex.quote(arg) for arg in rustc_cmd + rustc_args)
+        cmdline = shlex.join(rustc_cmd + rustc_args)
         eprint(f"Command exited with signal {-res}: command line: {cmdline}")
     elif args.failure_filter:
         # If failure filtering is enabled, then getting an error diagnostic is also

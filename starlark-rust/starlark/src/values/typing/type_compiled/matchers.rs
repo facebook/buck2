@@ -17,10 +17,7 @@
 
 use allocative::Allocative;
 use dupe::Dupe;
-use starlark_derive::Freeze;
-use starlark_derive::Trace;
 
-use crate as starlark;
 use crate::typing::starlark_value::TyStarlarkValue;
 use crate::values::UnpackValue;
 use crate::values::Value;
@@ -283,14 +280,5 @@ impl StarlarkTypeIdMatcher {
 impl TypeMatcher for StarlarkTypeIdMatcher {
     fn matches(&self, value: Value) -> bool {
         value.starlark_type_id() == self.starlark_type_id.get()
-    }
-}
-
-#[derive(Allocative, Debug, Trace, Freeze, Clone)]
-pub(crate) struct IsName(pub(crate) String);
-
-impl TypeMatcher for IsName {
-    fn matches(&self, value: Value) -> bool {
-        self.0 == value.get_type()
     }
 }

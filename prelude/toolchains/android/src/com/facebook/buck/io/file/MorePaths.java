@@ -10,7 +10,6 @@
 
 package com.facebook.buck.io.file;
 
-import com.facebook.buck.core.exceptions.HumanReadableException;
 import com.facebook.buck.core.filesystems.AbsPath;
 import com.facebook.buck.core.filesystems.PathWrapper;
 import com.facebook.buck.core.filesystems.RelPath;
@@ -276,9 +275,10 @@ public class MorePaths {
 
     if (!nameWithoutExtension.startsWith(prefix)
         || nameWithoutExtension.length() < prefix.length()) {
-      throw new HumanReadableException(
-          "Invalid prefix on filename in path %s (file %s) - expecting %s",
-          fileName, nameWithoutExtension, prefix);
+      throw new RuntimeException(
+          String.format(
+              "Invalid prefix on filename in path %s (file %s) - expecting %s",
+              fileName, nameWithoutExtension, prefix));
     }
 
     return nameWithoutExtension.substring(prefix.length());

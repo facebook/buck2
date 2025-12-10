@@ -15,6 +15,5 @@ buck_java_library(
     exported_deps = [
         "prelude//toolchains/android/src/com/facebook/buck/core/filesystems:filesystems",
         "prelude//toolchains/android/src/com/facebook/buck/io/file:file",
-        "prelude//toolchains/android/src/com/facebook/buck/util/types:types",
     ],
 )

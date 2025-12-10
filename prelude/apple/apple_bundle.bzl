@@ -54,7 +54,7 @@ load(
     "flatten",
 )
 load(":apple_bundle_destination.bzl", "AppleBundleDestination")
-load(":apple_bundle_part.bzl", "AppleBundleCodesignManifestTreePart", "AppleBundlePart", "SwiftStdlibArguments", "assemble_bundle", "bundle_output", "get_apple_bundle_part_relative_destination_path", "get_bundle_dir_name")
+load(":apple_bundle_part.bzl", "AppleBundleCodesignManifestTreePart", "AppleBundlePart", "AppleBundleSigningContextTreePart", "SwiftStdlibArguments", "assemble_bundle", "bundle_output", "get_apple_bundle_part_relative_destination_path", "get_bundle_dir_name")
 load(":apple_bundle_resources.bzl", "get_apple_bundle_resource_part_list")
 load(
     ":apple_bundle_types.bzl",
@@ -111,6 +111,8 @@ AppleBundlePartListOutput = record(
     info_plist_part = field(AppleBundlePart),
     # Codesign manifest parts for inner bundles
     codesign_manifest_parts = field(list[AppleBundleCodesignManifestTreePart]),
+    # Signing context parts for inner bundles
+    signing_context_parts = field(list[AppleBundleSigningContextTreePart]),
 )
 
 _AppleBundleBinaryParts = record(
@@ -206,7 +208,7 @@ def _maybe_scrub_binary(ctx, binary_dep: Dependency) -> AppleBundleBinaryOutput:
 def _get_scrubbed_binary_dsym(ctx, binary: Artifact, debug_info_tset: ArtifactTSet) -> Artifact:
     debug_info = project_artifacts(
         actions = ctx.actions,
-        tsets = [debug_info_tset],
+        tsets = debug_info_tset,
     )
     dsym_artifact = get_apple_dsym(
         ctx = ctx,
@@ -268,7 +270,7 @@ def _get_bundle_binary_dsym_artifacts(ctx: AnalysisContext, binary_output: Apple
             executable = executable_arg,
             debug_info = project_artifacts(
                 actions = ctx.actions,
-                tsets = [binary_debuggable_info.debug_info_tset] if binary_debuggable_info else [],
+                tsets = binary_debuggable_info.debug_info_tset if binary_debuggable_info else [],
             ),
             action_identifier = get_bundle_dir_name(ctx),
             output_path = _get_bundle_dsym_name(ctx),
@@ -324,6 +326,7 @@ def get_apple_bundle_part_list(ctx: AnalysisContext, params: AppleBundlePartList
         parts = resource_part_list.resource_parts + params.binaries + xctest_frameworks_parts,
         info_plist_part = resource_part_list.info_plist_part,
         codesign_manifest_parts = resource_part_list.codesign_manifest_parts,
+        signing_context_parts = resource_part_list.signing_context_parts,
     )
 
 def _infer_apple_bundle_type(ctx: AnalysisContext) -> AppleBundleType:
@@ -359,6 +362,7 @@ def apple_bundle_impl(ctx: AnalysisContext) -> list[Provider]:
         bundle,
         apple_bundle_part_list_output.parts,
         apple_bundle_part_list_output.codesign_manifest_parts,
+        apple_bundle_part_list_output.signing_context_parts,
         apple_bundle_part_list_output.info_plist_part,
         SwiftStdlibArguments(primary_binary_rel_path = primary_binary_rel_path),
         validation_deps_outputs,
@@ -457,7 +461,7 @@ def apple_bundle_impl(ctx: AnalysisContext) -> list[Provider]:
     )
     transitive_diagnostic_artifacts = project_artifacts(
         actions = ctx.actions,
-        tsets = [diagnostics_info.transitive_diagnostics],
+        tsets = diagnostics_info.transitive_diagnostics,
     )
     sub_targets["check"] = [DefaultInfo(default_output = None, other_outputs = transitive_diagnostic_artifacts)]
 
@@ -470,6 +474,7 @@ def apple_bundle_impl(ctx: AnalysisContext) -> list[Provider]:
             contains_watchapp = lazy.is_any(lambda part: part.destination == AppleBundleDestination("watchapp"), apple_bundle_part_list_output.parts),
             skip_copying_swift_stdlib = ctx.attrs.skip_copying_swift_stdlib,
             codesign_manifest_tree = bundle_result.codesign_manifest_tree,
+            signing_context_tree = bundle_result.signing_context_tree,
         ),
         AppleDebuggableInfo(
             dsyms = dsym_artifacts,
@@ -603,7 +608,6 @@ def generate_install_data(
         "fullyQualifiedName": ctx.label,
         "info_plist": plist_path,
         "platform_name": get_apple_sdk_name(ctx),
-        "use_idb": "true",
         ## TODO(T110665037): read from .buckconfig
         # We require the user to have run `xcode-select` and `/var/db/xcode_select_link` to symlink
         # to the selected Xcode. e.g: `/Applications/Xcode_14.2.app/Contents/Developer`

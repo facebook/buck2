@@ -17,8 +17,8 @@ use buck2_client_ctx::path_arg::PathArg;
 use buck2_common::argv::Argv;
 use buck2_common::argv::SanitizedArgv;
 use buck2_common::invocation_roots::find_invocation_roots;
-use buck2_core::fs::fs_util;
-use buck2_core::fs::working_dir::AbsWorkingDir;
+use buck2_fs::fs_util;
+use buck2_fs::working_dir::AbsWorkingDir;
 
 #[derive(Debug, Clone, clap::ValueEnum)]
 enum RootKind {

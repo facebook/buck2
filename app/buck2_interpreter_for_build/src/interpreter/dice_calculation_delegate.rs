@@ -31,7 +31,6 @@ use buck2_error::BuckErrorContext;
 use buck2_error::internal_error;
 use buck2_events::dispatch::span;
 use buck2_events::dispatch::span_async_simple;
-use buck2_futures::cancellation::CancellationContext;
 use buck2_interpreter::allow_relative_paths::HasAllowRelativePaths;
 use buck2_interpreter::dice::starlark_provider::StarlarkEvalKind;
 use buck2_interpreter::factory::StarlarkEvaluatorProvider;
@@ -50,6 +49,7 @@ use buck2_node::super_package::SuperPackage;
 use derive_more::Display;
 use dice::DiceComputations;
 use dice::Key;
+use dice_futures::cancellation::CancellationContext;
 use dupe::Dupe;
 use futures::FutureExt;
 use starlark::codemap::FileSpan;
@@ -64,6 +64,28 @@ use crate::interpreter::interpreter_for_dir::InterpreterForDir;
 use crate::interpreter::interpreter_for_dir::ParseData;
 use crate::interpreter::interpreter_for_dir::ParseResult;
 use crate::super_package::package_value::SuperPackageValuesImpl;
+
+fn toml_value_to_json(value: toml::Value) -> serde_json::Value {
+    match value {
+        toml::Value::String(s) => serde_json::Value::String(s),
+        toml::Value::Integer(i) => serde_json::Value::Number(i.into()),
+        toml::Value::Float(f) => match serde_json::Number::from_f64(f) {
+            Some(n) => serde_json::Value::Number(n),
+            None => serde_json::Value::Null,
+        },
+        toml::Value::Boolean(b) => serde_json::Value::Bool(b),
+        toml::Value::Datetime(dt) => serde_json::Value::String(dt.to_string()),
+        toml::Value::Array(arr) => {
+            serde_json::Value::Array(arr.into_iter().map(toml_value_to_json).collect())
+        }
+        toml::Value::Table(table) => serde_json::Value::Object(
+            table
+                .into_iter()
+                .map(|(k, v)| (k, toml_value_to_json(v)))
+                .collect(),
+        ),
+    }
+}
 
 #[derive(Debug, buck2_error::Error)]
 #[buck2(tag = Input)]
@@ -246,6 +268,7 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
     ) -> buck2_error::Result<LoadedModule> {
         match starlark_file {
             StarlarkModulePath::JsonFile(_) => self.eval_json_module_uncached(starlark_file).await,
+            StarlarkModulePath::TomlFile(_) => self.eval_toml_file_uncached(starlark_file).await,
             _ => {
                 self.eval_starlark_module_uncached(starlark_file, cancellation)
                     .await
@@ -275,6 +298,29 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
         ))
     }
 
+    async fn eval_toml_file_uncached(
+        &mut self,
+        starlark_file: StarlarkModulePath<'_>,
+    ) -> buck2_error::Result<LoadedModule> {
+        let path = starlark_file.path();
+        let contents = DiceFileComputations::read_file(self.ctx, path.as_ref())
+            .await
+            .with_package_context_information(path.path().to_string())?;
+
+        let value: toml::Value =
+            toml::from_str(&contents).with_buck_error_context(|| format!("Parsing {path}"))?;
+        let json_value = toml_value_to_json(value);
+
+        let module = starlark::environment::Module::new();
+        module.set("value", module.heap().alloc(json_value));
+        let frozen = module.freeze().map_err(from_freeze_error)?;
+        Ok(LoadedModule::new(
+            OwnedStarlarkModulePath::new(starlark_file),
+            Default::default(),
+            frozen,
+        ))
+    }
+
     async fn eval_starlark_module_uncached(
         &mut self,
         starlark_file: StarlarkModulePath<'_>,
@@ -289,10 +335,10 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
         let ctx = &mut *self.ctx;
 
         let eval_kind = StarlarkEvalKind::Load(Arc::new(starlark_file.to_owned()));
-        let provider = StarlarkEvaluatorProvider::new(ctx, &eval_kind).await?;
+        let provider = StarlarkEvaluatorProvider::new(ctx, eval_kind).await?;
 
         let mut buckconfigs = ConfigsOnDiceViewForStarlark::new(ctx, buckconfig, root_buckconfig);
-        let (_finished_eval, evaluation) = configs
+        let evaluation = configs
             .eval_module(
                 starlark_file,
                 &mut buckconfigs,
@@ -427,7 +473,7 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
         let ctx = &mut *self.ctx;
 
         let eval_kind = StarlarkEvalKind::LoadPackageFile(path.dupe());
-        let provider = StarlarkEvaluatorProvider::new(ctx, &eval_kind).await?;
+        let provider = StarlarkEvaluatorProvider::new(ctx, eval_kind).await?;
 
         let mut buckconfigs = ConfigsOnDiceViewForStarlark::new(ctx, buckconfig, root_buckconfig);
 
@@ -569,11 +615,11 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
             let ctx = &mut *self.ctx;
 
             now = Some(Instant::now());
-            let provider = StarlarkEvaluatorProvider::new(ctx, &eval_kind).await?;
+            let provider = StarlarkEvaluatorProvider::new(ctx, eval_kind).await?;
             let mut buckconfigs =
                 ConfigsOnDiceViewForStarlark::new(ctx, buckconfig, root_buckconfig);
 
-            let (finished_eval, eval_result) = span(start_event, move || {
+            let (profile_data, eval_result) = span(start_event, move || {
                 let result_with_stats = configs
                     .eval_build_file(
                         &build_file_path,
@@ -615,19 +661,19 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
             })?;
 
             let mut eval_result = eval_result.result;
-            let profile_data = finished_eval.finish(None)?;
+
             if eval_result.starlark_profile.is_some() {
                 return (
-                    now.unwrap().elapsed(),
+                    Instant::now() - now.unwrap(),
                     Err(internal_error!("starlark_profile field must not be set yet").into()),
                 );
             }
-            eval_result.starlark_profile = profile_data.map(|d| Arc::new(d) as _);
+            eval_result.starlark_profile = profile_data.map(|d| d as _);
             eval_result
         };
 
         (
-            now.map_or(Duration::ZERO, |v| v.elapsed()),
+            now.map_or(Duration::ZERO, |v| Instant::now() - v),
             eval_result.map(Arc::new),
         )
     }

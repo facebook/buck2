@@ -11,11 +11,11 @@
 use std::collections::HashMap;
 use std::time::Duration;
 
-use buck2_core::fs::async_fs_util;
-use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
-use buck2_core::fs::paths::file_name::FileName;
 use buck2_data::ParsedTargetPatterns;
 use buck2_error::BuckErrorContext;
+use buck2_fs::async_fs_util;
+use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
+use buck2_fs::paths::file_name::FileName;
 use serde::Deserialize;
 use serde::Serialize;
 

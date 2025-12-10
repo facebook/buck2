@@ -32,12 +32,19 @@
 #         --out-dir path/to/out \
 #         --artifacts path/to/artifacts.json
 #
-# The input file artifact.json is an array of pairs, each an rlib and a file
-# containing a crate name for it.
+# The input file artifacts.json is an array of two arrays of identical length.
+# The first array has rlib paths, the second array has paths to files containing
+# the build-time crate name for the corresponding rlib.
 #
 #     [
-#         ["../../libprovisional.rlib", "path/to/cratename"],
-#         ...
+#         [
+#             "../../libprovisional.rlib",
+#             ...
+#         ],
+#         [
+#             "path/to/cratename",
+#             ...
+#         ]
 #     ]
 #
 # The tool reads the crate name from the file at "path/to/cratename". Suppose it's
@@ -76,7 +83,7 @@ def main():
     # Add as many -Ldependency dirs as we need to avoid name conflicts
     deps_dirs = [{}]
 
-    for artifact, crate_name in json.load(args.artifacts):
+    for artifact, crate_name in zip(*json.load(args.artifacts)):
         crate_name = Path(crate_name).read_text().strip()
         original_filename = os.path.basename(artifact)
         new_filename = "lib{}-{}".format(

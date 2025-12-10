@@ -17,10 +17,10 @@ use buck2_core::ci::ci_identifiers;
 use buck2_core::facebook_only;
 use buck2_wrapper_common::BUCK2_WRAPPER_ENV_VAR;
 
-use crate::daemon_id::DAEMON_UUID;
+use crate::daemon_id::DaemonId;
 
 /// Collects metadata from the current binary and environment and writes it as map, suitable for telemetry purposes.
-pub fn collect() -> HashMap<String, String> {
+pub fn collect(daemon: &DaemonId) -> HashMap<String, String> {
     facebook_only();
     fn add_env_var(map: &mut HashMap<String, String>, key: &'static str, var: &'static str) {
         if let Ok(data) = env::var(var) {
@@ -67,7 +67,7 @@ pub fn collect() -> HashMap<String, String> {
     }
 
     // Global trace ID
-    map.insert("daemon_uuid".to_owned(), DAEMON_UUID.to_string());
+    map.insert("daemon_uuid".to_owned(), daemon.to_string());
 
     map.insert("os".to_owned(), info.os);
     if let Some(version) = info.os_version {
@@ -223,7 +223,7 @@ mod tests {
 
     #[test]
     fn os_version_produces_reasonable_windows_version() {
-        let data = collect();
+        let data = collect(&DaemonId::new());
         // This logic used to use the `GetVersionExW` win32 API, which
         // always returns the value below on recent versions of windows. See
         // https://learn.microsoft.com/en-us/windows/win32/api/sysinfoapi/nf-sysinfoapi-getversionexw

@@ -39,6 +39,18 @@ fn main() -> io::Result<()> {
             "#[serde(with = \"::buck2_data::serialize_duration_as_micros\")]",
         )
         .field_attribute(
+            "google.api.MethodSettings.LongRunning.initial_poll_delay",
+            "#[serde(with = \"::buck2_data::serialize_duration_as_micros\")]",
+        )
+        .field_attribute(
+            "google.api.MethodSettings.LongRunning.max_poll_delay",
+            "#[serde(with = \"::buck2_data::serialize_duration_as_micros\")]",
+        )
+        .field_attribute(
+            "google.api.MethodSettings.LongRunning.total_poll_timeout",
+            "#[serde(with = \"::buck2_data::serialize_duration_as_micros\")]",
+        )
+        .field_attribute(
             "build.bazel.remote.execution.v2.NodeProperties.mtime",
             "#[serde(with = \"::buck2_data::serialize_timestamp\")]",
         )

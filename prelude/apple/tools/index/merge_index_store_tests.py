@@ -12,7 +12,7 @@ import subprocess
 import unittest
 from unittest.mock import MagicMock, patch
 
-from .merge_index_store import merge_directories, parse_arguments
+from .merge_index_store import merge_directory, parse_arguments
 
 
 class TestMergeIndexStore(unittest.TestCase):
@@ -31,9 +31,17 @@ class TestMergeIndexStore(unittest.TestCase):
         mock_isdir.return_value = True
         mock_run.return_value = MagicMock(returncode=0, stderr="")
 
-        merge_directories("source", "destination")
+        merge_directory("source", "destination")
         mock_run.assert_called_once_with(
-            ["rsync", "-a", "--ignore-existing", "source/", "destination"],
+            [
+                "rsync",
+                "-a",
+                "--ignore-existing",
+                "--no-owner",
+                "--no-group",
+                "source/",
+                "destination",
+            ],
             stderr=subprocess.PIPE,
             text=True,
         )
@@ -47,14 +55,14 @@ class TestMergeIndexStore(unittest.TestCase):
         mock_run.return_value = MagicMock(returncode=1, stderr="Error")
 
         with self.assertRaises(Exception) as context:
-            merge_directories("source", "destination")
+            merge_directory("source", "destination")
         self.assertTrue("Failed to merge" in str(context.exception))
 
     @patch("os.path.isdir")
     def test_merge_non_existing_directory(self, mock_isdir: MagicMock) -> None:
         mock_isdir.return_value = False
         with self.assertRaises(Exception) as context:
-            merge_directories("source", "destination")
+            merge_directory("source", "destination")
         self.assertTrue(
             "Directory source does not exist or is not a directory"
             in str(context.exception)

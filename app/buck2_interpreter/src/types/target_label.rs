@@ -329,6 +329,24 @@ fn value_to_providers_name(subtarget_name: SubtargetNameArg) -> buck2_error::Res
     })
 }
 
+#[derive(StarlarkTypeRepr, UnpackValue)]
+pub enum LabelArg<'v> {
+    Target(&'v StarlarkTargetLabel),
+    Providers(&'v StarlarkProvidersLabel),
+}
+
+impl<'v> LabelArg<'v> {
+    pub fn to_provider_label(&self) -> StarlarkProvidersLabel {
+        match self {
+            LabelArg::Target(t) => StarlarkProvidersLabel::new(ProvidersLabel::new(
+                t.label().dupe(),
+                ProvidersName::Default,
+            )),
+            LabelArg::Providers(t) => StarlarkProvidersLabel::new(t.label().dupe()),
+        }
+    }
+}
+
 #[starlark_module]
 pub fn register_target_label(globals: &mut GlobalsBuilder) {
     const TargetLabel: StarlarkValueAsType<StarlarkTargetLabel> = StarlarkValueAsType::new();

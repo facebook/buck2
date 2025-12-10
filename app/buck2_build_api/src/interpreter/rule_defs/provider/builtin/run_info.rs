@@ -39,7 +39,43 @@ use crate::interpreter::rule_defs::cmd_args::WriteToFileMacroVisitor;
 use crate::interpreter::rule_defs::cmd_args::command_line_arg_like_type::command_line_arg_like_impl;
 use crate::interpreter::rule_defs::cmd_args::value_as::ValueAsCommandLineLike;
 
-/// Provider that signals that a rule is runnable
+/// Provider that signals a rule is runnable and defines how to execute it.
+///
+/// `RunInfo` marks a target as executable and specifies how to run it. When a target
+/// provides `RunInfo`, it can be executed with `buck2 run <target>`. The provider wraps the
+/// command-line arguments that define the executable and its parameters.
+///
+/// # Usage
+///
+/// To run a target with `RunInfo`:
+/// ```bash
+/// buck2 run <target>                    # Run with the args specified in RunInfo
+/// buck2 run <target> -- [extra args]    # Pass additional args after '--' to the command
+/// ```
+/// ## Examples
+///
+/// Basic executable with script:
+/// ```python
+/// def _sh_binary_impl(ctx):
+///     script = ctx.actions.write("script.sh", ctx.attrs.script_content, is_executable = True)
+///     return [
+///         DefaultInfo(default_output = script),
+///         RunInfo(args = cmd_args(script)),
+///     ]
+/// ```
+///
+/// Executable with arguments and resources:
+/// ```python
+/// def _binary_impl(ctx):
+///     exe = ...
+///
+///     return [
+///         DefaultInfo(default_output = exe),
+///         RunInfo(
+///             args = cmd_args(exe),
+///         ),
+///     ]
+/// ```
 #[internal_provider(run_info_creator)]
 #[derive(Clone, Debug, Trace, Coerce, Freeze, ProvidesStaticType, Allocative)]
 #[repr(transparent)]

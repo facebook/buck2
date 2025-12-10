@@ -8,6 +8,8 @@
 -type test_info() :: #test_info{}.
 -export_type([test_info/0]).
 
+-import(common_util, [unicode_characters_to_list/1, unicode_characters_to_binary/1]).
+
 -spec load_from_file(file:filename_all()) -> test_info().
 load_from_file(TestInfoFile) ->
     {ok, Content} = file:read_file(TestInfoFile, [raw]),
@@ -39,7 +41,7 @@ load_from_file(TestInfoFile) ->
         providers = Providers1,
         artifact_annotation_mfa = ParsedArtifactAnnotationMFA,
         ct_opts = CtOpts1,
-        erl_cmd = [unicode_characters_to_binary(make_path_absolute(ErlExec)) | ErlFlags],
+        erl_cmd = [unicode_characters_to_binary(normalize_erl_cmd(ErlExec)) | ErlFlags],
         extra_flags = ExtraFlags,
         common_app_env = CommonAppEnv,
         raw_target = RawTarget,
@@ -78,6 +80,13 @@ write_to_file(FileName, TestInfo) ->
         <<"trampolines">> => Trampolines
     },
     file:write_file(FileName, json:encode(Json), [raw, binary]).
+
+-spec normalize_erl_cmd(file:filename_all()) -> file:filename_all().
+normalize_erl_cmd(ErlCmd) when is_binary(ErlCmd) ->
+    case os:find_executable(binary_to_list(ErlCmd)) of
+        false -> make_path_absolute(ErlCmd);
+        AbsolutePath -> AbsolutePath
+    end.
 
 -spec make_path_absolute(file:filename_all()) -> file:filename_all().
 make_path_absolute(Path) ->
@@ -142,17 +151,3 @@ parse_mfa(MFA) ->
 -spec make_ct_opts([ctopt()], [cth()]) -> [ctopt()].
 make_ct_opts(CtOpts, []) -> CtOpts;
 make_ct_opts(CtOpts, ExtraCtHooks) -> [{ct_hooks, ExtraCtHooks} | CtOpts].
-
--spec unicode_characters_to_binary(unicode:chardata()) -> binary().
-unicode_characters_to_binary(Chars) ->
-    Bin = unicode:characters_to_binary(Chars),
-    if
-        is_binary(Bin) -> Bin
-    end.
-
--spec unicode_characters_to_list(unicode:chardata()) -> string().
-unicode_characters_to_list(Chars) ->
-    Str = unicode:characters_to_list(Chars),
-    if
-        is_list(Str) -> Str
-    end.

@@ -14,7 +14,6 @@ import static com.facebook.buck.util.environment.EnvVariablesProvider.getRequire
 
 import com.facebook.buck.core.util.log.Logger;
 import com.facebook.buck.jvm.cd.CompilerDaemonRunner;
-import com.facebook.buck.util.Ansi;
 import com.facebook.buck.util.Console;
 import com.facebook.buck.util.Verbosity;
 import com.facebook.buck.util.perf.PerfStatsTracking;
@@ -58,8 +57,7 @@ public class WorkerGrpcServer implements ServerInterceptor {
     Path workerSocketPath = Paths.get(getRequiredEnvVar("WORKER_SOCKET"));
 
     try {
-      Console console =
-          new Console(Verbosity.STANDARD_INFORMATION, System.out, System.err, Ansi.withoutTty());
+      Console console = new Console(Verbosity.STANDARD_INFORMATION, System.out, System.err);
 
       try (CompilerDaemonRunner runner =
           new CompilerDaemonRunner(OutputStream.nullOutputStream(), console)) {

@@ -41,7 +41,6 @@ use buck2_core::content_hash::ContentBasedPathHash;
 use buck2_core::deferred::base_deferred_key::BaseDeferredKey;
 use buck2_core::execution_types::executor_config::CommandExecutorConfig;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
-use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_execute::artifact::fs::ExecutorFs;
 use buck2_execute::digest_config::DigestConfig;
@@ -56,11 +55,13 @@ use buck2_execute::execute::request::ExecutorPreference;
 use buck2_execute::execute::result::CommandExecutionResult;
 use buck2_execute::materialize::materializer::Materializer;
 use buck2_execute::re::manager::UnconfiguredRemoteExecutionClient;
+use buck2_execute::re::output_trees_download_config::OutputTreesDownloadConfig;
 use buck2_file_watcher::mergebase::Mergebase;
-use buck2_futures::cancellation::CancellationContext;
+use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_http::HttpClient;
 use derivative::Derivative;
 use derive_more::Display;
+use dice_futures::cancellation::CancellationContext;
 use fxhash::FxHashMap;
 use indexmap::IndexMap;
 use indexmap::IndexSet;
@@ -196,6 +197,28 @@ pub trait Action: Allocative + Debug + Send + Sync + 'static {
         true
     }
 
+    fn all_inputs_are_eligible_for_dedupe(&self) -> bool {
+        self.all_ineligible_for_dedup_inputs().is_empty()
+    }
+
+    fn all_ineligible_for_dedup_inputs(&self) -> Vec<String> {
+        let target_platform = if let BaseDeferredKey::TargetLabel(configured_label) =
+            self.first_output().key().owner()
+        {
+            Some(configured_label.cfg())
+        } else {
+            None
+        };
+
+        let mut ineligible_inputs = Vec::new();
+        for ag in self.inputs().unwrap_or_default().iter() {
+            if !ag.is_eligible_for_dedupe(target_platform) {
+                ineligible_inputs.push(ag.to_string());
+            }
+        }
+        ineligible_inputs
+    }
+
     // TODO this probably wants more data for execution, like printing a short_name and the target
 }
 
@@ -221,6 +244,7 @@ pub trait ActionExecutionCtx: Send + Sync {
     fn prepare_action(
         &mut self,
         request: &CommandExecutionRequest,
+        re_outputs_required: bool,
     ) -> buck2_error::Result<PreparedAction>;
 
     async fn action_cache(
@@ -297,6 +321,8 @@ pub trait ActionExecutionCtx: Send + Sync {
 
     /// Http client used for fetching and downloading remote artifacts.
     fn http_client(&self) -> HttpClient;
+
+    fn output_trees_download_config(&self) -> &OutputTreesDownloadConfig;
 }
 
 #[derive(buck2_error::Error, Debug)]

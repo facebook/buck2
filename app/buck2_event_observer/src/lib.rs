@@ -12,6 +12,7 @@
 #![feature(try_blocks)]
 
 pub mod action_stats;
+pub mod action_sub_error_display;
 pub mod action_util;
 pub mod cache_hit_rate;
 pub mod debug_events;

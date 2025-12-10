@@ -9,6 +9,7 @@
  */
 
 use std::collections::HashSet;
+use std::str::FromStr;
 use std::sync::Arc;
 
 use allocative::Allocative;
@@ -20,17 +21,17 @@ use buck2_core::cells::cell_root_path::CellRootPath;
 use buck2_core::cells::cell_root_path::CellRootPathBuf;
 use buck2_core::cells::external::ExternalCellOrigin;
 use buck2_core::cells::external::GitCellSetup;
+use buck2_core::cells::external::GitObjectFormat;
 use buck2_core::cells::name::CellName;
-use buck2_core::fs::paths::RelativePath;
-use buck2_core::fs::paths::abs_path::AbsPath;
-use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_error::BuckErrorContext;
+use buck2_fs::paths::RelativePath;
+use buck2_fs::paths::abs_path::AbsPath;
+use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
 use dice::DiceComputations;
 use dupe::Dupe;
 
-use crate::cas_digest::RawDigest;
 use crate::dice::cells::HasCellResolver;
 use crate::dice::data::HasIoProvider;
 use crate::external_cells::EXTERNAL_CELLS_IMPL;
@@ -514,13 +515,24 @@ impl BuckConfigBasedCells {
             Ok(ExternalCellOrigin::Bundled(cell))
         } else if value == "git" {
             let section = &format!("external_cell_{}", cell.as_str());
-            let commit: Arc<str> = get_config(section, "commit_hash")?.into();
-            // No use in storing the commit hash as a byte array, but let's reuse existing code to
-            // check for validity
-            let _ = RawDigest::parse_sha1(commit.as_bytes())?;
+            let commit = get_config(section, "commit_hash")?;
+            let object_format = match get_config(section, "object_format") {
+                Ok(s) => {
+                    let object_format = GitObjectFormat::from_str(s)?;
+                    object_format.check(commit)?;
+                    Option::Some(GitObjectFormat::from_str(s)?)
+                }
+                Err(_) => {
+                    // We pretend that the object format is SHA1 for this check only;
+                    // We do not use it when interacting with Git.
+                    GitObjectFormat::Sha1.check(commit)?;
+                    Option::None
+                }
+            };
             Ok(ExternalCellOrigin::Git(GitCellSetup {
                 git_origin: get_config(section, "git_origin")?.into(),
-                commit,
+                commit: Arc::from(commit),
+                object_format,
             }))
         } else {
             Err(ExternalCellOriginParseError::Unknown(value.to_owned()).into())
@@ -1297,6 +1309,7 @@ mod tests {
             Some(&ExternalCellOrigin::Git(GitCellSetup {
                 git_origin: "https://github.com/jeff/libfoo.git".into(),
                 commit: "aaaaaaaabbbbbbbbccccccccddddddddeeeeeeee".into(),
+                object_format: None,
             })),
         );
 

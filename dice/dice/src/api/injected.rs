@@ -14,7 +14,7 @@ use std::hash::Hash;
 
 use allocative::Allocative;
 use async_trait::async_trait;
-use buck2_futures::cancellation::CancellationContext;
+use dice_futures::cancellation::CancellationContext;
 use dupe::Dupe;
 
 use crate::InvalidationSourcePriority;

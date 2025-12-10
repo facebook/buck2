@@ -42,8 +42,7 @@ public class DaemonJavacToJarStepFactory extends BaseJavacToJarStepFactory {
       ImmutableList.Builder<IsolatedStep> steps,
       ResolvedJavac resolvedJavac,
       @Nullable ActionMetadata actionMetadata,
-      JavaExtraParams extraParams,
-      RelPath kotlinClassesDir) {
+      JavaExtraParams extraParams) {
     Preconditions.checkArgument(
         libraryJarParameters == null
             || libraryJarParameters
@@ -68,7 +67,8 @@ public class DaemonJavacToJarStepFactory extends BaseJavacToJarStepFactory {
               compilerOutputPathsValue,
               compilerParameters,
               abiJarParameters,
-              libraryJarParameters));
+              libraryJarParameters,
+              false));
     } else {
       super.createCompileToJarStepImpl(
           buckOut,
@@ -81,8 +81,7 @@ public class DaemonJavacToJarStepFactory extends BaseJavacToJarStepFactory {
           steps,
           resolvedJavac,
           actionMetadata,
-          extraParams,
-          kotlinClassesDir);
+          extraParams);
     }
   }
 

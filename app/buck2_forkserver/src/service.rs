@@ -9,56 +9,50 @@
  */
 
 use std::ffi::OsStr;
-use std::fs::File;
 use std::fs::OpenOptions;
 use std::io::Write;
 use std::os::unix::ffi::OsStrExt;
+use std::os::unix::fs::OpenOptionsExt;
 use std::path::Path;
 use std::path::PathBuf;
 use std::pin::Pin;
+use std::process::Command;
 use std::sync::Arc;
 
-use buck2_common::cgroup_pool::CgroupID;
 use buck2_common::convert::ProstDurationExt;
-use buck2_common::init::ResourceControlConfig;
-use buck2_common::resource_control::ParentSlice;
-use buck2_common::resource_control::ResourceControlRunner;
-use buck2_common::resource_control::ResourceControlRunnerConfig;
-use buck2_common::resource_control::replace_unit_delimiter;
-use buck2_core::fs::fs_util;
-use buck2_core::fs::paths::abs_norm_path::AbsNormPath;
-use buck2_core::fs::paths::abs_norm_path::AbsNormPathBuf;
-use buck2_core::fs::paths::abs_path::AbsPath;
-use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_core::logging::LogConfigurationReloadHandle;
 use buck2_error::BuckErrorContext;
-use buck2_execute_local::CommandEvent;
 use buck2_execute_local::DefaultKillProcess;
 use buck2_execute_local::GatherOutputStatus;
+use buck2_execute_local::StdRedirectPaths;
 use buck2_execute_local::maybe_absolutize_exe;
-use buck2_execute_local::process_group::ProcessCommand;
+use buck2_execute_local::spawn_command_and_stream_events;
 use buck2_execute_local::status_decoder::DefaultStatusDecoder;
 use buck2_execute_local::status_decoder::MiniperfStatusDecoder;
-use buck2_execute_local::stream_command_events;
-use buck2_execute_local::timeout_into_cancellation;
 use buck2_forkserver_proto::CommandRequest;
-use buck2_forkserver_proto::GetCgroupRequest;
-use buck2_forkserver_proto::GetCgroupResponse;
 use buck2_forkserver_proto::RequestEvent;
 use buck2_forkserver_proto::SetLogFilterRequest;
 use buck2_forkserver_proto::SetLogFilterResponse;
-use buck2_forkserver_proto::command_request::StdRedirectPaths;
 use buck2_forkserver_proto::forkserver_server::Forkserver;
+use buck2_fs::fs_util;
+use buck2_fs::paths::abs_norm_path::AbsNormPath;
+use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
+use buck2_fs::paths::abs_path::AbsPath;
+use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_grpc::to_tonic;
-use buck2_util::cgroup_info::CGroupInfo;
+use buck2_resource_control::ActionFreezeEvent;
+use buck2_resource_control::ActionFreezeEventReceiver;
+use buck2_resource_control::path::CgroupPathBuf;
 use buck2_util::process::background_command;
-use dupe::Dupe;
-use futures::future::FutureExt;
-use futures::future::select;
+use futures::FutureExt;
+use futures::pin_mut;
 use futures::stream::Stream;
 use futures::stream::StreamExt;
 use rand::distributions::Alphanumeric;
 use rand::distributions::DistString;
+use tokio::sync::mpsc;
+use tokio::sync::oneshot;
+use tokio_stream::wrappers::UnboundedReceiverStream;
 use tonic::Request;
 use tonic::Response;
 use tonic::Status;
@@ -79,7 +73,7 @@ struct ValidatedCommand {
     enable_miniperf: bool,
     std_redirects: Option<StdRedirectPaths>,
     graceful_shutdown_timeout_s: Option<u32>,
-    cgroup_command_id: Option<String>,
+    command_cgroup: Option<CgroupPathBuf>,
 }
 
 impl ValidatedCommand {
@@ -93,8 +87,7 @@ impl ValidatedCommand {
             enable_miniperf,
             std_redirects,
             graceful_shutdown_timeout_s,
-            cgroup_command_id,
-            action_digest: _,
+            command_cgroup,
         } = cmd_request;
 
         let exe = OsStr::from_bytes(&exe);
@@ -108,6 +101,17 @@ impl ValidatedCommand {
 
         let exe = maybe_absolutize_exe(exe, cwd)?;
 
+        let command_cgroup = command_cgroup.map(|cg| {
+            CgroupPathBuf::new(AbsNormPathBuf::new(cg.into()).expect("Set correctly by caller"))
+        });
+
+        let std_redirects = std_redirects.map(|std_redirects| StdRedirectPaths {
+            stdout: AbsNormPathBuf::new(std_redirects.stdout.into())
+                .expect("Set correctly by caller"),
+            stderr: AbsNormPathBuf::new(std_redirects.stderr.into())
+                .expect("Set correctly by caller"),
+        });
+
         Ok(ValidatedCommand {
             exe: exe.into_owned(),
             argv,
@@ -117,7 +121,7 @@ impl ValidatedCommand {
             enable_miniperf,
             std_redirects,
             graceful_shutdown_timeout_s,
-            cgroup_command_id,
+            command_cgroup,
         })
     }
 }
@@ -127,35 +131,17 @@ pub(crate) struct UnixForkserverService {
 
     /// State for Miniperf.
     miniperf: Option<MiniperfContainer>,
-
-    /// Systemd runner for resource control
-    resource_control_runner: Option<ResourceControlRunner>,
-
-    /// Whether this forkserver is running in a cgroup
-    has_cgroup: bool,
 }
 
 impl UnixForkserverService {
     pub(crate) fn new(
         log_reload_handle: Arc<dyn LogConfigurationReloadHandle>,
         state_dir: &AbsNormPath,
-        resource_control: ResourceControlConfig,
-        has_cgroup: bool,
     ) -> buck2_error::Result<Self> {
         let miniperf = MiniperfContainer::new(state_dir)?;
-        let resource_control_runner = ResourceControlRunner::create_if_enabled(
-            &ResourceControlRunnerConfig::action_runner_config(
-                &resource_control,
-                // we want to create forkserver in the same hierarchy where buck-daemon scope
-                // for this we inherit slice
-                ParentSlice::Inherit("forkserver".to_owned()),
-            ),
-        )?;
         Ok(Self {
             log_reload_handle,
             miniperf,
-            resource_control_runner,
-            has_cgroup,
         })
     }
 
@@ -200,53 +186,18 @@ impl UnixForkserverService {
     fn setup_process_command(
         &self,
         validated_cmd: &ValidatedCommand,
-        cgroup_id: Option<CgroupID>,
-    ) -> buck2_error::Result<(ProcessCommand, Option<AbsNormPathBuf>)> {
-        let resource_control_context = self
-            .resource_control_runner
-            .as_ref()
-            .zip(validated_cmd.cgroup_command_id.as_ref());
-
-        let (mut cmd, miniperf_output, cgroup_path) = match (
-            validated_cmd.enable_miniperf,
-            &self.miniperf,
-            &resource_control_context,
-        ) {
+    ) -> buck2_error::Result<(Command, Option<AbsNormPathBuf>)> {
+        let (mut cmd, miniperf_output) = match (validated_cmd.enable_miniperf, &self.miniperf) {
             // Wraps the user command with miniperf for performance monitoring
-            (true, Some(miniperf), None) => {
+            (true, Some(miniperf)) => {
                 let mut cmd = background_command(miniperf.miniperf.as_path());
                 let output_path = miniperf.allocate_output_path();
                 cmd.arg(output_path.as_path());
                 cmd.arg(&validated_cmd.exe);
-                (cmd, Some(output_path), None)
-            }
-            // Uses systemd-run + miniperf for resource control + monitoring
-            // systemd-run --scope --unit=<cgroup_command_id> miniperf <output_path> <user_executable>
-            (_, Some(miniperf), Some((resource_control_runner, cgroup_command_id))) => {
-                if let Some(cgroup_id) = cgroup_id {
-                    let mut cmd = background_command(miniperf.miniperf.as_path());
-                    // safe to unwarp, because we have cgroup_id which means we have cgroup pool
-                    let cgroup_pool = resource_control_runner.cgroup_pool().unwrap();
-                    let cgroup_path = cgroup_pool.setup_command(cgroup_id, &mut cmd)?;
-                    let output_path = miniperf.allocate_output_path();
-                    cmd.arg(output_path.as_path());
-                    cmd.arg(&validated_cmd.exe);
-                    (cmd, Some(output_path), Some(cgroup_path))
-                } else {
-                    let workding_dir = AbsNormPath::new(validated_cmd.cwd.as_path())?;
-                    let mut cmd = resource_control_runner.cgroup_scoped_command(
-                        miniperf.miniperf.as_path(),
-                        &replace_unit_delimiter(cgroup_command_id),
-                        workding_dir,
-                    );
-                    let output_path = miniperf.allocate_output_path();
-                    cmd.arg(output_path.as_path());
-                    cmd.arg(&validated_cmd.exe);
-                    (cmd, Some(output_path), None)
-                }
+                (cmd, Some(output_path))
             }
             // Direct execution of the command
-            _ => (background_command(&validated_cmd.exe), None, None),
+            _ => (background_command(&validated_cmd.exe), None),
         };
 
         cmd.current_dir(&validated_cmd.cwd);
@@ -254,78 +205,56 @@ impl UnixForkserverService {
 
         Self::configure_environment(&mut cmd, &validated_cmd.env)?;
 
-        // Some actions clear env and don't pass XDG_RUNTIME_DIR
-        // This env var is required for systemd-run,
-        // without passing it systemd returns "Failed to connect to bus: No medium found"
-        #[cfg(fbcode_build)]
-        if let Ok(value) = std::env::var("XDG_RUNTIME_DIR") {
-            cmd.env("XDG_RUNTIME_DIR", value);
-        }
-
-        if resource_control_context.is_some() {
-            // we set env var to enable reading peak memory from cgroup in miniperf
-            cmd.env("MINIPERF_READ_CGROUP", "1");
-        }
-
-        let mut cmd = ProcessCommand::new(cmd, cgroup_path);
-        if let Some(std_redirects) = &validated_cmd.std_redirects {
-            cmd.stdout(File::create(OsStr::from_bytes(&std_redirects.stdout))?);
-            cmd.stderr(File::create(OsStr::from_bytes(&std_redirects.stderr))?);
-        }
-
         // cmd: ready-to-spawn process command
         // miniperf_output: path to miniperf output file (if monitoring)
         Ok((cmd, miniperf_output))
     }
 
-    fn create_command_stream(
-        process_group: buck2_error::Result<buck2_execute_local::process_group::ProcessGroup>,
+    async fn create_command_stream(
+        cmd: Command,
+        validated_cmd: ValidatedCommand,
         cancellation: impl futures::Future<Output = buck2_error::Result<GatherOutputStatus>>
         + Send
+        + Unpin
         + 'static,
         miniperf_output: Option<AbsNormPathBuf>,
-        graceful_shutdown_timeout_s: Option<u32>,
-        stream_stdio: bool,
-        on_exit: Option<Box<dyn FnOnce() + Send + 'static>>,
+        freeze_rx: impl ActionFreezeEventReceiver,
     ) -> buck2_error::Result<RunStream> {
+        let timeout = validated_cmd.timeout;
+        let graceful_shutdown_timeout_s = validated_cmd.graceful_shutdown_timeout_s;
+        let std_redirects = validated_cmd.std_redirects;
+        let cgroup = validated_cmd.command_cgroup.clone();
         let stream = match miniperf_output {
-            Some(out) => stream_command_events(
-                process_group,
+            Some(out) => spawn_command_and_stream_events(
+                cmd,
+                timeout,
                 cancellation,
                 MiniperfStatusDecoder::new(out),
                 DefaultKillProcess {
                     graceful_shutdown_timeout_s,
                 },
-                stream_stdio,
-            )?
+                std_redirects,
+                false,
+                cgroup,
+                freeze_rx,
+            )
+            .await?
             .left_stream(),
-            None => stream_command_events(
-                process_group,
+            None => spawn_command_and_stream_events(
+                cmd,
+                timeout,
                 cancellation,
                 DefaultStatusDecoder,
                 DefaultKillProcess {
                     graceful_shutdown_timeout_s,
                 },
-                stream_stdio,
-            )?
+                std_redirects,
+                false,
+                cgroup,
+                freeze_rx,
+            )
+            .await?
             .right_stream(),
-        };
-
-        let stream = if on_exit.is_some() {
-            stream
-                .inspect({
-                    let mut on_exit = on_exit;
-                    move |event| {
-                        if let Ok(CommandEvent::Exit(_status)) = event {
-                            if let Some(cleanup) = on_exit.take() {
-                                cleanup();
-                            }
-                        }
-                    }
-                })
-                .left_stream()
-        } else {
-            stream.right_stream()
         };
 
         let stream = encode_event_stream(stream);
@@ -341,71 +270,62 @@ impl Forkserver for UnixForkserverService {
         &self,
         req: Request<Streaming<RequestEvent>>,
     ) -> Result<Response<Self::RunStream>, Status> {
-        let cgroup_pool = self
-            .resource_control_runner
-            .as_ref()
-            .and_then(|r| r.cgroup_pool());
-
-        let cgroup_id = if let Some(cgroup_pool) = cgroup_pool {
-            Some(cgroup_pool.acquire().map_err(|e| {
-                Status::failed_precondition(format!(
-                    "Cannot acquire cgroup from cgroup pool: {}",
-                    e
-                ))
-            })?)
-        } else {
-            None
-        };
-
-        let cgroup_pool_state = cgroup_pool.map(|cgroup_pool| cgroup_pool.state.dupe());
-
-        let cgroup_id_dup = cgroup_id.dupe();
-
         to_tonic(async move {
             let mut stream = req.into_inner();
 
             let cmd_request = Self::parse_command_request(&mut stream).await?;
             let validated_cmd = ValidatedCommand::try_from(cmd_request)?;
 
-            let cancel = async move {
-                stream
-                    .message()
-                    .await?
-                    .and_then(|m| m.data)
-                    .and_then(|m| m.into_cancel_request())
-                    .buck_error_context("RequestEvent was not a CancelRequest!")?;
+            let (cancel_tx, cancel_rx) = oneshot::channel();
+            let (freeze_tx, freeze_rx) = mpsc::unbounded_channel();
 
-                Ok(GatherOutputStatus::Cancelled)
-            };
-
-            let (mut cmd, miniperf_output) =
-                self.setup_process_command(&validated_cmd, cgroup_id_dup)?;
-            let process_group = cmd.spawn().map_err(buck2_error::Error::from);
-
-            let timeout = timeout_into_cancellation(validated_cmd.timeout);
-            let cancellation = select(timeout.boxed(), cancel.boxed()).map(|r| r.factor_first().0);
-
-            let stream_stdio = validated_cmd.std_redirects.is_none();
-
-            let on_exit = cgroup_id.map(|cgroup_id| {
-                Box::new(move || {
-                    // realse cgroup on exit
-                    let cgroup_pool_state_arc = cgroup_pool_state
-                        .expect("Cgroup Pool should be present when we have cgroup id");
-                    let mut cgroup_pool_state_mutex =
-                        cgroup_pool_state_arc.lock().expect("Mutex poisoned");
-                    cgroup_pool_state_mutex.release(cgroup_id);
-                }) as Box<dyn FnOnce() + Send>
+            // A task that splits the incoming events up into the freeze requests and cancel request
+            tokio::spawn(async move {
+                pin_mut!(stream);
+                while let Some(m) = stream.next().await {
+                    let err = match m {
+                        Ok(m) => match m.data {
+                            Some(d) => match d {
+                                buck2_forkserver_proto::request_event::Data::CommandRequest(_) => {
+                                    buck2_error::internal_error!("Non-leading command request")
+                                }
+                                buck2_forkserver_proto::request_event::Data::CancelRequest(_) => {
+                                    drop(cancel_tx.send(Ok(GatherOutputStatus::Cancelled)));
+                                    break;
+                                }
+                                buck2_forkserver_proto::request_event::Data::FreezeRequest(_) => {
+                                    drop(freeze_tx.send(ActionFreezeEvent::Freeze));
+                                    continue;
+                                }
+                                buck2_forkserver_proto::request_event::Data::UnfreezeRequest(_) => {
+                                    drop(freeze_tx.send(ActionFreezeEvent::Unfreeze));
+                                    continue;
+                                }
+                            },
+                            None => continue,
+                        },
+                        Err(e) => e.into(),
+                    };
+                    drop(cancel_tx.send(Err(err)));
+                    break;
+                }
             });
 
+            let cancel = cancel_rx.map(|r| match r {
+                Ok(res) => res,
+                Err(_) => Ok(GatherOutputStatus::Cancelled),
+            });
+
+            let (cmd, miniperf_output) = self.setup_process_command(&validated_cmd)?;
+
             let stream = Self::create_command_stream(
-                process_group,
-                cancellation,
+                cmd,
+                validated_cmd,
+                cancel,
                 miniperf_output,
-                validated_cmd.graceful_shutdown_timeout_s,
-                stream_stdio,
-                on_exit,
-            )?;
+                UnboundedReceiverStream::new(freeze_rx),
+            )
+            .await?;
 
             Ok(stream)
         })
@@ -422,23 +342,6 @@ impl Forkserver for UnixForkserverService {
             .map_err(|e| Status::invalid_argument(format!("{e:#}")))?;
 
         Ok(Response::new(SetLogFilterResponse {}))
-    }
-
-    async fn get_cgroup(
-        &self,
-        _req: Request<GetCgroupRequest>,
-    ) -> Result<Response<GetCgroupResponse>, Status> {
-        if !self.has_cgroup {
-            return Ok(Response::new(GetCgroupResponse { cgroup_path: None }));
-        }
-
-        let cgroup_info = CGroupInfo::read()
-            .buck_error_context("Failed to read cgroup info")
-            .map_err(|e| Status::internal(format!("{e:#}")))?;
-
-        Ok(Response::new(GetCgroupResponse {
-            cgroup_path: Some(cgroup_info.path),
-        }))
     }
 }
 
@@ -480,11 +383,7 @@ impl MiniperfContainer {
         opts.create_new(true);
         opts.write(true);
 
-        #[cfg(unix)]
-        {
-            use std::os::unix::fs::OpenOptionsExt;
-            opts.mode(0o755);
-        }
+        opts.mode(0o755);
 
         let mut miniperf_writer = opts
             .open(miniperf.as_path())

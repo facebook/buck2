@@ -14,16 +14,13 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.is;
 
 import com.facebook.buck.jvm.java.testutil.compiler.CompilerTreeApiTest;
-import com.facebook.buck.jvm.java.testutil.compiler.CompilerTreeApiTestRunner;
 import com.google.common.base.Joiner;
 import com.sun.source.tree.CompilationUnitTree;
 import java.io.IOException;
 import javax.lang.model.element.TypeElement;
 import org.junit.Before;
 import org.junit.Test;
-import org.junit.runner.RunWith;
 
-@RunWith(CompilerTreeApiTestRunner.class)
 public class ElementTreeFinderTest extends CompilerTreeApiTest {
   private static final String SOURCE_CODE =
       Joiner.on('\n')

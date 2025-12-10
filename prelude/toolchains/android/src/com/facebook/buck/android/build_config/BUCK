@@ -15,7 +15,6 @@ buck_java_library(
         "PUBLIC",
     ],
     deps = [
-        "prelude//toolchains/android/src/com/facebook/buck/core/exceptions:exceptions",
         "prelude//toolchains/android/third-party:guava",
     ],
     exported_deps = [

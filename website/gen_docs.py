@@ -193,6 +193,11 @@ id: index
 title: buck2 commands
 ---
 """
+    common_options_section = """\
+
+For common options available across multiple commands, see [Common Options](./common-options).
+
+"""
     lines = [
         "| Command       | Description                  |",
         "|---------------|------------------------------|",
@@ -205,7 +210,7 @@ title: buck2 commands
         safe_help = short_help.replace("|", "\\|")
         lines.append(f"| {cmd_with_link} | {safe_help} |")
 
-    return titile + "\n".join(lines)
+    return titile + common_options_section + "\n".join(lines)
 
 
 def generate_help_docs(buck: str) -> None:
@@ -216,13 +221,15 @@ def generate_help_docs(buck: str) -> None:
     print("Running " + cmd + " ...")
     res = subprocess.run(cmd, shell=True, check=True, capture_output=True)
     subcommands = parse_subcommands(res.stdout.decode())
-    for sub in subcommands:
+    # Use addtional common-options subcommand to generate the common options page
+    for sub in subcommands + ["common-options"]:
         output = generate_help_docs_subcommand(buck, [sub])
         write_file(
             base_dir / (sub + ".generated.md"),
             "---\nid: " + sub + "\ntitle: " + sub + "\n---\n\n" + output,
         )
 
+    # No need to generate a row for the "common-options"
     index_page_content = generate_help_docs_index_page(buck, subcommands)
     write_file(base_dir / "index.md", index_page_content)
 

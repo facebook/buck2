@@ -14,7 +14,7 @@ load(
 )
 load(":python.bzl", "PythonLibraryManifestsTSet")
 
-DEFAULT_PY_VERSION = "3.10"
+DEFAULT_PY_VERSION = "3.12"
 
 # Best-effort guess on what the host sys.platform is
 def get_default_sys_platform() -> str | None:

@@ -7,8 +7,6 @@
 
 %% @format
 -module(ct_daemon_node).
--eqwalizer(ignore).
-
 -compile(warn_missing_spec_all).
 
 -include_lib("kernel/include/logger.hrl").
@@ -17,6 +15,8 @@
 -export([start/1, start/2, stop/0, alive/0, get_node/0]).
 
 -export([node_main/1, get_domain_type/0]).
+
+-import(common_util, [unicode_characters_to_binary/1, filename_all_to_filename/1]).
 
 -define(LOG_BASE, "/tmp/ct_daemon").
 
@@ -30,14 +30,14 @@
 -type opt() ::
     {multiply_timetraps, number() | infinity}
     | {ct_hooks, [atom() | {atom(), [term()]}]}
-    | {output_dir, file:filename()}.
+    | {output_dir, file:filename_all()}.
 
 -export_type([config/0]).
 
 -doc """
 start node for running tests in isolated way and keep state
 """.
--spec start(ErlCommand) -> ok when
+-spec start(ErlCommand) -> ok | {error, {crash_on_startup, integer()}} when
     ErlCommand :: nonempty_list(binary()).
 start(ErlCommand) ->
     NodeName = list_to_atom(
@@ -74,34 +74,61 @@ start(
     OutputDir = gen_output_dir(RandomName),
     FullOptions = [{output_dir, OutputDir} | Options],
     Args = build_daemon_args(Type, Node, Cookie, FullOptions, OutputDir),
-    % Replay = maps:get(replay, Config, false),
-    Port =
-        ct_runner:start_test_node(
+
+    MainProc = self(),
+    Pid = erlang:spawn(fun() ->
+        true = erlang:register(?MODULE, self()),
+        Port = ct_runner:start_test_node(
             ErlCommand,
             [],
             [],
             CodePaths,
             ConfigFiles,
             OutputDir,
-            [{args, Args}, {cd, OutputDir}],
-            false
+            [{args, Args}, {cd, OutputDir}]
         ),
-    %% wait for the ct_daemon gen_server to be started
-    true = erlang:register(?MODULE, self()),
-    port_loop(Port, []),
-    ok.
+        port_loop_1(Port, MainProc)
+    end),
 
--spec port_loop(port(), list()) -> ok | {error, {crash_on_startup, integer()}}.
-port_loop(Port, Acc) ->
+    %% wait for the ct_daemon gen_server to be started
     receive
-        {Port, {data, {eol, Line}}} ->
-            port_loop(Port, [Line | Acc]);
+        {Pid, ready} ->
+            ok;
+        {Pid, Error = {crash_on_startup, N}} when is_integer(N) ->
+            ?LOG_DEBUG("Test Node Crashed on Startup"),
+            {error, Error}
+    end.
+
+-spec port_loop_1(port(), pid()) -> ok.
+port_loop_1(Port, MainProc) ->
+    receive
         ready ->
             true = erlang:unregister(?MODULE),
-            ok = global:sync();
+            ok = global:sync(),
+            MainProc ! {self(), ready},
+            port_loop_2(Port);
         {Port, {exit_status, N}} ->
-            ?LOG_DEBUG("Test Node Crashed on Startup: ~n~ts~n", [lists:join("\n", lists:reverse(Acc))]),
-            {error, {crash_on_startup, N}}
+            MainProc ! {self(), {crash_on_startup, N}},
+            ok;
+        {Port, {data, {noeol, Line}}} ->
+            io:put_chars(Line),
+            port_loop_1(Port, MainProc);
+        {Port, {data, {eol, Line}}} ->
+            io:put_chars([Line, ~"\n"]),
+            port_loop_1(Port, MainProc)
+    end.
+
+-spec port_loop_2(port()) -> ok.
+port_loop_2(Port) ->
+    receive
+        {Port, {exit_status, _}} ->
+            ok;
+        {Port, {data, {noeol, Line}}} ->
+            io:put_chars(Line),
+            port_loop_2(Port);
+        {Port, {data, {eol, Line}}} ->
+            io:put_chars([Line, ~"\n"]),
+            port_loop_2(Port)
     end.
 
 -spec stop() -> node().
@@ -125,8 +152,13 @@ stop() ->
 -spec get_node() -> node().
 get_node() ->
     case alive() of
-        true -> erlang:node(get_runner_pid());
-        false -> error(not_running)
+        true ->
+            case get_runner_pid() of
+                undefined -> error(not_running);
+                Pid -> erlang:node(Pid)
+            end;
+        false ->
+            error(not_running)
     end.
 
 -spec alive() -> boolean().
@@ -171,7 +203,10 @@ node_main([Parent, OutputDirAtom]) ->
     erlang:halt(0).
 
 %% internal
--spec ensure_distribution(longnames | shortnames, RandomName :: string(), Cookie :: atom()) -> ok.
+-spec ensure_distribution(Type, RandomName, Cookie) -> ok when
+    Type :: shortnames | longnames,
+    RandomName :: binary(),
+    Cookie :: atom().
 ensure_distribution(Type, RandomName, Cookie) ->
     case erlang:node() of
         'nonode@nohost' ->
@@ -193,8 +228,14 @@ ensure_distribution(Type, RandomName, Cookie) ->
     true = erlang:set_cookie(Cookie),
     ok.
 
--spec build_daemon_args(shortnames | longnames, node(), atom(), [opt()], file:filename_all()) ->
-    [string()].
+-spec build_daemon_args(Type, Node, Cookie, Options, OutputDir) ->
+    [string()]
+when
+    Type :: shortnames | longnames,
+    Node :: node(),
+    Cookie :: atom(),
+    Options :: [opt()],
+    OutputDir :: file:filename_all().
 build_daemon_args(Type, Node, Cookie, Options, OutputDir) ->
     DistArg =
         case Type of
@@ -213,7 +254,7 @@ build_daemon_args(Type, Node, Cookie, Options, OutputDir) ->
         convert_atom_arg(?MODULE),
         "node_main",
         convert_atom_arg(erlang:node()),
-        OutputDir
+        filename_all_to_filename(OutputDir)
     ].
 
 -spec convert_atom_arg(atom()) -> string().
@@ -223,9 +264,12 @@ convert_atom_arg(Arg) ->
 -spec get_config_files() -> [file:filename_all()].
 get_config_files() ->
     %% get config files from command line
-    [F || {config, F} <- init:get_arguments()].
+    case init:get_argument(config) of
+        error -> [];
+        {ok, Configs} -> [F || ConfigFiles <- Configs, F <- ConfigFiles]
+    end.
 
--spec gen_output_dir(RandomName :: string()) -> file:filename().
+-spec gen_output_dir(RandomName :: file:filename_all()) -> file:filename_all().
 gen_output_dir(RandomName) ->
     BaseDir =
         case application:get_env(test_exec, ct_daemon_log_dir, undefined) of
@@ -240,9 +284,10 @@ gen_output_dir(RandomName) ->
         RandomName
     ]).
 
--spec random_name() -> io_lib:chars().
+-spec random_name() -> binary().
 random_name() ->
-    io_lib:format("~b-~b~ts", [rand:uniform(100000), erlang:unique_integer([positive, monotonic]), os:getpid()]).
+    N = io_lib:format("~b-~b~ts", [rand:uniform(100000), erlang:unique_integer([positive, monotonic]), os:getpid()]),
+    unicode_characters_to_binary(N).
 
 -spec get_domain_type() -> longnames | shortnames.
 get_domain_type() ->

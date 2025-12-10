@@ -17,7 +17,6 @@ use buck2_common::file_ops::metadata::FileDigest;
 use buck2_common::file_ops::metadata::FileMetadata;
 use buck2_common::file_ops::metadata::Symlink;
 use buck2_common::file_ops::metadata::TrackedFileDigest;
-use buck2_core::fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_directory::directory::directory_iterator::DirectoryIterator;
@@ -32,6 +31,7 @@ use buck2_execute::directory::ActionDirectoryEntry;
 use buck2_execute::directory::ActionDirectoryMember;
 use buck2_execute::directory::ActionSharedDirectory;
 use buck2_execute::directory::INTERNER;
+use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use chrono::DateTime;
 use chrono::TimeZone;
 use chrono::Utc;
@@ -720,10 +720,10 @@ impl MaterializerStateSqliteTable {
 mod tests {
     use assert_matches::assert_matches;
     use buck2_common::cas_digest::TrackedCasDigest;
-    use buck2_core::fs::paths::forward_rel_path::ForwardRelativePath;
     use buck2_directory::directory::builder::DirectoryBuilder;
     use buck2_directory::directory::dashmap_directory_interner::DashMapDirectoryInterner;
     use buck2_execute::directory::new_symlink;
+    use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
 
     use super::*;
 

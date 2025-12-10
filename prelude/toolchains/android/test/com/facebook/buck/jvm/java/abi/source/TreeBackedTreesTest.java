@@ -13,8 +13,6 @@ package com.facebook.buck.jvm.java.abi.source;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertSame;
 
-import com.facebook.buck.jvm.java.testutil.compiler.CompilerTreeApiParameterized;
-import com.facebook.buck.jvm.java.version.utils.JavaVersionUtils;
 import com.google.common.base.Joiner;
 import com.sun.source.tree.Tree;
 import com.sun.source.tree.VariableTree;
@@ -26,8 +24,9 @@ import javax.lang.model.element.VariableElement;
 import javax.lang.model.util.ElementFilter;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.junit.runners.Parameterized;
 
-@RunWith(CompilerTreeApiParameterized.class)
+@RunWith(Parameterized.class)
 public class TreeBackedTreesTest extends CompilerTreeApiParameterizedTest {
   @Test
   public void testIdentifierTreeToName() throws IOException {
@@ -101,12 +100,8 @@ public class TreeBackedTreesTest extends CompilerTreeApiParameterizedTest {
 
     TypeParameterElement tElement = elements.getTypeElement("Foo").getTypeParameters().get(0);
 
-    Tree tTree = trees.getTree(tElement);
     TreePath tPath = trees.getPath(tElement);
 
-    if (JavaVersionUtils.getMajorVersion() < 11) {
-      assertNull(tTree); // Odd behavior by javac, but we'll match it
-    }
     assertSame(tElement, trees.getElement(tPath));
   }
 

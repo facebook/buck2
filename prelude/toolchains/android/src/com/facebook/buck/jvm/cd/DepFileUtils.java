@@ -35,7 +35,7 @@ public class DepFileUtils {
       List<Path> usedClassesMapPaths,
       Path depFileOutput,
       Optional<Path> jarToJarDirMapPath,
-      Optional<Path> prevDepFile)
+      boolean append)
       throws IOException {
     ImmutableMap<Path, Path> jarToJarDirMap;
     if (jarToJarDirMapPath.isPresent()) {
@@ -68,9 +68,8 @@ public class DepFileUtils {
       }
     }
 
-    if (prevDepFile.isPresent()) {
-      Files.readAllLines(prevDepFile.get()).stream()
-          .forEach(path -> allUsedPaths.add(Paths.get(path)));
+    if (append && Files.exists(depFileOutput)) {
+      Files.readAllLines(depFileOutput).stream().forEach(path -> allUsedPaths.add(Paths.get(path)));
     }
 
     Files.write(
@@ -83,14 +82,12 @@ public class DepFileUtils {
    * dependencies.
    */
   public static void usedClassesToUsedJars(
-      List<Path> usedClassesJsonPaths,
-      Path usedJarsFileOutput,
-      Optional<Path> prevUsedJarsFileOutput)
-      throws IOException {
+      List<Path> usedClassesJsonPaths, Path usedJarsFileOutput, boolean append) throws IOException {
     Map<Path, List<Path>> usedJarsToClasses = new TreeMap<>();
-    if (prevUsedJarsFileOutput.isPresent()) {
+
+    if (append && Files.exists(usedJarsFileOutput)) {
       Map<Path, List<Path>> existingEntries =
-          ObjectMappers.readValue(prevUsedJarsFileOutput.get(), new TypeReference<>() {});
+          ObjectMappers.readValue(usedJarsFileOutput, new TypeReference<>() {});
       usedJarsToClasses.putAll(existingEntries);
     }
 

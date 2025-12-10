@@ -90,7 +90,6 @@ cxx_binary = prelude_rule(
     """,
     examples = """
         ```
-
         # A rule that builds a C/C++ native executable from a single .cpp file
         # its corresponding header, and a C/C++ library dependency.
         cxx_binary(
@@ -121,7 +120,6 @@ cxx_binary = prelude_rule(
 
         # To build with stripping debug symbols only:
         buck build :echo#strip-debug
-
         ```
     """,
     further = None,
@@ -152,7 +150,6 @@ cxx_binary = prelude_rule(
         cxx_common.use_fbcc_rust_wrapper_arg() |
         cxx_common.use_content_based_paths_arg() |
         {
-            "contacts": attrs.list(attrs.string(), default = []),
             "cxx_runtime_type": attrs.option(attrs.enum(CxxRuntimeType), default = None),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "default_platform": attrs.option(attrs.string(), default = None),
@@ -164,13 +161,11 @@ cxx_binary = prelude_rule(
             "focused_list_target": attrs.option(attrs.dep(), default = None),
             "frameworks": attrs.list(attrs.string(), default = []),
             "headers_as_raw_headers_mode": attrs.option(attrs.enum(HeadersAsRawHeadersMode), default = None),
-            "labels": attrs.list(attrs.string(), default = []),
             "lang_compiler_flags": attrs.dict(key = attrs.enum(CxxSourceType), value = attrs.list(attrs.arg()), sorted = False, default = {}),
             "lang_platform_compiler_flags": attrs.dict(key = attrs.enum(CxxSourceType), value = attrs.list(attrs.tuple(attrs.regex(), attrs.list(attrs.arg()))), sorted = False, default = {}),
             "lang_platform_preprocessor_flags": attrs.dict(key = attrs.enum(CxxSourceType), value = attrs.list(attrs.tuple(attrs.regex(), attrs.list(attrs.arg()))), sorted = False, default = {}),
             "lang_preprocessor_flags": attrs.dict(key = attrs.enum(CxxSourceType), value = attrs.list(attrs.arg()), sorted = False, default = {}),
             "libraries": attrs.list(attrs.string(), default = []),
-            "licenses": attrs.list(attrs.source(), default = []),
             "link_deps_query_whole": attrs.bool(default = False),
             "link_group": attrs.option(attrs.string(), default = None),
             "link_group_map": LINK_GROUP_MAP_ATTR,
@@ -186,6 +181,9 @@ cxx_binary = prelude_rule(
             "use_header_units": attrs.bool(default = False),
         } |
         buck.allow_cache_upload_arg() |
+        buck.licenses_arg() |
+        buck.labels_arg() |
+        buck.contacts_arg() |
         _cxx_binary_and_test_attrs()
     ),
     cfg = constraint_overrides.transition,
@@ -225,10 +223,7 @@ cxx_genrule = prelude_rule(
 
 
         ```
-
-
         buck build :cxx_gr_name#iphonesimulator-x86_64
-
         ```
 
 
@@ -238,10 +233,7 @@ cxx_genrule = prelude_rule(
 
 
         ```
-
-
         buck build :cxx_gr_name#default
-
         ```
     """,
     examples = None,
@@ -430,16 +422,17 @@ cxx_genrule = prelude_rule(
                 Whether this target should be executed in a sandbox or not.
             """),
             "cacheable": attrs.option(attrs.bool(), default = None),
+            "has_content_based_path": attrs.bool(default = False),
             "uses_experimental_content_based_path_hashing": attrs.bool(default = False),
-            "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "default_outs": attrs.option(attrs.set(attrs.string(), sorted = False), default = None),
-            "labels": attrs.list(attrs.string(), default = []),
-            "licenses": attrs.list(attrs.source(), default = []),
             "need_android_tools": attrs.bool(default = False),
             "outs": attrs.option(attrs.dict(key = attrs.string(), value = attrs.set(attrs.string(), sorted = False), sorted = False), default = None),
             "remote": attrs.option(attrs.bool(), default = None),
-        }
+        } |
+        buck.licenses_arg() |
+        buck.labels_arg() |
+        buck.contacts_arg()
     ),
 )
 
@@ -477,6 +470,7 @@ library_attrs = (
     native_common.link_whole(link_whole_type = attrs.option(attrs.bool(), default = None)) |
     native_common.soname() |
     cxx_common.raw_headers_arg() |
+    cxx_common.supports_stripping() |
     cxx_common.raw_headers_as_headers_mode_arg() |
     cxx_common.include_directories_arg() |
     cxx_common.public_include_directories_arg() |
@@ -515,7 +509,6 @@ library_attrs = (
         "archive_allow_cache_upload": attrs.bool(default = False),
         "bridging_header": attrs.option(attrs.source(), default = None),
         "can_be_asset": attrs.option(attrs.bool(), default = None),
-        "contacts": attrs.list(attrs.string(), default = []),
         "cxx_runtime_type": attrs.option(attrs.enum(CxxRuntimeType), default = None),
         "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
         "default_platform": attrs.option(attrs.string(), default = None),
@@ -529,9 +522,7 @@ library_attrs = (
         "frameworks": attrs.list(attrs.string(), default = []),
         "headers_as_raw_headers_mode": attrs.option(attrs.enum(HeadersAsRawHeadersMode), default = None),
         "include_in_android_merge_map_output": attrs.bool(default = True),
-        "labels": attrs.list(attrs.string(), default = []),
         "libraries": attrs.list(attrs.string(), default = []),
-        "licenses": attrs.list(attrs.source(), default = []),
         "link_group": attrs.option(attrs.string(), default = None),
         "link_group_map": LINK_GROUP_MAP_ATTR,
         "module_name": attrs.option(attrs.string(), default = None),
@@ -581,7 +572,10 @@ library_attrs = (
         """),
         "extra_dwp_flags": attrs.list(attrs.string(), default = []),
     } |
-    buck.allow_cache_upload_arg()
+    buck.allow_cache_upload_arg() |
+    buck.licenses_arg() |
+    buck.labels_arg() |
+    buck.contacts_arg()
 )
 
 cxx_library = prelude_rule(
@@ -621,7 +615,6 @@ cxx_library = prelude_rule(
     """,
     examples = """
         ```
-
         # A rule that includes a single .cpp file and its corresponding header and
         # also supplies an additional flag for compilation.
         cxx_library(
@@ -683,8 +676,6 @@ cxx_library = prelude_rule(
             ),
           ],
         )
-
-
         ```
     """,
     further = None,
@@ -721,7 +712,6 @@ cxx_precompiled_header = prelude_rule(
 
 
         ```
-
         #pragma once
 
         /* Include common C++ files. */
@@ -735,12 +725,10 @@ cxx_precompiled_header = prelude_rule(
         #include <folly/Conv.h>
         #include <folly/Executor.h>
         #include <folly/io/async/EventBase.h>
-
         ```
 
 
         ```
-
         cxx_precompiled_header(
           name = 'common_pch',
           src = 'common.h',
@@ -760,7 +748,6 @@ cxx_precompiled_header = prelude_rule(
           deps = [ ... ],
           compiler_flags = ['-g', '-O2', '-fPIC'],
         )
-
         ```
 
 
@@ -813,13 +800,10 @@ cxx_precompiled_header = prelude_rule(
             "compile_pch_file": attrs.bool(default = False, doc = """
                 Whether to compile the precompiled header file or use legacy mode.
             """),
-            "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "deps": attrs.list(attrs.dep(), default = [], doc = """
                 Dependency rules which export headers used by the header specified in `src`.
             """),
-            "labels": attrs.list(attrs.string(), default = []),
-            "licenses": attrs.list(attrs.source(), default = []),
             "pch_clanguage": attrs.option(attrs.string(), default = None, doc = """
                 The c-language extension to use for the precompiled header. Eg. .c, .cpp, .m, .mm, etc.
             """),
@@ -832,7 +816,10 @@ cxx_precompiled_header = prelude_rule(
             """),
             "version_universe": attrs.option(attrs.string(), default = None),
         } |
-        library_attrs
+        library_attrs |
+        buck.licenses_arg() |
+        buck.labels_arg() |
+        buck.contacts_arg()
     ),
 )
 
@@ -850,7 +837,6 @@ windows_resource = prelude_rule(
     """,
     examples = """
         ```
-
         # A rule that includes a single .rc file and compiles it into an object file.
         windows_resource(
           name = "resources",
@@ -869,7 +855,6 @@ windows_resource = prelude_rule(
             ":resources"
           ],
         )
-
         ```
     """,
     further = None,
@@ -882,8 +867,8 @@ windows_resource = prelude_rule(
         cxx_common.include_directories_arg() |
         {
             "deps": attrs.list(attrs.dep(), default = []),
-            "labels": attrs.list(attrs.string(), default = []),
-        }
+        } |
+        buck.labels_arg()
     ),
 )
 
@@ -895,7 +880,6 @@ cxx_test = prelude_rule(
     """,
     examples = """
         ```
-
         # A rule that builds and runs C/C++ test using gtest.
         cxx_test(
           name = 'echo_test',
@@ -903,7 +887,6 @@ cxx_test = prelude_rule(
             'echo_test.cpp',
           ],
         )
-
         ```
     """,
     further = None,
@@ -975,7 +958,6 @@ cxx_test = prelude_rule(
         native_common.link_style() |
         {
             "additional_coverage_targets": attrs.list(attrs.source(), default = []),
-            "contacts": attrs.list(attrs.string(), default = []),
             "cxx_runtime_type": attrs.option(attrs.enum(CxxRuntimeType), default = None),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "default_platform": attrs.option(attrs.string(), default = None),
@@ -988,13 +970,11 @@ cxx_test = prelude_rule(
             "frameworks": attrs.list(attrs.string(), default = []),
             "header_namespace": attrs.option(attrs.string(), default = None),
             "headers_as_raw_headers_mode": attrs.option(attrs.enum(HeadersAsRawHeadersMode), default = None),
-            "labels": attrs.list(attrs.string(), default = []),
             "lang_compiler_flags": attrs.dict(key = attrs.enum(CxxSourceType), value = attrs.list(attrs.arg()), sorted = False, default = {}),
             "lang_platform_compiler_flags": attrs.dict(key = attrs.enum(CxxSourceType), value = attrs.list(attrs.tuple(attrs.regex(), attrs.list(attrs.arg()))), sorted = False, default = {}),
             "lang_platform_preprocessor_flags": attrs.dict(key = attrs.enum(CxxSourceType), value = attrs.list(attrs.tuple(attrs.regex(), attrs.list(attrs.arg()))), sorted = False, default = {}),
             "lang_preprocessor_flags": attrs.dict(key = attrs.enum(CxxSourceType), value = attrs.list(attrs.arg()), sorted = False, default = {}),
             "libraries": attrs.list(attrs.string(), default = []),
-            "licenses": attrs.list(attrs.source(), default = []),
             "link_deps_query_whole": attrs.bool(default = False),
             "link_group": attrs.option(attrs.string(), default = None),
             "link_group_map": LINK_GROUP_MAP_ATTR,
@@ -1021,6 +1001,9 @@ cxx_test = prelude_rule(
             """),
         } |
         buck.allow_cache_upload_arg() |
+        buck.licenses_arg() |
+        buck.labels_arg() |
+        buck.contacts_arg() |
         test_common.attributes() |
         _cxx_binary_and_test_attrs()
     ),
@@ -1070,7 +1053,6 @@ cxx_toolchain = prelude_rule(
             "c_preprocessor_flags": attrs.list(attrs.arg(), default = []),
             "cache_links": attrs.bool(default = False),
             "compiler_type": attrs.option(attrs.enum(CxxToolProviderType), default = None),
-            "contacts": attrs.list(attrs.string(), default = []),
             "cuda_compiler": attrs.option(attrs.source(), default = None),
             "cuda_compiler_flags": attrs.list(attrs.arg(), default = []),
             "cuda_compiler_type": attrs.option(attrs.enum(CxxToolProviderType), default = None),
@@ -1094,13 +1076,12 @@ cxx_toolchain = prelude_rule(
                 Linker flags that only apply when linking an executable.
                 """,
             ),
+            "extra_linker_outputs": attrs.set(attrs.string(), default = []),
             "headers_as_raw_headers_mode": attrs.option(attrs.enum(HeadersAsRawHeadersMode), default = None),
             "hip_compiler": attrs.option(attrs.source(), default = None),
             "hip_compiler_flags": attrs.list(attrs.arg(), default = []),
             "hip_compiler_type": attrs.option(attrs.enum(CxxToolProviderType), default = None),
             "hip_preprocessor_flags": attrs.list(attrs.arg(), default = []),
-            "labels": attrs.list(attrs.string(), default = []),
-            "licenses": attrs.list(attrs.source(), default = []),
             "link_metadata_flag": attrs.option(attrs.string(), default = None),
             "link_style": attrs.enum(
                 LinkStyle.values(),
@@ -1141,7 +1122,10 @@ cxx_toolchain = prelude_rule(
             "strip_debug_flags": attrs.option(attrs.list(attrs.arg()), default = None),
             "strip_non_global_flags": attrs.option(attrs.list(attrs.arg()), default = None),
             "use_header_map": attrs.bool(default = False),
-        }
+        } |
+        buck.licenses_arg() |
+        buck.labels_arg() |
+        buck.contacts_arg()
     ),
 )
 
@@ -1156,7 +1140,6 @@ prebuilt_cxx_library = prelude_rule(
 
 
         ```
-
         prebuilt_cxx_library(
           name = 'stdutil',
           header_only = True,
@@ -1164,14 +1147,12 @@ prebuilt_cxx_library = prelude_rule(
             'include',
           ],
         )
-
         ```
 
          A prebuilt library with static and shared libs.
 
 
         ```
-
         prebuilt_cxx_library(
           name = 'mylib',
           soname = 'libmylib.so',
@@ -1182,14 +1163,12 @@ prebuilt_cxx_library = prelude_rule(
             'mylib.h',
           ],
         )
-
         ```
 
          A prebuilt library with multiple builds for multiple platforms.
 
 
         ```
-
         prebuilt_cxx_library(
           name = 'mylib',
           soname = 'libmylib.so',
@@ -1207,7 +1186,6 @@ prebuilt_cxx_library = prelude_rule(
             'mylib.h',
           ],
         )
-
         ```
     """,
     further = None,
@@ -1272,7 +1250,6 @@ prebuilt_cxx_library = prelude_rule(
         cxx_common.version_arg() |
         {
             "can_be_asset": attrs.bool(default = False),
-            "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "deffile": attrs.option(attrs.source(), default = None, doc = """
                 Specifies the *.def file used on windows to modify a dll's exports in place of explicit `__declspec(dllexport)` declarations.
@@ -1288,9 +1265,7 @@ prebuilt_cxx_library = prelude_rule(
             "frameworks": attrs.list(attrs.string(), default = []),
             "import_lib": attrs.option(attrs.source(), default = None),
             "include_in_android_merge_map_output": attrs.bool(default = True),
-            "labels": attrs.list(attrs.string(), default = []),
             "libraries": attrs.list(attrs.string(), default = []),
-            "licenses": attrs.list(attrs.source(), default = []),
             "link_whole": attrs.bool(default = False),
             "link_without_soname": attrs.bool(default = False),
             "platform_import_lib": attrs.option(attrs.list(attrs.tuple(attrs.regex(), attrs.source())), default = None),
@@ -1309,7 +1284,10 @@ prebuilt_cxx_library = prelude_rule(
             "versioned_static_lib": attrs.option(attrs.versioned(attrs.source()), default = None),
             "versioned_static_pic_lib": attrs.option(attrs.versioned(attrs.source()), default = None),
         } |
-        buck.allow_cache_upload_arg()
+        buck.allow_cache_upload_arg() |
+        buck.licenses_arg() |
+        buck.labels_arg() |
+        buck.contacts_arg()
     ),
 )
 
@@ -1324,7 +1302,6 @@ prebuilt_cxx_library_group = prelude_rule(
 
 
         ```
-
         prebuilt_cxx_library_group(
           name = 'util',
           static_link = [
@@ -1358,7 +1335,6 @@ prebuilt_cxx_library_group = prelude_rule(
             'libb.so': 'lib/libb.so',
           },
         )
-
         ```
     """,
     further = None,
@@ -1409,16 +1385,16 @@ prebuilt_cxx_library_group = prelude_rule(
         cxx_common.version_arg() |
         cxx_common.supported_platforms_regex_arg() |
         {
-            "contacts": attrs.list(attrs.string(), default = []),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "deps": attrs.list(attrs.dep(), default = []),
             "import_libs": attrs.dict(key = attrs.string(), value = attrs.source(), sorted = False, default = {}),
             "include_dirs": attrs.list(attrs.source(allow_directory = True), default = []),
             "include_in_android_merge_map_output": attrs.bool(default = True),
-            "labels": attrs.list(attrs.string(), default = []),
-            "licenses": attrs.list(attrs.source(), default = []),
             "supports_shared_library_interface": attrs.bool(default = True),
-        }
+        } |
+        buck.licenses_arg() |
+        buck.labels_arg() |
+        buck.contacts_arg()
     ),
 )
 
@@ -1429,7 +1405,6 @@ llvm_link_bitcode = prelude_rule(
     """,
     examples = """
         ```
-
         # A rule that builds and runs C/C++ test using gtest.
         llvm_link_bitcode(
           name = 'echo_test',
@@ -1438,7 +1413,6 @@ llvm_link_bitcode = prelude_rule(
             'echo_other.o', // And this is another LLVM bitcode object.
           ],
         )
-
         ```
     """,
     further = None,

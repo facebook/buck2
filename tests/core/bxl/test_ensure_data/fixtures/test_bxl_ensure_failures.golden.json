@@ -1,0 +1,60 @@
+# This file is @generated, regenerate by re-running test with `-- --env BUCK2_UPDATE_GOLDEN=1` appended to the test command
+
+{
+  "error_category": "USER",
+  "failures": {},
+  "results": {
+    "root//ensure.bxl:ensure_failures": {
+      "configured": {},
+      "errors": [
+        {
+          "action_error": {
+            "digest": "<DIGEST>",
+            "error_content": "<STRING_HASH>",
+            "error_diagnostics": {
+              "sub_errors": [
+                {
+                  "category": "fail_build_error",
+                  "col": 2,
+                  "end_col": null,
+                  "end_lnum": null,
+                  "error_number": null,
+                  "error_type": null,
+                  "file": "foo.cpp",
+                  "lnum": 42,
+                  "message_content": "<STRING_HASH>",
+                  "remediation": null,
+                  "subcategory": null
+                }
+              ]
+            },
+            "key": {
+              "owner": "root//build:fail (<unspecified>)"
+            },
+            "name": {
+              "category": "run",
+              "identifier": ""
+            },
+            "stderr_content": "<STRING_HASH>",
+            "stdout_content": "<STRING_HASH>"
+          },
+          "cause_index": 0,
+          "error_tags": [
+            "ACTION_COMMAND_FAILURE",
+            "ANY_ACTION_EXECUTION"
+          ],
+          "message_content": "<STRING_HASH>"
+        }
+      ]
+    }
+  },
+  "strings": {
+    "<STRING_HASH>": "",
+    "<STRING_HASH>": "Action failed: root//build:fail (<unspecified>) (run)\nRemote command returned non-zero exit code 127\nRemote action, reproduce with: `frecli cas download-action <DIGEST>`\nStdout: <empty>\nStderr:\nError while resolving command \"exit\": cannot find binary path\n",
+    "<STRING_HASH>": "Error while resolving command \"exit\": cannot find binary path\n",
+    "<STRING_HASH>": "Remote command returned non-zero exit code 127",
+    "<STRING_HASH>": "fail to build"
+  },
+  "success": false,
+  "truncated": false
+}

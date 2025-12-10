@@ -9,10 +9,6 @@
 [<TIMESTAMP>] Remote action, reproduce with: `frecli cas download-action <DIGEST>`
 [<TIMESTAMP>] Stdout: <empty>
 [<TIMESTAMP>] Stderr: <empty>
-[<TIMESTAMP>]
-[<TIMESTAMP>] Action sub-errors produced by error handlers:
-- [category1] Message for category1
-- [category2] Message for category2
 
 [<TIMESTAMP>] Cache hits: <CACHE_STATS>
 [<TIMESTAMP>] Commands: <COMMAND_STATS>
@@ -25,10 +21,6 @@
 [<TIMESTAMP>] Remote action, reproduce with: `frecli cas download-action <DIGEST>`
 [<TIMESTAMP>] Stdout: <empty>
 [<TIMESTAMP>] Stderr: <empty>
-[<TIMESTAMP>]
-[<TIMESTAMP>] Action sub-errors produced by error handlers:
-- [category1] Message for category1
-- [category2] Message for category2
 
 [<TIMESTAMP>]
 BUILD FAILED

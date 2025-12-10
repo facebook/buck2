@@ -12,12 +12,12 @@ import json
 import plistlib
 import sys
 
-from typing import Any, Dict, IO, List, Optional, TextIO, Tuple
+from typing import Any, IO, Optional, TextIO
 
 from apple.tools.plistlib_utils import detect_format_and_load
 
 
-def _deepmerge_plist_dicts(source: Dict[str, Any], destination: Dict[str, Any]):
+def _deepmerge_plist_dicts(source: dict[str, Any], destination: dict[str, Any]):
     for key in source:
         if key not in destination:
             destination[key] = source[key]
@@ -39,8 +39,8 @@ def _deepmerge_plist_dicts(source: Dict[str, Any], destination: Dict[str, Any]):
 
 # Corresponding v1 code is contained in `com/facebook/buck/apple/PlistProcessStep.java`, `PlistProcessStep::execute` method.
 def _merge_plist_dicts(
-    source: Dict[str, Any],
-    destination: Dict[str, Any],
+    source: dict[str, Any],
+    destination: dict[str, Any],
     override: bool = False,
 ) -> None:
     for key, value in source.items():
@@ -53,7 +53,7 @@ def _merge_plist_dicts(
             destination[key] = value
 
 
-def _apply_merge(plist_data: Dict[str, Any], merge_path: str) -> None:
+def _apply_merge(plist_data: dict[str, Any], merge_path: str) -> None:
     """Apply a merge mutation to plist data."""
     try:
         # Load the plist file to merge
@@ -71,10 +71,10 @@ def _apply_merge(plist_data: Dict[str, Any], merge_path: str) -> None:
 
 
 def _traverse_keypath(
-    plist_data: Dict[str, Any],
+    plist_data: dict[str, Any],
     keypath_str: str,
     insert_arrays=True,
-) -> Tuple[str | int, Any]:
+) -> tuple[str | int, Any]:
     """Return the internal object in plist_data found at the keypath_str, save
     for the last component.
 
@@ -115,7 +115,7 @@ def _traverse_keypath(
     return final_key, plist_pointer
 
 
-def _apply_insert(plist_data: Dict[str, Any], insert_params: Dict[str, Any]) -> None:
+def _apply_insert(plist_data: dict[str, Any], insert_params: dict[str, Any]) -> None:
     """Apply an insert mutation to plist data.
     Sample data:
     <key>CFBundleURLTypes</key>
@@ -180,7 +180,7 @@ def _apply_insert(plist_data: Dict[str, Any], insert_params: Dict[str, Any]) -> 
         plist_pointer.insert(0, value)
 
 
-def _apply_set(plist_data: Dict[str, Any], set_params: Dict[str, Any]) -> None:
+def _apply_set(plist_data: dict[str, Any], set_params: dict[str, Any]) -> None:
     """Apply a set mutation to plist data."""
     keypath = set_params["keypath"]
     value = set_params["value"]
@@ -189,7 +189,7 @@ def _apply_set(plist_data: Dict[str, Any], set_params: Dict[str, Any]) -> None:
 
 
 def _apply_copy(
-    plist_data: Dict[str, Any], source_path: str, copy_params: List[str]
+    plist_data: dict[str, Any], source_path: str, copy_params: list[str]
 ) -> None:
     """Copy an element from a source plist to the target plist"""
     source_keypath = copy_params["source_keypath"]
@@ -214,7 +214,7 @@ def _apply_copy(
 
 
 def _apply_mutations(
-    plist_data: Dict[str, Any], mutations: List[tuple[str, str] | tuple[str, dict]]
+    plist_data: dict[str, Any], mutations: list[tuple[str, str] | tuple[str, dict]]
 ) -> None:
     """Apply a list of mutation operations to plist data."""
     for mutation in mutations:
@@ -239,7 +239,7 @@ def process(
     input_file: IO[bytes],
     output_file: IO[bytes],
     override_input_file: Optional[IO[bytes]] = None,
-    additional_keys: Optional[Dict[str, Any]] = None,
+    additional_keys: Optional[dict[str, Any]] = None,
     additional_keys_file: Optional[TextIO] = None,
     override_keys_file: Optional[TextIO] = None,
     mutations_file: Optional[TextIO] = None,

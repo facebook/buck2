@@ -13,6 +13,7 @@ use indoc::indoc;
 
 #[test]
 fn test_select_funcs() {
+    let _guard = buck2_util::threads::ignore_stack_overflow_checks_for_current_thread();
     let mut tester = Tester::new().unwrap();
     tester
         .run_starlark_test(indoc!(
@@ -29,6 +30,8 @@ def _map_func(value):
     return value
 
 def _test_func(value):
+    if type(value) == type(select({})):
+        return False
     return "TEST" in value
 
 def _assert_eq(expected, actual):
@@ -45,7 +48,11 @@ def _test_single_config_str():
 
     _assert_eq(
         select({"config/windows:x86_64": "flag_replaced"}),
-        select_map(str_select, _map_func),
+        select_map(str_select, _map_func, recurse=False),
+    )
+    _assert_eq(
+        select({"config/windows:x86_64": "flag_replaced"}),
+        select_map(str_select, _map_func, recurse=True),
     )
     _assert_eq(True, select_test(str_select, _test_func))
 
@@ -54,7 +61,11 @@ def _test_single_config_list():
 
     _assert_eq(
         select({"config/windows:x86_64": ["flag"]}),
-        select_map(list_select, _map_func),
+        select_map(list_select, _map_func, recurse=False),
+    )
+    _assert_eq(
+        select({"config/windows:x86_64": ["flag"]}),
+        select_map(list_select, _map_func, recurse=True),
     )
     _assert_eq(False, select_test(list_select, _test_func))
 
@@ -65,7 +76,11 @@ def _test_single_config_dict():
 
     _assert_eq(
         select({"config/windows:x86_64": {"test.h": "windows/test.h"}}),
-        select_map(dict_select, _map_func),
+        select_map(dict_select, _map_func, recurse=False),
+    )
+    _assert_eq(
+        select({"config/windows:x86_64": {"test.h": "windows/test.h"}}),
+        select_map(dict_select, _map_func, recurse=True),
     )
     _assert_eq(False, select_test(dict_select, _test_func))
 
@@ -84,7 +99,16 @@ def _test_multi_config():
             "config//iphoneos:base": ["-DIPHONE"],
             "config//windows:base": ["TEST"],
         }),
-        select_map(multi_select, _map_func),
+        select_map(multi_select, _map_func, recurse=False),
+    )
+    _assert_eq(
+        select({
+            "DEFAULT": ["-DBASE", "TEST"],
+            "config//android:base": ["-DANDROID"],
+            "config//iphoneos:base": ["-DIPHONE"],
+            "config//windows:base": ["TEST"],
+        }),
+        select_map(multi_select, _map_func, recurse=True),
     )
     _assert_eq(True, select_test(multi_select, _test_func))
 
@@ -93,7 +117,11 @@ def _test_concatenated_native():
 
     _assert_eq(
         [] + ["TEST"] + select({"config/windows:x86_64": ["-DWINDOWS"]}),
-        select_map(expr_select, _map_func),
+        select_map(expr_select, _map_func, recurse=False),
+    )
+    _assert_eq(
+        [] + ["TEST"] + select({"config/windows:x86_64": ["-DWINDOWS"]}),
+        select_map(expr_select, _map_func, recurse=True),
     )
     _assert_eq(True, select_test(expr_select, _test_func))
 
@@ -102,9 +130,52 @@ def _test_concatenated_nested():
 
     _assert_eq(
         ["TEST"] + select({"config/windows:x86_64": ["-DWINDOWS"]}),
-        select_map(expr_select, _map_func),
+        select_map(expr_select, _map_func, recurse=False),
+    )
+    _assert_eq(
+        ["TEST"] + select({"config/windows:x86_64": ["-DWINDOWS"]}),
+        select_map(expr_select, _map_func, recurse=True),
     )
     _assert_eq(True, select_test(expr_select, _test_func))
+
+
+def _test_nested_selects():
+    nested_select = select({
+        "DEFAULT": select({"a": ["-DBASEA", "interior_TEST"],
+        "b": ["-DBASEB", "INVALID"],
+        "c": "interior_TEST",
+        }),
+        "config//android:base": ["-DANDROID",],
+        "config//iphoneos:base": ["INVALID", "-DIPHONE"],
+        "config//windows:base": "exterior_TEST",
+    })
+
+    _assert_eq(
+        select({
+        "DEFAULT": select({"a": ["-DBASEA", "interior_TEST"],
+        "b": ["-DBASEB", "INVALID"],
+        "c": "interior_TEST",
+        }),
+            "config//android:base": ["-DANDROID"],
+            "config//iphoneos:base": ["-DIPHONE"],
+            "config//windows:base": "exterior_replaced",
+        }),
+        select_map(nested_select, _map_func, recurse=False),
+    )
+    _assert_eq(
+        select({
+        "DEFAULT": select({"a": ["-DBASEA", "interior_TEST"],
+        "b": ["-DBASEB"],
+        "c": "interior_replaced",
+        }),
+            "config//android:base": ["-DANDROID"],
+            "config//iphoneos:base": ["-DIPHONE"],
+            "config//windows:base": "exterior_replaced",
+        }),
+        select_map(nested_select, _map_func, recurse=True),
+    )
+    _assert_eq(True, select_test(nested_select, _test_func))
+
 
 def test():
     _test_single_config_str()
@@ -113,6 +184,7 @@ def test():
     _test_multi_config()
     _test_concatenated_native()
     _test_concatenated_nested()
+    _test_nested_selects()
     "#
         ))
         .unwrap();

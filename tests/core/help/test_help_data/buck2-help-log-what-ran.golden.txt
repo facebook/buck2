@@ -1,21 +1,24 @@
 # This file is @generated, regenerate by re-running test with `-- --env BUCK2_UPDATE_GOLDEN=1` appended to the test command
 
-Output everything Buck2 ran from selected invocation.
+Output everything that buck ran from the selected invocation. If no invocation was specified, use
+the last buck invocation from this isolation directory.
 
 The output is presented as a series of tab-delimited records with the following structure:
 
-The reason for executing a given command. That's either to build or to test.
+build    fbsource//your:target    local    clang foo.c
 
-The identity of this command. This will include the target that ran required it.
+1: The reason for executing a given command. That's either to build or to test.
 
-The executor for this command. This will either be RE or local.
+2: The identity of this command. This will include the target that required it.
 
-Details to reproduce it. For RE, that's the action digest. For local, the command.
+3: The executor for this command. This will either be RE or local.
+
+4: Details to reproduce it. For RE, that's the action digest. For local, the command.
 
 To reproduce an action that ran on RE, use the following command then follow the instructions. The
 DIGEST is of the form `hash:size`.
 
-frecli cas download-action DIGEST
+$ frecli cas download-action DIGEST
 
 To reproduce an action that ran locally, make sure your working directory is the project root (if
 unsure, use `buck2 root --kind project` to find it), then run the command. The command is already
@@ -83,6 +86,18 @@ Options:
           Print help (see a summary with '-h')
 
 Universal Options:
+      --isolation-dir <ISOLATION_DIR>
+          The name of the directory that Buck2 creates within buck-out for writing outputs and
+          daemon information. If one is not provided, Buck2 creates a directory with the default
+          name.
+
+          Instances of Buck2 share a daemon if and only if their isolation directory is identical.
+          The isolation directory also influences the output paths provided by Buck2, and as a
+          result using a non-default isolation dir will cause cache misses (and slower builds).
+
+          [env: BUCK_ISOLATION_DIR=]
+          [default: v2]
+
   -v, --verbose <VERBOSITY>
           How verbose buck should be while logging.
 

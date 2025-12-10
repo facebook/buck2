@@ -77,13 +77,13 @@ TargetExtraInfo = record(
     exec_info_version = field(int),
     debugger = field(str),
     # program to run under debugger
-    program = field([str, None], default = None),
+    program = field([cmd_args, None], default = None),
     # unstripped libraries path used for debugging of specific android binaries and apks
     library_search_path = field([str, None], default = None),
     # explicit args to pass to the program run under debugger
     args = field([list[ArgLike], None], default = None),
     # extra environment variables to pass to the debugger
-    env = field(dict[str, str], default = {}),
+    env = field(dict, default = {}),
     source_map = field(list[list[str]] | None, default = None),
     python = field([PythonInfo, None], default = None),
     clr = field([ClrInfo, None], default = None),

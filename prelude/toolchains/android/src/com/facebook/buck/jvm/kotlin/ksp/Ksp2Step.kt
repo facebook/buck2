@@ -11,7 +11,6 @@
 package com.facebook.buck.jvm.kotlin.ksp
 
 import com.facebook.buck.core.build.execution.context.IsolatedExecutionContext
-import com.facebook.buck.core.exceptions.HumanReadableException
 import com.facebook.buck.core.filesystems.AbsPath
 import com.facebook.buck.core.filesystems.RelPath
 import com.facebook.buck.io.file.GlobPatternMatcher
@@ -257,7 +256,7 @@ class Ksp2Step(
         }
       } catch (exception: IOException) {
         logger.exception(exception)
-        throw HumanReadableException(
+        throw RuntimeException(
             "Unable to expand sources for ${invokingRule.fullyQualifiedName} into $workingDirectory"
         )
       }
