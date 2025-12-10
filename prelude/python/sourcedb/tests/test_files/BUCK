@@ -7,7 +7,10 @@ source_listing()
 python_library(
     name = "main",
     srcs = ["main.py"],
-    deps = [":lib"],
+    deps = [
+        ":lib",
+        ":my_extension_lib",
+    ],
 )
 
 python_library(
@@ -60,4 +63,22 @@ genrule(
     name = "generated_file",
     out = "generated_file.pyi",
     cmd = "touch ${OUT}",
+)
+
+python_library(
+    name = "my_extension_stub",
+    srcs = ["my_extension.pyi"],
+)
+
+cxx_python_extension(
+    name = "my_extension",
+    srcs = ["my_extension.cpp"],
+    base_module = "my_extension",
+    deps = [":my_extension_stub"],
+)
+
+python_library(
+    name = "my_extension_lib",
+    srcs = ["my_extension.py"],
+    deps = [":my_extension"],
 )

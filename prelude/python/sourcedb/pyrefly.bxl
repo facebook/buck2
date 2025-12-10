@@ -112,6 +112,14 @@ def _handle_alias(
     else:
         fail("Alias has no actual target".format(target.label))
 
+def _handle_python_extension(
+        entry: dict,
+        attrs: bxl.LazyAttrs,
+        fs: bxl.Filesystem,
+        target: bxl.ConfiguredTargetNode,
+        known_targets: dict[TargetLabel, bxl.ConfiguredTargetNode]) -> None:
+    _set_entry_common_fields(entry, attrs, fs, target, known_targets)
+
 def _handle_genrule(
         entry: dict,
         attrs: bxl.LazyAttrs,
@@ -289,7 +297,6 @@ def _main(ctx: bxl.Context) -> None:
         if x.rule_type not in (
             "forward",
             "prelude//rules.bzl:command_alias",
-            "prelude//rules.bzl:cxx_python_extension",
             "prelude//rules.bzl:export_file",
             "prelude//rules.bzl:filegroup",
         ) and x.label.name != "restricted_bin"
@@ -305,6 +312,8 @@ def _main(ctx: bxl.Context) -> None:
 
         if x.rule_type == "prelude//rules.bzl:alias":
             _handle_alias(entry, attrs, x)
+        elif x.rule_type == "prelude//rules.bzl:cxx_python_extension":
+            _handle_python_extension(entry, attrs, fs, x, known_targets)
         elif x.rule_type == "prelude//rules.bzl:genrule":
             _handle_genrule(entry, attrs, fs, x, known_targets, to_remove, to_build, to_insert, genrule_to_insert)
         elif x.rule_type == "prelude//rules.bzl:python_library":

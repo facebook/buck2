@@ -61,7 +61,8 @@
     "prelude//python/sourcedb/tests/test_files:main": {
       "buildfile_path": "prelude/python/sourcedb/tests/test_files/BUCK",
       "deps": [
-        "prelude//python/sourcedb/tests/test_files:lib"
+        "prelude//python/sourcedb/tests/test_files:lib",
+        "prelude//python/sourcedb/tests/test_files:my_extension_lib"
       ],
       "python_platform": "linux",
       "python_version": "3.12",
@@ -69,6 +70,42 @@
       "srcs": {
         "python.sourcedb.tests.test_files.main": [
           "prelude/python/sourcedb/tests/test_files/main.py"
+        ]
+      }
+    },
+    "prelude//python/sourcedb/tests/test_files:my_extension": {
+      "buildfile_path": "prelude/python/sourcedb/tests/test_files/BUCK",
+      "deps": [
+        "prelude//python/sourcedb/tests/test_files:my_extension_stub"
+      ],
+      "python_platform": "linux",
+      "python_version": "3.12",
+      "relative_to": null,
+      "srcs": {}
+    },
+    "prelude//python/sourcedb/tests/test_files:my_extension_lib": {
+      "buildfile_path": "prelude/python/sourcedb/tests/test_files/BUCK",
+      "deps": [
+        "prelude//python/sourcedb/tests/test_files:my_extension"
+      ],
+      "python_platform": "linux",
+      "python_version": "3.12",
+      "relative_to": null,
+      "srcs": {
+        "python.sourcedb.tests.test_files.my_extension": [
+          "prelude/python/sourcedb/tests/test_files/my_extension.py"
+        ]
+      }
+    },
+    "prelude//python/sourcedb/tests/test_files:my_extension_stub": {
+      "buildfile_path": "prelude/python/sourcedb/tests/test_files/BUCK",
+      "deps": [],
+      "python_platform": "linux",
+      "python_version": "3.12",
+      "relative_to": null,
+      "srcs": {
+        "python.sourcedb.tests.test_files.my_extension": [
+          "prelude/python/sourcedb/tests/test_files/my_extension.pyi"
         ]
       }
     },
