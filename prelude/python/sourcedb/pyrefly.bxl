@@ -60,7 +60,7 @@ def _list_targets(ctx: bxl.Context) -> bxl.ConfiguredTargetSet:
     for target in targets.values():
         res += target
 
-    return cquery.deps(res, filter = "kind('python_library|alias|genrule', target_deps())")
+    return cquery.deps(res, filter = "kind('python_library|alias|genrule|cxx_python_extension', target_deps())")
 
 def _clean_module(base_module: str, module: str) -> str:
     base_module = base_module.removesuffix("/").replace("/", ".")
@@ -136,6 +136,7 @@ def _main(ctx: bxl.Context) -> None:
         if x.rule_type not in (
             "forward",
             "prelude//rules.bzl:command_alias",
+            "prelude//rules.bzl:cxx_python_extension",
             "prelude//rules.bzl:export_file",
             "prelude//rules.bzl:filegroup",
         ) and x.label.name != "restricted_bin"
