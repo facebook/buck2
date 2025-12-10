@@ -1,0 +1,29 @@
+# Copyright (c) Meta Platforms, Inc. and affiliates.
+#
+# This source code is dual-licensed under either the MIT license found in the
+# LICENSE-MIT file in the root directory of this source tree or the Apache
+# License, Version 2.0 found in the LICENSE-APACHE file in the root directory
+# of this source tree. You may select, at your option, one of the
+# above-listed licenses.
+
+load("//rules:rules.bzl", "foo_library")
+
+# Rules that share some sources (common.txt) and have unique sources
+# Used to test intersect/except on FileSet results from inputs()
+foo_library(
+    name = "lib_a",
+    srcs = ["lib_a.txt", "common.txt"],
+    visibility = ["PUBLIC"],
+)
+
+foo_library(
+    name = "lib_b",
+    srcs = ["lib_b.txt", "common.txt"],
+    visibility = ["PUBLIC"],
+)
+
+foo_library(
+    name = "app",
+    deps = [":lib_a", ":lib_b"],
+    visibility = ["PUBLIC"],
+)

@@ -175,20 +175,6 @@ impl<Env: QueryEnvironment> DefaultQueryFunctionsModule<Env> {
 type QueryFuncResult<Env> =
     std::result::Result<QueryValue<<Env as QueryEnvironment>::Target>, QueryError>;
 
-async fn accept_target_set<Env: QueryEnvironment>(
-    env: &Env,
-    val: QueryValue<Env::Target>,
-) -> Result<TargetSet<Env::Target>, QueryError> {
-    match val {
-        QueryValue::TargetSet(x) => Ok(x),
-        QueryValue::String(literal) => Ok(env.eval_literals(&[&literal]).await?),
-        _ => Err(QueryError::InvalidType {
-            expected: "target_set",
-            actual: val.variant_name(),
-        }),
-    }
-}
-
 /// Common query functions
 #[query_module(Env)]
 impl<Env: QueryEnvironment> DefaultQueryFunctionsModule<Env> {
@@ -921,9 +907,14 @@ impl<Env: QueryEnvironment> DefaultQueryFunctions<Env> {
         left: QueryValue<Env::Target>,
         right: QueryValue<Env::Target>,
     ) -> Result<QueryValue<Env::Target>, QueryError> {
-        let left = accept_target_set(env, left).await?;
-        let right = accept_target_set(env, right).await?;
-        Ok(QueryValue::TargetSet(left.intersect(&right)?))
+        self.apply_set_op(
+            env,
+            left,
+            right,
+            |l, r| l.intersect(r),
+            |l, r| l.intersect(r),
+        )
+        .await
     }
 
     pub async fn except(
@@ -932,9 +923,14 @@ impl<Env: QueryEnvironment> DefaultQueryFunctions<Env> {
         left: QueryValue<Env::Target>,
         right: QueryValue<Env::Target>,
     ) -> Result<QueryValue<Env::Target>, QueryError> {
-        let left = accept_target_set(env, left).await?;
-        let right = accept_target_set(env, right).await?;
-        Ok(QueryValue::TargetSet(left.difference(&right)?))
+        self.apply_set_op(
+            env,
+            left,
+            right,
+            |l, r| l.difference(r),
+            |l, r| l.difference(r),
+        )
+        .await
     }
 
     pub async fn union(
@@ -943,37 +939,71 @@ impl<Env: QueryEnvironment> DefaultQueryFunctions<Env> {
         left: QueryValue<Env::Target>,
         right: QueryValue<Env::Target>,
     ) -> Result<QueryValue<Env::Target>, QueryError> {
-        // If the operations are of the same type, which + join them.
-        // If one is a string, and the other a FileSet or TargetSet, we can promote the string
+        // Special-case String + String to match buck1 behavior:
+        // treat both strings as target literals in a single evaluation.
+        match (&left, &right) {
+            (QueryValue::String(l), QueryValue::String(r)) => {
+                return Ok(QueryValue::TargetSet(env.eval_literals(&[l, r]).await?));
+            }
+            _ => {}
+        }
+
+        self.apply_set_op(
+            env,
+            left,
+            right,
+            |l, r| Ok(l.union(r)),
+            |l, r| Ok(l.union(r)),
+        )
+        .await
+    }
+
+    async fn apply_set_op<Ft, Ff>(
+        &self,
+        env: &Env,
+        left: QueryValue<Env::Target>,
+        right: QueryValue<Env::Target>,
+        target_op: Ft,
+        file_op: Ff,
+    ) -> Result<QueryValue<Env::Target>, QueryError>
+    where
+        Ft: Fn(
+            &TargetSet<Env::Target>,
+            &TargetSet<Env::Target>,
+        ) -> buck2_error::Result<TargetSet<Env::Target>>,
+        Ff: Fn(&FileSet, &FileSet) -> buck2_error::Result<FileSet>,
+    {
         match (left, right) {
             (QueryValue::TargetSet(l), QueryValue::TargetSet(r)) => {
-                Ok(QueryValue::TargetSet(l.union(&r)))
+                Ok(QueryValue::TargetSet(target_op(&l, &r)?))
             }
             (QueryValue::String(l), QueryValue::TargetSet(r)) => {
                 let l = env.eval_literals(&[&l]).await?;
-                Ok(QueryValue::TargetSet(l.union(&r)))
+                Ok(QueryValue::TargetSet(target_op(&l, &r)?))
             }
             (QueryValue::TargetSet(l), QueryValue::String(r)) => {
                 let r = env.eval_literals(&[&r]).await?;
-                Ok(QueryValue::TargetSet(l.union(&r)))
-            }
-            (QueryValue::String(l), QueryValue::String(r)) => {
-                // Important that String + treats both as target literals, since that's what
-                // buck1 does - we blur the lines between string and targetset
-                Ok(QueryValue::TargetSet(env.eval_literals(&[&l, &r]).await?))
+                Ok(QueryValue::TargetSet(target_op(&l, &r)?))
             }
             (QueryValue::FileSet(l), QueryValue::FileSet(r)) => {
-                Ok(QueryValue::FileSet(l.union(&r)))
+                Ok(QueryValue::FileSet(file_op(&l, &r)?))
             }
             (QueryValue::String(l), QueryValue::FileSet(r)) => {
                 let l = env.eval_file_literal(&l).await?;
-                Ok(QueryValue::FileSet(l.union(&r)))
+                Ok(QueryValue::FileSet(file_op(&l, &r)?))
             }
             (QueryValue::FileSet(l), QueryValue::String(r)) => {
                 let r = env.eval_file_literal(&r).await?;
-                Ok(QueryValue::FileSet(l.union(&r)))
+                Ok(QueryValue::FileSet(file_op(&l, &r)?))
             }
-            (left, right) => Err(QueryError::UnionIncompatibleTypes(
+            (QueryValue::String(l), QueryValue::String(r)) => {
+                // For union we want to treat both as target literals in one call,
+                // but intersect/except expect two sets; we evaluate separately.
+                let l_targets = env.eval_literals(&[&l]).await?;
+                let r_targets = env.eval_literals(&[&r]).await?;
+                Ok(QueryValue::TargetSet(target_op(&l_targets, &r_targets)?))
+            }
+            (left, right) => Err(QueryError::SetIncompatibleTypes(
                 left.variant_name(),
                 right.variant_name(),
             )),
