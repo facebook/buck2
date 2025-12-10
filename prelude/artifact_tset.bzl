@@ -63,11 +63,23 @@ def make_artifact_tset(
         "must pass in `label` to associate with artifacts",
     )
 
-    # As a convenience for our callers, filter our `None` children.
-    children = [c._tset for c in children if c._tset != None]
+    single_child = None  # type: ArtifactTSet | None
+    children_orig = children
+    children = []  # type: list[_ArtifactTSet]
+    for c in children_orig:
+        # As a convenience for our callers, filter our `None` children.
+        if c._tset != None:
+            children.append(c._tset)
+            single_child = c
 
-    if not artifacts and not infos and not children:
+    has_values = artifacts or infos
+    if not has_values and not children:
         return EmptyArtifactTSet
+
+    if not has_values and len(children) == 1:
+        # If we have a single child, just return it
+        # rather than allocating and retaining additional memory.
+        return single_child
 
     # Build list of all non-child values.
     values = []
