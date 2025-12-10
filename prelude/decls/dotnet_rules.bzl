@@ -78,6 +78,7 @@ csharp_library = prelude_rule(
             "compiler_flags": attrs.list(attrs.string(), default = [], doc = """
                 The set of additional compiler flags to pass to the compiler.
             """),
+            "add_hermetic_arguments": attrs.bool(default = True),
         } |
         buck.licenses_arg() |
         buck.labels_arg() |

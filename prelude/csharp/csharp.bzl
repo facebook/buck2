@@ -32,17 +32,18 @@ def csharp_library_impl(ctx: AnalysisContext) -> list[Provider]:
         format = "/out:{}",
     ))
 
-    # Don't include any default .NET framework assemblies like "mscorlib" or "System" unless
-    # explicitly requested with `/reference:{}`. This flag also stops injection of other
-    # default compiler flags.
-    cmd.append("/noconfig")
+    if ctx.attrs.add_hermetic_arguments:
+        # Don't include any default .NET framework assemblies like "mscorlib" or "System" unless
+        # explicitly requested with `/reference:{}`. This flag also stops injection of other
+        # default compiler flags.
+        cmd.append("/noconfig")
 
-    # Don't reference mscorlib.dll unless asked for. This is required for targets that target
-    # embedded platforms such as Silverlight or WASM. (Originally for Buck1 compatibility.)
-    cmd.append("/nostdlib")
+        # Don't reference mscorlib.dll unless asked for. This is required for targets that target
+        # embedded platforms such as Silverlight or WASM. (Originally for Buck1 compatibility.)
+        cmd.append("/nostdlib")
 
-    # Don't search any paths for .NET libraries unless explicitly referenced with `/lib:{}`.
-    cmd.append("/nosdkpath")
+        # Don't search any paths for .NET libraries unless explicitly referenced with `/lib:{}`.
+        cmd.append("/nosdkpath")
 
     # Let csc know the directory path where it can find system assemblies. This is the path
     # that is searched by `/reference:{libname}` if `libname` is just a DLL name.
