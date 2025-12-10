@@ -119,9 +119,7 @@ def _get_and_materialize_sources(
                 to_insert.append((srcs, _clean_module(base_module, k), v))
 
 def _main(ctx: bxl.Context) -> None:
-    targets = _list_targets(ctx)
     fs = ctx.fs
-
     to_remove = {}  # Set of targets to remove at the end
     to_build = []  # List of targets I need to build
     to_insert = []  # Triples of (target srcs ref, module name, artifact) to insert after building
@@ -131,8 +129,8 @@ def _main(ctx: bxl.Context) -> None:
 
     # We only want to add `deps` to targets that are in the output.
     known_targets = {
-        x.label.raw_target(): None
-        for x in targets
+        x.label.raw_target(): x
+        for x in _list_targets(ctx)
         if x.rule_type not in (
             "forward",
             "prelude//rules.bzl:command_alias",
@@ -142,8 +140,8 @@ def _main(ctx: bxl.Context) -> None:
         ) and x.label.name != "restricted_bin"
     }
 
-    for x in targets:
-        if x.label.raw_target() not in known_targets or str(x.label.raw_target()) in to_remove:
+    for raw_target, x in known_targets.items():
+        if str(raw_target) in to_remove:
             continue
 
         attrs = x.attrs_lazy()
