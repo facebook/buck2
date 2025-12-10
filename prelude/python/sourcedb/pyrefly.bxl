@@ -155,7 +155,6 @@ def _handle_genrule(
         module_path = list(items.keys())[0]
         for suffix in _MODULE_SUFFIXES:
             if module_path.endswith(suffix):
-                to_build.append(target)
                 to_insert.append((srcs, _clean_module("", module_path), target.label.with_sub_target()))
                 break
     else:
