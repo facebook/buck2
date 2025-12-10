@@ -12,13 +12,18 @@ package com.facebook.buck.jvm.kotlin;
 
 import static com.facebook.buck.jvm.kotlin.CompilerPluginUtils.KOTLIN_PLUGIN_OUT_PLACEHOLDER;
 import static com.facebook.buck.jvm.kotlin.CompilerPluginUtils.getKotlinCompilerPluginsArgs;
+import static com.facebook.buck.jvm.kotlin.DaemonKotlincToJarStepFactory.buildSourceOnlyAbiClasspath;
 import static com.facebook.buck.jvm.kotlin.DaemonKotlincToJarStepFactory.getRunsOnJavaOnlyProcessors;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import com.facebook.buck.core.filesystems.AbsPath;
 import com.facebook.buck.core.filesystems.RelPath;
+import com.facebook.buck.jvm.cd.command.kotlin.KotlinExtraParams;
+import com.facebook.buck.jvm.java.CompilerParameters;
 import com.facebook.buck.jvm.java.JavacLanguageLevelOptions;
 import com.facebook.buck.jvm.java.JavacPluginParams;
 import com.facebook.buck.jvm.java.ResolvedJavacOptions;
@@ -98,6 +103,106 @@ public class DaemonKotlincToJarStepFactoryTest {
 
     assertFalse(filteredPluginProperties.contains(javaOnlyPlugin));
     assertTrue(filteredPluginProperties.contains(usualPlugin));
+  }
+
+  @Test
+  public void test_buildSourceOnlyAbiClasspath_includesBootclasspath() {
+    // Create parameters with regular classpath entries
+    CompilerParameters parameters =
+        createCompilerParameters(ImmutableList.of(RelPath.get("some/lib.jar")));
+
+    // Create extraParams with bootclasspath containing android.jar
+    KotlinExtraParams extraParams =
+        createKotlinExtraParams(
+            ImmutableList.of(RelPath.get("path/to/android.jar"), RelPath.get("path/to/core.jar")));
+
+    // Build the classpath
+    ImmutableList<AbsPath> classpath = buildSourceOnlyAbiClasspath(parameters, extraParams).build();
+
+    // Verify both regular classpath and bootclasspath entries are included
+    assertEquals(3, classpath.size());
+    assertTrue(
+        "android.jar should be included in source-only-abi classpath",
+        classpath.stream().anyMatch(path -> path.toString().contains("android.jar")));
+    assertTrue(
+        "Regular classpath entries should be included",
+        classpath.stream().anyMatch(path -> path.toString().contains("lib.jar")));
+    assertTrue(
+        "All bootclasspath entries should be included",
+        classpath.stream().anyMatch(path -> path.toString().contains("core.jar")));
+  }
+
+  @Test
+  public void test_buildSourceOnlyAbiClasspath_emptyBootclasspath() {
+    CompilerParameters parameters =
+        createCompilerParameters(ImmutableList.of(RelPath.get("some/lib.jar")));
+    KotlinExtraParams extraParams = createKotlinExtraParams(ImmutableList.of());
+
+    ImmutableList<AbsPath> classpath = buildSourceOnlyAbiClasspath(parameters, extraParams).build();
+
+    // Should only contain regular classpath entries
+    assertEquals(1, classpath.size());
+    assertTrue(classpath.stream().anyMatch(path -> path.toString().contains("lib.jar")));
+  }
+
+  @Test
+  public void test_buildSourceOnlyAbiClasspath_emptyRegularClasspath() {
+    CompilerParameters parameters = createCompilerParameters(ImmutableList.of());
+    KotlinExtraParams extraParams =
+        createKotlinExtraParams(ImmutableList.of(RelPath.get("path/to/android.jar")));
+
+    ImmutableList<AbsPath> classpath = buildSourceOnlyAbiClasspath(parameters, extraParams).build();
+
+    // Should only contain bootclasspath entries
+    assertEquals(1, classpath.size());
+    assertTrue(classpath.stream().anyMatch(path -> path.toString().contains("android.jar")));
+  }
+
+  @Test
+  public void test_buildSourceOnlyAbiClasspath_multipleAndroidJars() {
+    // Simulate a scenario with multiple SDK versions or configurations
+    CompilerParameters parameters =
+        createCompilerParameters(ImmutableList.of(RelPath.get("build/classes.jar")));
+    KotlinExtraParams extraParams =
+        createKotlinExtraParams(
+            ImmutableList.of(
+                RelPath.get("sdk/android-30/android.jar"),
+                RelPath.get("sdk/android-libs/extras.jar")));
+
+    ImmutableList<AbsPath> classpath = buildSourceOnlyAbiClasspath(parameters, extraParams).build();
+
+    // Verify all entries are included
+    assertEquals(3, classpath.size());
+    assertTrue(
+        "Android SDK jar should be included",
+        classpath.stream().anyMatch(path -> path.toString().contains("android-30/android.jar")));
+    assertTrue(
+        "Android extras jar should be included",
+        classpath.stream().anyMatch(path -> path.toString().contains("extras.jar")));
+  }
+
+  private static CompilerParameters createCompilerParameters(
+      ImmutableList<RelPath> classpathEntries) {
+    CompilerParameters params = mock(CompilerParameters.class);
+    when(params.getClasspathEntries()).thenReturn(classpathEntries);
+    return params;
+  }
+
+  private static KotlinExtraParams createKotlinExtraParams(
+      ImmutableList<RelPath> bootclasspathList) {
+    ResolvedJavacOptions javacOptions =
+        new ResolvedJavacOptions(
+            bootclasspathList,
+            JavacLanguageLevelOptions.DEFAULT,
+            false /* debug */,
+            false /* verbose */,
+            JavacPluginParams.EMPTY /* javaAnnotationProcessorParams */,
+            JavacPluginParams.EMPTY /* standardJavacPluginParams */,
+            ImmutableList.of() /* extraArguments */,
+            null /* systemImage */);
+    KotlinExtraParams extraParams = mock(KotlinExtraParams.class);
+    when(extraParams.getResolvedJavacOptions()).thenReturn(javacOptions);
+    return extraParams;
   }
 
   private static final class FakePath implements AbsPath {

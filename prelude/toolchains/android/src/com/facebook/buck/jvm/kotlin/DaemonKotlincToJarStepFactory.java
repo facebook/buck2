@@ -194,14 +194,8 @@ public class DaemonKotlincToJarStepFactory extends BaseCompileToJarStepFactory<K
           sourceWithStubsAndKaptAndKspOutputBuilder,
           sourceWithStubsAndKaptOutputBuilder,
           extraParams.getLanguageVersion());
-
       ImmutableList.Builder<AbsPath> sourceOnlyAbiClasspathBuilder =
-          ImmutableList.<AbsPath>builder()
-              .addAll(
-                  parameters.getClasspathEntries().stream()
-                      .map(RelPath::toAbsolutePath)
-                      .filter(ClasspathUtils::assertValidClasspathsPattern)
-                      .collect(Collectors.toList()));
+          buildSourceOnlyAbiClasspath(parameters, extraParams);
 
       prepareKosabiStubgenIfNeeded(
           buckOut,
@@ -398,5 +392,33 @@ public class DaemonKotlincToJarStepFactory extends BaseCompileToJarStepFactory<K
     }
     return new JavacPluginParams(
         filteredPluginProperties, javaAnnotationProcessorParams.getParameters());
+  }
+
+  /**
+   * Builds the classpath for source-only-abi compilation by combining regular classpath entries
+   * with the bootclasspath (which includes android.jar for Android targets).
+   *
+   * @param parameters Compiler parameters containing classpath entries
+   * @param extraParams Kotlin-specific parameters containing resolved javac options with
+   *     bootclasspath
+   * @return A builder containing all classpath entries (regular + bootclasspath) as absolute paths
+   */
+  static ImmutableList.Builder<AbsPath> buildSourceOnlyAbiClasspath(
+      CompilerParameters parameters, KotlinExtraParams extraParams) {
+    ImmutableList.Builder<AbsPath> sourceOnlyAbiClasspathBuilder =
+        ImmutableList.<AbsPath>builder()
+            .addAll(
+                parameters.getClasspathEntries().stream()
+                    .map(RelPath::toAbsolutePath)
+                    .filter(ClasspathUtils::assertValidClasspathsPattern)
+                    .collect(Collectors.toList()));
+
+    sourceOnlyAbiClasspathBuilder.addAll(
+        extraParams.getResolvedJavacOptions().getBootclasspathList().stream()
+            .map(RelPath::toAbsolutePath)
+            .filter(ClasspathUtils::assertValidClasspathsPattern)
+            .collect(Collectors.toList()));
+
+    return sourceOnlyAbiClasspathBuilder;
   }
 }
