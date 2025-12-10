@@ -307,8 +307,10 @@ def _main(ctx: bxl.Context) -> None:
             _handle_alias(entry, attrs, x)
         elif x.rule_type == "prelude//rules.bzl:genrule":
             _handle_genrule(entry, attrs, fs, x, known_targets, to_remove, to_build, to_insert, genrule_to_insert)
-        else:
+        elif x.rule_type == "prelude//rules.bzl:python_library":
             _handle_python_library(entry, attrs, fs, x, known_targets, to_remove, to_build, to_insert)
+        else:
+            fail("Unknown rule type: {}".format(x.rule_type))
 
     _build_generated_files(ctx, to_build, to_insert, genrule_to_insert)
 
