@@ -35,9 +35,13 @@ ERROR_PATTERN = re.compile(
 )
 WARNING_PATTERN = re.compile(r"\bwarning\b(:.*?)\n", flags=re.IGNORECASE)
 
-JAVA_FILE_PATTERN = re.compile(r"\b(/?(?:[\w-]+/)*[\w-]+\.java)\b:(\d+):")
+JAVA_FILE_PATTERN = re.compile(
+    r"(?:\x1b\[[0-9;]*m)*(/?(?:[\w-]+/)*[\w-]+\.java)\b:(\d+):"
+)
 
-KOTLIN_FILE_PATTERN = re.compile(r"\b(/?(?:[\w-]+/)*[\w-]+\.kt)\b:(\d+):(\d+):")
+KOTLIN_FILE_PATTERN = re.compile(
+    r"(?:\x1b\[[0-9;]*m)*(/?(?:[\w-]+/)*[\w-]+\.kt)\b:(\d+):(\d+):"
+)
 
 # Source: https://docs.oracle.com/javase/tutorial/java/nutsandbolts/_keywords.html
 JAVA_KEYWORDS = [
@@ -296,16 +300,16 @@ def _highlight_warning(match: Match) -> str:
 def _highlight_java_file(match: Match) -> str:
     file = match.group(1)
     line = int(match.group(2))
-    display_text = f"{GREEN}{file}{RESET}"
-    return f"{_hyperlink(file, line, display_text)}:{MAGENTA}{match.group(2)}{RESET}:"
+
+    return f"{GREEN}{_hyperlink(file, line, file)}{RESET}:{MAGENTA}{match.group(2)}{RESET}:"
 
 
 def _highlight_kotlin_file(match: Match) -> str:
     file = match.group(1)
     line = int(match.group(2))
-    display_text = f"{GREEN}{file}{RESET}"
+
     return (
-        f"{_hyperlink(file, line, display_text)}:"
+        f"{GREEN}{_hyperlink(file, line, file)}{RESET}:"
         f"{MAGENTA}{match.group(2)}{RESET}:{MAGENTA}{match.group(3)}{RESET}:"
     )
 
