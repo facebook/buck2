@@ -120,9 +120,12 @@ prelude.python_bootstrap_binary(
     visibility = ["PUBLIC"],
 )
 
-prelude.python_bootstrap_binary(
+prelude.python_binary(
     name = "wheel",
     main = "wheel.py",
+    deps = [
+        "//third-party/pypi/packaging:packaging",
+    ],
     visibility = ["PUBLIC"],
 )
 
