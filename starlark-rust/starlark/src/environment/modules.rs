@@ -33,10 +33,7 @@ use starlark_syntax::syntax::ast::Visibility;
 
 use crate::cast::transmute;
 use crate::collections::Hashed;
-use crate::docs::DocItem;
-use crate::docs::DocMember;
 use crate::docs::DocModule;
-use crate::docs::DocProperty;
 use crate::docs::DocString;
 use crate::docs::DocStringKind;
 use crate::environment::EnvironmentError;
@@ -241,20 +238,7 @@ impl FrozenModule {
                 self.get_any_visibility_option(n.0.as_str())
                     .is_some_and(|(_, vis)| vis == Visibility::Public)
             })
-            // FIXME(JakobDegen): Throws out information
-            .map(|(k, v)| {
-                let doc_item = match v.to_value().documentation() {
-                    doc_module @ DocItem::Module(_) => doc_module,
-                    member @ DocItem::Member(_) => member,
-                    // If we have a value which is a complex type, the right type to put in the docs is not the type
-                    // it represents, but it's just a property we should point at
-                    DocItem::Type(_) => DocItem::Member(DocMember::Property(DocProperty {
-                        docs: None,
-                        typ: v.to_value().get_type_starlark_repr(),
-                    })),
-                };
-                (k.as_str().to_owned(), doc_item)
-            })
+            .map(|(k, v)| (k.as_str().to_owned(), v.to_value().documentation()))
             .collect();
 
         DocModule {
