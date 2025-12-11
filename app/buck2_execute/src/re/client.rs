@@ -495,7 +495,7 @@ fn re_platform(x: &RE::Platform) -> remote_execution::TPlatform {
 }
 
 fn anticipated_queue_duration(
-    event: ExecuteWithProgressResponse,
+    event: &ExecuteWithProgressResponse,
 ) -> anyhow::Result<Option<Duration>> {
     // Return a queue estimate even if RE dequeues immediately
     if let Some(duration) = buck2_env!(
@@ -506,7 +506,7 @@ fn anticipated_queue_duration(
         return Ok(Some(Duration::from_secs(duration)));
     }
 
-    if let Some(info) = event.metadata.task_info {
+    if let Some(info) = &event.metadata.task_info {
         // TODO make RE report same value as estimated_queue_time_ms, switch to that then stop reporting new_estimated_queue_time_ms
         let estimated_queue_time_ms = info.new_estimated_queue_time_ms;
 
@@ -1036,6 +1036,7 @@ impl RemoteExecutionClientImpl {
         async fn wait_for_response_or_stage_change(
             receiver: &mut BoxStream<'static, anyhow::Result<ExecuteWithProgressResponse>>,
             previous_stage: Stage,
+            previous_metadata: &Option<OperationMetadata>,
             report_stage: re_stage::Stage,
             manager: &mut CommandExecutionManager,
             queue_stats: &mut QueueStats,
@@ -1085,11 +1086,35 @@ impl RemoteExecutionClientImpl {
                             .context("Error was returned on the stream by RE")?
                         };
 
-                        if event.execute_response.is_some() || event.stage != previous_stage {
+                        // Check if we have a response or if the stage has changed
+                        let stage_changed = event.stage != previous_stage;
+
+                        // Check if queue information has changed (when in QUEUED stage)
+                        let queue_info_changed = if matches!(event.stage, Stage::QUEUED)
+                            && matches!(previous_stage, Stage::QUEUED)
+                        {
+                            // Check if the kind of task state has changed.
+                            let previous_task_info = previous_metadata
+                                .as_ref()
+                                .and_then(|m| m.task_info.as_ref());
+                            match (&event.metadata.task_info, previous_task_info) {
+                                (Some(current_task_info), Some(previous_task_info)) => {
+                                    std::mem::discriminant(&current_task_info.state)
+                                        != std::mem::discriminant(&previous_task_info.state)
+                                }
+                                (None, None) => false,
+                                _ => true,
+                            }
+                        } else {
+                            false
+                        };
+
+                        if event.execute_response.is_some() || stage_changed || queue_info_changed {
                             return Ok(ResponseOrStateChange::Present(event));
                         }
 
-                        if let Some(anticipated_queue_duration) = anticipated_queue_duration(event)?
+                        if let Some(anticipated_queue_duration) =
+                            anticipated_queue_duration(&event)?
                         {
                             if let Some(re_queue_threshold) =
                                 re_cancel_on_estimated_queue_time_exceeds
@@ -1240,6 +1265,7 @@ impl RemoteExecutionClientImpl {
             let progress_response = wait_for_response_or_stage_change(
                 &mut receiver,
                 exe_stage,
+                &operation_metadata,
                 re_stage_from_exe_stage(
                     exe_stage,
                     &operation_metadata,
