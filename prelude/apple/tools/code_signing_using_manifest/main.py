@@ -38,10 +38,10 @@ def _args_parser() -> argparse.ArgumentParser:
         help="Path to entitlements file",
     )
     parser.add_argument(
-        "--additional-flags",
+        "additional_flags",
         metavar="<ADDITIONAL_FLAGS>",
         type=str,
-        nargs="+",
+        nargs="*",
         help="Additional flags",
     )
 
