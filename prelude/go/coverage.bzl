@@ -15,7 +15,8 @@ GoCoverageMode = enum(
 )
 
 def cover_srcs(
-        ctx: AnalysisContext,
+        actions: AnalysisActions,
+        go_toolchain: GoToolchainInfo,
         pkg_name: str,
         pkg_import_path: str,
         go_files: list[Artifact],
@@ -27,11 +28,10 @@ def cover_srcs(
     if len(go_files) + len(cgo_files) == 0:
         return go_files, cgo_files, "", None
 
-    go_toolchain = ctx.attrs._go_toolchain[GoToolchainInfo]
     env = get_toolchain_env_vars(go_toolchain)
 
-    cover_meta_file = ctx.actions.declare_output("cover_meta.bin", has_content_based_path = True)
-    out_config_file = ctx.actions.declare_output("out_config.json", has_content_based_path = True)
+    cover_meta_file = actions.declare_output("cover_meta.bin", has_content_based_path = True)
+    out_config_file = actions.declare_output("out_config.json", has_content_based_path = True)
 
     # Based on https://pkg.go.dev/cmd/internal/cov/covcmd#CoverPkgConfig
     pkgcfg = {
@@ -43,23 +43,23 @@ def cover_srcs(
         "PkgName": pkg_name,
         "PkgPath": pkg_import_path,
     }
-    pkgcfg_file = ctx.actions.write_json("pkg.cfg", pkgcfg, has_content_based_path = True)
+    pkgcfg_file = actions.write_json("pkg.cfg", pkgcfg, has_content_based_path = True)
 
     # Grab the first 16 characters of sha256.
     # This is sufficient to make the coverage variable unique enough
     # while keeping the instrumented file a bit more readable.
     var = "GoCover_" + sha256(pkg_import_path)[:16]
-    instrum_vars_file = ctx.actions.declare_output("with_instrumentation", "instrum_vars.go", has_content_based_path = True)
+    instrum_vars_file = actions.declare_output("with_instrumentation", "instrum_vars.go", has_content_based_path = True)
     instrum_go_files = [
-        ctx.actions.declare_output("with_instrumentation", go_file.short_path, has_content_based_path = True)
+        actions.declare_output("with_instrumentation", go_file.short_path, has_content_based_path = True)
         for go_file in go_files
     ]
     instrum_cgo_files = [
-        ctx.actions.declare_output("with_instrumentation", cgo_file.short_path, has_content_based_path = True)
+        actions.declare_output("with_instrumentation", cgo_file.short_path, has_content_based_path = True)
         for cgo_file in cgo_files
     ]
     instrum_all_files = [instrum_vars_file] + instrum_go_files + instrum_cgo_files
-    outfilelist = ctx.actions.write("outfilelist.txt", cmd_args([f.as_output() for f in instrum_all_files], ""), has_content_based_path = True)
+    outfilelist = actions.write("outfilelist.txt", cmd_args([f.as_output() for f in instrum_all_files], ""), has_content_based_path = True)
 
     cover_cmd = [
         go_toolchain.cover,
@@ -71,7 +71,7 @@ def cover_srcs(
         cgo_files,
     ]
 
-    ctx.actions.run(cover_cmd, env = env, category = "go_cover", identifier = pkg_import_path)
+    actions.run(cover_cmd, env = env, category = "go_cover", identifier = pkg_import_path)
 
     coverage_vars_out = cmd_args("--cover-pkgs", pkg_import_path)
 

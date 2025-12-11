@@ -30,17 +30,16 @@ GoListOut = record(
     cgo_cppflags = field(list[str], default = []),
 )
 
-def go_list(ctx: AnalysisContext, pkg_name: str, srcs: list[Artifact], package_root: str, build_tags: list[str], cgo_enabled: bool, with_tests: bool, asan: bool) -> Artifact:
-    go_toolchain = ctx.attrs._go_toolchain[GoToolchainInfo]
+def go_list(actions: AnalysisActions, go_toolchain: GoToolchainInfo, pkg_name: str, srcs: list[Artifact], package_root: str, build_tags: list[str], cgo_enabled: bool, with_tests: bool, asan: bool) -> Artifact:
     env = get_toolchain_env_vars(go_toolchain)
     env["GO111MODULE"] = "off"
     env["CGO_ENABLED"] = "1" if cgo_enabled else "0"
 
-    go_list_out = ctx.actions.declare_output(paths.basename(pkg_name) + "_go_list.json", has_content_based_path = True)
+    go_list_out = actions.declare_output(paths.basename(pkg_name) + "_go_list.json", has_content_based_path = True)
 
     # Create file structure that `go list` can recognize
     # Use copied_dir, because embed doesn't work with symlinks
-    srcs_dir = ctx.actions.copied_dir(
+    srcs_dir = actions.copied_dir(
         "__{}_srcs_dir__".format(paths.basename(pkg_name)),
         {src.short_path.removeprefix(package_root).lstrip("/"): src for src in srcs},
         has_content_based_path = True,
@@ -88,7 +87,7 @@ def go_list(ctx: AnalysisContext, pkg_name: str, srcs: list[Artifact], package_r
     ]
 
     identifier = paths.basename(pkg_name)
-    ctx.actions.run(go_list_args, env = env, category = "go_list", identifier = identifier)
+    actions.run(go_list_args, env = env, category = "go_list", identifier = identifier)
 
     return go_list_out
 

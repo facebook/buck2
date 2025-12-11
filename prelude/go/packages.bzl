@@ -92,13 +92,13 @@ def export_files(pkgs: dict[str, GoPkg], shared: bool) -> dict[str, Artifact]:
     }
 
 def make_importcfg(
-        ctx: AnalysisContext,
+        actions: AnalysisActions,
+        go_toolchain: GoToolchainInfo,
+        stdlib: GoStdlib,
         prefix_name: str,
         own_pkgs: dict[str, GoPkg],
         shared: bool,
         link: bool) -> cmd_args:
-    go_toolchain = ctx.attrs._go_toolchain[GoToolchainInfo]
-    stdlib = ctx.attrs._go_stdlib[GoStdlib]
     suffix = "__shared" if shared else ""  # suffix to make artifacts unique
 
     content = []
@@ -107,11 +107,11 @@ def make_importcfg(
         # Hack: we use cmd_args get "artifact" valid path and write it to a file.
         content.append(cmd_args("packagefile ", name_, "=", pkg_, delimiter = ""))
 
-    own_importcfg = ctx.actions.declare_output("{}{}.importcfg".format(prefix_name, suffix), has_content_based_path = True)
-    ctx.actions.write(own_importcfg, content)
+    own_importcfg = actions.declare_output("{}{}.importcfg".format(prefix_name, suffix), has_content_based_path = True)
+    actions.write(own_importcfg, content)
 
-    final_importcfg = ctx.actions.declare_output("{}{}.final.importcfg".format(prefix_name, suffix), has_content_based_path = True)
-    ctx.actions.run(
+    final_importcfg = actions.declare_output("{}{}.final.importcfg".format(prefix_name, suffix), has_content_based_path = True)
+    actions.run(
         [
             go_toolchain.concat_files,
             "--output",

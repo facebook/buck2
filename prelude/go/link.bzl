@@ -36,6 +36,7 @@ load(
 load(
     ":packages.bzl",
     "GoPkg",  # @Unused used as type
+    "GoStdlib",
     "make_importcfg",
     "merge_pkgs",
 )
@@ -163,7 +164,8 @@ def link(
 
     identifier_prefix = ctx.label.name + "_" + _build_mode_param(build_mode)
 
-    importcfg = make_importcfg(ctx, identifier_prefix, all_pkgs, use_shared_code, link = True)
+    go_stdlib = ctx.attrs._go_stdlib[GoStdlib]
+    importcfg = make_importcfg(ctx.actions, go_toolchain, go_stdlib, identifier_prefix, all_pkgs, use_shared_code, link = True)
 
     cmd.add("-importcfg", importcfg)
 
