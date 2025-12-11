@@ -11,6 +11,7 @@
 # the generated docs, and so those should be verified to be accurate and
 # well-formatted (and then delete this TODO)
 
+load("@prelude//:attrs_validators.bzl", "validation_common")
 load("@prelude//apple:apple_common.bzl", "apple_common")
 load("@prelude//cxx:cuda.bzl", "CudaCompileStyle")
 load("@prelude//cxx:headers.bzl", "CPrecompiledHeaderInfo")
@@ -505,6 +506,7 @@ library_attrs = (
     cxx_common.version_arg() |
     cxx_common.use_fbcc_rust_wrapper_arg() |
     cxx_common.use_content_based_paths_arg() |
+    validation_common.attrs_validators_arg() |
     {
         "archive_allow_cache_upload": attrs.bool(default = False),
         "bridging_header": attrs.option(attrs.source(), default = None),

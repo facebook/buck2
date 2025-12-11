@@ -11,6 +11,7 @@ load(
     "ArtifactTSet",  # @unused Used as a type
     "make_artifact_tset",
 )
+load("@prelude//:attrs_validators.bzl", "get_attrs_validation_specs")
 load("@prelude//:paths.bzl", "paths")
 load(
     "@prelude//:resources.bzl",
@@ -492,6 +493,10 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
 
     sub_targets = {}
     providers = []
+
+    attr_validation_specs = get_attrs_validation_specs(ctx)
+    if attr_validation_specs:
+        providers.append(ValidationInfo(validations = attr_validation_specs))
 
     if compile_pch:
         pch_provider = CPrecompiledHeaderInfo(
