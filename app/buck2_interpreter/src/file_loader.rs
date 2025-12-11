@@ -181,7 +181,7 @@ impl FileLoader for InterpreterFileLoader {
     fn load(&self, path: &str) -> starlark::Result<FrozenModule> {
         match self.info.resolve_load(path, None) {
             Ok(import) => Ok(self.find_module(import.borrow())?.dupe()),
-            Err(e) => Err(starlark::Error::new_native(to_diagnostic(&e, path))),
+            Err(e) => Err(to_diagnostic(&e, path).into()),
         }
     }
 }
