@@ -145,6 +145,8 @@ FrameworksLinkable = record(
     library_names = field(list[str], []),
 )
 
+FrameworksLinkableEmpty = FrameworksLinkable()
+
 SwiftmoduleLinkable = record(
     swiftmodules = field(ArtifactTSet, ArtifactTSet()),
 )
@@ -974,6 +976,9 @@ def legacy_output_style_to_link_style(output_style: LibOutputStyle) -> LinkStyle
     fail("unrecognized output_style {}".format(output_style))
 
 def merge_framework_linkables(linkables: list[[FrameworksLinkable, None]]) -> FrameworksLinkable:
+    if not any(linkables):
+        return FrameworksLinkableEmpty
+
     unique_framework_names = {}
     unique_framework_paths = {}
     unique_library_names = {}
