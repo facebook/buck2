@@ -141,11 +141,15 @@ def android_instrumentation_test_impl(ctx: AnalysisContext):
         ],
     )
 
+    labels = ctx.attrs.labels
+    if read_root_config("test", "use_tpx_standard_output") == "true":
+        labels.append("tpx:supports-test-result-output-spec")
+
     test_info = ExternalRunnerTestInfo(
         type = "android_instrumentation",
         command = cmd,
         env = env,
-        labels = ctx.attrs.labels,
+        labels = labels,
         contacts = ctx.attrs.contacts,
         run_from_project_root = True,
         use_project_relative_paths = True,
