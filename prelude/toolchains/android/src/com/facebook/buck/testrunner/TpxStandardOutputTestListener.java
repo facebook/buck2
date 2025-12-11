@@ -52,19 +52,21 @@ public class TpxStandardOutputTestListener {
   /**
    * Registers a test identifier with the listener.
    *
-   * @param test the test identifier to register
+   * @param identifier the test identifier to register
+   * @param startedTime the time the test started, in milliseconds since Unix epoch
    */
-  private void registerTest(String identifier) {
-    testIdentifierStatuses.put(identifier, new TestIdentifierStatus(System.currentTimeMillis()));
+  private void registerTest(String identifier, long startedTime) {
+    testIdentifierStatuses.put(identifier, new TestIdentifierStatus(startedTime));
   }
 
   /**
    * Sends a test start event to the TestResultsOutputSender.
    *
-   * @param test the test identifier to send the start event for
+   * @param identifier the test identifier to send the start event for
+   * @param startedTime the time the test started, in milliseconds since Unix epoch
    */
-  private void sendTestStart(String identifier) {
-    sender.sendTestStart(identifier);
+  private void sendTestStart(String identifier, long startedTime) {
+    sender.sendTestStart(identifier, startedTime);
   }
 
   /**
@@ -73,8 +75,9 @@ public class TpxStandardOutputTestListener {
    * @param test identifies the test
    */
   public void testStarted(String identifier) {
-    registerTest(identifier);
-    sendTestStart(identifier);
+    long startedTime = System.currentTimeMillis();
+    registerTest(identifier, startedTime);
+    sendTestStart(identifier, startedTime);
   }
 
   /**

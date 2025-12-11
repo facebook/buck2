@@ -36,13 +36,18 @@ public class TestResultsOutputEvent {
   public static class StartEvent {
     public String name;
 
+    /** The time at which the test started, in milliseconds since Unix epoch. */
+    public Long startedTime;
+
     /**
-     * Creates a new start event with the given name.
+     * Creates a new start event with the given name and started time.
      *
      * @param name the name of the test
+     * @param startedTime the time at which the test started, in milliseconds since Unix epoch
      */
-    public StartEvent(String name) {
+    public StartEvent(String name, long startedTime) {
       this.name = name;
+      this.startedTime = startedTime;
     }
 
     /**
@@ -57,6 +62,7 @@ public class TestResultsOutputEvent {
         generator.writeStartObject();
         generator.writeObjectFieldStart("start");
         generator.writeStringField("name", name);
+        generator.writeNumberField("started_time", startedTime);
         generator.writeEndObject();
         generator.writeEndObject();
       }

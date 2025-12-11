@@ -91,9 +91,10 @@ public class TestResultsOutputSender implements AutoCloseable {
    * Sends a test start event to the output file.
    *
    * @param name The name of the test.
+   * @param startedTime The time the test started, in milliseconds since Unix epoch.
    */
-  public void sendTestStart(String name) {
-    StartEvent startEvent = new StartEvent(name);
+  public void sendTestStart(String name, long startedTime) {
+    StartEvent startEvent = new StartEvent(name, startedTime);
 
     byte[] serialized;
     try {
