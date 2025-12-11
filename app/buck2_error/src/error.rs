@@ -217,15 +217,6 @@ impl Error {
         )))
     }
 
-    #[cold]
-    #[track_caller]
-    pub(crate) fn new_anyhow_with_context<E, C: Into<ContextValue>>(e: E, c: C) -> anyhow::Error
-    where
-        Error: From<E>,
-    {
-        crate::Error::from(e).context(c).into()
-    }
-
     pub fn tag(self, tags: impl IntoIterator<Item = crate::ErrorTag>) -> Self {
         let tags = SmallVec::from_iter(tags);
         if tags.is_empty() {

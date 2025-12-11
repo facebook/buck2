@@ -51,17 +51,6 @@ pub trait BuckErrorContext<T>: Sealed {
             .tag(crate::ErrorTag::InternalError)
     }
 
-    /// Code below returns an anyhow::Error, it is used while we transition from anyhow to buck2_error in buck2/app
-    /// TODO(minglunli): Delete the code below once we have fully transitioned to buck2_error
-    #[track_caller]
-    fn buck_error_context_anyhow<C: Into<ContextValue>>(self, context: C) -> anyhow::Result<T>;
-
-    #[track_caller]
-    fn with_buck_error_context_anyhow<C, F>(self, f: F) -> anyhow::Result<T>
-    where
-        C: Into<ContextValue>,
-        F: FnOnce() -> C;
-
     /// Supports adding context to an error by either augmenting the most recent context if its
     /// the requested type or by adding a new context.
     #[track_caller]
@@ -103,27 +92,6 @@ where
         match self {
             Ok(x) => Ok(x),
             Err(e) => Err(crate::Error::from(e).context(f())),
-        }
-    }
-
-    fn buck_error_context_anyhow<C>(self, c: C) -> anyhow::Result<T>
-    where
-        C: Into<ContextValue>,
-    {
-        match self {
-            Ok(x) => Ok(x),
-            Err(e) => Err(crate::Error::new_anyhow_with_context(e, c)),
-        }
-    }
-
-    fn with_buck_error_context_anyhow<C, F>(self, f: F) -> anyhow::Result<T>
-    where
-        C: Into<ContextValue>,
-        F: FnOnce() -> C,
-    {
-        match self {
-            Ok(x) => Ok(x),
-            Err(e) => Err(crate::Error::new_anyhow_with_context(e, f())),
         }
     }
 
@@ -172,27 +140,6 @@ impl<T> BuckErrorContext<T> for Option<T> {
         match self {
             Some(x) => Ok(x),
             None => Err(crate::Error::from(NoneError).context(f())),
-        }
-    }
-
-    fn buck_error_context_anyhow<C>(self, c: C) -> anyhow::Result<T>
-    where
-        C: Into<ContextValue>,
-    {
-        match self {
-            Some(x) => Ok(x),
-            None => Err(crate::Error::new_anyhow_with_context(NoneError, c)),
-        }
-    }
-
-    fn with_buck_error_context_anyhow<C, F>(self, f: F) -> anyhow::Result<T>
-    where
-        C: Into<ContextValue>,
-        F: FnOnce() -> C,
-    {
-        match self {
-            Some(x) => Ok(x),
-            None => Err(crate::Error::new_anyhow_with_context(NoneError, f())),
         }
     }
 
