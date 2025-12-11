@@ -70,100 +70,36 @@ def build_package(
 
     test_go_files_argsfile = actions.declare_output(paths.basename(pkg_name) + "_test_go_files.go_package_argsfile", has_content_based_path = True)
     coverage_vars_argsfile = actions.declare_output(paths.basename(pkg_name) + "_coverage_vars.go_package_argsfile", has_content_based_path = True)
-    dynamic_outputs = [out_x, out_a, out_shared_x, out_shared_a, test_go_files_argsfile, coverage_vars_argsfile, cgo_gen_dir]
 
     all_pkgs = merge_pkgs([
         pkgs,
         get_inherited_compile_pkgs(deps),
     ])
 
-    def f(ctx: AnalysisContext, artifacts, outputs, go_list_out = go_list_out):
-        actions = ctx.actions
-        go_list = parse_go_list_out(srcs, package_root, artifacts[go_list_out])
-
-        if len(go_list.x_test_go_files) > 0:
-            fail("External tests are not supported, remove suffix '_test' from package declaration '{}': {}", go_list.name, target_label)
-
-        covered_go_files, covered_cgo_files, coverage_vars_out, coveragecfg = cover_srcs(
-            actions = actions,
-            go_toolchain = go_toolchain,
-            pkg_name = go_list.name,
-            pkg_import_path = pkg_name,
-            go_files = go_list.go_files + (go_list.test_go_files if with_tests else []),
-            cgo_files = go_list.cgo_files,
-            coverage_mode = coverage_mode,
-        )
-        actions.write(outputs[coverage_vars_argsfile], coverage_vars_out)
-
-        # A go package can can contain CGo or Go ASM files, but not both.
-        # If CGo and ASM files are present, we process ASM files together with C files with CxxToolchain.
-        # The `go build` command does additional check here and throws an error if both CGo and Go-ASM files are present.
-        c_files = go_list.c_files + go_list.cxx_files
-        s_files = go_list.s_files
-        if len(go_list.cgo_files) > 0:
-            c_files += s_files
-            s_files = []
-
-        # Generate CGO and C sources.
-        transformed_cgo_files, cgo_o_files, cgo_gen_tmp_dir = build_cgo(
-            actions = actions,
-            target_label = target_label,
-            go_toolchain_info = go_toolchain,
-            cgo_build_context = cgo_build_context,
-            cgo_files = covered_cgo_files,
-            h_files = go_list.h_files,
-            c_files = c_files,
-            c_flags = go_list.cgo_cflags,
-            cpp_flags = go_list.cgo_cppflags,
-            anon_targets_allowed = False,
-        )
-        actions.copy_dir(outputs[cgo_gen_dir], cgo_gen_tmp_dir)
-
-        actions.write(outputs[test_go_files_argsfile], cmd_args((go_list.test_go_files if with_tests else []), ""))
-
-        symabis = _symabis(actions, go_toolchain, pkg_name, main, s_files, go_list.h_files, assembler_flags)
-
-        # Use -complete flag when compiling Go code only
-        complete_flag = len(go_list.cgo_files) + len(s_files) + len(c_files) == 0
-
-        def build_variant(shared: bool) -> (Artifact, Artifact):
-            suffix = "_shared" if shared else "_non-shared"  # suffix to make artifacts unique
-            go_files_to_compile = covered_go_files + transformed_cgo_files
-            importcfg = make_importcfg(actions, go_toolchain, go_stdlib, pkg_name, all_pkgs, shared, link = False)
-            go_x_file, go_a_file, asmhdr = _compile(
-                actions = actions,
-                go_toolchain = go_toolchain,
-                pkg_name = pkg_name,
-                main = main,
-                go_srcs = go_files_to_compile,
-                importcfg = importcfg,
-                compiler_flags = compiler_flags,
-                shared = shared,
-                race = race,
-                asan = asan,
-                suffix = suffix,
-                complete = complete_flag,
-                coveragecfg = coveragecfg,
-                embedcfg = embedcfg,
-                embed_files = go_list.embed_files,
-                symabis = symabis,
-                gen_asmhdr = len(s_files) > 0,
-            )
-
-            asm_o_files = _asssembly(actions, go_toolchain, pkg_name, main, s_files, go_list.h_files, asmhdr, assembler_flags, shared, suffix)
-
-            return go_x_file, _pack(actions, go_toolchain, pkg_name, go_a_file, cgo_o_files + asm_o_files, suffix)
-
-        non_shared_x, non_shared_a = build_variant(shared = False)
-        actions.copy_file(outputs[out_x], non_shared_x)
-        actions.copy_file(outputs[out_a], non_shared_a)
-
-        shared_x, shared_a = build_variant(shared = True)
-        actions.copy_file(outputs[out_shared_x], shared_x)
-        actions.copy_file(outputs[out_shared_a], shared_a)
-
-    actions.dynamic_output(dynamic = [go_list_out], inputs = [], outputs = [o.as_output() for o in dynamic_outputs], f = f)
-
+    actions.dynamic_output_new(_build_package_action(
+        target_label = target_label,
+        pkg_name = pkg_name,
+        main = main,
+        srcs = srcs,
+        package_root = package_root,
+        cgo_build_context = cgo_build_context,
+        deps_pkgs = all_pkgs,
+        compiler_flags = compiler_flags,
+        assembler_flags = assembler_flags,
+        coverage_mode = coverage_mode,
+        embedcfg = embedcfg,
+        with_tests = with_tests,
+        go_toolchain = go_toolchain,
+        go_stdlib = go_stdlib,
+        go_list_out = go_list_out,
+        cgo_gen_dir = cgo_gen_dir.as_output(),
+        coverage_vars_argsfile = coverage_vars_argsfile.as_output(),
+        out_a = out_a.as_output(),
+        out_shared_a = out_shared_a.as_output(),
+        out_shared_x = out_shared_x.as_output(),
+        out_x = out_x.as_output(),
+        test_go_files_argsfile = test_go_files_argsfile.as_output(),
+    ))
     return GoPkg(
         pkg = out_a,
         pkg_shared = out_shared_a,
@@ -179,6 +115,147 @@ def build_package(
         go_list_out = go_list_out,
         srcs = srcs,
     )
+
+def _build_package_action_impl(
+        actions: AnalysisActions,
+        target_label: Label,
+        pkg_name: str,
+        main: bool,
+        srcs: list[Artifact],
+        package_root: None | str,
+        cgo_build_context: None | CGoBuildContext,
+        deps_pkgs: dict[str, GoPkg],
+        compiler_flags: list[str],
+        assembler_flags: list[str],
+        coverage_mode: None | GoCoverageMode,
+        embedcfg: Artifact | None,
+        with_tests: bool,
+        go_toolchain: GoToolchainInfo,
+        go_stdlib: GoStdlib,
+        go_list_out: ArtifactValue,
+        cgo_gen_dir: OutputArtifact,
+        coverage_vars_argsfile: OutputArtifact,
+        out_a: OutputArtifact,
+        out_shared_a: OutputArtifact,
+        out_shared_x: OutputArtifact,
+        out_x: OutputArtifact,
+        test_go_files_argsfile: OutputArtifact):
+    go_list = parse_go_list_out(srcs, package_root, go_list_out)
+
+    if len(go_list.x_test_go_files) > 0:
+        fail("External tests are not supported, remove suffix '_test' from package declaration '{}': {}", go_list.name, target_label)
+
+    covered_go_files, covered_cgo_files, coverage_vars_out, coveragecfg = cover_srcs(
+        actions = actions,
+        go_toolchain = go_toolchain,
+        pkg_name = go_list.name,
+        pkg_import_path = pkg_name,
+        go_files = go_list.go_files + (go_list.test_go_files if with_tests else []),
+        cgo_files = go_list.cgo_files,
+        coverage_mode = coverage_mode,
+    )
+    actions.write(coverage_vars_argsfile, coverage_vars_out)
+
+    # A go package can can contain CGo or Go ASM files, but not both.
+    # If CGo and ASM files are present, we process ASM files together with C files with CxxToolchain.
+    # The `go build` command does additional check here and throws an error if both CGo and Go-ASM files are present.
+    c_files = go_list.c_files + go_list.cxx_files
+    s_files = go_list.s_files
+    if len(go_list.cgo_files) > 0:
+        c_files += s_files
+        s_files = []
+
+    # Generate CGO and C sources.
+    transformed_cgo_files, cgo_o_files, cgo_gen_tmp_dir = build_cgo(
+        actions = actions,
+        target_label = target_label,
+        go_toolchain_info = go_toolchain,
+        cgo_build_context = cgo_build_context,
+        cgo_files = covered_cgo_files,
+        h_files = go_list.h_files,
+        c_files = c_files,
+        c_flags = go_list.cgo_cflags,
+        cpp_flags = go_list.cgo_cppflags,
+        anon_targets_allowed = False,
+    )
+    actions.copy_dir(cgo_gen_dir, cgo_gen_tmp_dir)
+
+    actions.write(test_go_files_argsfile, cmd_args((go_list.test_go_files if with_tests else []), ""))
+
+    symabis = _symabis(actions, go_toolchain, pkg_name, main, s_files, go_list.h_files, assembler_flags)
+
+    # Use -complete flag when compiling Go code only
+    complete_flag = len(go_list.cgo_files) + len(s_files) + len(c_files) == 0
+
+    def build_variant(shared: bool) -> (Artifact, Artifact):
+        suffix = "_shared" if shared else "_non-shared"  # suffix to make artifacts unique
+        go_files_to_compile = covered_go_files + transformed_cgo_files
+        importcfg = make_importcfg(actions, go_toolchain, go_stdlib, pkg_name, deps_pkgs, shared, link = False)
+        go_x_file, go_a_file, asmhdr = _compile(
+            actions = actions,
+            go_toolchain = go_toolchain,
+            pkg_name = pkg_name,
+            main = main,
+            go_srcs = go_files_to_compile,
+            importcfg = importcfg,
+            compiler_flags = compiler_flags,
+            shared = shared,
+            race = go_toolchain.race,
+            asan = go_toolchain.asan,
+            suffix = suffix,
+            complete = complete_flag,
+            coveragecfg = coveragecfg,
+            embedcfg = embedcfg,
+            embed_files = go_list.embed_files,
+            symabis = symabis,
+            gen_asmhdr = len(s_files) > 0,
+        )
+
+        asm_o_files = _asssembly(actions, go_toolchain, pkg_name, main, s_files, go_list.h_files, asmhdr, assembler_flags, shared, suffix)
+
+        return go_x_file, _pack(actions, go_toolchain, pkg_name, go_a_file, cgo_o_files + asm_o_files, suffix)
+
+    non_shared_x, non_shared_a = build_variant(shared = False)
+    actions.copy_file(out_x, non_shared_x)
+    actions.copy_file(out_a, non_shared_a)
+
+    shared_x, shared_a = build_variant(shared = True)
+    actions.copy_file(out_shared_x, shared_x)
+    actions.copy_file(out_shared_a, shared_a)
+
+    return []
+
+_build_package_action = dynamic_actions(
+    impl = _build_package_action_impl,
+    # @unsorted-dict-items
+    attrs = {
+        # Input Parameters
+        "target_label": dynattrs.value(Label),
+        "pkg_name": dynattrs.value(str),
+        "main": dynattrs.value(bool),
+        "srcs": dynattrs.value(list[Artifact]),
+        "package_root": dynattrs.value(str | None),
+        "cgo_build_context": dynattrs.value(CGoBuildContext | None),
+        "deps_pkgs": dynattrs.value(dict[str, GoPkg]),
+        "compiler_flags": dynattrs.value(list[str]),
+        "assembler_flags": dynattrs.value(list[str]),
+        "coverage_mode": dynattrs.value(GoCoverageMode | None),
+        "embedcfg": dynattrs.value(Artifact | None),
+        "with_tests": dynattrs.value(bool),
+        "go_toolchain": dynattrs.value(GoToolchainInfo),
+        "go_stdlib": dynattrs.value(GoStdlib),
+        # Readable Artifacts
+        "go_list_out": dynattrs.artifact_value(),
+        # Outputs
+        "cgo_gen_dir": dynattrs.output(),
+        "coverage_vars_argsfile": dynattrs.output(),
+        "out_a": dynattrs.output(),
+        "out_shared_a": dynattrs.output(),
+        "out_shared_x": dynattrs.output(),
+        "out_x": dynattrs.output(),
+        "test_go_files_argsfile": dynattrs.output(),
+    },
+)
 
 def _compile(
         actions: AnalysisActions,
