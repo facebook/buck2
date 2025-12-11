@@ -305,41 +305,35 @@ impl Lines {
         &mut self,
         writer: &mut Vec<u8>,
         limit: Option<usize>,
-    ) -> anyhow::Result<Option<usize>> {
+    ) -> Option<usize> {
         let output_limit = limit.unwrap_or(self.len());
         let amt = cmp::min(output_limit, self.len());
         for line in self.0.drain(..amt) {
-            line.render_with_clear_and_nl(writer)?;
+            line.render_with_clear_and_nl(writer);
         }
         if limit.is_some() {
-            Ok(Some(output_limit - amt))
+            Some(output_limit - amt)
         } else {
             // if the original limit was None, it means no limit, so just return None meaning no limit
-            Ok(None)
+            None
         }
     }
 
     /// Formats and renders all lines to `buffer`.
     /// Notably, this *queues* the lines for rendering.  You must flush the buffer.
-    pub(crate) fn render_from_line(
-        &self,
-        writer: &mut Vec<u8>,
-        start: usize,
-    ) -> anyhow::Result<()> {
+    pub(crate) fn render_from_line(&self, writer: &mut Vec<u8>, start: usize) {
         for line in self.0.iter().skip(start) {
-            line.render_with_clear_and_nl(writer)?;
+            line.render_with_clear_and_nl(writer);
         }
-        Ok(())
     }
 
     /// Render the lines without an escape sequence to clear the line.
     /// It will clear the lines at the end.
-    pub(crate) fn render_raw(&mut self, writer: &mut Vec<u8>) -> anyhow::Result<()> {
+    pub(crate) fn render_raw(&mut self, writer: &mut Vec<u8>) {
         for line in self.0.iter() {
-            writeln!(writer, "{}", line.render())?;
+            writeln!(writer, "{}", line.render()).unwrap();
         }
         self.0.clear();
-        Ok(())
     }
 
     pub(crate) fn lines_equal(&self, other: &Self) -> usize {
@@ -352,11 +346,11 @@ impl Lines {
 
     /// Returns the maximum line width and the number of lines.
     /// This corresponds to how much space a justified version of the output would take.
-    pub fn dimensions(&self) -> anyhow::Result<Dimensions> {
+    pub fn dimensions(&self) -> Dimensions {
         let x = self.max_line_length();
         let y = self.len();
 
-        Ok((x, y).into())
+        (x, y).into()
     }
 
     /// Sets the lines to the exact dimensions specified below, truncating or padding as necessary.
@@ -531,37 +525,33 @@ mod tests {
     }
 
     #[test]
-    fn test_truncate_lines_bottom() -> anyhow::Result<()> {
+    fn test_truncate_lines_bottom() {
         let mut test = Lines(vec![
-            vec!["test"].try_into()?,
-            vec!["another"].try_into()?,
-            vec!["one more"].try_into()?,
+            vec!["test"].try_into().unwrap(),
+            vec!["another"].try_into().unwrap(),
+            vec!["one more"].try_into().unwrap(),
         ]);
         test.truncate_lines_bottom(1);
-        let output = Lines(vec![vec!["test"].try_into()?]);
+        let output = Lines(vec![vec!["test"].try_into().unwrap()]);
         assert_eq!(test, output);
-
-        Ok(())
     }
 
     #[test]
-    fn test_justify() -> anyhow::Result<()> {
+    fn test_justify() {
         let mut test = Lines(vec![
-            vec!["test"].try_into()?,
+            vec!["test"].try_into().unwrap(),
             Line::default(),
-            vec!["ok"].try_into()?,
+            vec!["ok"].try_into().unwrap(),
         ]);
 
         test.justify();
         let expected = Lines(vec![
-            vec!["test"].try_into()?,
-            vec![" ".repeat(4)].try_into()?,
-            vec!["ok", "  "].try_into()?,
+            vec!["test"].try_into().unwrap(),
+            vec![" ".repeat(4)].try_into().unwrap(),
+            vec!["ok", "  "].try_into().unwrap(),
         ]);
 
         assert_eq!(test, expected);
-
-        Ok(())
     }
 
     #[test]

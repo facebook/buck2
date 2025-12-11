@@ -283,7 +283,7 @@ impl SuperConsole {
                 // and flushed, so that we can make sure the all output order is correct.
                 self.output.output(buffer)?;
                 let mut aux_buffer = Vec::new();
-                limit = self.aux_to_emit.render_with_limit(&mut aux_buffer, limit)?;
+                limit = self.aux_to_emit.render_with_limit(&mut aux_buffer, limit);
                 self.output.output_to(aux_buffer, OutputTarget::Aux)?;
 
                 // Since output is moved at `self.output.output(buffer)`, we need to new a new buffer
@@ -291,7 +291,7 @@ impl SuperConsole {
             } else {
                 // If the aux stream is not tty, we don't need to render the line, we just output to the auxillary output
                 let mut output_buffer = Vec::new();
-                self.aux_to_emit.render_raw(&mut output_buffer)?;
+                self.aux_to_emit.render_raw(&mut output_buffer);
                 self.output.output_to(output_buffer, OutputTarget::Aux)?;
 
                 // Since we clear the aux_to_emit, we need to recompute the `limit`
@@ -299,9 +299,9 @@ impl SuperConsole {
             }
         }
 
-        self.to_emit.render_with_limit(&mut buffer, limit)?;
+        self.to_emit.render_with_limit(&mut buffer, limit);
 
-        canvas.render_from_line(&mut buffer, reuse_prefix)?;
+        canvas.render_from_line(&mut buffer, reuse_prefix);
         Self::clear_canvas_post(&mut buffer)?;
         self.canvas_contents = canvas;
 

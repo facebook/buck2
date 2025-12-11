@@ -152,18 +152,18 @@ impl Line {
 
     /// Renders the formatted content of the line to `stdout`.
     /// The buffer must be flushed to produce output.
-    pub(crate) fn render_with_clear_and_nl(&self, writer: &mut Vec<u8>) -> anyhow::Result<()> {
+    pub(crate) fn render_with_clear_and_nl(&self, writer: &mut Vec<u8>) {
         let mut writer = VecAsFmtWrite(writer);
 
         for word in &self.0 {
-            word.render(&mut writer)?;
+            word.render(&mut writer).unwrap();
         }
 
-        Clear(ClearType::UntilNewLine).write_ansi(&mut writer)?;
-        writeln!(writer)?;
-        MoveToColumn(0).write_ansi(&mut writer)?;
-
-        Ok(())
+        Clear(ClearType::UntilNewLine)
+            .write_ansi(&mut writer)
+            .unwrap();
+        writeln!(writer).unwrap();
+        MoveToColumn(0).write_ansi(&mut writer).unwrap();
     }
 
     /// Render the line as a string with ANSI escape codes.
@@ -311,29 +311,27 @@ mod tests {
     }
 
     #[test]
-    fn test_pad_line_left() -> anyhow::Result<()> {
+    fn test_pad_line_left() {
         let mut test: Line = Line::from_iter([
             Span::new_colored("test", Color::DarkCyan).unwrap(),
             Span::new_colored("ok", Color::Cyan).unwrap(),
         ]);
         let mut new_test: Line = test.clone();
-        test.push_front(" ".repeat(4).try_into()?);
+        test.push_front(" ".repeat(4).try_into().unwrap());
         new_test.pad_left(4);
         assert_eq!(test, new_test);
 
         new_test.pad_left(6);
-        test.push_front(" ".repeat(6).try_into()?);
+        test.push_front(" ".repeat(6).try_into().unwrap());
         assert_eq!(test, new_test);
 
         new_test.pad_left(10);
-        test.push_front(" ".repeat(10).try_into()?);
+        test.push_front(" ".repeat(10).try_into().unwrap());
         assert_eq!(test, new_test);
-
-        Ok(())
     }
 
     #[test]
-    fn test_truncate_line() -> anyhow::Result<()> {
+    fn test_truncate_line() {
         let mut test: Line = Line::from_iter([
             Span::new_colored("test", Color::Blue).unwrap(),
             Span::new_colored("ok", Color::Red).unwrap(),
@@ -356,33 +354,29 @@ mod tests {
 
         new_test.truncate_line(0);
         assert_eq!(new_test, Line::default());
-
-        Ok(())
     }
 
     #[test]
-    fn test_trim_ends() -> anyhow::Result<()> {
-        let line = |spans: &[&str]| -> Result<Line, SpanError> { spans.to_vec().try_into() };
-        let mut test = line(&["hello", "cat", "world"])?;
+    fn test_trim_ends() {
+        let line = |spans: &[&str]| -> Line { spans.to_vec().try_into().unwrap() };
+        let mut test = line(&["hello", "cat", "world"]);
         test.trim_ends(0, 15);
-        assert_eq!(test, line(&["hello", "cat", "world"])?);
+        assert_eq!(test, line(&["hello", "cat", "world"]));
 
         test.trim_ends(0, 13);
-        assert_eq!(test, line(&["hello", "cat", "world"])?);
+        assert_eq!(test, line(&["hello", "cat", "world"]));
 
-        let mut test = line(&["hello", "cat", "world"])?;
+        let mut test = line(&["hello", "cat", "world"]);
         test.trim_ends(2, 10);
-        assert_eq!(test, line(&["llo", "cat", "worl"])?);
+        assert_eq!(test, line(&["llo", "cat", "worl"]));
 
-        let mut test = line(&["hello", "cat", "world"])?;
+        let mut test = line(&["hello", "cat", "world"]);
         test.trim_ends(6, 2);
-        assert_eq!(test, line(&["at"])?);
+        assert_eq!(test, line(&["at"]));
 
-        let mut test = line(&["hello", "cat", "world"])?;
+        let mut test = line(&["hello", "cat", "world"]);
         test.trim_ends(9, 2);
-        assert_eq!(test, line(&["or"])?);
-
-        Ok(())
+        assert_eq!(test, line(&["or"]));
     }
 
     #[test]
