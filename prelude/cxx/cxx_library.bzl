@@ -708,7 +708,8 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
             continue
 
         for key in link_style_output[LinkableFlavor("default")].sub_targets.keys():
-            expect(not key in sub_targets, "The subtarget `{}` already exists!".format(key))
+            if key in sub_targets:
+                fail("The subtarget `{}` already exists!".format(key))
         sub_targets.update(link_style_output[LinkableFlavor("default")].sub_targets)
 
     providers.extend(library_outputs.providers)
