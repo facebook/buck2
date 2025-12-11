@@ -1,8 +1,8 @@
 #!/usr/bin/env dotslash
 
-// @generated SignedSource<<6e667e14a55f2456ffb5cf4e9889fdb2>>
+// @generated SignedSource<<deabfe13560a011a4b6455a0c3eaab16>>
 // MSDK schedule URL: https://www.internalfb.com/intern/msdk/bump/?action=view&schedule_fbid=25153959554288830
-// Sandcastle build trigger URL: https://www.internalfb.com/intern/sandcastle/job/22518000508078268/
+// Sandcastle build trigger URL: https://www.internalfb.com/intern/sandcastle/job/22518000514870373/
 
 {
     "name": "codesign_using_manifest",
@@ -10,19 +10,19 @@
     "build_info": {
         "config_script": "fbcode/buck2/prelude/apple/tools/code_signing_using_manifest/code_signing.dotslash.py",
         "commit_repo": "fbsource",
-        "commit_hash": "6c6d52a14d4862bd7fea12cd32418ecf0e049155",
-        "commit_date": "2025-12-08 13:21:40 PST",
-        "commit_timestamp": 1765228900,
-        "msdk_package_fbid": "837542842239982"
+        "commit_hash": "e7740f12d1bd161894918a71764c2fe8d38e645f",
+        "commit_date": "2025-12-11 07:53:06 PST",
+        "commit_timestamp": 1765468386,
+        "msdk_package_fbid": "1385323176428073"
     },
     "signatures": {
-        "msdk": "<<crypto.managed_sdk.mac:AecyifwC-5g-vVOlmf6pv8l3fs0>>"
+        "msdk": "<<crypto.managed_sdk.mac:Aec12Bzt8XFWEt1lLhAlFsurbMs>>"
     },
     "platforms": {
         "macos/aarch64": {
             "scheme": "cas",
             "use_case_id": "dotslash_msdk_prod",
-            "digest": "113b3f0dc03fd8b1974a9dc09548b06df5b8023ee2a055c0ba226cc93384d59f:57997",
+            "digest": "37187e064bbbfb4759141007f0fb11bf308fce8ca6d7c2bb1a809e7dcc93bf9b:57979",
             "extract": {
                 "path": "codesign_bundle_using_manifest",
                 "decompress": "tar.zst"
@@ -41,7 +41,7 @@
         "macos/x86_64": {
             "scheme": "cas",
             "use_case_id": "dotslash_msdk_prod",
-            "digest": "2f3bc41c132d469516fb18a77e6d87cc8865bd6a909123aba34738018688c7e7:57993",
+            "digest": "fa8db928fcd88bfc74b2607a3ce0313b6da77691362eca80122ad08dcb9204e0:57979",
             "extract": {
                 "path": "codesign_bundle_using_manifest",
                 "decompress": "tar.zst"
