@@ -20,7 +20,7 @@ Used by TPX to upload diagnostic reports.
 -define(raw_file_access, prim_file).
 
 %% Public API
--export([prepare/2, link_to_artifact_dir/3]).
+-export([prepare/2, link_to_artifact_dir/3, find_log_private/1]).
 
 -export_type([dir_path/0]).
 
