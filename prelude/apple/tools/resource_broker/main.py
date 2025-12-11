@@ -13,6 +13,7 @@ import asyncio
 import json
 import sys
 
+from .debug import debug_dump_replay
 from .ios import prepare_simulator
 from .simulator import SimulatorType
 
@@ -57,6 +58,7 @@ def _args_parser() -> argparse.ArgumentParser:
 
 
 def main() -> None:
+    debug_dump_replay()
     args = _args_parser().parse_args()
     device = args.device if args.device else args.type.default_device()
     sim = asyncio.run(
