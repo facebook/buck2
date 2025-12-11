@@ -69,10 +69,12 @@ import org.jetbrains.kotlin.fir.extensions.FirExtensionRegistrar
 import org.jetbrains.kotlin.fir.extensions.FirExtensionSessionComponent
 import org.jetbrains.kotlin.fir.extensions.MemberGenerationContext
 import org.jetbrains.kotlin.fir.java.FirProjectSessionProvider
+import org.jetbrains.kotlin.fir.moduleData
 import org.jetbrains.kotlin.fir.pipeline.FirResult
 import org.jetbrains.kotlin.fir.pipeline.buildResolveAndCheckFirFromKtFiles
 import org.jetbrains.kotlin.fir.plugin.createMemberProperty
 import org.jetbrains.kotlin.fir.plugin.createTopLevelClass
+import org.jetbrains.kotlin.fir.resolve.providers.dependenciesSymbolProvider
 import org.jetbrains.kotlin.fir.session.FirJvmIncrementalCompilationSymbolProviders
 import org.jetbrains.kotlin.fir.session.FirJvmSessionFactory
 import org.jetbrains.kotlin.fir.session.FirSessionConfigurator
@@ -253,11 +255,13 @@ class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
       val stubPaths: Set<String> = stubs.map { it.viewProvider.virtualFile.path }.toSet()
 
       // Remove IR files that were generated from stubs
-      moduleFragment.files.removeAll { irFile ->
-        stubPaths.contains(irFile.fileEntry.name) ||
-            irFile.declarations.any { declaration ->
-              (declaration.origin as? GeneratedByPlugin)?.pluginKey == JvmAbiGenPlugin
-            }
+      moduleFragment.files.removeAll { irFile -> stubPaths.contains(irFile.fileEntry.name) }
+
+      // Remove plugin-generated declarations from all files
+      moduleFragment.files.forEach { irFile ->
+        irFile.declarations.removeAll { declaration ->
+          (declaration.origin as? GeneratedByPlugin)?.pluginKey == JvmAbiGenPlugin
+        }
       }
 
       moduleFragment.transform(
@@ -496,16 +500,26 @@ class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
   private class MissingConstantsVisitor(private val usedConstants: MutableSet<String>) :
       KtTreeVisitorVoid() {
     override fun visitAnnotationEntry(annotationEntry: KtAnnotationEntry) {
-      annotationEntry.valueArgumentList?.arguments?.map { it.text }?.let(usedConstants::addAll)
+      // Use getArgumentExpression()?.text to get just the value, not the parameter name
+      // For @Annotation(param = VALUE), we want "VALUE", not "param = VALUE"
+      annotationEntry.valueArgumentList
+          ?.arguments
+          ?.mapNotNull { it.getArgumentExpression()?.text }
+          ?.let(usedConstants::addAll)
       return super.visitAnnotationEntry(annotationEntry)
     }
   }
 
   // Collect missing constants from source files by analyzing imports
   private fun collectMissingConstantsFromSourceFiles(
-      sourceFiles: List<KtFile>
+      sourceFiles: List<KtFile>,
+      session: FirSession,
   ): Map<ClassId, Set<String>> {
     val missingConstants = mutableMapOf<ClassId, MutableSet<String>>()
+
+    // Collect all packages that are defined in the source files being compiled
+    // to exclude constants from those packages (they're not "missing")
+    val sourcePackages = sourceFiles.map { it.packageFqName }.toSet()
 
     for (sourceFile in sourceFiles) {
       val usedConstants = mutableSetOf<String>()
@@ -519,22 +533,116 @@ class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
         val importedName = importPath.shortNameOrSpecial().asString()
 
         // Check if this import is used in annotations
-        val isUsed = usedConstants.any { it.contains(importedName) }
-        if (!isUsed) continue
+        // usedConstants contains things like "THREAD_TAG" or "TestConstants.THREAD_TAG"
+        val matchingUsages = usedConstants.filter { it.contains(importedName) }
+        if (matchingUsages.isEmpty()) continue
 
-        // Handle static import: import package.ClassName.CONSTANT
-        val packageSegments = segments.dropLast(2)
-        val className = segments[segments.size - 2]
+        // Determine if this is a class import or a constant import
+        // For class imports like "import pkg.Class", usages will be "Class.PROPERTY"
+        // For constant imports like "import pkg.Class.CONSTANT", usages will be "CONSTANT"
+        for (usage in matchingUsages) {
+          if (usage.startsWith("$importedName.")) {
+            // Class import: import pkg.Class, used as Class.PROPERTY
+            // Extract the property name from the usage
+            val propertyPath = usage.removePrefix("$importedName.")
+            // propertyPath could be "PROPERTY" or "Nested.PROPERTY"
+            val propertyName = propertyPath.split(".").last()
 
-        if (packageSegments.isNotEmpty()) {
-          val packageFqName = FqName.fromSegments(packageSegments.map { it.asString() })
-          val classId = ClassId(packageFqName, className)
-          missingConstants.getOrPut(classId) { mutableSetOf() }.add(importedName)
+            // For class imports, the full import path IS the class
+            val classId =
+                findClassIdForImportWithProperty(segments, propertyName, session, sourcePackages)
+            if (classId != null) {
+              missingConstants.getOrPut(classId) { mutableSetOf() }.add(propertyName)
+            }
+          } else if (usage == importedName) {
+            // Constant import: import pkg.Class.CONSTANT, used as CONSTANT
+            val classId =
+                findClassIdForImportWithProperty(
+                    segments.dropLast(1),
+                    importedName,
+                    session,
+                    sourcePackages,
+                )
+            if (classId != null) {
+              missingConstants.getOrPut(classId) { mutableSetOf() }.add(importedName)
+            }
+          }
         }
       }
     }
 
     return missingConstants
+  }
+
+  // Find the correct ClassId for an import path
+  // For import other_package.constants.TestConstants.THREAD_TAG, segments would be
+  // [other_package, constants, TestConstants] and we want ClassId(other_package.constants,
+  // TestConstants)
+  // Returns null if the class (or any parent class in the path) already exists in dependencies AND
+  // has the property
+  private fun findClassIdForImportWithProperty(
+      segments: List<Name>,
+      propertyName: String,
+      session: FirSession,
+      sourcePackages: Set<FqName>,
+  ): ClassId? {
+    if (segments.size < 2) return null
+
+    // Try different package/class splits to find if any class in the path exists in dependencies
+    // For import like androidx.annotation.VisibleForTesting.Companion.PROTECTED (segments =
+    // [androidx, annotation, VisibleForTesting, Companion])
+    // We need to try:
+    // - Package: androidx, Class: annotation (unlikely)
+    // - Package: androidx.annotation, Class: VisibleForTesting (likely exists!)
+    // - Package: androidx.annotation.VisibleForTesting, Class: Companion (won't exist as top-level)
+    for (splitPoint in 1 until segments.size) {
+      val packageFqName = FqName.fromSegments(segments.take(splitPoint).map { it.asString() })
+      val classNameParts = segments.drop(splitPoint)
+
+      // Skip if this is from a package being compiled
+      if (packageFqName in sourcePackages) {
+        continue
+      }
+
+      // Build the ClassId - for nested classes like VisibleForTesting.Companion,
+      // we need to use the proper nested class syntax
+      val topLevelClassName = classNameParts.first()
+      val classId =
+          if (classNameParts.size == 1) {
+            ClassId(packageFqName, topLevelClassName)
+          } else {
+            // For nested classes, create ClassId with nested class path
+            ClassId(packageFqName, FqName.fromSegments(classNameParts.map { it.asString() }), false)
+          }
+
+      val classSymbol = session.dependenciesSymbolProvider.getClassLikeSymbolByClassId(classId)
+      if (classSymbol != null) {
+        // Class exists - check if it has the property we need
+        val hasProperty =
+            (classSymbol as? FirClassSymbol<*>)
+                ?.declarationSymbols
+                ?.filterIsInstance<FirPropertySymbol>()
+                ?.any { it.name.asString() == propertyName } ?: false
+
+        if (hasProperty) {
+          // Found a class in dependencies that has the property - no stub needed
+          return null
+        }
+        // Class exists but doesn't have the property - continue probing
+      }
+    }
+
+    // No class found in dependencies with the property - generate a stub using simple heuristic
+    // (last segment is class, rest is package)
+    val packageFqName = FqName.fromSegments(segments.dropLast(1).map { it.asString() })
+    val className = segments.last()
+
+    // Skip if from source package
+    if (packageFqName in sourcePackages) {
+      return null
+    }
+
+    return ClassId(packageFqName, className)
   }
 
   // A frontend entry point for Kosabi.
@@ -600,7 +708,7 @@ class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
 
     val outputs =
         sessionsWithSources.map { (session, sources) ->
-          val missingConstants = collectMissingConstantsFromSourceFiles(sources)
+          val missingConstants = collectMissingConstantsFromSourceFiles(sources, session)
           session.jvmAbiGenService.state.missingConstants.putAll(missingConstants)
           buildResolveAndCheckFirFromKtFiles(session, sources, diagnosticsReporter)
         }
@@ -804,11 +912,7 @@ class MissingConstantDeclarationGenerationExtension(
 
   override fun getTopLevelClassIds(): Set<ClassId> {
     val missingConstants = session.jvmAbiGenService.state.missingConstants
-    // Generate classes for all missing constants that don't already exist
-    return missingConstants.keys
-        // .filter { classId -> session.symbolProvider.getClassLikeSymbolByClassId(classId) == null
-        // }
-        .toSet()
+    return missingConstants.keys.toSet()
   }
 
   override fun getTopLevelCallableIds(): Set<CallableId> {
@@ -823,7 +927,7 @@ class MissingConstantDeclarationGenerationExtension(
   override fun generateTopLevelClassLikeDeclaration(classId: ClassId): FirClassLikeSymbol<*>? {
     val missingConstants = session.jvmAbiGenService.state.missingConstants
 
-    // Only generate if this class has missing constants and doesn't exist
+    // Only generate if this class has missing constants
     val constantsForClass = missingConstants[classId] ?: return null
 
     val createdClass = createTopLevelClass(classId, JvmAbiGenPlugin, ClassKind.OBJECT)
@@ -842,8 +946,10 @@ class MissingConstantDeclarationGenerationExtension(
       classSymbol: FirClassSymbol<*>,
       context: MemberGenerationContext,
   ): Set<Name> {
+    val classId = classSymbol.classId
     val missingConstants = session.jvmAbiGenService.state.missingConstants
-    val constantsForClass = missingConstants[classSymbol.classId] ?: return emptySet()
+    val constantsForClass = missingConstants[classId] ?: return emptySet()
+
     return constantsForClass.map { Name.identifier(it) }.toSet()
   }
 
@@ -858,10 +964,11 @@ class MissingConstantDeclarationGenerationExtension(
     val constantsForClass = missingConstants[classId] ?: return emptyList()
 
     val constantName = callableId.callableName.asString()
-    if (constantName in constantsForClass) {
-      return listOf(generateConstantProperty(constantName, owner))
+    if (constantName !in constantsForClass) {
+      return emptyList()
     }
-    return emptyList()
+
+    return listOf(generateConstantProperty(constantName, owner))
   }
 
   override fun hasPackage(packageFqName: FqName): Boolean {
@@ -875,6 +982,8 @@ class MissingConstantDeclarationGenerationExtension(
       constantName: String,
       owner: FirClassSymbol<*>,
   ): FirPropertySymbol {
+    // Default to String type with empty string value
+    // Only constants that are not available in dependencies are generated
     val property =
         createMemberProperty(
             owner,
