@@ -27,9 +27,11 @@ def android_apk_impl(ctx: AnalysisContext) -> list[Provider]:
     resources_info = android_binary_info.resources_info
     validation_outputs = android_binary_info.validation_outputs
 
+    _build_apk = _package_validators_decorator(ctx, build_apk)
+
     keystore = ctx.attrs.keystore[KeystoreInfo]
-    output_apk = build_apk(
-        label = ctx.label,
+    output_apk = _build_apk(
+        apk_filename = ctx.label.name,
         actions = ctx.actions,
         android_toolchain = ctx.attrs._android_toolchain[AndroidToolchainInfo],
         keystore = keystore,
@@ -123,8 +125,73 @@ def android_apk_impl(ctx: AnalysisContext) -> list[Provider]:
         class_to_srcs,
     ]
 
+def _package_validators_decorator(
+        ctx: AnalysisContext,
+        build_apk_func):
+    package_validators = ctx.attrs.package_validators
+    if not package_validators:
+        return build_apk_func
+
+    def wrapped_build_apk(
+            **build_apk_kwargs):
+        final_apk_filename = build_apk_kwargs["apk_filename"]
+        build_apk_kwargs["apk_filename"] = final_apk_filename + "_pre_validation"
+        apk_output = build_apk_func(**build_apk_kwargs)
+
+        validation_outputs = _get_apk_validation_outputs(
+            actions = ctx.actions,
+            package_validators = package_validators,
+            apk_output = apk_output,
+        )
+        symlinked_apk_output = ctx.actions.declare_output(final_apk_filename + ".apk")
+        ctx.actions.run(
+            cmd_args(
+                [
+                    "cp",
+                    apk_output,
+                    symlinked_apk_output.as_output(),
+                ],
+                hidden = validation_outputs,
+            ),
+            category = "package_validators",
+            identifier = "symlink_original_output",
+        )
+
+        return symlinked_apk_output
+
+    return wrapped_build_apk
+
+def _get_apk_validation_outputs(
+        actions: AnalysisActions,
+        package_validators: list,
+        apk_output: Artifact) -> list[Artifact]:
+    if not package_validators:
+        return []
+
+    outputs = []
+    for idx, validator in enumerate(package_validators):
+        validator, validator_args = validator
+
+        output = actions.declare_output(validator.label.name + "_apk_validator_{}".format(idx))
+        outputs.append(output)
+
+        actions.run(
+            cmd_args([
+                validator[RunInfo],
+                "--apk",
+                apk_output,
+                "--output-path",
+                output.as_output(),
+                validator_args,
+            ]),
+            category = "package_validator",
+            identifier = str(idx),
+        )
+
+    return outputs
+
 def build_apk(
-        label: Label,
+        apk_filename: str,
         actions: AnalysisActions,
         keystore: KeystoreInfo,
         android_toolchain: AndroidToolchainInfo,
@@ -134,7 +201,7 @@ def build_apk(
         compress_resources_dot_arsc: bool = False,
         validation_deps_outputs: [list[Artifact], None] = None,
         packaging_options: dict | None = None) -> Artifact:
-    output_apk = actions.declare_output("{}.apk".format(label.name))
+    output_apk = actions.declare_output("{}.apk".format(apk_filename))
 
     apk_builder_args = cmd_args(
         android_toolchain.apk_builder[RunInfo],

@@ -124,6 +124,13 @@ extra_attributes = {
         "native_library_merge_code_generator": attrs.option(attrs.exec_dep(), default = None),
         "native_library_merge_glue": attrs.option(attrs.split_transition_dep(cfg = cpu_split_transition), default = None),
         "native_library_merge_linker_args": attrs.option(attrs.dict(key = attrs.string(), value = attrs.list(attrs.arg())), default = None),
+        "package_validators": attrs.list(
+            attrs.tuple(
+                attrs.exec_dep(providers = [RunInfo]),
+                attrs.list(attrs.arg(), default = []),
+            ),
+            default = [],
+        ),
         "relinker_extra_deps": attrs.list(attrs.split_transition_dep(cfg = cpu_split_transition), default = []),
         "strip_libraries": attrs.bool(default = not DISABLE_STRIPPING),
         "_android_toolchain": toolchains_common.android(),

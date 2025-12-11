@@ -144,7 +144,7 @@ This will lead to overbuilding and is not supported. Configuration {} not found 
     )
 
     output_apk = build_apk(
-        label = ctx.label,
+        apk_filename = ctx.label.name,
         actions = ctx.actions,
         android_toolchain = ctx.attrs._android_toolchain[AndroidToolchainInfo],
         keystore = apk_under_test_info.keystore,
