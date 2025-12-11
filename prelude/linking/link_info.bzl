@@ -151,6 +151,8 @@ SwiftmoduleLinkable = record(
     swiftmodules = field(ArtifactTSet, ArtifactTSet()),
 )
 
+SwiftmoduleLinkableEmpty = SwiftmoduleLinkable()
+
 LinkableTypes = [
     ArchiveLinkable,
     SharedLibLinkable,
@@ -1002,14 +1004,19 @@ def merge_framework_linkables(linkables: list[[FrameworksLinkable, None]]) -> Fr
     )
 
 def merge_swiftmodule_linkables(ctx: AnalysisContext, linkables: list[[SwiftmoduleLinkable, None]]) -> SwiftmoduleLinkable:
+    children = [
+        linkable.swiftmodules
+        for linkable in linkables
+        if linkable != None
+    ]
+
+    if not children:
+        return SwiftmoduleLinkableEmpty
+
     return SwiftmoduleLinkable(swiftmodules = make_artifact_tset(
         actions = ctx.actions,
         label = ctx.label,
-        children = [
-            linkable.swiftmodules
-            for linkable in linkables
-            if linkable != None
-        ],
+        children = children,
     ))
 
 def wrap_with_no_as_needed_shared_libs_flags(linker_type: LinkerType, link_info: LinkInfo) -> LinkInfo:
