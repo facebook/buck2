@@ -703,7 +703,7 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
     )
     shared_libs = create_flavored_shared_libraries(ctx, library_outputs.solibs)
 
-    for _, link_style_output in library_outputs.outputs.items():
+    for link_style_output in library_outputs.outputs.values():
         if LinkableFlavor("default") not in link_style_output:
             continue
 
