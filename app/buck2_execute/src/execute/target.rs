@@ -18,4 +18,19 @@ pub trait CommandExecutionTarget: Send + Sync + Debug {
     fn as_proto_action_key(&self) -> buck2_data::ActionKey;
 
     fn as_proto_action_name(&self) -> buck2_data::ActionName;
+
+    /// Optional mnemonic describing the action kind (e.g. `CxxCompile`).
+    fn action_mnemonic(&self) -> Option<String> {
+        None
+    }
+
+    /// Optional configured target label this action belongs to.
+    fn target_label(&self) -> Option<String> {
+        None
+    }
+
+    /// Optional hash identifying the build configuration of the target.
+    fn configuration_hash(&self) -> Option<String> {
+        None
+    }
 }
