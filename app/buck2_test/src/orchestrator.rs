@@ -15,6 +15,7 @@
 
 use std::borrow::Cow;
 use std::collections::HashMap;
+use std::collections::HashSet;
 use std::ffi::OsStr;
 use std::fmt::Display;
 use std::ops::ControlFlow;
@@ -426,6 +427,8 @@ impl<'a> BuckTestOrchestrator<'a> {
                 agv.iter()
                     .filter_map(|(artifact, _)| artifact.action_key().map(|k| k.dupe()))
             })
+            .collect::<HashSet<_>>() // dedupe
+            .into_iter()
             .collect();
 
         let executor_preference = Self::executor_preference(options, supports_re)?;
