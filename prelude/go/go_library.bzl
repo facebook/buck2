@@ -40,6 +40,7 @@ load(
     "@prelude//utils:utils.bzl",
     "map_idx",
 )
+load(":cgo_builder.bzl", "get_cgo_build_context")
 load(":compile.bzl", "GoPkgCompileInfo", "GoTestInfo")
 load(":coverage.bzl", "GoCoverageMode")
 load(":link.bzl", "GoPkgLinkInfo", "get_inherited_link_pkgs")
@@ -52,6 +53,7 @@ def go_library_impl(ctx: AnalysisContext) -> list[Provider]:
     pkg_name = go_attr_pkg_name(ctx)
 
     coverage_mode = GoCoverageMode(ctx.attrs._coverage_mode) if ctx.attrs._coverage_mode else None
+    cgo_build_context = get_cgo_build_context(ctx)
 
     pkg, pkg_info = build_package(
         ctx = ctx,
@@ -59,6 +61,7 @@ def go_library_impl(ctx: AnalysisContext) -> list[Provider]:
         main = False,
         srcs = ctx.attrs.srcs + ctx.attrs.headers,
         package_root = ctx.attrs.package_root,
+        cgo_build_context = cgo_build_context,
         deps = ctx.attrs.deps,
         compiler_flags = ctx.attrs.compiler_flags,
         assembler_flags = ctx.attrs.assembler_flags,

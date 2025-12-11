@@ -21,6 +21,7 @@ load(
     "map_val",
     "value_or",
 )
+load(":cgo_builder.bzl", "get_cgo_build_context")
 load(":compile.bzl", "GoTestInfo", "get_inherited_compile_pkgs")
 load(":coverage.bzl", "GoCoverageMode")
 load(":link.bzl", "GoBuildMode", "link")
@@ -77,6 +78,7 @@ def go_test_impl(ctx: AnalysisContext) -> list[Provider]:
     # If coverage is enabled for this test, we need to preprocess the sources
     # with the Go cover tool.
     coverage_mode = GoCoverageMode(ctx.attrs._coverage_mode) if ctx.attrs._coverage_mode else None
+    cgo_build_context = get_cgo_build_context(ctx)
     coverage_vars = {}
     pkgs = {}
 
@@ -87,6 +89,7 @@ def go_test_impl(ctx: AnalysisContext) -> list[Provider]:
         main = False,
         srcs = srcs,
         package_root = ctx.attrs.package_root,
+        cgo_build_context = cgo_build_context,
         deps = deps,
         pkgs = pkgs,
         compiler_flags = ctx.attrs.compiler_flags,
@@ -117,6 +120,7 @@ def go_test_impl(ctx: AnalysisContext) -> list[Provider]:
         main = True,
         srcs = [gen_main],
         package_root = "",
+        cgo_build_context = None,
         pkgs = pkgs,
         coverage_mode = None,
         cgo_gen_dir_name = "cgo_gen_test_main",

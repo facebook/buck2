@@ -49,6 +49,7 @@ load(
     "map_val",
     "value_or",
 )
+load(":cgo_builder.bzl", "get_cgo_build_context")
 load(":compile.bzl", "GoTestInfo")
 load(":link.bzl", "GoBuildMode", "link")
 load(":package_builder.bzl", "build_package")
@@ -59,6 +60,7 @@ def go_exported_library_impl(ctx: AnalysisContext) -> list[Provider]:
     cxx_toolchain_available = CxxToolchainInfo in ctx.attrs._cxx_toolchain
     pkg_name = go_attr_pkg_name(ctx)
     cgo_enabled = evaluate_cgo_enabled(cxx_toolchain_available, ctx.attrs.cgo_enabled)
+    cgo_build_context = get_cgo_build_context(ctx)
 
     lib, pkg_info = build_package(
         ctx = ctx,
@@ -66,6 +68,7 @@ def go_exported_library_impl(ctx: AnalysisContext) -> list[Provider]:
         main = True,
         srcs = ctx.attrs.srcs,
         package_root = ctx.attrs.package_root,
+        cgo_build_context = cgo_build_context,
         deps = ctx.attrs.deps,
         compiler_flags = ctx.attrs.compiler_flags,
         build_tags = ctx.attrs._build_tags,

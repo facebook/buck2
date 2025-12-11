@@ -173,7 +173,10 @@ def _own_pre(actions: AnalysisActions, cgo_build_context: CGoBuildContext, h_fil
     )
 
 def build_cgo(
-        ctx: AnalysisContext,
+        actions: AnalysisActions,
+        target_label: Label,
+        go_toolchain_info: GoToolchainInfo,
+        cgo_build_context: CGoBuildContext | None,
         cgo_files: list[Artifact],
         h_files: list[Artifact],
         c_files: list[Artifact],
@@ -186,13 +189,10 @@ def build_cgo(
                               For example, this API is NOT allowed in the context of the `AnalaysisActions#dynamic_outputs` callback.
     """
     if len(cgo_files) == 0:
-        return [], [], ctx.actions.copied_dir("cgo_gen_tmp", {}, has_content_based_path = True)
+        return [], [], actions.copied_dir("cgo_gen_tmp", {}, has_content_based_path = True)
 
-    # Group all references of "ctx" here to simplify further refactoring
-    actions = ctx.actions
-    target_label = ctx.label
-    go_toolchain_info = ctx.attrs._go_toolchain[GoToolchainInfo]
-    cgo_build_context = get_cgo_build_context(ctx)
+    if cgo_build_context == None:
+        fail("cgo_build_context is None. This is likely because C++ toolchain is not available for the current target platform, but CGo files provided.")
 
     # Gather preprocessor inputs.
     own_pre = _own_pre(actions, cgo_build_context, h_files)

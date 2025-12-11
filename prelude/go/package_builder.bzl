@@ -8,7 +8,11 @@
 
 load("@prelude//:paths.bzl", "paths")
 load("@prelude//utils:utils.bzl", "dedupe_by_value")
-load(":cgo_builder.bzl", "build_cgo")
+load(
+    ":cgo_builder.bzl",
+    "CGoBuildContext",  # @Unused used as type
+    "build_cgo",
+)
 load(":compile.bzl", "get_inherited_compile_pkgs", "infer_package_root")
 load(
     ":coverage.bzl",
@@ -26,6 +30,7 @@ def build_package(
         main: bool,
         srcs: list[Artifact],
         package_root: str | None,
+        cgo_build_context: CGoBuildContext | None,
         pkgs: dict[str, GoPkg] = {},
         deps: list[Dependency] = [],
         compiler_flags: list[str] = [],
@@ -96,7 +101,10 @@ def build_package(
 
         # Generate CGO and C sources.
         transformed_cgo_files, cgo_o_files, cgo_gen_tmp_dir = build_cgo(
-            ctx = ctx,
+            actions = ctx.actions,
+            target_label = ctx.label,
+            go_toolchain_info = go_toolchain,
+            cgo_build_context = cgo_build_context,
             cgo_files = covered_cgo_files,
             h_files = go_list.h_files,
             c_files = c_files,
