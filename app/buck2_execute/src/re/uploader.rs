@@ -45,7 +45,6 @@ use futures::future::Shared;
 use futures::stream::FuturesUnordered;
 use gazebo::prelude::*;
 use once_cell::sync::Lazy;
-use remote_execution::GetDigestsTtlRequest;
 use remote_execution::GetDigestsTtlResponse;
 use remote_execution::InlinedBlobWithDigest;
 use remote_execution::NamedDigest;
@@ -176,20 +175,14 @@ impl Uploader {
         } else {
             let client = client.clone();
             let metadata = use_case.metadata(identity);
-            let request = GetDigestsTtlRequest {
-                digests: input_digests.iter().map(|d| d.to_re()).collect(),
-                ..Default::default()
-            };
-            let digests_ttl = client
-                .get_raw_re_client()
-                .get_digests_ttl(metadata, request)
-                .await;
+            let digests = input_digests.iter().map(|d| d.to_re()).collect();
+            let digests_ttl = client.get_digests_ttl(digests, metadata).await;
 
             let input_digests = input_digests.iter().copied().collect();
 
             Either::Right(process_get_digest_ttls_response(
                 input_digests,
-                digests_ttl,
+                digests_ttl?,
                 digest_config,
             )?)
         };
@@ -667,16 +660,10 @@ fn query_digest_ttls<'s>(
 ) -> BoxFuture<'s, buck2_error::Result<HashMap<TrackedFileDigest, i64>>> {
     let client = client.dupe();
     let metadata = use_case.metadata(identity);
-    let request = GetDigestsTtlRequest {
-        digests: input_digests.iter().map(|d| d.to_re()).collect(),
-        ..Default::default()
-    };
+    let digests = input_digests.iter().map(|d| d.to_re()).collect();
 
     async move {
-        let digests_ttl = client
-            .get_raw_re_client()
-            .get_digests_ttl(metadata, request)
-            .await;
+        let digests_ttl = client.get_digests_ttl(digests, metadata).await;
 
         {
             let mut guard = deduper.lock().expect("Poisoned lock");
@@ -696,22 +683,20 @@ fn query_digest_ttls<'s>(
         // same instance, but maybe that's something that should be revisited),
         // AND figure out invalidation (because the TTL will change when we
         // upload).
-        process_get_digest_ttls_response(input_digests, digests_ttl, digest_config)?.collect()
+        process_get_digest_ttls_response(input_digests, digests_ttl?, digest_config)?.collect()
     }
     .boxed()
 }
 
 fn process_get_digest_ttls_response<T>(
     mut req: Vec<T>,
-    res: anyhow::Result<GetDigestsTtlResponse>,
+    res: GetDigestsTtlResponse,
     digest_config: DigestConfig,
 ) -> buck2_error::Result<impl Iterator<Item = buck2_error::Result<(T, i64)>>>
 where
     T: Borrow<TrackedFileDigest> + Ord,
 {
-    let digest_ttls = res
-        .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::ReInvalidGetCasResponse))?
-        .digests_with_ttl;
+    let digest_ttls = res.digests_with_ttl;
 
     if req.len() != digest_ttls.len() {
         return Err(buck2_error::buck2_error!(

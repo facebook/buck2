@@ -52,6 +52,7 @@ use remote_execution::ExecuteRequest;
 use remote_execution::ExecuteWithProgressResponse;
 use remote_execution::ExtendDigestsTtlRequest;
 use remote_execution::GetDigestsTtlRequest;
+use remote_execution::GetDigestsTtlResponse;
 use remote_execution::InlinedBlobWithDigest;
 use remote_execution::NamedDigest;
 use remote_execution::NamedDigestWithPermissions;
@@ -149,7 +150,7 @@ struct RemoteExecutionClientData {
     executes: OpStats,
     materializes: OpStats,
     write_action_results: OpStats,
-    get_digest_expirations: OpStats,
+    get_digests_ttl: OpStats,
     extend_digest_ttl: OpStats,
     local_cache: LocalCacheStats,
     persistent_cache_mode: Option<String>,
@@ -186,7 +187,7 @@ impl RemoteExecutionClient {
                 executes: OpStats::default(),
                 materializes: OpStats::default(),
                 write_action_results: OpStats::default(),
-                get_digest_expirations: OpStats::default(),
+                get_digests_ttl: OpStats::default(),
                 extend_digest_ttl: OpStats::default(),
                 local_cache: Default::default(),
                 persistent_cache_mode,
@@ -375,15 +376,29 @@ impl RemoteExecutionClient {
             .await
     }
 
+    pub async fn get_digests_ttl(
+        &self,
+        digests: Vec<TDigest>,
+        metadata: RemoteExecutionMetadata,
+    ) -> buck2_error::Result<GetDigestsTtlResponse> {
+        self.data
+            .get_digests_ttl
+            .op(self.data.client.get_digests_ttl(digests, metadata))
+            .await
+    }
+
     pub async fn get_digest_expirations(
         &self,
         digests: Vec<TDigest>,
-        use_case: RemoteExecutorUseCase,
+        metadata: RemoteExecutionMetadata,
     ) -> buck2_error::Result<Vec<(TDigest, DateTime<Utc>)>> {
-        self.data
-            .get_digest_expirations
-            .op(self.data.client.get_digest_expirations(digests, use_case))
-            .await
+        let now = Utc::now();
+        let ttls = self.get_digests_ttl(digests, metadata).await?;
+        Ok(ttls
+            .digests_with_ttl
+            .into_iter()
+            .map(|t| (t.digest, now + chrono::Duration::seconds(t.ttl)))
+            .collect())
     }
 
     pub async fn extend_digest_ttl(
@@ -440,7 +455,7 @@ impl RemoteExecutionClient {
             RemoteExecutionClientOpStats::from(&self.data.write_action_results);
         stats.materializes = RemoteExecutionClientOpStats::from(&self.data.materializes);
         stats.get_digest_expirations =
-            RemoteExecutionClientOpStats::from(&self.data.get_digest_expirations);
+            RemoteExecutionClientOpStats::from(&self.data.get_digests_ttl);
         stats.local_cache = LocalCacheRemoteExecutionClientStats::from(&self.data.local_cache);
     }
 
@@ -1522,20 +1537,18 @@ impl RemoteExecutionClientImpl {
         Ok(stat)
     }
 
-    async fn get_digest_expirations(
+    async fn get_digests_ttl(
         &self,
         digests: Vec<TDigest>,
-        use_case: RemoteExecutorUseCase,
-    ) -> buck2_error::Result<Vec<(TDigest, DateTime<Utc>)>> {
-        let now = Utc::now();
-
-        let ttls = with_error_handler(
-            "get_digest_expirations",
+        metadata: RemoteExecutionMetadata,
+    ) -> buck2_error::Result<GetDigestsTtlResponse> {
+        with_error_handler(
+            "get_digests_ttl",
             self.get_session_id(),
             self.client()
                 .get_cas_client()
                 .get_digests_ttl(
-                    use_case.metadata(None),
+                    metadata,
                     GetDigestsTtlRequest {
                         digests,
                         ..Default::default()
@@ -1543,13 +1556,7 @@ impl RemoteExecutionClientImpl {
                 )
                 .await,
         )
-        .await?
-        .digests_with_ttl;
-
-        Ok(ttls
-            .into_iter()
-            .map(|t| (t.digest, now + chrono::Duration::seconds(t.ttl)))
-            .collect())
+        .await
     }
 
     async fn extend_digest_ttl(

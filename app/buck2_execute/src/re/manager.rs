@@ -56,6 +56,7 @@ use crate::re::action_identity::ReActionIdentity;
 use crate::re::client::ActionCacheWriteType;
 use crate::re::client::ExecuteResponseOrCancelled;
 use crate::re::client::RemoteExecutionClient;
+use crate::re::metadata::RemoteExecutionMetadataExt;
 use crate::re::re_get_session_id::ReGetSessionId;
 use crate::re::stats::RemoteExecutionClientStats;
 use crate::re::uploader::UploadStats;
@@ -500,7 +501,7 @@ impl ManagedRemoteExecutionClient {
         self.lock()?
             .get()
             .await?
-            .get_digest_expirations(digests, self.use_case)
+            .get_digest_expirations(digests, self.use_case.metadata(None))
             .await
     }
 
