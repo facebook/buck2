@@ -5,8 +5,6 @@ oncall("android_devxx")
 
 source_listing()
 
-KOTLIN_VERSION = read_config("kotlin", "kotlin_version")
-
 # KSP2 is not available on pre Kotlin 2.0 versions, which are still used by AOSP builds
 NO_OP_FILES = ["Ksp2StepNoOp.kt"]
 
