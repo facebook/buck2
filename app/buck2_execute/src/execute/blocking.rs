@@ -15,7 +15,6 @@ use async_trait::async_trait;
 use buck2_core::buck2_env;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_error::BuckErrorContext;
-use buck2_error::conversion::from_any_with_tag;
 use buck2_util::threads::thread_spawn;
 use crossbeam_channel::unbounded;
 use dice::DiceComputations;
@@ -35,8 +34,8 @@ pub trait BlockingExecutor: Allocative + Send + Sync + 'static {
     /// fairly high concurrency as they aren't expected to contend with each other.
     async fn execute_dyn_io_inline<'a>(
         &self,
-        f: Box<dyn FnOnce() -> anyhow::Result<()> + Send + 'a>,
-    ) -> anyhow::Result<()>;
+        f: Box<dyn FnOnce() -> buck2_error::Result<()> + Send + 'a>,
+    ) -> buck2_error::Result<()>;
 
     /// Execute a blocking I/O operation, possibly on a dedicated I/O pool. This should be used as
     /// the default for I/O. The operations executed here must perform _only_ I/O (since if they do
@@ -63,7 +62,7 @@ impl dyn BlockingExecutor {
             Ok(())
         }))
         .await
-        .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::IoBlockingExecutor))?;
+        .tag(buck2_error::ErrorTag::IoBlockingExecutor)?;
         res.buck_error_context("Inline I/O did not execute")
     }
 }
@@ -127,8 +126,8 @@ impl BuckBlockingExecutor {
 impl BlockingExecutor for BuckBlockingExecutor {
     async fn execute_dyn_io_inline<'a>(
         &self,
-        f: Box<dyn FnOnce() -> anyhow::Result<()> + Send + 'a>,
-    ) -> anyhow::Result<()> {
+        f: Box<dyn FnOnce() -> buck2_error::Result<()> + Send + 'a>,
+    ) -> buck2_error::Result<()> {
         let _permit = self
             .io_data_semaphore
             .acquire()
@@ -180,8 +179,8 @@ impl DirectIoExecutor {
 impl BlockingExecutor for DirectIoExecutor {
     async fn execute_dyn_io_inline<'a>(
         &self,
-        f: Box<dyn FnOnce() -> anyhow::Result<()> + Send + 'a>,
-    ) -> anyhow::Result<()> {
+        f: Box<dyn FnOnce() -> buck2_error::Result<()> + Send + 'a>,
+    ) -> buck2_error::Result<()> {
         tokio::task::block_in_place(f)
     }
 
@@ -245,8 +244,8 @@ pub mod testing {
     impl BlockingExecutor for DummyBlockingExecutor {
         async fn execute_dyn_io_inline<'a>(
             &self,
-            f: Box<dyn FnOnce() -> anyhow::Result<()> + Send + 'a>,
-        ) -> anyhow::Result<()> {
+            f: Box<dyn FnOnce() -> buck2_error::Result<()> + Send + 'a>,
+        ) -> buck2_error::Result<()> {
             f()
         }
 
