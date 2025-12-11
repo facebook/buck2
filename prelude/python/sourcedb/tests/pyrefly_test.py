@@ -6,6 +6,8 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
+from __future__ import annotations
+
 import argparse
 import dataclasses
 import difflib
