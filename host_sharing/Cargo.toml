@@ -12,5 +12,3 @@ anyhow = { workspace = true }
 dashmap = { workspace = true }
 futures-intrusive = { workspace = true }
 starlark_map = { workspace = true }
-
-buck2_host_sharing_proto = { workspace = true }

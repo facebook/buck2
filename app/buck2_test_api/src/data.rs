@@ -10,7 +10,7 @@
 
 //! Core data objects used in the protocol
 
-mod convert;
+pub mod convert;
 
 use std::collections::HashMap;
 use std::fmt;

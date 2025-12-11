@@ -17,8 +17,9 @@ use buck2_core::execution_types::executor_config::RemoteExecutorUseCase;
 use buck2_error::BuckErrorContext;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use gazebo::prelude::*;
-use host_sharing::convert::host_sharing_requirements_from_grpc;
-use host_sharing::convert::host_sharing_requirements_to_grpc;
+use host_sharing::HostSharingRequirements;
+use host_sharing::WeightClass;
+use host_sharing::WeightPercentage;
 
 use super::LocalExecutionCommand;
 use super::LocalResourceType;
@@ -50,6 +51,94 @@ use crate::data::TestExecutable;
 use crate::data::TestResult;
 use crate::data::TestStage;
 use crate::data::TestStatus;
+
+fn weight_class_from_grpc(
+    input: buck2_host_sharing_proto::WeightClass,
+) -> anyhow::Result<WeightClass> {
+    use buck2_host_sharing_proto::weight_class::*;
+
+    Ok(match input.value.context("Missing `value`")? {
+        Value::Permits(p) => WeightClass::Permits(p.try_into().context("Invalid `permits`")?),
+        Value::Percentage(p) => {
+            WeightClass::Percentage(WeightPercentage::try_new(p).context("Invalid `percentage`")?)
+        }
+    })
+}
+
+pub fn host_sharing_requirements_from_grpc(
+    input: buck2_host_sharing_proto::HostSharingRequirements,
+) -> anyhow::Result<HostSharingRequirements> {
+    use buck2_host_sharing_proto::host_sharing_requirements::*;
+
+    let requirements = match input.requirements.context("Missing `requirements`")? {
+        Requirements::Shared(Shared { weight_class }) => HostSharingRequirements::Shared(
+            weight_class_from_grpc(weight_class.context("Missing `weight_class`")?)?,
+        ),
+        Requirements::ExclusiveAccess(ExclusiveAccess {}) => {
+            HostSharingRequirements::ExclusiveAccess
+        }
+        Requirements::OnePerToken(OnePerToken {
+            identifier,
+            weight_class,
+        }) => HostSharingRequirements::OnePerToken(
+            identifier,
+            weight_class_from_grpc(weight_class.context("Missing `weight_class`")?)?,
+        ),
+        Requirements::OnePerTokens(OnePerTokens {
+            identifiers,
+            weight_class,
+        }) => HostSharingRequirements::OnePerTokens(
+            identifiers.into(),
+            weight_class_from_grpc(weight_class.context("Missing `weight_class`")?)?,
+        ),
+    };
+
+    Ok(requirements)
+}
+
+fn weight_class_to_grpc(
+    input: WeightClass,
+) -> anyhow::Result<buck2_host_sharing_proto::WeightClass> {
+    use buck2_host_sharing_proto::weight_class::*;
+
+    let value = match input {
+        WeightClass::Permits(p) => Value::Permits(p.try_into().context("Invalid `permits`")?),
+        WeightClass::Percentage(p) => Value::Percentage(p.into_value().into()),
+    };
+
+    Ok(buck2_host_sharing_proto::WeightClass { value: Some(value) })
+}
+
+pub fn host_sharing_requirements_to_grpc(
+    input: HostSharingRequirements,
+) -> anyhow::Result<buck2_host_sharing_proto::HostSharingRequirements> {
+    use buck2_host_sharing_proto::host_sharing_requirements::*;
+
+    let requirements = match input {
+        HostSharingRequirements::Shared(weight) => Requirements::Shared(Shared {
+            weight_class: Some(weight_class_to_grpc(weight)?),
+        }),
+        HostSharingRequirements::ExclusiveAccess => {
+            Requirements::ExclusiveAccess(ExclusiveAccess {})
+        }
+        HostSharingRequirements::OnePerToken(identifier, weight) => {
+            Requirements::OnePerToken(OnePerToken {
+                identifier,
+                weight_class: Some(weight_class_to_grpc(weight)?),
+            })
+        }
+        HostSharingRequirements::OnePerTokens(identifiers, weight) => {
+            Requirements::OnePerTokens(OnePerTokens {
+                identifiers: identifiers.into_iter().collect(),
+                weight_class: Some(weight_class_to_grpc(weight)?),
+            })
+        }
+    };
+
+    Ok(buck2_host_sharing_proto::HostSharingRequirements {
+        requirements: Some(requirements),
+    })
+}
 
 impl TryFrom<buck2_test_proto::TestStage> for TestStage {
     type Error = anyhow::Error;

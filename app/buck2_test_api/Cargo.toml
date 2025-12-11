@@ -31,6 +31,7 @@ buck2_error = { workspace = true }
 buck2_events = { workspace = true }
 buck2_fs = { workspace = true }
 buck2_grpc = { workspace = true }
+buck2_host_sharing_proto = { workspace = true }
 buck2_test_proto = { workspace = true }
 
 [dev-dependencies]

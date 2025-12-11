@@ -30,6 +30,7 @@ rust_library(
         "//buck2/app/buck2_events:buck2_events",
         "//buck2/app/buck2_fs:buck2_fs",
         "//buck2/app/buck2_grpc:buck2_grpc",
+        "//buck2/app/buck2_host_sharing_proto:buck2_host_sharing_proto",
         "//buck2/app/buck2_test_proto:buck2_test_proto",
         "//buck2/gazebo/dupe:dupe",
         "//buck2/gazebo/gazebo:gazebo",

@@ -11,7 +11,6 @@ rust_library(
         "fbsource//third-party/rust:dashmap",
         "fbsource//third-party/rust:futures-intrusive",
         "//buck2/allocative/allocative:allocative",
-        "//buck2/app/buck2_host_sharing_proto:buck2_host_sharing_proto",
         "//buck2/starlark-rust/starlark_map:starlark_map",
     ],
 )
