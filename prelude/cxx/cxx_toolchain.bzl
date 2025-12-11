@@ -183,6 +183,7 @@ def cxx_toolchain_impl(ctx):
         thin_lto_double_codegen_enabled = ctx.attrs.thin_lto_double_codegen_enabled,
         type = linker_type,
         use_archiver_flags = ctx.attrs.use_archiver_flags,
+        supports_content_based_paths_for_archiving = ctx.attrs.supports_content_based_paths_for_archiving,
     )
 
     utilities_info = BinaryUtilitiesInfo(
@@ -313,6 +314,7 @@ def cxx_toolchain_extra_attributes(is_toolchain_rule):
         "split_debug_mode": attrs.enum(SplitDebugMode.values(), default = "none"),
         "strip": dep_type(providers = [RunInfo]),
         "supports_content_based_paths": attrs.bool(default = False),
+        "supports_content_based_paths_for_archiving": attrs.bool(default = False),
         "supports_distributed_thinlto": attrs.bool(default = False),
         "supports_two_phase_compilation": attrs.bool(default = False),
         "thin_lto_double_codegen_enabled": attrs.bool(default = False),

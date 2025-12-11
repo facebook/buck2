@@ -164,6 +164,7 @@ def _cxx_toolchain_override(ctx):
         use_archiver_flags = value_or(ctx.attrs.use_archiver_flags, base_linker_info.use_archiver_flags),
         force_full_hybrid_if_capable = value_or(ctx.attrs.force_full_hybrid_if_capable, base_linker_info.force_full_hybrid_if_capable),
         is_pdb_generated = pdb_expected,
+        supports_content_based_paths_for_archiving = base_linker_info.supports_content_based_paths_for_archiving,
     )
 
     base_binary_utilities_info = base_toolchain.binary_utilities_info
