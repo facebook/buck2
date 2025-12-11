@@ -8,7 +8,7 @@
  * above-listed licenses.
  */
 
-use anyhow::Context;
+use buck2_error::BuckErrorContext;
 use futures::future;
 use futures::stream;
 use futures::stream::StreamExt;
@@ -26,19 +26,21 @@ use self::drop_notifier::DropNotifier;
 
 pub struct ServerHandle {
     channel: DropNotifier,
-    handle: JoinHandle<anyhow::Result<()>>,
+    handle: JoinHandle<buck2_error::Result<()>>,
 }
 
 impl ServerHandle {
     /// Tell the server to shutdown and wait for it to exit.
-    pub async fn shutdown(self) -> anyhow::Result<()> {
+    pub async fn shutdown(self) -> buck2_error::Result<()> {
         self.channel.notify_now();
-        self.handle.await.context("Failed to join task")?
+        self.handle
+            .await
+            .buck_error_context("Failed to join task")?
     }
 
     /// Obtain the JoinHandle to the task driving the server, without asking the server to
     /// shutdown.
-    pub fn into_join_handle(self) -> JoinHandle<anyhow::Result<()>> {
+    pub fn into_join_handle(self) -> JoinHandle<buck2_error::Result<()>> {
         self.channel.cancel();
         self.handle
     }
@@ -82,7 +84,7 @@ where
                 let _ignored = recv.recv().await;
             })
             .await
-            .context("Server exited with an error")?;
+            .buck_error_context("Server exited with an error")?;
 
         Ok(())
     };

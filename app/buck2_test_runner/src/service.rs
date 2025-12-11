@@ -8,7 +8,7 @@
  * above-listed licenses.
  */
 
-use anyhow::Context;
+use buck2_error::BuckErrorContext;
 use buck2_grpc::DuplexChannel;
 use buck2_test_api::grpc::TestOrchestratorClient;
 use buck2_test_api::grpc::spawn_executor_server;
@@ -22,7 +22,7 @@ pub async fn run<OC, ER, EW>(
     orchestrator_channel: OC,
     executor_channel: DuplexChannel<ER, EW>,
     args: Vec<String>,
-) -> anyhow::Result<()>
+) -> buck2_error::Result<()>
 where
     OC: AsyncRead + AsyncWrite + Unpin + Send + Sync + 'static,
     ER: AsyncRead + Send + Unpin + 'static,
@@ -35,7 +35,7 @@ where
 
     let orchestrator_client = TestOrchestratorClient::new(orchestrator_channel)
         .await
-        .context("Failed to TestOrchestratorClient")?;
+        .buck_error_context("Failed to TestOrchestratorClient")?;
 
     let runner = Buck2TestRunner::new(orchestrator_client, spec_receiver, args)?;
 
@@ -44,7 +44,7 @@ where
     executor_server
         .shutdown()
         .await
-        .context("Failed to shutdown server")?;
+        .buck_error_context("Failed to shutdown server")?;
 
     Ok(())
 }

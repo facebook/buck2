@@ -15,6 +15,7 @@
 
 use std::time::Duration;
 
+use buck2_error::ErrorTag;
 use dupe::Dupe;
 use host_sharing::HostSharingRequirements;
 use sorted_vector_map::SortedVectorMap;
@@ -34,14 +35,14 @@ use crate::data::TestStage;
 #[async_trait::async_trait]
 pub trait TestExecutor: Send + Sync {
     /// sends an external runner spec to the test executor
-    async fn external_runner_spec(&self, s: ExternalRunnerSpec) -> anyhow::Result<()>;
+    async fn external_runner_spec(&self, s: ExternalRunnerSpec) -> buck2_error::Result<()>;
 
     // report that there are no more test specs to send
-    async fn end_of_test_requests(&self) -> anyhow::Result<()>;
+    async fn end_of_test_requests(&self) -> buck2_error::Result<()>;
 
     /// performs a heap dump and saves the dump to a file.
-    async fn unstable_heap_dump(&self, _: &str) -> anyhow::Result<()> {
-        Err(anyhow::anyhow!("Unimplemented!"))
+    async fn unstable_heap_dump(&self, _: &str) -> buck2_error::Result<()> {
+        Err(buck2_error::buck2_error!(ErrorTag::Input, "Unimplemented!"))
     }
 }
 
@@ -69,24 +70,24 @@ pub trait TestOrchestrator: Send + Sync {
         // ExternalRunnerTestInfo to work.
         executor_override: Option<ExecutorConfigOverride>,
         required_local_resources: RequiredLocalResources,
-    ) -> anyhow::Result<ExecuteResponse>;
+    ) -> buck2_error::Result<ExecuteResponse>;
 
     /// reports a test is done
-    async fn report_test_result(&self, r: TestResult) -> anyhow::Result<()>;
+    async fn report_test_result(&self, r: TestResult) -> buck2_error::Result<()>;
 
     async fn report_tests_discovered(
         &self,
         target: ConfiguredTargetHandle,
         suite: String,
         name: Vec<String>,
-    ) -> anyhow::Result<()>;
+    ) -> buck2_error::Result<()>;
 
     /// report a summary about the current test executor
-    async fn report_test_session(&self, session_info: String) -> anyhow::Result<()>;
+    async fn report_test_session(&self, session_info: String) -> buck2_error::Result<()>;
 
     /// report that all tests are done and provide the exit code that this test executor wants to
     /// return for the test command, no more executions
-    async fn end_of_test_results(&self, exit_code: i32) -> anyhow::Result<()>;
+    async fn end_of_test_results(&self, exit_code: i32) -> buck2_error::Result<()>;
 
     /// prepare the given test executable to be available for local execution.
     /// Return the actual command with all the args, env and cwd to be executed locally.
@@ -98,11 +99,11 @@ pub trait TestOrchestrator: Send + Sync {
         env: SortedVectorMap<String, ArgValue>,
         pre_create_dirs: Vec<DeclaredOutput>,
         required_local_resources: RequiredLocalResources,
-    ) -> anyhow::Result<PrepareForLocalExecutionResult>;
+    ) -> buck2_error::Result<PrepareForLocalExecutionResult>;
 
     /// attach a message containing information that the executor wants to be surfaced
     /// to the user
-    async fn attach_info_message(&self, message: String) -> anyhow::Result<()>;
+    async fn attach_info_message(&self, message: String) -> buck2_error::Result<()>;
 }
 
 // TODO need to figure out what this is. we can go without it for now

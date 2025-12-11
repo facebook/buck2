@@ -194,7 +194,7 @@ impl std::fmt::Display for ExternalRunnerSpecValue {
 pub struct ArgHandle(pub usize);
 
 impl TryFrom<i64> for ArgHandle {
-    type Error = anyhow::Error;
+    type Error = buck2_error::Error;
 
     fn try_from(i: i64) -> Result<Self, Self::Error> {
         Ok(ArgHandle(i.try_into()?))

@@ -27,7 +27,6 @@ use buck2_data::TargetLabel;
 use buck2_data::action_key;
 use buck2_data::span_start_event::Data;
 use buck2_error::BuckErrorContext;
-use buck2_error::conversion::from_any_with_tag;
 use buck2_events::BuckEvent;
 use buck2_test_api::data::TestStatus;
 use buck2_util::commas::commas;
@@ -583,8 +582,7 @@ pub fn format_test_result(
         details,
         ..
     } = test_result;
-    let status = TestStatus::try_from(*status)
-        .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::TestStatusInvalid))?;
+    let status = TestStatus::try_from(*status)?;
 
     // Pass results normally have no details, unless the --print-passing-details is set.
     // Do not display anything for passing tests unless details are present to avoid

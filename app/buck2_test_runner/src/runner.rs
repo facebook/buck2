@@ -8,7 +8,9 @@
  * above-listed licenses.
  */
 
-use anyhow::Context;
+use std::time::Duration;
+
+use buck2_error::BuckErrorContext;
 use buck2_test_api::data::ArgValue;
 use buck2_test_api::data::ArgValueContent;
 use buck2_test_api::data::ConfiguredTargetHandle;
@@ -52,8 +54,9 @@ impl Buck2TestRunner {
         orchestrator_client: TestOrchestratorClient,
         spec_receiver: SpecReceiver,
         args: Vec<String>,
-    ) -> anyhow::Result<Self> {
-        let config = Config::try_parse_from(args).context("Error parsing test runner arguments")?;
+    ) -> buck2_error::Result<Self> {
+        let config = Config::try_parse_from(args)
+            .buck_error_context("Error parsing test runner arguments")?;
         Ok(Self {
             orchestrator_client,
             spec_receiver: Mutex::new(Some(spec_receiver)),
@@ -61,13 +64,13 @@ impl Buck2TestRunner {
         })
     }
 
-    pub async fn run_all_tests(&self) -> anyhow::Result<()> {
+    pub async fn run_all_tests(&self) -> buck2_error::Result<()> {
         let receiver;
         {
             let mut maybe_receiver = self.spec_receiver.lock();
             receiver = maybe_receiver
                 .take()
-                .context("Spec channel has already been consumed")?;
+                .buck_error_context("Spec channel has already been consumed")?;
             drop(maybe_receiver);
         }
         let run_verdict = receiver
@@ -81,7 +84,7 @@ impl Buck2TestRunner {
                 let execution_response = self
                     .execute_test_from_spec(spec)
                     .await
-                    .context("Test execution request failed")?;
+                    .buck_error_context("Test execution request failed")?;
 
                 let execution_result = match execution_response {
                     ExecuteResponse::Result(r) => r,
@@ -93,7 +96,7 @@ impl Buck2TestRunner {
 
                 self.report_test_result(test_result)
                     .await
-                    .context("Test result reporting failed")?;
+                    .buck_error_context("Test result reporting failed")?;
 
                 Ok(test_status)
             })
@@ -107,7 +110,7 @@ impl Buck2TestRunner {
                     if test_status != TestStatus::PASS {
                         run_verdict = RunVerdict::Fail;
                     }
-                    anyhow::Ok(run_verdict)
+                    buck2_error::Ok(run_verdict)
                 },
             )
             .await;
@@ -120,7 +123,7 @@ impl Buck2TestRunner {
     async fn execute_test_from_spec(
         &self,
         spec: ExternalRunnerSpec,
-    ) -> anyhow::Result<ExecuteResponse> {
+    ) -> buck2_error::Result<ExecuteResponse> {
         let stage = TestStage::Testing {
             suite: spec.target.target,
             testcases: Vec::new(),
@@ -144,7 +147,13 @@ impl Buck2TestRunner {
             .chain(config_args)
             .collect();
 
-        let config_env = self.config.env.iter().map(|EnvValue { name, value }| {
+        let config_env: Vec<_> = self
+            .config
+            .env
+            .iter()
+            .map(|s| s.parse())
+            .collect::<buck2_error::Result<_>>()?;
+        let config_env = config_env.iter().map(|EnvValue { name, value }| {
             (
                 name.to_owned(),
                 ArgValue {
@@ -182,7 +191,7 @@ impl Buck2TestRunner {
                 target_handle,
                 command,
                 env,
-                self.config.timeout,
+                Duration::from_secs(self.config.timeout),
                 host_sharing_requirements,
                 pre_create_dirs,
                 executor_override,
@@ -191,7 +200,7 @@ impl Buck2TestRunner {
             .await
     }
 
-    async fn report_test_result(&self, test_result: TestResult) -> anyhow::Result<()> {
+    async fn report_test_result(&self, test_result: TestResult) -> buck2_error::Result<()> {
         self.orchestrator_client
             .report_test_result(test_result)
             .await

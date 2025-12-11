@@ -10,7 +10,7 @@
 
 use std::net::SocketAddr;
 
-use anyhow::Context;
+use buck2_error::BuckErrorContext;
 use buck2_grpc::DuplexChannel;
 use clap::Parser;
 use tokio::net::TcpStream;
@@ -27,7 +27,7 @@ pub struct Buck2TestRunnerTcp {
 }
 
 impl Buck2TestRunnerTcp {
-    pub async fn run(self) -> anyhow::Result<()> {
+    pub async fn run(self) -> buck2_error::Result<()> {
         // NOTE: We can remove this code once Tokio supports UNIX domain socket or Named pipe
         // https://github.com/tokio-rs/tokio/issues/2201
 
@@ -41,19 +41,19 @@ impl Buck2TestRunnerTcp {
         let orchestrator_addr: SocketAddr = self
             .orchestrator_addr
             .parse()
-            .context("Invalid orchestrator address")?;
+            .map_err(|e| buck2_error::internal_error!("Invalid orchestrator address {:#}", e))?;
         let executor_addr: SocketAddr = self
             .executor_addr
             .parse()
-            .context("Invalid executor address")?;
+            .map_err(|e| buck2_error::internal_error!("Invalid executor address {:#}", e))?;
 
         let orchestrator_io = TcpStream::connect(&orchestrator_addr)
             .await
-            .context("Failed to create orchestrator_io")?;
+            .buck_error_context("Failed to create orchestrator_io")?;
 
         let executor_io = TcpStream::connect(&executor_addr)
             .await
-            .context("Failed to create executor_io")?;
+            .buck_error_context("Failed to create executor_io")?;
 
         let executor_io = {
             let (read, write) = tokio::io::split(executor_io);

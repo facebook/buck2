@@ -8,7 +8,6 @@ rust_library(
         ["src/**/*.rs"],
     ),
     deps = [
-        "fbsource//third-party/rust:anyhow",
         "fbsource//third-party/rust:futures",
         "fbsource//third-party/rust:hyper-1-5-1",
         "fbsource//third-party/rust:hyper-util",
@@ -16,5 +15,6 @@ rust_library(
         "fbsource//third-party/rust:tokio",
         "fbsource//third-party/rust:tonic-0-12-3",
         "fbsource//third-party/rust:tower",
+        "//buck2/app/buck2_error:buck2_error",
     ],
 )

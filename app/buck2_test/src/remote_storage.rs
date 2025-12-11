@@ -12,7 +12,7 @@ use std::collections::HashSet;
 use std::sync::Arc;
 use std::sync::Mutex;
 
-use anyhow::Ok;
+use buck2_error::Ok;
 use buck2_execute::artifact_value::ArtifactValue;
 use buck2_execute::digest::CasDigestToReExt;
 use buck2_execute::directory::ActionDirectoryEntry;
@@ -42,7 +42,7 @@ impl ReClientWithCache {
         &self,
         artifact: &ArtifactValue,
         config: &RemoteStorageConfig,
-    ) -> anyhow::Result<()> {
+    ) -> buck2_error::Result<()> {
         match &config.ttl_config {
             Some(ttl_config) => {
                 // Note that deps represent artifacts that symlinks depend on. Currently, test artifact trees

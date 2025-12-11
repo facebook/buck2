@@ -8,14 +8,14 @@
  * above-listed licenses.
  */
 
-use anyhow::Context;
 use buck2_build_api::analysis::calculation::RuleAnalysisCalculation;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::external_runner_test_info::FrozenExternalRunnerTestInfo;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::local_resource_info::FrozenLocalResourceInfo;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::soft_error;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
-use buck2_error::conversion::from_any_with_tag;
+use buck2_error::BuckErrorContext;
+use buck2_error::ErrorTag;
 use buck2_test_api::data::RequiredLocalResources;
 use buck2_test_api::data::TestStage;
 use dice::DiceComputations;
@@ -42,7 +42,7 @@ pub(crate) async fn required_providers<'v>(
     test_info: &'v FrozenExternalRunnerTestInfo,
     required_local_resources: &'v RequiredLocalResources,
     stage: &TestStageSimple,
-) -> anyhow::Result<
+) -> buck2_error::Result<
     Vec<(
         &'v ConfiguredTargetLabel,
         OwnedFrozenValueTyped<FrozenLocalResourceInfo>,
@@ -66,21 +66,21 @@ pub(crate) async fn required_providers<'v>(
         .unique()
         .map(|type_name| {
             available_resources.get(type_name).copied().ok_or_else(|| {
-                anyhow::Error::msg(format!(
-                    "Required local resource of type `{type_name}` not found."
-                ))
+                buck2_error::buck2_error!(
+                    ErrorTag::Input,
+                    "Required local resource of type `{type_name}` not found.",
+                )
             })
         })
         .filter_map(|r| match r {
             Ok(Some(x)) => Some(Ok(x)),
             Ok(None) => None,
             Err(e) => {
-                let _ignore =
-                    soft_error!("missing_required_local_resource", from_any_with_tag(e, buck2_error::ErrorTag::Tier0), quiet: true);
+                let _ignore = soft_error!("missing_required_local_resource", e, quiet: true);
                 None
             }
         })
-        .collect::<Result<Vec<_>, anyhow::Error>>()?;
+        .collect::<Result<Vec<_>, buck2_error::Error>>()?;
 
     dice.compute_join(targets, |dice, target| {
         async move { get_local_resource_info(dice, target).await }.boxed()
@@ -93,7 +93,7 @@ pub(crate) async fn required_providers<'v>(
 async fn get_local_resource_info<'v>(
     dice: &mut DiceComputations<'_>,
     target: &'v ConfiguredProvidersLabel,
-) -> anyhow::Result<(
+) -> buck2_error::Result<(
     &'v ConfiguredTargetLabel,
     OwnedFrozenValueTyped<FrozenLocalResourceInfo>,
 )> {
@@ -106,7 +106,7 @@ async fn get_local_resource_info<'v>(
             c.as_ref()
                 .builtin_provider_value::<FrozenLocalResourceInfo>()
         })
-        .context(format!(
+        .buck_error_context(format!(
             "Target `{target}` expected to contain `LocalResourceInfo` provider"
         ))?;
     Ok((target.target(), local_resource_info))

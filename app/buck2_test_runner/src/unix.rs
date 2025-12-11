@@ -12,7 +12,7 @@ use std::os::unix::io::FromRawFd;
 use std::os::unix::io::RawFd;
 use std::os::unix::net::UnixStream as StdUnixStream;
 
-use anyhow::Context;
+use buck2_error::BuckErrorContext;
 use buck2_grpc::DuplexChannel;
 use clap::Parser;
 use tokio::net::UnixStream;
@@ -29,7 +29,7 @@ pub struct Buck2TestRunnerUnix {
 }
 
 impl Buck2TestRunnerUnix {
-    pub async fn run(self) -> anyhow::Result<()> {
+    pub async fn run(self) -> buck2_error::Result<()> {
         // NOTE: We assume the parameters we received from the caller are correct here. If
         // they're not, things are probably going to go wrong but that's on our caller.
         //
@@ -42,11 +42,11 @@ impl Buck2TestRunnerUnix {
         // descriptors at worse, which is basically the best we can do anyway.
         let orchestrator_io =
             UnixStream::from_std(unsafe { StdUnixStream::from_raw_fd(self.orchestrator_fd) })
-                .context("Failed to create orchestrator_io")?;
+                .buck_error_context("Failed to create orchestrator_io")?;
 
         let executor_io =
             UnixStream::from_std(unsafe { StdUnixStream::from_raw_fd(self.executor_fd) })
-                .context("Failed to create executor_io")?;
+                .buck_error_context("Failed to create executor_io")?;
 
         let executor_io = {
             let (read, write) = tokio::io::split(executor_io);

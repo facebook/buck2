@@ -16,9 +16,9 @@ use std::sync::Mutex;
 use std::task::Context;
 use std::task::Poll;
 
-use anyhow::Context as _;
 use async_trait::async_trait;
 use buck2_core::buck2_env;
+use buck2_error::BuckErrorContext as _;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_grpc::DuplexChannel;
 use buck2_grpc::ServerHandle;
@@ -76,7 +76,7 @@ pub struct ExecutorLaunch {
 }
 
 pub struct ExecutorFuture {
-    fut: BoxFuture<'static, anyhow::Result<ExecutorOutput>>,
+    fut: BoxFuture<'static, buck2_error::Result<ExecutorOutput>>,
 }
 
 impl ExecutorFuture {
@@ -87,7 +87,7 @@ impl ExecutorFuture {
 
             let (status, stdout, stderr) = try_join3(child.wait(), stdout_fut, stderr_fut)
                 .await
-                .context("Failed to run OutOfProcessTestExecutor")?;
+                .buck_error_context("Failed to run OutOfProcessTestExecutor")?;
 
             let exit_code = status.code().unwrap_or(1);
 
@@ -103,7 +103,7 @@ impl ExecutorFuture {
 }
 
 impl Future for ExecutorFuture {
-    type Output = anyhow::Result<ExecutorOutput>;
+    type Output = buck2_error::Result<ExecutorOutput>;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         self.fut.poll_unpin(cx)
@@ -125,7 +125,7 @@ pub struct ExecutorOutput {
 
 #[async_trait]
 pub trait ExecutorLauncher: Send + Sync {
-    async fn launch(&self, tpx_args: Vec<String>) -> anyhow::Result<ExecutorLaunch>;
+    async fn launch(&self, tpx_args: Vec<String>) -> buck2_error::Result<ExecutorLaunch>;
 }
 
 pub struct OutOfProcessTestExecutor {
@@ -136,7 +136,7 @@ pub struct OutOfProcessTestExecutor {
 
 #[async_trait]
 impl ExecutorLauncher for OutOfProcessTestExecutor {
-    async fn launch(&self, tpx_args: Vec<String>) -> anyhow::Result<ExecutorLaunch> {
+    async fn launch(&self, tpx_args: Vec<String>) -> buck2_error::Result<ExecutorLaunch> {
         // Declare outside of `cfg(unix)` so `buck2 help-env` would include it on Windows
         // even if it is no-op on Windows.
         let use_tcp = buck2_env!("BUCK2_TEST_TPX_USE_TCP", bool)?;
@@ -168,10 +168,10 @@ impl ExecutorLauncher for OutOfProcessTestExecutor {
 async fn spawn_orchestrator<T: AsyncRead + AsyncWrite + Send + Sync + Unpin + 'static>(
     (handle, executor_client_io, orchestrator_server_io): (ExecutorFuture, T, T),
     dispatcher: EventDispatcher,
-) -> anyhow::Result<ExecutorLaunch> {
+) -> buck2_error::Result<ExecutorLaunch> {
     let client = TestExecutorClient::new(executor_client_io)
         .await
-        .context("Failed to create TestExecutorClient")?;
+        .buck_error_context("Failed to create TestExecutorClient")?;
 
     let make_server = Box::new(move |orchestrator, downward_api| {
         let (read, write) = tokio::io::split(orchestrator_server_io);

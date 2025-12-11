@@ -14,8 +14,8 @@ use std::sync::atomic::AtomicU64;
 use std::sync::atomic::Ordering;
 
 use allocative::Allocative;
-use anyhow::Context as _;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
+use buck2_error::BuckErrorContext as _;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_test_api::data::ConfiguredTargetHandle;
 use chrono::Local;
@@ -90,11 +90,11 @@ impl TestSession {
     }
 
     /// Retrieve the provider for a given handle.
-    pub fn get(&self, id: ConfiguredTargetHandle) -> anyhow::Result<ConfiguredProvidersLabel> {
+    pub fn get(&self, id: ConfiguredTargetHandle) -> buck2_error::Result<ConfiguredProvidersLabel> {
         let res = self
             .labels
             .get(&id)
-            .with_context(|| format!("Invalid id provided to TestSession: {id:?}"))?;
+            .with_buck_error_context(|| format!("Invalid id provided to TestSession: {id:?}"))?;
 
         Ok(res.clone())
     }

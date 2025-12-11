@@ -9,20 +9,18 @@
  */
 
 use std::str::FromStr;
-use std::time::Duration;
 
-use anyhow::Context;
 use clap::Parser;
 
 #[derive(Debug, Parser)]
 pub struct Config {
     /// add a list of environment variables using format: --env VAR1=Value1 VAR2='Value 2'
     #[clap(long)]
-    pub env: Vec<EnvValue>,
+    pub env: Vec<String>,
 
     /// Max number of seconds allowed to run a test.
-    #[clap(long, default_value = "600", value_parser = try_parse_timeout_from_str)]
-    pub timeout: Duration,
+    #[clap(long, default_value = "600")]
+    pub timeout: u64,
 
     /// Ignored arg included for backwards compatibility.
     #[clap(long, hide = true)]
@@ -51,7 +49,7 @@ impl EnvValue {
 }
 
 impl FromStr for EnvValue {
-    type Err = anyhow::Error;
+    type Err = buck2_error::Error;
 
     fn from_str(input: &str) -> Result<Self, Self::Err> {
         match input.split_once('=') {
@@ -69,9 +67,4 @@ impl FromStr for EnvValue {
 pub enum EnvValueParseError {
     #[error("Incorrect syntax for env value. Please use name=value. Input: `{0}`")]
     IncorrectSyntax(String),
-}
-
-fn try_parse_timeout_from_str(input: &str) -> anyhow::Result<Duration> {
-    let seconds = input.parse().context("Could not parse provided timeout")?;
-    Ok(Duration::from_secs(seconds))
 }

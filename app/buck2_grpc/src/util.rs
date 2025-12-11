@@ -12,7 +12,7 @@ use futures::future::Future;
 
 pub async fn to_tonic<F, T>(fut: F) -> Result<tonic::Response<T>, tonic::Status>
 where
-    F: Future<Output = anyhow::Result<T>>,
+    F: Future<Output = buck2_error::Result<T>>,
 {
     match fut.await {
         Ok(r) => Ok(tonic::Response::new(r)),

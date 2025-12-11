@@ -13,7 +13,7 @@ use std::os::unix::io::AsRawFd as _;
 use std::path::Path;
 use std::process::Stdio;
 
-use anyhow::Context as _;
+use buck2_error::BuckErrorContext as _;
 use buck2_util::process::async_background_command;
 use tokio::net::UnixStream;
 
@@ -23,23 +23,23 @@ pub(crate) async fn spawn(
     executable: &Path,
     args: Vec<String>,
     tpx_args: Vec<String>,
-) -> anyhow::Result<(ExecutorFuture, UnixStream, UnixStream)> {
+) -> buck2_error::Result<(ExecutorFuture, UnixStream, UnixStream)> {
     let (executor_client_async_io, executor_server_async_io) =
-        UnixStream::pair().context("Failed to create executor channel")?;
+        UnixStream::pair().buck_error_context("Failed to create executor channel")?;
 
     let (orchestrator_client_async_io, orchestrator_server_async_io) =
-        UnixStream::pair().context("Failed to create orchestrator channel")?;
+        UnixStream::pair().buck_error_context("Failed to create orchestrator channel")?;
 
     let executor_client_io = executor_client_async_io;
     let executor_server_io = executor_server_async_io
         .into_std()
-        .context("Failed to convert executor_server_io to std")?;
+        .buck_error_context("Failed to convert executor_server_io to std")?;
     let executor_server_fd = executor_server_io.as_raw_fd().to_string();
 
     let orchestrator_server_io = orchestrator_server_async_io;
     let orchestrator_client_io = orchestrator_client_async_io
         .into_std()
-        .context("Failed to convert orchestrator_client_io to std")?;
+        .buck_error_context("Failed to convert orchestrator_client_io to std")?;
     let orchestrator_client_fd = orchestrator_client_io.as_raw_fd().to_string();
 
     let mut command = async_background_command(executable);
@@ -81,7 +81,7 @@ pub(crate) async fn spawn(
         });
     }
 
-    let proc = command.spawn().with_context(|| {
+    let proc = command.spawn().with_buck_error_context(|| {
         format!(
             "Failed to start {} for OutOfProcessTestExecutor",
             &executable.display()

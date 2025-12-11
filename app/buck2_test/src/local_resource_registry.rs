@@ -12,7 +12,6 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
 
-use anyhow::Context;
 use buck2_common::kill_util::try_terminate_process_gracefully;
 use buck2_common::local_resource_state::LocalResourceState;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
@@ -31,7 +30,7 @@ pub struct LocalResourceRegistry(
 );
 
 impl LocalResourceRegistry {
-    pub(crate) async fn release_all_resources(&self) -> anyhow::Result<()> {
+    pub(crate) async fn release_all_resources(&self) -> buck2_error::Result<()> {
         let resources = {
             let mut lock = self.0.lock().await;
             lock.drain().flat_map(|(_, v)| v).collect::<Vec<_>>()
@@ -49,7 +48,7 @@ impl LocalResourceRegistry {
                     let pid = s.owning_pid().unwrap();
                     try_terminate_process_gracefully(pid, Duration::from_secs(20))
                         .await
-                        .buck_error_context_anyhow(format!(
+                        .buck_error_context(format!(
                             "Failed to kill a process with `{}` PID to release local resource `{}`",
                             pid,
                             s.source_target()
@@ -61,7 +60,7 @@ impl LocalResourceRegistry {
                 .into_iter()
                 .collect::<Result<(), _>>()?;
 
-            Ok::<(), anyhow::Error>(())
+            Ok::<(), buck2_error::Error>(())
         };
 
         let start = ReleaseLocalResourcesStart {};
@@ -69,7 +68,7 @@ impl LocalResourceRegistry {
 
         span_async_simple(start, cleanup(), end).await?;
 
-        Ok::<(), anyhow::Error>(())
+        Ok::<(), buck2_error::Error>(())
     }
 }
 
@@ -78,7 +77,7 @@ pub trait InitLocalResourceRegistry {
 }
 
 pub trait HasLocalResourceRegistry {
-    fn get_local_resource_registry(&self) -> anyhow::Result<Arc<LocalResourceRegistry>>;
+    fn get_local_resource_registry(&self) -> buck2_error::Result<Arc<LocalResourceRegistry>>;
 }
 
 impl InitLocalResourceRegistry for UserComputationData {
@@ -88,12 +87,12 @@ impl InitLocalResourceRegistry for UserComputationData {
 }
 
 impl HasLocalResourceRegistry for DiceComputations<'_> {
-    fn get_local_resource_registry(&self) -> anyhow::Result<Arc<LocalResourceRegistry>> {
+    fn get_local_resource_registry(&self) -> buck2_error::Result<Arc<LocalResourceRegistry>> {
         let data = self
             .per_transaction_data()
             .data
             .get::<Arc<LocalResourceRegistry>>()
-            .context("LocalResourceRegistry should be set")?;
+            .expect("LocalResourceRegistry should be set");
 
         Ok(data.dupe())
     }

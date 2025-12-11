@@ -13,7 +13,7 @@ use std::pin::Pin;
 use std::task::Context;
 use std::task::Poll;
 
-use anyhow::Context as _;
+use buck2_error::BuckErrorContext as _;
 use futures::future;
 use pin_project::pin_project;
 use tokio::io::AsyncRead;
@@ -81,7 +81,7 @@ impl<R, W> Connected for DuplexChannel<R, W> {
 
 /// Create a channel using a pre-existing I/O instance. This will not support reconnecting since
 /// there is no way to establish connections here. We're just using one that already exists.
-pub async fn make_channel<T>(io: T, name: &str) -> anyhow::Result<Channel>
+pub async fn make_channel<T>(io: T, name: &str) -> buck2_error::Result<Channel>
 where
     T: AsyncRead + AsyncWrite + Send + Sync + Unpin + 'static,
 {
@@ -96,13 +96,17 @@ where
     // NOTE: The uri here is only used to populate the requests we send. We don't actually connect
     // anywhere since we already have an I/O channel on hand.
     let channel = Endpoint::try_from(format!("http://{name}.invalid"))
-        .context("Invalid endpoint")?
+        .buck_error_context("Invalid endpoint")?
         .connect_with_connector(service_fn(move |_: Uri| {
-            let io = io.take().context("Cannot reconnect after connection loss");
+            let io = io
+                .take()
+                // Must be a `String` not a `&'static str`, the lifetime otherwise makes the
+                // compiler very confused in very non-local ways
+                .ok_or_else(|| "Cannot reconnect after connection loss".to_owned());
             future::ready(io)
         }))
         .await
-        .context("Failed to create channel")?;
+        .buck_error_context("Failed to create channel")?;
 
     Ok(channel)
 }

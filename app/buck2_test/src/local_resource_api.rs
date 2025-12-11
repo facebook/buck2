@@ -14,6 +14,7 @@ use buck2_common::local_resource_state::EnvironmentVariable;
 use buck2_common::local_resource_state::LocalResource;
 use buck2_common::local_resource_state::LocalResourceState;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
+use buck2_error::ErrorTag;
 use indexmap::IndexMap;
 use serde::Deserialize;
 
@@ -35,22 +36,33 @@ impl LocalResourcesSetupResult {
         self,
         resource_target: ConfiguredTargetLabel,
         provider_env_mapping: &IndexMap<String, String>,
-    ) -> anyhow::Result<LocalResourceState> {
+    ) -> buck2_error::Result<LocalResourceState> {
         fn make_resource(
             alias_to_value: BTreeMap<String, String>,
             env_var_to_alias: &IndexMap<String, String>,
-        ) -> anyhow::Result<LocalResource> {
-            let env_vars = env_var_to_alias.iter().map(|(env_var, alias)| {
-                let value = alias_to_value.get(alias).ok_or_else(|| anyhow::anyhow!("Missing value for local resource environment variable `{}` with `{}` alias", env_var, alias))?.to_owned();
-                Ok(EnvironmentVariable {key: env_var.to_owned(), value})
-            }).collect::<Result<_, anyhow::Error>>()?;
+        ) -> buck2_error::Result<LocalResource> {
+            let env_vars = env_var_to_alias
+                .iter()
+                .map(|(env_var, alias)| {
+                    let value = alias_to_value.get(alias).ok_or_else(|| buck2_error::buck2_error!(
+                        ErrorTag::LocalResourceSetup,
+                        "Missing value for local resource environment variable `{}` with `{}` alias",
+                        env_var,
+                        alias,
+                    ))?.to_owned();
+                    Ok(EnvironmentVariable {
+                        key: env_var.to_owned(),
+                        value,
+                    })
+                })
+                .collect::<Result<_, buck2_error::Error>>()?;
             Ok(LocalResource(env_vars))
         }
         let specs = self
             .resources
             .into_iter()
             .map(|res| make_resource(res, provider_env_mapping))
-            .collect::<Result<_, anyhow::Error>>()?;
+            .collect::<Result<_, buck2_error::Error>>()?;
 
         Ok(LocalResourceState::new(resource_target, self.pid, specs))
     }
@@ -68,7 +80,7 @@ mod tests {
     use crate::local_resource_api::LocalResourcesSetupResult;
 
     #[tokio::test]
-    async fn test_into_state() -> anyhow::Result<()> {
+    async fn test_into_state() -> buck2_error::Result<()> {
         let setup_result = LocalResourcesSetupResult {
             pid: Some(42),
             resources: vec![
@@ -112,7 +124,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_missing_value() -> anyhow::Result<()> {
+    async fn test_missing_value() -> buck2_error::Result<()> {
         let setup_result = LocalResourcesSetupResult {
             pid: Some(42),
             resources: vec![

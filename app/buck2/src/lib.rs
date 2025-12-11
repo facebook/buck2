@@ -503,10 +503,7 @@ impl CommandKind {
                 .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))
                 .into(),
             #[cfg(not(client_only))]
-            CommandKind::InternalTestRunner(cmd) => cmd
-                .exec(matches, command_ctx, events_ctx)
-                .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))
-                .into(),
+            CommandKind::InternalTestRunner(cmd) => cmd.exec(matches, command_ctx, events_ctx),
             CommandKind::Aquery(cmd) => command_ctx.exec(cmd, matches, events_ctx),
             CommandKind::Build(cmd) => command_ctx.exec(cmd, matches, events_ctx),
             CommandKind::Bxl(cmd) => command_ctx.exec(cmd, matches, events_ctx),

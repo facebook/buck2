@@ -10,8 +10,8 @@
 
 use std::time::Duration;
 
-use anyhow::Context as _;
 use assert_matches::assert_matches;
+use buck2_error::BuckErrorContext as _;
 use buck2_grpc::DuplexChannel;
 use tokio::io::AsyncRead;
 use tokio::io::AsyncWrite;
@@ -25,28 +25,40 @@ struct MockExecutor;
 
 #[async_trait::async_trait]
 impl TestExecutor for MockExecutor {
-    async fn external_runner_spec(&self, _: ExternalRunnerSpec) -> anyhow::Result<()> {
+    async fn external_runner_spec(&self, _: ExternalRunnerSpec) -> buck2_error::Result<()> {
         Ok(())
     }
 
-    async fn end_of_test_requests(&self) -> anyhow::Result<()> {
+    async fn end_of_test_requests(&self) -> buck2_error::Result<()> {
         Ok(())
     }
 }
 
 #[tokio::test]
-async fn test_basic() -> anyhow::Result<()> {
+async fn test_basic() -> buck2_error::Result<()> {
     let (client_io, server_io) = tokio::io::duplex(64);
     let server = spawn_executor_server(to_duplex_channel(server_io), MockExecutor);
     let client = TestExecutorClient::new(client_io)
         .await
-        .context("Failed to create client")?;
+        .buck_error_context("Failed to create client")?;
 
-    client.end_of_test_requests().await.context("Call 1")?;
-    client.end_of_test_requests().await.context("Call 2")?;
-    client.end_of_test_requests().await.context("Call 3")?;
+    client
+        .end_of_test_requests()
+        .await
+        .buck_error_context("Call 1")?;
+    client
+        .end_of_test_requests()
+        .await
+        .buck_error_context("Call 2")?;
+    client
+        .end_of_test_requests()
+        .await
+        .buck_error_context("Call 3")?;
 
-    server.shutdown().await.context("Failed to shutdown")?;
+    server
+        .shutdown()
+        .await
+        .buck_error_context("Failed to shutdown")?;
 
     assert_matches!(client.end_of_test_requests().await, Err(..));
 
@@ -54,7 +66,7 @@ async fn test_basic() -> anyhow::Result<()> {
 }
 
 #[tokio::test]
-async fn test_client_disconnect() -> anyhow::Result<()> {
+async fn test_client_disconnect() -> buck2_error::Result<()> {
     let (client_io, server_io) = tokio::io::duplex(64);
     let mut server =
         spawn_executor_server(to_duplex_channel(server_io), MockExecutor).into_join_handle();

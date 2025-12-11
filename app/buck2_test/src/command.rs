@@ -14,7 +14,6 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
 
-use anyhow::Context;
 use async_trait::async_trait;
 use buck2_build_api::actions::artifact::get_artifact_fs::GetArtifactFs;
 use buck2_build_api::actions::calculation::get_target_rule_type_name;
@@ -67,7 +66,6 @@ use buck2_core::target::label::label::TargetLabel;
 use buck2_data::BuildResult;
 use buck2_error::BuckErrorContext;
 use buck2_error::ErrorTag;
-use buck2_error::conversion::from_any_with_tag;
 use buck2_events::dispatch::console_message;
 use buck2_events::dispatch::with_dispatcher_async;
 use buck2_fs::fs_util;
@@ -126,10 +124,10 @@ struct TestOutcome {
 }
 
 impl TestOutcome {
-    fn exit_code(&self) -> anyhow::Result<Option<i32>> {
+    fn exit_code(&self) -> buck2_error::Result<Option<i32>> {
         self.executor_report
             .exit_code
-            .context("Test executor did not provide an exit code")
+            .buck_error_context("Test executor did not provide an exit code")
             .map(Some)
     }
 }
@@ -342,8 +340,7 @@ async fn test(
     let (test_executor, test_executor_args) = match test_executor_config {
         Some(config) => {
             let test_executor = post_process_test_executor(config.as_ref())
-                .with_context(|| format!("Invalid `test.v2_test_executor`: {config}"))
-                .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Environment))?;
+                .with_buck_error_context(|| format!("Invalid `test.v2_test_executor`: {config}"))?;
             let mut test_executor_args =
                 vec!["--buck-trace-id".to_owned(), client_ctx.trace_id.clone()];
             let platform = match (*ctx)
@@ -400,8 +397,7 @@ async fn test(
     let options = request
         .session_options
         .as_ref()
-        .context("Missing `options`")
-        .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Input))?;
+        .buck_error_context("Missing `options`")?;
 
     let session = TestSession::new(TestSessionOptions {
         allow_re: options.allow_re,
@@ -419,8 +415,7 @@ async fn test(
         .as_ref()
         .map(|t| (*t).try_into())
         .transpose()
-        .context("Invalid `duration`")
-        .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Input))?;
+        .buck_error_context("Invalid `duration`")?;
 
     let project_root = server_ctx.project_root();
     let tpx_experiments = get_tpx_experiments(ctx.dupe(), project_root).await?;
@@ -447,8 +442,7 @@ async fn test(
         request.build_run_info,
         tpx_experiments,
     )
-    .await
-    .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::TestExecutor))?;
+    .await?;
 
     send_target_cfg_event(
         server_ctx.events(),
@@ -459,8 +453,7 @@ async fn test(
     // TODO(bobyf) remap exit code for buck reserved exit code
     let exit_code = test_outcome
         .exit_code()
-        .context("No exit code available")
-        .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::TestExecutor))?;
+        .buck_error_context("No exit code available")?;
 
     // Filtering out individual types might not be best here. While we just have 1 non-build
     // error that seems OK, but if we add more we should reconsider (we could add a type on all
@@ -648,7 +641,7 @@ async fn test_targets(
     build_default_info: bool,
     build_run_info: bool,
     tpx_experiments: HashSet<String>,
-) -> anyhow::Result<TestOutcome> {
+) -> buck2_error::Result<TestOutcome> {
     let session = Arc::new(session);
 
     let (mut liveliness_observer, _guard) = LivelinessGuard::create();
@@ -682,11 +675,11 @@ async fn test_targets(
     let res = launcher
         .launch(tpx_args)
         .await
-        .context("Failed to launch executor");
+        .buck_error_context("Failed to launch executor");
 
     let res = tag_result!(
         "executor_launch_failed",
-        res.map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tpx)),
+        res,
         quiet: true,
         daemon_in_memory_state_is_corrupted: true,
         task: false
@@ -723,7 +716,7 @@ async fn test_targets(
                     CancellationContext::never_cancelled(), // sending the orchestrator directly to be spawned by make_server, which never calls it.
                 )
                 .await
-                .context("Failed to create a BuckTestOrchestrator")?;
+                .buck_error_context("Failed to create a BuckTestOrchestrator")?;
 
                 let server_handle = make_server(orchestrator, BuckTestDownwardApi);
 
@@ -764,7 +757,7 @@ async fn test_targets(
                 test_executor
                     .end_of_test_requests()
                     .await
-                    .context("Failed to notify test executor of end-of-tests")?;
+                    .buck_error_context("Failed to notify test executor of end-of-tests")?;
 
                 // Wait for the tests to finish running.
                 let test_statuses = test_status_receiver
@@ -773,21 +766,21 @@ async fn test_targets(
                         future::ready(Ok(acc))
                     })
                     .await
-                    .context("Did not receive all results from executor")?;
+                    .buck_error_context("Did not receive all results from executor")?;
 
                 // Shutdown our server. This is technically not *required* since dropping it would shut it
                 // down implicitly, but let's do it anyway so we can collect any errors.
                 server_handle
                     .shutdown()
                     .await
-                    .context("Failed to shutdown orchestrator")?;
+                    .buck_error_context("Failed to shutdown orchestrator")?;
 
                 let local_resource_registry = ctx.get_local_resource_registry()?;
 
                 local_resource_registry
                     .release_all_resources()
                     .await
-                    .context("Failed to release local resources")?;
+                    .buck_error_context("Failed to release local resources")?;
 
                 // Process the build errors we've collected.
                 let mut builder = BuildTargetResultBuilder::new(None);
@@ -799,17 +792,21 @@ async fn test_targets(
                 driver.build_target_result.extend(error_target_result);
 
                 // And finally return our results;
-                anyhow::Ok((driver.build_target_result, test_statuses))
+                buck2_error::Ok((driver.build_target_result, test_statuses))
             },
         )
     });
 
     let executor_output = executor_handle
         .await
-        .context("Failed to retrieve executor exit code")?;
+        .buck_error_context("Failed to retrieve executor exit code")?;
 
     if executor_output.exit_code != 0 {
-        return Err(anyhow::Error::msg(executor_output.to_string()));
+        return Err(buck2_error::buck2_error!(
+            ErrorTag::TestExecutor,
+            "{}",
+            executor_output.to_string()
+        ));
     }
 
     // Now that the executor has exited, we notify our results channel. Two things can happen:
@@ -818,14 +815,15 @@ async fn test_targets(
     // - The executor had not reported end-of-tests. Assuming we didn't crash on our end (in which
     // case we're about to get this Err out of test_statuses), then this will ensure we don't wait
     // forever on the executor to notify us!
-    let _ignored = test_status_sender.unbounded_send(Err(anyhow::Error::msg(
+    let _ignored = test_status_sender.unbounded_send(Err(buck2_error::buck2_error!(
+        ErrorTag::TestExecutor,
         "Executor exited without reporting end-of-tests",
     )));
 
     // TODO(bobyf, torozco) we can use cancellation handle here instead of liveliness observer
     let (build_target_result, executor_report) = test_server
         .await
-        .context("Failed to collect executor report")??;
+        .buck_error_context("Failed to collect executor report")??;
 
     let mut errors = convert_error(&build_target_result)
         .iter()
@@ -1265,9 +1263,7 @@ impl<'a, 'e> TestDriver<'a, 'e> {
                 Ok(result) => result,
                 Err(e) => {
                     return ControlFlow::Break(create_and_map_configured_build_error(
-                        label,
-                        from_any_with_tag(e, buck2_error::ErrorTag::Tier0),
-                        modifiers,
+                        label, e, modifiers,
                     ));
                 }
             };
@@ -1319,9 +1315,7 @@ impl<'a, 'e> TestDriver<'a, 'e> {
             .await
             {
                 return ControlFlow::Break(create_and_map_configured_build_error(
-                    label,
-                    from_any_with_tag(e, buck2_error::ErrorTag::TestExecutor),
-                    modifiers,
+                    label, e, modifiers,
                 ));
             }
 
@@ -1340,7 +1334,7 @@ async fn build_target_result(
     modifiers: Modifiers,
     build_default_info: bool,
     build_run_info: bool,
-) -> anyhow::Result<(BuildTargetResult, FrozenProviderCollectionValue)> {
+) -> buck2_error::Result<(BuildTargetResult, FrozenProviderCollectionValue)> {
     // NOTE: We fail if we hit an incompatible target here. This can happen if we reach an
     // incompatible target via `tests = [...]`. This should perhaps change, but that's how it works
     // in v1: https://fb.workplace.com/groups/buckeng/posts/8520953297953210
@@ -1415,7 +1409,7 @@ async fn test_target(
     working_dir_cell: CellName,
     test_config_unification_rollout: bool,
     oncall: Option<String>,
-) -> anyhow::Result<Option<ConfiguredProvidersLabel>> {
+) -> buck2_error::Result<Option<ConfiguredProvidersLabel>> {
     let collection = providers.provider_collection();
 
     let fut = match <dyn TestProvider>::from_collection(collection) {
@@ -1469,7 +1463,7 @@ fn run_tests<'a, 'b>(
     working_dir_cell: CellName,
     test_config_unification_rollout: bool,
     oncall: Option<String>,
-) -> BoxFuture<'a, anyhow::Result<ConfiguredProvidersLabel>> {
+) -> BoxFuture<'a, buck2_error::Result<ConfiguredProvidersLabel>> {
     let maybe_handle = build_configured_target_handle(
         providers_label.dupe(),
         session,
@@ -1484,7 +1478,7 @@ fn run_tests<'a, 'b>(
 
             (async move {
                 fut.await
-                    .buck_error_context_anyhow("Failed to notify test executor of a new test")?;
+                    .buck_error_context("Failed to notify test executor of a new test")?;
                 Ok(providers_label)
             })
             .boxed()
@@ -1651,23 +1645,28 @@ fn generate_config_entry_args(
     }
 }
 
-fn post_process_test_executor(s: &str) -> anyhow::Result<PathBuf> {
+fn post_process_test_executor(s: &str) -> buck2_error::Result<PathBuf> {
     match s.split_once("$BUCK2_BINARY_DIR/") {
         Some(("", rest)) => {
-            let exe =
-                AbsPathBuf::new(std::env::current_exe().context("Cannot get Buck2 executable")?)?;
-            let exe = fs_util::canonicalize(&exe).buck_error_context_anyhow(
+            let exe = AbsPathBuf::new(
+                std::env::current_exe().buck_error_context("Cannot get Buck2 executable")?,
+            )?;
+            let exe = fs_util::canonicalize(&exe).buck_error_context(
                 "Failed to canonicalize path to Buck2 executable. Try running `buck2 kill`.",
             )?;
 
             let exe = exe.as_abs_path();
             let exe_dir = exe
                 .parent()
-                .context("Buck2 executable directory has no parent")?;
+                .buck_error_context("Buck2 executable directory has no parent")?;
 
             Ok(exe_dir.join(rest).to_path_buf())
         }
-        Some(..) => Err(anyhow::anyhow!("Invalid value: {}", s)),
+        Some(..) => Err(buck2_error::buck2_error!(
+            ErrorTag::Environment,
+            "Invalid value: {}",
+            s
+        )),
         None => Ok(s.into()),
     }
 }
