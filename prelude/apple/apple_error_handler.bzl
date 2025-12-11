@@ -149,9 +149,9 @@ def swift_error_handler(ctx: ActionErrorCtx) -> list[ActionSubError]:
                 continue
 
             severity = error_json["severity"]
-            category = "swift_" + severity
             message = error_json["message"]
             remediation = None
+            subcategory = None
 
             # Swift serializes the category in the form:
             # SendableClosureCaptures@https://docs.swift.org/compiler/documentation/diagnostics/sendable-closure-captures
@@ -159,23 +159,23 @@ def swift_error_handler(ctx: ActionErrorCtx) -> list[ActionSubError]:
                 # Convert to markdown links for phabricator
                 components = error_json["category"].split("@")
                 message += " [{}]({})".format(components[0], components[1])
-                category += "_" + components[0].lower()
+                subcategory = components[0].lower()
             else:
                 # With no category in the error itself we categorise based on
                 # the message content.
                 custom_category = _category_match(
-                    message = error_json["message"],
+                    message = message,
                     path = error_json["path"],
                     categories = SWIFT_STDERR_CATEGORIES,
                 )
                 if custom_category:
-                    category += "_" + custom_category.category
+                    subcategory = custom_category.category
                     if custom_category.message:
                         remediation = custom_category.message
 
             errors.append(
                 ctx.new_sub_error(
-                    category = category,
+                    category = "swift_" + severity,
                     message = message,
                     file = error_json["path"],
                     lnum = error_json["line"],
@@ -183,6 +183,7 @@ def swift_error_handler(ctx: ActionErrorCtx) -> list[ActionSubError]:
                     error_type = _get_error_type(severity),
                     remediation = remediation,
                     show_in_stderr = remediation != None,
+                    subcategory = subcategory,
                 ),
             )
 
