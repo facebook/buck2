@@ -28,7 +28,6 @@ def _has_content_based_path_attr():
     return {
         "has_content_based_path": attrs.bool(default = select({
             "DEFAULT": False,
-            # @oss-disable[end= ]: "config//os/constraints:android": True,
             # @oss-disable[end= ]: "config//runtime/constraints:android-host-test": True,
         })),
     }
