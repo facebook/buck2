@@ -86,4 +86,22 @@ impl CommandExecutionTarget for ActionExecutionTarget<'_> {
             identifier: self.action.identifier().unwrap_or("").to_owned(),
         }
     }
+
+    fn action_mnemonic(&self) -> Option<String> {
+        Some(self.action.category().as_str().to_owned())
+    }
+
+    fn target_label(&self) -> Option<String> {
+        self.action
+            .owner()
+            .unpack_target_label()
+            .map(ToString::to_string)
+    }
+
+    fn configuration_hash(&self) -> Option<String> {
+        self.action
+            .owner()
+            .unpack_target_label()
+            .map(|label| label.cfg().output_hash().as_str().to_owned())
+    }
 }

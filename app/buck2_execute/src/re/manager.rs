@@ -379,7 +379,7 @@ impl ManagedRemoteExecutionClient {
         blobs: &ActionBlobs,
         dir_path: &ProjectRelativePath,
         input_dir: &ActionImmutableDirectory,
-        identity: Option<&ReActionIdentity<'_>>,
+        identity: &ReActionIdentity<'_>,
         digest_config: DigestConfig,
         deduplicate_get_digests_ttl_calls: bool,
     ) -> buck2_error::Result<UploadStats> {
@@ -405,6 +405,7 @@ impl ManagedRemoteExecutionClient {
         files_with_digest: Vec<NamedDigest>,
         directories: Vec<remote_execution::Path>,
         inlined_blobs_with_digest: Vec<InlinedBlobWithDigest>,
+        identity: &ReActionIdentity<'_>,
     ) -> buck2_error::Result<()> {
         self.lock()?
             .get()
@@ -414,6 +415,7 @@ impl ManagedRemoteExecutionClient {
                 directories,
                 inlined_blobs_with_digest,
                 self.use_case,
+                identity,
             )
             .await
     }

@@ -18,6 +18,7 @@ use buck2_error::BuckErrorContext;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::re::client::ActionCacheWriteType;
 use buck2_execute::re::error::RemoteExecutionError;
+use buck2_execute::re::action_identity::ReActionIdentity;
 use buck2_execute::re::manager::ManagedRemoteExecutionClient;
 use dashmap::DashMap;
 use dupe::Dupe;
@@ -58,9 +59,18 @@ impl ActionCacheUploadPermissionChecker {
     ) -> buck2_error::Result<Result<(), String>> {
         let (action, action_result) = empty_action_result(platform, digest_config)?;
 
-        // This is CAS upload, if it fails, something is very broken.
+        // This is CAS upload for permission check with a synthetic empty action.
+        let identity = ReActionIdentity::minimal(
+            "CASPermCheck".to_owned(),
+            Some("CASPermCheck".to_owned()),
+        );
         re_client
-            .upload_files_and_directories(Vec::new(), Vec::new(), action.blobs.to_inlined_blobs())
+            .upload_files_and_directories(
+                Vec::new(),
+                Vec::new(),
+                action.blobs.to_inlined_blobs(),
+                &identity,
+            )
             .await?;
 
         // This operation requires permission to write.

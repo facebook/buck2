@@ -110,7 +110,7 @@ impl ReExecutor {
                     blobs,
                     ProjectRelativePath::empty(),
                     paths.input_directory(),
-                    Some(identity),
+                    identity,
                     digest_config,
                     self.deduplicate_get_digests_ttl_calls,
                 )
@@ -373,8 +373,12 @@ impl PreparedCommandExecutor for ReExecutor {
             )?;
         }
 
-        let identity =
-            ReActionIdentity::new(*target, self.re_action_key.as_deref(), request.paths());
+        let identity = ReActionIdentity::new(
+            *target,
+            self.re_action_key.as_deref(),
+            request.paths(),
+            Some(action_and_blobs.action.raw_digest().to_string()),
+        );
 
         // TODO(bobyf, torozco): remote execution probably needs to explicitly handle cancellations
         let manager = self
