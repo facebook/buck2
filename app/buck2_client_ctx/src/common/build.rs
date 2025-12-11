@@ -8,10 +8,9 @@
  * above-listed licenses.
  */
 
-use std::str::FromStr;
-
 use buck2_cli_proto::common_build_options::ExecutionStrategy;
 use buck2_core::buck2_env_name;
+use buck2_error::conversion::clap::buck_error_clap_parser;
 use clap::ArgGroup;
 use clap::builder::FalseyValueParser;
 use tracing::warn;
@@ -30,31 +29,28 @@ pub struct BuildReportOption {
     include_artifact_hash_information: bool,
 }
 
-impl FromStr for BuildReportOption {
-    type Err = anyhow::Error;
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        let mut fill_out_failures = false;
-        let mut include_package_project_relative_paths = false;
-        let mut include_artifact_hash_information = false;
+fn parse_build_report_option(s: &str) -> buck2_error::Result<BuildReportOption> {
+    let mut fill_out_failures = false;
+    let mut include_package_project_relative_paths = false;
+    let mut include_artifact_hash_information = false;
 
-        if s.to_lowercase() == "fill-out-failures" {
-            fill_out_failures = true;
-        } else if s.to_lowercase() == "package-project-relative-paths" {
-            include_package_project_relative_paths = true;
-        } else if s.to_lowercase() == "include-artifact-hash-information" {
-            include_artifact_hash_information = true;
-        } else {
-            warn!(
-                "Incorrect syntax for build report option. Got: `{}` but expected one of `fill-out-failures, package-project-relative-paths`",
-                s.to_owned()
-            )
-        }
-        Ok(BuildReportOption {
-            fill_out_failures,
-            include_package_project_relative_paths,
-            include_artifact_hash_information,
-        })
+    if s.to_lowercase() == "fill-out-failures" {
+        fill_out_failures = true;
+    } else if s.to_lowercase() == "package-project-relative-paths" {
+        include_package_project_relative_paths = true;
+    } else if s.to_lowercase() == "include-artifact-hash-information" {
+        include_artifact_hash_information = true;
+    } else {
+        warn!(
+            "Incorrect syntax for build report option. Got: `{}` but expected one of `fill-out-failures, package-project-relative-paths`",
+            s.to_owned()
+        )
     }
+    Ok(BuildReportOption {
+        fill_out_failures,
+        include_package_project_relative_paths,
+        include_artifact_hash_information,
+    })
 }
 
 /// Defines common options for build-like commands (build, test, install).
@@ -85,7 +81,8 @@ pub struct CommonBuildOptions {
     #[clap(
         long = "build-report-options",
         requires = "build_report",
-        value_delimiter = ','
+        value_delimiter = ',',
+        value_parser = buck_error_clap_parser(parse_build_report_option),
     )]
     build_report_options: Vec<BuildReportOption>,
 

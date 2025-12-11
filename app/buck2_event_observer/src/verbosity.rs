@@ -131,7 +131,7 @@ impl VerbosityItem {
 }
 
 impl Verbosity {
-    pub fn try_from_cli(value: &str) -> anyhow::Result<Verbosity> {
+    pub fn try_from_cli(value: &str) -> buck2_error::Result<Verbosity> {
         let split: Vec<&str> = value.split(',').collect();
         let mut levels: Vec<VerbosityLevel> = Vec::new();
         let mut items: HashSet<VerbosityItem> = HashSet::new();

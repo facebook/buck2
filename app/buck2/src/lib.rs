@@ -40,6 +40,7 @@ use buck2_client_ctx::argfiles::expand_argv;
 use buck2_client_ctx::client_ctx::BuckSubcommand;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::client_metadata::ClientMetadata;
+use buck2_client_ctx::client_metadata::parse_client_metadata;
 use buck2_client_ctx::common::BuckArgMatches;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::immediate_config::ImmediateConfigContext;
@@ -114,7 +115,7 @@ struct BeforeSubcommandOptions {
         long = "verbose",
         default_value = "1",
         global = true,
-        value_parser= Verbosity::try_from_cli
+        value_parser= buck_error_clap_parser(Verbosity::try_from_cli)
     )]
     verbosity: Verbosity,
 
@@ -125,7 +126,7 @@ struct BeforeSubcommandOptions {
     /// Metadata key-value pairs to inject into Buck2's logging. Client metadata must be of the
     /// form `key=value`, where `key` is a snake_case identifier, and will be sent to backend
     /// datasets.
-    #[clap(long, global = true)]
+    #[clap(long, global = true, value_parser = buck_error_clap_parser(parse_client_metadata))]
     client_metadata: Vec<ClientMetadata>,
 
     /// Do not launch a daemon process, run buck server in client process.
