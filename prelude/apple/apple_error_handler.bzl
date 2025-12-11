@@ -102,24 +102,25 @@ def cxx_error_handler(ctx: ActionErrorCtx) -> list[ActionSubError]:
             # Clang optionally populates a category and flag field. We are only
             # interested in the flag for now, which helps to know which flag to
             # disable to bypass an error.
-            category = "apple_cxx_" + error_json["severity"]
-            if "flag" in error_json:
-                category += "_" + error_json["flag"].replace("-", "_")
-                additional_message = APPLE_CXX_FLAG_MESSAGES.get(error_json["flag"], None)
-                if additional_message:
-                    postfix = " [-W{}]. {}".format(error_json["flag"], additional_message)
-                else:
-                    postfix = " [-W{}]".format(error_json["flag"])
-            else:
-                postfix = ""
+            remediation = None
+            postfix = ""
+            subcategory = None
+            error_flag = error_json.get("flag", None)
+            if error_flag:
+                subcategory = error_flag.replace("-", "_")
+                remediation = APPLE_CXX_FLAG_MESSAGES.get(error_flag, None)
+                postfix = " [-W{}]".format(error_flag)
 
             errors.append(
                 ctx.new_sub_error(
-                    category = category,
+                    category = "apple_cxx_" + error_json["severity"],
                     message = error_json["message"] + postfix,
                     file = error_json["path"],
                     lnum = error_json["line"],
                     col = error_json["col"],
+                    remediation = remediation,
+                    show_in_stderr = remediation != None,
+                    subcategory = subcategory,
                 ),
             )
 
