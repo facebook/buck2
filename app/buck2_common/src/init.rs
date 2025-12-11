@@ -12,10 +12,8 @@ use std::str::FromStr;
 use std::time::Duration;
 
 use allocative::Allocative;
-use anyhow::Context;
 use buck2_core::buck2_env;
 use buck2_error::BuckErrorContext;
-use buck2_error::conversion::from_any_with_tag;
 use serde::Deserialize;
 use serde::Serialize;
 
@@ -318,7 +316,6 @@ impl ResourceControlConfig {
             applicability = testing,
         )? {
             Self::deserialize(env_conf)
-                .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))
         } else {
             let status = config
                 .parse(BuckconfigKeyRef {
@@ -388,8 +385,9 @@ impl ResourceControlConfig {
         serde_json::to_string(&self).buck_error_context("Error serializing ResourceControlConfig")
     }
 
-    pub fn deserialize(s: &str) -> anyhow::Result<Self> {
-        serde_json::from_str::<Self>(s).context("Error deserializing ResourceControlConfig")
+    pub fn deserialize(s: &str) -> buck2_error::Result<Self> {
+        serde_json::from_str::<Self>(s)
+            .buck_error_context("Error deserializing ResourceControlConfig")
     }
 }
 
@@ -546,8 +544,9 @@ impl DaemonStartupConfig {
         serde_json::to_string(&self).buck_error_context("Error serializing DaemonStartupConfig")
     }
 
-    pub fn deserialize(s: &str) -> anyhow::Result<Self> {
-        serde_json::from_str::<Self>(s).context("Error deserializing DaemonStartupConfig")
+    pub fn deserialize(s: &str) -> buck2_error::Result<Self> {
+        serde_json::from_str::<Self>(s)
+            .buck_error_context("Error deserializing DaemonStartupConfig")
     }
 
     pub fn testing_empty() -> Self {

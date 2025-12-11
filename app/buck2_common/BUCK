@@ -35,7 +35,6 @@ rust_library(
         "fbsource//third-party/rust:triomphe",
     ],
     deps = [
-        "fbsource//third-party/rust:anyhow",
         "fbsource//third-party/rust:async-scoped",
         "fbsource//third-party/rust:async-trait",
         "fbsource//third-party/rust:blake3",

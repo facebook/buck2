@@ -31,6 +31,7 @@ use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_core::target::label::label::TargetLabel;
 use buck2_error::BuckErrorContext;
+use buck2_error::conversion::clap::buck_error_clap_parser;
 use buck2_error::conversion::from_any_with_tag;
 use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_interpreter::types::configured_providers_label::StarlarkProvidersLabel;
@@ -546,45 +547,63 @@ impl CliArgType {
                 .value_parser(variants.iter().cloned().collect::<Vec<_>>()),
             CliArgType::List(inner) => inner.to_clap(clap).num_args(0..).action(ArgAction::Append),
             CliArgType::Option(inner) => inner.to_clap(clap).required(false),
-            CliArgType::TargetLabel => clap.num_args(1).value_parser(|x: &str| {
-                anyhow::Ok(
-                    lex_target_pattern::<TargetPatternExtra>(x, false)
-                        .and_then(|parsed| parsed.pattern.infer_target())
-                        .map(|parsed| {
-                            parsed
-                                .target()
-                                .buck_error_context(CliArgError::NotALabel(x.to_owned(), "target"))
-                                .map(|_| ())
-                        })
-                        .map(|_| x.to_owned())?,
-                )
-            }),
-            CliArgType::ConfiguredTargetLabel => clap.num_args(1).value_parser(|x: &str| {
-                anyhow::Ok(
-                    lex_target_pattern::<TargetPatternExtra>(x, false)
-                        .and_then(|parsed| parsed.pattern.infer_target())
-                        .map(|parsed| {
-                            parsed
-                                .target()
-                                .buck_error_context(CliArgError::NotALabel(x.to_owned(), "target"))
-                                .map(|_| ())
-                        })
-                        .map(|_| x.to_owned())?,
-                )
-            }),
-            CliArgType::SubTarget => clap.num_args(1).value_parser(|x: &str| {
-                anyhow::Ok(
-                    lex_target_pattern::<ProvidersPatternExtra>(x, false)
-                        .and_then(|parsed| parsed.pattern.infer_target())
-                        .map(|parsed| {
-                            parsed
-                                .target()
-                                .buck_error_context(CliArgError::NotALabel(x.to_owned(), "target"))
-                                .map(|_| ())
-                        })
-                        .map(|_| x.to_owned())?,
-                )
-            }),
+            CliArgType::TargetLabel => {
+                clap.num_args(1)
+                    .value_parser(buck_error_clap_parser(|x: &str| {
+                        buck2_error::Ok(
+                            lex_target_pattern::<TargetPatternExtra>(x, false)
+                                .and_then(|parsed| parsed.pattern.infer_target())
+                                .map(|parsed| {
+                                    parsed
+                                        .target()
+                                        .buck_error_context(CliArgError::NotALabel(
+                                            x.to_owned(),
+                                            "target",
+                                        ))
+                                        .map(|_| ())
+                                })
+                                .map(|_| x.to_owned())?,
+                        )
+                    }))
+            }
+            CliArgType::ConfiguredTargetLabel => {
+                clap.num_args(1)
+                    .value_parser(buck_error_clap_parser(|x: &str| {
+                        buck2_error::Ok(
+                            lex_target_pattern::<TargetPatternExtra>(x, false)
+                                .and_then(|parsed| parsed.pattern.infer_target())
+                                .map(|parsed| {
+                                    parsed
+                                        .target()
+                                        .buck_error_context(CliArgError::NotALabel(
+                                            x.to_owned(),
+                                            "target",
+                                        ))
+                                        .map(|_| ())
+                                })
+                                .map(|_| x.to_owned())?,
+                        )
+                    }))
+            }
+            CliArgType::SubTarget => {
+                clap.num_args(1)
+                    .value_parser(buck_error_clap_parser(|x: &str| {
+                        buck2_error::Ok(
+                            lex_target_pattern::<ProvidersPatternExtra>(x, false)
+                                .and_then(|parsed| parsed.pattern.infer_target())
+                                .map(|parsed| {
+                                    parsed
+                                        .target()
+                                        .buck_error_context(CliArgError::NotALabel(
+                                            x.to_owned(),
+                                            "target",
+                                        ))
+                                        .map(|_| ())
+                                })
+                                .map(|_| x.to_owned())?,
+                        )
+                    }))
+            }
             CliArgType::TargetExpr => clap.num_args(1),
             CliArgType::ConfiguredTargetExpr => clap.num_args(1),
             CliArgType::SubTargetExpr => clap.num_args(1),

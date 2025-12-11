@@ -27,6 +27,7 @@ use buck2_common::memory;
 use buck2_core::buck2_env;
 use buck2_core::logging::LogConfigurationReloadHandle;
 use buck2_error::BuckErrorContext;
+use buck2_error::conversion::clap::buck_error_clap_parser;
 use buck2_events::daemon_id::DaemonId;
 use buck2_events::daemon_id::set_daemon_id_for_panics;
 use buck2_fs::fs_util;
@@ -79,7 +80,7 @@ pub struct DaemonCommand {
     skip_macos_qos: bool,
     /// Early configs that the daemon needs at startup. Those are read by the client then passed to
     /// the daemon. The client will restart the daemon if they mismatch.
-    #[clap(value_parser = DaemonStartupConfig::deserialize)]
+    #[clap(value_parser = buck_error_clap_parser(DaemonStartupConfig::deserialize))]
     daemon_startup_config: DaemonStartupConfig,
 
     #[clap(env("ENABLE_TRACE_IO"), long)]

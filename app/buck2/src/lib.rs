@@ -58,6 +58,7 @@ use buck2_error::BuckErrorContext;
 use buck2_error::ErrorTag;
 use buck2_error::ExitCode;
 use buck2_error::buck2_error;
+use buck2_error::conversion::clap::buck_error_clap_parser;
 use buck2_error::conversion::from_any_with_tag;
 use buck2_event_observer::verbosity::Verbosity;
 use buck2_fs::paths::file_name::FileNameBuf;
@@ -75,9 +76,8 @@ pub(crate) mod commands;
 pub mod panic;
 pub mod process_context;
 
-fn parse_isolation_dir(s: &str) -> anyhow::Result<FileNameBuf> {
-    FileNameBuf::try_from(s.to_owned())
-        .buck_error_context_anyhow("isolation dir must be a directory name")
+fn parse_isolation_dir(s: &str) -> buck2_error::Result<FileNameBuf> {
+    FileNameBuf::try_from(s.to_owned()).buck_error_context("isolation dir must be a directory name")
 }
 
 /// Options of `buck2` command, before subcommand.
@@ -91,7 +91,7 @@ struct BeforeSubcommandOptions {
     /// The isolation directory also influences the output paths provided by Buck2,
     /// and as a result using a non-default isolation dir will cause cache misses (and slower builds).
     #[clap(
-        value_parser = parse_isolation_dir,
+        value_parser = buck_error_clap_parser(parse_isolation_dir),
         env("BUCK_ISOLATION_DIR"),
         long,
         global = true,
