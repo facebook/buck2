@@ -646,7 +646,7 @@ pub fn register_rule_function(builder: &mut GlobalsBuilder) {
             StarlarkCallable<'v, (FrozenValue,), UnpackList<FrozenValue>>,
         >,
         eval: &mut Evaluator<'v, '_, '_>,
-    ) -> anyhow::Result<StarlarkRuleCallable<'v>> {
+    ) -> starlark::Result<StarlarkRuleCallable<'v>> {
         StarlarkRuleCallable::new_anon(r#impl, attrs, doc, artifact_promise_mappings, eval)
             .map_err(Into::into)
     }

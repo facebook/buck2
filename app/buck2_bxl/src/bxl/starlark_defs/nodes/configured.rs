@@ -468,10 +468,10 @@ fn configured_target_node_value_methods(builder: &mut MethodsBuilder) {
         let path = if path.is_absolute() {
             Cow::Owned(
                 fs.relativize_any(AbsPath::new(path)?)
-                    .buck_error_context_anyhow("Given path does not belong to the project root")?,
+                    .buck_error_context("Given path does not belong to the project root")?,
             )
         } else {
-            Cow::Borrowed(ProjectRelativePath::new(path).buck_error_context_anyhow(
+            Cow::Borrowed(ProjectRelativePath::new(path).buck_error_context(
                 "Given path should either be absolute or a forward pointing project relative path",
             )?)
         };

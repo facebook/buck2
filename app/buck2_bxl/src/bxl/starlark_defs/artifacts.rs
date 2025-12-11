@@ -475,7 +475,7 @@ impl LazyBuildArtifact {
     pub(crate) async fn build_artifacts(
         &self,
         ctx: &mut DiceComputations<'_>,
-    ) -> anyhow::Result<Vec<ActionOutputs>> {
+    ) -> buck2_error::Result<Vec<ActionOutputs>> {
         let res = ctx
             .try_compute_join(&self.artifacts_to_build, |ctx, artifact_group| {
                 async move {

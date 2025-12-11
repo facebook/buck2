@@ -87,8 +87,10 @@ fn dep_only_incompatible_info_creator(globals: &mut GlobalsBuilder) {
         let mut result = SmallMap::with_capacity(custom_soft_errors.entries.len());
         for (category, value) in custom_soft_errors.entries {
             let category_str = category.to_value().unpack_str().ok_or_else(|| {
-                starlark::Error::from(anyhow::anyhow!("Expected string via type checking"))
-                    .into_internal_error()
+                starlark::Error::from(buck2_error::internal_error!(
+                    "Expected string via type checking"
+                ))
+                .into_internal_error()
             })?;
             validate_logview_category(category_str)?;
             result.insert(category_str, value.value);

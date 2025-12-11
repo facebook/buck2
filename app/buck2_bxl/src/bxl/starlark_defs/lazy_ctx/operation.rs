@@ -22,7 +22,6 @@ use buck2_core::pattern::pattern::ParsedPattern;
 use buck2_core::pattern::pattern_type::TargetPatternExtra;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::target::label::label::TargetLabel;
-use buck2_error::conversion::from_any_with_tag;
 use buck2_interpreter::types::package_path::StarlarkPackagePath;
 use buck2_node::load_patterns::MissingTargetBehavior;
 use buck2_node::load_patterns::load_patterns;
@@ -225,10 +224,7 @@ impl LazyOperation {
             LazyOperation::Uquery(op) => op.resolve(dice, core_data).await.map(LazyResult::Uquery),
             LazyOperation::Cquery(op) => op.resolve(dice, core_data).await.map(LazyResult::Cquery),
             LazyOperation::BuildArtifact(artifact) => {
-                artifact
-                    .build_artifacts(dice)
-                    .await
-                    .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?;
+                artifact.build_artifacts(dice).await?;
                 Ok(LazyResult::BuildArtifact(artifact.artifact()))
             }
             LazyOperation::Join(lazy0, lazy1) => {

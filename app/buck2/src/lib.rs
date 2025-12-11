@@ -59,7 +59,6 @@ use buck2_error::ErrorTag;
 use buck2_error::ExitCode;
 use buck2_error::buck2_error;
 use buck2_error::conversion::clap::buck_error_clap_parser;
-use buck2_error::conversion::from_any_with_tag;
 use buck2_event_observer::verbosity::Verbosity;
 use buck2_fs::paths::file_name::FileNameBuf;
 use buck2_util::threads::thread_spawn_scoped;
@@ -493,15 +492,12 @@ impl CommandKind {
             #[cfg(not(client_only))]
             CommandKind::Daemon(..) => unreachable!("Checked earlier"),
             #[cfg(not(client_only))]
-            CommandKind::Forkserver(cmd) => cmd
-                .exec(
-                    matches,
-                    command_ctx,
-                    events_ctx,
-                    shared.log_reload_handle.dupe(),
-                )
-                .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))
-                .into(),
+            CommandKind::Forkserver(cmd) => cmd.exec(
+                matches,
+                command_ctx,
+                events_ctx,
+                shared.log_reload_handle.dupe(),
+            ),
             #[cfg(not(client_only))]
             CommandKind::InternalTestRunner(cmd) => cmd.exec(matches, command_ctx, events_ctx),
             CommandKind::Aquery(cmd) => command_ctx.exec(cmd, matches, events_ctx),

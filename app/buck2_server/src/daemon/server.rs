@@ -391,7 +391,7 @@ impl BuckdServer {
         .await
     }
 
-    async fn run_streaming_anyhow<Req, Res, PartialRes, F>(
+    async fn run_streaming_fallible<Req, Res, PartialRes, F>(
         &self,
         req: Request<Req>,
         opts: impl StreamingCommandOptions<Req>,
@@ -561,7 +561,7 @@ impl BuckdServer {
         // send signal to register new command time
         _ = self.0.command_channel.unbounded_send(());
 
-        match self.run_streaming_anyhow(req, opts, func).await {
+        match self.run_streaming_fallible(req, opts, func).await {
             Ok(resp) => Ok(resp),
             Err(e) => match check_cert_state(self.0.cert_state.dupe()).await {
                 Some(err) => Ok(error_to_response_stream(

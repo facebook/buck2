@@ -13,6 +13,7 @@ use std::sync::Arc;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
 use buck2_client_ctx::common::BuckArgMatches;
 use buck2_client_ctx::events_ctx::EventsCtx;
+use buck2_client_ctx::exit_result::ExitResult;
 use buck2_core::logging::LogConfigurationReloadHandle;
 use buck2_fs::fs_util;
 use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
@@ -49,7 +50,7 @@ impl ForkserverCommand {
         _ctx: ClientCommandContext<'_>,
         events_ctx: &mut EventsCtx,
         log_reload_handle: Arc<dyn LogConfigurationReloadHandle>,
-    ) -> anyhow::Result<()> {
+    ) -> ExitResult {
         let state_dir = AbsNormPathBuf::from(self.state_dir)?;
         fs_util::create_dir_all(&state_dir).map_err(buck2_error::Error::from)?;
         events_ctx.log_invocation_record = false;
@@ -66,18 +67,19 @@ impl ForkserverCommand {
                 .enable_all()
                 .build()?;
 
-            Ok(rt.block_on(buck2_forkserver::command::run_forkserver(
+            rt.block_on(buck2_forkserver::command::run_forkserver(
                 self.fd,
                 self.socket_path,
                 log_reload_handle,
                 state_dir,
-            ))?)
+            ))
+            .into()
         }
 
         #[cfg(not(unix))]
         {
             let _ignored = log_reload_handle;
-            Err(anyhow::anyhow!("The forkserver is only available on UNIX"))
+            ExitResult::bail("The forkserver is only available on UNIX")
         }
     }
 }

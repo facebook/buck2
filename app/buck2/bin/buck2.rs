@@ -33,7 +33,6 @@ use buck2_core::buck2_env;
 use buck2_core::logging::LogConfigurationReloadHandle;
 use buck2_core::logging::init_tracing_for_writer;
 use buck2_core::logging::log_file::TracingLogFile;
-use buck2_error::conversion::from_any_with_tag;
 use buck2_fs::working_dir::AbsWorkingDir;
 use buck2_wrapper_common::invocation_id::TraceId;
 use dupe::Dupe;
@@ -48,7 +47,7 @@ static ALLOC: tikv_jemallocator::Jemalloc = tikv_jemallocator::Jemalloc;
 #[cfg(target_os = "windows")]
 static ALLOC: mimalloc::MiMalloc = mimalloc::MiMalloc;
 
-fn init_logging() -> anyhow::Result<Arc<dyn LogConfigurationReloadHandle>> {
+fn init_logging() -> buck2_error::Result<Arc<dyn LogConfigurationReloadHandle>> {
     static ENV_TRACING_LOG_FILE_PATH: &str = "BUCK_LOG_TO_FILE_PATH";
 
     let handle = match std::env::var_os(ENV_TRACING_LOG_FILE_PATH) {
@@ -91,7 +90,7 @@ fn check_cargo() {
     }
 }
 
-fn print_retry() -> anyhow::Result<()> {
+fn print_retry() -> buck2_error::Result<()> {
     buck2_client_ctx::eprintln!("============================================================")?;
     buck2_client_ctx::eprintln!("|| Buck2 has detected that it needs to restart to proceed ||")?;
     buck2_client_ctx::eprintln!("|| Your command will now restart.                         ||")?;
@@ -169,15 +168,14 @@ fn main() -> ! {
     buck2_certs::certs::setup_cryptography_or_fail();
 
     fn init_shared_context() -> buck2_error::Result<SharedProcessContext> {
-        panic::initialize().map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?;
+        panic::initialize()?;
         check_cargo();
 
         // Log the start timestamp
         tracing::debug!("Client initialized logging");
 
         Ok(SharedProcessContext {
-            log_reload_handle: init_logging()
-                .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?,
+            log_reload_handle: init_logging()?,
             stdin: Stdin::new()?,
             working_dir: AbsWorkingDir::current_dir()?,
             args: std::env::args().collect::<Vec<String>>(),

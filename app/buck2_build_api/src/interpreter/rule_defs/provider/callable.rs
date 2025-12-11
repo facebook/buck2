@@ -380,7 +380,7 @@ impl<'v> StarlarkValue<'v> for UserProviderCallable {
                 ty_provider.clone(),
             )?;
             let ty_callable = ty_provider_callable::<UserProviderCallable>(creator_func)?;
-            anyhow::Ok(UserProviderCallableNamed {
+            buck2_error::Ok(UserProviderCallableNamed {
                 id: provider_id.dupe(),
                 signature,
                 data: eval.frozen_heap().alloc_any(UserProviderCallableData {

@@ -252,13 +252,13 @@ async fn read_truncated_error_response(
 /// Helper function to consume a response stream and convert it to a Bytes container.
 /// Warning: This does no length checking (like hyper::body::to_bytes). Should
 /// only be used for trusted endpoints.
-pub async fn to_bytes(body: BoxStream<'_, hyper::Result<Bytes>>) -> anyhow::Result<Bytes> {
+pub async fn to_bytes(body: BoxStream<'_, hyper::Result<Bytes>>) -> buck2_error::Result<Bytes> {
     let mut reader = StreamReader::new(body.map_err(std::io::Error::other));
     let mut buf = Vec::new();
     reader
         .read_to_end(&mut buf)
         .await
-        .buck_error_context_anyhow("Reading response body")?;
+        .buck_error_context("Reading response body")?;
     Ok(buf.into())
 }
 
@@ -669,7 +669,6 @@ mod tests {
                         // even though we already accessed the effective body above
                         .request(req.map(|_| forwarded_body))
                         .await
-                        .buck_error_context_anyhow("Failed sending requeest to destination")
                 };
 
                 let listener = tokio::net::UnixListener::bind(&socket)
@@ -940,10 +939,7 @@ mod proxy_tests {
                                 http::HeaderValue::from_static("testing-proxy-server"),
                             );
                             println!("Proxying request: {req:?}");
-                            client
-                                .request(req)
-                                .await
-                                .buck_error_context_anyhow("Failed sending requeest to destination")
+                            client.request(req).await
                         });
 
                     hyper_util::server::conn::auto::Builder::new(TokioExecutor::new())

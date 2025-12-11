@@ -27,7 +27,7 @@ pub(crate) struct CpuUsageCollector {
 }
 
 impl CpuUsageCollector {
-    pub(crate) fn new() -> anyhow::Result<Self> {
+    pub(crate) fn new() -> buck2_error::Result<Self> {
         let start = Arc::new(Mutex::new(None));
         let handle = start.dupe();
         tokio::task::spawn_blocking(move || {
@@ -37,9 +37,7 @@ impl CpuUsageCollector {
     }
 
     /// Returns the CPU usage since the collector was created.
-    pub(crate) fn get_usage_since_command_start(
-        &self,
-    ) -> anyhow::Result<HostCpuUsageSinceCmdStart> {
+    pub(crate) fn get_usage_since_command_start(&self) -> Option<HostCpuUsageSinceCmdStart> {
         let start = self.start.lock().expect("Poisoned lock");
         if let Some(start) = &*start {
             if let Ok(current_usage) = HostCpuUsage::get() {
@@ -49,13 +47,13 @@ impl CpuUsageCollector {
                     current_usage.user_millis.checked_sub(start.user_millis),
                     current_usage.system_millis.checked_sub(start.system_millis),
                 ) {
-                    return Ok(HostCpuUsageSinceCmdStart {
+                    return Some(HostCpuUsageSinceCmdStart {
                         user_millis,
                         system_millis,
                     });
                 }
             }
         }
-        Err(anyhow::anyhow!("Failed to get CPU usage"))
+        None
     }
 }

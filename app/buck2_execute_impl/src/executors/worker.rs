@@ -19,6 +19,7 @@ use buck2_common::client_utils::get_channel_uds;
 use buck2_common::client_utils::retrying;
 use buck2_common::liveliness_observer::LivelinessGuard;
 use buck2_common::liveliness_observer::LivelinessObserver;
+use buck2_error::ErrorTag;
 use buck2_error::buck2_error;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_execute::execute::kind::CommandExecutionKind;
@@ -507,7 +508,7 @@ impl WorkerClient {
         })
     }
 
-    async fn execute(&mut self, request: ExecuteCommand) -> anyhow::Result<ExecuteResponse> {
+    async fn execute(&mut self, request: ExecuteCommand) -> buck2_error::Result<ExecuteResponse> {
         match self {
             Self::Single(client) => Ok(client
                 .execute(request)
@@ -530,7 +531,7 @@ impl WorkerClient {
                 tokio::select! {
                     response = rx => Ok(response.map(|response| response.response.unwrap())?),
                     _ = stream_closed_observer.while_alive() => {
-                        Err(anyhow::anyhow!("Stream closed while waiting for response"))
+                        Err(buck2_error::buck2_error!(ErrorTag::Tier0, "Stream closed while waiting for response"))
                     },
                 }
             }

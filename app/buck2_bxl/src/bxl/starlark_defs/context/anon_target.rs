@@ -116,7 +116,7 @@ pub(crate) fn register_anon_rule(globals: &mut GlobalsBuilder) {
             StarlarkCallable<'v, (FrozenValue,), UnpackList<FrozenValue>>,
         >,
         eval: &mut Evaluator<'v, '_, '_>,
-    ) -> anyhow::Result<StarlarkRuleCallable<'v>> {
+    ) -> starlark::Result<StarlarkRuleCallable<'v>> {
         StarlarkRuleCallable::new_bxl_anon(
             StarlarkCallable::unchecked_new(r#impl.0),
             attrs,

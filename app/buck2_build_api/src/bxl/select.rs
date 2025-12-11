@@ -317,7 +317,7 @@ fn select_concat_methods(builder: &mut MethodsBuilder) {
     fn select_iter<'v>(
         this: &'v StarlarkSelectConcat,
         heap: &'v Heap,
-    ) -> anyhow::Result<Vec<Value<'v>>> {
+    ) -> starlark::Result<Vec<Value<'v>>> {
         let list = this
             .concat
             .iter()

@@ -50,7 +50,7 @@ pub(crate) fn gen_fbs(
     data: Vec<ConfiguredTargetNode>,
     actions: Vec<(String, ActionEntryData)>,
     changed_files: Vec<ChangedFilesEntryData>,
-) -> anyhow::Result<FlatBufferBuilder<'static>> {
+) -> buck2_error::Result<FlatBufferBuilder<'static>> {
     // associate actions and changed files with targets when possible
     let (target_data, other_actions_data, other_changed_files) = {
         // These are in case we need to debug orphan actions or changed files
@@ -129,7 +129,7 @@ pub(crate) fn gen_fbs(
 fn target_to_fbs<'a>(
     builder: &'_ mut FlatBufferBuilder<'static>,
     data: &'_ TargetData,
-) -> anyhow::Result<WIPOffset<fbs::ConfiguredTargetNode<'a>>, anyhow::Error> {
+) -> buck2_error::Result<WIPOffset<fbs::ConfiguredTargetNode<'a>>> {
     let node = &data.node;
 
     let actions = {

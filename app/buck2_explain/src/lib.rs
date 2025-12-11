@@ -62,7 +62,7 @@ pub async fn main(
     output: Option<&AbsPathBuf>,
     fbs_dump: Option<&AbsPathBuf>,
     manifold_path: Option<&str>,
-) -> anyhow::Result<()> {
+) -> buck2_error::Result<()> {
     let fbs = flatbuffers::gen_fbs(data, executed_actions, changed_files)?;
 
     let fbs = fbs.finished_data();

@@ -20,7 +20,7 @@ use buck2_error::BuckErrorContext;
 use fbinit::FacebookInit;
 
 /// Initializes the panic hook.
-pub fn initialize() -> anyhow::Result<()> {
+pub fn initialize() -> buck2_error::Result<()> {
     let hook = panic::take_hook();
     panic::set_hook(Box::new(move |info| {
         let fb = buck2_common::fbinit::get_or_init_fbcode_globals();
@@ -41,7 +41,7 @@ pub fn initialize() -> anyhow::Result<()> {
             options,
         );
     }))
-    .buck_error_context_anyhow("Error initializing soft errors")?;
+    .buck_error_context("Error initializing soft errors")?;
     Ok(())
 }
 

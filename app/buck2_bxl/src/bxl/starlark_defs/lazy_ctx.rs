@@ -290,7 +290,7 @@ fn lazy_ctx_methods(builder: &mut MethodsBuilder) {
         #[starlark(this)] _this: &'v StarlarkLazyCtx<'v>,
         // Use `ArtifactArg` instead of `StarlarkArtifact` to avoid the confused type mismatch error "Type of parameter 'artifact' doesn't match, expected 'artifact', actual 'artifact'" when given declared artifacts.
         #[starlark(require = pos)] artifact: ArtifactArg<'v>,
-    ) -> anyhow::Result<StarlarkLazy> {
+    ) -> starlark::Result<StarlarkLazy> {
         match artifact {
             ArtifactArg::DeclaredArtifact(_) => {
                 return Err(buck2_error::Error::from(

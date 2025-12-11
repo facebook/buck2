@@ -41,7 +41,6 @@ rust_library(
         "DEFAULT": [],
     }),
     deps = [
-        "fbsource//third-party/rust:anyhow",
         "fbsource//third-party/rust:backtrace",
         "fbsource//third-party/rust:clap",
         "fbsource//third-party/rust:tokio",
@@ -98,7 +97,6 @@ buck_rust_binary(
     }),
     unittests = False,
     deps = [
-        "fbsource//third-party/rust:anyhow",
         "fbsource//third-party/rust:tracing",
         "//buck2/app/buck2:buck2",
         "//buck2/app/buck2_build_info:buck2_build_info",

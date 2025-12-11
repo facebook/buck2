@@ -21,7 +21,6 @@ rust_library(
         "//buck2/starlark-rust/starlark:starlark",
     ],
     deps = [
-        "fbsource//third-party/rust:anyhow",
         "fbsource//third-party/rust:base64",
         "fbsource//third-party/rust:flatbuffers",
         "//buck2/app/buck2_common:buck2_common",

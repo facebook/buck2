@@ -84,7 +84,7 @@ async fn get_channel_uds_no_symlink(connect_to: &Path) -> buck2_error::Result<Ch
         .connect_with_connector(service_fn(move |_: Uri| {
             let io = io
                 .take()
-                .with_buck_error_context_anyhow(|| "Cannot reconnect after connection loss to uds");
+                .ok_or_else(|| "Cannot reconnect after connection loss to uds".to_owned());
             futures::future::ready(io)
         }))
         .await

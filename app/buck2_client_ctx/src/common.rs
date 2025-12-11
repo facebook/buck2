@@ -718,7 +718,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_get_representative_config_flags() -> anyhow::Result<()> {
+    fn test_get_representative_config_flags() -> buck2_error::Result<()> {
         let mut argv = ExpandedArgvBuilder::new();
 
         argv.push("-c".to_owned());
@@ -783,7 +783,7 @@ mod tests {
     }
 
     #[test]
-    fn test_get_representative_config_flags_for_flagfiles() -> anyhow::Result<()> {
+    fn test_get_representative_config_flags_for_flagfiles() -> buck2_error::Result<()> {
         let project_argfile = |path: &str| ArgFilePath::Project(CellPath::testing_new(path));
 
         let external_root = ProjectRootTemp::new().unwrap();
@@ -846,7 +846,7 @@ mod tests {
     }
 
     #[test]
-    fn test_get_representative_config_flags_stops_at_double_dash() -> anyhow::Result<()> {
+    fn test_get_representative_config_flags_stops_at_double_dash() -> buck2_error::Result<()> {
         let mut argv = ExpandedArgvBuilder::new();
 
         argv.push("-c".to_owned());
