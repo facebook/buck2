@@ -17,7 +17,8 @@
 #   + https://github.com/facebook/buck2/blob/2b6c84ef285519a86ad793800296b3cda17e85dd/prelude/python/python_library.bzl#L339-L341
 #   + https://github.com/facebook/buck2/blob/2b6c84ef285519a86ad793800296b3cda17e85dd/prelude/python/python_library.bzl#L290-L306
 
-load("@prelude//python:typing.bzl", "DEFAULT_PY_VERSION")
+# @oss-enable: load("@prelude//python:typing.bzl", "DEFAULT_PY_VERSION")
+load("@prelude//python/meta_only:config.bzl", "DEFAULT_PY_VERSION")  # @oss-disable
 
 _MODULE_SUFFIXES = set([
     ".dll",
