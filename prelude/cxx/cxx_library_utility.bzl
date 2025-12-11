@@ -23,7 +23,6 @@ load(
 load("@prelude//linking:types.bzl", "Linkage")
 load(
     "@prelude//utils:utils.bzl",
-    "flatten",
     "from_named_set",
 )
 load(":cxx_context.bzl", "get_cxx_platform_info", "get_cxx_toolchain_info")
@@ -135,11 +134,17 @@ def cxx_inherited_link_info(first_order_deps: list[Dependency]) -> list[MergedLi
 
 # Linker flags
 def cxx_attr_linker_flags(ctx: AnalysisContext) -> list[typing.Any]:
-    cxx_platform_info = get_cxx_platform_info(ctx)
-    return (
-        ctx.attrs.linker_flags +
-        (flatten(cxx_by_platform(cxx_platform_info, ctx.attrs.platform_linker_flags)) if hasattr(ctx.attrs, "platform_linker_flags") else [])
-    )
+    linker_flags = list(ctx.attrs.linker_flags)
+    platform_linker_flags_attr = getattr(ctx.attrs, "platform_linker_flags", None)
+    if platform_linker_flags_attr:
+        cxx_platform_info = get_cxx_platform_info(ctx)
+        platform_linker_flags = cxx_by_platform(cxx_platform_info, platform_linker_flags_attr)
+
+        # TODO(skrueger): Replace with flatten_to once it exists
+        for platform_linker_flag in platform_linker_flags:
+            linker_flags.extend(platform_linker_flag)
+
+    return linker_flags
 
 # Even though we're returning the shared library links, we must still
 # respect the `link_style` attribute of the target which controls how
