@@ -70,14 +70,14 @@ impl Deferred for FakeDeferred {
         &self,
         _ctx: &mut dyn DeferredCtx,
         _dice: &mut DiceComputations<'_>,
-    ) -> anyhow::Result<DeferredValue<Self::Output>> {
+    ) -> buck2_error::Result<DeferredValue<Self::Output>> {
         self.2.store(true, Ordering::SeqCst);
         Ok(DeferredValue::Ready(UsizeOutput(self.0)))
     }
 }
 
 #[tokio::test]
-async fn lookup_deferred_from_analysis() -> anyhow::Result<()> {
+async fn lookup_deferred_from_analysis() -> buck2_error::Result<()> {
     let target =
         TargetLabel::testing_parse("cell//pkg:foo").configure(ConfigurationData::testing_new());
     let analysis_key = AnalysisKey(target.dupe());
@@ -156,7 +156,7 @@ async fn lookup_deferred_from_analysis() -> anyhow::Result<()> {
 }
 
 #[tokio::test]
-async fn lookup_deferred_that_has_deferreds() -> anyhow::Result<()> {
+async fn lookup_deferred_that_has_deferreds() -> buck2_error::Result<()> {
     #[derive(Debug, Allocative)]
     struct TestDeferringDeferred(usize, IndexSet<DeferredInput>, Arc<AtomicBool>);
 
@@ -175,7 +175,7 @@ async fn lookup_deferred_that_has_deferreds() -> anyhow::Result<()> {
             &self,
             ctx: &mut dyn DeferredCtx,
             _dice: &mut DiceComputations<'_>,
-        ) -> anyhow::Result<DeferredValue<Self::Output>> {
+        ) -> buck2_error::Result<DeferredValue<Self::Output>> {
             let data = ctx
                 .registry()
                 .defer(FakeDeferred(self.0, self.1.clone(), self.2.dupe()));

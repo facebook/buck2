@@ -102,7 +102,7 @@ fn mock_analysis_for_tsets(
 }
 
 #[tokio::test]
-async fn test_ensure_artifact_group() -> anyhow::Result<()> {
+async fn test_ensure_artifact_group() -> buck2_error::Result<()> {
     // Serialize with other tests that use make_tset() and its shared global counter
     let _guard = TSET_TEST_LOCK.lock().unwrap();
 
@@ -202,7 +202,7 @@ async fn test_ensure_artifact_group() -> anyhow::Result<()> {
     let mut extra = UserComputationData::new();
     extra.set_keep_going(true);
 
-    let mut dice = dice_builder.build(extra)?;
+    let mut dice = dice_builder.build(extra).unwrap();
     dice.set_cell_resolver(cell_resolver)?;
     dice.set_buck_out_path(None)?;
     inject_legacy_config_for_test(&mut dice, cell_parent, LegacyBuckConfig::empty())?;

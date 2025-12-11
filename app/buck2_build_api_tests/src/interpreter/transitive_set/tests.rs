@@ -32,7 +32,7 @@ fn transitive_set_tester() -> Tester {
 }
 
 #[test]
-fn test_define_transitive_set() -> anyhow::Result<()> {
+fn test_define_transitive_set() -> buck2_error::Result<()> {
     let mut tester = transitive_set_tester();
     tester.run_starlark_bzl_test(indoc!(
         r#"
@@ -51,7 +51,7 @@ fn test_define_transitive_set() -> anyhow::Result<()> {
 }
 
 #[test]
-fn test_hash_transitive_set() -> anyhow::Result<()> {
+fn test_hash_transitive_set() -> buck2_error::Result<()> {
     let mut tester = transitive_set_tester();
 
     tester.add_import(
@@ -77,7 +77,7 @@ fn test_hash_transitive_set() -> anyhow::Result<()> {
 }
 
 #[test]
-fn test_define_transitive_set_projections() -> anyhow::Result<()> {
+fn test_define_transitive_set_projections() -> buck2_error::Result<()> {
     let mut tester = transitive_set_tester();
     tester.run_starlark_test(indoc!(
         r#"
@@ -95,7 +95,7 @@ fn test_define_transitive_set_projections() -> anyhow::Result<()> {
 }
 
 #[test]
-fn test_create_transitive_set() -> anyhow::Result<()> {
+fn test_create_transitive_set() -> buck2_error::Result<()> {
     let mut tester = transitive_set_tester();
 
     tester.run_starlark_bzl_test(indoc!(
@@ -132,7 +132,7 @@ fn test_create_transitive_set() -> anyhow::Result<()> {
 }
 
 #[test]
-fn test_frozen_transitive_sets() -> anyhow::Result<()> {
+fn test_frozen_transitive_sets() -> buck2_error::Result<()> {
     let mut tester = transitive_set_tester();
 
     tester.add_import(
@@ -166,7 +166,7 @@ fn test_frozen_transitive_sets() -> anyhow::Result<()> {
 }
 
 #[test]
-fn test_transitive_set_display() -> anyhow::Result<()> {
+fn test_transitive_set_display() -> buck2_error::Result<()> {
     let mut tester = transitive_set_tester();
 
     tester.run_starlark_bzl_test(indoc!(
@@ -191,7 +191,7 @@ fn test_transitive_set_display() -> anyhow::Result<()> {
 }
 
 #[test]
-fn test_transitive_sets_projection() -> anyhow::Result<()> {
+fn test_transitive_sets_projection() -> buck2_error::Result<()> {
     let mut tester = transitive_set_tester();
 
     tester.run_starlark_bzl_test(indoc!(
@@ -229,7 +229,7 @@ fn test_transitive_sets_projection() -> anyhow::Result<()> {
 }
 
 #[test]
-fn test_transitive_sets_iteration() -> anyhow::Result<()> {
+fn test_transitive_sets_iteration() -> buck2_error::Result<()> {
     let mut tester = transitive_set_tester();
 
     /* Validate on a simple tree which validates transitive links:
@@ -300,7 +300,7 @@ fn test_transitive_sets_iteration() -> anyhow::Result<()> {
 }
 
 #[test]
-fn test_frozen_transitive_sets_iteration() -> anyhow::Result<()> {
+fn test_frozen_transitive_sets_iteration() -> buck2_error::Result<()> {
     let mut tester = transitive_set_tester();
 
     tester.add_import(
@@ -336,7 +336,7 @@ fn test_frozen_transitive_sets_iteration() -> anyhow::Result<()> {
 }
 
 #[test]
-fn test_projection_args() -> anyhow::Result<()> {
+fn test_projection_args() -> buck2_error::Result<()> {
     let mut tester = transitive_set_tester();
 
     tester.add_import(
@@ -375,7 +375,7 @@ fn test_projection_args() -> anyhow::Result<()> {
 }
 
 #[test]
-fn test_projection_inputs() -> anyhow::Result<()> {
+fn test_projection_inputs() -> buck2_error::Result<()> {
     let mut tester = transitive_set_tester();
 
     tester.run_starlark_bzl_test(indoc!(
@@ -408,7 +408,7 @@ fn test_projection_inputs() -> anyhow::Result<()> {
 }
 
 #[test]
-fn test_projection_iteration() -> anyhow::Result<()> {
+fn test_projection_iteration() -> buck2_error::Result<()> {
     let mut tester = transitive_set_tester();
 
     /*
@@ -451,7 +451,7 @@ fn test_projection_iteration() -> anyhow::Result<()> {
 }
 
 #[test]
-fn test_json_projection() -> anyhow::Result<()> {
+fn test_json_projection() -> buck2_error::Result<()> {
     let mut tester = transitive_set_tester();
 
     /*
@@ -494,7 +494,7 @@ fn test_json_projection() -> anyhow::Result<()> {
 }
 
 #[test]
-fn test_reduction() -> anyhow::Result<()> {
+fn test_reduction() -> buck2_error::Result<()> {
     let mut tester = transitive_set_tester();
 
     tester.run_starlark_bzl_test(indoc!(
@@ -535,7 +535,7 @@ fn test_reduction() -> anyhow::Result<()> {
 }
 
 #[test]
-fn test_definition_type() -> anyhow::Result<()> {
+fn test_definition_type() -> buck2_error::Result<()> {
     let mut tester = transitive_set_tester();
 
     tester.add_import(
@@ -561,7 +561,7 @@ fn test_definition_type() -> anyhow::Result<()> {
 }
 
 #[test]
-fn test_type_1() -> anyhow::Result<()> {
+fn test_type_1() -> buck2_error::Result<()> {
     let mut tester = transitive_set_tester();
 
     tester.run_starlark_bzl_test(indoc!(
@@ -584,7 +584,7 @@ fn test_type_1() -> anyhow::Result<()> {
 }
 
 #[test]
-fn test_type_2() -> anyhow::Result<()> {
+fn test_type_2() -> buck2_error::Result<()> {
     let mut tester = transitive_set_tester();
     let contents = indoc!(
         r#"
@@ -612,7 +612,7 @@ fn test_type_2() -> anyhow::Result<()> {
 }
 
 #[test]
-fn test_transitive_set_ordering_docs() -> anyhow::Result<()> {
+fn test_transitive_set_ordering_docs() -> buck2_error::Result<()> {
     let mut tester = transitive_set_tester();
 
     /*       [A] (root)
@@ -669,7 +669,7 @@ fn test_transitive_set_ordering_docs() -> anyhow::Result<()> {
 }
 
 #[test]
-fn test_accessors() -> anyhow::Result<()> {
+fn test_accessors() -> buck2_error::Result<()> {
     let mut tester = transitive_set_tester();
 
     tester.run_starlark_bzl_test(indoc!(

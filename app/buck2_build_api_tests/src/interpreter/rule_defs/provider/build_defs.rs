@@ -13,7 +13,7 @@ use buck2_interpreter_for_build::interpreter::testing::Tester;
 use indoc::indoc;
 
 #[test]
-fn test_provider() -> anyhow::Result<()> {
+fn test_provider() -> buck2_error::Result<()> {
     // TODO: test restricting field names
     let mut tester = Tester::new().unwrap();
     tester.additional_globals(register_provider);

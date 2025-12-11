@@ -12,7 +12,6 @@ use std::sync::Mutex;
 use std::sync::atomic::AtomicU32;
 use std::sync::atomic::Ordering;
 
-use anyhow::Context as _;
 use buck2_build_api::artifact_groups::deferred::TransitiveSetIndex;
 use buck2_build_api::artifact_groups::deferred::TransitiveSetKey;
 use buck2_build_api::interpreter::rule_defs::transitive_set::FrozenTransitiveSet;
@@ -21,8 +20,9 @@ use buck2_build_api::interpreter::rule_defs::transitive_set::TransitiveSet;
 use buck2_build_api::interpreter::rule_defs::transitive_set::TransitiveSetOrdering;
 use buck2_build_api::interpreter::rule_defs::transitive_set::transitive_set_definition::register_transitive_set;
 use buck2_core::deferred::key::DeferredHolderKey;
+use buck2_error::BuckErrorContext as _;
+use buck2_interpreter::from_freeze::from_freeze_error;
 use indoc::indoc;
-use starlark::StarlarkResultExt;
 use starlark::environment::GlobalsBuilder;
 use starlark::environment::Module;
 use starlark::eval::Evaluator;
@@ -65,7 +65,7 @@ pub(crate) fn tset_factory(builder: &mut GlobalsBuilder) {
 
 pub(crate) fn new_transitive_set(
     code: &str,
-) -> anyhow::Result<OwnedFrozenValueTyped<FrozenTransitiveSet>> {
+) -> buck2_error::Result<OwnedFrozenValueTyped<FrozenTransitiveSet>> {
     let env = Module::new();
 
     let globals = GlobalsBuilder::standard()
@@ -76,28 +76,30 @@ pub(crate) fn new_transitive_set(
 
     buck2_interpreter_for_build::attrs::coerce::testing::to_value(&env, &globals, code);
 
-    let frozen = env.freeze().freeze_error_context("Freeze failed")?;
+    let frozen = env
+        .freeze()
+        .freeze_error_context("Freeze failed")
+        .map_err(from_freeze_error)?;
 
-    let make = frozen.get("make").context("`make` was not found")?;
+    let make = frozen.get("make").expect("`make` was not found");
 
     let env2 = Module::new();
-    let ret = Evaluator::new(&env2)
-        .eval_function(make.owned_value(&env2.frozen_heap()), &[], &[])
-        .into_anyhow_result()?;
+    let ret =
+        Evaluator::new(&env2).eval_function(make.owned_value(&env2.frozen_heap()), &[], &[])?;
 
     env2.set_extra_value(ret);
 
-    let frozen = env2.freeze()?;
+    let frozen = env2.freeze().map_err(from_freeze_error)?;
 
-    Ok(frozen
+    frozen
         .owned_extra_value()
-        .context("Frozen value must be in extra value")?
+        .buck_error_context("Frozen value must be in extra value")?
         .downcast_starlark()
-        .map_err(buck2_error::Error::from)?)
+        .map_err(buck2_error::Error::from)
 }
 
 #[test]
-fn test_new_transitive_set() -> anyhow::Result<()> {
+fn test_new_transitive_set() -> buck2_error::Result<()> {
     let _guard = TSET_TEST_LOCK.lock().unwrap();
     let set = new_transitive_set(indoc!(
         r#"

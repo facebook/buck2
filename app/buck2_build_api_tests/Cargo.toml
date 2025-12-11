@@ -7,7 +7,6 @@ repository = { workspace = true }
 version = "0.1.0"
 
 [dev-dependencies]
-anyhow = { workspace = true }
 assert_matches = { workspace = true }
 async-trait = { workspace = true }
 ctor = { workspace = true }

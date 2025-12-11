@@ -60,7 +60,7 @@ use starlark::values::list_or_tuple::UnpackListOrTuple;
 
 use crate::actions::testings::SimpleUnregisteredAction;
 
-fn get_label(eval: &Evaluator, target: &str) -> anyhow::Result<ConfiguredTargetLabel> {
+fn get_label(eval: &Evaluator, target: &str) -> buck2_error::Result<ConfiguredTargetLabel> {
     let ctx = BuildContext::from_context(eval)?;
     match ParsedPattern::<TargetPatternExtra>::parse_precise(
         target,
@@ -82,7 +82,7 @@ pub(crate) fn artifactory(builder: &mut GlobalsBuilder) {
         package: &str,
         path: &str,
         eval: &mut Evaluator,
-    ) -> anyhow::Result<StarlarkArtifact> {
+    ) -> starlark::Result<StarlarkArtifact> {
         let ctx = BuildContext::from_context(eval)?;
         let package = PackageLabel::new(
             ctx.build_file_cell().name(),
@@ -96,7 +96,7 @@ pub(crate) fn artifactory(builder: &mut GlobalsBuilder) {
         target: &str,
         path: &str,
         eval: &mut Evaluator,
-    ) -> anyhow::Result<StarlarkArtifact> {
+    ) -> starlark::Result<StarlarkArtifact> {
         let target_label = get_label(eval, target)?;
         let id = ActionIndex::new(0);
         let artifact = Artifact::from(BuildArtifact::testing_new(target_label, path, id));
@@ -106,7 +106,7 @@ pub(crate) fn artifactory(builder: &mut GlobalsBuilder) {
     fn declared_artifact<'v>(
         path: &str,
         eval: &mut Evaluator<'v, '_, '_>,
-    ) -> anyhow::Result<StarlarkDeclaredArtifact<'v>> {
+    ) -> starlark::Result<StarlarkDeclaredArtifact<'v>> {
         let target_label = get_label(eval, "//foo:bar")?;
         let mut registry = ActionsRegistry::new(
             DeferredHolderKey::Base(BaseDeferredKey::TargetLabel(target_label)),
@@ -131,7 +131,7 @@ pub(crate) fn artifactory(builder: &mut GlobalsBuilder) {
         target: &str,
         path: &str,
         eval: &mut Evaluator<'v, '_, '_>,
-    ) -> anyhow::Result<StarlarkDeclaredArtifact<'v>> {
+    ) -> starlark::Result<StarlarkDeclaredArtifact<'v>> {
         let target_label = get_label(eval, target)?;
         let mut registry = ActionsRegistry::new(
             DeferredHolderKey::Base(BaseDeferredKey::TargetLabel(target_label.dupe())),
@@ -163,7 +163,7 @@ pub(crate) fn artifactory(builder: &mut GlobalsBuilder) {
         ))
     }
 
-    fn stringify_for_cli<'v>(artifact: ValueAsInputArtifactLike<'v>) -> anyhow::Result<String> {
+    fn stringify_for_cli<'v>(artifact: ValueAsInputArtifactLike<'v>) -> starlark::Result<String> {
         let cell_info = cells(None).unwrap();
         let project_fs =
             ProjectRoot::new(AbsNormPathBuf::try_from(std::env::current_dir().unwrap()).unwrap())
@@ -194,7 +194,7 @@ pub(crate) fn artifactory(builder: &mut GlobalsBuilder) {
         artifact: OutputArtifactArg<'v>,
         associated_artifacts: UnpackListOrTuple<UnpackNonPromiseInputArtifact<'v>>,
         eval: &mut Evaluator<'v, '_, '_>,
-    ) -> anyhow::Result<Value<'v>> {
+    ) -> starlark::Result<Value<'v>> {
         let target_label = get_label(eval, "//foo:bar")?;
         let mut analysis_registry = AnalysisRegistry::new_from_owner(
             BaseDeferredKey::TargetLabel(target_label.dupe()),
@@ -233,7 +233,7 @@ pub(crate) fn artifactory(builder: &mut GlobalsBuilder) {
 
     fn get_associated_artifacts_as_string<'v>(
         artifact: ValueAsInputArtifactLike<'v>,
-    ) -> anyhow::Result<String> {
+    ) -> starlark::Result<String> {
         let associated_artifacts = artifact.0.get_associated_artifacts();
         let s: String = associated_artifacts
             .iter()

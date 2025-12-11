@@ -25,7 +25,7 @@ fn test_artifact_tag_eq() {
 }
 
 #[test]
-fn test_artifact_tag_starlark_eq() -> anyhow::Result<()> {
+fn test_artifact_tag_starlark_eq() -> buck2_error::Result<()> {
     let mut tester = Tester::new()?;
     tester.additional_globals(artifact_tag_factory);
 

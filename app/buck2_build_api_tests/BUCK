@@ -6,7 +6,6 @@ rust_unittest(
     name = "buck2_build_api_tests",
     srcs = glob(["src/**/*.rs"]),
     deps = [
-        "fbsource//third-party/rust:anyhow",
         "fbsource//third-party/rust:assert_matches",
         "fbsource//third-party/rust:async-trait",
         "fbsource//third-party/rust:ctor",

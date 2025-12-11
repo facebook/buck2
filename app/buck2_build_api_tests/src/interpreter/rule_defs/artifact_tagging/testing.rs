@@ -14,7 +14,7 @@ use starlark::starlark_module;
 
 #[starlark_module]
 pub(crate) fn artifact_tag_factory(builder: &mut GlobalsBuilder) {
-    fn make_tag() -> anyhow::Result<ArtifactTag> {
+    fn make_tag() -> starlark::Result<ArtifactTag> {
         Ok(ArtifactTag::new())
     }
 }

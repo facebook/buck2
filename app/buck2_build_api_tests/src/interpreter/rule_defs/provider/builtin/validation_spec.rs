@@ -23,7 +23,7 @@ fn new_tester() -> Tester {
 }
 
 #[test]
-fn test_construction() -> anyhow::Result<()> {
+fn test_construction() -> buck2_error::Result<()> {
     let mut tester = new_tester();
     {
         let test = indoc!(
@@ -49,7 +49,7 @@ fn test_construction() -> anyhow::Result<()> {
 }
 
 #[test]
-fn test_missing_fields_validation() -> anyhow::Result<()> {
+fn test_missing_fields_validation() -> buck2_error::Result<()> {
     let mut tester = new_tester();
     {
         let test = indoc!(
@@ -82,7 +82,7 @@ fn test_missing_fields_validation() -> anyhow::Result<()> {
 }
 
 #[test]
-fn test_validation_failure() -> anyhow::Result<()> {
+fn test_validation_failure() -> buck2_error::Result<()> {
     let mut tester = new_tester();
     {
         let test = indoc!(
@@ -171,7 +171,7 @@ fn test_validation_failure() -> anyhow::Result<()> {
 }
 
 #[test]
-fn test_attributes() -> anyhow::Result<()> {
+fn test_attributes() -> buck2_error::Result<()> {
     let mut tester = new_tester();
     {
         let test = indoc!(

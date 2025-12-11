@@ -57,7 +57,7 @@ use starlark::collections::SmallMap;
 use starlark_map::smallmap;
 
 #[tokio::test]
-async fn test_get_node() -> anyhow::Result<()> {
+async fn test_get_node() -> buck2_error::Result<()> {
     let cfg = ConfigurationData::testing_new();
     let pkg = PackageLabel::testing_parse("cell//foo/bar");
 
@@ -136,7 +136,8 @@ async fn test_get_node() -> anyhow::Result<()> {
     let computations = DiceBuilder::new()
         .mock_and_return(InterpreterResultsKey(pkg), Ok(Arc::new(eval_result)))
         .mock_and_return(ExecutionPlatformsKey, Ok(None))
-        .build(data)?;
+        .build(data)
+        .unwrap();
     let mut computations = computations.commit().await;
 
     let node = computations.get_target_node(&label1).await?;

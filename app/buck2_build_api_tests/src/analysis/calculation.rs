@@ -62,7 +62,7 @@ use itertools::Itertools;
 use starlark_map::ordered_map::OrderedMap;
 
 #[tokio::test]
-async fn test_analysis_calculation() -> anyhow::Result<()> {
+async fn test_analysis_calculation() -> buck2_error::Result<()> {
     let bzlfile = ImportPath::testing_new("cell//pkg:foo.bzl");
     let resolver = CellResolver::testing_with_names_and_paths(&[
         (
@@ -156,7 +156,8 @@ async fn test_analysis_calculation() -> anyhow::Result<()> {
             data.data.set(EventDispatcher::null());
             data.spawner = Arc::new(BuckSpawner::current_runtime().unwrap());
             data
-        })?;
+        })
+        .unwrap();
     setup_interpreter_basic(
         &mut dice,
         resolver,

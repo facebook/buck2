@@ -8,7 +8,6 @@
  * above-listed licenses.
  */
 
-use anyhow::Context;
 use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_artifact::artifact::artifact_type::OutputArtifact;
 use buck2_build_api::actions::impls::json::JsonUnpack;
@@ -32,7 +31,7 @@ use crate::interpreter::rule_defs::artifact::testing::artifactory;
 use crate::interpreter::rule_defs::artifact_tagging::testing::artifact_tag_factory;
 
 #[test]
-fn test_tagging() -> anyhow::Result<()> {
+fn test_tagging() -> buck2_error::Result<()> {
     struct AssertVisitor {
         tag: ArtifactTag,
         artifact: Artifact,
@@ -60,8 +59,10 @@ fn test_tagging() -> anyhow::Result<()> {
             tagged: Value<'v>,
             tag: Value<'v>,
             artifact: ValueAsInputArtifactLike<'v>,
-        ) -> anyhow::Result<Value<'v>> {
-            let tag = ArtifactTag::from_value(tag).context("Invalid tag")?.dupe();
+        ) -> starlark::Result<Value<'v>> {
+            let tag = ArtifactTag::from_value(tag)
+                .buck_error_context("Invalid tag")?
+                .dupe();
 
             let artifact = artifact
                 .0

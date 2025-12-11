@@ -265,7 +265,7 @@ fn command_line_builder() -> buck2_error::Result<()> {
 }
 
 #[test]
-fn test_relative_absolute_old() -> anyhow::Result<()> {
+fn test_relative_absolute_old() -> buck2_error::Result<()> {
     let mut tester = tester()?;
     let contents = indoc!(
         r#"
@@ -287,7 +287,7 @@ fn test_relative_absolute_old() -> anyhow::Result<()> {
 }
 
 #[test]
-fn test_relative_absolute() -> anyhow::Result<()> {
+fn test_relative_absolute() -> buck2_error::Result<()> {
     let mut tester = tester()?;
     let contents = indoc!(
         r#"
@@ -307,7 +307,7 @@ fn test_relative_absolute() -> anyhow::Result<()> {
 }
 
 #[test]
-fn test_relative_to_propagated_up_and_down() -> anyhow::Result<()> {
+fn test_relative_to_propagated_up_and_down() -> buck2_error::Result<()> {
     let mut tester = tester()?;
     let contents = indoc!(
         r#"
@@ -330,7 +330,7 @@ fn test_relative_to_propagated_up_and_down() -> anyhow::Result<()> {
 }
 
 #[test]
-fn test_relative_to_does_not_affect_new_artifacts() -> anyhow::Result<()> {
+fn test_relative_to_does_not_affect_new_artifacts() -> buck2_error::Result<()> {
     let mut tester = tester().unwrap();
     let content = indoc!(
         r#"
@@ -351,7 +351,7 @@ fn test_relative_to_does_not_affect_new_artifacts() -> anyhow::Result<()> {
 }
 
 #[test]
-fn test_parent() -> anyhow::Result<()> {
+fn test_parent() -> buck2_error::Result<()> {
     let mut tester = tester()?;
     let contents = indoc!(
         r#"
@@ -381,7 +381,7 @@ fn test_parent() -> anyhow::Result<()> {
 }
 
 #[test]
-fn test_parent_n() -> anyhow::Result<()> {
+fn test_parent_n() -> buck2_error::Result<()> {
     let mut tester = tester()?;
     let contents = indoc!(
         r#"
@@ -400,7 +400,7 @@ fn test_parent_n() -> anyhow::Result<()> {
 }
 
 #[test]
-fn test_parent_n_too_many_parents() -> anyhow::Result<()> {
+fn test_parent_n_too_many_parents() -> buck2_error::Result<()> {
     let mut tester = tester()?;
 
     let too_many_parent_calls = indoc!(
@@ -423,7 +423,7 @@ fn test_parent_n_too_many_parents() -> anyhow::Result<()> {
 }
 
 #[test]
-fn test_parent_n_parent_type() -> anyhow::Result<()> {
+fn test_parent_n_parent_type() -> buck2_error::Result<()> {
     let mut tester = tester()?;
 
     let bad_count = indoc!(
@@ -446,7 +446,7 @@ fn test_parent_n_parent_type() -> anyhow::Result<()> {
 }
 
 #[test]
-fn test_format() -> anyhow::Result<()> {
+fn test_format() -> buck2_error::Result<()> {
     let mut tester = tester()?;
     let contents = indoc!(
         r#"
@@ -488,7 +488,7 @@ fn test_format() -> anyhow::Result<()> {
 }
 
 #[test]
-fn test_joined_with_empty_args() -> anyhow::Result<()> {
+fn test_joined_with_empty_args() -> buck2_error::Result<()> {
     let mut tester = tester()?;
     let contents = indoc!(
         r#"
@@ -510,7 +510,7 @@ fn test_joined_with_empty_args() -> anyhow::Result<()> {
 }
 
 #[test]
-fn test_inputs_outputs() -> anyhow::Result<()> {
+fn test_inputs_outputs() -> buck2_error::Result<()> {
     let mut tester = tester()?;
     tester.run_starlark_bzl_test(indoc!(
         r#"
@@ -541,7 +541,7 @@ fn test_inputs_outputs() -> anyhow::Result<()> {
 }
 
 #[test]
-fn test_ignore_artifacts() -> anyhow::Result<()> {
+fn test_ignore_artifacts() -> buck2_error::Result<()> {
     let mut tester = tester()?;
     tester.run_starlark_bzl_test(indoc!(
         r#"
@@ -565,7 +565,7 @@ fn test_ignore_artifacts() -> anyhow::Result<()> {
 }
 
 #[test]
-fn test_frozen_inputs_outputs() -> anyhow::Result<()> {
+fn test_frozen_inputs_outputs() -> buck2_error::Result<()> {
     let mut tester = tester()?;
 
     tester.add_import(
@@ -603,7 +603,7 @@ fn test_frozen_inputs_outputs() -> anyhow::Result<()> {
 }
 
 #[test]
-fn test_quote_style_shell() -> anyhow::Result<()> {
+fn test_quote_style_shell() -> buck2_error::Result<()> {
     let mut tester = tester()?;
     let contents = indoc!(
         r#"
@@ -622,7 +622,7 @@ fn test_quote_style_shell() -> anyhow::Result<()> {
 }
 
 #[test]
-fn test_prepend() -> anyhow::Result<()> {
+fn test_prepend() -> buck2_error::Result<()> {
     let mut tester = tester()?;
     let contents = indoc!(
         r#"
@@ -637,7 +637,7 @@ fn test_prepend() -> anyhow::Result<()> {
 }
 
 #[test]
-fn test_list_list() -> anyhow::Result<()> {
+fn test_list_list() -> buck2_error::Result<()> {
     let mut tester = tester()?;
     let contents = indoc!(
         r#"
@@ -652,7 +652,7 @@ fn test_list_list() -> anyhow::Result<()> {
 }
 
 #[test]
-fn test_concat() -> anyhow::Result<()> {
+fn test_concat() -> buck2_error::Result<()> {
     let mut tester = tester()?;
     let contents = indoc!(
         r#"
@@ -681,7 +681,7 @@ fn test_concat() -> anyhow::Result<()> {
 }
 
 #[test]
-fn test_replace_regex() -> anyhow::Result<()> {
+fn test_replace_regex() -> buck2_error::Result<()> {
     let mut tester = tester()?;
     let contents = indoc!(
         r#"
@@ -707,7 +707,7 @@ fn test_replace_regex() -> anyhow::Result<()> {
 }
 
 #[test]
-fn test_replace_regex_old() -> anyhow::Result<()> {
+fn test_replace_regex_old() -> buck2_error::Result<()> {
     let mut tester = tester()?;
     let contents = indoc!(
         r#"
@@ -733,7 +733,7 @@ fn test_replace_regex_old() -> anyhow::Result<()> {
 }
 
 #[test]
-fn test_replace_regex_regex() -> anyhow::Result<()> {
+fn test_replace_regex_regex() -> buck2_error::Result<()> {
     let mut tester = tester()?;
     let contents = indoc!(
         r#"

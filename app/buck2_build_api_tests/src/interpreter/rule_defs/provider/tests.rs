@@ -22,7 +22,7 @@ fn provider_tester() -> Tester {
 }
 
 #[test]
-fn creates_providers() -> anyhow::Result<()> {
+fn creates_providers() -> buck2_error::Result<()> {
     // TODO(nmj): Starlark doesn't let you call 'new_invoker()' on is_mutable types.
     //                 Once that's fixed, make sure we can call 'FooInfo' before the module is
     //                 frozen.

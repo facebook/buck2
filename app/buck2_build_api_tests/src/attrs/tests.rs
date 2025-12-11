@@ -55,7 +55,7 @@ use crate::attrs::resolve::testing::resolution_ctx;
 use crate::attrs::resolve::testing::resolution_ctx_with_providers;
 
 #[test]
-fn test() -> anyhow::Result<()> {
+fn test() -> buck2_error::Result<()> {
     let globals = GlobalsBuilder::standard().with(register_select).build();
 
     let env = Module::new();
@@ -106,7 +106,7 @@ fn test() -> anyhow::Result<()> {
 }
 
 #[test]
-fn test_string() -> anyhow::Result<()> {
+fn test_string() -> buck2_error::Result<()> {
     let env = Module::new();
     let globals = GlobalsBuilder::standard().with(register_select).build();
     let attr = AttrType::string();
@@ -120,7 +120,7 @@ fn test_string() -> anyhow::Result<()> {
 }
 
 #[test]
-fn test_invalid_concat_coercion_into_one_of() -> anyhow::Result<()> {
+fn test_invalid_concat_coercion_into_one_of() -> buck2_error::Result<()> {
     let globals = GlobalsBuilder::standard().with(register_select).build();
 
     let env = Module::new();
@@ -181,7 +181,7 @@ fn test_concat_option_one_of() {
 }
 
 #[test]
-fn test_any() -> anyhow::Result<()> {
+fn test_any() -> buck2_error::Result<()> {
     let heap = Heap::new();
     let value = heap.alloc(vec!["//some:target", "cell1//named:target[foo]"]);
     let attr = AttrType::any();
@@ -219,7 +219,7 @@ fn test_any() -> anyhow::Result<()> {
 }
 
 #[test]
-fn test_option() -> anyhow::Result<()> {
+fn test_option() -> buck2_error::Result<()> {
     let heap = Heap::new();
     let attr = AttrType::option(AttrType::list(AttrType::string()));
 
@@ -245,7 +245,7 @@ fn test_option() -> anyhow::Result<()> {
 }
 
 #[test]
-fn test_dict() -> anyhow::Result<()> {
+fn test_dict() -> buck2_error::Result<()> {
     let env = Module::new();
     let globals = GlobalsBuilder::standard().with(register_select).build();
     let value = to_value(&env, &globals, r#"{"b":["1"],"a":[]}"#);
@@ -294,7 +294,7 @@ fn test_dict() -> anyhow::Result<()> {
 }
 
 #[test]
-fn test_one_of() -> anyhow::Result<()> {
+fn test_one_of() -> buck2_error::Result<()> {
     let heap = Heap::new();
     let value = heap.alloc("one");
     let values = heap.alloc(vec!["test", "extra"]);
@@ -324,7 +324,7 @@ fn test_one_of() -> anyhow::Result<()> {
 }
 
 #[test]
-fn test_label() -> anyhow::Result<()> {
+fn test_label() -> buck2_error::Result<()> {
     let heap = Heap::new();
     let value = heap.alloc(vec!["//some:target", "cell1//named:target[foo]"]);
 
@@ -350,7 +350,7 @@ fn test_label() -> anyhow::Result<()> {
 }
 
 #[test]
-fn test_coerced_deps() -> anyhow::Result<()> {
+fn test_coerced_deps() -> buck2_error::Result<()> {
     let globals = GlobalsBuilder::standard().with(register_select).build();
 
     let env = Module::new();
@@ -400,7 +400,7 @@ fn test_coerced_deps() -> anyhow::Result<()> {
 }
 
 #[test]
-fn test_configured_deps() -> anyhow::Result<()> {
+fn test_configured_deps() -> buck2_error::Result<()> {
     let globals = GlobalsBuilder::standard().with(register_select).build();
 
     let env = Module::new();
@@ -464,7 +464,7 @@ fn test_configured_deps() -> anyhow::Result<()> {
 }
 
 #[test]
-fn test_resolved_deps() -> anyhow::Result<()> {
+fn test_resolved_deps() -> buck2_error::Result<()> {
     let globals = GlobalsBuilder::standard()
         .with(register_select)
         .with(buck2_build_api::interpreter::rule_defs::register_rule_defs)
@@ -513,7 +513,7 @@ fn test_resolved_deps() -> anyhow::Result<()> {
 }
 
 #[test]
-fn test_dep_requires_providers() -> anyhow::Result<()> {
+fn test_dep_requires_providers() -> buck2_error::Result<()> {
     let env = Module::new();
     let (mut resolution_ctx, provider_ids) = resolution_ctx_with_providers(&env);
 
@@ -564,7 +564,7 @@ fn test_source_missing() {
 }
 
 #[test]
-fn test_source_label() -> anyhow::Result<()> {
+fn test_source_label() -> buck2_error::Result<()> {
     let heap = Heap::new();
     let value = heap.alloc(vec![
         "//some:target",
@@ -615,7 +615,7 @@ fn test_source_label() -> anyhow::Result<()> {
 }
 
 #[test]
-fn test_source_label_deps() -> anyhow::Result<()> {
+fn test_source_label_deps() -> buck2_error::Result<()> {
     let globals = GlobalsBuilder::standard().with(register_select).build();
 
     let env = Module::new();
@@ -676,8 +676,12 @@ fn test_source_label_deps() -> anyhow::Result<()> {
 }
 
 #[test]
-fn test_source_label_resolution() -> anyhow::Result<()> {
-    fn resolve_and_test(content: &str, test_content: &str, files: &[&str]) -> anyhow::Result<()> {
+fn test_source_label_resolution() -> buck2_error::Result<()> {
+    fn resolve_and_test(
+        content: &str,
+        test_content: &str,
+        files: &[&str],
+    ) -> buck2_error::Result<()> {
         let env = Module::new();
 
         let globals = GlobalsBuilder::standard()
@@ -750,7 +754,7 @@ fn test_source_label_resolution() -> anyhow::Result<()> {
 }
 
 #[test]
-fn test_single_source_label_fails_if_multiple_returned() -> anyhow::Result<()> {
+fn test_single_source_label_fails_if_multiple_returned() -> buck2_error::Result<()> {
     let heap = Heap::new();
     let value = heap.alloc("//sub/dir:foo[multiple]");
     let env = Module::new();
@@ -769,7 +773,7 @@ fn test_single_source_label_fails_if_multiple_returned() -> anyhow::Result<()> {
 }
 
 #[test]
-fn test_arg() -> anyhow::Result<()> {
+fn test_arg() -> buck2_error::Result<()> {
     let heap = Heap::new();
     let value = heap.alloc("$(exe //some:exe) --file=$(location \"//some:location\")");
 
@@ -835,7 +839,7 @@ fn test_arg() -> anyhow::Result<()> {
 }
 
 #[test]
-fn test_bool() -> anyhow::Result<()> {
+fn test_bool() -> buck2_error::Result<()> {
     let globals = GlobalsBuilder::standard().with(register_select).build();
 
     let env = Module::new();
@@ -878,7 +882,7 @@ fn test_bool() -> anyhow::Result<()> {
 }
 
 #[test]
-fn test_user_placeholders() -> anyhow::Result<()> {
+fn test_user_placeholders() -> buck2_error::Result<()> {
     let env = Module::new();
 
     let globals = GlobalsBuilder::standard()

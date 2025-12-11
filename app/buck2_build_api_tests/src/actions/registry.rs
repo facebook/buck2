@@ -38,7 +38,7 @@ use starlark::values::Heap;
 use crate::actions::testings::SimpleUnregisteredAction;
 
 #[test]
-fn declaring_artifacts() -> anyhow::Result<()> {
+fn declaring_artifacts() -> buck2_error::Result<()> {
     let heap = Heap::new();
     let base = BaseDeferredKey::TargetLabel(ConfiguredTargetLabel::testing_parse(
         "cell//pkg:foo",
@@ -97,7 +97,7 @@ fn declaring_artifacts() -> anyhow::Result<()> {
 }
 
 #[test]
-fn claiming_conflicting_path() -> anyhow::Result<()> {
+fn claiming_conflicting_path() -> buck2_error::Result<()> {
     let mut actions = ActionsRegistry::new(
         DeferredHolderKey::testing_new("cell//pkg:my_target"),
         ExecutionPlatformResolution::unspecified(),
@@ -144,7 +144,7 @@ fn claiming_conflicting_path() -> anyhow::Result<()> {
 }
 
 #[test]
-fn register_actions() -> anyhow::Result<()> {
+fn register_actions() -> buck2_error::Result<()> {
     let heap = Heap::new();
     let base = BaseDeferredKey::TargetLabel(ConfiguredTargetLabel::testing_parse(
         "cell//pkg:foo",
@@ -194,7 +194,7 @@ fn register_actions() -> anyhow::Result<()> {
 }
 
 #[test]
-fn finalizing_actions() -> anyhow::Result<()> {
+fn finalizing_actions() -> buck2_error::Result<()> {
     let heap = Heap::new();
     let base = BaseDeferredKey::TargetLabel(ConfiguredTargetLabel::testing_parse(
         "cell//pkg:foo",

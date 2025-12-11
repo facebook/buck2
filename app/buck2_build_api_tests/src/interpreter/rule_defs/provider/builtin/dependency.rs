@@ -25,7 +25,7 @@ fn dependency_creator(builder: &mut GlobalsBuilder) {
     fn create_collection<'v>(
         s: &str,
         eval: &mut Evaluator<'v, '_, '_>,
-    ) -> anyhow::Result<Dependency<'v>> {
+    ) -> starlark::Result<Dependency<'v>> {
         let c = BuildContext::from_context(eval)?;
         let label = match ParsedPattern::<ProvidersPatternExtra>::parse_precise(
             s,

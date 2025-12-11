@@ -183,7 +183,7 @@ async fn make_default_dice_state(
     dry_run_tracker: Arc<Mutex<Vec<DryRunEntry>>>,
     temp_fs: &ProjectRootTemp,
     mocks: Vec<Box<dyn FnOnce(DiceBuilder) -> DiceBuilder>>,
-) -> anyhow::Result<DiceTransaction> {
+) -> buck2_error::Result<DiceTransaction> {
     let fs = temp_fs.path().dupe();
 
     let cell_resolver = CellResolver::testing_with_name_and_path(
@@ -245,7 +245,7 @@ async fn make_default_dice_state(
     extra.data.set(RunActionKnobs::default());
     extra.spawner = Arc::new(BuckSpawner::current_runtime().unwrap());
 
-    let mut computations = dice_builder.build(extra)?;
+    let mut computations = dice_builder.build(extra).unwrap();
     inject_legacy_config_for_test(
         &mut computations,
         CellName::testing_new("root"),
@@ -258,7 +258,7 @@ async fn make_default_dice_state(
 }
 
 #[tokio::test]
-async fn test_get_action_for_artifact() -> anyhow::Result<()> {
+async fn test_get_action_for_artifact() -> buck2_error::Result<()> {
     buck2_certs::certs::maybe_setup_cryptography();
     let build_artifact = create_test_build_artifact();
     let registered_action = registered_action(
@@ -279,7 +279,8 @@ async fn test_get_action_for_artifact() -> anyhow::Result<()> {
         registered_action.dupe(),
     );
     let mut dice_computations = dice_builder
-        .build(UserComputationData::new())?
+        .build(UserComputationData::new())
+        .unwrap()
         .commit()
         .await;
 
@@ -293,7 +294,7 @@ async fn test_get_action_for_artifact() -> anyhow::Result<()> {
 }
 
 #[tokio::test]
-async fn test_build_action() -> anyhow::Result<()> {
+async fn test_build_action() -> buck2_error::Result<()> {
     buck2_certs::certs::maybe_setup_cryptography();
     let temp_fs = ProjectRootTemp::new()?;
     let build_artifact = create_test_build_artifact();
@@ -344,7 +345,7 @@ async fn test_build_action() -> anyhow::Result<()> {
 }
 
 #[tokio::test]
-async fn test_build_artifact() -> anyhow::Result<()> {
+async fn test_build_artifact() -> buck2_error::Result<()> {
     buck2_certs::certs::maybe_setup_cryptography();
     let temp_fs = ProjectRootTemp::new()?;
     let build_artifact = create_test_build_artifact();
@@ -393,7 +394,7 @@ async fn test_build_artifact() -> anyhow::Result<()> {
 }
 
 #[tokio::test]
-async fn test_ensure_artifact_build_artifact() -> anyhow::Result<()> {
+async fn test_ensure_artifact_build_artifact() -> buck2_error::Result<()> {
     buck2_certs::certs::maybe_setup_cryptography();
     let temp_fs = ProjectRootTemp::new()?;
     let build_artifact = create_test_build_artifact();
@@ -444,7 +445,7 @@ async fn test_ensure_artifact_build_artifact() -> anyhow::Result<()> {
 }
 
 #[tokio::test]
-async fn test_ensure_artifact_source_artifact() -> anyhow::Result<()> {
+async fn test_ensure_artifact_source_artifact() -> buck2_error::Result<()> {
     buck2_certs::certs::maybe_setup_cryptography();
     let digest_config = DigestConfig::testing_default();
 
@@ -464,7 +465,8 @@ async fn test_ensure_artifact_source_artifact() -> anyhow::Result<()> {
     let file_ops = TestFileOps::new_with_files_metadata(btreemap![path => metadata.dupe()]);
     let mut dice_computations = file_ops
         .mock_in_cell(CellName::testing_new("cell"), dice_builder)
-        .build(UserComputationData::new())?
+        .build(UserComputationData::new())
+        .unwrap()
         .commit()
         .await;
 
@@ -493,7 +495,7 @@ async fn test_ensure_artifact_source_artifact() -> anyhow::Result<()> {
 }
 
 #[tokio::test]
-async fn test_ensure_artifact_external_symlink() -> anyhow::Result<()> {
+async fn test_ensure_artifact_external_symlink() -> buck2_error::Result<()> {
     buck2_certs::certs::maybe_setup_cryptography();
     let path = CellPath::new(
         CellName::testing_new("cell"),
@@ -514,7 +516,8 @@ async fn test_ensure_artifact_external_symlink() -> anyhow::Result<()> {
     let file_ops = TestFileOps::new_with_symlinks(btreemap![path => symlink.dupe()]);
     let mut dice_computations = file_ops
         .mock_in_cell(CellName::testing_new("cell"), dice_builder)
-        .build(UserComputationData::new())?
+        .build(UserComputationData::new())
+        .unwrap()
         .commit()
         .await;
 

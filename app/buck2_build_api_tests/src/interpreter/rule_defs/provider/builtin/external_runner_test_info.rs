@@ -22,7 +22,7 @@ fn tester() -> Tester {
 }
 
 #[test]
-fn test_construction() -> anyhow::Result<()> {
+fn test_construction() -> buck2_error::Result<()> {
     let test = indoc!(
         r#"
         def test():
@@ -46,7 +46,7 @@ fn test_construction() -> anyhow::Result<()> {
 }
 
 #[test]
-fn test_validation() -> anyhow::Result<()> {
+fn test_validation() -> buck2_error::Result<()> {
     let mut tester = tester();
     tester.run_starlark_bzl_test_expecting_error(
         indoc!(
@@ -212,7 +212,7 @@ fn test_validation() -> anyhow::Result<()> {
 }
 
 #[test]
-fn test_validation_at_freeze() -> anyhow::Result<()> {
+fn test_validation_at_freeze() -> buck2_error::Result<()> {
     let mut tester = tester();
 
     let res = tester.add_import(

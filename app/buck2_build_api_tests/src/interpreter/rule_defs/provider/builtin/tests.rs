@@ -17,7 +17,7 @@ use indoc::indoc;
 
 /// Test `equals` in generated code for providers.
 #[test]
-fn test_equals() -> anyhow::Result<()> {
+fn test_equals() -> buck2_error::Result<()> {
     let mut tester = Tester::new()?;
 
     tester.additional_globals(register_builtin_providers);
