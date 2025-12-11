@@ -24,6 +24,14 @@ RemoteFileType = ["data", "executable", "exploded_zip"]
 
 TargetCpuType = ["arm", "armv7", "arm64", "x86", "x86_64", "mips", "riscv64"]
 
+def _has_content_based_path_attr():
+    return {
+        "has_content_based_path": attrs.bool(default = select({
+            "DEFAULT": False,
+            # @oss-disable[end= ]: "config//runtime/constraints:android-host-test": True,
+        })),
+    }
+
 alias = prelude_rule(
     name = "alias",
     docs = "",
@@ -424,10 +432,10 @@ export_file = prelude_rule(
                  However, this mode does not work across repositories or if the 'out' property is set.
                  For read-only operations, 'reference' can be more performant.
             """),
-            "has_content_based_path": attrs.bool(default = False),
             "uses_experimental_content_based_path_hashing": attrs.bool(default = False),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
         } |
+        _has_content_based_path_attr() |
         buck.licenses_arg() |
         buck.labels_arg() |
         buck.contacts_arg()
@@ -495,12 +503,12 @@ filegroup = prelude_rule(
                 Cannot be used if `copy` is set to false.
             """),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
-            "has_content_based_path": attrs.bool(default = False),
             "out": attrs.option(attrs.string(), default = None, doc = """
                 The name of the output directory. Defaults to the rule's name.
             """),
             "uses_experimental_content_based_path_hashing": attrs.bool(default = False),
         } |
+        _has_content_based_path_attr() |
         buck.licenses_arg() |
         buck.labels_arg() |
         buck.contacts_arg()
@@ -679,9 +687,9 @@ genrule = prelude_rule(
                 Only valid if the `outs` arg is present. Dictates which of those named outputs are marked as
                 executable.
             """),
-            "has_content_based_path": attrs.bool(default = False),
             "uses_experimental_content_based_path_hashing": attrs.bool(default = False),
         } |
+        _has_content_based_path_attr() |
         genrule_common.env_arg() |
         genrule_common.environment_expansion_separator() |
         {
@@ -761,8 +769,8 @@ http_archive = prelude_rule(
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "sha1": attrs.option(attrs.string(), default = None),
             "size_bytes": attrs.option(attrs.int(), default = None),
-            "has_content_based_path": attrs.bool(default = False),
         } |
+        _has_content_based_path_attr() |
         buck.licenses_arg() |
         buck.labels_arg() |
         buck.contacts_arg()
@@ -855,8 +863,8 @@ http_file = prelude_rule(
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "sha1": attrs.option(attrs.string(), default = None),
             "size_bytes": attrs.option(attrs.int(), default = None),
-            "has_content_based_path": attrs.bool(default = False),
         } |
+        _has_content_based_path_attr() |
         buck.licenses_arg() |
         buck.labels_arg() |
         buck.contacts_arg()
@@ -983,8 +991,8 @@ remote_file = prelude_rule(
             """),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "sha256": attrs.option(attrs.string(), default = None),
-            "has_content_based_path": attrs.bool(default = False),
         } |
+        _has_content_based_path_attr() |
         buck.licenses_arg() |
         buck.labels_arg() |
         buck.contacts_arg()
