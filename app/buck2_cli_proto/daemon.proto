@@ -272,6 +272,7 @@ message ConfiguredTargetsRequest {
   enum OutputFormat {
     TEXT = 0;
     JSON = 1;
+    JSON_REPORT = 2;
   }
 
   ClientContext context = 1;

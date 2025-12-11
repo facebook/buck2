@@ -5,6 +5,7 @@
     "buck.error":"Upgraded warning to failure via $BUCK2_HARD_ERROR\n\nCaused by:\n    root//c:depends_on_incompatible (root//:linux_platform#<HASH>) does not pass compatibility check (will be error in future) because its transitive dep root//c:macos_only_target\n        is incompatible with root//:linux_platform#<HASH> (root//:macos unsatisfied), check the target's compatibility attributes"
   },
   {
+    "buck.target":"root//a:target1",
     "buck.type":"nano_prelude//stub_rules.bzl:stub",
     "buck.deps":[],
     "buck.inputs":[],
@@ -14,6 +15,7 @@
     "within_view":["PUBLIC"]
   },
   {
+    "buck.target":"root//a:target2",
     "buck.type":"nano_prelude//stub_rules.bzl:stub",
     "buck.deps":[],
     "buck.inputs":[],

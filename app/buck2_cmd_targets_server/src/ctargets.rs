@@ -9,7 +9,6 @@
  */
 
 use std::io::Write;
-use std::iter;
 
 use async_trait::async_trait;
 use buck2_build_api::configure_targets::load_compatible_patterns_with_modifiers;
@@ -27,6 +26,7 @@ use buck2_server_ctx::template::ServerCommandTemplate;
 use buck2_server_ctx::template::run_server_command;
 use dice::DiceTransaction;
 
+use crate::targets::fmt::ConfiguredOutputHandler;
 use crate::targets::fmt::create_configured_formatter;
 
 pub async fn configured_targets_command(
@@ -68,7 +68,7 @@ impl ServerCommandTemplate for ConfiguredTargetsServerCommand {
             )
             .await?;
 
-        let formatter = create_configured_formatter(&self.req)?;
+        let output_handler = create_configured_formatter(&self.req)?;
 
         let global_cfg_options = global_cfg_options_from_client_context(
             self.req
@@ -95,59 +95,68 @@ impl ServerCommandTemplate for ConfiguredTargetsServerCommand {
 
         let mut serialized_targets_output = String::new();
         let mut stderr_output = String::new();
-        let mut needs_separator = false;
 
-        formatter.begin(&mut serialized_targets_output);
+        match output_handler {
+            ConfiguredOutputHandler::Formatter(formatter) => {
+                formatter.begin(&mut serialized_targets_output);
 
-        // Format errors
-        for error in result.errors {
-            if let Some(package_with_modifiers) = error.package {
-                // Package-level error
-                if needs_separator {
-                    formatter.separator(&mut serialized_targets_output);
+                // Format errors
+                let mut needs_separator = false;
+                for error in result.errors {
+                    if let Some(package_with_modifiers) = error.package {
+                        // Package-level error
+                        if needs_separator {
+                            formatter.separator(&mut serialized_targets_output);
+                        }
+                        needs_separator = true;
+
+                        let mut stderr_buf = String::new();
+                        formatter.package_error(
+                            package_with_modifiers.package,
+                            &error.error,
+                            &mut serialized_targets_output,
+                            &mut stderr_buf,
+                        );
+                        stderr_output.push_str(&stderr_buf);
+                    } else {
+                        // Target-level error
+                        if needs_separator {
+                            formatter.separator(&mut serialized_targets_output);
+                        }
+                        needs_separator = true;
+
+                        let mut stderr_buf = String::new();
+                        formatter.target_error(
+                            &error.error,
+                            &mut serialized_targets_output,
+                            &mut stderr_buf,
+                        );
+                        stderr_output.push_str(&stderr_buf);
+                    }
                 }
-                needs_separator = true;
 
-                let mut stderr_buf = String::new();
-                formatter.package_error(
-                    package_with_modifiers.package,
-                    &error.error,
-                    &mut serialized_targets_output,
-                    &mut stderr_buf,
-                );
-                stderr_output.push_str(&stderr_buf);
-            } else {
-                // Target-level error
-                if needs_separator {
-                    formatter.separator(&mut serialized_targets_output);
+                // Format compatible targets
+                for node in &result.compatible_targets {
+                    let nodes = std::iter::once(node).chain(node.forward_target());
+                    for node in nodes {
+                        if needs_separator {
+                            formatter.separator(&mut serialized_targets_output);
+                        }
+                        needs_separator = true;
+                        formatter.target(node, &mut serialized_targets_output)?;
+                    }
                 }
-                needs_separator = true;
 
-                let mut stderr_buf = String::new();
-                formatter.target_error(
-                    &error.error,
+                formatter.end(&mut serialized_targets_output);
+            }
+            ConfiguredOutputHandler::JsonReport(json_report_formatter) => {
+                json_report_formatter.format_report(
+                    &result,
                     &mut serialized_targets_output,
-                    &mut stderr_buf,
-                );
-                stderr_output.push_str(&stderr_buf);
+                    &mut stderr_output,
+                )?;
             }
         }
-
-        // Format compatible targets
-        for node in result.compatible_targets.into_iter() {
-            // TODO(nga): we should probably get rid of forward nodes.
-            let nodes = iter::once(&node).chain(node.forward_target());
-
-            for node in nodes {
-                if needs_separator {
-                    formatter.separator(&mut serialized_targets_output);
-                }
-                needs_separator = true;
-                formatter.target(node, &mut serialized_targets_output)?;
-            }
-        }
-
-        formatter.end(&mut serialized_targets_output);
 
         // Print errors to stderr if exists
         if !stderr_output.is_empty() {

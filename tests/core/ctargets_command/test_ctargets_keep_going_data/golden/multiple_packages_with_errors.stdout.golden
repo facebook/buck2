@@ -10,6 +10,7 @@
     "buck.error":"package `root//nonexistent_package:` does not exist\n         ^-----------------------^\n    dir `root//nonexistent_package` does not exist. "
   },
   {
+    "buck.target":"root//a:target1",
     "buck.type":"nano_prelude//stub_rules.bzl:stub",
     "buck.deps":[],
     "buck.inputs":[],
@@ -19,6 +20,7 @@
     "within_view":["PUBLIC"]
   },
   {
+    "buck.target":"root//d:exists",
     "buck.type":"nano_prelude//stub_rules.bzl:stub",
     "buck.deps":[],
     "buck.inputs":[],

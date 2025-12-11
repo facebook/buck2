@@ -1,0 +1,14 @@
+# This file is @generated, regenerate by re-running test with `-- --env BUCK2_UPDATE_GOLDEN=1` appended to the test command
+
+{
+  "compatible_targets": [
+
+  ],
+  "incompatible_targets": [
+  {
+    "buck.target":"root//a:macos_only",
+    "buck.incompatible.cause":"ValidIncompatible",
+    "buck.incompatible.reason":"root//a:macos_only\n    is incompatible with root//:linux_platform#<HASH> (root//:macos unsatisfied), check the target's compatibility attributes"
+  }
+  ]
+}

@@ -1,10 +1,7 @@
 # This file is @generated, regenerate by re-running test with `-- --env BUCK2_UPDATE_GOLDEN=1` appended to the test command
 
-[
-  {
-    "buck.package":"root//nonexistent_package",
-    "buck.error":"package `root//nonexistent_package:` does not exist\n         ^-----------------------^\n    dir `root//nonexistent_package` does not exist. "
-  },
+{
+  "compatible_targets": [
   {
     "buck.target":"root//a:target1",
     "buck.type":"nano_prelude//stub_rules.bzl:stub",
@@ -25,4 +22,8 @@
     "visibility":[],
     "within_view":["PUBLIC"]
   }
-]
+  ],
+  "incompatible_targets": [
+
+  ]
+}

@@ -8,6 +8,8 @@
  * above-listed licenses.
  */
 
+use std::sync::Arc;
+
 use buck2_core::configuration::compatibility::IncompatiblePlatformReason;
 use buck2_core::configuration::compatibility::MaybeCompatible;
 use buck2_core::global_cfg_options::GlobalCfgOptions;
@@ -16,7 +18,6 @@ use buck2_core::pattern::pattern::ModifiersError;
 use buck2_core::pattern::pattern::ParsedPattern;
 use buck2_core::pattern::pattern::ParsedPatternWithModifiers;
 use buck2_core::pattern::pattern_type::TargetPatternExtra;
-use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_events::dispatch::console_message;
 use buck2_node::load_patterns::MissingTargetBehavior;
 use buck2_node::load_patterns::load_patterns;
@@ -29,7 +30,6 @@ use buck2_query::query::syntax::simple::eval::set::TargetSet;
 use dice::DiceComputations;
 use dupe::Dupe;
 use futures::FutureExt;
-use starlark_map::small_set::SmallSet;
 
 // Returns a tuple of compatible targets, incompatible targets, and target-level errors.
 // NOTE: This function returns Result<(..., Vec<Error>)> to support keep-going:
@@ -40,17 +40,17 @@ fn split_compatible_incompatible(
     keep_going: bool,
 ) -> buck2_error::Result<(
     TargetSet<ConfiguredTargetNode>,
-    SmallSet<ConfiguredTargetLabel>,
+    Vec<Arc<IncompatiblePlatformReason>>,
     Vec<buck2_error::Error>,
 )> {
     let mut target_set = TargetSet::new();
-    let mut incompatible_targets = SmallSet::new();
+    let mut incompatible_targets = Vec::new();
     let mut errors = Vec::new();
 
     for res in targets {
         match res {
             Ok(MaybeCompatible::Incompatible(reason)) => {
-                incompatible_targets.insert(reason.target.dupe());
+                incompatible_targets.push(reason);
             }
             Ok(MaybeCompatible::Compatible(target)) => {
                 target_set.insert(target);
@@ -161,6 +161,7 @@ where
 
 pub struct ConfiguredTargetsWithErrors {
     pub compatible_targets: TargetSet<ConfiguredTargetNode>,
+    pub incompatible_targets: Vec<Arc<IncompatiblePlatformReason>>,
     pub errors: Vec<ErrorWithPackageLabel>,
 }
 
@@ -184,7 +185,7 @@ pub async fn get_compatible_targets(
 
     if !incompatible_targets.is_empty() {
         console_message(IncompatiblePlatformReason::skipping_message_for_multiple(
-            incompatible_targets.iter(),
+            incompatible_targets.iter().map(|r| &r.target),
         ));
     }
 
@@ -200,6 +201,7 @@ pub async fn get_compatible_targets(
 
     Ok(ConfiguredTargetsWithErrors {
         compatible_targets,
+        incompatible_targets,
         errors,
     })
 }

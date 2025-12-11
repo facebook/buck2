@@ -10,8 +10,10 @@
 
 use std::collections::BTreeSet;
 use std::fmt::Write;
+use std::iter;
 use std::sync::Arc;
 
+use buck2_build_api::configure_targets::ConfiguredTargetsWithErrors;
 use buck2_cli_proto::ConfiguredTargetsRequest;
 use buck2_cli_proto::HasClientContext;
 use buck2_cli_proto::TargetsRequest;
@@ -21,6 +23,8 @@ use buck2_cli_proto::targets_request::OutputFormat;
 use buck2_cli_proto::targets_request::TargetHashGraphType;
 use buck2_core::bzl::ImportPath;
 use buck2_core::cells::cell_path::CellPath;
+use buck2_core::configuration::compatibility::IncompatiblePlatformReason;
+use buck2_core::configuration::compatibility::IncompatiblePlatformReasonCause;
 use buck2_core::package::PackageLabel;
 use buck2_error::BuckErrorContext;
 use buck2_error::conversion::from_any_with_tag;
@@ -373,6 +377,10 @@ impl ConfiguredTargetFormatter for JsonFormat {
         self.writer.entry_start(buffer);
         let mut is_first_entry = true;
 
+        self.print_attr(buffer, &mut is_first_entry, "buck.target", || {
+            QuotedJson::quote_display(target_node.label().unconfigured())
+        });
+
         self.print_attr(buffer, &mut is_first_entry, TYPE, || {
             QuotedJson::quote_str(&target_node.rule_type().to_string())
         });
@@ -563,6 +571,125 @@ pub(crate) fn print_target_call_stack_after_target(out: &mut String, call_stack:
     }
 }
 
+pub struct JsonReportFormat {
+    json_format: JsonFormat,
+}
+
+impl JsonReportFormat {
+    pub fn new(
+        attributes: Option<RegexSet>,
+        attr_inspect_opts: AttrInspectOptions,
+        target_call_stacks: bool,
+    ) -> Self {
+        Self {
+            json_format: JsonFormat {
+                attributes,
+                attr_inspect_opts,
+                target_call_stacks,
+                package_values: None,
+                writer: JsonWriter { json_lines: false },
+            },
+        }
+    }
+
+    pub fn format_report(
+        &self,
+        result: &ConfiguredTargetsWithErrors,
+        output: &mut String,
+        stderr: &mut String,
+    ) -> buck2_error::Result<()> {
+        output.push_str("{\n  \"compatible_targets\": [\n");
+
+        // Format compatible targets
+        let mut needs_separator = false;
+        for node in &result.compatible_targets {
+            // TODO(nga): we should probably get rid of forward nodes.
+            let nodes = iter::once(node).chain(node.forward_target());
+            for node in nodes {
+                if needs_separator {
+                    self.json_format.writer.separator(output);
+                }
+                needs_separator = true;
+                ConfiguredTargetFormatter::target(&self.json_format, node, output)?;
+            }
+        }
+
+        output.push_str("\n  ],\n  \"incompatible_targets\": [\n");
+
+        // Format incompatible targets
+        let mut needs_separator = false;
+        for reason in &result.incompatible_targets {
+            if needs_separator {
+                self.json_format.writer.separator(output);
+            }
+            needs_separator = true;
+            self.format_incompatible_target(reason, output);
+        }
+
+        output.push_str("\n  ]\n}\n");
+
+        // Errors only to stderr
+        for error in &result.errors {
+            let mut stderr_buf = String::new();
+            if let Some(package) = &error.package {
+                ConfiguredTargetFormatter::package_error(
+                    &self.json_format,
+                    package.package,
+                    &error.error,
+                    &mut String::new(),
+                    &mut stderr_buf,
+                );
+            } else {
+                ConfiguredTargetFormatter::target_error(
+                    &self.json_format,
+                    &error.error,
+                    &mut String::new(),
+                    &mut stderr_buf,
+                );
+            }
+            stderr.push_str(&stderr_buf);
+        }
+
+        Ok(())
+    }
+
+    fn format_incompatible_target(
+        &self,
+        reason: &Arc<IncompatiblePlatformReason>,
+        output: &mut String,
+    ) {
+        self.json_format.writer.entry_start(output);
+        let mut is_first_entry = true;
+
+        self.json_format.writer.entry_item(
+            output,
+            &mut is_first_entry,
+            "buck.target",
+            QuotedJson::quote_display(reason.target.unconfigured()),
+        );
+
+        let cause_str = match &reason.cause {
+            IncompatiblePlatformReasonCause::UnsatisfiedConfig(_) => "ValidIncompatible",
+            IncompatiblePlatformReasonCause::Dependency(_) => "InvalidIncompatible",
+        };
+        self.json_format.writer.entry_item(
+            output,
+            &mut is_first_entry,
+            "buck.incompatible.cause",
+            QuotedJson::quote_str(cause_str),
+        );
+
+        self.json_format.writer.entry_item(
+            output,
+            &mut is_first_entry,
+            "buck.incompatible.reason",
+            QuotedJson::quote_str(&format!("{:#}", reason)),
+        );
+
+        self.json_format.writer.entry_end(output, is_first_entry);
+    }
+}
+
 pub(crate) fn create_formatter(
     request: &TargetsRequest,
     other: &targets_request::Other,
@@ -616,27 +743,47 @@ pub(crate) fn create_formatter(
     }
 }
 
+pub enum ConfiguredOutputHandler {
+    Formatter(Arc<dyn ConfiguredTargetFormatter>),
+    JsonReport(JsonReportFormat),
+}
+
 pub fn create_configured_formatter(
     request: &ConfiguredTargetsRequest,
-) -> buck2_error::Result<Arc<dyn ConfiguredTargetFormatter>> {
+) -> buck2_error::Result<ConfiguredOutputHandler> {
     let output_format = ConfiguredOutputFormat::try_from(request.output_format)?;
     let target_call_stacks = request.client_context()?.target_call_stacks;
 
     match output_format {
-        ConfiguredOutputFormat::Text => Ok(Arc::new(TargetNameFormat {
-            target_call_stacks,
-            target_hash_graph_type: TargetHashGraphType::None,
-        })),
-        ConfiguredOutputFormat::Json => Ok(Arc::new(JsonFormat {
-            attributes: if request.output_attributes.is_empty() {
-                None
-            } else {
-                Some(RegexSet::new(&request.output_attributes)?)
+        ConfiguredOutputFormat::Text => Ok(ConfiguredOutputHandler::Formatter(Arc::new(
+            TargetNameFormat {
+                target_call_stacks,
+                target_hash_graph_type: TargetHashGraphType::None,
             },
-            attr_inspect_opts: AttrInspectOptions::DefinedOnly,
-            target_call_stacks,
-            package_values: None,
-            writer: JsonWriter { json_lines: false },
-        })),
+        ))),
+        ConfiguredOutputFormat::Json => {
+            Ok(ConfiguredOutputHandler::Formatter(Arc::new(JsonFormat {
+                attributes: if request.output_attributes.is_empty() {
+                    None
+                } else {
+                    Some(RegexSet::new(&request.output_attributes)?)
+                },
+                attr_inspect_opts: AttrInspectOptions::DefinedOnly,
+                target_call_stacks,
+                package_values: None,
+                writer: JsonWriter { json_lines: false },
+            })))
+        }
+        ConfiguredOutputFormat::JsonReport => {
+            Ok(ConfiguredOutputHandler::JsonReport(JsonReportFormat::new(
+                if request.output_attributes.is_empty() {
+                    None
+                } else {
+                    Some(RegexSet::new(&request.output_attributes)?)
+                },
+                AttrInspectOptions::DefinedOnly,
+                target_call_stacks,
+            )))
+        }
     }
 }

@@ -35,6 +35,10 @@ pub struct ConfiguredTargetsCommand {
     #[clap(long)]
     json: bool,
 
+    /// Print compatible targets and valid incompatible targets as JSON
+    #[clap(long, conflicts_with = "json")]
+    json_report: bool,
+
     /// Skip missing targets from `BUCK` files when non-glob pattern is specified.
     /// This option does not skip missing packages
     /// and does not ignore errors of `BUCK` file evaluation.
@@ -61,7 +65,9 @@ pub struct ConfiguredTargetsCommand {
 
 impl ConfiguredTargetsCommand {
     fn output_format(&self) -> buck2_error::Result<OutputFormat> {
-        if self.json || !self.attributes.get()?.is_empty() {
+        if self.json_report {
+            Ok(OutputFormat::JsonReport)
+        } else if self.json || !self.attributes.get()?.is_empty() {
             Ok(OutputFormat::Json)
         } else {
             Ok(OutputFormat::Text)
