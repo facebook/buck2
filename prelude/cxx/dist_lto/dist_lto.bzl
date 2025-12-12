@@ -644,6 +644,12 @@ def cxx_gnu_dist_link(
                 opt_object = link_data.opt_object,
                 external_debug_info = link_data.external_debug_info,
             )
+
+            # Even if we pass -gsplit-dwarf=split in the dyanmic_optimize action,
+            # llvm may choose to NOT produce the `external_debug_info` (ie *.dwo) file.
+            # In order to avoid errors later when the *.dwo information can't be found,
+            # we have to include both the *.o and the *.dwo files as exteral_debug_info here.
+            objects_external_debug_info.append(link_data.opt_object)
             objects_external_debug_info.append(link_data.external_debug_info)
         elif artifact.data_type == _DataType("archive"):
             dynamic_optimize_archive(link_data)
