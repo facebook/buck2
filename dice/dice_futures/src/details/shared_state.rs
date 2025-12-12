@@ -240,16 +240,7 @@ impl From<State> for u8 {
 impl SharedStateData {
     /// Returns whether we were already cancelled
     fn notify_cancelled(&self) -> bool {
-        let updated = self
-            .state
-            .compare_exchange(
-                State::Normal.into(),
-                State::Cancelled.into(),
-                Ordering::Relaxed,
-                Ordering::Relaxed,
-            )
-            .map_err(State::from);
-        match updated {
+        match self.move_normal_state_to(State::Cancelled) {
             Ok(_) => {
                 self.cancellation_waker.wake();
                 if let Some(mut wakers) = self.notification_wakers.lock().take() {
@@ -263,39 +254,40 @@ impl SharedStateData {
     }
 
     fn try_disable_cancellation(&self) -> bool {
-        let maybe_updated = self.state.compare_exchange(
-            State::Normal.into(),
-            State::CancellationsDisabled.into(),
-            Ordering::Relaxed,
-            Ordering::Relaxed,
-        );
-
-        match maybe_updated {
+        match self.move_normal_state_to(State::CancellationsDisabled) {
             Ok(_) => true,
-            Err(old) => {
-                let old = State::from(old);
-                matches!(old, State::CancellationsDisabled)
-            }
+            Err(State::CancellationsDisabled) => true,
+            Err(_) => false,
         }
     }
 
     /// Returns whether the future had been cancelled
     fn set_exited(&self) -> bool {
-        let maybe_updated = self
-            .state
-            .compare_exchange(
-                State::Normal.into(),
-                State::Exited.into(),
-                Ordering::Relaxed,
-                Ordering::Relaxed,
-            )
-            .map_err(State::from);
-
-        match maybe_updated {
+        match self.move_normal_state_to(State::Exited) {
             Ok(_) => false,
             Err(State::Cancelled) => true,
             Err(_) => false,
         }
+    }
+
+    /// If the state is currently Normal, update it to the given one and returns `Ok(Normal)`.
+    ///
+    /// Otherwise, returns `Err(current_state)`
+    fn move_normal_state_to(&self, state: State) -> Result<State, State> {
+        // On the orderings: Our choice to use `Relaxed` here instead of `Release` means that no
+        // synchronize-with edge is created between - say - the thread calling `.cancel` and the
+        // thread observing the cancel. That's fine insofar that there's nothing that guarantees
+        // that we would, but we may wish to change that either if some code wants to rely on it or
+        // if we think it's too much of a footgun
+        self.state
+            .compare_exchange(
+                State::Normal.into(),
+                state.into(),
+                Ordering::Relaxed,
+                Ordering::Relaxed,
+            )
+            .map_err(State::from)
+            .map(State::from)
     }
 }
 
