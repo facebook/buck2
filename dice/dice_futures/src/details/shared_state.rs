@@ -139,7 +139,27 @@ struct SharedStateData {
     /// thing after modifying said state.
     cancellation_waker: AtomicWaker,
 
-    /// How many observers are preventing immediate cancellation.
+    /// Tracks the number of open critical sections, generally so that we can know if there are any
+    ///
+    /// It's important to keep in mind that the concept of "critical sections" is pretty much
+    /// orthogonal to the concept of being "cancelled." The existence or non-existence of critical
+    /// sections doesn't prevent a future from being cancelled. The future can still be cancelled by
+    /// calling `.cancel`, and that cancellation is immediately observable eg via checking
+    /// `.is_cancelled` or by cancellation observer wakeups.
+    ///
+    /// Holding open a critical section only causes a future that was cancelled to continue to be
+    /// polled, either to completion or until the number of open critical sections goes to zero.
+    /// Importantly, even if the future was polled to completion, it will still resolve to
+    /// "cancelled." Returning the output of the inner future would be dangerous, since the
+    /// cancellation did really happen and was observable to the inner future.
+    ///
+    /// As a result, even if a future has been cancelled, it may still be running, not just for the
+    /// reason above but also maybe because it has not yet reached an await point since being
+    /// cancelled. We make no effort to prevent opening new critical sections if that happens.
+    /// That's actually not ideal API design, but besides that it's semantically completely ok.
+    ///
+    /// Any cancellation observers created from such critical sections will still resolve
+    /// immediately.
     prevent_cancellation: Mutex<PreventingCancellationCount>,
 
     /// Wakers that expect to be woken up in case of a cancellation
