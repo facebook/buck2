@@ -115,6 +115,7 @@ load("@prelude//utils:expect.bzl", "expect")
 load("@prelude//utils:lazy.bzl", "lazy")
 load(
     "@prelude//utils:utils.bzl",
+    "filter_and_map_idx",
     "flatten",
     "map_val",
     "value_or",
@@ -564,10 +565,10 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
         clang_traces_tset = ctx.actions.tset(
             ClangTracesTSet,
             value = traces,
-            children = [info.clang_traces for info in filter(None, [
-                x.get(ClangTracesInfo)
-                for x in deps_all_exported_first
-            ])],
+            children = [
+                info.clang_traces
+                for info in filter_and_map_idx(ClangTracesInfo, deps_all_exported_first)
+            ],
         )
         providers.append(ClangTracesInfo(clang_traces = clang_traces_tset))
 
@@ -592,10 +593,10 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
         pic_clang_traces_tset = ctx.actions.tset(
             ClangTracesTSet,
             value = pic_traces,
-            children = [info.clang_traces for info in filter(None, [
-                x.get(PicClangTracesInfo)
-                for x in deps_all_exported_first
-            ])],
+            children = [
+                info.clang_traces
+                for info in filter_and_map_idx(PicClangTracesInfo, deps_all_exported_first)
+            ],
         )
         providers.append(PicClangTracesInfo(clang_traces = pic_clang_traces_tset))
 
@@ -819,7 +820,7 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
         providers.append(merge_shared_libraries(
             ctx.actions,
             shared_libs,
-            filter(None, [x.get(SharedLibraryInfo) for x in deps_all_non_exported_first]),
+            filter_and_map_idx(SharedLibraryInfo, deps_all_non_exported_first),
         ))
         providers.append(
             create_unix_env_info(

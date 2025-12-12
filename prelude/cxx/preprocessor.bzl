@@ -11,6 +11,7 @@ load("@prelude//cxx:cxx_utility.bzl", "cxx_attrs_get_allow_cache_upload")
 load("@prelude//cxx:target_sdk_version.bzl", "get_target_sdk_version_flags")
 load(
     "@prelude//utils:utils.bzl",
+    "filter_and_map_idx",
     "flatten",
     "map_val",
     "value_or",
@@ -195,7 +196,7 @@ def cxx_inherited_preprocessor_infos(first_order_deps: list[Dependency]) -> list
     # We filter out nones because some non-cxx rule without such providers could be a dependency, for example
     # cxx_binary "fbcode//one_world/cli/util/process_wrapper:process_wrapper" depends on
     # python_library "fbcode//third-party-buck/$platform/build/glibc:__project__"
-    return filter(None, [x.get(CPreprocessorInfo) for x in first_order_deps])
+    return filter_and_map_idx(CPreprocessorInfo, first_order_deps)
 
 def cxx_merge_cpreprocessors(actions: AnalysisActions, own: list[CPreprocessor], xs: list[CPreprocessorInfo]) -> CPreprocessorInfo:
     kwargs = {"children": [x.set for x in xs]}

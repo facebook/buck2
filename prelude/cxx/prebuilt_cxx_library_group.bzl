@@ -56,7 +56,7 @@ load(
 )
 load("@prelude//unix:providers.bzl", "UnixEnv", "create_unix_env_info")
 load("@prelude//utils:expect.bzl", "expect")
-load("@prelude//utils:utils.bzl", "flatten_dict")
+load("@prelude//utils:utils.bzl", "filter_and_map_idx", "flatten_dict")
 load(":cxx_context.bzl", "get_cxx_toolchain_info")
 load(
     ":cxx_library_utility.bzl",
@@ -351,7 +351,7 @@ def prebuilt_cxx_library_group_impl(ctx: AnalysisContext) -> list[Provider]:
     providers.append(merge_shared_libraries(
         ctx.actions,
         shared_libs,
-        filter(None, [x.get(SharedLibraryInfo) for x in deps + exported_deps]),
+        filter_and_map_idx(SharedLibraryInfo, deps + exported_deps),
     ))
 
     # Create, augment and provide the linkable graph.

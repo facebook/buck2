@@ -695,7 +695,7 @@ def prebuilt_cxx_library_impl(ctx: AnalysisContext) -> list[Provider]:
     providers.append(merge_shared_libraries(
         ctx.actions,
         shared_libs,
-        filter(None, [x.get(SharedLibraryInfo) for x in exported_first_order_deps]),
+        filter_and_map_idx(SharedLibraryInfo, exported_first_order_deps),
     ))
 
     providers.append(
