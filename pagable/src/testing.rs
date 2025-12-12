@@ -44,6 +44,9 @@ use serde::Serialize;
 
 use crate::arc_erase::ArcErase;
 use crate::arc_erase::ArcEraseDyn;
+use crate::storage::DataKey;
+use crate::storage::PagableEraseDyn;
+use crate::storage::PagableStorageHandle;
 use crate::traits::PagableDeserializer;
 use crate::traits::PagableSerializer;
 
@@ -129,6 +132,7 @@ pub struct TestingDeserializer<'de> {
     stashed_ptrs: Vec<(*const (), TypeId)>,
     ptr_index: usize,
     seen_arcs: HashMap<usize, Box<dyn ArcEraseDyn>>,
+    storage: std::sync::Arc<dyn PagableStorageHandle>,
 }
 
 impl<'de> TestingDeserializer<'de> {
@@ -142,6 +146,7 @@ impl<'de> TestingDeserializer<'de> {
             stashed_ptrs,
             ptr_index: 0,
             seen_arcs: HashMap::new(),
+            storage: std::sync::Arc::new(EmptyPagableStorage),
         }
     }
 }
@@ -192,5 +197,24 @@ impl<'de> PagableDeserializer<'de> for TestingDeserializer<'de> {
             self.seen_arcs.insert(identity, Box::new(arc.dupe_strong()));
             Ok(arc)
         }
+    }
+
+    fn storage(&self) -> &std::sync::Arc<dyn PagableStorageHandle> {
+        &self.storage
+    }
+}
+
+struct EmptyPagableStorage;
+
+#[async_trait::async_trait]
+impl PagableStorageHandle for EmptyPagableStorage {
+    async fn deserialize_pagable(&self, _key: &DataKey) -> anyhow::Result<Box<dyn ArcEraseDyn>> {
+        return Err(anyhow::anyhow!(
+            "No storage available for testing deserializer"
+        ));
+    }
+
+    fn schedule_for_paging(&self, _data: Box<dyn PagableEraseDyn>) {
+        // no-op
     }
 }

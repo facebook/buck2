@@ -23,6 +23,7 @@
 use crate::arc_erase::ArcErase;
 use crate::arc_erase::ArcEraseDyn;
 use crate::arc_erase::ArcEraseType;
+use crate::storage::PagableStorageHandle;
 
 /// A convenience trait for types that are pagable serializable/deserializable.
 ///
@@ -143,6 +144,12 @@ pub trait PagableDeserializer<'de> {
     /// If the same Arc was serialized multiple times via `serialize_arc`, this method
     /// should return clones that point to the same allocation (preserving identity).
     fn deserialize_arc<T: ArcErase>(&mut self) -> crate::Result<T>;
+
+    /// Returns a reference to the storage handle used for paging operations.
+    ///
+    /// This allows deserializers to create [`PagableArc`](crate::PagableArc) instances
+    /// that are connected to the appropriate storage backend for future paging.
+    fn storage(&self) -> &std::sync::Arc<dyn PagableStorageHandle>;
 }
 
 pub trait PagableDeserializerDyn<'de> {

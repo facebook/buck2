@@ -26,6 +26,8 @@ pub use pagable_derive::PagableSerialize;
 
 pub mod arc_erase;
 mod impls;
+mod pagable_arc;
+pub mod storage;
 mod test;
 pub mod testing;
 pub mod traits;

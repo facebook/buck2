@@ -6,13 +6,19 @@ repository = { workspace = true }
 version = "0.1.0"
 
 [dependencies]
+allocative = { workspace = true }
 anyhow = { workspace = true }
 async-trait = { workspace = true }
+blake3 = { workspace = true }
 dupe = { workspace = true }
+either = { workspace = true }
 pagable_derive = { workspace = true }
+parking_lot = { workspace = true }
 postcard = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 static_assertions = { workspace = true }
 strong_hash = { workspace = true }
+take_mut = { workspace = true }
+tokio = { workspace = true }
 triomphe = { workspace = true }
