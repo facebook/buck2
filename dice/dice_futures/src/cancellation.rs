@@ -47,7 +47,7 @@ impl CancellationContext {
 
     /// Ignore cancellations while 'CriticalSectionGuard' is held
     pub fn enter_critical_section(&self) -> CriticalSectionGuard<'_> {
-        self.0.begin_ignore_cancellation()
+        self.0.enter_critical_section()
     }
 
     /// Enter a critical section during which the current future (if it supports explicit cancellation)
@@ -131,7 +131,7 @@ impl<'a> CriticalSectionGuard<'a> {
             CriticalSectionGuard::NeverCancelled => {
                 // nothing to do.
             }
-            CriticalSectionGuard::Explicit(inner) => inner.allow_cancellations_again().await,
+            CriticalSectionGuard::Explicit(inner) => inner.exit_critical_section().await,
         }
     }
 

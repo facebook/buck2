@@ -81,7 +81,10 @@ impl CancellableFutureSharedStateView {
     }
 
     pub(crate) fn can_exit(&self) -> bool {
-        self.inner.prevent_cancellation.lock().can_exit()
+        self.inner
+            .prevent_cancellation
+            .lock()
+            .has_open_critical_sections()
     }
 }
 
@@ -97,10 +100,10 @@ pub(crate) struct CancellationContextSharedStateView {
 }
 
 impl CancellationContextSharedStateView {
-    pub(crate) fn enter_structured_cancellation(&self) -> CriticalSectionGuard<'_> {
+    pub(crate) fn enter_critical_section(&self) -> CriticalSectionGuard<'_> {
         let mut shared = self.inner.prevent_cancellation.lock();
 
-        shared.enter_structured_cancellation();
+        shared.enter_critical_section();
 
         CriticalSectionGuard::new_explicit(self)
     }
@@ -112,14 +115,14 @@ impl CancellationContextSharedStateView {
             true
         } else {
             // couldn't prevent cancellation, so release our hold onto the counter
-            shared.exit_prevent_cancellation();
+            shared.exit_critical_section();
             false
         }
     }
 
-    pub(crate) fn exit_prevent_cancellation(&self) -> bool {
+    pub(crate) fn exit_critical_section(&self) -> bool {
         let mut shared = self.inner.prevent_cancellation.lock();
-        shared.exit_prevent_cancellation()
+        shared.exit_critical_section()
     }
 
     #[inline(always)]
@@ -184,16 +187,15 @@ impl SharedStateData {
 struct PreventingCancellationCount(usize);
 
 impl PreventingCancellationCount {
-    /// Does this future not currently prevent its cancellation?
-    fn can_exit(&self) -> bool {
+    fn has_open_critical_sections(&self) -> bool {
         self.0 == 0
     }
 
-    fn enter_structured_cancellation(&mut self) {
+    fn enter_critical_section(&mut self) {
         self.0 += 1;
     }
 
-    fn exit_prevent_cancellation(&mut self) -> bool {
+    fn exit_critical_section(&mut self) -> bool {
         self.0 -= 1;
 
         self.0 == 0

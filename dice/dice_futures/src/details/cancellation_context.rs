@@ -33,9 +33,9 @@ impl<'a> ExplicitCriticalSectionGuard<'a> {
         ))
     }
 
-    pub(crate) async fn allow_cancellations_again(self) {
+    pub(crate) async fn exit_critical_section(self) {
         let context = self.take();
-        if context.exit_prevent_cancellation() {
+        if context.exit_critical_section() {
             // TODO(cjhopman): It seems like this is likely unreliable behavior. The intent here is that by returning
             // Poll::Pending at an await point here, that that Poll::Pending be essentially propagated all the way out
             // of the corresponding cancellable future's poll call so that we can reenter that outermost poll and it can notice
@@ -94,7 +94,7 @@ impl Drop for ExplicitCriticalSectionGuard<'_> {
         if let Some(context) = &self.context {
             // never actually exited during normal poll, but dropping this means we'll never poll
             // again, so just release the `prevent_cancellation`
-            context.exit_prevent_cancellation();
+            context.exit_critical_section();
         }
     }
 }
@@ -104,9 +104,9 @@ pub(crate) struct ExplicitCancellationContext {
 }
 
 impl ExplicitCancellationContext {
-    /// Ignore cancellations while 'PreventCancellation' is held
-    pub(crate) fn begin_ignore_cancellation(&self) -> CriticalSectionGuard<'_> {
-        self.inner.enter_structured_cancellation()
+    /// Ignore cancellations while `CriticalSectionGuard` is held
+    pub(crate) fn enter_critical_section(&self) -> CriticalSectionGuard<'_> {
+        self.inner.enter_critical_section()
     }
 
     /// Enter a critical section during which the current future (if supports explicit cancellation)
@@ -122,7 +122,7 @@ impl ExplicitCancellationContext {
         F: FnOnce() -> Fut + 'a,
         Fut: Future + 'a,
     {
-        let guard = self.begin_ignore_cancellation();
+        let guard = self.enter_critical_section();
         async move {
             let r = make().await;
 
@@ -143,7 +143,7 @@ impl ExplicitCancellationContext {
         Fut: Future + 'a,
         F: FnOnce(CancellationObserver) -> Fut + 'a,
     {
-        let guard = self.begin_ignore_cancellation();
+        let guard = self.enter_critical_section();
 
         async move {
             let r = make(guard.cancellation_observer()).await;
@@ -211,10 +211,10 @@ impl CancellationContextInner {
         }
     }
 
-    pub(crate) fn begin_ignore_cancellation(&self) -> CriticalSectionGuard<'_> {
+    pub(crate) fn enter_critical_section(&self) -> CriticalSectionGuard<'_> {
         match self {
             CancellationContextInner::NeverCancelled => CriticalSectionGuard::NeverCancelled,
-            CancellationContextInner::Explicit(inner) => inner.begin_ignore_cancellation(),
+            CancellationContextInner::Explicit(inner) => inner.enter_critical_section(),
         }
     }
 
