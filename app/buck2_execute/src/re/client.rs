@@ -9,7 +9,10 @@
  */
 
 use std::collections::BTreeMap;
+use std::collections::HashMap;
 use std::sync::Arc;
+use std::sync::LazyLock;
+use std::sync::atomic::AtomicBool;
 use std::time::Duration;
 use std::time::Instant;
 
@@ -28,6 +31,8 @@ use buck2_data::ReQueueOverQuota;
 use buck2_error::BuckErrorContext;
 use buck2_error::buck2_error;
 use buck2_error::conversion::from_any_with_tag;
+use buck2_fs::fs_util;
+use buck2_fs::paths::abs_norm_path::AbsNormPath;
 #[cfg(fbcode_build)]
 use buck2_re_configuration::CASdMode;
 use buck2_re_configuration::RemoteExecutionStaticMetadataImpl;
@@ -517,6 +522,25 @@ fn anticipated_queue_duration(
     Ok(None)
 }
 
+// Debugging tool: A set of action digests to pretend that we got cache misses on regardless of the
+// actual state of the remote cache
+//
+// After we execute an action once, we no longer want to pretend that we got cache misses on it if
+// we execute it again (say, on a subsequent build); the `AtomicBool` in the value deals with that,
+// it's true after the first time we execute the action
+static INDUCED_CACHE_MISSES: LazyLock<Option<HashMap<String, AtomicBool>>> = LazyLock::new(|| {
+    if let Ok(p) = std::env::var("BUCK2_INDUCED_CACHE_MISSES") {
+        let c = fs_util::read_to_string(AbsNormPath::new(&p).unwrap()).unwrap();
+        Some(
+            c.lines()
+                .map(|s| (s.to_owned(), AtomicBool::new(false)))
+                .collect(),
+        )
+    } else {
+        None
+    }
+});
+
 impl RemoteExecutionClientImpl {
     async fn new(re_config: &RemoteExecutionConfig) -> buck2_error::Result<Self> {
         let op_name = "REClientBuilder";
@@ -936,6 +960,14 @@ impl RemoteExecutionClientImpl {
         action_digest: ActionDigest,
         use_case: RemoteExecutorUseCase,
     ) -> buck2_error::Result<Option<ActionResultResponse>> {
+        if let Some(m) = &*INDUCED_CACHE_MISSES {
+            if m.get(&action_digest.to_string())
+                .is_some_and(|b| !b.load(std::sync::atomic::Ordering::Relaxed))
+            {
+                return Ok(None);
+            }
+        }
+
         let res = with_error_handler(
             "action_cache",
             self.get_session_id(),
@@ -1326,6 +1358,13 @@ impl RemoteExecutionClientImpl {
             return Err(test_re_error("Injected error", TCode::FAILED_PRECONDITION));
         }
 
+        let induced_cache_miss = if let Some(m) = &*INDUCED_CACHE_MISSES {
+            m.get(&action_digest.to_string())
+                .filter(|v| !v.load(std::sync::atomic::Ordering::Relaxed))
+        } else {
+            None
+        };
+
         let metadata = RemoteExecutionMetadata {
             platform: Some(re_platform(platform)),
             do_not_cache: skip_cache_write,
@@ -1341,7 +1380,9 @@ impl RemoteExecutionClientImpl {
         };
 
         let request = ExecuteRequest {
-            skip_cache_lookup: self.skip_remote_cache || skip_cache_read,
+            skip_cache_lookup: self.skip_remote_cache
+                || skip_cache_read
+                || induced_cache_miss.is_some(),
             execution_policy: Some(TExecutionPolicy {
                 affinity_keys: vec![identity.affinity_key.clone()],
                 priority: meta_internal_extra_params
@@ -1385,7 +1426,7 @@ impl RemoteExecutionClientImpl {
             ..Default::default()
         };
         let re_action = format!("Execute with digest {}", &action_digest);
-        with_error_handler(
+        let res = with_error_handler(
             re_action.as_str(),
             self.get_session_id(),
             self.execute_impl(
@@ -1400,7 +1441,13 @@ impl RemoteExecutionClientImpl {
             )
             .await,
         )
-        .await
+        .await;
+
+        if let Some(induced_cache_miss) = induced_cache_miss {
+            induced_cache_miss.store(true, std::sync::atomic::Ordering::Relaxed);
+        }
+
+        res
     }
 
     /// Fetches a list of digests from the CAS and casts them to Tree objects.
