@@ -27,10 +27,10 @@ def android_apk_impl(ctx: AnalysisContext) -> list[Provider]:
     resources_info = android_binary_info.resources_info
     validation_outputs = android_binary_info.validation_outputs
 
-    _build_apk = _package_validators_decorator(ctx, build_apk)
+    wrapped_build_apk = _package_validators_decorator(ctx, build_apk)
 
     keystore = ctx.attrs.keystore[KeystoreInfo]
-    output_apk = _build_apk(
+    output_apk = wrapped_build_apk(
         apk_filename = ctx.label.name,
         actions = ctx.actions,
         android_toolchain = ctx.attrs._android_toolchain[AndroidToolchainInfo],
