@@ -11,8 +11,6 @@
 //! Testing utilities for Superconsole.
 use std::any::Any;
 
-use anyhow::Context as _;
-
 use crate::Dimensions;
 use crate::error::OutputError;
 use crate::output::OutputTarget;
@@ -89,23 +87,23 @@ impl SuperConsoleOutput for TestOutput {
 }
 
 pub trait SuperConsoleTestingExt {
-    fn test_output(&self) -> anyhow::Result<&TestOutput>;
-    fn test_output_mut(&mut self) -> anyhow::Result<&mut TestOutput>;
+    fn test_output(&self) -> &TestOutput;
+    fn test_output_mut(&mut self) -> &mut TestOutput;
 }
 
 impl SuperConsoleTestingExt for SuperConsole {
-    fn test_output(&self) -> anyhow::Result<&TestOutput> {
+    fn test_output(&self) -> &TestOutput {
         self.output
             .as_any()
             .downcast_ref()
-            .context("Downcast failed")
+            .expect("Downcast failed")
     }
 
-    fn test_output_mut(&mut self) -> anyhow::Result<&mut TestOutput> {
+    fn test_output_mut(&mut self) -> &mut TestOutput {
         self.output
             .as_any_mut()
             .downcast_mut()
-            .context("Downcast failed")
+            .expect("Downcast failed")
     }
 }
 

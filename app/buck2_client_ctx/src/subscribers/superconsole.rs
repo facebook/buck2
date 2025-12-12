@@ -1022,7 +1022,6 @@ mod tests {
     use buck2_data::LoadBuildFileStart;
     use buck2_data::SpanEndEvent;
     use buck2_data::SpanStartEvent;
-    use buck2_error::conversion::from_any_with_tag;
     use buck2_event_observer::span_tracker::EventTimestamp;
     use buck2_events::span::SpanId;
     use dupe::Dupe;
@@ -1186,7 +1185,6 @@ mod tests {
             StatefulSuperConsole::Running(c) => c
                 .super_console
                 .test_output_mut()
-                .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::SuperConsole))?
                 .frames
                 .pop()
                 .buck_error_context("No frame was emitted")?,
@@ -1292,7 +1290,6 @@ mod tests {
             StatefulSuperConsole::Running(c) => c
                 .super_console
                 .test_output_mut()
-                .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::SuperConsole))?
                 .frames
                 .pop()
                 .buck_error_context("No frame was emitted")?,

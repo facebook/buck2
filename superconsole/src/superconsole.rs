@@ -96,7 +96,7 @@ impl SuperConsole {
     pub fn compatible() -> bool {
         // Superconsole only renders on the stderr, so we can display the superconsole
         // even if someone does `command > out.txt`.
-        io::stderr().is_tty() && !Self::is_term_dumb() && enable_ansi_support().is_ok()
+        io::stderr().is_tty() && !Self::is_term_dumb() && enable_ansi_support()
     }
 
     fn is_term_dumb() -> bool {
@@ -390,15 +390,15 @@ mod tests {
         let root = Echo(Lines(vec![vec!["state"].try_into()?]));
 
         console.render(&root)?;
-        assert_eq!(console.test_output()?.frames.len(), 1);
+        assert_eq!(console.test_output().frames.len(), 1);
 
-        console.test_output_mut()?.should_render = false;
+        console.test_output_mut().should_render = false;
         console.render(&root)?;
-        assert_eq!(console.test_output()?.frames.len(), 1);
+        assert_eq!(console.test_output().frames.len(), 1);
 
         console.emit(Lines(vec![vec!["line 1"].try_into()?]));
         console.render(&root)?;
-        assert_eq!(console.test_output()?.frames.len(), 1);
+        assert_eq!(console.test_output().frames.len(), 1);
 
         Ok(())
     }
@@ -411,17 +411,17 @@ mod tests {
 
         let root = Echo(Lines(vec![vec!["state"].try_into()?]));
 
-        console.test_output_mut()?.should_render = false;
+        console.test_output_mut().should_render = false;
         console.emit(Lines(vec![vec!["line 1"].try_into()?]));
         console.render(&root)?;
-        assert_eq!(console.test_output()?.frames.len(), 0);
+        assert_eq!(console.test_output().frames.len(), 0);
 
-        console.test_output_mut()?.should_render = true;
+        console.test_output_mut().should_render = true;
         console.emit(Lines(vec![vec!["line 2"].try_into()?]));
         console.render(&root)?;
 
         let frame = console
-            .test_output_mut()?
+            .test_output_mut()
             .frames
             .pop()
             .context("No frame was emitted")?;
@@ -440,13 +440,13 @@ mod tests {
 
         let root = Echo(Lines(vec![vec!["state"].try_into()?]));
 
-        console.test_output_mut()?.should_render = false;
+        console.test_output_mut().should_render = false;
         console.emit(Lines(vec![vec!["line 1"].try_into()?]));
         console.emit(Lines(vec![vec!["line 2"].try_into()?]));
         console.render_with_mode(&root, DrawMode::Final)?;
 
         let frame = console
-            .test_output_mut()?
+            .test_output_mut()
             .frames
             .pop()
             .context("No frame was emitted")?;
@@ -481,7 +481,7 @@ mod tests {
             vec!["number 4"].try_into()?,
         ])))?;
 
-        let frames = &console.test_output()?.frames;
+        let frames = &console.test_output().frames;
         assert_eq!(frames.len(), 4);
         // We expect the URL to be omitted on some frames, because it didn't change.
         let expect_url = [0, 2];
@@ -508,7 +508,7 @@ mod tests {
 
         // Since we emit aux, we don't output the whole frame once in TestConsole
         let frame: Vec<u8> = console
-            .test_output_mut()?
+            .test_output_mut()
             .frames
             .iter()
             .flatten()
@@ -540,7 +540,7 @@ mod tests {
 
         // Since we emit aux, we don't output the whole frame once in TestConsole
         let frame: Vec<u8> = console
-            .test_output_mut()?
+            .test_output_mut()
             .frames
             .iter()
             .flatten()
@@ -568,19 +568,19 @@ mod tests {
         let root = Echo(Lines(vec![vec!["state"].try_into()?]));
 
         // Block rendering and emit auxiliary output
-        console.test_output_mut()?.should_render = false;
+        console.test_output_mut().should_render = false;
         console.emit_aux(Lines(vec![vec!["aux line 1"].try_into()?]));
         console.render(&root)?;
-        assert_eq!(console.test_output()?.frames.len(), 0);
+        assert_eq!(console.test_output().frames.len(), 0);
 
         // Unblock rendering and check if auxiliary output is rendered
-        console.test_output_mut()?.should_render = true;
+        console.test_output_mut().should_render = true;
         console.emit_aux(Lines(vec![vec!["aux line 2"].try_into()?]));
         console.render(&root)?;
 
         // Since we emit aux, we don't output the whole frame once in TestConsole
         let frame: Vec<u8> = console
-            .test_output_mut()?
+            .test_output_mut()
             .frames
             .iter()
             .flatten()
@@ -612,7 +612,7 @@ mod tests {
 
         // Since we emit aux, we don't output the whole frame once in TestConsole
         let frame: Vec<u8> = console
-            .test_output_mut()?
+            .test_output_mut()
             .frames
             .iter()
             .flatten()
@@ -642,7 +642,7 @@ mod tests {
 
         // Since we emit aux, we don't output the whole frame once in TestConsole
         let frame: Vec<u8> = console
-            .test_output_mut()?
+            .test_output_mut()
             .frames
             .iter()
             .flatten()
