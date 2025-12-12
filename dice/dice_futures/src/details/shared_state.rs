@@ -21,7 +21,10 @@ use futures::task::AtomicWaker;
 use parking_lot::Mutex;
 use slab::Slab;
 
+use crate::cancellation::CancelledError;
 use crate::cancellation::CriticalSectionGuard;
+use crate::cancellation::DisableCancellationGuard;
+use crate::cancellation::ExplicitlyCancellableResult;
 
 /// Shared cancellation related execution context for a cancellable task.
 ///
@@ -31,8 +34,8 @@ pub(crate) struct CancellationHandleSharedStateView {
 }
 
 impl CancellationHandleSharedStateView {
-    pub(crate) fn cancel(&self) -> bool {
-        !self.inner.notify_cancelled()
+    pub(crate) fn cancel(&self) {
+        self.inner.notify_cancelled();
     }
 }
 
@@ -76,11 +79,11 @@ impl CancellableFutureSharedStateView {
         self.inner.cancellation_waker.register(cx.waker());
     }
 
-    pub(crate) fn set_exited(&self) -> bool {
+    pub(crate) fn set_exited(&self) -> ExplicitlyCancellableResult<()> {
         self.inner.set_exited()
     }
 
-    pub(crate) fn can_exit(&self) -> bool {
+    pub(crate) fn has_open_critical_sections(&self) -> HasOpenCriticalSections {
         self.inner
             .prevent_cancellation
             .lock()
@@ -99,6 +102,12 @@ pub(crate) struct CancellationContextSharedStateView {
     inner: Arc<SharedStateData>,
 }
 
+#[derive(Debug)]
+pub(crate) enum HasOpenCriticalSections {
+    Yes,
+    No,
+}
+
 impl CancellationContextSharedStateView {
     pub(crate) fn enter_critical_section(&self) -> CriticalSectionGuard<'_> {
         let mut shared = self.inner.prevent_cancellation.lock();
@@ -109,7 +118,7 @@ impl CancellationContextSharedStateView {
     }
 
     /// Also consumes an instance of a `CriticalSectionGuard`
-    pub(crate) fn try_disable_cancellation(&self) -> bool {
+    pub(crate) fn try_disable_cancellation(&self) -> Option<DisableCancellationGuard> {
         // Note that the requirement that this consume a critical section is entirely cosmetic.
         // However, there are legitimate ways in which we may one day want to change the API - such
         // as statically promising that we either succeed or that the future was cancelled - for
@@ -118,7 +127,7 @@ impl CancellationContextSharedStateView {
         self.inner.try_disable_cancellation()
     }
 
-    pub(crate) fn exit_critical_section(&self) -> bool {
+    pub(crate) fn exit_critical_section(&self) -> HasOpenCriticalSections {
         let mut shared = self.inner.prevent_cancellation.lock();
         shared.exit_critical_section()
     }
@@ -185,18 +194,22 @@ impl SharedStateData {
 struct PreventingCancellationCount(usize);
 
 impl PreventingCancellationCount {
-    fn has_open_critical_sections(&self) -> bool {
-        self.0 == 0
+    fn has_open_critical_sections(&self) -> HasOpenCriticalSections {
+        if self.0 == 0 {
+            HasOpenCriticalSections::No
+        } else {
+            HasOpenCriticalSections::Yes
+        }
     }
 
     fn enter_critical_section(&mut self) {
         self.0 += 1;
     }
 
-    fn exit_critical_section(&mut self) -> bool {
+    fn exit_critical_section(&mut self) -> HasOpenCriticalSections {
         self.0 -= 1;
 
-        self.0 == 0
+        self.has_open_critical_sections()
     }
 }
 
@@ -239,34 +252,28 @@ impl From<State> for u8 {
 
 impl SharedStateData {
     /// Returns whether we were already cancelled
-    fn notify_cancelled(&self) -> bool {
-        match self.move_normal_state_to(State::Cancelled) {
-            Ok(_) => {
-                self.cancellation_waker.wake();
-                if let Some(mut wakers) = self.observer_wakers.lock().take() {
-                    wakers.drain().for_each(|waker| waker.wake());
-                }
-                false
+    fn notify_cancelled(&self) {
+        if self.move_normal_state_to(State::Cancelled).is_ok() {
+            self.cancellation_waker.wake();
+            if let Some(mut wakers) = self.observer_wakers.lock().take() {
+                wakers.drain().for_each(|waker| waker.wake());
             }
-            Err(State::Cancelled) => true,
-            Err(_) => false,
         }
     }
 
-    fn try_disable_cancellation(&self) -> bool {
+    fn try_disable_cancellation(&self) -> Option<DisableCancellationGuard> {
         match self.move_normal_state_to(State::CancellationsDisabled) {
-            Ok(_) => true,
-            Err(State::CancellationsDisabled) => true,
-            Err(_) => false,
+            Ok(_) => Some(DisableCancellationGuard),
+            Err(State::CancellationsDisabled) => Some(DisableCancellationGuard),
+            Err(_) => None,
         }
     }
 
-    /// Returns whether the future had been cancelled
-    fn set_exited(&self) -> bool {
+    fn set_exited(&self) -> ExplicitlyCancellableResult<()> {
         match self.move_normal_state_to(State::Exited) {
-            Ok(_) => false,
-            Err(State::Cancelled) => true,
-            Err(_) => false,
+            Ok(_) => Ok(()),
+            Err(State::Cancelled) => Err(CancelledError),
+            Err(_) => Ok(()),
         }
     }
 

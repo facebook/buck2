@@ -27,6 +27,7 @@ use crate::cancellation::CancellationHandle;
 use crate::cancellation::CancelledError;
 use crate::cancellation::ExplicitlyCancellableResult;
 use crate::details::shared_state::CancellableFutureSharedStateView;
+use crate::details::shared_state::HasOpenCriticalSections;
 use crate::drop_on_ready::DropOnReadyFuture;
 use crate::owning_future::OwningFuture;
 
@@ -105,7 +106,12 @@ impl<T> ExplicitlyCancellableFutureInner<T> {
     ) -> Poll<ExplicitlyCancellableResult<T>> {
         let is_cancelled = self.view.is_cancelled();
 
-        if is_cancelled && self.view.can_exit() {
+        if is_cancelled
+            && matches!(
+                self.view.has_open_critical_sections(),
+                HasOpenCriticalSections::No
+            )
+        {
             return Poll::Ready(ExplicitlyCancellableResult::Err(CancelledError));
         }
 
@@ -115,7 +121,12 @@ impl<T> ExplicitlyCancellableFutureInner<T> {
 
         // If we were using structured cancellation but just exited the critical section, then we
         // should exit now.
-        if is_cancelled && self.view.can_exit() {
+        if is_cancelled
+            && matches!(
+                self.view.has_open_critical_sections(),
+                HasOpenCriticalSections::No
+            )
+        {
             return Poll::Ready(ExplicitlyCancellableResult::Err(CancelledError));
         }
 
@@ -144,7 +155,9 @@ impl<T> Future for ExplicitlyCancellableFutureInner<T> {
 
         // When we exit, release our waker to ensure we don't keep create a reference cycle for
         // this task.
-        if poll.is_ready() && self.view.set_exited() {
+        if poll.is_ready()
+            && let Err(CancelledError) = self.view.set_exited()
+        {
             return Poll::Ready(ExplicitlyCancellableResult::Err(CancelledError));
         }
 

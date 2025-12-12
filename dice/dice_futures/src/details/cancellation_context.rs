@@ -21,6 +21,7 @@ use crate::cancellation::CriticalSectionGuard;
 use crate::cancellation::DisableCancellationGuard;
 use crate::details::shared_state::CancellationContextSharedStateView;
 use crate::details::shared_state::CancellationObserverFuture;
+use crate::details::shared_state::HasOpenCriticalSections;
 
 pub struct ExplicitCriticalSectionGuard<'a> {
     pub(crate) context: Option<&'a CancellationContextSharedStateView>,
@@ -35,7 +36,7 @@ impl<'a> ExplicitCriticalSectionGuard<'a> {
 
     pub(crate) async fn exit_critical_section(self) {
         let context = self.take();
-        if context.exit_critical_section() {
+        if matches!(context.exit_critical_section(), HasOpenCriticalSections::No) {
             // TODO(cjhopman): It seems like this is likely unreliable behavior. The intent here is that by returning
             // Poll::Pending at an await point here, that that Poll::Pending be essentially propagated all the way out
             // of the corresponding cancellable future's poll call so that we can reenter that outermost poll and it can notice
@@ -77,11 +78,7 @@ impl<'a> ExplicitCriticalSectionGuard<'a> {
 
     pub(crate) fn try_disable_cancellation(self) -> Option<DisableCancellationGuard> {
         let context = self.take();
-        if context.try_disable_cancellation() {
-            Some(DisableCancellationGuard)
-        } else {
-            None
-        }
+        context.try_disable_cancellation()
     }
 
     fn take(mut self) -> &'a CancellationContextSharedStateView {

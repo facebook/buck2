@@ -202,9 +202,7 @@ impl CancellationHandle {
     /// Attempts to cancel the future this handle is associated with as soon as possible, returning
     /// a future that completes when the future is canceled.
     pub fn cancel(self) {
-        if !self.view.cancel() {
-            unreachable!("We consume the CancellationHandle on cancel, so this isn't possible")
-        }
+        self.view.cancel();
     }
 
     pub fn into_dropcancel(self) -> DropcancelHandle {
@@ -233,9 +231,7 @@ impl DropcancelHandle {
 
 impl Drop for DropcancelHandle {
     fn drop(&mut self) {
-        if !self.view.cancel() {
-            unreachable!("We consume the handle on cancel, so this isn't possible")
-        }
+        self.view.cancel();
         unsafe { ManuallyDrop::drop(&mut self.view) };
     }
 }
