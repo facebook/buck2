@@ -7,6 +7,7 @@
 # above-listed licenses.
 
 import argparse
+import os
 import pathlib
 import subprocess
 import sys
@@ -50,6 +51,22 @@ def _args_parser() -> argparse.ArgumentParser:
 
 def main() -> None:
     args = _args_parser().parse_args()
+
+    uname_info = os.uname()
+    sysname = uname_info.sysname
+    major_release = int(uname_info.release.split(".")[0])
+
+    # macOS 26.0.0 Tahoe no longer supports SHA1 as an option in the codesign tool.
+    if (
+        "--digest-algorithm=sha1" in args.additional_flags
+        and sysname == "Darwin"
+        and major_release
+        >= 25  # Darwin kernel release 25.0.0 corresponds to macOS 26.0.0 Tahoe
+    ):
+        print(
+            "Removing --digest-algorithm=sha1 because it is no longer supported on macOS 26.0.0"
+        )
+        args.additional_flags.remove("--digest-algorithm=sha1")
 
     codesign_command = [
         CODESIGN_BINARY,
