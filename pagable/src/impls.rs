@@ -8,6 +8,7 @@
  * above-listed licenses.
  */
 
+mod arc;
 mod collections;
 mod serde;
 mod std;

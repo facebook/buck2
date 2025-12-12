@@ -13,6 +13,9 @@
 //! This module provides simple serializer and deserializer implementations
 //! for testing pagable types. The testing implementations store stashed
 //! pointers in memory along with their type IDs for runtime type checking.
+//! Arcs serialized via `serialize_arc` are serialized inline into the byte stream,
+//! and arc identity is preserved across serialization (duplicate arcs are
+//! only serialized once).
 //!
 //! # Example
 //!
@@ -31,22 +34,30 @@
 //! ```
 
 use std::any::TypeId;
+use std::collections::HashMap;
+use std::collections::HashSet;
 
 use postcard::de_flavors::Slice;
 use postcard::ser_flavors::Flavor;
+use serde::Deserialize;
 use serde::Serialize;
 
+use crate::arc_erase::ArcErase;
+use crate::arc_erase::ArcEraseDyn;
 use crate::traits::PagableDeserializer;
 use crate::traits::PagableSerializer;
 
 /// A simple in-memory serializer for testing pagable types.
 ///
 /// This serializer uses postcard for serde serialization and stores stashed
-/// pointers in a vector along with their type IDs. After serialization,
+/// pointers in a vector along with their type IDs. Arcs serialized via `serialize_arc`
+/// are serialized inline into the byte stream, with arc identity preserved
+/// (duplicate arcs are only serialized once). After serialization,
 /// call [`finish`](Self::finish) to retrieve the serialized bytes and pointers.
 pub struct TestingSerializer {
     serde: postcard::Serializer<postcard::ser_flavors::StdVec>,
     stashed_ptrs: Vec<(*const (), TypeId)>,
+    seen_arcs: HashSet<usize>,
 }
 
 impl TestingSerializer {
@@ -57,6 +68,7 @@ impl TestingSerializer {
                 output: postcard::ser_flavors::StdVec::new(),
             },
             stashed_ptrs: Vec::new(),
+            seen_arcs: HashSet::new(),
         }
     }
 
@@ -91,17 +103,32 @@ impl PagableSerializer for TestingSerializer {
     fn serde(&mut self) -> &mut postcard::Serializer<postcard::ser_flavors::StdVec> {
         &mut self.serde
     }
+
+    fn serialize_arc<T: ArcErase>(&mut self, arc: T) -> crate::Result<()> {
+        let identity = arc.identity();
+        // Always write identity first
+        self.serialize_serde_flattened(&identity)?;
+
+        if self.seen_arcs.insert(identity) {
+            // First time seeing this arc, serialize its contents
+            arc.serialize_inner(self)?;
+        }
+        // If already seen, nothing more to write - identity is enough
+        Ok(())
+    }
 }
 
 /// A simple in-memory deserializer for testing pagable types.
 ///
 /// This deserializer uses postcard for serde deserialization and retrieves
-/// stashed pointers from a vector. Type IDs are checked during unstashing
-/// to catch type mismatches.
+/// stashed pointers from a vector. Arcs are deserialized inline from the byte
+/// stream, with arc identity preserved (duplicate arcs point to the same
+/// allocation). Type IDs are checked during unstashing to catch type mismatches.
 pub struct TestingDeserializer<'de> {
     serde: postcard::Deserializer<'de, Slice<'de>>,
     stashed_ptrs: Vec<(*const (), TypeId)>,
     ptr_index: usize,
+    seen_arcs: HashMap<usize, Box<dyn ArcEraseDyn>>,
 }
 
 impl<'de> TestingDeserializer<'de> {
@@ -114,6 +141,7 @@ impl<'de> TestingDeserializer<'de> {
             serde: postcard::Deserializer::from_bytes(bytes),
             stashed_ptrs,
             ptr_index: 0,
+            seen_arcs: HashMap::new(),
         }
     }
 }
@@ -138,5 +166,31 @@ impl<'de> PagableDeserializer<'de> for TestingDeserializer<'de> {
         }
         self.ptr_index += 1;
         Ok(ptr as *const T)
+    }
+
+    fn deserialize_arc<T: ArcErase>(&mut self) -> crate::Result<T> {
+        // Read identity first
+        let identity: usize = Deserialize::deserialize(self.serde())?;
+
+        if let Some(arc_dyn) = self.seen_arcs.get(&identity) {
+            // Already seen - downcast and dupe
+            let arc = arc_dyn
+                .as_arc_any()
+                .downcast_ref::<T>()
+                .ok_or_else(|| {
+                    anyhow::anyhow!(
+                        "Type mismatch on deserialize_arc: expected {}, got {}",
+                        std::any::type_name::<T>(),
+                        arc_dyn.type_name()
+                    )
+                })?
+                .dupe_strong();
+            Ok(arc)
+        } else {
+            // First time - deserialize, store in map, return
+            let arc = T::deserialize_inner(self)?;
+            self.seen_arcs.insert(identity, Box::new(arc.dupe_strong()));
+            Ok(arc)
+        }
     }
 }

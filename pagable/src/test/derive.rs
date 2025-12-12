@@ -77,6 +77,55 @@ mod inner {
             assert_eq!(t2.keep, "keep");
             Ok(())
         }
+
+        #[test]
+        fn test_rt2() -> crate::Result<()> {
+            static_assertions::assert_impl_all!(std::sync::Arc<String>: PagableSerialize, PagableDeserialize<'static>);
+            static_assertions::assert_impl_all!(std::sync::Arc<std::sync::Arc<String>>: PagableSerialize, PagableDeserialize<'static>);
+            let t1: std::sync::Arc<std::sync::Arc<String>> =
+                std::sync::Arc::new(std::sync::Arc::new("string".to_owned()));
+            let mut serializer = TestingSerializer::new();
+            t1.pagable_serialize(&mut serializer)?;
+            let (bytes, ptrs) = serializer.finish();
+            let mut deserializer = TestingDeserializer::new(&bytes, ptrs);
+            let t2 =
+                <std::sync::Arc<std::sync::Arc<String>>>::pagable_deserialize(&mut deserializer)?;
+            assert_eq!(t1, t2);
+            Ok(())
+        }
+
+        #[test]
+        fn test_arc_identity_preserved() -> crate::Result<()> {
+            use std::sync::Arc;
+
+            // Create a shared arc
+            let shared: Arc<String> = Arc::new("shared".to_owned());
+
+            // Create a vec with the same arc twice
+            let vec: Vec<Arc<String>> = vec![shared.clone(), shared.clone()];
+
+            // Verify they point to the same allocation
+            assert!(Arc::ptr_eq(&vec[0], &vec[1]));
+
+            // Serialize
+            let mut serializer = TestingSerializer::new();
+            vec.pagable_serialize(&mut serializer)?;
+            let (bytes, ptrs) = serializer.finish();
+
+            // Deserialize
+            let mut deserializer = TestingDeserializer::new(&bytes, ptrs);
+            let restored: Vec<Arc<String>> = Vec::pagable_deserialize(&mut deserializer)?;
+
+            // Verify the deserialized arcs point to the same allocation
+            assert_eq!(restored.len(), 2);
+            assert!(
+                Arc::ptr_eq(&restored[0], &restored[1]),
+                "Arc identity should be preserved across serialization"
+            );
+            assert_eq!(*restored[0], "shared");
+
+            Ok(())
+        }
     }
 }
 

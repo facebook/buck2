@@ -24,6 +24,7 @@ pub use pagable_derive::Pagable;
 pub use pagable_derive::PagableDeserialize;
 pub use pagable_derive::PagableSerialize;
 
+pub mod arc_erase;
 mod impls;
 mod test;
 pub mod testing;

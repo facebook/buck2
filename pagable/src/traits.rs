@@ -20,6 +20,10 @@
 // Combined Pagable trait
 // ============================================================================
 
+use crate::arc_erase::ArcErase;
+use crate::arc_erase::ArcEraseDyn;
+use crate::arc_erase::ArcEraseType;
+
 /// A convenience trait for types that are pagable serializable/deserializable.
 ///
 /// This trait is automatically implemented for any type that implements:
@@ -110,7 +114,15 @@ pub trait PagableSerializer {
 
     /// Get a mutable reference to the underlying postcard serializer.
     fn serde(&mut self) -> &mut postcard::Serializer<postcard::ser_flavors::StdVec>;
+
+    /// Serialize an Arc, preserving its identity for deduplication.
+    ///
+    /// Implementations should track Arc identity so that the same Arc serialized
+    /// multiple times results in shared references after deserialization.
+    fn serialize_arc<T: ArcErase>(&mut self, arc: T) -> crate::Result<()>;
 }
+
+pub trait PagableSerializerDyn {}
 
 /// Trait for deserializers that support pagable deserialization.
 ///
@@ -125,4 +137,17 @@ pub trait PagableDeserializer<'de> {
     /// Pointers must be unstashed in the same order they were stashed during
     /// serialization. The type parameter must match the type used when stashing.
     fn unstash_ptr<T: 'static>(&mut self) -> crate::Result<*const T>;
+
+    /// Deserialize an Arc, restoring shared references for deduplicated Arcs.
+    ///
+    /// If the same Arc was serialized multiple times via `serialize_arc`, this method
+    /// should return clones that point to the same allocation (preserving identity).
+    fn deserialize_arc<T: ArcErase>(&mut self) -> crate::Result<T>;
 }
+
+pub trait PagableDeserializerDyn<'de> {
+    fn pop_arc(&mut self, ty: dyn ArcEraseType) -> crate::Result<Box<dyn ArcEraseDyn>>;
+}
+
+static_assertions::assert_obj_safe!(PagableDeserializerDyn<'_>);
+static_assertions::assert_obj_safe!(PagableSerializerDyn);
