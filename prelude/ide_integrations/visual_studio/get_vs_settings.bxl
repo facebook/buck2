@@ -10,7 +10,7 @@ load("constants.bxl", "ADDITIONAL_TARGETS", "BY_MODES", "DEBUG_ARGS", "DEBUG_CMD
 load("get_attrs.bxl", "get_attrs", "get_cxx_toolchain", "get_unified_value")
 load("get_compiler_settings.bxl", "get_compiler_settings", "get_exported_compiler_settings")
 load("get_linker_settings.bxl", "get_exported_linker_settings", "get_linker_settings")
-load("utils.bxl", "dedupe_by_value", "dirname", "flatten_lists", "gen_guid", "get_output_path", "get_project_file_path", "get_vs_configuration", "infer_settings_by_modes", "log_debug", "log_warn", "merge", "suffix")
+load("utils.bxl", "dedupe_by_value", "dirname", "flatten_lists", "gen_guid", "get_output_path", "get_project_file_path", "get_vs_configuration", "infer_settings_by_modes", "log_debug", "log_warn", "merge", "suffix", "translate_content_based_path")
 
 def _get_application_type_and_platform(mode_file):
     if "android" in mode_file:
@@ -102,8 +102,12 @@ def _get_debug_settings(target: bxl.ConfiguredTargetNode, attrs: dict, attrs_laz
             debug_settings[DEBUG_ENV]["PATH"] = ";".join(oxx_runner_path) + ";" + debug_settings[DEBUG_ENV]["PATH"]
     elif attrs["buck_type"] == "command_alias" and attrs["exe"] == "fbsource//arvr/tools/buck:launcher":
         # Replicate launcher behavior as it launches binary via child process which Visual Studio cannot debug into. https://fburl.com/code/sb7e6zi7
-        debug_settings[DEBUG_CMD] = "$(RepoRoot)\\" + debug_settings[DEBUG_ARGS][0]
-        debug_settings[DEBUG_PWD] = "$(RepoRoot)\\" + dirname(debug_settings[DEBUG_ARGS][0], separator = "\\")
+        exe_path = debug_settings[DEBUG_ARGS][0]
+
+        # Infer config based path as content based path varies after local changes.
+        exe_path = translate_content_based_path(exe_path, target.label, cli_args)
+        debug_settings[DEBUG_CMD] = "$(RepoRoot)\\" + exe_path
+        debug_settings[DEBUG_PWD] = "$(RepoRoot)\\" + dirname(exe_path, separator = "\\")
         debug_settings[DEBUG_ARGS].pop(0)
     elif attrs["buck_type"] == "command_alias" and attrs["exe"]:
         # Replicate generic command_alias as buck launches exe binary via child process which Visual Studio cannot debug into.
