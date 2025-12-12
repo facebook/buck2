@@ -113,10 +113,7 @@ impl CleanCommand {
     }
 
     pub fn command_name(&self) -> &'static str {
-        if parse_clean_stale_args(self.stale, self.keep_since_time)
-            .ok()
-            .is_some()
-        {
+        if let Ok(Some(_)) = parse_clean_stale_args(self.stale, self.keep_since_time) {
             "clean-stale"
         } else {
             "clean"
