@@ -18,6 +18,7 @@ use std::future::Future;
 use std::pin::Pin;
 use std::task::Context;
 use std::task::Poll;
+use std::task::Waker;
 
 use futures::future::BoxFuture;
 use pin_project::pin_project;
@@ -68,9 +69,7 @@ pub struct ExplicitlyCancellableFuture<T> {
 struct ExplicitlyCancellableFutureInner<T> {
     view: CancellableFutureSharedStateView,
 
-    /// NOTE: this is duplicative of the `SharedState`, but unlike that state this is not behind a
-    /// lock. This avoids us needing to grab the lock to check if we're Pending every time we poll.
-    started: bool,
+    last_waker: Option<Waker>,
 
     future: Pin<Box<OwningFuture<T, CancellationContext>>>,
 }
@@ -83,7 +82,7 @@ impl<T> ExplicitlyCancellableFuture<T> {
         ExplicitlyCancellableFuture {
             fut: DropOnReadyFuture::new(ExplicitlyCancellableFutureInner {
                 view,
-                started: false,
+                last_waker: None,
                 future,
             }),
         }
@@ -138,17 +137,15 @@ impl<T> Future for ExplicitlyCancellableFutureInner<T> {
     type Output = ExplicitlyCancellableResult<T>;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        // Update the state before we check for cancellation so that the cancellation logic can
-        // observe whether this future has entered `poll` or not. This lets cancellation set the
-        // termination observer correctly so that the state is picked up.
-        // Once we start, the `poll_inner` will check whether we are actually canceled and return
-        // the proper poll value.
-        if !self.started {
-            // We only update the Waker once on the first poll. For the same tokio runtime, this is
-            // always safe and behaves correctly, as such, this future is restricted to be ran on
-            // the same tokio executor and never moved from one runtime to another
+        // Optimization: We store the last waker that we used, and if the new waker is the same, we
+        // don't update it. This saves a couple of atomic ops in exchange for two pointer compares.
+        if !self
+            .last_waker
+            .as_ref()
+            .is_some_and(|w| w.will_wake(cx.waker()))
+        {
+            self.last_waker = Some(cx.waker().clone());
             self.view.register_waker(cx);
-            self.started = true;
         }
 
         let poll = self.poll_inner(cx);
