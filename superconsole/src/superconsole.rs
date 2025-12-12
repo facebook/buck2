@@ -107,7 +107,7 @@ impl SuperConsole {
 
     /// Render at a given tick.  Draws all components and drains the emitted events buffer.
     /// This will produce any pending emitting events above the Canvas and will re-render the drawing area.
-    pub fn render(&mut self, root: &dyn Component) -> crate::RenderResult<()> {
+    pub fn render<C: Component + ?Sized>(&mut self, root: &C) -> crate::RenderResult<(), C> {
         // `render_general` refuses to drain more than a single frame, so repeat until done.
         // or until the rendered frame is too large to print anything.
         let mut anything_emitted = true;
@@ -132,17 +132,17 @@ impl SuperConsole {
 
     /// Perform a final render with [`DrawMode::Final`].
     /// Each component will have a chance to finalize themselves before the terminal is disposed of.
-    pub fn finalize(self, root: &dyn Component) -> crate::RenderResult<()> {
+    pub fn finalize<C: Component + ?Sized>(self, root: &C) -> crate::RenderResult<(), C> {
         self.finalize_with_mode(root, DrawMode::Final)
     }
 
     /// Perform a final render, using a specified [`DrawMode`].
     /// Each component will have a chance to finalize themselves before the terminal is disposed of.
-    pub fn finalize_with_mode(
+    pub fn finalize_with_mode<C: Component + ?Sized>(
         mut self,
-        root: &dyn Component,
+        root: &C,
         mode: DrawMode,
-    ) -> crate::RenderResult<()> {
+    ) -> crate::RenderResult<(), C> {
         self.render_with_mode(root, mode)?;
         self.output.finalize().map_err(Into::into)
     }
@@ -153,7 +153,11 @@ impl SuperConsole {
     ///
     /// Because this re-renders the console, it requires passed state.
     /// Overuse of this method can cause `superconsole` to use significant CPU.
-    pub fn emit_now<C: Component>(&mut self, lines: Lines, root: &C) -> crate::RenderResult<()> {
+    pub fn emit_now<C: Component + ?Sized>(
+        &mut self,
+        lines: Lines,
+        root: &C,
+    ) -> crate::RenderResult<(), C> {
         self.emit(lines);
         self.render(root)
     }
@@ -225,11 +229,11 @@ impl SuperConsole {
     }
 
     /// Helper method to share render + finalize behavior by specifying mode.
-    fn render_with_mode(
+    fn render_with_mode<C: Component + ?Sized>(
         &mut self,
-        root: &dyn Component,
+        root: &C,
         mode: DrawMode,
-    ) -> crate::RenderResult<()> {
+    ) -> crate::RenderResult<(), C> {
         // TODO(cjhopman): We may need to try to keep each write call to be under the pipe buffer
         // size so it can be completed in a single syscall otherwise we might see a partially
         // rendered frame.
@@ -243,12 +247,12 @@ impl SuperConsole {
     }
 
     /// Helper method that makes rendering highly configurable.
-    fn render_general(
+    fn render_general<C: Component + ?Sized>(
         &mut self,
-        root: &dyn Component,
+        root: &C,
         mode: DrawMode,
         size: Dimensions,
-    ) -> crate::RenderResult<()> {
+    ) -> crate::RenderResult<(), C> {
         /// Heuristic to determine if a buffer is too large to buffer.
         /// Can be tuned, but is currently set to 1000000 graphemes.
         fn is_big(buf0: &Lines, buf1: &Lines) -> bool {

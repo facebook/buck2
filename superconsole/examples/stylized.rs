@@ -17,6 +17,7 @@ use superconsole::Dimensions;
 use superconsole::Line;
 use superconsole::Lines;
 use superconsole::Span;
+use superconsole::SpanError;
 use superconsole::SuperConsole;
 use superconsole::components::Blank;
 use superconsole::components::Component;
@@ -39,8 +40,10 @@ struct StoreName(String);
 struct CustomerName(String);
 
 impl Component for Greeter<'_> {
+    type Error = SpanError;
+
     /// Prints a greeting to the current customer.
-    fn draw_unchecked(&self, _dimensions: Dimensions, _mode: DrawMode) -> anyhow::Result<Lines> {
+    fn draw_unchecked(&self, _dimensions: Dimensions, _mode: DrawMode) -> Result<Lines, SpanError> {
         let store_name = self.store_name;
         let customers = self.customers;
         let identification = Line::from_iter([

@@ -40,7 +40,7 @@ use crate::components::alignment::VerticalAlignmentKind;
 /// // rest of the output
 /// ```
 #[derive(Debug)]
-pub struct Bordered<C: Component = Box<dyn Component>> {
+pub struct Bordered<C: Component> {
     child: Aligned<C>,
     pub border: BorderedSpec,
 }
@@ -99,12 +99,14 @@ fn construct_vertical_padding(padding: Span, width: usize) -> Vec<Line> {
 }
 
 impl<C: Component> Component for Bordered<C> {
+    type Error = C::Error;
+
     fn draw_unchecked(
         &self,
 
         Dimensions { width, height }: Dimensions,
         mode: DrawMode,
-    ) -> anyhow::Result<Lines> {
+    ) -> Result<Lines, C::Error> {
         // Reserve enough draw space for the walls.
         let opt_len = |opt_word: &Option<Span>| match opt_word {
             Some(word) => word.len(),

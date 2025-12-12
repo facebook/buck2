@@ -24,7 +24,13 @@ pub struct SessionInfoComponent<'s> {
 }
 
 impl Component for SessionInfoComponent<'_> {
-    fn draw_unchecked(&self, dimensions: Dimensions, _mode: DrawMode) -> anyhow::Result<Lines> {
+    type Error = buck2_error::Error;
+
+    fn draw_unchecked(
+        &self,
+        dimensions: Dimensions,
+        _mode: DrawMode,
+    ) -> buck2_error::Result<Lines> {
         let mut headers = Lines::new();
         let mut ids = vec![];
         if cfg!(fbcode_build) {

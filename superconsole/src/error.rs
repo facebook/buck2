@@ -20,14 +20,23 @@ pub enum OutputError {
 }
 
 #[derive(thiserror::Error, Debug)]
-pub enum Error {
+pub enum Error<D> {
     #[error(transparent)]
-    Draw(anyhow::Error),
+    Draw(D),
     #[error(transparent)]
     Output(OutputError),
 }
 
-impl From<OutputError> for Error {
+impl<D: From<OutputError>> Error<D> {
+    pub fn into_draw_error_type(self) -> D {
+        match self {
+            Self::Draw(d) => d,
+            Self::Output(o) => o.into(),
+        }
+    }
+}
+
+impl<D> From<OutputError> for Error<D> {
     fn from(o: OutputError) -> Self {
         Self::Output(o)
     }

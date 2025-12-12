@@ -10,6 +10,7 @@
 
 //! A basic example of using components and emitting content.
 
+use std::convert::Infallible;
 use std::time::Duration;
 use std::time::Instant;
 
@@ -30,9 +31,11 @@ struct Foo {
 }
 
 impl Component for Foo {
+    type Error = Infallible;
+
     /// Draws the number of seconds that have elapsed since the component was created.
     /// On a second line, draws the string "Hello world!".
-    fn draw_unchecked(&self, _dimensions: Dimensions, mode: DrawMode) -> anyhow::Result<Lines> {
+    fn draw_unchecked(&self, _dimensions: Dimensions, mode: DrawMode) -> Result<Lines, Infallible> {
         Ok(match mode {
             DrawMode::Final => Lines::new(),
             DrawMode::Normal => {

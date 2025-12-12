@@ -155,7 +155,9 @@ struct BuckRootComponent<'s> {
 }
 
 impl Component for BuckRootComponent<'_> {
-    fn draw_unchecked(&self, dimensions: Dimensions, mode: DrawMode) -> anyhow::Result<Lines> {
+    type Error = buck2_error::Error;
+
+    fn draw_unchecked(&self, dimensions: Dimensions, mode: DrawMode) -> buck2_error::Result<Lines> {
         // bound all components to our recommended grapheme-width
         let dimensions = dimensions.intersect(Dimensions {
             width: SUPERCONSOLE_WIDTH,
@@ -802,7 +804,12 @@ impl StatefulSuperConsoleImpl {
         Ok(())
     }
 
-    fn finalize(self) -> (SuperConsoleState, Option<superconsole::Error>) {
+    fn finalize(
+        self,
+    ) -> (
+        SuperConsoleState,
+        Option<superconsole::Error<buck2_error::Error>>,
+    ) {
         let err = self
             .super_console
             .finalize(&BuckRootComponent {
@@ -1225,8 +1232,7 @@ mod tests {
                 height: 1,
             },
             DrawMode::Normal,
-        )
-        .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::SuperConsole))?;
+        )?;
 
         assert_eq!(full.len(), 2);
 
@@ -1240,8 +1246,7 @@ mod tests {
                 height: 1,
             },
             DrawMode::Normal,
-        )
-        .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::SuperConsole))?;
+        )?;
 
         assert_eq!(multiline.len(), 4);
 
@@ -1254,8 +1259,7 @@ mod tests {
                 height: 1,
             },
             DrawMode::Normal,
-        )
-        .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::SuperConsole))?;
+        )?;
 
         assert_eq!(too_small.len(), 1);
 

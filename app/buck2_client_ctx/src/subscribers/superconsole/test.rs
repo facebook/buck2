@@ -122,7 +122,7 @@ impl TestCounterComponent {
         test_state: &TestState,
         _dimensions: Dimensions,
         mode: DrawMode,
-    ) -> anyhow::Result<Lines> {
+    ) -> buck2_error::Result<Lines> {
         if matches!(mode, DrawMode::Final) {
             return Ok(Lines::new());
         }
@@ -160,11 +160,13 @@ pub(crate) struct TestHeader<'a> {
 }
 
 impl Component for TestHeader<'_> {
+    type Error = buck2_error::Error;
+
     fn draw_unchecked(
         &self,
         dimensions: superconsole::Dimensions,
         mode: superconsole::DrawMode,
-    ) -> anyhow::Result<superconsole::Lines> {
+    ) -> buck2_error::Result<superconsole::Lines> {
         if self.session_info.test_session.is_some() {
             TestCounterComponent.draw_unchecked(self.test_state, dimensions, mode)
         } else {

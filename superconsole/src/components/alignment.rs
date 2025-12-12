@@ -46,7 +46,7 @@ pub enum HorizontalAlignmentKind {
 /// The [`HorizontalAlignmentKind`] enum specifies the location relative to the x-axis.
 /// The [`VerticalAlignmentKind`] enum specified the location relative to the y-axis.
 #[derive(Debug)]
-pub struct Aligned<C: Component = Box<dyn Component>> {
+pub struct Aligned<C: Component> {
     pub child: C,
     pub horizontal: HorizontalAlignmentKind,
     pub vertical: VerticalAlignmentKind,
@@ -67,10 +67,10 @@ impl<C: Component> Aligned<C> {
     }
 }
 
-impl Default for Aligned {
+impl Default for Aligned<Blank> {
     fn default() -> Self {
         Self {
-            child: Box::new(Blank),
+            child: Blank,
             horizontal: HorizontalAlignmentKind::Left(false),
             vertical: VerticalAlignmentKind::Top,
         }
@@ -78,7 +78,9 @@ impl Default for Aligned {
 }
 
 impl<C: Component> Component for Aligned<C> {
-    fn draw_unchecked(&self, dimensions: Dimensions, mode: DrawMode) -> anyhow::Result<Lines> {
+    type Error = C::Error;
+
+    fn draw_unchecked(&self, dimensions: Dimensions, mode: DrawMode) -> Result<Lines, C::Error> {
         let Dimensions { width, height } = dimensions;
         let mut output = self.child.draw(dimensions, mode)?;
 

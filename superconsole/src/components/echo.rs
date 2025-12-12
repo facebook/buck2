@@ -10,6 +10,8 @@
 
 #![cfg(test)]
 
+use std::convert::Infallible;
+
 use crate::Component;
 use crate::Lines;
 use crate::components::Dimensions;
@@ -20,7 +22,13 @@ use crate::components::DrawMode;
 pub(crate) struct Echo(pub(crate) Lines);
 
 impl Component for Echo {
-    fn draw_unchecked(&self, _dimensions: Dimensions, _mode: DrawMode) -> anyhow::Result<Lines> {
+    type Error = Infallible;
+
+    fn draw_unchecked(
+        &self,
+        _dimensions: Dimensions,
+        _mode: DrawMode,
+    ) -> Result<Lines, Infallible> {
         Ok(self.0.clone())
     }
 }

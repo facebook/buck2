@@ -10,6 +10,8 @@
 
 // If this code needs fixing, make sure you fix the README.md too!
 
+use std::convert::Infallible;
+
 use superconsole::Component;
 use superconsole::Dimensions;
 use superconsole::DrawMode;
@@ -22,7 +24,13 @@ use superconsole::components::bordering::BorderedSpec;
 struct HelloWorld;
 
 impl Component for HelloWorld {
-    fn draw_unchecked(&self, _dimensions: Dimensions, _mode: DrawMode) -> anyhow::Result<Lines> {
+    type Error = Infallible;
+
+    fn draw_unchecked(
+        &self,
+        _dimensions: Dimensions,
+        _mode: DrawMode,
+    ) -> Result<Lines, Infallible> {
         Ok(Lines(vec![
             vec!["Hello world!".to_owned()].try_into().unwrap(),
         ]))

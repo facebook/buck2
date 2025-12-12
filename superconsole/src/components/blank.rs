@@ -8,6 +8,8 @@
  * above-listed licenses.
  */
 
+use std::convert::Infallible;
+
 use crate::Component;
 use crate::Lines;
 use crate::components::Dimensions;
@@ -20,8 +22,14 @@ use crate::components::DrawMode;
 pub struct Blank;
 
 impl Component for Blank {
+    type Error = Infallible;
+
     /// Returns the empty vector
-    fn draw_unchecked(&self, _dimensions: Dimensions, _mode: DrawMode) -> anyhow::Result<Lines> {
+    fn draw_unchecked(
+        &self,
+        _dimensions: Dimensions,
+        _mode: DrawMode,
+    ) -> Result<Lines, Infallible> {
         Ok(Lines::new())
     }
 }

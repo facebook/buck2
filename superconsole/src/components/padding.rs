@@ -21,7 +21,7 @@ use crate::components::DrawMode;
 ///
 /// Content is truncated preferentially over padding.
 #[derive(Debug)]
-pub struct Padded<C: Component = Box<dyn Component>> {
+pub struct Padded<C: Component> {
     pub child: C,
     pub left: usize,
     pub right: usize,
@@ -29,10 +29,10 @@ pub struct Padded<C: Component = Box<dyn Component>> {
     pub bottom: usize,
 }
 
-impl Default for Padded {
+impl Default for Padded<Blank> {
     fn default() -> Self {
         Self {
-            child: Box::new(Blank),
+            child: Blank,
             left: 0,
             right: 0,
             top: 0,
@@ -54,7 +54,9 @@ impl<C: Component> Padded<C> {
 }
 
 impl<C: Component> Component for Padded<C> {
-    fn draw_unchecked(&self, dimensions: Dimensions, mode: DrawMode) -> anyhow::Result<Lines> {
+    type Error = C::Error;
+
+    fn draw_unchecked(&self, dimensions: Dimensions, mode: DrawMode) -> Result<Lines, C::Error> {
         let mut output = self.child.draw(dimensions, mode)?;
 
         // ordering is important:

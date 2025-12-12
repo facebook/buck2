@@ -148,7 +148,9 @@ impl TimedListBody<'_> {
 }
 
 impl Component for TimedListBody<'_> {
-    fn draw_unchecked(&self, dimensions: Dimensions, mode: DrawMode) -> anyhow::Result<Lines> {
+    type Error = buck2_error::Error;
+
+    fn draw_unchecked(&self, dimensions: Dimensions, mode: DrawMode) -> buck2_error::Result<Lines> {
         let config = &self.state.config;
         let max_lines = config.max_lines;
 
@@ -193,7 +195,13 @@ impl Component for TimedListBody<'_> {
 struct TimedListHeader;
 
 impl Component for TimedListHeader {
-    fn draw_unchecked(&self, dimensions: Dimensions, _mode: DrawMode) -> anyhow::Result<Lines> {
+    type Error = buck2_error::Error;
+
+    fn draw_unchecked(
+        &self,
+        dimensions: Dimensions,
+        _mode: DrawMode,
+    ) -> buck2_error::Result<Lines> {
         Ok(Lines(vec![Line::unstyled(&"-".repeat(dimensions.width))?]))
     }
 }
@@ -212,7 +220,9 @@ impl<'a> TimedList<'a> {
 }
 
 impl Component for TimedList<'_> {
-    fn draw_unchecked(&self, dimensions: Dimensions, mode: DrawMode) -> anyhow::Result<Lines> {
+    type Error = buck2_error::Error;
+
+    fn draw_unchecked(&self, dimensions: Dimensions, mode: DrawMode) -> buck2_error::Result<Lines> {
         let span_tracker: &BuckEventSpanTracker = self.state.simple_console.observer().spans();
 
         match mode {
@@ -241,7 +251,6 @@ mod tests {
 
     use buck2_data::FakeStart;
     use buck2_data::SpanStartEvent;
-    use buck2_error::conversion::from_any_with_tag;
     use buck2_event_observer::action_stats::ActionStats;
     use buck2_event_observer::span_tracker::EventTimestamp;
     use buck2_event_observer::verbosity::Verbosity;
@@ -359,8 +368,7 @@ mod tests {
                 height: 10,
             },
             DrawMode::Normal,
-        )
-        .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::SuperConsole))?;
+        )?;
         let expected = [
 
             "----------------------------------------",
@@ -444,8 +452,7 @@ mod tests {
                 height: 10,
             },
             DrawMode::Normal,
-        )
-        .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::SuperConsole))?;
+        )?;
         let expected = [
             "----------------------------------------",
             "e1 -- speak of the devil            1.0s",
@@ -489,15 +496,13 @@ mod tests {
             .await?;
 
         {
-            let output = TimedList::new(&CUTOFFS, &state)
-                .draw(
-                    Dimensions {
-                        width: 60,
-                        height: 10,
-                    },
-                    DrawMode::Normal,
-                )
-                .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::SuperConsole))?;
+            let output = TimedList::new(&CUTOFFS, &state).draw(
+                Dimensions {
+                    width: 60,
+                    height: 10,
+                },
+                DrawMode::Normal,
+            )?;
 
             let expected = [
                 "------------------------------------------------------------",
@@ -510,15 +515,13 @@ mod tests {
         {
             state.config.max_lines = 1; // With fewer lines now
 
-            let output = TimedList::new(&CUTOFFS, &state)
-                .draw(
-                    Dimensions {
-                        width: 60,
-                        height: 10,
-                    },
-                    DrawMode::Normal,
-                )
-                .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::SuperConsole))?;
+            let output = TimedList::new(&CUTOFFS, &state).draw(
+                Dimensions {
+                    width: 60,
+                    height: 10,
+                },
+                DrawMode::Normal,
+            )?;
 
             let expected = [
                 "------------------------------------------------------------",
@@ -591,8 +594,7 @@ mod tests {
                 height: 10,
             },
             DrawMode::Normal,
-        )
-        .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::SuperConsole))?;
+        )?;
         let expected = [
             "--------------------------------------------------------------------------------",
             "<span fg=dark_red>pkg:target -- action (category identifier) [prepare 5.0s]</span>                  <span fg=dark_red>10.0s</span>",
@@ -641,8 +643,7 @@ mod tests {
                 height: 10,
             },
             DrawMode::Normal,
-        )
-        .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::SuperConsole))?;
+        )?;
         let expected = [
             "--------------------------------------------------------------------------------",
             "<span fg=dark_red>pkg:target -- action (category identifier) [prepare 5.0s + 1]</span>              <span fg=dark_red>10.0s</span>",

@@ -50,12 +50,14 @@ impl Table {
 }
 
 impl Component for Table {
+    type Error = buck2_error::Error;
+
     /// Zips together each time and label lines, but gives the times preferential treatment.
     fn draw_unchecked(
         &self,
         Dimensions { width, .. }: Dimensions,
         _mode: DrawMode,
-    ) -> anyhow::Result<Lines> {
+    ) -> buck2_error::Result<Lines> {
         let combined = self
             .rows
             .iter()
@@ -154,7 +156,13 @@ impl TimedRow {
 struct LinesComponent(Lines);
 
 impl Component for LinesComponent {
-    fn draw_unchecked(&self, _dimensions: Dimensions, _mode: DrawMode) -> anyhow::Result<Lines> {
+    type Error = buck2_error::Error;
+
+    fn draw_unchecked(
+        &self,
+        _dimensions: Dimensions,
+        _mode: DrawMode,
+    ) -> buck2_error::Result<Lines> {
         Ok(self.0.clone())
     }
 }

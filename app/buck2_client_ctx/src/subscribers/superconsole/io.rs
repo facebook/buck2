@@ -26,7 +26,9 @@ pub(crate) struct IoHeader<'s> {
 }
 
 impl Component for IoHeader<'_> {
-    fn draw_unchecked(&self, dimensions: Dimensions, mode: DrawMode) -> anyhow::Result<Lines> {
+    type Error = buck2_error::Error;
+
+    fn draw_unchecked(&self, dimensions: Dimensions, mode: DrawMode) -> buck2_error::Result<Lines> {
         render(
             self.two_snapshots,
             mode,
@@ -95,7 +97,7 @@ fn do_render(
     two_snapshots: &TwoSnapshots,
     snapshot: &buck2_data::Snapshot,
     width: usize,
-) -> anyhow::Result<Lines> {
+) -> buck2_error::Result<Lines> {
     let mut lines = Vec::new();
     let mut parts = Vec::new();
     if let Some(buck2_rss) = snapshot.buck2_rss {
@@ -170,7 +172,7 @@ fn render(
     draw_mode: DrawMode,
     width: usize,
     enabled: bool,
-) -> anyhow::Result<Lines> {
+) -> buck2_error::Result<Lines> {
     if !enabled {
         return Ok(Lines::new());
     }

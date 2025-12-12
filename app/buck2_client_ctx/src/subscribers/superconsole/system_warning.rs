@@ -30,7 +30,13 @@ pub(crate) struct SystemWarningComponent<'a> {
 }
 
 impl Component for SystemWarningComponent<'_> {
-    fn draw_unchecked(&self, _dimensions: Dimensions, _mode: DrawMode) -> anyhow::Result<Lines> {
+    type Error = buck2_error::Error;
+
+    fn draw_unchecked(
+        &self,
+        _dimensions: Dimensions,
+        _mode: DrawMode,
+    ) -> buck2_error::Result<Lines> {
         let mut lines = Vec::new();
 
         if let Some(memory_pressure) =

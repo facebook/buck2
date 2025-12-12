@@ -28,6 +28,8 @@ use to inject state into their otherwise immutable rendering logic.
 ## Examples
 
 ```rust
+use std::convert::Infallible;
+
 use superconsole::components::bordering::{Bordered, BorderedSpec};
 use superconsole::{Component, Dimensions, DrawMode, Lines, SuperConsole};
 
@@ -35,7 +37,9 @@ use superconsole::{Component, Dimensions, DrawMode, Lines, SuperConsole};
 struct HelloWorld;
 
 impl Component for HelloWorld {
-    fn draw_unchecked(&self, _dimensions: Dimensions, _mode: DrawMode) -> anyhow::Result<Lines> {
+    type Error = Infallible;
+
+    fn draw_unchecked(&self, _dimensions: Dimensions, _mode: DrawMode) -> Result<Lines, Infallible> {
         Ok(Lines(vec![
             vec!["Hello world!".to_owned()].try_into().unwrap(),
         ]))

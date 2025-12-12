@@ -15,6 +15,7 @@ use superconsole::Component;
 use superconsole::Line;
 use superconsole::Lines;
 use superconsole::Span;
+use superconsole::SpanError;
 use superconsole::SuperConsole;
 use superconsole::style::Stylize;
 
@@ -28,12 +29,14 @@ struct LoadingBar<'a> {
 }
 
 impl Component for LoadingBar<'_> {
+    type Error = SpanError;
+
     fn draw_unchecked(
         &self,
 
         _dimensions: superconsole::Dimensions,
         mode: superconsole::DrawMode,
-    ) -> anyhow::Result<superconsole::Lines> {
+    ) -> Result<superconsole::Lines, SpanError> {
         let res = match mode {
             superconsole::DrawMode::Normal => {
                 const BUILDING: &str = "   Building ";

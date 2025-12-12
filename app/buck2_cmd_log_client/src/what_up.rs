@@ -146,17 +146,19 @@ impl BuckSubcommand for WhatUpCommand {
 }
 
 impl WhatUpCommand {
-    fn component(state: &SuperConsoleState) -> impl Component + '_ {
+    fn component(state: &SuperConsoleState) -> impl Component<Error = buck2_error::Error> + '_ {
         struct ComponentImpl<'a> {
             state: &'a SuperConsoleState,
         }
 
         impl Component for ComponentImpl<'_> {
+            type Error = buck2_error::Error;
+
             fn draw_unchecked(
                 &self,
                 dimensions: Dimensions,
                 mode: DrawMode,
-            ) -> anyhow::Result<Lines> {
+            ) -> buck2_error::Result<Lines> {
                 let mut draw = DrawVertical::new(dimensions);
                 draw.draw(
                     &SessionInfoComponent {

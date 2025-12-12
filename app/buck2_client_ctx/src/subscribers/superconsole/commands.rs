@@ -21,11 +21,13 @@ pub(crate) struct CommandsComponent<'a> {
 }
 
 impl Component for CommandsComponent<'_> {
+    type Error = buck2_error::Error;
+
     fn draw_unchecked(
         &self,
         _dimensions: superconsole::Dimensions,
         _mode: superconsole::DrawMode,
-    ) -> anyhow::Result<superconsole::Lines> {
+    ) -> buck2_error::Result<Lines> {
         if !self.super_console_config.enable_commands {
             return Ok(Lines::new());
         }

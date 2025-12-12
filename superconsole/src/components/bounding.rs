@@ -15,7 +15,7 @@ use crate::Lines;
 
 /// Component that ensures its child component has at most `max_size` render space.
 #[derive(Debug)]
-pub struct Bounded<C: Component = Box<dyn Component>> {
+pub struct Bounded<C: Component> {
     child: C,
     max_size: Dimensions,
 }
@@ -33,7 +33,9 @@ impl<C: Component> Bounded<C> {
 }
 
 impl<C: Component> Component for Bounded<C> {
-    fn draw_unchecked(&self, dimensions: Dimensions, mode: DrawMode) -> anyhow::Result<Lines> {
+    type Error = C::Error;
+
+    fn draw_unchecked(&self, dimensions: Dimensions, mode: DrawMode) -> Result<Lines, C::Error> {
         let output = self.child.draw(dimensions.intersect(self.max_size), mode)?;
         Ok(output)
     }

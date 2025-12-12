@@ -10,6 +10,7 @@
 
 //! Example that demonstrates finalization.
 
+use std::convert::Infallible;
 use std::time::Duration;
 
 use derive_more::Display;
@@ -34,7 +35,9 @@ struct StoreName(String);
 struct CustomerName(String);
 
 impl Component for Greeter<'_> {
-    fn draw_unchecked(&self, _dimensions: Dimensions, mode: DrawMode) -> anyhow::Result<Lines> {
+    type Error = Infallible;
+
+    fn draw_unchecked(&self, _dimensions: Dimensions, mode: DrawMode) -> Result<Lines, Infallible> {
         Ok(match mode {
             DrawMode::Normal => {
                 // Prints a greeting to the current customer.

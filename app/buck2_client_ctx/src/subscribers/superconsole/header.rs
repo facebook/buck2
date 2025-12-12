@@ -38,7 +38,9 @@ impl<'s> TasksHeader<'s> {
 }
 
 impl Component for TasksHeader<'_> {
-    fn draw_unchecked(&self, dimensions: Dimensions, mode: DrawMode) -> anyhow::Result<Lines> {
+    type Error = buck2_error::Error;
+
+    fn draw_unchecked(&self, dimensions: Dimensions, mode: DrawMode) -> buck2_error::Result<Lines> {
         if self.state.config.expanded_progress {
             let mut phase_stats = self.state.extra().progress_state().phase_stats();
             if let DrawMode::Final = mode {
@@ -106,7 +108,9 @@ impl<'s> SimpleHeader<'s> {
 }
 
 impl Component for SimpleHeader<'_> {
-    fn draw_unchecked(&self, dimensions: Dimensions, mode: DrawMode) -> anyhow::Result<Lines> {
+    type Error = buck2_error::Error;
+
+    fn draw_unchecked(&self, dimensions: Dimensions, mode: DrawMode) -> buck2_error::Result<Lines> {
         match mode {
             DrawMode::Normal => HeaderLineComponent::new(
                 StaticStringComponent {
@@ -130,7 +134,13 @@ struct CountComponent<'s> {
 }
 
 impl Component for CountComponent<'_> {
-    fn draw_unchecked(&self, _dimensions: Dimensions, mode: DrawMode) -> anyhow::Result<Lines> {
+    type Error = buck2_error::Error;
+
+    fn draw_unchecked(
+        &self,
+        _dimensions: Dimensions,
+        mode: DrawMode,
+    ) -> buck2_error::Result<Lines> {
         match mode {
             DrawMode::Normal => {
                 let remaining = HumanizedCount::new(self.data.remaining);
@@ -396,7 +406,9 @@ impl ProgressHeader<'_> {
 }
 
 impl Component for ProgressHeader<'_> {
-    fn draw_unchecked(&self, dimensions: Dimensions, mode: DrawMode) -> anyhow::Result<Lines> {
+    type Error = buck2_error::Error;
+
+    fn draw_unchecked(&self, dimensions: Dimensions, mode: DrawMode) -> buck2_error::Result<Lines> {
         fn digits_len(v: u64) -> usize {
             (v.checked_ilog10().unwrap_or(0) + 1) as usize
         }
@@ -609,24 +621,20 @@ mod tests {
                 time_elapsed: "1234s".to_owned(),
             };
 
-            header
-                .draw(
-                    Dimensions {
-                        width: i,
-                        height: 10,
-                    },
-                    DrawMode::Normal,
-                )
-                .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::SuperConsole))?;
-            header
-                .draw(
-                    Dimensions {
-                        width: i,
-                        height: 10,
-                    },
-                    DrawMode::Final,
-                )
-                .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::SuperConsole))?;
+            header.draw(
+                Dimensions {
+                    width: i,
+                    height: 10,
+                },
+                DrawMode::Normal,
+            )?;
+            header.draw(
+                Dimensions {
+                    width: i,
+                    height: 10,
+                },
+                DrawMode::Final,
+            )?;
         }
         Ok(())
     }
@@ -639,7 +647,7 @@ mod tests {
             width: usize,
             normal: bool,
             phase_stats: &BuildProgressPhaseStats,
-        ) -> anyhow::Result<Lines> {
+        ) -> buck2_error::Result<Lines> {
             ProgressHeader {
                 header: "header",
                 phase_stats,
@@ -662,9 +670,7 @@ mod tests {
             writeln!(
                 &mut all_output,
                 "{}",
-                draw(width, true, &phase_stats())
-                    .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::SuperConsole))?
-                    .fmt_for_test()
+                draw(width, true, &phase_stats())?.fmt_for_test()
             )
             .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::SuperConsole))?;
         }
@@ -673,9 +679,7 @@ mod tests {
             writeln!(
                 &mut all_output,
                 "{}",
-                draw(width, false, &phase_stats())
-                    .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::SuperConsole))?
-                    .fmt_for_test()
+                draw(width, false, &phase_stats())?.fmt_for_test()
             )
             .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::SuperConsole))?;
         }
@@ -778,8 +782,7 @@ mod tests {
                 height: 10,
             },
             DrawMode::Normal,
-        )
-        .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::SuperConsole))?;
+        )?;
         let expected = "testRemaining: 3/3. Cache hits: 100%. Ti\n".to_owned();
 
         pretty_assertions::assert_eq!(output.fmt_for_test().to_string(), expected);
@@ -810,8 +813,7 @@ mod tests {
                 height: 10,
             },
             DrawMode::Normal,
-        )
-        .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::SuperConsole))?;
+        )?;
 
         let expected = "test                      Remaining: 2/2. Time elapsed: 0.0s\n".to_owned();
 
@@ -843,8 +845,7 @@ mod tests {
                 height: 10,
             },
             DrawMode::Normal,
-        )
-        .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::SuperConsole))?;
+        )?;
         let expected =
             "test                        Remaining: 1/1. Cache hits: 100%. Time elapsed: 0.0s\n"
                 .to_owned();
@@ -877,8 +878,7 @@ mod tests {
                 height: 10,
             },
             DrawMode::Final,
-        )
-        .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::SuperConsole))?;
+        )?;
         let expected = indoc::indoc!(
             r#"
             Jobs completed: 0. Time elapsed: 0.0s.

@@ -22,15 +22,17 @@ pub(crate) struct ReHeader<'a> {
 }
 
 impl Component for ReHeader<'_> {
+    type Error = buck2_error::Error;
+
     fn draw_unchecked(
         &self,
         _dimensions: superconsole::Dimensions,
         mode: superconsole::DrawMode,
-    ) -> anyhow::Result<superconsole::Lines> {
-        Ok(self.re_state.render(
+    ) -> buck2_error::Result<superconsole::Lines> {
+        self.re_state.render(
             self.two_snapshots,
             self.super_console_config.enable_detailed_re,
             mode,
-        )?)
+        )
     }
 }

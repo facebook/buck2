@@ -22,11 +22,13 @@ pub(crate) struct DiceComponent<'s> {
 }
 
 impl Component for DiceComponent<'_> {
+    type Error = buck2_error::Error;
+
     fn draw_unchecked(
         &self,
         _dimensions: superconsole::Dimensions,
         _mode: superconsole::DrawMode,
-    ) -> anyhow::Result<superconsole::Lines> {
+    ) -> buck2_error::Result<superconsole::Lines> {
         if !self.super_console_config.enable_dice {
             return Ok(Lines::new());
         }

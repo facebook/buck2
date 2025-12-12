@@ -38,7 +38,8 @@ pub use error::Error;
 pub use crate::builder::Builder;
 pub use crate::superconsole::SuperConsole;
 
-pub type RenderResult<T> = Result<T, Error>;
+#[allow(type_alias_bounds)]
+pub type RenderResult<T, C: Component> = Result<T, Error<<C as Component>::Error>>;
 
 pub(crate) mod ansi_support;
 pub mod builder;

@@ -26,13 +26,13 @@ impl From<superconsole::error::OutputError> for crate::Error {
     }
 }
 
-impl From<superconsole::Error> for crate::Error {
+impl<D: Into<crate::Error>> From<superconsole::Error<D>> for crate::Error {
     #[cold]
     #[track_caller]
-    fn from(value: superconsole::Error) -> Self {
+    fn from(value: superconsole::Error<D>) -> Self {
         match value {
             superconsole::Error::Output(e) => e.into(),
-            superconsole::Error::Draw(e) => from_any_with_tag(e, ErrorTag::SuperConsole),
+            superconsole::Error::Draw(e) => e.into(),
         }
     }
 }
