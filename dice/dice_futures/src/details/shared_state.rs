@@ -32,21 +32,7 @@ pub(crate) struct CancellationHandleSharedStateView {
 
 impl CancellationHandleSharedStateView {
     pub(crate) fn cancel(&self) -> bool {
-        let future = std::mem::replace(&mut *self.inner.state.lock(), State::Cancelled);
-        match future {
-            State::Normal => {
-                self.inner.cancellation_waker.wake();
-                true
-            }
-            State::Cancelled => {
-                // We were already cancelled, no need to so again.
-                false
-            }
-            State::Exited => {
-                // Nothing to do, that future is done.
-                true
-            }
-        }
+        !self.inner.notify_cancelled()
     }
 }
 
@@ -65,13 +51,10 @@ impl CancellableFutureSharedStateView {
         CancellationContextSharedStateView,
     ) {
         let shared_data = Arc::new(SharedStateData {
-            state: Mutex::new(State::Normal),
+            state: AtomicU8::new(State::Normal.into()),
             cancellation_waker: AtomicWaker::new(),
             prevent_cancellation: Mutex::new(PreventingCancellationCount(0)),
-            notifications: CancellationNotificationDataInner {
-                notified: Default::default(),
-                wakers: Mutex::new(Some(Default::default())),
-            },
+            notification_wakers: Mutex::new(Some(Default::default())),
         });
 
         (
@@ -94,25 +77,7 @@ impl CancellableFutureSharedStateView {
     }
 
     pub(crate) fn set_exited(&self) -> bool {
-        let mut lock = self.inner.state.lock();
-        let state = std::mem::replace(&mut *lock, State::Exited);
-        match state {
-            State::Cancelled => true,
-            _ => false,
-        }
-    }
-
-    pub(crate) fn notify_cancelled(&self) -> bool {
-        let lock = self.inner.prevent_cancellation.lock();
-        if lock.can_exit() {
-            // Note that we make no effort to attempt to prevent this from racing with creation of a
-            // critical section guard. That'd be unusual anyway so it doesn't matter, but it's not
-            // statically prevented by the API
-            true
-        } else {
-            self.inner.notifications.notify_cancelled();
-            false
-        }
+        self.inner.set_exited()
     }
 
     pub(crate) fn can_exit(&self) -> bool {
@@ -143,7 +108,7 @@ impl CancellationContextSharedStateView {
     /// Also consumes an instance of a `CriticalSectionGuard`
     pub(crate) fn try_to_disable_cancellation(&self) -> bool {
         let mut shared = self.inner.prevent_cancellation.lock();
-        if self.inner.notifications.try_to_disable_cancellation() {
+        if self.inner.try_to_disable_cancellation() {
             true
         } else {
             // couldn't prevent cancellation, so release our hold onto the counter
@@ -164,7 +129,7 @@ impl CancellationContextSharedStateView {
 }
 
 struct SharedStateData {
-    state: Mutex<State>,
+    state: AtomicU8,
 
     /// This is the waker associated with the main future which we are executing; we store it here
     /// so that we can wake it if there is a cancellation.
@@ -177,25 +142,22 @@ struct SharedStateData {
     /// How many observers are preventing immediate cancellation.
     prevent_cancellation: Mutex<PreventingCancellationCount>,
 
-    notifications: CancellationNotificationDataInner,
+    /// Wakers that expect to be woken up in case of a cancellation
+    ///
+    /// Again, the ordering contract here is the same as with all other wakers; these are registered
+    /// *before* checking the state for whether the future was already cancelled, and woken up after
+    /// the state is updatd.
+    notification_wakers: Mutex<Option<Slab<Arc<AtomicWaker>>>>,
 }
 
 impl SharedStateData {
     #[inline(always)]
     fn is_cancellation_requested(&self) -> bool {
-        matches!(*self.state.lock(), State::Cancelled)
+        matches!(
+            State::from(self.state.load(Ordering::Relaxed)),
+            State::Cancelled
+        )
     }
-}
-
-enum State {
-    /// This future is running normally (or has not yet been started)
-    Normal,
-
-    /// This future has already been cancelled.
-    Cancelled,
-
-    /// This future has already finished executing.
-    Exited,
 }
 
 /// How many observers are preventing immediate cancellation.
@@ -218,55 +180,72 @@ impl PreventingCancellationCount {
     }
 }
 
-pub(crate) enum CancellationNotificationStatus {
-    /// no notifications yet. maps to '0'
+enum State {
+    /// This future is running normally (or has not yet been started)
+    ///
+    /// This is the only state which is non-terminal, ie all states other than this one will never
+    /// change again once they're reached.
     Normal,
-    /// notified, maps to '1'
+    /// This future has already been cancelled.
     Cancelled,
-    /// disabled notifications, maps to '2'
+    /// Cancellations on this future have been permanently disabled
     CancellationsDisabled,
+    /// This future has finished running normally.
+    Exited,
 }
 
-impl From<u8> for CancellationNotificationStatus {
+impl From<u8> for State {
     fn from(value: u8) -> Self {
         match value {
-            0 => CancellationNotificationStatus::Normal,
-            1 => CancellationNotificationStatus::Cancelled,
-            2 => CancellationNotificationStatus::CancellationsDisabled,
+            0 => State::Normal,
+            1 => State::Cancelled,
+            2 => State::CancellationsDisabled,
+            3 => State::Exited,
             _ => panic!("invalid status"),
         }
     }
 }
 
-impl From<CancellationNotificationStatus> for u8 {
-    fn from(value: CancellationNotificationStatus) -> Self {
+impl From<State> for u8 {
+    fn from(value: State) -> Self {
         match value {
-            CancellationNotificationStatus::Normal => 0,
-            CancellationNotificationStatus::Cancelled => 1,
-            CancellationNotificationStatus::CancellationsDisabled => 2,
+            State::Normal => 0,
+            State::Cancelled => 1,
+            State::CancellationsDisabled => 2,
+            State::Exited => 3,
         }
     }
 }
 
-impl CancellationNotificationDataInner {
-    fn notify_cancelled(&self) {
-        let updated = self.notified.compare_exchange(
-            CancellationNotificationStatus::Normal.into(),
-            CancellationNotificationStatus::Cancelled.into(),
-            Ordering::Relaxed,
-            Ordering::Relaxed,
-        );
-        if updated.is_ok() {
-            if let Some(mut wakers) = self.wakers.lock().take() {
-                wakers.drain().for_each(|waker| waker.wake());
+impl SharedStateData {
+    /// Returns whether we were already cancelled
+    fn notify_cancelled(&self) -> bool {
+        let updated = self
+            .state
+            .compare_exchange(
+                State::Normal.into(),
+                State::Cancelled.into(),
+                Ordering::Relaxed,
+                Ordering::Relaxed,
+            )
+            .map_err(State::from);
+        match updated {
+            Ok(_) => {
+                self.cancellation_waker.wake();
+                if let Some(mut wakers) = self.notification_wakers.lock().take() {
+                    wakers.drain().for_each(|waker| waker.wake());
+                }
+                false
             }
+            Err(State::Cancelled) => true,
+            Err(_) => false,
         }
     }
 
     fn try_to_disable_cancellation(&self) -> bool {
-        let maybe_updated = self.notified.compare_exchange(
-            CancellationNotificationStatus::Normal.into(),
-            CancellationNotificationStatus::CancellationsDisabled.into(),
+        let maybe_updated = self.state.compare_exchange(
+            State::Normal.into(),
+            State::CancellationsDisabled.into(),
             Ordering::Relaxed,
             Ordering::Relaxed,
         );
@@ -274,17 +253,30 @@ impl CancellationNotificationDataInner {
         match maybe_updated {
             Ok(_) => true,
             Err(old) => {
-                let old = CancellationNotificationStatus::from(old);
-                matches!(old, CancellationNotificationStatus::CancellationsDisabled)
+                let old = State::from(old);
+                matches!(old, State::CancellationsDisabled)
             }
         }
     }
-}
 
-struct CancellationNotificationDataInner {
-    /// notification status per enum 'CancellationNotificationStatus'
-    notified: AtomicU8,
-    wakers: Mutex<Option<Slab<Arc<AtomicWaker>>>>,
+    /// Returns whether the future had been cancelled
+    fn set_exited(&self) -> bool {
+        let maybe_updated = self
+            .state
+            .compare_exchange(
+                State::Normal.into(),
+                State::Exited.into(),
+                Ordering::Relaxed,
+                Ordering::Relaxed,
+            )
+            .map_err(State::from);
+
+        match maybe_updated {
+            Ok(_) => false,
+            Err(State::Cancelled) => true,
+            Err(_) => false,
+        }
+    }
 }
 
 pub(crate) struct CancellationNotificationFuture {
@@ -303,8 +295,7 @@ impl CancellationNotificationFuture {
     fn new_from_state(inner: Arc<SharedStateData>) -> Self {
         let waker = Arc::new(AtomicWaker::new());
         let id = inner
-            .notifications
-            .wakers
+            .notification_wakers
             .lock()
             .as_mut()
             .map(|wakers| wakers.insert(waker.dupe()));
@@ -314,8 +305,7 @@ impl CancellationNotificationFuture {
     fn remove_waker(&mut self, id: Option<usize>) {
         if let Some(id) = id {
             self.inner
-                .notifications
-                .wakers
+                .notification_wakers
                 .lock()
                 .as_mut()
                 .map(|wakers| wakers.remove(id));
@@ -356,10 +346,8 @@ impl Future for CancellationNotificationFuture {
         //  2. Our `register` came after the wake, in which case the `register` acquires the change
         //     to the `notified` state that preceded the `wake` in `notify_cancelled`; as such,
         //     it's guaranteed it'll be visible here.
-        match CancellationNotificationStatus::from(
-            self.inner.notifications.notified.load(Ordering::Relaxed),
-        ) {
-            CancellationNotificationStatus::Cancelled => {
+        match State::from(self.inner.state.load(Ordering::Relaxed)) {
+            State::Cancelled => {
                 // take the id so that we don't need to lock the wakers when this future is dropped
                 // after completion
                 let id = self.id.take();

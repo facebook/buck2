@@ -105,10 +105,8 @@ impl<T> ExplicitlyCancellableFutureInner<T> {
     ) -> Poll<ExplicitlyCancellableResult<T>> {
         let is_cancelled = self.view.is_cancelled();
 
-        if is_cancelled {
-            if self.view.notify_cancelled() {
-                return Poll::Ready(ExplicitlyCancellableResult::Err(CancelledError));
-            }
+        if is_cancelled && self.view.can_exit() {
+            return Poll::Ready(ExplicitlyCancellableResult::Err(CancelledError));
         }
 
         let res = Pin::new(&mut self.future)
@@ -146,13 +144,8 @@ impl<T> Future for ExplicitlyCancellableFutureInner<T> {
 
         // When we exit, release our waker to ensure we don't keep create a reference cycle for
         // this task.
-        if poll.is_ready() {
-            let was_cancelled = self.view.set_exited();
-            if was_cancelled {
-                if self.view.can_exit() {
-                    return Poll::Ready(ExplicitlyCancellableResult::Err(CancelledError));
-                }
-            }
+        if poll.is_ready() && self.view.set_exited() {
+            return Poll::Ready(ExplicitlyCancellableResult::Err(CancelledError));
         }
 
         poll
