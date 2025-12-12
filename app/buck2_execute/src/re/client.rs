@@ -791,8 +791,6 @@ impl RemoteExecutionClientImpl {
                     re_client_config.log_rollup_window_size = 10;
                 }
 
-                re_client_config.check_file_existence_when_no_cache_enabled = false;
-                re_client_config.check_parent_directories_exist = false;
                 if static_metadata.curl_reactor_max_number_of_retries.is_some()
                     || static_metadata.curl_reactor_connection_timeout_ms.is_some()
                     || static_metadata.curl_reactor_request_timeout_ms.is_some()
