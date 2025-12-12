@@ -447,6 +447,7 @@ def _maybe_setup_prelude_and_ovr_config(path: Path) -> None:
         print("[repositories]", file=f)
         print("ovr_config = arvr/tools/build_defs/config", file=f)
         print("fbcode_macros = tools/build_defs/fbcode_macros", file=f)
+        print("config = arvr/tools/build_defs/config", file=f)
     with Path(path, "arvr", "tools", "build_defs", "config", ".buckconfig").open(
         "w"
     ) as f:

@@ -53,8 +53,8 @@ async def test_bxl_coerced_attrs(buck: Buck) -> None:
     assert cmd_select["__type"] == "selector"
     assert cmd_select["entries"] == {
         "DEFAULT": "foo",
-        "ovr_config//os:macos": "bar",
-        "ovr_config//os:windows": "foobar",
+        "config//os:macos": "bar",
+        "config//os:windows": "foobar",
     }
 
     result = await buck.bxl(
@@ -66,7 +66,7 @@ async def test_bxl_coerced_attrs(buck: Buck) -> None:
     assert "root//platforms:platform1" in output
     assert "genrule_with_selects" in output
     assert (
-        'select({"ovr_config//os:macos": "bar", "ovr_config//os:windows": "foobar", "DEFAULT": "foo"})'
+        'select({"config//os:macos": "bar", "config//os:windows": "foobar", "DEFAULT": "foo"})'
         in output
     )
     assert "PUBLIC" in output
@@ -164,7 +164,7 @@ async def test_unconfigured_target_node_attrs(buck: Buck) -> None:
     assert "root//platforms:platform1" in output
     assert "genrule_with_selects" in output
     assert (
-        'select({"ovr_config//os:macos": "bar", "ovr_config//os:windows": "foobar", "DEFAULT": "foo"})'
+        'select({"config//os:macos": "bar", "config//os:windows": "foobar", "DEFAULT": "foo"})'
         in output
     )
     assert "PUBLIC" in output
