@@ -11,7 +11,6 @@
 use buck2_core::buck2_env;
 use buck2_core::buck2_env_name;
 use buck2_core::soft_error;
-use buck2_error::conversion::from_any_with_tag;
 use buck2_event_observer::event_observer::NoopEventObserverExtra;
 use buck2_event_observer::verbosity::Verbosity;
 use buck2_health_check::report::DisplayReport;
@@ -94,32 +93,27 @@ pub fn get_console_with_root(
             health_check_display_reports_receiver,
         )
         .map(|c| Box::new(c) as Box<dyn EventSubscriber>),
-        ConsoleType::Auto => {
-            match StatefulSuperConsole::console_builder()
-                .build()
-                .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))
-            {
-                Ok(Some(sc)) => StatefulSuperConsole::new(
-                    command_name,
+        ConsoleType::Auto => match StatefulSuperConsole::console_builder().build() {
+            Ok(Some(sc)) => StatefulSuperConsole::new(
+                command_name,
+                trace_id.dupe(),
+                sc,
+                verbosity,
+                expect_spans,
+                timekeeper,
+                config,
+                health_check_display_reports_receiver,
+            )
+            .map(|c| Box::new(c) as Box<dyn EventSubscriber>),
+            _ => Ok(Box::new(
+                SimpleConsole::<NoopEventObserverExtra>::autodetect(
                     trace_id.dupe(),
-                    sc,
                     verbosity,
                     expect_spans,
-                    timekeeper,
-                    config,
                     health_check_display_reports_receiver,
-                )
-                .map(|c| Box::new(c) as Box<dyn EventSubscriber>),
-                _ => Ok(Box::new(
-                    SimpleConsole::<NoopEventObserverExtra>::autodetect(
-                        trace_id.dupe(),
-                        verbosity,
-                        expect_spans,
-                        health_check_display_reports_receiver,
-                    ),
-                )),
-            }
-        }
+                ),
+            )),
+        },
         ConsoleType::None => Ok(Box::new(ErrorConsole)),
     };
 

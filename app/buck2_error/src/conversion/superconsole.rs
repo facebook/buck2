@@ -8,8 +8,34 @@
  * above-listed licenses.
  */
 
+use superconsole::error::OutputError;
+
 use crate::ErrorTag;
 use crate::conversion::from_any_with_tag;
+
+impl From<superconsole::error::OutputError> for crate::Error {
+    #[cold]
+    #[track_caller]
+    fn from(value: superconsole::error::OutputError) -> Self {
+        let i = match value {
+            OutputError::Write(i) => i,
+            OutputError::Terminal(i) => i,
+            OutputError::SpawnThread(i) => i,
+        };
+        crate::Error::from(i).tag([ErrorTag::SuperConsole])
+    }
+}
+
+impl From<superconsole::Error> for crate::Error {
+    #[cold]
+    #[track_caller]
+    fn from(value: superconsole::Error) -> Self {
+        match value {
+            superconsole::Error::Output(e) => e.into(),
+            superconsole::Error::Draw(e) => from_any_with_tag(e, ErrorTag::SuperConsole),
+        }
+    }
+}
 
 impl From<superconsole::SpanError> for crate::Error {
     #[cold]

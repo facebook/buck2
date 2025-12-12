@@ -16,7 +16,6 @@ use std::time::Duration;
 use async_trait::async_trait;
 use buck2_data::CommandExecutionDetails;
 use buck2_error::BuckErrorContext;
-use buck2_error::conversion::from_any_with_tag;
 use buck2_event_observer::action_sub_error_display::ActionSubErrorDisplay;
 use buck2_event_observer::display;
 use buck2_event_observer::display::TargetDisplayOptions;
@@ -275,9 +274,7 @@ impl StatefulSuperConsole {
         Self::new(
             command_name,
             trace_id,
-            builder
-                .build_forced(Self::FALLBACK_SIZE)
-                .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::SuperConsole))?,
+            builder.build_forced(Self::FALLBACK_SIZE)?,
             verbosity,
             expect_spans,
             timekeeper,
@@ -351,7 +348,7 @@ impl StatefulSuperConsole {
         }
     }
 
-    fn finalize(&mut self) -> anyhow::Result<()> {
+    fn finalize(&mut self) -> buck2_error::Result<()> {
         let mut res = Ok(());
         take_mut::take(self, |this| match this {
             Self::Running(super_console) => {
@@ -364,7 +361,7 @@ impl StatefulSuperConsole {
             v => v,
         });
 
-        res
+        res.map_err(Into::into)
     }
 }
 
@@ -789,12 +786,10 @@ impl StatefulSuperConsoleImpl {
     async fn tick(&mut self, tick: &Tick) -> buck2_error::Result<()> {
         self.state.timekeeper.tick(*tick);
         self.try_update_active_warnings();
-        self.super_console
-            .render(&BuckRootComponent {
-                header: &self.header,
-                state: &self.state,
-            })
-            .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::SuperConsole))?;
+        self.super_console.render(&BuckRootComponent {
+            header: &self.header,
+            state: &self.state,
+        })?;
         Ok(())
     }
 
@@ -807,7 +802,7 @@ impl StatefulSuperConsoleImpl {
         Ok(())
     }
 
-    fn finalize(self) -> (SuperConsoleState, Option<anyhow::Error>) {
+    fn finalize(self) -> (SuperConsoleState, Option<superconsole::Error>) {
         let err = self
             .super_console
             .finalize(&BuckRootComponent {
@@ -829,8 +824,7 @@ impl EventSubscriber for StatefulSuperConsole {
     }
 
     async fn handle_output(&mut self, raw_output: &[u8]) -> buck2_error::Result<()> {
-        self.finalize()
-            .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::SuperConsole))?;
+        self.finalize()?;
         match self {
             Self::Running(_) => unreachable!(),
             Self::Finalized(c) => c.handle_output(raw_output).await,
@@ -863,8 +857,7 @@ impl EventSubscriber for StatefulSuperConsole {
             Self::Running(c) => c.handle_command_result(result).await?,
             Self::Finalized(c) => c.handle_command_result(result).await?,
         }
-        self.finalize()
-            .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::SuperConsole))?;
+        self.finalize()?;
         Ok(())
     }
 
@@ -876,8 +869,7 @@ impl EventSubscriber for StatefulSuperConsole {
     }
 
     async fn handle_error(&mut self, _error: &buck2_error::Error) -> buck2_error::Result<()> {
-        self.finalize()
-            .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::SuperConsole))?;
+        self.finalize()?;
         Ok(())
     }
 }
@@ -1023,6 +1015,7 @@ mod tests {
     use buck2_data::LoadBuildFileStart;
     use buck2_data::SpanEndEvent;
     use buck2_data::SpanStartEvent;
+    use buck2_error::conversion::from_any_with_tag;
     use buck2_event_observer::span_tracker::EventTimestamp;
     use buck2_events::span::SpanId;
     use dupe::Dupe;

@@ -26,6 +26,7 @@ use crate::ansi_support::enable_ansi_support;
 use crate::components::Component;
 use crate::components::DrawMode;
 use crate::content::Line;
+use crate::error::OutputError;
 use crate::output::BlockingSuperConsoleOutput;
 use crate::output::OutputTarget;
 use crate::output::SuperConsoleOutput;
@@ -106,7 +107,7 @@ impl SuperConsole {
 
     /// Render at a given tick.  Draws all components and drains the emitted events buffer.
     /// This will produce any pending emitting events above the Canvas and will re-render the drawing area.
-    pub fn render(&mut self, root: &dyn Component) -> anyhow::Result<()> {
+    pub fn render(&mut self, root: &dyn Component) -> crate::RenderResult<()> {
         // `render_general` refuses to drain more than a single frame, so repeat until done.
         // or until the rendered frame is too large to print anything.
         let mut anything_emitted = true;
@@ -131,7 +132,7 @@ impl SuperConsole {
 
     /// Perform a final render with [`DrawMode::Final`].
     /// Each component will have a chance to finalize themselves before the terminal is disposed of.
-    pub fn finalize(self, root: &dyn Component) -> anyhow::Result<()> {
+    pub fn finalize(self, root: &dyn Component) -> crate::RenderResult<()> {
         self.finalize_with_mode(root, DrawMode::Final)
     }
 
@@ -141,9 +142,9 @@ impl SuperConsole {
         mut self,
         root: &dyn Component,
         mode: DrawMode,
-    ) -> anyhow::Result<()> {
+    ) -> crate::RenderResult<()> {
         self.render_with_mode(root, mode)?;
-        self.output.finalize()
+        self.output.finalize().map_err(Into::into)
     }
 
     /// Convenience method:
@@ -152,7 +153,7 @@ impl SuperConsole {
     ///
     /// Because this re-renders the console, it requires passed state.
     /// Overuse of this method can cause `superconsole` to use significant CPU.
-    pub fn emit_now(&mut self, lines: Lines, root: &dyn Component) -> anyhow::Result<()> {
+    pub fn emit_now<C: Component>(&mut self, lines: Lines, root: &C) -> crate::RenderResult<()> {
         self.emit(lines);
         self.render(root)
     }
@@ -169,10 +170,13 @@ impl SuperConsole {
         self.aux_to_emit.extend(lines);
     }
 
-    fn size(&self) -> anyhow::Result<Dimensions> {
+    fn size(&self) -> Result<Dimensions, OutputError> {
         if let Ok(width) = std::env::var("SUPERCONSOLE_TESTING_WIDTH") {
-            let width: usize = width.parse()?;
-            let height = std::env::var("SUPERCONSOLE_TESTING_HEIGHT")?.parse()?;
+            let width: usize = width.parse().unwrap();
+            let height = std::env::var("SUPERCONSOLE_TESTING_HEIGHT")
+                .unwrap()
+                .parse()
+                .unwrap();
             return Ok(Dimensions::new(width, height));
         }
         // We want to get the size, but if that fails or is empty use the fallback_size if available.
@@ -186,35 +190,46 @@ impl SuperConsole {
 
     /// The first step of drawing.  It moves the buffer up to be overwritten and sets the length to 0.
     /// This is used to clear the scratch area so that any possibly emitted messages can write over it.
-    pub(crate) fn clear_canvas_pre(writer: &mut Vec<u8>, mut height: usize) -> anyhow::Result<()> {
+    pub(crate) fn clear_canvas_pre(
+        writer: &mut Vec<u8>,
+        mut height: usize,
+    ) -> Result<(), OutputError> {
         while height > 0 {
             // We can only move up at most u16 at a time, so repeat until we move up enough
             let step = height.try_into().unwrap_or(u16::MAX);
-            writer.queue(MoveUp(step))?;
+            writer.queue(MoveUp(step)).map_err(OutputError::Terminal)?;
             height -= step as usize;
         }
-        writer.queue(MoveToColumn(0))?;
+        writer
+            .queue(MoveToColumn(0))
+            .map_err(OutputError::Terminal)?;
         Ok(())
     }
 
     /// The last step of drawing. Ensures there is nothing else below on the console.
     /// Important in case the new canvas was smaller than the last.
-    pub(crate) fn clear_canvas_post(writer: &mut Vec<u8>) -> anyhow::Result<()> {
-        writer.queue(Clear(ClearType::FromCursorDown))?;
+    pub(crate) fn clear_canvas_post(writer: &mut Vec<u8>) -> Result<(), OutputError> {
+        writer
+            .queue(Clear(ClearType::FromCursorDown))
+            .map_err(OutputError::Terminal)?;
         Ok(())
     }
 
     /// Clears the canvas portion of the superconsole.
-    pub fn clear(&mut self) -> anyhow::Result<()> {
+    pub fn clear(&mut self) -> Result<(), OutputError> {
         let mut buffer = Vec::new();
         Self::clear_canvas_pre(&mut buffer, self.canvas_contents.len())?;
         self.canvas_contents = Lines::new();
         Self::clear_canvas_post(&mut buffer)?;
-        self.output.output(buffer)
+        self.output.output(buffer).map_err(Into::into)
     }
 
     /// Helper method to share render + finalize behavior by specifying mode.
-    fn render_with_mode(&mut self, root: &dyn Component, mode: DrawMode) -> anyhow::Result<()> {
+    fn render_with_mode(
+        &mut self,
+        root: &dyn Component,
+        mode: DrawMode,
+    ) -> crate::RenderResult<()> {
         // TODO(cjhopman): We may need to try to keep each write call to be under the pipe buffer
         // size so it can be completed in a single syscall otherwise we might see a partially
         // rendered frame.
@@ -233,7 +248,7 @@ impl SuperConsole {
         root: &dyn Component,
         mode: DrawMode,
         size: Dimensions,
-    ) -> anyhow::Result<()> {
+    ) -> crate::RenderResult<()> {
         /// Heuristic to determine if a buffer is too large to buffer.
         /// Can be tuned, but is currently set to 1000000 graphemes.
         fn is_big(buf0: &Lines, buf1: &Lines) -> bool {
@@ -243,7 +258,7 @@ impl SuperConsole {
         }
 
         // Pre-draw the frame *and then* start rendering emitted messages.
-        let mut canvas = root.draw(size, mode)?;
+        let mut canvas = root.draw(size, mode).map_err(crate::Error::Draw)?;
         // We don't trust the child to not truncate the result.
         canvas.shrink_lines_to_dimensions(size);
 

@@ -33,15 +33,19 @@ pub use content::Span;
 pub use content::SpanError;
 pub use dimensions::Dimensions;
 pub use dimensions::Direction;
+pub use error::Error;
 
 pub use crate::builder::Builder;
 pub use crate::superconsole::SuperConsole;
+
+pub type RenderResult<T> = Result<T, Error>;
 
 pub(crate) mod ansi_support;
 pub mod builder;
 pub mod components;
 pub mod content;
 mod dimensions;
+pub mod error;
 pub mod output;
 pub mod style;
 mod superconsole;

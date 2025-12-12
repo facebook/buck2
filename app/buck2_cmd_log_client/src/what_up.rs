@@ -29,7 +29,6 @@ use buck2_client_ctx::subscribers::superconsole::timed_list::TimedList;
 use buck2_client_ctx::subscribers::superconsole::timekeeper::Clock;
 use buck2_client_ctx::subscribers::superconsole::timekeeper::Timekeeper;
 use buck2_client_ctx::ticker::Tick;
-use buck2_error::conversion::from_any_with_tag;
 use buck2_event_log::stream_value::StreamValue;
 use buck2_event_observer::span_tracker::EventTimestamp;
 use buck2_event_observer::verbosity::Verbosity;
@@ -75,8 +74,7 @@ impl BuckSubcommand for WhatUpCommand {
         let (invocation, mut events) = log_path.unpack_stream().await?;
 
         let mut super_console = StatefulSuperConsole::console_builder()
-            .build_forced(StatefulSuperConsole::FALLBACK_SIZE)
-            .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::LogCmd))?;
+            .build_forced(StatefulSuperConsole::FALLBACK_SIZE)?;
 
         let start_time = invocation.start_time.unwrap_or(SystemTime::UNIX_EPOCH);
         let initial_most_recent_timestamp = EventTimestamp(
@@ -130,9 +128,7 @@ impl BuckSubcommand for WhatUpCommand {
                 StreamValue::Result(result) => {
                     let result = StatefulSuperConsole::render_result_errors(&result);
                     super_console.emit(result);
-                    super_console
-                        .finalize(&Self::component(&super_console_state))
-                        .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::LogCmd))?;
+                    super_console.finalize(&Self::component(&super_console_state))?;
                     buck2_client_ctx::eprintln!("No open spans to render when log ended")?;
                     return ExitResult::success();
                 }
@@ -144,8 +140,7 @@ impl BuckSubcommand for WhatUpCommand {
         super_console_state.tick(Tick::now());
 
         super_console
-            .finalize_with_mode(&Self::component(&super_console_state), DrawMode::Normal)
-            .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::LogCmd))?;
+            .finalize_with_mode(&Self::component(&super_console_state), DrawMode::Normal)?;
         ExitResult::success()
     }
 }

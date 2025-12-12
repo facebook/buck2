@@ -13,6 +13,7 @@ use std::io::Write;
 
 use crate::Dimensions;
 use crate::SuperConsole;
+use crate::error::OutputError;
 use crate::output::BlockingSuperConsoleOutput;
 use crate::output::IsTtyWrite;
 use crate::output::NonBlockingSuperConsoleOutput;
@@ -55,7 +56,7 @@ impl Builder {
     }
 
     /// Build a new SuperConsole if stderr is a TTY.
-    pub fn build(self) -> anyhow::Result<Option<SuperConsole>> {
+    pub fn build(self) -> Result<Option<SuperConsole>, OutputError> {
         if !SuperConsole::compatible() {
             return Ok(None);
         }
@@ -63,16 +64,16 @@ impl Builder {
     }
 
     /// Build a new SuperConsole regardless of whether stderr is a TTY.
-    pub fn build_forced(self, fallback_size: Dimensions) -> anyhow::Result<SuperConsole> {
+    pub fn build_forced(self, fallback_size: Dimensions) -> Result<SuperConsole, OutputError> {
         self.build_inner(Some(fallback_size))
     }
 
-    fn build_inner(self, fallback_size: Option<Dimensions>) -> anyhow::Result<SuperConsole> {
+    fn build_inner(self, fallback_size: Option<Dimensions>) -> Result<SuperConsole, OutputError> {
         let output = self.output()?;
         Ok(SuperConsole::new_with_output(fallback_size, output))
     }
 
-    fn output(self) -> anyhow::Result<Box<dyn SuperConsoleOutput>> {
+    fn output(self) -> Result<Box<dyn SuperConsoleOutput>, OutputError> {
         if self.non_blocking {
             Ok(Box::new(NonBlockingSuperConsoleOutput::new(
                 self.stream,

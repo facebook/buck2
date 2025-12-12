@@ -14,6 +14,7 @@ use std::any::Any;
 use anyhow::Context as _;
 
 use crate::Dimensions;
+use crate::error::OutputError;
 use crate::output::OutputTarget;
 use crate::output::SuperConsoleOutput;
 use crate::superconsole::SuperConsole;
@@ -45,12 +46,12 @@ impl SuperConsoleOutput for TestOutput {
         self.should_render
     }
 
-    fn output(&mut self, buffer: Vec<u8>) -> anyhow::Result<()> {
+    fn output(&mut self, buffer: Vec<u8>) -> Result<(), OutputError> {
         self.frames.push(buffer);
         Ok(())
     }
 
-    fn output_to(&mut self, buffer: Vec<u8>, target: OutputTarget) -> anyhow::Result<()> {
+    fn output_to(&mut self, buffer: Vec<u8>, target: OutputTarget) -> Result<(), OutputError> {
         match target {
             OutputTarget::Main => self.output(buffer),
             OutputTarget::Aux => {
@@ -70,11 +71,11 @@ impl SuperConsoleOutput for TestOutput {
         self.aux_stream_is_tty
     }
 
-    fn terminal_size(&self) -> anyhow::Result<Dimensions> {
+    fn terminal_size(&self) -> Result<Dimensions, OutputError> {
         Ok(self.terminal_size)
     }
 
-    fn finalize(self: Box<Self>) -> anyhow::Result<()> {
+    fn finalize(self: Box<Self>) -> Result<(), OutputError> {
         Ok(())
     }
 
