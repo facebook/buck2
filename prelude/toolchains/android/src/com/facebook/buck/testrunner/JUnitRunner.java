@@ -115,7 +115,7 @@ public final class JUnitRunner extends BaseRunner {
           jUnitCore.addListener(tpxListener);
 
           // Add Robolectric timeout enforcement listener if this is a Robolectric test
-          if (isRobolectricTest(testClass)
+          if (isRobolectricTest(suite)
               && "true".equals(System.getProperty("android.per.test.timeout.enabled"))) {
             RobolectricTimeoutEnforcingRunListener timeoutListener =
                 new RobolectricTimeoutEnforcingRunListener(testResultsOutputSender.get());
@@ -325,17 +325,66 @@ public final class JUnitRunner extends BaseRunner {
     };
   }
 
-  /** Checks if a test class is a Robolectric test by examining its @RunWith annotation. */
-  private boolean isRobolectricTest(Class<?> testClass) {
-    RunWith annotation = testClass.getAnnotation(RunWith.class);
-    if (annotation != null) {
-      Class<?> runnerClass = annotation.value();
-      try {
-        Class<?> robolectricTestRunner = Class.forName("org.robolectric.RobolectricTestRunner");
-        return robolectricTestRunner.isAssignableFrom(runnerClass);
-      } catch (ClassNotFoundException e) {
-        // Not a Robolectric test
+  /**
+   * Checks if a test class is a Robolectric test by examining its runner.
+   *
+   * <p>This method handles two cases:
+   *
+   * <ol>
+   *   <li>Direct Robolectric runners: The runner class directly extends RobolectricTestRunner
+   *   <li>Suite-based Robolectric runners: The runner extends Suite (e.g.,
+   *       WhatsAppParameterizedRobolectricTestRunner) but its children extend RobolectricTestRunner
+   * </ol>
+   *
+   * @param runner The instantiated runner for this test class
+   */
+  private boolean isRobolectricTest(Runner runner) {
+    Class<?> runnerClass = runner.getClass();
+    try {
+      Class<?> robolectricTestRunner = Class.forName("org.robolectric.RobolectricTestRunner");
+
+      // Case 1: Runner directly extends RobolectricTestRunner
+      if (robolectricTestRunner.isAssignableFrom(runnerClass)) {
+        return true;
       }
+
+      // Case 2: Runner extends Suite - check if children extend RobolectricTestRunner
+      Class<?> suiteClass = Class.forName("org.junit.runners.Suite");
+      if (suiteClass.isAssignableFrom(runnerClass)) {
+        return isRobolectricSuiteRunner(runner, robolectricTestRunner);
+      }
+    } catch (ClassNotFoundException e) {
+      // Not a Robolectric test
+    }
+    return false;
+  }
+
+  /**
+   * Checks if a Suite-based runner has children that extend RobolectricTestRunner.
+   *
+   * <p>This handles parameterized Robolectric test runners like
+   * WhatsAppParameterizedRobolectricTestRunner which extend Suite but have child runners that
+   * extend RobolectricTestRunner.
+   *
+   * @param runner The instantiated runner
+   * @param robolectricTestRunner The RobolectricTestRunner class to check against
+   */
+  private boolean isRobolectricSuiteRunner(Runner runner, Class<?> robolectricTestRunner) {
+    try {
+      // getChildren() is a protected method defined in ParentRunner
+      Class<?> parentRunner = Class.forName("org.junit.runners.ParentRunner");
+      Method getChildrenMethod = parentRunner.getDeclaredMethod("getChildren");
+      getChildrenMethod.setAccessible(true);
+      @SuppressWarnings("unchecked")
+      List<Runner> children = (List<Runner>) getChildrenMethod.invoke(runner);
+
+      // Check if first child extends RobolectricTestRunner (we only ever deal with one child)
+      if (!children.isEmpty()) {
+        Runner firstChild = children.get(0);
+        return robolectricTestRunner.isAssignableFrom(firstChild.getClass());
+      }
+    } catch (ReflectiveOperationException e) {
+      // Not a Robolectric suite runner
     }
     return false;
   }
