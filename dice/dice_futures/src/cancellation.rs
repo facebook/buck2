@@ -94,14 +94,14 @@ impl CancellationContext {
         ))
     }
 
-    /// Queries whether the current future (if it supports explicit
-    /// cancellation) has been requested to be cancelled. This can be polled by
-    /// synchronous code to decide to exit early. It should NOT be used in an
-    /// async context. Async code should use the CancellationObserver returned
-    /// by `with_structured_cancellation` instead.
+    /// Check whether the future has been cancelled.
+    ///
+    /// This is intended to be polled by synchronous code to decide to exit early. It should
+    /// typically not be used in an async context, `with_structured_cancellation` tends to be more
+    /// appropriate there.
     #[inline(always)]
-    pub fn is_cancellation_requested(&self) -> bool {
-        self.0.is_cancellation_requested()
+    pub fn is_cancelled(&self) -> bool {
+        self.0.is_cancelled()
     }
 }
 
@@ -161,9 +161,9 @@ impl CancellationObserver {
     }
 
     #[inline(always)]
-    pub fn is_cancellation_requested(&self) -> bool {
+    pub fn is_cancelled(&self) -> bool {
         match &self.0 {
-            CancellationObserverInner::Explicit(fut) => fut.is_cancellation_requested(),
+            CancellationObserverInner::Explicit(fut) => fut.is_cancelled(),
             CancellationObserverInner::NeverCancelled => false,
         }
     }

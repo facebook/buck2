@@ -155,8 +155,8 @@ impl ExplicitCancellationContext {
     }
 
     #[inline(always)]
-    pub(crate) fn is_cancellation_requested(&self) -> bool {
-        self.inner.is_cancellation_requested()
+    pub(crate) fn is_cancelled(&self) -> bool {
+        self.inner.is_cancelled()
     }
 }
 
@@ -219,10 +219,10 @@ impl CancellationContextInner {
     }
 
     #[inline(always)]
-    pub(crate) fn is_cancellation_requested(&self) -> bool {
+    pub(crate) fn is_cancelled(&self) -> bool {
         match self {
             CancellationContextInner::NeverCancelled => false,
-            CancellationContextInner::Explicit(inner) => inner.is_cancellation_requested(),
+            CancellationContextInner::Explicit(inner) => inner.is_cancelled(),
         }
     }
 }

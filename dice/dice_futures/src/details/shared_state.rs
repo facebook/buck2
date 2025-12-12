@@ -69,7 +69,7 @@ impl CancellableFutureSharedStateView {
     }
 
     pub(crate) fn is_cancelled(&self) -> bool {
-        self.inner.is_cancellation_requested()
+        self.inner.is_cancelled()
     }
 
     pub(crate) fn register_waker(&self, cx: &mut Context<'_>) {
@@ -123,8 +123,8 @@ impl CancellationContextSharedStateView {
     }
 
     #[inline(always)]
-    pub(crate) fn is_cancellation_requested(&self) -> bool {
-        self.inner.is_cancellation_requested()
+    pub(crate) fn is_cancelled(&self) -> bool {
+        self.inner.is_cancelled()
     }
 }
 
@@ -152,7 +152,7 @@ struct SharedStateData {
 
 impl SharedStateData {
     #[inline(always)]
-    fn is_cancellation_requested(&self) -> bool {
+    fn is_cancelled(&self) -> bool {
         matches!(
             State::from(self.state.load(Ordering::Relaxed)),
             State::Cancelled
@@ -313,8 +313,8 @@ impl CancellationNotificationFuture {
     }
 
     #[inline(always)]
-    pub(crate) fn is_cancellation_requested(&self) -> bool {
-        self.inner.is_cancellation_requested()
+    pub(crate) fn is_cancelled(&self) -> bool {
+        self.inner.is_cancelled()
     }
 }
 
