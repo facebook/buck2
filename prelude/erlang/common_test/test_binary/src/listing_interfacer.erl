@@ -16,6 +16,7 @@ code implementation.
 
 -include_lib("common/include/tpx_records.hrl").
 -export([produce_xml_file/2, test_case_constructor/2]).
+-export([produce_json_file/2]).
 
 %% Copy-and-paste of `xmerl:simple_element`, that is not currently exported by xmerl
 -type 'xmerl:simple_element'() ::
@@ -50,3 +51,30 @@ test_info_to_xml(#test_spec_test_info{name = TestName, filter = TestName}) ->
 produce_xml_file(OutputDir, TestCase) ->
     XmlString = xmerl:export_simple([test_case_to_xml(TestCase)], xmerl_xml),
     ok = file:write_file(filename:join(OutputDir, result), XmlString, [append, raw, binary]).
+
+-spec produce_json_file(OutputDir, TestCase) -> ok when
+    OutputDir :: file:filename_all(),
+    TestCase :: #test_spec_test_case{}.
+produce_json_file(OutputDir, TestCase) ->
+    Filename = filename:join(OutputDir, ~"result"),
+    {ok, Fd} = file:open(Filename, [write, raw, binary]),
+    try
+        lists:foreach(
+            fun(TestInfo) ->
+                TestInfoJson = test_info_to_json_line(TestInfo),
+                ok = file:write(Fd, [TestInfoJson, ~"\n"])
+            end,
+            TestCase#test_spec_test_case.testcases
+        )
+    after
+        file:close(Fd)
+    end.
+
+-spec test_info_to_json_line(TestInfo) -> iodata() when
+    TestInfo :: #test_spec_test_info{}.
+test_info_to_json_line(TestInfo) ->
+    % NB. json:encode() guarantees the output is in one line
+    json:encode(#{
+        testcase => TestInfo#test_spec_test_info.name,
+        filter => TestInfo#test_spec_test_info.filter
+    }).

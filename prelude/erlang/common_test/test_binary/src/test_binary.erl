@@ -53,7 +53,8 @@ cli() ->
             "list" => #{
                 handler => fun handle_list/1,
                 arguments => [
-                    #{name => output_dir, long => "-output-dir", type => string, required => true}
+                    #{name => output_dir, long => "-output-dir", type => string, required => true},
+                    #{name => json, long => "-json", type => boolean, required => false}
                 ]
             },
             "run" => #{
@@ -168,7 +169,12 @@ listing(Args) ->
     #{test_info_file := TestInfoFile, output_dir := OutputDir} = Args,
     TestInfo = test_info:load_from_file(TestInfoFile),
     Listing = get_listing(TestInfo, OutputDir),
-    listing_interfacer:produce_xml_file(OutputDir, Listing).
+    case Args of
+        #{json := true} ->
+            listing_interfacer:produce_json_file(OutputDir, Listing);
+        _ ->
+            listing_interfacer:produce_xml_file(OutputDir, Listing)
+    end.
 
 -spec running(Args) -> ok when
     Args :: run_args().
