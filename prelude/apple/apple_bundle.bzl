@@ -66,6 +66,7 @@ load(
     "AppleBundleResourceInfo",
     "AppleBundleType",
     "AppleBundleTypeDefault",
+    "AppleInfoPlistInfo",
 )
 load(":apple_bundle_utility.bzl", "get_bundle_min_target_version", "get_default_binary_dep", "get_flattened_binary_deps", "get_product_name")
 load(":apple_code_signing_types.bzl", "CodeSignConfiguration", "get_code_signing_configuration_attr_value")
@@ -417,6 +418,7 @@ def apple_bundle_impl(ctx: AnalysisContext) -> list[Provider]:
     ]
 
     sub_targets[_PLIST] = [DefaultInfo(default_output = apple_bundle_part_list_output.info_plist_part.source)]
+    info_plist_info = AppleInfoPlistInfo(info_plist = apple_bundle_part_list_output.info_plist_part.source)
 
     sub_targets[_XCTOOLCHAIN_SUB_TARGET] = ctx.attrs._apple_xctoolchain.providers
 
@@ -495,6 +497,7 @@ def apple_bundle_impl(ctx: AnalysisContext) -> list[Provider]:
         extra_output_provider,
         link_cmd_debug_info,
         index_store_info,
+        info_plist_info,
     ] + bundle_result.providers + validation_providers
 
 def _xcode_populate_attributes(ctx, processed_info_plist: Artifact, info_plist_relative_path: str) -> dict[str, typing.Any]:
