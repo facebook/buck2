@@ -20,7 +20,7 @@ use crate::cancellation::CancellationObserverInner;
 use crate::cancellation::CriticalSectionGuard;
 use crate::cancellation::DisableCancellationGuard;
 use crate::details::shared_state::CancellationContextSharedStateView;
-use crate::details::shared_state::CancellationNotificationFuture;
+use crate::details::shared_state::CancellationObserverFuture;
 
 pub struct ExplicitCriticalSectionGuard<'a> {
     pub(crate) context: Option<&'a CancellationContextSharedStateView>,
@@ -29,7 +29,7 @@ pub struct ExplicitCriticalSectionGuard<'a> {
 impl<'a> ExplicitCriticalSectionGuard<'a> {
     pub(crate) fn cancellation_observer(&self) -> CancellationObserver {
         CancellationObserver(CancellationObserverInner::Explicit(
-            CancellationNotificationFuture::new(self.context.unwrap()),
+            CancellationObserverFuture::new(self.context.unwrap()),
         ))
     }
 

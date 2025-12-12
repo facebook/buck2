@@ -54,7 +54,7 @@ impl CancellableFutureSharedStateView {
             state: AtomicU8::new(State::Normal.into()),
             cancellation_waker: AtomicWaker::new(),
             prevent_cancellation: Mutex::new(PreventingCancellationCount(0)),
-            notification_wakers: Mutex::new(Some(Default::default())),
+            observer_wakers: Mutex::new(Some(Default::default())),
         });
 
         (
@@ -168,7 +168,7 @@ struct SharedStateData {
     /// Again, the ordering contract here is the same as with all other wakers; these are registered
     /// *before* checking the state for whether the future was already cancelled, and woken up after
     /// the state is updatd.
-    notification_wakers: Mutex<Option<Slab<Arc<AtomicWaker>>>>,
+    observer_wakers: Mutex<Option<Slab<Arc<AtomicWaker>>>>,
 }
 
 impl SharedStateData {
@@ -243,7 +243,7 @@ impl SharedStateData {
         match self.move_normal_state_to(State::Cancelled) {
             Ok(_) => {
                 self.cancellation_waker.wake();
-                if let Some(mut wakers) = self.notification_wakers.lock().take() {
+                if let Some(mut wakers) = self.observer_wakers.lock().take() {
                     wakers.drain().for_each(|waker| waker.wake());
                 }
                 false
@@ -291,15 +291,15 @@ impl SharedStateData {
     }
 }
 
-pub(crate) struct CancellationNotificationFuture {
+pub(crate) struct CancellationObserverFuture {
     inner: Arc<SharedStateData>,
-    // index into the waker for this future held by the Slab in 'CancellationNotificationData'
+    // index into the waker for this future held by the Slab in `observer_wakers`
     id: Option<usize>,
     // duplicate of the waker held for us to update the waker on poll without acquiring lock
     waker: Arc<AtomicWaker>,
 }
 
-impl CancellationNotificationFuture {
+impl CancellationObserverFuture {
     pub(crate) fn new(view: &CancellationContextSharedStateView) -> Self {
         Self::new_from_state(view.inner.dupe())
     }
@@ -307,17 +307,17 @@ impl CancellationNotificationFuture {
     fn new_from_state(inner: Arc<SharedStateData>) -> Self {
         let waker = Arc::new(AtomicWaker::new());
         let id = inner
-            .notification_wakers
+            .observer_wakers
             .lock()
             .as_mut()
             .map(|wakers| wakers.insert(waker.dupe()));
-        CancellationNotificationFuture { inner, id, waker }
+        CancellationObserverFuture { inner, id, waker }
     }
 
     fn remove_waker(&mut self, id: Option<usize>) {
         if let Some(id) = id {
             self.inner
-                .notification_wakers
+                .observer_wakers
                 .lock()
                 .as_mut()
                 .map(|wakers| wakers.remove(id));
@@ -330,21 +330,21 @@ impl CancellationNotificationFuture {
     }
 }
 
-impl Clone for CancellationNotificationFuture {
+impl Clone for CancellationObserverFuture {
     fn clone(&self) -> Self {
-        CancellationNotificationFuture::new_from_state(self.inner.dupe())
+        CancellationObserverFuture::new_from_state(self.inner.dupe())
     }
 }
 
-impl Dupe for CancellationNotificationFuture {}
+impl Dupe for CancellationObserverFuture {}
 
-impl Drop for CancellationNotificationFuture {
+impl Drop for CancellationObserverFuture {
     fn drop(&mut self) {
         self.remove_waker(self.id);
     }
 }
 
-impl Future for CancellationNotificationFuture {
+impl Future for CancellationObserverFuture {
     type Output = ();
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
@@ -356,8 +356,8 @@ impl Future for CancellationNotificationFuture {
         //  1. Our `register` came before the wake, in which case we'll get woken up and get to see
         //     whatever happened at that time
         //  2. Our `register` came after the wake, in which case the `register` acquires the change
-        //     to the `notified` state that preceded the `wake` in `notify_cancelled`; as such,
-        //     it's guaranteed it'll be visible here.
+        //     to the state that preceded the `wake` in `notify_cancelled`; as such, it's
+        //     guaranteed it'll be visible here.
         match State::from(self.inner.state.load(Ordering::Relaxed)) {
             State::Cancelled => {
                 // take the id so that we don't need to lock the wakers when this future is dropped

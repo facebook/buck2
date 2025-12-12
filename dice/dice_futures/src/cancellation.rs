@@ -26,7 +26,7 @@ use crate::details::cancellation_context::ExplicitCancellationContext;
 use crate::details::cancellation_context::ExplicitCriticalSectionGuard;
 use crate::details::shared_state::CancellationContextSharedStateView;
 use crate::details::shared_state::CancellationHandleSharedStateView;
-use crate::details::shared_state::CancellationNotificationFuture;
+use crate::details::shared_state::CancellationObserverFuture;
 
 static NEVER_CANCELLED: Lazy<CancellationContext> =
     Lazy::new(|| CancellationContext(CancellationContextInner::NeverCancelled));
@@ -172,7 +172,7 @@ impl CancellationObserver {
 #[derive(Clone, Dupe)]
 pub(crate) enum CancellationObserverInner {
     NeverCancelled,
-    Explicit(CancellationNotificationFuture),
+    Explicit(CancellationObserverFuture),
 }
 
 impl Future for CancellationObserver {
