@@ -109,15 +109,13 @@ impl CancellationContextSharedStateView {
     }
 
     /// Also consumes an instance of a `CriticalSectionGuard`
-    pub(crate) fn try_to_disable_cancellation(&self) -> bool {
-        let mut shared = self.inner.prevent_cancellation.lock();
-        if self.inner.try_to_disable_cancellation() {
-            true
-        } else {
-            // couldn't prevent cancellation, so release our hold onto the counter
-            shared.exit_critical_section();
-            false
-        }
+    pub(crate) fn try_disable_cancellation(&self) -> bool {
+        // Note that the requirement that this consume a critical section is entirely cosmetic.
+        // However, there are legitimate ways in which we may one day want to change the API - such
+        // as statically promising that we either succeed or that the future was cancelled - for
+        // which this may be useful, so keep it like this for now.
+        self.exit_critical_section();
+        self.inner.try_disable_cancellation()
     }
 
     pub(crate) fn exit_critical_section(&self) -> bool {
@@ -264,7 +262,7 @@ impl SharedStateData {
         }
     }
 
-    fn try_to_disable_cancellation(&self) -> bool {
+    fn try_disable_cancellation(&self) -> bool {
         let maybe_updated = self.state.compare_exchange(
             State::Normal.into(),
             State::CancellationsDisabled.into(),

@@ -77,7 +77,7 @@ impl<'a> ExplicitCriticalSectionGuard<'a> {
 
     pub(crate) fn try_disable_cancellation(self) -> Option<DisableCancellationGuard> {
         let context = self.take();
-        if context.try_to_disable_cancellation() {
+        if context.try_disable_cancellation() {
             Some(DisableCancellationGuard)
         } else {
             None

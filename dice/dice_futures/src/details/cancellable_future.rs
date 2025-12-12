@@ -670,6 +670,8 @@ mod tests {
 
         handle.cancel();
 
+        assert_matches!(futures::poll!(&mut fut), Poll::Pending);
+
         assert_matches!(futures::poll!(&mut fut), Poll::Ready(Ok(())));
     }
 
