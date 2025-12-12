@@ -37,7 +37,7 @@ def java_test_impl(ctx: AnalysisContext) -> list[Provider]:
     java_providers = build_java_library(ctx, ctx.attrs.srcs)
     external_runner_test_info = build_junit_test(ctx, java_providers.java_library_info, java_providers.java_packaging_info, java_providers.class_to_src_map)
 
-    return inject_test_run_info(ctx, external_runner_test_info) + [
+    providers = [
         java_providers.java_library_intellij_info,
         java_providers.java_library_info,
         java_providers.java_packaging_info,
@@ -45,6 +45,10 @@ def java_test_impl(ctx: AnalysisContext) -> list[Provider]:
         java_providers.default_info,
         java_providers.class_to_src_map,
     ]
+    if java_providers.validation_info:
+        providers.append(java_providers.validation_info)
+
+    return inject_test_run_info(ctx, external_runner_test_info) + providers
 
 def build_junit_test(
         ctx: AnalysisContext,

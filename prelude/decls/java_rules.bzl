@@ -437,7 +437,8 @@ java_test = prelude_rule(
             "use_dependency_order_classpath": attrs.option(attrs.bool(), default = None),
         } |
         buck.licenses_arg() |
-        buck.contacts_arg()
+        buck.contacts_arg() |
+        validation_common.attrs_validators_arg()
     ) | jvm_common.annotation_processors() | jvm_common.plugins() | jvm_common.javac() | test_common.attributes() | jvm_common.content_based_path_for_jar_snapshot() | jvm_common.classic_java_content_based_paths(),
 )
 
