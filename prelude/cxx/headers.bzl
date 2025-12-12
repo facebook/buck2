@@ -135,8 +135,14 @@ def cxx_attr_header_namespace(ctx: AnalysisContext) -> str:
 
 def cxx_attr_headers_list(ctx: AnalysisContext, headers: typing.Any, platform_headers: typing.Any, headers_layout: CxxHeadersLayout) -> list[CHeader]:
     headers = _get_attr_headers(headers, headers_layout.namespace, headers_layout.naming)
-    platform_headers = _get_attr_headers(_headers_by_platform(ctx, platform_headers), headers_layout.namespace, headers_layout.naming)
-    return headers + platform_headers
+
+    if platform_headers:
+        headers_by_platform = _headers_by_platform(ctx, platform_headers)
+        if headers_by_platform:
+            platform_headers = _get_attr_headers(headers_by_platform, headers_layout.namespace, headers_layout.naming)
+            headers.extend(platform_headers)
+
+    return headers
 
 def cxx_attr_exported_headers(ctx: AnalysisContext, headers_layout: CxxHeadersLayout) -> list[CHeader]:
     return cxx_attr_headers_list(ctx, ctx.attrs.exported_headers, ctx.attrs.exported_platform_headers, headers_layout)
