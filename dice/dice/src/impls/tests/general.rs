@@ -134,38 +134,6 @@ async fn set_injected_with_no_change_no_new_ctx() -> anyhow::Result<()> {
     Ok(())
 }
 
-#[derive(Clone, Dupe, Display, Debug, Eq, PartialEq, Hash, Allocative)]
-#[display("{:?}", self)]
-struct K(i32);
-
-#[async_trait]
-impl Key for K {
-    type Value = Result<K, Arc<anyhow::Error>>;
-
-    async fn compute(
-        &self,
-        ctx: &mut DiceComputations,
-        _cancellations: &CancellationContext,
-    ) -> Self::Value {
-        let mut sum = self.0;
-        for i in 0..self.0 {
-            sum += ctx
-                .compute(&K(i))
-                .await
-                .map_err(|e| Arc::new(anyhow::anyhow!(e)))??
-                .0;
-        }
-        Ok(K(sum))
-    }
-
-    fn equality(x: &Self::Value, y: &Self::Value) -> bool {
-        match (x, y) {
-            (Ok(x), Ok(y)) => x == y,
-            _ => false,
-        }
-    }
-}
-
 #[test]
 fn dice_computations_are_parallel() {
     let n_thread = 10;
