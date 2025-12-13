@@ -32,7 +32,7 @@ pub static LINKABLE_SYMBOL: &Aligned<[u8]> = &Aligned {
 };
 
 #[cfg(rust_linkable_symbol_getter_str)]
-pub fn get() -> &'static str {
+pub const fn get() -> &'static str {
     unsafe extern "Rust" {
         #[link_name = env!("LINKABLE_SYMBOL")]
         static LINKABLE_SYMBOL: &'static str;
@@ -41,7 +41,7 @@ pub fn get() -> &'static str {
 }
 
 #[cfg(rust_linkable_symbol_getter_bytes)]
-pub fn get() -> &'static [u8] {
+pub const fn get() -> &'static [u8] {
     unsafe extern "Rust" {
         #[link_name = env!("LINKABLE_SYMBOL")]
         static LINKABLE_SYMBOL: &'static Aligned<[u8]>;
