@@ -11,6 +11,7 @@
 mod check;
 mod develop;
 mod new;
+mod target_or_file;
 
 #[derive(Debug, Clone)]
 pub(crate) enum Input {
@@ -26,5 +27,6 @@ pub(crate) use develop::Develop;
 pub(crate) use develop::develop_with_sysroot;
 pub(crate) use new::New;
 pub(crate) use new::ProjectKind;
+pub(crate) use target_or_file::TargetOrFile;
 
 use crate::target::Target;
