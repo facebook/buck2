@@ -12,6 +12,7 @@ use std::fmt;
 use std::sync::Arc;
 
 use smallvec::SmallVec;
+use starlark_syntax::call_stack::CallStack;
 use starlark_syntax::codemap::FileSpan;
 use starlark_syntax::span_display::span_display;
 
@@ -76,6 +77,12 @@ impl std::fmt::Display for ContextValue {
     }
 }
 
+impl std::fmt::Debug for ContextValue {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        std::fmt::Display::fmt(&self, f)
+    }
+}
+
 impl From<String> for ContextValue {
     fn from(value: String) -> Self {
         ContextValue::Dyn(value.into())
@@ -106,28 +113,66 @@ impl<T: TypedContext> From<T> for ContextValue {
 
 #[derive(Clone, allocative::Allocative, Debug, PartialEq, Eq, Hash)]
 pub struct StarlarkContext {
-    // TODO(minglunli): We could take in the CallStack type and do some magic to make it look nicer
-    // but I think just concatenating the string form and it's accurate and look good enough
-    pub call_stack: String,
+    pub call_stack: CallStack,
+    /// May be empty when we try to inject some StarlarkContext and there is already a StarlarkContext
+    /// near the top of the error.
     pub error_msg: String,
     pub span: Option<FileSpan>,
+    /// If true, we render the span / call stack in buck output.
+    /// Otherwise, data is only for LSP to fish out.
+    pub show_span_in_buck_output: bool,
+    ///
+    /// We don't render the root error if `replaces_root_error` is set.
+    /// We render this in preference because it has a starlark
+    /// span and call stack.
+    ///
+    /// This is only to be set if error_msg contains a rendering of the root error.
+    ///
+    /// This field enables us to keep an actual StarlarkContext tha can be rendered
+    /// as an LSP span instead of literally replacing the root context with a
+    /// stringified span.
+    ///
+    pub replaces_root_error: bool,
 }
 
 impl StarlarkContext {
-    pub fn concat(&self, other: Option<Self>) -> Self {
-        if let Some(ctx) = other {
-            let trimmed = ctx
+    /// Concatenate call stacks. Keeps self.error_msg, drops inner.error_msg.
+    ///
+    /// Pass the inner context as the argument, i.e. the one closer to the root cause.
+    pub fn concat(&self, inner: Option<Self>) -> Self {
+        if let Some(inner) = inner {
+            let frames = self
                 .call_stack
-                .trim_start_matches(starlark_syntax::call_stack::CALL_STACK_TRACEBACK_PREFIX);
-            let call_stack = format!("{}{}", self.call_stack, trimmed);
+                .frames
+                .iter()
+                .chain(inner.call_stack.frames.iter())
+                .cloned()
+                .collect();
+
             Self {
-                call_stack,
-                error_msg: ctx.error_msg.clone(),
-                span: ctx.span.clone(),
+                call_stack: CallStack { frames },
+                error_msg: self.error_msg.clone(),
+                span: inner.span.clone(),
+                replaces_root_error: inner.replaces_root_error,
+                show_span_in_buck_output: true,
             }
         } else {
             self.clone()
         }
+    }
+
+    pub fn find_span_in_file(&self, filename: &str) -> Option<FileSpan> {
+        self.span
+            .as_ref()
+            .filter(|x| x.filename() == filename)
+            .or_else(|| {
+                self.call_stack
+                    .frames
+                    .iter()
+                    .filter_map(|f| f.location.as_ref())
+                    .find(|span| span.filename() == filename)
+            })
+            .cloned()
     }
 }
 

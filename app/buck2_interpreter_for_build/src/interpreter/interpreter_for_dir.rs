@@ -113,9 +113,11 @@ impl ParseData {
             let path = resolver
                 .resolve_load(x.module_id, Some(&x.span))
                 .with_buck_error_context(|| {
-                    format!(
-                        "Error loading `load` of `{}` from `{}`",
-                        x.module_id, x.span
+                    // This is for e.g. imports not ending with .bzl
+                    buck2_error::starlark_error::create_starlark_context(
+                        format!("Error loading `load` of `{}`", x.module_id,),
+                        Some(x.span.clone()),
+                        true,
                     )
                 })?;
             loads.push((Some(x.span), path));
