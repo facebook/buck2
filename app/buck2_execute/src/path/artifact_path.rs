@@ -17,7 +17,8 @@ use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_core::fs::buck_out_path::BuildArtifactPath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_core::package::source_path::SourcePathRef;
-use buck2_error::BuckErrorContext;
+use buck2_error::ErrorTag;
+use buck2_error::buck2_error;
 use buck2_fs::paths::file_name::FileName;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
 use either::Either;
@@ -45,7 +46,13 @@ impl ArtifactPath<'_> {
             },
         }
         .file_name()
-        .with_buck_error_context(|| format!("Artifact has no file name: `{self}`"))?;
+        .ok_or_else(|| {
+            buck2_error!(
+                ErrorTag::ArtifactMissingFilename,
+                "Artifact has no file name: `{}`",
+                self
+            )
+        })?;
 
         Ok(f(file_name))
     }

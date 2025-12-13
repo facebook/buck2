@@ -394,6 +394,7 @@ fn tag_metadata(tag: ErrorTag) -> TagMetadata {
         ErrorTag::ActionWrongOutputType => rank!(input),
         ErrorTag::ActionCommandFailure => rank!(input),
         ErrorTag::ProjectMissingPath => rank!(input),
+        ErrorTag::ArtifactMissingFilename => rank!(input),
         ErrorTag::StarlarkFail => rank!(input),
         ErrorTag::StarlarkStackOverflow => rank!(input),
         ErrorTag::StarlarkValue => rank!(input),

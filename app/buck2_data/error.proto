@@ -158,6 +158,8 @@ enum ErrorTag {
   UNIMPLEMENTED = 29;
   // Target specified is not found in the package/build file
   MISSING_TARGET = 30;
+  // Artifact is missing a filename
+  ARTIFACT_MISSING_FILENAME = 31;
 
   ACTION_MISMATCHED_OUTPUTS = 601;
   ACTION_MISSING_OUTPUTS = 602;
