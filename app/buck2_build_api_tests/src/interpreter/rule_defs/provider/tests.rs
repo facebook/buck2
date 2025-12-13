@@ -188,3 +188,39 @@ fn test_provider_non_unique_fields() {
         "non-unique field names",
     )
 }
+
+#[test]
+fn test_typecheck_provider_field_inline() {
+    let mut tester = provider_tester();
+    tester.run_starlark_bzl_test_expecting_error(
+        indoc!(
+            r#"
+            FooInfo = provider(fields=["field"])
+            def checkonly():
+                foo = FooInfo(field="foo1")
+                x = foo.ield
+            def test():
+                pass
+            "#
+        ),
+        "The attribute `ield` is not available on the type `FooInfo`",
+    );
+}
+
+#[test]
+fn test_typecheck_provider_field_ambient() {
+    let mut tester = provider_tester();
+    tester.run_starlark_bzl_test_expecting_error(
+        indoc!(
+            r#"
+            FooInfo = provider(fields=["field"])
+            foo = FooInfo(field="foo1")
+            def checkonly():
+                x = foo.ield
+            def test():
+                pass
+            "#
+        ),
+        "The attribute `ield` is not available on the type `FooInfo`",
+    );
+}
