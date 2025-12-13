@@ -37,6 +37,7 @@ use notify::event::MetadataKind;
 use notify::event::ModifyKind;
 use notify::event::RemoveKind;
 use starlark_map::ordered_set::OrderedSet;
+use tracing::debug;
 use tracing::info;
 
 use crate::file_watcher::FileWatcher;
@@ -60,6 +61,8 @@ struct NotifyFileData {
     ignored: u64,
     #[allocative(skip)]
     events: OrderedSet<(CellPath, EventKind)>,
+    /// Whether file system changes were missed
+    missed_events: bool,
 }
 
 impl NotifyFileData {
@@ -67,6 +70,7 @@ impl NotifyFileData {
         Self {
             ignored: 0,
             events: OrderedSet::new(),
+            missed_events: false,
         }
     }
 
@@ -80,7 +84,7 @@ impl NotifyFileData {
         let event =
             event.map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::NotifyWatcher))?;
 
-        for path in event.paths {
+        for path in &event.paths {
             // Testing shows that we get absolute paths back from the `notify` library.
             // It's not documented though.
             let path = root.relativize(AbsNormPath::new(&path)?)?;
@@ -106,6 +110,11 @@ impl NotifyFileData {
                 path, &event.kind, ignore
             );
 
+            if event.need_rescan() {
+                self.missed_events = true;
+                debug!("FileWatcher: File change events were missed");
+            }
+
             if ignore || ignore_event_kind(&event.kind) {
                 self.ignored += 1;
             } else {
@@ -115,7 +124,7 @@ impl NotifyFileData {
         Ok(())
     }
 
-    fn sync(self) -> (buck2_data::FileWatcherStats, FileChangeTracker) {
+    fn sync(self) -> (buck2_data::FileWatcherStats, Option<FileChangeTracker>) {
         // The changes that go into the DICE transaction
         let mut changed = FileChangeTracker::new();
         let mut stats = FileWatcherStats::new(Default::default(), self.events.len());
@@ -226,7 +235,14 @@ impl NotifyFileData {
             }
         }
 
-        (stats.finish(), changed)
+        let stats = stats.finish();
+        let changed = if self.missed_events {
+            None
+        } else {
+            Some(changed)
+        };
+
+        (stats, changed)
     }
 }
 
@@ -270,7 +286,12 @@ impl NotifyFileWatcher {
         let mut guard = self.data.lock().unwrap();
         let old = mem::replace(&mut *guard, Ok(NotifyFileData::new()));
         let (stats, changes) = old?.sync();
-        changes.write_to_dice(&mut dice)?;
+        if let Some(changes) = changes {
+            changes.write_to_dice(&mut dice)?;
+        } else {
+            // We missed some file system notifications, so we drop everything
+            dice = dice.unstable_take();
+        }
         Ok((stats, dice))
     }
 }
