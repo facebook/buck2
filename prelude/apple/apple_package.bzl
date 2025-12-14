@@ -56,6 +56,10 @@ def apple_package_impl(ctx: AnalysisContext) -> list[Provider]:
 
     ctx.actions.run(process_ipa_cmd, category = category)
 
+    dsyms = ctx.attrs.bundle[AppleDebuggableInfo].dsyms if AppleDebuggableInfo in ctx.attrs.bundle else []
+    info_plist = ctx.attrs.bundle[AppleInfoPlistInfo].info_plist if AppleInfoPlistInfo in ctx.attrs.bundle else None
+    linker_maps = ctx.attrs.bundle[AppleBundleLinkerMapInfo].linker_maps if AppleBundleLinkerMapInfo in ctx.attrs.bundle else []
+
     return [DefaultInfo(
         default_output = package,
         sub_targets = sub_targets,
@@ -63,9 +67,9 @@ def apple_package_impl(ctx: AnalysisContext) -> list[Provider]:
         name = package_name,
         extension = ctx.attrs.ext,
         package = package,
-        dsyms = ctx.attrs.bundle[AppleDebuggableInfo].dsyms,
-        info_plist = ctx.attrs.bundle[AppleInfoPlistInfo].info_plist,
-        linker_maps = ctx.attrs.bundle[AppleBundleLinkerMapInfo].linker_maps,
+        dsyms = dsyms,
+        info_plist = info_plist,
+        linker_maps = linker_maps,
     )]
 
 def _get_ipa_contents(ctx: AnalysisContext) -> Artifact:
