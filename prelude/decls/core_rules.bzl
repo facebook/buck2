@@ -199,11 +199,6 @@ command_alias = prelude_rule(
                 A map of environment variables that will be passed to the executable represented
                  by `exe` on startup. Environment variables support the same macros as arguments.
             """),
-            "default_env": attrs.dict(key = attrs.string(), value = attrs.arg(), sorted = False, default = {}, doc = """
-                A map of environment variables that will be passed to the executable represented
-                 by `exe` on startup if they are not already set by the environment. Environment
-                 variables support the same macros as arguments.
-            """),
             "executable_name": attrs.option(attrs.string(), default = None, doc = """
                 If provided, use this name for the trampoline script (with an extension added if
                  required by the platform).
