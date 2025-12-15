@@ -82,7 +82,7 @@ buck_kotlin_library(
     ],
 )
 
-buck_java_library(
+buck_kotlin_library(
     name = "instrumentation",
     srcs = [
         "BuckXmlTestRunListener.java",
@@ -91,6 +91,7 @@ buck_java_library(
         "DeviceRunner.java",
         "InstrumentationMain.java",
         "InstrumentationTestRunner.java",
+        "InstrumentationTimeoutEnforcingRunListener.kt",
         "InstrumentationTpxStandardOutputTestListener.java",
         "RunShellCommand.java",
         "TpxStandardOutputTestListener.java",
