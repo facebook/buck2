@@ -7,6 +7,7 @@
 # above-listed licenses.
 
 load("@prelude//:artifacts.bzl", "ArtifactOutputs")
+load("@prelude//utils:arglike.bzl", "ArgLike")  # @unused Used as a type
 
 # Resources for transitive deps, shared by C++ and Rust.
 ResourceInfo = provider(fields = {
@@ -15,6 +16,58 @@ ResourceInfo = provider(fields = {
     # to lookup the resource at runtime) and the actual resource artifact.
     "resources": provider_field(dict[Label, dict[str, ArtifactOutputs]]),
 })
+
+def create_relocatable_resources_info(
+        ctx: AnalysisContext,
+        name: str,
+        resources: dict[str, ArtifactOutputs]) -> [ArgLike, Artifact]:
+    """
+    Generate a resource DB (a JSON map of resource to its relative path) for the given
+    binary in a way that is usable in relocatable contexts (where binaries must be fully
+    self-contained). Paths in the DB are relative to the dir containing the binary, and
+    point to a local dir that contains symlinks to the resources.
+
+    Resources are packaged in a structure like:
+      binary_name                                 (main executable)
+      binary_name.resources.json                  (manifest pointing to the resources)
+      __binary_name__resources/                   (dir containing resource files)
+        resource_name_1/resource_file_1 -> ../../foo
+        resource_name_2/resource_file_2 -> ../../bar
+    """
+
+    resources_dir_mapping = {}
+    packaged_resource_name_to_json = {}
+
+    # The name of the single resources directory for this binary
+    resources_dir_name = "__{}__resources".format(name)
+    for resource_name, resource_output in resources.items():
+        # Sanitize resource name to create a valid subdir
+        sanitized_resource_name = resource_name.replace("/", "__")
+
+        # Create path within resources directory: <resource_name>/<filename>
+        resource_filename = resource_output.default_output.basename
+        resource_subdir_path = "{}/{}".format(sanitized_resource_name, resource_filename)
+
+        resources_dir_mapping[resource_subdir_path] = resource_output.default_output
+
+        # Update JSON to point to the packaged location, where path is relative to the
+        # binary: (i.e. ./__binary_name__resources__/<resource_name>/<filename>)
+        packaged_resource_name_to_json[resource_name] = "{}/{}".format(
+            resources_dir_name,
+            resource_subdir_path,
+        )
+
+    resources_dir = ctx.actions.symlinked_dir(
+        resources_dir_name,
+        resources_dir_mapping,
+    )
+
+    packaged_resources_json = ctx.actions.write_json(
+        name + ".resources_pkg.json",
+        packaged_resource_name_to_json,
+    )
+
+    return (packaged_resources_json, resources_dir)
 
 def gather_resources(
         label: Label,

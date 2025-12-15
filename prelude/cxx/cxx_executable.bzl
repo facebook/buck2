@@ -15,6 +15,7 @@ load(
 load("@prelude//:local_only.bzl", "get_resolved_cxx_binary_link_execution_preference")
 load(
     "@prelude//:resources.bzl",
+    "create_relocatable_resources_info",
     "create_resource_db",
     "gather_resources",
 )
@@ -811,6 +812,8 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
         resources = cxx_attr_resources(ctx),
         deps = cxx_attr_deps(ctx),
     ).values())
+    relocatable_resources_json = None
+    relocatable_resources_contents = None
     if resources:
         runtime_files.append(create_resource_db(
             ctx = ctx,
@@ -821,6 +824,11 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
         for resource in resources.values():
             runtime_files.append(resource.default_output)
             runtime_files.extend(resource.other_outputs)
+        relocatable_resources_json, relocatable_resources_contents = create_relocatable_resources_info(
+            ctx = ctx,
+            name = ctx.label.name,
+            resources = resources,
+        )
 
     if binary.dwp:
         # A `dwp` sub-target which generates the `.dwp` file for this binary and its shared lib dependencies.
@@ -919,6 +927,8 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
         dist_info = DistInfo(
             shared_libs = shlib_info.set,
             nondebug_runtime_files = runtime_files,
+            relocatable_resources_json = relocatable_resources_json,
+            relocatable_resources_contents = relocatable_resources_contents,
         ),
         sanitizer_runtime_files = link_result.sanitizer_runtime_files,
         index_stores = index_stores,

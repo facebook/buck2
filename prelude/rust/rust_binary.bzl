@@ -12,6 +12,7 @@ load(
 )
 load(
     "@prelude//:resources.bzl",
+    "create_relocatable_resources_info",
     "create_resource_db",
     "gather_resources",
 )
@@ -239,6 +240,8 @@ def _rust_binary_common(
     # it and all resources to "runtime_files" so that we make to materialize
     # them with the final binary.
     runtime_files = list(executable_args.runtime_files)
+    relocatable_resources_json = None
+    relocatable_resources_contents = None
     if resources:
         resources_hidden = [create_resource_db(
             ctx = ctx,
@@ -251,6 +254,11 @@ def _rust_binary_common(
             resources_hidden.extend(resource.other_outputs)
         args.add(cmd_args(hidden = resources_hidden))
         runtime_files.extend(resources_hidden)
+        relocatable_resources_json, relocatable_resources_contents = create_relocatable_resources_info(
+            ctx = ctx,
+            name = name,
+            resources = resources,
+        )
 
     # A simple dict of sub-target key to artifact, which we'll convert to
     # DefaultInfo providers at the end
@@ -466,6 +474,8 @@ def _rust_binary_common(
         DistInfo(
             shared_libs = shlib_info.set,
             nondebug_runtime_files = runtime_files,
+            relocatable_resources_contents = relocatable_resources_contents,
+            relocatable_resources_json = relocatable_resources_json,
         ),
     ]
     providers.append(rust_analyzer_provider(
