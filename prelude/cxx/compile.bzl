@@ -362,7 +362,7 @@ def _compile_single_cxx(
     object = actions.declare_output(
         folder_name,
         "{}.{}".format(filename_base, toolchain.linker_info.object_file_extension),
-        uses_experimental_content_based_path_hashing = content_based,
+        has_content_based_path = content_based,
     )
 
     compiler_type = src_compile_cmd.cxx_compile_cmd.compiler_type
@@ -377,6 +377,7 @@ def _compile_single_cxx(
             pch_object_output = actions.declare_output(
                 folder_name,
                 "{}.pch.o".format(filename_base),
+                has_content_based_path = content_based,
             )
             output_args = [
                 cmd_args(object.as_output(), format = "/Fp{}"),
@@ -440,7 +441,7 @@ def _compile_single_cxx(
         cmd.add(["-fsave-optimization-record", "-fdiagnostics-show-hotness", "-foptimization-record-passes=" + toolchain.clang_remarks])
         clang_remarks = actions.declare_output(
             paths.join("__objects__", "{}.opt.yaml".format(filename_base)),
-            uses_experimental_content_based_path_hashing = content_based,
+            has_content_based_path = content_based,
         )
         cmd.add(cmd_args(hidden = clang_remarks.as_output()))
 
@@ -464,7 +465,7 @@ def _compile_single_cxx(
         cmd.add(["-ftime-trace"])
         clang_trace = actions.declare_output(
             paths.join("__objects__", "{}.json".format(filename_base)),
-            uses_experimental_content_based_path_hashing = content_based,
+            has_content_based_path = content_based,
         )
         cmd.add(cmd_args(hidden = clang_trace.as_output()))
 
@@ -484,7 +485,7 @@ def _compile_single_cxx(
         external_debug_info = actions.declare_output(
             folder_name,
             "{}.{}".format(filename_base, "dwo"),
-            uses_experimental_content_based_path_hashing = content_based,
+            has_content_based_path = content_based,
         )
         cmd.add(cmd_args(external_debug_info.as_output(), format = "--fbcc-create-external-debug-info={}"))
 
@@ -493,7 +494,7 @@ def _compile_single_cxx(
     if serialized_diags_to_json and src_compile_cmd.error_handler and compiler_type == "clang" and src_compile_cmd.src.extension != ".cu":
         # We need to wrap the entire compile to provide serialized diagnostics
         # output and on error convert it to JSON.
-        json_error_output = actions.declare_output("__diagnostics__/{}.json".format(filename_base), uses_experimental_content_based_path_hashing = content_based).as_output()
+        json_error_output = actions.declare_output("__diagnostics__/{}.json".format(filename_base), has_content_based_path = content_based).as_output()
         outputs_for_error_handler.append(json_error_output)
         cmd = cmd_args(
             toolchain.internal_tools.serialized_diagnostics_to_json_wrapper,
@@ -579,6 +580,7 @@ def _compile_single_cxx(
         assembly = actions.declare_output(
             "__assembly__",
             "{}.{}".format(filename_base, assembly_extension),
+            has_content_based_path = content_based,
         )
         assembly_cmd = _get_base_compile_cmd(
             bitcode_args = bitcode_args,
@@ -640,6 +642,7 @@ def _compile_single_cxx(
     preproc = actions.declare_output(
         "__preprocessed__",
         "{}.{}".format(filename_base, "i"),
+        has_content_based_path = content_based,
     )
     preproc_cmd = _get_base_compile_cmd(
         bitcode_args = bitcode_args,
@@ -942,7 +945,7 @@ def _precompile_single_cxx(
     module = actions.declare_output(
         "__pcm_files__",
         filename,
-        uses_experimental_content_based_path_hashing = True,
+        has_content_based_path = True,
     )
 
     cmd = cmd_args(src_compile_cmd.cxx_compile_cmd.base_compile_cmd)
@@ -959,7 +962,7 @@ def _precompile_single_cxx(
         cmd.add(["-ftime-trace"])
         clang_trace = actions.declare_output(
             paths.join("__pcm_files__", "{}.json".format(identifier)),
-            uses_experimental_content_based_path_hashing = True,
+            has_content_based_path = True,
         )
         cmd.add(cmd_args(hidden = clang_trace.as_output()))
 
@@ -1276,7 +1279,7 @@ def _filter_precompile_args(args: list[typing.Any]) -> list[typing.Any]:
     )
 
 def _filter_precompile_argsfile_anon_impl(ctx: AnalysisContext):
-    argsfile = ctx.actions.declare_output("filtered_args")
+    argsfile = ctx.actions.declare_output("filtered_args", has_content_based_path = True)
     ctx.actions.run(
         [
             ctx.attrs._cxx_toolchain[CxxToolchainInfo].internal_tools.filter_argsfile,
@@ -1364,6 +1367,7 @@ def _mk_argsfiles(
                 "src": compiler_info_argsfile,
                 "_cxx_toolchain": impl_params._cxx_toolchain,
             }).artifact("argsfile")
+            filtered_info_argsfile = actions.assert_has_content_based_path(filtered_info_argsfile)
 
             # TODO(nml): Currently we need to copy the output file so its content-based
             # path is the same across different configurations. We should move the whole
