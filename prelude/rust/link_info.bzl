@@ -172,6 +172,9 @@ RustNativeLinkDeps = transitive_set()
 # Set of list[LinkableGraph]
 RustLinkableGraphs = transitive_set()
 
+# Set of list[Dependency]
+RustExportedLinkDeps = transitive_set()
+
 # Output of a Rust compilation
 RustLinkInfo = provider(
     # @unsorted-dict-items
@@ -234,7 +237,7 @@ RustLinkInfo = provider(
         #
         # FIXME(JakobDegen): We should not default to treating all native deps
         # as exported.
-        "exported_link_deps": list[Dependency],
+        "exported_link_deps": RustExportedLinkDeps,
     },
 )
 
@@ -436,18 +439,16 @@ def _rust_non_proc_macro_link_infos(
         dep_ctx: DepCollectionContext) -> list[RustLinkInfo]:
     return [d.info for d in resolve_rust_deps(ctx, dep_ctx) if d.proc_macro_marker == None]
 
-def inherited_exported_link_deps(ctx: AnalysisContext, dep_ctx: DepCollectionContext) -> list[Dependency]:
-    deps = {}
-    for dep in _native_link_dependencies(ctx, dep_ctx):
-        deps[dep.label] = dep
-    for dep in resolve_rust_deps(ctx, dep_ctx):
-        if dep.proc_macro_marker != None:
-            continue
-
-        for dep in dep.info.exported_link_deps:
-            deps[dep.label] = dep
-
-    return deps.values()
+def inherited_exported_link_deps(ctx: AnalysisContext, dep_ctx: DepCollectionContext) -> RustExportedLinkDeps:
+    return ctx.actions.tset(
+        RustExportedLinkDeps,
+        value = _native_link_dependencies(ctx, dep_ctx),
+        children = [
+            dep.info.exported_link_deps
+            for dep in resolve_rust_deps(ctx, dep_ctx)
+            if dep.proc_macro_marker == None
+        ],
+    )
 
 def inherited_third_party_builds(ctx: AnalysisContext, dep_ctx: DepCollectionContext) -> list[ThirdPartyBuildInfo]:
     infos = []

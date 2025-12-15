@@ -100,6 +100,7 @@ load(
     ":link_info.bzl",
     "DEFAULT_STATIC_LIB_OUTPUT_STYLE",
     "DEFAULT_STATIC_LINK_STRATEGY",
+    "RustExportedLinkDeps",
     "RustLinkInfo",
     "RustLinkStrategyInfo",
     "RustLinkableGraphs",
@@ -708,7 +709,7 @@ def _proc_macro_link_providers(
         crate = attr_crate(ctx),
         strategies = rust_artifacts,
         native_link_deps = ctx.actions.tset(RustNativeLinkDeps),
-        exported_link_deps = [],
+        exported_link_deps = ctx.actions.tset(RustExportedLinkDeps),
         shared_libs = merge_shared_libraries(ctx.actions),
         third_party_build_info = third_party_build_info(actions = ctx.actions),
         linkable_graphs = ctx.actions.tset(RustLinkableGraphs),
@@ -732,13 +733,19 @@ def _advanced_unstable_link_providers(
     inherited_link_infos = inherited_merged_link_infos(ctx, dep_ctx)
     inherited_shlibs = inherited_shared_libs(ctx, dep_ctx)
     inherited_graphs_tset = inherited_linkable_graphs(ctx, dep_ctx)
-    inherited_exported_deps = inherited_exported_link_deps(ctx, dep_ctx)
+    inherited_exported_deps_tset = inherited_exported_link_deps(ctx, dep_ctx)
     inherited_third_party = inherited_third_party_builds(ctx, dep_ctx)
 
     inherited_graphs = {
         g.label: g
         for graphs in inherited_graphs_tset.traverse(ordering = "dfs")
         for g in graphs
+    }.values()
+
+    inherited_exported_deps = {
+        d.label: d
+        for deps in inherited_exported_deps_tset.traverse(ordering = "dfs")
+        for d in deps
     }.values()
 
     # Native link provider.
@@ -848,7 +855,7 @@ def _advanced_unstable_link_providers(
                 ),
             ],
         ),
-        exported_link_deps = inherited_exported_deps,
+        exported_link_deps = inherited_exported_deps_tset,
         shared_libs = shared_library_info,
         third_party_build_info = third_party_build_info,
         linkable_graphs = ctx.actions.tset(
@@ -911,7 +918,7 @@ def _rust_link_providers(
     RustNativeLinkDeps,
     SharedLibraryInfo,
     RustLinkableGraphs,
-    list[Dependency],
+    RustExportedLinkDeps,
     list[ThirdPartyBuildInfo],
 ):
     native_link_deps = inherited_native_link_deps(ctx, dep_ctx)
@@ -940,7 +947,6 @@ def _native_link_providers(
 
     # We collected transitive deps in the Rust link providers
     inherited_shlibs = [rust_link_info.shared_libs]
-    inherited_exported_deps = rust_link_info.exported_link_deps
     inherited_third_party = rust_link_info.third_party_build_info
 
     inherited_link_infos = {
@@ -953,6 +959,12 @@ def _native_link_providers(
         g.label: g
         for graphs in rust_link_info.linkable_graphs.traverse(ordering = "dfs")
         for g in graphs
+    }.values()
+
+    inherited_exported_deps = {
+        d.label: d
+        for deps in rust_link_info.exported_link_deps.traverse(ordering = "dfs")
+        for d in deps
     }.values()
 
     providers = []
@@ -1047,8 +1059,6 @@ def _native_link_providers(
                 label = ctx.label,
                 native_libs = [shared_libs],
             ),
-            #deps = [dep.dep for dep in resolve_deps(ctx, compile_ctx.dep_ctx)]
-            #deps = deps,
             deps = inherited_exported_deps,
         ),
     )
