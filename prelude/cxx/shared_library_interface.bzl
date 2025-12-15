@@ -20,10 +20,11 @@ def _shared_library_interface(
     """
     Convert the given shared library into an interface used for linking.
     """
-    linker_info = get_cxx_toolchain_info(ctx).linker_info
-    args = cmd_args(linker_info.mk_shlib_intf[RunInfo])
+    cxx_toolchain_info = get_cxx_toolchain_info(ctx)
+    content_based = cxx_toolchain_info.cxx_compiler_info.supports_content_based_paths
+    args = cmd_args(cxx_toolchain_info.linker_info.mk_shlib_intf[RunInfo])
     args.add(shared_lib)
-    output = ctx.actions.declare_output(output)
+    output = ctx.actions.declare_output(output, has_content_based_path = content_based)
     args.add(output.as_output())
     ctx.actions.run(
         args,
@@ -64,6 +65,8 @@ def shared_library_interface(
         shared_lib: Artifact,
         anonymous: bool = False) -> Artifact:
     output = paths.join("__shlib_intfs__", shared_lib.short_path)
+    cxx_toolchain_info = get_cxx_toolchain_info(ctx)
+    content_based = cxx_toolchain_info.cxx_compiler_info.supports_content_based_paths
 
     if anonymous:
         shared_lib_interface_artifact = ctx.actions.anon_target(
@@ -75,7 +78,10 @@ def shared_library_interface(
                 identifier = shared_lib.short_path,
             ),
         ).artifact("shared_library_interface")
-        return ctx.actions.assert_short_path(shared_lib_interface_artifact, short_path = output)
+        result = ctx.actions.assert_short_path(shared_lib_interface_artifact, short_path = output)
+        if content_based:
+            result = ctx.actions.assert_has_content_based_path(result)
+        return result
     else:
         return _shared_library_interface(
             ctx = ctx,
@@ -94,9 +100,16 @@ def shared_library_interface_from_linkables(
     Produces a shared library interface from the given link args, without actually linking.
     The interface is derived from the linker inputs (ie. object files, archives, etc).
     """
-
-    shared_library_interface = ctx.actions.declare_output(shared_lib.short_path + ".tbd")
-    shared_library_interface_from_linkable_generation_filelist = ctx.actions.declare_output(shared_lib.short_path + ".tbd-generation-filelist")
+    cxx_toolchain_info = get_cxx_toolchain_info(ctx)
+    content_based = cxx_toolchain_info.cxx_compiler_info.supports_content_based_paths
+    shared_library_interface = ctx.actions.declare_output(
+        shared_lib.short_path + ".tbd",
+        has_content_based_path = content_based,
+    )
+    shared_library_interface_from_linkable_generation_filelist = ctx.actions.declare_output(
+        shared_lib.short_path + ".tbd-generation-filelist",
+        has_content_based_path = content_based,
+    )
     interface_generation_cmd_hidden_deps = cmd_args()
 
     input_files = cmd_args()
@@ -104,8 +117,8 @@ def shared_library_interface_from_linkables(
 
     interface_generation_cmd = cmd_args()
     interface_generation_cmd.add(cmd_args(hidden = input_files))
-    ctx.actions.write(shared_library_interface_from_linkable_generation_filelist, input_files, allow_args = True)
-    interface_generation_tool = get_cxx_toolchain_info(ctx).binary_utilities_info.custom_tools.get("llvm-tbd-gen", None)
+    ctx.actions.write(shared_library_interface_from_linkable_generation_filelist, input_files, allow_args = True, has_content_based_path = content_based)
+    interface_generation_tool = cxx_toolchain_info.binary_utilities_info.custom_tools.get("llvm-tbd-gen", None)
     interface_generation_cmd.add(interface_generation_tool)
     interface_generation_cmd.add("--objects-file-list", shared_library_interface_from_linkable_generation_filelist)
     interface_generation_cmd.add("--install-name", install_name)
