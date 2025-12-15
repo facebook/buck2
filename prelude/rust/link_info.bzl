@@ -169,6 +169,9 @@ RustLinkStrategyInfo = record(
 # Set of list[(ConfiguredTargetLabel, MergedLinkInfo)]
 RustNativeLinkDeps = transitive_set()
 
+# Set of list[LinkableGraph]
+RustLinkableGraphs = transitive_set()
+
 # Output of a Rust compilation
 RustLinkInfo = provider(
     # @unsorted-dict-items
@@ -217,7 +220,7 @@ RustLinkInfo = provider(
         # libraries in the link graph, with the handling of transitive dependencies being the only
         # difference.
         "native_link_deps": RustNativeLinkDeps,
-        "linkable_graphs": list[LinkableGraph],
+        "linkable_graphs": RustLinkableGraphs,
         "shared_libs": SharedLibraryInfo,
         "third_party_build_info": ThirdPartyBuildInfo,
         # LinkGroupLibInfo intentionally omitted because the Rust -> Rust version
@@ -466,7 +469,11 @@ def inherited_rust_cxx_link_group_info(
     if not cxx_is_gnu(ctx) or not ctx.attrs.auto_link_groups:
         return None
 
-    link_graphs = inherited_linkable_graphs(ctx, dep_ctx)
+    link_graphs = {
+        g.label: g
+        for graphs in inherited_linkable_graphs(ctx, dep_ctx).traverse(ordering = "dfs")
+        for g in graphs
+    }.values()
 
     link_group = get_link_group(ctx)
 
@@ -607,16 +614,19 @@ def inherited_shared_libs(
     infos.extend([d.shared_libs for d in _rust_non_proc_macro_link_infos(ctx, dep_ctx)])
     return infos
 
-def inherited_linkable_graphs(ctx: AnalysisContext, dep_ctx: DepCollectionContext) -> list[LinkableGraph]:
-    deps = {}
-    for d in _native_link_dependencies(ctx, dep_ctx):
-        g = d.get(LinkableGraph)
-        if g:
-            deps[g.label] = g
-    for info in _rust_non_proc_macro_link_infos(ctx, dep_ctx):
-        for g in info.linkable_graphs:
-            deps[g.label] = g
-    return deps.values()
+def inherited_linkable_graphs(ctx: AnalysisContext, dep_ctx: DepCollectionContext) -> RustLinkableGraphs:
+    return ctx.actions.tset(
+        RustLinkableGraphs,
+        value = [
+            d[LinkableGraph]
+            for d in _native_link_dependencies(ctx, dep_ctx)
+            if LinkableGraph in d
+        ],
+        children = [
+            info.linkable_graphs
+            for info in _rust_non_proc_macro_link_infos(ctx, dep_ctx)
+        ],
+    )
 
 def inherited_link_group_lib_infos(ctx: AnalysisContext, dep_ctx: DepCollectionContext) -> list[LinkGroupLibInfo]:
     # There are no special Rust -> Rust versions of this provider
