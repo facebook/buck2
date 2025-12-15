@@ -1,0 +1,30 @@
+load("@prelude//utils:source_listing.bzl", "source_listing")
+
+oncall("build_infra")
+
+source_listing()
+
+# Used by open source projects to support `prelude//`
+
+constraint_setting(
+    name = "test_runtime",
+    visibility = ["PUBLIC"],
+)
+
+constraint_value(
+    name = "android-host-test",
+    constraint_setting = ":test_runtime",
+    visibility = ["PUBLIC"],
+)
+
+constraint_value(
+    name = "android-unit-test",
+    constraint_setting = ":test_runtime",
+    visibility = ["PUBLIC"],
+)
+
+constraint_value(
+    name = "android-instrumentation-test",
+    constraint_setting = ":test_runtime",
+    visibility = ["PUBLIC"],
+)
