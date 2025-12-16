@@ -25,7 +25,6 @@ use crate::impls::core::state::init_state;
 use crate::impls::key_index::DiceKeyIndex;
 use crate::impls::transaction::TransactionUpdater;
 use crate::introspection::graph::GraphIntrospectable;
-use crate::introspection::graph::ModernIntrospectable;
 use crate::metrics::Metrics;
 
 /// An incremental computation engine that executes arbitrary computations that
@@ -99,12 +98,10 @@ impl Dice {
         // snapshotting the graphs will result in missing keys
         let key_index = self.key_index.introspect();
 
-        GraphIntrospectable::Modern {
-            introspection: ModernIntrospectable {
-                graph: graph_introspectable,
-                version_data: version_introspectable,
-                key_map: key_index,
-            },
+        GraphIntrospectable {
+            graph: graph_introspectable,
+            version_data: version_introspectable,
+            key_map: key_index,
         }
     }
 

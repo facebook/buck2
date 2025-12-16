@@ -11,7 +11,7 @@
 use dupe::Dupe;
 
 #[derive(Debug, Clone, Copy, Dupe)]
-pub(crate) enum DiceTaskStateForDebugging {
+pub enum DiceTaskStateForDebugging {
     /// Async task finished.
     AsyncReady,
     /// Async task in progress.
