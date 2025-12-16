@@ -250,7 +250,9 @@ def link(
 
     ctx.actions.run(cmd, env = env, category = "go_link", identifier = identifier_prefix)
 
-    output = stamp_build_info(ctx, output, has_content_based_path = True)
+    # stamp only executable targets
+    if build_mode in [GoBuildMode("exe"), GoBuildMode("pie")]:
+        output = stamp_build_info(ctx, output, has_content_based_path = True)
 
     final_output = ctx.actions.copy_file(final_output_name, output)
 
