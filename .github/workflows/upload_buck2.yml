@@ -275,7 +275,7 @@ jobs:
         yarn
         BUCK2_BIN="$GITHUB_WORKSPACE/artifacts/buck2-release" yarn build_prebuilt
     - name: Deploy
-      uses: JamesIves/github-pages-deploy-action@releases/v4
+      uses: JamesIves/github-pages-deploy-action@v4
       with:
         branch: gh-pages # The branch the action should deploy to.
         folder: website/build # The folder the action should deploy.
