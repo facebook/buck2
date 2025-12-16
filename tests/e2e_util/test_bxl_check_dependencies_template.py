@@ -34,12 +34,8 @@ if FLAVOR == "check_dependencies_test":  # noqa: C901
         )
         expect_failure_msg = os.environ["EXPECT_FAILURE_MSG"]
 
-        fbcode_build_mode = os.environ.get("CHECK_DEPENDENCIES_TEST_FBCODE_BUILD_MODE")
-        if fbcode_build_mode:
-            mode_argfile = get_mode_from_platform(
-                fbcode_build_mode, skip_validation_i_know_what_im_doing=True
-            )
-        else:
+        mode_argfile = os.environ.get("CHECK_DEPENDENCIES_TEST_FBCODE_BUILD_MODE")
+        if not mode_argfile:
             mode_argfile = get_mode_from_platform()
 
         additional_argfile = os.environ.get("EXTRA_BUCK_ARGS_FILE", None)
