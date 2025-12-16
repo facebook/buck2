@@ -33,7 +33,7 @@ mod tests {
     use crate::api::cycles::DetectCycles;
     use crate::api::key::Key;
     use crate::impls::dice::Dice;
-    use crate::introspection::graph::SerializedGraphNodesForKey;
+    use crate::introspection::graph::SerializedGraphNodeForKey;
     use crate::introspection::serialize_graph;
 
     #[derive(Clone, Dupe, Display, Debug, Eq, Hash, PartialEq, Allocative)]
@@ -145,7 +145,7 @@ mod tests {
 
         let node = bincode::serialize(&dice.to_introspectable())?;
 
-        let _out: Vec<SerializedGraphNodesForKey> = bincode::deserialize(&node)?;
+        let _out: Vec<SerializedGraphNodeForKey> = bincode::deserialize(&node)?;
         Ok(())
     }
 }

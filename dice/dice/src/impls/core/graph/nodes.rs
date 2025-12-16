@@ -41,7 +41,6 @@ use crate::impls::value::MaybeValidDiceValue;
 use crate::impls::value::TrackedInvalidationPaths;
 use crate::introspection::graph::GraphNodeKind;
 use crate::introspection::graph::KeyID;
-use crate::introspection::graph::NodeID;
 use crate::introspection::graph::SerializedGraphNode;
 use crate::versions::VersionNumber;
 use crate::versions::VersionRange;
@@ -226,20 +225,20 @@ impl VersionedGraphNode {
             deps.map(|d| d.introspect()).collect()
         }
 
-        fn visit_rdeps(rdeps: impl Iterator<Item = DiceKey>) -> Vec<NodeID> {
-            rdeps.unique().map(|d| NodeID(d.index as usize)).collect()
+        fn visit_rdeps(rdeps: impl Iterator<Item = DiceKey>) -> Vec<KeyID> {
+            rdeps.unique().map(|d| KeyID(d.index as usize)).collect()
         }
 
         match self {
             VersionedGraphNode::Occupied(o) => Some(SerializedGraphNode {
-                node_id: NodeID(o.key.index as usize),
+                node_id: KeyID(o.key.index as usize),
                 kind: GraphNodeKind::Occupied,
                 history: crate::introspection::graph::CellHistory {
                     valid_ranges: o.metadata.verified_ranges.to_introspectable(),
                     force_dirtied_at: o.metadata.dirtied_history.to_introspectable(),
                 },
-                deps: Some(visit_deps(o.deps().iter_keys())),
-                rdeps: Some(visit_rdeps(o.rdeps())),
+                deps: visit_deps(o.deps().iter_keys()),
+                rdeps: visit_rdeps(o.rdeps()),
             }),
             VersionedGraphNode::Vacant(_) => {
                 // TODO(bobyf) should probably write the metadata of vacant
@@ -248,14 +247,14 @@ impl VersionedGraphNode {
             VersionedGraphNode::Injected(inj) => {
                 let latest = inj.latest();
                 Some(SerializedGraphNode {
-                    node_id: NodeID(inj.key.index as usize),
+                    node_id: KeyID(inj.key.index as usize),
                     kind: GraphNodeKind::Occupied,
                     history: crate::introspection::graph::CellHistory {
                         valid_ranges: latest.valid_versions.to_introspectable(),
                         force_dirtied_at: Vec::new(),
                     },
-                    deps: None,
-                    rdeps: Some(visit_rdeps(inj.rdeps.iter())),
+                    deps: HashSet::default(),
+                    rdeps: visit_rdeps(inj.rdeps.iter()),
                 })
             }
         }

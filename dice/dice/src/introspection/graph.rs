@@ -72,14 +72,14 @@ impl GraphIntrospectable {
     pub fn nodes<'a>(
         &'a self,
         _keys: &'a mut HashMap<AnyKey, KeyID>,
-    ) -> Box<dyn Iterator<Item = SerializedGraphNodesForKey> + 'a> {
+    ) -> Box<dyn Iterator<Item = SerializedGraphNodeForKey> + 'a> {
         Box::new(self.graph.nodes.iter().map(|(key, node)| {
             let any_k = self.key_map.get(&key).expect("key should be present");
-            SerializedGraphNodesForKey {
+            SerializedGraphNodeForKey {
                 id: KeyID(node.node_id.0),
                 key: any_k.to_string(),
                 type_name: any_k.type_name().to_owned(),
-                nodes: Some(node.clone()),
+                node: node.clone(),
             }
         }))
     }
@@ -101,10 +101,6 @@ impl Serialize for GraphIntrospectable {
 #[derive(PartialEq, Eq, Hash, Serialize, Deserialize, Clone, Dupe, Copy)]
 #[serde(transparent)]
 pub struct KeyID(pub usize);
-
-#[derive(PartialEq, Eq, Hash, Serialize, Deserialize, Clone, Dupe, Copy)]
-#[serde(transparent)]
-pub struct NodeID(pub usize);
 
 #[derive(
     PartialEq,
@@ -186,22 +182,19 @@ pub enum HistoryState {
 
 #[derive(Clone, Serialize, Deserialize)]
 pub struct SerializedGraphNode {
-    pub node_id: NodeID,
+    pub node_id: KeyID,
     pub kind: GraphNodeKind,
     pub history: CellHistory,
-    /// Deps and Rdeps are behind read locks, and if dumping after a panic
-    /// it's theoretically possible for those locks to be poisoned.
-    /// Therefore, they're optional.
-    pub deps: Option<HashSet<KeyID>>,
-    pub rdeps: Option<Vec<NodeID>>,
+    pub deps: HashSet<KeyID>,
+    pub rdeps: Vec<KeyID>,
 }
 
 #[derive(Clone, Serialize, Deserialize)]
-pub struct SerializedGraphNodesForKey {
+pub struct SerializedGraphNodeForKey {
     pub id: KeyID,
     pub key: String,
     pub type_name: String,
-    pub nodes: Option<SerializedGraphNode>,
+    pub node: SerializedGraphNode,
 }
 
 pub trait KeyForIntrospection: Display + Send + 'static {

@@ -13,7 +13,7 @@ use std::path::PathBuf;
 
 use clap::CommandFactory;
 use clap::FromArgMatches;
-use dice::introspection::graph::SerializedGraphNodesForKey;
+use dice::introspection::graph::SerializedGraphNodeForKey;
 
 #[derive(Debug, clap::Parser)]
 #[clap(name = "read_dump", about = "dice dump reader")]
@@ -31,7 +31,7 @@ fn main() -> anyhow::Result<()> {
 
     let file = File::open(opt.file)?;
 
-    let out: Vec<SerializedGraphNodesForKey> = bincode::deserialize_from(&file)?;
+    let out: Vec<SerializedGraphNodeForKey> = bincode::deserialize_from(&file)?;
 
     match opt.out {
         Some(path) => {
