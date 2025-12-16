@@ -23,7 +23,7 @@ pub use crate::introspection::introspect::serialize_graph;
 
 impl Dice {
     pub fn to_introspectable(&self) -> GraphIntrospectable {
-        self.implementation.to_introspectable()
+        self.0.to_introspectable()
     }
 }
 

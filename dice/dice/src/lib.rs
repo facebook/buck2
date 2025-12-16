@@ -189,20 +189,12 @@ mod transaction;
 mod transaction_update;
 mod versions;
 
-use std::fmt::Debug;
-use std::io::Write;
-use std::sync::Arc;
-
-use allocative::Allocative;
 pub use dice_futures::cancellation::CancellationContext; // expose cancellation context as api
 pub use dice_futures::cancellation::CancellationHandle; // expose cancellation handle as api
 pub use dice_futures::spawn::CancellableJoinHandle; // expose cancellation context as api
 pub use dice_futures::spawn::WeakFutureError; // expose future errors as api
 pub(crate) type HashMap<K, V> = std::collections::HashMap<K, V, fxhash::FxBuildHasher>;
 pub(crate) type HashSet<K> = std::collections::HashSet<K, fxhash::FxBuildHasher>;
-use futures::future::Future;
-use metrics::Metrics;
-use serde::Serializer;
 
 pub use crate::api::activation_tracker::ActivationData;
 pub use crate::api::activation_tracker::ActivationTracker;
@@ -212,7 +204,6 @@ pub use crate::api::cycles::DetectCycles;
 pub use crate::api::data::DiceData;
 pub use crate::api::demand::Demand;
 pub use crate::api::dice::Dice;
-pub use crate::api::dice::DiceDataBuilder;
 pub use crate::api::dyn_key::DynKey;
 pub use crate::api::events::DiceEvent;
 pub use crate::api::events::DiceEventListener;
@@ -232,85 +223,12 @@ pub use crate::api::transaction::DiceTransactionUpdater;
 pub use crate::api::user_data::UserComputationData;
 pub use crate::api::user_data::UserCycleDetector;
 pub use crate::api::user_data::UserCycleDetectorGuard;
-use crate::impls::dice::DiceModern;
-use crate::impls::dice::DiceModernDataBuilder;
-use crate::introspection::graph::GraphIntrospectable;
-use crate::introspection::serialize_dense_graph;
-use crate::introspection::serialize_graph;
+pub use crate::impls::dice::DiceDataBuilder;
+pub use crate::impls::dice::DiceModern;
+pub use crate::introspection::serialize_dense_graph;
+pub use crate::introspection::serialize_graph;
 pub use crate::stats::GlobalStats;
 use crate::transaction_update::DiceTransactionUpdaterImpl;
-
-#[derive(Allocative, Debug)]
-pub(crate) struct DiceImplementation(Arc<DiceModern>);
-
-impl DiceImplementation {
-    pub fn updater(&self) -> DiceTransactionUpdater {
-        DiceTransactionUpdater(DiceTransactionUpdaterImpl(self.0.updater()))
-    }
-
-    pub fn updater_with_data(&self, extra: UserComputationData) -> DiceTransactionUpdater {
-        DiceTransactionUpdater(DiceTransactionUpdaterImpl(self.0.updater_with_data(extra)))
-    }
-
-    pub fn serialize_tsv(
-        &self,
-        nodes: impl Write,
-        edges: impl Write,
-        nodes_currently_running: impl Write,
-    ) -> anyhow::Result<()> {
-        serialize_graph(
-            &self.to_introspectable(),
-            nodes,
-            edges,
-            nodes_currently_running,
-        )
-    }
-
-    pub fn serialize_serde<S>(&self, serializer: S) -> Result<(), S::Error>
-    where
-        S: Serializer,
-    {
-        serialize_dense_graph(&self.to_introspectable(), serializer)?;
-        Ok(())
-    }
-
-    fn to_introspectable(&self) -> GraphIntrospectable {
-        self.0.to_introspectable()
-    }
-
-    pub fn detect_cycles(&self) -> &DetectCycles {
-        self.0.detect_cycles()
-    }
-
-    pub fn metrics(&self) -> Metrics {
-        self.0.metrics()
-    }
-
-    /// Wait until all active versions have exited.
-    pub fn wait_for_idle(&self) -> impl Future<Output = ()> + 'static + use<> {
-        self.0.wait_for_idle()
-    }
-
-    pub async fn is_idle(&self) -> bool {
-        self.0.is_idle().await
-    }
-}
-
-pub(crate) struct DiceDataBuilderImpl(DiceModernDataBuilder);
-
-impl DiceDataBuilderImpl {
-    pub(crate) fn new_modern() -> Self {
-        Self(DiceModernDataBuilder::new())
-    }
-
-    pub fn set<K: Send + Sync + 'static>(&mut self, val: K) {
-        self.0.set(val)
-    }
-
-    pub fn build(self, detect_cycles: DetectCycles) -> Arc<Dice> {
-        Dice::new(DiceImplementation(self.0.build(detect_cycles)))
-    }
-}
 
 pub mod testing {
     pub use crate::api::dice::testing::DiceBuilder;

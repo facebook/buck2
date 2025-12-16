@@ -118,7 +118,7 @@ async fn set_injected_with_no_change_no_new_ctx() -> anyhow::Result<()> {
         let mut ctx = dice.updater();
         ctx.changed_to(vec![(Foo(0), 0)])?;
 
-        let ctx = ctx.commit().await;
+        let ctx = ctx.commit().await.0;
 
         assert_eq!(ctx.get_version(), VersionNumber::new(1));
     }
@@ -127,7 +127,7 @@ async fn set_injected_with_no_change_no_new_ctx() -> anyhow::Result<()> {
         let mut ctx = dice.updater();
         ctx.changed_to(vec![(Foo(0), 0)])?;
 
-        let ctx = ctx.commit().await;
+        let ctx = ctx.commit().await.0;
         assert_eq!(ctx.get_version(), VersionNumber::new(1));
     }
 
@@ -536,7 +536,7 @@ async fn dropping_request_future_doesnt_cancel_if_multiple_requests_active() {
 
     let dice = DiceModern::builder().build(DetectCycles::Disabled);
 
-    let mut ctx = dice.updater().commit().await;
+    let mut ctx = dice.updater().commit().await.0.0;
     let (req1, req2) = ctx.compute2(
         |ctx| ctx.compute(key).boxed(),
         |ctx| ctx.compute(key).boxed(),

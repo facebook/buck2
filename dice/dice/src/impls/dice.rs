@@ -15,6 +15,9 @@ use std::sync::Arc;
 use allocative::Allocative;
 use dupe::Dupe;
 
+use crate::Dice;
+use crate::DiceTransactionUpdater;
+use crate::DiceTransactionUpdaterImpl;
 use crate::api::cycles::DetectCycles;
 use crate::api::data::DiceData;
 use crate::api::user_data::UserComputationData;
@@ -27,7 +30,7 @@ use crate::introspection::graph::ModernIntrospectable;
 use crate::metrics::Metrics;
 
 #[derive(Allocative)]
-pub(crate) struct DiceModern {
+pub struct DiceModern {
     pub(crate) key_index: DiceKeyIndex,
     pub(crate) state_handle: CoreStateHandle,
     pub(crate) global_data: DiceData,
@@ -39,9 +42,9 @@ impl Debug for DiceModern {
     }
 }
 
-pub(crate) struct DiceModernDataBuilder(DiceData);
+pub struct DiceDataBuilder(DiceData);
 
-impl DiceModernDataBuilder {
+impl DiceDataBuilder {
     pub(crate) fn new() -> Self {
         Self(DiceData::new())
     }
@@ -50,8 +53,8 @@ impl DiceModernDataBuilder {
         self.0.set(val);
     }
 
-    pub fn build(self, _detect_cycles: DetectCycles) -> Arc<DiceModern> {
-        DiceModern::new(self.0)
+    pub fn build(self, _detect_cycles: DetectCycles) -> Arc<Dice> {
+        Dice::new(DiceModern::new(self.0))
     }
 }
 
@@ -67,16 +70,22 @@ impl DiceModern {
     }
 
     #[cfg(test)]
-    pub(crate) fn builder() -> DiceModernDataBuilder {
-        DiceModernDataBuilder::new()
+    pub(crate) fn builder() -> DiceDataBuilder {
+        DiceDataBuilder::new()
     }
 
-    pub fn updater(self: &Arc<Self>) -> TransactionUpdater {
+    pub fn updater(self: &Arc<Self>) -> DiceTransactionUpdater {
         self.updater_with_data(UserComputationData::new())
     }
 
-    pub fn updater_with_data(self: &Arc<Self>, extra: UserComputationData) -> TransactionUpdater {
-        TransactionUpdater::new(self.dupe(), Arc::new(extra))
+    pub fn updater_with_data(
+        self: &Arc<Self>,
+        extra: UserComputationData,
+    ) -> DiceTransactionUpdater {
+        DiceTransactionUpdater(DiceTransactionUpdaterImpl(TransactionUpdater::new(
+            self.dupe(),
+            Arc::new(extra),
+        )))
     }
 
     pub fn metrics(&self) -> Metrics {

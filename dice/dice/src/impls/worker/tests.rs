@@ -936,13 +936,13 @@ async fn test_check_dependencies_stops_at_changed() -> anyhow::Result<()> {
     updater
         .changed_to(spkeys.iter().map(|k| (k.dupe(), 100)).collect::<Vec<_>>())
         .unwrap();
-    let prev_version = updater.commit().await.get_version();
+    let prev_version = updater.commit().await.0.get_version();
 
     let mut updater = dice.updater();
     updater
         .changed(spkeys.iter().duped().collect::<Vec<_>>())
         .unwrap();
-    let version = updater.commit().await.get_version();
+    let version = updater.commit().await.0.get_version();
 
     let user_data = std::sync::Arc::new(UserComputationData::new());
     let (ctx, _guard) = dice.testing_shared_ctx(version).await;
@@ -1030,13 +1030,13 @@ async fn test_check_dependencies_can_eagerly_check_all_parallel_deps() -> anyhow
                 .collect::<Vec<_>>(),
         )
         .unwrap();
-    let prev_version = updater.commit().await.get_version();
+    let prev_version = updater.commit().await.0.get_version();
 
     let mut updater = dice.updater();
     updater
         .changed(spkeys.iter().duped().collect::<Vec<_>>())
         .unwrap();
-    let version = updater.commit().await.get_version();
+    let version = updater.commit().await.0.get_version();
 
     let user_data = std::sync::Arc::new(UserComputationData::new());
     let (ctx, _guard) = dice.testing_shared_ctx(version).await;

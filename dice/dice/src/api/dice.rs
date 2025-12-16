@@ -164,15 +164,13 @@
 //! ```
 
 use std::fmt::Debug;
-use std::io::Write;
 use std::sync::Arc;
 
 use allocative::Allocative;
 use futures::future::Future;
-use serde::Serializer;
 
-use crate::DiceDataBuilderImpl;
-use crate::DiceImplementation;
+use crate::DiceDataBuilder;
+use crate::DiceModern;
 use crate::api::cycles::DetectCycles;
 use crate::api::transaction::DiceTransactionUpdater;
 use crate::api::user_data::UserComputationData;
@@ -181,75 +179,44 @@ use crate::metrics::Metrics;
 /// An incremental computation engine that executes arbitrary computations that
 /// maps `Key`s to values.
 #[derive(Allocative, Debug)]
-pub struct Dice {
-    pub(crate) implementation: DiceImplementation,
-}
+pub struct Dice(pub Arc<DiceModern>);
 
 impl Dice {
     pub fn builder() -> DiceDataBuilder {
-        DiceDataBuilder(DiceDataBuilderImpl::new_modern())
+        DiceDataBuilder::new()
     }
 
-    pub(crate) fn new(implementation: DiceImplementation) -> Arc<Self> {
-        Arc::new(Self { implementation })
+    pub(crate) fn new(implementation: Arc<DiceModern>) -> Arc<Self> {
+        Arc::new(Self(implementation))
     }
 
     pub fn updater(self: &Arc<Dice>) -> DiceTransactionUpdater {
-        self.implementation.updater()
+        self.0.updater()
     }
 
     pub fn updater_with_data(
         self: &Arc<Dice>,
         extra: UserComputationData,
     ) -> DiceTransactionUpdater {
-        self.implementation.updater_with_data(extra)
-    }
-
-    pub fn serialize_tsv(
-        &self,
-        nodes: impl Write,
-        edges: impl Write,
-        nodes_currently_running: impl Write,
-    ) -> anyhow::Result<()> {
-        self.implementation
-            .serialize_tsv(nodes, edges, nodes_currently_running)
-    }
-
-    pub fn serialize_serde<S>(&self, serializer: S) -> Result<(), S::Error>
-    where
-        S: Serializer,
-    {
-        self.implementation.serialize_serde(serializer)
+        self.0.updater_with_data(extra)
     }
 
     pub fn detect_cycles(&self) -> &DetectCycles {
-        self.implementation.detect_cycles()
+        self.0.detect_cycles()
     }
 
     pub fn metrics(&self) -> Metrics {
-        self.implementation.metrics()
+        self.0.metrics()
     }
 
     /// Wait until all active versions have exited.
     pub fn wait_for_idle(&self) -> impl Future<Output = ()> + 'static + use<> {
-        self.implementation.wait_for_idle()
+        self.0.wait_for_idle()
     }
 
     /// true when there are no active tasks nor transactions alive
     pub async fn is_idle(&self) -> bool {
-        self.implementation.is_idle().await
-    }
-}
-
-pub struct DiceDataBuilder(DiceDataBuilderImpl);
-
-impl DiceDataBuilder {
-    pub fn set<K: Send + Sync + 'static>(&mut self, val: K) {
-        self.0.set(val);
-    }
-
-    pub fn build(self, detect_cycles: DetectCycles) -> Arc<Dice> {
-        self.0.build(detect_cycles)
+        self.0.is_idle().await
     }
 }
 

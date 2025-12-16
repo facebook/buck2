@@ -91,7 +91,7 @@ mod tests {
     async fn opaque_records_deps_when_used() {
         let dice = DiceModern::new(DiceData::new());
 
-        let mut ctx = dice.updater().commit().await;
+        let mut ctx = dice.updater().commit().await.0.0;
 
         let opaque = OpaqueValueModern::<K>::new(
             DiceKey { index: 0 },

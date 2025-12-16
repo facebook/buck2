@@ -265,6 +265,8 @@ mod tests {
 
         assert_matches!(
             updater
+                .0
+                .0
                 .scheduled_changes
                 .changes
                 .get(&dice.key_index.index(CowDiceKeyHashed::key(K(1)))),
@@ -272,6 +274,8 @@ mod tests {
         );
         assert_matches!(
             updater
+                .0
+                .0
                 .scheduled_changes
                 .changes
                 .get(&dice.key_index.index(CowDiceKeyHashed::key(K(2)))),
@@ -280,7 +284,7 @@ mod tests {
 
         assert_matches!(
         updater
-            .scheduled_changes
+            .0.0.scheduled_changes
             .changes
             .get(&dice.key_index.index(CowDiceKeyHashed::key(K(3)))),
         Some((ChangeType::UpdateValue(x, _), _)) if *x.downcast_ref::<usize>().unwrap() == 3
@@ -288,7 +292,7 @@ mod tests {
 
         assert_matches!(
         updater
-            .scheduled_changes
+            .0.0.scheduled_changes
             .changes
             .get(&dice.key_index.index(CowDiceKeyHashed::key(K(4)))),
         Some((ChangeType::UpdateValue(x, _), _)) if *x.downcast_ref::<usize>().unwrap() == 4
@@ -307,10 +311,10 @@ mod tests {
         updater.changed(vec![K(1), K(2)])?;
 
         let ctx = updater.existing_state().await;
-        assert_eq!(ctx.get_version(), VersionNumber::new(0));
+        assert_eq!(ctx.0.get_version(), VersionNumber::new(0));
 
         let ctx = updater.commit().await;
-        assert_eq!(ctx.get_version(), VersionNumber::new(1));
+        assert_eq!(ctx.0.get_version(), VersionNumber::new(1));
 
         Ok(())
     }
