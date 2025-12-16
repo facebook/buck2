@@ -38,7 +38,7 @@ jobs:
           git rev-parse HEAD > ../artifacts/prelude_hash
           echo "prelude_hash=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
       - name: Upload prelude_hash
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           path: artifacts/prelude_hash
           name: prelude_hash
@@ -79,7 +79,7 @@ jobs:
     runs-on: ${{ matrix.target.os }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
       - uses: SebRollen/toml-action@v1.0.2
@@ -160,7 +160,7 @@ jobs:
           zstd -z ${{ steps.set_variables.outputs.buck2_out }} -o ${{ steps.set_variables.outputs.buck2_zst }}
           zstd -z ${{ steps.set_variables.outputs.buck2_rust_project_out }} -o ${{ steps.set_variables.outputs.buck2_rust_project_zst }}
       - name: Upload
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: buck2-${{ matrix.target.triple }}
           path: artifacts/
@@ -172,7 +172,7 @@ jobs:
       - get_prelude_hash
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
       # Publish a new tag and upload all aritfacts from `build` and `get_prelude_hash`
@@ -233,7 +233,7 @@ jobs:
     # Only perform this action if check_for_bi_monthly_release set a tag output
     if: ${{ needs.check_for_bi_monthly_release.outputs.tag }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
       # Publish a new tag and upload all aritfacts from `build` and `get_prelude_hash`
@@ -255,9 +255,9 @@ jobs:
       - build
     steps:
     - name: Checkout
-      uses: actions/checkout@v4
+      uses: actions/checkout@v6
     - name: Download Buck2
-      uses: actions/download-artifact@v4
+      uses: actions/download-artifact@v7
       with:
         name: buck2-x86_64-unknown-linux-gnu
         path: artifacts
