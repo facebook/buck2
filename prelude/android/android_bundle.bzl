@@ -12,6 +12,7 @@ load("@prelude//android:android_binary.bzl", "get_binary_info")
 load("@prelude//android:android_providers.bzl", "AndroidAabInfo", "AndroidBinaryNativeLibsInfo", "AndroidBinaryPrimaryPlatformInfo", "AndroidBinaryResourcesInfo", "AndroidDerivedApkInfo", "DexFilesInfo")
 load("@prelude//android:android_toolchain.bzl", "AndroidToolchainInfo")
 load("@prelude//android:bundletool_util.bzl", "derive_universal_apk")
+load("@prelude//android:util.bzl", "package_validators_decorator")
 load("@prelude//java:java_providers.bzl", "KeystoreInfo")
 load("@prelude//java/utils:java_more_utils.bzl", "get_path_separator_for_exec_os")
 load("@prelude//utils:argfile.bzl", "argfile")
@@ -19,8 +20,15 @@ load("@prelude//utils:argfile.bzl", "argfile")
 def android_bundle_impl(ctx: AnalysisContext) -> list[Provider]:
     android_binary_info = get_binary_info(ctx, use_proto_format = True)
     native_library_info = android_binary_info.native_library_info
-    output_bundle = build_bundle(
-        label = ctx.label,
+
+    wrapped_build_bundle = package_validators_decorator(
+        ctx,
+        build_bundle,
+        extension = ".aab",
+    )
+
+    output_bundle = wrapped_build_bundle(
+        output_filename = ctx.label.name,
         actions = ctx.actions,
         android_toolchain = ctx.attrs._android_toolchain[AndroidToolchainInfo],
         dex_files_info = android_binary_info.dex_files_info,
@@ -78,7 +86,7 @@ def android_bundle_impl(ctx: AnalysisContext) -> list[Provider]:
     ] + extra_providers
 
 def build_bundle(
-        label: Label,
+        output_filename: str,
         actions: AnalysisActions,
         android_toolchain: AndroidToolchainInfo,
         dex_files_info: DexFilesInfo,
@@ -87,7 +95,7 @@ def build_bundle(
         bundle_config: Artifact | None,
         validation_deps_outputs: [list[Artifact], None] = None,
         packaging_options: dict | None = None) -> Artifact:
-    output_bundle = actions.declare_output("{}.aab".format(label.name))
+    output_bundle = actions.declare_output("{}.aab".format(output_filename))
 
     bundle_builder_args = cmd_args(
         android_toolchain.bundle_builder[RunInfo],
