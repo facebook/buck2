@@ -224,6 +224,9 @@ RustLinkInfo = provider(
         # libraries in the link graph, with the handling of transitive dependencies being the only
         # difference.
         "native_link_deps": RustNativeLinkDeps,
+        # External debug info for native dependencies. For `advanced_unstable_linking` this includes
+        # both Rust and non-Rust debug info. Otherwise, it includes non-Rust only.
+        "native_debug_info": dict[LinkStrategy, ArtifactTSet],
         "linkable_graphs": RustLinkableGraphs,
         "shared_libs": SharedLibraryInfo,
         "third_party_build_info": ThirdPartyBuildInfo,
@@ -595,6 +598,27 @@ def inherited_native_link_deps(
         ],
     )
 
+def inherited_native_debug_info(
+        ctx: AnalysisContext,
+        dep_ctx: DepCollectionContext) -> dict[LinkStrategy, ArtifactTSet]:
+    """
+    External debug info for the set of dependencies in `inherited_native_link_deps`.
+    """
+    return {
+        strategy: make_artifact_tset(
+            actions = ctx.actions,
+            label = ctx.label,
+            children = filter(None, [
+                dep[MergedLinkInfo]._external_debug_info.get(strategy)
+                for dep in _native_link_dependencies(ctx, dep_ctx)
+            ]) + [
+                info.native_debug_info[strategy]
+                for info in _rust_non_proc_macro_link_infos(ctx, dep_ctx)
+            ],
+        )
+        for strategy in LinkStrategy
+    }
+
 def inherited_merged_link_infos(
         ctx: AnalysisContext,
         dep_ctx: DepCollectionContext) -> list[MergedLinkInfo]:
@@ -646,27 +670,25 @@ def inherited_dep_external_debug_infos(
         dep_ctx: DepCollectionContext,
         dep_link_strategy: LinkStrategy) -> list[ArtifactTSet]:
     inherited_debug_infos = []
-    inherited_link_infos = []
     toolchain_info = ctx.attrs._rust_toolchain[RustToolchainInfo]
 
     for d in resolve_deps(ctx, dep_ctx):
         rust_link_info = d.dep.get(RustLinkInfo)
+        merged_link_info = d.dep.get(MergedLinkInfo)
         if rust_link_info:
+            # Inherited Rust debug info
             rust_link_strategy_info = strategy_info(toolchain_info, rust_link_info, dep_link_strategy)
             inherited_debug_infos.append(rust_link_strategy_info.rust_debug_info)
-            merged_link_infos = dfs_dedupe_by_label(rust_link_info.native_link_deps)
-            inherited_link_infos.extend(merged_link_infos)
-        elif MergedLinkInfo in d.dep:
-            inherited_link_infos.append(d.dep[MergedLinkInfo])
 
-    inherited_debug_infos.append(make_artifact_tset(
-        actions = ctx.actions,
-        label = ctx.label,
-        children = filter(
-            None,
-            [x._external_debug_info.get(dep_link_strategy) for x in inherited_link_infos],
-        ),
-    ))
+            # Inherited non-Rust debug info
+            native_debug_info = rust_link_info.native_debug_info.get(dep_link_strategy)
+            if native_debug_info:
+                inherited_debug_infos.append(native_debug_info)
+        elif merged_link_info:
+            native_debug_info = merged_link_info._external_debug_info.get(dep_link_strategy)
+            if native_debug_info:
+                inherited_debug_infos.append(native_debug_info)
+
     return inherited_debug_infos
 
 def inherited_external_debug_info_from_dep_infos(
