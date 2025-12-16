@@ -310,8 +310,10 @@ def _main(ctx: bxl.Context) -> None:
         entry = {}
         entries[str(x.label.raw_target())] = entry
 
-        if x.rule_type == "prelude//rules.bzl:alias":
+        if x.rule_type == "prelude//rules.bzl:alias" or x.rule_type.endswith("_fbcode_configured_alias"):
             _handle_alias(entry, attrs, x)
+        elif x.rule_type.endswith("_fbcode_configured_alias_transition"):
+            pass
         elif x.rule_type == "prelude//rules.bzl:cxx_python_extension":
             _handle_python_extension(entry, attrs, fs, x, known_targets)
         elif "genrule" in x.rule_type:
