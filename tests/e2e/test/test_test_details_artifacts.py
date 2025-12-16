@@ -42,7 +42,7 @@ def extract_test_run_id(haystack: str) -> int:
 @buck_test(inplace=True)
 async def test_passing_test_details_uploaded_to_artifacts(buck: Buck) -> None:
     output = await buck.test(
-        "fbcode//buck2/tests/targets/rules/python_test:test_produce_artifacts",
+        "fbcode//buck2/tests/targets/rules/python_test:test_produce_test_details",
         "--remote-only",
         "--",
         "--upload-passing-details",
