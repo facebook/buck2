@@ -732,5 +732,11 @@ def dfs_dedupe_by_label(tset: TransitiveSet) -> list[typing.Any]:
                 label, value = item
             else:
                 label, value = item.label, item
+            if label in entries and entries[label] != value:
+                fail("cannot depend on {} in multiple inconsistent ways:\n{}\n{}".format(
+                    label,
+                    entries[label],
+                    value,
+                ))
             entries[label] = value
     return entries.values()
