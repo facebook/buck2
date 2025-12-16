@@ -30,7 +30,6 @@ use buck2_execute::artifact::artifact_dyn::ArtifactDyn;
 use buck2_execute::artifact::fs::ExecutorFs;
 use dupe::Dupe;
 use fxhash::FxHashMap;
-use indexmap::IndexMap;
 use starlark_map::small_map::SmallMap;
 
 mod proto {
@@ -69,7 +68,7 @@ impl<'a> ResultReporter<'a> {
         cert_state: CertState,
         options: ResultReporterOptions,
         build_result: &BuildTargetResult,
-    ) -> BuildTargetsAndErrors {
+    ) -> buck2_error::Result<BuildTargetsAndErrors> {
         let mut out = Self {
             artifact_fs,
             options,
@@ -86,7 +85,7 @@ impl<'a> ResultReporter<'a> {
             non_action_errors.extend(v.errors.iter().cloned());
             action_errors.extend(v.outputs.iter().filter_map(|x| x.as_ref().err()).cloned());
 
-            out.collect_result(k, v, build_result.configured_to_pattern_modifiers.get(k));
+            out.collect_result(k, v, build_result.configured_to_pattern_modifiers.get(k))?;
         }
 
         let mut error_list = if let Some(e) = non_action_errors.pop() {
@@ -104,10 +103,10 @@ impl<'a> ResultReporter<'a> {
             }
         }
 
-        BuildTargetsAndErrors {
+        Ok(BuildTargetsAndErrors {
             build_targets: out.results,
             build_errors: BuildErrors { errors: error_list },
-        }
+        })
     }
 
     fn collect_result(
@@ -115,7 +114,7 @@ impl<'a> ResultReporter<'a> {
         label: &ConfiguredProvidersLabel,
         result: &ConfiguredBuildTargetResult,
         pattern_modifiers: Option<&BTreeSet<Modifiers>>,
-    ) {
+    ) -> buck2_error::Result<()> {
         let outputs = result
             .outputs
             .iter()
@@ -179,16 +178,14 @@ impl<'a> ResultReporter<'a> {
 
         let artifact_fs = self.artifact_fs;
 
-        // Write it this way because `.into_iter()` gets rust-analyzer confused
-        let outputs: Vec<proto::BuildOutput> = IntoIterator::into_iter(artifacts)
-            .map(|(a, providers)| proto::BuildOutput {
-                path: a
-                    .resolve_configuration_hash_path(artifact_fs)
-                    .unwrap()
-                    .to_string(),
+        let mut outputs: Vec<proto::BuildOutput> = Vec::new();
+        for (a, providers) in artifacts.into_iter() {
+            let output = proto::BuildOutput {
+                path: a.resolve_configuration_hash_path(artifact_fs)?.to_string(),
                 providers: Some(providers),
-            })
-            .collect();
+            };
+            outputs.push(output);
+        }
 
         let target = label.unconfigured().to_string();
         let configuration = label.cfg().to_string();
@@ -223,9 +220,7 @@ impl<'a> ResultReporter<'a> {
                 let executor_fs = ExecutorFs::new(self.artifact_fs, path_separator);
                 let mut cli = Vec::<String>::new();
                 let mut ctx = AbsCommandLineContext::new(&executor_fs);
-                runinfo
-                    .add_to_command_line(&mut cli, &mut ctx, &artifact_path_mapping)
-                    .unwrap();
+                runinfo.add_to_command_line(&mut cli, &mut ctx, &artifact_path_mapping)?;
                 cli
             } else {
                 Vec::new()
@@ -261,5 +256,6 @@ impl<'a> ResultReporter<'a> {
                 configured_graph_size,
             }),
         }
+        Ok(())
     }
 }

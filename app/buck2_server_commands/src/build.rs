@@ -83,7 +83,6 @@ use crate::build::result_report::ResultReporter;
 use crate::build::result_report::ResultReporterOptions;
 use crate::build::unhashed_outputs::create_unhashed_outputs;
 
-#[allow(unused)]
 mod result_report;
 mod unhashed_outputs;
 
@@ -497,7 +496,7 @@ async fn process_build_result(
         },
         &build_result,
     )
-    .await;
+    .await?;
 
     let serialized_build_report = if build_opts.unstable_print_build_report {
         let build_report_opts =
