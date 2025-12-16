@@ -41,7 +41,7 @@ load(
 load("@prelude//utils:expect.bzl", "expect")
 load(":apple_bundle.bzl", "AppleBundlePartListConstructorParams", "get_apple_bundle_part_list")
 load(":apple_bundle_destination.bzl", "AppleBundleDestination", "bundle_relative_path_for_destination")
-load(":apple_bundle_part.bzl", "AppleBundlePart", "SwiftStdlibArguments", "assemble_bundle", "bundle_output", "get_apple_bundle_part_relative_destination_path", "get_bundle_dir_name")
+load(":apple_bundle_part.bzl", "AppleBundlePart", "assemble_bundle", "bundle_output", "get_bundle_dir_name")
 load(":apple_bundle_types.bzl", "AppleBundleInfo")
 load(":apple_bundle_utility.bzl", "get_product_name")
 load(":apple_dsym.bzl", "DSYM_SUBTARGET", "DWARF_AND_DSYM_SUBTARGET", "EXTENDED_DSYM_INFO_SUBTARGET", "get_apple_dsym", "get_apple_dsym_info_json", "get_deps_debuggable_infos")
@@ -163,12 +163,6 @@ def apple_test_impl(ctx: AnalysisContext) -> [list[Provider], Promise]:
                 ),
             )
 
-        if read_root_config("apple", "exclude_swift_libraries", "false").lower() != "true":
-            primary_binary_rel_path = get_apple_bundle_part_relative_destination_path(ctx, binary_part)
-            swift_stdlib_args = SwiftStdlibArguments(primary_binary_rel_path = primary_binary_rel_path)
-        else:
-            swift_stdlib_args = None
-
         bundle_result = assemble_bundle(
             ctx,
             xctest_bundle,
@@ -176,7 +170,7 @@ def apple_test_impl(ctx: AnalysisContext) -> [list[Provider], Promise]:
             part_list_output.codesign_manifest_parts,
             part_list_output.signing_context_parts,
             part_list_output.info_plist_part,
-            swift_stdlib_args,
+            None,  # swift_stdlib_args
             # Adhoc signing can be skipped because the test executable is adhoc signed
             # + includes any entitlements if present.
             skip_adhoc_signing = True,
