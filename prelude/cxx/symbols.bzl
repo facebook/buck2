@@ -45,7 +45,7 @@ def _extract_symbol_names(
         fail("can only use undefined_weak with undefined_only")
 
     nm = cxx_toolchain.binary_utilities_info.nm
-    output = ctx.actions.declare_output(paths.join("__symbols__", name))
+    output = ctx.actions.declare_output(paths.join("__symbols__", name), has_content_based_path = True)
 
     # -A: Prepend all lines with the name of the input file to which it
     # corresponds.  Added only to make parsing the output a bit easier.
@@ -215,6 +215,7 @@ def extract_symbol_names(
                 **kwargs
             ),
         ).artifact("symbols")
+        artifact = ctx.actions.assert_has_content_based_path(artifact)
 
         return ctx.actions.assert_short_path(artifact, short_path = paths.join("__symbols__", name))
     else:
@@ -313,7 +314,7 @@ def _create_symbols_file_from_script(
 
     all_symbol_files = actions.write(name + ".symbols", symbol_files)
     all_symbol_files = cmd_args(all_symbol_files, hidden = symbol_files)
-    output = actions.declare_output(name, uses_experimental_content_based_path_hashing = True)
+    output = actions.declare_output(name, has_content_based_path = True)
     cmd = [
         "/usr/bin/env",
         "bash",
