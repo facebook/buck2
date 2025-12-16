@@ -459,6 +459,17 @@ public class InstrumentationTestRunner extends DeviceRunner {
     androidDevice.installApkOnDevice(new File(path), false, false, false);
   }
 
+  /**
+   * Execute adb shell command using AndroidDevice and AdbUtils.
+   *
+   * @param command the shell command to execute
+   * @return the output of the shell command
+   * @throws Exception if command execution fails
+   */
+  protected String executeAdbShellCommand(String command) throws Exception {
+    return adbUtils.executeAdbShellCommand(command, androidDevice.getSerialNumber(), false);
+  }
+
   protected AndroidDevice initializeAndroidDevice() {
     String deviceSerial = deviceArgs.deviceSerial;
 
@@ -642,33 +653,33 @@ public class InstrumentationTestRunner extends DeviceRunner {
     }
 
     if (this.clearPackageData) {
-      executeAdbShellCommand("pm clear " + this.packageName, device);
-      executeAdbShellCommand("pm clear " + this.targetPackageName, device);
+      executeAdbShellCommand("pm clear " + this.packageName);
+      executeAdbShellCommand("pm clear " + this.targetPackageName);
     }
 
     AnimationScales originalWindowAnimationScales = null;
 
     if (this.disableAnimations) {
-      originalWindowAnimationScales = getAnimationScales(device);
-      setAnimationScales(device, new AnimationScales(0f, 0f, 0f));
+      originalWindowAnimationScales = getAnimationScales();
+      setAnimationScales(new AnimationScales(0f, 0f, 0f));
     }
 
     // Increase logcat buffer size to 16MB.
-    executeAdbShellCommand("logcat -G 16M", device);
+    executeAdbShellCommand("logcat -G 16M");
 
     // Clear logcat logs prior to test run
-    executeAdbShellCommand("logcat -c", device);
+    executeAdbShellCommand("logcat -c");
 
     // Clean up output directories before the run
     for (final String devicePath : this.extraDirsToPull.keySet()) {
-      String output = executeAdbShellCommand("rm -fr " + devicePath, device);
+      String output = executeAdbShellCommand("rm -fr " + devicePath);
 
       if (directoryExists(devicePath)) {
         System.err.printf("Failed to clean up directory %s due to error: %s\n", devicePath, output);
         System.exit(1);
       }
 
-      output = executeAdbShellCommand("mkdir -p " + devicePath, device);
+      output = executeAdbShellCommand("mkdir -p " + devicePath);
       if (!directoryExists(devicePath)) {
         System.err.printf("Failed to create directory %s due to error: %s\n", devicePath, output);
       }
@@ -782,7 +793,7 @@ public class InstrumentationTestRunner extends DeviceRunner {
       runner.run(listeners);
 
       if (this.disableAnimations) {
-        setAnimationScales(device, originalWindowAnimationScales);
+        setAnimationScales(originalWindowAnimationScales);
       }
 
       if (this.codeCoverageOutputFile != null || (useJaCoCoCoverage && coverageTempDir != null)) {
@@ -796,7 +807,7 @@ public class InstrumentationTestRunner extends DeviceRunner {
         String covFileInEmu = "/data/data/" + this.targetPackageName + "/files/coverage.ec";
         String covFileInSdcard = "/sdcard/coverage.ec";
         String cpOutput =
-            executeAdbShellCommand("su root cp " + covFileInEmu + " " + covFileInSdcard, device);
+            executeAdbShellCommand("su root cp " + covFileInEmu + " " + covFileInSdcard);
 
         System.out.println(cpOutput);
         pullFile(covFileInSdcard, destCovFileInHost);
@@ -825,10 +836,10 @@ public class InstrumentationTestRunner extends DeviceRunner {
       }
 
     } finally {
-      this.collectAdbLogs(device);
+      this.collectAdbLogs();
 
       // Restore logcat buffer size to default.
-      executeAdbShellCommand("logcat -G 256K", device);
+      executeAdbShellCommand("logcat -G 256K");
 
       for (ReportLayer layer : this.reportLayers) {
         layer.report();
@@ -880,7 +891,7 @@ public class InstrumentationTestRunner extends DeviceRunner {
   }
 
   @SuppressWarnings("PMD.BlacklistedSystemGetenv")
-  private void collectAdbLogs(IDevice device) {
+  private void collectAdbLogs() {
     try {
       StringBuilder allLogOutput = new StringBuilder();
 
@@ -1108,7 +1119,7 @@ public class InstrumentationTestRunner extends DeviceRunner {
     return -1;
   }
 
-  private AnimationScales getAnimationScales(IDevice device) throws Exception {
+  private AnimationScales getAnimationScales() throws Exception {
     Function<String, Float> converter =
         s -> {
           if (s == null || "null".equals(s.trim())) {
@@ -1117,31 +1128,24 @@ public class InstrumentationTestRunner extends DeviceRunner {
           return Float.parseFloat(s);
         };
     float windowAnimationScale =
-        converter.apply(
-            executeAdbShellCommand("settings get global window_animation_scale", device));
+        converter.apply(executeAdbShellCommand("settings get global window_animation_scale"));
     float transitionAnimationScale =
-        converter.apply(
-            executeAdbShellCommand("settings get global transition_animation_scale", device));
+        converter.apply(executeAdbShellCommand("settings get global transition_animation_scale"));
     float animatorDurationScale =
-        converter.apply(
-            executeAdbShellCommand("settings get global animator_duration_scale", device));
+        converter.apply(executeAdbShellCommand("settings get global animator_duration_scale"));
 
     return new AnimationScales(
         windowAnimationScale, transitionAnimationScale, animatorDurationScale);
   }
 
-  private void setAnimationScales(IDevice device, AnimationScales animationScales)
-      throws Exception {
+  private void setAnimationScales(AnimationScales animationScales) throws Exception {
     executeAdbShellCommand(
-        "settings put global window_animation_scale " + animationScales.windowAnimationScale,
-        device);
+        "settings put global window_animation_scale " + animationScales.windowAnimationScale);
     executeAdbShellCommand(
         "settings put global transition_animation_scale "
-            + animationScales.transitionAnimationScale,
-        device);
+            + animationScales.transitionAnimationScale);
     executeAdbShellCommand(
-        "settings put global animator_duration_scale " + animationScales.animatorDurationScale,
-        device);
+        "settings put global animator_duration_scale " + animationScales.animatorDurationScale);
   }
 
   // VisibleForTesting

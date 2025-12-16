@@ -30,7 +30,6 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.lang.reflect.Field;
 import java.net.URI;
-import java.nio.charset.Charset;
 import java.nio.file.FileSystem;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
@@ -38,13 +37,11 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.TimeUnit;
 import org.junit.Assert;
 import org.junit.Rule;
 import org.junit.Test;
@@ -95,8 +92,9 @@ public class InstrumentationTestRunnerTest {
   @Test
   public void runsTestAndClearsLogcat() throws Throwable {
     ArrayList<String> shellCommands = new ArrayList<>();
-    IDevice device = createCommandCapturingTestDevice(shellCommands, Collections.emptyMap());
-    InstrumentationTestRunner runner = createInstrumentationTestRunnerWithDevice(device);
+    InstrumentationTestRunner runner =
+        createInstrumentationTestRunnerWithDevice(
+            shellCommands, new HashMap<>(), new HashMap<>(), new HashMap<>());
     runner.run();
     List<String> expectedCommands =
         Arrays.asList(
@@ -110,10 +108,14 @@ public class InstrumentationTestRunnerTest {
   @Test
   public void clearsPackageData() throws Throwable {
     ArrayList<String> shellCommands = new ArrayList<>();
-    IDevice device = createCommandCapturingTestDevice(shellCommands, Collections.emptyMap());
 
     InstrumentationTestRunner runner =
-        createInstrumentationTestRunnerWithDevice(device, "--clear-package-data");
+        createInstrumentationTestRunnerWithDevice(
+            shellCommands,
+            new HashMap<>(),
+            new HashMap<>(),
+            new HashMap<>(),
+            "--clear-package-data");
     runner.run();
     List<String> expectedCommands =
         Arrays.asList(
@@ -137,10 +139,14 @@ public class InstrumentationTestRunnerTest {
             put("settings get global animator_duration_scale", "0.8");
           }
         };
-    IDevice device = createCommandCapturingTestDevice(shellCommands, mockShellResponses);
 
     InstrumentationTestRunner runner =
-        createInstrumentationTestRunnerWithDevice(device, "--disable-animations");
+        createInstrumentationTestRunnerWithDevice(
+            shellCommands,
+            new HashMap<>(),
+            new HashMap<>(),
+            mockShellResponses,
+            "--disable-animations");
     runner.run();
     Assert.assertEquals(13, shellCommands.size());
 
@@ -158,38 +164,6 @@ public class InstrumentationTestRunnerTest {
     Assert.assertTrue(lastFourCommands.contains("settings put global animator_duration_scale 0.8"));
   }
 
-  private void addOutput(IShellOutputReceiver receiver, String data) {
-    byte[] bytes = data.getBytes(Charset.forName("UTF-8"));
-    receiver.addOutput(bytes, 0, bytes.length);
-  }
-
-  private void mockLsCommandOutput(IShellOutputReceiver receiver, String[] files, String lsCommand)
-      throws UnsupportedOperationException {
-    HashMap<String, Set<String>> directoryToFiles = new HashMap<>();
-    for (String file : files) {
-      if (!file.startsWith("/")) {
-        throw new UnsupportedOperationException("file on Android device should start with /");
-      }
-      String key = "/";
-      for (String token : file.substring(1).split("/")) {
-        if (!directoryToFiles.containsKey(key)) {
-          directoryToFiles.put(key, new HashSet<>());
-        }
-        directoryToFiles.get(key).add(token);
-        key += token;
-        key += "/";
-      }
-    }
-
-    System.out.println("ls command:" + lsCommand);
-    String[] parts = lsCommand.split(" ");
-    String baseDir = parts[parts.length - 1];
-
-    for (String entry : directoryToFiles.get(baseDir)) {
-      addOutput(receiver, String.format("drwxr-xr-x root root 0 2024-06-12 12:01 %s\n", entry));
-    }
-  }
-
   @Test
   public void extractLogWithRegex() throws Throwable {
     // set up TRA
@@ -199,18 +173,17 @@ public class InstrumentationTestRunnerTest {
     env.put("TEST_RESULT_ARTIFACTS_DIR", tra.toString());
     env.put("TEST_RESULT_ARTIFACT_ANNOTATIONS_DIR", tra_annot.toString());
 
-    ArrayList<String> expectedShellCommands = new ArrayList<>();
+    List<String> expectedShellCommands = new ArrayList<>();
+    expectedShellCommands.add("logcat -G 16M");
     expectedShellCommands.add("logcat -c");
     expectedShellCommands.add("am instrument -w -r   com.example.test/com.example.test.TestRunner");
     expectedShellCommands.add("logcat -d -b \"crash\"");
     expectedShellCommands.add("logcat -d -b \"system\"");
     expectedShellCommands.add("logcat -d -b \"main\"");
 
-    IDevice device = createCommandCapturingTestDevice(expectedShellCommands, env);
-
     InstrumentationTestRunner runner =
         createInstrumentationTestRunnerWithDevice(
-            device, new HashMap<>(), env, "--log-extractor", "Breadcrumbs=TEST_BREADCRUMBS:");
+            new HashMap<>(), env, "--log-extractor", "Breadcrumbs=TEST_BREADCRUMBS:");
     runner.run();
     Path breadcrumbsTra = tra.resolve("Breadcrumbs");
     Path breadcrumbsTraAnnotation = tra_annot.resolve("Breadcrumbs.annotation");
@@ -240,41 +213,12 @@ public class InstrumentationTestRunnerTest {
     expectedShellCommands.add("logcat -d -b \"main\"");
     expectedShellCommands.add("logcat -G 256K");
 
-    IDevice device =
-        new TestDevice() {
-          @Override
-          public void executeShellCommand(String command, IShellOutputReceiver receiver) {
-            System.out.println("executeShellCommand:" + command);
-            if (expectedShellCommands.contains(command)) {
-              // this is an expected command, do nothing
-              return;
-            } else if (command.startsWith("ls -l")) {
-              mockLsCommandOutput(
-                  receiver,
-                  new String[] {
-                    "/storage/emulated/0/Android/data/com.example.test/files/test-video-record.sh",
-                    "/storage/emulated/0/Android/data/com.example.test/files/test-video-record.mp4"
-                  },
-                  command);
-            } else {
-              System.out.println("unexpected command:" + command);
-              throw new UnsupportedOperationException(
-                  String.format("This command is not implemented in the mock: %s", command));
-            }
-          }
-
-          @Override
-          public FileListingService getFileListingService() {
-            return new FileListingService(this);
-          }
-        };
-
     Map<Path, byte[]> files = new HashMap<>();
     files.put(
         Paths.get("/storage/emulated/0/Android/data/com.example.test/files/test-video-record.mp4"),
         "test-video-record.mp4".getBytes());
     InstrumentationTestRunner runner =
-        createInstrumentationTestRunnerWithDevice(device, files, env, "--record-video");
+        createInstrumentationTestRunnerWithDevice(files, env, "--record-video");
     runner.run();
     Path video_file = tra.resolve("test-video-record.mp4");
     Path video_file_annotation = tra_annot.resolve("test-video-record.mp4.annotation");
@@ -303,34 +247,14 @@ public class InstrumentationTestRunnerTest {
     expectedShellCommands.add("logcat -d -b \"system\"");
     expectedShellCommands.add("logcat -d -b \"main\"");
     expectedShellCommands.add("logcat -G 256K");
-    IDevice device =
-        new TestDevice() {
-          @Override
-          public void executeShellCommand(String command, IShellOutputReceiver receiver) {
-            if (expectedShellCommands.contains(command)) {
-              // this is an expected command, do nothing
-              return;
-            } else if (command.startsWith("ls -l")) {
-              mockLsCommandOutput(receiver, new String[] {"/data/tombstones/tombstone"}, command);
-            } else if (command.equals("test -d /data/tombstones/ && echo exists")) {
-              byte[] response = "exists\n".getBytes();
-              receiver.addOutput(response, 0, response.length);
-            } else {
-              throw new UnsupportedOperationException(
-                  String.format("This command is not implemented in the mock: %s", command));
-            }
-          }
-
-          @Override
-          public FileListingService getFileListingService() {
-            return new FileListingService(this);
-          }
-        };
-
+    // Provide mock response for shell command to check directory existence
+    Map<String, String> mockShellResponses = new HashMap<>();
+    mockShellResponses.put("test -d /data/tombstones/ && echo exists", "exists");
     Map<Path, byte[]> files = new HashMap<>();
     files.put(Paths.get("/data/tombstones/tombstone"), "tombstone".getBytes());
     InstrumentationTestRunner runner =
-        createInstrumentationTestRunnerWithDevice(device, files, env, "--collect-tombstones");
+        createInstrumentationTestRunnerWithDevice(
+            files, env, mockShellResponses, "--collect-tombstones");
     runner.run();
     Path tombstone_zip = tra.resolve("tombstones.zip");
     Path tombstone_annotation = tra_annot.resolve("tombstones.zip.annotation");
@@ -367,35 +291,14 @@ public class InstrumentationTestRunnerTest {
     expectedShellCommands.add("logcat -d -b \"system\"");
     expectedShellCommands.add("logcat -d -b \"main\"");
     expectedShellCommands.add("logcat -G 256K");
-    IDevice device =
-        new TestDevice() {
-          @Override
-          public void executeShellCommand(String command, IShellOutputReceiver receiver) {
-            if (expectedShellCommands.contains(command)) {
-              // this is an expected command, do nothing
-              return;
-            } else if (command.startsWith("ls -l")) {
-              mockLsCommandOutput(
-                  receiver, new String[] {"/data/tombstones/subdir/tombstone"}, command);
-            } else if (command.equals("test -d /data/tombstones/ && echo exists")) {
-              byte[] response = "exists\n".getBytes();
-              receiver.addOutput(response, 0, response.length);
-            } else {
-              throw new UnsupportedOperationException(
-                  String.format("This command is not implemented in the mock: %s", command));
-            }
-          }
-
-          @Override
-          public FileListingService getFileListingService() {
-            return new FileListingService(this);
-          }
-        };
-
+    // Provide mock responses for shell commands
+    Map<String, String> mockShellResponses = new HashMap<>();
+    mockShellResponses.put("test -d /data/tombstones/ && echo exists", "exists");
     Map<Path, byte[]> files = new HashMap<>();
     files.put(Paths.get("/data/tombstones/subdir/tombstone"), "tombstone".getBytes());
     InstrumentationTestRunner runner =
-        createInstrumentationTestRunnerWithDevice(device, files, env, "--collect-tombstones");
+        createInstrumentationTestRunnerWithDevice(
+            files, env, mockShellResponses, "--collect-tombstones");
     runner.run();
     Path tombstone_zip = tra.resolve("tombstones.zip");
     Path tombstone_annotation = tra_annot.resolve("tombstones.zip.annotation");
@@ -421,29 +324,28 @@ public class InstrumentationTestRunnerTest {
     env.put("AIT_TEST_ONE", "foo");
     env.put("AIT_TEST_TWO", "bar");
     env.put("OTHER_RANDOM_ENV_VAR", "not");
-    String expectedCommandPrefix = "am instrument";
-    ArrayList<String> actualCommands = new ArrayList<>();
-    IDevice device =
-        new TestDevice() {
-          @Override
-          public void executeShellCommand(String command, IShellOutputReceiver receiver) {
-            if (command.startsWith(expectedCommandPrefix)) {
-              actualCommands.add(command);
-            }
-            // Ignore all other commands
-            return;
-          }
-        };
+
+    ArrayList<String> capturedShellCommands = new ArrayList<>();
+
     InstrumentationTestRunner runner =
-        createInstrumentationTestRunnerWithDevice(device, new HashMap<>(), env);
+        createInstrumentationTestRunnerWithDevice(
+            capturedShellCommands, new HashMap<>(), env, new HashMap<>());
 
     runner.run();
 
-    Assert.assertTrue(actualCommands.size() == 1);
-    String actualCommand = actualCommands.get(0);
-    Assert.assertTrue(actualCommand.contains("-e TEST_ONE foo"));
-    Assert.assertTrue(actualCommand.contains("-e TEST_TWO bar"));
-    Assert.assertFalse(actualCommand.contains("RANDOM_ENV_VAR"));
+    // Find the "am instrument" command that RemoteAndroidTestRunner executed
+    String instrumentCommand = null;
+    for (String command : capturedShellCommands) {
+      if (command.startsWith("am instrument")) {
+        instrumentCommand = command;
+        break;
+      }
+    }
+
+    Assert.assertNotNull("Expected to find 'am instrument' command", instrumentCommand);
+    Assert.assertTrue(instrumentCommand.contains("-e TEST_ONE foo"));
+    Assert.assertTrue(instrumentCommand.contains("-e TEST_TWO bar"));
+    Assert.assertFalse(instrumentCommand.contains("RANDOM_ENV_VAR"));
   }
 
   @Test
@@ -586,6 +488,8 @@ public class InstrumentationTestRunnerTest {
   @Test
   public void installsSingleApkWhenNoApkUnderTest() throws Throwable {
     List<String> installedPackages = new ArrayList<>();
+    List<String> capturedShellCommands = new ArrayList<>();
+    Map<String, String> shellCommandMockResponses = new HashMap<>();
 
     final TestAndroidDevice testAndroidDevice =
         new TestAndroidDevice() {
@@ -614,19 +518,6 @@ public class InstrumentationTestRunnerTest {
           }
         };
 
-    IDevice device =
-        new TestDevice() {
-          @Override
-          public void executeShellCommand(String command, IShellOutputReceiver receiver) {
-            // Ignore shell commands for this test
-          }
-
-          @Override
-          public FileListingService getFileListingService() {
-            return new FileListingService(this);
-          }
-        };
-
     String[] args = {
       "--target-package-name",
       "com.example",
@@ -647,6 +538,28 @@ public class InstrumentationTestRunnerTest {
     InstrumentationTestRunner.ArgsParser argsParser = new InstrumentationTestRunner.ArgsParser();
     DeviceRunner.DeviceArgs deviceArgs = DeviceRunner.getDeviceArgs(args);
     argsParser.fromArgs(args);
+
+    // Create minimal IDevice only for RemoteAndroidTestRunner compatibility
+    // RemoteAndroidTestRunner (ddmlib class) will execute "am instrument" via IDevice
+    IDevice device =
+        new TestDevice() {
+          @Override
+          public void executeShellCommand(String command, IShellOutputReceiver receiver) {
+            // Capture commands executed by RemoteAndroidTestRunner
+            capturedShellCommands.add(command);
+
+            // Return mock responses if configured
+            if (shellCommandMockResponses.containsKey(command)) {
+              byte[] response = shellCommandMockResponses.get(command).getBytes();
+              receiver.addOutput(response, 0, response.length);
+            }
+          }
+
+          @Override
+          public FileListingService getFileListingService() {
+            return new FileListingService(this);
+          }
+        };
 
     InstrumentationTestRunner runner =
         new InstrumentationTestRunner(
@@ -676,6 +589,7 @@ public class InstrumentationTestRunnerTest {
           @Override
           protected IDevice getAndroidDevice(
               boolean autoRunOnConnectedDevice, String deviceSerial) {
+            // Return IDevice only for RemoteAndroidTestRunner compatibility
             return device;
           }
 
@@ -683,6 +597,20 @@ public class InstrumentationTestRunnerTest {
           protected AndroidDevice initializeAndroidDevice() {
             // Initialize with the test's tracking AndroidDevice
             return testAndroidDevice;
+          }
+
+          @Override
+          protected String executeAdbShellCommand(String command) throws Exception {
+            // Pure AndroidDevice implementation - capture for verification
+            capturedShellCommands.add(command);
+
+            // Return configured mock response if available
+            if (shellCommandMockResponses.containsKey(command)) {
+              return shellCommandMockResponses.get(command);
+            }
+
+            // Default: return empty string
+            return "";
           }
 
           @Override
@@ -698,44 +626,49 @@ public class InstrumentationTestRunnerTest {
     Assert.assertTrue(installedPackages.contains("/path/to/test.apk"));
   }
 
-  private IDevice createCommandCapturingTestDevice(
-      List<String> capturedShellCommands, Map<String, String> mockResponses) {
-    return new TestDevice() {
-      @Override
-      public void executeShellCommand(String command, IShellOutputReceiver receiver) {
-        capturedShellCommands.add(command);
-        if (mockResponses.containsKey(command)) {
-          byte[] response = mockResponses.get(command).getBytes();
-          receiver.addOutput(response, 0, response.length);
-        }
-      }
-
-      @Override
-      public void executeShellCommand(
-          String command,
-          IShellOutputReceiver receiver,
-          long maxTimeToOutputResponse,
-          long l,
-          TimeUnit maxTimeUnits) {
-        capturedShellCommands.add(command);
-      }
-
-      @Override
-      public FileListingService getFileListingService() {
-        return new FileListingService(this);
-      }
-    };
-  }
-
   private InstrumentationTestRunner createInstrumentationTestRunnerWithDevice(
-      IDevice device, String... extraArgs) throws Throwable {
-    return createInstrumentationTestRunnerWithDevice(
-        device, new HashMap<>(), new HashMap<>(), extraArgs);
-  }
-
-  private InstrumentationTestRunner createInstrumentationTestRunnerWithDevice(
-      IDevice device, Map<Path, byte[]> filesOnDevice, Map<String, String> env, String... extraArgs)
+      Map<Path, byte[]> filesOnDevice, Map<String, String> env, String... extraArgs)
       throws Throwable {
+    List<String> capturedCommands = new ArrayList<>();
+    return createInstrumentationTestRunnerWithDevice(
+        capturedCommands, filesOnDevice, env, new HashMap<>(), extraArgs);
+  }
+
+  private InstrumentationTestRunner createInstrumentationTestRunnerWithDevice(
+      Map<Path, byte[]> filesOnDevice,
+      Map<String, String> env,
+      Map<String, String> shellCommandMockResponses,
+      String... extraArgs)
+      throws Throwable {
+    List<String> capturedCommands = new ArrayList<>();
+    return createInstrumentationTestRunnerWithDevice(
+        capturedCommands, filesOnDevice, env, shellCommandMockResponses, extraArgs);
+  }
+
+  private InstrumentationTestRunner createInstrumentationTestRunnerWithDevice(
+      List<String> capturedShellCommands,
+      Map<Path, byte[]> filesOnDevice,
+      Map<String, String> env,
+      Map<String, String> shellCommandMockResponses,
+      String... extraArgs)
+      throws Throwable {
+
+    // Create a TestAndroidDevice as the primary device abstraction
+    final AndroidDevice testAndroidDevice =
+        new TestAndroidDevice() {
+          @Override
+          public String getSerialNumber() {
+            return "test-device-123";
+          }
+
+          @Override
+          public String getProperty(String property) throws Exception {
+            if ("ro.build.version.sdk".equals(property)) {
+              return "28"; // Android 9
+            }
+            return null;
+          }
+        };
 
     String[] args = {
       "--target-package-name",
@@ -758,6 +691,30 @@ public class InstrumentationTestRunnerTest {
     InstrumentationTestRunner.ArgsParser argsParser = new InstrumentationTestRunner.ArgsParser();
     DeviceRunner.DeviceArgs deviceArgs = DeviceRunner.getDeviceArgs(args);
     argsParser.fromArgs(allArgs);
+
+    // Create minimal IDevice only for RemoteAndroidTestRunner compatibility
+    // RemoteAndroidTestRunner (ddmlib class) will execute "am instrument" via IDevice
+    // We need to capture those commands too
+    IDevice device =
+        new TestDevice() {
+          @Override
+          public void executeShellCommand(String command, IShellOutputReceiver receiver) {
+            // Capture commands executed by RemoteAndroidTestRunner
+            capturedShellCommands.add(command);
+
+            // Return mock responses if configured
+            if (shellCommandMockResponses.containsKey(command)) {
+              byte[] response = shellCommandMockResponses.get(command).getBytes();
+              receiver.addOutput(response, 0, response.length);
+            }
+          }
+
+          @Override
+          public FileListingService getFileListingService() {
+            return new FileListingService(this);
+          }
+        };
+
     InstrumentationTestRunner runner =
         new InstrumentationTestRunner(
             deviceArgs,
@@ -820,33 +777,37 @@ public class InstrumentationTestRunnerTest {
           @Override
           protected IDevice getAndroidDevice(
               boolean autoRunOnConnectedDevice, String deviceSerial) {
+            // Return IDevice only for RemoteAndroidTestRunner compatibility
             return device;
           }
 
           @Override
           protected AndroidDevice initializeAndroidDevice() {
-            // Return TestAndroidDevice for tests
-            return new com.facebook.buck.android.TestAndroidDevice() {
-              @Override
-              public String getSerialNumber() {
-                return "test-device-123";
-              }
+            // Use our TestAndroidDevice as the primary device abstraction
+            return testAndroidDevice;
+          }
 
-              @Override
-              public String getProperty(String property) throws Exception {
-                if ("ro.build.version.sdk".equals(property)) {
-                  return "28"; // Android 9
-                }
-                return null;
-              }
-            };
+          @Override
+          protected String executeAdbShellCommand(String command) throws Exception {
+            // Pure AndroidDevice implementation - NO IDevice usage!
+            // Capture command for test verification
+            capturedShellCommands.add(command);
+
+            // Return configured mock response if available
+            if (shellCommandMockResponses.containsKey(command)) {
+              return shellCommandMockResponses.get(command);
+            }
+
+            // Default: return empty string
+            return "";
           }
 
           @Override
           public boolean directoryExists(String dirPath) throws Exception {
-            return executeAdbShellCommand(
-                    String.format("test -d %s && echo exists", dirPath), device)
-                .contains("exists");
+            // Call our overridden executeAdbShellCommand to use mocked responses
+            String output =
+                executeAdbShellCommand(String.format("test -d %s && echo exists", dirPath));
+            return output.contains("exists");
           }
 
           @Override

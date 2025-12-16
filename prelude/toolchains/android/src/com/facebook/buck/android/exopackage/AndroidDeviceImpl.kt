@@ -157,6 +157,7 @@ class AndroidDeviceImpl(val serial: String, val adbUtils: AdbUtils) : AndroidDev
           // Wait for device to be fully ready after soft reboot
           waitForBootComplete()
           waitForPackageManagerReady()
+          waitForStorageReady()
         } catch (e: AdbCommandFailedException) {
           throw AndroidInstallException.rebootRequired(
               "Failed to stop+start shell; ${apex.name} was installed successfully but device will be in an unknown state until you run 'adb reboot'"
@@ -170,40 +171,71 @@ class AndroidDeviceImpl(val serial: String, val adbUtils: AdbUtils) : AndroidDev
   }
 
   private fun waitForBootComplete() {
-    val timeout = 30000 // 30 seconds
-    val startTime = System.currentTimeMillis()
-
-    while (System.currentTimeMillis() - startTime < timeout) {
-      val bootStatus =
-          executeAdbShellCommand("getprop sys.boot_completed", ignoreFailure = true).trim()
-      if (bootStatus == "1") {
-        LOG.info("Boot completed after soft reboot")
-        return
-      }
-      sleep(100)
-    }
-
-    throw AndroidInstallException.rebootRequired(
-        "Device did not complete boot after soft reboot within timeout"
+    waitForCondition(
+        command = "getprop sys.boot_completed",
+        condition = { output -> output.trim() == "1" },
+        successMessage = "Boot completed after soft reboot",
+        timeoutMessage = "Device did not complete boot after soft reboot within timeout",
+        timeoutMs = 30000,
     )
   }
 
   private fun waitForPackageManagerReady() {
-    val timeout = 10000 // 10 seconds
-    val startTime = System.currentTimeMillis()
+    waitForCondition(
+        command = "pm",
+        condition = { output -> output.isNotEmpty() && !output.contains("Can't find service") },
+        successMessage = "Package manager service ready",
+        timeoutMessage = "Package manager service did not become ready within timeout",
+    )
+  }
 
-    while (System.currentTimeMillis() - startTime < timeout) {
-      val pmOutput = executeAdbShellCommand("pm", ignoreFailure = true)
-      if (pmOutput.isNotEmpty() && !pmOutput.contains("Can't find service")) {
-        LOG.info("Package manager service ready")
+  private fun waitForStorageReady() {
+    waitForCondition(
+        command = "ls /storage/emulated/0 2>&1 || echo STORAGE_NOT_READY",
+        condition = { output ->
+          !output.contains("Transport endpoint is not connected") &&
+              !output.contains("STORAGE_NOT_READY") &&
+              !output.contains("No such file or directory")
+        },
+        successMessage = "Storage filesystem ready",
+        timeoutMessage = "Storage filesystem did not become ready within timeout",
+    )
+  }
+
+  /**
+   * Polls a shell command until a condition is met or timeout is reached.
+   *
+   * @param command the shell command to execute
+   * @param condition a predicate that returns true when the desired state is reached
+   * @param successMessage message to log on success
+   * @param timeoutMessage message for the exception if timeout is reached
+   * @param timeoutMs maximum time to wait in milliseconds
+   * @param pollIntervalMs time between polling attempts in milliseconds
+   * @throws AndroidInstallException if the condition is not met within the timeout
+   */
+  private fun waitForCondition(
+      command: String,
+      condition: (String) -> Boolean,
+      successMessage: String,
+      timeoutMessage: String,
+      timeoutMs: Long = 10000,
+      pollIntervalMs: Long = 100,
+  ) {
+    LOG.info("Waiting for condition (timeout: ${timeoutMs}ms): $successMessage")
+    val startTime = System.currentTimeMillis()
+    var attempt = 0
+
+    while (System.currentTimeMillis() - startTime < timeoutMs) {
+      attempt++
+      if (condition(executeAdbShellCommand(command, ignoreFailure = true))) {
+        LOG.info(successMessage)
         return
       }
-      sleep(100)
+      LOG.info("Attempt $attempt: condition not met, retrying in ${pollIntervalMs}ms...")
+      sleep(pollIntervalMs)
     }
 
-    throw AndroidInstallException.rebootRequired(
-        "Package manager service did not become ready within timeout"
-    )
+    throw AndroidInstallException.rebootRequired(timeoutMessage)
   }
 
   override fun stopPackage(packageName: String) {

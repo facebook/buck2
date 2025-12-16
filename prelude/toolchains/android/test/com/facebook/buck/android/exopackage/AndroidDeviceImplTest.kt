@@ -133,6 +133,15 @@ class AndroidDeviceImplTest {
     // Mock package manager ready check
     whenever(mockAdbUtils.executeAdbShellCommand("pm", serialNumber, true))
         .thenReturn("Package manager is ready")
+    // Mock storage ready check
+    whenever(
+            mockAdbUtils.executeAdbShellCommand(
+                "ls /storage/emulated/0 2>&1 || echo STORAGE_NOT_READY",
+                serialNumber,
+                true,
+            )
+        )
+        .thenReturn("Android\nDownload\nPictures")
 
     val result = androidDevice.installApexOnDevice(apexFile, false, true, true)
 
@@ -145,6 +154,12 @@ class AndroidDeviceImplTest {
     verify(mockAdbUtils).executeAdbShellCommand("start", serialNumber)
     verify(mockAdbUtils).executeAdbShellCommand("getprop sys.boot_completed", serialNumber, true)
     verify(mockAdbUtils).executeAdbShellCommand("pm", serialNumber, true)
+    verify(mockAdbUtils)
+        .executeAdbShellCommand(
+            "ls /storage/emulated/0 2>&1 || echo STORAGE_NOT_READY",
+            serialNumber,
+            true,
+        )
     assertTrue(result)
   }
 
