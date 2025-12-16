@@ -588,12 +588,12 @@ def _handle_rust_artifact(
     # then compute them (specifically, not proc-macro).
     link_output = outputs[MetadataKind("link")]
     if not ctx.attrs.proc_macro:
-        tdeps, external_debug_info, tprocmacrodeps = _compute_transitive_deps(ctx, dep_ctx, link_strategy)
-        external_debug_info = make_artifact_tset(
+        tdeps, rust_debug_info, tprocmacrodeps = _compute_transitive_deps(ctx, dep_ctx, link_strategy)
+        rust_debug_info = make_artifact_tset(
             actions = ctx.actions,
             label = ctx.label,
             artifacts = filter(None, [link_output.dwo_output_directory]),
-            children = external_debug_info,
+            children = rust_debug_info,
         )
         return RustLinkStrategyInfo(
             outputs = {m: x.output for m, x in outputs.items()},
@@ -601,7 +601,7 @@ def _handle_rust_artifact(
             transitive_deps = tdeps,
             transitive_proc_macro_deps = tprocmacrodeps,
             pdb = link_output.pdb,
-            external_debug_info = external_debug_info,
+            rust_debug_info = rust_debug_info,
         )
     else:
         # Proc macro deps are always the real thing
@@ -612,7 +612,7 @@ def _handle_rust_artifact(
             transitive_deps = {m: no_transitive_deps for m in MetadataKind},
             transitive_proc_macro_deps = set(),
             pdb = link_output.pdb,
-            external_debug_info = ArtifactTSet(),
+            rust_debug_info = ArtifactTSet(),
         )
 
 def _default_providers(
@@ -1053,7 +1053,7 @@ def _compute_transitive_deps(
 ):
     toolchain_info = ctx.attrs._rust_toolchain[RustToolchainInfo]
     transitive_deps = {m: [] for m in MetadataKind}
-    external_debug_info = []
+    rust_debug_info = []
     transitive_proc_macro_deps = set()
 
     for dep in resolve_rust_deps(ctx, dep_ctx):
@@ -1067,7 +1067,7 @@ def _compute_transitive_deps(
             transitive_deps[m].append(strategy.singleton_tset[m])
             transitive_deps[m].append(strategy.transitive_deps[m])
 
-        external_debug_info.append(strategy.external_debug_info)
+        rust_debug_info.append(strategy.rust_debug_info)
 
         transitive_proc_macro_deps.update(strategy.transitive_proc_macro_deps)
 
@@ -1076,7 +1076,7 @@ def _compute_transitive_deps(
         for m, children in transitive_deps.items()
     }
 
-    return transitive_deps, external_debug_info, transitive_proc_macro_deps
+    return transitive_deps, rust_debug_info, transitive_proc_macro_deps
 
 def rust_library_macro_wrapper(rust_library: typing.Callable) -> typing.Callable:
     def wrapper(**kwargs):

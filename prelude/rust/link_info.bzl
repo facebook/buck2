@@ -162,8 +162,9 @@ RustLinkStrategyInfo = record(
 
     # Path to PDB file with Windows debug data.
     pdb = field(Artifact | None),
-    # Debug info which is referenced -- but not included -- by the linkable rlib.
-    external_debug_info = field(ArtifactTSet),
+    # Rustc-generated debug info which is referenced -- but not included -- by the
+    # linkable rlib. Does not include external debug info from non-Rust native deps.
+    rust_debug_info = field(ArtifactTSet),
 )
 
 # Set of list[(ConfiguredTargetLabel, MergedLinkInfo)]
@@ -635,7 +636,10 @@ def inherited_rust_external_debug_info(
         dep_ctx: DepCollectionContext,
         link_strategy: LinkStrategy) -> list[ArtifactTSet]:
     toolchain_info = ctx.attrs._rust_toolchain[RustToolchainInfo]
-    return [strategy_info(toolchain_info, d.info, link_strategy).external_debug_info for d in resolve_rust_deps(ctx, dep_ctx)]
+    return [
+        strategy_info(toolchain_info, d.info, link_strategy).rust_debug_info
+        for d in resolve_rust_deps(ctx, dep_ctx)
+    ]
 
 def inherited_dep_external_debug_infos(
         ctx: AnalysisContext,
@@ -648,7 +652,8 @@ def inherited_dep_external_debug_infos(
     for d in resolve_deps(ctx, dep_ctx):
         rust_link_info = d.dep.get(RustLinkInfo)
         if rust_link_info:
-            inherited_debug_infos.append(strategy_info(toolchain_info, rust_link_info, dep_link_strategy).external_debug_info)
+            rust_link_strategy_info = strategy_info(toolchain_info, rust_link_info, dep_link_strategy)
+            inherited_debug_infos.append(rust_link_strategy_info.rust_debug_info)
             merged_link_infos = dfs_dedupe_by_label(rust_link_info.native_link_deps)
             inherited_link_infos.extend(merged_link_infos)
         elif MergedLinkInfo in d.dep:
