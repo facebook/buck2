@@ -10,7 +10,7 @@ ApplePackageInfo = provider(
     fields = {
         "dsyms": provider_field(list[Artifact]),
         "extension": provider_field(str),
-        "info_plist": provider_field([Artifact, None], default = None),
+        "info_plist": provider_field(Artifact),
         "linker_maps": provider_field(list[Artifact]),
         "name": provider_field(str),
         "package": provider_field(Artifact),
