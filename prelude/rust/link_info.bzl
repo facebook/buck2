@@ -470,11 +470,7 @@ def inherited_rust_cxx_link_group_info(
     if not cxx_is_gnu(ctx) or not ctx.attrs.auto_link_groups:
         return None
 
-    link_graphs = {
-        g.label: g
-        for graphs in inherited_linkable_graphs(ctx, dep_ctx).traverse(ordering = "dfs")
-        for g in graphs
-    }.values()
+    link_graphs = dfs_dedupe_by_label(inherited_linkable_graphs(ctx, dep_ctx))
 
     link_group = get_link_group(ctx)
 
@@ -600,12 +596,8 @@ def inherited_native_link_deps(
 
 def inherited_merged_link_infos(
         ctx: AnalysisContext,
-        dep_ctx: DepCollectionContext) -> dict[ConfiguredTargetLabel, MergedLinkInfo]:
-    return {
-        label: info
-        for infos in inherited_native_link_deps(ctx, dep_ctx).traverse(ordering = "dfs")
-        for label, info in infos
-    }
+        dep_ctx: DepCollectionContext) -> list[MergedLinkInfo]:
+    return dfs_dedupe_by_label(inherited_native_link_deps(ctx, dep_ctx))
 
 def inherited_shared_libs(
         ctx: AnalysisContext,
@@ -657,12 +649,8 @@ def inherited_dep_external_debug_infos(
         rust_link_info = d.dep.get(RustLinkInfo)
         if rust_link_info:
             inherited_debug_infos.append(strategy_info(toolchain_info, rust_link_info, dep_link_strategy).external_debug_info)
-            merged_link_infos = {
-                label: info
-                for infos in rust_link_info.native_link_deps.traverse(ordering = "dfs")
-                for label, info in infos
-            }
-            inherited_link_infos.extend(merged_link_infos.values())
+            merged_link_infos = dfs_dedupe_by_label(rust_link_info.native_link_deps)
+            inherited_link_infos.extend(merged_link_infos)
         elif MergedLinkInfo in d.dep:
             inherited_link_infos.append(d.dep[MergedLinkInfo])
 
@@ -735,3 +723,14 @@ def attr_crate(ctx: AnalysisContext) -> CrateName:
         simple = normalize_crate(ctx.attrs.crate or ctx.label.name),
         dynamic = dynamic,
     )
+
+def dfs_dedupe_by_label(tset: TransitiveSet) -> list[typing.Any]:
+    entries = {}
+    for node in tset.traverse(ordering = "dfs"):
+        for item in node:
+            if isinstance(item, tuple):
+                label, value = item
+            else:
+                label, value = item.label, item
+            entries[label] = value
+    return entries.values()

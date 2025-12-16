@@ -107,6 +107,7 @@ load(
     "RustProcMacroMarker",  # @unused Used as a type
     "TransitiveDeps",
     "attr_crate",
+    "dfs_dedupe_by_label",
     "inherited_exported_link_deps",
     "inherited_link_group_lib_infos",
     "inherited_linkable_graphs",
@@ -735,24 +736,15 @@ def _advanced_unstable_link_providers(
     inherited_exported_deps_tset = inherited_exported_link_deps(ctx, dep_ctx)
     inherited_third_party = inherited_third_party_builds(ctx, dep_ctx)
 
-    inherited_graphs = {
-        g.label: g
-        for graphs in inherited_graphs_tset.traverse(ordering = "dfs")
-        for g in graphs
-    }.values()
-
-    inherited_exported_deps = {
-        d.label: d
-        for deps in inherited_exported_deps_tset.traverse(ordering = "dfs")
-        for d in deps
-    }.values()
+    inherited_graphs = dfs_dedupe_by_label(inherited_graphs_tset)
+    inherited_exported_deps = dfs_dedupe_by_label(inherited_exported_deps_tset)
 
     # Native link provider.
     merged_link_info = create_merged_link_info(
         ctx,
         pic_behavior,
         link_infos,
-        deps = inherited_link_infos.values(),
+        deps = inherited_link_infos,
         exported_deps = filter(None, [d.get(MergedLinkInfo) for d in inherited_exported_deps]),
         preferred_linkage = preferred_linkage,
     )
@@ -948,23 +940,9 @@ def _native_link_providers(
     inherited_shlibs = [rust_link_info.shared_libs]
     inherited_third_party = rust_link_info.third_party_build_info
 
-    inherited_link_infos = {
-        label: info
-        for infos in rust_link_info.native_link_deps.traverse(ordering = "dfs")
-        for label, info in infos
-    }
-
-    inherited_link_graphs = {
-        g.label: g
-        for graphs in rust_link_info.linkable_graphs.traverse(ordering = "dfs")
-        for g in graphs
-    }.values()
-
-    inherited_exported_deps = {
-        d.label: d
-        for deps in rust_link_info.exported_link_deps.traverse(ordering = "dfs")
-        for d in deps
-    }.values()
+    inherited_link_infos = dfs_dedupe_by_label(rust_link_info.native_link_deps)
+    inherited_link_graphs = dfs_dedupe_by_label(rust_link_info.linkable_graphs)
+    inherited_exported_deps = dfs_dedupe_by_label(rust_link_info.exported_link_deps)
 
     providers = []
 
@@ -978,7 +956,7 @@ def _native_link_providers(
         ctx,
         compile_ctx.cxx_toolchain_info.pic_behavior,
         link_infos,
-        deps = inherited_link_infos.values(),
+        deps = inherited_link_infos,
         exported_deps = filter(None, [d.get(MergedLinkInfo) for d in inherited_exported_deps]),
         preferred_linkage = preferred_linkage,
     ))
