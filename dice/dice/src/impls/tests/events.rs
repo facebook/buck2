@@ -17,13 +17,13 @@ use derive_more::Display;
 use dice_futures::cancellation::CancellationContext;
 use dupe::Dupe;
 
+use crate::Dice;
 use crate::DiceDataBuilder;
 use crate::DiceEvent;
 use crate::DiceEventListener;
 use crate::InjectedKey;
 use crate::api::computations::DiceComputations;
 use crate::api::cycles::DetectCycles;
-use crate::api::dice::Dice;
 use crate::api::key::Key;
 use crate::api::user_data::UserComputationData;
 

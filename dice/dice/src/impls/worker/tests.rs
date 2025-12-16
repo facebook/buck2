@@ -46,7 +46,7 @@ use crate::impls::core::versions::VersionEpoch;
 use crate::impls::ctx::SharedLiveTransactionCtx;
 use crate::impls::deps::RecordingDepsTracker;
 use crate::impls::deps::graph::SeriesParallelDeps;
-use crate::impls::dice::DiceModern;
+use crate::impls::dice::Dice;
 use crate::impls::evaluator::AsyncEvaluator;
 use crate::impls::events::DiceEventDispatcher;
 use crate::impls::key::DiceKey;
@@ -142,7 +142,7 @@ impl Key for Finish {
 
 #[tokio::test]
 async fn test_detecting_changed_dependencies() -> anyhow::Result<()> {
-    let dice = DiceModern::new(DiceData::new());
+    let dice = Dice::new(DiceData::new());
 
     let user_data = std::sync::Arc::new(UserComputationData::new());
 
@@ -237,7 +237,7 @@ async fn test_detecting_changed_dependencies() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn when_equal_return_same_instance() -> anyhow::Result<()> {
-    let dice = DiceModern::new(DiceData::new());
+    let dice = Dice::new(DiceData::new());
 
     let user_data = std::sync::Arc::new(UserComputationData::new());
     let events = DiceEventDispatcher::new(user_data.tracker.dupe(), dice.dupe());
@@ -359,7 +359,7 @@ async fn when_equal_return_same_instance() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn spawn_with_no_previously_cancelled_task() {
-    let dice = DiceModern::new(DiceData::new());
+    let dice = Dice::new(DiceData::new());
 
     let (shared_ctx, _guard) = dice.testing_shared_ctx(VersionNumber::new(0)).await;
 
@@ -392,7 +392,7 @@ async fn spawn_with_no_previously_cancelled_task() {
 
 #[tokio::test]
 async fn spawn_with_previously_cancelled_task_that_cancelled() {
-    let dice = DiceModern::new(DiceData::new());
+    let dice = Dice::new(DiceData::new());
 
     let (shared_ctx, _guard) = dice.testing_shared_ctx(VersionNumber::new(0)).await;
 
@@ -460,7 +460,7 @@ async fn spawn_with_previously_cancelled_task_that_cancelled() {
 
 #[tokio::test]
 async fn spawn_with_previously_cancelled_task_that_finished() {
-    let dice = DiceModern::new(DiceData::new());
+    let dice = Dice::new(DiceData::new());
 
     let (shared_ctx, _guard) = dice.testing_shared_ctx(VersionNumber::new(0)).await;
 
@@ -532,7 +532,7 @@ async fn spawn_with_previously_cancelled_task_that_finished() {
 
 #[tokio::test]
 async fn mismatch_epoch_results_in_cancelled_result() {
-    let dice = DiceModern::new(DiceData::new());
+    let dice = Dice::new(DiceData::new());
 
     let (shared_ctx, guard) = dice.testing_shared_ctx(VersionNumber::new(0)).await;
 
@@ -632,7 +632,7 @@ async fn spawn_with_previously_cancelled_task_nested_cancelled() -> anyhow::Resu
         }
     }
 
-    let dice = DiceModern::new(DiceData::new());
+    let dice = Dice::new(DiceData::new());
 
     let exclusive = Arc::new(Mutex::new(false));
     let is_started = Arc::new(Notify::new());
@@ -747,7 +747,7 @@ async fn test_values_gets_resurrect_if_deps_dont_change_regardless_of_equality()
 
     /// creates the initial test graph with a single key that depends on a value
     async fn populate_initial_graph(
-        dice: &std::sync::Arc<DiceModern>,
+        dice: &std::sync::Arc<Dice>,
         compute_key: DiceKey,
         compute_res: DiceValidValue,
     ) {
@@ -777,7 +777,7 @@ async fn test_values_gets_resurrect_if_deps_dont_change_regardless_of_equality()
     /// gets a new context where the parent is dirtied such that it needs to check its deps, and the
     /// dep has a history as provided
     async fn ctx_with_dep_having_history(
-        dice: &std::sync::Arc<DiceModern>,
+        dice: &std::sync::Arc<Dice>,
         parent_key: DiceKey,
         dep_history: VersionRanges,
     ) -> (SharedLiveTransactionCtx, ActiveTransactionGuard) {
@@ -795,7 +795,7 @@ async fn test_values_gets_resurrect_if_deps_dont_change_regardless_of_equality()
         (ctx, guard)
     }
 
-    let dice = DiceModern::new(DiceData::new());
+    let dice = Dice::new(DiceData::new());
 
     let user_data = std::sync::Arc::new(UserComputationData::new());
     let events = DiceEventDispatcher::new(user_data.tracker.dupe(), dice.dupe());
@@ -865,7 +865,7 @@ async fn test_values_gets_resurrect_if_deps_dont_change_regardless_of_equality()
     Ok(())
 }
 
-async fn soft_dirty(dice: &std::sync::Arc<DiceModern>, key: DiceKey) -> VersionNumber {
+async fn soft_dirty(dice: &std::sync::Arc<Dice>, key: DiceKey) -> VersionNumber {
     dice.state_handle
         .update_state(vec![(
             key.dupe(),
@@ -876,7 +876,7 @@ async fn soft_dirty(dice: &std::sync::Arc<DiceModern>, key: DiceKey) -> VersionN
 }
 
 fn update_computed_value(
-    dice: &std::sync::Arc<DiceModern>,
+    dice: &std::sync::Arc<Dice>,
     ctx: &SharedLiveTransactionCtx,
     k: DiceKey,
     v: VersionNumber,
@@ -894,7 +894,7 @@ fn update_computed_value(
 }
 
 async fn get_ctx_at_version(
-    dice: &std::sync::Arc<DiceModern>,
+    dice: &std::sync::Arc<Dice>,
     v: VersionNumber,
 ) -> (SharedLiveTransactionCtx, ActiveTransactionGuard) {
     dice.state_handle
@@ -911,7 +911,7 @@ async fn get_ctx_at_version(
 // short period and then check the total number of nodes that get computed.
 #[tokio::test]
 async fn test_check_dependencies_stops_at_changed() -> anyhow::Result<()> {
-    let dice = DiceModern::new(DiceData::new());
+    let dice = Dice::new(DiceData::new());
 
     let compute_behavior = (0..20)
         .map(|_v| std::sync::Mutex::new(ComputeBehavior::Immediate))
@@ -1000,7 +1000,7 @@ async fn test_check_dependencies_stops_at_changed() -> anyhow::Result<()> {
 /// from check_dependencies.
 #[tokio::test]
 async fn test_check_dependencies_can_eagerly_check_all_parallel_deps() -> anyhow::Result<()> {
-    let dice = DiceModern::new(DiceData::new());
+    let dice = Dice::new(DiceData::new());
 
     let compute_behavior = (0..20)
         .map(|_v| std::sync::Mutex::new(ComputeBehavior::Immediate))

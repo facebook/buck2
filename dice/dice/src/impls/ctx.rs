@@ -47,7 +47,7 @@ use crate::impls::core::state::CoreStateHandle;
 use crate::impls::core::versions::VersionEpoch;
 use crate::impls::deps::RecordedDeps;
 use crate::impls::deps::RecordingDepsTracker;
-use crate::impls::dice::DiceModern;
+use crate::impls::dice::Dice;
 use crate::impls::evaluator::AsyncEvaluator;
 use crate::impls::evaluator::SyncEvaluator;
 use crate::impls::events::DiceEventDispatcher;
@@ -90,7 +90,7 @@ impl BaseComputeCtx {
     pub(crate) fn new(
         per_live_version_ctx: SharedLiveTransactionCtx,
         user_data: Arc<UserComputationData>,
-        dice: Arc<DiceModern>,
+        dice: Arc<Dice>,
         live_version_guard: ActiveTransactionGuard,
     ) -> Self {
         Self {

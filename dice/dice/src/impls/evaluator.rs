@@ -23,7 +23,7 @@ use crate::ctx::DiceComputationsImpl;
 use crate::impls::ctx::ModernComputeCtx;
 use crate::impls::ctx::SharedLiveTransactionCtx;
 use crate::impls::deps::graph::SeriesParallelDeps;
-use crate::impls::dice::DiceModern;
+use crate::impls::dice::Dice;
 use crate::impls::key::DiceKey;
 use crate::impls::key::DiceKeyErased;
 use crate::impls::key::ParentKey;
@@ -39,7 +39,7 @@ use crate::impls::worker::state::DiceWorkerStateFinishedEvaluating;
 pub(crate) struct AsyncEvaluator {
     pub(super) per_live_version_ctx: SharedLiveTransactionCtx,
     pub(super) user_data: Arc<UserComputationData>,
-    pub(super) dice: Arc<DiceModern>,
+    pub(super) dice: Arc<Dice>,
 }
 
 impl AsyncEvaluator {
@@ -123,7 +123,7 @@ impl AsyncEvaluator {
 #[derive(Clone, Dupe)]
 pub(crate) struct SyncEvaluator {
     user_data: Arc<UserComputationData>,
-    dice: Arc<DiceModern>,
+    dice: Arc<Dice>,
     base: MaybeValidDiceValue,
     base_invalidation_paths: TrackedInvalidationPaths,
 }
@@ -131,7 +131,7 @@ pub(crate) struct SyncEvaluator {
 impl SyncEvaluator {
     pub(crate) fn new(
         user_data: Arc<UserComputationData>,
-        dice: Arc<DiceModern>,
+        dice: Arc<Dice>,
         base: MaybeValidDiceValue,
         base_invalidation_paths: TrackedInvalidationPaths,
     ) -> Self {

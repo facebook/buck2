@@ -99,7 +99,7 @@ fn dice_dump_tsv(dice: &Arc<Dice>, path: &Path) -> buck2_error::Result<()> {
     );
 
     serialize_graph(
-        &dice.0.to_introspectable(),
+        &dice.to_introspectable(),
         &mut nodes,
         &mut edges,
         &mut nodes_currently_running,
@@ -137,7 +137,7 @@ fn dice_dump_bincode(dice: &Arc<Dice>, path: &Path) -> buck2_error::Result<()> {
             .with_fixint_encoding()
             .allow_trailing_bytes(),
     );
-    serialize_dense_graph(&dice.0.to_introspectable(), &mut writer)
+    serialize_dense_graph(&dice.to_introspectable(), &mut writer)
         .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?;
 
     Ok(())
@@ -153,6 +153,6 @@ fn dice_dump_json_pretty(dice: &Arc<Dice>, path: &Path) -> buck2_error::Result<(
 
     let mut writer = serde_json::Serializer::pretty(out);
 
-    serialize_dense_graph(&dice.0.to_introspectable(), &mut writer)?;
+    serialize_dense_graph(&dice.to_introspectable(), &mut writer)?;
     Ok(())
 }

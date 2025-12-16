@@ -11,21 +11,13 @@
 //!
 //! Interfaces for introspection of the DICE graph
 
-use crate::Dice;
 use crate::introspection::graph::AnyKey;
-use crate::introspection::graph::GraphIntrospectable;
 
 pub mod graph;
 pub(crate) mod introspect;
 
 pub use crate::introspection::introspect::serialize_dense_graph;
 pub use crate::introspection::introspect::serialize_graph;
-
-impl Dice {
-    pub fn to_introspectable(&self) -> GraphIntrospectable {
-        self.0.to_introspectable()
-    }
-}
 
 #[cfg(test)]
 mod tests {
@@ -40,7 +32,7 @@ mod tests {
     use crate::api::computations::DiceComputations;
     use crate::api::cycles::DetectCycles;
     use crate::api::key::Key;
-    use crate::impls::dice::DiceModern;
+    use crate::impls::dice::Dice;
     use crate::introspection::graph::SerializedGraphNodesForKey;
     use crate::introspection::serialize_graph;
 
@@ -92,7 +84,7 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
     async fn test_serialization() -> anyhow::Result<()> {
-        let dice = DiceModern::builder().build(DetectCycles::Disabled);
+        let dice = Dice::builder().build(DetectCycles::Disabled);
         let mut ctx = dice.updater().commit().await;
         ctx.compute(&KeyA(3)).await?;
 
@@ -147,7 +139,7 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
     async fn test_serialization_dense() -> anyhow::Result<()> {
-        let dice = DiceModern::builder().build(DetectCycles::Disabled);
+        let dice = Dice::builder().build(DetectCycles::Disabled);
         let mut ctx = dice.updater().commit().await;
         ctx.compute(&KeyA(3)).await?;
 

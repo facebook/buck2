@@ -15,7 +15,6 @@ use std::sync::Arc;
 use allocative::Allocative;
 use dupe::Dupe;
 
-use crate::Dice;
 use crate::DiceTransactionUpdater;
 use crate::DiceTransactionUpdaterImpl;
 use crate::api::cycles::DetectCycles;
@@ -29,16 +28,18 @@ use crate::introspection::graph::GraphIntrospectable;
 use crate::introspection::graph::ModernIntrospectable;
 use crate::metrics::Metrics;
 
+/// An incremental computation engine that executes arbitrary computations that
+/// maps `Key`s to values.
 #[derive(Allocative)]
-pub struct DiceModern {
+pub struct Dice {
     pub(crate) key_index: DiceKeyIndex,
     pub(crate) state_handle: CoreStateHandle,
     pub(crate) global_data: DiceData,
 }
 
-impl Debug for DiceModern {
+impl Debug for Dice {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("DiceModern").finish_non_exhaustive()
+        f.debug_struct("Dice").finish_non_exhaustive()
     }
 }
 
@@ -54,23 +55,22 @@ impl DiceDataBuilder {
     }
 
     pub fn build(self, _detect_cycles: DetectCycles) -> Arc<Dice> {
-        Dice::new(DiceModern::new(self.0))
+        Dice::new(self.0)
     }
 }
 
-impl DiceModern {
+impl Dice {
     pub(crate) fn new(global_data: DiceData) -> Arc<Self> {
         let state_handle = init_state();
 
-        Arc::new(DiceModern {
+        Arc::new(Dice {
             key_index: Default::default(),
             state_handle,
             global_data,
         })
     }
 
-    #[cfg(test)]
-    pub(crate) fn builder() -> DiceDataBuilder {
+    pub fn builder() -> DiceDataBuilder {
         DiceDataBuilder::new()
     }
 
@@ -137,11 +137,11 @@ pub(crate) mod testing {
     use dupe::Dupe;
 
     use crate::impls::ctx::SharedLiveTransactionCtx;
-    use crate::impls::dice::DiceModern;
+    use crate::impls::dice::Dice;
     use crate::impls::transaction::ActiveTransactionGuard;
     use crate::versions::VersionNumber;
 
-    impl DiceModern {
+    impl Dice {
         pub(crate) async fn testing_shared_ctx(
             &self,
             v: VersionNumber,

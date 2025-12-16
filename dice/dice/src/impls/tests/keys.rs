@@ -24,7 +24,7 @@ use tokio::sync::Mutex;
 use crate::api::computations::DiceComputations;
 use crate::api::data::DiceData;
 use crate::api::key::Key;
-use crate::impls::dice::DiceModern;
+use crate::impls::dice::Dice;
 
 #[tokio::test]
 async fn concurrent_identical_requests_are_deduped() -> anyhow::Result<()> {
@@ -62,7 +62,7 @@ async fn concurrent_identical_requests_are_deduped() -> anyhow::Result<()> {
         }
     }
 
-    let dice = DiceModern::new(DiceData::new());
+    let dice = Dice::new(DiceData::new());
 
     let guard = Arc::new(Mutex::new(0));
     let _g = guard.lock().await;
@@ -138,7 +138,7 @@ fn different_requests_are_spawned_in_parallel() -> anyhow::Result<()> {
     let barrier = Arc::new(std::sync::Barrier::new(n_thread));
 
     rt.block_on(async move {
-        let dice = DiceModern::new(DiceData::new());
+        let dice = Dice::new(DiceData::new());
 
         let ctx = &dice.updater().commit().await;
         let k = &ComputeParallel(barrier.dupe());

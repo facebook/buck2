@@ -35,7 +35,7 @@ use dupe::Dupe;
 use gazebo::variants::VariantName;
 
 pub use crate::api::dyn_key::DynKey;
-use crate::impls::dice::DiceModern;
+use crate::impls::dice::Dice;
 use crate::impls::value::InvalidationPath;
 use crate::impls::value::InvalidationPathNode;
 use crate::versions::VersionNumber;
@@ -60,7 +60,7 @@ pub enum DiceTrackedInvalidationPath {
 }
 
 pub struct DiceInvalidationPath {
-    dice: Arc<DiceModern>,
+    dice: Arc<Dice>,
     data: crate::arc::Arc<InvalidationPathNode>,
 }
 
@@ -110,7 +110,7 @@ impl DiceInvalidationPath {
 
 impl DiceKeyTrackedInvalidationPaths {
     pub(crate) fn new(
-        dice: Arc<DiceModern>,
+        dice: Arc<Dice>,
         normal_priority_path: InvalidationPath,
         high_priority_path: InvalidationPath,
     ) -> Self {
@@ -125,7 +125,7 @@ impl DiceKeyTrackedInvalidationPaths {
 }
 
 impl DiceTrackedInvalidationPath {
-    pub(crate) fn new(dice: Arc<DiceModern>, path: InvalidationPath) -> Self {
+    pub(crate) fn new(dice: Arc<Dice>, path: InvalidationPath) -> Self {
         match path {
             InvalidationPath::Clean => DiceTrackedInvalidationPath::Clean,
             InvalidationPath::Unknown => DiceTrackedInvalidationPath::Unknown,

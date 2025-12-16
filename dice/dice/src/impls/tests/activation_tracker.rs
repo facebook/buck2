@@ -19,12 +19,12 @@ use dupe::Dupe;
 
 use crate::ActivationData;
 use crate::ActivationTracker;
+use crate::Dice;
 use crate::DiceDataBuilder;
 use crate::DynKey;
 use crate::InjectedKey;
 use crate::api::computations::DiceComputations;
 use crate::api::cycles::DetectCycles;
-use crate::api::dice::Dice;
 use crate::api::key::Key;
 use crate::api::user_data::UserComputationData;
 

@@ -26,7 +26,7 @@ use crate::api::computations::DiceComputations;
 use crate::api::cycles::DetectCycles;
 use crate::api::key::Key;
 use crate::api::user_data::UserComputationData;
-use crate::impls::dice::DiceModern;
+use crate::impls::dice::Dice;
 
 struct MySpawner(AtomicUsize);
 
@@ -63,7 +63,7 @@ impl Key for K {
 
 #[tokio::test]
 async fn uses_custom_spawner() {
-    let dice = DiceModern::builder().build(DetectCycles::Disabled);
+    let dice = Dice::builder().build(DetectCycles::Disabled);
     let spawner = Arc::new(MySpawner(AtomicUsize::new(0)));
 
     let mut data = UserComputationData::new();

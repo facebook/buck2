@@ -14,17 +14,17 @@ use dupe::Dupe;
 
 use crate::api::events::DiceEvent;
 use crate::api::events::DiceEventListener;
-use crate::impls::dice::DiceModern;
+use crate::impls::dice::Dice;
 use crate::impls::key::DiceKey;
 
 #[derive(Clone, Dupe)]
 pub(crate) struct DiceEventDispatcher {
     tracker: Arc<dyn DiceEventListener>,
-    dice: Arc<DiceModern>,
+    dice: Arc<Dice>,
 }
 
 impl DiceEventDispatcher {
-    pub(crate) fn new(tracker: Arc<dyn DiceEventListener>, dice: Arc<DiceModern>) -> Self {
+    pub(crate) fn new(tracker: Arc<dyn DiceEventListener>, dice: Arc<Dice>) -> Self {
         Self { tracker, dice }
     }
 

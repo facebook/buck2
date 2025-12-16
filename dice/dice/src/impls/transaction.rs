@@ -16,7 +16,7 @@ use dice_error::DiceError;
 use dice_error::DiceResult;
 use dupe::Dupe;
 
-use crate::DiceModern;
+use crate::Dice;
 use crate::HashMap;
 use crate::api::key::InvalidationSourcePriority;
 use crate::api::key::Key;
@@ -35,13 +35,13 @@ use crate::versions::VersionNumber;
 // TODO fill this more
 #[derive(Allocative)]
 pub(crate) struct TransactionUpdater {
-    dice: Arc<DiceModern>,
+    dice: Arc<Dice>,
     scheduled_changes: Changes,
     user_data: Arc<UserComputationData>,
 }
 
 impl TransactionUpdater {
-    pub(crate) fn new(dice: Arc<DiceModern>, user_data: Arc<UserComputationData>) -> Self {
+    pub(crate) fn new(dice: Arc<Dice>, user_data: Arc<UserComputationData>) -> Self {
         Self {
             dice: dice.dupe(),
             scheduled_changes: Changes::new(dice),
@@ -166,11 +166,11 @@ impl Drop for ActiveTransactionGuardInner {
 #[derive(Allocative)]
 struct Changes {
     changes: HashMap<DiceKey, (ChangeType, InvalidationSourcePriority)>,
-    dice: Arc<DiceModern>,
+    dice: Arc<Dice>,
 }
 
 impl Changes {
-    pub(crate) fn new(dice: Arc<DiceModern>) -> Self {
+    pub(crate) fn new(dice: Arc<Dice>) -> Self {
         Self {
             changes: HashMap::default(),
             dice,
@@ -229,7 +229,7 @@ mod tests {
     use crate::api::data::DiceData;
     use crate::api::key::InvalidationSourcePriority;
     use crate::api::key::Key;
-    use crate::impls::dice::DiceModern;
+    use crate::impls::dice::Dice;
     use crate::impls::key::CowDiceKeyHashed;
     use crate::impls::transaction::ChangeType;
     use crate::versions::VersionNumber;
@@ -256,7 +256,7 @@ mod tests {
 
     #[test]
     fn changes_are_recorded() -> anyhow::Result<()> {
-        let dice = DiceModern::new(DiceData::new());
+        let dice = Dice::new(DiceData::new());
         let mut updater = dice.updater();
 
         updater.changed(vec![K(1), K(2)])?;
@@ -305,7 +305,7 @@ mod tests {
 
     #[tokio::test]
     async fn transaction_versions() -> anyhow::Result<()> {
-        let dice = DiceModern::new(DiceData::new());
+        let dice = Dice::new(DiceData::new());
         let mut updater = dice.updater();
 
         updater.changed(vec![K(1), K(2)])?;

@@ -22,7 +22,7 @@ use dupe::Dupe;
 use crate::api::computations::DiceComputations;
 use crate::api::cycles::DetectCycles;
 use crate::api::key::Key;
-use crate::impls::dice::DiceModern;
+use crate::impls::dice::Dice;
 
 #[tokio::test]
 async fn invalid_results_are_not_cached() -> anyhow::Result<()> {
@@ -53,7 +53,7 @@ async fn invalid_results_are_not_cached() -> anyhow::Result<()> {
         }
     }
 
-    let dice = DiceModern::builder().build(DetectCycles::Enabled);
+    let dice = Dice::builder().build(DetectCycles::Enabled);
     let is_ran = Arc::new(AtomicBool::new(false));
     {
         let mut ctx = dice.updater().commit().await;
@@ -141,7 +141,7 @@ async fn demo_with_transient() -> anyhow::Result<()> {
         }
     }
 
-    let dice = DiceModern::builder().build(DetectCycles::Enabled);
+    let dice = Dice::builder().build(DetectCycles::Enabled);
 
     let mut ctx = dice.updater().commit().await;
     let validity = Arc::new(AtomicBool::new(false));

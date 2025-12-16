@@ -54,12 +54,12 @@ mod tests {
     use derive_more::Display;
     use dice_futures::cancellation::CancellationContext;
 
+    use crate::Dice;
     use crate::DiceComputations;
     use crate::HashSet;
     use crate::api::data::DiceData;
     use crate::api::key::Key;
     use crate::impls::deps::testing::RecordingDepsTrackersExt;
-    use crate::impls::dice::DiceModern;
     use crate::impls::key::DiceKey;
     use crate::impls::opaque::OpaqueValueModern;
     use crate::impls::value::DiceKeyValue;
@@ -89,7 +89,7 @@ mod tests {
 
     #[tokio::test]
     async fn opaque_records_deps_when_used() {
-        let dice = DiceModern::new(DiceData::new());
+        let dice = Dice::new(DiceData::new());
 
         let mut ctx = dice.updater().commit().await.0.0;
 

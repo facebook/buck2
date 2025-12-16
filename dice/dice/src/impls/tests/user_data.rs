@@ -18,7 +18,7 @@ use crate::api::computations::DiceComputations;
 use crate::api::cycles::DetectCycles;
 use crate::api::key::Key;
 use crate::api::user_data::UserComputationData;
-use crate::impls::dice::DiceModern;
+use crate::impls::dice::Dice;
 
 #[tokio::test]
 async fn different_data_per_compute_ctx() {
@@ -44,7 +44,7 @@ async fn different_data_per_compute_ctx() {
         }
     }
 
-    let dice = DiceModern::builder().build(DetectCycles::Enabled);
+    let dice = Dice::builder().build(DetectCycles::Enabled);
     let per_cmd_data0 = {
         let mut d = UserComputationData::new();
         d.data.set(U(0));

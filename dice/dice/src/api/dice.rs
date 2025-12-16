@@ -163,63 +163,6 @@
 //! });
 //! ```
 
-use std::fmt::Debug;
-use std::sync::Arc;
-
-use allocative::Allocative;
-use futures::future::Future;
-
-use crate::DiceDataBuilder;
-use crate::DiceModern;
-use crate::api::cycles::DetectCycles;
-use crate::api::transaction::DiceTransactionUpdater;
-use crate::api::user_data::UserComputationData;
-use crate::metrics::Metrics;
-
-/// An incremental computation engine that executes arbitrary computations that
-/// maps `Key`s to values.
-#[derive(Allocative, Debug)]
-pub struct Dice(pub Arc<DiceModern>);
-
-impl Dice {
-    pub fn builder() -> DiceDataBuilder {
-        DiceDataBuilder::new()
-    }
-
-    pub(crate) fn new(implementation: Arc<DiceModern>) -> Arc<Self> {
-        Arc::new(Self(implementation))
-    }
-
-    pub fn updater(self: &Arc<Dice>) -> DiceTransactionUpdater {
-        self.0.updater()
-    }
-
-    pub fn updater_with_data(
-        self: &Arc<Dice>,
-        extra: UserComputationData,
-    ) -> DiceTransactionUpdater {
-        self.0.updater_with_data(extra)
-    }
-
-    pub fn detect_cycles(&self) -> &DetectCycles {
-        self.0.detect_cycles()
-    }
-
-    pub fn metrics(&self) -> Metrics {
-        self.0.metrics()
-    }
-
-    /// Wait until all active versions have exited.
-    pub fn wait_for_idle(&self) -> impl Future<Output = ()> + 'static + use<> {
-        self.0.wait_for_idle()
-    }
-
-    /// true when there are no active tasks nor transactions alive
-    pub async fn is_idle(&self) -> bool {
-        self.0.is_idle().await
-    }
-}
-
 pub mod testing {
     use crate::Dice;
     use crate::DiceDataBuilder;
