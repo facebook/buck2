@@ -51,13 +51,13 @@ pub enum PromiseArtifactResolveError {
     )]
     OwnerIsNotAnonTarget(PromiseArtifactId, BaseDeferredKey),
     #[error(
-        "Artifact promise resolved to artifact that uses content based paths. Call `actions.assert_has_content_based_path` on the promised artifact to assert that."
+        "Artifact promise resolved to artifact that uses content based paths. Call `actions.assert_has_content_based_path` on the promised artifact to assert that.\n  Promise ID: {0}\n  Artifact: {1}"
     )]
-    UsesContentBasedPath,
+    UsesContentBasedPath(PromiseArtifactId, String),
     #[error(
-        "Artifact promise resolved to artifact that does not use content based paths. Remove the `actions.assert_has_content_based_path` on the promised artifact."
+        "Artifact promise resolved to artifact that does not use content based paths. Remove the `actions.assert_has_content_based_path` on the promised artifact.\n  Promise ID: {0}\n  Artifact: {1}"
     )]
-    DoesNotUseContentBasedPath,
+    DoesNotUseContentBasedPath(PromiseArtifactId, String),
 }
 
 fn maybe_declared_at(location: &Option<FileSpan>) -> String {
@@ -141,9 +141,17 @@ impl PromiseArtifact {
 
         let artifact_has_content_based_path = bound.has_content_based_path();
         if artifact_has_content_based_path && !promise_has_content_based_path {
-            return Err(PromiseArtifactResolveError::UsesContentBasedPath.into());
+            return Err(PromiseArtifactResolveError::UsesContentBasedPath(
+                self.id.clone(),
+                format!("{}", bound),
+            )
+            .into());
         } else if !artifact_has_content_based_path && promise_has_content_based_path {
-            return Err(PromiseArtifactResolveError::DoesNotUseContentBasedPath.into());
+            return Err(PromiseArtifactResolveError::DoesNotUseContentBasedPath(
+                self.id.clone(),
+                format!("{}", bound),
+            )
+            .into());
         }
 
         if let Some(expected_short_path) = expected_short_path {

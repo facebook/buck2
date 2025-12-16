@@ -135,9 +135,17 @@ impl AnonTargetAttrResolution for AnonTargetAttr {
                 let promise_has_content_based_path = promise_artifact_attr.has_content_based_path;
                 let artifact_has_content_based_path = artifact.has_content_based_path();
                 if artifact_has_content_based_path && !promise_has_content_based_path {
-                    return Err(PromiseArtifactResolveError::UsesContentBasedPath.into());
+                    return Err(PromiseArtifactResolveError::UsesContentBasedPath(
+                        promise_id.clone(),
+                        format!("{}", artifact),
+                    )
+                    .into());
                 } else if !artifact_has_content_based_path && promise_has_content_based_path {
-                    return Err(PromiseArtifactResolveError::DoesNotUseContentBasedPath.into());
+                    return Err(PromiseArtifactResolveError::DoesNotUseContentBasedPath(
+                        promise_id.clone(),
+                        format!("{}", artifact),
+                    )
+                    .into());
                 }
 
                 // Assert the short path, since we have the real artifact now
