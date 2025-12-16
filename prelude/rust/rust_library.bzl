@@ -49,7 +49,6 @@ load(
 load(
     "@prelude//linking:linkable_graph.bzl",
     "DlopenableLibraryInfo",
-    "LinkableGraph",  # @unused Used as a type
     "create_linkable_graph",
     "create_linkable_graph_node",
     "create_linkable_node",
