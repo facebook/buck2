@@ -10,6 +10,7 @@
 
 import json
 import os
+import shutil
 import signal
 import time
 from pathlib import Path
@@ -22,12 +23,18 @@ from buck2.tests.e2e_util.helper.golden import (
     sanitize_stacktrace,
     sanitize_stderr,
 )
-
 from buck2.tests.e2e_util.helper.utils import (
     is_running_on_linux,
     is_running_on_windows,
     read_invocation_record,
 )
+
+
+def read_single_error(record_path: Path) -> dict[str, str]:
+    record = read_invocation_record(record_path)
+    errors = record["errors"]
+    assert len(errors) == 1
+    return errors[0]
 
 
 @buck_test()
@@ -543,3 +550,23 @@ async def test_action_error_has_categorization(buck: Buck, tmp_path: Path) -> No
 
     assert "ACTION_COMMAND_FAILURE" in error["tags"]
     assert error["category_key"] == "ACTION_COMMAND_FAILURE:FirstError"
+
+
+@buck_test(
+    skip_for_os=["darwin", "windows"],
+)
+async def test_nix_errno(buck: Buck, tmp_path: Path) -> None:
+    record_path = tmp_path / "record.json"
+    await buck.build(":run_action", "--show-output")
+    shutil.rmtree(buck.cwd / "buck-out/v2")
+
+    await expect_failure(
+        buck.targets(
+            ":",
+            "--unstable-write-invocation-record",
+            str(record_path),
+        ),
+        stderr_regex="Failed to stat.*ENOENT: No such file or directory",
+    )
+    error = read_single_error(record_path)
+    assert error["category_key"] == "NIX:ENOENT"
