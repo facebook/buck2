@@ -497,9 +497,6 @@ mod tests {
 
     fn make_simple_proto() -> buck2_data::CommandExecution {
         // The field values correspond to what `make_simple_report()` builds.
-        use prost_types::Duration;
-        use prost_types::Timestamp;
-
         let command_execution_kind = buck2_data::CommandExecutionKind {
             command: Some(buck2_data::command_execution_kind::Command::LocalCommand(
                 buck2_data::LocalCommand {
@@ -528,29 +525,29 @@ mod tests {
             memory_peak: None,
         };
         let command_execution_metadata = buck2_data::CommandExecutionMetadata {
-            wall_time: Some(Duration {
+            wall_time: Some(prost_types::Duration {
                 seconds: 2,
                 nanos: 0,
             }),
-            execution_time: Some(Duration {
+            execution_time: Some(prost_types::Duration {
                 seconds: 3,
                 nanos: 0,
             }),
-            start_time: Some(Timestamp {
+            start_time: Some(prost_types::Timestamp {
                 seconds: 0, // UNIX_EPOCH
                 nanos: 0,
             }),
-            input_materialization_duration: Some(Duration {
+            input_materialization_duration: Some(prost_types::Duration {
                 seconds: 6,
                 nanos: 0,
             }),
             execution_stats: Some(command_execution_stats),
-            hashing_duration: Some(Duration {
+            hashing_duration: Some(prost_types::Duration {
                 seconds: 7,
                 nanos: 0,
             }),
             hashed_artifacts_count: 8,
-            queue_duration: Some(Duration {
+            queue_duration: Some(prost_types::Duration {
                 seconds: 9,
                 nanos: 0,
             }),
