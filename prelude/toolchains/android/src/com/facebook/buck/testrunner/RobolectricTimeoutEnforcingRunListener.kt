@@ -88,8 +88,6 @@ class RobolectricTimeoutEnforcingRunListener(
   private fun handleTimeout(description: Description, timeoutMs: Long) {
     val execution = activeTimeouts[description] ?: return
 
-    System.err.println("Test timed out after $timeoutMs ms.")
-
     writeTimeoutEvent(description, execution.startTime, timeoutMs)
 
     printThreadDump()
