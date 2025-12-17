@@ -246,6 +246,7 @@ android_binary = prelude_rule(
             "manifest_skeleton": attrs.option(attrs.source(), default = None),
             "method_ref_count_buffer_space": attrs.int(default = 0),
             "minimize_primary_dex_size": attrs.bool(default = False),
+            "multidex_min_api": attrs.option(attrs.string(), default = None),
             "native_library_bolt_args": attrs.option(attrs.dict(key = attrs.string(), value = attrs.list(attrs.arg())), default = None),
             "native_library_merge_code_generator": attrs.option(attrs.dep(), default = None),
             "native_library_merge_glue": attrs.option(attrs.dep(), default = None),
@@ -496,6 +497,7 @@ android_bundle = prelude_rule(
             "minimize_primary_dex_size": attrs.bool(default = False),
             "module_manifest_skeleton": attrs.dict(default = {}, key = attrs.string(), sorted = False, value = attrs.one_of(attrs.transition_dep(cfg = cpu_transition), attrs.source())),
             "module_manifests": attrs.option(attrs.transition_dep(cfg = cpu_transition), default = None),
+            "multidex_min_api": attrs.option(attrs.string(), default = None),
             "native_library_bolt_args": attrs.option(attrs.dict(key = attrs.string(), value = attrs.list(attrs.arg())), default = None),
             "native_library_merge_code_generator": attrs.option(attrs.dep(), default = None),
             "native_library_merge_glue": attrs.option(attrs.dep(), default = None),
@@ -610,6 +612,7 @@ android_instrumentation_apk = prelude_rule(
         android_common.deps_apk_arg() |
         {
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
+            "multidex_min_api": attrs.option(attrs.string(), default = None),
             "disable_pre_dex": attrs.bool(default = False),
             "enable_bootstrap_dexes": attrs.bool(default = False),
             "includes_vector_drawables": attrs.bool(default = False),

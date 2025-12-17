@@ -143,7 +143,8 @@ def get_multi_dex(
         proguard_mapping_output_file: Artifact | None = None,
         is_optimized: bool = False,
         apk_module_graph_file: Artifact | None = None,
-        enable_bootstrap_dexes = False) -> DexFilesInfo:
+        enable_bootstrap_dexes = False,
+        multidex_min_api: str | None = None) -> DexFilesInfo:
     expect(
         not _is_exopackage_enabled_for_secondary_dex(ctx),
         "secondary dex exopackage can only be enabled on pre-dexed builds!",
@@ -228,6 +229,9 @@ def get_multi_dex(
             multi_dex_cmd.add("--files-to-dex-list", jar_to_dex_file)
 
             multi_dex_cmd.add("--android-jar", android_toolchain.android_jar)
+            if multidex_min_api:
+                multi_dex_cmd.add("--min-sdk-version", multidex_min_api)
+
             if not is_optimized:
                 multi_dex_cmd.add("--no-optimize")
 

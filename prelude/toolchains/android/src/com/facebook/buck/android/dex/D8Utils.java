@@ -96,7 +96,10 @@ public class D8Utils {
                 });
 
     minSdkVersion.ifPresent(builder::setMinApiLevel);
-    primaryDexClassNamesPath.ifPresent(builder::addMainDexListFiles);
+    if (minSdkVersion.orElse(0) <= 21) {
+      // addMainDexListFiles is not supported for minSdkVersion > 21
+      primaryDexClassNamesPath.ifPresent(builder::addMainDexListFiles);
+    }
 
     if (classpathFiles != null) {
       // classpathFiles is needed only for D8 Java 8 desugar
