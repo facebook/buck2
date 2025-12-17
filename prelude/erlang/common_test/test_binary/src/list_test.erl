@@ -11,10 +11,7 @@
 
 -include_lib("common/include/tpx_records.hrl").
 
--export([
-    list_tests/2,
-    list_test_spec/1, list_test_spec/2
-]).
+-export([list_tests/2]).
 
 -import(common_util, [unicode_characters_to_binary/1]).
 
@@ -239,10 +236,6 @@ test_format(Suite, Groups, Test) ->
         ListPeriodGroups
     ),
     unicode_characters_to_binary(io_lib:format("~ts.~ts", [GroupString, Test])).
-
--spec list_test_spec(suite()) -> [binary()].
-list_test_spec(Suite) ->
-    list_test_spec(Suite, []).
 
 -doc """
 Creates a Xml representation of all the group / tests
