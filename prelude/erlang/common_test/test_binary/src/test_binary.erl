@@ -89,11 +89,18 @@ cli() ->
 -spec handle_list(Args) -> ok when
     Args :: list_args().
 handle_list(Args) ->
-    #{output_dir := OutputDir} = Args,
-    test_logger:set_up_logger(OutputDir, test_listing, capture_stdout),
-    ok = listing(Args),
-    ?LOG_DEBUG("Listing done"),
-    ok.
+    try
+        #{output_dir := OutputDir} = Args,
+        test_logger:set_up_logger(OutputDir, test_listing, no_capture_stdout),
+        ok = listing(Args),
+        ?LOG_DEBUG("Listing done"),
+        ok
+    catch
+        Class:Reason:StackTrace ->
+            ErrorMsg = erl_error:format_exception(Class, Reason, StackTrace),
+            io:format(standard_error, "Listing failed:~n~ts", [ErrorMsg]),
+            erlang:halt(1)
+    end.
 
 -spec handle_run(Args) -> ok when
     Args :: run_args().
