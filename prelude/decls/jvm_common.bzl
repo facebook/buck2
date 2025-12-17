@@ -151,8 +151,8 @@ def _on_unused_dependencies():
 
     The valid values are:
      * `ignore` (default): ignore unused dependencies,
-    * `warn`: emit a warning to the console,
-    * `fail`: fail the compilation.
+     * `warn`: emit a warning to the console,
+     * `fail`: fail the compilation.
 
 
 
@@ -163,7 +163,7 @@ def _on_unused_dependencies():
 
 def _k2():
     return {
-        "k2": attrs.bool(default = False, doc = """
+        "k2": attrs.bool(default = True, doc = """
     Enables the Kotlin K2 compiler.
     """),
     }
