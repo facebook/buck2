@@ -60,6 +60,7 @@ import org.jetbrains.kotlin.fir.FirModuleData
 import org.jetbrains.kotlin.fir.FirModuleDataImpl
 import org.jetbrains.kotlin.fir.FirSession
 import org.jetbrains.kotlin.fir.backend.jvm.JvmFir2IrExtensions
+import org.jetbrains.kotlin.fir.declarations.FirRegularClass
 import org.jetbrains.kotlin.fir.declarations.impl.FirResolvedDeclarationStatusImpl
 import org.jetbrains.kotlin.fir.expressions.builder.buildLiteralExpression
 import org.jetbrains.kotlin.fir.extensions.ExperimentalTopLevelDeclarationsGenerationApi
@@ -83,8 +84,10 @@ import org.jetbrains.kotlin.fir.session.IncrementalCompilationContext
 import org.jetbrains.kotlin.fir.session.createSymbolProviders
 import org.jetbrains.kotlin.fir.session.environment.AbstractProjectFileSearchScope
 import org.jetbrains.kotlin.fir.session.firCachesFactoryForCliMode
+import org.jetbrains.kotlin.fir.symbols.SymbolInternals
 import org.jetbrains.kotlin.fir.symbols.impl.FirClassLikeSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirClassSymbol
+import org.jetbrains.kotlin.fir.symbols.impl.FirEnumEntrySymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirPropertySymbol
 import org.jetbrains.kotlin.idea.KotlinFileType
 import org.jetbrains.kotlin.ir.IrBuiltIns
@@ -579,7 +582,8 @@ class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
   // [other_package, constants, TestConstants] and we want ClassId(other_package.constants,
   // TestConstants)
   // Returns null if the class (or any parent class in the path) already exists in dependencies AND
-  // has the property
+  // has the property or enum entry
+  @OptIn(SymbolInternals::class)
   private fun findClassIdForImportWithProperty(
       segments: List<Name>,
       propertyName: String,
@@ -617,18 +621,29 @@ class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
 
       val classSymbol = session.dependenciesSymbolProvider.getClassLikeSymbolByClassId(classId)
       if (classSymbol != null) {
-        // Class exists - check if it has the property we need
-        val hasProperty =
-            (classSymbol as? FirClassSymbol<*>)
-                ?.declarationSymbols
-                ?.filterIsInstance<FirPropertySymbol>()
-                ?.any { it.name.asString() == propertyName } ?: false
+        val firClassSymbol = classSymbol as? FirClassSymbol<*>
+        if (firClassSymbol != null) {
+          // Check for property with matching name
+          val hasProperty =
+              firClassSymbol.declarationSymbols.filterIsInstance<FirPropertySymbol>().any {
+                it.name.asString() == propertyName
+              }
 
-        if (hasProperty) {
-          // Found a class in dependencies that has the property - no stub needed
-          return null
+          // Also check for enum entry with matching name
+          val firRegularClass = firClassSymbol.fir as? FirRegularClass
+          val hasEnumEntry =
+              firRegularClass != null &&
+                  firRegularClass.classKind == ClassKind.ENUM_CLASS &&
+                  firClassSymbol.declarationSymbols.filterIsInstance<FirEnumEntrySymbol>().any {
+                    it.name.asString() == propertyName
+                  }
+
+          if (hasProperty || hasEnumEntry) {
+            // Found a class in dependencies that has the property or enum entry - no stub needed
+            return null
+          }
         }
-        // Class exists but doesn't have the property - continue probing
+        // Class exists but doesn't have the property/entry - continue probing
       }
     }
 
