@@ -142,6 +142,8 @@ rust_toolchain_attrs = {
     "configuration_hash": provider_field(str | None, default = None),
     # Error handler used to categorize rust errors encountered by users
     "rust_error_handler": provider_field(typing.Any, default = None),
+    # LLVM remarks filter (e.g., "all", "inline") - used with -Cremark flag
+    "remarks": provider_field(str | None, default = None),
 }
 
 RustToolchainInfo = provider(fields = rust_toolchain_attrs)

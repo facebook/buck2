@@ -360,10 +360,29 @@ def _rust_binary_common(
         metadata_incr = diag_artifacts[True],
         clippy = clippy_artifacts[False],
         clippy_incr = clippy_artifacts[True],
+        remarks = None,  # Exposed via subtargets, not this provider
     )]
 
     incr_enabled = ctx.attrs.incremental_enabled
     extra_compiled_targets.update(output_as_diag_subtargets(diag_artifacts[incr_enabled], clippy_artifacts[incr_enabled]))
+
+    # Add remarks subtargets (lazy - only built when subtarget requested)
+    # Uses `params` to match the actual binary's link strategy
+    remarks = rust_compile(
+        ctx = ctx,
+        compile_ctx = compile_ctx,
+        emit = Emit("link"),
+        params = params,
+        default_roots = default_roots,
+        extra_flags = extra_flags,
+        incremental_enabled = False,
+        profile_mode = ProfileMode("remarks"),
+        transformation_spec_context = transformation_spec_context,
+    )
+    if remarks.remarks_txt:
+        extra_compiled_targets["remarks.txt"] = remarks.remarks_txt
+    if remarks.remarks_json:
+        extra_compiled_targets["remarks.json"] = remarks.remarks_json
 
     extra_compiled_targets["expand"] = rust_compile(
         ctx = ctx,

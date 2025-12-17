@@ -387,6 +387,18 @@ def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
             incremental_enabled = incr,
         )
 
+    # Generate single remarks artifact (lazy - only built when subtarget requested)
+    # Uses meta_params to share configuration with diag/clippy builds
+    remarks_artifact = rust_compile(
+        ctx = ctx,
+        compile_ctx = compile_ctx,
+        emit = Emit("link"),
+        params = meta_params,
+        default_roots = _DEFAULT_ROOTS,
+        incremental_enabled = False,
+        profile_mode = ProfileMode("remarks"),
+    )
+
     incr_enabled = ctx.attrs.incremental_enabled
     providers = []
     providers += _default_providers(
@@ -394,6 +406,7 @@ def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
         rust_param_artifact = rust_param_artifact,
         native_param_artifact = native_param_artifact,
         param_subtargets = param_subtargets,
+        remarks_artifact = remarks_artifact,
         rustdoc = rustdoc,
         rustdoc_test = rustdoc_test,
         doctests_enabled = doctests_enabled,
@@ -621,6 +634,7 @@ def _default_providers(
         rust_param_artifact: dict[BuildParams, dict[MetadataKind, RustcOutput]],
         native_param_artifact: dict[BuildParams, RustcOutput],
         param_subtargets: dict[BuildParams, dict[str, RustcOutput]],
+        remarks_artifact: RustcOutput,
         rustdoc: Artifact,
         rustdoc_test: cmd_args,
         doctests_enabled: bool,
@@ -638,6 +652,7 @@ def _default_providers(
     targets["doc-coverage"] = rustdoc_coverage
     if named_deps_names:
         targets["named_deps"] = named_deps_names
+
     sub_targets = {
         k: [DefaultInfo(default_output = v)]
         for (k, v) in targets.items()
@@ -660,6 +675,12 @@ def _default_providers(
             nested_sub_targets[PDB_SUB_TARGET] = get_pdb_providers(pdb = artifact.pdb, binary = artifact.output)
         if artifact.import_library:
             nested_sub_targets[IMPORT_LIBRARY_SUB_TARGET] = [DefaultInfo(default_output = artifact.import_library)]
+
+        # Add remarks subtargets (shared across all link styles)
+        if remarks_artifact.remarks_txt:
+            nested_sub_targets["remarks.txt"] = [DefaultInfo(default_output = remarks_artifact.remarks_txt)]
+        if remarks_artifact.remarks_json:
+            nested_sub_targets["remarks.json"] = [DefaultInfo(default_output = remarks_artifact.remarks_json)]
 
         sub_targets[name] = [DefaultInfo(
             default_output = artifact.output,
@@ -698,6 +719,7 @@ def _rust_metadata_providers(
             metadata_incr = diag_artifacts[True],
             clippy = clippy_artifacts[False],
             clippy_incr = clippy_artifacts[True],
+            remarks = None,  # Exposed via subtargets, not this provider
         ),
     ]
 

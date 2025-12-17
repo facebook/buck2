@@ -81,6 +81,7 @@ Emit = enum(
 ProfileMode = enum(
     "llvm-time-trace",
     "self-profile",
+    "remarks",
 )
 
 # The different quantities of Rust metadata that can be requested from

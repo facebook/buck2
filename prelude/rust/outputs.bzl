@@ -29,6 +29,10 @@ RustcOutput = record(
     # The output of the profiler. Set only if `rust_compile` was invoked with a
     # `profile_mode`
     profile_output = field(Artifact | None),
+    # LLVM remarks output. Set when profile_mode=ProfileMode("remarks").
+    # These point to diag_txt/diag_json since remarks are part of the diagnostic stream.
+    remarks_txt = field(Artifact | None),
+    remarks_json = field(Artifact | None),
 )
 
 def output_as_diag_subtargets(o: RustcOutput, clippy: RustcOutput) -> dict[str, Artifact]:
@@ -51,5 +55,6 @@ RustcExtraOutputsInfo = provider(
         "clippy_incr": RustcOutput,
         "metadata": RustcOutput,
         "metadata_incr": RustcOutput,
+        "remarks": RustcOutput | None,
     },
 )

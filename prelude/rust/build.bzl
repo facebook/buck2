@@ -762,6 +762,11 @@ def rust_compile(
         has_content_based_path = cxx_attr_use_content_based_paths(ctx),
     )
 
+    # When profile_mode is remarks, the remarks are included in the diagnostic stream
+    # (same as diag_txt/diag_json), not a separate artifact
+    remarks_txt = invoke.diag_txt if profile_mode == ProfileMode("remarks") else None
+    remarks_json = invoke.diag_json if profile_mode == ProfileMode("remarks") else None
+
     return RustcOutput(
         output = filtered_output,
         singleton_tset = singleton_tset,
@@ -774,6 +779,8 @@ def rust_compile(
         dwo_output_directory = dwo_output_directory,
         extra_external_debug_info = extra_external_debug_info,
         profile_output = emit_op.profile_out,
+        remarks_txt = remarks_txt,
+        remarks_json = remarks_json,
     )
 
 # --extern <crate>=<path> for direct dependencies
@@ -992,6 +999,7 @@ def _abbreviated_subdir(
         None: "",
         ProfileMode("llvm-time-trace"): "L",
         ProfileMode("self-profile"): "P",
+        ProfileMode("remarks"): "R",
     }[profile_mode]
 
     return crate_type + reloc_model + dep_link_strategy + emit + \
@@ -1422,6 +1430,12 @@ def _rustc_emit(
             emit_args.add("-Zself-profile-events=default,args")
             emit_args.add(cmd_args("-Zself-profile=", self_profile.as_output(), delimiter = ""))
             profile_out = self_profile
+        elif profile_mode == ProfileMode("remarks"):
+            # Enable LLVM remarks - they appear in the diagnostic stream (stderr)
+            # Use the configured filter, or default to "all"
+            # Allow comma-separated values for convenience (rustc expects space-separated)
+            remarks_filter = (compile_ctx.toolchain_info.remarks or "all").replace(",", " ")
+            emit_args.add("-Cremark={}".format(remarks_filter))
 
     return EmitOperation(
         output = emit_output,
