@@ -62,7 +62,7 @@ def buck2_modifiers():
         modifiers.conditional({
             "DEFAULT": None,
             "ovr_config//build_mode/default_opt_cxx:enabled": (
-                "ovr_config//build_mode:no-san"
+                "ovr_config//build_mode:sanitizer_type[no-san]"
             ),
         }),
         modifiers.conditional({
