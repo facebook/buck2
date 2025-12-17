@@ -228,12 +228,7 @@ async def test_daemon_crash(buck: Buck, tmp_path: Path) -> None:
     res = await expect_failure(
         buck.debug("crash", "panic", "--unstable-write-invocation-record", str(record)),
     )
-    invocation_record = read_invocation_record(record)
-
-    errors = invocation_record["errors"]
-
-    assert len(errors) == 1
-    [error] = errors
+    error = read_single_error(record)
     if is_running_on_windows():
         assert "transport error" in error["message"]
     else:
@@ -298,12 +293,7 @@ async def test_daemon_abort(buck: Buck, tmp_path: Path) -> None:
     await expect_failure(
         buck.debug("crash", "abort", "--unstable-write-invocation-record", str(record))
     )
-    invocation_record = read_invocation_record(record)
-
-    errors = invocation_record["errors"]
-    assert len(errors) == 1
-    [error] = errors
-
+    error = read_single_error(record)
     category_key = error["category_key"]
 
     if is_running_on_windows():
@@ -344,10 +334,7 @@ async def test_daemon_killed(buck: Buck, tmp_path: Path) -> None:
     os.kill(pid, signal.SIGKILL)
     await build.communicate()  # Wait for the client to exit
 
-    invocation_record = read_invocation_record(record)
-    errors = invocation_record["errors"]
-    assert len(errors) == 1
-    [error] = errors
+    error = read_single_error(record)
     assert error["category_key"] == "DAEMON_DISCONNECT"
     assert error["category"] == "ENVIRONMENT"
 
@@ -374,10 +361,9 @@ async def test_build_file_race(buck: Buck, tmp_path: Path) -> None:
     if is_running_on_windows():
         await expect_failure(build)
 
-        invocation_record = read_invocation_record(record)
-        best_error = invocation_record["errors"][0]
-        assert best_error["best_tag"] == "IO_MATERIALIZER_FILE_BUSY"
-        assert best_error["category"] == "ENVIRONMENT"
+        error = read_single_error(record)
+        assert error["best_tag"] == "IO_MATERIALIZER_FILE_BUSY"
+        assert error["category"] == "ENVIRONMENT"
     else:
         await build
 
@@ -398,9 +384,8 @@ async def test_download_failure(buck: Buck, tmp_path: Path) -> None:
             env={"BUCK2_TEST_FAIL_RE_DOWNLOADS": "true"},
         )
     )
-    record = read_invocation_record(record_path)
-    category_key = record["errors"][0]["category_key"]
-    assert category_key == "RE_NOT_FOUND:UNKNOWN"
+    error = read_single_error(record_path)
+    assert error["category_key"] == "RE_NOT_FOUND:UNKNOWN"
     assert (
         "Your build requires materializing an artifact that has expired in the RE CAS and Buck does not have it. This likely happened because your Buck daemon has been online for a long time. This error is currently unrecoverable. To proceed, you should restart Buck using `buck2 killall`."
         in res.stderr
@@ -422,9 +407,8 @@ async def test_re_execute_failure(buck: Buck, tmp_path: Path) -> None:
             env={"BUCK2_TEST_FAIL_RE_EXECUTE": "true"},
         )
     )
-    record = read_invocation_record(record_path)
-    category_key = record["errors"][0]["category_key"]
-    assert category_key == "RE_FAILED_PRECONDITION:UNKNOWN"
+    error = read_single_error(record_path)
+    assert error["category_key"] == "RE_FAILED_PRECONDITION:UNKNOWN"
 
 
 @buck_test()
@@ -439,15 +423,12 @@ async def test_local_incompatible(buck: Buck, tmp_path: Path) -> None:
             str(record_path),
         )
     )
-
     assert "Incompatible executor preferences" in res.stderr
 
-    record = read_invocation_record(record_path)
-    best_error = record["errors"][0]
-    assert best_error["category"] == "USER"
+    error = read_single_error(record_path)
+    assert error["category"] == "USER"
     assert (
-        best_error["category_key"]
-        == "IncompatibleExecutorPreferences:ANY_ACTION_EXECUTION"
+        error["category_key"] == "IncompatibleExecutorPreferences:ANY_ACTION_EXECUTION"
     )
 
 
@@ -461,11 +442,7 @@ async def test_daemon_startup_error(buck: Buck, tmp_path: Path) -> None:
     assert "Injected init daemon error" in res.stderr
     assert "Error initializing DaemonStateData" in res.stderr
 
-    record = read_invocation_record(record_path)
-    errors = record["errors"]
-    assert len(errors) == 1
-    [error] = errors
-
+    error = read_single_error(record_path)
     assert "DAEMON_CONNECT" in error["tags"]
     assert "DAEMON_STATE_INIT_FAILED" in error["tags"]
 
@@ -499,11 +476,7 @@ async def test_eden_io_error_tagging(buck: Buck, tmp_path: Path) -> None:
             str(record_path),
         )
     )
-    record = read_invocation_record(record_path)
-    errors = record["errors"]
-    assert len(errors) == 1
-    [error] = errors
-
+    error = read_single_error(record_path)
     assert "IO_EDEN" in error["tags"]
     assert error["category_key"] == "IO_EDEN:IO_PERMISSION_DENIED"
 
@@ -517,12 +490,7 @@ async def test_client_streaming_error(buck: Buck, tmp_path: Path) -> None:
     )
     assert "Injected client streaming error" in res.stderr
 
-    record = read_invocation_record(record_path)
-    errors = record["errors"]
-
-    assert len(errors) == 1
-    [error] = errors
-
+    error = read_single_error(record_path)
     assert "Injected client streaming error" in error["message"]
 
     golden(
@@ -543,11 +511,7 @@ async def test_action_error_has_categorization(buck: Buck, tmp_path: Path) -> No
         stderr_regex="Action sub-errors produced by error handlers",
     )
 
-    record = read_invocation_record(record_path)
-    errors = record["errors"]
-    assert len(errors) == 1
-    [error] = errors
-
+    error = read_single_error(record_path)
     assert "ACTION_COMMAND_FAILURE" in error["tags"]
     assert error["category_key"] == "ACTION_COMMAND_FAILURE:FirstError"
 
