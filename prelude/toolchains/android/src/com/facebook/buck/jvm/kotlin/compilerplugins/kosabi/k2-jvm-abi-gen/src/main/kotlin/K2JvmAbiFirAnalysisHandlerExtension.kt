@@ -548,23 +548,41 @@ class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
             // Class import: import pkg.Class, used as Class.PROPERTY
             // Extract the property name from the usage
             val propertyPath = usage.removePrefix("$importedName.")
-            // propertyPath could be "PROPERTY" or "Nested.PROPERTY"
-            val propertyName = propertyPath.split(".").last()
+            // propertyPath could be "PROPERTY" or "Api.PROPERTY" (nested class)
+            val pathParts = propertyPath.split(".")
+            val propertyName = pathParts.last()
+
+            // Build full segments including nested class parts
+            // For import other_package.enums.VersionCodes, used as VersionCodes.Api.O:
+            //   segments = [other_package, enums, VersionCodes]
+            //   pathParts = [Api, O]
+            //   nestedClassParts = [Api] (all except the property name)
+            //   fullSegments = [other_package, enums, VersionCodes, Api]
+            val nestedClassParts = pathParts.dropLast(1)
+            val fullSegments = segments + nestedClassParts.map { Name.identifier(it) }
 
             // For class imports, the full import path IS the class
             val classId =
-                findClassIdForImportWithProperty(segments, propertyName, session, sourcePackages)
+                findClassIdForImportWithProperty(
+                    fullSegments,
+                    propertyName,
+                    session,
+                    sourcePackages,
+                    segments.size,
+                )
             if (classId != null) {
               missingConstants.getOrPut(classId) { mutableSetOf() }.add(propertyName)
             }
           } else if (usage == importedName) {
             // Constant import: import pkg.Class.CONSTANT, used as CONSTANT
+            val classSegments = segments.dropLast(1)
             val classId =
                 findClassIdForImportWithProperty(
-                    segments.dropLast(1),
+                    classSegments,
                     importedName,
                     session,
                     sourcePackages,
+                    classSegments.size,
                 )
             if (classId != null) {
               missingConstants.getOrPut(classId) { mutableSetOf() }.add(importedName)
@@ -589,6 +607,7 @@ class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
       propertyName: String,
       session: FirSession,
       sourcePackages: Set<FqName>,
+      originalImportLength: Int,
   ): ClassId? {
     if (segments.size < 2) return null
 
@@ -647,17 +666,30 @@ class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
       }
     }
 
-    // No class found in dependencies with the property - generate a stub using simple heuristic
-    // (last segment is class, rest is package)
-    val packageFqName = FqName.fromSegments(segments.dropLast(1).map { it.asString() })
-    val className = segments.last()
+    // No class found in dependencies with the property - generate a stub using heuristic
+    // Use originalImportLength to determine package/class split
+    // For import other_package.enums.VersionCodes (originalImportLength=3), used as
+    // VersionCodes.Api.O:
+    //   segments = [other_package, enums, VersionCodes, Api] (length=4, originalImportLength=3)
+    //   packageFqName should be other_package.enums (first originalImportLength-1 segments)
+    //   className should be VersionCodes.Api (remaining segments)
+    val packageFqName =
+        FqName.fromSegments(segments.take(originalImportLength - 1).map { it.asString() })
+    val classNameParts = segments.drop(originalImportLength - 1)
 
     // Skip if from source package
     if (packageFqName in sourcePackages) {
       return null
     }
 
-    return ClassId(packageFqName, className)
+    // Build the ClassId with potential nested class path
+    val topLevelClassName = classNameParts.first()
+    return if (classNameParts.size == 1) {
+      ClassId(packageFqName, topLevelClassName)
+    } else {
+      // For nested classes, create ClassId with nested class path
+      ClassId(packageFqName, FqName.fromSegments(classNameParts.map { it.asString() }), false)
+    }
   }
 
   // A frontend entry point for Kosabi.
