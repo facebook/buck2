@@ -34,6 +34,7 @@ pub mod strong_hasher;
 pub mod system_stats;
 pub mod thin_box;
 pub mod threads;
+pub mod time_span;
 pub mod tokio_runtime;
 pub mod truncate;
 
