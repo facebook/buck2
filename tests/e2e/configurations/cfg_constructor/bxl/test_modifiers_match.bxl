@@ -30,7 +30,7 @@ def test_resolve_modifiers_match_with_constraint_value_keys(
         test_refs: TestRefs):
     modifier = {
         "ovr_config//os/constraints:linux": {
-            "DEFAULT": "ovr_config//build_mode:sanitizer_type[no-san]",
+            "DEFAULT": "ovr_config//build_mode/constraints:no-san",
             "ovr_config//cpu/constraints:x86_64": "ovr_config//build_mode:sanitizer_type[asan]",
         },
         "ovr_config//os/constraints:windows": {
@@ -50,7 +50,7 @@ def test_resolve_modifiers_match_with_constraint_value_keys(
     windows_x86_64 = test_refs.make_cfg(["ovr_config//os/constraints:windows", "ovr_config//cpu/constraints:x86_64"])
     windows_arm64 = test_refs.make_cfg(["ovr_config//os/constraints:windows", "ovr_config//cpu/constraints:arm64"])
     asserts.equals(test_refs.get("ovr_config//build_mode:sanitizer_type[asan]")[ConstraintValueInfo], resolve_modifier(linux_x86_64, modifier_info))
-    asserts.equals(test_refs.get("ovr_config//build_mode:sanitizer_type[no-san]")[ConstraintValueInfo], resolve_modifier(linux_arm64, modifier_info))
+    asserts.equals(test_refs.get("ovr_config//build_mode/constraints:no-san")[ConstraintValueInfo], resolve_modifier(linux_arm64, modifier_info))
     asserts.equals(None, resolve_modifier(macos_x86_64, modifier_info))
     asserts.equals(None, resolve_modifier(macos_arm64, modifier_info))
     asserts.equals(test_refs.get("ovr_config//build_mode:sanitizer_type[tsan]")[ConstraintValueInfo], resolve_modifier(windows_x86_64, modifier_info))
@@ -63,7 +63,7 @@ def test_resolve_modifiers_match_with_config_setting_keys(
             (test_refs.make_cfg(["ovr_config//os/constraints:linux", "ovr_config//cpu/constraints:x86_64"]), test_refs.get("ovr_config//build_mode:sanitizer_type[asan]")[ConstraintValueInfo]),
             (test_refs.make_cfg(["ovr_config//os/constraints:linux", "ovr_config//cpu/constraints:arm64"]), test_refs.get("ovr_config//build_mode:sanitizer_type[tsan]")[ConstraintValueInfo]),
         ],
-        default = test_refs.get("ovr_config//build_mode:sanitizer_type[no-san]")[ConstraintValueInfo],
+        default = test_refs.get("ovr_config//build_mode/constraints:no-san")[ConstraintValueInfo],
     )
     linux_x86_64 = test_refs.make_cfg(["ovr_config//os/constraints:linux", "ovr_config//cpu/constraints:x86_64"])
     linux_arm64 = test_refs.make_cfg(["ovr_config//os/constraints:linux", "ovr_config//cpu/constraints:arm64"])
@@ -73,7 +73,7 @@ def test_resolve_modifiers_match_with_config_setting_keys(
     windows_arm64 = test_refs.make_cfg(["ovr_config//os/constraints:windows", "ovr_config//cpu/constraints:arm64"])
     asserts.equals(test_refs.get("ovr_config//build_mode:sanitizer_type[asan]")[ConstraintValueInfo], resolve_modifier(linux_x86_64, modifier_info))
     asserts.equals(test_refs.get("ovr_config//build_mode:sanitizer_type[tsan]")[ConstraintValueInfo], resolve_modifier(linux_arm64, modifier_info))
-    nosan_constraint = test_refs.get("ovr_config//build_mode:sanitizer_type[no-san]")[ConstraintValueInfo]
+    nosan_constraint = test_refs.get("ovr_config//build_mode/constraints:no-san")[ConstraintValueInfo]
     asserts.equals(nosan_constraint, resolve_modifier(macos_x86_64, modifier_info), resolve_modifier(macos_x86_64, modifier_info))
     asserts.equals(nosan_constraint, resolve_modifier(macos_arm64, modifier_info))
     asserts.equals(nosan_constraint, resolve_modifier(windows_x86_64, modifier_info))

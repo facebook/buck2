@@ -15,7 +15,7 @@ def _test_cfg_name_with_clang(test_refs: TestRefs):
         "ovr_config//os/constraints:linux",
         "ovr_config//cpu/constraints:x86_64",
         "ovr_config//toolchain/clang/constraints:15",
-        "ovr_config//build_mode:sanitizer_type[no-san]",
+        "ovr_config//build_mode/constraints:no-san",
     ])
     name = cfg_name(cfg)
     asserts.equals("cfg:linux-x86_64-clang15-no-san", name)

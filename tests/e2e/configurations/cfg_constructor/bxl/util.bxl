@@ -21,7 +21,7 @@ _TARGETS = [
     "ovr_config//os/constraints:macos",
     "ovr_config//os/constraints:windows",
     "ovr_config//build_mode:sanitizer_type",
-    "ovr_config//build_mode:sanitizer_type[no-san]",
+    "ovr_config//build_mode/constraints:no-san",
     "ovr_config//build_mode:sanitizer_type[asan]",
     "ovr_config//build_mode:sanitizer_type[asan-ubsan]",
     "ovr_config//build_mode:sanitizer_type[hwasan]",
