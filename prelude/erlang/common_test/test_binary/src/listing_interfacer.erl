@@ -11,35 +11,9 @@
 -compile(warn_missing_spec_all).
 
 -include_lib("common/include/tpx_records.hrl").
--export([produce_xml_file/2]).
 -export([produce_json_file/2]).
 
 -import(common_util, [unicode_characters_to_binary/1]).
-
-%% Copy-and-paste of `xmerl:simple_element`, that is not currently exported by xmerl
--type 'xmerl:simple_element'() ::
-    {
-        Tag :: atom(),
-        Attributes :: [{Name :: atom(), Value :: iolist() | atom() | integer()}],
-        Content :: ['xmerl:simple_element'()]
-    }
-    | {Tag :: atom(), Content :: ['xmerl:simple_element'()]}
-    | Tag :: atom() | IOString :: iolist() | xmerl:element().
-
--spec test_case_to_xml(TestCase) -> 'xmerl:simple_element'() when
-    TestCase :: #test_spec_test_case{}.
-test_case_to_xml(#test_spec_test_case{suite = Suite, testcases = TestInfos} = _TestCase) ->
-    TestElementsXml = [test_info_to_xml(TestInfo) || TestInfo <- TestInfos],
-    {testcase, [{suite, binary_to_atom(Suite)}], TestElementsXml}.
-
--spec test_info_to_xml(#test_spec_test_info{}) -> 'xmerl:simple_element'().
-test_info_to_xml(#test_spec_test_info{name = TestName, filter = TestName}) ->
-    {test, [{name, [TestName]}, {filter, [TestName]}], []}.
-
--spec produce_xml_file(file:filename_all(), #test_spec_test_case{}) -> ok.
-produce_xml_file(OutputDir, TestCase) ->
-    XmlString = xmerl:export_simple([test_case_to_xml(TestCase)], xmerl_xml),
-    ok = file:write_file(filename:join(OutputDir, result), XmlString, [append, raw, binary]).
 
 -spec produce_json_file(OutputDir, TestCase) -> ok when
     OutputDir :: file:filename_all(),

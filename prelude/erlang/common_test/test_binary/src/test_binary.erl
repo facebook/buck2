@@ -54,6 +54,8 @@ cli() ->
                 handler => fun handle_list/1,
                 arguments => [
                     #{name => output_dir, long => "-output-dir", type => string, required => true},
+
+                    % --json flag is now a no-op, to be removed once all callers are fixed
                     #{name => json, long => "-json", type => boolean, required => false}
                 ]
             },
@@ -176,12 +178,7 @@ listing(Args) ->
     #{test_info_file := TestInfoFile, output_dir := OutputDir} = Args,
     TestInfo = test_info:load_from_file(TestInfoFile),
     Listing = get_listing(TestInfo, OutputDir),
-    case Args of
-        #{json := true} ->
-            listing_interfacer:produce_json_file(OutputDir, Listing);
-        _ ->
-            listing_interfacer:produce_xml_file(OutputDir, Listing)
-    end.
+    listing_interfacer:produce_json_file(OutputDir, Listing).
 
 -spec running(Args) -> ok when
     Args :: run_args().
