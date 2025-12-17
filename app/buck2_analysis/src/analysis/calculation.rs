@@ -275,92 +275,91 @@ async fn get_analysis_result_inner(
 
     let configured_node = configured_node.as_ref();
 
-    let ((res, now), spans): ((buck2_error::Result<_>, Instant), _) =
-        match configured_node.rule_type() {
-            RuleType::Starlark(func) => {
-                let (dep_analysis, query_results) = ctx
-                    .try_compute2(
-                        |ctx| get_dep_analysis(configured_node, ctx).boxed(),
-                        |ctx| resolve_queries(ctx, configured_node).boxed(),
-                    )
-                    .await?;
+    let ((res, now), spans): ((buck2_error::Result<_>, _), _) = match configured_node.rule_type() {
+        RuleType::Starlark(func) => {
+            let (dep_analysis, query_results) = ctx
+                .try_compute2(
+                    |ctx| get_dep_analysis(configured_node, ctx).boxed(),
+                    |ctx| resolve_queries(ctx, configured_node).boxed(),
+                )
+                .await?;
 
-                let now = Instant::now();
-                let (res, spans) = async_record_root_spans(async {
-                    let rule_spec = get_rule_spec(ctx, func).await?;
-                    let start_event = buck2_data::AnalysisStart {
-                        target: Some(target.as_proto().into()),
-                        rule: func.to_string(),
+            let now = Instant::now();
+            let (res, spans) = async_record_root_spans(async {
+                let rule_spec = get_rule_spec(ctx, func).await?;
+                let start_event = buck2_data::AnalysisStart {
+                    target: Some(target.as_proto().into()),
+                    rule: func.to_string(),
+                };
+
+                span_async(start_event, async {
+                    let mut profile = None;
+                    let mut declared_artifacts = None;
+                    let mut declared_actions = None;
+
+                    let result: buck2_error::Result<_> = try {
+                        let result = span_async_simple(
+                            buck2_data::AnalysisStageStart {
+                                stage: Some(buck2_data::analysis_stage_start::Stage::EvaluateRule(
+                                    (),
+                                )),
+                            },
+                            run_analysis(
+                                ctx,
+                                target,
+                                dep_analysis,
+                                query_results,
+                                configured_node.execution_platform_resolution(),
+                                &rule_spec,
+                                configured_node,
+                                cancellation,
+                            ),
+                            buck2_data::AnalysisStageEnd {},
+                        )
+                        .await?;
+
+                        profile = Some(make_analysis_profile(&result)?);
+                        declared_artifacts = Some(result.num_declared_artifacts);
+                        declared_actions = Some(result.num_declared_actions);
+
+                        MaybeCompatible::Compatible(result)
                     };
 
-                    span_async(start_event, async {
-                        let mut profile = None;
-                        let mut declared_artifacts = None;
-                        let mut declared_actions = None;
-
-                        let result: buck2_error::Result<_> = try {
-                            let result = span_async_simple(
-                                buck2_data::AnalysisStageStart {
-                                    stage: Some(
-                                        buck2_data::analysis_stage_start::Stage::EvaluateRule(()),
-                                    ),
-                                },
-                                run_analysis(
-                                    ctx,
-                                    target,
-                                    dep_analysis,
-                                    query_results,
-                                    configured_node.execution_platform_resolution(),
-                                    &rule_spec,
-                                    configured_node,
-                                    cancellation,
-                                ),
-                                buck2_data::AnalysisStageEnd {},
-                            )
-                            .await?;
-
-                            profile = Some(make_analysis_profile(&result)?);
-                            declared_artifacts = Some(result.num_declared_artifacts);
-                            declared_actions = Some(result.num_declared_actions);
-
-                            MaybeCompatible::Compatible(result)
-                        };
-
-                        (
-                            result,
-                            buck2_data::AnalysisEnd {
-                                target: Some(target.as_proto().into()),
-                                rule: func.to_string(),
-                                profile,
-                                declared_actions,
-                                declared_artifacts,
-                            },
-                        )
-                    })
-                    .await
+                    (
+                        result,
+                        buck2_data::AnalysisEnd {
+                            target: Some(target.as_proto().into()),
+                            rule: func.to_string(),
+                            profile,
+                            declared_actions,
+                            declared_artifacts,
+                        },
+                    )
                 })
-                .await;
+                .await
+            })
+            .await;
 
-                ((res, now), spans)
-            }
-            RuleType::Forward => {
-                let mut dep_analysis = get_dep_analysis(configured_node, ctx).await?;
-                let now = Instant::now();
-                let (res, spans) = record_root_spans(|| {
-                    let one_dep_analysis = dep_analysis
-                        .pop()
-                        .internal_error("Forward node analysis produced no results")?;
-                    if !dep_analysis.is_empty() {
-                        return Err(internal_error!(
-                            "Forward node analysis produced more than one result"
-                        ));
-                    }
-                    Ok(MaybeCompatible::Compatible(one_dep_analysis.1))
-                });
+            ((res, now), spans)
+        }
+        RuleType::Forward => {
+            let mut dep_analysis = get_dep_analysis(configured_node, ctx).await?;
+            let now = Instant::now();
+            let (res, spans) = record_root_spans(|| {
+                let one_dep_analysis = dep_analysis
+                    .pop()
+                    .internal_error("Forward node analysis produced no results")?;
+                if !dep_analysis.is_empty() {
+                    return Err(internal_error!(
+                        "Forward node analysis produced more than one result"
+                    ));
+                }
+                Ok(MaybeCompatible::Compatible(one_dep_analysis.1))
+            });
 
-                ((res, now), spans)
-            }
-        };
+            ((res, now), spans)
+        }
+    };
 
     ctx.store_evaluation_data(AnalysisKeyActivationData {
         duration: Instant::now() - now,
