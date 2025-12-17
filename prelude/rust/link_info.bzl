@@ -21,7 +21,16 @@ load(
     "@prelude//cxx:cxx_library_utility.bzl",
     "cxx_is_gnu",
 )
-load("@prelude//cxx:cxx_toolchain_types.bzl", "PicBehavior")
+load(
+    "@prelude//cxx:cxx_link_utility.bzl",
+    "ExecutableSharedLibArguments",  # @unused Used as a type
+    "executable_shared_lib_arguments_template",
+)
+load(
+    "@prelude//cxx:cxx_toolchain_types.bzl",
+    "CxxToolchainInfo",  # @unused Used as a type
+    "PicBehavior",
+)
 load(
     "@prelude//cxx:link_groups.bzl",
     "BuildLinkGroupsContext",
@@ -65,10 +74,15 @@ load(
 load(
     "@prelude//linking:shared_libraries.bzl",
     "SharedLibraryInfo",
+    "traverse_shared_library_info",
 )
 load(
     "@prelude//linking:types.bzl",
     "Linkage",  # @unused Used as a type
+)
+load(
+    "@prelude//rust/tools:attrs.bzl",
+    "RustInternalToolsInfo",  # @unused Used as a type
 )
 load("@prelude//third-party:providers.bzl", "ThirdPartyBuildInfo")
 load(
@@ -767,3 +781,81 @@ def dfs_dedupe_by_label(tset: TransitiveSet) -> list[typing.Any]:
                 ))
             entries[label] = value
     return entries.values()
+
+def run_action_shlib_symlink_tree(
+        actions: AnalysisActions,
+        internal_tools_info: RustInternalToolsInfo,
+        shared_library_info: SharedLibraryInfo,
+        shared_libs_symlink_tree_name_arg: str,
+        dwp_symlink_tree_name_arg: str) -> (Artifact, Artifact):
+    """Runs an action that creates 2 shared library symlink trees from a `SharedLibraryInfo` (i.e., a `TransitiveSet`).
+
+    Returns:
+      A pair of artifacts that it creates.  The 1st is the shared library symlink tree.  The 2nd is the dwp symlink tree.
+    """
+    shared_libs_symlink_tree = actions.declare_output(shared_libs_symlink_tree_name_arg)
+    dwp_symlink_tree = actions.declare_output(dwp_symlink_tree_name_arg)
+
+    shared_library_info_json = actions.write_json(
+        "shared_library_info.json",
+        shared_library_info.set.project_as_json("symlink_tree"),
+        with_inputs = True,
+    )
+
+    actions.run(
+        [
+            internal_tools_info.shared_libraries_symlink_tree,
+            cmd_args(shared_libs_symlink_tree.as_output(), format = "--shared_libs_symlink_tree={}"),
+            cmd_args(dwp_symlink_tree.as_output(), format = "--dwp_symlink_tree={}"),
+            cmd_args(shared_library_info_json, format = "--shared_libraries_info_json={}"),
+        ],
+        category = "rust_shared_library_symlinks",
+    )
+    return (shared_libs_symlink_tree, dwp_symlink_tree)
+
+def executable_shared_lib_arguments_from_shared_library_info(
+        ctx: AnalysisContext,
+        cxx_toolchain: CxxToolchainInfo,
+        internal_tools_info: RustInternalToolsInfo,
+        output: Artifact,
+        shared_library_info: SharedLibraryInfo) -> ExecutableSharedLibArguments:
+    """A version of `prelude/cxx/cxx_link_utilit.bzl#executable_shared_lib_arguments`
+    that uses the `TransitiveSet` properties of `SharedLibraryInfo` to save memory and
+    runtime costs of `TransitiveSet#traversal` calls.
+    """
+
+    def create_external_debug_info() -> list[TransitiveSetArgsProjection]:
+        if shared_library_info and shared_library_info.set:
+            external_debug_info = shared_library_info.set.project_as_args("external_debug_info")
+            return [external_debug_info]
+        else:
+            return []
+
+    def create_shared_libs_symlink_tree_windows() -> list[Artifact]:
+        shared_libs = traverse_shared_library_info(shared_library_info, transformation_provider = None)
+        return [ctx.actions.symlink_file(
+            shlib.lib.output.basename,
+            shlib.lib.output,
+        ) for shlib in shared_libs]
+
+    def create_shared_libs_symlink_trees(
+            shared_libs_symlink_tree_name_arg: str,
+            dwp_symlink_tree_name_arg: str) -> (Artifact, Artifact) | None:
+        if not shared_library_info.set:
+            return None
+
+        return run_action_shlib_symlink_tree(
+            ctx.actions,
+            internal_tools_info,
+            shared_library_info,
+            shared_libs_symlink_tree_name_arg,
+            dwp_symlink_tree_name_arg,
+        )
+
+    return executable_shared_lib_arguments_template(
+        cxx_toolchain,
+        output,
+        create_external_debug_info,
+        create_shared_libs_symlink_trees,
+        create_shared_libs_symlink_tree_windows,
+    )

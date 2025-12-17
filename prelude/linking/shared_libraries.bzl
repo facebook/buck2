@@ -87,8 +87,37 @@ SharedLibraries = record(
     flavored_libraries = field(dict[LinkableFlavor, SharedLibrary] | None, None),
 )
 
+def _project_external_debug_info(shared_libraries: SharedLibraries) -> cmd_args:
+    rv = cmd_args()
+    for shared_library in shared_libraries.libraries:
+        external_debug_info = shared_library.lib.external_debug_info._tset
+        if external_debug_info:
+            rv.add(external_debug_info.project_as_args("artifacts"))
+    return rv
+
+def _project_symlink_tree(shared_libraries: SharedLibraries) -> list[(bool, str | Artifact, Artifact, Artifact | None)]:
+    rv = []
+    for shared_library in shared_libraries.libraries:
+        soname = shared_library.soname  # type: Soname
+        linked_object = shared_library.lib  # type: LinkedObject
+
+        rv.append((
+            soname.is_str,
+            soname._soname,
+            linked_object.output,
+            linked_object.dwp,
+        ))
+    return rv
+
 # T-set of SharedLibraries
-SharedLibrariesTSet = transitive_set()
+SharedLibrariesTSet = transitive_set(
+    args_projections = {
+        "external_debug_info": _project_external_debug_info,
+    },
+    json_projections = {
+        "symlink_tree": _project_symlink_tree,
+    },
+)
 
 # Shared libraries required by top-level packaging rules (e.g. shared libs
 # for Python binary, symlink trees of shared libs for C++ binaries)

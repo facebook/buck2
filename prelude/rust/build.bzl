@@ -52,7 +52,6 @@ load(
 load(
     "@prelude//linking:shared_libraries.bzl",
     "merge_shared_libraries",
-    "traverse_shared_library_info",
 )
 load("@prelude//linking:strip.bzl", "strip_debug_info")
 load("@prelude//linking:types.bzl", "Linkage")
@@ -102,6 +101,7 @@ load(
     "TransitiveDeps",
     "attr_crate",
     "attr_simple_crate_for_filenames",
+    "executable_shared_lib_arguments_from_shared_library_info",
     "get_available_proc_macros",
     "inherited_dep_external_debug_infos",
     "inherited_external_debug_info_from_dep_infos",
@@ -271,19 +271,25 @@ def generate_rustdoc_test(
     )
 
     # Gather and setup symlink tree of transitive shared library deps.
-    shared_libs = []
     if params.dep_link_strategy == LinkStrategy("shared"):
         shlib_info = merge_shared_libraries(
             ctx.actions,
             deps = inherited_shared_libs(ctx, doc_dep_ctx),
         )
-        shared_libs.extend(traverse_shared_library_info(shlib_info, transformation_provider = None))
-    executable_args = executable_shared_lib_arguments(
-        ctx,
-        compile_ctx.cxx_toolchain_info,
-        resources,
-        shared_libs,
-    )
+        executable_args = executable_shared_lib_arguments_from_shared_library_info(
+            ctx,
+            compile_ctx.cxx_toolchain_info,
+            compile_ctx.internal_tools_info,
+            resources,
+            shlib_info,
+        )
+    else:
+        executable_args = executable_shared_lib_arguments(
+            ctx,
+            compile_ctx.cxx_toolchain_info,
+            resources,
+            shared_libs = [],
+        )
 
     common_args = _compute_common_args(
         ctx = ctx,
