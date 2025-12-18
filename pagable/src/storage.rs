@@ -13,11 +13,15 @@
 //! This module defines the interface between pagable smart pointers and the
 //! underlying storage system that persists paged-out data.
 
+use std::any::TypeId;
 use std::num::NonZeroU128;
 
 use dupe::Dupe;
+use either::Either;
 
+use crate::Pagable;
 use crate::arc_erase::ArcEraseDyn;
+use crate::pagable_arc::PagableArc;
 
 /// A unique identifier for data stored in the paging backend.
 ///
@@ -81,61 +85,64 @@ impl From<DataKey> for OptionalDataKey {
     }
 }
 
+/// Serialized data retrieved from storage.
+///
+/// Contains the raw bytes and any nested arc references that need to be resolved
+/// during deserialization.
+pub struct PagableData {
+    pub data: Vec<u8>,
+    pub arcs: Vec<DataKey>,
+}
+
 /// Trait for storage backends that can persist and retrieve paged-out data.
 ///
 /// Implement this trait to provide a custom storage backend for the pagable framework.
-/// The storage is responsible for:
-/// - Storing serialized data (handled externally during page-out)
-/// - Retrieving and deserializing data when requested via [`deserialize_pagable`](Self::deserialize_pagable)
+/// The storage supports two primary use cases:
+/// - Local paging: evicting and reloading data from disk when memory pressure occurs
+/// - Remote graph hydration: fetching pre-serialized graphs from remote storage with
+///   optional caching of deserialized arcs to avoid repeated deserialization overhead
 ///
-/// # Example Implementation
+/// # Methods
 ///
-/// ```ignore
-/// struct MyStorage {
-///     data: HashMap<DataKey, Vec<u8>>,
-/// }
-///
-/// #[async_trait::async_trait]
-/// impl PagableStorageHandle for MyStorage {
-///     async fn deserialize_pagable(&self, key: &DataKey) -> anyhow::Result<Box<dyn ArcEraseDyn>> {
-///         let bytes = self.data.get(key).ok_or_else(|| anyhow!("Key not found"))?;
-///         // Deserialize and return...
-///     }
-///
-///     fn schedule_for_paging(&self, data: Box<dyn PagableEraseDyn>) {
-///         // Queue data for background serialization to storage...
-///     }
-/// }
-/// ```
+/// - [`fetch_arc_or_data_blocking`](Self::fetch_arc_or_data_blocking): Try to fetch either
+///   a cached deserialized arc or raw data synchronously
+/// - [`fetch_data`](Self::fetch_data): Fetch raw serialized data asynchronously
+/// - [`on_arc_deserialized`](Self::on_arc_deserialized): Hook called when an arc is deserialized,
+///   allowing storage to cache it
+/// - [`schedule_for_paging`](Self::schedule_for_paging): Schedule an arc for eviction to storage
 #[async_trait::async_trait]
-pub trait PagableStorageHandle: Send + Sync + 'static {
-    /// Deserializes previously stored data identified by the given key.
+pub trait PagableStorage: Send + Sync + 'static {
+    /// Attempts to fetch either a cached deserialized arc or raw data synchronously.
     ///
-    /// This method is called when a [`PagableArc`](crate::PagableArc) that has been
-    /// paged out needs to be accessed again.
-    ///
-    /// # Arguments
-    ///
-    /// * `key` - The unique identifier for the stored data
-    ///
-    /// # Returns
-    ///
-    /// A boxed type-erased Arc containing the deserialized data.
-    async fn deserialize_pagable(&self, key: &DataKey) -> anyhow::Result<Box<dyn ArcEraseDyn>>;
+    /// This is the fast path for retrieving data - storage implementations can return
+    /// a cached deserialized arc if available, or fall back to returning raw data.
+    fn fetch_arc_or_data_blocking(
+        &self,
+        type_id: &TypeId,
+        key: &DataKey,
+    ) -> anyhow::Result<Either<Box<dyn ArcEraseDyn>, std::sync::Arc<PagableData>>>;
 
-    /// Schedules data for background paging to storage.
+    /// Fetches raw serialized data asynchronously.
+    async fn fetch_data(&self, key: &DataKey) -> anyhow::Result<std::sync::Arc<PagableData>>;
+
+    /// Hook called when an arc is deserialized from data.
     ///
-    /// This method is called when a [`PagableArc`](crate::PagableArc) becomes fully
-    /// unpinned (no pinned references remain). The storage implementation should
-    /// serialize the data and store it, allowing the in-memory copy to be freed.
+    /// Storage implementations can use this to cache the deserialized arc for future
+    /// requests. Returns the arc to use (either the passed one or a cached version).
+    fn on_arc_deserialized(
+        &self,
+        typeid: TypeId,
+        key: DataKey,
+        arc: Box<dyn ArcEraseDyn>,
+    ) -> Option<Box<dyn ArcEraseDyn>>;
+
+    /// Schedules a type-erased arc for background paging to storage.
     ///
-    /// # Arguments
-    ///
-    /// * `data` - Type-erased pagable data to serialize and store
-    fn schedule_for_paging(&self, data: Box<dyn PagableEraseDyn>);
+    /// Called when a pagable arc becomes fully unpinned and eligible for eviction.
+    fn schedule_for_paging(&self, arc: Box<dyn ArcEraseDyn>);
 }
 
-static_assertions::assert_obj_safe!(PagableStorageHandle);
+static_assertions::assert_obj_safe!(PagableStorage);
 
 /// Trait for types that can be type-erased for paging operations.
 ///
@@ -154,11 +161,36 @@ pub trait PagableEraseDyn: Send + Sync + 'static {
     fn write_to_storage(&self, storage: &mut dyn PagableStorage) -> anyhow::Result<()>;
 }
 
-/// Marker trait for storage backends that can receive serialized pagable data.
-///
-/// Implementors of this trait provide the low-level storage operations needed
-/// to persist paged-out data. This is typically implemented by the same type
-/// that implements [`PagableStorageHandle`].
-pub trait PagableStorage {}
-
 static_assertions::assert_obj_safe!(PagableEraseDyn);
+
+/// Handle for interacting with pagable storage.
+///
+/// This is a typed wrapper around the `PagableStorage` trait object that provides
+/// a cleaner, type-safe API for consumers. It's cheaply cloneable via `Dupe`.
+#[derive(Clone, Dupe)]
+pub struct PagableStorageHandle {
+    backing_storage: std::sync::Arc<dyn PagableStorage>,
+}
+
+impl PagableStorageHandle {
+    /// Deserializes data from storage for the given key.
+    ///
+    /// This method will be implemented to fetch data from storage and deserialize it
+    /// into the requested type.
+    pub async fn deserialize_pagable_data<T: Pagable>(&self, _key: &DataKey) -> anyhow::Result<T> {
+        unimplemented!("deserialize_pagable_data is not implemented yet")
+    }
+
+    /// Schedules a pagable arc for eviction to storage.
+    ///
+    /// Called internally when a `PagableArc` becomes fully unpinned.
+    pub fn schedule_for_paging<T: Pagable>(&self, data: PagableArc<T>) {
+        let boxed = Box::new(data);
+        self.backing_storage.schedule_for_paging(boxed as _)
+    }
+
+    /// Creates a new handle wrapping the given storage implementation.
+    pub(crate) fn new(backing_storage: std::sync::Arc<dyn PagableStorage>) -> Self {
+        Self { backing_storage }
+    }
+}

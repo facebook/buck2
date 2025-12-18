@@ -44,7 +44,7 @@ use serde::Serialize;
 use crate::arc_erase::ArcErase;
 use crate::arc_erase::ArcEraseDyn;
 use crate::storage::DataKey;
-use crate::storage::PagableEraseDyn;
+use crate::storage::PagableStorage;
 use crate::storage::PagableStorageHandle;
 use crate::traits::PagableDeserializer;
 use crate::traits::PagableSerializer;
@@ -120,7 +120,7 @@ impl PagableSerializer for TestingSerializer {
 pub struct TestingDeserializer<'de> {
     serde: postcard::Deserializer<'de, Slice<'de>>,
     seen_arcs: HashMap<usize, Box<dyn ArcEraseDyn>>,
-    storage: std::sync::Arc<dyn PagableStorageHandle>,
+    storage: PagableStorageHandle,
 }
 
 impl<'de> TestingDeserializer<'de> {
@@ -132,7 +132,7 @@ impl<'de> TestingDeserializer<'de> {
         Self {
             serde: postcard::Deserializer::from_bytes(bytes),
             seen_arcs: HashMap::new(),
-            storage: std::sync::Arc::new(EmptyPagableStorage),
+            storage: PagableStorageHandle::new(std::sync::Arc::new(EmptyPagableStorage)),
         }
     }
 }
@@ -168,22 +168,46 @@ impl<'de> PagableDeserializer<'de> for TestingDeserializer<'de> {
         }
     }
 
-    fn storage(&self) -> &std::sync::Arc<dyn PagableStorageHandle> {
-        &self.storage
+    fn storage(&self) -> PagableStorageHandle {
+        self.storage.clone()
     }
 }
 
 struct EmptyPagableStorage;
 
 #[async_trait::async_trait]
-impl PagableStorageHandle for EmptyPagableStorage {
-    async fn deserialize_pagable(&self, _key: &DataKey) -> anyhow::Result<Box<dyn ArcEraseDyn>> {
-        return Err(anyhow::anyhow!(
+impl PagableStorage for EmptyPagableStorage {
+    fn fetch_arc_or_data_blocking(
+        &self,
+        _type_id: &std::any::TypeId,
+        _key: &DataKey,
+    ) -> anyhow::Result<
+        either::Either<Box<dyn ArcEraseDyn>, std::sync::Arc<crate::storage::PagableData>>,
+    > {
+        Err(anyhow::anyhow!(
             "No storage available for testing deserializer"
-        ));
+        ))
     }
 
-    fn schedule_for_paging(&self, _data: Box<dyn PagableEraseDyn>) {
+    async fn fetch_data(
+        &self,
+        _key: &DataKey,
+    ) -> anyhow::Result<std::sync::Arc<crate::storage::PagableData>> {
+        Err(anyhow::anyhow!(
+            "No storage available for testing deserializer"
+        ))
+    }
+
+    fn on_arc_deserialized(
+        &self,
+        _typeid: std::any::TypeId,
+        _key: DataKey,
+        _arc: Box<dyn ArcEraseDyn>,
+    ) -> Option<Box<dyn ArcEraseDyn>> {
+        None
+    }
+
+    fn schedule_for_paging(&self, _arc: Box<dyn ArcEraseDyn>) {
         // no-op
     }
 }

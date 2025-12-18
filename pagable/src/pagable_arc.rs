@@ -333,7 +333,7 @@ impl<T: Pagable> PagableArc<T> {
     ///
     /// * `v` - The value to store
     /// * `storage` - The storage backend for paging operations
-    pub fn new(v: T, storage: std::sync::Arc<dyn PagableStorageHandle>) -> Self {
+    pub fn new(v: T, storage: PagableStorageHandle) -> Self {
         let pointer = triomphe::Arc::new(PagableArcInner::new(v, storage));
         Self {
             state: PagableArcStateHolder(AtomicUsize::new(1)),
@@ -341,10 +341,7 @@ impl<T: Pagable> PagableArc<T> {
         }
     }
 
-    pub(crate) fn new_paged_out(
-        key: &DataKey,
-        storage: std::sync::Arc<dyn PagableStorageHandle>,
-    ) -> Self {
+    pub(crate) fn new_paged_out(key: &DataKey, storage: PagableStorageHandle) -> Self {
         let pointer = triomphe::Arc::new(PagableArcInner::new_paged_out(key, storage));
         Self {
             state: PagableArcStateHolder(AtomicUsize::new(0)),
@@ -522,7 +519,7 @@ impl<T: Pagable> PinnedPagableArc<T> {
     ///
     /// * `v` - The value to store
     /// * `storage` - The storage backend for paging operations
-    pub fn new(v: T, storage: std::sync::Arc<dyn PagableStorageHandle>) -> Self {
+    pub fn new(v: T, storage: PagableStorageHandle) -> Self {
         let pointer = triomphe::Arc::new(PagableArcInner::new(v, storage));
         Self { pointer }
     }
@@ -615,7 +612,7 @@ struct PagableArcInner<T> {
     /// the lock, but transitions when count reaches 0 require it.
     lock: Mutex<()>,
     data: UnsafeCell<PagableArcInnerData<T>>,
-    storage: std::sync::Arc<dyn PagableStorageHandle>,
+    storage: PagableStorageHandle,
 }
 
 impl<T: Pagable> PagableEraseDyn for PagableArc<T> {
@@ -721,7 +718,7 @@ impl<T> PagableArcInnerState<T> {
 static_assertions::assert_eq_size!(PagableArcInner<[usize; 4]>, [usize; 8]);
 
 impl<T: Pagable> PagableArcInner<T> {
-    pub fn new_paged_out(key: &DataKey, storage: std::sync::Arc<dyn PagableStorageHandle>) -> Self {
+    pub fn new_paged_out(key: &DataKey, storage: PagableStorageHandle) -> Self {
         Self {
             pinned_count: AtomicUsize::new(0),
             lock: Mutex::new(()),
@@ -730,7 +727,7 @@ impl<T: Pagable> PagableArcInner<T> {
         }
     }
 
-    fn new(value: T, storage: std::sync::Arc<dyn PagableStorageHandle>) -> Self {
+    fn new(value: T, storage: PagableStorageHandle) -> Self {
         Self {
             pinned_count: AtomicUsize::new(1),
             lock: Mutex::new(()),
@@ -784,14 +781,8 @@ impl<T: Pagable> PagableArcInner<T> {
                 let key = data.key.unwrap();
                 drop((data, lock));
 
-                let value: std::sync::Arc<T> = self
-                    .storage
-                    .deserialize_pagable(&key)
-                    .await?
-                    .as_arc_any()
-                    .downcast_ref::<std::sync::Arc<T>>()
-                    .unwrap()
-                    .dupe();
+                let value: std::sync::Arc<T> =
+                    std::sync::Arc::new(self.storage.deserialize_pagable_data(&key).await?);
 
                 let _lock = self.lock.lock();
                 let data = unsafe { &mut *self.data.get() };
@@ -864,11 +855,11 @@ impl<T: Pagable> PagableArcInner<T> {
             if ptr.pinned_count.load(Ordering::Relaxed) == 0 {
                 let data: &mut _ = unsafe { &mut *ptr.data.get() };
                 if data.unpin() {
-                    let d: Box<PagableArc<_>> = Box::new(PagableArc {
+                    let d = PagableArc {
                         state: PagableArcState::Unpinned.into(),
                         pointer: ptr.clone(),
-                    });
-                    ptr.storage.schedule_for_paging(d as _);
+                    };
+                    ptr.storage.schedule_for_paging(d);
                 }
             }
         }

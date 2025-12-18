@@ -134,7 +134,7 @@ pub trait PagableDeserializer<'de> {
     ///
     /// This allows deserializers to create [`PagableArc`](crate::PagableArc) instances
     /// that are connected to the appropriate storage backend for future paging.
-    fn storage(&self) -> &std::sync::Arc<dyn PagableStorageHandle>;
+    fn storage(&self) -> PagableStorageHandle;
 }
 
 pub trait PagableDeserializerDyn<'de> {
