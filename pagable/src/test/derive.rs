@@ -55,8 +55,8 @@ mod inner {
             };
             let mut serializer = TestingSerializer::new();
             t1.pagable_serialize(&mut serializer)?;
-            let (bytes, ptrs) = serializer.finish();
-            let mut deserializer = TestingDeserializer::new(&bytes, ptrs);
+            let bytes = serializer.finish();
+            let mut deserializer = TestingDeserializer::new(&bytes);
             let t2 = Test::pagable_deserialize(&mut deserializer)?;
             assert_eq!(t1, t2);
             Ok(())
@@ -70,8 +70,8 @@ mod inner {
             };
             let mut serializer = TestingSerializer::new();
             t1.pagable_serialize(&mut serializer)?;
-            let (bytes, ptrs) = serializer.finish();
-            let mut deserializer = TestingDeserializer::new(&bytes, ptrs);
+            let bytes = serializer.finish();
+            let mut deserializer = TestingDeserializer::new(&bytes);
             let t2 = WithDiscard::pagable_deserialize(&mut deserializer)?;
             assert_eq!(t2.discard, "");
             assert_eq!(t2.keep, "keep");
@@ -86,8 +86,8 @@ mod inner {
                 std::sync::Arc::new(std::sync::Arc::new("string".to_owned()));
             let mut serializer = TestingSerializer::new();
             t1.pagable_serialize(&mut serializer)?;
-            let (bytes, ptrs) = serializer.finish();
-            let mut deserializer = TestingDeserializer::new(&bytes, ptrs);
+            let bytes = serializer.finish();
+            let mut deserializer = TestingDeserializer::new(&bytes);
             let t2 =
                 <std::sync::Arc<std::sync::Arc<String>>>::pagable_deserialize(&mut deserializer)?;
             assert_eq!(t1, t2);
@@ -110,10 +110,10 @@ mod inner {
             // Serialize
             let mut serializer = TestingSerializer::new();
             vec.pagable_serialize(&mut serializer)?;
-            let (bytes, ptrs) = serializer.finish();
+            let bytes = serializer.finish();
 
             // Deserialize
-            let mut deserializer = TestingDeserializer::new(&bytes, ptrs);
+            let mut deserializer = TestingDeserializer::new(&bytes);
             let restored: Vec<Arc<String>> = Vec::pagable_deserialize(&mut deserializer)?;
 
             // Verify the deserialized arcs point to the same allocation

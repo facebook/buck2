@@ -33,7 +33,6 @@
 //! let restored = MyType::pagable_deserialize(&mut de)?;
 //! ```
 
-use std::any::TypeId;
 use std::collections::HashMap;
 use std::collections::HashSet;
 
@@ -59,7 +58,6 @@ use crate::traits::PagableSerializer;
 /// call [`finish`](Self::finish) to retrieve the serialized bytes and pointers.
 pub struct TestingSerializer {
     serde: postcard::Serializer<postcard::ser_flavors::StdVec>,
-    stashed_ptrs: Vec<(*const (), TypeId)>,
     seen_arcs: HashSet<usize>,
 }
 
@@ -70,7 +68,6 @@ impl TestingSerializer {
             serde: postcard::Serializer {
                 output: postcard::ser_flavors::StdVec::new(),
             },
-            stashed_ptrs: Vec::new(),
             seen_arcs: HashSet::new(),
         }
     }
@@ -79,9 +76,8 @@ impl TestingSerializer {
     ///
     /// The returned pointers include their type IDs for verification during
     /// deserialization.
-    pub fn finish(self) -> (Vec<u8>, Vec<(*const (), TypeId)>) {
-        let bytes = self.serde.output.finalize().unwrap();
-        (bytes, self.stashed_ptrs)
+    pub fn finish(self) -> Vec<u8> {
+        self.serde.output.finalize().unwrap()
     }
 }
 
@@ -94,12 +90,6 @@ impl Default for TestingSerializer {
 impl PagableSerializer for TestingSerializer {
     fn serialize_serde_flattened<T: Serialize>(&mut self, value: &T) -> crate::Result<()> {
         value.serialize(&mut self.serde)?;
-        Ok(())
-    }
-
-    fn stash_ptr<T: Sized + 'static>(&mut self, ptr: *const T) -> crate::Result<()> {
-        self.stashed_ptrs
-            .push((ptr as *const (), TypeId::of::<T>()));
         Ok(())
     }
 
@@ -129,8 +119,6 @@ impl PagableSerializer for TestingSerializer {
 /// allocation). Type IDs are checked during unstashing to catch type mismatches.
 pub struct TestingDeserializer<'de> {
     serde: postcard::Deserializer<'de, Slice<'de>>,
-    stashed_ptrs: Vec<(*const (), TypeId)>,
-    ptr_index: usize,
     seen_arcs: HashMap<usize, Box<dyn ArcEraseDyn>>,
     storage: std::sync::Arc<dyn PagableStorageHandle>,
 }
@@ -140,11 +128,9 @@ impl<'de> TestingDeserializer<'de> {
     ///
     /// The `bytes` and `stashed_ptrs` should come from a previous call to
     /// [`TestingSerializer::finish`].
-    pub fn new(bytes: &'de [u8], stashed_ptrs: Vec<(*const (), TypeId)>) -> Self {
+    pub fn new(bytes: &'de [u8]) -> Self {
         Self {
             serde: postcard::Deserializer::from_bytes(bytes),
-            stashed_ptrs,
-            ptr_index: 0,
             seen_arcs: HashMap::new(),
             storage: std::sync::Arc::new(EmptyPagableStorage),
         }
@@ -154,23 +140,6 @@ impl<'de> TestingDeserializer<'de> {
 impl<'de> PagableDeserializer<'de> for TestingDeserializer<'de> {
     fn serde(&mut self) -> impl serde::Deserializer<'de, Error = postcard::Error> + '_ {
         &mut self.serde
-    }
-
-    fn unstash_ptr<T: 'static>(&mut self) -> crate::Result<*const T> {
-        if self.ptr_index >= self.stashed_ptrs.len() {
-            return Err(anyhow::anyhow!("No more stashed pointers"));
-        }
-        let (ptr, type_id) = self.stashed_ptrs[self.ptr_index];
-        let expected_type_id = TypeId::of::<T>();
-        if type_id != expected_type_id {
-            return Err(anyhow::anyhow!(
-                "Type mismatch on unstash: expected {:?}, got {:?}",
-                expected_type_id,
-                type_id
-            ));
-        }
-        self.ptr_index += 1;
-        Ok(ptr as *const T)
     }
 
     fn deserialize_arc<T: ArcErase>(&mut self) -> crate::Result<T> {

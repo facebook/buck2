@@ -51,7 +51,7 @@ impl<T: Send + Sync + std::fmt::Debug + PagableSerialize + for<'a> PagableDeseri
 /// Trait for types that can be serialized using the pagable framework.
 ///
 /// Implement this trait to define how a type is serialized. The serializer
-/// provides access to both serde serialization and pointer stashing.
+/// provides access to both serde serialization and support for arc identity preservation.
 ///
 /// Use `#[derive(PagableSerialize)]` for automatic implementation.
 pub trait PagableSerialize {
@@ -74,7 +74,7 @@ pub trait PagableEagerSerialize {
 /// Trait for types that can be deserialized using the pagable framework.
 ///
 /// Implement this trait to define how a type is deserialized. The deserializer
-/// provides access to both serde deserialization and pointer unstashing.
+/// provides access to both serde deserialization and arc identity preservation.
 ///
 /// Use `#[derive(PagableDeserialize)]` for automatic implementation.
 pub trait PagableDeserialize<'de>: Sized {
@@ -102,16 +102,10 @@ pub trait PagableEagerDeserialize<'de>: Sized {
 /// Trait for serializers that support pagable serialization.
 ///
 /// Implementors provide access to an underlying serde serializer and the ability
-/// to stash raw pointers that will be preserved across serialization.
+/// to preserve arc instance equality across serialization.
 pub trait PagableSerializer {
     /// Serialize a value using serde, flattening it into the output stream.
     fn serialize_serde_flattened<T: serde::Serialize>(&mut self, value: &T) -> crate::Result<()>;
-
-    /// Stash a raw pointer to be retrieved during deserialization.
-    ///
-    /// The pointer is stored along with its type information and can be
-    /// retrieved in the same order during deserialization using `unstash_ptr`.
-    fn stash_ptr<T: Sized + 'static>(&mut self, ptr: *const T) -> crate::Result<()>;
 
     /// Get a mutable reference to the underlying postcard serializer.
     fn serde(&mut self) -> &mut postcard::Serializer<postcard::ser_flavors::StdVec>;
@@ -126,18 +120,9 @@ pub trait PagableSerializer {
 pub trait PagableSerializerDyn {}
 
 /// Trait for deserializers that support pagable deserialization.
-///
-/// Implementors provide access to an underlying serde deserializer and the ability
-/// to retrieve previously stashed pointers.
 pub trait PagableDeserializer<'de> {
     /// Get a serde deserializer for deserializing values.
     fn serde(&mut self) -> impl serde::Deserializer<'de, Error = postcard::Error> + '_;
-
-    /// Retrieve a previously stashed pointer.
-    ///
-    /// Pointers must be unstashed in the same order they were stashed during
-    /// serialization. The type parameter must match the type used when stashing.
-    fn unstash_ptr<T: 'static>(&mut self) -> crate::Result<*const T>;
 
     /// Deserialize an Arc, restoring shared references for deduplicated Arcs.
     ///
