@@ -50,6 +50,7 @@ def _go_toolchain_impl(ctx):
             build_tags = ctx.attrs.build_tags,
             asan = ctx.attrs.asan,
             race = ctx.attrs.race,
+            fuzz = ctx.attrs.fuzz,
         ),
     ]
 
@@ -69,6 +70,7 @@ go_toolchain = rule(
         "env_go_experiment": attrs.list(attrs.string(), default = []),
         "env_go_os": attrs.string(),
         "external_linker_flags": attrs.list(attrs.arg(), default = []),
+        "fuzz": attrs.bool(default = False),
         "gen_stdlib_importcfg": attrs.exec_dep(providers = [RunInfo], default = "prelude//go/tools:gen_stdlib_importcfg"),
         "go_distr": attrs.exec_dep(providers = [GoDistrInfo]),
         "go_wrapper": attrs.exec_dep(providers = [RunInfo], default = "prelude//go_bootstrap/tools:go_go_wrapper"),

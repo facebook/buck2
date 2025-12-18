@@ -46,6 +46,7 @@ GoToolchainInfo = provider(
         "build_tags": provider_field(list[str], default = []),
         "asan": provider_field(bool, default = False),
         "race": provider_field(bool, default = False),
+        "fuzz": provider_field(bool, default = False),
     },
 )
 

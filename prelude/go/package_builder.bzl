@@ -306,6 +306,7 @@ def _compile(
             ["-linkobj", out_a.as_output()],
             ["-race"] if race else [],
             ["-asan"] if asan else [],
+            ["-d=libfuzzer"] if go_toolchain.fuzz else [],
             ["-shared"] if shared else [],
             ["-coveragecfg", coveragecfg] if coveragecfg else [],
             ["-embedcfg", embedcfg] if embedcfg else [],

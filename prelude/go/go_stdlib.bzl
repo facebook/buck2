@@ -25,6 +25,14 @@ def go_stdlib_impl(ctx: AnalysisContext) -> list[Provider]:
         compiler_flags += ["-asan"]
         build_tags += ["asan"]
 
+    if go_toolchain.fuzz:
+        # Note this will cover all packages including skipped https://fburl.com/etm81gfr
+        compiler_flags += ["-d=libfuzzer"]
+        # I've discovered a weird thing, runtime/libfuzzer* files are never used by `go build`
+        # and we get "relocation target ... not defined error if include them",
+        # so for now I assume this is broken.
+        # build_tags += ["libfuzzer"]
+
     env = get_toolchain_env_vars(go_toolchain)
     env["GODEBUG"] = "installgoroot=all"
     env["CGO_ENABLED"] = "1" if cgo_enabled else "0"
