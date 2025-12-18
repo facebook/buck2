@@ -443,6 +443,7 @@ fn re_create_action(
     #[cfg(not(fbcode_build))]
     {
         let _unused = &mut action;
+        let _unused = re_outputs_required;
     }
 
     let action_and_blobs = action_and_blobs.build(&action);

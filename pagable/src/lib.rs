@@ -20,6 +20,9 @@
 
 #![feature(const_type_name)]
 
+pub use pagable_arc::PagableArc;
+pub use pagable_arc::PinnedPagableArc;
+pub use pagable_arc::PinnedPagableArcBorrow;
 pub use pagable_derive::Pagable;
 pub use pagable_derive::PagableDeserialize;
 pub use pagable_derive::PagableSerialize;
