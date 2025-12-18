@@ -116,6 +116,7 @@ def cxx_toolchain_impl(ctx):
         compiler_flags = cmd_args(ctx.attrs.cuda_compiler_flags),
         preprocessor_flags = cmd_args(ctx.attrs.cuda_preprocessor_flags),
         allow_cache_upload = ctx.attrs.cuda_compiler_allow_cache_upload,
+        supports_content_based_paths = ctx.attrs.supports_content_based_paths,
     ) if ctx.attrs.cuda_compiler else None
     hip_info = HipCompilerInfo(
         compiler = ctx.attrs.hip_compiler[RunInfo],
