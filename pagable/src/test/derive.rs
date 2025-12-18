@@ -41,6 +41,9 @@ mod inner {
     #[cfg(test)]
     mod tests {
         use super::*;
+        use crate::pagable_arc::PinnedPagableArc;
+        use crate::storage::PagableStorageHandle;
+        use crate::testing::EmptyPagableStorage;
         use crate::testing::TestingDeserializer;
         use crate::testing::TestingSerializer;
         use crate::traits::PagableDeserialize;
@@ -124,6 +127,40 @@ mod inner {
             );
             assert_eq!(*restored[0], "shared");
 
+            Ok(())
+        }
+
+        #[tokio::test]
+        async fn test_pagable_arc_refcounts() -> anyhow::Result<()> {
+            let storage = PagableStorageHandle::new(std::sync::Arc::new(EmptyPagableStorage));
+
+            let arc1 = PinnedPagableArc::new("hello world".to_owned(), storage.clone() as _);
+            let weak1 = PinnedPagableArc::into_pagable(arc1.clone());
+            assert_eq!(weak1.pinned_count(), 2);
+
+            weak1.unpin();
+
+            assert_eq!(weak1.pinned_count(), 1);
+            drop(arc1);
+
+            assert_eq!(weak1.pinned_count(), 0);
+            assert!(!weak1.is_paged_out());
+
+            {
+                let arc2 = weak1.clone();
+                assert_eq!(weak1.pinned_count(), 0);
+                let pin1 = arc2.pin().await?;
+                assert_eq!(weak1.pinned_count(), 2);
+
+                drop(pin1);
+                assert_eq!(weak1.pinned_count(), 1);
+                drop(arc2);
+                assert_eq!(weak1.pinned_count(), 0);
+            }
+
+            // This creates a pin and converts weak1 to pinned.
+            let pinned = weak1.pin().await?;
+            assert_eq!(weak1.pinned_count(), 2);
             Ok(())
         }
     }

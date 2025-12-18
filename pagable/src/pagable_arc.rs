@@ -190,8 +190,14 @@ struct PagableArcStateHolder(AtomicUsize);
 impl PagableArcStateHolder {
     fn get(&self) -> PagableArcState {
         match self.0.load(Ordering::Relaxed) {
-            0 => PagableArcState::Unpinned,
-            1 => PagableArcState::Pinned,
+            0 => {
+                static_assertions::const_assert_eq!(0, PagableArcState::Unpinned as usize);
+                PagableArcState::Unpinned
+            }
+            1 => {
+                static_assertions::const_assert_eq!(1, PagableArcState::Pinned as usize);
+                PagableArcState::Pinned
+            }
             _ => unreachable!(),
         }
     }
@@ -225,10 +231,10 @@ impl PagableArcStateHolder {
 /// is contributing to the pinned_count.
 #[derive(Eq, PartialEq)]
 enum PagableArcState {
-    /// This instance is keeping the data pinned (contributes to pinned_count).
-    Pinned,
     /// This instance is not keeping the data pinned (does not contribute to pinned_count).
     Unpinned,
+    /// This instance is keeping the data pinned (contributes to pinned_count).
+    Pinned,
 }
 
 impl From<PagableArcState> for PagableArcStateHolder {
@@ -432,6 +438,13 @@ impl<T: Pagable> PagableArc<T> {
 
     pub(crate) fn get_data_key(&self) -> OptionalDataKey {
         self.pointer.get_data_key()
+    }
+
+    /// Returns the number of pinned references to the underlying data.
+    /// This is the count of `PagableArc` instances in the `Pinned` state,
+    /// plus any `PinnedPagableArc` instances. Used for testing and debugging.
+    pub(crate) fn pinned_count(&self) -> usize {
+        self.pointer.pinned_count()
     }
 
     pub(crate) fn is_pinned(&self) -> bool {
@@ -876,6 +889,12 @@ impl<T: Pagable> PagableArcInner<T> {
     pub(crate) fn get_data_key(&self) -> OptionalDataKey {
         let _lock = self.lock.lock();
         unsafe { &*self.data.get() }.key
+    }
+
+    /// Returns the current pinned reference count. This count represents the number
+    /// of `PagableArc` instances in `Pinned` state plus any `PinnedPagableArc` instances.
+    pub(crate) fn pinned_count(&self) -> usize {
+        self.pinned_count.load(Ordering::Relaxed)
     }
 }
 

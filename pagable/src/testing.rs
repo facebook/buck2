@@ -173,7 +173,7 @@ impl<'de> PagableDeserializer<'de> for TestingDeserializer<'de> {
     }
 }
 
-struct EmptyPagableStorage;
+pub(crate) struct EmptyPagableStorage;
 
 #[async_trait::async_trait]
 impl PagableStorage for EmptyPagableStorage {
