@@ -113,12 +113,12 @@ use std::sync::atomic::Ordering;
 
 use allocative::Allocative;
 use allocative::Visitor;
-use blake3::traits::digest::const_oid::db::rfc4519::O;
 use dupe::Clone_;
 use dupe::Copy_;
 use dupe::Dupe;
 use dupe::Dupe_;
 use either::Either;
+use gazebo::variants::VariantName;
 use parking_lot::Mutex;
 use strong_hash::StrongHash;
 
@@ -450,8 +450,15 @@ impl<T: Pagable> PagableArc<T> {
         self.pointer.pinned_count()
     }
 
+    /// Returns true if this `PagableArc` is in the pinned state.
+    /// Asserts that the underlying pointer's state is consistent with the local state.
     pub(crate) fn is_pinned(&self) -> bool {
-        self.state.get() == PagableArcState::Pinned
+        if self.state.get() == PagableArcState::Pinned {
+            assert!(self.pointer.is_pinned());
+            true
+        } else {
+            false
+        }
     }
 }
 
@@ -707,16 +714,16 @@ impl<T> PagableArcInnerState<T> {
     fn unwrap_ready(&self) -> &T {
         match self {
             PagableArcInnerState::Pinned(t) => &t,
-            PagableArcInnerState::Unpinned(_) => panic!(),
-            PagableArcInnerState::PagedOut => panic!(),
+            PagableArcInnerState::Unpinned(_) => panic!("Unpinned state is not ready"),
+            PagableArcInnerState::PagedOut => panic!("PagedOut state is not ready"),
         }
     }
 
     fn unwrap_into_ready(self) -> std::sync::Arc<T> {
         match self {
             PagableArcInnerState::Pinned(t) => t,
-            PagableArcInnerState::Unpinned(_) => panic!(),
-            PagableArcInnerState::PagedOut => panic!(),
+            PagableArcInnerState::Unpinned(_) => panic!("Unpinned state is not ready"),
+            PagableArcInnerState::PagedOut => panic!("PagedOut state is not ready"),
         }
     }
 }
@@ -899,6 +906,23 @@ impl<T: Pagable> PagableArcInner<T> {
     /// of `PagableArc` instances in `Pinned` state plus any `PinnedPagableArc` instances.
     pub(crate) fn pinned_count(&self) -> usize {
         self.pinned_count.load(Ordering::Relaxed)
+    }
+
+    /// Returns true if the pinned count is greater than zero.
+    /// Asserts that when pinned_count > 0, the inner state is actually `Pinned`,
+    /// ensuring consistency between the atomic counter and the state machine.
+    pub(crate) fn is_pinned(&self) -> bool {
+        if self.pinned_count.load(Ordering::Relaxed) > 0 {
+            let _lock = self.lock.lock();
+            if self.pinned_count.load(Ordering::Relaxed) > 0 {
+                assert!(matches!(
+                    unsafe { &*self.data.get() }.value,
+                    PagableArcInnerState::Pinned(_)
+                ));
+                return true;
+            }
+        }
+        false
     }
 }
 
