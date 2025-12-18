@@ -28,21 +28,21 @@ def _build_js_bundle(
         "RES_DIR": cmd_args(js_bundle_info.res),
         "SOURCEMAP": cmd_args(js_bundle_info.source_map),
     }
-
+    has_content_based_path = ctx.attrs.has_content_based_path
     if ctx.attrs.rewrite_sourcemap:
-        source_map_out = ctx.actions.declare_output("{}/source_map".format(named_output))
+        source_map_out = ctx.actions.declare_output("{}/source_map".format(named_output), has_content_based_path = has_content_based_path)
         env_vars["SOURCEMAP_OUT"] = cmd_args(source_map_out.as_output())
     else:
         source_map_out = js_bundle_info.source_map
 
     if ctx.attrs.rewrite_misc:
-        misc_out = ctx.actions.declare_output("{}/misc".format(named_output))
+        misc_out = ctx.actions.declare_output("{}/misc".format(named_output), has_content_based_path = has_content_based_path)
         env_vars["MISC_OUT"] = cmd_args(misc_out.as_output())
     else:
         misc_out = js_bundle_info.misc
 
     if ctx.attrs.rewrite_deps_file:
-        dependencies_out = ctx.actions.declare_output("{}/dependencies".format(named_output))
+        dependencies_out = ctx.actions.declare_output("{}/dependencies".format(named_output), has_content_based_path = has_content_based_path)
         env_vars["DEPENDENCIES_OUT"] = cmd_args(dependencies_out.as_output())
     else:
         dependencies_out = js_bundle_info.dependencies_file
