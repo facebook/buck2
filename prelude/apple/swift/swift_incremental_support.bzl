@@ -98,7 +98,7 @@ def get_incremental_remote_outputs_enabled(ctx: AnalysisContext):
 
 def get_uses_experimental_content_based_path_hashing(ctx):
     toolchain = get_swift_toolchain_info(ctx)
-    return toolchain.uses_experimental_content_based_path_hashing
+    return toolchain.uses_experimental_content_based_path_hashing or getattr(ctx.attrs, "has_content_based_path", False)
 
 def _get_incremental_compilation_flags_and_objects(
         ctx: AnalysisContext,
