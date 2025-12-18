@@ -10,12 +10,9 @@
 
 package com.facebook.buck.jvm.java.abi;
 
-import static org.hamcrest.Matchers.equalTo;
-import static org.hamcrest.Matchers.not;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotEquals;
 import static org.junit.Assert.fail;
-import static org.junit.Assume.assumeThat;
 
 import com.facebook.buck.cd.model.java.AbiGenerationMode;
 import com.facebook.buck.core.filesystems.AbsPath;
@@ -23,7 +20,6 @@ import com.facebook.buck.jvm.java.JarDumper;
 import com.facebook.buck.jvm.java.testutil.compiler.TestCompiler;
 import com.facebook.buck.jvm.kotlin.testutil.compiler.KotlinTestCompiler;
 import com.facebook.buck.util.environment.EnvVariablesProvider;
-import com.facebook.buck.util.environment.Platform;
 import com.facebook.buck.util.unarchive.Unzip;
 import com.facebook.buck.util.zip.DeterministicManifest;
 import com.facebook.buck.util.zip.JarBuilder;
@@ -3149,7 +3145,7 @@ public class StubJarTest {
 
   @Test
   public void preservesAnnotationsOnMethods() throws IOException {
-    notYetImplementedForMissingClasspath();
+    if (notYetImplementedForMissingClasspath()) return;
 
     createAnnotationFullJar()
         .addFullJarToClasspath()
@@ -3180,7 +3176,7 @@ public class StubJarTest {
 
   @Test
   public void preservesAnnotationsOnFields() throws IOException {
-    notYetImplementedForMissingClasspath();
+    if (notYetImplementedForMissingClasspath()) return;
 
     createAnnotationFullJar()
         .addFullJarToClasspath()
@@ -3211,7 +3207,7 @@ public class StubJarTest {
 
   @Test
   public void preservesAnnotationsOnParameters() throws IOException {
-    notYetImplementedForMissingClasspath();
+    if (notYetImplementedForMissingClasspath()) return;
 
     createAnnotationFullJar()
         .addFullJarToClasspath()
@@ -3474,7 +3470,7 @@ public class StubJarTest {
 
   @Test
   public void preservesAnnotationsWithPrimitiveValues() throws IOException {
-    notYetImplementedForMissingClasspath();
+    if (notYetImplementedForMissingClasspath()) return;
 
     createAnnotationFullJar()
         .addFullJarToClasspath()
@@ -3499,7 +3495,7 @@ public class StubJarTest {
 
   @Test
   public void preservesAnnotationsWithStringArrayValues() throws IOException {
-    notYetImplementedForMissingClasspath();
+    if (notYetImplementedForMissingClasspath()) return;
 
     createAnnotationFullJar()
         .addFullJarToClasspath()
@@ -3630,7 +3626,7 @@ public class StubJarTest {
 
   @Test
   public void preservesAnnotationsWithConstantValues() throws IOException {
-    notYetImplementedForMissingClasspath();
+    if (notYetImplementedForMissingClasspath()) return;
 
     createAnnotationFullJar()
         .addFullJarToClasspathAlways()
@@ -3685,7 +3681,7 @@ public class StubJarTest {
 
   @Test
   public void preservesAnnotationsWithAnnotationValues() throws IOException {
-    notYetImplementedForMissingClasspath();
+    if (notYetImplementedForMissingClasspath()) return;
 
     createAnnotationFullJar()
         .addFullJarToClasspath()
@@ -3711,7 +3707,7 @@ public class StubJarTest {
 
   @Test
   public void preservesAnnotationsWithAnnotationArrayValues() throws IOException {
-    notYetImplementedForMissingClasspath();
+    if (notYetImplementedForMissingClasspath()) return;
 
     createAnnotationFullJar()
         .addFullJarToClasspath()
@@ -3828,7 +3824,7 @@ public class StubJarTest {
 
   @Test
   public void stubsEnumsOverridingGenericInterface() throws IOException {
-    notYetImplementedForMissingClasspath();
+    if (notYetImplementedForMissingClasspath()) return;
     tester
         .setSourceFile(
             "A.java",
@@ -5167,7 +5163,7 @@ public class StubJarTest {
 
   @Test
   public void stubsImportedReferencesToInnerClassesOfOtherTypes() throws IOException {
-    notYetImplementedForMissingClasspath();
+    if (notYetImplementedForMissingClasspath()) return;
     tester
         .setSourceFile(
             "Imported.java",
@@ -5211,7 +5207,7 @@ public class StubJarTest {
 
   @Test
   public void stubsStaticImportedReferencesToInnerClassesOfOtherTypes() throws IOException {
-    notYetImplementedForMissingClasspath();
+    if (notYetImplementedForMissingClasspath()) return;
 
     tester
         .setSourceFile(
@@ -5469,7 +5465,7 @@ public class StubJarTest {
 
   @Test
   public void stubsReferencesFromBridgeMethodsToInnerClassesOtherTypes() throws IOException {
-    notYetImplementedForMissingClasspath();
+    if (notYetImplementedForMissingClasspath()) return;
     tester
         .setSourceFile(
             "A.java",
@@ -6076,7 +6072,7 @@ public class StubJarTest {
 
   @Test
   public void shouldIncludeInnerClassTypeParameterReferenceInMethodParameter() throws IOException {
-    notYetImplementedForMissingClasspath();
+    if (notYetImplementedForMissingClasspath()) return;
     tester
         .setSourceFile(
             "Outer.java",
@@ -6525,7 +6521,7 @@ public class StubJarTest {
 
   @Test
   public void bridgeMethodInStubsCanBeCompiledAgainst() throws IOException {
-    notYetImplementedForMissingClasspath();
+    if (notYetImplementedForMissingClasspath()) return;
 
     tester
         .setSourceFile(
@@ -7005,7 +7001,7 @@ public class StubJarTest {
 
   @Test
   public void shouldIncludeInnerClassReferencesInPackageInfoClass() throws IOException {
-    notYetImplementedForMissingClasspath();
+    if (notYetImplementedForMissingClasspath()) return;
     tester
         .setSourceFile(
             "A.java",
@@ -7103,7 +7099,7 @@ public class StubJarTest {
 
   @Test
   public void shouldIncludeGenericBridgeMethods() throws IOException {
-    notYetImplementedForMissingClasspath();
+    if (notYetImplementedForMissingClasspath()) return;
     tester
         .setSourceFile(
             "A.java",
@@ -7158,7 +7154,7 @@ public class StubJarTest {
 
   @Test
   public void shouldIncludeGenericOverrideBridgeMethods() throws IOException {
-    notYetImplementedForMissingClasspath();
+    if (notYetImplementedForMissingClasspath()) return;
     tester
         .setSourceFile(
             "A.java",
@@ -7233,7 +7229,7 @@ public class StubJarTest {
 
   @Test
   public void shouldIncludeCovariantReturnBridgeMethods() throws IOException {
-    notYetImplementedForMissingClasspath();
+    if (notYetImplementedForMissingClasspath()) return;
     tester
         .setSourceFile(
             "Super.java",
@@ -7297,7 +7293,7 @@ public class StubJarTest {
   public void
       shouldCopyAccessibilityAnnotationsAndParamNamesFromOverriderAndThrowsFromOverriddenToBridgeMethods()
           throws IOException {
-    notYetImplementedForMissingClasspath();
+    if (notYetImplementedForMissingClasspath()) return;
     tester
         .setSourceFile("Anno.java", "package com.example.buck;", "public @interface Anno { }")
         .compileFullJar()
@@ -7390,7 +7386,7 @@ public class StubJarTest {
    */
   @Test
   public void shouldIncludeNonPublicBaseClassBridgeMethods() throws IOException {
-    notYetImplementedForMissingClasspath();
+    if (notYetImplementedForMissingClasspath()) return;
     tester
         .setSourceFile(
             "B.java",
@@ -7460,7 +7456,7 @@ public class StubJarTest {
 
   @Test
   public void shouldNotIncludeNonPublicBaseClassBridgeMethodsWhenManuallyDone() throws IOException {
-    notYetImplementedForMissingClasspath();
+    if (notYetImplementedForMissingClasspath()) return;
     tester
         .setSourceFile(
             "B.java",
@@ -7759,18 +7755,11 @@ public class StubJarTest {
         .compileFullJar();
   }
 
-  private void notYetImplementedForMissingClasspath() {
-    assumeThat(testingMode, not(equalTo(MODE_SOURCE_BASED_MISSING_DEPS)));
-  }
-
-  private void notYetImplementedForSource() {
-    assumeThat(testingMode, equalTo(MODE_JAR_BASED));
+  private boolean notYetImplementedForMissingClasspath() {
+    return testingMode == MODE_SOURCE_BASED_MISSING_DEPS;
   }
 
   private boolean isValidForKotlin() {
-    // System.getProperty("java.class.path") returning classpath with ":" as separator which means
-    // that KotlinTestCompiler crashes (separator should be ";" on Windows)
-    assumeThat(Platform.detect(), not(Platform.WINDOWS));
     return !testingMode.equals(MODE_SOURCE_BASED_MISSING_DEPS);
   }
 
