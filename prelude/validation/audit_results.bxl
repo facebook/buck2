@@ -15,7 +15,7 @@ def _impl(ctx: bxl.Context):
         targets = ctx.cli_args.targets
 
     info = {}
-    for target, analysis_result in ctx.analysis(targets).items():
+    for target, analysis_result in ctx.analysis(ctx.configured_targets(targets, modifiers = ctx.modifiers)).items():
         providers = analysis_result.providers()
         validation_info = providers.get(ValidationInfo)
         if not validation_info:
