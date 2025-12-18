@@ -549,6 +549,13 @@ impl<T: Pagable> PinnedPagableArc<T> {
         Self { pointer }
     }
 
+    /// Tests whether two `PinnedPagableArc`s point to the same allocation.
+    ///
+    /// Returns `true` if both arcs point to the same underlying data.
+    pub fn ptr_eq(left: &Self, right: &Self) -> bool {
+        triomphe::Arc::ptr_eq(&left.pointer, &right.pointer)
+    }
+
     /// Converts this pinned reference into a `PagableArc`.
     ///
     /// The returned `PagableArc` starts in the pinned state (keeping the data in memory).
@@ -686,7 +693,7 @@ impl<T> PagableArcInnerData<T> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, gazebo::variants::VariantName)]
 enum PagableArcInnerState<T> {
     Pinned(std::sync::Arc<T>),
     Unpinned(std::sync::Arc<T>),
