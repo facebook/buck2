@@ -25,8 +25,7 @@ import java.util.concurrent.TimeUnit
  * timeout period. When a test times out, it notifies the XML listener via testFailed/testEnded
  * callbacks and then calls System.exit(1) to terminate the JVM.
  *
- * The timeout is configured via system properties:
- * - android.per.test.timeout.multiplier: Multiplier for the default 60-second timeout
+ * The timeout is configured via environment variables defined in [InstrumentationTestRunner].
  */
 class InstrumentationTimeoutEnforcingRunListener(private val xmlListener: ITestRunListener) :
     ITestRunListener {
@@ -88,8 +87,8 @@ class InstrumentationTimeoutEnforcingRunListener(private val xmlListener: ITestR
   }
 
   private fun getTimeout(): Long {
-    val buckMultiplierProperty = System.getProperty("android.per.test.timeout.multiplier")
-    val multiplier = buckMultiplierProperty?.toIntOrNull()?.coerceAtLeast(1) ?: 1
+    val buckMultiplierEnv = System.getenv("ANDROID_PER_TEST_TIMEOUT_MULTIPLIER")
+    val multiplier = buckMultiplierEnv?.toIntOrNull()?.coerceAtLeast(1) ?: 1
 
     return DEFAULT_TIMEOUT_MS * multiplier
   }

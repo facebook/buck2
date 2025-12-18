@@ -81,6 +81,12 @@ public class InstrumentationTestRunner extends DeviceRunner {
       "TEST_RESULT_APP_SCOPED_ARTIFACT_ANNOTATIONS_DIR";
   private static final String FORWARDABLE_ENV_PREFIX = "AIT_";
 
+  /** Env var to enable per-test timeout enforcement. */
+  static final String PER_TEST_TIMEOUT_ENABLED_ENV = "ANDROID_PER_TEST_TIMEOUT_ENABLED";
+
+  /** Env var to set the timeout multiplier for long-running tests. */
+  static final String PER_TEST_TIMEOUT_MULTIPLIER_ENV = "ANDROID_PER_TEST_TIMEOUT_MULTIPLIER";
+
   private static final String INSTRUMENTATION_TEST_DEFAULT_ARTIFACTS_DIR_TEMPLATE =
       "/sdcard/test_result/%s/%s/";
   private static final String INSTRUMENTATION_TEST_DEFAULT_ARTIFACTS_FILE_TEMPLATE =
@@ -780,6 +786,11 @@ public class InstrumentationTestRunner extends DeviceRunner {
       }
       listeners.add(trimLineListener);
       listeners.add(buckXmlListener);
+
+      // Add timeout enforcement listener if enabled
+      if ("true".equals(System.getenv(PER_TEST_TIMEOUT_ENABLED_ENV))) {
+        listeners.add(new InstrumentationTimeoutEnforcingRunListener(buckXmlListener));
+      }
 
       Optional<TestResultsOutputSender> testResultsOutputSender =
           TestResultsOutputSender.fromDefaultEnvName();
