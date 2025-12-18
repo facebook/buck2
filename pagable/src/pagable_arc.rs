@@ -135,7 +135,6 @@ use crate::arc_erase::ArcEraseType;
 use crate::arc_erase::StdArcEraseType;
 use crate::storage::DataKey;
 use crate::storage::OptionalDataKey;
-use crate::storage::PagableEraseDyn;
 use crate::storage::PagableStorage;
 use crate::storage::PagableStorageHandle;
 
@@ -440,6 +439,10 @@ impl<T: Pagable> PagableArc<T> {
         self.pointer.get_data_key()
     }
 
+    pub(crate) fn set_data_key(&self, key: DataKey) {
+        self.pointer.set_data_key(key);
+    }
+
     /// Returns the number of pinned references to the underlying data.
     /// This is the count of `PagableArc` instances in the `Pinned` state,
     /// plus any `PinnedPagableArc` instances. Used for testing and debugging.
@@ -626,16 +629,6 @@ struct PagableArcInner<T> {
     lock: Mutex<()>,
     data: UnsafeCell<PagableArcInnerData<T>>,
     storage: PagableStorageHandle,
-}
-
-impl<T: Pagable> PagableEraseDyn for PagableArc<T> {
-    fn as_arc_erase_dyn(&self) -> &dyn ArcEraseDyn {
-        self
-    }
-
-    fn write_to_storage(&self, serializer: &mut dyn PagableStorage) -> anyhow::Result<()> {
-        Ok(())
-    }
 }
 
 unsafe impl<T> Sync for PagableArcInner<T> {}
@@ -838,8 +831,7 @@ impl<T: Pagable> PagableArcInner<T> {
         {
             let _lock = self.lock.lock();
             let data = unsafe { &mut *self.data.get() };
-            let needs_paging_in = data.try_pin();
-            if !needs_paging_in {
+            if data.try_pin() {
                 self.pinned_count.fetch_add(1, Ordering::Relaxed);
                 return true;
             }
@@ -891,6 +883,18 @@ impl<T: Pagable> PagableArcInner<T> {
         unsafe { &*self.data.get() }.key
     }
 
+    pub(crate) fn set_data_key(&self, key: DataKey) {
+        let _lock = self.lock.lock();
+        let mut data = unsafe { &mut *self.data.get() };
+        data.key = key.into();
+        take_mut::take(&mut data.value, |v| match v {
+            PagableArcInnerState::Unpinned(_) | PagableArcInnerState::PagedOut => {
+                PagableArcInnerState::PagedOut
+            }
+            v => v,
+        });
+    }
+
     /// Returns the current pinned reference count. This count represents the number
     /// of `PagableArc` instances in `Pinned` state plus any `PinnedPagableArc` instances.
     pub(crate) fn pinned_count(&self) -> usize {
@@ -933,6 +937,14 @@ impl<T: Pagable> ArcErase for PagableArc<T> {
 
     fn downgrade(&self) -> Option<Self::Weak> {
         None
+    }
+
+    fn set_data_key(&self, k: DataKey) {
+        self.set_data_key(k);
+    }
+
+    fn needs_paging_out(&self) -> bool {
+        self.get_data_key().is_none()
     }
 
     fn serialize_inner<S: PagableSerializer>(&self, ser: &mut S) -> anyhow::Result<()> {

@@ -144,25 +144,6 @@ pub trait PagableStorage: Send + Sync + 'static {
 
 static_assertions::assert_obj_safe!(PagableStorage);
 
-/// Trait for types that can be type-erased for paging operations.
-///
-/// This trait allows [`PagableArc`](crate::PagableArc) instances to be passed to
-/// storage backends without knowing their concrete type, enabling the storage
-/// to serialize them when memory pressure requires eviction.
-pub trait PagableEraseDyn: Send + Sync + 'static {
-    /// Returns a reference to the underlying Arc as a type-erased trait object.
-    fn as_arc_erase_dyn(&self) -> &dyn ArcEraseDyn;
-
-    /// Writes this data to the provided storage backend.
-    ///
-    /// # Arguments
-    ///
-    /// * `storage` - The storage backend to write to
-    fn write_to_storage(&self, storage: &mut dyn PagableStorage) -> anyhow::Result<()>;
-}
-
-static_assertions::assert_obj_safe!(PagableEraseDyn);
-
 /// Handle for interacting with pagable storage.
 ///
 /// This is a typed wrapper around the `PagableStorage` trait object that provides
@@ -192,5 +173,9 @@ impl PagableStorageHandle {
     /// Creates a new handle wrapping the given storage implementation.
     pub(crate) fn new(backing_storage: std::sync::Arc<dyn PagableStorage>) -> Self {
         Self { backing_storage }
+    }
+
+    pub(crate) fn backing_storage(&self) -> &dyn PagableStorage {
+        &*self.backing_storage
     }
 }

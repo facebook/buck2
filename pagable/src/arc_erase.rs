@@ -27,6 +27,7 @@ use crate::PagableDeserialize;
 use crate::PagableDeserializer;
 use crate::PagableSerialize;
 use crate::PagableSerializer;
+use crate::storage::DataKey;
 
 /// Object-safe trait for type-erased Arc handling.
 ///
@@ -48,6 +49,19 @@ pub trait ArcEraseDyn: std::fmt::Debug + std::any::Any + Send + Sync + 'static {
     fn clone_dyn(&self) -> Box<dyn ArcEraseDyn>;
 
     fn downgrade(&self) -> Option<Box<dyn WeakEraseDyn>>;
+
+    /// Associates this arc with a storage key.
+    ///
+    /// For pagable arcs, this marks the arc as paged out and associates it with
+    /// the given key for future retrieval. For non-pagable arcs (e.g., `std::sync::Arc`),
+    /// this is a no-op.
+    fn set_data_key(&self, k: DataKey);
+
+    /// Returns true if this arc needs to be written to storage.
+    ///
+    /// For pagable arcs, returns true if the arc doesn't have a storage key yet.
+    /// For non-pagable arcs, always returns false.
+    fn needs_paging_out(&self) -> bool;
 }
 static_assertions::assert_obj_safe!(ArcEraseDyn);
 
@@ -70,6 +84,14 @@ impl<T: ArcErase> ArcEraseDyn for T {
 
     fn downgrade(&self) -> Option<Box<dyn WeakEraseDyn>> {
         ArcErase::downgrade(self).map(|w| Box::new(w) as Box<dyn WeakEraseDyn>)
+    }
+
+    fn set_data_key(&self, k: DataKey) {
+        ArcErase::set_data_key(self, k)
+    }
+
+    fn needs_paging_out(&self) -> bool {
+        ArcErase::needs_paging_out(self)
     }
 }
 
@@ -135,6 +157,23 @@ pub trait ArcErase: std::fmt::Debug + std::any::Any + Sized + Send + Sync + 'sta
     }
     fn erase_type() -> impl ArcEraseType;
     fn identity(&self) -> usize;
+
+    /// Associates this arc with a storage key.
+    ///
+    /// For pagable arcs, this marks the arc as paged out and associates it with
+    /// the given key for future retrieval. For non-pagable arcs (e.g., `std::sync::Arc`),
+    /// this is a no-op.
+    fn set_data_key(&self, _k: DataKey) {
+        // no-op
+    }
+
+    /// Returns true if this arc needs to be written to storage.
+    ///
+    /// For pagable arcs, returns true if the arc doesn't have a storage key yet.
+    /// For non-pagable arcs, always returns false.
+    fn needs_paging_out(&self) -> bool {
+        false
+    }
 
     fn serialize_inner<S: PagableSerializer>(&self, ser: &mut S) -> crate::Result<()>;
     fn deserialize_inner<'de, D: PagableDeserializer<'de>>(deser: &mut D) -> crate::Result<Self>;
