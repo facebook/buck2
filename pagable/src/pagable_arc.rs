@@ -134,6 +134,7 @@ use crate::arc_erase::ArcEraseDyn;
 use crate::arc_erase::ArcEraseType;
 use crate::arc_erase::StdArcEraseType;
 use crate::storage::DataKey;
+use crate::storage::OptionalDataKey;
 use crate::storage::PagableEraseDyn;
 use crate::storage::PagableStorage;
 use crate::storage::PagableStorageHandle;
@@ -432,7 +433,7 @@ impl<T: Pagable> PagableArc<T> {
         self.pointer.is_paged_out()
     }
 
-    pub(crate) fn get_data_key(&self) -> Option<DataKey> {
+    pub(crate) fn get_data_key(&self) -> OptionalDataKey {
         self.pointer.get_data_key()
     }
 
@@ -634,21 +635,21 @@ impl<T: std::fmt::Debug> std::fmt::Debug for PagableArcInner<T> {
 
 #[derive(Debug)]
 struct PagableArcInnerData<T> {
-    key: Option<DataKey>,
+    key: OptionalDataKey,
     value: PagableArcInnerState<T>,
 }
 
 impl<T> PagableArcInnerData<T> {
     fn new_paged_out(key: &DataKey) -> Self {
         Self {
-            key: Some(*key),
+            key: (*key).into(),
             value: PagableArcInnerState::PagedOut,
         }
     }
 
     fn new_pinned(value: std::sync::Arc<T>) -> Self {
         Self {
-            key: None,
+            key: OptionalDataKey::None,
             value: PagableArcInnerState::Pinned(value),
         }
     }
@@ -874,7 +875,7 @@ impl<T: Pagable> PagableArcInner<T> {
         }
     }
 
-    pub(crate) fn get_data_key(&self) -> Option<DataKey> {
+    pub(crate) fn get_data_key(&self) -> OptionalDataKey {
         let _lock = self.lock.lock();
         unsafe { &*self.data.get() }.key
     }

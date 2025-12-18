@@ -12,6 +12,7 @@ rust_library(
         "fbsource//third-party/rust:anyhow",
         "fbsource//third-party/rust:async-trait",
         "fbsource//third-party/rust:blake3",
+        "fbsource//third-party/rust:bytemuck",
         "fbsource//third-party/rust:either",
         "fbsource//third-party/rust:parking_lot",
         "fbsource//third-party/rust:postcard",

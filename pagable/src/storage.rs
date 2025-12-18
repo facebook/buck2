@@ -27,10 +27,59 @@ use crate::arc_erase::ArcEraseDyn;
 ///
 /// The 128-bit size provides an extremely low collision probability
 /// (< 1e-15 after 820 billion samples).
-#[derive(Debug, Eq, PartialEq, Clone, Dupe, Copy)]
-pub struct DataKey(NonZeroU128);
+///
+/// The u128 here is morally a NonZeroU128, but this integrates better with bytemuck by using a u128.
+#[derive(
+    Debug,
+    Eq,
+    PartialEq,
+    Clone,
+    Dupe,
+    Copy,
+    Hash,
+    bytemuck::NoUninit,
+    bytemuck::AnyBitPattern
+)]
+#[repr(transparent)]
+pub struct DataKey(u128);
 
-static_assertions::assert_eq_size!(DataKey, Option<DataKey>);
+static_assertions::assert_eq_size!(DataKey, OptionalDataKey);
+
+/// A zero-cost optional representation of [`DataKey`].
+///
+/// This enum provides the same memory layout as `Option<DataKey>` would have if `DataKey`
+/// still used `NonZeroU128` internally, enabling niche optimization. By using an explicit
+/// enum instead of `Option<DataKey>`, we can maintain this optimization while allowing
+/// `DataKey` to use `u128` for bytemuck compatibility.
+#[derive(Debug, Clone, Copy, Hash)]
+pub enum OptionalDataKey {
+    None,
+    Some(NonZeroU128),
+}
+
+impl OptionalDataKey {
+    pub fn unwrap(&self) -> DataKey {
+        match self {
+            Self::Some(nz) => DataKey(nz.get()),
+            Self::None => panic!("unwrap called on None"),
+        }
+    }
+
+    pub fn is_some(&self) -> bool {
+        matches!(self, Self::Some(_))
+    }
+
+    pub fn is_none(&self) -> bool {
+        matches!(self, Self::None)
+    }
+}
+
+impl From<DataKey> for OptionalDataKey {
+    fn from(key: DataKey) -> Self {
+        // SAFETY: DataKey should never be zero (it's morally a NonZeroU128)
+        Self::Some(NonZeroU128::new(key.0).expect("DataKey should never be zero"))
+    }
+}
 
 /// Trait for storage backends that can persist and retrieve paged-out data.
 ///

@@ -10,6 +10,7 @@ allocative = { workspace = true }
 anyhow = { workspace = true }
 async-trait = { workspace = true }
 blake3 = { workspace = true }
+bytemuck = { workspace = true }
 dupe = { workspace = true }
 either = { workspace = true }
 pagable_derive = { workspace = true }
