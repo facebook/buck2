@@ -28,6 +28,7 @@ AndroidToolchainInfo = provider(
         "bundle_apks_builder": provider_field(typing.Any, default = None),
         "bundle_builder": provider_field(typing.Any, default = None),
         "combine_native_library_dirs": provider_field(typing.Any, default = None),
+        "consolidate_class_names": provider_field(typing.Any, default = None),
         "copy_string_resources": provider_field(typing.Any, default = None),
         "cross_module_native_deps_check": provider_field(typing.Any, default = None),
         "d8_command": provider_field(typing.Any, default = None),

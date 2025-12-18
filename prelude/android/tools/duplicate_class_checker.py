@@ -36,19 +36,29 @@ def main() -> None:
         required=True,
     )
     parser.add_argument(
+        "--consolidated-files-list",
+        type=Path,
+        help="A file containing a list of consolidated JSON files (one path per line).",
+        required=False,
+    )
+    parser.add_argument(
         "--mode",
         type=str,
-        choices=["pre-dexed-libs", "non-pre-dexed-jars"],
+        choices=["pre-dexed-libs", "pre-dexed-libs-consolidated", "non-pre-dexed-jars"],
         required=True,
     )
     args = parser.parse_args()
 
     if args.mode == "pre-dexed-libs":
-        target_to_class_names_map = get_class_to_target_mapping(
+        class_to_targets_map = get_class_to_target_mapping(
             args.target_name_to_class_names_map_file
         )
+    elif args.mode == "pre-dexed-libs-consolidated":
+        class_to_targets_map = get_class_to_target_mapping_from_consolidated_files(
+            args.consolidated_files_list
+        )
     elif args.mode == "non-pre-dexed-jars":
-        target_to_class_names_map = get_class_to_target_mapping_from_jars(
+        class_to_targets_map = get_class_to_target_mapping_from_jars(
             args.jar_to_owning_target_map_file
         )
     else:
@@ -56,7 +66,7 @@ def main() -> None:
 
     duplicate_classes = {
         class_name: target_name_list
-        for class_name, target_name_list in target_to_class_names_map.items()
+        for class_name, target_name_list in class_to_targets_map.items()
         if len(target_name_list) > 1
     }
 
@@ -67,6 +77,42 @@ def main() -> None:
         with open(args.validation_output, "w") as f:
             f.write("No duplicate class names found")
         sys.exit(0)
+
+
+def get_class_to_target_mapping_from_consolidated_files(
+    consolidated_files_list: Path,
+) -> Dict[str, List[str]]:
+    """
+    Reads consolidated JSON files and builds a mapping from class names to targets.
+
+    Each consolidated file is a JSON object mapping target names to lists of class names.
+    This is much faster than reading individual files because:
+    1. Fewer files to open (32 batches instead of 40K+ files)
+    2. Consolidated files are already in the optimal format
+
+    Note: Batch-level duplicate detection is already done in consolidate_class_names.py,
+    so duplicates within a single batch will fail fast at consolidation time.
+    This function only needs to detect cross-batch duplicates.
+    """
+    # Read the list of consolidated files
+    with open(consolidated_files_list) as f:
+        consolidated_files = [line.strip() for line in f if line.strip()]
+
+    class_to_target_mapping: Dict[str, List[str]] = {}
+
+    # Read each consolidated file and merge the results
+    for consolidated_file in consolidated_files:
+        with open(consolidated_file) as f:
+            target_to_classes: Dict[str, List[str]] = json.load(f)
+
+        for target_name, class_names in target_to_classes.items():
+            for class_name in class_names:
+                if "$" not in class_name and "module-info" not in class_name:
+                    class_to_target_mapping.setdefault(class_name, []).append(
+                        target_name
+                    )
+
+    return class_to_target_mapping
 
 
 def get_class_to_target_mapping_from_jars(
@@ -80,7 +126,7 @@ def get_class_to_target_mapping_from_jars(
     with open(jar_to_owning_target_map_file) as f:
         target_to_jar_file_map = json.loads(f.read())
 
-    class_to_target_mapping = {}
+    class_to_target_mapping: Dict[str, List[str]] = {}
     for jar_path, target_name in target_to_jar_file_map.items():
         class_names = extract_class_names_from_jar(jar_path)
         for class_name in class_names:
@@ -112,14 +158,16 @@ def get_class_to_target_mapping(
     with open(target_name_to_class_names_map_file) as f:
         target_to_class_name_file_map = json.loads(f.read())
 
-    class_to_target_mapping = {}
+    class_to_target_mapping: Dict[str, List[str]] = {}
+
     for target_name, path in target_to_class_name_file_map.items():
         with open(path) as f:
-            class_names = f.readlines()
-            for class_name in class_names:
-                if "$" in class_name or "module-info" in class_name:
-                    continue
-                class_to_target_mapping.setdefault(class_name, []).append(target_name)
+            # Use read().splitlines() instead of readlines() to avoid trailing newlines
+            for class_name in f.read().splitlines():
+                if "$" not in class_name and "module-info" not in class_name:
+                    class_to_target_mapping.setdefault(class_name, []).append(
+                        target_name
+                    )
 
     return class_to_target_mapping
 

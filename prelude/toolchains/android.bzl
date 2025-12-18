@@ -72,6 +72,7 @@ def system_android_toolchain(
     kwargs["bundle_apks_builder"] = "prelude//toolchains/android/src/com/facebook/buck/android/bundle:bundle_apks_builder_binary"
     kwargs["bundle_builder"] = "prelude//toolchains/android/src/com/facebook/buck/android/bundle:bundle_builder_binary"
     kwargs["combine_native_library_dirs"] = "prelude//android/tools:combine_native_library_dirs"
+    kwargs["consolidate_class_names"] = "prelude//android/tools:consolidate_class_names"
     kwargs["copy_string_resources"] = "prelude//toolchains/android/src/com/facebook/buck/android/resources/strings:copy_string_resources_binary"
     kwargs["cross_module_native_deps_check"] = True
     kwargs["d8_command"] = "prelude//toolchains/android/src/com/facebook/buck/android/dex:run_d8_binary"
@@ -149,6 +150,7 @@ def system_android_toolchain_rule_impl(ctx):
             bundle_apks_builder = ctx.attrs.bundle_apks_builder,
             bundle_builder = ctx.attrs.bundle_builder,
             combine_native_library_dirs = ctx.attrs.combine_native_library_dirs,
+            consolidate_class_names = ctx.attrs.consolidate_class_names,
             copy_string_resources = ctx.attrs.copy_string_resources,
             cross_module_native_deps_check = ctx.attrs.cross_module_native_deps_check,
             d8_command = ctx.attrs.d8_command,
@@ -206,6 +208,7 @@ system_android_toolchain_rule = rule(
         "bundle_apks_builder": attrs.dep(providers = [RunInfo]),
         "bundle_builder": attrs.dep(providers = [RunInfo]),
         "combine_native_library_dirs": attrs.dep(providers = [RunInfo]),
+        "consolidate_class_names": attrs.option(attrs.dep(providers = [RunInfo]), default = None),
         "copy_string_resources": attrs.dep(providers = [RunInfo]),
         "cross_module_native_deps_check": attrs.bool(),
         "d8_command": attrs.dep(providers = [RunInfo]),
