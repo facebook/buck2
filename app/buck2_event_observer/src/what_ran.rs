@@ -405,21 +405,29 @@ pub fn worker_command_as_fallback_to_string(command: &buck2_data::WorkerCommand)
 }
 
 pub fn command_to_string<'a>(command: impl Into<Command<'a>>) -> String {
+    // TODO: the `env` command and `shlex` quoting below is POSIX-specific. How can we best support windows?
     let command = command.into();
-    let mut cmd = vec![];
+    let mut cmd = "env --chdir=\"$(buck2 root --kind project)\" --".to_owned();
 
-    if !command.env.is_empty() {
-        cmd.push(Cow::Borrowed("env"));
-        cmd.push(Cow::Borrowed("--"));
-        for entry in command.env.iter() {
-            cmd.push(Cow::Owned(format!("{}={}", entry.key, entry.value)))
-        }
+    for entry in command.env.iter() {
+        cmd.push(' ');
+        cmd.push_str(
+            shlex::try_quote(format!("{}={}", entry.key, entry.value).as_ref())
+                .expect("Null byte unexpected")
+                .as_ref(),
+        );
     }
 
     for arg in command.argv.iter() {
-        cmd.push(Cow::Borrowed(arg));
+        cmd.push(' ');
+        cmd.push_str(
+            shlex::try_quote(arg)
+                .expect("Null byte unexpected")
+                .as_ref(),
+        );
     }
-    shlex::try_join(cmd.iter().map(|e| e.as_ref())).expect("Null byte unexpected")
+
+    cmd
 }
 
 impl WhatRanOutputWriter for SuperConsole {
