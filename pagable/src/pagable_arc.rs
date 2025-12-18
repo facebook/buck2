@@ -930,3 +930,52 @@ impl<T: Pagable> ArcErase for PagableArc<T> {
         ))
     }
 }
+
+impl<T: Pagable> PagableSerialize for PinnedPagableArc<T> {
+    fn pagable_serialize<S: PagableSerializer>(&self, serializer: &mut S) -> anyhow::Result<()> {
+        serializer.serialize_arc(self.dupe())
+    }
+}
+
+impl<'de, T: Pagable> PagableDeserialize<'de> for PinnedPagableArc<T> {
+    fn pagable_deserialize<D: PagableDeserializer<'de>>(
+        deserializer: &mut D,
+    ) -> crate::Result<Self> {
+        deserializer.deserialize_arc::<Self>()
+    }
+}
+
+impl<T: Pagable> ArcErase for PinnedPagableArc<T> {
+    type Weak = ();
+
+    fn dupe_strong(&self) -> Self {
+        self.dupe()
+    }
+
+    fn upgrade_weak(weak: &Self::Weak) -> Option<Self> {
+        None
+    }
+
+    fn erase_type() -> impl ArcEraseType {
+        StdArcEraseType::<Self>::new()
+    }
+
+    fn identity(&self) -> usize {
+        self.pointer.as_ptr() as usize
+    }
+
+    fn downgrade(&self) -> Option<Self::Weak> {
+        None
+    }
+
+    fn serialize_inner<S: PagableSerializer>(&self, ser: &mut S) -> anyhow::Result<()> {
+        <T as PagableSerialize>::pagable_serialize(self, ser)
+    }
+
+    fn deserialize_inner<'de, D: PagableDeserializer<'de>>(deser: &mut D) -> anyhow::Result<Self> {
+        Ok(Self::new(
+            <T as PagableDeserialize>::pagable_deserialize(deser)?,
+            deser.storage().dupe(),
+        ))
+    }
+}
