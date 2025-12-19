@@ -286,10 +286,6 @@ def _prebuilt_cxx_library_macro_stub(
         versioned_exported_preprocessor_flags = None,
         exported_lang_preprocessor_flags = None,
         versioned_exported_lang_preprocessor_flags = None,
-        exported_platform_preprocessor_flags = None,
-        versioned_exported_platform_preprocessor_flags = None,
-        exported_lang_platform_preprocessor_flags = None,
-        versioned_exported_lang_platform_preprocessor_flags = None,
         static_lib = None,
         versioned_static_lib = None,
         static_pic_lib = None,
@@ -307,14 +303,6 @@ def _prebuilt_cxx_library_macro_stub(
         exported_lang_preprocessor_flags = _concat(
             exported_lang_preprocessor_flags,
             _versioned_param_to_select(versioned_exported_lang_preprocessor_flags),
-        ),
-        exported_platform_preprocessor_flags = _concat(
-            exported_platform_preprocessor_flags,
-            _versioned_param_to_select(versioned_exported_platform_preprocessor_flags),
-        ),
-        exported_lang_platform_preprocessor_flags = _concat(
-            exported_lang_platform_preprocessor_flags,
-            _versioned_param_to_select(versioned_exported_lang_platform_preprocessor_flags),
         ),
         static_lib = selects.apply_n(
             [static_lib, selects.apply(versioned_static_lib, _versioned_param_to_select)],
