@@ -13,6 +13,8 @@ use std::sync::Arc;
 use allocative::Allocative;
 use buck2_core::configuration::transition::id::TransitionId;
 use buck2_core::plugins::PluginKind;
+use buck2_util::hash::BuckHasher;
+use static_interner::interner;
 
 use crate::attrs::spec::AttributeSpec;
 use crate::nodes::unconfigured::RuleKind;
@@ -41,3 +43,5 @@ pub struct Rule {
     /// The plugin kinds that are used by the target
     pub uses_plugins: Vec<PluginKind>,
 }
+
+interner!(INTERNER, BuckHasher, Rule);

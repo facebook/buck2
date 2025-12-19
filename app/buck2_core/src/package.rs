@@ -56,7 +56,7 @@ use equivalent::Equivalent;
 use serde::Serialize;
 use serde::Serializer;
 use static_interner::Intern;
-use static_interner::Interner;
+use static_interner::interner;
 use strong_hash::StrongHash;
 
 use crate::cells::cell_path::CellPath;
@@ -134,7 +134,7 @@ impl Equivalent<PackageLabelData> for PackageLabelDataRef<'_> {
     }
 }
 
-static INTERNER: Interner<PackageLabelData, BuckHasher> = Interner::new();
+interner!(INTERNER, BuckHasher, PackageLabelData);
 
 impl PackageLabel {
     #[inline]

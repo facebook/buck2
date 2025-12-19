@@ -23,7 +23,7 @@ use serde::Serialize;
 use serde::Serializer;
 use static_interner::Intern;
 use static_interner::InternDisposition;
-use static_interner::Interner;
+use static_interner::interner;
 use strong_hash::StrongHash;
 
 use crate::configuration::bound_id::BoundConfigurationId;
@@ -121,7 +121,7 @@ impl Equivalent<HashedConfigurationPlatform> for ConfigurationHashRef<'_> {
     }
 }
 
-static INTERNER: Interner<HashedConfigurationPlatform, BuckHasher> = Interner::new();
+interner!(INTERNER, BuckHasher, HashedConfigurationPlatform);
 
 impl ConfigurationData {
     /// Produces a "bound" configuration for a platform. The label should be a unique identifier for the data.

@@ -17,7 +17,7 @@ use dupe::Dupe;
 use starlark_map::ordered_map::OrderedMap;
 use starlark_map::small_map::Entry;
 use static_interner::Intern;
-use static_interner::Interner;
+use static_interner::interner;
 
 use crate::cells::cell_path::CellPath;
 use crate::target::label::label::TargetLabel;
@@ -64,7 +64,7 @@ impl<'a> From<&'a PluginKindInner> for PluginKindInner {
 )]
 pub struct PluginKind(Intern<PluginKindInner>);
 
-static PLUGIN_KIND_INTERNER: Interner<PluginKindInner, BuckHasher> = Interner::new();
+interner!(PLUGIN_KIND_INTERNER, BuckHasher, PluginKindInner);
 
 impl PluginKind {
     /// Creates a new `PluginKind` instance.
@@ -106,13 +106,32 @@ pub struct PluginKindSet(*const ());
 enum PluginKindSetUnpacked {
     None,
     All,
-    Interned(Intern<Vec<(PluginKind, bool)>>),
+    Interned(Intern<PluginKindSetData>),
 }
+
+#[derive(
+    Clone,
+    Debug,
+    Eq,
+    PartialEq,
+    Hash,
+    Ord,
+    PartialOrd,
+    Allocative,
+    strong_hash::StrongHash
+)]
+struct PluginKindSetData(Vec<(PluginKind, bool)>);
 
 static_assertions::assert_eq_size!(PluginKindSet, usize);
 static_assertions::assert_eq_size!(PluginKindSetUnpacked, [usize; 2]);
 
-static PLUGIN_KIND_SET_INTERNER: Interner<Vec<(PluginKind, bool)>, BuckHasher> = Interner::new();
+interner!(
+    PLUGIN_KIND_SET_INTERNER,
+    BuckHasher,
+    PluginKindSetData,
+    Vec<(PluginKind, bool)>,
+    [(PluginKind, bool)]
+);
 
 impl PluginKindSet {
     pub const EMPTY: Self = Self::pack(PluginKindSetUnpacked::None);
@@ -136,7 +155,7 @@ impl PluginKindSet {
         let kinds = kinds.into_iter().collect::<Vec<_>>();
 
         Ok(Self::pack(PluginKindSetUnpacked::Interned(
-            PLUGIN_KIND_SET_INTERNER.intern(kinds),
+            PLUGIN_KIND_SET_INTERNER.intern(PluginKindSetData(kinds)),
         )))
     }
 

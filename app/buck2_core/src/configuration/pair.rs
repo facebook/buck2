@@ -13,7 +13,7 @@ use buck2_util::hash::BuckHasher;
 use dupe::Dupe;
 use once_cell::sync::Lazy;
 use static_interner::Intern;
-use static_interner::Interner;
+use static_interner::interner;
 use strong_hash::StrongHash;
 
 use crate::configuration::data::ConfigurationData;
@@ -39,7 +39,7 @@ struct ConfigurationPairData {
 )]
 pub struct Configuration(Intern<ConfigurationPairData>);
 
-static INTERNER: Interner<ConfigurationPairData, BuckHasher> = Interner::new();
+interner!(INTERNER, BuckHasher, ConfigurationPairData);
 
 impl Configuration {
     #[inline]

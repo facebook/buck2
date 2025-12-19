@@ -17,7 +17,7 @@ use derive_more::Display;
 use dupe::Dupe;
 use equivalent::Equivalent;
 use static_interner::Intern;
-use static_interner::Interner;
+use static_interner::interner;
 use strong_hash::StrongHash;
 
 #[derive(Debug, buck2_error::Error)]
@@ -58,7 +58,7 @@ impl<'a> From<CellNameDataRef<'a>> for CellNameData {
     }
 }
 
-static INTERNER: Interner<CellNameData, BuckHasher> = Interner::new();
+interner!(INTERNER, BuckHasher, CellNameData);
 
 /// A 'CellName' is a canonicalized, human-readable name that corresponds to a
 /// 'CellInstance'. There should be a one to one mapping between a 'CellName'

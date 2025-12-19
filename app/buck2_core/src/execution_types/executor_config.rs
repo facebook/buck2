@@ -25,7 +25,7 @@ use once_cell::sync::Lazy;
 use starlark_map::small_map::SmallMap;
 use starlark_map::sorted_map::SortedMap;
 use static_interner::Intern;
-use static_interner::Interner;
+use static_interner::interner;
 
 #[derive(Debug, Eq, Hash, PartialEq, Clone, Dupe, Allocative)]
 pub struct LocalExecutorOptions {
@@ -139,13 +139,23 @@ impl RemoteExecutorDependency {
     }
 }
 
+#[derive(Clone, Debug, Display, Eq, PartialEq, Hash, Allocative)]
+struct RemoteExecutorUseCaseData(String);
+
+interner!(
+    USE_CASE_INTERNER,
+    BuckHasher,
+    RemoteExecutorUseCaseData,
+    String,
+    str
+);
+
 #[derive(Debug, Eq, PartialEq, Copy, Clone, Dupe, Display, Allocative)]
-pub struct RemoteExecutorUseCase(Intern<String>);
+pub struct RemoteExecutorUseCase(Intern<RemoteExecutorUseCaseData>);
 
 impl RemoteExecutorUseCase {
     pub fn new(use_case: String) -> Self {
-        static USE_CASE_INTERNER: Interner<String, BuckHasher> = Interner::new();
-        Self(USE_CASE_INTERNER.intern(use_case))
+        Self(USE_CASE_INTERNER.intern(RemoteExecutorUseCaseData(use_case)))
     }
 
     pub fn as_str(&self) -> &'static str {
