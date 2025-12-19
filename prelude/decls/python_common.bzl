@@ -20,18 +20,6 @@ def _srcs_arg():
 """),
     }
 
-def _platform_srcs_arg():
-    return {
-        "platform_srcs": attrs.list(attrs.tuple(attrs.regex(), attrs.named_set(attrs.source(), sorted = True)), default = [], doc = """
-    Python-platform-specific source files. These should be specified as a
-     list of pairs where the first element in each pair is an un-anchored
-     regex against which the platform name is matched, and the second element
-     is a list of source files. The regex should use `java.util.regex.Pattern` syntax.
-     The platform name is a Python platform *flavor* defined in
-     the buckconfig#`python` section of `.buckconfig`.
-"""),
-    }
-
 def _resources_arg():
     return {
         "resources": attrs.named_set(attrs.source(), sorted = True, default = [], doc = """
@@ -39,18 +27,6 @@ def _resources_arg():
      These resources can be accessed at runtime using
      the [pkg\\_resources](http://setuptools.readthedocs.io/en/latest/pkg_resources.html) module distributed
      with Python's setuptools.
-"""),
-    }
-
-def _platform_resources_arg():
-    return {
-        "platform_resources": attrs.list(attrs.tuple(attrs.regex(), attrs.named_set(attrs.source(), sorted = True)), default = [], doc = """
-    Python-platform-specific resource files. These should be specified as a
-     list of pairs where the first element in each pair is an un-anchored
-     regex against which the platform name is matched, and the second element
-     is a list of resource files. The regex should use `java.util.regex.Pattern` syntax.
-     The platform name is a Python platform *flavor* defined in
-     the buckconfig#`python `section of `.buckconfig`.
 """),
     }
 
@@ -143,9 +119,7 @@ def _internal_tools_arg():
 
 python_common = struct(
     srcs_arg = _srcs_arg,
-    platform_srcs_arg = _platform_srcs_arg,
     resources_arg = _resources_arg,
-    platform_resources_arg = _platform_resources_arg,
     base_module_arg = _base_module_arg,
     linker_flags_arg = _linker_flags_arg,
     package_style_arg = _package_style_arg,

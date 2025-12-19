@@ -45,7 +45,7 @@ load(
 load("@prelude//python/linking:native.bzl", "process_native_linking")
 load("@prelude//python/linking:native_python_util.bzl", "compute_link_strategy", "merge_native_deps")
 load("@prelude//python/linking:omnibus.bzl", "process_omnibus_linking")
-load("@prelude//utils:utils.bzl", "flatten", "value_or")
+load("@prelude//utils:utils.bzl", "value_or")
 load(":compile.bzl", "compile_manifests")
 load(
     ":interface.bzl",
@@ -72,7 +72,7 @@ load(
 )
 load(":python_runtime_bundle.bzl", "PythonRuntimeBundleInfo")
 load(":source_db.bzl", "create_dbg_source_db", "create_python_source_db_info", "create_source_db_no_deps")
-load(":toolchain.bzl", "NativeLinkStrategy", "PackageStyle", "PythonPlatformInfo", "PythonToolchainInfo", "get_package_style", "get_platform_attr")
+load(":toolchain.bzl", "NativeLinkStrategy", "PackageStyle", "PythonPlatformInfo", "PythonToolchainInfo", "get_package_style")
 load(":typing.bzl", "create_per_target_type_check")
 load(":versions.bzl", "LibraryName", "LibraryVersion", "gather_versioned_dependencies", "resolve_versions")
 
@@ -134,10 +134,6 @@ def python_executable(
     cxx_toolchain = ctx.attrs._cxx_toolchain
 
     raw_deps = ctx.attrs.deps
-
-    raw_deps.extend(flatten(
-        get_platform_attr(python_platform, cxx_toolchain, ctx.attrs.platform_deps),
-    ))
 
     # `preload_deps` is used later to configure `LD_PRELOAD` environment variable,
     # here we make the actual libraries to appear in the distribution.

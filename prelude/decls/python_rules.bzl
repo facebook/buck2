@@ -430,9 +430,6 @@ python_binary = prelude_rule(
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "dummy_omnibus": attrs.option(attrs.dep(), default = None),
             "extension": attrs.option(attrs.string(), default = None),
-            "platform_deps": attrs.list(attrs.tuple(attrs.regex(), attrs.set(attrs.dep(), sorted = True)), default = []),
-            "platform_linker_flags": attrs.list(attrs.tuple(attrs.regex(), attrs.list(attrs.arg(anon_target_compatible = True))), default = []),
-            "platform_preload_deps": attrs.list(attrs.tuple(attrs.regex(), attrs.set(attrs.dep(), sorted = False)), default = []),
             "repl_only_deps": attrs.list(attrs.dep(), default = []),
             "repl_main": attrs.option(attrs.string(), default = None),
             "prefer_stripped_native_objects": attrs.bool(default = False),
@@ -486,9 +483,7 @@ python_library = prelude_rule(
         # @unsorted-dict-items
         buck.labels_arg() |
         python_common.srcs_arg() |
-        python_common.platform_srcs_arg() |
         python_common.resources_arg() |
-        python_common.platform_resources_arg() |
         python_common.base_module_arg() |
         python_common.deps_arg() |
         python_common.exclude_deps_from_merged_linking_arg() |
@@ -496,7 +491,6 @@ python_library = prelude_rule(
         {
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "ignore_compile_errors": attrs.bool(default = False),
-            "platform_deps": attrs.list(attrs.tuple(attrs.regex(), attrs.set(attrs.dep(), sorted = True)), default = []),
             "resources": attrs.named_set(attrs.one_of(attrs.dep(), attrs.source(allow_directory = True)), sorted = True, default = []),
             "type_stubs": attrs.named_set(attrs.source(), sorted = True, default = []),
             "versioned_resources": attrs.option(attrs.versioned(attrs.named_set(attrs.source(), sorted = True)), default = None),
@@ -553,9 +547,7 @@ python_test = prelude_rule(
         {k: attrs.default_only(v) for k, v in cxx_rules.cxx_binary.attrs.items()} |
         buck.inject_test_env_arg() |
         python_common.srcs_arg() |
-        python_common.platform_srcs_arg() |
         python_common.resources_arg() |
-        python_common.platform_resources_arg() |
         python_common.base_module_arg() |
         python_common.exclude_deps_from_merged_linking_arg() |
         {
@@ -604,9 +596,6 @@ python_test = prelude_rule(
             "dummy_omnibus": attrs.option(attrs.dep(), default = None),
             "extension": attrs.option(attrs.string(), default = None),
             "needed_coverage": attrs.list(attrs.tuple(attrs.int(), attrs.dep(), attrs.option(attrs.string())), default = []),
-            "platform_deps": attrs.list(attrs.tuple(attrs.regex(), attrs.set(attrs.dep(), sorted = True)), default = []),
-            "platform_linker_flags": attrs.list(attrs.tuple(attrs.regex(), attrs.list(attrs.arg(anon_target_compatible = True))), default = []),
-            "platform_preload_deps": attrs.list(attrs.tuple(attrs.regex(), attrs.set(attrs.dep(), sorted = False)), default = []),
             "repl_only_deps": attrs.list(attrs.dep(), default = []),
             "repl_main": attrs.option(attrs.string(), default = None),
             "prefer_stripped_native_objects": attrs.bool(default = False),

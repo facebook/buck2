@@ -35,7 +35,6 @@ load(
 )
 load("@prelude//linking:shared_libraries.bzl", "SharedLibraryInfo", "merge_shared_libraries")
 load("@prelude//linking:stamp_build_info.bzl", "PRE_STAMPED_SUFFIX")
-load("@prelude//python:toolchain.bzl", "PythonPlatformInfo", "get_platform_attr")
 load(
     "@prelude//python/linking:native_python_util.bzl",
     "merge_cxx_extension_info",
@@ -50,7 +49,7 @@ load("@prelude//third-party:providers.bzl", "ThirdPartyBuild", "third_party_buil
 load("@prelude//unix:providers.bzl", "UnixEnv", "create_unix_env_info")
 load("@prelude//utils:arglike.bzl", "ArgLike")  # @unused Used as a type
 load("@prelude//utils:expect.bzl", "expect")
-load("@prelude//utils:utils.bzl", "flatten", "from_named_set")
+load("@prelude//utils:utils.bzl", "from_named_set")
 load(":compile.bzl", "PycInvalidationMode", "compile_manifests")
 load(
     ":manifest.bzl",
@@ -223,24 +222,13 @@ def _exclude_deps_from_omnibus(
     return False
 
 def _attr_srcs(ctx: AnalysisContext) -> dict[str, Artifact]:
-    python_platform = ctx.attrs._python_toolchain[PythonPlatformInfo]
-    cxx_toolchain = ctx.attrs._cxx_toolchain
     all_srcs = {}
     all_srcs.update(from_named_set(ctx.attrs.srcs))
-    for srcs in get_platform_attr(python_platform, cxx_toolchain, ctx.attrs.platform_srcs):
-        all_srcs.update(from_named_set(srcs))
     return all_srcs
 
 def _attr_resources(ctx: AnalysisContext) -> dict[str, Artifact | Dependency]:
-    python_platform = ctx.attrs._python_toolchain[PythonPlatformInfo]
-    cxx_toolchain = ctx.attrs._cxx_toolchain
     all_resources = {}
     all_resources.update(from_named_set(ctx.attrs.resources))
-
-    # `python_binary` doesn't have `platform_resources`
-    platform_resources = getattr(ctx.attrs, "platform_resources", [])
-    for resources in get_platform_attr(python_platform, cxx_toolchain, platform_resources):
-        all_resources.update(from_named_set(resources))
     return all_resources
 
 def py_attr_resources(ctx: AnalysisContext) -> (dict[str, ArtifactOutputs], dict[str, ArtifactOutputs]):
@@ -317,9 +305,6 @@ def python_library_impl(ctx: AnalysisContext) -> list[Provider]:
     expect(not ctx.attrs.versioned_srcs)
     expect(not ctx.attrs.versioned_resources)
 
-    python_platform = ctx.attrs._python_toolchain[PythonPlatformInfo]
-    cxx_toolchain = ctx.attrs._cxx_toolchain
-
     providers = []
     sub_targets = {}
 
@@ -345,9 +330,6 @@ def python_library_impl(ctx: AnalysisContext) -> list[Provider]:
         sub_targets["src-manifest"] = [DefaultInfo(default_output = src_manifest.manifest, other_outputs = [a for a, _ in src_manifest.artifacts])]
 
     raw_deps = ctx.attrs.deps
-    raw_deps.extend(flatten(
-        get_platform_attr(python_platform, cxx_toolchain, ctx.attrs.platform_deps),
-    ))
     default_resource_manifest = py_resources(ctx, default_resources) if default_resources else None
     standalone_resource_manifest = py_resources(ctx, standalone_resources, "_standalone") if standalone_resources else None
     deps, shared_libraries = gather_dep_libraries(raw_deps, resolve_versioned_deps = False)

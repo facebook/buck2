@@ -6,9 +6,7 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
-load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxPlatformInfo")
 load("@prelude//utils:arglike.bzl", "ArgLike")
-load("@prelude//utils:platform_flavors_util.bzl", "by_platform")
 load(":manifest.bzl", "ManifestInfo")
 
 # The ways that Python executables handle native linkable dependencies.
@@ -95,23 +93,6 @@ def get_package_style(ctx: AnalysisContext) -> PackageStyle:
     if ctx.attrs.package_style != None:
         return PackageStyle(ctx.attrs.package_style.lower())
     return PackageStyle(ctx.attrs._python_toolchain[PythonToolchainInfo].package_style)
-
-def get_platform_attr(
-        python_platform_info: PythonPlatformInfo,
-        cxx_toolchain: Dependency,
-        xs: list[(str, typing.Any)]) -> list[typing.Any]:
-    """
-    Take a platform_* value, and the non-platform version, and concat into a list
-    of values based on the cxx/python platform
-    """
-    if len(xs) == 0:
-        return []
-    cxx_info = cxx_toolchain.get(CxxPlatformInfo)
-    if cxx_info == None:
-        fail("Cannot use platform attrs in a fat platform configuration")
-    python_platform = python_platform_info.name
-    cxx_platform = cxx_info.name
-    return by_platform([python_platform, cxx_platform], xs)
 
 python = struct(
     PythonToolchainInfo = PythonToolchainInfo,
