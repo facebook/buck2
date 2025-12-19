@@ -708,6 +708,28 @@ impl DetailedCriticalPath {
         Self { entries }
     }
 
+    fn create_critical_path_entry2(
+        entry: buck2_data::critical_path_entry2::Entry,
+        data: NodeData,
+        potential_improvement: Option<Duration>,
+    ) -> buck2_error::Result<buck2_data::CriticalPathEntry2> {
+        Ok(buck2_data::CriticalPathEntry2 {
+            span_ids: data
+                .span_ids
+                .iter()
+                .map(|span_id| (*span_id).into())
+                .collect(),
+            duration: Some(data.duration.critical_path_duration().try_into()?),
+            user_duration: Some(data.duration.user.try_into()?),
+            queue_duration: data.duration.queue.map(|d| d.try_into()).transpose()?,
+            total_duration: Some(data.duration.total.duration().try_into()?),
+            potential_improvement_duration: potential_improvement
+                .map(|p| p.try_into())
+                .transpose()?,
+            entry: Some(entry),
+        })
+    }
+
     fn into_critical_path_proto(
         self,
         early_command_entries: impl Iterator<
@@ -806,21 +828,7 @@ impl DetailedCriticalPath {
             .chain(critical_path_iter)
             .chain(std::iter::once(compute_critical_path_entry))
             .map(|(entry, data, potential_improvement)| {
-                buck2_error::Ok(buck2_data::CriticalPathEntry2 {
-                    span_ids: data
-                        .span_ids
-                        .iter()
-                        .map(|span_id| (*span_id).into())
-                        .collect(),
-                    duration: Some(data.duration.critical_path_duration().try_into()?),
-                    user_duration: Some(data.duration.user.try_into()?),
-                    queue_duration: data.duration.queue.map(|d| d.try_into()).transpose()?,
-                    total_duration: Some(data.duration.total.duration().try_into()?),
-                    potential_improvement_duration: potential_improvement
-                        .map(|p| p.try_into())
-                        .transpose()?,
-                    entry: Some(entry),
-                })
+                Self::create_critical_path_entry2(entry, data, potential_improvement)
             })
             .collect::<Result<Vec<_>, _>>()
     }
