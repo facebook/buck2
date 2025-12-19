@@ -112,8 +112,6 @@ pub struct RetryFuture(
 pub mod action_cgroups {
     use std::time::Duration;
 
-    use buck2_events::dispatch::EventDispatcher;
-
     use crate::CommandType;
     use crate::RetryFuture;
     use crate::memory_tracker::MemoryTrackerHandle;
