@@ -53,7 +53,6 @@ use buck2_events::span::SpanId;
 use buck2_interpreter_for_build::interpreter::calculation::InterpreterResultsKey;
 use buck2_interpreter_for_build::interpreter::calculation::InterpreterResultsKeyActivationData;
 use buck2_node::nodes::eval_result::EvaluationResult;
-use buck2_util::time_span::TimeSpan;
 use dice::ActivationData;
 use dice::ActivationTracker;
 use dice::DynKey;
@@ -796,6 +795,22 @@ impl DetailedCriticalPath {
         })
     }
 
+    fn create_simple_critical_path_entry2(
+        entry: buck2_data::critical_path_entry2::Entry,
+        duration: Duration,
+    ) -> buck2_error::Result<buck2_data::CriticalPathEntry2> {
+        let duration: prost_types::Duration = duration.try_into()?;
+        Ok(buck2_data::CriticalPathEntry2 {
+            span_ids: Vec::new(),
+            duration: Some(duration.clone()),
+            user_duration: Some(Duration::ZERO.try_into()?),
+            queue_duration: None,
+            total_duration: Some(duration.clone()),
+            potential_improvement_duration: Some(duration),
+            entry: Some(entry),
+        })
+    }
+
     fn into_critical_path_proto(
         self,
         early_command_entries: impl Iterator<
@@ -829,23 +844,10 @@ impl DetailedCriticalPath {
         }
 
         let elapsed_compute_critical_path = Instant::now() - critical_path_compute_start;
-        push(
+        entries.push(Self::create_simple_critical_path_entry2(
             buck2_data::critical_path_entry2::ComputeCriticalPath {}.into(),
-            NodeData {
-                action_node_data: None,
-                duration: NodeDuration {
-                    user: Duration::ZERO,
-                    total: TimeSpan::from_start_and_duration(
-                        critical_path_compute_start,
-                        elapsed_compute_critical_path,
-                    ),
-                    queue: None,
-                },
-                span_ids: Default::default(),
-            },
-            Some(elapsed_compute_critical_path),
-        )?;
-
+            elapsed_compute_critical_path,
+        )?);
         Ok(entries)
     }
 }
