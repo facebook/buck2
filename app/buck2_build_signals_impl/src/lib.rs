@@ -807,43 +807,46 @@ impl DetailedCriticalPath {
         >,
         critical_path_compute_start: Instant,
     ) -> buck2_error::Result<Vec<buck2_data::CriticalPathEntry2>> {
-        let critical_path_iter =
-            self.entries
-                .into_iter()
-                .filter_map(|(key, data, potential_improvement)| {
-                    let entry =
-                        key.into_critical_path_entry_data(data.action_node_data.as_ref())?;
-                    Some((entry, data, potential_improvement))
-                });
+        let mut entries =
+            Vec::with_capacity(early_command_entries.size_hint().0 + self.entries.len() + 1);
+        let mut push = |entry, data, potential_improvement| {
+            entries.push(Self::create_critical_path_entry2(
+                entry,
+                data,
+                potential_improvement,
+            )?);
+            buck2_error::Ok(())
+        };
 
-        early_command_entries
-            .chain(critical_path_iter)
-            .chain(std::iter::once_with(|| {
-                let elapsed_compute_critical_path = Instant::now() - critical_path_compute_start;
+        for (entry, data, potential_improvement) in early_command_entries {
+            push(entry, data, potential_improvement)?;
+        }
 
-                let meta_entry_data = NodeData {
-                    action_node_data: None,
-                    duration: NodeDuration {
-                        user: Duration::ZERO,
-                        total: TimeSpan::from_start_and_duration(
-                            critical_path_compute_start,
-                            elapsed_compute_critical_path,
-                        ),
-                        queue: None,
-                    },
-                    span_ids: Default::default(),
-                };
+        for (key, data, potential_improvement) in self.entries {
+            if let Some(entry) = key.into_critical_path_entry_data(data.action_node_data.as_ref()) {
+                push(entry, data, potential_improvement)?;
+            }
+        }
 
-                (
-                    buck2_data::critical_path_entry2::ComputeCriticalPath {}.into(),
-                    meta_entry_data,
-                    Some(elapsed_compute_critical_path),
-                )
-            }))
-            .map(|(entry, data, potential_improvement)| {
-                Self::create_critical_path_entry2(entry, data, potential_improvement)
-            })
-            .collect::<Result<Vec<_>, _>>()
+        let elapsed_compute_critical_path = Instant::now() - critical_path_compute_start;
+        push(
+            buck2_data::critical_path_entry2::ComputeCriticalPath {}.into(),
+            NodeData {
+                action_node_data: None,
+                duration: NodeDuration {
+                    user: Duration::ZERO,
+                    total: TimeSpan::from_start_and_duration(
+                        critical_path_compute_start,
+                        elapsed_compute_critical_path,
+                    ),
+                    queue: None,
+                },
+                span_ids: Default::default(),
+            },
+            Some(elapsed_compute_critical_path),
+        )?;
+
+        Ok(entries)
     }
 }
 
