@@ -32,8 +32,12 @@ public interface AndroidDevice {
       boolean stagedInstallMode);
 
   default boolean installApexOnDevice(File apex, boolean quiet) {
+    return installApexOnDevice(apex, quiet, true);
+  }
+
+  default boolean installApexOnDevice(File apex, boolean quiet, boolean restart) {
     boolean softRebootAvailable = prepareForApexInstallation();
-    return installApexOnDevice(apex, quiet, true, softRebootAvailable);
+    return installApexOnDevice(apex, quiet, restart, softRebootAvailable);
   }
 
   boolean installApexOnDevice(

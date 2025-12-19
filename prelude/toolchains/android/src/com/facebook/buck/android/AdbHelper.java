@@ -810,7 +810,15 @@ public class AdbHelper implements AndroidDevicesHelper {
         (device) -> {
           if (options.isApexModeEnabled()) {
 
-            return device.installApexOnDevice(apk, quiet);
+            boolean restart = false;
+            if (options.getRestartMode().equals("yes")) { // Restart
+              restart = true;
+            } else if (options.getRestartMode().equals("no")) { // Don't Restart
+              restart = false;
+            } else { // Auto
+              restart = !isApexFileSupportsRebootlessUpdate(apk);
+            }
+            return device.installApexOnDevice(apk, quiet, restart);
           } else {
             return device.installApkOnDevice(
                 apk, installViaSd, quiet, options.isStagedInstallModeEnabled());

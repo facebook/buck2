@@ -22,6 +22,7 @@ public class AdbOptions {
   private int adbTimeout;
   private boolean ignoreMissingDevice;
   private boolean apexMode;
+  private String restartMode;
 
   public AdbOptions(
       String adbExecutablePath,
@@ -31,7 +32,8 @@ public class AdbOptions {
       boolean stagedInstallMode,
       int adbTimeout,
       boolean ignoreMissingDevice,
-      boolean apexMode) {
+      boolean apexMode,
+      String restartMode) {
     this.adbExecutablePath = adbExecutablePath;
     this.adbThreadCount = adbThreadCount;
     this.adbServerPort = adbServerPort;
@@ -40,6 +42,7 @@ public class AdbOptions {
     this.adbTimeout = adbTimeout;
     this.ignoreMissingDevice = ignoreMissingDevice;
     this.apexMode = apexMode;
+    this.restartMode = restartMode;
   }
 
   public String getAdbExecutablePath() {
@@ -74,6 +77,10 @@ public class AdbOptions {
     return ignoreMissingDevice;
   }
 
+  public String getRestartMode() {
+    return restartMode;
+  }
+
   @Override
   public String toString() {
     return "AdbOptions{"
@@ -93,6 +100,8 @@ public class AdbOptions {
         + ignoreMissingDevice
         + ", apexMode="
         + apexMode
+        + ", restartMode="
+        + restartMode
         + '}';
   }
 }

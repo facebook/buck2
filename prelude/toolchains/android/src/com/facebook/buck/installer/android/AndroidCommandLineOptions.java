@@ -169,6 +169,15 @@ class AndroidCommandLineOptions {
   @Nullable
   public Boolean enableAppLinks = null;
 
+  public enum RestartMode {
+    auto,
+    yes,
+    no,
+  }
+
+  @Option(name = "--restart", usage = "Restart the device after installing APEX files.")
+  public RestartMode restartMode = RestartMode.auto;
+
   public AndroidCommandLineOptions() {}
 
   public int getTcpPort() {
