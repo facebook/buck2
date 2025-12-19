@@ -15,7 +15,6 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Before
-import org.junit.Ignore
 import org.junit.Test
 import org.mockito.kotlin.argThat
 import org.mockito.kotlin.mock
@@ -62,45 +61,6 @@ class AndroidDeviceImplTest {
         )
 
     verify(mockAdbUtils).executeAdbCommand("install -r -d ${apkFile.absolutePath}", serialNumber)
-    assertTrue(result)
-  }
-
-  @Ignore
-  @Test
-  fun testInstallApkOnDeviceWithFastdeploy() {
-    val apkFile = mock<File>()
-    whenever(apkFile.absolutePath).thenReturn("/path/to/test.apk")
-    whenever(apkFile.name).thenReturn("test.apk")
-    whenever(apkFile.length()).thenReturn(1024L)
-    whenever(mockAdbUtils.executeAdbShellCommand("getprop ro.build.version.sdk", serialNumber))
-        .thenReturn("29")
-
-    // Test with SDK >= 29 (with fastdeploy)
-    val result = androidDevice.installApkOnDevice(apkFile, false, false, false, false)
-
-    verify(mockAdbUtils)
-        .executeAdbCommand("install -r -d --fastdeploy ${apkFile.absolutePath}", serialNumber)
-    assertTrue(result)
-  }
-
-  @Ignore
-  @Test
-  fun testInstallApkOnDeviceWithFastdeployAndStaged() {
-    val apkFile = mock<File>()
-    whenever(apkFile.absolutePath).thenReturn("/path/to/test.apk")
-    whenever(apkFile.name).thenReturn("test.apk")
-    whenever(apkFile.length()).thenReturn(1024L)
-    whenever(mockAdbUtils.executeAdbShellCommand("getprop ro.build.version.sdk", serialNumber))
-        .thenReturn("30")
-
-    // Test with SDK >= 29 and staged install mode
-    val result = androidDevice.installApkOnDevice(apkFile, false, false, false, true)
-
-    verify(mockAdbUtils)
-        .executeAdbCommand(
-            "install -r -d --fastdeploy --staged ${apkFile.absolutePath}",
-            serialNumber,
-        )
     assertTrue(result)
   }
 
