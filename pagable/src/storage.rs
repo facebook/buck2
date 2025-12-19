@@ -26,7 +26,7 @@ use crate::pagable_arc::PagableArc;
 /// A unique identifier for data stored in the paging backend.
 ///
 /// `DataKey` is a 128-bit hash that uniquely identifies serialized data in storage.
-/// It is used to retrieve data when a [`PagableArc`](crate::PagableArc) is upgraded
+/// It is used to retrieve data when a [`PagableArc`] is upgraded
 /// after being paged out.
 ///
 /// The 128-bit size provides an extremely low collision probability

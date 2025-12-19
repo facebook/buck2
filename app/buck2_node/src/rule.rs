@@ -13,6 +13,7 @@ use std::sync::Arc;
 use allocative::Allocative;
 use buck2_core::configuration::transition::id::TransitionId;
 use buck2_core::plugins::PluginKind;
+#[allow(unused_imports)]
 use buck2_util::hash::BuckHasher;
 use static_interner::interner;
 

@@ -802,10 +802,10 @@ impl DetailedCriticalPath {
         let duration: prost_types::Duration = duration.try_into()?;
         Ok(buck2_data::CriticalPathEntry2 {
             span_ids: Vec::new(),
-            duration: Some(duration.clone()),
+            duration: Some(duration),
             user_duration: Some(Duration::ZERO.try_into()?),
             queue_duration: None,
-            total_duration: Some(duration.clone()),
+            total_duration: Some(duration),
             potential_improvement_duration: Some(duration),
             entry: Some(entry),
         })
