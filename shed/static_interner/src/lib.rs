@@ -30,6 +30,13 @@ use allocative::Visitor;
 use dupe::Dupe;
 pub use equivalent::Equivalent;
 use lock_free_hashtable::sharded::ShardedLockFreeRawTable;
+use pagable::PagableDeserialize;
+use pagable::PagableDeserializer;
+use pagable::PagableSerialize;
+use pagable::PagableSerializer;
+use pagable::arc_erase::ArcErase;
+use pagable::arc_erase::ArcEraseType;
+use pagable::arc_erase::StdArcEraseType;
 use strong_hash::StrongHash;
 
 pub struct Interner<T: 'static, H = DefaultHasher> {
@@ -65,6 +72,87 @@ pub trait Internable {
 impl<T: StrongHash> StrongHash for Intern<T> {
     fn strong_hash<H: Hasher>(&self, hasher: &mut H) {
         self.pointer.data.strong_hash(hasher);
+    }
+}
+
+impl<
+    T: PagableSerialize
+        + for<'de> PagableDeserialize<'de>
+        + std::fmt::Debug
+        + Hash
+        + Send
+        + Sync
+        + Internable<Hasher = H>
+        + Eq
+        + 'static,
+    H: Hasher + Default + 'static,
+> ArcErase for Intern<T>
+{
+    type Weak = ();
+    fn dupe_strong(&self) -> Self {
+        *self
+    }
+
+    fn erase_type() -> impl ArcEraseType {
+        StdArcEraseType::<Self>::new()
+    }
+
+    fn identity(&self) -> usize {
+        self.pointer as *const _ as usize
+    }
+
+    fn downgrade(&self) -> Option<Self::Weak> {
+        // TODO(ctolliday): Since we never drop interned things, we could have Self::Weak = Self and return a value here
+        None
+    }
+
+    fn serialize_inner<S: PagableSerializer>(&self, ser: &mut S) -> pagable::Result<()> {
+        T::pagable_serialize(&self, ser)
+    }
+
+    fn deserialize_inner<'de, D: PagableDeserializer<'de>>(deser: &mut D) -> pagable::Result<Self> {
+        let interner = T::interner();
+        let val = T::pagable_deserialize(deser)?;
+        Ok(interner.intern(val))
+    }
+}
+
+impl<
+    T: PagableSerialize
+        + for<'de> PagableDeserialize<'de>
+        + std::fmt::Debug
+        + Send
+        + Sync
+        + Internable<Hasher = H>
+        + Eq
+        + Hash
+        + 'static,
+    H: Hasher + Default + 'static,
+> PagableSerialize for Intern<T>
+{
+    fn pagable_serialize<S: PagableSerializer>(&self, serializer: &mut S) -> pagable::Result<()> {
+        serializer.serialize_arc(*self)
+    }
+}
+
+impl<
+    'de,
+    T: PagableSerialize
+        + for<'a> PagableDeserialize<'a>
+        + std::fmt::Debug
+        + Hash
+        + Send
+        + Sync
+        + Internable<Hasher = H>
+        + Eq
+        + std::any::Any,
+    H: Hasher + Default + 'static,
+> PagableDeserialize<'de> for Intern<T>
+{
+    fn pagable_deserialize<D: PagableDeserializer<'de>>(
+        deserializer: &mut D,
+    ) -> pagable::Result<Self> {
+        deserializer.deserialize_arc::<Self>()
     }
 }
 
