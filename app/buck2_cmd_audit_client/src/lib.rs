@@ -34,6 +34,7 @@ use crate::configurations::AuditConfigurationsCommand;
 use crate::deferred_materializer::DeferredMaterializerCommand;
 use crate::dep_files::AuditDepFilesCommand;
 use crate::execution_platform_resolution::AuditExecutionPlatformResolutionCommand;
+use crate::file_package::AuditFilePackageCommand;
 use crate::includes::AuditIncludesCommand;
 use crate::output::command::AuditOutputCommand;
 use crate::output::parse::AuditParseCommand;
@@ -53,6 +54,7 @@ pub mod configurations;
 pub mod deferred_materializer;
 pub mod dep_files;
 pub mod execution_platform_resolution;
+pub mod file_package;
 pub mod includes;
 pub mod output;
 pub mod package_values;
@@ -67,6 +69,7 @@ pub mod visibility;
 #[clap(name = "audit", about = "Perform lower level queries")]
 pub enum AuditCommand {
     Cell(AuditCellCommand),
+    FilePackage(AuditFilePackageCommand),
     Classpath(AuditClasspathCommand),
     Config(AuditConfigCommand),
     Configurations(AuditConfigurationsCommand),
@@ -105,6 +108,7 @@ impl AuditCommand {
     fn as_subcommand(&self) -> &dyn AuditSubcommand {
         match self {
             AuditCommand::Cell(cmd) => cmd,
+            AuditCommand::FilePackage(cmd) => cmd,
             AuditCommand::Classpath(cmd) => cmd,
             AuditCommand::Config(cmd) => cmd,
             AuditCommand::Configurations(cmd) => cmd,

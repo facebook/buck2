@@ -29,6 +29,7 @@ mod configurations;
 pub mod deferred_materializer;
 mod dep_files;
 mod execution_platform_resolution;
+mod file_package;
 mod includes;
 pub mod output;
 mod package_values;
@@ -84,6 +85,7 @@ impl AuditCommandExt for AuditCommand {
     fn as_subcommand(&self) -> &dyn ServerAuditSubcommand {
         match self {
             AuditCommand::Cell(cmd) => cmd,
+            AuditCommand::FilePackage(cmd) => cmd,
             AuditCommand::Classpath(cmd) => cmd,
             AuditCommand::Config(cmd) => cmd,
             AuditCommand::Configurations(cmd) => cmd,

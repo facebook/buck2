@@ -6,6 +6,7 @@ Usage: buck2 audit [OPTIONS] <COMMAND>
 
 Commands:
   cell                           Query information about the [cells] list in .buckconfig.
+  file-package                   Map file paths to fully qualified package names.
   classpath                      Prints out a target's classpaths if it has one.
                                      This command is deprecated and currently available for
                                      compatibility with buck1.
