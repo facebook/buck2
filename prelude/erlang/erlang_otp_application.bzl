@@ -61,7 +61,7 @@ otp_applications = [
 
 def gen_otp_applications() -> None:
     for name in otp_applications:
-        _erlang_otp_application_rule(name = name, version = "dynamic", visibility = ["PUBLIC"])
+        _erlang_otp_application_rule(name = name, visibility = ["PUBLIC"])
     return None
 
 def normalize_application(name: str) -> str:
@@ -82,12 +82,50 @@ def _erlang_otp_application_impl(ctx: AnalysisContext) -> list[Provider]:
 
     toolchain = get_toolchain(ctx)
 
-    wildcard = paths.join("lib", ctx.attrs.name + "-*")
+    # Look up version from toolchain applications
+    version = None
+    for app_info in toolchain.erts_toolchain_info.applications:
+        if app_info.name == ctx.attrs.name:
+            version = app_info.version
+            break
 
-    app_dir = ctx.actions.declare_output(
-        ctx.attrs.name,
-        dir = True,
-    )
+    # Support dynamic mode (for include_erts=False) and explicit mode (for include_erts=True)
+    if version == None:
+        # Check if we're in dynamic mode (no applications configured in toolchain)
+        if not toolchain.erts_toolchain_info.applications:
+            # Dynamic mode - use wildcard to discover version at build time
+            # This works for include_erts=False but not include_erts=True
+            wildcard = paths.join("lib", ctx.attrs.name + "-*")
+            app_dir = ctx.actions.declare_output(ctx.attrs.name, dir = True)
+            version = "dynamic"
+        else:
+            # Explicit mode but application not found - configuration error
+            available_apps = [app.name for app in toolchain.erts_toolchain_info.applications]
+            fail("""
+Could not find version for OTP application: {app}
+
+This application is not in your erlang_toolchain's 'applications' list.
+
+Available applications ({count}): {apps}
+
+This usually means:
+1. The application is not part of your OTP installation, or
+2. Your otp_versions.bzl file needs to be regenerated
+
+To fix:
+  $ python3 buck2/prelude/erlang/toolchain/generate_otp_versions.py my_otp_versions.bzl
+
+If '{app}' is a third-party application (not part of OTP), you should depend on
+it directly instead of treating it as an OTP application.
+""".format(
+                app = ctx.attrs.name,
+                count = len(available_apps),
+                apps = ", ".join(sorted(available_apps)[:10]) + ("..." if len(available_apps) > 10 else ""),
+            ))
+    else:
+        # Explicit version found - use versioned directory
+        wildcard = paths.join("lib", ctx.attrs.name + "-" + version)
+        app_dir = ctx.actions.declare_output(ctx.attrs.name + "-" + version, dir = True)
 
     erlang_build.utils.run_with_env(
         ctx,
@@ -102,7 +140,7 @@ def _erlang_otp_application_impl(ctx: AnalysisContext) -> list[Provider]:
         ErlangAppOrTestInfo(),
         ErlangAppInfo(
             name = ctx.attrs.name,
-            version = ctx.attrs.version,
+            version = version,
             beams = [],
             includes = [],
             dependencies = {},
@@ -116,7 +154,6 @@ def _erlang_otp_application_impl(ctx: AnalysisContext) -> list[Provider]:
 _erlang_otp_application_rule = rule(
     impl = _erlang_otp_application_impl,
     attrs = {
-        "version": attrs.string(),
         "_toolchain": attrs.toolchain_dep(default = "toolchains//:erlang-default"),
     },
 )

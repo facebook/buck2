@@ -19,6 +19,8 @@ load(
     "ErlangOTPBinariesInfo",
     "ErlangParseTransformInfo",
     "ErlangToolchainInfo",
+    "ErtsToolchainApplicationInfo",
+    "ErtsToolchainInfo",
     "Tool",
     "Tools",
 )
@@ -114,9 +116,20 @@ def _erlang_toolchain_impl(ctx: AnalysisContext) -> list[Provider]:
 
     # extract erts for late usage
 
-    erts = ctx.actions.declare_output("erts-0.0", dir = True)
+    erts_toolchain_application_info_list = [
+        ErtsToolchainApplicationInfo(
+            name = application["name"],
+            version = application["version"],
+        )
+        for application in ctx.attrs.applications
+    ]
+    erts_toolchain_info = ErtsToolchainInfo(
+        applications = erts_toolchain_application_info_list,
+        erts_version = ctx.attrs.erts_version,
+        output = ctx.actions.declare_output("erts-{}".format(ctx.attrs.erts_version), dir = True),
+    )
     ctx.actions.run(
-        cmd_args(extract_from_otp, "erts-*", erts.as_output()),
+        cmd_args(extract_from_otp, "erts-{}".format("*" if ctx.attrs.erts_version == "dynamic" else ctx.attrs.erts_version), erts_toolchain_info.output.as_output()),
         identifier = ctx.attrs.name,
         category = "extract_erts",
         env = env,
@@ -144,7 +157,7 @@ def _erlang_toolchain_impl(ctx: AnalysisContext) -> list[Provider]:
             parse_transforms = parse_transforms,
             parse_transforms_filters = ctx.attrs.parse_transforms_filters,
             utility_modules = utility_modules,
-            erts = erts,
+            erts_toolchain_info = erts_toolchain_info,
             error_handler = erlang_action_error_handler,
         ),
     ]
@@ -220,6 +233,7 @@ def _gen_toolchain_script(ctx: AnalysisContext, env: dict[str, str], script: Art
 erlang_toolchain = rule(
     impl = _erlang_toolchain_impl,
     attrs = {
+        "applications": attrs.list(attrs.dict(key = attrs.string(), value = attrs.string()), default = []),
         "core_parse_transforms": attrs.list(attrs.dep(), default = ["@prelude//erlang/toolchain:transform_project_root"]),
         "emu_flags": attrs.one_of(
             attrs.list(attrs.string()),
@@ -234,6 +248,8 @@ erlang_toolchain = rule(
             attrs.string(),
             default = [],
         ),
+        # ERTS version and OTP application metadata
+        "erts_version": attrs.string(default = "unknown"),
         "otp_binaries": attrs.dep(),
         "parse_transforms": attrs.list(attrs.dep()),
         "parse_transforms_filters": attrs.dict(key = attrs.string(), value = attrs.list(attrs.string())),

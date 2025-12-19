@@ -39,13 +39,19 @@ def erlang_release_impl(ctx: AnalysisContext) -> list[Provider]:
 def _build_release(ctx: AnalysisContext, apps: ErlAppDependencies) -> dict[str, Artifact]:
     toolchain = get_toolchain(ctx)
 
+    # Validate include_erts configuration
+    _validate_include_erts(ctx, toolchain)
+
     # OTP base structure
     lib_dir = build_lib_dir(ctx, apps)
 
     # erts
     maybe_erts = _build_erts(ctx, toolchain)
 
-    boot_scripts = _build_boot_script(ctx, toolchain, lib_dir["lib"])
+    maybe_boot_scripts = _build_boot_script(ctx, toolchain, lib_dir["lib"])
+
+    # start_erl.data for releases with bundled ERTS
+    maybe_start_erl_data = _build_start_erl_data(ctx, toolchain)
 
     # release specific variables in bin/release_variables
     release_variables = _build_release_variables(ctx, toolchain)
@@ -57,7 +63,8 @@ def _build_release(ctx: AnalysisContext, apps: ErlAppDependencies) -> dict[str, 
     all_outputs = {}
     for outputs in [
         lib_dir,
-        boot_scripts,
+        maybe_boot_scripts,
+        maybe_start_erl_data,
         overlays,
         release_variables,
         maybe_erts,
@@ -78,7 +85,7 @@ def build_lib_dir(
         include_erts = ctx.attrs.include_erts
 
     link_spec = {
-        dep[ErlangAppInfo].name: dep[ErlangAppInfo].app_folder
+        (dep[ErlangAppInfo].name + "-" + dep[ErlangAppInfo].version): dep[ErlangAppInfo].app_folder
         for dep in all_apps.values()
         if ErlangAppInfo in dep and
            (include_erts or not dep[ErlangAppInfo].virtual)
@@ -94,7 +101,13 @@ def _build_boot_script(
         ctx: AnalysisContext,
         toolchain: Toolchain,
         lib_dir: Artifact) -> dict[str, Artifact]:
-    """Build Name.rel, start.script, and start.boot in the release folder."""
+    """Build Name.rel, start.script, and start.boot in the release folder.
+
+    Boot scripts are always generated regardless of include_erts setting.
+    When include_erts=False (default), OTP applications use runtime version discovery.
+    When include_erts=True, explicit versions from the toolchain are used and additional
+    no_dot_erlang boot scripts are generated for the self-contained release.
+    """
     release_name = _relname(ctx)
 
     start_type_mapping = _dependencies_with_start_types(ctx)
@@ -162,13 +175,23 @@ def _build_boot_script(
         identifier = release_name,
     )
 
+    # Always include the standard boot scripts
+    boot_files = [
+        "{}.rel".format(release_name),
+        "start.script",
+        "start.boot",
+    ]
+
+    # Only include no_dot_erlang boot scripts for self-contained releases with bundled ERTS
+    if ctx.attrs.include_erts:
+        boot_files.extend([
+            "no_dot_erlang.script",
+            "no_dot_erlang.boot",
+        ])
+
     return {
         paths.join("releases", ctx.attrs.version, file): scripts_dir.project(file)
-        for file in [
-            "{}.rel".format(release_name),
-            "start.script",
-            "start.boot",
-        ]
+        for file in boot_files
     }
 
 def _build_overlays(ctx: AnalysisContext) -> dict[str, Artifact]:
@@ -220,12 +243,39 @@ def _build_erts(
         paths.join(
             erlang_build.utils.BUILD_DIR,
             release_name,
-            "erts-0.0",
+            "erts-{}".format(toolchain.erts_toolchain_info.erts_version),
         ),
-        toolchain.erts,
+        toolchain.erts_toolchain_info.output,
     )
 
-    return {"erts-0.0": erts_dir}
+    return {"erts-{}".format(toolchain.erts_toolchain_info.erts_version): erts_dir}
+
+def _build_start_erl_data(
+        ctx: AnalysisContext,
+        toolchain: Toolchain) -> dict[str, Artifact]:
+    """Generate start_erl.data file for releases with bundled ERTS.
+
+    This file contains the ERTS version and release version,
+    used by the release boot scripts to determine which ERTS and
+    release to start.
+
+    Format: <ERTS_VERSION> <RELEASE_VERSION>
+    Example: 15.1 1.0.0
+    """
+    if not ctx.attrs.include_erts:
+        return {}
+
+    content = "{} {}\n".format(
+        toolchain.erts_toolchain_info.erts_version,
+        ctx.attrs.version,
+    )
+
+    start_erl_data = ctx.actions.write(
+        paths.join(erlang_build.utils.BUILD_DIR, "start_erl.data"),
+        content,
+    )
+
+    return {"releases/start_erl.data": start_erl_data}
 
 def _symlink_primary_toolchain_output(ctx: AnalysisContext, artifacts: dict[str, Artifact]) -> Artifact:
     return ctx.actions.symlinked_dir(
@@ -259,3 +309,59 @@ def _dependencies_with_start_types(ctx: AnalysisContext) -> dict[str, StartType]
 def _app_name(app: Dependency) -> str:
     """Helper to unwrap the name for an erlang application dependency"""
     return app[ErlangAppInfo].name
+
+def _validate_include_erts(ctx: AnalysisContext, toolchain: Toolchain) -> None:
+    """Validate that include_erts is properly configured with required version information"""
+    if not ctx.attrs.include_erts:
+        return
+
+    # Check if applications list is empty (dynamic mode)
+    if not toolchain.erts_toolchain_info.applications:
+        fail("""
+ERROR: include_erts=True requires explicit OTP application versions in your erlang_toolchain.
+
+Currently, your erlang_toolchain does not have the 'applications' attribute configured,
+which is required for creating self-contained releases with bundled ERTS.
+
+To fix this:
+
+1. Generate OTP version information from your Erlang installation:
+
+   $ python3 buck2/prelude/erlang/toolchain/generate_otp_versions.py my_otp_versions.bzl
+
+2. Commit the generated file and load it in your BUCK file:
+
+   load(":my_otp_versions.bzl", "get_otp_applications", "get_erts_version")
+
+3. Configure your erlang_toolchain with the application versions:
+
+   erlang_toolchain(
+       name = "my-toolchain",
+       applications = get_otp_applications(),
+       erts_version = get_erts_version(),
+       otp_binaries = "...",
+       # ... other configuration
+   )
+
+Alternatively, if you don't need a self-contained release with bundled ERTS,
+set include_erts=False (or remove it, as False is the default).
+
+Documentation: https://buck2.build/docs/prelude/erlang/
+Target: {target}
+""".format(target = str(ctx.label)))
+
+    # Check if erts_version is still dynamic
+    if toolchain.erts_toolchain_info.erts_version == "dynamic":
+        fail("""
+ERROR: include_erts=True requires an explicit erts_version in your erlang_toolchain.
+
+Current erts_version is 'dynamic' which only works when include_erts=False.
+
+Please ensure you've configured your erlang_toolchain with:
+  - applications = get_otp_applications()  # from generated .bzl file
+  - erts_version = get_erts_version()      # from generated .bzl file
+
+See the error message above for how to generate the version configuration.
+
+Target: {target}
+""".format(target = str(ctx.label)))

@@ -120,6 +120,21 @@ Tools = record(
     _tools_binaries = field(ErlangOTPBinariesInfo),
 )
 
+ErtsToolchainApplicationInfo = provider(
+    fields = {
+        "name": provider_field(str),
+        "version": provider_field(str),
+    },
+)
+
+ErtsToolchainInfo = provider(
+    fields = {
+        "applications": provider_field(list[ErtsToolchainApplicationInfo]),
+        "erts_version": provider_field(str),
+        "output": provider_field(Artifact),
+    },
+)
+
 ErlangErrorHandlers = record(
     erlc = field(typing.Callable[[ActionErrorCtx], list[ActionSubError]]),
 )
@@ -164,8 +179,8 @@ ErlangToolchainInfo = provider(
         "utility_modules": provider_field(Artifact),
         # env to be set for toolchain invocations
         "env": provider_field(dict[str, str]),
-        # extracted erts from otp
-        "erts": provider_field(Artifact),
+        # Erlang Runtime System (ERTS) toolchain metadata
+        "erts_toolchain_info": provider_field(ErtsToolchainInfo),
         # error handler
         "error_handler": provider_field(ErlangErrorHandlers),
     },
