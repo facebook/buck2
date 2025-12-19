@@ -27,6 +27,7 @@ use smallvec::SmallVec;
 
 use crate::ActionNodeData;
 use crate::BuildInfo;
+use crate::DetailedCriticalPath;
 use crate::NodeData;
 use crate::NodeKey;
 use crate::backend::backend::BuildListenerBackend;
@@ -246,7 +247,7 @@ impl BuildListenerBackend for LongestPathGraphBackend {
             .collect();
 
         Ok(BuildInfo {
-            critical_path,
+            critical_path: DetailedCriticalPath::new(critical_path),
             num_nodes: graph.vertices_count() as _,
             num_edges: graph.edges_count() as _,
             top_level_targets: critical_path_for_top_level_targets,
