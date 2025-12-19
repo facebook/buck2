@@ -43,7 +43,7 @@ def get_attrs(target: bxl.ConfiguredTargetNode, bxl_ctx) -> dict:
     output["exe"] = _get_exe(attrs)
     return output
 
-def get_unified_value(attrs, common_key: str, platform_key: str, toolchain = "windows", take_values = False) -> list:
+def get_unified_value(attrs, common_key: str, take_values = False) -> list:
     """
     Return unified list of common and platform value for given keys.
     If the attr resolve to a dictionary, the keys are taken, except if take_values is set to True, in which case
@@ -58,16 +58,6 @@ def get_unified_value(attrs, common_key: str, platform_key: str, toolchain = "wi
                 common_flags.values() if take_values else common_flags
             )
         all_flags.extend(common_flags)
-
-    if attrs.get(platform_key):
-        platform_flags = attrs.get(platform_key)
-        if isinstance(platform_flags, dict):
-            platform_flags = (
-                platform_flags.values() if take_values else platform_flags
-            )
-        for plat, flags in platform_flags:
-            if _platform_regex_match(plat, toolchain):
-                all_flags.extend(flags)
     return all_flags
 
 def get_cxx_toolchain(target: bxl.ConfiguredTargetNode, bxl_ctx, preferred_arch: str | None = None) -> Dependency | None:
@@ -112,13 +102,13 @@ def _platform_regex_match(plat, toolchain = "windows") -> bool:
 ############## headers ##############
 
 def _get_headers(attrs) -> list:
-    return get_unified_value(attrs, "headers", "platform_headers", take_values = True)
+    return get_unified_value(attrs, "headers", take_values = True)
 
 def _get_exported_headers(attrs) -> dict:
     # TODO: support get dict without taking keys or values in get_unified_value.
     return dict(zip(
-        get_unified_value(attrs, "exported_headers", "exported_platform_headers", take_values = False),
-        get_unified_value(attrs, "exported_headers", "exported_platform_headers", take_values = True),
+        get_unified_value(attrs, "exported_headers", take_values = False),
+        get_unified_value(attrs, "exported_headers", take_values = True),
     ))
 
 def _get_raw_headers(attrs) -> list:
@@ -130,39 +120,35 @@ def _get_header_dirs(attrs) -> list:
 ############## include directories ##############
 
 def _get_include_directories(attrs) -> list:
-    return get_unified_value(attrs, "include_directories", "none_exist_platform_key")
+    return get_unified_value(attrs, "include_directories")
 
 def _get_public_include_directories(attrs) -> list:
-    return get_unified_value(attrs, "public_include_directories", "none_exist_platform_key")
+    return get_unified_value(attrs, "public_include_directories")
 
 def _get_public_system_include_directories(attrs) -> list:
-    return get_unified_value(attrs, "public_system_include_directories", "none_exist_platform_key")
+    return get_unified_value(attrs, "public_system_include_directories")
 
 ############## flags ##############
 
 def _get_compiler_flags(attrs) -> list:
     """Return list of compiler flags"""
-    return get_unified_value(attrs, "compiler_flags", "platform_compiler_flags")
+    return get_unified_value(attrs, "compiler_flags")
 
 def _get_linker_flags(attrs) -> list:
     """Return list of linker flags"""
-    return get_unified_value(attrs, "linker_flags", "platform_linker_flags")
+    return get_unified_value(attrs, "linker_flags")
 
 def _get_exported_linker_flags(attrs) -> list:
     """Return list of exported linker flags"""
-    return get_unified_value(attrs, "exported_linker_flags", "exported_platform_linker_flags")
+    return get_unified_value(attrs, "exported_linker_flags")
 
 def _get_preprocessor_flags(attrs) -> list:
     """Return list of preprocessor flags"""
-    return get_unified_value(attrs, "preprocessor_flags", "platform_preprocessor_flags")
+    return get_unified_value(attrs, "preprocessor_flags")
 
 def _get_exported_preprocessor_flags(attrs) -> list:
     """Return list of exported preprocessor flags"""
-    return get_unified_value(
-        attrs,
-        "exported_preprocessor_flags",
-        "exported_platform_preprocessor_flags",
-    )
+    return get_unified_value(attrs, "exported_preprocessor_flags")
 
 ############## others ##############
 
@@ -171,7 +157,7 @@ def _get_srcs(attrs) -> dict:
 
     # take_values as genrule target src properties can be a map of target location to source
     # location, and this function is defined to always return the source location.
-    raw_srcs = get_unified_value(attrs, "srcs", "platform_srcs", take_values = True)
+    raw_srcs = get_unified_value(attrs, "srcs", take_values = True)
 
     srcs = {}
 

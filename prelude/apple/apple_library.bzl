@@ -266,7 +266,7 @@ def _make_apple_library_for_distribution_info_provider(ctx: AnalysisContext, swi
     )]
 
 def _make_apple_library_info_provider(ctx: AnalysisContext, swift_header: [None, Artifact]) -> list[AppleLibraryInfo]:
-    public_framework_headers = cxx_attr_headers_list(ctx, ctx.attrs.public_framework_headers, [], get_apple_cxx_headers_layout(ctx))
+    public_framework_headers = cxx_attr_headers_list(ctx, ctx.attrs.public_framework_headers, get_apple_cxx_headers_layout(ctx))
     all_deps = cxx_attr_deps(ctx) + cxx_attr_exported_deps(ctx)
     apple_library_infos = filter(None, [dep.get(AppleLibraryInfo) for dep in all_deps])
 
@@ -549,12 +549,8 @@ def apple_library_rule_constructor_params_and_swift_providers(ctx: AnalysisConte
         swiftmodule_linkable = get_swiftmodule_linkable(swift_compile),
         compiler_flags = ctx.attrs.compiler_flags,
         lang_compiler_flags = ctx.attrs.lang_compiler_flags,
-        platform_compiler_flags = ctx.attrs.platform_compiler_flags,
-        lang_platform_compiler_flags = ctx.attrs.lang_platform_compiler_flags,
         preprocessor_flags = ctx.attrs.preprocessor_flags,
         lang_preprocessor_flags = ctx.attrs.lang_preprocessor_flags,
-        platform_preprocessor_flags = ctx.attrs.platform_preprocessor_flags,
-        lang_platform_preprocessor_flags = ctx.attrs.lang_platform_preprocessor_flags,
         swift_objc_header = swift_objc_header,
         error_handler = cxx_error_handler if cxx_error_deserializer(ctx) else apple_build_error_handler,
         index_store_factory = _compile_index_store,

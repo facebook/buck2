@@ -65,16 +65,11 @@ cxx_lua_extension = prelude_rule(
         # @unsorted-dict-items
         lua_common.base_module_arg() |
         cxx_common.srcs_arg() |
-        cxx_common.platform_srcs_arg() |
         cxx_common.headers_arg() |
-        cxx_common.platform_headers_arg() |
         cxx_common.header_namespace_arg() |
         cxx_common.preprocessor_flags_arg() |
-        cxx_common.platform_preprocessor_flags_arg() |
         cxx_common.compiler_flags_arg() |
-        cxx_common.platform_compiler_flags_arg() |
         cxx_common.linker_flags_arg() |
-        cxx_common.platform_linker_flags_arg() |
         {
             "cxx_runtime_type": attrs.option(attrs.enum(CxxRuntimeType), default = None),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
@@ -86,14 +81,10 @@ cxx_lua_extension = prelude_rule(
             "headers_as_raw_headers_mode": attrs.option(attrs.enum(HeadersAsRawHeadersMode), default = None),
             "include_directories": attrs.set(attrs.string(), sorted = True, default = []),
             "lang_compiler_flags": attrs.dict(key = attrs.enum(CxxSourceType), value = attrs.list(attrs.arg()), sorted = False, default = {}),
-            "lang_platform_compiler_flags": attrs.dict(key = attrs.enum(CxxSourceType), value = attrs.list(attrs.tuple(attrs.regex(), attrs.list(attrs.arg()))), sorted = False, default = {}),
-            "lang_platform_preprocessor_flags": attrs.dict(key = attrs.enum(CxxSourceType), value = attrs.list(attrs.tuple(attrs.regex(), attrs.list(attrs.arg()))), sorted = False, default = {}),
             "lang_preprocessor_flags": attrs.dict(key = attrs.enum(CxxSourceType), value = attrs.list(attrs.arg()), sorted = False, default = {}),
             "libraries": attrs.list(attrs.string(), default = []),
             "linker_extra_outputs": attrs.list(attrs.string(), default = []),
-            "platform_deps": attrs.list(attrs.tuple(attrs.regex(), attrs.set(attrs.dep(), sorted = True)), default = []),
             "post_linker_flags": attrs.list(attrs.arg(), default = []),
-            "post_platform_linker_flags": attrs.list(attrs.tuple(attrs.regex(), attrs.list(attrs.arg())), default = []),
             "precompiled_header": attrs.option(attrs.source(), default = None),
             "prefix_header": attrs.option(attrs.source(), default = None),
             "raw_headers": attrs.set(attrs.source(), sorted = True, default = []),
@@ -141,7 +132,6 @@ lua_binary = prelude_rule(
             "native_starter_library": attrs.option(attrs.dep(), default = None),
             "package_style": attrs.option(attrs.enum(LuaPlatformPackageStyle), default = None),
             "platform": attrs.option(attrs.string(), default = None),
-            "platform_deps": attrs.list(attrs.tuple(attrs.regex(), attrs.set(attrs.dep(), sorted = True)), default = []),
         } |
         buck.licenses_arg() |
         buck.labels_arg() |
@@ -183,7 +173,6 @@ lua_library = prelude_rule(
                  which this rule imports modules.
             """),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
-            "platform_deps": attrs.list(attrs.tuple(attrs.regex(), attrs.set(attrs.dep(), sorted = True)), default = []),
         } |
         buck.licenses_arg() |
         buck.labels_arg() |

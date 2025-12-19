@@ -121,7 +121,6 @@ def apple_bundle_base_attrs():
                 "info_plist": attrs.source(),
                 "labels": attrs.list(attrs.string(), default = []),
                 "licenses": attrs.list(attrs.source(), default = []),
-                "platform_binary": attrs.option(attrs.list(attrs.tuple(attrs.regex(), attrs.dep())), default = None),
                 "product_name": attrs.option(attrs.string(), default = None),
                 "resource_group": attrs.option(attrs.string(), default = None),
                 "resource_group_map": attrs.option(RESOURCE_GROUP_MAP_ATTR, default = None),
@@ -270,7 +269,6 @@ apple_binary = prelude_rule(
     attrs = (
         # @unsorted-dict-items
         cxx_common.srcs_arg() |
-        cxx_common.platform_srcs_arg() |
         apple_common.headers_arg() |
         {
             "entitlements_file": attrs.option(attrs.source(), default = None, doc = """
@@ -286,11 +284,9 @@ apple_binary = prelude_rule(
         cxx_common.preprocessor_flags_arg() |
         cxx_common.exported_preprocessor_flags_arg(exported_preprocessor_flags_type = attrs.list(attrs.arg(), default = [])) |
         cxx_common.compiler_flags_arg() |
-        cxx_common.platform_compiler_flags_arg() |
         cxx_common.linker_extra_outputs_arg() |
         cxx_common.linker_flags_arg() |
         cxx_common.exported_linker_flags_arg() |
-        cxx_common.platform_linker_flags_arg() |
         native_common.link_style() |
         native_common.link_group_public_deps_label() |
         apple_common.target_sdk_version() |
@@ -323,14 +319,7 @@ apple_binary = prelude_rule(
             })),
             "enable_library_evolution": attrs.option(attrs.bool(), default = None),
             "exported_header_style": attrs.enum(IncludeType, default = "local"),
-            "exported_lang_platform_preprocessor_flags": attrs.dict(key = attrs.enum(CxxSourceType), value = attrs.list(attrs.tuple(attrs.regex(), attrs.list(attrs.arg()))), sorted = False, default = {}),
             "exported_lang_preprocessor_flags": attrs.dict(key = attrs.enum(CxxSourceType), value = attrs.list(attrs.arg()), sorted = False, default = {}),
-            "exported_platform_deps": attrs.list(attrs.tuple(attrs.regex(), attrs.set(attrs.dep(), sorted = True)), default = []),
-            "exported_platform_headers": attrs.list(attrs.tuple(attrs.regex(), attrs.named_set(attrs.source(), sorted = True)), default = []),
-            "exported_platform_linker_flags": attrs.list(attrs.tuple(attrs.regex(), attrs.list(attrs.arg())), default = []),
-            "exported_platform_preprocessor_flags": attrs.list(attrs.tuple(attrs.regex(), attrs.list(attrs.arg())), default = []),
-            "exported_post_linker_flags": attrs.list(attrs.arg(), default = []),
-            "exported_post_platform_linker_flags": attrs.list(attrs.tuple(attrs.regex(), attrs.list(attrs.arg())), default = []),
             "fat_lto": attrs.bool(default = False),
             "focused_list_target": attrs.option(attrs.dep(), default = None),
             "force_static": attrs.option(attrs.bool(), default = None),
@@ -340,8 +329,6 @@ apple_binary = prelude_rule(
             "info_plist": attrs.option(attrs.source(), default = None),
             "labels": attrs.list(attrs.string(), default = []),
             "lang_compiler_flags": attrs.dict(key = attrs.enum(CxxSourceType), value = attrs.list(attrs.arg()), sorted = False, default = {}),
-            "lang_platform_compiler_flags": attrs.dict(key = attrs.enum(CxxSourceType), value = attrs.list(attrs.tuple(attrs.regex(), attrs.list(attrs.arg()))), sorted = False, default = {}),
-            "lang_platform_preprocessor_flags": attrs.dict(key = attrs.enum(CxxSourceType), value = attrs.list(attrs.tuple(attrs.regex(), attrs.list(attrs.arg()))), sorted = False, default = {}),
             "lang_preprocessor_flags": attrs.dict(key = attrs.enum(CxxSourceType), value = attrs.list(attrs.arg()), sorted = False, default = {}),
             "libraries": attrs.list(attrs.string(), default = []),
             "licenses": attrs.list(attrs.source(), default = []),
@@ -353,11 +340,7 @@ apple_binary = prelude_rule(
             "modular": attrs.bool(default = False),
             "module_name": attrs.option(attrs.string(), default = None),
             "module_requires_cxx": attrs.bool(default = False),
-            "platform_deps": attrs.list(attrs.tuple(attrs.regex(), attrs.set(attrs.dep(), sorted = True)), default = []),
-            "platform_headers": attrs.list(attrs.tuple(attrs.regex(), attrs.named_set(attrs.source(), sorted = True)), default = []),
-            "platform_preprocessor_flags": attrs.list(attrs.tuple(attrs.regex(), attrs.list(attrs.arg())), default = []),
             "post_linker_flags": attrs.list(attrs.arg(), default = []),
-            "post_platform_linker_flags": attrs.list(attrs.tuple(attrs.regex(), attrs.list(attrs.arg())), default = []),
             "precompiled_header": attrs.option(attrs.dep(providers = [CPrecompiledHeaderInfo]), default = None),
             "prefer_stripped_objects": attrs.bool(default = False),
             "preferred_linkage": attrs.enum(Linkage.values(), default = "any"),
@@ -587,7 +570,6 @@ apple_library = prelude_rule(
     attrs = (
         # @unsorted-dict-items
         cxx_common.srcs_arg() |
-        cxx_common.platform_srcs_arg() |
         apple_common.headers_arg() |
         apple_common.exported_headers_arg() |
         apple_common.header_path_prefix_arg() |
@@ -596,11 +578,9 @@ apple_library = prelude_rule(
         cxx_common.preprocessor_flags_arg() |
         cxx_common.exported_preprocessor_flags_arg(exported_preprocessor_flags_type = attrs.list(attrs.arg(), default = [])) |
         cxx_common.compiler_flags_arg() |
-        cxx_common.platform_compiler_flags_arg() |
         cxx_common.linker_extra_outputs_arg() |
         cxx_common.linker_flags_arg() |
         cxx_common.exported_linker_flags_arg() |
-        cxx_common.exported_platform_linker_flags_arg() |
         apple_common.target_sdk_version() |
         native_common.preferred_linkage(preferred_linkage_type = attrs.option(attrs.enum(Linkage.values()), default = None)) |
         native_common.link_style() |
@@ -642,13 +622,8 @@ apple_library = prelude_rule(
             })),
             "enable_library_evolution": attrs.option(attrs.bool(), default = None),
             "exported_header_style": attrs.enum(IncludeType, default = "local"),
-            "exported_lang_platform_preprocessor_flags": attrs.dict(key = attrs.enum(CxxSourceType), value = attrs.list(attrs.tuple(attrs.regex(), attrs.list(attrs.arg()))), sorted = False, default = {}),
             "exported_lang_preprocessor_flags": attrs.dict(key = attrs.enum(CxxSourceType), value = attrs.list(attrs.arg()), sorted = False, default = {}),
-            "exported_platform_deps": attrs.list(attrs.tuple(attrs.regex(), attrs.set(attrs.dep(), sorted = True)), default = []),
-            "exported_platform_headers": attrs.list(attrs.tuple(attrs.regex(), attrs.named_set(attrs.source(), sorted = True)), default = []),
-            "exported_platform_preprocessor_flags": attrs.list(attrs.tuple(attrs.regex(), attrs.list(attrs.arg())), default = []),
             "exported_post_linker_flags": attrs.list(attrs.arg(), default = []),
-            "exported_post_platform_linker_flags": attrs.list(attrs.tuple(attrs.regex(), attrs.list(attrs.arg())), default = []),
             "fat_lto": attrs.bool(default = False),
             "focused_list_target": attrs.option(attrs.dep(), default = None),
             "force_static": attrs.option(attrs.bool(), default = None),
@@ -657,8 +632,6 @@ apple_library = prelude_rule(
             "info_plist": attrs.option(attrs.source(), default = None),
             "labels": attrs.list(attrs.string(), default = []),
             "lang_compiler_flags": attrs.dict(key = attrs.enum(CxxSourceType), value = attrs.list(attrs.arg()), sorted = False, default = {}),
-            "lang_platform_compiler_flags": attrs.dict(key = attrs.enum(CxxSourceType), value = attrs.list(attrs.tuple(attrs.regex(), attrs.list(attrs.arg()))), sorted = False, default = {}),
-            "lang_platform_preprocessor_flags": attrs.dict(key = attrs.enum(CxxSourceType), value = attrs.list(attrs.tuple(attrs.regex(), attrs.list(attrs.arg()))), sorted = False, default = {}),
             "lang_preprocessor_flags": attrs.dict(key = attrs.enum(CxxSourceType), value = attrs.list(attrs.arg()), sorted = False, default = {}),
             "libraries": attrs.list(attrs.string(), default = []),
             "licenses": attrs.list(attrs.source(), default = []),
@@ -669,12 +642,7 @@ apple_library = prelude_rule(
             "modular": attrs.bool(default = False),
             "module_name": attrs.option(attrs.string(), default = None),
             "module_requires_cxx": attrs.bool(default = False),
-            "platform_deps": attrs.list(attrs.tuple(attrs.regex(), attrs.set(attrs.dep(), sorted = True)), default = []),
-            "platform_headers": attrs.list(attrs.tuple(attrs.regex(), attrs.named_set(attrs.source(), sorted = True)), default = []),
-            "platform_linker_flags": attrs.list(attrs.tuple(attrs.regex(), attrs.list(attrs.arg())), default = []),
-            "platform_preprocessor_flags": attrs.list(attrs.tuple(attrs.regex(), attrs.list(attrs.arg())), default = []),
             "post_linker_flags": attrs.list(attrs.arg(), default = []),
-            "post_platform_linker_flags": attrs.list(attrs.tuple(attrs.regex(), attrs.list(attrs.arg())), default = []),
             "precompiled_header": attrs.option(attrs.dep(providers = [CPrecompiledHeaderInfo]), default = None),
             "preferred_linkage": attrs.enum(Linkage.values(), default = "any"),
             "prefix_header": attrs.option(attrs.source(), default = None),
@@ -971,13 +939,11 @@ apple_test = prelude_rule(
             """),
         } |
         cxx_common.srcs_arg() |
-        cxx_common.platform_srcs_arg() |
         apple_common.headers_arg() |
         apple_common.header_path_prefix_arg() |
         apple_common.frameworks_arg() |
         cxx_common.preprocessor_flags_arg() |
         cxx_common.compiler_flags_arg() |
-        cxx_common.platform_compiler_flags_arg() |
         cxx_common.linker_flags_arg() |
         apple_common.target_sdk_version() |
         buck.run_test_separately_arg(run_test_separately_type = attrs.bool(default = False)) |
@@ -1011,15 +977,9 @@ apple_test = prelude_rule(
             # Need to keep both `exported_headers` and `headers` for Swift mixed modules
             # to hide C++ code importing.
             "exported_headers": attrs.named_set(attrs.source(), sorted = True, default = []),
-            "exported_lang_platform_preprocessor_flags": attrs.dict(key = attrs.enum(CxxSourceType), value = attrs.list(attrs.tuple(attrs.regex(), attrs.list(attrs.arg()))), sorted = False, default = {}),
             "exported_lang_preprocessor_flags": attrs.dict(key = attrs.enum(CxxSourceType), value = attrs.list(attrs.arg()), sorted = False, default = {}),
             "exported_linker_flags": attrs.list(attrs.arg(), default = []),
-            "exported_platform_deps": attrs.list(attrs.tuple(attrs.regex(), attrs.set(attrs.dep(), sorted = True)), default = []),
-            "exported_platform_headers": attrs.list(attrs.tuple(attrs.regex(), attrs.named_set(attrs.source(), sorted = True)), default = []),
-            "exported_platform_linker_flags": attrs.list(attrs.tuple(attrs.regex(), attrs.list(attrs.arg())), default = []),
-            "exported_platform_preprocessor_flags": attrs.list(attrs.tuple(attrs.regex(), attrs.list(attrs.arg())), default = []),
             "exported_post_linker_flags": attrs.list(attrs.arg(), default = []),
-            "exported_post_platform_linker_flags": attrs.list(attrs.tuple(attrs.regex(), attrs.list(attrs.arg())), default = []),
             "exported_preprocessor_flags": attrs.list(attrs.arg(), default = []),
             "fat_lto": attrs.bool(default = False),
             "focused_list_target": attrs.option(attrs.dep(), default = None),
@@ -1030,8 +990,6 @@ apple_test = prelude_rule(
             "incremental_bundling_enabled": attrs.option(attrs.bool(), default = None),
             "is_ui_test": attrs.bool(default = False),
             "lang_compiler_flags": attrs.dict(key = attrs.enum(CxxSourceType), value = attrs.list(attrs.arg()), sorted = False, default = {}),
-            "lang_platform_compiler_flags": attrs.dict(key = attrs.enum(CxxSourceType), value = attrs.list(attrs.tuple(attrs.regex(), attrs.list(attrs.arg()))), sorted = False, default = {}),
-            "lang_platform_preprocessor_flags": attrs.dict(key = attrs.enum(CxxSourceType), value = attrs.list(attrs.tuple(attrs.regex(), attrs.list(attrs.arg()))), sorted = False, default = {}),
             "lang_preprocessor_flags": attrs.dict(key = attrs.enum(CxxSourceType), value = attrs.list(attrs.arg()), sorted = False, default = {}),
             "libraries": attrs.list(attrs.string(), default = []),
             "licenses": attrs.list(attrs.source(), default = []),
@@ -1045,12 +1003,7 @@ apple_test = prelude_rule(
             "modular": attrs.bool(default = False),
             "module_name": attrs.option(attrs.string(), default = None),
             "module_requires_cxx": attrs.bool(default = False),
-            "platform_deps": attrs.list(attrs.tuple(attrs.regex(), attrs.set(attrs.dep(), sorted = True)), default = []),
-            "platform_headers": attrs.list(attrs.tuple(attrs.regex(), attrs.named_set(attrs.source(), sorted = True)), default = []),
-            "platform_linker_flags": attrs.list(attrs.tuple(attrs.regex(), attrs.list(attrs.arg())), default = []),
-            "platform_preprocessor_flags": attrs.list(attrs.tuple(attrs.regex(), attrs.list(attrs.arg())), default = []),
             "post_linker_flags": attrs.list(attrs.arg(), default = []),
-            "post_platform_linker_flags": attrs.list(attrs.tuple(attrs.regex(), attrs.list(attrs.arg())), default = []),
             # The test source code and lib dependencies should be built into a shared library.
             "preferred_linkage": attrs.enum(Linkage.values(), default = "shared"),
             "prefix_header": attrs.option(attrs.source(), default = None),
@@ -1237,7 +1190,6 @@ prebuilt_apple_framework = prelude_rule(
             "dsyms": attrs.list(attrs.source(allow_directory = True), default = []),
             "deps": attrs.list(attrs.dep(), default = []),
             "exported_linker_flags": attrs.list(attrs.string(), default = []),
-            "exported_platform_linker_flags": attrs.list(attrs.tuple(attrs.regex(), attrs.list(attrs.string())), default = []),
             "framework": attrs.option(attrs.source(allow_directory = True), default = None),
             "frameworks": attrs.list(attrs.string(), default = []),
             "labels": attrs.list(attrs.string(), default = []),

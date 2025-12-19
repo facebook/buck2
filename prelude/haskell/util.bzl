@@ -8,10 +8,6 @@
 
 load("@prelude//:paths.bzl", "paths")
 load(
-    "@prelude//cxx:cxx_toolchain_types.bzl",
-    "CxxPlatformInfo",
-)
-load(
     "@prelude//haskell:library_info.bzl",
     "HaskellLibraryInfo",
     "HaskellLibraryProvider",
@@ -30,8 +26,6 @@ load(
     "@prelude//linking:shared_libraries.bzl",
     "SharedLibraryInfo",
 )
-load("@prelude//utils:platform_flavors_util.bzl", "by_platform")
-load("@prelude//utils:utils.bzl", "flatten")
 
 HASKELL_EXTENSIONS = [
     ".hs",
@@ -58,12 +52,8 @@ def src_to_module_name(x: str) -> str:
     base, _ext = paths.split_extension(x)
     return base.replace("/", ".")
 
-def _by_platform(ctx: AnalysisContext, xs: list[(str, list[typing.Any])]) -> list[typing.Any]:
-    platform = ctx.attrs._cxx_toolchain[CxxPlatformInfo].name
-    return flatten(by_platform([platform], xs))
-
 def attr_deps(ctx: AnalysisContext) -> list[Dependency]:
-    return ctx.attrs.deps + _by_platform(ctx, ctx.attrs.platform_deps)
+    return ctx.attrs.deps
 
 def attr_deps_haskell_link_infos(ctx: AnalysisContext) -> list[HaskellLinkInfo]:
     return dedupe(filter(

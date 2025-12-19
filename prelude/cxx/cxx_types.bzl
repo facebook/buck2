@@ -246,15 +246,9 @@ CxxRuleConstructorParams = record(
     # Compiler flags
     compiler_flags = field(list[typing.Any], []),
     lang_compiler_flags = field(dict[typing.Any, typing.Any], {}),
-    # Platform compiler flags
-    platform_compiler_flags = field(list[(str, typing.Any)], []),
-    lang_platform_compiler_flags = field(dict[typing.Any, typing.Any], {}),
     # Preprocessor flags
     preprocessor_flags = field(list[typing.Any], []),
     lang_preprocessor_flags = field(dict[typing.Any, typing.Any], {}),
-    # Platform preprocessor flags
-    platform_preprocessor_flags = field(list[(str, typing.Any)], []),
-    lang_platform_preprocessor_flags = field(dict[typing.Any, typing.Any], {}),
     # modulename-Swift.h header for building objc targets that rely on this swift dep
     swift_objc_header = field([Artifact, None], None),
     error_handler = field([typing.Callable, None], None),

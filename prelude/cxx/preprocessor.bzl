@@ -12,12 +12,11 @@ load("@prelude//cxx:target_sdk_version.bzl", "get_target_sdk_version_flags")
 load(
     "@prelude//utils:utils.bzl",
     "filter_and_map_idx",
-    "flatten",
     "map_val",
     "value_or",
 )
 load(":attr_selection.bzl", "cxx_by_language_ext")
-load(":cxx_context.bzl", "get_cxx_platform_info", "get_cxx_toolchain_info")
+load(":cxx_context.bzl", "get_cxx_toolchain_info")
 load(
     ":headers.bzl",
     "CHeader",  # @unused Used as a type
@@ -34,7 +33,6 @@ load(
     "cxx_attr_headers",
     "prepare_headers",
 )
-load(":platform.bzl", "cxx_by_platform")
 
 SystemIncludeDirs = record(
     # Compiler type to infer correct include flags
@@ -184,12 +182,9 @@ CPreprocessorForTestsInfo = provider(
 )
 
 def cxx_attr_exported_preprocessor_flags(ctx: AnalysisContext) -> list[typing.Any]:
-    cxx_platform_info = get_cxx_platform_info(ctx)
     return (
         ctx.attrs.exported_preprocessor_flags +
-        _by_language_cxx(ctx.attrs.exported_lang_preprocessor_flags) +
-        flatten(cxx_by_platform(cxx_platform_info, ctx.attrs.exported_platform_preprocessor_flags)) +
-        flatten(cxx_by_platform(cxx_platform_info, _by_language_cxx(ctx.attrs.exported_lang_platform_preprocessor_flags)))
+        _by_language_cxx(ctx.attrs.exported_lang_preprocessor_flags)
     )
 
 def cxx_inherited_preprocessor_infos(first_order_deps: list[Dependency]) -> list[CPreprocessorInfo]:

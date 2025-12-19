@@ -36,21 +36,12 @@ load(
     ":headers.bzl",
     "cxx_attr_header_namespace",
 )
-load(":platform.bzl", "cxx_by_platform")
 
 OBJECTS_SUBTARGET = "objects"
 
 # The dependencies
 def cxx_attr_deps(ctx: AnalysisContext) -> list[Dependency]:
-    cxx_platform_info = get_cxx_platform_info(ctx)
-
     deps = list(ctx.attrs.deps)
-
-    platform_deps_attr = getattr(ctx.attrs, "platform_deps", None)
-    if platform_deps_attr:
-        platform_deps = cxx_by_platform(cxx_platform_info, platform_deps_attr)
-        for platform_dep in platform_deps:
-            deps.extend(platform_dep)
 
     deps_query_attr = getattr(ctx.attrs, "deps_query", None)
     if deps_query_attr:
@@ -65,13 +56,6 @@ def cxx_attr_exported_deps(ctx: AnalysisContext) -> list[Dependency]:
     if exported_deps_attr:
         exported_deps.extend(exported_deps_attr)
 
-    exported_platform_deps_attr = getattr(ctx.attrs, "exported_platform_deps", None)
-    if exported_platform_deps_attr:
-        cxx_platform_info = get_cxx_platform_info(ctx)
-        exported_platform_deps = cxx_by_platform(cxx_platform_info, exported_platform_deps_attr)
-        for exported_platform_dep in exported_platform_deps:
-            exported_deps.extend(exported_platform_dep)
-
     return exported_deps
 
 def cxx_attr_linker_flags_all(ctx: AnalysisContext) -> LinkerFlags:
@@ -82,13 +66,6 @@ def cxx_attr_linker_flags_all(ctx: AnalysisContext) -> LinkerFlags:
         flags.extend(local_linker_script_flags_attr)
 
     post_flags = getattr(ctx.attrs, "post_linker_flags", [])
-
-    post_platform_linker_flags_attr = getattr(ctx.attrs, "post_platform_linker_flags", None)
-    if post_platform_linker_flags_attr:
-        cxx_platform_info = get_cxx_platform_info(ctx)
-        post_platform_linker_flags = cxx_by_platform(cxx_platform_info, post_platform_linker_flags_attr)
-        for post_platform_linker_flag in post_platform_linker_flags:
-            post_flags.extend(post_platform_linker_flag)
 
     exported_flags = cxx_attr_exported_linker_flags(ctx)
     exported_post_flags = cxx_attr_exported_post_linker_flags(ctx)
@@ -101,26 +78,10 @@ def cxx_attr_linker_flags_all(ctx: AnalysisContext) -> LinkerFlags:
 
 def cxx_attr_exported_linker_flags(ctx: AnalysisContext) -> list[typing.Any]:
     exported_linker_flags = list(ctx.attrs.exported_linker_flags)
-
-    exported_platform_linker_flags_attr = getattr(ctx.attrs, "exported_platform_linker_flags", None)
-    if exported_platform_linker_flags_attr:
-        cxx_platform_info = get_cxx_platform_info(ctx)
-        exported_platform_linker_flags = cxx_by_platform(cxx_platform_info, exported_platform_linker_flags_attr)
-        for exported_platform_linker_flag in exported_platform_linker_flags:
-            exported_linker_flags.extend(exported_platform_linker_flag)
-
     return exported_linker_flags
 
 def cxx_attr_exported_post_linker_flags(ctx: AnalysisContext) -> list[typing.Any]:
     exported_post_linker_flags = list(ctx.attrs.exported_post_linker_flags)
-
-    exported_post_platform_linker_flags_attr = getattr(ctx.attrs, "exported_post_platform_linker_flags", None)
-    if exported_post_platform_linker_flags_attr:
-        cxx_platform_info = get_cxx_platform_info(ctx)
-        exported_post_platform_linker_flags = cxx_by_platform(cxx_platform_info, exported_post_platform_linker_flags_attr)
-        for exported_post_platform_linker_flag in exported_post_platform_linker_flags:
-            exported_post_linker_flags.extend(exported_post_platform_linker_flag)
-
     return exported_post_linker_flags
 
 def cxx_inherited_link_info(first_order_deps: list[Dependency]) -> list[MergedLinkInfo]:
@@ -136,15 +97,6 @@ def cxx_inherited_link_info(first_order_deps: list[Dependency]) -> list[MergedLi
 # Linker flags
 def cxx_attr_linker_flags(ctx: AnalysisContext) -> list[typing.Any]:
     linker_flags = list(ctx.attrs.linker_flags)
-    platform_linker_flags_attr = getattr(ctx.attrs, "platform_linker_flags", None)
-    if platform_linker_flags_attr:
-        cxx_platform_info = get_cxx_platform_info(ctx)
-        platform_linker_flags = cxx_by_platform(cxx_platform_info, platform_linker_flags_attr)
-
-        # TODO(skrueger): Replace with flatten_to once it exists
-        for platform_linker_flag in platform_linker_flags:
-            linker_flags.extend(platform_linker_flag)
-
     return linker_flags
 
 # Even though we're returning the shared library links, we must still

@@ -11,9 +11,7 @@ load("@prelude//cxx:compile_types.bzl", "HeadersDepFiles")
 load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxToolchainInfo", "LinkerType")
 load("@prelude//utils:expect.bzl", "expect")
 load("@prelude//utils:lazy.bzl", "lazy")
-load("@prelude//utils:utils.bzl", "from_named_set", "value_or")
-load(":cxx_context.bzl", "get_cxx_platform_info")
-load(":platform.bzl", "cxx_by_platform")
+load("@prelude//utils:utils.bzl", "value_or")
 
 # Defines the varying bits of implementation affecting on how the end user
 # should include the headers.
@@ -133,22 +131,14 @@ CPrecompiledHeaderInfo = provider(fields = {
 def cxx_attr_header_namespace(ctx: AnalysisContext) -> str:
     return value_or(ctx.attrs.header_namespace, ctx.label.package)
 
-def cxx_attr_headers_list(ctx: AnalysisContext, headers: typing.Any, platform_headers: typing.Any, headers_layout: CxxHeadersLayout) -> list[CHeader]:
-    headers = _get_attr_headers(headers, headers_layout.namespace, headers_layout.naming)
-
-    if platform_headers:
-        headers_by_platform = _headers_by_platform(ctx, platform_headers)
-        if headers_by_platform:
-            platform_headers = _get_attr_headers(headers_by_platform, headers_layout.namespace, headers_layout.naming)
-            headers.extend(platform_headers)
-
-    return headers
+def cxx_attr_headers_list(_ctx: AnalysisContext, headers: typing.Any, headers_layout: CxxHeadersLayout) -> list[CHeader]:
+    return _get_attr_headers(headers, headers_layout.namespace, headers_layout.naming)
 
 def cxx_attr_exported_headers(ctx: AnalysisContext, headers_layout: CxxHeadersLayout) -> list[CHeader]:
-    return cxx_attr_headers_list(ctx, ctx.attrs.exported_headers, ctx.attrs.exported_platform_headers, headers_layout)
+    return cxx_attr_headers_list(ctx, ctx.attrs.exported_headers, headers_layout)
 
 def cxx_attr_headers(ctx: AnalysisContext, headers_layout: CxxHeadersLayout) -> list[CHeader]:
-    return cxx_attr_headers_list(ctx, ctx.attrs.headers, ctx.attrs.platform_headers, headers_layout)
+    return cxx_attr_headers_list(ctx, ctx.attrs.headers, headers_layout)
 
 def cxx_get_regular_cxx_headers_layout(ctx: AnalysisContext) -> CxxHeadersLayout:
     namespace = cxx_attr_header_namespace(ctx)
@@ -201,13 +191,6 @@ def _get_attr_headers(xs: typing.Any, namespace: str, naming: CxxHeadersNaming) 
         return [CHeader(artifact = x, name = _get_list_header_name(x, naming), namespace = namespace, named = False) for x in xs]
     else:
         return [CHeader(artifact = xs[x], name = x, namespace = _get_dict_header_namespace(namespace, naming), named = True) for x in xs]
-
-def _headers_by_platform(ctx: AnalysisContext, xs: list[(str, typing.Any)]) -> typing.Any:
-    res = {}
-    cxx_platform_info = get_cxx_platform_info(ctx)
-    for deps in cxx_by_platform(cxx_platform_info, xs):
-        res.update(from_named_set(deps))
-    return res
 
 def as_raw_headers(
         ctx: AnalysisContext,

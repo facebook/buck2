@@ -191,9 +191,9 @@ def get_vs_settings(target: bxl.ConfiguredTargetNode, toolchain, attrs: dict, vs
     attrs_lazy = target.resolved_attrs_lazy(bxl_ctx)
 
     # NB: We want to keep dep label as a label type to find rel path, instead of using strings like the rest of attrs
-    deps = get_unified_value(attrs_lazy, "deps", "platform_deps")
+    deps = get_unified_value(attrs_lazy, "deps")
     deps = flatten_lists([d.values() if isinstance(d, dict) else d for d in deps])
-    exported_deps = get_unified_value(attrs_lazy, "exported_deps", "exported_platform_deps")
+    exported_deps = get_unified_value(attrs_lazy, "exported_deps")
     exported_deps = flatten_lists([d.values() if isinstance(d, dict) else d for d in exported_deps])
     if attrs["buck_type"] == "alias":
         exported_deps.append(attrs_lazy.get("actual"))

@@ -98,19 +98,6 @@ def _provided_deps_query_arg():
 """),
     }
 
-def _platform_deps_arg():
-    return {
-        "platform_deps": attrs.list(attrs.tuple(attrs.regex(), attrs.set(attrs.dep(), sorted = True)), default = [], doc = """
-    Platform specific dependencies.
-     These should be specified as a list of pairs where the first element is an
-     un-anchored regex (in java.util.regex.Pattern syntax) against which the
-     platform name is matched, and the second element is a list of
-     dependencies (same format as `deps`) that are exported
-     if the platform matches the regex.
-     See `deps` for more information.
-"""),
-    }
-
 def _labels_arg():
     return {
         "labels": attrs.list(attrs.string(), default = [], doc = """
@@ -235,7 +222,6 @@ buck = struct(
     deps_query_arg = _deps_query_arg,
     exec_os_type_arg = _exec_os_type_arg,
     provided_deps_query_arg = _provided_deps_query_arg,
-    platform_deps_arg = _platform_deps_arg,
     labels_arg = _labels_arg,
     visibility_arg = _visibility_arg,
     tests_arg = _tests_arg,

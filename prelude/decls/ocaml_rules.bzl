@@ -72,7 +72,6 @@ ocaml_binary = prelude_rule(
         # @unsorted-dict-items
         ocaml_common.srcs_arg() |
         ocaml_common.deps_arg() |
-        buck.platform_deps_arg() |
         ocaml_common.compiler_flags_arg() |
         {
             "bytecode_only": attrs.option(attrs.bool(), default = None),
@@ -80,8 +79,6 @@ ocaml_binary = prelude_rule(
             "linker_flags": attrs.list(attrs.string(), default = []),
             "ocamldep_flags": attrs.list(attrs.arg(), default = []),
             "platform": attrs.option(attrs.string(), default = None),
-            "platform_compiler_flags": attrs.list(attrs.tuple(attrs.regex(), attrs.list(attrs.arg())), default = []),
-            "platform_linker_flags": attrs.list(attrs.tuple(attrs.regex(), attrs.list(attrs.string())), default = []),
             "warnings_flags": attrs.option(attrs.string(), default = None),
         } |
         buck.licenses_arg() |
@@ -120,7 +117,6 @@ ocaml_library = prelude_rule(
         # @unsorted-dict-items
         ocaml_common.srcs_arg() |
         ocaml_common.deps_arg() |
-        buck.platform_deps_arg() |
         ocaml_common.compiler_flags_arg() |
         {
             "bytecode_only": attrs.bool(default = False),
@@ -128,7 +124,6 @@ ocaml_library = prelude_rule(
             "linker_flags": attrs.list(attrs.arg(), default = []),
             "native_plugin": attrs.bool(default = False),
             "ocamldep_flags": attrs.list(attrs.arg(), default = []),
-            "platform_compiler_flags": attrs.list(attrs.tuple(attrs.regex(), attrs.list(attrs.arg())), default = []),
             "warnings_flags": attrs.option(attrs.string(), default = None),
         } |
         buck.licenses_arg() |
@@ -156,7 +151,6 @@ prebuilt_ocaml_library = prelude_rule(
             "lib_name": attrs.string(default = ""),
             "native_c_libs": attrs.list(attrs.string(), default = []),
             "native_lib": attrs.option(attrs.string(), default = None),
-            "platform_deps": attrs.list(attrs.tuple(attrs.regex(), attrs.set(attrs.dep(), sorted = True)), default = []),
         } |
         buck.licenses_arg() |
         buck.labels_arg() |

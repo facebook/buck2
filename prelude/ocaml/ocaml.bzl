@@ -50,7 +50,7 @@
 
 load("@prelude//:local_only.bzl", "link_cxx_binary_locally")
 load("@prelude//:paths.bzl", "paths")
-load("@prelude//cxx:cxx_context.bzl", "get_cxx_platform_info", "get_cxx_toolchain_info")
+load("@prelude//cxx:cxx_context.bzl", "get_cxx_toolchain_info")
 load(
     "@prelude//cxx:cxx_link_utility.bzl",
     "make_link_args",
@@ -95,8 +95,7 @@ load(
     "PythonLibraryInfo",
 )
 load("@prelude//utils:graph_utils.bzl", "depth_first_traversal", "post_order_traversal")
-load("@prelude//utils:platform_flavors_util.bzl", "by_platform")
-load("@prelude//utils:utils.bzl", "filter_and_map_idx", "flatten")
+load("@prelude//utils:utils.bzl", "filter_and_map_idx")
 load(":makefile.bzl", "parse_makefile")
 load(":ocaml_toolchain_types.bzl", "OCamlLibraryInfo", "OCamlLinkInfo", "OCamlToolchainInfo", "OtherOutputsInfo", "merge_ocaml_link_infos", "merge_other_outputs_info")
 
@@ -135,12 +134,8 @@ def _compile_result_to_tuple(r):
 
 # ---
 
-def _by_platform(ctx: AnalysisContext, xs: list[(str, list[typing.Any])]) -> list[typing.Any]:
-    platform = get_cxx_platform_info(ctx).name
-    return flatten(by_platform([platform], xs))
-
 def _attr_deps(ctx: AnalysisContext) -> list[Dependency]:
-    return ctx.attrs.deps + _by_platform(ctx, ctx.attrs.platform_deps)
+    return ctx.attrs.deps
 
 def _attr_deps_merged_link_infos(ctx: AnalysisContext) -> list[MergedLinkInfo]:
     return filter(None, [d.get(MergedLinkInfo) for d in _attr_deps(ctx)])

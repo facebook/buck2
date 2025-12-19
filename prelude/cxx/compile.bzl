@@ -58,7 +58,6 @@ load(
     "CxxPrecompiledHeader",  # @unused Used in type annotation
     "add_headers_dep_files",
 )
-load(":platform.bzl", "cxx_by_platform")
 load(
     ":preprocessor.bzl",
     "CPreprocessor",  # @unused Used as a type
@@ -1307,7 +1306,7 @@ _filter_precompile_argsfile_anon_rule = anon_rule(
 def _mk_argsfiles(
         actions: AnalysisActions,
         target_label: Label,
-        cxx_platform_info: CxxPlatformInfo,
+        _cxx_platform_info: CxxPlatformInfo,
         impl_params: CxxRuleConstructorParams,
         compiler_info: typing.Any,
         preprocessor: CPreprocessorInfo,
@@ -1449,14 +1448,10 @@ def _mk_argsfiles(
             # preprocessor
             impl_params.preprocessor_flags,
             cxx_by_language_ext(impl_params.lang_preprocessor_flags, ext.value),
-            cxx_by_platform(cxx_platform_info, impl_params.platform_preprocessor_flags),
-            cxx_by_platform(cxx_platform_info, cxx_by_language_ext(impl_params.lang_platform_preprocessor_flags, ext.value)),
             get_flags_for_compiler_type(compiler_info.compiler_type),
 
             # compiler
             cxx_by_language_ext(impl_params.lang_compiler_flags, ext.value),
-            cxx_by_platform(cxx_platform_info, impl_params.platform_compiler_flags),
-            cxx_by_platform(cxx_platform_info, cxx_by_language_ext(impl_params.lang_platform_compiler_flags, ext.value)),
 
             # ctx.attrs.compiler_flags need to come last to preserve buck1 ordering, this prevents compiler
             # flags ordering-dependent build errors

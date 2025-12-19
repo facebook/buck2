@@ -98,7 +98,7 @@ load(
     "filter_and_map_idx",
     "value_or",
 )
-load(":cxx_context.bzl", "get_cxx_platform_info", "get_cxx_toolchain_info")
+load(":cxx_context.bzl", "get_cxx_toolchain_info")
 load(":cxx_executable.bzl", "cxx_executable")
 load(
     ":cxx_library.bzl",
@@ -164,7 +164,6 @@ load(
     ":omnibus.bzl",
     "create_linkable_root",
 )
-load(":platform.bzl", "cxx_by_platform")
 load(
     ":preprocessor.bzl",
     "CPreprocessor",
@@ -227,12 +226,8 @@ def cxx_library_generate(ctx: AnalysisContext, rule_type: str) -> list[Provider]
         generate_providers = provider_params,
         compiler_flags = ctx.attrs.compiler_flags,
         lang_compiler_flags = ctx.attrs.lang_compiler_flags,
-        platform_compiler_flags = ctx.attrs.platform_compiler_flags,
-        lang_platform_compiler_flags = ctx.attrs.lang_platform_compiler_flags,
         preprocessor_flags = ctx.attrs.preprocessor_flags,
         lang_preprocessor_flags = ctx.attrs.lang_preprocessor_flags,
-        platform_preprocessor_flags = ctx.attrs.platform_preprocessor_flags,
-        lang_platform_preprocessor_flags = ctx.attrs.lang_platform_preprocessor_flags,
         use_header_units = ctx.attrs.use_header_units,
         export_header_unit = ctx.attrs.export_header_unit,
         export_header_unit_filter = ctx.attrs.export_header_unit_filter,
@@ -308,12 +303,8 @@ def cxx_binary_impl(ctx: AnalysisContext) -> list[Provider]:
         extra_link_roots = linkables(ctx.attrs.link_group_deps),
         compiler_flags = ctx.attrs.compiler_flags,
         lang_compiler_flags = ctx.attrs.lang_compiler_flags,
-        platform_compiler_flags = ctx.attrs.platform_compiler_flags,
-        lang_platform_compiler_flags = ctx.attrs.lang_platform_compiler_flags,
         preprocessor_flags = ctx.attrs.preprocessor_flags,
         lang_preprocessor_flags = ctx.attrs.lang_preprocessor_flags,
-        platform_preprocessor_flags = ctx.attrs.platform_preprocessor_flags,
-        lang_platform_preprocessor_flags = ctx.attrs.lang_platform_preprocessor_flags,
         use_header_units = ctx.attrs.use_header_units,
         runtime_dependency_handling = cxx_attr_runtime_dependency_handling(ctx),
         error_handler = get_cxx_toolchain_info(ctx).cxx_error_handler,
@@ -389,27 +380,12 @@ def cxx_binary_impl(ctx: AnalysisContext) -> list[Provider]:
     ] + extra_providers
 
 def _prebuilt_item(
-        ctx: AnalysisContext,
-        item: [typing.Any, None],
-        platform_items: [list[(str, typing.Any)], None]) -> [typing.Any, None]:
+        _ctx: AnalysisContext,
+        item: [typing.Any, None]) -> [typing.Any, None]:
     """
-    Parse the given item that can be specified by regular and platform-specific
-    parameters.
+    Return the item if it's set.
     """
-
-    if item != None:
-        return item
-
-    cxx_platform_info = get_cxx_platform_info(ctx)
-    if platform_items != None:
-        items = dedupe(cxx_by_platform(cxx_platform_info, platform_items))
-        if len(items) == 0:
-            return None
-        if len(items) != 1:
-            fail("expected single platform match: name={}//{}:{}, platform_items={}, items={}".format(ctx.label.cell, ctx.label.package, ctx.label.name, str(platform_items), str(items)))
-        return items[0]
-
-    return None
+    return item
 
 def _prebuilt_linkage(ctx: AnalysisContext) -> Linkage:
     """
@@ -428,9 +404,7 @@ def _prebuilt_linkage(ctx: AnalysisContext) -> Linkage:
 
 def prebuilt_cxx_library_impl(ctx: AnalysisContext) -> list[Provider]:
     # Versioned params should be intercepted and converted away via the stub.
-    expect(not ctx.attrs.versioned_exported_lang_platform_preprocessor_flags)
     expect(not ctx.attrs.versioned_exported_lang_preprocessor_flags)
-    expect(not ctx.attrs.versioned_exported_platform_preprocessor_flags)
     expect(not ctx.attrs.versioned_exported_preprocessor_flags)
     expect(not ctx.attrs.versioned_header_dirs)
     expect(not ctx.attrs.versioned_shared_lib)
@@ -450,22 +424,18 @@ def prebuilt_cxx_library_impl(ctx: AnalysisContext) -> list[Provider]:
     static_lib = _prebuilt_item(
         ctx,
         ctx.attrs.static_lib,
-        ctx.attrs.platform_static_lib,
     )
     static_pic_lib = _prebuilt_item(
         ctx,
         ctx.attrs.static_pic_lib,
-        ctx.attrs.platform_static_pic_lib,
     )
     shared_lib = _prebuilt_item(
         ctx,
         ctx.attrs.shared_lib,
-        ctx.attrs.platform_shared_lib,
     )
     header_dirs = _prebuilt_item(
         ctx,
         ctx.attrs.header_dirs,
-        ctx.attrs.platform_header_dirs,
     )
     preferred_linkage = _prebuilt_linkage(ctx)
 
@@ -495,7 +465,7 @@ def prebuilt_cxx_library_impl(ctx: AnalysisContext) -> list[Provider]:
         soname = get_shared_library_name(linker_info, ctx.label.name, apply_default_prefix = True)
     soname = to_soname(soname)
 
-    # Use ctx.attrs.deps instead of cxx_attr_deps, since prebuilt rules don't have platform_deps.
+    # Use ctx.attrs.deps instead of cxx_attr_deps, since prebuilt rules don't have deps_query.
     first_order_deps = ctx.attrs.deps
     exported_first_order_deps = cxx_attr_exported_deps(ctx)
 
@@ -852,12 +822,8 @@ def cxx_test_impl(ctx: AnalysisContext) -> list[Provider]:
         extra_link_roots = linkables(ctx.attrs.link_group_deps),
         compiler_flags = ctx.attrs.compiler_flags,
         lang_compiler_flags = ctx.attrs.lang_compiler_flags,
-        platform_compiler_flags = ctx.attrs.platform_compiler_flags,
-        lang_platform_compiler_flags = ctx.attrs.lang_platform_compiler_flags,
         preprocessor_flags = ctx.attrs.preprocessor_flags,
         lang_preprocessor_flags = ctx.attrs.lang_preprocessor_flags,
-        platform_preprocessor_flags = ctx.attrs.platform_preprocessor_flags,
-        lang_platform_preprocessor_flags = ctx.attrs.lang_platform_preprocessor_flags,
         use_header_units = ctx.attrs.use_header_units,
         runtime_dependency_handling = cxx_attr_runtime_dependency_handling(ctx),
         error_handler = get_cxx_toolchain_info(ctx).cxx_error_handler,

@@ -6,10 +6,8 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
-load("@prelude//cxx:cxx_context.bzl", "get_cxx_platform_info")
 load("@prelude//cxx:cxx_toolchain_types.bzl", "PicBehavior")
 load("@prelude//cxx:headers.bzl", "CPrecompiledHeaderInfo")
-load("@prelude//cxx:platform.bzl", "cxx_by_platform")
 
 # TODO(mattpayne): Add this back once the type is supported by dependency mgmt
 # load("@prelude//cxx:shared_library_interface.bzl", "SharedInterfaceInfo")
@@ -19,10 +17,6 @@ load("@prelude//utils:expect.bzl", "expect")
 load(
     "@prelude//utils:graph_utils.bzl",
     "depth_first_traversal_by",
-)
-load(
-    "@prelude//utils:utils.bzl",
-    "flatten",
 )
 load(
     ":link_info.bzl",
@@ -164,9 +158,6 @@ def _get_target_sources(ctx: AnalysisContext) -> list[_TargetSourceType]:
     srcs = []
     if hasattr(ctx.attrs, "srcs"):
         srcs.extend(ctx.attrs.srcs)
-    if hasattr(ctx.attrs, "platform_srcs"):
-        cxx_platform_info = get_cxx_platform_info(ctx)
-        srcs.extend(flatten(cxx_by_platform(cxx_platform_info, ctx.attrs.platform_srcs)))
     return srcs
 
 def create_linkable_node(

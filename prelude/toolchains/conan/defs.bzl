@@ -365,7 +365,6 @@ def conan_component(
         #"default_host_platform": attrs.option(attrs.configuration_label(), default = None),
         #"deps": attrs.list(attrs.dep(), default = []),
         #"exported_deps": attrs.list(attrs.dep(), default = []),
-        #"exported_platform_deps": attrs.list(attrs.tuple(attrs.regex(), attrs.set(attrs.dep(), sorted = True)), default = []),
         #"exported_preprocessor_flags": attrs.list(attrs.string(), default = []),
         #"import_libs": attrs.dict(key = attrs.string(), value = attrs.source(), sorted = False, default = {}),
         #"include_dirs": attrs.list(attrs.source(), default = []),

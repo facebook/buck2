@@ -68,7 +68,7 @@ load(
 )
 load("@prelude//linking:types.bzl", "Linkage")
 load("@prelude//os_lookup:defs.bzl", "Os", "OsLookup")
-load("@prelude//python:toolchain.bzl", "PythonPlatformInfo", "PythonToolchainInfo", "get_platform_attr")
+load("@prelude//python:toolchain.bzl", "PythonToolchainInfo")
 load(
     "@prelude//python/linking:native_python_util.bzl",
     "merge_cxx_extension_info",
@@ -139,13 +139,9 @@ def cxx_python_extension_impl(ctx: AnalysisContext) -> list[Provider]:
         generate_sub_targets = sub_targets,
         compiler_flags = ctx.attrs.compiler_flags,
         lang_compiler_flags = ctx.attrs.lang_compiler_flags,
-        platform_compiler_flags = ctx.attrs.platform_compiler_flags,
         extra_link_flags = python_toolchain.extension_linker_flags,
-        lang_platform_compiler_flags = ctx.attrs.lang_platform_compiler_flags,
         preprocessor_flags = ctx.attrs.preprocessor_flags,
         lang_preprocessor_flags = ctx.attrs.lang_preprocessor_flags,
-        platform_preprocessor_flags = ctx.attrs.platform_preprocessor_flags,
-        lang_platform_preprocessor_flags = ctx.attrs.lang_platform_preprocessor_flags,
         error_handler = cxx_toolchain.cxx_error_handler,
         allow_cache_upload = cxx_attrs_get_allow_cache_upload(ctx.attrs, get_cxx_toolchain_info(ctx).cxx_compiler_info.allow_cache_upload),
         precompiled_header = ctx.attrs.precompiled_header,
@@ -300,12 +296,7 @@ def cxx_python_extension_impl(ctx: AnalysisContext) -> list[Provider]:
         )
 
     # Export library info.
-    python_platform = ctx.attrs._python_toolchain[PythonPlatformInfo]
-    cxx_toolchain = ctx.attrs._cxx_toolchain
     raw_deps = ctx.attrs.deps
-    raw_deps.extend(
-        get_platform_attr(python_platform, cxx_toolchain, ctx.attrs.platform_deps),
-    )
 
     deps, shared_deps = gather_dep_libraries(raw_deps, resolve_versioned_deps = False)
     providers.append(gather_versioned_dependencies(raw_deps))
