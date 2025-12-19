@@ -36,6 +36,7 @@ buck_kotlin_library(
         "PUBLIC",
     ],
     deps = [
+        "prelude//toolchains/android/src/com/facebook/buck/android/apex:apex_manifest",
         "prelude//toolchains/android/src/com/facebook/buck/android/device:device",
         "prelude//toolchains/android/src/com/facebook/buck/core/util/log:log",
         "prelude//toolchains/android/src/com/facebook/buck/installer/android:exceptions",

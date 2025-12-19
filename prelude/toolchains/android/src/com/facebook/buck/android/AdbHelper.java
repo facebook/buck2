@@ -12,6 +12,7 @@ package com.facebook.buck.android;
 
 import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
 
+import com.facebook.buck.android.apex.ApexManifestProto.ApexManifest;
 import com.facebook.buck.android.device.TargetDeviceOptions;
 import com.facebook.buck.android.exopackage.AdbUtils;
 import com.facebook.buck.android.exopackage.AndroidDevice;
@@ -824,6 +825,49 @@ public class AdbHelper implements AndroidDevicesHelper {
               device.installBuildUuidFile(
                   BUILD_METADATA_INSTALL_ROOT, packageName, buck2BuildUuid.get()),
           true);
+    }
+  }
+
+  private boolean isApexFileSupportsRebootlessUpdate(File apexFile) {
+    try {
+      // Open APEX file as a zip archive
+      try (ZipFile zipFile = new ZipFile(apexFile)) {
+        // Find the apex_manifest.pb entry
+        ZipEntry manifestEntry = zipFile.getEntry("apex_manifest.pb");
+
+        if (manifestEntry == null) {
+          LOG.warn("apex_manifest.pb not found in APEX file: %s", apexFile.getName());
+          return false;
+        }
+
+        // Extract the manifest directly to byte array
+        byte[] manifestBytes;
+        try (java.io.InputStream inputStream = zipFile.getInputStream(manifestEntry);
+            java.io.ByteArrayOutputStream outputStream = new java.io.ByteArrayOutputStream()) {
+          byte[] buffer = new byte[8192];
+          int bytesRead;
+          while ((bytesRead = inputStream.read(buffer)) != -1) {
+            outputStream.write(buffer, 0, bytesRead);
+          }
+          manifestBytes = outputStream.toByteArray();
+        }
+
+        LOG.info(
+            "Extracted apex_manifest.pb from %s (%d bytes)",
+            apexFile.getName(), manifestBytes.length);
+
+        // Parse manifestBytes to check for rebootless update support
+        ApexManifest apexManifest = ApexManifest.parseFrom(manifestBytes);
+
+        LOG.info(
+            "supportsRebootlessUpdate: %s",
+            apexManifest.getSupportsRebootlessUpdate() ? "true" : "false");
+
+        return apexManifest.getSupportsRebootlessUpdate();
+      }
+    } catch (IOException e) {
+      LOG.warn(e, "Failed to extract apex_manifest.pb from %s", apexFile.getName());
+      return false;
     }
   }
 
