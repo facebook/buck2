@@ -135,6 +135,91 @@ impl NodeKey {
 
         Some(key)
     }
+
+    fn into_critical_path_entry_data(
+        self,
+        action_node_data: Option<&ActionNodeData>,
+    ) -> Option<buck2_data::critical_path_entry2::Entry> {
+        match self {
+            NodeKey::BuildKey(key) => {
+                let owner = key.0.owner().to_proto().into();
+
+                // If we have a NodeKey that's an ActionKey we'd expect to have an `action`
+                // in our data (unless we didn't actually run it because of e.g. early
+                // cutoff, in which case omitting it is what we want).
+                let ActionNodeData {
+                    action,
+                    execution_kind,
+                    target_rule_type_name,
+                    action_digest,
+                    invalidation_info,
+                } = action_node_data.as_ref()?;
+
+                Some(
+                    buck2_data::critical_path_entry2::ActionExecution {
+                        owner: Some(owner),
+                        name: Some(buck2_data::ActionName {
+                            category: action.category().as_str().to_owned(),
+                            identifier: action.identifier().unwrap_or("").to_owned(),
+                        }),
+                        execution_kind: (*execution_kind).into(),
+                        target_rule_type_name: target_rule_type_name.to_owned(),
+                        action_digest: action_digest.to_owned(),
+                        invalidation_info: invalidation_info.to_owned(),
+                    }
+                    .into(),
+                )
+            }
+            NodeKey::AnalysisKey(key) => Some(
+                buck2_data::critical_path_entry2::Analysis {
+                    target: Some(key.0.as_proto().into()),
+                }
+                .into(),
+            ),
+            NodeKey::FinalMaterialization(key) => {
+                let owner = key.key().owner().to_proto().into();
+
+                Some(
+                    buck2_data::critical_path_entry2::FinalMaterialization {
+                        owner: Some(owner),
+                        path: key.get_path().path().to_string(),
+                    }
+                    .into(),
+                )
+            }
+            NodeKey::InterpreterResultsKey(key) => Some(
+                buck2_data::critical_path_entry2::Load {
+                    package: key.0.to_string(),
+                }
+                .into(),
+            ),
+            NodeKey::PackageListingKey(key) => Some(
+                buck2_data::critical_path_entry2::Listing {
+                    package: key.0.to_string(),
+                }
+                .into(),
+            ),
+            NodeKey::EnsureProjectedArtifactKey(..) => None,
+            NodeKey::EnsureTransitiveSetProjectionKey(..) => None,
+            NodeKey::Dyn(_, d) => d.critical_path_entry_proto(),
+            NodeKey::TestExecution(t) => Some(
+                buck2_data::critical_path_entry2::TestExecution {
+                    target_label: Some(t.target.as_proto()),
+                    suite: t.suite.to_string(),
+                    testcases: t.testcases.to_vec(),
+                    variant: t.variant.map(|v| v.to_string()),
+                }
+                .into(),
+            ),
+            NodeKey::TestListing(t) => Some(
+                buck2_data::critical_path_entry2::TestListing {
+                    target_label: Some(t.target.as_proto()),
+                    suite: t.suite.to_string(),
+                }
+                .into(),
+            ),
+        }
+    }
 }
 
 impl fmt::Display for NodeKey {
@@ -749,78 +834,8 @@ impl DetailedCriticalPath {
             self.entries
                 .into_iter()
                 .filter_map(|(key, data, potential_improvement)| {
-                    let entry: buck2_data::critical_path_entry2::Entry = match key {
-                        NodeKey::BuildKey(key) => {
-                            let owner = key.0.owner().to_proto().into();
-
-                            // If we have a NodeKey that's an ActionKey we'd expect to have an `action`
-                            // in our data (unless we didn't actually run it because of e.g. early
-                            // cutoff, in which case omitting it is what we want).
-                            let ActionNodeData {
-                                action,
-                                execution_kind,
-                                target_rule_type_name,
-                                action_digest,
-                                invalidation_info,
-                            } = data.action_node_data.as_ref()?;
-
-                            buck2_data::critical_path_entry2::ActionExecution {
-                                owner: Some(owner),
-                                name: Some(buck2_data::ActionName {
-                                    category: action.category().as_str().to_owned(),
-                                    identifier: action.identifier().unwrap_or("").to_owned(),
-                                }),
-                                execution_kind: (*execution_kind).into(),
-                                target_rule_type_name: target_rule_type_name.to_owned(),
-                                action_digest: action_digest.to_owned(),
-                                invalidation_info: invalidation_info.to_owned(),
-                            }
-                            .into()
-                        }
-                        NodeKey::AnalysisKey(key) => buck2_data::critical_path_entry2::Analysis {
-                            target: Some(key.0.as_proto().into()),
-                        }
-                        .into(),
-                        NodeKey::FinalMaterialization(key) => {
-                            let owner = key.key().owner().to_proto().into();
-
-                            buck2_data::critical_path_entry2::FinalMaterialization {
-                                owner: Some(owner),
-                                path: key.get_path().path().to_string(),
-                            }
-                            .into()
-                        }
-                        NodeKey::InterpreterResultsKey(key) => {
-                            buck2_data::critical_path_entry2::Load {
-                                package: key.0.to_string(),
-                            }
-                            .into()
-                        }
-                        NodeKey::PackageListingKey(key) => {
-                            buck2_data::critical_path_entry2::Listing {
-                                package: key.0.to_string(),
-                            }
-                            .into()
-                        }
-                        NodeKey::EnsureProjectedArtifactKey(..) => return None,
-                        NodeKey::EnsureTransitiveSetProjectionKey(..) => return None,
-                        NodeKey::Dyn(_, d) => d.critical_path_entry_proto()?,
-                        NodeKey::TestExecution(t) => {
-                            buck2_data::critical_path_entry2::TestExecution {
-                                target_label: Some(t.target.as_proto()),
-                                suite: t.suite.to_string(),
-                                testcases: t.testcases.to_vec(),
-                                variant: t.variant.map(|v| v.to_string()),
-                            }
-                            .into()
-                        }
-                        NodeKey::TestListing(t) => buck2_data::critical_path_entry2::TestListing {
-                            target_label: Some(t.target.as_proto()),
-                            suite: t.suite.to_string(),
-                        }
-                        .into(),
-                    };
-
+                    let entry =
+                        key.into_critical_path_entry_data(data.action_node_data.as_ref())?;
                     Some((entry, data, potential_improvement))
                 });
 
