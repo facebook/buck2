@@ -560,24 +560,6 @@ where
             top_level_targets,
         } = self.backend.finish()?;
 
-        let elapsed_compute_critical_path = Instant::now() - now;
-
-        let meta_entry_data = NodeData {
-            action_node_data: None,
-            duration: NodeDuration {
-                user: Duration::ZERO,
-                total: TimeSpan::from_start_and_duration(now, elapsed_compute_critical_path),
-                queue: None,
-            },
-            span_ids: Default::default(),
-        };
-
-        let compute_critical_path_entry = (
-            buck2_data::critical_path_entry2::ComputeCriticalPath {}.into(),
-            meta_entry_data,
-            Some(elapsed_compute_critical_path),
-        );
-
         let early_command_entries = ctx.early_command_entries.iter().map(|entry| {
             let generic_entry_data = NodeData {
                 action_node_data: None,
@@ -598,8 +580,7 @@ where
             )
         });
 
-        let critical_path2 = critical_path
-            .into_critical_path_proto(early_command_entries, compute_critical_path_entry)?;
+        let critical_path2 = critical_path.into_critical_path_proto(early_command_entries, now)?;
 
         let top_level_targets = top_level_targets.try_map(|(key, duration)| {
             buck2_error::Ok(buck2_data::TopLevelTargetCriticalPath {
@@ -824,11 +805,7 @@ impl DetailedCriticalPath {
                 Option<Duration>,
             ),
         >,
-        compute_critical_path_entry: (
-            buck2_data::critical_path_entry2::Entry,
-            NodeData,
-            Option<Duration>,
-        ),
+        critical_path_compute_start: Instant,
     ) -> buck2_error::Result<Vec<buck2_data::CriticalPathEntry2>> {
         let critical_path_iter =
             self.entries
@@ -841,7 +818,28 @@ impl DetailedCriticalPath {
 
         early_command_entries
             .chain(critical_path_iter)
-            .chain(std::iter::once(compute_critical_path_entry))
+            .chain(std::iter::once_with(|| {
+                let elapsed_compute_critical_path = Instant::now() - critical_path_compute_start;
+
+                let meta_entry_data = NodeData {
+                    action_node_data: None,
+                    duration: NodeDuration {
+                        user: Duration::ZERO,
+                        total: TimeSpan::from_start_and_duration(
+                            critical_path_compute_start,
+                            elapsed_compute_critical_path,
+                        ),
+                        queue: None,
+                    },
+                    span_ids: Default::default(),
+                };
+
+                (
+                    buck2_data::critical_path_entry2::ComputeCriticalPath {}.into(),
+                    meta_entry_data,
+                    Some(elapsed_compute_critical_path),
+                )
+            }))
             .map(|(entry, data, potential_improvement)| {
                 Self::create_critical_path_entry2(entry, data, potential_improvement)
             })
