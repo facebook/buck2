@@ -37,6 +37,7 @@ use buck2_execute_local::StdRedirectPaths;
 use buck2_fs::fs_util;
 use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_fs::paths::file_name::FileName;
+use buck2_util::time_span::TimeSpan;
 use buck2_worker_proto::ExecuteCommand;
 use buck2_worker_proto::ExecuteCommandStream;
 use buck2_worker_proto::ExecuteResponse;
@@ -117,7 +118,7 @@ impl WorkerInitError {
                     IndexMap::default(),
                     std_streams,
                     *exit_code,
-                    CommandExecutionMetadata::default(),
+                    CommandExecutionMetadata::empty(TimeSpan::empty_now()),
                     None,
                 )
             }
@@ -131,7 +132,7 @@ impl WorkerInitError {
                         stderr: format!("Error initializing worker: {self}").into_bytes(),
                     },
                     None,
-                    CommandExecutionMetadata::default(),
+                    CommandExecutionMetadata::empty(TimeSpan::empty_now()),
                     None,
                 ),
             WorkerInitError::InternalError(error) => {

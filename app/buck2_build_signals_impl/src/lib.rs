@@ -53,6 +53,7 @@ use buck2_events::span::SpanId;
 use buck2_interpreter_for_build::interpreter::calculation::InterpreterResultsKey;
 use buck2_interpreter_for_build::interpreter::calculation::InterpreterResultsKeyActivationData;
 use buck2_node::nodes::eval_result::EvaluationResult;
+use buck2_util::time_span::TimeSpan;
 use dice::ActivationData;
 use dice::ActivationTracker;
 use dice::DynKey;
@@ -321,35 +322,35 @@ impl ActivationTracker for BuildSignalSender {
                 signal.action_with_extra_data = Some(action_with_extra_data);
                 signal.duration = duration;
                 signal.spans = spans;
-            } else if let Some(AnalysisKeyActivationData { duration, spans }) =
+            } else if let Some(AnalysisKeyActivationData { time_span, spans }) =
                 downcast_and_take(&mut activation_data)
             {
                 signal.duration = NodeDuration {
-                    user: duration,
-                    total: duration,
+                    user: time_span.duration(),
+                    total: time_span,
                     queue: None,
                 };
                 signal.spans = spans;
             } else if let Some(InterpreterResultsKeyActivationData {
-                duration,
+                time_span,
                 result,
                 spans,
             }) = downcast_and_take(&mut activation_data)
             {
                 signal.duration = NodeDuration {
-                    user: duration,
-                    total: duration,
+                    user: time_span.duration(),
+                    total: time_span,
                     queue: None,
                 };
 
                 signal.load_result = result.ok();
                 signal.spans = spans;
-            } else if let Some(PackageListingKeyActivationData { duration, spans }) =
+            } else if let Some(PackageListingKeyActivationData { time_span, spans }) =
                 downcast_and_take(&mut activation_data)
             {
                 signal.duration = NodeDuration {
-                    user: duration,
-                    total: duration,
+                    user: time_span.duration(),
+                    total: time_span,
                     queue: None,
                 };
                 signal.spans = spans;
@@ -480,7 +481,7 @@ where
             action_node_data: None,
             duration: NodeDuration {
                 user: Duration::ZERO,
-                total: elapsed_compute_critical_path,
+                total: TimeSpan::from_start_and_duration(now, elapsed_compute_critical_path),
                 queue: None,
             },
             span_ids: Default::default(),
@@ -497,7 +498,7 @@ where
                 action_node_data: None,
                 duration: NodeDuration {
                     user: Duration::ZERO,
-                    total: entry.duration,
+                    total: entry.time_span,
                     queue: None,
                 },
                 span_ids: Default::default(),
@@ -508,7 +509,7 @@ where
                 }
                 .into(),
                 generic_entry_data,
-                Some(entry.duration),
+                Some(entry.time_span.duration()),
             )
         });
 
@@ -604,7 +605,7 @@ where
                     duration: Some(data.duration.critical_path_duration().try_into()?),
                     user_duration: Some(data.duration.user.try_into()?),
                     queue_duration: data.duration.queue.map(|d| d.try_into()).transpose()?,
-                    total_duration: Some(data.duration.total.try_into()?),
+                    total_duration: Some(data.duration.total.duration().try_into()?),
                     potential_improvement_duration: potential_improvement
                         .map(|p| p.try_into())
                         .transpose()?,
@@ -829,7 +830,7 @@ impl ActionNodeData {
     }
 }
 
-assert_eq_size!(NodeData, [usize; 17]);
+assert_eq_size!(NodeData, [usize; 19]);
 
 fn create_build_signals() -> (BuildSignalsInstaller, Box<dyn DeferredBuildSignals>) {
     let (sender, receiver) = tokio::sync::mpsc::unbounded_channel();

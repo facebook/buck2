@@ -11,7 +11,6 @@
 //! Interpreter related Dice calculations
 
 use std::sync::Arc;
-use std::time::Duration;
 
 use allocative::Allocative;
 use async_trait::async_trait;
@@ -38,6 +37,7 @@ use buck2_node::nodes::frontend::TargetGraphCalculation;
 use buck2_node::nodes::frontend::TargetGraphCalculationImpl;
 use buck2_node::package_values_calculation::PACKAGE_VALUES_CALCULATION;
 use buck2_node::package_values_calculation::PackageValuesCalculation;
+use buck2_util::time_span::TimeSpan;
 use derive_more::Display;
 use dice::DiceComputations;
 use dice::Key;
@@ -72,13 +72,13 @@ impl Key for InterpreterResultsKey {
         ctx: &mut DiceComputations,
         cancellation: &CancellationContext,
     ) -> Self::Value {
-        let ((duration, result), spans) = async_record_root_spans(
+        let ((time_span, result), spans) = async_record_root_spans(
             ctx.get_interpreter_results_uncached(self.0.dupe(), cancellation),
         )
         .await;
 
         ctx.store_evaluation_data(InterpreterResultsKeyActivationData {
-            duration,
+            time_span,
             result: result.dupe(),
             spans,
         })?;
@@ -103,7 +103,7 @@ impl TargetGraphCalculationImpl for TargetGraphCalculationInstance {
         ctx: &mut DiceComputations<'_>,
         package: PackageLabel,
         cancellation: &CancellationContext,
-    ) -> (Duration, buck2_error::Result<Arc<EvaluationResult>>) {
+    ) -> (TimeSpan, buck2_error::Result<Arc<EvaluationResult>>) {
         match ctx
             .get_interpreter_calculator(OwnedStarlarkPath::PackageFile(
                 PackageFilePath::package_file_for_dir(package.as_cell_path()),
@@ -115,7 +115,7 @@ impl TargetGraphCalculationImpl for TargetGraphCalculationInstance {
                     .eval_build_file(package.dupe(), cancellation)
                     .await
             }
-            Err(e) => (Duration::ZERO, Err(e.into())),
+            Err(e) => (TimeSpan::empty_now(), Err(e.into())),
         }
     }
 
@@ -261,8 +261,8 @@ impl PackageValuesCalculation for PackageValuesCalculationInstance {
 }
 
 pub struct InterpreterResultsKeyActivationData {
-    /// Duration of just the starlark evaluation of the build file.
-    pub duration: Duration,
+    /// TimeSpan of just the starlark evaluation of the build file.
+    pub time_span: TimeSpan,
     pub result: buck2_error::Result<Arc<EvaluationResult>>,
     pub spans: SmallVec<[SpanId; 1]>,
 }

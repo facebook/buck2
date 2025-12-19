@@ -86,6 +86,7 @@ use buck2_execute::execute::output::CommandStdStreams;
 use buck2_execute::execute::prepared::NoOpCommandOptionalExecutor;
 use buck2_execute::execute::request::CommandExecutionOutput;
 use buck2_execute::execute::request::OutputType;
+use buck2_execute::execute::result::CommandExecutionMetadata;
 use buck2_execute::execute::result::CommandExecutionReport;
 use buck2_execute::execute::result::CommandExecutionStatus;
 use buck2_execute::execute::testing_dry_run::DryRunEntry;
@@ -97,6 +98,7 @@ use buck2_file_watcher::mergebase::SetMergebase;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_http::HttpClientBuilder;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
+use buck2_util::time_span::TimeSpan;
 use dice::DiceTransaction;
 use dice::UserComputationData;
 use dice::testing::DiceBuilder;
@@ -561,7 +563,7 @@ async fn test_command_details_omission() {
                 env: sorted_vector_map![],
             },
         },
-        timing: Default::default(),
+        timing: CommandExecutionMetadata::empty(TimeSpan::empty_now()),
         std_streams: CommandStdStreams::Local {
             stdout: "stdout".to_owned().into_bytes(),
             stderr: "stderr".to_owned().into_bytes(),

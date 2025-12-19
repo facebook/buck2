@@ -10,8 +10,6 @@
 
 use std::collections::HashMap;
 use std::sync::Arc;
-use std::time::Duration;
-use std::time::Instant;
 
 use allocative::Allocative;
 use async_trait::async_trait;
@@ -53,6 +51,7 @@ use buck2_node::rule_type::RuleType;
 use buck2_node::rule_type::StarlarkRuleType;
 use buck2_query::query::syntax::simple::eval::label_indexed::LabelIndexedSet;
 use buck2_query::query::syntax::simple::eval::set::TargetSet;
+use buck2_util::time_span::TimeSpan;
 use dice::CancellationContext;
 use dice::DiceComputations;
 use dice::Key;
@@ -284,7 +283,7 @@ async fn get_analysis_result_inner(
                 )
                 .await?;
 
-            let now = Instant::now();
+            let now = TimeSpan::start_now();
             let (res, spans) = async_record_root_spans(async {
                 let rule_spec = get_rule_spec(ctx, func).await?;
                 let start_event = buck2_data::AnalysisStart {
@@ -344,7 +343,7 @@ async fn get_analysis_result_inner(
         }
         RuleType::Forward => {
             let mut dep_analysis = get_dep_analysis(configured_node, ctx).await?;
-            let now = Instant::now();
+            let now = TimeSpan::start_now();
             let (res, spans) = record_root_spans(|| {
                 let one_dep_analysis = dep_analysis
                     .pop()
@@ -362,7 +361,7 @@ async fn get_analysis_result_inner(
     };
 
     ctx.store_evaluation_data(AnalysisKeyActivationData {
-        duration: Instant::now() - now,
+        time_span: now.end_now(),
         spans,
     })?;
 
@@ -451,6 +450,6 @@ pub async fn profile_analysis(
 }
 
 pub struct AnalysisKeyActivationData {
-    pub duration: Duration,
+    pub time_span: TimeSpan,
     pub spans: SmallVec<[SpanId; 1]>,
 }

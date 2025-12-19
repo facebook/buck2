@@ -9,13 +9,13 @@
  */
 
 use std::sync::Arc;
-use std::time::Duration;
 
 use async_trait::async_trait;
 use buck2_core::package::PackageLabel;
 use buck2_core::target::label::label::TargetLabel;
 use buck2_error::BuckErrorContext;
 use buck2_util::late_binding::LateBinding;
+use buck2_util::time_span::TimeSpan;
 use dice::DiceComputations;
 use dice_futures::cancellation::CancellationContext;
 use dupe::Dupe;
@@ -34,7 +34,7 @@ pub trait TargetGraphCalculationImpl: Send + Sync + 'static {
         ctx: &mut DiceComputations<'_>,
         package: PackageLabel,
         cancellation: &CancellationContext,
-    ) -> (Duration, buck2_error::Result<Arc<EvaluationResult>>);
+    ) -> (TimeSpan, buck2_error::Result<Arc<EvaluationResult>>);
 
     /// Returns the full interpreter evaluation result for a Package. This consists of the full set
     /// of `TargetNode`s of interpreting that build file.
@@ -55,7 +55,7 @@ pub trait TargetGraphCalculation {
         &mut self,
         package: PackageLabel,
         cancellation: &CancellationContext,
-    ) -> (Duration, buck2_error::Result<Arc<EvaluationResult>>);
+    ) -> (TimeSpan, buck2_error::Result<Arc<EvaluationResult>>);
 
     /// Returns the full interpreter evaluation result for a Package. This consists of the full set
     /// of `TargetNode`s of interpreting that build file.
@@ -85,13 +85,13 @@ impl TargetGraphCalculation for DiceComputations<'_> {
         &mut self,
         package: PackageLabel,
         cancellation: &CancellationContext,
-    ) -> (Duration, buck2_error::Result<Arc<EvaluationResult>>) {
+    ) -> (TimeSpan, buck2_error::Result<Arc<EvaluationResult>>) {
         match TARGET_GRAPH_CALCULATION_IMPL.get() {
             Ok(calc) => {
                 calc.get_interpreter_results_uncached(self, package, cancellation)
                     .await
             }
-            Err(e) => (Duration::ZERO, Err(e)),
+            Err(e) => (TimeSpan::empty_now(), Err(e)),
         }
     }
 

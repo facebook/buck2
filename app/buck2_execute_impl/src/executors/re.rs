@@ -49,6 +49,7 @@ use buck2_execute::re::manager::ManagedRemoteExecutionClient;
 use buck2_execute::re::output_trees_download_config::OutputTreesDownloadConfig;
 use buck2_execute::re::remote_action_result::ExecuteResponseWithQueueStats;
 use buck2_execute::re::remote_action_result::RemoteActionResult;
+use buck2_util::time_span::TimeSpan;
 use dice_futures::cancellation::CancellationContext;
 use dupe::Dupe;
 use futures::FutureExt;
@@ -173,6 +174,8 @@ impl ReExecutor {
             action_digest,
         );
 
+        let now = TimeSpan::start_now();
+
         let execute_response_fut = self.re_client.execute(
             action_digest.dupe(),
             platform,
@@ -239,7 +242,7 @@ impl ReExecutor {
                     reason,
                     CommandExecutionMetadata {
                         queue_duration: Some(queue_stats.cumulative_queue_duration),
-                        ..Default::default()
+                        ..CommandExecutionMetadata::empty(TimeSpan::empty_now())
                     },
                 ));
             }
@@ -269,7 +272,7 @@ impl ReExecutor {
                     },
                     // We also don't get this output so don't put trash in here.
                     None,
-                    Default::default(),
+                    CommandExecutionMetadata::empty(TimeSpan::empty_now()),
                     additional_message,
                 )
             } else if is_timeout_error(&response.execute_response.status)
@@ -282,7 +285,7 @@ impl ReExecutor {
                     // and yet received one.
                     request.timeout().unwrap(),
                     CommandStdStreams::Remote(response.std_streams(&self.re_client, digest_config)),
-                    response.timing(),
+                    CommandExecutionMetadata::from_re_timing(response.timing(), now.end_now()),
                     additional_message,
                 )
             } else {
@@ -403,6 +406,8 @@ impl PreparedCommandExecutor for ReExecutor {
         };
         let worker_tool_action_digest = worker_tool_init_action.clone().map(|w| w.action);
 
+        let execution_time = TimeSpan::start_now();
+
         let (manager, response) = self
             .re_execute(
                 manager,
@@ -428,6 +433,7 @@ impl PreparedCommandExecutor for ReExecutor {
 
         let res = download_action_results(
             request,
+            execution_time,
             &*self.materializer,
             &self.re_client,
             *digest_config,

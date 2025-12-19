@@ -13,6 +13,7 @@ use std::sync::Mutex;
 
 use async_trait::async_trait;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
+use buck2_util::time_span::TimeSpan;
 use dice_futures::cancellation::CancellationContext;
 use indexmap::IndexMap;
 use sorted_vector_map::SortedVectorMap;
@@ -95,7 +96,7 @@ impl PreparedCommandExecutor for DryRunExecutor {
                 exec_kind,
                 outputs,
                 Default::default(),
-                CommandExecutionMetadata::default(),
+                CommandExecutionMetadata::empty(TimeSpan::empty_now()),
             ),
             // NOTE: This should probably be an error() but who cares.
             Err(..) => manager.failure(
@@ -103,7 +104,7 @@ impl PreparedCommandExecutor for DryRunExecutor {
                 IndexMap::new(),
                 Default::default(),
                 Some(1),
-                CommandExecutionMetadata::default(),
+                CommandExecutionMetadata::empty(TimeSpan::empty_now()),
                 None,
             ),
         }

@@ -87,6 +87,7 @@ use buck2_resource_control::action_cgroups::ActionCgroupSession;
 use buck2_resource_control::memory_tracker::MemoryTrackerHandle;
 use buck2_resource_control::path::CgroupPathBuf;
 use buck2_util::process::background_command;
+use buck2_util::time_span::TimeSpan;
 use derive_more::From;
 use dice_futures::cancellation::CancellationContext;
 use dice_futures::cancellation::CancellationObserver;
@@ -260,7 +261,7 @@ impl LocalExecutor {
         freeze_rx: impl ActionFreezeEventReceiver,
     ) -> Result<
         (
-            Duration,
+            TimeSpan,
             SystemTime,
             CommandResult,
             CommandExecutionManagerWithClaim,
@@ -293,7 +294,7 @@ impl LocalExecutor {
             return Err(manager.error("prepare_output_dirs_failed", e));
         };
 
-        let (execution_time, start_time, res) = executor_stage_async(
+        let (time_span, start_time, res) = executor_stage_async(
             {
                 let env = env
                     .iter()
@@ -326,7 +327,7 @@ impl LocalExecutor {
                 buck2_data::LocalStage { stage: Some(stage) }
             },
             async move {
-                let execution_start = Instant::now();
+                let execution_start = TimeSpan::start_now();
                 let start_time = SystemTime::now();
 
                 let env = env.iter().map(|(k, v)| (k, v.into_os_str()));
@@ -354,16 +355,16 @@ impl LocalExecutor {
                     .await
                 };
 
-                let execution_time = Instant::now() - execution_start;
+                let time_span = execution_start.end_now();
 
-                (execution_time, start_time, r)
+                (time_span, start_time, r)
             },
         )
         .boxed()
         .await;
 
         match res {
-            Ok(res) => Ok((execution_time, start_time, res, manager)),
+            Ok(res) => Ok((time_span, start_time, res, manager)),
             Err(e) => Err(manager.error("exec_failed", e)),
         }
     }
@@ -381,7 +382,7 @@ impl LocalExecutor {
         env: &[(&str, StrOrOsStr<'_>)],
     ) -> Result<
         (
-            Duration,
+            TimeSpan,
             SystemTime,
             CommandResult,
             CommandExecutionManagerWithClaim,
@@ -470,7 +471,7 @@ impl LocalExecutor {
                 .await;
 
             let res = match res {
-                Ok((duration, start_time, status, res_manager)) => {
+                Ok((time_span, start_time, status, res_manager)) => {
                     if matches!(status.status, GatherOutputStatus::Cancelled) {
                         let f = retry_future.lock().unwrap().take();
                         if let Some(retry_future) = f {
@@ -479,7 +480,7 @@ impl LocalExecutor {
                             continue;
                         }
                     }
-                    Ok((duration, start_time, status, res_manager))
+                    Ok((time_span, start_time, status, res_manager))
                 }
                 Err(e) => Err(e),
             };
@@ -659,7 +660,7 @@ impl LocalExecutor {
             },
         };
 
-        let (execution_time, start_time, res, manager) = match self
+        let (time_span, start_time, res, manager) = match self
             .exec_with_resource_control(
                 action_digest,
                 request,
@@ -684,9 +685,11 @@ impl LocalExecutor {
             cgroup_result,
         } = res;
 
+        let std_streams = CommandStdStreams::Local { stdout, stderr };
+
         let mut timing = Box::new(CommandExecutionMetadata {
-            wall_time: execution_time,
-            execution_time,
+            time_span,
+            execution_time: time_span.duration(),
             start_time,
             execution_stats: None, // We fill this in later if available.
             input_materialization_duration,
@@ -696,8 +699,6 @@ impl LocalExecutor {
             suspend_duration: None,
             suspend_count: None,
         });
-
-        let std_streams = CommandStdStreams::Local { stdout, stderr };
 
         let result = match status {
             GatherOutputStatus::Finished {

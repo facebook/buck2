@@ -12,12 +12,14 @@ use std::collections::HashMap;
 use std::future::Future;
 use std::str::FromStr;
 use std::time::Duration;
+use std::time::Instant;
 
 use allocative::Allocative;
 use async_trait::async_trait;
 use buck2_error::BuckErrorContext;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_fs::paths::file_name::FileNameBuf;
+use buck2_util::time_span::TimeSpan;
 use dice::UserComputationData;
 use dupe::Dupe;
 
@@ -27,7 +29,7 @@ pub struct NodeDuration {
     /// improve. We should better break this down.
     pub user: Duration,
     /// The total duration for this node.
-    pub total: Duration,
+    pub total: TimeSpan,
     /// The waiting duration for this node.
     pub queue: Option<Duration>,
 }
@@ -36,13 +38,13 @@ impl NodeDuration {
     /// Returns the duration we are using in our critical path calculation. This doesn't really
     /// *need* to be a function but is helpful so that not every callsite has to know which one we chose.
     pub fn critical_path_duration(&self) -> Duration {
-        self.total
+        self.total.duration()
     }
 
     pub fn zero() -> Self {
         Self {
             user: Duration::from_secs(0),
-            total: Duration::from_secs(0),
+            total: TimeSpan::from_start_and_duration(Instant::now(), Duration::ZERO),
             queue: None,
         }
     }
@@ -77,7 +79,7 @@ impl FromStr for CriticalPathBackendName {
 
 pub struct EarlyCommandEntry {
     pub kind: String,
-    pub duration: Duration,
+    pub time_span: TimeSpan,
 }
 
 pub struct BuildSignalsContext {

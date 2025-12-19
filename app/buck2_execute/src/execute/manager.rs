@@ -15,6 +15,7 @@ use std::time::Duration;
 use buck2_common::liveliness_observer::LivelinessObserver;
 use buck2_core::buck2_env;
 use buck2_events::dispatch::EventDispatcher;
+use buck2_util::time_span::TimeSpan;
 use futures::future::Future;
 use futures::future::FutureExt;
 use indexmap::IndexMap;
@@ -392,7 +393,7 @@ where
             IndexMap::new(),
             Default::default(),
             None,
-            CommandExecutionMetadata::default(),
+            CommandExecutionMetadata::empty(TimeSpan::empty_now()),
             None,
         )
     }

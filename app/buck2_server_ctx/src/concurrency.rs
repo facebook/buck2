@@ -17,7 +17,6 @@
 use std::collections::VecDeque;
 use std::fmt::Debug;
 use std::sync::Arc;
-use std::time::Instant;
 
 use allocative::Allocative;
 use async_condvar_fair::Condvar;
@@ -264,7 +263,7 @@ pub trait DiceUpdater: Send + Sync {
     ) -> buck2_error::Result<(
         DiceTransactionUpdater,
         UserComputationData,
-        std::time::Duration,
+        buck2_util::time_span::TimeSpan,
     )>;
 }
 
@@ -367,56 +366,65 @@ impl ConcurrencyHandler {
         exit_when: ExitWhen,
     ) -> buck2_error::Result<R>
     where
-        F: FnOnce(DiceTransaction, std::time::Duration, std::time::Duration) -> Fut,
+        F: FnOnce(
+            DiceTransaction,
+            buck2_util::time_span::TimeSpan,
+            Vec<buck2_util::time_span::TimeSpan>,
+        ) -> Fut,
         Fut: Future<Output = R> + Send,
     {
-        let (_exclusive_command_guard, elapsed) = event_dispatcher
+        let (_exclusive_command_guard, exclusive_wait_time_span) = event_dispatcher
             .span_async(
                 ExclusiveCommandWaitStart {
                     command_name: self.exclusive_command_lock.owning_command(),
                 },
                 async move {
-                    let (guard, elapsed) = if let Some(cmd_name) = exclusive_cmd {
-                        let start = std::time::Instant::now();
+                    let (guard, time_span) = if let Some(cmd_name) = exclusive_cmd {
+                        let start = buck2_util::time_span::TimeSpan::start_now();
                         let guard = self.exclusive_command_lock.exclusive_lock(cmd_name).await;
                         self.dice.wait_for_idle().await;
-                        let elapsed = Instant::now() - start;
-                        (guard, elapsed)
+                        let time_span = start.end_now();
+                        (guard, time_span)
                     } else {
                         (
                             self.exclusive_command_lock.shared_lock().await,
-                            std::time::Duration::ZERO,
+                            buck2_util::time_span::TimeSpan::empty_now(),
                         )
                     };
-                    ((guard, elapsed), ExclusiveCommandWaitEnd {})
+                    ((guard, time_span), ExclusiveCommandWaitEnd {})
                 },
             )
             .await;
 
         let events = event_dispatcher.dupe();
-        let (_guard, transaction, file_watcher_sync_duration, preempt_receiver) = event_dispatcher
-            .span_async(DiceSynchronizeSectionStart {}, async move {
-                (
-                    cancellations
-                        .critical_section(|| {
-                            self.wait_for_others(
-                                updates,
-                                events,
-                                is_nested_invocation,
-                                sanitized_argv,
-                                preemptible,
-                                previous_command_data,
-                                project_root,
-                                exit_when,
-                            )
-                        })
-                        .await,
-                    DiceSynchronizeSectionEnd {},
-                )
-            })
-            .await?;
+        let (_guard, transaction, file_watcher_sync_time_spans, preempt_receiver) =
+            event_dispatcher
+                .span_async(DiceSynchronizeSectionStart {}, async move {
+                    (
+                        cancellations
+                            .critical_section(|| {
+                                self.wait_for_others(
+                                    updates,
+                                    events,
+                                    is_nested_invocation,
+                                    sanitized_argv,
+                                    preemptible,
+                                    previous_command_data,
+                                    project_root,
+                                    exit_when,
+                                )
+                            })
+                            .await,
+                        DiceSynchronizeSectionEnd {},
+                    )
+                })
+                .await?;
 
-        let result = exec(transaction, elapsed, file_watcher_sync_duration);
+        let result = exec(
+            transaction,
+            exclusive_wait_time_span,
+            file_watcher_sync_time_spans,
+        );
         pin_mut!(result);
         pin_mut!(preempt_receiver);
 
@@ -445,7 +453,7 @@ impl ConcurrencyHandler {
     ) -> buck2_error::Result<(
         OnExecExit,
         DiceTransaction,
-        std::time::Duration,
+        Vec<buck2_util::time_span::TimeSpan>,
         impl Future<Output = Result<(), RecvError>> + use<>,
     )> {
         // Have to put it on the function unfortunately, https://github.com/rust-lang/rust-clippy/issues/9047
@@ -473,7 +481,7 @@ impl ConcurrencyHandler {
             preempt: Some(preempt_sender),
         };
 
-        let mut total_file_watcher_sync_duration = std::time::Duration::ZERO;
+        let mut file_watcher_sync_time_spans: Vec<buck2_util::time_span::TimeSpan> = Vec::new();
         let (mut transaction, tainted) = loop {
             match &data.dice_status {
                 DiceStatus::Cleanup { future, epoch } => {
@@ -502,10 +510,10 @@ impl ConcurrencyHandler {
                     // this might cause some churn, but concurrent commands don't happen much and
                     // isn't a big perf bottleneck. Dice should be able to resurrect nodes properly.
 
-                    let (transaction, file_watcher_sync_duration) = async {
+                    let (transaction, file_watcher_sync_time_span) = async {
                         let updater = self.dice.updater();
 
-                        let (transaction, user_data, file_watcher_sync_duration) =
+                        let (transaction, user_data, file_watcher_sync_time_span) =
                             updates.update(updater).await?;
 
                         let transaction = event_dispatcher
@@ -521,11 +529,12 @@ impl ConcurrencyHandler {
                                 )
                             })
                             .await?;
-                        buck2_error::Ok((transaction, file_watcher_sync_duration))
+                        buck2_error::Ok((transaction, file_watcher_sync_time_span))
                     }
                     .await?;
 
-                    total_file_watcher_sync_duration += file_watcher_sync_duration;
+                    // Collect each file watcher sync time span
+                    file_watcher_sync_time_spans.push(file_watcher_sync_time_span);
 
                     if let Some(active) = active {
                         // If the --exit-when=notidle option is set for the current command and there is
@@ -678,7 +687,7 @@ impl ConcurrencyHandler {
         Ok((
             drop_guard,
             transaction,
-            total_file_watcher_sync_duration,
+            file_watcher_sync_time_spans,
             preempt_receiver,
         ))
     }
@@ -859,9 +868,13 @@ mod tests {
         ) -> buck2_error::Result<(
             DiceTransactionUpdater,
             UserComputationData,
-            std::time::Duration,
+            buck2_util::time_span::TimeSpan,
         )> {
-            Ok((ctx, Default::default(), std::time::Duration::ZERO))
+            Ok((
+                ctx,
+                Default::default(),
+                buck2_util::time_span::TimeSpan::empty_now(),
+            ))
         }
     }
 
@@ -875,10 +888,14 @@ mod tests {
         ) -> buck2_error::Result<(
             DiceTransactionUpdater,
             UserComputationData,
-            std::time::Duration,
+            buck2_util::time_span::TimeSpan,
         )> {
             ctx.changed_to(vec![(K, ())])?;
-            Ok((ctx, Default::default(), std::time::Duration::ZERO))
+            Ok((
+                ctx,
+                Default::default(),
+                buck2_util::time_span::TimeSpan::empty_now(),
+            ))
         }
     }
 
@@ -1836,11 +1853,15 @@ mod tests {
             ) -> buck2_error::Result<(
                 DiceTransactionUpdater,
                 UserComputationData,
-                std::time::Duration,
+                buck2_util::time_span::TimeSpan,
             )> {
                 self.on_enter.store(true, Ordering::Relaxed);
                 wait_on(&self.allow_exit).await;
-                Ok((ctx, Default::default(), std::time::Duration::ZERO))
+                Ok((
+                    ctx,
+                    Default::default(),
+                    buck2_util::time_span::TimeSpan::empty_now(),
+                ))
             }
         }
 
@@ -2650,7 +2671,7 @@ mod tests {
                             let duration_captured = duration_captured.dupe();
                             async move {
                                 // Capture the elapsed duration
-                                *duration_captured.lock() = exclusive_wait_elapsed;
+                                *duration_captured.lock() = exclusive_wait_elapsed.duration();
                                 tokio::task::yield_now().await;
                             }
                         },
@@ -2706,7 +2727,7 @@ mod tests {
                     let duration_captured = duration_captured.dupe();
                     async move {
                         // Capture the elapsed duration
-                        *duration_captured.lock() = exclusive_wait_elapsed;
+                        *duration_captured.lock() = exclusive_wait_elapsed.duration();
                         tokio::task::yield_now().await;
                     }
                 },
@@ -2748,11 +2769,12 @@ mod tests {
             ) -> buck2_error::Result<(
                 DiceTransactionUpdater,
                 UserComputationData,
-                std::time::Duration,
+                buck2_util::time_span::TimeSpan,
             )> {
                 // Simulate file watcher sync taking 50ms
+                let start = buck2_util::time_span::TimeSpan::start_now();
                 tokio::time::sleep(Duration::from_millis(50)).await;
-                Ok((ctx, Default::default(), Duration::from_millis(50)))
+                Ok((ctx, Default::default(), start.end_now()))
             }
         }
 
@@ -2764,11 +2786,15 @@ mod tests {
             .enter(
                 null_sink_with_trace(traces),
                 &UpdaterWithDelay,
-                |_, _exclusive_wait_elapsed, file_watcher_sync_duration| {
+                |_, _exclusive_wait_elapsed, file_watcher_sync_durations| {
                     let duration_captured = file_watcher_duration_captured.dupe();
                     async move {
-                        // Capture the file watcher sync duration
-                        *duration_captured.lock() = file_watcher_sync_duration;
+                        // Capture the file watcher sync duration (sum of all syncs)
+                        let total_duration: std::time::Duration = file_watcher_sync_durations
+                            .iter()
+                            .map(|ts| ts.duration())
+                            .sum();
+                        *duration_captured.lock() = total_duration;
                         tokio::task::yield_now().await;
                     }
                 },
@@ -2841,7 +2867,7 @@ mod tests {
             ) -> buck2_error::Result<(
                 DiceTransactionUpdater,
                 UserComputationData,
-                std::time::Duration,
+                buck2_util::time_span::TimeSpan,
             )> {
                 // First call changes state, second call doesn't
                 let is_first = !self.call_count.swap(true, Ordering::Relaxed);
@@ -2849,7 +2875,9 @@ mod tests {
                     ctx.changed_to(vec![(K, ())])?;
                 }
                 // Each call simulates 30ms of file watcher sync
-                Ok((ctx, Default::default(), Duration::from_millis(30)))
+                let start = buck2_util::time_span::TimeSpan::start_now();
+                tokio::time::sleep(Duration::from_millis(30)).await;
+                Ok((ctx, Default::default(), start.end_now()))
             }
         }
 
@@ -2865,11 +2893,15 @@ mod tests {
             .enter(
                 null_sink_with_trace(traces),
                 &updater,
-                |_, _exclusive_wait_elapsed, file_watcher_sync_duration| {
+                |_, _exclusive_wait_elapsed, file_watcher_sync_durations| {
                     let duration_captured = file_watcher_duration_captured.dupe();
                     async move {
-                        // Capture the accumulated file watcher sync duration
-                        *duration_captured.lock() = file_watcher_sync_duration;
+                        // Capture the accumulated file watcher sync duration (sum of all syncs)
+                        let total_duration: std::time::Duration = file_watcher_sync_durations
+                            .iter()
+                            .map(|ts| ts.duration())
+                            .sum();
+                        *duration_captured.lock() = total_duration;
                         tokio::task::yield_now().await;
                     }
                 },

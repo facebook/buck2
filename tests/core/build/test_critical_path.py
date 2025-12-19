@@ -44,6 +44,7 @@ async def do_critical_path(buck: Buck) -> None:
     ]
 
     expected = [
+        ("other-command-start-overhead", ""),
         ("file-watcher-wait", ""),
         ("other-command-start-overhead", ""),
         ("listing", "root//"),
@@ -93,6 +94,7 @@ async def test_critical_path_json(buck: Buck) -> None:
     critical_path = [json.loads(e) for e in critical_path]
 
     expected = [
+        ("other-command-start-overhead", None),
         ("file-watcher-wait", None),
         ("other-command-start-overhead", None),
         ("listing", "root//"),

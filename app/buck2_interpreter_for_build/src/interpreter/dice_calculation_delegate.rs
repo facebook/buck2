@@ -9,8 +9,6 @@
  */
 
 use std::sync::Arc;
-use std::time::Duration;
-use std::time::Instant;
 
 use allocative::Allocative;
 use async_trait::async_trait;
@@ -46,6 +44,7 @@ use buck2_interpreter::paths::path::OwnedStarlarkPath;
 use buck2_interpreter::paths::path::StarlarkPath;
 use buck2_node::nodes::eval_result::EvaluationResult;
 use buck2_node::super_package::SuperPackage;
+use buck2_util::time_span::TimeSpan;
 use derive_more::Display;
 use dice::DiceComputations;
 use dice::Key;
@@ -576,7 +575,7 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
         &mut self,
         package: PackageLabel,
         cancellation: &CancellationContext,
-    ) -> (Duration, buck2_error::Result<Arc<EvaluationResult>>) {
+    ) -> (TimeSpan, buck2_error::Result<Arc<EvaluationResult>>) {
         let mut now = None;
         let eval_kind = StarlarkEvalKind::LoadBuildFile(package.dupe());
         let eval_result: buck2_error::Result<_> = try {
@@ -614,7 +613,7 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
             let configs = &self.configs;
             let ctx = &mut *self.ctx;
 
-            now = Some(Instant::now());
+            now = Some(TimeSpan::start_now());
             let provider = StarlarkEvaluatorProvider::new(ctx, eval_kind).await?;
             let mut buckconfigs =
                 ConfigsOnDiceViewForStarlark::new(ctx, buckconfig, root_buckconfig);
@@ -664,7 +663,7 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
 
             if eval_result.starlark_profile.is_some() {
                 return (
-                    Instant::now() - now.unwrap(),
+                    now.unwrap().end_now(),
                     Err(internal_error!("starlark_profile field must not be set yet").into()),
                 );
             }
@@ -673,7 +672,7 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
         };
 
         (
-            now.map_or(Duration::ZERO, |v| Instant::now() - v),
+            now.map_or(TimeSpan::empty_now(), |v| v.end_now()),
             eval_result.map(Arc::new),
         )
     }

@@ -26,7 +26,6 @@ use remote_execution::TTimestamp;
 use crate::digest_config::DigestConfig;
 use crate::execute::kind::CommandExecutionKind;
 use crate::execute::kind::RemoteCommandExecutionDetails;
-use crate::execute::result::CommandExecutionMetadata;
 use crate::re::manager::ManagedRemoteExecutionClient;
 use crate::re::queue_stats::QueueStats;
 use crate::re::streams::RemoteCommandStdStreams;
@@ -48,7 +47,7 @@ pub trait RemoteActionResult: Send + Sync {
         materialized_outputs_for_failed_actions: Option<Vec<ProjectRelativePathBuf>>,
     ) -> CommandExecutionKind;
 
-    fn timing(&self) -> CommandExecutionMetadata;
+    fn timing(&self) -> ReMetadataTiming;
 
     fn std_streams(
         &self,
@@ -96,7 +95,7 @@ impl RemoteActionResult for ExecuteResponseWithQueueStats {
         }
     }
 
-    fn timing(&self) -> CommandExecutionMetadata {
+    fn timing(&self) -> ReMetadataTiming {
         timing_from_re_metadata(&self.execute_response.action_result.execution_metadata)
     }
 
@@ -144,10 +143,8 @@ impl RemoteActionResult for ActionCacheResult {
         self.execution_kind(details)
     }
 
-    fn timing(&self) -> CommandExecutionMetadata {
+    fn timing(&self) -> ReMetadataTiming {
         let mut timing = timing_from_re_metadata(&self.0.action_result.execution_metadata);
-        // This was a cache hit so we didn't wait at all
-        timing.wall_time = Duration::ZERO;
         timing.input_materialization_duration = Duration::ZERO;
         timing.queue_duration = None;
         timing
@@ -166,7 +163,15 @@ impl RemoteActionResult for ActionCacheResult {
     }
 }
 
-fn timing_from_re_metadata(meta: &TExecutedActionMetadata) -> CommandExecutionMetadata {
+pub struct ReMetadataTiming {
+    pub execution_time: Duration,
+    pub start_time: SystemTime,
+    pub execution_stats: Option<buck2_data::CommandExecutionStats>,
+    pub input_materialization_duration: Duration,
+    pub queue_duration: Option<Duration>,
+}
+
+fn timing_from_re_metadata(meta: &TExecutedActionMetadata) -> ReMetadataTiming {
     let execution_time = meta
         .execution_completed_timestamp
         .saturating_duration_since(&meta.execution_start_timestamp);
@@ -192,17 +197,12 @@ fn timing_from_re_metadata(meta: &TExecutedActionMetadata) -> CommandExecutionMe
         .worker_start_timestamp
         .saturating_duration_since(&meta.queued_timestamp);
 
-    CommandExecutionMetadata {
-        wall_time: execution_time,
+    ReMetadataTiming {
         execution_time,
         start_time,
         execution_stats,
         input_materialization_duration: fetch_input_time,
-        hashing_duration: Duration::ZERO,
-        hashed_artifacts_count: 0,
         queue_duration: Some(queue_duration),
-        suspend_duration: None,
-        suspend_count: None,
     }
 }
 

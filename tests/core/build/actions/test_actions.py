@@ -412,6 +412,10 @@ async def test_failure_has_wall_time(buck: Buck) -> None:
     )
 
     assert wall_time
+    print(wall_time)
+    print(
+        await filter_events(buck, "Event", "data", "SpanEnd", "data", "ActionExecution")
+    )
     for time in wall_time:
         assert time > 0
 

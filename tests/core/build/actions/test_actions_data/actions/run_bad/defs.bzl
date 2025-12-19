@@ -20,7 +20,7 @@ run_invalid_command = rule(impl = _run_invalid_command_impl, attrs = {"local_onl
 def _run_odd_exit_code_impl(ctx: AnalysisContext) -> list[Provider]:
     out = ctx.actions.declare_output("out")
     ctx.actions.run(
-        cmd_args("fbpython", "-c", "import sys; sys.exit(int(sys.argv[1]))", ctx.attrs.exit_code, out.as_output()),
+        cmd_args("fbpython", "-c", "import sys; import time; time.sleep(1); sys.exit(int(sys.argv[1]))", ctx.attrs.exit_code, out.as_output()),
         category = "test",
     )
     return [DefaultInfo(default_output = out)]

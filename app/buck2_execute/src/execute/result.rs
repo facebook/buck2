@@ -20,6 +20,7 @@ use buck2_action_metadata_proto::RemoteDepFile;
 use buck2_core::content_hash::ContentBasedPathHash;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_data::SchedulingMode;
+use buck2_util::time_span::TimeSpan;
 use derivative::Derivative;
 use dupe::Dupe;
 use indexmap::IndexMap;
@@ -33,6 +34,7 @@ use crate::execute::output::CommandStdStreams;
 use crate::execute::request::CommandExecutionOutput;
 use crate::execute::request::ResolvedCommandExecutionOutput;
 use crate::output_size::OutputSize;
+use crate::re::remote_action_result::ReMetadataTiming;
 
 #[derive(Debug)]
 pub enum CommandExecutionErrorType {
@@ -137,8 +139,8 @@ impl Display for CommandExecutionStatus {
 /// data.
 #[derive(Debug, Copy, Clone, Dupe, Allocative)]
 pub struct CommandExecutionMetadata {
-    /// How long this build actually waited for this action to complete
-    pub wall_time: Duration,
+    /// A TimeSpan covering the time that this build actually waited for this action to complete
+    pub time_span: TimeSpan,
 
     /// How long this command actually took to execute. This can be different from the wall_time if
     /// this was e.g. an action cache hit, in which case this field would reflect how long the
@@ -169,14 +171,44 @@ pub struct CommandExecutionMetadata {
 }
 
 impl CommandExecutionMetadata {
+    pub fn empty(time_span: TimeSpan) -> Self {
+        Self {
+            time_span,
+            execution_time: Duration::default(),
+            start_time: SystemTime::now(),
+            execution_stats: None,
+            input_materialization_duration: Duration::default(),
+            hashing_duration: Duration::default(),
+            hashed_artifacts_count: 0,
+            queue_duration: None,
+            suspend_count: None,
+            suspend_duration: None,
+        }
+    }
+
+    pub fn from_re_timing(re_timing: ReMetadataTiming, time_span: TimeSpan) -> Self {
+        Self {
+            time_span,
+            execution_time: re_timing.execution_time,
+            start_time: re_timing.start_time,
+            execution_stats: re_timing.execution_stats,
+            input_materialization_duration: re_timing.input_materialization_duration,
+            queue_duration: re_timing.queue_duration,
+            hashing_duration: Default::default(),
+            hashed_artifacts_count: 0,
+            suspend_duration: None,
+            suspend_count: None,
+        }
+    }
+
     pub fn end_time(&self) -> SystemTime {
-        self.start_time + self.wall_time
+        self.start_time + self.time_span.duration()
     }
 
     pub fn to_proto(&self) -> buck2_data::CommandExecutionMetadata {
         let metadata = self.dupe();
         buck2_data::CommandExecutionMetadata {
-            wall_time: metadata.wall_time.try_into().ok(),
+            wall_time: metadata.time_span.duration().try_into().ok(),
             execution_time: metadata.execution_time.try_into().ok(),
             start_time: Some(metadata.start_time.into()),
             input_materialization_duration: metadata.input_materialization_duration.try_into().ok(),
@@ -186,23 +218,6 @@ impl CommandExecutionMetadata {
             queue_duration: metadata.queue_duration.and_then(|d| d.try_into().ok()),
             suspend_duration: metadata.suspend_duration.and_then(|d| d.try_into().ok()),
             suspend_count: metadata.suspend_count,
-        }
-    }
-}
-
-impl Default for CommandExecutionMetadata {
-    fn default() -> Self {
-        Self {
-            wall_time: Duration::default(),
-            execution_time: Duration::default(),
-            start_time: SystemTime::now(),
-            execution_stats: None,
-            input_materialization_duration: Duration::default(),
-            hashing_duration: Duration::default(),
-            hashed_artifacts_count: 0,
-            queue_duration: None,
-            suspend_duration: None,
-            suspend_count: None,
         }
     }
 }
@@ -433,7 +448,10 @@ impl FromResidual<ControlFlow<Self, Infallible>> for CommandExecutionResult {
 
 #[cfg(test)]
 mod tests {
+    use std::time::Instant;
+
     use buck2_common::cas_digest::CasDigest;
+    use buck2_util::time_span::TimeSpan;
     use sorted_vector_map::SortedVectorMap;
 
     use super::*;
@@ -452,7 +470,7 @@ mod tests {
             },
         };
         let timing = CommandExecutionMetadata {
-            wall_time: Duration::from_secs(2),
+            time_span: TimeSpan::from_start_and_duration(Instant::now(), Duration::from_secs(2)),
             execution_time: Duration::from_secs(3),
             start_time: SystemTime::UNIX_EPOCH,
             execution_stats: Some(buck2_data::CommandExecutionStats {

@@ -490,7 +490,7 @@ impl<'a> BuckTestOrchestrator<'a> {
         if let Some(signals) = dice.per_transaction_data().get_build_signals() {
             let duration = NodeDuration {
                 user: result.timing.execution_time,
-                total: result.timing.wall_time,
+                total: result.timing.time_span,
                 queue: result.timing.queue_duration,
             };
 

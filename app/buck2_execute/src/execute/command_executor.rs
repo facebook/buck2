@@ -68,7 +68,7 @@ impl Default for ActionExecutionTimingData {
 impl From<CommandExecutionMetadata> for ActionExecutionTimingData {
     fn from(command: CommandExecutionMetadata) -> Self {
         Self {
-            wall_time: command.wall_time,
+            wall_time: command.time_span.duration(),
         }
     }
 }

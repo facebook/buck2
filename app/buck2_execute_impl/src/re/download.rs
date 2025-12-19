@@ -43,6 +43,7 @@ use buck2_execute::execute::request::CommandExecutionOutputRef;
 use buck2_execute::execute::request::CommandExecutionPaths;
 use buck2_execute::execute::request::CommandExecutionRequest;
 use buck2_execute::execute::result::CommandExecutionErrorType;
+use buck2_execute::execute::result::CommandExecutionMetadata;
 use buck2_execute::execute::result::CommandExecutionResult;
 use buck2_execute::materialize::materializer::CasDownloadInfo;
 use buck2_execute::materialize::materializer::DeclareArtifactPayload;
@@ -54,6 +55,8 @@ use buck2_execute::re::output_trees_download_config::OutputTreesDownloadConfig;
 use buck2_execute::re::remote_action_result::RemoteActionResult;
 use buck2_fs::paths::RelativePathBuf;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
+use buck2_util::time_span::TimeSpan;
+use buck2_util::time_span::TimeSpanBuilder;
 use chrono::DateTime;
 use chrono::Duration;
 use chrono::Utc;
@@ -71,6 +74,7 @@ use crate::storage_resource_exhausted::is_storage_resource_exhausted;
 
 pub async fn download_action_results<'a>(
     request: &CommandExecutionRequest,
+    execution_time: TimeSpanBuilder,
     materializer: &dyn Materializer,
     re_client: &ManagedRemoteExecutionClient,
     digest_config: DigestConfig,
@@ -112,7 +116,7 @@ pub async fn download_action_results<'a>(
             IndexMap::new(),
             CommandStdStreams::Remote(std_streams),
             Some(action_exit_code),
-            response.timing(),
+            CommandExecutionMetadata::from_re_timing(response.timing(), TimeSpan::empty_now()),
             additional_message,
         ));
     }
@@ -144,7 +148,7 @@ pub async fn download_action_results<'a>(
             response.execution_kind(details),
             outputs,
             CommandStdStreams::Remote(std_streams),
-            response.timing(),
+            CommandExecutionMetadata::from_re_timing(response.timing(), execution_time.end_now()),
         ),
         e => {
             let materialized_inputs = if materialize_failed_re_action_inputs {
@@ -199,7 +203,10 @@ pub async fn download_action_results<'a>(
                 outputs,
                 CommandStdStreams::Remote(std_streams),
                 Some(e),
-                response.timing(),
+                CommandExecutionMetadata::from_re_timing(
+                    response.timing(),
+                    execution_time.end_now(),
+                ),
                 additional_message,
             )
         }

@@ -15,7 +15,6 @@ use std::io::BufWriter;
 use std::marker::PhantomData;
 use std::sync::Arc;
 use std::time::Duration;
-use std::time::Instant;
 
 use allocative::Allocative;
 use async_trait::async_trait;
@@ -573,7 +572,7 @@ impl DiceUpdater for DiceCommandUpdater<'_, '_> {
     ) -> buck2_error::Result<(
         DiceTransactionUpdater,
         UserComputationData,
-        std::time::Duration,
+        buck2_util::time_span::TimeSpan,
     )> {
         let existing_state = &mut ctx.existing_state().await.clone();
         let cells_and_configs = self.cmd_ctx.load_new_configs(existing_state).await?;
@@ -614,7 +613,7 @@ impl DiceUpdater for DiceCommandUpdater<'_, '_> {
             self.cmd_ctx.unstable_typecheck,
         )?;
 
-        let start = std::time::Instant::now();
+        let start = buck2_util::time_span::TimeSpan::start_now();
         let (ctx, mergebase) = self
             .cmd_ctx
             .base_context
@@ -622,12 +621,12 @@ impl DiceUpdater for DiceCommandUpdater<'_, '_> {
             .file_watcher
             .sync(ctx)
             .await?;
-        let wait_duration = Instant::now() - start;
+        let wait_time_span = start.end_now();
 
         let mut user_data = self.make_user_computation_data(&cells_and_configs.root_config)?;
         user_data.set_mergebase(mergebase);
 
-        Ok((ctx, user_data, wait_duration))
+        Ok((ctx, user_data, wait_time_span))
     }
 }
 

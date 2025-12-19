@@ -18,6 +18,7 @@ use buck2_data::ToProtoMessage;
 use buck2_events::dispatch::current_span;
 use buck2_events::dispatch::span_async_simple;
 use buck2_execute::materialize::materializer::HasMaterializer;
+use buck2_util::time_span::TimeSpan;
 use dice::DiceComputations;
 use dupe::Dupe;
 
@@ -68,7 +69,7 @@ impl ArtifactMaterializer for DiceComputations<'_> {
                         artifact.dupe(),
                         NodeDuration {
                             user: duration,
-                            total: duration,
+                            total: TimeSpan::from_start_and_duration(now, duration),
                             queue: None,
                         },
                         current_span(),

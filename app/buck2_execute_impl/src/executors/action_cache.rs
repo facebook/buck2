@@ -33,6 +33,7 @@ use buck2_execute::re::action_identity::ReActionIdentity;
 use buck2_execute::re::manager::ManagedRemoteExecutionClient;
 use buck2_execute::re::output_trees_download_config::OutputTreesDownloadConfig;
 use buck2_execute::re::remote_action_result::ActionCacheResult;
+use buck2_util::time_span::TimeSpan;
 use dice_futures::cancellation::CancellationContext;
 use dupe::Dupe;
 use prost::Message;
@@ -172,6 +173,7 @@ async fn query_action_cache_and_download_result(
     let response = ActionCacheResult(response, cache_type.to_proto());
     let res = download_action_results(
         request,
+        TimeSpan::start_now(),
         materializer.as_ref(),
         re_client,
         digest_config,

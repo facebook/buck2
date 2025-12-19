@@ -11,7 +11,6 @@
 use std::future::Future;
 use std::iter::zip;
 use std::sync::Arc;
-use std::time::Instant;
 
 use allocative::Allocative;
 use async_trait::async_trait;
@@ -39,6 +38,7 @@ use buck2_execute::output_size::OutputSize;
 use buck2_interpreter::print_handler::EventDispatcherPrintHandler;
 use buck2_interpreter::soft_error::Buck2StarlarkSoftErrorHandler;
 use buck2_node::nodes::configured_frontend::ConfiguredTargetNodeCalculation;
+use buck2_util::time_span::TimeSpan;
 use derive_more::Display;
 use dice::DiceComputations;
 use dice::DiceTrackedInvalidationPath;
@@ -149,7 +149,7 @@ async fn build_action_no_redirect(
         .await
         .buck_error_context(format!("for action `{action}`"))?;
 
-    let now = Instant::now();
+    let now = TimeSpan::start_now();
     let action = &action;
 
     let target = match action.key().owner() {
@@ -192,7 +192,7 @@ async fn build_action_no_redirect(
         },
         duration: NodeDuration {
             user: action_execution_data.wall_time.unwrap_or_default(),
-            total: Instant::now() - now,
+            total: now.end_now(),
             queue: action_execution_data.queue_duration,
         },
         spans,
@@ -289,7 +289,9 @@ async fn build_action_inner(
                 .last()
                 .and_then(|r| r.status.execution_kind())
                 .map(|e| e.as_enum());
-            wall_time = command_reports.last().map(|r| r.timing.wall_time);
+            wall_time = command_reports
+                .last()
+                .map(|r| r.timing.time_span.duration());
             output_size = 0;
             // We define the below fields only in the instance of an action error
             // so as to reduce Scribe traffic and log it in buck2_action_errors
