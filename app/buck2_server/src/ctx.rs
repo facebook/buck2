@@ -15,6 +15,7 @@ use std::io::BufWriter;
 use std::marker::PhantomData;
 use std::sync::Arc;
 use std::time::Duration;
+use std::time::Instant;
 
 use allocative::Allocative;
 use async_trait::async_trait;
@@ -234,7 +235,10 @@ pub struct ServerCommandContext<'a> {
     cancellations: &'a CancellationContext,
 
     preemptible: PreemptibleWhen,
+
     exit_when: ExitWhen,
+
+    command_start: Instant,
 }
 
 impl<'a> ServerCommandContext<'a> {
@@ -247,6 +251,7 @@ impl<'a> ServerCommandContext<'a> {
         cert_state: CertState,
         snapshot_collector: SnapshotCollector,
         cancellations: &'a CancellationContext,
+        command_start: Instant,
     ) -> buck2_error::Result<Self> {
         let working_dir = AbsNormPath::new(&client_context.working_dir)?;
 
@@ -351,6 +356,7 @@ impl<'a> ServerCommandContext<'a> {
             cancellations,
             preemptible: client_context.preemptible(),
             exit_when: client_context.exit_when(),
+            command_start,
         })
     }
 
@@ -1179,5 +1185,9 @@ impl ServerCommandContextTrait for ServerCommandContext<'_> {
 
     fn cancellation_context(&self) -> &CancellationContext {
         self.cancellations
+    }
+
+    fn command_start(&self) -> Instant {
+        self.command_start
     }
 }

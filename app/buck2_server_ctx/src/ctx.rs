@@ -158,6 +158,8 @@ pub trait ServerCommandContextTrait: Send + Sync {
     );
 
     fn cancellation_context(&self) -> &CancellationContext;
+
+    fn command_start(&self) -> Instant;
 }
 
 pub struct PrivateStruct(());
@@ -184,7 +186,6 @@ pub trait ServerCommandDiceContext {
         &'v self,
         exec: F,
         exclusive_cmd: Option<String>,
-        command_start: Option<Instant>,
     ) -> buck2_error::Result<R>
     where
         F: FnOnce(&'v dyn ServerCommandContextTrait, DiceTransaction) -> Fut + Send,
@@ -201,14 +202,13 @@ impl ServerCommandDiceContext for dyn ServerCommandContextTrait + '_ {
         Fut: Future<Output = buck2_error::Result<R>> + Send,
         R: Send,
     {
-        self.with_dice_ctx_maybe_exclusive(exec, None, None).await
+        self.with_dice_ctx_maybe_exclusive(exec, None).await
     }
 
     async fn with_dice_ctx_maybe_exclusive<'v, F, Fut, R>(
         &'v self,
         exec: F,
         exclusive_cmd: Option<String>,
-        command_start: Option<Instant>,
     ) -> buck2_error::Result<R>
     where
         F: FnOnce(&'v dyn ServerCommandContextTrait, DiceTransaction) -> Fut + Send,
@@ -273,26 +273,13 @@ impl ServerCommandDiceContext for dyn ServerCommandContextTrait + '_ {
                                                 }
                                             }
 
-                                            let early_command_entries = if let Some(t) = command_start {
-                                                let mut early_command_entries = vec![];
-                                                // The period of time between CommandStart and CommandCriticalStart
-                                                // minus the time spent in exclusive command wait and file watcher sync.
-                                                // This represents miscellaneous overhead.
-                                                let end = Instant::now();
-                                                let mut last_end = t;
-                                                for span in known_spans.into_iter() {
-                                                    early_command_entries.push(EarlyCommandEntry {
-                                                        kind: OTHER_COMMAND_START_OVERHEAD.to_owned(),
-                                                        time_span: TimeSpan::from_start_and_duration(
-                                                            last_end,
-                                                            span.time_span.start().duration_since(last_end),
-                                                        ),
-                                                    });
-                                                    last_end = span.time_span.end();
-
-                                                    early_command_entries.push(span);
-                                                }
-
+                                            let mut early_command_entries = vec![];
+                                            // The period of time between CommandStart and CommandCriticalStart
+                                            // minus the time spent in exclusive command wait and file watcher sync.
+                                            // This represents miscellaneous overhead.
+                                            let end = Instant::now();
+                                            let mut last_end = self.command_start();
+                                            for span in known_spans.into_iter() {
                                                 early_command_entries.push(EarlyCommandEntry {
                                                     kind: OTHER_COMMAND_START_OVERHEAD.to_owned(),
                                                     time_span: TimeSpan::from_start_and_duration(
@@ -301,10 +288,19 @@ impl ServerCommandDiceContext for dyn ServerCommandContextTrait + '_ {
                                                     ),
                                                 });
 
-                                                early_command_entries
-                                            } else {
-                                                known_spans
-                                            };
+                                                last_end = span.time_span.end();
+
+                                                early_command_entries.push(span);
+                                            }
+
+                                            early_command_entries.push(EarlyCommandEntry {
+                                                kind: OTHER_COMMAND_START_OVERHEAD.to_owned(),
+                                                time_span: TimeSpan::from_start_and_duration(
+                                                    last_end,
+                                                    end.duration_since(last_end),
+                                                ),
+                                            });
+
                                             let res = buck2_build_signals::env::scope(
                                                 build_signals,
                                                 self.events().dupe(),

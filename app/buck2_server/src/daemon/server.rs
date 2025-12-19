@@ -409,6 +409,8 @@ impl BuckdServer {
         Res: Into<command_result::Result> + Send + 'static,
         PartialRes: Into<partial_result::PartialResult> + Send + 'static,
     {
+        let command_start = Instant::now();
+
         if buck2_env!("BUCK2_TEST_FAIL_STREAMING", bool, applicability = testing).unwrap() {
             Err(buck2_error::buck2_error!(
                 buck2_error::ErrorTag::Input,
@@ -506,6 +508,7 @@ impl BuckdServer {
                             cert_state.dupe(),
                             snapshot_collector,
                             cancellations,
+                            command_start,
                         )?;
 
                         let res =
