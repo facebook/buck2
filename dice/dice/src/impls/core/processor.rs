@@ -8,6 +8,7 @@
  * above-listed licenses.
  */
 
+#[allow(unused_imports)]
 use gazebo::variants::VariantName;
 
 use crate::impls::core::graph::storage::ValueReusable;

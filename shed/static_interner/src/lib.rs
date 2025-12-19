@@ -392,10 +392,10 @@ impl<T: 'static, H: 'static> Iterator for Iter<T, H> {
 /// Additional arguments are used to implement convenience traits when the interned type wraps an existing type.
 /// `interner!(STRING_INTERNER, DefaultHasher, InternString, String, str, StrRef)`
 /// also implements
-///     Equivalent<InternString> for String
-///     From<String> for InternString
-///     Deref<Target = str> for InternString
-/// and creates a new StrRef<'a>(&'a str) type that implements Equivalent<InternString> and From<StrRef> for InternString.
+///     ``Equivalent<InternString>`` for `String`
+///     ``From<String>``for `InternString`
+///     `Deref<Target = str>` for `InternString`
+/// and creates a new `StrRef<'a>(&'a str)` type that implements ``Equivalent<InternString>`` and ``From<StrRef>`` for InternString.
 #[macro_export]
 macro_rules! interner {
     ($interner_name:ident, $hasher:ty, $type:ty) => {

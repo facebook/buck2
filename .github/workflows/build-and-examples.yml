@@ -1,0 +1,98 @@
+name: Build and Examples
+on:
+  workflow_dispatch: # allows manual triggering
+jobs:
+  macos-build-examples:
+    runs-on: macos-latest
+    steps:
+    - uses: maxim-lobanov/setup-xcode@v1.6.0
+      with:
+        xcode-version: 16.4.0
+    - uses: actions/checkout@v6
+    - uses: ./.github/actions/setup_macos_env
+    - uses: ./.github/actions/init_opam
+    - uses: ./.github/actions/build_release
+    - name: Setup the 'example/with_prelude' project
+      run: |-
+        cd examples/with_prelude
+        ./haskell-setup.sh
+        ./ocaml-setup.sh
+    - name: Build the 'example/with_prelude' project
+      run: |-
+        cd examples/with_prelude
+        $RUNNER_TEMP/artifacts/buck2 build //... -v 2
+        $RUNNER_TEMP/artifacts/buck2 test //... -v 2
+    - uses: ./.github/actions/build_example_no_prelude
+    - uses: ./.github/actions/build_example_toolchain
+      with:
+        toolchain: python_toolchain
+    - uses: ./.github/actions/build_example_toolchain
+      with:
+        toolchain: go_toolchain
+    - uses: ./.github/actions/build_example_toolchain
+      continue-on-error: true
+      with:
+        toolchain: cxx_zig_toolchain
+    - uses: ./.github/actions/setup_reindeer
+    - uses: ./.github/actions/build_bootstrap
+  linux-build-examples:
+    runs-on: ubuntu-22.04
+    steps:
+    - uses: actions/checkout@v6
+    - uses: ./.github/actions/setup_linux_env
+    - uses: ./.github/actions/init_opam
+    - uses: ./.github/actions/build_release
+    - name: Setup the 'example/with_prelude' project
+      run: |-
+        cd examples/with_prelude
+        ./haskell-setup.sh
+        ./ocaml-setup.sh
+    - name: Build the 'example/with_prelude' project
+      run: |-
+        cd examples/with_prelude
+        $RUNNER_TEMP/artifacts/buck2 build //... -v 2
+        $RUNNER_TEMP/artifacts/buck2 test //... -v 2
+    - uses: ./.github/actions/build_example_conan
+    - uses: ./.github/actions/build_example_no_prelude
+    - uses: ./.github/actions/build_example_toolchain
+      with:
+        toolchain: python_toolchain
+    - uses: ./.github/actions/build_example_toolchain
+      with:
+        toolchain: go_toolchain
+    - uses: ./.github/actions/build_example_toolchain
+      continue-on-error: true
+      with:
+        toolchain: cxx_zig_toolchain
+    - uses: ./.github/actions/build_example_persistent_worker
+      with:
+        buildbuddyApiKey: ${{ secrets.BUILDBUDDY_API_KEY }}
+    - uses: ./.github/actions/build_example_nativelink
+      with:
+        NATIVELINK_HEADER_RW_KEY_SECRET: ${{ secrets.NATIVELINK_HEADER_RW_KEY_SECRET }}
+    - uses: ./.github/actions/setup_reindeer
+    - uses: ./.github/actions/build_bootstrap
+  windows-build-examples:
+    runs-on: windows-8-core
+    steps:
+      - uses: actions/checkout@v6
+      - uses: ./.github/actions/setup_windows_env
+      - uses: ./.github/actions/build_release
+      - name: Build example/prelude directory
+        run: |-
+          cd examples/with_prelude
+          & $Env:RUNNER_TEMP/artifacts/buck2 build //... -v 2
+          & $Env:RUNNER_TEMP/artifacts/buck2 test //... -v 2
+      - uses: ./.github/actions/build_example_no_prelude
+      - uses: ./.github/actions/build_example_toolchain
+        with:
+          toolchain: python_toolchain
+      - uses: ./.github/actions/build_example_toolchain
+        with:
+          toolchain: go_toolchain
+      - uses: ./.github/actions/build_example_toolchain
+        continue-on-error: true
+        with:
+          toolchain: cxx_zig_toolchain
+      - uses: ./.github/actions/setup_reindeer
+      - uses: ./.github/actions/build_bootstrap

@@ -19,6 +19,7 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 smallvec = { workspace = true }
 static_assertions = { workspace = true }
+static_interner = { workspace = true }
 strsim = { workspace = true }
 triomphe = { workspace = true }
 
