@@ -29,7 +29,10 @@ def compile_manifests_for_mode(
         manifests: list[ManifestInfo],
         invalidation_mode: PycInvalidationMode = PycInvalidationMode("unchecked_hash")) -> ManifestInfo:
     mode = invalidation_mode.value.upper()
-    has_content_based_path = ctx.attrs._python_toolchain[PythonToolchainInfo].supports_content_based_paths == True
+    has_content_based_path = (
+        getattr(ctx.attrs, "supports_pyc_content_based_paths", False) == True and
+        ctx.attrs._python_toolchain[PythonToolchainInfo].supports_content_based_paths == True
+    )
     output = ctx.actions.declare_output("bytecode_{}".format(mode), dir = True, has_content_based_path = has_content_based_path)
     bytecode_manifest = ctx.actions.declare_output("bytecode_{}.manifest".format(mode), has_content_based_path = has_content_based_path)
     cmd = [

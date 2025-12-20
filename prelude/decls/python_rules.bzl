@@ -102,6 +102,7 @@ def _python_executable_attrs():
         "static_extension_utils": attrs.source(default = "prelude//python/tools:static_extension_utils.cpp"),
         "strip_libpar": attrs.enum(StripLibparStrategy, default = "none"),
         "strip_stapsdt": attrs.bool(default = False),
+        "supports_pyc_content_based_paths": attrs.bool(default = False),  # TODO(kasrag) Delete this when content-based paths are fulled rolled out
         "use_anon_target_for_analysis": attrs.bool(default = False),  # TODO(dcssiva) Delete this when we change the default analysis method to use anon targets
         "use_oss_python": attrs.bool(default = False),
         "use_rust_make_par": attrs.bool(default = False),  # TODO(rishiarora) Delete this when we change the default build style

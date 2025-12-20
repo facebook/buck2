@@ -1038,7 +1038,11 @@ def _pex_modules_args(
         # placeholder "output_artifacts" portion of the path with the resolved hash.
         # This isn't needed for inplace builds which symlink to original bytecode artifacts without path resolution.
         inplace = package_style in [PackageStyle("inplace"), PackageStyle("inplace_lite")]
-        if not inplace and ctx.attrs._python_toolchain[PythonToolchainInfo].supports_content_based_paths:
+        if (
+            not inplace and
+            getattr(ctx.attrs, "supports_pyc_content_based_paths", False) and
+            ctx.attrs._python_toolchain[PythonToolchainInfo].supports_content_based_paths
+        ):
             bytecode_artifacts = pex_modules.manifests.bytecode_artifacts(pyc_mode)
 
             bytecode_artifacts_path = ctx.actions.write(
