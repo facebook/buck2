@@ -24,6 +24,7 @@ def _path_clang_tools_impl(_ctx) -> list[Provider]:
             archiver_type = "gnu",
             linker = "clang++",
             linker_type = LinkerType("gnu"),
+            clang_scan_deps = "clang-scan-deps",
         ),
     ]
 

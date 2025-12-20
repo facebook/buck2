@@ -42,6 +42,7 @@ CxxToolsInfo = provider(
         "linker": provider_field(typing.Any, default = None),
         "linker_type": LinkerType,
         "rc_compiler": provider_field(typing.Any, default = None),
+        "clang_scan_deps": provider_field(typing.Any, default = None),
     },
 )
 
@@ -58,6 +59,7 @@ def _legacy_equivalent_cxx_tools_info_windows(ctx: AnalysisContext, default_tool
         archiver_type = default_toolchain.archiver_type,
         linker = default_toolchain.linker if ctx.attrs.linker == None or ctx.attrs.linker == "link.exe" else ctx.attrs.linker,
         linker_type = default_toolchain.linker_type,
+        clang_scan_deps = default_toolchain.clang_scan_deps if ctx.attrs.clang_scan_deps == None else ctx.attrs.clang_scan_deps,
     )
 
 def _legacy_equivalent_cxx_tools_info_non_windows(ctx: AnalysisContext, default_toolchain: CxxToolsInfo) -> CxxToolsInfo:
@@ -73,6 +75,7 @@ def _legacy_equivalent_cxx_tools_info_non_windows(ctx: AnalysisContext, default_
         archiver_type = default_toolchain.archiver_type,
         linker = default_toolchain.linker if ctx.attrs.linker == None else ctx.attrs.linker,
         linker_type = default_toolchain.linker_type,
+        clang_scan_deps = default_toolchain.clang_scan_deps if ctx.attrs.clang_scan_deps == None else ctx.attrs.clang_scan_deps,
     )
 
 def _system_cxx_toolchain_impl(ctx: AnalysisContext):
@@ -224,6 +227,7 @@ def _cxx_toolchain_from_cxx_tools_info(ctx: AnalysisContext, cxx_tools_info: Cxx
             pic_behavior = pic_behavior,
             llvm_link = llvm_link,
             use_dep_files = True,
+            clang_scan_deps = _run_info(cxx_tools_info.clang_scan_deps),
         ),
         CxxPlatformInfo(name = target_name),
     ]
@@ -239,6 +243,7 @@ system_cxx_toolchain = rule(
         "compiler": attrs.option(attrs.string(), default = None),
         "compiler_type": attrs.option(attrs.string(), default = None),  # one of CxxToolProviderType
         "cpp_dep_tracking_mode": attrs.string(default = "makefile"),
+        "clang_scan_deps": attrs.option(attrs.string(), default = None),
         "cvtres_compiler": attrs.option(attrs.string(), default = None),
         "cvtres_flags": attrs.list(attrs.arg(), default = []),
         "cxx_compiler": attrs.option(attrs.string(), default = None),
