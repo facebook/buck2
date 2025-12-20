@@ -48,6 +48,7 @@ use buck2_node::nodes::configured_frontend::ConfiguredTargetNodeCalculation;
 use buck2_node::nodes::frontend::TargetGraphCalculation;
 use buck2_node::nodes::unconfigured::TargetNodeRef;
 use derive_more::Display;
+use futures::future::FutureExt;
 use dice::DiceComputations;
 use dice::Key;
 use dupe::Dupe;
@@ -475,14 +476,18 @@ async fn check_execution_platform(
         };
     }
 
-    for dep in toolchain_deps {
-        match check_toolchain_execution_platform_compatibility(
-            ctx,
-            dep.dupe(),
-            exec_platform.dupe(),
-        )
+    for result in ctx
+        .compute_join(toolchain_deps.iter(), |ctx, dep| {
+            let dep = dep.dupe();
+            let exec_platform = exec_platform.dupe();
+            async move {
+                check_toolchain_execution_platform_compatibility(ctx, dep, exec_platform).await
+            }
+            .boxed()
+        })
         .await
-        {
+    {
+        match result {
             Ok(Ok(())) => {}
             Ok(Err(reason)) => {
                 return Ok(Err(reason));
