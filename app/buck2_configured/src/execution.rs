@@ -439,28 +439,39 @@ async fn check_execution_platform(
     }
 
     // Then check that all exec_deps are compatible with the platform. We collect errors separately,
-    // so that we do not report an error if we would later find an incompatibility
+    // so that we do not report an error if we would later find an incompatibility.
+    let dep_results = ctx
+        .compute_join(exec_deps.iter(), |ctx, dep| {
+            Box::pin(async move {
+                let cfg_pair = exec_platform.cfg_pair_no_exec().dupe();
+                let cfg = exec_platform.cfg().dupe();
+                let result = ctx
+                    .get_internal_configured_target_node(&dep.configure_pair_no_exec(cfg_pair))
+                    .await;
+                match result {
+                    Ok(MaybeCompatible::Compatible(_)) => Ok(None),
+                    Ok(MaybeCompatible::Incompatible(reason)) => Ok(Some(reason)),
+                    Err(e) => Err(e.context(format!(
+                        "Error checking compatibility of `{}` with `{}`",
+                        dep, cfg
+                    ))),
+                }
+            })
+        })
+        .await;
+
     let mut errs = Vec::new();
-    for dep in exec_deps {
-        match ctx
-            .get_internal_configured_target_node(
-                &dep.configure_pair_no_exec(exec_platform.cfg_pair_no_exec().dupe()),
-            )
-            .await
-        {
-            Ok(MaybeCompatible::Compatible(_)) => (),
-            Ok(MaybeCompatible::Incompatible(reason)) => {
+    for result in dep_results {
+        match result {
+            Ok(None) => (),
+            Ok(Some(reason)) => {
                 return Ok(Err(
                     ExecutionPlatformIncompatibleReason::ExecutionDependencyIncompatible(
                         reason.dupe(),
                     ),
                 ));
             }
-            Err(e) => errs.push(e.context(format!(
-                "Error checking compatibility of `{}` with `{}`",
-                dep,
-                exec_platform.cfg()
-            ))),
+            Err(e) => errs.push(e),
         };
     }
 
