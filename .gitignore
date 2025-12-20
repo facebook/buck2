@@ -4,6 +4,7 @@ buck-out
 /.direnv
 .buckconfig.local
 .envrc.local
+__pycache__/
 
 # symlinks
 /examples/with_prelude/prelude
