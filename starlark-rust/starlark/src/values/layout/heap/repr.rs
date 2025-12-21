@@ -124,7 +124,7 @@ pub(crate) struct AValueForward {
 
 impl AValueForward {
     pub(crate) fn new(forward_ptr: ForwardPtr, object_size: ValueAllocSize) -> AValueForward {
-        AValueForward {
+        Self {
             forward_ptr: forward_ptr.0 | 1,
             object_size,
         }
