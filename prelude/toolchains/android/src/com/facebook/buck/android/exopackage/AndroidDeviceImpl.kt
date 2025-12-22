@@ -83,6 +83,9 @@ class AndroidDeviceImpl(val serial: String, val adbUtils: AdbUtils) : AndroidDev
 
   override fun prepareForApexInstallation(): Boolean {
     executeAdbCommand("root")
+    sleep(5000)
+    executeAdbCommand("wait-for-device")
+
     // Root kills adbd, and sometimes, it takes a while for it to come back
     for (i in 1..3) {
       if (executeAdbShellCommand("whoami").equals("root")) {
@@ -176,7 +179,7 @@ class AndroidDeviceImpl(val serial: String, val adbUtils: AdbUtils) : AndroidDev
         condition = { output -> output.trim() == "1" },
         successMessage = "Boot completed after soft reboot",
         timeoutMessage = "Device did not complete boot after soft reboot within timeout",
-        timeoutMs = 30000,
+        timeoutMs = 80000, // Account for Horizon OS Emulator.
     )
   }
 
@@ -199,6 +202,7 @@ class AndroidDeviceImpl(val serial: String, val adbUtils: AdbUtils) : AndroidDev
         },
         successMessage = "Storage filesystem ready",
         timeoutMessage = "Storage filesystem did not become ready within timeout",
+        timeoutMs = 30000,
     )
   }
 
