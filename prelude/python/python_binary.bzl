@@ -72,7 +72,7 @@ load(
 )
 load(":python_runtime_bundle.bzl", "PythonRuntimeBundleInfo")
 load(":source_db.bzl", "create_dbg_source_db", "create_python_source_db_info", "create_source_db_no_deps")
-load(":toolchain.bzl", "NativeLinkStrategy", "PackageStyle", "PythonPlatformInfo", "PythonToolchainInfo", "get_package_style")
+load(":toolchain.bzl", "NativeLinkStrategy", "PackageStyle", "PythonToolchainInfo", "get_package_style")
 load(":typing.bzl", "create_per_target_type_check")
 load(":versions.bzl", "LibraryName", "LibraryVersion", "gather_versioned_dependencies", "resolve_versions")
 
@@ -127,12 +127,6 @@ def python_executable(
         executable_type: ExecutableType) -> list[Provider] | Promise:
     # Returns a three tuple: the Python binary, all its potential runtime files,
     # and a provider for its source DB.
-
-    # TODO(nmj): See if people are actually setting cxx_platform here. Really
-    #                 feels like it should be a property of the python platform
-    python_platform = ctx.attrs._python_toolchain[PythonPlatformInfo]
-    cxx_toolchain = ctx.attrs._cxx_toolchain
-
     raw_deps = ctx.attrs.deps
 
     # `preload_deps` is used later to configure `LD_PRELOAD` environment variable,
