@@ -400,7 +400,8 @@ public class InstrumentationTestRunnerTest {
             argsParser.clearPackageData,
             argsParser.disableAnimations,
             argsParser.preTestSetupScript,
-            argsParser.extraApksToInstall) {
+            argsParser.extraApksToInstall,
+            argsParser.userId) {
 
           @Override
           protected AndroidDevice initializeAndroidDevice() {
@@ -483,6 +484,610 @@ public class InstrumentationTestRunnerTest {
 
     Assert.assertEquals("content1", Files.readString(file1));
     Assert.assertEquals("content2", Files.readString(file2));
+  }
+
+  @Test
+  public void parsesUserIdArgument() throws Throwable {
+    String[] args = {
+      "--target-package-name",
+      "com.example",
+      "--test-package-name",
+      "com.example.test",
+      "--test-runner",
+      "com.example.test.TestRunner",
+      "--adb-executable-path",
+      "required_but_not_used",
+      "--output",
+      "/dev/null",
+      "--auto-run-on-connected-device",
+      "--user",
+      "10"
+    };
+
+    InstrumentationTestRunner.ArgsParser argsParser = new InstrumentationTestRunner.ArgsParser();
+    argsParser.fromArgs(args);
+
+    Assert.assertEquals(Integer.valueOf(10), argsParser.userId);
+  }
+
+  @Test
+  public void userIdIsNullWhenNotProvided() throws Throwable {
+    String[] args = {
+      "--target-package-name",
+      "com.example",
+      "--test-package-name",
+      "com.example.test",
+      "--test-runner",
+      "com.example.test.TestRunner",
+      "--adb-executable-path",
+      "required_but_not_used",
+      "--output",
+      "/dev/null",
+      "--auto-run-on-connected-device"
+    };
+
+    InstrumentationTestRunner.ArgsParser argsParser = new InstrumentationTestRunner.ArgsParser();
+    argsParser.fromArgs(args);
+
+    Assert.assertNull(argsParser.userId);
+  }
+
+  @Test
+  public void addsUserInstrumentationArgWhenUserIdProvided() throws Throwable {
+    ArrayList<String> capturedShellCommands = new ArrayList<>();
+    InstrumentationTestRunner runner =
+        createInstrumentationTestRunnerWithDevice(
+            capturedShellCommands,
+            new HashMap<>(),
+            new HashMap<>(),
+            new HashMap<>(),
+            "--user",
+            "10");
+    runner.run();
+
+    // Find the "am instrument" command that RemoteAndroidTestRunner executed
+    String instrumentCommand = null;
+    for (String command : capturedShellCommands) {
+      if (command.startsWith("am instrument")) {
+        instrumentCommand = command;
+        break;
+      }
+    }
+
+    Assert.assertNotNull("Expected to find 'am instrument' command", instrumentCommand);
+    Assert.assertTrue(
+        "Expected instrument command to contain user arg",
+        instrumentCommand.contains("-e user 10"));
+  }
+
+  @Test
+  public void doesNotAddUserInstrumentationArgWhenUserIdNotProvided() throws Throwable {
+    ArrayList<String> capturedShellCommands = new ArrayList<>();
+    InstrumentationTestRunner runner =
+        createInstrumentationTestRunnerWithDevice(
+            capturedShellCommands, new HashMap<>(), new HashMap<>(), new HashMap<>());
+    runner.run();
+
+    // Find the "am instrument" command that RemoteAndroidTestRunner executed
+    String instrumentCommand = null;
+    for (String command : capturedShellCommands) {
+      if (command.startsWith("am instrument")) {
+        instrumentCommand = command;
+        break;
+      }
+    }
+
+    Assert.assertNotNull("Expected to find 'am instrument' command", instrumentCommand);
+    Assert.assertFalse(
+        "Expected instrument command to not contain user arg", instrumentCommand.contains("user"));
+  }
+
+  @Test
+  public void installsForAllUsersWhenRunningAsSecondaryUser() throws Throwable {
+    List<String> installedWithUserTarget = new ArrayList<>();
+
+    final TestAndroidDevice testAndroidDevice =
+        new TestAndroidDevice() {
+          @Override
+          public boolean installApkOnDevice(
+              File apk,
+              boolean installViaSd,
+              boolean quiet,
+              boolean verifyTempWritable,
+              boolean stagedInstallMode,
+              String userId) {
+            installedWithUserTarget.add(apk.getPath() + ":" + userId);
+            return true;
+          }
+
+          @Override
+          public String getSerialNumber() {
+            return "test-device-123";
+          }
+
+          @Override
+          public String getProperty(String property) throws Exception {
+            if ("ro.build.version.sdk".equals(property)) {
+              return "28";
+            }
+            return null;
+          }
+        };
+
+    String[] args = {
+      "--target-package-name",
+      "com.example",
+      "--test-package-name",
+      "com.example.test",
+      "--test-runner",
+      "com.example.test.TestRunner",
+      "--adb-executable-path",
+      "required_but_not_used",
+      "--output",
+      "/dev/null",
+      "--auto-run-on-connected-device",
+      "--instrumentation-apk-path",
+      "/path/to/test.apk",
+      "--user",
+      "10"
+    };
+
+    InstrumentationTestRunner.ArgsParser argsParser = new InstrumentationTestRunner.ArgsParser();
+    DeviceRunner.DeviceArgs deviceArgs = DeviceRunner.getDeviceArgs(args);
+    argsParser.fromArgs(args);
+
+    List<String> capturedShellCommands = new ArrayList<>();
+    IDevice device =
+        new TestDevice() {
+          @Override
+          public void executeShellCommand(String command, IShellOutputReceiver receiver) {
+            capturedShellCommands.add(command);
+          }
+
+          @Override
+          public FileListingService getFileListingService() {
+            return new FileListingService(this);
+          }
+        };
+
+    InstrumentationTestRunner runner =
+        new InstrumentationTestRunner(
+            deviceArgs,
+            argsParser.packageName,
+            argsParser.targetPackageName,
+            argsParser.testRunner,
+            argsParser.outputDirectory,
+            argsParser.instrumentationApkPath,
+            argsParser.apkUnderTestPath,
+            argsParser.exopackageLocalPath,
+            argsParser.apkUnderTestExopackageLocalPath,
+            argsParser.attemptUninstallApkUnderTest,
+            argsParser.attemptUninstallInstrumentationApk,
+            argsParser.debug,
+            argsParser.codeCoverage,
+            argsParser.codeCoverageOutputFile,
+            argsParser.isSelfInstrumenting,
+            argsParser.extraInstrumentationArguments,
+            argsParser.extraInstrumentationTestListener,
+            argsParser.extraFilesToPull,
+            argsParser.extraDirsToPull,
+            argsParser.clearPackageData,
+            argsParser.disableAnimations,
+            argsParser.preTestSetupScript,
+            argsParser.extraApksToInstall,
+            argsParser.userId) {
+          @Override
+          protected IDevice getAndroidDevice(
+              boolean autoRunOnConnectedDevice, String deviceSerial) {
+            return device;
+          }
+
+          @Override
+          protected AndroidDevice initializeAndroidDevice() {
+            return testAndroidDevice;
+          }
+
+          @Override
+          protected String executeAdbShellCommand(String command) throws Exception {
+            capturedShellCommands.add(command);
+            return "";
+          }
+
+          @Override
+          protected void installPackage(String path) throws Throwable {
+            // When running as secondary user (userId > 0), install for all users
+            String userTarget = (argsParser.userId != null && argsParser.userId > 0) ? "all" : null;
+            testAndroidDevice.installApkOnDevice(
+                new File(path), false, false, true, false, userTarget);
+          }
+        };
+
+    runner.run();
+
+    // Verify the APK was installed with "all" user target
+    Assert.assertEquals(1, installedWithUserTarget.size());
+    Assert.assertTrue(installedWithUserTarget.get(0).endsWith(":all"));
+  }
+
+  @Test
+  public void installsForCurrentUserOnlyWhenNotSecondaryUser() throws Throwable {
+    List<String> installedWithUserTarget = new ArrayList<>();
+
+    final TestAndroidDevice testAndroidDevice =
+        new TestAndroidDevice() {
+          @Override
+          public boolean installApkOnDevice(
+              File apk,
+              boolean installViaSd,
+              boolean quiet,
+              boolean verifyTempWritable,
+              boolean stagedInstallMode,
+              String userId) {
+            installedWithUserTarget.add(apk.getPath() + ":" + userId);
+            return true;
+          }
+
+          @Override
+          public String getSerialNumber() {
+            return "test-device-123";
+          }
+
+          @Override
+          public String getProperty(String property) throws Exception {
+            if ("ro.build.version.sdk".equals(property)) {
+              return "28";
+            }
+            return null;
+          }
+        };
+
+    String[] args = {
+      "--target-package-name",
+      "com.example",
+      "--test-package-name",
+      "com.example.test",
+      "--test-runner",
+      "com.example.test.TestRunner",
+      "--adb-executable-path",
+      "required_but_not_used",
+      "--output",
+      "/dev/null",
+      "--auto-run-on-connected-device",
+      "--instrumentation-apk-path",
+      "/path/to/test.apk"
+      // Note: No --user argument
+    };
+
+    InstrumentationTestRunner.ArgsParser argsParser = new InstrumentationTestRunner.ArgsParser();
+    DeviceRunner.DeviceArgs deviceArgs = DeviceRunner.getDeviceArgs(args);
+    argsParser.fromArgs(args);
+
+    List<String> capturedShellCommands = new ArrayList<>();
+    IDevice device =
+        new TestDevice() {
+          @Override
+          public void executeShellCommand(String command, IShellOutputReceiver receiver) {
+            capturedShellCommands.add(command);
+          }
+
+          @Override
+          public FileListingService getFileListingService() {
+            return new FileListingService(this);
+          }
+        };
+
+    InstrumentationTestRunner runner =
+        new InstrumentationTestRunner(
+            deviceArgs,
+            argsParser.packageName,
+            argsParser.targetPackageName,
+            argsParser.testRunner,
+            argsParser.outputDirectory,
+            argsParser.instrumentationApkPath,
+            argsParser.apkUnderTestPath,
+            argsParser.exopackageLocalPath,
+            argsParser.apkUnderTestExopackageLocalPath,
+            argsParser.attemptUninstallApkUnderTest,
+            argsParser.attemptUninstallInstrumentationApk,
+            argsParser.debug,
+            argsParser.codeCoverage,
+            argsParser.codeCoverageOutputFile,
+            argsParser.isSelfInstrumenting,
+            argsParser.extraInstrumentationArguments,
+            argsParser.extraInstrumentationTestListener,
+            argsParser.extraFilesToPull,
+            argsParser.extraDirsToPull,
+            argsParser.clearPackageData,
+            argsParser.disableAnimations,
+            argsParser.preTestSetupScript,
+            argsParser.extraApksToInstall,
+            argsParser.userId) {
+          @Override
+          protected IDevice getAndroidDevice(
+              boolean autoRunOnConnectedDevice, String deviceSerial) {
+            return device;
+          }
+
+          @Override
+          protected AndroidDevice initializeAndroidDevice() {
+            return testAndroidDevice;
+          }
+
+          @Override
+          protected String executeAdbShellCommand(String command) throws Exception {
+            capturedShellCommands.add(command);
+            return "";
+          }
+
+          @Override
+          protected void installPackage(String path) throws Throwable {
+            // When not running as secondary user, userId is null
+            String userTarget = (argsParser.userId != null && argsParser.userId > 0) ? "all" : null;
+            testAndroidDevice.installApkOnDevice(
+                new File(path), false, false, true, false, userTarget);
+          }
+        };
+
+    runner.run();
+
+    // Verify the APK was installed with null user target (current user only)
+    Assert.assertEquals(1, installedWithUserTarget.size());
+    Assert.assertTrue(installedWithUserTarget.get(0).endsWith(":null"));
+  }
+
+  @Test
+  public void resolvesPathForSecondaryUserSdcard() throws Throwable {
+    // Test that /sdcard paths are resolved to /data/media/{userId} for secondary users
+    ArrayList<String> capturedShellCommands = new ArrayList<>();
+    Map<String, String> extraDirsToPull = new HashMap<>();
+    extraDirsToPull.put("/sdcard/test_output", "/tmp/local_output");
+
+    InstrumentationTestRunner runner =
+        createInstrumentationTestRunnerWithExtraDirsToPull(
+            capturedShellCommands, extraDirsToPull, "--user", "10");
+    runner.run();
+
+    // Verify that the resolved path uses /data/media/10 instead of /sdcard
+    boolean foundResolvedRmCommand = false;
+    boolean foundResolvedMkdirCommand = false;
+    for (String command : capturedShellCommands) {
+      if (command.contains("rm -fr /data/media/10/test_output")) {
+        foundResolvedRmCommand = true;
+      }
+      if (command.contains("mkdir -p /data/media/10/test_output")) {
+        foundResolvedMkdirCommand = true;
+      }
+    }
+
+    Assert.assertTrue(
+        "Expected rm command to use resolved path /data/media/10/test_output",
+        foundResolvedRmCommand);
+    Assert.assertTrue(
+        "Expected mkdir command to use resolved path /data/media/10/test_output",
+        foundResolvedMkdirCommand);
+  }
+
+  @Test
+  public void resolvesPathForSecondaryUserStorageEmulated0() throws Throwable {
+    // Test that /storage/emulated/0 paths are resolved to /data/media/{userId}
+    ArrayList<String> capturedShellCommands = new ArrayList<>();
+    Map<String, String> extraDirsToPull = new HashMap<>();
+    extraDirsToPull.put("/storage/emulated/0/test_output", "/tmp/local_output");
+
+    InstrumentationTestRunner runner =
+        createInstrumentationTestRunnerWithExtraDirsToPull(
+            capturedShellCommands, extraDirsToPull, "--user", "10");
+    runner.run();
+
+    // Verify that the resolved path uses /data/media/10 instead of /storage/emulated/0
+    boolean foundResolvedCommand = false;
+    for (String command : capturedShellCommands) {
+      if (command.contains("rm -fr /data/media/10/test_output")) {
+        foundResolvedCommand = true;
+        break;
+      }
+    }
+
+    Assert.assertTrue(
+        "Expected command to use resolved path /data/media/10/test_output", foundResolvedCommand);
+  }
+
+  @Test
+  public void resolvesPathForSecondaryUserStorageEmulatedOtherUserId() throws Throwable {
+    // Test that /storage/emulated/{other_user_id} paths are translated to current user's path
+    ArrayList<String> capturedShellCommands = new ArrayList<>();
+    Map<String, String> extraDirsToPull = new HashMap<>();
+    // Path references another user (15), should be translated to current user (10)
+    extraDirsToPull.put("/storage/emulated/15/test_output", "/tmp/local_output");
+
+    InstrumentationTestRunner runner =
+        createInstrumentationTestRunnerWithExtraDirsToPull(
+            capturedShellCommands, extraDirsToPull, "--user", "10");
+    runner.run();
+
+    // Verify that the resolved path uses /data/media/10 (current user)
+    boolean foundResolvedCommand = false;
+    for (String command : capturedShellCommands) {
+      if (command.contains("rm -fr /data/media/10/test_output")) {
+        foundResolvedCommand = true;
+        break;
+      }
+    }
+
+    Assert.assertTrue(
+        "Expected command to use resolved path /data/media/10/test_output", foundResolvedCommand);
+  }
+
+  @Test
+  public void doesNotResolvePathForPrimaryUser() throws Throwable {
+    // Test that paths are NOT modified for primary user (userId = 0 or null)
+    ArrayList<String> capturedShellCommands = new ArrayList<>();
+    Map<String, String> extraDirsToPull = new HashMap<>();
+    extraDirsToPull.put("/sdcard/test_output", "/tmp/local_output");
+
+    // No --user argument, so userId is null (primary user behavior)
+    InstrumentationTestRunner runner =
+        createInstrumentationTestRunnerWithExtraDirsToPull(capturedShellCommands, extraDirsToPull);
+    runner.run();
+
+    // Verify that the original path /sdcard is used, not /data/media
+    boolean foundOriginalPath = false;
+    boolean foundResolvedPath = false;
+    for (String command : capturedShellCommands) {
+      if (command.contains("rm -fr /sdcard/test_output")) {
+        foundOriginalPath = true;
+      }
+      if (command.contains("/data/media")) {
+        foundResolvedPath = true;
+      }
+    }
+
+    Assert.assertTrue(
+        "Expected command to use original path /sdcard/test_output", foundOriginalPath);
+    Assert.assertFalse("Expected command to NOT use /data/media path", foundResolvedPath);
+  }
+
+  @Test
+  public void preservesNonUserStoragePathsUnchanged() throws Throwable {
+    // Test that non-sdcard/non-storage paths are not modified
+    ArrayList<String> capturedShellCommands = new ArrayList<>();
+    Map<String, String> extraDirsToPull = new HashMap<>();
+    extraDirsToPull.put("/data/local/tmp/test_output", "/tmp/local_output");
+
+    InstrumentationTestRunner runner =
+        createInstrumentationTestRunnerWithExtraDirsToPull(
+            capturedShellCommands, extraDirsToPull, "--user", "10");
+    runner.run();
+
+    // Verify that /data/local/tmp path is preserved unchanged
+    boolean foundOriginalPath = false;
+    for (String command : capturedShellCommands) {
+      if (command.contains("rm -fr /data/local/tmp/test_output")) {
+        foundOriginalPath = true;
+        break;
+      }
+    }
+
+    Assert.assertTrue(
+        "Expected command to preserve original path /data/local/tmp/test_output",
+        foundOriginalPath);
+  }
+
+  private InstrumentationTestRunner createInstrumentationTestRunnerWithExtraDirsToPull(
+      List<String> capturedShellCommands, Map<String, String> extraDirsToPull, String... extraArgs)
+      throws Throwable {
+
+    final AndroidDevice testAndroidDevice =
+        new TestAndroidDevice() {
+          @Override
+          public String getSerialNumber() {
+            return "test-device-123";
+          }
+
+          @Override
+          public String getProperty(String property) throws Exception {
+            if ("ro.build.version.sdk".equals(property)) {
+              return "28"; // Android 9
+            }
+            return null;
+          }
+        };
+
+    List<String> argsList = new ArrayList<>();
+    argsList.addAll(
+        Arrays.asList(
+            "--target-package-name",
+            "com.example",
+            "--test-package-name",
+            "com.example.test",
+            "--test-runner",
+            "com.example.test.TestRunner",
+            "--adb-executable-path",
+            "required_but_not_used",
+            "--output",
+            "/dev/null",
+            "--auto-run-on-connected-device"));
+
+    // Add extra dirs to pull
+    for (Map.Entry<String, String> entry : extraDirsToPull.entrySet()) {
+      argsList.add("--extra-dir-to-pull");
+      argsList.add(entry.getKey() + "=" + entry.getValue());
+    }
+
+    // Add any extra args (like --user)
+    argsList.addAll(Arrays.asList(extraArgs));
+
+    String[] allArgs = argsList.toArray(new String[0]);
+
+    InstrumentationTestRunner.ArgsParser argsParser = new InstrumentationTestRunner.ArgsParser();
+    DeviceRunner.DeviceArgs deviceArgs = DeviceRunner.getDeviceArgs(allArgs);
+    argsParser.fromArgs(allArgs);
+
+    IDevice device =
+        new TestDevice() {
+          @Override
+          public void executeShellCommand(String command, IShellOutputReceiver receiver) {
+            capturedShellCommands.add(command);
+          }
+
+          @Override
+          public FileListingService getFileListingService() {
+            return new FileListingService(this);
+          }
+        };
+
+    return new InstrumentationTestRunner(
+        deviceArgs,
+        argsParser.packageName,
+        argsParser.targetPackageName,
+        argsParser.testRunner,
+        argsParser.outputDirectory,
+        argsParser.instrumentationApkPath,
+        argsParser.apkUnderTestPath,
+        argsParser.exopackageLocalPath,
+        argsParser.apkUnderTestExopackageLocalPath,
+        argsParser.attemptUninstallApkUnderTest,
+        argsParser.attemptUninstallInstrumentationApk,
+        argsParser.debug,
+        argsParser.codeCoverage,
+        argsParser.codeCoverageOutputFile,
+        argsParser.isSelfInstrumenting,
+        argsParser.extraInstrumentationArguments,
+        argsParser.extraInstrumentationTestListener,
+        argsParser.extraFilesToPull,
+        argsParser.extraDirsToPull,
+        argsParser.clearPackageData,
+        argsParser.disableAnimations,
+        argsParser.preTestSetupScript,
+        argsParser.extraApksToInstall,
+        argsParser.userId) {
+      @Override
+      protected IDevice getAndroidDevice(boolean autoRunOnConnectedDevice, String deviceSerial) {
+        return device;
+      }
+
+      @Override
+      protected AndroidDevice initializeAndroidDevice() {
+        return testAndroidDevice;
+      }
+
+      @Override
+      protected String executeAdbShellCommand(String command) throws Exception {
+        capturedShellCommands.add(command);
+        return "";
+      }
+
+      @Override
+      public boolean directoryExists(String dirPath) throws Exception {
+        // Return false to simulate that directories don't exist yet
+        return false;
+      }
+
+      @Override
+      public void pullDir(String sourceDir, String destinationDir) throws Exception {
+        // Mock implementation - do nothing
+      }
+    };
   }
 
   @Test
@@ -585,7 +1190,8 @@ public class InstrumentationTestRunnerTest {
             argsParser.clearPackageData,
             argsParser.disableAnimations,
             argsParser.preTestSetupScript,
-            argsParser.extraApksToInstall) {
+            argsParser.extraApksToInstall,
+            argsParser.userId) {
           @Override
           protected IDevice getAndroidDevice(
               boolean autoRunOnConnectedDevice, String deviceSerial) {
@@ -739,7 +1345,8 @@ public class InstrumentationTestRunnerTest {
             argsParser.clearPackageData,
             argsParser.disableAnimations,
             argsParser.preTestSetupScript,
-            argsParser.extraApksToInstall) {
+            argsParser.extraApksToInstall,
+            argsParser.userId) {
 
           @Override
           public Process exec(String command) throws IOException {

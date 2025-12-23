@@ -17,6 +17,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import javax.annotation.Nullable;
 
 public interface AndroidDevice {
   default boolean installApkOnDevice(
@@ -24,12 +25,35 @@ public interface AndroidDevice {
     return installApkOnDevice(apk, installViaSd, quiet, true, stagedInstallMode);
   }
 
+  default boolean installApkOnDevice(
+      File apk,
+      boolean installViaSd,
+      boolean quiet,
+      boolean verifyTempWritable,
+      boolean stagedInstallMode) {
+    return installApkOnDevice(
+        apk, installViaSd, quiet, verifyTempWritable, stagedInstallMode, null);
+  }
+
+  /**
+   * Install an APK on the device with optional user targeting.
+   *
+   * @param apk The APK file to install
+   * @param installViaSd Whether to install via SD card
+   * @param quiet If true, suppress output
+   * @param verifyTempWritable If true, verify temp folder is writable before install
+   * @param stagedInstallMode If true, use staged installation
+   * @param userId User to install for: "all" for all users, a specific user ID (e.g., "10"), or
+   *     null for default behavior (current user only)
+   * @return true if installation succeeded
+   */
   boolean installApkOnDevice(
       File apk,
       boolean installViaSd,
       boolean quiet,
       boolean verifyTempWritable,
-      boolean stagedInstallMode);
+      boolean stagedInstallMode,
+      @Nullable String userId);
 
   default boolean installApexOnDevice(File apex, boolean quiet) {
     return installApexOnDevice(apex, quiet, true);

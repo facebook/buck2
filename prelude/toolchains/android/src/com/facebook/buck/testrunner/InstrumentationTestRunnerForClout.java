@@ -16,6 +16,7 @@ import java.io.File;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
+import javax.annotation.Nullable;
 
 public class InstrumentationTestRunnerForClout extends InstrumentationTestRunner {
 
@@ -45,7 +46,8 @@ public class InstrumentationTestRunnerForClout extends InstrumentationTestRunner
       boolean clearPackageData,
       boolean disableAnimations,
       String preTestSetupScript,
-      List<String> extraApksToInstall) {
+      List<String> extraApksToInstall,
+      @Nullable Integer userId) {
     super(
         deviceArgs,
         packageName,
@@ -69,7 +71,8 @@ public class InstrumentationTestRunnerForClout extends InstrumentationTestRunner
         clearPackageData,
         disableAnimations,
         preTestSetupScript,
-        extraApksToInstall);
+        extraApksToInstall,
+        userId);
   }
 
   @SuppressWarnings("PMD.BlacklistedSystemGetenv")
@@ -101,7 +104,8 @@ public class InstrumentationTestRunnerForClout extends InstrumentationTestRunner
             argsParser.clearPackageData,
             argsParser.disableAnimations,
             argsParser.preTestSetupScript,
-            argsParser.extraApksToInstall);
+            argsParser.extraApksToInstall,
+            argsParser.userId);
     if (argsParser.recordVideo) {
       runner.addReportLayer(new VideoRecordingReportLayer(runner));
     }

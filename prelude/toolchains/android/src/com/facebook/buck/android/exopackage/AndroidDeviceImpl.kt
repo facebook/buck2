@@ -34,6 +34,7 @@ class AndroidDeviceImpl(val serial: String, val adbUtils: AdbUtils) : AndroidDev
       quiet: Boolean,
       verifyTempWritable: Boolean,
       stagedInstallMode: Boolean,
+      userId: String?,
   ): Boolean {
     val elapsed = measureTimeMillis {
       if (verifyTempWritable) {
@@ -57,6 +58,7 @@ class AndroidDeviceImpl(val serial: String, val adbUtils: AdbUtils) : AndroidDev
         // if (shouldUseFastDeploy()) append(" --fastdeploy")
 
         if (stagedInstallMode) append(" --staged")
+        if (userId != null) append(" --user $userId")
       }
 
       executeAdbCommandCatching(
@@ -64,8 +66,11 @@ class AndroidDeviceImpl(val serial: String, val adbUtils: AdbUtils) : AndroidDev
           "Failed to install ${apk.name}.",
       )
     }
+    val userSuffix = if (userId != null) " for user $userId" else ""
     val kbps = (apk.length() / 1024.0) / (elapsed / 1000.0)
-    LOG.info("Installed ${apk.name} (${apk.length()} bytes) in ${elapsed/1000.0} s ($kbps kB/s)")
+    LOG.info(
+        "Installed ${apk.name}$userSuffix (${apk.length()} bytes) in ${elapsed/1000.0} s ($kbps kB/s)"
+    )
     return true
   }
 

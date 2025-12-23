@@ -122,14 +122,64 @@ public class InstrumentationTestRunner extends DeviceRunner {
   private final String preTestSetupScript;
   private final List<String> apexesToInstall;
 
-  private final CrashAnalyzer crashAnalyzer = new CrashAnalyzer();
+  @Nullable private final Integer userId;
 
+  /** Prefix for secondary user storage paths */
+  private static final String SECONDARY_USER_STORAGE_PREFIX = "/data/media/";
+
+  private static final String SDCARD_PATH = "/sdcard";
+  private static final String STORAGE_EMULATED_PATH = "/storage/emulated/0";
+  private static final String STORAGE_EMULATED_PREFIX = "/storage/emulated/";
+
+  private final CrashAnalyzer crashAnalyzer = new CrashAnalyzer();
   private List<ReportLayer> reportLayers = new ArrayList<>();
 
   private IDevice device = null;
   protected final AndroidDevice androidDevice;
   protected final AdbUtils adbUtils;
   private volatile boolean testRunFailed = false;
+
+  /**
+   * Resolves a device path for the current user. For secondary users, paths like /sdcard and
+   * /storage/emulated/0 are translated to /data/media/{userId}.
+   *
+   * <p>Also handles paths that already contain a user-specific storage path prefix (e.g.,
+   * /storage/emulated/10) by translating them to the current user's storage path.
+   *
+   * @param path The original device path
+   * @return The resolved path appropriate for the current user
+   */
+  private String resolvePathForUser(String path) {
+    if (userId == null || userId == 0) {
+      return path;
+    }
+
+    String userStoragePath = SECONDARY_USER_STORAGE_PREFIX + userId;
+
+    if (path.startsWith(SDCARD_PATH)) {
+      return userStoragePath + path.substring(SDCARD_PATH.length());
+    }
+
+    // Handle /storage/emulated/0 specifically (primary user path)
+    if (path.startsWith(STORAGE_EMULATED_PATH)) {
+      return userStoragePath + path.substring(STORAGE_EMULATED_PATH.length());
+    }
+
+    // Handle /storage/emulated/{other_user_id} paths (e.g., /storage/emulated/10)
+    if (path.startsWith(STORAGE_EMULATED_PREFIX)) {
+      // Find the end of the user ID portion
+      int userIdEndIndex = path.indexOf('/', STORAGE_EMULATED_PREFIX.length());
+      if (userIdEndIndex == -1) {
+        // Path is just /storage/emulated/{userId} with no trailing content
+        return userStoragePath;
+      }
+      // Extract the rest of the path after /storage/emulated/{userId}
+      String remainingPath = path.substring(userIdEndIndex);
+      return userStoragePath + remainingPath;
+    }
+
+    return path;
+  }
 
   public InstrumentationTestRunner(
       DeviceArgs deviceArgs,
@@ -154,7 +204,8 @@ public class InstrumentationTestRunner extends DeviceRunner {
       boolean clearPackageData,
       boolean disableAnimations,
       String preTestSetupScript,
-      List<String> apexesToInstall) {
+      List<String> apexesToInstall,
+      @Nullable Integer userId) {
     super(deviceArgs);
     this.packageName = packageName;
     this.targetPackageName = targetPackageName;
@@ -180,6 +231,7 @@ public class InstrumentationTestRunner extends DeviceRunner {
     this.disableAnimations = disableAnimations;
     this.preTestSetupScript = preTestSetupScript;
     this.apexesToInstall = apexesToInstall;
+    this.userId = userId;
     this.adbUtils = new AdbUtils(getAdbPath(), 0);
     this.androidDevice = initializeAndroidDevice();
   }
@@ -211,6 +263,7 @@ public class InstrumentationTestRunner extends DeviceRunner {
     Map<String, String> logExtractors = new HashMap<String, String>();
     String preTestSetupScript = null;
     List<String> extraApksToInstall = new ArrayList<>();
+    @Nullable Integer userId = null;
 
     @SuppressWarnings("PMD.BlacklistedSystemGetenv")
     void fromArgs(String... args) throws IOException {
@@ -333,6 +386,23 @@ public class InstrumentationTestRunner extends DeviceRunner {
             }
             logExtractors.put(logExtractorArgSplit[0], logExtractorArgSplit[1]);
             break;
+          case "--user":
+            if (i + 1 >= args.length) {
+              System.err.println("--user requires a user ID argument");
+              System.exit(1);
+            }
+            String userIdArg = args[++i];
+            try {
+              userId = Integer.parseInt(userIdArg);
+              if (userId < 0) {
+                System.err.printf("Invalid user ID: %s\n", userIdArg);
+                System.exit(1);
+              }
+            } catch (NumberFormatException e) {
+              System.err.printf("Invalid user ID: %s\n", userIdArg);
+              System.exit(1);
+            }
+            break;
         }
       }
 
@@ -437,7 +507,8 @@ public class InstrumentationTestRunner extends DeviceRunner {
             argsParser.clearPackageData,
             argsParser.disableAnimations,
             argsParser.preTestSetupScript,
-            argsParser.extraApksToInstall);
+            argsParser.extraApksToInstall,
+            argsParser.userId);
     if (argsParser.recordVideo) {
       runner.addReportLayer(new VideoRecordingReportLayer(runner));
     }
@@ -462,7 +533,10 @@ public class InstrumentationTestRunner extends DeviceRunner {
   }
 
   protected void installPackage(String path) throws Throwable {
-    androidDevice.installApkOnDevice(new File(path), false, false, false);
+    // When running as secondary user, install for all users so the APK is available
+    // to the secondary user context
+    String userTarget = (this.userId != null && this.userId > 0) ? "all" : null;
+    androidDevice.installApkOnDevice(new File(path), false, false, true, false, userTarget);
   }
 
   /**
@@ -678,16 +752,18 @@ public class InstrumentationTestRunner extends DeviceRunner {
 
     // Clean up output directories before the run
     for (final String devicePath : this.extraDirsToPull.keySet()) {
-      String output = executeAdbShellCommand("rm -fr " + devicePath);
+      String resolvedPath = resolvePathForUser(devicePath);
+      String output = executeAdbShellCommand("rm -fr " + resolvedPath);
 
-      if (directoryExists(devicePath)) {
-        System.err.printf("Failed to clean up directory %s due to error: %s\n", devicePath, output);
+      if (directoryExists(resolvedPath)) {
+        System.err.printf(
+            "Failed to clean up directory %s due to error: %s\n", resolvedPath, output);
         System.exit(1);
       }
 
-      output = executeAdbShellCommand("mkdir -p " + devicePath);
-      if (!directoryExists(devicePath)) {
-        System.err.printf("Failed to create directory %s due to error: %s\n", devicePath, output);
+      output = executeAdbShellCommand("mkdir -p " + resolvedPath);
+      if (!directoryExists(resolvedPath)) {
+        System.err.printf("Failed to create directory %s due to error: %s\n", resolvedPath, output);
       }
     }
 
@@ -801,6 +877,9 @@ public class InstrumentationTestRunner extends DeviceRunner {
         listeners.add(tpxListener);
       }
 
+      if (this.userId != null) {
+        runner.addInstrumentationArg("user", this.userId.toString());
+      }
       runner.run(listeners);
 
       if (this.disableAnimations) {
@@ -816,7 +895,7 @@ public class InstrumentationTestRunner extends DeviceRunner {
         }
 
         String covFileInEmu = "/data/data/" + this.targetPackageName + "/files/coverage.ec";
-        String covFileInSdcard = "/sdcard/coverage.ec";
+        String covFileInSdcard = resolvePathForUser("/sdcard/coverage.ec");
         String cpOutput =
             executeAdbShellCommand("su root cp " + covFileInEmu + " " + covFileInSdcard);
 
@@ -840,10 +919,12 @@ public class InstrumentationTestRunner extends DeviceRunner {
         }
       }
       for (Map.Entry<String, String> entry : this.extraFilesToPull.entrySet()) {
-        pullFile(entry.getKey(), entry.getValue());
+        String resolvedPath = resolvePathForUser(entry.getKey());
+        pullFile(resolvedPath, entry.getValue());
       }
       for (Map.Entry<String, String> entry : this.extraDirsToPull.entrySet()) {
-        pullDir(entry.getKey(), entry.getValue());
+        String resolvedPath = resolvePathForUser(entry.getKey());
+        pullDir(resolvedPath, entry.getValue());
       }
 
     } finally {
