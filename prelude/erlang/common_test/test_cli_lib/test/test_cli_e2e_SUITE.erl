@@ -7,6 +7,7 @@
 -module(test_cli_e2e_SUITE).
 -typing([eqwalizer]).
 
+% elp:ignore WA003 (better_assertions) - Open Source
 -include_lib("stdlib/include/assert.hrl").
 -include_lib("common_test/include/ct.hrl").
 -include_lib("common/include/buck_ct_records.hrl").

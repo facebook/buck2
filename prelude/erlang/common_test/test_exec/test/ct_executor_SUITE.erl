@@ -7,6 +7,7 @@
 -module(ct_executor_SUITE).
 -typing([eqwalizer]).
 
+% elp:ignore WA003 (better_assertions) - Open Source
 -include_lib("stdlib/include/assert.hrl").
 
 -export([all/0]).
