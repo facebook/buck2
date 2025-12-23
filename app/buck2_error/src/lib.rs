@@ -21,6 +21,7 @@ mod derive_tests;
 mod error;
 mod exit_code;
 mod format;
+pub mod lsp;
 pub mod macros;
 mod root;
 pub mod source_location;
