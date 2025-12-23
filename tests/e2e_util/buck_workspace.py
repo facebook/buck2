@@ -249,7 +249,12 @@ async def _get_common_dir() -> Path:
     """
     Returns a temporary directory using mkscratch.
     The advantage of using mkscratch is that it can return the same directory on multiple calls.
+    If mkscratch is not available (e.g., Windows or remote environments), fall back to the system temp directory.
     """
+    # Check if mkscratch is available, fall back to tempfile.gettempdir() if not
+    if shutil.which("mkscratch") is None:
+        return Path(tempfile.gettempdir())
+
     # Need to use `--hash` over `--subdir` here because the tmp path would be too long and
     # Eden would fail with `Socket path too large to fit into sockaddr_un` otherwise
     mkscratch_proc = await subprocess.create_subprocess_exec(

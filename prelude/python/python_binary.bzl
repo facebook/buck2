@@ -129,6 +129,8 @@ def python_executable(
     # and a provider for its source DB.
     raw_deps = ctx.attrs.deps
 
+    # TODO(nmj): See if people are actually setting cxx_platform here. Really
+    #                 feels like it should be a property of the python platform
     # `preload_deps` is used later to configure `LD_PRELOAD` environment variable,
     # here we make the actual libraries to appear in the distribution.
     # TODO: make fully consistent with its usage later
