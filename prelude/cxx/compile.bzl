@@ -1114,7 +1114,7 @@ def _validate_target_headers(label: Label, preprocessor: list[CPreprocessor]):
 
 def _get_compiler_info(toolchain: CxxToolchainInfo, ext: CxxExtension) -> typing.Any:
     compiler_info = None
-    if ext.value in (".cpp", ".cc", ".cl", ".cxx", ".c++", ".h", ".hpp", ".hh", ".h++", ".hxx", ".bc"):
+    if ext.value in (".cpp", ".cc", ".cl", ".cxx", ".c++", ".h", ".hpp", ".hh", ".h++", ".hxx", ".bc", ".cppm", ".ixx"):
         compiler_info = toolchain.cxx_compiler_info
     elif ext.value == ".c":
         compiler_info = toolchain.c_compiler_info
@@ -1140,7 +1140,7 @@ def _get_compiler_info(toolchain: CxxToolchainInfo, ext: CxxExtension) -> typing
     return compiler_info
 
 def _get_category(ext: CxxExtension) -> str:
-    if ext.value in (".cpp", ".cc", ".cl", ".cxx", ".c++", ".h", ".hpp", ".hh", ".h++", ".hxx"):
+    if ext.value in (".cpp", ".cc", ".cl", ".cxx", ".c++", ".h", ".hpp", ".hh", ".h++", ".hxx", ".cppm", ".ixx"):
         return "cxx_compile"
     if ext.value == ".c":
         return "c_compile"
@@ -1186,7 +1186,7 @@ def _dep_file_type(ext: CxxExtension) -> [DepFileType, None]:
         return None
 
     # Return the file type as well
-    if ext.value in (".cpp", ".cc", ".cl", ".mm", ".cxx", ".c++", ".h", ".hpp", ".hh", ".h++", ".hxx"):
+    if ext.value in (".cpp", ".cc", ".cl", ".mm", ".cxx", ".c++", ".h", ".hpp", ".hh", ".h++", ".hxx", ".cppm", ".ixx"):
         return DepFileType("cpp")
     elif ext.value in (".c", ".m"):
         return DepFileType("c")
