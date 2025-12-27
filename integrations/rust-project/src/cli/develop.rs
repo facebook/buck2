@@ -281,7 +281,9 @@ impl Develop {
         let sysroot = match &sysroot {
             SysrootConfig::Sysroot(path) => Sysroot {
                 sysroot: safe_canonicalize(&expand_tilde(path)?),
-                sysroot_src: None,
+                sysroot_src: std::env::var("RUST_SRC_PATH")
+                    .ok()
+                    .map(|s| PathBuf::from(&s)),
                 sysroot_project: None,
             },
             SysrootConfig::BuckConfig => {
