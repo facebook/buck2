@@ -36,24 +36,6 @@ async def test_bxl_analysis(buck: Buck) -> None:
     ]
 
 
-@buck_test(allow_soft_errors=True)
-async def test_bxl_analysis_incompatible_targets_list(buck: Buck) -> None:
-    # multiple incompatible targets should be skipped and the analysis should return empty dict
-    result = await buck.bxl("//analysis.bxl:incompatible_targets")
-    assert "Skipping target incompatible node" in result.stderr
-    assert "root//:incompatible_target" in result.stderr
-    assert "{}" == result.stdout.strip()
-
-
-@buck_test(allow_soft_errors=True)
-async def test_bxl_analysis_incompatible_targets_single(buck: Buck) -> None:
-    # single incompatible target should be skipped and the analysis should return None
-    result = await buck.bxl("//analysis.bxl:incompatible_targets_single")
-    assert "Skipping target incompatible node" in result.stderr
-    assert "root//:incompatible_target" in result.stderr
-    assert "None" == result.stdout.strip()
-
-
 @buck_test()
 async def test_bxl_analysis_missing_subtarget(buck: Buck, tmp_path: Path) -> None:
     record_path = tmp_path / "record.json"
@@ -71,3 +53,11 @@ async def test_bxl_analysis_missing_subtarget(buck: Buck, tmp_path: Path) -> Non
 
     assert len(errors) == 1
     assert errors[0]["category"] == "USER"
+
+
+@buck_test()
+async def test_bxl_analysis_unconfigured_target_error(buck: Buck) -> None:
+    await expect_failure(
+        buck.bxl("//analysis.bxl:unconfigured_target_error_test"),
+        stderr_regex="Type of parameter `labels` doesn't match",
+    )

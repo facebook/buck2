@@ -21,24 +21,6 @@ providers_test = bxl_main(
     cli_args = {},
 )
 
-def _incompatible_targets_single(ctx):
-    result = ctx.analysis("root//:incompatible_target")
-    ctx.output.print(result)
-
-incompatible_targets_single = bxl_main(
-    impl = _incompatible_targets_single,
-    cli_args = {},
-)
-
-def _incompatible_targets(ctx):
-    result = ctx.analysis(["root//:incompatible_target"])
-    ctx.output.print(result)
-
-incompatible_targets = bxl_main(
-    impl = _incompatible_targets,
-    cli_args = {},
-)
-
 def _dependency_test_impl(ctx):
     node = ctx.configured_targets("root//:stub")
 
@@ -57,5 +39,14 @@ def _missing_subtarget_test(ctx):
 
 missing_subtarget_test = bxl_main(
     impl = _missing_subtarget_test,
+    cli_args = {},
+)
+
+def _unconfigured_target_error_test(ctx):
+    result = ctx.analysis("root//:stub")
+    ctx.output.print(result)
+
+unconfigured_target_error_test = bxl_main(
+    impl = _unconfigured_target_error_test,
     cli_args = {},
 )

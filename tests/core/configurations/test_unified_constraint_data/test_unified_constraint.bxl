@@ -17,7 +17,7 @@ def _assert_not_eq(a, b):
         fail("Expected {} != {}".format(a, b))
 
 def _main(ctx: bxl.Context):
-    contrait_setting_node = ctx.unconfigured_targets("root//:os")
+    contrait_setting_node = ctx.configured_targets("root//:os")
 
     _assert_eq(contrait_setting_node.rule_kind, "configuration")
 
@@ -77,8 +77,8 @@ test_cfg_transition_v2 = bxl_main(
 
 def _constraint_v2(ctx: bxl.Context):
     # Setup: Get OS constraint setting and Linux constraint value
-    os_contrait_setting_node = ctx.unconfigured_targets("root//:os")
-    os_setting_label = os_contrait_setting_node.label
+    os_contrait_setting_node = ctx.configured_targets("root//:os")
+    os_setting_label = os_contrait_setting_node.label.raw_target()
     analysis_res = ctx.analysis(os_contrait_setting_node)
     os_constraint_setting_info = analysis_res.providers()[ConstraintSettingInfo]
 
@@ -108,7 +108,7 @@ def _constraint_v2(ctx: bxl.Context):
     _assert_eq(prev, linux_constraint_value_info)
 
     # Setup: Get CPU constraint setting with a default value
-    cpu_constraint_setting_node = ctx.unconfigured_targets("root//:cpu")
+    cpu_constraint_setting_node = ctx.configured_targets("root//:cpu")
     analysis_res = ctx.analysis(cpu_constraint_setting_node)
     cpu_constraint_setting_info = analysis_res.providers()[ConstraintSettingInfo]
 
@@ -118,7 +118,10 @@ def _constraint_v2(ctx: bxl.Context):
     x86_64_constraint_value_info = cpu_x86_64[ConstraintValueInfo]
     arm64_constraint_value_info = cpu_arm64[ConstraintValueInfo]
 
-    cpu_default_constraint_value_info = ctx.analysis(cpu_constraint_setting_info.default).providers()[ConstraintValueInfo]
+    # Get default constraint value by looking it up in sub_targets
+    default_sub_target_name = cpu_constraint_setting_info.default.sub_target[0]
+    cpu_default = default.sub_targets[default_sub_target_name]
+    cpu_default_constraint_value_info = cpu_default[ConstraintValueInfo]
 
     # Test 4: Get() returns default constraint value when key is not set
     _assert_eq(cfg_info.get(cpu_constraint_setting_info), cpu_default_constraint_value_info)

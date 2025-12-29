@@ -21,9 +21,7 @@ use buck2_core::cells::cell_path::CellPathRef;
 use buck2_core::cells::paths::CellRelativePath;
 use buck2_core::pattern::pattern::ParsedPattern;
 use buck2_core::pattern::pattern_type::TargetPatternExtra;
-use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
-use buck2_core::soft_error;
 use buck2_core::target::label::label::TargetLabel;
 use buck2_error::BuckErrorContext;
 use buck2_error::buck2_error;
@@ -59,7 +57,6 @@ use crate::bxl::starlark_defs::context::BxlContext;
 use crate::bxl::starlark_defs::context::BxlContextError;
 use crate::bxl::starlark_defs::context::BxlContextType;
 use crate::bxl::starlark_defs::context::NotATargetLabelString;
-use crate::bxl::starlark_defs::context::UnconfiguredTargetInAnalysis;
 use crate::bxl::starlark_defs::context::actions::BxlActions;
 use crate::bxl::starlark_defs::context::actions::resolve_bxl_execution_platform;
 use crate::bxl::starlark_defs::context::actions::validate_action_instantiation;
@@ -74,6 +71,7 @@ use crate::bxl::starlark_defs::lazy_ctx::StarlarkLazyCtx;
 use crate::bxl::starlark_defs::nodes::configured::StarlarkConfiguredTargetNode;
 use crate::bxl::starlark_defs::nodes::unconfigured::StarlarkTargetNode;
 use crate::bxl::starlark_defs::providers_expr::AnyProvidersExprArg;
+use crate::bxl::starlark_defs::providers_expr::ConfiguredProvidersExprArg;
 use crate::bxl::starlark_defs::providers_expr::ProvidersExpr;
 use crate::bxl::starlark_defs::providers_expr::ProvidersExprArg;
 use crate::bxl::starlark_defs::target_list_expr::ConfiguredTargetListExprArg;
@@ -546,18 +544,18 @@ pub(crate) fn bxl_context_methods(builder: &mut MethodsBuilder) {
         })?)
     }
 
-    /// Runs analysis on the given `labels`, accepting an optional `target_platform` which is the
+    /// Runs analysis on the given configured `labels`, accepting an optional `target_platform` which is the
     /// target platform configuration used to resolve configurations of any unconfigured target
     /// nodes, and an optional `skip_incompatible` boolean that indicates whether to skip analysis
     /// of nodes that are incompatible with the target platform.
     /// The `target_platform` is either a string that can be parsed as a target label, or a
     /// target label.
     ///
-    /// The given `labels` is a providers expression, which is either:
-    ///     - a single string that is a `target pattern`.
-    ///     - a single target node or label, configured or unconfigured
-    ///     - a single sub target label, configured or unconfigured
+    /// The given `labels` is a providers expression of configured targets, which is either:
+    ///     - a single target node or label, configured
+    ///     - a single sub target label, configured
     ///     - a list of the two options above.
+    ///     - targetset of configured target labels
     ///
     /// This returns either a single `analysis_result` if the given `labels` argument is "singular",
     /// or a dict keyed by sub target labels of `analysis` if the given `labels` argument
@@ -565,7 +563,7 @@ pub(crate) fn bxl_context_methods(builder: &mut MethodsBuilder) {
     fn analysis<'v>(
         this: &BxlContext<'v>,
         // TODO(nga): these parameters should be either position or named, not both.
-        labels: AnyProvidersExprArg<'v>,
+        labels: ConfiguredProvidersExprArg<'v>,
         #[starlark(default = ValueAsStarlarkTargetLabel::NONE)]
         target_platform: ValueAsStarlarkTargetLabel<'v>,
         #[starlark(require = named, default = true)] skip_incompatible: bool,
@@ -579,29 +577,12 @@ pub(crate) fn bxl_context_methods(builder: &mut MethodsBuilder) {
             >,
         >,
     > {
-        if labels.contains_unconfigured() {
-            soft_error!(
-                "bxl_unconfigured_target_in_analysis",
-                UnconfiguredTargetInAnalysis.into(),
-                quiet: true
-            )?;
-        }
-
-        let global_cfg_options = this.resolve_global_cfg_options(target_platform, vec![].into())?;
+        let providers = labels.unpack();
 
         let res: buck2_error::Result<_> = this.via_dice(eval, |dice| {
             dice.via(|dice| {
-                async {
-                    let providers = ProvidersExpr::<ConfiguredProvidersLabel>::unpack(
-                        labels,
-                        &global_cfg_options,
-                        this,
-                        dice,
-                    )
-                    .await?;
-                    analysis::analysis(dice, this, providers, skip_incompatible).await
-                }
-                .boxed_local()
+                async { analysis::analysis(dice, this, providers, skip_incompatible).await }
+                    .boxed_local()
             })
         });
 
@@ -634,11 +615,11 @@ pub(crate) fn bxl_context_methods(builder: &mut MethodsBuilder) {
     ///     - a list of the two options above.
     ///
     /// materializations can be one of:
-    ///    - "default"   
+    ///    - "default"
     ///        - defer to the configuration settings to decide whether to materialize or not
-    ///    - "materialize"  
+    ///    - "materialize"
     ///        - force materialization of build results at the end of the build.
-    ///    - "skip"  
+    ///    - "skip"
     ///        - skip materialization of the build results
     ///
     /// This returns a dict keyed by sub target labels mapped to `bxl_build_result`s if the
