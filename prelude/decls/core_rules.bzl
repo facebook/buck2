@@ -220,7 +220,13 @@ command_alias = prelude_rule(
 
 config_setting = prelude_rule(
     name = "config_setting",
-    docs = "",
+    docs = """
+        `config_setting()` accepts a list of `constraint_values` and a list of values
+        (buckconfig keys + expected values) and matches if all of those match.
+
+        This is implemented as forming a single `ConfigurationInfo` from the union of the
+        referenced values and the config keys.
+    """,
     examples = None,
     further = None,
     attrs = (
@@ -282,7 +288,7 @@ configured_alias = prelude_rule(
 
 constraint_setting = prelude_rule(
     name = "constraint_setting",
-    docs = "",
+    docs = "Declares the existence of a constraint, whose values are defined using `constraint_value()`. Consider using the newer `constraint()` instead.",
     examples = None,
     further = None,
     attrs = (
@@ -293,13 +299,15 @@ constraint_setting = prelude_rule(
 
 constraint_value = prelude_rule(
     name = "constraint_value",
-    docs = "",
+    docs = "Declares a specific value of a `constraint_setting`. Consider using the newer `constraint()` instead.",
     examples = None,
     further = None,
     attrs = (
         # @unsorted-dict-items
         {
-            "constraint_setting": attrs.configuration_label(),
+            "constraint_setting": attrs.configuration_label(
+                doc = "The constraint setting this value is attached to.",
+            ),
         }
     ),
 )
@@ -321,8 +329,13 @@ constraint = prelude_rule(
     attrs = (
         # @unsorted-dict-items
         {
-            "values": attrs.list(attrs.string()),
-            "default": attrs.string(),
+            "values": attrs.list(
+                attrs.string(),
+                doc = "List of value names.",
+            ),
+            "default": attrs.string(
+                doc = "Default value (must be one of the `values`).",
+            ),
         }
     ),
 )
@@ -868,14 +881,22 @@ http_file = prelude_rule(
 
 platform = prelude_rule(
     name = "platform",
-    docs = "",
+    docs = "Declares a platform, which is a build configuration composed of constraint values.",
     examples = None,
     further = None,
     attrs = (
         # @unsorted-dict-items
         {
-            "constraint_values": attrs.list(attrs.configuration_label(), default = []),
-            "deps": attrs.list(attrs.configuration_label(), default = []),
+            "constraint_values": attrs.list(
+                attrs.configuration_label(),
+                default = [],
+                doc = "List of constraint values that are set for this platform.",
+            ),
+            "deps": attrs.list(
+                attrs.configuration_label(),
+                default = [],
+                doc = "List of other platform target dependencies. The constraints from these platforms will be part of this platform (unless overridden)",
+            ),
         }
     ),
 )
