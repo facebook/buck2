@@ -43,6 +43,12 @@ git_fetch = prelude_rule(
             "rev": attrs.string(doc = """
                 Commit hash. 40 hex digits for sha1, 64 hex digits for sha256.
             """),
+            "update_submodules": attrs.bool(
+                default = False,
+                doc = """
+                Whether to initialize and update Git submodules after there worktree checkout.
+                """
+            ),
             "sub_targets": attrs.list(
                 attrs.string(),
                 default = [],
