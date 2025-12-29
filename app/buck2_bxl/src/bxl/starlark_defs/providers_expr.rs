@@ -76,6 +76,22 @@ pub(crate) enum ConfiguredProvidersLabelArg<'v> {
     ProvidersLabel(&'v StarlarkConfiguredProvidersLabel),
 }
 
+/// ConfiguredProvidersLabelListArg is a type that can be used as an argument in starlark api for
+/// a list of configured provider labels
+#[derive(StarlarkTypeRepr, UnpackValue)]
+pub(crate) enum ConfiguredProvidersLabelListArg<'v> {
+    List(UnpackList<ConfiguredProvidersLabelArg<'v>>),
+    TargetSet(&'v StarlarkTargetSet<ConfiguredTargetNode>),
+}
+
+/// ConfiguredProvidersExprArg is a type that can be used as an argument in starlark api for
+/// a configured provider label expression (single or list)
+#[derive(StarlarkTypeRepr, UnpackValue)]
+pub(crate) enum ConfiguredProvidersExprArg<'v> {
+    One(ConfiguredProvidersLabelArg<'v>),
+    List(ConfiguredProvidersLabelListArg<'v>),
+}
+
 /// AnyProvidersLabelArg is a type that can be used as an argument in stalark api for
 /// a configured provider label or an unconfigured provider label
 #[derive(StarlarkTypeRepr, UnpackValue)]
@@ -109,6 +125,33 @@ impl<'v> ConfiguredProvidersLabelArg<'v> {
             ConfiguredProvidersLabelArg::ProvidersLabel(providers_label) => {
                 providers_label.label().dupe()
             }
+        }
+    }
+}
+
+impl<'v> ConfiguredProvidersExprArg<'v> {
+    pub(crate) fn unpack(&self) -> ProvidersExpr<ConfiguredProvidersLabel> {
+        match self {
+            ConfiguredProvidersExprArg::One(arg) => {
+                ProvidersExpr::Literal(arg.configured_providers_label())
+            }
+            ConfiguredProvidersExprArg::List(ConfiguredProvidersLabelListArg::List(list)) => {
+                ProvidersExpr::Iterable(
+                    list.items
+                        .iter()
+                        .map(|arg| arg.configured_providers_label())
+                        .collect(),
+                )
+            }
+            ConfiguredProvidersExprArg::List(ConfiguredProvidersLabelListArg::TargetSet(
+                target_set,
+            )) => ProvidersExpr::Iterable(
+                target_set
+                    .0
+                    .iter()
+                    .map(|node| ConfiguredProvidersLabel::default_for(node.label().dupe()))
+                    .collect(),
+            ),
         }
     }
 }
