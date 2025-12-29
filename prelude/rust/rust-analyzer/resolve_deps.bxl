@@ -154,10 +154,10 @@ def gather_unconfigured_deps(ctx: bxl.Context, targets: list[TargetLabel]) -> di
         srcs = [src.short_path for src in _get_attr_no_select(target, "srcs") or []]
 
         mapped_srcs = {}
-
         raw_mapped_srcs = _get_attr_no_select(target, "mapped_srcs") or {}
         for t, t_srcs in raw_mapped_srcs.items():
-            mapped_srcs[t.raw_target()] = t_srcs
+            if hasattr(t, "raw_target"):
+                mapped_srcs[t.raw_target()] = t_srcs
 
         abs_buildfile_path = ctx.root() + "/" + target.buildfile_path.cell + "/" + target.buildfile_path.path
         source_folder = abs_buildfile_path.removesuffix("/TARGETS").removesuffix("/BUCK")
