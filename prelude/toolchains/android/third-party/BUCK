@@ -47,8 +47,20 @@ third_party_jar(
 buck_java_library(
     name = "tools-sdk-common",
     visibility = [
-        "prelude//toolchains/android/src/...",
-        "prelude//toolchains/android/test/...",
+        "prelude//toolchains/android/src/com/facebook/buck/android/aapt:merge_android_resource_sources",
+        "prelude//toolchains/android/src/com/facebook/buck/android/manifest:manifest",
+        "prelude//toolchains/android/test/com/facebook/buck/android:testutil",
+        "prelude//toolchains/android/test/com/facebook/buck/android/manifest:manifest",
+        "prelude//toolchains/android/test/com/facebook/buck/jvm/java:java",
+        "prelude//toolchains/android/test/com/facebook/buck/jvm/java:testutil",
+        "prelude//toolchains/android/test/com/facebook/buck/jvm/java/abi:abi",
+        "prelude//toolchains/android/test/com/facebook/buck/jvm/java/abi:testutil",
+        "prelude//toolchains/android/test/com/facebook/buck/jvm/kotlin:kotlin",
+        "prelude//toolchains/android/test/com/facebook/buck/testrunner:testrunner",
+        "prelude//toolchains/android/test/com/facebook/buck/testutil:testutil_test",
+        "prelude//toolchains/android/test/com/facebook/buck/testutil/integration:util",
+        "prelude//toolchains/android/test/com/facebook/buck/util:util",
+        "prelude//toolchains/android/test/com/facebook/buck/util/xml:xml",
     ],
     deps = [
         ":layoutlib-api",
@@ -73,6 +85,9 @@ third_party_jar(
     # @oss-disable[end= ]: internal_alias = "fbsource//third-party/java/com/android/tools/sdk-common:sdk-common",
     sha1 = "d17c3d28724a5f3e90a5ae053714627b740ff80c",
     url = "mvn:https://maven.google.com:com.android.tools:sdk-common:jar:31.7.3",
+    visibility = [
+        "prelude//toolchains/android/third-party/aosp:aosp",
+    ],
     deps = [":guava"],
 )
 
@@ -104,8 +119,12 @@ third_party_jar(
     name = "manifest-merger",
     # @oss-disable[end= ]: internal_alias = "fbsource//third-party/java/com/android/tools/build/manifest-merger:manifest-merger",
     sha1 = "0d0489e76e4eb785336317add6b65d57b928a429",
-    url = "mvn:com.android.tools.build:manifest-merger:31.7.3",
-    visibility = ["PUBLIC"],
+    url = "mvn:com.android.tools.build:manifest-merger:jar:31.7.3",
+    visibility = [
+        "prelude//toolchains/android/src/com/facebook/buck/android/manifest:manifest",
+        "prelude//toolchains/android/third-party:manifest-merger",
+        "prelude//toolchains/android/third-party/aosp:aosp",
+    ],
 )
 # ===   End: android
 

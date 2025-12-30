@@ -29,7 +29,7 @@ buck_java_library(
     visibility = [
         "PUBLIC",
         "prelude//toolchains/android/test/...",
-        "prelude//toolchains/android/third-party:aosp",
+        "prelude//toolchains/android/third-party/aosp:aosp",
         "prelude//toolchains/android/tools/...",
     ],
     deps = [
