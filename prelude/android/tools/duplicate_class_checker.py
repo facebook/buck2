@@ -21,12 +21,6 @@ def main() -> None:
         description="Check whether the provided list of files contains any duplicate class names in them."
     )
     parser.add_argument(
-        "--target-name-to-class-names-map-file",
-        type=Path,
-        help="A file that contains the mapping between target names and file paths containing the class names for that target.",
-        required=False,
-    )
-    parser.add_argument(
         "--jar-to-owning-target-map-file",
         type=Path,
         help="A file that contains the mapping between jar paths and the owning target.",
@@ -46,16 +40,12 @@ def main() -> None:
     parser.add_argument(
         "--mode",
         type=str,
-        choices=["pre-dexed-libs", "pre-dexed-libs-consolidated", "non-pre-dexed-jars"],
+        choices=["pre-dexed-libs", "non-pre-dexed-jars"],
         required=True,
     )
     args = parser.parse_args()
 
     if args.mode == "pre-dexed-libs":
-        class_to_targets_map = get_class_to_target_mapping(
-            args.target_name_to_class_names_map_file
-        )
-    elif args.mode == "pre-dexed-libs-consolidated":
         class_to_targets_map = get_class_to_target_mapping_from_consolidated_files(
             args.consolidated_files_list
         )
@@ -169,26 +159,6 @@ def extract_class_names_from_jar(jar_path: str) -> Set[str]:
                 class_name = entry.replace("/", ".").replace(".class", "")
                 class_names.add(class_name)
     return class_names
-
-
-def get_class_to_target_mapping(
-    target_name_to_class_names_map_file: Path,
-) -> Dict[str, List[str]]:
-    with open(target_name_to_class_names_map_file) as f:
-        target_to_class_name_file_map = json.loads(f.read())
-
-    class_to_target_mapping: Dict[str, List[str]] = {}
-
-    for target_name, path in target_to_class_name_file_map.items():
-        with open(path) as f:
-            # Use read().splitlines() instead of readlines() to avoid trailing newlines
-            for class_name in f.read().splitlines():
-                if "$" not in class_name and "module-info" not in class_name:
-                    class_to_target_mapping.setdefault(class_name, []).append(
-                        target_name
-                    )
-
-    return class_to_target_mapping
 
 
 def build_validation_message(

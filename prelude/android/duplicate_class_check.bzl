@@ -70,7 +70,7 @@ def check_for_duplicate_classes_for_pre_dexed_libs(
         cmd_args(
             android_toolchain.duplicate_class_checker[RunInfo],
             "--mode",
-            "pre-dexed-libs-consolidated",
+            "pre-dexed-libs",
             "--validation-output",
             validation_output.as_output(),
             "--consolidated-files-list",
