@@ -6,8 +6,7 @@ Traceback (most recent call last):
       outer_fail()
   * outer_import.bzl:4, in outer_fail
       outer_rust_failure()
-
-  * assert.bzl:3, in <module>
+  * assert.bzl:3, in outer_rust_failure
       should_fail()
   * imported.bzl:9, in should_fail
       rust_failure()
