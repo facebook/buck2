@@ -9,10 +9,15 @@
 load("@prelude//rust:outputs.bzl", "RustcExtraOutputsInfo")
 
 def _check_targets_impl(ctx: bxl.Context) -> list[bxl.EnsuredArtifact]:
-    uquery_owners = ctx.uquery().owner(ctx.cli_args.file)
-    target_universe = ctx.target_universe(uquery_owners)
-    owners = ctx.cquery().owner(ctx.cli_args.file, target_universe.target_set())
-    nodes = ctx.cquery().kind("^(rust_binary|rust_library|rust_test)$", owners)
+    if ctx.cli_args.target != None:
+        uquery_targets = ctx.uquery().kind("^(rust_binary|rust_library|rust_test)$", ctx.cli_args.target)
+        target_universe = ctx.target_universe(uquery_targets)
+        nodes = ctx.cquery().kind("^(rust_binary|rust_library|rust_test)$", target_universe.target_set())
+    elif ctx.cli_args.file != None:
+        uquery_owners = ctx.uquery().owner(ctx.cli_args.file)
+        target_universe = ctx.target_universe(uquery_owners)
+        owners = ctx.cquery().owner(ctx.cli_args.file, target_universe.target_set())
+        nodes = ctx.cquery().kind("^(rust_binary|rust_library|rust_test)$", owners)
 
     if len(nodes) == 0:
         return []
@@ -54,7 +59,8 @@ def _run(ctx: bxl.Context) -> None:
 check = bxl_main(
     impl = _run,
     cli_args = {
-        "file": cli_args.string(),
+        "file": cli_args.option(cli_args.string()),
+        "target": cli_args.option(cli_args.target_label()),
         "use-clippy": cli_args.bool(),
     },
 )
