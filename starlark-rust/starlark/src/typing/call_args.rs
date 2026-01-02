@@ -21,9 +21,12 @@ use crate::typing::Ty;
 
 /// Function call arguments.
 pub struct TyCallArgs<'a> {
-    pub(crate) pos: Vec<Spanned<Ty>>,
-    pub(crate) named: Vec<Spanned<(&'a str, Ty)>>,
+    /// Positional args
+    pub pos: Vec<Spanned<Ty>>,
+    /// Named args
+    pub named: Vec<Spanned<(&'a str, Ty)>>,
     /// In starlark, `*args` always come after all positional and named arguments.
-    pub(crate) args: Option<Spanned<Ty>>,
-    pub(crate) kwargs: Option<Spanned<Ty>>,
+    pub args: Option<Spanned<Ty>>,
+    /// `**kwargs`
+    pub kwargs: Option<Spanned<Ty>>,
 }

@@ -30,7 +30,7 @@ def _parse_python_needed_coverage_spec(
         fail("ratio_percentage must be between 0 and 100 (inclusive): {}".format(ratio_percentage))
     ratio_percentage = ratio_percentage / 100.0
 
-    coverage = dep[PythonNeededCoverageInfo]
+    coverage = dep.get(PythonNeededCoverageInfo)
     expect(coverage != None, "{} doesn't have a `PythonNeededCoverageInfo` provider", dep.label)
 
     # Extract modules for this dep.

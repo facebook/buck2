@@ -157,6 +157,7 @@ pub(crate) struct UserProviderCallableData {
     /// Type id of provider callable instance.
     pub(crate) ty_provider_type_instance_id: TypeInstanceId,
     pub(crate) fields: IndexMap<String, UserProviderField, StarlarkHasherSmallPromoteBuilder>,
+    pub(crate) ty_provider: Ty,
 }
 
 /// Initialized after the name is assigned to the provider.
@@ -387,6 +388,7 @@ impl<'v> StarlarkValue<'v> for UserProviderCallable {
                     provider_id,
                     fields: self.fields.clone(),
                     ty_provider_type_instance_id,
+                    ty_provider: ty_provider.dupe(),
                 }),
                 ty_provider,
                 ty_callable,
