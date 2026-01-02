@@ -45,6 +45,7 @@ def go_stdlib_impl(ctx: AnalysisContext) -> list[Provider]:
         c_compiler = cxx_toolchain.c_compiler_info
         cflags = cmd_args(c_compiler.compiler_flags, delimiter = "\t", absolute_prefix = "%cwd%/")
         cflags.add(cmd_args(get_target_sdk_version_flags(ctx), delimiter = "\t"))
+        cflags.add(cmd_args(go_toolchain.cxx_compiler_flags, delimiter = "\t"))
         env["CC"] = cmd_args(c_compiler.compiler, delimiter = "\t", absolute_prefix = "%cwd%/")
         env["CGO_CFLAGS"] = cflags
         env["CGO_CPPFLAGS"] = cmd_args(c_compiler.preprocessor_flags, delimiter = "\t", absolute_prefix = "%cwd%/")
