@@ -101,6 +101,13 @@ struct NotATargetLabelString;
 #[buck2(tag = Input)]
 struct UnconfiguredTargetInAnalysis;
 
+#[derive(buck2_error::Error, Debug)]
+#[error(
+    "`target_platform` was passed into analysis. `target_platform` is no longer used in analysis and is actively being deprecated as targets passed into analysis are already configured."
+)]
+#[buck2(tag = Input)]
+struct TargetPlatformInAnalysis;
+
 /// Data object for `BxlContextType::Root`.
 #[derive(ProvidesStaticType, Trace, NoSerialize, Allocative, Debug, Derivative)]
 pub(crate) struct RootBxlContextData<'v> {
