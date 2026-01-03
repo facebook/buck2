@@ -49,7 +49,7 @@ impl PreppedBuckCgroups {
         // Make the daemon cgroup and move ourselves into it. That's all we have to do at this
         // point, the rest can be done when we complete the cgroup setup later
         let daemon_cgroup =
-            root_cgroup.discouraged_make_child(FileName::unchecked_new("daemon"))?;
+            root_cgroup.sync_discouraged_make_child(FileName::unchecked_new("daemon"))?;
         let daemon_procs = CgroupFile::sync_open(
             daemon_cgroup.dir_fd(),
             FileNameBuf::unchecked_new("cgroup.procs"),
@@ -120,13 +120,13 @@ impl BuckCgroupTree {
             .await?;
 
         let forkserver_and_actions = allprocs
-            .make_internal_child(FileName::unchecked_new("forkserver_and_actions"))
+            .make_internal_child(FileNameBuf::unchecked_new("forkserver_and_actions"))
             .await?
             .enable_memory_monitoring()
             .await?;
 
         let forkserver = forkserver_and_actions
-            .make_leaf_child(FileName::unchecked_new("forkserver").into())
+            .make_leaf_child(FileNameBuf::unchecked_new("forkserver"))
             .await?
             .enable_memory_monitoring()
             .await?;

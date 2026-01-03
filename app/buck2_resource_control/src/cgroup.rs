@@ -318,17 +318,15 @@ impl<M: MemoryMonitoring> Cgroup<M, CgroupKindLeaf> {
 }
 
 impl<M: MemoryMonitoring, K: CgroupKind> Cgroup<M, K> {
-    /// Make a child cgroup
-    ///
-    /// Use strongly discouraged; almost always use `make_internal_child` or `make_leaf_child` instead
-    pub(crate) fn discouraged_make_child(
-        &self,
+    fn sync_discouraged_make_child_impl(
+        dir: &OwnedFd,
+        path: &CgroupPath,
         child: &FileName,
     ) -> buck2_error::Result<CgroupMinimal> {
-        nix::sys::stat::mkdirat(&self.dir, child.as_str(), Mode::all())?;
+        nix::sys::stat::mkdirat(dir, child.as_str(), Mode::all())?;
 
         let fd = nix::fcntl::openat(
-            &self.dir,
+            dir,
             child.as_str(),
             OFlag::O_CLOEXEC | OFlag::O_DIRECTORY,
             Mode::empty(),
@@ -336,28 +334,50 @@ impl<M: MemoryMonitoring, K: CgroupKind> Cgroup<M, K> {
 
         Ok(CgroupMinimal {
             dir: Arc::new(fd),
-            path: self.path.join(child.as_forward_rel_path()),
+            path: path.join(child.as_forward_rel_path()),
             memory: NoMemoryMonitoring,
             kind: CgroupKindUndecided,
         })
+    }
+
+    pub(crate) fn sync_discouraged_make_child(
+        &self,
+        child: &FileName,
+    ) -> buck2_error::Result<CgroupMinimal> {
+        Self::sync_discouraged_make_child_impl(&self.dir, &self.path, child)
+    }
+
+    /// Make a child cgroup
+    ///
+    /// Use strongly discouraged; almost always use `make_internal_child` or `make_leaf_child` instead
+    pub(crate) async fn discouraged_make_child(
+        &self,
+        child: FileNameBuf,
+    ) -> buck2_error::Result<CgroupMinimal> {
+        let dir = self.dir.dupe();
+        let path = self.path.clone();
+        tokio::task::spawn_blocking(move || {
+            Self::sync_discouraged_make_child_impl(&dir, &path, &child)
+        })
+        .await?
     }
 }
 
 impl<M: MemoryMonitoring> Cgroup<M, CgroupKindInternal> {
     pub(crate) async fn make_internal_child(
         &self,
-        child: &FileName,
+        child: FileNameBuf,
     ) -> buck2_error::Result<Cgroup<NoMemoryMonitoring, CgroupKindInternal>> {
-        let c = self.discouraged_make_child(child)?;
+        let c = self.discouraged_make_child(child).await?;
         c.enable_subtree_control_and_into_internal(self.kind.controllers.dupe())
             .await
     }
 
     pub(crate) async fn make_leaf_child(
         &self,
-        child: &FileName,
+        child: FileNameBuf,
     ) -> buck2_error::Result<Cgroup<NoMemoryMonitoring, CgroupKindLeaf>> {
-        let c = self.discouraged_make_child(child)?;
+        let c = self.discouraged_make_child(child).await?;
         c.into_leaf().await
     }
 }
@@ -465,7 +485,8 @@ impl CgroupMinimal {
                     .await
                     .unwrap();
                 let leaf = parent
-                    .discouraged_make_child(FileName::unchecked_new("_buck_leaf"))
+                    .discouraged_make_child(FileNameBuf::unchecked_new("_buck_leaf"))
+                    .await
                     .unwrap();
                 // Move ourselves into the cgroup we just created
                 let cmd = format!(
@@ -483,7 +504,8 @@ impl CgroupMinimal {
                 );
                 Some(
                     parent
-                        .discouraged_make_child(FileName::unchecked_new("test_group"))
+                        .discouraged_make_child(FileNameBuf::unchecked_new("test_group"))
+                        .await
                         .unwrap(),
                 )
             }
@@ -522,7 +544,6 @@ impl Cgroup<NoMemoryMonitoring, CgroupKindInternal> {
 #[cfg(test)]
 mod tests {
     use buck2_fs::fs_util;
-    use buck2_fs::paths::file_name::FileName;
     use buck2_fs::paths::file_name::FileNameBuf;
     use buck2_util::process::background_command;
     use dupe::Dupe;
@@ -566,7 +587,7 @@ mod tests {
             return;
         };
         let leaf = cgroup
-            .make_leaf_child(FileName::unchecked_new("leaf"))
+            .make_leaf_child(FileNameBuf::unchecked_new("leaf"))
             .await
             .unwrap();
 
@@ -587,7 +608,7 @@ mod tests {
         }
 
         let subg1 = cgroup
-            .make_internal_child(FileName::unchecked_new("subg1"))
+            .make_internal_child(FileNameBuf::unchecked_new("subg1"))
             .await
             .unwrap();
         CgroupFile::open(
@@ -612,7 +633,7 @@ mod tests {
         .unwrap();
 
         let subg2 = subg1
-            .make_internal_child(FileName::unchecked_new("subg2"))
+            .make_internal_child(FileNameBuf::unchecked_new("subg2"))
             .await
             .unwrap();
         CgroupFile::open(

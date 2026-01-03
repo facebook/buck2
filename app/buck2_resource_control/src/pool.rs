@@ -11,7 +11,6 @@
 use std::collections::VecDeque;
 
 use buck2_common::init::ResourceControlConfig;
-use buck2_fs::paths::file_name::FileName;
 use buck2_fs::paths::file_name::FileNameBuf;
 use dupe::Dupe;
 use index_vec::IndexVec;
@@ -50,7 +49,7 @@ impl CgroupPool {
         let worker_name = Self::worker_name(cgroup_id);
         let cgroup = self
             .pool_cgroup
-            .make_leaf_child(&worker_name)
+            .make_leaf_child(worker_name)
             .await?
             .enable_memory_monitoring()
             .await?;
@@ -71,7 +70,7 @@ impl CgroupPool {
         config: &ResourceControlConfig,
     ) -> buck2_error::Result<Self> {
         let pool_cgroup = parent
-            .make_internal_child(FileName::unchecked_new("actions_cgroup_pool"))
+            .make_internal_child(FileNameBuf::unchecked_new("actions_cgroup_pool"))
             .await?
             .enable_memory_monitoring()
             .await?;
