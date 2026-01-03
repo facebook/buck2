@@ -340,6 +340,14 @@ def _use_content_based_paths_arg():
         "use_content_based_paths": attrs.bool(default = True),
     }
 
+def _module_scanning_arg():
+    return {
+        "module_scanning": attrs.bool(default = False, doc = """
+    If set, the source files must be scanned for module dependencies
+    prior to compilation.
+"""),
+    }
+
 cxx_common = struct(
     srcs_arg = _srcs_arg,
     deps_arg = _deps_arg,
@@ -375,4 +383,5 @@ cxx_common = struct(
     use_fbcc_rust_wrapper_arg = _use_fbcc_rust_wrapper_arg,
     use_content_based_paths_arg = _use_content_based_paths_arg,
     supports_stripping = _supports_stripping,
+    module_scanning_arg = _module_scanning_arg,
 )
