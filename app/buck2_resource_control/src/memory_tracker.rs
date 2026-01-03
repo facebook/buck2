@@ -397,7 +397,7 @@ mod tests {
         let daemon_memory_swap_current = dir.path().join("daemon.swap");
         fs::write(&daemon_memory_swap_current, "1").unwrap();
         let daemon_memory_swap = File::open(daemon_memory_swap_current.clone()).await?;
-        let Some(action_cgroups) = ActionCgroups::testing_new() else {
+        let Some(action_cgroups) = ActionCgroups::testing_new().await else {
             return Ok(());
         };
         let handle = MemoryTrackerHandleInner::new(action_cgroups);
@@ -498,7 +498,7 @@ mod tests {
         fs::write(&daemon_swap, "4").unwrap();
         let daemon_memory_swap_current = File::open(daemon_swap.clone()).await?;
 
-        let Some(action_cgroups) = ActionCgroups::testing_new() else {
+        let Some(action_cgroups) = ActionCgroups::testing_new().await else {
             return Ok(());
         };
         let handle = MemoryTrackerHandleInner::new(action_cgroups);

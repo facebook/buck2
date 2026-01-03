@@ -85,10 +85,11 @@ impl CgroupPool {
     }
 
     #[cfg(test)]
-    pub(crate) fn testing_new() -> Option<Self> {
+    pub(crate) async fn testing_new() -> Option<Self> {
         use crate::cgroup::Cgroup;
 
-        let pool_cgroup = Cgroup::create_internal_for_test()?
+        let pool_cgroup = Cgroup::create_internal_for_test()
+            .await?
             .enable_memory_monitoring()
             .unwrap();
 

@@ -42,14 +42,16 @@ pub(crate) struct ProcessCommandImpl {
 }
 
 impl ProcessCommandImpl {
-    pub(crate) fn new(
+    pub(crate) async fn new(
         mut cmd: StdCommand,
         cgroup: Option<CgroupPathBuf>,
     ) -> buck2_error::Result<Self> {
         cmd.process_group(0);
 
         let cgroup = if let Some(cgroup) = cgroup {
-            let cgroup = CgroupMinimal::try_from_path(cgroup.clone())?.into_leaf()?;
+            let cgroup = CgroupMinimal::try_from_path(cgroup.clone())
+                .await?
+                .into_leaf()?;
             cgroup.setup_command(&mut cmd);
             Some(cgroup)
         } else {

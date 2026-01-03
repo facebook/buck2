@@ -272,10 +272,13 @@ impl BuckdServer {
         };
 
         let cgroup_tree = if let Some(prepped_cgroups) = prepped_cgroups {
-            Some(BuckCgroupTree::set_up(
-                prepped_cgroups,
-                &init_ctx.daemon_startup_config.resource_control,
-            )?)
+            Some(
+                BuckCgroupTree::set_up(
+                    prepped_cgroups,
+                    &init_ctx.daemon_startup_config.resource_control,
+                )
+                .await?,
+            )
         } else {
             None
         };

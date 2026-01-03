@@ -50,9 +50,12 @@ pub(crate) struct ProcessCommand {
 }
 
 impl ProcessCommand {
-    pub(crate) fn new(cmd: StdCommand, cgroup: Option<CgroupPathBuf>) -> buck2_error::Result<Self> {
+    pub(crate) async fn new(
+        cmd: StdCommand,
+        cgroup: Option<CgroupPathBuf>,
+    ) -> buck2_error::Result<Self> {
         Ok(Self {
-            inner: imp::ProcessCommandImpl::new(cmd, cgroup)?,
+            inner: imp::ProcessCommandImpl::new(cmd, cgroup).await?,
         })
     }
 
@@ -117,7 +120,7 @@ mod tests {
         }
         cmd.arg("exit 2");
 
-        let cmd = ProcessCommand::new(cmd, None).unwrap();
+        let cmd = ProcessCommand::new(cmd, None).await.unwrap();
         let mut child = cmd.spawn().map_err(|x| x.0).unwrap();
 
         let id = child.id().expect("missing id");

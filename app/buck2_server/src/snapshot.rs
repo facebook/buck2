@@ -61,7 +61,7 @@ impl SnapshotCollector {
         self.add_sink_metrics(&mut snapshot);
         self.add_net_io_metrics(&mut snapshot);
         self.add_cpu_usage(&mut snapshot);
-        self.add_memory_metrics(&mut snapshot);
+        self.add_memory_metrics(&mut snapshot).await;
         snapshot
     }
 
@@ -305,7 +305,7 @@ impl SnapshotCollector {
         }
     }
 
-    fn add_memory_metrics(&self, snapshot: &mut buck2_data::Snapshot) {
+    async fn add_memory_metrics(&self, snapshot: &mut buck2_data::Snapshot) {
         #[cfg(not(unix))]
         {
             let _snapshot = snapshot;
@@ -325,11 +325,15 @@ impl SnapshotCollector {
             // Try to read Buck2 daemon memory information from cgroup
 
             if let Some(cgroup_tree) = self.daemon.cgroup_tree.as_ref() {
-                if let Ok(stat) = cgroup_tree.allprocs().read_memory_stat() {
+                if let Ok(stat) = cgroup_tree.allprocs().read_memory_stat().await {
                     snapshot.allprocs_cgroup = Some(convert_stats(&stat))
                 }
 
-                if let Ok(stat) = cgroup_tree.forkserver_and_actions().read_memory_stat() {
+                if let Ok(stat) = cgroup_tree
+                    .forkserver_and_actions()
+                    .read_memory_stat()
+                    .await
+                {
                     snapshot.forkserver_actions_cgroup = Some(convert_stats(&stat))
                 }
             }

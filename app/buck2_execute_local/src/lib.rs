@@ -226,7 +226,7 @@ where
         cmd.stderr(Stdio::piped());
     }
 
-    let cmd = ProcessCommand::new(cmd, cgroup_path)?;
+    let cmd = ProcessCommand::new(cmd, cgroup_path).await?;
 
     // Note: Process spawning is a fundamentally asynchronous operation that legitimately might
     // block for a non-zero amount of time. Typically, that would mean that we should
@@ -609,7 +609,7 @@ mod tests {
         file.write_all(b"#!/usr/bin/env bash\ntrue\n").await?;
 
         let cmd = background_command(&bin);
-        let cmd = ProcessCommand::new(cmd, None)?;
+        let cmd = ProcessCommand::new(cmd, None).await?;
         let mut process_group = spawn_retry_txt_busy(cmd, {
             let mut file = Some(file);
             move || {
@@ -631,7 +631,7 @@ mod tests {
         let bin = tempdir.path().join("bin"); // Does not actually exist
 
         let cmd = background_command(&bin);
-        let cmd = ProcessCommand::new(cmd, None)?;
+        let cmd = ProcessCommand::new(cmd, None).await?;
         let res = spawn_retry_txt_busy(cmd, || async { panic!("Should not be called!") }).await;
         assert!(res.is_err());
 

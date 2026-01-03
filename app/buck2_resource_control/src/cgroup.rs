@@ -109,13 +109,13 @@ impl<M: MemoryMonitoring, K: CgroupKind> Cgroup<M, K> {
         &self.path
     }
 
-    pub(crate) fn read_enabled_controllers(&self) -> buck2_error::Result<EnabledControllers> {
+    pub(crate) async fn read_enabled_controllers(&self) -> buck2_error::Result<EnabledControllers> {
         let controllers_file = CgroupFile::open(
             &self.dir,
             FileName::unchecked_new("cgroup.controllers"),
             false,
         )?;
-        let controllers = controllers_file.read_to_string()?;
+        let controllers = controllers_file.read_to_string().await?;
         Ok(EnabledControllers(
             controllers
                 .split_whitespace()
@@ -140,21 +140,17 @@ impl<M: MemoryMonitoring, K: CgroupKind> Cgroup<M, K> {
         )
     }
 
-    fn read_resource_constraints(&self) -> buck2_error::Result<EffectiveResourceConstraints> {
-        let memory_high =
-            CgroupFile::open(&self.dir, FileName::unchecked_new("memory.high"), false)?
-                .read_max_or_int()?;
-        let memory_max = CgroupFile::open(&self.dir, FileName::unchecked_new("memory.max"), false)?
-            .read_max_or_int()?;
-        let memory_swap_high = CgroupFile::open(
-            &self.dir,
-            FileName::unchecked_new("memory.swap.high"),
-            false,
-        )?
-        .read_max_or_int()?;
-        let memory_swap_max =
-            CgroupFile::open(&self.dir, FileName::unchecked_new("memory.swap.max"), false)?
-                .read_max_or_int()?;
+    async fn read_resource_constraints(&self) -> buck2_error::Result<EffectiveResourceConstraints> {
+        let read = |f| async move {
+            let f = CgroupFile::open(&self.dir, FileName::unchecked_new(f), false)?;
+            buck2_error::Ok(f.read_max_or_int().await?)
+        };
+        let (memory_high, memory_max, memory_swap_high, memory_swap_max) = tokio::try_join!(
+            read("memory.high"),
+            read("memory.max"),
+            read("memory.swap.high"),
+            read("memory.swap.max"),
+        )?;
         Ok(EffectiveResourceConstraints {
             memory_high,
             memory_max,
@@ -163,16 +159,24 @@ impl<M: MemoryMonitoring, K: CgroupKind> Cgroup<M, K> {
         })
     }
 
-    pub(crate) fn read_effective_resouce_constraints(
+    pub(crate) async fn read_effective_resouce_constraints(
         &self,
     ) -> buck2_error::Result<EffectiveResourceConstraints> {
         let Some(parent_path) = self.path.parent() else {
             // The root cgroup doesn't have memory restrictions (the files don't even exist)
             return Ok(EffectiveResourceConstraints::default());
         };
-        let parent = CgroupMinimal::try_from_path(parent_path.to_buf())?
-            .read_effective_resouce_constraints()?;
-        let me = self.read_resource_constraints()?;
+        let (parent, me) = tokio::try_join!(
+            async {
+                Box::pin(
+                    CgroupMinimal::try_from_path(parent_path.to_buf())
+                        .await?
+                        .read_effective_resouce_constraints(),
+                )
+                .await
+            },
+            self.read_resource_constraints()
+        )?;
 
         fn min_options(a: Option<u64>, b: Option<u64>) -> Option<u64> {
             a.into_iter().chain(b).reduce(std::cmp::min)
@@ -188,7 +192,7 @@ impl<M: MemoryMonitoring, K: CgroupKind> Cgroup<M, K> {
 }
 
 impl Cgroup<NoMemoryMonitoring, CgroupKindUndecided> {
-    pub fn try_from_path(path: CgroupPathBuf) -> buck2_error::Result<Self> {
+    pub(crate) fn sync_try_from_path(path: CgroupPathBuf) -> buck2_error::Result<Self> {
         let dir = nix::fcntl::open(
             path.as_path(),
             OFlag::O_CLOEXEC | OFlag::O_DIRECTORY,
@@ -207,6 +211,10 @@ impl Cgroup<NoMemoryMonitoring, CgroupKindUndecided> {
         };
 
         Ok(cgroup)
+    }
+
+    pub async fn try_from_path(path: CgroupPathBuf) -> buck2_error::Result<Self> {
+        tokio::task::spawn_blocking(|| Self::sync_try_from_path(path)).await?
     }
 
     /// Treat this cgroup as a leaf cgroup
@@ -358,8 +366,8 @@ impl<K: CgroupKind> Cgroup<NoMemoryMonitoring, K> {
 }
 
 impl<K: CgroupKind> Cgroup<WithMemoryMonitoring, K> {
-    pub fn read_memory_stat(&self) -> buck2_error::Result<MemoryStat> {
-        self.memory.memory_stat.read_memory_stat()
+    pub async fn read_memory_stat(&self) -> buck2_error::Result<MemoryStat> {
+        self.memory.memory_stat.read_memory_stat().await
     }
 }
 
@@ -383,7 +391,7 @@ impl<M: MemoryMonitoring, K: CgroupKind> Cgroup<M, K> {
 
 #[cfg(test)]
 impl CgroupMinimal {
-    pub(crate) fn create_minimal_for_test() -> Option<Self> {
+    pub(crate) async fn create_minimal_for_test() -> Option<Self> {
         use buck2_fs::paths::abs_norm_path::AbsNormPath;
         use buck2_util::process::background_command;
 
@@ -402,6 +410,7 @@ impl CgroupMinimal {
 
         // Attempt to actually spawn a process into the cgroup, see below for why
         let cgroup = Self::try_from_path(path.to_buf())
+            .await
             .unwrap()
             .into_leaf()
             .unwrap();
@@ -412,7 +421,7 @@ impl CgroupMinimal {
 
         // At this point the one process in that cgroup is dead, so it's ok to treat it as a minimal
         // one again
-        let cgroup = Self::try_from_path(path.to_buf()).unwrap();
+        let cgroup = Self::try_from_path(path.to_buf()).await.unwrap();
 
         match res {
             Ok(_) => Some(cgroup),
@@ -427,7 +436,7 @@ impl CgroupMinimal {
                 // move ourselves somewhere from where we can do what we need. This unfortunately
                 // means that attempting to run multiple tests like this in the same process won't
                 // work, but alas this is the best we can do
-                let controllers = cgroup.read_enabled_controllers().unwrap();
+                let controllers = cgroup.read_enabled_controllers().await.unwrap();
                 let parent = cgroup
                     .enable_subtree_control_and_into_internal(controllers)
                     .unwrap();
@@ -461,16 +470,21 @@ impl CgroupMinimal {
 
 #[cfg(test)]
 impl Cgroup<NoMemoryMonitoring, CgroupKindLeaf> {
-    pub(crate) fn create_leaf_for_test() -> Option<Self> {
-        Some(Cgroup::create_minimal_for_test()?.into_leaf().unwrap())
+    pub(crate) async fn create_leaf_for_test() -> Option<Self> {
+        Some(
+            Cgroup::create_minimal_for_test()
+                .await?
+                .into_leaf()
+                .unwrap(),
+        )
     }
 }
 
 #[cfg(test)]
 impl Cgroup<NoMemoryMonitoring, CgroupKindInternal> {
-    pub(crate) fn create_internal_for_test() -> Option<Self> {
-        let cgroup = Cgroup::create_minimal_for_test()?;
-        let controllers = cgroup.read_enabled_controllers().unwrap();
+    pub(crate) async fn create_internal_for_test() -> Option<Self> {
+        let cgroup = Cgroup::create_minimal_for_test().await?;
+        let controllers = cgroup.read_enabled_controllers().await.unwrap();
         Some(
             cgroup
                 .enable_subtree_control_and_into_internal(controllers)
@@ -488,9 +502,9 @@ mod tests {
     use crate::cgroup::Cgroup;
     use crate::cgroup_files::CgroupFile;
 
-    #[test]
-    fn self_test_harness() {
-        let Some(cgroup) = Cgroup::create_leaf_for_test() else {
+    #[tokio::test]
+    async fn self_test_harness() {
+        let Some(cgroup) = Cgroup::create_leaf_for_test().await else {
             return;
         };
 
@@ -498,12 +512,12 @@ mod tests {
             fs_util::try_exists(cgroup.path().as_abs_path()).unwrap(),
             true
         );
-        assert_eq!(cgroup.kind.procs.read_to_string().unwrap().len(), 0);
+        assert_eq!(cgroup.kind.procs.read_to_string().await.unwrap().len(), 0);
     }
 
-    #[test]
-    fn repro_drop_cgroup_before_command_spawn() {
-        let Some(cgroup) = Cgroup::create_leaf_for_test() else {
+    #[tokio::test]
+    async fn repro_drop_cgroup_before_command_spawn() {
+        let Some(cgroup) = Cgroup::create_leaf_for_test().await else {
             return;
         };
 
@@ -515,12 +529,12 @@ mod tests {
         assert!(cmd.status().unwrap().success());
     }
 
-    #[test]
-    fn test_cpu_controller_enabled() {
+    #[tokio::test]
+    async fn test_cpu_controller_enabled() {
         // FIXME(JakobDegen): This isn't really a good test, we should do it at a higher level and
         // actually run a command. But setting up tests inside cgroups is a bit hard right now, so
         // just do this
-        let Some(cgroup) = Cgroup::create_internal_for_test() else {
+        let Some(cgroup) = Cgroup::create_internal_for_test().await else {
             return;
         };
         let leaf = cgroup
@@ -533,9 +547,9 @@ mod tests {
         assert!(enabled.contains("cpu"));
     }
 
-    #[test]
-    fn test_reading_effective_cgroup_constraints() {
-        let Some(cgroup) = Cgroup::create_internal_for_test() else {
+    #[tokio::test]
+    async fn test_reading_effective_cgroup_constraints() {
+        let Some(cgroup) = Cgroup::create_internal_for_test().await else {
             return;
         };
 
@@ -563,13 +577,13 @@ mod tests {
             .write(pages(500).as_bytes())
             .unwrap();
 
-        let constraints = subg2.read_effective_resouce_constraints().unwrap();
+        let constraints = subg2.read_effective_resouce_constraints().await.unwrap();
         assert_eq!(constraints.memory_high, Some(500 * 4096));
         assert_eq!(constraints.memory_max, Some(1000 * 4096));
 
         // Depending on where this test runs, these might be non-zero and we can't really do much
         // about that, so just do our best
-        let base_constraints = cgroup.read_effective_resouce_constraints().unwrap();
+        let base_constraints = cgroup.read_effective_resouce_constraints().await.unwrap();
         assert_eq!(
             constraints.memory_swap_high,
             base_constraints.memory_swap_high

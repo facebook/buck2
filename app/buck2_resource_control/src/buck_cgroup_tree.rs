@@ -43,7 +43,7 @@ impl PreppedBuckCgroups {
     /// startup because it moves the daemon process.
     pub fn prep_current_process() -> buck2_error::Result<Self> {
         let root_cgroup_path = CGroupInfo::read()?.path;
-        let root_cgroup = CgroupMinimal::try_from_path(root_cgroup_path)?;
+        let root_cgroup = CgroupMinimal::sync_try_from_path(root_cgroup_path)?;
         // Make the daemon cgroup and move ourselves into it. That's all we have to do at this
         // point, the rest can be done when we complete the cgroup setup later
         let daemon_cgroup = root_cgroup
@@ -100,11 +100,11 @@ pub struct BuckCgroupTree {
 
 impl BuckCgroupTree {
     /// Finishes setting up buck's cgroups from the prepped ones
-    pub fn set_up(
+    pub async fn set_up(
         prepped: PreppedBuckCgroups,
         config: &ResourceControlConfig,
     ) -> buck2_error::Result<Self> {
-        let enabled_controllers = prepped.allprocs.read_enabled_controllers()?;
+        let enabled_controllers = prepped.allprocs.read_enabled_controllers().await?;
 
         let allprocs = prepped
             .allprocs
@@ -119,7 +119,7 @@ impl BuckCgroupTree {
             .make_leaf_child(FileName::unchecked_new("forkserver").into())?
             .enable_memory_monitoring()?;
 
-        let effective_resource_constraints = allprocs.read_effective_resouce_constraints()?;
+        let effective_resource_constraints = allprocs.read_effective_resouce_constraints().await?;
 
         if let Some(config_memory_max) = &config.memory_max {
             if let Some(allprocs_memory_max) = resolve_memory_restriction_value(

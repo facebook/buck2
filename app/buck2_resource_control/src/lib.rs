@@ -50,7 +50,7 @@ pub mod buck_cgroup_tree {
     pub struct BuckCgroupTree;
 
     impl BuckCgroupTree {
-        pub fn set_up(
+        pub async fn set_up(
             _prepped: PreppedBuckCgroups,
             _config: &ResourceControlConfig,
         ) -> buck2_error::Result<Self> {

@@ -272,13 +272,13 @@ impl ActionCgroups {
     }
 
     #[cfg(test)]
-    pub(crate) fn testing_new() -> Option<Self> {
+    pub(crate) async fn testing_new() -> Option<Self> {
         Some(Self::new(
             true,
             ActionSuspendStrategy::KillAndRetry,
             EffectiveResourceConstraints::default(),
             &DaemonId::new(),
-            CgroupPool::testing_new()?,
+            CgroupPool::testing_new().await?,
         ))
     }
 
@@ -678,7 +678,7 @@ mod tests {
         fs::write(cgroup_1.as_path().join("memory.swap.current"), "15")?;
         fs::write(cgroup_2.as_path().join("memory.swap.current"), "15")?;
 
-        let Some(mut action_cgroups) = ActionCgroups::testing_new() else {
+        let Some(mut action_cgroups) = ActionCgroups::testing_new().await else {
             return Ok(());
         };
         action_cgroups
@@ -740,7 +740,7 @@ mod tests {
         fs::write(cgroup_1.as_path().join("memory.swap.current"), "0")?;
         fs::write(cgroup_2.as_path().join("memory.swap.current"), "0")?;
 
-        let Some(mut action_cgroups) = ActionCgroups::testing_new() else {
+        let Some(mut action_cgroups) = ActionCgroups::testing_new().await else {
             return Ok(());
         };
         action_cgroups

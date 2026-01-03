@@ -34,7 +34,7 @@ pub(crate) struct ProcessCommandImpl {
 }
 
 impl ProcessCommandImpl {
-    pub(crate) fn new(
+    pub(crate) async fn new(
         mut cmd: Command,
         _cgroup: Option<CgroupPathBuf>,
     ) -> buck2_error::Result<Self> {
