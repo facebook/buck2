@@ -49,7 +49,7 @@ impl SnapshotCollector {
     }
 
     /// Create a new Snapshot.
-    pub fn create_snapshot(&self) -> buck2_data::Snapshot {
+    pub async fn create_snapshot(&self) -> buck2_data::Snapshot {
         let mut snapshot = buck2_data::Snapshot::default();
         self.add_system_metrics(&mut snapshot);
         self.add_daemon_metrics(&mut snapshot);

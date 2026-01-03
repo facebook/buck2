@@ -464,8 +464,9 @@ impl<'a> ServerCommandContext<'a> {
     }
 
     // Called at the end of the command to perform any necessary final actions or cleanup.
-    pub(crate) fn finalize(self) -> buck2_error::Result<()> {
+    pub(crate) async fn finalize(mut self) -> buck2_error::Result<()> {
         self.starlark_profiling_manager.finalize()?;
+        self.heartbeat_guard_handle.take().unwrap().finalize().await;
         Ok(())
     }
 }

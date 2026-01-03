@@ -475,7 +475,7 @@ impl BuckdServer {
         // as a baseline.
         let snapshot_collector =
             SnapshotCollector::new(data.dupe(), daemon_state.paths.buck_out_path());
-        dispatch.instant_event(Box::new(snapshot_collector.create_snapshot()));
+        dispatch.instant_event(Box::new(snapshot_collector.create_snapshot().await));
         let cert_state = self.0.cert_state.dupe();
 
         let repo_root = daemon_state.paths.project_root().root().to_buf();
@@ -525,7 +525,7 @@ impl BuckdServer {
                             func(&context, PartialResultDispatcher::new(dispatch.dupe()), req)
                                 .await;
 
-                        context.finalize()?;
+                        context.finalize().await?;
                         res?
                     };
 
@@ -921,7 +921,8 @@ impl DaemonApi for BuckdServer {
                         daemon_state.data(),
                         daemon_state.paths.buck_out_path(),
                     )
-                    .create_snapshot(),
+                    .create_snapshot()
+                    .await,
                 )
             } else {
                 None
