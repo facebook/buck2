@@ -194,7 +194,7 @@ impl ActionCgroupSession {
 
         let mut action_cgroups = tracker.action_cgroups.lock().await;
 
-        let (cgroup_id, path) = action_cgroups.cgroup_pool.acquire()?;
+        let (cgroup_id, path) = action_cgroups.cgroup_pool.acquire().await?;
 
         let start_future = match action_cgroups
             .action_started(

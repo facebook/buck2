@@ -51,7 +51,8 @@ impl ProcessCommandImpl {
         let cgroup = if let Some(cgroup) = cgroup {
             let cgroup = CgroupMinimal::try_from_path(cgroup.clone())
                 .await?
-                .into_leaf()?;
+                .into_leaf()
+                .await?;
             cgroup.setup_command(&mut cmd);
             Some(cgroup)
         } else {
@@ -117,7 +118,7 @@ impl ProcessGroupImpl {
                         }
                         ActionFreezeEvent::Freeze => {
                             if let Some(cgroup) = self.cgroup.as_ref() {
-                                freeze_guard = cgroup.freeze().ok();
+                                freeze_guard = cgroup.freeze().await.ok();
                             }
                         }
                     }

@@ -10,11 +10,13 @@
 
 use buck2_common::init::ResourceControlConfig;
 use buck2_fs::paths::file_name::FileName;
+use buck2_fs::paths::file_name::FileNameBuf;
 
 use crate::cgroup::CgroupInternal;
 use crate::cgroup::CgroupLeaf;
 use crate::cgroup::CgroupMinimal;
 use crate::cgroup::EffectiveResourceConstraints;
+use crate::cgroup_files::CgroupFile;
 use crate::cgroup_info::CGroupInfo;
 
 #[derive(buck2_error::Error)]
@@ -46,10 +48,14 @@ impl PreppedBuckCgroups {
         let root_cgroup = CgroupMinimal::sync_try_from_path(root_cgroup_path)?;
         // Make the daemon cgroup and move ourselves into it. That's all we have to do at this
         // point, the rest can be done when we complete the cgroup setup later
-        let daemon_cgroup = root_cgroup
-            .discouraged_make_child(FileName::unchecked_new("daemon"))?
-            .into_leaf()?;
-        daemon_cgroup.add_process(std::process::id())?;
+        let daemon_cgroup =
+            root_cgroup.discouraged_make_child(FileName::unchecked_new("daemon"))?;
+        let daemon_procs = CgroupFile::sync_open(
+            daemon_cgroup.dir_fd(),
+            FileNameBuf::unchecked_new("cgroup.procs"),
+            true,
+        )?;
+        daemon_procs.write(b"0")?;
 
         // SAFETY: This is called early enough in the process to be moving cgroups, so we can set
         // env vars too
@@ -108,16 +114,22 @@ impl BuckCgroupTree {
 
         let allprocs = prepped
             .allprocs
-            .enable_subtree_control_and_into_internal(enabled_controllers)?
-            .enable_memory_monitoring()?;
+            .enable_subtree_control_and_into_internal(enabled_controllers)
+            .await?
+            .enable_memory_monitoring()
+            .await?;
 
         let forkserver_and_actions = allprocs
-            .make_internal_child(FileName::unchecked_new("forkserver_and_actions"))?
-            .enable_memory_monitoring()?;
+            .make_internal_child(FileName::unchecked_new("forkserver_and_actions"))
+            .await?
+            .enable_memory_monitoring()
+            .await?;
 
         let forkserver = forkserver_and_actions
-            .make_leaf_child(FileName::unchecked_new("forkserver").into())?
-            .enable_memory_monitoring()?;
+            .make_leaf_child(FileName::unchecked_new("forkserver").into())
+            .await?
+            .enable_memory_monitoring()
+            .await?;
 
         let effective_resource_constraints = allprocs.read_effective_resouce_constraints().await?;
 
@@ -126,7 +138,9 @@ impl BuckCgroupTree {
                 config_memory_max,
                 effective_resource_constraints.memory_max,
             )? {
-                allprocs.set_memory_max(&allprocs_memory_max.to_string())?;
+                allprocs
+                    .set_memory_max(&allprocs_memory_max.to_string())
+                    .await?;
             }
         }
         if let Some(config_memory_high) = &config.memory_high {
@@ -134,7 +148,9 @@ impl BuckCgroupTree {
                 config_memory_high,
                 effective_resource_constraints.memory_high,
             )? {
-                allprocs.set_memory_high(&allprocs_memory_high.to_string())?;
+                allprocs
+                    .set_memory_high(&allprocs_memory_high.to_string())
+                    .await?;
             }
         }
 

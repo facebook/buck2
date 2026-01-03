@@ -12,7 +12,6 @@ use std::os::fd::OwnedFd;
 use std::sync::Arc;
 
 use buck2_error::BuckErrorContext;
-use buck2_fs::paths::file_name::FileName;
 use buck2_fs::paths::file_name::FileNameBuf;
 use dupe::Dupe;
 use nix::fcntl::OFlag;
@@ -33,7 +32,19 @@ enum CgroupFileError {
 pub(crate) struct CgroupFile(Arc<OwnedFd>, FileNameBuf);
 
 impl CgroupFile {
-    pub(crate) fn open(d: &OwnedFd, name: &FileName, write: bool) -> buck2_error::Result<Self> {
+    pub async fn open(
+        d: Arc<OwnedFd>,
+        name: FileNameBuf,
+        write: bool,
+    ) -> buck2_error::Result<Self> {
+        tokio::task::spawn_blocking(move || Self::sync_open(&d, name, write)).await?
+    }
+
+    pub(crate) fn sync_open(
+        d: &OwnedFd,
+        name: FileNameBuf,
+        write: bool,
+    ) -> buck2_error::Result<Self> {
         let flags = OFlag::O_CLOEXEC
             | if write {
                 OFlag::O_RDWR
@@ -265,7 +276,7 @@ slab 262144"#;
         let Some(cgroup) = CgroupMinimal::create_minimal_for_test().await else {
             return;
         };
-        let cgroup = cgroup.enable_memory_monitoring().unwrap();
+        let cgroup = cgroup.enable_memory_monitoring().await.unwrap();
 
         let stat = cgroup.read_memory_stat().await.unwrap();
         // Never spawned a process into it, so should be empty

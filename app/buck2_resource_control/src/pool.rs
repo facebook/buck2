@@ -45,17 +45,19 @@ impl CgroupPool {
     }
 
     /// The new cgroup is assumed to be in use
-    fn reserve_additional_cgroup(&mut self) -> buck2_error::Result<CgroupID> {
+    async fn reserve_additional_cgroup(&mut self) -> buck2_error::Result<CgroupID> {
         let cgroup_id = self.cgroups.next_idx();
         let worker_name = Self::worker_name(cgroup_id);
         let cgroup = self
             .pool_cgroup
-            .make_leaf_child(&worker_name)?
-            .enable_memory_monitoring()?;
+            .make_leaf_child(&worker_name)
+            .await?
+            .enable_memory_monitoring()
+            .await?;
 
         // Set memory.high limit if provided
         if let Some(per_cgroup_memory_high) = &self.per_cgroup_memory_high {
-            cgroup.set_memory_high(per_cgroup_memory_high)?;
+            cgroup.set_memory_high(per_cgroup_memory_high).await?;
         }
 
         self.cgroups.push(cgroup);
@@ -64,16 +66,18 @@ impl CgroupPool {
     }
 
     /// Create a cgroup pool in the provided parent cgroup.
-    pub(crate) fn create_in_parent_cgroup(
+    pub(crate) async fn create_in_parent_cgroup(
         parent: &CgroupInternal,
         config: &ResourceControlConfig,
     ) -> buck2_error::Result<Self> {
         let pool_cgroup = parent
-            .make_internal_child(FileName::unchecked_new("actions_cgroup_pool"))?
-            .enable_memory_monitoring()?;
+            .make_internal_child(FileName::unchecked_new("actions_cgroup_pool"))
+            .await?
+            .enable_memory_monitoring()
+            .await?;
 
         if let Some(pool_memory_high) = &config.memory_high_action_cgroup_pool {
-            pool_cgroup.set_memory_high(pool_memory_high)?;
+            pool_cgroup.set_memory_high(pool_memory_high).await?;
         }
 
         Ok(CgroupPool {
@@ -91,6 +95,7 @@ impl CgroupPool {
         let pool_cgroup = Cgroup::create_internal_for_test()
             .await?
             .enable_memory_monitoring()
+            .await
             .unwrap();
 
         Some(CgroupPool {
@@ -103,11 +108,11 @@ impl CgroupPool {
 
     /// Acquire a worker cgroup from the pool. If no available worker cgroup, create a new one.
     /// Return a CgroupGuard which will release the cgroup back to the pool when dropped.
-    pub(crate) fn acquire(&mut self) -> buck2_error::Result<(CgroupID, CgroupPathBuf)> {
+    pub(crate) async fn acquire(&mut self) -> buck2_error::Result<(CgroupID, CgroupPathBuf)> {
         let cgroup_id = if let Some(cgroup_id) = self.available.pop_front() {
             cgroup_id
         } else {
-            self.reserve_additional_cgroup()?
+            self.reserve_additional_cgroup().await?
         };
 
         Ok((cgroup_id, self.cgroups[cgroup_id].path().to_buf()))

@@ -14,6 +14,7 @@ use std::process::Command;
 use std::sync::Arc;
 
 use buck2_fs::paths::file_name::FileName;
+use buck2_fs::paths::file_name::FileNameBuf;
 use dupe::Dupe;
 use nix::fcntl::OFlag;
 use nix::sys::stat::Mode;
@@ -92,7 +93,7 @@ impl CgroupKind for CgroupKindUndecided {}
 /// is relatively cheap but does require holding open a couple extra FDs.
 pub struct Cgroup<M: MemoryMonitoring, K: CgroupKind> {
     /// Store the dirfd, not the more standard `DIR*`, because this one is thread safe
-    dir: OwnedFd,
+    dir: Arc<OwnedFd>,
     path: CgroupPathBuf,
     memory: M,
     kind: K,
@@ -109,12 +110,17 @@ impl<M: MemoryMonitoring, K: CgroupKind> Cgroup<M, K> {
         &self.path
     }
 
+    pub(crate) fn dir_fd(&self) -> &OwnedFd {
+        &self.dir
+    }
+
     pub(crate) async fn read_enabled_controllers(&self) -> buck2_error::Result<EnabledControllers> {
         let controllers_file = CgroupFile::open(
-            &self.dir,
-            FileName::unchecked_new("cgroup.controllers"),
+            self.dir.dupe(),
+            FileNameBuf::unchecked_new("cgroup.controllers"),
             false,
-        )?;
+        )
+        .await?;
         let controllers = controllers_file.read_to_string().await?;
         Ok(EnabledControllers(
             controllers
@@ -125,24 +131,30 @@ impl<M: MemoryMonitoring, K: CgroupKind> Cgroup<M, K> {
     }
 
     /// Set the memory.high limit for this cgroup
-    pub fn set_memory_high(&self, memory_high: &str) -> buck2_error::Result<()> {
-        Ok(
-            CgroupFile::open(&self.dir, FileName::unchecked_new("memory.high"), true)?
-                .write(memory_high.as_bytes())?,
+    pub async fn set_memory_high(&self, memory_high: &str) -> buck2_error::Result<()> {
+        Ok(CgroupFile::open(
+            self.dir.dupe(),
+            FileNameBuf::unchecked_new("memory.high"),
+            true,
         )
+        .await?
+        .write(memory_high.as_bytes())?)
     }
 
     /// Set the memory.max limit for this cgroup
-    pub fn set_memory_max(&self, memory_max: &str) -> buck2_error::Result<()> {
-        Ok(
-            CgroupFile::open(&self.dir, FileName::unchecked_new("memory.max"), true)?
-                .write(memory_max.as_bytes())?,
+    pub async fn set_memory_max(&self, memory_max: &str) -> buck2_error::Result<()> {
+        Ok(CgroupFile::open(
+            self.dir.dupe(),
+            FileNameBuf::unchecked_new("memory.max"),
+            true,
         )
+        .await?
+        .write(memory_max.as_bytes())?)
     }
 
     async fn read_resource_constraints(&self) -> buck2_error::Result<EffectiveResourceConstraints> {
         let read = |f| async move {
-            let f = CgroupFile::open(&self.dir, FileName::unchecked_new(f), false)?;
+            let f = CgroupFile::open(self.dir.dupe(), FileNameBuf::unchecked_new(f), false).await?;
             buck2_error::Ok(f.read_max_or_int().await?)
         };
         let (memory_high, memory_max, memory_swap_high, memory_swap_max) = tokio::try_join!(
@@ -205,7 +217,7 @@ impl Cgroup<NoMemoryMonitoring, CgroupKindUndecided> {
 
         let cgroup = Self {
             path,
-            dir,
+            dir: Arc::new(dir),
             memory: NoMemoryMonitoring,
             kind: CgroupKindUndecided,
         };
@@ -218,14 +230,19 @@ impl Cgroup<NoMemoryMonitoring, CgroupKindUndecided> {
     }
 
     /// Treat this cgroup as a leaf cgroup
-    pub fn into_leaf(self) -> buck2_error::Result<Cgroup<NoMemoryMonitoring, CgroupKindLeaf>> {
+    pub async fn into_leaf(
+        self,
+    ) -> buck2_error::Result<Cgroup<NoMemoryMonitoring, CgroupKindLeaf>> {
         Ok(Cgroup {
             kind: CgroupKindLeaf {
-                procs: Arc::new(CgroupFile::open(
-                    &self.dir,
-                    FileName::unchecked_new("cgroup.procs"),
-                    true,
-                )?),
+                procs: Arc::new(
+                    CgroupFile::open(
+                        self.dir.dupe(),
+                        FileNameBuf::unchecked_new("cgroup.procs"),
+                        true,
+                    )
+                    .await?,
+                ),
             },
             dir: self.dir,
             path: self.path,
@@ -234,15 +251,16 @@ impl Cgroup<NoMemoryMonitoring, CgroupKindUndecided> {
     }
 
     /// Enable subtree controllers on this cgroup as specified and convert to an internal cgroup
-    pub(crate) fn enable_subtree_control_and_into_internal(
+    pub(crate) async fn enable_subtree_control_and_into_internal(
         self,
         enabled_controllers: EnabledControllers,
     ) -> buck2_error::Result<Cgroup<NoMemoryMonitoring, CgroupKindInternal>> {
         let subtree_control = CgroupFile::open(
-            &self.dir,
-            FileName::unchecked_new("cgroup.subtree_control"),
+            self.dir.dupe(),
+            FileNameBuf::unchecked_new("cgroup.subtree_control"),
             true,
-        )?;
+        )
+        .await?;
         for controller in &*enabled_controllers.0 {
             subtree_control.write(controller.as_bytes())?;
         }
@@ -295,11 +313,6 @@ impl<M: MemoryMonitoring> Cgroup<M, CgroupKindLeaf> {
             command.pre_exec(pre_exec);
         }
     }
-
-    pub fn add_process(&self, pid: u32) -> buck2_error::Result<()> {
-        let pid = pid.to_string();
-        Ok(self.kind.procs.write(pid.as_bytes())?)
-    }
 }
 
 impl<M: MemoryMonitoring, K: CgroupKind> Cgroup<M, K> {
@@ -320,7 +333,7 @@ impl<M: MemoryMonitoring, K: CgroupKind> Cgroup<M, K> {
         )?;
 
         Ok(CgroupMinimal {
-            dir: fd,
+            dir: Arc::new(fd),
             path: self.path.join(child.as_forward_rel_path()),
             memory: NoMemoryMonitoring,
             kind: CgroupKindUndecided,
@@ -329,34 +342,36 @@ impl<M: MemoryMonitoring, K: CgroupKind> Cgroup<M, K> {
 }
 
 impl<M: MemoryMonitoring> Cgroup<M, CgroupKindInternal> {
-    pub(crate) fn make_internal_child(
+    pub(crate) async fn make_internal_child(
         &self,
         child: &FileName,
     ) -> buck2_error::Result<Cgroup<NoMemoryMonitoring, CgroupKindInternal>> {
         let c = self.discouraged_make_child(child)?;
         c.enable_subtree_control_and_into_internal(self.kind.controllers.dupe())
+            .await
     }
 
-    pub(crate) fn make_leaf_child(
+    pub(crate) async fn make_leaf_child(
         &self,
         child: &FileName,
     ) -> buck2_error::Result<Cgroup<NoMemoryMonitoring, CgroupKindLeaf>> {
         let c = self.discouraged_make_child(child)?;
-        c.into_leaf()
+        c.into_leaf().await
     }
 }
 
 impl<K: CgroupKind> Cgroup<NoMemoryMonitoring, K> {
-    pub(crate) fn enable_memory_monitoring(
+    pub(crate) async fn enable_memory_monitoring(
         self,
     ) -> buck2_error::Result<Cgroup<WithMemoryMonitoring, K>> {
         Ok(Cgroup {
             memory: WithMemoryMonitoring {
                 memory_stat: CgroupFile::open(
-                    &self.dir,
-                    FileName::unchecked_new("memory.stat"),
+                    self.dir.dupe(),
+                    FileNameBuf::unchecked_new("memory.stat"),
                     false,
-                )?,
+                )
+                .await?,
             },
             dir: self.dir,
             path: self.path,
@@ -382,8 +397,13 @@ impl Drop for CgroupFreezeGuard {
 }
 
 impl<M: MemoryMonitoring, K: CgroupKind> Cgroup<M, K> {
-    pub fn freeze(&self) -> buck2_error::Result<CgroupFreezeGuard> {
-        let f = CgroupFile::open(&self.dir, FileName::unchecked_new("cgroup.freeze"), true)?;
+    pub async fn freeze(&self) -> buck2_error::Result<CgroupFreezeGuard> {
+        let f = CgroupFile::open(
+            self.dir.dupe(),
+            FileNameBuf::unchecked_new("cgroup.freeze"),
+            true,
+        )
+        .await?;
         f.write(b"1")?;
         Ok(CgroupFreezeGuard { file: f })
     }
@@ -413,6 +433,7 @@ impl CgroupMinimal {
             .await
             .unwrap()
             .into_leaf()
+            .await
             .unwrap();
         let mut cmd = background_command("true");
         cgroup.setup_command(&mut cmd);
@@ -439,6 +460,7 @@ impl CgroupMinimal {
                 let controllers = cgroup.read_enabled_controllers().await.unwrap();
                 let parent = cgroup
                     .enable_subtree_control_and_into_internal(controllers)
+                    .await
                     .unwrap();
                 let leaf = parent
                     .discouraged_make_child(FileName::unchecked_new("_buck_leaf"))
@@ -475,6 +497,7 @@ impl Cgroup<NoMemoryMonitoring, CgroupKindLeaf> {
             Cgroup::create_minimal_for_test()
                 .await?
                 .into_leaf()
+                .await
                 .unwrap(),
         )
     }
@@ -488,6 +511,7 @@ impl Cgroup<NoMemoryMonitoring, CgroupKindInternal> {
         Some(
             cgroup
                 .enable_subtree_control_and_into_internal(controllers)
+                .await
                 .unwrap(),
         )
     }
@@ -497,7 +521,9 @@ impl Cgroup<NoMemoryMonitoring, CgroupKindInternal> {
 mod tests {
     use buck2_fs::fs_util;
     use buck2_fs::paths::file_name::FileName;
+    use buck2_fs::paths::file_name::FileNameBuf;
     use buck2_util::process::background_command;
+    use dupe::Dupe;
 
     use crate::cgroup::Cgroup;
     use crate::cgroup_files::CgroupFile;
@@ -539,6 +565,7 @@ mod tests {
         };
         let leaf = cgroup
             .make_leaf_child(FileName::unchecked_new("leaf"))
+            .await
             .unwrap();
 
         let enabled =
@@ -559,23 +586,40 @@ mod tests {
 
         let subg1 = cgroup
             .make_internal_child(FileName::unchecked_new("subg1"))
+            .await
             .unwrap();
-        CgroupFile::open(&subg1.dir, FileName::unchecked_new("memory.high"), true)
-            .unwrap()
-            .write(pages(1000).as_bytes())
-            .unwrap();
-        CgroupFile::open(&subg1.dir, FileName::unchecked_new("memory.max"), true)
-            .unwrap()
-            .write(pages(1000).as_bytes())
-            .unwrap();
+        CgroupFile::open(
+            subg1.dir.dupe(),
+            FileNameBuf::unchecked_new("memory.high"),
+            true,
+        )
+        .await
+        .unwrap()
+        .write(pages(1000).as_bytes())
+        .unwrap();
+        CgroupFile::open(
+            subg1.dir.dupe(),
+            FileNameBuf::unchecked_new("memory.max"),
+            true,
+        )
+        .await
+        .unwrap()
+        .write(pages(1000).as_bytes())
+        .unwrap();
 
         let subg2 = subg1
             .make_internal_child(FileName::unchecked_new("subg2"))
+            .await
             .unwrap();
-        CgroupFile::open(&subg2.dir, FileName::unchecked_new("memory.high"), true)
-            .unwrap()
-            .write(pages(500).as_bytes())
-            .unwrap();
+        CgroupFile::open(
+            subg2.dir.dupe(),
+            FileNameBuf::unchecked_new("memory.high"),
+            true,
+        )
+        .await
+        .unwrap()
+        .write(pages(500).as_bytes())
+        .unwrap();
 
         let constraints = subg2.read_effective_resouce_constraints().await.unwrap();
         assert_eq!(constraints.memory_high, Some(500 * 4096));
