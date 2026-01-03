@@ -61,6 +61,17 @@ impl CgroupFile {
         Ok(CgroupFile(Arc::new(file), name.to_owned()))
     }
 
+    pub(crate) async fn write(
+        &self,
+        data: impl AsRef<[u8]> + Send + Sync + 'static,
+    ) -> buck2_error::Result<()> {
+        let file = self.0.dupe();
+        Ok(
+            tokio::task::spawn_blocking(move || Self::sync_write_impl(&file, data.as_ref()))
+                .await??,
+        )
+    }
+
     /// Write the given buffer to the file
     ///
     /// Generally, the way that these files work is that instead of there being delimiters or
@@ -70,9 +81,13 @@ impl CgroupFile {
     ///
     /// Additionally, this code is allocation-free in the happy path, which means that it's ok to
     /// use in `pre_exec` contexts
-    pub(crate) fn write(&self, data: &[u8]) -> std::io::Result<()> {
+    pub(crate) fn sync_write(&self, data: &[u8]) -> std::io::Result<()> {
+        Self::sync_write_impl(&self.0, data)
+    }
+
+    fn sync_write_impl(f: &OwnedFd, data: &[u8]) -> std::io::Result<()> {
         // Because of the weird semantics, we avoid std and just use libc
-        let bytes_written = nix::unistd::write(&self.0, data)?;
+        let bytes_written = nix::unistd::write(f, data)?;
 
         if bytes_written != data.len() {
             return Err(std::io::Error::other(format!(

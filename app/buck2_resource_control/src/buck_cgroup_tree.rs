@@ -55,7 +55,7 @@ impl PreppedBuckCgroups {
             FileNameBuf::unchecked_new("cgroup.procs"),
             true,
         )?;
-        daemon_procs.write(b"0")?;
+        daemon_procs.sync_write(b"0")?;
 
         // SAFETY: This is called early enough in the process to be moving cgroups, so we can set
         // env vars too

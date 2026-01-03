@@ -132,24 +132,26 @@ impl<M: MemoryMonitoring, K: CgroupKind> Cgroup<M, K> {
 
     /// Set the memory.high limit for this cgroup
     pub async fn set_memory_high(&self, memory_high: &str) -> buck2_error::Result<()> {
-        Ok(CgroupFile::open(
+        CgroupFile::open(
             self.dir.dupe(),
             FileNameBuf::unchecked_new("memory.high"),
             true,
         )
         .await?
-        .write(memory_high.as_bytes())?)
+        .write(memory_high.to_owned())
+        .await
     }
 
     /// Set the memory.max limit for this cgroup
     pub async fn set_memory_max(&self, memory_max: &str) -> buck2_error::Result<()> {
-        Ok(CgroupFile::open(
+        CgroupFile::open(
             self.dir.dupe(),
             FileNameBuf::unchecked_new("memory.max"),
             true,
         )
         .await?
-        .write(memory_max.as_bytes())?)
+        .write(memory_max.to_owned())
+        .await
     }
 
     async fn read_resource_constraints(&self) -> buck2_error::Result<EffectiveResourceConstraints> {
@@ -262,7 +264,7 @@ impl Cgroup<NoMemoryMonitoring, CgroupKindUndecided> {
         )
         .await?;
         for controller in &*enabled_controllers.0 {
-            subtree_control.write(controller.as_bytes())?;
+            subtree_control.write(controller.clone()).await?;
         }
 
         Ok(Cgroup {
@@ -304,7 +306,7 @@ impl<M: MemoryMonitoring> Cgroup<M, CgroupKindLeaf> {
         let procs = self.kind.procs.dupe();
 
         // 0 means current process
-        let pre_exec = move || procs.write(b"0");
+        let pre_exec = move || procs.sync_write(b"0");
         // Safety: The unsafe block is required for pre_exec which is inherently unsafe due to fork/exec restrictions.
         // However, it's safe here because:
         // 1. We only call async-signal-safe functions (write to file)
@@ -392,7 +394,7 @@ pub struct CgroupFreezeGuard {
 
 impl Drop for CgroupFreezeGuard {
     fn drop(&mut self) {
-        drop(self.file.write(b"0"));
+        drop(self.file.sync_write(b"0"));
     }
 }
 
@@ -404,7 +406,7 @@ impl<M: MemoryMonitoring, K: CgroupKind> Cgroup<M, K> {
             true,
         )
         .await?;
-        f.write(b"1")?;
+        f.write(b"1").await?;
         Ok(CgroupFreezeGuard { file: f })
     }
 }
@@ -595,7 +597,8 @@ mod tests {
         )
         .await
         .unwrap()
-        .write(pages(1000).as_bytes())
+        .write(pages(1000))
+        .await
         .unwrap();
         CgroupFile::open(
             subg1.dir.dupe(),
@@ -604,7 +607,8 @@ mod tests {
         )
         .await
         .unwrap()
-        .write(pages(1000).as_bytes())
+        .write(pages(1000))
+        .await
         .unwrap();
 
         let subg2 = subg1
@@ -618,7 +622,8 @@ mod tests {
         )
         .await
         .unwrap()
-        .write(pages(500).as_bytes())
+        .write(pages(500))
+        .await
         .unwrap();
 
         let constraints = subg2.read_effective_resouce_constraints().await.unwrap();
