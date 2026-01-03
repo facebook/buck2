@@ -131,7 +131,7 @@ def _get_fallback_transform_profile(ctx: AnalysisContext) -> str:
         return ctx.attrs.fallback_transform_profile
 
     if ctx.attrs.fallback_transform_profile == "default" or ctx.attrs.fallback_transform_profile == None:
-        return "transform-profile-default"
+        return "hermes-legacy"
 
     fail("Invalid fallback_transform_profile attribute {}!".format(ctx.attrs.fallback_transform_profile))
 

@@ -75,7 +75,7 @@ def _build_js_files(
             "release": ctx.attrs._is_release,
             "sourceJsFileName": _get_virtual_path(ctx, grouped_src.main_source, ctx.attrs.base_path),
             "sourceJsFilePath": grouped_src.main_source,
-            "transformProfile": "default" if transform_profile == "transform-profile-default" else transform_profile,
+            "transformProfile": "default" if transform_profile == "hermes-legacy" else transform_profile,
         }
         if ctx.attrs.extra_json:
             job_args["extraData"] = cmd_args(ctx.attrs.extra_json, delimiter = "")
