@@ -32,7 +32,7 @@ use buck2_events::daemon_id::DaemonId;
 use buck2_events::daemon_id::set_daemon_id_for_panics;
 use buck2_fs::fs_util;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
-use buck2_resource_control::buck_cgroup_tree::BuckCgroupTree;
+use buck2_resource_control::buck_cgroup_tree::PreppedBuckCgroups;
 use buck2_server::daemon::daemon_tcp::create_listener;
 use buck2_server::daemon::server::BuckdServer;
 use buck2_server::daemon::server::BuckdServerDelegate;
@@ -194,16 +194,10 @@ impl DaemonCommand {
         in_process: bool,
         listener_created: impl FnOnce() + Send,
     ) -> buck2_error::Result<()> {
-        let cgroup_tree = if self.has_cgroup {
+        let prepped_cgroups = if self.has_cgroup {
             // Note: It's important that we do this before daemonizing, as otherwise there may be
             // stray processes laying around in this cgroup
-            //
-            // FIXME(JakobDegen): It'd be better if we could do this even earlier, ideally spawning
-            // the daemon directly into the cgroup it's supposed to be in. With memory controllers
-            // enabled, moving an existing process is always a bit suspicious
-            Some(BuckCgroupTree::set_up_for_process(
-                &self.daemon_startup_config.resource_control,
-            )?)
+            Some(PreppedBuckCgroups::prep_current_process()?)
         } else {
             None
         };
@@ -423,7 +417,7 @@ impl DaemonCommand {
                 delegate,
                 server_init_ctx,
                 process_info,
-                cgroup_tree,
+                prepped_cgroups,
                 daemon_constraints,
                 Box::pin(listener),
                 handle,

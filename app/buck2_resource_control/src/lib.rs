@@ -39,10 +39,21 @@ pub struct HasResourceControl(pub bool);
 pub mod buck_cgroup_tree {
     use buck2_common::init::ResourceControlConfig;
 
+    pub struct PreppedBuckCgroups;
+
+    impl PreppedBuckCgroups {
+        pub fn prep_current_process() -> buck2_error::Result<Self> {
+            unreachable!("not used on windows")
+        }
+    }
+
     pub struct BuckCgroupTree;
 
     impl BuckCgroupTree {
-        pub fn set_up_for_process(_c: &ResourceControlConfig) -> buck2_error::Result<Self> {
+        pub fn set_up(
+            _prepped: PreppedBuckCgroups,
+            _config: &ResourceControlConfig,
+        ) -> buck2_error::Result<Self> {
             unreachable!("not used on windows")
         }
     }

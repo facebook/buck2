@@ -26,6 +26,43 @@ enum CgroupConfigParsingError {
     NotAMemoryConfig(String),
 }
 
+pub struct PreppedBuckCgroups {
+    allprocs: CgroupMinimal,
+}
+
+impl PreppedBuckCgroups {
+    /// Called at daemon startup.
+    ///
+    /// Expectation is that the current process was started with something like systemd-run and:
+    ///
+    ///  1. The cgroup it's in has this process and no others
+    ///  2. Buck2 may manage the child cgroups by itself without interference from outside things;
+    ///     in systemd this is the `Delegate=yes` property.
+    ///
+    /// This function is the part of the cgroup prepping that must be done early on during daemon
+    /// startup because it moves the daemon process.
+    pub fn prep_current_process() -> buck2_error::Result<Self> {
+        let root_cgroup_path = CGroupInfo::read()?.path;
+        let root_cgroup = CgroupMinimal::try_from_path(root_cgroup_path)?;
+        // Make the daemon cgroup and move ourselves into it. That's all we have to do at this
+        // point, the rest can be done when we complete the cgroup setup later
+        let daemon_cgroup = root_cgroup
+            .discouraged_make_child(FileName::unchecked_new("daemon"))?
+            .into_leaf()?;
+        daemon_cgroup.add_process(std::process::id())?;
+
+        // SAFETY: This is called early enough in the process to be moving cgroups, so we can set
+        // env vars too
+        unsafe {
+            std::env::set_var("CHGDISABLE", "1");
+        }
+
+        Ok(PreppedBuckCgroups {
+            allprocs: root_cgroup,
+        })
+    }
+}
+
 // Resolves a user-specified memory restriction value
 fn resolve_memory_restriction_value(
     config: &str,
@@ -62,31 +99,19 @@ pub struct BuckCgroupTree {
 }
 
 impl BuckCgroupTree {
-    /// Called at daemon startup.
-    ///
-    /// Expectation is that the current process was started with something like systemd-run and:
-    ///
-    ///  1. The cgroup it's in has this process and no others
-    ///  2. Buck2 may manage the child cgroups by itself without interference from outside things;
-    ///     in systemd this is the `Delegate=yes` property.
-    pub fn set_up_for_process(config: &ResourceControlConfig) -> buck2_error::Result<Self> {
-        let root_cgroup_path = CGroupInfo::read()?.path;
-        let root_cgroup = CgroupMinimal::try_from_path(root_cgroup_path)?;
+    /// Finishes setting up buck's cgroups from the prepped ones
+    pub fn set_up(
+        prepped: PreppedBuckCgroups,
+        config: &ResourceControlConfig,
+    ) -> buck2_error::Result<Self> {
+        let enabled_controllers = prepped.allprocs.read_enabled_controllers()?;
 
-        let enabled_controllers = root_cgroup.read_enabled_controllers()?;
-
-        // This has to be done in a way that's a bit awkward, since we need to first create a child
-        // cgroup to move ourselves into, move ourselves, and only then enable subtree control on
-        // the parent
-        let daemon_cgroup = root_cgroup
-            .discouraged_make_child(FileName::unchecked_new("daemon"))?
-            .into_leaf()?;
-        daemon_cgroup.add_process(std::process::id())?;
-        let root_cgroup = root_cgroup
+        let allprocs = prepped
+            .allprocs
             .enable_subtree_control_and_into_internal(enabled_controllers)?
             .enable_memory_monitoring()?;
 
-        let forkserver_and_actions = root_cgroup
+        let forkserver_and_actions = allprocs
             .make_internal_child(FileName::unchecked_new("forkserver_and_actions"))?
             .enable_memory_monitoring()?;
 
@@ -94,14 +119,14 @@ impl BuckCgroupTree {
             .make_leaf_child(FileName::unchecked_new("forkserver").into())?
             .enable_memory_monitoring()?;
 
-        let effective_resource_constraints = root_cgroup.read_effective_resouce_constraints()?;
+        let effective_resource_constraints = allprocs.read_effective_resouce_constraints()?;
 
         if let Some(config_memory_max) = &config.memory_max {
             if let Some(allprocs_memory_max) = resolve_memory_restriction_value(
                 config_memory_max,
                 effective_resource_constraints.memory_max,
             )? {
-                root_cgroup.set_memory_max(&allprocs_memory_max.to_string())?;
+                allprocs.set_memory_max(&allprocs_memory_max.to_string())?;
             }
         }
         if let Some(config_memory_high) = &config.memory_high {
@@ -109,18 +134,12 @@ impl BuckCgroupTree {
                 config_memory_high,
                 effective_resource_constraints.memory_high,
             )? {
-                root_cgroup.set_memory_high(&allprocs_memory_high.to_string())?;
+                allprocs.set_memory_high(&allprocs_memory_high.to_string())?;
             }
         }
 
-        // SAFETY: This is called early enough in the process to be moving cgroups, so we can set
-        // env vars too
-        unsafe {
-            std::env::set_var("CHGDISABLE", "1");
-        }
-
         Ok(Self {
-            allprocs: root_cgroup,
+            allprocs,
             forkserver_and_actions,
             forkserver,
             effective_resource_constraints,

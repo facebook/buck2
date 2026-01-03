@@ -62,6 +62,7 @@ use buck2_interpreter::starlark_profiler::config::StarlarkProfilerConfiguration;
 use buck2_profile::proto_to_profile_mode;
 use buck2_profile::starlark_profiler_configuration_from_request;
 use buck2_resource_control::buck_cgroup_tree::BuckCgroupTree;
+use buck2_resource_control::buck_cgroup_tree::PreppedBuckCgroups;
 use buck2_server_ctx::bxl::BXL_SERVER_COMMANDS;
 use buck2_server_ctx::late_bindings::AUDIT_SERVER_COMMAND;
 use buck2_server_ctx::late_bindings::OTHER_SERVER_COMMANDS;
@@ -243,7 +244,7 @@ impl BuckdServer {
         delegate: Box<dyn BuckdServerDelegate>,
         init_ctx: BuckdServerInitPreferences,
         process_info: DaemonProcessInfo,
-        cgroup_tree: Option<BuckCgroupTree>,
+        prepped_cgroups: Option<PreppedBuckCgroups>,
         base_daemon_constraints: buck2_cli_proto::DaemonConstraints,
         listener: Pin<Box<dyn Stream<Item = Result<tokio::net::TcpStream, io::Error>> + Send>>,
         rt: Handle,
@@ -268,6 +269,15 @@ impl BuckdServer {
             let dir = WorkingDirectory::open(paths.buck_out_path())?;
             dir.chdir_and_promise_it_will_not_change()?;
             Some(dir)
+        };
+
+        let cgroup_tree = if let Some(prepped_cgroups) = prepped_cgroups {
+            Some(BuckCgroupTree::set_up(
+                prepped_cgroups,
+                &init_ctx.daemon_startup_config.resource_control,
+            )?)
+        } else {
+            None
         };
 
         let cert_state = CertState::new().await;
