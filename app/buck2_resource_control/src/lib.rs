@@ -29,7 +29,7 @@ pub mod memory_tracker;
 pub mod path;
 #[cfg(unix)]
 pub mod pool;
-pub mod systemd;
+pub mod spawn_daemon;
 
 pub struct HasResourceControl(pub bool);
 
