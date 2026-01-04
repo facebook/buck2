@@ -31,7 +31,6 @@ use crate::RetryFuture;
 use crate::cgroup::EffectiveResourceConstraints;
 use crate::event::EventSenderState;
 use crate::event::ResourceControlEventMostly;
-use crate::memory_tracker::MemoryPressureState;
 use crate::memory_tracker::MemoryReading;
 use crate::memory_tracker::MemoryTrackerHandle;
 use crate::memory_tracker::read_memory_current;
@@ -136,6 +135,7 @@ struct SuspendedActionCgroup {
 pub(crate) struct ActionCgroups {
     enable_suspension: bool,
     preferred_action_suspend_strategy: ActionSuspendStrategy,
+    pressure_suspend_threshold: f64,
     /// Currently running and suspended actions
     ///
     /// Actions in both of these lists are sorted in start order; in other words, excepting for
@@ -162,7 +162,6 @@ pub(crate) struct ActionCgroups {
     running_cgroups: Vec<RunningActionCgroup>,
     suspended_cgroups: VecDeque<SuspendedActionCgroup>,
     last_correction_time: Option<Instant>,
-    last_memory_pressure_state: MemoryPressureState,
     // Total allprocs memory when the last suspend happened. Used to calculate when we should wake
     // cgroups.
     total_memory_during_last_suspend: Option<u64>,
@@ -245,6 +244,7 @@ impl ActionCgroups {
         Ok(Self::new(
             enable_suspension,
             resource_control_config.preferred_action_suspend_strategy,
+            resource_control_config.memory_pressure_threshold_percent as f64,
             effective_resource_constraints,
             daemon_id,
             cgroup_pool,
@@ -254,6 +254,7 @@ impl ActionCgroups {
     pub(crate) fn new(
         enable_suspension: bool,
         preferred_action_suspend_strategy: ActionSuspendStrategy,
+        pressure_suspend_threshold: f64,
         effective_resource_constraints: EffectiveResourceConstraints,
         daemon_id: &DaemonId,
         cgroup_pool: CgroupPool,
@@ -261,10 +262,10 @@ impl ActionCgroups {
         Self {
             enable_suspension,
             preferred_action_suspend_strategy,
+            pressure_suspend_threshold,
             running_cgroups: Vec::new(),
             suspended_cgroups: VecDeque::new(),
             last_correction_time: None,
-            last_memory_pressure_state: MemoryPressureState::BelowPressureLimit,
             total_memory_during_last_suspend: None,
             event_sender_state: EventSenderState::new(daemon_id, effective_resource_constraints),
             cgroup_pool,
@@ -276,6 +277,7 @@ impl ActionCgroups {
         Some(Self::new(
             true,
             ActionSuspendStrategy::KillAndRetry,
+            10.0,
             EffectiveResourceConstraints::default(),
             &DaemonId::new(),
             CgroupPool::testing_new().await?,
@@ -382,13 +384,9 @@ impl ActionCgroups {
         }
     }
 
-    pub async fn update(
-        &mut self,
-        pressure_state: MemoryPressureState,
-        memory_reading: &MemoryReading,
-    ) {
+    pub async fn update(&mut self, memory_reading: MemoryReading) {
         self.event_sender_state
-            .update_memory_reading(*memory_reading);
+            .update_memory_reading(memory_reading);
         for cgroup in self
             .running_cgroups
             .iter_mut()
@@ -419,9 +417,10 @@ impl ActionCgroups {
             }
         }
 
-        self.last_memory_pressure_state = pressure_state;
+        let is_above_pressure_limit =
+            memory_reading.allprocs_memory_pressure > self.pressure_suspend_threshold;
 
-        if pressure_state == MemoryPressureState::AbovePressureLimit {
+        if is_above_pressure_limit {
             self.maybe_decrease_running_count(memory_reading);
         } else {
             self.maybe_increase_running_count(memory_reading);
@@ -429,12 +428,11 @@ impl ActionCgroups {
 
         // Report resource control events every 10 seconds normally, but every second during times
         // of pressure
-        let scheduled_event_freq =
-            if cfg!(test) || pressure_state == MemoryPressureState::AbovePressureLimit {
-                Duration::from_secs(1)
-            } else {
-                Duration::from_secs(10)
-            };
+        let scheduled_event_freq = if cfg!(test) || is_above_pressure_limit {
+            Duration::from_secs(1)
+        } else {
+            Duration::from_secs(10)
+        };
         self.event_sender_state.maybe_send_scheduled_event(
             scheduled_event_freq,
             self.running_cgroups.len() as u64,
@@ -442,7 +440,7 @@ impl ActionCgroups {
         );
     }
 
-    fn maybe_decrease_running_count(&mut self, memory_reading: &MemoryReading) {
+    fn maybe_decrease_running_count(&mut self, memory_reading: MemoryReading) {
         if !self.enable_suspension {
             return;
         }
@@ -488,7 +486,7 @@ impl ActionCgroups {
         );
     }
 
-    fn maybe_increase_running_count(&mut self, memory_reading: &MemoryReading) {
+    fn maybe_increase_running_count(&mut self, memory_reading: MemoryReading) {
         // We increase the running count at most once every 3 seconds since memory changes of
         // previous suspensions will take several seconds to take effect. This ensures that we don't
         // wake too quickly
@@ -707,13 +705,11 @@ mod tests {
         let memory_reading = MemoryReading {
             allprocs_memory_current: 10000,
             allprocs_swap_current: 0,
-            allprocs_memory_pressure: 12,
+            allprocs_memory_pressure: 12.0,
             daemon_memory_current: 8000,
             daemon_swap_current: 0,
         };
-        action_cgroups
-            .update(MemoryPressureState::AbovePressureLimit, &memory_reading)
-            .await;
+        action_cgroups.update(memory_reading).await;
 
         let cgroup_1_res = action_cgroups.action_finished(&cgroup_1);
         let cgroup_2_res = action_cgroups.action_finished(&cgroup_2);
@@ -757,13 +753,11 @@ mod tests {
         let memory_reading = MemoryReading {
             allprocs_memory_current: 10000,
             allprocs_swap_current: 0,
-            allprocs_memory_pressure: 12,
+            allprocs_memory_pressure: 12.0,
             daemon_memory_current: 8000,
             daemon_swap_current: 0,
         };
-        action_cgroups
-            .update(MemoryPressureState::AbovePressureLimit, &memory_reading)
-            .await;
+        action_cgroups.update(memory_reading).await;
 
         let cgroup_1_res = action_cgroups.action_finished(&cgroup_1);
         assert!(cgroup_1_res.suspend_duration.is_none());
@@ -771,13 +765,11 @@ mod tests {
         let memory_reading_2 = MemoryReading {
             allprocs_memory_current: 0,
             allprocs_swap_current: 0,
-            allprocs_memory_pressure: 0,
+            allprocs_memory_pressure: 0.0,
             daemon_memory_current: 0,
             daemon_swap_current: 0,
         };
-        action_cgroups
-            .update(MemoryPressureState::BelowPressureLimit, &memory_reading_2)
-            .await;
+        action_cgroups.update(memory_reading_2).await;
 
         let cgroup_2_res = action_cgroups.action_finished(&cgroup_2);
         assert!(cgroup_2_res.suspend_duration.is_some());

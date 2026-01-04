@@ -42,7 +42,7 @@ impl EventSenderState {
             memory_reading: MemoryReading {
                 allprocs_memory_current: 0,
                 allprocs_swap_current: 0,
-                allprocs_memory_pressure: 0,
+                allprocs_memory_pressure: 0.0,
                 daemon_memory_current: 0,
                 daemon_swap_current: 0,
             },
@@ -149,7 +149,7 @@ impl ResourceControlEventMostly {
 
             allprocs_memory_current: self.memory_reading.allprocs_memory_current,
             allprocs_memory_swap_current: self.memory_reading.allprocs_swap_current,
-            allprocs_memory_pressure: self.memory_reading.allprocs_memory_pressure,
+            allprocs_memory_pressure: self.memory_reading.allprocs_memory_pressure.round() as u64,
 
             daemon_memory_current: self.memory_reading.daemon_memory_current,
             daemon_swap_current: self.memory_reading.daemon_swap_current,

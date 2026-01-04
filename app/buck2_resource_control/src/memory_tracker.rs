@@ -29,23 +29,12 @@ use crate::action_cgroups::ActionCgroups;
 use crate::buck_cgroup_tree::BuckCgroupTree;
 use crate::pool::CgroupPool;
 
-#[derive(Allocative, Copy, Clone, Debug, PartialEq)]
-pub enum MemoryPressureState {
-    BelowPressureLimit,
-    AbovePressureLimit,
-}
-
-#[derive(Allocative, Copy, Clone, Debug, PartialEq)]
-pub struct MemoryStates {
-    pub memory_pressure_state: MemoryPressureState,
-}
-
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct MemoryReading {
     pub allprocs_memory_current: u64,
     pub allprocs_swap_current: u64,
     /// The some/avg10 memory pressure
-    pub allprocs_memory_pressure: u64,
+    pub allprocs_memory_pressure: f64,
     pub daemon_memory_current: u64,
     pub daemon_swap_current: u64,
 }
@@ -73,7 +62,6 @@ impl MemoryTrackerHandleInner {
 pub struct MemoryTracker {
     #[allocative(skip)]
     handle: MemoryTrackerHandle,
-    memory_pressure_threshold: u64,
 }
 
 pub struct MemoryReporter {
@@ -138,10 +126,7 @@ pub async fn create_memory_tracker(
     )
     .await?;
     let handle = MemoryTrackerHandleInner::new(cgroup_tree, action_cgroups);
-    let memory_tracker = MemoryTracker::new(
-        handle,
-        resource_control_config.memory_pressure_threshold_percent,
-    );
+    let memory_tracker = MemoryTracker::new(handle);
     let tracker_handle = memory_tracker.handle.dupe();
     const TICK_DURATION: Duration = Duration::from_millis(300);
     memory_tracker.spawn(TICK_DURATION).await?;
@@ -149,10 +134,9 @@ pub async fn create_memory_tracker(
 }
 
 impl MemoryTracker {
-    fn new(handle: MemoryTrackerHandleInner, memory_pressure_threshold: u64) -> Self {
+    fn new(handle: MemoryTrackerHandleInner) -> Self {
         Self {
             handle: Arc::new(handle),
-            memory_pressure_threshold,
         }
     }
 
@@ -191,25 +175,16 @@ impl MemoryTracker {
                 continue;
             };
 
-            let pressure_percent = allprocs_memory_pressure.round() as u64;
-            let memory_pressure_state = if pressure_percent < self.memory_pressure_threshold {
-                MemoryPressureState::BelowPressureLimit
-            } else {
-                MemoryPressureState::AbovePressureLimit
-            };
-
             let memory_reading = MemoryReading {
                 allprocs_memory_current,
                 allprocs_swap_current,
-                allprocs_memory_pressure: pressure_percent,
+                allprocs_memory_pressure,
                 daemon_memory_current,
                 daemon_swap_current,
             };
 
             let mut action_cgroups = self.handle.action_cgroups.as_ref().lock().await;
-            action_cgroups
-                .update(memory_pressure_state, &memory_reading)
-                .await;
+            action_cgroups.update(memory_reading).await;
         }
     }
 }
