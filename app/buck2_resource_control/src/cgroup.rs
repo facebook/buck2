@@ -10,8 +10,12 @@
 
 use std::os::fd::OwnedFd;
 use std::os::unix::process::CommandExt;
+#[cfg(test)]
+use std::process::Child;
 use std::process::Command;
 use std::sync::Arc;
+#[cfg(test)]
+use std::time::Duration;
 
 use buck2_fs::paths::file_name::FileName;
 use buck2_fs::paths::file_name::FileNameBuf;
@@ -59,6 +63,9 @@ impl MemoryMonitoring for NoMemoryMonitoring {}
 
 pub struct WithMemoryMonitoring {
     memory_stat: CgroupFile,
+    memory_current: CgroupFile,
+    swap_current: CgroupFile,
+    memory_pressure: CgroupFile,
 }
 
 impl MemoryMonitoring for WithMemoryMonitoring {}
@@ -315,6 +322,38 @@ impl<M: MemoryMonitoring> Cgroup<M, CgroupKindLeaf> {
             command.pre_exec(pre_exec);
         }
     }
+
+    #[cfg(test)]
+    pub(crate) fn spawn_use_some_memory_process(
+        &self,
+        allocate_count: u64,
+        each_tick_allocate_memory_mbs: f64,
+        tick_duration: Option<Duration>,
+        pre_exit_sleep_duration: Option<Duration>,
+    ) -> buck2_error::Result<Child> {
+        use std::process::Stdio;
+
+        use buck2_util::process::background_command;
+
+        let bin = std::env::var("USE_SOME_MEMORY_BIN").unwrap();
+        let mut cmd = background_command(bin);
+        self.setup_command(&mut cmd);
+        cmd.stdout(Stdio::null());
+        cmd.stderr(Stdio::null());
+        cmd.arg("--allocate-count")
+            .arg(allocate_count.to_string())
+            .arg("--each-tick-allocate-memory")
+            .arg(each_tick_allocate_memory_mbs.to_string());
+        if let Some(tick_duration) = tick_duration {
+            cmd.arg("--tick-duration")
+                .arg(tick_duration.as_secs_f64().to_string());
+        }
+        if let Some(pre_exit_sleep_duration) = pre_exit_sleep_duration {
+            cmd.arg("--pre-exit-sleep-duration")
+                .arg(pre_exit_sleep_duration.as_secs_f64().to_string());
+        }
+        Ok(cmd.spawn()?)
+    }
 }
 
 impl<M: MemoryMonitoring, K: CgroupKind> Cgroup<M, K> {
@@ -386,14 +425,22 @@ impl<K: CgroupKind> Cgroup<NoMemoryMonitoring, K> {
     pub(crate) async fn enable_memory_monitoring(
         self,
     ) -> buck2_error::Result<Cgroup<WithMemoryMonitoring, K>> {
+        let open = |f| {
+            let d = &self.dir;
+            async move { CgroupFile::open(d.dupe(), FileNameBuf::unchecked_new(f), false).await }
+        };
+        let (memory_stat, memory_current, memory_swap_current, memory_pressure) = tokio::try_join!(
+            open("memory.stat"),
+            open("memory.current"),
+            open("memory.swap.current"),
+            open("memory.pressure"),
+        )?;
         Ok(Cgroup {
             memory: WithMemoryMonitoring {
-                memory_stat: CgroupFile::open(
-                    self.dir.dupe(),
-                    FileNameBuf::unchecked_new("memory.stat"),
-                    false,
-                )
-                .await?,
+                memory_stat,
+                memory_current,
+                swap_current: memory_swap_current,
+                memory_pressure,
             },
             dir: self.dir,
             path: self.path,
@@ -405,6 +452,24 @@ impl<K: CgroupKind> Cgroup<NoMemoryMonitoring, K> {
 impl<K: CgroupKind> Cgroup<WithMemoryMonitoring, K> {
     pub async fn read_memory_stat(&self) -> buck2_error::Result<MemoryStat> {
         self.memory.memory_stat.read_memory_stat().await
+    }
+
+    pub async fn read_memory_current(&self) -> buck2_error::Result<u64> {
+        self.memory.memory_current.read_int().await
+    }
+
+    pub async fn read_swap_current(&self) -> buck2_error::Result<u64> {
+        self.memory.swap_current.read_int().await
+    }
+
+    pub async fn read_memory_pressure(&self) -> buck2_error::Result<f64> {
+        Ok(self
+            .memory
+            .memory_pressure
+            .read_resource_pressure()
+            .await?
+            .some
+            .avg10)
     }
 }
 
@@ -465,9 +530,22 @@ impl CgroupMinimal {
         // At this point the one process in that cgroup is dead, so it's ok to treat it as a minimal
         // one again
         let cgroup = Self::try_from_path(path.to_buf()).await.unwrap();
+        let controllers = cgroup.read_enabled_controllers().await.unwrap();
+        let parent = cgroup
+            .enable_subtree_control_and_into_internal(controllers)
+            .await
+            .unwrap();
 
         match res {
-            Ok(_) => Some(cgroup),
+            Ok(_) => {
+                // Use a fresh child cgroup - we don't want to use the one above since it has some
+                // leftover metrics corresponding to the process we just ran in it
+                let child = parent
+                    .discouraged_make_child(FileNameBuf::unchecked_new("test_group"))
+                    .await
+                    .unwrap();
+                Some(child)
+            }
             Err(e) if e.kind() == std::io::ErrorKind::PermissionDenied => {
                 // The script above generates a cgroup for us to use by starting a new systemd user
                 // service. However, depending on the cgroup in which *this test* is running, we may
@@ -479,11 +557,6 @@ impl CgroupMinimal {
                 // move ourselves somewhere from where we can do what we need. This unfortunately
                 // means that attempting to run multiple tests like this in the same process won't
                 // work, but alas this is the best we can do
-                let controllers = cgroup.read_enabled_controllers().await.unwrap();
-                let parent = cgroup
-                    .enable_subtree_control_and_into_internal(controllers)
-                    .await
-                    .unwrap();
                 let leaf = parent
                     .discouraged_make_child(FileNameBuf::unchecked_new("_buck_leaf"))
                     .await
@@ -543,6 +616,8 @@ impl Cgroup<NoMemoryMonitoring, CgroupKindInternal> {
 
 #[cfg(test)]
 mod tests {
+    use std::time::Duration;
+
     use buck2_fs::fs_util;
     use buck2_fs::paths::file_name::FileNameBuf;
     use buck2_util::process::background_command;
@@ -662,5 +737,40 @@ mod tests {
             constraints.memory_swap_max,
             base_constraints.memory_swap_max
         );
+    }
+
+    #[tokio::test]
+    async fn test_read_memory_metrics() {
+        let Some(cgroup) = Cgroup::create_leaf_for_test().await else {
+            return;
+        };
+        let cgroup = cgroup.enable_memory_monitoring().await.unwrap();
+
+        let stat = cgroup.read_memory_stat().await.unwrap();
+        // Never spawned a process into it, so should be empty
+        assert_eq!(stat.anon, 0);
+        assert_eq!(stat.file, 0);
+        assert_eq!(cgroup.read_memory_current().await.unwrap(), 0);
+        assert_eq!(cgroup.read_swap_current().await.unwrap(), 0);
+        assert_eq!(cgroup.read_memory_pressure().await.unwrap(), 0.0);
+
+        cgroup.set_memory_high("19000000").await.unwrap();
+        let mut child = cgroup
+            .spawn_use_some_memory_process(1, 20.0, None, Some(Duration::from_secs(100)))
+            .unwrap();
+
+        // Give the process some time to start
+        std::thread::sleep(Duration::from_secs(10));
+        let stat = cgroup.read_memory_stat().await.unwrap();
+        assert!(stat.anon > 15000000, "{:?}", stat);
+        let memory_current = cgroup.read_memory_current().await.unwrap();
+        assert!(memory_current > 15000000, "{:?}", memory_current);
+        let swap_current = cgroup.read_swap_current().await.unwrap();
+        assert!(swap_current > 500000, "{:?}", swap_current);
+        let memory_pressure = cgroup.read_memory_pressure().await.unwrap();
+        assert!(memory_pressure > 5.0, "{:?}", memory_pressure);
+
+        child.kill().unwrap();
+        child.wait().unwrap();
     }
 }

@@ -189,10 +189,30 @@ impl CgroupFile {
                 .into()
             })
     }
+
+    pub(crate) async fn read_int(&self) -> buck2_error::Result<u64> {
+        let (data, filled) = self.read_to_short_buf().await?;
+        let data = &data[..filled];
+        std::str::from_utf8(data)
+            .ok()
+            .map(|d| d.trim_end())
+            .and_then(|d| d.parse::<u64>().ok())
+            .ok_or_else(|| {
+                CgroupFileError::UnexpectedFormat(
+                    self.1.clone(),
+                    String::from_utf8_lossy(&data).to_string(),
+                )
+                .into()
+            })
+    }
+
+    pub(crate) async fn read_resource_pressure(&self) -> buck2_error::Result<ResourcePressure> {
+        ResourcePressure::parse(&self.read_to_string().await?)
+    }
 }
 
 /// A few interesting values from memory.stat
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub struct MemoryStat {
     /// Anonymous memory, inclusive of swap.
     pub anon: u64,
@@ -244,9 +264,79 @@ impl MemoryStat {
     }
 }
 
+pub(crate) struct ResourcePressurePart {
+    pub(crate) avg10: f64,
+    #[allow(dead_code)] // For completeness
+    pub(crate) avg60: f64,
+    #[allow(dead_code)] // For completeness
+    pub(crate) avg300: f64,
+    #[allow(dead_code)] // For completeness
+    pub(crate) total: u64,
+}
+
+pub(crate) struct ResourcePressure {
+    pub(crate) some: ResourcePressurePart,
+    #[allow(dead_code)] // For completeness
+    pub(crate) full: ResourcePressurePart,
+}
+
+impl ResourcePressure {
+    fn parse(s: &str) -> buck2_error::Result<Self> {
+        Self::parse_inner(s).ok_or_else(|| {
+            buck2_error::Error::from(CgroupFileError::UnexpectedFormat(
+                FileNameBuf::unchecked_new("memory.pressure"),
+                s.to_owned(),
+            ))
+        })
+    }
+
+    fn parse_inner(s: &str) -> Option<Self> {
+        let mut parts = s.lines();
+        let some = parts.next()?;
+        let full = parts.next()?;
+        if parts.next().is_some() {
+            return None;
+        }
+
+        let parse_part = |s: &str, expected: &str| {
+            let (name, mut rest) = s.split_once(' ')?;
+            if name != expected {
+                return None;
+            }
+            let mut getitem = |expected_name: &str| {
+                let (item, new_rest) = rest.split_once(' ').unwrap_or((rest, ""));
+                rest = new_rest;
+                let (name, value) = item.split_once('=')?;
+                if name != expected_name {
+                    None
+                } else {
+                    Some(value)
+                }
+            };
+            let avg10 = getitem("avg10")?;
+            let avg60 = getitem("avg60")?;
+            let avg300 = getitem("avg300")?;
+            let total = getitem("total")?;
+            if !rest.is_empty() {
+                return None;
+            }
+            Some(ResourcePressurePart {
+                avg10: avg10.parse().ok()?,
+                avg60: avg60.parse().ok()?,
+                avg300: avg300.parse().ok()?,
+                total: total.parse().ok()?,
+            })
+        };
+
+        Some(Self {
+            some: parse_part(some, "some")?,
+            full: parse_part(full, "full")?,
+        })
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use crate::cgroup::CgroupMinimal;
     use crate::cgroup_files::MemoryStat;
 
     #[test]
@@ -286,16 +376,19 @@ slab 262144"#;
         assert_eq!(stat.active_file, 1048576);
     }
 
-    #[tokio::test]
-    async fn test_read_memory_stat() {
-        let Some(cgroup) = CgroupMinimal::create_minimal_for_test().await else {
-            return;
-        };
-        let cgroup = cgroup.enable_memory_monitoring().await.unwrap();
+    #[test]
+    fn test_parse_resource_pressure() {
+        let sample_pressure = r#"some avg10=1.01 avg60=2.02 avg300=3.03 total=45904150
+full avg10=1.10 avg60=2.20 avg300=3.30 total=45781727"#;
 
-        let stat = cgroup.read_memory_stat().await.unwrap();
-        // Never spawned a process into it, so should be empty
-        assert_eq!(stat.active_anon, 0);
-        assert_eq!(stat.file, 0);
+        let pressure = crate::cgroup_files::ResourcePressure::parse(sample_pressure).unwrap();
+        assert_eq!(pressure.some.avg10, 1.01);
+        assert_eq!(pressure.some.avg60, 2.02);
+        assert_eq!(pressure.some.avg300, 3.03);
+        assert_eq!(pressure.some.total, 45904150);
+        assert_eq!(pressure.full.avg10, 1.10);
+        assert_eq!(pressure.full.avg60, 2.20);
+        assert_eq!(pressure.full.avg300, 3.30);
+        assert_eq!(pressure.full.total, 45781727);
     }
 }

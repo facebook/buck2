@@ -26,6 +26,7 @@ rust_library(
     ],
     test_env = {
         "PREP_CGROUP_SCRIPT": "$(location fbcode//buck2/shed/cgroups:prep_cgroup)",
+        "USE_SOME_MEMORY_BIN": "$(location //buck2/shed/cgroups/use_some_memory:use_some_memory)",
     },
     deps = [
         "fbsource//third-party/rust:derive_more",
