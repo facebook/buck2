@@ -323,10 +323,10 @@ impl ActionCgroups {
             memory_current_file,
             memory_swap_current_file,
             memory_initial,
-            memory_current: memory_initial,
+            memory_current: 0,
             memory_peak: 0,
             swap_initial,
-            swap_current: swap_initial,
+            swap_current: 0,
             swap_peak: 0,
             error: None,
             suspend_duration: None,
@@ -400,16 +400,12 @@ impl ActionCgroups {
                 read_memory_swap_current(&mut cgroup.memory_swap_current_file)
             ) {
                 Ok((memory_current, swap_current)) => {
+                    let memory_current = memory_current.saturating_sub(cgroup.memory_initial);
+                    let swap_current = swap_current.saturating_sub(cgroup.swap_initial);
                     cgroup.memory_current = memory_current;
-                    if let Some(memory_delta) =
-                        cgroup.memory_current.checked_sub(cgroup.memory_initial)
-                    {
-                        cgroup.memory_peak = cgroup.memory_peak.max(memory_delta);
-                    }
+                    cgroup.memory_peak = cgroup.memory_peak.max(memory_current);
                     cgroup.swap_current = swap_current;
-                    if let Some(swap_delta) = cgroup.swap_current.checked_sub(cgroup.swap_initial) {
-                        cgroup.swap_peak = cgroup.swap_peak.max(swap_delta);
-                    }
+                    cgroup.swap_peak = cgroup.swap_peak.max(swap_current);
                 }
                 Err(e) => {
                     cgroup.error = Some(e);
