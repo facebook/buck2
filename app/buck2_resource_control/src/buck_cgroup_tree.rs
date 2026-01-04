@@ -9,6 +9,9 @@
  */
 
 use buck2_common::init::ResourceControlConfig;
+use buck2_fs::fs_util;
+use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
+use buck2_fs::paths::abs_path::AbsPath;
 use buck2_fs::paths::file_name::FileName;
 use buck2_fs::paths::file_name::FileNameBuf;
 
@@ -17,7 +20,7 @@ use crate::cgroup::CgroupLeaf;
 use crate::cgroup::CgroupMinimal;
 use crate::cgroup::EffectiveResourceConstraints;
 use crate::cgroup_files::CgroupFile;
-use crate::cgroup_info::CGroupInfo;
+use crate::path::CgroupPathBuf;
 
 #[derive(buck2_error::Error)]
 #[buck2(tag = Input)]
@@ -26,6 +29,32 @@ enum CgroupConfigParsingError {
     NotAPercentage(String),
     #[error("Expected an integer or percentage: {0}")]
     NotAMemoryConfig(String),
+}
+
+#[derive(buck2_error::Error)]
+#[buck2(tag = Input)]
+enum CgroupParsingError {
+    #[error("Process appears to not be a part of a cgroupv2 hierarchy: {0}")]
+    NoCgroupV2Membership(String),
+}
+
+fn parse_procfs_cgroup_output(out: &str) -> buck2_error::Result<CgroupPathBuf> {
+    fn find_v2(out: &str) -> Option<&str> {
+        // Filter out any membership in v1 hierarchies
+        let mut filt = out.lines().filter_map(|l| l.strip_prefix("0::"));
+        let cgroup_v2 = filt.next()?;
+        if filt.next().is_some() {
+            return None;
+        }
+        Some(cgroup_v2)
+    }
+
+    let Some(cgroup) = find_v2(out) else {
+        return Err(CgroupParsingError::NoCgroupV2Membership(out.trim().to_owned()).into());
+    };
+    // Can't use .join() since the second part is absolute too
+    let path = AbsNormPathBuf::new(format!("/sys/fs/cgroup{cgroup}").into())?;
+    Ok(CgroupPathBuf::new(path))
 }
 
 pub struct PreppedBuckCgroups {
@@ -45,7 +74,8 @@ impl PreppedBuckCgroups {
     /// This function is the part of the cgroup prepping that must be done early on during daemon
     /// startup because it moves the daemon process.
     pub fn prep_current_process() -> buck2_error::Result<Self> {
-        let root_cgroup_path = CGroupInfo::read()?.path;
+        let procfs_out = fs_util::read_to_string(AbsPath::new("/proc/self/cgroup").unwrap())?;
+        let root_cgroup_path = parse_procfs_cgroup_output(&procfs_out)?;
         let root_cgroup = CgroupMinimal::sync_try_from_path(root_cgroup_path)?;
         // Make the daemon cgroup and move ourselves into it. That's all we have to do at this
         // point, the rest can be done when we complete the cgroup setup later
@@ -207,5 +237,28 @@ impl BuckCgroupTree {
 
     pub(crate) fn effective_resource_constraints(&self) -> &EffectiveResourceConstraints {
         &self.effective_resource_constraints
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::buck_cgroup_tree::parse_procfs_cgroup_output;
+
+    #[test]
+    fn test_cgroup_info_parse() {
+        let cgroup = "\
+0::/user.slice/user-532497.slice/user@532497.service/buck2.cg\n";
+        assert_eq!(
+            "/sys/fs/cgroup/user.slice/user-532497.slice/user@532497.service/buck2.cg",
+            parse_procfs_cgroup_output(cgroup).unwrap().to_string()
+        );
+
+        let cgroup = "\
+5:cpuacct,cpu,cpuset:/daemons
+0::/user.slice/user-532497.slice/user@532497.service/buck2.cg\n";
+        assert_eq!(
+            "/sys/fs/cgroup/user.slice/user-532497.slice/user@532497.service/buck2.cg",
+            parse_procfs_cgroup_output(cgroup).unwrap().to_string()
+        );
     }
 }
