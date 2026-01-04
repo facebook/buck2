@@ -48,11 +48,6 @@ pub enum SystemdCreationDecision {
     Create,
 }
 
-pub enum ParentSlice {
-    /// Makes a new unit part of the specified slice inherited from root slice
-    Root(String),
-}
-
 /// Turns on delegation of further resource control partitioning to processes of the unit.
 /// Units where this is enabled may create and manage their own private subhierarchy
 /// of control groups below the control group of the unit itself.
@@ -67,24 +62,16 @@ pub struct ResourceControlRunner {
 }
 
 impl ResourceControlRunner {
-    fn create(parent_slice: ParentSlice) -> buck2_error::Result<Self> {
-        // Common settings
-        let mut args = vec![
-            "--user".to_owned(),
-            "--scope".to_owned(),
-            "--quiet".to_owned(),
-            "--collect".to_owned(),
-            "--property=Delegate=yes".to_owned(),
-        ];
-
-        match &parent_slice {
-            ParentSlice::Root(slice) => {
-                args.push(format!("--slice={slice}"));
-            }
-        }
-
+    fn create() -> buck2_error::Result<Self> {
         Ok(Self {
-            fixed_systemd_args: args,
+            fixed_systemd_args: vec![
+                "--user".to_owned(),
+                "--scope".to_owned(),
+                "--quiet".to_owned(),
+                "--collect".to_owned(),
+                "--property=Delegate=yes".to_owned(),
+                "--slice=buck2".to_owned(),
+            ],
         })
     }
 
@@ -124,12 +111,9 @@ impl ResourceControlRunner {
         }
     }
 
-    pub fn create_if_enabled(
-        config: &ResourceControlConfig,
-        parent_slice: ParentSlice,
-    ) -> buck2_error::Result<Option<Self>> {
+    pub fn create_if_enabled(config: &ResourceControlConfig) -> buck2_error::Result<Option<Self>> {
         if Self::is_enabled(&config.status)? {
-            Ok(Some(Self::create(parent_slice)?))
+            Ok(Some(Self::create()?))
         } else {
             Ok(None)
         }

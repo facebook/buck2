@@ -35,7 +35,6 @@ use buck2_error::buck2_error;
 use buck2_error::conversion::from_any_with_tag;
 use buck2_events::daemon_id::DaemonId;
 use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
-use buck2_resource_control::systemd::ParentSlice;
 use buck2_resource_control::systemd::ResourceControlRunner;
 use buck2_resource_control::systemd::replace_unit_delimiter;
 use buck2_util::process::async_background_command;
@@ -413,20 +412,18 @@ impl<'a> BuckdLifecycle<'a> {
             .collect::<Vec<_>>()
             .join("_");
 
-        let slice_name = format!(
+        let scope_name = format!(
             "buck2-daemon.{}.{}.{}",
             replace_unit_delimiter(&daemon_id.to_string()),
             replace_unit_delimiter(project_dir_underscore_string.as_str()),
             replace_unit_delimiter(self.paths.isolation.as_str())
         );
-        let resource_control_runner = ResourceControlRunner::create_if_enabled(
-            &daemon_startup_config.resource_control,
-            ParentSlice::Root(slice_name.clone()),
-        )?;
+        let resource_control_runner =
+            ResourceControlRunner::create_if_enabled(&daemon_startup_config.resource_control)?;
         let mut cmd = if let Some(resource_control_runner) = &resource_control_runner {
             has_cgroup = true;
             resource_control_runner
-                .cgroup_scoped_command(daemon_exe, &slice_name, &project_dir.root())
+                .cgroup_scoped_command(daemon_exe, &scope_name, &project_dir.root())
                 .into()
         } else {
             async_background_command(daemon_exe)
