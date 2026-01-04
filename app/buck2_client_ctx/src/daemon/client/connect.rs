@@ -411,7 +411,8 @@ impl<'a> BuckdLifecycle<'a> {
             replace_unit_delimiter(&daemon_id.to_string()),
         );
         let resource_control_runner =
-            ResourceControlRunner::create_if_enabled(&daemon_startup_config.resource_control)?;
+            ResourceControlRunner::create_if_enabled(&daemon_startup_config.resource_control)
+                .await?;
         let mut cmd = if let Some(resource_control_runner) = &resource_control_runner {
             has_cgroup = true;
             resource_control_runner

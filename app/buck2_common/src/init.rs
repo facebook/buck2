@@ -275,6 +275,7 @@ impl FromStr for ActionSuspendStrategy {
 #[derive(
     Allocative,
     Clone,
+    Copy,
     Debug,
     Default,
     Serialize,

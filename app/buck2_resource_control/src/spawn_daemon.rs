@@ -8,19 +8,15 @@
  * above-listed licenses.
  */
 
-use std::cmp::PartialEq;
 use std::ffi::OsStr;
 use std::io::ErrorKind;
 use std::num::ParseIntError;
-use std::sync::OnceLock;
 
 use buck2_common::init::ResourceControlConfig;
 use buck2_common::init::ResourceControlStatus;
 use buck2_fs::paths::abs_norm_path::AbsNormPath;
 use buck2_util::process;
-
-const SYSTEMD_MIN_VERSION: u32 = 253;
-static AVAILABILITY: OnceLock<Option<buck2_error::Error>> = OnceLock::new();
+use buck2_util::process::async_background_command;
 
 #[derive(Debug, buck2_error::Error)]
 #[buck2(tag = Environment)]
@@ -41,81 +37,23 @@ enum SystemdNotAvailableReason {
     UnsupportedPlatform,
 }
 
-pub enum SystemdCreationDecision {
-    SkipNotNeeded,
-    SkipPreferredButNotRequired { e: buck2_error::Error },
-    SkipRequiredButUnavailable { e: buck2_error::Error },
-    Create,
-}
-
-/// Turns on delegation of further resource control partitioning to processes of the unit.
-/// Units where this is enabled may create and manage their own private subhierarchy
-/// of control groups below the control group of the unit itself.
-#[derive(PartialEq, Clone, Copy)]
-pub enum CgroupDelegation {
-    Enabled,
-    Disabled,
-}
-
-pub struct ResourceControlRunner {
-    fixed_systemd_args: Vec<String>,
-}
+pub struct ResourceControlRunner(());
 
 impl ResourceControlRunner {
-    fn create() -> buck2_error::Result<Self> {
-        Ok(Self {
-            fixed_systemd_args: vec![
-                "--user".to_owned(),
-                "--scope".to_owned(),
-                "--quiet".to_owned(),
-                "--collect".to_owned(),
-                "--property=Delegate=yes".to_owned(),
-                "--slice=buck2".to_owned(),
-            ],
-        })
-    }
-
-    fn creation_decision(status: &ResourceControlStatus) -> SystemdCreationDecision {
-        if status == &ResourceControlStatus::Off {
-            return SystemdCreationDecision::SkipNotNeeded;
+    pub async fn create_if_enabled(
+        config: &ResourceControlConfig,
+    ) -> buck2_error::Result<Option<Self>> {
+        if config.status == ResourceControlStatus::Off {
+            return Ok(None);
         }
-        match (status, is_available()) {
-            (ResourceControlStatus::Off, _) => unreachable!("Checked earlier"),
-            (ResourceControlStatus::IfAvailable | ResourceControlStatus::Required, Ok(_)) => {
-                SystemdCreationDecision::Create
-            }
-            (ResourceControlStatus::IfAvailable, Err(e)) => {
-                SystemdCreationDecision::SkipPreferredButNotRequired { e }
-            }
-            (ResourceControlStatus::Required, Err(e)) => {
-                SystemdCreationDecision::SkipRequiredButUnavailable { e }
-            }
-        }
-    }
 
-    fn is_enabled(config: &ResourceControlStatus) -> buck2_error::Result<bool> {
-        let decision = Self::creation_decision(config);
-        match decision {
-            SystemdCreationDecision::SkipNotNeeded => Ok(false),
-            SystemdCreationDecision::SkipPreferredButNotRequired { e } => {
-                tracing::warn!(
-                    "Systemd is not available on this system. Continuing without resource control: {:#}",
-                    e
-                );
-                Ok(false)
-            }
-            SystemdCreationDecision::SkipRequiredButUnavailable { e } => {
-                Err(e.context("Systemd is unavailable but required by buckconfig"))
-            }
-            SystemdCreationDecision::Create => Ok(true),
-        }
-    }
-
-    pub fn create_if_enabled(config: &ResourceControlConfig) -> buck2_error::Result<Option<Self>> {
-        if Self::is_enabled(&config.status)? {
-            Ok(Some(Self::create()?))
-        } else {
-            Ok(None)
+        match systemd_check_available().await {
+            Ok(()) => Ok(Some(ResourceControlRunner(()))),
+            Err(e) => match config.status {
+                ResourceControlStatus::Off => unreachable!("Checked earlier"),
+                ResourceControlStatus::IfAvailable => Ok(None),
+                ResourceControlStatus::Required => Err(e),
+            },
         }
     }
 
@@ -128,9 +66,14 @@ impl ResourceControlRunner {
         working_directory: &AbsNormPath,
     ) -> std::process::Command {
         let mut cmd = process::background_command("systemd-run");
-        cmd.args(&self.fixed_systemd_args);
-        cmd.arg(format!("--working-directory={working_directory}"))
-            .arg(format!("--unit={unit_name}"));
+        cmd.arg("--user");
+        cmd.arg("--scope");
+        cmd.arg("--quiet");
+        cmd.arg("--collect");
+        cmd.arg("--property=Delegate=yes");
+        cmd.arg("--slice=buck2");
+        cmd.arg(format!("--working-directory={working_directory}"));
+        cmd.arg(format!("--unit={unit_name}"));
         cmd.arg(program);
         cmd
     }
@@ -142,6 +85,8 @@ pub fn replace_unit_delimiter(unit: &str) -> String {
 }
 
 fn validate_systemd_version(raw_stdout: &[u8]) -> Result<(), SystemdNotAvailableReason> {
+    const SYSTEMD_MIN_VERSION: u32 = 253;
+
     let stdout = String::from_utf8_lossy(raw_stdout);
     let version = stdout
         .split(' ')
@@ -162,43 +107,30 @@ fn validate_systemd_version(raw_stdout: &[u8]) -> Result<(), SystemdNotAvailable
     }
 }
 
-fn is_available() -> buck2_error::Result<()> {
+async fn systemd_check_available() -> buck2_error::Result<()> {
     if !cfg!(target_os = "linux") {
         return Err(SystemdNotAvailableReason::UnsupportedPlatform.into());
     }
 
-    let unavailable_reason = AVAILABILITY.get_or_init(|| -> Option<buck2_error::Error> {
-        match process::background_command("systemctl")
-            .arg("--version")
-            .output()
-        {
-            Ok(output) => {
-                if output.status.success() {
-                    match validate_systemd_version(&output.stdout) {
-                        Ok(_) => None,
-                        Err(e) => Some(e.into()),
-                    }
-                } else {
-                    Some(
-                        SystemdNotAvailableReason::SystemctlCommandReturnedNonZero(
-                            String::from_utf8_lossy(&output.stderr).to_string(),
-                        )
-                        .into(),
-                    )
-                }
+    match async_background_command("systemctl")
+        .arg("--version")
+        .output()
+        .await
+    {
+        Ok(output) => {
+            if output.status.success() {
+                validate_systemd_version(&output.stdout).map_err(|e| e.into())
+            } else {
+                Err(SystemdNotAvailableReason::SystemctlCommandReturnedNonZero(
+                    String::from_utf8_lossy(&output.stderr).to_string(),
+                )
+                .into())
             }
-            Err(e) => match e.kind() {
-                ErrorKind::NotFound => {
-                    Some(SystemdNotAvailableReason::SystemctlCommandNotFound.into())
-                }
-                _ => Some(SystemdNotAvailableReason::SystemctlCommandLaunchFailed(e).into()),
-            },
         }
-    });
-
-    match unavailable_reason {
-        None => Ok(()),
-        Some(r) => Err(r.clone()),
+        Err(e) => match e.kind() {
+            ErrorKind::NotFound => Err(SystemdNotAvailableReason::SystemctlCommandNotFound.into()),
+            _ => Err(SystemdNotAvailableReason::SystemctlCommandLaunchFailed(e).into()),
+        },
     }
 }
 
@@ -249,9 +181,12 @@ mod tests {
     }
 
     #[cfg(not(target_os = "linux"))]
-    #[test]
-    fn test_always_unavailable_on_nonlinux() {
+    #[tokio::test]
+    async fn test_always_unavailable_on_nonlinux() {
         let _error = buck2_error::Error::from(SystemdNotAvailableReason::UnsupportedPlatform);
-        assert!(matches!(is_available().unwrap_err(), _error));
+        assert!(matches!(
+            systemd_check_available().await.unwrap_err(),
+            _error
+        ));
     }
 }
