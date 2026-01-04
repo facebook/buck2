@@ -726,7 +726,7 @@ impl DiceCommandUpdater<'_, '_> {
         let mut data = DiceData::new();
         data.set(self.cmd_ctx.events().dupe());
         data.set(HasResourceControl(
-            self.cmd_ctx.base_context.daemon.cgroup_tree.is_some(),
+            self.cmd_ctx.base_context.daemon.memory_tracker.is_some(),
         ));
 
         let cycle_detector = if root_config

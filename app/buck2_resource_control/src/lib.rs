@@ -47,6 +47,7 @@ pub mod buck_cgroup_tree {
         }
     }
 
+    #[derive(allocative::Allocative)]
     pub struct BuckCgroupTree;
 
     impl BuckCgroupTree {
@@ -70,12 +71,14 @@ pub mod memory_tracker {
     use crate::buck_cgroup_tree::BuckCgroupTree;
 
     #[derive(Allocative)]
-    pub struct MemoryTracker {}
+    pub struct MemoryTracker {
+        pub cgroup_tree: BuckCgroupTree,
+    }
 
     pub type MemoryTrackerHandle = Arc<MemoryTracker>;
 
     pub async fn create_memory_tracker(
-        _cgroup_tree: Option<&BuckCgroupTree>,
+        _cgroup_tree: Option<BuckCgroupTree>,
         _resource_control_config: &ResourceControlConfig,
         _daemon_id: &DaemonId,
     ) -> buck2_error::Result<Option<MemoryTrackerHandle>> {

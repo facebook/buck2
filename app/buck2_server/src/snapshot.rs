@@ -324,7 +324,8 @@ impl SnapshotCollector {
 
             // Try to read Buck2 daemon memory information from cgroup
 
-            if let Some(cgroup_tree) = self.daemon.cgroup_tree.as_ref() {
+            if let Some(memory_tracker) = self.daemon.memory_tracker.as_ref() {
+                let cgroup_tree = &memory_tracker.cgroup_tree;
                 if let Ok(stat) = cgroup_tree.allprocs().read_memory_stat().await {
                     snapshot.allprocs_cgroup = Some(convert_stats(&stat))
                 }

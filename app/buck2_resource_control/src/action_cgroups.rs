@@ -429,11 +429,12 @@ impl ActionCgroups {
 
         // Report resource control events every 10 seconds normally, but every second during times
         // of pressure
-        let scheduled_event_freq = if pressure_state == MemoryPressureState::AbovePressureLimit {
-            Duration::from_secs(1)
-        } else {
-            Duration::from_secs(10)
-        };
+        let scheduled_event_freq =
+            if cfg!(test) || pressure_state == MemoryPressureState::AbovePressureLimit {
+                Duration::from_secs(1)
+            } else {
+                Duration::from_secs(10)
+            };
         self.event_sender_state.maybe_send_scheduled_event(
             scheduled_event_freq,
             self.running_cgroups.len() as u64,

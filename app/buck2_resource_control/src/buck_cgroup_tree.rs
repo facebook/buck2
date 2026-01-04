@@ -30,6 +30,7 @@ enum CgroupConfigParsingError {
 
 pub struct PreppedBuckCgroups {
     allprocs: CgroupMinimal,
+    daemon: CgroupMinimal,
 }
 
 impl PreppedBuckCgroups {
@@ -65,6 +66,22 @@ impl PreppedBuckCgroups {
 
         Ok(PreppedBuckCgroups {
             allprocs: root_cgroup,
+            daemon: daemon_cgroup,
+        })
+    }
+
+    #[cfg(test)]
+    pub(crate) async fn testing_new() -> Option<Self> {
+        use crate::cgroup::Cgroup;
+
+        let root = Cgroup::create_minimal_for_test().await?;
+        let daemon = root
+            .discouraged_make_child(FileNameBuf::unchecked_new("daemon"))
+            .await
+            .unwrap();
+        Some(PreppedBuckCgroups {
+            allprocs: root,
+            daemon,
         })
     }
 }
@@ -98,6 +115,7 @@ pub struct BuckCgroupTree {
     allprocs: CgroupInternal,
     forkserver_and_actions: CgroupInternal,
     forkserver: CgroupLeaf,
+    daemon: CgroupLeaf,
     /// The resource constraints imposed by the ancestors of the buck cgroup tree
     ///
     /// This does not reflect any of our own configuration
@@ -115,6 +133,13 @@ impl BuckCgroupTree {
         let allprocs = prepped
             .allprocs
             .enable_subtree_control_and_into_internal(enabled_controllers)
+            .await?
+            .enable_memory_monitoring()
+            .await?;
+
+        let daemon = prepped
+            .daemon
+            .into_leaf()
             .await?
             .enable_memory_monitoring()
             .await?;
@@ -158,6 +183,7 @@ impl BuckCgroupTree {
             allprocs,
             forkserver_and_actions,
             forkserver,
+            daemon,
             effective_resource_constraints,
         })
     }
@@ -173,6 +199,10 @@ impl BuckCgroupTree {
     /// The parent cgroup that contains all other cgroups buck manages as descendants
     pub fn allprocs(&self) -> &CgroupInternal {
         &self.allprocs
+    }
+
+    pub fn daemon(&self) -> &CgroupLeaf {
+        &self.daemon
     }
 
     pub(crate) fn effective_resource_constraints(&self) -> &EffectiveResourceConstraints {

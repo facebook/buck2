@@ -187,9 +187,6 @@ pub struct DaemonStateData {
     /// Config used to display system warnings
     pub system_warning_config: SystemWarningConfig,
 
-    #[allocative(skip)]
-    pub cgroup_tree: Option<BuckCgroupTree>,
-
     /// Tracks memory usage. Used to make scheduling decisions.
     #[allocative(skip)]
     pub memory_tracker: Option<MemoryTrackerHandle>,
@@ -574,7 +571,7 @@ impl DaemonState {
             )?;
 
             let memory_tracker = memory_tracker::create_memory_tracker(
-                cgroup_tree.as_ref(),
+                cgroup_tree,
                 &init_ctx.daemon_startup_config.resource_control,
                 &daemon_id,
             )
@@ -585,7 +582,7 @@ impl DaemonState {
             let forkserver = maybe_launch_forkserver(
                 root_config,
                 &paths.forkserver_state_dir(),
-                cgroup_tree.as_ref(),
+                memory_tracker.as_ref().map(|m| &m.cgroup_tree),
             )
             .await?;
 
@@ -669,7 +666,7 @@ impl DaemonState {
                 format!("use-eden-thrift-read:{}", use_eden_thrift_read),
                 format!("memory_tracker-enabled:{}", memory_tracker.is_some()),
                 format!("action-freezing-enabled:{}", action_freezing_enabled),
-                format!("has-cgroup:{}", cgroup_tree.is_some()),
+                format!("has-cgroup:{}", memory_tracker.is_some()),
             ];
             let system_warning_config = SystemWarningConfig::from_config(root_config)?;
 
@@ -697,7 +694,6 @@ impl DaemonState {
                 spawner: Arc::new(BuckSpawner::new(daemon_state_data_rt)),
                 tags,
                 system_warning_config,
-                cgroup_tree,
                 memory_tracker,
                 previous_command_data: LockedPreviousCommandData::new(),
                 incremental_db_state,

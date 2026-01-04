@@ -17,21 +17,16 @@ use buck2_error::BuckErrorContext;
 use buck2_error::internal_error;
 use buck2_events::daemon_id::DaemonId;
 use buck2_events::dispatch::EventDispatcher;
-use buck2_fs::paths::file_name::FileName;
 use buck2_util::threads::thread_spawn;
 use dupe::Dupe;
 use tokio::fs::File;
-use tokio::io::AsyncBufReadExt;
 use tokio::io::AsyncReadExt;
 use tokio::io::AsyncSeekExt;
-use tokio::io::BufReader;
 use tokio::sync::mpsc;
 use tokio_util::sync::CancellationToken;
 
 use crate::action_cgroups::ActionCgroups;
 use crate::buck_cgroup_tree::BuckCgroupTree;
-use crate::cgroup_info::CGroupInfo;
-use crate::path::CgroupPathBuf;
 use crate::pool::CgroupPool;
 
 #[derive(Allocative, Copy, Clone, Debug, PartialEq)]
@@ -68,13 +63,15 @@ pub type MemoryTrackerHandle = Arc<MemoryTrackerHandleInner>;
 #[derive(Allocative)]
 #[allocative(skip)]
 pub struct MemoryTrackerHandleInner {
+    pub cgroup_tree: BuckCgroupTree,
     // Written to by executors and tracker, read by executors
     pub(crate) action_cgroups: Arc<tokio::sync::Mutex<ActionCgroups>>,
 }
 
 impl MemoryTrackerHandleInner {
-    fn new(action_cgroups: ActionCgroups) -> Self {
+    fn new(cgroup_tree: BuckCgroupTree, action_cgroups: ActionCgroups) -> Self {
         Self {
+            cgroup_tree,
             action_cgroups: Arc::new(tokio::sync::Mutex::new(action_cgroups)),
         }
     }
@@ -82,57 +79,9 @@ impl MemoryTrackerHandleInner {
 
 #[derive(Allocative)]
 pub struct MemoryTracker {
-    /// Open `memory.current` file for buck2.slice cgroup of our process
-    #[allocative(skip)]
-    buck2_slice_memory_current: File,
-    /// Open `memory.swap.current` file for buck2.slice cgroup of our process
-    #[allocative(skip)]
-    buck2_slice_memory_swap_current: File,
-    /// Open `memory.pressure` file for buck2.slice cgroup of our process
-    #[allocative(skip)]
-    buck2_slice_memory_pressure: File,
-
-    /// Open `memory.current` file for daemon cgroup of our process
-    #[allocative(skip)]
-    daemon_memory_current: File,
-    /// Open `memory.swap.current` file for daemon cgroup of our process
-    #[allocative(skip)]
-    daemon_memory_swap_current: File,
-
     #[allocative(skip)]
     handle: MemoryTrackerHandle,
     memory_pressure_threshold: u64,
-}
-
-#[derive(buck2_error::Error, Debug)]
-#[buck2(tag = Tier0)]
-enum MemoryTrackerError {
-    #[error("Expected cgroup scope `{0}` to be placed inside a parent slice.")]
-    ParentSliceExpected(CgroupPathBuf),
-}
-
-async fn open_daemon_memory_file(file_name: &FileName) -> buck2_error::Result<File> {
-    let path = CGroupInfo::read_async()
-        .await?
-        .path
-        .as_abs_path()
-        .join(file_name);
-    File::open(&path)
-        .await
-        .map_err(|e| buck2_error::Error::from(e).context(format!("Error opening `{}`", path)))
-}
-
-async fn open_buck2_cgroup_memory_file(file_name: &FileName) -> buck2_error::Result<File> {
-    let info = CGroupInfo::read_async().await?;
-    // To track both daemon and forkserver memory usage combined, we need a slice which contains this scope
-    // (e.g. "/sys/fs/cgroup/user.slice/.../buck2.slice/buck2-daemon.project.isolation_dir.slice").
-    let Some(daemon_and_forkserver_slice) = info.get_slice() else {
-        return Err(MemoryTrackerError::ParentSliceExpected(info.path).into());
-    };
-    let path = daemon_and_forkserver_slice.as_abs_path().join(file_name);
-    File::open(&path)
-        .await
-        .map_err(|e| buck2_error::Error::from(e).context(format!("Error opening `{}`", path)))
 }
 
 pub struct MemoryReporter {
@@ -175,7 +124,7 @@ impl Drop for MemoryReporter {
 }
 
 pub async fn create_memory_tracker(
-    cgroup_tree: Option<&BuckCgroupTree>,
+    cgroup_tree: Option<BuckCgroupTree>,
     resource_control_config: &ResourceControlConfig,
     daemon_id: &DaemonId,
 ) -> buck2_error::Result<Option<MemoryTrackerHandle>> {
@@ -196,14 +145,9 @@ pub async fn create_memory_tracker(
         cgroup_pool,
     )
     .await?;
-    let handle = MemoryTrackerHandleInner::new(action_cgroups);
+    let handle = MemoryTrackerHandleInner::new(cgroup_tree, action_cgroups);
     let memory_tracker = MemoryTracker::new(
         handle,
-        open_buck2_cgroup_memory_file(FileName::unchecked_new("memory.current")).await?,
-        open_buck2_cgroup_memory_file(FileName::unchecked_new("memory.swap.current")).await?,
-        open_buck2_cgroup_memory_file(FileName::unchecked_new("memory.pressure")).await?,
-        open_daemon_memory_file(FileName::unchecked_new("memory.current")).await?,
-        open_daemon_memory_file(FileName::unchecked_new("memory.swap.current")).await?,
         resource_control_config.memory_pressure_threshold_percent,
     );
     let tracker_handle = memory_tracker.handle.dupe();
@@ -213,22 +157,9 @@ pub async fn create_memory_tracker(
 }
 
 impl MemoryTracker {
-    fn new(
-        handle: MemoryTrackerHandleInner,
-        buck2_slice_memory_current: File,
-        buck2_slice_memory_swap_current: File,
-        buck2_slice_memory_pressure: File,
-        daemon_memory_current: File,
-        daemon_memory_swap_current: File,
-        memory_pressure_threshold: u64,
-    ) -> Self {
+    fn new(handle: MemoryTrackerHandleInner, memory_pressure_threshold: u64) -> Self {
         Self {
             handle: Arc::new(handle),
-            buck2_slice_memory_current,
-            buck2_slice_memory_swap_current,
-            buck2_slice_memory_pressure,
-            daemon_memory_current,
-            daemon_memory_swap_current,
             memory_pressure_threshold,
         }
     }
@@ -245,7 +176,7 @@ impl MemoryTracker {
         Ok(())
     }
 
-    async fn run(mut self, duration: Duration) {
+    async fn run(self, duration: Duration) {
         let mut timer = tokio::time::interval(duration);
         timer.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
         loop {
@@ -253,11 +184,6 @@ impl MemoryTracker {
 
             // Manual destructuring to allow parallel reads of different files
             let MemoryTracker {
-                ref mut buck2_slice_memory_current,
-                ref mut buck2_slice_memory_swap_current,
-                ref mut buck2_slice_memory_pressure,
-                ref mut daemon_memory_current,
-                ref mut daemon_memory_swap_current,
                 ref handle,
                 memory_pressure_threshold,
             } = self;
@@ -269,11 +195,11 @@ impl MemoryTracker {
                 daemon_memory_current,
                 daemon_memory_swap_current,
             )) = tokio::try_join!(
-                read_memory_current(buck2_slice_memory_current),
-                read_memory_swap_current(buck2_slice_memory_swap_current),
-                read_some_memory_pressure_avg10(buck2_slice_memory_pressure),
-                read_memory_current(daemon_memory_current),
-                read_memory_swap_current(daemon_memory_swap_current),
+                handle.cgroup_tree.allprocs().read_memory_current(),
+                handle.cgroup_tree.allprocs().read_swap_current(),
+                handle.cgroup_tree.allprocs().read_memory_pressure(),
+                handle.cgroup_tree.daemon().read_memory_current(),
+                handle.cgroup_tree.daemon().read_swap_current(),
             ) {
                 let pressure_percent = buck2_slice_avg_mem_pressure.round() as u64;
                 let memory_pressure_state = if pressure_percent < memory_pressure_threshold {
@@ -322,38 +248,6 @@ async fn read_memory_file(file: &mut File, file_name: &str) -> buck2_error::Resu
         })
 }
 
-// The content should consistently have the following format:
-//  ```
-//  some avg10=0.00 avg60=0.00 avg300=0.00 total=55022676
-//  full avg10=0.00 avg60=0.00 avg300=0.00 total=52654786
-//  ```
-// 'some' row will track if any tasks are delayed due to memory pressure which is likely what are interested in
-async fn read_some_memory_pressure_avg10(memory_pressure: &mut File) -> buck2_error::Result<f32> {
-    memory_pressure.rewind().await?;
-    let reader = BufReader::new(memory_pressure);
-    let mut lines = reader.lines();
-    while let Some(line) = lines.next_line().await? {
-        if line.starts_with("some") {
-            let parts = line.split_whitespace().collect::<Vec<_>>();
-            let avg10 = parts.get(1).ok_or(internal_error!(
-                "unexpected memory.pressure format, could not parse 2nd value"
-            ))?;
-            let string_value = avg10.strip_prefix("avg10=").ok_or(internal_error!(
-                "unexpected memory.pressure format, 2nd value doesn't start with 'avg10='"
-            ))?;
-
-            return string_value
-                .parse::<f32>()
-                .map_err(buck2_error::Error::from)
-                .with_buck_error_context(|| {
-                    format!("Expected a numeric value, found {}", string_value)
-                });
-        }
-    }
-
-    Err(internal_error!("no 'some' line found in memory.pressure"))
-}
-
 pub async fn read_memory_current(memory_current: &mut File) -> buck2_error::Result<u64> {
     read_memory_file(memory_current, "memory.current").await
 }
@@ -364,210 +258,75 @@ pub async fn read_memory_swap_current(memory_swap_current: &mut File) -> buck2_e
 
 #[cfg(test)]
 mod tests {
-    use std::fs;
     use std::time::Duration;
 
-    use buck2_data::ResourceControlEvents;
+    use buck2_common::legacy_configs::configs::LegacyBuckConfig;
     use buck2_wrapper_common::invocation_id::TraceId;
-    use tokio::fs::File;
 
     use super::*;
-
-    const TICK_DURATION: Duration = Duration::from_secs(1);
-    const TIMEOUT_DURATION: Duration = Duration::from_secs(2);
+    use crate::buck_cgroup_tree::PreppedBuckCgroups;
 
     #[tokio::test]
     async fn test_current_memory_changes_tracked() -> buck2_error::Result<()> {
-        let dir = tempfile::tempdir()?;
-        let current = dir.path().join("current.memory");
-        fs::write(&current, "6").unwrap();
-        let buck2_slice_memory_current = File::open(current.clone()).await?;
-        let swap = dir.path().join("current.swap");
-        fs::write(&swap, "2").unwrap();
-        let buck2_slice_memory_swap_current = File::open(swap.clone()).await?;
-        let pressure = dir.path().join("current.pressure");
-        fs::write(
-            &pressure,
-            "some avg10=1.35 avg60=0.00 avg300=0.00 total=200000",
-        )
-        .unwrap();
-        let buck2_slice_memory_pressure = File::open(pressure.clone()).await?;
-        let daemon_current = dir.path().join("daemon.memory");
-        fs::write(&daemon_current, "4").unwrap();
-        let daemon_memory_current = File::open(daemon_current.clone()).await?;
-        let daemon_memory_swap_current = dir.path().join("daemon.swap");
-        fs::write(&daemon_memory_swap_current, "1").unwrap();
-        let daemon_memory_swap = File::open(daemon_memory_swap_current.clone()).await?;
-        let Some(action_cgroups) = ActionCgroups::testing_new().await else {
+        let Some(prepped) = PreppedBuckCgroups::testing_new().await else {
             return Ok(());
         };
-        let handle = MemoryTrackerHandleInner::new(action_cgroups);
+        let config = ResourceControlConfig {
+            memory_high: Some("19000000".to_owned()),
+            ..ResourceControlConfig::from_config(&LegacyBuckConfig::empty())?
+        };
+        let cgroup_tree = BuckCgroupTree::set_up(prepped, &config).await?;
+        let tracker = create_memory_tracker(Some(cgroup_tree), &config, &DaemonId::new())
+            .await?
+            .unwrap();
         let (resource_control_event_tx, mut resource_control_event_rx) = mpsc::unbounded_channel();
-        handle
+        tracker
             .action_cgroups
             .lock()
             .await
             .command_started(resource_control_event_tx);
-        let tracker = MemoryTracker::new(
-            handle,
-            buck2_slice_memory_current,
-            buck2_slice_memory_swap_current,
-            buck2_slice_memory_pressure,
-            daemon_memory_current,
-            daemon_memory_swap,
+
+        // Make sure we get some zeros
+        std::thread::sleep(Duration::from_secs(3));
+
+        // Simulate the daemon using some memory
+        let daemon = tracker.cgroup_tree.daemon();
+        let mut child =
+            daemon.spawn_use_some_memory_process(1, 20.0, None, Some(Duration::from_secs(10)))?;
+        child.wait()?;
+
+        let events = std::iter::from_fn(|| resource_control_event_rx.try_recv().ok())
+            .map(|e| e.complete(&TraceId::new()))
+            .collect::<Vec<_>>();
+        drop(resource_control_event_rx);
+        assert!(events.len() > 10, "{}", events.len());
+
+        assert_eq!(events[0].allprocs_memory_pressure, 0);
+        assert_eq!(events[0].daemon_memory_current, 0);
+        assert_eq!(events[0].daemon_swap_current, 0);
+
+        let assert_max_over =
+            |f: fn(&buck2_data::ResourceControlEvents) -> u64, val, name: &str| {
+                let max = events.iter().map(f).max().unwrap();
+                assert!(max > val, "{}: {} is not greater than {}", name, max, val);
+            };
+
+        assert_max_over(
+            |e| e.allprocs_memory_current,
+            10000000,
+            "allprocs_memory_current",
+        );
+        assert_max_over(
+            |e| e.allprocs_memory_pressure,
             10,
+            "allprocs_memory_pressure",
         );
-
-        tracker.spawn(TICK_DURATION).await?;
-
-        let event: ResourceControlEvents = resource_control_event_rx
-            .recv()
-            .await
-            .unwrap()
-            .complete(&TraceId::new());
-
-        assert_eq!(event.allprocs_memory_current, 6);
-        assert_eq!(event.allprocs_memory_swap_current, 2);
-        assert_eq!(event.allprocs_memory_pressure, 1);
-        assert_eq!(event.daemon_memory_current, 4);
-        assert_eq!(event.daemon_swap_current, 1);
-        fs::write(&current, "9").unwrap();
-        fs::write(&swap, "3").unwrap();
-        fs::write(&daemon_current, "7").unwrap();
-        fs::write(&daemon_memory_swap_current, "2").unwrap();
-
-        let event: ResourceControlEvents = resource_control_event_rx
-            .recv()
-            .await
-            .unwrap()
-            .complete(&TraceId::new());
-
-        assert_eq!(event.allprocs_memory_current, 9);
-        assert_eq!(event.allprocs_memory_swap_current, 3);
-        assert_eq!(event.allprocs_memory_pressure, 1);
-        assert_eq!(event.daemon_memory_current, 7);
-        assert_eq!(event.daemon_swap_current, 2);
-
-        // change reading but not state
-        fs::write(&current, "10").unwrap();
-        fs::write(&swap, "4").unwrap();
-
-        let event: ResourceControlEvents = resource_control_event_rx
-            .recv()
-            .await
-            .unwrap()
-            .complete(&TraceId::new());
-
-        assert_eq!(event.allprocs_memory_current, 10);
-        assert_eq!(event.allprocs_memory_swap_current, 4);
-        assert_eq!(event.allprocs_memory_pressure, 1);
-        assert_eq!(event.daemon_memory_current, 7);
-        assert_eq!(event.daemon_swap_current, 2);
-
-        // expect timeout error, no state change
-        assert!(
-            tokio::time::timeout(TIMEOUT_DURATION, resource_control_event_rx.recv())
-                .await
-                .is_err()
+        assert_max_over(
+            |e| e.daemon_memory_current,
+            10000000,
+            "daemon_memory_current",
         );
-
-        Ok(())
-    }
-
-    #[tokio::test]
-    async fn test_current_pressure_changes_tracked() -> buck2_error::Result<()> {
-        let dir = tempfile::tempdir()?;
-        let current = dir.path().join("current.memory");
-        fs::write(&current, "6").unwrap();
-        let buck2_slice_memory_current = File::open(current.clone()).await?;
-        let swap = dir.path().join("current.swap");
-        fs::write(&swap, "1").unwrap();
-        let buck2_slice_memory_swap_current = File::open(swap.clone()).await?;
-        let pressure = dir.path().join("current.pressure");
-        fs::write(
-            &pressure,
-            "some avg10=1.35 avg60=0.00 avg300=0.00 total=200000",
-        )
-        .unwrap();
-        let buck2_slice_memory_pressure = File::open(pressure.clone()).await?;
-
-        let daemon_memory = dir.path().join("daemon.memory");
-        fs::write(&daemon_memory, "3").unwrap();
-        let daemon_memory_current = File::open(daemon_memory.clone()).await?;
-
-        let daemon_swap = dir.path().join("daemon.swap");
-        fs::write(&daemon_swap, "4").unwrap();
-        let daemon_memory_swap_current = File::open(daemon_swap.clone()).await?;
-
-        let Some(action_cgroups) = ActionCgroups::testing_new().await else {
-            return Ok(());
-        };
-        let handle = MemoryTrackerHandleInner::new(action_cgroups);
-        let (resource_control_event_tx, mut resource_control_event_rx) = mpsc::unbounded_channel();
-        handle
-            .action_cgroups
-            .lock()
-            .await
-            .command_started(resource_control_event_tx);
-        let tracker = MemoryTracker::new(
-            handle,
-            buck2_slice_memory_current,
-            buck2_slice_memory_swap_current,
-            buck2_slice_memory_pressure,
-            daemon_memory_current,
-            daemon_memory_swap_current,
-            10,
-        );
-
-        tracker.spawn(TICK_DURATION).await?;
-
-        let event: ResourceControlEvents = resource_control_event_rx
-            .recv()
-            .await
-            .unwrap()
-            .complete(&TraceId::new());
-
-        assert_eq!(event.allprocs_memory_current, 6);
-        assert_eq!(event.allprocs_memory_swap_current, 1);
-        assert_eq!(event.allprocs_memory_pressure, 1);
-        assert_eq!(event.daemon_memory_current, 3);
-        assert_eq!(event.daemon_swap_current, 4);
-        fs::write(
-            &pressure,
-            "some avg10=15.95 avg60=0.00 avg300=0.00 total=440000",
-        )
-        .unwrap();
-
-        let event: ResourceControlEvents = resource_control_event_rx
-            .recv()
-            .await
-            .unwrap()
-            .complete(&TraceId::new());
-
-        assert_eq!(event.allprocs_memory_current, 6);
-        assert_eq!(event.allprocs_memory_swap_current, 1);
-        assert_eq!(event.allprocs_memory_pressure, 16);
-        assert_eq!(event.daemon_memory_current, 3);
-        assert_eq!(event.daemon_swap_current, 4);
-
-        // change reading but not state
-        fs::write(
-            &pressure,
-            "some avg10=18.3 avg60=0.00 avg300=0.00 total=600000",
-        )
-        .unwrap();
-
-        let event: ResourceControlEvents = resource_control_event_rx
-            .recv()
-            .await
-            .unwrap()
-            .complete(&TraceId::new());
-
-        assert_eq!(event.allprocs_memory_current, 6);
-        assert_eq!(event.allprocs_memory_swap_current, 1);
-        assert_eq!(event.allprocs_memory_pressure, 18);
-        assert_eq!(event.daemon_memory_current, 3);
-        assert_eq!(event.daemon_swap_current, 4);
+        assert_max_over(|e| e.daemon_swap_current, 500000, "daemon_swap_current");
 
         Ok(())
     }
