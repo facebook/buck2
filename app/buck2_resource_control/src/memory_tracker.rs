@@ -42,20 +42,12 @@ pub struct MemoryStates {
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct MemoryReading {
-    /// Contains value from `memory.current` file for buck2.slice cgroup covering
-    /// all aspects of build (daemon, forkserver & local action processes).
-    pub buck2_slice_memory_current: u64,
-    /// Contains value from `memory.swap.current` file for buck2.slice cgroup covering
-    /// all aspects of build (daemon, forkserver & local action processes).
-    pub buck2_slice_memory_swap_current: u64,
-    /// Contains the avg10 value from the 'some' role of `memory.pressure` file for buck2.slice cgroup.
-    /// This is a sliding window average of the % where any action is under memory pressure
-    /// over the last 10 seconds
-    pub buck2_slice_memory_pressure: u64,
-    /// Contains value from `memory.current` file for daemon cgroup.
+    pub allprocs_memory_current: u64,
+    pub allprocs_swap_current: u64,
+    /// The some/avg10 memory pressure
+    pub allprocs_memory_pressure: u64,
     pub daemon_memory_current: u64,
-    /// Contains value from `memory.swap.current` file for daemon cgroup.
-    pub daemon_memory_swap_current: u64,
+    pub daemon_swap_current: u64,
 }
 
 pub type MemoryTrackerHandle = Arc<MemoryTrackerHandleInner>;
@@ -182,45 +174,42 @@ impl MemoryTracker {
         loop {
             timer.tick().await;
 
-            // Manual destructuring to allow parallel reads of different files
-            let MemoryTracker {
-                ref handle,
-                memory_pressure_threshold,
-            } = self;
-
-            if let Ok((
-                buck2_slice_memory_current,
-                buck2_slice_memory_swap_current,
-                buck2_slice_avg_mem_pressure,
+            let Ok((
+                allprocs_memory_current,
+                allprocs_swap_current,
+                allprocs_memory_pressure,
                 daemon_memory_current,
-                daemon_memory_swap_current,
+                daemon_swap_current,
             )) = tokio::try_join!(
-                handle.cgroup_tree.allprocs().read_memory_current(),
-                handle.cgroup_tree.allprocs().read_swap_current(),
-                handle.cgroup_tree.allprocs().read_memory_pressure(),
-                handle.cgroup_tree.daemon().read_memory_current(),
-                handle.cgroup_tree.daemon().read_swap_current(),
-            ) {
-                let pressure_percent = buck2_slice_avg_mem_pressure.round() as u64;
-                let memory_pressure_state = if pressure_percent < memory_pressure_threshold {
-                    MemoryPressureState::BelowPressureLimit
-                } else {
-                    MemoryPressureState::AbovePressureLimit
-                };
-
-                let memory_reading = MemoryReading {
-                    buck2_slice_memory_current,
-                    buck2_slice_memory_swap_current,
-                    buck2_slice_memory_pressure: pressure_percent,
-                    daemon_memory_current,
-                    daemon_memory_swap_current,
-                };
-
-                let mut action_cgroups = handle.action_cgroups.as_ref().lock().await;
-                action_cgroups
-                    .update(memory_pressure_state, &memory_reading)
-                    .await;
+                self.handle.cgroup_tree.allprocs().read_memory_current(),
+                self.handle.cgroup_tree.allprocs().read_swap_current(),
+                self.handle.cgroup_tree.allprocs().read_memory_pressure(),
+                self.handle.cgroup_tree.daemon().read_memory_current(),
+                self.handle.cgroup_tree.daemon().read_swap_current(),
+            )
+            else {
+                continue;
             };
+
+            let pressure_percent = allprocs_memory_pressure.round() as u64;
+            let memory_pressure_state = if pressure_percent < self.memory_pressure_threshold {
+                MemoryPressureState::BelowPressureLimit
+            } else {
+                MemoryPressureState::AbovePressureLimit
+            };
+
+            let memory_reading = MemoryReading {
+                allprocs_memory_current,
+                allprocs_swap_current,
+                allprocs_memory_pressure: pressure_percent,
+                daemon_memory_current,
+                daemon_swap_current,
+            };
+
+            let mut action_cgroups = self.handle.action_cgroups.as_ref().lock().await;
+            action_cgroups
+                .update(memory_pressure_state, &memory_reading)
+                .await;
         }
     }
 }

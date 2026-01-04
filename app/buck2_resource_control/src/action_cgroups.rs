@@ -163,8 +163,8 @@ pub(crate) struct ActionCgroups {
     suspended_cgroups: VecDeque<SuspendedActionCgroup>,
     last_correction_time: Option<Instant>,
     last_memory_pressure_state: MemoryPressureState,
-    // Total memory of buck2.slice (Which contains daemon, forkserver and workers cgroups) when the last suspend happened.
-    // Used to calculate when we should wake cgroups.
+    // Total allprocs memory when the last suspend happened. Used to calculate when we should wake
+    // cgroups.
     total_memory_during_last_suspend: Option<u64>,
     event_sender_state: EventSenderState,
     // Constraints for the cgroup hierarchy
@@ -474,7 +474,7 @@ impl ActionCgroups {
             suspended_cgroup.cgroup.command_type
         );
 
-        self.total_memory_during_last_suspend = Some(memory_reading.buck2_slice_memory_current);
+        self.total_memory_during_last_suspend = Some(memory_reading.allprocs_memory_current);
         // Push it onto the list before emitting the event so that the action count in the event is
         // correct
         self.suspended_cgroups.push_front(suspended_cgroup);
@@ -523,7 +523,7 @@ impl ActionCgroups {
             }
         };
 
-        let should_wake = memory_reading.buck2_slice_memory_current + required_memory_headroom
+        let should_wake = memory_reading.allprocs_memory_current + required_memory_headroom
             < total_memory_during_last_suspend;
 
         if !should_wake {
@@ -705,11 +705,11 @@ mod tests {
         fs::write(cgroup_2.as_path().join("memory.swap.current"), "6")?;
 
         let memory_reading = MemoryReading {
-            buck2_slice_memory_current: 10000,
-            buck2_slice_memory_swap_current: 0,
-            buck2_slice_memory_pressure: 12,
+            allprocs_memory_current: 10000,
+            allprocs_swap_current: 0,
+            allprocs_memory_pressure: 12,
             daemon_memory_current: 8000,
-            daemon_memory_swap_current: 0,
+            daemon_swap_current: 0,
         };
         action_cgroups
             .update(MemoryPressureState::AbovePressureLimit, &memory_reading)
@@ -755,11 +755,11 @@ mod tests {
         fs::write(cgroup_2.as_path().join("memory.current"), "2")?;
 
         let memory_reading = MemoryReading {
-            buck2_slice_memory_current: 10000,
-            buck2_slice_memory_swap_current: 0,
-            buck2_slice_memory_pressure: 12,
+            allprocs_memory_current: 10000,
+            allprocs_swap_current: 0,
+            allprocs_memory_pressure: 12,
             daemon_memory_current: 8000,
-            daemon_memory_swap_current: 0,
+            daemon_swap_current: 0,
         };
         action_cgroups
             .update(MemoryPressureState::AbovePressureLimit, &memory_reading)
@@ -769,11 +769,11 @@ mod tests {
         assert!(cgroup_1_res.suspend_duration.is_none());
 
         let memory_reading_2 = MemoryReading {
-            buck2_slice_memory_current: 0,
-            buck2_slice_memory_swap_current: 0,
-            buck2_slice_memory_pressure: 0,
+            allprocs_memory_current: 0,
+            allprocs_swap_current: 0,
+            allprocs_memory_pressure: 0,
             daemon_memory_current: 0,
-            daemon_memory_swap_current: 0,
+            daemon_swap_current: 0,
         };
         action_cgroups
             .update(MemoryPressureState::BelowPressureLimit, &memory_reading_2)
