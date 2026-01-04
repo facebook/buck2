@@ -403,11 +403,21 @@ impl<M: MemoryMonitoring, K: CgroupKind> Cgroup<M, K> {
 }
 
 impl<M: MemoryMonitoring> Cgroup<M, CgroupKindInternal> {
+    /// Make a child cgroup
+    ///
+    /// Unlike above, not discouraged because we know this to be an internal cgroup
+    pub(crate) async fn make_child(
+        &self,
+        child: FileNameBuf,
+    ) -> buck2_error::Result<CgroupMinimal> {
+        self.discouraged_make_child(child).await
+    }
+
     pub(crate) async fn make_internal_child(
         &self,
         child: FileNameBuf,
     ) -> buck2_error::Result<Cgroup<NoMemoryMonitoring, CgroupKindInternal>> {
-        let c = self.discouraged_make_child(child).await?;
+        let c = self.make_child(child).await?;
         c.enable_subtree_control_and_into_internal(self.kind.controllers.dupe())
             .await
     }
@@ -416,7 +426,7 @@ impl<M: MemoryMonitoring> Cgroup<M, CgroupKindInternal> {
         &self,
         child: FileNameBuf,
     ) -> buck2_error::Result<Cgroup<NoMemoryMonitoring, CgroupKindLeaf>> {
-        let c = self.discouraged_make_child(child).await?;
+        let c = self.make_child(child).await?;
         c.into_leaf().await
     }
 }
@@ -558,7 +568,7 @@ impl CgroupMinimal {
                 // means that attempting to run multiple tests like this in the same process won't
                 // work, but alas this is the best we can do
                 let leaf = parent
-                    .discouraged_make_child(FileNameBuf::unchecked_new("_buck_leaf"))
+                    .make_child(FileNameBuf::unchecked_new("_buck_leaf"))
                     .await
                     .unwrap();
                 // Move ourselves into the cgroup we just created
@@ -577,7 +587,7 @@ impl CgroupMinimal {
                 );
                 Some(
                     parent
-                        .discouraged_make_child(FileNameBuf::unchecked_new("test_group"))
+                        .make_child(FileNameBuf::unchecked_new("test_group"))
                         .await
                         .unwrap(),
                 )

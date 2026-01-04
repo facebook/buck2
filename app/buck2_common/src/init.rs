@@ -245,6 +245,12 @@ pub struct ResourceControlConfig {
     pub preferred_action_suspend_strategy: ActionSuspendStrategy,
 }
 
+impl ResourceControlConfig {
+    pub fn testing_default() -> Self {
+        Self::from_config(&LegacyBuckConfig::empty()).unwrap()
+    }
+}
+
 #[derive(Allocative, Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub enum ActionSuspendStrategy {
     CgroupFreeze,
@@ -558,8 +564,7 @@ impl DaemonStartupConfig {
             paranoid: false,
             materializations: None,
             http: HttpConfig::default(),
-            resource_control: ResourceControlConfig::from_config(&LegacyBuckConfig::empty())
-                .unwrap(),
+            resource_control: ResourceControlConfig::testing_default(),
             log_download_method: if cfg!(fbcode_build) {
                 LogDownloadMethod::Manifold
             } else {

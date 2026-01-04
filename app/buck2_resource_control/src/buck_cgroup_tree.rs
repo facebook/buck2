@@ -101,18 +101,22 @@ impl PreppedBuckCgroups {
     }
 
     #[cfg(test)]
-    pub(crate) async fn testing_new() -> Option<Self> {
-        use crate::cgroup::Cgroup;
-
-        let root = Cgroup::create_minimal_for_test().await?;
+    pub(crate) async fn testing_new_in(root: CgroupMinimal) -> Self {
         let daemon = root
             .discouraged_make_child(FileNameBuf::unchecked_new("daemon"))
             .await
             .unwrap();
-        Some(PreppedBuckCgroups {
+        PreppedBuckCgroups {
             allprocs: root,
             daemon,
-        })
+        }
+    }
+
+    #[cfg(test)]
+    pub(crate) async fn testing_new() -> Option<Self> {
+        use crate::cgroup::Cgroup;
+
+        Some(Self::testing_new_in(Cgroup::create_minimal_for_test().await?).await)
     }
 }
 
@@ -242,7 +246,14 @@ impl BuckCgroupTree {
 
 #[cfg(test)]
 mod tests {
+    use buck2_common::init::ResourceControlConfig;
+    use buck2_fs::paths::file_name::FileNameBuf;
+
+    use crate::buck_cgroup_tree::BuckCgroupTree;
+    use crate::buck_cgroup_tree::PreppedBuckCgroups;
     use crate::buck_cgroup_tree::parse_procfs_cgroup_output;
+    use crate::buck_cgroup_tree::resolve_memory_restriction_value;
+    use crate::cgroup::Cgroup;
 
     #[test]
     fn test_cgroup_info_parse() {
@@ -260,5 +271,54 @@ mod tests {
             "/sys/fs/cgroup/user.slice/user-532497.slice/user@532497.service/buck2.cg",
             parse_procfs_cgroup_output(cgroup).unwrap().to_string()
         );
+    }
+
+    #[test]
+    fn test_resolve_memory_restriction_value() {
+        assert_eq!(
+            Some(100),
+            resolve_memory_restriction_value("100", None).unwrap()
+        );
+        assert_eq!(
+            Some(100),
+            resolve_memory_restriction_value("100", Some(10000)).unwrap()
+        );
+        assert_eq!(
+            Some(1000),
+            resolve_memory_restriction_value("1000", Some(100)).unwrap()
+        );
+        assert_eq!(
+            Some(50),
+            resolve_memory_restriction_value("50%", Some(100)).unwrap()
+        );
+        assert_eq!(None, resolve_memory_restriction_value("50%", None).unwrap());
+    }
+
+    #[tokio::test]
+    async fn test_memory_limit_relative_to_parent() {
+        let Some(r) = Cgroup::create_internal_for_test().await else {
+            return;
+        };
+        r.set_memory_high(&(1 << 20).to_string()).await.unwrap();
+        let root = r
+            .make_child(FileNameBuf::unchecked_new("root"))
+            .await
+            .unwrap();
+        let p = PreppedBuckCgroups::testing_new_in(root).await;
+        let t = BuckCgroupTree::set_up(
+            p,
+            &ResourceControlConfig {
+                memory_high: Some("50%".to_owned()),
+                ..ResourceControlConfig::testing_default()
+            },
+        )
+        .await
+        .unwrap();
+        let c = t
+            .allprocs()
+            .read_effective_resouce_constraints()
+            .await
+            .unwrap();
+        assert_eq!(c.memory_high, Some(1 << 19));
     }
 }
