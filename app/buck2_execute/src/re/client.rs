@@ -507,7 +507,10 @@ fn anticipated_queue_duration(
         "BUCK2_TEST_RE_QUEUE_ESTIMATE_S",
         type=u64,
         applicability = testing
-    )? {
+    )
+    // Stringify the error because we can't deal with buck2_errors here
+    .map_err(|e| anyhow::anyhow!(e))?
+    {
         return Ok(Some(Duration::from_secs(duration)));
     }
 
