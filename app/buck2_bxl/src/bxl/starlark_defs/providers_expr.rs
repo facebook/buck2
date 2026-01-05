@@ -156,33 +156,6 @@ impl<'v> ConfiguredProvidersExprArg<'v> {
     }
 }
 
-impl<'v> AnyProvidersExprArg<'v> {
-    pub(crate) fn contains_unconfigured(&self) -> bool {
-        match self {
-            AnyProvidersExprArg::One(arg) => arg.is_unconfigured(),
-            AnyProvidersExprArg::List(arg) => arg.contains_unconfigured(),
-        }
-    }
-}
-
-impl<'v> AnyProvidersLabelArg<'v> {
-    fn is_unconfigured(&self) -> bool {
-        matches!(self, AnyProvidersLabelArg::Unconfigured(_))
-    }
-}
-
-impl<'v> AnyProvidersLabelListArg<'v> {
-    fn contains_unconfigured(&self) -> bool {
-        match self {
-            AnyProvidersLabelListArg::List(args) => {
-                args.items.iter().any(|arg| arg.is_unconfigured())
-            }
-            AnyProvidersLabelListArg::StarlarkTargetSet(_) => true,
-            _ => false,
-        }
-    }
-}
-
 impl ProvidersExpr<ConfiguredProvidersLabel> {
     pub(crate) async fn unpack<'v, 'c>(
         arg: AnyProvidersExprArg<'v>,
