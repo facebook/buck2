@@ -403,9 +403,7 @@ impl<'v> StarlarkValue<'v> for UserProviderCallable {
     ) -> starlark::Result<Value<'v>> {
         match self.callable.get() {
             Some(callable) => callable.invoke(args, eval),
-            None => Err(starlark::Error::new_other(buck2_error::Error::from(
-                ProviderCallableError::NotBound,
-            ))),
+            None => Err(buck2_error::Error::from(ProviderCallableError::NotBound).into()),
         }
     }
 

@@ -188,13 +188,11 @@ impl<'v> StarlarkSelector<'v> {
             eval.eval_function(func, &[val], &[])?
                 .unpack_bool()
                 .ok_or_else(|| {
-                    starlark::Error::new_kind(starlark::ErrorKind::Native(
-                        buck2_error::buck2_error!(
-                            buck2_error::ErrorTag::Input,
-                            "Expected testing function to have a boolean return type"
-                        )
-                        .into(),
-                    ))
+                    buck2_error::buck2_error!(
+                        buck2_error::ErrorTag::Input,
+                        "Expected testing function to have a boolean return type"
+                    )
+                    .into()
                 })
         }
 

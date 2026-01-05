@@ -388,12 +388,13 @@ where
     fn at(&self, index: Value<'v>, _heap: &'v Heap) -> starlark::Result<Value<'v>> {
         match self.get_impl(index, GetOp::At)? {
             Either::Left(v) => Ok(v),
-            Either::Right(provider_id) => Err(starlark::Error::new_other(
-                buck2_error::Error::from(ProviderCollectionError::AtNotFound(
+            Either::Right(provider_id) => Err(buck2_error::Error::from(
+                ProviderCollectionError::AtNotFound(
                     provider_id.name.clone(),
                     self.providers.keys().map(|k| k.name.clone()).collect(),
-                )),
-            )),
+                ),
+            )
+            .into()),
         }
     }
 
