@@ -89,6 +89,9 @@ def _whl_cmd(
     cmd.append(output.as_output())
     cmd.append("--name={}".format(ctx.attrs.dist or ctx.attrs.name))
     cmd.append("--version={}".format(ctx.attrs.version))
+    cmd.append("--python-tag={}".format(ctx.attrs.python))
+    cmd.append("--abi-tag={}".format(ctx.attrs.abi))
+    cmd.append("--platform-tag={}".format(ctx.attrs.platform))
 
     if ctx.attrs.entry_points:
         cmd.append("--entry-points={}".format(json.encode(ctx.attrs.entry_points)))

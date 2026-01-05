@@ -44,6 +44,9 @@ class WheelBuilder(contextlib.AbstractContextManager):
         name: str,
         version: str,
         output: str,
+        python_tag: str = "py3",
+        abi_tag: str = "none",
+        platform_tag: str = "any",
         entry_points: Optional[dict[str, str]] = None,
         metadata: Optional[list[tuple[str, str]]] = None,
     ) -> None:
@@ -56,6 +59,9 @@ class WheelBuilder(contextlib.AbstractContextManager):
         #  punted for later since it was not a clean copy/paste and
         #  taking a dep to tp from toolchains is not straightforward
         self._version = version
+        self._python_tag = python_tag
+        self._abi_tag = abi_tag
+        self._platform_tag = platform_tag
         self._record: list[str] = []
         self._outf = zipfile.ZipFile(output, mode="w")
         self._entry_points: Optional[dict[str, str]] = entry_points
@@ -112,10 +118,18 @@ class WheelBuilder(contextlib.AbstractContextManager):
             self._dist_info("METADATA"),
             "".join([f"{key}: {val}\n" for key, val in self._metadata]),
         )
+
+        # Determine Root-Is-Purelib based on platform tag
+        # Pure Python wheels use platform "any", platform-specific wheels are not purelib
+        root_is_purelib = "true" if self._platform_tag == "any" else "false"
+
         self.writestr(
             self._dist_info("WHEEL"),
-            """\
+            f"""\
 Wheel-Version: 1.0
+Generator: buck2
+Root-Is-Purelib: {root_is_purelib}
+Tag: {self._python_tag}-{self._abi_tag}-{self._platform_tag}
 """,
         )
 
@@ -146,6 +160,9 @@ def main(argv: list[str]) -> None:
     parser.add_argument("--output", required=True)
     parser.add_argument("--name", required=True)
     parser.add_argument("--version", required=True)
+    parser.add_argument("--python-tag", default="py3")
+    parser.add_argument("--abi-tag", default="none")
+    parser.add_argument("--platform-tag", default="any")
     parser.add_argument("--entry-points", default=None)
     parser.add_argument("--manifest", dest="manifests", action="append", default=[])
     parser.add_argument(
@@ -171,6 +188,9 @@ def main(argv: list[str]) -> None:
         name=args.name,
         version=args.version,
         output=args.output,
+        python_tag=args.python_tag,
+        abi_tag=args.abi_tag,
+        platform_tag=args.platform_tag,
         entry_points=(
             json.loads(args.entry_points) if args.entry_points is not None else None
         ),
