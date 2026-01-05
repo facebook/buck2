@@ -15,24 +15,29 @@ use std::sync::atomic::AtomicU32;
 use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering;
 use std::time::Duration;
+use std::time::Instant;
 
 use allocative::Allocative;
 use assert_matches::assert_matches;
 use async_trait::async_trait;
 use derive_more::Display;
+use dice_error::DiceError;
 use dice_error::result::CancellableResult;
 use dice_error::result::CancellationReason;
 use dice_futures::cancellation::CancellationContext;
+use dice_futures::cancellation::CancellationObserver;
 use dupe::Dupe;
 use dupe::IterDupedExt;
 use futures::Future;
 use futures::pin_mut;
 use gazebo::prelude::SliceExt;
 use gazebo::variants::VariantName;
+use itertools::Either;
 use tokio::sync::Mutex;
 use tokio::sync::Notify;
 use tokio::sync::Semaphore;
 
+use crate::DetectCycles;
 use crate::api::computations::DiceComputations;
 use crate::api::data::DiceData;
 use crate::api::key::InvalidationSourcePriority;
@@ -1139,6 +1144,294 @@ async fn test_check_dependencies_can_eagerly_check_all_parallel_deps() -> anyhow
 
     Ok(())
 }
+
+#[derive(Allocative, Clone, Dupe, Debug, Display, PartialEq)]
+enum CancelType {
+    NotCancelled,
+    ASync,
+    Sync,
+}
+
+#[derive(Allocative, Clone, Dupe, Debug, Display, PartialEq)]
+enum CancelPollerType {
+    Context,
+    Observer,
+}
+
+async fn _run_cancellation_caching_test(
+    name: &'static str,
+    cancel_type: CancelType,
+    expected_value_from_cache: Result<CancelType, DiceError>,
+    cancel_poller_type: CancelPollerType,
+) {
+    #[derive(Debug)]
+    struct KeySyncData {
+        cancel_type: CancelType,
+        duration_ms: u64,
+        ran_compute: bool,
+        cancel_poller_type: CancelPollerType,
+    }
+
+    #[derive(Allocative, Clone, Dupe, Debug, Display)]
+    #[display("DelayOrCancelsSynchronously<{}>", name)]
+    struct DelayOrCancelsSynchronously {
+        name: &'static str,
+        // N.B. The Arcs here are used to share state among keys that are stored
+        // in the cache and keys that we have in the test. Once a particular key
+        // is given to dice, any equal keys will need to use the same Arc
+        // pointers to influence/affect the dice-cached key.
+        #[allocative(skip)]
+        semaphore: Arc<Semaphore>,
+        #[allocative(skip)]
+        shared: Arc<Mutex<KeySyncData>>,
+    }
+
+    impl Eq for DelayOrCancelsSynchronously {}
+    impl PartialEq for DelayOrCancelsSynchronously {
+        fn eq(&self, other: &Self) -> bool {
+            self.name == other.name
+        }
+    }
+
+    impl Hash for DelayOrCancelsSynchronously {
+        fn hash<H: Hasher>(&self, state: &mut H) {
+            self.name.hash(state)
+        }
+    }
+
+    impl DelayOrCancelsSynchronously {
+        async fn reset(
+            &self,
+            cancel_type: &CancelType,
+            duration_ms: u64,
+            cancel_poller_type: CancelPollerType,
+        ) {
+            let mut shared: tokio::sync::MutexGuard<'_, KeySyncData> = self.shared.lock().await;
+            shared.cancel_type = cancel_type.dupe();
+            shared.duration_ms = duration_ms;
+            shared.ran_compute = false;
+            shared.cancel_poller_type = cancel_poller_type;
+
+            self.semaphore.forget_permits(1);
+        }
+    }
+
+    #[async_trait]
+    impl Key for DelayOrCancelsSynchronously {
+        type Value = CancelType;
+
+        async fn compute(
+            &self,
+            _ctx: &mut DiceComputations,
+            cancellations: &CancellationContext,
+        ) -> Self::Value {
+            let (cancel_type, duration_ms, cancel_poller_type) = {
+                let mut shared: tokio::sync::MutexGuard<'_, KeySyncData> = self.shared.lock().await;
+                shared.ran_compute = true;
+                (
+                    shared.cancel_type.dupe(),
+                    shared.duration_ms,
+                    shared.cancel_poller_type.dupe(),
+                )
+            };
+            let start = Instant::now();
+
+            let duration = Duration::from_millis(duration_ms);
+
+            // This helper loop is used for "synchronous" cancellation tests. We
+            // loop infinitely in here until either the duration expires, or we
+            // detect that we are cancelled (via the requested method).
+            let sync_loop = |cancel_type,
+                             poller: Either<&CancellationContext, &CancellationObserver>|
+             -> CancelType {
+                while duration > Instant::now() - start {
+                    if match cancel_type {
+                        CancelType::NotCancelled => false,
+                        CancelType::ASync => {
+                            panic!("sychronous loop tried to detect async cancellation");
+                        }
+                        CancelType::Sync => match poller {
+                            Either::Left(context) => context.is_cancelled(),
+                            Either::Right(observer) => observer.is_cancelled(),
+                        },
+                    } {
+                        return cancel_type;
+                    }
+                }
+                CancelType::NotCancelled
+            };
+
+            // Run the test with either the CancellationContext or the CancellationObserver
+            match cancel_poller_type {
+                CancelPollerType::Observer => {
+                    cancellations
+                        .with_structured_cancellation(async |observer| {
+                            // N.B. The point of the semaphore here is to guarantee
+                            // to the test case that we've reached the point where
+                            // the CancellationObserver has been created. If
+                            // _anything_ cancels this task before this is called,
+                            // the test case will hang waiting for the semaphore to
+                            // be acquired.
+                            //
+                            // The test itself doesn't drop the task handle (causing
+                            // cancellation) until the semaphore is acquired, so
+                            // this _should_ be safe, unless there's another
+                            // potential source of task cancellations.
+                            //
+                            // If that becomes the case in the future, the test can
+                            // add a timeout at the acquire, and fail at the timeout.
+                            self.semaphore.add_permits(1);
+                            if cancel_type == CancelType::ASync {
+                                // async cancellation must perform at least one
+                                // await in the loop, vs synchronous cancellation,
+                                // so it's a different worker loop than the
+                                // synchronous version in `sync_loop`.
+                                let delay = tokio::time::sleep(duration);
+                                futures::pin_mut!(delay);
+                                futures::pin_mut!(observer);
+                                match futures::future::select(delay, observer).await {
+                                    futures::future::Either::Left(_) => CancelType::NotCancelled,
+                                    futures::future::Either::Right(_) => cancel_type,
+                                }
+                            } else {
+                                sync_loop(cancel_type.dupe(), Either::Right(&observer))
+                            }
+                        })
+                        .await
+                }
+                CancelPollerType::Context => {
+                    self.semaphore.add_permits(1);
+                    sync_loop(cancel_type.dupe(), Either::Left(cancellations))
+                }
+            }
+        }
+
+        fn equality(_: &Self::Value, _: &Self::Value) -> bool {
+            unreachable!("test")
+        }
+    }
+
+    let dice = Dice::builder().build(DetectCycles::Disabled);
+
+    const FIRST_COMPUTE_MS: u64 = 2500;
+    const CANCELLATION_WAIT_MS: u64 = 500;
+
+    let semaphore = Arc::new(Semaphore::new(1));
+    let shared = Arc::new(Mutex::new(KeySyncData {
+        cancel_type: CancelType::NotCancelled,
+        duration_ms: 0,
+        ran_compute: false,
+        cancel_poller_type: CancelPollerType::Context,
+    }));
+
+    let k = DelayOrCancelsSynchronously {
+        name,
+        shared: shared.dupe(),
+        semaphore: semaphore.dupe(),
+    };
+    k.reset(&cancel_type, FIRST_COMPUTE_MS, cancel_poller_type)
+        .await;
+    let mut txn: crate::DiceTransaction = dice.updater().commit().await;
+    let task = txn.compute(&k);
+    let start_cancel = {
+        // Before cancelling the task, we have to wait for the `compute()` method on
+        // the key to start, otherwise we may cancel "early" in an await before the
+        // key computation begins.
+        let _permit = semaphore.acquire().await.unwrap();
+        let start = Instant::now();
+        // Cancel the computation by dropping the handle to the computation task
+        drop(task);
+        // Wait for the task to finish it's cancellation before dropping the
+        // transaction.  We can't use dice.wait_for_idle() here, because that
+        // only tracks that tasks that were cancelled due to dropping a
+        // transaction have finished cancelling. We're dropping the task itself,
+        // but not the transaction.
+        //
+        // Failing to wait here races the computation completing and (maybe)
+        // returning a value, and dice determining that there are no outstanding
+        // transactions and bumping the ??epoch version/minor version?? number.
+        // If the latter happens first (it does in practice), when the
+        // computation finishes the worker will attempt to write the value, but
+        // it will do so for the previous dice minor version, and so fail to
+        // actually store the value.
+        std::thread::sleep(Duration::from_millis(CANCELLATION_WAIT_MS));
+        start
+    };
+    // Note that we can't check an expected_value_initial_compute here because
+    // we drop the task handle, preventing us from awaiting on it for a result.
+    assert!(shared.lock().await.ran_compute);
+
+    // Now in the same transaction, compute the key again, but this time with a
+    // key that should succeed. Since we don't cancel this computation it
+    // doesn't matter which CancelPollerType is used.
+    k.reset(&CancelType::NotCancelled, 0, CancelPollerType::Context)
+        .await;
+    let myresult = txn.compute(&k).await;
+    let elapsed_ms = (Instant::now() - start_cancel).as_millis() as u64;
+    // Ensure that the time it took to run the test is expected
+    match cancel_type {
+        CancelType::Sync | CancelType::ASync => {
+            let limit = (FIRST_COMPUTE_MS as f64) * 0.05 + (CANCELLATION_WAIT_MS as f64) * 1.05;
+            assert!(elapsed_ms < limit as u64);
+        }
+        CancelType::NotCancelled => {
+            let limit = (std::cmp::min(FIRST_COMPUTE_MS, CANCELLATION_WAIT_MS) as f64) * 0.95;
+            assert!(elapsed_ms > limit as u64);
+        }
+    };
+    let ran_compute = shared.lock().await.ran_compute;
+    // Once tasks are cancelled, they can't end up in the cache. The second compute should always run.
+    assert!(ran_compute);
+    assert!(myresult.is_ok() == expected_value_from_cache.is_ok());
+    assert!(myresult.is_err() || (myresult.unwrap() == expected_value_from_cache.unwrap()));
+}
+
+macro_rules! cancellation_caching_test {
+    ($name:ident, $cancel_type:expr, $expected_value_from_cache:expr, $cancel_poller_type:expr) => {
+        #[tokio::test(flavor = "multi_thread", worker_threads = 3)]
+        async fn $name() {
+            _run_cancellation_caching_test(
+                stringify!($name),
+                $cancel_type,
+                $expected_value_from_cache,
+                $cancel_poller_type,
+            )
+            .await;
+        }
+    };
+}
+
+cancellation_caching_test!(
+    test_cancellation_sync_correct_context_does_not_cache,
+    CancelType::Sync,
+    Ok(CancelType::NotCancelled),
+    CancelPollerType::Context
+);
+cancellation_caching_test!(
+    test_cancellation_sync_correct_observer_does_not_cache,
+    CancelType::Sync,
+    Ok(CancelType::NotCancelled),
+    CancelPollerType::Observer
+);
+cancellation_caching_test!(
+    test_cancellation_non_cancelled_context_caches_good_value,
+    CancelType::NotCancelled,
+    Ok(CancelType::NotCancelled),
+    CancelPollerType::Context
+);
+cancellation_caching_test!(
+    test_cancellation_non_cancelled_observer_caches_good_value,
+    CancelType::NotCancelled,
+    Ok(CancelType::NotCancelled),
+    CancelPollerType::Observer
+);
+cancellation_caching_test!(
+    test_cancellation_async_correct_does_not_cache,
+    CancelType::ASync,
+    Ok(CancelType::NotCancelled),
+    // Note there is no test for ASync+CancelPollerType::Context, that's not possible/supported.
+    CancelPollerType::Observer
+);
 
 #[derive(Clone, Debug)]
 enum ComputeBehavior {
