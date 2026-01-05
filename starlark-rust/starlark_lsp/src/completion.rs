@@ -44,6 +44,7 @@ use crate::definition::LspModule;
 use crate::exported::SymbolKind as ExportedSymbolKind;
 use crate::server::Backend;
 use crate::server::LspContext;
+use crate::server::LspOpError;
 use crate::server::LspUrl;
 use crate::symbols::SymbolKind;
 use crate::symbols::find_symbols_at_location;
@@ -174,7 +175,9 @@ impl<T: LspContext> Backend<T> {
     ) -> Vec<CompletionItem> {
         self.context
             .resolve_load(load_path, document_uri, workspace_root)
-            .and_then(|url| self.get_ast_or_load_from_disk(&url))
+            // FIXME(JakobDegen): Why are we throwing away errors?
+            .map_err(|_| ())
+            .and_then(|url| self.get_ast_or_load_from_disk(&url).map_err(|_| ()))
             .into_iter()
             .flatten()
             .flat_map(|ast| {
@@ -238,7 +241,7 @@ impl<T: LspContext> Backend<T> {
         document_uri: &LspUrl,
         previously_used_named_parameters: &[String],
         workspace_root: Option<&Path>,
-    ) -> anyhow::Result<Option<Vec<CompletionItem>>> {
+    ) -> Result<Option<Vec<CompletionItem>>, LspOpError> {
         Ok(match identifier_definition {
             IdentifierDefinition::Location {
                 destination, name, ..
@@ -334,10 +337,11 @@ impl<T: LspContext> Backend<T> {
         current_value: &str,
         current_span: ResolvedSpan,
         workspace_root: Option<&Path>,
-    ) -> anyhow::Result<Vec<CompletionItem>> {
+    ) -> Result<Vec<CompletionItem>, LspOpError> {
         Ok(self
             .context
-            .get_string_completion_options(document_uri, kind, current_value, workspace_root)?
+            .get_string_completion_options(document_uri, kind, current_value, workspace_root)
+            .map_err(LspOpError::FromContext)?
             .into_iter()
             .map(|result| {
                 let mut range: Range = current_span.into();

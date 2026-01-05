@@ -294,6 +294,30 @@ impl Default for LspServerSettings {
     }
 }
 
+/// An error encountered during one of the LSP operations
+///
+/// Consumed at the top level LSP loop and turned into an error that'll be shown to the user in an
+/// IDE.
+#[derive(derive_more::From)]
+pub(crate) enum LspOpError {
+    #[from(skip)]
+    FromContext(anyhow::Error),
+    Protocol(ProtocolError),
+    Url(LspUrlError),
+    Other(String),
+}
+
+impl LspOpError {
+    fn format(&self) -> String {
+        match self {
+            LspOpError::FromContext(e) => format!("{:#}", e),
+            LspOpError::Protocol(e) => format!("{:#}", e),
+            LspOpError::Url(e) => format!("{:#}", e),
+            LspOpError::Other(e) => format!("{:#}", e),
+        }
+    }
+}
+
 /// Various pieces of context to allow the LSP to interact with starlark parsers, etc.
 pub trait LspContext {
     /// Parse a file with the given contents. The filename is used in the diagnostics.
@@ -376,22 +400,6 @@ pub trait LspContext {
     }
 }
 
-/// Errors when [`LspContext::resolve_load()`] cannot resolve a given path.
-#[derive(thiserror::Error, Debug)]
-enum ResolveLoadError {
-    /// The scheme provided was not correct or supported.
-    #[error("Url `{}` was expected to be of type `{}`", .1, .0)]
-    WrongScheme(String, LspUrl),
-}
-
-/// Errors when loading contents of a starlark program.
-#[derive(thiserror::Error, Debug)]
-pub(crate) enum LoadContentsError {
-    /// The scheme provided was not correct or supported.
-    #[error("Url `{}` was expected to be of type `{}`", .1, .0)]
-    WrongScheme(String, LspUrl),
-}
-
 pub(crate) struct Backend<T: LspContext> {
     connection: Connection,
     pub(crate) context: T,
@@ -427,18 +435,19 @@ impl<T: LspContext> Backend<T> {
     pub(crate) fn get_ast_or_load_from_disk(
         &self,
         uri: &LspUrl,
-    ) -> anyhow::Result<Option<Arc<LspModule>>> {
+    ) -> Result<Option<Arc<LspModule>>, LspOpError> {
         let module = match self.get_ast(uri) {
             Some(result) => Some(result),
             None => self
                 .context
-                .parse_file(uri)?
+                .parse_file(uri)
+                .map_err(LspOpError::FromContext)?
                 .and_then(|eval_result| eval_result.ast.map(|ast| Arc::new(LspModule::new(ast)))),
         };
         Ok(module)
     }
 
-    fn validate(&self, uri: Url, version: Option<i64>, text: String) -> anyhow::Result<()> {
+    fn validate(&self, uri: Url, version: Option<i64>, text: String) -> Result<(), LspOpError> {
         let lsp_url = uri.clone().try_into()?;
         let eval_result = self.context.parse_file_with_contents(&lsp_url, text);
         if let Some(ast) = eval_result.ast {
@@ -450,7 +459,7 @@ impl<T: LspContext> Backend<T> {
         Ok(())
     }
 
-    fn did_open(&self, params: DidOpenTextDocumentParams) -> anyhow::Result<()> {
+    fn did_open(&self, params: DidOpenTextDocumentParams) -> Result<(), LspOpError> {
         self.validate(
             params.text_document.uri,
             Some(params.text_document.version as i64),
@@ -458,7 +467,7 @@ impl<T: LspContext> Backend<T> {
         )
     }
 
-    fn did_change(&self, params: DidChangeTextDocumentParams) -> anyhow::Result<()> {
+    fn did_change(&self, params: DidChangeTextDocumentParams) -> Result<(), LspOpError> {
         // We asked for Sync full, so can just grab all the text from params
         let change = params.content_changes.into_iter().next().unwrap();
         self.validate(
@@ -468,7 +477,7 @@ impl<T: LspContext> Backend<T> {
         )
     }
 
-    fn did_close(&self, params: DidCloseTextDocumentParams) -> anyhow::Result<()> {
+    fn did_close(&self, params: DidCloseTextDocumentParams) -> Result<(), LspOpError> {
         {
             let mut last_valid_parse = self.last_valid_parse.write().unwrap();
             last_valid_parse.remove(&params.text_document.uri.clone().try_into()?);
@@ -515,12 +524,16 @@ impl<T: LspContext> Backend<T> {
 
     /// Get the file contents of a starlark: URI.
     fn get_starlark_file_contents(&self, id: RequestId, params: StarlarkFileContentsParams) {
-        let response: anyhow::Result<_> = match params.uri {
+        let response = match params.uri {
             LspUrl::Starlark(_) => self
                 .context
                 .get_load_contents(&params.uri)
-                .map(|contents| StarlarkFileContentsResponse { contents }),
-            _ => Err(LoadContentsError::WrongScheme("starlark:".to_owned(), params.uri).into()),
+                .map(|contents| StarlarkFileContentsResponse { contents })
+                .map_err(LspOpError::FromContext),
+            _ => Err(LspOpError::Other(format!(
+                "Url `{}` was expected to be of type starlark",
+                params.uri
+            ))),
         };
         self.send_response(new_response(id, response));
     }
@@ -530,12 +543,16 @@ impl<T: LspContext> Backend<T> {
         path: &str,
         current_uri: &LspUrl,
         workspace_root: Option<&Path>,
-    ) -> anyhow::Result<LspUrl> {
+    ) -> Result<LspUrl, LspOpError> {
         match current_uri {
-            LspUrl::File(_) => self.context.resolve_load(path, current_uri, workspace_root),
-            LspUrl::Starlark(_) | LspUrl::Other(_) => {
-                Err(ResolveLoadError::WrongScheme("file://".to_owned(), current_uri.clone()).into())
-            }
+            LspUrl::File(_) => self
+                .context
+                .resolve_load(path, current_uri, workspace_root)
+                .map_err(LspOpError::FromContext),
+            LspUrl::Starlark(_) | LspUrl::Other(_) => Err(LspOpError::Other(format!(
+                "Url `{}` was expected to be of type file",
+                current_uri
+            ))),
         }
     }
 
@@ -544,7 +561,7 @@ impl<T: LspContext> Backend<T> {
         source: ResolvedSpan,
         uri: &LspUrl,
         target_range: R,
-    ) -> anyhow::Result<Option<LocationLink>> {
+    ) -> Result<Option<LocationLink>, LspOpError> {
         Ok(Some(LocationLink {
             origin_selection_range: Some(source.into()),
             target_uri: uri.try_into()?,
@@ -566,7 +583,7 @@ impl<T: LspContext> Backend<T> {
         member: Option<&str>,
         uri: &LspUrl,
         workspace_root: Option<&Path>,
-    ) -> anyhow::Result<Option<LocationLink>> {
+    ) -> Result<Option<LocationLink>, LspOpError> {
         let ret = match definition {
             IdentifierDefinition::Location {
                 destination: target,
@@ -616,15 +633,19 @@ impl<T: LspContext> Backend<T> {
                         let result =
                             self.get_ast_or_load_from_disk(&url)
                                 .and_then(|ast| match ast {
-                                    Some(module) => location_finder(&module.ast).map(|span| {
-                                        span.map(|span| module.ast.codemap().resolve_span(span))
-                                    }),
+                                    Some(module) => location_finder(&module.ast)
+                                        .map(|span| {
+                                            span.map(|span| module.ast.codemap().resolve_span(span))
+                                        })
+                                        .map_err(LspOpError::FromContext),
                                     None => Ok(None),
                                 });
+                        #[allow(clippy::manual_unwrap_or_default)]
                         let result = match result {
                             Ok(result) => result,
-                            Err(e) => {
-                                eprintln!("Error jumping to definition: {e:#}");
+                            Err(_e) => {
+                                // FIXME(JakobDegen): wtf is happening here?
+                                // eprintln!("Error jumping to definition: {e:#}");
                                 None
                             }
                         };
@@ -639,7 +660,11 @@ impl<T: LspContext> Backend<T> {
                 }
             }
             IdentifierDefinition::Unresolved { name, .. } => {
-                match self.context.get_url_for_global_symbol(uri, &name)? {
+                match self
+                    .context
+                    .get_url_for_global_symbol(uri, &name)
+                    .map_err(LspOpError::FromContext)?
+                {
                     Some(uri) => {
                         let loaded_location =
                             self.get_ast_or_load_from_disk(&uri)?
@@ -663,7 +688,7 @@ impl<T: LspContext> Backend<T> {
         &self,
         params: GotoDefinitionParams,
         initialize_params: &InitializeParams,
-    ) -> anyhow::Result<GotoDefinitionResponse> {
+    ) -> Result<GotoDefinitionResponse, LspOpError> {
         let uri = params
             .text_document_position_params
             .text_document
@@ -731,7 +756,7 @@ impl<T: LspContext> Backend<T> {
         &self,
         params: CompletionParams,
         initialize_params: &InitializeParams,
-    ) -> anyhow::Result<CompletionResponse> {
+    ) -> Result<CompletionResponse, LspOpError> {
         let uri = params.text_document_position.text_document.uri.try_into()?;
         let line = params.text_document_position.position.line;
         let character = params.text_document_position.position.character;
@@ -1010,7 +1035,7 @@ impl<T: LspContext> Backend<T> {
         &self,
         params: HoverParams,
         initialize_params: &InitializeParams,
-    ) -> anyhow::Result<Hover> {
+    ) -> Result<Hover, LspOpError> {
         let uri = params
             .text_document_position_params
             .text_document
@@ -1064,7 +1089,7 @@ impl<T: LspContext> Backend<T> {
         document: &LspModule,
         document_uri: &LspUrl,
         workspace_root: Option<&Path>,
-    ) -> anyhow::Result<Option<Hover>> {
+    ) -> Result<Option<Hover>, LspOpError> {
         Ok(match identifier_definition {
             IdentifierDefinition::Location {
                 destination,
@@ -1141,7 +1166,8 @@ impl<T: LspContext> Backend<T> {
                                 return Ok(None);
                             }
                         };
-                        let result = location_finder(&module.ast)?;
+                        let result =
+                            location_finder(&module.ast).map_err(LspOpError::FromContext)?;
 
                         result.map(|location| Hover {
                             contents: HoverContents::Array(vec![MarkedString::LanguageString(
@@ -1203,9 +1229,9 @@ impl<T: LspContext> Backend<T> {
         self.connection.sender.send(Message::Response(x)).unwrap()
     }
 
-    fn maybe_log_error(&self, res: anyhow::Result<()>) {
+    fn maybe_log_error(&self, res: Result<(), LspOpError>) {
         if let Err(e) = res {
-            self.log_message(MessageType::ERROR, &format!("{:#}", e));
+            self.log_message(MessageType::ERROR, &e.format());
         }
     }
 
@@ -1364,7 +1390,7 @@ where
     }
 }
 
-fn new_response<T>(id: RequestId, params: anyhow::Result<T>) -> Response
+fn new_response<T>(id: RequestId, params: Result<T, LspOpError>) -> Response
 where
     T: serde::Serialize,
 {
@@ -1379,7 +1405,7 @@ where
             result: None,
             error: Some(ResponseError {
                 code: 0,
-                message: format!("{e:#?}"),
+                message: e.format(),
                 data: None,
             }),
         },
