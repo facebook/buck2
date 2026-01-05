@@ -577,7 +577,7 @@ impl LspContext for BuckLspContext<'_> {
         path: &str,
         current_file: &LspUrl,
         _workspace_root: Option<&Path>,
-    ) -> anyhow::Result<LspUrl> {
+    ) -> Result<LspUrl, String> {
         let dispatcher = self.server_ctx.events().dupe();
         self.runtime
             .block_on(with_dispatcher_async(dispatcher, async {
@@ -608,7 +608,7 @@ impl LspContext for BuckLspContext<'_> {
                             })
                             .await?;
 
-                        Ok(url)
+                        buck2_error::Ok(url)
                     }
                     _ => Err(buck2_error::Error::from(ResolveLoadError::WrongScheme(
                         "file://".to_owned(),
@@ -617,6 +617,7 @@ impl LspContext for BuckLspContext<'_> {
                     .into()),
                 }
             }))
+            .map_err(|e| format!("{:#}", e))
     }
 
     fn resolve_string_literal(
@@ -624,7 +625,7 @@ impl LspContext for BuckLspContext<'_> {
         literal: &str,
         current_file: &LspUrl,
         _workspace_root: Option<&Path>,
-    ) -> anyhow::Result<Option<StringLiteralResult>> {
+    ) -> Result<Option<StringLiteralResult>, String> {
         let dispatcher = self.server_ctx.events().dupe();
         self.runtime
             .block_on(with_dispatcher_async(dispatcher, async {
@@ -657,15 +658,15 @@ impl LspContext for BuckLspContext<'_> {
                 {
                     Ok(Some(string_literal))
                 } else {
-                    Ok(None)
+                    buck2_error::Ok(None)
                 }
             }))
+            .map_err(|e| format!("{:#}", e))
     }
 
-    fn get_load_contents(&self, uri: &LspUrl) -> anyhow::Result<Option<String>> {
+    fn get_load_contents(&self, uri: &LspUrl) -> Result<Option<String>, String> {
         let dispatcher = self.server_ctx.events().dupe();
-        Ok(self
-            .runtime
+        self.runtime
             .block_on(with_dispatcher_async(dispatcher, async {
                 match uri {
                     LspUrl::File(path) => {
@@ -693,14 +694,15 @@ impl LspContext for BuckLspContext<'_> {
                         BuckLspContextError::WrongScheme("file://".to_owned(), uri.clone()).into(),
                     ),
                 }
-            }))?)
+            }))
+            .map_err(|e| format!("{:#}", e))
     }
 
     fn get_url_for_global_symbol(
         &self,
         _current_file: &LspUrl,
         symbol: &str,
-    ) -> anyhow::Result<Option<LspUrl>> {
+    ) -> Result<Option<LspUrl>, String> {
         let dispatcher = self.server_ctx.events().dupe();
         self.runtime
             .block_on(with_dispatcher_async(dispatcher, async {
@@ -709,8 +711,9 @@ impl LspContext for BuckLspContext<'_> {
                         self.docs_cache_manager.get_cache(dice_ctx).await
                     })
                     .await?;
-                Ok(docs_cache.url_for_symbol(symbol).cloned())
+                buck2_error::Ok(docs_cache.url_for_symbol(symbol).cloned())
             }))
+            .map_err(|e| format!("{:#}", e))
     }
 
     fn render_as_load(
@@ -718,12 +721,8 @@ impl LspContext for BuckLspContext<'_> {
         _target: &LspUrl,
         _current_file: &LspUrl,
         _workspace_root: Option<&Path>,
-    ) -> anyhow::Result<String> {
-        Err(buck2_error::buck2_error!(
-            buck2_error::ErrorTag::Unimplemented,
-            "Not yet implemented, render_as_load"
-        )
-        .into())
+    ) -> Result<String, String> {
+        Err("Not yet implemented, render_as_load".to_owned())
     }
 
     fn get_environment(&self, _uri: &LspUrl) -> DocModule {

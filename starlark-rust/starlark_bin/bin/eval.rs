@@ -325,7 +325,7 @@ impl LspContext for Context {
         path: &str,
         current_file: &LspUrl,
         _workspace_root: Option<&Path>,
-    ) -> anyhow::Result<LspUrl> {
+    ) -> Result<LspUrl, String> {
         let path = PathBuf::from(path);
         match current_file {
             LspUrl::File(current_file_path) => {
@@ -333,12 +333,16 @@ impl LspContext for Context {
                 let absolute_path = match (current_file_dir, path.is_absolute()) {
                     (_, true) => Ok(path),
                     (Some(current_file_dir), false) => Ok(current_file_dir.join(&path)),
-                    (None, false) => Err(ResolveLoadError::MissingCurrentFilePath(path)),
+                    (None, false) => {
+                        Err(ResolveLoadError::MissingCurrentFilePath(path).to_string())
+                    }
                 }?;
-                Ok(Url::from_file_path(absolute_path).unwrap().try_into()?)
+                LspUrl::try_from(Url::from_file_path(absolute_path).unwrap())
+                    .map_err(|e| e.to_string())
             }
             _ => Err(
-                ResolveLoadError::WrongScheme("file://".to_owned(), current_file.clone()).into(),
+                ResolveLoadError::WrongScheme("file://".to_owned(), current_file.clone())
+                    .to_string(),
             ),
         }
     }
@@ -348,7 +352,7 @@ impl LspContext for Context {
         literal: &str,
         current_file: &LspUrl,
         workspace_root: Option<&Path>,
-    ) -> anyhow::Result<Option<StringLiteralResult>> {
+    ) -> Result<Option<StringLiteralResult>, String> {
         self.resolve_load(literal, current_file, workspace_root)
             .map(|url| {
                 Some(StringLiteralResult {
@@ -358,18 +362,18 @@ impl LspContext for Context {
             })
     }
 
-    fn get_load_contents(&self, uri: &LspUrl) -> anyhow::Result<Option<String>> {
+    fn get_load_contents(&self, uri: &LspUrl) -> Result<Option<String>, String> {
         match uri {
             LspUrl::File(path) => match path.is_absolute() {
                 true => match fs::read_to_string(path) {
                     Ok(contents) => Ok(Some(contents)),
                     Err(e) if e.kind() == io::ErrorKind::NotFound => Ok(None),
-                    Err(e) => Err(e.into()),
+                    Err(e) => Err(e.to_string()),
                 },
-                false => Err(ContextError::NotAbsolute(uri.clone()).into()),
+                false => Err(ContextError::NotAbsolute(uri.clone()).to_string()),
             },
             LspUrl::Starlark(_) => Ok(self.builtin_docs.get(uri).cloned()),
-            _ => Err(ContextError::WrongScheme("file://".to_owned(), uri.clone()).into()),
+            _ => Err(ContextError::WrongScheme("file://".to_owned(), uri.clone()).to_string()),
         }
     }
 
@@ -377,7 +381,7 @@ impl LspContext for Context {
         &self,
         _current_file: &LspUrl,
         symbol: &str,
-    ) -> anyhow::Result<Option<LspUrl>> {
+    ) -> Result<Option<LspUrl>, String> {
         Ok(self.builtin_symbols.get(symbol).cloned())
     }
 
@@ -386,8 +390,8 @@ impl LspContext for Context {
         _target: &LspUrl,
         _current_file: &LspUrl,
         _workspace_root: Option<&Path>,
-    ) -> anyhow::Result<String> {
-        Err(anyhow::anyhow!("Not yet implemented, render_as_load"))
+    ) -> Result<String, String> {
+        Err("Not yet implemented, render_as_load".to_owned())
     }
 
     fn get_environment(&self, _uri: &LspUrl) -> DocModule {

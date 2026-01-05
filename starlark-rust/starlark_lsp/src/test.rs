@@ -160,7 +160,7 @@ impl LspContext for TestServerContext {
         path: &str,
         current_file: &LspUrl,
         _workspace_root: Option<&Path>,
-    ) -> anyhow::Result<LspUrl> {
+    ) -> Result<LspUrl, String> {
         let path = PathBuf::from(path);
         match current_file {
             LspUrl::File(current_file_path) => {
@@ -168,12 +168,18 @@ impl LspContext for TestServerContext {
                 let absolute_path = match (current_file_dir, path.is_absolute()) {
                     (_, true) => Ok(path),
                     (Some(current_file_dir), false) => Ok(current_file_dir.join(&path)),
-                    (None, false) => Err(ResolveLoadError::MissingCurrentFilePath(path)),
+                    (None, false) => {
+                        Err(ResolveLoadError::MissingCurrentFilePath(path).to_string())
+                    }
                 }?;
-                Ok(Url::from_file_path(absolute_path).unwrap().try_into()?)
+                Ok(
+                    LspUrl::try_from(Url::from_file_path(absolute_path).unwrap())
+                        .map_err(|e| e.to_string())?,
+                )
             }
             _ => Err(
-                ResolveLoadError::WrongScheme("file://".to_owned(), current_file.clone()).into(),
+                ResolveLoadError::WrongScheme("file://".to_owned(), current_file.clone())
+                    .to_string(),
             ),
         }
     }
@@ -183,7 +189,7 @@ impl LspContext for TestServerContext {
         target: &LspUrl,
         current_file: &LspUrl,
         workspace_root: Option<&Path>,
-    ) -> anyhow::Result<String> {
+    ) -> Result<String, String> {
         match (target, current_file) {
             (LspUrl::File(target_path), LspUrl::File(current_file_path)) => {
                 let target_package = target_path.parent();
@@ -195,7 +201,8 @@ impl LspContext for TestServerContext {
                     return match target_filename {
                         Some(filename) => Ok(format!(":{}", filename.to_string_lossy())),
                         None => {
-                            Err(RenderLoadError::MissingTargetFilename(target_path.clone()).into())
+                            Err(RenderLoadError::MissingTargetFilename(target_path.clone())
+                                .to_string())
                         }
                     };
                 }
@@ -219,7 +226,7 @@ impl LspContext for TestServerContext {
                 target.clone(),
                 current_file.clone(),
             )
-            .into()),
+            .to_string()),
         }
     }
 
@@ -228,8 +235,8 @@ impl LspContext for TestServerContext {
         literal: &str,
         current_file: &LspUrl,
         workspace_root: Option<&Path>,
-    ) -> anyhow::Result<Option<StringLiteralResult>> {
-        let re = regex::Regex::new(r#"--(\d+):(\d+)$"#)?;
+    ) -> Result<Option<StringLiteralResult>, String> {
+        let re = regex::Regex::new(r#"--(\d+):(\d+)$"#).unwrap();
         let (literal, span) = match re.captures(literal) {
             Some(cap) => {
                 let start_pos = cap.get(1).unwrap().as_str().parse().unwrap();
@@ -255,15 +262,15 @@ impl LspContext for TestServerContext {
             })
     }
 
-    fn get_load_contents(&self, uri: &LspUrl) -> anyhow::Result<Option<String>> {
+    fn get_load_contents(&self, uri: &LspUrl) -> Result<Option<String>, String> {
         match uri {
             LspUrl::File(u) => {
                 let path = get_path_from_uri(&u.to_string_lossy());
                 let is_dir = self.dirs.read().unwrap().contains(&path);
                 match (path.is_absolute(), is_dir) {
                     (true, false) => Ok(self.file_contents.read().unwrap().get(&path).cloned()),
-                    (true, true) => Err(TestServerError::IsADirectory(uri.clone()).into()),
-                    (false, _) => Err(TestServerError::NotAbsolute(uri.clone()).into()),
+                    (true, true) => Err(TestServerError::IsADirectory(uri.clone()).to_string()),
+                    (false, _) => Err(TestServerError::NotAbsolute(uri.clone()).to_string()),
                 }
             }
             LspUrl::Starlark(_) => Ok(self.builtin_docs.get(uri).cloned()),
@@ -275,7 +282,7 @@ impl LspContext for TestServerContext {
         &self,
         _current_file: &LspUrl,
         symbol: &str,
-    ) -> anyhow::Result<Option<LspUrl>> {
+    ) -> Result<Option<LspUrl>, String> {
         Ok(self.builtin_symbols.get(symbol).cloned())
     }
 

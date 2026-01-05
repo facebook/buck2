@@ -9,12 +9,12 @@ rust_library(
         "--cfg=rust_nightly",
     ],
     test_deps = [
+        "fbsource//third-party/rust:anyhow",
         "fbsource//third-party/rust:maplit",
         "fbsource//third-party/rust:regex",
         "fbsource//third-party/rust:textwrap",
     ],
     deps = [
-        "fbsource//third-party/rust:anyhow",
         "fbsource//third-party/rust:derivative",
         "fbsource//third-party/rust:derive_more",
         "fbsource//third-party/rust:itertools",

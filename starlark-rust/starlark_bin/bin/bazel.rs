@@ -644,27 +644,32 @@ impl LspContext for BazelContext {
         path: &str,
         current_file: &LspUrl,
         workspace_root: Option<&std::path::Path>,
-    ) -> anyhow::Result<LspUrl> {
-        let label = Label::parse(path)?;
+    ) -> Result<LspUrl, String> {
+        (|| {
+            let label = Label::parse(path)?;
 
-        let folder = self.resolve_folder(&label, current_file, workspace_root)?;
+            let folder = self.resolve_folder(&label, current_file, workspace_root)?;
 
-        // Try the presumed filename first, and check if it exists.
-        let presumed_path = folder.join(label.name);
-        if presumed_path.exists() {
-            return Ok(Url::from_file_path(presumed_path).unwrap().try_into()?);
-        }
-
-        // If the presumed filename doesn't exist, try to find a build file from the build system
-        // and use that instead.
-        for build_file_name in Self::BUILD_FILE_NAMES {
-            let path = folder.join(build_file_name);
-            if path.exists() {
-                return Ok(Url::from_file_path(path).unwrap().try_into()?);
+            // Try the presumed filename first, and check if it exists.
+            let presumed_path = folder.join(label.name);
+            if presumed_path.exists() {
+                return Ok(Url::from_file_path(presumed_path).unwrap().try_into()?);
             }
-        }
 
-        Err(ResolveLoadError::TargetNotFound(path.to_owned()).into())
+            // If the presumed filename doesn't exist, try to find a build file from the build system
+            // and use that instead.
+            for build_file_name in Self::BUILD_FILE_NAMES {
+                let path = folder.join(build_file_name);
+                if path.exists() {
+                    return Ok(Url::from_file_path(path).unwrap().try_into()?);
+                }
+            }
+
+            Err(anyhow::Error::from(ResolveLoadError::TargetNotFound(
+                path.to_owned(),
+            )))
+        })()
+        .map_err(|e| e.to_string())
     }
 
     fn render_as_load(
@@ -672,7 +677,7 @@ impl LspContext for BazelContext {
         target: &LspUrl,
         current_file: &LspUrl,
         workspace_root: Option<&Path>,
-    ) -> anyhow::Result<String> {
+    ) -> Result<String, String> {
         match (target, current_file) {
             // Check whether the target and the current file are in the same package.
             (LspUrl::File(target_path), LspUrl::File(current_file_path)) if matches!((target_path.parent(), current_file_path.parent()), (Some(a), Some(b)) if a == b) =>
@@ -681,7 +686,9 @@ impl LspContext for BazelContext {
                 let target_filename = target_path.file_name();
                 match target_filename {
                     Some(filename) => Ok(format!(":{}", filename.to_string_lossy())),
-                    None => Err(RenderLoadError::MissingTargetFilename(target_path.clone()).into()),
+                    None => {
+                        Err(RenderLoadError::MissingTargetFilename(target_path.clone()).to_string())
+                    }
                 }
             }
             (LspUrl::File(target_path), _) => {
@@ -711,7 +718,8 @@ impl LspContext for BazelContext {
                         filename.to_string_lossy()
                     )),
                     None => Err(
-                        RenderLoadError::MissingTargetFilename(target_path.to_path_buf()).into(),
+                        RenderLoadError::MissingTargetFilename(target_path.to_path_buf())
+                            .to_string(),
                     ),
                 }
             }
@@ -720,7 +728,7 @@ impl LspContext for BazelContext {
                 target.clone(),
                 current_file.clone(),
             )
-            .into()),
+            .to_string()),
         }
     }
 
@@ -729,7 +737,7 @@ impl LspContext for BazelContext {
         literal: &str,
         current_file: &LspUrl,
         workspace_root: Option<&Path>,
-    ) -> anyhow::Result<Option<StringLiteralResult>> {
+    ) -> Result<Option<StringLiteralResult>, String> {
         self.resolve_load(literal, current_file, workspace_root)
             .map(|url| {
                 let original_target_name = Path::new(literal).file_name();
@@ -755,18 +763,18 @@ impl LspContext for BazelContext {
             })
     }
 
-    fn get_load_contents(&self, uri: &LspUrl) -> anyhow::Result<Option<String>> {
+    fn get_load_contents(&self, uri: &LspUrl) -> Result<Option<String>, String> {
         match uri {
             LspUrl::File(path) => match path.is_absolute() {
                 true => match fs::read_to_string(path) {
                     Ok(contents) => Ok(Some(contents)),
                     Err(e) if e.kind() == io::ErrorKind::NotFound => Ok(None),
-                    Err(e) => Err(e.into()),
+                    Err(e) => Err(e.to_string()),
                 },
-                false => Err(ContextError::NotAbsolute(uri.clone()).into()),
+                false => Err(ContextError::NotAbsolute(uri.clone()).to_string()),
             },
             LspUrl::Starlark(_) => Ok(self.builtin_docs.get(uri).cloned()),
-            _ => Err(ContextError::WrongScheme("file://".to_owned(), uri.clone()).into()),
+            _ => Err(ContextError::WrongScheme("file://".to_owned(), uri.clone()).to_string()),
         }
     }
 
@@ -778,7 +786,7 @@ impl LspContext for BazelContext {
         &self,
         _current_file: &LspUrl,
         symbol: &str,
-    ) -> anyhow::Result<Option<LspUrl>> {
+    ) -> Result<Option<LspUrl>, String> {
         Ok(self.builtin_symbols.get(symbol).cloned())
     }
 
@@ -788,7 +796,7 @@ impl LspContext for BazelContext {
         kind: StringCompletionType,
         current_value: &str,
         workspace_root: Option<&Path>,
-    ) -> anyhow::Result<Vec<StringCompletionResult>> {
+    ) -> Result<Vec<StringCompletionResult>, String> {
         let offer_repository_names = current_value.is_empty()
             || current_value == "@"
             || (current_value.starts_with('@') && !current_value.contains('/'))
@@ -866,7 +874,8 @@ impl LspContext for BazelContext {
                         targets: complete_targets,
                     },
                     &mut names,
-                )?;
+                )
+                .map_err(|e| e.to_string())?;
             }
         }
 

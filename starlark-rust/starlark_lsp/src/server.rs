@@ -261,7 +261,7 @@ pub struct StringLiteralResult {
     ///
     /// If `None`, then just jump to the URL. Do not attempt to load the file.
     #[derivative(Debug = "ignore")]
-    pub location_finder: Option<Box<dyn FnOnce(&AstModule) -> anyhow::Result<Option<Span>> + Send>>,
+    pub location_finder: Option<Box<dyn FnOnce(&AstModule) -> Result<Option<Span>, String> + Send>>,
 }
 
 fn _assert_string_literal_result_is_send() {
@@ -301,16 +301,16 @@ impl Default for LspServerSettings {
 #[derive(derive_more::From)]
 pub(crate) enum LspOpError {
     #[from(skip)]
-    FromContext(anyhow::Error),
+    FromContext(String),
     Protocol(ProtocolError),
     Url(LspUrlError),
     Other(String),
 }
 
 impl LspOpError {
-    fn format(&self) -> String {
+    fn format(self) -> String {
         match self {
-            LspOpError::FromContext(e) => format!("{:#}", e),
+            LspOpError::FromContext(e) => e,
             LspOpError::Protocol(e) => format!("{:#}", e),
             LspOpError::Url(e) => format!("{:#}", e),
             LspOpError::Other(e) => format!("{:#}", e),
@@ -334,7 +334,7 @@ pub trait LspContext {
         path: &str,
         current_file: &LspUrl,
         workspace_root: Option<&Path>,
-    ) -> anyhow::Result<LspUrl>;
+    ) -> Result<LspUrl, String>;
 
     /// Render the target URL to use as a path in a `load()` statement. If `target` is
     /// in the same package as `current_file`, the result is a relative path.
@@ -346,7 +346,7 @@ pub trait LspContext {
         target: &LspUrl,
         current_file: &LspUrl,
         workspace_root: Option<&Path>,
-    ) -> anyhow::Result<String>;
+    ) -> Result<String, String>;
 
     /// Resolve a string literal into a Url and a function that specifies a location within that
     /// target file.
@@ -359,13 +359,13 @@ pub trait LspContext {
         literal: &str,
         current_file: &LspUrl,
         workspace_root: Option<&Path>,
-    ) -> anyhow::Result<Option<StringLiteralResult>>;
+    ) -> Result<Option<StringLiteralResult>, String>;
 
     /// Get the contents of a starlark program at a given path, if it exists.
-    fn get_load_contents(&self, uri: &LspUrl) -> anyhow::Result<Option<String>>;
+    fn get_load_contents(&self, uri: &LspUrl) -> Result<Option<String>, String>;
 
     /// Get the contents of a file at a given URI, and attempt to parse it.
-    fn parse_file(&self, uri: &LspUrl) -> anyhow::Result<Option<LspEvalResult>> {
+    fn parse_file(&self, uri: &LspUrl) -> Result<Option<LspEvalResult>, String> {
         let result = self
             .get_load_contents(uri)?
             .map(|content| self.parse_file_with_contents(uri, content));
@@ -383,7 +383,7 @@ pub trait LspContext {
         &self,
         current_file: &LspUrl,
         symbol: &str,
-    ) -> anyhow::Result<Option<LspUrl>>;
+    ) -> Result<Option<LspUrl>, String>;
 
     /// Get valid completion options if possible, based on the kind of string
     /// completion expected (e.g. any string literal, versus the path argument in
@@ -394,7 +394,7 @@ pub trait LspContext {
         kind: StringCompletionType,
         current_value: &str,
         workspace_root: Option<&Path>,
-    ) -> anyhow::Result<Vec<StringCompletionResult>> {
+    ) -> Result<Vec<StringCompletionResult>, String> {
         let _unused = (document_uri, kind, current_value, workspace_root);
         Ok(Vec::new())
     }
