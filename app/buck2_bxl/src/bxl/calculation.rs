@@ -78,12 +78,6 @@ impl Key for internal::BxlComputeKey {
             .await
     }
 
-    fn validity(x: &Self::Value) -> bool {
-        // Evaluation may have been cancelled at the starlark-eval level...
-        // TODO: "synchronous" starlark cancellations should cause "proper" cancellations at the dice layer
-        x.is_ok()
-    }
-
     fn equality(_: &Self::Value, _: &Self::Value) -> bool {
         false
     }
