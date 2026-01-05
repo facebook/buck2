@@ -33,6 +33,7 @@ use itertools::Itertools;
 use lsp_server::Connection;
 use lsp_server::Message;
 use lsp_server::Notification;
+use lsp_server::ProtocolError;
 use lsp_server::Request;
 use lsp_server::RequestId;
 use lsp_server::Response;
@@ -1202,6 +1203,12 @@ impl<T: LspContext> Backend<T> {
         self.connection.sender.send(Message::Response(x)).unwrap()
     }
 
+    fn maybe_log_error(&self, res: anyhow::Result<()>) {
+        if let Err(e) = res {
+            self.log_message(MessageType::ERROR, &format!("{:#}", e));
+        }
+    }
+
     fn log_message(&self, typ: MessageType, message: &str) {
         self.send_notification(new_notification::<LogMessage>(LogMessageParams {
             typ,
@@ -1215,7 +1222,7 @@ impl<T: LspContext> Backend<T> {
         ));
     }
 
-    fn main_loop(&self, initialize_params: InitializeParams) -> anyhow::Result<()> {
+    fn main_loop(&self, initialize_params: InitializeParams) -> Result<(), ProtocolError> {
         self.log_message(MessageType::INFO, "Starlark server initialised");
         for msg in &self.connection.receiver {
             match msg {
@@ -1237,11 +1244,11 @@ impl<T: LspContext> Backend<T> {
                 }
                 Message::Notification(x) => {
                     if let Some(params) = as_notification::<DidOpenTextDocument>(&x) {
-                        self.did_open(params)?;
+                        self.maybe_log_error(self.did_open(params));
                     } else if let Some(params) = as_notification::<DidChangeTextDocument>(&x) {
-                        self.did_change(params)?;
+                        self.maybe_log_error(self.did_change(params));
                     } else if let Some(params) = as_notification::<DidCloseTextDocument>(&x) {
-                        self.did_close(params)?;
+                        self.maybe_log_error(self.did_close(params));
                     }
                 }
                 Message::Response(_) => {
@@ -1253,15 +1260,25 @@ impl<T: LspContext> Backend<T> {
     }
 }
 
+#[derive(Debug, thiserror::Error)]
+pub enum LspServerError {
+    #[error(transparent)]
+    Protocol(#[from] ProtocolError),
+    #[error(transparent)]
+    BadInitializeParams(serde_json::Error),
+    #[error(transparent)]
+    Stdio(std::io::Error),
+}
+
 /// Instantiate an LSP server that reads on stdin, and writes to stdout
-pub fn stdio_server<T: LspContext>(context: T) -> anyhow::Result<()> {
+pub fn stdio_server<T: LspContext>(context: T) -> Result<(), LspServerError> {
     // Note that  we must have our logging only write out to stderr.
     eprintln!("Starting Rust Starlark server");
 
     let (connection, io_threads) = Connection::stdio();
     server_with_connection(connection, context)?;
     // Make sure that the io threads stop properly too.
-    io_threads.join()?;
+    io_threads.join().map_err(LspServerError::Stdio)?;
 
     eprintln!("Stopping Rust Starlark server");
     Ok(())
@@ -1271,11 +1288,12 @@ pub fn stdio_server<T: LspContext>(context: T) -> anyhow::Result<()> {
 pub fn server_with_connection<T: LspContext>(
     connection: Connection,
     context: T,
-) -> anyhow::Result<()> {
+) -> Result<(), LspServerError> {
     // Run the server and wait for the main thread to end (typically by trigger LSP Exit event).
     let (init_request_id, init_value) = connection.initialize_start()?;
 
-    let initialization_params: InitializeParams = serde_json::from_value(init_value)?;
+    let initialization_params: InitializeParams =
+        serde_json::from_value(init_value).map_err(LspServerError::BadInitializeParams)?;
     let server_settings = initialization_params
         .initialization_options
         .as_ref()
