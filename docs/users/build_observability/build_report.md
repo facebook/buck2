@@ -57,12 +57,12 @@ BuildReport {
     build_metrics: AllTargetsBuildMetrics,
 
     # Set sketch of configured target graph stored in a hex string.
-    # Enabeld by setting `-c buck2.log_total_configured_graph_sketch=true`.
+    # Enabled by setting `-c buck2.log_total_configured_graph_sketch=true`.
     total_configured_graph_sketch: Optional[str],
 
     # Set sketch of unconfigured target labels in configured target graph
     # stored in a hex string.
-    # Enabeld by setting
+    # Enabled by setting
     # `-c buck2.log_total_configured_graph_unconfigured_sketch=true`.
     total_configured_graph_unconfigured_sketch: Optional[str],
 
@@ -90,7 +90,7 @@ BuildReportEntry {
     # The two fields below are included for buck1 backwards compatibility only.
     # They are both computed by aggregating across all the configured targets in
     # the way you might expect.
-    success: "FAIL" | "SUCCESS,
+    success: "FAIL" | "SUCCESS",
     outputs: dict[str, list[Path]],
 
     # The path to the package containing this target, relative to the project
@@ -100,7 +100,7 @@ BuildReportEntry {
 
 ConfiguredBuildReportEntry {
     # Did this target build successfully or not?
-    success: "FAIL" | "SUCCESS,
+    success: "FAIL" | "SUCCESS",
 
     # A map of subtargets that were built to a list of the successfully built
     # outputs for that subtarget.
@@ -121,7 +121,7 @@ ConfiguredBuildReportEntry {
     artifact_info: dict[str, ArtifactInfoFile | ArtifactInfoSymlink | ArtifactInfoExternalSymlink],
 
     # Set sketch of configured target graph stored in a hex string.
-    # Enabeld by setting `-c buck2.log_configured_graph_sketch=true`.
+    # Enabled by setting `-c buck2.log_configured_graph_sketch=true`.
     configured_graph_sketch: Optional[str],
 
     # Metrics for this target. Represents the aggregated metrics for top level targets.
@@ -129,7 +129,7 @@ ConfiguredBuildReportEntry {
 
     # Set sketch of unconfigured taret labels in configured target graph
     # stored in a hex string.
-    # Enabeld by setting
+    # Enabled by setting
     # `-c buck2.log_configured_graph_unconfigured_sketch=true`.
     configured_graph_unconfigured_sketch: Optional[str],
 }
