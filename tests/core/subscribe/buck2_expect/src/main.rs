@@ -77,7 +77,11 @@ async fn main() -> anyhow::Result<()> {
     stdin.flush().await?;
 
     let mut stream = FramedRead::new(stdout, ProtobufSplitter);
-    let mut msg = stream.try_next().await?.context("was disconnected")?;
+    let mut msg = stream
+        .try_next()
+        .await
+        .unwrap()
+        .context("was disconnected")?;
     let res = SubscriptionResponse::decode_length_delimited(&mut msg).context("Error decoding")?;
 
     match res.response.as_ref().context("Empty response")? {
