@@ -64,6 +64,20 @@ static HARD_ERROR_PANIC_ALLOWLIST: Lazy<SmallSet<String>> =
 ///
 /// You'll get the error back as the Ok() value if it wasn't thrown, otherwise you get a Err() to
 /// propagate.
+///
+/// Example (see [StructuredErrorOptions] for all key=value options):
+/// ```ignore
+/// soft_error!(
+///     "soft_error_category",
+///     buck2_error::buck2_error!(
+///         buck2_error::ErrorTag::Tier0,
+///         "Did something bad with {}",
+///         value,
+///     )
+///     .into(),
+///     quiet = false,
+/// )?;
+/// ```
 pub macro soft_error {
     ($category:expr, $err:expr) => {
         $crate::soft_error::soft_error!($category, $err,)
