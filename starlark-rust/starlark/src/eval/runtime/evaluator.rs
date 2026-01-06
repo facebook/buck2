@@ -758,10 +758,16 @@ impl<'v, 'a, 'e: 'a> Evaluator<'v, 'a, 'e> {
     }
 
     fn trace(&mut self, tracer: &Tracer<'v>) {
+        self.time_flame_profile
+            .record_call_enter(const_frozen_string!("trace/walk").to_value());
         self.module_env.trace(tracer);
         self.current_frame.trace(tracer);
         self.call_stack.trace(tracer);
+        self.time_flame_profile.record_call_exit();
+        self.time_flame_profile
+            .record_call_enter(const_frozen_string!("trace/walk (profiling)").to_value());
         self.time_flame_profile.trace(tracer);
+        self.time_flame_profile.record_call_exit();
     }
 
     /// Perform a garbage collection.
@@ -795,11 +801,7 @@ impl<'v, 'a, 'e: 'a> Evaluator<'v, 'a, 'e> {
             // matching exit, which covers the time it took to drop the old
             // heap.
             self.heap().garbage_collect(|tracer| {
-                self.time_flame_profile
-                    .record_call_enter(const_frozen_string!("trace/walk").to_value());
-
                 self.trace(tracer);
-                self.time_flame_profile.record_call_exit();
 
                 // See above, this enter begins right as our closure ends, and
                 // will catch the implicit drop of the old arena as the
