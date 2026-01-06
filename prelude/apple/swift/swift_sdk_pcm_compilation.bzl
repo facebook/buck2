@@ -101,9 +101,9 @@ def get_swift_sdk_pcm_anon_targets(
         (_swift_sdk_pcm_compilation, {
             "dep": module_dep,
             "enable_cxx_interop": enable_cxx_interop,
+            "has_content_based_path": True,
             "name": module_dep.label,
             "swift_cxx_args": swift_cxx_args,
-            "uses_experimental_content_based_path_hashing": True,
             "_swift_toolchain": get_swift_toolchain_info_dep(ctx),
         })
         for module_dep in uncompiled_sdk_deps
@@ -283,8 +283,8 @@ _swift_sdk_pcm_compilation = rule(
     attrs = {
         "dep": attrs.dep(),
         "enable_cxx_interop": attrs.bool(),
+        "has_content_based_path": attrs.bool(),
         "swift_cxx_args": attrs.list(attrs.string(), default = []),
-        "uses_experimental_content_based_path_hashing": attrs.bool(),
         "_swift_toolchain": attrs.dep(),
     },
 )
