@@ -28,3 +28,8 @@ async def test_configured_targets_with_modifiers(buck: Buck) -> None:
     assert "root//:linux" in linux_cfg.stdout
     macos_cfg = await buck.audit_configurations(configurations[1])
     assert "root//:macos" in macos_cfg.stdout
+
+
+@buck_test(data_dir="")
+async def test_strip_cfg(buck: Buck) -> None:
+    await buck.bxl("//bxl/configured_target.bxl:strip_cfg")
