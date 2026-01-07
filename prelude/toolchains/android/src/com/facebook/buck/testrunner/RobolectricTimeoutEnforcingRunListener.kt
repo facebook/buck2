@@ -113,7 +113,10 @@ class RobolectricTimeoutEnforcingRunListener(
       val endedTime = System.currentTimeMillis()
       val duration = endedTime - startTime
 
-      val timeoutMessage = "Test timed out after ${timeoutMs}ms"
+      val timeoutMessage =
+          "Test timed out after ${timeoutMs}ms. " +
+              "If your test needs to run longer than ${timeoutMs / 1000} seconds, add the tpx long_running or glacial tag in the labels section of the BUCK target. " +
+              "See https://fb.workplace.com/groups/android.testing.fyi/permalink/2679204925789466/ for more details"
 
       // Write finish event with failure
       testResultsOutputSender.sendTestFinish(
