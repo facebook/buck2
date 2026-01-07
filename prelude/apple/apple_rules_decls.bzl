@@ -104,29 +104,143 @@ SWIFT_VERSION_FEATURE_MAP = {
     "6": [],
 }
 
+def _contacts_arg():
+    return {"contacts": attrs.list(attrs.string(), default = [])}
+
+def _default_host_platform_arg():
+    return {"default_host_platform": attrs.option(attrs.configuration_label(), default = None)}
+
+def _default_platform_arg():
+    return {"default_platform": attrs.option(attrs.string(), default = None)}
+
+def _labels_arg():
+    return {"labels": attrs.list(attrs.string(), default = [])}
+
+def _licenses_arg():
+    return {"licenses": attrs.list(attrs.source(), default = [])}
+
+def _codesign_flags_arg():
+    return {"codesign_flags": attrs.list(attrs.string(), default = [])}
+
+def _codesign_identity_arg():
+    return {"codesign_identity": attrs.option(attrs.string(), default = None)}
+
+def _defaults_arg():
+    return {"defaults": attrs.dict(key = attrs.string(), value = attrs.string(), sorted = False, default = {})}
+
+def _deps_arg():
+    return {"deps": attrs.list(attrs.dep(), default = [])}
+
+def _devirt_enabled_arg():
+    return {"devirt_enabled": attrs.bool(default = False)}
+
+def _diagnostics_arg():
+    return {"diagnostics": attrs.dict(key = attrs.string(), value = attrs.source(), sorted = False, default = {})}
+
+def _enable_cxx_interop_arg():
+    return {"enable_cxx_interop": attrs.bool(default = False)}
+
+def _exported_header_style_arg():
+    return {"exported_header_style": attrs.enum(IncludeType, default = "local")}
+
+def _fat_lto_arg():
+    return {"fat_lto": attrs.bool(default = False)}
+
+def _header_namespace_arg():
+    return {"header_namespace": attrs.option(attrs.string(), default = None)}
+
+def _ibtool_flags_arg():
+    return {"ibtool_flags": attrs.option(attrs.list(attrs.string()), default = None)}
+
+def _include_directories_arg():
+    return {"include_directories": attrs.set(attrs.string(), sorted = True, default = [])}
+
+def _libraries_arg():
+    return {"libraries": attrs.list(attrs.string(), default = [])}
+
+def _link_group_arg():
+    return {"link_group": attrs.option(attrs.string(), default = None)}
+
+def _minimum_os_version_arg():
+    return {"minimum_os_version": attrs.option(attrs.string(), default = None)}
+
+def _modular_arg():
+    return {"modular": attrs.bool(default = False)}
+
+def _module_name_arg():
+    return {"module_name": attrs.option(attrs.string(), default = None)}
+
+def _module_requires_cxx_arg():
+    return {"module_requires_cxx": attrs.bool(default = False)}
+
+def _product_name_arg():
+    return {"product_name": attrs.option(attrs.string(), default = None)}
+
+def _public_include_directories_arg():
+    return {"public_include_directories": attrs.set(attrs.string(), sorted = True, default = [])}
+
+def _public_system_include_directories_arg():
+    return {"public_system_include_directories": attrs.set(attrs.string(), sorted = True, default = [])}
+
+def _resource_group_arg():
+    return {"resource_group": attrs.option(attrs.string(), default = None)}
+
+def _sdk_modules_arg():
+    return {"sdk_modules": attrs.list(attrs.string(), default = [])}
+
+def _soname_arg():
+    return {"soname": attrs.option(attrs.string(), default = None)}
+
+def _static_library_basename_arg():
+    return {"static_library_basename": attrs.option(attrs.string(), default = None)}
+
+def _stripped_default_arg():
+    return {"_stripped_default": attrs.bool(default = False)}
+
+def _swift_module_skip_function_bodies_arg():
+    return {"swift_module_skip_function_bodies": attrs.bool(default = True)}
+
+def _swift_package_name_arg():
+    return {"swift_package_name": attrs.option(attrs.string(), default = None)}
+
+def _thin_lto_arg():
+    return {"thin_lto": attrs.bool(default = False)}
+
+def _use_submodules_arg():
+    return {"use_submodules": attrs.bool(default = True)}
+
+def _uses_cxx_explicit_modules_arg():
+    return {"uses_cxx_explicit_modules": attrs.bool(default = False)}
+
+def _uses_modules_arg():
+    return {"uses_modules": attrs.bool(default = False)}
+
+def _xcode_product_type_arg():
+    return {"xcode_product_type": attrs.option(attrs.string(), default = None)}
+
 def apple_bundle_base_attrs():
     return (apple_common.product_name_from_module_name_arg() |
             apple_common.asset_catalogs_compilation_options_arg() |
             apple_common.info_plist_substitutions_arg() |
+            _contacts_arg() |
+            _default_host_platform_arg() |
+            _default_platform_arg() |
+            _labels_arg() |
+            _licenses_arg() |
+            _codesign_flags_arg() |
+            _codesign_identity_arg() |
+            _deps_arg() |
+            _ibtool_flags_arg() |
+            _product_name_arg() |
+            _resource_group_arg() |
+            _xcode_product_type_arg() |
             {
-                "codesign_flags": attrs.list(attrs.string(), default = []),
-                "codesign_identity": attrs.option(attrs.string(), default = None),
-                "contacts": attrs.list(attrs.string(), default = []),
-                "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
-                "default_platform": attrs.option(attrs.string(), default = None),
-                "deps": attrs.list(attrs.dep(), default = []),
                 "extension": attrs.one_of(attrs.enum(AppleBundleExtension), attrs.string()),
-                "ibtool_flags": attrs.option(attrs.list(attrs.string()), default = None),
                 "incremental_bundling_enabled": attrs.option(attrs.bool(), default = None),
                 "info_plist": attrs.source(),
-                "labels": attrs.list(attrs.string(), default = []),
-                "licenses": attrs.list(attrs.source(), default = []),
-                "product_name": attrs.option(attrs.string(), default = None),
-                "resource_group": attrs.option(attrs.string(), default = None),
                 "resource_group_map": attrs.option(RESOURCE_GROUP_MAP_ATTR, default = None),
                 "skip_copying_swift_stdlib": attrs.option(attrs.bool(), default = None),
                 "try_skip_code_signing": attrs.option(attrs.bool(), default = None),
-                "xcode_product_type": attrs.option(attrs.string(), default = None),
             })
 
 def apple_bundle_default_attrs():
@@ -183,6 +297,10 @@ apple_asset_catalog = prelude_rule(
     further = None,
     attrs = (
         # @unsorted-dict-items
+        _contacts_arg() |
+        _default_host_platform_arg() |
+        _labels_arg() |
+        _licenses_arg() |
         {
             "dirs": attrs.list(attrs.source(allow_directory = True), default = [], doc = """
                 Set of paths of Apple asset catalogs contained by this rule. All paths have to end with the `.xcassets` extension and be compatible with the asset catalog format used by Xcode.
@@ -197,10 +315,6 @@ apple_asset_catalog = prelude_rule(
                  application launch image. (The extension itself should not be included.) This parameter
                  may be specified at most once in a given `apple_bundle`'s transitive dependencies.
             """),
-            "contacts": attrs.list(attrs.string(), default = []),
-            "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
-            "labels": attrs.list(attrs.string(), default = []),
-            "licenses": attrs.list(attrs.source(), default = []),
         } | apple_common.skip_universal_resource_dedupe_arg()
     ),
     impl = apple_asset_catalog_impl,
@@ -212,12 +326,12 @@ apple_app_intents = prelude_rule(
     docs = "An `apple_app_intents()` rule represents App Intents definitions for Apple platforms.",
     examples = None,
     further = None,
-    attrs = {
-        "contacts": attrs.list(attrs.string(), default = []),
-        "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
-        "labels": attrs.list(attrs.string(), default = []),
-        "licenses": attrs.list(attrs.source(), default = []),
-    },
+    attrs = (
+        _contacts_arg() |
+        _default_host_platform_arg() |
+        _labels_arg() |
+        _licenses_arg()
+    ),
     impl = apple_app_intents_impl,
 )
 
@@ -298,78 +412,78 @@ apple_binary = prelude_rule(
         apple_common.executable_name_arg() |
         apple_common.info_plist_substitutions_arg() |
         cxx_common.supported_platforms_regex_arg() |
+        _contacts_arg() |
+        _default_host_platform_arg() |
+        _default_platform_arg() |
+        _labels_arg() |
+        _licenses_arg() |
+        _defaults_arg() |
+        _deps_arg() |
+        _devirt_enabled_arg() |
+        _diagnostics_arg() |
+        _enable_cxx_interop_arg() |
+        _exported_header_style_arg() |
+        _fat_lto_arg() |
+        _header_namespace_arg() |
+        _include_directories_arg() |
+        _libraries_arg() |
+        _link_group_arg() |
+        _minimum_os_version_arg() |
+        _modular_arg() |
+        _module_name_arg() |
+        _module_requires_cxx_arg() |
+        _public_include_directories_arg() |
+        _public_system_include_directories_arg() |
+        _sdk_modules_arg() |
+        _soname_arg() |
+        _static_library_basename_arg() |
+        _stripped_default_arg() |
+        _swift_module_skip_function_bodies_arg() |
+        _swift_package_name_arg() |
+        _thin_lto_arg() |
+        _use_submodules_arg() |
+        _uses_cxx_explicit_modules_arg() |
+        _uses_modules_arg() |
         {
             "application_extension": attrs.bool(default = False),
             "binary_linker_flags": attrs.list(attrs.arg(), default = []),
             "bridging_header": attrs.option(attrs.source(), default = None),
             "can_be_asset": attrs.option(attrs.bool(), default = None),
-            "contacts": attrs.list(attrs.string(), default = []),
             "cxx_runtime_type": attrs.option(attrs.enum(CxxRuntimeType), default = None),
-            "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
-            "default_platform": attrs.option(attrs.string(), default = None),
-            "defaults": attrs.dict(key = attrs.string(), value = attrs.string(), sorted = False, default = {}),
-            "deps": attrs.list(attrs.dep(), default = []),
-            "devirt_enabled": attrs.bool(default = False),
-            "diagnostics": attrs.dict(key = attrs.string(), value = attrs.source(), sorted = False, default = {}),
             "dist_thin_lto_codegen_flags": attrs.list(attrs.arg(), default = []),
-            "enable_cxx_interop": attrs.bool(default = False),
             "enable_distributed_thinlto": attrs.bool(default = select({
                 "DEFAULT": False,
                 "config//build_mode/constraints:distributed-thin-lto-enabled": True,
             })),
             "enable_library_evolution": attrs.option(attrs.bool(), default = None),
-            "exported_header_style": attrs.enum(IncludeType, default = "local"),
             "exported_lang_preprocessor_flags": attrs.dict(key = attrs.enum(CxxSourceType), value = attrs.list(attrs.arg()), sorted = False, default = {}),
-            "fat_lto": attrs.bool(default = False),
             "focused_list_target": attrs.option(attrs.dep(), default = None),
             "force_static": attrs.option(attrs.bool(), default = None),
-            "header_namespace": attrs.option(attrs.string(), default = None),
             "headers_as_raw_headers_mode": attrs.option(attrs.enum(HeadersAsRawHeadersMode), default = None),
-            "include_directories": attrs.set(attrs.string(), sorted = True, default = []),
             "info_plist": attrs.option(attrs.source(), default = None),
-            "labels": attrs.list(attrs.string(), default = []),
             "lang_compiler_flags": attrs.dict(key = attrs.enum(CxxSourceType), value = attrs.list(attrs.arg()), sorted = False, default = {}),
             "lang_preprocessor_flags": attrs.dict(key = attrs.enum(CxxSourceType), value = attrs.list(attrs.arg()), sorted = False, default = {}),
-            "libraries": attrs.list(attrs.string(), default = []),
-            "licenses": attrs.list(attrs.source(), default = []),
             "link_execution_preference": link_execution_preference_attr(),
-            "link_group": attrs.option(attrs.string(), default = None),
             "link_group_map": LINK_GROUP_MAP_ATTR,
             "link_ordering": attrs.option(attrs.enum(LinkOrdering.values()), default = None),
             "link_whole": attrs.option(attrs.bool(), default = None),
-            "modular": attrs.bool(default = False),
-            "module_name": attrs.option(attrs.string(), default = None),
-            "module_requires_cxx": attrs.bool(default = False),
             "post_linker_flags": attrs.list(attrs.arg(), default = []),
             "precompiled_header": attrs.option(attrs.dep(providers = [CPrecompiledHeaderInfo]), default = None),
             "prefer_stripped_objects": attrs.bool(default = False),
             "preferred_linkage": attrs.enum(Linkage.values(), default = "any"),
             "prefix_header": attrs.option(attrs.source(), default = None),
-            "minimum_os_version": attrs.option(attrs.string(), default = None),
-            "public_include_directories": attrs.set(attrs.string(), sorted = True, default = []),
-            "public_system_include_directories": attrs.set(attrs.string(), sorted = True, default = []),
             "raw_headers": attrs.set(attrs.source(), sorted = True, default = []),
             "reexport_all_header_dependencies": attrs.option(attrs.bool(), default = None),
             "sanitizer_runtime_enabled": attrs.option(attrs.bool(), default = None),
-            "sdk_modules": attrs.list(attrs.string(), default = []),
-            "soname": attrs.option(attrs.string(), default = None),
-            "static_library_basename": attrs.option(attrs.string(), default = None),
             "stripped": attrs.option(attrs.bool(), default = None),
             "supports_merged_linking": attrs.option(attrs.bool(), default = None),
             "swift_compilation_mode": attrs.enum(SwiftCompilationMode.values(), default = "wmo"),
             "swift_compiler_flags": attrs.list(attrs.arg(), default = []),
             "swift_interface_compilation_enabled": attrs.bool(default = False),
-            "swift_module_skip_function_bodies": attrs.bool(default = True),
-            "swift_package_name": attrs.option(attrs.string(), default = None),
             "swift_version": attrs.option(attrs.enum(SwiftVersion), default = None),
-            "thin_lto": attrs.bool(default = False),
-            "use_submodules": attrs.bool(default = True),
-            "uses_cxx_explicit_modules": attrs.bool(default = False),
-            "uses_modules": attrs.bool(default = False),
             "_apple_xctoolchain": get_apple_xctoolchain_attr(),
             "_apple_xctoolchain_bundle_id": get_apple_xctoolchain_bundle_id_attr(),
             "_enable_library_evolution": get_enable_library_evolution(),
-            "_stripped_default": attrs.bool(default = False),
             "_swift_enable_testing": attrs.default_only(attrs.bool(default = False)),
             VALIDATION_DEPS_ATTR_NAME: VALIDATION_DEPS_ATTR_TYPE,
         } |
@@ -498,24 +612,24 @@ apple_bundle = prelude_rule(
         apple_common.privacy_manifest_arg() |
         apple_common.product_name_from_module_name_arg() |
         apple_common.asset_catalogs_compilation_options_arg() |
+        _contacts_arg() |
+        _default_host_platform_arg() |
+        _default_platform_arg() |
+        _labels_arg() |
+        _licenses_arg() |
+        _codesign_flags_arg() |
+        _codesign_identity_arg() |
+        _resource_group_arg() |
+        _xcode_product_type_arg() |
         {
             "ibtool_flags": attrs.option(attrs.list(attrs.string()), default = None, doc = """
                 List of flags to be passed to ibtool during interface builder file compilation.
             """),
-            "codesign_flags": attrs.list(attrs.string(), default = []),
-            "codesign_identity": attrs.option(attrs.string(), default = None),
-            "contacts": attrs.list(attrs.string(), default = []),
-            "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
-            "default_platform": attrs.option(attrs.string(), default = None),
             "incremental_bundling_enabled": attrs.option(attrs.bool(), default = None),
-            "labels": attrs.list(attrs.string(), default = []),
-            "licenses": attrs.list(attrs.source(), default = []),
             "platform_binary": attrs.option(attrs.list(attrs.tuple(attrs.regex(), attrs.dep())), default = None),
-            "resource_group": attrs.option(attrs.string(), default = None),
             "resource_group_map": attrs.option(RESOURCE_GROUP_MAP_ATTR, default = None),
             "skip_copying_swift_stdlib": attrs.option(attrs.bool(), default = None),
             "try_skip_code_signing": attrs.option(attrs.bool(), default = None),
-            "xcode_product_type": attrs.option(attrs.string(), default = None),
         } | apple_bundle_extra_attrs()
     ),
     impl = apple_bundle_impl,
@@ -603,56 +717,63 @@ apple_library = prelude_rule(
         apple_common.apple_tools_arg() |
         apple_common.apple_toolchain_arg() |
         validation_common.attrs_validators_arg() |
+        _contacts_arg() |
+        _default_host_platform_arg() |
+        _default_platform_arg() |
+        _labels_arg() |
+        _licenses_arg() |
+        _defaults_arg() |
+        _deps_arg() |
+        _devirt_enabled_arg() |
+        _diagnostics_arg() |
+        _enable_cxx_interop_arg() |
+        _exported_header_style_arg() |
+        _fat_lto_arg() |
+        _libraries_arg() |
+        _link_group_arg() |
+        _minimum_os_version_arg() |
+        _modular_arg() |
+        _module_name_arg() |
+        _module_requires_cxx_arg() |
+        _sdk_modules_arg() |
+        _soname_arg() |
+        _static_library_basename_arg() |
+        _stripped_default_arg() |
+        _swift_module_skip_function_bodies_arg() |
+        _swift_package_name_arg() |
+        _thin_lto_arg() |
+        _use_submodules_arg() |
+        _uses_cxx_explicit_modules_arg() |
+        _uses_modules_arg() |
         {
             "bridging_header": attrs.option(attrs.source(), default = None),
             "can_be_asset": attrs.option(attrs.bool(), default = None),
-            "contacts": attrs.list(attrs.string(), default = []),
             "cxx_runtime_type": attrs.option(attrs.enum(CxxRuntimeType), default = None),
-            "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
-            "default_platform": attrs.option(attrs.string(), default = None),
-            "defaults": attrs.dict(key = attrs.string(), value = attrs.string(), sorted = False, default = {}),
-            "deps": attrs.list(attrs.dep(), default = []),
-            "devirt_enabled": attrs.bool(default = False),
-            "diagnostics": attrs.dict(key = attrs.string(), value = attrs.source(), sorted = False, default = {}),
             "dist_thin_lto_codegen_flags": attrs.list(attrs.arg(), default = []),
-            "enable_cxx_interop": attrs.bool(default = False),
             "enable_distributed_thinlto": attrs.bool(default = select({
                 "DEFAULT": False,
                 "config//build_mode/constraints:distributed-thin-lto-enabled": True,
             })),
             "enable_library_evolution": attrs.option(attrs.bool(), default = None),
-            "exported_header_style": attrs.enum(IncludeType, default = "local"),
             "exported_lang_preprocessor_flags": attrs.dict(key = attrs.enum(CxxSourceType), value = attrs.list(attrs.arg()), sorted = False, default = {}),
             "exported_post_linker_flags": attrs.list(attrs.arg(), default = []),
-            "fat_lto": attrs.bool(default = False),
             "focused_list_target": attrs.option(attrs.dep(), default = None),
             "force_static": attrs.option(attrs.bool(), default = None),
             "header_mode": attrs.option(attrs.enum(HeaderMode.values()), default = None),
             "headers_as_raw_headers_mode": attrs.option(attrs.enum(HeadersAsRawHeadersMode), default = None),
             "info_plist": attrs.option(attrs.source(), default = None),
-            "labels": attrs.list(attrs.string(), default = []),
             "lang_compiler_flags": attrs.dict(key = attrs.enum(CxxSourceType), value = attrs.list(attrs.arg()), sorted = False, default = {}),
             "lang_preprocessor_flags": attrs.dict(key = attrs.enum(CxxSourceType), value = attrs.list(attrs.arg()), sorted = False, default = {}),
-            "libraries": attrs.list(attrs.string(), default = []),
-            "licenses": attrs.list(attrs.source(), default = []),
             "link_execution_preference": link_execution_preference_attr(),
-            "link_group": attrs.option(attrs.string(), default = None),
             "link_group_map": LINK_GROUP_MAP_ATTR,
             "link_ordering": attrs.option(attrs.enum(LinkOrdering.values()), default = None),
-            "modular": attrs.bool(default = False),
-            "module_name": attrs.option(attrs.string(), default = None),
-            "module_requires_cxx": attrs.bool(default = False),
             "post_linker_flags": attrs.list(attrs.arg(), default = []),
             "precompiled_header": attrs.option(attrs.dep(providers = [CPrecompiledHeaderInfo]), default = None),
             "preferred_linkage": attrs.enum(Linkage.values(), default = "any"),
             "prefix_header": attrs.option(attrs.source(), default = None),
-            "minimum_os_version": attrs.option(attrs.string(), default = None),
             "public_framework_headers": attrs.named_set(attrs.source(), sorted = True, default = []),
-            "sdk_modules": attrs.list(attrs.string(), default = []),
             # Mach-O file type for binary when the target is built as a shared library.
             "shared_library_macho_file_type": attrs.enum(AppleSharedLibraryMachOFileType.values(), default = "dylib"),
-            "soname": attrs.option(attrs.string(), default = None),
-            "static_library_basename": attrs.option(attrs.string(), default = None),
             "stripped": attrs.option(attrs.bool(), default = None),
             "supports_header_symlink_subtarget": attrs.bool(default = False),
             "supports_merged_linking": attrs.option(attrs.bool(), default = None),
@@ -661,18 +782,11 @@ apple_library = prelude_rule(
             "swift_compiler_flags": attrs.list(attrs.arg(), default = []),
             "swift_interface_compilation_enabled": attrs.bool(default = True),
             "swift_macro_deps": attrs.list(attrs.plugin_dep(kind = SwiftMacroPlugin), default = []),
-            "swift_module_skip_function_bodies": attrs.bool(default = True),
-            "swift_package_name": attrs.option(attrs.string(), default = None),
             "swift_version": attrs.option(attrs.enum(SwiftVersion), default = None),
-            "thin_lto": attrs.bool(default = False),
-            "use_submodules": attrs.bool(default = True),
-            "uses_cxx_explicit_modules": attrs.bool(default = False),
             "use_archive": attrs.option(attrs.bool(), default = None),
-            "uses_modules": attrs.bool(default = False),
             "_apple_xctoolchain": get_apple_xctoolchain_attr(),
             "_apple_xctoolchain_bundle_id": get_apple_xctoolchain_bundle_id_attr(),
             "_enable_library_evolution": get_enable_library_evolution(),
-            "_stripped_default": attrs.bool(default = False),
             "_swift_enable_testing": attrs.bool(default = select({
                 "DEFAULT": False,
                 "config//features/apple:swift_enable_testing_enabled": True,
@@ -738,9 +852,9 @@ apple_metal_library = prelude_rule(
     """,
     further = None,
     attrs = (
+        _labels_arg() |
         {
             "headers": attrs.list(attrs.source(), default = []),
-            "labels": attrs.list(attrs.string(), default = []),
             "metal_compiler_flags": attrs.list(attrs.arg(), default = [], doc = """
                 Flags to use when compiling Metal sources.
             """),
@@ -781,6 +895,11 @@ apple_package = prelude_rule(
     further = None,
     attrs = (
         # @unsorted-dict-items
+        _contacts_arg() |
+        _default_host_platform_arg() |
+        _default_platform_arg() |
+        _labels_arg() |
+        _licenses_arg() |
         {
             "bundle": attrs.dep(providers = [AppleBundleInfo], doc = """
                 A build target identifying
@@ -788,11 +907,6 @@ apple_package = prelude_rule(
                  be stored in the IPA package generated by this rule.
             """),
             "ext": attrs.enum(ApplePackageExtension.values(), default = "ipa"),
-            "contacts": attrs.list(attrs.string(), default = []),
-            "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
-            "default_platform": attrs.option(attrs.string(), default = None),
-            "labels": attrs.list(attrs.string(), default = []),
-            "licenses": attrs.list(attrs.source(), default = []),
             "need_android_tools": attrs.bool(default = False),
             "package_name": attrs.option(attrs.string(), default = None),
             "packager": attrs.option(attrs.exec_dep(providers = [RunInfo]), default = None),
@@ -878,11 +992,11 @@ apple_resource = prelude_rule(
             """),
             "codesign_entitlements": attrs.option(attrs.source(), default = None),
             "codesign_flags_override": attrs.option(attrs.list(attrs.string()), default = None),
-            "contacts": attrs.list(attrs.string(), default = []),
-            "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
-            "labels": attrs.list(attrs.string(), default = []),
-            "licenses": attrs.list(attrs.source(), default = []),
         } |
+        _contacts_arg() |
+        _default_host_platform_arg() |
+        _labels_arg() |
+        _licenses_arg() |
         apple_common.skip_universal_resource_dedupe_arg()
     ),
     impl = apple_resource_impl,
@@ -956,24 +1070,44 @@ apple_test = prelude_rule(
         apple_common.executable_name_arg() |
         apple_common.asset_catalogs_compilation_options_arg() |
         cxx_common.supported_platforms_regex_arg() |
+        _contacts_arg() |
+        _default_host_platform_arg() |
+        _default_platform_arg() |
+        _licenses_arg() |
+        _codesign_flags_arg() |
+        _codesign_identity_arg() |
+        _defaults_arg() |
+        _deps_arg() |
+        _devirt_enabled_arg() |
+        _diagnostics_arg() |
+        _enable_cxx_interop_arg() |
+        _exported_header_style_arg() |
+        _fat_lto_arg() |
+        _header_namespace_arg() |
+        _include_directories_arg() |
+        _libraries_arg() |
+        _link_group_arg() |
+        _modular_arg() |
+        _module_name_arg() |
+        _module_requires_cxx_arg() |
+        _public_include_directories_arg() |
+        _public_system_include_directories_arg() |
+        _sdk_modules_arg() |
+        _soname_arg() |
+        _static_library_basename_arg() |
+        _swift_module_skip_function_bodies_arg() |
+        _thin_lto_arg() |
+        _use_submodules_arg() |
+        _uses_cxx_explicit_modules_arg() |
+        _uses_modules_arg() |
+        _xcode_product_type_arg() |
         {
             "bridging_header": attrs.option(attrs.source(), default = None),
             "can_be_asset": attrs.option(attrs.bool(), default = None),
-            "codesign_flags": attrs.list(attrs.string(), default = []),
-            "codesign_identity": attrs.option(attrs.string(), default = None),
-            "contacts": attrs.list(attrs.string(), default = []),
             "cxx_runtime_type": attrs.option(attrs.enum(CxxRuntimeType), default = None),
-            "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
-            "default_platform": attrs.option(attrs.string(), default = None),
-            "defaults": attrs.dict(key = attrs.string(), value = attrs.string(), sorted = False, default = {}),
-            "deps": attrs.list(attrs.dep(), default = []),
             "destination_specifier": attrs.dict(key = attrs.string(), value = attrs.string(), sorted = False, default = {}),
-            "devirt_enabled": attrs.bool(default = False),
-            "diagnostics": attrs.dict(key = attrs.string(), value = attrs.source(), sorted = False, default = {}),
-            "enable_cxx_interop": attrs.bool(default = False),
             "entitlements_file": attrs.option(attrs.source(), default = None),
             "env": attrs.option(attrs.dict(key = attrs.string(), value = attrs.arg(), sorted = False), default = None),
-            "exported_header_style": attrs.enum(IncludeType, default = "local"),
             # Need to keep both `exported_headers` and `headers` for Swift mixed modules
             # to hide C++ code importing.
             "exported_headers": attrs.named_set(attrs.source(), sorted = True, default = []),
@@ -981,56 +1115,36 @@ apple_test = prelude_rule(
             "exported_linker_flags": attrs.list(attrs.arg(), default = []),
             "exported_post_linker_flags": attrs.list(attrs.arg(), default = []),
             "exported_preprocessor_flags": attrs.list(attrs.arg(), default = []),
-            "fat_lto": attrs.bool(default = False),
             "focused_list_target": attrs.option(attrs.dep(), default = None),
             "force_static": attrs.option(attrs.bool(), default = None),
-            "header_namespace": attrs.option(attrs.string(), default = None),
             "headers_as_raw_headers_mode": attrs.option(attrs.enum(HeadersAsRawHeadersMode), default = None),
-            "include_directories": attrs.set(attrs.string(), sorted = True, default = []),
             "incremental_bundling_enabled": attrs.option(attrs.bool(), default = None),
             "is_ui_test": attrs.bool(default = False),
             "lang_compiler_flags": attrs.dict(key = attrs.enum(CxxSourceType), value = attrs.list(attrs.arg()), sorted = False, default = {}),
             "lang_preprocessor_flags": attrs.dict(key = attrs.enum(CxxSourceType), value = attrs.list(attrs.arg()), sorted = False, default = {}),
-            "libraries": attrs.list(attrs.string(), default = []),
-            "licenses": attrs.list(attrs.source(), default = []),
-            "link_group": attrs.option(attrs.string(), default = None),
             "link_group_map": LINK_GROUP_MAP_ATTR,
             # Used to create the shared test library. Any library deps whose `preferred_linkage` isn't "shared" will
             # be treated as "static" deps and linked into the shared test library.
             "link_style": attrs.enum(LinkableDepType, default = "static"),
             "link_whole": attrs.option(attrs.bool(), default = None),
             "linker_extra_outputs": attrs.list(attrs.string(), default = []),
-            "modular": attrs.bool(default = False),
-            "module_name": attrs.option(attrs.string(), default = None),
-            "module_requires_cxx": attrs.bool(default = False),
             "post_linker_flags": attrs.list(attrs.arg(), default = []),
             # The test source code and lib dependencies should be built into a shared library.
             "preferred_linkage": attrs.enum(Linkage.values(), default = "shared"),
             "prefix_header": attrs.option(attrs.source(), default = None),
-            "public_include_directories": attrs.set(attrs.string(), sorted = True, default = []),
-            "public_system_include_directories": attrs.set(attrs.string(), sorted = True, default = []),
             "raw_headers": attrs.set(attrs.source(), sorted = True, default = []),
             "reexport_all_header_dependencies": attrs.option(attrs.bool(), default = None),
             "runner": attrs.option(attrs.dep(), default = None),
-            "sdk_modules": attrs.list(attrs.string(), default = []),
             "skip_copying_swift_stdlib": attrs.option(attrs.bool(), default = None),
             "snapshot_reference_images_path": attrs.option(attrs.one_of(attrs.source(), attrs.string()), default = None),
-            "soname": attrs.option(attrs.string(), default = None),
             "specs": attrs.option(attrs.arg(json = True), default = None),
-            "static_library_basename": attrs.option(attrs.string(), default = None),
             "supports_merged_linking": attrs.option(attrs.bool(), default = None),
             "swift_compiler_flags": attrs.list(attrs.arg(), default = []),
             "swift_interface_compilation_enabled": attrs.bool(default = False),
-            "swift_module_skip_function_bodies": attrs.bool(default = True),
             "swift_version": attrs.option(attrs.enum(SwiftVersion), default = None),
             "test_rule_timeout_ms": attrs.option(attrs.int(), default = None),
-            "thin_lto": attrs.bool(default = False),
             "try_skip_code_signing": attrs.option(attrs.bool(), default = None),
             "ui_test_target_app": attrs.option(attrs.dep(), default = None),
-            "use_submodules": attrs.bool(default = True),
-            "uses_cxx_explicit_modules": attrs.bool(default = False),
-            "uses_modules": attrs.bool(default = False),
-            "xcode_product_type": attrs.option(attrs.string(), default = None),
         } |
         buck.allow_cache_upload_arg() |
         buck.inject_test_env_arg() |
@@ -1048,6 +1162,10 @@ apple_toolchain = prelude_rule(
     examples = None,
     further = None,
     attrs = (
+        _contacts_arg() |
+        _default_host_platform_arg() |
+        _labels_arg() |
+        _licenses_arg() |
         {
             "actool": attrs.exec_dep(providers = [RunInfo]),
             "app_intents_metadata_processor": attrs.option(attrs.exec_dep(providers = [RunInfo]), default = None),
@@ -1059,19 +1177,15 @@ apple_toolchain = prelude_rule(
             "codesign_identities_command": attrs.option(attrs.exec_dep(providers = [RunInfo]), default = None),
             # Controls invocations of `ibtool`, `actool` `mapc` and `momc`
             "compile_resources_locally": attrs.bool(default = False),
-            "contacts": attrs.list(attrs.string(), default = []),
             "copy_scene_kit_assets": attrs.exec_dep(providers = [RunInfo]),
             "cxx_toolchain": attrs.toolchain_dep(),
-            "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "developer_path": attrs.option(attrs.source(), default = None),
             "dsymutil": attrs.exec_dep(providers = [RunInfo]),
             "dsymutil_flags": attrs.list(attrs.string(), default = []),
             "dwarfdump": attrs.option(attrs.exec_dep(providers = [RunInfo]), default = None),
             "extra_linker_outputs": attrs.set(attrs.string(), default = []),
             "ibtool": attrs.exec_dep(providers = [RunInfo]),
-            "labels": attrs.list(attrs.string(), default = []),
             "libtool": attrs.exec_dep(providers = [RunInfo]),
-            "licenses": attrs.list(attrs.source(), default = []),
             "lipo": attrs.exec_dep(providers = [RunInfo]),
             "mapc": attrs.option(attrs.exec_dep(providers = [RunInfo]), default = None),
             "merge_index_store": attrs.default_only(attrs.dep(providers = [RunInfo], default = "prelude//apple/tools/index:merge_index_store")),
@@ -1132,14 +1246,14 @@ core_data_model = prelude_rule(
     further = None,
     attrs = (
         # @unsorted-dict-items
+        _contacts_arg() |
+        _default_host_platform_arg() |
+        _labels_arg() |
+        _licenses_arg() |
         {
             "path": attrs.source(allow_directory = True, doc = """
                 Relative path of the .xcdatamodeld package directory.
             """),
-            "contacts": attrs.list(attrs.string(), default = []),
-            "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
-            "labels": attrs.list(attrs.string(), default = []),
-            "licenses": attrs.list(attrs.source(), default = []),
             "module": attrs.option(attrs.string(), default = None),
         }
     ),
@@ -1169,6 +1283,14 @@ prebuilt_apple_framework = prelude_rule(
     further = None,
     attrs = (
         # @unsorted-dict-items
+        _contacts_arg() |
+        _default_host_platform_arg() |
+        _labels_arg() |
+        _licenses_arg() |
+        _deps_arg() |
+        _libraries_arg() |
+        _sdk_modules_arg() |
+        _stripped_default_arg() |
         {
             "preferred_linkage": attrs.enum(Linkage.values(), default = "any", doc = """
                 How to link to a binary: use `dynamic` for a dynamic
@@ -1184,24 +1306,16 @@ prebuilt_apple_framework = prelude_rule(
               Therefore, if your framework binary is named something like `libFrameworkName-iPhone.a` instead
               of `FrameworkName`, you can declare this here.
             """),
-            "contacts": attrs.list(attrs.string(), default = []),
             "contains_swift": attrs.bool(default = False),
-            "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "dsyms": attrs.list(attrs.source(allow_directory = True), default = []),
-            "deps": attrs.list(attrs.dep(), default = []),
             "exported_linker_flags": attrs.list(attrs.string(), default = []),
             "framework": attrs.option(attrs.source(allow_directory = True), default = None),
             "frameworks": attrs.list(attrs.string(), default = []),
-            "labels": attrs.list(attrs.string(), default = []),
-            "libraries": attrs.list(attrs.string(), default = []),
-            "licenses": attrs.list(attrs.source(), default = []),
             "modular": attrs.bool(default = True),
-            "sdk_modules": attrs.list(attrs.string(), default = []),
             "stripped": attrs.option(attrs.bool(), default = None),
             "extra_codesign_paths": attrs.list(attrs.string(), default = [], doc = """
                 A list of extra paths, relative to the framework root, that will be codesigned.
                 """),
-            "_stripped_default": attrs.bool(default = False),
         } |
         apple_common.apple_tools_arg() |
         apple_common.apple_toolchain_arg() |
@@ -1217,11 +1331,11 @@ scene_kit_assets = prelude_rule(
     further = None,
     attrs = (
         # @unsorted-dict-items
+        _contacts_arg() |
+        _default_host_platform_arg() |
+        _labels_arg() |
+        _licenses_arg() |
         {
-            "contacts": attrs.list(attrs.string(), default = []),
-            "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
-            "labels": attrs.list(attrs.string(), default = []),
-            "licenses": attrs.list(attrs.source(), default = []),
             "path": attrs.source(allow_directory = True),
         }
     ),
@@ -1234,12 +1348,12 @@ swift_toolchain = prelude_rule(
     examples = None,
     further = None,
     attrs = (
+        _contacts_arg() |
+        _default_host_platform_arg() |
+        _labels_arg() |
+        _licenses_arg() |
         {
             "architecture": attrs.string(),
-            "contacts": attrs.list(attrs.string(), default = []),
-            "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
-            "labels": attrs.list(attrs.string(), default = []),
-            "licenses": attrs.list(attrs.source(), default = []),
             "make_swift_comp_db": attrs.default_only(attrs.dep(providers = [RunInfo], default = "prelude//apple/tools:make_swift_comp_db")),
             "make_swift_interface": attrs.default_only(attrs.dep(providers = [RunInfo], default = "prelude//apple/tools:make_swift_interface")),
             "object_format": attrs.enum(SwiftObjectFormat.values(), default = "object"),
@@ -1307,6 +1421,7 @@ apple_universal_executable = prelude_rule(
     examples = None,
     further = None,
     attrs = (
+        _labels_arg() |
         {
             "executable": attrs.split_transition_dep(cfg = cpu_split_transition, doc = """
                     A build target identifying the binary which will be built for multiple architectures.
@@ -1317,7 +1432,6 @@ apple_universal_executable = prelude_rule(
                     - `[shared]` subtarget of `apple_library()` and `cxx_library()`
                     - `apple_library()` and `cxx_library()` which have `preferred_linkage = shared` attribute
                 """),
-            "labels": attrs.list(attrs.string(), default = []),
             "split_arch_dsym": attrs.bool(default = False, doc = """
                     If enabled, each architecture gets its own dSYM binary. Use this if the combined
                     universal dSYM binary exceeds 4GiB.
@@ -1400,6 +1514,7 @@ cxx_universal_executable = prelude_rule(
     examples = None,
     further = None,
     attrs = (
+        _labels_arg() |
         {
             "executable": attrs.split_transition_dep(cfg = cpu_split_transition, doc = """
                     A build target identifying the binary which will be built for multiple architectures.
@@ -1410,7 +1525,6 @@ cxx_universal_executable = prelude_rule(
                     - `[shared]` subtarget `cxx_library()`
                     - `cxx_library()` which have `preferred_linkage = shared` attribute
                 """),
-            "labels": attrs.list(attrs.string(), default = []),
             "universal": attrs.option(attrs.bool(), default = None, doc = """
                     Controls whether the output is universal binary. Any value overrides the presence
                     of the `config//cpu/constraints:universal-enabled` constraint. Read the rule docs
@@ -1443,24 +1557,28 @@ apple_xcframework = prelude_rule(
 apple_spm_package = prelude_rule(
     name = "apple_spm_package",
     impl = apple_spm_package_impl,
-    attrs = {
-        "deps": attrs.list(attrs.dep(), default = []),
-        "package_name": attrs.string(),
-        "_apple_tools": attrs.exec_dep(default = "prelude//apple/tools:apple-tools", providers = [AppleToolsInfo]),
-    },
+    attrs = (
+        _deps_arg() |
+        {
+            "package_name": attrs.string(),
+            "_apple_tools": attrs.exec_dep(default = "prelude//apple/tools:apple-tools", providers = [AppleToolsInfo]),
+        }
+    ),
 )
 
 apple_static_archive = prelude_rule(
     name = "apple_static_archive",
     impl = apple_static_archive_impl,
-    attrs = {
-        "archive_name": attrs.option(attrs.string(), default = None),
-        "deps": attrs.list(attrs.dep(), default = []),
-        "distribution_flat_dep": attrs.option(attrs.dep(), default = None),
-        "flat_deps": attrs.list(attrs.dep(), default = []),
-        "labels": attrs.list(attrs.string(), default = []),
-        VALIDATION_DEPS_ATTR_NAME: VALIDATION_DEPS_ATTR_TYPE,
-    } | apple_common.apple_tools_arg() | apple_common.apple_toolchain_arg(),
+    attrs = (
+        _labels_arg() |
+        _deps_arg() |
+        {
+            "archive_name": attrs.option(attrs.string(), default = None),
+            "distribution_flat_dep": attrs.option(attrs.dep(), default = None),
+            "flat_deps": attrs.list(attrs.dep(), default = []),
+            VALIDATION_DEPS_ATTR_NAME: VALIDATION_DEPS_ATTR_TYPE,
+        } | apple_common.apple_tools_arg() | apple_common.apple_toolchain_arg()
+    ),
 )
 
 apple_selective_debugging = prelude_rule(
@@ -1494,19 +1612,19 @@ apple_resource_bundle = prelude_rule(
     name = "apple_resource_bundle",
     impl = apple_resource_bundle_impl,
     attrs = (
+        _labels_arg() |
+        _deps_arg() |
+        _ibtool_flags_arg() |
+        _product_name_arg() |
+        _resource_group_arg() |
         {
             "binary": attrs.option(attrs.split_transition_dep(cfg = cpu_split_transition), default = None),
             "copy_public_framework_headers": attrs.option(attrs.bool(), default = None),
-            "deps": attrs.list(attrs.dep(), default = []),
             "extension": attrs.one_of(attrs.enum(AppleBundleExtension), attrs.string()),
-            "ibtool_flags": attrs.option(attrs.list(attrs.string()), default = None),
             "info_plist": attrs.source(),
-            "labels": attrs.list(attrs.string(), default = []),
             "module_map": attrs.option(attrs.one_of(attrs.enum(AppleFrameworkBundleModuleMapType), attrs.source()), default = None),
             "privacy_manifest": attrs.option(attrs.source(), default = None),
-            "product_name": attrs.option(attrs.string(), default = None),
             "product_name_from_module_name": attrs.bool(default = False),
-            "resource_group": attrs.option(attrs.string(), default = None),
             "resource_group_map": RESOURCE_GROUP_MAP_ATTR,
             "universal": attrs.option(attrs.bool(), default = None),
             # Only include macOS hosted toolchains, so we compile resources directly on Mac RE
