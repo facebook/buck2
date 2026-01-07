@@ -1281,7 +1281,6 @@ _CxxSharedLibraryResult = record(
     link_result = CxxLinkResult,
     # Shared library name (e.g. SONAME)
     soname = str,
-    objects_bitcode_bundle = Artifact | None,
     # `LinkInfo` used to link against the shared library.
     info = LinkInfo,
 )
@@ -2183,7 +2182,6 @@ def _shared_library(
     return _CxxSharedLibraryResult(
         link_result = link_result,
         soname = soname,
-        objects_bitcode_bundle = local_bitcode_bundle.artifact if local_bitcode_bundle else None,
         info = LinkInfo(
             name = soname,
             linkables = [SharedLibLinkable(
