@@ -309,7 +309,7 @@ constraint = prelude_rule(
     name = "constraint",
     docs = """
         Unified constraint rule that defines both a constraint setting and its possible values.
-        Values are exposed as subtargets, e.g., cfg//:os[linux].
+        Values are exposed as subtargets, e.g., `cfg//:os[linux]`.
     """,
     examples = """
         constraint(
