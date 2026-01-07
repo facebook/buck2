@@ -470,7 +470,7 @@ _AnonLinkInfoPlaceholder = provider(fields = {
 def _anon_link_impl(ctx):
     (output, result_type, opts) = deserialize_anon_attrs(ctx.actions, ctx.label, ctx.attrs)
 
-    link_result = cxx_link(
+    link_result = _cxx_link(
         ctx = ctx,
         output = output,
         result_type = result_type,
@@ -558,7 +558,7 @@ def _anon_cxx_link(
         shared_library_interface = None,
     )
 
-def cxx_link(
+def _cxx_link(
         ctx: AnalysisContext,
         output: str,
         result_type: CxxLinkResultType,
@@ -602,7 +602,7 @@ def cxx_link_shared_library(
         shared_library_flags = shared_library_flags,
     )
 
-    return cxx_link(
+    return _cxx_link(
         ctx = ctx,
         output = output,
         result_type = CxxLinkResultType("shared_library"),
