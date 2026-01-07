@@ -594,6 +594,31 @@ def cxx_link_shared_library(
     """
     Link a shared library into the supplied output.
     """
+    merged_opts = _build_cxx_link_shared_library_options(
+        ctx = ctx,
+        output = output,
+        opts = opts,
+        name = name,
+        shared_library_flags = shared_library_flags,
+    )
+
+    return cxx_link(
+        ctx = ctx,
+        output = output,
+        result_type = CxxLinkResultType("shared_library"),
+        opts = merged_opts,
+        anonymous = anonymous,
+    )
+
+def _build_cxx_link_shared_library_options(
+        ctx: AnalysisContext,
+        # The destination for the link output.
+        output: str,
+        opts: LinkOptions,
+        # Optional soname to link into shared library.
+        name: [str, None] = None,
+        # Overrides the default flags used to specify building shared libraries
+        shared_library_flags: [SharedLibraryFlagOverrides, None] = None) -> LinkOptions:
     cxx_toolchain = opts.cxx_toolchain or get_cxx_toolchain_info(ctx)
     linker_info = cxx_toolchain.linker_info
     linker_type = linker_info.type
@@ -617,17 +642,9 @@ def cxx_link_shared_library(
 
     links_with_extra_args = [LinkArgs(flags = extra_args)] + opts.links + [LinkArgs(flags = import_library_args + deffile_args)]
 
-    opts = merge_link_options(
+    return merge_link_options(
         opts,
         links = links_with_extra_args,
         link_execution_preference = link_execution_preference,
         import_library = import_library,
-    )
-
-    return cxx_link(
-        ctx = ctx,
-        output = output,
-        result_type = CxxLinkResultType("shared_library"),
-        opts = opts,
-        anonymous = anonymous,
     )
