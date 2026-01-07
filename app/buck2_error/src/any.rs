@@ -132,11 +132,8 @@ pub struct ProvidableMetadata {
 mod tests {
     use std::error::Request;
 
-    use allocative::Allocative;
-
     use super::*;
     use crate as buck2_error;
-    use crate::TypedContext;
     use crate::conversion::from_any_with_tag;
 
     #[derive(Debug, derive_more::Display)]
@@ -152,52 +149,6 @@ mod tests {
     }
 
     impl StdError for TestError {}
-
-    #[test]
-    fn test_roundtrip_no_context() {
-        let e = crate::Error::from(TestError).context("context 1");
-        let e2 = from_any_with_tag(anyhow::Error::from(e.clone()), ErrorTag::Input);
-        crate::Error::check_equal(&e, &e2);
-    }
-
-    #[test]
-    fn test_roundtrip_with_context() {
-        let e = crate::Error::from(TestError).context("context 1");
-        let e2 = from_any_with_tag(
-            anyhow::Error::from(e.clone()).context("context 2"),
-            ErrorTag::Input,
-        );
-        let e3 = e.context("context 2");
-        crate::Error::check_equal(&e2, &e3);
-    }
-
-    #[test]
-    fn test_roundtrip_with_typed_context() {
-        #[derive(Debug, Allocative, Eq, PartialEq)]
-        struct T(usize);
-        impl std::fmt::Display for T {
-            fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-                write!(f, "{self:?}")
-            }
-        }
-
-        impl TypedContext for T {
-            fn eq(&self, other: &dyn TypedContext) -> bool {
-                match (other as &dyn std::any::Any).downcast_ref::<Self>() {
-                    Some(right) => self == right,
-                    None => false,
-                }
-            }
-        }
-
-        let e = crate::Error::from(TestError).context(T(1));
-        let e2 = from_any_with_tag(
-            anyhow::Error::from(e.clone()).context("context 2"),
-            ErrorTag::Input,
-        );
-        let e3 = e.context("context 2");
-        crate::Error::check_equal(&e2, &e3);
-    }
 
     #[derive(Debug, derive_more::Display)]
     struct FullMetadataError;

@@ -101,7 +101,6 @@ impl std::fmt::Display for SourceLocation {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate as buck2_error;
     use crate::conversion::from_any_with_tag;
     use crate::conversion_test::MyError;
 
@@ -191,10 +190,7 @@ mod tests {
             e.source_location().to_string(),
             "buck2_error/src/source_location.rs",
         );
-
-        let e: buck2_error::Error = from_any_with_tag(MyError, crate::ErrorTag::Input);
-        let e: anyhow::Error = e.into();
-        let e: crate::Error = from_any_with_tag(e, crate::ErrorTag::Input);
+        let e = e.context("mycontext");
         assert_eq!(
             e.source_location().to_string(),
             "buck2_error/src/source_location.rs",

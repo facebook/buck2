@@ -275,32 +275,6 @@ mod tests {
     }
 
     #[test]
-    fn test_metadata_roundtrip_with_anyhow() {
-        // Tests buck2_error->anyhow->starlark->buck2_error
-        let e = crate::Error::from(FullMetadataError);
-        let e = e.context("test context 123");
-        let e: anyhow::Error = e.into();
-        let e: starlark_syntax::Error = e.into();
-        let e: crate::Error = e.into();
-
-        assert_eq!(e.get_tier(), Some(crate::Tier::Tier0));
-        assert!(format!("{e:?}").contains("test context 123"));
-        assert_eq!(
-            e.source_location().to_string(),
-            "buck2_error/src/starlark_error.rs::FullMetadataError",
-        );
-        assert_eq!(
-            &e.tags(),
-            &[
-                crate::ErrorTag::StarlarkFail,
-                crate::ErrorTag::StarlarkNativeInput,
-                crate::ErrorTag::Tier0,
-                crate::ErrorTag::WatchmanTimeout
-            ]
-        );
-    }
-
-    #[test]
     fn test_pop_dyn_error_from_context() {
         let context_error = "Some error message that's getting popped";
         let context_key = "Some context key";
