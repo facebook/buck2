@@ -31,7 +31,7 @@ def _impl(ctx: bxl.Context):
     platform = _run_cfg_constructor(test_refs, target_modifiers = None)
     asserts.true(test_refs.make_cfg([sanitizers.get_sanitizer_constraint(sanitizer)]), platform.configuration)
 
-    nosan = "ovr_config//build_mode/constraints:no-san"
+    nosan = "ovr_config//build_mode:sanitizer_type[no-san]"
     platform = _run_cfg_constructor(test_refs, target_modifiers = [nosan])
     asserts.true(test_refs.make_cfg([nosan]), platform.configuration)
 

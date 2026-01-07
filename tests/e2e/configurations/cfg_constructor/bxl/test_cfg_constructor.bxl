@@ -235,7 +235,7 @@ def test_cfg_constructor_with_modifiers_match_ordering(
         test_refs: TestRefs):
     target_modifiers = [
         modifiers.match({
-            "ovr_config//cpu/constraints:arm64": "ovr_config//build_mode/constraints:no-san",
+            "ovr_config//cpu/constraints:arm64": "ovr_config//build_mode:sanitizer_type[no-san]",
             "ovr_config//cpu/constraints:x86_64": "ovr_config//build_mode:sanitizer_type[asan]",
         }),
         modifiers.match({
@@ -276,7 +276,7 @@ def test_cfg_constructor_with_modifiers_match_ordering(
     expected_cfg = test_refs.make_cfg([
         "ovr_config//os/constraints:macos",
         "ovr_config//cpu/constraints:arm64",
-        "ovr_config//build_mode/constraints:no-san",
+        "ovr_config//build_mode:sanitizer_type[no-san]",
     ])
     asserts.equals(expected_cfg, platform.configuration)
     asserts.equals("cfg:macos-arm64-no-san", platform.label)

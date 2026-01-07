@@ -94,7 +94,7 @@ def _refs():
         "_opt_by_default__fbcode_build_info_mode_full": "@config//build_mode/constraints:fbcode-build-info-mode-full",
         "_opt_by_default__linux": "@config//os/constraints:linux",
         "_opt_by_default__lto_none": "@config//build_mode/constraints:lto-none",
-        "_opt_by_default__no_san": "@config//build_mode/constraints:no-san",
+        "_opt_by_default__no_san": "@config//build_mode:sanitizer_type[no-san]",
         "_opt_by_default__opt": "@config//build_mode/constraints:opt",
         "_opt_by_default__opt_cxx_enabled": "@config//build_mode/default_opt_cxx:enabled",
         "_opt_by_default__split_dwarf_single": "@config//build_mode/constraints:split-dwarf-single",
