@@ -222,43 +222,19 @@ impl std::error::Error for StarlarkErrorWrapper {}
 
 #[cfg(test)]
 mod tests {
-    use std::error::Request;
     use std::sync::Arc;
 
     use allocative::Allocative;
 
-    use crate::any::ProvidableMetadata;
+    use crate as buck2_error;
     use crate::buck2_error;
     use crate::context_value::StarlarkContext;
-    use crate::source_location::SourceLocation;
     use crate::starlark_error::error_with_starlark_context;
 
-    #[derive(Debug, Allocative, derive_more::Display)]
+    #[derive(buck2_error::Error, Debug, Allocative)]
+    #[error("FullMetadataError")]
+    #[buck2(tag = crate::ErrorTag::Tier0)]
     struct FullMetadataError;
-
-    impl From<FullMetadataError> for crate::Error {
-        #[cold]
-        fn from(value: FullMetadataError) -> Self {
-            let error = anyhow::Error::from(value);
-            let source_location = SourceLocation::new(file!());
-            crate::any::recover_crate_error(error.as_ref(), source_location, crate::ErrorTag::Tier0)
-        }
-    }
-
-    impl std::error::Error for FullMetadataError {
-        fn provide<'a>(&'a self, request: &mut Request<'a>) {
-            request.provide_value(ProvidableMetadata {
-                action_error: None,
-                source_location: SourceLocation::new(file!()).with_type_name("FullMetadataError"),
-                tags: vec![
-                    crate::ErrorTag::WatchmanTimeout,
-                    crate::ErrorTag::StarlarkNativeInput,
-                    crate::ErrorTag::StarlarkFail,
-                ],
-                string_tags: vec![],
-            });
-        }
-    }
 
     impl crate::TypedContext for FullMetadataError {
         fn eq(&self, _other: &dyn crate::TypedContext) -> bool {
