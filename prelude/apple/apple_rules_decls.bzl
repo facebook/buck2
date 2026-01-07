@@ -48,7 +48,7 @@ load("@prelude//apple/user:watch_transition.bzl", "watch_transition")
 load("@prelude//cxx:groups_types.bzl", "GroupFilterInfo", "Traversal")
 load("@prelude//cxx:headers.bzl", "CPrecompiledHeaderInfo", "HeaderMode")
 load("@prelude//cxx:link_groups_types.bzl", "LINK_GROUP_MAP_ATTR")
-load("@prelude//decls:common.bzl", "CxxRuntimeType", "CxxSourceType", "HeadersAsRawHeadersMode", "IncludeType", "LinkableDepType", "buck", "prelude_rule")
+load("@prelude//decls:common.bzl", "CxxRuntimeType", "CxxSourceType", "HeadersAsRawHeadersMode", "LinkableDepType", "buck", "prelude_rule")
 load("@prelude//decls:cxx_common.bzl", "cxx_common")
 load("@prelude//decls:native_common.bzl", "native_common")
 load("@prelude//decls:test_common.bzl", "test_common")
@@ -104,20 +104,11 @@ SWIFT_VERSION_FEATURE_MAP = {
     "6": [],
 }
 
-def _contacts_arg():
-    return {"contacts": attrs.list(attrs.string(), default = [])}
-
 def _default_host_platform_arg():
     return {"default_host_platform": attrs.option(attrs.configuration_label(), default = None)}
 
 def _default_platform_arg():
     return {"default_platform": attrs.option(attrs.string(), default = None)}
-
-def _labels_arg():
-    return {"labels": attrs.list(attrs.string(), default = [])}
-
-def _licenses_arg():
-    return {"licenses": attrs.list(attrs.source(), default = [])}
 
 def _codesign_flags_arg():
     return {"codesign_flags": attrs.list(attrs.string(), default = [])}
@@ -140,20 +131,11 @@ def _diagnostics_arg():
 def _enable_cxx_interop_arg():
     return {"enable_cxx_interop": attrs.bool(default = False)}
 
-def _exported_header_style_arg():
-    return {"exported_header_style": attrs.enum(IncludeType, default = "local")}
-
 def _fat_lto_arg():
     return {"fat_lto": attrs.bool(default = False)}
 
-def _header_namespace_arg():
-    return {"header_namespace": attrs.option(attrs.string(), default = None)}
-
 def _ibtool_flags_arg():
     return {"ibtool_flags": attrs.option(attrs.list(attrs.string()), default = None)}
-
-def _include_directories_arg():
-    return {"include_directories": attrs.set(attrs.string(), sorted = True, default = [])}
 
 def _libraries_arg():
     return {"libraries": attrs.list(attrs.string(), default = [])}
@@ -176,20 +158,11 @@ def _module_requires_cxx_arg():
 def _product_name_arg():
     return {"product_name": attrs.option(attrs.string(), default = None)}
 
-def _public_include_directories_arg():
-    return {"public_include_directories": attrs.set(attrs.string(), sorted = True, default = [])}
-
-def _public_system_include_directories_arg():
-    return {"public_system_include_directories": attrs.set(attrs.string(), sorted = True, default = [])}
-
 def _resource_group_arg():
     return {"resource_group": attrs.option(attrs.string(), default = None)}
 
 def _sdk_modules_arg():
     return {"sdk_modules": attrs.list(attrs.string(), default = [])}
-
-def _soname_arg():
-    return {"soname": attrs.option(attrs.string(), default = None)}
 
 def _static_library_basename_arg():
     return {"static_library_basename": attrs.option(attrs.string(), default = None)}
@@ -222,11 +195,11 @@ def apple_bundle_base_attrs():
     return (apple_common.product_name_from_module_name_arg() |
             apple_common.asset_catalogs_compilation_options_arg() |
             apple_common.info_plist_substitutions_arg() |
-            _contacts_arg() |
+            buck.contacts_arg() |
             _default_host_platform_arg() |
             _default_platform_arg() |
-            _labels_arg() |
-            _licenses_arg() |
+            buck.labels_arg() |
+            buck.licenses_arg() |
             _codesign_flags_arg() |
             _codesign_identity_arg() |
             _deps_arg() |
@@ -297,10 +270,10 @@ apple_asset_catalog = prelude_rule(
     further = None,
     attrs = (
         # @unsorted-dict-items
-        _contacts_arg() |
+        buck.contacts_arg() |
         _default_host_platform_arg() |
-        _labels_arg() |
-        _licenses_arg() |
+        buck.labels_arg() |
+        buck.licenses_arg() |
         {
             "dirs": attrs.list(attrs.source(allow_directory = True), default = [], doc = """
                 Set of paths of Apple asset catalogs contained by this rule. All paths have to end with the `.xcassets` extension and be compatible with the asset catalog format used by Xcode.
@@ -327,10 +300,10 @@ apple_app_intents = prelude_rule(
     examples = None,
     further = None,
     attrs = (
-        _contacts_arg() |
+        buck.contacts_arg() |
         _default_host_platform_arg() |
-        _labels_arg() |
-        _licenses_arg()
+        buck.labels_arg() |
+        buck.licenses_arg()
     ),
     impl = apple_app_intents_impl,
 )
@@ -412,30 +385,30 @@ apple_binary = prelude_rule(
         apple_common.executable_name_arg() |
         apple_common.info_plist_substitutions_arg() |
         cxx_common.supported_platforms_regex_arg() |
-        _contacts_arg() |
+        buck.contacts_arg() |
         _default_host_platform_arg() |
         _default_platform_arg() |
-        _labels_arg() |
-        _licenses_arg() |
+        buck.labels_arg() |
+        buck.licenses_arg() |
         _defaults_arg() |
         _deps_arg() |
         _devirt_enabled_arg() |
         _diagnostics_arg() |
         _enable_cxx_interop_arg() |
-        _exported_header_style_arg() |
+        cxx_common.exported_header_style_arg() |
         _fat_lto_arg() |
-        _header_namespace_arg() |
-        _include_directories_arg() |
+        cxx_common.header_namespace_arg() |
+        cxx_common.include_directories_arg() |
         _libraries_arg() |
         _link_group_arg() |
         _minimum_os_version_arg() |
         _modular_arg() |
         _module_name_arg() |
         _module_requires_cxx_arg() |
-        _public_include_directories_arg() |
-        _public_system_include_directories_arg() |
+        cxx_common.public_include_directories_arg() |
+        cxx_common.public_system_include_directories_arg() |
         _sdk_modules_arg() |
-        _soname_arg() |
+        native_common.soname() |
         _static_library_basename_arg() |
         _stripped_default_arg() |
         _swift_module_skip_function_bodies_arg() |
@@ -612,11 +585,11 @@ apple_bundle = prelude_rule(
         apple_common.privacy_manifest_arg() |
         apple_common.product_name_from_module_name_arg() |
         apple_common.asset_catalogs_compilation_options_arg() |
-        _contacts_arg() |
+        buck.contacts_arg() |
         _default_host_platform_arg() |
         _default_platform_arg() |
-        _labels_arg() |
-        _licenses_arg() |
+        buck.labels_arg() |
+        buck.licenses_arg() |
         _codesign_flags_arg() |
         _codesign_identity_arg() |
         _resource_group_arg() |
@@ -717,17 +690,17 @@ apple_library = prelude_rule(
         apple_common.apple_tools_arg() |
         apple_common.apple_toolchain_arg() |
         validation_common.attrs_validators_arg() |
-        _contacts_arg() |
+        buck.contacts_arg() |
         _default_host_platform_arg() |
         _default_platform_arg() |
-        _labels_arg() |
-        _licenses_arg() |
+        buck.labels_arg() |
+        buck.licenses_arg() |
         _defaults_arg() |
         _deps_arg() |
         _devirt_enabled_arg() |
         _diagnostics_arg() |
         _enable_cxx_interop_arg() |
-        _exported_header_style_arg() |
+        cxx_common.exported_header_style_arg() |
         _fat_lto_arg() |
         _libraries_arg() |
         _link_group_arg() |
@@ -736,7 +709,7 @@ apple_library = prelude_rule(
         _module_name_arg() |
         _module_requires_cxx_arg() |
         _sdk_modules_arg() |
-        _soname_arg() |
+        native_common.soname() |
         _static_library_basename_arg() |
         _stripped_default_arg() |
         _swift_module_skip_function_bodies_arg() |
@@ -852,7 +825,7 @@ apple_metal_library = prelude_rule(
     """,
     further = None,
     attrs = (
-        _labels_arg() |
+        buck.labels_arg() |
         {
             "headers": attrs.list(attrs.source(), default = []),
             "metal_compiler_flags": attrs.list(attrs.arg(), default = [], doc = """
@@ -895,11 +868,11 @@ apple_package = prelude_rule(
     further = None,
     attrs = (
         # @unsorted-dict-items
-        _contacts_arg() |
+        buck.contacts_arg() |
         _default_host_platform_arg() |
         _default_platform_arg() |
-        _labels_arg() |
-        _licenses_arg() |
+        buck.labels_arg() |
+        buck.licenses_arg() |
         {
             "bundle": attrs.dep(providers = [AppleBundleInfo], doc = """
                 A build target identifying
@@ -993,10 +966,10 @@ apple_resource = prelude_rule(
             "codesign_entitlements": attrs.option(attrs.source(), default = None),
             "codesign_flags_override": attrs.option(attrs.list(attrs.string()), default = None),
         } |
-        _contacts_arg() |
+        buck.contacts_arg() |
         _default_host_platform_arg() |
-        _labels_arg() |
-        _licenses_arg() |
+        buck.labels_arg() |
+        buck.licenses_arg() |
         apple_common.skip_universal_resource_dedupe_arg()
     ),
     impl = apple_resource_impl,
@@ -1070,10 +1043,10 @@ apple_test = prelude_rule(
         apple_common.executable_name_arg() |
         apple_common.asset_catalogs_compilation_options_arg() |
         cxx_common.supported_platforms_regex_arg() |
-        _contacts_arg() |
+        buck.contacts_arg() |
         _default_host_platform_arg() |
         _default_platform_arg() |
-        _licenses_arg() |
+        buck.licenses_arg() |
         _codesign_flags_arg() |
         _codesign_identity_arg() |
         _defaults_arg() |
@@ -1081,19 +1054,19 @@ apple_test = prelude_rule(
         _devirt_enabled_arg() |
         _diagnostics_arg() |
         _enable_cxx_interop_arg() |
-        _exported_header_style_arg() |
+        cxx_common.exported_header_style_arg() |
         _fat_lto_arg() |
-        _header_namespace_arg() |
-        _include_directories_arg() |
+        cxx_common.header_namespace_arg() |
+        cxx_common.include_directories_arg() |
         _libraries_arg() |
         _link_group_arg() |
         _modular_arg() |
         _module_name_arg() |
         _module_requires_cxx_arg() |
-        _public_include_directories_arg() |
-        _public_system_include_directories_arg() |
+        cxx_common.public_include_directories_arg() |
+        cxx_common.public_system_include_directories_arg() |
         _sdk_modules_arg() |
-        _soname_arg() |
+        native_common.soname() |
         _static_library_basename_arg() |
         _swift_module_skip_function_bodies_arg() |
         _thin_lto_arg() |
@@ -1162,10 +1135,10 @@ apple_toolchain = prelude_rule(
     examples = None,
     further = None,
     attrs = (
-        _contacts_arg() |
+        buck.contacts_arg() |
         _default_host_platform_arg() |
-        _labels_arg() |
-        _licenses_arg() |
+        buck.labels_arg() |
+        buck.licenses_arg() |
         {
             "actool": attrs.exec_dep(providers = [RunInfo]),
             "app_intents_metadata_processor": attrs.option(attrs.exec_dep(providers = [RunInfo]), default = None),
@@ -1246,10 +1219,10 @@ core_data_model = prelude_rule(
     further = None,
     attrs = (
         # @unsorted-dict-items
-        _contacts_arg() |
+        buck.contacts_arg() |
         _default_host_platform_arg() |
-        _labels_arg() |
-        _licenses_arg() |
+        buck.labels_arg() |
+        buck.licenses_arg() |
         {
             "path": attrs.source(allow_directory = True, doc = """
                 Relative path of the .xcdatamodeld package directory.
@@ -1283,10 +1256,10 @@ prebuilt_apple_framework = prelude_rule(
     further = None,
     attrs = (
         # @unsorted-dict-items
-        _contacts_arg() |
+        buck.contacts_arg() |
         _default_host_platform_arg() |
-        _labels_arg() |
-        _licenses_arg() |
+        buck.labels_arg() |
+        buck.licenses_arg() |
         _deps_arg() |
         _libraries_arg() |
         _sdk_modules_arg() |
@@ -1331,10 +1304,10 @@ scene_kit_assets = prelude_rule(
     further = None,
     attrs = (
         # @unsorted-dict-items
-        _contacts_arg() |
+        buck.contacts_arg() |
         _default_host_platform_arg() |
-        _labels_arg() |
-        _licenses_arg() |
+        buck.labels_arg() |
+        buck.licenses_arg() |
         {
             "path": attrs.source(allow_directory = True),
         }
@@ -1348,10 +1321,10 @@ swift_toolchain = prelude_rule(
     examples = None,
     further = None,
     attrs = (
-        _contacts_arg() |
+        buck.contacts_arg() |
         _default_host_platform_arg() |
-        _labels_arg() |
-        _licenses_arg() |
+        buck.labels_arg() |
+        buck.licenses_arg() |
         {
             "architecture": attrs.string(),
             "make_swift_comp_db": attrs.default_only(attrs.dep(providers = [RunInfo], default = "prelude//apple/tools:make_swift_comp_db")),
@@ -1421,7 +1394,7 @@ apple_universal_executable = prelude_rule(
     examples = None,
     further = None,
     attrs = (
-        _labels_arg() |
+        buck.labels_arg() |
         {
             "executable": attrs.split_transition_dep(cfg = cpu_split_transition, doc = """
                     A build target identifying the binary which will be built for multiple architectures.
@@ -1514,7 +1487,7 @@ cxx_universal_executable = prelude_rule(
     examples = None,
     further = None,
     attrs = (
-        _labels_arg() |
+        buck.labels_arg() |
         {
             "executable": attrs.split_transition_dep(cfg = cpu_split_transition, doc = """
                     A build target identifying the binary which will be built for multiple architectures.
@@ -1570,7 +1543,7 @@ apple_static_archive = prelude_rule(
     name = "apple_static_archive",
     impl = apple_static_archive_impl,
     attrs = (
-        _labels_arg() |
+        buck.labels_arg() |
         _deps_arg() |
         {
             "archive_name": attrs.option(attrs.string(), default = None),
@@ -1612,7 +1585,7 @@ apple_resource_bundle = prelude_rule(
     name = "apple_resource_bundle",
     impl = apple_resource_bundle_impl,
     attrs = (
-        _labels_arg() |
+        buck.labels_arg() |
         _deps_arg() |
         _ibtool_flags_arg() |
         _product_name_arg() |
