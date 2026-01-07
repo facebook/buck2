@@ -54,8 +54,20 @@ TestRefs = record(
     get_modifier_info = field(typing.Callable),
 )
 
+def _parse_target_with_subtarget(ctx: bxl.Context, target_str: str):
+    unconfigured = ctx.unconfigured_sub_targets(target_str)
+    base_target = unconfigured.raw_target()
+    configured = ctx.configured_targets(base_target)
+
+    # If there's a subtarget, add it to the configured label
+    if unconfigured.sub_target:
+        return configured.label.with_sub_target(unconfigured.sub_target)
+    else:
+        return configured
+
 def _get_providers(ctx: bxl.Context, targets: list[str]) -> dict[str, ProviderCollection]:
-    analysis_result = ctx.analysis(targets)
+    configured = [_parse_target_with_subtarget(ctx, t) for t in targets]
+    analysis_result = ctx.analysis(configured)
     return {
         str(target.raw_target().with_sub_target(target.sub_target)) if target.sub_target else str(target.raw_target()): v.providers()
         for target, v in analysis_result.items()
