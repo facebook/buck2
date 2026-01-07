@@ -163,7 +163,6 @@ impl<T> BuckErrorContext<T> for Option<T> {
 mod tests {
     use std::any::Any;
     use std::error::Error as StdError;
-    use std::fmt::Display;
 
     use allocative::Allocative;
 
@@ -190,18 +189,16 @@ mod tests {
     #[derive(Debug, Allocative, Eq, PartialEq)]
     struct SomeContext(Vec<u32>);
 
-    impl Display for SomeContext {
-        fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-            write!(f, "{self:?}")
-        }
-    }
-
     impl TypedContext for SomeContext {
         fn eq(&self, other: &dyn TypedContext) -> bool {
             match (other as &dyn Any).downcast_ref::<Self>() {
                 Some(v) => self == v,
                 None => false,
             }
+        }
+
+        fn display(&self) -> Option<String> {
+            Some(format!("{self:?}"))
         }
     }
 

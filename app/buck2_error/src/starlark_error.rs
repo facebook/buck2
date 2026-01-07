@@ -264,6 +264,10 @@ mod tests {
         fn eq(&self, _other: &dyn crate::TypedContext) -> bool {
             true
         }
+
+        fn display(&self) -> Option<String> {
+            Some("FullMetadataError".to_owned())
+        }
     }
 
     #[test]

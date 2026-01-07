@@ -1043,6 +1043,10 @@ impl buck2_error::TypedContext for LookingUpConfiguredNodeContext {
             None => false,
         }
     }
+
+    fn display(&self) -> Option<String> {
+        Some(format!("{}", self))
+    }
 }
 
 impl LookingUpConfiguredNodeContext {

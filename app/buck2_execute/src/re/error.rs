@@ -66,8 +66,8 @@ impl TypedContext for RemoteExecutionError {
         }
     }
 
-    fn should_display(&self) -> bool {
-        false
+    fn display(&self) -> Option<String> {
+        None
     }
 }
 
