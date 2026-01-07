@@ -8,7 +8,7 @@
  * above-listed licenses.
  */
 
-//! Integrations of `buck2_error::Error` with `anyhow::Error` and `StdError`.
+//! Integrations of `buck2_error::Error` with `StdError`.
 
 use std::error::Error as StdError;
 
@@ -16,7 +16,19 @@ use buck2_data::error::ErrorTag;
 
 use crate::source_location::SourceLocation;
 
-pub fn recover_crate_error(
+#[cold]
+#[track_caller]
+pub fn from_any_with_tag<T>(e: T, tag: ErrorTag) -> crate::Error
+where
+    T: Into<anyhow::Error>,
+{
+    let anyhow: anyhow::Error = e.into();
+    let source_location =
+        crate::source_location::SourceLocation::new(std::panic::Location::caller().file());
+    from_any_with_tag_and_source_location(anyhow.as_ref(), source_location, tag)
+}
+
+pub(crate) fn from_any_with_tag_and_source_location(
     value: &'_ (dyn StdError + 'static),
     source_location: SourceLocation,
     error_tag: ErrorTag,

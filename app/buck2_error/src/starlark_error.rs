@@ -15,7 +15,7 @@ use std::fmt;
 use ref_cast::RefCast;
 
 use crate::__for_macro::ContextValue;
-use crate::any::recover_crate_error;
+use crate::any::from_any_with_tag_and_source_location;
 use crate::context_value::StarlarkContext;
 use crate::error::ErrorKind;
 use crate::source_location::SourceLocation;
@@ -175,10 +175,9 @@ fn from_starlark_impl(
         | starlark_syntax::ErrorKind::Parser(e)
         | starlark_syntax::ErrorKind::Other(e)
         | starlark_syntax::ErrorKind::Native(e) => {
-            let error: anyhow::Error = Into::into(BuckStarlarkError(e, description));
-            let std_err: &'_ (dyn std::error::Error + 'static) = error.as_ref();
+            let error = BuckStarlarkError(e, description);
 
-            recover_crate_error(std_err, source_location, tag)
+            from_any_with_tag_and_source_location(&error, source_location, tag)
         }
         _ => crate::Error::new(description, tag, source_location, None),
     }

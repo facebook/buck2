@@ -33,24 +33,8 @@ pub mod tonic;
 pub mod uuid;
 pub mod watchman;
 
-use buck2_data::error::ErrorTag;
-
-use crate::any::recover_crate_error;
-
-// Helper function that can be explicited called to convert `std::error::Error` into `buck2_error`.
-// Common types should have a proper From implemented in this file, but this function is useful for
-// one-off error types in the codebase
-#[cold]
-#[track_caller]
-pub fn from_any_with_tag<T>(e: T, tag: ErrorTag) -> crate::Error
-where
-    T: Into<anyhow::Error>,
-    // This bound prevent this function from being called on an error that's
-    // already a `buck2_error` which prevents unnecessary conversions
-    Result<(), T>: anyhow::Context<(), T>,
-{
-    let anyhow: anyhow::Error = e.into();
-    let source_location =
-        crate::source_location::SourceLocation::new(std::panic::Location::caller().file());
-    recover_crate_error(anyhow.as_ref(), source_location, tag)
-}
+/// Helper function that can be explicitly called to convert `std::error::Error` into `buck2_error`.
+///
+/// Common types should have a proper From implemented in this file, but this function is useful for
+/// one-off error types in the codebase
+pub use crate::any::from_any_with_tag;
