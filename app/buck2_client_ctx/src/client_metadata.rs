@@ -9,7 +9,6 @@
  */
 
 use buck2_core::buck2_env;
-use buck2_error::BuckErrorContext;
 use once_cell::sync::Lazy;
 use regex::Regex;
 
@@ -48,7 +47,7 @@ pub fn parse_client_metadata(value: &str) -> buck2_error::Result<ClientMetadata>
 
     let (key, value) = value
         .split_once('=')
-        .with_buck_error_context(|| ClientMetadataError::InvalidFormat(value.to_owned()))?;
+        .ok_or_else(|| ClientMetadataError::InvalidFormat(value.to_owned()))?;
 
     if !REGEX.is_match(key) {
         return Err(

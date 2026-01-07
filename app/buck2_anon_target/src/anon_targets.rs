@@ -113,8 +113,6 @@ pub enum AnonTargetsError {
     AssertNoPromisesFailed,
     #[error("Invalid `name` attribute, must be a label or a string, got `{value}` of type `{typ}`")]
     InvalidNameType { typ: String, value: String },
-    #[error("`name` attribute must be a valid target label, got `{0}`")]
-    NotTargetLabel(String),
     #[error("Unknown attribute `{0}`")]
     UnknownAttribute(String),
     #[error("Internal attribute `{0}` not allowed as argument to `anon_targets`")]
@@ -260,7 +258,12 @@ impl AnonTargetKey {
     /// valid targets in the context of this build (e.g. if the package really exists),
     /// just that it is syntactically valid.
     fn parse_target_label(x: &str) -> buck2_error::Result<TargetLabel> {
-        let err = || AnonTargetsError::NotTargetLabel(x.to_owned());
+        let err = || {
+            format!(
+                "`name` attribute must be a valid target label, got `{}`",
+                x.to_owned()
+            )
+        };
         let lex =
             lex_target_pattern::<TargetPatternExtra>(x, false).with_buck_error_context(err)?;
         // TODO(nga): `CellName` contract requires it refers to declared cell name.
@@ -565,9 +568,7 @@ pub(crate) async fn get_artifact_from_anon_target_analysis<'v>(
     Ok(analysis_result
         .promise_artifact_map()
         .get(promise_id)
-        .buck_error_context(PromiseArtifactResolveError::NotFoundInAnalysis(
-            promise_id.clone(),
-        ))?
+        .ok_or_else(|| PromiseArtifactResolveError::NotFoundInAnalysis(promise_id.clone()))?
         .clone())
 }
 

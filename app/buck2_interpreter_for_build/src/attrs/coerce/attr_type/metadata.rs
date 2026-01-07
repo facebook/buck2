@@ -16,7 +16,6 @@ use buck2_node::attrs::attr_type::metadata::MetadataAttrType;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::coercion_context::AttrCoercionContext;
 use buck2_node::attrs::configurable::AttrIsConfigurable;
-use buck2_node::metadata::key::MetadataKey;
 use buck2_node::metadata::key::MetadataKeyRef;
 use buck2_node::metadata::map::MetadataMap;
 use buck2_node::metadata::value::MetadataValue;
@@ -28,17 +27,6 @@ use starlark_map::small_map::SmallMap;
 
 use crate::attrs::coerce::AttrTypeCoerce;
 use crate::attrs::coerce::attr_type::ty_maybe_select::TyMaybeSelect;
-
-#[derive(Debug, buck2_error::Error)]
-enum MetadataAttrTypeCoerceError {
-    #[error(
-        "Metadata attribute with key {} is not convertible to JSON: {}",
-        .key,
-        .value
-    )]
-    #[buck2(tag = Input)]
-    ValueIsNotJson { key: MetadataKey, value: String },
-}
 
 impl AttrTypeCoerce for MetadataAttrType {
     fn coerce_item(
@@ -60,9 +48,12 @@ impl AttrTypeCoerce for MetadataAttrType {
             let value = value
                 .to_json_value()
                 .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))
-                .with_buck_error_context(|| MetadataAttrTypeCoerceError::ValueIsNotJson {
-                    key: key.to_owned(),
-                    value: value.to_repr(),
+                .with_buck_error_context(|| {
+                    format!(
+                        "Metadata attribute with key {} is not convertible to JSON: {}",
+                        key.to_owned(),
+                        value.to_repr(),
+                    )
                 })?;
 
             map.insert(key.to_owned(), MetadataValue::new(value));

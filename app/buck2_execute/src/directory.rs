@@ -358,14 +358,14 @@ pub fn re_tree_to_directory(
     ) -> buck2_error::Result<ActionDirectoryBuilder> {
         let mut builder = ActionDirectoryBuilder::empty();
         for node in &re_dir.files {
-            let name = FileNameBuf::try_from(node.name.clone()).with_buck_error_context(|| {
+            let name = FileNameBuf::try_from(node.name.clone()).map_err(|_| {
                 DirectoryReConversionError::IncorrectFileName {
                     name: node.name.clone(),
                     dir: re_dir_name.to_string(),
                 }
             })?;
 
-            let digest = node.digest.as_ref().with_buck_error_context(|| {
+            let digest = node.digest.as_ref().ok_or_else(|| {
                 DirectoryReConversionError::NodeWithDigestNone {
                     name: node.name.clone(),
                     dir: re_dir_name.to_string(),

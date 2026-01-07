@@ -143,9 +143,9 @@ impl EventLogPathBuf {
     fn file_name(path: &AbsPathBuf) -> buck2_error::Result<&str> {
         let name = path
             .file_name()
-            .with_buck_error_context(|| EventLogInferenceError::NoFilename(path.clone()))?
+            .ok_or_else(|| EventLogInferenceError::NoFilename(path.clone()))?
             .to_str()
-            .with_buck_error_context(|| EventLogInferenceError::InvalidFilename(path.clone()))?;
+            .ok_or_else(|| EventLogInferenceError::InvalidFilename(path.clone()))?;
         Ok(name)
     }
 

@@ -36,8 +36,6 @@ use crate::actions::impls::download_file::UnregisteredDownloadFileAction;
 #[derive(buck2_error::Error, Debug)]
 #[buck2(tag = Tier0)]
 enum CasArtifactError {
-    #[error("Not a valid RE digest: `{0}`")]
-    InvalidDigest(String),
     #[error("is_tree and is_directory are mutually exclusive")]
     TreeAndDirectory,
 }
@@ -121,7 +119,7 @@ pub(crate) fn analysis_actions_methods_download(methods: &mut MethodsBuilder) {
         let mut registry = this.state()?;
 
         let digest = CasDigest::parse_digest(digest, this.digest_config.cas_digest_config())
-            .with_buck_error_context(|| CasArtifactError::InvalidDigest(digest.to_owned()))?
+            .with_buck_error_context(|| format!("Not a valid RE digest: `{}`", digest))?
             .0;
 
         let use_case = RemoteExecutorUseCase::new(use_case.to_owned());

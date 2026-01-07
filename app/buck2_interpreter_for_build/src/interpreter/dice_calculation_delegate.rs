@@ -86,15 +86,6 @@ fn toml_value_to_json(value: toml::Value) -> serde_json::Value {
     }
 }
 
-#[derive(Debug, buck2_error::Error)]
-#[buck2(tag = Input)]
-enum DiceCalculationDelegateError {
-    #[error("Error evaluating build file: `{0}`")]
-    EvalBuildFileError(BuildFilePath),
-    #[error("Error evaluating module: `{0}`")]
-    EvalModuleError(String),
-}
-
 #[async_trait]
 pub trait HasCalculationDelegate<'c, 'd> {
     /// Get calculator for a file evaluation.
@@ -346,9 +337,7 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
                 provider,
                 cancellation,
             )
-            .with_buck_error_context(|| {
-                DiceCalculationDelegateError::EvalModuleError(starlark_file.to_string())
-            })?;
+            .with_buck_error_context(|| format!("Error evaluating module: `{}`", starlark_file))?;
 
         Ok(LoadedModule::new(
             OwnedStarlarkModulePath::new(starlark_file),
@@ -633,7 +622,7 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
                         cancellation,
                     )
                     .with_buck_error_context(|| {
-                        DiceCalculationDelegateError::EvalBuildFileError(build_file_path)
+                        format!("Error evaluating build file: `{}`", build_file_path)
                     });
                 let error = result_with_stats.as_ref().err().map(|e| format!("{e:#}"));
                 let (starlark_peak_allocated_bytes, cpu_instruction_count, target_count) =

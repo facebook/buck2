@@ -44,8 +44,6 @@ enum ValidationSpecError {
     EmptyName,
     #[error("Validation result artifact should be a build artifact, not a source one.")]
     ValidationResultIsSourceArtifact,
-    #[error("Validation result artifact should be bound.")]
-    ValidationResultIsNotBound,
 }
 
 /// Value describing a single identifiable validation.
@@ -122,7 +120,7 @@ where
     let artifact = match artifact.0.get_bound_artifact() {
         Ok(bound_artifact) => bound_artifact,
         Err(e) => {
-            return Err(e.context(ValidationSpecError::ValidationResultIsNotBound));
+            return Err(e.context("Validation result artifact should be bound."));
         }
     };
     if artifact.is_source() {

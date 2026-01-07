@@ -16,7 +16,6 @@ use std::sync::Arc;
 use allocative::Allocative;
 use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_core::deferred::base_deferred_key::BaseDeferredKey;
-use buck2_error::BuckErrorContext;
 use buck2_fs::paths::file_name::FileName;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
@@ -150,15 +149,13 @@ impl StarlarkPromiseArtifact {
     fn short_path_err(&self) -> buck2_error::Result<&ForwardRelativePath> {
         self.short_path
             .as_deref()
-            .with_buck_error_context(|| PromiseArtifactError::NoShortPathPromised(self.clone()))
+            .ok_or_else(|| PromiseArtifactError::NoShortPathPromised(self.clone()).into())
     }
 
     fn file_name_err(&self) -> buck2_error::Result<&FileName> {
-        self.short_path_err()?
-            .file_name()
-            .with_buck_error_context(|| {
-                PromiseArtifactError::PromisedShortPathHasNoFileName(self.clone())
-            })
+        self.short_path_err()?.file_name().ok_or_else(|| {
+            PromiseArtifactError::PromisedShortPathHasNoFileName(self.clone()).into()
+        })
     }
 }
 

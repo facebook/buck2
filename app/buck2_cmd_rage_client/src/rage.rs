@@ -64,14 +64,6 @@ enum RageError {
     InvalidSelectionError,
     #[error("Failed to find the logs for command")]
     LogNotFoundError,
-    #[error("Pastry command timeout, make sure you are on Lighthouse/VPN")]
-    PastryTimeout,
-    #[error("Failed to spawn pastry")]
-    PastrySpawnError,
-    #[error("Error writing to pastry")]
-    PastryWriteError,
-    #[error("Error reading pastry output")]
-    PastryOutputError,
     #[error("Pastry command failed with code '{0}' and error '{1}' ")]
     PastryCommandError(i32, String),
 }
@@ -725,21 +717,21 @@ async fn generate_paste(title: &str, content: &str) -> buck2_error::Result<Strin
         .stderr(Stdio::piped())
         .kill_on_drop(true)
         .spawn()
-        .buck_error_context(RageError::PastrySpawnError)?;
+        .buck_error_context("Failed to spawn pastry")?;
     let mut stdin = pastry.stdin.take().expect("Stdin should open");
 
     let writer = async move {
         stdin
             .write_all(content.as_bytes())
             .await
-            .buck_error_context(RageError::PastryWriteError)
+            .buck_error_context("Error writing to pastry")
     };
 
     let reader = async move {
         let output = tokio::time::timeout(Duration::from_secs(10), pastry.wait_with_output())
             .await
-            .buck_error_context(RageError::PastryTimeout)?
-            .buck_error_context(RageError::PastryOutputError)?;
+            .buck_error_context("Pastry command timeout, make sure you are on Lighthouse/VPN")?
+            .buck_error_context("Error reading pastry output")?;
         if !output.status.success() {
             let error = String::from_utf8_lossy(&output.stderr).to_string();
             let code = output
@@ -749,7 +741,7 @@ async fn generate_paste(title: &str, content: &str) -> buck2_error::Result<Strin
             return Err(RageError::PastryCommandError(code, error).into());
         }
         let output =
-            String::from_utf8(output.stdout).buck_error_context(RageError::PastryOutputError)?;
+            String::from_utf8(output.stdout).buck_error_context("Error reading pastry output")?;
         Ok(output)
     };
 

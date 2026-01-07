@@ -27,13 +27,6 @@ use chrono::DateTime;
 use humantime::format_duration;
 use walkdir::WalkDir;
 
-#[derive(Debug, buck2_error::Error)]
-#[buck2(tag = Input)]
-enum StatusError {
-    #[error("Incorrect seconds/nanos argument")]
-    NativeDateTime,
-}
-
 #[derive(Debug, clap::Parser)]
 #[clap(about = "Buckd status")]
 pub struct StatusCommand {
@@ -131,7 +124,7 @@ impl StatusCommand {
 
 fn timestamp_to_string(seconds: u64, nanos: u32) -> buck2_error::Result<String> {
     Ok(DateTime::from_timestamp(seconds as i64, nanos)
-        .buck_error_context(StatusError::NativeDateTime)?
+        .buck_error_context("Incorrect seconds/nanos argument")?
         .format("%Y-%m-%dT%H:%M:%SZ")
         .to_string())
 }

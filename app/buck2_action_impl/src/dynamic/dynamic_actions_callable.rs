@@ -223,7 +223,7 @@ impl<'v> Freeze for DynamicActionsCallable<'v> {
 
         let name = name
             .into_inner()
-            .buck_error_context(DynamicActionCallableError::NotExported)
+            .ok_or(DynamicActionCallableError::NotExported)
             .map_err(|e| FreezeError::new(e.to_string()))?;
 
         let signature = ParametersSpec::new_named_only(

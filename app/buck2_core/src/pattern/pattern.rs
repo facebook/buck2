@@ -79,8 +79,6 @@ enum TargetPatternParseError {
         "You may be trying to use a macro instead of a target pattern. Macro usage is invalid here"
     )]
     PossibleMacroUsage,
-    #[error("Expecting {0} pattern, got: `{1}`")]
-    ExpectingPatternOfType(&'static str, String),
     #[error("Configuration part of the pattern must be enclosed in `()`")]
     ConfigurationPartMustBeEnclosedInParentheses,
 }
@@ -639,7 +637,7 @@ where
 
                 let target = package
                     .file_name()
-                    .buck_error_context(TargetPatternParseError::PackageIsEmpty)?;
+                    .ok_or(TargetPatternParseError::PackageIsEmpty)?;
 
                 let target_name = TargetName::new(target)?;
 
@@ -840,12 +838,12 @@ fn lex_provider_pattern(
 }
 
 fn lex_configuration_predicate(pattern: &str) -> buck2_error::Result<ConfigurationPredicate> {
-    let pattern = pattern.strip_prefix('(').buck_error_context(
-        TargetPatternParseError::ConfigurationPartMustBeEnclosedInParentheses,
-    )?;
-    let pattern = pattern.strip_suffix(')').buck_error_context(
-        TargetPatternParseError::ConfigurationPartMustBeEnclosedInParentheses,
-    )?;
+    let pattern = pattern
+        .strip_prefix('(')
+        .ok_or(TargetPatternParseError::ConfigurationPartMustBeEnclosedInParentheses)?;
+    let pattern = pattern
+        .strip_suffix(')')
+        .ok_or(TargetPatternParseError::ConfigurationPartMustBeEnclosedInParentheses)?;
     match pattern.split_once('#') {
         Some((cfg, hash)) => {
             let cfg = BoundConfigurationLabel::new(cfg.to_owned())?;
@@ -939,8 +937,12 @@ pub fn lex_target_pattern<T: PatternType>(
     provider_pattern
         .try_map(|extra| T::from_configured_providers(extra))
         .with_buck_error_context(|| {
-            // This can only fail when `PatternType = TargetName`, so the message is correct.
-            TargetPatternParseError::ExpectingPatternOfType(T::NAME, pattern.to_owned())
+            format!(
+                "Expecting {} pattern, got: `{}`",
+                // This can only fail when `PatternType = TargetName`, so the message is correct.
+                T::NAME,
+                pattern.to_owned(),
+            )
         })
 }
 
@@ -1142,9 +1144,6 @@ where
 #[derive(buck2_error::Error, Debug)]
 #[buck2(tier0)]
 enum ResolveTargetAliasError {
-    #[error("Error dereferencing alias `{}` -> `{}`", target, alias)]
-    ErrorDereferencing { target: String, alias: String },
-
     #[error("Invalid alias: `{}`", alias)]
     InvalidAlias { alias: String },
 
@@ -1209,10 +1208,7 @@ where
         },
         alias,
     )
-    .with_buck_error_context(|| ResolveTargetAliasError::ErrorDereferencing {
-        target: target.to_owned(),
-        alias: alias.to_owned(),
-    })?;
+    .with_buck_error_context(|| format!("Error dereferencing alias `{}` -> `{}`", target, alias))?;
 
     // And finally, put the `T` we were looking for back together.
     let parsed_pattern = match res.parsed_pattern {

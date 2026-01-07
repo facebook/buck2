@@ -12,16 +12,8 @@ use std::io::Cursor;
 
 use buck2_common::manifold::Bucket;
 use buck2_common::manifold::ManifoldClient;
-use buck2_error::BuckErrorContext;
+use buck2_fs::async_fs_util;
 use buck2_fs::paths::abs_path::AbsPath;
-use tokio::fs::File;
-
-#[derive(Debug, buck2_error::Error)]
-#[buck2(tag = Environment)]
-enum ManifoldError {
-    #[error("Failed to open file `{0}`")]
-    OpenFileError(String),
-}
 
 pub(crate) fn manifold_leads(bucket: &Bucket, filename: String) -> String {
     let full_path = format!("{}/{}", bucket.name, filename);
@@ -38,9 +30,7 @@ pub(crate) async fn file_to_manifold(
     let bucket = Bucket::RAGE_DUMPS;
     // can't use async_fs_util
     // the trait to convert from tokio::fs::File is not implemented for Stdio
-    let mut file = File::open(&path)
-        .await
-        .buck_error_context(ManifoldError::OpenFileError(path.display().to_string()))?;
+    let mut file = async_fs_util::open(&path).await?;
 
     manifold
         .read_and_upload(bucket, &filename, Default::default(), &mut file)

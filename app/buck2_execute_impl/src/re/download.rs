@@ -445,7 +445,7 @@ impl CasDownloader<'_> {
                 )
                 .boxed()
                 .await
-                .buck_error_context(DownloadError::DownloadTrees)?;
+                .buck_error_context("Failed to download trees")?;
 
             for (dir, tree) in output_spec.output_directories().iter().zip(trees) {
                 let entry = re_tree_to_directory(
@@ -514,7 +514,7 @@ impl CasDownloader<'_> {
             .declare_cas_many(Arc::new(info), artifacts.to_declare)
             .boxed()
             .await
-            .buck_error_context(DownloadError::Materialization)?;
+            .buck_error_context("Failed to declare in materializer")?;
 
         Ok(artifacts.mapped_outputs)
     }
@@ -526,20 +526,7 @@ impl CasDownloader<'_> {
 fn re_forward_path(re_path: &str) -> buck2_error::Result<&ForwardRelativePath> {
     // RE sends us paths with trailing slash.
     ForwardRelativePath::new_trim_trailing_slashes(re_path)
-        .buck_error_context(DownloadError::InvalidPathFromRe)
-}
-
-#[derive(buck2_error::Error, Debug)]
-#[buck2(tag = Tier0)]
-enum DownloadError {
-    #[error("Failed to declare in materializer")]
-    Materialization,
-
-    #[error("Failed to download trees")]
-    DownloadTrees,
-
-    #[error("Path received from RE is not normalized.")]
-    InvalidPathFromRe,
+        .buck_error_context("Path received from RE is not normalized.")
 }
 
 struct ExtractedArtifacts {

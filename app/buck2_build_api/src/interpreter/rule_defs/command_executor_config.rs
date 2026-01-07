@@ -278,14 +278,14 @@ pub fn register_command_executor_config(builder: &mut GlobalsBuilder) {
 
                     Executor::RemoteEnabled(RemoteEnabledExecutorOptions {
                         executor,
-                        re_properties: re_properties.buck_error_context(
+                        re_properties: re_properties.ok_or(buck2_error::Error::from(
                             CommandExecutorConfigErrors::MissingField(
                                 "remote_execution_properties",
                             ),
-                        )?,
-                        re_use_case: re_use_case.buck_error_context(
+                        ))?,
+                        re_use_case: re_use_case.ok_or(buck2_error::Error::from(
                             CommandExecutorConfigErrors::MissingField("re_use_case"),
-                        )?,
+                        ))?,
                         re_action_key,
                         cache_upload_behavior,
                         remote_cache_enabled,
@@ -321,9 +321,7 @@ pub fn register_command_executor_config(builder: &mut GlobalsBuilder) {
                 .into_option()
                 .map(|s| s.parse())
                 .transpose()
-                .buck_error_context(CommandExecutorConfigErrors::InvalidField(
-                    "remote_output_paths",
-                ))?
+                .buck_error_context("Invalid remote_output_paths")?
                 .unwrap_or_default();
 
             CommandExecutorConfig {

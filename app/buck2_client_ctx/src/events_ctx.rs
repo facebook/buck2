@@ -161,7 +161,7 @@ impl<'a> DaemonEventsCtx<'a> {
     where
         Handler: PartialResultHandler,
     {
-        let next = next.buck_error_context(BuckdCommunicationError::MissingCommandResult)?;
+        let next = next.ok_or(BuckdCommunicationError::MissingCommandResult)?;
         let mut events = Vec::with_capacity(next.len());
         for next in next {
             let next = match next {

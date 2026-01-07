@@ -58,10 +58,6 @@ enum CasArtifactActionDeclarationError {
 
 #[derive(Debug, buck2_error::Error)]
 enum CasArtifactActionExecutionError {
-    #[error("Error accessing digest expiration for: `{0}`")]
-    #[buck2(tag = ReCasArtifactGetDigestExpirationError)]
-    GetDigestExpirationError(FileDigest),
-
     #[error(
         "The digest `{digest}` was declared to expire after `{declared_expiration}`, but it expires at `{effective_expiration}`"
     )]
@@ -196,11 +192,15 @@ impl Action for CasArtifactAction {
             .get_digest_expirations(vec![self.inner.digest.to_re()])
             .await
             .with_buck_error_context(|| {
-                CasArtifactActionExecutionError::GetDigestExpirationError(self.inner.digest.dupe())
+                format!(
+                    "Error accessing digest expiration for: `{}`",
+                    self.inner.digest,
+                )
             })?
             .into_iter()
             .next()
-            .buck_error_context("get_digest_expirations did not return anything")?
+            .buck_error_context("get_digest_expirations did not return anything")
+            .tag(buck2_error::ErrorTag::ReCasArtifactGetDigestExpirationError)?
             .1;
 
         if expiration < self.inner.expires_after {

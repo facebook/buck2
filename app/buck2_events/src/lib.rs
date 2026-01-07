@@ -41,7 +41,6 @@ use std::time::SystemTime;
 
 use buck2_cli_proto::CommandResult;
 use buck2_cli_proto::PartialResult;
-use buck2_error::BuckErrorContext;
 use buck2_wrapper_common::invocation_id::TraceId;
 use derive_more::From;
 use gazebo::variants::UnpackVariants;
@@ -152,7 +151,7 @@ impl BuckEvent {
                 match span_start_event
                     .data
                     .as_ref()
-                    .with_buck_error_context(|| BuckEventError::MissingField(self.clone()))?
+                    .ok_or_else(|| BuckEventError::MissingField(self.clone()))?
                 {
                     buck2_data::span_start_event::Data::Command(command_start) => {
                         Ok(Some(command_start))

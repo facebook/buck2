@@ -16,7 +16,6 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use allocative::Allocative;
-use buck2_error::BuckErrorContext;
 use buck2_util::hash::BuckHasher;
 use derive_more::Display;
 use dupe::Dupe;
@@ -109,10 +108,10 @@ impl RemoteExecutorDependency {
 
         let smc_tier = dep_map
             .get("smc_tier")
-            .buck_error_context(RemoteExecutorDependencyErrors::MissingField("smc_tier"))?;
+            .ok_or(RemoteExecutorDependencyErrors::MissingField("smc_tier"))?;
         let id = dep_map
             .get("id")
-            .buck_error_context(RemoteExecutorDependencyErrors::MissingField("id"))?;
+            .ok_or(RemoteExecutorDependencyErrors::MissingField("id"))?;
         let interpolate = dep_map.get("enable_interpolation").unwrap_or(&"false");
 
         let id = if *interpolate == "true" {

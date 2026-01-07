@@ -21,20 +21,6 @@ use crate::legacy_configs::configs::LegacyBuckConfigValue;
 use crate::legacy_configs::key::BuckconfigKeyRef;
 use crate::legacy_configs::view::LegacyBuckConfigView;
 
-#[derive(buck2_error::Error, Debug)]
-#[buck2(tag = Input)]
-enum ConfigValueError {
-    #[error(
-        "Invalid value for buckconfig `{section}.{key}`: conversion to {ty} failed, value as `{value}`"
-    )]
-    ParseFailed {
-        section: String,
-        key: String,
-        value: String,
-        ty: &'static str,
-    },
-}
-
 impl LegacyBuckConfigView for &LegacyBuckConfig {
     fn get(&mut self, key: BuckconfigKeyRef) -> buck2_error::Result<Option<Arc<str>>> {
         Ok(LegacyBuckConfig::get(self, key).map(|v| v.to_owned().into()))
@@ -104,11 +90,14 @@ impl LegacyBuckConfig {
         value
             .parse()
             .map_err(buck2_error::Error::from)
-            .with_buck_error_context(|| ConfigValueError::ParseFailed {
-                section: section.to_owned(),
-                key: property.to_owned(),
-                value: value.to_owned(),
-                ty: std::any::type_name::<T>(),
+            .with_buck_error_context(|| {
+                format!(
+                    "Invalid value for buckconfig `{}.{}`: conversion to {} failed, value as `{}`",
+                    section.to_owned(),
+                    property.to_owned(),
+                    std::any::type_name::<T>(),
+                    value.to_owned(),
+                )
             })
     }
 

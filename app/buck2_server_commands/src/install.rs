@@ -140,10 +140,6 @@ pub(crate) enum InstallError {
     #[buck2(tier0)]
     InstallerCommunicationFailure { err: String },
 
-    #[error("Incorrect seconds/nanos argument")]
-    #[buck2(tier0)]
-    NativeDateTime,
-
     #[error("Timed out after {timeout:?} waiting for installer to {action}")]
     #[buck2(environment)]
     RequestTimeout { timeout: Duration, action: String },
@@ -382,8 +378,7 @@ fn get_random_tcp_port() -> buck2_error::Result<u16> {
 }
 
 fn get_timestamp_as_string() -> buck2_error::Result<String> {
-    let dt = DateTime::from_timestamp(Utc::now().timestamp(), 0)
-        .buck_error_context(InstallError::NativeDateTime)?;
+    let dt = DateTime::from_timestamp(Utc::now().timestamp(), 0).unwrap();
     Ok(dt.format("%Y%m%d-%H%M%S").to_string())
 }
 

@@ -24,7 +24,6 @@ use buck2_core::pattern::pattern_type::TargetPatternExtra;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::soft_error;
 use buck2_core::target::label::label::TargetLabel;
-use buck2_error::BuckErrorContext;
 use buck2_error::buck2_error;
 use buck2_interpreter::starlark_promise::StarlarkPromise;
 use buck2_interpreter::types::configured_providers_label::StarlarkConfiguredProvidersLabel;
@@ -104,7 +103,9 @@ pub(crate) fn bxl_context_methods(builder: &mut MethodsBuilder) {
         let output_stream = this
             .context_type
             .unpack_root()
-            .buck_error_context(BxlContextError::Unsupported("output".to_owned()))?
+            .map_err(|_| {
+                buck2_error::Error::from(BxlContextError::Unsupported("output".to_owned()))
+            })?
             .output_stream;
         Ok(output_stream)
     }
@@ -116,10 +117,9 @@ pub(crate) fn bxl_context_methods(builder: &mut MethodsBuilder) {
         this: &'v BxlContext<'v>,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<String> {
-        let _root_type = this
-            .context_type
-            .unpack_root()
-            .buck_error_context(BxlContextError::Unsupported("root".to_owned()))?;
+        let _root_type = this.context_type.unpack_root().map_err(|_| {
+            buck2_error::Error::from(BxlContextError::Unsupported("root".to_owned()))
+        })?;
         Ok(this.via_dice(eval, |ctx| {
             buck2_error::Ok(
                 ctx.global_data()
@@ -136,10 +136,9 @@ pub(crate) fn bxl_context_methods(builder: &mut MethodsBuilder) {
     ///
     /// This function is not available on the `bxl_ctx` when called from `dynamic_output`.
     fn cell_root<'v>(this: &'v BxlContext<'v>) -> starlark::Result<String> {
-        let _root_type = this
-            .context_type
-            .unpack_root()
-            .buck_error_context(BxlContextError::Unsupported("root".to_owned()))?;
+        let _root_type = this.context_type.unpack_root().map_err(|_| {
+            buck2_error::Error::from(BxlContextError::Unsupported("root".to_owned()))
+        })?;
         Ok(this.cell_root_abs().to_owned().to_string())
     }
 
@@ -681,7 +680,9 @@ pub(crate) fn bxl_context_methods(builder: &mut MethodsBuilder) {
         let cli_args = this
             .context_type
             .unpack_root()
-            .buck_error_context(BxlContextError::Unsupported("cli_args".to_owned()))?
+            .map_err(|_| {
+                buck2_error::Error::from(BxlContextError::Unsupported("cli_args".to_owned()))
+            })?
             .cli_args;
 
         Ok(cli_args)

@@ -30,7 +30,6 @@ use buck2_core::pattern::pattern_type::TargetPatternExtra;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_core::target::label::label::TargetLabel;
-use buck2_error::BuckErrorContext;
 use buck2_error::conversion::clap::buck_error_clap_parser;
 use buck2_error::conversion::from_any_with_tag;
 use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
@@ -556,10 +555,9 @@ impl CliArgType {
                                 .map(|parsed| {
                                     parsed
                                         .target()
-                                        .buck_error_context(CliArgError::NotALabel(
-                                            x.to_owned(),
-                                            "target",
-                                        ))
+                                        .ok_or_else(|| {
+                                            CliArgError::NotALabel(x.to_owned(), "target")
+                                        })
                                         .map(|_| ())
                                 })
                                 .map(|_| x.to_owned())?,
@@ -575,10 +573,9 @@ impl CliArgType {
                                 .map(|parsed| {
                                     parsed
                                         .target()
-                                        .buck_error_context(CliArgError::NotALabel(
-                                            x.to_owned(),
-                                            "target",
-                                        ))
+                                        .ok_or_else(|| {
+                                            CliArgError::NotALabel(x.to_owned(), "target")
+                                        })
                                         .map(|_| ())
                                 })
                                 .map(|_| x.to_owned())?,
@@ -594,10 +591,9 @@ impl CliArgType {
                                 .map(|parsed| {
                                     parsed
                                         .target()
-                                        .buck_error_context(CliArgError::NotALabel(
-                                            x.to_owned(),
-                                            "target",
-                                        ))
+                                        .ok_or_else(|| {
+                                            CliArgError::NotALabel(x.to_owned(), "target")
+                                        })
                                         .map(|_| ())
                                 })
                                 .map(|_| x.to_owned())?,
