@@ -91,24 +91,6 @@ macro_rules! impl_error_from_hanging_mount {
 
 impl_error_from_hanging_mount!(GetDaemonInfoError);
 
-impl<E> std::error::Error for ConnectAndRequestError<E>
-where
-    E: std::error::Error,
-    Self: std::fmt::Debug + std::fmt::Display + std::marker::Send + std::marker::Sync + 'static,
-{
-    fn source(&self) -> std::option::Option<&(dyn std::error::Error + 'static)> {
-        use buck2_error::__for_macro::AsDynError;
-        match self {
-            ConnectAndRequestError::ConnectionError { 0: transparent } => {
-                std::error::Error::source(transparent.as_dyn_error())
-            }
-            ConnectAndRequestError::RequestError { 0: transparent } => {
-                std::error::Error::source(transparent.as_dyn_error())
-            }
-        }
-    }
-}
-
 #[derive(Copy, Clone, Dupe, PartialEq, Eq)]
 pub enum ErrorHandlingStrategy {
     Reconnect,
