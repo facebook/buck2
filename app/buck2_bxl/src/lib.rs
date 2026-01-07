@@ -12,6 +12,7 @@
 #![feature(trait_alias)]
 #![feature(try_blocks)]
 #![feature(never_type)]
+#![feature(mapped_lock_guards)]
 
 use std::sync::Once;
 

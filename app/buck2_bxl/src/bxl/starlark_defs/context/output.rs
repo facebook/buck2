@@ -9,12 +9,13 @@
  */
 
 use std::cell::RefCell;
-use std::cell::RefMut;
 use std::io::Write;
 use std::iter;
 use std::ops::Deref;
-use std::rc::Rc;
 use std::sync::Arc;
+use std::sync::MappedMutexGuard;
+use std::sync::Mutex;
+use std::sync::MutexGuard;
 
 use allocative::Allocative;
 use buck2_build_api::artifact_groups::ArtifactGroup;
@@ -104,11 +105,14 @@ struct OutputStreamStateInner {
 #[display("{:?}", self)]
 #[derivative(Debug)]
 pub(crate) struct OutputStreamState {
-    /// Wrapped in Rc<RefCell<Option<...>>> to allow
-    /// - Shared ownership (Rc), we also need to hold it in `BxlEvalExtra`
+    /// Wrapped in Arc<Mutex<Option<...>>> to allow
+    /// - Shared ownership (Arc), we also need to hold it in `BxlEvalExtra`
     /// - Runtime borrow checking for innter mutability (RefCell)
     /// - Optional state for take operations (Option)
-    inner: Rc<RefCell<Option<OutputStreamStateInner>>>,
+    ///
+    /// FIXME(JakobDegen): This is completely disgusting, we should not store this here and keep it
+    /// only in the `BxlEvalExtra`. Not super easy to make happen though
+    inner: Arc<Mutex<Option<OutputStreamStateInner>>>,
 }
 
 /// Final result container for output stream processing.
@@ -137,9 +141,7 @@ pub(crate) struct OutputStreamOutcome {
 #[display("{:?}", self)]
 #[derivative(Debug)]
 pub(crate) struct StarlarkOutputStream {
-    #[trace(unsafe_ignore)]
     state: OutputStreamState,
-
     #[derivative(Debug = "ignore")]
     pub(crate) project_fs: ProjectRoot,
     #[derivative(Debug = "ignore")]
@@ -186,12 +188,12 @@ impl Deref for StarlarkOutputStream {
 impl OutputStreamState {
     pub(crate) fn new() -> Self {
         Self {
-            inner: Rc::new(RefCell::new(Some(OutputStreamStateInner::default()))),
+            inner: Arc::new(Mutex::new(Some(OutputStreamStateInner::default()))),
         }
     }
 
     pub(crate) fn take_state(&self) -> buck2_error::Result<OutputStreamOutcome> {
-        let state = self.inner.borrow_mut().take().unwrap();
+        let state = self.inner.try_lock().unwrap().take().unwrap();
         let artifacts = state
             .artifacts_to_ensure
             .into_iter()
@@ -224,7 +226,8 @@ impl OutputStreamState {
         ensured: EnsuredArtifactOrGroup,
     ) -> buck2_error::Result<()> {
         self.inner
-            .borrow_mut()
+            .lock()
+            .unwrap()
             .as_mut()
             .expect("should not have been taken")
             .artifacts_to_ensure
@@ -232,20 +235,20 @@ impl OutputStreamState {
         Ok(())
     }
 
-    fn output(&self) -> RefMut<'_, impl Write + use<>> {
-        RefMut::map(self.inner.borrow_mut(), |inner| {
+    fn output(&self) -> MappedMutexGuard<'_, impl Write + use<>> {
+        MutexGuard::map(self.inner.try_lock().unwrap(), |inner| {
             &mut inner.as_mut().expect("should not have been taken").output
         })
     }
 
-    pub(crate) fn error(&self) -> RefMut<'_, impl Write + use<>> {
-        RefMut::map(self.inner.borrow_mut(), |inner| {
+    pub(crate) fn error(&self) -> MappedMutexGuard<'_, impl Write + use<>> {
+        MutexGuard::map(self.inner.try_lock().unwrap(), |inner| {
             &mut inner.as_mut().expect("should not have been taken").error
         })
     }
 
-    pub(crate) fn streaming(&self) -> RefMut<'_, impl Write + use<>> {
-        RefMut::map(self.inner.borrow_mut(), |inner| {
+    pub(crate) fn streaming(&self) -> MappedMutexGuard<'_, impl Write + use<>> {
+        MutexGuard::map(self.inner.try_lock().unwrap(), |inner| {
             &mut inner
                 .as_mut()
                 .expect("should not have been taken")
@@ -255,8 +258,8 @@ impl OutputStreamState {
 
     fn pending_streaming_outputs(
         &self,
-    ) -> RefMut<'_, Vec<(SmallSet<EnsuredArtifactOrGroup>, Vec<u8>)>> {
-        RefMut::map(self.inner.borrow_mut(), |inner| {
+    ) -> MappedMutexGuard<'_, Vec<(SmallSet<EnsuredArtifactOrGroup>, Vec<u8>)>> {
+        MutexGuard::map(self.inner.try_lock().unwrap(), |inner| {
             &mut inner
                 .as_mut()
                 .expect("should not have been taken")
@@ -266,7 +269,7 @@ impl OutputStreamState {
 }
 
 struct BufferPrintOutput<'a, T: Write> {
-    output: RefMut<'a, T>,
+    output: MappedMutexGuard<'a, T>,
 }
 
 impl<'a, T: Write> Write for BufferPrintOutput<'a, T> {
