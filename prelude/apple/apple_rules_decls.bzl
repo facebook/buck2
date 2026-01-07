@@ -104,109 +104,22 @@ SWIFT_VERSION_FEATURE_MAP = {
     "6": [],
 }
 
-def _default_host_platform_arg():
-    return {"default_host_platform": attrs.option(attrs.configuration_label(), default = None)}
-
-def _default_platform_arg():
-    return {"default_platform": attrs.option(attrs.string(), default = None)}
-
-def _codesign_flags_arg():
-    return {"codesign_flags": attrs.list(attrs.string(), default = [])}
-
-def _codesign_identity_arg():
-    return {"codesign_identity": attrs.option(attrs.string(), default = None)}
-
-def _defaults_arg():
-    return {"defaults": attrs.dict(key = attrs.string(), value = attrs.string(), sorted = False, default = {})}
-
-def _deps_arg():
-    return {"deps": attrs.list(attrs.dep(), default = [])}
-
-def _devirt_enabled_arg():
-    return {"devirt_enabled": attrs.bool(default = False)}
-
-def _diagnostics_arg():
-    return {"diagnostics": attrs.dict(key = attrs.string(), value = attrs.source(), sorted = False, default = {})}
-
-def _enable_cxx_interop_arg():
-    return {"enable_cxx_interop": attrs.bool(default = False)}
-
-def _fat_lto_arg():
-    return {"fat_lto": attrs.bool(default = False)}
-
-def _ibtool_flags_arg():
-    return {"ibtool_flags": attrs.option(attrs.list(attrs.string()), default = None)}
-
-def _libraries_arg():
-    return {"libraries": attrs.list(attrs.string(), default = [])}
-
-def _link_group_arg():
-    return {"link_group": attrs.option(attrs.string(), default = None)}
-
-def _minimum_os_version_arg():
-    return {"minimum_os_version": attrs.option(attrs.string(), default = None)}
-
-def _modular_arg():
-    return {"modular": attrs.bool(default = False)}
-
-def _module_name_arg():
-    return {"module_name": attrs.option(attrs.string(), default = None)}
-
-def _module_requires_cxx_arg():
-    return {"module_requires_cxx": attrs.bool(default = False)}
-
-def _product_name_arg():
-    return {"product_name": attrs.option(attrs.string(), default = None)}
-
-def _resource_group_arg():
-    return {"resource_group": attrs.option(attrs.string(), default = None)}
-
-def _sdk_modules_arg():
-    return {"sdk_modules": attrs.list(attrs.string(), default = [])}
-
-def _static_library_basename_arg():
-    return {"static_library_basename": attrs.option(attrs.string(), default = None)}
-
-def _stripped_default_arg():
-    return {"_stripped_default": attrs.bool(default = False)}
-
-def _swift_module_skip_function_bodies_arg():
-    return {"swift_module_skip_function_bodies": attrs.bool(default = True)}
-
-def _swift_package_name_arg():
-    return {"swift_package_name": attrs.option(attrs.string(), default = None)}
-
-def _thin_lto_arg():
-    return {"thin_lto": attrs.bool(default = False)}
-
-def _use_submodules_arg():
-    return {"use_submodules": attrs.bool(default = True)}
-
-def _uses_cxx_explicit_modules_arg():
-    return {"uses_cxx_explicit_modules": attrs.bool(default = False)}
-
-def _uses_modules_arg():
-    return {"uses_modules": attrs.bool(default = False)}
-
-def _xcode_product_type_arg():
-    return {"xcode_product_type": attrs.option(attrs.string(), default = None)}
-
 def apple_bundle_base_attrs():
     return (apple_common.product_name_from_module_name_arg() |
             apple_common.asset_catalogs_compilation_options_arg() |
             apple_common.info_plist_substitutions_arg() |
             buck.contacts_arg() |
-            _default_host_platform_arg() |
-            _default_platform_arg() |
+            apple_common.default_host_platform_arg() |
+            apple_common.default_platform_arg() |
             buck.labels_arg() |
             buck.licenses_arg() |
-            _codesign_flags_arg() |
-            _codesign_identity_arg() |
-            _deps_arg() |
-            _ibtool_flags_arg() |
-            _product_name_arg() |
-            _resource_group_arg() |
-            _xcode_product_type_arg() |
+            apple_common.codesign_flags_arg() |
+            apple_common.codesign_identity_arg() |
+            apple_common.deps_arg() |
+            apple_common.ibtool_flags_arg() |
+            apple_common.product_name_arg() |
+            apple_common.resource_group_arg() |
+            apple_common.xcode_product_type_arg() |
             {
                 "extension": attrs.one_of(attrs.enum(AppleBundleExtension), attrs.string()),
                 "incremental_bundling_enabled": attrs.option(attrs.bool(), default = None),
@@ -271,7 +184,7 @@ apple_asset_catalog = prelude_rule(
     attrs = (
         # @unsorted-dict-items
         buck.contacts_arg() |
-        _default_host_platform_arg() |
+        apple_common.default_host_platform_arg() |
         buck.labels_arg() |
         buck.licenses_arg() |
         {
@@ -301,7 +214,7 @@ apple_app_intents = prelude_rule(
     further = None,
     attrs = (
         buck.contacts_arg() |
-        _default_host_platform_arg() |
+        apple_common.default_host_platform_arg() |
         buck.labels_arg() |
         buck.licenses_arg()
     ),
@@ -386,37 +299,37 @@ apple_binary = prelude_rule(
         apple_common.info_plist_substitutions_arg() |
         cxx_common.supported_platforms_regex_arg() |
         buck.contacts_arg() |
-        _default_host_platform_arg() |
-        _default_platform_arg() |
+        apple_common.default_host_platform_arg() |
+        apple_common.default_platform_arg() |
         buck.labels_arg() |
         buck.licenses_arg() |
-        _defaults_arg() |
-        _deps_arg() |
-        _devirt_enabled_arg() |
-        _diagnostics_arg() |
-        _enable_cxx_interop_arg() |
+        apple_common.defaults_arg() |
+        apple_common.deps_arg() |
+        apple_common.devirt_enabled_arg() |
+        apple_common.diagnostics_arg() |
+        apple_common.enable_cxx_interop_arg() |
         cxx_common.exported_header_style_arg() |
-        _fat_lto_arg() |
+        apple_common.fat_lto_arg() |
         cxx_common.header_namespace_arg() |
         cxx_common.include_directories_arg() |
-        _libraries_arg() |
-        _link_group_arg() |
-        _minimum_os_version_arg() |
-        _modular_arg() |
-        _module_name_arg() |
-        _module_requires_cxx_arg() |
+        apple_common.libraries_arg() |
+        apple_common.link_group_arg() |
+        apple_common.minimum_os_version_arg() |
+        apple_common.modular_arg() |
+        apple_common.module_name_arg() |
+        apple_common.module_requires_cxx_arg() |
         cxx_common.public_include_directories_arg() |
         cxx_common.public_system_include_directories_arg() |
-        _sdk_modules_arg() |
+        apple_common.sdk_modules_arg() |
         native_common.soname() |
-        _static_library_basename_arg() |
-        _stripped_default_arg() |
-        _swift_module_skip_function_bodies_arg() |
-        _swift_package_name_arg() |
-        _thin_lto_arg() |
-        _use_submodules_arg() |
-        _uses_cxx_explicit_modules_arg() |
-        _uses_modules_arg() |
+        apple_common.static_library_basename_arg() |
+        apple_common.stripped_default_arg() |
+        apple_common.swift_module_skip_function_bodies_arg() |
+        apple_common.swift_package_name_arg() |
+        apple_common.thin_lto_arg() |
+        apple_common.use_submodules_arg() |
+        apple_common.uses_cxx_explicit_modules_arg() |
+        apple_common.uses_modules_arg() |
         {
             "application_extension": attrs.bool(default = False),
             "binary_linker_flags": attrs.list(attrs.arg(), default = []),
@@ -586,14 +499,14 @@ apple_bundle = prelude_rule(
         apple_common.product_name_from_module_name_arg() |
         apple_common.asset_catalogs_compilation_options_arg() |
         buck.contacts_arg() |
-        _default_host_platform_arg() |
-        _default_platform_arg() |
+        apple_common.default_host_platform_arg() |
+        apple_common.default_platform_arg() |
         buck.labels_arg() |
         buck.licenses_arg() |
-        _codesign_flags_arg() |
-        _codesign_identity_arg() |
-        _resource_group_arg() |
-        _xcode_product_type_arg() |
+        apple_common.codesign_flags_arg() |
+        apple_common.codesign_identity_arg() |
+        apple_common.resource_group_arg() |
+        apple_common.xcode_product_type_arg() |
         {
             "ibtool_flags": attrs.option(attrs.list(attrs.string()), default = None, doc = """
                 List of flags to be passed to ibtool during interface builder file compilation.
@@ -691,33 +604,33 @@ apple_library = prelude_rule(
         apple_common.apple_toolchain_arg() |
         validation_common.attrs_validators_arg() |
         buck.contacts_arg() |
-        _default_host_platform_arg() |
-        _default_platform_arg() |
+        apple_common.default_host_platform_arg() |
+        apple_common.default_platform_arg() |
         buck.labels_arg() |
         buck.licenses_arg() |
-        _defaults_arg() |
-        _deps_arg() |
-        _devirt_enabled_arg() |
-        _diagnostics_arg() |
-        _enable_cxx_interop_arg() |
+        apple_common.defaults_arg() |
+        apple_common.deps_arg() |
+        apple_common.devirt_enabled_arg() |
+        apple_common.diagnostics_arg() |
+        apple_common.enable_cxx_interop_arg() |
         cxx_common.exported_header_style_arg() |
-        _fat_lto_arg() |
-        _libraries_arg() |
-        _link_group_arg() |
-        _minimum_os_version_arg() |
-        _modular_arg() |
-        _module_name_arg() |
-        _module_requires_cxx_arg() |
-        _sdk_modules_arg() |
+        apple_common.fat_lto_arg() |
+        apple_common.libraries_arg() |
+        apple_common.link_group_arg() |
+        apple_common.minimum_os_version_arg() |
+        apple_common.modular_arg() |
+        apple_common.module_name_arg() |
+        apple_common.module_requires_cxx_arg() |
+        apple_common.sdk_modules_arg() |
         native_common.soname() |
-        _static_library_basename_arg() |
-        _stripped_default_arg() |
-        _swift_module_skip_function_bodies_arg() |
-        _swift_package_name_arg() |
-        _thin_lto_arg() |
-        _use_submodules_arg() |
-        _uses_cxx_explicit_modules_arg() |
-        _uses_modules_arg() |
+        apple_common.static_library_basename_arg() |
+        apple_common.stripped_default_arg() |
+        apple_common.swift_module_skip_function_bodies_arg() |
+        apple_common.swift_package_name_arg() |
+        apple_common.thin_lto_arg() |
+        apple_common.use_submodules_arg() |
+        apple_common.uses_cxx_explicit_modules_arg() |
+        apple_common.uses_modules_arg() |
         {
             "bridging_header": attrs.option(attrs.source(), default = None),
             "can_be_asset": attrs.option(attrs.bool(), default = None),
@@ -869,8 +782,8 @@ apple_package = prelude_rule(
     attrs = (
         # @unsorted-dict-items
         buck.contacts_arg() |
-        _default_host_platform_arg() |
-        _default_platform_arg() |
+        apple_common.default_host_platform_arg() |
+        apple_common.default_platform_arg() |
         buck.labels_arg() |
         buck.licenses_arg() |
         {
@@ -967,7 +880,7 @@ apple_resource = prelude_rule(
             "codesign_flags_override": attrs.option(attrs.list(attrs.string()), default = None),
         } |
         buck.contacts_arg() |
-        _default_host_platform_arg() |
+        apple_common.default_host_platform_arg() |
         buck.labels_arg() |
         buck.licenses_arg() |
         apple_common.skip_universal_resource_dedupe_arg()
@@ -1044,36 +957,36 @@ apple_test = prelude_rule(
         apple_common.asset_catalogs_compilation_options_arg() |
         cxx_common.supported_platforms_regex_arg() |
         buck.contacts_arg() |
-        _default_host_platform_arg() |
-        _default_platform_arg() |
+        apple_common.default_host_platform_arg() |
+        apple_common.default_platform_arg() |
         buck.licenses_arg() |
-        _codesign_flags_arg() |
-        _codesign_identity_arg() |
-        _defaults_arg() |
-        _deps_arg() |
-        _devirt_enabled_arg() |
-        _diagnostics_arg() |
-        _enable_cxx_interop_arg() |
+        apple_common.codesign_flags_arg() |
+        apple_common.codesign_identity_arg() |
+        apple_common.defaults_arg() |
+        apple_common.deps_arg() |
+        apple_common.devirt_enabled_arg() |
+        apple_common.diagnostics_arg() |
+        apple_common.enable_cxx_interop_arg() |
         cxx_common.exported_header_style_arg() |
-        _fat_lto_arg() |
+        apple_common.fat_lto_arg() |
         cxx_common.header_namespace_arg() |
         cxx_common.include_directories_arg() |
-        _libraries_arg() |
-        _link_group_arg() |
-        _modular_arg() |
-        _module_name_arg() |
-        _module_requires_cxx_arg() |
+        apple_common.libraries_arg() |
+        apple_common.link_group_arg() |
+        apple_common.modular_arg() |
+        apple_common.module_name_arg() |
+        apple_common.module_requires_cxx_arg() |
         cxx_common.public_include_directories_arg() |
         cxx_common.public_system_include_directories_arg() |
-        _sdk_modules_arg() |
+        apple_common.sdk_modules_arg() |
         native_common.soname() |
-        _static_library_basename_arg() |
-        _swift_module_skip_function_bodies_arg() |
-        _thin_lto_arg() |
-        _use_submodules_arg() |
-        _uses_cxx_explicit_modules_arg() |
-        _uses_modules_arg() |
-        _xcode_product_type_arg() |
+        apple_common.static_library_basename_arg() |
+        apple_common.swift_module_skip_function_bodies_arg() |
+        apple_common.thin_lto_arg() |
+        apple_common.use_submodules_arg() |
+        apple_common.uses_cxx_explicit_modules_arg() |
+        apple_common.uses_modules_arg() |
+        apple_common.xcode_product_type_arg() |
         {
             "bridging_header": attrs.option(attrs.source(), default = None),
             "can_be_asset": attrs.option(attrs.bool(), default = None),
@@ -1136,7 +1049,7 @@ apple_toolchain = prelude_rule(
     further = None,
     attrs = (
         buck.contacts_arg() |
-        _default_host_platform_arg() |
+        apple_common.default_host_platform_arg() |
         buck.labels_arg() |
         buck.licenses_arg() |
         {
@@ -1220,7 +1133,7 @@ core_data_model = prelude_rule(
     attrs = (
         # @unsorted-dict-items
         buck.contacts_arg() |
-        _default_host_platform_arg() |
+        apple_common.default_host_platform_arg() |
         buck.labels_arg() |
         buck.licenses_arg() |
         {
@@ -1257,13 +1170,13 @@ prebuilt_apple_framework = prelude_rule(
     attrs = (
         # @unsorted-dict-items
         buck.contacts_arg() |
-        _default_host_platform_arg() |
+        apple_common.default_host_platform_arg() |
         buck.labels_arg() |
         buck.licenses_arg() |
-        _deps_arg() |
-        _libraries_arg() |
-        _sdk_modules_arg() |
-        _stripped_default_arg() |
+        apple_common.deps_arg() |
+        apple_common.libraries_arg() |
+        apple_common.sdk_modules_arg() |
+        apple_common.stripped_default_arg() |
         {
             "preferred_linkage": attrs.enum(Linkage.values(), default = "any", doc = """
                 How to link to a binary: use `dynamic` for a dynamic
@@ -1305,7 +1218,7 @@ scene_kit_assets = prelude_rule(
     attrs = (
         # @unsorted-dict-items
         buck.contacts_arg() |
-        _default_host_platform_arg() |
+        apple_common.default_host_platform_arg() |
         buck.labels_arg() |
         buck.licenses_arg() |
         {
@@ -1322,7 +1235,7 @@ swift_toolchain = prelude_rule(
     further = None,
     attrs = (
         buck.contacts_arg() |
-        _default_host_platform_arg() |
+        apple_common.default_host_platform_arg() |
         buck.labels_arg() |
         buck.licenses_arg() |
         {
@@ -1531,7 +1444,7 @@ apple_spm_package = prelude_rule(
     name = "apple_spm_package",
     impl = apple_spm_package_impl,
     attrs = (
-        _deps_arg() |
+        apple_common.deps_arg() |
         {
             "package_name": attrs.string(),
             "_apple_tools": attrs.exec_dep(default = "prelude//apple/tools:apple-tools", providers = [AppleToolsInfo]),
@@ -1544,7 +1457,7 @@ apple_static_archive = prelude_rule(
     impl = apple_static_archive_impl,
     attrs = (
         buck.labels_arg() |
-        _deps_arg() |
+        apple_common.deps_arg() |
         {
             "archive_name": attrs.option(attrs.string(), default = None),
             "distribution_flat_dep": attrs.option(attrs.dep(), default = None),
@@ -1586,10 +1499,10 @@ apple_resource_bundle = prelude_rule(
     impl = apple_resource_bundle_impl,
     attrs = (
         buck.labels_arg() |
-        _deps_arg() |
-        _ibtool_flags_arg() |
-        _product_name_arg() |
-        _resource_group_arg() |
+        apple_common.deps_arg() |
+        apple_common.ibtool_flags_arg() |
+        apple_common.product_name_arg() |
+        apple_common.resource_group_arg() |
         {
             "binary": attrs.option(attrs.split_transition_dep(cfg = cpu_split_transition), default = None),
             "copy_public_framework_headers": attrs.option(attrs.bool(), default = None),

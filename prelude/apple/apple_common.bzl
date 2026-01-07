@@ -278,6 +278,93 @@ def _enforce_minimum_os_plist_key():
         "enforce_minimum_os_plist_key": attrs.bool(default = False),
     }
 
+def _default_host_platform_arg():
+    return {"default_host_platform": attrs.option(attrs.configuration_label(), default = None)}
+
+def _default_platform_arg():
+    return {"default_platform": attrs.option(attrs.string(), default = None)}
+
+def _codesign_flags_arg():
+    return {"codesign_flags": attrs.list(attrs.string(), default = [])}
+
+def _codesign_identity_arg():
+    return {"codesign_identity": attrs.option(attrs.string(), default = None)}
+
+def _defaults_arg():
+    return {"defaults": attrs.dict(key = attrs.string(), value = attrs.string(), sorted = False, default = {})}
+
+def _deps_arg():
+    return {"deps": attrs.list(attrs.dep(), default = [])}
+
+def _devirt_enabled_arg():
+    return {"devirt_enabled": attrs.bool(default = False)}
+
+def _diagnostics_arg():
+    return {"diagnostics": attrs.dict(key = attrs.string(), value = attrs.source(), sorted = False, default = {})}
+
+def _enable_cxx_interop_arg():
+    return {"enable_cxx_interop": attrs.bool(default = False)}
+
+def _fat_lto_arg():
+    return {"fat_lto": attrs.bool(default = False)}
+
+def _ibtool_flags_arg():
+    return {"ibtool_flags": attrs.option(attrs.list(attrs.string()), default = None)}
+
+def _libraries_arg():
+    return {"libraries": attrs.list(attrs.string(), default = [])}
+
+def _link_group_arg():
+    return {"link_group": attrs.option(attrs.string(), default = None)}
+
+def _minimum_os_version_arg():
+    return {"minimum_os_version": attrs.option(attrs.string(), default = None)}
+
+def _modular_arg():
+    return {"modular": attrs.bool(default = False)}
+
+def _module_name_arg():
+    return {"module_name": attrs.option(attrs.string(), default = None)}
+
+def _module_requires_cxx_arg():
+    return {"module_requires_cxx": attrs.bool(default = False)}
+
+def _product_name_arg():
+    return {"product_name": attrs.option(attrs.string(), default = None)}
+
+def _resource_group_arg():
+    return {"resource_group": attrs.option(attrs.string(), default = None)}
+
+def _sdk_modules_arg():
+    return {"sdk_modules": attrs.list(attrs.string(), default = [])}
+
+def _static_library_basename_arg():
+    return {"static_library_basename": attrs.option(attrs.string(), default = None)}
+
+def _stripped_default_arg():
+    return {"_stripped_default": attrs.bool(default = False)}
+
+def _swift_module_skip_function_bodies_arg():
+    return {"swift_module_skip_function_bodies": attrs.bool(default = True)}
+
+def _swift_package_name_arg():
+    return {"swift_package_name": attrs.option(attrs.string(), default = None)}
+
+def _thin_lto_arg():
+    return {"thin_lto": attrs.bool(default = False)}
+
+def _use_submodules_arg():
+    return {"use_submodules": attrs.bool(default = True)}
+
+def _uses_cxx_explicit_modules_arg():
+    return {"uses_cxx_explicit_modules": attrs.bool(default = False)}
+
+def _uses_modules_arg():
+    return {"uses_modules": attrs.bool(default = False)}
+
+def _xcode_product_type_arg():
+    return {"xcode_product_type": attrs.option(attrs.string(), default = None)}
+
 apple_common = struct(
     headers_arg = _headers_arg,
     exported_headers_arg = _exported_headers_arg,
@@ -303,4 +390,33 @@ apple_common = struct(
     asset_catalogs_compilation_options_arg = _asset_catalogs_compilation_options_arg,
     apple_installer_arg = _apple_installer_arg,
     enforce_minimum_os_plist_key = _enforce_minimum_os_plist_key,
+    default_host_platform_arg = _default_host_platform_arg,
+    default_platform_arg = _default_platform_arg,
+    codesign_flags_arg = _codesign_flags_arg,
+    codesign_identity_arg = _codesign_identity_arg,
+    defaults_arg = _defaults_arg,
+    deps_arg = _deps_arg,
+    devirt_enabled_arg = _devirt_enabled_arg,
+    diagnostics_arg = _diagnostics_arg,
+    enable_cxx_interop_arg = _enable_cxx_interop_arg,
+    fat_lto_arg = _fat_lto_arg,
+    ibtool_flags_arg = _ibtool_flags_arg,
+    libraries_arg = _libraries_arg,
+    link_group_arg = _link_group_arg,
+    minimum_os_version_arg = _minimum_os_version_arg,
+    modular_arg = _modular_arg,
+    module_name_arg = _module_name_arg,
+    module_requires_cxx_arg = _module_requires_cxx_arg,
+    product_name_arg = _product_name_arg,
+    resource_group_arg = _resource_group_arg,
+    sdk_modules_arg = _sdk_modules_arg,
+    static_library_basename_arg = _static_library_basename_arg,
+    stripped_default_arg = _stripped_default_arg,
+    swift_module_skip_function_bodies_arg = _swift_module_skip_function_bodies_arg,
+    swift_package_name_arg = _swift_package_name_arg,
+    thin_lto_arg = _thin_lto_arg,
+    use_submodules_arg = _use_submodules_arg,
+    uses_cxx_explicit_modules_arg = _uses_cxx_explicit_modules_arg,
+    uses_modules_arg = _uses_modules_arg,
+    xcode_product_type_arg = _xcode_product_type_arg,
 )
