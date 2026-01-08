@@ -41,7 +41,8 @@ def _transition_opt_by_default_impl(platform: PlatformInfo, refs: struct, attrs:
     if not is_dev and not is_opt:
         return platform
 
-    sanitizer_constraint = constraints[refs._opt_by_default__no_san[ConstraintValueInfo].setting.label].label
+    no_san_label = refs._opt_by_default__no_san[ConstraintValueInfo].setting.label
+    sanitizer_constraint = constraints[no_san_label].label if no_san_label in constraints else None
     is_default_dev_sanitizer = sanitizer_constraint == refs._opt_by_default__dev_san[ConstraintValueInfo].label  # this bad boy only shows up in default dev mode 🙏
     is_no_san = sanitizer_constraint == refs._opt_by_default__no_san[ConstraintValueInfo].label
 

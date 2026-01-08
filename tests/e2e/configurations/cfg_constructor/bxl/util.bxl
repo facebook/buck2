@@ -78,7 +78,7 @@ def get_test_refs(ctx: bxl.Context) -> TestRefs:
         return self._refs[target]
 
     def make_cfg(targets: list[str]) -> ConfigurationInfo:
-        return util.configuration_info_union([self._refs[target][ConfigurationInfo] for target in targets])
+        return util.configuration_info_union([self._refs[target][ConfigurationInfo] for target in targets if target in self._refs])
 
     def get_modifier_info(modifier: Modifier) -> ModifierInfo:
         key_to_provider = {
