@@ -129,6 +129,20 @@ public class TpxStandardOutputTestListener {
   }
 
   /**
+   * Reports that a test was omitted (e.g., @Ignore annotation). Unlike testIgnored(), this method
+   * handles tests that were filtered out before reaching the listener and creates a complete
+   * start/finish sequence with OMIT status so TPX knows not to retry them.
+   *
+   * @param identifier the test identifier
+   * @param reason the reason the test was omitted
+   */
+  public void testOmitted(String identifier, String reason) {
+    long currentTime = System.currentTimeMillis();
+    sender.sendTestStart(identifier, currentTime);
+    sender.sendTestFinish(identifier, TestStatus.OMIT, currentTime, 0, Optional.of(reason));
+  }
+
+  /**
    * Reports the execution end of an individual test case.
    *
    * <p>If {@link #testFailed} was not invoked, this test passed. Also returns any key/value metrics

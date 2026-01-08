@@ -74,7 +74,8 @@ public class TestResultsOutputEvent {
   public enum TestStatus {
     PASS(0),
     FAIL(1),
-    SKIP(2);
+    SKIP(2),
+    OMIT(4);
 
     private final int value;
 

@@ -167,4 +167,14 @@ public class JUnitTpxStandardOutputListener extends RunListener {
 
     listener.testFinished(testName);
   }
+
+  /**
+   * Reports an omitted test (e.g., @Ignore) to TPX with OMIT status so it won't be retried.
+   *
+   * @param testName the full test name in format "methodName (className)"
+   * @param reason the reason the test was omitted
+   */
+  public void reportOmittedTest(String testName, String reason) {
+    listener.testOmitted(testName, reason);
+  }
 }

@@ -109,9 +109,9 @@ public final class JUnitRunner extends BaseRunner {
         Request request = Request.runner(suite);
         request = request.filterWith(filter);
 
+        JUnitTpxStandardOutputListener tpxListener = null;
         if (testResultsOutputSender.isPresent()) {
-          JUnitTpxStandardOutputListener tpxListener =
-              new JUnitTpxStandardOutputListener(testResultsOutputSender.get());
+          tpxListener = new JUnitTpxStandardOutputListener(testResultsOutputSender.get());
           jUnitCore.addListener(tpxListener);
 
           // Add Robolectric timeout enforcement listener if this is a Robolectric test
@@ -125,6 +125,17 @@ public final class JUnitRunner extends BaseRunner {
           jUnitCore.addListener(new TestListener(results, stdOutLogLevel, stdErrLogLevel));
         }
         jUnitCore.run(request);
+
+        // Report filtered-out tests (e.g., @Ignore) to TPX output so they're not retried
+        if (tpxListener != null) {
+          for (TestResult filteredTest : filter.filteredOut) {
+            if (filteredTest.type == ResultType.DISABLED) {
+              String testName =
+                  String.format("%s (%s)", filteredTest.testMethodName, filteredTest.testClassName);
+              tpxListener.reportOmittedTest(testName, "Test disabled (@Ignore annotation)");
+            }
+          }
+        }
       }
       // Combine the results with the tests we filtered out
       List<TestResult> actualResults = combineResults(results, filter.filteredOut);
