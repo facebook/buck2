@@ -1240,8 +1240,8 @@ swift_toolchain = prelude_rule(
         buck.licenses_arg() |
         {
             "architecture": attrs.string(),
-            "make_swift_comp_db": attrs.default_only(attrs.dep(providers = [RunInfo], default = "prelude//apple/tools:make_swift_comp_db")),
-            "make_swift_interface": attrs.default_only(attrs.dep(providers = [RunInfo], default = "prelude//apple/tools:make_swift_interface")),
+            "make_swift_comp_db": attrs.default_only(attrs.exec_dep(providers = [RunInfo], default = "prelude//apple/tools:make_swift_comp_db")),
+            "make_swift_interface": attrs.default_only(attrs.exec_dep(providers = [RunInfo], default = "prelude//apple/tools:make_swift_interface")),
             "object_format": attrs.enum(SwiftObjectFormat.values(), default = "object"),
             # A placeholder tool that can be used to set up toolchain constraints.
             # Useful when fat and thin toolchahins share the same underlying tools via `command_alias()`,
