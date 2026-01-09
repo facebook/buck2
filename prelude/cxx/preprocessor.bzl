@@ -260,17 +260,18 @@ def cxx_exported_preprocessor_info(
     raw_headers.extend(value_or(ctx.attrs.raw_headers, []))
 
     # if raw-headers-as-headers is enabled, convert raw headers to headers
-    if raw_headers and _attr_raw_headers_as_headers_mode(ctx) != RawHeadersAsHeadersMode("disabled"):
-        exported_headers = as_headers(ctx, raw_headers, ctx.attrs.public_include_directories + ctx.attrs.public_system_include_directories)
-        exported_header_map = {
-            paths.join(h.namespace, h.name): h.artifact
-            for h in exported_headers
-        }
-        raw_headers.clear()
+    if _attr_raw_headers_as_headers_mode(ctx) != RawHeadersAsHeadersMode("disabled"):
+        if raw_headers:
+            exported_headers = as_headers(ctx, raw_headers, ctx.attrs.public_include_directories + ctx.attrs.public_system_include_directories)
+            exported_header_map = {
+                paths.join(h.namespace, h.name): h.artifact
+                for h in exported_headers
+            }
+            raw_headers.clear()
 
-        # Force system exported header style if any system include directories are set.
-        if ctx.attrs.public_system_include_directories:
-            style = HeaderStyle("system")
+            # Force system exported header style if any system include directories are set.
+            if ctx.attrs.public_system_include_directories:
+                style = HeaderStyle("system")
     else:
         include_dirs.extend([ctx.label.path.add(x) for x in ctx.attrs.public_include_directories])
         system_include_dirs.extend([ctx.label.path.add(x) for x in ctx.attrs.public_system_include_directories])
