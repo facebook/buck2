@@ -9,28 +9,14 @@
 load("@prelude//cfg/modifier:types.bzl", "ConditionalModifierInfo")
 load(":util.bzl", "util")
 
-# config_setting() accepts a list of constraint_values and a list of values
-# (buckconfig keys + expected values) and matches if all of those match.
-#
-# This is implemented as forming a single ConfigurationInfo from the union of the
-# referenced values and the config keys.
-#
-# Attributes:
-#   "constraint_values": attrs.list(attrs.configuration_label(), default = []),
-#   "values": attrs.dict(key = attrs.string(), value = attrs.string(), sorted = False, default = {}),
 def config_setting_impl(ctx):
     subinfos = [util.constraint_values_to_configuration(ctx.attrs.constraint_values)]
     subinfos.append(ConfigurationInfo(constraints = {}, values = ctx.attrs.values))
     return [DefaultInfo(), util.configuration_info_union(subinfos)]
 
-# constraint_setting() targets just declare the existence of a constraint.
 def constraint_setting_impl(ctx):
     return [DefaultInfo(), ConstraintSettingInfo(label = ctx.label.raw_target())]
 
-# constraint_value() declares a specific value of a constraint_setting.
-#
-# Attributes:
-#  constraint_setting: the target constraint that this is a value of
 def constraint_value_impl(ctx):
     constraint_value = ConstraintValueInfo(
         setting = ctx.attrs.constraint_setting[ConstraintSettingInfo],
@@ -52,12 +38,6 @@ def constraint_value_impl(ctx):
         ),
     ]
 
-# constraint() is a unified constraint rule that declares both a constraint setting
-# and its possible values. Values are exposed as subtargets.
-#
-# Attributes:
-#  values: list of value names (strings)
-#  default: default value (must be one of the values)
 def constraint_impl(ctx):
     # Validate values are unique and non-empty
     values = ctx.attrs.values
@@ -111,11 +91,6 @@ def constraint_impl(ctx):
         constraint_setting,
     ]
 
-# platform() declares a platform, it is a list of constraint values.
-#
-# Attributes:
-#  constraint_values: list of constraint values that are set for this platform
-#  deps: a list of platform target dependencies, the constraints from these platforms will be part of this platform (unless overridden)
 def platform_impl(ctx):
     subinfos = (
         [dep[PlatformInfo].configuration for dep in ctx.attrs.deps] +
