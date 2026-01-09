@@ -35,6 +35,7 @@ sealed class ModeParam(val value: String) {
 
 enum class ClasspathChangesParam(val value: String) {
   TO_BE_COMPUTED_BY_INCREMENTAL_COMPILER("to_be_computed_by_incremental_compiler"),
+  HAS_REMOVALS("has_removals"),
   NO_CHANGES("no_changes"),
   UNKNOWN("unknown"),
 }

@@ -58,6 +58,8 @@ public class KotlinCDLoggingContextFactory {
   private static ClasspathChangesParam create(ClasspathChanges classpathChanges) {
     if (classpathChanges instanceof ClasspathChanges.ToBeComputedByIncrementalCompiler) {
       return ClasspathChangesParam.TO_BE_COMPUTED_BY_INCREMENTAL_COMPILER;
+    } else if (classpathChanges instanceof ClasspathChanges.HasRemovals) {
+      return ClasspathChangesParam.HAS_REMOVALS;
     } else if (classpathChanges instanceof ClasspathChanges.NoChanges) {
       return ClasspathChangesParam.NO_CHANGES;
     } else if (classpathChanges instanceof ClasspathChanges.Unknown) {

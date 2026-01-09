@@ -183,4 +183,108 @@ public class SnapshotsActionMetadataTest {
 
     assertTrue(snapshotsActionMetadata.hasClasspathChanged());
   }
+
+  @Test
+  public void when_jarRemoved_then_hasClasspathRemovalReturnsTrue() {
+    Map<Path, String> previousDigest = new HashMap<>();
+    previousDigest.put(Paths.get("lib1.bin"), "digest1");
+    previousDigest.put(Paths.get("lib2.bin"), "digest2");
+    Map<Path, String> currentDigest = new HashMap<>();
+    currentDigest.put(Paths.get("lib2.bin"), "digest2");
+
+    ActionMetadata actionMetadata =
+        new ActionMetadata(Paths.get("metadata.json"), previousDigest, currentDigest);
+    SnapshotsActionMetadata snapshotsActionMetadata = new SnapshotsActionMetadata(actionMetadata);
+
+    assertTrue(snapshotsActionMetadata.hasClasspathRemoval());
+  }
+
+  @Test
+  public void when_allJarsRemoved_then_hasClasspathRemovalReturnsTrue() {
+    Map<Path, String> previousDigest = new HashMap<>();
+    previousDigest.put(Paths.get("lib1.bin"), "digest1");
+    previousDigest.put(Paths.get("lib2.bin"), "digest2");
+    Map<Path, String> currentDigest = new HashMap<>();
+
+    ActionMetadata actionMetadata =
+        new ActionMetadata(Paths.get("metadata.json"), previousDigest, currentDigest);
+    SnapshotsActionMetadata snapshotsActionMetadata = new SnapshotsActionMetadata(actionMetadata);
+
+    assertTrue(snapshotsActionMetadata.hasClasspathRemoval());
+  }
+
+  @Test
+  public void when_jarAdded_then_hasClasspathRemovalReturnsFalse() {
+    Map<Path, String> previousDigest = new HashMap<>();
+    previousDigest.put(Paths.get("lib1.bin"), "digest1");
+    Map<Path, String> currentDigest = new HashMap<>();
+    currentDigest.put(Paths.get("lib1.bin"), "digest1");
+    currentDigest.put(Paths.get("lib2.bin"), "digest2");
+
+    ActionMetadata actionMetadata =
+        new ActionMetadata(Paths.get("metadata.json"), previousDigest, currentDigest);
+    SnapshotsActionMetadata snapshotsActionMetadata = new SnapshotsActionMetadata(actionMetadata);
+
+    assertFalse(snapshotsActionMetadata.hasClasspathRemoval());
+  }
+
+  @Test
+  public void when_jarModified_then_hasClasspathRemovalReturnsFalse() {
+    Map<Path, String> previousDigest = new HashMap<>();
+    previousDigest.put(Paths.get("lib1.bin"), "digest1");
+    previousDigest.put(Paths.get("lib2.bin"), "digest2");
+    Map<Path, String> currentDigest = new HashMap<>();
+    currentDigest.put(Paths.get("lib1.bin"), "digest1_changed");
+    currentDigest.put(Paths.get("lib2.bin"), "digest2");
+
+    ActionMetadata actionMetadata =
+        new ActionMetadata(Paths.get("metadata.json"), previousDigest, currentDigest);
+    SnapshotsActionMetadata snapshotsActionMetadata = new SnapshotsActionMetadata(actionMetadata);
+
+    assertFalse(snapshotsActionMetadata.hasClasspathRemoval());
+  }
+
+  @Test
+  public void when_noChanges_then_hasClasspathRemovalReturnsFalse() {
+    Map<Path, String> previousDigest = new HashMap<>();
+    previousDigest.put(Paths.get("lib1.bin"), "digest1");
+    previousDigest.put(Paths.get("lib2.bin"), "digest2");
+    Map<Path, String> currentDigest = new HashMap<>();
+    currentDigest.put(Paths.get("lib1.bin"), "digest1");
+    currentDigest.put(Paths.get("lib2.bin"), "digest2");
+
+    ActionMetadata actionMetadata =
+        new ActionMetadata(Paths.get("metadata.json"), previousDigest, currentDigest);
+    SnapshotsActionMetadata snapshotsActionMetadata = new SnapshotsActionMetadata(actionMetadata);
+
+    assertFalse(snapshotsActionMetadata.hasClasspathRemoval());
+  }
+
+  @Test
+  public void when_emptyDigests_then_hasClasspathRemovalReturnsFalse() {
+    Map<Path, String> previousDigest = new HashMap<>();
+    Map<Path, String> currentDigest = new HashMap<>();
+
+    ActionMetadata actionMetadata =
+        new ActionMetadata(Paths.get("metadata.json"), previousDigest, currentDigest);
+    SnapshotsActionMetadata snapshotsActionMetadata = new SnapshotsActionMetadata(actionMetadata);
+
+    assertFalse(snapshotsActionMetadata.hasClasspathRemoval());
+  }
+
+  @Test
+  public void when_jarAddedAndRemoved_then_hasClasspathRemovalReturnsTrue() {
+    Map<Path, String> previousDigest = new HashMap<>();
+    previousDigest.put(Paths.get("lib1.bin"), "digest1");
+    previousDigest.put(Paths.get("lib2.bin"), "digest2");
+    Map<Path, String> currentDigest = new HashMap<>();
+    currentDigest.put(Paths.get("lib1.bin"), "digest1");
+    currentDigest.put(Paths.get("lib3.bin"), "digest3");
+
+    ActionMetadata actionMetadata =
+        new ActionMetadata(Paths.get("metadata.json"), previousDigest, currentDigest);
+    SnapshotsActionMetadata snapshotsActionMetadata = new SnapshotsActionMetadata(actionMetadata);
+
+    assertTrue(snapshotsActionMetadata.hasClasspathRemoval());
+  }
 }

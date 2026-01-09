@@ -25,10 +25,17 @@ public class ClasspathChangesFactory {
   public static ClasspathChanges create(
       SnapshotsActionMetadata actionMetadata, ImmutableList<AbsPath> classpathSnapshots) {
     if (actionMetadata.hasClasspathChanged()) {
-      LOG.info("Classpath changes: Detected changes on the classpath");
-      return new ClasspathChanges.ToBeComputedByIncrementalCompiler(
+      ImmutableList<java.io.File> snapshotFiles =
           ImmutableList.copyOf(
-              classpathSnapshots.stream().map(AbsPath::toFile).collect(Collectors.toList())));
+              classpathSnapshots.stream().map(AbsPath::toFile).collect(Collectors.toList()));
+
+      if (actionMetadata.hasClasspathRemoval()) {
+        LOG.info("Classpath changes: Detected removal of classpath entries");
+        return new ClasspathChanges.HasRemovals(snapshotFiles);
+      }
+
+      LOG.info("Classpath changes: Detected additions/modifications on the classpath");
+      return new ClasspathChanges.ToBeComputedByIncrementalCompiler(snapshotFiles);
     }
 
     LOG.info("Classpath changes: No changes on the classpath");

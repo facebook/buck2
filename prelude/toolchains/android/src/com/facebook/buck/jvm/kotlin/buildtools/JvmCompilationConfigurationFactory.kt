@@ -76,7 +76,26 @@ internal class JvmCompilationConfigurationFactory(
                         is ClasspathChanges.NoChanges -> {
                           assureNoClasspathSnapshotsChanges(true)
                         }
-                        else -> {}
+                        is ClasspathChanges.ToBeComputedByIncrementalCompiler -> {
+                          // Classpath has additions or modifications only.
+                          // The Kotlin incremental compiler can handle this case.
+                        }
+                        is ClasspathChanges.HasRemovals -> {
+                          // Force non-incremental mode when classpath entries are removed.
+                          // The Kotlin compiler's incremental compilation doesn't reliably detect
+                          // that existing compiled code references classes from removed
+                          // dependencies.
+                          // See:
+                          // https://fb.workplace.com/groups/2222954841208728/permalink/4171196826470000/
+                          LOG.info(
+                              "Non-incremental compilation will be performed: classpath removal detected"
+                          )
+                          kotlinCDLoggingContext.addExtras(
+                              JvmCompilationConfigurationFactory::class.java.simpleName,
+                              "Non-incremental compilation will be performed: classpath removal detected",
+                          )
+                          forceNonIncrementalMode(true)
+                        }
                       }
                     },
             )

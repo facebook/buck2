@@ -47,7 +47,7 @@ public class ClasspathChangesFactoryTest {
   }
 
   @Test
-  public void when_snapshotFileIsRemovedFromCurrentDigest_then_ToBeComputedByIncrementalCompiler() {
+  public void when_snapshotFileIsRemovedFromCurrentDigest_then_HasRemovals() {
     Path snapshotFile1 = Paths.get("lib/test1.bin");
     Path snapshotFile2 = Paths.get("lib/test2.bin");
     Path removedSnapshotFile = Paths.get("lib/removed.bin");
@@ -65,7 +65,7 @@ public class ClasspathChangesFactoryTest {
     ClasspathChanges classpathChanges =
         ClasspathChangesFactory.create(snapshotsActionMetadata, ImmutableList.of());
 
-    assertTrue(classpathChanges instanceof ClasspathChanges.ToBeComputedByIncrementalCompiler);
+    assertTrue(classpathChanges instanceof ClasspathChanges.HasRemovals);
   }
 
   @Test
@@ -185,8 +185,7 @@ public class ClasspathChangesFactoryTest {
   }
 
   @Test
-  public void
-      when_currentDigestIsEmptyAndPreviousContainsSnapshots_then_ToBeComputedByIncrementalCompiler() {
+  public void when_currentDigestIsEmptyAndPreviousContainsSnapshots_then_HasRemovals() {
     Path metadataFile = Paths.get("metadata.json");
     Map<Path, String> previousDigest = new HashMap<>();
     previousDigest.put(Paths.get("lib/test1.bin"), "snapshot1-digest");
@@ -198,7 +197,7 @@ public class ClasspathChangesFactoryTest {
     ClasspathChanges classpathChanges =
         ClasspathChangesFactory.create(snapshotsActionMetadata, ImmutableList.of());
 
-    assertTrue(classpathChanges instanceof ClasspathChanges.ToBeComputedByIncrementalCompiler);
+    assertTrue(classpathChanges instanceof ClasspathChanges.HasRemovals);
   }
 
   @Test

@@ -20,8 +20,18 @@ sealed interface ClasspathChanges {
 
   val classpathSnapshotFiles: List<File>
 
+  /**
+   * Classpath has additions or modifications only (no removals). Safe for the Kotlin incremental
+   * compiler to compute affected sources.
+   */
   data class ToBeComputedByIncrementalCompiler(override val classpathSnapshotFiles: List<File>) :
       ClasspathChanges
+
+  /**
+   * Classpath has removals (dependencies were removed). The Kotlin incremental compiler doesn't
+   * reliably handle this case, so non-incremental compilation should be forced.
+   */
+  data class HasRemovals(override val classpathSnapshotFiles: List<File>) : ClasspathChanges
 
   data class NoChanges(override val classpathSnapshotFiles: List<File>) : ClasspathChanges
 

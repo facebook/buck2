@@ -42,6 +42,16 @@ class SnapshotsActionMetadata(actionMetaData: ActionMetadata) {
     }
   }
 
+  /**
+   * Returns true if any classpath entries were removed (present in previous but not in current).
+   * This is important because the Kotlin incremental compiler doesn't reliably handle classpath
+   * removals - it may fail to detect that existing compiled code references classes from the
+   * removed dependency.
+   */
+  fun hasClasspathRemoval(): Boolean {
+    return previousSnapshotsDigest.keys.any { path -> !currentSnapshotsDigest.containsKey(path) }
+  }
+
   companion object {
     private val SNAPSHOT_PATH_MATCHER = FileExtensionMatcher.of("bin")
   }
