@@ -29,6 +29,7 @@ cxx_implicit_attrs = {
     "allow_cache_upload": attrs.bool(default = False),
     "anonymous_link_groups": attrs.bool(default = True),
     "binary_linker_flags": attrs.list(attrs.arg(anon_target_compatible = True), default = []),
+    "bolt_flags": attrs.list(attrs.arg(anon_target_compatible = True), default = []),
     "bolt_profile": attrs.option(attrs.source(), default = None),
     "compiler_flags": attrs.list(attrs.arg(anon_target_compatible = True), default = []),
     "cxx_main": attrs.source(default = "prelude//python/tools:embedded_main.cpp"),

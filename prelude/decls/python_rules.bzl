@@ -39,7 +39,7 @@ def _python_executable_attrs():
     python_executable_attrs.update({
         "anonymous_link_groups": attrs.bool(default = False),
         "binary_linker_flags": attrs.list(attrs.arg(anon_target_compatible = True), default = []),
-        "bolt_flags": attrs.list(attrs.arg(), default = []),
+        "bolt_flags": attrs.list(attrs.arg(anon_target_compatible = True), default = []),
         "bolt_profile": attrs.option(attrs.source(), default = None),
         "compiler_flags": attrs.list(attrs.arg(anon_target_compatible = True), default = []),
         "cxx_main": attrs.source(default = "prelude//python/tools:embedded_main.cpp"),
