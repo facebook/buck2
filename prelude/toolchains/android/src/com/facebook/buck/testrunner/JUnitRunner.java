@@ -131,7 +131,8 @@ public final class JUnitRunner extends BaseRunner {
           for (TestResult filteredTest : filter.filteredOut) {
             if (filteredTest.type == ResultType.DISABLED) {
               String testName =
-                  String.format("%s (%s)", filteredTest.testMethodName, filteredTest.testClassName);
+                  JUnitTpxStandardOutputListener.getFullTestName(
+                      filteredTest.testMethodName, filteredTest.testClassName);
               tpxListener.reportOmittedTest(testName, "Test disabled (@Ignore annotation)");
             }
           }

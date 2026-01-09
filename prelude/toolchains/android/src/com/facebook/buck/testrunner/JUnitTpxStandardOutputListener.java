@@ -74,7 +74,18 @@ public class JUnitTpxStandardOutputListener extends RunListener {
    * @return the full test name
    */
   private static String getFullTestName(Description description) {
-    return String.format("%s (%s)", description.getMethodName(), description.getClassName());
+    return getFullTestName(description.getMethodName(), description.getClassName());
+  }
+
+  /**
+   * Gets the full test name from method and class names.
+   *
+   * @param methodName the test method name
+   * @param className the test class name
+   * @return the full test name in format "methodName (className)"
+   */
+  static String getFullTestName(String methodName, String className) {
+    return String.format("%s (%s)", methodName, className);
   }
 
   /**
