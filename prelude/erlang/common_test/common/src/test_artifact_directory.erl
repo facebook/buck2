@@ -13,6 +13,7 @@ Used by TPX to upload diagnostic reports.
 """.
 -compile(warn_missing_spec_all).
 
+-include_lib("common/include/buck_ct_records.hrl").
 -include_lib("kernel/include/logger.hrl").
 
 -import(common_util, [unicode_characters_to_list/1]).
@@ -20,7 +21,7 @@ Used by TPX to upload diagnostic reports.
 -define(raw_file_access, prim_file).
 
 %% Public API
--export([prepare/2, link_to_artifact_dir/3, find_log_private/1]).
+-export([prepare/3, link_to_artifact_dir/3, find_log_private/1]).
 
 -export_type([dir_path/0]).
 
@@ -75,10 +76,11 @@ coverage_tmp_dir() ->
 
 % Collect, create and link the logs and other relevant files in
 % the artefacts directory.
--spec prepare(ExecutionDir, ArtifactAnnotationFunction) -> ok when
+-spec prepare(ExecutionDir, Tests, ArtifactAnnotationFunction) -> ok when
     ExecutionDir :: file:filename_all(),
+    Tests :: [#ct_test{}],
     ArtifactAnnotationFunction :: artifact_annotations:annotation_function().
-prepare(ExecutionDir, ArtifactAnnotationFunction) ->
+prepare(ExecutionDir, Tests, ArtifactAnnotationFunction) ->
     with_artifact_dir(
         fun(_ArtifactDir) ->
             link_tar_ball(ExecutionDir),
@@ -108,9 +110,7 @@ prepare(ExecutionDir, ArtifactAnnotationFunction) ->
                     link_to_artifact_dir(
                         join_paths(LogPrivate, "test_metrics.log.json"),
                         LogPrivate,
-                        fun(FileName) ->
-                            #{type => #{generic_blob => #{}}, description => list_to_binary(FileName)}
-                        end
+                        fun(FileName) -> artifact_annotations:test_metrics_artifact_annotation(FileName, Tests) end
                     )
             end,
             ok

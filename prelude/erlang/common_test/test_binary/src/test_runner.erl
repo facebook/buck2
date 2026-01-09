@@ -258,7 +258,7 @@ provide_output_file(
     test_artifact_directory:link_to_artifact_dir(
         test_logger:get_std_out(OutputDir, test_runner), OutputDir, ArtifactAnnotationFunction
     ),
-    test_artifact_directory:prepare(OutputDir, ArtifactAnnotationFunction).
+    test_artifact_directory:prepare(OutputDir, Tests, ArtifactAnnotationFunction).
 
 -spec decode_erlang_term(Bin :: binary()) -> dynamic().
 decode_erlang_term(Bin) ->
