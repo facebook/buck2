@@ -48,6 +48,7 @@ members = [
     "app/buck2_grpc",
     "app/buck2_health_check",
     "app/buck2_health_check_proto",
+    "app/buck2_mcp",
     "app/buck2_http",
     "app/buck2_install_proto",
     "app/buck2_interpreter",
@@ -434,6 +435,7 @@ buck2_host_sharing_proto = { path = "app/buck2_host_sharing_proto" }
 buck2_http = { path = "app/buck2_http" }
 buck2_install_proto = { path = "app/buck2_install_proto" }
 buck2_interpreter = { path = "app/buck2_interpreter" }
+buck2_mcp = { path = "app/buck2_mcp" }
 buck2_interpreter_for_build = { path = "app/buck2_interpreter_for_build" }
 buck2_interpreter_for_build_tests = { path = "app/buck2_interpreter_for_build_tests" }
 buck2_miniperf = { path = "app/buck2_miniperf" }

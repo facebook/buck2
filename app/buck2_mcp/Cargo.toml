@@ -1,0 +1,35 @@
+[package]
+name = "buck2_mcp"
+description = "Buck2 MCP (Model Context Protocol) server for AI agent integration"
+edition = "2024"
+license = { workspace = true }
+repository = { workspace = true }
+version = "0.1.0"
+
+[[bin]]
+name = "buck2-mcp"
+path = "src/bin/buck2-mcp.rs"
+
+[dependencies]
+async-trait = { workspace = true }
+chrono = { workspace = true }
+dirs = { workspace = true }
+futures = { workspace = true }
+prost = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tokio = { workspace = true }
+tonic = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+uuid = { workspace = true }
+
+buck2_cli_proto = { workspace = true }
+buck2_common = { workspace = true }
+buck2_core = { workspace = true }
+buck2_error = { workspace = true }
+buck2_fs = { workspace = true }
+buck2_util = { workspace = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }
