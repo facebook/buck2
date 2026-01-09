@@ -1027,6 +1027,7 @@ apple_test = prelude_rule(
             "supports_merged_linking": attrs.option(attrs.bool(), default = None),
             "swift_compiler_flags": attrs.list(attrs.arg(), default = []),
             "swift_interface_compilation_enabled": attrs.bool(default = False),
+            "swift_macro_deps": attrs.list(attrs.plugin_dep(kind = SwiftMacroPlugin), default = []),
             "swift_version": attrs.option(attrs.enum(SwiftVersion), default = None),
             "test_rule_timeout_ms": attrs.option(attrs.int(), default = None),
             "try_skip_code_signing": attrs.option(attrs.bool(), default = None),
@@ -1038,6 +1039,7 @@ apple_test = prelude_rule(
         test_common.attributes() |
         constraint_overrides.attributes
     ),
+    uses_plugins = [SwiftMacroPlugin],
     impl = apple_test_impl,
     cfg = apple_test_target_sdk_version_transition,
 )

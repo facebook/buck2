@@ -1101,7 +1101,7 @@ def _get_shared_flags(
     if getattr(ctx.attrs, "application_extension", False):
         cmd.add("-application-extension")
 
-    # Only apple_library has swift_macro_deps
+    # Only apple_library and apple_test has swift_macro_deps
     swift_macros = getattr(ctx.attrs, "swift_macro_deps", [])
     if swift_macros:
         for m in ctx.plugins[SwiftMacroPlugin]:
