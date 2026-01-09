@@ -425,13 +425,6 @@ pub(crate) fn parse_fun(func: ItemFn, module_kind: ModuleKind) -> syn::Result<St
             ));
         }
 
-        if is_method && starlark_ty_custom_function.is_some() {
-            return Err(syn::Error::new(
-                sig_span,
-                "Custom types are not implemented for methods",
-            ));
-        }
-
         let mut args = args.unwrap_or_else(|| RegularParams::Unpack(Vec::new()));
         let source = match &mut args {
             RegularParams::Arguments(_) => StarFunSource::Arguments,

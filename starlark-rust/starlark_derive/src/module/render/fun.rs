@@ -160,18 +160,14 @@ impl StarFun {
                     "methods cannot have an `as_type` attribute",
                 ));
             }
-            if self.starlark_ty_custom_function.is_some() {
-                return Err(syn::Error::new(
-                    self.span(),
-                    "methods cannot have a `ty_custom_function` attribute",
-                ));
-            }
+            let ty_custom = self.ty_custom_expr();
             Ok(syn::parse_quote! {
                 #[allow(clippy::redundant_closure)]
                 globals_builder.set_method(
                     #name_str,
                     #components,
                     #param_spec,
+                    #ty_custom,
                     __starlark_invoke_outer #turbofish,
                 );
             })
