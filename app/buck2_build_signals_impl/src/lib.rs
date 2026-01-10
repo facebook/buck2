@@ -37,6 +37,7 @@ use buck2_build_api::build_signals::CREATE_BUILD_SIGNALS;
 use buck2_build_signals::env::BuildSignalsContext;
 use buck2_build_signals::env::CriticalPathBackendName;
 use buck2_build_signals::env::DeferredBuildSignals;
+use buck2_build_signals::env::EarlyCommandTiming;
 use buck2_build_signals::env::FinishBuildSignals;
 use buck2_build_signals::env::NodeDuration;
 use buck2_build_signals::node_key::BuildSignalsNodeKey;
@@ -559,27 +560,8 @@ where
             top_level_targets,
         } = self.backend.finish()?;
 
-        let early_command_entries = ctx.early_command_entries.iter().map(|entry| {
-            let generic_entry_data = NodeData {
-                action_node_data: None,
-                duration: NodeDuration {
-                    user: Duration::ZERO,
-                    total: entry.time_span,
-                    queue: None,
-                },
-                span_ids: Default::default(),
-            };
-            (
-                buck2_data::critical_path_entry2::GenericEntry {
-                    kind: entry.kind.clone(),
-                }
-                .into(),
-                generic_entry_data,
-                Some(entry.time_span.duration()),
-            )
-        });
-
-        let critical_path2 = critical_path.into_critical_path_proto(early_command_entries, now)?;
+        let critical_path2 =
+            critical_path.into_critical_path_proto(&ctx.early_command_timing, now)?;
 
         let top_level_targets = top_level_targets.try_map(|(key, duration)| {
             buck2_error::Ok(buck2_data::TopLevelTargetCriticalPath {
@@ -811,20 +793,46 @@ impl DetailedCriticalPath {
         })
     }
 
+    fn create_proto_entries_for_early_timings(
+        early_command_timing: &EarlyCommandTiming,
+    ) -> buck2_error::Result<Vec<buck2_data::CriticalPathEntry2>> {
+        let generic_entry = |kind: &str| -> buck2_data::critical_path_entry2::Entry {
+            buck2_data::critical_path_entry2::GenericEntry {
+                kind: kind.to_owned(),
+            }
+            .into()
+        };
+        let mut entries = Vec::with_capacity(2 + early_command_timing.early_spans.len());
+        let mut current_kind = "buckd_command_init";
+        let mut current_start = early_command_timing.command_start;
+        for (span_start, kind) in &early_command_timing.early_spans {
+            entries.push(Self::create_simple_critical_path_entry2(
+                generic_entry(current_kind),
+                span_start
+                    .checked_duration_since(current_start)
+                    .unwrap_or(Duration::ZERO),
+            )?);
+            current_kind = kind;
+            current_start = *span_start;
+        }
+        entries.push(Self::create_simple_critical_path_entry2(
+            generic_entry(current_kind),
+            early_command_timing
+                .early_command_end
+                .checked_duration_since(current_start)
+                .unwrap_or(Duration::ZERO),
+        )?);
+        Ok(entries)
+    }
+
     fn into_critical_path_proto(
         self,
-        early_command_entries: impl Iterator<
-            Item = (
-                buck2_data::critical_path_entry2::Entry,
-                NodeData,
-                Option<Duration>,
-            ),
-        >,
+        early_command_timing: &EarlyCommandTiming,
         critical_path_compute_start: Instant,
     ) -> buck2_error::Result<Vec<buck2_data::CriticalPathEntry2>> {
         let mut entries =
-            Vec::with_capacity(early_command_entries.size_hint().0 + self.entries.len() + 1);
-        let mut push = |entry, data, potential_improvement| {
+            Vec::with_capacity(1 + early_command_timing.early_spans.len() + self.entries.len() + 1);
+        let push = |entries: &mut Vec<_>, entry, data, potential_improvement| {
             entries.push(Self::create_critical_path_entry2(
                 entry,
                 data,
@@ -833,13 +841,13 @@ impl DetailedCriticalPath {
             buck2_error::Ok(())
         };
 
-        for (entry, data, potential_improvement) in early_command_entries {
-            push(entry, data, potential_improvement)?;
-        }
+        entries.extend(Self::create_proto_entries_for_early_timings(
+            early_command_timing,
+        )?);
 
         for (key, data, potential_improvement) in self.entries {
             if let Some(entry) = key.into_critical_path_entry_data(data.action_node_data.as_ref()) {
-                push(entry, data, potential_improvement)?;
+                push(&mut entries, entry, data, potential_improvement)?;
             }
         }
 

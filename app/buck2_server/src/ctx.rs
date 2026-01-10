@@ -34,6 +34,8 @@ use buck2_build_api::keep_going::HasKeepGoing;
 use buck2_build_api::materialize::HasMaterializationQueueTracker;
 use buck2_build_api::spawner::BuckSpawner;
 use buck2_build_signals::env::CriticalPathBackendName;
+use buck2_build_signals::env::EarlyCommandTimingBuilder;
+use buck2_build_signals::env::FILE_WATCHER_WAIT;
 use buck2_build_signals::env::HasCriticalPathBackend;
 use buck2_certs::validate::CertState;
 use buck2_cli_proto::ClientContext;
@@ -576,11 +578,8 @@ impl DiceUpdater for DiceCommandUpdater<'_, '_> {
     async fn update(
         &self,
         mut ctx: DiceTransactionUpdater,
-    ) -> buck2_error::Result<(
-        DiceTransactionUpdater,
-        UserComputationData,
-        buck2_util::time_span::TimeSpan,
-    )> {
+        early_timings: &mut EarlyCommandTimingBuilder,
+    ) -> buck2_error::Result<(DiceTransactionUpdater, UserComputationData)> {
         let existing_state = &mut ctx.existing_state().await.clone();
         let cells_and_configs = self.cmd_ctx.load_new_configs(existing_state).await?;
         let cell_resolver = cells_and_configs.cell_resolver;
@@ -620,7 +619,7 @@ impl DiceUpdater for DiceCommandUpdater<'_, '_> {
             self.cmd_ctx.unstable_typecheck,
         )?;
 
-        let start = buck2_util::time_span::TimeSpan::start_now();
+        early_timings.start_span(FILE_WATCHER_WAIT.to_owned());
         let (ctx, mergebase) = self
             .cmd_ctx
             .base_context
@@ -628,12 +627,12 @@ impl DiceUpdater for DiceCommandUpdater<'_, '_> {
             .file_watcher
             .sync(ctx)
             .await?;
-        let wait_time_span = start.end_now();
+        early_timings.end_known_span();
 
         let mut user_data = self.make_user_computation_data(&cells_and_configs.root_config)?;
         user_data.set_mergebase(mergebase);
 
-        Ok((ctx, user_data, wait_time_span))
+        Ok((ctx, user_data))
     }
 }
 

@@ -18,7 +18,7 @@ use allocative::Allocative;
 use async_trait::async_trait;
 use buck2_build_signals::env::BuildSignalsContext;
 use buck2_build_signals::env::DeferredBuildSignals;
-use buck2_build_signals::env::EarlyCommandEntry;
+use buck2_build_signals::env::EarlyCommandTimingBuilder;
 use buck2_build_signals::env::HasCriticalPathBackend;
 use buck2_certs::validate::CertState;
 use buck2_cli_proto::client_context::ExitWhen;
@@ -36,7 +36,6 @@ use buck2_events::dispatch::EventDispatcher;
 use buck2_execute::materialize::materializer::Materializer;
 use buck2_fs::paths::file_name::FileName;
 use buck2_fs::working_dir::AbsWorkingDir;
-use buck2_util::time_span::TimeSpan;
 use buck2_wrapper_common::invocation_id::TraceId;
 use dice::DiceComputations;
 use dice::DiceTransaction;
@@ -46,10 +45,6 @@ use dupe::Dupe;
 use crate::concurrency::ConcurrencyHandler;
 use crate::concurrency::DiceUpdater;
 use crate::stderr_output_guard::StderrOutputGuard;
-
-const OTHER_COMMAND_START_OVERHEAD: &str = "other-command-start-overhead";
-const EXCLUSIVE_COMMAND_WAIT: &str = "exclusive-command-wait";
-const FILE_WATCHER_WAIT: &str = "file-watcher-wait";
 
 #[derive(Allocative, Debug)]
 pub struct PreviousCommandDataInternal {
@@ -225,6 +220,8 @@ impl ServerCommandDiceContext for dyn ServerCommandContextTrait + '_ {
             exit_when,
         } = self.dice_accessor(PrivateStruct(())).await?;
 
+        let early_command_timing = EarlyCommandTimingBuilder::new(self.command_start());
+
         let events = self.events().dupe();
         events
             .span_async(DiceCriticalSectionStart {}, async move {
@@ -233,7 +230,7 @@ impl ServerCommandDiceContext for dyn ServerCommandContextTrait + '_ {
                         .enter(
                             self.events().dupe(),
                             &*setup,
-                            |mut dice, exclusive_wait_time_span, file_watcher_sync_time_spans| async move {
+                            |mut dice, early_command_timing| async move {
                                 let events = self.events().dupe();
 
                                 let request_metadata = self.request_metadata().await?;
@@ -245,62 +242,6 @@ impl ServerCommandDiceContext for dyn ServerCommandContextTrait + '_ {
                                             dice_version: dice.equality_token().to_string(),
                                         },
                                         async move {
-                                            let mut known_spans = vec![];
-                                            if !exclusive_wait_time_span.duration().is_zero() {
-                                                known_spans.push(EarlyCommandEntry {
-                                                    kind: EXCLUSIVE_COMMAND_WAIT.to_owned(),
-                                                    time_span: exclusive_wait_time_span,
-                                                });
-                                            }
-                                            // Create one entry for each file watcher sync operation
-                                            for file_watcher_sync_time_span in file_watcher_sync_time_spans {
-                                                if !file_watcher_sync_time_span.duration().is_zero() {
-                                                    known_spans.push(EarlyCommandEntry {
-                                                        kind: FILE_WATCHER_WAIT.to_owned(),
-                                                        time_span: file_watcher_sync_time_span,
-                                                    });
-                                                }
-                                            }
-                                            known_spans.sort_by_key(|a| a.time_span.start());
-                                            for i in 1..known_spans.len() {
-                                                let prev = &known_spans[i - 1];
-                                                let curr = &known_spans[i];
-                                                if prev.time_span.end() > curr.time_span.start() {
-                                                    let truncated = TimeSpan::from_start_and_duration(
-                                                        prev.time_span.end(), curr.time_span.end() - prev.time_span.end(),
-                                                    );
-                                                    known_spans[i].time_span = truncated;
-                                                }
-                                            }
-
-                                            let mut early_command_entries = vec![];
-                                            // The period of time between CommandStart and CommandCriticalStart
-                                            // minus the time spent in exclusive command wait and file watcher sync.
-                                            // This represents miscellaneous overhead.
-                                            let end = Instant::now();
-                                            let mut last_end = self.command_start();
-                                            for span in known_spans.into_iter() {
-                                                early_command_entries.push(EarlyCommandEntry {
-                                                    kind: OTHER_COMMAND_START_OVERHEAD.to_owned(),
-                                                    time_span: TimeSpan::from_start_and_duration(
-                                                        last_end,
-                                                        end.duration_since(last_end),
-                                                    ),
-                                                });
-
-                                                last_end = span.time_span.end();
-
-                                                early_command_entries.push(span);
-                                            }
-
-                                            early_command_entries.push(EarlyCommandEntry {
-                                                kind: OTHER_COMMAND_START_OVERHEAD.to_owned(),
-                                                time_span: TimeSpan::from_start_and_duration(
-                                                    last_end,
-                                                    end.duration_since(last_end),
-                                                ),
-                                            });
-
                                             let res = buck2_build_signals::env::scope(
                                                 build_signals,
                                                 self.events().dupe(),
@@ -319,7 +260,8 @@ impl ServerCommandDiceContext for dyn ServerCommandContextTrait + '_ {
                                                     isolation_prefix: self
                                                         .isolation_prefix()
                                                         .to_owned(),
-                                                    early_command_entries,
+                                                    early_command_timing: early_command_timing
+                                                        .finish_early_command_timing(),
                                                 },
                                                 || exec(self, dice),
                                             )
@@ -343,6 +285,7 @@ impl ServerCommandDiceContext for dyn ServerCommandContextTrait + '_ {
                             self.previous_command_data().into(),
                             self.project_root(),
                             exit_when,
+                            early_command_timing,
                         )
                         .await,
                     DiceCriticalSectionEnd {},
