@@ -154,7 +154,7 @@ impl Serialize for StarlarkBigInt {
 }
 
 impl<'v> AllocValue<'v> for StarlarkBigInt {
-    fn alloc_value(self, heap: &'v Heap) -> Value<'v> {
+    fn alloc_value(self, heap: Heap<'v>) -> Value<'v> {
         heap.alloc_simple(self)
     }
 }
@@ -172,11 +172,11 @@ impl<'v> StarlarkValue<'v> for StarlarkBigInt {
         true
     }
 
-    fn minus(&self, heap: &'v Heap) -> starlark::Result<Value<'v>> {
+    fn minus(&self, heap: Heap<'v>) -> starlark::Result<Value<'v>> {
         Ok(heap.alloc(StarlarkInt::from(-&self.value)))
     }
 
-    fn plus(&self, heap: &'v Heap) -> starlark::Result<Value<'v>> {
+    fn plus(&self, heap: Heap<'v>) -> starlark::Result<Value<'v>> {
         // This unnecessarily allocates, could return `self`.
         // But practically people rarely write `+NNN` except in constants,
         // and in constants we fold `+NNN` into `NNN`.
@@ -194,47 +194,47 @@ impl<'v> StarlarkValue<'v> for StarlarkBigInt {
         }
     }
 
-    fn add(&self, rhs: Value<'v>, heap: &'v Heap) -> Option<crate::Result<Value<'v>>> {
+    fn add(&self, rhs: Value<'v>, heap: Heap<'v>) -> Option<crate::Result<Value<'v>>> {
         Some(Ok(heap.alloc(
             NumRef::Int(StarlarkIntRef::Big(self)) + rhs.unpack_num()?,
         )))
     }
 
-    fn sub(&self, other: Value<'v>, heap: &'v Heap) -> crate::Result<Value<'v>> {
+    fn sub(&self, other: Value<'v>, heap: Heap<'v>) -> crate::Result<Value<'v>> {
         match other.unpack_num() {
             Some(other) => Ok(heap.alloc(NumRef::Int(StarlarkIntRef::Big(self)) - other)),
             None => ValueError::unsupported_with(self, "-", other),
         }
     }
 
-    fn mul(&self, other: Value<'v>, heap: &'v Heap) -> Option<crate::Result<Value<'v>>> {
+    fn mul(&self, other: Value<'v>, heap: Heap<'v>) -> Option<crate::Result<Value<'v>>> {
         Some(Ok(heap.alloc(
             NumRef::Int(StarlarkIntRef::Big(self)) * other.unpack_num()?,
         )))
     }
 
-    fn div(&self, other: Value<'v>, heap: &'v Heap) -> crate::Result<Value<'v>> {
+    fn div(&self, other: Value<'v>, heap: Heap<'v>) -> crate::Result<Value<'v>> {
         match other.unpack_num() {
             Some(other) => Ok(heap.alloc(NumRef::Int(StarlarkIntRef::Big(self)).div(other)?)),
             None => ValueError::unsupported_with(self, "/", other),
         }
     }
 
-    fn floor_div(&self, other: Value<'v>, heap: &'v Heap) -> crate::Result<Value<'v>> {
+    fn floor_div(&self, other: Value<'v>, heap: Heap<'v>) -> crate::Result<Value<'v>> {
         match other.unpack_num() {
             Some(rhs) => Ok(heap.alloc(NumRef::Int(StarlarkIntRef::Big(self)).floor_div(rhs)?)),
             None => ValueError::unsupported_with(self, "//", other),
         }
     }
 
-    fn percent(&self, other: Value<'v>, heap: &'v Heap) -> crate::Result<Value<'v>> {
+    fn percent(&self, other: Value<'v>, heap: Heap<'v>) -> crate::Result<Value<'v>> {
         match other.unpack_num() {
             Some(rhs) => Ok(heap.alloc(NumRef::Int(StarlarkIntRef::Big(self)).percent(rhs)?)),
             None => ValueError::unsupported_with(self, "%", other),
         }
     }
 
-    fn bit_and(&self, other: Value<'v>, heap: &'v Heap) -> crate::Result<Value<'v>> {
+    fn bit_and(&self, other: Value<'v>, heap: Heap<'v>) -> crate::Result<Value<'v>> {
         let rhs = match StarlarkIntRef::unpack_value_opt(other) {
             Some(rhs) => rhs,
             None => return ValueError::unsupported_with(self, "&", other),
@@ -242,7 +242,7 @@ impl<'v> StarlarkValue<'v> for StarlarkBigInt {
         Ok(heap.alloc(StarlarkIntRef::Big(self) & rhs))
     }
 
-    fn bit_xor(&self, other: Value<'v>, heap: &'v Heap) -> crate::Result<Value<'v>> {
+    fn bit_xor(&self, other: Value<'v>, heap: Heap<'v>) -> crate::Result<Value<'v>> {
         let rhs = match StarlarkIntRef::unpack_value_opt(other) {
             Some(rhs) => rhs,
             None => return ValueError::unsupported_with(self, "^", other),
@@ -250,7 +250,7 @@ impl<'v> StarlarkValue<'v> for StarlarkBigInt {
         Ok(heap.alloc(StarlarkIntRef::Big(self) ^ rhs))
     }
 
-    fn bit_or(&self, other: Value<'v>, heap: &'v Heap) -> crate::Result<Value<'v>> {
+    fn bit_or(&self, other: Value<'v>, heap: Heap<'v>) -> crate::Result<Value<'v>> {
         let rhs = match StarlarkIntRef::unpack_value_opt(other) {
             Some(rhs) => rhs,
             None => return ValueError::unsupported_with(self, "|", other),
@@ -258,18 +258,18 @@ impl<'v> StarlarkValue<'v> for StarlarkBigInt {
         Ok(heap.alloc(StarlarkIntRef::Big(self) | rhs))
     }
 
-    fn bit_not(&self, heap: &'v Heap) -> crate::Result<Value<'v>> {
+    fn bit_not(&self, heap: Heap<'v>) -> crate::Result<Value<'v>> {
         Ok(heap.alloc(!StarlarkIntRef::Big(self)))
     }
 
-    fn left_shift(&self, other: Value<'v>, heap: &'v Heap) -> crate::Result<Value<'v>> {
+    fn left_shift(&self, other: Value<'v>, heap: Heap<'v>) -> crate::Result<Value<'v>> {
         match StarlarkIntRef::unpack_value_opt(other) {
             None => ValueError::unsupported_with(self, "<<", other),
             Some(other) => Ok(heap.alloc(StarlarkIntRef::Big(self).left_shift(other)?)),
         }
     }
 
-    fn right_shift(&self, other: Value<'v>, heap: &'v Heap) -> crate::Result<Value<'v>> {
+    fn right_shift(&self, other: Value<'v>, heap: Heap<'v>) -> crate::Result<Value<'v>> {
         match StarlarkIntRef::unpack_value_opt(other) {
             None => ValueError::unsupported_with(self, ">>", other),
             Some(other) => Ok(heap.alloc(StarlarkIntRef::Big(self).right_shift(other)?)),

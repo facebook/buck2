@@ -258,7 +258,7 @@ impl<V: ValueLifetimeless> StarlarkTypeRepr for TypeCompiled<V> {
 }
 
 impl<'v, V: ValueLike<'v>> AllocValue<'v> for TypeCompiled<V> {
-    fn alloc_value(self, _heap: &'v Heap) -> Value<'v> {
+    fn alloc_value(self, _heap: Heap<'v>) -> Value<'v> {
         self.0.to_value()
     }
 }
@@ -373,7 +373,7 @@ impl<'v> TypeCompiled<Value<'v>> {
     pub(crate) fn alloc(
         type_compiled_impl: impl TypeMatcher,
         ty: Ty,
-        heap: &'v Heap,
+        heap: Heap<'v>,
     ) -> TypeCompiled<Value<'v>> {
         TypeCompiled(heap.alloc_simple(TypeCompiledImplAsStarlarkValue {
             type_compiled_impl,
@@ -383,14 +383,14 @@ impl<'v> TypeCompiled<Value<'v>> {
 
     pub(crate) fn type_list_of(
         t: TypeCompiled<Value<'v>>,
-        heap: &'v Heap,
+        heap: Heap<'v>,
     ) -> TypeCompiled<Value<'v>> {
         TypeCompiledFactory::alloc_ty(&Ty::list(t.as_ty().clone()), heap)
     }
 
     pub(crate) fn type_set_of(
         t: TypeCompiled<Value<'v>>,
-        heap: &'v Heap,
+        heap: Heap<'v>,
     ) -> TypeCompiled<Value<'v>> {
         TypeCompiledFactory::alloc_ty(&Ty::set(t.as_ty().clone()), heap)
     }
@@ -398,7 +398,7 @@ impl<'v> TypeCompiled<Value<'v>> {
     pub(crate) fn type_any_of_two(
         t0: TypeCompiled<Value<'v>>,
         t1: TypeCompiled<Value<'v>>,
-        heap: &'v Heap,
+        heap: Heap<'v>,
     ) -> TypeCompiled<Value<'v>> {
         let ty = Ty::union2(t0.as_ty().clone(), t1.as_ty().clone());
         TypeCompiledFactory::alloc_ty(&ty, heap)
@@ -406,7 +406,7 @@ impl<'v> TypeCompiled<Value<'v>> {
 
     pub(crate) fn type_any_of(
         ts: Vec<TypeCompiled<Value<'v>>>,
-        heap: &'v Heap,
+        heap: Heap<'v>,
     ) -> TypeCompiled<Value<'v>> {
         let ty = Ty::unions(ts.into_map(|t| t.as_ty().clone()));
         TypeCompiledFactory::alloc_ty(&ty, heap)
@@ -415,14 +415,14 @@ impl<'v> TypeCompiled<Value<'v>> {
     pub(crate) fn type_dict_of(
         kt: TypeCompiled<Value<'v>>,
         vt: TypeCompiled<Value<'v>>,
-        heap: &'v Heap,
+        heap: Heap<'v>,
     ) -> TypeCompiled<Value<'v>> {
         let ty = Ty::dict(kt.as_ty().clone(), vt.as_ty().clone());
         TypeCompiledFactory::alloc_ty(&ty, heap)
     }
 
     /// Parse `[t1, t2, ...]` as type.
-    fn from_list(t: &ListRef<'v>, heap: &'v Heap) -> anyhow::Result<TypeCompiled<Value<'v>>> {
+    fn from_list(t: &ListRef<'v>, heap: Heap<'v>) -> anyhow::Result<TypeCompiled<Value<'v>>> {
         match t.content() {
             [] | [_] => Err(TypingError::List.into()),
             ts @ [_, _, ..] => {
@@ -433,12 +433,12 @@ impl<'v> TypeCompiled<Value<'v>> {
         }
     }
 
-    pub(crate) fn from_ty(ty: &Ty, heap: &'v Heap) -> Self {
+    pub(crate) fn from_ty(ty: &Ty, heap: Heap<'v>) -> Self {
         TypeCompiledFactory::alloc_ty(ty, heap)
     }
 
     /// Evaluate type annotation at runtime.
-    pub fn new(ty: Value<'v>, heap: &'v Heap) -> anyhow::Result<Self> {
+    pub fn new(ty: Value<'v>, heap: Heap<'v>) -> anyhow::Result<Self> {
         if let Some(s) = StringValue::new(ty) {
             return Err(TypingError::StringLiteralNotAllowed(s.to_string()).into());
         } else if ty.is_none() {
@@ -468,7 +468,7 @@ impl TypeCompiled<FrozenValue> {
     pub(crate) fn new_frozen(ty: FrozenValue, frozen_heap: &FrozenHeap) -> anyhow::Result<Self> {
         // TODO(nga): trip to a heap is not free.
         Heap::temp(|heap| {
-            let ty = TypeCompiled::new(ty.to_value(), &heap)?;
+            let ty = TypeCompiled::new(ty.to_value(), heap)?;
             Ok(ty.to_frozen(frozen_heap))
         })
     }
@@ -482,7 +482,7 @@ impl TypeCompiled<FrozenValue> {
     }
 }
 
-fn invalid_type_annotation<'v>(ty: Value<'v>, heap: &'v Heap) -> TypingError {
+fn invalid_type_annotation<'v>(ty: Value<'v>, heap: Heap<'v>) -> TypingError {
     if DictRef::from_value(ty).is_some() {
         TypingError::Dict
     } else if ListRef::from_value(ty).is_some() {

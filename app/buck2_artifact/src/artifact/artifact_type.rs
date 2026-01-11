@@ -109,7 +109,7 @@ impl Artifact {
     /// Returns `None` if this is not a build artifact
     pub fn allocate_new_output_artifact_for<'v>(
         &self,
-        heap: &'v Heap,
+        heap: Heap<'v>,
     ) -> Option<OutputArtifact<'v>> {
         let key = self.0.data.key();
         match &key.base {
@@ -376,7 +376,7 @@ impl<'v> DeclaredArtifact<'v> {
         path: BuildArtifactPath,
         output_type: OutputType,
         hidden_components_count: usize,
-        heap: &'v Heap,
+        heap: Heap<'v>,
     ) -> DeclaredArtifact<'v> {
         let artifact = StarlarkAnyComplex::new(RefCell::new(DeclaredArtifactKind::Unbound(
             UnboundArtifact(path, output_type),
@@ -732,7 +732,7 @@ mod tests {
                 ),
                 OutputType::File,
                 0,
-                &heap,
+                heap,
             );
             let key = ActionKey::new(
                 DeferredHolderKey::Base(BaseDeferredKey::TargetLabel(target.dupe())),

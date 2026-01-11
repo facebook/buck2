@@ -280,7 +280,7 @@ impl<'v> StarlarkValue<'v> for StarlarkStr {
         }
     }
 
-    fn at(&self, index: Value<'v>, heap: &'v Heap) -> crate::Result<Value<'v>> {
+    fn at(&self, index: Value<'v>, heap: Heap<'v>) -> crate::Result<Value<'v>> {
         // This method is disturbingly hot. Use the logic from `convert_index`,
         // but modified to be UTF8 string friendly.
         let i = i32::unpack_param(index)?;
@@ -317,7 +317,7 @@ impl<'v> StarlarkValue<'v> for StarlarkStr {
         start: Option<Value<'v>>,
         stop: Option<Value<'v>>,
         stride: Option<Value<'v>>,
-        heap: &'v Heap,
+        heap: Heap<'v>,
     ) -> crate::Result<Value<'v>> {
         let s = self;
         if matches!(stride, Some(stride) if stride.unpack_i32() != Some(1)) {
@@ -343,7 +343,7 @@ impl<'v> StarlarkValue<'v> for StarlarkStr {
         }
     }
 
-    fn add(&self, other: Value<'v>, heap: &'v Heap) -> Option<crate::Result<Value<'v>>> {
+    fn add(&self, other: Value<'v>, heap: Heap<'v>) -> Option<crate::Result<Value<'v>>> {
         if let Some(other_str) = other.unpack_str() {
             if self.is_empty() {
                 Some(Ok(other))
@@ -355,7 +355,7 @@ impl<'v> StarlarkValue<'v> for StarlarkStr {
         }
     }
 
-    fn mul(&self, other: Value<'v>, heap: &'v Heap) -> Option<crate::Result<Value<'v>>> {
+    fn mul(&self, other: Value<'v>, heap: Heap<'v>) -> Option<crate::Result<Value<'v>>> {
         let l = match i32::unpack_value(other) {
             Ok(Some(l)) => l,
             Ok(None) => return None,
@@ -368,11 +368,11 @@ impl<'v> StarlarkValue<'v> for StarlarkStr {
         Some(Ok(heap.alloc(result)))
     }
 
-    fn rmul(&self, lhs: Value<'v>, heap: &'v Heap) -> Option<crate::Result<Value<'v>>> {
+    fn rmul(&self, lhs: Value<'v>, heap: Heap<'v>) -> Option<crate::Result<Value<'v>>> {
         self.mul(lhs, heap)
     }
 
-    fn percent(&self, other: Value<'v>, heap: &'v Heap) -> crate::Result<Value<'v>> {
+    fn percent(&self, other: Value<'v>, heap: Heap<'v>) -> crate::Result<Value<'v>> {
         Ok(heap.alloc(interpolation::percent(self, other)?))
     }
 
@@ -499,7 +499,7 @@ len("😿") == 1
                                 .iter()
                                 .collect::<String>();
                         let res2 = s
-                            .slice(start, stop, None, &heap)
+                            .slice(start, stop, None, heap)
                             .unwrap()
                             .unpack_str()
                             .unwrap();

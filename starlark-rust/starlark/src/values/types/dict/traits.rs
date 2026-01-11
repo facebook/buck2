@@ -37,7 +37,7 @@ use crate::values::types::dict::dict_type::DictType;
 // SmallMap
 
 impl<'v, K: AllocValue<'v>, V: AllocValue<'v>> AllocValue<'v> for SmallMap<K, V> {
-    fn alloc_value(self, heap: &'v Heap) -> Value<'v> {
+    fn alloc_value(self, heap: Heap<'v>) -> Value<'v> {
         AllocDict(self).alloc_value(heap)
     }
 }
@@ -54,7 +54,7 @@ where
     &'a K: AllocValue<'v>,
     &'a V: AllocValue<'v>,
 {
-    fn alloc_value(self, heap: &'v Heap) -> Value<'v> {
+    fn alloc_value(self, heap: Heap<'v>) -> Value<'v> {
         AllocDict(self).alloc_value(heap)
     }
 }
@@ -111,7 +111,7 @@ impl<'v, K: UnpackValue<'v> + Hash + Eq, V: UnpackValue<'v>> UnpackValue<'v> for
 // BTreeMap
 
 impl<'v, K: AllocValue<'v>, V: AllocValue<'v>> AllocValue<'v> for BTreeMap<K, V> {
-    fn alloc_value(self, heap: &'v Heap) -> Value<'v> {
+    fn alloc_value(self, heap: Heap<'v>) -> Value<'v> {
         AllocDict(self).alloc_value(heap)
     }
 }
@@ -128,7 +128,7 @@ where
     &'a K: AllocValue<'v>,
     &'a V: AllocValue<'v>,
 {
-    fn alloc_value(self, heap: &'v Heap) -> Value<'v> {
+    fn alloc_value(self, heap: Heap<'v>) -> Value<'v> {
         AllocDict(self).alloc_value(heap)
     }
 }

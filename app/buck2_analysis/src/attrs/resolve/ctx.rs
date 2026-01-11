@@ -38,7 +38,7 @@ pub struct AnalysisQueryResult {
 pub trait AttrResolutionContext<'v> {
     fn starlark_module(&self) -> &'v Module;
 
-    fn heap(&self) -> &'v Heap {
+    fn heap(&self) -> Heap<'v> {
         self.starlark_module().heap()
     }
 

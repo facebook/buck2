@@ -179,27 +179,24 @@ impl FrozenHeap {
     }
 }
 
-impl Heap {
+impl<'v> Heap<'v> {
     /// Allocate a list with the given elements.
-    pub(crate) fn alloc_list<'v>(&'v self, elems: &[Value<'v>]) -> Value<'v> {
+    pub(crate) fn alloc_list(self, elems: &[Value<'v>]) -> Value<'v> {
         let array = self.alloc_array(elems.len());
         array.extend_from_slice(elems);
         self.alloc_raw(list_avalue(array)).to_value()
     }
 
     /// Allocate a list with the given elements.
-    pub(crate) fn alloc_list_iter<'v>(
-        &'v self,
-        elems: impl IntoIterator<Item = Value<'v>>,
-    ) -> Value<'v> {
+    pub(crate) fn alloc_list_iter(self, elems: impl IntoIterator<Item = Value<'v>>) -> Value<'v> {
         match self.try_alloc_list_iter(elems.into_iter().map(Ok::<_, Infallible>)) {
             Ok(value) => value,
         }
     }
 
     /// Allocate a list with the given elements.
-    pub(crate) fn try_alloc_list_iter<'v, E>(
-        &'v self,
+    pub(crate) fn try_alloc_list_iter<E>(
+        self,
         elems: impl IntoIterator<Item = Result<Value<'v>, E>>,
     ) -> Result<Value<'v>, E> {
         let elems = elems.into_iter();
@@ -210,7 +207,7 @@ impl Heap {
     }
 
     /// Allocate a list by concatenating two slices.
-    pub(crate) fn alloc_list_concat<'v>(&'v self, a: &[Value<'v>], b: &[Value<'v>]) -> Value<'v> {
+    pub(crate) fn alloc_list_concat(self, a: &[Value<'v>], b: &[Value<'v>]) -> Value<'v> {
         let array = self.alloc_array(a.len() + b.len());
         array.extend_from_slice(a);
         array.extend_from_slice(b);

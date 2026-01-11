@@ -79,7 +79,7 @@ fn target_node_value_methods(builder: &mut MethodsBuilder) {
     ///     ctx.output.print(target_node.attrs.my_attr)
     /// ```
     #[starlark(attribute)]
-    fn attrs<'v>(this: StarlarkTargetNode, heap: &Heap) -> starlark::Result<Value<'v>> {
+    fn attrs<'v>(this: StarlarkTargetNode, heap: Heap<'_>) -> starlark::Result<Value<'v>> {
         let attrs_iter = this.0.attrs(AttrInspectOptions::All);
         let special_attrs_iter = this.0.special_attrs();
         let attrs = attrs_iter
@@ -110,7 +110,7 @@ fn target_node_value_methods(builder: &mut MethodsBuilder) {
     fn get_attr<'v>(
         this: &StarlarkTargetNode,
         #[starlark(require=pos)] key: &str,
-        heap: &'v Heap,
+        heap: Heap<'v>,
     ) -> starlark::Result<NoneOr<Value<'v>>> {
         Ok(NodeAttributeGetter::get_attr(this, key, heap)?)
     }
@@ -126,7 +126,7 @@ fn target_node_value_methods(builder: &mut MethodsBuilder) {
     /// ```
     fn get_attrs<'v>(
         this: &StarlarkTargetNode,
-        heap: &'v Heap,
+        heap: Heap<'v>,
     ) -> starlark::Result<SmallMap<StringValue<'v>, Value<'v>>> {
         Ok(NodeAttributeGetter::get_attrs(this, heap)?)
     }
@@ -189,7 +189,7 @@ fn target_node_value_methods(builder: &mut MethodsBuilder) {
     #[starlark(attribute)]
     fn rule_type<'v>(
         this: &'v StarlarkTargetNode,
-        heap: &'v Heap,
+        heap: Heap<'v>,
     ) -> starlark::Result<StringValue<'v>> {
         Ok(heap.alloc_str_intern(this.0.rule_type().to_string().as_str()))
     }
@@ -208,7 +208,7 @@ fn target_node_value_methods(builder: &mut MethodsBuilder) {
     #[starlark(attribute)]
     fn rule_kind<'v>(
         this: &'v StarlarkTargetNode,
-        heap: &'v Heap,
+        heap: Heap<'v>,
     ) -> starlark::Result<StringValue<'v>> {
         Ok(heap.alloc_str_intern(this.0.rule_kind().as_str()))
     }
@@ -224,7 +224,7 @@ fn target_node_value_methods(builder: &mut MethodsBuilder) {
     #[starlark(attribute)]
     fn oncall<'v>(
         this: &'v StarlarkTargetNode,
-        heap: &'v Heap,
+        heap: Heap<'v>,
     ) -> starlark::Result<NoneOr<StringValue<'v>>> {
         match this.0.oncall() {
             None => Ok(NoneOr::None),

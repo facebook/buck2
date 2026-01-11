@@ -192,7 +192,7 @@ impl MethodsBuilder {
         docstring: Option<String>,
         typ: Ty,
         // The first argument is always `None`
-        f: for<'v> fn(Option<FrozenValue>, Value<'v>, &'v Heap) -> crate::Result<Value<'v>>,
+        f: for<'v> fn(Option<FrozenValue>, Value<'v>, Heap<'v>) -> crate::Result<Value<'v>>,
     ) {
         self.members.insert(
             name,

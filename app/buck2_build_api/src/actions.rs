@@ -181,7 +181,7 @@ pub trait Action: Allocative + Debug + Send + Sync + 'static {
     fn failed_action_output_artifacts<'v>(
         &self,
         _artifact_fs: &ArtifactFs,
-        _heap: &'v Heap,
+        _heap: Heap<'v>,
         _outputs: Option<&ActionOutputs>,
     ) -> buck2_error::Result<ValueOfUnchecked<'v, DictType<StarlarkArtifact, StarlarkArtifactValue>>>
     {

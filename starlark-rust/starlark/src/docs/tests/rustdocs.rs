@@ -104,7 +104,7 @@ fn globals(builder: &mut GlobalsBuilder) {
     fn custom_types<'v>(
         arg1: StringValue<'v>,
         arg2: ValueOfUnchecked<'v, InputTypeRepr>,
-        heap: &'v Heap,
+        heap: Heap<'v>,
     ) -> anyhow::Result<ValueOfUnchecked<'v, OutputTypeRepr>> {
         unimplemented!()
     }

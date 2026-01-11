@@ -193,7 +193,7 @@ pub(crate) fn test_functions(builder: &mut GlobalsBuilder) {
         Ok(NoneType)
     }
 
-    fn assert_type<'v>(v: Value<'v>, ty: Value<'v>, heap: &'v Heap) -> starlark::Result<NoneType> {
+    fn assert_type<'v>(v: Value<'v>, ty: Value<'v>, heap: Heap<'v>) -> starlark::Result<NoneType> {
         TypeCompiled::new(ty, heap)?.check_type(v, Some("v"))?;
         Ok(NoneType)
     }

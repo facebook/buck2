@@ -388,7 +388,7 @@ pub(crate) fn percent_s_one<'v>(
     before: &str,
     arg: Value<'v>,
     after: &str,
-    heap: &'v Heap,
+    heap: Heap<'v>,
 ) -> crate::Result<StringValue<'v>> {
     Ok(match StringValue::new(arg) {
         Some(arg) => heap.alloc_str_concat3(before, &arg, after),

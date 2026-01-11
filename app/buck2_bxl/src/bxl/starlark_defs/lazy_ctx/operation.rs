@@ -107,7 +107,7 @@ enum LazyResult {
 impl LazyResult {
     fn into_value<'v>(
         self,
-        heap: &'v Heap,
+        heap: Heap<'v>,
         bxl_eval_extra: &BxlEvalExtra,
     ) -> buck2_error::Result<Value<'v>> {
         match self {

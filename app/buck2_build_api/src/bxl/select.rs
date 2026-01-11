@@ -90,7 +90,7 @@ impl StarlarkSelectDict {
     fn get<'v>(
         &self,
         key: SelectDictKeyArg<'v>,
-        heap: &'v Heap,
+        heap: Heap<'v>,
     ) -> buck2_error::Result<NoneOr<Value<'v>>> {
         match key {
             SelectDictKeyArg::Label(label) => {
@@ -169,7 +169,7 @@ fn select_dict_methods(builder: &mut MethodsBuilder) {
     /// ```
     fn select_items<'v>(
         this: &'v StarlarkSelectDict,
-        heap: &'v Heap,
+        heap: Heap<'v>,
     ) -> starlark::Result<Vec<(SelectDictKey, Value<'v>)>> {
         let items: Vec<(SelectDictKey, Value)> = this
             .selector
@@ -217,7 +217,7 @@ fn select_dict_methods(builder: &mut MethodsBuilder) {
     fn get_select_entry<'v>(
         this: &'v StarlarkSelectDict,
         #[starlark(require = pos)] key: SelectDictKeyArg<'v>,
-        heap: &'v Heap,
+        heap: Heap<'v>,
     ) -> starlark::Result<NoneOr<Value<'v>>> {
         Ok(this.get(key, heap)?)
     }
@@ -316,7 +316,7 @@ fn select_concat_methods(builder: &mut MethodsBuilder) {
     /// ```
     fn select_iter<'v>(
         this: &'v StarlarkSelectConcat,
-        heap: &'v Heap,
+        heap: Heap<'v>,
     ) -> starlark::Result<Vec<Value<'v>>> {
         let list = this
             .concat

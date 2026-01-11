@@ -142,7 +142,7 @@ impl AllocFrozenValue for NativeFunction {
 }
 
 impl<'v> AllocValue<'v> for NativeFunction {
-    fn alloc_value(self, heap: &'v Heap) -> Value<'v> {
+    fn alloc_value(self, heap: Heap<'v>) -> Value<'v> {
         heap.alloc_simple(self)
     }
 }
@@ -159,7 +159,7 @@ impl<'v> StarlarkValue<'v> for NativeFunction {
         self.function.invoke(eval, args).map_err(Into::into)
     }
 
-    fn get_attr(&self, attribute: &str, heap: &'v Heap) -> Option<Value<'v>> {
+    fn get_attr(&self, attribute: &str, heap: Heap<'v>) -> Option<Value<'v>> {
         if let Some(s) = self.as_type.as_ref().and_then(|t| t.as_name()) {
             if attribute == "type" {
                 return Some(heap.alloc(s));
@@ -172,7 +172,7 @@ impl<'v> StarlarkValue<'v> for NativeFunction {
         self.as_type.clone()
     }
 
-    fn has_attr(&self, _attribute: &str, _heap: &'v Heap) -> bool {
+    fn has_attr(&self, _attribute: &str, _heap: Heap<'v>) -> bool {
         // TODO(nga): implement properly.
         false
     }
@@ -193,7 +193,7 @@ impl<'v> StarlarkValue<'v> for NativeFunction {
         Some(self.ty.dupe())
     }
 
-    fn at(&self, index: Value<'v>, heap: &'v Heap) -> crate::Result<Value<'v>> {
+    fn at(&self, index: Value<'v>, heap: Heap<'v>) -> crate::Result<Value<'v>> {
         match &self.special_builtin_function {
             Some(SpecialBuiltinFunction::List) => {
                 let index = TypeCompiled::new(index, heap)?;
@@ -211,7 +211,7 @@ impl<'v> StarlarkValue<'v> for NativeFunction {
         &self,
         index0: Value<'v>,
         index1: Value<'v>,
-        heap: &'v Heap,
+        heap: Heap<'v>,
         _private: Private,
     ) -> crate::Result<Value<'v>> {
         match &self.special_builtin_function {
@@ -313,14 +313,14 @@ pub(crate) struct NativeAttribute {
     pub(crate) data: Option<FrozenValue>,
     #[allocative(skip)] // "Not general enough"
     pub(crate) callable:
-        for<'v> fn(Option<FrozenValue>, Value<'v>, &'v Heap) -> crate::Result<Value<'v>>,
+        for<'v> fn(Option<FrozenValue>, Value<'v>, Heap<'v>) -> crate::Result<Value<'v>>,
 }
 
 starlark_simple_value!(NativeAttribute);
 
 impl NativeAttribute {
     #[inline]
-    pub(crate) fn invoke<'v>(&self, this: Value<'v>, heap: &'v Heap) -> crate::Result<Value<'v>> {
+    pub(crate) fn invoke<'v>(&self, this: Value<'v>, heap: Heap<'v>) -> crate::Result<Value<'v>> {
         (self.callable)(self.data, this, heap)
     }
 }

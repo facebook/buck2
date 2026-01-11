@@ -27,7 +27,7 @@ use crate::values::StringValue;
 fn functions(builder: &mut GlobalsBuilder) {
     fn non_standard_heap_name<'v>(
         heap: &str,
-        starlark_heap: &'v Heap,
+        starlark_heap: Heap<'v>,
     ) -> anyhow::Result<StringValue<'v>> {
         Ok(starlark_heap.alloc_str_concat(heap, "!"))
     }

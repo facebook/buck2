@@ -328,7 +328,7 @@ impl Default for AggregateHeapProfileInfo {
 }
 
 impl AggregateHeapProfileInfo {
-    pub(crate) fn collect(heap: &Heap, retained: Option<HeapKind>) -> AggregateHeapProfileInfo {
+    pub(crate) fn collect(heap: Heap<'_>, retained: Option<HeapKind>) -> AggregateHeapProfileInfo {
         let mut collector = StackCollector::new(retained);
         unsafe {
             heap.visit_arena(HeapKind::Unfrozen, &mut collector);

@@ -57,7 +57,7 @@ fn declaring_artifacts() -> buck2_error::Result<()> {
             OutputType::File,
             None,
             BuckOutPathKind::default(),
-            &heap,
+            heap,
         )?;
         declared1
             .get_path()
@@ -71,7 +71,7 @@ fn declaring_artifacts() -> buck2_error::Result<()> {
             OutputType::File,
             None,
             BuckOutPathKind::default(),
-            &heap,
+            heap,
         )?;
         declared2
             .get_path()
@@ -84,7 +84,7 @@ fn declaring_artifacts() -> buck2_error::Result<()> {
                 OutputType::File,
                 None,
                 BuckOutPathKind::default(),
-                &heap,
+                heap,
             )
             .is_ok()
         {
@@ -163,7 +163,7 @@ fn register_actions() -> buck2_error::Result<()> {
             OutputType::File,
             None,
             BuckOutPathKind::default(),
-            &heap,
+            heap,
         )?;
 
         let inputs = indexset![ArtifactGroup::Artifact(
@@ -220,7 +220,7 @@ fn finalizing_actions() -> buck2_error::Result<()> {
             OutputType::File,
             None,
             BuckOutPathKind::default(),
-            &heap,
+            heap,
         )?;
 
         let inputs = indexset![ArtifactGroup::Artifact(

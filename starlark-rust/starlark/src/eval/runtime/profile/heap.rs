@@ -202,7 +202,7 @@ impl HeapProfile {
 
     #[cold]
     #[inline(never)]
-    pub(crate) fn record_call_enter<'v>(&self, function: Value<'v>, heap: &'v Heap) {
+    pub(crate) fn record_call_enter<'v>(&self, function: Value<'v>, heap: Heap<'v>) {
         if self.enabled {
             heap.record_call_enter(function);
         }
@@ -210,7 +210,7 @@ impl HeapProfile {
 
     #[cold]
     #[inline(never)]
-    pub(crate) fn record_call_exit<'v>(&self, heap: &'v Heap) {
+    pub(crate) fn record_call_exit<'v>(&self, heap: Heap<'v>) {
         if self.enabled {
             heap.record_call_exit();
         }
@@ -219,7 +219,7 @@ impl HeapProfile {
     // We could expose profile on the Heap, but it's an implementation detail that it works here.
     pub(crate) fn r#gen(
         &self,
-        heap: &Heap,
+        heap: Heap<'_>,
         format: HeapProfileFormat,
     ) -> crate::Result<ProfileData> {
         if !self.enabled {
@@ -228,7 +228,7 @@ impl HeapProfile {
         Ok(Self::gen_enabled(heap, format))
     }
 
-    pub(crate) fn gen_enabled(heap: &Heap, format: HeapProfileFormat) -> ProfileData {
+    pub(crate) fn gen_enabled(heap: Heap<'_>, format: HeapProfileFormat) -> ProfileData {
         match format {
             HeapProfileFormat::FlameGraphAndSummary => {
                 Self::write_flame_and_summarized_heap_profile(heap)
@@ -238,21 +238,21 @@ impl HeapProfile {
         }
     }
 
-    fn write_flame_heap_profile(heap: &Heap) -> ProfileData {
+    fn write_flame_heap_profile(heap: Heap<'_>) -> ProfileData {
         let stacks = AggregateHeapProfileInfo::collect(heap, None);
         ProfileData {
             profile: ProfileDataImpl::HeapFlameAllocated(Box::new(stacks)),
         }
     }
 
-    fn write_summarized_heap_profile(heap: &Heap) -> ProfileData {
+    fn write_summarized_heap_profile(heap: Heap<'_>) -> ProfileData {
         let stacks = AggregateHeapProfileInfo::collect(heap, None);
         ProfileData {
             profile: ProfileDataImpl::HeapSummaryAllocated(Box::new(stacks)),
         }
     }
 
-    fn write_flame_and_summarized_heap_profile(heap: &Heap) -> ProfileData {
+    fn write_flame_and_summarized_heap_profile(heap: Heap<'_>) -> ProfileData {
         let stacks = AggregateHeapProfileInfo::collect(heap, None);
         ProfileData {
             profile: ProfileDataImpl::HeapAllocated(Box::new(stacks)),

@@ -170,8 +170,8 @@ impl FrozenHeap {
     }
 }
 
-impl Heap {
-    pub(crate) fn alloc_array<'v>(&'v self, cap: usize) -> ValueTyped<'v, Array<'v>> {
+impl<'v> Heap<'v> {
+    pub(crate) fn alloc_array(self, cap: usize) -> ValueTyped<'v, Array<'v>> {
         if cap == 0 {
             return VALUE_EMPTY_ARRAY.unpack().to_value_typed();
         }

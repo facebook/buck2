@@ -20,23 +20,23 @@ use crate::bxl::starlark_defs::nodes::unconfigured::StarlarkTargetNode;
 
 /// BXL-specific node allocator.
 pub(crate) trait AllocNode {
-    fn alloc(self, heap: &Heap) -> Value<'_>;
+    fn alloc(self, heap: Heap<'_>) -> Value<'_>;
 }
 
 impl AllocNode for TargetNode {
-    fn alloc(self, heap: &Heap) -> Value<'_> {
+    fn alloc(self, heap: Heap<'_>) -> Value<'_> {
         heap.alloc(StarlarkTargetNode(self))
     }
 }
 
 impl AllocNode for ConfiguredTargetNode {
-    fn alloc(self, heap: &Heap) -> Value<'_> {
+    fn alloc(self, heap: Heap<'_>) -> Value<'_> {
         heap.alloc(StarlarkConfiguredTargetNode(self))
     }
 }
 
 impl AllocNode for ActionQueryNode {
-    fn alloc(self, heap: &Heap) -> Value<'_> {
+    fn alloc(self, heap: Heap<'_>) -> Value<'_> {
         heap.alloc(StarlarkActionQueryNode(self))
     }
 }

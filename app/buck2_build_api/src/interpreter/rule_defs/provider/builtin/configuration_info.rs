@@ -122,7 +122,7 @@ impl<'v, V: ValueLike<'v>> ConfigurationInfoGen<V> {
 
 impl<'v> ConfigurationInfo<'v> {
     /// Create a provider from configuration data.
-    pub fn from_configuration_data(conf: &ConfigurationDataData, heap: &'v Heap) -> Self {
+    pub fn from_configuration_data(conf: &ConfigurationDataData, heap: Heap<'v>) -> Self {
         let mut constraints = SmallMap::new();
         for (k, v) in &conf.constraints {
             let constraint_setting_label =
@@ -272,7 +272,7 @@ fn configuration_info_methods(builder: &mut MethodsBuilder) {
     fn get<'v>(
         this: &ConfigurationInfo<'v>,
         #[starlark(require = pos)] key: ValueOf<'v, &'v ConstraintSettingInfo<'v>>,
-        heap: &'v Heap,
+        heap: Heap<'v>,
     ) -> starlark::Result<NoneOr<ValueTypedComplex<'v, ConstraintValueInfo<'v>>>> {
         let constraints = DictRef::from_value(this.constraints.get().to_value())
             .expect("type checked on construction");
@@ -313,7 +313,7 @@ fn configuration_info_methods(builder: &mut MethodsBuilder) {
     fn insert<'v>(
         this: &ConfigurationInfo<'v>,
         #[starlark(require = pos)] value: ValueOf<'v, &'v ConstraintValueInfo<'v>>,
-        heap: &'v Heap,
+        heap: Heap<'v>,
     ) -> starlark::Result<NoneOr<ValueTypedComplex<'v, ConstraintValueInfo<'v>>>> {
         let constraint_value = value.typed;
         let setting_info = constraint_value.setting();
@@ -367,7 +367,7 @@ fn configuration_info_methods(builder: &mut MethodsBuilder) {
     fn pop<'v>(
         this: &ConfigurationInfo<'v>,
         #[starlark(require = pos)] key: ValueOf<'v, &'v ConstraintSettingInfo<'v>>,
-        heap: &'v Heap,
+        heap: Heap<'v>,
     ) -> starlark::Result<NoneOr<ValueTypedComplex<'v, ConstraintValueInfo<'v>>>> {
         let label = key.typed.label();
         let mut constraints = DictMut::from_value(this.constraints.get().to_value())?;
@@ -409,7 +409,7 @@ fn configuration_info_methods(builder: &mut MethodsBuilder) {
     /// ```
     fn copy<'v>(
         this: &ConfigurationInfo<'v>,
-        heap: &'v Heap,
+        heap: Heap<'v>,
     ) -> starlark::Result<ConfigurationInfo<'v>> {
         // Copy constraints dict
         let constraints = DictRef::from_value(this.constraints.get().to_value())
@@ -440,7 +440,7 @@ fn configuration_info_methods(builder: &mut MethodsBuilder) {
 /// Returns the default constraint value if one exists, otherwise returns None.
 fn get_default_constraint_value<'v>(
     key: ValueOf<'v, &'v ConstraintSettingInfo<'v>>,
-    heap: &'v Heap,
+    heap: Heap<'v>,
 ) -> NoneOr<ValueTypedComplex<'v, ConstraintValueInfo<'v>>> {
     NoneOr::from_option(
         ConstraintValueInfo::default_from_constraint_setting(key)

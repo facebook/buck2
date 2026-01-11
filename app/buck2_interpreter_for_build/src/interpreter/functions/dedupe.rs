@@ -22,7 +22,7 @@ pub(crate) fn register_dedupe(builder: &mut GlobalsBuilder) {
     /// rather than by equality. In many cases you should use a transitive set instead.
     fn dedupe<'v>(
         #[starlark(require = pos)] val: Value<'v>,
-        heap: &'v Heap,
+        heap: Heap<'v>,
     ) -> starlark::Result<Value<'v>> {
         let mut seen = HashSet::new();
         let mut res = Vec::new();

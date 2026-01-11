@@ -107,7 +107,7 @@ pub(crate) fn dict_methods(registry: &mut MethodsBuilder) {
     /// ```
     fn items<'v>(
         this: DictRef<'v>,
-        heap: &'v Heap,
+        heap: Heap<'v>,
     ) -> anyhow::Result<ValueOfUnchecked<'v, UnpackList<(Value<'v>, Value<'v>)>>> {
         Ok(heap.alloc_typed_unchecked(AllocList(this.iter())).cast())
     }
@@ -128,7 +128,7 @@ pub(crate) fn dict_methods(registry: &mut MethodsBuilder) {
     #[starlark(speculative_exec_safe)]
     fn keys<'v>(
         this: DictRef<'v>,
-        heap: &'v Heap,
+        heap: Heap<'v>,
     ) -> anyhow::Result<ValueOfUnchecked<'v, &'v ListRef<'v>>> {
         Ok(ValueOfUnchecked::new(heap.alloc(AllocList(this.keys()))))
     }
@@ -311,7 +311,7 @@ pub(crate) fn dict_methods(registry: &mut MethodsBuilder) {
             ValueOfUnchecked<'v, Either<DictRef<'v>, StarlarkIter<(Value<'v>, Value<'v>)>>>,
         >,
         #[starlark(kwargs)] kwargs: DictRef<'v>,
-        heap: &'v Heap,
+        heap: Heap<'v>,
     ) -> starlark::Result<NoneType> {
         let pairs = if pairs.map(|x| x.get().ptr_eq(this)) == Some(true) {
             // someone has done `x.update(x)` - that isn't illegal, but we will have issues
@@ -368,7 +368,7 @@ pub(crate) fn dict_methods(registry: &mut MethodsBuilder) {
     #[starlark(speculative_exec_safe)]
     fn values<'v>(
         this: DictRef<'v>,
-        heap: &'v Heap,
+        heap: Heap<'v>,
     ) -> anyhow::Result<ValueOfUnchecked<'v, &'v ListRef<'v>>> {
         Ok(ValueOfUnchecked::new(heap.alloc_list_iter(this.values())))
     }

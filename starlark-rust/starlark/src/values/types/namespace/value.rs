@@ -94,11 +94,11 @@ where
         collector.push_str("namespace(...)");
     }
 
-    fn get_attr(&self, attribute: &str, heap: &'v Heap) -> Option<Value<'v>> {
+    fn get_attr(&self, attribute: &str, heap: Heap<'v>) -> Option<Value<'v>> {
         self.get_attr_hashed(Hashed::new(attribute), heap)
     }
 
-    fn get_attr_hashed(&self, attribute: Hashed<&str>, _heap: &'v Heap) -> Option<Value<'v>> {
+    fn get_attr_hashed(&self, attribute: Hashed<&str>, _heap: Heap<'v>) -> Option<Value<'v>> {
         self.fields
             .get_hashed(attribute)
             .map(|v| v.value.to_value())

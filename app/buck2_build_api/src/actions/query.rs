@@ -522,6 +522,6 @@ pub static CONFIGURED_ATTR_TO_VALUE: LateBinding<
     for<'v> fn(
         this: &ConfiguredAttr,
         pkg: PackageLabelOption,
-        heap: &'v Heap,
+        heap: Heap<'v>,
     ) -> buck2_error::Result<Value<'v>>,
 > = LateBinding::new("CONFIGURED_ATTR_TO_VALUE");

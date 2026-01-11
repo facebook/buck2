@@ -357,7 +357,7 @@ impl<'v> UnpackValue<'v> for InlineInt {
 }
 
 impl<'v> AllocValue<'v> for InlineInt {
-    fn alloc_value(self, _heap: &'v Heap) -> Value<'v> {
+    fn alloc_value(self, _heap: Heap<'v>) -> Value<'v> {
         Value::new_int(self)
     }
 }

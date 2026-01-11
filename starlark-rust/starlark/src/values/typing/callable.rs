@@ -76,7 +76,7 @@ impl<'v> StarlarkValue<'v> for TypingCallable {
         &self,
         param_types: Value<'v>,
         ret: Value<'v>,
-        heap: &'v Heap,
+        heap: Heap<'v>,
         _private: Private,
     ) -> crate::Result<Value<'v>> {
         let param_types = UnpackList::<Value>::unpack_value_err(param_types)?;
@@ -204,7 +204,7 @@ impl<'v, P: StarlarkCallableParamSpec, R: StarlarkTypeRepr> UnpackValue<'v>
 impl<'v, P: StarlarkCallableParamSpec, R: StarlarkTypeRepr> AllocValue<'v>
     for StarlarkCallable<'v, P, R>
 {
-    fn alloc_value(self, _heap: &'v Heap) -> Value<'v> {
+    fn alloc_value(self, _heap: Heap<'v>) -> Value<'v> {
         self.0
     }
 }
@@ -357,7 +357,7 @@ unsafe impl<'v, P: StarlarkCallableParamSpec, R: StarlarkTypeRepr> Trace<'v>
 impl<'v, P: StarlarkCallableParamSpec, R: StarlarkTypeRepr> AllocValue<'v>
     for StarlarkCallableChecked<'v, P, R>
 {
-    fn alloc_value(self, _heap: &'v Heap) -> Value<'v> {
+    fn alloc_value(self, _heap: Heap<'v>) -> Value<'v> {
         self.0
     }
 }

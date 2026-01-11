@@ -60,7 +60,7 @@ impl UnboundValue {
 
     /// Bind this object to given `this` value.
     #[inline]
-    pub(crate) fn bind<'v>(&self, this: Value<'v>, heap: &'v Heap) -> crate::Result<Value<'v>> {
+    pub(crate) fn bind<'v>(&self, this: Value<'v>, heap: Heap<'v>) -> crate::Result<Value<'v>> {
         match self {
             UnboundValue::Method(m) => {
                 Ok(heap.alloc_complex(BoundMethodGen::new(this.to_value(), *m)))

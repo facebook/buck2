@@ -220,7 +220,7 @@ impl<'v> TransitiveSetDefinition<'v> {
 }
 
 impl<'v> AllocValue<'v> for TransitiveSetDefinition<'v> {
-    fn alloc_value(self, heap: &'v Heap) -> Value<'v> {
+    fn alloc_value(self, heap: Heap<'v>) -> Value<'v> {
         heap.alloc_complex(self)
     }
 }
@@ -266,11 +266,11 @@ impl<'v> StarlarkValue<'v> for TransitiveSetDefinition<'v> {
         vec!["type".to_owned()]
     }
 
-    fn has_attr(&self, attribute: &str, _heap: &'v Heap) -> bool {
+    fn has_attr(&self, attribute: &str, _heap: Heap<'v>) -> bool {
         attribute == "type"
     }
 
-    fn get_attr(&self, attribute: &str, heap: &'v Heap) -> Option<Value<'v>> {
+    fn get_attr(&self, attribute: &str, heap: Heap<'v>) -> Option<Value<'v>> {
         if attribute == "type" {
             let typ = self
                 .exported
@@ -333,11 +333,11 @@ impl<'v> StarlarkValue<'v> for FrozenTransitiveSetDefinition {
         vec!["type".to_owned()]
     }
 
-    fn has_attr(&self, attribute: &str, _heap: &'v Heap) -> bool {
+    fn has_attr(&self, attribute: &str, _heap: Heap<'v>) -> bool {
         attribute == "type"
     }
 
-    fn get_attr(&self, attribute: &str, heap: &'v Heap) -> Option<Value<'v>> {
+    fn get_attr(&self, attribute: &str, heap: Heap<'v>) -> Option<Value<'v>> {
         if attribute == "type" {
             let typ = self.exported.id.name.as_str();
             Some(heap.alloc(typ))

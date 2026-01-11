@@ -49,7 +49,7 @@ pub(crate) fn register_tuple(globals: &mut GlobalsBuilder) {
     )]
     fn tuple<'v>(
         #[starlark(require = pos)] a: Option<ValueOfUnchecked<'v, StarlarkIter<Value<'v>>>>,
-        heap: &'v Heap,
+        heap: Heap<'v>,
     ) -> starlark::Result<ValueOfUnchecked<'v, &'v TupleRef<'v>>> {
         if let Some(a) = a {
             if TupleRef::from_value(a.get()).is_some() {

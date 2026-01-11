@@ -297,7 +297,7 @@ impl<'v, V: ValueLike<'v>> CommandLineArgLike<'v> for TransitiveSetArgsProjectio
 fn transitive_set_args_projection_methods(builder: &mut MethodsBuilder) {
     fn traverse<'v>(
         this: ValueOf<'v, &'v TransitiveSetArgsProjection<'v>>,
-        heap: &'v Heap,
+        heap: Heap<'v>,
     ) -> starlark::Result<Value<'v>> {
         Ok(heap.alloc(TransitiveSetProjectionTraversal {
             transitive_set: this.typed.transitive_set,
@@ -309,7 +309,7 @@ fn transitive_set_args_projection_methods(builder: &mut MethodsBuilder) {
     #[starlark(attribute)]
     fn projection_name<'v>(
         this: ValueOf<'v, &'v TransitiveSetArgsProjection<'v>>,
-        heap: &'v Heap,
+        heap: Heap<'v>,
     ) -> starlark::Result<StringValue<'v>> {
         Ok(heap.alloc_str(this.typed.projection_name()?))
     }

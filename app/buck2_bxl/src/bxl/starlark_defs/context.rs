@@ -338,7 +338,7 @@ impl BxlContextCoreData {
 
 impl<'v> BxlContext<'v> {
     pub(crate) fn new(
-        heap: &'v Heap,
+        heap: Heap<'v>,
         core: Arc<BxlContextCoreData>,
         stream_state: OutputStreamState,
         cli_args: ValueOfUnchecked<'v, StructRef<'v>>,
@@ -367,7 +367,7 @@ impl<'v> BxlContext<'v> {
     }
 
     pub(crate) fn new_dynamic(
-        heap: &'v Heap,
+        heap: Heap<'v>,
         core: Arc<BxlContextCoreData>,
         digest_config: DigestConfig,
         analysis_registry: AnalysisRegistry<'v>,
@@ -386,7 +386,7 @@ impl<'v> BxlContext<'v> {
     }
 
     pub(crate) fn new_anon(
-        heap: &'v Heap,
+        heap: Heap<'v>,
         core: Arc<BxlContextCoreData>,
         digest_config: DigestConfig,
         analysis_registry: AnalysisRegistry<'v>,
@@ -504,7 +504,7 @@ impl<'v> StarlarkValue<'v> for BxlContext<'v> {
 }
 
 impl<'v> AllocValue<'v> for BxlContext<'v> {
-    fn alloc_value(self, heap: &'v Heap) -> Value<'v> {
+    fn alloc_value(self, heap: Heap<'v>) -> Value<'v> {
         heap.alloc_complex_no_freeze(self)
     }
 }

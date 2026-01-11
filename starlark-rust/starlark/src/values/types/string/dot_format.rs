@@ -64,7 +64,7 @@ pub(crate) fn format_one<'v>(
     before: &str,
     arg: Value<'v>,
     after: &str,
-    heap: &'v Heap,
+    heap: Heap<'v>,
 ) -> StringValue<'v> {
     match StringValue::new(arg) {
         Some(arg) => heap.alloc_str_concat3(before, &arg, after),
@@ -137,7 +137,7 @@ pub(crate) fn format<'v>(
     args: impl Iterator<Item = Value<'v>>,
     kwargs: Dict<'v>,
     string_pool: &mut StringPool,
-    heap: &'v Heap,
+    heap: Heap<'v>,
 ) -> anyhow::Result<StringValue<'v>> {
     let mut parser = FormatParser::new(this);
     let mut result = string_pool.alloc();

@@ -38,7 +38,7 @@ pub(crate) fn register_set(globals: &mut GlobalsBuilder) {
     )]
     fn set<'v>(
         #[starlark(require = pos)] arg: Option<ValueOfUnchecked<'v, StarlarkIter<Value<'v>>>>,
-        heap: &'v Heap,
+        heap: Heap<'v>,
     ) -> starlark::Result<SetData<'v>> {
         let set = match arg {
             Some(pos) => match SetRef::unpack_value_opt(pos.get()) {

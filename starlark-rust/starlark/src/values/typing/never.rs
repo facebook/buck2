@@ -84,7 +84,7 @@ impl StarlarkTypeRepr for StarlarkNever {
 }
 
 impl<'v> AllocValue<'v> for StarlarkNever {
-    fn alloc_value(self, _heap: &'v crate::values::Heap) -> crate::values::Value<'v> {
+    fn alloc_value(self, _heap: crate::values::Heap<'v>) -> crate::values::Value<'v> {
         match self {}
     }
 }

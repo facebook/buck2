@@ -122,7 +122,7 @@ starlark_simple_value!(StarlarkFileSet);
 
 #[starlark_value(type = "bxl.FileSet")]
 impl<'v> StarlarkValue<'v> for StarlarkFileSet {
-    fn iterate_collect(&self, heap: &'v Heap) -> starlark::Result<Vec<Value<'v>>> {
+    fn iterate_collect(&self, heap: Heap<'v>) -> starlark::Result<Vec<Value<'v>>> {
         Ok(self
             .0
             .iter()
@@ -134,7 +134,7 @@ impl<'v> StarlarkValue<'v> for StarlarkFileSet {
         i32::try_from(self.0.len()).map_err(starlark::Error::new_other)
     }
 
-    fn sub(&self, other: Value<'v>, heap: &'v Heap) -> starlark::Result<Value<'v>> {
+    fn sub(&self, other: Value<'v>, heap: Heap<'v>) -> starlark::Result<Value<'v>> {
         let Some(other) = other.downcast_ref::<Self>() else {
             return ValueError::unsupported_with(self, "-", other);
         };
@@ -149,13 +149,13 @@ impl<'v> StarlarkValue<'v> for StarlarkFileSet {
         }
     }
 
-    fn bit_or(&self, other: Value<'v>, heap: &'v Heap) -> starlark::Result<Value<'v>> {
+    fn bit_or(&self, other: Value<'v>, heap: Heap<'v>) -> starlark::Result<Value<'v>> {
         let other = other.downcast_ref_err::<Self>()?;
         let union = self.0.union(&other.0);
         Ok(heap.alloc(Self(union)))
     }
 
-    fn bit_and(&self, other: Value<'v>, heap: &'v Heap) -> starlark::Result<Value<'v>> {
+    fn bit_and(&self, other: Value<'v>, heap: Heap<'v>) -> starlark::Result<Value<'v>> {
         let Some(other) = other.downcast_ref::<Self>() else {
             return ValueError::unsupported_with(self, "&", other);
         };
@@ -258,7 +258,7 @@ impl fmt::Display for StarlarkReadDirSet {
 
 #[starlark_value(type = "bxl.ReadDirSet")]
 impl<'v> StarlarkValue<'v> for StarlarkReadDirSet {
-    fn iterate_collect(&self, heap: &'v Heap) -> starlark::Result<Vec<Value<'v>>> {
+    fn iterate_collect(&self, heap: Heap<'v>) -> starlark::Result<Vec<Value<'v>>> {
         Ok(self
             .children()?
             .into_map(|cell_path| heap.alloc(StarlarkFileNode(cell_path))))

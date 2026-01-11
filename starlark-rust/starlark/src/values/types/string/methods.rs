@@ -123,7 +123,7 @@ pub(crate) fn string_methods(builder: &mut MethodsBuilder) {
     /// ```
     fn elems<'v>(
         this: StringValue<'v>,
-        heap: &'v Heap,
+        heap: Heap<'v>,
     ) -> anyhow::Result<ValueOfUnchecked<'v, StarlarkIter<String>>> {
         Ok(iterate_chars(this, heap))
     }
@@ -173,7 +173,7 @@ pub(crate) fn string_methods(builder: &mut MethodsBuilder) {
     /// ```
     fn codepoints<'v>(
         this: StringValue<'v>,
-        heap: &'v Heap,
+        heap: Heap<'v>,
     ) -> anyhow::Result<ValueOfUnchecked<'v, StarlarkIter<String>>> {
         Ok(iterate_codepoints(this, heap))
     }
@@ -624,7 +624,7 @@ pub(crate) fn string_methods(builder: &mut MethodsBuilder) {
     fn join<'v>(
         this: &str,
         #[starlark(require = pos)] to_join: ValueOfUnchecked<'v, StarlarkIter<String>>,
-        heap: &'v Heap,
+        heap: Heap<'v>,
     ) -> starlark::Result<ValueOfUnchecked<'v, String>> {
         #[inline(always)]
         fn as_str<'v>(x: Value<'v>) -> crate::Result<StringValue<'v>> {
@@ -680,7 +680,7 @@ pub(crate) fn string_methods(builder: &mut MethodsBuilder) {
     fn lstrip<'v>(
         this: StringValue<'v>,
         #[starlark(require = pos)] chars: Option<&str>,
-        heap: &'v Heap,
+        heap: Heap<'v>,
     ) -> anyhow::Result<StringValue<'v>> {
         let res = match chars {
             None => this.trim_start(),
@@ -714,7 +714,7 @@ pub(crate) fn string_methods(builder: &mut MethodsBuilder) {
     fn partition<'v>(
         this: StringValue<'v>,
         #[starlark(require = pos)] needle: StringValue<'v>,
-        heap: &'v Heap,
+        heap: Heap<'v>,
     ) -> anyhow::Result<(StringValue<'v>, StringValue<'v>, StringValue<'v>)> {
         if needle.is_empty() {
             return Err(anyhow::anyhow!(
@@ -762,7 +762,7 @@ pub(crate) fn string_methods(builder: &mut MethodsBuilder) {
         #[starlark(require = pos)] old: &str,
         #[starlark(require = pos)] new: &str,
         #[starlark(require = pos)] count: Option<i32>,
-        heap: &'v Heap,
+        heap: Heap<'v>,
     ) -> anyhow::Result<StringValue<'v>> {
         match count {
             Some(count) if count >= 0 => {
@@ -882,7 +882,7 @@ pub(crate) fn string_methods(builder: &mut MethodsBuilder) {
     fn rpartition<'v>(
         this: StringValue<'v>,
         #[starlark(require = pos)] needle: StringValue<'v>,
-        heap: &'v Heap,
+        heap: Heap<'v>,
     ) -> anyhow::Result<(StringValue<'v>, StringValue<'v>, StringValue<'v>)> {
         if needle.is_empty() {
             return Err(anyhow::anyhow!(
@@ -922,7 +922,7 @@ pub(crate) fn string_methods(builder: &mut MethodsBuilder) {
         this: &str,
         #[starlark(require = pos, default = NoneOr::None)] sep: NoneOr<&str>,
         #[starlark(require = pos, default = NoneOr::None)] maxsplit: NoneOr<i32>,
-        heap: &'v Heap,
+        heap: Heap<'v>,
     ) -> anyhow::Result<ValueOfUnchecked<'v, UnpackList<String>>> {
         let maxsplit = match maxsplit.into_option() {
             None => None,
@@ -971,7 +971,7 @@ pub(crate) fn string_methods(builder: &mut MethodsBuilder) {
     fn rstrip<'v>(
         this: StringValue<'v>,
         #[starlark(require = pos)] chars: Option<&str>,
-        heap: &'v Heap,
+        heap: Heap<'v>,
     ) -> anyhow::Result<StringValue<'v>> {
         let res = match chars {
             None => this.trim_end(),
@@ -1021,7 +1021,7 @@ pub(crate) fn string_methods(builder: &mut MethodsBuilder) {
         this: &str,
         #[starlark(require = pos, default = NoneOr::None)] sep: NoneOr<&str>,
         #[starlark(require = pos, default = NoneOr::None)] maxsplit: NoneOr<i32>,
-        heap: &'v Heap,
+        heap: Heap<'v>,
     ) -> anyhow::Result<ValueOfUnchecked<'v, UnpackList<String>>> {
         let maxsplit = match maxsplit.into_option() {
             None => None,
@@ -1088,7 +1088,7 @@ pub(crate) fn string_methods(builder: &mut MethodsBuilder) {
     fn splitlines<'v>(
         this: &str,
         #[starlark(require = pos, default = false)] keepends: bool,
-        heap: &'v Heap,
+        heap: Heap<'v>,
     ) -> anyhow::Result<Vec<StringValue<'v>>> {
         let mut s = this;
         let mut lines: Vec<StringValue> = Vec::new();
@@ -1161,7 +1161,7 @@ pub(crate) fn string_methods(builder: &mut MethodsBuilder) {
     fn strip<'v>(
         this: StringValue<'v>,
         #[starlark(require = pos)] chars: Option<&str>,
-        heap: &'v Heap,
+        heap: Heap<'v>,
     ) -> anyhow::Result<StringValue<'v>> {
         let res = match chars {
             None => this.trim(),
@@ -1244,7 +1244,7 @@ pub(crate) fn string_methods(builder: &mut MethodsBuilder) {
     fn removeprefix<'v>(
         this: StringValue<'v>,
         #[starlark(require = pos)] prefix: &str,
-        heap: &'v Heap,
+        heap: Heap<'v>,
     ) -> anyhow::Result<StringValue<'v>> {
         let x = this.as_str();
         if x.starts_with(prefix) && !prefix.is_empty() {
@@ -1272,7 +1272,7 @@ pub(crate) fn string_methods(builder: &mut MethodsBuilder) {
     fn removesuffix<'v>(
         this: StringValue<'v>,
         #[starlark(require = pos)] suffix: &str,
-        heap: &'v Heap,
+        heap: Heap<'v>,
     ) -> anyhow::Result<StringValue<'v>> {
         let x = this.as_str();
         if x.ends_with(suffix) && !suffix.is_empty() {

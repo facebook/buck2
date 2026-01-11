@@ -32,7 +32,7 @@ pub fn register_namespace(builder: &mut GlobalsBuilder) {
         ty_custom_function = TyNamespaceFunction,
         as_type = FrozenNamespace,
     )]
-    fn namespace<'v>(args: &Arguments<'v, '_>, heap: &'v Heap) -> starlark::Result<Namespace<'v>> {
+    fn namespace<'v>(args: &Arguments<'v, '_>, heap: Heap<'v>) -> starlark::Result<Namespace<'v>> {
         args.no_positional_args(heap)?;
 
         Ok(Namespace::new(

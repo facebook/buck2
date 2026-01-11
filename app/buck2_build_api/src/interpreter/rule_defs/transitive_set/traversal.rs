@@ -91,7 +91,7 @@ impl<'v, V: ValueLike<'v>> StarlarkValue<'v> for TransitiveSetTraversalGen<V>
 where
     Self: ProvidesStaticType<'v>,
 {
-    fn iterate_collect(&self, _heap: &'v Heap) -> starlark::Result<Vec<Value<'v>>> {
+    fn iterate_collect(&self, _heap: Heap<'v>) -> starlark::Result<Vec<Value<'v>>> {
         let tset =
             TransitiveSet::from_value(self.inner.to_value()).buck_error_context("Invalid inner")?;
         Ok(tset.iter_values(self.ordering)?.collect())
@@ -126,7 +126,7 @@ impl<'v, V: ValueLike<'v>> StarlarkValue<'v> for TransitiveSetProjectionTraversa
 where
     Self: ProvidesStaticType<'v>,
 {
-    fn iterate_collect(&self, _heap: &'v Heap) -> starlark::Result<Vec<Value<'v>>> {
+    fn iterate_collect(&self, _heap: Heap<'v>) -> starlark::Result<Vec<Value<'v>>> {
         let set = TransitiveSet::from_value(self.transitive_set.get().to_value())
             .buck_error_context("Invalid inner")?;
         Ok(set

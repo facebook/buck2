@@ -104,7 +104,7 @@ impl<'v, T: Debug + Send + Sync + 'static> StarlarkValue<'v> for StarlarkAny<T> 
 }
 
 impl<'v, T: Debug + Send + Sync + 'static> AllocValue<'v> for StarlarkAny<T> {
-    fn alloc_value(self, heap: &'v Heap) -> Value<'v> {
+    fn alloc_value(self, heap: Heap<'v>) -> Value<'v> {
         heap.alloc_simple(self)
     }
 }

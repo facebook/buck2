@@ -559,7 +559,7 @@ impl<'v> ParametersSpec<Value<'v>> {
         &self,
         args: &Arguments<'v, '_>,
         slots: &mut [Option<Value<'v>>],
-        heap: &'v Heap,
+        heap: Heap<'v>,
     ) -> crate::Result<()> {
         self.collect_inline(&args.0, slots, heap)
     }
@@ -571,7 +571,7 @@ impl<'v> ParametersSpec<Value<'v>> {
     fn collect_into_impl<const N: usize>(
         &self,
         args: &Arguments<'v, '_>,
-        heap: &'v Heap,
+        heap: Heap<'v>,
     ) -> crate::Result<[Option<Value<'v>>; N]> {
         let mut slots = [(); N].map(|_| None);
         self.collect(args, &mut slots, heap)?;
@@ -585,7 +585,7 @@ impl<'v> ParametersSpec<Value<'v>> {
         &self,
         args: &A,
         slots: &mut [Option<Value<'v>>],
-        heap: &'v Heap,
+        heap: Heap<'v>,
     ) -> crate::Result<()>
     where
         'v: 'a,
@@ -613,7 +613,7 @@ impl<'v> ParametersSpec<Value<'v>> {
         &self,
         args: &A,
         slots: &mut [Option<Value<'v>>],
-        heap: &'v Heap,
+        heap: Heap<'v>,
     ) -> crate::Result<()>
     where
         'v: 'a,
@@ -653,7 +653,7 @@ impl<'v> ParametersSpec<Value<'v>> {
                 }
             }
 
-            fn alloc(self, heap: &'v Heap) -> Value<'v> {
+            fn alloc(self, heap: Heap<'v>) -> Value<'v> {
                 let kwargs = match self.kwargs {
                     Some(kwargs) => Dict::new(coerce(kwargs)),
                     None => Dict::default(),
@@ -918,7 +918,7 @@ impl<'v, V: ValueLike<'v>> ParametersSpec<V> {
     pub fn collect_into<const N: usize>(
         &self,
         args: &Arguments<'v, '_>,
-        heap: &'v Heap,
+        heap: Heap<'v>,
     ) -> crate::Result<[Option<Value<'v>>; N]> {
         self.as_value().collect_into_impl(args, heap)
     }
@@ -930,7 +930,7 @@ impl<'v, V: ValueLike<'v>> ParametersSpec<V> {
         &self,
         args: &Arguments<'v, '_>,
         slots: &mut [Option<Value<'v>>],
-        heap: &'v Heap,
+        heap: Heap<'v>,
     ) -> crate::Result<()> {
         self.as_value().collect_impl(args, slots, heap)
     }
@@ -975,7 +975,7 @@ impl<'v, V: ValueLike<'v>> ParametersSpec<V> {
         &self,
         args: &A,
         slots: &mut [Option<Value<'v>>],
-        heap: &'v Heap,
+        heap: Heap<'v>,
     ) -> crate::Result<()>
     where
         'v: 'a,

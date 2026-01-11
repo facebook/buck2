@@ -198,7 +198,7 @@ impl<'v> BxlActions<'v> {
         actions: ValueTyped<'v, AnalysisActions<'v>>,
         exec_deps: Vec<ConfiguredProvidersLabel>,
         toolchains: Vec<ConfiguredProvidersLabel>,
-        heap: &'v Heap,
+        heap: Heap<'v>,
         frozen_heap: &'v FrozenHeap,
         ctx: &'c mut DiceComputations<'_>,
     ) -> buck2_error::Result<BxlActions<'v>> {
@@ -226,7 +226,7 @@ impl<'v> BxlActions<'v> {
 
 async fn alloc_deps<'v, 'c>(
     deps: Vec<ConfiguredProvidersLabel>,
-    heap: &'v Heap,
+    heap: Heap<'v>,
     frozen_heap: &'v FrozenHeap,
     ctx: &'c mut DiceComputations<'_>,
 ) -> buck2_error::Result<ValueOfUnchecked<'v, DictType<StarlarkProvidersLabel, Dependency<'v>>>> {
@@ -272,7 +272,7 @@ impl<'v> StarlarkValue<'v> for BxlActions<'v> {
 }
 
 impl<'v> AllocValue<'v> for BxlActions<'v> {
-    fn alloc_value(self, heap: &'v Heap) -> Value<'v> {
+    fn alloc_value(self, heap: Heap<'v>) -> Value<'v> {
         heap.alloc_complex_no_freeze(self)
     }
 }

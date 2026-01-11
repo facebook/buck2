@@ -495,7 +495,7 @@ fn try_run_error_handler(
 
                     let outputs_artifacts = match action.action.failed_action_output_artifacts(
                         &artifact_fs,
-                        &heap,
+                        heap,
                         outputs,
                     ) {
                         Ok(v) => v,

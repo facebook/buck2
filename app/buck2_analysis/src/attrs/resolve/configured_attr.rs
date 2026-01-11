@@ -72,7 +72,7 @@ pub trait ConfiguredAttrExt {
     fn to_value<'v>(
         &self,
         pkg: PackageLabelOption,
-        heap: &'v Heap,
+        heap: Heap<'v>,
     ) -> buck2_error::Result<Value<'v>>;
 }
 
@@ -175,7 +175,7 @@ impl ConfiguredAttrExt for ConfiguredAttr {
     fn to_value<'v>(
         &self,
         pkg: PackageLabelOption,
-        heap: &'v Heap,
+        heap: Heap<'v>,
     ) -> buck2_error::Result<Value<'v>> {
         configured_attr_to_value(self, pkg, heap)
     }
@@ -184,7 +184,7 @@ impl ConfiguredAttrExt for ConfiguredAttr {
 fn configured_attr_to_value<'v>(
     this: &ConfiguredAttr,
     pkg: PackageLabelOption,
-    heap: &'v Heap,
+    heap: Heap<'v>,
 ) -> buck2_error::Result<Value<'v>> {
     Ok(match this {
         ConfiguredAttr::Bool(v) => heap.alloc(v.0),

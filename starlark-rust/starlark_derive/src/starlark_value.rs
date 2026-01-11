@@ -348,7 +348,7 @@ impl ImplStarlarkValue {
             ));
         }
         Ok(Some(syn::parse2(quote! {
-            fn bit_or(&self, other: starlark::values::Value<'v>, heap: &'v starlark::values::Heap) -> starlark::Result<starlark::values::Value<'v>> {
+            fn bit_or(&self, other: starlark::values::Value<'v>, heap: starlark::values::Heap<'v>) -> starlark::Result<starlark::values::Value<'v>> {
                 starlark::values::typing::macro_refs::starlark_value_bit_or_for_type(self, other, heap)
             }
         })?))

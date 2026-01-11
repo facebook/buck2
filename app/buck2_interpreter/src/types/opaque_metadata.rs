@@ -39,7 +39,7 @@ pub struct OpaqueMetadata;
 impl<'v> StarlarkValue<'v> for OpaqueMetadata {}
 
 impl<'v> AllocValue<'v> for OpaqueMetadata {
-    fn alloc_value(self, _heap: &'v Heap) -> Value<'v> {
+    fn alloc_value(self, _heap: Heap<'v>) -> Value<'v> {
         static INSTANCE: AllocStaticSimple<OpaqueMetadata> =
             AllocStaticSimple::alloc(OpaqueMetadata);
         INSTANCE.to_frozen_value().to_value()

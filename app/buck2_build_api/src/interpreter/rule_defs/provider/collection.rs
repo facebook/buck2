@@ -142,7 +142,7 @@ fn empty_provider_collection_value() -> FrozenValueTyped<'static, FrozenProvider
 }
 
 impl<'v> AllocValue<'v> for ProviderCollectionGen<Value<'v>> {
-    fn alloc_value(self, heap: &'v Heap) -> Value<'v> {
+    fn alloc_value(self, heap: Heap<'v>) -> Value<'v> {
         if self.providers.is_empty() {
             // Provider collection is immutable, so it's OK to return frozen value here.
             empty_provider_collection_value().to_value()
@@ -291,7 +291,7 @@ impl<'v, V: ValueLike<'v>> ProviderCollectionGen<V> {
     /// Should only be used for subtargets, where an empty `DefaultInfo` can be inferred.
     pub fn try_from_value_subtarget(
         value: Value<'v>,
-        heap: &'v Heap,
+        heap: Heap<'v>,
     ) -> buck2_error::Result<ProviderCollection<'v>> {
         let mut providers = Self::try_from_value_impl(value)?;
 
@@ -385,7 +385,7 @@ impl<'v, V: ValueLike<'v>> StarlarkValue<'v> for ProviderCollectionGen<V>
 where
     Self: ProvidesStaticType<'v>,
 {
-    fn at(&self, index: Value<'v>, _heap: &'v Heap) -> starlark::Result<Value<'v>> {
+    fn at(&self, index: Value<'v>, _heap: Heap<'v>) -> starlark::Result<Value<'v>> {
         match self.get_impl(index, GetOp::At)? {
             Either::Left(v) => Ok(v),
             Either::Right(provider_id) => Err(buck2_error::Error::from(

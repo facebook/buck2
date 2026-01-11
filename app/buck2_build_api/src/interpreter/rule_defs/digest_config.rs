@@ -56,7 +56,7 @@ impl<'v> StarlarkValue<'v> for StarlarkDigestConfig {
 }
 
 impl<'v> AllocValue<'v> for StarlarkDigestConfig {
-    fn alloc_value(self, heap: &'v Heap) -> Value<'v> {
+    fn alloc_value(self, heap: Heap<'v>) -> Value<'v> {
         heap.alloc_simple(self)
     }
 }

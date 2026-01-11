@@ -1378,7 +1378,7 @@ impl Action for RunAction {
     fn failed_action_output_artifacts<'v>(
         &self,
         artifact_fs: &ArtifactFs,
-        heap: &'v Heap,
+        heap: Heap<'v>,
         outputs: Option<&ActionOutputs>,
     ) -> buck2_error::Result<ValueOfUnchecked<'v, DictType<StarlarkArtifact, StarlarkArtifactValue>>>
     {

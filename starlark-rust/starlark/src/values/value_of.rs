@@ -76,7 +76,7 @@ impl<'v, T: UnpackValue<'v>> UnpackValue<'v> for ValueOf<'v, T> {
 }
 
 impl<'v, T: UnpackValue<'v>> AllocValue<'v> for ValueOf<'v, T> {
-    fn alloc_value(self, _heap: &'v Heap) -> Value<'v> {
+    fn alloc_value(self, _heap: Heap<'v>) -> Value<'v> {
         self.value
     }
 }

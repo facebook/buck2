@@ -31,7 +31,7 @@ enum TypingMacroRefsError {
 pub fn starlark_value_bit_or_for_type<'v, S: StarlarkValue<'v>>(
     this: &S,
     other: Value<'v>,
-    heap: &'v Heap,
+    heap: Heap<'v>,
 ) -> crate::Result<Value<'v>> {
     let Some(this) = this.eval_type() else {
         let mut repr = String::new();

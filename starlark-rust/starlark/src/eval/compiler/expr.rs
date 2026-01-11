@@ -204,7 +204,7 @@ pub(crate) enum Builtin2 {
 }
 
 impl Builtin2 {
-    fn eval<'v>(self, a: Value<'v>, b: Value<'v>, heap: &'v Heap) -> crate::Result<Value<'v>> {
+    fn eval<'v>(self, a: Value<'v>, b: Value<'v>, heap: Heap<'v>) -> crate::Result<Value<'v>> {
         match self {
             Builtin2::Equals => a.equals(b).map(Value::new_bool),
             Builtin2::Compare(cmp) => a.compare(b).map(|c| Value::new_bool(cmp.apply(c))),
@@ -1144,7 +1144,7 @@ impl<'v, 'a> MemberOrValue<'v, 'a> {
 pub(crate) fn get_attr_hashed_raw<'v>(
     x: Value<'v>,
     attribute: &Symbol,
-    heap: &'v Heap,
+    heap: Heap<'v>,
 ) -> crate::Result<MemberOrValue<'v, 'static>> {
     let aref = x.get_ref();
     if let Some(methods) = aref.vtable().methods() {
@@ -1161,7 +1161,7 @@ pub(crate) fn get_attr_hashed_raw<'v>(
 pub(crate) fn get_attr_hashed_bind<'v>(
     x: Value<'v>,
     attribute: &Symbol,
-    heap: &'v Heap,
+    heap: Heap<'v>,
 ) -> crate::Result<Value<'v>> {
     let aref = x.get_ref();
     if let Some(methods) = aref.vtable().methods() {

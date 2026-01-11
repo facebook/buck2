@@ -83,7 +83,7 @@ pub(crate) fn register_int(globals: &mut GlobalsBuilder) {
             ValueOf<'v, Either<Either<NumRef<'v>, bool>, &'v str>>,
         >,
         base: Option<i32>,
-        heap: &'v Heap,
+        heap: Heap<'v>,
     ) -> starlark::Result<ValueOfUnchecked<'v, StarlarkInt>> {
         let Some(a) = a else {
             return Ok(ValueOfUnchecked::new(heap.alloc(0)));

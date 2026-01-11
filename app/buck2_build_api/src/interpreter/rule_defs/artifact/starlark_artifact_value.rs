@@ -73,7 +73,7 @@ enum JsonError {
     NumberOutOfBounds(String),
 }
 
-fn json_convert<'v>(v: serde_json::Value, heap: &'v Heap) -> starlark::Result<Value<'v>> {
+fn json_convert<'v>(v: serde_json::Value, heap: Heap<'v>) -> starlark::Result<Value<'v>> {
     match v {
         serde_json::Value::Null => Ok(Value::new_none()),
         serde_json::Value::Bool(x) => Ok(Value::new_bool(x)),
@@ -169,7 +169,7 @@ fn artifact_value_methods(builder: &mut MethodsBuilder) {
     }
 
     /// Reads and parses the artifact as JSON
-    fn read_json<'v>(this: &StarlarkArtifactValue, heap: &'v Heap) -> starlark::Result<Value<'v>> {
+    fn read_json<'v>(this: &StarlarkArtifactValue, heap: Heap<'v>) -> starlark::Result<Value<'v>> {
         let path = this.fs.resolve(&this.path);
         let file =
             File::open(&path).with_buck_error_context(|| format!("Error opening file `{path}`"))?;
@@ -197,7 +197,7 @@ mod tests {
         Heap::temp(|heap| {
             let testcase = "{\"test\": [1, true, \"pi\", 7.5, {}]}";
             let value: serde_json::Value = serde_json::from_str(testcase).unwrap();
-            let res = json_convert(value, &heap).unwrap().to_repr();
+            let res = json_convert(value, heap).unwrap().to_repr();
             assert_eq!(res, testcase.replace("true", "True"))
         });
     }

@@ -50,7 +50,7 @@ use crate::values::type_repr::StarlarkTypeRepr;
 /// impl<'v> StarlarkValue<'v> for MySimpleValue {}
 ///
 /// impl<'v> AllocValue<'v> for MySimpleValue {
-///     fn alloc_value(self, heap: &'v Heap) -> Value<'v> {
+///     fn alloc_value(self, heap: Heap<'v>) -> Value<'v> {
 ///         heap.alloc_simple(self)
 ///     }
 /// }
@@ -75,30 +75,30 @@ pub trait AllocValue<'v>: StarlarkTypeRepr {
     ///
     /// Note, for certain values (e.g. empty strings) no allocation is actually performed,
     /// and a reference to the statically allocated object is returned.
-    fn alloc_value(self, heap: &'v Heap) -> Value<'v>;
+    fn alloc_value(self, heap: Heap<'v>) -> Value<'v>;
 }
 
 /// Type which allocates a string.
 pub trait AllocStringValue<'v>: AllocValue<'v> + Sized {
     /// Allocate a string.
-    fn alloc_string_value(self, heap: &'v Heap) -> StringValue<'v>;
+    fn alloc_string_value(self, heap: Heap<'v>) -> StringValue<'v>;
 }
 
 impl<'v> AllocValue<'v> for FrozenValue {
-    fn alloc_value(self, _heap: &'v Heap) -> Value<'v> {
+    fn alloc_value(self, _heap: Heap<'v>) -> Value<'v> {
         self.to_value()
     }
 }
 
 impl<'v> AllocValue<'v> for Value<'v> {
-    fn alloc_value(self, _heap: &'v Heap) -> Value<'v> {
+    fn alloc_value(self, _heap: Heap<'v>) -> Value<'v> {
         self
     }
 }
 
 impl<'v, A: AllocValue<'v>, B: AllocValue<'v>> AllocValue<'v> for Either<A, B> {
     #[inline]
-    fn alloc_value(self, heap: &'v Heap) -> Value<'v> {
+    fn alloc_value(self, heap: Heap<'v>) -> Value<'v> {
         match self {
             Either::Left(a) => a.alloc_value(heap),
             Either::Right(b) => b.alloc_value(heap),

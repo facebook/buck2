@@ -110,7 +110,7 @@ pub(crate) struct EnsuredArtifactGroup<'v> {
 }
 
 impl<'v> EnsuredArtifactGroup<'v> {
-    pub(crate) fn new(ags: Vec<ArtifactGroup>, abs: bool, heap: &'v Heap) -> Self {
+    pub(crate) fn new(ags: Vec<ArtifactGroup>, abs: bool, heap: Heap<'v>) -> Self {
         EnsuredArtifactGroup {
             inner: heap.alloc(EnsuredArtifactGroupInner { ags }),
 
@@ -240,19 +240,19 @@ impl Display for EnsuredArtifactGroupInner {
 }
 
 impl<'v> AllocValue<'v> for EnsuredArtifact {
-    fn alloc_value(self, heap: &'v Heap) -> Value<'v> {
+    fn alloc_value(self, heap: Heap<'v>) -> Value<'v> {
         heap.alloc_complex_no_freeze(self)
     }
 }
 
 impl<'v> AllocValue<'v> for EnsuredArtifactGroup<'v> {
-    fn alloc_value(self, heap: &'v Heap) -> Value<'v> {
+    fn alloc_value(self, heap: Heap<'v>) -> Value<'v> {
         heap.alloc_complex_no_freeze(self)
     }
 }
 
 impl<'v> AllocValue<'v> for EnsuredArtifactGroupInner {
-    fn alloc_value(self, heap: &'v Heap) -> Value<'v> {
+    fn alloc_value(self, heap: Heap<'v>) -> Value<'v> {
         heap.alloc_complex_no_freeze(self)
     }
 }
@@ -325,7 +325,7 @@ fn ensured_artifact_methods(builder: &mut MethodsBuilder) {
     /// ```
     fn abs_path<'v>(
         this: ValueTyped<'v, EnsuredArtifact>,
-        heap: &'v Heap,
+        heap: Heap<'v>,
     ) -> starlark::Result<ValueTyped<'v, EnsuredArtifact>> {
         if this.abs() {
             Ok(this)
@@ -356,7 +356,7 @@ fn ensured_artifact_methods(builder: &mut MethodsBuilder) {
     /// ```
     fn rel_path<'v>(
         this: ValueTyped<'v, EnsuredArtifact>,
-        heap: &'v Heap,
+        heap: Heap<'v>,
     ) -> starlark::Result<ValueTyped<'v, EnsuredArtifact>> {
         if !this.abs() {
             Ok(this)
@@ -395,7 +395,7 @@ fn artifact_group_methods(builder: &mut MethodsBuilder) {
     /// ```
     fn abs_path<'v>(
         this: ValueTyped<'v, EnsuredArtifactGroup<'v>>,
-        heap: &'v Heap,
+        heap: Heap<'v>,
     ) -> starlark::Result<ValueTyped<'v, EnsuredArtifactGroup<'v>>> {
         if this.abs {
             Ok(this)
@@ -426,7 +426,7 @@ fn artifact_group_methods(builder: &mut MethodsBuilder) {
     /// ```
     fn rel_path<'v>(
         this: ValueTyped<'v, EnsuredArtifactGroup<'v>>,
-        heap: &'v Heap,
+        heap: Heap<'v>,
     ) -> starlark::Result<ValueTyped<'v, EnsuredArtifactGroup<'v>>> {
         if !this.abs {
             Ok(this)

@@ -302,7 +302,7 @@ impl<'v> StarlarkValue<'v> for Array<'v> {
         Ok(self.len() as i32)
     }
 
-    unsafe fn iter_next(&self, index: usize, _heap: &'v Heap) -> Option<Value<'v>> {
+    unsafe fn iter_next(&self, index: usize, _heap: Heap<'v>) -> Option<Value<'v>> {
         debug_assert!(self.len() == 0 || self.iter_count_is_non_zero());
         self.content().get(index).copied()
     }

@@ -49,6 +49,7 @@ use crate::module::typ::StarFun;
 use crate::module::typ::StarFunSource;
 use crate::module::typ::StarStmt;
 use crate::module::typ::ThisParam;
+use crate::module::util::is_type_name;
 use crate::util::GenericsUtil;
 
 #[derive(Default)]
@@ -318,7 +319,7 @@ pub(crate) fn parse_fun(func: ItemFn, module_kind: ModuleKind) -> syn::Result<St
         match parsed_arg {
             StarArgOrSpecial::Heap(special) => {
                 if heap.is_some() {
-                    return Err(syn::Error::new(span, "Repeated `&Heap` parameter"));
+                    return Err(syn::Error::new(span, "Repeated `Heap<'_>` parameter"));
                 }
                 heap = Some(special);
             }
@@ -376,7 +377,7 @@ pub(crate) fn parse_fun(func: ItemFn, module_kind: ModuleKind) -> syn::Result<St
     if eval.is_some() && heap.is_some() {
         return Err(syn::Error::new(
             sig_span,
-            "Can't have both `&mut Evaluator` and `&Heap` parameters",
+            "Can't have both `&mut Evaluator` and `Heap<'_>` parameters",
         ));
     }
 
@@ -587,7 +588,7 @@ enum StarArgOrSpecial {
     Arguments(StarArguments),
     /// `&mut Evaluator`.
     Eval(SpecialParam),
-    /// `&Heap`.
+    /// `Heap<'_>`.
     Heap(SpecialParam),
 }
 
@@ -609,13 +610,13 @@ fn is_eval(param: &SimpleParam, attrs: &FnParamAttrs) -> syn::Result<Option<Spec
     }
 }
 
-/// Function parameter is `heap: &Heap`.
+/// Function parameter is `heap: Heap<'_>`.
 fn is_heap(param: &SimpleParam, attrs: &FnParamAttrs) -> syn::Result<Option<SpecialParam>> {
-    if is_ref_something(&param.ty, "Heap") {
+    if is_type_name(&param.ty, "Heap") {
         if !attrs.is_empty() {
             return Err(syn::Error::new_spanned(
                 &param.ident,
-                "`&Heap` parameter cannot have attributes",
+                "`Heap<'_>` parameter cannot have attributes",
             ));
         }
         Ok(Some(SpecialParam {
@@ -702,7 +703,7 @@ fn parse_arg(
             if this {
                 return Err(syn::Error::new(
                     span,
-                    "Receiver parameter cannot be `&Heap`",
+                    "Receiver parameter cannot be `Heap<'_>`",
                 ));
             }
             return Ok(StarArgOrSpecial::Heap(heap));

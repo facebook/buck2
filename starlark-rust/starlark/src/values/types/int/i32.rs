@@ -33,7 +33,7 @@ use crate::values::types::int::int_or_big::StarlarkIntRef;
 
 impl<'v> AllocValue<'v> for i32 {
     #[inline]
-    fn alloc_value(self, heap: &'v Heap) -> Value<'v> {
+    fn alloc_value(self, heap: Heap<'v>) -> Value<'v> {
         heap.alloc(StarlarkInt::from(self))
     }
 }

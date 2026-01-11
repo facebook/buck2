@@ -136,7 +136,7 @@ where
 fn transitive_set_json_projection_methods(builder: &mut MethodsBuilder) {
     fn traverse<'v>(
         this: ValueOf<'v, &'v TransitiveSetJsonProjection<'v>>,
-        heap: &'v Heap,
+        heap: Heap<'v>,
     ) -> starlark::Result<Value<'v>> {
         Ok(heap.alloc(TransitiveSetProjectionTraversal {
             transitive_set: this.typed.transitive_set,
@@ -148,7 +148,7 @@ fn transitive_set_json_projection_methods(builder: &mut MethodsBuilder) {
     #[starlark(attribute)]
     fn projection_name<'v>(
         this: ValueOf<'v, &'v TransitiveSetJsonProjection<'v>>,
-        heap: &'v Heap,
+        heap: Heap<'v>,
     ) -> starlark::Result<StringValue<'v>> {
         Ok(heap.alloc_str(this.typed.projection_name()?))
     }

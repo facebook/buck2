@@ -114,7 +114,7 @@ impl<'v> StarlarkValue<'v> for StarlarkAnonTarget<'v> {
 }
 
 impl<'v> AllocValue<'v> for StarlarkAnonTarget<'v> {
-    fn alloc_value(self, heap: &'v Heap) -> Value<'v> {
+    fn alloc_value(self, heap: Heap<'v>) -> Value<'v> {
         heap.alloc_complex_no_freeze(self)
     }
 }
@@ -209,7 +209,7 @@ impl<'v> StarlarkValue<'v> for StarlarkAnonTargets<'v> {
 }
 
 impl<'v> AllocValue<'v> for StarlarkAnonTargets<'v> {
-    fn alloc_value(self, heap: &'v Heap) -> Value<'v> {
+    fn alloc_value(self, heap: Heap<'v>) -> Value<'v> {
         heap.alloc_complex_no_freeze(self)
     }
 }
@@ -221,7 +221,7 @@ fn anon_targets_methods(builder: &mut MethodsBuilder) {
     #[starlark(attribute)]
     fn anon_targets<'v>(
         this: &StarlarkAnonTargets<'v>,
-        heap: &'v Heap,
+        heap: Heap<'v>,
     ) -> starlark::Result<Value<'v>> {
         Ok(heap.alloc(AllocList(
             this.anon_targets.iter().map(|a| heap.alloc(a.clone())),

@@ -114,7 +114,7 @@ pub(crate) struct OptimizeOnFreezeContext<'v, 'a> {
     /// Nothing useful should be left in the heap after the freeze,
     /// but having a heap is useful to allocate objects temporarily
     /// (when invoking operations which require heap).
-    pub(crate) heap: &'v Heap,
+    pub(crate) heap: Heap<'v>,
     pub(crate) frozen_heap: &'a FrozenHeap,
 }
 
@@ -560,7 +560,7 @@ pub(crate) fn possible_gc(eval: &mut Evaluator) {
 pub(crate) fn bit_or_assign<'v>(
     lhs: Value<'v>,
     rhs: Value<'v>,
-    heap: &'v Heap,
+    heap: Heap<'v>,
 ) -> crate::Result<Value<'v>> {
     // The Starlark spec says dict |= mutates, while nothing else does.
     // When mutating, be careful if they alias, so we don't have `lhs`
@@ -599,7 +599,7 @@ pub(crate) fn bit_or_assign<'v>(
 pub(crate) fn add_assign<'v>(
     lhs: Value<'v>,
     rhs: Value<'v>,
-    heap: &'v Heap,
+    heap: Heap<'v>,
 ) -> crate::Result<Value<'v>> {
     // Checking whether a value is an integer or a string is cheap (no virtual call),
     // and `Value::add` has optimizations for these types, so check them first

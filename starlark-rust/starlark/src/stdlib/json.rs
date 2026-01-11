@@ -55,7 +55,7 @@ impl<'a> StarlarkTypeRepr for &'a serde_json::Number {
 }
 
 impl<'v, 'a> AllocValue<'v> for &'a serde_json::Number {
-    fn alloc_value(self, heap: &'v Heap) -> Value<'v> {
+    fn alloc_value(self, heap: Heap<'v>) -> Value<'v> {
         if let Some(x) = self.as_u64() {
             heap.alloc(x)
         } else if let Some(x) = self.as_i64() {
@@ -71,7 +71,7 @@ impl<'v, 'a> AllocValue<'v> for &'a serde_json::Number {
 }
 
 impl<'v> AllocValue<'v> for serde_json::Number {
-    fn alloc_value(self, heap: &'v Heap) -> Value<'v> {
+    fn alloc_value(self, heap: Heap<'v>) -> Value<'v> {
         // If you follow this hint, it becomes infinite recursion
         #[allow(clippy::needless_borrows_for_generic_args)]
         heap.alloc(&self)
@@ -119,7 +119,7 @@ impl<K: StarlarkTypeRepr, V: StarlarkTypeRepr> StarlarkTypeRepr for serde_json::
 }
 
 impl<'a, 'v> AllocValue<'v> for &'a serde_json::Map<String, serde_json::Value> {
-    fn alloc_value(self, heap: &'v Heap) -> Value<'v> {
+    fn alloc_value(self, heap: Heap<'v>) -> Value<'v> {
         // For some reason `IntoIter` is implemented only for `String, Value` parameters,
         // so this implementation is limited.
         heap.alloc(AllocDict(self))
@@ -127,7 +127,7 @@ impl<'a, 'v> AllocValue<'v> for &'a serde_json::Map<String, serde_json::Value> {
 }
 
 impl<'v> AllocValue<'v> for serde_json::Map<String, serde_json::Value> {
-    fn alloc_value(self, heap: &'v Heap) -> Value<'v> {
+    fn alloc_value(self, heap: Heap<'v>) -> Value<'v> {
         // If you follow this hint, it becomes infinite recursion
         #[allow(clippy::needless_borrows_for_generic_args)]
         heap.alloc(&self)
@@ -167,7 +167,7 @@ impl StarlarkTypeRepr for serde_json::Value {
 }
 
 impl<'v, 'a> AllocValue<'v> for &'a serde_json::Value {
-    fn alloc_value(self, heap: &'v Heap) -> Value<'v> {
+    fn alloc_value(self, heap: Heap<'v>) -> Value<'v> {
         match self {
             serde_json::Value::Null => Value::new_none(),
             serde_json::Value::Bool(x) => Value::new_bool(*x),
@@ -180,7 +180,7 @@ impl<'v, 'a> AllocValue<'v> for &'a serde_json::Value {
 }
 
 impl<'v> AllocValue<'v> for serde_json::Value {
-    fn alloc_value(self, heap: &'v Heap) -> Value<'v> {
+    fn alloc_value(self, heap: Heap<'v>) -> Value<'v> {
         // If you follow this hint, it becomes infinite recursion
         #[allow(clippy::needless_borrows_for_generic_args)]
         heap.alloc(&self)
@@ -217,7 +217,7 @@ pub(crate) fn json(globals: &mut GlobalsBuilder) {
 
         fn decode<'v>(
             #[starlark(require = pos)] x: &str,
-            heap: &'v Heap,
+            heap: Heap<'v>,
         ) -> anyhow::Result<Value<'v>> {
             Ok(heap.alloc(serde_json::from_str::<serde_json::Value>(x)?))
         }

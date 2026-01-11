@@ -470,7 +470,7 @@ fn artifact_values<'v>(
     ensured_artifacts: &IndexMap<&Artifact, &ArtifactValue>,
     _: InputArtifactsMaterialized,
     artifact_fs: &ArtifactFs,
-    heap: &'v Heap,
+    heap: Heap<'v>,
 ) -> buck2_error::Result<ValueOfUnchecked<'v, DictType<StarlarkArtifact, StarlarkArtifactValue>>> {
     let mut artifact_values_dict = Vec::with_capacity(ensured_artifacts.len());
     for (artifact, artifact_value) in ensured_artifacts.iter() {
@@ -499,7 +499,7 @@ fn artifact_values<'v>(
 fn outputs<'v>(
     outputs: &[FrozenValueTyped<'static, FrozenStarlarkOutputArtifact>],
     registry: &mut AnalysisRegistry<'v>,
-    heap: &'v Heap,
+    heap: Heap<'v>,
 ) -> buck2_error::Result<
     ValueOfUnchecked<
         'v,

@@ -147,7 +147,7 @@ impl<'v> AnalysisRegistry<'v> {
     pub fn declare_dynamic_output(
         &mut self,
         artifact: &BuildArtifact,
-        heap: &'v Heap,
+        heap: Heap<'v>,
     ) -> buck2_error::Result<DeclaredArtifact<'v>> {
         self.actions.declare_dynamic_output(artifact, heap)
     }
@@ -159,7 +159,7 @@ impl<'v> AnalysisRegistry<'v> {
         output_type: OutputType,
         declaration_location: Option<FileSpan>,
         path_resolution_method: BuckOutPathKind,
-        heap: &'v Heap,
+        heap: Heap<'v>,
     ) -> buck2_error::Result<DeclaredArtifact<'v>> {
         // We don't allow declaring `` as an output, although technically there's nothing preventing
         // that
@@ -362,7 +362,7 @@ impl<'v> AnalysisRegistry<'v> {
 
 pub struct ArtifactDeclaration<'v> {
     artifact: ValueTyped<'v, StarlarkDeclaredArtifact<'v>>,
-    heap: &'v Heap,
+    heap: Heap<'v>,
 }
 
 impl<'v> ArtifactDeclaration<'v> {

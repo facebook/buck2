@@ -44,7 +44,7 @@ pub struct StarlarkDynamicAttrType {
 impl<'v> StarlarkValue<'v> for StarlarkDynamicAttrType {}
 
 impl<'v> AllocValue<'v> for StarlarkDynamicAttrType {
-    fn alloc_value(self, heap: &'v Heap) -> Value<'v> {
+    fn alloc_value(self, heap: Heap<'v>) -> Value<'v> {
         heap.alloc_simple(self)
     }
 }

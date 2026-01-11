@@ -108,7 +108,7 @@ impl FrozenHeap {
     }
 }
 
-impl Heap {
+impl<'v> Heap<'v> {
     /// Allocate a simple [`StarlarkValue`] on this heap.
     ///
     /// Simple value is any starlark value which:
@@ -116,8 +116,8 @@ impl Heap {
     /// * is not special builtin (e.g. `None`)
     ///
     /// Must be [`Send`] and [`Sync`] because it will be reused in frozen values.
-    pub fn alloc_simple<'v, T: StarlarkValue<'v> + HeapSendable<'v> + Send + Sync + 'static>(
-        &'v self,
+    pub fn alloc_simple<T: StarlarkValue<'v> + HeapSendable<'v> + Send + Sync + 'static>(
+        self,
         x: T,
     ) -> Value<'v> {
         self.alloc_raw(simple(x)).to_value()

@@ -93,7 +93,7 @@ impl<'v, V: ValueLike<'v>> DependencyGen<V> {
 
 impl<'v> Dependency<'v> {
     pub fn new(
-        heap: &'v Heap,
+        heap: Heap<'v>,
         label: ConfiguredProvidersLabel,
         provider_collection: FrozenValueTyped<'v, FrozenProviderCollection>,
         execution_platform: Option<&ExecutionPlatformResolution>,
@@ -141,7 +141,7 @@ where
         RES.methods(dependency_methods)
     }
 
-    fn at(&self, index: Value<'v>, heap: &'v Heap) -> starlark::Result<Value<'v>> {
+    fn at(&self, index: Value<'v>, heap: Heap<'v>) -> starlark::Result<Value<'v>> {
         self.provider_collection
             .to_value()
             .at(index, heap)
@@ -243,7 +243,7 @@ fn dependency_methods(builder: &mut MethodsBuilder) {
     fn sub_target<'v>(
         this: &Dependency<'v>,
         #[starlark(require = pos)] subtarget: &str,
-        heap: &'v Heap,
+        heap: Heap<'v>,
     ) -> starlark::Result<Dependency<'v>> {
         let di = this.provider_collection.default_info()?;
         let providers = di.get_sub_target_providers(subtarget).ok_or_else(|| {

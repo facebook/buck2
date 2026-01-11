@@ -154,7 +154,7 @@ impl<'v> ListData<'v> {
 
     #[cold]
     #[inline(never)]
-    fn reserve_additional_slow(&self, additional: usize, heap: &'v Heap) {
+    fn reserve_additional_slow(&self, additional: usize, heap: Heap<'v>) {
         let new_cap = cmp::max(self.len() + additional, self.len() * 2);
         // Size of `Array` is 2 words and size of `List` is one word,
         // so allocating at least 4 words would not be too large waste.
@@ -168,7 +168,7 @@ impl<'v> ListData<'v> {
     }
 
     #[inline(always)]
-    fn reserve_additional(&self, additional: usize, heap: &'v Heap) {
+    fn reserve_additional(&self, additional: usize, heap: Heap<'v>) {
         if likely(self.content.get().as_ref().remaining_capacity() >= additional) {
             return;
         }
@@ -176,13 +176,13 @@ impl<'v> ListData<'v> {
         self.reserve_additional_slow(additional, heap);
     }
 
-    pub(crate) fn double(&self, heap: &'v Heap) {
+    pub(crate) fn double(&self, heap: Heap<'v>) {
         self.reserve_additional(self.len(), heap);
         self.content.get().double();
     }
 
     #[inline]
-    pub(crate) fn extend<I: IntoIterator<Item = Value<'v>>>(&self, iter: I, heap: &'v Heap) {
+    pub(crate) fn extend<I: IntoIterator<Item = Value<'v>>>(&self, iter: I, heap: Heap<'v>) {
         match self.try_extend(iter.into_iter().map(Ok::<_, Infallible>), heap) {
             Ok(()) => {}
         }
@@ -192,7 +192,7 @@ impl<'v> ListData<'v> {
     pub(crate) fn try_extend<E, I: IntoIterator<Item = Result<Value<'v>, E>>>(
         &self,
         iter: I,
-        heap: &'v Heap,
+        heap: Heap<'v>,
     ) -> Result<(), E> {
         let iter = iter.into_iter();
         let (lo, hi) = iter.size_hint();
@@ -219,7 +219,7 @@ impl<'v> ListData<'v> {
         Ok(())
     }
 
-    pub(crate) fn push(&self, value: Value<'v>, heap: &'v Heap) {
+    pub(crate) fn push(&self, value: Value<'v>, heap: Heap<'v>) {
         self.reserve_additional(1, heap);
         self.content.get().push(value);
     }
@@ -228,7 +228,7 @@ impl<'v> ListData<'v> {
         self.content.get().clear();
     }
 
-    pub(crate) fn insert(&self, index: usize, value: Value<'v>, heap: &'v Heap) {
+    pub(crate) fn insert(&self, index: usize, value: Value<'v>, heap: Heap<'v>) {
         self.reserve_additional(1, heap);
         self.content.get().insert(index, value);
     }
@@ -239,7 +239,7 @@ impl<'v> ListData<'v> {
 }
 
 impl<'v, V: AllocValue<'v>> AllocValue<'v> for Vec<V> {
-    fn alloc_value(self, heap: &'v Heap) -> Value<'v> {
+    fn alloc_value(self, heap: Heap<'v>) -> Value<'v> {
         heap.alloc_list_iter(self.into_iter().map(|x| x.alloc_value(heap)))
     }
 }
@@ -265,7 +265,7 @@ impl<'a, 'v, V: 'a> AllocValue<'v> for &'a [V]
 where
     &'a V: AllocValue<'v>,
 {
-    fn alloc_value(self, heap: &'v Heap) -> Value<'v> {
+    fn alloc_value(self, heap: Heap<'v>) -> Value<'v> {
         heap.alloc_list_iter(self.iter().map(|x| x.alloc_value(heap)))
     }
 }
@@ -478,7 +478,7 @@ where
         }
     }
 
-    fn at(&self, index: Value, _heap: &'v Heap) -> crate::Result<Value<'v>> {
+    fn at(&self, index: Value, _heap: Heap<'v>) -> crate::Result<Value<'v>> {
         let i = convert_index(index, self.0.content().len() as i32)? as usize;
         Ok(self.0.content()[i])
     }
@@ -501,14 +501,14 @@ where
         start: Option<Value>,
         stop: Option<Value>,
         stride: Option<Value>,
-        heap: &'v Heap,
+        heap: Heap<'v>,
     ) -> crate::Result<Value<'v>> {
         let xs = self.0.content();
         let res = apply_slice(xs, start, stop, stride)?;
         Ok(heap.alloc_list(&res))
     }
 
-    unsafe fn iterate(&self, me: Value<'v>, _heap: &'v Heap) -> crate::Result<Value<'v>> {
+    unsafe fn iterate(&self, me: Value<'v>, _heap: Heap<'v>) -> crate::Result<Value<'v>> {
         unsafe { Ok(self.0.new_iter(me)) }
     }
 
@@ -516,7 +516,7 @@ where
         unsafe { self.0.iter_size_hint(index) }
     }
 
-    unsafe fn iter_next(&self, index: usize, _heap: &'v Heap) -> Option<Value<'v>> {
+    unsafe fn iter_next(&self, index: usize, _heap: Heap<'v>) -> Option<Value<'v>> {
         unsafe { self.0.iter_next(index) }
     }
 
@@ -526,12 +526,12 @@ where
         }
     }
 
-    fn add(&self, other: Value<'v>, heap: &'v Heap) -> Option<crate::Result<Value<'v>>> {
+    fn add(&self, other: Value<'v>, heap: Heap<'v>) -> Option<crate::Result<Value<'v>>> {
         ListRef::from_value(other)
             .map(|other| Ok(heap.alloc_list_concat(self.0.content(), other.content())))
     }
 
-    fn mul(&self, other: Value, heap: &'v Heap) -> Option<crate::Result<Value<'v>>> {
+    fn mul(&self, other: Value, heap: Heap<'v>) -> Option<crate::Result<Value<'v>>> {
         let l = match i32::unpack_value(other) {
             Ok(Some(l)) => l,
             Ok(None) => return None,
@@ -544,7 +544,7 @@ where
         Some(Ok(heap.alloc_list(&result)))
     }
 
-    fn rmul(&self, lhs: Value<'v>, heap: &'v Heap) -> Option<crate::Result<Value<'v>>> {
+    fn rmul(&self, lhs: Value<'v>, heap: Heap<'v>) -> Option<crate::Result<Value<'v>>> {
         self.mul(lhs, heap)
     }
 

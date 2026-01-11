@@ -139,7 +139,7 @@ impl Display for PathSegment {
 }
 
 impl PathSegment {
-    fn get<'v>(&self, v: &Value<'v>, heap: &'v Heap) -> crate::Result<Value<'v>> {
+    fn get<'v>(&self, v: &Value<'v>, heap: Heap<'v>) -> crate::Result<Value<'v>> {
         match self {
             PathSegment::Index(i) => v.at(heap.alloc(*i), heap).map_err(Into::into),
             PathSegment::Attr(key) => v.get_attr_error(key.as_str(), heap),
@@ -296,7 +296,7 @@ impl InspectVariableInfo {
         })
     }
 
-    fn try_from_struct_like<'v>(v: Value<'v>, heap: &'v Heap) -> crate::Result<Self> {
+    fn try_from_struct_like<'v>(v: Value<'v>, heap: Heap<'v>) -> crate::Result<Self> {
         Ok(Self {
             sub_values: v
                 .dir_attr()
@@ -310,7 +310,7 @@ impl InspectVariableInfo {
         })
     }
 
-    fn try_from_array_like<'v>(v: Value<'v>, heap: &'v Heap) -> crate::Result<Self> {
+    fn try_from_array_like<'v>(v: Value<'v>, heap: Heap<'v>) -> crate::Result<Self> {
         let len = v.length()?;
         Ok(Self {
             sub_values: (0..len)
@@ -324,7 +324,7 @@ impl InspectVariableInfo {
     }
 
     /// Trying to create InspectVariableInfo from a given starlark value
-    pub fn try_from_value<'v>(v: Value<'v>, heap: &'v Heap) -> crate::Result<Self> {
+    pub fn try_from_value<'v>(v: Value<'v>, heap: Heap<'v>) -> crate::Result<Self> {
         match v.get_type() {
             "dict" => Self::try_from_dict(
                 DictRef::from_value(v).ok_or(anyhow::Error::msg("not a dictionary"))?,

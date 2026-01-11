@@ -191,9 +191,9 @@ impl FrozenHeap {
     }
 }
 
-impl Heap {
+impl<'v> Heap<'v> {
     /// Allocate a tuple with the given elements.
-    pub(crate) fn alloc_tuple<'v>(&'v self, elems: &[Value<'v>]) -> Value<'v> {
+    pub(crate) fn alloc_tuple(self, elems: &[Value<'v>]) -> Value<'v> {
         if elems.is_empty() {
             return Value::new_empty_tuple();
         }
@@ -206,10 +206,7 @@ impl Heap {
         }
     }
 
-    pub(crate) fn alloc_tuple_iter<'v>(
-        &'v self,
-        elems: impl IntoIterator<Item = Value<'v>>,
-    ) -> Value<'v> {
+    pub(crate) fn alloc_tuple_iter(self, elems: impl IntoIterator<Item = Value<'v>>) -> Value<'v> {
         let elems = elems.into_iter();
         let (lower, upper) = elems.size_hint();
         if Some(lower) == upper {

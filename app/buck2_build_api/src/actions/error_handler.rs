@@ -87,7 +87,7 @@ impl<'v> StarlarkActionErrorContext<'v> {
 }
 
 impl<'v> AllocValue<'v> for StarlarkActionErrorContext<'v> {
-    fn alloc_value(self, heap: &'v Heap) -> Value<'v> {
+    fn alloc_value(self, heap: Heap<'v>) -> Value<'v> {
         heap.alloc_complex_no_freeze(self)
     }
 }
@@ -264,7 +264,7 @@ fn action_error_context_methods(builder: &mut MethodsBuilder) {
         #[starlark(require = named)] category: String,
         #[starlark(require = named)] error: String,
         #[starlark(require = named)] errorformats: UnpackListOrTuple<String>,
-        _heap: &'v Heap,
+        _heap: Heap<'v>,
     ) -> starlark::Result<Vec<StarlarkActionSubError>> {
         let error_lines = buck2_errorformat::split_lines(&error);
         let error_entries = buck2_errorformat::parse_error_format(errorformats.items, error_lines)
@@ -396,7 +396,7 @@ impl StarlarkActionSubError {
 }
 
 impl<'v> AllocValue<'v> for StarlarkActionSubError {
-    fn alloc_value(self, heap: &'v Heap) -> Value<'v> {
+    fn alloc_value(self, heap: Heap<'v>) -> Value<'v> {
         heap.alloc_complex_no_freeze(self)
     }
 }

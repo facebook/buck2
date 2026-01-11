@@ -38,7 +38,7 @@ fn instance() -> FrozenValue {
 }
 
 impl<'v> AllocValue<'v> for StarlarkProjectRoot {
-    fn alloc_value(self, _heap: &'v Heap) -> Value<'v> {
+    fn alloc_value(self, _heap: Heap<'v>) -> Value<'v> {
         instance().to_value()
     }
 }

@@ -100,7 +100,7 @@ pub(crate) enum LazyUqueryResult {
 }
 
 impl LazyUqueryResult {
-    pub(crate) fn into_value<'v>(self, heap: &'v Heap) -> buck2_error::Result<Value<'v>> {
+    pub(crate) fn into_value<'v>(self, heap: Heap<'v>) -> buck2_error::Result<Value<'v>> {
         match self {
             LazyUqueryResult::TestsOf(target_set) => Ok(heap.alloc(target_set)),
             LazyUqueryResult::AllPaths(target_set) => Ok(heap.alloc(target_set)),

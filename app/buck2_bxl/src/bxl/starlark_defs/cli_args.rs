@@ -233,7 +233,7 @@ impl JsonCliArgValueData {
         }
     }
 
-    pub(crate) fn as_starlark<'v>(&self, heap: &'v Heap) -> Value<'v> {
+    pub(crate) fn as_starlark<'v>(&self, heap: Heap<'v>) -> Value<'v> {
         match self {
             Self::Bool(b) => Value::new_bool(*b),
             // Verified when we constructed these from the `serde_json::Value`s
@@ -291,7 +291,7 @@ pub(crate) enum CliArgValue {
 }
 
 impl CliArgValue {
-    pub(crate) fn as_starlark<'v>(&self, heap: &'v Heap) -> Value<'v> {
+    pub(crate) fn as_starlark<'v>(&self, heap: Heap<'v>) -> Value<'v> {
         match self {
             CliArgValue::Bool(b) => Value::new_bool(*b),
             CliArgValue::Int(i) => heap.alloc(i.clone()),

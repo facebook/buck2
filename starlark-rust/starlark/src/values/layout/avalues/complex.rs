@@ -134,9 +134,9 @@ where
     }
 }
 
-impl Heap {
+impl<'v> Heap<'v> {
     /// Allocate a [`ComplexValue`] on the [`Heap`].
-    pub fn alloc_complex<'v, T>(&'v self, x: T) -> Value<'v>
+    pub fn alloc_complex<T>(self, x: T) -> Value<'v>
     where
         T: ComplexValue<'v>,
         T::Frozen: StarlarkValue<'static>,
@@ -148,7 +148,7 @@ impl Heap {
     }
 
     /// Allocate a value which can be traced (garbage collected), but cannot be frozen.
-    pub fn alloc_complex_no_freeze<'v, T>(&'v self, x: T) -> Value<'v>
+    pub fn alloc_complex_no_freeze<T>(self, x: T) -> Value<'v>
     where
         T: StarlarkValue<'v> + Trace<'v>,
         T: HeapSendable<'v>,

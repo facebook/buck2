@@ -87,7 +87,7 @@ pub(crate) async fn get_uquery_env(
 }
 
 impl<'v> AllocValue<'v> for StarlarkUQueryCtx<'v> {
-    fn alloc_value(self, heap: &'v Heap) -> Value<'v> {
+    fn alloc_value(self, heap: Heap<'v>) -> Value<'v> {
         heap.alloc_complex_no_freeze(self)
     }
 }

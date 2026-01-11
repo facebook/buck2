@@ -89,7 +89,7 @@ impl<'v> StarlarkValue<'v> for NoneType {
 }
 
 impl<'v> AllocValue<'v> for NoneType {
-    fn alloc_value(self, _heap: &'v Heap) -> Value<'v> {
+    fn alloc_value(self, _heap: Heap<'v>) -> Value<'v> {
         Value::new_none()
     }
 }

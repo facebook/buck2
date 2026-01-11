@@ -45,7 +45,7 @@ enum SetFromValue<'v> {
 impl<'v> SetFromValue<'v> {
     fn from_value(
         value: ValueOfUnchecked<'v, StarlarkIter<Value<'v>>>,
-        heap: &'v Heap,
+        heap: Heap<'v>,
     ) -> crate::Result<Self> {
         match SetRef::unpack_value_opt(value.get()) {
             Some(v) => Ok(SetFromValue::Ref(v)),
@@ -102,7 +102,7 @@ pub(crate) fn set_methods(builder: &mut MethodsBuilder) {
     fn union<'v>(
         this: SetRef<'v>,
         #[starlark(require=pos)] other: ValueOfUnchecked<'v, StarlarkIter<Value<'v>>>,
-        heap: &'v Heap,
+        heap: Heap<'v>,
     ) -> starlark::Result<SetData<'v>> {
         if this.aref.content.is_empty() {
             let other_set = SetFromValue::from_value(other, heap)?;
@@ -130,7 +130,7 @@ pub(crate) fn set_methods(builder: &mut MethodsBuilder) {
     fn intersection<'v>(
         this: SetRef<'v>,
         #[starlark(require=pos)] other: ValueOfUnchecked<'v, StarlarkIter<Value<'v>>>,
-        heap: &'v Heap,
+        heap: Heap<'v>,
     ) -> starlark::Result<SetData<'v>> {
         let other_set = SetFromValue::from_value(other, heap)?;
         let mut data = SetData::default();
@@ -157,7 +157,7 @@ pub(crate) fn set_methods(builder: &mut MethodsBuilder) {
     fn symmetric_difference<'v>(
         this: SetRef<'v>,
         #[starlark(require=pos)] other: ValueOfUnchecked<'v, StarlarkIter<Value<'v>>>,
-        heap: &'v Heap,
+        heap: Heap<'v>,
     ) -> starlark::Result<SetData<'v>> {
         let other_set = SetFromValue::from_value(other, heap)?;
 
@@ -219,7 +219,7 @@ pub(crate) fn set_methods(builder: &mut MethodsBuilder) {
     fn update<'v>(
         this: Value<'v>,
         #[starlark(require=pos)] other: ValueOfUnchecked<'v, StarlarkIter<Value<'v>>>,
-        heap: &'v Heap,
+        heap: Heap<'v>,
     ) -> starlark::Result<NoneType> {
         let is_self_ptr = other.get().ptr_eq(this);
         let mut this = SetMut::from_value(this)?;
@@ -344,7 +344,7 @@ pub(crate) fn set_methods(builder: &mut MethodsBuilder) {
     fn difference<'v>(
         this: SetRef<'v>,
         #[starlark(require=pos)] other: ValueOfUnchecked<'v, StarlarkIter<Value<'v>>>,
-        heap: &'v Heap,
+        heap: Heap<'v>,
     ) -> starlark::Result<SetData<'v>> {
         if this.aref.content.is_empty() {
             other.get().iterate(heap)?;
@@ -379,7 +379,7 @@ pub(crate) fn set_methods(builder: &mut MethodsBuilder) {
     fn issuperset<'v>(
         this: SetRef<'v>,
         #[starlark(require=pos)] other: ValueOfUnchecked<'v, StarlarkIter<Value<'v>>>,
-        heap: &'v Heap,
+        heap: Heap<'v>,
     ) -> starlark::Result<bool> {
         let other_var;
         let other = match SetRef::unpack_value_opt(other.get()) {
@@ -412,7 +412,7 @@ pub(crate) fn set_methods(builder: &mut MethodsBuilder) {
     fn issubset<'v>(
         this: SetRef<'v>,
         #[starlark(require=pos)] other: ValueOfUnchecked<'v, StarlarkIter<Value<'v>>>,
-        heap: &'v Heap,
+        heap: Heap<'v>,
     ) -> starlark::Result<bool> {
         if this.aref.content.is_empty() {
             other.get().iterate(heap)?;

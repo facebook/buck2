@@ -146,7 +146,7 @@ fn validation_spec_methods(builder: &mut MethodsBuilder) {
     /// Name identifying validation.
     fn name<'v>(
         this: &'v StarlarkValidationSpec,
-        heap: &'v Heap,
+        heap: Heap<'v>,
     ) -> starlark::Result<StringValue<'v>> {
         Ok(heap.alloc_str_intern(this.name()))
     }

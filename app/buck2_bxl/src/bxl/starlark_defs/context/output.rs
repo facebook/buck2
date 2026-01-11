@@ -568,7 +568,7 @@ impl<'v> StarlarkValue<'v> for StarlarkOutputStream {
 }
 
 impl<'v> AllocValue<'v> for StarlarkOutputStream {
-    fn alloc_value(self, heap: &'v Heap) -> Value<'v> {
+    fn alloc_value(self, heap: Heap<'v>) -> Value<'v> {
         heap.alloc_complex_no_freeze(self)
     }
 }
@@ -812,7 +812,7 @@ fn output_stream_methods(builder: &mut MethodsBuilder) {
         this: &'v StarlarkOutputStream,
         // TODO(nga): must be either positional or named.
         artifacts: EnsureMultipleArtifactsArg<'v>,
-        heap: &'v Heap,
+        heap: Heap<'v>,
     ) -> starlark::Result<Value<'v>> {
         match artifacts {
             EnsureMultipleArtifactsArg::None(_) => Ok(heap.alloc(Vec::<EnsuredArtifact>::new())),

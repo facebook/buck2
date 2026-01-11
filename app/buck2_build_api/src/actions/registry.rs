@@ -81,7 +81,7 @@ impl<'v> ActionsRegistry<'v> {
     pub fn declare_dynamic_output(
         &mut self,
         artifact: &BuildArtifact,
-        heap: &'v Heap,
+        heap: Heap<'v>,
     ) -> buck2_error::Result<DeclaredArtifact<'v>> {
         if !self.pending.is_empty() {
             return Err(internal_error!(
@@ -173,7 +173,7 @@ impl<'v> ActionsRegistry<'v> {
         output_type: OutputType,
         declaration_location: Option<FileSpan>,
         path_resolution_method: BuckOutPathKind,
-        heap: &'v Heap,
+        heap: Heap<'v>,
     ) -> buck2_error::Result<DeclaredArtifact<'v>> {
         let (path, hidden) = match prefix {
             None => (path, 0),

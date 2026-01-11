@@ -567,7 +567,7 @@ impl<'v> Value<'v> {
     }
 
     /// `x[index]`.
-    pub fn at(self, index: Value<'v>, heap: &'v Heap) -> crate::Result<Value<'v>> {
+    pub fn at(self, index: Value<'v>, heap: Heap<'v>) -> crate::Result<Value<'v>> {
         self.get_ref().at(index, heap)
     }
 
@@ -577,7 +577,7 @@ impl<'v> Value<'v> {
         start: Option<Value<'v>>,
         stop: Option<Value<'v>>,
         stride: Option<Value<'v>>,
-        heap: &'v Heap,
+        heap: Heap<'v>,
     ) -> crate::Result<Value<'v>> {
         self.get_ref().slice(start, stop, stride, heap)
     }
@@ -593,22 +593,22 @@ impl<'v> Value<'v> {
     }
 
     /// `+x`.
-    pub fn plus(self, heap: &'v Heap) -> crate::Result<Value<'v>> {
+    pub fn plus(self, heap: Heap<'v>) -> crate::Result<Value<'v>> {
         self.get_ref().plus(heap)
     }
 
     /// `-x`.
-    pub fn minus(self, heap: &'v Heap) -> crate::Result<Value<'v>> {
+    pub fn minus(self, heap: Heap<'v>) -> crate::Result<Value<'v>> {
         self.get_ref().minus(heap)
     }
 
     /// `x - other`.
-    pub fn sub(self, other: Value<'v>, heap: &'v Heap) -> crate::Result<Value<'v>> {
+    pub fn sub(self, other: Value<'v>, heap: Heap<'v>) -> crate::Result<Value<'v>> {
         self.get_ref().sub(other, heap)
     }
 
     /// `x * other`.
-    pub fn mul(self, other: Value<'v>, heap: &'v Heap) -> crate::Result<Value<'v>> {
+    pub fn mul(self, other: Value<'v>, heap: Heap<'v>) -> crate::Result<Value<'v>> {
         match self.get_ref().mul(other, heap) {
             Some(r) => r,
             _ => match other.get_ref().rmul(self, heap) {
@@ -619,47 +619,47 @@ impl<'v> Value<'v> {
     }
 
     /// `x % other`.
-    pub fn percent(self, other: Value<'v>, heap: &'v Heap) -> crate::Result<Value<'v>> {
+    pub fn percent(self, other: Value<'v>, heap: Heap<'v>) -> crate::Result<Value<'v>> {
         self.get_ref().percent(other, heap)
     }
 
     /// `x / other`.
-    pub fn div(self, other: Value<'v>, heap: &'v Heap) -> crate::Result<Value<'v>> {
+    pub fn div(self, other: Value<'v>, heap: Heap<'v>) -> crate::Result<Value<'v>> {
         self.get_ref().div(other, heap)
     }
 
     /// `x // other`.
-    pub fn floor_div(self, other: Value<'v>, heap: &'v Heap) -> crate::Result<Value<'v>> {
+    pub fn floor_div(self, other: Value<'v>, heap: Heap<'v>) -> crate::Result<Value<'v>> {
         self.get_ref().floor_div(other, heap)
     }
 
     /// `x & other`.
-    pub fn bit_and(self, other: Value<'v>, heap: &'v Heap) -> crate::Result<Value<'v>> {
+    pub fn bit_and(self, other: Value<'v>, heap: Heap<'v>) -> crate::Result<Value<'v>> {
         self.get_ref().bit_and(other, heap)
     }
 
     /// `x | other`.
-    pub fn bit_or(self, other: Value<'v>, heap: &'v Heap) -> crate::Result<Value<'v>> {
+    pub fn bit_or(self, other: Value<'v>, heap: Heap<'v>) -> crate::Result<Value<'v>> {
         self.get_ref().bit_or(other, heap)
     }
 
     /// `x ^ other`.
-    pub fn bit_xor(self, other: Value<'v>, heap: &'v Heap) -> crate::Result<Value<'v>> {
+    pub fn bit_xor(self, other: Value<'v>, heap: Heap<'v>) -> crate::Result<Value<'v>> {
         self.get_ref().bit_xor(other, heap)
     }
 
     /// `~x`.
-    pub fn bit_not(self, heap: &'v Heap) -> crate::Result<Value<'v>> {
+    pub fn bit_not(self, heap: Heap<'v>) -> crate::Result<Value<'v>> {
         self.get_ref().bit_not(heap)
     }
 
     /// `x << other`.
-    pub fn left_shift(self, other: Value<'v>, heap: &'v Heap) -> crate::Result<Value<'v>> {
+    pub fn left_shift(self, other: Value<'v>, heap: Heap<'v>) -> crate::Result<Value<'v>> {
         self.get_ref().left_shift(other, heap)
     }
 
     /// `x >> other`.
-    pub fn right_shift(self, other: Value<'v>, heap: &'v Heap) -> crate::Result<Value<'v>> {
+    pub fn right_shift(self, other: Value<'v>, heap: Heap<'v>) -> crate::Result<Value<'v>> {
         self.get_ref().right_shift(other, heap)
     }
 
@@ -799,7 +799,7 @@ impl<'v> Value<'v> {
 
     /// Add two [`Value`]s together. Will first try using [`add`](StarlarkValue::add),
     /// before falling back to [`radd`](StarlarkValue::radd).
-    pub fn add(self, other: Value<'v>, heap: &'v Heap) -> crate::Result<Value<'v>> {
+    pub fn add(self, other: Value<'v>, heap: Heap<'v>) -> crate::Result<Value<'v>> {
         // Fast special case for ints.
         if let Some(ls) = self.unpack_inline_int() {
             if let Some(rs) = other.unpack_inline_int() {
@@ -886,7 +886,7 @@ impl<'v> Value<'v> {
 
     /// Produce an iterable from a value.
     #[inline]
-    pub fn iterate(self, heap: &'v Heap) -> crate::Result<StarlarkIterator<'v>> {
+    pub fn iterate(self, heap: Heap<'v>) -> crate::Result<StarlarkIterator<'v>> {
         let iter = self.get_ref().iterate(self, heap)?;
         Ok(StarlarkIterator::new(iter, heap))
     }
@@ -947,7 +947,7 @@ impl<'v> Value<'v> {
     }
 
     /// Return the attribute with the given name.
-    pub fn get_attr(self, attribute: &str, heap: &'v Heap) -> crate::Result<Option<Value<'v>>> {
+    pub fn get_attr(self, attribute: &str, heap: Heap<'v>) -> crate::Result<Option<Value<'v>>> {
         let aref = self.get_ref();
         if let Some(methods) = aref.vtable().methods() {
             let attribute = Hashed::new(attribute);
@@ -961,7 +961,7 @@ impl<'v> Value<'v> {
     }
 
     /// Like `get_attr` but return an error if the attribute is not available.
-    pub fn get_attr_error(self, attribute: &str, heap: &'v Heap) -> crate::Result<Value<'v>> {
+    pub fn get_attr_error(self, attribute: &str, heap: Heap<'v>) -> crate::Result<Value<'v>> {
         match self.get_attr(attribute, heap)? {
             None => ValueError::unsupported_owned(self.get_type(), &format!(".{attribute}"), None),
             Some(x) => Ok(x),
@@ -970,7 +970,7 @@ impl<'v> Value<'v> {
 
     /// Query whether an attribute exists on a type. Should be equivalent to whether
     /// [`get_attr`](Value::get_attr) succeeds, but potentially more efficient.
-    pub fn has_attr(self, attribute: &str, heap: &'v Heap) -> bool {
+    pub fn has_attr(self, attribute: &str, heap: Heap<'v>) -> bool {
         let aref = self.get_ref();
         if let Some(methods) = aref.vtable().methods() {
             if methods.get(attribute).is_some() {

@@ -837,7 +837,7 @@ impl FrozenDef {
     pub(crate) fn post_freeze(
         &self,
         module: FrozenRef<FrozenModuleData>,
-        heap: &Heap,
+        heap: Heap<'_>,
         frozen_heap: &FrozenHeap,
     ) {
         // Module passed to this function is not always module where the function is declared:

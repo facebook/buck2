@@ -348,7 +348,7 @@ impl<'v, 'a> Arguments<'v, 'a> {
     /// Unpack all positional parameters into an iterator.
     pub fn positions<'b>(
         &'b self,
-        heap: &'v Heap,
+        heap: Heap<'v>,
     ) -> crate::Result<impl Iterator<Item = Value<'v>> + 'b> {
         let tail = match self.0.args {
             None => Either::Left(iter::empty()),
@@ -389,7 +389,7 @@ impl<'v, 'a> Arguments<'v, 'a> {
 
     /// Produce [`Err`] if there are any positional arguments.
     #[inline(always)]
-    pub fn no_positional_args(&self, heap: &'v Heap) -> crate::Result<()> {
+    pub fn no_positional_args(&self, heap: Heap<'v>) -> crate::Result<()> {
         let [] = self.positional(heap)?;
         Ok(())
     }
@@ -431,7 +431,7 @@ impl<'v, 'a> Arguments<'v, 'a> {
     #[inline(always)]
     pub(crate) fn positional<const N: usize>(
         &self,
-        heap: &'v Heap,
+        heap: Heap<'v>,
     ) -> crate::Result<[Value<'v>; N]> {
         let (positional, []) = self.optional::<N, 0>(heap)?;
         Ok(positional)
@@ -443,13 +443,13 @@ impl<'v, 'a> Arguments<'v, 'a> {
     #[inline(always)]
     pub(crate) fn optional<const REQUIRED: usize, const OPTIONAL: usize>(
         &self,
-        heap: &'v Heap,
+        heap: Heap<'v>,
     ) -> crate::Result<([Value<'v>; REQUIRED], [Option<Value<'v>>; OPTIONAL])> {
         #[cold]
         #[inline(never)]
         fn rare<'v, const REQUIRED: usize, const OPTIONAL: usize>(
             x: &Arguments<'v, '_>,
-            heap: &'v Heap,
+            heap: Heap<'v>,
         ) -> crate::Result<([Value<'v>; REQUIRED], [Option<Value<'v>>; OPTIONAL])> {
             // Very sad that we allocate into a vector, but I expect calling into a small positional argument
             // with a *args is very rare.
@@ -492,7 +492,7 @@ impl<'v, 'a> Arguments<'v, 'a> {
     /// Collect 1 positional arguments from the [`Arguments`], failing if there are too many/few
     /// arguments. Ignores named arguments.
     #[inline(always)]
-    pub fn positional1(&self, heap: &'v Heap) -> crate::Result<Value<'v>> {
+    pub fn positional1(&self, heap: Heap<'v>) -> crate::Result<Value<'v>> {
         // Could be implemented more directly, let's see if profiling shows it up
         let [x] = self.positional(heap)?;
         Ok(x)
@@ -501,7 +501,7 @@ impl<'v, 'a> Arguments<'v, 'a> {
     /// Collect up to 1 optional arguments from the [`Arguments`], failing if there are too many
     /// arguments. Ignores named arguments.
     #[inline(always)]
-    pub(crate) fn optional1(&self, heap: &'v Heap) -> crate::Result<Option<Value<'v>>> {
+    pub(crate) fn optional1(&self, heap: Heap<'v>) -> crate::Result<Option<Value<'v>>> {
         // Could be implemented more directly, let's see if profiling shows it up
         let ([], [x]) = self.optional(heap)?;
         Ok(x)
@@ -525,7 +525,7 @@ mod tests {
     #[test]
     fn test_parameter_unpack() {
         Heap::temp(|heap| {
-            fn f<'v, F: Fn(&Arguments<'v, '_>), const N: usize>(heap: &'v Heap, op: F) {
+            fn f<'v, F: Fn(&Arguments<'v, '_>), const N: usize>(heap: Heap<'v>, op: F) {
                 for i in 0..=N {
                     let mut p = Arguments::default();
                     let pos = (0..i)

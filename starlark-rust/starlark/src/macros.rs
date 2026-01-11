@@ -24,7 +24,7 @@ macro_rules! starlark_complex_value {
         $crate::__macro_refs::item! {
             impl<'v> $crate::values::AllocValue<'v> for $x<'v> {
                 #[inline]
-                fn alloc_value(self, heap: &'v $crate::values::Heap) -> $crate::values::Value<'v> {
+                fn alloc_value(self, heap: $crate::values::Heap<'v>) -> $crate::values::Value<'v> {
                     heap.alloc_complex(self)
                 }
             }
@@ -97,7 +97,7 @@ macro_rules! starlark_complex_values {
         $crate::__macro_refs::item! {
             impl<'v> $crate::values::AllocValue<'v> for $x<'v> {
                 #[inline]
-                fn alloc_value(self, heap: &'v $crate::values::Heap) -> $crate::values::Value<'v> {
+                fn alloc_value(self, heap: $crate::values::Heap<'v>) -> $crate::values::Value<'v> {
                     heap.alloc_complex(self)
                 }
             }
@@ -150,7 +150,7 @@ macro_rules! starlark_complex_values {
 /// impl<'v> StarlarkValue<'v> for MyObject {
 ///     // We can choose to implement whichever methods we want.
 ///     // All other operations will result in runtime errors.
-///     fn plus(&self, heap: &'v Heap) -> starlark::Result<Value<'v>> {
+///     fn plus(&self, heap: Heap<'v>) -> starlark::Result<Value<'v>> {
 ///         Ok(heap.alloc(MyObject(self.0.to_uppercase())))
 ///     }
 /// }
@@ -180,7 +180,7 @@ macro_rules! starlark_simple_value {
         $crate::__macro_refs::item! {
             impl<'v> $crate::values::AllocValue<'v> for $x {
                 #[inline]
-                fn alloc_value(self, heap: &'v $crate::values::Heap) -> $crate::values::Value<'v> {
+                fn alloc_value(self, heap: $crate::values::Heap<'v>) -> $crate::values::Value<'v> {
                     heap.alloc_simple(self)
                 }
             }

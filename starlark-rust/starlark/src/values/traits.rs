@@ -448,7 +448,7 @@ pub trait StarlarkValue<'v>:
     }
 
     /// Return the result of `a[index]` if `a` is indexable.
-    fn at(&self, index: Value<'v>, _heap: &'v Heap) -> crate::Result<Value<'v>> {
+    fn at(&self, index: Value<'v>, _heap: Heap<'v>) -> crate::Result<Value<'v>> {
         ValueError::unsupported_with(self, "[]", index)
     }
 
@@ -457,7 +457,7 @@ pub trait StarlarkValue<'v>:
         &self,
         _index0: Value<'v>,
         _index1: Value<'v>,
-        _heap: &'v Heap,
+        _heap: Heap<'v>,
         _private: Private,
     ) -> crate::Result<Value<'v>> {
         ValueError::unsupported(self, "[,]")
@@ -492,7 +492,7 @@ pub trait StarlarkValue<'v>:
         _start: Option<Value<'v>>,
         _stop: Option<Value<'v>>,
         _stride: Option<Value<'v>>,
-        _heap: &'v Heap,
+        _heap: Heap<'v>,
     ) -> crate::Result<Value<'v>> {
         ValueError::unsupported(self, "[::]")
     }
@@ -500,7 +500,7 @@ pub trait StarlarkValue<'v>:
     /// Implement iteration over the value of this container by providing
     /// the values in a `Vec`.
     #[starlark_internal_vtable(skip)]
-    fn iterate_collect(&self, _heap: &'v Heap) -> crate::Result<Vec<Value<'v>>> {
+    fn iterate_collect(&self, _heap: Heap<'v>) -> crate::Result<Vec<Value<'v>>> {
         ValueError::unsupported(self, "(iter)")
     }
 
@@ -529,7 +529,7 @@ pub trait StarlarkValue<'v>:
     /// So implementations of iterators may acquire mutation lock in `iterate`,
     /// assume that it is held in `iter_next`, and release it in `iter_stop`.
     /// Obviously, there are no such guarantees if these functions are called directly.
-    unsafe fn iterate(&self, _me: Value<'v>, heap: &'v Heap) -> crate::Result<Value<'v>> {
+    unsafe fn iterate(&self, _me: Value<'v>, heap: Heap<'v>) -> crate::Result<Value<'v>> {
         Ok(heap.alloc_tuple(&self.iterate_collect(heap)?))
     }
 
@@ -550,7 +550,7 @@ pub trait StarlarkValue<'v>:
     /// Default implementation panics.
     ///
     /// This function is only called before [`iter_stop`](Self::iter_stop).
-    unsafe fn iter_next(&self, _index: usize, _heap: &'v Heap) -> Option<Value<'v>> {
+    unsafe fn iter_next(&self, _index: usize, _heap: Heap<'v>) -> Option<Value<'v>> {
         panic!(
             "iter_next called on non-iterable value of type {}",
             Self::TYPE
@@ -591,7 +591,7 @@ pub trait StarlarkValue<'v>:
     /// must be consistent - if you implement one, you should probably implement all three.
     ///
     /// This operations must have no side effects, because it can be called speculatively.
-    fn get_attr(&self, _attribute: &str, _heap: &'v Heap) -> Option<Value<'v>> {
+    fn get_attr(&self, _attribute: &str, _heap: Heap<'v>) -> Option<Value<'v>> {
         None
     }
 
@@ -601,7 +601,7 @@ pub trait StarlarkValue<'v>:
     ///
     /// This function is optional, but if it is implemented, it must be consistent with
     /// [`get_attr`](Self::get_attr).
-    fn get_attr_hashed(&self, attribute: Hashed<&str>, heap: &'v Heap) -> Option<Value<'v>> {
+    fn get_attr_hashed(&self, attribute: Hashed<&str>, heap: Heap<'v>) -> Option<Value<'v>> {
         self.get_attr(attribute.key(), heap)
     }
 
@@ -613,7 +613,7 @@ pub trait StarlarkValue<'v>:
     /// must be consistent.
     ///
     /// Default implementation of this function delegates to [`get_attr`](Self::get_attr).
-    fn has_attr(&self, attribute: &str, heap: &'v Heap) -> bool {
+    fn has_attr(&self, attribute: &str, heap: Heap<'v>) -> bool {
         self.get_attr(attribute, heap).is_some()
     }
 
@@ -650,7 +650,7 @@ pub trait StarlarkValue<'v>:
     /// +1 == 1
     /// # "#);
     /// ```
-    fn plus(&self, _heap: &'v Heap) -> crate::Result<Value<'v>> {
+    fn plus(&self, _heap: Heap<'v>) -> crate::Result<Value<'v>> {
         ValueError::unsupported(self, "+")
     }
 
@@ -663,13 +663,13 @@ pub trait StarlarkValue<'v>:
     /// -(1) == -1
     /// # "#);
     /// ```
-    fn minus(&self, _heap: &'v Heap) -> crate::Result<Value<'v>> {
+    fn minus(&self, _heap: Heap<'v>) -> crate::Result<Value<'v>> {
         ValueError::unsupported(self, "-")
     }
 
     /// Add with the arguments the other way around.
     /// Normal `add` should return `None` in order for it to be evaluated.
-    fn radd(&self, _lhs: Value<'v>, _heap: &'v Heap) -> Option<crate::Result<Value<'v>>> {
+    fn radd(&self, _lhs: Value<'v>, _heap: Heap<'v>) -> Option<crate::Result<Value<'v>>> {
         None
     }
 
@@ -687,7 +687,7 @@ pub trait StarlarkValue<'v>:
     /// (1, 2, 3) + (2, 3) == (1, 2, 3, 2, 3)
     /// # "#);
     /// ```
-    fn add(&self, _rhs: Value<'v>, _heap: &'v Heap) -> Option<crate::Result<Value<'v>>> {
+    fn add(&self, _rhs: Value<'v>, _heap: Heap<'v>) -> Option<crate::Result<Value<'v>>> {
         None
     }
 
@@ -700,12 +700,12 @@ pub trait StarlarkValue<'v>:
     /// 1 - 2 == -1
     /// # "#);
     /// ```
-    fn sub(&self, other: Value<'v>, _heap: &'v Heap) -> crate::Result<Value<'v>> {
+    fn sub(&self, other: Value<'v>, _heap: Heap<'v>) -> crate::Result<Value<'v>> {
         ValueError::unsupported_with(self, "-", other)
     }
 
     /// Called on `rhs` of `lhs * rhs` when `lhs.mul` returns `None`.
-    fn rmul(&self, lhs: Value<'v>, heap: &'v Heap) -> Option<crate::Result<Value<'v>>> {
+    fn rmul(&self, lhs: Value<'v>, heap: Heap<'v>) -> Option<crate::Result<Value<'v>>> {
         let _ignore = (lhs, heap);
         None
     }
@@ -724,7 +724,7 @@ pub trait StarlarkValue<'v>:
     /// (1, 2, 3) * 3 == (1, 2, 3, 1, 2, 3, 1, 2, 3)
     /// # "#);
     /// ```
-    fn mul(&self, _rhs: Value<'v>, _heap: &'v Heap) -> Option<crate::Result<Value<'v>>> {
+    fn mul(&self, _rhs: Value<'v>, _heap: Heap<'v>) -> Option<crate::Result<Value<'v>>> {
         None
     }
 
@@ -738,7 +738,7 @@ pub trait StarlarkValue<'v>:
     /// 7 / 2 == 3.5
     /// # "#);
     /// ```
-    fn div(&self, other: Value<'v>, _heap: &'v Heap) -> crate::Result<Value<'v>> {
+    fn div(&self, other: Value<'v>, _heap: Heap<'v>) -> crate::Result<Value<'v>> {
         ValueError::unsupported_with(self, "/", other)
     }
 
@@ -769,7 +769,7 @@ pub trait StarlarkValue<'v>:
     /// "test" % () == "test"
     /// # "#);
     /// ```
-    fn percent(&self, other: Value<'v>, _heap: &'v Heap) -> crate::Result<Value<'v>> {
+    fn percent(&self, other: Value<'v>, _heap: Heap<'v>) -> crate::Result<Value<'v>> {
         ValueError::unsupported_with(self, "%", other)
     }
 
@@ -790,12 +790,12 @@ pub trait StarlarkValue<'v>:
     /// 3.0 // 2.0 == 1.0
     /// # "#);
     /// ```
-    fn floor_div(&self, other: Value<'v>, _heap: &'v Heap) -> crate::Result<Value<'v>> {
+    fn floor_div(&self, other: Value<'v>, _heap: Heap<'v>) -> crate::Result<Value<'v>> {
         ValueError::unsupported_with(self, "//", other)
     }
 
     /// Bitwise `&` operator.
-    fn bit_and(&self, other: Value<'v>, _heap: &'v Heap) -> crate::Result<Value<'v>> {
+    fn bit_and(&self, other: Value<'v>, _heap: Heap<'v>) -> crate::Result<Value<'v>> {
         ValueError::unsupported_with(self, "&", other)
     }
 
@@ -811,27 +811,27 @@ pub trait StarlarkValue<'v>:
     /// {1: 2} | {1: 3} == {1: 3}
     /// # "#);
     /// ```
-    fn bit_or(&self, other: Value<'v>, _heap: &'v Heap) -> crate::Result<Value<'v>> {
+    fn bit_or(&self, other: Value<'v>, _heap: Heap<'v>) -> crate::Result<Value<'v>> {
         ValueError::unsupported_with(self, "|", other)
     }
 
     /// Bitwise `^` operator.
-    fn bit_xor(&self, other: Value<'v>, _heap: &'v Heap) -> crate::Result<Value<'v>> {
+    fn bit_xor(&self, other: Value<'v>, _heap: Heap<'v>) -> crate::Result<Value<'v>> {
         ValueError::unsupported_with(self, "^", other)
     }
 
     /// Bitwise `~` operator.
-    fn bit_not(&self, _heap: &'v Heap) -> crate::Result<Value<'v>> {
+    fn bit_not(&self, _heap: Heap<'v>) -> crate::Result<Value<'v>> {
         ValueError::unsupported(self, "~")
     }
 
     /// Bitwise `<<` operator.
-    fn left_shift(&self, other: Value<'v>, _heap: &'v Heap) -> crate::Result<Value<'v>> {
+    fn left_shift(&self, other: Value<'v>, _heap: Heap<'v>) -> crate::Result<Value<'v>> {
         ValueError::unsupported_with(self, "<<", other)
     }
 
     /// Bitwise `>>` operator.
-    fn right_shift(&self, other: Value<'v>, _heap: &'v Heap) -> crate::Result<Value<'v>> {
+    fn right_shift(&self, other: Value<'v>, _heap: Heap<'v>) -> crate::Result<Value<'v>> {
         ValueError::unsupported_with(self, ">>", other)
     }
 

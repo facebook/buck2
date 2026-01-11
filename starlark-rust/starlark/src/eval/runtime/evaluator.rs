@@ -521,7 +521,7 @@ impl<'v, 'a, 'e: 'a> Evaluator<'v, 'a, 'e> {
     }
 
     /// The active heap where [`Value`]s are allocated.
-    pub fn heap(&self) -> &'v Heap {
+    pub fn heap(&self) -> Heap<'v> {
         self.module_env.heap()
     }
 

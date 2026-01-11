@@ -145,7 +145,7 @@ impl<'v> StarlarkValue<'v> for AnalysisActions<'v> {
 }
 
 impl<'v> AllocValue<'v> for AnalysisActions<'v> {
-    fn alloc_value(self, heap: &'v Heap) -> Value<'v> {
+    fn alloc_value(self, heap: Heap<'v>) -> Value<'v> {
         heap.alloc_complex_no_freeze(self)
     }
 }
@@ -197,7 +197,7 @@ impl<'v> Display for AnalysisContext<'v> {
 impl<'v> AnalysisContext<'v> {
     /// The context that is provided to users' UDR implementation functions. Comprised of things like attribute values, actions, etc
     fn new(
-        heap: &'v Heap,
+        heap: Heap<'v>,
         attrs: Option<ValueOfUnchecked<'v, StructRef<'static>>>,
         label: Option<ValueTyped<'v, StarlarkConfiguredProvidersLabel>>,
         plugins: Option<ValueTypedComplex<'v, AnalysisPlugins<'v>>>,
@@ -218,7 +218,7 @@ impl<'v> AnalysisContext<'v> {
     }
 
     pub fn prepare(
-        heap: &'v Heap,
+        heap: Heap<'v>,
         attrs: Option<ValueOfUnchecked<'v, StructRef<'static>>>,
         label: Option<ConfiguredTargetLabel>,
         plugins: Option<ValueTypedComplex<'v, AnalysisPlugins<'v>>>,
@@ -258,7 +258,7 @@ impl<'v> StarlarkValue<'v> for AnalysisContext<'v> {
 }
 
 impl<'v> AllocValue<'v> for AnalysisContext<'v> {
-    fn alloc_value(self, heap: &'v Heap) -> Value<'v> {
+    fn alloc_value(self, heap: Heap<'v>) -> Value<'v> {
         heap.alloc_complex_no_freeze(self)
     }
 }

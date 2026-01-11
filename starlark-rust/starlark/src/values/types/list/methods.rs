@@ -55,7 +55,7 @@ pub(crate) fn list_methods(builder: &mut MethodsBuilder) {
     fn append<'v>(
         this: Value<'v>,
         #[starlark(require = pos)] el: Value<'v>,
-        heap: &'v Heap,
+        heap: Heap<'v>,
     ) -> anyhow::Result<NoneType> {
         let this = ListData::from_value_mut(this)?;
         this.push(el, heap);
@@ -103,7 +103,7 @@ pub(crate) fn list_methods(builder: &mut MethodsBuilder) {
     fn extend<'v>(
         this: Value<'v>,
         #[starlark(require = pos)] other: ValueOfUnchecked<'v, StarlarkIter<Value<'v>>>,
-        heap: &'v Heap,
+        heap: Heap<'v>,
     ) -> starlark::Result<NoneType> {
         let res = ListData::from_value_mut(this)?;
         if this.ptr_eq(other.get()) {
@@ -188,7 +188,7 @@ pub(crate) fn list_methods(builder: &mut MethodsBuilder) {
         this: Value<'v>,
         #[starlark(require = pos)] index: i32,
         #[starlark(require = pos)] el: Value<'v>,
-        heap: &'v Heap,
+        heap: Heap<'v>,
     ) -> anyhow::Result<NoneType> {
         let this = ListData::from_value_mut(this)?;
         let index = convert_index(this.len() as i32, index);

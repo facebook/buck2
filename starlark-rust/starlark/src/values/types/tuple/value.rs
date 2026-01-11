@@ -176,7 +176,7 @@ where
         }
     }
 
-    fn at(&self, index: Value, _heap: &'v Heap) -> crate::Result<Value<'v>> {
+    fn at(&self, index: Value, _heap: Heap<'v>) -> crate::Result<Value<'v>> {
         let i = convert_index(index, self.len() as i32)? as usize;
         Ok(self.content()[i].to_value())
     }
@@ -199,12 +199,12 @@ where
         start: Option<Value>,
         stop: Option<Value>,
         stride: Option<Value>,
-        heap: &'v Heap,
+        heap: Heap<'v>,
     ) -> crate::Result<Value<'v>> {
         Ok(heap.alloc_tuple(&apply_slice(coerce(self.content()), start, stop, stride)?))
     }
 
-    unsafe fn iterate(&self, me: Value<'v>, _heap: &'v Heap) -> crate::Result<Value<'v>> {
+    unsafe fn iterate(&self, me: Value<'v>, _heap: Heap<'v>) -> crate::Result<Value<'v>> {
         Ok(me)
     }
 
@@ -214,13 +214,13 @@ where
         (rem, Some(rem))
     }
 
-    unsafe fn iter_next(&self, index: usize, _heap: &'v Heap) -> Option<Value<'v>> {
+    unsafe fn iter_next(&self, index: usize, _heap: Heap<'v>) -> Option<Value<'v>> {
         self.content().get(index).map(|v| v.to_value())
     }
 
     unsafe fn iter_stop(&self) {}
 
-    fn add(&self, other: Value<'v>, heap: &'v Heap) -> Option<crate::Result<Value<'v>>> {
+    fn add(&self, other: Value<'v>, heap: Heap<'v>) -> Option<crate::Result<Value<'v>>> {
         if let Some(other) = Tuple::from_value(other) {
             let mut result = Vec::with_capacity(self.len() + other.len());
             for x in self.iter() {
@@ -235,7 +235,7 @@ where
         }
     }
 
-    fn mul(&self, other: Value, heap: &'v Heap) -> Option<crate::Result<Value<'v>>> {
+    fn mul(&self, other: Value, heap: Heap<'v>) -> Option<crate::Result<Value<'v>>> {
         let l = match i32::unpack_value(other) {
             Ok(Some(l)) => l,
             Ok(None) => return None,
@@ -248,7 +248,7 @@ where
         Some(Ok(heap.alloc_tuple(&result)))
     }
 
-    fn rmul(&self, lhs: Value<'v>, heap: &'v Heap) -> Option<crate::Result<Value<'v>>> {
+    fn rmul(&self, lhs: Value<'v>, heap: Heap<'v>) -> Option<crate::Result<Value<'v>>> {
         self.mul(lhs, heap)
     }
 

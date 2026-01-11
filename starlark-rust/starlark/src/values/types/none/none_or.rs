@@ -87,7 +87,7 @@ impl<'v, T: UnpackValue<'v>> UnpackValue<'v> for NoneOr<T> {
 }
 
 impl<'v, T: AllocValue<'v>> AllocValue<'v> for NoneOr<T> {
-    fn alloc_value(self, heap: &'v Heap) -> Value<'v> {
+    fn alloc_value(self, heap: Heap<'v>) -> Value<'v> {
         match self {
             NoneOr::None => Value::new_none(),
             NoneOr::Other(x) => x.alloc_value(heap),

@@ -44,7 +44,7 @@ pub(crate) fn any_artifact_methods(builder: &mut MethodsBuilder) {
     #[starlark(attribute)]
     fn basename<'v>(
         this: &'v dyn StarlarkArtifactLike<'v>,
-        heap: &'v Heap,
+        heap: Heap<'v>,
     ) -> starlark::Result<StringValue<'v>> {
         Ok(this.with_filename(&|filename| heap.alloc_str(filename.as_str()))?)
     }
@@ -54,7 +54,7 @@ pub(crate) fn any_artifact_methods(builder: &mut MethodsBuilder) {
     #[starlark(attribute)]
     fn extension<'v>(
         this: &'v dyn StarlarkArtifactLike<'v>,
-        heap: &'v Heap,
+        heap: Heap<'v>,
     ) -> starlark::Result<StringValue<'v>> {
         Ok(this.with_filename(&|filename| match filename.extension() {
             None => heap.alloc_str(""),
@@ -91,7 +91,7 @@ pub(crate) fn any_artifact_methods(builder: &mut MethodsBuilder) {
     #[starlark(attribute)]
     fn short_path<'v>(
         this: &'v dyn StarlarkArtifactLike<'v>,
-        heap: &Heap,
+        heap: Heap<'_>,
     ) -> starlark::Result<StringValue<'v>> {
         Ok(this.with_short_path(&|short_path| heap.alloc_str(short_path.as_str()))?)
     }

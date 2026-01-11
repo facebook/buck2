@@ -85,7 +85,7 @@ mod vtable;
 ///
 /// There are two special arguments, distinguished by their type, which provides access to interpreter state:
 ///
-/// * `heap: &'v Heap` gives access to the Starlark heap, for allocating things.
+/// * `heap: Heap<'v>` gives access to the Starlark heap, for allocating things.
 /// * `eval: &mut Evaluator<'v, '_, '_>` gives access to the Starlark evaluator, which can be used to look at interpreter state.
 ///
 /// A module can be used to define globals (with `GlobalsBuilder`) or methods on an object (with `MethodsBuilder`).
@@ -103,7 +103,7 @@ mod vtable;
 ///     fn r#enum<'v>(
 ///         this: Value<'v>,
 ///         #[starlark(require = named, default = 3)] index: i32,
-///         heap: &'v Heap,
+///         heap: Heap<'v>,
 ///     ) -> anyhow::Result<StringValue<'v>> {
 ///         Ok(heap.alloc_str(&format!("{this} {index}")))
 ///     }

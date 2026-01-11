@@ -47,7 +47,7 @@ use crate::values::type_repr::StarlarkTypeRepr;
 /// use starlark::values::structs::AllocStruct;
 ///
 /// # use starlark::values::{FrozenHeap, Heap};
-/// # fn alloc(heap: &Heap, frozen_heap: &FrozenHeap) {
+/// # fn alloc(heap: Heap<'_>, frozen_heap: &FrozenHeap) {
 /// let s = heap.alloc(AllocStruct([("a", 1), ("b", 2)]));
 /// let fs = frozen_heap.alloc(AllocStruct([("a", 1), ("b", 2)]));
 /// # }
@@ -76,7 +76,7 @@ where
     K: AllocStringValue<'v>,
     V: AllocValue<'v>,
 {
-    fn alloc_value(self, heap: &'v Heap) -> Value<'v> {
+    fn alloc_value(self, heap: Heap<'v>) -> Value<'v> {
         let iter = self.0.into_iter();
         let mut fields = SmallMap::with_capacity(iter.size_hint().0);
         for (k, v) in iter {

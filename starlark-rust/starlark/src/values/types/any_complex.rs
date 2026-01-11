@@ -98,7 +98,7 @@ where
     <Self as Freeze>::Frozen: StarlarkValue<'static>,
     <Self as ProvidesStaticType<'v>>::StaticType: Send,
 {
-    fn alloc_value(self, heap: &'v Heap) -> Value<'v> {
+    fn alloc_value(self, heap: Heap<'v>) -> Value<'v> {
         heap.alloc_complex(self)
     }
 }

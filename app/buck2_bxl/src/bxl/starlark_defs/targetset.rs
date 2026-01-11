@@ -50,13 +50,13 @@ unsafe impl<'a, Node: QueryTarget + 'static> ProvidesStaticType<'a> for Starlark
 }
 
 impl<Node: QueryTarget + AllocNode> StarlarkTargetSet<Node> {
-    pub(crate) fn iter<'a, 'v>(&'a self, heap: &'v Heap) -> impl Iterator<Item = Value<'v>> + 'a
+    pub(crate) fn iter<'a, 'v>(&'a self, heap: Heap<'v>) -> impl Iterator<Item = Value<'v>> + 'a
     where
         'v: 'a,
     {
         self.0
             .iter()
-            .map(|target_node| target_node.dupe().alloc(heap))
+            .map(move |target_node| target_node.dupe().alloc(heap))
     }
 }
 
@@ -85,7 +85,7 @@ impl<'v, Node: NodeLike> UnpackValue<'v> for &'v StarlarkTargetSet<Node> {
 }
 
 impl<'v, Node: NodeLike> AllocValue<'v> for StarlarkTargetSet<Node> {
-    fn alloc_value(self, heap: &'v Heap) -> Value<'v> {
+    fn alloc_value(self, heap: Heap<'v>) -> Value<'v> {
         heap.alloc_simple(self)
     }
 }
@@ -99,11 +99,11 @@ impl<'v, Node: NodeLike> StarlarkValue<'v> for StarlarkTargetSet<Node> {
         RES.methods(starlark_target_set_methods)
     }
 
-    fn iterate_collect(&self, heap: &'v Heap) -> starlark::Result<Vec<Value<'v>>> {
+    fn iterate_collect(&self, heap: Heap<'v>) -> starlark::Result<Vec<Value<'v>>> {
         Ok(self.iter(heap).collect())
     }
 
-    fn at(&self, index: Value<'v>, heap: &'v Heap) -> starlark::Result<Value<'v>> {
+    fn at(&self, index: Value<'v>, heap: Heap<'v>) -> starlark::Result<Value<'v>> {
         let i = i32::unpack_value_err(index)?;
         if let Ok(i) = usize::try_from(i) {
             if let Some(node) = self.0.get_index(i) {
@@ -117,13 +117,13 @@ impl<'v, Node: NodeLike> StarlarkValue<'v> for StarlarkTargetSet<Node> {
         self.0.len().try_into().map_err(starlark::Error::new_other)
     }
 
-    fn add(&self, other: Value<'v>, heap: &'v Heap) -> Option<starlark::Result<Value<'v>>> {
+    fn add(&self, other: Value<'v>, heap: Heap<'v>) -> Option<starlark::Result<Value<'v>>> {
         let other = other.downcast_ref::<Self>()?;
         let union = self.0.union(&other.0);
         Some(Ok(heap.alloc(Self(union))))
     }
 
-    fn sub(&self, other: Value<'v>, heap: &'v Heap) -> starlark::Result<Value<'v>> {
+    fn sub(&self, other: Value<'v>, heap: Heap<'v>) -> starlark::Result<Value<'v>> {
         let Some(other) = other.downcast_ref::<Self>() else {
             return ValueError::unsupported_with(self, "-", other);
         };
@@ -138,7 +138,7 @@ impl<'v, Node: NodeLike> StarlarkValue<'v> for StarlarkTargetSet<Node> {
         }
     }
 
-    fn bit_and(&self, other: Value<'v>, heap: &'v Heap) -> starlark::Result<Value<'v>> {
+    fn bit_and(&self, other: Value<'v>, heap: Heap<'v>) -> starlark::Result<Value<'v>> {
         let Some(other) = other.downcast_ref::<Self>() else {
             return ValueError::unsupported_with(self, "&", other);
         };

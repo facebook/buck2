@@ -106,7 +106,7 @@ fn coerced_attr_methods(builder: &mut MethodsBuilder) {
     // FIXME(JakobDegen): Strings as types are mostly dead, users should be getting the value and
     // using `isinstance` instead. Remove this.
     #[starlark(attribute)]
-    fn r#type<'v>(this: &StarlarkCoercedAttr, heap: &'v Heap) -> starlark::Result<&'v str> {
+    fn r#type<'v>(this: &StarlarkCoercedAttr, heap: Heap<'v>) -> starlark::Result<&'v str> {
         Ok(this.0.to_value(this.1.dupe(), heap)?.get_type())
     }
 
@@ -119,18 +119,18 @@ fn coerced_attr_methods(builder: &mut MethodsBuilder) {
     ///     node = ctx.uquery().owner("bin/TARGETS")[0]
     ///     ctx.output.print(node.attrs.name.value())
     /// ```
-    fn value<'v>(this: &StarlarkCoercedAttr, heap: &'v Heap) -> starlark::Result<Value<'v>> {
+    fn value<'v>(this: &StarlarkCoercedAttr, heap: Heap<'v>) -> starlark::Result<Value<'v>> {
         Ok(this.0.to_value(this.1.dupe(), heap)?)
     }
 }
 
 pub trait CoercedAttrExt {
-    fn to_value<'v>(&self, pkg: PackageLabel, heap: &'v Heap) -> buck2_error::Result<Value<'v>>;
+    fn to_value<'v>(&self, pkg: PackageLabel, heap: Heap<'v>) -> buck2_error::Result<Value<'v>>;
 }
 
 impl CoercedAttrExt for CoercedAttr {
     /// Converts the coerced attr to a starlark value
-    fn to_value<'v>(&self, pkg: PackageLabel, heap: &'v Heap) -> buck2_error::Result<Value<'v>> {
+    fn to_value<'v>(&self, pkg: PackageLabel, heap: Heap<'v>) -> buck2_error::Result<Value<'v>> {
         Ok(match &self {
             CoercedAttr::Bool(v) => heap.alloc(v.0),
             CoercedAttr::Int(v) => heap.alloc(*v),

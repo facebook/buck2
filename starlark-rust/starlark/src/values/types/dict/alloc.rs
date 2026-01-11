@@ -47,7 +47,7 @@ use crate::values::types::dict::dict_type::DictType;
 /// use starlark::values::dict::AllocDict;
 ///
 /// # use starlark::values::{FrozenHeap, Heap};
-/// # fn alloc(heap: &Heap, frozen_heap: &FrozenHeap) {
+/// # fn alloc(heap: Heap<'_>, frozen_heap: &FrozenHeap) {
 /// let l = heap.alloc(AllocDict([("a", 1), ("b", 2), ("c", 3)]));
 /// let ls = frozen_heap.alloc(AllocDict([("a", 1), ("b", 2), ("c", 3)]));
 /// # }
@@ -78,7 +78,7 @@ where
     K: AllocValue<'v>,
     V: AllocValue<'v>,
 {
-    fn alloc_value(self, heap: &'v Heap) -> Value<'v> {
+    fn alloc_value(self, heap: Heap<'v>) -> Value<'v> {
         let iter = self.0.into_iter();
         let mut map = SmallMap::with_capacity(iter.size_hint().0);
         for (k, v) in iter {

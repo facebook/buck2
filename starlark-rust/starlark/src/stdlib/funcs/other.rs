@@ -81,7 +81,7 @@ pub(crate) fn register_other(builder: &mut GlobalsBuilder) {
     #[starlark(speculative_exec_safe)]
     fn any<'v>(
         #[starlark(require = pos)] x: ValueOfUnchecked<'v, StarlarkIter<Value<'v>>>,
-        heap: &'v Heap,
+        heap: Heap<'v>,
     ) -> starlark::Result<bool> {
         for i in x.get().iterate(heap)? {
             if i.to_bool() {
@@ -111,7 +111,7 @@ pub(crate) fn register_other(builder: &mut GlobalsBuilder) {
     #[starlark(speculative_exec_safe)]
     fn all<'v>(
         #[starlark(require = pos)] x: ValueOfUnchecked<'v, StarlarkIter<Value<'v>>>,
-        heap: &'v Heap,
+        heap: Heap<'v>,
     ) -> starlark::Result<bool> {
         for i in x.get().iterate(heap)? {
             if !i.to_bool() {
@@ -160,7 +160,7 @@ pub(crate) fn register_other(builder: &mut GlobalsBuilder) {
     fn enumerate<'v>(
         #[starlark(require = pos)] it: ValueOfUnchecked<'v, StarlarkIter<Value<'v>>>,
         #[starlark(default = 0)] start: i32,
-        heap: &'v Heap,
+        heap: Heap<'v>,
     ) -> starlark::Result<impl AllocValue<'v>> {
         let v = it
             .get()
@@ -192,7 +192,7 @@ pub(crate) fn register_other(builder: &mut GlobalsBuilder) {
         #[starlark(require = pos)] a: Value<'v>,
         #[starlark(require = pos)] attr: &str,
         #[starlark(require = pos)] default: Option<Value<'v>>,
-        heap: &'v Heap,
+        heap: Heap<'v>,
     ) -> starlark::Result<Value<'v>> {
         // TODO(nga): this doesn't cache string hash, so it is suboptimal.
         match a.get_attr(attr, heap)? {
@@ -214,7 +214,7 @@ pub(crate) fn register_other(builder: &mut GlobalsBuilder) {
     fn hasattr<'v>(
         #[starlark(require = pos)] a: Value<'v>,
         #[starlark(require = pos)] attr: &str,
-        heap: &'v Heap,
+        heap: Heap<'v>,
     ) -> anyhow::Result<bool> {
         Ok(a.has_attr(attr, heap))
     }
@@ -305,7 +305,7 @@ pub(crate) fn register_other(builder: &mut GlobalsBuilder) {
     #[starlark(speculative_exec_safe)]
     fn reversed<'v>(
         #[starlark(require = pos)] a: ValueOfUnchecked<'v, StarlarkIter<Value<'v>>>,
-        heap: &'v Heap,
+        heap: Heap<'v>,
     ) -> starlark::Result<Vec<Value<'v>>> {
         let mut v: Vec<Value> = a.get().iterate(heap)?.collect();
         v.reverse();

@@ -114,7 +114,7 @@ pub(crate) type MutableSet<'v> = SetGen<RefCell<SetData<'v>>>;
 pub(crate) type FrozenSet = SetGen<FrozenSetData>;
 
 impl<'v> AllocValue<'v> for SetData<'v> {
-    fn alloc_value(self, heap: &'v Heap) -> Value<'v> {
+    fn alloc_value(self, heap: Heap<'v>) -> Value<'v> {
         heap.alloc_complex(SetGen(RefCell::new(self)))
     }
 }
@@ -237,7 +237,7 @@ where
         set_methods()
     }
 
-    unsafe fn iterate(&self, me: Value<'v>, _heap: &'v Heap) -> crate::Result<Value<'v>> {
+    unsafe fn iterate(&self, me: Value<'v>, _heap: Heap<'v>) -> crate::Result<Value<'v>> {
         unsafe {
             self.0.iter_start();
             Ok(me)
@@ -250,7 +250,7 @@ where
         (rem, Some(rem))
     }
 
-    unsafe fn iter_next(&self, index: usize, _heap: &'v Heap) -> Option<Value<'v>> {
+    unsafe fn iter_next(&self, index: usize, _heap: Heap<'v>) -> Option<Value<'v>> {
         unsafe { self.0.content_unchecked().iter().nth(index).copied() }
     }
 
@@ -265,7 +265,7 @@ where
     }
 
     // Set union
-    fn bit_or(&self, rhs: Value<'v>, heap: &'v Heap) -> crate::Result<Value<'v>> {
+    fn bit_or(&self, rhs: Value<'v>, heap: Heap<'v>) -> crate::Result<Value<'v>> {
         // Unlike in `union` it is not possible to `|` `set` and iterable. This is due python semantics.
         let rhs = SetRef::unpack_value_opt(rhs)
             .map_or_else(|| ValueError::unsupported_with(self, "|", rhs), Ok)?;
@@ -280,7 +280,7 @@ where
     }
 
     // Set intersection
-    fn bit_and(&self, rhs: Value<'v>, heap: &'v Heap) -> crate::Result<Value<'v>> {
+    fn bit_and(&self, rhs: Value<'v>, heap: Heap<'v>) -> crate::Result<Value<'v>> {
         let rhs = SetRef::unpack_value_opt(rhs)
             .map_or_else(|| ValueError::unsupported_with(self, "&", rhs), Ok)?;
 
@@ -299,7 +299,7 @@ where
     }
 
     // Set symmetric difference
-    fn bit_xor(&self, rhs: Value<'v>, heap: &'v Heap) -> crate::Result<Value<'v>> {
+    fn bit_xor(&self, rhs: Value<'v>, heap: Heap<'v>) -> crate::Result<Value<'v>> {
         let rhs = SetRef::unpack_value_opt(rhs)
             .map_or_else(|| ValueError::unsupported_with(self, "^", rhs), Ok)?;
         if rhs.aref.content.is_empty() {
@@ -324,7 +324,7 @@ where
 
     // Set difference
     //TODO(romanp) implement difference on small_set level and reuse it here and in difference function
-    fn sub(&self, rhs: Value<'v>, heap: &'v Heap) -> crate::Result<Value<'v>> {
+    fn sub(&self, rhs: Value<'v>, heap: Heap<'v>) -> crate::Result<Value<'v>> {
         let rhs = SetRef::unpack_value_opt(rhs)
             .map_or_else(|| ValueError::unsupported_with(self, "-", rhs), Ok)?;
 

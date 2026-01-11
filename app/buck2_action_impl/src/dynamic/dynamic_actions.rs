@@ -58,7 +58,7 @@ impl<'v> StarlarkValue<'v> for StarlarkDynamicActions<'v> {
 }
 
 impl<'v> AllocValue<'v> for StarlarkDynamicActions<'v> {
-    fn alloc_value(self, heap: &'v Heap) -> Value<'v> {
+    fn alloc_value(self, heap: Heap<'v>) -> Value<'v> {
         // No need to freeze: we unpack contents of this struct
         // in `ctx.actions.dynamic_output` call.
         heap.alloc_complex_no_freeze(self)

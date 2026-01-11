@@ -145,7 +145,7 @@ fn test_garbage_collect_happens() {
     // GC is meant to be "not observable", but if we break it, we want this test to fail
     #[starlark_module]
     fn helpers(builder: &mut GlobalsBuilder) {
-        fn current_usage(heap: &Heap) -> anyhow::Result<i32> {
+        fn current_usage(heap: Heap<'_>) -> anyhow::Result<i32> {
             Ok(heap.allocated_bytes() as i32)
         }
 

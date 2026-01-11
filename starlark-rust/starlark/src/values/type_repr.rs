@@ -133,7 +133,7 @@ impl<TLeft: StarlarkTypeRepr, TRight: StarlarkTypeRepr> StarlarkTypeRepr for Eit
 /// they can't name
 #[doc(hidden)]
 pub fn type_repr_from_attr_impl<'v, T: StarlarkTypeRepr, V, E>(
-    _f: fn(V, &'v Heap) -> Result<T, E>,
+    _f: fn(V, Heap<'v>) -> Result<T, E>,
 ) -> Ty {
     T::starlark_type_repr()
 }

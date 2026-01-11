@@ -84,7 +84,7 @@ impl<'v> StarlarkValue<'v> for StarlarkAQueryCtx<'v> {
 }
 
 impl<'v> AllocValue<'v> for StarlarkAQueryCtx<'v> {
-    fn alloc_value(self, heap: &'v Heap) -> Value<'v> {
+    fn alloc_value(self, heap: Heap<'v>) -> Value<'v> {
         heap.alloc_complex_no_freeze(self)
     }
 }

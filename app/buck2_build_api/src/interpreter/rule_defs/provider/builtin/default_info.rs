@@ -178,7 +178,7 @@ fn validate_default_info(info: &FrozenDefaultInfo) -> buck2_error::Result<()> {
 }
 
 impl<'v> DefaultInfo<'v> {
-    pub fn empty(heap: &'v Heap) -> Self {
+    pub fn empty(heap: Heap<'v>) -> Self {
         let sub_targets = ValueOfUnchecked::<DictType<_, _>>::new(heap.alloc(AllocDict::EMPTY));
         let default_outputs = ValueOfUnchecked::<ListType<_>>::new(heap.alloc(AllocList::EMPTY));
         let other_outputs = ValueOfUnchecked::<ListType<_>>::new(heap.alloc(AllocList::EMPTY));

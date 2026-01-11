@@ -34,6 +34,7 @@ use crate::values::FreezeError;
 use crate::values::FreezeResult;
 use crate::values::Freezer;
 use crate::values::FrozenValueTyped;
+use crate::values::Heap;
 use crate::values::StarlarkValue;
 use crate::values::Trace;
 use crate::values::Tracer;
@@ -120,7 +121,7 @@ where
     T::Frozen: StarlarkValue<'static>,
 {
     #[inline]
-    fn alloc_value(self, _heap: &'v crate::values::Heap) -> Value<'v> {
+    fn alloc_value(self, _heap: Heap<'v>) -> Value<'v> {
         self.0
     }
 }

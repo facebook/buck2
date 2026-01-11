@@ -88,7 +88,7 @@ fn constraint_value_info_creator(globals: &mut GlobalsBuilder) {
     fn ConstraintValueInfo<'v>(
         #[starlark(require = named)] setting: ValueOf<'v, &'v ConstraintSettingInfo<'v>>,
         #[starlark(require = named)] label: LabelArg<'v>,
-        heap: &'v Heap,
+        heap: Heap<'v>,
     ) -> starlark::Result<ConstraintValueInfo<'v>> {
         let provider_label = label.to_provider_label();
         let label = heap.alloc_value_of(provider_label);

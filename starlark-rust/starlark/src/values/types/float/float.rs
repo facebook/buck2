@@ -209,7 +209,7 @@ impl StarlarkTypeRepr for f64 {
 }
 
 impl<'v> AllocValue<'v> for StarlarkFloat {
-    fn alloc_value(self, heap: &'v Heap) -> Value<'v> {
+    fn alloc_value(self, heap: Heap<'v>) -> Value<'v> {
         heap.alloc_simple(self)
     }
 }
@@ -221,7 +221,7 @@ impl AllocFrozenValue for StarlarkFloat {
 }
 
 impl<'v> AllocValue<'v> for f64 {
-    fn alloc_value(self, heap: &'v Heap) -> Value<'v> {
+    fn alloc_value(self, heap: Heap<'v>) -> Value<'v> {
         heap.alloc(StarlarkFloat(self))
     }
 }
@@ -273,44 +273,44 @@ impl<'v> StarlarkValue<'v> for StarlarkFloat {
         Ok(NumRef::Float(*self).get_hash())
     }
 
-    fn plus(&self, heap: &'v Heap) -> crate::Result<Value<'v>> {
+    fn plus(&self, heap: Heap<'v>) -> crate::Result<Value<'v>> {
         Ok(heap.alloc(*self))
     }
 
-    fn minus(&self, heap: &'v Heap) -> crate::Result<Value<'v>> {
+    fn minus(&self, heap: Heap<'v>) -> crate::Result<Value<'v>> {
         Ok(heap.alloc(StarlarkFloat(-self.0)))
     }
 
-    fn add(&self, other: Value, heap: &'v Heap) -> Option<crate::Result<Value<'v>>> {
+    fn add(&self, other: Value, heap: Heap<'v>) -> Option<crate::Result<Value<'v>>> {
         Some(Ok(heap.alloc(NumRef::Float(*self) + other.unpack_num()?)))
     }
 
-    fn sub(&self, other: Value, heap: &'v Heap) -> crate::Result<Value<'v>> {
+    fn sub(&self, other: Value, heap: Heap<'v>) -> crate::Result<Value<'v>> {
         match other.unpack_num() {
             None => ValueError::unsupported_with(self, "-", other),
             Some(other) => Ok(heap.alloc(NumRef::Float(*self) - other)),
         }
     }
 
-    fn mul(&self, other: Value<'v>, heap: &'v Heap) -> Option<crate::Result<Value<'v>>> {
+    fn mul(&self, other: Value<'v>, heap: Heap<'v>) -> Option<crate::Result<Value<'v>>> {
         Some(Ok(heap.alloc(NumRef::Float(*self) * other.unpack_num()?)))
     }
 
-    fn div(&self, other: Value, heap: &'v Heap) -> crate::Result<Value<'v>> {
+    fn div(&self, other: Value, heap: Heap<'v>) -> crate::Result<Value<'v>> {
         match other.unpack_num() {
             None => ValueError::unsupported_with(self, "/", other),
             Some(other) => Ok(heap.alloc(NumRef::Float(*self).div(other)?)),
         }
     }
 
-    fn percent(&self, other: Value, heap: &'v Heap) -> crate::Result<Value<'v>> {
+    fn percent(&self, other: Value, heap: Heap<'v>) -> crate::Result<Value<'v>> {
         match other.unpack_num() {
             Some(other) => Ok(heap.alloc(NumRef::Float(*self).percent(other)?)),
             None => ValueError::unsupported_with(self, "%", other),
         }
     }
 
-    fn floor_div(&self, other: Value, heap: &'v Heap) -> crate::Result<Value<'v>> {
+    fn floor_div(&self, other: Value, heap: Heap<'v>) -> crate::Result<Value<'v>> {
         match other.unpack_num() {
             None => ValueError::unsupported_with(self, "//", other),
             Some(other) => Ok(heap.alloc(NumRef::Float(*self).floor_div(other)?)),

@@ -81,7 +81,7 @@ fn derive_alloc_value_impl(
                     impl #generics starlark::values::AllocValue<'v> for #type_name #type_generics #where_clause {
                         fn alloc_value(
                             self,
-                            heap: &'v starlark::values::Heap,
+                            heap: starlark::values::Heap<'v>,
                         ) -> starlark::values::Value<'v> {
                             let _ignore_heap_for_empty_enums = heap;
                             #body

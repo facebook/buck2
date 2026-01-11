@@ -166,7 +166,7 @@ impl<T: StarlarkTypeRepr> StarlarkTypeRepr for StarlarkValueAsType<T> {
 }
 
 impl<'v, T: StarlarkTypeRepr> AllocValue<'v> for StarlarkValueAsType<T> {
-    fn alloc_value(self, _heap: &'v Heap) -> Value<'v> {
+    fn alloc_value(self, _heap: Heap<'v>) -> Value<'v> {
         self.0.to_frozen_value().to_value()
     }
 }
@@ -208,7 +208,7 @@ mod tests {
     impl<'v> StarlarkValue<'v> for CompilerArgs {}
 
     impl<'v> AllocValue<'v> for CompilerArgs {
-        fn alloc_value(self, heap: &'v Heap) -> Value<'v> {
+        fn alloc_value(self, heap: Heap<'v>) -> Value<'v> {
             heap.alloc_simple(self)
         }
     }

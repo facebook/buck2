@@ -33,7 +33,7 @@ use crate::values::typing::type_compiled::type_matcher_factory::TypeMatcherFacto
 
 /// Allocate a `Ty` with a `TypeMatcher` in starlark heap as `TypeCompiled`.
 pub struct TypeCompiledFactory<'a, 'v> {
-    heap: &'v Heap,
+    heap: Heap<'v>,
     ty: &'a Ty,
 }
 
@@ -106,7 +106,7 @@ impl<'a, 'v> TypeMatcherAlloc for TypeCompiledFactory<'a, 'v> {
 }
 
 impl<'a, 'v> TypeCompiledFactory<'a, 'v> {
-    pub(crate) fn alloc_ty(ty: &'a Ty, heap: &'v Heap) -> TypeCompiled<Value<'v>> {
+    pub(crate) fn alloc_ty(ty: &'a Ty, heap: Heap<'v>) -> TypeCompiled<Value<'v>> {
         TypeCompiledFactory { heap, ty }.ty(ty)
     }
 }

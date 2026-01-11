@@ -86,18 +86,18 @@ impl<'v> StarlarkSelector<'v> {
         StarlarkSelector::Primary(d.as_unchecked().cast())
     }
 
-    fn sum(left: Value<'v>, right: Value<'v>, heap: &'v Heap) -> Value<'v> {
+    fn sum(left: Value<'v>, right: Value<'v>, heap: Heap<'v>) -> Value<'v> {
         heap.alloc(StarlarkSelector::Sum(left, right))
     }
 
-    pub fn from_concat<I>(iter: I, heap: &'v Heap) -> buck2_error::Result<Value<'v>>
+    pub fn from_concat<I>(iter: I, heap: Heap<'v>) -> buck2_error::Result<Value<'v>>
     where
         I: IntoIterator<Item = Value<'v>>,
     {
         fn values_to_selector<'v, I>(
             selector: Option<StarlarkSelector<'v>>,
             values: &mut I,
-            heap: &'v Heap,
+            heap: Heap<'v>,
         ) -> buck2_error::Result<NoneOr<StarlarkSelector<'v>>>
         where
             I: Iterator<Item = Value<'v>>,
@@ -264,7 +264,7 @@ where
         true
     }
 
-    fn radd(&self, left: Value<'v>, heap: &'v Heap) -> Option<starlark::Result<Value<'v>>> {
+    fn radd(&self, left: Value<'v>, heap: Heap<'v>) -> Option<starlark::Result<Value<'v>>> {
         let right = heap.alloc(match self {
             StarlarkSelectorGen::Primary(x) => StarlarkSelectorGen::Primary(x.to_value()),
             StarlarkSelectorGen::Sum(x, y) => StarlarkSelectorGen::Sum(x.to_value(), y.to_value()),
@@ -272,7 +272,7 @@ where
         Some(Ok(StarlarkSelector::sum(left, right, heap)))
     }
 
-    fn add(&self, other: Value<'v>, heap: &'v Heap) -> Option<starlark::Result<Value<'v>>> {
+    fn add(&self, other: Value<'v>, heap: Heap<'v>) -> Option<starlark::Result<Value<'v>>> {
         match self {
             Self::Primary(v) => match ValueOf::unpack_value_err(v.get().to_value()) {
                 Ok(v) => {

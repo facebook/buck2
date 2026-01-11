@@ -589,7 +589,7 @@ impl<'v> StarlarkValue<'v> for FrozenStarlarkCmdArgs {
 }
 
 impl<'v> AllocValue<'v> for StarlarkCmdArgs<'v> {
-    fn alloc_value(self, heap: &'v Heap) -> Value<'v> {
+    fn alloc_value(self, heap: Heap<'v>) -> Value<'v> {
         heap.alloc_complex(self)
     }
 }
@@ -805,7 +805,7 @@ impl<'v> UnpackValue<'v> for StarlarkCommandLineMut<'v> {
 }
 
 impl<'v> AllocValue<'v> for StarlarkCommandLineMut<'v> {
-    fn alloc_value(self, _heap: &'v Heap) -> Value<'v> {
+    fn alloc_value(self, _heap: Heap<'v>) -> Value<'v> {
         self.value
     }
 }
@@ -833,7 +833,7 @@ fn cmd_args_methods(builder: &mut MethodsBuilder) {
     /// Note that this operation mutates the input `cmd_args`.
     fn add<'v>(
         mut this: StarlarkCommandLineMut<'v>,
-        heap: &'v Heap,
+        heap: Heap<'v>,
         args: &Arguments<'v, '_>,
     ) -> starlark::Result<StarlarkCommandLineMut<'v>> {
         args.no_named_args()?;
@@ -907,7 +907,7 @@ fn cmd_args_methods(builder: &mut MethodsBuilder) {
     #[starlark(attribute)]
     fn outputs<'v>(
         this: Value<'v>,
-        heap: &Heap,
+        heap: Heap<'_>,
     ) -> starlark::Result<Vec<StarlarkOutputArtifact<'v>>> {
         let mut visitor = SimpleCommandLineArtifactVisitor::new();
         cmd_args(this).visit_artifacts(&mut visitor)?;

@@ -138,9 +138,9 @@ impl FrozenHeap {
     }
 }
 
-impl Heap {
+impl<'v> Heap<'v> {
     /// Allocate a string on the heap.
-    pub fn alloc_str<'v>(&'v self, x: &str) -> StringValue<'v> {
+    pub fn alloc_str(self, x: &str) -> StringValue<'v> {
         if let Some(x) = constant_string(x) {
             x.to_string_value()
         } else {
@@ -151,7 +151,7 @@ impl Heap {
     }
 
     /// Intern string.
-    pub fn alloc_str_intern<'v>(&'v self, x: &str) -> StringValue<'v> {
+    pub fn alloc_str_intern(self, x: &str) -> StringValue<'v> {
         if let Some(x) = constant_string(x) {
             x.to_string_value()
         } else {
@@ -165,7 +165,7 @@ impl Heap {
     }
 
     /// Allocate a string on the heap, based on two concatenated strings.
-    pub fn alloc_str_concat<'v>(&'v self, x: &str, y: &str) -> StringValue<'v> {
+    pub fn alloc_str_concat(self, x: &str, y: &str) -> StringValue<'v> {
         if x.is_empty() {
             self.alloc_str(y)
         } else if y.is_empty() {
@@ -179,7 +179,7 @@ impl Heap {
     }
 
     /// Allocate a string on the heap, based on three concatenated strings.
-    pub fn alloc_str_concat3<'v>(&'v self, x: &str, y: &str, z: &str) -> StringValue<'v> {
+    pub fn alloc_str_concat3(self, x: &str, y: &str, z: &str) -> StringValue<'v> {
         if x.is_empty() {
             self.alloc_str_concat(y, z)
         } else if y.is_empty() {
@@ -201,7 +201,7 @@ impl Heap {
         }
     }
 
-    pub(crate) fn alloc_char<'v>(&'v self, x: char) -> StringValue<'v> {
+    pub(crate) fn alloc_char(self, x: char) -> StringValue<'v> {
         let mut dst = [0; 4];
         let res = x.encode_utf8(&mut dst);
         self.alloc_str(res)

@@ -113,7 +113,7 @@ fn label_methods(builder: &mut MethodsBuilder) {
     #[starlark(attribute)]
     fn package<'v>(
         this: &StarlarkTargetLabel,
-        heap: &'v Heap,
+        heap: Heap<'v>,
     ) -> starlark::Result<StringValue<'v>> {
         Ok(heap.alloc_str_intern(this.label.pkg().cell_relative_path().as_str()))
     }
@@ -231,7 +231,7 @@ fn configured_label_methods(builder: &mut MethodsBuilder) {
     #[starlark(attribute)]
     fn package<'v>(
         this: &StarlarkConfiguredTargetLabel,
-        heap: &'v Heap,
+        heap: Heap<'v>,
     ) -> starlark::Result<StringValue<'v>> {
         Ok(heap.alloc_str_intern(this.label.pkg().cell_relative_path().as_str()))
     }

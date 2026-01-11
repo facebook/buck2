@@ -107,7 +107,7 @@ pub(crate) struct StarFun {
     pub attrs: Vec<Attribute>,
     pub this: Option<ThisParam>,
     pub args: RegularParams,
-    /// Has `&Heap` parameter.
+    /// Has `Heap<'_>` parameter.
     pub heap: Option<SpecialParam>,
     /// Has `&mut Evaluator` parameter.
     pub eval: Option<SpecialParam>,
@@ -139,7 +139,7 @@ impl StarFun {
 pub(crate) struct StarAttr {
     pub name: Ident,
     pub this: ThisParam,
-    /// Has `&Heap` parameter.
+    /// Has `Heap<'_>` parameter.
     pub heap: Option<SpecialParam>,
     pub attrs: Vec<Attribute>,
     /// `anyhow::Result<T>`.

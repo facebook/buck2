@@ -84,12 +84,15 @@ pub(crate) enum HeapKind {
 /// This type owns a [`Heap`] and derefs to it for convenience. Use [`OwnedHeap::new`]
 /// to create a new heap.
 pub struct OwnedHeap {
-    heap: Heap,
+    /// Peak memory seen when a garbage collection takes place (may be lower than currently allocated)
+    peak_allocated: Cell<usize>,
+    arena: FastCell<Arena<Bump>>,
+    str_interner: RefCell<StringValueInterner<'static>>,
 }
 
 impl Debug for OwnedHeap {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        Debug::fmt(&self.heap, f)
+        Debug::fmt(&self.as_ref(), f)
     }
 }
 
@@ -103,65 +106,57 @@ impl OwnedHeap {
     /// Create a new [`OwnedHeap`].
     pub fn new() -> Self {
         Self {
-            heap: Heap {
-                peak_allocated: Default::default(),
-                arena: Default::default(),
-                str_interner: Default::default(),
-            },
+            peak_allocated: Default::default(),
+            arena: Default::default(),
+            str_interner: Default::default(),
         }
     }
 
     /// Get access to the underlying [`Heap`].
-    pub fn as_ref<'v>(&'v self) -> &'v Heap {
-        &self.heap
+    pub fn as_ref<'v>(&'v self) -> Heap<'v> {
+        Heap(self)
     }
 }
 
 /// A heap on which [`Value`]s can be allocated. The values will be annotated with the heap lifetime.
-pub struct Heap {
-    /// Peak memory seen when a garbage collection takes place (may be lower than currently allocated)
-    peak_allocated: Cell<usize>,
-    arena: FastCell<Arena<Bump>>,
-    str_interner: RefCell<StringValueInterner<'static>>,
-}
+#[derive(Copy, Clone, Dupe)]
+pub struct Heap<'v>(&'v OwnedHeap);
 
-impl Debug for Heap {
+impl<'v> Debug for Heap<'v> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         let mut x = f.debug_struct("Heap");
         x.field(
             "bytes",
-            &self.arena.try_borrow().map(|x| x.allocated_bytes()),
+            &self.0.arena.try_borrow().map(|x| x.allocated_bytes()),
         );
         x.finish()
     }
 }
 
-impl Heap {
+impl<'v> Heap<'v> {
     /// Create a heap and use it within the closure
     ///
     /// Heap is discarded at the end of the closure.
     pub fn temp<F, R>(f: F) -> R
     where
-        F: for<'v> FnOnce(&'v Heap) -> R,
+        F: for<'v2> FnOnce(Heap<'v2>) -> R,
     {
         let heap = OwnedHeap::new();
         f(heap.as_ref())
     }
 
-    pub(in crate::values::layout) fn string_interner<'v>(
-        &'v self,
-    ) -> RefMut<'v, StringValueInterner<'v>> {
+    pub(in crate::values::layout) fn string_interner(self) -> RefMut<'v, StringValueInterner<'v>> {
         // SAFETY: The lifetime of the interner is the lifetime of the heap.
         unsafe {
             transmute!(
                 RefMut<'v, StringValueInterner<'static>>,
                 RefMut<'v, StringValueInterner<'v>>,
-                self.str_interner.borrow_mut()
+                self.0.str_interner.borrow_mut()
             )
         }
     }
 
-    pub(crate) fn trace_interner<'v>(&'v self, tracer: &Tracer<'v>) {
+    pub(crate) fn trace_interner(self, tracer: &Tracer<'v>) {
         self.string_interner().trace(tracer);
     }
 }
@@ -400,39 +395,39 @@ impl FrozenHeap {
     }
 }
 
-impl Heap {
+impl<'v> Heap<'v> {
     /// Number of bytes allocated on this heap, not including any memory
     /// allocated outside of the starlark heap.
-    pub fn allocated_bytes(&self) -> usize {
-        self.arena.borrow().allocated_bytes()
+    pub fn allocated_bytes(self) -> usize {
+        self.0.arena.borrow().allocated_bytes()
     }
 
     /// Peak memory allocated to this heap, even if the value is now lower
     /// as a result of a subsequent garbage collection.
     pub fn peak_allocated_bytes(&self) -> usize {
-        cmp::max(self.allocated_bytes(), self.peak_allocated.get())
+        cmp::max(self.allocated_bytes(), self.0.peak_allocated.get())
     }
 
     /// Number of bytes allocated by the heap but not yet filled.
     pub fn available_bytes(&self) -> usize {
-        self.arena.borrow().available_bytes()
+        self.0.arena.borrow().available_bytes()
     }
 
-    pub(in crate::values::layout) fn alloc_raw<'v, A>(
-        &'v self,
+    pub(in crate::values::layout) fn alloc_raw<A>(
+        self,
         x: AValueImpl<'v, A>,
     ) -> ValueTyped<'v, A::StarlarkValue>
     where
         A: AValue<'v, ExtraElem = ()>,
         A::StarlarkValue: HeapSendable<'v>,
     {
-        let arena = self.arena.borrow();
+        let arena = self.0.arena.borrow();
         let v: &AValueRepr<_> = arena.alloc(x);
         ValueTyped::new_repr(v)
     }
 
-    pub(in crate::values::layout) fn alloc_raw_extra<'v, A>(
-        &'v self,
+    pub(in crate::values::layout) fn alloc_raw_extra<A>(
+        self,
         x: AValueImpl<'v, A>,
     ) -> (
         ValueTyped<'v, A::StarlarkValue>,
@@ -442,19 +437,19 @@ impl Heap {
         A: AValue<'v>,
         A::StarlarkValue: HeapSendable<'v>,
     {
-        let arena = self.arena.borrow();
+        let arena = self.0.arena.borrow();
         let (v, extra) = arena.alloc_extra(x);
         let v = unsafe { ValueTyped::new_repr(&*v) };
         (v, extra)
     }
 
-    pub(in crate::values::layout) fn alloc_str_init<'v>(
-        &'v self,
+    pub(in crate::values::layout) fn alloc_str_init(
+        self,
         len: usize,
         hash: StarlarkHashValue,
         init: impl FnOnce(*mut u8),
     ) -> StringValue<'v> {
-        let arena = self.arena.borrow();
+        let arena = self.0.arena.borrow();
         let v = arena.alloc_str_init(len, hash, init);
 
         // We have an arena inside a RefCell which stores ValueMem<'v>
@@ -467,26 +462,23 @@ impl Heap {
     }
 
     /// Allocate a new value on a [`Heap`].
-    pub fn alloc<'v, T: AllocValue<'v>>(&'v self, x: T) -> Value<'v> {
+    pub fn alloc<T: AllocValue<'v>>(self, x: T) -> Value<'v> {
         x.alloc_value(self)
     }
 
     /// Allocate a value and return [`ValueTyped`] of it.
     /// Can fail if the [`AllocValue`] trait generates a different type on the heap.
-    pub fn alloc_typed<'v, T: AllocValue<'v> + StarlarkValue<'v>>(
-        &'v self,
-        x: T,
-    ) -> ValueTyped<'v, T> {
+    pub fn alloc_typed<T: AllocValue<'v> + StarlarkValue<'v>>(self, x: T) -> ValueTyped<'v, T> {
         ValueTyped::new(self.alloc(x)).expect("just allocated value must have the right type")
     }
 
     /// Allocate a value and return [`ValueOfUnchecked`] of it.
-    pub fn alloc_typed_unchecked<'v, T: AllocValue<'v>>(&'v self, x: T) -> ValueOfUnchecked<'v, T> {
+    pub fn alloc_typed_unchecked<T: AllocValue<'v>>(self, x: T) -> ValueOfUnchecked<'v, T> {
         ValueOfUnchecked::new(self.alloc(x))
     }
 
     /// Allocate a value and return [`ValueOf`] of it.
-    pub fn alloc_value_of<'v, T>(&'v self, x: T) -> ValueOf<'v, &'v T>
+    pub fn alloc_value_of<T>(self, x: T) -> ValueOf<'v, &'v T>
     where
         T: AllocValue<'v>,
         &'v T: UnpackValue<'v>,
@@ -497,48 +489,48 @@ impl Heap {
             .expect("just allocate value must be unpackable to the type of value")
     }
 
-    pub(crate) unsafe fn visit_arena<'v>(
-        &'v self,
+    pub(crate) unsafe fn visit_arena(
+        self,
         forward_heap_kind: HeapKind,
         v: &mut impl ArenaVisitor<'v>,
     ) {
-        unsafe { (*self.arena.get_mut()).visit_arena(HeapKind::Unfrozen, forward_heap_kind, v) }
+        unsafe { (*self.0.arena.get_mut()).visit_arena(HeapKind::Unfrozen, forward_heap_kind, v) }
     }
 
     /// Garbage collect any values that are unused. This function is _unsafe_ in
     /// the sense that any `Value<'v>` not returned by `Tracer` _will become
     /// invalid_. Furthermore, any references to values, e.g `&'v str` will
     /// also become invalid.
-    pub(crate) unsafe fn garbage_collect<'v>(&'v self, f: impl FnOnce(&Tracer<'v>)) {
+    pub(crate) unsafe fn garbage_collect(self, f: impl FnOnce(&Tracer<'v>)) {
         unsafe {
             // Record the highest peak, so it never decreases
-            self.peak_allocated.set(self.peak_allocated_bytes());
+            self.0.peak_allocated.set(self.peak_allocated_bytes());
             self.garbage_collect_internal(f)
         }
     }
 
-    unsafe fn garbage_collect_internal<'v>(&'v self, f: impl FnOnce(&Tracer<'v>)) {
+    unsafe fn garbage_collect_internal(self, f: impl FnOnce(&Tracer<'v>)) {
         unsafe {
             // Must rewrite all Value's so they point at the new heap.
             // Take the arena out of the heap to make sure nobody allocates in it,
             // but hold the reference until the GC is done.
-            let _arena = self.arena.take();
+            let _arena = self.0.arena.take();
 
             let tracer = Tracer::<'v> {
                 arena: Arena::default(),
                 phantom: PhantomData,
             };
             f(&tracer);
-            self.arena.set(tracer.arena);
+            self.0.arena.set(tracer.arena);
         }
     }
 
     /// Obtain a summary of how much memory is currently allocated by this heap.
-    pub fn allocated_summary(&self) -> HeapSummary {
-        self.arena.borrow().allocated_summary()
+    pub fn allocated_summary(self) -> HeapSummary {
+        self.0.arena.borrow().allocated_summary()
     }
 
-    pub(crate) fn record_call_enter<'v>(&'v self, function: Value<'v>) {
+    pub(crate) fn record_call_enter(self, function: Value<'v>) {
         let time = ProfilerInstant::now();
         assert!(mem::needs_drop::<CallEnter<NeedsDrop>>());
         assert!(!mem::needs_drop::<CallEnter<NoDrop>>());
@@ -554,7 +546,7 @@ impl Heap {
         });
     }
 
-    pub(crate) fn record_call_exit<'v>(&'v self) {
+    pub(crate) fn record_call_exit(self) {
         let time = ProfilerInstant::now();
         assert!(mem::needs_drop::<CallExit<NeedsDrop>>());
         assert!(!mem::needs_drop::<CallExit<NoDrop>>());
@@ -674,7 +666,7 @@ mod tests {
 
     #[starlark_module]
     fn validate_str_interning(globals: &mut GlobalsBuilder) {
-        fn append_x<'v>(str: StringValue<'v>, heap: &'v Heap) -> anyhow::Result<StringValue<'v>> {
+        fn append_x<'v>(str: StringValue<'v>, heap: Heap<'v>) -> anyhow::Result<StringValue<'v>> {
             Ok(heap.alloc_str_intern(&(str.as_str().to_owned() + "x")))
         }
     }

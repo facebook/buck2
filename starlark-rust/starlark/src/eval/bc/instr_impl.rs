@@ -459,7 +459,7 @@ pub(crate) type InstrEqInt = InstrNoFlow<InstrEqIntImpl>;
 
 impl InstrBinOpImpl for InstrEqImpl {
     #[inline(always)]
-    fn eval<'v>(v0: Value<'v>, v1: Value<'v>, _heap: &'v Heap) -> crate::Result<Value<'v>> {
+    fn eval<'v>(v0: Value<'v>, v1: Value<'v>, _heap: Heap<'v>) -> crate::Result<Value<'v>> {
         v0.equals(v1).map(Value::new_bool)
     }
 }
@@ -552,38 +552,38 @@ pub(crate) type InstrBitNot = InstrUnOp<InstrBitNotImpl>;
 
 impl InstrUnOpImpl for InstrNotImpl {
     #[inline(always)]
-    fn eval<'v>(v: Value<'v>, _heap: &'v Heap) -> crate::Result<Value<'v>> {
+    fn eval<'v>(v: Value<'v>, _heap: Heap<'v>) -> crate::Result<Value<'v>> {
         Ok(Value::new_bool(!v.to_bool()))
     }
 }
 
 impl InstrUnOpImpl for InstrPlusImpl {
     #[inline(always)]
-    fn eval<'v>(v: Value<'v>, heap: &'v Heap) -> crate::Result<Value<'v>> {
+    fn eval<'v>(v: Value<'v>, heap: Heap<'v>) -> crate::Result<Value<'v>> {
         v.plus(heap)
     }
 }
 
 impl InstrUnOpImpl for InstrMinusImpl {
     #[inline(always)]
-    fn eval<'v>(v: Value<'v>, heap: &'v Heap) -> crate::Result<Value<'v>> {
+    fn eval<'v>(v: Value<'v>, heap: Heap<'v>) -> crate::Result<Value<'v>> {
         v.minus(heap)
     }
 }
 
 impl InstrUnOpImpl for InstrBitNotImpl {
     #[inline(always)]
-    fn eval<'v>(v: Value<'v>, heap: &'v Heap) -> crate::Result<Value<'v>> {
+    fn eval<'v>(v: Value<'v>, heap: Heap<'v>) -> crate::Result<Value<'v>> {
         v.bit_not(heap)
     }
 }
 
 pub(crate) trait InstrBinOpImpl: 'static {
-    fn eval<'v>(v0: Value<'v>, v1: Value<'v>, heap: &'v Heap) -> crate::Result<Value<'v>>;
+    fn eval<'v>(v0: Value<'v>, v1: Value<'v>, heap: Heap<'v>) -> crate::Result<Value<'v>>;
 }
 
 pub(crate) trait InstrUnOpImpl: 'static {
-    fn eval<'v>(v: Value<'v>, heap: &'v Heap) -> crate::Result<Value<'v>>;
+    fn eval<'v>(v: Value<'v>, heap: Heap<'v>) -> crate::Result<Value<'v>>;
 }
 
 pub(crate) struct InstrBinOpWrapper<I: InstrBinOpImpl>(marker::PhantomData<I>);
@@ -658,98 +658,98 @@ pub(crate) type InstrIn = InstrBinOp<InstrInImpl>;
 
 impl InstrBinOpImpl for InstrAddImpl {
     #[inline(always)]
-    fn eval<'v>(l: Value<'v>, r: Value<'v>, heap: &'v Heap) -> crate::Result<Value<'v>> {
+    fn eval<'v>(l: Value<'v>, r: Value<'v>, heap: Heap<'v>) -> crate::Result<Value<'v>> {
         l.add(r, heap)
     }
 }
 
 impl InstrBinOpImpl for InstrAddAssignImpl {
     #[inline(always)]
-    fn eval<'v>(v0: Value<'v>, v1: Value<'v>, heap: &'v Heap) -> crate::Result<Value<'v>> {
+    fn eval<'v>(v0: Value<'v>, v1: Value<'v>, heap: Heap<'v>) -> crate::Result<Value<'v>> {
         add_assign(v0, v1, heap)
     }
 }
 
 impl InstrBinOpImpl for InstrSubImpl {
     #[inline(always)]
-    fn eval<'v>(v0: Value<'v>, v1: Value<'v>, heap: &'v Heap) -> crate::Result<Value<'v>> {
+    fn eval<'v>(v0: Value<'v>, v1: Value<'v>, heap: Heap<'v>) -> crate::Result<Value<'v>> {
         v0.sub(v1, heap)
     }
 }
 
 impl InstrBinOpImpl for InstrMultiplyImpl {
     #[inline(always)]
-    fn eval<'v>(v0: Value<'v>, v1: Value<'v>, heap: &'v Heap) -> crate::Result<Value<'v>> {
+    fn eval<'v>(v0: Value<'v>, v1: Value<'v>, heap: Heap<'v>) -> crate::Result<Value<'v>> {
         v0.mul(v1, heap)
     }
 }
 
 impl InstrBinOpImpl for InstrPercentImpl {
     #[inline(always)]
-    fn eval<'v>(v0: Value<'v>, v1: Value<'v>, heap: &'v Heap) -> crate::Result<Value<'v>> {
+    fn eval<'v>(v0: Value<'v>, v1: Value<'v>, heap: Heap<'v>) -> crate::Result<Value<'v>> {
         v0.percent(v1, heap)
     }
 }
 
 impl InstrBinOpImpl for InstrFloorDivideImpl {
     #[inline(always)]
-    fn eval<'v>(v0: Value<'v>, v1: Value<'v>, heap: &'v Heap) -> crate::Result<Value<'v>> {
+    fn eval<'v>(v0: Value<'v>, v1: Value<'v>, heap: Heap<'v>) -> crate::Result<Value<'v>> {
         v0.floor_div(v1, heap)
     }
 }
 
 impl InstrBinOpImpl for InstrDivideImpl {
     #[inline(always)]
-    fn eval<'v>(v0: Value<'v>, v1: Value<'v>, heap: &'v Heap) -> crate::Result<Value<'v>> {
+    fn eval<'v>(v0: Value<'v>, v1: Value<'v>, heap: Heap<'v>) -> crate::Result<Value<'v>> {
         v0.div(v1, heap)
     }
 }
 
 impl InstrBinOpImpl for InstrBitAndImpl {
     #[inline(always)]
-    fn eval<'v>(v0: Value<'v>, v1: Value<'v>, heap: &'v Heap) -> crate::Result<Value<'v>> {
+    fn eval<'v>(v0: Value<'v>, v1: Value<'v>, heap: Heap<'v>) -> crate::Result<Value<'v>> {
         v0.bit_and(v1, heap)
     }
 }
 
 impl InstrBinOpImpl for InstrBitOrImpl {
     #[inline(always)]
-    fn eval<'v>(v0: Value<'v>, v1: Value<'v>, heap: &'v Heap) -> crate::Result<Value<'v>> {
+    fn eval<'v>(v0: Value<'v>, v1: Value<'v>, heap: Heap<'v>) -> crate::Result<Value<'v>> {
         v0.bit_or(v1, heap)
     }
 }
 
 impl InstrBinOpImpl for InstrBitOrAssignImpl {
     #[inline(always)]
-    fn eval<'v>(v0: Value<'v>, v1: Value<'v>, heap: &'v Heap) -> crate::Result<Value<'v>> {
+    fn eval<'v>(v0: Value<'v>, v1: Value<'v>, heap: Heap<'v>) -> crate::Result<Value<'v>> {
         bit_or_assign(v0, v1, heap)
     }
 }
 
 impl InstrBinOpImpl for InstrBitXorImpl {
     #[inline(always)]
-    fn eval<'v>(v0: Value<'v>, v1: Value<'v>, heap: &'v Heap) -> crate::Result<Value<'v>> {
+    fn eval<'v>(v0: Value<'v>, v1: Value<'v>, heap: Heap<'v>) -> crate::Result<Value<'v>> {
         v0.bit_xor(v1, heap)
     }
 }
 
 impl InstrBinOpImpl for InstrLeftShiftImpl {
     #[inline(always)]
-    fn eval<'v>(v0: Value<'v>, v1: Value<'v>, heap: &'v Heap) -> crate::Result<Value<'v>> {
+    fn eval<'v>(v0: Value<'v>, v1: Value<'v>, heap: Heap<'v>) -> crate::Result<Value<'v>> {
         v0.left_shift(v1, heap)
     }
 }
 
 impl InstrBinOpImpl for InstrRightShiftImpl {
     #[inline(always)]
-    fn eval<'v>(v0: Value<'v>, v1: Value<'v>, heap: &'v Heap) -> crate::Result<Value<'v>> {
+    fn eval<'v>(v0: Value<'v>, v1: Value<'v>, heap: Heap<'v>) -> crate::Result<Value<'v>> {
         v0.right_shift(v1, heap)
     }
 }
 
 impl InstrBinOpImpl for InstrInImpl {
     #[inline(always)]
-    fn eval<'v>(v0: Value<'v>, v1: Value<'v>, _heap: &'v Heap) -> crate::Result<Value<'v>> {
+    fn eval<'v>(v0: Value<'v>, v1: Value<'v>, _heap: Heap<'v>) -> crate::Result<Value<'v>> {
         Ok(Value::new_bool(v1.is_in(v0)?))
     }
 }
@@ -801,7 +801,7 @@ pub(crate) struct InstrCompare<I: InstrCompareImpl>(marker::PhantomData<I>);
 
 impl<I: InstrCompareImpl> InstrBinOpImpl for InstrCompare<I> {
     #[inline(always)]
-    fn eval<'v>(v0: Value<'v>, v1: Value<'v>, _heap: &'v Heap) -> crate::Result<Value<'v>> {
+    fn eval<'v>(v0: Value<'v>, v1: Value<'v>, _heap: Heap<'v>) -> crate::Result<Value<'v>> {
         Ok(Value::new_bool(I::eval_compare(v0.compare(v1)?)))
     }
 }
@@ -849,7 +849,7 @@ pub(crate) type InstrType = InstrUnOp<InstrTypeImpl>;
 
 impl InstrUnOpImpl for InstrTypeImpl {
     #[inline(always)]
-    fn eval<'v>(v: Value<'v>, _heap: &'v Heap) -> crate::Result<Value<'v>> {
+    fn eval<'v>(v: Value<'v>, _heap: Heap<'v>) -> crate::Result<Value<'v>> {
         Ok(v.get_type_value().to_frozen_value().to_value())
     }
 }
@@ -899,7 +899,7 @@ pub(crate) type InstrLen = InstrUnOp<InstrLenImpl>;
 
 impl InstrUnOpImpl for InstrLenImpl {
     #[inline(always)]
-    fn eval<'v>(v: Value<'v>, heap: &'v Heap) -> crate::Result<Value<'v>> {
+    fn eval<'v>(v: Value<'v>, heap: Heap<'v>) -> crate::Result<Value<'v>> {
         Ok(heap.alloc(v.length()?))
     }
 }

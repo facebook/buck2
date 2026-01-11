@@ -389,7 +389,7 @@ impl<'v, T: StarlarkValue<'v>> UnpackValue<'v> for ValueTyped<'v, T> {
 }
 
 impl<'v, T: StarlarkValue<'v>> AllocValue<'v> for ValueTyped<'v, T> {
-    fn alloc_value(self, _heap: &'v Heap) -> Value<'v> {
+    fn alloc_value(self, _heap: Heap<'v>) -> Value<'v> {
         self.0
     }
 }
@@ -409,7 +409,7 @@ where
 }
 
 impl<'v> AllocStringValue<'v> for StringValue<'v> {
-    fn alloc_string_value(self, _heap: &'v Heap) -> StringValue<'v> {
+    fn alloc_string_value(self, _heap: Heap<'v>) -> StringValue<'v> {
         self
     }
 }
@@ -449,13 +449,13 @@ impl<'v, T: StarlarkValue<'v>> UnpackValue<'v> for FrozenValueTyped<'v, T> {
 }
 
 impl<'v, 'f, T: StarlarkValue<'f>> AllocValue<'v> for FrozenValueTyped<'f, T> {
-    fn alloc_value(self, _heap: &'v Heap) -> Value<'v> {
+    fn alloc_value(self, _heap: Heap<'v>) -> Value<'v> {
         self.0.to_value()
     }
 }
 
 impl<'v> AllocStringValue<'v> for FrozenStringValue {
-    fn alloc_string_value(self, _heap: &'v Heap) -> StringValue<'v> {
+    fn alloc_string_value(self, _heap: Heap<'v>) -> StringValue<'v> {
         self.to_string_value()
     }
 }

@@ -193,7 +193,7 @@ impl<'v> StarlarkPromise<'v> {
 
     pub fn join(
         args: Vec<ValueTyped<'v, StarlarkPromise<'v>>>,
-        heap: &'v Heap,
+        heap: Heap<'v>,
     ) -> ValueTyped<'v, StarlarkPromise<'v>> {
         let join = PromiseJoin::new(args);
         match join.get() {
@@ -281,7 +281,7 @@ impl<'v> StarlarkPromise<'v> {
 // We can't use starlark_complex_value! because there is no frozen form of a promise
 
 impl<'v> AllocValue<'v> for StarlarkPromise<'v> {
-    fn alloc_value(self, heap: &'v Heap) -> Value<'v> {
+    fn alloc_value(self, heap: Heap<'v>) -> Value<'v> {
         // FIXME: need to be able to freeze things that are resolved
         heap.alloc_complex_no_freeze(self)
     }
@@ -330,7 +330,7 @@ fn promise_methods(builder: &mut MethodsBuilder) {
     fn join<'v>(
         this: ValueTyped<'v, StarlarkPromise<'v>>,
         #[starlark(args)] mut args: UnpackListOrTuple<ValueTyped<'v, StarlarkPromise<'v>>>,
-        heap: &'v Heap,
+        heap: Heap<'v>,
     ) -> starlark::Result<ValueTyped<'v, StarlarkPromise<'v>>> {
         args.items.insert(0, this);
         Ok(StarlarkPromise::join(args.items, heap))

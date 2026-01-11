@@ -344,7 +344,7 @@ fn configured_target_node_value_methods(builder: &mut MethodsBuilder) {
     fn get_attr<'v>(
         this: &StarlarkConfiguredTargetNode,
         #[starlark(require=pos)] key: &str,
-        heap: &'v Heap,
+        heap: Heap<'v>,
     ) -> starlark::Result<NoneOr<Value<'v>>> {
         Ok(NodeAttributeGetter::get_attr(this, key, heap)?)
     }
@@ -360,7 +360,7 @@ fn configured_target_node_value_methods(builder: &mut MethodsBuilder) {
     /// ```
     fn get_attrs<'v>(
         this: &StarlarkConfiguredTargetNode,
-        heap: &'v Heap,
+        heap: Heap<'v>,
     ) -> starlark::Result<SmallMap<StringValue<'v>, Value<'v>>> {
         Ok(NodeAttributeGetter::get_attrs(this, heap)?)
     }
@@ -408,7 +408,7 @@ fn configured_target_node_value_methods(builder: &mut MethodsBuilder) {
     /// ```
     fn attrs_eager<'v>(
         this: &StarlarkConfiguredTargetNode,
-        heap: &'v Heap,
+        heap: Heap<'v>,
     ) -> starlark::Result<Value<'v>> {
         let attrs_iter = this.0.attrs(AttrInspectOptions::All);
         let special_attrs_iter = this.0.special_attrs();
@@ -559,7 +559,7 @@ fn configured_target_node_value_methods(builder: &mut MethodsBuilder) {
     /// ```
     fn unwrap_forward<'v>(
         this: ValueTyped<'v, StarlarkConfiguredTargetNode>,
-        heap: &'v Heap,
+        heap: Heap<'v>,
     ) -> starlark::Result<ValueTyped<'v, StarlarkConfiguredTargetNode>> {
         match this.0.forward_target() {
             Some(n) => Ok(heap.alloc_typed(StarlarkConfiguredTargetNode(n.dupe()))),
@@ -579,7 +579,7 @@ fn configured_target_node_value_methods(builder: &mut MethodsBuilder) {
     #[starlark(attribute)]
     fn rule_type<'v>(
         this: &'v StarlarkConfiguredTargetNode,
-        heap: &'v Heap,
+        heap: Heap<'v>,
     ) -> starlark::Result<StringValue<'v>> {
         Ok(heap.alloc_str_intern(this.0.rule_type().to_string().as_str()))
     }
@@ -598,7 +598,7 @@ fn configured_target_node_value_methods(builder: &mut MethodsBuilder) {
     #[starlark(attribute)]
     fn rule_kind<'v>(
         this: &'v StarlarkConfiguredTargetNode,
-        heap: &'v Heap,
+        heap: Heap<'v>,
     ) -> starlark::Result<StringValue<'v>> {
         Ok(heap.alloc_str_intern(this.0.rule_kind().as_str()))
     }
@@ -716,7 +716,7 @@ fn configured_target_node_value_methods(builder: &mut MethodsBuilder) {
     #[starlark(attribute)]
     fn oncall<'v>(
         this: &'v StarlarkConfiguredTargetNode,
-        heap: &'v Heap,
+        heap: Heap<'v>,
     ) -> starlark::Result<NoneOr<StringValue<'v>>> {
         match this.0.oncall() {
             Some(oncall) => Ok(NoneOr::Other(heap.alloc_str_intern(oncall))),
@@ -803,7 +803,7 @@ fn configured_attr_methods(builder: &mut MethodsBuilder) {
     // FIXME(JakobDegen): Strings as types are mostly dead, users should be getting the value and
     // using `isinstance` instead. Remove this.
     #[starlark(attribute)]
-    fn r#type<'v>(this: &StarlarkConfiguredAttr, heap: &'v Heap) -> starlark::Result<&'v str> {
+    fn r#type<'v>(this: &StarlarkConfiguredAttr, heap: Heap<'v>) -> starlark::Result<&'v str> {
         Ok(this
             .0
             .to_value(PackageLabelOption::PackageLabel(this.1.dupe()), heap)?
@@ -819,7 +819,7 @@ fn configured_attr_methods(builder: &mut MethodsBuilder) {
     ///     attrs = node.attrs_eager()
     ///     ctx.output.print(attrs.name.value())
     /// ```
-    fn value<'v>(this: &StarlarkConfiguredAttr, heap: &'v Heap) -> starlark::Result<Value<'v>> {
+    fn value<'v>(this: &StarlarkConfiguredAttr, heap: Heap<'v>) -> starlark::Result<Value<'v>> {
         Ok(this
             .0
             .to_value(PackageLabelOption::PackageLabel(this.1.dupe()), heap)?)
@@ -846,7 +846,7 @@ fn configured_attr_methods(builder: &mut MethodsBuilder) {
     /// ```
     fn strip_cfg<'v>(
         this: &StarlarkConfiguredAttr,
-        _heap: &'v Heap,
+        _heap: Heap<'v>,
     ) -> starlark::Result<StarlarkCoercedAttr> {
         Ok(StarlarkCoercedAttr(
             attr_with_stripped_cfg(&this.0)
@@ -883,7 +883,7 @@ impl<'v> StarlarkValue<'v> for StarlarkLazyAttrs<'v> {
 }
 
 impl<'v> AllocValue<'v> for StarlarkLazyAttrs<'v> {
-    fn alloc_value(self, heap: &'v Heap) -> Value<'v> {
+    fn alloc_value(self, heap: Heap<'v>) -> Value<'v> {
         heap.alloc_complex_no_freeze(self)
     }
 }
@@ -973,7 +973,7 @@ impl<'v> StarlarkValue<'v> for StarlarkLazyResolvedAttrs<'v> {
 }
 
 impl<'v> AllocValue<'v> for StarlarkLazyResolvedAttrs<'v> {
-    fn alloc_value(self, heap: &'v Heap) -> Value<'v> {
+    fn alloc_value(self, heap: Heap<'v>) -> Value<'v> {
         heap.alloc_complex_no_freeze(self)
     }
 }

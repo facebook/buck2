@@ -339,7 +339,7 @@ impl Module {
     }
 
     /// Get the heap on which values are allocated by this module.
-    pub fn heap(&self) -> &Heap {
+    pub fn heap(&self) -> Heap<'_> {
         self.heap.as_ref()
     }
 

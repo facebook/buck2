@@ -139,7 +139,7 @@ impl<'v> StarlarkValue<'v> for Range {
         }
     }
 
-    fn at(&self, index: Value, heap: &'v Heap) -> crate::Result<Value<'v>> {
+    fn at(&self, index: Value, heap: Heap<'v>) -> crate::Result<Value<'v>> {
         let index = convert_index(index, self.length()?)?;
         // Must not overflow if `length` is computed correctly
         Ok(heap.alloc(self.start + self.step.get() * index))
@@ -158,7 +158,7 @@ impl<'v> StarlarkValue<'v> for Range {
         start: Option<Value>,
         stop: Option<Value>,
         stride: Option<Value>,
-        heap: &'v Heap,
+        heap: Heap<'v>,
     ) -> crate::Result<Value<'v>> {
         let (start, stop, step) = convert_slice_indices(self.length()?, start, stop, stride)?;
         return Ok(heap.alloc(Range {
@@ -185,11 +185,11 @@ impl<'v> StarlarkValue<'v> for Range {
         }));
     }
 
-    unsafe fn iterate(&self, me: Value<'v>, _heap: &'v Heap) -> crate::Result<Value<'v>> {
+    unsafe fn iterate(&self, me: Value<'v>, _heap: Heap<'v>) -> crate::Result<Value<'v>> {
         Ok(me)
     }
 
-    unsafe fn iter_next(&self, index: usize, heap: &'v Heap) -> Option<Value<'v>> {
+    unsafe fn iter_next(&self, index: usize, heap: Heap<'v>) -> Option<Value<'v>> {
         let rem_range = self.rem_range_at_iter(index)?;
 
         if !rem_range.to_bool() {

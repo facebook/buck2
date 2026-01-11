@@ -57,7 +57,7 @@ impl<'v, V: ValueLike<'v>> PlatformInfoGen<V> {
 impl<'v> PlatformInfo<'v> {
     pub fn from_configuration(
         cfg: &ConfigurationData,
-        heap: &'v Heap,
+        heap: Heap<'v>,
     ) -> buck2_error::Result<PlatformInfo<'v>> {
         let label = heap.alloc_str(cfg.label()?);
         let configuration = heap.alloc(ConfigurationInfo::from_configuration_data(

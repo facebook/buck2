@@ -68,7 +68,7 @@ impl<'v> StarlarkValue<'v> for StarlarkTargetUniverse<'v> {
 }
 
 impl<'v> AllocValue<'v> for StarlarkTargetUniverse<'v> {
-    fn alloc_value(self, heap: &'v Heap) -> Value<'v> {
+    fn alloc_value(self, heap: Heap<'v>) -> Value<'v> {
         heap.alloc_complex_no_freeze(self)
     }
 }
@@ -95,7 +95,7 @@ fn target_universe_methods(builder: &mut MethodsBuilder) {
     /// The target set of the nodes used to construct the target universe.
     fn target_set<'v>(
         this: &'v StarlarkTargetUniverse<'v>,
-        heap: &'v Heap,
+        heap: Heap<'v>,
     ) -> starlark::Result<ValueTyped<'v, StarlarkTargetSet<ConfiguredTargetNode>>> {
         Ok(heap.alloc_typed(StarlarkTargetSet::from(this.target_set.clone())))
     }

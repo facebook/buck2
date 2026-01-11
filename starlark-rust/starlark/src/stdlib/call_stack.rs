@@ -59,7 +59,7 @@ impl<'v> StarlarkValue<'v> for StackFrame {
 }
 
 impl<'v> AllocValue<'v> for StackFrame {
-    fn alloc_value(self, heap: &'v Heap) -> Value<'v> {
+    fn alloc_value(self, heap: Heap<'v>) -> Value<'v> {
         heap.alloc_complex_no_freeze(self)
     }
 }

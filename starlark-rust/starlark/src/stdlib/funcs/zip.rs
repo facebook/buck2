@@ -86,7 +86,7 @@ pub(crate) fn register_zip(globals: &mut GlobalsBuilder) {
     #[starlark(speculative_exec_safe, ty_custom_function = ZipType)]
     fn zip<'v>(
         #[starlark(args)] args: UnpackTuple<ValueOfUnchecked<'v, StarlarkIter<FrozenValue>>>,
-        heap: &'v Heap,
+        heap: Heap<'v>,
     ) -> starlark::Result<Vec<Value<'v>>> {
         let mut v = Vec::new();
         let mut first = true;

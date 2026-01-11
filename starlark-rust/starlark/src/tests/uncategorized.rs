@@ -317,11 +317,11 @@ fn test_radd() {
 
     #[starlark_value(type = "select")]
     impl<'v> StarlarkValue<'v> for Select {
-        fn radd(&self, lhs: Value<'v>, heap: &'v Heap) -> Option<crate::Result<Value<'v>>> {
+        fn radd(&self, lhs: Value<'v>, heap: Heap<'v>) -> Option<crate::Result<Value<'v>>> {
             let lhs: Select = Select::unpack_value(lhs).unwrap().unwrap();
             Some(Ok(heap.alloc(lhs.add(self))))
         }
-        fn add(&self, rhs: Value<'v>, heap: &'v Heap) -> Option<crate::Result<Value<'v>>> {
+        fn add(&self, rhs: Value<'v>, heap: Heap<'v>) -> Option<crate::Result<Value<'v>>> {
             let rhs: Select = UnpackValue::unpack_value(rhs).unwrap().unwrap();
             Some(Ok(heap.alloc(self.clone().add(&rhs))))
         }
@@ -752,7 +752,7 @@ fn test_label_assign() {
 
     #[starlark_value(type = "wrapper")]
     impl<'v> StarlarkValue<'v> for Wrapper<'v> {
-        fn get_attr(&self, attribute: &str, _heap: &'v Heap) -> Option<Value<'v>> {
+        fn get_attr(&self, attribute: &str, _heap: Heap<'v>) -> Option<Value<'v>> {
             Some(*self.0.borrow().get(attribute).unwrap())
         }
 
@@ -780,7 +780,7 @@ fn test_label_assign() {
 
     #[starlark_module]
     fn module(builder: &mut GlobalsBuilder) {
-        fn wrapper<'v>(heap: &'v Heap) -> anyhow::Result<Value<'v>> {
+        fn wrapper<'v>(heap: Heap<'v>) -> anyhow::Result<Value<'v>> {
             Ok(heap.alloc_complex(Wrapper(RefCell::new(SmallMap::new()))))
         }
     }
