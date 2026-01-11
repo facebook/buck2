@@ -15,12 +15,22 @@
  * limitations under the License.
  */
 
+use std::ptr::copy_nonoverlapping;
+
+use starlark_map::Hashed;
+
 use crate::collections::StarlarkHashValue;
 use crate::values::FreezeResult;
 use crate::values::Freezer;
+use crate::values::FrozenHeap;
+use crate::values::FrozenStringValue;
 use crate::values::FrozenValue;
+use crate::values::Heap;
+use crate::values::StringValue;
+use crate::values::StringValueLike as _;
 use crate::values::Tracer;
 use crate::values::Value;
+use crate::values::constant_string;
 use crate::values::layout::avalue::AValue;
 use crate::values::layout::avalue::AValueImpl;
 use crate::values::layout::heap::repr::AValueHeader;
@@ -96,5 +106,112 @@ impl<'v> AValue<'v> for StarlarkStrAValue {
             );
             v
         }
+    }
+}
+
+impl FrozenHeap {
+    fn alloc_str_impl(&self, x: &str, hash: StarlarkHashValue) -> FrozenStringValue {
+        if let Some(x) = constant_string(x) {
+            x
+        } else {
+            self.alloc_str_init(x.len(), hash, |dest| unsafe {
+                copy_nonoverlapping(x.as_ptr(), dest, x.len())
+            })
+        }
+    }
+
+    /// Allocate a string on this heap. Be careful about the warnings around
+    /// [`FrozenValue`].
+    ///
+    /// Since the heap is frozen, we always prefer to intern the string in order
+    /// to deduplicate it and save some memory.
+    pub fn alloc_str(&self, x: &str) -> FrozenStringValue {
+        self.alloc_str_intern(x)
+    }
+
+    /// Intern string.
+    pub(crate) fn alloc_str_intern(&self, s: &str) -> FrozenStringValue {
+        if let Some(s) = constant_string(s) {
+            s
+        } else {
+            let s = Hashed::new(s);
+            self.string_interner()
+                .intern(s, || self.alloc_str_hashed(s))
+        }
+    }
+
+    /// Allocate prehashed string.
+    pub fn alloc_str_hashed(&self, x: Hashed<&str>) -> FrozenStringValue {
+        self.alloc_str_impl(x.key(), x.hash())
+    }
+}
+
+impl Heap {
+    /// Allocate a string on the heap.
+    pub fn alloc_str<'v>(&'v self, x: &str) -> StringValue<'v> {
+        if let Some(x) = constant_string(x) {
+            x.to_string_value()
+        } else {
+            self.alloc_str_init(x.len(), StarlarkStr::UNINIT_HASH, |dest| unsafe {
+                copy_nonoverlapping(x.as_ptr(), dest, x.len())
+            })
+        }
+    }
+
+    /// Intern string.
+    pub fn alloc_str_intern<'v>(&'v self, x: &str) -> StringValue<'v> {
+        if let Some(x) = constant_string(x) {
+            x.to_string_value()
+        } else {
+            let x = Hashed::new(x);
+            self.string_interner().intern(x, || {
+                self.alloc_str_init(x.len(), x.hash(), |dest| unsafe {
+                    copy_nonoverlapping(x.as_ptr(), dest, x.len())
+                })
+            })
+        }
+    }
+
+    /// Allocate a string on the heap, based on two concatenated strings.
+    pub fn alloc_str_concat<'v>(&'v self, x: &str, y: &str) -> StringValue<'v> {
+        if x.is_empty() {
+            self.alloc_str(y)
+        } else if y.is_empty() {
+            self.alloc_str(x)
+        } else {
+            self.alloc_str_init(x.len() + y.len(), StarlarkStr::UNINIT_HASH, |dest| unsafe {
+                copy_nonoverlapping(x.as_ptr(), dest, x.len());
+                copy_nonoverlapping(y.as_ptr(), dest.add(x.len()), y.len())
+            })
+        }
+    }
+
+    /// Allocate a string on the heap, based on three concatenated strings.
+    pub fn alloc_str_concat3<'v>(&'v self, x: &str, y: &str, z: &str) -> StringValue<'v> {
+        if x.is_empty() {
+            self.alloc_str_concat(y, z)
+        } else if y.is_empty() {
+            self.alloc_str_concat(x, z)
+        } else if z.is_empty() {
+            self.alloc_str_concat(x, y)
+        } else {
+            self.alloc_str_init(
+                x.len() + y.len() + z.len(),
+                StarlarkStr::UNINIT_HASH,
+                |dest| unsafe {
+                    copy_nonoverlapping(x.as_ptr(), dest, x.len());
+                    let dest = dest.add(x.len());
+                    copy_nonoverlapping(y.as_ptr(), dest, y.len());
+                    let dest = dest.add(y.len());
+                    copy_nonoverlapping(z.as_ptr(), dest, z.len());
+                },
+            )
+        }
+    }
+
+    pub(crate) fn alloc_char<'v>(&'v self, x: char) -> StringValue<'v> {
+        let mut dst = [0; 4];
+        let res = x.encode_utf8(&mut dst);
+        self.alloc_str(res)
     }
 }

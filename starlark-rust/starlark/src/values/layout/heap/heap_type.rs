@@ -24,7 +24,6 @@ use std::fmt::Debug;
 use std::fmt::Formatter;
 use std::hash::Hash;
 use std::hash::Hasher;
-use std::intrinsics::copy_nonoverlapping;
 use std::marker::PhantomData;
 use std::mem;
 use std::mem::MaybeUninit;
@@ -39,7 +38,6 @@ use starlark_map::small_set::SmallSet;
 
 use crate::cast;
 use crate::cast::transmute;
-use crate::collections::Hashed;
 use crate::collections::StarlarkHashValue;
 use crate::eval::runtime::profile::instant::ProfilerInstant;
 use crate::values::AllocFrozenValue;
@@ -68,13 +66,10 @@ use crate::values::layout::heap::fast_cell::FastCell;
 use crate::values::layout::heap::profile::by_type::HeapSummary;
 use crate::values::layout::heap::repr::AValueOrForwardUnpack;
 use crate::values::layout::heap::repr::AValueRepr;
-use crate::values::layout::static_string::constant_string;
-use crate::values::layout::typed::string::StringValueLike;
 use crate::values::layout::value::FrozenValue;
 use crate::values::layout::value::Value;
 use crate::values::string::intern::interner::FrozenStringValueInterner;
 use crate::values::string::intern::interner::StringValueInterner;
-use crate::values::string::str_type::StarlarkStr;
 
 #[derive(Copy, Clone, Dupe)]
 pub(crate) enum HeapKind {
@@ -103,7 +98,9 @@ impl Debug for Heap {
 }
 
 impl Heap {
-    fn string_interner<'v>(&'v self) -> RefMut<'v, StringValueInterner<'v>> {
+    pub(in crate::values::layout) fn string_interner<'v>(
+        &'v self,
+    ) -> RefMut<'v, StringValueInterner<'v>> {
         // SAFETY: The lifetime of the interner is the lifetime of the heap.
         unsafe {
             transmute!(
@@ -259,6 +256,12 @@ impl FrozenHeap {
         }
     }
 
+    pub(in crate::values::layout) fn string_interner(
+        &self,
+    ) -> RefMut<'_, FrozenStringValueInterner> {
+        self.str_interner.borrow_mut()
+    }
+
     pub(in crate::values::layout) fn alloc_raw<T>(&self, x: AValueImpl<'static, T>) -> FrozenValue
     where
         T: AValue<'static, ExtraElem = ()> + Send + Sync,
@@ -283,7 +286,7 @@ impl FrozenHeap {
     }
 
     #[inline]
-    fn alloc_str_init(
+    pub(in crate::values::layout) fn alloc_str_init(
         &self,
         len: usize,
         hash: StarlarkHashValue,
@@ -295,42 +298,6 @@ impl FrozenHeap {
             let value = FrozenValue::new_ptr(&*v, true);
             FrozenStringValue::new_unchecked(value)
         }
-    }
-
-    fn alloc_str_impl(&self, x: &str, hash: StarlarkHashValue) -> FrozenStringValue {
-        if let Some(x) = constant_string(x) {
-            x
-        } else {
-            self.alloc_str_init(x.len(), hash, |dest| unsafe {
-                copy_nonoverlapping(x.as_ptr(), dest, x.len())
-            })
-        }
-    }
-
-    /// Allocate a string on this heap. Be careful about the warnings around
-    /// [`FrozenValue`].
-    ///
-    /// Since the heap is frozen, we always prefer to intern the string in order
-    /// to deduplicate it and save some memory.
-    pub fn alloc_str(&self, x: &str) -> FrozenStringValue {
-        self.alloc_str_intern(x)
-    }
-
-    /// Intern string.
-    pub(crate) fn alloc_str_intern(&self, s: &str) -> FrozenStringValue {
-        if let Some(s) = constant_string(s) {
-            s
-        } else {
-            let s = Hashed::new(s);
-            self.str_interner
-                .borrow_mut()
-                .intern(s, || self.alloc_str_hashed(s))
-        }
-    }
-
-    /// Allocate prehashed string.
-    pub fn alloc_str_hashed(&self, x: Hashed<&str>) -> FrozenStringValue {
-        self.alloc_str_impl(x.key(), x.hash())
     }
 
     /// Allocate a new value on a [`FrozenHeap`].
@@ -421,7 +388,7 @@ impl Heap {
         (v, extra)
     }
 
-    pub(crate) fn alloc_str_init<'v>(
+    pub(in crate::values::layout) fn alloc_str_init<'v>(
         &'v self,
         len: usize,
         hash: StarlarkHashValue,
@@ -437,81 +404,6 @@ impl Heap {
             let value = Value::new_ptr(&*v, true);
             StringValue::new_unchecked(value)
         }
-    }
-
-    fn alloc_str_impl<'v>(&'v self, x: &str, hash: StarlarkHashValue) -> StringValue<'v> {
-        if let Some(x) = constant_string(x) {
-            x.to_string_value()
-        } else {
-            self.alloc_str_init(x.len(), hash, |dest| unsafe {
-                copy_nonoverlapping(x.as_ptr(), dest, x.len())
-            })
-        }
-    }
-
-    /// Allocate a string on the heap.
-    pub fn alloc_str<'v>(&'v self, x: &str) -> StringValue<'v> {
-        if let Some(x) = constant_string(x) {
-            x.to_string_value()
-        } else {
-            self.alloc_str_init(x.len(), StarlarkStr::UNINIT_HASH, |dest| unsafe {
-                copy_nonoverlapping(x.as_ptr(), dest, x.len())
-            })
-        }
-    }
-
-    /// Intern string.
-    pub fn alloc_str_intern<'v>(&'v self, x: &str) -> StringValue<'v> {
-        if let Some(x) = constant_string(x) {
-            x.to_string_value()
-        } else {
-            let x = Hashed::new(x);
-            self.string_interner()
-                .intern(x, || self.alloc_str_impl(x.key(), x.hash()))
-        }
-    }
-
-    /// Allocate a string on the heap, based on two concatenated strings.
-    pub fn alloc_str_concat<'v>(&'v self, x: &str, y: &str) -> StringValue<'v> {
-        if x.is_empty() {
-            self.alloc_str(y)
-        } else if y.is_empty() {
-            self.alloc_str(x)
-        } else {
-            self.alloc_str_init(x.len() + y.len(), StarlarkStr::UNINIT_HASH, |dest| unsafe {
-                copy_nonoverlapping(x.as_ptr(), dest, x.len());
-                copy_nonoverlapping(y.as_ptr(), dest.add(x.len()), y.len())
-            })
-        }
-    }
-
-    /// Allocate a string on the heap, based on three concatenated strings.
-    pub fn alloc_str_concat3<'v>(&'v self, x: &str, y: &str, z: &str) -> StringValue<'v> {
-        if x.is_empty() {
-            self.alloc_str_concat(y, z)
-        } else if y.is_empty() {
-            self.alloc_str_concat(x, z)
-        } else if z.is_empty() {
-            self.alloc_str_concat(x, y)
-        } else {
-            self.alloc_str_init(
-                x.len() + y.len() + z.len(),
-                StarlarkStr::UNINIT_HASH,
-                |dest| unsafe {
-                    copy_nonoverlapping(x.as_ptr(), dest, x.len());
-                    let dest = dest.add(x.len());
-                    copy_nonoverlapping(y.as_ptr(), dest, y.len());
-                    let dest = dest.add(y.len());
-                    copy_nonoverlapping(z.as_ptr(), dest, z.len());
-                },
-            )
-        }
-    }
-
-    pub(crate) fn alloc_char<'v>(&'v self, x: char) -> StringValue<'v> {
-        let mut dst = [0; 4];
-        let res = x.encode_utf8(&mut dst);
-        self.alloc_str(res)
     }
 
     /// Allocate a new value on a [`Heap`].
