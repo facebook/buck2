@@ -31,6 +31,8 @@ unsafe impl Sync for FrozenValue {}
 
 /// See the documentation on `HeapSendable`
 unsafe impl Send for Value<'static> {}
+/// See the documentation on `HeapSendable`
+unsafe impl Sync for Value<'static> {}
 
 /// A trait for handling the unusual sendness requirements of starlark values.
 ///
@@ -91,20 +93,42 @@ unsafe impl Send for Value<'static> {}
 ///  `T::StaticType`, while not quite equivalent, is *almost* as good as `T: Send`. On the other
 ///  hand, the `'static` thing together with the impl on `Value` means that it is actually satisfied
 ///  for a `T` that contains a `Value<'v>`, which is what we want.
-pub trait HeapSendable<'v>: sealed::Sealed {}
+pub trait HeapSendable<'v>: sealed_send::Sealed {}
 
 impl<'v, T: ProvidesStaticType<'v>> HeapSendable<'v> for T where
     <T as ProvidesStaticType<'v>>::StaticType: Send
 {
 }
 
-mod sealed {
+mod sealed_send {
     use crate::any::ProvidesStaticType;
 
     pub trait Sealed {}
 
     impl<'v, T: ProvidesStaticType<'v>> Sealed for T where
         <T as ProvidesStaticType<'v>>::StaticType: Send
+    {
+    }
+}
+
+/// The sync analogue of `HeapSendable`.
+///
+/// Mostly see the docs on `HeapSendable`, which is slightly more interesting - this one is just
+/// needed on frozen heaps.
+pub trait HeapSyncable<'v>: sealed_sync::Sealed {}
+
+impl<'v, T: ProvidesStaticType<'v>> HeapSyncable<'v> for T where
+    <T as ProvidesStaticType<'v>>::StaticType: Sync
+{
+}
+
+mod sealed_sync {
+    use crate::any::ProvidesStaticType;
+
+    pub trait Sealed {}
+
+    impl<'v, T: ProvidesStaticType<'v>> Sealed for T where
+        <T as ProvidesStaticType<'v>>::StaticType: Sync
     {
     }
 }
@@ -142,6 +166,7 @@ where
 // SAFETY: Sealing guarantees that the only impl of `HeapSendable` is the one above, and that impl
 // requires this to hold.
 unsafe impl<T: HeapSendable<'static> + ?Sized> Send for DynStarlark<'static, T> {}
+unsafe impl<T: HeapSyncable<'static> + ?Sized> Sync for DynStarlark<'static, T> {}
 
 impl<'v, T> DynStarlark<'v, T> {
     /// Create a new `DynStarlark` containing the value

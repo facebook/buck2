@@ -39,9 +39,7 @@ fn tuple_avalue<'v>(len: usize) -> AValueImpl<'v, AValueTuple> {
     AValueImpl::<AValueTuple>::new(unsafe { Tuple::new(len) })
 }
 
-fn frozen_tuple_avalue<'fv>(
-    len: usize,
-) -> AValueImpl<'fv, impl AValue<'fv, ExtraElem = FrozenValue>> {
+fn frozen_tuple_avalue<'fv>(len: usize) -> AValueImpl<'fv, AValueFrozenTuple> {
     AValueImpl::<AValueFrozenTuple>::new(unsafe { FrozenTuple::new(len) })
 }
 

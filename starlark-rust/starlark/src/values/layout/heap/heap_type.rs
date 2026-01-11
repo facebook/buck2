@@ -67,6 +67,7 @@ use crate::values::layout::heap::fast_cell::FastCell;
 use crate::values::layout::heap::profile::by_type::HeapSummary;
 use crate::values::layout::heap::repr::AValueOrForwardUnpack;
 use crate::values::layout::heap::repr::AValueRepr;
+use crate::values::layout::heap::send::HeapSyncable;
 use crate::values::layout::value::FrozenValue;
 use crate::values::layout::value::Value;
 use crate::values::string::intern::interner::FrozenStringValueInterner;
@@ -268,7 +269,9 @@ impl FrozenHeap {
         x: AValueImpl<'fv, T>,
     ) -> FrozenValueTyped<'fv, T::StarlarkValue>
     where
-        T: AValue<'fv, ExtraElem = ()> + Send + Sync,
+        T: AValue<'fv, ExtraElem = ()>,
+        T::StarlarkValue: HeapSendable<'fv>,
+        T::StarlarkValue: HeapSyncable<'fv>,
     {
         let v: &AValueRepr<AValueImpl<T>> = self.arena.alloc(x);
         FrozenValueTyped::new_repr(v)
@@ -282,7 +285,9 @@ impl FrozenHeap {
         *mut [MaybeUninit<T::ExtraElem>],
     )
     where
-        T: AValue<'fv> + Send + Sync,
+        T: AValue<'fv>,
+        T::StarlarkValue: HeapSendable<'fv>,
+        T::StarlarkValue: HeapSyncable<'fv>,
     {
         let (v, extra) = self.arena.alloc_extra(x);
         let v = unsafe { FrozenValueTyped::new_repr(&*v) };

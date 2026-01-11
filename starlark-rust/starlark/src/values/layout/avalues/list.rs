@@ -47,9 +47,7 @@ fn list_avalue<'v>(
     AValueImpl::<AValueList>::new(ListGen(ListData::new(content)))
 }
 
-fn frozen_list_avalue<'fv>(
-    len: usize,
-) -> AValueImpl<'fv, impl AValue<'fv, ExtraElem = FrozenValue>> {
+fn frozen_list_avalue<'fv>(len: usize) -> AValueImpl<'fv, AValueFrozenList> {
     AValueImpl::<AValueFrozenList>::new(unsafe { ListGen(FrozenListData::new(len)) })
 }
 
