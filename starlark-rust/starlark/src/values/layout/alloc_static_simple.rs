@@ -18,9 +18,9 @@
 use crate::values::FrozenValue;
 use crate::values::FrozenValueTyped;
 use crate::values::StarlarkValue;
-use crate::values::layout::avalue;
 use crate::values::layout::avalue::AValueImpl;
-use crate::values::layout::avalue::AValueSimple;
+use crate::values::layout::avalues::simple::AValueSimple;
+use crate::values::layout::avalues::static_::alloc_static;
 use crate::values::layout::heap::repr::AValueRepr;
 
 /// Allocate simple value statically.
@@ -31,7 +31,7 @@ pub struct AllocStaticSimple<T: StarlarkValue<'static>>(
 impl<T: StarlarkValue<'static>> AllocStaticSimple<T> {
     /// Allocate a value statically.
     pub const fn alloc(value: T) -> Self {
-        AllocStaticSimple(avalue::alloc_static::<AValueSimple<T>>(value))
+        AllocStaticSimple(alloc_static::<AValueSimple<T>>(value))
     }
 
     /// Get the value.

@@ -47,9 +47,9 @@ use crate::values::comparison::compare_slice;
 use crate::values::comparison::equals_slice;
 use crate::values::index::apply_slice;
 use crate::values::index::convert_index;
-use crate::values::layout::avalue::AValueFrozenTuple;
 use crate::values::layout::avalue::AValueImpl;
-use crate::values::layout::avalue::alloc_static;
+use crate::values::layout::avalues::static_::alloc_static;
+use crate::values::layout::avalues::tuple::AValueFrozenTuple;
 use crate::values::layout::heap::repr::AValueRepr;
 
 /// Define the tuple type. See [`Tuple`] and [`FrozenTuple`] as the two aliases.

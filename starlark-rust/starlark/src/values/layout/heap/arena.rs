@@ -46,7 +46,7 @@ use crate::values::layout::aligned_size::AlignedSize;
 use crate::values::layout::avalue::AValue;
 use crate::values::layout::avalue::AValueImpl;
 use crate::values::layout::avalue::BlackHole;
-use crate::values::layout::avalue::starlark_str;
+use crate::values::layout::avalues::str_::starlark_str;
 use crate::values::layout::heap::allocator::api::ArenaAllocator;
 use crate::values::layout::heap::allocator::api::ChunkAllocationDirection;
 use crate::values::layout::heap::call_enter_exit::CallEnter;
@@ -531,7 +531,7 @@ impl<A: ArenaAllocator> Allocative for Arena<A> {
 mod tests {
     use super::*;
     use crate::values::any::StarlarkAny;
-    use crate::values::layout::avalue::simple;
+    use crate::values::layout::avalues::simple::simple;
 
     fn to_repr(x: &AValueHeader) -> String {
         let mut s = String::new();

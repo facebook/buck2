@@ -39,9 +39,9 @@ use crate::values::Heap;
 use crate::values::StarlarkValue;
 use crate::values::UnpackValue;
 use crate::values::Value;
-use crate::values::layout::avalue::AValueBasic;
 use crate::values::layout::avalue::AValueImpl;
-use crate::values::layout::avalue::alloc_static;
+use crate::values::layout::avalues::static_::AValueBasic;
+use crate::values::layout::avalues::static_::alloc_static;
 use crate::values::layout::heap::repr::AValueRepr;
 
 /// Define the None type, use [`NoneType`] in Rust.

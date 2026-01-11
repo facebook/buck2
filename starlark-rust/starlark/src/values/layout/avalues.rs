@@ -15,25 +15,10 @@
  * limitations under the License.
  */
 
-// Possible optimisations:
-// Encoding none, bool etc in the pointer of frozen value
-
-pub(crate) mod aligned_size;
-pub(crate) mod alloc_static_simple;
-pub(crate) mod avalue;
-pub(crate) mod avalues;
+pub(crate) mod array;
 pub(crate) mod complex;
-mod const_frozen_string;
-pub(crate) mod const_type_id;
-pub(crate) mod freezer;
-pub(crate) mod heap;
-pub(crate) mod identity;
-pub(crate) mod pointer;
-pub(crate) mod static_string;
-pub(crate) mod typed;
-pub(crate) mod value;
-pub(crate) mod value_alloc_size;
-pub(crate) mod value_captured;
-pub(crate) mod value_lifetimeless;
-pub(crate) mod value_not_special;
-pub(crate) mod vtable;
+pub(crate) mod list;
+pub(crate) mod simple;
+pub(crate) mod static_;
+pub(crate) mod str_;
+pub(crate) mod tuple;

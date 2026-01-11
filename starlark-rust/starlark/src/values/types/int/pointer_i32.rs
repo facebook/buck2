@@ -43,7 +43,7 @@ use crate::values::Heap;
 use crate::values::StarlarkValue;
 use crate::values::Value;
 use crate::values::ValueError;
-use crate::values::layout::avalue::AValueBasic;
+use crate::values::layout::avalues::static_::AValueBasic;
 use crate::values::layout::pointer::RawPointer;
 use crate::values::layout::vtable::AValueDyn;
 use crate::values::layout::vtable::AValueVTable;
