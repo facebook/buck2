@@ -15,11 +15,15 @@
  * limitations under the License.
  */
 
+use std::convert::Infallible;
 use std::mem;
 
+use crate::collections::maybe_uninit_backport::maybe_uninit_write_slice;
 use crate::values::FreezeResult;
 use crate::values::Freezer;
+use crate::values::FrozenHeap;
 use crate::values::FrozenValue;
+use crate::values::Heap;
 use crate::values::Trace;
 use crate::values::Tracer;
 use crate::values::Value;
@@ -27,27 +31,29 @@ use crate::values::ValueTyped;
 use crate::values::layout::avalue::AValue;
 use crate::values::layout::avalue::AValueImpl;
 use crate::values::layout::avalue::heap_copy_impl;
+use crate::values::layout::heap::maybe_uninit_slice_util::maybe_uninit_write_from_exact_size_iter;
 use crate::values::layout::heap::repr::AValueHeader;
 use crate::values::layout::heap::repr::AValueRepr;
 use crate::values::layout::heap::repr::ForwardPtr;
 use crate::values::list::value::ListGen;
+use crate::values::list::value::VALUE_EMPTY_FROZEN_LIST;
 use crate::values::types::array::Array;
 use crate::values::types::list::value::FrozenListData;
 use crate::values::types::list::value::ListData;
 
-pub(crate) fn list_avalue<'v>(
+fn list_avalue<'v>(
     content: ValueTyped<'v, Array<'v>>,
 ) -> AValueImpl<'v, impl AValue<'v, StarlarkValue = ListGen<ListData<'v>>, ExtraElem = ()>> {
     AValueImpl::<AValueList>::new(ListGen(ListData::new(content)))
 }
 
-pub(crate) fn frozen_list_avalue(
+fn frozen_list_avalue(
     len: usize,
 ) -> AValueImpl<'static, impl AValue<'static, ExtraElem = FrozenValue>> {
     AValueImpl::<AValueFrozenList>::new(unsafe { ListGen(FrozenListData::new(len)) })
 }
 
-pub(crate) struct AValueList;
+struct AValueList;
 
 impl<'v> AValue<'v> for AValueList {
     type StarlarkValue = ListGen<ListData<'v>>;
@@ -130,5 +136,86 @@ impl<'v> AValue<'v> for AValueFrozenList {
         _tracer: &Tracer<'v>,
     ) -> Value<'v> {
         panic!("shouldn't be copying frozen values");
+    }
+}
+
+impl FrozenHeap {
+    /// Allocate a list with the given elements on this heap.
+    pub(crate) fn alloc_list(&self, elems: &[FrozenValue]) -> FrozenValue {
+        if elems.is_empty() {
+            return FrozenValue::new_repr(&VALUE_EMPTY_FROZEN_LIST);
+        }
+
+        unsafe {
+            let (v, elem_places) = self.alloc_raw_extra(frozen_list_avalue(elems.len()));
+            let elem_places = &mut *elem_places;
+            maybe_uninit_write_slice(elem_places, elems);
+            v.to_frozen_value()
+        }
+    }
+
+    pub(crate) fn alloc_list_iter(
+        &self,
+        elems: impl IntoIterator<Item = FrozenValue>,
+    ) -> FrozenValue {
+        let elems = elems.into_iter();
+        let (lower, upper) = elems.size_hint();
+        if Some(lower) == upper {
+            if lower == 0 {
+                return FrozenValue::new_repr(&VALUE_EMPTY_FROZEN_LIST);
+            }
+
+            unsafe {
+                let (v, elem_places) = self.alloc_raw_extra(frozen_list_avalue(lower));
+                let elem_places = &mut *elem_places;
+                maybe_uninit_write_from_exact_size_iter(
+                    elem_places,
+                    elems,
+                    FrozenValue::new_none(),
+                );
+                v.to_frozen_value()
+            }
+        } else {
+            self.alloc_list(&elems.collect::<Vec<_>>())
+        }
+    }
+}
+
+impl Heap {
+    /// Allocate a list with the given elements.
+    pub(crate) fn alloc_list<'v>(&'v self, elems: &[Value<'v>]) -> Value<'v> {
+        let array = self.alloc_array(elems.len());
+        array.extend_from_slice(elems);
+        self.alloc_raw(list_avalue(array)).to_value()
+    }
+
+    /// Allocate a list with the given elements.
+    pub(crate) fn alloc_list_iter<'v>(
+        &'v self,
+        elems: impl IntoIterator<Item = Value<'v>>,
+    ) -> Value<'v> {
+        match self.try_alloc_list_iter(elems.into_iter().map(Ok::<_, Infallible>)) {
+            Ok(value) => value,
+        }
+    }
+
+    /// Allocate a list with the given elements.
+    pub(crate) fn try_alloc_list_iter<'v, E>(
+        &'v self,
+        elems: impl IntoIterator<Item = Result<Value<'v>, E>>,
+    ) -> Result<Value<'v>, E> {
+        let elems = elems.into_iter();
+        let array = self.alloc_array(0);
+        let list = self.alloc_raw(list_avalue(array));
+        list.0.try_extend(elems, self)?;
+        Ok(list.to_value())
+    }
+
+    /// Allocate a list by concatenating two slices.
+    pub(crate) fn alloc_list_concat<'v>(&'v self, a: &[Value<'v>], b: &[Value<'v>]) -> Value<'v> {
+        let array = self.alloc_array(a.len() + b.len());
+        array.extend_from_slice(a);
+        array.extend_from_slice(b);
+        self.alloc_raw(list_avalue(array)).to_value()
     }
 }

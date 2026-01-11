@@ -20,11 +20,14 @@ use starlark_syntax::slice_vec_ext::SliceExt;
 use crate::collections::maybe_uninit_backport::maybe_uninit_write_slice;
 use crate::values::FreezeResult;
 use crate::values::Freezer;
+use crate::values::FrozenHeap;
 use crate::values::FrozenValue;
+use crate::values::Heap;
 use crate::values::Tracer;
 use crate::values::Value;
 use crate::values::layout::avalue::AValue;
 use crate::values::layout::avalue::AValueImpl;
+use crate::values::layout::heap::maybe_uninit_slice_util::maybe_uninit_write_from_exact_size_iter;
 use crate::values::layout::heap::repr::AValueForward;
 use crate::values::layout::heap::repr::AValueHeader;
 use crate::values::layout::heap::repr::AValueRepr;
@@ -32,13 +35,11 @@ use crate::values::layout::heap::repr::ForwardPtr;
 use crate::values::types::tuple::value::FrozenTuple;
 use crate::values::types::tuple::value::Tuple;
 
-pub(crate) fn tuple_avalue<'v>(
-    len: usize,
-) -> AValueImpl<'v, impl AValue<'v, ExtraElem = Value<'v>>> {
+fn tuple_avalue<'v>(len: usize) -> AValueImpl<'v, impl AValue<'v, ExtraElem = Value<'v>>> {
     AValueImpl::<AValueTuple>::new(unsafe { Tuple::new(len) })
 }
 
-pub(crate) fn frozen_tuple_avalue(
+fn frozen_tuple_avalue(
     len: usize,
 ) -> AValueImpl<'static, impl AValue<'static, ExtraElem = FrozenValue>> {
     AValueImpl::<AValueFrozenTuple>::new(unsafe { FrozenTuple::new(len) })
@@ -150,5 +151,82 @@ impl<'v> AValue<'v> for AValueFrozenTuple {
         _tracer: &Tracer<'v>,
     ) -> Value<'v> {
         panic!("shouldn't be copying frozen values");
+    }
+}
+
+impl FrozenHeap {
+    /// Allocate a tuple with the given elements on this heap.
+    pub(crate) fn alloc_tuple<'v>(&'v self, elems: &[FrozenValue]) -> FrozenValue {
+        if elems.is_empty() {
+            return FrozenValue::new_empty_tuple();
+        }
+
+        unsafe {
+            let (v, extra) = self.alloc_raw_extra::<_>(frozen_tuple_avalue(elems.len()));
+            let extra = &mut *extra;
+            maybe_uninit_write_slice(extra, elems);
+            v.to_frozen_value()
+        }
+    }
+
+    /// Allocate a tuple from iterator of elements.
+    pub(crate) fn alloc_tuple_iter(
+        &self,
+        elems: impl IntoIterator<Item = FrozenValue>,
+    ) -> FrozenValue {
+        let elems = elems.into_iter();
+        let (lower, upper) = elems.size_hint();
+        if Some(lower) == upper {
+            if lower == 0 {
+                return FrozenValue::new_empty_tuple();
+            }
+
+            unsafe {
+                let (v, extra) = self.alloc_raw_extra(frozen_tuple_avalue(lower));
+                let extra = &mut *extra;
+                maybe_uninit_write_from_exact_size_iter(extra, elems, FrozenValue::new_none());
+                v.to_frozen_value()
+            }
+        } else {
+            self.alloc_tuple(&elems.collect::<Vec<_>>())
+        }
+    }
+}
+
+impl Heap {
+    /// Allocate a tuple with the given elements.
+    pub(crate) fn alloc_tuple<'v>(&'v self, elems: &[Value<'v>]) -> Value<'v> {
+        if elems.is_empty() {
+            return Value::new_empty_tuple();
+        }
+
+        unsafe {
+            let (v, extra) = self.alloc_raw_extra(tuple_avalue(elems.len()));
+            let extra = &mut *extra;
+            maybe_uninit_write_slice(extra, elems);
+            v.to_value()
+        }
+    }
+
+    pub(crate) fn alloc_tuple_iter<'v>(
+        &'v self,
+        elems: impl IntoIterator<Item = Value<'v>>,
+    ) -> Value<'v> {
+        let elems = elems.into_iter();
+        let (lower, upper) = elems.size_hint();
+        if Some(lower) == upper {
+            if lower == 0 {
+                return Value::new_empty_tuple();
+            }
+
+            unsafe {
+                let (v, extra) = self.alloc_raw_extra(tuple_avalue(lower));
+                let extra = &mut *extra;
+                maybe_uninit_write_from_exact_size_iter(extra, elems, Value::new_none());
+                v.to_value()
+            }
+        } else {
+            self.alloc_tuple(&elems.collect::<Vec<_>>())
+        }
     }
 }

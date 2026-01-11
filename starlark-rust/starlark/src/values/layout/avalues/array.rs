@@ -17,14 +17,21 @@
 
 use std::fmt::Debug;
 use std::marker::PhantomData;
+use std::slice;
 
 use crate::collections::maybe_uninit_backport::maybe_uninit_write_slice;
+use crate::collections::maybe_uninit_backport::maybe_uninit_write_slice_cloned;
 use crate::values::FreezeResult;
 use crate::values::Freezer;
+use crate::values::FrozenHeap;
+use crate::values::FrozenRef;
 use crate::values::FrozenValue;
+use crate::values::FrozenValueTyped;
+use crate::values::Heap;
 use crate::values::Trace;
 use crate::values::Tracer;
 use crate::values::Value;
+use crate::values::ValueTyped;
 use crate::values::array::VALUE_EMPTY_ARRAY;
 use crate::values::layout::avalue::AValue;
 use crate::values::layout::avalue::AValueImpl;
@@ -35,13 +42,13 @@ use crate::values::layout::heap::repr::ForwardPtr;
 use crate::values::types::any_array::AnyArray;
 use crate::values::types::array::Array;
 
-pub(crate) fn array_avalue<'v>(
+fn array_avalue<'v>(
     cap: u32,
 ) -> AValueImpl<'v, impl AValue<'v, StarlarkValue = Array<'v>, ExtraElem = Value<'v>>> {
     AValueImpl::<AValueArray>::new(unsafe { Array::new(0, cap) })
 }
 
-pub(crate) fn any_array_avalue<T: Debug + 'static>(
+fn any_array_avalue<T: Debug + 'static>(
     cap: usize,
 ) -> AValueImpl<'static, impl AValue<'static, StarlarkValue = AnyArray<T>, ExtraElem = T>> {
     AValueImpl::<AValueAnyArray<T>>::new(unsafe { AnyArray::new(cap) })
@@ -132,5 +139,43 @@ impl<'v, T: Debug + 'static> AValue<'v> for AValueAnyArray<T> {
         _tracer: &Tracer<'v>,
     ) -> Value<'v> {
         panic!("AnyArray for now can only be allocated in FrozenHeap");
+    }
+}
+
+impl FrozenHeap {
+    fn do_alloc_any_slice<T: Debug + Send + Sync + Clone>(
+        &self,
+        values: &[T],
+    ) -> FrozenRef<'static, [T]> {
+        let (_any_array, content) = self.alloc_raw_extra(any_array_avalue(values.len()));
+        let content = unsafe { &mut *content };
+        FrozenRef::new(&*maybe_uninit_write_slice_cloned(content, values))
+    }
+
+    /// Allocate a slice in the frozen heap.
+    pub(crate) fn alloc_any_slice<T: Debug + Send + Sync + Clone>(
+        &self,
+        values: &[T],
+    ) -> FrozenRef<'static, [T]> {
+        if values.is_empty() {
+            FrozenRef::new(&[])
+        } else if values.len() == 1 {
+            self.alloc_any(values[0].clone())
+                .map(|r| slice::from_ref(r))
+        } else {
+            self.do_alloc_any_slice(values)
+        }
+    }
+}
+
+impl Heap {
+    pub(crate) fn alloc_array<'v>(&'v self, cap: usize) -> ValueTyped<'v, Array<'v>> {
+        if cap == 0 {
+            return FrozenValueTyped::new_repr(VALUE_EMPTY_ARRAY.repr()).to_value_typed();
+        }
+
+        let cap: u32 = cap.try_into().expect("capacity overflows u32::MAX");
+
+        self.alloc_raw_extra(array_avalue(cap)).0
     }
 }

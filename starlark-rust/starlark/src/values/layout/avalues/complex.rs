@@ -28,6 +28,8 @@ use crate::values::FreezeError;
 use crate::values::FreezeResult;
 use crate::values::Freezer;
 use crate::values::FrozenValue;
+use crate::values::Heap;
+use crate::values::HeapSendable;
 use crate::values::StarlarkValue;
 use crate::values::Trace;
 use crate::values::Tracer;
@@ -46,7 +48,7 @@ enum AValueError {
     CannotBeFrozen(&'static str),
 }
 
-pub(crate) fn complex<'v, C>(x: C) -> AValueImpl<'v, impl AValue<'v, ExtraElem = ()>>
+fn complex<'v, C>(x: C) -> AValueImpl<'v, impl AValue<'v, ExtraElem = ()>>
 where
     C: ComplexValue<'v>,
     C::Frozen: StarlarkValue<'static>,
@@ -55,7 +57,7 @@ where
     AValueImpl::<AValueComplex<C>>::new(x)
 }
 
-pub(crate) fn complex_no_freeze<'v, C>(x: C) -> AValueImpl<'v, impl AValue<'v, ExtraElem = ()>>
+fn complex_no_freeze<'v, C>(x: C) -> AValueImpl<'v, impl AValue<'v, ExtraElem = ()>>
 where
     C: StarlarkValue<'v> + Trace<'v>,
 {
@@ -63,7 +65,7 @@ where
     AValueImpl::<AValueComplexNoFreeze<C>>::new(x)
 }
 
-pub(crate) struct AValueComplex<T>(PhantomData<T>);
+struct AValueComplex<T>(PhantomData<T>);
 
 impl<'v, T> AValue<'v> for AValueComplex<T>
 where
@@ -146,5 +148,28 @@ where
         tracer: &Tracer<'v>,
     ) -> Value<'v> {
         unsafe { heap_copy_impl::<Self>(me, tracer, Trace::trace) }
+    }
+}
+
+impl Heap {
+    /// Allocate a [`ComplexValue`] on the [`Heap`].
+    pub fn alloc_complex<'v, T>(&'v self, x: T) -> Value<'v>
+    where
+        T: ComplexValue<'v>,
+        T::Frozen: StarlarkValue<'static>,
+        T: HeapSendable<'v>,
+    {
+        self.alloc_raw(complex(x)).to_value()
+    }
+
+    /// Allocate a value which can be traced (garbage collected), but cannot be frozen.
+    pub fn alloc_complex_no_freeze<'v, T>(&'v self, x: T) -> Value<'v>
+    where
+        T: StarlarkValue<'v> + Trace<'v>,
+        T: HeapSendable<'v>,
+    {
+        // When specializations are stable, we can have single `alloc_complex` function,
+        // which enables or not enables freezing depending on whether `T` implements `Freeze`.
+        self.alloc_raw(complex_no_freeze(x)).to_value()
     }
 }
