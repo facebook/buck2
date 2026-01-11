@@ -39,9 +39,9 @@ fn tuple_avalue<'v>(len: usize) -> AValueImpl<'v, AValueTuple> {
     AValueImpl::<AValueTuple>::new(unsafe { Tuple::new(len) })
 }
 
-fn frozen_tuple_avalue(
+fn frozen_tuple_avalue<'fv>(
     len: usize,
-) -> AValueImpl<'static, impl AValue<'static, ExtraElem = FrozenValue>> {
+) -> AValueImpl<'fv, impl AValue<'fv, ExtraElem = FrozenValue>> {
     AValueImpl::<AValueFrozenTuple>::new(unsafe { FrozenTuple::new(len) })
 }
 
@@ -156,7 +156,7 @@ impl<'v> AValue<'v> for AValueFrozenTuple {
 
 impl FrozenHeap {
     /// Allocate a tuple with the given elements on this heap.
-    pub(crate) fn alloc_tuple<'v>(&'v self, elems: &[FrozenValue]) -> FrozenValue {
+    pub(crate) fn alloc_tuple(&self, elems: &[FrozenValue]) -> FrozenValue {
         if elems.is_empty() {
             return FrozenValue::new_empty_tuple();
         }

@@ -19,6 +19,7 @@ use std::fmt::Debug;
 use std::marker::PhantomData;
 use std::slice;
 
+use crate::cast;
 use crate::collections::maybe_uninit_backport::maybe_uninit_write_slice;
 use crate::collections::maybe_uninit_backport::maybe_uninit_write_slice_cloned;
 use crate::values::FreezeResult;
@@ -146,7 +147,9 @@ impl FrozenHeap {
         &self,
         values: &[T],
     ) -> FrozenRef<'static, [T]> {
-        let (_any_array, content) = self.alloc_raw_extra(any_array_avalue(values.len()));
+        // SAFETY: Not.
+        let this: &'static FrozenHeap = unsafe { cast::ptr_lifetime(self) };
+        let (_any_array, content) = this.alloc_raw_extra(any_array_avalue(values.len()));
         let content = unsafe { &mut *content };
         FrozenRef::new(&*maybe_uninit_write_slice_cloned(content, values))
     }

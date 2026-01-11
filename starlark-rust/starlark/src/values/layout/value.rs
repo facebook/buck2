@@ -1064,11 +1064,6 @@ impl FrozenValue {
     }
 
     #[inline]
-    pub(crate) fn new_repr<'a, T: AValue<'a>>(x: &'static AValueRepr<AValueImpl<'a, T>>) -> Self {
-        Self::new_ptr(&x.header, T::IS_STR)
-    }
-
-    #[inline]
     pub(crate) fn new_ptr_usize_with_str_tag(x: usize) -> Self {
         Self(FrozenPointer::new_frozen_usize_with_str_tag(x))
     }

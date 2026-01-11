@@ -18,6 +18,7 @@
 use std::marker::PhantomData;
 use std::mem;
 
+use crate::cast;
 use crate::private::Private;
 use crate::values::FreezeResult;
 use crate::values::Freezer;
@@ -84,8 +85,9 @@ impl FrozenHeap {
         &self,
         val: T,
     ) -> FrozenValueTyped<'static, T> {
-        // SAFETY: we we've just allocated `T`.
-        unsafe { FrozenValueTyped::new_unchecked(self.alloc_raw(simple(val))) }
+        // SAFETY: Not.
+        let this: &'static FrozenHeap = unsafe { cast::ptr_lifetime(self) };
+        this.alloc_raw(simple(val))
     }
 
     /// Allocate a simple [`StarlarkValue`] on this heap.

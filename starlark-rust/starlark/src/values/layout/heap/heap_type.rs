@@ -263,23 +263,26 @@ impl FrozenHeap {
         self.str_interner.borrow_mut()
     }
 
-    pub(in crate::values::layout) fn alloc_raw<T>(&self, x: AValueImpl<'static, T>) -> FrozenValue
+    pub(in crate::values::layout) fn alloc_raw<'fv, T>(
+        &'fv self,
+        x: AValueImpl<'fv, T>,
+    ) -> FrozenValueTyped<'fv, T::StarlarkValue>
     where
-        T: AValue<'static, ExtraElem = ()> + Send + Sync,
+        T: AValue<'fv, ExtraElem = ()> + Send + Sync,
     {
         let v: &AValueRepr<AValueImpl<T>> = self.arena.alloc(x);
-        unsafe { FrozenValue::new_repr(cast::ptr_lifetime(v)) }
+        FrozenValueTyped::new_repr(v)
     }
 
-    pub(in crate::values::layout) fn alloc_raw_extra<T>(
-        &self,
-        x: AValueImpl<'static, T>,
+    pub(in crate::values::layout) fn alloc_raw_extra<'fv, T>(
+        &'fv self,
+        x: AValueImpl<'fv, T>,
     ) -> (
-        FrozenValueTyped<'static, T::StarlarkValue>,
+        FrozenValueTyped<'fv, T::StarlarkValue>,
         *mut [MaybeUninit<T::ExtraElem>],
     )
     where
-        T: AValue<'static> + Send + Sync,
+        T: AValue<'fv> + Send + Sync,
     {
         let (v, extra) = self.arena.alloc_extra(x);
         let v = unsafe { FrozenValueTyped::new_repr(&*v) };
