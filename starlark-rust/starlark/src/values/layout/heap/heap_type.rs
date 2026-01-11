@@ -595,20 +595,10 @@ impl Heap {
         self.arena.borrow().available_bytes()
     }
 
-    fn alloc_raw<'v, 'v2: 'v2>(
-        &'v self,
-        x: AValueImpl<'v2, impl AValue<'v2, ExtraElem = ()>>,
-    ) -> Value<'v> {
+    fn alloc_raw<'v>(&'v self, x: AValueImpl<'v, impl AValue<'v, ExtraElem = ()>>) -> Value<'v> {
         let arena = self.arena.borrow();
         let v: &AValueRepr<_> = arena.alloc(x);
-
-        // We have an arena inside a RefCell which stores ValueMem<'v>
-        // However, we promise not to clear the RefCell other than for GC
-        // so we can make the `arena` available longer
-        unsafe {
-            let value = Value::new_repr(cast::ptr_lifetime(v));
-            transmute!(Value, Value, value)
-        }
+        Value::new_repr(v)
     }
 
     fn alloc_raw_typed<'v, A: AValue<'v, ExtraElem = ()>>(
@@ -810,7 +800,10 @@ impl Heap {
     /// * is not special builtin (e.g. `None`)
     ///
     /// Must be [`Send`] and [`Sync`] because it will be reused in frozen values.
-    pub fn alloc_simple<'v, T: StarlarkValue<'static> + Send + Sync>(&'v self, x: T) -> Value<'v> {
+    pub fn alloc_simple<'v, T: StarlarkValue<'v> + Send + Sync + 'static>(
+        &'v self,
+        x: T,
+    ) -> Value<'v> {
         self.alloc_raw(simple(x))
     }
 

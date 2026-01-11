@@ -169,9 +169,9 @@ pub(crate) fn any_array_avalue<T: Debug + 'static>(
     AValueImpl::<AValueAnyArray<T>>::new(unsafe { AnyArray::new(cap) })
 }
 
-pub(crate) fn simple<T: StarlarkValue<'static> + Send + Sync>(
+pub(crate) fn simple<'v, T: StarlarkValue<'v> + Send + Sync + 'static>(
     x: T,
-) -> AValueImpl<'static, impl AValue<'static, ExtraElem = ()> + Send + Sync> {
+) -> AValueImpl<'v, impl AValue<'v, ExtraElem = ()> + Send + Sync> {
     assert!(!T::is_special(Private));
     AValueImpl::<AValueSimple<T>>::new(x)
 }
@@ -618,7 +618,7 @@ where
 
 pub(crate) struct AValueSimple<T>(PhantomData<T>);
 
-impl<T: StarlarkValue<'static>> AValue<'static> for AValueSimple<T> {
+impl<'v, T: StarlarkValue<'v>> AValue<'v> for AValueSimple<T> {
     type StarlarkValue = T;
 
     type ExtraElem = ();
@@ -646,8 +646,8 @@ impl<T: StarlarkValue<'static>> AValue<'static> for AValueSimple<T> {
 
     unsafe fn heap_copy(
         me: *mut AValueRepr<Self::StarlarkValue>,
-        tracer: &Tracer<'static>,
-    ) -> Value<'static> {
+        tracer: &Tracer<'v>,
+    ) -> Value<'v> {
         unsafe { heap_copy_impl::<Self>(me, tracer, |_v, _tracer| {}) }
     }
 }
