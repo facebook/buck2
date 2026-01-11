@@ -8,6 +8,7 @@
  * above-listed licenses.
  */
 
+#![feature(arbitrary_self_types)]
 #![feature(error_generic_member_access)]
 #![feature(try_blocks)]
 #![feature(impl_trait_in_assoc_type)]

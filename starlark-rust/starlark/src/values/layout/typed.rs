@@ -73,7 +73,7 @@ use crate::values::type_repr::StarlarkTypeRepr;
 /// [`Value`] wrapper which asserts contained value is of type `<T>`.
 #[derive(Copy_, Clone_, Dupe_, ProvidesStaticType, Allocative)]
 #[allocative(skip)] // Heap owns the value.
-pub struct ValueTyped<'v, T: StarlarkValue<'v>>(Value<'v>, marker::PhantomData<&'v T>);
+pub struct ValueTyped<'v, T: StarlarkValue<'v>>(Value<'v>, marker::PhantomData<T>);
 /// [`FrozenValue`] wrapper which asserts contained value is of type `<T>`.
 #[derive(Copy_, Clone_, Dupe_, ProvidesStaticType, Allocative)]
 #[allocative(skip)] // Heap owns the value.

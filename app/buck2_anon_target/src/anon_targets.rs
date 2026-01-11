@@ -80,6 +80,7 @@ use futures::future::BoxFuture;
 use starlark::any::AnyLifetime;
 use starlark::any::ProvidesStaticType;
 use starlark::codemap::FileSpan;
+use starlark::values::DynStarlark;
 use starlark::values::Trace;
 use starlark::values::Value;
 use starlark::values::ValueTyped;
@@ -574,11 +575,11 @@ pub(crate) async fn get_artifact_from_anon_target_analysis<'v>(
 
 pub(crate) fn init_anon_target_registry_new() {
     ANON_TARGET_REGISTRY_NEW.init(|_phantom, execution_platform| {
-        Box::new(AnonTargetsRegistry {
+        Box::new(DynStarlark::new(AnonTargetsRegistry {
             execution_platform,
             promises: AnonPromises::default(),
             promise_artifact_registry: PromiseArtifactRegistry::new(),
-        })
+        }))
     });
 }
 

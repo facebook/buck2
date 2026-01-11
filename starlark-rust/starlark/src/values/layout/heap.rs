@@ -25,3 +25,4 @@ pub(crate) mod heap_type;
 pub(crate) mod maybe_uninit_slice_util;
 pub(crate) mod profile;
 pub(crate) mod repr;
+pub(crate) mod send;

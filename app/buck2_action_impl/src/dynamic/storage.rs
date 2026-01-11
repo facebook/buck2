@@ -24,6 +24,7 @@ use buck2_error::internal_error;
 use dupe::Dupe;
 use starlark::any::AnyLifetime;
 use starlark::any::ProvidesStaticType;
+use starlark::values::DynStarlark;
 use starlark::values::Freeze;
 use starlark::values::FreezeResult;
 use starlark::values::Freezer;
@@ -123,13 +124,13 @@ impl<'v> DynamicLambdaParamsStorage<'v> for DynamicLambdaParamsStorageImpl<'v> {
     }
 
     fn freeze(
-        self: Box<Self>,
+        self: Box<DynStarlark<'v, Self>>,
         freezer: &Freezer,
     ) -> FreezeResult<Box<dyn FrozenDynamicLambdaParamsStorage>> {
         let DynamicLambdaParamsStorageImpl {
             lambda_params,
             self_key: _,
-        } = *self;
+        } = self.into_inner();
         let lambda_params = lambda_params
             .into_iter_hashed()
             .map(|(k, v)| Ok((k, v.freeze(freezer)?)))
@@ -161,11 +162,11 @@ pub(crate) fn init_dynamic_lambda_params_storages() {
         fn new_dynamic_lambda_params_storage<'v>(
             &self,
             self_key: DeferredHolderKey,
-        ) -> Box<dyn DynamicLambdaParamsStorage<'v>> {
-            Box::new(DynamicLambdaParamsStorageImpl {
+        ) -> Box<DynStarlark<'v, dyn DynamicLambdaParamsStorage<'v>>> {
+            Box::new(DynStarlark::new(DynamicLambdaParamsStorageImpl {
                 self_key,
                 lambda_params: SmallMap::new(),
-            })
+            }))
         }
 
         fn new_frozen_dynamic_lambda_params_storage(

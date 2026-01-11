@@ -276,7 +276,7 @@ unsafe impl<'v> Trace<'v> for std::time::Instant {
     fn trace(&mut self, _tracer: &Tracer<'v>) {}
 }
 
-unsafe impl<'v, T> Trace<'v> for marker::PhantomData<T> {
+unsafe impl<'v, T: ?Sized> Trace<'v> for marker::PhantomData<T> {
     fn trace(&mut self, _tracer: &Tracer<'v>) {}
 }
 

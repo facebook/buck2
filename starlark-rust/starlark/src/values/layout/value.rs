@@ -251,11 +251,6 @@ pub struct FrozenValue(
     pub(crate)  FrozenPointer<'static>,
 );
 
-// These can both be shared, but not obviously, because we hide a fake RefCell in Pointer to stop
-// it having variance.
-unsafe impl Send for FrozenValue {}
-unsafe impl Sync for FrozenValue {}
-
 #[derive(thiserror::Error, Debug)]
 #[error("Integer value is too big to fit in {integer_type}: {value}")]
 pub(crate) struct IntegerTooBigError {

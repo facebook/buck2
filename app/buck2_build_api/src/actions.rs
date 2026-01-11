@@ -97,7 +97,7 @@ pub mod registry;
 /// Represents an unregistered 'Action' that will be registered into the 'Actions' module.
 /// The 'UnregisteredAction' is not executable until it is registered, upon which it becomes an
 /// 'Action' that is executable.
-pub trait UnregisteredAction: Allocative {
+pub trait UnregisteredAction: Allocative + Send {
     /// consumes the self and becomes a registered 'Action'. The 'Action' will be executable
     /// and no longer bindable to any other 'Artifact's.
     fn register(

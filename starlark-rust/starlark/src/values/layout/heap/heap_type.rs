@@ -55,6 +55,7 @@ use crate::values::FrozenRef;
 use crate::values::FrozenStringValue;
 use crate::values::FrozenValueOfUnchecked;
 use crate::values::FrozenValueTyped;
+use crate::values::HeapSendable;
 use crate::values::StarlarkValue;
 use crate::values::StringValue;
 use crate::values::Trace;
@@ -818,6 +819,7 @@ impl Heap {
     where
         T: ComplexValue<'v>,
         T::Frozen: StarlarkValue<'static>,
+        T: HeapSendable<'v>,
     {
         self.alloc_raw(complex(x))
     }
@@ -826,6 +828,7 @@ impl Heap {
     pub fn alloc_complex_no_freeze<'v, T>(&'v self, x: T) -> Value<'v>
     where
         T: StarlarkValue<'v> + Trace<'v>,
+        T: HeapSendable<'v>,
     {
         // When specializations are stable, we can have single `alloc_complex` function,
         // which enables or not enables freezing depending on whether `T` implements `Freeze`.

@@ -263,7 +263,7 @@ fn analysis_actions_methods_anon_target(builder: &mut MethodsBuilder) {
     ) -> starlark::Result<StarlarkAnonTarget<'v>> {
         let anon_target_promise = eval.heap().alloc_typed(StarlarkPromise::new_unresolved());
         let mut this = this.state()?;
-        let registry = AnonTargetsRegistry::downcast_mut(&mut *this.anon_targets)?;
+        let registry = AnonTargetsRegistry::downcast_mut(&mut **this.anon_targets)?;
         let owner_key = this.analysis_value_storage.self_key.owner();
         let key = registry.anon_target_key(rule, attrs, owner_key)?;
         registry.register_one(anon_target_promise, key.dupe())?;
@@ -288,7 +288,7 @@ fn analysis_actions_methods_anon_target(builder: &mut MethodsBuilder) {
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<StarlarkAnonTargets<'v>> {
         let mut this = this.state()?;
-        let registry = AnonTargetsRegistry::downcast_mut(&mut *this.anon_targets)?;
+        let registry = AnonTargetsRegistry::downcast_mut(&mut **this.anon_targets)?;
         let declaration_location = eval.call_stack_top_location();
 
         let mut anon_targets = Vec::new();

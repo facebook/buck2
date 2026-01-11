@@ -39,6 +39,7 @@ use starlark::codemap::FileSpan;
 use starlark::environment::FrozenModule;
 use starlark::environment::Module;
 use starlark::eval::Evaluator;
+use starlark::values::DynStarlark;
 use starlark::values::Freeze;
 use starlark::values::FreezeError;
 use starlark::values::FreezeResult;
@@ -93,7 +94,7 @@ use crate::interpreter::rule_defs::transitive_set::TransitiveSet;
 pub struct AnalysisRegistry<'v> {
     #[derivative(Debug = "ignore")]
     pub actions: ActionsRegistry<'v>,
-    pub anon_targets: Box<dyn AnonTargetsRegistryDyn<'v>>,
+    pub anon_targets: Box<DynStarlark<'v, dyn AnonTargetsRegistryDyn<'v>>>,
     pub analysis_value_storage: AnalysisValueStorage<'v>,
     pub short_path_assertions: HashMap<PromiseArtifactId, ForwardRelativePathBuf>,
     pub content_based_path_assertions: HashSet<PromiseArtifactId>,
@@ -391,7 +392,7 @@ pub struct AnalysisValueStorage<'v> {
     pub self_key: DeferredHolderKey,
     action_data: SmallMap<ActionIndex, (Option<Value<'v>>, Option<StarlarkCallable<'v>>)>,
     transitive_sets: Vec<ValueTyped<'v, TransitiveSet<'v>>>,
-    pub lambda_params: Box<dyn DynamicLambdaParamsStorage<'v>>,
+    pub lambda_params: Box<DynStarlark<'v, dyn DynamicLambdaParamsStorage<'v>>>,
     result_value: OnceCell<ValueTypedComplex<'v, ProviderCollection<'v>>>,
 }
 

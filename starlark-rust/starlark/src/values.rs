@@ -62,6 +62,8 @@ pub use crate::values::layout::heap::heap_type::FrozenHeap;
 pub use crate::values::layout::heap::heap_type::FrozenHeapRef;
 pub use crate::values::layout::heap::heap_type::Heap;
 pub use crate::values::layout::heap::heap_type::Tracer;
+pub use crate::values::layout::heap::send::DynStarlark;
+pub use crate::values::layout::heap::send::HeapSendable;
 pub use crate::values::layout::identity::ValueIdentity;
 pub use crate::values::layout::static_string::StarlarkStrNRepr;
 pub use crate::values::layout::static_string::constant_string;
