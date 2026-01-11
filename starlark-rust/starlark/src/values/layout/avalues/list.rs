@@ -143,7 +143,7 @@ impl FrozenHeap {
     /// Allocate a list with the given elements on this heap.
     pub(crate) fn alloc_list(&self, elems: &[FrozenValue]) -> FrozenValue {
         if elems.is_empty() {
-            return FrozenValue::new_repr(&VALUE_EMPTY_FROZEN_LIST);
+            return VALUE_EMPTY_FROZEN_LIST.to_frozen_value();
         }
 
         unsafe {
@@ -162,7 +162,7 @@ impl FrozenHeap {
         let (lower, upper) = elems.size_hint();
         if Some(lower) == upper {
             if lower == 0 {
-                return FrozenValue::new_repr(&VALUE_EMPTY_FROZEN_LIST);
+                return VALUE_EMPTY_FROZEN_LIST.to_frozen_value();
             }
 
             unsafe {

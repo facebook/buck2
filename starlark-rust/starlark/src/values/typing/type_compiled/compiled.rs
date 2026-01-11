@@ -39,6 +39,7 @@ use crate::environment::MethodsBuilder;
 use crate::environment::MethodsStatic;
 use crate::private::Private;
 use crate::typing::Ty;
+use crate::values::AllocStaticSimple;
 use crate::values::AllocValue;
 use crate::values::Demand;
 use crate::values::Freeze;
@@ -53,10 +54,6 @@ use crate::values::Value;
 use crate::values::ValueLifetimeless;
 use crate::values::ValueLike;
 use crate::values::dict::DictRef;
-use crate::values::layout::avalue::AValueImpl;
-use crate::values::layout::avalues::static_::AValueBasic;
-use crate::values::layout::avalues::static_::alloc_static;
-use crate::values::layout::heap::repr::AValueRepr;
 use crate::values::list::ListRef;
 use crate::values::none::NoneType;
 use crate::values::type_repr::StarlarkTypeRepr;
@@ -134,8 +131,8 @@ where
     pub(crate) const fn alloc_static(
         imp: T,
         ty: Ty,
-    ) -> AValueRepr<AValueImpl<'static, AValueBasic<TypeCompiledImplAsStarlarkValue<T>>>> {
-        alloc_static(TypeCompiledImplAsStarlarkValue {
+    ) -> AllocStaticSimple<TypeCompiledImplAsStarlarkValue<T>> {
+        AllocStaticSimple::alloc(TypeCompiledImplAsStarlarkValue {
             type_compiled_impl: imp,
             ty,
         })
@@ -477,11 +474,10 @@ impl TypeCompiled<FrozenValue> {
 
     /// `typing.Any`.
     pub fn any() -> TypeCompiled<FrozenValue> {
-        static ANYTHING: AValueRepr<
-            AValueImpl<'static, AValueBasic<TypeCompiledImplAsStarlarkValue<IsAny>>>,
-        > = TypeCompiledImplAsStarlarkValue::alloc_static(IsAny, Ty::any());
+        static ANYTHING: AllocStaticSimple<TypeCompiledImplAsStarlarkValue<IsAny>> =
+            TypeCompiledImplAsStarlarkValue::alloc_static(IsAny, Ty::any());
 
-        TypeCompiled::unchecked_new(FrozenValue::new_repr(&ANYTHING))
+        TypeCompiled::unchecked_new(ANYTHING.to_frozen_value())
     }
 }
 

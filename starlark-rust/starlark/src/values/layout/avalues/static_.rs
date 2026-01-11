@@ -29,14 +29,6 @@ use crate::values::layout::avalue::AValueImpl;
 use crate::values::layout::heap::repr::AValueRepr;
 use crate::values::layout::vtable::AValueVTable;
 
-pub(crate) const fn alloc_static<'v, A>(value: A::StarlarkValue) -> AValueRepr<AValueImpl<'v, A>>
-where
-    A: AValue<'v>,
-{
-    let payload = AValueImpl::<A>::new(value);
-    AValueRepr::with_metadata(AValueVTable::new::<A>(), payload)
-}
-
 /// For types which are only allocated statically (never in heap).
 /// Technically we can use `AValueSimple` for these, but this is more explicit and safe.
 pub(crate) struct AValueBasic<T>(PhantomData<T>);
@@ -86,7 +78,10 @@ pub struct AllocStaticSimple<T: StarlarkValue<'static>>(
 impl<T: StarlarkValue<'static>> AllocStaticSimple<T> {
     /// Allocate a value statically.
     pub const fn alloc(value: T) -> Self {
-        AllocStaticSimple(alloc_static::<AValueBasic<T>>(value))
+        AllocStaticSimple(AValueRepr::with_metadata(
+            AValueVTable::new::<AValueBasic<T>>(),
+            AValueImpl::<AValueBasic<T>>::new(value),
+        ))
     }
 
     /// Get the value.

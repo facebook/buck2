@@ -30,13 +30,10 @@ use crate as starlark;
 use crate::__derive_refs::serde::Serialize;
 use crate::private::Private;
 use crate::typing::Ty;
+use crate::values::AllocStaticSimple;
 use crate::values::StarlarkValue;
 use crate::values::Value;
 use crate::values::ValueError;
-use crate::values::layout::avalue::AValueImpl;
-use crate::values::layout::avalues::static_::AValueBasic;
-use crate::values::layout::avalues::static_::alloc_static;
-use crate::values::layout::heap::repr::AValueRepr;
 
 /// The result of calling `type()` on booleans.
 pub const BOOL_TYPE: &str = "bool";
@@ -56,9 +53,9 @@ impl Display for StarlarkBool {
     }
 }
 
-pub(crate) static VALUE_FALSE_TRUE: [AValueRepr<AValueImpl<AValueBasic<StarlarkBool>>>; 2] = [
-    alloc_static(StarlarkBool(false)),
-    alloc_static(StarlarkBool(true)),
+pub(crate) static VALUE_FALSE_TRUE: [AllocStaticSimple<StarlarkBool>; 2] = [
+    AllocStaticSimple::alloc(StarlarkBool(false)),
+    AllocStaticSimple::alloc(StarlarkBool(true)),
 ];
 
 /// Define the bool type

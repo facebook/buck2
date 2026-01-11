@@ -45,7 +45,7 @@ fn frozen_tuple_avalue(
     AValueImpl::<AValueFrozenTuple>::new(unsafe { FrozenTuple::new(len) })
 }
 
-pub(crate) struct AValueTuple;
+struct AValueTuple;
 
 impl<'v> AValue<'v> for AValueTuple {
     type StarlarkValue = Tuple<'v>;
@@ -124,7 +124,7 @@ impl<'v> AValue<'v> for AValueTuple {
     }
 }
 
-pub(crate) struct AValueFrozenTuple;
+struct AValueFrozenTuple;
 
 impl<'v> AValue<'v> for AValueFrozenTuple {
     type StarlarkValue = FrozenTuple;

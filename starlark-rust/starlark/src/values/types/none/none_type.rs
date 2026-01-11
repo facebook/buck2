@@ -32,6 +32,7 @@ use crate::collections::StarlarkHasher;
 use crate::private::Private;
 use crate::typing::Ty;
 use crate::values::AllocFrozenValue;
+use crate::values::AllocStaticSimple;
 use crate::values::AllocValue;
 use crate::values::FrozenHeap;
 use crate::values::FrozenValue;
@@ -39,10 +40,6 @@ use crate::values::Heap;
 use crate::values::StarlarkValue;
 use crate::values::UnpackValue;
 use crate::values::Value;
-use crate::values::layout::avalue::AValueImpl;
-use crate::values::layout::avalues::static_::AValueBasic;
-use crate::values::layout::avalues::static_::alloc_static;
-use crate::values::layout::heap::repr::AValueRepr;
 
 /// Define the None type, use [`NoneType`] in Rust.
 #[derive(Debug, Clone, Dupe, ProvidesStaticType, Display, Allocative)]
@@ -106,8 +103,7 @@ impl Serialize for NoneType {
     }
 }
 
-pub(crate) static VALUE_NONE: AValueRepr<AValueImpl<'static, AValueBasic<NoneType>>> =
-    alloc_static(NoneType);
+pub(crate) static VALUE_NONE: AllocStaticSimple<NoneType> = AllocStaticSimple::alloc(NoneType);
 
 impl AllocFrozenValue for NoneType {
     fn alloc_frozen_value(self, _heap: &FrozenHeap) -> FrozenValue {

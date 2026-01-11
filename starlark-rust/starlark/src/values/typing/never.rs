@@ -39,14 +39,11 @@ use starlark_derive::ProvidesStaticType;
 use crate as starlark;
 use crate::typing::Ty;
 use crate::values::AllocFrozenValue;
+use crate::values::AllocStaticSimple;
 use crate::values::AllocValue;
 use crate::values::FrozenHeap;
 use crate::values::FrozenValue;
 use crate::values::StarlarkValue;
-use crate::values::layout::avalue::AValueImpl;
-use crate::values::layout::avalues::static_::AValueBasic;
-use crate::values::layout::avalues::static_::alloc_static;
-use crate::values::layout::heap::repr::AValueRepr;
 use crate::values::starlark_value;
 use crate::values::type_repr::StarlarkTypeRepr;
 
@@ -69,10 +66,9 @@ impl<'v> StarlarkValue<'v> for TypingNever {
 
 impl AllocFrozenValue for TypingNever {
     fn alloc_frozen_value(self, _heap: &FrozenHeap) -> FrozenValue {
-        static NEVER: AValueRepr<AValueImpl<'static, AValueBasic<TypingNever>>> =
-            alloc_static(TypingNever);
+        static NEVER: AllocStaticSimple<TypingNever> = AllocStaticSimple::alloc(TypingNever);
 
-        FrozenValue::new_repr(&NEVER)
+        NEVER.to_frozen_value()
     }
 }
 

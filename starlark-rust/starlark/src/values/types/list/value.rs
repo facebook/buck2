@@ -44,6 +44,7 @@ use crate::hint::unlikely;
 use crate::private::Private;
 use crate::typing::Ty;
 use crate::values::AllocFrozenValue;
+use crate::values::AllocStaticSimple;
 use crate::values::AllocValue;
 use crate::values::FrozenHeap;
 use crate::values::FrozenStringValue;
@@ -60,10 +61,6 @@ use crate::values::comparison::equals_slice;
 use crate::values::error::ValueError;
 use crate::values::index::apply_slice;
 use crate::values::index::convert_index;
-use crate::values::layout::avalue::AValueImpl;
-use crate::values::layout::avalues::list::AValueFrozenList;
-use crate::values::layout::avalues::static_::alloc_static;
-use crate::values::layout::heap::repr::AValueRepr;
 use crate::values::list::ListRef;
 use crate::values::type_repr::StarlarkTypeRepr;
 
@@ -101,8 +98,8 @@ pub(crate) type FrozenList = ListGen<FrozenListData>;
 
 pub(crate) type List<'v> = ListGen<ListData<'v>>;
 
-pub(crate) static VALUE_EMPTY_FROZEN_LIST: AValueRepr<AValueImpl<'static, AValueFrozenList>> =
-    alloc_static(unsafe { ListGen(FrozenListData::new(0)) });
+pub(crate) static VALUE_EMPTY_FROZEN_LIST: AllocStaticSimple<ListGen<FrozenListData>> =
+    AllocStaticSimple::alloc(unsafe { ListGen(FrozenListData::new(0)) });
 
 impl ListGen<FrozenListData> {
     pub(crate) fn offset_of_content() -> usize {

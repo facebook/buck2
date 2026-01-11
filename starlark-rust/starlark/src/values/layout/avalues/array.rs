@@ -26,7 +26,6 @@ use crate::values::Freezer;
 use crate::values::FrozenHeap;
 use crate::values::FrozenRef;
 use crate::values::FrozenValue;
-use crate::values::FrozenValueTyped;
 use crate::values::Heap;
 use crate::values::Trace;
 use crate::values::Tracer;
@@ -54,7 +53,7 @@ fn any_array_avalue<T: Debug + 'static>(
     AValueImpl::<AValueAnyArray<T>>::new(unsafe { AnyArray::new(cap) })
 }
 
-pub(crate) struct AValueArray;
+struct AValueArray;
 
 impl<'v> AValue<'v> for AValueArray {
     type StarlarkValue = Array<'v>;
@@ -88,7 +87,7 @@ impl<'v> AValue<'v> for AValueArray {
             );
 
             if (*me).payload.len() == 0 {
-                return FrozenValue::new_repr(VALUE_EMPTY_ARRAY.repr()).to_value();
+                return VALUE_EMPTY_ARRAY.unpack().to_value();
             }
 
             AValueForward::assert_does_not_overwrite_extra::<Self>();
@@ -171,7 +170,7 @@ impl FrozenHeap {
 impl Heap {
     pub(crate) fn alloc_array<'v>(&'v self, cap: usize) -> ValueTyped<'v, Array<'v>> {
         if cap == 0 {
-            return FrozenValueTyped::new_repr(VALUE_EMPTY_ARRAY.repr()).to_value_typed();
+            return VALUE_EMPTY_ARRAY.unpack().to_value_typed();
         }
 
         let cap: u32 = cap.try_into().expect("capacity overflows u32::MAX");

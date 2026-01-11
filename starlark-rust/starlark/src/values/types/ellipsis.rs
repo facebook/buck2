@@ -22,13 +22,10 @@ use starlark_derive::starlark_value;
 
 use crate as starlark;
 use crate::values::AllocFrozenValue;
+use crate::values::AllocStaticSimple;
 use crate::values::FrozenHeap;
 use crate::values::FrozenValue;
 use crate::values::StarlarkValue;
-use crate::values::layout::avalue::AValueImpl;
-use crate::values::layout::avalues::static_::AValueBasic;
-use crate::values::layout::avalues::static_::alloc_static;
-use crate::values::layout::heap::repr::AValueRepr;
 
 #[derive(
     Allocative,
@@ -40,15 +37,14 @@ use crate::values::layout::heap::repr::AValueRepr;
 #[display("Ellipsis")]
 pub(crate) struct Ellipsis;
 
-pub(crate) static VALUE_ELLIPSIS: AValueRepr<AValueImpl<'static, AValueBasic<Ellipsis>>> =
-    alloc_static(Ellipsis);
+pub(crate) static VALUE_ELLIPSIS: AllocStaticSimple<Ellipsis> = AllocStaticSimple::alloc(Ellipsis);
 
 #[starlark_value(type = "ellipsis")]
 impl<'v> StarlarkValue<'v> for Ellipsis {}
 
 impl Ellipsis {
     pub(crate) fn new_value() -> FrozenValue {
-        FrozenValue::new_repr(&VALUE_ELLIPSIS)
+        VALUE_ELLIPSIS.to_frozen_value()
     }
 }
 

@@ -35,14 +35,11 @@ use crate as starlark;
 use crate::any::ProvidesStaticType;
 use crate::cast::transmute;
 use crate::private::Private;
+use crate::values::AllocStaticSimple;
+use crate::values::FrozenValueTyped;
 use crate::values::Heap;
 use crate::values::StarlarkValue;
 use crate::values::Value;
-use crate::values::layout::avalue::AValue;
-use crate::values::layout::avalue::AValueImpl;
-use crate::values::layout::avalues::array::AValueArray;
-use crate::values::layout::avalues::static_::alloc_static;
-use crate::values::layout::heap::repr::AValueRepr;
 use crate::values::types::list::value::display_list;
 
 /// Fixed-capacity list.
@@ -84,23 +81,21 @@ impl<'v> Debug for Array<'v> {
 
 /// `Array` is not `Sync`, so wrap it into this struct to store it in static variable.
 /// Empty `Array` is logically `Sync`.
-pub(crate) struct ValueEmptyArray(AValueRepr<AValueImpl<'static, AValueArray>>);
+pub(crate) struct ValueEmptyArray(AllocStaticSimple<Array<'static>>);
 unsafe impl Sync for ValueEmptyArray {}
 
 pub(crate) static VALUE_EMPTY_ARRAY: ValueEmptyArray =
-    ValueEmptyArray(alloc_static(unsafe { Array::new(0, 0) }));
+    ValueEmptyArray(AllocStaticSimple::alloc(unsafe { Array::new(0, 0) }));
 
 impl ValueEmptyArray {
-    pub(crate) fn repr<'v>(
-        &'static self,
-    ) -> &'v AValueRepr<AValueImpl<'v, impl AValue<'v, StarlarkValue = Array<'v>>>> {
-        // Cast lifetimes. Cannot use `crate::cast::ptr_lifetime` here
-        // because type parameter of `AValue` also need to be casted.
+    pub(crate) fn unpack<'v>(&'static self) -> FrozenValueTyped<'v, Array<'v>> {
+        // SAFETY: `Array` is normally (correctly) invariant in `'v`, but for empty arrays it
+        // doesn't matter.
         unsafe {
             transmute!(
-                &AValueRepr<AValueImpl<AValueArray>>,
-                &AValueRepr<AValueImpl<AValueArray>>,
-                &self.0
+                FrozenValueTyped<'static, Array<'static>>,
+                FrozenValueTyped<'v, Array<'v>>,
+                self.0.unpack()
             )
         }
     }

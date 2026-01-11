@@ -35,16 +35,13 @@ use crate::docs::DocProperty;
 use crate::docs::DocType;
 use crate::typing::Ty;
 use crate::values::AllocFrozenValue;
+use crate::values::AllocStaticSimple;
 use crate::values::AllocValue;
 use crate::values::FrozenHeap;
 use crate::values::FrozenValue;
 use crate::values::Heap;
 use crate::values::StarlarkValue;
 use crate::values::Value;
-use crate::values::layout::avalue::AValueImpl;
-use crate::values::layout::avalues::static_::AValueBasic;
-use crate::values::layout::avalues::static_::alloc_static;
-use crate::values::layout::heap::repr::AValueRepr;
 use crate::values::type_repr::StarlarkTypeRepr;
 use crate::values::typing::TypeType;
 use crate::values::typing::ty::AbstractType;
@@ -104,7 +101,7 @@ impl Display for StarlarkValueAsTypeStarlarkValue {
 /// }
 /// ```
 pub struct StarlarkValueAsType<T: StarlarkTypeRepr>(
-    &'static AValueRepr<AValueImpl<'static, AValueBasic<StarlarkValueAsTypeStarlarkValue>>>,
+    &'static AllocStaticSimple<StarlarkValueAsTypeStarlarkValue>,
     PhantomData<fn(&T)>,
 );
 
@@ -132,7 +129,7 @@ impl<T: StarlarkTypeRepr> StarlarkValueAsType<T> {
     {
         StarlarkValueAsType(
             &const {
-                alloc_static(StarlarkValueAsTypeStarlarkValue(
+                AllocStaticSimple::alloc(StarlarkValueAsTypeStarlarkValue(
                     T::starlark_type_repr,
                     || DocItem::Type(DocType::from_starlark_value::<T>()),
                 ))
@@ -145,7 +142,7 @@ impl<T: StarlarkTypeRepr> StarlarkValueAsType<T> {
     pub const fn new_no_docs() -> Self {
         StarlarkValueAsType(
             &const {
-                alloc_static(StarlarkValueAsTypeStarlarkValue(
+                AllocStaticSimple::alloc(StarlarkValueAsTypeStarlarkValue(
                     T::starlark_type_repr,
                     || {
                         DocItem::Member(DocMember::Property(DocProperty {
@@ -170,13 +167,13 @@ impl<T: StarlarkTypeRepr> StarlarkTypeRepr for StarlarkValueAsType<T> {
 
 impl<'v, T: StarlarkTypeRepr> AllocValue<'v> for StarlarkValueAsType<T> {
     fn alloc_value(self, _heap: &'v Heap) -> Value<'v> {
-        FrozenValue::new_repr(self.0).to_value()
+        self.0.to_frozen_value().to_value()
     }
 }
 
 impl<T: StarlarkTypeRepr> AllocFrozenValue for StarlarkValueAsType<T> {
     fn alloc_frozen_value(self, _heap: &FrozenHeap) -> FrozenValue {
-        FrozenValue::new_repr(self.0)
+        self.0.to_frozen_value()
     }
 }
 

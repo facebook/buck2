@@ -46,6 +46,7 @@ use crate::hint::unlikely;
 use crate::typing::Ty;
 use crate::util::refcell::unleak_borrow;
 use crate::values::AllocFrozenValue;
+use crate::values::AllocStaticSimple;
 use crate::values::AllocValue;
 use crate::values::Freeze;
 use crate::values::FreezeResult;
@@ -62,10 +63,6 @@ use crate::values::ValueLike;
 use crate::values::comparison::equals_small_map;
 use crate::values::dict::DictRef;
 use crate::values::error::ValueError;
-use crate::values::layout::avalue::AValueImpl;
-use crate::values::layout::avalues::simple::AValueSimple;
-use crate::values::layout::avalues::static_::alloc_static;
-use crate::values::layout::heap::repr::AValueRepr;
 use crate::values::string::str_type::hash_string_value;
 use crate::values::type_repr::StarlarkTypeRepr;
 use crate::values::types::dict::dict_type::DictType;
@@ -113,11 +110,10 @@ pub(crate) type FrozenDict = DictGen<FrozenDictData>;
 
 pub(crate) type MutableDict<'v> = DictGen<RefCell<Dict<'v>>>;
 
-pub(crate) static VALUE_EMPTY_FROZEN_DICT: AValueRepr<
-    AValueImpl<'static, AValueSimple<DictGen<FrozenDictData>>>,
-> = alloc_static(DictGen(FrozenDictData {
-    content: SmallMap::new(),
-}));
+pub(crate) static VALUE_EMPTY_FROZEN_DICT: AllocStaticSimple<DictGen<FrozenDictData>> =
+    AllocStaticSimple::alloc(DictGen(FrozenDictData {
+        content: SmallMap::new(),
+    }));
 
 unsafe impl<'v> Coerce<Dict<'v>> for FrozenDictData {}
 
@@ -138,7 +134,7 @@ impl StarlarkTypeRepr for FrozenDictData {
 impl AllocFrozenValue for FrozenDictData {
     fn alloc_frozen_value(self, heap: &FrozenHeap) -> FrozenValue {
         if self.content.is_empty() {
-            FrozenValue::new_repr(&VALUE_EMPTY_FROZEN_DICT)
+            VALUE_EMPTY_FROZEN_DICT.to_frozen_value()
         } else {
             heap.alloc_simple(DictGen(self))
         }
@@ -521,7 +517,7 @@ where
 
     fn try_freeze_directly(&self, _freezer: &Freezer<'_>) -> Option<FreezeResult<FrozenValue>> {
         if self.0.content().is_empty() {
-            Some(Ok(FrozenValue::new_repr(&VALUE_EMPTY_FROZEN_DICT)))
+            Some(Ok(VALUE_EMPTY_FROZEN_DICT.to_frozen_value()))
         } else {
             None
         }
