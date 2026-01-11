@@ -287,8 +287,6 @@ impl<A: ArenaAllocator> Arena<A> {
     }
 
     /// Allocate a type `T` plus `extra` bytes.
-    ///
-    /// The type `T` will never be dropped, so had better not do any memory allocation.
     pub(crate) fn alloc_extra<'v, T: AValue<'v>>(
         &self,
         x: AValueImpl<'v, T>,
