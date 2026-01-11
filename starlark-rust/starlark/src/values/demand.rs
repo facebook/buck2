@@ -116,12 +116,13 @@ mod tests {
 
     #[test]
     fn test_trait_downcast() {
-        let heap = Heap::new();
-        let value = heap.alloc_simple(MyValue { payload: 17 });
+        Heap::temp(|heap| {
+            let value = heap.alloc_simple(MyValue { payload: 17 });
 
-        assert!(value.request_value::<String>().is_none());
+            assert!(value.request_value::<String>().is_none());
 
-        let some_trait = value.request_value::<&dyn SomeTrait>().unwrap();
-        assert_eq!(17, some_trait.payload());
+            let some_trait = value.request_value::<&dyn SomeTrait>().unwrap();
+            assert_eq!(17, some_trait.payload());
+        });
     }
 }

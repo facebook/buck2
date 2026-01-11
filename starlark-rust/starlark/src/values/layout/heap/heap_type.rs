@@ -618,24 +618,26 @@ mod tests {
 
     #[test]
     fn test_string_reallocated_on_heap() {
-        let heap = Heap::new();
-        let first = heap.alloc_str("xx");
-        let second = heap.alloc_str("xx");
-        assert!(
-            !first.to_value().ptr_eq(second.to_value()),
-            "Plain allocations should recreate values. Note assertion negation."
-        );
+        Heap::temp(|heap| {
+            let first = heap.alloc_str("xx");
+            let second = heap.alloc_str("xx");
+            assert!(
+                !first.to_value().ptr_eq(second.to_value()),
+                "Plain allocations should recreate values. Note assertion negation."
+            );
+        });
     }
 
     #[test]
     fn test_interned_string_equal() {
-        let heap = Heap::new();
-        let first = heap.alloc_str_intern("xx");
-        let second = heap.alloc_str_intern("xx");
-        assert!(
-            first.to_value().ptr_eq(second.to_value()),
-            "Interned allocations should be equal."
-        );
+        Heap::temp(|heap| {
+            let first = heap.alloc_str_intern("xx");
+            let second = heap.alloc_str_intern("xx");
+            assert!(
+                first.to_value().ptr_eq(second.to_value()),
+                "Interned allocations should be equal."
+            );
+        });
     }
 
     #[starlark_module]

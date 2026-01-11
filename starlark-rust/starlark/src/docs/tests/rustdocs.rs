@@ -119,6 +119,7 @@ fn globals(builder: &mut GlobalsBuilder) {
 }
 
 /// Test that a Rust starlark_module produces the right documentation.
+
 #[test]
 fn test_rustdoc() {
     let got = GlobalsBuilder::new().with(globals).build();
@@ -185,20 +186,21 @@ fn object(builder: &mut MethodsBuilder) {
 
 #[test]
 fn inner_object_functions_have_docs() {
-    let heap = Heap::new();
-    let obj = heap.alloc_simple(Obj);
-    let item = obj
-        .get_attr("func1", &heap)
-        .unwrap()
-        .unwrap()
-        .documentation();
+    Heap::temp(|heap| {
+        let obj = heap.alloc_simple(Obj);
+        let item = obj
+            .get_attr("func1", heap)
+            .unwrap()
+            .unwrap()
+            .documentation();
 
-    match item {
-        DocItem::Member(DocMember::Function(item)) => {
-            assert_eq!(item.docs.unwrap().summary, "Docs for func1");
+        match item {
+            DocItem::Member(DocMember::Function(item)) => {
+                assert_eq!(item.docs.unwrap().summary, "Docs for func1");
+            }
+            _ => panic!("Expected function: {item:#?}"),
         }
-        _ => panic!("Expected function: {item:#?}"),
-    }
+    });
 }
 
 #[starlark_module]

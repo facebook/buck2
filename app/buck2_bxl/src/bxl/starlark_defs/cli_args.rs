@@ -1139,94 +1139,94 @@ mod tests {
 
     #[test]
     fn coerce_starlark() -> buck2_error::Result<()> {
-        let heap = Heap::new();
+        Heap::temp(|heap| {
+            assert_eq!(
+                CliArgType::bool().coerce_value(Value::new_bool(true))?,
+                CliArgValue::Bool(true)
+            );
 
-        assert_eq!(
-            CliArgType::bool().coerce_value(Value::new_bool(true))?,
-            CliArgValue::Bool(true)
-        );
+            assert_eq!(
+                CliArgType::int().coerce_value(heap.alloc(42))?,
+                CliArgValue::Int(BigInt::from(42))
+            );
 
-        assert_eq!(
-            CliArgType::int().coerce_value(heap.alloc(42))?,
-            CliArgValue::Int(BigInt::from(42))
-        );
+            assert_eq!(
+                CliArgType::float().coerce_value(heap.alloc(4.2))?,
+                CliArgValue::Float("4.2".to_owned())
+            );
 
-        assert_eq!(
-            CliArgType::float().coerce_value(heap.alloc(4.2))?,
-            CliArgValue::Float("4.2".to_owned())
-        );
+            assert_eq!(
+                CliArgType::string().coerce_value(heap.alloc("foobar"))?,
+                CliArgValue::String("foobar".to_owned())
+            );
 
-        assert_eq!(
-            CliArgType::string().coerce_value(heap.alloc("foobar"))?,
-            CliArgValue::String("foobar".to_owned())
-        );
+            assert_eq!(
+                CliArgType::enumeration(HashSet::from_iter([
+                    "a".to_owned(),
+                    "b".to_owned(),
+                    "c".to_owned()
+                ]))
+                .coerce_value(heap.alloc("a"))?,
+                CliArgValue::String("a".to_owned())
+            );
 
-        assert_eq!(
-            CliArgType::enumeration(HashSet::from_iter([
-                "a".to_owned(),
-                "b".to_owned(),
-                "c".to_owned()
-            ]))
-            .coerce_value(heap.alloc("a"))?,
-            CliArgValue::String("a".to_owned())
-        );
+            assert_eq!(
+                CliArgType::option(CliArgType::int()).coerce_value(Value::new_none())?,
+                CliArgValue::None
+            );
 
-        assert_eq!(
-            CliArgType::option(CliArgType::int()).coerce_value(Value::new_none())?,
-            CliArgValue::None
-        );
+            assert_eq!(
+                CliArgType::option(CliArgType::bool()).coerce_value(Value::new_bool(true))?,
+                CliArgValue::Bool(true)
+            );
 
-        assert_eq!(
-            CliArgType::option(CliArgType::bool()).coerce_value(Value::new_bool(true))?,
-            CliArgValue::Bool(true)
-        );
+            assert_eq!(
+                CliArgType::bool().coerce_value(Value::new_bool(false))?,
+                CliArgValue::Bool(false)
+            );
 
-        assert_eq!(
-            CliArgType::bool().coerce_value(Value::new_bool(false))?,
-            CliArgValue::Bool(false)
-        );
+            assert_eq!(
+                CliArgType::list(CliArgType::int()).coerce_value(heap.alloc(vec![1, 4, 2]))?,
+                CliArgValue::List(vec![
+                    CliArgValue::Int(BigInt::from(1)),
+                    CliArgValue::Int(BigInt::from(4)),
+                    CliArgValue::Int(BigInt::from(2))
+                ])
+            );
 
-        assert_eq!(
-            CliArgType::list(CliArgType::int()).coerce_value(heap.alloc(vec![1, 4, 2]))?,
-            CliArgValue::List(vec![
-                CliArgValue::Int(BigInt::from(1)),
-                CliArgValue::Int(BigInt::from(4)),
-                CliArgValue::Int(BigInt::from(2))
-            ])
-        );
+            assert_eq!(
+                CliArgType::target_label().coerce_value(heap.alloc(StarlarkTargetLabel::new(
+                    TargetLabel::testing_parse("root//foo:bar")
+                )))?,
+                CliArgValue::TargetLabel(TargetLabel::testing_parse("root//foo:bar"))
+            );
 
-        assert_eq!(
-            CliArgType::target_label().coerce_value(heap.alloc(StarlarkTargetLabel::new(
-                TargetLabel::testing_parse("root//foo:bar")
-            )))?,
-            CliArgValue::TargetLabel(TargetLabel::testing_parse("root//foo:bar"))
-        );
-
-        assert_eq!(
-            CliArgType::configured_target_label().coerce_value(heap.alloc(
-                StarlarkConfiguredTargetLabel::new(ConfiguredTargetLabel::testing_parse(
+            assert_eq!(
+                CliArgType::configured_target_label().coerce_value(heap.alloc(
+                    StarlarkConfiguredTargetLabel::new(ConfiguredTargetLabel::testing_parse(
+                        "root//foo:bar",
+                        ConfigurationData::testing_new(),
+                    ))
+                ))?,
+                CliArgValue::ConfiguredTargetLabel(ConfiguredTargetLabel::testing_parse(
                     "root//foo:bar",
                     ConfigurationData::testing_new(),
                 ))
-            ))?,
-            CliArgValue::ConfiguredTargetLabel(ConfiguredTargetLabel::testing_parse(
-                "root//foo:bar",
-                ConfigurationData::testing_new(),
-            ))
-        );
+            );
 
-        assert_eq!(
-            CliArgType::sub_target().coerce_value(heap.alloc(StarlarkProvidersLabel::new(
-                ProvidersLabel::testing_new("foo", "pkg", "bar", Some(&["a", "b"]))
-            )))?,
-            CliArgValue::ProvidersLabel(ProvidersLabel::testing_new(
-                "foo",
-                "pkg",
-                "bar",
-                Some(&["a", "b"])
-            ))
-        );
+            assert_eq!(
+                CliArgType::sub_target().coerce_value(heap.alloc(StarlarkProvidersLabel::new(
+                    ProvidersLabel::testing_new("foo", "pkg", "bar", Some(&["a", "b"]))
+                )))?,
+                CliArgValue::ProvidersLabel(ProvidersLabel::testing_new(
+                    "foo",
+                    "pkg",
+                    "bar",
+                    Some(&["a", "b"])
+                ))
+            );
 
-        Ok(())
+            Ok(())
+        })
     }
 }

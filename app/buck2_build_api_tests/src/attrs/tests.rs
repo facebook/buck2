@@ -182,66 +182,68 @@ fn test_concat_option_one_of() {
 
 #[test]
 fn test_any() -> buck2_error::Result<()> {
-    let heap = Heap::new();
-    let value = heap.alloc(vec!["//some:target", "cell1//named:target[foo]"]);
-    let attr = AttrType::any();
+    Heap::temp(|heap| {
+        let value = heap.alloc(vec!["//some:target", "cell1//named:target[foo]"]);
+        let attr = AttrType::any();
 
-    let coerced = attr.coerce(AttrIsConfigurable::Yes, &coercion_ctx(), value)?;
-    assert_eq!(
-        "[\"//some:target\", \"cell1//named:target[foo]\"]",
-        coerced.as_display_no_ctx().to_string()
-    );
-    let configured = coerced.configure(&attr, &configuration_ctx())?;
-    assert_eq!(
-        "[\"//some:target\", \"cell1//named:target[foo]\"]",
-        configured.as_display_no_ctx().to_string()
-    );
+        let coerced = attr.coerce(AttrIsConfigurable::Yes, &coercion_ctx(), value)?;
+        assert_eq!(
+            "[\"//some:target\", \"cell1//named:target[foo]\"]",
+            coerced.as_display_no_ctx().to_string()
+        );
+        let configured = coerced.configure(&attr, &configuration_ctx())?;
+        assert_eq!(
+            "[\"//some:target\", \"cell1//named:target[foo]\"]",
+            configured.as_display_no_ctx().to_string()
+        );
 
-    let value = Value::new_none();
-    let coerced = attr.coerce(AttrIsConfigurable::Yes, &coercion_ctx(), value)?;
-    assert_eq!("None", coerced.as_display_no_ctx().to_string());
-    let configured = coerced.configure(&attr, &configuration_ctx())?;
-    assert_eq!("None", configured.as_display_no_ctx().to_string());
+        let value = Value::new_none();
+        let coerced = attr.coerce(AttrIsConfigurable::Yes, &coercion_ctx(), value)?;
+        assert_eq!("None", coerced.as_display_no_ctx().to_string());
+        let configured = coerced.configure(&attr, &configuration_ctx())?;
+        assert_eq!("None", configured.as_display_no_ctx().to_string());
 
-    let value = Value::new_bool(true);
-    let coerced = attr.coerce(AttrIsConfigurable::Yes, &coercion_ctx(), value)?;
-    assert_eq!("True", coerced.as_display_no_ctx().to_string());
-    let configured = coerced.configure(&attr, &configuration_ctx())?;
-    assert_eq!("True", configured.as_display_no_ctx().to_string());
+        let value = Value::new_bool(true);
+        let coerced = attr.coerce(AttrIsConfigurable::Yes, &coercion_ctx(), value)?;
+        assert_eq!("True", coerced.as_display_no_ctx().to_string());
+        let configured = coerced.configure(&attr, &configuration_ctx())?;
+        assert_eq!("True", configured.as_display_no_ctx().to_string());
 
-    let value = heap.alloc(42);
-    let coerced = attr.coerce(AttrIsConfigurable::Yes, &coercion_ctx(), value)?;
-    assert_eq!("42", coerced.as_display_no_ctx().to_string());
-    let configured = coerced.configure(&attr, &configuration_ctx())?;
-    assert_eq!("42", configured.as_display_no_ctx().to_string());
+        let value = heap.alloc(42);
+        let coerced = attr.coerce(AttrIsConfigurable::Yes, &coercion_ctx(), value)?;
+        assert_eq!("42", coerced.as_display_no_ctx().to_string());
+        let configured = coerced.configure(&attr, &configuration_ctx())?;
+        assert_eq!("42", configured.as_display_no_ctx().to_string());
 
-    Ok(())
+        Ok(())
+    })
 }
 
 #[test]
 fn test_option() -> buck2_error::Result<()> {
-    let heap = Heap::new();
-    let attr = AttrType::option(AttrType::list(AttrType::string()));
+    Heap::temp(|heap| {
+        let attr = AttrType::option(AttrType::list(AttrType::string()));
 
-    let value = heap.alloc(vec!["string1", "string2"]);
-    let coerced = attr.coerce(AttrIsConfigurable::Yes, &coercion_ctx(), value)?;
-    assert_eq!(
-        "[\"string1\", \"string2\"]",
-        coerced.as_display_no_ctx().to_string()
-    );
-    let configured = coerced.configure(&attr, &configuration_ctx())?;
-    assert_eq!(
-        "[\"string1\", \"string2\"]",
-        configured.as_display_no_ctx().to_string()
-    );
+        let value = heap.alloc(vec!["string1", "string2"]);
+        let coerced = attr.coerce(AttrIsConfigurable::Yes, &coercion_ctx(), value)?;
+        assert_eq!(
+            "[\"string1\", \"string2\"]",
+            coerced.as_display_no_ctx().to_string()
+        );
+        let configured = coerced.configure(&attr, &configuration_ctx())?;
+        assert_eq!(
+            "[\"string1\", \"string2\"]",
+            configured.as_display_no_ctx().to_string()
+        );
 
-    let value = Value::new_none();
-    let coerced = attr.coerce(AttrIsConfigurable::Yes, &coercion_ctx(), value)?;
-    assert_eq!("None", coerced.as_display_no_ctx().to_string());
-    let configured = coerced.configure(&attr, &configuration_ctx())?;
-    assert_eq!("None", configured.as_display_no_ctx().to_string());
+        let value = Value::new_none();
+        let coerced = attr.coerce(AttrIsConfigurable::Yes, &coercion_ctx(), value)?;
+        assert_eq!("None", coerced.as_display_no_ctx().to_string());
+        let configured = coerced.configure(&attr, &configuration_ctx())?;
+        assert_eq!("None", configured.as_display_no_ctx().to_string());
 
-    Ok(())
+        Ok(())
+    })
 }
 
 #[test]
@@ -295,58 +297,60 @@ fn test_dict() -> buck2_error::Result<()> {
 
 #[test]
 fn test_one_of() -> buck2_error::Result<()> {
-    let heap = Heap::new();
-    let value = heap.alloc("one");
-    let values = heap.alloc(vec!["test", "extra"]);
+    Heap::temp(|heap| {
+        let value = heap.alloc("one");
+        let values = heap.alloc(vec!["test", "extra"]);
 
-    let attr = AttrType::one_of(vec![AttrType::string(), AttrType::list(AttrType::string())]);
-    let coerced = attr.coerce(AttrIsConfigurable::Yes, &coercion_ctx(), value)?;
-    assert_eq!("\"one\"", coerced.as_display_no_ctx().to_string());
-    let configured = coerced.configure(&attr, &configuration_ctx())?;
-    assert_eq!("\"one\"", configured.as_display_no_ctx().to_string());
+        let attr = AttrType::one_of(vec![AttrType::string(), AttrType::list(AttrType::string())]);
+        let coerced = attr.coerce(AttrIsConfigurable::Yes, &coercion_ctx(), value)?;
+        assert_eq!("\"one\"", coerced.as_display_no_ctx().to_string());
+        let configured = coerced.configure(&attr, &configuration_ctx())?;
+        assert_eq!("\"one\"", configured.as_display_no_ctx().to_string());
 
-    let coerced = attr.coerce(AttrIsConfigurable::Yes, &coercion_ctx(), values)?;
-    assert_eq!(
-        "[\"test\", \"extra\"]",
-        coerced.as_display_no_ctx().to_string()
-    );
-    let configured = coerced.configure(&attr, &configuration_ctx())?;
-    assert_eq!(
-        "[\"test\", \"extra\"]",
-        configured.as_display_no_ctx().to_string()
-    );
+        let coerced = attr.coerce(AttrIsConfigurable::Yes, &coercion_ctx(), values)?;
+        assert_eq!(
+            "[\"test\", \"extra\"]",
+            coerced.as_display_no_ctx().to_string()
+        );
+        let configured = coerced.configure(&attr, &configuration_ctx())?;
+        assert_eq!(
+            "[\"test\", \"extra\"]",
+            configured.as_display_no_ctx().to_string()
+        );
 
-    let attr = AttrType::one_of(Vec::new());
-    let coerced = attr.coerce(AttrIsConfigurable::Yes, &coercion_ctx(), value);
-    assert!(coerced.is_err());
+        let attr = AttrType::one_of(Vec::new());
+        let coerced = attr.coerce(AttrIsConfigurable::Yes, &coercion_ctx(), value);
+        assert!(coerced.is_err());
 
-    Ok(())
+        Ok(())
+    })
 }
 
 #[test]
 fn test_label() -> buck2_error::Result<()> {
-    let heap = Heap::new();
-    let value = heap.alloc(vec!["//some:target", "cell1//named:target[foo]"]);
+    Heap::temp(|heap| {
+        let value = heap.alloc(vec!["//some:target", "cell1//named:target[foo]"]);
 
-    let attr = AttrType::list(AttrType::dep(ProviderIdSet::EMPTY, PluginKindSet::EMPTY));
+        let attr = AttrType::list(AttrType::dep(ProviderIdSet::EMPTY, PluginKindSet::EMPTY));
 
-    let coerced = attr.coerce(AttrIsConfigurable::Yes, &coercion_ctx(), value)?;
-    assert_eq!(
-        "[\"root//some:target\", \"cell1//named:target[foo]\"]",
-        coerced.as_display_no_ctx().to_string()
-    );
+        let coerced = attr.coerce(AttrIsConfigurable::Yes, &coercion_ctx(), value)?;
+        assert_eq!(
+            "[\"root//some:target\", \"cell1//named:target[foo]\"]",
+            coerced.as_display_no_ctx().to_string()
+        );
 
-    let configured = coerced.configure(&attr, &configuration_ctx())?;
-    assert_eq!(
-        format!(
-            "[\"root//some:target ({})\", \"cell1//named:target[foo] ({})\"]",
-            ConfigurationData::testing_new(),
-            ConfigurationData::testing_new()
-        ),
-        configured.as_display_no_ctx().to_string()
-    );
+        let configured = coerced.configure(&attr, &configuration_ctx())?;
+        assert_eq!(
+            format!(
+                "[\"root//some:target ({})\", \"cell1//named:target[foo] ({})\"]",
+                ConfigurationData::testing_new(),
+                ConfigurationData::testing_new()
+            ),
+            configured.as_display_no_ctx().to_string()
+        );
 
-    Ok(())
+        Ok(())
+    })
 }
 
 #[test]
@@ -517,101 +521,104 @@ fn test_dep_requires_providers() -> buck2_error::Result<()> {
     let env = Module::new();
     let (mut resolution_ctx, provider_ids) = resolution_ctx_with_providers(&env);
 
-    let heap = Heap::new();
-    let foo_only = heap.alloc("//sub/dir:foo[foo_only]");
+    Heap::temp(|heap| {
+        let foo_only = heap.alloc("//sub/dir:foo[foo_only]");
 
-    let attr = AttrType::dep(provider_ids.dupe(), PluginKindSet::EMPTY);
-    let coerced = attr.coerce(AttrIsConfigurable::Yes, &coercion_ctx(), foo_only)?;
-    let configured = coerced.configure(&attr, &configuration_ctx())?;
+        let attr = AttrType::dep(provider_ids.dupe(), PluginKindSet::EMPTY);
+        let coerced = attr.coerce(AttrIsConfigurable::Yes, &coercion_ctx(), foo_only)?;
+        let configured = coerced.configure(&attr, &configuration_ctx())?;
 
-    let err = configured
-        .resolve_single(PackageLabel::testing(), &mut resolution_ctx)
-        .expect_err("Should have failed");
-    assert!(
-        err.to_string()
-            .contains("Attribute requires a dep that provides `BarInfo`")
-    );
+        let err = configured
+            .resolve_single(PackageLabel::testing(), &mut resolution_ctx)
+            .expect_err("Should have failed");
+        assert!(
+            err.to_string()
+                .contains("Attribute requires a dep that provides `BarInfo`")
+        );
 
-    let foo_and_bar = heap.alloc("//sub/dir:foo[foo_and_bar]");
+        let foo_and_bar = heap.alloc("//sub/dir:foo[foo_and_bar]");
 
-    let attr = AttrType::dep(provider_ids, PluginKindSet::EMPTY);
-    let coerced = attr.coerce(AttrIsConfigurable::Yes, &coercion_ctx(), foo_and_bar)?;
-    let configured = coerced.configure(&attr, &configuration_ctx())?;
+        let attr = AttrType::dep(provider_ids, PluginKindSet::EMPTY);
+        let coerced = attr.coerce(AttrIsConfigurable::Yes, &coercion_ctx(), foo_and_bar)?;
+        let configured = coerced.configure(&attr, &configuration_ctx())?;
 
-    // This dep has both FooInfo and BarInfo, so it should resolve properly
-    configured.resolve_single(PackageLabel::testing(), &mut resolution_ctx)?;
+        // This dep has both FooInfo and BarInfo, so it should resolve properly
+        configured.resolve_single(PackageLabel::testing(), &mut resolution_ctx)?;
 
-    Ok(())
+        Ok(())
+    })
 }
 
 #[test]
 fn test_source_missing() {
-    let heap = Heap::new();
-    let value = heap.alloc(vec!["foo/bar.cpp"]);
-    let attr = AttrType::list(AttrType::source(false));
+    Heap::temp(|heap| {
+        let value = heap.alloc(vec!["foo/bar.cpp"]);
+        let attr = AttrType::list(AttrType::source(false));
 
-    // FIXME: T85510500 Enable this test properly once we can error out on missing files
-    match attr.coerce(AttrIsConfigurable::Yes, &coercion_ctx(), value) {
-        Ok(_) => eprintln!("Todo, turn this into an error once T85510500 is fixed"),
-        Err(e) => {
-            let s = format!("{e:#}");
-            assert!(
-                s.contains("Source file `foo/bar.cpp` does not exist"),
-                "Got error {s}"
-            )
+        // FIXME: T85510500 Enable this test properly once we can error out on missing files
+        match attr.coerce(AttrIsConfigurable::Yes, &coercion_ctx(), value) {
+            Ok(_) => eprintln!("Todo, turn this into an error once T85510500 is fixed"),
+            Err(e) => {
+                let s = format!("{e:#}");
+                assert!(
+                    s.contains("Source file `foo/bar.cpp` does not exist"),
+                    "Got error {s}"
+                )
+            }
         }
-    }
+    })
 }
 
 #[test]
 fn test_source_label() -> buck2_error::Result<()> {
-    let heap = Heap::new();
-    let value = heap.alloc(vec![
-        "//some:target",
-        "cell1//named:target[foo]",
-        "foo/bar.cpp",
-    ]);
+    Heap::temp(|heap| {
+        let value = heap.alloc(vec![
+            "//some:target",
+            "cell1//named:target[foo]",
+            "foo/bar.cpp",
+        ]);
 
-    let attr = AttrType::list(AttrType::source(false));
+        let attr = AttrType::list(AttrType::source(false));
 
-    let coerced = attr.coerce(
-        AttrIsConfigurable::Yes,
-        &coercion_ctx_listing(PackageListing::testing_files(&["foo/bar.cpp"])),
-        value,
-    )?;
-    assert_eq!(
-        "[\"root//some:target\", \"cell1//named:target[foo]\", \"root//package/subdir/foo/bar.cpp\"]",
-        coerced
-            .as_display(&AttrFmtContext {
-                package: Some(PackageLabel::testing()),
-                options: Default::default(),
-            })
-            .to_string(),
-    );
+        let coerced = attr.coerce(
+            AttrIsConfigurable::Yes,
+            &coercion_ctx_listing(PackageListing::testing_files(&["foo/bar.cpp"])),
+            value,
+        )?;
+        assert_eq!(
+            "[\"root//some:target\", \"cell1//named:target[foo]\", \"root//package/subdir/foo/bar.cpp\"]",
+            coerced
+                .as_display(&AttrFmtContext {
+                    package: Some(PackageLabel::testing()),
+                    options: Default::default(),
+                })
+                .to_string(),
+        );
 
-    let configured = coerced.configure(&attr, &configuration_ctx())?;
-    assert_eq!(
-        format!(
-            "[{}, {}, {}]",
-            format_args!(
-                "\"root//some:target ({})\"",
-                ConfigurationData::testing_new(),
+        let configured = coerced.configure(&attr, &configuration_ctx())?;
+        assert_eq!(
+            format!(
+                "[{}, {}, {}]",
+                format_args!(
+                    "\"root//some:target ({})\"",
+                    ConfigurationData::testing_new(),
+                ),
+                format_args!(
+                    "\"cell1//named:target[foo] ({})\"",
+                    ConfigurationData::testing_new()
+                ),
+                "\"root//package/subdir/foo/bar.cpp\"",
             ),
-            format_args!(
-                "\"cell1//named:target[foo] ({})\"",
-                ConfigurationData::testing_new()
-            ),
-            "\"root//package/subdir/foo/bar.cpp\"",
-        ),
-        configured
-            .as_display(&AttrFmtContext {
-                package: Some(PackageLabel::testing()),
-                options: Default::default(),
-            })
-            .to_string(),
-    );
+            configured
+                .as_display(&AttrFmtContext {
+                    package: Some(PackageLabel::testing()),
+                    options: Default::default(),
+                })
+                .to_string(),
+        );
 
-    Ok(())
+        Ok(())
+    })
 }
 
 #[test]
@@ -755,87 +762,89 @@ fn test_source_label_resolution() -> buck2_error::Result<()> {
 
 #[test]
 fn test_single_source_label_fails_if_multiple_returned() -> buck2_error::Result<()> {
-    let heap = Heap::new();
-    let value = heap.alloc("//sub/dir:foo[multiple]");
-    let env = Module::new();
+    Heap::temp(|heap| {
+        let value = heap.alloc("//sub/dir:foo[multiple]");
+        let env = Module::new();
 
-    let attr = AttrType::source(false);
-    let coerced = attr.coerce(AttrIsConfigurable::Yes, &coercion_ctx(), value)?;
-    let configured = coerced.configure(&attr, &configuration_ctx())?;
-    let mut resolution_ctx = resolution_ctx(&env);
-    let err = configured
-        .resolve_single(PackageLabel::testing(), &mut resolution_ctx)
-        .expect_err("Getting multiple values when expecting a single one should fail");
+        let attr = AttrType::source(false);
+        let coerced = attr.coerce(AttrIsConfigurable::Yes, &coercion_ctx(), value)?;
+        let configured = coerced.configure(&attr, &configuration_ctx())?;
+        let mut resolution_ctx = resolution_ctx(&env);
+        let err = configured
+            .resolve_single(PackageLabel::testing(), &mut resolution_ctx)
+            .expect_err("Getting multiple values when expecting a single one should fail");
 
-    assert_eq!(true, err.to_string().contains("Expected a single artifact"));
-    assert_eq!(true, err.to_string().contains("3 artifacts"));
-    Ok(())
+        assert_eq!(true, err.to_string().contains("Expected a single artifact"));
+        assert_eq!(true, err.to_string().contains("3 artifacts"));
+        Ok(())
+    })
 }
 
 #[test]
 fn test_arg() -> buck2_error::Result<()> {
-    let heap = Heap::new();
-    let value = heap.alloc("$(exe //some:exe) --file=$(location \"//some:location\")");
+    Heap::temp(|heap| {
+        let value = heap.alloc("$(exe //some:exe) --file=$(location \"//some:location\")");
 
-    let attr = AttrType::arg(false);
+        let attr = AttrType::arg(false);
 
-    let coerced = attr.coerce(AttrIsConfigurable::Yes, &coercion_ctx(), value)?;
-    // Note that targets are canonicalized.
-    assert_eq!(
-        "\"$(exe root//some:exe) --file=$(location root//some:location)\"",
-        coerced.as_display_no_ctx().to_string()
-    );
-    let configured = coerced.configure(&attr, &configuration_ctx())?;
-    assert_eq!(
-        format!(
-            "\"$(exe root//some:exe ({})) --file=$(location root//some:location ({}))\"",
-            configuration_ctx().exec_cfg()?,
-            ConfigurationData::testing_new(),
-        ),
-        configured.as_display_no_ctx().to_string()
-    );
+        let coerced = attr.coerce(AttrIsConfigurable::Yes, &coercion_ctx(), value)?;
+        // Note that targets are canonicalized.
+        assert_eq!(
+            "\"$(exe root//some:exe) --file=$(location root//some:location)\"",
+            coerced.as_display_no_ctx().to_string()
+        );
+        let configured = coerced.configure(&attr, &configuration_ctx())?;
+        assert_eq!(
+            format!(
+                "\"$(exe root//some:exe ({})) --file=$(location root//some:location ({}))\"",
+                configuration_ctx().exec_cfg()?,
+                ConfigurationData::testing_new(),
+            ),
+            configured.as_display_no_ctx().to_string()
+        );
 
-    let mut visitor = CoercedDepsCollector::new();
-    coerced.traverse(&attr, PackageLabel::testing(), &mut visitor)?;
-    let CoercedDepsCollector {
-        deps, exec_deps, ..
-    } = visitor;
-    let deps: Vec<_> = deps.iter().map(|t| t.to_string()).collect();
-    let exec_deps: Vec<_> = exec_deps.iter().map(|t| t.to_string()).collect();
+        let mut visitor = CoercedDepsCollector::new();
+        coerced.traverse(&attr, PackageLabel::testing(), &mut visitor)?;
+        let CoercedDepsCollector {
+            deps, exec_deps, ..
+        } = visitor;
+        let deps: Vec<_> = deps.iter().map(|t| t.to_string()).collect();
+        let exec_deps: Vec<_> = exec_deps.iter().map(|t| t.to_string()).collect();
 
-    let mut info = ConfiguredAttrInfoForTests::new();
-    configured.traverse(PackageLabel::testing(), &mut info)?;
+        let mut info = ConfiguredAttrInfoForTests::new();
+        configured.traverse(PackageLabel::testing(), &mut info)?;
 
-    let expected_deps = vec!["root//some:location"];
-    let expected_exec_deps = vec!["root//some:exe"];
-    let expected_configured_deps = vec![format!(
-        "root//some:location ({})",
-        ConfigurationData::testing_new()
-    )];
-    let expected_configured_exec_deps = vec![format!(
-        "root//some:exe ({})",
-        configuration_ctx().exec_cfg()?
-    )];
+        let expected_deps = vec!["root//some:location"];
+        let expected_exec_deps = vec!["root//some:exe"];
+        let expected_configured_deps = vec![format!(
+            "root//some:location ({})",
+            ConfigurationData::testing_new()
+        )];
+        let expected_configured_exec_deps = vec![format!(
+            "root//some:exe ({})",
+            configuration_ctx().exec_cfg()?
+        )];
 
-    assert_eq!(expected_deps, deps);
-    assert_eq!(expected_exec_deps, exec_deps);
+        assert_eq!(expected_deps, deps);
+        assert_eq!(expected_exec_deps, exec_deps);
 
-    assert_eq!(
-        expected_configured_deps,
-        info.deps
-            .iter()
-            .map(ToString::to_string)
-            .collect::<Vec<_>>()
-    );
-    assert_eq!(
-        expected_configured_exec_deps,
-        info.execution_deps
-            .iter()
-            .map(ToString::to_string)
-            .collect::<Vec<_>>()
-    );
+        assert_eq!(
+            expected_configured_deps,
+            info.deps
+                .iter()
+                .map(ToString::to_string)
+                .collect::<Vec<_>>()
+        );
+        assert_eq!(
+            expected_configured_exec_deps,
+            info.execution_deps
+                .iter()
+                .map(ToString::to_string)
+                .collect::<Vec<_>>()
+        );
 
-    Ok(())
+        Ok(())
+    })
 }
 
 #[test]

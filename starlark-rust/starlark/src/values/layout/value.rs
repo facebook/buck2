@@ -1485,32 +1485,34 @@ mod tests {
 
     #[test]
     fn test_downcast_ref() {
-        let heap = Heap::new();
-        let string = heap.alloc_str("asd").to_value();
-        let none = Value::new_none();
-        let integer = Value::testing_new_int(17);
+        Heap::temp(|heap| {
+            let string = heap.alloc_str("asd").to_value();
+            let none = Value::new_none();
+            let integer = Value::testing_new_int(17);
 
-        assert!(string.downcast_ref::<NoneType>().is_none());
-        assert!(integer.downcast_ref::<NoneType>().is_none());
-        assert!(none.downcast_ref::<NoneType>().is_some());
+            assert!(string.downcast_ref::<NoneType>().is_none());
+            assert!(integer.downcast_ref::<NoneType>().is_none());
+            assert!(none.downcast_ref::<NoneType>().is_some());
 
-        assert_eq!(
-            "asd",
-            string.downcast_ref::<StarlarkStr>().unwrap().as_str()
-        );
-        assert!(integer.downcast_ref::<StarlarkStr>().is_none());
-        assert!(none.downcast_ref::<StarlarkStr>().is_none());
+            assert_eq!(
+                "asd",
+                string.downcast_ref::<StarlarkStr>().unwrap().as_str()
+            );
+            assert!(integer.downcast_ref::<StarlarkStr>().is_none());
+            assert!(none.downcast_ref::<StarlarkStr>().is_none());
 
-        assert!(string.downcast_ref::<PointerI32>().is_none());
-        assert_eq!(17, integer.downcast_ref::<PointerI32>().unwrap().get());
-        assert!(none.downcast_ref::<PointerI32>().is_none());
+            assert!(string.downcast_ref::<PointerI32>().is_none());
+            assert_eq!(17, integer.downcast_ref::<PointerI32>().unwrap().get());
+            assert!(none.downcast_ref::<PointerI32>().is_none());
+        });
     }
 
     #[test]
     fn test_unpack_i32() {
-        let heap = Heap::new();
-        let value = heap.alloc(i32::MAX);
-        assert_eq!(Some(i32::MAX), value.unpack_i32());
+        Heap::temp(|heap| {
+            let value = heap.alloc(i32::MAX);
+            assert_eq!(Some(i32::MAX), value.unpack_i32());
+        });
     }
 
     #[test]
@@ -1521,13 +1523,14 @@ mod tests {
 
     #[test]
     fn test_unpack_bigint() {
-        let heap = Heap::new();
-        let value = heap.alloc(BigInt::from(i64::MAX));
-        assert_eq!(None, value.unpack_i32());
-        assert_eq!(
-            Some(BigInt::from(i64::MAX)),
-            BigInt::unpack_value(value).unwrap()
-        );
+        Heap::temp(|heap| {
+            let value = heap.alloc(BigInt::from(i64::MAX));
+            assert_eq!(None, value.unpack_i32());
+            assert_eq!(
+                Some(BigInt::from(i64::MAX)),
+                BigInt::unpack_value(value).unwrap()
+            );
+        });
     }
 
     #[test]
@@ -1546,12 +1549,13 @@ mod tests {
             Value::new_none().to_string_for_type_error(),
         );
 
-        let heap = Heap::new();
-        let list = heap.alloc(AllocList(0..12345));
-        assert_eq!(
-            "list (repr: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10,<<...>>42, 12343, 12344])",
-            list.to_string_for_type_error(),
-        );
+        Heap::temp(|heap| {
+            let list = heap.alloc(AllocList(0..12345));
+            assert_eq!(
+                "list (repr: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10,<<...>>42, 12343, 12344])",
+                list.to_string_for_type_error(),
+            );
+        });
     }
 
     #[test]

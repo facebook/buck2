@@ -101,13 +101,14 @@ mod tests {
 
     #[test]
     fn test_string_value_intern() {
-        let heap1 = Heap::new();
-        let mut intern = StringValueInterner::default();
+        Heap::temp(|heap1| {
+            let mut intern = StringValueInterner::default();
 
-        let xx1 = intern.intern(Hashed::new("xx"), || heap1.alloc_str("xx"));
-        let xx2 = intern.intern(Hashed::new("xx"), || {
-            panic!("alloc_str should be only called once")
+            let xx1 = intern.intern(Hashed::new("xx"), || heap1.alloc_str("xx"));
+            let xx2 = intern.intern(Hashed::new("xx"), || {
+                panic!("alloc_str should be only called once")
+            });
+            assert!(xx1.to_value().ptr_eq(xx2.to_value()));
         });
-        assert!(xx1.to_value().ptr_eq(xx2.to_value()));
     }
 }

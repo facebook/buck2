@@ -719,49 +719,52 @@ mod tests {
 
     #[test]
     fn artifact_binding() -> buck2_error::Result<()> {
-        let heap = Heap::new();
-        let target =
-            ConfiguredTargetLabel::testing_parse("cell//pkg:foo", ConfigurationData::testing_new());
-        let declared = DeclaredArtifact::new(
-            BuildArtifactPath::new(
-                BaseDeferredKey::TargetLabel(target.dupe()),
-                ForwardRelativePathBuf::unchecked_new("bar.out".into()),
-                BuckOutPathKind::default(),
-            ),
-            OutputType::File,
-            0,
-            &heap,
-        );
-        let key = ActionKey::new(
-            DeferredHolderKey::Base(BaseDeferredKey::TargetLabel(target.dupe())),
-            ActionIndex::new(0),
-        );
+        Heap::temp(|heap| {
+            let target = ConfiguredTargetLabel::testing_parse(
+                "cell//pkg:foo",
+                ConfigurationData::testing_new(),
+            );
+            let declared = DeclaredArtifact::new(
+                BuildArtifactPath::new(
+                    BaseDeferredKey::TargetLabel(target.dupe()),
+                    ForwardRelativePathBuf::unchecked_new("bar.out".into()),
+                    BuckOutPathKind::default(),
+                ),
+                OutputType::File,
+                0,
+                &heap,
+            );
+            let key = ActionKey::new(
+                DeferredHolderKey::Base(BaseDeferredKey::TargetLabel(target.dupe())),
+                ActionIndex::new(0),
+            );
 
-        let out = declared.as_output();
-        let bound = out.bind(key.dupe())?;
+            let out = declared.as_output();
+            let bound = out.bind(key.dupe())?;
 
-        assert_eq!(*bound.as_base_artifact().key(), key);
-        assert_eq!(bound.get_path(), declared.get_path());
+            assert_eq!(*bound.as_base_artifact().key(), key);
+            assert_eq!(bound.get_path(), declared.get_path());
 
-        match &*declared.artifact().borrow() {
-            DeclaredArtifactKind::Bound(b) => {
-                assert_eq!(b, bound.as_base_artifact());
-            }
-            _ => panic!("should be bound"),
-        };
+            match &*declared.artifact().borrow() {
+                DeclaredArtifactKind::Bound(b) => {
+                    assert_eq!(b, bound.as_base_artifact());
+                }
+                _ => panic!("should be bound"),
+            };
 
-        // Binding again to the same key should succeed
-        out.bind(key)?;
+            // Binding again to the same key should succeed
+            out.bind(key)?;
 
-        // Binding again to a different key should fail
-        let other_key = ActionKey::new(
-            DeferredHolderKey::Base(BaseDeferredKey::TargetLabel(target)),
-            ActionIndex::new(1),
-        );
+            // Binding again to a different key should fail
+            let other_key = ActionKey::new(
+                DeferredHolderKey::Base(BaseDeferredKey::TargetLabel(target)),
+                ActionIndex::new(1),
+            );
 
-        assert_matches!(out.bind(other_key), Err(..));
+            assert_matches!(out.bind(other_key), Err(..));
 
-        Ok(())
+            Ok(())
+        })
     }
 
     #[test]

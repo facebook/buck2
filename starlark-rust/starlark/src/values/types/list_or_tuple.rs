@@ -99,39 +99,40 @@ mod tests {
 
     #[test]
     fn test_unpack() {
-        let heap = Heap::new();
-        let list = heap.alloc(vec!["a", "b"]);
-        let tuple = heap.alloc(("a", "b"));
-        let list_of_ints = heap.alloc(vec![1, 2]);
-        let tuple_of_ints = heap.alloc((1, 2));
-        assert_eq!(
-            vec!["a", "b"],
-            UnpackListOrTuple::<&str>::unpack_value(list)
-                .unwrap()
-                .unwrap()
-                .items
-        );
-        assert_eq!(
-            vec!["a", "b"],
-            UnpackListOrTuple::<&str>::unpack_value(tuple)
-                .unwrap()
-                .unwrap()
-                .items
-        );
-        assert!(
-            UnpackListOrTuple::<&str>::unpack_value(list_of_ints)
-                .unwrap()
-                .is_none()
-        );
-        assert!(
-            UnpackListOrTuple::<&str>::unpack_value(tuple_of_ints)
-                .unwrap()
-                .is_none()
-        );
-        assert!(
-            UnpackListOrTuple::<&str>::unpack_value(heap.alloc(1))
-                .unwrap()
-                .is_none()
-        );
+        Heap::temp(|heap| {
+            let list = heap.alloc(vec!["a", "b"]);
+            let tuple = heap.alloc(("a", "b"));
+            let list_of_ints = heap.alloc(vec![1, 2]);
+            let tuple_of_ints = heap.alloc((1, 2));
+            assert_eq!(
+                vec!["a", "b"],
+                UnpackListOrTuple::<&str>::unpack_value(list)
+                    .unwrap()
+                    .unwrap()
+                    .items
+            );
+            assert_eq!(
+                vec!["a", "b"],
+                UnpackListOrTuple::<&str>::unpack_value(tuple)
+                    .unwrap()
+                    .unwrap()
+                    .items
+            );
+            assert!(
+                UnpackListOrTuple::<&str>::unpack_value(list_of_ints)
+                    .unwrap()
+                    .is_none()
+            );
+            assert!(
+                UnpackListOrTuple::<&str>::unpack_value(tuple_of_ints)
+                    .unwrap()
+                    .is_none()
+            );
+            assert!(
+                UnpackListOrTuple::<&str>::unpack_value(heap.alloc(1))
+                    .unwrap()
+                    .is_none()
+            );
+        });
     }
 }

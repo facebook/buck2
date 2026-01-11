@@ -53,20 +53,21 @@ mod tests {
 
     #[test]
     fn test_unpack_float() {
-        let heap = Heap::new();
-        assert_eq!(
-            1.0,
-            UnpackFloat::unpack_value(Value::testing_new_int(1))
-                .unwrap()
-                .unwrap()
-                .0
-        );
-        assert_eq!(
-            1.0,
-            UnpackFloat::unpack_value(heap.alloc(1.0))
-                .unwrap()
-                .unwrap()
-                .0
-        );
+        Heap::temp(|heap| {
+            assert_eq!(
+                1.0,
+                UnpackFloat::unpack_value(Value::testing_new_int(1))
+                    .unwrap()
+                    .unwrap()
+                    .0
+            );
+            assert_eq!(
+                1.0,
+                UnpackFloat::unpack_value(heap.alloc(1.0))
+                    .unwrap()
+                    .unwrap()
+                    .0
+            );
+        });
     }
 }

@@ -44,15 +44,16 @@ impl<'v> Freeze for Test<Value<'v>> {
 
 #[test]
 fn test() -> anyhow::Result<()> {
-    let heap = Heap::new();
-    let list = heap.alloc(vec![1i32, 2i32]);
+    Heap::temp(|heap| -> anyhow::Result<()> {
+        let list = heap.alloc(vec![1i32, 2i32]);
 
-    let t = Test { field: list };
+        let t = Test { field: list };
 
-    let frozen_heap = FrozenHeap::new();
-    let freezer = Freezer::new(&frozen_heap);
-    list.freeze(&freezer)?;
-    t.freeze(&freezer)?;
+        let frozen_heap = FrozenHeap::new();
+        let freezer = Freezer::new(&frozen_heap);
+        list.freeze(&freezer)?;
+        t.freeze(&freezer)?;
 
-    Ok(())
+        Ok(())
+    })
 }

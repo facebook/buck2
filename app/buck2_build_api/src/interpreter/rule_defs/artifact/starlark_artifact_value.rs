@@ -188,14 +188,17 @@ pub(crate) fn register_artifact_value(globals: &mut GlobalsBuilder) {
 #[cfg(test)]
 mod tests {
 
+    use starlark::values::Heap;
+
     use super::*;
 
     #[test]
     fn test_json_convert() {
-        let heap = Heap::new();
-        let testcase = "{\"test\": [1, true, \"pi\", 7.5, {}]}";
-        let value: serde_json::Value = serde_json::from_str(testcase).unwrap();
-        let res = json_convert(value, &heap).unwrap().to_repr();
-        assert_eq!(res, testcase.replace("true", "True"))
+        Heap::temp(|heap| {
+            let testcase = "{\"test\": [1, true, \"pi\", 7.5, {}]}";
+            let value: serde_json::Value = serde_json::from_str(testcase).unwrap();
+            let res = json_convert(value, &heap).unwrap().to_repr();
+            assert_eq!(res, testcase.replace("true", "True"))
+        });
     }
 }

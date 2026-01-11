@@ -108,113 +108,114 @@ fn enum_works() -> buck2_error::Result<()> {
 
 #[test]
 fn attr_coercer_coerces() -> buck2_error::Result<()> {
-    let heap = Heap::new();
-    let some_cells = cells(None)?;
-    let cell_resolver = some_cells.1;
-    let cell_alias_resolver = some_cells.0;
-    let package = PackageLabel::new(
-        CellName::testing_new("root"),
-        CellRelativePath::unchecked_new("foo"),
-    )?;
-    let enclosing_package = (package.dupe(), PackageListing::testing_empty());
-    let coercer_ctx = BuildAttrCoercionContext::new_with_package(
-        cell_resolver,
-        cell_alias_resolver,
-        enclosing_package,
-        false,
-        Arc::new(ConcurrentTargetLabelInterner::default()),
-        CellPathWithAllowedRelativeDir::backwards_relative_not_supported(
-            package.as_cell_path().to_owned(),
-        ),
-    );
-    let label_coercer = AttrType::dep(ProviderIdSet::EMPTY, PluginKindSet::EMPTY);
-    let string_coercer = AttrType::string();
-    let enum_coercer = AttrType::enumeration(vec![
-        "red".to_owned(),
-        "green".to_owned(),
-        "blue".to_owned(),
-    ])?;
-    assert!(AttrType::enumeration(vec!["UPPER".to_owned()]).is_err());
-    assert!(
-        AttrType::enumeration(vec![
-            "repeated".to_owned(),
-            "and".to_owned(),
-            "repeated".to_owned()
-        ])
-        .is_err()
-    );
+    Heap::temp(|heap| {
+        let some_cells = cells(None)?;
+        let cell_resolver = some_cells.1;
+        let cell_alias_resolver = some_cells.0;
+        let package = PackageLabel::new(
+            CellName::testing_new("root"),
+            CellRelativePath::unchecked_new("foo"),
+        )?;
+        let enclosing_package = (package.dupe(), PackageListing::testing_empty());
+        let coercer_ctx = BuildAttrCoercionContext::new_with_package(
+            cell_resolver,
+            cell_alias_resolver,
+            enclosing_package,
+            false,
+            Arc::new(ConcurrentTargetLabelInterner::default()),
+            CellPathWithAllowedRelativeDir::backwards_relative_not_supported(
+                package.as_cell_path().to_owned(),
+            ),
+        );
+        let label_coercer = AttrType::dep(ProviderIdSet::EMPTY, PluginKindSet::EMPTY);
+        let string_coercer = AttrType::string();
+        let enum_coercer = AttrType::enumeration(vec![
+            "red".to_owned(),
+            "green".to_owned(),
+            "blue".to_owned(),
+        ])?;
+        assert!(AttrType::enumeration(vec!["UPPER".to_owned()]).is_err());
+        assert!(
+            AttrType::enumeration(vec![
+                "repeated".to_owned(),
+                "and".to_owned(),
+                "repeated".to_owned()
+            ])
+            .is_err()
+        );
 
-    let label_value1 = label_coercer.coerce(
-        AttrIsConfigurable::Yes,
-        &coercer_ctx,
-        heap.alloc("root//foo:bar"),
-    )?;
-    let label_value2 = label_coercer.coerce(
-        AttrIsConfigurable::Yes,
-        &coercer_ctx,
-        heap.alloc("root//foo:bar[baz]"),
-    )?;
-    let label_value3 =
-        label_coercer.coerce(AttrIsConfigurable::Yes, &coercer_ctx, heap.alloc(":bar"))?;
-    let label_value4 = label_coercer.coerce(
-        AttrIsConfigurable::Yes,
-        &coercer_ctx,
-        heap.alloc(":bar[baz]"),
-    )?;
-    let invalid_label_value1 = label_coercer.coerce(
-        AttrIsConfigurable::Yes,
-        &coercer_ctx,
-        heap.alloc("root//foo/..."),
-    );
-    let invalid_label_value2 = label_coercer.coerce(
-        AttrIsConfigurable::Yes,
-        &coercer_ctx,
-        heap.alloc("root//foo:"),
-    );
-    let invalid_label_value3 =
-        label_coercer.coerce(AttrIsConfigurable::Yes, &coercer_ctx, heap.alloc("1"));
+        let label_value1 = label_coercer.coerce(
+            AttrIsConfigurable::Yes,
+            &coercer_ctx,
+            heap.alloc("root//foo:bar"),
+        )?;
+        let label_value2 = label_coercer.coerce(
+            AttrIsConfigurable::Yes,
+            &coercer_ctx,
+            heap.alloc("root//foo:bar[baz]"),
+        )?;
+        let label_value3 =
+            label_coercer.coerce(AttrIsConfigurable::Yes, &coercer_ctx, heap.alloc(":bar"))?;
+        let label_value4 = label_coercer.coerce(
+            AttrIsConfigurable::Yes,
+            &coercer_ctx,
+            heap.alloc(":bar[baz]"),
+        )?;
+        let invalid_label_value1 = label_coercer.coerce(
+            AttrIsConfigurable::Yes,
+            &coercer_ctx,
+            heap.alloc("root//foo/..."),
+        );
+        let invalid_label_value2 = label_coercer.coerce(
+            AttrIsConfigurable::Yes,
+            &coercer_ctx,
+            heap.alloc("root//foo:"),
+        );
+        let invalid_label_value3 =
+            label_coercer.coerce(AttrIsConfigurable::Yes, &coercer_ctx, heap.alloc("1"));
 
-    assert_eq!(
-        "root//foo:bar",
-        value_to_string(&label_value1, package.dupe())?
-    );
-    assert_eq!(
-        "root//foo:bar[baz]",
-        value_to_string(&label_value2, package.dupe())?
-    );
-    assert_eq!(
-        "root//foo:bar",
-        value_to_string(&label_value3, package.dupe())?
-    );
-    assert_eq!(
-        "root//foo:bar[baz]",
-        value_to_string(&label_value4, package.dupe())?
-    );
-    assert!(invalid_label_value1.is_err());
-    assert!(invalid_label_value2.is_err());
-    assert!(invalid_label_value3.is_err());
+        assert_eq!(
+            "root//foo:bar",
+            value_to_string(&label_value1, package.dupe())?
+        );
+        assert_eq!(
+            "root//foo:bar[baz]",
+            value_to_string(&label_value2, package.dupe())?
+        );
+        assert_eq!(
+            "root//foo:bar",
+            value_to_string(&label_value3, package.dupe())?
+        );
+        assert_eq!(
+            "root//foo:bar[baz]",
+            value_to_string(&label_value4, package.dupe())?
+        );
+        assert!(invalid_label_value1.is_err());
+        assert!(invalid_label_value2.is_err());
+        assert!(invalid_label_value3.is_err());
 
-    let string_value1 =
-        string_coercer.coerce(AttrIsConfigurable::Yes, &coercer_ctx, heap.alloc("str"))?;
-    assert_eq!("str", value_to_string(&string_value1, package.dupe())?);
+        let string_value1 =
+            string_coercer.coerce(AttrIsConfigurable::Yes, &coercer_ctx, heap.alloc("str"))?;
+        assert_eq!("str", value_to_string(&string_value1, package.dupe())?);
 
-    let enum_valid1 =
-        enum_coercer.coerce(AttrIsConfigurable::Yes, &coercer_ctx, heap.alloc("red"))?;
-    let enum_valid2 =
-        enum_coercer.coerce(AttrIsConfigurable::Yes, &coercer_ctx, heap.alloc("green"))?;
-    let enum_valid3 =
-        enum_coercer.coerce(AttrIsConfigurable::Yes, &coercer_ctx, heap.alloc("RED"))?;
-    let enum_invalid1 =
-        enum_coercer.coerce(AttrIsConfigurable::Yes, &coercer_ctx, heap.alloc("orange"));
-    let enum_invalid2 =
-        enum_coercer.coerce(AttrIsConfigurable::Yes, &coercer_ctx, heap.alloc(false));
-    assert_eq!("red", value_to_string(&enum_valid1, package.dupe())?);
-    assert_eq!("green", value_to_string(&enum_valid2, package.dupe())?);
-    assert_eq!("red", value_to_string(&enum_valid3, package.dupe())?);
-    assert!(enum_invalid1.is_err());
-    assert!(enum_invalid2.is_err());
+        let enum_valid1 =
+            enum_coercer.coerce(AttrIsConfigurable::Yes, &coercer_ctx, heap.alloc("red"))?;
+        let enum_valid2 =
+            enum_coercer.coerce(AttrIsConfigurable::Yes, &coercer_ctx, heap.alloc("green"))?;
+        let enum_valid3 =
+            enum_coercer.coerce(AttrIsConfigurable::Yes, &coercer_ctx, heap.alloc("RED"))?;
+        let enum_invalid1 =
+            enum_coercer.coerce(AttrIsConfigurable::Yes, &coercer_ctx, heap.alloc("orange"));
+        let enum_invalid2 =
+            enum_coercer.coerce(AttrIsConfigurable::Yes, &coercer_ctx, heap.alloc(false));
+        assert_eq!("red", value_to_string(&enum_valid1, package.dupe())?);
+        assert_eq!("green", value_to_string(&enum_valid2, package.dupe())?);
+        assert_eq!("red", value_to_string(&enum_valid3, package.dupe())?);
+        assert!(enum_invalid1.is_err());
+        assert!(enum_invalid2.is_err());
 
-    Ok(())
+        Ok(())
+    })
 }
 
 #[test]

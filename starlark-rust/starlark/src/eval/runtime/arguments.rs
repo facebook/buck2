@@ -524,119 +524,121 @@ mod tests {
 
     #[test]
     fn test_parameter_unpack() {
-        let heap = Heap::new();
-        fn f<'v, F: Fn(&Arguments<'v, '_>), const N: usize>(heap: &'v Heap, op: F) {
-            for i in 0..=N {
-                let mut p = Arguments::default();
-                let pos = (0..i)
-                    .map(|x| Value::testing_new_int(x as i32))
-                    .collect::<Vec<_>>();
-                let args = (i..N)
-                    .map(|x| Value::testing_new_int(x as i32))
-                    .collect::<Vec<_>>();
-                let empty_args = args.is_empty();
-                p.0.pos = &pos;
-                p.0.args = Some(heap.alloc(args));
-                op(&p);
-                if empty_args {
-                    p.0.args = None;
+        Heap::temp(|heap| {
+            fn f<'v, F: Fn(&Arguments<'v, '_>), const N: usize>(heap: &'v Heap, op: F) {
+                for i in 0..=N {
+                    let mut p = Arguments::default();
+                    let pos = (0..i)
+                        .map(|x| Value::testing_new_int(x as i32))
+                        .collect::<Vec<_>>();
+                    let args = (i..N)
+                        .map(|x| Value::testing_new_int(x as i32))
+                        .collect::<Vec<_>>();
+                    let empty_args = args.is_empty();
+                    p.0.pos = &pos;
+                    p.0.args = Some(heap.alloc(args));
                     op(&p);
+                    if empty_args {
+                        p.0.args = None;
+                        op(&p);
+                    }
+                    assert_eq!(p.len().unwrap(), N);
                 }
-                assert_eq!(p.len().unwrap(), N);
             }
-        }
 
-        f::<_, 0>(&heap, |p| {
-            assert_eq!(&p.positional::<0>(&heap).unwrap(), &[]);
-            assert!(&p.positional::<1>(&heap).is_err());
-            assert!(&p.positional::<2>(&heap).is_err());
-            assert_eq!(&p.optional::<0, 1>(&heap).unwrap(), &([], [None]));
-            assert!(&p.optional::<1, 1>(&heap).is_err());
-            assert_eq!(&p.optional::<0, 2>(&heap).unwrap(), &([], [None, None]));
-        });
-        f::<_, 1>(&heap, |p| {
-            assert!(&p.positional::<0>(&heap).is_err());
-            assert_eq!(
-                &p.positional::<1>(&heap).unwrap(),
-                &[Value::testing_new_int(0)]
-            );
-            assert!(&p.positional::<2>(&heap).is_err());
-            assert_eq!(
-                &p.optional::<0, 1>(&heap).unwrap(),
-                &([], [Some(Value::testing_new_int(0))])
-            );
-            assert_eq!(
-                &p.optional::<1, 1>(&heap).unwrap(),
-                &([Value::testing_new_int(0)], [None])
-            );
-            assert_eq!(
-                &p.optional::<0, 2>(&heap).unwrap(),
-                &([], [Some(Value::testing_new_int(0)), None])
-            );
-        });
-        f::<_, 2>(&heap, |p| {
-            assert!(&p.positional::<0>(&heap).is_err());
-            assert!(&p.positional::<1>(&heap).is_err());
-            assert_eq!(
-                &p.positional::<2>(&heap).unwrap(),
-                &[Value::testing_new_int(0), Value::testing_new_int(1)]
-            );
-            assert!(p.optional::<0, 1>(&heap).is_err());
-            assert_eq!(
-                &p.optional::<1, 1>(&heap).unwrap(),
-                &(
-                    [Value::testing_new_int(0)],
-                    [Some(Value::testing_new_int(1))]
-                )
-            );
-            assert_eq!(
-                &p.optional::<0, 2>(&heap).unwrap(),
-                &(
-                    [],
-                    [
-                        Some(Value::testing_new_int(0)),
-                        Some(Value::testing_new_int(1))
-                    ]
-                )
-            );
-        });
-        f::<_, 3>(&heap, |p| {
-            assert!(&p.positional::<0>(&heap).is_err());
-            assert!(&p.positional::<1>(&heap).is_err());
-            assert!(&p.positional::<2>(&heap).is_err());
-            assert!(p.optional::<0, 1>(&heap).is_err());
-            assert!(p.optional::<1, 1>(&heap).is_err());
-            assert!(p.optional::<0, 2>(&heap).is_err());
+            f::<_, 0>(heap, |p| {
+                assert_eq!(&p.positional::<0>(heap).unwrap(), &[]);
+                assert!(&p.positional::<1>(heap).is_err());
+                assert!(&p.positional::<2>(heap).is_err());
+                assert_eq!(&p.optional::<0, 1>(heap).unwrap(), &([], [None]));
+                assert!(&p.optional::<1, 1>(heap).is_err());
+                assert_eq!(&p.optional::<0, 2>(heap).unwrap(), &([], [None, None]));
+            });
+            f::<_, 1>(heap, |p| {
+                assert!(&p.positional::<0>(heap).is_err());
+                assert_eq!(
+                    &p.positional::<1>(heap).unwrap(),
+                    &[Value::testing_new_int(0)]
+                );
+                assert!(&p.positional::<2>(heap).is_err());
+                assert_eq!(
+                    &p.optional::<0, 1>(heap).unwrap(),
+                    &([], [Some(Value::testing_new_int(0))])
+                );
+                assert_eq!(
+                    &p.optional::<1, 1>(heap).unwrap(),
+                    &([Value::testing_new_int(0)], [None])
+                );
+                assert_eq!(
+                    &p.optional::<0, 2>(heap).unwrap(),
+                    &([], [Some(Value::testing_new_int(0)), None])
+                );
+            });
+            f::<_, 2>(heap, |p| {
+                assert!(&p.positional::<0>(heap).is_err());
+                assert!(&p.positional::<1>(heap).is_err());
+                assert_eq!(
+                    &p.positional::<2>(heap).unwrap(),
+                    &[Value::testing_new_int(0), Value::testing_new_int(1)]
+                );
+                assert!(p.optional::<0, 1>(heap).is_err());
+                assert_eq!(
+                    &p.optional::<1, 1>(heap).unwrap(),
+                    &(
+                        [Value::testing_new_int(0)],
+                        [Some(Value::testing_new_int(1))]
+                    )
+                );
+                assert_eq!(
+                    &p.optional::<0, 2>(heap).unwrap(),
+                    &(
+                        [],
+                        [
+                            Some(Value::testing_new_int(0)),
+                            Some(Value::testing_new_int(1))
+                        ]
+                    )
+                );
+            });
+            f::<_, 3>(heap, |p| {
+                assert!(&p.positional::<0>(heap).is_err());
+                assert!(&p.positional::<1>(heap).is_err());
+                assert!(&p.positional::<2>(heap).is_err());
+                assert!(p.optional::<0, 1>(heap).is_err());
+                assert!(p.optional::<1, 1>(heap).is_err());
+                assert!(p.optional::<0, 2>(heap).is_err());
+            });
         });
     }
 
     #[test]
     fn test_parameter_no_named() {
-        let heap = Heap::new();
-        let mut p = Arguments::default();
-        assert!(p.no_named_args().is_ok());
-        assert_eq!(p.len().unwrap(), 0);
+        Heap::temp(|heap| {
+            let mut p = Arguments::default();
+            assert!(p.no_named_args().is_ok());
+            assert_eq!(p.len().unwrap(), 0);
 
-        // Test lots of forms of kwargs work properly
-        p.0.kwargs = Some(Value::new_none());
-        assert!(p.no_named_args().is_err());
-        p.0.kwargs = Some(heap.alloc(Dict::default()));
-        assert!(p.no_named_args().is_ok());
-        assert_eq!(p.len().unwrap(), 0);
-        let mut sm = SmallMap::new();
-        sm.insert_hashed(heap.alloc_str("test").get_hashed(), Value::new_none());
-        p.0.kwargs = Some(heap.alloc(Dict::new(coerce(sm))));
-        assert!(p.no_named_args().is_err());
-        assert_eq!(p.len().unwrap(), 1);
+            // Test lots of forms of kwargs work properly
+            p.0.kwargs = Some(Value::new_none());
+            assert!(p.no_named_args().is_err());
+            p.0.kwargs = Some(heap.alloc(Dict::default()));
+            assert!(p.no_named_args().is_ok());
+            assert_eq!(p.len().unwrap(), 0);
+            let mut sm = SmallMap::new();
+            sm.insert_hashed(heap.alloc_str("test").get_hashed(), Value::new_none());
+            p.0.kwargs = Some(heap.alloc(Dict::new(coerce(sm))));
+            assert!(p.no_named_args().is_err());
+            assert_eq!(p.len().unwrap(), 1);
 
-        // Test named arguments work properly
-        p.0.kwargs = None;
-        let named = [Value::new_none()];
-        p.0.named = &named;
-        let names = [(Symbol::new("test"), heap.alloc_str("test"))];
-        p.0.names = ArgNames::new_check_unique(&names).unwrap();
-        assert!(p.no_named_args().is_err());
-        assert_eq!(p.len().unwrap(), 1);
+            // Test named arguments work properly
+            p.0.kwargs = None;
+            let named = [Value::new_none()];
+            p.0.named = &named;
+            let names = [(Symbol::new("test"), heap.alloc_str("test"))];
+            p.0.names = ArgNames::new_check_unique(&names).unwrap();
+            assert!(p.no_named_args().is_err());
+            assert_eq!(p.len().unwrap(), 1);
+        });
     }
 
     #[test]

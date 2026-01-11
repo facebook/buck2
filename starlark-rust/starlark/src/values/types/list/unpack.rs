@@ -100,17 +100,18 @@ mod tests {
 
     #[test]
     fn test_unpack() {
-        let heap = Heap::new();
-        let v = heap.alloc(vec!["a", "b"]);
-        assert_eq!(
-            vec!["a", "b"],
-            UnpackList::<&str>::unpack_value(v).unwrap().unwrap().items
-        );
-        assert!(UnpackList::<u32>::unpack_value(v).unwrap().is_none());
-        assert!(
-            UnpackList::<&str>::unpack_value(heap.alloc(1))
-                .unwrap()
-                .is_none()
-        );
+        Heap::temp(|heap| {
+            let v = heap.alloc(vec!["a", "b"]);
+            assert_eq!(
+                vec!["a", "b"],
+                UnpackList::<&str>::unpack_value(v).unwrap().unwrap().items
+            );
+            assert!(UnpackList::<u32>::unpack_value(v).unwrap().is_none());
+            assert!(
+                UnpackList::<&str>::unpack_value(heap.alloc(1))
+                    .unwrap()
+                    .is_none()
+            );
+        });
     }
 }

@@ -153,37 +153,38 @@ mod tests {
 
     #[test]
     fn test_convert_index() {
-        let heap = Heap::new();
-        assert_eq!(Some(6), convert_index(Value::testing_new_int(6), 7).ok());
-        assert_eq!(Some(6), convert_index(Value::testing_new_int(-1), 7).ok());
-        assert_eq!(
-            Some((6, 7, 1)),
-            convert_slice_indices(7, Some(Value::testing_new_int(6)), None, None).ok()
-        );
-        assert_eq!(
-            Some((6, -1, -1)),
-            convert_slice_indices(
-                7,
-                Some(Value::testing_new_int(-1)),
-                None,
-                Some(Value::testing_new_int(-1))
-            )
-            .ok()
-        );
-        assert_eq!(
-            Some((6, 7, 1)),
-            convert_slice_indices(
-                7,
-                Some(Value::testing_new_int(-1)),
-                Some(Value::testing_new_int(10)),
-                None
-            )
-            .ok()
-        );
-        // Errors
-        assert!(convert_index(heap.alloc("a"), 7).is_err());
-        assert!(convert_index(Value::testing_new_int(8), 7).is_err()); // 8 > 7 = len
-        assert!(convert_index(Value::testing_new_int(-8), 7).is_err()); // -8 + 7 = -1 < 0
+        Heap::temp(|heap| {
+            assert_eq!(Some(6), convert_index(Value::testing_new_int(6), 7).ok());
+            assert_eq!(Some(6), convert_index(Value::testing_new_int(-1), 7).ok());
+            assert_eq!(
+                Some((6, 7, 1)),
+                convert_slice_indices(7, Some(Value::testing_new_int(6)), None, None).ok()
+            );
+            assert_eq!(
+                Some((6, -1, -1)),
+                convert_slice_indices(
+                    7,
+                    Some(Value::testing_new_int(-1)),
+                    None,
+                    Some(Value::testing_new_int(-1))
+                )
+                .ok()
+            );
+            assert_eq!(
+                Some((6, 7, 1)),
+                convert_slice_indices(
+                    7,
+                    Some(Value::testing_new_int(-1)),
+                    Some(Value::testing_new_int(10)),
+                    None
+                )
+                .ok()
+            );
+            // Errors
+            assert!(convert_index(heap.alloc("a"), 7).is_err());
+            assert!(convert_index(Value::testing_new_int(8), 7).is_err()); // 8 > 7 = len
+            assert!(convert_index(Value::testing_new_int(-8), 7).is_err()); // -8 + 7 = -1 < 0
+        });
     }
 
     #[test]

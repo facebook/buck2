@@ -90,20 +90,20 @@ mod tests {
 
     #[test]
     fn test_alloc_tuple() {
-        let heap = Heap::new();
+        Heap::temp(|heap| {
+            let a = heap.alloc(AllocTuple([""; 0]));
+            let b = heap.alloc(AllocTuple([1, 2, 3].iter().copied().filter(|_| false)));
+            assert_eq!(0, TupleRef::from_value(a).unwrap().content().len());
+            assert!(a.ptr_eq(b));
 
-        let a = heap.alloc(AllocTuple([""; 0]));
-        let b = heap.alloc(AllocTuple([1, 2, 3].iter().copied().filter(|_| false)));
-        assert_eq!(0, TupleRef::from_value(a).unwrap().content().len());
-        assert!(a.ptr_eq(b));
+            // Fixed length iterator.
+            let c = heap.alloc(AllocTuple([1, 2]));
+            assert_eq!(2, TupleRef::from_value(c).unwrap().content().len());
 
-        // Fixed length iterator.
-        let c = heap.alloc(AllocTuple([1, 2]));
-        assert_eq!(2, TupleRef::from_value(c).unwrap().content().len());
-
-        // Iterator of unknown length.
-        let d = heap.alloc(AllocTuple([1, 2, 3].iter().copied().filter(|c| *c > 1)));
-        assert_eq!(2, TupleRef::from_value(d).unwrap().content().len());
+            // Iterator of unknown length.
+            let d = heap.alloc(AllocTuple([1, 2, 3].iter().copied().filter(|c| *c > 1)));
+            assert_eq!(2, TupleRef::from_value(d).unwrap().content().len());
+        });
     }
 
     #[test]

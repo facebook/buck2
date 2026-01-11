@@ -328,27 +328,28 @@ mod tests {
         }
         assert_eq!(ranges.len(), 294); // Assert we don't accidentally take too long
 
-        let heap = Heap::new();
-        for x in &ranges {
-            let x = heap.alloc_simple(*x);
-            let full: Vec<Value> = x.iterate(&heap).unwrap().collect();
-            assert_eq!(x.length().unwrap(), full.len() as i32);
-            for (i, v) in full.iter().enumerate() {
-                assert_eq!(x.at(heap.alloc(i), &heap).unwrap(), *v);
-            }
-        }
-
-        // Takes 294^2 steps - but completes instantly
-        for x in &ranges {
-            for y in &ranges {
+        Heap::temp(|heap| {
+            for x in &ranges {
                 let x = heap.alloc_simple(*x);
-                let y = heap.alloc_simple(*y);
-                assert_eq!(
-                    x == y,
-                    Iterator::eq(x.iterate(&heap).unwrap(), y.iterate(&heap).unwrap())
-                )
+                let full: Vec<Value> = x.iterate(heap).unwrap().collect();
+                assert_eq!(x.length().unwrap(), full.len() as i32);
+                for (i, v) in full.iter().enumerate() {
+                    assert_eq!(x.at(heap.alloc(i), heap).unwrap(), *v);
+                }
             }
-        }
+
+            // Takes 294^2 steps - but completes instantly
+            for x in &ranges {
+                for y in &ranges {
+                    let x = heap.alloc_simple(*x);
+                    let y = heap.alloc_simple(*y);
+                    assert_eq!(
+                        x == y,
+                        Iterator::eq(x.iterate(heap).unwrap(), y.iterate(heap).unwrap())
+                    )
+                }
+            }
+        });
     }
 
     #[test]

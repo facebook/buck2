@@ -334,28 +334,31 @@ mod tests {
 
     #[test]
     fn debug() {
-        let heap = Heap::new();
-        let array = heap.alloc_array(10);
-        array.push(heap.alloc(23));
-        // Just check it does not crash.
-        drop(array.to_string());
+        Heap::temp(|heap| {
+            let array = heap.alloc_array(10);
+            array.push(heap.alloc(23));
+            // Just check it does not crash.
+            drop(array.to_string());
+        });
     }
 
     #[test]
     fn display() {
-        let heap = Heap::new();
-        let array = heap.alloc_array(10);
-        array.push(heap.alloc(29));
-        array.push(Value::new_none());
-        assert_eq!("array([29, None], cap=10)", array.to_string());
+        Heap::temp(|heap| {
+            let array = heap.alloc_array(10);
+            array.push(heap.alloc(29));
+            array.push(Value::new_none());
+            assert_eq!("array([29, None], cap=10)", array.to_string());
+        });
     }
 
     #[test]
     fn push() {
-        let heap = Heap::new();
-        let array = heap.alloc_array(10);
-        array.push(heap.alloc(17));
-        array.push(heap.alloc(19));
-        assert_eq!(heap.alloc(19), array.content()[1]);
+        Heap::temp(|heap| {
+            let array = heap.alloc_array(10);
+            array.push(heap.alloc(17));
+            array.push(heap.alloc(19));
+            assert_eq!(heap.alloc(19), array.content()[1]);
+        });
     }
 }
