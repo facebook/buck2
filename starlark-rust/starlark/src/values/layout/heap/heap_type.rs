@@ -114,13 +114,15 @@ impl OwnedHeap {
 
     /// Get access to the underlying [`Heap`].
     pub fn as_ref<'v>(&'v self) -> Heap<'v> {
-        Heap(self)
+        Heap(self, PhantomData)
     }
 }
 
 /// A heap on which [`Value`]s can be allocated. The values will be annotated with the heap lifetime.
 #[derive(Copy, Clone, Dupe)]
-pub struct Heap<'v>(&'v OwnedHeap);
+// `PhantomData` is needed to make the type invariant in `'v` - without that, branding doesn't mean
+// anything.
+pub struct Heap<'v>(&'v OwnedHeap, PhantomData<fn(&'v ()) -> &'v ()>);
 
 impl<'v> Debug for Heap<'v> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
