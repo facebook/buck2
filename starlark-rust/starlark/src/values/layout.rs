@@ -19,7 +19,6 @@
 // Encoding none, bool etc in the pointer of frozen value
 
 pub(crate) mod aligned_size;
-pub(crate) mod alloc_static_simple;
 pub(crate) mod avalue;
 pub(crate) mod avalues;
 pub(crate) mod complex;

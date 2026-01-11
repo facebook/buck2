@@ -30,7 +30,6 @@
 //! * All the nested modules represent the built-in Starlark values. These are all defined using [`StarlarkValue`],
 //!   so may serve as interesting inspiration for writing your own values, in addition to occurring in Starlark programs.
 
-pub use layout::alloc_static_simple::AllocStaticSimple;
 pub use owned_frozen_ref::OwnedFrozenRef;
 pub use owned_frozen_ref::OwnedRefFrozenRef;
 pub use starlark_derive::AllocFrozenValue;
@@ -56,6 +55,7 @@ pub use crate::values::freeze_error::FreezeErrorContext;
 pub use crate::values::freeze_error::FreezeResult;
 pub use crate::values::frozen_ref::FrozenRef;
 pub use crate::values::iter::StarlarkIterator;
+pub use crate::values::layout::avalues::static_::AllocStaticSimple;
 pub use crate::values::layout::complex::ValueTypedComplex;
 pub use crate::values::layout::freezer::Freezer;
 pub use crate::values::layout::heap::heap_type::FrozenHeap;

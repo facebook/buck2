@@ -20,6 +20,7 @@ use std::marker::PhantomData;
 use crate::values::FreezeResult;
 use crate::values::Freezer;
 use crate::values::FrozenValue;
+use crate::values::FrozenValueTyped;
 use crate::values::StarlarkValue;
 use crate::values::Tracer;
 use crate::values::Value;
@@ -64,5 +65,59 @@ impl<'v, T: StarlarkValue<'v>> AValue<'v> for AValueBasic<T> {
         _tracer: &Tracer<'v>,
     ) -> Value<'v> {
         unreachable!("Basic types don't appear in the heap")
+    }
+}
+
+/// Allocate simple value statically.
+pub struct AllocStaticSimple<T: StarlarkValue<'static>>(
+    AValueRepr<AValueImpl<'static, AValueBasic<T>>>,
+);
+
+impl<T: StarlarkValue<'static>> AllocStaticSimple<T> {
+    /// Allocate a value statically.
+    pub const fn alloc(value: T) -> Self {
+        AllocStaticSimple(alloc_static::<AValueBasic<T>>(value))
+    }
+
+    /// Get the value.
+    pub fn unpack(&'static self) -> FrozenValueTyped<'static, T> {
+        FrozenValueTyped::new_repr(&self.0)
+    }
+
+    /// Get the value.
+    pub fn to_frozen_value(&'static self) -> FrozenValue {
+        self.unpack().to_frozen_value()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use allocative::Allocative;
+    use starlark_derive::NoSerialize;
+    use starlark_derive::ProvidesStaticType;
+    use starlark_derive::starlark_value;
+
+    use crate as starlark;
+    use crate::values::AllocStaticSimple;
+    use crate::values::StarlarkValue;
+
+    #[test]
+    fn test_alloc_static_simple() {
+        #[derive(
+            Debug,
+            derive_more::Display,
+            ProvidesStaticType,
+            NoSerialize,
+            Allocative
+        )]
+        #[display("MySimpleValue")]
+        struct MySimpleValue(u32);
+
+        #[starlark_value(type = "MySimpleValue")]
+        impl<'v> StarlarkValue<'v> for MySimpleValue {}
+
+        static VALUE: AllocStaticSimple<MySimpleValue> =
+            AllocStaticSimple::alloc(MySimpleValue(17));
+        assert_eq!(17, VALUE.unpack().as_ref().0);
     }
 }
