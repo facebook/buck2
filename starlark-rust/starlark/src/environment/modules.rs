@@ -340,7 +340,7 @@ impl Module {
 
     /// Get the heap on which values are allocated by this module.
     pub fn heap(&self) -> &Heap {
-        &self.heap
+        self.heap.as_ref()
     }
 
     /// Get the frozen heap on which frozen values are allocated by this module.
@@ -426,7 +426,8 @@ impl Module {
         let stacks = if let Some(mode) = heap_profile_on_freeze.get() {
             // TODO(nga): retained heap profile does not store information about data
             //   allocated in frozen heap before freeze starts.
-            let heap_profile = AggregateHeapProfileInfo::collect(&heap, Some(HeapKind::Frozen));
+            let heap_profile =
+                AggregateHeapProfileInfo::collect(heap.as_ref(), Some(HeapKind::Frozen));
             Some(RetainedHeapProfile {
                 info: heap_profile,
                 mode,
@@ -442,7 +443,7 @@ impl Module {
         };
         let frozen_module_ref = freezer.heap.alloc_any(rest);
         for frozen_def in freezer.frozen_defs.borrow().as_slice() {
-            frozen_def.post_freeze(frozen_module_ref, &heap, &freezer.heap);
+            frozen_def.post_freeze(frozen_module_ref, heap.as_ref(), &freezer.heap);
         }
         // The values MUST be alive up until this point (as the above line uses them),
         // but can now be dropped

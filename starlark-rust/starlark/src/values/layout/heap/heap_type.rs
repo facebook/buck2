@@ -110,12 +110,9 @@ impl OwnedHeap {
             },
         }
     }
-}
 
-impl Deref for OwnedHeap {
-    type Target = Heap;
-
-    fn deref(&self) -> &Self::Target {
+    /// Get access to the underlying [`Heap`].
+    pub fn as_ref<'v>(&'v self) -> &'v Heap {
         &self.heap
     }
 }
@@ -148,7 +145,7 @@ impl Heap {
         F: for<'v> FnOnce(&'v Heap) -> R,
     {
         let heap = OwnedHeap::new();
-        f(&heap)
+        f(heap.as_ref())
     }
 
     pub(in crate::values::layout) fn string_interner<'v>(
