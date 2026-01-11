@@ -133,6 +133,7 @@ pub(crate) struct AValueVTable {
     debug: unsafe fn(StarlarkValueRawPtr) -> *const dyn Debug,
     erased_serde_serialize: unsafe fn(StarlarkValueRawPtr) -> *const dyn erased_serde::Serialize,
     allocative: unsafe fn(StarlarkValueRawPtr) -> *const dyn Allocative,
+    total_memory_for_profile: unsafe fn(StarlarkValueRawPtr) -> usize,
 }
 
 struct GetTypeId<'v, T: StarlarkValue<'v>>(PhantomData<&'v T>);
@@ -179,6 +180,9 @@ impl AValueVTable {
             allocative: |this| {
                 let this = unsafe { &*this.value_ptr::<BlackHole>() };
                 this as *const dyn Allocative
+            },
+            total_memory_for_profile: |this| unsafe {
+                (*this.value_ptr::<BlackHole>()).0.bytes() as usize
             },
             starlark_value: StarlarkValueVTable::BLACK_HOLE,
         }
@@ -230,6 +234,10 @@ impl AValueVTable {
                 let allocative = this as *const dyn Allocative;
                 // Drop lifetime.
                 mem::transmute(allocative)
+            },
+            total_memory_for_profile: |this| unsafe {
+                let p = &*this.value_ptr::<T::StarlarkValue>();
+                T::total_memory_for_profile(p)
             },
             starlark_value: StarlarkValueVTableGet::<'v, T::StarlarkValue>::VTABLE,
         }
@@ -295,9 +303,8 @@ impl<'v> AValueDyn<'v> {
         unsafe { &*(self.vtable.allocative)(self.value) }
     }
 
-    pub(crate) fn total_memory(self) -> usize {
-        (self.memory_size().bytes() as usize)
-            + allocative::size_of_unique_allocated_data(self.as_allocative())
+    pub(crate) fn total_memory_for_profile(self) -> usize {
+        unsafe { (self.vtable.total_memory_for_profile)(self.value) }
     }
 
     #[inline]

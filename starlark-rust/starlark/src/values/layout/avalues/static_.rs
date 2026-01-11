@@ -66,6 +66,16 @@ impl<'v, T: StarlarkValue<'v>> AValue<'v> for AValueBasic<T> {
     ) -> Value<'v> {
         unreachable!("Basic types don't appear in the heap")
     }
+
+    fn total_memory_for_profile(_value: &Self::StarlarkValue) -> usize {
+        // This avalue is always statically allocated so don't charge anyone for the memory.
+        //
+        // The fact that we need this at all is a bit weird - it comes about only because of the way
+        // we do retained heap profiling. We first freeze the heap and then walk the *unfrozen* heap
+        // looking for all the forwards. Since some non-statically allocated values freeze into
+        // statically allocated ones (list, dict), that might point here
+        0
+    }
 }
 
 /// Allocate simple value statically.

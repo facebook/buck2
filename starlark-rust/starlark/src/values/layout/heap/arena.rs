@@ -459,7 +459,7 @@ impl<A: ArenaAllocator> Arena<A> {
                 .entry(x.dupe())
                 .or_insert_with(|| (v.vtable().type_name, AllocCounts::default()));
             e.1.count += 1;
-            e.1.bytes += v.total_memory()
+            e.1.bytes += v.total_memory_for_profile()
         };
         self.for_each_unordered(f);
 

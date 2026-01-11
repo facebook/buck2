@@ -172,7 +172,7 @@ impl<'v> ArenaVisitor<'v> for StackCollector {
             typ,
             AllocCounts {
                 count: 1,
-                bytes: value.get_ref().total_memory(),
+                bytes: value.get_ref().total_memory_for_profile(),
             },
         );
     }

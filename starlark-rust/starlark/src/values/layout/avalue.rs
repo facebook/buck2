@@ -77,6 +77,16 @@ pub(crate) trait AValue<'v>: Sized + 'v {
         ))
     }
 
+    /// The memory that should be charged to this value in a profile.
+    ///
+    /// Both the size of the value itself and anything it references.
+    ///
+    /// This existing is a bit of a hack to let statically allocated values set this to zero.
+    fn total_memory_for_profile(value: &Self::StarlarkValue) -> usize {
+        Self::alloc_size_for_extra_len(Self::extra_len(value)).bytes() as usize
+            + allocative::size_of_unique_allocated_data(value)
+    }
+
     unsafe fn heap_freeze(
         me: *mut AValueRepr<Self::StarlarkValue>,
         freezer: &Freezer,
