@@ -61,6 +61,7 @@ pub use crate::values::layout::freezer::Freezer;
 pub use crate::values::layout::heap::heap_type::FrozenHeap;
 pub use crate::values::layout::heap::heap_type::FrozenHeapRef;
 pub use crate::values::layout::heap::heap_type::Heap;
+pub use crate::values::layout::heap::heap_type::OwnedHeap;
 pub use crate::values::layout::heap::heap_type::Tracer;
 pub use crate::values::layout::heap::send::DynStarlark;
 pub use crate::values::layout::heap::send::HeapSendable;

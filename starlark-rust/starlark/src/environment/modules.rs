@@ -56,6 +56,7 @@ use crate::values::FrozenStringValue;
 use crate::values::FrozenValue;
 use crate::values::Heap;
 use crate::values::OwnedFrozenValue;
+use crate::values::OwnedHeap;
 use crate::values::Trace;
 use crate::values::Tracer;
 use crate::values::Value;
@@ -110,7 +111,7 @@ pub(crate) struct FrozenModuleData {
 /// released unless you obtain a reference to the frozen heap.
 #[derive(Debug)]
 pub struct Module {
-    heap: Heap,
+    heap: OwnedHeap,
     frozen_heap: FrozenHeap,
     names: MutableNames,
     // Should really be MutableSlots<'v>, where &'v self
@@ -322,7 +323,7 @@ impl Module {
     /// Create a new module environment with no contents.
     pub fn new() -> Self {
         Self {
-            heap: Heap::new(),
+            heap: OwnedHeap::new(),
             frozen_heap: FrozenHeap::new(),
             names: MutableNames::new(),
             slots: MutableSlots::new(),

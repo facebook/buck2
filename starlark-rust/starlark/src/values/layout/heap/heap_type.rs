@@ -79,8 +79,48 @@ pub(crate) enum HeapKind {
     Frozen,
 }
 
+/// An owned heap on which [`Value`]s can be allocated.
+///
+/// This type owns a [`Heap`] and derefs to it for convenience. Use [`OwnedHeap::new`]
+/// to create a new heap.
+pub struct OwnedHeap {
+    heap: Heap,
+}
+
+impl Debug for OwnedHeap {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        Debug::fmt(&self.heap, f)
+    }
+}
+
+impl Default for OwnedHeap {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl OwnedHeap {
+    /// Create a new [`OwnedHeap`].
+    pub fn new() -> Self {
+        Self {
+            heap: Heap {
+                peak_allocated: Default::default(),
+                arena: Default::default(),
+                str_interner: Default::default(),
+            },
+        }
+    }
+}
+
+impl Deref for OwnedHeap {
+    type Target = Heap;
+
+    fn deref(&self) -> &Self::Target {
+        &self.heap
+    }
+}
+
 /// A heap on which [`Value`]s can be allocated. The values will be annotated with the heap lifetime.
-#[derive(Default)]
 pub struct Heap {
     /// Peak memory seen when a garbage collection takes place (may be lower than currently allocated)
     peak_allocated: Cell<usize>,
@@ -107,7 +147,7 @@ impl Heap {
     where
         F: for<'v> FnOnce(&'v Heap) -> R,
     {
-        let heap = Heap::new();
+        let heap = OwnedHeap::new();
         f(&heap)
     }
 
@@ -364,11 +404,6 @@ impl FrozenHeap {
 }
 
 impl Heap {
-    /// Create a new [`Heap`].
-    pub fn new() -> Self {
-        Self::default()
-    }
-
     /// Number of bytes allocated on this heap, not including any memory
     /// allocated outside of the starlark heap.
     pub fn allocated_bytes(&self) -> usize {
