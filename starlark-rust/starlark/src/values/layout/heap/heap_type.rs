@@ -100,6 +100,17 @@ impl Debug for Heap {
 }
 
 impl Heap {
+    /// Create a heap and use it within the closure
+    ///
+    /// Heap is discarded at the end of the closure.
+    pub fn temp<F, R>(f: F) -> R
+    where
+        F: for<'v> FnOnce(&'v Heap) -> R,
+    {
+        let heap = Heap::new();
+        f(&heap)
+    }
+
     pub(in crate::values::layout) fn string_interner<'v>(
         &'v self,
     ) -> RefMut<'v, StringValueInterner<'v>> {
