@@ -103,15 +103,19 @@ impl Debug for Heap {
 }
 
 impl Heap {
-    pub(crate) fn trace_interner<'v>(&'v self, tracer: &Tracer<'v>) {
+    fn string_interner<'v>(&'v self) -> RefMut<'v, StringValueInterner<'v>> {
+        // SAFETY: The lifetime of the interner is the lifetime of the heap.
         unsafe {
             transmute!(
-                RefMut<'_, StringValueInterner<'static>>,
-                RefMut<'_, StringValueInterner<'v>>,
+                RefMut<'v, StringValueInterner<'static>>,
+                RefMut<'v, StringValueInterner<'v>>,
                 self.str_interner.borrow_mut()
             )
-            .trace(tracer);
         }
+    }
+
+    pub(crate) fn trace_interner<'v>(&'v self, tracer: &Tracer<'v>) {
+        self.string_interner().trace(tracer);
     }
 }
 
@@ -462,12 +466,8 @@ impl Heap {
             x.to_string_value()
         } else {
             let x = Hashed::new(x);
-            let mut interner = self.str_interner.borrow_mut();
-            unsafe {
-                interner
-                    .intern(x, || self.alloc_str_impl(x.key(), x.hash()).cast_lifetime())
-                    .cast_lifetime()
-            }
+            self.string_interner()
+                .intern(x, || self.alloc_str_impl(x.key(), x.hash()))
         }
     }
 
