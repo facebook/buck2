@@ -48,23 +48,6 @@ enum AValueError {
     CannotBeFrozen(&'static str),
 }
 
-fn complex<'v, C>(x: C) -> AValueImpl<'v, impl AValue<'v, ExtraElem = ()>>
-where
-    C: ComplexValue<'v>,
-    C::Frozen: StarlarkValue<'static>,
-{
-    assert!(!C::is_special(Private));
-    AValueImpl::<AValueComplex<C>>::new(x)
-}
-
-fn complex_no_freeze<'v, C>(x: C) -> AValueImpl<'v, impl AValue<'v, ExtraElem = ()>>
-where
-    C: StarlarkValue<'v> + Trace<'v>,
-{
-    assert!(!C::is_special(Private));
-    AValueImpl::<AValueComplexNoFreeze<C>>::new(x)
-}
-
 struct AValueComplex<T>(PhantomData<T>);
 
 impl<'v, T> AValue<'v> for AValueComplex<T>
@@ -159,7 +142,9 @@ impl Heap {
         T::Frozen: StarlarkValue<'static>,
         T: HeapSendable<'v>,
     {
-        self.alloc_raw(complex(x)).to_value()
+        assert!(!T::is_special(Private));
+        self.alloc_raw(AValueImpl::<AValueComplex<T>>::new(x))
+            .to_value()
     }
 
     /// Allocate a value which can be traced (garbage collected), but cannot be frozen.
@@ -168,8 +153,10 @@ impl Heap {
         T: StarlarkValue<'v> + Trace<'v>,
         T: HeapSendable<'v>,
     {
+        assert!(!T::is_special(Private));
         // When specializations are stable, we can have single `alloc_complex` function,
         // which enables or not enables freezing depending on whether `T` implements `Freeze`.
-        self.alloc_raw(complex_no_freeze(x)).to_value()
+        self.alloc_raw(AValueImpl::<AValueComplexNoFreeze<T>>::new(x))
+            .to_value()
     }
 }

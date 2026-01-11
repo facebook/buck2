@@ -45,6 +45,7 @@ use crate::values::AllocValue;
 use crate::values::FrozenStringValue;
 use crate::values::FrozenValueOfUnchecked;
 use crate::values::FrozenValueTyped;
+use crate::values::HeapSendable;
 use crate::values::StarlarkValue;
 use crate::values::StringValue;
 use crate::values::Trace;
@@ -366,22 +367,30 @@ impl Heap {
         self.arena.borrow().available_bytes()
     }
 
-    pub(in crate::values::layout) fn alloc_raw<'v, A: AValue<'v, ExtraElem = ()>>(
+    pub(in crate::values::layout) fn alloc_raw<'v, A>(
         &'v self,
         x: AValueImpl<'v, A>,
-    ) -> ValueTyped<'v, A::StarlarkValue> {
+    ) -> ValueTyped<'v, A::StarlarkValue>
+    where
+        A: AValue<'v, ExtraElem = ()>,
+        A::StarlarkValue: HeapSendable<'v>,
+    {
         let arena = self.arena.borrow();
         let v: &AValueRepr<_> = arena.alloc(x);
         ValueTyped::new_repr(v)
     }
 
-    pub(in crate::values::layout) fn alloc_raw_extra<'v, A: AValue<'v>>(
+    pub(in crate::values::layout) fn alloc_raw_extra<'v, A>(
         &'v self,
         x: AValueImpl<'v, A>,
     ) -> (
         ValueTyped<'v, A::StarlarkValue>,
         *mut [MaybeUninit<A::ExtraElem>],
-    ) {
+    )
+    where
+        A: AValue<'v>,
+        A::StarlarkValue: HeapSendable<'v>,
+    {
         let arena = self.arena.borrow();
         let (v, extra) = arena.alloc_extra(x);
         let v = unsafe { ValueTyped::new_repr(&*v) };

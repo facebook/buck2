@@ -35,7 +35,7 @@ use crate::values::layout::heap::repr::ForwardPtr;
 use crate::values::types::tuple::value::FrozenTuple;
 use crate::values::types::tuple::value::Tuple;
 
-fn tuple_avalue<'v>(len: usize) -> AValueImpl<'v, impl AValue<'v, ExtraElem = Value<'v>>> {
+fn tuple_avalue<'v>(len: usize) -> AValueImpl<'v, AValueTuple> {
     AValueImpl::<AValueTuple>::new(unsafe { Tuple::new(len) })
 }
 

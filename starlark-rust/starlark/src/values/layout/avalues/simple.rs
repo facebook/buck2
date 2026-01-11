@@ -25,6 +25,7 @@ use crate::values::FrozenHeap;
 use crate::values::FrozenValue;
 use crate::values::FrozenValueTyped;
 use crate::values::Heap;
+use crate::values::HeapSendable;
 use crate::values::StarlarkValue;
 use crate::values::Tracer;
 use crate::values::Value;
@@ -37,7 +38,7 @@ use crate::values::layout::heap::repr::AValueRepr;
 
 pub(crate) fn simple<'v, T: StarlarkValue<'v> + Send + Sync + 'static>(
     x: T,
-) -> AValueImpl<'v, impl AValue<'v, ExtraElem = ()> + Send + Sync> {
+) -> AValueImpl<'v, AValueSimple<T>> {
     assert!(!T::is_special(Private));
     AValueImpl::<AValueSimple<T>>::new(x)
 }
@@ -105,7 +106,7 @@ impl Heap {
     /// * is not special builtin (e.g. `None`)
     ///
     /// Must be [`Send`] and [`Sync`] because it will be reused in frozen values.
-    pub fn alloc_simple<'v, T: StarlarkValue<'v> + Send + Sync + 'static>(
+    pub fn alloc_simple<'v, T: StarlarkValue<'v> + HeapSendable<'v> + Send + Sync + 'static>(
         &'v self,
         x: T,
     ) -> Value<'v> {
