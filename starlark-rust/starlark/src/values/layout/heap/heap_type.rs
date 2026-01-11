@@ -45,12 +45,10 @@ use crate::collections::Hashed;
 use crate::collections::StarlarkHashValue;
 use crate::collections::maybe_uninit_backport::maybe_uninit_write_slice;
 use crate::collections::maybe_uninit_backport::maybe_uninit_write_slice_cloned;
-use crate::eval::compiler::def::FrozenDef;
 use crate::eval::runtime::profile::instant::ProfilerInstant;
 use crate::values::AllocFrozenValue;
 use crate::values::AllocValue;
 use crate::values::ComplexValue;
-use crate::values::FreezeResult;
 use crate::values::FrozenRef;
 use crate::values::FrozenStringValue;
 use crate::values::FrozenValueOfUnchecked;
@@ -499,40 +497,6 @@ impl FrozenHeap {
     pub fn allocated_summary(&self) -> HeapSummary {
         self.arena.allocated_summary()
     }
-}
-
-/// Used to `freeze` values by [`Freeze::freeze`](crate::values::Freeze::freeze).
-// A freezer is a pair of the FrozenHeap and a "magic" value,
-// which we happen to use for the slots (see `FrozenSlotsRef`)
-// but could be used for anything.
-pub struct Freezer<'fv> {
-    /// Freezing into this heap.
-    pub(crate) heap: &'fv FrozenHeap,
-    /// Defs frozen by this freezer.
-    pub(crate) frozen_defs: RefCell<Vec<FrozenRef<'static, FrozenDef>>>,
-}
-
-impl<'fv> Freezer<'fv> {
-    pub(crate) fn new(heap: &'fv FrozenHeap) -> Self {
-        Freezer {
-            heap,
-            frozen_defs: RefCell::new(Vec::new()),
-        }
-    }
-
-    /// Allocate a new value while freezing. Usually not a great idea.
-    pub fn alloc<'v, T: AllocFrozenValue>(&'v self, val: T) -> FrozenValue {
-        val.alloc_frozen_value(self.heap)
-    }
-
-    pub(crate) fn reserve<'v, 'v2, T: AValue<'v2, ExtraElem = ()>>(
-        &'v self,
-    ) -> (FrozenValue, Reservation<'v2, T>) {
-        let (fv, r, extra) = self.reserve_with_extra::<T>(0);
-        let extra = unsafe { &mut *extra };
-        debug_assert!(extra.is_empty());
-        (fv, r)
-    }
 
     pub(crate) fn reserve_with_extra<'v, 'v2, T: AValue<'v2>>(
         &'v self,
@@ -542,33 +506,9 @@ impl<'fv> Freezer<'fv> {
         Reservation<'v2, T>,
         *mut [MaybeUninit<T::ExtraElem>],
     ) {
-        let (r, extra) = self.heap.arena.reserve_with_extra::<T>(extra_len);
+        let (r, extra) = self.arena.reserve_with_extra::<T>(extra_len);
         let fv = FrozenValue::new_ptr(unsafe { cast::ptr_lifetime(r.ptr()) }, false);
         (fv, r, extra)
-    }
-
-    /// Freeze a nested value while freezing yourself.
-    pub fn freeze(&self, value: Value) -> FreezeResult<FrozenValue> {
-        // Case 1: We have our value encoded in our pointer
-        if let Some(x) = value.unpack_frozen() {
-            return Ok(x);
-        }
-
-        // Case 2: We have already been replaced with a forwarding, or need to freeze
-        let value = value.0.unpack_ptr().unwrap();
-        match value.unpack() {
-            AValueOrForwardUnpack::Forward(x) => {
-                Ok(unsafe { x.forward_ptr().unpack_frozen_value() })
-            }
-            AValueOrForwardUnpack::Header(v) => unsafe { v.unpack().heap_freeze(self) },
-        }
-    }
-
-    /// Frozen heap where the values are frozen to.
-    ///
-    /// Can be used to allocate additional values while freezing.
-    pub fn frozen_heap(&self) -> &'fv FrozenHeap {
-        self.heap
     }
 }
 

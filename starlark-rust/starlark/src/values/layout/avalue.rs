@@ -322,7 +322,9 @@ impl<'v> AValue<'v> for AValueTuple {
             AValueForward::assert_does_not_overwrite_extra::<Self>();
             let content = (*me).payload.content();
 
-            let (fv, r, extra) = freezer.reserve_with_extra::<AValueFrozenTuple>(content.len());
+            let (fv, r, extra) = freezer
+                .frozen_heap()
+                .reserve_with_extra::<AValueFrozenTuple>(content.len());
             AValueHeader::overwrite_with_forward::<Self::StarlarkValue>(
                 me,
                 ForwardPtr::new_frozen(fv),
@@ -432,7 +434,9 @@ impl<'v> AValue<'v> for AValueList {
                 return Ok(fv);
             }
 
-            let (fv, r, extra) = freezer.reserve_with_extra::<AValueFrozenList>(content.len());
+            let (fv, r, extra) = freezer
+                .frozen_heap()
+                .reserve_with_extra::<AValueFrozenList>(content.len());
             AValueHeader::overwrite_with_forward::<Self::StarlarkValue>(
                 me,
                 ForwardPtr::new_frozen(fv),

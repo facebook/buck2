@@ -24,6 +24,7 @@ pub(crate) mod avalue;
 pub(crate) mod complex;
 mod const_frozen_string;
 pub(crate) mod const_type_id;
+pub(crate) mod freezer;
 pub(crate) mod heap;
 pub(crate) mod identity;
 pub(crate) mod pointer;
