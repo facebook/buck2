@@ -110,16 +110,6 @@ impl<'v> AValue<'v> for StarlarkStrAValue {
 }
 
 impl FrozenHeap {
-    fn alloc_str_impl(&self, x: &str, hash: StarlarkHashValue) -> FrozenStringValue {
-        if let Some(x) = constant_string(x) {
-            x
-        } else {
-            self.alloc_str_init(x.len(), hash, |dest| unsafe {
-                copy_nonoverlapping(x.as_ptr(), dest, x.len())
-            })
-        }
-    }
-
     /// Allocate a string on this heap. Be careful about the warnings around
     /// [`FrozenValue`].
     ///
@@ -131,18 +121,20 @@ impl FrozenHeap {
 
     /// Intern string.
     pub(crate) fn alloc_str_intern(&self, s: &str) -> FrozenStringValue {
-        if let Some(s) = constant_string(s) {
-            s
-        } else {
-            let s = Hashed::new(s);
-            self.string_interner()
-                .intern(s, || self.alloc_str_hashed(s))
-        }
+        self.alloc_str_hashed(Hashed::new(s))
     }
 
     /// Allocate prehashed string.
-    pub fn alloc_str_hashed(&self, x: Hashed<&str>) -> FrozenStringValue {
-        self.alloc_str_impl(x.key(), x.hash())
+    pub fn alloc_str_hashed(&self, s: Hashed<&str>) -> FrozenStringValue {
+        if let Some(s) = constant_string(*s) {
+            s
+        } else {
+            self.string_interner().intern(s, || {
+                self.alloc_str_init(s.len(), s.hash(), |dest| unsafe {
+                    copy_nonoverlapping(s.as_ptr(), dest, s.len())
+                })
+            })
+        }
     }
 }
 
