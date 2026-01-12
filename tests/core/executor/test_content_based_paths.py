@@ -14,6 +14,7 @@ import subprocess
 from pathlib import Path
 
 from buck2.tests.e2e_util.api.buck import Buck
+from buck2.tests.e2e_util.api.buck_result import ExitCodeV2
 from buck2.tests.e2e_util.asserts import expect_failure
 from buck2.tests.e2e_util.buck_workspace import buck_test
 from buck2.tests.e2e_util.helper.utils import filter_events, read_what_ran
@@ -580,4 +581,18 @@ async def test_expect_eligible_for_dedupe_ineligible_output(buck: Buck) -> None:
             "test.run_action_output_has_content_based_path=false",
         ),
         stderr_regex="Action is marked with `expect_eligible_for_dedupe` but output `out` is not content-based",
+    )
+
+
+@buck_test()
+async def test_failing_run_with_run_info(buck: Buck) -> None:
+    await expect_failure(
+        buck.build(
+            "root//:failing_run_with_content_based_path",
+            "--target-platforms",
+            "root//:p_default",
+            "--show-output",
+        ),
+        exit_code=ExitCodeV2.USER_ERROR,
+        stderr_regex="Remote command returned non-zero exit code 1.*Tried to resolve a content-based path out without providing the content hash!",
     )

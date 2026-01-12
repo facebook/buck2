@@ -7,6 +7,7 @@ load(
     "download_with_content_based_path",
     "dynamic_new_with_content_based_path",
     "dynamic_with_content_based_path",
+    "failing_run_with_content_based_path",
     "failing_validation_with_content_based_path",
     "ignores_content_based_artifact",
     "incremental_action",
@@ -175,6 +176,10 @@ not_eligible_for_dedupe(
     name = "not_eligible_for_dedupe",
     expect_eligible_for_dedupe = read_config("test", "expect_eligible_for_dedupe", "false") == "true",
     run_action_output_has_content_based_path = read_config("test", "run_action_output_has_content_based_path", "true") == "true",
+)
+
+failing_run_with_content_based_path(
+    name = "failing_run_with_content_based_path",
 )
 
 platform(

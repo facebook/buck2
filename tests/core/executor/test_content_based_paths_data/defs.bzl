@@ -570,3 +570,29 @@ not_eligible_for_dedupe = rule(impl = _not_eligible_for_dedupe_impl, attrs = {
     "expect_eligible_for_dedupe": attrs.bool(default = False),
     "run_action_output_has_content_based_path": attrs.bool(default = True),
 })
+
+def _failing_run_with_content_based_path_impl(ctx):
+    script = ctx.actions.write(
+        "script.py",
+        [
+            "import sys",
+            "sys.exit(1)",
+        ],
+        has_content_based_path = True,
+    )
+
+    out = ctx.actions.declare_output("out", has_content_based_path = True)
+    args = cmd_args(["fbpython", script, out.as_output()])
+
+    ctx.actions.run(
+        args,
+        category = "test_run",
+    )
+
+    return [DefaultInfo(default_output = out), RunInfo(args = [out])]
+
+failing_run_with_content_based_path = rule(
+    impl = _failing_run_with_content_based_path_impl,
+    attrs = {
+    },
+)
