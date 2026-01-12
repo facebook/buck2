@@ -588,7 +588,13 @@ message CriticalPathEntry2 {
 
   // The subset of the duration that can be attributed to waiting
   // for actions to run
+  // TODO(cjhopman): Queue durations should not be considered critical path
+  // time. This should migrate to an entry with a non-critical path duration.
   optional google.protobuf.Duration queue_duration = 6;
+
+  // The subset of the total duration that is not on the critical path.
+  // This represents time that did not contribute to the overall build duration.
+  optional google.protobuf.Duration non_critical_path_duration = 7;
 
   // Indicates the offset from the start of the build for this entry.
   optional uint64 start_offset_ns = 8;

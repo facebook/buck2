@@ -775,6 +775,7 @@ impl DetailedCriticalPath {
                 .map(|p| p.try_into())
                 .transpose()?,
             entry: Some(entry),
+            non_critical_path_duration: None,
             start_offset_ns: Some(
                 data.duration
                     .total
@@ -787,11 +788,14 @@ impl DetailedCriticalPath {
         })
     }
 
+    /// Create a simple critical path entry for generic build phases.
+    /// These entries have zero user_duration and potential_improvement_duration.
     fn create_simple_critical_path_entry2(
         command_start: Instant,
         entry: buck2_data::critical_path_entry2::Entry,
         start_time: Instant,
         duration: Duration,
+        non_critical_duration: Duration,
     ) -> buck2_error::Result<buck2_data::CriticalPathEntry2> {
         let duration: prost_types::Duration = duration.try_into()?;
         Ok(buck2_data::CriticalPathEntry2 {
@@ -800,7 +804,8 @@ impl DetailedCriticalPath {
             user_duration: Some(Duration::ZERO.try_into()?),
             queue_duration: None,
             total_duration: Some(duration),
-            potential_improvement_duration: Some(duration),
+            potential_improvement_duration: Some(Duration::ZERO.try_into()?),
+            non_critical_path_duration: Some(non_critical_duration.try_into()?),
             entry: Some(entry),
             start_offset_ns: Some(
                 start_time
@@ -832,6 +837,7 @@ impl DetailedCriticalPath {
                 span_start
                     .checked_duration_since(current_start)
                     .unwrap_or(Duration::ZERO),
+                Duration::ZERO,
             )?);
             current_kind = kind;
             current_start = *span_start;
@@ -844,6 +850,7 @@ impl DetailedCriticalPath {
                 .early_command_end
                 .checked_duration_since(current_start)
                 .unwrap_or(Duration::ZERO),
+            Duration::ZERO,
         )?);
         Ok(entries)
     }
@@ -882,6 +889,7 @@ impl DetailedCriticalPath {
             buck2_data::critical_path_entry2::ComputeCriticalPath {}.into(),
             critical_path_compute_start,
             elapsed_compute_critical_path,
+            Duration::ZERO,
         )?);
         Ok(entries)
     }

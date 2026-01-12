@@ -223,6 +223,10 @@ fn main() -> io::Result<()> {
             "CriticalPathEntry2.queue_duration",
             "#[serde(rename = \"queue_duration_us\", with = \"crate::serialize_duration_as_micros\")]",
         )
+        .field_attribute(
+            "CriticalPathEntry2.non_critical_path_duration",
+            "#[serde(rename = \"non_critical_path_duration_us\", with = \"crate::serialize_duration_as_micros\")]",
+        )
         .type_attribute(
             "buck.data.CriticalPathEntry2.entry",
             "#[derive(::derive_more::From, ::gazebo::variants::VariantName)]",
