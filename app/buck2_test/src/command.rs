@@ -124,11 +124,10 @@ struct TestOutcome {
 }
 
 impl TestOutcome {
-    fn exit_code(&self) -> buck2_error::Result<Option<i32>> {
+    fn exit_code(&self) -> buck2_error::Result<i32> {
         self.executor_report
             .exit_code
             .buck_error_context("Test executor did not provide an exit code")
-            .map(Some)
     }
 }
 
@@ -303,7 +302,7 @@ impl ServerCommandTemplate for TestServerCommand {
 }
 
 fn test_executor_errors(
-    executor_exit_code: Option<i32>,
+    executor_exit_code: i32,
     test_statuses: &buck2_cli_proto::test_response::TestStatuses,
 ) -> Vec<buck2_data::ErrorReport> {
     let mut errors = Vec::new();
@@ -334,7 +333,7 @@ fn test_executor_errors(
     // If a test was skipped due to condition not being met a non-zero exit code will be returned,
     // this doesn't seem quite right, but for now just tag it with TestSkipped to track occurrence.
     if let Some(skipped) = &test_statuses.skipped {
-        if skipped.count > 0 && executor_exit_code.is_none_or(|code| code != 0) {
+        if skipped.count > 0 && executor_exit_code != 0 {
             errors.push(buck2_data::ErrorReport::from(
                 &TestError::TestSkipped.into(),
             ));
@@ -348,13 +347,11 @@ fn test_executor_errors(
         }
     }
 
-    if let Some(code) = executor_exit_code {
-        if errors.is_empty() && code != 0 {
-            errors.push(buck2_data::ErrorReport::from(&buck2_error::buck2_error!(
-                buck2_error::ErrorTag::TestExecutor,
-                "Test Executor Failed with exit code {code}"
-            )))
-        }
+    if errors.is_empty() && executor_exit_code != 0 {
+        errors.push(buck2_data::ErrorReport::from(&buck2_error::buck2_error!(
+            buck2_error::ErrorTag::TestExecutor,
+            "Test Executor Failed with exit code {executor_exit_code}"
+        )))
     }
     errors
 }
@@ -508,9 +505,7 @@ async fn test(
     );
 
     // TODO(bobyf) remap exit code for buck reserved exit code
-    let executor_exit_code = test_outcome
-        .exit_code()
-        .buck_error_context("No exit code available")?;
+    let executor_exit_code = test_outcome.exit_code()?;
 
     // Filtering out individual types might not be best here. While we just have 1 non-build
     // error that seems OK, but if we add more we should reconsider (we could add a type on all
@@ -614,7 +609,7 @@ async fn test(
 
     let mut errors = test_outcome.errors;
     let exit_code_overide = if errors.is_empty() {
-        executor_exit_code
+        Some(executor_exit_code)
     } else {
         // only use executor exit code if there were no errors in buck
         None
