@@ -61,7 +61,7 @@ def _list_targets(ctx: bxl.Context) -> bxl.ConfiguredTargetSet:
     for target in targets.values():
         res += target
 
-    return cquery.deps(res, filter = "kind('python_library|alias|genrule', target_deps())")
+    return cquery.deps(res, filter = "kind('python_library|alias|genrule|cxx_python_extension', target_deps())")
 
 def _clean_module(base_module: str, module: str) -> str:
     base_module = base_module.removesuffix("/").replace("/", ".")
@@ -71,13 +71,175 @@ def _clean_module(base_module: str, module: str) -> str:
         sep = "."
     return (base_module + sep + module).removeprefix("gen-py3.").removeprefix("gen-python.")
 
+# Set common fields for a target entry.
+# NOTE: This function doesn't populate `srcs`. Instead return an empty `srcs` dict for downstream logic to populate.
+def _set_entry_common_fields(
+        entry: dict,
+        attrs: bxl.LazyAttrs,
+        fs: bxl.Filesystem,
+        target: bxl.ConfiguredTargetNode,
+        known_targets: dict[TargetLabel, bxl.ConfiguredTargetNode]) -> dict[str, list[str | bxl.EnsuredArtifact]]:
+    srcs = {}
+    deps = []
+    entry["srcs"] = srcs
+    entry["deps"] = deps
+    entry["buildfile_path"] = fs.project_rel_path(target.buildfile_path)
+    python_version = attrs.get("py_version_for_type_checking")
+    entry["python_version"] = python_version.value() if python_version != None and python_version.value() != None else DEFAULT_PY_VERSION
+
+    # TODO(connernilsen): replace with actual platform later
+    entry["python_platform"] = "linux"
+
+    # Get buck.deps first, then fall back to deps. buck.deps might
+    # have extra targets we eventually exclude or stop processing, which is fine.
+    attr_deps = attrs.get("buck.deps") or attrs.get("deps")
+    if attr_deps == None:
+        fail(target.rule_type)
+    attr_deps = attr_deps.value()
+    for dep in attr_deps:
+        dep = dep.raw_target()
+        if dep in known_targets:
+            deps.append(str(dep))
+
+    return srcs
+
+def _handle_alias(
+        entry: dict,
+        attrs: bxl.LazyAttrs,
+        target: bxl.ConfiguredTargetNode) -> None:
+    actual = attrs.get("actual")
+    if actual != None and actual.value() != None:
+        entry["alias"] = actual.value().raw_target()
+    else:
+        fail("Alias has no actual target".format(target.label))
+
+def _handle_python_extension(
+        entry: dict,
+        attrs: bxl.LazyAttrs,
+        fs: bxl.Filesystem,
+        target: bxl.ConfiguredTargetNode,
+        known_targets: dict[TargetLabel, bxl.ConfiguredTargetNode]) -> None:
+    _set_entry_common_fields(entry, attrs, fs, target, known_targets)
+
+def _handle_genrule(
+        entry: dict,
+        attrs: bxl.LazyAttrs,
+        fs: bxl.Filesystem,
+        target: bxl.ConfiguredTargetNode,
+        known_targets: dict[TargetLabel, bxl.ConfiguredTargetNode],
+        to_remove: dict[str, None],
+        to_build: list,
+        to_insert: list,
+        genrule_to_insert: list) -> None:
+    labels = attrs.get("labels")
+    if "custom_rule_internal" in labels.value():
+        # skip internal targets, since they will be materialized as part
+        # of their including target
+        to_remove[str(target.label.raw_target())] = None
+        return
+
+    srcs = _set_entry_common_fields(entry, attrs, fs, target, known_targets)
+    to_build.append(target)
+
+    # Only one of these will have a value, but get both of them now since
+    # it's easy.
+    out = attrs.get("out")
+    outs = attrs.get("outs")
+    if out != None and out.value() != None:
+        items = {out.value(): out.value()}
+    elif outs != None and outs.value() != None:
+        items = outs.value()
+    else:
+        fail(target)
+
+    if len(items) == 1:
+        module_path = list(items.keys())[0]
+        for suffix in _MODULE_SUFFIXES:
+            if module_path.endswith(suffix):
+                to_insert.append((srcs, _clean_module("", module_path), target.label.with_sub_target()))
+                break
+    else:
+        # we need to handle building the full genrule
+        genrule_to_insert.append((target, entry))
+        for (module_path, src_paths) in items.items():
+            if len(src_paths) < 1:
+                fail("Target src has no output path: {}".format(target.label))
+            for suffix in _MODULE_SUFFIXES:
+                if module_path.endswith(suffix):
+                    _append_or_default_if_module(srcs, _clean_module("", module_path), src_paths[0])
+                    break
+
+def _handle_python_library(
+        entry: dict,
+        attrs: bxl.LazyAttrs,
+        fs: bxl.Filesystem,
+        target: bxl.ConfiguredTargetNode,
+        known_targets: dict[TargetLabel, bxl.ConfiguredTargetNode],
+        to_remove: dict[str, None],
+        to_build: list,
+        to_insert: list) -> None:
+    base_module = attrs.get("base_module")
+    if base_module != None and base_module.value() != None:
+        base_module = base_module.value()
+    else:
+        base_module = target.label.package
+
+    srcs = _set_entry_common_fields(entry, attrs, fs, target, known_targets)
+
+    # add type stubs first, so that they're preferred by Pyrefly
+    type_stubs = attrs.get("type_stubs")
+    type_stubs = {} if type_stubs == None else type_stubs.value()
+    _get_and_materialize_sources(
+        type_stubs,
+        to_remove,
+        base_module,
+        srcs,
+        to_build,
+        to_insert,
+        fs,
+    )
+
+    # python_binary might be the root target, which doesn't have `srcs`.
+    attr_srcs = attrs.get("srcs")
+    attr_srcs = {} if attr_srcs == None else attr_srcs.value()
+    _get_and_materialize_sources(
+        attr_srcs,
+        to_remove,
+        base_module,
+        srcs,
+        to_build,
+        to_insert,
+        fs,
+    )
+
+def _build_generated_files(
+        ctx: bxl.Context,
+        to_build: list,
+        to_insert: list,
+        genrule_to_insert: list) -> None:
+    if not to_build:
+        return
+
+    built = ctx.build(to_build)
+    ensured = ctx.output.ensure_multiple(built)
+
+    # handle individual generated files
+    for srcs, module_name, target in to_insert:
+        _append_or_default_if_module(srcs, module_name, ensured[target][0].rel_path())
+
+    # handle genrules
+    for target, entry in genrule_to_insert:
+        label = target.label.with_sub_target()
+        relative_to = ensured[label][0].rel_path()
+        entry["relative_to"] = relative_to
+
 def _get_and_materialize_sources(
-        to_add: list[typing.Any] | dict[str, typing.Any],
-        to_remove: dict[str, typing.Any],
+        to_add: list | dict,
+        to_remove: dict[str, None],
         base_module: str,
         srcs: dict[str, list[str | bxl.EnsuredArtifact]],
-        to_build: list[typing.Any],
-        to_insert: list[typing.Any],
+        to_build: list,
+        to_insert: list,
         fs: bxl.Filesystem):
     if type(to_add) == type([]):
         for v in to_add:
@@ -120,9 +282,7 @@ def _get_and_materialize_sources(
                 to_insert.append((srcs, _clean_module(base_module, k), v))
 
 def _main(ctx: bxl.Context) -> None:
-    targets = _list_targets(ctx)
     fs = ctx.fs
-
     to_remove = {}  # Set of targets to remove at the end
     to_build = []  # List of targets I need to build
     to_insert = []  # Triples of (target srcs ref, module name, artifact) to insert after building
@@ -132,8 +292,8 @@ def _main(ctx: bxl.Context) -> None:
 
     # We only want to add `deps` to targets that are in the output.
     known_targets = {
-        x.label.raw_target(): None
-        for x in targets
+        x.label.raw_target(): x
+        for x in _list_targets(ctx)
         if x.rule_type not in (
             "forward",
             "prelude//rules.bzl:command_alias",
@@ -142,130 +302,30 @@ def _main(ctx: bxl.Context) -> None:
         ) and x.label.name != "restricted_bin"
     }
 
-    for x in targets:
-        if x.label.raw_target() not in known_targets or str(x.label.raw_target()) in to_remove:
+    for raw_target, x in known_targets.items():
+        if str(raw_target) in to_remove:
             continue
 
         attrs = x.attrs_lazy()
         entry = {}
         entries[str(x.label.raw_target())] = entry
 
-        base_module = attrs.get("base_module")
-        if base_module != None and base_module.value() != None:
-            base_module = base_module.value()
+        if x.rule_type == "prelude//rules.bzl:alias" or x.rule_type.endswith("_fbcode_configured_alias"):
+            _handle_alias(entry, attrs, x)
+        elif x.rule_type.endswith("_fbcode_configured_alias_transition"):
+            pass
+        elif x.rule_type.endswith("rust_proc_macro_alias"):
+            pass
+        elif x.rule_type == "prelude//rules.bzl:cxx_python_extension":
+            _handle_python_extension(entry, attrs, fs, x, known_targets)
+        elif "genrule" in x.rule_type:
+            _handle_genrule(entry, attrs, fs, x, known_targets, to_remove, to_build, to_insert, genrule_to_insert)
+        elif "python_library" in x.rule_type:
+            _handle_python_library(entry, attrs, fs, x, known_targets, to_remove, to_build, to_insert)
         else:
-            base_module = x.label.package
+            fail("Unknown rule type `{}` for target `{}`".format(x.rule_type, x.label.raw_target()))
 
-        if x.rule_type == "prelude//rules.bzl:alias":
-            actual = attrs.get("actual")
-            if actual != None and actual.value() != None:
-                entry["alias"] = actual.value().raw_target()
-                continue
-            else:
-                fail("Alias has no actual target".format(x.label))
-
-        srcs = {}
-        deps = []
-        entry["srcs"] = srcs
-        entry["deps"] = deps
-        entry["buildfile_path"] = fs.project_rel_path(x.buildfile_path)
-        python_version = attrs.get("py_version_for_type_checking")
-        entry["python_version"] = python_version.value() if python_version != None and python_version.value() != None else DEFAULT_PY_VERSION
-
-        # TOOD(connernilsen): replace with actual platform later
-        entry["python_platform"] = "linux"
-
-        # Get buck.deps first, then fall back to deps. buck.deps might
-        # have extra targets we eventually exclude or stop processing, which is fine.
-        attr_deps = attrs.get("buck.deps") or attrs.get("deps")
-        if attr_deps == None:
-            fail(x.rule_type)
-        attr_deps = attr_deps.value()
-        for dep in attr_deps:
-            dep = dep.raw_target()
-            if dep in known_targets:
-                deps.append(str(dep))
-
-        if x.rule_type == "prelude//rules.bzl:genrule":
-            labels = attrs.get("labels")
-            if "custom_rule_internal" in labels.value():
-                # skip internal targets, since they will be materialized as part
-                # of their including target
-                to_remove[str(x.label.raw_target())] = None
-                continue
-            to_build.append(x)
-
-            # Only one of these will have a value, but get both of them now since
-            # it's easy.
-            out = attrs.get("out")
-            outs = attrs.get("outs")
-            if out != None and out.value() != None:
-                items = {out.value(): out.value()}
-            elif outs != None and outs.value() != None:
-                items = outs.value()
-            else:
-                fail(x)
-
-            if len(items) == 1:
-                module_path = list(items.keys())[0]
-                for suffix in _MODULE_SUFFIXES:
-                    if module_path.endswith(suffix):
-                        to_build.append(x)
-                        to_insert.append((srcs, _clean_module("", module_path), x.label.with_sub_target()))
-                        break
-            else:
-                # we need to handle building the full genrule
-                genrule_to_insert.append((x, entry))
-                for (module_path, src_paths) in items.items():
-                    if len(src_paths) < 1:
-                        fail("Target src has no output path: {}".format(x.label))
-                    for suffix in _MODULE_SUFFIXES:
-                        if module_path.endswith(suffix):
-                            _append_or_default_if_module(srcs, _clean_module("", module_path), src_paths[0])
-                            break
-
-            # we don't want to do any more processing of genrules
-            continue
-
-        # add type stubs first, so that they're preferred by Pyrefly
-        type_stubs = attrs.get("type_stubs")
-        type_stubs = {} if type_stubs == None else type_stubs.value()
-        _get_and_materialize_sources(
-            type_stubs,
-            to_remove,
-            base_module,
-            srcs,
-            to_build,
-            to_insert,
-            fs,
-        )
-
-        # python_binary might be the root target, which doesn't have `srcs`.
-        attr_srcs = attrs.get("srcs")
-        attr_srcs = {} if attr_srcs == None else attr_srcs.value()
-        _get_and_materialize_sources(
-            attr_srcs,
-            to_remove,
-            base_module,
-            srcs,
-            to_build,
-            to_insert,
-            fs,
-        )
-
-    if to_build:
-        built = ctx.build(to_build)
-        ensured = ctx.output.ensure_multiple(built)
-
-        # handle individual generated files
-        for srcs, module_name, target in to_insert:
-            _append_or_default_if_module(srcs, module_name, ensured[target][0].rel_path())
-
-        # handle genrules
-        for target, entry in genrule_to_insert:
-            label = target.label.with_sub_target()
-            relative_to = ensured[label][0].rel_path()
-            entry["relative_to"] = relative_to
+    _build_generated_files(ctx, to_build, to_insert, genrule_to_insert)
 
     # remove any targets we decided we shouldn't output
     for remove in to_remove:
