@@ -20,7 +20,6 @@ from buck2.tests.core.common.io.file_watcher_tests import (
     FileSystemType,
     setup_file_watcher_test,
 )
-
 from buck2.tests.e2e_util.api.buck import Buck
 
 

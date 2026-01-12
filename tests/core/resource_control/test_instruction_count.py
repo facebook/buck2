@@ -20,7 +20,7 @@ from buck2.tests.e2e_util.helper.utils import filter_events, random_string
 def helper_bin_flags() -> List[str]:
     return [
         "-c",
-        f"three_billion_instructions.path={os.environ["THREE_BILLION_INSTRUCTIONS_BIN"]}",
+        f"three_billion_instructions.path={os.environ['THREE_BILLION_INSTRUCTIONS_BIN']}",
     ]
 
 

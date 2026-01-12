@@ -14,7 +14,6 @@ from pathlib import Path
 from typing import Any, Optional
 
 import pytest
-
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.api.fixtures import Fixture, Span
 from buck2.tests.e2e_util.api.lsp import LSPResponseError

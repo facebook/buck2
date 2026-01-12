@@ -14,7 +14,6 @@ import json
 import re
 from asyncio import subprocess, wait_for
 from asyncio.streams import StreamReader, StreamWriter
-
 from collections import deque
 from pathlib import Path
 from typing import Any, Optional

@@ -71,15 +71,15 @@ async def test_passing_test_details_uploaded_to_artifacts(buck: Buck) -> None:
 
     assert details_artifact is not None, "Should have artifact with everstore_handle"
 
-    assert hasattr(
-        details_artifact.handle, "everstore_handle"
-    ), "Details artifact should have everstore_handle"
-    assert (
-        details_artifact.handle.everstore_handle is not None
-    ), "Details artifact everstore_handle should not be None"
-    assert (
-        details_artifact.handle.everstore_handle.handle is not None
-    ), "Everstore handle string should not be None"
-    assert (
-        details_artifact.annotations.type.generic_text_log is not None
-    ), "Artifact should be of type generic_text_log"
+    assert hasattr(details_artifact.handle, "everstore_handle"), (
+        "Details artifact should have everstore_handle"
+    )
+    assert details_artifact.handle.everstore_handle is not None, (
+        "Details artifact everstore_handle should not be None"
+    )
+    assert details_artifact.handle.everstore_handle.handle is not None, (
+        "Everstore handle string should not be None"
+    )
+    assert details_artifact.annotations.type.generic_text_log is not None, (
+        "Artifact should be of type generic_text_log"
+    )

@@ -15,7 +15,6 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 
 import pytest
-
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.api.buck_result import BuckResult
 from buck2.tests.e2e_util.buck_workspace import buck_test, env
@@ -41,7 +40,7 @@ def _use_some_memory_args(buck: Buck, temp: TemporaryDirectory[str]) -> list[str
     return [
         "--show-full-simple-output",
         "-c",
-        f"use_some_memory.path={os.environ["USE_SOME_MEMORY_BIN"]}",
+        f"use_some_memory.path={os.environ['USE_SOME_MEMORY_BIN']}",
         "-c",
         f"start_marker_files.path={temp.name}",
         "--no-remote-cache",

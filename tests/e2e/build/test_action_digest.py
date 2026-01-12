@@ -54,6 +54,6 @@ async def test_action_digest(buck: Buck) -> None:
     ]
     deployed_digests.sort()
 
-    assert (
-        compiled_digests == deployed_digests
-    ), "Action Digest was modified, refer to comment on this test for next steps"
+    assert compiled_digests == deployed_digests, (
+        "Action Digest was modified, refer to comment on this test for next steps"
+    )

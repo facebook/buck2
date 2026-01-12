@@ -25,7 +25,7 @@ def _use_some_memory_args(buck: Buck) -> list[str]:
         "-c",
         f"test.cache_buster={random_string()}",
         "-c",
-        f"use_some_memory.path={os.environ["USE_SOME_MEMORY_BIN"]}",
+        f"use_some_memory.path={os.environ['USE_SOME_MEMORY_BIN']}",
     ]
 
 

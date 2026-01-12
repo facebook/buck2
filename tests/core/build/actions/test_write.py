@@ -15,7 +15,6 @@ from buck2.tests.e2e_util import asserts
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.asserts import expect_failure
 from buck2.tests.e2e_util.buck_workspace import buck_test
-
 from buck2.tests.e2e_util.helper.utils import filter_events
 
 

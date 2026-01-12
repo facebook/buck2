@@ -17,7 +17,6 @@ import argparse
 import os
 import subprocess
 import sys
-
 from typing import List
 
 EXIT_SUCCESS, EXIT_FAILURE = 0, 1

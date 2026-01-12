@@ -12,7 +12,6 @@ import json
 import os
 import re
 import typing
-
 from pathlib import Path
 
 GOLDEN_DIRECTORY = "fixtures/"

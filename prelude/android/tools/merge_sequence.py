@@ -112,7 +112,6 @@ import pathlib
 import re
 import sys
 import typing
-
 from collections import defaultdict
 from typing import Optional
 
@@ -366,12 +365,12 @@ class MergeSequenceGroupSpec:
 
         for group_spec in self.group_specs:
             library_name = group_spec[0]
-            assert library_name.startswith(
-                "lib"
-            ), f"native merge library name {library_name} does not begin with 'lib'"
-            assert library_name.endswith(
-                ".so"
-            ), f"native merge library name {library_name} does not end with '.so'"
+            assert library_name.startswith("lib"), (
+                f"native merge library name {library_name} does not begin with 'lib'"
+            )
+            assert library_name.endswith(".so"), (
+                f"native merge library name {library_name} does not end with '.so'"
+            )
 
         self.group_roots_patterns = [
             [re.compile(x) for x in spec[1]] for spec in self.group_specs

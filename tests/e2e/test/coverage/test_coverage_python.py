@@ -57,13 +57,12 @@ async def test_python_coverage_filtering_by_folder(buck: Buck) -> None:
         with open(covfile.name) as results:
             for line in results:
                 paths.append(json.loads(line)["filepath"])
-    assert (
-        set(paths)
-        == {
-            f"{folder_to_collect}/lib.py",
-            f"{folder_to_collect}/test.py",
-        }
-    ), f"Only folder {folder_to_collect} should have coverage, instead got coverage for {str(paths)}"
+    assert set(paths) == {
+        f"{folder_to_collect}/lib.py",
+        f"{folder_to_collect}/test.py",
+    }, (
+        f"Only folder {folder_to_collect} should have coverage, instead got coverage for {str(paths)}"
+    )
 
 
 @buck_test(inplace=True)
@@ -77,9 +76,9 @@ async def test_python_coverage_filtering_by_file(buck: Buck, tmp_path: Path) -> 
         file_filter=[file_to_collect_coverage],
     )
 
-    assert (
-        set(result) == {file_to_collect_coverage}
-    ), f"Only {file_to_collect_coverage} should have coverage, instead got coverage for {str(result)}"
+    assert set(result) == {file_to_collect_coverage}, (
+        f"Only {file_to_collect_coverage} should have coverage, instead got coverage for {str(result)}"
+    )
 
 
 @buck_test(inplace=True)
@@ -95,9 +94,9 @@ async def test_python_coverage_filtering_by_file_with_base_module_remap(
         file_filter=[file_to_collect_coverage],
     )
 
-    assert (
-        set(result) == {file_to_collect_coverage}
-    ), f"Only {file_to_collect_coverage} should have coverage, instead got coverage for {str(result)}"
+    assert set(result) == {file_to_collect_coverage}, (
+        f"Only {file_to_collect_coverage} should have coverage, instead got coverage for {str(result)}"
+    )
 
 
 @buck_test(inplace=True)
@@ -114,9 +113,9 @@ async def test_python_coverage_filtering_by_file_with_opt_mode(
         mode="@fbcode//mode/opt",
     )
 
-    assert (
-        set(result) == {file_to_collect_coverage}
-    ), f"Only {file_to_collect_coverage} should have coverage, instead got coverage for {str(result)}"
+    assert set(result) == {file_to_collect_coverage}, (
+        f"Only {file_to_collect_coverage} should have coverage, instead got coverage for {str(result)}"
+    )
 
 
 @buck_test(inplace=True)
@@ -135,9 +134,9 @@ async def test_python_standalone_xar_coverage_filtering_by_file(
         mode="@fbcode//mode/opt",
     )
 
-    assert (
-        set(result) == {file_to_collect_coverage}
-    ), f"Only {file_to_collect_coverage} should have coverage, instead got coverage for {str(result)}"
+    assert set(result) == {file_to_collect_coverage}, (
+        f"Only {file_to_collect_coverage} should have coverage, instead got coverage for {str(result)}"
+    )
 
 
 @buck_test(inplace=True)
@@ -156,9 +155,9 @@ async def test_python_standalone_zip_coverage_filtering_by_file(
         mode="@fbcode//mode/opt",
     )
 
-    assert (
-        set(result) == {file_to_collect_coverage}
-    ), f"Only {file_to_collect_coverage} should have coverage, instead got coverage for {str(result)}"
+    assert set(result) == {file_to_collect_coverage}, (
+        f"Only {file_to_collect_coverage} should have coverage, instead got coverage for {str(result)}"
+    )
 
 
 @buck_test(inplace=True)
@@ -176,9 +175,9 @@ async def test_python_coverage_filtering_by_file_on_cinder_target(
         file_filter=[file_to_collect_coverage],
     )
 
-    assert (
-        set(result) == {file_to_collect_coverage}
-    ), f"Only {file_to_collect_coverage} should have coverage, instead got coverage for {str(result)}"
+    assert set(result) == {file_to_collect_coverage}, (
+        f"Only {file_to_collect_coverage} should have coverage, instead got coverage for {str(result)}"
+    )
 
 
 @buck_test(inplace=True)
@@ -196,9 +195,9 @@ async def test_python_coverage_filtering_by_source_file_on_cpp_dep(
         file_filter=[file_to_collect_coverage],
     )
 
-    assert (
-        set(result) == {file_to_collect_coverage}
-    ), f"Only {file_to_collect_coverage} should have coverage, instead got coverage for {str(result)}"
+    assert set(result) == {file_to_collect_coverage}, (
+        f"Only {file_to_collect_coverage} should have coverage, instead got coverage for {str(result)}"
+    )
 
 
 @buck_test(inplace=True)
@@ -215,9 +214,9 @@ async def test_python_coverage_filtering_by_header_file_on_cpp_dep(
         file_filter=[header_file],
     )
 
-    assert (
-        set(result) == {source_file}
-    ), f"Only {source_file} should have coverage, instead got coverage for {str(result)}"
+    assert set(result) == {source_file}, (
+        f"Only {source_file} should have coverage, instead got coverage for {str(result)}"
+    )
 
 
 @buck_test(inplace=True)
@@ -235,6 +234,6 @@ async def test_python_coverage_filtering_by_file_on_ligen_cpp_dep(
         file_filter=[file_to_collect_coverage],
     )
 
-    assert (
-        set(result) == {file_to_collect_coverage}
-    ), f"Only {file_to_collect_coverage} should have coverage, instead got coverage for {str(result)}"
+    assert set(result) == {file_to_collect_coverage}, (
+        f"Only {file_to_collect_coverage} should have coverage, instead got coverage for {str(result)}"
+    )

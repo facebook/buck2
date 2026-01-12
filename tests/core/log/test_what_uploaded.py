@@ -29,9 +29,9 @@ async def test_what_uploaded_csv(buck: Buck) -> None:
         if record
     ]
     assert len(out) > 0, "out should have some uploads"
-    assert out[0] == dict(
-        zip(header, header)
-    ), "ensure that first entry in csv is the header"
+    assert out[0] == dict(zip(header, header)), (
+        "ensure that first entry in csv is the header"
+    )
     assert int(out[1]["digests_uploaded"]) > 0, "second entry should be upload digests"
 
 

@@ -71,9 +71,9 @@ class ProvisioningProfileMetadata:
         developer_certificate_fingerprints = {
             hashlib.sha1(c).hexdigest().upper() for c in root["DeveloperCertificates"]
         }
-        assert (
-            len(developer_certificate_fingerprints) > 0
-        ), "Expected at least one suitable certificate."
+        assert len(developer_certificate_fingerprints) > 0, (
+            "Expected at least one suitable certificate."
+        )
         return ProvisioningProfileMetadata(
             file_path=file_path,
             uuid=root["UUID"],

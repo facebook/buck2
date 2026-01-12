@@ -18,7 +18,6 @@ from buck2.tests.e2e_util.api.buck_result import BuckResult
 from buck2.tests.e2e_util.asserts import expect_failure
 from buck2.tests.e2e_util.buck_workspace import buck_test
 from buck2.tests.e2e_util.helper.golden import golden
-
 from manifold.clients.python.manifold_client_deprecated import Client as ManifoldClient
 
 """

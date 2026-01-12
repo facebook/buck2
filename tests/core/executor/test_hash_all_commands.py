@@ -10,7 +10,6 @@
 
 
 import pytest
-
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.buck_workspace import buck_test, env
 from buck2.tests.e2e_util.helper.utils import expect_exec_count

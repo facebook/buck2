@@ -768,9 +768,12 @@ def obtain_keychain_permissions(
     tmp_dir: str,
     codesign_command_factory: ICodesignCommandFactory,
 ) -> None:
-    with ExitStack() as stack, importlib.resources.path(
-        __package__, "dummy_binary_for_signing"
-    ) as dummy_binary_path:
+    with (
+        ExitStack() as stack,
+        importlib.resources.path(
+            __package__, "dummy_binary_for_signing"
+        ) as dummy_binary_path,
+    ):
         # Copy the binary to avoid races vs other bundling actions
         dummy_binary_copied = os.path.join(tmp_dir, "dummy_binary_for_signing")
         shutil.copyfile(dummy_binary_path, dummy_binary_copied, follow_symlinks=True)

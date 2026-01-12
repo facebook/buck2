@@ -9,11 +9,9 @@
 import argparse
 import shlex
 from pathlib import Path
-
 from typing import Optional, Union
 
 from apple.tools.code_signing.apple_platform import ApplePlatform
-
 from apple.tools.code_signing.codesign_bundle import (
     AdhocSigningContext,
     signing_context_with_profile_selection,

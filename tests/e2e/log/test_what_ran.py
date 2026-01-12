@@ -78,8 +78,10 @@ if fbcode_linux_only():
         out = [json.loads(line) for line in out if line]
         assert any(
             rec["std_err"] == "" or rec["std_err"] == "HELLO_STDERR\n" for rec in out
-        ), "we should have some empty std_errs and also HELLO_STDERR since we echo it in TARGETS: `{}`".format(
-            out
+        ), (
+            "we should have some empty std_errs and also HELLO_STDERR since we echo it in TARGETS: `{}`".format(
+                out
+            )
         )
 
         out = await buck.log(
@@ -87,9 +89,9 @@ if fbcode_linux_only():
         )
         out = [line.strip() for line in out.stdout.splitlines()]
         out = [json.loads(line) for line in out if line]
-        assert all(
-            rec["std_err"] != "" for rec in out
-        ), "we should have no empty std_errs: `{}`".format(out)
+        assert all(rec["std_err"] != "" for rec in out), (
+            "we should have no empty std_errs: `{}`".format(out)
+        )
 
     @buck_test(inplace=True)
     async def test_what_ran_json_target_with_test_cases(buck: Buck) -> None:
@@ -120,9 +122,9 @@ if fbcode_linux_only():
         out = [line.strip() for line in out.stdout.splitlines()]
         header = ["reason", "identity", "executor", "reproducer"]
         out = [dict(zip(header, record)) for record in csv.reader(out) if record]
-        assert out[0] == dict(
-            zip(header, header)
-        ), "ensure that first entry in csv is the header"
+        assert out[0] == dict(zip(header, header)), (
+            "ensure that first entry in csv is the header"
+        )
         out = [repro for repro in out if repro.get("reason", "").startswith("test.")]
         assert len(out) == 2, "out should have 2 test lines: `{}`".format(out)
         repros = {repro["reason"]: repro for repro in out}

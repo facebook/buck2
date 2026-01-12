@@ -13,7 +13,6 @@
 import argparse
 import pathlib
 import sys
-
 from typing import Sequence
 
 import inputs

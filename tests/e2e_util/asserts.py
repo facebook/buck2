@@ -83,15 +83,15 @@ async def expect_failure(
             if isinstance(exit_code, ExitCode)
             else failure.get_exit_code_v2()
         )
-        assert (
-            actual_exit_code == exit_code
-        ), f"Expected exit code {exit_code} but found {actual_exit_code}\n<stderr>\n{_indent(failure.stderr)}</stderr>"
+        assert actual_exit_code == exit_code, (
+            f"Expected exit code {exit_code} but found {actual_exit_code}\n<stderr>\n{_indent(failure.stderr)}</stderr>"
+        )
     if stdout_regex is not None:
-        assert re.search(
-            stdout_regex, failure.stdout, re.DOTALL
-        ), f'Did not find pattern: "{stdout_regex}" in stdout: "{failure.stdout}"'
+        assert re.search(stdout_regex, failure.stdout, re.DOTALL), (
+            f'Did not find pattern: "{stdout_regex}" in stdout: "{failure.stdout}"'
+        )
     if stderr_regex is not None:
-        assert re.search(
-            stderr_regex, failure.stderr, re.DOTALL | re.IGNORECASE
-        ), f'Did not find pattern: "{stderr_regex}" in stderr: "{failure.stderr}"'
+        assert re.search(stderr_regex, failure.stderr, re.DOTALL | re.IGNORECASE), (
+            f'Did not find pattern: "{stderr_regex}" in stderr: "{failure.stderr}"'
+        )
     return failure

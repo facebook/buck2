@@ -29,9 +29,9 @@ async def test_vpnless_disabled_by_host(buck: Buck) -> None:
     await buck.build()
     result = await buck.status()
     status = json.loads(result.stdout)
-    assert not status[
-        "supports_vpnless"
-    ], "vpnless should be disabled by non-supporting host"
+    assert not status["supports_vpnless"], (
+        "vpnless should be disabled by non-supporting host"
+    )
 
 
 @buck_test()

@@ -26,12 +26,12 @@ async def test_what_materialized_csv(buck: Buck) -> None:
         if record
     ]
     assert len(out) > 0, "out should have some materializations"
-    assert out[0] == dict(
-        zip(header, header)
-    ), "ensure that first entry in csv is the header"
-    assert any(
-        line["path"].endswith("__my_rule__/out") for line in out
-    ), "should have materialized main test file"
+    assert out[0] == dict(zip(header, header)), (
+        "ensure that first entry in csv is the header"
+    )
+    assert any(line["path"].endswith("__my_rule__/out") for line in out), (
+        "should have materialized main test file"
+    )
 
 
 @buck_test()

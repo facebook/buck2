@@ -13,9 +13,7 @@ import subprocess
 from enum import Enum
 
 from buck2.tests.core.common.io.file_watcher import FileWatcherEvent
-
 from buck2.tests.core.common.io.utils import get_files
-
 from buck2.tests.e2e_util.api.buck import Buck
 
 

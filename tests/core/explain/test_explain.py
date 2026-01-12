@@ -14,7 +14,6 @@ import tempfile
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.asserts import expect_failure
 from buck2.tests.e2e_util.buck_workspace import buck_test, env
-
 from manifold.clients.python.manifold_client_deprecated import Client as ManifoldClient
 
 BUCKET_CONFIG = {"bucket": "buck2_logs", "apikey": "buck2_logs-key"}

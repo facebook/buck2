@@ -317,17 +317,17 @@ async def test_streaming_build_report(buck: Buck, tmp_path: Path) -> None:
     )
 
     # Check that the streaming report file was created
-    assert (
-        streaming_report.exists()
-    ), f"Streaming report file should be created at {streaming_report}"
+    assert streaming_report.exists(), (
+        f"Streaming report file should be created at {streaming_report}"
+    )
 
     # Read and validate the streaming report
     with open(streaming_report) as file:
         lines = file.read().strip().split("\n")
         # Should have at least one JSON line (could have multiple for streaming)
-        assert (
-            len(lines) == 3
-        ), "Streaming report should contain 3 lines, one for each output"
+        assert len(lines) == 3, (
+            "Streaming report should contain 3 lines, one for each output"
+        )
 
         # Each line should be valid JSON
         for line in lines:

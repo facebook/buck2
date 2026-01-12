@@ -179,7 +179,7 @@ Duplicate class name(s) found:
 This means multiple copies of the same class is being included in the final apk.
 Check the class names and the target names listed below and make sure to only include one copy of each class.
 Run `buck cquery allpaths(<apk_target>, <library_target>)` or `arc deppy explain-dep <apk_target> <library_target>` to find the dependency paths.
-{''.join(messages)}
+{"".join(messages)}
         """
 
 

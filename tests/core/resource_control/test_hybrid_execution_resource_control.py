@@ -27,7 +27,7 @@ def test_dummy() -> None:
 def _use_some_memory_args(buck: Buck) -> list[str]:
     return [
         "-c",
-        f"use_some_memory.path={os.environ["USE_SOME_MEMORY_BIN"]}",
+        f"use_some_memory.path={os.environ['USE_SOME_MEMORY_BIN']}",
     ]
 
 
@@ -57,9 +57,9 @@ async def test_memory_pressure_telemetry(
     assert len(resource_control_events) > 0
     last_event = resource_control_events[-1]
     pressure = last_event["allprocs_memory_pressure"]
-    assert (
-        pressure <= 100
-    ), f"Expected % memory_pressure to be at most 100, got {pressure}"
+    assert pressure <= 100, (
+        f"Expected % memory_pressure to be at most 100, got {pressure}"
+    )
 
 
 @buck_test(skip_for_os=["darwin", "windows"])

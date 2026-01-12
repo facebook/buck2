@@ -32,11 +32,9 @@ from apple.tools.code_signing.list_codesign_identities import (
     AdHocListCodesignIdentities,
     ListCodesignIdentities,
 )
-
 from apple.tools.re_compatibility_utils.writable import make_dir_recursively_writable
 
 from .action_metadata import action_metadata_if_present
-
 from .assemble_bundle import assemble_bundle
 from .assemble_bundle_types import BundleSpecItem, IncrementalContext
 from .incremental_state import (

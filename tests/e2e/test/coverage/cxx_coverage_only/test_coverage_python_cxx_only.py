@@ -52,10 +52,9 @@ async def test_python_coverage_filtering_by_folder(buck: Buck) -> None:
         with open(covfile.name) as results:
             for line in results:
                 paths.append(json.loads(line)["filepath"])
-    assert (
-        set(paths)
-        == {
-            f"fbcode/{folder_to_collect}/lib.py",
-            f"fbcode/{folder_to_collect}/test.py",
-        }
-    ), f"Only folder fbcode/{folder_to_collect} should have coverage, instead got coverage for {str(paths)}"
+    assert set(paths) == {
+        f"fbcode/{folder_to_collect}/lib.py",
+        f"fbcode/{folder_to_collect}/test.py",
+    }, (
+        f"Only folder fbcode/{folder_to_collect} should have coverage, instead got coverage for {str(paths)}"
+    )

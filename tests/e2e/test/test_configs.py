@@ -272,6 +272,6 @@ def get_buck_config(tpx_trace_path: str) -> dict[str, str]:
 def assert_buck_args_config_equal(
     actual_config: dict[str, str], expected_config: dict[str, str]
 ) -> None:
-    assert (
-        actual_config == expected_config
-    ), f"Expected {expected_config}, got {actual_config}"
+    assert actual_config == expected_config, (
+        f"Expected {expected_config}, got {actual_config}"
+    )

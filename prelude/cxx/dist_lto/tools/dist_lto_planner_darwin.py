@@ -278,9 +278,9 @@ def main(argv):
 
             merge_state = None
             if premerger_enabled:
-                assert os.path.exists(
-                    merged_bitcode_path
-                ), f"missing merged bitcode file at {merged_bitcode_path}"
+                assert os.path.exists(merged_bitcode_path), (
+                    f"missing merged bitcode file at {merged_bitcode_path}"
+                )
                 merge_state = read_merged_bitcode_file(merged_bitcode_path)
                 if merge_state == BitcodeMergeState.ABSORBED:
                     absorbed_source_files.add(path)

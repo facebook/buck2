@@ -43,9 +43,9 @@ async def test_java_coverage_file_filter(
         extra_buck_args=EXTRA_BUCK_ARGS,
     )
 
-    assert (
-        set(result) == {file_to_collect_coverage}
-    ), f"Only {file_to_collect_coverage} should have coverage, instead got coverage for {str(result)}"
+    assert set(result) == {file_to_collect_coverage}, (
+        f"Only {file_to_collect_coverage} should have coverage, instead got coverage for {str(result)}"
+    )
 
 
 @pytest.mark.parametrize("mode", [None, "@fbcode//mode/dev", "@fbcode//mode/opt"])
@@ -67,9 +67,9 @@ async def test_java_coverage_folder_filter(
     expected_files = {
         "xplat/test_frameworks/coverage/java/playground/java_test/src/test/com/facebook/playground/nested/Adder.java"
     }
-    assert (
-        set(result) == expected_files
-    ), f"Only {expected_files} should have coverage, instead got coverage for {str(result)}"
+    assert set(result) == expected_files, (
+        f"Only {expected_files} should have coverage, instead got coverage for {str(result)}"
+    )
 
 
 @buck_test(inplace=True)

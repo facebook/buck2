@@ -11,7 +11,6 @@
 
 import re
 import sys
-
 from subprocess import PIPE, run
 
 import dep_file_utils

@@ -142,9 +142,9 @@ async def test_external_buckconfigs(buck: Buck) -> None:
         and config_file_value["key"] == "test_key"
         and config_file_value["value"] == "test_value"
     )
-    assert (
-        f.name in config_file["origin_path"]
-    ), f"Origin path should contain config-file name: {f.name}"
+    assert f.name in config_file["origin_path"], (
+        f"Origin path should contain config-file name: {f.name}"
+    )
 
 
 @buck_test(
@@ -304,9 +304,9 @@ async def test_log_external_configs(buck: Buck) -> None:
     for s, e in zip(external_configs, expected):
         assert s.descriptor == e.descriptor
         if s.origin and e.origin:
-            assert (
-                e.origin == s.origin
-            ), f"Expected origin '{e.origin}', but got '{s.origin}'"
+            assert e.origin == s.origin, (
+                f"Expected origin '{e.origin}', but got '{s.origin}'"
+            )
 
 
 @buck_test()

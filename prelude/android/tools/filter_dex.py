@@ -128,13 +128,13 @@ def main():
     weight_estimate_paths = args.weight_estimates
     output = args.output
 
-    assert len(dex_target_identifiers) == len(
-        class_names_paths
-    ), "Must provide same number of class names files as dex target identifiers!"
+    assert len(dex_target_identifiers) == len(class_names_paths), (
+        "Must provide same number of class names files as dex target identifiers!"
+    )
 
-    assert len(dex_target_identifiers) == len(
-        weight_estimate_paths
-    ), "Must provide same number of weight estimate files as dex target identifiers!"
+    assert len(dex_target_identifiers) == len(weight_estimate_paths), (
+        "Must provide same number of weight estimate files as dex target identifiers!"
+    )
 
     json_output = {}
     for i in range(len(dex_target_identifiers)):

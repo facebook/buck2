@@ -159,7 +159,9 @@ def _main() -> None:
                 codesign_identity=args.ad_hoc_codesign_identity
             )
         else:
-            assert args.profiles_dir, "Path to directory with provisioning profile files should be set when signing is not ad-hoc."
+            assert args.profiles_dir, (
+                "Path to directory with provisioning profile files should be set when signing is not ad-hoc."
+            )
             non_optional_profiles_dir = args.profiles_dir
             signing_context = signing_context_with_profile_selection(
                 info_plist_source=args.bundle_path / args.info_plist,

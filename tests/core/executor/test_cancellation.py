@@ -19,7 +19,6 @@ from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.api.buck_result import BuckException, BuckResult, ExitCodeV2
 from buck2.tests.e2e_util.api.process import Process
 from buck2.tests.e2e_util.buck_workspace import buck_test
-
 from buck2.tests.e2e_util.helper.utils import read_invocation_record
 
 

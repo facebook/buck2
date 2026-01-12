@@ -85,9 +85,9 @@ class ExecInfo:
 
     def read_class_map(self, root: str) -> list[ClassMapEntry]:
         classmap_file = self.data["java"]["classmap_file"]
-        assert not os.path.isabs(
-            classmap_file
-        ), f"{classmap_file} should be relative to {root}"
+        assert not os.path.isabs(classmap_file), (
+            f"{classmap_file} should be relative to {root}"
+        )
 
         with open(_resolve_relative(root, classmap_file)) as classmap_file:
             return [

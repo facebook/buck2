@@ -11,10 +11,8 @@
 import json
 
 from buck2.tests.e2e.configurations.cfg_constructor.modifiers_util import get_cfg
-
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.asserts import expect_failure
-
 from buck2.tests.e2e_util.buck_workspace import buck_test
 
 

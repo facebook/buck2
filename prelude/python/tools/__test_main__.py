@@ -637,8 +637,7 @@ class MainProgram:
             parts = value.rsplit("=", 1)
             if len(parts) != 2:
                 self.option_parser.error(
-                    "--logger argument must be of the "
-                    "form <name>=<level>: %s" % value
+                    "--logger argument must be of the form <name>=<level>: %s" % value
                 )
             name = parts[0]
             level_name = parts[1].lower()

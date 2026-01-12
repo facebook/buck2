@@ -288,7 +288,7 @@ def main():
             # We also need this prefix for the clang module cache path if we are
             # not using explicit modules with remote actions.
             "-file-prefix-map",
-            f"{env.get(_RE_TMPDIR_ENV_VAR, "/tmp").rstrip("/")}=/tmp",
+            f"{env.get(_RE_TMPDIR_ENV_VAR, '/tmp').rstrip('/')}=/tmp",
             "-file-prefix-map",
             f"{os.getcwd()}/=",
             "-file-prefix-map",

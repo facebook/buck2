@@ -29,9 +29,9 @@ def assert_path_in_manifest(path: str, manifest_paths: list[str]) -> None:
 def assert_link_in(
     needle: dict[str, str | None], haystack: list[dict[str, str | None]]
 ) -> None:
-    assert (
-        needle in haystack
-    ), f'expected haystack to contain link: {needle["link"]} --> {needle["target"]}'
+    assert needle in haystack, (
+        f"expected haystack to contain link: {needle['link']} --> {needle['target']}"
+    )
 
 
 def assert_path_exists(path: str) -> None:
@@ -79,9 +79,9 @@ async def test_simple_binary_build(buck: Buck) -> None:
     assert (
         manifest["repository"]["revision"] == "0000000000000000000000000000000000000000"
     ), "expected manifest to be at null revision"
-    assert (
-        manifest["repository"]["name"] == "no-repo"
-    ), "expected repo name to be no-repo"
+    assert manifest["repository"]["name"] == "no-repo", (
+        "expected repo name to be no-repo"
+    )
 
     assert_path_in_manifest("hello_world/main.cpp", manifest["paths"])
 
@@ -121,9 +121,9 @@ async def test_binary_with_deps(buck: Buck) -> None:
     assert (
         manifest["repository"]["revision"] == "0000000000000000000000000000000000000000"
     ), "expected manifest to be at null revision"
-    assert (
-        manifest["repository"]["name"] == "no-repo"
-    ), "expected repo name to be no-repo"
+    assert manifest["repository"]["name"] == "no-repo", (
+        "expected repo name to be no-repo"
+    )
 
     assert_path_in_manifest("linking/main.cpp", manifest["paths"])
     assert_path_in_manifest("linking/static.cpp", manifest["paths"])
@@ -233,9 +233,9 @@ async def test_no_tracing_does_not_write_offline_cache_for_http_archive(
     buck: Buck,
 ) -> None:
     await buck.build("root//http_archive:test_zip")
-    assert not os.path.exists(
-        os.path.join(buck.cwd, "buck-out/offline-cache")
-    ), "offline cache should not exist when not doing I/O tracing"
+    assert not os.path.exists(os.path.join(buck.cwd, "buck-out/offline-cache")), (
+        "offline cache should not exist when not doing I/O tracing"
+    )
 
 
 # Validate that when buckconfig use_network_action_output_cache=true is set we use the
@@ -253,9 +253,9 @@ async def test_fake_offline_http_archive_uses_offline_cache(buck: Buck) -> None:
     await buck.debug("trace-io", "enable")
     result = await buck.build(target)
     print("stderr:", result.stderr)
-    assert (
-        "/offline-cache/" in result.stderr
-    ), "materializer should declare offline-cache materialization"
+    assert "/offline-cache/" in result.stderr, (
+        "materializer should declare offline-cache materialization"
+    )
 
     # Validate that offline-cache path doesn't exist prior to manifest export.
     http_download_path = result.get_build_report().output_for_target(target)
@@ -264,15 +264,15 @@ async def test_fake_offline_http_archive_uses_offline_cache(buck: Buck) -> None:
         Path(str(http_download_path).replace("/gen/", "/offline-cache/")).parent
         / "download"
     )
-    assert (
-        not offline_cache_path.exists()
-    ), "offline cache path should not exist before manifest export"
+    assert not offline_cache_path.exists(), (
+        "offline cache path should not exist before manifest export"
+    )
 
     # Ensure buck-out/offline-cache paths are materialized.
     await buck.debug("trace-io", "export-manifest")
-    assert (
-        offline_cache_path.exists()
-    ), "offline cache path should exist after manifest export"
+    assert offline_cache_path.exists(), (
+        "offline cache path should exist after manifest export"
+    )
 
     await buck.kill()
 
@@ -317,9 +317,9 @@ async def test_no_tracing_does_not_write_offline_cache_for_cas_artifact(
     _setup_buckconfig_digest_algorithms(buck)
 
     await buck.build("//cas_artifact:tree")
-    assert not os.path.exists(
-        os.path.join(buck.cwd, "buck-out/offline-cache")
-    ), "offline cache should not exist when not doing I/O tracing"
+    assert not os.path.exists(os.path.join(buck.cwd, "buck-out/offline-cache")), (
+        "offline cache should not exist when not doing I/O tracing"
+    )
 
 
 # Validate that when buckconfig use_network_action_output_cache=true is set we use the
@@ -339,9 +339,9 @@ async def test_fake_offline_cas_artifact_uses_offline_cache(buck: Buck) -> None:
     await buck.debug("trace-io", "enable")
     result = await buck.build(target)
     print("stderr:", result.stderr)
-    assert (
-        "/offline-cache/" in result.stderr
-    ), "materializer should declare offline-cache materialization"
+    assert "/offline-cache/" in result.stderr, (
+        "materializer should declare offline-cache materialization"
+    )
 
     # Validate that offline-cache path doesn't exist prior to manifest export.
     cas_download_path = result.get_build_report().output_for_target(target)
@@ -349,15 +349,15 @@ async def test_fake_offline_cas_artifact_uses_offline_cache(buck: Buck) -> None:
     offline_cache_path = (
         Path(str(cas_download_path).replace("/gen/", "/offline-cache/")).parent / "tree"
     )
-    assert (
-        not offline_cache_path.exists()
-    ), "offline cache path should not exist before manifest export"
+    assert not offline_cache_path.exists(), (
+        "offline cache path should not exist before manifest export"
+    )
 
     # Ensure buck-out/offline-cache paths are materialized.
     await buck.debug("trace-io", "export-manifest")
-    assert (
-        offline_cache_path.exists()
-    ), "offline cache path should exist after manifest export"
+    assert offline_cache_path.exists(), (
+        "offline cache path should exist after manifest export"
+    )
 
     await buck.kill()
 

@@ -73,8 +73,9 @@ class InputsTest(unittest.TestCase):
         )
 
     def test_load_targets_and_build_map(self) -> None:
-        with tempfile.TemporaryDirectory() as root, switch_working_directory(
-            Path(root)
+        with (
+            tempfile.TemporaryDirectory() as root,
+            switch_working_directory(Path(root)),
         ):
             write_files(
                 {

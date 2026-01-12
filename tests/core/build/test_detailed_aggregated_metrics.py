@@ -11,7 +11,6 @@
 import typing
 
 import pytest
-
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.asserts import expect_failure
 from buck2.tests.e2e_util.buck_workspace import buck_test
@@ -41,7 +40,7 @@ def parse_metrics(metrics: typing.Any) -> tuple[typing.Any, dict[str, typing.Any
 
     def stringify(t):
         t = t["label"]
-        return f"{t["package"]}:{t["name"]}"
+        return f"{t['package']}:{t['name']}"
 
     per_targets = {
         stringify(v["target"]): v for v in metrics["top_level_target_metrics"]

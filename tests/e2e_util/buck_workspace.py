@@ -12,7 +12,6 @@
 import contextlib
 import hashlib
 import json
-
 import os
 import platform
 import shutil
@@ -90,12 +89,12 @@ async def buck_fixture(  # noqa C901 : "too complex"
     env["SUPERCONSOLE_TESTING_WIDTH"] = "100"
     env["SUPERCONSOLE_TESTING_HEIGHT"] = "100"
 
-    assert (
-        "BUCK2_RUNTIME_THREADS" in env
-    ), "BUCK2_RUNTIME_THREADS should be set by the test macros"
-    assert (
-        "BUCK2_MAX_BLOCKING_THREADS" in env
-    ), "BUCK2_MAX_BLOCKING_THREADS should be set by the test macros"
+    assert "BUCK2_RUNTIME_THREADS" in env, (
+        "BUCK2_RUNTIME_THREADS should be set by the test macros"
+    )
+    assert "BUCK2_MAX_BLOCKING_THREADS" in env, (
+        "BUCK2_MAX_BLOCKING_THREADS should be set by the test macros"
+    )
     # Windows uses blocking threads for subprocess I/O so we can't do this there.
     del env["BUCK2_MAX_BLOCKING_THREADS"]
 
@@ -131,9 +130,9 @@ async def buck_fixture(  # noqa C901 : "too complex"
 
     try:
         if marker.setup_eden:
-            assert (
-                not marker.inplace
-            ), "EdenFS for e2e tests is not supported for inplace tests"
+            assert not marker.inplace, (
+                "EdenFS for e2e tests is not supported for inplace tests"
+            )
 
             _setup_eden(
                 eden_dir,

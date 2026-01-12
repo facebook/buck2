@@ -9,7 +9,6 @@
 # pyre-strict
 
 import json
-
 import os
 import shutil
 import subprocess
@@ -19,7 +18,6 @@ from typing import BinaryIO, Optional
 from apple.tools.re_compatibility_utils.writable import make_path_user_writable
 
 from .macho import Symbol
-
 from .macho_parser import load_commands, load_debug_symbols, load_header
 from .spec import Spec
 from .utils import MachOException

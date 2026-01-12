@@ -24,7 +24,6 @@ from buck2.tests.core.common.io.file_watcher_tests import (
     setup_file_watcher_test,
     verify_results,
 )
-
 from buck2.tests.e2e_util.api.buck import Buck
 
 

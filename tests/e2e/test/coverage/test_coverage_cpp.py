@@ -475,9 +475,9 @@ async def test_cpp_test_coverage_filter_by_file_and_path(
     unexpected_paths = [
         p for p in paths if p != source_name and not p.startswith("fbcode/folly")
     ]
-    assert (
-        len(unexpected_paths) == 0
-    ), f"Only coverage for the test source file and files under fbcode/folly should have been collected, but got {unexpected_paths}"
+    assert len(unexpected_paths) == 0, (
+        f"Only coverage for the test source file and files under fbcode/folly should have been collected, but got {unexpected_paths}"
+    )
 
 
 @buck_test(inplace=True)
@@ -494,9 +494,8 @@ async def test_cpp_test_coverage_xplat_filter_by_file_path(
         file_filter=[file_to_collect_coverage],
     )
 
-    assert (
-        set(paths)
-        == {
-            file_to_collect_coverage,
-        }
-    ), f"Should collect coverage only for {file_to_collect_coverage} but got coverage for {paths}"
+    assert set(paths) == {
+        file_to_collect_coverage,
+    }, (
+        f"Should collect coverage only for {file_to_collect_coverage} but got coverage for {paths}"
+    )

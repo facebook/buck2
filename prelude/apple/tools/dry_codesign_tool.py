@@ -11,7 +11,6 @@
 import argparse
 import plistlib
 import shutil
-
 from pathlib import Path
 
 _CODE_SIGN_DRY_RUN_ARGS_FILE = "BUCK_code_sign_args.plist"

@@ -17,7 +17,6 @@ from pathlib import Path
 
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.buck_workspace import buck_test, env
-
 from manifold.clients.python.manifold_client_deprecated import Client as ManifoldClient
 
 TEST_TRACE_ID = "f115b5da-7d81-47cc-9c4a-57e283bfa384"

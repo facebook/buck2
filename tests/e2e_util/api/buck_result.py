@@ -188,12 +188,12 @@ class BuildReport:
                 for t, entry in self.results.items()
                 if t.endswith(target)
             ]
-            assert (
-                len(matched_outputs) > 0
-            ), f"Found no match for target {target} in {self.build_report}"
-            assert (
-                len(matched_outputs) == 1
-            ), f"Found different cells for target {target} in {self.results}"
+            assert len(matched_outputs) > 0, (
+                f"Found no match for target {target} in {self.build_report}"
+            )
+            assert len(matched_outputs) == 1, (
+                f"Found different cells for target {target} in {self.results}"
+            )
             paths = matched_outputs[0]
         else:
             paths = self.results[target]["outputs"][sub_target]
@@ -231,9 +231,9 @@ class TargetsResult(BuckResult):
         Returns a dict of the target and its output file in buck-out
         """
         target_to_output = {}
-        assert (
-            "--show-output" in self.args or "--show-full-output" in self.args
-        ), "Must add --show-output or --show-full-output arg to get targets output"
+        assert "--show-output" in self.args or "--show-full-output" in self.args, (
+            "Must add --show-output or --show-full-output arg to get targets output"
+        )
         show_output = self.stdout.strip().splitlines()
         for line in show_output:
             output_mapping = line.split()
@@ -266,9 +266,9 @@ class BuildResult(BuckResult):
         Prints to build target followed by path to buck-out file to stdout
         """
         target_to_output = {}
-        assert (
-            "--show-output" in self.args or "--show-full-output" in self.args
-        ), "Must add --show-output or --show-full-output arg to get build output"
+        assert "--show-output" in self.args or "--show-full-output" in self.args, (
+            "Must add --show-output or --show-full-output arg to get build output"
+        )
         show_output = self.stdout.strip().splitlines()
         if "--build-report=-" in self.args:
             # When mixing --show-output with --build-report=-, the first line is
@@ -364,9 +364,9 @@ class TestResult(BuckResult):
                 name = testresult.get("name")
                 status = testresult.get("status")
                 testresult_type = testresult.get("type")
-                assert testresult_type in (
-                    e.value for e in ResultType
-                ), f"Type {testresult_type} is not a ResultType Enum"
+                assert testresult_type in (e.value for e in ResultType), (
+                    f"Type {testresult_type} is not a ResultType Enum"
+                )
                 result_type = ResultType(testresult_type)
                 test_result_summary = TestResultSummary(name, status, result_type)
                 test_list.append(test_result_summary)
@@ -407,9 +407,9 @@ class AuditConfigResult(BuckResult):
 
     def get_json(self) -> Dict[str, str]:
         """Returns a dict of the json sent back by buck"""
-        assert (
-            "--style=json" in self.args or "--style json" in self.args
-        ), "Must add --style=json or `--style json` arg to get json output"
+        assert "--style=json" in self.args or "--style json" in self.args, (
+            "Must add --style=json or `--style json` arg to get json output"
+        )
         try:
             start = self.stdout.index("{")
             audit_json = self.stdout[start:].strip()
