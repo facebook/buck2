@@ -285,6 +285,7 @@ scopeguard = "1.0.0"
 sequence_trie = "0.3.6"
 serde = { version = "1.0", features = ["derive", "rc"] }
 serde_json = { version = "1.0.48", features = ["raw_value"] }
+serde_path_to_error = "0.1"
 sha1 = "0.10"
 sha2 = "0.10"
 shlex = "1.3"

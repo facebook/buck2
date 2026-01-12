@@ -830,7 +830,7 @@ where
             }
 
             tracing::debug!(?command, "parsing command output");
-            serde_json::from_slice(&stdout)
+            deserialize_json_bytes(&stdout)
                 .with_context(|| cmd_err(command, status, &stderr))
                 .context("failed to deserialize command output")
         }
@@ -872,7 +872,7 @@ where
     let file_path = Path::new(file_path.lines().next().context("no file path in output")?);
     let contents =
         fs::read_to_string(file_path).with_context(|| format!("failed to read {file_path:?}"))?;
-    serde_json::from_str(&contents).context("failed to deserialize file")
+    deserialize_json_str(&contents).context("failed to deserialize file")
 }
 
 fn cmd_err(command: &Command, status: ExitStatus, stderr: &[u8]) -> anyhow::Error {
@@ -882,6 +882,38 @@ fn cmd_err(command: &Command, status: ExitStatus, stderr: &[u8]) -> anyhow::Erro
         status,
         String::from_utf8_lossy(stderr),
     )
+}
+
+/// Deserialize bytes with serde_path_to_error so error messages report
+/// the offending fields.
+fn deserialize_json_bytes<T>(bytes: &[u8]) -> Result<T, anyhow::Error>
+where
+    T: for<'a> Deserialize<'a>,
+{
+    let mut deserializer = serde_json::Deserializer::from_slice(bytes);
+    serde_path_to_error::deserialize(&mut deserializer).map_err(|err| {
+        anyhow::anyhow!(
+            "JSON parse error in object '{}': {}",
+            err.path(),
+            err.inner()
+        )
+    })
+}
+
+/// Deserialize string with serde_path_to_error so error messages report
+/// the offending fields.
+fn deserialize_json_str<T>(s: &str) -> Result<T, anyhow::Error>
+where
+    T: for<'a> Deserialize<'a>,
+{
+    let mut deserializer = serde_json::Deserializer::from_str(s);
+    serde_path_to_error::deserialize(&mut deserializer).map_err(|err| {
+        anyhow::anyhow!(
+            "JSON parse error in object '{}': {}",
+            err.path(),
+            err.inner()
+        )
+    })
 }
 
 /// Trim a trailing new line from `String`.
