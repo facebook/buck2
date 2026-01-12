@@ -305,6 +305,7 @@ fn test_executor_errors(
     executor_exit_code: i32,
     test_statuses: &buck2_cli_proto::test_response::TestStatuses,
 ) -> Vec<buck2_data::ErrorReport> {
+    // FIXME: These errors should be derived from exit code only
     let mut errors = Vec::new();
     if let Some(failed) = &test_statuses.failed {
         if failed.count > 0 {
@@ -333,7 +334,7 @@ fn test_executor_errors(
     // If a test was skipped due to condition not being met a non-zero exit code will be returned,
     // this doesn't seem quite right, but for now just tag it with TestSkipped to track occurrence.
     if let Some(skipped) = &test_statuses.skipped {
-        if skipped.count > 0 && executor_exit_code != 0 {
+        if skipped.count > 0 {
             errors.push(buck2_data::ErrorReport::from(
                 &TestError::TestSkipped.into(),
             ));
@@ -346,8 +347,7 @@ fn test_executor_errors(
             ));
         }
     }
-
-    if errors.is_empty() && executor_exit_code != 0 {
+    if errors.is_empty() {
         errors.push(buck2_data::ErrorReport::from(&buck2_error::buck2_error!(
             buck2_error::ErrorTag::TestExecutor,
             "Test Executor Failed with exit code {executor_exit_code}"
@@ -608,18 +608,20 @@ async fn test(
     }
 
     let mut errors = test_outcome.errors;
-    let exit_code_overide = if errors.is_empty() {
+    let exit_code_override = if errors.is_empty() {
         Some(executor_exit_code)
     } else {
         // only use executor exit code if there were no errors in buck
         None
     };
 
-    let test_executor_errors = test_executor_errors(executor_exit_code, &test_statuses);
-    errors.extend(test_executor_errors);
+    if executor_exit_code != 0 {
+        let test_executor_errors = test_executor_errors(executor_exit_code, &test_statuses);
+        errors.extend(test_executor_errors);
+    }
 
     Ok(TestResponse {
-        exit_code: exit_code_overide,
+        exit_code: exit_code_override,
         errors,
         test_statuses: Some(test_statuses),
         executor_stdout: test_outcome.executor_stdout,
