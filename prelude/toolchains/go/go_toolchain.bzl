@@ -6,7 +6,7 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
-load("@prelude//go:toolchain.bzl", "GoDistrInfo", "GoToolchainInfo")
+load("@prelude//go:toolchain.bzl", "GoDistrInfo", "GoToolchainInfo", "parse_go_version")
 
 def _go_toolchain_impl(ctx):
     # Note: It makes sense to make GoDirstrInfo an attribute of GoToolchainInfo.
@@ -51,6 +51,7 @@ def _go_toolchain_impl(ctx):
             asan = ctx.attrs.asan,
             race = ctx.attrs.race,
             fuzz = ctx.attrs.fuzz,
+            version = go_distr.version,
         ),
     ]
 
@@ -97,6 +98,7 @@ def _go_distr_impl(ctx):
             tool_cover = RunInfo(go_root.project(tool_prefix + "/cover" + suffix)),
             tool_cgo = RunInfo(go_root.project(tool_prefix + "/cgo" + suffix)),
             tool_link = RunInfo(go_root.project(tool_prefix + "/link" + suffix)),
+            version = parse_go_version(ctx.attrs.version),
         ),
     ]
 
@@ -106,5 +108,6 @@ go_distr = rule(
         "go_os_arch": attrs.tuple(attrs.string(), attrs.string()),
         "go_root": attrs.source(allow_directory = True),
         "multiplatform": attrs.bool(default = False),
+        "version": attrs.string(),
     },
 )

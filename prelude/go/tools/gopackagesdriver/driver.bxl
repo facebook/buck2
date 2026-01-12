@@ -9,6 +9,11 @@
 load("@prelude//go:cgo_builder.bzl", "project_go_and_c_files")
 load("@prelude//go:go_list.bzl", "GoListOut", "parse_go_list_out")
 load("@prelude//go:packages.bzl", "GoPackageInfo")
+load(
+    "@prelude//go:toolchain.bzl",
+    "GoToolchainInfo",
+    "GoVersion",  #@unused used as a type
+)
 load("@prelude//utils:utils.bzl", "flatten")
 
 importable_go_rules = {
@@ -159,7 +164,10 @@ def _driver(ctx):
 
         packages += [{"Errors": [PackageError(Msg = error.message)], "ID": str(utarget.label)} for (utarget, error) in cquery_errors]
 
+        go_version = _go_version(ctx)
+
         ctx.bxl_actions().actions.write_json(outputs[dynamic_out], {
+            "GoVersion": go_version.minor if go_version else 0,
             "Packages": packages,
             "Roots": [str(t.label) for t in go_root_targets],
         }, pretty = True, absolute = True)
@@ -285,6 +293,10 @@ def _to_protocol_error(error: bxl.Error, expected_target: bxl.ConfiguredTargetNo
     # Question: Shall we do it in the Go part of the driver?
 
     return PackageError(Msg = msg)
+
+def _go_version(ctx: bxl.Context) -> GoVersion | None:
+    toolchain = ctx.analysis(ctx.configured_targets("toolchains//:go")).providers()[GoToolchainInfo]
+    return toolchain.version
 
 # https://github.com/golang/tools/blob/v0.23.0/go/packages/packages.go#L41-L42
 # The zero value is a special case, equivalent to combining

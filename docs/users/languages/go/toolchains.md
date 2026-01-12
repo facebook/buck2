@@ -59,6 +59,7 @@ go_distr(
         "config//os:linux": select({"config//cpu:x86_64": "path/to/go-linux-amd64"}),
         "config//os:macos": select({"config//cpu:arm64": "path/to/go-darwin-arm64"}),
     }),
+    version = "1.X.Y",
 )
 
 # Note: selects are resolved against target-platform

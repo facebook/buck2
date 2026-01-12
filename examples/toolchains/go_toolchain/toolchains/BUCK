@@ -69,6 +69,7 @@ go_distr(
         "config//os:linux": select({"config//cpu:x86_64": ":archive_go1.24.4.linux-amd64"}),
         "config//os:macos": select({"config//cpu:arm64": ":archive_go1.24.4.darwin-arm64"}),
     }),
+    version = "1.24.4",
 )
 
 go_toolchain(

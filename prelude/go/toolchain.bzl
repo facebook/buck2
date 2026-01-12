@@ -6,6 +6,8 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
+GoVersion = record(minor = field(int), patch = field(int))
+
 GoDistrInfo = provider(
     # @unsorted-dict-items
     fields = {
@@ -16,6 +18,7 @@ GoDistrInfo = provider(
         "tool_cover": provider_field(RunInfo),
         "tool_cgo": provider_field(RunInfo),
         "tool_link": provider_field(RunInfo),
+        "version": provider_field(GoVersion | None),
     },
 )
 
@@ -47,6 +50,7 @@ GoToolchainInfo = provider(
         "asan": provider_field(bool, default = False),
         "race": provider_field(bool, default = False),
         "fuzz": provider_field(bool, default = False),
+        "version": provider_field(GoVersion | None),
     },
 )
 
@@ -77,3 +81,39 @@ def evaluate_cgo_enabled(cxx_toolchain_available: bool, cgo_enabled: [bool, None
         return cgo_enabled
 
     return cxx_toolchain_available
+
+# Parse Go version from string, accepted format:
+# - "1.20"
+# - "1.22rc1" (for pre-release versions)
+# - "1.22.1" (for patch versions)
+# - "unknown" (for development purposes)
+def parse_go_version(version: str) -> GoVersion | None:
+    if version == "unknown":
+        return None
+
+    version_parts = version.split(".")
+
+    if len(version_parts) < 2 or len(version_parts) > 3:
+        fail("Invalid Go version: '{}'. Expected format '1.20', '1.22rc1', '1.22.1' or 'unknown'.".format(version))
+
+    if version_parts[0] != "1":
+        fail("Invalid Go version: '{}'. Expected major version to be '1'.".format(version))
+
+    if version_parts[1].isdigit():
+        minor = int(version_parts[1])
+    elif "rc" in version_parts[1]:
+        rc_parts = version_parts[1].split("rc")
+        if not (rc_parts[0].isdigit() and rc_parts[1].isdigit()):
+            fail("Invalid Go version: '{}'. Expected minor version to be a number with an optional RC suffix like 'rc1'.".format(version))
+        minor = int(rc_parts[0])
+    else:
+        fail("Invalid Go version: '{}'. Expected minor version to be a number with an optional RC suffix like 'rc1'.".format(version))
+
+    patch = 0
+    if len(version_parts) > 2:
+        if not version_parts[2].isdigit():
+            fail("Invalid Go version: '{}'. Expected patch version to be a number.".format(version))
+
+        patch = int(version_parts[2])
+
+    return GoVersion(minor = minor, patch = patch)
