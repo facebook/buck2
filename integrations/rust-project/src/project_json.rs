@@ -140,6 +140,14 @@ pub(crate) struct Build {
     pub(crate) target_kind: TargetKind,
 }
 
+/// The target kind.
+///
+/// rust-analyzer defines a small set of target kinds for rust-project.json:
+/// <https://github.com/rust-lang/rust-analyzer/blob/11d62122ded8349b2790977fd2cc55013cea68f1/crates/project-model/src/project_json.rs#L451>
+///
+/// The set of target kinds for cargo is a little bigger:
+/// <https://github.com/rust-lang/rust-analyzer/blob/11d62122ded8349b2790977fd2cc55013cea68f1/crates/project-model/src/cargo_workspace.rs#L262>
+/// <https://github.com/rust-lang/rust-analyzer/blob/1e6cef94dfbc359e7b1e7d392de387c2c539b965/crates/project-model/src/cargo_workspace.rs#L212>
 #[derive(Serialize, Deserialize, Debug, Default, Clone, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub(crate) enum TargetKind {
@@ -147,10 +155,7 @@ pub(crate) enum TargetKind {
     Bin,
     /// Any kind of Cargo lib crate-type (dylib, rlib, proc-macro, ...).
     Lib,
-    Example,
     Test,
-    Bench,
-    BuildScript,
     Other,
 }
 
