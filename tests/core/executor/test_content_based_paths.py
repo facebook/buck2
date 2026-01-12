@@ -593,6 +593,6 @@ async def test_failing_run_with_run_info(buck: Buck) -> None:
             "root//:p_default",
             "--show-output",
         ),
-        exit_code=ExitCodeV2.USER_ERROR,
+        exit_code=ExitCodeV2.INFRA_ERROR,
         stderr_regex="Remote command returned non-zero exit code 1.*Tried to resolve a content-based path out without providing the content hash!",
     )

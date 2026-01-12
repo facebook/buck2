@@ -66,7 +66,7 @@ impl PartialEq for BaseDeferredKeyBxl {
 }
 
 #[derive(Debug, buck2_error::Error)]
-#[buck2(tag = Input)]
+#[buck2(tag = Tier0)]
 pub enum PathResolutionError {
     #[error("Tried to resolve a content-based path {0} without providing the content hash!")]
     ContentBasedPathWithNoContentHash(ForwardRelativePathBuf),
