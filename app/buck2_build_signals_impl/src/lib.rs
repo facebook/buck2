@@ -71,12 +71,14 @@ use tokio_stream::wrappers::UnboundedReceiverStream;
 use crate::backend::backend::BuildListenerBackend;
 use crate::backend::logging::LoggingBackend;
 use crate::backend::longest_path_graph::LongestPathGraphBackend;
+use crate::enhancement::CriticalPathProtoEnhancer;
 use crate::test_signals::TestExecutionBuildSignalKey;
 use crate::test_signals::TestExecutionSignal;
 use crate::test_signals::TestListingBuildSignalKey;
 use crate::test_signals::TestListingSignal;
 
 mod backend;
+mod enhancement;
 mod test_signals;
 
 /// A node in our critical path graph.
@@ -755,95 +757,31 @@ impl DetailedCriticalPath {
         Self { entries }
     }
 
-    fn create_critical_path_entry2(
-        command_start: Instant,
-        entry: buck2_data::critical_path_entry2::Entry,
-        data: NodeData,
-        potential_improvement: Option<Duration>,
-    ) -> buck2_error::Result<buck2_data::CriticalPathEntry2> {
-        Ok(buck2_data::CriticalPathEntry2 {
-            span_ids: data
-                .span_ids
-                .iter()
-                .map(|span_id| (*span_id).into())
-                .collect(),
-            duration: Some(data.duration.critical_path_duration().try_into()?),
-            user_duration: Some(data.duration.user.try_into()?),
-            queue_duration: data.duration.queue.map(|d| d.try_into()).transpose()?,
-            total_duration: Some(data.duration.total.duration().try_into()?),
-            potential_improvement_duration: potential_improvement
-                .map(|p| p.try_into())
-                .transpose()?,
-            entry: Some(entry),
-            non_critical_path_duration: None,
-            start_offset_ns: Some(
-                data.duration
-                    .total
-                    .start()
-                    .checked_duration_since(command_start)
-                    .unwrap_or(Duration::ZERO)
-                    .as_nanos()
-                    .try_into()?,
-            ),
-        })
-    }
-
-    /// Create a simple critical path entry for generic build phases.
-    /// These entries have zero user_duration and potential_improvement_duration.
-    fn create_simple_critical_path_entry2(
-        command_start: Instant,
-        entry: buck2_data::critical_path_entry2::Entry,
-        start_time: Instant,
-        duration: Duration,
-        non_critical_duration: Duration,
-    ) -> buck2_error::Result<buck2_data::CriticalPathEntry2> {
-        let duration: prost_types::Duration = duration.try_into()?;
-        Ok(buck2_data::CriticalPathEntry2 {
-            span_ids: Vec::new(),
-            duration: Some(duration),
-            user_duration: Some(Duration::ZERO.try_into()?),
-            queue_duration: None,
-            total_duration: Some(duration),
-            potential_improvement_duration: Some(Duration::ZERO.try_into()?),
-            non_critical_path_duration: Some(non_critical_duration.try_into()?),
-            entry: Some(entry),
-            start_offset_ns: Some(
-                start_time
-                    .checked_duration_since(command_start)
-                    .unwrap_or(Duration::ZERO)
-                    .as_nanos()
-                    .try_into()?,
-            ),
-        })
-    }
-
     fn create_proto_entries_for_early_timings(
+        enhancer: &mut CriticalPathProtoEnhancer,
         early_command_timing: &EarlyCommandTiming,
-    ) -> buck2_error::Result<Vec<buck2_data::CriticalPathEntry2>> {
+    ) -> buck2_error::Result<()> {
         let generic_entry = |kind: &str| -> buck2_data::critical_path_entry2::Entry {
             buck2_data::critical_path_entry2::GenericEntry {
                 kind: kind.to_owned(),
             }
             .into()
         };
-        let mut entries = Vec::with_capacity(2 + early_command_timing.early_spans.len());
         let mut current_kind = "buckd_command_init";
         let mut current_start = early_command_timing.command_start;
         for (span_start, kind) in &early_command_timing.early_spans {
-            entries.push(Self::create_simple_critical_path_entry2(
-                early_command_timing.command_start,
+            enhancer.add_simple_entry(
                 generic_entry(current_kind),
                 current_start,
                 span_start
                     .checked_duration_since(current_start)
                     .unwrap_or(Duration::ZERO),
                 Duration::ZERO,
-            )?);
+            )?;
             current_kind = kind;
             current_start = *span_start;
         }
-        entries.push(Self::create_simple_critical_path_entry2(
-            early_command_timing.command_start,
+        enhancer.add_simple_entry(
             generic_entry(current_kind),
             current_start,
             early_command_timing
@@ -851,8 +789,8 @@ impl DetailedCriticalPath {
                 .checked_duration_since(current_start)
                 .unwrap_or(Duration::ZERO),
             Duration::ZERO,
-        )?);
-        Ok(entries)
+        )?;
+        Ok(())
     }
 
     fn into_critical_path_proto(
@@ -860,38 +798,27 @@ impl DetailedCriticalPath {
         early_command_timing: &EarlyCommandTiming,
         critical_path_compute_start: Instant,
     ) -> buck2_error::Result<Vec<buck2_data::CriticalPathEntry2>> {
-        let command_start = early_command_timing.command_start;
-        let mut entries =
-            Vec::with_capacity(1 + early_command_timing.early_spans.len() + self.entries.len() + 1);
-        let push = |entries: &mut Vec<_>, entry, data, potential_improvement| {
-            entries.push(Self::create_critical_path_entry2(
-                command_start,
-                entry,
-                data,
-                potential_improvement,
-            )?);
-            buck2_error::Ok(())
-        };
+        let mut enhancer = CriticalPathProtoEnhancer::new(
+            early_command_timing.command_start,
+            1 + early_command_timing.early_spans.len() + self.entries.len() + 1,
+        );
 
-        entries.extend(Self::create_proto_entries_for_early_timings(
-            early_command_timing,
-        )?);
+        Self::create_proto_entries_for_early_timings(&mut enhancer, early_command_timing)?;
 
         for (key, data, potential_improvement) in self.entries {
             if let Some(entry) = key.into_critical_path_entry_data(data.action_node_data.as_ref()) {
-                push(&mut entries, entry, data, potential_improvement)?;
+                enhancer.add_entry(entry, data, potential_improvement)?;
             }
         }
 
         let elapsed_compute_critical_path = Instant::now() - critical_path_compute_start;
-        entries.push(Self::create_simple_critical_path_entry2(
-            command_start,
+        enhancer.add_simple_entry(
             buck2_data::critical_path_entry2::ComputeCriticalPath {}.into(),
             critical_path_compute_start,
             elapsed_compute_critical_path,
             Duration::ZERO,
-        )?);
-        Ok(entries)
+        )?;
+        Ok(enhancer.into_entries())
     }
 }
 
