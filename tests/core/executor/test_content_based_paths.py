@@ -586,13 +586,17 @@ async def test_expect_eligible_for_dedupe_ineligible_output(buck: Buck) -> None:
 
 @buck_test()
 async def test_failing_run_with_run_info(buck: Buck) -> None:
-    await expect_failure(
+    failure = await expect_failure(
         buck.build(
             "root//:failing_run_with_content_based_path",
             "--target-platforms",
             "root//:p_default",
             "--show-output",
         ),
-        exit_code=ExitCodeV2.INFRA_ERROR,
-        stderr_regex="Remote command returned non-zero exit code 1.*Tried to resolve a content-based path out without providing the content hash!",
+        exit_code=ExitCodeV2.USER_ERROR,
+        stderr_regex="Remote command returned non-zero exit code 1",
+    )
+    assert (
+        "Tried to resolve a content-based path out without providing the content hash!"
+        not in failure.stderr
     )

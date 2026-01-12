@@ -220,8 +220,15 @@ impl<'a> ResultReporter<'a> {
                 let executor_fs = ExecutorFs::new(self.artifact_fs, path_separator);
                 let mut cli = Vec::<String>::new();
                 let mut ctx = AbsCommandLineContext::new(&executor_fs);
-                runinfo.add_to_command_line(&mut cli, &mut ctx, &artifact_path_mapping)?;
-                cli
+                match runinfo.add_to_command_line(&mut cli, &mut ctx, &artifact_path_mapping) {
+                    Ok(_) => cli,
+                    Err(_) => {
+                        // If we have action errors, then it's possible that we weren't able to produce
+                        // the run info because we couldn't resolve a content-based path, and that's okay
+                        // because we don't expect to be able to use it anyway.
+                        Vec::new()
+                    }
+                }
             } else {
                 Vec::new()
             }
