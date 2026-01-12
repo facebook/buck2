@@ -590,6 +590,9 @@ message CriticalPathEntry2 {
   // for actions to run
   optional google.protobuf.Duration queue_duration = 6;
 
+  // Indicates the offset from the start of the build for this entry.
+  optional uint64 start_offset_ns = 8;
+
   oneof entry {
     Analysis analysis = 100;
     ActionExecution action_execution = 101;

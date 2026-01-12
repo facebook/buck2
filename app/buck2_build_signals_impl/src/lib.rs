@@ -756,6 +756,7 @@ impl DetailedCriticalPath {
     }
 
     fn create_critical_path_entry2(
+        command_start: Instant,
         entry: buck2_data::critical_path_entry2::Entry,
         data: NodeData,
         potential_improvement: Option<Duration>,
@@ -774,11 +775,22 @@ impl DetailedCriticalPath {
                 .map(|p| p.try_into())
                 .transpose()?,
             entry: Some(entry),
+            start_offset_ns: Some(
+                data.duration
+                    .total
+                    .start()
+                    .checked_duration_since(command_start)
+                    .unwrap_or(Duration::ZERO)
+                    .as_nanos()
+                    .try_into()?,
+            ),
         })
     }
 
     fn create_simple_critical_path_entry2(
+        command_start: Instant,
         entry: buck2_data::critical_path_entry2::Entry,
+        start_time: Instant,
         duration: Duration,
     ) -> buck2_error::Result<buck2_data::CriticalPathEntry2> {
         let duration: prost_types::Duration = duration.try_into()?;
@@ -790,6 +802,13 @@ impl DetailedCriticalPath {
             total_duration: Some(duration),
             potential_improvement_duration: Some(duration),
             entry: Some(entry),
+            start_offset_ns: Some(
+                start_time
+                    .checked_duration_since(command_start)
+                    .unwrap_or(Duration::ZERO)
+                    .as_nanos()
+                    .try_into()?,
+            ),
         })
     }
 
@@ -807,7 +826,9 @@ impl DetailedCriticalPath {
         let mut current_start = early_command_timing.command_start;
         for (span_start, kind) in &early_command_timing.early_spans {
             entries.push(Self::create_simple_critical_path_entry2(
+                early_command_timing.command_start,
                 generic_entry(current_kind),
+                current_start,
                 span_start
                     .checked_duration_since(current_start)
                     .unwrap_or(Duration::ZERO),
@@ -816,7 +837,9 @@ impl DetailedCriticalPath {
             current_start = *span_start;
         }
         entries.push(Self::create_simple_critical_path_entry2(
+            early_command_timing.command_start,
             generic_entry(current_kind),
+            current_start,
             early_command_timing
                 .early_command_end
                 .checked_duration_since(current_start)
@@ -830,10 +853,12 @@ impl DetailedCriticalPath {
         early_command_timing: &EarlyCommandTiming,
         critical_path_compute_start: Instant,
     ) -> buck2_error::Result<Vec<buck2_data::CriticalPathEntry2>> {
+        let command_start = early_command_timing.command_start;
         let mut entries =
             Vec::with_capacity(1 + early_command_timing.early_spans.len() + self.entries.len() + 1);
         let push = |entries: &mut Vec<_>, entry, data, potential_improvement| {
             entries.push(Self::create_critical_path_entry2(
+                command_start,
                 entry,
                 data,
                 potential_improvement,
@@ -853,7 +878,9 @@ impl DetailedCriticalPath {
 
         let elapsed_compute_critical_path = Instant::now() - critical_path_compute_start;
         entries.push(Self::create_simple_critical_path_entry2(
+            command_start,
             buck2_data::critical_path_entry2::ComputeCriticalPath {}.into(),
+            critical_path_compute_start,
             elapsed_compute_critical_path,
         )?);
         Ok(entries)
