@@ -13,7 +13,6 @@ use std::sync::Mutex;
 
 use buck2_error::internal_error;
 use buck2_fs::fs_util;
-use buck2_fs::fs_util::create_dir_all;
 use buck2_fs::paths::abs_path::AbsPathBuf;
 use buck2_fs::paths::file_name::FileName;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
@@ -49,7 +48,8 @@ impl FileWritingProfileEventListener {
     /// Writes the all_keys.list file and returns an error if any occurred while writing the profile files.
     pub fn finalize(&self) -> buck2_error::Result<()> {
         let lock = self.state.lock().unwrap();
-        std::fs::write(
+        fs_util::create_dir_all(&self.base_path)?;
+        fs_util::write(
             self.base_path.join("all_keys.list"),
             lock.evaluations.iter().join("\n"),
         )?;
@@ -95,7 +95,7 @@ impl FileWritingProfileEventListener {
             ))?);
 
         let output_path = self.base_path.join(subpath.as_path());
-        create_dir_all(output_path.parent().unwrap())?;
+        fs_util::create_dir_all(output_path.parent().unwrap())?;
         fs_util::write(output_path, profile_data.profile_data.gen_csv()?)?;
         Ok(())
     }
