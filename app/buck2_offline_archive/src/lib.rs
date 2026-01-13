@@ -24,19 +24,37 @@ use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
 // archiver program
 use buck2_util::process::background_command;
 
-#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Clone,
+    Debug,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    serde::Serialize,
+    serde::Deserialize
+)]
 pub struct RelativeSymlink {
     pub link: ProjectRelativePathBuf,
     pub target: ProjectRelativePathBuf,
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct AbsoluteSymlink {
     pub link: AbsPathBuf,
     pub target: AbsNormPathBuf,
 }
 
-#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+#[derive(
+    Clone,
+    Debug,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    serde::Serialize,
+    serde::Deserialize
+)]
 pub struct ExternalSymlink {
     pub link: ProjectRelativePathBuf,
     pub target: AbsPathBuf,
