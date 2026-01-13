@@ -150,6 +150,7 @@ async def test_multiple_builds(buck: Buck) -> None:
 
 # Symlinks should show up in the *_symlinks attributes of the manifest.
 @buck_test(setup_eden=True, skip_for_os=["windows"])
+@env("BUCK2_HARD_ERROR", "false")
 async def test_symlinks(buck: Buck) -> None:
     hg_config_reponame(cwd=buck.cwd)
 
@@ -370,6 +371,102 @@ async def test_fake_offline_cas_artifact_uses_offline_cache(buck: Buck) -> None:
     )
     assert "LocalCopy" in result.stderr, "offline-cache path should be copied to output"
     assert cas_download_path.exists(), "cas action output path should exist"
+
+
+# Validate that all lists in the exported manifest are sorted.
+@buck_test(setup_eden=True, skip_for_os=["windows"])
+@env("BUCK2_HARD_ERROR", "false")
+async def test_manifest_lists_are_sorted(buck: Buck) -> None:
+    hg_config_reponame(cwd=buck.cwd)
+
+    def symlink(link: str, target: str) -> None:
+        """
+        Symlinks link --> target. Assumes we're based in the buck cwd, so link must be relative.
+        """
+        os.symlink(target, os.path.join(buck.cwd, link))
+
+    # Set up multiple files in reverse alphabetical order to ensure they need sorting
+    symlink("symlinks/zz_last.cpp", "../hello_world/main.cpp")
+    symlink("symlinks/aa_first.cpp", "../linking/main.cpp")
+    symlink("symlinks/mm_middle.cpp", "../linking/static.cpp")
+
+    with TemporaryDirectory() as tempdir:
+        t = Path(tempdir)
+
+        zz_file = t / "zz_external.h"
+        zz_file.touch()
+
+        aa_file = t / "aa_external.h"
+        aa_file.touch()
+
+        mm_file = t / "mm_external.h"
+        mm_file.touch()
+
+        symlink("symlinks/ext_1.h", str(zz_file))
+        symlink("symlinks/ext_2.h", str(aa_file))
+        symlink("symlinks/ext_3.h", str(mm_file))
+
+        await buck.debug("trace-io", "enable")
+
+        # Build multiple targets to create entries in non-alphabetical order
+        await buck.build("root//symlinks:zz_last")
+        await buck.build("root//symlinks:aa_first")
+        await buck.build("root//symlinks:mm_middle")
+
+        with NamedTemporaryFile("w", delete=False) as tmp1:
+            tmpname1 = tmp1.name
+            tmp1.write("[buck2]\n")
+            tmp1.write("  foo = bar\n")
+
+        with NamedTemporaryFile("w", delete=False) as tmp2:
+            tmpname2 = tmp2.name
+            tmp2.write("[buck2]\n")
+            tmp2.write("  baz = qux\n")
+
+        try:
+            # Build with config files in reverse order to create unsorted external entries
+            await buck.build("root//hello_world:welcome", "--config-file", tmpname2)
+            await buck.build("root//hello_world:welcome", "--config-file", tmpname1)
+
+            out = await buck.debug("trace-io", "export-manifest")
+        finally:
+            os.unlink(tmpname1)
+            os.unlink(tmpname2)
+
+    manifest = json.loads(out.stdout)
+
+    paths = manifest["paths"]
+    assert paths == sorted(paths), f"paths list is not sorted: {paths}"
+
+    external_paths = manifest["external_paths"]
+    assert external_paths == sorted(external_paths), (
+        f"external_paths list is not sorted: {external_paths}"
+    )
+
+    relative_symlinks = manifest["relative_symlinks"]
+    sorted_relative = sorted(relative_symlinks, key=lambda x: x["link"])
+    assert relative_symlinks == sorted_relative, (
+        f"relative_symlinks list is not sorted by link: {relative_symlinks}"
+    )
+
+    external_symlinks = manifest["external_symlinks"]
+    sorted_external = sorted(external_symlinks, key=lambda x: x["link"])
+    assert external_symlinks == sorted_external, (
+        f"external_symlinks list is not sorted by link: {external_symlinks}"
+    )
+
+    assert_link_in(
+        {"link": "symlinks/zz_last.cpp", "target": "hello_world/main.cpp"},
+        relative_symlinks,
+    )
+    assert_link_in(
+        {"link": "symlinks/aa_first.cpp", "target": "linking/main.cpp"},
+        relative_symlinks,
+    )
+    assert_link_in(
+        {"link": "symlinks/mm_middle.cpp", "target": "linking/static.cpp"},
+        relative_symlinks,
+    )
 
 
 # No-op test for windows.
