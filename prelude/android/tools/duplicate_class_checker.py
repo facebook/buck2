@@ -8,12 +8,10 @@
 
 import argparse
 import json
-import os
 import sys
 import zipfile
-from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
-from typing import Dict, List, Set, Tuple
+from typing import Dict, List, Set
 
 
 def main() -> None:
@@ -114,34 +112,17 @@ def get_class_to_target_mapping_from_jars(
     Reads a JSON file that maps JAR file paths to their owning targets,
     extracts class names from each JAR file, and builds a mapping
     from class names to the targets that contain them.
-
-    Uses parallel processing for I/O-bound JAR extraction.
     """
     with open(jar_to_owning_target_map_file) as f:
         target_to_jar_file_map = json.loads(f.read())
 
-    # Determine optimal thread count for I/O-bound JAR extraction
-    num_jars = len(target_to_jar_file_map)
-    max_workers = min(num_jars, (os.cpu_count() or 1) * 4, 64)
-
-    def extract_classes_from_jar(item: Tuple[str, str]) -> Tuple[str, Set[str]]:
-        """Extract class names from a JAR and return (target_name, class_names)."""
-        jar_path, target_name = item
-        class_names = extract_class_names_from_jar(jar_path)
-        # Filter out inner classes and module-info
-        filtered = {
-            cn for cn in class_names if "$" not in cn and "module-info" not in cn
-        }
-        return (target_name, filtered)
-
     class_to_target_mapping: Dict[str, List[str]] = {}
-
-    # Process JARs in parallel
-    with ThreadPoolExecutor(max_workers=max_workers) as executor:
-        results = executor.map(extract_classes_from_jar, target_to_jar_file_map.items())
-        for target_name, class_names in results:
-            for class_name in class_names:
-                class_to_target_mapping.setdefault(class_name, []).append(target_name)
+    for jar_path, target_name in target_to_jar_file_map.items():
+        class_names = extract_class_names_from_jar(jar_path)
+        for class_name in class_names:
+            if "$" in class_name or "module-info" in class_name:
+                continue
+            class_to_target_mapping.setdefault(class_name, []).append(target_name)
 
     return class_to_target_mapping
 
