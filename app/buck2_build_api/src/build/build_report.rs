@@ -283,6 +283,18 @@ pub struct BuildReportCollector<'a> {
     total_per_configuration_sketch: Option<VersionedSketcherMap<ConfigurationData, TargetLabel>>,
 }
 
+// Build report generation should never produce an input error, always return an error with an infra tag
+#[derive(buck2_error::Error)]
+#[error(transparent)]
+#[buck2(tag = BuildReport)]
+pub struct BuildReportGenerationError(buck2_error::Error);
+
+impl From<buck2_error::Error> for BuildReportGenerationError {
+    fn from(e: buck2_error::Error) -> Self {
+        Self(e)
+    }
+}
+
 impl<'a> BuildReportCollector<'a> {
     // ============================================================================
     // Main conversion functions for build reports
@@ -348,7 +360,7 @@ impl<'a> BuildReportCollector<'a> {
         other_errors: &BTreeMap<Option<ProvidersLabel>, Vec<buck2_error::Error>>,
         detailed_metrics: Option<DetailedAggregatedMetrics>,
         graph_properties_opts: GraphPropertiesOptions,
-    ) -> buck2_error::Result<BuildReport> {
+    ) -> Result<BuildReport, BuildReportGenerationError> {
         let mut this = Self::new(
             artifact_fs,
             cell_resolver,
@@ -479,7 +491,7 @@ impl<'a> BuildReportCollector<'a> {
         errors: &[buck2_error::Error],
         detailed_metrics: Option<DetailedAggregatedMetrics>,
         graph_properties_opts: GraphPropertiesOptions,
-    ) -> buck2_error::Result<BuildReport> {
+    ) -> Result<BuildReport, BuildReportGenerationError> {
         let mut this = Self::new(
             artifact_fs,
             cell_resolver,
@@ -526,7 +538,7 @@ impl<'a> BuildReportCollector<'a> {
         entries: HashMap<EntryLabel, BuildReportEntry>,
         all_error_reports: Vec<ErrorReport>,
         detailed_metrics: Option<DetailedAggregatedMetrics>,
-    ) -> buck2_error::Result<BuildReport> {
+    ) -> Result<BuildReport, BuildReportGenerationError> {
         let per_configuration_data = self.collect_per_configuration_data()?;
         let total_configured_graph_sketch = self
             .total_configured_graph_sketch
@@ -1087,7 +1099,7 @@ fn write_or_serialize_build_report(
     Ok(serialized_build_report)
 }
 
-pub fn generate_build_report(
+pub fn write_build_report(
     opts: BuildReportOpts,
     artifact_fs: &ArtifactFs,
     cell_resolver: &CellResolver,
@@ -1123,7 +1135,7 @@ pub fn generate_build_report(
     )
 }
 
-pub fn generate_bxl_build_report(
+pub fn write_bxl_build_report(
     opts: BuildReportOpts,
     artifact_fs: &ArtifactFs,
     cell_resolver: &CellResolver,

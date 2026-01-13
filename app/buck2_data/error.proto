@@ -372,6 +372,7 @@ enum ErrorTag {
   STARLARK_SERVER = 19000;
   INTERPRETER = 20000;
   KILL_ALL = 21000;
+  BUILD_REPORT = 11100;
 
   // Misc error conversions
   CLAP = 9001;

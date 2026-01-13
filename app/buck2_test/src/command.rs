@@ -28,7 +28,7 @@ use buck2_build_api::build::ConfiguredBuildEventVariant;
 use buck2_build_api::build::ProvidersToBuild;
 use buck2_build_api::build::build_configured_label;
 use buck2_build_api::build::build_report::build_report_opts;
-use buck2_build_api::build::build_report::generate_build_report;
+use buck2_build_api::build::build_report::write_build_report;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::run_info::FrozenRunInfo;
 use buck2_build_api::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue;
 use buck2_build_api::interpreter::rule_defs::provider::test_provider::TestProvider;
@@ -583,7 +583,7 @@ async fn test(
         let build_report_opts =
             build_report_opts(&mut ctx, &cell_resolver, build_opts, Default::default()).await?;
 
-        generate_build_report(
+        write_build_report(
             build_report_opts,
             &artifact_fs,
             &cell_resolver,

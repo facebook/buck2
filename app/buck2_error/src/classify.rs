@@ -280,6 +280,7 @@ fn tag_metadata(tag: ErrorTag) -> TagMetadata {
         ErrorTag::Interpreter => rank!(tier0),
         ErrorTag::StarlarkServer => rank!(tier0),
         ErrorTag::KillAll => rank!(tier0),
+        ErrorTag::BuildReport => rank!(tier0), // build report generation should never be an input error
 
         ErrorTag::InvalidEvent => rank!(tier0),
         ErrorTag::InvalidDigest => rank!(tier0),

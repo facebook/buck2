@@ -17,7 +17,7 @@ use async_trait::async_trait;
 use buck2_build_api::actions::artifact::get_artifact_fs::GetArtifactFs;
 use buck2_build_api::artifact_groups::ArtifactGroup;
 use buck2_build_api::build::build_report::BuildReportOpts;
-use buck2_build_api::build::build_report::generate_bxl_build_report;
+use buck2_build_api::build::build_report::write_bxl_build_report;
 use buck2_build_api::bxl::result::BxlResult;
 use buck2_build_api::bxl::result::PendingStreamingOutput;
 use buck2_build_api::bxl::types::BxlFunctionLabel;
@@ -183,7 +183,7 @@ impl BxlServerCommand {
             .collect();
 
         let serialized_build_report = self
-            .generate_build_report(&bxl_cmd_ctx, &mut dice_ctx, server_ctx, errors)
+            .write_build_report(&bxl_cmd_ctx, &mut dice_ctx, server_ctx, errors)
             .await?;
 
         Ok(BxlResponse {
@@ -440,7 +440,7 @@ impl BxlServerCommand {
         }
     }
 
-    async fn generate_build_report(
+    async fn write_build_report(
         &self,
         ctx: &BxlCommandContext<'_>,
         dice_ctx: &mut DiceTransaction,
@@ -468,7 +468,7 @@ impl BxlServerCommand {
                     .clone(),
             };
 
-            generate_bxl_build_report(
+            write_bxl_build_report(
                 build_report_opts,
                 &artifact_fs,
                 &ctx.cell_resolver,

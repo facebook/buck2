@@ -21,9 +21,9 @@ use buck2_build_api::build::ConfiguredBuildEventVariant;
 use buck2_build_api::build::HasCreateUnhashedSymlinkLock;
 use buck2_build_api::build::ProvidersToBuild;
 use buck2_build_api::build::build_report::build_report_opts;
-use buck2_build_api::build::build_report::generate_build_report;
 use buck2_build_api::build::build_report::initialize_streaming_build_report;
 use buck2_build_api::build::build_report::stream_build_report;
+use buck2_build_api::build::build_report::write_build_report;
 use buck2_build_api::build::detailed_aggregated_metrics::dice::HasDetailedAggregatedMetrics;
 use buck2_build_api::build::detailed_aggregated_metrics::types::DetailedAggregatedMetrics;
 use buck2_build_api::build::graph_properties::GraphPropertiesOptions;
@@ -502,7 +502,7 @@ async fn process_build_result(
         let build_report_opts =
             build_report_opts(&mut ctx, &cell_resolver, build_opts, graph_properties_opts).await?;
 
-        generate_build_report(
+        write_build_report(
             build_report_opts,
             &artifact_fs,
             &cell_resolver,
