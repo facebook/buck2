@@ -1144,6 +1144,10 @@ impl BuckTestOrchestrator<'_> {
         let stdout = ExecutionStream::Inline(std_streams.stdout);
         let stderr = ExecutionStream::Inline(std_streams.stderr);
 
+        // If we are shutting down, we may have terminated executions and caused
+        // the outcomes we are reporting (typically w/ a worker failure).
+        Self::require_alive(liveliness_observer.dupe()).await?;
+
         Ok(match status {
             CommandExecutionStatus::Success { execution_kind } => ExecuteData {
                 stdout,
@@ -1155,13 +1159,6 @@ impl BuckTestOrchestrator<'_> {
                 execution_kind: Some(execution_kind),
                 outputs,
             },
-            CommandExecutionStatus::WorkerFailure {
-                execution_kind: CommandExecutionKind::LocalWorker { .. },
-            } => {
-                return Err(ExecuteError::Cancelled(Cancelled {
-                    ..Default::default()
-                }));
-            }
             CommandExecutionStatus::Failure { execution_kind }
             | CommandExecutionStatus::WorkerFailure { execution_kind } => ExecuteData {
                 stdout,
