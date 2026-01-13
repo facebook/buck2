@@ -46,8 +46,15 @@ where
     }
 
     /// Construct without checking that the elements are sorted.
+    ///
+    /// # Safety
+    /// Caller must guarantee that `inner` is already sorted.
     #[inline]
     pub fn new_unchecked(inner: OrderedSet<T>) -> Self {
+        debug_assert!(
+            inner.is_sorted(),
+            "SortedSet::new_unchecked called with unsorted OrderedSet"
+        );
         Self { inner }
     }
 
@@ -93,11 +100,19 @@ where
         self.inner.get_index(index)
     }
 
-    /// Iterate over the union of two sets.
+    /// Return a sorted union of two `SortedSet`s.
     #[inline]
-    pub fn union<'a>(&'a self, other: &'a Self) -> impl Iterator<Item = &'a T> {
-        // TODO(nga): return sorted.
-        self.inner.union(&other.inner)
+    pub fn union(&self, other: &Self) -> SortedSet<T>
+    where
+        T: Clone,
+    {
+        let mut inner = OrderedSet::new();
+
+        inner.extend(self.inner.iter().cloned());
+        inner.extend(other.inner.iter().cloned());
+
+        inner.sort();
+        SortedSet { inner }
     }
 }
 
