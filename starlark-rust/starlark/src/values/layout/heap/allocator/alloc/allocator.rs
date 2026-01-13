@@ -255,10 +255,10 @@ mod tests {
         let mut expected_total_size_bytes = 0;
         let mut allocator = ChunkAllocator::default();
         for _ in 0..i {
-            let size = match rng.gen_range(0..=2) {
-                0 => rng.gen_range(0..10),
-                1 => rng.gen_range(0..100),
-                2 => rng.gen_range(0..1000),
+            let size = match rng.random_range(0..=2) {
+                0 => rng.random_range(0..10),
+                1 => rng.random_range(0..100),
+                2 => rng.random_range(0..1000),
                 _ => unreachable!(),
             };
             let Some(size) =

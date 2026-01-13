@@ -268,7 +268,8 @@ prost-types = "0.13.4"
 protoc-bin-vendored = "3.0.0"
 psutil = "3.2"
 quote = "1.0.3"
-rand = { version = "0.8.4", features = ["small_rng"] }
+rand = { version = "0.9", features = ["small_rng"] }
+rand_08 = { package = "rand", version = "0.8.4", features = ["small_rng"] }
 rand_chacha = "0.3"
 rand_distr = "0.4"
 ref-cast = "1.0.0"

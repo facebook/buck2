@@ -90,7 +90,7 @@ impl EventLogOptions {
     fn random_string() -> String {
         let mut s = String::with_capacity(10);
         for _ in 0..10 {
-            s.push(rand::thread_rng().gen_range('a'..='z'));
+            s.push(rand::rng().random_range('a'..='z'));
         }
         s
     }

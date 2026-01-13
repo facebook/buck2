@@ -48,8 +48,8 @@ use futures::FutureExt;
 use futures::pin_mut;
 use futures::stream::Stream;
 use futures::stream::StreamExt;
-use rand::distributions::Alphanumeric;
-use rand::distributions::DistString;
+use rand::distr::Alphanumeric;
+use rand::distr::SampleString;
 use tokio::sync::mpsc;
 use tokio::sync::oneshot;
 use tokio_stream::wrappers::UnboundedReceiverStream;
@@ -403,7 +403,7 @@ impl MiniperfContainer {
     }
 
     fn allocate_output_path(&self) -> AbsNormPathBuf {
-        let name = Alphanumeric.sample_string(&mut rand::thread_rng(), 16);
+        let name = Alphanumeric.sample_string(&mut rand::rng(), 16);
         self.output_dir
             .join(ForwardRelativePath::unchecked_new(&name))
     }

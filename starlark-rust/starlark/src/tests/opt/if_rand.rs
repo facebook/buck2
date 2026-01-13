@@ -317,7 +317,7 @@ fn max_depth_for_iter(i: usize) -> usize {
 
 fn random_expr(rng: &mut SmallRng, max_depth: usize) -> TestExpr {
     fn random_simple_expr(rng: &mut SmallRng) -> TestExpr {
-        match rng.gen_range(0..4) {
+        match rng.random_range(0..4) {
             0 => TestExpr::Const(true),
             1 => TestExpr::Const(false),
             2 => TestExpr::Count(true),
@@ -329,7 +329,7 @@ fn random_expr(rng: &mut SmallRng, max_depth: usize) -> TestExpr {
     if max_depth == 0 {
         random_simple_expr(rng)
     } else {
-        match rng.gen_range(0..4) {
+        match rng.random_range(0..4) {
             0 => random_simple_expr(rng),
             1 => TestExpr::Not(Box::new(random_expr(rng, max_depth - 1))),
             2 => TestExpr::BinOp(

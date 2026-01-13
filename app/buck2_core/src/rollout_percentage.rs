@@ -59,7 +59,7 @@ impl RolloutPercentage {
                     }
                 }
             }
-            Inner::Rate(pct) => rand::thread_rng().r#gen::<f64>() < pct,
+            Inner::Rate(pct) => rand::rng().random::<f64>() < pct,
             Inner::Bool(b) => b,
         }
     }
@@ -139,8 +139,8 @@ fn rate(val: f64) -> buck2_error::Result<f64> {
 #[cfg(test)]
 mod tests {
     use assert_matches::assert_matches;
-    use rand::distributions::Alphanumeric;
-    use rand::distributions::DistString;
+    use rand::distr::Alphanumeric;
+    use rand::distr::SampleString;
 
     use super::*;
 
@@ -167,7 +167,7 @@ mod tests {
     fn test_roll() {
         let hostname = || {
             Some(OsString::from(
-                Alphanumeric.sample_string(&mut rand::thread_rng(), 16),
+                Alphanumeric.sample_string(&mut rand::rng(), 16),
             ))
         };
 

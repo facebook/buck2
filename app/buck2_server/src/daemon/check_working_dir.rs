@@ -8,8 +8,8 @@
  * above-listed licenses.
  */
 
-use rand::distributions::Alphanumeric;
-use rand::distributions::DistString;
+use rand::distr::Alphanumeric;
+use rand::distr::SampleString;
 
 /// Verify that our working directory is still here. We often run on Eden, and if Eden restarts
 /// ungracefully, our working dir will become unreadable and we are just about done.
@@ -19,7 +19,7 @@ pub fn check_working_dir() -> buck2_error::Result<()> {
 
     // Looks like we need to get a name that the OS isn't likely to have seen before for this to
     // work reliably.
-    let name = Alphanumeric.sample_string(&mut rand::thread_rng(), 16);
+    let name = Alphanumeric.sample_string(&mut rand::rng(), 16);
 
     let err = match fs::metadata(name) {
         Ok(..) => return Ok(()),

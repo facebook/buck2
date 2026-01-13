@@ -25,7 +25,7 @@ rust_library(
         "fbsource//third-party/rust:async-trait",
         "fbsource//third-party/rust:futures",
         "fbsource//third-party/rust:libc",
-        "fbsource//third-party/rust:rand_08",
+        "fbsource//third-party/rust:rand",
         "fbsource//third-party/rust:tokio",
         "fbsource//third-party/rust:tokio-stream",
         "fbsource//third-party/rust:tonic-0-12-3",

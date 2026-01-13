@@ -152,7 +152,7 @@ fn verify_current_daemon(daemon_dir: &DaemonDir) -> buck2_error::Result<()> {
 
 fn gen_auth_token() -> String {
     (0..20)
-        .map(|_| rand::thread_rng().gen_range('a'..='z'))
+        .map(|_| rand::rng().random_range('a'..='z'))
         .collect()
 }
 
