@@ -90,6 +90,10 @@ impl StarlarkEvalKind {
         for c in ",(): ".chars() {
             path = path.replace(c, "_");
         }
+        path = path.replace("//", "/");
+        if let Some(p) = path.strip_suffix("/") {
+            path = p.to_owned();
+        }
 
         ForwardRelativePathBuf::new(path)
     }
