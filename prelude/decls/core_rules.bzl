@@ -240,17 +240,68 @@ config_setting = prelude_rule(
 
 configuration_alias = prelude_rule(
     name = "configuration_alias",
-    docs = "",
-    examples = None,
+    docs = """
+        `configuration_alias()` acts like `alias()` but for configuration targets.
+
+        The `configuration_alias` itself is a configuration rule and the `actual` attribute
+        is expected to be a target defined by a configuration rule (such as `constraint`,
+        `constraint_setting`, `constraint_value`, `config_setting`, or `platform`).
+
+        Unlike regular `alias()`, `configuration_alias()` can be used wherever configuration
+        targets are expected, such as in `select()` keys or `platform.constraint_values`.
+
+        This rule is particularly useful for creating backwards-compatible aliases to constraint
+        values defined using the unified `constraint()` rule, where values are referenced via
+        subtargets (e.g., `:os[linux]`).
+    """,
+    examples = """
+        ```
+        # Define a constraint with multiple values using the unified constraint rule
+        constraint(
+            name = "os",
+            values = ["linux", "macos", "windows", "none"],
+            default = "none",
+        )
+
+        configuration_alias(
+            name = "linux",
+            actual = ":os[linux]",
+        )
+
+        configuration_alias(
+            name = "macos",
+            actual = ":os[macos]",
+        )
+
+        # The alias can be used in platform definitions
+        platform(
+            name = "linux_platform",
+            constraint_values = [
+                ":linux",  # Using the alias instead of :os[linux]
+            ],
+        )
+
+        # The alias can be used in select() expressions
+        genrule(
+            name = "my_rule",
+            cmd = select({
+                ":linux": "echo linux",
+                ":macos": "echo macos",
+                ":os[none]": "echo other",  # Can also use subtarget directly
+            }),
+            out = "out.txt",
+        )
+        ```
+    """,
     further = None,
     attrs = (
         # @unsorted-dict-items
         {
-            # configuration_alias acts like alias but for configuration rules.
-
-            # The configuration_alias itself is a configuration rule and the `actual` argument is
-            # expected to be a configuration rule as well.
-            "actual": attrs.dep(pulls_and_pushes_plugins = plugins.All),
+            "actual": attrs.dep(pulls_and_pushes_plugins = plugins.All, doc = """
+                The target to alias. This should be a target defined by a configuration rule
+                such as `constraint`, `constraint_setting`, `constraint_value`, `config_setting`,
+                or `platform`.
+            """),
         }
     ),
 )
