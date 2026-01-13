@@ -24,6 +24,7 @@ load("@prelude//decls:toolchains_common.bzl", "toolchains_common")
 load("@prelude//os_lookup:defs.bzl", "Os", "OsLookup")
 load("@prelude//rust:rust_toolchain.bzl", "RustToolchainInfo")
 load("@prelude//rust:targets.bzl", "targets")
+load("@prelude//rust/tools:attrs.bzl", "RustInternalToolsInfo")
 load(
     "@prelude//rust/tools:buildscript_platform.bzl",
     "buildscript_platform_constraints",
@@ -39,7 +40,10 @@ load(
     "get_reindeer_platform_names",
     "get_reindeer_platforms",
 )
-load(":context.bzl", "DepCollectionContext")
+load(
+    ":context.bzl",
+    "DepCollectionContext",
+)
 load(
     ":link_info.bzl",
     "DEFAULT_STATIC_LINK_STRATEGY",
@@ -65,21 +69,27 @@ def _make_rustc_shim(ctx: AnalysisContext, cwd: Artifact) -> cmd_args:
         )
         deps = gather_explicit_sysroot_deps(dep_ctx)
         deps = resolve_rust_deps_inner(ctx, deps)
-        dep_args, _ = dependency_args(
+        dep_args, dep_argsfiles, _ = dependency_args(
             ctx = ctx,
-            compile_ctx = None,
+            internal_tools_info = ctx.attrs._rust_internal_tools_toolchain[RustInternalToolsInfo],
+            transitive_dependency_dirs = set(),
             toolchain_info = toolchain_info,
             deps = deps,
             subdir = "any",
             dep_link_strategy = DEFAULT_STATIC_LINK_STRATEGY,
             dep_metadata_kind = MetadataKind("full"),
             is_rustdoc_test = False,
+            cwd = cwd,
         )
 
         null_path = "nul" if ctx.attrs._exec_os_type[OsLookup].os == Os("windows") else "/dev/null"
         dep_args = cmd_args("--sysroot=" + null_path, dep_args, relative_to = cwd)
         dep_file, _ = ctx.actions.write("rustc_dep_file", dep_args, allow_args = True)
-        sysroot_args = cmd_args("@", dep_file, delimiter = "", hidden = dep_args)
+        sysroot_args = cmd_args(
+            cmd_args("@", dep_file, delimiter = "", hidden = dep_args),
+            # add dep_argsfiles as a seperate argument because rustc does NOT support nested @argsfiles
+            dep_argsfiles,
+        )
     else:
         sysroot_args = cmd_args()
 
@@ -183,6 +193,9 @@ _cargo_buildscript_rule = rule(
         "rustc_link_search": attrs.bool(default = False),
         "version": attrs.string(),
         "_exec_os_type": buck.exec_os_type_arg(),
+        "_rust_internal_tools_toolchain": attrs.default_only(
+            attrs.toolchain_dep(default = "prelude//rust/tools:internal_tools_toolchain"),
+        ),
         "_rust_toolchain": toolchains_common.rust(),
     },
     # Always empty, but needed to prevent errors

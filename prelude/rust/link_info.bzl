@@ -135,30 +135,19 @@ RustArtifact = record(
     crate = field(CrateName),
 )
 
-def _project_dynamic_artifacts(dep: RustArtifact) -> cmd_args:
-    if dep.crate.dynamic:
-        return cmd_args(dep.artifact)
-    else:
-        return cmd_args()
+def _project_artifacts(dep: RustArtifact) -> (Artifact, Artifact | None):
+    return (dep.artifact, dep.crate.dynamic)
 
-def _project_dynamic_crate_names(dep: RustArtifact) -> cmd_args:
-    return cmd_args(dep.crate.dynamic or [])
-
-def _has_dynamic_artifacts(children: list[bool], dep: [RustArtifact, None]) -> bool:
-    return (dep and dep.crate.dynamic != None) or any(children)
-
-def _has_simple_artifacts(children: list[bool], dep: [RustArtifact, None]) -> bool:
-    return (dep and dep.crate.dynamic == None) or any(children)
+def _project_artifacts_args(dep: RustArtifact) -> Artifact:
+    return dep.artifact
 
 # Set of RustArtifact.
 TransitiveDeps = transitive_set(
     args_projections = {
-        "dynamic_artifacts": _project_dynamic_artifacts,
-        "dynamic_crate_names": _project_dynamic_crate_names,
+        "artifacts_args": _project_artifacts_args,
     },
-    reductions = {
-        "has_dynamic_artifacts": _has_dynamic_artifacts,
-        "has_simple_artifacts": _has_simple_artifacts,
+    json_projections = {
+        "artifacts": _project_artifacts,
     },
 )
 

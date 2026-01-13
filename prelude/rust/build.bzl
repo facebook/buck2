@@ -56,6 +56,7 @@ load(
 load("@prelude//linking:strip.bzl", "strip_debug_info")
 load("@prelude//linking:types.bzl", "Linkage")
 load("@prelude//os_lookup:defs.bzl", "OsLookup")
+load("@prelude//rust/tools:attrs.bzl", "RustInternalToolsInfo")
 load("@prelude//utils:argfile.bzl", "at_argfile")
 load("@prelude//utils:cmd_script.bzl", "cmd_script")
 load(
@@ -793,22 +794,29 @@ def rust_compile(
 # -Ldependency=<dir> for transitive dependencies
 # For native dependencies, we use -Clink-arg=@argsfile
 #
-# Second element of returned tuple is a mapping from crate names back to target
+# Second element of returned tuple is an @argsfile containing the -Ldependency=<dir> for transitive dependencies.
+# It is a seperate from the first element because some commands (e.g., rustc) do NOT support nested @argsfiles.
+#
+# Third element of returned tuple is a mapping from crate names back to target
 # label, needed for applying autofixes for rustc's unused_crate_dependencies
 # lint by tracing Rust crate names in the compiler diagnostic back to which
 # dependency entry in the BUCK file needs to be removed.
 #
 # The `compile_ctx` may be omitted if there are no dependencies with dynamic
 # crate names.
+#
+# cwd: Optional directory the @argsfiles contents will be relative to (e.g., relative -Ldependency paths for rustc).
 def dependency_args(
         ctx: AnalysisContext,
-        compile_ctx: CompileContext | None,
+        internal_tools_info: RustInternalToolsInfo,
+        transitive_dependency_dirs: set[Artifact],
         toolchain_info: RustToolchainInfo,
         deps: list[RustDependency],
         subdir: str,
         dep_link_strategy: LinkStrategy,
         dep_metadata_kind: MetadataKind,
-        is_rustdoc_test: bool) -> (cmd_args, list[(CrateName, Label)]):
+        is_rustdoc_test: bool,
+        cwd: Artifact | None = None) -> (cmd_args, cmd_args, list[(CrateName, Label)]):
     args = cmd_args()
     transitive_deps = []
     crate_targets = []
@@ -847,73 +855,61 @@ def dependency_args(
 
     prefix = "{}-deps{}".format(subdir, dep_metadata_kind.value)
     transitive_deps = ctx.actions.tset(TransitiveDeps, children = transitive_deps)
-    if transitive_deps.reduce("has_simple_artifacts"):
-        args.add(simple_symlinked_dirs(ctx, prefix, transitive_deps))
-    if transitive_deps.reduce("has_dynamic_artifacts"):
-        args.add(dynamic_symlinked_dirs(ctx, compile_ctx, prefix, transitive_deps))
+    argsfile = symlinked_dirs(ctx, internal_tools_info, transitive_dependency_dirs, prefix, transitive_deps, cwd)
 
-    return (args, crate_targets)
+    return (args, argsfile, crate_targets)
 
-def simple_symlinked_dirs(
+def symlinked_dirs(
         ctx: AnalysisContext,
+        internal_tools_info: RustInternalToolsInfo,
+        transitive_dependency_dirs: set,
         prefix: str,
-        transitive_deps: TransitiveDeps) -> cmd_args:
-    # Add as many -Ldependency dirs as we need to avoid name conflicts
-    deps_dirs = [{}]
-    for dep in transitive_deps.traverse():
-        if not dep.crate.dynamic:
-            name = dep.artifact.basename
-            if name in deps_dirs[-1]:
-                deps_dirs.append({})
-            deps_dirs[-1][name] = dep.artifact
+        transitive_deps: TransitiveDeps,
+        cwd: Artifact | None) -> cmd_args:
+    name = "{}-symlinked_dirs".format(prefix)
 
-    symlinked_dirs = []
-    for idx, srcs in enumerate(deps_dirs):
-        name = "{}-{}".format(prefix, idx)
-        symlinked_dirs.append(ctx.actions.symlinked_dir(name, srcs))
-
-    return cmd_args(symlinked_dirs, format = "-Ldependency={}")
-
-def dynamic_symlinked_dirs(
-        ctx: AnalysisContext,
-        compile_ctx: CompileContext,
-        prefix: str,
-        transitive_deps: TransitiveDeps) -> cmd_args:
-    name = "{}-dyn".format(prefix)
     transitive_dependency_dir = ctx.actions.declare_output(name, dir = True)
 
-    artifacts = transitive_deps.project_as_args("dynamic_artifacts")
-    crate_names = transitive_deps.project_as_args("dynamic_crate_names")
+    artifacts = transitive_deps.project_as_json("artifacts")
 
     # Pass the list of rlibs to transitive_dependency_symlinks.py through a file
     # because there can be a lot of them. This avoids running out of command
     # line length, particularly on Windows.
     artifacts_json = ctx.actions.write_json(
-        ctx.actions.declare_output("{}-dyn.json".format(prefix)),
-        [
-            cmd_args(
-                artifacts,
-                ignore_artifacts = True,
-                relative_to = transitive_dependency_dir.project("i"),
-            ),
-            crate_names,
-        ],
+        ctx.actions.declare_output("{}-symlinked_dirs.json".format(prefix)),
+        artifacts,
         with_inputs = True,
         pretty = True,
     )
 
+    arguments = [
+        internal_tools_info.transitive_dependency_symlinks_tool,
+        cmd_args(ctx.label.name, format = "--name={}"),
+        cmd_args(transitive_dependency_dir.as_output(), format = "--out-dir={}"),
+        cmd_args(artifacts_json, format = "--artifacts={}"),
+    ]
+
+    if cwd:
+        arguments.append(cmd_args(
+            transitive_dependency_dir.as_output(),
+            format = "--out-dir-relative-to-cwd={}",
+            relative_to = cwd,
+        ))
+
     ctx.actions.run(
-        [
-            compile_ctx.internal_tools_info.transitive_dependency_symlinks_tool,
-            cmd_args(transitive_dependency_dir.as_output(), format = "--out-dir={}"),
-            cmd_args(artifacts_json, format = "--artifacts={}"),
-        ],
+        arguments,
         category = "deps",
-        identifier = str(len(compile_ctx.transitive_dependency_dirs)),
+        identifier = str(len(transitive_dependency_dirs)),
     )
 
-    compile_ctx.transitive_dependency_dirs.add(transitive_dependency_dir)
-    return cmd_args(transitive_dependency_dir, format = "@{}/dirs", hidden = artifacts)
+    transitive_dependency_dirs.add(transitive_dependency_dir)
+
+    return cmd_args(
+        # Reference the directory Artifact (not the dirs file), so all of its childern are included.
+        transitive_dependency_dir,
+        format = "@{}/dirs",
+        hidden = transitive_deps.project_as_args("artifacts_args"),
+    )
 
 def _lintify(flag: str, clippy: bool, lints: list[ResolvedStringWithMacros]) -> cmd_args:
     return cmd_args(
@@ -1071,9 +1067,10 @@ def _compute_common_args(
         if dep_metadata_kind == MetadataKind("link"):
             dep_metadata_kind = MetadataKind("full")
 
-    dep_args, crate_map = dependency_args(
+    dep_args, dep_argsfiles, crate_map = dependency_args(
         ctx = ctx,
-        compile_ctx = compile_ctx,
+        internal_tools_info = compile_ctx.internal_tools_info,
+        transitive_dependency_dirs = compile_ctx.transitive_dependency_dirs,
         toolchain_info = compile_ctx.toolchain_info,
         deps = resolve_rust_deps(ctx, dep_ctx),
         subdir = subdir,
@@ -1081,6 +1078,9 @@ def _compute_common_args(
         dep_metadata_kind = dep_metadata_kind,
         is_rustdoc_test = is_rustdoc_test,
     )
+
+    # Add dep_argsfiles to dep_args becuase rustc_action supports nested @argfiles
+    dep_args.add(dep_argsfiles)
 
     if crate_type == CrateType("proc-macro"):
         dep_args.add("--extern=proc_macro")
