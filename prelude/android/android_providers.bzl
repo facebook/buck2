@@ -278,6 +278,14 @@ AndroidPrebuiltAarIntellijInfo = provider(
     },
 )
 
+AndroidResourceRDotJavaInfo = provider(
+    # @unsorted-dict-items
+    doc = "Exposes the compiled R.jar for android_resource targets, used for autodeps indexing",
+    fields = {
+        "dummy_r_dot_java": provider_field(Artifact | None, default = None),
+    },
+)
+
 def merge_android_packageable_info(
         label: Label,
         actions: AnalysisActions,
