@@ -117,9 +117,7 @@ def get_otp_applications() -> List[Dict[str, str]]:
             parts = line.split("-", 1)
             if len(parts) == 2:
                 name, version = parts
-                # Skip erts - it's not an application
-                if name != "erts":
-                    applications.append({"name": name, "version": version})
+                applications.append({"name": name, "version": version})
 
     # Sort by name for consistent output
     applications.sort(key=lambda x: x["name"])

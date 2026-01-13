@@ -137,6 +137,7 @@ ErtsToolchainInfo = provider(
 
 ErlangErrorHandlers = record(
     erlc = field(typing.Callable[[ActionErrorCtx], list[ActionSubError]]),
+    extract_otp_app = field(typing.Callable[[ActionErrorCtx], list[ActionSubError]]),
 )
 
 # toolchain provider
