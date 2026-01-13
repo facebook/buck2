@@ -152,6 +152,16 @@ pub(crate) fn analysis_actions_methods_run(methods: &mut MethodsBuilder) {
     ///       rather than all tagged inputs
     ///     * Depfiles must use Makefile syntax: `output: input1 input2 input3`
     ///     * For complete documentation and examples, see [`ctx.actions.artifact_tag()`](../AnalysisActions#analysisactionsartifact_tag)
+    /// * `allow_offline_output_cache`: enables caching of this action's outputs for offline builds (default: `false`)
+    ///     * When `true`, action outputs are cached during trace builds (via `buck2 debug trace-io`)
+    ///       and restored during offline builds without re-executing the action
+    ///     * Intended for actions that read from the network (e.g., downloads, remote artifact fetches)
+    ///       which cannot execute in offline build environments where network access is restricted
+    ///     * During trace builds: outputs are copied to `buck-out/offline-cache/` after successful execution
+    ///     * During offline builds: if all outputs exist in offline cache, they are restored without
+    ///       running the action; otherwise the action executes normally (graceful fallback)
+    ///     * Requires `buck2.use_network_action_output_cache=true` config to take effect
+    ///     * Example use case: caching network downloads in containerized offline build environments
     /// * The `prefer_local`, `prefer_remote` and `local_only` options allow selecting where the
     /// action should run if the executor selected for this target is a hybrid executor.
     ///     * All those options disable concurrent execution: the action will run on the preferred
@@ -243,6 +253,7 @@ pub(crate) fn analysis_actions_methods_run(methods: &mut MethodsBuilder) {
         #[starlark(require = named, default = false)] incremental_remote_outputs: bool,
         #[starlark(require = named, default = NoneOr::None)] allow_cache_upload: NoneOr<bool>,
         #[starlark(require = named, default = false)] allow_dep_file_cache_upload: bool,
+        #[starlark(require = named, default = false)] allow_offline_output_cache: bool,
         #[starlark(require = named, default = false)] force_full_hybrid_if_capable: bool,
         #[starlark(require = named)] exe: Option<
             Either<ValueOf<'v, &'v WorkerRunInfo<'v>>, ValueOf<'v, &'v RunInfo<'v>>>,
@@ -558,6 +569,7 @@ pub(crate) fn analysis_actions_methods_run(methods: &mut MethodsBuilder) {
             incremental_remote_outputs,
             allow_cache_upload: allow_cache_upload.into_option(),
             allow_dep_file_cache_upload,
+            allow_offline_output_cache,
             force_full_hybrid_if_capable,
             unique_input_inodes,
             remote_execution_dependencies: re_dependencies,

@@ -22,6 +22,7 @@ use buck2_build_api::actions::ActionExecutionCtx;
 use buck2_build_api::actions::UnregisteredAction;
 use buck2_build_api::actions::box_slice_set::BoxSliceSet;
 use buck2_build_api::actions::execute::action_execution_target::ActionExecutionTarget;
+use buck2_build_api::actions::execute::action_executor::ActionExecutionKind;
 use buck2_build_api::actions::execute::action_executor::ActionExecutionMetadata;
 use buck2_build_api::actions::execute::action_executor::ActionOutputs;
 use buck2_build_api::actions::execute::error::ExecuteError;
@@ -48,6 +49,7 @@ use buck2_build_api::interpreter::rule_defs::cmd_args::space_separated::SpaceSep
 use buck2_build_api::interpreter::rule_defs::cmd_args::value_as::ValueAsCommandLineLike;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::worker_info::FrozenWorkerInfo;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::worker_info::WorkerInfo;
+use buck2_common::io::trace::TracingIoProvider;
 use buck2_core::category::Category;
 use buck2_core::category::CategoryRef;
 use buck2_core::content_hash::ContentBasedPathHash;
@@ -66,6 +68,7 @@ use buck2_execute::execute::action_digest::ActionDigest;
 use buck2_execute::execute::action_digest_and_blobs::ActionDigestAndBlobs;
 use buck2_execute::execute::cache_uploader::IntoRemoteDepFile;
 use buck2_execute::execute::cache_uploader::force_cache_upload;
+use buck2_execute::execute::command_executor::ActionExecutionTimingData;
 use buck2_execute::execute::dep_file_digest::DepFileDigest;
 use buck2_execute::execute::environment_inheritance::EnvironmentInheritance;
 use buck2_execute::execute::manager::CommandExecutionManager;
@@ -119,6 +122,7 @@ use starlark::values::dict::DictType;
 use starlark::values::starlark_value;
 
 use self::dep_files::DepFileBundle;
+use crate::actions::impls::offline;
 use crate::actions::impls::run::dep_files::DepFilesCommandLineVisitor;
 use crate::actions::impls::run::dep_files::RunActionDepFiles;
 use crate::actions::impls::run::dep_files::make_dep_file_bundle;
@@ -235,6 +239,7 @@ pub(crate) struct UnregisteredRunAction {
     pub(crate) incremental_remote_outputs: bool,
     pub(crate) allow_cache_upload: Option<bool>,
     pub(crate) allow_dep_file_cache_upload: bool,
+    pub(crate) allow_offline_output_cache: bool,
     pub(crate) force_full_hybrid_if_capable: bool,
     pub(crate) unique_input_inodes: bool,
     pub(crate) remote_execution_dependencies: Vec<RemoteExecutorDependency>,
@@ -1302,6 +1307,34 @@ impl<'v> CommandLineArtifactVisitor<'v> for RunActionVisitor<'v> {
     }
 }
 
+impl RunAction {
+    /// Execute for offline builds by restoring from cache.
+    /// Returns None if cache miss, Some if hit.
+    async fn execute_for_offline(
+        &self,
+        ctx: &mut dyn ActionExecutionCtx,
+    ) -> buck2_error::Result<Option<(ActionOutputs, ActionExecutionMetadata)>> {
+        // Collect references to all outputs
+        let output_refs: Vec<&BuildArtifact> = self.outputs.iter().collect();
+
+        // Try to restore ALL outputs - any miss = total miss
+        match offline::declare_copy_from_offline_cache(ctx, &output_refs).await {
+            Ok(outputs) => Ok(Some((
+                outputs,
+                ActionExecutionMetadata {
+                    execution_kind: ActionExecutionKind::Deferred,
+                    timing: ActionExecutionTimingData::default(),
+                    input_files_bytes: None,
+                },
+            ))),
+            Err(_) => {
+                // Cache miss - return None to fall through to normal execution
+                Ok(None)
+            }
+        }
+    }
+}
+
 #[async_trait]
 impl Action for RunAction {
     fn kind(&self) -> buck2_data::ActionKind {
@@ -1442,6 +1475,16 @@ impl Action for RunAction {
         &self,
         ctx: &mut dyn ActionExecutionCtx,
     ) -> Result<(ActionOutputs, ActionExecutionMetadata), ExecuteError> {
+        // Check offline cache first if parameter enabled
+        if self.inner.allow_offline_output_cache
+            && ctx.run_action_knobs().use_network_action_output_cache
+        {
+            if let Some((outputs, metadata)) = self.execute_for_offline(ctx).await? {
+                return Ok((outputs, metadata));
+            }
+            // Cache miss - fall through to normal execution
+        }
+
         let (
             mut result,
             mut dep_file_bundle,
@@ -1517,6 +1560,24 @@ impl Action for RunAction {
             Some(input_files_bytes),
             incremental_kind,
         )?;
+
+        // Cache outputs if tracing and parameter enabled
+        if self.inner.allow_offline_output_cache {
+            let io_provider = ctx.io_provider();
+            if let Some(tracer) = TracingIoProvider::from_io(&*io_provider) {
+                for output in self.outputs.iter() {
+                    if let Some(value) = outputs.get(output.get_path()) {
+                        let offline_cache_path = offline::declare_copy_to_offline_output_cache(
+                            ctx,
+                            output,
+                            value.dupe(),
+                        )
+                        .await?;
+                        tracer.add_buck_out_entry(offline_cache_path);
+                    }
+                }
+            }
+        }
 
         populate_dep_files(ctx, dep_file_bundle, &outputs, was_locally_executed).await?;
 

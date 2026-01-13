@@ -469,6 +469,99 @@ async def test_manifest_lists_are_sorted(buck: Buck) -> None:
     )
 
 
+@buck_test(
+    skip_for_os=["windows"],
+    extra_buck_config={"buck2": {"sqlite_materializer_state": "false"}},
+)
+@env("BUCK_LOG", "buck2_execute_impl::materializers=trace")
+async def test_run_action_with_allow_offline_output_cache(buck: Buck) -> None:
+    """Test RunAction caching when allow_offline_output_cache=True."""
+    hg_init(cwd=buck.cwd)
+
+    target = "root//run_action_cache:cached_target"
+
+    # Build with trace mode to populate offline cache
+    await buck.debug("trace-io", "enable")
+    result = await buck.build(target)
+    print("stderr:", result.stderr)
+    assert "/offline-cache/" in result.stderr, (
+        "materializer should declare offline-cache materialization"
+    )
+
+    # Get output path
+    output_path = result.get_build_report().output_for_target(target)
+
+    # Compute offline cache path (hacky but same as other tests)
+    offline_cache_path = (
+        Path(str(output_path).replace("/gen/", "/offline-cache/")).parent / "out.txt"
+    )
+    assert not offline_cache_path.exists(), (
+        "offline cache path should not exist before manifest export"
+    )
+
+    # Export manifest to materialize offline-cache
+    await buck.debug("trace-io", "export-manifest")
+    assert offline_cache_path.exists(), (
+        "offline cache path should exist after manifest export"
+    )
+
+    await buck.kill()
+
+    # Rebuild with offline cache enabled
+    result = await buck.build(
+        target,
+        "--config",
+        "buck2.use_network_action_output_cache=true",
+        "--no-remote-cache",
+        "--local-only",
+    )
+    assert "LocalCopy" in result.stderr, "offline-cache path should be copied to output"
+    assert output_path.exists(), "action output path should exist"
+
+
+@buck_test(skip_for_os=["windows"])
+async def test_run_action_without_parameter_does_not_cache(buck: Buck) -> None:
+    """Test that RunAction without allow_offline_output_cache doesn't cache."""
+    hg_init(cwd=buck.cwd)
+
+    await buck.debug("trace-io", "enable")
+    await buck.build("root//run_action_cache:uncached_target")
+    out = await buck.debug("trace-io", "export-manifest")
+    manifest = json.loads(out.stdout)
+
+    # Verify that offline-cache paths do NOT include uncached_target
+    offline_cache_paths = [
+        path
+        for path in manifest["paths"]
+        if "/offline-cache/" in path and "uncached_target" in path
+    ]
+    assert len(offline_cache_paths) == 0, (
+        f"uncached target should not appear in offline-cache: {offline_cache_paths}"
+    )
+
+
+@buck_test(skip_for_os=["windows"])
+async def test_run_action_cache_includes_in_manifest(buck: Buck) -> None:
+    """Test that cached RunAction outputs appear in trace manifest."""
+    hg_init(cwd=buck.cwd)
+
+    await buck.debug("trace-io", "enable")
+    await buck.build("root//run_action_cache:cached_target")
+    out = await buck.debug("trace-io", "export-manifest")
+    manifest = json.loads(out.stdout)
+
+    assert any(
+        re.match(
+            r"buck-out/.+/offline-cache/root/.+/run_action_cache/__cached_target__/out.txt",
+            path,
+        )
+        is not None
+        for path in manifest["paths"]
+    ), "offline cache should contain cached run action output"
+
+    assert_buck_out_paths_materialized(buck.cwd, manifest["paths"])
+
+
 # No-op test for windows.
 @buck_test()
 async def test_noop(buck: Buck) -> None:
