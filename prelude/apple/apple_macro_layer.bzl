@@ -182,10 +182,20 @@ def apple_universal_executable_macro_impl(apple_universal_executable_rule = None
 
 # TODO: T197775809 Rename `target_sdk_version` to `minimum_os_version`
 def _move_attribute_value(old_name, new_name, kwargs):
-    if old_name in kwargs:
-        if new_name in kwargs:
-            fail("Cannot specify both `{}` and `{} (kwargs: {})`".format(new_name, old_name, kwargs))
-        kwargs[new_name] = kwargs.pop(old_name)
+    # `None` values can appear due to passing default/named args
+    old_value = kwargs.pop(old_name, None)
+    if old_value == None:
+        return
+
+    new_value = kwargs.get(new_name, None)
+    if new_value != None and old_value != new_value:
+        fail("Cannot specify both `{old_name}={old_value}` and `{new_name}={new_value}`".format(
+            old_name = old_name,
+            old_value = old_value,
+            new_name = new_name,
+            new_value = new_value,
+        ))
+    kwargs[new_name] = old_value
 
 def _transform_propagated_target_sdk_version_to_minimum_os_version(kwargs):
     # During the transition periods, allow either `minimum_os_version` or
