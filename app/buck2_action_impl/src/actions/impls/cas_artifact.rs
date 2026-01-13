@@ -139,7 +139,7 @@ impl CasArtifactAction {
         &self,
         ctx: &mut dyn ActionExecutionCtx,
     ) -> buck2_error::Result<(ActionOutputs, ActionExecutionMetadata)> {
-        let outputs = offline::declare_copy_from_offline_cache(ctx, &self.output).await?;
+        let outputs = offline::declare_copy_from_offline_cache(ctx, &[&self.output]).await?;
 
         Ok((
             outputs,
