@@ -184,7 +184,7 @@ psutil = "3.2"
 ptyprocess = "0.4"
 quickcheck = "1.0"
 quote = "1.0.3"
-rand = { version = "0.8.4", features = ["small_rng"] }
+rand_08 = { package = "rand", version = "0.8", features = ["small_rng"] }
 rand_chacha = "0.3"
 rand_distr = "0.4"
 ref-cast = "1.0.0"
