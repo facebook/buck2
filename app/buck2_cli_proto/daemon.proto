@@ -471,9 +471,9 @@ message BuildRequest {
   BuildProviders build_providers = 3;
 
   message ResponseOptions {
+    reserved 2;
     // Include target outputs? [default: false]
     bool return_outputs = 1;
-    bool return_default_other_outputs = 2;
     // TODO(rafaelc): bool return_targets_without_data
     // TODO(rafaelc): bool return_run_args
   }

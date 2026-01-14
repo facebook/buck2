@@ -46,7 +46,6 @@ pub(crate) struct BuildErrors {
 #[derive(Copy, Clone, Dupe)]
 pub(crate) struct ResultReporterOptions {
     pub(crate) return_outputs: bool,
-    pub(crate) return_default_other_outputs: bool,
 }
 
 /// Collects build results into a Result<Vec<proto::BuildTarget>, buck2_error::Errors>. If any targets
@@ -136,9 +135,7 @@ impl<'a> ResultReporter<'a> {
                 continue;
             }
 
-            if !self.options.return_default_other_outputs
-                && matches!(provider_type, BuildProviderType::DefaultOther)
-            {
+            if matches!(provider_type, BuildProviderType::DefaultOther) {
                 continue;
             }
 

@@ -492,7 +492,6 @@ async fn process_build_result(
         server_ctx.cert_state(),
         ResultReporterOptions {
             return_outputs: response_options.return_outputs,
-            return_default_other_outputs: response_options.return_default_other_outputs,
         },
         &build_result,
     )

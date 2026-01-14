@@ -241,7 +241,6 @@ impl StreamingCommand for BuildCommand {
         ctx: &mut ClientCommandContext<'_>,
         events_ctx: &mut EventsCtx,
     ) -> ExitResult {
-        let show_default_other_outputs = false;
         let context = ctx.client_context(matches, &self)?;
 
         let result = buckd
@@ -259,7 +258,6 @@ impl StreamingCommand for BuildCommand {
                     response_options: Some(ResponseOptions {
                         return_outputs: self.show_output.format().is_some()
                             || self.output_path.is_some(),
-                        return_default_other_outputs: show_default_other_outputs,
                     }),
                     build_opts: Some(self.build_opts.to_proto()),
                     final_artifact_materializations: self.materializations.to_proto() as i32,
@@ -329,7 +327,6 @@ impl StreamingCommand for BuildCommand {
                     response.build_targets,
                     self.show_output.is_full().then_some(response.project_root),
                     format,
-                    show_default_other_outputs,
                 )?;
             }
 
@@ -379,7 +376,6 @@ pub(crate) fn print_outputs(
     targets: Vec<BuildTarget>,
     root_path: Option<String>,
     format: PrintOutputsFormat,
-    show_all_outputs: bool,
 ) -> Result<(), ClientIoError> {
     let root_path = root_path.map(PathBuf::from);
     let mut print = PrintOutputs::new(out, root_path, format)?;
@@ -390,15 +386,13 @@ pub(crate) fn print_outputs(
             output
                 .providers
                 .as_ref()
-                .is_none_or(|p| show_all_outputs || (p.default_info && !p.other))
+                .is_none_or(|p| p.default_info && !p.other)
         });
 
         // only print the unconfigured target for now until we migrate everything to support
         // also printing configurations
-        if outputs.clone().count() > 1 && !show_all_outputs {
-            // We only print the default outputs when we don't `show_all_outputs`,
-            // which shouldn't have more than one output.
-            // (although we currently don't yet restrict this, but we should).
+        if outputs.clone().count() > 1 {
+            // FIXME(JakobDegen): Why exactly do we not show the path?
             print.output(&build_target.target, None)?;
             continue;
         }
