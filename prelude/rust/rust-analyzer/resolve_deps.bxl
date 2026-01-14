@@ -350,10 +350,58 @@ def resolve_targets_impl(ctx: bxl.Context) -> None:
     ctx.output.ensure_multiple(artifacts)
     ctx.output.print(ctx.output.ensure(artifact).abs_path())
 
+def _resolve_vendor_rust_libraries(ctx: bxl.Context, targets: bxl.UnconfiguredTargetSet) -> bxl.UnconfiguredTargetSet:
+    """Rust files in third-party/rust/vendor/ are owned by rust_filegroup targets,
+    but a rust_filegroup is just a set of files, without any information about
+    the crate.
+
+    For example:
+
+    file: third-party/rust/vendor/nix-0.30.1/src/fcntl.rs
+    owner: fbsource//third-party/rust/vendor/nix-0.30.1:srcs
+    library: fbsource//third-party/rust/vendor/nix:0.30.1
+
+    Look up the relevant rust_library by taking advantage of the fact that
+    target names follow a predictable pattern.
+
+    """
+    filegroups = ctx.uquery().kind("^rust_filegroup$", targets)
+
+    rust_libraries = utarget_set()
+    for fg in filegroups:
+        # E.g. third-party/rust/vendor/nix-0.30.1
+        package_path = fg.label.package
+
+        if not package_path.startswith("third-party/rust/vendor/"):
+            continue
+        crate_version = package_path.removeprefix("third-party/rust/vendor/")
+
+        # "nix-0.30.1" -> ("nix", "0.30.1")
+        parts = crate_version.rsplit("-", 1)
+        if len(parts) != 2:
+            continue
+        crate_name, version = parts
+
+        # E.g. fbsource//third-party/rust/vendor/nix:0.30.1
+        lib_target_str = "{}//third-party/rust/vendor/{}:{}".format(fg.label.cell, crate_name, version)
+
+        # Since we're using string conventions to find the library, defensively
+        # check that the target actually exists.
+        if ctx.target_exists(lib_target_str):
+            rust_libraries += ctx.unconfigured_targets([lib_target_str])
+
+    return (targets - filegroups) + rust_libraries
+
 def resolve_owning_buildfile_impl(ctx: bxl.Context) -> None:
     # depending on the input, determine the initial set of targets
+
     if ctx.cli_args.files:
+        # Find targets that own these files and are relevant to rust.
         targets = ctx.uquery().owner(ctx.cli_args.files)
+        targets = ctx.uquery().kind("^(rust_binary|rust_library|rust_test|rust_filegroup)$", targets)
+
+        # Convert rust_filegroup targets to rust_library targets.
+        targets = _resolve_vendor_rust_libraries(ctx, targets)
     elif ctx.cli_args.buildfiles:
         targets = [ctx.uquery().targets_in_buildfile(buildfile) for buildfile in ctx.cli_args.buildfiles]
 
