@@ -44,8 +44,15 @@ def constraint_impl(ctx):
     if len(values) <= 1:
         fail("constraint() rule must have at least two values: one for the default and at least one alternative to provide constraint choices. Example: values = ['disable', 'enable']")
 
+    # Reserved keywords that cannot be used as values
+    # - 'default': Reserved for aliasing to the actual default value (e.g., :os[default] -> :os[none])
+    # - 'DEFAULT': Reserved to avoid confusion with :os[default]
+    reserved_keywords = ["default", "DEFAULT"]
+
     seen = set()
     for v in values:
+        if v in reserved_keywords:
+            fail("'{}' is a reserved keyword and cannot be used as a constraint value. Use a different name to avoid confusion.".format(v))
         if v in seen:
             fail("Duplicate value '{}' in constraint()".format(v))
         seen.add(v)
@@ -85,6 +92,9 @@ def constraint_impl(ctx):
                 key = main_label,
             ),
         ]
+
+    # Add 'default' subtarget that aliases to the actual default value
+    sub_targets["default"] = sub_targets[default]
 
     return [
         DefaultInfo(sub_targets = sub_targets),

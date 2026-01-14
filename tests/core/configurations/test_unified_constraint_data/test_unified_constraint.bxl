@@ -24,7 +24,13 @@ def _main(ctx: bxl.Context):
     analysis_res = ctx.analysis(contrait_setting_node)
     default = analysis_res.providers()[DefaultInfo]
     sub_target_keys = set(default.sub_targets.keys())
-    _assert_eq(sub_target_keys, set(["linux", "macos", "windows"]))
+    _assert_eq(sub_target_keys, set(["linux", "macos", "windows", "default"]))
+
+    # Verify that :os[default] returns the same providers as :os[linux] (the actual default)
+    os_linux = default.sub_targets["linux"]
+    os_default = default.sub_targets["default"]
+    _assert_eq(os_linux[ConstraintValueInfo], os_default[ConstraintValueInfo])
+    _assert_eq(os_linux[ConfigurationInfo], os_default[ConfigurationInfo])
 
     cnode = ctx.configured_targets("//:foo_target")
     os = cnode.get_attr("os")

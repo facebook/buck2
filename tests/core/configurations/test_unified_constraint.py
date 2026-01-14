@@ -35,6 +35,29 @@ async def test_unified_constraint_default_not_appear_in_value_fail(buck: Buck) -
     )
 
 
+# Test reserved keyword 'default' (lowercase) - using distinct test names because
+# test discovery treats 'default' and 'DEFAULT' as the same name (case-insensitive)
+@buck_test()
+async def test_unified_constraint_reserved_keyword_default_lowercase_fail(
+    buck: Buck,
+) -> None:
+    await expect_failure(
+        buck.audit("subtargets", "//reserved_keyword_default_lowercase:"),
+        stderr_regex=".*'default' is a reserved keyword and cannot be used as a constraint value.*",
+    )
+
+
+# Test reserved keyword 'DEFAULT' (uppercase)
+@buck_test()
+async def test_unified_constraint_reserved_keyword_default_uppercase_fail(
+    buck: Buck,
+) -> None:
+    await expect_failure(
+        buck.audit("subtargets", "//reserved_keyword_default_uppercase:"),
+        stderr_regex=".*'DEFAULT' is a reserved keyword and cannot be used as a constraint value.*",
+    )
+
+
 @buck_test(allow_soft_errors=True)
 async def test_unified_constraint_cfg_transition(buck: Buck) -> None:
     await buck.bxl("//test_unified_constraint.bxl:test_cfg_transition")
