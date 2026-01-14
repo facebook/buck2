@@ -370,11 +370,13 @@ constraint = prelude_rule(
         Values are exposed as subtargets, e.g., `cfg//:os[linux]`.
     """,
     examples = """
+        ```
         constraint(
             name = "os",
             values = ["linux", "macos", "windows"],
             default = "linux",
         )
+        ```
     """,
     further = None,
     attrs = (
