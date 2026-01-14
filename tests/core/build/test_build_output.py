@@ -60,4 +60,4 @@ async def test_build_output_on_partial_success(buck: Buck) -> None:
             "--show-simple-output",
         )
     )
-    assert len(show_output.stdout.splitlines()) == 0
+    assert len(show_output.stdout.splitlines()) == 1

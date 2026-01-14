@@ -309,6 +309,15 @@ impl StreamingCommand for BuildCommand {
             writeln!(&mut stdout)?;
         }
 
+        if let Some(format) = self.show_output.format() {
+            print_outputs(
+                &mut stdout,
+                &response.build_targets,
+                self.show_output.is_full().then_some(response.project_root),
+                format,
+            )?;
+        }
+
         let res = if success {
             if let Some(stdout) = &self.output_path {
                 copy_to_out(
@@ -319,15 +328,6 @@ impl StreamingCommand for BuildCommand {
                 )
                 .await
                 .buck_error_context("Error requesting specific output path for --out")?;
-            }
-
-            if let Some(format) = self.show_output.format() {
-                print_outputs(
-                    &mut stdout,
-                    response.build_targets,
-                    self.show_output.is_full().then_some(response.project_root),
-                    format,
-                )?;
             }
 
             ExitResult::success()
@@ -373,7 +373,7 @@ pub(crate) fn print_build_failed(console: &FinalConsole) -> buck2_error::Result<
 
 pub(crate) fn print_outputs(
     out: impl Write,
-    targets: Vec<BuildTarget>,
+    targets: &[BuildTarget],
     root_path: Option<String>,
     format: PrintOutputsFormat,
 ) -> Result<(), ClientIoError> {
@@ -382,7 +382,7 @@ pub(crate) fn print_outputs(
 
     for build_target in targets {
         // just print the default info for build command
-        let outputs = build_target.outputs.into_iter().filter(|output| {
+        let outputs = build_target.outputs.iter().filter(|output| {
             output
                 .providers
                 .as_ref()
