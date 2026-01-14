@@ -177,6 +177,13 @@ impl NodeKey {
             NodeKey::AnalysisKey(key) => Some(
                 buck2_data::critical_path_entry2::Analysis {
                     target: Some(key.0.as_proto().into()),
+                    target_rule_type_name: Some(
+                        node_data
+                            .analysis_node_data()
+                            .as_ref()?
+                            .target_rule_type_name
+                            .to_owned(),
+                    ),
                 }
                 .into(),
             ),
@@ -827,7 +834,6 @@ impl DetailedCriticalPath {
 #[derive(Clone)]
 enum NodeDataInner {
     Action(ActionNodeData),
-    #[allow(dead_code)] // Used in subsequent diff that enables ingress
     Analysis(AnalysisNodeData),
     None,
 }
@@ -840,7 +846,6 @@ impl NodeDataInner {
         }
     }
 
-    #[allow(dead_code)] // Used in subsequent diff that enables ingress
     fn analysis_node_data(&self) -> Option<&AnalysisNodeData> {
         match self {
             NodeDataInner::Analysis(analysis) => Some(analysis),
@@ -890,7 +895,6 @@ impl ActionNodeData {
 
 #[derive(Clone)]
 struct AnalysisNodeData {
-    #[allow(dead_code)] // Used in subsequent diff that enables ingress
     target_rule_type_name: String,
 }
 

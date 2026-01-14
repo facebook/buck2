@@ -508,6 +508,7 @@ message CriticalPathEntry2 {
     oneof target {
       ConfiguredTargetLabel standard_target = 1;
     }
+    optional string target_rule_type_name = 2;
   }
 
   message ActionExecution {
