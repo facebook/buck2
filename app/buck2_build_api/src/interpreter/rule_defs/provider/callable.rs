@@ -72,6 +72,7 @@ use starlark_map::StarlarkHasherBuilder;
 use starlark_map::small_map::SmallMap;
 use starlark_map::small_set::SmallSet;
 
+use crate::interpreter::rule_defs::provider::doc::ProviderMembersSource;
 use crate::interpreter::rule_defs::provider::doc::provider_callable_documentation;
 use crate::interpreter::rule_defs::provider::ty::abstract_provider::AbstractProvider;
 use crate::interpreter::rule_defs::provider::ty::provider::ty_provider;
@@ -425,14 +426,17 @@ impl<'v> StarlarkValue<'v> for UserProviderCallable {
                 typ: Ty::any(),
             }));
         };
+        let field_names: Vec<_> = self.fields.keys().map(|x| x.as_str()).collect();
         provider_callable_documentation(
             None,
+            ProviderMembersSource::FromFields {
+                fields: &field_names,
+                // TODO(nga): types.
+                field_docs: &vec![None; self.fields.len()],
+                field_types: &return_types,
+            },
             callable.ty_callable.dupe(),
             &self.docs,
-            &self.fields.keys().map(|x| x.as_str()).collect::<Vec<_>>(),
-            // TODO(nga): types.
-            &vec![None; self.fields.len()],
-            &return_types,
         )
     }
 
@@ -497,13 +501,16 @@ impl<'v> StarlarkValue<'v> for FrozenUserProviderCallable {
 
     fn documentation(&self) -> DocItem {
         let return_types = vec![Ty::any(); self.fields.len()];
+        let field_names: Vec<_> = self.fields.keys().map(|x| x.as_str()).collect();
         provider_callable_documentation(
             None,
+            ProviderMembersSource::FromFields {
+                fields: &field_names,
+                field_docs: &vec![None; self.fields.len()],
+                field_types: &return_types,
+            },
             self.callable.ty_callable.dupe(),
             &self.docs,
-            &self.fields.keys().map(|x| x.as_str()).collect::<Vec<_>>(),
-            &vec![None; self.fields.len()],
-            &return_types,
         )
     }
 

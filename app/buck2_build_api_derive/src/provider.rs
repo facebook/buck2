@@ -254,43 +254,62 @@ impl ProviderCodegen {
         let provider_docstring = self.get_docstring_impl(&self.input.attrs);
         let create_func = &self.args.creator_func;
 
-        let field_docs = self.fields()?;
+        // Generate the documentation function based on whether custom methods are provided
+        if let Some(ref custom_methods) = self.args.methods_func {
+            // When using custom methods, we don't need the field arrays
+            Ok(syn::parse_quote_spanned! {self.span=>
+                fn documentation(&self) -> starlark::docs::DocItem {
+                    let docstring = #provider_docstring;
+                    buck2_build_api::interpreter::rule_defs::provider::doc::provider_callable_documentation(
+                        Some(#create_func),
+                        buck2_build_api::interpreter::rule_defs::provider::doc::ProviderMembersSource::FromMethods(#custom_methods),
+                        BUILTIN_PROVIDER_TY.instance(),
+                        &docstring,
+                    )
+                }
+            })
+        } else {
+            // When not using custom methods, generate field arrays
+            let field_docs = self.fields()?;
 
-        let mut field_names = vec![];
-        let mut field_docstrings = vec![];
-        let mut field_types = vec![];
+            let mut field_names = vec![];
+            let mut field_docstrings = vec![];
+            let mut field_types = vec![];
 
-        for doc in &field_docs {
-            let name = &doc.name;
-            let name = quote! { stringify!(#name) };
+            for doc in &field_docs {
+                let name = &doc.name;
+                let name = quote! { stringify!(#name) };
 
-            field_names.push(name);
-            field_docstrings.push(&doc.docstring);
-            field_types.push(doc.field_type_ty());
-        }
-
-        Ok(syn::parse_quote_spanned! {self.span=>
-            fn documentation(&self) -> starlark::docs::DocItem {
-                let docstring = #provider_docstring;
-                let field_names = [
-                    #(#field_names),*
-                ];
-                let field_docs = [
-                    #(#field_docstrings),*
-                ];
-                let field_types = [
-                    #(#field_types),*
-                ];
-                buck2_build_api::interpreter::rule_defs::provider::doc::provider_callable_documentation(
-                    Some(#create_func),
-                    BUILTIN_PROVIDER_TY.instance(),
-                    &docstring,
-                    &field_names,
-                    &field_docs,
-                    &field_types,
-                )
+                field_names.push(name);
+                field_docstrings.push(&doc.docstring);
+                field_types.push(doc.field_type_ty());
             }
-        })
+
+            Ok(syn::parse_quote_spanned! {self.span=>
+                fn documentation(&self) -> starlark::docs::DocItem {
+                    let docstring = #provider_docstring;
+                    let field_names: [&str; _] = [
+                        #(#field_names),*
+                    ];
+                    let field_docs: [std::option::Option<starlark::docs::DocString>; _] = [
+                        #(#field_docstrings),*
+                    ];
+                    let field_types: [starlark::typing::Ty; _] = [
+                        #(#field_types),*
+                    ];
+                    buck2_build_api::interpreter::rule_defs::provider::doc::provider_callable_documentation(
+                        Some(#create_func),
+                        buck2_build_api::interpreter::rule_defs::provider::doc::ProviderMembersSource::FromFields {
+                            fields: &field_names,
+                            field_docs: &field_docs,
+                            field_types: &field_types,
+                        },
+                        BUILTIN_PROVIDER_TY.instance(),
+                        &docstring,
+                    )
+                }
+            })
+        }
     }
 
     fn builtin_provider_ty(&self) -> syn::Result<syn::Item> {

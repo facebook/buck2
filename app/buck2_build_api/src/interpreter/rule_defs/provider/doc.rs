@@ -16,25 +16,68 @@ use starlark::docs::DocProperty;
 use starlark::docs::DocString;
 use starlark::docs::DocType;
 use starlark::environment::GlobalsBuilder;
+use starlark::environment::MethodsBuilder;
 use starlark::typing::Ty;
+
+/// Source for provider member documentation.
+///
+/// This enum represents the two mutually exclusive ways to obtain
+/// documentation for a provider's members (fields and methods).
+pub enum ProviderMembersSource<'a> {
+    /// Extract documentation from a custom methods builder.
+    /// Used when `#[internal_provider(..., methods = custom_methods)]` is specified.
+    FromMethods(for<'b> fn(&'b mut MethodsBuilder)),
+
+    /// Use documentation derived from struct fields.
+    /// Used when no custom methods builder is provided.
+    FromFields {
+        fields: &'a [&'a str],
+        field_docs: &'a [Option<DocString>],
+        field_types: &'a [Ty],
+    },
+}
 
 pub fn provider_callable_documentation(
     creator: Option<for<'a> fn(&'a mut GlobalsBuilder)>,
+    members_source: ProviderMembersSource<'_>,
     self_ty: Ty,
     overall: &Option<DocString>,
-    fields: &[&str],
-    field_docs: &[Option<DocString>],
-    field_types: &[Ty],
 ) -> DocItem {
-    let members = itertools::izip!(fields.iter(), field_docs.iter(), field_types.iter())
-        .map(|(name, docs, return_type)| {
-            let prop = DocProperty {
-                docs: docs.clone(),
-                typ: return_type.clone(),
-            };
-            (*name, prop)
-        })
-        .collect::<Vec<_>>();
+    let members = match members_source {
+        ProviderMembersSource::FromMethods(methods_fn) => {
+            // Extract documentation from the custom methods function
+            let methods = MethodsBuilder::new().with(methods_fn).build();
+            let methods_doc = methods.documentation(self_ty.clone());
+
+            methods_doc
+                .members
+                .into_iter()
+                .map(|(name, member)| {
+                    let prop = match member {
+                        DocMember::Property(p) => p,
+                        DocMember::Function(f) => DocProperty {
+                            docs: f.docs,
+                            typ: f.ret.typ,
+                        },
+                    };
+                    (name, prop)
+                })
+                .collect::<Vec<_>>()
+        }
+        ProviderMembersSource::FromFields {
+            fields,
+            field_docs,
+            field_types,
+        } => itertools::izip!(fields.iter(), field_docs.iter(), field_types.iter())
+            .map(|(name, docs, return_type)| {
+                let prop = DocProperty {
+                    docs: docs.clone(),
+                    typ: return_type.clone(),
+                };
+                (name.to_string(), prop)
+            })
+            .collect::<Vec<_>>(),
+    };
 
     let ctor = match creator {
         Some(creator) => {
@@ -67,7 +110,8 @@ pub fn provider_callable_documentation(
             } else if let Some(x) = &overall {
                 x.summary.clone()
             } else {
-                "A provider that can be constructed and have its fields accessed. Returned by rules.".to_owned()
+                "A provider that can be constructed and have its fields accessed. Returned by rules."
+                    .to_owned()
             };
             let mut details = vec![
                 docs.as_ref().and_then(|x| x.details.clone()),
