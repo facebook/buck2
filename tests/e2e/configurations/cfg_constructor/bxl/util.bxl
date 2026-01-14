@@ -6,7 +6,7 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
-load("@prelude//cfg/modifier:conditional_modifier.bzl", _get_modifier_info = "get_modifier_info")
+load("@prelude//cfg/modifier:conditional_modifier.bzl", _get_modifier_info = "get_modifier_info_for_testing")
 load("@prelude//cfg/modifier:types.bzl", "ConditionalModifierInfo", "Modifier", "ModifierInfo")
 load("@prelude//configurations:util.bzl", "util")
 

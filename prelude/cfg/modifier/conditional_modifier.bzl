@@ -20,7 +20,7 @@ def _get_constraint_setting(constraint_settings: set[TargetLabel], modifier: Mod
         )
     return list(constraint_settings)[0]
 
-def get_modifier_info(
+def _get_modifier_info(
         modifier: Modifier,
         key_to_provider: dict[str, ConfigurationInfo],
         value_to_provider: dict[str, ConditionalModifierInfo]) -> ConditionalModifierInfo | None:
@@ -40,13 +40,13 @@ def get_modifier_info(
     for key, sub_modifier in modifier.items():
         if key == "DEFAULT":
             if sub_modifier:
-                sub_modifier_info = get_modifier_info(sub_modifier, key_to_provider, value_to_provider)
+                sub_modifier_info = _get_modifier_info(sub_modifier, key_to_provider, value_to_provider)
                 constraint_settings.add(sub_modifier_info.key)
                 default = sub_modifier_info.inner
         else:
             cfg_info = key_to_provider[key]
             if sub_modifier:
-                sub_modifier_info = get_modifier_info(sub_modifier, key_to_provider, value_to_provider)
+                sub_modifier_info = _get_modifier_info(sub_modifier, key_to_provider, value_to_provider)
                 constraint_settings.add(sub_modifier_info.key)
                 sub_modifier_info = sub_modifier_info.inner
             else:
@@ -74,7 +74,7 @@ def _configured_providers_label_to_providers_label(label: ConfiguredProvidersLab
 def _impl(ctx: AnalysisContext) -> list[Provider]:
     key_to_provider = {str(_configured_providers_label_to_providers_label(dep.label)): dep.get(ConfigurationInfo) for dep in ctx.attrs._conditional_keys}
     value_to_provider = {str(_configured_providers_label_to_providers_label(dep.label)): dep.get(ConditionalModifierInfo) for dep in ctx.attrs._conditional_values}
-    conditional_modifier_info = get_modifier_info(ctx.attrs.modifier, key_to_provider, value_to_provider)
+    conditional_modifier_info = _get_modifier_info(ctx.attrs.modifier, key_to_provider, value_to_provider)
     return [DefaultInfo(), conditional_modifier_info]
 
 _conditional_modifier = rule(
@@ -182,3 +182,6 @@ def conditional_modifier(name: str, modifier: ModifiersMatch):
         _conditional_values = _get_conditional_values(modifier),
         modifier = _fully_qualify(modifier),
     )
+
+# Exported for testing purposes only. Do not use in production code.
+get_modifier_info_for_testing = _get_modifier_info
