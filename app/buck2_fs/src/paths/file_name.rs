@@ -20,8 +20,11 @@ use allocative::Allocative;
 use buck2_util::arc_str::StringInside;
 use compact_str::CompactString;
 use derive_more::Display;
+use pagable::Pagable;
 use ref_cast::RefCast;
 use relative_path::RelativePath;
+use serde::Deserialize;
+use serde::Serialize;
 
 use crate::paths::forward_rel_path::ForwardRelativePath;
 
@@ -232,8 +235,18 @@ impl ToOwned for FileName {
 }
 
 /// Owned version of [`FileName`].
-#[derive(Ord, Eq, Display, Debug, Clone, Allocative)]
-pub struct FileNameBuf(CompactString);
+#[derive(
+    Ord,
+    Eq,
+    Display,
+    Debug,
+    Clone,
+    Allocative,
+    Serialize,
+    Deserialize,
+    Pagable
+)]
+pub struct FileNameBuf(#[pagable(flatten_serde)] CompactString);
 
 impl FileNameBuf {
     #[inline]

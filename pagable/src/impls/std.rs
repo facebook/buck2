@@ -8,6 +8,8 @@
  * above-listed licenses.
  */
 
+use core::sync::atomic::AtomicI64;
+
 use ::serde::Deserialize;
 use ::serde::ser::Serialize;
 
@@ -112,5 +114,23 @@ impl<'de, T: PagableDeserialize<'de>> PagableDeserialize<'de> for Box<[T]> {
             v.push(T::pagable_deserialize(deserializer)?);
         }
         Ok(v.into_boxed_slice())
+    }
+}
+
+impl PagableSerialize for AtomicI64 {
+    fn pagable_serialize<S: PagableSerializer>(&self, serializer: &mut S) -> crate::Result<()> {
+        Ok(i64::serialize(
+            &self.load(core::sync::atomic::Ordering::Relaxed),
+            serializer.serde(),
+        )?)
+    }
+}
+
+impl<'de> PagableDeserialize<'de> for AtomicI64 {
+    fn pagable_deserialize<D: PagableDeserializer<'de>>(
+        deserializer: &mut D,
+    ) -> crate::Result<Self> {
+        let val = i64::deserialize(deserializer.serde())?;
+        Ok(AtomicI64::new(val))
     }
 }

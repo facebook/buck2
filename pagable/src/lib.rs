@@ -18,8 +18,6 @@
 //! Implementations can use the derive macros `#[derive(Pagable)]` (which will derive both serialize and deserialize), `#[derive(PagableSerialize)]`,
 //! and `#[derive(PagableDeserialize)]` for automatic implementations.
 
-#![feature(const_type_name)]
-
 pub use pagable_arc::PagableArc;
 pub use pagable_arc::PinnedPagableArc;
 pub use pagable_arc::PinnedPagableArcBorrow;

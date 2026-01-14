@@ -118,6 +118,10 @@ impl<P: ArcStrLenStrategy> ArcStrBase<P> {
         }
     }
 
+    pub(crate) fn addr(&self) -> usize {
+        self.data.addr().get()
+    }
+
     #[inline]
     fn len(&self) -> usize {
         P::unpack_len((self.inner().allocated_payload, self.value_payload)) as usize

@@ -30,6 +30,12 @@ use std::mem;
 use allocative::Allocative;
 use equivalent::Equivalent;
 use hashbrown::HashTable;
+#[cfg(feature = "pagable")]
+use pagable::Pagable;
+#[cfg(feature = "pagable")]
+use pagable::PagableDeserialize;
+#[cfg(feature = "pagable")]
+use pagable::PagableSerialize;
 use serde::Deserialize;
 use serde::Serialize;
 
@@ -1044,6 +1050,32 @@ macro_rules! smallmap {
             map
         }
     };
+}
+
+#[cfg(feature = "pagable")]
+impl<K: Pagable, V: Pagable> PagableSerialize for SmallMap<K, V> {
+    fn pagable_serialize<S: pagable::PagableSerializer>(
+        &self,
+        serializer: &mut S,
+    ) -> pagable::__internal::anyhow::Result<()> {
+        self.entries.pagable_serialize(serializer)
+    }
+}
+
+#[cfg(feature = "pagable")]
+impl<'de, K: Pagable, V: Pagable> PagableDeserialize<'de> for SmallMap<K, V> {
+    fn pagable_deserialize<D: pagable::PagableDeserializer<'de>>(
+        deserializer: &mut D,
+    ) -> pagable::Result<Self> {
+        let entries =
+            <VecMap<K, V> as pagable::PagableDeserialize>::pagable_deserialize(deserializer)?;
+        let mut this = Self {
+            entries,
+            index: None,
+        };
+        this.create_index(this.entries.len());
+        Ok(this)
+    }
 }
 
 impl<K: Serialize, V: Serialize> Serialize for SmallMap<K, V> {

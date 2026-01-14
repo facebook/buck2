@@ -20,6 +20,8 @@
 use std::hash::Hash;
 
 use allocative::Allocative;
+#[cfg(feature = "pagable")]
+use pagable::Pagable;
 use serde::Deserialize;
 use serde::Serialize;
 
@@ -30,6 +32,7 @@ use crate::small_map::SmallMap;
 
 /// `IndexMap` but with keys sorted.
 #[derive(Debug, Clone, Eq, PartialEq, Hash, Ord, PartialOrd, Allocative)]
+#[cfg_attr(feature = "pagable", derive(Pagable))]
 pub struct SortedMap<K, V> {
     map: OrderedMap<K, V>,
 }

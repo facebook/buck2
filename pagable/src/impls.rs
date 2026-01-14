@@ -13,3 +13,28 @@ mod collections;
 mod serde;
 mod std;
 mod tuples;
+
+use relative_path::RelativePathBuf;
+
+use crate::__internal::serde::Deserialize;
+use crate::__internal::serde::Serializer;
+use crate::PagableDeserialize;
+use crate::PagableDeserializer;
+use crate::PagableSerialize;
+use crate::PagableSerializer;
+
+impl PagableSerialize for RelativePathBuf {
+    fn pagable_serialize<S: PagableSerializer>(&self, serializer: &mut S) -> crate::Result<()> {
+        Ok(serializer.serde().serialize_str(self.as_str())?)
+    }
+}
+
+impl<'de> PagableDeserialize<'de> for RelativePathBuf {
+    fn pagable_deserialize<D: PagableDeserializer<'de>>(
+        deserializer: &mut D,
+    ) -> crate::Result<Self> {
+        Ok(RelativePathBuf::from(String::deserialize(
+            deserializer.serde(),
+        )?))
+    }
+}

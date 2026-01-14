@@ -160,7 +160,7 @@ chrono = "0.4.38"
 clap = { version = "4.5.6", features = ["derive", "env", "string"] }
 clap_complete = "4.5.5"
 common-path = "1.0.0"
-compact_str = "0.8"
+compact_str = { version = "0.8", features = ["serde"] }
 console = "0.15.7"
 const-oid = { version = "0.9.6", features = ["db"] }
 const_format = "0.2.32"

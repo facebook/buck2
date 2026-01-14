@@ -17,8 +17,10 @@ use std::str;
 
 use allocative::Allocative;
 use dupe::Dupe;
+use serde::Deserialize;
 use serde::Serialize;
 use static_assertions::assert_eq_size;
+use strong_hash::StrongHash;
 
 use crate::arc_str::base::ArcStrBase;
 use crate::arc_str::base::ArcStrBaseInner;
@@ -50,16 +52,7 @@ unsafe impl ArcStrLenStrategy for ThinArcStrProperties {
 
 /// Wrapper for `Arc<str>`.
 #[derive(
-    PartialEq,
-    Eq,
-    Hash,
-    PartialOrd,
-    Ord,
-    Allocative,
-    Clone,
-    Dupe,
-    Default,
-    strong_hash::StrongHash
+    PartialEq, Eq, Hash, StrongHash, PartialOrd, Ord, Allocative, Clone, Dupe, Default
 )]
 pub struct ThinArcStr {
     base: ArcStrBase<ThinArcStrProperties>,
@@ -133,6 +126,15 @@ impl From<String> for ThinArcStr {
 impl Serialize for ThinArcStr {
     fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         self.as_str().serialize(serializer)
+    }
+}
+
+impl<'de> Deserialize<'de> for ThinArcStr {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        Ok(String::deserialize(deserializer)?.into())
     }
 }
 

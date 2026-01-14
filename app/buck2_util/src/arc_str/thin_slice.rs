@@ -15,13 +15,35 @@ use std::slice;
 
 use allocative::Allocative;
 use dupe::Dupe;
+use pagable::Pagable;
+use serde::Deserialize;
+use serde::Serialize;
 use triomphe::ThinArc;
 
 use crate::arc_str::iterator_as_exact_size_iterator::IteratorAsExactSizeIterator;
 
-#[derive(Allocative, Debug)]
+#[derive(Allocative, Debug, Pagable)]
 pub struct ThinArcSlice<T> {
     slice: Option<ThinArc<(), T>>,
+}
+
+impl<T: Serialize> Serialize for ThinArcSlice<T> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        self.as_slice().serialize(serializer)
+    }
+}
+
+impl<'de, T: Deserialize<'de>> Deserialize<'de> for ThinArcSlice<T> {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let v: Vec<T> = Vec::deserialize(deserializer)?;
+        Ok(ThinArcSlice::from_iter(v))
+    }
 }
 
 impl<T> Clone for ThinArcSlice<T> {

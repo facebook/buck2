@@ -25,6 +25,8 @@ use std::mem;
 
 use allocative::Allocative;
 use equivalent::Equivalent;
+#[cfg(feature = "pagable")]
+use pagable::Pagable;
 
 use crate::hash_value::StarlarkHashValue;
 use crate::hashed::Hashed;
@@ -42,6 +44,7 @@ use crate::vec_map::simd::find_hash_in_array;
 pub(crate) use crate::vec2::Vec2;
 
 #[derive(Debug, Clone, Allocative)]
+#[cfg_attr(feature = "pagable", derive(Pagable))]
 pub(crate) struct VecMap<K, V> {
     buckets: Vec2<(K, V), StarlarkHashValue>,
 }

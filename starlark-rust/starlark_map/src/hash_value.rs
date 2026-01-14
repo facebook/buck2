@@ -20,12 +20,28 @@ use std::hash::Hash;
 
 use allocative::Allocative;
 use dupe::Dupe;
+#[cfg(feature = "pagable")]
+use pagable::Pagable;
+use serde::Deserialize;
+use serde::Serialize;
 
 use crate::hasher::StarlarkHasher;
 use crate::mix_u32::mix_u32;
 
 /// A hash value.
-#[derive(Clone, Copy, Dupe, PartialEq, Eq, Hash, Debug, Allocative)]
+#[derive(
+    Clone,
+    Copy,
+    Dupe,
+    PartialEq,
+    Eq,
+    Hash,
+    Debug,
+    Allocative,
+    Serialize,
+    Deserialize
+)]
+#[cfg_attr(feature = "pagable", derive(Pagable))]
 pub struct StarlarkHashValue(u32);
 
 impl StarlarkHashValue {

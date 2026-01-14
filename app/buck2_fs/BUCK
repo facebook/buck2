@@ -52,6 +52,7 @@ rust_library(
         "//buck2/gazebo/dupe:dupe",
         "//buck2/gazebo/gazebo:gazebo",
         "//buck2/gazebo/strong_hash:strong_hash",
+        "//buck2/pagable:pagable",
         # @oss-disable[end= ]: "//common/rust/shed/detect_eden:detect_eden",
     ],
 )

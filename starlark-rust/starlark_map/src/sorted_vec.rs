@@ -17,15 +17,31 @@
 
 //! `Vec` with elements sorted.
 
+use std::hash::Hash;
 use std::slice;
 use std::vec;
 
 use allocative::Allocative;
+#[cfg(feature = "pagable")]
+use pagable::Pagable;
+use serde::Deserialize;
+use serde::Serialize;
 
 /// Type which enfoces that its elements are sorted. That's it.
 #[derive(
-    Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Allocative, Default
+    Debug,
+    Clone,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    Allocative,
+    Default,
+    Serialize,
+    Deserialize
 )]
+#[cfg_attr(feature = "pagable", derive(Pagable))]
 pub struct SortedVec<T> {
     vec: Vec<T>,
 }

@@ -22,6 +22,7 @@ use std::alloc::Layout;
 use std::alloc::LayoutError;
 use std::cmp;
 use std::cmp::Ordering;
+use std::fmt;
 use std::fmt::Debug;
 use std::hash::Hash;
 use std::hash::Hasher;
@@ -34,6 +35,14 @@ use std::slice;
 
 use allocative::Allocative;
 use allocative::Visitor;
+#[cfg(feature = "pagable")]
+use pagable::PagableDeserialize;
+#[cfg(feature = "pagable")]
+use pagable::PagableSerialize;
+use serde::Deserialize;
+use serde::Serialize;
+use serde::de::SeqAccess;
+use serde::ser::SerializeSeq;
 
 use crate::sorting::insertion::insertion_sort;
 use crate::sorting::insertion::slice_swap_shift;
@@ -102,6 +111,94 @@ pub struct Vec2<A, B> {
 
 unsafe impl<A: Send, B: Send> Send for Vec2<A, B> {}
 unsafe impl<A: Sync, B: Sync> Sync for Vec2<A, B> {}
+
+#[cfg(feature = "pagable")]
+impl<A: PagableSerialize, B: PagableSerialize> PagableSerialize for Vec2<A, B> {
+    fn pagable_serialize<S: pagable::PagableSerializer>(
+        &self,
+        serializer: &mut S,
+    ) -> pagable::__internal::anyhow::Result<()> {
+        usize::serialize(&self.len, serializer.serde())?;
+        for v in self.iter() {
+            v.pagable_serialize(serializer)?;
+        }
+        Ok(())
+    }
+}
+
+#[cfg(feature = "pagable")]
+impl<'de, A: PagableDeserialize<'de>, B: PagableDeserialize<'de>> PagableDeserialize<'de>
+    for Vec2<A, B>
+{
+    fn pagable_deserialize<D: pagable::PagableDeserializer<'de>>(
+        deserializer: &mut D,
+    ) -> pagable::Result<Self> {
+        let len = usize::deserialize(deserializer.serde())?;
+        let mut vec = Vec2::with_capacity(len);
+        for _ in 0..len {
+            let (a, b) = <(A, B)>::pagable_deserialize(deserializer)?;
+            vec.push(a, b);
+        }
+        Ok(vec)
+    }
+}
+
+impl<A: Serialize, B: Serialize> Serialize for Vec2<A, B> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let mut seq = serializer.serialize_seq(Some(self.len))?;
+        for v in self.iter() {
+            seq.serialize_element(&v)?;
+        }
+        seq.end()
+    }
+}
+
+impl<'de, A: Deserialize<'de>, B: Deserialize<'de>> Deserialize<'de> for Vec2<A, B> {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        struct Vec2Visitor<A, B> {
+            marker: PhantomData<(A, B)>,
+        }
+
+        impl<'de, A, B> serde::de::Visitor<'de> for Vec2Visitor<A, B>
+        where
+            A: Deserialize<'de>,
+            B: Deserialize<'de>,
+        {
+            type Value = Vec2<A, B>;
+
+            fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+                formatter.write_str("a sequence")
+            }
+
+            fn visit_seq<S>(self, mut seq: S) -> Result<Self::Value, S::Error>
+            where
+                S: SeqAccess<'de>,
+            {
+                let capacity = seq
+                    .size_hint()
+                    .ok_or_else(|| serde::de::Error::custom("size hint missing"))?;
+                let mut values = Vec2::<A, B>::with_capacity(capacity);
+
+                while let Some((a, b)) = seq.next_element()? {
+                    values.push(a, b);
+                }
+
+                Ok(values)
+            }
+        }
+
+        let visitor = Vec2Visitor {
+            marker: PhantomData,
+        };
+        deserializer.deserialize_seq(visitor)
+    }
+}
 
 impl<A, B> Default for Vec2<A, B> {
     #[inline]

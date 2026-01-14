@@ -19,6 +19,7 @@ use allocative::Allocative;
 use buck2_util::arc_str::StringInside;
 use derive_more::Display;
 use gazebo::transmute;
+use pagable::Pagable;
 use ref_cast::RefCastCustom;
 use ref_cast::ref_cast_custom;
 use relative_path::RelativePath;
@@ -60,21 +61,11 @@ pub struct ForwardRelativePath(
 /// The owned version of 'ForwardRelativePath', like how 'PathBuf' relates to
 /// 'Path'
 #[derive(
-    Default,
-    Clone,
-    Display,
-    Debug,
-    Serialize,
-    PartialEq,
-    Eq,
-    PartialOrd,
-    Ord,
-    Hash,
-    Allocative,
-    strong_hash::StrongHash
+    Default, Clone, Display, Debug, Serialize, PartialEq, Eq, PartialOrd, Ord, Hash, Allocative,
+    StrongHash, Pagable
 )]
 #[repr(transparent)]
-pub struct ForwardRelativePathBuf(String);
+pub struct ForwardRelativePathBuf(#[pagable(flatten_serde)] String);
 
 impl<'de> Deserialize<'de> for ForwardRelativePathBuf {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>

@@ -19,6 +19,7 @@ tokio = { workspace = true }
 allocative = { workspace = true }
 dupe = { workspace = true }
 gazebo = { workspace = true }
+pagable = { workspace = true }
 strong_hash = { workspace = true }
 
 buck2_env = { workspace = true }

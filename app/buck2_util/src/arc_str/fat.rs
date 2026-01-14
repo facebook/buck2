@@ -18,6 +18,14 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use dupe::Dupe;
+use pagable::PagableDeserialize;
+use pagable::PagableDeserializer;
+use pagable::PagableSerialize;
+use pagable::PagableSerializer;
+use pagable::arc_erase::ArcErase;
+use pagable::arc_erase::ArcEraseType;
+use pagable::arc_erase::StdArcEraseType;
+use serde::Deserialize;
 use serde::Serialize;
 use static_assertions::assert_eq_size;
 use strong_hash::StrongHash;
@@ -52,7 +60,7 @@ unsafe impl ArcStrLenStrategy for ArcStrProperties {
 
 /// Wrapper for `Arc<str>`.
 #[derive(
-    PartialEq, Eq, Hash, PartialOrd, Ord, Allocative, Clone, Dupe, Default, StrongHash
+    PartialEq, Eq, Hash, StrongHash, PartialOrd, Ord, Allocative, Clone, Dupe, Default
 )]
 pub struct ArcStr {
     base: ArcStrBase<ArcStrProperties>,
@@ -126,6 +134,65 @@ impl From<String> for ArcStr {
 impl Serialize for ArcStr {
     fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         self.as_str().serialize(serializer)
+    }
+}
+
+impl<'de> Deserialize<'de> for ArcStr {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        Ok(String::deserialize(deserializer)?.into())
+    }
+}
+
+impl PagableSerialize for ArcStr {
+    fn pagable_serialize<S: PagableSerializer>(
+        &self,
+        serializer: &mut S,
+    ) -> pagable::__internal::anyhow::Result<()> {
+        serializer.serialize_arc(self.dupe())
+    }
+}
+
+impl<'de> PagableDeserialize<'de> for ArcStr {
+    fn pagable_deserialize<D: PagableDeserializer<'de>>(
+        deserializer: &mut D,
+    ) -> pagable::Result<Self> {
+        deserializer.deserialize_arc::<Self>()
+    }
+}
+
+impl ArcErase for ArcStr {
+    type Weak = ();
+
+    fn dupe_strong(&self) -> Self {
+        self.dupe()
+    }
+
+    fn erase_type() -> impl ArcEraseType {
+        StdArcEraseType::<Self>::new()
+    }
+
+    fn identity(&self) -> usize {
+        self.base.addr()
+    }
+
+    fn downgrade(&self) -> Option<Self::Weak> {
+        None
+    }
+
+    fn serialize_inner<S: PagableSerializer>(
+        &self,
+        ser: &mut S,
+    ) -> pagable::__internal::anyhow::Result<()> {
+        Ok(self.serialize(ser.serde())?)
+    }
+
+    fn deserialize_inner<'de, D: PagableDeserializer<'de>>(
+        deser: &mut D,
+    ) -> pagable::__internal::anyhow::Result<Self> {
+        Ok(Self::deserialize(deser.serde())?)
     }
 }
 

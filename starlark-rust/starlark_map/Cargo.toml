@@ -10,6 +10,10 @@ name = "starlark_map"
 repository = "https://github.com/facebook/starlark-rust"
 version = "0.13.0"
 
+[features]
+default = []
+pagable = ["dep:pagable", "dep:pagable_derive"]
+
 [dependencies]
 allocative = { workspace = true, features = ["hashbrown"] }
 dupe = { workspace = true }
@@ -18,6 +22,9 @@ equivalent = { workspace = true }
 fxhash = "0.2.1"
 hashbrown = { version = "0.14.3", features = ["raw"] }
 serde = { version = "1.0", features = ["derive"] }
+
+pagable = { workspace = true, optional = true }
+pagable_derive = { workspace = true, optional = true }
 strong_hash = { workspace = true }
 
 [dev-dependencies]
