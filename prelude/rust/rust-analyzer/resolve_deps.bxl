@@ -427,7 +427,10 @@ def resolve_owning_buildfile_impl(ctx: bxl.Context) -> None:
     # collect extra targets from each buildfile
     extra_targets_by_buildfile = {}
     for buildfile_path in targets_by_buildfile:
-        extra_targets = ctx.uquery().targets_in_buildfile("{}".format(buildfile_path))
+        if "third-party/rust/vendor/" in buildfile_path:
+            continue
+
+        extra_targets = ctx.uquery().targets_in_buildfile(buildfile_path)
         extra_targets = ctx.uquery().kind("^(rust_binary|rust_library|rust_test)$", extra_targets)
 
         # Exclude targets with the rustc_do_no_check label from the extra targets. This
