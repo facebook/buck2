@@ -122,6 +122,7 @@ members = [
     "starlark-rust/starlark_lsp",
     "starlark-rust/starlark_map",
     "starlark-rust/starlark_syntax",
+    "shed/setsketch",
     "shed/static_interner",
     "shed/lock_free_hashtable",
     "shed/lock_free_vec",
@@ -189,6 +190,7 @@ erased-serde = "0.3.20"
 faccess = "0.2.3"
 fancy-regex = "0.16.0"
 flate2 = "1.0.22"
+fnv = "1.0"
 fs4 = { version = "0.9.1", features = ["sync"] }
 futures = { version = "0.3.28", features = ["async-await", "compat"] }
 futures-intrusive = "0.4"
@@ -272,6 +274,7 @@ rand = { version = "0.9", features = ["small_rng"] }
 rand_08 = { package = "rand", version = "0.8.4", features = ["small_rng"] }
 rand_chacha = "0.3"
 rand_distr = "0.4"
+rand_xoshiro = "0.7"
 ref-cast = "1.0.0"
 regex = "1.5.4"
 relative-path = { version = "1.7.0", features = ["serde"] }
@@ -365,6 +368,7 @@ pagable = { path = "pagable" }
 pagable_derive = { path = "pagable_derive" }
 provider = { path = "shed/provider" }
 remote_execution = { path = "remote_execution/oss/re_grpc" }
+setsketch = { path = "shed/setsketch" }
 starlark = { version = "0.13.0", path = "starlark-rust/starlark" }
 starlark_lsp = { version = "0.13.0", path = "starlark-rust/starlark_lsp" }
 starlark_map = { version = "0.13.0", path = "starlark-rust/starlark_map" }

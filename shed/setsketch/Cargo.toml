@@ -1,0 +1,15 @@
+[package]
+description = "Set sketches used by buck2"
+edition = "2024"
+license = { workspace = true }
+name = "setsketch"
+repository = { workspace = true }
+version = "0.1.0"
+
+[dependencies]
+rand = { workspace = true }
+rand_distr = { workspace = true }
+rand_xoshiro = { workspace = true }
+
+[dev-dependencies]
+fnv = { workspace = true }
