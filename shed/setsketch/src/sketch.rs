@@ -90,7 +90,7 @@ impl SetSketch {
     }
 
     /// The function returns a 2-uple with first field cardinal estimator and second field the
-    /// **relative standard deviation**.  
+    /// **relative standard deviation**.
     ///
     /// It is a relatively cpu costly function (the computed logs are not cached in the SetSketcher
     /// structure) that involves log and exp calls on the whole sketch vector.
@@ -165,14 +165,47 @@ where
     }
 
     pub fn sketch(&mut self, to_sketch: &T) {
+        self.sketch_weighted_locality_unstable(to_sketch, 1.0);
+    }
+
+    /// Add the given value to the sketch using the given weight.
+    ///
+    /// The cardinality estimate that results from weighted insertions is the sum of the weights.
+    ///
+    /// The recommended parameters are tuned for cardinality estimates between 1 and 10^28; weights
+    /// that cause cardinality estimates outside of that range may be expected to be poorly behaved.
+    ///
+    /// When the same item is sketched more than once using different weights, the following
+    /// behaviors apply:
+    ///
+    ///  1. Within one sketch, only the largest weight "counts"; re-inserting with smaller weights
+    ///     is a nop.
+    ///  2. Cardinality estimates based on the sketch remain fully correct. This also applies to any
+    ///     other values derived from cardinality estimates, such as inclusion-exclusion based
+    ///     Jaccard similarity (the absolute_overlap function).
+    ///  3. However, locality sensitivity becomes incorrect; concretely, sketches normally have a
+    ///     coupling property in which two sketches are equal on any given pair of registers with
+    ///     probability exactly their Jaccard similarity. This property is violated when the two
+    ///     sketches sketch the same value with different weights. The only exception to this is
+    ///     when the difference between the weights differs by factor << 1/b (1000 under the
+    ///     recommended parameters)
+    ///
+    /// Use of this function can be mixed with the unweighted `sketch`; `sketch` is just an alias
+    /// for this with weight 1.
+    pub fn sketch_weighted_locality_unstable(&mut self, to_sketch: &T, weight: f64) {
         let hval1: u64 = self.b_hasher.hash_one(&to_sketch);
         let mut rng = Xoshiro256PlusPlus::seed_from_u64(hval1);
         self.permut_generator.reset();
 
         let mut x_pred: f64 = 0.;
+        // The inverse of the parameter of the exponential distribution we use; the miminum of `N`
+        // samples from an exponential distribution with param `a` is itself exponentially
+        // distributed with param `aN`, so this is the only thing we have to do to account for
+        // weight
+        let inv_exp_param = self.params.inva / weight;
         for j in 0..self.params.m {
             let x_j = x_pred
-                + (self.params.inva / (self.params.m - j) as f64) * rng.sample::<f64, Exp1>(Exp1); // use Ziggurat
+                + (inv_exp_param / (self.params.m - j) as f64) * rng.sample::<f64, Exp1>(Exp1); // use Ziggurat
             x_pred = x_j;
             let lb_xj = x_j.ln() / self.params.lnb; // log base b of x_j
             let z = (1. - lb_xj).floor();
@@ -204,6 +237,20 @@ mod tests {
 
     use super::*;
 
+    fn check_cardinality_is_about(s: &SetSketch, val: f64) {
+        let (mean, std) = s.get_cardinal_stats();
+        if (mean - val).abs() / val > 3.0 * std {
+            panic!("Mean {} != expected {}", mean, val);
+        }
+    }
+
+    fn usize_sketcher() -> SetSketcher<usize, FnvHasher> {
+        SetSketcher::new(
+            SetSketchParams::recommended(),
+            BuildHasherDefault::<FnvHasher>::default(),
+        )
+    }
+
     #[test]
     fn test_merge_1() {
         let vbmax = 2000;
@@ -211,23 +258,81 @@ mod tests {
         let vb: Vec<usize> = (900..vbmax).collect();
         let union = 2000.;
 
-        let params = SetSketchParams::recommended();
-
-        let mut sethasher_a: SetSketcher<usize, FnvHasher> =
-            SetSketcher::new(params, BuildHasherDefault::<FnvHasher>::default());
+        let mut sethasher_a = usize_sketcher();
         // now compute sketches
         for va in va.iter() {
             sethasher_a.sketch(va);
         }
-        let mut sethasher_b: SetSketcher<usize, FnvHasher> =
-            SetSketcher::new(params, BuildHasherDefault::<FnvHasher>::default());
+        let mut sethasher_b = usize_sketcher();
         // now compute sketches
         for vb in vb.iter() {
             sethasher_b.sketch(vb);
         }
         // merging vb into va
         sethasher_a.merge(&sethasher_b);
-        let (mean, std) = sethasher_a.get_cardinal_stats();
-        assert!((mean - union).abs() / union <= 2.0 * std);
+        check_cardinality_is_about(&sethasher_a, union);
+    }
+
+    #[test]
+    fn check_weighted_single() {
+        // Note: We don't expect to be able to sketch weights less than 1
+        for v in [1.0, 10.0, 10000.0] {
+            let mut s = usize_sketcher();
+            s.sketch_weighted_locality_unstable(&0, v);
+            check_cardinality_is_about(&s, v);
+        }
+    }
+
+    #[test]
+    fn check_weighted_sums_reasonably() {
+        let mut a = usize_sketcher();
+        for i in 1..=100 {
+            a.sketch_weighted_locality_unstable(&i, i as f64);
+        }
+        check_cardinality_is_about(&a, 5050.);
+    }
+
+    #[test]
+    fn check_well_behaved_under_different_weights() {
+        let mut a = usize_sketcher();
+        a.sketch_weighted_locality_unstable(&0, 100.);
+        for i in 1..=10 {
+            a.sketch_weighted_locality_unstable(&i, 10.);
+        }
+        a.sketch_weighted_locality_unstable(&0, 105.);
+        check_cardinality_is_about(&a, 205.);
+    }
+
+    #[test]
+    fn check_large_weights() {
+        let mut a = usize_sketcher();
+        const MULT: f64 = 1_000_000_000_000.;
+        for i in 1..=100 {
+            a.sketch_weighted_locality_unstable(&i, i as f64 * MULT);
+        }
+        check_cardinality_is_about(&a, 5050. * MULT);
+    }
+
+    #[test]
+    fn check_non_locality_sensitivity_on_mismatched_weights() {
+        for weight in [1000., 20000.] {
+            let mut a = usize_sketcher();
+            a.sketch_weighted_locality_unstable(&0, weight);
+            let mut b = usize_sketcher();
+            b.sketch_weighted_locality_unstable(&0, weight + 1.);
+
+            let matches = a
+                .get_registers()
+                .iter()
+                .zip(b.get_registers().iter())
+                .filter(|(a, b)| a == b)
+                .count();
+            // See the note about locality sensitivity on the function above
+            if weight == 1000. {
+                assert!(matches < a.params.m / 10);
+            } else {
+                assert!(matches > a.params.m * 9 / 10);
+            }
+        }
     }
 }
