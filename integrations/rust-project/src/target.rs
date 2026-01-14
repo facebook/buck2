@@ -154,8 +154,16 @@ impl TargetInfo {
     }
 
     pub(crate) fn display_name(&self) -> String {
-        let name = self.name.strip_suffix("-unittest").unwrap_or(&self.name);
-        name.to_owned()
+        if self.name.chars().all(|c| c.is_ascii_digit() || c == '.') {
+            // For target of the form foo:1.2.3, the buck name is 1.2.3 but
+            // that's not useful for a display name.
+            self.crate_name()
+        } else {
+            self.name
+                .strip_suffix("-unittest")
+                .unwrap_or(&self.name)
+                .to_owned()
+        }
     }
 
     pub(crate) fn root_module(&self, project_root: &Path) -> PathBuf {
@@ -255,32 +263,90 @@ fn expand_atfile(path: &Path) -> Result<Vec<String>, anyhow::Error> {
     Ok(flags.collect::<Vec<String>>())
 }
 
-#[test]
-fn test_cfg() {
-    let info = TargetInfo {
-        name: "bar".to_owned(),
-        label: "bar".to_owned(),
-        kind: Kind::Library,
-        edition: None,
-        srcs: vec![],
-        mapped_srcs: FxHashMap::default(),
-        crate_name: None,
-        crate_dynamic: None,
-        crate_root: PathBuf::default(),
-        deps: vec![],
-        test_deps: vec![],
-        named_deps: FxHashMap::default(),
-        proc_macro: None,
-        features: vec!["foo_feature".to_owned()],
-        env: FxHashMap::default(),
-        source_folder: PathBuf::from("/tmp"),
-        project_relative_buildfile: PathBuf::from("bar/BUCK"),
-        in_workspace: false,
-        rustc_flags: vec!["--cfg=foo_cfg".to_owned(), "--other".to_owned()],
-    };
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-    assert_eq!(
-        info.cfg(),
-        vec!["feature=\"foo_feature\"".to_owned(), "foo_cfg".to_owned()]
-    );
+    #[test]
+    fn test_cfg() {
+        let info = TargetInfo {
+            name: "bar".to_owned(),
+            label: "bar".to_owned(),
+            kind: Kind::Library,
+            edition: None,
+            srcs: vec![],
+            mapped_srcs: FxHashMap::default(),
+            crate_name: None,
+            crate_dynamic: None,
+            crate_root: PathBuf::default(),
+            deps: vec![],
+            test_deps: vec![],
+            named_deps: FxHashMap::default(),
+            proc_macro: None,
+            features: vec!["foo_feature".to_owned()],
+            env: FxHashMap::default(),
+            source_folder: PathBuf::from("/tmp"),
+            project_relative_buildfile: PathBuf::from("bar/BUCK"),
+            in_workspace: false,
+            rustc_flags: vec!["--cfg=foo_cfg".to_owned(), "--other".to_owned()],
+        };
+
+        assert_eq!(
+            info.cfg(),
+            vec!["feature=\"foo_feature\"".to_owned(), "foo_cfg".to_owned()]
+        );
+    }
+
+    #[test]
+    fn test_display_name_version() {
+        let info = TargetInfo {
+            name: "1.2.3".to_owned(),
+            label: "//third-party/foo:1.2.3".to_owned(),
+            kind: Kind::Library,
+            edition: None,
+            srcs: vec![],
+            mapped_srcs: FxHashMap::default(),
+            crate_name: Some("foo".to_owned()),
+            crate_dynamic: None,
+            crate_root: PathBuf::default(),
+            deps: vec![],
+            test_deps: vec![],
+            named_deps: FxHashMap::default(),
+            proc_macro: None,
+            features: vec![],
+            env: FxHashMap::default(),
+            source_folder: PathBuf::from("/tmp"),
+            project_relative_buildfile: PathBuf::from("third-party/BUCK"),
+            in_workspace: false,
+            rustc_flags: vec![],
+        };
+        assert_eq!(info.display_name(), "foo");
+    }
+
+    #[test]
+    fn test_display_name_strips_unittest_suffix() {
+        let info = TargetInfo {
+            name: "my_crate-unittest".to_owned(),
+            label: "//foo:my_crate-unittest".to_owned(),
+            kind: Kind::Test,
+            edition: None,
+            srcs: vec![],
+            mapped_srcs: FxHashMap::default(),
+            crate_name: None,
+            crate_dynamic: None,
+            crate_root: PathBuf::default(),
+            deps: vec![],
+            test_deps: vec![],
+            named_deps: FxHashMap::default(),
+            proc_macro: None,
+            features: vec![],
+            env: FxHashMap::default(),
+            source_folder: PathBuf::from("/tmp"),
+            project_relative_buildfile: PathBuf::from("foo/BUCK"),
+            in_workspace: false,
+            rustc_flags: vec![],
+        };
+
+        assert_eq!(info.display_name(), "my_crate");
+    }
 }
