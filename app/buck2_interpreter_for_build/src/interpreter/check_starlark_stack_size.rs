@@ -50,9 +50,9 @@ pub(crate) async fn check_starlark_stack_size(
             cancellation: &CancellationContext,
         ) -> Self::Value {
             let eval_kind = StarlarkEvalKind::Unknown("Check starlark stack size".into());
+            let provider = StarlarkEvaluatorProvider::new(ctx, eval_kind).await?;
 
-            BuckStarlarkModule::with_profiling_async(|env| async move {
-                let provider = StarlarkEvaluatorProvider::new(ctx, eval_kind).await?;
+            BuckStarlarkModule::with_profiling(|env| {
                 let (finished_eval, _) =
                     provider.with_evaluator(&env, cancellation.into(), move |eval, _| {
                         let content = indoc!(
@@ -92,7 +92,6 @@ pub(crate) async fn check_starlark_stack_size(
                     })?;
                 Ok((finished_eval.finish(None)?.0, ()))
             })
-            .await
         }
 
         fn equality(x: &Self::Value, y: &Self::Value) -> bool {
