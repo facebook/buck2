@@ -208,6 +208,7 @@ rust_library = prelude_rule(
         third_party_common.create_third_party_build_root_attrs()
     ),
     uses_plugins = [RustProcMacroPlugin],
+    supports_incoming_transition = True,
 )
 
 rust_test = prelude_rule(
