@@ -15,6 +15,7 @@ load(
 )
 load(
     "@prelude//platforms/apple:constants.bzl",
+    "appletv_platforms",
     "ios_platforms",
     "mac_catalyst_platforms",
     "mac_platforms",
@@ -27,6 +28,8 @@ def get_build_mode_constraints_map(use_whatsapp_build_modes):
     # @oss-disable[end= ]: return _get_build_mode_constraints_map(use_whatsapp_build_modes)
 
 _MOBILE_PLATFORMS = [
+    appletv_platforms.APPLETVOS_ARM64,
+    appletv_platforms.APPLETVSIMULATOR_ARM64,
     ios_platforms.IPHONEOS_ARM64,
     ios_platforms.IPHONESIMULATOR_ARM64,
     ios_platforms.IPHONESIMULATOR_X86_64,
