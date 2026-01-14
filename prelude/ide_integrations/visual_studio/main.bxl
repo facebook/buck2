@@ -79,7 +79,8 @@ def _main(bxl_ctx):
             elif ulabel.startswith("//"):
                 ulabel = "fbsource" + ulabel
 
-        is_explicit_target = (":" in ulabel) and (not ulabel.endswith(":"))
+        # Target label or alias.
+        is_explicit_target = ((":" in ulabel) and (not ulabel.endswith(":"))) or ((":" not in ulabel) and ("/" not in ulabel))
 
         # Using bxl_ctx.configured_targets on a wildcard target label will cause all targets to fail
         # if one of the targets is incompatible. We are using unconfigured_target_nodes_keep_going
