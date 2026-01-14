@@ -28,6 +28,8 @@ use std::hash::BuildHasherDefault;
 use std::hash::Hash;
 use std::hash::Hasher;
 use std::marker::PhantomData;
+use std::ops::Deref;
+use std::ops::DerefMut;
 use std::sync::LazyLock;
 
 use rand::Rng;
@@ -71,21 +73,79 @@ static RECOMMENDED_PARAMS: LazyLock<SetSketchParams> =
 /// Integer type to use for registers.
 type I = u16;
 
+/// A sketch of some set.
+///
+/// This cannot be used to sketch any new values (but can be merged). In exchange, it doesn't
+/// require a `T` or a hasher, unlike `SetSketcher`.
+pub struct SetSketch {
+    params: &'static SetSketchParams,
+    k_vec: Vec<I>,
+}
+
+impl SetSketch {
+    pub fn new(params: &'static SetSketchParams) -> Self {
+        let k_vec: Vec<I> = vec![0; params.m];
+
+        SetSketch { params, k_vec }
+    }
+
+    /// The function returns a 2-uple with first field cardinal estimator and second field the
+    /// **relative standard deviation**.  
+    ///
+    /// It is a relatively cpu costly function (the computed logs are not cached in the SetSketcher
+    /// structure) that involves log and exp calls on the whole sketch vector.
+    pub fn get_cardinal_stats(&self) -> (f64, f64) {
+        let sumbk = self.k_vec.iter().fold(0.0f64, |acc: f64, c| {
+            acc + (-(*c as f64) * self.params.lnb).exp()
+        });
+        let cardinality: f64 = self.params.m as f64 * (1. - 1. / self.params.b)
+            / (self.params.a * self.params.lnb * sumbk);
+
+        let rel_std_dev = ((self.params.b + 1.) / (self.params.b - 1.) * self.params.lnb - 1.)
+            / self.params.m as f64;
+        let rel_std_dev = rel_std_dev.sqrt();
+        (cardinality, rel_std_dev)
+    }
+
+    pub fn merge(&mut self, other: &SetSketch) {
+        for i in 0..self.k_vec.len() {
+            self.k_vec[i] = self.k_vec[i].max(other.k_vec[i]);
+        }
+    }
+
+    pub fn get_registers(&self) -> &[I] {
+        &self.k_vec
+    }
+}
+
 /// This structure implements Setsketch1 algorithm
 ///   
 /// The default parameters ensure capacity to represent a set up to 10^28 elements.
 pub struct SetSketcher<T, H: Hasher + Default> {
-    params: &'static SetSketchParams,
-    // random values,
-    k_vec: Vec<I>,
+    data: SetSketch,
     // minimum of values stored in vec_k
     lower_k: f64,
     nbmin: usize,
     permut_generator: FyShuffle,
-    /// the Hasher to use if data arrive unhashed. Anyway the data type we sketch must satisfy the trait Hash
+    /// the Hasher to use if data arrive unhashed. Anyway the data type we sketch must satisfy the
+    /// trait Hash
     b_hasher: BuildHasherDefault<H>,
     /// just to mark the type we sketch
     t_marker: PhantomData<T>,
+}
+
+impl<T, H: Hasher + Default> Deref for SetSketcher<T, H> {
+    type Target = SetSketch;
+
+    fn deref(&self) -> &Self::Target {
+        &self.data
+    }
+}
+
+impl<T, H: Hasher + Default> DerefMut for SetSketcher<T, H> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.data
+    }
 }
 
 impl<T, H> SetSketcher<T, H>
@@ -94,11 +154,8 @@ where
     H: Hasher + Default,
 {
     pub fn new(params: &'static SetSketchParams, b_hasher: BuildHasherDefault<H>) -> Self {
-        let k_vec: Vec<I> = vec![0; params.m];
-
         SetSketcher::<T, H> {
-            params,
-            k_vec,
+            data: SetSketch::new(params),
             lower_k: 0.,
             nbmin: 0,
             permut_generator: FyShuffle::new(params.m),
@@ -137,32 +194,6 @@ where
                 }
             }
         }
-    }
-
-    /// The function returns a 2-uple with first field cardinal estimator and second field the **relative standard deviation**.  
-    ///
-    /// It is a relatively cpu costly function (the computed logs are not cached in the SetSketcher structure) that involves log and exp calls on the whole sketch vector.
-    pub fn get_cardinal_stats(&self) -> (f64, f64) {
-        let sumbk = self.k_vec.iter().fold(0.0f64, |acc: f64, c| {
-            acc + (-(*c as f64) * self.params.lnb).exp()
-        });
-        let cardinality: f64 = self.params.m as f64 * (1. - 1. / self.params.b)
-            / (self.params.a * self.params.lnb * sumbk);
-
-        let rel_std_dev = ((self.params.b + 1.) / (self.params.b - 1.) * self.params.lnb - 1.)
-            / self.params.m as f64;
-        let rel_std_dev = rel_std_dev.sqrt();
-        (cardinality, rel_std_dev)
-    }
-
-    pub fn merge(&mut self, other: &SetSketcher<T, H>) {
-        for i in 0..self.k_vec.len() {
-            self.k_vec[i] = self.k_vec[i].max(other.k_vec[i]);
-        }
-    }
-
-    pub fn get_registers(&self) -> &[I] {
-        &self.k_vec
     }
 }
 
