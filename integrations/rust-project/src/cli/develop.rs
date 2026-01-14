@@ -168,11 +168,14 @@ impl Develop {
 
 const DEFAULT_EXTRA_TARGETS: usize = 50;
 
+/// The final rust-project.json result for the rust-analyzer discovery protocol.
+///
+/// <https://rust-analyzer.github.io/book/configuration.html#workspace-discovery-protocol>
 #[derive(Serialize, Deserialize)]
-pub(crate) struct OutputData {
+pub(crate) struct DiscoverProjectFinished {
+    pub(crate) kind: String,
     pub(crate) buildfile: PathBuf,
     pub(crate) project: ProjectJson,
-    pub(crate) kind: String,
 }
 
 impl Develop {
@@ -237,7 +240,7 @@ impl Develop {
                 // we have to log before we write the output, because rust-analyzer will kill us after the write
                 crate::scuba::log_develop(start.elapsed(), input.clone(), self.invoked_by_ra);
 
-                let out = OutputData {
+                let out = DiscoverProjectFinished {
                     buildfile,
                     project,
                     kind: "finished".to_owned(),
