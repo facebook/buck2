@@ -9,6 +9,7 @@
 # pyre-strict
 
 from buck2.tests.e2e_util.api.buck import Buck
+from buck2.tests.e2e_util.asserts import expect_failure
 from buck2.tests.e2e_util.buck_workspace import buck_test
 from buck2.tests.e2e_util.helper.golden import golden
 
@@ -48,3 +49,15 @@ async def test_build_output(buck: Buck) -> None:
         output=output,
         rel_path="build_output.golden",
     )
+
+
+@buck_test()
+async def test_build_output_on_partial_success(buck: Buck) -> None:
+    show_output = await expect_failure(
+        buck.build_without_report(
+            "root//:foo",
+            "root//:fail",
+            "--show-simple-output",
+        )
+    )
+    assert len(show_output.stdout.splitlines()) == 0
