@@ -17,6 +17,7 @@ _TARGETS = [
     "ovr_config//cpu/constraints:arm64",
     "ovr_config//os/constraints:os",
     "ovr_config//os:linux",
+    "ovr_config//os:linux-no-san",
     "ovr_config//os/constraints:linux",
     "ovr_config//os/constraints:macos",
     "ovr_config//os/constraints:windows",

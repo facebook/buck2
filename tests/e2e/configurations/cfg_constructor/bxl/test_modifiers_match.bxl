@@ -107,6 +107,33 @@ def test_modifiers_match_with_none(test_refs: TestRefs):
     cfg = test_refs.make_cfg(["ovr_config//os/constraints:windows"])
     asserts.equals(test_refs.get("ovr_config//build_mode:sanitizer_type[tsan]")[ConstraintValueInfo], resolve_modifier(cfg, match))
 
+def test_modifiers_match_with_default_constraint_value(test_refs: TestRefs):
+    # Test that a modifier key with a default constraint value matches a platform
+    # that doesn't explicitly set that constraint.
+    # This tests the fix for the bug where conditional modifiers don't match
+    # when the platform relies on the constraint's default value.
+    modifier_info = test_refs.get_modifier_info({
+        "DEFAULT": None,
+        # Key contains os:linux AND sanitizer_type[no-san] (which is the default)
+        "ovr_config//os:linux-no-san": "ovr_config//toolchain/clang/constraints:17",
+    })
+
+    # Platform with linux AND explicitly set no-san - should match
+    linux_with_nosan = test_refs.make_cfg(["ovr_config//os/constraints:linux", "ovr_config//build_mode:sanitizer_type[no-san]"])
+    asserts.equals(test_refs.get("ovr_config//toolchain/clang/constraints:17")[ConstraintValueInfo], resolve_modifier(linux_with_nosan, modifier_info))
+
+    # Platform with ONLY linux (sanitizer_type defaults to no-san) - should also match
+    linux_without_sanitizer = test_refs.make_cfg(["ovr_config//os/constraints:linux"])
+    asserts.equals(test_refs.get("ovr_config//toolchain/clang/constraints:17")[ConstraintValueInfo], resolve_modifier(linux_without_sanitizer, modifier_info))
+
+    # Platform with linux but different sanitizer - should NOT match
+    linux_with_asan = test_refs.make_cfg(["ovr_config//os/constraints:linux", "ovr_config//build_mode:sanitizer_type[asan]"])
+    asserts.equals(None, resolve_modifier(linux_with_asan, modifier_info))
+
+    # Different OS - should NOT match
+    windows_without_sanitizer = test_refs.make_cfg(["ovr_config//os/constraints:windows"])
+    asserts.equals(None, resolve_modifier(windows_without_sanitizer, modifier_info))
+
 def _impl(ctx: bxl.Context):
     test_refs = get_test_refs(ctx)
 
@@ -114,6 +141,7 @@ def _impl(ctx: bxl.Context):
     test_resolve_modifiers_match_with_config_setting_keys(test_refs)
     test_modifiers_match_resolve_first_matching_key(test_refs)
     test_modifiers_match_with_none(test_refs)
+    test_modifiers_match_with_default_constraint_value(test_refs)
 
 test = bxl_main(
     cli_args = {},

@@ -136,6 +136,14 @@ def get_modifier_info(
 def _is_subset(a: ConfigurationInfo, b: ConfigurationInfo) -> bool:
     for (constraint_setting, a_constraint_value) in a.constraints.items():
         b_constraint_value = b.constraints.get(constraint_setting)
+        if b_constraint_value == None:
+            # Constraint not explicitly set in b - check if a's value is the default.
+            # If a's constraint value equals the setting's default, treat as match
+            # since b implicitly has the default value.
+            # TODO(nero) Use new ConfigurationInfo API when available.
+            default_label = a_constraint_value.setting.default
+            if default_label != None and a_constraint_value.label == default_label:
+                continue
         if a_constraint_value != b_constraint_value:
             return False
     return True
