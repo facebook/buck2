@@ -775,6 +775,7 @@ genrule = prelude_rule(
             "_exec_os_type": buck.exec_os_type_arg(),
         } |
         genrule_common.error_handler_arg() |
+        genrule_common.allow_offline_output_cache_arg() |
         buck.licenses_arg() |
         buck.labels_arg() |
         buck.contacts_arg()

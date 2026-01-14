@@ -40,3 +40,22 @@ cas_artifact = rule(impl = _cas_artifact_impl, attrs = {
     "is_tree": attrs.bool(default = False),
     "use_case": attrs.string(),
 })
+
+def _genrule_impl(ctx: AnalysisContext):
+    out = ctx.actions.declare_output(ctx.attrs.out)
+
+    # Use environment variable to pass output path
+    ctx.actions.run(
+        cmd_args("sh", "-c", ctx.attrs.cmd, hidden = ctx.attrs.srcs),
+        category = "genrule",
+        env = {"OUT": out.as_output()},
+        allow_offline_output_cache = ctx.attrs.allow_offline_output_cache,
+    )
+    return [DefaultInfo(default_output = out)]
+
+genrule = rule(impl = _genrule_impl, attrs = {
+    "allow_offline_output_cache": attrs.bool(default = False),
+    "cmd": attrs.string(),
+    "out": attrs.string(),
+    "srcs": attrs.list(attrs.source(), default = []),
+})

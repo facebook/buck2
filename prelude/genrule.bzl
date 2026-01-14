@@ -88,6 +88,7 @@ _USE_CACHE_MODE = is_full_meta_repo()
 # Extra attributes required by every genrule based on genrule_impl
 def genrule_attributes() -> dict[str, Attr]:
     attributes = {
+        "allow_offline_output_cache": attrs.bool(default = False),
         "always_print_stderr": attrs.bool(default = False),
         "metadata_env_var": attrs.option(attrs.string(), default = None),
         "metadata_path": attrs.option(attrs.string(), default = None),
@@ -426,6 +427,7 @@ def process_genrule(
         prefer_local = prefer_local,
         weight = value_or(ctx.attrs.weight, 1),
         allow_cache_upload = cacheable,
+        allow_offline_output_cache = ctx.attrs.allow_offline_output_cache,
         category = category,
         identifier = identifier,
         no_outputs_cleanup = ctx.attrs.no_outputs_cleanup,

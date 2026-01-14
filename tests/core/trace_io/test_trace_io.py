@@ -562,6 +562,99 @@ async def test_run_action_cache_includes_in_manifest(buck: Buck) -> None:
     assert_buck_out_paths_materialized(buck.cwd, manifest["paths"])
 
 
+@buck_test(
+    skip_for_os=["windows"],
+    extra_buck_config={"buck2": {"sqlite_materializer_state": "false"}},
+)
+@env("BUCK_LOG", "buck2_execute_impl::materializers=trace")
+async def test_genrule_with_allow_offline_output_cache(buck: Buck) -> None:
+    """Test genrule caching when allow_offline_output_cache=True."""
+    hg_init(cwd=buck.cwd)
+
+    target = "root//genrule_cache:cached"
+
+    # Build with trace mode to populate offline cache
+    await buck.debug("trace-io", "enable")
+    result = await buck.build(target)
+    print("stderr:", result.stderr)
+    assert "/offline-cache/" in result.stderr, (
+        "materializer should declare offline-cache materialization"
+    )
+
+    # Get output path
+    output_path = result.get_build_report().output_for_target(target)
+
+    # Compute offline cache path
+    offline_cache_path = (
+        Path(str(output_path).replace("/gen/", "/offline-cache/")).parent / "output.txt"
+    )
+    assert not offline_cache_path.exists(), (
+        "offline cache path should not exist before manifest export"
+    )
+
+    # Export manifest to materialize offline-cache
+    await buck.debug("trace-io", "export-manifest")
+    assert offline_cache_path.exists(), (
+        "offline cache path should exist after manifest export"
+    )
+
+    await buck.kill()
+
+    # Rebuild with offline cache enabled
+    result = await buck.build(
+        target,
+        "--config",
+        "buck2.use_network_action_output_cache=true",
+        "--no-remote-cache",
+        "--local-only",
+    )
+    assert "LocalCopy" in result.stderr, "offline-cache path should be copied to output"
+    assert output_path.exists(), "genrule output path should exist"
+
+
+@buck_test(skip_for_os=["windows"])
+async def test_genrule_without_parameter_does_not_cache(buck: Buck) -> None:
+    """Test that genrule without allow_offline_output_cache doesn't cache."""
+    hg_init(cwd=buck.cwd)
+
+    await buck.debug("trace-io", "enable")
+    await buck.build("root//genrule_cache:uncached")
+    out = await buck.debug("trace-io", "export-manifest")
+    manifest = json.loads(out.stdout)
+
+    # Verify that offline-cache paths do NOT include uncached genrule
+    offline_cache_paths = [
+        path
+        for path in manifest["paths"]
+        if "/offline-cache/" in path and "uncached" in path
+    ]
+    assert len(offline_cache_paths) == 0, (
+        f"uncached genrule should not appear in offline-cache: {offline_cache_paths}"
+    )
+
+
+@buck_test(skip_for_os=["windows"])
+async def test_genrule_cache_includes_in_manifest(buck: Buck) -> None:
+    """Test that cached genrule outputs appear in trace manifest."""
+    hg_init(cwd=buck.cwd)
+
+    await buck.debug("trace-io", "enable")
+    await buck.build("root//genrule_cache:cached")
+    out = await buck.debug("trace-io", "export-manifest")
+    manifest = json.loads(out.stdout)
+
+    assert any(
+        re.match(
+            r"buck-out/.+/offline-cache/root/.+/genrule_cache/__cached__/output.txt",
+            path,
+        )
+        is not None
+        for path in manifest["paths"]
+    ), "offline cache should contain cached genrule output"
+
+    assert_buck_out_paths_materialized(buck.cwd, manifest["paths"])
+
+
 # No-op test for windows.
 @buck_test()
 async def test_noop(buck: Buck) -> None:

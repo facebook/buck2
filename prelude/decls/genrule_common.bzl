@@ -212,6 +212,30 @@ def _error_handler_arg():
             """),
     }
 
+def _allow_offline_output_cache_arg():
+    return {
+        "allow_offline_output_cache": attrs.bool(default = False, doc = """
+                Enables caching of this genrule's outputs for offline builds.
+
+                 When set to `True`, the genrule's outputs are cached during trace builds
+                 (via `buck2 debug trace-io`) and restored during offline builds without
+                 re-executing the command.
+
+                 This is intended for genrules that read from the network (e.g., downloads,
+                 remote artifact fetches) which cannot execute in offline build environments
+                 where network access is restricted.
+
+                 During trace builds, outputs are copied to `buck-out/offline-cache/` after
+                 successful execution. During offline builds, if all outputs exist in the
+                 offline cache, they are restored without running the genrule; otherwise
+                 the genrule executes normally (graceful fallback).
+
+                 Requires `buck2.use_network_action_output_cache=true` config to take effect.
+
+                 Example use case: caching network downloads in containerized offline build environments.
+            """),
+    }
+
 genrule_common = struct(
     srcs_arg = _srcs_arg,
     cmd_arg = _cmd_arg,
@@ -223,4 +247,5 @@ genrule_common = struct(
     environment_expansion_separator = _environment_expansion_separator,
     env_arg = _env_arg,
     error_handler_arg = _error_handler_arg,
+    allow_offline_output_cache_arg = _allow_offline_output_cache_arg,
 )
