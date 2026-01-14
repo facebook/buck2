@@ -296,20 +296,12 @@ impl std::ops::Deref for BuckStarlarkModule {
     }
 }
 
-pub struct BuckStarlarkModuleProvider(());
-
-impl BuckStarlarkModuleProvider {
-    pub fn make(self) -> BuckStarlarkModule {
-        BuckStarlarkModule(Module::new())
-    }
-}
-
 impl BuckStarlarkModule {
     /// This function allows us to ensure that profiling is reported (in the successful path) of any starlark evaluation.
     pub fn with_profiling<R, E>(
-        func: impl FnOnce(BuckStarlarkModuleProvider) -> Result<(ProfilingReportedToken, R), E>,
+        func: impl FnOnce(BuckStarlarkModule) -> Result<(ProfilingReportedToken, R), E>,
     ) -> Result<R, E> {
-        match func(BuckStarlarkModuleProvider(())) {
+        match func(BuckStarlarkModule(Module::new())) {
             Ok((ProfilingReportedToken(..), res)) => Ok(res),
             Err(e) => Err(e),
         }
@@ -320,9 +312,9 @@ impl BuckStarlarkModule {
         R,
         F: Future<Output = buck2_error::Result<(ProfilingReportedToken, R)>>,
     >(
-        func: impl FnOnce(BuckStarlarkModuleProvider) -> F,
+        func: impl FnOnce(BuckStarlarkModule) -> F,
     ) -> buck2_error::Result<R> {
-        match func(BuckStarlarkModuleProvider(())).await {
+        match func(BuckStarlarkModule(Module::new())).await {
             Ok((ProfilingReportedToken(..), res)) => Ok(res),
             Err(e) => Err(e),
         }

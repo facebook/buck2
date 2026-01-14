@@ -166,9 +166,7 @@ impl BxlDynamicOutputEvaluator<'_> {
         provider: StarlarkEvaluatorProvider,
         dice: &mut DiceComputations<'_>,
     ) -> buck2_error::Result<RecordedAnalysisValues> {
-        BuckStarlarkModule::with_profiling(|env_provider| {
-            let env = env_provider.make();
-
+        BuckStarlarkModule::with_profiling(|env| {
             let bxl_dice = BxlDiceComputations::new(dice, self.liveness.dupe());
 
             let (finished_eval, analysis_registry) = {

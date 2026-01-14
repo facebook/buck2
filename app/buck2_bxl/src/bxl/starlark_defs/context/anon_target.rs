@@ -257,8 +257,7 @@ async fn eval_bxl_for_anon_target_inner(
     let eval_kind = anon_target.dupe().eval_kind();
     let provider = StarlarkEvaluatorProvider::new(dice, eval_kind).await?;
 
-    BuckStarlarkModule::with_profiling(|env_provider| {
-        let env = env_provider.make();
+    BuckStarlarkModule::with_profiling(|env| {
         let bxl_dice = BxlDiceComputations::new(dice, liveness.dupe());
         let bxl_ctx_core_data = Arc::new(bxl_ctx_core_data);
         let mut extra = BxlEvalExtra::new_anon(bxl_dice, bxl_ctx_core_data.dupe());

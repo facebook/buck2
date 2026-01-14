@@ -144,8 +144,7 @@ async fn do_apply_transition(
     let print = EventDispatcherPrintHandler(get_dispatcher());
     let eval_kind = StarlarkEvalKind::Transition(Arc::new(transition_id.clone()));
     let provider = StarlarkEvaluatorProvider::new(ctx, eval_kind).await?;
-    BuckStarlarkModule::with_profiling(|env_provider| {
-        let module = env_provider.make();
+    BuckStarlarkModule::with_profiling(|module| {
         let (finished_eval, res) = provider
             .with_evaluator(&module, cancellation.into(), |eval, _| {
                 eval.set_print_handler(&print);

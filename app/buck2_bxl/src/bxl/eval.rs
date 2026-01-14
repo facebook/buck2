@@ -189,8 +189,7 @@ impl BxlInnerEvaluator {
             dispatcher,
         } = self;
 
-        BuckStarlarkModule::with_profiling(|env_provider| {
-            let env = env_provider.make();
+        BuckStarlarkModule::with_profiling(|env| {
             let key = data.key().dupe();
 
             let bxl_dice = BxlDiceComputations::new(dice, liveness.dupe());

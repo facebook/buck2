@@ -31,7 +31,6 @@ use buck2_error::conversion::from_any_with_tag;
 use buck2_event_observer::humanized::HumanizedBytes;
 use buck2_events::dispatch::get_dispatcher;
 use buck2_interpreter::factory::BuckStarlarkModule;
-use buck2_interpreter::factory::BuckStarlarkModuleProvider;
 use buck2_interpreter::factory::FinishedStarlarkEvaluation;
 use buck2_interpreter::factory::StarlarkEvaluatorProvider;
 use buck2_interpreter::file_loader::InterpreterFileLoader;
@@ -317,12 +316,10 @@ impl InterpreterForDir {
 
     fn create_env(
         &self,
-        env_provider: BuckStarlarkModuleProvider,
+        env: BuckStarlarkModule,
         starlark_path: StarlarkPath<'_>,
         loaded_modules: &LoadedModules,
     ) -> buck2_error::Result<BuckStarlarkModule> {
-        let env = env_provider.make();
-
         if let Some(prelude_import) = self.prelude_import(starlark_path) {
             let prelude_env = loaded_modules
                 .map
@@ -353,7 +350,7 @@ impl InterpreterForDir {
     // implicit package include.
     fn create_build_env(
         &self,
-        env_provider: BuckStarlarkModuleProvider,
+        env: BuckStarlarkModule,
         build_file: &BuildFilePath,
         package_listing: &PackageListing,
         super_package: SuperPackage,
@@ -372,11 +369,7 @@ impl InterpreterForDir {
                 .as_ref()
                 .to_owned(),
         )?;
-        let env = self.create_env(
-            env_provider,
-            StarlarkPath::BuildFile(build_file),
-            loaded_modules,
-        )?;
+        let env = self.create_env(env, StarlarkPath::BuildFile(build_file), loaded_modules)?;
 
         if let Some(root_import) = self.root_import() {
             let root_env = loaded_modules
@@ -678,9 +671,9 @@ impl InterpreterForDir {
         Option<Arc<StarlarkProfileDataAndStats>>,
         EvaluationResultWithStats,
     )> {
-        BuckStarlarkModule::with_profiling(|env_provider| {
+        BuckStarlarkModule::with_profiling(|env| {
             let (env, internals) = self.create_build_env(
-                env_provider,
+                env,
                 build_file,
                 &listing,
                 super_package,
