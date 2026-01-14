@@ -12,6 +12,7 @@ load(
     "make_artifact_tset",
     "project_artifacts",
 )
+load("@prelude//:attrs_validators.bzl", "get_attrs_validation_specs")
 load("@prelude//:local_only.bzl", "get_resolved_cxx_binary_link_execution_preference")
 load(
     "@prelude//:resources.bzl",
@@ -227,6 +228,7 @@ CxxExecutableOutput = record(
     dist_info = DistInfo,
     sanitizer_runtime_files = field(list[Artifact], []),
     index_stores = field(list[Artifact], []),
+    validation_specs = field(list[ValidationSpec], []),
 )
 
 def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, is_cxx_test: bool = False) -> CxxExecutableOutput:
@@ -933,6 +935,7 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
         sanitizer_runtime_files = link_result.sanitizer_runtime_files,
         index_stores = index_stores,
         diagnostics = all_diagnostics,
+        validation_specs = get_attrs_validation_specs(ctx),
     )
 
 _CxxLinkExecutableResult = record(

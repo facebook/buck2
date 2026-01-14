@@ -326,6 +326,8 @@ def cxx_binary_impl(ctx: AnalysisContext) -> list[Provider]:
         extra_providers.append(LinkCommandDebugOutputInfo(debug_outputs = [output.link_command_debug_output]))
     if output.sanitizer_runtime_files:
         extra_providers.append(CxxSanitizerRuntimeInfo(runtime_files = output.sanitizer_runtime_files))
+    if output.validation_specs:
+        extra_providers.append(ValidationInfo(validations = output.validation_specs))
 
     # Unix env provider.
     extra_providers.append(
@@ -845,7 +847,17 @@ def cxx_test_impl(ctx: AnalysisContext) -> list[Provider]:
     # Setup RE executors based on the `remote_execution` param.
     re_executor, executor_overrides = get_re_executors_from_props(ctx)
 
-    return inject_test_run_info(
+    providers = [
+        DefaultInfo(
+            default_output = output.binary,
+            other_outputs = output.runtime_files + output.external_debug_info_artifacts,
+            sub_targets = output.sub_targets,
+        ),
+        output.compilation_db,
+        output.xcode_data,
+        output.dist_info,
+    ]
+    providers.extend(inject_test_run_info(
         ctx,
         ExternalRunnerTestInfo(
             type = "gtest",
@@ -863,16 +875,11 @@ def cxx_test_impl(ctx: AnalysisContext) -> list[Provider]:
             ),
             use_project_relative_paths = re_executor != None,
         ),
-    ) + [
-        DefaultInfo(
-            default_output = output.binary,
-            other_outputs = output.runtime_files + output.external_debug_info_artifacts,
-            sub_targets = output.sub_targets,
-        ),
-        output.compilation_db,
-        output.xcode_data,
-        output.dist_info,
-    ]
+    ))
+    if output.validation_specs:
+        providers.append(ValidationInfo(validations = output.validation_specs))
+
+    return providers
 
 def _get_params_for_android_binary_cxx_library() -> (CxxRuleSubTargetParams, CxxRuleProviderParams):
     sub_target_params = CxxRuleSubTargetParams(

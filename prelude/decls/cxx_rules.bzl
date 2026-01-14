@@ -66,7 +66,7 @@ def _cxx_binary_and_test_attrs():
         "_build_info": BUILD_INFO_ATTR,
         "_cxx_hacks": attrs.dep(default = "prelude//cxx/tools:cxx_hacks"),
         "_cxx_toolchain": toolchains_common.cxx(),
-    }
+    } | validation_common.attrs_validators_arg()
     ret.update(constraint_overrides.attributes)
     return ret
 

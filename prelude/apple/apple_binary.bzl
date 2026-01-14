@@ -6,7 +6,6 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
-load("@prelude//:attrs_validators.bzl", "get_attrs_validation_specs")
 load("@prelude//:paths.bzl", "paths")
 load("@prelude//:validation_deps.bzl", "get_validation_deps_outputs")
 load("@prelude//apple:apple_stripping.bzl", "apple_strip_args")
@@ -255,8 +254,7 @@ def apple_binary_impl(ctx: AnalysisContext) -> [list[Provider], Promise]:
         index_store_subtargets, index_store_info = create_index_store_subtargets_and_provider(ctx, index_stores, swift_index_stores, non_exported_deps + exported_deps)
         cxx_output.sub_targets.update(index_store_subtargets)
 
-        validation_specs = get_attrs_validation_specs(ctx)
-        validation_providers = [ValidationInfo(validations = validation_specs)] if validation_specs else []
+        validation_providers = [ValidationInfo(validations = cxx_output.validation_specs)] if cxx_output.validation_specs else []
 
         all_diagnostics = []
         if swift_compile:
