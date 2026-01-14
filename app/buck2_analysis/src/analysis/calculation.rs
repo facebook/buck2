@@ -266,6 +266,9 @@ async fn get_analysis_result_inner(
         MaybeCompatible::Compatible(configured_node) => configured_node,
     };
 
+    // For precision, grab the *actual* rule type and not the *underlying* rule type.
+    let target_rule_type_name = configured_node.rule_type().name().to_owned();
+
     let configured_node = configured_node.as_ref();
 
     let ((res, now), spans): ((buck2_error::Result<_>, _), _) = match configured_node.rule_type() {
@@ -357,6 +360,9 @@ async fn get_analysis_result_inner(
     ctx.store_evaluation_data(AnalysisKeyActivationData {
         time_span: now.end_now(),
         spans,
+        analysis_with_extra_data: AnalysisWithExtraData {
+            target_rule_type_name,
+        },
     })?;
 
     res
@@ -446,4 +452,10 @@ pub async fn profile_analysis(
 pub struct AnalysisKeyActivationData {
     pub time_span: TimeSpan,
     pub spans: SmallVec<[SpanId; 1]>,
+    pub analysis_with_extra_data: AnalysisWithExtraData,
+}
+
+#[derive(Clone)]
+pub struct AnalysisWithExtraData {
+    pub target_rule_type_name: String,
 }

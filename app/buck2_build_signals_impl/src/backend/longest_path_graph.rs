@@ -11,7 +11,6 @@
 use std::time::Duration;
 
 use buck2_analysis::analysis::calculation::AnalysisKey;
-use buck2_build_api::actions::calculation::ActionWithExtraData;
 use buck2_build_signals::env::CriticalPathBackendName;
 use buck2_build_signals::env::NodeDuration;
 use buck2_core::soft_error;
@@ -25,12 +24,13 @@ use buck2_events::span::SpanId;
 use dupe::Dupe;
 use smallvec::SmallVec;
 
-use crate::ActionNodeData;
 use crate::BuildInfo;
 use crate::DetailedCriticalPath;
 use crate::NodeData;
+use crate::NodeDataInner;
 use crate::NodeKey;
 use crate::backend::backend::BuildListenerBackend;
+use crate::backend::backend::NodeExtraData;
 
 /// An implementation of critical path that uses a longest-paths graph in order to produce
 /// potential savings in addition to the critical path.
@@ -58,7 +58,7 @@ impl BuildListenerBackend for LongestPathGraphBackend {
     fn process_node(
         &mut self,
         key: NodeKey,
-        action_with_extra_data: Option<ActionWithExtraData>,
+        extra_data: NodeExtraData,
         duration: NodeDuration,
         dep_keys: impl IntoIterator<Item = NodeKey>,
         span_ids: SmallVec<[SpanId; 1]>,
@@ -72,7 +72,7 @@ impl BuildListenerBackend for LongestPathGraphBackend {
             key,
             dep_keys,
             NodeData {
-                action_node_data: action_with_extra_data.map(ActionNodeData::from_extra_data),
+                inner: NodeDataInner::from(extra_data),
                 duration,
                 span_ids,
             },
@@ -234,7 +234,7 @@ impl BuildListenerBackend for LongestPathGraphBackend {
                 let data = std::mem::replace(
                     &mut data[vertex_idx],
                     NodeData {
-                        action_node_data: None,
+                        inner: NodeDataInner::None,
                         duration: NodeDuration::zero(),
                         span_ids: Default::default(),
                     },

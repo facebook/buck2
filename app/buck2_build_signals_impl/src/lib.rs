@@ -21,6 +21,7 @@ use std::time::Instant;
 use async_trait::async_trait;
 use buck2_analysis::analysis::calculation::AnalysisKey;
 use buck2_analysis::analysis::calculation::AnalysisKeyActivationData;
+use buck2_analysis::analysis::calculation::AnalysisWithExtraData;
 use buck2_artifact::actions::key::ActionKey;
 use buck2_artifact::artifact::build_artifact::BuildArtifact;
 use buck2_build_api::actions::RegisteredAction;
@@ -69,6 +70,7 @@ use tokio_stream::StreamExt;
 use tokio_stream::wrappers::UnboundedReceiverStream;
 
 use crate::backend::backend::BuildListenerBackend;
+use crate::backend::backend::NodeExtraData;
 use crate::backend::logging::LoggingBackend;
 use crate::backend::longest_path_graph::LongestPathGraphBackend;
 use crate::enhancement::CriticalPathProtoEnhancer;
@@ -140,7 +142,7 @@ impl NodeKey {
 
     fn into_critical_path_entry_data(
         self,
-        action_node_data: Option<&ActionNodeData>,
+        node_data: &NodeDataInner,
     ) -> Option<buck2_data::critical_path_entry2::Entry> {
         match self {
             NodeKey::BuildKey(key) => {
@@ -155,7 +157,7 @@ impl NodeKey {
                     target_rule_type_name,
                     action_digest,
                     invalidation_info,
-                } = action_node_data.as_ref()?;
+                } = node_data.action_node_data().as_ref()?;
 
                 Some(
                     buck2_data::critical_path_entry2::ActionExecution {
@@ -279,11 +281,7 @@ pub(crate) struct Evaluation {
     /// Spans that correspond to this key. We use this when producing a chrome trace.
     spans: SmallVec<[SpanId; 1]>,
 
-    // NOTE: The fields below aren't usually going to be both set, but it doesn't really hurt (for
-    // now) to have them not tied to the right variant.
-    /// The RegisteredAction that corresponds to this Evaluation (this will only be present for
-    /// NodeKey::BuildKey).
-    action_with_extra_data: Option<ActionWithExtraData>,
+    extra_data: NodeExtraData,
 
     /// The Load result that corresponds to this Evaluation (this will only be present for
     /// InterpreterResultsKey).
@@ -380,7 +378,7 @@ impl ActivationTracker for BuildSignalSender {
 
         let mut signal = Evaluation {
             key,
-            action_with_extra_data: None,
+            extra_data: NodeExtraData::None,
             duration: NodeDuration::zero(),
             dep_keys: deps.into_iter().filter_map(NodeKey::from_dyn_key).collect(),
             spans: Default::default(),
@@ -406,11 +404,14 @@ impl ActivationTracker for BuildSignalSender {
                 spans,
             }) = downcast_and_take(&mut activation_data)
             {
-                signal.action_with_extra_data = Some(action_with_extra_data);
+                signal.extra_data = NodeExtraData::Action(action_with_extra_data);
                 signal.duration = duration;
                 signal.spans = spans;
-            } else if let Some(AnalysisKeyActivationData { time_span, spans }) =
-                downcast_and_take(&mut activation_data)
+            } else if let Some(AnalysisKeyActivationData {
+                time_span,
+                spans,
+                analysis_with_extra_data,
+            }) = downcast_and_take(&mut activation_data)
             {
                 signal.duration = NodeDuration {
                     user: time_span.duration(),
@@ -418,6 +419,7 @@ impl ActivationTracker for BuildSignalSender {
                     queue: None,
                 };
                 signal.spans = spans;
+                signal.extra_data = NodeExtraData::Analysis(analysis_with_extra_data);
             } else if let Some(InterpreterResultsKeyActivationData {
                 time_span,
                 result,
@@ -593,7 +595,7 @@ where
 
         self.backend.process_node(
             evaluation.key,
-            evaluation.action_with_extra_data,
+            evaluation.extra_data,
             evaluation.duration,
             evaluation.dep_keys.into_iter(),
             evaluation.spans,
@@ -665,7 +667,7 @@ where
 
         self.backend.process_node(
             NodeKey::FinalMaterialization(materialization.artifact),
-            None,
+            NodeExtraData::None,
             materialization.duration,
             std::iter::once(dep),
             materialization.span_id.into_iter().collect(),
@@ -695,7 +697,7 @@ where
 
         self.backend.process_node(
             NodeKey::TestExecution(key),
-            None,
+            NodeExtraData::None,
             signal.duration,
             deps.chain(listing_key),
             Default::default(),
@@ -723,7 +725,7 @@ where
 
         self.backend.process_node(
             node_key,
-            None,
+            NodeExtraData::None,
             signal.duration,
             deps.into_iter(),
             Default::default(),
@@ -806,7 +808,7 @@ impl DetailedCriticalPath {
         Self::create_proto_entries_for_early_timings(&mut enhancer, early_command_timing)?;
 
         for (key, data, potential_improvement) in self.entries {
-            if let Some(entry) = key.into_critical_path_entry_data(data.action_node_data.as_ref()) {
+            if let Some(entry) = key.into_critical_path_entry_data(&data.inner) {
                 enhancer.add_entry(entry, data, potential_improvement)?;
             }
         }
@@ -823,8 +825,33 @@ impl DetailedCriticalPath {
 }
 
 #[derive(Clone)]
+enum NodeDataInner {
+    Action(ActionNodeData),
+    #[allow(dead_code)] // Used in subsequent diff that enables ingress
+    Analysis(AnalysisNodeData),
+    None,
+}
+
+impl NodeDataInner {
+    fn action_node_data(&self) -> Option<&ActionNodeData> {
+        match self {
+            NodeDataInner::Action(action) => Some(action),
+            _ => None,
+        }
+    }
+
+    #[allow(dead_code)] // Used in subsequent diff that enables ingress
+    fn analysis_node_data(&self) -> Option<&AnalysisNodeData> {
+        match self {
+            NodeDataInner::Analysis(analysis) => Some(analysis),
+            _ => None,
+        }
+    }
+}
+
+#[derive(Clone)]
 struct NodeData {
-    action_node_data: Option<ActionNodeData>,
+    inner: NodeDataInner,
     duration: NodeDuration,
     span_ids: SmallVec<[SpanId; 1]>,
 }
@@ -857,6 +884,20 @@ impl ActionNodeData {
             target_rule_type_name,
             action_digest,
             invalidation_info,
+        }
+    }
+}
+
+#[derive(Clone)]
+struct AnalysisNodeData {
+    #[allow(dead_code)] // Used in subsequent diff that enables ingress
+    target_rule_type_name: String,
+}
+
+impl AnalysisNodeData {
+    fn from_extra_data(data: AnalysisWithExtraData) -> Self {
+        Self {
+            target_rule_type_name: data.target_rule_type_name,
         }
     }
 }

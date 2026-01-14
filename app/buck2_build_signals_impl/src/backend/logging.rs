@@ -8,7 +8,6 @@
  * above-listed licenses.
  */
 
-use buck2_build_api::actions::calculation::ActionWithExtraData;
 use buck2_build_signals::env::CriticalPathBackendName;
 use buck2_build_signals::env::NodeDuration;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
@@ -23,6 +22,7 @@ use crate::BuildInfo;
 use crate::DetailedCriticalPath;
 use crate::NodeKey;
 use crate::backend::backend::BuildListenerBackend;
+use crate::backend::backend::NodeExtraData;
 
 pub(crate) struct LoggingBackend {
     events: EventDispatcher,
@@ -44,7 +44,7 @@ impl BuildListenerBackend for LoggingBackend {
     fn process_node(
         &mut self,
         key: NodeKey,
-        _value: Option<ActionWithExtraData>,
+        _extra_data: NodeExtraData,
         _duration: NodeDuration,
         dep_keys: impl IntoIterator<Item = NodeKey>,
         _span_ids: SmallVec<[SpanId; 1]>,
