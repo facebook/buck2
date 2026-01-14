@@ -48,3 +48,17 @@ trivial_build = rule(
     impl = _trivial_build,
     attrs = {},
 )
+
+# Rule with no attrs that executes a run action which fails
+def _impl(ctx):
+    out = ctx.actions.declare_output("out.txt")
+    ctx.actions.run(
+        cmd_args("false", hidden = out.as_output()),
+        category = "run",
+    )
+    return [DefaultInfo(default_output = out)]
+
+fail_build = rule(
+    impl = _impl,
+    attrs = {},
+)
