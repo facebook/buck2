@@ -65,6 +65,7 @@ load(
     "cxx_sanitizer_runtime_arguments",
     "generates_split_debug",
     "linker_map_args",
+    "linker_supports_linker_maps",
     "make_link_args",
 )
 load(":debug.bzl", "SplitDebugMode")
@@ -144,7 +145,7 @@ def cxx_link_into(
     dwp_tool_available = dwp_available(cxx_toolchain_info)
     is_result_executable = result_type.value == "executable"
 
-    if linker_info.generate_linker_maps:
+    if linker_info.generate_linker_maps and linker_supports_linker_maps(linker_info.type):
         linker_map = ctx.actions.declare_output(output.short_path + "-LinkMap.txt")
         linker_map_data = CxxLinkerMapData(
             map = linker_map,
@@ -209,7 +210,7 @@ def cxx_link_into(
     sanitizer_runtime_args = cxx_sanitizer_runtime_arguments(ctx, cxx_toolchain_info, output)
 
     def create_local_linker_invocation(add_linker_outputs: bool) -> LinkArgsOutput:
-        if linker_info.generate_linker_maps and add_linker_outputs:
+        if linker_map != None and add_linker_outputs:
             links_with_linker_map = opts.links + [linker_map_args(cxx_toolchain_info, linker_map.as_output())]
         else:
             links_with_linker_map = opts.links

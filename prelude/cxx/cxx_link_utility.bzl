@@ -51,6 +51,12 @@ def generates_split_debug(toolchain: CxxToolchainInfo):
 
     return True
 
+def linker_supports_linker_maps(linker_type: LinkerType) -> bool:
+    """
+    Returns whether the given linker type supports generating linker maps.
+    """
+    return linker_type in [LinkerType("darwin"), LinkerType("gnu")]
+
 def linker_map_args(toolchain: CxxToolchainInfo, linker_map) -> LinkArgs:
     linker_type = toolchain.linker_info.type
     if linker_type == LinkerType("darwin"):
@@ -68,7 +74,7 @@ def linker_map_args(toolchain: CxxToolchainInfo, linker_map) -> LinkArgs:
             linker_map,
         ]
     else:
-        fail("Linker type {} not supported".format(linker_type))
+        fail("Linker type {} not supported for linker maps".format(linker_type))
     return LinkArgs(flags = flags)
 
 LinkArgsOutput = record(
