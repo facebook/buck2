@@ -16,7 +16,7 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use async_trait::async_trait;
-use base64::Engine;
+use base64::write::EncoderWriter;
 use buck2_core::configuration::compatibility::MaybeCompatible;
 use buck2_core::configuration::data::ConfigurationData;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
@@ -124,7 +124,7 @@ impl GraphPropertiesOptions {
     }
 }
 
-#[derive(Clone, Dupe, Debug, Eq, Hash, PartialEq, Allocative)]
+#[derive(Clone, Dupe, Debug, Eq, PartialEq, Allocative)]
 pub struct GraphPropertiesValues {
     pub configured_graph_size: u64,
     pub configured_graph_sketch: Option<MergeableGraphSketch<ConfiguredTargetLabel>>,
@@ -139,35 +139,43 @@ pub struct GraphPropertiesValues {
 /// (2) It implements Dupe, Hash, and Eq. Hash and Eq are implemented by precomputing and holding
 /// onto a signature of the sketch.
 #[derive(Clone, Dupe, Derivative, Allocative)]
-#[derivative(Debug, PartialEq, Eq, Hash)]
+#[derivative(Debug)]
 pub struct MergeableGraphSketch<T: StrongHash> {
     version: SketchVersion,
-    signature: Arc<Vec<u8>>,
     #[derivative(Debug = "ignore", PartialEq = "ignore", Hash = "ignore")]
     #[allocative(skip)] // TODO(scottcao): Figure out how to implement allocative properly
     sketcher: Arc<SetSketcher<UseStrongHashing<T>, Blake3StrongHasher>>,
 }
+
+impl<T: StrongHash> PartialEq for MergeableGraphSketch<T> {
+    fn eq(&self, other: &Self) -> bool {
+        self.version == other.version
+            && self.sketcher.get_registers() == other.sketcher.get_registers()
+    }
+}
+
+impl<T: StrongHash> Eq for MergeableGraphSketch<T> {}
 
 impl<T: StrongHash> MergeableGraphSketch<T> {
     fn new(
         version: SketchVersion,
         sketcher: SetSketcher<UseStrongHashing<T>, Blake3StrongHasher>,
     ) -> Self {
-        let signature = sketcher.get_registers();
-        let signature: Vec<_> = signature.iter().flat_map(|v| v.to_ne_bytes()).collect();
-        let signature = Arc::new(signature);
         let sketcher = Arc::new(sketcher);
-        Self {
-            version,
-            signature,
-            sketcher,
-        }
+        Self { version, sketcher }
     }
 
     pub fn serialize(&self) -> String {
-        let mut res = format!("{}:", self.version);
-        base64::engine::general_purpose::STANDARD_NO_PAD.encode_string(&*self.signature, &mut res);
-        res
+        let mut res = format!("{}:", self.version).into_bytes();
+        let mut enc =
+            EncoderWriter::new(&mut res, &base64::engine::general_purpose::STANDARD_NO_PAD);
+        for v in self.sketcher.get_registers() {
+            use std::io::Write;
+            enc.write_all(&v.to_ne_bytes()).unwrap();
+        }
+        enc.finish().unwrap();
+        drop(enc);
+        String::from_utf8(res).unwrap()
     }
 }
 
