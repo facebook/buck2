@@ -31,6 +31,7 @@ def _rust_common_attributes(is_binary: bool):
         "resources": attrs.named_set(attrs.one_of(attrs.dep(), attrs.source()), sorted = True, default = []),
         "rustdoc_flags": attrs.list(attrs.arg(), default = []),
         "separate_debug_info": attrs.bool(default = False),
+        "use_content_based_paths": attrs.bool(default = True),
         "_exec_os_type": buck.exec_os_type_arg(),
         "_target_os_type": buck.target_os_type_arg(),
     }
