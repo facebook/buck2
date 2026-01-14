@@ -134,6 +134,26 @@ def test_modifiers_match_with_default_constraint_value(test_refs: TestRefs):
     windows_without_sanitizer = test_refs.make_cfg(["ovr_config//os/constraints:windows"])
     asserts.equals(None, resolve_modifier(windows_without_sanitizer, modifier_info))
 
+def test_modifiers_match_with_constraint_without_default(test_refs: TestRefs):
+    # Test that when the modifier key has a constraint with no default (default = None),
+    # and the platform doesn't set it, the match fails.
+    # CPU constraints don't have a default value.
+    modifier_info = ModifiersMatchInfo(
+        selector = [
+            # Key requires both linux AND x86_64 (CPU has no default)
+            (test_refs.make_cfg(["ovr_config//os/constraints:linux", "ovr_config//cpu/constraints:x86_64"]), test_refs.get("ovr_config//toolchain/clang/constraints:17")[ConstraintValueInfo]),
+        ],
+        default = None,
+    )
+
+    # Platform with linux AND x86_64 - should match
+    linux_x86_64 = test_refs.make_cfg(["ovr_config//os/constraints:linux", "ovr_config//cpu/constraints:x86_64"])
+    asserts.equals(test_refs.get("ovr_config//toolchain/clang/constraints:17")[ConstraintValueInfo], resolve_modifier(linux_x86_64, modifier_info))
+
+    # Platform with ONLY linux (no CPU set, and CPU has no default) - should NOT match
+    linux_only = test_refs.make_cfg(["ovr_config//os/constraints:linux"])
+    asserts.equals(None, resolve_modifier(linux_only, modifier_info))
+
 def _impl(ctx: bxl.Context):
     test_refs = get_test_refs(ctx)
 
@@ -142,6 +162,7 @@ def _impl(ctx: bxl.Context):
     test_modifiers_match_resolve_first_matching_key(test_refs)
     test_modifiers_match_with_none(test_refs)
     test_modifiers_match_with_default_constraint_value(test_refs)
+    test_modifiers_match_with_constraint_without_default(test_refs)
 
 test = bxl_main(
     cli_args = {},
