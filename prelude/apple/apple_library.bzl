@@ -15,7 +15,6 @@ load("@prelude//:paths.bzl", "paths")
 load("@prelude//:validation_deps.bzl", "get_validation_deps_outputs")
 load("@prelude//apple:apple_dsym.bzl", "DSYM_SUBTARGET", "get_apple_dsym")
 load("@prelude//apple:apple_stripping.bzl", "apple_strip_args")
-load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolchainInfo")
 # @oss-disable[end= ]: load("@prelude//apple/meta_only:apple_library_meta_validation.bzl", "apple_library_validate_for_meta_restrictions")
 # @oss-disable[end= ]: load("@prelude//apple/meta_only:linker_outputs.bzl", "extra_distributed_thin_lto_opt_outputs_merger", "get_extra_linker_output_flags", "get_extra_linker_outputs")
 load("@prelude//apple/mockingbird:mockingbird_types.bzl", "MockingbirdLibraryInfo", "MockingbirdLibraryInfoTSet", "MockingbirdLibraryRecord", "MockingbirdSourcesInfo", "MockingbirdTargetType")
@@ -560,9 +559,6 @@ def apple_library_rule_constructor_params_and_swift_providers(ctx: AnalysisConte
         allow_cache_upload = cxx_attrs_get_allow_cache_upload(ctx.attrs, get_cxx_toolchain_info(ctx).cxx_compiler_info.allow_cache_upload),
         precompiled_header = ctx.attrs.precompiled_header,
         prefix_header = ctx.attrs.prefix_header,
-        # When modular_libraries_use_header_maps is set we rely on the cxx
-        # header map logic for exported_headers.
-        skip_exported_headers = ctx.attrs.modular and not ctx.attrs._apple_toolchain[AppleToolchainInfo].modular_libraries_use_header_maps,
         use_content_based_paths = get_uses_experimental_content_based_path_hashing(ctx),
     )
 

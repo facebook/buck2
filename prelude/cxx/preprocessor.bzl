@@ -216,22 +216,16 @@ def format_system_include_arg(path: cmd_args, compiler_type: str) -> list[cmd_ar
 def cxx_exported_preprocessor_info(
         ctx: AnalysisContext,
         headers_layout: CxxHeadersLayout,
-        extra_preprocessors: list[CPreprocessor] = [],
-        skip_exported_headers: bool = False) -> CPreprocessor:
+        extra_preprocessors: list[CPreprocessor] = []) -> CPreprocessor:
     """
     This rule's preprocessor info which is both applied to the compilation of
     its source and propagated to the compilation of dependent's sources.
     """
-    if skip_exported_headers:
-        # Modular libraries will provide their exported headers via a symlink tree
-        # using extra_preprocessors, so should not be put into a header map.
-        exported_headers = []
-    else:
-        exported_headers = cxx_attr_exported_headers(ctx, headers_layout)
+    exported_headers = cxx_attr_exported_headers(ctx, headers_layout)
 
-        # Add any headers passed in via constructor params
-        for pre in extra_preprocessors:
-            exported_headers += pre.headers
+    # Add any headers passed in via constructor params
+    for pre in extra_preprocessors:
+        exported_headers += pre.headers
 
     exported_header_map = {
         paths.join(h.namespace, h.name): h.artifact

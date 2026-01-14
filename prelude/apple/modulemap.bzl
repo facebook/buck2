@@ -6,7 +6,7 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
-load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolchainInfo", "AppleToolsInfo")
+load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolsInfo")
 load(
     "@prelude//apple/swift:swift_incremental_support.bzl",
     "get_uses_experimental_content_based_path_hashing",
@@ -18,7 +18,6 @@ load(
 load(
     "@prelude//cxx:preprocessor.bzl",
     "CPreprocessor",
-    "CPreprocessorArgs",
 )
 
 def preprocessor_info_for_modulemap(
@@ -29,13 +28,6 @@ def preprocessor_info_for_modulemap(
         swift_header: Artifact | None) -> CPreprocessor:
     preprocessor_info, _ = create_modulemap(ctx, name, module_name, headers, swift_header)
     return preprocessor_info
-
-def _non_modular_libraries_use_header_maps(ctx: AnalysisContext) -> bool:
-    apple_toolchain = getattr(ctx.attrs, "_apple_toolchain", None)
-    if apple_toolchain:
-        return apple_toolchain[AppleToolchainInfo].modular_libraries_use_header_maps
-
-    return False
 
 def create_modulemap(
         ctx: AnalysisContext,
@@ -97,26 +89,12 @@ def create_modulemap(
             cmd.add(hdr)
 
     ctx.actions.run(cmd, category = "modulemap", identifier = name)
-
-    if _non_modular_libraries_use_header_maps(ctx):
-        # When using header maps for non-modular libraries we only set the
-        # symlink tree includes in modular_args for modular rdeps.
-        pp = CPreprocessor(
-            modular_args = [
-                cmd_args(output, format = "-fmodule-map-file={}"),
-                cmd_args(symlink_tree, format = "-I{}"),
-            ],
-            modulemap_path = cmd_args(output),
-            modulemap_artifacts = [output],
-        )
-    else:
-        pp = CPreprocessor(
-            args = CPreprocessorArgs(
-                args = [cmd_args(symlink_tree, format = "-I{}")],
-            ),
-            modular_args = [cmd_args(output, format = "-fmodule-map-file={}")],
-            modulemap_path = cmd_args(output),
-            modulemap_artifacts = [output],
-        )
-
+    pp = CPreprocessor(
+        modular_args = [
+            cmd_args(output, format = "-fmodule-map-file={}"),
+            cmd_args(symlink_tree, format = "-I{}"),
+        ],
+        modulemap_path = cmd_args(output),
+        modulemap_artifacts = [output],
+    )
     return pp, output

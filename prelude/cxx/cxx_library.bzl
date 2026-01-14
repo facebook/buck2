@@ -463,7 +463,6 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
         ctx,
         impl_params.headers_layout,
         extra_preprocessors = impl_params.extra_exported_preprocessors,
-        skip_exported_headers = impl_params.skip_exported_headers,
     )
     own_preprocessors = [own_non_exported_preprocessor_info, own_exported_preprocessor_info] + test_preprocessor_infos
     own_exported_preprocessors = [own_exported_preprocessor_info]

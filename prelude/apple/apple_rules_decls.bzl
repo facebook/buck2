@@ -1080,7 +1080,6 @@ apple_toolchain = prelude_rule(
             "metal": attrs.option(attrs.exec_dep(providers = [RunInfo]), default = None),
             "metallib": attrs.option(attrs.exec_dep(providers = [RunInfo]), default = None),
             "min_version": attrs.string(default = ""),
-            "modular_libraries_use_header_maps": attrs.bool(default = False),
             "momc": attrs.exec_dep(providers = [RunInfo]),
             "objdump": attrs.option(attrs.exec_dep(providers = [RunInfo]), default = None),
             # A placeholder tool that can be used to set up toolchain constraints.

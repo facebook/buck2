@@ -289,8 +289,5 @@ CxxRuleConstructorParams = record(
     separate_debug_info = field(bool, False),
     # Cuda compile stype
     cuda_compile_style = field(CudaCompileStyle | None, None),
-    # If set, do not export this targets headers, used for Apple rules that
-    # are using symlink trees.
-    skip_exported_headers = field(bool, False),
     supports_stripping = field(bool, True),
 )
