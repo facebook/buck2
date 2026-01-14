@@ -61,7 +61,7 @@ pub(crate) async fn server_execute(
                     command.sketch,
                     // TODO: add a flag to enable this
                     false,
-                )?;
+                );
                 let duration = Instant::now() - now;
                 results.insert(
                     target,

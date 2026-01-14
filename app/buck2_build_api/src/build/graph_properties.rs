@@ -21,7 +21,6 @@ use buck2_core::configuration::compatibility::MaybeCompatible;
 use buck2_core::configuration::data::ConfigurationData;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_core::target::label::label::TargetLabel;
-use buck2_error::conversion::from_any_with_tag;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_node::nodes::configured_frontend::ConfiguredTargetNodeCalculation;
 use buck2_util::commas::commas;
@@ -31,9 +30,9 @@ use dice::CancellationContext;
 use dice::DiceComputations;
 use dice::Key;
 use dupe::Dupe;
-use probminhash::setsketcher::SetSketchParams;
-use probminhash::setsketcher::SetSketcher;
 use ref_cast::RefCast;
+use setsketch::SetSketchParams;
+use setsketch::SetSketcher;
 use starlark_map::ordered_map::OrderedMap;
 use strong_hash::StrongHash;
 use strong_hash::UseStrongHashing;
@@ -146,15 +145,15 @@ pub struct MergeableGraphSketch<T: StrongHash> {
     signature: Arc<Vec<u8>>,
     #[derivative(Debug = "ignore", PartialEq = "ignore", Hash = "ignore")]
     #[allocative(skip)] // TODO(scottcao): Figure out how to implement allocative properly
-    sketcher: Arc<SetSketcher<u16, UseStrongHashing<T>, Blake3StrongHasher>>,
+    sketcher: Arc<SetSketcher<UseStrongHashing<T>, Blake3StrongHasher>>,
 }
 
 impl<T: StrongHash> MergeableGraphSketch<T> {
     fn new(
         version: SketchVersion,
-        sketcher: SetSketcher<u16, UseStrongHashing<T>, Blake3StrongHasher>,
+        sketcher: SetSketcher<UseStrongHashing<T>, Blake3StrongHasher>,
     ) -> Self {
-        let signature = sketcher.get_signature();
+        let signature = sketcher.get_registers();
         let signature: Vec<_> = signature.iter().flat_map(|v| v.to_ne_bytes()).collect();
         let signature = Arc::new(signature);
         let sketcher = Arc::new(sketcher);
@@ -204,13 +203,13 @@ impl Key for GraphPropertiesKey {
         _cancellation: &CancellationContext,
     ) -> Self::Value {
         let configured_node = ctx.get_configured_target_node(&self.label).await?;
-        configured_node.try_map(|configured_node| {
+        Ok(configured_node.map(|configured_node| {
             debug_compute_configured_graph_properties_uncached(
                 configured_node,
                 self.configured_graph_sketch,
                 self.per_configuration_sketch,
             )
-        })
+        }))
     }
 
     fn equality(a: &Self::Value, b: &Self::Value) -> bool {
@@ -241,9 +240,8 @@ pub(crate) static DEFAULT_SKETCH_VERSION: SketchVersion = SketchVersion::V1;
 impl SketchVersion {
     pub(crate) fn create_sketcher<T: StrongHash>(self) -> VersionedSketcher<T> {
         let sketcher = match self {
-            Self::V1 => SetSketcher::<u16, _, _>::new(
-                // TODO (stansw): Are these params right?
-                SetSketchParams::default(),
+            Self::V1 => SetSketcher::new(
+                SetSketchParams::recommended(),
                 BuildHasherDefault::<Blake3StrongHasher>::new(), // We want a predictable hash here.
             ),
         };
@@ -257,15 +255,12 @@ impl SketchVersion {
 
 pub(crate) struct VersionedSketcher<T: StrongHash> {
     version: SketchVersion,
-    sketcher: SetSketcher<u16, UseStrongHashing<T>, Blake3StrongHasher>,
+    sketcher: SetSketcher<UseStrongHashing<T>, Blake3StrongHasher>,
 }
 
 impl<T: StrongHash> VersionedSketcher<T> {
-    fn sketch(&mut self, t: &T) -> buck2_error::Result<()> {
-        self.sketcher
-            .sketch(UseStrongHashing::ref_cast(t))
-            .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::BuildSketchError))?;
-        Ok(())
+    fn sketch(&mut self, t: &T) {
+        self.sketcher.sketch(UseStrongHashing::ref_cast(t));
     }
 
     pub(crate) fn into_mergeable_graph_sketch(self) -> MergeableGraphSketch<T> {
@@ -274,9 +269,7 @@ impl<T: StrongHash> VersionedSketcher<T> {
 
     pub(crate) fn merge(&mut self, other: &MergeableGraphSketch<T>) -> buck2_error::Result<()> {
         if self.version == other.version {
-            self.sketcher
-                .merge(&other.sketcher)
-                .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::BuildSketchError))?;
+            self.sketcher.merge(&other.sketcher);
             Ok(())
         } else {
             Err(buck2_error::internal_error!(
@@ -357,7 +350,7 @@ pub fn debug_compute_configured_graph_properties_uncached(
     node: ConfiguredTargetNode,
     configured_graph_sketch: bool,
     per_configuration_sketch: bool,
-) -> buck2_error::Result<GraphPropertiesValues> {
+) -> GraphPropertiesValues {
     let mut queue = vec![&node];
     let mut visited: HashSet<_, fxhash::FxBuildHasher> = HashSet::default();
     visited.insert(&node);
@@ -382,23 +375,23 @@ pub fn debug_compute_configured_graph_properties_uncached(
         }
 
         if let Some(sketch) = configured_graph_sketch.as_mut() {
-            sketch.sketch(item.label())?;
+            sketch.sketch(item.label());
         }
         if let Some(per_configuration_sketch) = per_configuration_sketch.as_mut() {
             let sketch = per_configuration_sketch.entry_or_insert(item.label().cfg().dupe());
             // Note this may sketch same unconfigured target label multiple times.
             // This is fine because merge(sketch(A), sketch(B)) = sketch(A+B), and it's probably cheaper memory-wise
             // than keeping a set of unconfigured target labels.
-            sketch.sketch(item.label().unconfigured())?;
+            sketch.sketch(item.label().unconfigured());
         }
     }
 
-    Ok(GraphPropertiesValues {
+    GraphPropertiesValues {
         configured_graph_size: visited.len() as _,
         configured_graph_sketch: configured_graph_sketch
             .map(|sketch| sketch.into_mergeable_graph_sketch()),
         per_configuration_sketch: per_configuration_sketch.map(|per_configuration_sketch| {
             Arc::new(per_configuration_sketch.into_mergeable_graph_sketch_map())
         }),
-    })
+    }
 }
