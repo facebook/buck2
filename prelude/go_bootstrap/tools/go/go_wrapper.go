@@ -121,25 +121,7 @@ func isSpaceByte(c byte) bool {
 	return c == ' ' || c == '\t' || c == '\n' || c == '\r'
 }
 
-func loadArgs(args []string) []string {
-	newArgs := make([]string, 0, 0)
-	for _, arg := range args {
-		if !strings.HasPrefix(arg, "@") {
-			newArgs = append(newArgs, arg)
-		} else {
-			file, _ := os.Open(arg[1:])
-			defer file.Close()
-			scanner := bufio.NewScanner(file)
-			for scanner.Scan() {
-				newArgs = append(newArgs, scanner.Text())
-			}
-		}
-	}
-	return newArgs
-}
-
 func main() {
-	os.Args = loadArgs(os.Args)
 	var wrappedBinary = flag.String("go", "", "wrapped go binary")
 	var goRoot = flag.String("goroot", "", "go root")
 	var defaultGoOS = flag.String("default-goos", "", "default GOOS (if not set by env)")
