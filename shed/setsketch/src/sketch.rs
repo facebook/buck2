@@ -34,6 +34,7 @@ use std::sync::LazyLock;
 
 use rand::Rng;
 use rand_distr::Exp1;
+use rand_distr::StandardUniform;
 use rand_xoshiro::Xoshiro256PlusPlus;
 use rand_xoshiro::rand_core::SeedableRng;
 
@@ -165,7 +166,15 @@ where
     }
 
     pub fn sketch(&mut self, to_sketch: &T) {
-        self.sketch_weighted_locality_unstable(to_sketch, 1.0);
+        self.sketch_weighted_locality_unstable(to_sketch, 1);
+    }
+
+    /// Just pulls out the logic that takes a sample from an exponential distribution with parameter
+    /// `a` and transforms it into the value we actually store in the register.
+    fn exp_sample_into_register_value(s: f64, params: &'static SetSketchParams) -> I {
+        let lb_s = s.ln() / params.lnb;
+        let z = (1. - lb_s).floor();
+        z.clamp(0.0, I::MAX as f64) as I
     }
 
     /// Add the given value to the sketch using the given weight.
@@ -192,7 +201,10 @@ where
     ///
     /// Use of this function can be mixed with the unweighted `sketch`; `sketch` is just an alias
     /// for this with weight 1.
-    pub fn sketch_weighted_locality_unstable(&mut self, to_sketch: &T, weight: f64) {
+    pub fn sketch_weighted_locality_unstable(&mut self, to_sketch: &T, weight: u64) {
+        if weight == 0 {
+            return;
+        }
         let hval1: u64 = self.b_hasher.hash_one(&to_sketch);
         let mut rng = Xoshiro256PlusPlus::seed_from_u64(hval1);
         self.permut_generator.reset();
@@ -202,14 +214,12 @@ where
         // samples from an exponential distribution with param `a` is itself exponentially
         // distributed with param `aN`, so this is the only thing we have to do to account for
         // weight
-        let inv_exp_param = self.params.inva / weight;
+        let inv_exp_param = self.params.inva / (weight as f64);
         for j in 0..self.params.m {
             let x_j = x_pred
                 + (inv_exp_param / (self.params.m - j) as f64) * rng.sample::<f64, Exp1>(Exp1); // use Ziggurat
             x_pred = x_j;
-            let lb_xj = x_j.ln() / self.params.lnb; // log base b of x_j
-            let z = (1. - lb_xj).floor();
-            let k = z.clamp(0.0, I::MAX as f64) as I;
+            let k = Self::exp_sample_into_register_value(x_j, self.params);
             if k as f64 <= self.lower_k {
                 break;
             }
@@ -230,6 +240,93 @@ where
     }
 }
 
+/// Samples `n` times from an exponential distribution with parameter 1 and returns the
+/// minimum of the n samples.
+///
+/// This is optimized to take time logarithmic in n.
+///
+/// Note that unlike other strategies, this has correct marginal behavior. Concretely, when
+/// calling this twice with the same RNG state, but n = 1000 in the one case and n = 1001 in
+/// the other case, the return value will be the same with probability 1000/1001.
+fn sample_min_exp_stable(rng: &mut Xoshiro256PlusPlus, n: u64) -> f64 {
+    let mut current_index = 0;
+    let mut min = 1.0f64;
+    loop {
+        // We implement the index jumping algorithm. Say that the last index we considered
+        // is i. Instead of now going and sampling once for i+1, i+2, etc. we directly
+        // compute and sample from the distribution of "how many more samples will I need
+        // until I see a new minimum value."
+        //
+        // It's better in every way if we begin by ignoring the exponential distribution and
+        // just do this in uniform space
+        let delta = if min == 1. {
+            1
+        } else {
+            // Each successive value is less than the current minimum with probability `min` (again,
+            // since we're in uniform space). So the number of samples until we see a new minimum is
+            // geometrically distributed with parameter `min`. This samples from such a
+            // distribution. We avoid using `rand_distr`'s `Geometric` because it's 1) optimized for
+            // repeated sampling instead of a single sample and 2) numerically unstable for very
+            // small `min`
+            let u: f64 = rng.sample::<f64, _>(StandardUniform);
+            // Note: Very important for numerical stability here and below to use `ln_1p`, not
+            // `(1-min).ln()`; `1-min` loses all the float precision
+            (u.ln() / (-min).ln_1p()).floor() as u64 + 1
+        };
+        let next_min_index = current_index + delta;
+        if next_min_index > n {
+            // The next minimum would come after the number of samples we have, so we're done
+            break;
+        }
+        current_index = next_min_index;
+        // The new min value is uniformly distributed conditional on it indeed being a min
+        // value
+        min *= rng.sample::<f64, _>(StandardUniform);
+    }
+
+    // Transfer into exponential space
+    -(-min).ln_1p()
+}
+
+impl<T, H> SetSketcher<T, H>
+where
+    T: Hash,
+    H: Hasher + Default,
+{
+    /// Add the given value to the sketch using the given weight.
+    ///
+    /// See first the documentation for `sketch_weighted_locality_unstable`.
+    ///
+    /// This function has generally similar semantics to that one but differs in two ways:
+    ///
+    ///  1. It recovers the locality sensitivity property that is documented to be lost there.
+    ///  2. However, it's quite a bit slower. Unweighted sketching and locality unstable weighted
+    ///     sketching are amortized `O(1)`. This is `O(m log W)` for `W` the weight and `m` the
+    ///     number of registers.
+    ///
+    /// This function also must not be mixed with unweighted sketches (for a given item anyway).
+    pub fn sketch_weighted_locality_stable(&mut self, to_sketch: &T, weight: u64) {
+        if weight == 0 {
+            return;
+        }
+        let hval: u64 = self.b_hasher.hash_one(&to_sketch);
+        let mut rng = Xoshiro256PlusPlus::seed_from_u64(hval);
+        for r in self.data.k_vec.iter_mut() {
+            // `sample_min_exp_stable` uses an amount of randomness that depends on the value of
+            // `n`, so we need to do this to make sure that the rng state at the beginning of
+            // subsequent loop iterations doesn't depend on n
+            let mut iter_rng = rng.clone();
+            rng.jump();
+
+            let s = sample_min_exp_stable(&mut iter_rng, weight) * self.data.params.inva;
+            let k = Self::exp_sample_into_register_value(s, self.data.params);
+            if k > *r {
+                *r = k;
+            }
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
 
@@ -237,7 +334,8 @@ mod tests {
 
     use super::*;
 
-    fn check_cardinality_is_about(s: &SetSketch, val: f64) {
+    fn check_cardinality_is_about(s: &SetSketch, val: u64) {
+        let val = val as f64;
         let (mean, std) = s.get_cardinal_stats();
         if (mean - val).abs() / val > 3.0 * std {
             panic!("Mean {} != expected {}", mean, val);
@@ -256,7 +354,7 @@ mod tests {
         let vbmax = 2000;
         let va: Vec<usize> = (0..1000).collect();
         let vb: Vec<usize> = (900..vbmax).collect();
-        let union = 2000.;
+        let union = 2000;
 
         let mut sethasher_a = usize_sketcher();
         // now compute sketches
@@ -273,53 +371,68 @@ mod tests {
         check_cardinality_is_about(&sethasher_a, union);
     }
 
+    fn weighted_styles()
+    -> impl IntoIterator<Item = fn(&mut SetSketcher<usize, FnvHasher>, &usize, u64)> {
+        [
+            SetSketcher::sketch_weighted_locality_stable,
+            SetSketcher::sketch_weighted_locality_unstable,
+        ]
+    }
+
     #[test]
     fn check_weighted_single() {
-        // Note: We don't expect to be able to sketch weights less than 1
-        for v in [1.0, 10.0, 10000.0] {
-            let mut s = usize_sketcher();
-            s.sketch_weighted_locality_unstable(&0, v);
-            check_cardinality_is_about(&s, v);
+        for sketch in weighted_styles() {
+            for v in [1, 10, 10000] {
+                let mut s = usize_sketcher();
+                sketch(&mut s, &0, v);
+                check_cardinality_is_about(&s, v);
+            }
         }
     }
 
     #[test]
     fn check_weighted_sums_reasonably() {
-        let mut a = usize_sketcher();
-        for i in 1..=100 {
-            a.sketch_weighted_locality_unstable(&i, i as f64);
+        for sketch in weighted_styles() {
+            let mut a = usize_sketcher();
+            for i in 1..=100 {
+                sketch(&mut a, &i, i as u64);
+            }
+            check_cardinality_is_about(&a, 5050);
         }
-        check_cardinality_is_about(&a, 5050.);
     }
 
     #[test]
     fn check_well_behaved_under_different_weights() {
-        let mut a = usize_sketcher();
-        a.sketch_weighted_locality_unstable(&0, 100.);
-        for i in 1..=10 {
-            a.sketch_weighted_locality_unstable(&i, 10.);
+        for sketch in weighted_styles() {
+            let mut a = usize_sketcher();
+            sketch(&mut a, &0, 100);
+            for i in 1..=10 {
+                sketch(&mut a, &i, 10);
+            }
+            sketch(&mut a, &0, 105);
+            check_cardinality_is_about(&a, 205);
         }
-        a.sketch_weighted_locality_unstable(&0, 105.);
-        check_cardinality_is_about(&a, 205.);
     }
 
     #[test]
     fn check_large_weights() {
-        let mut a = usize_sketcher();
-        const MULT: f64 = 1_000_000_000_000.;
-        for i in 1..=100 {
-            a.sketch_weighted_locality_unstable(&i, i as f64 * MULT);
+        for sketch in weighted_styles() {
+            let mut a = usize_sketcher();
+            const MULT: u64 = 1_000_000_000_000;
+            for i in 1..=100 {
+                sketch(&mut a, &i, i as u64 * MULT);
+            }
+            check_cardinality_is_about(&a, 5050 * MULT);
         }
-        check_cardinality_is_about(&a, 5050. * MULT);
     }
 
     #[test]
     fn check_non_locality_sensitivity_on_mismatched_weights() {
-        for weight in [1000., 20000.] {
+        for weight in [1000, 20000] {
             let mut a = usize_sketcher();
             a.sketch_weighted_locality_unstable(&0, weight);
             let mut b = usize_sketcher();
-            b.sketch_weighted_locality_unstable(&0, weight + 1.);
+            b.sketch_weighted_locality_unstable(&0, weight + 1);
 
             let matches = a
                 .get_registers()
@@ -328,11 +441,30 @@ mod tests {
                 .filter(|(a, b)| a == b)
                 .count();
             // See the note about locality sensitivity on the function above
-            if weight == 1000. {
+            if weight == 1000 {
                 assert!(matches < a.params.m / 10);
             } else {
                 assert!(matches > a.params.m * 9 / 10);
             }
         }
+    }
+
+    #[test]
+    fn check_locality_sensitivity_on_mismatched_weights() {
+        let mut a = usize_sketcher();
+        a.sketch_weighted_locality_stable(&0, 100);
+        let mut b = usize_sketcher();
+        b.sketch_weighted_locality_stable(&0, 150);
+
+        let matches = a
+            .get_registers()
+            .iter()
+            .zip(b.get_registers().iter())
+            .filter(|(a, b)| a == b)
+            .count();
+        // See the note about locality sensitivity on the function above
+        let expected_matches = a.params.m * 2 / 3;
+        assert!(matches > expected_matches - 100);
+        assert!(matches < expected_matches + 100);
     }
 }
