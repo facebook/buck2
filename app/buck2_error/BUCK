@@ -42,6 +42,7 @@ rust_library(
         "fbsource//third-party/rust:rusqlite",
         "fbsource//third-party/rust:rustls-native-certs-0-8-1",
         "fbsource//third-party/rust:rustls-pki-types",
+        "fbsource//third-party/rust:serde",
         "fbsource//third-party/rust:serde_json",
         "fbsource//third-party/rust:smallvec",
         "fbsource//third-party/rust:thiserror",

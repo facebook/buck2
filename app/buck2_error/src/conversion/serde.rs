@@ -28,3 +28,15 @@ impl From<serde_json::Error> for crate::Error {
         crate::conversion::from_any_with_tag(value, error_tag)
     }
 }
+
+/// Trait extension to convert `buck2_error::Result<T>` to any serde error type.
+pub trait BuckErrorSerde<T> {
+    /// Convert a `buck2_error::Result<T>` to `Result<T, E>` where `E: serde::de::Error`.
+    fn serde_err<E: serde::de::Error>(self) -> Result<T, E>;
+}
+
+impl<T> BuckErrorSerde<T> for crate::Result<T> {
+    fn serde_err<E: serde::de::Error>(self) -> Result<T, E> {
+        self.map_err(|e| E::custom(e.to_string()))
+    }
+}

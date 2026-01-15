@@ -37,6 +37,7 @@ pub mod starlark_error;
 pub use classify::Tier;
 pub use context::BuckErrorContext;
 pub use context_value::TypedContext;
+pub use conversion::serde::BuckErrorSerde;
 pub use error::DynLateFormat;
 pub use error::Error;
 pub use exit_code::ExitCode;

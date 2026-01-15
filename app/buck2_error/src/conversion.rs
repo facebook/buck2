@@ -24,7 +24,7 @@ pub mod regex;
 pub mod relative_path;
 pub mod report;
 pub mod rusqlite;
-pub mod serde_json;
+pub mod serde;
 pub mod stds;
 pub mod superconsole;
 pub mod tokio;
