@@ -9,7 +9,7 @@
   "results": {
     "root//:fail_build?root//:linux": {
       "configured": {
-        "cfg:<empty>#<HASH>": {
+        "cfg:no-san#<HASH>": {
           "configured_graph_size": null,
           "errors": [
             {
@@ -35,7 +35,7 @@
     },
     "root//:fail_build?root//:macos": {
       "configured": {
-        "cfg:<empty>#<HASH>": {
+        "cfg:no-san#<HASH>": {
           "configured_graph_size": null,
           "errors": [
             {
