@@ -14,8 +14,9 @@ use dice::DiceComputations;
 use dice::DiceTransactionUpdater;
 use dice::InjectedKey;
 use dupe::Dupe;
+use pagable::Pagable;
 
-#[derive(Debug, Clone, Dupe, Eq, PartialEq, Allocative)]
+#[derive(Debug, Clone, Dupe, Eq, PartialEq, Allocative, Pagable)]
 struct StarlarkTypesValue {
     disable_starlark_types: bool,
     unstable_typecheck: bool,

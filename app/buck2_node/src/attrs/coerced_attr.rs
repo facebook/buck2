@@ -30,6 +30,7 @@ use display_container::fmt_keyed_container;
 use dupe::Dupe;
 use gazebo::prelude::SliceExt;
 use itertools::Itertools;
+use pagable::Pagable;
 use serde::Serialize;
 use serde::Serializer;
 use serde_json::to_value;
@@ -88,7 +89,7 @@ impl fmt::Display for CoercedSelectorKeyRef<'_> {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Allocative)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Allocative, Pagable)]
 pub struct CoercedSelector {
     pub(crate) entries: ArcSlice<(ConfigurationSettingKey, CoercedAttr)>,
     pub(crate) default: Option<CoercedAttr>,
@@ -219,7 +220,7 @@ impl CoercedSelector {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Allocative)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Allocative, Pagable)]
 pub struct CoercedConcat(pub Box<[CoercedAttr]>);
 
 impl Deref for CoercedConcat {
@@ -273,7 +274,7 @@ impl AttrSerializeWithContext for CoercedConcat {
 /// CoercedData::Concat supports a representation for when a selectable is added
 /// to something. Not all types support this case and those will return an error
 /// during coercion and not ever use the ::Concat case.
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Allocative)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Allocative, Pagable)]
 pub enum CoercedAttr {
     Selector(Box<CoercedSelector>),
     Concat(CoercedConcat),

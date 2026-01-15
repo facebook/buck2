@@ -12,11 +12,13 @@ use allocative::Allocative;
 use buck2_core::package::package_relative_path::PackageRelativePath;
 use buck2_util::arc_str::ArcS;
 use dupe::Dupe;
+use serde::Deserialize;
+use serde::Serialize;
 use starlark_map::sorted_set::SortedSet;
 
 use crate::package_listing::binary_search::binary_search_by;
 
-#[derive(Eq, PartialEq, Debug, Allocative)]
+#[derive(Eq, PartialEq, Debug, Allocative, Serialize, Deserialize)]
 pub struct PackageFileListing {
     /// This is kept sorted for efficient prefix matching.
     pub(crate) files: SortedSet<ArcS<PackageRelativePath>>,

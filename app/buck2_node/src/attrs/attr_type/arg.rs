@@ -20,7 +20,9 @@ use buck2_util::arc_str::ArcStr;
 use derive_more::Display;
 use dupe::Dupe;
 use gazebo::prelude::SliceExt;
+use pagable::Pagable;
 use static_assertions::assert_eq_size;
+use strong_hash::StrongHash;
 
 use crate::attrs::attr_type::query::QueryMacroBase;
 use crate::attrs::coerced_path::CoercedPath;
@@ -28,7 +30,7 @@ use crate::attrs::configuration_context::AttrConfigurationContext;
 use crate::attrs::configured_traversal::ConfiguredAttrTraversal;
 use crate::attrs::traversal::CoercedAttrTraversal;
 
-#[derive(Debug, Eq, PartialEq, Hash, Clone, Copy, Dupe, Allocative)]
+#[derive(Debug, Eq, PartialEq, Hash, Clone, Copy, Dupe, Allocative, Pagable)]
 pub struct ArgAttrType {
     pub anon_target_compatible: bool,
 }
@@ -37,7 +39,7 @@ pub struct ArgAttrType {
 /// forms). The parsed arg string is held as a sequence of parts (each part either a literal string or a macro). When
 /// being added to a command line, these parts will be concattenated together and added as a single arg.
 /// Each variant takes in a boolean which determines if the resolved form should be compatible with anon targets.
-#[derive(Debug, Eq, PartialEq, Hash, Clone, Allocative, strong_hash::StrongHash)]
+#[derive(Debug, Eq, PartialEq, Hash, Clone, Allocative, Pagable, StrongHash)]
 pub enum StringWithMacros<P: ProvidersLabelMaybeConfigured> {
     /// Semantically, StringWithMacros::StringPart(s) is equivalent to
     /// StringWithMacros::ManyParts(vec![StringWithMacrosPart::String(s)]). We special-case this
@@ -139,7 +141,7 @@ impl StringWithMacros<ProvidersLabel> {
     }
 }
 
-#[derive(Debug, Eq, PartialEq, Hash, Clone, Allocative, strong_hash::StrongHash)]
+#[derive(Debug, Eq, PartialEq, Hash, Clone, Allocative, Pagable, StrongHash)]
 pub enum StringWithMacrosPart<P: ProvidersLabelMaybeConfigured> {
     String(ArcStr),
     Macro(/* write_to_file */ bool, MacroBase<P>),
@@ -148,13 +150,13 @@ pub enum StringWithMacrosPart<P: ProvidersLabelMaybeConfigured> {
 assert_eq_size!(MacroBase<ProvidersLabel>, [usize; 3]);
 assert_eq_size!(StringWithMacrosPart<ProvidersLabel>, [usize; 4]);
 
-#[derive(Debug, Eq, PartialEq, Hash, Clone, Allocative, strong_hash::StrongHash)]
+#[derive(Debug, Eq, PartialEq, Hash, Clone, Allocative, Pagable, StrongHash)]
 pub struct UnrecognizedMacro {
     pub macro_type: Box<str>,
     pub args: Box<[String]>,
 }
 
-#[derive(Debug, Eq, PartialEq, Hash, Clone, Allocative, strong_hash::StrongHash)]
+#[derive(Debug, Eq, PartialEq, Hash, Clone, Allocative, Pagable, StrongHash)]
 pub enum MacroBase<P: ProvidersLabelMaybeConfigured> {
     Location {
         label: P,
@@ -304,16 +306,7 @@ pub type ConfiguredStringWithMacrosPart = StringWithMacrosPart<ConfiguredProvide
 
 pub type UnconfiguredStringWithMacros = StringWithMacros<ProvidersLabel>;
 
-#[derive(
-    Debug,
-    Eq,
-    PartialEq,
-    Hash,
-    Clone,
-    Allocative,
-    Display,
-    strong_hash::StrongHash
-)]
+#[derive(Debug, Eq, PartialEq, Hash, Clone, Allocative, Display, StrongHash)]
 #[display("{}", string_with_macros)]
 pub struct ConfiguredStringWithMacros {
     pub string_with_macros: StringWithMacros<ConfiguredProvidersLabel>,
@@ -412,7 +405,7 @@ impl<P: ProvidersLabelMaybeConfigured> Display for StringWithMacros<P> {
 }
 
 /// Represents the type of a query placeholder (e.g. query_outputs, query_targets, query_targets_and_outputs).
-#[derive(Debug, Eq, PartialEq, Hash, Clone, Allocative, strong_hash::StrongHash)]
+#[derive(Debug, Eq, PartialEq, Hash, Clone, Allocative, Pagable, StrongHash)]
 pub enum QueryExpansion {
     Output,
     Target,

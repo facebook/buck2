@@ -14,11 +14,14 @@ use std::fmt::Formatter;
 
 use allocative::Allocative;
 use dupe::Dupe;
+use pagable::Pagable;
+use serde::Deserialize;
 use serde::Serialize;
+use strong_hash::StrongHash;
 
 use crate::attrs::attr_type::any_matches::AnyMatches;
 
-#[derive(Debug, Eq, PartialEq, Hash, Allocative, Clone, Copy, Dupe)]
+#[derive(Debug, Eq, PartialEq, Hash, Pagable, Allocative, Clone, Copy, Dupe)]
 pub struct BoolAttrType;
 
 #[derive(
@@ -29,9 +32,11 @@ pub struct BoolAttrType;
     Eq,
     PartialEq,
     Hash,
+    StrongHash,
     Allocative,
     Serialize,
-    strong_hash::StrongHash
+    Deserialize,
+    Pagable
 )]
 #[serde(transparent)]
 pub struct BoolLiteral(pub bool);

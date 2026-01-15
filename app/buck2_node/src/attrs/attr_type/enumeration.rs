@@ -13,9 +13,10 @@ use std::hash::Hash;
 
 use allocative::Allocative;
 use buck2_util::arc_str::ArcStr;
+use pagable::Pagable;
 use starlark_map::ordered_set::OrderedSet;
 
-#[derive(Debug, Eq, PartialEq, Hash, Allocative)]
+#[derive(Debug, Pagable, Eq, PartialEq, Hash, Allocative)]
 pub struct EnumAttrType {
     pub variants: OrderedSet<ArcStr>,
 }

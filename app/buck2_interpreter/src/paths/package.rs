@@ -14,6 +14,7 @@ use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::cell_path::CellPathRef;
 use buck2_core::cells::name::CellName;
 use buck2_fs::paths::file_name::FileName;
+use pagable::Pagable;
 
 /// Represents the path to a PACKAGE file.
 ///
@@ -24,7 +25,16 @@ use buck2_fs::paths::file_name::FileName;
 /// Example of a valid PACKAGE file path: `fbsource//path/to/PACKAGE`
 ///
 /// Find more details in the [Buck2 documentation](https://buck2.build/docs/rule_authors/package_files/).
-#[derive(Clone, Debug, Eq, PartialEq, Hash, Allocative, derive_more::Display)]
+#[derive(
+    Clone,
+    Debug,
+    Eq,
+    PartialEq,
+    Hash,
+    Allocative,
+    derive_more::Display,
+    Pagable
+)]
 #[display("{}", path)]
 pub struct PackageFilePath {
     /// Including `/PACKAGE`.

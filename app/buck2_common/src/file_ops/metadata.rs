@@ -24,6 +24,7 @@ use compact_str::CompactString;
 use derive_more::Display;
 use dupe::Dupe;
 use gazebo::variants::VariantName;
+use pagable::Pagable;
 
 use crate::cas_digest::CasDigest;
 use crate::cas_digest::CasDigestConfig;
@@ -34,7 +35,7 @@ use crate::external_symlink::ExternalSymlink;
 /// std::fs::FileType is an opaque type that isn't constructible. This is
 /// basically the equivalent.
 #[derive(
-    Copy, Clone, Dupe, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Allocative
+    Copy, Clone, Dupe, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Allocative, Pagable
 )]
 pub enum FileType {
     Directory,
@@ -73,7 +74,9 @@ impl FileType {
     }
 }
 
-#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Allocative)]
+#[derive(
+    Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Allocative, Pagable
+)]
 pub struct SimpleDirEntry {
     // Put the `file_name` first so we sort by it (which is what people expect)
     pub file_name: FileNameBuf,
@@ -89,7 +92,9 @@ pub struct RawDirEntry {
     pub file_type: FileType,
 }
 
-#[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Dupe, Allocative)]
+#[derive(
+    Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Debug, Dupe, Allocative, Pagable
+)]
 pub struct ReadDirOutput {
     /// Sorted.
     pub included: Arc<[SimpleDirEntry]>,
@@ -102,7 +107,7 @@ impl ReadDirOutput {
     }
 }
 
-#[derive(Allocative)]
+#[derive(Allocative, Debug, Pagable)]
 pub struct FileDigestKind {
     _private: (),
 }
@@ -219,7 +224,7 @@ impl FileDigest {
 
 /// Stores the relevant metadata for a file.
 // New fields should be added as needed, and unused fields removed.
-#[derive(Debug, Dupe, Hash, PartialEq, Eq, Clone, Display, Allocative)]
+#[derive(Debug, Dupe, Hash, PartialEq, Eq, Clone, Display, Allocative, Pagable)]
 #[display("File(digest={}, is_executable={})", digest, is_executable)]
 pub struct FileMetadata {
     pub digest: TrackedFileDigest,
@@ -249,7 +254,7 @@ pub enum PathMetadata {
     Directory,
 }
 
-#[derive(Debug, PartialEq, Dupe, Eq, Clone, Allocative, VariantName)]
+#[derive(Debug, PartialEq, Dupe, Eq, Clone, Allocative, VariantName, Pagable)]
 pub enum RawPathMetadata<T = Arc<CellPath>> {
     Symlink { at: T, to: RawSymlink<T> },
     File(FileMetadata),
@@ -257,7 +262,7 @@ pub enum RawPathMetadata<T = Arc<CellPath>> {
 }
 
 /// Represents a relative symlink, and stores the symlink's target path.
-#[derive(Debug, Display, Hash, Eq, PartialEq, Clone, Allocative)]
+#[derive(Debug, Display, Hash, Eq, PartialEq, Clone, Allocative, Pagable)]
 pub struct Symlink(RelativePathBuf);
 
 impl Symlink {
@@ -285,7 +290,17 @@ impl Symlink {
     }
 }
 
-#[derive(Debug, Dupe, Hash, PartialEq, Eq, Clone, Allocative, VariantName)]
+#[derive(
+    Debug,
+    Dupe,
+    Hash,
+    PartialEq,
+    Eq,
+    Clone,
+    Allocative,
+    VariantName,
+    Pagable
+)]
 pub enum RawSymlink<T> {
     Relative(T, Arc<Symlink>),
     External(Arc<ExternalSymlink>),

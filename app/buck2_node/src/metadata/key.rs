@@ -14,6 +14,7 @@ use allocative::Allocative;
 use buck2_util::arc_str::ArcStr;
 use derive_more::Display;
 use dupe::Dupe;
+use pagable::Pagable;
 use ref_cast::RefCast;
 use serde::Serialize;
 
@@ -27,7 +28,8 @@ pub enum MetadataKeyError {
 /// A String that we validated conforms to our rules for metadata keys (whih are quite relaxed:
 /// they must contain exactly one dot).
 #[derive(
-    PartialEq, Eq, PartialOrd, Ord, Display, Debug, Clone, Dupe, Allocative, Serialize, Hash
+    PartialEq, Eq, PartialOrd, Ord, Display, Debug, Clone, Dupe, Allocative, Serialize, Hash,
+    Pagable
 )]
 #[serde(transparent)]
 pub struct MetadataKey(ArcStr);

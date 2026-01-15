@@ -11,12 +11,13 @@
 use allocative::Allocative;
 use buck2_core::provider::label::ProvidersLabel;
 use dupe::Dupe;
+use pagable::Pagable;
 
 use crate::attrs::configuration_context::AttrConfigurationContext;
 use crate::attrs::configured_attr::ConfiguredAttr;
 
 /// Describes where a configuration dep appears
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Allocative, Dupe)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Pagable, Allocative, Dupe)]
 pub enum ConfigurationDepKind {
     SelectKey,
     CompatibilityAttribute,
@@ -36,7 +37,7 @@ pub enum ConfigurationDepKind {
 ///
 /// They resolve to just the string form of the target and so aren't particularly useful to UDR
 /// directly (they are used by the framework).
-#[derive(Debug, Eq, PartialEq, Hash, Allocative, Clone, Copy, Dupe)]
+#[derive(Debug, Eq, PartialEq, Hash, Pagable, Allocative, Clone, Copy, Dupe)]
 pub struct ConfigurationDepAttrType(pub ConfigurationDepKind);
 
 impl ConfigurationDepAttrType {

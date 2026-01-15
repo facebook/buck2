@@ -17,6 +17,7 @@ use buck2_core::configuration::pair::ConfigurationNoExec;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::target::label::label::TargetLabel;
 use dupe::Dupe;
+use pagable::Pagable;
 use starlark_map::unordered_map::UnorderedMap;
 
 /// Key in `select` or an item in `target_compatible_with`.
@@ -32,7 +33,8 @@ use starlark_map::unordered_map::UnorderedMap;
     Dupe,
     Ord,
     PartialOrd,
-    ref_cast::RefCast
+    ref_cast::RefCast,
+    Pagable
 )]
 #[repr(transparent)]
 pub struct ConfigurationSettingKey(pub ProvidersLabel);
@@ -46,10 +48,10 @@ impl ConfigurationSettingKey {
 }
 
 /// See [`MatchedConfigurationSettingKeys`].
-#[derive(Clone, Dupe, Debug, Eq, PartialEq, Hash, Allocative)]
+#[derive(Clone, Dupe, Debug, Eq, PartialEq, Hash, Allocative, Pagable)]
 pub struct MatchedConfigurationSettingKeysWithCfg(Arc<MatchedConfigurationSettingKeysWithCfgData>);
 
-#[derive(Debug, Eq, PartialEq, Hash, Allocative)]
+#[derive(Debug, Eq, PartialEq, Hash, Allocative, Pagable)]
 pub(crate) struct MatchedConfigurationSettingKeysWithCfgData {
     cfg: ConfigurationNoExec,
     pub(crate) settings: MatchedConfigurationSettingKeys,
@@ -57,7 +59,7 @@ pub(crate) struct MatchedConfigurationSettingKeysWithCfgData {
 
 /// For a given target, this stores the result of matching all of the select keys and compatibility
 /// attributes against that target's configuration.
-#[derive(Debug, Eq, PartialEq, Hash, Allocative)]
+#[derive(Debug, Eq, PartialEq, Hash, Allocative, Pagable)]
 pub struct MatchedConfigurationSettingKeys {
     settings: UnorderedMap<ConfigurationSettingKey, ConfigurationNode>,
 }
@@ -99,10 +101,10 @@ impl MatchedConfigurationSettingKeys {
 }
 
 /// A ConfigurationNode contains the information about a config_setting() or similar target in a certain configuration.
-#[derive(Clone, Dupe, Debug, Eq, PartialEq, Hash, Allocative)]
+#[derive(Clone, Dupe, Debug, Eq, PartialEq, Hash, Allocative, Pagable)]
 pub struct ConfigurationNode(Arc<ConfigurationNodeData>);
 
-#[derive(Debug, Eq, PartialEq, Hash, Allocative)]
+#[derive(Debug, Eq, PartialEq, Hash, Allocative, Pagable)]
 struct ConfigurationNodeData {
     /// `None` when config settings does not match the configuration.
     config_setting: Option<ConfigSettingData>,

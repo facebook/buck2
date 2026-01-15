@@ -14,25 +14,18 @@ use std::ops::Deref;
 use allocative::Allocative;
 use buck2_util::arc_str::ArcStr;
 use dupe::Dupe;
+use pagable::Pagable;
 use serde::Serialize;
+use strong_hash::StrongHash;
 
 use crate::attrs::display::AttrDisplayWithContext;
 use crate::attrs::fmt_context::AttrFmtContext;
 
-#[derive(Debug, Eq, PartialEq, Hash, Allocative, Clone, Copy, Dupe)]
+#[derive(Debug, Pagable, Eq, PartialEq, Hash, Allocative, Clone, Copy, Dupe)]
 pub struct StringAttrType;
 
 #[derive(
-    Default,
-    Debug,
-    Eq,
-    PartialEq,
-    Hash,
-    Clone,
-    Dupe,
-    Allocative,
-    Serialize,
-    strong_hash::StrongHash
+    Default, Debug, Eq, PartialEq, Hash, Clone, Dupe, Allocative, Serialize, Pagable, StrongHash
 )]
 #[serde(transparent)]
 pub struct StringLiteral(pub ArcStr);

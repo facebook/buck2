@@ -18,6 +18,7 @@ use buck2_core::plugins::PluginKind;
 use buck2_core::plugins::PluginKindSet;
 use dupe::Dupe;
 use once_cell::sync::Lazy;
+use pagable::Pagable;
 
 use crate::attrs::attr_type::any::AnyAttrType;
 use crate::attrs::attr_type::arg::ArgAttrType;
@@ -76,10 +77,10 @@ pub mod tuple;
 pub mod visibility;
 pub mod within_view;
 
-#[derive(Clone, Dupe, Debug, Hash, Eq, PartialEq, Allocative)]
+#[derive(Clone, Dupe, Debug, Hash, Pagable, Eq, PartialEq, Allocative)]
 pub struct AttrType(pub Arc<AttrTypeInner2>);
 
-#[derive(Debug, Hash, Eq, PartialEq, Allocative)]
+#[derive(Debug, Hash, Pagable, Eq, PartialEq, Allocative)]
 pub struct AttrTypeInner2 {
     pub inner: AttrTypeInner,
     /// Attribute may have queries.
@@ -91,7 +92,7 @@ pub struct AttrTypeInner2 {
     pub may_have_queries: bool,
 }
 
-#[derive(Debug, Hash, Eq, PartialEq, Allocative)]
+#[derive(Debug, Hash, Pagable, Eq, PartialEq, Allocative)]
 pub enum AttrTypeInner {
     Any(AnyAttrType),
     Arg(ArgAttrType),

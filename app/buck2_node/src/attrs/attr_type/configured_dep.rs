@@ -13,6 +13,7 @@ use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::target::label::label::TargetLabel;
 use dupe::Dupe;
+use pagable::Pagable;
 
 use crate::attrs::attr_type::configuration_dep::ConfigurationDepKind;
 use crate::attrs::configuration_context::AttrConfigurationContext;
@@ -22,7 +23,7 @@ use crate::attrs::traversal::CoercedAttrTraversal;
 use crate::provider_id_set::ProviderIdSet;
 
 /// Represents attrs.configured_dep()
-#[derive(Debug, Eq, PartialEq, Hash, Clone, Dupe, Allocative)]
+#[derive(Debug, Eq, PartialEq, Hash, Clone, Dupe, Allocative, Pagable)]
 pub struct ExplicitConfiguredDepAttrType {
     pub required_providers: ProviderIdSet,
 }
@@ -51,7 +52,16 @@ impl ExplicitConfiguredDepAttrType {
 
 /// Represents the value of an `attrs.configured_dep()`
 /// in its unconfigured form.
-#[derive(derive_more::Display, Debug, Hash, PartialEq, Eq, Clone, Allocative)]
+#[derive(
+    derive_more::Display,
+    Debug,
+    Hash,
+    PartialEq,
+    Eq,
+    Clone,
+    Allocative,
+    Pagable
+)]
 #[display("({}, {})", label, platform)]
 pub struct UnconfiguredExplicitConfiguredDep {
     pub attr_type: ExplicitConfiguredDepAttrType,

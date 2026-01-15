@@ -21,6 +21,7 @@ use dice::DiceComputations;
 use dice::DiceTransactionUpdater;
 use dice::InjectedKey;
 use dupe::Dupe;
+use pagable::Pagable;
 
 #[async_trait]
 pub trait HasBuildContextData {
@@ -34,7 +35,7 @@ pub trait SetBuildContextData {
     ) -> buck2_error::Result<()>;
 }
 
-#[derive(PartialEq, Eq, Allocative)]
+#[derive(PartialEq, Eq, Allocative, Pagable)]
 pub struct BuildData {
     buck_out_path: ProjectRelativePathBuf,
 }

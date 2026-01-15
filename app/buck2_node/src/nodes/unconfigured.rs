@@ -25,6 +25,8 @@ use buck2_core::target::label::label::TargetLabel;
 use buck2_error::internal_error;
 use buck2_util::arc_str::ArcStr;
 use dupe::Dupe;
+use pagable::Pagable;
+use strong_hash::StrongHash;
 
 use crate::attrs::attr_type::configuration_dep::ConfigurationDepKind;
 use crate::attrs::attr_type::string::StringLiteral;
@@ -81,7 +83,9 @@ impl Deref for TargetNode {
 }
 
 /// The kind of the rule, denoting where it can be used and how.
-#[derive(Debug, Copy, Clone, Dupe, Eq, PartialEq, Hash, Allocative)]
+#[derive(
+    Debug, Copy, Clone, Dupe, Eq, PartialEq, Hash, StrongHash, Pagable, Allocative
+)]
 pub enum RuleKind {
     /// A normal rule with no special properties.
     Normal,

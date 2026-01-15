@@ -10,8 +10,9 @@
 
 use allocative::Allocative;
 use dupe::Dupe;
+use pagable::Pagable;
 
-#[derive(Debug, Eq, PartialEq, Hash, Allocative, Clone, Copy, Dupe)]
+#[derive(Debug, Pagable, Eq, PartialEq, Hash, Allocative, Clone, Copy, Dupe)]
 pub struct SourceAttrType {
     pub allow_directory: bool,
 }

@@ -29,6 +29,7 @@ use dice::OpaqueValue;
 use dice::ProjectionKey;
 use dice_futures::cancellation::CancellationContext;
 use dupe::Dupe;
+use pagable::Pagable;
 
 use crate::dice::cells::HasCellResolver;
 use crate::legacy_configs::cells::BuckConfigBasedCells;
@@ -174,7 +175,7 @@ impl InjectedKey for LegacyExternalBuckConfigDataKey {
     }
 }
 
-#[derive(Clone, Display, Debug, Hash, Eq, PartialEq, Allocative)]
+#[derive(Clone, Display, Debug, Hash, Eq, PartialEq, Allocative, Pagable)]
 #[display("LegacyBuckConfigForCellKey({})", self.cell_name)]
 struct LegacyBuckConfigForCellKey {
     cell_name: CellName,

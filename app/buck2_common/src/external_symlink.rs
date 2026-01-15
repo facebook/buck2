@@ -17,6 +17,7 @@ use allocative::Allocative;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use dupe::Dupe;
+use pagable::Pagable;
 
 type Utf8Path = String;
 
@@ -26,7 +27,7 @@ type Utf8Path = String;
 ///
 /// E.g. foo/bar/file, where foo/bar -> /root, would be represented as:
 ///      ExternalSymlink { abs_target: "/root", remaining_path: "file" }
-#[derive(Debug, Hash, PartialEq, Eq, Clone, Allocative)]
+#[derive(Debug, Hash, PartialEq, Eq, Clone, Allocative, Pagable)]
 pub struct ExternalSymlink {
     /// The external target the symlink resolves to.
     // We can't use AbsPathBuf because there might be "." or ".." in the path

@@ -13,12 +13,13 @@ use std::fmt::Display;
 use std::sync::Arc;
 
 use allocative::Allocative;
+use pagable::Pagable;
 
 use crate::attrs::attr_type::AttrType;
 use crate::attrs::coerced_attr::CoercedAttr;
 use crate::attrs::display::AttrDisplayWithContextExt;
 
-#[derive(Clone, Debug, Eq, PartialEq, Hash, Allocative)]
+#[derive(Clone, Debug, Eq, PartialEq, Hash, Pagable, Allocative)]
 enum AttributeDefault {
     No,
     Yes(Arc<CoercedAttr>),
@@ -26,7 +27,7 @@ enum AttributeDefault {
 }
 
 /// Starlark compatible container for results from e.g. `attrs.string()`
-#[derive(Clone, Debug, Eq, PartialEq, Hash, Allocative)]
+#[derive(Clone, Debug, Eq, PartialEq, Hash, Pagable, Allocative)]
 pub struct Attribute {
     /// The default value. If None, the value is not optional and must be provided by the user
     default: AttributeDefault,

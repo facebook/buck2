@@ -15,13 +15,14 @@ use buck2_core::configuration::transition::id::TransitionId;
 use buck2_core::plugins::PluginKind;
 #[allow(unused_imports)]
 use buck2_util::hash::BuckHasher;
+use pagable::Pagable;
 use static_interner::interner;
 
 use crate::attrs::spec::AttributeSpec;
 use crate::nodes::unconfigured::RuleKind;
 use crate::rule_type::RuleType;
 
-#[derive(Debug, Eq, PartialEq, Hash, Allocative, Clone, dupe::Dupe)]
+#[derive(Debug, Eq, PartialEq, Hash, Pagable, Allocative, Clone, dupe::Dupe)]
 pub enum RuleIncomingTransition {
     None,
     Fixed(Arc<TransitionId>),
@@ -30,7 +31,7 @@ pub enum RuleIncomingTransition {
 }
 
 /// Common rule data needed in `TargetNode`.
-#[derive(Debug, Eq, PartialEq, Hash, Allocative)]
+#[derive(Debug, Eq, PartialEq, Hash, Pagable, Allocative)]
 pub struct Rule {
     /// The attribute spec. This holds the attribute name -> index mapping and the default values
     /// (for those attributes without explicit values).

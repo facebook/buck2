@@ -10,12 +10,13 @@
 
 use allocative::Allocative;
 use buck2_util::arc_str::ArcSlice;
+use pagable::Pagable;
 
 use crate::attrs::attr_type::list::ListLiteral;
 use crate::attrs::attr_type::string::StringLiteral;
 use crate::attrs::coerced_attr::CoercedAttr;
 
-#[derive(Debug, Eq, PartialEq, Hash, Allocative)]
+#[derive(Debug, Eq, PartialEq, Hash, Pagable, Allocative)]
 pub struct AnyAttrType;
 
 impl AnyAttrType {

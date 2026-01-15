@@ -11,10 +11,11 @@
 use std::fmt;
 
 use allocative::Allocative;
+use pagable::Pagable;
 
 use crate::attrs::attr_type::AttrType;
 
-#[derive(Debug, Eq, PartialEq, Hash, Allocative)]
+#[derive(Debug, Eq, PartialEq, Hash, Pagable, Allocative)]
 pub struct OptionAttrType {
     pub inner: AttrType,
 }

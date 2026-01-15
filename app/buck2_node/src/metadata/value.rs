@@ -14,6 +14,7 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use dupe::Dupe;
+use pagable::Pagable;
 use serde::Deserialize;
 use serde::Serialize;
 
@@ -29,7 +30,8 @@ use serde::Serialize;
     Allocative,
     Default,
     Serialize,
-    Deserialize
+    Deserialize,
+    Pagable
 )]
 pub struct MetadataValue(pub Arc<serde_json::Value>);
 

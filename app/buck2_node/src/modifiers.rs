@@ -8,13 +8,15 @@
  * above-listed licenses.
  */
 
+use std::hash::Hash;
 use std::sync::Arc;
 
 use allocative::Allocative;
 use dupe::Dupe;
+use pagable::Pagable;
 
 pub const MODIFIER_METADATA_KEY: &str = "buck.cfg_modifiers";
-#[derive(Debug, Eq, PartialEq, Hash, Clone, Dupe, Allocative)]
+#[derive(Debug, Eq, PartialEq, Hash, Clone, Dupe, Allocative, Pagable)]
 pub struct PackageCfgModifiersValue(Arc<serde_json::Value>);
 
 impl PackageCfgModifiersValue {

@@ -16,6 +16,8 @@ use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::provider::label::ProvidersLabelMaybeConfigured;
 use dupe::Dupe;
+use pagable::Pagable;
+use strong_hash::StrongHash;
 
 use crate::attrs::attr_type::arg::QueryExpansion;
 use crate::attrs::attr_type::dep::DepAttrType;
@@ -25,7 +27,7 @@ use crate::attrs::traversal::CoercedAttrTraversal;
 use crate::provider_id_set::ProviderIdSet;
 
 /// Attribute type created with `attrs.query(...)`.
-#[derive(Debug, Eq, PartialEq, Hash, Allocative)]
+#[derive(Debug, Pagable, Eq, PartialEq, Hash, Allocative)]
 pub struct QueryAttrType {
     pub inner: DepAttrType,
 }
@@ -37,7 +39,7 @@ impl QueryAttrType {
 }
 
 /// Attribute value of type `attrs.query(...)`.
-#[derive(Debug, Eq, PartialEq, Hash, Clone, Allocative)]
+#[derive(Debug, Eq, PartialEq, Hash, Clone, Allocative, Pagable)]
 pub struct QueryAttr<P: ProvidersLabelMaybeConfigured> {
     pub providers: ProviderIdSet,
     pub query: QueryAttrBase<P>,
@@ -72,7 +74,7 @@ impl QueryAttr<ProvidersLabel> {
 }
 
 /// Query in target node attribute, like `$(query_outputs ...)`.
-#[derive(Debug, Eq, PartialEq, Hash, Clone, Allocative, strong_hash::StrongHash)]
+#[derive(Debug, Eq, PartialEq, Hash, Clone, Allocative, Pagable, StrongHash)]
 pub struct QueryMacroBase<P: ProvidersLabelMaybeConfigured> {
     pub expansion_type: QueryExpansion,
     pub query: QueryAttrBase<P>,
@@ -118,7 +120,7 @@ impl QueryMacroBase<ProvidersLabel> {
 /// Used in either:
 /// * Attribute created with `attrs.query(...)`
 /// * Query inside macros like `$(query_targets ...)`
-#[derive(Debug, Eq, PartialEq, Hash, Clone, Allocative, strong_hash::StrongHash)]
+#[derive(Debug, Eq, PartialEq, Hash, Clone, Allocative, Pagable, StrongHash)]
 pub struct QueryAttrBase<P: ProvidersLabelMaybeConfigured> {
     pub query: String,
     pub resolved_literals: ResolvedQueryLiterals<P>,
@@ -126,7 +128,16 @@ pub struct QueryAttrBase<P: ProvidersLabelMaybeConfigured> {
 
 type OffsetAndLength = (usize, usize);
 
-#[derive(Debug, Eq, PartialEq, Hash, Clone, Allocative, strong_hash::StrongHash)]
+#[derive(
+    Debug,
+    Eq,
+    PartialEq,
+    Hash,
+    Clone,
+    Allocative,
+    strong_hash::StrongHash,
+    Pagable
+)]
 pub struct ResolvedQueryLiterals<P: ProvidersLabelMaybeConfigured>(
     pub BTreeMap<OffsetAndLength, P>,
 );

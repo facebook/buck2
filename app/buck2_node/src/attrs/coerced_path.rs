@@ -14,9 +14,11 @@ use allocative::Allocative;
 use buck2_core::package::package_relative_path::PackageRelativePath;
 use buck2_util::arc_str::ArcS;
 use either::Either;
+use pagable::Pagable;
 use static_assertions::assert_eq_size;
+use strong_hash::StrongHash;
 
-#[derive(Debug, Eq, PartialEq, Hash, Clone, Allocative, strong_hash::StrongHash)]
+#[derive(Debug, Eq, PartialEq, Hash, Clone, Allocative, Pagable, StrongHash)]
 pub struct CoercedDirectory {
     pub dir: ArcS<PackageRelativePath>,
     // We can make this type DST, so there would be only one allocation
@@ -25,7 +27,7 @@ pub struct CoercedDirectory {
     pub files: Box<[ArcS<PackageRelativePath>]>,
 }
 
-#[derive(Debug, Eq, PartialEq, Hash, Clone, Allocative, strong_hash::StrongHash)]
+#[derive(Debug, Eq, PartialEq, Hash, Clone, Allocative, Pagable, StrongHash)]
 pub enum CoercedPath {
     File(ArcS<PackageRelativePath>),
     Directory(Box<CoercedDirectory>),

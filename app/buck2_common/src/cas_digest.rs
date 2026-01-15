@@ -31,6 +31,7 @@ use dupe::Dupe;
 use dupe::Dupe_;
 use num_enum::TryFromPrimitive;
 use once_cell::sync::Lazy;
+use pagable::Pagable;
 use sha1::Sha1;
 use sha2::Sha256;
 
@@ -44,7 +45,7 @@ pub const SHA256_SIZE: usize = 32;
 pub const BLAKE3_SIZE: usize = 32;
 
 /// The bytes that make up a file digest.
-#[derive(PartialEq, Eq, PartialOrd, Ord, Hash, Allocative, Clone, Copy)]
+#[derive(PartialEq, Eq, PartialOrd, Ord, Hash, Allocative, Clone, Copy, Pagable)]
 pub enum RawDigest {
     // TODO: Perhaps this should be represented as a (DigestAlgorithmKind, [0;32])
     Sha1([u8; SHA1_SIZE]),
@@ -443,7 +444,7 @@ impl<Kind: CasDigestKind> Digester<Kind> {
 /// Separate struct to allow us to use  `repr(transparent)` below and guarantee an identical
 /// layout.
 #[derive(
-    Display, PartialEq, Eq, PartialOrd, Ord, Hash, Allocative, Clone, Dupe, Copy
+    Display, PartialEq, Eq, PartialOrd, Ord, Hash, Allocative, Clone, Dupe, Copy, Pagable
 )]
 #[display("{}:{}", digest, size)]
 pub struct CasDigestData {
@@ -494,7 +495,7 @@ impl CasDigestData {
     }
 }
 
-#[derive(Display, Derivative, Allocative, Clone_, Dupe_, Copy_)]
+#[derive(Display, Derivative, Allocative, Clone_, Dupe_, Copy_, Pagable)]
 #[allocative(bound = "")]
 #[derivative(PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[display("{}", data)]
@@ -701,14 +702,14 @@ pub enum CasDigestParseError {
 /// the sha1 and the size of the underlying blob. We *also* keep track of its expiry in the CAS.
 /// Note that for directory, the expiry represents that of the directory's blob, not its underlying
 /// contents.
-#[derive(Allocative)]
+#[derive(Allocative, Debug, Pagable)]
 #[allocative(bound = "")]
 struct TrackedCasDigestInner<Kind: CasDigestKind> {
     data: CasDigest<Kind>,
     expires: AtomicI64,
 }
 
-#[derive(Display, Dupe_, Allocative)]
+#[derive(Display, Dupe_, Allocative, Pagable)]
 #[allocative(bound = "")]
 #[display("{}", self.data())]
 pub struct TrackedCasDigest<Kind: CasDigestKind> {

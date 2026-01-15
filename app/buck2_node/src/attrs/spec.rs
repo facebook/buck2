@@ -9,6 +9,9 @@
  */
 
 use allocative::Allocative;
+use pagable::Pagable;
+use serde::Deserialize;
+use serde::Serialize;
 use starlark_map::ordered_map::OrderedMap;
 use starlark_map::small_map;
 
@@ -27,7 +30,19 @@ pub mod internal;
 
 /// Identifies an attribute within a rule.
 #[derive(
-    Debug, Clone, dupe::Dupe, Copy, Eq, Hash, PartialEq, Ord, PartialOrd, Allocative
+    Debug,
+    Clone,
+    dupe::Dupe,
+    Copy,
+    Eq,
+    Hash,
+    PartialEq,
+    Ord,
+    PartialOrd,
+    Allocative,
+    Serialize,
+    Deserialize,
+    Pagable
 )]
 pub struct AttributeId(u16); // Index in the attribute spec
 
@@ -41,7 +56,7 @@ impl AttributeId {
 ///
 /// For its attribute values, a TargetNode will hold a sorted Vec<(AttributeId, CoercedAttr)> that will have values
 /// only for the values that are explicitly set. Default values need to be looked up through the AttributeSpec.
-#[derive(Debug, Eq, PartialEq, Hash, Allocative)]
+#[derive(Debug, Eq, PartialEq, Hash, Pagable, Allocative)]
 pub struct AttributeSpec {
     attributes: OrderedMap<Box<str>, Attribute>,
 }

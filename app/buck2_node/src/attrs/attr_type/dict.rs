@@ -16,7 +16,9 @@ use allocative::Allocative;
 use buck2_error::buck2_error;
 use buck2_util::arc_str::ArcSlice;
 use display_container::fmt_keyed_container;
+use pagable::Pagable;
 use serde_json::Value;
+use strong_hash::StrongHash;
 
 use crate::attrs::attr_type::AttrType;
 use crate::attrs::attr_type::any_matches::AnyMatches;
@@ -25,7 +27,7 @@ use crate::attrs::display::AttrDisplayWithContextExt;
 use crate::attrs::fmt_context::AttrFmtContext;
 use crate::attrs::json::ToJsonWithContext;
 
-#[derive(Debug, Hash, Eq, PartialEq, Allocative)]
+#[derive(Debug, Hash, Pagable, Eq, PartialEq, Allocative)]
 pub struct DictAttrType {
     pub key: AttrType,
     pub value: AttrType,
@@ -50,14 +52,7 @@ impl DictAttrType {
 }
 
 #[derive(
-    Debug,
-    Clone,
-    Eq,
-    PartialEq,
-    Hash,
-    Allocative,
-    Default,
-    strong_hash::StrongHash
+    Debug, Clone, Eq, PartialEq, Hash, Allocative, Default, Pagable, StrongHash
 )]
 pub struct DictLiteral<C: Eq>(pub ArcSlice<(C, C)>);
 

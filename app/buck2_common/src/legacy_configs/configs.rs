@@ -19,6 +19,7 @@ use buck2_cli_proto::ConfigOverride;
 use buck2_core::cells::cell_root_path::CellRootPath;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use dupe::Dupe;
+use pagable::Pagable;
 use starlark_map::sorted_map::SortedMap;
 
 use super::cells::ExternalPathBuckconfigData;
@@ -29,15 +30,15 @@ use crate::legacy_configs::file_ops::ConfigPath;
 use crate::legacy_configs::key::BuckconfigKeyRef;
 use crate::legacy_configs::parser::LegacyConfigParser;
 
-#[derive(Clone, Dupe, Debug, Allocative)]
+#[derive(Clone, Dupe, Debug, Allocative, Pagable)]
 pub struct LegacyBuckConfig(pub(crate) Arc<ConfigData>);
 
-#[derive(Debug, Allocative)]
+#[derive(Debug, Allocative, Pagable)]
 pub(crate) struct ConfigData {
     pub(crate) values: SortedMap<String, LegacyBuckConfigSection>,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Allocative)]
+#[derive(Clone, Debug, PartialEq, Eq, Allocative, Pagable)]
 pub(crate) enum ResolvedValue {
     // A placeholder used before we do resolution.
     Unknown,
@@ -47,19 +48,19 @@ pub(crate) enum ResolvedValue {
     Resolved(String),
 }
 
-#[derive(Debug, PartialEq, Eq, Allocative)]
+#[derive(Debug, PartialEq, Eq, Allocative, Pagable)]
 pub(crate) struct ConfigFileLocation {
     pub(crate) path: String,
     pub(crate) include_source: Option<Location>,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Allocative)]
+#[derive(Clone, Debug, PartialEq, Eq, Allocative, Pagable)]
 pub(crate) struct ConfigFileLocationWithLine {
     pub(crate) source_file: Arc<ConfigFileLocation>,
     pub(crate) line: usize,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Allocative)]
+#[derive(Clone, Debug, PartialEq, Eq, Allocative, Pagable)]
 pub(crate) enum Location {
     File(ConfigFileLocationWithLine),
     CommandLineArgument,
@@ -129,14 +130,14 @@ pub fn parse_config_section_and_key(
     })
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Allocative)]
+#[derive(Debug, Clone, PartialEq, Eq, Allocative, Pagable)]
 pub(crate) struct ConfigValue {
     raw_value: String,
     pub(crate) resolved_value: ResolvedValue,
     pub(crate) source: Location,
 }
 
-#[derive(Debug, Default, Allocative)]
+#[derive(Debug, Default, Allocative, Pagable)]
 pub struct LegacyBuckConfigSection {
     pub(crate) values: SortedMap<String, ConfigValue>,
 }

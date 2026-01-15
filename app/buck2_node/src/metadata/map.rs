@@ -12,6 +12,7 @@ use std::fmt;
 use std::hash::Hash;
 
 use allocative::Allocative;
+use pagable::Pagable;
 use starlark_map::small_map::SmallMap;
 use starlark_map::sorted_map::SortedMap;
 
@@ -20,7 +21,7 @@ use crate::metadata::key::MetadataKey;
 use crate::metadata::key::MetadataKeyRef;
 use crate::metadata::value::MetadataValue;
 
-#[derive(Debug, Eq, PartialEq, Hash, Clone, Allocative, Default)]
+#[derive(Debug, Eq, PartialEq, Hash, Clone, Allocative, Default, Pagable)]
 pub struct MetadataMap {
     values: Box<SortedMap<MetadataKey, MetadataValue>>,
 }

@@ -25,10 +25,11 @@ use dice::DiceComputations;
 use dice::Key;
 use dice_futures::cancellation::CancellationContext;
 use dupe::Dupe;
+use pagable::Pagable;
 
 use crate::package_imports::PackageImplicitImports;
 
-#[derive(PartialEq, Allocative)]
+#[derive(PartialEq, Allocative, Pagable)]
 pub struct ImplicitImportPaths {
     pub root_import: Option<ImportPath>,
     pub package_imports: PackageImplicitImports,

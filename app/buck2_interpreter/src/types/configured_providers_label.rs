@@ -17,6 +17,7 @@ use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::provider::label::ProvidersName;
 use derive_more::Display;
 use dupe::Dupe;
+use pagable::Pagable;
 use serde::Serialize;
 use serde::Serializer;
 use starlark::any::ProvidesStaticType;
@@ -210,8 +211,9 @@ impl StarlarkProvidersLabel {
     Trace,
     Freeze,
     ProvidesStaticType,
+    Allocative,
     Serialize,
-    Allocative
+    Pagable
 )]
 #[display("{}", label)]
 #[repr(C)]

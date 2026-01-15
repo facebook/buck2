@@ -11,8 +11,9 @@
 use allocative::Allocative;
 use buck2_core::plugins::PluginKind;
 use dupe::Dupe;
+use pagable::Pagable;
 
-#[derive(Debug, Eq, PartialEq, Hash, Allocative, Clone, Dupe)]
+#[derive(Debug, Eq, PartialEq, Hash, Pagable, Allocative, Clone, Dupe)]
 pub struct PluginDepAttrType {
     kind: PluginKind,
 }

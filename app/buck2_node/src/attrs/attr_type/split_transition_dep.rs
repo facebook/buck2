@@ -17,13 +17,14 @@ use buck2_core::configuration::transition::id::TransitionId;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
 use dupe::Dupe;
+use pagable::Pagable;
 use starlark_map::sorted_map::SortedMap;
 
 use crate::attrs::configuration_context::AttrConfigurationContext;
 use crate::attrs::configured_attr::ConfiguredAttr;
 use crate::provider_id_set::ProviderIdSet;
 
-#[derive(Debug, PartialEq, Eq, Hash, Allocative)]
+#[derive(Debug, Pagable, PartialEq, Eq, Hash, Allocative)]
 pub struct SplitTransitionDepAttrType {
     pub required_providers: ProviderIdSet,
     pub transition: Arc<TransitionId>,

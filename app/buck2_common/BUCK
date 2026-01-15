@@ -86,6 +86,7 @@ rust_library(
         "//buck2/gazebo/cmp_any:cmp_any",
         "//buck2/gazebo/dupe:dupe",
         "//buck2/gazebo/gazebo:gazebo",
+        "//buck2/pagable:pagable",
         "//buck2/starlark-rust/starlark_map:starlark_map",
         # @oss-disable[end= ]: "//common/rust/folly/logging:logging",
         # @oss-disable[end= ]: "//common/rust/folly/memory:memory",
