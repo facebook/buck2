@@ -13,6 +13,27 @@ load(
     "ModifiersMatch",
 )
 
+_DIGIT_TO_ALPHA = {
+    "0": "a",
+    "1": "b",
+    "2": "c",
+    "3": "d",
+    "4": "e",
+    "5": "f",
+    "6": "g",
+    "7": "h",
+    "8": "i",
+    "9": "j",
+}
+
+def _int_to_alpha(n):
+    """Convert an integer to a lowercase alphabetical string by mapping each digit to a letter."""
+    if n < 0:
+        n = -n
+    digits = str(n)
+    result = [_DIGIT_TO_ALPHA[digits[i]] for i in range(len(digits))]
+    return "".join(result)
+
 def _modifiers_match(
         matcher: dict[str, Modifier]) -> ModifiersMatch:
     """
@@ -70,7 +91,16 @@ def _modifiers_match(
             verify_normalized_target(key)
         verify_normalized_modifier(sub_modifier)
 
+    matcher_str = str(matcher)
+    soft_error("starlark_conditional_modifier_{}".format(
+        # We use a hash so we log a different soft error category for each unique conditional modifier.
+        # We can only use alphabetical characters in soft error category due to logview restrictions,
+        # so convert integers from hash to alphabetical characters.
+        _int_to_alpha(hash(matcher_str)),
+    ), matcher_str, quiet = True)
+
     matcher["_type"] = "ModifiersMatch"
+
     return matcher
 
 modifiers = struct(
