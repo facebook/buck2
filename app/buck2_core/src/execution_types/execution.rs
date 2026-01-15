@@ -14,6 +14,7 @@ use allocative::Allocative;
 use dupe::Dupe;
 use indent_write::indentable::Indentable;
 use itertools::Itertools;
+use pagable::Pagable;
 
 use crate::configuration::compatibility::IncompatiblePlatformReason;
 use crate::configuration::compatibility::IncompatiblePlatformReasonCause;
@@ -31,10 +32,10 @@ use crate::target::label::label::TargetLabel;
 ///
 /// It consists of that platform `Configuration` and configuration of how to do the execution
 /// (e.g. local, remote, etc.).
-#[derive(Debug, Eq, PartialEq, Hash, Dupe, Clone, Allocative)]
+#[derive(Debug, Eq, PartialEq, Hash, Dupe, Clone, Allocative, Pagable)]
 pub struct ExecutionPlatform(Arc<ExecutionPlatformData>);
 
-#[derive(Debug, Eq, PartialEq, Hash, Allocative)]
+#[derive(Debug, Eq, PartialEq, Hash, Allocative, Pagable)]
 pub enum ExecutionPlatformData {
     /// A user-defined platform.
     Platform {
@@ -107,7 +108,7 @@ impl ExecutionPlatform {
     }
 }
 
-#[derive(Clone, Dupe, Debug, Eq, PartialEq, Hash, Allocative)]
+#[derive(Clone, Dupe, Debug, Eq, PartialEq, Hash, Allocative, Pagable)]
 pub enum ExecutionPlatformIncompatibleReason {
     ConstraintNotSatisfied(ProvidersLabel),
     ExecutionDependencyIncompatible(Arc<IncompatiblePlatformReason>),
@@ -154,7 +155,7 @@ pub enum ExecutionPlatformError {
 /// Represents the result of performing execution platform resolution. It stores both the
 /// resolved platform (if there is one) and the reasons why higher priority platforms were
 /// skipped.
-#[derive(Debug, Eq, PartialEq, Hash, Clone, Dupe, Allocative)]
+#[derive(Debug, Eq, PartialEq, Hash, Clone, Dupe, Allocative, Pagable)]
 pub struct ExecutionPlatformResolution {
     /// The platform if resolution found one. If all platforms are skipped, this will be `None`.
     platform: Option<ExecutionPlatform>,

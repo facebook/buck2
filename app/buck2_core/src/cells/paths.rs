@@ -28,6 +28,7 @@ use buck2_fs::paths::forward_rel_path::ForwardRelativePathIter;
 use derivative::Derivative;
 use derive_more::Display;
 use gazebo::transmute;
+use pagable::Pagable;
 use ref_cast::RefCast;
 use relative_path::RelativePath;
 use serde::Serialize;
@@ -46,7 +47,9 @@ pub struct CellRelativePath(
 /// The owned version of the 'CellRelativePath'
 #[derive(Clone, Display, Derivative)]
 // split in two lines because formatters disagree
-#[derive(Hash, PartialEq, Eq, Ord, PartialOrd, Serialize, Allocative)]
+#[derive(
+    Hash, PartialEq, Eq, Ord, PartialOrd, Serialize, Allocative, StrongHash, Pagable
+)]
 #[derivative(Debug)]
 pub struct CellRelativePathBuf(
     #[derivative(Debug(format_with = "quoted_display"))] ForwardRelativePathBuf,

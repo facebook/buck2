@@ -10,9 +10,18 @@
 
 use allocative::Allocative;
 use buck2_error::BuckErrorContext;
+use buck2_error::BuckErrorSerde;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
 use dupe::Dupe;
+use pagable::PagableDeserialize;
+use pagable::PagableDeserializer;
+use pagable::PagableSerialize;
+use pagable::PagableSerializer;
 use relative_path::RelativePath;
+use serde::Deserialize;
+use serde::Serialize;
+use serde::de::Visitor;
+use serde::ser::SerializeTuple;
 use strong_hash::StrongHash;
 
 use crate::cells::name::CellName;
@@ -307,6 +316,66 @@ impl CellPath {
             cell: self.cell,
             path: &self.path,
         }
+    }
+}
+
+impl Serialize for CellPath {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let mut seq = serializer.serialize_tuple(2)?;
+        seq.serialize_element(&self.cell)?;
+        seq.serialize_element(&self.path.as_str())?;
+        seq.end()
+    }
+}
+
+impl<'de> Deserialize<'de> for CellPath {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        struct V;
+        impl<'de> Visitor<'de> for V {
+            type Value = CellPath;
+
+            fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+                write!(formatter, "ok")
+            }
+
+            fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
+            where
+                A: serde::de::SeqAccess<'de>,
+            {
+                let cell: CellName = seq
+                    .next_element()?
+                    .ok_or_else(|| serde::de::Error::custom("cell empty"))?;
+                let path: String = seq
+                    .next_element()?
+                    .ok_or_else(|| serde::de::Error::custom("path empty"))?;
+                let path = CellRelativePathBuf::try_from(path).serde_err()?;
+                Ok(CellPath {
+                    cell,
+                    path: path.into_box(),
+                })
+            }
+        }
+        deserializer.deserialize_tuple(2, V)
+    }
+}
+
+impl PagableSerialize for CellPath {
+    fn pagable_serialize<S: PagableSerializer>(&self, serializer: &mut S) -> pagable::Result<()> {
+        Ok(self.serialize(serializer.serde())?)
+    }
+}
+
+impl<'de> PagableDeserialize<'de> for CellPath {
+    fn pagable_deserialize<D: PagableDeserializer<'de>>(
+        deserializer: &mut D,
+    ) -> pagable::Result<Self> {
+        Ok(CellPath::deserialize(deserializer.serde())?)
     }
 }
 

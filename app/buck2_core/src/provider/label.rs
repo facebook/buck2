@@ -17,9 +17,12 @@ use buck2_util::arc_str::ArcSlice;
 use buck2_util::arc_str::ArcStr;
 use derive_more::Display;
 use dupe::Dupe;
+use pagable::Pagable;
+use serde::Deserialize;
 use serde::Serialize;
 use serde::Serializer;
 use static_assertions::assert_eq_size;
+use strong_hash::StrongHash;
 use triomphe::Arc;
 
 use crate::ascii_char_set::AsciiCharSet;
@@ -39,14 +42,17 @@ use crate::target::label::label::TargetLabel;
     Clone,
     Debug,
     Hash,
+    StrongHash,
     Eq,
     PartialEq,
     Ord,
     PartialOrd,
     Allocative,
-    strong_hash::StrongHash
+    Pagable,
+    Serialize,
+    Deserialize
 )]
-pub struct ProviderName(String);
+pub struct ProviderName(#[pagable(flatten_serde)] String);
 
 #[derive(buck2_error::Error, Debug)]
 #[error(
@@ -88,12 +94,15 @@ impl ProviderName {
     Dupe,
     Debug,
     Hash,
+    StrongHash,
     Eq,
     PartialEq,
     Ord,
     PartialOrd,
     Allocative,
-    strong_hash::StrongHash
+    Serialize,
+    Deserialize,
+    Pagable
 )]
 pub enum NonDefaultProvidersName {
     Named(ArcSlice<ProviderName>),
@@ -116,12 +125,15 @@ pub enum NonDefaultProvidersName {
     Clone,
     Debug,
     Hash,
+    StrongHash,
     Eq,
     PartialEq,
     Ord,
     PartialOrd,
     Allocative,
-    strong_hash::StrongHash
+    Serialize,
+    Deserialize,
+    Pagable
 )]
 #[derive(Default)]
 pub enum ProvidersName {
@@ -177,17 +189,8 @@ impl ProvidersName {
 /// the 'ProvidersName' referring to the specific set of inner providers of a
 /// rule.
 #[derive(
-    Clone,
-    Dupe,
-    Debug,
-    Display,
-    Hash,
-    Eq,
-    PartialEq,
-    Ord,
-    PartialOrd,
-    Allocative,
-    strong_hash::StrongHash
+    Clone, Dupe, Debug, Display, Hash, StrongHash, Eq, PartialEq, Ord, PartialOrd, Allocative,
+    Pagable
 )]
 #[display("{}{}", target, name)]
 pub struct ProvidersLabel {
@@ -281,17 +284,8 @@ impl Serialize for ProvidersLabel {
 ///
 /// A configured 'ProvidersLabel'.
 #[derive(
-    Clone,
-    Dupe,
-    Debug,
-    Display,
-    Hash,
-    Eq,
-    PartialEq,
-    Ord,
-    PartialOrd,
-    Allocative,
-    strong_hash::StrongHash
+    Clone, Dupe, Debug, Display, Hash, StrongHash, Eq, PartialEq, Ord, PartialOrd, Allocative,
+    Pagable
 )]
 #[display("{}{} ({})", target.unconfigured(), name, target.cfg())]
 pub struct ConfiguredProvidersLabel {

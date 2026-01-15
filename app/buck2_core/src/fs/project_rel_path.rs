@@ -85,6 +85,7 @@ use buck2_fs::paths::forward_rel_path::ForwardRelativePathIter;
 use buck2_util::arc_str::StringInside;
 use derivative::Derivative;
 use gazebo::prelude::IterOwned;
+use pagable::Pagable;
 use ref_cast::RefCast;
 use relative_path::RelativePath;
 use relative_path::RelativePathBuf;
@@ -122,6 +123,7 @@ pub struct ProjectRelativePath(
     Ord,
     Serialize,
     Deserialize,
+    Pagable,
     Allocative
 )]
 #[derivative(Debug)]

@@ -9,6 +9,7 @@
  */
 
 use allocative::Allocative;
+use pagable::Pagable;
 use starlark_map::sorted_map::SortedMap;
 
 use crate::configuration::data::ConfigurationData;
@@ -25,7 +26,7 @@ enum TransitionAppliedError {
 }
 
 /// Result of `transition` function application to a configuration.
-#[derive(PartialEq, Eq, Hash, Debug, Allocative)]
+#[derive(PartialEq, Eq, Hash, Debug, Allocative, Pagable)]
 pub enum TransitionApplied {
     /// Transition to single configuration.
     Single(ConfigurationData),

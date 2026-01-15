@@ -9,6 +9,7 @@
  */
 
 use allocative::Allocative;
+use pagable::Pagable;
 use strong_hash::StrongHash;
 
 use crate::configuration::builtin::BuiltinPlatform;
@@ -37,7 +38,8 @@ enum BoundConfigurationLabelError {
     Ord,
     PartialOrd,
     Allocative,
-    StrongHash
+    StrongHash,
+    Pagable
 )]
 pub struct BoundConfigurationLabel(String);
 

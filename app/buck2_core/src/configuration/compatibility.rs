@@ -17,6 +17,8 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use dupe::Dupe;
+use pagable::Pagable;
+use strong_hash::StrongHash;
 
 use crate::provider::label::ProvidersLabel;
 use crate::target::configured_target_label::ConfiguredTargetLabel;
@@ -85,7 +87,9 @@ impl<T> MaybeCompatible<T> {
     }
 }
 
-#[derive(Debug, Eq, PartialEq, Hash, Clone, Dupe, Allocative)]
+#[derive(
+    Debug, Eq, PartialEq, Hash, StrongHash, Clone, Dupe, Allocative, Pagable
+)]
 pub enum IncompatiblePlatformReasonCause {
     /// Target is incompatible because of unsatisfied config setting.
     UnsatisfiedConfig(ProvidersLabel),
@@ -93,7 +97,9 @@ pub enum IncompatiblePlatformReasonCause {
     Dependency(Arc<IncompatiblePlatformReason>),
 }
 
-#[derive(Debug, Eq, PartialEq, Hash, Clone, Dupe, Allocative)]
+#[derive(
+    Debug, Eq, PartialEq, Hash, StrongHash, Clone, Dupe, Allocative, Pagable
+)]
 pub struct IncompatiblePlatformReason {
     pub target: ConfiguredTargetLabel,
     pub cause: IncompatiblePlatformReasonCause,

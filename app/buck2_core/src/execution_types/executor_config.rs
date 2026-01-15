@@ -21,12 +21,13 @@ use derive_more::Display;
 use dupe::Dupe;
 use itertools::Itertools;
 use once_cell::sync::Lazy;
+use pagable::Pagable;
 use starlark_map::small_map::SmallMap;
 use starlark_map::sorted_map::SortedMap;
 use static_interner::Intern;
 use static_interner::interner;
 
-#[derive(Debug, Eq, Hash, PartialEq, Clone, Dupe, Allocative)]
+#[derive(Debug, Eq, Hash, PartialEq, Clone, Dupe, Allocative, Pagable)]
 pub struct LocalExecutorOptions {
     pub use_persistent_workers: bool,
 }
@@ -39,7 +40,7 @@ impl Default for LocalExecutorOptions {
     }
 }
 
-#[derive(Debug, Eq, Hash, PartialEq, Clone, Allocative)]
+#[derive(Debug, Eq, Hash, PartialEq, Clone, Allocative, Pagable)]
 pub struct RemoteEnabledExecutorOptions {
     pub executor: RemoteEnabledExecutor,
     pub re_properties: RePlatformFields,
@@ -62,13 +63,13 @@ enum RemoteExecutorDependencyErrors {
     UnsupportedFields(String),
 }
 
-#[derive(Debug, Eq, Hash, PartialEq, Clone, Allocative)]
+#[derive(Debug, Eq, Hash, Pagable, PartialEq, Clone, Allocative)]
 pub struct ImagePackageIdentifier {
     pub name: String,
     pub uuid: String,
 }
 
-#[derive(Debug, Eq, PartialEq, Clone, Hash, Allocative)]
+#[derive(Debug, Eq, PartialEq, Clone, Hash, Pagable, Allocative)]
 pub struct RemoteExecutorCafFbpkg {
     pub name: String,
     pub uuid: String,
@@ -76,14 +77,14 @@ pub struct RemoteExecutorCafFbpkg {
     pub permissions: Option<String>,
 }
 
-#[derive(Debug, Eq, Hash, PartialEq, Clone, Allocative)]
+#[derive(Debug, Eq, Hash, Pagable, PartialEq, Clone, Allocative)]
 pub struct RemoteExecutorCustomImage {
     pub identifier: ImagePackageIdentifier,
     pub drop_host_mount_globs: Vec<String>,
 }
 
 /// A Remote Action can specify a list of dependencies that are required before starting the execution `https://fburl.com/wiki/offzl3ox`
-#[derive(Debug, Eq, PartialEq, Clone, Hash, Allocative)]
+#[derive(Debug, Eq, PartialEq, Clone, Hash, Pagable, Allocative)]
 pub struct RemoteExecutorDependency {
     /// The SMC tier that the Remote Executor will query to try to acquire the dependency
     pub smc_tier: String,
@@ -138,7 +139,7 @@ impl RemoteExecutorDependency {
     }
 }
 
-#[derive(Clone, Debug, Display, Eq, PartialEq, Hash, Allocative)]
+#[derive(Clone, Debug, Display, Eq, PartialEq, Hash, Allocative, Pagable)]
 struct RemoteExecutorUseCaseData(String);
 
 interner!(
@@ -149,7 +150,7 @@ interner!(
     str
 );
 
-#[derive(Debug, Eq, PartialEq, Copy, Clone, Dupe, Display, Allocative)]
+#[derive(Debug, Eq, PartialEq, Copy, Clone, Dupe, Display, Allocative, Pagable)]
 pub struct RemoteExecutorUseCase(Intern<RemoteExecutorUseCaseData>);
 
 impl RemoteExecutorUseCase {
@@ -186,7 +187,7 @@ impl FromStr for RemoteExecutorUseCase {
     }
 }
 
-#[derive(Debug, Default, Eq, PartialEq, Clone, Hash, Allocative)]
+#[derive(Debug, Default, Eq, PartialEq, Clone, Hash, Allocative, Pagable)]
 pub struct RemoteExecutorOptions {
     pub re_max_input_files_bytes: Option<u64>,
     pub re_max_queue_time: Option<Duration>,
@@ -196,7 +197,7 @@ pub struct RemoteExecutorOptions {
 /// The actual executor portion of a RemoteEnabled executor. It's possible for a RemoteEnabled
 /// executor to wrap a local executor, which is a glorified way of saying "this is a local executor
 /// with a RE backend for caching".
-#[derive(Display, Debug, Eq, PartialEq, Clone, Hash, Allocative)]
+#[derive(Display, Debug, Eq, PartialEq, Clone, Hash, Allocative, Pagable)]
 pub enum RemoteEnabledExecutor {
     #[display("local")]
     Local(LocalExecutorOptions),
@@ -211,12 +212,12 @@ pub enum RemoteEnabledExecutor {
 }
 
 /// Normalized `remote_execution::Platform`. Also implements `Eq`, `Hash`.
-#[derive(Default, Debug, Clone, PartialEq, Eq, Hash, Allocative)]
+#[derive(Default, Debug, Clone, PartialEq, Eq, Hash, Pagable, Allocative)]
 pub struct RePlatformFields {
     pub properties: Arc<SortedMap<String, String>>,
 }
 
-#[derive(Debug, Eq, PartialEq, Clone, Hash, Allocative)]
+#[derive(Debug, Eq, PartialEq, Clone, Hash, Pagable, Allocative)]
 #[allow(clippy::large_enum_variant)]
 pub enum Executor {
     /// This executor only runs local commands.
@@ -259,7 +260,7 @@ impl Display for Executor {
     }
 }
 
-#[derive(Debug, Eq, PartialEq, Clone, Copy, Dupe, Hash, Allocative)]
+#[derive(Debug, Eq, PartialEq, Clone, Copy, Dupe, Hash, Pagable, Allocative)]
 pub enum PathSeparatorKind {
     Unix,
     Windows,
@@ -276,7 +277,7 @@ impl PathSeparatorKind {
 }
 
 /// Controls how we implement output_dirs, output_files, output_paths in RE actions.
-#[derive(Debug, Eq, PartialEq, Clone, Copy, Dupe, Hash, Allocative)]
+#[derive(Debug, Eq, PartialEq, Clone, Copy, Dupe, Hash, Pagable, Allocative)]
 pub enum OutputPathsBehavior {
     /// Ask for things as either files or directories.
     Strict,
@@ -314,7 +315,9 @@ impl Default for OutputPathsBehavior {
     }
 }
 
-#[derive(Display, Debug, Eq, PartialEq, Clone, Copy, Dupe, Hash, Allocative)]
+#[derive(
+    Display, Debug, Eq, PartialEq, Clone, Copy, Dupe, Hash, Pagable, Allocative
+)]
 #[derive(Default)]
 pub enum CacheUploadBehavior {
     #[display("enabled")]
@@ -324,20 +327,20 @@ pub enum CacheUploadBehavior {
     Disabled,
 }
 
-#[derive(Debug, Eq, PartialEq, Clone, Copy, Dupe, Hash, Allocative)]
+#[derive(Debug, Eq, PartialEq, Clone, Copy, Dupe, Hash, Pagable, Allocative)]
 pub struct CommandGenerationOptions {
     pub path_separator: PathSeparatorKind,
     pub output_paths_behavior: OutputPathsBehavior,
     pub use_bazel_protocol_remote_persistent_workers: bool,
 }
 
-#[derive(Debug, Eq, PartialEq, Hash, Allocative, Clone)]
+#[derive(Debug, Eq, PartialEq, Hash, Allocative, Clone, Pagable)]
 pub struct CommandExecutorConfig {
     pub executor: Executor,
     pub options: CommandGenerationOptions,
 }
 
-#[derive(Debug, Eq, PartialEq, Clone, Copy, Dupe, Hash, Allocative)]
+#[derive(Debug, Eq, PartialEq, Clone, Copy, Dupe, Hash, Pagable, Allocative)]
 pub enum HybridExecutionLevel {
     /// Expose both executors but only run it in one preferred executor.
     Limited,
@@ -378,7 +381,7 @@ impl CommandExecutorConfig {
 /// match the TExecutionPolicy in the RE thrift API.
 /// affinity_keys is not defined here because it's already defined in ReActionIdentity
 /// duration_ms is not supported because we can't unpack i64 from starlark easily
-#[derive(Default, Debug, Clone, Eq, Hash, PartialEq, Allocative)]
+#[derive(Default, Debug, Clone, Eq, Hash, Pagable, PartialEq, Allocative)]
 pub struct RemoteExecutionPolicy {
     pub priority: Option<i32>,
     pub region_preference: Option<String>,
@@ -386,7 +389,7 @@ pub struct RemoteExecutionPolicy {
 }
 
 /// This struct is used to pass meta internal params to RE
-#[derive(Default, Debug, Clone, Eq, Hash, PartialEq, Allocative)]
+#[derive(Default, Debug, Clone, Eq, Hash, Pagable, PartialEq, Allocative)]
 pub struct MetaInternalExtraParams {
     pub remote_execution_policy: RemoteExecutionPolicy,
     pub remote_execution_caf_fbpkgs: Vec<RemoteExecutorCafFbpkg>,

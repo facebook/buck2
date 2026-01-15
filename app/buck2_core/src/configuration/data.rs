@@ -19,6 +19,7 @@ use buck2_util::strong_hasher::Blake3StrongHasher;
 use dupe::Dupe;
 use equivalent::Equivalent;
 use once_cell::sync::Lazy;
+use pagable::Pagable;
 use serde::Serialize;
 use serde::Serializer;
 use static_interner::Intern;
@@ -108,7 +109,8 @@ fn emit_configuration_instant_event(cfg: &ConfigurationData) -> buck2_error::Res
     PartialOrd,
     Allocative,
     derive_more::Display,
-    StrongHash
+    StrongHash,
+    Pagable
 )]
 pub struct ConfigurationData(Intern<HashedConfigurationPlatform>);
 
@@ -326,7 +328,9 @@ impl ToProtoMessage for ConfigurationData {
     }
 }
 
-#[derive(Debug, Hash, Eq, PartialEq, Ord, PartialOrd, Allocative, StrongHash)]
+#[derive(
+    Debug, Hash, Eq, PartialEq, Ord, PartialOrd, Allocative, StrongHash, Pagable
+)]
 enum ConfigurationPlatform {
     /// This represents the normal case where a platform has been defined by a `platform()` (or similar) target.
     Bound(BoundConfigurationLabel, ConfigurationDataData),
@@ -343,7 +347,7 @@ impl ConfigurationPlatform {
 }
 
 /// A set of values used in configuration-related contexts.
-#[derive(Debug, Eq, PartialEq, Ord, PartialOrd, Allocative, StrongHash)]
+#[derive(Debug, Eq, PartialEq, Ord, PartialOrd, Allocative, StrongHash, Pagable)]
 pub struct ConfigurationDataData {
     // contains the full specification of the platform configuration
     pub constraints: BTreeMap<ConstraintKey, ConstraintValue>,
@@ -395,7 +399,8 @@ impl ConfigurationDataData {
     Ord,
     PartialOrd,
     Allocative,
-    derive_more::Display
+    derive_more::Display,
+    Pagable
 )]
 #[display("{}", full_name)]
 pub(crate) struct HashedConfigurationPlatform {

@@ -14,6 +14,9 @@ use std::fmt::Display;
 use std::fmt::Formatter;
 
 use allocative::Allocative;
+use pagable::Pagable;
+use serde::Deserialize;
+use serde::Serialize;
 
 use crate::configuration::bound_label::BoundConfigurationLabel;
 use crate::configuration::builtin::BuiltinPlatform;
@@ -76,7 +79,10 @@ pub trait PatternType:
     Hash,
     Ord,
     PartialOrd,
-    Allocative
+    Allocative,
+    Serialize,
+    Deserialize,
+    Pagable
 )]
 #[display("")]
 pub struct TargetPatternExtra;

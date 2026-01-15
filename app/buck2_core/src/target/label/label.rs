@@ -22,6 +22,7 @@ use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_util::hash::BuckHasher;
 use dupe::Dupe;
 use lock_free_hashtable::atomic_value::AtomicValue;
+use pagable::Pagable;
 use ref_cast::RefCastCustom;
 use ref_cast::ref_cast_custom;
 use serde::Serialize;
@@ -44,7 +45,7 @@ use crate::target::configured_target_label::ConfiguredTargetLabel;
 use crate::target::label::triomphe_thin_arc_borrow::ThinArcBorrow;
 use crate::target::name::TargetNameRef;
 
-#[derive(Eq, PartialEq, Allocative, StrongHash)]
+#[derive(Debug, Eq, PartialEq, Allocative, Pagable)]
 struct TargetLabelHeader {
     /// Hash of target label (not package, not name).
     /// Place hash first to make equality check faster.
@@ -57,7 +58,15 @@ struct TargetLabelHeader {
 /// It contains a 'Package' which is the 'Package' defined by the build fine
 /// that contains this 'target', and a 'name' which is a 'TargetName'
 /// representing the target name given to the particular target.
-#[derive(Clone, derive_more::Display, Eq, PartialEq, Allocative, RefCastCustom)]
+#[derive(
+    Clone,
+    derive_more::Display,
+    Eq,
+    PartialEq,
+    Allocative,
+    RefCastCustom,
+    Pagable
+)]
 #[display("{}", self.as_ref())]
 #[repr(transparent)]
 pub struct TargetLabel(

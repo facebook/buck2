@@ -12,6 +12,7 @@ use allocative::Allocative;
 use buck2_util::hash::BuckHasher;
 use dupe::Dupe;
 use once_cell::sync::Lazy;
+use pagable::Pagable;
 use static_interner::Intern;
 use static_interner::interner;
 use strong_hash::StrongHash;
@@ -25,7 +26,9 @@ enum ConfigurationError {
     HasExecCfg,
 }
 
-#[derive(Debug, Allocative, Hash, Eq, PartialEq, Ord, PartialOrd, StrongHash)]
+#[derive(
+    Debug, Allocative, Hash, Eq, PartialEq, Ord, PartialOrd, Pagable, StrongHash
+)]
 struct ConfigurationPairData {
     cfg: ConfigurationData,
     /// Usually this is None, but for toolchain deps where the exec_cfg isn't picked it is set
@@ -35,7 +38,7 @@ struct ConfigurationPairData {
 /// Pair of `cfg` and `exec_cfg`.
 /// These two are added to `TargetLabel` to make `ConfiguredTargetLabel`.
 #[derive(
-    Debug, Clone, Dupe, Hash, Eq, PartialEq, Ord, PartialOrd, Allocative, StrongHash
+    Debug, Clone, Dupe, Hash, Eq, PartialEq, Ord, PartialOrd, Allocative, StrongHash, Pagable
 )]
 pub struct Configuration(Intern<ConfigurationPairData>);
 
@@ -78,7 +81,8 @@ impl Configuration {
     PartialOrd,
     Allocative,
     derive_more::Display,
-    strong_hash::StrongHash
+    strong_hash::StrongHash,
+    Pagable
 )]
 #[display("{}", self.cfg())]
 pub struct ConfigurationNoExec(Configuration);

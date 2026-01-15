@@ -53,6 +53,7 @@ use buck2_util::hash::BuckHasher;
 use derive_more::Display;
 use dupe::Dupe;
 use equivalent::Equivalent;
+use pagable::Pagable;
 use serde::Serialize;
 use serde::Serializer;
 use static_interner::Intern;
@@ -83,7 +84,8 @@ use crate::pattern::pattern::Modifiers;
 /// a valid `PackageLabel` is the `CellPath` that points to a folder containing a `BUCK` file.
 /// e.g. `root//path/to/package` is a valid `PackageLabel` if `root//path/to/package/BUCK` exists.
 #[derive(
-    Copy, Clone, Dupe, Debug, Display, Eq, PartialEq, Hash, Ord, PartialOrd, Allocative, StrongHash
+    Copy, Clone, Dupe, Debug, Display, Eq, PartialEq, Hash, Ord, PartialOrd, Allocative,
+    StrongHash, Pagable
 )]
 pub struct PackageLabel(Intern<PackageLabelData>);
 
@@ -99,7 +101,9 @@ pub struct PackageLabelWithModifiers {
     pub modifiers: Modifiers,
 }
 
-#[derive(Debug, Display, Eq, PartialEq, Ord, PartialOrd, Allocative, StrongHash)]
+#[derive(
+    Debug, Display, Eq, PartialEq, Ord, PartialOrd, Allocative, Pagable, StrongHash
+)]
 struct PackageLabelData(CellPath);
 
 #[derive(Hash, Eq, PartialEq)]
@@ -214,8 +218,8 @@ mod tests {
     #[test]
     fn test_serialize() {
         assert_eq!(
-            r#""foo//bar/baz""#,
-            serde_json::to_string(&PackageLabel::testing_parse("foo//bar/baz")).unwrap()
+            "foo//bar/baz",
+            PackageLabel::testing_parse("foo//bar/baz").to_string()
         );
     }
 }

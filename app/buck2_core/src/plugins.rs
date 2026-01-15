@@ -14,6 +14,13 @@ use allocative::Allocative;
 use buck2_util::hash::BuckHasher;
 use derive_more::Display;
 use dupe::Dupe;
+use pagable::Pagable;
+use pagable::PagableDeserialize;
+use pagable::PagableDeserializer;
+use pagable::PagableSerialize;
+use pagable::PagableSerializer;
+use serde::Deserialize;
+use serde::Serialize;
 use starlark_map::ordered_map::OrderedMap;
 use starlark_map::small_map::Entry;
 use static_interner::Intern;
@@ -24,6 +31,8 @@ use crate::target::label::label::TargetLabel;
 
 #[derive(
     Clone,
+    Pagable,
+    strong_hash::StrongHash,
     Debug,
     Display,
     Eq,
@@ -32,7 +41,8 @@ use crate::target::label::label::TargetLabel;
     Ord,
     PartialOrd,
     Allocative,
-    strong_hash::StrongHash
+    Serialize,
+    Deserialize
 )]
 #[display("{name}")]
 struct PluginKindInner {
@@ -60,7 +70,8 @@ impl<'a> From<&'a PluginKindInner> for PluginKindInner {
     Ord,
     PartialOrd,
     Allocative,
-    strong_hash::StrongHash
+    strong_hash::StrongHash,
+    Pagable
 )]
 pub struct PluginKind(Intern<PluginKindInner>);
 
@@ -88,6 +99,22 @@ impl PluginKind {
 #[derive(Copy, Clone, Dupe)]
 pub struct PluginKindSet(*const ());
 
+impl PagableSerialize for PluginKindSet {
+    fn pagable_serialize<S: PagableSerializer>(&self, serializer: &mut S) -> pagable::Result<()> {
+        self.unpack().pagable_serialize(serializer)
+    }
+}
+
+impl<'de> PagableDeserialize<'de> for PluginKindSet {
+    fn pagable_deserialize<D: PagableDeserializer<'de>>(
+        deserializer: &mut D,
+    ) -> pagable::Result<Self> {
+        Ok(PluginKindSet::pack(
+            PluginKindSetUnpacked::pagable_deserialize(deserializer)?,
+        ))
+    }
+}
+
 /// We'd ideally like to just let this type be the definition of `PluginKindSet`. Unfortunately,
 /// this type is 16 bytes in size. So instead, we store `PluginKindSet` as a pointer with `0`
 /// indicating `None` and `1` indicating `All`
@@ -101,7 +128,8 @@ pub struct PluginKindSet(*const ());
     Ord,
     PartialOrd,
     Allocative,
-    strong_hash::StrongHash
+    strong_hash::StrongHash,
+    Pagable
 )]
 enum PluginKindSetUnpacked {
     None,
@@ -118,7 +146,8 @@ enum PluginKindSetUnpacked {
     Ord,
     PartialOrd,
     Allocative,
-    strong_hash::StrongHash
+    strong_hash::StrongHash,
+    Pagable
 )]
 struct PluginKindSetData(Vec<(PluginKind, bool)>);
 
@@ -250,7 +279,7 @@ unsafe impl Send for PluginKindSet where PluginKindSetUnpacked: Send {}
 /// stronger kinds of membership, and when a plugin enters the plugin lists twice the larger of the
 /// two values is preferred.
 #[derive(
-    Copy, Clone, Dupe, Debug, Display, Eq, PartialEq, Hash, Ord, PartialOrd, Allocative
+    Copy, Clone, Dupe, Debug, Display, Eq, PartialEq, Hash, Ord, PartialOrd, Allocative, Pagable
 )]
 pub enum PluginListElemKind {
     NoPropagate,
@@ -260,7 +289,7 @@ pub enum PluginListElemKind {
 
 // TODO(JakobDegen): Representation with fewer allocations
 #[derive(
-    Clone, Debug, Default, Eq, PartialEq, Hash, Ord, PartialOrd, Allocative
+    Clone, Debug, Default, Eq, PartialEq, Hash, Ord, PartialOrd, Allocative, Pagable
 )]
 pub struct PluginLists(BTreeMap<PluginKind, OrderedMap<TargetLabel, PluginListElemKind>>);
 

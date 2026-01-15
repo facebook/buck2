@@ -24,6 +24,8 @@ use gazebo::transmute;
 use ref_cast::RefCast;
 use relative_path::RelativePath;
 use relative_path::RelativePathBuf;
+use serde::Deserialize;
+use serde::Serialize;
 
 use crate::package::quoted_display;
 
@@ -58,7 +60,9 @@ pub struct PackageRelativePath(
     Eq,
     PartialOrd,
     Ord,
-    Allocative
+    Allocative,
+    Serialize,
+    Deserialize
 )]
 #[derivative(Debug)]
 pub struct PackageRelativePathBuf(

@@ -69,6 +69,15 @@ impl<'de, T: PagableDeserialize<'de>> PagableDeserialize<'de> for Vec<T> {
     }
 }
 
+impl<'a, T: PagableSerialize> PagableSerialize for &'a [T] {
+    fn pagable_serialize<S: PagableSerializer>(&self, serializer: &mut S) -> crate::Result<()> {
+        for v in *self {
+            v.pagable_serialize(serializer)?;
+        }
+        Ok(())
+    }
+}
+
 macro_rules! array_impls {
     ($($len:expr => ($($n:tt)+))+) => {
         $(

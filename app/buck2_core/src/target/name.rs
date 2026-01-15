@@ -14,6 +14,9 @@ use std::ops::Deref;
 use allocative::Allocative;
 use buck2_util::arc_str::ThinArcStr;
 use dupe::Dupe;
+use pagable::Pagable;
+use serde::Deserialize;
+use serde::Serialize;
 use strong_hash::StrongHash;
 
 use crate::ascii_char_set::AsciiCharSet;
@@ -33,10 +36,13 @@ pub const EQ_SIGN_SUBST: &str = "_eqsb_";
     PartialEq,
     Ord,
     PartialOrd,
-    Allocative
+    Allocative,
+    Serialize,
+    Deserialize,
+    Pagable
 )]
 // TODO intern this?
-pub struct TargetName(ThinArcStr);
+pub struct TargetName(#[pagable(flatten_serde)] ThinArcStr);
 
 #[derive(buck2_error::Error, Debug)]
 #[buck2(input)]

@@ -18,6 +18,7 @@ use buck2_error::buck2_error;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
 use dupe::Dupe;
 use once_cell::sync::Lazy;
+use pagable::Pagable;
 use regex::Regex;
 use relative_path::RelativePath;
 use serde::Serialize;
@@ -235,7 +236,7 @@ impl TargetLabelWithExtra<ProvidersPatternExtra> {
 }
 
 /// A parsed target pattern.
-#[derive(Clone, Debug, Hash, Eq, PartialEq, Allocative)]
+#[derive(Clone, Debug, Hash, Eq, PartialEq, Allocative, Pagable)]
 pub enum ParsedPattern<T: PatternType> {
     /// A target pattern that matches a explicit target pattern type T. See
     /// `PatternType` for pattern

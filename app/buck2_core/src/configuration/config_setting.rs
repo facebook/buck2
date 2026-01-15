@@ -11,12 +11,13 @@
 use std::collections::BTreeMap;
 
 use allocative::Allocative;
+use pagable::Pagable;
 
 use crate::configuration::constraints::ConstraintKey;
 use crate::configuration::constraints::ConstraintValue;
 
 /// Parsed provider returned from `config_setting` rule.
-#[derive(Debug, Eq, PartialEq, Hash, Allocative)]
+#[derive(Debug, Eq, PartialEq, Hash, Allocative, Pagable)]
 pub struct ConfigSettingData {
     // contains the full specification of the platform configuration
     pub constraints: BTreeMap<ConstraintKey, ConstraintValue>,
