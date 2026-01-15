@@ -198,11 +198,19 @@ def _mk_cc(ctx: AnalysisContext, cc_args: list[typing.Any], cc_sh_filename: typi
     return _mk_script(ctx, cc_sh_filename, [compiler] + cc_args, {})
 
 # Pass '-cc ld.sh' to ocamlopt to use 'ld.sh' as the C linker.
+# Uses @argsfile to avoid ARG_MAX limits with large LTO link commands.
 def _mk_ld(ctx: AnalysisContext, link_args: list[typing.Any], ld_sh_filename: typing.Any) -> cmd_args:
     cxx_toolchain = get_cxx_toolchain_info(ctx)
     linker = cxx_toolchain.linker_info.linker
     linker_flags = cxx_toolchain.linker_info.linker_flags
-    return _mk_script(ctx, ld_sh_filename, [linker, linker_flags] + link_args, {})
+
+    argsfile_name = ld_sh_filename.removesuffix(".sh") + "_args.txt"
+    all_link_args = cmd_args(linker_flags)
+    all_link_args.add(link_args)
+    argsfile, _ = ctx.actions.write(argsfile_name, all_link_args, allow_args = True, with_inputs = True)
+
+    argsfile_ref = cmd_args(argsfile, format = "@{}", hidden = all_link_args)
+    return _mk_script(ctx, ld_sh_filename, [linker, argsfile_ref], {})
 
 # This should get called only once for any invocation of `ocaml_library_impl`,
 # `ocaml_binary_impl` (or `prebuilt_ocaml_library_impl`) and choice of
