@@ -46,25 +46,37 @@ pub struct SetSketchParams {
     // As per the paper; q is implicit in the choice of register type
     b: f64,
     m: usize,
-    a: f64,
     // Derived values
     lnb: f64,
     inva: f64,
+    rel_cardinality_factor: f64,
 }
 
 impl SetSketchParams {
     pub fn new(b: f64, m: usize, a: f64) -> Self {
+        let lnb = (b - 1.).ln_1p();
+        let rel_cardinality_factor = m as f64 * (1. - 1. / b) / (a * lnb);
         SetSketchParams {
             b,
             m,
-            a,
             lnb: (b - 1.).ln_1p(),
             inva: 1. / a,
+            rel_cardinality_factor,
         }
     }
 
     pub fn recommended() -> &'static Self {
         &RECOMMENDED_PARAMS
+    }
+
+    pub fn rel_cardinality_factor(&self) -> f64 {
+        self.rel_cardinality_factor
+    }
+
+    /// Returns the relative standard deviation of cardinality estimates resulting from these params
+    pub fn card_estimate_std_dev(&self) -> f64 {
+        let rel_std_dev = ((self.b + 1.) / (self.b - 1.) * self.lnb - 1.) / self.m as f64;
+        rel_std_dev.sqrt()
     }
 }
 
@@ -78,6 +90,7 @@ type I = u16;
 ///
 /// This cannot be used to sketch any new values (but can be merged). In exchange, it doesn't
 /// require a `T` or a hasher, unlike `SetSketcher`.
+#[derive(Clone)]
 pub struct SetSketch {
     params: &'static SetSketchParams,
     k_vec: Vec<I>,
@@ -90,22 +103,54 @@ impl SetSketch {
         SetSketch { params, k_vec }
     }
 
-    /// The function returns a 2-uple with first field cardinal estimator and second field the
-    /// **relative standard deviation**.
+    /// Load up the sketch found in the given registers
+    ///
+    /// Panics if the length of the sketch doesn't match what's in the params.
+    pub fn from_registers(params: &'static SetSketchParams, registers: Vec<I>) -> Self {
+        assert_eq!(params.m, registers.len());
+        SetSketch {
+            params,
+            k_vec: registers,
+        }
+    }
+
+    pub fn params(&self) -> &'static SetSketchParams {
+        self.params
+    }
+
+    /// The function returns an approximation of the cardinality of the sketched set.  
     ///
     /// It is a relatively cpu costly function (the computed logs are not cached in the SetSketcher
     /// structure) that involves log and exp calls on the whole sketch vector.
-    pub fn get_cardinal_stats(&self) -> (f64, f64) {
-        let sumbk = self.k_vec.iter().fold(0.0f64, |acc: f64, c| {
-            acc + (-(*c as f64) * self.params.lnb).exp()
-        });
-        let cardinality: f64 = self.params.m as f64 * (1. - 1. / self.params.b)
-            / (self.params.a * self.params.lnb * sumbk);
+    pub fn cardinality(&self) -> f64 {
+        self.rel_cardinality() * self.params.rel_cardinality_factor
+    }
 
-        let rel_std_dev = ((self.params.b + 1.) / (self.params.b - 1.) * self.params.lnb - 1.)
-            / self.params.m as f64;
-        let rel_std_dev = rel_std_dev.sqrt();
-        (cardinality, rel_std_dev)
+    /// Returns a value that is equal to the approximate cardinality of the underlying set times a
+    /// constant factor.
+    ///
+    /// The constant factor can be retrived from `SetSketchParams::rel_cardinality_factor`.
+    pub(crate) fn rel_cardinality(&self) -> f64 {
+        let sumbk = self.k_vec.iter().copied().fold(0.0f64, |acc: f64, c| {
+            acc + (-(c as f64) * self.params.lnb).exp()
+        });
+        1. / sumbk
+    }
+
+    /// Given two sketches, returns the cardinality of the intersection of those sketches.
+    ///
+    /// The error of this is a constant factor in the size of the original sketches, not in the
+    /// output value.
+    pub fn absolute_overlap(&self, other: &Self) -> f64 {
+        let self_c = self.cardinality();
+        let other_c = other.cardinality();
+        let merged_c = self.clone().union(other).cardinality();
+        self_c + other_c - merged_c
+    }
+
+    pub fn union(mut self, other: &SetSketch) -> Self {
+        self.merge(other);
+        self
     }
 
     pub fn merge(&mut self, other: &SetSketch) {
@@ -336,8 +381,9 @@ mod tests {
 
     fn check_cardinality_is_about(s: &SetSketch, val: u64) {
         let val = val as f64;
-        let (mean, std) = s.get_cardinal_stats();
-        if (mean - val).abs() / val > 3.0 * std {
+        let mean = s.cardinality();
+        let stddev = s.params().card_estimate_std_dev();
+        if (mean - val).abs() / val > 3.0 * stddev {
             panic!("Mean {} != expected {}", mean, val);
         }
     }
