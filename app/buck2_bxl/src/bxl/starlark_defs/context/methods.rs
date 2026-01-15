@@ -22,7 +22,6 @@ use buck2_core::cells::paths::CellRelativePath;
 use buck2_core::pattern::pattern::ParsedPattern;
 use buck2_core::pattern::pattern_type::TargetPatternExtra;
 use buck2_core::provider::label::ProvidersLabel;
-use buck2_core::soft_error;
 use buck2_core::target::label::label::TargetLabel;
 use buck2_error::buck2_error;
 use buck2_interpreter::starlark_promise::StarlarkPromise;
@@ -57,7 +56,6 @@ use crate::bxl::starlark_defs::context::BxlContext;
 use crate::bxl::starlark_defs::context::BxlContextError;
 use crate::bxl::starlark_defs::context::BxlContextType;
 use crate::bxl::starlark_defs::context::NotATargetLabelString;
-use crate::bxl::starlark_defs::context::TargetPlatformInAnalysis;
 use crate::bxl::starlark_defs::context::actions::BxlActions;
 use crate::bxl::starlark_defs::context::actions::resolve_bxl_execution_platform;
 use crate::bxl::starlark_defs::context::actions::validate_action_instantiation;
@@ -565,8 +563,6 @@ pub(crate) fn bxl_context_methods(builder: &mut MethodsBuilder) {
         this: &BxlContext<'v>,
         // TODO(nga): these parameters should be either position or named, not both.
         labels: ConfiguredProvidersExprArg<'v>,
-        #[starlark(default = ValueAsStarlarkTargetLabel::NONE)]
-        target_platform: ValueAsStarlarkTargetLabel<'v>,
         #[starlark(require = named, default = true)] skip_incompatible: bool,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<
@@ -578,14 +574,6 @@ pub(crate) fn bxl_context_methods(builder: &mut MethodsBuilder) {
             >,
         >,
     > {
-        if !target_platform.is_none() {
-            soft_error!(
-                "bxl_target_platform_in_analysis",
-                TargetPlatformInAnalysis.into(),
-                quiet: true,
-            )?;
-        }
-
         let providers = labels.unpack();
 
         let res: buck2_error::Result<_> = this.via_dice(eval, |dice| {
