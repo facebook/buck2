@@ -355,15 +355,15 @@ public class JarBuilder {
 
   private void writeManifest(CustomJarOutputStream jar) throws IOException {
     mkdirs("META-INF/", jar);
-    DeterministicManifest manifest = jar.getManifest();
+
+    final DeterministicManifest manifest = jar.getManifest();
+    final JarManifestMerger manifestMerger = JarManifestMerger.get();
+
     manifest.getMainAttributes().put(Attributes.Name.MANIFEST_VERSION, "1.0");
 
     if (shouldMergeManifests) {
       for (JarEntryContainer sourceContainer : sourceContainers) {
-        Manifest readManifest = sourceContainer.getManifest();
-        if (readManifest != null) {
-          merge(manifest, readManifest);
-        }
+        manifestMerger.merge(manifest, sourceContainer.getManifest());
       }
     }
 
@@ -371,8 +371,7 @@ public class JarBuilder {
     // so that values from the user overwrite values from merged manifests.
     for (Path manifestFile : manifestFiles) {
       try (InputStream stream = Files.newInputStream(manifestFile)) {
-        Manifest readManifest = new Manifest(stream);
-        merge(manifest, readManifest);
+        manifestMerger.merge(manifest, new Manifest(stream));
       }
     }
 
@@ -494,34 +493,6 @@ public class JarBuilder {
       length = name.lastIndexOf('/', length - 2) + 1;
     }
     return name.substring(0, length);
-  }
-
-  /**
-   * Merge entries from two Manifests together, with existing attributes being overwritten.
-   *
-   * @param into The Manifest to modify.
-   * @param from The Manifest to copy from.
-   */
-  private void merge(Manifest into, Manifest from) {
-
-    Attributes attributes = from.getMainAttributes();
-    if (attributes != null) {
-      for (Map.Entry<Object, Object> attribute : attributes.entrySet()) {
-        into.getMainAttributes().put(attribute.getKey(), attribute.getValue());
-      }
-    }
-
-    Map<String, Attributes> entries = from.getEntries();
-    if (entries != null) {
-      for (Map.Entry<String, Attributes> entry : entries.entrySet()) {
-        Attributes existing = into.getAttributes(entry.getKey());
-        if (existing == null) {
-          existing = new Attributes();
-          into.getEntries().put(entry.getKey(), existing);
-        }
-        existing.putAll(entry.getValue());
-      }
-    }
   }
 
   private boolean isDuplicateAllowed(String name) {
