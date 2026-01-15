@@ -7,7 +7,6 @@
 # above-listed licenses.
 
 load("@prelude//python:python.bzl", "PythonLibraryInfo")
-load("@prelude//utils:argfile.bzl", "at_argfile")
 load(":internal_tools.bzl", "PythonInternalToolsInfo")
 load(
     ":manifest.bzl",
@@ -44,13 +43,9 @@ def create_dbg_source_db(
     # Pass manifests for transitive deps.
     dep_manifests = ctx.actions.tset(PythonLibraryManifestsTSet, children = [d.manifests for d in python_deps])
 
-    dependencies = cmd_args(dep_manifests.project_as_args("source_manifests"), format = "--dependency={}")
-    cmd.add(at_argfile(
-        actions = ctx.actions,
-        name = "dbg_source_db_dependencies",
-        args = dependencies,
-        has_content_based_path = True,
-    ))
+    dependency_manifests = cmd_args(dep_manifests.project_as_args("source_manifests"))
+    deps_file = ctx.actions.write("deps_path.txt", dependency_manifests, has_content_based_path = True)
+    cmd.add(cmd_args(deps_file, format = "--dependency_manifests={}", hidden = dependency_manifests))
 
     artifacts.append(dep_manifests.project_as_args("source_artifacts"))
     ctx.actions.run(cmd, category = "py_dbg_source_db", error_handler = python_toolchain.python_error_handler)
