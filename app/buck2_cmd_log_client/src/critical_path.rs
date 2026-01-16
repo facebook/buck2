@@ -43,13 +43,7 @@ use crate::transform_format;
 pub struct CriticalPathCommand {
     #[clap(flatten)]
     event_log: EventLogOptions,
-    #[clap(
-        long,
-        help = "Which output format to use for this command",
-        default_value = "tabulated",
-        ignore_case = true,
-        value_enum
-    )]
+    #[clap(flatten)]
     format: LogCommandOutputFormat,
 }
 

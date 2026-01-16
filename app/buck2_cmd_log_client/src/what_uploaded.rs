@@ -35,13 +35,7 @@ use crate::transform_format;
 pub struct WhatUploadedCommand {
     #[clap(flatten)]
     event_log: EventLogOptions,
-    #[clap(
-        long = "format",
-        help = "Which output format to use for this command",
-        default_value = "tabulated",
-        ignore_case = true,
-        value_enum
-    )]
+    #[clap(flatten)]
     output: LogCommandOutputFormat,
     #[clap(
         long = "aggregate-by-ext",

@@ -51,13 +51,7 @@ pub struct WhatMaterializedCommand {
     #[clap(long, conflicts_with = "sort_by_total_bytes")]
     aggregate_by_ext: bool,
 
-    #[clap(
-        long = "format",
-        help = "Which output format to use for this command",
-        default_value = "tabulated",
-        ignore_case = true,
-        value_enum
-    )]
+    #[clap(flatten)]
     output: LogCommandOutputFormat,
 }
 

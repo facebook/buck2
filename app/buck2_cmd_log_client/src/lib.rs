@@ -34,6 +34,9 @@ pub(crate) mod what_ran;
 mod what_up;
 mod what_uploaded;
 
+/// Output format options for log commands.
+///
+/// Determines how the command output is formatted and displayed.
 #[derive(
     Debug,
     serde::Serialize,
@@ -43,10 +46,29 @@ mod what_uploaded;
     clap::ValueEnum
 )]
 #[clap(rename_all = "snake_case")]
-pub(crate) enum LogCommandOutputFormat {
+pub(crate) enum LogCommandOutputFormatOptions {
+    /// Human-readable tab-delimited output (default).
     Tabulated,
+    /// JSON format, one object per line.
     Json,
+    /// Comma-separated values (CSV) format.
     Csv,
+}
+
+/// Clap parser for output format command-line option.
+///
+/// This struct can be flattened into command structs to provide a consistent
+/// `--format` flag across all log commands.
+#[derive(Debug, Clone, clap::Parser)]
+pub(crate) struct LogCommandOutputFormat {
+    #[clap(
+        long,
+        help = "Which output format to use for this command",
+        default_value = "tabulated",
+        ignore_case = true,
+        value_enum
+    )]
+    format: LogCommandOutputFormatOptions,
 }
 
 pub(crate) enum LogCommandOutputFormatWithWriter<'a> {
@@ -65,10 +87,10 @@ pub(crate) fn transform_format(
     format: LogCommandOutputFormat,
     w: &mut dyn std::io::Write,
 ) -> LogCommandOutputFormatWithWriter<'_> {
-    match format {
-        LogCommandOutputFormat::Tabulated => LogCommandOutputFormatWithWriter::Tabulated(w),
-        LogCommandOutputFormat::Json => LogCommandOutputFormatWithWriter::Json(w),
-        LogCommandOutputFormat::Csv => LogCommandOutputFormatWithWriter::Csv(Box::new(
+    match format.format {
+        LogCommandOutputFormatOptions::Tabulated => LogCommandOutputFormatWithWriter::Tabulated(w),
+        LogCommandOutputFormatOptions::Json => LogCommandOutputFormatWithWriter::Json(w),
+        LogCommandOutputFormatOptions::Csv => LogCommandOutputFormatWithWriter::Csv(Box::new(
             csv::WriterBuilder::new().from_writer(w),
         )),
     }

@@ -21,11 +21,15 @@ Options:
       --no-remote
           Do not allow downloading the log from manifold if it's not found locally
 
-      --format <OUTPUT>
+      --format <FORMAT>
           Which output format to use for this command
 
+          Possible values:
+          - tabulated: Human-readable tab-delimited output (default)
+          - json:      JSON format, one object per line
+          - csv:       Comma-separated values (CSV) format
+
           [default: tabulated]
-          [possible values: tabulated, json, csv]
 
       --aggregate-by-ext
           Aggregates the output by file extension
