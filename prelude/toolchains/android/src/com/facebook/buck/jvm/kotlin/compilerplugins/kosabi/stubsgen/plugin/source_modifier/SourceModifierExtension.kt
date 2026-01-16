@@ -321,14 +321,15 @@ class SourceModifierExtension(
     val delegatesOnTypedNonPrivateProps =
         file
             .collectDescendantsOfType<KtProperty>()
-            .filter { !it.isPrivate() && it.isTypedClassProp() }
+            .filter { !it.isPrivate() && it.isTypedProperty() }
             .mapNotNull { it.getChildOfType<KtPropertyDelegate>() }
     return (untypedPrivateNameFunctions + privateProps + delegatesOnTypedNonPrivateProps + inits)
         .map { it.startOffset until it.endOffset }
   }
 }
 
-private fun KtProperty.isTypedClassProp(): Boolean = isMember && typeReference != null
+private fun KtProperty.isTypedProperty(): Boolean =
+    (isMember || isTopLevel) && typeReference != null
 
 private fun removeNestedRanges(ranges: List<Pair<IntRange, String>>): List<Pair<IntRange, String>> {
   val result = mutableListOf<Pair<IntRange, String>>()
