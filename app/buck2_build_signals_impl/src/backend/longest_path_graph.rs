@@ -31,10 +31,9 @@ use smallvec::SmallVec;
 use crate::BuildInfo;
 use crate::DetailedCriticalPath;
 use crate::NodeData;
-use crate::NodeDataInner;
+use crate::NodeExtraData;
 use crate::NodeKey;
 use crate::backend::backend::BuildListenerBackend;
-use crate::backend::backend::NodeExtraData;
 
 /// An implementation of critical path that uses a longest-paths graph in order to produce
 /// potential savings in addition to the critical path.
@@ -77,7 +76,7 @@ impl BuildListenerBackend for LongestPathGraphBackend {
             key,
             dep_keys,
             NodeData {
-                inner: NodeDataInner::from(extra_data),
+                extra_data,
                 duration,
                 span_ids,
                 waiting_data,
@@ -260,7 +259,7 @@ fn compute_critical_paths(
             let data = std::mem::replace(
                 &mut data[vertex_idx],
                 NodeData {
-                    inner: NodeDataInner::None,
+                    extra_data: NodeExtraData::None,
                     duration: NodeDuration::zero(),
                     span_ids: Default::default(),
                     waiting_data: WaitingData::new(),

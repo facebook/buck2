@@ -73,7 +73,6 @@ use tokio_stream::StreamExt;
 use tokio_stream::wrappers::UnboundedReceiverStream;
 
 use crate::backend::backend::BuildListenerBackend;
-use crate::backend::backend::NodeExtraData;
 use crate::backend::logging::LoggingBackend;
 use crate::backend::longest_path_graph::LongestPathGraphBackend;
 use crate::enhancement::CriticalPathProtoEnhancer;
@@ -145,17 +144,17 @@ impl NodeKey {
 
     fn into_critical_path_entry_data(
         self,
-        node_data: &NodeDataInner,
+        extra_data: &NodeExtraData,
     ) -> buck2_data::critical_path_entry2::Entry {
         match self {
             NodeKey::BuildKey(ref key) => {
                 let owner = key.0.owner().to_proto().into();
 
-                // If we have a NodeKey that's an ActionKey we'd expect to have an `action`
-                // in our data (unless we didn't actually run it because of e.g. early
+                // If we have a NodeKey that's an ActionKey we'd expect to have `action`
+                // extra data (unless we didn't actually run it because of e.g. early
                 // cutoff, in which case omitting it is what we want).
-                match node_data {
-                    NodeDataInner::Action(ActionNodeData {
+                match extra_data {
+                    NodeExtraData::Action(ActionNodeData {
                         action,
                         execution_kind,
                         target_rule_type_name,
@@ -178,8 +177,8 @@ impl NodeKey {
             }
             NodeKey::AnalysisKey(key) => buck2_data::critical_path_entry2::Analysis {
                 target: Some(key.0.as_proto().into()),
-                target_rule_type_name: match &node_data {
-                    NodeDataInner::Analysis(node_data) => node_data.target_rule_type_name.clone(),
+                target_rule_type_name: match &extra_data {
+                    NodeExtraData::Analysis(node_data) => node_data.target_rule_type_name.clone(),
                     _ => None,
                 },
             }
@@ -294,14 +293,11 @@ pub(crate) struct Evaluation {
     /// Spans that correspond to this key. We use this when producing a chrome trace.
     spans: SmallVec<[SpanId; 1]>,
 
-    extra_data: NodeExtraData,
-
-    /// The Load result that corresponds to this Evaluation (this will only be present for
-    /// InterpreterResultsKey).
-    load_result: Option<Arc<EvaluationResult>>,
-
     /// Data about time spent waiting (not on critical path) during this evaluation.
     waiting_data: WaitingData,
+
+    /// Node-type-specific extra data (action data for BuildKey, load result for InterpreterResultsKey, etc.).
+    extra_data: NodeExtraData,
 }
 
 #[derive(Clone)]
@@ -400,7 +396,6 @@ impl ActivationTracker for BuildSignalSender {
             duration: NodeDuration::zero(),
             dep_keys: deps.into_iter().filter_map(NodeKey::from_dyn_key).collect(),
             spans: Default::default(),
-            load_result: None,
             waiting_data: WaitingData::new(),
         };
 
@@ -424,7 +419,8 @@ impl ActivationTracker for BuildSignalSender {
                 waiting_data,
             }) = downcast_and_take(&mut activation_data)
             {
-                signal.extra_data = NodeExtraData::Action(action_with_extra_data);
+                signal.extra_data =
+                    NodeExtraData::Action(ActionNodeData::from_extra_data(action_with_extra_data));
                 signal.duration = duration;
                 signal.spans = spans;
                 signal.waiting_data = waiting_data;
@@ -441,7 +437,9 @@ impl ActivationTracker for BuildSignalSender {
                     queue: None,
                 };
                 signal.spans = spans;
-                signal.extra_data = NodeExtraData::Analysis(analysis_with_extra_data);
+                signal.extra_data = NodeExtraData::Analysis(AnalysisNodeData::from_extra_data(
+                    analysis_with_extra_data,
+                ));
                 signal.waiting_data = waiting_data;
             } else if let Some(InterpreterResultsKeyActivationData {
                 time_span,
@@ -455,7 +453,7 @@ impl ActivationTracker for BuildSignalSender {
                     queue: None,
                 };
 
-                signal.load_result = result.ok();
+                signal.extra_data = NodeExtraData::Load(result.ok());
                 signal.spans = spans;
             } else if let Some(PackageListingKeyActivationData { time_span, spans }) =
                 downcast_and_take(&mut activation_data)
@@ -634,7 +632,7 @@ where
             _ => return,
         };
 
-        if let Some(load_result) = &evaluation.load_result {
+        if let NodeExtraData::Load(Some(load_result)) = &evaluation.extra_data {
             let deps_pkg = load_result
                 .targets()
                 .values()
@@ -830,7 +828,7 @@ impl DetailedCriticalPath {
         Self::create_proto_entries_for_early_timings(&mut enhancer, early_command_timing)?;
 
         for (key, data, potential_improvement) in self.entries {
-            let entry = key.into_critical_path_entry_data(&data.inner);
+            let entry = key.into_critical_path_entry_data(&data.extra_data);
             enhancer.add_entry(entry, data, potential_improvement)?;
         }
 
@@ -844,23 +842,33 @@ impl DetailedCriticalPath {
     }
 }
 
-#[derive(Clone)]
-enum NodeDataInner {
-    Action(ActionNodeData),
-    Analysis(AnalysisNodeData),
-    None,
-}
-
 /// Struct to hold data about a build graph node for critical path analysis.
 #[derive(Clone)]
 struct NodeData {
-    inner: NodeDataInner,
+    /// Node-type-specific extra data (action data, load result, or none).
+    extra_data: NodeExtraData,
     duration: NodeDuration,
     /// Data about time spent waiting (not on critical path) during this node's execution.
     waiting_data: WaitingData,
     span_ids: SmallVec<[SpanId; 1]>,
 }
 
+/// Type-safe enum for extra data associated with different node types in the build graph.
+#[derive(Clone)]
+enum NodeExtraData {
+    /// The data that corresponds to a `NodeKey::BuildKey` Evaluation.
+    Action(ActionNodeData),
+    Analysis(AnalysisNodeData),
+    /// The Load result that corresponds to a `NodeKey::InterpreterResultsKey` Evaluation if evaluation was successful.
+    Load(Option<Arc<EvaluationResult>>),
+    /// No extra data (used for other node types or when data is not available).
+    None,
+}
+
+/// Extra data specific to action nodes.
+///
+/// Contains action execution metadata including the registered action, execution kind,
+/// rule type, digest, and invalidation information.
 #[derive(Clone)]
 struct ActionNodeData {
     action: Arc<RegisteredAction>,

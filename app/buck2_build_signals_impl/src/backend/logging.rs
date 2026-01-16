@@ -21,9 +21,9 @@ use smallvec::SmallVec;
 
 use crate::BuildInfo;
 use crate::DetailedCriticalPath;
+use crate::NodeExtraData;
 use crate::NodeKey;
 use crate::backend::backend::BuildListenerBackend;
-use crate::backend::backend::NodeExtraData;
 
 pub(crate) struct LoggingBackend {
     events: EventDispatcher,

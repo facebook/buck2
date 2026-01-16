@@ -8,8 +8,6 @@
  * above-listed licenses.
  */
 
-use buck2_analysis::analysis::calculation::AnalysisWithExtraData;
-use buck2_build_api::actions::calculation::ActionWithExtraData;
 use buck2_build_signals::env::CriticalPathBackendName;
 use buck2_build_signals::env::NodeDuration;
 use buck2_build_signals::env::WaitingData;
@@ -17,34 +15,9 @@ use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_events::span::SpanId;
 use smallvec::SmallVec;
 
-use crate::ActionNodeData;
-use crate::AnalysisNodeData;
 use crate::BuildInfo;
-use crate::NodeDataInner;
+use crate::NodeExtraData;
 use crate::NodeKey;
-
-pub(crate) enum NodeExtraData {
-    /// The RegisteredAction that corresponds to this Evaluation (this will only be present for
-    /// NodeKey::BuildKey).
-    Action(ActionWithExtraData),
-    /// This will only be present for NodeKey::AnalysisKey.
-    Analysis(AnalysisWithExtraData),
-    None,
-}
-
-impl From<NodeExtraData> for NodeDataInner {
-    fn from(val: NodeExtraData) -> Self {
-        match val {
-            NodeExtraData::Action(action_with_extra_data) => {
-                NodeDataInner::Action(ActionNodeData::from_extra_data(action_with_extra_data))
-            }
-            NodeExtraData::Analysis(analysis_with_extra_data) => {
-                NodeDataInner::Analysis(AnalysisNodeData::from_extra_data(analysis_with_extra_data))
-            }
-            NodeExtraData::None => NodeDataInner::None,
-        }
-    }
-}
 
 pub(crate) trait BuildListenerBackend {
     fn process_node(
