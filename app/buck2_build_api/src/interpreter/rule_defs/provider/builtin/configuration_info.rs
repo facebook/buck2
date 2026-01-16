@@ -247,7 +247,7 @@ fn configuration_info_methods(builder: &mut MethodsBuilder) {
     /// constraints, returns the default constraint value from the setting.
     /// Returns `None` only if the constraint is not present and the constraint has no default.
     ///
-    /// # Example
+    /// ### Example
     ///
     /// ```python
     /// # Get constraint value by setting
@@ -288,7 +288,7 @@ fn configuration_info_methods(builder: &mut MethodsBuilder) {
     /// (if defined). Returns `None` only if there was no previous value and the constraint
     /// has no default.
     ///
-    /// # Example
+    /// ### Example
     ///
     /// ```python
     /// # Insert a new constraint value
@@ -342,7 +342,7 @@ fn configuration_info_methods(builder: &mut MethodsBuilder) {
     /// If not present, returns the default constraint value from the setting (if defined).
     /// Returns `None` only if the constraint was not set and the constraint has no default.
     ///
-    /// # Example
+    /// ### Example
     ///
     /// ```python
     /// # Remove a constraint
@@ -386,7 +386,7 @@ fn configuration_info_methods(builder: &mut MethodsBuilder) {
     ///
     /// A new `ConfigurationInfo` with the same constraints and values as the original.
     ///
-    /// # Example
+    /// ### Example
     ///
     /// ```python
     /// # Create a copy and modify it without affecting the original
