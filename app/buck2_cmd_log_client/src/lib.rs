@@ -47,7 +47,9 @@ mod what_uploaded;
 )]
 #[clap(rename_all = "snake_case")]
 pub(crate) enum LogCommandOutputFormatOptions {
-    /// Human-readable tab-delimited output (default).
+    /// Human-readable output (default).
+    Readable,
+    /// Tab-delimited output. Deprecated in favor of `readable`.
     Tabulated,
     /// JSON format, one object per line.
     Json,
@@ -64,16 +66,25 @@ pub(crate) struct LogCommandOutputFormat {
     #[clap(
         long,
         help = "Which output format to use for this command",
-        default_value = "tabulated",
+        default_value = "readable",
         ignore_case = true,
         value_enum
     )]
     format: LogCommandOutputFormatOptions,
 }
 
+/// Writer wrapper that combines the output format with a writer.
+///
+/// This enum pairs each output format option with its corresponding writer,
+/// allowing commands to write output in the selected format.
 pub(crate) enum LogCommandOutputFormatWithWriter<'a> {
+    /// Human-readable output writer.
+    Readable(&'a mut dyn std::io::Write),
+    /// Tab-delimited output writer.
     Tabulated(&'a mut dyn std::io::Write),
+    /// JSON output writer.
     Json(&'a mut dyn std::io::Write),
+    /// CSV output writer.
     Csv(Box<csv::Writer<&'a mut dyn std::io::Write>>),
 }
 
@@ -88,6 +99,7 @@ pub(crate) fn transform_format(
     w: &mut dyn std::io::Write,
 ) -> LogCommandOutputFormatWithWriter<'_> {
     match format.format {
+        LogCommandOutputFormatOptions::Readable => LogCommandOutputFormatWithWriter::Readable(w),
         LogCommandOutputFormatOptions::Tabulated => LogCommandOutputFormatWithWriter::Tabulated(w),
         LogCommandOutputFormatOptions::Json => LogCommandOutputFormatWithWriter::Json(w),
         LogCommandOutputFormatOptions::Csv => LogCommandOutputFormatWithWriter::Csv(Box::new(

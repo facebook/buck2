@@ -30,11 +30,12 @@ Options:
           Which output format to use for this command
 
           Possible values:
-          - tabulated: Human-readable tab-delimited output (default)
+          - readable:  Human-readable output (default)
+          - tabulated: Tab-delimited output. Deprecated in favor of `readable`
           - json:      JSON format, one object per line
           - csv:       Comma-separated values (CSV) format
 
-          [default: tabulated]
+          [default: readable]
 
   -h, --help
           Print help (see a summary with '-h')

@@ -32,11 +32,14 @@ use crate::transform_format;
 
 /// Show the critical path for a selected build.
 ///
-/// This produces tab-delimited output listing every node on the critical path.
+/// This produces output listing every node on the critical path.
 ///
 /// It includes the kind of node, its name, category and identifier, as well as total duration
 /// (runtime of this node), user duration (duration the user can improve), potential improvement
 /// before this node stops being on the critical path, non-critical path time, and start offset.
+///
+/// The `readable` and `tabulated` output formats both currently produce tab-delimited output:
+/// `<kind>\t<name>\t<category>\t<identifier>\t<execution_kind>\t<total_duration>\t<user_duration>\t<potential_improvement_duration>\t<non_critical_path_time>\t<start_offset>`
 ///
 /// All durations are in microseconds. Start offset is in microseconds from the beginning of the build.
 #[derive(Debug, clap::Parser)]
@@ -297,7 +300,9 @@ async fn log_critical_path(
 
             let res: Result<(), ClientIoError> = {
                 match &mut log_writer {
-                    LogCommandOutputFormatWithWriter::Tabulated(writer) => {
+                    LogCommandOutputFormatWithWriter::Readable(writer)
+                    | LogCommandOutputFormatWithWriter::Tabulated(writer) => {
+                        // This should match the format specified in the docstring on [CriticalPathCommand]
                         writeln!(
                             writer,
                             "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}",

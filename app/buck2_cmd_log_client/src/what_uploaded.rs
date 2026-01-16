@@ -107,7 +107,8 @@ fn print_uploads(
     record: &ActionRecord,
 ) -> Result<(), ClientIoError> {
     match output {
-        LogCommandOutputFormatWithWriter::Tabulated(w) => Ok(writeln!(w, "{record}")?),
+        LogCommandOutputFormatWithWriter::Readable(w)
+        | LogCommandOutputFormatWithWriter::Tabulated(w) => Ok(writeln!(w, "{record}")?),
         LogCommandOutputFormatWithWriter::Csv(writer) => Ok(writer.serialize(record)?),
         LogCommandOutputFormatWithWriter::Json(w) => {
             serde_json::to_writer(w.by_ref(), &record)?;
@@ -132,7 +133,8 @@ fn print_extension_stats(
     records.sort_by(|a, b| a.bytes_uploaded.cmp(&b.bytes_uploaded));
     for record in records {
         match output {
-            LogCommandOutputFormatWithWriter::Tabulated(w) => {
+            LogCommandOutputFormatWithWriter::Readable(w)
+            | LogCommandOutputFormatWithWriter::Tabulated(w) => {
                 writeln!(w, "{record}")?;
             }
             LogCommandOutputFormatWithWriter::Csv(writer) => writer.serialize(record)?,

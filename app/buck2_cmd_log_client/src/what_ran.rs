@@ -381,7 +381,8 @@ impl WhatRanOutputWriter for OutputFormatWithWriter<'_> {
         };
 
         match &mut self.format {
-            LogCommandOutputFormatWithWriter::Tabulated(w) => {
+            LogCommandOutputFormatWithWriter::Readable(w)
+            | LogCommandOutputFormatWithWriter::Tabulated(w) => {
                 w.write_all(format!("{}\n", command.as_tabulated_reproducer()).as_bytes())?;
                 if let Some(std_err) = std_err_formatted {
                     write!(

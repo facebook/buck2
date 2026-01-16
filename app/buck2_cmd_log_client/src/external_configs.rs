@@ -107,7 +107,8 @@ fn write_config_value<'a>(
     };
 
     match &mut log_writer {
-        LogCommandOutputFormatWithWriter::Tabulated(writer) => {
+        LogCommandOutputFormatWithWriter::Readable(writer)
+        | LogCommandOutputFormatWithWriter::Tabulated(writer) => {
             writeln!(
                 writer,
                 "{}.{} = {}\t{}\t{}",
@@ -156,7 +157,8 @@ fn write_config_file(
     let origin = "config-file";
     let config_file = ExternalConfigFileEntry { path, origin };
     match &mut log_writer {
-        LogCommandOutputFormatWithWriter::Tabulated(writer) => {
+        LogCommandOutputFormatWithWriter::Readable(writer)
+        | LogCommandOutputFormatWithWriter::Tabulated(writer) => {
             writeln!(writer, "{path}\t\t{origin}")?;
         }
         LogCommandOutputFormatWithWriter::Json(writer) => {
