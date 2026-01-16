@@ -916,7 +916,7 @@ impl AnalysisNodeData {
     }
 }
 
-assert_eq_size!(NodeData, [usize; 19]);
+assert_eq_size!(NodeData, [usize; 20]);
 
 fn create_build_signals() -> (BuildSignalsInstaller, Box<dyn DeferredBuildSignals>) {
     let (sender, receiver) = tokio::sync::mpsc::unbounded_channel();

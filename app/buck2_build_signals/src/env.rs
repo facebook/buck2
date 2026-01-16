@@ -59,11 +59,32 @@ impl NodeDuration {
 /// This will be enriched with specific waiting categories and time spans to provide
 /// better visibility into non-critical path time.
 #[derive(Clone, Debug)]
-pub struct WaitingData {}
+pub struct WaitingData(Option<Box<WaitingDataInitialized>>);
+
+#[derive(Clone, Debug)]
+struct WaitingDataInitialized {
+    categorized_waiting: Vec<(Instant, WaitingCategory)>,
+}
 
 impl WaitingData {
     pub fn new() -> Self {
-        Self {}
+        Self(None)
+    }
+
+    /// Records the start of a new waiting category phase.
+    /// Tracks timing boundaries between different phases of action execution.
+    pub fn start_waiting_category(&mut self, category: WaitingCategory) {
+        self.init()
+            .categorized_waiting
+            .push((Instant::now(), category));
+    }
+
+    fn init(&mut self) -> &mut WaitingDataInitialized {
+        self.0.get_or_insert_with(|| {
+            Box::new(WaitingDataInitialized {
+                categorized_waiting: Vec::new(),
+            })
+        })
     }
 }
 
@@ -78,6 +99,10 @@ impl Default for WaitingData {
 #[derive(VariantName, Clone, Dupe, Debug, Allocative)]
 pub enum WaitingCategory {
     Unknown,
+    /// Time spent preparing action inputs and command-line arguments.
+    PreparingAction,
+    /// Time spent checking action cache and dep file caches.
+    CheckingCaches,
 }
 
 #[derive(Copy, Clone, Dupe, derive_more::Display, Allocative)]
