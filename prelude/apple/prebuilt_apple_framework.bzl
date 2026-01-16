@@ -35,6 +35,7 @@ load(
     "cxx_attr_preferred_linkage",
     "cxx_platform_supported",
 )
+load("@prelude//cxx:linker.bzl", "wrap_linker_flags")
 load(
     "@prelude//cxx:preprocessor.bzl",
     "CPreprocessor",
@@ -122,10 +123,11 @@ def prebuilt_apple_framework_impl(ctx: AnalysisContext) -> [list[Provider], Prom
                     lib = framework_library_artifact,
                 )
 
+            linker_type = get_cxx_toolchain_info(ctx).linker_info.type
             link = LinkInfo(
                 name = framework_name,
                 linkables = [linkable],
-                pre_flags = [cxx_attr_exported_linker_flags(ctx)],
+                pre_flags = wrap_linker_flags(linker_type, cxx_attr_exported_linker_flags(ctx)),
             )
             link_info = LinkInfos(default = link)
 

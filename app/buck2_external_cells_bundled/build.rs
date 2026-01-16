@@ -53,6 +53,8 @@ fn write_include_file(prelude: &Path, mut include_file: impl io::Write) -> io::R
 
     for res in walkdir::WalkDir::new(prelude) {
         let entry = res.map_err(|e| e.into_io_error().unwrap())?;
+        // Watch all files and directories for changes
+        println!("cargo:rerun-if-changed={}", entry.path().display());
         if !entry.file_type().is_file() {
             continue;
         }

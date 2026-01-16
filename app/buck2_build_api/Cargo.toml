@@ -43,6 +43,7 @@ dupe = { workspace = true }
 gazebo = { workspace = true }
 remote_execution = { workspace = true }
 rustls = { workspace = true }
+setsketch = { workspace = true }
 sorted_vector_map = { workspace = true }
 starlark = { workspace = true }
 starlark_map = { workspace = true }

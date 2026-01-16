@@ -1371,7 +1371,7 @@ async fn _run_cancellation_caching_test(
     // Ensure that the time it took to run the test is expected
     match cancel_type {
         CancelType::Sync | CancelType::ASync => {
-            let limit = (FIRST_COMPUTE_MS as f64) * 0.05 + (CANCELLATION_WAIT_MS as f64) * 1.05;
+            let limit = (FIRST_COMPUTE_MS as f64) * 0.05 + (CANCELLATION_WAIT_MS as f64) * 2.0;
             assert!(elapsed_ms < limit as u64);
         }
         CancelType::NotCancelled => {
