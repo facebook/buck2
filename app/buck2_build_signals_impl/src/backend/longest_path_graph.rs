@@ -13,6 +13,7 @@ use std::time::Duration;
 use buck2_analysis::analysis::calculation::AnalysisKey;
 use buck2_build_signals::env::CriticalPathBackendName;
 use buck2_build_signals::env::NodeDuration;
+use buck2_build_signals::env::WaitingData;
 use buck2_core::soft_error;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_critical_path::GraphBuilder;
@@ -62,6 +63,7 @@ impl BuildListenerBackend for LongestPathGraphBackend {
         duration: NodeDuration,
         dep_keys: impl IntoIterator<Item = NodeKey>,
         span_ids: SmallVec<[SpanId; 1]>,
+        waiting_data: WaitingData,
     ) {
         let builder = match self.builder.as_mut() {
             Ok(b) => b,
@@ -75,6 +77,7 @@ impl BuildListenerBackend for LongestPathGraphBackend {
                 inner: NodeDataInner::from(extra_data),
                 duration,
                 span_ids,
+                waiting_data,
             },
         );
 
@@ -237,6 +240,7 @@ impl BuildListenerBackend for LongestPathGraphBackend {
                         inner: NodeDataInner::None,
                         duration: NodeDuration::zero(),
                         span_ids: Default::default(),
+                        waiting_data: WaitingData::new(),
                     },
                 );
 

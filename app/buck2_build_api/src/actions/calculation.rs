@@ -17,6 +17,7 @@ use async_trait::async_trait;
 use buck2_artifact::actions::key::ActionKey;
 use buck2_artifact::artifact::build_artifact::BuildArtifact;
 use buck2_build_signals::env::NodeDuration;
+use buck2_build_signals::env::WaitingData;
 use buck2_common::events::HasEvents;
 use buck2_core::deferred::base_deferred_key::BaseDeferredKey;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
@@ -195,6 +196,7 @@ async fn build_action_no_redirect(
             queue: action_execution_data.queue_duration,
         },
         spans,
+        waiting_data: action_execution_data.waiting_data,
     })?;
 
     ctx.action_executed(execution_metrics)?;
@@ -258,6 +260,7 @@ async fn build_action_inner(
     let mut input_files_bytes = None;
     let mut scheduling_mode = None;
     let mut incremental_kind = None;
+    let mut waiting_data = None;
     let error_diagnostics = match execute_result {
         Ok((outputs, meta)) => {
             output_size = outputs.calc_output_count_and_bytes().bytes;
@@ -266,6 +269,7 @@ async fn build_action_inner(
             wall_time = Some(meta.timing.wall_time);
             error = None;
             input_files_bytes = meta.input_files_bytes;
+            waiting_data = Some(meta.waiting_data);
 
             if let Some(command) = meta.execution_kind.command() {
                 prefers_local = Some(command.prefers_local);
@@ -391,6 +395,7 @@ async fn build_action_inner(
                 execution_time_ms: get_execution_time_ms(&commands),
                 output_size,
             },
+            waiting_data: waiting_data.unwrap_or_default(),
         },
         Box::new(buck2_data::ActionExecutionEnd {
             key: Some(action_key),
@@ -548,6 +553,7 @@ fn try_run_error_handler(
 pub struct BuildKeyActivationData {
     pub action_with_extra_data: ActionWithExtraData,
     pub duration: NodeDuration,
+    pub waiting_data: WaitingData,
     pub spans: SmallVec<[SpanId; 1]>,
 }
 
@@ -573,6 +579,7 @@ struct ActionExecutionData {
     queue_duration: Option<std::time::Duration>,
     memory_peak: Option<u64>,
     extra_data: ActionExtraData,
+    waiting_data: WaitingData,
 }
 
 /// The cost of these calls are particularly critical. To control the cost (particularly size) of these calls

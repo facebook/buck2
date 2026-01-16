@@ -10,6 +10,7 @@
 
 use buck2_build_signals::env::CriticalPathBackendName;
 use buck2_build_signals::env::NodeDuration;
+use buck2_build_signals::env::WaitingData;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_data::QuickUnstableE2eData;
 use buck2_events::dispatch::EventDispatcher;
@@ -48,6 +49,7 @@ impl BuildListenerBackend for LoggingBackend {
         _duration: NodeDuration,
         dep_keys: impl IntoIterator<Item = NodeKey>,
         _span_ids: SmallVec<[SpanId; 1]>,
+        _waiting_data: WaitingData,
     ) {
         self.events.instant_event(QuickUnstableE2eData {
             key: "critical_path_logging_node".to_owned(),

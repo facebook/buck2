@@ -28,6 +28,7 @@ use buck2_build_api::actions::impls::expanded_command_line::ExpandedCommandLineD
 use buck2_build_api::artifact_groups::ArtifactGroup;
 use buck2_build_api::interpreter::rule_defs::artifact_tagging::ArtifactTag;
 use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
+use buck2_build_signals::env::WaitingData;
 use buck2_common::cas_digest::CasDigestConfig;
 use buck2_common::cas_digest::CasDigestData;
 use buck2_common::file_ops::metadata::FileDigest;
@@ -499,6 +500,7 @@ impl DepFileBundle {
                     execution_kind: ActionExecutionKind::LocalActionCache,
                     timing: Default::default(),
                     input_files_bytes: None,
+                    waiting_data: WaitingData::new(),
                 },
             )
         });
@@ -536,6 +538,7 @@ impl DepFileBundle {
                     execution_kind: ActionExecutionKind::LocalDepFile,
                     timing: Default::default(),
                     input_files_bytes: None,
+                    waiting_data: WaitingData::new(),
                 },
             )
         });

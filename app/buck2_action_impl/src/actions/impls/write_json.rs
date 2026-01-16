@@ -35,6 +35,7 @@ use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineBuilder;
 use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineContext;
 use buck2_build_api::interpreter::rule_defs::cmd_args::WriteToFileMacroVisitor;
 use buck2_build_api::interpreter::rule_defs::cmd_args::value_as::ValueAsCommandLineLike;
+use buck2_build_signals::env::WaitingData;
 use buck2_common::file_ops::metadata::TrackedFileDigest;
 use buck2_core::category::CategoryRef;
 use buck2_core::content_hash::ContentBasedPathHash;
@@ -271,6 +272,7 @@ impl Action for WriteJsonAction {
                 execution_kind: ActionExecutionKind::Simple,
                 timing: ActionExecutionTimingData { wall_time },
                 input_files_bytes: None,
+                waiting_data: WaitingData::new(),
             },
         ))
     }

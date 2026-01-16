@@ -22,6 +22,7 @@ use buck2_build_api::actions::execute::action_executor::ActionExecutionMetadata;
 use buck2_build_api::actions::execute::action_executor::ActionOutputs;
 use buck2_build_api::actions::execute::error::ExecuteError;
 use buck2_build_api::artifact_groups::ArtifactGroup;
+use buck2_build_signals::env::WaitingData;
 use buck2_common::cas_digest::RawDigest;
 use buck2_common::file_ops::metadata::FileDigest;
 use buck2_common::file_ops::metadata::FileMetadata;
@@ -217,6 +218,7 @@ impl DownloadFileAction {
                 execution_kind: ActionExecutionKind::Simple,
                 timing: ActionExecutionTimingData::default(),
                 input_files_bytes: None,
+                waiting_data: WaitingData::new(),
             },
         ))
     }
@@ -359,6 +361,7 @@ impl Action for DownloadFileAction {
                 execution_kind,
                 timing: ActionExecutionTimingData::default(),
                 input_files_bytes: None,
+                waiting_data: WaitingData::new(),
             },
         ))
     }

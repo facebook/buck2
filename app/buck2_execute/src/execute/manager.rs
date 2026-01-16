@@ -12,6 +12,7 @@ use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
 use std::time::Duration;
 
+use buck2_build_signals::env::WaitingData;
 use buck2_common::liveliness_observer::LivelinessObserver;
 use buck2_core::buck2_env;
 use buck2_events::dispatch::EventDispatcher;
@@ -55,6 +56,7 @@ pub struct CommandExecutionManagerInner {
     pub intend_to_fallback_on_failure: bool,
     pub execution_kind: Option<CommandExecutionKind>,
     pub was_result_delayed: Arc<AtomicBool>,
+    pub waiting_data: WaitingData,
 }
 
 /// This tracker helps track the information that will go into the BuckCommandExecutionMetadata
@@ -76,17 +78,23 @@ impl CommandExecutionManager {
                 intend_to_fallback_on_failure: false,
                 execution_kind: None,
                 was_result_delayed: Arc::new(AtomicBool::new(false)),
+                waiting_data: WaitingData::new(),
             }),
         }
     }
 
     /// Acquire a claim. This might never return if the claim has been taken.
     pub fn claim(self) -> impl Future<Output = CommandExecutionManagerWithClaim> {
-        let events = self.inner.events;
-        let liveliness_observer = self.inner.liveliness_observer;
-        let execution_kind = self.inner.execution_kind;
-        self.inner
-            .claim_manager
+        let CommandExecutionManagerInner {
+            claim_manager,
+            events,
+            liveliness_observer,
+            intend_to_fallback_on_failure: _,
+            execution_kind,
+            was_result_delayed: _,
+            waiting_data,
+        } = *self.inner;
+        claim_manager
             .claim()
             .map(|claim| CommandExecutionManagerWithClaim {
                 inner: Box::new(CommandExecutionManagerWithClaimInner {
@@ -94,6 +102,7 @@ impl CommandExecutionManager {
                     events,
                     liveliness_observer,
                     execution_kind,
+                    waiting_data,
                 }),
             })
     }
@@ -167,6 +176,7 @@ impl CommandExecutionManagerLike for CommandExecutionManager {
             dep_file_metadata: None,
             action_result: None,
             scheduling_mode: None,
+            waiting_data: self.inner.waiting_data,
         }
     }
 
@@ -180,6 +190,7 @@ pub struct CommandExecutionManagerWithClaimInner {
     pub liveliness_observer: Arc<dyn LivelinessObserver>,
     pub execution_kind: Option<CommandExecutionKind>,
     claim: Box<dyn Claim>,
+    waiting_data: WaitingData,
 }
 
 pub struct CommandExecutionManagerWithClaim {
@@ -260,6 +271,7 @@ impl CommandExecutionManagerLike for CommandExecutionManagerWithClaim {
             dep_file_metadata: None,
             action_result: None,
             scheduling_mode: None,
+            waiting_data: self.inner.waiting_data,
         }
     }
 

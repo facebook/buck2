@@ -12,6 +12,7 @@ use buck2_analysis::analysis::calculation::AnalysisWithExtraData;
 use buck2_build_api::actions::calculation::ActionWithExtraData;
 use buck2_build_signals::env::CriticalPathBackendName;
 use buck2_build_signals::env::NodeDuration;
+use buck2_build_signals::env::WaitingData;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_events::span::SpanId;
 use smallvec::SmallVec;
@@ -53,6 +54,7 @@ pub(crate) trait BuildListenerBackend {
         duration: NodeDuration,
         dep_keys: impl IntoIterator<Item = NodeKey>,
         span_ids: SmallVec<[SpanId; 1]>,
+        waiting_data: WaitingData,
     );
 
     fn process_top_level_target(

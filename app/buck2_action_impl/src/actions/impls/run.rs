@@ -49,6 +49,7 @@ use buck2_build_api::interpreter::rule_defs::cmd_args::space_separated::SpaceSep
 use buck2_build_api::interpreter::rule_defs::cmd_args::value_as::ValueAsCommandLineLike;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::worker_info::FrozenWorkerInfo;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::worker_info::WorkerInfo;
+use buck2_build_signals::env::WaitingData;
 use buck2_common::io::trace::TracingIoProvider;
 use buck2_core::category::Category;
 use buck2_core::category::CategoryRef;
@@ -1325,6 +1326,7 @@ impl RunAction {
                     execution_kind: ActionExecutionKind::Deferred,
                     timing: ActionExecutionTimingData::default(),
                     input_files_bytes: None,
+                    waiting_data: WaitingData::new(),
                 },
             ))),
             Err(_) => {

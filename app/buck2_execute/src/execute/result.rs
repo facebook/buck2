@@ -17,6 +17,7 @@ use std::time::SystemTime;
 
 use allocative::Allocative;
 use buck2_action_metadata_proto::RemoteDepFile;
+use buck2_build_signals::env::WaitingData;
 use buck2_core::content_hash::ContentBasedPathHash;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_data::SchedulingMode;
@@ -250,6 +251,9 @@ pub struct CommandExecutionResult {
     pub action_result: Option<TActionResult2>,
     /// Description of how local or remote execution were scheduled (currently only set by hybrid executor)
     pub scheduling_mode: Option<SchedulingMode>,
+
+    /// Data about time spent waiting (not on critical path) during command execution.
+    pub waiting_data: WaitingData,
 }
 
 impl CommandExecutionResult {

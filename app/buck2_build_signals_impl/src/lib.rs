@@ -41,6 +41,8 @@ use buck2_build_signals::env::DeferredBuildSignals;
 use buck2_build_signals::env::EarlyCommandTiming;
 use buck2_build_signals::env::FinishBuildSignals;
 use buck2_build_signals::env::NodeDuration;
+use buck2_build_signals::env::WaitingCategory;
+use buck2_build_signals::env::WaitingData;
 use buck2_build_signals::node_key::BuildSignalsNodeKey;
 use buck2_common::package_listing::dice::PackageListingKey;
 use buck2_common::package_listing::dice::PackageListingKeyActivationData;
@@ -294,7 +296,12 @@ pub(crate) struct Evaluation {
     /// The Load result that corresponds to this Evaluation (this will only be present for
     /// InterpreterResultsKey).
     load_result: Option<Arc<EvaluationResult>>,
+
+    /// Data about time spent waiting (not on critical path) during this evaluation.
+    waiting_data: WaitingData,
 }
+
+static_assertions::assert_eq_size!(SmallVec<[(TimeSpan, WaitingCategory); 1]>, [usize; 5]);
 
 #[derive(Clone)]
 pub(crate) struct BuildSignalSender {
@@ -391,6 +398,7 @@ impl ActivationTracker for BuildSignalSender {
             dep_keys: deps.into_iter().filter_map(NodeKey::from_dyn_key).collect(),
             spans: Default::default(),
             load_result: None,
+            waiting_data: WaitingData::new(),
         };
 
         /// Given an Option containing an Any, take it if and only if it contains a T.
@@ -410,11 +418,13 @@ impl ActivationTracker for BuildSignalSender {
                 action_with_extra_data,
                 duration,
                 spans,
+                waiting_data,
             }) = downcast_and_take(&mut activation_data)
             {
                 signal.extra_data = NodeExtraData::Action(action_with_extra_data);
                 signal.duration = duration;
                 signal.spans = spans;
+                signal.waiting_data = waiting_data;
             } else if let Some(AnalysisKeyActivationData {
                 time_span,
                 spans,
@@ -607,6 +617,7 @@ where
             evaluation.duration,
             evaluation.dep_keys.into_iter(),
             evaluation.spans,
+            evaluation.waiting_data,
         );
     }
 
@@ -679,6 +690,7 @@ where
             materialization.duration,
             std::iter::once(dep),
             materialization.span_id.into_iter().collect(),
+            WaitingData::new(),
         );
 
         Ok(())
@@ -709,6 +721,7 @@ where
             signal.duration,
             deps.chain(listing_key),
             Default::default(),
+            WaitingData::new(),
         );
 
         Ok(())
@@ -737,6 +750,7 @@ where
             signal.duration,
             deps.into_iter(),
             Default::default(),
+            WaitingData::new(),
         );
 
         Ok(())
@@ -850,10 +864,13 @@ impl NodeDataInner {
     }
 }
 
+/// Struct to hold data about a build graph node for critical path analysis.
 #[derive(Clone)]
 struct NodeData {
     inner: NodeDataInner,
     duration: NodeDuration,
+    /// Data about time spent waiting (not on critical path) during this node's execution.
+    waiting_data: WaitingData,
     span_ids: SmallVec<[SpanId; 1]>,
 }
 

@@ -24,6 +24,7 @@ use buck2_build_api::actions::execute::error::ExecuteError;
 use buck2_build_api::artifact_groups::ArtifactGroup;
 use buck2_build_api::interpreter::rule_defs::artifact::associated::AssociatedArtifacts;
 use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact_like::ValueAsInputArtifactLike;
+use buck2_build_signals::env::WaitingData;
 use buck2_core::category::CategoryRef;
 use buck2_core::content_hash::ContentBasedPathHash;
 use buck2_error::BuckErrorContext;
@@ -301,6 +302,7 @@ impl Action for SymlinkedDirAction {
                 execution_kind: ActionExecutionKind::Simple,
                 timing: ActionExecutionTimingData::default(),
                 input_files_bytes: None,
+                waiting_data: WaitingData::new(),
             },
         ))
     }

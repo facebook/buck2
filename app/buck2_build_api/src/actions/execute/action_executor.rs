@@ -17,6 +17,7 @@ use allocative::Allocative;
 use async_trait::async_trait;
 use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_artifact::artifact::build_artifact::BuildArtifact;
+use buck2_build_signals::env::WaitingData;
 use buck2_common::dice::data::HasIoProvider;
 use buck2_common::events::HasEvents;
 use buck2_common::http::HasHttpClient;
@@ -124,6 +125,7 @@ pub struct ActionExecutionMetadata {
     pub execution_kind: ActionExecutionKind,
     pub timing: ActionExecutionTimingData,
     pub input_files_bytes: Option<u64>,
+    pub waiting_data: WaitingData,
 }
 
 /// The *way* that a particular action was executed.
@@ -520,6 +522,7 @@ impl ActionExecutionCtx for BuckActionExecutionContext<'_> {
             dep_file_key,
             eligible_for_full_hybrid,
             scheduling_mode,
+            waiting_data,
             ..
         } = result;
 
@@ -552,6 +555,7 @@ impl ActionExecutionCtx for BuckActionExecutionContext<'_> {
                         },
                         timing: report.timing.into(),
                         input_files_bytes,
+                        waiting_data,
                     },
                 );
                 Ok(result)
@@ -805,6 +809,7 @@ mod tests {
     use buck2_artifact::artifact::artifact_type::testing::BuildArtifactTestingExt;
     use buck2_artifact::artifact::build_artifact::BuildArtifact;
     use buck2_artifact::artifact::source_artifact::SourceArtifact;
+    use buck2_build_signals::env::WaitingData;
     use buck2_common::cas_digest::CasDigestConfig;
     use buck2_common::io::fs::FsIoProvider;
     use buck2_core::category::CategoryRef;
@@ -1023,6 +1028,7 @@ mod tests {
                         execution_kind: ActionExecutionKind::Simple,
                         timing: ActionExecutionTimingData::default(),
                         input_files_bytes: None,
+                        waiting_data: WaitingData::new(),
                     },
                 ))
             }

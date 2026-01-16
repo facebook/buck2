@@ -19,3 +19,4 @@ cmp_any = { workspace = true }
 derive_more = { workspace = true }
 dice = { workspace = true }
 dupe = { workspace = true }
+gazebo = { workspace = true }

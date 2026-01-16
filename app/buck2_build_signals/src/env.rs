@@ -22,6 +22,7 @@ use buck2_fs::paths::file_name::FileNameBuf;
 use buck2_util::time_span::TimeSpan;
 use dice::UserComputationData;
 use dupe::Dupe;
+use gazebo::variants::VariantName;
 
 pub const OTHER_COMMAND_START_OVERHEAD: &str = "other-command-start-overhead";
 pub const EXCLUSIVE_COMMAND_WAIT: &str = "exclusive-command-wait";
@@ -52,6 +53,31 @@ impl NodeDuration {
             queue: None,
         }
     }
+}
+
+/// Data about time spent waiting (not on the critical path) during build execution.
+/// This will be enriched with specific waiting categories and time spans to provide
+/// better visibility into non-critical path time.
+#[derive(Clone, Debug)]
+pub struct WaitingData {}
+
+impl WaitingData {
+    pub fn new() -> Self {
+        Self {}
+    }
+}
+
+impl Default for WaitingData {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+/// Categories for classifying time spent waiting during build execution.
+/// Used to categorize non-critical path time for better build performance insights.
+#[derive(VariantName, Clone, Dupe, Debug, Allocative)]
+pub enum WaitingCategory {
+    Unknown,
 }
 
 #[derive(Copy, Clone, Dupe, derive_more::Display, Allocative)]
