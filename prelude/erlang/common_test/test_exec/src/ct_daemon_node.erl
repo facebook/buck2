@@ -179,6 +179,9 @@ node_main([Parent, OutputDirAtom]) ->
     %% setup logger and prepare IO
     ok = ct_daemon_logger:start(OutputDir),
 
+    %% setup capture-aware group leader to support ct:capture_* API
+    ok = setup_capture_group_leader(),
+
     true = net_kernel:connect_node(Parent),
 
     {ok, {RunnerPid, RunnerMonRef}} = ct_daemon_runner:start_monitor(Parent, OutputDir),
@@ -299,3 +302,17 @@ get_domain_type() ->
 -spec get_runner_pid() -> pid() | undefined.
 get_runner_pid() ->
     global:whereis_name(ct_daemon_runner:name(node())).
+
+-spec setup_capture_group_leader() -> ok.
+setup_capture_group_leader() ->
+    %% Create a capture-aware group leader that handles {capture, Pid} messages
+    %% from ct:capture_start()/test_server:capture_start()
+    OriginalGL = erlang:group_leader(),
+    case ct_daemon_capture:start_link(OriginalGL) of
+        {ok, CaptureGL} ->
+            true = erlang:group_leader(CaptureGL, self()),
+            ok;
+        _ ->
+            %% If capture setup fails, continue without it
+            ok
+    end.
