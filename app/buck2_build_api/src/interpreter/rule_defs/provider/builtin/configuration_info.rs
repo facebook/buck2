@@ -15,8 +15,6 @@ use allocative::Allocative;
 use buck2_build_api_derive::internal_provider;
 use buck2_common::legacy_configs::configs::parse_config_section_and_key;
 use buck2_core::configuration::config_setting::ConfigSettingData;
-use buck2_core::configuration::constraints::ConstraintKey;
-use buck2_core::configuration::constraints::ConstraintValue;
 use buck2_core::configuration::data::ConfigurationDataData;
 use buck2_interpreter::types::configured_providers_label::StarlarkProvidersLabel;
 use buck2_interpreter::types::target_label::StarlarkTargetLabel;
@@ -73,24 +71,13 @@ impl<'v, V: ValueLike<'v>> ConfigurationInfoGen<V> {
                 .expect("type checked on construction");
             let value_target = ConstraintValueInfo::from_value(v.to_value())
                 .expect("type checked on construction");
-            let constraint_setting_info =
-                ConstraintSettingInfo::from_value(value_target.setting().to_value())
-                    .expect("type checked on construction");
-            let default_constraint_value = constraint_setting_info.default().map(|default| {
-                ConstraintValue(
-                    StarlarkProvidersLabel::from_value(default.to_value())
-                        .expect("type checked on construction")
-                        .label()
-                        .dupe(),
-                )
-            });
-            converted_constraints.insert(
-                ConstraintKey {
-                    key: key_target.label().dupe(),
-                    default: default_constraint_value,
-                },
-                ConstraintValue(value_target.label().label().dupe()),
+            let (constraint_key, constraint_value) = value_target.to_constraint_key_value();
+            debug_assert_eq!(
+                key_target.label(),
+                &constraint_key.key,
+                "dict key should match constraint setting label"
             );
+            converted_constraints.insert(constraint_key, constraint_value);
         }
 
         let values = DictRef::from_value(self.values.get().to_value())
