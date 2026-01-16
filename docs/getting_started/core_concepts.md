@@ -20,7 +20,7 @@ this learning process.
 This is one of the most important concepts to understand when using Buck2. It is
 a precise way to identify any buildable unit in your codebase.
 
-In the tutorials, you encoutered the following target label like
+In the tutorials, you encountered the following target label like
 [<FbInternalOnly> `fbcode//scripts/<unixname>/buck2_lab/greeter_bin:main` </FbInternalOnly> <OssOnly> `root//buck2_lab/greeter_bin:main` </OssOnly>](../tutorial_adding_dependencies/#step-5-run-the-binary).
 
 Here is the anatomy of a target label:
@@ -139,10 +139,10 @@ you will soon become very familiar with these patterns during daily development.
   [macros](https://buck.build/extending/macros.html), which are
   wrappers/extensions around native build rules, macros are usually defined .bzl
   files. <FbInternalOnly> The `rust_binary`, `rust_library` and `rust_unittest`
-  used in the lab are actually fbcode macros, not native rulesas defined in this
+  used in the lab are actually fbcode macros, not native rules as defined in this
   doc. You may notice that when we run
   [`buck2 targets`](../tutorial_first_build/#step-6-inspecting-your-target-optional)
-  there are sevaral other targets except `:main` in the otuputs. These are
+  there are several other targets except `:main` in the outputs. These are
   defined in macros. </FbInternalOnly>
 - Buck uses [starlark](../../concepts/glossary/#starlark) language which is a
   dialect of python, to define build rules and macros.
@@ -341,7 +341,7 @@ graph TD
 ## Load Function and Attributes
 
 <FbInternalOnly>
-You might have noticed  that the first line in the main BUCK file is a load function:
+You might have noticed that the first line in the main BUCK file is a load function:
 
 <code>load("@fbsource//tools/build_defs:rust_binary.bzl", "rust_binary")</code>
 
@@ -462,7 +462,7 @@ As you become more adept, you can explore other powerful buck commands, such as:
   [buck daemon](../../concepts/daemon/), this is sometimes needed to recover
   from a failed build due to bad daemon state;
 - [`buck clean`](../../users/commands/clean/) to remove build artifacts from
-  [buck-out](../../concepts/buck_out/),this is a remedy to recover from failed
+  [buck-out](../../concepts/buck_out/), this is a remedy to recover from failed
   build due to either bad daemon or bad artifacts in cache;
 - [`buck log`](../../users/commands/log/) to see information about previous
   builds
@@ -474,7 +474,7 @@ As you become more adept, you can explore other powerful buck commands, such as:
 - Buck offers help menus for all commands, try the -h option, you can buck -h or
   buck build -h to see all available commands and options
 
-<FBInternalOnly>
+<FbInternalOnly>
 
 - Sometimes you’ll see options like `@mode/opt` in the command, the mode file
   (path is `cell/mode/opt`) contains a set of buck configs that are extensions
@@ -482,7 +482,7 @@ As you become more adept, you can explore other powerful buck commands, such as:
   [this wiki](https://www.internalfb.com/wiki/Buck/Buck-users/fbcode-repo/C++/running-buck-in-different-modes/)
   for C++ build mode;
 
-</FBInternalOnly>
+</FbInternalOnly>
 
 ### Buck2 Command Flow
 
