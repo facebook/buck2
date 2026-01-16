@@ -5,10 +5,10 @@ Show the critical path for a selected build.
 This produces tab-delimited output listing every node on the critical path.
 
 It includes the kind of node, its name, category and identifier, as well as total duration (runtime
-of this node), user duration (duration the user can improve) and potential improvement before this
-node stops being on the critical path.
+of this node), user duration (duration the user can improve), potential improvement before this node
+stops being on the critical path, non-critical path time, and start offset.
 
-All durations are in microseconds.
+All durations are in microseconds. Start offset is in microseconds from the beginning of the build.
 
 Usage: buck2 log critical-path [OPTIONS] [PATH]
 

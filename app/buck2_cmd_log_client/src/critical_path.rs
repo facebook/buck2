@@ -35,10 +35,10 @@ use crate::transform_format;
 /// This produces tab-delimited output listing every node on the critical path.
 ///
 /// It includes the kind of node, its name, category and identifier, as well as total duration
-/// (runtime of this node), user duration (duration the user can improve) and potential improvement
-/// before this node stops being on the critical path.
+/// (runtime of this node), user duration (duration the user can improve), potential improvement
+/// before this node stops being on the critical path, non-critical path time, and start offset.
 ///
-/// All durations are in microseconds.
+/// All durations are in microseconds. Start offset is in microseconds from the beginning of the build.
 #[derive(Debug, clap::Parser)]
 pub struct CriticalPathCommand {
     #[clap(flatten)]
@@ -131,20 +131,36 @@ impl Serialize for OptionalDuration {
     }
 }
 
+/// Represents a single entry on the critical path.
+///
+/// Contains information about the node type, timing information, and metadata.
 #[derive(Default, Serialize)]
 struct CriticalPathEntry<'a> {
+    /// The kind of critical path entry (e.g., "action", "analysis", "materialization").
     kind: &'a str,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    name: Option<String>,
+    /// The name/label of the entry (e.g., target label, package name).
+    /// Empty string for entries without names.
+    #[serde(skip_serializing_if = "String::is_empty")]
+    name: String,
+    /// Optional category (e.g., for actions).
     #[serde(skip_serializing_if = "Option::is_none")]
     category: Option<&'a str>,
+    /// Optional identifier (e.g., action identifier, file path for materializations).
     #[serde(skip_serializing_if = "Option::is_none")]
     identifier: Option<&'a str>,
+    /// Optional execution kind for actions (e.g., "local", "remote").
     #[serde(skip_serializing_if = "Option::is_none")]
     execution_kind: Option<&'a str>,
+    /// Total wall-clock duration of this entry.
     total_duration: OptionalDuration,
+    /// User-improvable duration (portion the user can optimize).
     user_duration: OptionalDuration,
+    /// Potential improvement duration before this node drops off the critical path.
     potential_improvement_duration: OptionalDuration,
+    /// Time spent off the critical path (non-critical path duration).
+    non_critical_path_time: OptionalDuration,
+    /// Start offset in microseconds from the beginning of the build.
+    start_offset: u64,
 }
 
 async fn log_critical_path(
@@ -161,44 +177,40 @@ async fn log_critical_path(
 
             let mut critical_path = CriticalPathEntry::default();
 
-            match &entry.entry {
-                Some(Entry::Analysis(analysis)) => {
+            let entry_data = match &entry.entry {
+                Some(entry) => entry,
+                None => continue,
+            };
+
+            critical_path.name = match entry_data {
+                Entry::Analysis(analysis) => {
                     use buck2_data::critical_path_entry2::analysis::Target;
 
                     critical_path.kind = "analysis";
 
-                    critical_path.name = match &analysis.target {
-                        Some(Target::StandardTarget(t)) => Some(
-                            display::display_configured_target_label(t, target_display_options)?,
-                        ),
-                        None => continue,
-                    };
+                    match &analysis.target {
+                        Some(Target::StandardTarget(t)) => {
+                            display::display_configured_target_label(t, target_display_options)?
+                        }
+                        None => "unknown".to_owned(),
+                    }
                 }
-                Some(Entry::DynamicAnalysis(analysis)) => {
+                Entry::DynamicAnalysis(analysis) => {
                     use buck2_data::critical_path_entry2::dynamic_analysis::Target;
 
                     critical_path.kind = "dynamic_analysis";
 
-                    critical_path.name = match &analysis.target {
-                        Some(Target::StandardTarget(t)) => Some(
-                            display::display_configured_target_label(t, target_display_options)?,
-                        ),
-                        None => continue,
-                    };
+                    match &analysis.target {
+                        Some(Target::StandardTarget(t)) => {
+                            display::display_configured_target_label(t, target_display_options)?
+                        }
+                        None => "anon-unknown".to_owned(),
+                    }
                 }
-                Some(Entry::ActionExecution(action_execution)) => {
+                Entry::ActionExecution(action_execution) => {
                     use buck2_data::critical_path_entry2::action_execution::Owner;
 
                     critical_path.kind = "action";
-
-                    critical_path.name = Some(match &action_execution.owner {
-                        Some(Owner::TargetLabel(t)) => {
-                            display::display_configured_target_label(t, target_display_options)?
-                        }
-                        Some(Owner::BxlKey(t)) => display::display_bxl_key(t)?,
-                        Some(Owner::AnonTarget(t)) => display::display_anon_target(t)?,
-                        None => continue,
-                    });
 
                     match &action_execution.name {
                         Some(name) => {
@@ -213,71 +225,81 @@ async fn log_critical_path(
                             .unwrap_or(buck2_data::ActionExecutionKind::NotSet)
                             .as_str_name(),
                     );
-                }
-                Some(Entry::FinalMaterialization(materialization)) => {
-                    use buck2_data::critical_path_entry2::final_materialization::Owner;
 
-                    critical_path.kind = "materialization";
-
-                    critical_path.name = Some(match &materialization.owner {
+                    match &action_execution.owner {
                         Some(Owner::TargetLabel(t)) => {
                             display::display_configured_target_label(t, target_display_options)?
                         }
                         Some(Owner::BxlKey(t)) => display::display_bxl_key(t)?,
                         Some(Owner::AnonTarget(t)) => display::display_anon_target(t)?,
-                        None => continue,
-                    });
+                        None => "unknown".to_owned(),
+                    }
+                }
+                Entry::FinalMaterialization(materialization) => {
+                    use buck2_data::critical_path_entry2::final_materialization::Owner;
 
+                    critical_path.kind = "materialization";
                     critical_path.identifier = Some(&materialization.path);
-                }
-                Some(Entry::ComputeCriticalPath(..)) => {
-                    critical_path.kind = "compute-critical-path";
-                    critical_path.name = None;
-                }
-                Some(Entry::Load(load)) => {
-                    critical_path.kind = "load";
-                    critical_path.name = Some(load.package.clone());
-                }
-                Some(Entry::Listing(listing)) => {
-                    critical_path.kind = "listing";
-                    critical_path.name = Some(listing.package.clone());
-                }
-                Some(Entry::GenericEntry(generic_entry)) => {
-                    critical_path.kind = &generic_entry.kind;
-                    critical_path.name = None;
-                }
-                Some(Entry::Waiting(entry)) => {
-                    critical_path.kind = "waiting";
-                    critical_path.name = entry.category.clone();
-                }
-                Some(Entry::TestExecution(test_execution)) => {
-                    critical_path.kind = "test-execution";
-                    critical_path.name = match &test_execution.target_label {
-                        Some(t) => Some(display::display_configured_target_label(
-                            t,
-                            target_display_options,
-                        )?),
-                        None => continue,
-                    };
-                }
-                Some(Entry::TestListing(test_listing)) => {
-                    critical_path.kind = "test-listing";
-                    critical_path.name = match &test_listing.target_label {
-                        Some(t) => Some(display::display_configured_target_label(
-                            t,
-                            target_display_options,
-                        )?),
-                        None => continue,
-                    };
-                }
 
-                None => continue,
-            }
+                    match &materialization.owner {
+                        Some(Owner::TargetLabel(t)) => {
+                            display::display_configured_target_label(t, target_display_options)?
+                        }
+                        Some(Owner::BxlKey(t)) => display::display_bxl_key(t)?,
+                        Some(Owner::AnonTarget(t)) => display::display_anon_target(t)?,
+                        None => "unknown".to_owned(),
+                    }
+                }
+                Entry::ComputeCriticalPath(..) => {
+                    critical_path.kind = "compute-critical-path";
+                    "".to_owned()
+                }
+                Entry::Load(load) => {
+                    critical_path.kind = "load";
+                    load.package.clone()
+                }
+                Entry::Listing(listing) => {
+                    critical_path.kind = "listing";
+                    listing.package.clone()
+                }
+                Entry::GenericEntry(generic_entry) => {
+                    critical_path.kind = &generic_entry.kind;
+                    "".to_owned()
+                }
+                Entry::Waiting(entry) => {
+                    critical_path.kind = "waiting";
+                    match &entry.category {
+                        Some(category) => category.clone(),
+                        None => "".to_owned(),
+                    }
+                }
+                Entry::TestExecution(test_execution) => {
+                    critical_path.kind = "test-execution";
+                    match &test_execution.target_label {
+                        Some(t) => {
+                            display::display_configured_target_label(t, target_display_options)?
+                        }
+                        None => "unknown".to_owned(),
+                    }
+                }
+                Entry::TestListing(test_listing) => {
+                    critical_path.kind = "test-listing";
+                    match &test_listing.target_label {
+                        Some(t) => {
+                            display::display_configured_target_label(t, target_display_options)?
+                        }
+                        None => "unknown".to_owned(),
+                    }
+                }
+            };
 
             critical_path.total_duration = OptionalDuration::new(entry.total_duration)?;
             critical_path.user_duration = OptionalDuration::new(entry.user_duration)?;
             critical_path.potential_improvement_duration =
                 OptionalDuration::new(entry.potential_improvement_duration)?;
+            critical_path.non_critical_path_time =
+                OptionalDuration::new(entry.non_critical_path_duration)?;
+            critical_path.start_offset = entry.start_offset_ns.map(|v| v / 1000).unwrap_or(0);
 
             let res: Result<(), ClientIoError> = {
                 match &mut log_writer {
@@ -286,7 +308,7 @@ async fn log_critical_path(
                             writer,
                             "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}",
                             critical_path.kind,
-                            critical_path.name.unwrap_or_default(),
+                            critical_path.name,
                             critical_path.category.unwrap_or_default(),
                             critical_path.identifier.unwrap_or_default(),
                             critical_path.execution_kind.unwrap_or_default(),
