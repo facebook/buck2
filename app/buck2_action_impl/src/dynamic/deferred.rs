@@ -12,6 +12,8 @@ use std::collections::HashMap;
 use std::iter;
 use std::sync::Arc;
 
+use buck2_analysis::analysis::calculation::AnalysisKeyActivationData;
+use buck2_analysis::analysis::calculation::AnalysisWithExtraData;
 use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_build_api::actions::artifact::get_artifact_fs::GetArtifactFs;
 use buck2_build_api::analysis::registry::AnalysisRegistry;
@@ -31,6 +33,8 @@ use buck2_build_api::interpreter::rule_defs::context::AnalysisActions;
 use buck2_build_api::interpreter::rule_defs::context::AnalysisContext;
 use buck2_build_api::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue;
 use buck2_build_api::interpreter::rule_defs::provider::collection::ProviderCollection;
+use buck2_build_signals::env::WaitingCategory;
+use buck2_build_signals::env::WaitingData;
 use buck2_core::deferred::base_deferred_key::BaseDeferredKey;
 use buck2_core::deferred::dynamic::DynamicLambdaResultsKey;
 use buck2_core::deferred::key::DeferredHolderKey;
@@ -42,6 +46,7 @@ use buck2_events::dispatch::get_dispatcher;
 use buck2_events::dispatch::record_root_spans;
 use buck2_events::dispatch::span;
 use buck2_events::dispatch::span_async_simple;
+use buck2_events::span::SpanId;
 use buck2_execute::artifact::artifact_dyn::ArtifactDyn;
 use buck2_execute::artifact_value::ArtifactValue;
 use buck2_execute::digest_config::DigestConfig;
@@ -50,12 +55,14 @@ use buck2_execute::materialize::materializer::HasMaterializer;
 use buck2_interpreter::from_freeze::from_freeze_error;
 use buck2_interpreter::print_handler::EventDispatcherPrintHandler;
 use buck2_interpreter::soft_error::Buck2StarlarkSoftErrorHandler;
+use buck2_util::time_span::TimeSpan;
 use dice::CancellationContext;
 use dice::DiceComputations;
 use dice_futures::cancellation::CancellationObserver;
 use dupe::Dupe;
 use futures::FutureExt;
 use indexmap::IndexMap;
+use smallvec::SmallVec;
 use starlark::environment::Module;
 use starlark::eval::Evaluator;
 use starlark::values::FrozenValue;
@@ -171,9 +178,13 @@ async fn execute_lambda(
     input_artifacts_materialized: InputArtifactsMaterialized,
     digest_config: DigestConfig,
     liveness: CancellationObserver,
-) -> buck2_error::Result<RecordedAnalysisValues> {
+) -> (
+    TimeSpan,
+    SmallVec<[SpanId; 1]>,
+    buck2_error::Result<RecordedAnalysisValues>,
+) {
     if let BaseDeferredKey::BxlLabel(key) = self_key.owner().dupe() {
-        Ok(eval_bxl_for_dynamic_output(
+        let res = eval_bxl_for_dynamic_output(
             &key,
             self_key,
             lambda,
@@ -184,8 +195,16 @@ async fn execute_lambda(
             digest_config,
             liveness,
         )
-        .await?)
+        .await;
+        (TimeSpan::empty_now(), SmallVec::new(), res)
     } else {
+        let artifact_fs = match dice.get_artifact_fs().await {
+            Ok(fs) => fs,
+            Err(e) => {
+                return (TimeSpan::empty_now(), SmallVec::new(), Err(e.into()));
+            }
+        };
+
         let proto_rule = "dynamic_lambda".to_owned();
 
         let start_event = buck2_data::AnalysisStart {
@@ -195,9 +214,9 @@ async fn execute_lambda(
             rule: proto_rule.clone(),
         };
 
-        let artifact_fs = dice.get_artifact_fs().await?;
+        let now = TimeSpan::start_now();
 
-        let (res, _spans) = record_root_spans(|| {
+        let (res, spans) = record_root_spans(|| {
             span(start_event, || {
                 let mut declared_actions = None;
                 let mut declared_artifacts = None;
@@ -303,7 +322,8 @@ async fn execute_lambda(
                 )
             })
         });
-        res
+
+        (now.end_now(), spans, res)
     }
 }
 
@@ -313,6 +333,7 @@ pub(crate) async fn prepare_and_execute_lambda(
     lambda: OwnedRefFrozenRef<'_, FrozenDynamicLambdaParams>,
     self_holder_key: DynamicLambdaResultsKey,
 ) -> buck2_error::Result<RecordedAnalysisValues> {
+    let mut waiting_data = WaitingData::new();
     // This is a bit suboptimal: we wait for all artifacts to be ready in order to
     // materialize any of them. However that is how we execute *all* local actions so in
     // the grand scheme of things that's probably not a huge deal.
@@ -329,6 +350,7 @@ pub(crate) async fn prepare_and_execute_lambda(
             owner: Some(self_holder_key.owner().to_proto().into()),
         },
         async move {
+            waiting_data.start_waiting_category(WaitingCategory::MaterializingInputs);
             let (input_artifacts_materialized, resolved_dynamic_values) = span_async_simple(
                 buck2_data::DeferredPreparationStageStart {
                     stage: Some(buck2_data::MaterializedArtifacts {}.into()),
@@ -345,8 +367,8 @@ pub(crate) async fn prepare_and_execute_lambda(
                 buck2_data::DeferredPreparationStageEnd {},
             )
             .await?;
-
-            cancellation
+            waiting_data.start_waiting_category(WaitingCategory::Unknown);
+            let (time_span, spans, res) = cancellation
                 .with_structured_cancellation(|observer| {
                     execute_lambda(
                         lambda,
@@ -360,7 +382,16 @@ pub(crate) async fn prepare_and_execute_lambda(
                     )
                     .boxed()
                 })
-                .await
+                .await;
+            ctx.store_evaluation_data(AnalysisKeyActivationData {
+                time_span,
+                spans,
+                waiting_data,
+                analysis_with_extra_data: AnalysisWithExtraData {
+                    target_rule_type_name: None,
+                },
+            })?;
+            res
         },
         buck2_data::DeferredEvaluationEnd {},
     )

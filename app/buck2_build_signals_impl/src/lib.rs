@@ -179,9 +179,7 @@ impl NodeKey {
             NodeKey::AnalysisKey(key) => buck2_data::critical_path_entry2::Analysis {
                 target: Some(key.0.as_proto().into()),
                 target_rule_type_name: match &node_data {
-                    NodeDataInner::Analysis(node_data) => {
-                        Some(node_data.target_rule_type_name.to_owned())
-                    }
+                    NodeDataInner::Analysis(node_data) => node_data.target_rule_type_name.clone(),
                     _ => None,
                 },
             }
@@ -431,6 +429,7 @@ impl ActivationTracker for BuildSignalSender {
                 time_span,
                 spans,
                 analysis_with_extra_data,
+                waiting_data,
             }) = downcast_and_take(&mut activation_data)
             {
                 signal.duration = NodeDuration {
@@ -440,6 +439,7 @@ impl ActivationTracker for BuildSignalSender {
                 };
                 signal.spans = spans;
                 signal.extra_data = NodeExtraData::Analysis(analysis_with_extra_data);
+                signal.waiting_data = waiting_data;
             } else if let Some(InterpreterResultsKeyActivationData {
                 time_span,
                 result,
@@ -892,7 +892,7 @@ impl ActionNodeData {
 
 #[derive(Clone)]
 struct AnalysisNodeData {
-    target_rule_type_name: String,
+    target_rule_type_name: Option<String>,
 }
 
 impl AnalysisNodeData {

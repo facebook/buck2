@@ -21,6 +21,7 @@ use buck2_build_api::analysis::calculation::RuleAnalysisCalculationImpl;
 use buck2_build_api::build::detailed_aggregated_metrics::dice::HasDetailedAggregatedMetrics;
 use buck2_build_api::deferred::calculation::DeferredHolder;
 use buck2_build_api::keep_going::KeepGoing;
+use buck2_build_signals::env::WaitingData;
 use buck2_core::configuration::compatibility::MaybeCompatible;
 use buck2_core::deferred::base_deferred_key::BaseDeferredKey;
 use buck2_core::deferred::key::DeferredHolderKey;
@@ -358,10 +359,11 @@ async fn get_analysis_result_inner(
     };
 
     ctx.store_evaluation_data(AnalysisKeyActivationData {
+        waiting_data: WaitingData::new(),
         time_span: now.end_now(),
         spans,
         analysis_with_extra_data: AnalysisWithExtraData {
-            target_rule_type_name,
+            target_rule_type_name: Some(target_rule_type_name),
         },
     })?;
 
@@ -450,6 +452,7 @@ pub async fn profile_analysis(
 }
 
 pub struct AnalysisKeyActivationData {
+    pub waiting_data: WaitingData,
     pub time_span: TimeSpan,
     pub spans: SmallVec<[SpanId; 1]>,
     pub analysis_with_extra_data: AnalysisWithExtraData,
@@ -457,5 +460,5 @@ pub struct AnalysisKeyActivationData {
 
 #[derive(Clone)]
 pub struct AnalysisWithExtraData {
-    pub target_rule_type_name: String,
+    pub target_rule_type_name: Option<String>,
 }
