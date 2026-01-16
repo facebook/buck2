@@ -306,7 +306,7 @@ async fn log_critical_path(
                     LogCommandOutputFormatWithWriter::Tabulated(writer) => {
                         writeln!(
                             writer,
-                            "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}",
+                            "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}",
                             critical_path.kind,
                             critical_path.name,
                             critical_path.category.unwrap_or_default(),
@@ -314,7 +314,9 @@ async fn log_critical_path(
                             critical_path.execution_kind.unwrap_or_default(),
                             critical_path.total_duration,
                             critical_path.user_duration,
-                            critical_path.potential_improvement_duration
+                            critical_path.potential_improvement_duration,
+                            critical_path.non_critical_path_time,
+                            critical_path.start_offset
                         )?;
                     }
                     LogCommandOutputFormatWithWriter::Json(writer) => {
