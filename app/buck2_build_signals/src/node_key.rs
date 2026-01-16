@@ -25,6 +25,10 @@ pub trait BuildSignalsNodeKeyImpl:
     fn critical_path_entry_proto(&self) -> Option<buck2_data::critical_path_entry2::Entry> {
         None
     }
+
+    fn kind(&self) -> &'static str {
+        "unknown"
+    }
 }
 
 pub trait BuildSignalsNodeKeyDyn: Send + Sync + 'static {
@@ -33,6 +37,7 @@ pub trait BuildSignalsNodeKeyDyn: Send + Sync + 'static {
     fn debug(&self) -> &dyn Debug;
     fn critical_path_entry_proto(&self) -> Option<buck2_data::critical_path_entry2::Entry>;
     fn hash(&self) -> u64;
+    fn kind(&self) -> &'static str;
 }
 
 impl<T: BuildSignalsNodeKeyImpl> BuildSignalsNodeKeyDyn for T {
@@ -57,6 +62,10 @@ impl<T: BuildSignalsNodeKeyImpl> BuildSignalsNodeKeyDyn for T {
         self.hash(&mut hasher);
         hasher.finish()
     }
+
+    fn kind(&self) -> &'static str {
+        BuildSignalsNodeKeyImpl::kind(self)
+    }
 }
 
 #[derive(Clone, Dupe)]
@@ -69,6 +78,10 @@ impl BuildSignalsNodeKey {
 
     pub fn critical_path_entry_proto(&self) -> Option<buck2_data::critical_path_entry2::Entry> {
         self.0.critical_path_entry_proto()
+    }
+
+    pub fn kind(&self) -> &'static str {
+        self.0.kind()
     }
 }
 

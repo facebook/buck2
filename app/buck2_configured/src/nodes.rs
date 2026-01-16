@@ -1143,7 +1143,11 @@ impl Key for ConfiguredTargetNodeKey {
     }
 }
 
-impl BuildSignalsNodeKeyImpl for ConfiguredTargetNodeKey {}
+impl BuildSignalsNodeKeyImpl for ConfiguredTargetNodeKey {
+    fn kind(&self) -> &'static str {
+        "configure_target"
+    }
+}
 
 #[async_trait]
 impl ConfiguredTargetNodeCalculationImpl for ConfiguredTargetNodeCalculationInstance {

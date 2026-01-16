@@ -49,6 +49,7 @@ async def do_critical_path(buck: Buck) -> None:
         ("other-command-start-overhead", ""),
         ("listing", "root//"),
         ("load", "root//"),
+        ("configure_target", ""),
         ("analysis", "root//:step_0"),
         ("analysis", "root//:step_1"),
         ("analysis", "root//:step_2"),
@@ -56,13 +57,14 @@ async def do_critical_path(buck: Buck) -> None:
         ("action", "root//:step_0"),
         ("action", "root//:step_1"),
         ("action", "root//:step_2"),
+        ("build_key", ""),
         ("action", "root//:step_3"),
         ("materialization", "root//:step_3"),
         ("compute-critical-path", ""),
     ]
 
-    # Check this second because the loop above gives a better error when one is wrong.
-    assert len(trimmed_critical_path) == len(expected)
+    # List of n.kind gives better failure messages
+    assert [n.kind for n in trimmed_critical_path] == [e[0] for e in expected]
 
     for s, e in zip(reversed(trimmed_critical_path), reversed(expected)):
         if s.kind == "action":
@@ -103,6 +105,7 @@ async def test_critical_path_json(buck: Buck) -> None:
         ("other-command-start-overhead", None),
         ("listing", "root//"),
         ("load", "root//"),
+        ("configure_target", None),
         ("analysis", "root//:step_0"),
         ("analysis", "root//:step_1"),
         ("analysis", "root//:step_2"),
@@ -110,11 +113,14 @@ async def test_critical_path_json(buck: Buck) -> None:
         ("action", "root//:step_0"),
         ("action", "root//:step_1"),
         ("action", "root//:step_2"),
+        ("build_key", None),
         ("action", "root//:step_3"),
         ("materialization", "root//:step_3"),
         ("compute-critical-path", None),
     ]
-    assert len(trimmed_critical_path) == len(expected)
+
+    # List of n.kind gives better failure messages
+    assert [n["kind"] for n in trimmed_critical_path] == [e[0] for e in expected]
 
     for critical, exp in zip(reversed(trimmed_critical_path), reversed(expected)):
         assert "kind" in critical
@@ -126,6 +132,8 @@ async def test_critical_path_json(buck: Buck) -> None:
             "file-watcher-wait",
             "other-command-start-overhead",
             "buckd_command_init",
+            "build_key",
+            "configure_target",
         ):
             assert "name" not in critical
         else:
@@ -197,6 +205,8 @@ async def test_dynamic_input(buck: Buck) -> None:
             "file-watcher-wait",
             "other-command-start-overhead",
             "buckd_command_init",
+            "configure_target",
+            "build_key",
         ):
             assert "name" not in critical
         else:
