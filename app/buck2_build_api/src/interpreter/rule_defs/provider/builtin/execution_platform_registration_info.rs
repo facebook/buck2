@@ -52,8 +52,15 @@ enum ExecutionPlatformRegistrationTypeError {
 #[derive(Clone, Debug, Trace, Coerce, Freeze, ProvidesStaticType, Allocative)]
 #[repr(C)]
 pub struct ExecutionPlatformRegistrationInfoGen<V: ValueLifetimeless> {
+    /// The list of execution platforms that are available for the build.
     platforms: ValueOfUncheckedGeneric<V, Vec<FrozenExecutionPlatformInfo>>,
-    // OneOf<ExecutionPlatformInfo, \"error\", \"unspecified\", None>
+    /// Specifies the behavior when no compatible execution platform is found from the `platforms` list.
+    /// Can be one of:
+    /// - `None` or `"use_unspecified"`: Proceed with an unspecified execution platform.
+    ///   This allows the build to continue without explicitly matching an execution platform.
+    /// - `"error"`: Fail the build with an error message indicating no compatible platform was found.
+    /// - An `ExecutionPlatformInfo`: Use this specific platform as a fallback when no other
+    ///   platform from the `platforms` list matches.
     // TODO(nga): specify type more precisely.
     fallback: ValueOfUncheckedGeneric<V, FrozenValue>,
 }
