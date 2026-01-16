@@ -13,6 +13,7 @@ use std::time::Instant;
 use async_trait::async_trait;
 use buck2_artifact::artifact::build_artifact::BuildArtifact;
 use buck2_build_signals::env::NodeDuration;
+use buck2_build_signals::env::WaitingData;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_data::ToProtoMessage;
 use buck2_events::dispatch::current_span;
@@ -31,6 +32,7 @@ pub trait ArtifactMaterializer {
     async fn try_materialize_requested_artifact(
         &mut self,
         artifact: &BuildArtifact,
+        waiting_data: WaitingData,
         required: bool,
         path: ProjectRelativePathBuf,
     ) -> buck2_error::Result<()>;
@@ -41,6 +43,7 @@ impl ArtifactMaterializer for DiceComputations<'_> {
     async fn try_materialize_requested_artifact(
         &mut self,
         artifact: &BuildArtifact,
+        waiting_data: WaitingData,
         required: bool,
         path: ProjectRelativePathBuf,
     ) -> buck2_error::Result<()> {
@@ -73,6 +76,7 @@ impl ArtifactMaterializer for DiceComputations<'_> {
                             queue: None,
                         },
                         current_span(),
+                        waiting_data,
                     );
                 }
 

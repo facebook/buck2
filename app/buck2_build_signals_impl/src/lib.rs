@@ -266,6 +266,7 @@ struct FinalMaterializationSignal {
     pub(crate) artifact: BuildArtifact,
     pub(crate) duration: NodeDuration,
     pub(crate) span_id: Option<SpanId>,
+    pub(crate) waiting_data: WaitingData,
 }
 
 /* These signals are distinct from the main Buck event bus because some
@@ -327,12 +328,14 @@ impl BuildSignals for BuildSignalSender {
         artifact: BuildArtifact,
         duration: NodeDuration,
         span_id: Option<SpanId>,
+        waiting_data: WaitingData,
     ) {
         let _ignored = self.sender.send(BuildSignal::FinalMaterialization(
             FinalMaterializationSignal {
                 artifact,
                 duration,
                 span_id,
+                waiting_data,
             },
         ));
     }
@@ -691,7 +694,7 @@ where
             materialization.duration,
             std::iter::once(dep),
             materialization.span_id.into_iter().collect(),
-            WaitingData::new(),
+            materialization.waiting_data,
         );
 
         Ok(())

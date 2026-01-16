@@ -14,6 +14,7 @@ use buck2_artifact::actions::key::ActionKey;
 use buck2_artifact::artifact::build_artifact::BuildArtifact;
 use buck2_build_signals::env::DeferredBuildSignals;
 use buck2_build_signals::env::NodeDuration;
+use buck2_build_signals::env::WaitingData;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_events::span::SpanId;
 use buck2_util::late_binding::LateBinding;
@@ -51,6 +52,7 @@ pub trait BuildSignals: Send + Sync + 'static {
         artifact: BuildArtifact,
         duration: NodeDuration,
         span_id: Option<SpanId>,
+        waiting_data: WaitingData,
     );
 
     fn test_listing(

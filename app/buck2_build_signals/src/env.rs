@@ -105,6 +105,8 @@ pub enum WaitingCategory {
     CheckingCaches,
     MaterializingInputs,
     LocalQueued,
+    MaterializerPrepare,
+    MaterializerStage2,
 }
 
 #[derive(Copy, Clone, Dupe, derive_more::Display, Allocative)]
