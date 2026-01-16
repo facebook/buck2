@@ -351,10 +351,10 @@ def compile_swift(
         is_macro = is_macro,
     )
     shared_flags.add(framework_search_paths)
-    swift_interface_info = _create_swift_interface(ctx, shared_flags, module_name)
+    objc_swift_interface_info = _create_objc_swift_interface(ctx, shared_flags, module_name)
 
     if not srcs:
-        return (None, swift_interface_info)
+        return (None, objc_swift_interface_info)
 
     toolchain = get_swift_toolchain_info(ctx)
     output_header = ctx.actions.declare_output(module_name + "-Swift.h", uses_experimental_content_based_path_hashing = uses_experimental_content_based_path_hashing)
@@ -472,7 +472,7 @@ def compile_swift(
         index_store = index_store,
         swiftdeps = object_output.swiftdeps,
         modularization_dependency_graph = modularization_dependency_graph,
-    ), swift_interface_info)
+    ), objc_swift_interface_info)
 
 # We use separate actions for swiftmodule and object file output. This
 # improves build parallelism at the cost of duplicated work, but by disabling
@@ -1430,7 +1430,8 @@ def _create_compilation_database(
 
     return SwiftCompilationDatabase(db = cdb_artifact, other_outputs = argfile.cmd_form)
 
-def _create_swift_interface(ctx: AnalysisContext, shared_flags: cmd_args, module_name: str) -> DefaultInfo:
+def _create_objc_swift_interface(ctx: AnalysisContext, shared_flags: cmd_args, module_name: str) -> DefaultInfo:
+    """Generates the Swift interface representation of a modular Obj-C(++) target."""
     swift_toolchain = get_swift_toolchain_info(ctx)
     swift_ide_test_tool = swift_toolchain.swift_ide_test_tool
     if not swift_ide_test_tool:

@@ -356,7 +356,7 @@ def apple_library_rule_constructor_params_and_swift_providers(ctx: AnalysisConte
         exported_modulemap_pre = None
 
     framework_search_paths_flags = get_framework_search_path_flags(ctx)
-    swift_compile, swift_interface = compile_swift(
+    swift_compile, objc_swift_interface = compile_swift(
         ctx,
         swift_srcs,
         True,  # parse_as_library
@@ -454,9 +454,9 @@ def apple_library_rule_constructor_params_and_swift_providers(ctx: AnalysisConte
 
     subtargets = {
         "modulemap-info": modulemap_info_providers,
+        "objc-swift-interface": [objc_swift_interface],
         "swift-compilation-database": [DefaultInfo(default_output = None)],
         "swift-compile": [DefaultInfo(default_output = None)],
-        "swift-interface": [swift_interface],
         "swiftmodule": [DefaultInfo(default_output = None)],
     }
     if swift_compile and swift_compile.compiled_underlying_pcm_artifact:
