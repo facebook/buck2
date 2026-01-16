@@ -18,8 +18,11 @@ use std::fmt::Debug;
 
 use allocative::Allocative;
 use buck2_build_api_derive::internal_provider;
+use buck2_core::configuration::constraints::ConstraintKey;
+use buck2_core::configuration::constraints::ConstraintValue;
 use buck2_interpreter::types::configured_providers_label::StarlarkProvidersLabel;
 use buck2_interpreter::types::target_label::StarlarkTargetLabel;
+use dupe::Dupe;
 use starlark::any::ProvidesStaticType;
 use starlark::coerce::Coerce;
 use starlark::environment::GlobalsBuilder;
@@ -59,6 +62,17 @@ impl<'v, V: ValueLike<'v>> ConstraintSettingInfoGen<V> {
         NoneOr::<ValueTyped<StarlarkProvidersLabel>>::unpack_value_err(value)
             .expect("validated at construction")
             .into_option()
+    }
+
+    /// Convert to a ConstraintKey for use in configuration data.
+    pub(crate) fn to_constraint_key(&self) -> ConstraintKey {
+        let default_constraint_value = self
+            .default()
+            .map(|default| ConstraintValue(default.label().dupe()));
+        ConstraintKey {
+            key: self.label().label().dupe(),
+            default: default_constraint_value,
+        }
     }
 }
 

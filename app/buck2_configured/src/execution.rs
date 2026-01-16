@@ -14,6 +14,7 @@ use allocative::Allocative;
 use async_trait::async_trait;
 use buck2_build_api::actions::execute::dice_data::HasFallbackExecutorConfig;
 use buck2_build_api::analysis::calculation::RuleAnalysisCalculation;
+use buck2_build_api::interpreter::rule_defs::provider::builtin::constraint_value_info::FrozenConstraintValueInfo;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::execution_platform_registration_info::FrozenExecutionPlatformRegistrationInfo;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::legacy_configs::dice::HasLegacyConfigs;
@@ -73,6 +74,8 @@ enum ExecutionPlatformComputationError {
         "Expected `{0}` to provide a `ExecutionPlatformRegistrationInfo` as it's configured as the `build.execution_platforms` value."
     )]
     MissingExecutionPlatformRegistrationInfo(TargetLabel),
+    #[error("Expected `{0}` (exec_marker_constraint) to provide a `ConstraintValueInfo` provider.")]
+    MissingConstraintValueInfo(ProvidersLabel),
 }
 
 async fn legacy_execution_platform(
@@ -397,9 +400,30 @@ async fn compute_execution_platforms(
             )
         })?;
 
+    // Resolve the exec_marker_constraint if set
+    let marker_constraint = if let Some(marker_str) = result.exec_marker_constraint() {
+        let marker_label =
+            ProvidersLabel::parse(marker_str, cells.root_cell(), &cells, &cell_alias_resolver)?;
+        let marker_providers = ctx.get_configuration_analysis_result(&marker_label).await?;
+        let constraint_value_info = marker_providers
+            .provider_collection()
+            .builtin_provider::<FrozenConstraintValueInfo>()
+            .ok_or_else(|| {
+                buck2_error::Error::from(
+                    ExecutionPlatformComputationError::MissingConstraintValueInfo(
+                        marker_label.dupe(),
+                    ),
+                )
+            })?;
+
+        Some(constraint_value_info.to_constraint_key_value())
+    } else {
+        None
+    };
+
     let mut platforms = Vec::new();
     for platform in result.platforms()? {
-        platforms.push(platform.to_execution_platform()?);
+        platforms.push(platform.to_execution_platform_with_marker(marker_constraint.as_ref())?);
     }
     Ok(Some(Arc::new(ExecutionPlatformsData::new(
         execution_platforms_target,

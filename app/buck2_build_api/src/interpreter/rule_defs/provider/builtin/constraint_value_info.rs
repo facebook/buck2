@@ -14,8 +14,11 @@ use std::fmt::Debug;
 
 use allocative::Allocative;
 use buck2_build_api_derive::internal_provider;
+use buck2_core::configuration::constraints::ConstraintKey;
+use buck2_core::configuration::constraints::ConstraintValue;
 use buck2_interpreter::types::configured_providers_label::StarlarkProvidersLabel;
 use buck2_interpreter::types::target_label::LabelArg;
+use dupe::Dupe;
 use starlark::any::ProvidesStaticType;
 use starlark::coerce::Coerce;
 use starlark::environment::GlobalsBuilder;
@@ -39,7 +42,7 @@ use crate::interpreter::rule_defs::provider::builtin::constraint_setting_info::F
 #[internal_provider(constraint_value_info_creator)]
 #[derive(Clone, Debug, Trace, Coerce, Freeze, ProvidesStaticType, Allocative)]
 #[repr(C)]
-pub(crate) struct ConstraintValueInfoGen<V: ValueLifetimeless> {
+pub struct ConstraintValueInfoGen<V: ValueLifetimeless> {
     setting: ValueOfUncheckedGeneric<V, FrozenConstraintSettingInfo>,
     label: ValueOfUncheckedGeneric<V, StarlarkProvidersLabel>,
 }
@@ -51,6 +54,18 @@ impl<'v, V: ValueLike<'v>> ConstraintValueInfoGen<V> {
 
     pub(crate) fn label(&self) -> ValueTyped<'v, StarlarkProvidersLabel> {
         ValueTyped::new_err(self.label.get().to_value()).expect("validated at construction")
+    }
+
+    /// Convert to a ConstraintValue for use in configuration data.
+    fn to_constraint_value(&self) -> ConstraintValue {
+        ConstraintValue(self.label().label().dupe())
+    }
+
+    /// Get the ConstraintKey and ConstraintValue pair for use in configuration data.
+    pub fn to_constraint_key_value(&self) -> (ConstraintKey, ConstraintValue) {
+        let constraint_key = self.setting().typed.to_constraint_key();
+        let constraint_value = self.to_constraint_value();
+        (constraint_key, constraint_value)
     }
 }
 
