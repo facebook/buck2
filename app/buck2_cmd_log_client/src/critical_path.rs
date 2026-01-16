@@ -110,7 +110,9 @@ impl OptionalDuration {
 impl fmt::Display for OptionalDuration {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         if let Some(inner) = self.inner {
-            write!(f, "{}", inner.as_micros())?;
+            inner.as_micros().fmt(f)?;
+        } else {
+            "".fmt(f)?;
         }
         Ok(())
     }
