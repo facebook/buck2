@@ -12,6 +12,7 @@ use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
 use std::time::Duration;
 
+use buck2_build_signals::env::WaitingCategory;
 use buck2_build_signals::env::WaitingData;
 use buck2_common::liveliness_observer::LivelinessObserver;
 use buck2_core::buck2_env;
@@ -145,6 +146,12 @@ impl CommandExecutionManager {
     pub fn with_execution_kind(mut self, execution_kind: CommandExecutionKind) -> Self {
         self.inner.execution_kind = Some(execution_kind);
         self
+    }
+
+    pub fn start_waiting_category(&mut self, waiting_category: WaitingCategory) {
+        self.inner
+            .waiting_data
+            .start_waiting_category(waiting_category);
     }
 }
 

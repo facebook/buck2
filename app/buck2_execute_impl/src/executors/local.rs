@@ -19,6 +19,7 @@ use std::time::SystemTime;
 
 use allocative::Allocative;
 use async_trait::async_trait;
+use buck2_build_signals::env::WaitingCategory;
 use buck2_common::file_ops::metadata::FileDigestConfig;
 use buck2_common::liveliness_observer::LivelinessObserver;
 use buck2_common::liveliness_observer::LivelinessObserverExt;
@@ -502,7 +503,7 @@ impl LocalExecutor {
         &self,
         action_digest: &ActionDigest,
         request: &CommandExecutionRequest,
-        manager: CommandExecutionManager,
+        mut manager: CommandExecutionManager,
         cancellation: CancellationObserver,
         cancellations: &CancellationContext,
         digest_config: DigestConfig,
@@ -513,6 +514,7 @@ impl LocalExecutor {
             return manager.error("no_args", LocalExecutionError::NoArgs);
         }
 
+        manager.start_waiting_category(WaitingCategory::MaterializingInputs);
         let executor_stage_result = executor_stage_async(
             buck2_data::LocalStage {
                 stage: Some(buck2_data::LocalMaterializeInputs {}.into()),
@@ -571,6 +573,8 @@ impl LocalExecutor {
             }
             Err(e) => return manager.error("materialize_inputs_failed", e),
         };
+
+        manager.start_waiting_category(WaitingCategory::Unknown);
 
         // TODO: Release here.
         let manager = manager.claim().boxed().await;
@@ -1191,7 +1195,7 @@ impl PreparedCommandExecutor for LocalExecutor {
         manager: CommandExecutionManager,
         cancellations: &CancellationContext,
     ) -> CommandExecutionResult {
-        let manager = manager.with_execution_kind(CommandExecutionKind::Local {
+        let mut manager = manager.with_execution_kind(CommandExecutionKind::Local {
             digest: command.prepared_action.digest(),
             command: command.request.all_args_vec(),
             env: command.request.env().clone(),
@@ -1207,6 +1211,7 @@ impl PreparedCommandExecutor for LocalExecutor {
             digest_config,
         } = command;
 
+        manager.start_waiting_category(WaitingCategory::LocalQueued);
         let local_resource_holders = executor_stage_async(
             buck2_data::LocalStage {
                 stage: Some(buck2_data::AcquireLocalResource {}.into()),
@@ -1236,6 +1241,7 @@ impl PreparedCommandExecutor for LocalExecutor {
                 .acquire(request.host_sharing_requirements()),
         )
         .await;
+        manager.start_waiting_category(WaitingCategory::Unknown);
 
         // If we start running something, we don't want this task to get dropped, because if we do
         // we might interfere with e.g. clean up.

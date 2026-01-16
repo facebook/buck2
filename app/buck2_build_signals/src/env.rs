@@ -103,6 +103,8 @@ pub enum WaitingCategory {
     PreparingAction,
     /// Time spent checking action cache and dep file caches.
     CheckingCaches,
+    MaterializingInputs,
+    LocalQueued,
 }
 
 #[derive(Copy, Clone, Dupe, derive_more::Display, Allocative)]
