@@ -34,7 +34,11 @@ class CriticalPathLog:
 async def do_critical_path(buck: Buck) -> None:
     await buck.build("//:step_3", "--no-remote-cache")
 
-    critical_path = (await buck.log("critical-path")).stdout.strip().splitlines()
+    critical_path = (
+        (await buck.log("critical-path", "--format=tabulated"))
+        .stdout.strip()
+        .splitlines()
+    )
     critical_path = [e.split("\t") for e in critical_path]
 
     trimmed_critical_path = [

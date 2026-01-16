@@ -38,7 +38,10 @@ use crate::transform_format;
 /// (runtime of this node), user duration (duration the user can improve), potential improvement
 /// before this node stops being on the critical path, non-critical path time, and start offset.
 ///
-/// The `readable` and `tabulated` output formats both currently produce tab-delimited output:
+/// The `readable` format produces space-aligned columnar output with a header:
+/// `<start_offset> <total> <waiting> <user> <potential> <kind> <name> <category> <identifier> <execution_kind>`
+///
+/// The `tabulated` format produces tab-delimited output:
 /// `<kind>\t<name>\t<category>\t<identifier>\t<execution_kind>\t<total_duration>\t<user_duration>\t<potential_improvement_duration>\t<non_critical_path_time>\t<start_offset>`
 ///
 /// All durations are in microseconds. Start offset is in microseconds from the beginning of the build.
@@ -168,6 +171,23 @@ async fn log_critical_path(
 
     buck2_client_ctx::stdio::print_with_writer::<buck2_error::Error, _>(async move |w| {
         let mut log_writer = transform_format(format, w);
+        if let LogCommandOutputFormatWithWriter::Readable(writer) = &mut log_writer {
+            #[allow(clippy::write_literal)] // easier to match the format below
+            writeln!(
+                writer,
+                "{:>13} {:>10} {:>10} {:>10} {:>10} {} {} {} {} {}",
+                "start_offset",
+                "total",
+                "waiting",
+                "user",
+                "potential",
+                "kind",
+                "name",
+                "category",
+                "identifier",
+                "execution_kind",
+            )?;
+        }
 
         for entry in &critical_path.critical_path2 {
             use buck2_data::critical_path_entry2::Entry;
@@ -300,8 +320,23 @@ async fn log_critical_path(
 
             let res: Result<(), ClientIoError> = {
                 match &mut log_writer {
-                    LogCommandOutputFormatWithWriter::Readable(writer)
-                    | LogCommandOutputFormatWithWriter::Tabulated(writer) => {
+                    LogCommandOutputFormatWithWriter::Readable(writer) => {
+                        writeln!(
+                            writer,
+                            "{:>13} {:>10} {:>10} {:>10} {:>10} {} {} {} {} {}",
+                            critical_path.start_offset,
+                            critical_path.total_duration,
+                            critical_path.non_critical_path_time,
+                            critical_path.user_duration,
+                            critical_path.potential_improvement_duration,
+                            critical_path.kind,
+                            critical_path.name,
+                            critical_path.category.unwrap_or_default(),
+                            critical_path.identifier.unwrap_or_default(),
+                            critical_path.execution_kind.unwrap_or_default(),
+                        )?;
+                    }
+                    LogCommandOutputFormatWithWriter::Tabulated(writer) => {
                         // This should match the format specified in the docstring on [CriticalPathCommand]
                         writeln!(
                             writer,

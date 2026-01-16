@@ -8,7 +8,10 @@ It includes the kind of node, its name, category and identifier, as well as tota
 of this node), user duration (duration the user can improve), potential improvement before this node
 stops being on the critical path, non-critical path time, and start offset.
 
-The `readable` and `tabulated` output formats both currently produce tab-delimited output:
+The `readable` format produces space-aligned columnar output with a header: `<start_offset> <total>
+<waiting> <user> <potential> <kind> <name> <category> <identifier> <execution_kind>`
+
+The `tabulated` format produces tab-delimited output:
 `<kind>\t<name>\t<category>\t<identifier>\t<execution_kind>\t<total_duration>\t<user_duration>\t<potential_improvement_duration>\t<non_critical_path_time>\t<start_offset>`
 
 All durations are in microseconds. Start offset is in microseconds from the beginning of the build.
