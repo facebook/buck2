@@ -27,18 +27,25 @@ use crate::backend::backend::BuildListenerBackend;
 
 pub(crate) struct LoggingBackend {
     events: EventDispatcher,
+    start_time: std::time::Instant,
 }
 
 impl LoggingBackend {
     pub(crate) fn new(events: EventDispatcher) -> Self {
-        Self { events }
+        Self {
+            events,
+            start_time: std::time::Instant::now(),
+        }
     }
 }
 
+/// Node data logged for debugging/testing the critical path.
 #[derive(Serialize, Deserialize)]
 struct Node {
     key: String,
     deps: Vec<String>,
+    /// Time span as (start, end) in microseconds since the backend was created.
+    time_span: (u64, u64),
 }
 
 impl BuildListenerBackend for LoggingBackend {
@@ -46,7 +53,7 @@ impl BuildListenerBackend for LoggingBackend {
         &mut self,
         key: NodeKey,
         _extra_data: NodeExtraData,
-        _duration: NodeDuration,
+        duration: NodeDuration,
         dep_keys: impl IntoIterator<Item = NodeKey>,
         _span_ids: SmallVec<[SpanId; 1]>,
         _waiting_data: WaitingData,
@@ -56,6 +63,18 @@ impl BuildListenerBackend for LoggingBackend {
             data: serde_json::to_string(&Node {
                 key: key.to_string(),
                 deps: dep_keys.into_iter().map(|v| v.to_string()).collect(),
+                time_span: (
+                    duration
+                        .total
+                        .start()
+                        .duration_since(self.start_time)
+                        .as_micros() as u64,
+                    duration
+                        .total
+                        .end()
+                        .duration_since(self.start_time)
+                        .as_micros() as u64,
+                ),
             })
             .unwrap(),
         });

@@ -177,6 +177,9 @@ async def test_dynamic_input_events(buck: Buck) -> None:
         for ev in events
         if ev["key"] == "critical_path_logging_node"
     ]
+    for ev in events:
+        if "time_span" in ev:
+            ev["time_span"] = [None, None]
 
     golden(
         output=json.dumps(events, sort_keys=True, indent=2),
