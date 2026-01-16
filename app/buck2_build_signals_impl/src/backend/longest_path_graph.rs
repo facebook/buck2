@@ -40,6 +40,7 @@ use crate::backend::backend::BuildListenerBackend;
 pub(crate) struct LongestPathGraphBackend {
     builder: buck2_error::Result<GraphBuilder<NodeKey, NodeData>>,
     top_level_targets: Vec<TopLevelTarget>,
+    start_time: Option<std::time::Instant>,
 }
 
 /// Represents nodes that block us "seeing" other parts of the graph until they finish evaluating.
@@ -53,6 +54,7 @@ impl LongestPathGraphBackend {
         Self {
             builder: Ok(GraphBuilder::new()),
             top_level_targets: Vec::new(),
+            start_time: None,
         }
     }
 }
@@ -67,6 +69,10 @@ impl BuildListenerBackend for LongestPathGraphBackend {
         span_ids: SmallVec<[SpanId; 1]>,
         waiting_data: WaitingData,
     ) {
+        self.start_time = match &self.start_time {
+            Some(t) => Some(*t.min(&duration.total.start())),
+            None => Some(duration.total.start()),
+        };
         let builder = match self.builder.as_mut() {
             Ok(b) => b,
             Err(..) => return,
@@ -181,11 +187,22 @@ impl BuildListenerBackend for LongestPathGraphBackend {
                 .buck_error_context("Duration `as_micros()` exceeds u64")
         })?;
 
-        let (critical_path, critical_path_for_top_level_targets) =
-            compute_critical_paths(&graph, &keys, data, durations, &self.top_level_targets)?;
+        let (slowest_path, critical_path, critical_path_for_top_level_targets) =
+            std::thread::scope(|s| {
+                let cp = s.spawn(|| {
+                    compute_critical_paths(&graph, &keys, &data, durations, &self.top_level_targets)
+                });
+                let slow = s.spawn(|| compute_slowest_paths(&graph, &keys, &data));
+
+                let (cp, cp_top) = cp.join().expect("thread panicked")?;
+                let slow = slow.join().expect("thread panicked")?;
+
+                buck2_error::Ok((slow, cp, cp_top))
+            })?;
 
         Ok(BuildInfo {
             critical_path,
+            slowest_path,
             num_nodes: graph.vertices_count() as _,
             num_edges: graph.edges_count() as _,
             top_level_targets: critical_path_for_top_level_targets,
@@ -200,7 +217,7 @@ impl BuildListenerBackend for LongestPathGraphBackend {
 fn compute_critical_paths(
     graph: &Graph,
     keys: &VertexKeys<NodeKey>,
-    mut data: VertexData<NodeData>,
+    data: &VertexData<NodeData>,
     durations: VertexData<u64>,
     top_level_targets: &[TopLevelTarget],
 ) -> buck2_error::Result<(DetailedCriticalPath, Vec<(ConfiguredTargetLabel, Duration)>)> {
@@ -254,20 +271,8 @@ fn compute_critical_paths(
             let vertex_idx = *vertex_idx;
             let key = keys[vertex_idx].dupe();
 
-            // OK to replace `data` with empty things here because we know that we will not access
-            // the same index twice.
-            let data = std::mem::replace(
-                &mut data[vertex_idx],
-                NodeData {
-                    extra_data: NodeExtraData::None,
-                    duration: NodeDuration::zero(),
-                    span_ids: Default::default(),
-                    waiting_data: WaitingData::new(),
-                },
-            );
-
+            let data = data[vertex_idx].clone();
             let potential = critical_path_cost.runtime - replacement_durations[cp_idx].runtime;
-
             (key, data, Some(Duration::from_micros(potential)))
         })
         .collect();
@@ -276,4 +281,46 @@ fn compute_critical_paths(
         DetailedCriticalPath::new(critical_path),
         critical_path_for_top_level_targets,
     ))
+}
+
+/// Computes the "slowest path" where each node's predecessor is the dependency that finished last.
+/// This differs from critical path where predecessors have the greatest critical path length.
+/// The slowest path makes waiting time directly attributable to what a node is immediately waiting on.
+fn compute_slowest_paths(
+    graph: &Graph,
+    keys: &VertexKeys<NodeKey>,
+    data: &VertexData<NodeData>,
+) -> buck2_error::Result<DetailedCriticalPath> {
+    let mut last = None;
+
+    for d in graph.iter_vertices() {
+        let d_end = data[d].duration.total.end();
+        if last.is_none_or(|(l_end, _)| l_end < d_end) {
+            last = Some((d_end, d));
+        }
+    }
+
+    let mut slowest_path = Vec::new();
+    let mut node = last;
+    while let Some((_, curr)) = node {
+        slowest_path.push(curr);
+
+        let mut prev = None;
+        for d in graph.iter_edges(curr) {
+            let d_end = data[d].duration.total.end();
+            if prev.is_none_or(|(p_end, _)| p_end < d_end) {
+                prev = Some((d_end, d));
+            }
+        }
+        node = prev;
+    }
+
+    let mut slowest_path_data = Vec::with_capacity(slowest_path.len());
+
+    for i in slowest_path.into_iter().rev() {
+        let d = &data[i];
+        slowest_path_data.push((keys[i].dupe(), d.clone(), Some(d.duration.total.duration())))
+    }
+
+    Ok(DetailedCriticalPath::new(slowest_path_data))
 }

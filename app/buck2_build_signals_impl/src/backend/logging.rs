@@ -71,6 +71,7 @@ impl BuildListenerBackend for LoggingBackend {
     fn finish(self) -> buck2_error::Result<BuildInfo> {
         Ok(BuildInfo {
             critical_path: DetailedCriticalPath::empty(),
+            slowest_path: DetailedCriticalPath::empty(),
             num_nodes: 0,
             num_edges: 0,
             top_level_targets: Default::default(),

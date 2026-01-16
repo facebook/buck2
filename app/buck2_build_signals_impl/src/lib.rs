@@ -580,6 +580,7 @@ where
 
         let BuildInfo {
             critical_path,
+            slowest_path,
             num_nodes,
             num_edges,
             top_level_targets,
@@ -587,6 +588,8 @@ where
 
         let critical_path2 =
             critical_path.into_critical_path_proto(&ctx.early_command_timing, now)?;
+
+        let slowest_path = slowest_path.into_critical_path_proto(&ctx.early_command_timing, now)?;
 
         let top_level_targets = top_level_targets.try_map(|(key, duration)| {
             buck2_error::Ok(buck2_data::TopLevelTargetCriticalPath {
@@ -597,6 +600,7 @@ where
 
         instant_event(buck2_data::BuildGraphExecutionInfo {
             critical_path2,
+            slowest_path,
             metadata: ctx.metadata,
             command_name: Some(ctx.command_name),
             isolation_dir: Some(ctx.isolation_prefix.into_inner().into()),
@@ -760,8 +764,11 @@ where
 }
 
 pub(crate) struct BuildInfo {
-    // Node, its data, and its potential for improvement
+    /// Node, its data, and its potential for improvement
     critical_path: DetailedCriticalPath,
+    /// Path where each node's predecessor is the dependency that finished last.
+    /// Unlike critical path, waiting time is directly attributable to the immediate predecessor.
+    slowest_path: DetailedCriticalPath,
     num_nodes: u64,
     num_edges: u64,
     /// Critical path for top level targets

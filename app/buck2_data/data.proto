@@ -712,8 +712,7 @@ message BuildGraphExecutionInfo {
   uint64 num_nodes = 3;
   // Number of directed edges in the action graph (directed acyclic graph).
   uint64 num_edges = 4;
-  // The actions that made up the critical path, in chronological order, in a
-  // new format. We will have either that, or critical_path;
+  // The critical path in the build, in chronological order.
   repeated CriticalPathEntry2 critical_path2 = 5;
   // The backend that was use to produce the critical path.
   optional string backend_name = 7;
@@ -723,6 +722,9 @@ message BuildGraphExecutionInfo {
   optional string isolation_dir = 9;
   // The critical path for top level targets
   repeated TopLevelTargetCriticalPath top_level_targets = 10;
+
+  // The slowest path in the build, in chronological order.
+  repeated CriticalPathEntry2 slowest_path = 11;
 }
 
 // An event capturing information from the test discovery phase.
