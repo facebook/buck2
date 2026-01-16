@@ -39,7 +39,8 @@ use buck2_error::BuckErrorContext;
 use buck2_error::buck2_error;
 use buck2_error::internal_error;
 use buck2_events::dispatch::get_dispatcher;
-use buck2_events::dispatch::span_async;
+use buck2_events::dispatch::record_root_spans;
+use buck2_events::dispatch::span;
 use buck2_events::dispatch::span_async_simple;
 use buck2_execute::artifact::artifact_dyn::ArtifactDyn;
 use buck2_execute::artifact_value::ArtifactValue;
@@ -196,111 +197,113 @@ async fn execute_lambda(
 
         let artifact_fs = dice.get_artifact_fs().await?;
 
-        span_async(start_event, async {
-            let mut declared_actions = None;
-            let mut declared_artifacts = None;
+        let (res, _spans) = record_root_spans(|| {
+            span(start_event, || {
+                let mut declared_actions = None;
+                let mut declared_artifacts = None;
 
-            let output: buck2_error::Result<_> = try {
-                let env = Module::new();
+                let output: buck2_error::Result<_> = try {
+                    let env = Module::new();
 
-                let analysis_registry = {
-                    let heap = env.heap();
-                    let print = EventDispatcherPrintHandler(get_dispatcher());
-                    let mut eval = Evaluator::new(&env);
-                    eval.set_print_handler(&print);
-                    eval.set_soft_error_handler(&Buck2StarlarkSoftErrorHandler);
-                    let dynamic_lambda_ctx_data = dynamic_lambda_ctx_data(
-                        lambda,
-                        self_key.dupe(),
-                        input_artifacts_materialized,
-                        &ensured_artifacts,
-                        &resolved_dynamic_values,
-                        &artifact_fs,
-                        digest_config,
-                        &env,
-                    )?;
-                    let ctx = AnalysisContext::prepare(
-                        heap,
-                        dynamic_lambda_ctx_data.lambda.attributes()?,
-                        self_key.owner().configured_label(),
-                        dynamic_lambda_ctx_data.lambda.plugins()?,
-                        dynamic_lambda_ctx_data.registry,
-                        dynamic_lambda_ctx_data.digest_config,
-                    );
+                    let analysis_registry = {
+                        let heap = env.heap();
+                        let print = EventDispatcherPrintHandler(get_dispatcher());
+                        let mut eval = Evaluator::new(&env);
+                        eval.set_print_handler(&print);
+                        eval.set_soft_error_handler(&Buck2StarlarkSoftErrorHandler);
+                        let dynamic_lambda_ctx_data = dynamic_lambda_ctx_data(
+                            lambda,
+                            self_key.dupe(),
+                            input_artifacts_materialized,
+                            &ensured_artifacts,
+                            &resolved_dynamic_values,
+                            &artifact_fs,
+                            digest_config,
+                            &env,
+                        )?;
+                        let ctx = AnalysisContext::prepare(
+                            heap,
+                            dynamic_lambda_ctx_data.lambda.attributes()?,
+                            self_key.owner().configured_label(),
+                            dynamic_lambda_ctx_data.lambda.plugins()?,
+                            dynamic_lambda_ctx_data.registry,
+                            dynamic_lambda_ctx_data.digest_config,
+                        );
 
-                    let args = match (
-                        &dynamic_lambda_ctx_data.lambda.attr_values,
-                        &dynamic_lambda_ctx_data.spec,
-                    ) {
-                        (
-                            None,
-                            DynamicLambdaCtxDataSpec::Old {
-                                outputs,
-                                artifact_values,
+                        let args = match (
+                            &dynamic_lambda_ctx_data.lambda.attr_values,
+                            &dynamic_lambda_ctx_data.spec,
+                        ) {
+                            (
+                                None,
+                                DynamicLambdaCtxDataSpec::Old {
+                                    outputs,
+                                    artifact_values,
+                                },
+                            ) => DynamicLambdaArgs::OldPositional {
+                                ctx: ctx.to_value(),
+                                artifact_values: *artifact_values,
+                                outputs: *outputs,
                             },
-                        ) => DynamicLambdaArgs::OldPositional {
-                            ctx: ctx.to_value(),
-                            artifact_values: *artifact_values,
-                            outputs: *outputs,
-                        },
-                        (Some(_arg), DynamicLambdaCtxDataSpec::New { attr_values }) => {
-                            DynamicLambdaArgs::DynamicActionsNamed {
-                                // TODO(nga): no need to create `ctx`
-                                //   because we only need `actions` here.
-                                actions: ctx.actions,
-                                attr_values: attr_values.clone(),
+                            (Some(_arg), DynamicLambdaCtxDataSpec::New { attr_values }) => {
+                                DynamicLambdaArgs::DynamicActionsNamed {
+                                    // TODO(nga): no need to create `ctx`
+                                    //   because we only need `actions` here.
+                                    actions: ctx.actions,
+                                    attr_values: attr_values.clone(),
+                                }
                             }
-                        }
-                        (None, DynamicLambdaCtxDataSpec::New { .. })
-                        | (Some(_), DynamicLambdaCtxDataSpec::Old { .. }) => {
-                            Err(internal_error!(
-                                "Unexpected combination of attr_values and spec"
-                            ))?;
-                            unreachable!();
-                        }
+                            (None, DynamicLambdaCtxDataSpec::New { .. })
+                            | (Some(_), DynamicLambdaCtxDataSpec::Old { .. }) => {
+                                Err(internal_error!(
+                                    "Unexpected combination of attr_values and spec"
+                                ))?;
+                                unreachable!();
+                            }
+                        };
+
+                        let providers: ProviderCollection = invoke_dynamic_output_lambda(
+                            &mut eval,
+                            dynamic_lambda_ctx_data.lambda.lambda(),
+                            args,
+                        )?;
+                        let providers = eval.heap().alloc(providers);
+                        let providers = ValueTypedComplex::<ProviderCollection>::new(providers)
+                            .internal_error("Just allocated ProviderCollection")?;
+
+                        ctx.assert_no_promises()?;
+
+                        let registry = ctx.take_state();
+
+                        registry
+                            .analysis_value_storage
+                            .set_result_value(providers)?;
+
+                        registry
                     };
 
-                    let providers: ProviderCollection = invoke_dynamic_output_lambda(
-                        &mut eval,
-                        dynamic_lambda_ctx_data.lambda.lambda(),
-                        args,
-                    )?;
-                    let providers = eval.heap().alloc(providers);
-                    let providers = ValueTypedComplex::<ProviderCollection>::new(providers)
-                        .internal_error("Just allocated ProviderCollection")?;
-
-                    ctx.assert_no_promises()?;
-
-                    let registry = ctx.take_state();
-
-                    registry
-                        .analysis_value_storage
-                        .set_result_value(providers)?;
-
-                    registry
+                    declared_actions = Some(analysis_registry.num_declared_actions());
+                    declared_artifacts = Some(analysis_registry.num_declared_artifacts());
+                    let registry_finalizer = analysis_registry.finalize(&env)?;
+                    let frozen_env = env.freeze().map_err(from_freeze_error)?;
+                    registry_finalizer(&frozen_env)?
                 };
 
-                declared_actions = Some(analysis_registry.num_declared_actions());
-                declared_artifacts = Some(analysis_registry.num_declared_artifacts());
-                let registry_finalizer = analysis_registry.finalize(&env)?;
-                let frozen_env = env.freeze().map_err(from_freeze_error)?;
-                registry_finalizer(&frozen_env)?
-            };
-
-            (
-                output,
-                buck2_data::AnalysisEnd {
-                    target: Some(buck2_data::analysis_end::Target::DynamicLambda(
-                        self_key.owner().to_proto().into(),
-                    )),
-                    rule: proto_rule,
-                    profile: None,
-                    declared_actions,
-                    declared_artifacts,
-                },
-            )
-        })
-        .await
+                (
+                    output,
+                    buck2_data::AnalysisEnd {
+                        target: Some(buck2_data::analysis_end::Target::DynamicLambda(
+                            self_key.owner().to_proto().into(),
+                        )),
+                        rule: proto_rule,
+                        profile: None,
+                        declared_actions,
+                        declared_artifacts,
+                    },
+                )
+            })
+        });
+        res
     }
 }
 
