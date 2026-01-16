@@ -71,6 +71,16 @@ impl WaitingData {
         Self(None)
     }
 
+    /// Returns an iterator over categorized waiting time spans.
+    /// Each item is a tuple of (start_time, category).
+    pub fn iter(&self) -> impl Iterator<Item = &(Instant, WaitingCategory)> {
+        self.0
+            .as_ref()
+            .map(|initialized| initialized.categorized_waiting.iter())
+            .into_iter()
+            .flatten()
+    }
+
     /// Records the start of a new waiting category phase.
     /// Tracks timing boundaries between different phases of action execution.
     pub fn start_waiting_category(&mut self, category: WaitingCategory) {
@@ -96,7 +106,7 @@ impl Default for WaitingData {
 
 /// Categories for classifying time spent waiting during build execution.
 /// Used to categorize non-critical path time for better build performance insights.
-#[derive(VariantName, Clone, Dupe, Debug, Allocative)]
+#[derive(VariantName, Clone, Dupe, Debug, Allocative, Eq, PartialEq)]
 pub enum WaitingCategory {
     Unknown,
     /// Time spent preparing action inputs and command-line arguments.

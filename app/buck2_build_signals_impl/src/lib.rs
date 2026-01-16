@@ -775,8 +775,18 @@ pub(crate) struct BuildInfo {
     top_level_targets: Vec<(ConfiguredTargetLabel, Duration)>,
 }
 
+/// Entry in a detailed critical path, including metadata about timing and dependencies.
+pub(crate) struct DetailedCriticalPathEntry {
+    pub(crate) key: NodeKey,
+    pub(crate) data: NodeData,
+    /// The potential improvement if this node's duration was reduced to zero.
+    pub(crate) potential_improvement: Option<Duration>,
+    /// The time when all dependencies finished executing (if known).
+    pub(crate) deps_finished_time: Option<Instant>,
+}
+
 pub(crate) struct DetailedCriticalPath {
-    entries: Vec<(NodeKey, NodeData, Option<Duration>)>,
+    entries: Vec<DetailedCriticalPathEntry>,
 }
 
 impl DetailedCriticalPath {
@@ -786,7 +796,7 @@ impl DetailedCriticalPath {
         }
     }
 
-    fn new(entries: Vec<(NodeKey, NodeData, Option<Duration>)>) -> Self {
+    fn new(entries: Vec<DetailedCriticalPathEntry>) -> Self {
         Self { entries }
     }
 
@@ -834,9 +844,8 @@ impl DetailedCriticalPath {
 
         Self::create_proto_entries_for_early_timings(&mut enhancer, early_command_timing)?;
 
-        for (key, data, potential_improvement) in self.entries {
-            let entry = key.into_critical_path_entry_data(&data.extra_data);
-            enhancer.add_entry(entry, data, potential_improvement)?;
+        for entry in self.entries {
+            enhancer.add_entry(entry)?;
         }
 
         enhancer.add_simple_entry(

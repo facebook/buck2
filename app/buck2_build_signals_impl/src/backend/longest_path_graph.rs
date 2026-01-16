@@ -30,6 +30,7 @@ use smallvec::SmallVec;
 
 use crate::BuildInfo;
 use crate::DetailedCriticalPath;
+use crate::DetailedCriticalPathEntry;
 use crate::NodeData;
 use crate::NodeExtraData;
 use crate::NodeKey;
@@ -40,7 +41,6 @@ use crate::backend::backend::BuildListenerBackend;
 pub(crate) struct LongestPathGraphBackend {
     builder: buck2_error::Result<GraphBuilder<NodeKey, NodeData>>,
     top_level_targets: Vec<TopLevelTarget>,
-    start_time: Option<std::time::Instant>,
 }
 
 /// Represents nodes that block us "seeing" other parts of the graph until they finish evaluating.
@@ -54,7 +54,6 @@ impl LongestPathGraphBackend {
         Self {
             builder: Ok(GraphBuilder::new()),
             top_level_targets: Vec::new(),
-            start_time: None,
         }
     }
 }
@@ -69,10 +68,6 @@ impl BuildListenerBackend for LongestPathGraphBackend {
         span_ids: SmallVec<[SpanId; 1]>,
         waiting_data: WaitingData,
     ) {
-        self.start_time = match &self.start_time {
-            Some(t) => Some(*t.min(&duration.total.start())),
-            None => Some(duration.total.start()),
-        };
         let builder = match self.builder.as_mut() {
             Ok(b) => b,
             Err(..) => return,
@@ -271,9 +266,20 @@ fn compute_critical_paths(
             let vertex_idx = *vertex_idx;
             let key = keys[vertex_idx].dupe();
 
-            let data = data[vertex_idx].clone();
-            let potential = critical_path_cost.runtime - replacement_durations[cp_idx].runtime;
-            (key, data, Some(Duration::from_micros(potential)))
+            let node_data = data[vertex_idx].clone();
+            let deps_finished_time = graph
+                .iter_edges(vertex_idx)
+                .map(|d| data[d].duration.total.end())
+                .max();
+            let potential_improvement = Some(Duration::from_micros(
+                critical_path_cost.runtime - replacement_durations[cp_idx].runtime,
+            ));
+            DetailedCriticalPathEntry {
+                key,
+                data: node_data,
+                potential_improvement,
+                deps_finished_time,
+            }
         })
         .collect();
 
@@ -301,10 +307,8 @@ fn compute_slowest_paths(
     }
 
     let mut slowest_path = Vec::new();
-    let mut node = last;
-    while let Some((_, curr)) = node {
-        slowest_path.push(curr);
-
+    let mut node = last.unzip().1;
+    while let Some(curr) = node {
         let mut prev = None;
         for d in graph.iter_edges(curr) {
             let d_end = data[d].duration.total.end();
@@ -312,15 +316,19 @@ fn compute_slowest_paths(
                 prev = Some((d_end, d));
             }
         }
-        node = prev;
+
+        let (deps_finished_time, prev_node) = prev.unzip();
+
+        slowest_path.push(DetailedCriticalPathEntry {
+            key: keys[curr].dupe(),
+            data: data[curr].clone(),
+            potential_improvement: None,
+            deps_finished_time,
+        });
+        node = prev_node;
     }
 
-    let mut slowest_path_data = Vec::with_capacity(slowest_path.len());
+    slowest_path.reverse();
 
-    for i in slowest_path.into_iter().rev() {
-        let d = &data[i];
-        slowest_path_data.push((keys[i].dupe(), d.clone(), Some(d.duration.total.duration())))
-    }
-
-    Ok(DetailedCriticalPath::new(slowest_path_data))
+    Ok(DetailedCriticalPath::new(slowest_path))
 }

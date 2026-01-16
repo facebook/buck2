@@ -11,9 +11,11 @@
 use std::time::Duration;
 use std::time::Instant;
 
+use buck2_build_signals::env::WaitingCategory;
 use buck2_util::time_span::TimeSpan;
+use gazebo::variants::VariantName;
 
-use crate::NodeData;
+use crate::DetailedCriticalPathEntry;
 
 /// Helper for building critical path protobuf entries.
 ///
@@ -38,12 +40,73 @@ impl CriticalPathProtoEnhancer {
 
     pub(crate) fn add_entry(
         &mut self,
-        entry: buck2_data::critical_path_entry2::Entry,
-        data: NodeData,
-        potential_improvement: Option<Duration>,
+        entry: DetailedCriticalPathEntry,
     ) -> buck2_error::Result<()> {
-        // TODO(cjhopman): Add the entries for these.
-        let _unused = data.waiting_data;
+        let DetailedCriticalPathEntry {
+            key,
+            mut data,
+            potential_improvement,
+            deps_finished_time,
+        } = entry;
+        let proto_entry = key.into_critical_path_entry_data(&data.extra_data);
+
+        let mut current_category: Option<(Instant, &WaitingCategory)> = None;
+
+        let waiting_for_deps_start = self.last_entry_end;
+        let waiting_for_deps_end = deps_finished_time.unwrap_or(waiting_for_deps_start);
+        if !waiting_for_deps_end
+            .duration_since(waiting_for_deps_start)
+            .is_zero()
+        {
+            self.add_simple_entry(
+                None,
+                buck2_data::critical_path_entry2::Entry::Waiting(
+                    buck2_data::critical_path_entry2::Waiting {
+                        category: Some("for_deps".to_owned()),
+                    },
+                ),
+                TimeSpan::new(waiting_for_deps_start, waiting_for_deps_end)?,
+                false,
+            )?;
+        }
+
+        // TODO(cjhopman): If data.duration.total.start() < waiting_for_deps_end, we have overlapping entries. That should be an error (as it indicates that we claim that
+        // both A depends on B and that A started before B finished). For now, ignore the overlapping span.
+        if waiting_for_deps_end > data.duration.total.start() {
+            data.duration.total = TimeSpan::new(waiting_for_deps_end, data.duration.total.end())?;
+        }
+
+        let node_start = data.duration.total.start();
+        let sentinel = (node_start, WaitingCategory::Unknown);
+
+        for (start, category) in data.waiting_data.iter().chain(std::iter::once(&sentinel)) {
+            let start = start.clamp(&waiting_for_deps_end, &node_start);
+            if let Some((prev_start, category)) = current_category.take() {
+                let duration = start.duration_since(prev_start).as_micros();
+                // We skip adding WaitingCategory::Unknown entries if they are 0 duration. We don't skip other categories because
+                // it is useful to know that we measure that time specifically so that a user knows that the adjacent waiting spans
+                // are not that (i.e. for a local action execution, maybe there'd be an Unknown span and a 0-duration ::LocalQueued
+                // span and you'd know that the Unknown time was not being spent in the local queue).
+                if duration > 0 || category != &WaitingCategory::Unknown {
+                    self.add_simple_entry(
+                        None,
+                        buck2_data::critical_path_entry2::Entry::Waiting(
+                            buck2_data::critical_path_entry2::Waiting {
+                                category: Some(category.variant_name_lowercase().to_owned()),
+                            },
+                        ),
+                        TimeSpan::new(prev_start, *start)?,
+                        false,
+                    )?;
+                }
+            }
+            match category {
+                WaitingCategory::Unknown => {}
+                _ => {
+                    current_category = Some((*start, category));
+                }
+            }
+        }
 
         self.add_entry_impl(
             None,
@@ -61,7 +124,7 @@ impl CriticalPathProtoEnhancer {
                 potential_improvement_duration: potential_improvement
                     .map(|p| p.try_into())
                     .transpose()?,
-                entry: Some(entry),
+                entry: Some(proto_entry),
                 non_critical_path_duration: None,
                 start_offset_ns: Some(
                     data.duration
