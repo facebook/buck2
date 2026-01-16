@@ -174,6 +174,18 @@ async fn log_critical_path(
                         None => continue,
                     };
                 }
+                Some(Entry::DynamicAnalysis(analysis)) => {
+                    use buck2_data::critical_path_entry2::dynamic_analysis::Target;
+
+                    critical_path.kind = "dynamic_analysis";
+
+                    critical_path.name = match &analysis.target {
+                        Some(Target::StandardTarget(t)) => Some(
+                            display::display_configured_target_label(t, target_display_options)?,
+                        ),
+                        None => continue,
+                    };
+                }
                 Some(Entry::ActionExecution(action_execution)) => {
                     use buck2_data::critical_path_entry2::action_execution::Owner;
 

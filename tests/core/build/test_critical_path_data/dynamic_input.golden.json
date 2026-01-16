@@ -8,6 +8,7 @@
   "load root//",
   "analysis root//:step_0",
   "action root//:step_1",
+  "dynamic_analysis root//:check_dynamic_input",
   "action root//:check_dynamic_input",
   "materialization root//:check_dynamic_input",
   "compute-critical-path"

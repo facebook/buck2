@@ -511,6 +511,14 @@ message CriticalPathEntry2 {
     optional string target_rule_type_name = 2;
   }
 
+  message DynamicAnalysis {
+    oneof target {
+      ConfiguredTargetLabel standard_target = 10;
+    }
+
+    uint32 index = 1;
+  }
+
   message ActionExecution {
     ActionName name = 1;
 
@@ -620,6 +628,7 @@ message CriticalPathEntry2 {
     TestExecution test_execution = 107;
     TestListing test_listing = 108;
     Waiting waiting = 109;
+    DynamicAnalysis dynamic_analysis = 110;
   }
 }
 

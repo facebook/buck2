@@ -20,8 +20,10 @@ use buck2_build_api::dynamic::calculation::DynamicLambdaCalculation;
 use buck2_build_api::dynamic::calculation::DynamicLambdaResult;
 use buck2_build_signals::node_key::BuildSignalsNodeKey;
 use buck2_build_signals::node_key::BuildSignalsNodeKeyImpl;
+use buck2_core::deferred::base_deferred_key::BaseDeferredKey;
 use buck2_core::deferred::dynamic::DynamicLambdaResultsKey;
 use buck2_core::deferred::key::DeferredHolderKey;
+use buck2_data::ToProtoMessage;
 use dice::CancellationContext;
 use dice::Demand;
 use dice::DiceComputations;
@@ -101,4 +103,22 @@ impl Key for DynamicLambdaDiceKey {
     }
 }
 
-impl BuildSignalsNodeKeyImpl for DynamicLambdaDiceKey {}
+impl BuildSignalsNodeKeyImpl for DynamicLambdaDiceKey {
+    fn critical_path_entry_proto(&self) -> Option<buck2_data::critical_path_entry2::Entry> {
+        let entry = buck2_data::critical_path_entry2::Entry::DynamicAnalysis(
+            buck2_data::critical_path_entry2::DynamicAnalysis {
+                target: match self.0.holder_key() {
+                    DeferredHolderKey::Base(BaseDeferredKey::TargetLabel(target)) => Some(
+                        buck2_data::critical_path_entry2::dynamic_analysis::Target::StandardTarget(
+                            target.as_proto(),
+                        ),
+                    ),
+                    _ => None,
+                },
+                index: self.0.dynamic_actions_index().as_u32(),
+            },
+        );
+
+        Some(entry)
+    }
+}
