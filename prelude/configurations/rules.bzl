@@ -136,5 +136,6 @@ implemented_rules = {
     "constraint": constraint_impl,
     "constraint_setting": constraint_setting_impl,
     "constraint_value": constraint_value_impl,
+    "exec_platform_marker_constraint": constraint_impl,
     "platform": platform_impl,
 }

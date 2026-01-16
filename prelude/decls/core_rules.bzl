@@ -393,6 +393,37 @@ constraint = prelude_rule(
     ),
 )
 
+exec_platform_marker_constraint = prelude_rule(
+    name = "exec_platform_marker_constraint",
+    docs = """
+        Special constraint rule for defining execution platform markers.
+        This rule has the same semantics as `constraint()` but exists to avoid
+        circular dependency issues when other constraint/constraint_value rules
+        need to depend on the exec platform marker.
+        Should only be defined once in a repo.
+    """,
+    examples = """
+        exec_platform_marker_constraint(
+            name = "is_exec_platform",
+            values = ["true", "false"],
+            default = "false",
+        )
+    """,
+    further = None,
+    attrs = (
+        # @unsorted-dict-items
+        {
+            "values": attrs.list(
+                attrs.string(),
+                doc = "List of value names.",
+            ),
+            "default": attrs.string(
+                doc = "Default value (must be one of the `values`).",
+            ),
+        }
+    ),
+)
+
 export_file = prelude_rule(
     name = "export_file",
     docs = """
@@ -1529,6 +1560,7 @@ core_rules = struct(
     constraint_setting = constraint_setting,
     constraint = constraint,
     constraint_value = constraint_value,
+    exec_platform_marker_constraint = exec_platform_marker_constraint,
     export_file = export_file,
     external_test_runner = external_test_runner,
     filegroup = filegroup,
