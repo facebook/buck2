@@ -43,7 +43,7 @@ impl CriticalPathProtoEnhancer {
         potential_improvement: Option<Duration>,
     ) -> buck2_error::Result<()> {
         // TODO(cjhopman): Add the entries for these.
-        let _ = data.waiting_data;
+        let _unused = data.waiting_data;
 
         self.add_entry_impl(
             None,

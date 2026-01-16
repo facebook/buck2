@@ -50,6 +50,7 @@ use buck2_build_api::interpreter::rule_defs::provider::builtin::external_runner_
 use buck2_build_api::interpreter::rule_defs::provider::builtin::local_resource_info::FrozenLocalResourceInfo;
 use buck2_build_api::keep_going::KeepGoing;
 use buck2_build_signals::env::NodeDuration;
+use buck2_build_signals::env::WaitingData;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::events::HasEvents;
 use buck2_common::liveliness_observer::LivelinessObserver;
@@ -993,6 +994,7 @@ impl BuckTestOrchestrator<'_> {
             Box::new(MutexClaimManager::new()),
             events.dupe(),
             liveliness_observer.dupe(),
+            WaitingData::new(),
         );
         let digest_config = dice.global_data().get_digest_config();
 
@@ -1674,6 +1676,7 @@ impl BuckTestOrchestrator<'_> {
             Box::new(MutexClaimManager::new()),
             events.dupe(),
             liveliness_observer,
+            WaitingData::new(),
         );
 
         let local_resource_target = LocalResourceTarget {

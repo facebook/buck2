@@ -41,7 +41,6 @@ use buck2_build_signals::env::DeferredBuildSignals;
 use buck2_build_signals::env::EarlyCommandTiming;
 use buck2_build_signals::env::FinishBuildSignals;
 use buck2_build_signals::env::NodeDuration;
-use buck2_build_signals::env::WaitingCategory;
 use buck2_build_signals::env::WaitingData;
 use buck2_build_signals::node_key::BuildSignalsNodeKey;
 use buck2_common::package_listing::dice::PackageListingKey;
@@ -300,8 +299,6 @@ pub(crate) struct Evaluation {
     /// Data about time spent waiting (not on critical path) during this evaluation.
     waiting_data: WaitingData,
 }
-
-static_assertions::assert_eq_size!(SmallVec<[(TimeSpan, WaitingCategory); 1]>, [usize; 5]);
 
 #[derive(Clone)]
 pub(crate) struct BuildSignalSender {

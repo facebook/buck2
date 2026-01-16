@@ -13,6 +13,7 @@ use std::sync::atomic::AtomicI64;
 use std::sync::atomic::Ordering;
 
 use async_trait::async_trait;
+use buck2_build_signals::env::WaitingData;
 use buck2_common::liveliness_observer::CancelledLivelinessGuard;
 use buck2_common::liveliness_observer::LivelinessGuard;
 use buck2_common::liveliness_observer::LivelinessObserver;
@@ -72,9 +73,10 @@ where
         events: EventDispatcher,
         liveliness_observer: Arc<dyn LivelinessObserver>,
         cancellations: &CancellationContext,
+        waiting_data: WaitingData,
     ) -> CommandExecutionResult {
         let local_manager =
-            CommandExecutionManager::new(claim_manager, events, liveliness_observer);
+            CommandExecutionManager::new(claim_manager, events, liveliness_observer, waiting_data);
         self.local
             .exec_cmd(command, local_manager, cancellations)
             .await
@@ -171,6 +173,7 @@ where
                     .and(local_execution_liveliness_observer.dupe()),
             ),
             cancellations,
+            manager.inner.waiting_data.clone(),
         );
 
         let remote_manager = CommandExecutionManager::new(
@@ -181,6 +184,7 @@ where
             )),
             manager.inner.events.dupe(),
             manager.inner.liveliness_observer.dupe(),
+            manager.inner.waiting_data.clone(),
         )
         .with_intend_to_fallback_on_failure(fallback_on_failure);
         let was_result_delayed = remote_manager.inner.was_result_delayed.dupe();

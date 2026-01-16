@@ -153,6 +153,7 @@ impl Action for CopyAction {
     async fn execute(
         &self,
         ctx: &mut dyn ActionExecutionCtx,
+        waiting_data: WaitingData,
     ) -> Result<(ActionOutputs, ActionExecutionMetadata), ExecuteError> {
         let (input, src_value) = ctx
             .artifact_values(self.input())
@@ -233,7 +234,7 @@ impl Action for CopyAction {
                 execution_kind: ActionExecutionKind::Simple,
                 timing: ActionExecutionTimingData::default(),
                 input_files_bytes: None,
-                waiting_data: WaitingData::new(),
+                waiting_data,
             },
         ))
     }

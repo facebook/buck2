@@ -23,6 +23,7 @@ rust_unittest(
         "//buck2/app/buck2_anon_target:buck2_anon_target",
         "//buck2/app/buck2_artifact:buck2_artifact",
         "//buck2/app/buck2_build_api:buck2_build_api",
+        "//buck2/app/buck2_build_signals:buck2_build_signals",
         "//buck2/app/buck2_certs:buck2_certs",
         "//buck2/app/buck2_common:buck2_common",
         "//buck2/app/buck2_configured:buck2_configured",

@@ -72,7 +72,6 @@ use buck2_execute::execute::cache_uploader::force_cache_upload;
 use buck2_execute::execute::command_executor::ActionExecutionTimingData;
 use buck2_execute::execute::dep_file_digest::DepFileDigest;
 use buck2_execute::execute::environment_inheritance::EnvironmentInheritance;
-use buck2_execute::execute::manager::CommandExecutionManager;
 use buck2_execute::execute::request::ActionMetadataBlob;
 use buck2_execute::execute::request::CommandExecutionInput;
 use buck2_execute::execute::request::CommandExecutionOutput;
@@ -967,7 +966,7 @@ impl RunAction {
         result: CommandExecutionResult,
         dep_file_bundle: &DepFileBundle,
         remote_dep_file_key: &DepFileDigest,
-    ) -> buck2_error::Result<ControlFlow<CommandExecutionResult, CommandExecutionManager>> {
+    ) -> buck2_error::Result<ControlFlow<CommandExecutionResult, ()>> {
         // If it's served by the regular action cache no need to verify anything here.
         if !result.was_served_by_remote_dep_file_cache() {
             return Ok(ControlFlow::Break(result));
@@ -1001,12 +1000,13 @@ impl RunAction {
             }
         }
         // Continue through other options below
-        Ok(ControlFlow::Continue(ctx.command_execution_manager()))
+        Ok(ControlFlow::Continue(()))
     }
 
     async fn execute_inner(
         &self,
         ctx: &mut dyn ActionExecutionCtx,
+        waiting_data: WaitingData,
     ) -> Result<ExecuteResult, ExecuteError> {
         let incremental_action_ignore_tags = self
             .inner
@@ -1042,7 +1042,7 @@ impl RunAction {
         // Prepare the action, check the action cache, fully check the local dep file cache if needed, then execute the command
         let re_outputs_required = ctx.run_action_knobs().re_outputs_required;
         let prepared_action = ctx.prepare_action(&req, re_outputs_required)?;
-        let manager = ctx.command_execution_manager();
+        let manager = ctx.command_execution_manager(waiting_data);
 
         let action_cache_result = ctx.action_cache(manager, &req, &prepared_action).await;
 
@@ -1090,7 +1090,10 @@ impl RunAction {
                                 &remote_dep_file_key,
                             )
                             .await?;
-                        (req, res)
+                        (
+                            req,
+                            res.map_continue(|_| ctx.command_execution_manager(WaitingData::new())),
+                        )
                     } else {
                         (req, remote_dep_file_result)
                     }
@@ -1476,6 +1479,7 @@ impl Action for RunAction {
     async fn execute(
         &self,
         ctx: &mut dyn ActionExecutionCtx,
+        waiting_data: WaitingData,
     ) -> Result<(ActionOutputs, ActionExecutionMetadata), ExecuteError> {
         // Check offline cache first if parameter enabled
         if self.inner.allow_offline_output_cache
@@ -1493,7 +1497,7 @@ impl Action for RunAction {
             executor_preference,
             action_and_blobs,
             input_files_bytes,
-        ) = match self.execute_inner(ctx).await? {
+        ) = match self.execute_inner(ctx, waiting_data).await? {
             ExecuteResult::LocalDepFileHit(outputs, metadata) => {
                 return Ok((outputs, metadata));
             }

@@ -221,6 +221,7 @@ impl Action for SymlinkedDirAction {
     async fn execute(
         &self,
         ctx: &mut dyn ActionExecutionCtx,
+        waiting_data: WaitingData,
     ) -> Result<(ActionOutputs, ActionExecutionMetadata), ExecuteError> {
         let fs = ctx.fs().fs();
         let temp_output = ctx.fs().resolve_build(
@@ -302,7 +303,7 @@ impl Action for SymlinkedDirAction {
                 execution_kind: ActionExecutionKind::Simple,
                 timing: ActionExecutionTimingData::default(),
                 input_files_bytes: None,
-                waiting_data: WaitingData::new(),
+                waiting_data,
             },
         ))
     }

@@ -183,6 +183,7 @@ impl Action for CasArtifactAction {
     async fn execute(
         &self,
         ctx: &mut dyn ActionExecutionCtx,
+        waiting_data: WaitingData,
     ) -> Result<(ActionOutputs, ActionExecutionMetadata), ExecuteError> {
         // If running in offline environment, try to restore from cached outputs.
         if ctx.run_action_knobs().use_network_action_output_cache {
@@ -322,7 +323,7 @@ impl Action for CasArtifactAction {
                 execution_kind: ActionExecutionKind::Deferred,
                 timing: ActionExecutionTimingData::default(),
                 input_files_bytes: None,
-                waiting_data: WaitingData::new(),
+                waiting_data,
             },
         ))
     }

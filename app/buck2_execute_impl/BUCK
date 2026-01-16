@@ -52,6 +52,7 @@ rust_library(
         "fbsource//third-party/rust:zstd",
         "//buck2/allocative/allocative:allocative",
         "//buck2/app/buck2_action_metadata_proto:buck2_action_metadata_proto",
+        "//buck2/app/buck2_build_signals:buck2_build_signals",
         "//buck2/app/buck2_cli_proto:buck2_cli_proto",
         "//buck2/app/buck2_common:buck2_common",
         "//buck2/app/buck2_core:buck2_core",

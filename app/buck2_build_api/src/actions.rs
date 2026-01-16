@@ -34,6 +34,7 @@ use async_trait::async_trait;
 use buck2_artifact::actions::key::ActionKey;
 use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_artifact::artifact::build_artifact::BuildArtifact;
+use buck2_build_signals::env::WaitingData;
 use buck2_common::io::IoProvider;
 use buck2_core::category::Category;
 use buck2_core::category::CategoryRef;
@@ -134,6 +135,7 @@ pub trait Action: Allocative + Debug + Send + Sync + 'static {
     async fn execute(
         &self,
         ctx: &mut dyn ActionExecutionCtx,
+        waiting_data: WaitingData,
     ) -> Result<(ActionOutputs, ActionExecutionMetadata), ExecuteError>;
 
     /// A machine-readable category for this action, intended to be used when analyzing actions outside of buck2 itself.
@@ -237,7 +239,7 @@ pub trait ActionExecutionCtx: Send + Sync {
 
     fn events(&self) -> &EventDispatcher;
 
-    fn command_execution_manager(&self) -> CommandExecutionManager;
+    fn command_execution_manager(&self, waiting_data: WaitingData) -> CommandExecutionManager;
 
     fn mergebase(&self) -> &Mergebase;
 

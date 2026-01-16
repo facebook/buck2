@@ -167,6 +167,7 @@ impl Action for WriteMacrosToFileAction {
     async fn execute(
         &self,
         ctx: &mut dyn ActionExecutionCtx,
+        waiting_data: WaitingData,
     ) -> Result<(ActionOutputs, ActionExecutionMetadata), ExecuteError> {
         let mut execution_start = None;
 
@@ -241,7 +242,7 @@ impl Action for WriteMacrosToFileAction {
                 execution_kind: ActionExecutionKind::Simple,
                 timing: ActionExecutionTimingData { wall_time },
                 input_files_bytes: None,
-                waiting_data: WaitingData::new(),
+                waiting_data,
             },
         ))
     }

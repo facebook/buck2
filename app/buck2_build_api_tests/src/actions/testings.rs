@@ -21,6 +21,7 @@ use buck2_build_api::actions::execute::action_executor::ActionExecutionMetadata;
 use buck2_build_api::actions::execute::action_executor::ActionOutputs;
 use buck2_build_api::actions::execute::error::ExecuteError;
 use buck2_build_api::artifact_groups::ArtifactGroup;
+use buck2_build_signals::env::WaitingData;
 use buck2_core::category::Category;
 use buck2_core::category::CategoryRef;
 use buck2_execute::execute::request::CommandExecutionOutput;
@@ -137,6 +138,7 @@ impl Action for SimpleAction {
     async fn execute(
         &self,
         ctx: &mut dyn ActionExecutionCtx,
+        _waiting_data: WaitingData,
     ) -> Result<(ActionOutputs, ActionExecutionMetadata), ExecuteError> {
         let req = CommandExecutionRequest::new(
             vec![],
@@ -159,7 +161,7 @@ impl Action for SimpleAction {
         );
 
         let prepared_action = ctx.prepare_action(&req, true)?;
-        let manager = ctx.command_execution_manager();
+        let manager = ctx.command_execution_manager(WaitingData::new());
         let result = ctx.exec_cmd(manager, &req, &prepared_action).await;
         let (outputs, meta) = ctx.unpack_command_execution_result(
             req.executor_preference,

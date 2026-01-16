@@ -256,6 +256,7 @@ impl Action for DownloadFileAction {
     async fn execute(
         &self,
         ctx: &mut dyn ActionExecutionCtx,
+        waiting_data: WaitingData,
     ) -> Result<(ActionOutputs, ActionExecutionMetadata), ExecuteError> {
         // Early return - if this path exists, it's because we're running in a
         // special offline mode where the HEAD request below will likely fail.
@@ -361,7 +362,7 @@ impl Action for DownloadFileAction {
                 execution_kind,
                 timing: ActionExecutionTimingData::default(),
                 input_files_bytes: None,
-                waiting_data: WaitingData::new(),
+                waiting_data,
             },
         ))
     }

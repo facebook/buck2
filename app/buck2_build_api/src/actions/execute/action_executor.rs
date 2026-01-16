@@ -387,11 +387,12 @@ impl ActionExecutionCtx for BuckActionExecutionContext<'_> {
         &self.executor.events
     }
 
-    fn command_execution_manager(&self) -> CommandExecutionManager {
+    fn command_execution_manager(&self, waiting_data: WaitingData) -> CommandExecutionManager {
         CommandExecutionManager::new(
             Box::new(MutexClaimManager::new()),
             self.executor.events.dupe(),
             NoopLivelinessObserver::create(),
+            waiting_data,
         )
     }
 
@@ -678,6 +679,7 @@ impl ActionExecutionCtx for BuckActionExecutionContext<'_> {
 impl BuckActionExecutor {
     pub(crate) async fn execute(
         &self,
+        waiting_data: WaitingData,
         inputs: IndexMap<ArtifactGroup, ArtifactGroupValues>,
         action: &RegisteredAction,
         cancellations: &CancellationContext,
@@ -699,7 +701,7 @@ impl BuckActionExecutor {
                 cancellations,
             };
 
-            let (result, metadata) = action.execute(&mut ctx).await?;
+            let (result, metadata) = action.execute(&mut ctx, waiting_data).await?;
 
             // Check that all the outputs are the right output_type
             for x in outputs.iter() {
@@ -959,6 +961,7 @@ mod tests {
             async fn execute(
                 &self,
                 ctx: &mut dyn ActionExecutionCtx,
+                waiting_data: WaitingData,
             ) -> Result<(ActionOutputs, ActionExecutionMetadata), ExecuteError> {
                 self.ran.store(true, Ordering::SeqCst);
 
@@ -994,7 +997,7 @@ mod tests {
 
                 // on fake executor, this does nothing
                 let prepared_action = ctx.prepare_action(&req, true)?;
-                let manager = ctx.command_execution_manager();
+                let manager = ctx.command_execution_manager(waiting_data);
                 let res = ctx.exec_cmd(manager, &req, &prepared_action).await;
 
                 // Must write out the things we promised to do
@@ -1059,7 +1062,12 @@ mod tests {
         );
         let res = with_dispatcher_async(
             EventDispatcher::null(),
-            executor.execute(Default::default(), &action, CancellationContext::testing()),
+            executor.execute(
+                WaitingData::new(),
+                Default::default(),
+                &action,
+                CancellationContext::testing(),
+            ),
         )
         .await
         .0

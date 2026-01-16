@@ -108,6 +108,7 @@ async fn build_action_no_redirect(
     action: Arc<RegisteredAction>,
 ) -> buck2_error::Result<ActionOutputs> {
     let inputs = action.inputs()?;
+    let waiting_data = WaitingData::new();
     let ensured_inputs = if inputs.is_empty() {
         IndexMap::new()
     } else {
@@ -166,6 +167,7 @@ async fn build_action_no_redirect(
         ctx,
         cancellation,
         &executor,
+        waiting_data,
         ensured_inputs,
         action,
         target_rule_type_name,
@@ -208,13 +210,15 @@ async fn build_action_inner(
     ctx: &mut DiceComputations<'_>,
     cancellation: &CancellationContext,
     executor: &BuckActionExecutor,
+    waiting_data: WaitingData,
     ensured_inputs: IndexMap<ArtifactGroup, ArtifactGroupValues>,
     action: &Arc<RegisteredAction>,
     target_rule_type_name: Option<String>,
 ) -> (ActionExecutionData, Box<buck2_data::ActionExecutionEnd>) {
     let is_eligible_for_dedupe = is_action_eligible_for_dedupe(action, &ensured_inputs);
-    let (execute_result, command_reports) =
-        executor.execute(ensured_inputs, action, cancellation).await;
+    let (execute_result, command_reports) = executor
+        .execute(waiting_data, ensured_inputs, action, cancellation)
+        .await;
 
     let allow_omit_details = execute_result.is_ok();
 

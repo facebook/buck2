@@ -69,6 +69,7 @@ impl CommandExecutionManager {
         claim_manager: Box<dyn ClaimManager>,
         events: EventDispatcher,
         liveliness_observer: Arc<dyn LivelinessObserver>,
+        waiting_data: WaitingData,
     ) -> Self {
         Self {
             inner: Box::new(CommandExecutionManagerInner {
@@ -78,7 +79,7 @@ impl CommandExecutionManager {
                 intend_to_fallback_on_failure: false,
                 execution_kind: None,
                 was_result_delayed: Arc::new(AtomicBool::new(false)),
-                waiting_data: WaitingData::new(),
+                waiting_data,
             }),
         }
     }
