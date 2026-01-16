@@ -161,12 +161,6 @@ impl ChromeTraceFirstPass {
             }
             buck2_data::buck_event::Data::Instant(instant) => match instant.data.as_ref() {
                 Some(buck2_data::instant_event::Data::BuildGraphInfo(info)) => {
-                    self.critical_path_action_keys = info
-                        .critical_path
-                        .iter()
-                        .map(|entry| entry.action_key.clone().unwrap())
-                        .collect();
-
                     self.critical_path_span_ids = info
                         .critical_path2
                         .iter()

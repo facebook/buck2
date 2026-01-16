@@ -590,7 +590,6 @@ where
         })?;
 
         instant_event(buck2_data::BuildGraphExecutionInfo {
-            critical_path: Vec::new(),
             critical_path2,
             metadata: ctx.metadata,
             command_name: Some(ctx.command_name),

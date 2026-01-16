@@ -694,8 +694,8 @@ message TopLevelTargetCriticalPath {
 
 // Sent once per build.
 message BuildGraphExecutionInfo {
-  // The actions that made up the critical path, in chronological order.
-  repeated CriticalPathEntry critical_path = 1;
+  reserved 1;
+
   // Metadata associated with this build. Values in this map have no particular
   // semantics and are useful for logging and telemetry only.
   map<string, string> metadata = 2;

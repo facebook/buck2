@@ -1735,12 +1735,6 @@ impl InvocationRecorder {
     ) -> buck2_error::Result<()> {
         let mut duration = Duration::default();
 
-        for node in &info.critical_path {
-            if let Some(d) = &node.duration {
-                duration += d.try_into_duration()?;
-            }
-        }
-
         for node in &info.critical_path2 {
             if let Some(d) = &node.duration {
                 duration += d.try_into_duration()?;
