@@ -55,6 +55,7 @@ use buck2_events::span::SpanId;
 use buck2_interpreter_for_build::interpreter::calculation::InterpreterResultsKey;
 use buck2_interpreter_for_build::interpreter::calculation::InterpreterResultsKeyActivationData;
 use buck2_node::nodes::eval_result::EvaluationResult;
+use buck2_util::time_span::TimeSpan;
 use dice::ActivationData;
 use dice::ActivationTracker;
 use dice::DynKey;
@@ -776,28 +777,24 @@ impl DetailedCriticalPath {
             }
             .into()
         };
+
         let mut current_kind = "buckd_command_init";
         let mut current_start = early_command_timing.command_start;
         for (span_start, kind) in &early_command_timing.early_spans {
             enhancer.add_simple_entry(
+                None,
                 generic_entry(current_kind),
-                current_start,
-                span_start
-                    .checked_duration_since(current_start)
-                    .unwrap_or(Duration::ZERO),
-                Duration::ZERO,
+                TimeSpan::new(current_start, *span_start)?,
+                true,
             )?;
             current_kind = kind;
             current_start = *span_start;
         }
         enhancer.add_simple_entry(
+            None,
             generic_entry(current_kind),
-            current_start,
-            early_command_timing
-                .early_command_end
-                .checked_duration_since(current_start)
-                .unwrap_or(Duration::ZERO),
-            Duration::ZERO,
+            TimeSpan::new(current_start, early_command_timing.early_command_end)?,
+            true,
         )?;
         Ok(())
     }
@@ -820,12 +817,11 @@ impl DetailedCriticalPath {
             }
         }
 
-        let elapsed_compute_critical_path = Instant::now() - critical_path_compute_start;
         enhancer.add_simple_entry(
+            Some("unknown_final_work"),
             buck2_data::critical_path_entry2::ComputeCriticalPath {}.into(),
-            critical_path_compute_start,
-            elapsed_compute_critical_path,
-            Duration::ZERO,
+            TimeSpan::new(critical_path_compute_start, Instant::now())?,
+            true,
         )?;
         Ok(enhancer.into_entries())
     }

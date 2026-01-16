@@ -553,6 +553,15 @@ message CriticalPathEntry2 {
 
   message ComputeCriticalPath {}
 
+  /// Represents time gaps between critical path entries.
+  /// These entries are automatically inserted when there's a gap between
+  /// consecutive critical path entries, helping identify unaccounted time
+  /// in the build process.
+  message Waiting {
+    /// Optional category to help identify the source of the waiting time
+    optional string category = 1;
+  }
+
   /// Tracks time spent on the critical path (i.e. not accounted by other
   /// categories) such as early command processing (time spent synchronizing and
   /// waiting for concurrent commands)
@@ -610,6 +619,7 @@ message CriticalPathEntry2 {
     GenericEntry generic_entry = 106;
     TestExecution test_execution = 107;
     TestListing test_listing = 108;
+    Waiting waiting = 109;
   }
 }
 

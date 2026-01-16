@@ -232,6 +232,10 @@ async fn log_critical_path(
                     critical_path.kind = &generic_entry.kind;
                     critical_path.name = None;
                 }
+                Some(Entry::Waiting(entry)) => {
+                    critical_path.kind = "waiting";
+                    critical_path.name = entry.category.clone();
+                }
                 Some(Entry::TestExecution(test_execution)) => {
                     critical_path.kind = "test-execution";
                     critical_path.name = match &test_execution.target_label {

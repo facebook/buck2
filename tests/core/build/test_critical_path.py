@@ -40,6 +40,7 @@ async def do_critical_path(buck: Buck) -> None:
     trimmed_critical_path = [
         CriticalPathLog(e[0], e[1].split(" ")[0], e[2], e[3], e[4], e[5], e[6], e[7])
         for e in critical_path
+        if e[0] not in ("waiting")
     ]
 
     expected = [
@@ -59,7 +60,9 @@ async def do_critical_path(buck: Buck) -> None:
         ("materialization", "root//:step_3"),
         ("compute-critical-path", ""),
     ]
-    assert len(critical_path) == len(expected)
+
+    # Check this second because the loop above gives a better error when one is wrong.
+    assert len(trimmed_critical_path) == len(expected)
 
     for s, e in zip(reversed(trimmed_critical_path), reversed(expected)):
         if s.kind == "action":
@@ -92,6 +95,8 @@ async def test_critical_path_json(buck: Buck) -> None:
     )
     critical_path = [json.loads(e) for e in critical_path]
 
+    trimmed_critical_path = [e for e in critical_path if e["kind"] not in ("waiting")]
+
     expected = [
         ("buckd_command_init", None),
         ("file-watcher-wait", None),
@@ -109,13 +114,14 @@ async def test_critical_path_json(buck: Buck) -> None:
         ("materialization", "root//:step_3"),
         ("compute-critical-path", None),
     ]
-    assert len(critical_path) == len(expected)
+    assert len(trimmed_critical_path) == len(expected)
 
-    for critical, exp in zip(reversed(critical_path), reversed(expected)):
+    for critical, exp in zip(reversed(trimmed_critical_path), reversed(expected)):
         assert "kind" in critical
         assert critical["kind"] == exp[0]
 
         if critical["kind"] in (
+            "waiting",
             "compute-critical-path",
             "file-watcher-wait",
             "other-command-start-overhead",
@@ -182,6 +188,9 @@ async def test_dynamic_input(buck: Buck) -> None:
     for critical in critical_path:
         assert "kind" in critical
         t = critical["kind"]
+
+        if t in ("waiting"):
+            continue
 
         if critical["kind"] in (
             "compute-critical-path",
