@@ -283,6 +283,13 @@ fn attr_module(registry: &mut GlobalsBuilder) {
         )))
     }
 
+    /// Takes a target label from the user and registers it as a plugin dependency.
+    ///
+    /// Plugin dependencies are propagated as unconfigured target labels up the build graph,
+    /// then configured as exec deps when used by a rule with `uses_plugins`. This is useful
+    /// for dependencies like Rust proc macros that need to be accessible to transitive dependents.
+    ///
+    /// See the [`plugins`](../plugins) namespace documentation for a full explanation and examples.
     fn plugin_dep<'v>(
         #[starlark(require = named)] kind: PluginKindArg,
         #[starlark(require = named)] default: Option<Value<'v>>,
@@ -303,6 +310,9 @@ fn attr_module(registry: &mut GlobalsBuilder) {
     ///
     /// If supplied the `providers` argument ensures that specific providers will be present
     /// on the dependency.
+    ///
+    /// The `pulls_plugins` and `pulls_and_pushes_plugins` parameters control plugin propagation.
+    /// See the [`plugins`](../plugins) namespace documentation for a full explanation.
     fn dep<'v>(
         #[starlark(require = named, default = UnpackListOrTuple::default())]
         providers: UnpackListOrTuple<Value<'v>>,

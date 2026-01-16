@@ -182,12 +182,82 @@ starlark_simple_value!(AllPlugins);
 #[starlark_value(type = "AllPlugins")]
 impl<'v> StarlarkValue<'v> for AllPlugins {}
 
+/// This is a global namespace, to allow the creation and management
+/// of plugin kinds for plugin dependencies.
+///
+/// Plugin dependencies solve a specific problem: when a dependency needs to be available to
+/// transitive dependents, but each dependent may have a different execution platform. For
+/// example, consider [Rust proc macros](https://doc.rust-lang.org/reference/procedural-macros.html)
+/// with a dependency chain `bin -> lib -> proc_macro`:
+///
+/// - The proc macro must be available when compiling both `lib` and `bin`
+/// - But `bin` and `lib` might have different execution platforms
+/// - If the proc macro was configured as an exec dep of `lib`, it would be configured for
+///   `lib`'s exec platform, which may be wrong for `bin`
+///
+/// Plugins solve this by propagating **unconfigured** target labels up the build graph.
+/// When a rule declares `uses_plugins = [MyKind]`, those unconfigured targets become exec
+/// deps configured for that specific target's execution platform. This ensures each target gets
+/// plugins configured correctly for its own exec platform.
+///
+/// Example showing the `bin -> lib -> proc_macro` chain:
+///
+/// ```python
+/// # Define a plugin kind for Rust proc macros
+/// RustProcMacroPlugin = plugins.kind()
+///
+/// # Alias rule that introduces a proc macro into the plugin system
+/// rust_proc_macro_alias = rule(
+///     impl = _proc_macro_alias_impl,
+///     attrs = {
+///         "actual": attrs.plugin_dep(kind = RustProcMacroPlugin),
+///     },
+/// )
+///
+/// # Library rule: uses plugins and propagates them to rdeps
+/// rust_library = rule(
+///     impl = _lib_impl,
+///     attrs = {
+///         "deps": attrs.list(attrs.dep(pulls_and_pushes_plugins = [RustProcMacroPlugin])),
+///     },
+///     uses_plugins = [RustProcMacroPlugin],  # Access via ctx.plugins[RustProcMacroPlugin]
+/// )
+///
+/// # Binary rule: uses plugins but doesn't propagate (terminal)
+/// rust_binary = rule(
+///     impl = _bin_impl,
+///     attrs = {
+///         "deps": attrs.list(attrs.dep(pulls_plugins = [RustProcMacroPlugin])),
+///     },
+///     uses_plugins = [RustProcMacroPlugin],
+/// )
+///
+/// # TARGETS file:
+/// rust_proc_macro_alias(name = "my_derive", actual = ":my_derive_impl")
+/// rust_library(name = "lib", deps = [":my_derive"])
+/// rust_binary(name = "bin", deps = [":lib"])
+/// # Result: Both :lib and :bin get :my_derive_impl configured for their own exec platforms
+/// ```
 #[starlark_module]
 fn register_plugins_methods(r: &mut GlobalsBuilder) {
     /// Create a new plugin kind.
     ///
-    /// The value returned should always be immediately bound to a global, like `MyPluginKind =
-    /// plugins.kind()`
+    /// Plugin kinds are identifiers used to categorize plugin dependencies. They enable
+    /// unconfigured target labels to be propagated up the build graph, which are then
+    /// configured as exec deps when used by a rule with `uses_plugins`. This ensures
+    /// each rule gets plugins configured for its own execution platform.
+    ///
+    /// The value returned should always be immediately bound to a global, like:
+    ///
+    /// ```python
+    /// RustProcMacro = plugins.kind()
+    /// ```
+    ///
+    /// Once created, a plugin kind can be used with:
+    /// - `attrs.plugin_dep(kind = MyKind)` to declare a direct plugin dependency
+    /// - `attrs.dep(pulls_plugins = [MyKind])` to pull plugins from deps without propagating
+    /// - `attrs.dep(pulls_and_pushes_plugins = [MyKind])` to pull and propagate plugins to rdeps
+    /// - `rule(..., uses_plugins = [MyKind])` to access plugins via `ctx.plugins[MyKind]`
     fn kind<'v>(eval: &mut Evaluator<'v, '_, '_>) -> starlark::Result<StarlarkPluginKind> {
         let cell_path = BuildContext::from_context(eval)?
             .starlark_path()
