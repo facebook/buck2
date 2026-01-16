@@ -10,18 +10,22 @@
 
 //! Processing and reporting the the results of the build
 
+use std::cell::Cell;
 use std::collections::BTreeSet;
 
+use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_build_api::build::BuildProviderType;
 use buck2_build_api::build::BuildTargetResult;
 use buck2_build_api::build::ConfiguredBuildTargetResult;
 use buck2_build_api::build::ProviderArtifacts;
 use buck2_build_api::interpreter::rule_defs::cmd_args::AbsCommandLineContext;
+use buck2_build_api::interpreter::rule_defs::cmd_args::ArtifactPathMapper;
 use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineArgLike;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::run_info::FrozenRunInfo;
 use buck2_certs::validate::CertState;
 use buck2_certs::validate::check_cert_state;
 use buck2_core::configuration::compatibility::MaybeCompatible;
+use buck2_core::content_hash::ContentBasedPathHash;
 use buck2_core::execution_types::executor_config::PathSeparatorKind;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_core::pattern::pattern::Modifiers;
@@ -217,14 +221,24 @@ impl<'a> ResultReporter<'a> {
                 let executor_fs = ExecutorFs::new(self.artifact_fs, path_separator);
                 let mut cli = Vec::<String>::new();
                 let mut ctx = AbsCommandLineContext::new(&executor_fs);
-                match runinfo.add_to_command_line(&mut cli, &mut ctx, &artifact_path_mapping) {
-                    Ok(_) => cli,
-                    Err(_) => {
-                        // If we have action errors, then it's possible that we weren't able to produce
-                        // the run info because we couldn't resolve a content-based path, and that's okay
-                        // because we don't expect to be able to use it anyway.
-                        Vec::new()
-                    }
+                let error_counting_artifact_path_mapper =
+                    ErrorCountingArtifactPathMapperImpl::new(artifact_path_mapping);
+                runinfo.add_to_command_line(
+                    &mut cli,
+                    &mut ctx,
+                    &error_counting_artifact_path_mapper,
+                )?;
+                if error_counting_artifact_path_mapper
+                    .content_based_paths_with_no_hash
+                    .get()
+                    > 0
+                {
+                    // If we have action errors, then it's possible that we weren't able to produce
+                    // the run info because we couldn't resolve a content-based path, and that's okay
+                    // because we don't expect to be able to use it anyway.
+                    Vec::new()
+                } else {
+                    cli
                 }
             } else {
                 Vec::new()
@@ -261,5 +275,34 @@ impl<'a> ResultReporter<'a> {
             }),
         }
         Ok(())
+    }
+}
+
+pub struct ErrorCountingArtifactPathMapperImpl<'a> {
+    pub map: FxHashMap<&'a Artifact, ContentBasedPathHash>,
+    pub content_based_paths_with_no_hash: Cell<usize>,
+    pub scratch_content_based_path_hash: ContentBasedPathHash,
+}
+
+impl<'a> ErrorCountingArtifactPathMapperImpl<'a> {
+    pub fn new(map: FxHashMap<&'a Artifact, ContentBasedPathHash>) -> Self {
+        Self {
+            map,
+            content_based_paths_with_no_hash: Cell::new(0),
+            scratch_content_based_path_hash: ContentBasedPathHash::Scratch,
+        }
+    }
+}
+
+impl ArtifactPathMapper for ErrorCountingArtifactPathMapperImpl<'_> {
+    fn get(&self, artifact: &Artifact) -> Option<&ContentBasedPathHash> {
+        let content_based_path_hash = self.map.get(artifact);
+        if artifact.has_content_based_path() && content_based_path_hash.is_none() {
+            self.content_based_paths_with_no_hash
+                .set(self.content_based_paths_with_no_hash.get() + 1);
+            // We don't have a hash, but we want path resolution to succeed, so we use a scratch hash.
+            return Some(&self.scratch_content_based_path_hash);
+        }
+        content_based_path_hash
     }
 }
