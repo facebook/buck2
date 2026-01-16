@@ -18,7 +18,9 @@ use starlark::coerce::Coerce;
 use starlark::environment::GlobalsBuilder;
 use starlark::values::Freeze;
 use starlark::values::FrozenRef;
+use starlark::values::FrozenStringValue;
 use starlark::values::FrozenValue;
+use starlark::values::StringValue;
 use starlark::values::Trace;
 use starlark::values::Value;
 use starlark::values::ValueLifetimeless;
@@ -63,6 +65,10 @@ pub struct ExecutionPlatformRegistrationInfoGen<V: ValueLifetimeless> {
     ///   platform from the `platforms` list matches.
     // TODO(nga): specify type more precisely.
     fallback: ValueOfUncheckedGeneric<V, FrozenValue>,
+    /// Optional marker constraint that identifies platforms as execution platforms.
+    /// If set, every execution platform in `platforms` will be marked with this constraint,
+    /// allowing to distinguish execution platforms from target platforms.
+    exec_marker_constraint: ValueOfUncheckedGeneric<V, Option<FrozenStringValue>>,
 }
 
 impl FrozenExecutionPlatformRegistrationInfo {
@@ -114,6 +120,15 @@ impl FrozenExecutionPlatformRegistrationInfo {
             .into()),
         }
     }
+
+    pub fn exec_marker_constraint(&self) -> Option<&str> {
+        let value = self.exec_marker_constraint.get().to_value();
+        if value.is_none() {
+            None
+        } else {
+            value.unpack_str()
+        }
+    }
 }
 
 #[starlark_module]
@@ -124,12 +139,19 @@ fn info_creator(globals: &mut GlobalsBuilder) {
             ListType<ValueTypedComplex<'v, ExecutionPlatformInfo<'v>>>,
         >,
         #[starlark(require = named, default = NoneOr::None)] fallback: NoneOr<Value<'v>>,
+        #[starlark(require = named, default = NoneOr::None)] exec_marker_constraint: NoneOr<
+            StringValue<'v>,
+        >,
     ) -> starlark::Result<ExecutionPlatformRegistrationInfo<'v>> {
         Ok(ExecutionPlatformRegistrationInfo {
             platforms: ValueOfUnchecked::new(platforms.value),
             fallback: ValueOfUnchecked::new(match fallback {
                 NoneOr::None => Value::new_none(),
                 NoneOr::Other(v) => v,
+            }),
+            exec_marker_constraint: ValueOfUnchecked::new(match exec_marker_constraint {
+                NoneOr::None => Value::new_none(),
+                NoneOr::Other(v) => v.to_value(),
             }),
         })
     }
