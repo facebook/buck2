@@ -270,17 +270,9 @@ AndroidLibraryIntellijInfo = provider(
     },
 )
 
-AndroidPrebuiltAarIntellijInfo = provider(
+AndroidResourceRDotInfo = provider(
     # @unsorted-dict-items
-    doc = "Information about android prebuilt aar that is required for Intellij project generation",
-    fields = {
-        "dummy_r_dot_java": provider_field(Artifact | None, default = None),
-    },
-)
-
-AndroidResourceRDotJavaInfo = provider(
-    # @unsorted-dict-items
-    doc = "Exposes the compiled R.jar for android_resource targets, used for autodeps indexing",
+    doc = "Exposes the compiled R.jar for android_prebuilt_aar and android_resource targets",
     fields = {
         "dummy_r_dot_java": provider_field(Artifact | None, default = None),
     },

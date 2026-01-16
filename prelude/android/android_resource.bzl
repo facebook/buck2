@@ -10,7 +10,7 @@ load("@prelude//java:java_providers.bzl", "derive_compiling_deps_wrapper", "get_
 load("@prelude//java:java_toolchain.bzl", "JavaToolchainInfo")
 load("@prelude//utils:argfile.bzl", "argfile")
 load("@prelude//utils:expect.bzl", "expect")
-load(":android_providers.bzl", "AndroidResourceInfo", "AndroidResourceRDotJavaInfo", "ExportedAndroidResourceInfo", "RESOURCE_PRIORITY_NORMAL", "merge_android_packageable_info")
+load(":android_providers.bzl", "AndroidResourceInfo", "AndroidResourceRDotInfo", "ExportedAndroidResourceInfo", "RESOURCE_PRIORITY_NORMAL", "merge_android_packageable_info")
 load(":android_toolchain.bzl", "AndroidToolchainInfo")
 load(":r_dot_java.bzl", "get_dummy_r_dot_java")
 
@@ -88,10 +88,10 @@ def android_resource_impl(ctx: AnalysisContext) -> list[Provider]:
             [resource_info],
             None,
         )
-        android_resource_r_dot_java_info = AndroidResourceRDotJavaInfo(
+        android_resource_r_dot_info = AndroidResourceRDotInfo(
             dummy_r_dot_java = dummy_r_dot_java_info.library_output.abi,
         )
-        providers.append(android_resource_r_dot_java_info)
+        providers.append(android_resource_r_dot_info)
 
     providers.append(DefaultInfo(default_output = default_output, sub_targets = sub_targets))
     compiling_deps = derive_compiling_deps_wrapper(ctx.actions, None, ctx.attrs.deps)

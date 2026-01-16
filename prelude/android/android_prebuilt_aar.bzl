@@ -6,7 +6,7 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
-load("@prelude//android:android_providers.bzl", "AndroidPrebuiltAarIntellijInfo", "AndroidResourceInfo", "PrebuiltNativeLibraryDir", "RESOURCE_PRIORITY_LOW", "merge_android_packageable_info")
+load("@prelude//android:android_providers.bzl", "AndroidResourceInfo", "AndroidResourceRDotInfo", "PrebuiltNativeLibraryDir", "RESOURCE_PRIORITY_LOW", "merge_android_packageable_info")
 load("@prelude//android:android_resource.bzl", "aapt2_compile", "extract_package_from_manifest")
 load("@prelude//android:android_toolchain.bzl", "AndroidToolchainInfo")
 load("@prelude//android:r_dot_java.bzl", "get_dummy_r_dot_java")
@@ -83,7 +83,7 @@ def android_prebuilt_aar_impl(ctx: AnalysisContext) -> list[Provider]:
         None,
     )
 
-    android_prebuilt_aar_intellij_info = AndroidPrebuiltAarIntellijInfo(
+    android_resource_r_dot_info = AndroidResourceRDotInfo(
         dummy_r_dot_java = dummy_r_dot_java_info.library_output.abi,
     )
 
@@ -129,7 +129,7 @@ def android_prebuilt_aar_impl(ctx: AnalysisContext) -> list[Provider]:
         linkable_graph,
         template_placeholder_info,
         java_library_intellij_info,
-        android_prebuilt_aar_intellij_info,
+        android_resource_r_dot_info,
         merge_android_packageable_info(
             ctx.label,
             ctx.actions,
