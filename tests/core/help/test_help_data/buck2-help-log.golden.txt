@@ -15,6 +15,7 @@ Commands:
   what-materialized  Outputs materializations from selected invocation
   what-uploaded      Outputs stats about uploads to RE from the selected invocation
   critical-path      Show the critical path for a selected build
+  slowest-path       Show the slowest path for a selected build
   replay             Replay an event log
   show-user          Converts the event log from a selected invocation into a user event log, in
                      JSONL format

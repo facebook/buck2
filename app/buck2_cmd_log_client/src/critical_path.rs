@@ -63,32 +63,103 @@ impl BuckSubcommand for CriticalPathCommand {
         _events_ctx: &mut EventsCtx,
     ) -> ExitResult {
         let Self { event_log, format } = self;
+        log_critical_path_command_exec(ctx, event_log, format, PathKind::Critical).await
+    }
+}
 
-        let log_path = event_log.get(&ctx).await?;
+/// Show the slowest path for a selected build.
+///
+/// While the critical path represents something closer to the "ideal" build time, the slowest path gives a
+/// better idea of what the build actually spends its time on. This can better highlight build overhead.
+///
+/// This produces output listing every node on the slowest path.
+///
+/// It includes the kind of node, its name, category and identifier, as well as total duration
+/// (runtime of this node), user duration (duration the user can improve), non-critical time, and start offset.
+///
+/// The `readable` format produces space-aligned columnar output with a header:
+/// `<start_offset> <total> <waiting> <user> <potential> <kind> <name> <category> <identifier> <execution_kind>`
+///
+/// The `tabulated` format produces tab-delimited output:
+/// `<kind>\t<name>\t<category>\t<identifier>\t<execution_kind>\t<total_duration>\t<user_duration>\t<potential_improvement_duration>\t<non_critical_path_time>\t<start_offset>`
+///
+/// All durations are in microseconds. Start offset is in microseconds from the beginning of the build.
+///
+/// Note that this prints a "potential improvement" just like `log critical-path`, but for slowest paths it's not computed.
+#[derive(Debug, clap::Parser)]
+pub struct SlowestPathCommand {
+    #[clap(flatten)]
+    event_log: EventLogOptions,
+    #[clap(flatten)]
+    format: LogCommandOutputFormat,
+}
 
-        let (invocation, mut events) = log_path.unpack_stream().await?;
-        buck2_client_ctx::eprintln!(
-            "Showing critical path from: {}",
-            invocation.display_command_line()
-        )?;
+impl BuckSubcommand for SlowestPathCommand {
+    const COMMAND_NAME: &'static str = "log-slowest-path";
 
-        while let Some(event) = events.try_next().await? {
-            match event {
-                StreamValue::Event(event) => match event.data {
-                    Some(buck2_data::buck_event::Data::Instant(instant)) => match instant.data {
-                        Some(buck2_data::instant_event::Data::BuildGraphInfo(build_graph)) => {
-                            log_critical_path(&build_graph, format.clone()).await?;
+    async fn exec_impl(
+        self,
+        _matches: BuckArgMatches<'_>,
+        ctx: ClientCommandContext<'_>,
+        _events_ctx: &mut EventsCtx,
+    ) -> ExitResult {
+        let Self { event_log, format } = self;
+        log_critical_path_command_exec(ctx, event_log, format, PathKind::Slowest).await
+    }
+}
+
+/// Distinguishes between critical path and slowest path computation.
+enum PathKind {
+    /// Critical path: the longest dependency chain determining minimum build time.
+    Critical,
+    /// Slowest path: the actual longest path taken, including build overhead.
+    Slowest,
+}
+
+async fn log_critical_path_command_exec(
+    ctx: ClientCommandContext<'_>,
+    event_log: EventLogOptions,
+    format: LogCommandOutputFormat,
+    path_kind: PathKind,
+) -> ExitResult {
+    let log_path = event_log.get(&ctx).await?;
+
+    let (invocation, mut events) = log_path.unpack_stream().await?;
+    let path_name = match path_kind {
+        PathKind::Critical => "critical path",
+        PathKind::Slowest => "slowest path",
+    };
+    buck2_client_ctx::eprintln!(
+        "Showing {} from: {}",
+        path_name,
+        invocation.display_command_line()
+    )?;
+
+    while let Some(event) = events.try_next().await? {
+        match event {
+            StreamValue::Event(event) => match event.data {
+                Some(buck2_data::buck_event::Data::Instant(instant)) => match instant.data {
+                    Some(buck2_data::instant_event::Data::BuildGraphInfo(build_graph)) => {
+                        match path_kind {
+                            PathKind::Critical => {
+                                log_critical_path(&build_graph.critical_path2, format.clone())
+                                    .await?;
+                            }
+                            PathKind::Slowest => {
+                                log_critical_path(&build_graph.slowest_path, format.clone())
+                                    .await?;
+                            }
                         }
-                        _ => {}
-                    },
+                    }
                     _ => {}
                 },
                 _ => {}
-            }
+            },
+            _ => {}
         }
-
-        ExitResult::success()
     }
+
+    ExitResult::success()
 }
 
 #[derive(Default)]
@@ -164,7 +235,7 @@ struct CriticalPathEntry<'a> {
 }
 
 async fn log_critical_path(
-    critical_path: &buck2_data::BuildGraphExecutionInfo,
+    path: &Vec<buck2_data::CriticalPathEntry2>,
     format: LogCommandOutputFormat,
 ) -> buck2_error::Result<()> {
     let target_display_options = TargetDisplayOptions::for_log();
@@ -189,7 +260,7 @@ async fn log_critical_path(
             )?;
         }
 
-        for entry in &critical_path.critical_path2 {
+        for entry in path {
             use buck2_data::critical_path_entry2::Entry;
 
             let mut critical_path = CriticalPathEntry::default();
@@ -337,7 +408,7 @@ async fn log_critical_path(
                         )?;
                     }
                     LogCommandOutputFormatWithWriter::Tabulated(writer) => {
-                        // This should match the format specified in the docstring on [CriticalPathCommand]
+                        // This should match the format specified in the docstrings on CriticalPathCommand and SlowestPathCommand
                         writeln!(
                             writer,
                             "{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}",
