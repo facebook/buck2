@@ -16,9 +16,12 @@ use buck2_build_signals::env::NodeDuration;
 use buck2_build_signals::env::WaitingData;
 use buck2_core::soft_error;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
+use buck2_critical_path::Graph;
 use buck2_critical_path::GraphBuilder;
 use buck2_critical_path::OptionalVertexId;
 use buck2_critical_path::PushError;
+use buck2_critical_path::VertexData;
+use buck2_critical_path::VertexKeys;
 use buck2_critical_path::compute_critical_path_potentials;
 use buck2_error::BuckErrorContext;
 use buck2_events::span::SpanId;
@@ -107,7 +110,7 @@ impl BuildListenerBackend for LongestPathGraphBackend {
     }
 
     fn finish(self) -> buck2_error::Result<BuildInfo> {
-        let (graph, keys, mut data) = {
+        let (graph, keys, data) = {
             let (graph, keys, data) = self.builder?.finish();
 
             let mut first_analysis = graph.allocate_vertex_data(OptionalVertexId::none());
@@ -179,79 +182,11 @@ impl BuildListenerBackend for LongestPathGraphBackend {
                 .buck_error_context("Duration `as_micros()` exceeds u64")
         })?;
 
-        let (critical_path, critical_path_cost, replacement_durations, critical_path_accessor) =
-            compute_critical_path_potentials(&graph, &durations)
-                .buck_error_context("Error computing critical path potentials")?;
-
-        let critical_path_for_top_level_targets = self
-            .top_level_targets
-            .iter()
-            .filter_map(|t| {
-                let max_cost = (|| {
-                    let (path_cost, _critical_path) = t
-                        .artifacts
-                        .iter()
-                        .map(|a| {
-                            let idx = keys
-                                .get(a)
-                                .with_buck_error_context(|| format!("Cannot find artifact: {a}"))?;
-                            critical_path_accessor
-                                .critical_path_for_vertex(idx)
-                                .with_buck_error_context(|| {
-                                    format!("Invalid index for artifact: {a}")
-                                })
-                        })
-                        .collect::<Result<Vec<_>, _>>()?
-                        .into_iter()
-                        .max_by_key(|p| p.0)
-                        .buck_error_context("No critical path")?;
-
-                    buck2_error::Result::Ok(Duration::from_micros(path_cost.runtime))
-                })();
-
-                let max_cost = match max_cost {
-                    Ok(max_cost) => max_cost,
-                    Err(e) => {
-                        // This would happen if we're given a target at the top
-                        // level but then its DICE node never gets computed.
-                        // This may happen if the command was e.g. cancelled.
-                        tracing::debug!("No critical path for target {}: {:#}", t.target, e);
-                        return None;
-                    }
-                };
-
-                Some((t.target.dupe(), max_cost))
-            })
-            .collect::<Vec<_>>();
-
-        drop(durations);
-
-        let critical_path = critical_path
-            .iter()
-            .map(|(cp_idx, vertex_idx)| {
-                let vertex_idx = *vertex_idx;
-                let key = keys[vertex_idx].dupe();
-
-                // OK to replace `data` with empty things here because we know that we will not access
-                // the same index twice.
-                let data = std::mem::replace(
-                    &mut data[vertex_idx],
-                    NodeData {
-                        inner: NodeDataInner::None,
-                        duration: NodeDuration::zero(),
-                        span_ids: Default::default(),
-                        waiting_data: WaitingData::new(),
-                    },
-                );
-
-                let potential = critical_path_cost.runtime - replacement_durations[cp_idx].runtime;
-
-                (key, data, Some(Duration::from_micros(potential)))
-            })
-            .collect();
+        let (critical_path, critical_path_for_top_level_targets) =
+            compute_critical_paths(&graph, &keys, data, durations, &self.top_level_targets)?;
 
         Ok(BuildInfo {
-            critical_path: DetailedCriticalPath::new(critical_path),
+            critical_path,
             num_nodes: graph.vertices_count() as _,
             num_edges: graph.edges_count() as _,
             top_level_targets: critical_path_for_top_level_targets,
@@ -261,4 +196,85 @@ impl BuildListenerBackend for LongestPathGraphBackend {
     fn name() -> CriticalPathBackendName {
         CriticalPathBackendName::LongestPathGraph
     }
+}
+
+fn compute_critical_paths(
+    graph: &Graph,
+    keys: &VertexKeys<NodeKey>,
+    mut data: VertexData<NodeData>,
+    durations: VertexData<u64>,
+    top_level_targets: &[TopLevelTarget],
+) -> buck2_error::Result<(DetailedCriticalPath, Vec<(ConfiguredTargetLabel, Duration)>)> {
+    let (critical_path, critical_path_cost, replacement_durations, critical_path_accessor) =
+        compute_critical_path_potentials(&graph, &durations)
+            .buck_error_context("Error computing critical path potentials")?;
+
+    let critical_path_for_top_level_targets = top_level_targets
+        .iter()
+        .filter_map(|t| {
+            let max_cost = (|| {
+                let (path_cost, _critical_path) = t
+                    .artifacts
+                    .iter()
+                    .map(|a| {
+                        let idx = keys
+                            .get(a)
+                            .with_buck_error_context(|| format!("Cannot find artifact: {a}"))?;
+                        critical_path_accessor
+                            .critical_path_for_vertex(idx)
+                            .with_buck_error_context(|| format!("Invalid index for artifact: {a}"))
+                    })
+                    .collect::<Result<Vec<_>, _>>()?
+                    .into_iter()
+                    .max_by_key(|p| p.0)
+                    .buck_error_context("No critical path")?;
+
+                buck2_error::Result::Ok(Duration::from_micros(path_cost.runtime))
+            })();
+
+            let max_cost = match max_cost {
+                Ok(max_cost) => max_cost,
+                Err(e) => {
+                    // This would happen if we're given a target at the top
+                    // level but then its DICE node never gets computed.
+                    // This may happen if the command was e.g. cancelled.
+                    tracing::debug!("No critical path for target {}: {:#}", t.target, e);
+                    return None;
+                }
+            };
+
+            Some((t.target.dupe(), max_cost))
+        })
+        .collect::<Vec<_>>();
+
+    drop(durations);
+
+    let critical_path = critical_path
+        .iter()
+        .map(|(cp_idx, vertex_idx)| {
+            let vertex_idx = *vertex_idx;
+            let key = keys[vertex_idx].dupe();
+
+            // OK to replace `data` with empty things here because we know that we will not access
+            // the same index twice.
+            let data = std::mem::replace(
+                &mut data[vertex_idx],
+                NodeData {
+                    inner: NodeDataInner::None,
+                    duration: NodeDuration::zero(),
+                    span_ids: Default::default(),
+                    waiting_data: WaitingData::new(),
+                },
+            );
+
+            let potential = critical_path_cost.runtime - replacement_durations[cp_idx].runtime;
+
+            (key, data, Some(Duration::from_micros(potential)))
+        })
+        .collect();
+
+    Ok((
+        DetailedCriticalPath::new(critical_path),
+        critical_path_for_top_level_targets,
+    ))
 }
