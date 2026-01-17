@@ -22,6 +22,7 @@ starlark_map = { workspace = true }
 
 buck2_artifact = { workspace = true }
 buck2_build_api = { workspace = true }
+buck2_build_signals = { workspace = true }
 buck2_core = { workspace = true }
 buck2_data = { workspace = true }
 buck2_error = { workspace = true }

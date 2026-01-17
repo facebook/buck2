@@ -191,7 +191,7 @@ rand_distr = "0.5"
 rand_distr_04 = { package = "rand_distr", version = "0.4" }
 rand_xoshiro = "0.7"
 ref-cast = "1.0.0"
-regex = "1.5.4"
+regex = "1.12.2"
 relative-path = { version = "1.7.0", features = ["serde"] }
 ring = "=0.17.5" # Upgrading this is possible, but a pain, so we don't want to pick up every new minor version
 rusqlite = { version = "0.33", features = ["bundled"] }

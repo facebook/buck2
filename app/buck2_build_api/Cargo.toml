@@ -41,8 +41,10 @@ dice = { workspace = true }
 display_container = { workspace = true }
 dupe = { workspace = true }
 gazebo = { workspace = true }
+pagable = { workspace = true }
 remote_execution = { workspace = true }
 rustls = { workspace = true }
+setsketch = { workspace = true }
 sorted_vector_map = { workspace = true }
 starlark = { workspace = true }
 starlark_map = { workspace = true }
