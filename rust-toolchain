@@ -9,6 +9,7 @@
 #   * NOTE: You may have to change this ocaml file in a follow up commit as ocamlrep
 #     has a dependency on buck2 git trunk.
 # * Update `../monarch/rust-toolchain` (one instance)
+# * Update flake.lock via `nix flake update rust-overlay`
 
 # @rustc_version: rustc 1.91.0-nightly (02c7b1a7a 2025-09-13)
 channel = "nightly-2025-09-14"

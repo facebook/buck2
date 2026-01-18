@@ -37,6 +37,8 @@ CxxExtension = enum(
     ".h++",
     ".hxx",
     ".bc",
+    ".cppm",
+    ".ixx",
     *AsmExtensions.values()
 )
 
