@@ -1129,6 +1129,7 @@ def rust_library_macro_wrapper(rust_library: typing.Callable) -> typing.Callable
                 actual_exec = ":_" + name,
                 actual_plugin = ":_" + name,
                 default_target_platform = kwargs.get("default_target_platform", None),
+                exec_compatible_with = kwargs.get("exec_compatible_with"),
                 visibility = kwargs.pop("visibility", []),
             )
             kwargs["name"] = "_" + name
