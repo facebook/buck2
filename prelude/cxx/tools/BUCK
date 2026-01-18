@@ -19,6 +19,12 @@ prelude.python_bootstrap_binary(
 )
 
 prelude.python_bootstrap_binary(
+    name = "expand_cmake_template",
+    main = "expand_cmake_template.py",
+    visibility = ["PUBLIC"],
+)
+
+prelude.python_bootstrap_binary(
     name = "hmap_wrapper.py",
     main = "hmap_wrapper.py",
 )

@@ -25,6 +25,8 @@ load("@prelude//configurations:rules.bzl", _config_extra_attributes = "extra_att
 load("@prelude//csharp:csharp.bzl", "csharp_library_impl", "prebuilt_dotnet_library_impl")
 load("@prelude//cxx:bitcode.bzl", "llvm_link_bitcode_impl")
 load("@prelude//cxx:cuda.bzl", "CudaCompileStyle")
+load("@prelude//cxx:cmake.bzl", "cmake_configure_file_impl", "cmake_type_size_substitution_impl", "cmake_substitution_impl", "cmake_immediate_substitution_impl")
+load("@prelude//utils:value.bzl", "generic_simple_value_impl", "generic_file_value_impl", "generic_list_value_impl", "generic_value_mapping_impl", "generic_value_join_list_impl")
 load("@prelude//cxx:cxx.bzl", "cxx_binary_impl", "cxx_library_impl", "cxx_precompiled_header_impl", "cxx_test_impl", "prebuilt_cxx_library_impl")
 load("@prelude//cxx:cxx_toolchain.bzl", "cxx_toolchain_extra_attributes", "cxx_toolchain_impl")
 load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxPlatformInfo", "CxxToolchainInfo")
@@ -178,12 +180,20 @@ extra_implemented_rules = struct(
     toolchain_alias = alias_impl,
     versioned_alias = versioned_alias_impl,
     worker_tool = worker_tool,
+    generic_simple_value = generic_simple_value_impl,
+    generic_file_value = generic_file_value_impl,
+    generic_value_mapping = generic_value_mapping_impl,
+    generic_value_join_list = generic_value_join_list_impl,
 
     #c#
     csharp_library = csharp_library_impl,
     prebuilt_dotnet_library = prebuilt_dotnet_library_impl,
 
     #c++
+    cmake_configure_file = cmake_configure_file_impl,
+    cmake_type_size_substitution = cmake_type_size_substitution_impl,
+    cmake_substitution = cmake_substitution_impl,
+    cmake_immediate_substitution = cmake_immediate_substitution_impl,
     cxx_binary = cxx_binary_impl,
     cxx_test = cxx_test_impl,
     cxx_toolchain = cxx_toolchain_impl,
