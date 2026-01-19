@@ -312,18 +312,15 @@ async def test_bxl_cli(buck: Buck) -> None:
 
 @buck_test()
 async def test_bxl_cli_json_args(buck: Buck) -> None:
-    json_args = {}
-    json_args.update({"int": 1})
-    json_args.update({"string": "foo"})
-    json_args.update({"float": 1.0})
-    json_args.update({"bool": True})
-    json_args.update({"none": None})
-    json_args.update({"list": [1, 2, 3]})
-
-    nested = {}
-    nested.update({"nested_string": "bar"})
-    nested.update({"nested_int": -1})
-    json_args.update({"nested": nested})
+    json_args = {
+        "int": 1,
+        "string": "foo",
+        "float": 1.0,
+        "bool": True,
+        "none": None,
+        "list": [1, 2, 3],
+        "nested": {"nested_string": "bar", "nested_int": -1},
+    }
 
     my_json = json.dumps(json_args)
 
