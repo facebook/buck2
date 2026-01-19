@@ -274,7 +274,9 @@ pub(crate) fn analysis_actions_methods_run(methods: &mut MethodsBuilder) {
         outputs_for_error_handler: UnpackListOrTuple<
             ValueTyped<'v, StarlarkOutputArtifact<'v>>,
         >,
-        #[starlark(require = named, default = false)] expect_eligible_for_dedupe: bool,
+        #[starlark(require = named, default = NoneOr::None)] expect_eligible_for_dedupe: NoneOr<
+            bool,
+        >,
     ) -> starlark::Result<NoneType> {
         if incremental_remote_outputs && !no_outputs_cleanup {
             // Precaution to make sure content-based paths are not involved.
@@ -577,7 +579,7 @@ pub(crate) fn analysis_actions_methods_run(methods: &mut MethodsBuilder) {
             meta_internal_extra_params: extra_params,
         };
 
-        if expect_eligible_for_dedupe {
+        if expect_eligible_for_dedupe.into_option().unwrap_or(false) {
             for o in artifacts.declared_outputs.iter() {
                 if !o.has_content_based_path() {
                     return Err(buck2_error::Error::from(
