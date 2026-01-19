@@ -506,7 +506,6 @@ def _prebuilt_apple_framework_macro_stub(**kwargs):
 
 def _prebuilt_apple_xcframework_macro_stub(**kwargs):
     prebuilt_apple_xcframework_macro_impl(
-        alias_rule = __rules__["alias"],
         filegroup_rule = __rules__["filegroup"],
         genrule = __rules__["genrule"],
         prebuilt_apple_framework_rule = __rules__["prebuilt_apple_framework"],
