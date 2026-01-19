@@ -117,7 +117,7 @@ if not running_on_windows() and not running_on_mac():
         )
 
         golden(
-            output=sanitize_error_stderr(result.stderr, buck.cwd),
+            output=sanitize_error_stderr(result.stderr, buck),
             rel_path="fixtures/test_stderr_with_empty_error_diagnostics.golden.txt",
         )
 
@@ -128,7 +128,7 @@ if not running_on_windows() and not running_on_mac():
         )
 
         golden(
-            output=sanitize_error_stderr(result.stderr, buck.cwd),
+            output=sanitize_error_stderr(result.stderr, buck),
             rel_path="fixtures/test_stderr_with_error_diagnostics.golden.txt",
         )
 
@@ -137,7 +137,7 @@ if not running_on_windows() and not running_on_mac():
         result = await expect_failure(buck.build("//fail_action:fail_script"))
 
         golden(
-            output=sanitize_error_stderr(result.stderr, buck.cwd),
+            output=sanitize_error_stderr(result.stderr, buck),
             rel_path="fixtures/test_stderr_with_no_error_diagnostics.golden.txt",
         )
 
@@ -146,7 +146,7 @@ if not running_on_windows() and not running_on_mac():
         result = await expect_failure(buck.build("//fail_action:error_handler_failed"))
 
         golden(
-            output=sanitize_error_stderr(result.stderr, buck.cwd),
+            output=sanitize_error_stderr(result.stderr, buck),
             rel_path="fixtures/test_stderr_could_not_produce_error_diagnostics.golden.txt",
         )
 
