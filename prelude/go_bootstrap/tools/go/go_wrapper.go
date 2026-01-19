@@ -192,6 +192,7 @@ func main() {
 			log.Fatal("Failed to resolve BUCK_SCRATCH_PATH: %s", err)
 		}
 		envs["GOCACHE"] = absBuckScratchPath
+		envs["TMPDIR"] = absBuckScratchPath
 
 		if *useFakeGoroot {
 			envs["GOROOT"] = absBuckScratchPath

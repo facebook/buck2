@@ -143,7 +143,9 @@ def link(
 
     cmd = cmd_args()
 
-    cmd.add(go_toolchain.linker)
+    cmd.add(go_toolchain.go_wrapper)
+    cmd.add(["--go", go_toolchain.linker])
+    cmd.add("--")
     cmd.add(go_toolchain.linker_flags)
 
     cmd.add("-o", output.as_output())
