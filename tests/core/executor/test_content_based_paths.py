@@ -39,6 +39,9 @@ ELIGIBLE_FOR_DEDUPE = 0
 INELIGIBLE_INPUT = 1
 INELIGIBLE_OUTPUT = 2
 
+EXPECTED_INELIGIBLE_FOR_DEDUPE = 1
+UNKNOWN_ELIGIBILITY = 2
+
 
 async def build_target_with_different_platforms_and_verify_output_paths_are_identical(
     buck: Buck,
@@ -539,9 +542,11 @@ async def test_not_eligible_for_dedupe(buck: Buck) -> None:
         "root//:not_eligible_for_dedupe",
         "--target-platforms",
         "root//:p_default",
+        "-c",
+        "test.expect_eligible_for_dedupe=false",
     )
 
-    events = await filter_events(
+    eligible_for_dedupe_events = await filter_events(
         buck,
         "Event",
         "data",
@@ -551,7 +556,22 @@ async def test_not_eligible_for_dedupe(buck: Buck) -> None:
         "eligible_for_dedupe",
     )
 
-    assert events == [INELIGIBLE_OUTPUT, INELIGIBLE_INPUT]
+    assert eligible_for_dedupe_events == [INELIGIBLE_OUTPUT, INELIGIBLE_INPUT]
+
+    expected_eligible_for_dedupe_events = await filter_events(
+        buck,
+        "Event",
+        "data",
+        "SpanEnd",
+        "data",
+        "ActionExecution",
+        "expected_eligible_for_dedupe",
+    )
+
+    assert expected_eligible_for_dedupe_events == [
+        UNKNOWN_ELIGIBILITY,
+        EXPECTED_INELIGIBLE_FOR_DEDUPE,
+    ]
 
 
 @buck_test()

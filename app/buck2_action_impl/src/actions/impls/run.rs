@@ -248,6 +248,7 @@ pub(crate) struct UnregisteredRunAction {
     // of RemoteExecutorCustomImage.
     pub(crate) remote_execution_custom_image: Option<Box<RemoteExecutorCustomImage>>,
     pub(crate) meta_internal_extra_params: MetaInternalExtraParams,
+    pub(crate) expected_eligible_for_dedupe: Option<bool>,
 }
 
 impl UnregisteredAction for UnregisteredRunAction {
@@ -1378,6 +1379,10 @@ impl Action for RunAction {
 
     fn always_print_stderr(&self) -> bool {
         self.inner.always_print_stderr
+    }
+
+    fn is_expected_eligible_for_dedupe(&self) -> Option<bool> {
+        self.inner.expected_eligible_for_dedupe
     }
 
     fn aquery_attributes(

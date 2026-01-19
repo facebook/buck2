@@ -577,6 +577,7 @@ pub(crate) fn analysis_actions_methods_run(methods: &mut MethodsBuilder) {
             remote_execution_dependencies: re_dependencies,
             remote_execution_custom_image: re_custom_image,
             meta_internal_extra_params: extra_params,
+            expected_eligible_for_dedupe: expect_eligible_for_dedupe.into_option(),
         };
 
         if expect_eligible_for_dedupe.into_option().unwrap_or(false) {

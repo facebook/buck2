@@ -1685,6 +1685,10 @@ message ActionExecutionEnd {
 
   // Whether the action is eligible for deduplication across configurations.
   EligibleForDedupe eligible_for_dedupe = 45;
+
+  // Whether the action is expected to be eligible for deduplication across
+  // configurations.
+  ExpectedEligibleForDedupe expected_eligible_for_dedupe = 46;
 }
 
 enum IncrementalKind {
@@ -1723,6 +1727,12 @@ enum EligibleForDedupe {
   ELIGIBLE = 0;
   INELIGIBLE_INPUT = 1;
   INELIGIBLE_OUTPUT = 2;
+}
+
+enum ExpectedEligibleForDedupe {
+  EXPECTED_ELIGIBLE = 0;
+  EXPECTED_INELIGIBLE = 1;
+  UNKNOWN_ELIGIBILITY = 2;
 }
 
 message CommandInvalidationInfo {

@@ -221,6 +221,10 @@ pub trait Action: Allocative + Debug + Send + Sync + 'static {
         ineligible_inputs
     }
 
+    fn is_expected_eligible_for_dedupe(&self) -> Option<bool> {
+        None
+    }
+
     // TODO this probably wants more data for execution, like printing a short_name and the target
 }
 
@@ -414,6 +418,10 @@ impl RegisteredAction {
 
     pub fn identifier(&self) -> Option<&str> {
         self.action.identifier()
+    }
+
+    pub fn is_expected_eligible_for_dedupe(&self) -> Option<bool> {
+        self.action.is_expected_eligible_for_dedupe()
     }
 }
 

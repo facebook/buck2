@@ -216,6 +216,16 @@ async fn build_action_inner(
     target_rule_type_name: Option<String>,
 ) -> (ActionExecutionData, Box<buck2_data::ActionExecutionEnd>) {
     let is_eligible_for_dedupe = is_action_eligible_for_dedupe(action, &ensured_inputs);
+    let is_expected_eligible_for_dedupe = match action.is_expected_eligible_for_dedupe() {
+        Some(v) => {
+            if v {
+                buck2_data::ExpectedEligibleForDedupe::ExpectedEligible
+            } else {
+                buck2_data::ExpectedEligibleForDedupe::ExpectedIneligible
+            }
+        }
+        None => buck2_data::ExpectedEligibleForDedupe::UnknownEligibility,
+    };
     let (execute_result, command_reports) = executor
         .execute(waiting_data, ensured_inputs, action, cancellation)
         .await;
@@ -431,6 +441,7 @@ async fn build_action_inner(
             scheduling_mode: scheduling_mode.map(|h| h as i32),
             incremental_kind: incremental_kind.map(|k| k as i32),
             eligible_for_dedupe: is_eligible_for_dedupe as i32,
+            expected_eligible_for_dedupe: is_expected_eligible_for_dedupe as i32,
         }),
     )
 }
