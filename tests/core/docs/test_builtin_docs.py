@@ -18,7 +18,7 @@ async def test_builtin_docs_golden(buck: Buck) -> None:
     output = buck.cwd.parent / "output"
     await buck.docs("starlark-builtins", "--output-dir", str(output))
 
-    outputs = {}
+    outputs: dict[str, str] = {}
     for file in output.glob("**/*.md"):
         lines = file.read_text(encoding="utf-8").splitlines()
         lines = filter(lambda x: x.startswith("# ") or x.startswith("## "), lines)

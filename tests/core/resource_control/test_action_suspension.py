@@ -107,7 +107,7 @@ async def _check_suspends(  # noqa C901
         for p in paths:
             contents = p.read_text()
             ident = p.name
-            total_duration = None
+            total_duration: int | None = None
             for line in contents.splitlines():
                 if line.startswith("freeze_detected_ms "):
                     this_duration = int(line[len("freeze_detected_ms ") :])
