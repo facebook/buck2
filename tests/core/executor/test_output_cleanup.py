@@ -11,10 +11,11 @@
 
 import os
 from pathlib import Path
+from typing import Any
 
 import pytest
 from buck2.tests.e2e_util.api.buck import Buck
-from buck2.tests.e2e_util.buck_workspace import buck_test, env
+from buck2.tests.e2e_util.buck_workspace import buck_test
 
 output_cleanup_targets = [
     "local_action",
@@ -37,9 +38,9 @@ output_cleanup_targets = [
 async def test_output_cleanup(
     buck: Buck, tmp_path: Path, first: str, second: str
 ) -> None:
-    def read_dir(d: Path) -> dict[str, str]:
+    def read_dir(d: Path) -> dict[str, Any]:
         steps = 0
-        out = {}
+        out: dict[str, Any] = {}
 
         for root, dirs, files in os.walk(d, topdown=False):
             for name in files:
