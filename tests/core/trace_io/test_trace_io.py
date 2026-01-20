@@ -38,7 +38,7 @@ def assert_path_exists(path: str) -> None:
     assert os.path.exists(path), f"expected {path} to exist"
 
 
-def assert_buck_out_paths_materialized(buck_cwd: str, paths: list[str]) -> None:
+def assert_buck_out_paths_materialized(buck_cwd: Path, paths: list[str]) -> None:
     for path in paths:
         if re.match(r"buck-out\/.+\/{gen,offline-cache}/.+\/.+\/.+", path) is not None:
             assert_path_exists(os.path.join(buck_cwd, path))
