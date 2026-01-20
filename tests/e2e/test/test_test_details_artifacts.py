@@ -80,6 +80,6 @@ async def test_passing_test_details_uploaded_to_artifacts(buck: Buck) -> None:
     assert details_artifact.handle.everstore_handle.handle is not None, (
         "Everstore handle string should not be None"
     )
-    assert details_artifact.annotations.type.generic_text_log is not None, (
-        "Artifact should be of type generic_text_log"
+    assert details_artifact.annotations.type.test_details_artifact is not None, (
+        "Artifact should be of type test_details_artifact"
     )
