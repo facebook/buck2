@@ -15,7 +15,7 @@ from asyncio import subprocess
 from collections import defaultdict
 from enum import auto, Enum
 from pathlib import Path
-from typing import Callable, Dict, Iterable, List, Tuple
+from typing import Any, Callable, Dict, Iterable, List, Tuple
 
 from buck2.tests.e2e_util.api.result import E, R, Result
 
@@ -169,9 +169,9 @@ class BuildReport:
 
     def __init__(self, parsed) -> None:
         assert isinstance(parsed, Dict)
-        self.build_report: Dict[str, ...] = parsed  # type: ignore
+        self.build_report: Dict[str, Any] = parsed  # type: ignore
         self.root = Path(self.build_report["project_root"])  # type: ignore
-        self.results: Dict[str, Dict[str, ...]] = self.build_report["results"]
+        self.results: Dict[str, Dict[str, Any]] = self.build_report["results"]
 
     def _to_abs_paths(self, paths: Tuple[Path, ...]) -> Tuple[Path, ...]:
         return tuple(self.root / path for path in paths)
