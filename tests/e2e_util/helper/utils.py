@@ -58,6 +58,7 @@ def get_targets_from_what_ran(what_ran):
 
     for entry in what_ran:
         m = re.match(r"^(.*?)( \((.*?)\))?( \((.*?)\))?$", entry["identity"])
+        assert m is not None
         rule, category = m.group(1), m.group(5)
         targets.add((rule, category))
 

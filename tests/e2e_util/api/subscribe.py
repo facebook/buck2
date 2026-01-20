@@ -34,6 +34,7 @@ class SubscribeClient(contextlib.AbstractAsyncContextManager):
         return self
 
     async def __aexit__(self, exc_type, exc, tb):
+        assert self._process.stdin is not None
         self._process.stdin.close()
         await wait_for(
             self._start._get_result_or_raise_exception(self._process), timeout=120

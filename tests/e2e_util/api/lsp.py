@@ -108,6 +108,7 @@ class LspClient(contextlib.AbstractAsyncContextManager):
         await self.send_notification("textDocument/didOpen", payload)
         notif = await self.receive_notification("textDocument/publishDiagnostics")
 
+        assert notif is not None
         assert notif["params"]["uri"] == absolute_path.as_uri()
         return notif["params"]
 
