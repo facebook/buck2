@@ -316,6 +316,8 @@ def _main(ctx: bxl.Context) -> None:
             pass
         elif x.rule_type.endswith("rust_proc_macro_alias"):
             pass
+        elif x.rule_type.endswith("fbpkg_builder"):
+            pass
         elif x.rule_type == "prelude//rules.bzl:cxx_python_extension":
             _handle_python_extension(entry, attrs, fs, x, known_targets)
         elif "genrule" in x.rule_type:
