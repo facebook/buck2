@@ -41,6 +41,7 @@ use buck2_execute::directory::ActionSharedDirectory;
 use buck2_execute::directory::INTERNER;
 use buck2_execute::directory::extract_artifact_value;
 use buck2_execute::directory::insert_artifact;
+use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use derive_more::Display;
 use dice::DiceComputations;
 use dice::Key;
@@ -471,6 +472,14 @@ async fn path_artifact_value(
     }
 }
 
+#[derive(Debug, buck2_error::Error)]
+#[buck2(tag = Input)]
+enum ProjectedArtifactError {
+    #[error("The path `{0}` does not exist in the artifact `{1}`")]
+    #[buck2(tag = buck2_error::ErrorTag::ProjectMissingPath)]
+    MissingInProjectedArtifact(ForwardRelativePathBuf, BaseArtifactKind),
+}
+
 #[derive(Clone, Dupe, Eq, PartialEq, Hash, Display, Debug, Allocative, RefCast)]
 #[repr(transparent)]
 pub struct EnsureProjectedArtifactKey(pub(crate) ArtifactKind);
@@ -517,10 +526,9 @@ impl Key for EnsureProjectedArtifactKey {
             .with_buck_error_context(|| {
                 format!("The path `{path}` cannot be projected in the artifact `{base}`. Are you calling project() on a symlink?")
             })?
-            .with_buck_error_context(|| {
-                format!("The path `{path}` does not exist in the artifact `{base}`")
-            })
-            .tag(buck2_error::ErrorTag::ProjectMissingPath)?;
+            .ok_or_else(|| {
+                ProjectedArtifactError::MissingInProjectedArtifact(path.to_buf(), base.dupe())
+            })?;
 
         // Projected artifacts are located in the same directory as the base artifact, so we
         // need to store the same content based path hash in order to find them in the correct place.
