@@ -6,6 +6,11 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
+load(
+    "@prelude//:artifact_tset.bzl",
+    "ArtifactInfoTag",
+    "make_artifact_tset",
+)
 load(":swift_toolchain_types.bzl", "SdkUncompiledModuleInfo", "SwiftObjectFormat", "SwiftToolchainInfo")
 
 def get_swift_toolchain_info(ctx: AnalysisContext) -> SwiftToolchainInfo:
@@ -69,6 +74,22 @@ def compute_sdk_module_graph(sdk_module_deps: list[Dependency]) -> (dict[str, De
 def swift_toolchain_impl(ctx):
     uncompiled_swift_sdk_modules_deps, uncompiled_clang_sdk_modules_deps = compute_sdk_module_graph(ctx.attrs.sdk_modules)
 
+    # Module map files can live in the SDK or the toolchain resource dir.
+    # We need to pass through both to ensure the debuginfo target
+    # materializes them.
+    debug_info_artifacts = []
+    if ctx.attrs.sdk_path:
+        debug_info_artifacts.append(ctx.attrs.sdk_path)
+    if ctx.attrs.resource_dir:
+        debug_info_artifacts.append(ctx.attrs.resource_dir)
+
+    sdk_debug_info = make_artifact_tset(
+        actions = ctx.actions,
+        label = ctx.label,
+        artifacts = debug_info_artifacts,
+        tags = [ArtifactInfoTag("swift_sdk_debug_info")],
+    )
+
     return [
         DefaultInfo(),
         SwiftToolchainInfo(
@@ -84,6 +105,7 @@ def swift_toolchain_impl(ctx):
             resource_dir = ctx.attrs.resource_dir,
             sdk_module_path_prefixes = ctx.attrs.sdk_module_path_prefixes,
             sdk_path = ctx.attrs._internal_sdk_path or ctx.attrs.sdk_path,
+            sdk_debug_info = sdk_debug_info,
             serialized_diags_to_json = ctx.attrs.serialized_diags_to_json[RunInfo] if ctx.attrs.serialized_diags_to_json else None,
             supports_explicit_module_debug_serialization = ctx.attrs.supports_explicit_module_debug_serialization,
             supports_incremental_file_hashing = ctx.attrs.supports_incremental_file_hashing,

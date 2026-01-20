@@ -41,11 +41,14 @@ def extract_and_merge_clang_debug_infos(ctx: AnalysisContext, compiled_pcm_deps_
         if WrappedSdkCompiledModuleInfo in d and d[WrappedSdkCompiledModuleInfo].clang_debug_info != None
     ]
 
+    swift_toolchain = get_swift_toolchain_info(ctx)
+    swift_toolchain_debug_info_tsets = [swift_toolchain.sdk_debug_info] if swift_toolchain.sdk_debug_info else []
+
     return make_artifact_tset(
         actions = ctx.actions,
         label = ctx.label,
         # Even with explicit modules, lldb requires the presence of the modulemaps.
         artifacts = pcms_and_modulemaps,
-        children = clang_debug_tsets,
+        children = clang_debug_tsets + swift_toolchain_debug_info_tsets,
         tags = [ArtifactInfoTag("swift_pcm")],
     )

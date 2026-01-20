@@ -9,6 +9,10 @@
 #####################################################################
 # Providers
 
+load(
+    "@prelude//:artifact_tset.bzl",
+    "ArtifactTSet",  # @unused Used as a type
+)
 load("@prelude//utils:arglike.bzl", "ArgLike")
 
 SwiftObjectFormat = enum(
@@ -31,6 +35,7 @@ SwiftToolchainInfo = provider(
         "platform_path": provider_field([Artifact, str, None]),
         "provide_swift_debug_info": provider_field(bool, default = True),
         "resource_dir": provider_field([Artifact, None]),
+        "sdk_debug_info": provider_field([ArtifactTSet, None]),
         "sdk_module_path_prefixes": provider_field(dict[str, Artifact]),
         "sdk_path": provider_field([Artifact, str, None]),
         "serialized_diags_to_json": provider_field([RunInfo, None], default = None),

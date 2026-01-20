@@ -216,7 +216,8 @@ def apple_selective_debugging_impl(ctx: AnalysisContext) -> list[Provider]:
             for info in infos:
                 is_swiftmodule = ArtifactInfoTag("swiftmodule") in info.tags
                 is_swift_pcm = ArtifactInfoTag("swift_pcm") in info.tags
-                is_swift_related = is_swiftmodule or is_swift_pcm
+                is_sdk_debug_info_tag = ArtifactInfoTag("swift_sdk_debug_info") in info.tags
+                is_swift_related = is_swiftmodule or is_swift_pcm or is_sdk_debug_info_tag
 
                 is_label_included = _is_label_included(info.label, selection_criteria)
 

@@ -21,6 +21,8 @@ ArtifactInfoTag = enum(
     "swift_pcm",
     # Describes clang modulemap artifact required to produce a pcm.
     "objc_modulemap",
+    # Describes SDK debug information needed by apps using Swift
+    "swift_sdk_debug_info",
 )
 
 ArtifactInfo = record(

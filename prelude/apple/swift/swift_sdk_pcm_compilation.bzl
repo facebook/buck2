@@ -239,15 +239,6 @@ def _swift_sdk_pcm_compilation_impl(ctx: AnalysisContext) -> [Promise, list[Prov
             ),
         )
 
-        # Module map files can live in the SDK or the toolchain resource dir.
-        # We need to pass through both to ensure the debuginfo target
-        # materializes them.
-        modulemap_artifacts = []
-        if swift_toolchain.sdk_path:
-            modulemap_artifacts.append(swift_toolchain.sdk_path)
-        if swift_toolchain.resource_dir:
-            modulemap_artifacts.append(swift_toolchain.resource_dir)
-
         compiled_sdk = SwiftCompiledModuleInfo(
             clang_module_file_args = clang_deps_args,
             is_framework = uncompiled_sdk_module_info.is_framework,
@@ -256,14 +247,16 @@ def _swift_sdk_pcm_compilation_impl(ctx: AnalysisContext) -> [Promise, list[Prov
             module_name = module_name,
             output_artifact = pcm_output,
             clang_modulemap_args = expanded_modulemap_path_cmd,
-            clang_modulemap_artifacts = modulemap_artifacts,
+            # Module map files can live in the SDK or the toolchain resource dir.
+            # Those are passed via `extract_and_merge_clang_debug_infos()`.
+            clang_modulemap_artifacts = [],
         )
 
         return [
             DefaultInfo(),
             WrappedSdkCompiledModuleInfo(
                 clang_deps = ctx.actions.tset(SwiftCompiledModuleTset, value = compiled_sdk, children = [sdk_deps_tset]),
-                clang_debug_info = extract_and_merge_clang_debug_infos(ctx, sdk_pcm_deps_providers, [pcm_output] + modulemap_artifacts),
+                clang_debug_info = extract_and_merge_clang_debug_infos(ctx, sdk_pcm_deps_providers, [pcm_output]),
             ),
         ]
 
