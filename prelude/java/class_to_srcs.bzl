@@ -83,7 +83,7 @@ def create_class_to_source_map_from_jar(
             cmd.add("-i", item)
     cmd.add("-o", output.as_output())
     cmd.add(jar)
-    cmd.add(at_argfile(actions = actions, name = "class_to_srcs_map_argsfile.txt", args = srcs))
+    cmd.add(at_argfile(actions = actions, name = "class_to_srcs_map_argsfile.txt", args = srcs, has_content_based_path = True))
     sources_jar = None
     if sources_jar_name:
         sources_jar = actions.declare_output(sources_jar_name, has_content_based_path = True)
@@ -149,7 +149,7 @@ def _create_merged_debug_info(
         children = [tset_debuginfo],
     )
     input_files = tset.project_as_args("class_to_src_map")
-    cmd.add(at_argfile(actions = actions, name = "debuginfo_list.txt", args = input_files))
+    cmd.add(at_argfile(actions = actions, name = "debuginfo_list.txt", args = input_files, has_content_based_path = True))
 
     actions.run(cmd, category = "merged_debuginfo")
     return output
