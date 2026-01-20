@@ -635,7 +635,7 @@ def _nullsafe_subtarget(ctx: AnalysisContext, extra_sub_targets: dict, common_ko
             optional_dirs = [nullsafe_info.output.as_output()],
             is_creating_subtarget = True,
             incremental = False,
-            uses_content_based_paths = False,
+            uses_content_based_paths = ctx.attrs.uses_content_based_paths_for_kotlincd,
             bootclasspath_snapshot_entries = [],
             **common_kotlincd_kwargs
         )
@@ -704,7 +704,7 @@ def _semanticdb_subtarget(
             optional_dirs = [],
             is_creating_subtarget = True,
             incremental = False,
-            uses_content_based_paths = False,
+            uses_content_based_paths = ctx.attrs.uses_content_based_paths_for_kotlincd,
             bootclasspath_snapshot_entries = [],
             **kwargs
         )
