@@ -16,7 +16,7 @@ buck2_e2e_test(
     srcs = ["test_test_artifacts.py"],
     compatible_with = ["ovr_config//os:linux"],
     env = {
-        "TESTX_BIN": "$(exe_target fbsource//xplat/tools:testx)",
+        "TESTX_BIN": "$(exe_target fbcode//tae/testx:testx)",
     },
     skip_for_os = [
         "darwin",
@@ -39,7 +39,7 @@ buck2_e2e_test(
     srcs = ["test_test_details_artifacts.py"],
     compatible_with = ["ovr_config//os:linux"],
     env = {
-        "TESTX_BIN": "$(exe_target fbsource//xplat/tools:testx)",
+        "TESTX_BIN": "$(exe_target fbcode//tae/testx:testx)",
     },
     skip_for_os = [
         "darwin",
