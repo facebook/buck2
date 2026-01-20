@@ -71,6 +71,7 @@ async def build_target_with_different_platforms_and_verify_output_paths_are_iden
     path2 = result2.get_target_to_build_output().get(target)
 
     assert path1 is not None
+    assert path2 is not None
     assert "output_artifact" not in path1
     assert path1 != path2
 
@@ -136,6 +137,7 @@ async def test_run_remote_with_content_based_path(buck: Buck) -> None:
     path2 = result2.get_target_to_build_output().get(target)
 
     assert path1 is not None
+    assert path2 is not None
     assert "output_artifact" not in path1
     assert path1 != path2
 
@@ -446,6 +448,7 @@ async def test_output_symlink_is_updated(buck: Buck) -> None:
     )
     path1 = result1.get_target_to_build_output().get(target)
 
+    assert path1 is not None
     actual1 = (buck.cwd / path1).resolve()
     assert actual1.exists()
     with open(actual1) as f:
@@ -456,6 +459,7 @@ async def test_output_symlink_is_updated(buck: Buck) -> None:
     )
     path2 = result2.get_target_to_build_output().get(target)
 
+    assert path2 is not None
     assert path2 == path1
 
     actual2 = (buck.cwd / path2).resolve()
