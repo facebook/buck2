@@ -31,7 +31,7 @@ def _inner_dataclass_from_dict(
 
 def _dataclass_from_dict(klass: Type[T], dikt: Dict[str, Any]) -> T:
     fieldtypes = klass.__annotations__
-    result = {}
+    result: dict[str, Any] = {}
     for f, ftype in fieldtypes.items():
         if hasattr(ftype, "__origin__"):
             if ftype.__origin__ is list:
@@ -51,7 +51,7 @@ def _dataclass_from_dict(klass: Type[T], dikt: Dict[str, Any]) -> T:
             else:
                 result[f] = dikt.get(f)
         else:
-            result[f] = _inner_dataclass_from_dict(ftype, dikt.get(f))
+            result[f] = _inner_dataclass_from_dict(ftype, dikt.get(f, {}))
     return klass(**result)
 
 
