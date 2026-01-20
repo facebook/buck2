@@ -13,7 +13,7 @@ import textwrap
 import xml.etree.ElementTree as ET
 from asyncio import subprocess
 from collections import defaultdict
-from enum import auto, Enum
+from enum import auto, Enum, StrEnum
 from pathlib import Path
 from typing import Any, Callable, Dict, Iterable, List, Tuple
 
@@ -62,7 +62,7 @@ class ExitCodeV2(Enum):
     SIGNAL_INTERRUPT = 141
 
 
-class AutoName(Enum):
+class AutoName(StrEnum):
     """Makes the value of the Enum its name"""
 
     @staticmethod
