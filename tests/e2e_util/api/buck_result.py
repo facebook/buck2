@@ -364,6 +364,9 @@ class TestResult(BuckResult):
                 name = testresult.get("name")
                 status = testresult.get("status")
                 testresult_type = testresult.get("type")
+                assert name is not None
+                assert status is not None
+                assert testresult_type is not None
                 assert testresult_type in (e.value for e in ResultType), (
                     f"Type {testresult_type} is not a ResultType Enum"
                 )
