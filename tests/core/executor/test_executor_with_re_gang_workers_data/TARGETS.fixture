@@ -1,0 +1,9 @@
+load(":defs.bzl", "test")
+
+test(
+    name = "target_with_two_gang_workers",
+    re_gang_workers = [
+        {"codename": "artemis", "platform": "mtia"},
+        {"platform": "mtia"},
+    ],
+)

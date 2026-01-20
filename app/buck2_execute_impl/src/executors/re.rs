@@ -164,6 +164,7 @@ impl ReExecutor {
         digest_config: DigestConfig,
         platform: &RE::Platform,
         dependencies: impl IntoIterator<Item = &'a RemoteExecutorDependency>,
+        re_gang_workers: &Vec<buck2_core::execution_types::executor_config::ReGangWorker>,
         meta_internal_extra_params: &MetaInternalExtraParams,
         worker_tool_action_digest: Option<ActionDigest>,
     ) -> ControlFlow<CommandExecutionResult, (CommandExecutionManager, ExecuteResponseWithQueueStats)>
@@ -180,6 +181,7 @@ impl ReExecutor {
             action_digest.dupe(),
             platform,
             dependencies,
+            re_gang_workers,
             &identity,
             &mut manager,
             self.skip_cache_read,
@@ -350,6 +352,7 @@ impl PreparedCommandExecutor for ReExecutor {
                     action_and_blobs,
                     platform,
                     remote_execution_dependencies,
+                    re_gang_workers,
                     worker_tool_init_action,
                 },
             digest_config,
@@ -419,6 +422,7 @@ impl PreparedCommandExecutor for ReExecutor {
                 self.dependencies
                     .iter()
                     .chain(remote_execution_dependencies.iter()),
+                re_gang_workers,
                 &command.request.meta_internal_extra_params(),
                 worker_tool_action_digest,
             )

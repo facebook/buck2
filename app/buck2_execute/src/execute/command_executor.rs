@@ -15,6 +15,7 @@ use std::time::Duration;
 use buck2_common::file_ops::metadata::TrackedFileDigest;
 use buck2_core::execution_types::executor_config::CommandGenerationOptions;
 use buck2_core::execution_types::executor_config::OutputPathsBehavior;
+use buck2_core::execution_types::executor_config::ReGangWorker;
 use buck2_core::execution_types::executor_config::RemoteExecutorCafFbpkg;
 use buck2_core::execution_types::executor_config::RemoteExecutorCustomImage;
 use buck2_core::execution_types::executor_config::RemoteExecutorDependency;
@@ -240,6 +241,7 @@ impl CommandExecutor {
                 self.0.options.output_paths_behavior,
                 request.unique_input_inodes(),
                 request.remote_execution_dependencies(),
+                request.re_gang_workers(),
                 request.remote_execution_custom_image(),
                 &request
                     .meta_internal_extra_params()
@@ -267,6 +269,7 @@ fn re_create_action(
     output_paths_behavior: OutputPathsBehavior,
     unique_input_inodes: bool,
     remote_execution_dependencies: &Vec<RemoteExecutorDependency>,
+    re_gang_workers: &Vec<ReGangWorker>,
     remote_execution_custom_image: &Option<RemoteExecutorCustomImage>,
     remote_execution_caf_fbpkgs: &[RemoteExecutorCafFbpkg],
     worker: &Option<RemoteWorkerSpec>,
@@ -455,6 +458,7 @@ fn re_create_action(
             .platform
             .expect("We did put a platform a few lines up"),
         remote_execution_dependencies: remote_execution_dependencies.to_owned(),
+        re_gang_workers: re_gang_workers.to_owned(),
         worker_tool_init_action,
     })
 }

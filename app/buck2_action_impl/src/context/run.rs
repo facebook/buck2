@@ -30,6 +30,7 @@ use buck2_build_api::interpreter::rule_defs::provider::builtin::run_info::RunInf
 use buck2_build_api::interpreter::rule_defs::provider::builtin::worker_run_info::WorkerRunInfo;
 use buck2_core::category::CategoryRef;
 use buck2_core::deferred::base_deferred_key::BaseDeferredKey;
+use buck2_core::execution_types::executor_config::ReGangWorker;
 use buck2_core::execution_types::executor_config::RemoteExecutorDependency;
 use buck2_error::BuckErrorContext;
 use buck2_error::conversion::from_any_with_tag;
@@ -265,6 +266,9 @@ pub(crate) fn analysis_actions_methods_run(methods: &mut MethodsBuilder) {
         eval: &mut Evaluator<'v, '_, '_>,
         #[starlark(require = named, default=UnpackList::default())]
         remote_execution_dependencies: UnpackList<SmallMap<&'v str, &'v str>>,
+        #[starlark(require = named, default=UnpackList::default())] re_gang_workers: UnpackList<
+            SmallMap<&'v str, &'v str>,
+        >,
         #[starlark(default = NoneType, require = named)] remote_execution_dynamic_image: Value<'v>,
         #[starlark(require = named, default = NoneOr::None)] meta_internal_extra_params: NoneOr<
             DictRef<'v>,
@@ -539,6 +543,11 @@ pub(crate) fn analysis_actions_methods_run(methods: &mut MethodsBuilder) {
             .map(RemoteExecutorDependency::parse)
             .collect::<buck2_error::Result<Vec<RemoteExecutorDependency>>>()?;
 
+        let re_gang_workers = re_gang_workers
+            .into_iter()
+            .map(ReGangWorker::parse)
+            .collect::<buck2_error::Result<Vec<ReGangWorker>>>()?;
+
         let re_custom_image = parse_custom_re_image(
             "remote_execution_dynamic_image",
             remote_execution_dynamic_image,
@@ -575,6 +584,7 @@ pub(crate) fn analysis_actions_methods_run(methods: &mut MethodsBuilder) {
             force_full_hybrid_if_capable,
             unique_input_inodes,
             remote_execution_dependencies: re_dependencies,
+            re_gang_workers,
             remote_execution_custom_image: re_custom_image,
             meta_internal_extra_params: extra_params,
             expected_eligible_for_dedupe: expect_eligible_for_dedupe.into_option(),

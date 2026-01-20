@@ -92,6 +92,26 @@ pub struct RemoteExecutorDependency {
     pub id: String,
 }
 
+/// Describes a worker in a gang for Remote Execution.
+/// A gang is a collection of workers that are scheduled together for distributed execution.
+/// Each worker specifies its capabilities (platform requirements).
+#[derive(Debug, Eq, PartialEq, Clone, Hash, Allocative)]
+pub struct ReGangWorker {
+    /// The platform capabilities required for this gang worker
+    pub capabilities: SortedMap<String, String>,
+}
+
+impl ReGangWorker {
+    pub fn parse(worker_map: SmallMap<&str, &str>) -> buck2_error::Result<ReGangWorker> {
+        let capabilities: SortedMap<String, String> = worker_map
+            .iter()
+            .map(|(k, v)| (k.to_string(), v.to_string()))
+            .collect();
+
+        Ok(ReGangWorker { capabilities })
+    }
+}
+
 impl RemoteExecutorDependency {
     pub fn parse(dep_map: SmallMap<&str, &str>) -> buck2_error::Result<RemoteExecutorDependency> {
         fn username() -> Option<String> {
@@ -393,4 +413,27 @@ pub struct RemoteExecutionPolicy {
 pub struct MetaInternalExtraParams {
     pub remote_execution_policy: RemoteExecutionPolicy,
     pub remote_execution_caf_fbpkgs: Vec<RemoteExecutorCafFbpkg>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_re_gang_worker_parse_success() {
+        let mut worker_map = SmallMap::new();
+        worker_map.insert("subplatform", "H100");
+        worker_map.insert("rack", "rack_01");
+
+        let result = ReGangWorker::parse(worker_map);
+        assert!(result.is_ok());
+
+        let worker = result.unwrap();
+        assert_eq!(worker.capabilities.len(), 2);
+        assert_eq!(
+            worker.capabilities.get("subplatform"),
+            Some(&"H100".to_owned())
+        );
+        assert_eq!(worker.capabilities.get("rack"), Some(&"rack_01".to_owned()));
+    }
 }

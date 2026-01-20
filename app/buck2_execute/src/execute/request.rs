@@ -16,6 +16,7 @@ use buck2_common::file_ops::metadata::TrackedFileDigest;
 use buck2_common::local_resource_state::LocalResourceState;
 use buck2_core::content_hash::ContentBasedPathHash;
 use buck2_core::execution_types::executor_config::MetaInternalExtraParams;
+use buck2_core::execution_types::executor_config::ReGangWorker;
 use buck2_core::execution_types::executor_config::RemoteExecutorCustomImage;
 use buck2_core::execution_types::executor_config::RemoteExecutorDependency;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
@@ -390,6 +391,8 @@ pub struct CommandExecutionRequest {
     /// Remote dep file key, if the action has a dep file.
     /// If this key is set and remote dep file caching is enabled, it will be used to query the cache.
     pub remote_dep_file_key: Option<DepFileDigest>,
+    /// RE gang workers for gang scheduling.
+    re_gang_workers: Vec<ReGangWorker>,
     /// RE dependencies to pass in action metadata.
     remote_execution_dependencies: Vec<RemoteExecutorDependency>,
     /// RE custom tupperware image.
@@ -431,6 +434,7 @@ impl CommandExecutionRequest {
             remote_worker: None,
             unique_input_inodes: false,
             remote_dep_file_key: None,
+            re_gang_workers: Vec::new(),
             remote_execution_dependencies: Vec::new(),
             remote_execution_custom_image: None,
             meta_internal_extra_params: MetaInternalExtraParams::default(),
@@ -641,6 +645,15 @@ impl CommandExecutionRequest {
 
     pub fn unique_input_inodes(&self) -> bool {
         self.unique_input_inodes
+    }
+
+    pub fn with_re_gang_workers(mut self, re_gang_workers: Vec<ReGangWorker>) -> Self {
+        self.re_gang_workers = re_gang_workers;
+        self
+    }
+
+    pub fn re_gang_workers(&self) -> &Vec<ReGangWorker> {
+        &self.re_gang_workers
     }
 
     pub fn with_remote_execution_dependencies(

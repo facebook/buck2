@@ -291,6 +291,7 @@ impl RemoteExecutionClient {
         action_digest: ActionDigest,
         platform: &RE::Platform,
         dependencies: impl IntoIterator<Item = &'a RemoteExecutorDependency>,
+        re_gang_workers: &Vec<buck2_core::execution_types::executor_config::ReGangWorker>,
         use_case: RemoteExecutorUseCase,
         identity: &ReActionIdentity<'_>,
         manager: &mut CommandExecutionManager,
@@ -308,6 +309,7 @@ impl RemoteExecutionClient {
                 action_digest,
                 platform,
                 dependencies,
+                re_gang_workers,
                 use_case,
                 identity,
                 manager,
@@ -1343,6 +1345,7 @@ impl RemoteExecutionClientImpl {
         action_digest: ActionDigest,
         platform: &RE::Platform,
         dependencies: impl IntoIterator<Item = &'a RemoteExecutorDependency>,
+        re_gang_workers: &Vec<buck2_core::execution_types::executor_config::ReGangWorker>,
         use_case: RemoteExecutorUseCase,
         identity: &ReActionIdentity<'_>,
         manager: &mut CommandExecutionManager,
@@ -1425,6 +1428,43 @@ impl RemoteExecutionClientImpl {
                     .map(|d| d.to_re())
                     .unwrap_or(Default::default()),
                 ..Default::default()
+            },
+            gang: if re_gang_workers.is_empty() {
+                None
+            } else {
+                let mut gang_members = Vec::with_capacity(re_gang_workers.len());
+                for worker in re_gang_workers.iter() {
+                    let properties: Vec<_> = worker
+                        .capabilities
+                        .iter()
+                        .map(|(k, v)| remote_execution::TProperty {
+                            name: k.clone(),
+                            value: v.clone(),
+                            ..Default::default()
+                        })
+                        .collect();
+
+                    gang_members.push(remote_execution::GangMember {
+                        host_runtime_requirements: THostRuntimeRequirements {
+                            platform: remote_execution::TPlatform {
+                                properties,
+                                ..Default::default()
+                            },
+                            ..Default::default()
+                        },
+                        ..Default::default()
+                    });
+                }
+
+                Some(remote_execution::GangSpecification {
+                    workers_spec: remote_execution::GangWorkersSpec::enumerated_spec(
+                        remote_execution::EnumeratedGangSpec {
+                            workers: gang_members,
+                            ..Default::default()
+                        },
+                    ),
+                    ..Default::default()
+                })
             },
             ..Default::default()
         };
