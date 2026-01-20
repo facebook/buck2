@@ -19,7 +19,6 @@ public class AdbOptions {
   private int adbServerPort;
   private boolean multiInstallMode;
   private boolean stagedInstallMode;
-  private int adbTimeout;
   private boolean ignoreMissingDevice;
   private boolean apexMode;
   private String restartMode;
@@ -30,7 +29,6 @@ public class AdbOptions {
       int adbServerPort,
       boolean multiInstallMode,
       boolean stagedInstallMode,
-      int adbTimeout,
       boolean ignoreMissingDevice,
       boolean apexMode,
       String restartMode) {
@@ -39,7 +37,6 @@ public class AdbOptions {
     this.adbServerPort = adbServerPort;
     this.multiInstallMode = multiInstallMode;
     this.stagedInstallMode = stagedInstallMode;
-    this.adbTimeout = adbTimeout;
     this.ignoreMissingDevice = ignoreMissingDevice;
     this.apexMode = apexMode;
     this.restartMode = restartMode;
@@ -69,10 +66,6 @@ public class AdbOptions {
     return apexMode;
   }
 
-  public int getAdbTimeout() {
-    return adbTimeout;
-  }
-
   public boolean getIgnoreMissingDevice() {
     return ignoreMissingDevice;
   }
@@ -94,8 +87,6 @@ public class AdbOptions {
         + multiInstallMode
         + ", stagedInstallMode="
         + stagedInstallMode
-        + ", adbTimeout="
-        + adbTimeout
         + ", ignoreMissingDevice="
         + ignoreMissingDevice
         + ", apexMode="

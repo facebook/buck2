@@ -86,8 +86,6 @@ class AndroidCommandLineOptions {
       usage = "Install .apk on all connected devices and/or emulators (multi-install mode)")
   public boolean multiInstallMode;
 
-  public final int adbTimeout = 60_000;
-
   @Option(
       name = "--tcp-port",
       usage = "TCP port used for connection in case TCP protocol is chosen")
