@@ -156,6 +156,8 @@ mod fbcode {
         pub engine_host: Option<String>,
         pub engine_port: Option<i32>,
         // End Thrift settings
+        /// When set to True, allows for cancellation of RE downloads when futures are dropped
+        pub enable_download_cancellation: bool,
     }
 
     impl RemoteExecutionStaticMetadataImpl for RemoteExecutionStaticMetadata {
@@ -368,6 +370,12 @@ mod fbcode {
                     section: BUCK2_RE_CLIENT_CFG_SECTION,
                     property: "engine_port",
                 })?,
+                enable_download_cancellation: legacy_config
+                    .parse(BuckconfigKeyRef {
+                        section: BUCK2_RE_CLIENT_CFG_SECTION,
+                        property: "enable_download_cancellation",
+                    })?
+                    .unwrap_or(false),
             })
         }
 
