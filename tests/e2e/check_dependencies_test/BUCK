@@ -177,3 +177,37 @@ check_mutually_exclusive_dependencies_test(
     ],
     target = TARGET3,
 )
+
+# Tests for build_mode parameter - verifies BXL cquery uses the correct platform
+
+# Target with platform-specific deps that uses useless_target_1 on Linux (DEFAULT)
+# and useless_target_2 on Android
+PLATFORM_SPECIFIC_TARGET = "fbcode//buck2/tests/targets/check_dependencies_test:platform_specific_deps_target"
+
+# Test: Without build_mode (default Linux), should see useless_target_1 but NOT useless_target_2
+# useless_target_1 is present (matches first pattern), useless_target_2 is NOT present (no match for second pattern)
+# So only one pattern has matches -> test should PASS
+check_mutually_exclusive_dependencies_test(
+    name = "build_mode_default_linux_sees_target_1",
+    contacts = CONTACTS,
+    mutually_exclusive_group = [
+        ".*:useless_target_1",
+        ".*:useless_target_2",
+    ],
+    target = PLATFORM_SPECIFIC_TARGET,
+)
+
+# Test: With Android build_mode, should see useless_target_2 (which depends on useless_target_1)
+# Both useless_target_1 and useless_target_2 will be in the dependency tree
+# (useless_target_2 depends on useless_target_1) -> test should FAIL
+check_mutually_exclusive_dependencies_test(
+    name = "build_mode_android_sees_target_2_and_target_1",
+    build_mode = "fbsource//arvr/mode/android/linux/opt",
+    contacts = CONTACTS,
+    expect_failure_msg = "Found .* mutually exclusive dependencies",
+    mutually_exclusive_group = [
+        ".*:useless_target_1",
+        ".*:useless_target_2",
+    ],
+    target = PLATFORM_SPECIFIC_TARGET,
+)

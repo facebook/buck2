@@ -128,8 +128,17 @@ elif FLAVOR == "check_mutually_exclusive_dependencies_test":
     @buck_test(inplace=True)
     async def test_check_mutually_exclusive_dependencies_bxl(buck) -> None:
         expect_failure_msg = os.environ["EXPECT_FAILURE_MSG"]
+
+        # Build mode argfile is passed directly to buck2 as an argfile
+        # e.g., "@fbsource//arvr/mode/android/linux/opt"
+        build_mode_argfile = os.environ.get("BUILD_MODE_ARGFILE", "")
+        additional_args = []
+        if build_mode_argfile:
+            additional_args.append(build_mode_argfile)
+
         bxl_call = buck.bxl(
             os.environ["BXL_MAIN"],
+            *additional_args,
             "--",
             "--target",
             os.environ["TARGET"],
