@@ -908,6 +908,7 @@ impl RemoteExecutionClientImpl {
                     "<none>",
                     REClientBuilder::new(re_config.fb)
                         .with_config(re_client_config)
+                        .with_cancellation(static_metadata.enable_download_cancellation)
                         .with_logger(logger)
                         .build_and_connect()
                         .await,
