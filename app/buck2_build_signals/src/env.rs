@@ -16,6 +16,7 @@ use std::time::Instant;
 
 use allocative::Allocative;
 use async_trait::async_trait;
+use buck2_core::soft_error;
 use buck2_error::BuckErrorContext;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_fs::paths::file_name::FileNameBuf;
@@ -235,10 +236,13 @@ where
 {
     let handle = deferred.start(events, backend, ctx);
     let result = func().await;
-    handle
+    let res = handle
         .finish()
         .await
-        .buck_error_context("Error computing critical path")?;
+        .buck_error_context("Error computing critical path");
+    if let Err(e) = res {
+        soft_error!("critical_path_computation_failed", e.into())?;
+    }
     result
 }
 

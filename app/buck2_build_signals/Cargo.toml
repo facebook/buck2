@@ -10,6 +10,7 @@ version = "0.1.0"
 [dependencies]
 allocative = { workspace = true }
 async-trait = { workspace = true }
+buck2_core = { workspace = true }
 buck2_data = { workspace = true }
 buck2_error = { workspace = true }
 buck2_events = { workspace = true }
