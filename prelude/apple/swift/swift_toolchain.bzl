@@ -96,7 +96,6 @@ def swift_toolchain_impl(ctx):
             architecture = ctx.attrs.architecture,
             compiler = cmd_args(ctx.attrs._swiftc_wrapper[RunInfo]).add(ctx.attrs.swiftc[RunInfo]),
             compiler_flags = ctx.attrs.swiftc_flags,
-            library_interface_uses_swiftinterface = ctx.attrs._library_interface_uses_swiftinterface,
             mk_swift_comp_db = ctx.attrs.make_swift_comp_db[RunInfo],
             mk_swift_interface = cmd_args(ctx.attrs._swiftc_wrapper[RunInfo]).add(ctx.attrs.make_swift_interface[RunInfo]),
             object_format = SwiftObjectFormat(ctx.attrs.object_format) if ctx.attrs.object_format else SwiftObjectFormat("object"),

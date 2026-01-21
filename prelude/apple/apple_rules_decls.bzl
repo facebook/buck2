@@ -1272,10 +1272,6 @@ swift_toolchain = prelude_rule(
             # TODO(T111858757): Mirror of `sdk_path` but treated as a string. It allows us to
             #                   pass abs paths during development and using the currently selected Xcode.
             "_internal_sdk_path": attrs.option(attrs.string(), default = None),
-            "_library_interface_uses_swiftinterface": attrs.bool(default = select({
-                "DEFAULT": False,
-                "config//features/apple:swift_library_interface_uses_swiftinterface_enabled": True,
-            })),
             "_swiftc_wrapper": attrs.exec_dep(providers = [RunInfo], default = "prelude//apple/tools:swift_exec"),
         }
     ),

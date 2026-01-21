@@ -28,7 +28,6 @@ SwiftToolchainInfo = provider(
         "architecture": provider_field(str),
         "compiler": provider_field(cmd_args),
         "compiler_flags": provider_field(list[ArgLike]),
-        "library_interface_uses_swiftinterface": provider_field(bool),
         "mk_swift_comp_db": provider_field(RunInfo),
         "mk_swift_interface": provider_field(cmd_args),
         "object_format": provider_field(SwiftObjectFormat),
@@ -101,8 +100,6 @@ SwiftCompiledModuleInfo = provider(fields = {
     # with headers). For SDK modules, the associated artifact would be the
     # SDK directory itself (which contains modulemaps).
     "clang_modulemap_artifacts": provider_field(list[Artifact], default = []),
-    # If present an artifact for the modules swiftinterface.
-    "interface_artifact": provider_field(Artifact | None, default = None),
     "is_framework": provider_field(bool),
     "is_sdk_module": provider_field(bool),
     # If True then contains a compiled swiftmodule, otherwise Clang's pcm.
@@ -140,7 +137,6 @@ def _swift_module_map_struct(module_info: SwiftCompiledModuleInfo):
         # the swiftinterface files as hidden inputs.
         module_path = cmd_args(
             module_info.output_artifact,
-            hidden = filter(None, [module_info.interface_artifact]),
             delimiter = "",
         )
 
