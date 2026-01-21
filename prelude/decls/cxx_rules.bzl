@@ -317,11 +317,6 @@ cxx_genrule = prelude_rule(
                  Use the *pattern* parameter to specify a regular expression that matches the build targets that use these flags.
 
 
-
-                `$(platform-name)`
-                The platform flavor with which this `cxx_genrule` was specified.
-
-
                 #### Parameterized Macros
 
                  It is also possible to expand references to other rules within the
