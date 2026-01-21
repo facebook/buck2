@@ -27,7 +27,7 @@ load(
     "CudaCompileStyle",  # @unused Used as a type
     "cuda_compile",
 )
-load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxPlatformInfo", "CxxToolchainInfo")
+load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxToolchainInfo")
 load(
     "@prelude//ide_integrations/xcode:argsfiles.bzl",
     "XCODE_ARG_SUBSTITUTIONS",
@@ -186,7 +186,6 @@ def create_compile_cmds(
         actions: AnalysisActions,
         target_label: Label,
         toolchain: CxxToolchainInfo,
-        cxx_platform_info: CxxPlatformInfo,
         impl_params: CxxRuleConstructorParams,
         own_preprocessors: list[CPreprocessor],
         inherited_preprocessor_infos: list[CPreprocessorInfo],
@@ -253,7 +252,7 @@ def create_compile_cmds(
     # of the same extension they will have some of the same flags. Save on
     # allocations by caching and reusing these objects.
     for ext in src_extensions:
-        cmd = _generate_base_compile_command(actions, target_label, toolchain, cxx_platform_info, impl_params, pre, headers_tag, ext)
+        cmd = _generate_base_compile_command(actions, target_label, toolchain, impl_params, pre, headers_tag, ext)
         cxx_compile_cmd_by_ext[ext] = cmd
         argsfile_by_ext[ext.value] = cmd.argsfile
         xcode_argsfile_by_ext[ext.value] = cmd.xcode_argsfile
@@ -986,7 +985,6 @@ def precompile_cxx(
         actions: AnalysisActions,
         target_label: Label,
         toolchain: CxxToolchainInfo,
-        cxx_platform_info: CxxPlatformInfo,
         impl_params: CxxRuleConstructorParams,
         preprocessors: list[CPreprocessor],
         header_preprocessor_info: CPreprocessorInfo) -> list[CPreprocessor]:
@@ -1005,7 +1003,6 @@ def precompile_cxx(
         argsfile = _mk_argsfiles(
             actions,
             target_label,
-            cxx_platform_info,
             impl_params,
             compiler_info,
             header_preprocessor_info,
@@ -1306,7 +1303,6 @@ _filter_precompile_argsfile_anon_rule = anon_rule(
 def _mk_argsfiles(
         actions: AnalysisActions,
         target_label: Label,
-        _cxx_platform_info: CxxPlatformInfo,
         impl_params: CxxRuleConstructorParams,
         compiler_info: typing.Any,
         preprocessor: CPreprocessorInfo,
@@ -1600,7 +1596,6 @@ def _generate_base_compile_command(
         actions: AnalysisActions,
         target_label: Label,
         toolchain: CxxToolchainInfo,
-        cxx_platform_info: CxxPlatformInfo,
         impl_params: CxxRuleConstructorParams,
         pre: CPreprocessorInfo,
         headers_tag: ArtifactTag,
@@ -1632,7 +1627,6 @@ def _generate_base_compile_command(
         return _mk_argsfiles(
             actions,
             target_label,
-            cxx_platform_info,
             impl_params,
             compiler_info,
             pre,

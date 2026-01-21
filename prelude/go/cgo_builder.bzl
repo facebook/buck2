@@ -7,13 +7,13 @@
 # above-listed licenses.
 
 load("@prelude//:paths.bzl", "paths")
-load("@prelude//cxx:cxx_context.bzl", "get_cxx_platform_info", "get_cxx_toolchain_info", "get_opt_cxx_toolchain_info")
+load("@prelude//cxx:cxx_context.bzl", "get_cxx_toolchain_info", "get_opt_cxx_toolchain_info")
 load("@prelude//cxx:cxx_library.bzl", "cxx_compile_srcs")
 load(
     "@prelude//cxx:cxx_sources.bzl",
     "CxxSrcWithFlags",
 )
-load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxPlatformInfo", "CxxToolchainInfo")
+load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxToolchainInfo")
 load(
     "@prelude//cxx:cxx_types.bzl",
     "CxxRuleConstructorParams",  # @unused Used as a type
@@ -56,7 +56,6 @@ CGoToolOut = record(
 CGoBuildContext = record(
     # Values from implicit attrs
     cxx_toolchain_info = field(CxxToolchainInfo),
-    cxx_platform_info = field(CxxPlatformInfo),
     target_sdk_version_flags = field(list[str]),
     exec_os_type = field(OsLookup),
 
@@ -81,7 +80,6 @@ def get_cgo_build_context(ctx: AnalysisContext) -> CGoBuildContext | None:
 
     return CGoBuildContext(
         cxx_toolchain_info = get_cxx_toolchain_info(ctx),
-        cxx_platform_info = get_cxx_platform_info(ctx),
         target_sdk_version_flags = get_target_sdk_version_flags(ctx),
         exec_os_type = ctx.attrs._exec_os_type[OsLookup],
         header_namespace = cxx_attr_header_namespace(ctx),
@@ -222,7 +220,6 @@ def build_cgo(
         actions,
         target_label,
         cgo_build_context.cxx_toolchain_info,
-        cgo_build_context.cxx_platform_info,
         CxxRuleConstructorParams(
             rule_type = "cgo_sources",
             headers_layout = cgo_build_context.headers_layout,

@@ -33,7 +33,7 @@ load(
     "CxxResourceSpec",
 )
 load("@prelude//apple:resource_groups.bzl", "create_resource_graph")
-load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxPlatformInfo", "CxxToolchainInfo")
+load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxToolchainInfo")
 load(
     "@prelude//cxx:headers.bzl",
     "CPrecompiledHeaderInfo",
@@ -480,7 +480,6 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
         actions = ctx.actions,
         target_label = ctx.label,
         cxx_toolchain_info = get_cxx_toolchain_info(ctx),
-        cxx_platform_info = get_cxx_platform_info(ctx),
         impl_params = impl_params,
         own_preprocessors = own_preprocessors,
         own_exported_preprocessors = own_exported_preprocessors,
@@ -1288,7 +1287,6 @@ def cxx_compile_srcs(
         actions: AnalysisActions,
         target_label: Label,
         cxx_toolchain_info: CxxToolchainInfo,
-        cxx_platform_info: CxxPlatformInfo,
         impl_params: CxxRuleConstructorParams,
         own_preprocessors: list[CPreprocessor],
         inherited_non_exported_preprocessor_infos: list[CPreprocessorInfo],
@@ -1306,7 +1304,6 @@ def cxx_compile_srcs(
         actions = actions,
         target_label = target_label,
         toolchain = cxx_toolchain_info,
-        cxx_platform_info = cxx_platform_info,
         impl_params = impl_params,
         own_preprocessors = own_preprocessors,
         inherited_preprocessor_infos = inherited_non_exported_preprocessor_infos + inherited_exported_preprocessor_infos,
@@ -1326,7 +1323,6 @@ def cxx_compile_srcs(
             actions = actions,
             target_label = target_label,
             toolchain = cxx_toolchain_info,
-            cxx_platform_info = cxx_platform_info,
             impl_params = impl_params,
             preprocessors = own_exported_preprocessors,
             header_preprocessor_info = header_preprocessor_info,
