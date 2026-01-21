@@ -79,6 +79,7 @@ FRAMEWORK_INTRODUCED_VERSIONS = {
         "macosx": (10, 2, 0),
     },
     "AddressBookUI": {"iphoneos": (2, 0, 0), "maccatalyst": (14, 0, 0)},
+    "AlarmKit": {"iphoneos": (26, 0, 0)},
     "AppClip": {"iphoneos": (14, 0, 0), "maccatalyst": (14, 0, 0)},
     "AppIntents": {
         "appletvos": (16, 0, 0),
