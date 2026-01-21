@@ -94,7 +94,6 @@ def create_modulemap(
             cmd_args(output, format = "-fmodule-map-file={}"),
             cmd_args(symlink_tree, format = "-I{}"),
         ],
-        modulemap_path = cmd_args(output),
-        modulemap_artifacts = [output],
+        modulemap_artifact = output,
     )
     return pp, output

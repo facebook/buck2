@@ -88,7 +88,7 @@ def _compiled_module_info(
         cmd_args(
             [
                 "-fmodule-map-file=",
-                pcm_info.exported_preprocessor.modulemap_path,
+                pcm_info.exported_preprocessor.modulemap_artifact,
             ],
             delimiter = "",
         ),
@@ -111,7 +111,7 @@ def _compiled_module_info(
         is_swiftmodule = False,
         module_name = module_name,
         output_artifact = pcm_output,
-        clang_modulemap_args = pcm_info.exported_preprocessor.modulemap_path,
+        clang_modulemap_args = cmd_args(pcm_info.exported_preprocessor.modulemap_artifact),
         clang_modulemap_artifacts = pcm_info.modulemap_artifacts,
     )
 
@@ -277,7 +277,7 @@ def compile_underlying_pcm(
         compiled_pcm_deps_providers,
         swift_cxx_args: list[str],
         framework_search_path_flags: cmd_args) -> SwiftCompiledModuleInfo:
-    modulemap_path = uncompiled_pcm_info.exported_preprocessor.modulemap_path
+    modulemap_path = uncompiled_pcm_info.exported_preprocessor.modulemap_artifact
     cmd = cmd_args([
         "-Xcc",
         "-I",
@@ -305,7 +305,6 @@ def _get_base_pcm_flags(
         pcm_deps_tset: SwiftCompiledModuleTset,
         swift_cxx_args: list[str]) -> (cmd_args, cmd_args, Artifact):
     uses_experimental_content_based_path_hashing = get_uses_experimental_content_based_path_hashing(ctx)
-    modulemap_path = uncompiled_pcm_info.exported_preprocessor.modulemap_path
     pcm_output = ctx.actions.declare_output(module_name + ".pcm", uses_experimental_content_based_path_hashing = uses_experimental_content_based_path_hashing)
     cmd = cmd_args(
         get_shared_pcm_compilation_args(module_name),
@@ -335,7 +334,7 @@ def _get_base_pcm_flags(
     additional_cmd = cmd_args(
         "-o",
         pcm_output.as_output(),
-        modulemap_path,
+        uncompiled_pcm_info.exported_preprocessor.modulemap_artifact,
     )
 
     return (cmd, additional_cmd, pcm_output)

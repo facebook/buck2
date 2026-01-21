@@ -216,7 +216,9 @@ def _create_uncompiled_pcm_module_info(ctx: AnalysisContext, framework_directory
         args = CPreprocessorArgs(args = [
             cmd_args(["-F", cmd_args(framework_directory_artifact, parent = 1)], delimiter = ""),
         ]),
-        modulemap_path = cmd_args(framework_directory_artifact, "/Modules/module.modulemap", delimiter = ""),
+        modulemap_artifact = framework_directory_artifact.project("Modules/module.modulemap").with_associated_artifacts(
+            [framework_directory_artifact],
+        ),
     )
     return SwiftPCMUncompiledInfo(
         name = framework_name,

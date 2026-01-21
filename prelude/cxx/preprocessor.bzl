@@ -74,10 +74,8 @@ CPreprocessor = record(
     uses_modules = field(bool, False),
     # Modular args to set when modules are in use, [arglike things]
     modular_args = field(list[typing.Any], []),
-    # Path to the modulemap which defines the API exposed to Swift
-    modulemap_path = field([cmd_args, None], None),
-    # Modulemap artifact and associated required files/dirs.
-    modulemap_artifacts = field(list[Artifact], []),
+    # Modulemap artifact
+    modulemap_artifact = field([Artifact, None], None),
     # Header units to load transitively and supporting args.
     header_units = field(list[HeaderUnit], []),
 )
