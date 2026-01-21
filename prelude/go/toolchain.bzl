@@ -86,15 +86,15 @@ def evaluate_cgo_enabled(cxx_toolchain_available: bool, cgo_enabled: [bool, None
 # - "1.20"
 # - "1.22rc1" (for pre-release versions)
 # - "1.22.1" (for patch versions)
-# - "unknown" (for development purposes)
+# - "unknown" or "devel" (for development purposes)
 def parse_go_version(version: str) -> GoVersion | None:
-    if version == "unknown":
+    if version == "unknown" or version == "devel":
         return None
 
     version_parts = version.split(".")
 
     if len(version_parts) < 2 or len(version_parts) > 3:
-        fail("Invalid Go version: '{}'. Expected format '1.20', '1.22rc1', '1.22.1' or 'unknown'.".format(version))
+        fail("Invalid Go version: '{}'. Expected format '1.20', '1.22rc1', '1.22.1', 'devel' or 'unknown'.".format(version))
 
     if version_parts[0] != "1":
         fail("Invalid Go version: '{}'. Expected major version to be '1'.".format(version))
