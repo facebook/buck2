@@ -30,7 +30,9 @@ use buck2_common::file_ops::metadata::TrackedFileDigest;
 use buck2_common::io::trace::TracingIoProvider;
 use buck2_core::category::CategoryRef;
 use buck2_core::execution_types::executor_config::RemoteExecutorUseCase;
+use buck2_core::soft_error;
 use buck2_error::BuckErrorContext;
+use buck2_error::internal_error;
 use buck2_execute::artifact_value::ArtifactValue;
 use buck2_execute::digest::CasDigestToReExt;
 use buck2_execute::directory::ActionDirectoryEntry;
@@ -60,13 +62,14 @@ enum CasArtifactActionDeclarationError {
 #[derive(Debug, buck2_error::Error)]
 enum CasArtifactActionExecutionError {
     #[error(
-        "The digest `{digest}` was declared to expire after `{declared_expiration}`, but it expires at `{effective_expiration}`"
-    )]
+        "The digest `{digest}` was declared to expire after `{declared_expiration}`, but it was set to expire at `{effective_expiration}`{}"
+    , (if .effective_expiration != .updated_expiration {format!(" (updated to {})", .updated_expiration)} else {"".to_owned()}))]
     #[buck2(tag = ReCasArtifactInvalidExpiration)]
     InvalidExpiration {
         digest: FileDigest,
         declared_expiration: DateTime<Utc>,
         effective_expiration: DateTime<Utc>,
+        updated_expiration: DateTime<Utc>,
     },
 }
 
@@ -191,30 +194,60 @@ impl Action for CasArtifactAction {
         }
 
         let re_client = ctx.re_client().with_use_case(self.inner.re_use_case);
-        let expiration = re_client
-            .get_digest_expirations(vec![self.inner.digest.to_re()])
-            .await
-            .with_buck_error_context(|| {
-                format!(
-                    "Error accessing digest expiration for: `{}`",
-                    self.inner.digest,
-                )
-            })?
-            .into_iter()
-            .next()
-            .buck_error_context("get_digest_expirations did not return anything")
-            .tag(buck2_error::ErrorTag::ReCasArtifactGetDigestExpirationError)?
-            .1;
+
+        let get_expiration = || async {
+            buck2_error::Ok(
+                re_client
+                    .get_digest_expirations(vec![self.inner.digest.to_re()])
+                    .await
+                    .with_buck_error_context(|| {
+                        format!(
+                            "Error accessing digest expiration for: `{}`",
+                            self.inner.digest,
+                        )
+                    })?
+                    .into_iter()
+                    .next()
+                    .buck_error_context("get_digest_expirations did not return anything")
+                    .tag(buck2_error::ErrorTag::ReCasArtifactGetDigestExpirationError)?
+                    .1,
+            )
+        };
+
+        let expiration = get_expiration().await?;
 
         if expiration < self.inner.expires_after {
-            return Err(buck2_error::Error::from(
-                CasArtifactActionExecutionError::InvalidExpiration {
-                    digest: self.inner.digest.dupe(),
-                    declared_expiration: self.inner.expires_after,
-                    effective_expiration: expiration,
-                },
-            )
-            .into());
+            // The expires_after mechanism is intended to support users storing prebuilt artifacts in cas and asserting that their builds will continue
+            // working for some minimum time period (typically years).
+            //
+            // If the observed expiration is too short, we'll log a soft error and try to extend it.
+            //
+            // TODO(cjhopman): It would be reasonable for this behavior to be more configurable, there just hasn't been need for it yet.
+            let now = Utc::now();
+
+            // Adds a small buffer to avoid minor clock skew issues.
+            let new_ttl =
+                self.inner.expires_after.signed_duration_since(now) + chrono::Duration::minutes(5);
+
+            re_client
+                .extend_digest_ttl(
+                    vec![self.inner.digest.to_re()],
+                    new_ttl
+                        .to_std()
+                        .map_err(|e| internal_error!("casting ttl to std duration `{}`", e))?,
+                )
+                .await?;
+
+            // We were able to extend the ttl, so this won't be failing builds, but we need to report it so we can track it.
+            let new_expiration = get_expiration().await?;
+            let error: buck2_error::Error = CasArtifactActionExecutionError::InvalidExpiration {
+                digest: self.inner.digest.dupe(),
+                declared_expiration: self.inner.expires_after,
+                effective_expiration: expiration,
+                updated_expiration: new_expiration,
+            }
+            .into();
+            soft_error!("cas_artifact_invalid_expiration", error, quiet: true).ok();
         }
 
         let value = match self.inner.kind {
