@@ -10,13 +10,18 @@ load("@prelude//cxx:comp_db.bzl", "CxxCompilationDbInfo")
 load("@prelude//cxx:compile_types.bzl", "CxxSrcCompileCommand")
 load("@prelude//utils:utils.bzl", "flatten")
 
-def _make_entry(ctx: bxl.Context, target: Label, compile_command: CxxSrcCompileCommand, add_target_name: bool) -> dict:
+def _make_entry(ctx: bxl.Context, target_universe: bxl.ConfiguredTargetSet, target: bxl.ConfiguredTargetNode, compile_command: CxxSrcCompileCommand, add_target_name: bool) -> dict:
     args = compile_command.cxx_compile_cmd.base_compile_cmd.copy()
+
+    source_library_compile_command = _get_source_library_compile_command(ctx, target_universe, target)
 
     # This prevents clangd from jumping into `buck-out` when using Go To
     # Definition, which significantly improves user experience.
     args.add(["-I", "."])
-    args.add(compile_command.cxx_compile_cmd.argsfile.cmd_form)
+    if source_library_compile_command:
+        args.add(source_library_compile_command.cxx_compile_cmd.argsfile.cmd_form)
+    else:
+        args.add(compile_command.cxx_compile_cmd.argsfile.cmd_form)
     args.add(compile_command.args)
     ctx.output.ensure_multiple(args)
 
@@ -27,9 +32,55 @@ def _make_entry(ctx: bxl.Context, target: Label, compile_command: CxxSrcCompileC
     }
 
     if add_target_name:
-        result["target"] = target.configured_target().raw_target()
+        result["target"] = target.label.raw_target()
 
     return result
+
+def _is_header_only_library(target: bxl.ConfiguredTargetNode):
+    for source in target.sources():
+        if source.extension not in [".h", ".hh", ".hpp", ".inl"]:
+            return False
+    return True
+
+def _get_source_library_compile_command(ctx: bxl.Context, target_universe:bxl.ConfiguredTargetSet, target:bxl.ConfiguredTargetNode):
+    # A target with only headers may not have the right compile commands in this scenario:
+    #   - A's headers include B's headers
+    #   - B's headers include A's headers
+    #
+    # In that situation, header-only libraries can be used to work around the cycle,
+    # by creating the targets A_headers and B_headers which don't depend on
+    # each other and having both A and B depend on both A_headers and B_headers.
+    #
+    # When doing this, the A_headers and B_headers have incomplete dependencies, and
+    # so the compile commands won't list the right set of include paths. To provide the
+    # right compile commands, find a reverse dep that's a non-header-only library
+    # and use its compilation info
+
+    if not _is_header_only_library(target):
+        return None
+
+    source_library_target = None
+
+    # heuristic: out of all first-level reverse deps in the same path, choose
+    # the first one that isn't a header-only library
+
+    rdeps = ctx.cquery().rdeps(target_universe, target.label, 1)
+    for rdep in rdeps:
+        if rdep.label != target.label and rdep.label.path == target.label.path and not _is_header_only_library(rdep):
+            source_library_target = rdep
+            break
+
+    if not source_library_target:
+        return None
+
+    source_library_analysis = ctx.analysis(source_library_target)
+    comp_db_info = source_library_analysis.providers().get(CxxCompilationDbInfo)
+    if not comp_db_info:
+        return None
+
+    for compile_command in comp_db_info.info.values():
+        return compile_command
+    return None
 
 def _impl(ctx: bxl.Context):
     targets = ctx.configured_targets(flatten(ctx.cli_args.targets), modifiers = ctx.modifiers)
@@ -39,12 +90,13 @@ def _impl(ctx: bxl.Context):
     actions = ctx.bxl_actions().actions
 
     db = []
-    for name, target in ctx.analysis(targets).items():
-        comp_db_info = target.providers().get(CxxCompilationDbInfo)
+    for target in targets:
+        analysis = ctx.analysis(target)
+        comp_db_info = analysis.providers().get(CxxCompilationDbInfo)
         if comp_db_info:
             for cc in comp_db_info.info.values():
                 if ctx.cli_args.include_headers or (not cc.is_header):
-                    db.append(_make_entry(ctx, name, cc, ctx.cli_args.add_target_name))
+                    db.append(_make_entry(ctx, targets, target, cc, ctx.cli_args.add_target_name))
 
     db_file = actions.declare_output("compile_commands.json")
     actions.write_json(db_file.as_output(), db, with_inputs = True, pretty = True)
