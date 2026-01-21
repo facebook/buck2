@@ -164,7 +164,7 @@ impl ReExecutor {
         digest_config: DigestConfig,
         platform: &RE::Platform,
         dependencies: impl IntoIterator<Item = &'a RemoteExecutorDependency>,
-        re_gang_workers: &Vec<buck2_core::execution_types::executor_config::ReGangWorker>,
+        re_gang_workers: &[buck2_core::execution_types::executor_config::ReGangWorker],
         meta_internal_extra_params: &MetaInternalExtraParams,
         worker_tool_action_digest: Option<ActionDigest>,
     ) -> ControlFlow<CommandExecutionResult, (CommandExecutionManager, ExecuteResponseWithQueueStats)>

@@ -424,7 +424,7 @@ impl ManagedRemoteExecutionClient {
         action_digest: ActionDigest,
         platform: &RE::Platform,
         dependencies: impl IntoIterator<Item = &'a RemoteExecutorDependency>,
-        re_gang_workers: &Vec<buck2_core::execution_types::executor_config::ReGangWorker>,
+        re_gang_workers: &[buck2_core::execution_types::executor_config::ReGangWorker],
         identity: &ReActionIdentity<'_>,
         manager: &mut CommandExecutionManager,
         skip_cache_read: bool,
