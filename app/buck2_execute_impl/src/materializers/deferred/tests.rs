@@ -1087,10 +1087,12 @@ mod state_machine {
         }).await
     }
 
+    const SAMPLE_BUCK_OUT_PATH: &str = "buck-out/v2/gen/foo/bar";
+
     #[tokio::test]
     async fn test_clean_stale() -> buck2_error::Result<()> {
         ignore_stack_overflow_checks_for_future(async {
-            let path = make_path("buck-out/v2/gen/foo/bar");
+            let path = make_path(SAMPLE_BUCK_OUT_PATH);
             let project_root = temp_root();
             let io = Arc::new(StubIoHandler::new(project_root.clone()));
             let (dm, mut handle, _) = make_materializer(io.dupe(), None).await;
@@ -1131,7 +1133,7 @@ mod state_machine {
     #[tokio::test]
     async fn test_clean_stale_interrupt() -> buck2_error::Result<()> {
         ignore_stack_overflow_checks_for_future(async {
-            let path = make_path("buck-out/v2/gen/foo/bar");
+            let path = make_path(SAMPLE_BUCK_OUT_PATH);
             let project_root = temp_root();
             let io = Arc::new(StubIoHandler::new(project_root.clone()));
             let (dm, mut handle, _) = make_materializer(io.dupe(), None).await;
@@ -1222,7 +1224,7 @@ mod state_machine {
     #[tokio::test]
     async fn test_clean_stale_schedule() -> buck2_error::Result<()> {
         ignore_stack_overflow_checks_for_future(async {
-            let path = make_path("buck-out/v2/gen/foo/bar");
+            let path = make_path(SAMPLE_BUCK_OUT_PATH);
             let project_root = temp_root();
             // dry run because it's easier and since this is only testing that cleans are triggered by the materializer
             let clean_stale_config = CleanStaleConfig {
