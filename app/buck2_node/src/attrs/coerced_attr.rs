@@ -20,6 +20,7 @@ use buck2_core::package::PackageLabel;
 use buck2_core::package::source_path::SourcePathRef;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
+use buck2_core::soft_error;
 use buck2_core::target::label::label::TargetLabel;
 use buck2_data::error::ErrorTag;
 use buck2_error::BuckErrorContext;
@@ -575,6 +576,19 @@ impl CoercedAttr {
         Ok(Some(matching.2))
     }
 
+    /// Select the first matching entry without considering specificity.
+    pub fn select_the_first_match<'a, 'x>(
+        select_entries: impl IntoIterator<
+            Item = (
+                &'x ConfigurationSettingKey,
+                &'x ConfigSettingData,
+                &'a CoercedAttr,
+            ),
+        >,
+    ) -> Option<&'a CoercedAttr> {
+        select_entries.into_iter().next().map(|(_, _, v)| v)
+    }
+
     fn select_the_most_specific_slow<'a>(
         select_entries: SmallVec<
             [(
@@ -629,10 +643,29 @@ impl CoercedAttr {
     ) -> buck2_error::Result<&'a CoercedAttr> {
         let CoercedSelector { entries, default } = select;
         let matched_cfg_keys = ctx.matched_cfg_keys();
-        let resolved_entries = entries
+        let resolved_entries: Vec<_> = entries
             .iter()
-            .filter_map(|(k, v)| matched_cfg_keys.setting_matches(k).map(|conf| (k, conf, v)));
-        if let Some(v) = Self::select_the_most_specific(resolved_entries)? {
+            .filter_map(|(k, v)| matched_cfg_keys.setting_matches(k).map(|conf| (k, conf, v)))
+            .collect();
+
+        if let Some(v) = Self::select_the_most_specific(resolved_entries.iter().copied())? {
+            // Compute first match for comparison (data collection for future migration)
+            let first_match = Self::select_the_first_match(resolved_entries.iter().copied());
+            // Compare with first match and emit soft error if they differ
+            match first_match {
+                Some(first) if first != v => {
+                    let _unused = soft_error!(
+                        "select_first_match_differs",
+                        buck2_error!(
+                            buck2_error::ErrorTag::Input,
+                            "First matching select key has different value than most specific match: {}",
+                            select.as_display_no_ctx()
+                        ),
+                        quiet: true,
+                    );
+                }
+                _ => {}
+            }
             Ok(v)
         } else {
             default.as_ref().ok_or_else(|| {

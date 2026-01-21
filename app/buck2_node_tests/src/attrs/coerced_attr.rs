@@ -151,6 +151,73 @@ fn select_the_most_specific() {
     );
 }
 
+#[test]
+fn select_the_first_match() {
+    // This test simulates the resolved entries flow from `resolve_single_select`:
+    // After filtering to only matching config settings, `select_the_first_match`
+    // returns the first entry in iteration order, regardless of specificity.
+    // This contrasts with `select_the_most_specific` which returns the most refined match.
+
+    let c_os = ConstraintKey::testing_new("config//c:os");
+    let c_linux = ConstraintValue::testing_new("config//c:linux", None);
+    let c_cpu = ConstraintKey::testing_new("config//c:cpu");
+    let c_x86_64 = ConstraintValue::testing_new("config//c:x86_64", None);
+
+    let linux = ConfigurationSettingKey::testing_parse("config//:linux");
+    let linux_x86_64 = ConfigurationSettingKey::testing_parse("config//:linux-x86_64");
+
+    let linux_data =
+        ConfigSettingData::testing_new(BTreeMap::from_iter([(c_os.dupe(), c_linux.dupe())]));
+    let linux_x86_64_data = ConfigSettingData::testing_new(BTreeMap::from_iter([
+        (c_os.dupe(), c_linux.dupe()),
+        (c_cpu.dupe(), c_x86_64.dupe()),
+    ]));
+
+    let literal_true = CoercedAttr::Bool(BoolLiteral(true));
+    let literal_str = CoercedAttr::String(StringLiteral(ArcStr::from("linux")));
+
+    // Simulate resolved_entries where both keys match the target configuration (linux-x86_64).
+    // The less specific entry (linux) comes first in the original select() definition.
+    let resolved_entries = [
+        (&linux, &linux_data, &literal_true),
+        (&linux_x86_64, &linux_x86_64_data, &literal_str),
+    ];
+
+    // select_the_first_match returns the first entry (literal_true from linux)
+    assert_eq!(
+        Some(&literal_true),
+        CoercedAttr::select_the_first_match(resolved_entries.iter().copied())
+    );
+    // select_the_most_specific returns the more specific entry (literal_str from linux_x86_64)
+    assert_eq!(
+        Some(&literal_str),
+        CoercedAttr::select_the_most_specific(resolved_entries.iter().copied()).unwrap()
+    );
+
+    // When the more specific entry comes first in the original order,
+    // both methods return the same value.
+    let resolved_entries = [
+        (&linux_x86_64, &linux_x86_64_data, &literal_str),
+        (&linux, &linux_data, &literal_true),
+    ];
+
+    assert_eq!(
+        Some(&literal_str),
+        CoercedAttr::select_the_first_match(resolved_entries.iter().copied())
+    );
+    assert_eq!(
+        Some(&literal_str),
+        CoercedAttr::select_the_most_specific(resolved_entries.iter().copied()).unwrap()
+    );
+
+    // Empty resolved entries returns None.
+    let resolved_entries: [(&ConfigurationSettingKey, &ConfigSettingData, &CoercedAttr); 0] = [];
+    assert_eq!(
+        None,
+        CoercedAttr::select_the_first_match(resolved_entries.iter().copied())
+    );
+}
+
 #[test] // T177093673
 fn test_select_refines_bug() {
     let c_windows = (
