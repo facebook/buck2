@@ -191,10 +191,12 @@ def build_apk(
 
     if packaging_options:
         for key, value in packaging_options.items():
-            if key != "excluded_resources":
-                fail("Only 'excluded_resources' is supported in packaging_options right now!")
-            else:
+            if key == "excluded_resources":
                 apk_builder_args.add("--excluded-resources", actions.write("excluded_resources.txt", value))
+            elif key == "uncompressed_files":
+                apk_builder_args.add("--uncompressed-files", actions.write("uncompressed_files.txt", value))
+            else:
+                fail("Only 'excluded_resources' and 'uncompressed_files' are supported in packaging_options right now!")
 
     actions.run(apk_builder_args, category = "apk_build")
 

@@ -19,6 +19,7 @@ import com.facebook.buck.util.zip.RepackZipEntries;
 import com.facebook.buck.util.zip.ZipCompressionLevel;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import java.io.BufferedInputStream;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -26,6 +27,11 @@ import java.nio.file.Paths;
 import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
 import java.security.UnrecoverableKeyException;
+import java.util.HashSet;
+import java.util.Set;
+import java.util.regex.Pattern;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipInputStream;
 import org.kohsuke.args4j.CmdLineException;
 import org.kohsuke.args4j.CmdLineParser;
 import org.kohsuke.args4j.Option;
@@ -71,6 +77,9 @@ public class ApkBuilderExecutableMain {
   @Option(name = "--excluded-resources")
   private String excludedResourcesList;
 
+  @Option(name = "--uncompressed-files")
+  private String uncompressedFilesList;
+
   public static void main(String[] args) throws IOException {
     ApkBuilderExecutableMain main = new ApkBuilderExecutableMain();
     CmdLineParser parser = new CmdLineParser(main);
@@ -111,6 +120,11 @@ public class ApkBuilderExecutableMain {
             ? ImmutableSet.of()
             : ImmutableSet.copyOf(Files.readAllLines(Paths.get(excludedResourcesList)));
 
+    ImmutableSet<String> uncompressedFiles =
+        uncompressedFilesList == null
+            ? ImmutableSet.of()
+            : ImmutableSet.copyOf(Files.readAllLines(Paths.get(uncompressedFilesList)));
+
     Path keystorePath = Paths.get(keystore);
     Path keystorePropertiesPath = Paths.get(keystoreProperties);
 
@@ -145,6 +159,21 @@ public class ApkBuilderExecutableMain {
         intermediateApk = intermediateApkWithCompressedResources;
       }
 
+      if (!uncompressedFiles.isEmpty()) {
+        ImmutableSet<String> expandedUncompressedFiles =
+            expandRegexPatterns(intermediateApk, uncompressedFiles);
+        if (!expandedUncompressedFiles.isEmpty()) {
+          Path intermediateApkWithUncompressedFiles =
+              Files.createTempFile("intermediate", "output_with_uncompressed_files.apk");
+          RepackZipEntries.repack(
+              intermediateApk,
+              intermediateApkWithUncompressedFiles,
+              expandedUncompressedFiles,
+              ZipCompressionLevel.NONE);
+          intermediateApk = intermediateApkWithUncompressedFiles;
+        }
+      }
+
       ZipAlign zipAlign =
           new ZipAlign(zipalignTool, intermediateApk.toString(), zipalignApk.toString());
       zipAlign.run();
@@ -168,5 +197,46 @@ public class ApkBuilderExecutableMain {
     }
 
     System.exit(0);
+  }
+
+  /**
+   * Expands regex patterns in the given set of patterns to actual file names found in the APK.
+   * Patterns are treated as regex patterns and matched against APK entries.
+   *
+   * @param apkPath Path to the APK file to scan for matching entries
+   * @param patterns Set of regex patterns to match against APK entries
+   * @return Set of actual file names that match the patterns
+   */
+  private static ImmutableSet<String> expandRegexPatterns(
+      Path apkPath, ImmutableSet<String> patterns) throws IOException {
+    Set<Pattern> regexPatterns = new HashSet<>();
+
+    // Compile all patterns as regex
+    for (String pattern : patterns) {
+      regexPatterns.add(Pattern.compile(pattern));
+    }
+
+    // If no patterns, return empty set
+    if (regexPatterns.isEmpty()) {
+      return ImmutableSet.of();
+    }
+
+    // Scan the APK to find entries matching regex patterns
+    Set<String> result = new HashSet<>();
+    try (BufferedInputStream bufferedIn = new BufferedInputStream(Files.newInputStream(apkPath));
+        ZipInputStream zipIn = new ZipInputStream(bufferedIn)) {
+      ZipEntry entry;
+      while ((entry = zipIn.getNextEntry()) != null) {
+        String entryName = entry.getName();
+        for (Pattern regexPattern : regexPatterns) {
+          if (regexPattern.matcher(entryName).matches()) {
+            result.add(entryName);
+            break;
+          }
+        }
+      }
+    }
+
+    return ImmutableSet.copyOf(result);
   }
 }
