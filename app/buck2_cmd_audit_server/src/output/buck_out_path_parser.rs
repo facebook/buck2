@@ -389,7 +389,7 @@ impl BuckOutPathParser {
                     }
                     "gen" => {
                         let buck_out_path_data =
-                            get_cell_path(&mut iter, &self.cell_resolver, "gen")?;
+                            get_cell_path(&mut iter, &self.cell_resolver, part.as_str())?;
                         let target_label =
                             get_target_label(&mut iter, buck_out_path_data.cell_path.clone())?;
                         if let Some(potential_config_hash) = iter.peek() {
@@ -414,7 +414,7 @@ impl BuckOutPathParser {
                     }
                     "gen-anon" => {
                         let buck_out_path_data =
-                            get_cell_path(&mut iter, &self.cell_resolver, "gen-anon")?;
+                            get_cell_path(&mut iter, &self.cell_resolver, part.as_str())?;
                         let target_label =
                             get_target_label(&mut iter, buck_out_path_data.cell_path.clone())?;
                         let common_attrs = BuckOutPathTypeCommon {
@@ -434,7 +434,7 @@ impl BuckOutPathParser {
                     }
                     "gen-bxl" => {
                         let buck_out_path_data =
-                            get_cell_path(&mut iter, &self.cell_resolver, "gen-bxl")?;
+                            get_cell_path(&mut iter, &self.cell_resolver, part.as_str())?;
                         let bxl_function_label =
                             get_bxl_function_label(&mut iter, buck_out_path_data.cell_path)?;
                         let common_attrs = BuckOutPathTypeCommon {
