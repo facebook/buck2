@@ -30,6 +30,7 @@ def _has_content_based_path_attr():
             "DEFAULT": False,
             # @oss-disable[end= ]: "config//os/constraints:android": True,
             # @oss-disable[end= ]: "config//runtime/constraints:android-host-test": True,
+            # @oss-disable[end= ]: "config//runtime/constraints:android-unit-test": True,
         })),
     }
 

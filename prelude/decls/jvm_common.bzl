@@ -287,6 +287,7 @@ def _content_based_path_attr():
         # @oss-disable[end= ]: "config//build_mode:arvr_mode": True,
         # @oss-disable[end= ]: "config//os/constraints:android": True,
         # @oss-disable[end= ]: "config//runtime/constraints:android-host-test": True,
+        # @oss-disable[end= ]: "config//runtime/constraints:android-unit-test": True,
     }))
 
 def _content_based_path_for_jar_snapshot():
