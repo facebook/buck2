@@ -6,6 +6,10 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
+load(
+    "@prelude//:artifact_tset.bzl",
+    "ArtifactTSet",
+)
 load("@prelude//apple/swift:swift_toolchain_types.bzl", "SwiftCompiledModuleTset")
 load("@prelude//cxx:preprocessor.bzl", "CPreprocessor")
 
@@ -23,7 +27,7 @@ SwiftPCMUncompiledInfo = provider(
     },
 )
 
-# A tset can't be returned from the rule, so we need to wrap it into a provider.
 WrappedSwiftPCMCompiledInfo = provider(fields = {
-    "tset": provider_field(SwiftCompiledModuleTset),  # Tset of `SwiftCompiledModuleInfo`
+    "clang_debug_info": provider_field(ArtifactTSet),
+    "clang_deps": provider_field(SwiftCompiledModuleTset),  # Tset of `SwiftCompiledModuleInfo`
 })

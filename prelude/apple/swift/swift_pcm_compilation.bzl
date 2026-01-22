@@ -32,7 +32,7 @@ _REQUIRED_SDK_CXX_MODULES = _REQUIRED_SDK_MODULES + ["std"]
 
 def get_compiled_pcm_deps_tset(ctx: AnalysisContext, pcm_deps_providers: list) -> SwiftCompiledModuleTset:
     pcm_deps = [
-        pcm_deps_provider[WrappedSwiftPCMCompiledInfo].tset
+        pcm_deps_provider[WrappedSwiftPCMCompiledInfo].clang_deps
         for pcm_deps_provider in pcm_deps_providers
         if WrappedSwiftPCMCompiledInfo in pcm_deps_provider
     ]
@@ -134,7 +134,8 @@ def _swift_pcm_compilation_impl(ctx: AnalysisContext) -> [Promise, list[Provider
             return [
                 DefaultInfo(),
                 WrappedSwiftPCMCompiledInfo(
-                    tset = pcm_deps_tset,
+                    clang_deps = pcm_deps_tset,
+                    clang_debug_info = extract_and_merge_clang_debug_infos(ctx, compiled_pcm_deps_providers),
                 ),
                 WrappedSdkCompiledModuleInfo(
                     clang_deps = sdk_deps_tset,
@@ -173,11 +174,13 @@ def _swift_pcm_compilation_impl(ctx: AnalysisContext) -> [Promise, list[Provider
         return [
             DefaultInfo(default_outputs = [pcm_output]),
             WrappedSwiftPCMCompiledInfo(
-                tset = ctx.actions.tset(SwiftCompiledModuleTset, value = pcm_info, children = [pcm_deps_tset]),
+                clang_deps = ctx.actions.tset(SwiftCompiledModuleTset, value = pcm_info, children = [pcm_deps_tset]),
+                clang_debug_info = extract_and_merge_clang_debug_infos(ctx, compiled_pcm_deps_providers, [pcm_info.output_artifact] + pcm_info.clang_modulemap_artifacts),
             ),
             WrappedSdkCompiledModuleInfo(
                 clang_deps = sdk_deps_tset,
-                clang_debug_info = extract_and_merge_clang_debug_infos(ctx, compiled_pcm_deps_providers, [pcm_info.output_artifact] + pcm_info.clang_modulemap_artifacts),
+                # No need to further propagate debug info, it will be included
+                # in WrappedSwiftPCMCompiledInfo.
             ),
         ]
 
