@@ -459,6 +459,7 @@ def apple_library_rule_constructor_params_and_swift_providers(ctx: AnalysisConte
         "objc-swift-interface": [objc_swift_interface],
         "swift-compilation-database": [DefaultInfo(default_output = None)],
         "swift-compile": [DefaultInfo(default_output = None)],
+        "swiftinterface": [DefaultInfo(default_output = swift_compile_result.swiftinterface)],
         "swiftmodule": [DefaultInfo(default_output = None)],
     }
     if swift_compile and swift_compile.compiled_underlying_pcm_artifact:

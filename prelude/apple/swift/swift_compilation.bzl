@@ -142,6 +142,7 @@ SwiftCompilationOutput = record(
 SwiftCompileResult = record(
     swift_compilation = field(SwiftCompilationOutput | None),
     objc_swift_interface = field(DefaultInfo),
+    swiftinterface = field(Artifact | None),
 )
 
 SwiftDebugInfo = record(
@@ -350,7 +351,7 @@ def compile_swift(
     objc_swift_interface_info = _create_objc_swift_interface(ctx, shared_flags, module_name)
 
     if not srcs:
-        return SwiftCompileResult(swift_compilation = None, objc_swift_interface = objc_swift_interface_info)
+        return SwiftCompileResult(swift_compilation = None, objc_swift_interface = objc_swift_interface_info, swiftinterface = None)
 
     toolchain = get_swift_toolchain_info(ctx)
     output_header = ctx.actions.declare_output(module_name + "-Swift.h", uses_experimental_content_based_path_hashing = uses_experimental_content_based_path_hashing)
@@ -363,6 +364,17 @@ def compile_swift(
             swiftinterface = ctx.actions.declare_output(module_name + ".swiftinterface", uses_experimental_content_based_path_hashing = uses_experimental_content_based_path_hashing),
             private_swiftinterface = ctx.actions.declare_output(module_name + ".private.swiftinterface", uses_experimental_content_based_path_hashing = uses_experimental_content_based_path_hashing),
             swiftdoc = ctx.actions.declare_output(module_name + ".swiftdoc", uses_experimental_content_based_path_hashing = uses_experimental_content_based_path_hashing),  #this is generated automatically once we pass -emit-module-info, so must have this name
+        )
+
+    output_swiftinterface = None
+    if getattr(ctx.attrs, "swiftinterface_subtarget_enabled", False):
+        output_swiftinterface = ctx.actions.declare_output(module_name + ".swiftinterface", uses_experimental_content_based_path_hashing = uses_experimental_content_based_path_hashing)
+        _compile_swiftinterface(
+            ctx,
+            toolchain,
+            shared_flags,
+            srcs,
+            output_swiftinterface,
         )
 
     # When compiling with WMO (ie, not incrementally), we compile the
@@ -467,38 +479,39 @@ def compile_swift(
             modularization_dependency_graph = modularization_dependency_graph,
         ),
         objc_swift_interface = objc_swift_interface_info,
+        swiftinterface = output_swiftinterface,
     )
 
-# def _compile_swiftinterface(
-#         ctx: AnalysisContext,
-#         toolchain: SwiftToolchainInfo,
-#         shared_flags: cmd_args,
-#         srcs: list[CxxSrcWithFlags],
-#         output_swiftinterface: Artifact):
-#     swiftinterface_argsfile = cmd_args(shared_flags)
-#     swiftinterface_argsfile.add([
-#         # Required as emitting a swiftinterface without library evolution
-#         # produces a warning.
-#         "-no-warnings-as-errors",
-#         # Workaround to avoid producing swiftdoc and other auxiliary outputs.
-#         "-typecheck",
-#         "-wmo",
-#     ])
-#     swiftinterface_cmd = cmd_args([
-#         "-emit-module-interface",
-#         "-emit-module-interface-path",
-#         output_swiftinterface.as_output(),
-#         "-Xwrapper",
-#         "-remove-module-prefixes",
-#     ])
-#     _compile_with_argsfile(
-#         ctx = ctx,
-#         category = "emit_swiftinterface",
-#         shared_flags = swiftinterface_argsfile,
-#         srcs = srcs,
-#         additional_flags = swiftinterface_cmd,
-#         toolchain = toolchain,
-#     )
+def _compile_swiftinterface(
+        ctx: AnalysisContext,
+        toolchain: SwiftToolchainInfo,
+        shared_flags: cmd_args,
+        srcs: list[CxxSrcWithFlags],
+        output_swiftinterface: Artifact):
+    swiftinterface_argsfile = cmd_args(shared_flags)
+    swiftinterface_argsfile.add([
+        # Required as emitting a swiftinterface without library evolution
+        # produces a warning.
+        "-no-warnings-as-errors",
+        # Workaround to avoid producing swiftdoc and other auxiliary outputs.
+        "-typecheck",
+        "-wmo",
+    ])
+    swiftinterface_cmd = cmd_args([
+        "-emit-module-interface",
+        "-emit-module-interface-path",
+        output_swiftinterface.as_output(),
+        "-Xwrapper",
+        "-remove-module-prefixes",
+    ])
+    _compile_with_argsfile(
+        ctx = ctx,
+        category = "emit_swiftinterface",
+        shared_flags = swiftinterface_argsfile,
+        srcs = srcs,
+        additional_flags = swiftinterface_cmd,
+        toolchain = toolchain,
+    )
 
 # We use separate actions for swiftmodule and object file output. This
 # improves build parallelism at the cost of duplicated work, but by disabling
