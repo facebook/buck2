@@ -28,6 +28,9 @@ def _replace_hash(s: str) -> str:
     return re.sub(r"\b[0-9a-f]{16}\b", "<HASH>", s)
 
 
+BUCK_OUT_ROOT_REL_PATH = "buck-out/v2/gen/root"
+
+
 @buck_test()
 async def test_bxl_ensure_no_materialization(buck: Buck) -> None:
     result = await buck.bxl(
@@ -106,7 +109,7 @@ async def test_bxl_artifact_path(buck: Buck) -> None:
         in outputs["build_artifact"]
     )
 
-    prefix = "buck-out/v2/gen/root/"
+    prefix = BUCK_OUT_ROOT_REL_PATH + "/"
 
     # The project relative path to the buck-out directory with the output
     assert outputs["build_artifact_project_rel_path"].startswith(prefix)
@@ -204,10 +207,10 @@ async def test_bxl_artifact_path_cmd_args(buck: Buck) -> None:
 def _test_bxl_artifact_path_cmd_args_helper(
     buck: Buck, part_to_validate: str, full_path: str, is_abs: bool
 ) -> None:
-    assert "buck-out/v2/gen/root" in full_path
+    assert BUCK_OUT_ROOT_REL_PATH in full_path
     assert part_to_validate in full_path
     if is_abs:
-        assert str((buck.cwd / Path("buck-out/v2/gen/root"))) in full_path
+        assert str((buck.cwd / Path(BUCK_OUT_ROOT_REL_PATH))) in full_path
         assert os.path.exists(full_path) is False
     else:
         assert str(buck.cwd) not in full_path
