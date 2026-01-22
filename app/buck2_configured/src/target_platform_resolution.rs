@@ -150,6 +150,9 @@ impl ConfiguredTargetCalculationImpl for ConfiguredTargetCalculationInstance {
                     current_cfg,
                     &global_cfg_options.cli_modifiers,
                     node.rule_type(),
+                    // configuring_exec_dep: false because this is configuring a regular target,
+                    // not an execution dependency.
+                    false,
                 )
                 .await
                 .with_buck_error_context(|| format!("Resolving modifiers for target `{target}`"))

@@ -55,7 +55,7 @@ def cfg_constructor_pre_constraint_analysis(
             PlatformInfo from legacy target platform resolution, if one is specified
         package_modifiers:
             A list of modifiers specified from all parent PACKAGE files
-        target_modifier:
+        target_modifiers:
             A list of modifiers specified from buildfile via `metadata` attribute.
         cli_modifiers:
             modifiers specified from `--modifier` flag, `?modifier`, or BXL
@@ -63,6 +63,9 @@ def cfg_constructor_pre_constraint_analysis(
             A struct that contains mapping of modifier aliases to modifier.
         extra_data:
             Some extra data that is for extra logging/validation for our internal modifier implementation.
+        configuring_exec_dep (bool):
+            Indicates whether this target is being configured as an execution dependency (exec_dep).
+            When True, this flag enables the cfg_constructor to apply exec-specific modifier resolution logic.
 
     Returns `(refs, PostConstraintAnalysisParams)`, where `refs` is a list of fully qualified configuration
     targets we need providers for.

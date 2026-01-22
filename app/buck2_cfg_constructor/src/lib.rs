@@ -82,6 +82,7 @@ async fn eval_pre_constraint_analysis<'v, 'a>(
     rule_type: &RuleType,
     aliases: Option<&'v OwnedFrozenValue>,
     extra_data: Option<&'v OwnedFrozenValue>,
+    configuring_exec_dep: bool,
     print: &'a EventDispatcherPrintHandler,
 ) -> buck2_error::Result<(Vec<String>, Value<'v>)> {
     reentrant_eval.with_evaluator(|eval| {
@@ -113,6 +114,7 @@ async fn eval_pre_constraint_analysis<'v, 'a>(
             Some(v) => v.value(),
             None => Value::new_none(),
         };
+        let configuring_exec_dep = eval.heap().alloc(configuring_exec_dep);
 
         // TODO: should eventually accept cli modifiers and target modifiers (T163570597)
         let pre_constraint_analysis_args = vec![
@@ -123,6 +125,7 @@ async fn eval_pre_constraint_analysis<'v, 'a>(
             ("rule_name", rule_name),
             ("aliases", aliases),
             ("extra_data", extra_data),
+            ("configuring_exec_dep", configuring_exec_dep),
         ];
 
         // Type check + unpack
@@ -219,6 +222,7 @@ async fn eval_underlying(
     target_cfg_modifiers: Option<&MetadataValue>,
     cli_modifiers: &[String],
     rule_type: &RuleType,
+    configuring_exec_dep: bool,
     cancellation: &CancellationContext,
 ) -> buck2_error::Result<ConfigurationData> {
     let print = EventDispatcherPrintHandler(get_dispatcher());
@@ -242,6 +246,7 @@ async fn eval_underlying(
             rule_type,
             cfg_constructor.aliases.as_ref(),
             cfg_constructor.extra_data.as_ref(),
+            configuring_exec_dep,
             &print,
         )
         .await?;
@@ -277,6 +282,7 @@ impl CfgConstructorImpl for CfgConstructor {
         target_cfg_modifiers: Option<&'a MetadataValue>,
         cli_modifiers: &'a [String],
         rule_type: &'a RuleType,
+        configuring_exec_dep: bool,
         cancellation: &'a CancellationContext,
     ) -> Pin<Box<dyn Future<Output = buck2_error::Result<ConfigurationData>> + Send + 'a>> {
         // Get around issue of Evaluator not being send by wrapping future in UnsafeSendFuture
@@ -289,6 +295,7 @@ impl CfgConstructorImpl for CfgConstructor {
                 target_cfg_modifiers,
                 cli_modifiers,
                 rule_type,
+                configuring_exec_dep,
                 cancellation,
             )
             .await

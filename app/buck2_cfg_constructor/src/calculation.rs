@@ -93,6 +93,7 @@ impl CfgConstructorCalculationImpl for CfgConstructorCalculationInstance {
         cfg: ConfigurationData,
         cli_modifiers: &Arc<Vec<String>>,
         rule_type: &RuleType,
+        configuring_exec_dep: bool,
     ) -> buck2_error::Result<ConfigurationData> {
         #[derive(Clone, Display, Dupe, Debug, Eq, Hash, PartialEq, Allocative)]
         #[display("CfgConstructorInvocationKey")]
@@ -102,6 +103,7 @@ impl CfgConstructorCalculationImpl for CfgConstructorCalculationInstance {
             cfg: ConfigurationData,
             cli_modifiers: Arc<Vec<String>>,
             rule_type: RuleType,
+            configuring_exec_dep: bool,
         }
 
         #[async_trait]
@@ -124,6 +126,7 @@ impl CfgConstructorCalculationImpl for CfgConstructorCalculationInstance {
                         self.target_cfg_modifiers.as_ref(),
                         &self.cli_modifiers,
                         &self.rule_type,
+                        self.configuring_exec_dep,
                         cancellation,
                     )
                     .await
@@ -180,6 +183,7 @@ impl CfgConstructorCalculationImpl for CfgConstructorCalculationInstance {
             cfg,
             cli_modifiers: cli_modifiers.dupe(),
             rule_type: rule_type.dupe(),
+            configuring_exec_dep,
         };
         Ok(ctx.compute(&key).await??)
     }

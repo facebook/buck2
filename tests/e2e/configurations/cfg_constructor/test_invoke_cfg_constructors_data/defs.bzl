@@ -21,7 +21,9 @@ def _cfg_constructor_pre_constraint_analysis(
         cli_modifiers: list[str],
         rule_name: str,
         aliases: struct | None,
-        extra_data: dict[str, typing.Any] | None):
+        extra_data: dict[str, typing.Any] | None,
+        **kwargs):
+    _unused = kwargs  # buildifier: disable=unused-variable
     _unused = target_modifiers  # buildifier: disable=unused-variable
     _unused = cli_modifiers  # buildifier: disable=unused-variable
     _unused = extra_data  # buildifier: disable=unused-variable

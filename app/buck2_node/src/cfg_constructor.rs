@@ -30,6 +30,12 @@ use crate::super_package::SuperPackage;
 /// The output of invoking these functions is a PlatformInfo
 #[async_trait]
 pub trait CfgConstructorImpl: Send + Sync + Debug + Allocative {
+    /// Evaluates the configuration constructor to resolve modifiers and produce a configuration data.
+    ///
+    /// # Arguments
+    /// * `configuring_exec_dep` - When `true`, indicates this target is being configured as an
+    ///   execution dependency (exec_dep). This flag is passed to the Starlark cfg_constructor
+    ///   to enable execution specific modifier resolution.
     fn eval<'a>(
         &'a self,
         ctx: &'a mut DiceComputations,
@@ -38,6 +44,7 @@ pub trait CfgConstructorImpl: Send + Sync + Debug + Allocative {
         target_cfg_modifiers: Option<&'a MetadataValue>,
         cli_modifiers: &'a [String],
         rule_type: &'a RuleType,
+        configuring_exec_dep: bool,
         cancellation: &'a CancellationContext,
     ) -> Pin<Box<dyn Future<Output = buck2_error::Result<ConfigurationData>> + Send + 'a>>;
 
@@ -53,6 +60,10 @@ pub static CFG_CONSTRUCTOR_CALCULATION_IMPL: LateBinding<
 pub trait CfgConstructorCalculationImpl: Send + Sync + 'static {
     /// Invokes starlark cfg constructors on provided configuration
     /// and returns the result.
+    ///
+    /// # Arguments
+    /// * `configuring_exec_dep` - When `true`, indicates this target is being configured as an
+    ///   execution dependency. This enables execution specific modifier resolution.
     async fn eval_cfg_constructor(
         &self,
         ctx: &mut DiceComputations<'_>,
@@ -61,5 +72,6 @@ pub trait CfgConstructorCalculationImpl: Send + Sync + 'static {
         cfg: ConfigurationData,
         cli_modifiers: &Arc<Vec<String>>,
         rule_name: &RuleType,
+        configuring_exec_dep: bool,
     ) -> buck2_error::Result<ConfigurationData>;
 }
