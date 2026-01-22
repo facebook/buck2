@@ -92,6 +92,19 @@ Caused by:
 
 Command failed: 
 Error evaluating expression:
+    //package_listing/typo_test/subdirr:
+    ^----------------------------------^
+
+
+Caused by:
+    package `root//package_listing/typo_test/subdirr:` does not exist
+             ^-------------------------------------^
+        dir `root//package_listing/typo_test/subdirr` does not exist. Did you mean `root//package_listing/typo_test/subdir`?
+
+
+
+Command failed: 
+Error evaluating expression:
     //something:
     ^----------^
 

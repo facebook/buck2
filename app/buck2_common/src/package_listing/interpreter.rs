@@ -273,7 +273,20 @@ impl std::fmt::Display for GatherPackageListingError {
                         format!("Did you mean one of [`{}`]?", cell_suggestion.join("`, `"))
                     }
                     DirectoryDoesNotExistSuggestion::Typo(suggestion) => {
-                        format!("Did you mean `{}//{}`?", expected_path.cell(), suggestion)
+                        let suggested_target = match expected_path.parent() {
+                            Some(parent) => {
+                                if parent.path().is_empty() {
+                                    format!("{}//{}", parent.cell(), suggestion)
+                                } else {
+                                    format!("{}/{}", parent, suggestion)
+                                }
+                            }
+                            None => {
+                                format!("{}//{}", expected_path.cell(), suggestion)
+                            }
+                        };
+
+                        format!("Did you mean `{}`?", suggested_target)
                     }
                     DirectoryDoesNotExistSuggestion::NoSuggestion => "".to_owned(),
                 };

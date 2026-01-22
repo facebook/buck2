@@ -61,6 +61,8 @@ async def test_package_listing_errors(buck: Buck) -> None:
         "//package_listing/data.file/subdir:target",
         # Missing directory due to typo
         "//package_listings:",
+        # Missing directory due to typo in subdirectory
+        "//package_listing/typo_test/subdirr:",
         # Missing directory due to being in the wrong cell
         "//something:",
     ]:
