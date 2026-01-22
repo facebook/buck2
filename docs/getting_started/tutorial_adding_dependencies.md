@@ -230,7 +230,7 @@ full target name of the library.
 
 ## Step 5: Run the Binary
 
-Now, let's build and run our binary application, which dependencies {
+Now, let's build and run our binary application, with dependencies {
 isInternal() ?
 <code>fbcode//scripts/&lt;unixname&gt;/buck2_lab/greeter_lib:library</code> :
 <code>root//buck2_lab/greeter_lib:library</code> }.
