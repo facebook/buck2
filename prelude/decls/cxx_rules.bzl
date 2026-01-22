@@ -16,6 +16,7 @@ load("@prelude//apple:apple_common.bzl", "apple_common")
 load("@prelude//cxx:cuda.bzl", "CudaCompileStyle")
 load("@prelude//cxx:headers.bzl", "CPrecompiledHeaderInfo")
 load("@prelude//cxx:link_groups_types.bzl", "LINK_GROUP_MAP_ATTR")
+load("@prelude//decls:core_rules.bzl", "core_args")
 load("@prelude//decls:test_common.bzl", "test_common")
 load("@prelude//decls:toolchains_common.bzl", "toolchains_common")
 load("@prelude//linking:execution_preference.bzl", "link_execution_preference_attr")
@@ -409,7 +410,6 @@ cxx_genrule = prelude_rule(
                 Whether this target should be executed in a sandbox or not.
             """),
             "cacheable": attrs.option(attrs.bool(), default = None),
-            "has_content_based_path": attrs.bool(default = False),
             "uses_experimental_content_based_path_hashing": attrs.bool(default = False),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "default_outs": attrs.option(attrs.set(attrs.string(), sorted = False), default = None),
@@ -419,7 +419,8 @@ cxx_genrule = prelude_rule(
         } |
         buck.licenses_arg() |
         buck.labels_arg() |
-        buck.contacts_arg()
+        buck.contacts_arg() |
+        core_args.has_content_based_path_attr()
     ),
 )
 

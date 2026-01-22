@@ -1552,6 +1552,10 @@ zip_file = prelude_rule(
     ),
 )
 
+core_args = struct(
+    has_content_based_path_attr = _has_content_based_path_attr,
+)
+
 core_rules = struct(
     alias = alias,
     command_alias = command_alias,
