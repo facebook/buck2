@@ -1360,6 +1360,8 @@ impl RemoteExecutionClientImpl {
     ) -> buck2_error::Result<ExecuteResponseOrCancelled> {
         #[cfg(not(fbcode_build))]
         let _unused = worker_tool_action_digest;
+        #[cfg(not(fbcode_build))]
+        let _unused = re_gang_workers;
 
         if buck2_env!("BUCK2_TEST_FAIL_RE_EXECUTE", bool, applicability = testing)? {
             return Err(test_re_error("Injected error", TCode::FAILED_PRECONDITION));
@@ -1430,6 +1432,7 @@ impl RemoteExecutionClientImpl {
                     .unwrap_or(Default::default()),
                 ..Default::default()
             },
+            #[cfg(fbcode_build)]
             gang: if re_gang_workers.is_empty() {
                 None
             } else {
