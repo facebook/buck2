@@ -139,6 +139,11 @@ SwiftCompilationOutput = record(
     modularization_dependency_graph = field(Artifact | None),
 )
 
+SwiftCompileResult = record(
+    swift_compilation = field(SwiftCompilationOutput | None),
+    objc_swift_interface = field(DefaultInfo),
+)
+
 SwiftDebugInfo = record(
     static = list[ArtifactTSet],
     shared = list[ArtifactTSet],
@@ -299,7 +304,7 @@ def compile_swift(
         extra_search_paths_flags: list[ArgLike] = [],
         compile_category = "swift_compile",
         compile_swiftmodule_category = "swiftmodule_compile",
-        is_macro = False) -> ([SwiftCompilationOutput, None], DefaultInfo):
+        is_macro = False) -> SwiftCompileResult:
     # If this target imports XCTest we need to pass the search path to its swiftmodule.
     framework_search_paths = cmd_args()
     framework_search_paths.add(_get_xctest_swiftmodule_search_path(ctx))
@@ -345,7 +350,7 @@ def compile_swift(
     objc_swift_interface_info = _create_objc_swift_interface(ctx, shared_flags, module_name)
 
     if not srcs:
-        return (None, objc_swift_interface_info)
+        return SwiftCompileResult(swift_compilation = None, objc_swift_interface = objc_swift_interface_info)
 
     toolchain = get_swift_toolchain_info(ctx)
     output_header = ctx.actions.declare_output(module_name + "-Swift.h", uses_experimental_content_based_path_hashing = uses_experimental_content_based_path_hashing)
@@ -429,37 +434,40 @@ def compile_swift(
     pre = CPreprocessor(headers = [swift_header])
 
     # Pass up the swiftmodule paths for this module and its exported_deps
-    return (SwiftCompilationOutput(
-        output_map_artifact = object_output.output_map_artifact,
-        object_files = object_output.object_files,
-        object_format = toolchain.object_format,
-        swiftmodule = output_swiftmodule,
-        typecheck_file = typecheck_file,
-        compiled_underlying_pcm_artifact = exported_compiled_underlying_pcm.output_artifact if exported_compiled_underlying_pcm else None,
-        dependency_info = get_swift_dependency_info(ctx, output_swiftmodule, deps_providers, is_macro),
-        pre = pre,
-        exported_pre = exported_pp_info,
-        exported_swift_header = exported_swift_header.artifact,
-        argsfiles = object_output.argsfiles,
-        swift_debug_info = extract_and_merge_swift_debug_infos(ctx, deps_providers, [output_swiftmodule]),
-        clang_debug_info = extract_and_merge_clang_debug_infos(
-            ctx,
-            deps_providers,
-            filter(
-                None,
-                [
-                    exported_compiled_underlying_pcm.output_artifact if exported_compiled_underlying_pcm else None,
-                    extended_modulemap,
-                ],
-            ) +
-            (exported_compiled_underlying_pcm.clang_modulemap_artifacts if exported_compiled_underlying_pcm else []),
+    return SwiftCompileResult(
+        swift_compilation = SwiftCompilationOutput(
+            output_map_artifact = object_output.output_map_artifact,
+            object_files = object_output.object_files,
+            object_format = toolchain.object_format,
+            swiftmodule = output_swiftmodule,
+            typecheck_file = typecheck_file,
+            compiled_underlying_pcm_artifact = exported_compiled_underlying_pcm.output_artifact if exported_compiled_underlying_pcm else None,
+            dependency_info = get_swift_dependency_info(ctx, output_swiftmodule, deps_providers, is_macro),
+            pre = pre,
+            exported_pre = exported_pp_info,
+            exported_swift_header = exported_swift_header.artifact,
+            argsfiles = object_output.argsfiles,
+            swift_debug_info = extract_and_merge_swift_debug_infos(ctx, deps_providers, [output_swiftmodule]),
+            clang_debug_info = extract_and_merge_clang_debug_infos(
+                ctx,
+                deps_providers,
+                filter(
+                    None,
+                    [
+                        exported_compiled_underlying_pcm.output_artifact if exported_compiled_underlying_pcm else None,
+                        extended_modulemap,
+                    ],
+                ) +
+                (exported_compiled_underlying_pcm.clang_modulemap_artifacts if exported_compiled_underlying_pcm else []),
+            ),
+            compilation_database = _create_compilation_database(ctx, srcs, object_output.argsfiles.relative[SWIFT_EXTENSION]),
+            swift_library_for_distribution_output = swift_framework_output,
+            index_store = index_store,
+            swiftdeps = object_output.swiftdeps,
+            modularization_dependency_graph = modularization_dependency_graph,
         ),
-        compilation_database = _create_compilation_database(ctx, srcs, object_output.argsfiles.relative[SWIFT_EXTENSION]),
-        swift_library_for_distribution_output = swift_framework_output,
-        index_store = index_store,
-        swiftdeps = object_output.swiftdeps,
-        modularization_dependency_graph = modularization_dependency_graph,
-    ), objc_swift_interface_info)
+        objc_swift_interface = objc_swift_interface_info,
+    )
 
 # def _compile_swiftinterface(
 #         ctx: AnalysisContext,

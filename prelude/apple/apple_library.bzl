@@ -356,7 +356,7 @@ def apple_library_rule_constructor_params_and_swift_providers(ctx: AnalysisConte
         exported_modulemap_pre = None
 
     framework_search_paths_flags = get_framework_search_path_flags(ctx)
-    swift_compile, objc_swift_interface = compile_swift(
+    swift_compile_result = compile_swift(
         ctx,
         swift_srcs,
         True,  # parse_as_library
@@ -367,6 +367,8 @@ def apple_library_rule_constructor_params_and_swift_providers(ctx: AnalysisConte
         framework_search_paths_flags,
         params.extra_swift_compiler_flags,
     )
+    swift_compile = swift_compile_result.swift_compilation
+    objc_swift_interface = swift_compile_result.objc_swift_interface
     swift_object_files = swift_compile.object_files if swift_compile else []
 
     swift_pre = CPreprocessor()

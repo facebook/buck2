@@ -103,7 +103,7 @@ def apple_binary_impl(ctx: AnalysisContext) -> [list[Provider], Promise]:
         module_name = get_module_name(ctx)
 
         framework_search_path_flags = get_framework_search_path_flags(ctx)
-        swift_compile, _ = compile_swift(
+        swift_compile_result = compile_swift(
             ctx,
             swift_srcs,
             False,  # parse_as_library
@@ -114,6 +114,7 @@ def apple_binary_impl(ctx: AnalysisContext) -> [list[Provider], Promise]:
             framework_search_path_flags,
             objc_bridging_header_flags,
         )
+        swift_compile = swift_compile_result.swift_compilation
         swift_object_files = swift_compile.object_files if swift_compile else []
         swift_preprocessor = [swift_compile.pre] if swift_compile else []
         extra_link_flags = get_rpath_flags_for_apple_binary(ctx) + entitlements_link_flags(ctx)
