@@ -445,6 +445,14 @@ def compile_swift(
     )
     pre = CPreprocessor(headers = [swift_header])
 
+    clang_debug_artifacts = [extended_modulemap]
+    if exported_compiled_underlying_pcm:
+        # The compiled PCM of the underlying clang module
+        clang_debug_artifacts.append(exported_compiled_underlying_pcm.output_artifact)
+
+        # The modulemap and headers excluding the Swift header
+        clang_debug_artifacts.append(exported_objc_modulemap_pp_info.modulemap_artifact)
+
     # Pass up the swiftmodule paths for this module and its exported_deps
     return SwiftCompileResult(
         swift_compilation = SwiftCompilationOutput(
@@ -463,14 +471,7 @@ def compile_swift(
             clang_debug_info = extract_and_merge_clang_debug_infos(
                 ctx,
                 deps_providers,
-                filter(
-                    None,
-                    [
-                        exported_compiled_underlying_pcm.output_artifact if exported_compiled_underlying_pcm else None,
-                        extended_modulemap,
-                    ],
-                ) +
-                (exported_compiled_underlying_pcm.clang_modulemap_artifacts if exported_compiled_underlying_pcm else []),
+                clang_debug_artifacts,
             ),
             compilation_database = _create_compilation_database(ctx, srcs, object_output.argsfiles.relative[SWIFT_EXTENSION]),
             swift_library_for_distribution_output = swift_framework_output,

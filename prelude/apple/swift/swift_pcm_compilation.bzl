@@ -112,7 +112,6 @@ def _compiled_module_info(
         module_name = module_name,
         output_artifact = pcm_output,
         clang_modulemap_args = cmd_args(pcm_info.exported_preprocessor.modulemap_artifact),
-        clang_modulemap_artifacts = [pcm_info.exported_preprocessor.modulemap_artifact],
     )
 
 def _swift_pcm_compilation_impl(ctx: AnalysisContext) -> [Promise, list[Provider]]:
@@ -170,12 +169,16 @@ def _swift_pcm_compilation_impl(ctx: AnalysisContext) -> [Promise, list[Provider
             supports_output_file_map = False,
         )
         pcm_info = _compiled_module_info(module_name, pcm_output, uncompiled_pcm_info)
+        debug_artifacts = [
+            pcm_info.output_artifact,
+            uncompiled_pcm_info.exported_preprocessor.modulemap_artifact,
+        ]
 
         return [
             DefaultInfo(default_outputs = [pcm_output]),
             WrappedSwiftPCMCompiledInfo(
                 clang_deps = ctx.actions.tset(SwiftCompiledModuleTset, value = pcm_info, children = [pcm_deps_tset]),
-                clang_debug_info = extract_and_merge_clang_debug_infos(ctx, compiled_pcm_deps_providers, [pcm_info.output_artifact] + pcm_info.clang_modulemap_artifacts),
+                clang_debug_info = extract_and_merge_clang_debug_infos(ctx, compiled_pcm_deps_providers, debug_artifacts),
             ),
             WrappedSdkCompiledModuleInfo(
                 clang_deps = sdk_deps_tset,

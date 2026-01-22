@@ -247,9 +247,6 @@ def _swift_sdk_pcm_compilation_impl(ctx: AnalysisContext) -> [Promise, list[Prov
             module_name = module_name,
             output_artifact = pcm_output,
             clang_modulemap_args = expanded_modulemap_path_cmd,
-            # Module map files can live in the SDK or the toolchain resource dir.
-            # Those are passed via `extract_and_merge_clang_debug_infos()`.
-            clang_modulemap_artifacts = [],
         )
 
         return [
