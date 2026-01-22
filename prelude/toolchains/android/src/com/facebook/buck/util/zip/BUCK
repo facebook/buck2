@@ -124,7 +124,7 @@ buck_prebuilt_jar(
 # buck build prelude//toolchains/android/src/com/facebook/buck/util/zip:jar_builder_main --show-simple-output | xargs frecli --use-case android_build_infra_tools cas upload-blob
 buck_prebuilt_artifact(
     name = "jar_builder_main.jar",
-    # @oss-disable[end= ]: cas_digest = "deddab1f1be99e9a7fd0fe6e3674ab639a5e145a734be234746ec1d52ccabb70:22114361",
+    # @oss-disable[end= ]: cas_digest = "73149775903042a6a323255a7b40862323c8afc35afd582c4b8861ff77d8fbe9:23604183",
     oss_sha1 = "18f839ebb58babae4ae35900ef33cdf065d0cbc5",
     oss_url = "https://github.com/facebook/buck2/releases/download/androidToolchain%2F2025-04-03/jar_builder_main.jar",
 )
