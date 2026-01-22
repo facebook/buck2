@@ -15,6 +15,9 @@ ErrorEnricher = record(
     # str performs a case-sensitive substring match.
     matcher = str | BuckRegex,
 
+    # If specified, matcher will only run if the filepath contains this string.
+    file_matcher = field([str, None], default = None),
+
     # Category to set on the error when matched.
     category = str,
 
