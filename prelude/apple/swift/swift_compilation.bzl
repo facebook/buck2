@@ -1260,7 +1260,6 @@ def get_swift_pcm_uncompile_info(
             exported_deps = _exported_deps(ctx),
             propagated_preprocessor_args_cmd = propagated_pp_args_cmd,
             uncompiled_sdk_modules = ctx.attrs.sdk_modules,
-            modulemap_artifacts = [exported_pre.modulemap_artifact] if exported_pre else [],
         )
     return None
 

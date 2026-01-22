@@ -227,7 +227,6 @@ def _create_uncompiled_pcm_module_info(ctx: AnalysisContext, framework_directory
         exported_deps = ctx.attrs.deps,
         propagated_preprocessor_args_cmd = cmd_args([]),
         uncompiled_sdk_modules = ctx.attrs.sdk_modules,
-        modulemap_artifacts = [framework_directory_artifact],
     )
 
 def _compile_swiftinterface(
