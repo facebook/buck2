@@ -171,7 +171,6 @@ def apple_binary_impl(ctx: AnalysisContext) -> [list[Provider], Promise]:
                 static_external_debug_info = swift_debug_info.static,
                 shared_external_debug_info = swift_debug_info.shared,
                 subtargets = binary_subtargets,
-                external_debug_info_tags = [],  # This might be used to materialise all transitive Swift related object files with ArtifactInfoTag("swiftmodule")
             ),
             extra_link_input = swift_object_files,
             extra_link_input_has_external_debug_info = True,

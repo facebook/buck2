@@ -527,7 +527,6 @@ def apple_library_rule_constructor_params_and_swift_providers(ctx: AnalysisConte
             shared_external_debug_info = swift_debug_info.shared,
             subtargets = subtargets,
             additional_providers_factory = additional_providers_factory,
-            external_debug_info_tags = [],  # This might be used to materialise all transitive Swift related object files with ArtifactInfoTag("swiftmodule")
         ),
         build_empty_so = hasattr(ctx.attrs, "distribution_dep"),
         output_style_sub_targets_and_providers_factory = _get_link_style_sub_targets_and_providers(

@@ -1309,7 +1309,7 @@ def get_swift_dependency_info(
         artifacts = filter(None, [output_module]),
         children = get_external_debug_info_tsets(is_macro, ctx.attrs.deps + getattr(ctx.attrs, "exported_deps", [])),
         label = ctx.label,
-        tags = [ArtifactInfoTag("swiftmodule")],
+        tags = [ArtifactInfoTag("swift_debug_info")],
     )
 
     return create_swift_dependency_info(

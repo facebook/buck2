@@ -87,7 +87,7 @@ def swift_toolchain_impl(ctx):
         actions = ctx.actions,
         label = ctx.label,
         artifacts = debug_info_artifacts,
-        tags = [ArtifactInfoTag("swift_sdk_debug_info")],
+        tags = [ArtifactInfoTag("swift_debug_info")],
     )
 
     return [

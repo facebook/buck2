@@ -274,7 +274,7 @@ def _compile_swiftinterface(
         artifacts = [swift_compiled_module.output_artifact, compiled_underlying_pcm.output_artifact],
         children = get_external_debug_info_tsets(False, ctx.attrs.deps),
         label = ctx.label,
-        tags = [ArtifactInfoTag("swiftmodule")],
+        tags = [ArtifactInfoTag("swift_debug_info")],
     )
 
     swift_dependency_info = create_swift_dependency_info(

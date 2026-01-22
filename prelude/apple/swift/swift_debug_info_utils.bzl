@@ -31,7 +31,7 @@ def extract_and_merge_swift_debug_infos(ctx: AnalysisContext, compiled_pcm_deps_
         label = ctx.label,
         artifacts = artifacts if provide_swift_debug_info else [],
         children = swift_debug_tsets,
-        tags = [ArtifactInfoTag("swiftmodule")],
+        tags = [ArtifactInfoTag("swift_debug_info")],
     )
 
 def extract_and_merge_clang_debug_infos(ctx: AnalysisContext, compiled_pcm_deps_providers, pcms_and_modulemaps: list[Artifact] = []) -> ArtifactTSet:
@@ -50,5 +50,5 @@ def extract_and_merge_clang_debug_infos(ctx: AnalysisContext, compiled_pcm_deps_
         # Even with explicit modules, lldb requires the presence of the modulemaps.
         artifacts = pcms_and_modulemaps,
         children = clang_debug_tsets + swift_toolchain_debug_info_tsets,
-        tags = [ArtifactInfoTag("swift_pcm")],
+        tags = [ArtifactInfoTag("swift_debug_info")],
     )
