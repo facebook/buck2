@@ -83,12 +83,12 @@ def _add_sdk_module_search_path(cmd, uncompiled_sdk_module_info, swift_toolchain
     else:
         module_root_path = _remove_path_components_from_right(modulemap_path, 1)
         expanded_path = expand_relative_prefixed_sdk_path(swift_toolchain_info, module_root_path)
-    cmd.add([
+    cmd.add(
         "-Xcc",
         ("-F" if uncompiled_sdk_module_info.is_framework else "-I"),
         "-Xcc",
-        cmd_args(expanded_path),
-    ])
+        expanded_path,
+    )
 
 def get_swift_sdk_pcm_anon_targets(
         ctx: AnalysisContext,
@@ -246,7 +246,7 @@ def _swift_sdk_pcm_compilation_impl(ctx: AnalysisContext) -> [Promise, list[Prov
             is_swiftmodule = False,
             module_name = module_name,
             output_artifact = pcm_output,
-            clang_modulemap_args = expanded_modulemap_path_cmd,
+            clang_modulemap_path = expanded_modulemap_path_cmd,
         )
 
         return [

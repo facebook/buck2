@@ -94,8 +94,9 @@ SwiftCompiledModuleInfo = provider(fields = {
     "clang_importer_args": provider_field(cmd_args | None, default = None),
     # Include flags for the clang importer.
     "clang_module_file_args": provider_field(cmd_args | None, default = None),
-    # Clang modulemap as args which is required for generation of swift_module_map.
-    "clang_modulemap_args": provider_field(cmd_args | None, default = None),
+    # Clang modulemap path, required for generation of swift_module_map. We use
+    # cmd_args here to expand SDK relative paths.
+    "clang_modulemap_path": provider_field(cmd_args | None, default = None),
     "is_framework": provider_field(bool),
     "is_sdk_module": provider_field(bool),
     # If True then contains a compiled swiftmodule, otherwise Clang's pcm.
@@ -146,7 +147,7 @@ def _swift_module_map_struct(module_info: SwiftCompiledModuleInfo):
             isFramework = module_info.is_framework,
             moduleName = module_info.module_name,
             clangModulePath = module_info.output_artifact,
-            clangModuleMapPath = cmd_args([module_info.clang_modulemap_args], delimiter = ""),
+            clangModuleMapPath = cmd_args(module_info.clang_modulemap_path, delimiter = ""),
         )
 
 SwiftCompiledModuleTset = transitive_set(
