@@ -214,7 +214,7 @@ impl CriticalPathProtoEnhancer {
         let duration_proto: prost_types::Duration = duration.try_into()?;
         Ok(buck2_data::CriticalPathEntry2 {
             span_ids: Vec::new(),
-            duration: Some(duration_proto.clone()),
+            duration: Some(duration_proto),
             user_duration: Some(Duration::ZERO.try_into()?),
             queue_duration: None,
             total_duration: Some(duration_proto),
