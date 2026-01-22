@@ -511,6 +511,7 @@ def _compile_swiftinterface(
         srcs = srcs,
         additional_flags = swiftinterface_cmd,
         toolchain = toolchain,
+        supports_serialized_errors = False,
     )
 
 # We use separate actions for swiftmodule and object file output. This
@@ -848,6 +849,7 @@ def _compile_with_argsfile(
         output_file_map: dict = {},
         cacheable = True,
         skip_incremental_outputs = False,
+        supports_serialized_errors = True,
         incremental_build_allowed = True,
         objects = [],
         incremental_artifacts: IncrementalCompilationInput | None = None,
@@ -881,7 +883,7 @@ def _compile_with_argsfile(
         no_outputs_cleanup = build_swift_incrementally,
         # Skip incremental outputs requires an empty output file map, so is not
         # compatible with serialized diagnostics.
-        supports_serialized_errors = not skip_incremental_outputs,
+        supports_serialized_errors = (not skip_incremental_outputs) and supports_serialized_errors,
         skip_incremental_outputs = skip_incremental_outputs,
         objects = objects,
         incremental_artifacts = incremental_artifacts,
