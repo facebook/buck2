@@ -70,30 +70,6 @@ def _compiled_module_info(
         module_name: str,
         pcm_output: Artifact,
         pcm_info: SwiftPCMUncompiledInfo) -> SwiftCompiledModuleInfo:
-    clang_deps_args = cmd_args()
-    clang_deps_args.add("-Xcc")
-    clang_deps_args.add(
-        cmd_args(
-            [
-                "-fmodule-file=",
-                module_name,
-                "=",
-                pcm_output,
-            ],
-            delimiter = "",
-        ),
-    )
-    clang_deps_args.add("-Xcc")
-    clang_deps_args.add(
-        cmd_args(
-            [
-                "-fmodule-map-file=",
-                pcm_info.exported_preprocessor.modulemap_artifact,
-            ],
-            delimiter = "",
-        ),
-    )
-
     clang_importer_args = cmd_args(
         cmd_args(pcm_info.exported_preprocessor.args.args, prepend = "-Xcc"),
         # When using header maps for non-modular libraries, the symlink tree
@@ -104,14 +80,13 @@ def _compiled_module_info(
     )
 
     return SwiftCompiledModuleInfo(
-        clang_module_file_args = clang_deps_args,
         clang_importer_args = clang_importer_args,
+        clang_modulemap_path = cmd_args(pcm_info.exported_preprocessor.modulemap_artifact),
         is_framework = False,
         is_sdk_module = False,
         is_swiftmodule = False,
         module_name = module_name,
         output_artifact = pcm_output,
-        clang_modulemap_path = cmd_args(pcm_info.exported_preprocessor.modulemap_artifact),
     )
 
 def _swift_pcm_compilation_impl(ctx: AnalysisContext) -> [Promise, list[Provider]]:

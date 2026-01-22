@@ -80,6 +80,7 @@ load(
     "SwiftCompiledModuleTset",
     "SwiftObjectFormat",
     "SwiftToolchainInfo",
+    "clang_module_file_args",
 )
 
 SwiftCompilationDatabase = record(
@@ -1207,7 +1208,7 @@ def _add_mixed_library_flags_to_cmd(
     if uses_explicit_modules(ctx):
         if underlying_module:
             cmd.add(underlying_module.clang_importer_args)
-            cmd.add(underlying_module.clang_module_file_args)
+            cmd.add(clang_module_file_args(underlying_module))
             cmd.add("-import-underlying-module")
         return
 

@@ -92,8 +92,6 @@ SdkSwiftOverlayInfo = provider(fields = {
 SwiftCompiledModuleInfo = provider(fields = {
     # Additional flags for the clang importer.
     "clang_importer_args": provider_field(cmd_args | None, default = None),
-    # Include flags for the clang importer.
-    "clang_module_file_args": provider_field(cmd_args | None, default = None),
     # Clang modulemap path, required for generation of swift_module_map. We use
     # cmd_args here to expand SDK relative paths.
     "clang_modulemap_path": provider_field(cmd_args | None, default = None),
@@ -107,6 +105,24 @@ SwiftCompiledModuleInfo = provider(fields = {
     "output_artifact": provider_field(Artifact),
 })
 
+def clang_module_file_args(module_info: SwiftCompiledModuleInfo) -> cmd_args:
+    return cmd_args(
+        "-Xcc",
+        cmd_args(
+            "-fmodule-file=",
+            module_info.module_name,
+            "=",
+            module_info.output_artifact,
+            delimiter = "",
+        ),
+        "-Xcc",
+        cmd_args(
+            "-fmodule-map-file=",
+            module_info.clang_modulemap_path,
+            delimiter = "",
+        ),
+    )
+
 def _add_swiftmodule_search_path(module_info: SwiftCompiledModuleInfo):
     # We need to import the containing folder, not the file itself.
     # We skip SDK modules as those are found via the -sdk flag.
@@ -119,7 +135,7 @@ def _add_clang_module_file_flags(module_info: SwiftCompiledModuleInfo):
     if module_info.is_swiftmodule:
         return []
     else:
-        return [module_info.clang_module_file_args]
+        return [clang_module_file_args(module_info)]
 
 def _add_clang_importer_flags(module_info: SwiftCompiledModuleInfo):
     if module_info.is_swiftmodule:
