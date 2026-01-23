@@ -23,6 +23,7 @@ use itertools::Itertools;
 use crate::category::CategoryRef;
 use crate::cells::external::ExternalCellOrigin;
 use crate::cells::paths::CellRelativePath;
+use crate::configuration::data::DECONFLICT_CONTENT_BASED_PATHS_ROLLOUT;
 use crate::content_hash::ContentBasedPathHash;
 use crate::deferred::base_deferred_key::BaseDeferredKey;
 use crate::deferred::key::DeferredHolderKey;
@@ -270,7 +271,18 @@ impl BuckOutPathResolver {
         content_hash: Option<&ContentBasedPathHash>,
     ) -> buck2_error::Result<ProjectRelativePathBuf> {
         self.prefixed_path_for_owner(
-            ForwardRelativePath::unchecked_new("gen"),
+            // content-based paths are placed in a different directory to avoid collisions with unhashed symlinks in gen
+            ForwardRelativePath::unchecked_new(
+                if *DECONFLICT_CONTENT_BASED_PATHS_ROLLOUT
+                    .get()
+                    .unwrap_or(&false)
+                    && path.path_resolution_method() == BuckOutPathKind::ContentHash
+                {
+                    "cbp"
+                } else {
+                    "gen"
+                },
+            ),
             path.owner().owner(),
             path.dynamic_actions_action_key()
                 .as_ref()

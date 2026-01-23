@@ -32,6 +32,7 @@ use buck2_common::sqlite::sqlite_db::SqliteDb;
 use buck2_common::sqlite::sqlite_db::SqliteIdentity;
 use buck2_core::buck2_env;
 use buck2_core::cells::name::CellName;
+use buck2_core::configuration::data::init_deconflict_content_based_paths_rollout;
 use buck2_core::facebook_only;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
@@ -669,6 +670,13 @@ impl DaemonState {
                 format!("has-cgroup:{}", memory_tracker.is_some()),
             ];
             let system_warning_config = SystemWarningConfig::from_config(root_config)?;
+
+            // TODO(jtbraun): Modifies action digest, remove after confirming bvb works fine.
+            let deconflict_content_based_paths_rollout = root_config.parse(BuckconfigKeyRef {
+                section: "buck2",
+                property: "deconflict_content_based_paths_rollout",
+            })?;
+            init_deconflict_content_based_paths_rollout(deconflict_content_based_paths_rollout)?;
 
             // Kick off an initial sync eagerly. This gets Watchamn to start watching the path we care
             // about (potentially kicking off an initial crawl).

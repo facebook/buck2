@@ -10,6 +10,7 @@
 
 import os
 import shutil
+from pathlib import Path
 
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.buck_workspace import buck_test
@@ -52,18 +53,32 @@ async def test_build_symlink_does_not_traverse_existing_symlinks(buck: Buck) -> 
 
 @buck_test()
 async def test_conflict_with_content_based_paths(buck: Buck) -> None:
-    # TODO(jtbraun) some of the logic below needs to be updated once
-    # content-based paths get deconflicted. For now, this tests the conflicting
-    # behavior.
-    symlink_path = (
+    symlink_path: Path = (
         buck.cwd / "buck-out" / "v2" / "gen" / "root" / "conflict" / "shared_name"
     )
-    content_based_path = (
+    content_based_path: Path = (
         buck.cwd / "buck-out" / "v2" / "cbp" / "root" / "conflict" / "shared_name"
     )
+    subtarget_output: Path
     # sanity check that we're starting from a clean state
     assert not symlink_path.exists()
     assert not content_based_path.exists()
+
+    def base_checks(*, should_symlink_exist: bool) -> None:
+        if should_symlink_exist:
+            assert symlink_path.is_symlink()
+            assert symlink_path.readlink().is_file()
+        else:
+            assert not symlink_path.exists()
+
+        assert content_based_path.is_dir()
+        assert subtarget_output.is_symlink()
+        assert subtarget_output.resolve().is_file()
+        assert not subtarget_output.resolve().is_relative_to(symlink_path)
+        assert subtarget_output.resolve().is_relative_to(content_based_path)
+        # Verify we can read the contents of the file
+        with open(subtarget_output) as f:
+            f.read()
 
     #
     # Build just the subtarget. Esnsure that the subtarget output exists and is
@@ -77,15 +92,7 @@ async def test_conflict_with_content_based_paths(buck: Buck) -> None:
     subtarget_output = res.get_build_report().output_for_target(
         "root//conflict/shared_name:subtarget"
     )
-    assert symlink_path.is_dir()  # TODO(jtbraun): should be not symlink_path.exists() and content_based_path.is_dir()
-    assert subtarget_output.is_symlink()
-    assert subtarget_output.resolve().is_relative_to(
-        symlink_path
-    )  # TODO(jtbraun) should be (content_based_path)
-    assert subtarget_output.resolve().is_file()
-    # Verify we can read the contents of the file
-    with open(subtarget_output) as f:
-        f.read()
+    base_checks(should_symlink_exist=False)
 
     #
     # Build the conflicting target w/o unhashed links. This should leave the
@@ -97,29 +104,11 @@ async def test_conflict_with_content_based_paths(buck: Buck) -> None:
         "buck2.create_unhashed_links=false",
     )
     # TODO(jtbraun): this should instead ensure the symlink does NOT exist, and the content_based_path does and is a folder
-    assert symlink_path.exists()  # should be not, but the cbp is here for now
-    assert symlink_path.is_dir()  # remove when cbp exists
-    assert not content_based_path.is_dir()  # should be true when cbp turned on
-    # The subtarget should still be available as we haven't overwritten it yet
-    assert subtarget_output.is_symlink()
-    assert subtarget_output.resolve().is_relative_to(
-        symlink_path
-    )  # TODO(jtbraun) should be (content_based_path)
-    assert subtarget_output.resolve().is_file()
-    # Verify we can read the contents of the file
-    with open(subtarget_output) as f:
-        f.read()
+    base_checks(should_symlink_exist=False)
 
     #
     # Build the conflicting target with unhashed links. This will overwrite the
     # subtarget with a directory, and the symlink_path will now exist.
     #
     await buck.build("//conflict:shared_name")
-    assert (
-        not subtarget_output.is_dir()
-    )  # TODO: should pass all the same checks as above
-    assert symlink_path.is_symlink()
-    assert symlink_path.readlink().is_file()
-    assert (
-        not content_based_path.exists()
-    )  # TODO(jtbraun): this should be assert content_based_path.is_dir()
+    base_checks(should_symlink_exist=True)

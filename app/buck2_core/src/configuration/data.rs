@@ -19,6 +19,7 @@ use buck2_util::strong_hasher::Blake3StrongHasher;
 use dupe::Dupe;
 use equivalent::Equivalent;
 use once_cell::sync::Lazy;
+use once_cell::sync::OnceCell;
 use pagable::Pagable;
 use serde::Serialize;
 use serde::Serializer;
@@ -50,6 +51,8 @@ enum ConfigurationError {
         "Attempted to access the configuration data for the \"unspecified_exec\" platform. This platform is used when no execution platform was resolved for a target."
     )]
     UnspecifiedExec,
+    #[error("Internal error: DECONFLICT_CONTENT_BASED_PATHS_ROLLOUT is already initialized")]
+    DeconflictContentBasedPathsRolloutAlreadyInitialized,
 }
 
 #[derive(Debug, buck2_error::Error)]
@@ -65,6 +68,18 @@ enum ConfigurationLookupError {
         "Found configuration `{0}` by hash, but label mismatched from what is requested: `{1}`"
     )]
     ConfigFoundByHashLabelMismatch(ConfigurationData, BoundConfigurationId),
+}
+
+pub static DECONFLICT_CONTENT_BASED_PATHS_ROLLOUT: OnceCell<bool> = OnceCell::new();
+
+pub fn init_deconflict_content_based_paths_rollout(
+    rollout: Option<bool>,
+) -> buck2_error::Result<()> {
+    let rollout = rollout.unwrap_or(false);
+    DECONFLICT_CONTENT_BASED_PATHS_ROLLOUT
+        .set(rollout)
+        .map_err(|_| ConfigurationError::DeconflictContentBasedPathsRolloutAlreadyInitialized)?;
+    Ok(())
 }
 
 fn emit_configuration_instant_event(cfg: &ConfigurationData) -> buck2_error::Result<()> {

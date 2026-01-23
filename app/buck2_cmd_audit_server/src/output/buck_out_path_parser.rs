@@ -387,7 +387,7 @@ impl BuckOutPathParser {
                             common_attrs,
                         })
                     }
-                    "gen" => {
+                    "gen" | "cbp" => {
                         let buck_out_path_data =
                             get_cell_path(&mut iter, &self.cell_resolver, part.as_str())?;
                         let target_label =
@@ -450,7 +450,7 @@ impl BuckOutPathParser {
                     }
                     _ => Err(buck2_error!(
                         buck2_error::ErrorTag::InvalidBuckOutPath,
-                        "Directory after isolation dir is invalid (should be gen, gen-bxl, gen-anon, tmp, or test)"
+                        "Directory after isolation dir is invalid (should be cbp, gen, gen-bxl, gen-anon, tmp, or test)"
                     )),
                 };
 
