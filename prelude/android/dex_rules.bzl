@@ -182,7 +182,7 @@ def get_multi_dex(
             multi_dex_cmd.add("--secondary-dex-output-dir", uncompressed_secondary_dex_output_dir.as_output())
             secondary_dex_compression_cmd.add("--raw-secondary-dexes-dir", uncompressed_secondary_dex_output_dir)
             if is_root_module(module):
-                primary_dex_patterns_file = ctx.actions.write("primary_dex_patterns", primary_dex_patterns)
+                primary_dex_patterns_file = ctx.actions.write("primary_dex_patterns", primary_dex_patterns, has_content_based_path = True)
 
                 if getattr(ctx.attrs, "minimize_primary_dex_size", False) or enable_bootstrap_dexes:
                     primary_dex_jars, jars_to_dex = _get_primary_dex_and_secondary_dex_jars(
@@ -286,8 +286,8 @@ def _get_primary_dex_and_secondary_dex_jars(
         jar_splitter_cmd = cmd_args(android_toolchain.jar_splitter_command[RunInfo])
         owner = java_library_jars_to_owners[jar]
         identifier = "{}/{}/{}".format(owner.package, owner.name, jar.short_path)
-        primary_dex_jar = ctx.actions.declare_output("root_module_primary_dex_jars/{}".format(identifier))
-        secondary_dex_jar = ctx.actions.declare_output("root_module_secondary_dex_jars/{}".format(identifier))
+        primary_dex_jar = ctx.actions.declare_output("root_module_primary_dex_jars/{}".format(identifier), has_content_based_path = True)
+        secondary_dex_jar = ctx.actions.declare_output("root_module_secondary_dex_jars/{}".format(identifier), has_content_based_path = True)
         jar_splitter_cmd.add([
             "--input-jar",
             jar,

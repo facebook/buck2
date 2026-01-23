@@ -157,10 +157,10 @@ def get_proguard_output(
         input_jars_to_output_jars = {input_jar: ctx.actions.declare_output(
             "proguard_output_jars/{}_{}_obfuscated.jar".format(input_jar.short_path, i),
         ) for i, input_jar in enumerate(input_jars.keys())}
-        mapping = ctx.actions.declare_output("proguard/mapping.txt")
-        configuration = ctx.actions.declare_output("proguard/configuration.txt")
-        seeds = ctx.actions.declare_output("proguard/seeds.txt")
-        usage = ctx.actions.declare_output("proguard/usage.txt")
+        mapping = ctx.actions.declare_output("proguard/mapping.txt", has_content_based_path = True)
+        configuration = ctx.actions.declare_output("proguard/configuration.txt", has_content_based_path = True)
+        seeds = ctx.actions.declare_output("proguard/seeds.txt", has_content_based_path = True)
+        usage = ctx.actions.declare_output("proguard/usage.txt", has_content_based_path = True)
 
     command_line_args, hidden_artifacts = _get_proguard_command_line_args(
         ctx,
