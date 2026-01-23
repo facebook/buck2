@@ -1254,25 +1254,14 @@ def get_swift_pcm_uncompile_info(
     swift_toolchain = get_swift_toolchain_info(ctx)
 
     if is_sdk_modules_provided(swift_toolchain):
-        clang_importer_args = cmd_args()
-        if propagated_exported_preprocessor_info:
-            # We need to include exported preprocessor from exported_deps to
-            # handle misconfigured targets that have non-modular exported_deps
-            clang_importer_args.add(cmd_args(propagated_exported_preprocessor_info.set.project_as_args("args"), prepend = "-Xcc"))
-
-        exported_clang_importer_args = cmd_args()
-        if exported_pre:
-            # We need special handling for our own exported_pre, which contains
-            # the header search path flags for the modules header symlink tree.
-            exported_clang_importer_args.add(cmd_args(exported_pre.modular_args, prepend = "-Xcc"))
-
+        propagated_pp_args_cmd = cmd_args(propagated_exported_preprocessor_info.set.project_as_args("args"), prepend = "-Xcc") if propagated_exported_preprocessor_info else None
         return SwiftPCMUncompiledInfo(
-            clang_importer_args = clang_importer_args,
-            exported_clang_importer_args = exported_clang_importer_args,
-            exported_deps = _exported_deps(ctx),
-            is_transient = not ctx.attrs.modular or not exported_pre,
-            modulemap_artifact = exported_pre.modulemap_artifact if exported_pre else None,
             name = get_module_name(ctx),
+            is_transient = not ctx.attrs.modular or not exported_pre,
+            exported_preprocessor = exported_pre,
+            exported_deps = _exported_deps(ctx),
+            modulemap_artifact = exported_pre.modulemap_artifact if exported_pre else None,
+            propagated_preprocessor_args_cmd = propagated_pp_args_cmd,
             uncompiled_sdk_modules = ctx.attrs.sdk_modules,
         )
     return None
