@@ -196,6 +196,11 @@ def _args_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Create symlinks for versioned macOS bundle",
     )
+    parser.add_argument(
+        "--verify-entitlements",
+        action="store_true",
+        help="Verify that the bundle's entitlements match the provisioning profile",
+    )
 
     add_args_for_signing_context(parser)
 

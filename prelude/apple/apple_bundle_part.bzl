@@ -219,6 +219,8 @@ def assemble_bundle(
         codesign_manifest.as_output(),
     ]
 
+    verify_entitlements_args = ["--verify-entitlements"] if ctx.attrs.entitlements_verification_check_enabled else []
+
     command = cmd_args(
         [
             tool,
@@ -226,7 +228,7 @@ def assemble_bundle(
             bundle.as_output(),
             "--spec",
             spec_file,
-        ] + codesign_args + codesign_bundle_extra_args + platform_args + swift_args,
+        ] + codesign_args + codesign_bundle_extra_args + verify_entitlements_args + platform_args + swift_args,
         hidden =
             [part.source for part in all_parts] +
             [part.codesign_entitlements for part in all_parts if part.codesign_entitlements] +
