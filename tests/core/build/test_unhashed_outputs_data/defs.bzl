@@ -17,3 +17,21 @@ projected_output = rule(
     impl = _projected_output_impl,
     attrs = {},
 )
+
+def _simple_build_impl(ctx):
+    f = ctx.actions.write(ctx.attrs.filename, "", has_content_based_path = ctx.attrs.has_content_based_path)
+    others = []
+    for d in ctx.attrs.deps:
+        others.extend(d[DefaultInfo].default_outputs)
+    return [
+        DefaultInfo(default_output = f, other_outputs = others),
+    ]
+
+simple_build = rule(
+    impl = _simple_build_impl,
+    attrs = {
+        "deps": attrs.list(attrs.dep(), default = []),
+        "filename": attrs.string(default = "out.txt"),
+        "has_content_based_path": attrs.bool(default = False),
+    },
+)
