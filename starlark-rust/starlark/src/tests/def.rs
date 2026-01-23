@@ -172,8 +172,10 @@ value = {"test": "hello"}
     let f = m.get("function").unwrap();
     let x = m.get("value").unwrap();
     Module::with_temp_heap(|module| {
+        let f = module.heap().access_owned_frozen_value(&f);
+        let x = module.heap().access_owned_frozen_value(&x);
         let mut eval = Evaluator::new(&module);
-        let res = eval.eval_function(f.value(), &[x.value()], &[]).unwrap();
+        let res = eval.eval_function(f, &[x], &[]).unwrap();
         assert_eq!(res.to_str(), "hello");
         crate::Result::Ok(())
     })

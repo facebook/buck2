@@ -535,7 +535,7 @@ impl Module {
             ));
         }
         match module.get_any_visibility(symbol)? {
-            (v, Visibility::Public) => Ok(v.owned_value(self.frozen_heap())),
+            (v, Visibility::Public) => Ok(self.heap().access_owned_frozen_value(&v)),
             (_, Visibility::Private) => Err(crate::Error::new_other(
                 EnvironmentError::ModuleSymbolIsNotExported(symbol.to_owned()),
             )),

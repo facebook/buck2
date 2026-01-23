@@ -59,9 +59,9 @@ static ASSERTS_STAR: Lazy<FrozenModule> = Lazy::new(|| {
     let g = GlobalsBuilder::new()
         .with_namespace("asserts", asserts_star)
         .build();
-    Module::with_temp_heap(|m| {
-        m.frozen_heap().add_reference(g.heap());
-        let asserts = g.get("asserts").unwrap();
+    Module::with_temp_heap(move |m| {
+        let asserts = g.get_owned("asserts").unwrap();
+        let asserts = m.heap().access_owned_frozen_value(&asserts);
         m.set("asserts", asserts);
         m.set(
             "freeze",

@@ -40,7 +40,7 @@ use crate::values::FrozenHeap;
 use crate::values::FrozenHeapRef;
 use crate::values::FrozenStringValue;
 use crate::values::FrozenValue;
-use crate::values::Value;
+use crate::values::OwnedFrozenValue;
 use crate::values::function::NativeFunc;
 use crate::values::function::NativeFuncFn;
 use crate::values::function::SpecialBuiltinFunction;
@@ -114,7 +114,8 @@ impl Globals {
 
     /// This function is only safe if you first call `heap` and keep a reference to it.
     /// Therefore, don't expose it on the public API.
-    pub(crate) fn get<'v>(&'v self, name: &str) -> Option<Value<'v>> {
+    #[cfg(test)]
+    pub(crate) fn get<'v>(&'v self, name: &str) -> Option<crate::values::Value<'v>> {
         self.get_frozen(name).map(FrozenValue::to_value)
     }
 
@@ -122,6 +123,12 @@ impl Globals {
     /// Therefore, don't expose it on the public API.
     pub(crate) fn get_frozen(&self, name: &str) -> Option<FrozenValue> {
         self.0.variables.get_str(name).map(|x| x.value)
+    }
+
+    pub(crate) fn get_owned(&self, name: &str) -> Option<OwnedFrozenValue> {
+        let v = self.get_frozen(name)?;
+        // SAFETY: We know the heap this is allocated in
+        unsafe { Some(OwnedFrozenValue::new(self.heap().dupe(), v)) }
     }
 
     /// Get all the names defined in this environment.
