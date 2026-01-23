@@ -345,6 +345,20 @@ impl Module {
         f(module)
     }
 
+    /// Like `with_temp_heap`, but async.
+    pub async fn with_temp_heap_async<R, F>(f: F) -> R
+    where
+        F: for<'a> AsyncFnOnce(Module) -> R,
+    {
+        // It's interesting to note that this is in fact more expressive than `with_temp_heap`
+        // alone. While it's possible for `with_temp_heap` to return a future which the user can
+        // then await externally, that future can't capture a reference to the heap. Here though, we
+        // allow the future "returned" by this function to do so. We make that sound by also
+        // capturing the heap itself in the future.
+        let module = Self::new();
+        f(module).await
+    }
+
     pub(crate) fn enable_retained_heap_profile(&self, mode: RetainedHeapProfileMode) {
         self.heap_profile_on_freeze.set(Some(mode));
     }
