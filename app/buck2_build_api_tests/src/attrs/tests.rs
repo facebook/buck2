@@ -56,15 +56,15 @@ use crate::attrs::resolve::testing::resolution_ctx_with_providers;
 
 #[test]
 fn test() -> buck2_error::Result<()> {
-    let globals = GlobalsBuilder::standard().with(register_select).build();
+    Module::with_temp_heap(|env| {
+        let globals = GlobalsBuilder::standard().with(register_select).build();
 
-    let env = Module::new();
-    // Check that `x` is captured with the function
-    let value = to_value(
-        &env,
-        &globals,
-        indoc!(
-            r#"
+        // Check that `x` is captured with the function
+        let value = to_value(
+            &env,
+            &globals,
+            indoc!(
+                r#"
                 [[
                     ["hello", "world!"]
                     + select({
@@ -78,106 +78,112 @@ fn test() -> buck2_error::Result<()> {
                     + ["..."]
                 ]]
                 "#
-        ),
-    );
+            ),
+        );
 
-    let attr = AttrType::list(AttrType::list(AttrType::list(AttrType::string())));
+        let attr = AttrType::list(AttrType::list(AttrType::list(AttrType::string())));
 
-    let coerced = attr.coerce(AttrIsConfigurable::Yes, &coercion_ctx(), value)?;
-    assert_eq!(
-        "[[[\"hello\", \"world!\"]+select({\"root//some:config\": [\"some\"], \"DEFAULT\": [\"okay\"]+select({\"root//other:config\": [\"other\"], \"DEFAULT\": [\"default\", \"for\", \"realz\"]})})+[\"...\"]+[\"...\"]]]",
-        coerced.as_display_no_ctx().to_string()
-    );
+        let coerced = attr.coerce(AttrIsConfigurable::Yes, &coercion_ctx(), value)?;
+        assert_eq!(
+            "[[[\"hello\", \"world!\"]+select({\"root//some:config\": [\"some\"], \"DEFAULT\": [\"okay\"]+select({\"root//other:config\": [\"other\"], \"DEFAULT\": [\"default\", \"for\", \"realz\"]})})+[\"...\"]+[\"...\"]]]",
+            coerced.as_display_no_ctx().to_string()
+        );
 
-    let configured = coerced.configure(&attr, &configuration_ctx())?;
-    assert_eq!(
-        "[[[\"hello\", \"world!\", \"okay\", \"other\", \"...\", \"...\"]]]",
-        configured.as_display_no_ctx().to_string()
-    );
+        let configured = coerced.configure(&attr, &configuration_ctx())?;
+        assert_eq!(
+            "[[[\"hello\", \"world!\", \"okay\", \"other\", \"...\", \"...\"]]]",
+            configured.as_display_no_ctx().to_string()
+        );
 
-    let mut ctx = resolution_ctx(&env);
-    let resolved = configured.resolve_single(PackageLabel::testing(), &mut ctx)?;
-    assert_eq!(
-        "[[[\"hello\", \"world!\", \"okay\", \"other\", \"...\", \"...\"]]]",
-        resolved.to_string()
-    );
+        let mut ctx = resolution_ctx(&env);
+        let resolved = configured.resolve_single(PackageLabel::testing(), &mut ctx)?;
+        assert_eq!(
+            "[[[\"hello\", \"world!\", \"okay\", \"other\", \"...\", \"...\"]]]",
+            resolved.to_string()
+        );
 
-    Ok(())
+        Ok(())
+    })
 }
 
 #[test]
 fn test_string() -> buck2_error::Result<()> {
-    let env = Module::new();
-    let globals = GlobalsBuilder::standard().with(register_select).build();
-    let attr = AttrType::string();
-    let value = to_value(&env, &globals, r#""a" + select({"DEFAULT": "b"})"#);
+    Module::with_temp_heap(|env| {
+        let globals = GlobalsBuilder::standard().with(register_select).build();
+        let attr = AttrType::string();
+        let value = to_value(&env, &globals, r#""a" + select({"DEFAULT": "b"})"#);
 
-    let coerced = attr.coerce(AttrIsConfigurable::Yes, &coercion_ctx(), value)?;
-    let configured = coerced.configure(&attr, &configuration_ctx())?;
-    assert_eq!(r#""ab""#, configured.as_display_no_ctx().to_string());
+        let coerced = attr.coerce(AttrIsConfigurable::Yes, &coercion_ctx(), value)?;
+        let configured = coerced.configure(&attr, &configuration_ctx())?;
+        assert_eq!(r#""ab""#, configured.as_display_no_ctx().to_string());
 
-    Ok(())
+        Ok(())
+    })
 }
 
 #[test]
 fn test_invalid_concat_coercion_into_one_of() -> buck2_error::Result<()> {
-    let globals = GlobalsBuilder::standard().with(register_select).build();
+    Module::with_temp_heap(|env| {
+        let globals = GlobalsBuilder::standard().with(register_select).build();
 
-    let env = Module::new();
-    let value = to_value(
-        &env,
-        &globals,
-        indoc!(
-            r#"
+        let value = to_value(
+            &env,
+            &globals,
+            indoc!(
+                r#"
             [True] + select({"DEFAULT": ["foo"]})
             "#
-        ),
-    );
-    let attr = AttrType::one_of(vec![
-        AttrType::list(AttrType::bool()),
-        AttrType::list(AttrType::string()),
-    ]);
+            ),
+        );
+        let attr = AttrType::one_of(vec![
+            AttrType::list(AttrType::bool()),
+            AttrType::list(AttrType::string()),
+        ]);
 
-    let coerced = attr.coerce(AttrIsConfigurable::Yes, &coercion_ctx(), value)?;
-    let err = coerced
-        .configure(&attr, &configuration_ctx())
-        .expect_err("Should fail to concatenate configured lists");
-    assert!(
-        err.to_string()
-            .contains("Cannot concatenate values coerced/configured to different oneof variants: `attrs.list(attrs.bool())` and `attrs.list(attrs.string())`"),
-        "err: {err}"
-    );
-    Ok(())
+        let coerced = attr.coerce(AttrIsConfigurable::Yes, &coercion_ctx(), value)?;
+        let err = coerced
+            .configure(&attr, &configuration_ctx())
+            .expect_err("Should fail to concatenate configured lists");
+        assert!(
+            err.to_string()
+                .contains("Cannot concatenate values coerced/configured to different oneof variants: `attrs.list(attrs.bool())` and `attrs.list(attrs.string())`"),
+            "err: {err}"
+        );
+        Ok(())
+    })
 }
 
 #[test]
 fn test_concat_option_one_of() {
-    let globals = GlobalsBuilder::standard().with(register_select).build();
+    Module::with_temp_heap(|env| {
+        let globals = GlobalsBuilder::standard().with(register_select).build();
 
-    let env = Module::new();
-    let value = to_value(
-        &env,
-        &globals,
-        indoc!(
-            r#"
+        let value = to_value(
+            &env,
+            &globals,
+            indoc!(
+                r#"
             ["foo"] + select({"DEFAULT": ["bar"]})
             "#
-        ),
-    );
+            ),
+        );
 
-    let attr = AttrType::option(AttrType::one_of(vec![
-        AttrType::list(AttrType::string()),
-        AttrType::list(AttrType::bool()),
-    ]));
+        let attr = AttrType::option(AttrType::one_of(vec![
+            AttrType::list(AttrType::string()),
+            AttrType::list(AttrType::bool()),
+        ]));
 
-    let coerced = attr
-        .coerce(AttrIsConfigurable::Yes, &coercion_ctx(), value)
-        .unwrap();
-    let configured = coerced.configure(&attr, &configuration_ctx()).unwrap();
-    assert_eq!(
-        r#"["foo", "bar"]"#,
-        configured.as_display_no_ctx().to_string()
-    );
+        let coerced = attr
+            .coerce(AttrIsConfigurable::Yes, &coercion_ctx(), value)
+            .unwrap();
+        let configured = coerced.configure(&attr, &configuration_ctx()).unwrap();
+        assert_eq!(
+            r#"["foo", "bar"]"#,
+            configured.as_display_no_ctx().to_string()
+        );
+        buck2_error::Ok(())
+    })
+    .unwrap();
 }
 
 #[test]
@@ -248,51 +254,52 @@ fn test_option() -> buck2_error::Result<()> {
 
 #[test]
 fn test_dict() -> buck2_error::Result<()> {
-    let env = Module::new();
-    let globals = GlobalsBuilder::standard().with(register_select).build();
-    let value = to_value(&env, &globals, r#"{"b":["1"],"a":[]}"#);
+    Module::with_temp_heap(|env| {
+        let globals = GlobalsBuilder::standard().with(register_select).build();
+        let value = to_value(&env, &globals, r#"{"b":["1"],"a":[]}"#);
 
-    let attr = AttrType::dict(AttrType::string(), AttrType::list(AttrType::string()), true);
-    let coerced = attr.coerce(AttrIsConfigurable::Yes, &coercion_ctx(), value)?;
-    assert_eq!(
-        "{\"a\": [], \"b\": [\"1\"]}",
-        coerced.as_display_no_ctx().to_string()
-    );
-    let configured = coerced.configure(&attr, &configuration_ctx())?;
-    assert_eq!(
-        "{\"a\": [], \"b\": [\"1\"]}",
-        configured.as_display_no_ctx().to_string()
-    );
+        let attr = AttrType::dict(AttrType::string(), AttrType::list(AttrType::string()), true);
+        let coerced = attr.coerce(AttrIsConfigurable::Yes, &coercion_ctx(), value)?;
+        assert_eq!(
+            "{\"a\": [], \"b\": [\"1\"]}",
+            coerced.as_display_no_ctx().to_string()
+        );
+        let configured = coerced.configure(&attr, &configuration_ctx())?;
+        assert_eq!(
+            "{\"a\": [], \"b\": [\"1\"]}",
+            configured.as_display_no_ctx().to_string()
+        );
 
-    let attr = AttrType::dict(
-        AttrType::string(),
-        AttrType::list(AttrType::string()),
-        false,
-    );
-    let coerced = attr.coerce(AttrIsConfigurable::Yes, &coercion_ctx(), value)?;
-    assert_eq!(
-        "{\"b\": [\"1\"], \"a\": []}",
-        coerced.as_display_no_ctx().to_string()
-    );
-    let configured = coerced.configure(&attr, &configuration_ctx())?;
-    assert_eq!(
-        "{\"b\": [\"1\"], \"a\": []}",
-        configured.as_display_no_ctx().to_string()
-    );
+        let attr = AttrType::dict(
+            AttrType::string(),
+            AttrType::list(AttrType::string()),
+            false,
+        );
+        let coerced = attr.coerce(AttrIsConfigurable::Yes, &coercion_ctx(), value)?;
+        assert_eq!(
+            "{\"b\": [\"1\"], \"a\": []}",
+            coerced.as_display_no_ctx().to_string()
+        );
+        let configured = coerced.configure(&attr, &configuration_ctx())?;
+        assert_eq!(
+            "{\"b\": [\"1\"], \"a\": []}",
+            configured.as_display_no_ctx().to_string()
+        );
 
-    let value = to_value(
-        &env,
-        &globals,
-        r#"{"b":["1"], "a":[]} + select({"DEFAULT": { "c": []}})"#,
-    );
-    let coerced = attr.coerce(AttrIsConfigurable::Yes, &coercion_ctx(), value)?;
-    let configured = coerced.configure(&attr, &configuration_ctx())?;
-    assert_eq!(
-        r#"{"b": ["1"], "a": [], "c": []}"#,
-        configured.as_display_no_ctx().to_string()
-    );
+        let value = to_value(
+            &env,
+            &globals,
+            r#"{"b":["1"], "a":[]} + select({"DEFAULT": { "c": []}})"#,
+        );
+        let coerced = attr.coerce(AttrIsConfigurable::Yes, &coercion_ctx(), value)?;
+        let configured = coerced.configure(&attr, &configuration_ctx())?;
+        assert_eq!(
+            r#"{"b": ["1"], "a": [], "c": []}"#,
+            configured.as_display_no_ctx().to_string()
+        );
 
-    Ok(())
+        Ok(())
+    })
 }
 
 #[test]
@@ -355,11 +362,11 @@ fn test_label() -> buck2_error::Result<()> {
 
 #[test]
 fn test_coerced_deps() -> buck2_error::Result<()> {
-    let globals = GlobalsBuilder::standard().with(register_select).build();
+    Module::with_temp_heap(|env| {
+        let globals = GlobalsBuilder::standard().with(register_select).build();
 
-    let env = Module::new();
-    let content = indoc!(
-        r#"
+        let content = indoc!(
+            r#"
             ["//some:target", "cell1//named:target[foo]"] + select({
                 "//some:config": ["cell1//named:target[bar]"],
                 "DEFAULT": ["cell1//:okay"] + select({
@@ -368,48 +375,49 @@ fn test_coerced_deps() -> buck2_error::Result<()> {
                 }),
             }) + ["//:other"]
             "#
-    );
-    // Check that `x` is captured with the function
-    let value = to_value(&env, &globals, content);
+        );
+        // Check that `x` is captured with the function
+        let value = to_value(&env, &globals, content);
 
-    let attr = AttrType::list(AttrType::dep(ProviderIdSet::EMPTY, PluginKindSet::EMPTY));
-    let coerced = attr.coerce(AttrIsConfigurable::Yes, &coercion_ctx(), value)?;
+        let attr = AttrType::list(AttrType::dep(ProviderIdSet::EMPTY, PluginKindSet::EMPTY));
+        let coerced = attr.coerce(AttrIsConfigurable::Yes, &coercion_ctx(), value)?;
 
-    let mut visitor = CoercedDepsCollector::new();
-    coerced.traverse(&attr, PackageLabel::testing(), &mut visitor)?;
-    let CoercedDepsCollector {
-        deps,
-        configuration_deps,
-        ..
-    } = visitor;
-    let deps: Vec<_> = deps.iter().map(|t| t.to_string()).collect();
-    let config_deps: Vec<_> = configuration_deps.iter().map(|t| t.0.to_string()).collect();
+        let mut visitor = CoercedDepsCollector::new();
+        coerced.traverse(&attr, PackageLabel::testing(), &mut visitor)?;
+        let CoercedDepsCollector {
+            deps,
+            configuration_deps,
+            ..
+        } = visitor;
+        let deps: Vec<_> = deps.iter().map(|t| t.to_string()).collect();
+        let config_deps: Vec<_> = configuration_deps.iter().map(|t| t.0.to_string()).collect();
 
-    let expected_deps = vec![
-        "root//some:target",
-        "cell1//named:target",
-        "cell1//:okay",
-        "root//some:target2",
-        "root//:default1",
-        "root//:default2",
-        "root//:other",
-    ];
+        let expected_deps = vec![
+            "root//some:target",
+            "cell1//named:target",
+            "cell1//:okay",
+            "root//some:target2",
+            "root//:default1",
+            "root//:default2",
+            "root//:other",
+        ];
 
-    assert_eq!(expected_deps, deps);
+        assert_eq!(expected_deps, deps);
 
-    let expected_config_deps = vec!["root//some:config", "cell1//other:config"];
-    assert_eq!(expected_config_deps, config_deps);
+        let expected_config_deps = vec!["root//some:config", "cell1//other:config"];
+        assert_eq!(expected_config_deps, config_deps);
 
-    Ok(())
+        Ok(())
+    })
 }
 
 #[test]
 fn test_configured_deps() -> buck2_error::Result<()> {
-    let globals = GlobalsBuilder::standard().with(register_select).build();
+    Module::with_temp_heap(|env| {
+        let globals = GlobalsBuilder::standard().with(register_select).build();
 
-    let env = Module::new();
-    let content = indoc!(
-        r#"
+        let content = indoc!(
+            r#"
             ["//some:target", "cell1//named:target[foo]"] + select({
                 "//some:config": ["cell1//named:target[bar]"],
                 "DEFAULT": ["cell1//:okay"] + select({
@@ -418,80 +426,81 @@ fn test_configured_deps() -> buck2_error::Result<()> {
                 }),
             }) + ["//:other"]
             "#
-    );
-    // Check that `x` is captured with the function
-    let value = to_value(&env, &globals, content);
+        );
+        // Check that `x` is captured with the function
+        let value = to_value(&env, &globals, content);
 
-    let attr = AttrType::list(AttrType::dep(ProviderIdSet::EMPTY, PluginKindSet::EMPTY));
-    let coerced = attr.coerce(AttrIsConfigurable::Yes, &coercion_ctx(), value)?;
-    let configured = coerced.configure(&attr, &configuration_ctx())?;
+        let attr = AttrType::list(AttrType::dep(ProviderIdSet::EMPTY, PluginKindSet::EMPTY));
+        let coerced = attr.coerce(AttrIsConfigurable::Yes, &coercion_ctx(), value)?;
+        let configured = coerced.configure(&attr, &configuration_ctx())?;
 
-    let mut info = ConfiguredAttrInfoForTests::new();
-    configured.traverse(PackageLabel::testing(), &mut info)?;
+        let mut info = ConfiguredAttrInfoForTests::new();
+        configured.traverse(PackageLabel::testing(), &mut info)?;
 
-    let expected_deps = [
-        "root//some:target",
-        "cell1//named:target[foo]",
-        "cell1//:okay",
-        "root//:default1",
-        "root//:default2",
-        "root//:other",
-    ];
+        let expected_deps = [
+            "root//some:target",
+            "cell1//named:target[foo]",
+            "cell1//:okay",
+            "root//:default1",
+            "root//:default2",
+            "root//:other",
+        ];
 
-    assert_eq!(
-        expected_deps
-            .to_vec()
-            .map(|s| format!("{} ({})", s, ConfigurationData::testing_new())),
-        info.deps
-            .iter()
-            .map(ToString::to_string)
-            .collect::<Vec<_>>()
-    );
+        assert_eq!(
+            expected_deps
+                .to_vec()
+                .map(|s| format!("{} ({})", s, ConfigurationData::testing_new())),
+            info.deps
+                .iter()
+                .map(ToString::to_string)
+                .collect::<Vec<_>>()
+        );
 
-    // Check also that execution deps are handled slightly differently.
-    let attr_exec = AttrType::list(AttrType::exec_dep(ProviderIdSet::EMPTY));
-    let coerced_exec = attr_exec.coerce(AttrIsConfigurable::Yes, &coercion_ctx(), value)?;
-    let configured_exec = coerced_exec.configure(&attr_exec, &configuration_ctx())?;
-    let mut info = ConfiguredAttrInfoForTests::new();
-    configured_exec.traverse(PackageLabel::testing(), &mut info)?;
-    eprintln!("{info:?}");
-    let exec_cfg = configuration_ctx().exec_cfg()?;
-    assert_eq!(
-        expected_deps.to_vec().map(|s| format!("{s} ({exec_cfg})")),
-        info.execution_deps
-            .iter()
-            .map(ToString::to_string)
-            .collect::<Vec<_>>()
-    );
+        // Check also that execution deps are handled slightly differently.
+        let attr_exec = AttrType::list(AttrType::exec_dep(ProviderIdSet::EMPTY));
+        let coerced_exec = attr_exec.coerce(AttrIsConfigurable::Yes, &coercion_ctx(), value)?;
+        let configured_exec = coerced_exec.configure(&attr_exec, &configuration_ctx())?;
+        let mut info = ConfiguredAttrInfoForTests::new();
+        configured_exec.traverse(PackageLabel::testing(), &mut info)?;
+        eprintln!("{info:?}");
+        let exec_cfg = configuration_ctx().exec_cfg()?;
+        assert_eq!(
+            expected_deps.to_vec().map(|s| format!("{s} ({exec_cfg})")),
+            info.execution_deps
+                .iter()
+                .map(ToString::to_string)
+                .collect::<Vec<_>>()
+        );
 
-    Ok(())
+        Ok(())
+    })
 }
 
 #[test]
 fn test_resolved_deps() -> buck2_error::Result<()> {
-    let globals = GlobalsBuilder::standard()
-        .with(register_select)
-        .with(buck2_build_api::interpreter::rule_defs::register_rule_defs)
-        .build();
+    Module::with_temp_heap(|env| {
+        let globals = GlobalsBuilder::standard()
+            .with(register_select)
+            .with(buck2_build_api::interpreter::rule_defs::register_rule_defs)
+            .build();
 
-    let env = Module::new();
-    let content = indoc!(
-        r#"
+        let content = indoc!(
+            r#"
             ["//sub/dir:foo", "//sub/dir:foo[bar]"]
             "#
-    );
-    // Check that `x` is captured with the function
-    let value = to_value(&env, &globals, content);
+        );
+        // Check that `x` is captured with the function
+        let value = to_value(&env, &globals, content);
 
-    let attr = AttrType::list(AttrType::dep(ProviderIdSet::EMPTY, PluginKindSet::EMPTY));
-    let coerced = attr.coerce(AttrIsConfigurable::Yes, &coercion_ctx(), value)?;
-    let configured = coerced.configure(&attr, &configuration_ctx())?;
-    let mut resolution_ctx = resolution_ctx(&env);
-    let resolved = configured.resolve_single(PackageLabel::testing(), &mut resolution_ctx)?;
+        let attr = AttrType::list(AttrType::dep(ProviderIdSet::EMPTY, PluginKindSet::EMPTY));
+        let coerced = attr.coerce(AttrIsConfigurable::Yes, &coercion_ctx(), value)?;
+        let configured = coerced.configure(&attr, &configuration_ctx())?;
+        let mut resolution_ctx = resolution_ctx(&env);
+        let resolved = configured.resolve_single(PackageLabel::testing(), &mut resolution_ctx)?;
 
-    env.set("res", resolved);
-    let content = indoc!(
-        r#"
+        env.set("res", resolved);
+        let content = indoc!(
+            r#"
             foo = res[0]
             bar = res[1]
             def assert_eq(a, b):
@@ -509,43 +518,45 @@ fn test_resolved_deps() -> buck2_error::Result<()> {
             )
             None
             "#
-    );
+        );
 
-    let success = to_value(&env, &globals, content);
-    assert_eq!(true, success.is_none());
-    Ok(())
+        let success = to_value(&env, &globals, content);
+        assert_eq!(true, success.is_none());
+        Ok(())
+    })
 }
 
 #[test]
 fn test_dep_requires_providers() -> buck2_error::Result<()> {
-    let env = Module::new();
-    let (mut resolution_ctx, provider_ids) = resolution_ctx_with_providers(&env);
+    Module::with_temp_heap(|env| {
+        let (mut resolution_ctx, provider_ids) = resolution_ctx_with_providers(&env);
 
-    Heap::temp(|heap| {
-        let foo_only = heap.alloc("//sub/dir:foo[foo_only]");
+        Heap::temp(|heap| {
+            let foo_only = heap.alloc("//sub/dir:foo[foo_only]");
 
-        let attr = AttrType::dep(provider_ids.dupe(), PluginKindSet::EMPTY);
-        let coerced = attr.coerce(AttrIsConfigurable::Yes, &coercion_ctx(), foo_only)?;
-        let configured = coerced.configure(&attr, &configuration_ctx())?;
+            let attr = AttrType::dep(provider_ids.dupe(), PluginKindSet::EMPTY);
+            let coerced = attr.coerce(AttrIsConfigurable::Yes, &coercion_ctx(), foo_only)?;
+            let configured = coerced.configure(&attr, &configuration_ctx())?;
 
-        let err = configured
-            .resolve_single(PackageLabel::testing(), &mut resolution_ctx)
-            .expect_err("Should have failed");
-        assert!(
-            err.to_string()
-                .contains("Attribute requires a dep that provides `BarInfo`")
-        );
+            let err = configured
+                .resolve_single(PackageLabel::testing(), &mut resolution_ctx)
+                .expect_err("Should have failed");
+            assert!(
+                err.to_string()
+                    .contains("Attribute requires a dep that provides `BarInfo`")
+            );
 
-        let foo_and_bar = heap.alloc("//sub/dir:foo[foo_and_bar]");
+            let foo_and_bar = heap.alloc("//sub/dir:foo[foo_and_bar]");
 
-        let attr = AttrType::dep(provider_ids, PluginKindSet::EMPTY);
-        let coerced = attr.coerce(AttrIsConfigurable::Yes, &coercion_ctx(), foo_and_bar)?;
-        let configured = coerced.configure(&attr, &configuration_ctx())?;
+            let attr = AttrType::dep(provider_ids, PluginKindSet::EMPTY);
+            let coerced = attr.coerce(AttrIsConfigurable::Yes, &coercion_ctx(), foo_and_bar)?;
+            let configured = coerced.configure(&attr, &configuration_ctx())?;
 
-        // This dep has both FooInfo and BarInfo, so it should resolve properly
-        configured.resolve_single(PackageLabel::testing(), &mut resolution_ctx)?;
+            // This dep has both FooInfo and BarInfo, so it should resolve properly
+            configured.resolve_single(PackageLabel::testing(), &mut resolution_ctx)?;
 
-        Ok(())
+            Ok(())
+        })
     })
 }
 
@@ -623,11 +634,11 @@ fn test_source_label() -> buck2_error::Result<()> {
 
 #[test]
 fn test_source_label_deps() -> buck2_error::Result<()> {
-    let globals = GlobalsBuilder::standard().with(register_select).build();
+    Module::with_temp_heap(|env| {
+        let globals = GlobalsBuilder::standard().with(register_select).build();
 
-    let env = Module::new();
-    let content = indoc!(
-        r#"
+        let content = indoc!(
+            r#"
             ["//some:target", "cell1//named:target[foo]", "some/target.cpp"] + select({
                 "//some:config": ["cell1//named:target[bar]", "cell1/named/target/bar.cpp"],
                 "DEFAULT": ["cell1//:okay", "cell1/okay.cpp"] + select({
@@ -636,50 +647,51 @@ fn test_source_label_deps() -> buck2_error::Result<()> {
                 }),
             }) + ["//:other", "other.cpp"]
             "#
-    );
-    // Check that `x` is captured with the function
-    let value = to_value(&env, &globals, content);
+        );
+        // Check that `x` is captured with the function
+        let value = to_value(&env, &globals, content);
 
-    let attr = AttrType::list(AttrType::source(false));
-    let coerced = attr.coerce(
-        AttrIsConfigurable::Yes,
-        &coercion_ctx_listing(PackageListing::testing_files(&[
-            "some/target.cpp",
-            "cell1/named/target/bar.cpp",
-            "cell1/okay.cpp",
-            "some/target2.cpp",
-            "other.cpp",
-            "default.cpp",
-        ])),
-        value,
-    )?;
+        let attr = AttrType::list(AttrType::source(false));
+        let coerced = attr.coerce(
+            AttrIsConfigurable::Yes,
+            &coercion_ctx_listing(PackageListing::testing_files(&[
+                "some/target.cpp",
+                "cell1/named/target/bar.cpp",
+                "cell1/okay.cpp",
+                "some/target2.cpp",
+                "other.cpp",
+                "default.cpp",
+            ])),
+            value,
+        )?;
 
-    let mut visitor = CoercedDepsCollector::new();
-    coerced.traverse(&attr, PackageLabel::testing(), &mut visitor)?;
-    let CoercedDepsCollector {
-        deps,
-        configuration_deps,
-        ..
-    } = visitor;
-    let deps: Vec<_> = deps.iter().map(|t| t.to_string()).collect();
-    let config_deps: Vec<_> = configuration_deps.iter().map(|t| t.0.to_string()).collect();
+        let mut visitor = CoercedDepsCollector::new();
+        coerced.traverse(&attr, PackageLabel::testing(), &mut visitor)?;
+        let CoercedDepsCollector {
+            deps,
+            configuration_deps,
+            ..
+        } = visitor;
+        let deps: Vec<_> = deps.iter().map(|t| t.to_string()).collect();
+        let config_deps: Vec<_> = configuration_deps.iter().map(|t| t.0.to_string()).collect();
 
-    let expected_deps = vec![
-        "root//some:target",
-        "cell1//named:target",
-        "cell1//:okay",
-        "root//some:target2",
-        "root//:default1",
-        "root//:default2",
-        "root//:other",
-    ];
+        let expected_deps = vec![
+            "root//some:target",
+            "cell1//named:target",
+            "cell1//:okay",
+            "root//some:target2",
+            "root//:default1",
+            "root//:default2",
+            "root//:other",
+        ];
 
-    assert_eq!(expected_deps, deps);
+        assert_eq!(expected_deps, deps);
 
-    let expected_config_deps = vec!["root//some:config", "cell1//other:config"];
-    assert_eq!(expected_config_deps, config_deps);
+        let expected_config_deps = vec!["root//some:config", "cell1//other:config"];
+        assert_eq!(expected_config_deps, config_deps);
 
-    Ok(())
+        Ok(())
+    })
 }
 
 #[test]
@@ -689,29 +701,30 @@ fn test_source_label_resolution() -> buck2_error::Result<()> {
         test_content: &str,
         files: &[&str],
     ) -> buck2_error::Result<()> {
-        let env = Module::new();
+        Module::with_temp_heap(|env| {
+            let globals = GlobalsBuilder::standard()
+                .with(register_select)
+                .with(register_builtin_providers)
+                .build();
 
-        let globals = GlobalsBuilder::standard()
-            .with(register_select)
-            .with(register_builtin_providers)
-            .build();
+            let value = to_value(&env, &globals, content);
 
-        let value = to_value(&env, &globals, content);
+            let attr = AttrType::list(AttrType::source(false));
+            let coerced = attr.coerce(
+                AttrIsConfigurable::Yes,
+                &coercion_ctx_listing(PackageListing::testing_files(files)),
+                value,
+            )?;
+            let configured = coerced.configure(&attr, &configuration_ctx())?;
+            let mut resolution_ctx = resolution_ctx(&env);
+            let resolved =
+                configured.resolve_single(PackageLabel::testing(), &mut resolution_ctx)?;
 
-        let attr = AttrType::list(AttrType::source(false));
-        let coerced = attr.coerce(
-            AttrIsConfigurable::Yes,
-            &coercion_ctx_listing(PackageListing::testing_files(files)),
-            value,
-        )?;
-        let configured = coerced.configure(&attr, &configuration_ctx())?;
-        let mut resolution_ctx = resolution_ctx(&env);
-        let resolved = configured.resolve_single(PackageLabel::testing(), &mut resolution_ctx)?;
-
-        env.set("res", resolved);
-        let success = to_value(&env, &globals, test_content);
-        assert_eq!(true, success.is_none());
-        Ok(())
+            env.set("res", resolved);
+            let success = to_value(&env, &globals, test_content);
+            assert_eq!(true, success.is_none());
+            Ok(())
+        })
     }
 
     let content = indoc!(r#"["//sub/dir:foo", "//sub/dir:foo[multiple]", "baz/quz.cpp"]"#);
@@ -762,21 +775,22 @@ fn test_source_label_resolution() -> buck2_error::Result<()> {
 
 #[test]
 fn test_single_source_label_fails_if_multiple_returned() -> buck2_error::Result<()> {
-    Heap::temp(|heap| {
-        let value = heap.alloc("//sub/dir:foo[multiple]");
-        let env = Module::new();
+    Module::with_temp_heap(|env| {
+        Heap::temp(|heap| {
+            let value = heap.alloc("//sub/dir:foo[multiple]");
 
-        let attr = AttrType::source(false);
-        let coerced = attr.coerce(AttrIsConfigurable::Yes, &coercion_ctx(), value)?;
-        let configured = coerced.configure(&attr, &configuration_ctx())?;
-        let mut resolution_ctx = resolution_ctx(&env);
-        let err = configured
-            .resolve_single(PackageLabel::testing(), &mut resolution_ctx)
-            .expect_err("Getting multiple values when expecting a single one should fail");
+            let attr = AttrType::source(false);
+            let coerced = attr.coerce(AttrIsConfigurable::Yes, &coercion_ctx(), value)?;
+            let configured = coerced.configure(&attr, &configuration_ctx())?;
+            let mut resolution_ctx = resolution_ctx(&env);
+            let err = configured
+                .resolve_single(PackageLabel::testing(), &mut resolution_ctx)
+                .expect_err("Getting multiple values when expecting a single one should fail");
 
-        assert_eq!(true, err.to_string().contains("Expected a single artifact"));
-        assert_eq!(true, err.to_string().contains("3 artifacts"));
-        Ok(())
+            assert_eq!(true, err.to_string().contains("Expected a single artifact"));
+            assert_eq!(true, err.to_string().contains("3 artifacts"));
+            Ok(())
+        })
     })
 }
 
@@ -849,14 +863,14 @@ fn test_arg() -> buck2_error::Result<()> {
 
 #[test]
 fn test_bool() -> buck2_error::Result<()> {
-    let globals = GlobalsBuilder::standard().with(register_select).build();
+    Module::with_temp_heap(|env| {
+        let globals = GlobalsBuilder::standard().with(register_select).build();
 
-    let env = Module::new();
-    let value = to_value(
-        &env,
-        &globals,
-        indoc!(
-            r#"
+        let value = to_value(
+            &env,
+            &globals,
+            indoc!(
+                r#"
                 (
                     [True, False]
                     + select({
@@ -866,120 +880,121 @@ fn test_bool() -> buck2_error::Result<()> {
                     + [True]
                 )
                 "#
-        ),
-    );
+            ),
+        );
 
-    let attr = AttrType::list(AttrType::bool());
+        let attr = AttrType::list(AttrType::bool());
 
-    let coerced = attr.coerce(AttrIsConfigurable::Yes, &coercion_ctx(), value)?;
-    assert_eq!(
-        "[True, False]+select({\"root//some:config\": [True], \"DEFAULT\": [False]})+[True]",
-        coerced.as_display_no_ctx().to_string()
-    );
+        let coerced = attr.coerce(AttrIsConfigurable::Yes, &coercion_ctx(), value)?;
+        assert_eq!(
+            "[True, False]+select({\"root//some:config\": [True], \"DEFAULT\": [False]})+[True]",
+            coerced.as_display_no_ctx().to_string()
+        );
 
-    let configured = coerced.configure(&attr, &configuration_ctx())?;
-    assert_eq!(
-        "[True, False, False, True]",
-        configured.as_display_no_ctx().to_string()
-    );
+        let configured = coerced.configure(&attr, &configuration_ctx())?;
+        assert_eq!(
+            "[True, False, False, True]",
+            configured.as_display_no_ctx().to_string()
+        );
 
-    let mut ctx = resolution_ctx(&env);
-    let resolved = configured.resolve_single(PackageLabel::testing(), &mut ctx)?;
-    assert_eq!("[True, False, False, True]", resolved.to_string());
+        let mut ctx = resolution_ctx(&env);
+        let resolved = configured.resolve_single(PackageLabel::testing(), &mut ctx)?;
+        assert_eq!("[True, False, False, True]", resolved.to_string());
 
-    Ok(())
+        Ok(())
+    })
 }
 
 #[test]
 fn test_user_placeholders() -> buck2_error::Result<()> {
-    let env = Module::new();
+    Module::with_temp_heap(|env| {
+        let globals = GlobalsBuilder::standard()
+            .with(register_select)
+            .with(register_builtin_providers)
+            .build();
 
-    let globals = GlobalsBuilder::standard()
-        .with(register_select)
-        .with(register_builtin_providers)
-        .build();
-
-    let resolve = move |value: &str| {
-        let attr = AttrType::arg(false);
-        let coerced = attr.coerce(
-            AttrIsConfigurable::Yes,
-            &coercion_ctx(),
-            to_value(&env, &globals, value),
-        )?;
-        let configured = coerced.configure(&attr, &configuration_ctx())?;
-        let mut resolution_ctx = resolution_ctx(&env);
-        configured
-            .resolve_single(PackageLabel::testing(), &mut resolution_ctx)
-            .map(|v| {
-                // TODO: this is way too unnecessarily verbose for a test.
-                let project_fs = ProjectRoot::new(
-                    AbsNormPathBuf::try_from(std::env::current_dir().unwrap()).unwrap(),
-                )
-                .unwrap();
-                let fs = ArtifactFs::new(
-                    CellResolver::testing_with_name_and_path(
-                        CellName::testing_new("cell"),
-                        CellRootPathBuf::new(ProjectRelativePathBuf::unchecked_new(
-                            "cell_path".into(),
-                        )),
-                    ),
-                    BuckOutPathResolver::new(ProjectRelativePathBuf::unchecked_new(
-                        "buck_out/v2".into(),
-                    )),
-                    project_fs,
-                );
-                let executor_fs = ExecutorFs::new(&fs, PathSeparatorKind::Unix);
-
-                let mut cli = Vec::<String>::new();
-                let mut ctx = DefaultCommandLineContext::new(&executor_fs);
-                ValueAsCommandLineLike::unpack_value_err(v)
-                    .unwrap()
-                    .0
-                    .add_to_command_line(&mut cli, &mut ctx, &FxHashMap::default())
+        let resolve = |value: &str| {
+            let attr = AttrType::arg(false);
+            let coerced = attr.coerce(
+                AttrIsConfigurable::Yes,
+                &coercion_ctx(),
+                to_value(&env, &globals, value),
+            )?;
+            let configured = coerced.configure(&attr, &configuration_ctx())?;
+            let mut resolution_ctx = resolution_ctx(&env);
+            configured
+                .resolve_single(PackageLabel::testing(), &mut resolution_ctx)
+                .map(|v| {
+                    // TODO: this is way too unnecessarily verbose for a test.
+                    let project_fs = ProjectRoot::new(
+                        AbsNormPathBuf::try_from(std::env::current_dir().unwrap()).unwrap(),
+                    )
                     .unwrap();
-                cli.join(" ")
-            })
-    };
+                    let fs = ArtifactFs::new(
+                        CellResolver::testing_with_name_and_path(
+                            CellName::testing_new("cell"),
+                            CellRootPathBuf::new(ProjectRelativePathBuf::unchecked_new(
+                                "cell_path".into(),
+                            )),
+                        ),
+                        BuckOutPathResolver::new(ProjectRelativePathBuf::unchecked_new(
+                            "buck_out/v2".into(),
+                        )),
+                        project_fs,
+                    );
+                    let executor_fs = ExecutorFs::new(&fs, PathSeparatorKind::Unix);
 
-    assert_eq!("clang++", resolve(r#""$(CXX)""#)?);
-    assert_eq!(
-        "hello",
-        resolve(r#""$(user_key //sub/dir:keyed_placeholder)""#)?
-    );
-    assert_eq!(
-        "world",
-        resolve(r#""$(key_with_args //sub/dir:keyed_placeholder)""#)?
-    );
-    assert_eq!(
-        "big world",
-        resolve(r#""$(key_with_args //sub/dir:keyed_placeholder big)""#)?
-    );
+                    let mut cli = Vec::<String>::new();
+                    let mut ctx = DefaultCommandLineContext::new(&executor_fs);
+                    ValueAsCommandLineLike::unpack_value_err(v)
+                        .unwrap()
+                        .0
+                        .add_to_command_line(&mut cli, &mut ctx, &FxHashMap::default())
+                        .unwrap();
+                    cli.join(" ")
+                })
+        };
 
-    let value = r#""$(CXXabcdef)""#;
-    match resolve(value) {
-        Ok(..) => panic!("expected error resolving {value}"),
-        Err(e) => {
-            let expected = "no mapping for CXXabcdef";
-            let message = format!("{e:?}");
-            assert!(
-                message.contains(expected),
-                "expected `{message}` to contain `{expected}`"
-            );
+        assert_eq!("clang++", resolve(r#""$(CXX)""#)?);
+        assert_eq!(
+            "hello",
+            resolve(r#""$(user_key //sub/dir:keyed_placeholder)""#)?
+        );
+        assert_eq!(
+            "world",
+            resolve(r#""$(key_with_args //sub/dir:keyed_placeholder)""#)?
+        );
+        assert_eq!(
+            "big world",
+            resolve(r#""$(key_with_args //sub/dir:keyed_placeholder big)""#)?
+        );
+
+        let value = r#""$(CXXabcdef)""#;
+        match resolve(value) {
+            Ok(..) => panic!("expected error resolving {value}"),
+            Err(e) => {
+                let expected = "no mapping for CXXabcdef";
+                let message = format!("{e:?}");
+                assert!(
+                    message.contains(expected),
+                    "expected `{message}` to contain `{expected}`"
+                );
+            }
         }
-    }
 
-    let value = r#""$(missing_user_key //sub/dir:keyed_placeholder)""#;
-    match resolve(value) {
-        Ok(..) => panic!("expected error resolving {value}"),
-        Err(e) => {
-            let expected = "no mapping for missing_user_key";
-            let message = format!("{e:?}");
-            assert!(
-                message.contains(expected),
-                "expected `{message}` to contain `{expected}`"
-            );
+        let value = r#""$(missing_user_key //sub/dir:keyed_placeholder)""#;
+        match resolve(value) {
+            Ok(..) => panic!("expected error resolving {value}"),
+            Err(e) => {
+                let expected = "no mapping for missing_user_key";
+                let message = format!("{e:?}");
+                assert!(
+                    message.contains(expected),
+                    "expected `{message}` to contain `{expected}`"
+                );
+            }
         }
-    }
 
-    Ok(())
+        Ok(())
+    })
 }

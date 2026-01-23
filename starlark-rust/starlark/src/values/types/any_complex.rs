@@ -148,30 +148,32 @@ mod tests {
             other: FrozenValue,
         }
 
-        let module = Module::new();
+        Module::with_temp_heap(|module| {
+            let data = module.heap().alloc(StarlarkAnyComplex::new(UnfrozenData {
+                string: module.heap().alloc_str("aaa"),
+                other: module.heap().alloc(AllocList([1, 2])),
+            }));
 
-        let data = module.heap().alloc(StarlarkAnyComplex::new(UnfrozenData {
-            string: module.heap().alloc_str("aaa"),
-            other: module.heap().alloc(AllocList([1, 2])),
-        }));
+            assert_eq!(
+                const_frozen_string!("aaa"),
+                StarlarkAnyComplex::<UnfrozenData>::get_err(data)
+                    .unwrap()
+                    .string
+            );
 
-        assert_eq!(
-            const_frozen_string!("aaa"),
-            StarlarkAnyComplex::<UnfrozenData>::get_err(data)
-                .unwrap()
-                .string
-        );
+            module.set_extra_value(data);
 
-        module.set_extra_value(data);
+            let module = module.freeze()?;
 
-        let module = module.freeze().unwrap();
-
-        let data = module.extra_value().unwrap();
-        assert_eq!(
-            const_frozen_string!("aaa"),
-            StarlarkAnyComplex::<FrozenData>::get_err(data.to_value())
-                .unwrap()
-                .string
-        );
+            let data = module.extra_value().unwrap();
+            assert_eq!(
+                const_frozen_string!("aaa"),
+                StarlarkAnyComplex::<FrozenData>::get_err(data.to_value())
+                    .unwrap()
+                    .string
+            );
+            crate::Result::Ok(())
+        })
+        .unwrap();
     }
 }

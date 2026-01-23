@@ -59,15 +59,16 @@ static ASSERTS_STAR: Lazy<FrozenModule> = Lazy::new(|| {
     let g = GlobalsBuilder::new()
         .with_namespace("asserts", asserts_star)
         .build();
-    let m = Module::new();
-    m.frozen_heap().add_reference(g.heap());
-    let asserts = g.get("asserts").unwrap();
-    m.set("asserts", asserts);
-    m.set(
-        "freeze",
-        asserts.get_attr("freeze", m.heap()).unwrap().unwrap(),
-    );
-    m.freeze().unwrap()
+    Module::with_temp_heap(|m| {
+        m.frozen_heap().add_reference(g.heap());
+        let asserts = g.get("asserts").unwrap();
+        m.set("asserts", asserts);
+        m.set(
+            "freeze",
+            asserts.get_attr("freeze", m.heap()).unwrap().unwrap(),
+        );
+        m.freeze().unwrap()
+    })
 });
 
 fn assert_equals<'v>(a: Value<'v>, b: Value<'v>) -> starlark::Result<NoneType> {
@@ -401,9 +402,10 @@ impl<'a> Assert<'a> {
     pub fn module(&mut self, name: &str, program: &str) -> FrozenModule {
         let module = self
             .with_gc(|gc| {
-                let module = Module::new();
-                self.execute_unwrap("module", &format!("{name}.bzl"), program, &module, gc);
-                module.freeze()
+                Module::with_temp_heap(|module| {
+                    self.execute_unwrap("module", &format!("{name}.bzl"), program, &module, gc);
+                    module.freeze()
+                })
             })
             .expect("error freezing module");
         self.module_add(name, module.dupe());
@@ -424,24 +426,33 @@ impl<'a> Assert<'a> {
 
     fn fails_with_name(&self, func: &str, program: &str, msgs: &[&str]) -> crate::Error {
         self.with_gc(|gc| {
-            let module_env = Module::new();
-            let original = self.execute_fail(func, program, &module_env, gc);
-            // We really want to check the error message, but if in our doc tests we do:
-            // fail("bad") # error: magic
-            // Then when we print the source code, magic is contained in the error message.
-            // Therefore, find the internals.
-            let inner = original.without_diagnostic();
-            let err_msg = format!("{inner:#}");
-            for msg in msgs {
-                if !err_msg.contains(msg) {
-                    original.eprint();
-                    panic!(
-                    "starlark::assert::{func}, failed with the wrong message!\nCode:\n{program}\nError:\n{inner:#}\nMissing:\n{msg}\nExpected:\n{msgs:?}"
-                )
+            Module::with_temp_heap(|module_env| {
+                let original = self.execute_fail(func, program, &module_env, gc);
+                // We really want to check the error message, but if in our doc tests we do:
+                // fail("bad") # error: magic
+                // Then when we print the source code, magic is contained in the error message.
+                // Therefore, find the internals.
+                let inner = original.without_diagnostic();
+                let err_msg = format!("{inner:#}");
+                for msg in msgs {
+                    if !err_msg.contains(msg) {
+                        original.eprint();
+                        panic!(
+                            "starlark::assert::{func}, failed with the wrong message!
+Code:
+{program}
+Error:
+{inner:#}
+Missing:
+{msg}
+Expected:
+{msgs:?}"
+                        )
+                    }
                 }
-            }
-            drop(inner);
-            original
+                drop(inner);
+                original
+            })
         })
     }
 }
@@ -484,13 +495,14 @@ impl<'a> Assert<'a> {
     /// ```
     pub fn pass(&self, program: &str) -> OwnedFrozenValue {
         self.with_gc(|gc| {
-            let env = Module::new();
-            let res = self.execute_unwrap("pass", "assert.bzl", program, &env, gc);
-            env.set("_", res);
-            env.freeze()
-                .expect("error freezing module")
-                .get("_")
-                .unwrap()
+            Module::with_temp_heap(|env| {
+                let res = self.execute_unwrap("pass", "assert.bzl", program, &env, gc);
+                env.set("_", res);
+                env.freeze()
+                    .expect("error freezing module")
+                    .get("_")
+                    .unwrap()
+            })
         })
     }
 
@@ -498,9 +510,10 @@ impl<'a> Assert<'a> {
     /// that `program` was evaluated in.
     pub fn pass_module(&self, program: &str) -> FrozenModule {
         self.with_gc(|gc| {
-            let env = Module::new();
-            self.execute_unwrap("pass", "assert.bzl", program, &env, gc);
-            env.freeze().expect("error freezing module")
+            Module::with_temp_heap(|env| {
+                self.execute_unwrap("pass", "assert.bzl", program, &env, gc);
+                env.freeze().expect("error freezing module")
+            })
         })
     }
 
@@ -517,16 +530,14 @@ impl<'a> Assert<'a> {
     /// ```
     pub fn is_true(&self, program: &str) {
         self.with_gc(|gc| {
-            let env = Module::new();
-            self.execute_unwrap_true("is_true", program, &env, gc);
+            Module::with_temp_heap(|env| self.execute_unwrap_true("is_true", program, &env, gc))
         })
     }
 
     /// A program that must evaluate to `False`.
     pub fn is_false(&self, program: &str) {
         self.with_gc(|gc| {
-            let env = Module::new();
-            self.execute_unwrap_false("is_false", program, &env, gc);
+            Module::with_temp_heap(|env| self.execute_unwrap_false("is_false", program, &env, gc))
         })
     }
 
@@ -548,8 +559,7 @@ impl<'a> Assert<'a> {
                 if s == "" {
                     continue;
                 }
-                let env = Module::new();
-                self.execute_unwrap_true("all_true", s, &env, gc);
+                Module::with_temp_heap(|env| self.execute_unwrap_true("all_true", s, &env, gc))
             }
         })
     }
@@ -562,15 +572,25 @@ impl<'a> Assert<'a> {
     /// ```
     pub fn eq(&self, lhs: &str, rhs: &str) {
         self.with_gc(|gc| {
-            let lhs_m = Module::new();
-            let rhs_m = Module::new();
-            let lhs_v = self.execute_unwrap("eq", "lhs.bzl", lhs, &lhs_m, gc);
-            let rhs_v = self.execute_unwrap("eq", "rhs.bzl", rhs, &rhs_m, gc);
-            if lhs_v != rhs_v {
-                panic!(
-                "starlark::assert::eq, values differ!\nCode 1:\n{lhs}\nCode 2:\n{rhs}\nValue 1:\n{lhs_v}\nValue 2\n{rhs_v}"
-            );
-            }
+            Module::with_temp_heap(|lhs_m| {
+                Module::with_temp_heap(|rhs_m| {
+                    let lhs_v = self.execute_unwrap("eq", "lhs.bzl", lhs, &lhs_m, gc);
+                    let rhs_v = self.execute_unwrap("eq", "rhs.bzl", rhs, &rhs_m, gc);
+                    if lhs_v != rhs_v {
+                        panic!(
+                            "starlark::assert::eq, values differ!
+Code 1:
+{lhs}
+Code 2:
+{rhs}
+Value 1:
+{lhs_v}
+Value 2
+{rhs_v}"
+                        );
+                    }
+                })
+            })
         })
     }
 }

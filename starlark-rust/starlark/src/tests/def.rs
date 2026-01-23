@@ -171,10 +171,13 @@ value = {"test": "hello"}
     );
     let f = m.get("function").unwrap();
     let x = m.get("value").unwrap();
-    let module = Module::new();
-    let mut eval = Evaluator::new(&module);
-    let res = eval.eval_function(f.value(), &[x.value()], &[]).unwrap();
-    assert_eq!(res.to_str(), "hello");
+    Module::with_temp_heap(|module| {
+        let mut eval = Evaluator::new(&module);
+        let res = eval.eval_function(f.value(), &[x.value()], &[]).unwrap();
+        assert_eq!(res.to_str(), "hello");
+        crate::Result::Ok(())
+    })
+    .unwrap();
 }
 
 #[test]

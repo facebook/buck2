@@ -185,14 +185,17 @@ mod tests {
 
     #[test]
     fn tuple_cycle_freeze() {
-        let module = Module::new();
-        let list = module.heap().alloc_list(&[]);
-        let tuple = module.heap().alloc_tuple(&[list]);
-        ListData::from_value_mut(list)
-            .unwrap()
-            .push(tuple, module.heap());
-        module.set("t", tuple);
-        module.freeze().unwrap();
+        Module::with_temp_heap(|module| {
+            let list = module.heap().alloc_list(&[]);
+            let tuple = module.heap().alloc_tuple(&[list]);
+            ListData::from_value_mut(list)
+                .unwrap()
+                .push(tuple, module.heap());
+            module.set("t", tuple);
+            module.freeze()?;
+            crate::Result::Ok(())
+        })
+        .unwrap();
     }
 
     #[test]
@@ -200,18 +203,22 @@ mod tests {
         // `try_freeze_directly` is only implemented for `dict` at the moment of writing,
         // so use it for the test.
 
-        let module = Module::new();
-        let d0 = module.heap().alloc(AllocDict::EMPTY);
-        let d1 = module.heap().alloc(AllocDict::EMPTY);
-        // Pointers are not equal.
-        assert_ne!(d0.0.raw(), d1.0.raw());
+        Module::with_temp_heap(|module| {
+            let d0 = module.heap().alloc(AllocDict::EMPTY);
+            let d1 = module.heap().alloc(AllocDict::EMPTY);
+            // Pointers are not equal.
+            assert_ne!(d0.0.raw(), d1.0.raw());
 
-        module.set_extra_value(module.heap().alloc((d0, d1)));
+            module.set_extra_value(module.heap().alloc((d0, d1)));
 
-        let module = module.freeze().unwrap();
-        let (d0, d1) =
-            <(Value, Value)>::unpack_value_err(module.extra_value().unwrap().to_value()).unwrap();
-        // Pointers are equal.
-        assert_eq!(d0.0.raw(), d1.0.raw());
+            let module = module.freeze()?;
+            let (d0, d1) =
+                <(Value, Value)>::unpack_value_err(module.extra_value().unwrap().to_value())
+                    .unwrap();
+            // Pointers are equal.
+            assert_eq!(d0.0.raw(), d1.0.raw());
+            crate::Result::Ok(())
+        })
+        .unwrap();
     }
 }

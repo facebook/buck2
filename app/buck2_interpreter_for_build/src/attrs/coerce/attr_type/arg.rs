@@ -273,27 +273,28 @@ mod tests {
 
     #[test]
     fn test_concat() -> buck2_error::Result<()> {
-        let env = Module::new();
-        let globals = GlobalsBuilder::standard().with(register_select).build();
-        let attr = AttrType::arg(true);
-        let value = to_value(
-            &env,
-            &globals,
-            r#""$(exe //:foo) " + select({"DEFAULT": "$(location //:bar)"})"#,
-        );
+        Module::with_temp_heap(|env| {
+            let globals = GlobalsBuilder::standard().with(register_select).build();
+            let attr = AttrType::arg(true);
+            let value = to_value(
+                &env,
+                &globals,
+                r#""$(exe //:foo) " + select({"DEFAULT": "$(location //:bar)"})"#,
+            );
 
-        let coerced = attr.coerce(AttrIsConfigurable::Yes, &coercion_ctx(), value)?;
-        let configured = coerced.configure(&attr, &configuration_ctx())?;
-        assert_eq!(
-            format!(
-                r#""$(exe root//:foo ({})) $(location root//:bar ({}))""#,
-                configuration_ctx().exec_cfg()?,
-                ConfigurationData::testing_new(),
-            ),
-            configured.as_display_no_ctx().to_string(),
-        );
+            let coerced = attr.coerce(AttrIsConfigurable::Yes, &coercion_ctx(), value)?;
+            let configured = coerced.configure(&attr, &configuration_ctx())?;
+            assert_eq!(
+                format!(
+                    r#""$(exe root//:foo ({})) $(location root//:bar ({}))""#,
+                    configuration_ctx().exec_cfg()?,
+                    ConfigurationData::testing_new(),
+                ),
+                configured.as_display_no_ctx().to_string(),
+            );
 
-        Ok(())
+            Ok(())
+        })
     }
 
     #[test]

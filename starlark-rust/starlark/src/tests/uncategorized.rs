@@ -537,47 +537,53 @@ fn test_module_visibility_preserved_by_evaluator() -> crate::Result<()> {
 
     let globals = Globals::standard();
 
-    let import = Module::new();
-    import.set("a", Value::testing_new_int(1));
-    import.set_private(
-        import.frozen_heap().alloc_str_intern("b"),
-        Value::testing_new_int(2),
-    );
-
-    {
-        let mut eval = Evaluator::new(&import);
-        let ast = AstModule::parse("prelude.bzl", "c = 3".to_owned(), &Dialect::Standard).unwrap();
-        // This mutates the original module named `import`
-        let _: Value = eval.eval_module(ast, &globals)?;
-    }
-    let frozen_import = import.freeze()?;
-
-    let m_uses_public = Module::new();
-    m_uses_public.import_public_symbols(&frozen_import);
-    {
-        let mut eval = Evaluator::new(&m_uses_public);
-        let ast = AstModule::parse("code.bzl", "d = a".to_owned(), &Dialect::Standard).unwrap();
-        let _: Value = eval.eval_module(ast, &globals)?;
-    }
-
-    let m_uses_private = Module::new();
-    m_uses_private.import_public_symbols(&frozen_import);
-    {
-        let mut eval = Evaluator::new(&m_uses_private);
-        let ast = AstModule::parse("code.bzl", "d = b".to_owned(), &Dialect::Standard).unwrap();
-        let err = eval
-            .eval_module(ast, &globals)
-            .expect_err("Evaluation should have failed using a private symbol");
-
-        let msg = err.to_string();
-        let expected_msg = "Variable `b` not found";
-        assert!(
-            msg.contains(expected_msg),
-            "Expected `{expected_msg}` to be in error message `{msg}`"
+    Module::with_temp_heap(|import| {
+        import.set("a", Value::testing_new_int(1));
+        import.set_private(
+            import.frozen_heap().alloc_str_intern("b"),
+            Value::testing_new_int(2),
         );
-    }
 
-    Ok(())
+        {
+            let mut eval = Evaluator::new(&import);
+            let ast =
+                AstModule::parse("prelude.bzl", "c = 3".to_owned(), &Dialect::Standard).unwrap();
+            // This mutates the original module named `import`
+            let _: Value = eval.eval_module(ast, &globals)?;
+        }
+        let frozen_import = import.freeze()?;
+
+        Module::with_temp_heap(|m_uses_public| {
+            m_uses_public.import_public_symbols(&frozen_import);
+            {
+                let mut eval = Evaluator::new(&m_uses_public);
+                let ast =
+                    AstModule::parse("code.bzl", "d = a".to_owned(), &Dialect::Standard).unwrap();
+                let _: Value = eval.eval_module(ast, &globals)?;
+            }
+            crate::Result::Ok(())
+        })?;
+
+        Module::with_temp_heap(|m_uses_private| {
+            m_uses_private.import_public_symbols(&frozen_import);
+            {
+                let mut eval = Evaluator::new(&m_uses_private);
+                let ast =
+                    AstModule::parse("code.bzl", "d = b".to_owned(), &Dialect::Standard).unwrap();
+                let err = eval
+                    .eval_module(ast, &globals)
+                    .expect_err("Evaluation should have failed using a private symbol");
+
+                let msg = err.to_string();
+                let expected_msg = "Variable `b` not found";
+                assert!(
+                    msg.contains(expected_msg),
+                    "Expected `{expected_msg}` to be in error message `{msg}`"
+                );
+            }
+            Ok(())
+        })
+    })
 }
 
 #[test]
@@ -586,36 +592,36 @@ fn test_cancellation() -> crate::Result<()> {
     // module with ScopeData preserves the visibility of symbols.
 
     let globals = Globals::standard();
-    let import = Module::new();
+    Module::with_temp_heap(|import| {
+        let mut eval = Evaluator::new(&import);
+        eval.set_check_cancelled(Box::new(|| true));
 
-    let mut eval = Evaluator::new(&import);
-    eval.set_check_cancelled(Box::new(|| true));
+        let ast = AstModule::parse(
+            "prelude.bzl",
+            // Note that the exact range here is unimportant, so long as it's small enough to not trigger the "infrequent" checks
+            "def loop():\n    for i in range(10):\n       pass\nloop()".to_owned(),
+            &Dialect::Standard,
+        )
+        .unwrap();
+        eval.eval_module(ast, &globals).unwrap();
 
-    let ast = AstModule::parse(
-        "prelude.bzl",
-        // Note that the exact range here is unimportant, so long as it's small enough to not trigger the "infrequent" checks
-        "def loop():\n    for i in range(10):\n       pass\nloop()".to_owned(),
-        &Dialect::Standard,
-    )
-    .unwrap();
-    eval.eval_module(ast, &globals).unwrap();
+        let ast = AstModule::parse(
+            "prelude.bzl",
+            // Note that the exact range here is unimportant, so long as it's large enough to trigger the "infrequent" checks
+            "def loop():\n    for i in range(1000000):\n       pass\nloop()".to_owned(),
+            &Dialect::Standard,
+        )
+        .unwrap();
+        let err = eval.eval_module(ast, &globals);
 
-    let ast = AstModule::parse(
-        "prelude.bzl",
-        // Note that the exact range here is unimportant, so long as it's large enough to trigger the "infrequent" checks
-        "def loop():\n    for i in range(1000000):\n       pass\nloop()".to_owned(),
-        &Dialect::Standard,
-    )
-    .unwrap();
-    let err = eval.eval_module(ast, &globals);
+        let expected = "Evaluation cancelled";
+        let err_msg = format!("{err:#?}");
+        if !err_msg.contains(expected) {
+            panic!("Error:\n{err:#?}\nExpected:\n{expected:?}")
+        }
 
-    let expected = "Evaluation cancelled";
-    let err_msg = format!("{err:#?}");
-    if !err_msg.contains(expected) {
-        panic!("Error:\n{err:#?}\nExpected:\n{expected:?}")
-    }
-
-    Ok(())
+        Ok(())
+    })
 }
 
 #[test]
@@ -977,13 +983,16 @@ def animal(id):
     }
 animal("Joe")
 "#;
-    let m = Module::new();
-    let globals = Globals::standard();
-    let mut eval = Evaluator::new(&m);
-    let ast = AstModule::parse("code.bzl", code.to_owned(), &Dialect::Standard).unwrap();
-    let res: Value = eval.eval_module(ast, &globals).unwrap();
-    let animal = SmallMap::<String, Value>::unpack_value(res).unwrap();
-    println!("animal = {animal:?}");
+    Module::with_temp_heap(|m| {
+        let globals = Globals::standard();
+        let mut eval = Evaluator::new(&m);
+        let ast = AstModule::parse("code.bzl", code.to_owned(), &Dialect::Standard).unwrap();
+        let res: Value = eval.eval_module(ast, &globals).unwrap();
+        let animal = SmallMap::<String, Value>::unpack_value(res).unwrap();
+        println!("animal = {animal:?}");
+        crate::Result::Ok(())
+    })
+    .unwrap();
 }
 
 #[test]
@@ -1012,7 +1021,10 @@ fn test_fuzzer_59839() {
     let src = "\"{20000000000000000396}\".format()";
     let ast = AstModule::parse("hello_world.star", src.to_owned(), &Dialect::Standard).unwrap();
     let globals: Globals = Globals::standard();
-    let module: Module = Module::new();
-    let mut eval: Evaluator = Evaluator::new(&module);
-    assert!(eval.eval_module(ast, &globals).is_err());
+    Module::with_temp_heap(|module| {
+        let mut eval: Evaluator = Evaluator::new(&module);
+        assert!(eval.eval_module(ast, &globals).is_err());
+        crate::Result::Ok(())
+    })
+    .unwrap();
 }

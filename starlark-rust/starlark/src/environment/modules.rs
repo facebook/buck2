@@ -140,19 +140,19 @@ impl FrozenModule {
     /// This function does not return an error,
     /// but we prefer not to panic if there's some high level logic error.
     pub fn from_globals(globals: &Globals) -> FreezeResult<FrozenModule> {
-        let module = Module::new();
+        Module::with_temp_heap(|module| {
+            module.frozen_heap.add_reference(globals.heap());
 
-        module.frozen_heap.add_reference(globals.heap());
+            for (name, value) in globals.iter() {
+                module.set(name, value.to_value());
+            }
 
-        for (name, value) in globals.iter() {
-            module.set(name, value.to_value());
-        }
+            if let Some(docstring) = globals.docstring() {
+                module.set_docstring(String::from(docstring));
+            }
 
-        if let Some(docstring) = globals.docstring() {
-            module.set_docstring(String::from(docstring));
-        }
-
-        module.freeze()
+            module.freeze()
+        })
     }
 
     fn get_any_visibility_option(&self, name: &str) -> Option<(OwnedFrozenValue, Visibility)> {
@@ -593,32 +593,35 @@ mod tests {
 
     #[test]
     fn test_gen_heap_summary_profile() {
-        let module = Module::new();
-        {
-            let mut eval = Evaluator::new(&module);
-            eval.enable_profile(&ProfileMode::HeapSummaryRetained)
-                .unwrap();
-            eval.eval_module(
-                AstModule::parse(
-                    "x.star",
-                    r"
+        Module::with_temp_heap(|module| {
+            {
+                let mut eval = Evaluator::new(&module);
+                eval.enable_profile(&ProfileMode::HeapSummaryRetained)
+                    .unwrap();
+                eval.eval_module(
+                    AstModule::parse(
+                        "x.star",
+                        r"
 def f(x):
     return list([x])
 
 x = f(1)
 "
-                    .to_owned(),
-                    &Dialect::AllOptionsInternal,
+                        .to_owned(),
+                        &Dialect::AllOptionsInternal,
+                    )
+                    .unwrap(),
+                    &Globals::standard(),
                 )
-                .unwrap(),
-                &Globals::standard(),
-            )
-            .unwrap();
-        }
-        let module = module.freeze().unwrap();
-        let heap_summary = module.heap_profile().unwrap().gen_csv().unwrap();
-        // Smoke test.
-        assert!(heap_summary.contains("\"x.star.f\""), "{heap_summary:?}");
+                .unwrap();
+            }
+            let module = module.freeze()?;
+            let heap_summary = module.heap_profile().unwrap().gen_csv().unwrap();
+            // Smoke test.
+            assert!(heap_summary.contains("\"x.star.f\""), "{heap_summary:?}");
+            crate::Result::Ok(())
+        })
+        .unwrap();
     }
 
     #[test]

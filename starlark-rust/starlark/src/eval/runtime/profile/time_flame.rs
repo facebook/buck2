@@ -330,14 +330,14 @@ def foo():
         let modules = HashMap::from_iter([("a.bzl".to_owned(), a_bzl)]);
         let loader = ReturnOwnedFileLoader { modules };
 
-        let module = Module::new();
-        let mut eval = Evaluator::new(&module);
-        eval.enable_profile(&ProfileMode::TimeFlame).unwrap();
-        eval.set_loader(&loader);
-        eval.eval_module(
-            AstModule::parse(
-                "x.star",
-                r#"
+        Module::with_temp_heap(|module| {
+            let mut eval = Evaluator::new(&module);
+            eval.enable_profile(&ProfileMode::TimeFlame).unwrap();
+            eval.set_loader(&loader);
+            eval.eval_module(
+                AstModule::parse(
+                    "x.star",
+                    r#"
 load("a.bzl", "foo")
 
 def bar():
@@ -346,23 +346,28 @@ def bar():
 
 bar()
 "#
-                .to_owned(),
-                &Dialect::Standard,
+                    .to_owned(),
+                    &Dialect::Standard,
+                )
+                .unwrap(),
+                &Globals::standard(),
             )
-            .unwrap(),
-            &Globals::standard(),
-        )
-        .unwrap();
-
-        let profile = eval.gen_profile().unwrap().gen_flame_data().unwrap();
-        let the_line = profile
-            .lines()
-            .find(|l| l.contains("foo"))
-            .with_context(|| format!("There must be a line with `foo` in the profile: {profile:?}"))
             .unwrap();
-        assert!(
-            the_line.contains("bar"),
-            "Profile must contain a line `bar.*foo`: {profile:?}"
-        );
+
+            let profile = eval.gen_profile().unwrap().gen_flame_data().unwrap();
+            let the_line = profile
+                .lines()
+                .find(|l| l.contains("foo"))
+                .with_context(|| {
+                    format!("There must be a line with `foo` in the profile: {profile:?}")
+                })
+                .unwrap();
+            assert!(
+                the_line.contains("bar"),
+                "Profile must contain a line `bar.*foo`: {profile:?}"
+            );
+            crate::Result::Ok(())
+        })
+        .unwrap();
     }
 }

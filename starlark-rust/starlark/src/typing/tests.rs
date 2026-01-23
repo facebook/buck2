@@ -176,28 +176,30 @@ impl TypeCheck {
         let module = {
             writeln!(output).unwrap();
             writeln!(output, "Compiler typechecker (eval):").unwrap();
-            let module = Module::new();
-            let mut eval = Evaluator::new(&module);
+            Module::with_temp_heap(|module| {
+                let mut eval = Evaluator::new(&module);
 
-            eval.set_loader(&loader);
+                eval.set_loader(&loader);
 
-            eval.enable_static_typechecking(true);
-            let eval_result = eval.eval_module(ast, &globals);
-            if eval_result.is_ok() != errors.is_empty() {
-                writeln!(output, "Compiler typechecker and eval results mismatch.").unwrap();
-                writeln!(output).unwrap();
-            }
+                eval.enable_static_typechecking(true);
+                let eval_result = eval.eval_module(ast, &globals);
+                if eval_result.is_ok() != errors.is_empty() {
+                    writeln!(output, "Compiler typechecker and eval results mismatch.").unwrap();
+                    writeln!(output).unwrap();
+                }
 
-            // Additional writes must happen above this line otherwise it might be erased by trim_rust_backtrace
-            match &eval_result {
-                Ok(_) => writeln!(output, "No errors.").unwrap(),
-                Err(err) => writeln!(output, "{err:?}").unwrap(),
-            }
+                // Additional writes must happen above this line otherwise it might be erased by trim_rust_backtrace
+                match &eval_result {
+                    Ok(_) => writeln!(output, "No errors.").unwrap(),
+                    Err(err) => writeln!(output, "{err:?}").unwrap(),
+                }
 
-            // Help borrow checker.
-            drop(eval);
+                // Help borrow checker.
+                drop(eval);
 
-            module.freeze().unwrap()
+                module.freeze()
+            })
+            .unwrap()
         };
 
         golden_test_template(

@@ -221,9 +221,11 @@ mod tests {
     }
 
     fn env(name: StarlarkModulePath) -> FrozenModule {
-        let m = Module::new();
-        m.set("name", m.heap().alloc(name.to_string()));
-        m.freeze().unwrap()
+        Module::with_temp_heap(|m| {
+            m.set("name", m.heap().alloc(name.to_string()));
+            m.freeze()
+        })
+        .unwrap()
     }
 
     fn loaded_modules() -> LoadedModules {

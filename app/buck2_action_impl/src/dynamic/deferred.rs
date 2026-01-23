@@ -221,9 +221,7 @@ async fn execute_lambda(
                 let mut declared_actions = None;
                 let mut declared_artifacts = None;
 
-                let output: buck2_error::Result<_> = try {
-                    let env = Module::new();
-
+                let output: buck2_error::Result<_> = Module::with_temp_heap(|env| {
                     let analysis_registry = {
                         let heap = env.heap();
                         let print = EventDispatcherPrintHandler(get_dispatcher());
@@ -305,8 +303,8 @@ async fn execute_lambda(
                     declared_artifacts = Some(analysis_registry.num_declared_artifacts());
                     let registry_finalizer = analysis_registry.finalize(&env)?;
                     let frozen_env = env.freeze().map_err(from_freeze_error)?;
-                    registry_finalizer(&frozen_env)?
-                };
+                    registry_finalizer(&frozen_env)
+                });
 
                 (
                     output,

@@ -301,7 +301,7 @@ impl BuckStarlarkModule {
     pub fn with_profiling<R, E>(
         func: impl FnOnce(BuckStarlarkModule) -> Result<(ProfilingReportedToken, R), E>,
     ) -> Result<R, E> {
-        match func(BuckStarlarkModule(Module::new())) {
+        match Module::with_temp_heap(|m| func(BuckStarlarkModule(m))) {
             Ok((ProfilingReportedToken(..), res)) => Ok(res),
             Err(e) => Err(e),
         }
@@ -314,7 +314,7 @@ impl BuckStarlarkModule {
     >(
         func: impl FnOnce(BuckStarlarkModule) -> F,
     ) -> buck2_error::Result<R> {
-        match func(BuckStarlarkModule(Module::new())).await {
+        match Module::with_temp_heap(|m| func(BuckStarlarkModule(m))).await {
             Ok((ProfilingReportedToken(..), res)) => Ok(res),
             Err(e) => Err(e),
         }

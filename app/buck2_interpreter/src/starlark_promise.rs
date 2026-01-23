@@ -446,10 +446,10 @@ mod tests {
 
     #[test]
     fn test_promise() {
-        let modu = Module::new();
-        let res = assert_promise(
-            &modu,
-            r#"
+        Module::with_temp_heap(|modu| {
+            let res = assert_promise(
+                &modu,
+                r#"
 a = promise_unresolved("test")
 b = a.map(lambda x: x.upper())
 c = b.map(lambda x: x + "!")
@@ -458,86 +458,95 @@ e = promise_resolved("more")
 f = e.map(lambda x: x.upper())
 (a,b,c,d,e,f)
 "#,
-        )
+            )
+            .unwrap();
+            let wants = &["test", "TEST", "TEST!", "Test", "more", "MORE"];
+            for (want, got) in wants
+                .iter()
+                .zip(TupleRef::from_value(res).unwrap().content())
+            {
+                assert_eq!(
+                    StarlarkPromise::from_value(*got)
+                        .unwrap()
+                        .get()
+                        .unwrap()
+                        .unpack_str()
+                        .unwrap(),
+                    *want
+                );
+            }
+            starlark::Result::Ok(())
+        })
         .unwrap();
-        let wants = &["test", "TEST", "TEST!", "Test", "more", "MORE"];
-        for (want, got) in wants
-            .iter()
-            .zip(TupleRef::from_value(res).unwrap().content())
-        {
-            assert_eq!(
-                StarlarkPromise::from_value(*got)
-                    .unwrap()
-                    .get()
-                    .unwrap()
-                    .unpack_str()
-                    .unwrap(),
-                *want
-            );
-        }
     }
 
     #[test]
     fn test_promise_validate() {
-        let modu = Module::new();
-        assert_promise(
-            &modu,
-            r#"
+        Module::with_temp_heap(|modu| {
+            assert_promise(
+                &modu,
+                r#"
 p = promise_unresolved("ok")
 promise_validate(p)
 p
 "#,
-        )
-        .unwrap();
-        assert_promise_err(
-            &modu,
-            r#"
+            )
+            .unwrap();
+            assert_promise_err(
+                &modu,
+                r#"
 p = promise_unresolved("test")
 promise_validate(p)
 p
 "#,
-            "VALIDATE_FAILED",
-        );
+                "VALIDATE_FAILED",
+            );
+            starlark::Result::Ok(())
+        })
+        .unwrap();
     }
 
     #[test]
     fn test_promise_join() {
-        let modu = Module::new();
-        let res = assert_promise(
-            &modu,
-            r#"
+        Module::with_temp_heap(|modu| {
+            let res = assert_promise(
+                &modu,
+                r#"
 p1 = promise_resolved("a")
 p2 = promise_resolved("b")
 p3 = promise_resolved("c")
 p1.join(p2, p3)
 "#,
-        )
-        .unwrap();
-        assert_eq!(
-            StarlarkPromise::from_value(res)
-                .unwrap()
-                .get()
-                .unwrap()
-                .to_string(),
-            "[\"a\", \"b\", \"c\"]"
-        );
-        let res = assert_promise(
-            &modu,
-            r#"
+            )
+            .unwrap();
+            assert_eq!(
+                StarlarkPromise::from_value(res)
+                    .unwrap()
+                    .get()
+                    .unwrap()
+                    .to_string(),
+                "[\"a\", \"b\", \"c\"]"
+            );
+            let res = assert_promise(
+                &modu,
+                r#"
 p1 = promise_resolved("a")
 p2 = promise_unresolved("B")
 p3 = promise_unresolved("C")
 p1.join(p2, p3)
 "#,
-        )
+            )
+            .unwrap();
+            assert_eq!(
+                StarlarkPromise::from_value(res)
+                    .unwrap()
+                    .get()
+                    .unwrap()
+                    .to_string(),
+                "[\"a\", \"B\", \"C\"]"
+            );
+            starlark::Result::Ok(())
+        })
         .unwrap();
-        assert_eq!(
-            StarlarkPromise::from_value(res)
-                .unwrap()
-                .get()
-                .unwrap()
-                .to_string(),
-            "[\"a\", \"B\", \"C\"]"
-        );
     }
 }

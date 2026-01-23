@@ -105,7 +105,7 @@ impl Context {
         mode: ContextMode,
         print_non_none: bool,
         prelude: &[PathBuf],
-        module: bool,
+        module: Option<Module>,
         dialect: Dialect,
         globals: Globals,
         suppression_rules: Vec<GlobLintSuppression>,
@@ -123,7 +123,7 @@ impl Context {
             mode,
             print_non_none,
             prelude: Vec::new(),
-            module: None,
+            module,
             dialect,
             globals,
             builtin_docs,
@@ -137,31 +137,25 @@ impl Context {
             .collect::<starlark::Result<_>>()
             .into_anyhow_result()?;
 
-        ctx.module = if module {
-            Some(Self::new_module(&ctx.prelude))
-        } else {
-            None
-        };
+        if let Some(module) = ctx.module.as_ref() {
+            for p in &ctx.prelude {
+                module.import_public_symbols(p);
+            }
+        }
 
         Ok(ctx)
     }
 
     fn load_path(&self, path: &Path) -> starlark::Result<FrozenModule> {
-        let env = Module::new();
-        let mut eval = Evaluator::new(&env);
-        eval.set_loader(self);
-        let module = AstModule::parse_file(path, &self.dialect).into_anyhow_result()?;
-        eval.eval_module(module, &self.globals)?;
-        drop(eval);
-        Ok(env.freeze()?)
-    }
-
-    fn new_module(prelude: &[FrozenModule]) -> Module {
-        let module = Module::new();
-        for p in prelude {
-            module.import_public_symbols(p);
-        }
-        module
+        Module::with_temp_heap(|env| {
+            {
+                let mut eval = Evaluator::new(&env);
+                eval.set_loader(self);
+                let module = AstModule::parse_file(path, &self.dialect).into_anyhow_result()?;
+                eval.eval_module(module, &self.globals)?;
+            }
+            Ok::<_, starlark::Error>(env.freeze()?)
+        })
     }
 
     fn go(
@@ -248,14 +242,23 @@ impl Context {
         file: &str,
         ast: AstModule,
     ) -> EvalResult<impl Iterator<Item = EvalMessage> + use<>> {
-        let new_module;
-        let module = match self.module.as_ref() {
-            Some(module) => module,
-            None => {
-                new_module = Self::new_module(&self.prelude);
-                &new_module
-            }
-        };
+        match self.module.as_ref() {
+            Some(module) => self.run_with_module(file, ast, module),
+            None => Module::with_temp_heap(|module| {
+                for p in &self.prelude {
+                    module.import_public_symbols(p);
+                }
+                self.run_with_module(file, ast, &module)
+            }),
+        }
+    }
+
+    fn run_with_module(
+        &self,
+        file: &str,
+        ast: AstModule,
+        module: &Module,
+    ) -> EvalResult<impl Iterator<Item = EvalMessage> + use<>> {
         let mut eval = Evaluator::new(module);
         eval.set_loader(self);
         eval.enable_terminal_breakpoint_console();

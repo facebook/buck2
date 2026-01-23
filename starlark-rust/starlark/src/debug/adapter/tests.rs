@@ -171,20 +171,21 @@ mod t {
         let modules = HashMap::new();
         let loader = ReturnFileLoader { modules: &modules };
         let globals = GlobalsBuilder::extended().with(test_functions).build();
-        let env = Module::new();
-        let res = {
-            let mut eval = Evaluator::new(&env);
-            hook.add_dap_hooks(&mut eval);
-            eval.set_loader(&loader);
-            eval.eval_module(ast, &globals)?
-        };
+        Module::with_temp_heap(|env| {
+            let res = {
+                let mut eval = Evaluator::new(&env);
+                hook.add_dap_hooks(&mut eval);
+                eval.set_loader(&loader);
+                eval.eval_module(ast, &globals)?
+            };
 
-        env.set("_", res);
-        Ok(env
-            .freeze()
-            .expect("error freezing module")
-            .get("_")
-            .unwrap())
+            env.set("_", res);
+            Ok(env
+                .freeze()
+                .expect("error freezing module")
+                .get("_")
+                .unwrap())
+        })
     }
 
     fn join_timeout<T>(waiting: ScopedJoinHandle<T>, timeout: Duration) -> T {

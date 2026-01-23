@@ -36,63 +36,65 @@ fn run_ctx_test(
     content: &str,
     result_handler: impl FnOnce(starlark::Result<Value>) -> buck2_error::Result<()>,
 ) -> buck2_error::Result<()> {
-    let func_mod = Module::new();
-    let globals = GlobalsBuilder::standard().with(register_rule_defs).build();
-    let prelude = indoc!(
-        r#"
+    Module::with_temp_heap(|func_mod| {
+        let globals = GlobalsBuilder::standard().with(register_rule_defs).build();
+        let prelude = indoc!(
+            r#"
          def assert_eq(a, b):
              if a != b:
                  fail("Expected {}, got {}".format(a, b))
          "#
-    );
-    let full_content = format!("{prelude}\n{content}");
+        );
+        let full_content = format!("{prelude}\n{content}");
 
-    {
-        let mut eval = Evaluator::new(&func_mod);
-        let ast = AstModule::parse(
-            "foo.bzl",
-            full_content,
-            &StarlarkFileType::Bzl.dialect(false),
-        )
-        .unwrap();
-        eval.eval_module(ast, &globals).unwrap();
-    };
-    let frozen_func_mod = func_mod.freeze().map_err(from_freeze_error)?;
-    let test_function = frozen_func_mod.get("test").unwrap();
+        {
+            let mut eval = Evaluator::new(&func_mod);
+            let ast = AstModule::parse(
+                "foo.bzl",
+                full_content,
+                &StarlarkFileType::Bzl.dialect(false),
+            )
+            .unwrap();
+            eval.eval_module(ast, &globals).unwrap();
+        };
+        let frozen_func_mod = func_mod.freeze().map_err(from_freeze_error)?;
+        let test_function = frozen_func_mod.get("test").unwrap();
 
-    let modules = hashmap!["func_mod" => &frozen_func_mod];
+        let modules = hashmap!["func_mod" => &frozen_func_mod];
 
-    let env = Module::new();
-    let file_loader = ReturnFileLoader { modules: &modules };
-    let test_function = test_function.owned_value(env.frozen_heap());
-    let mut eval = Evaluator::new(&env);
-    eval.set_loader(&file_loader);
-    let label = TargetLabel::testing_parse("root//foo/bar:some_name")
-        .configure(ConfigurationData::testing_new());
-    let registry = AnalysisRegistry::new_from_owner(
-        BaseDeferredKey::TargetLabel(label.dupe()),
-        ExecutionPlatformResolution::unspecified(),
-    )?;
-    let attributes = eval
-        .heap()
-        .alloc_typed_unchecked(AllocStruct([("name", "some_name")]))
-        .cast();
-    let plugins = eval
-        .heap()
-        .alloc_typed(AnalysisPlugins::new(SmallMap::new()))
-        .into();
+        Module::with_temp_heap(|env| {
+            let file_loader = ReturnFileLoader { modules: &modules };
+            let test_function = test_function.owned_value(env.frozen_heap());
+            let mut eval = Evaluator::new(&env);
+            eval.set_loader(&file_loader);
+            let label = TargetLabel::testing_parse("root//foo/bar:some_name")
+                .configure(ConfigurationData::testing_new());
+            let registry = AnalysisRegistry::new_from_owner(
+                BaseDeferredKey::TargetLabel(label.dupe()),
+                ExecutionPlatformResolution::unspecified(),
+            )?;
+            let attributes = eval
+                .heap()
+                .alloc_typed_unchecked(AllocStruct([("name", "some_name")]))
+                .cast();
+            let plugins = eval
+                .heap()
+                .alloc_typed(AnalysisPlugins::new(SmallMap::new()))
+                .into();
 
-    let ctx = eval.heap().alloc(AnalysisContext::prepare(
-        eval.heap(),
-        Some(attributes),
-        Some(label),
-        Some(plugins),
-        registry,
-        DigestConfig::testing_default(),
-    ));
+            let ctx = eval.heap().alloc(AnalysisContext::prepare(
+                eval.heap(),
+                Some(attributes),
+                Some(label),
+                Some(plugins),
+                registry,
+                DigestConfig::testing_default(),
+            ));
 
-    let returned = eval.eval_function(test_function, &[ctx], &[]);
-    result_handler(returned)
+            let returned = eval.eval_function(test_function, &[ctx], &[]);
+            result_handler(returned)
+        })
+    })
 }
 
 #[test]

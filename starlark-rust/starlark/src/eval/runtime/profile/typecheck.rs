@@ -141,9 +141,9 @@ mod tests {
 
     #[test]
     fn test_typecheck_profile() -> crate::Result<()> {
-        let module = Module::new();
-        let mut eval = Evaluator::new(&module);
-        let program = r#"
+        Module::with_temp_heap(|module| {
+            let mut eval = Evaluator::new(&module);
+            let program = r#"
 def f(s: str):
     return int(s)
 
@@ -153,22 +153,23 @@ def g():
 
 g()
 "#;
-        let program = AstModule::parse(
-            "test.star",
-            program.to_owned(),
-            &Dialect::AllOptionsInternal,
-        )?;
-        eval.enable_profile(&ProfileMode::Typecheck)?;
-        eval.eval_module(program, &Globals::extended_internal())?;
+            let program = AstModule::parse(
+                "test.star",
+                program.to_owned(),
+                &Dialect::AllOptionsInternal,
+            )?;
+            eval.enable_profile(&ProfileMode::Typecheck)?;
+            eval.eval_module(program, &Globals::extended_internal())?;
 
-        let csv = eval.typecheck_profile.r#gen()?.gen_csv()?;
-        let lines: Vec<&str> = csv.lines().collect();
-        assert_eq!("Function,Time (s)", lines[0]);
-        assert!(lines[1].starts_with("\"TOTAL\","), "{:?}", lines[1]);
-        assert!(lines[2].starts_with("\"f\","), "{:?}", lines[2]);
-        assert_eq!(3, lines.len());
+            let csv = eval.typecheck_profile.r#gen()?.gen_csv()?;
+            let lines: Vec<&str> = csv.lines().collect();
+            assert_eq!("Function,Time (s)", lines[0]);
+            assert!(lines[1].starts_with("\"TOTAL\","), "{:?}", lines[1]);
+            assert!(lines[2].starts_with("\"f\","), "{:?}", lines[2]);
+            assert_eq!(3, lines.len());
 
-        Ok(())
+            Ok(())
+        })
     }
 
     #[test]

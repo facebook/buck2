@@ -134,7 +134,7 @@ struct FilesystemCompletionOptions {
 pub(crate) fn main(
     lsp: bool,
     print_non_none: bool,
-    is_interactive: bool,
+    interactive_module: Option<Module>,
     prelude: &[PathBuf],
     dialect: Dialect,
     globals: Globals,
@@ -148,7 +148,7 @@ pub(crate) fn main(
         ContextMode::Check,
         print_non_none,
         prelude,
-        is_interactive,
+        interactive_module,
         dialect,
         globals,
     )?;
@@ -181,28 +181,29 @@ impl BazelContext {
         mode: ContextMode,
         print_non_none: bool,
         prelude: &[PathBuf],
-        module: bool,
+        module: Option<Module>,
         dialect: Dialect,
         globals: Globals,
     ) -> anyhow::Result<Self> {
         let prelude: Vec<_> = prelude
             .iter()
             .map(|x| {
-                let env = Module::new();
-                {
-                    let mut eval = Evaluator::new(&env);
-                    let module = AstModule::parse_file(x, &dialect).into_anyhow_result()?;
-                    eval.eval_module(module, &globals).into_anyhow_result()?;
-                }
-                Ok(env.freeze()?)
+                Module::with_temp_heap(|env| {
+                    {
+                        let mut eval = Evaluator::new(&env);
+                        let module = AstModule::parse_file(x, &dialect).into_anyhow_result()?;
+                        eval.eval_module(module, &globals).into_anyhow_result()?;
+                    }
+                    Ok::<_, anyhow::Error>(env.freeze()?)
+                })
             })
             .collect::<anyhow::Result<_>>()?;
 
-        let module = if module {
-            Some(Self::new_module(&prelude))
-        } else {
-            None
-        };
+        if let Some(module) = &module {
+            for p in &prelude {
+                module.import_public_symbols(p);
+            }
+        }
         let mut builtin_docs: HashMap<LspUrl, String> = HashMap::new();
         let mut builtin_symbols: HashMap<String, LspUrl> = HashMap::new();
         for (name, item) in globals.documentation().members {
@@ -275,14 +276,6 @@ impl BazelContext {
         }
     }
 
-    fn new_module(prelude: &[FrozenModule]) -> Module {
-        let module = Module::new();
-        for p in prelude {
-            module.import_public_symbols(p);
-        }
-        module
-    }
-
     fn go(
         &self,
         file: &str,
@@ -311,14 +304,23 @@ impl BazelContext {
         file: &str,
         ast: AstModule,
     ) -> EvalResult<impl Iterator<Item = EvalMessage> + use<>> {
-        let new_module;
-        let module = match self.module.as_ref() {
-            Some(module) => module,
-            None => {
-                new_module = Self::new_module(&self.prelude);
-                &new_module
-            }
-        };
+        match self.module.as_ref() {
+            Some(module) => self.run_with_module(file, ast, module),
+            None => Module::with_temp_heap(|module| {
+                for p in &self.prelude {
+                    module.import_public_symbols(p);
+                }
+                self.run_with_module(file, ast, &module)
+            }),
+        }
+    }
+
+    fn run_with_module(
+        &self,
+        file: &str,
+        ast: AstModule,
+        module: &Module,
+    ) -> EvalResult<impl Iterator<Item = EvalMessage> + use<>> {
         let mut eval = Evaluator::new(module);
         eval.enable_terminal_breakpoint_console();
         Self::err(

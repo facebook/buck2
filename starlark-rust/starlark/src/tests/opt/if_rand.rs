@@ -146,7 +146,6 @@ impl Display for TestExpr {
 /// * Return the result which is expected to be `bool`.
 /// * Count side effects.
 fn eval_program(program: &str) -> (bool, CountCalls) {
-    let module = Module::new();
     let ast = AstModule::parse("t.star", program.to_owned(), &Dialect::AllOptionsInternal).unwrap();
 
     let mut globals = GlobalsBuilder::standard();
@@ -154,12 +153,13 @@ fn eval_program(program: &str) -> (bool, CountCalls) {
     let globals = globals.build();
 
     let counts = CountCalls::default();
-    let r = {
+    let r = Module::with_temp_heap(|module| {
         let mut eval = Evaluator::new(&module);
         eval.extra = Some(&counts);
         let r = eval.eval_module(ast, &globals).unwrap();
-        r.unpack_bool().unwrap()
-    };
+        crate::Result::Ok(r.unpack_bool().unwrap())
+    })
+    .unwrap();
     (r, counts)
 }
 

@@ -52,6 +52,7 @@ use dice_futures::cancellation::CancellationContext;
 use dupe::Dupe;
 use futures::FutureExt;
 use starlark::codemap::FileSpan;
+use starlark::environment::Module;
 use starlark::syntax::AstModule;
 
 use crate::interpreter::buckconfig::ConfigsOnDiceViewForStarlark;
@@ -278,9 +279,10 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
         let value: serde_json::Value = serde_json::from_str(&contents)
             .with_buck_error_context(|| format!("Parsing {path}"))?;
 
-        let module = starlark::environment::Module::new();
-        module.set("value", module.heap().alloc(value));
-        let frozen = module.freeze().map_err(from_freeze_error)?;
+        let frozen = Module::with_temp_heap(|module| {
+            module.set("value", module.heap().alloc(value));
+            module.freeze().map_err(from_freeze_error)
+        })?;
         Ok(LoadedModule::new(
             OwnedStarlarkModulePath::new(starlark_file),
             Default::default(),
@@ -301,9 +303,10 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
             toml::from_str(&contents).with_buck_error_context(|| format!("Parsing {path}"))?;
         let json_value = toml_value_to_json(value);
 
-        let module = starlark::environment::Module::new();
-        module.set("value", module.heap().alloc(json_value));
-        let frozen = module.freeze().map_err(from_freeze_error)?;
+        let frozen = Module::with_temp_heap(|module| {
+            module.set("value", module.heap().alloc(json_value));
+            module.freeze().map_err(from_freeze_error)
+        })?;
         Ok(LoadedModule::new(
             OwnedStarlarkModulePath::new(starlark_file),
             Default::default(),

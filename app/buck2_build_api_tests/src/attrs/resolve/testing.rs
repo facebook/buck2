@@ -122,29 +122,30 @@ pub(crate) fn resolution_ctx_with_providers(
                 .build();
 
             // Add some providers into the environment
-            let provider_env = Module::new();
-            let provider_content = indoc!(
-                r#"
+            let frozen_provider_env = Module::with_temp_heap(|provider_env| {
+                let provider_content = indoc!(
+                    r#"
                  FooInfo = provider(fields=["foo"])
                  BarInfo = provider(fields=["bar"])
                  None
                  "#
-            );
-            testing::to_value(&provider_env, &globals, provider_content);
-            let frozen_provider_env = provider_env
-                .freeze()
-                .expect("provider should freeze successfully");
+                );
+                testing::to_value(&provider_env, &globals, provider_content);
+                provider_env.freeze()
+            })
+            .expect("provider should freeze successfully");
             let foo_info = frozen_provider_env.get("FooInfo").unwrap();
             let bar_info = frozen_provider_env.get("BarInfo").unwrap();
 
-            let env = Module::new();
-            env.frozen_heap()
-                .add_reference(frozen_provider_env.frozen_heap());
-            env.set("FooInfo", foo_info.value());
-            env.set("BarInfo", bar_info.value());
-            Self::eval(&env, &globals);
-
-            let frozen = env.freeze().expect("should freeze successfully");
+            let frozen = Module::with_temp_heap(|env| {
+                env.frozen_heap()
+                    .add_reference(frozen_provider_env.frozen_heap());
+                env.set("FooInfo", foo_info.value());
+                env.set("BarInfo", bar_info.value());
+                Self::eval(&env, &globals);
+                env.freeze()
+            })
+            .expect("should freeze successfully");
             let label_and_result = |label, var_name| {
                 let configured_label = coerce::testing::coercion_ctx()
                     .coerce_providers_label(label)
