@@ -19,6 +19,8 @@ SwiftPCMUncompiledInfo = provider(fields = {
     # If True represents an apple_library target that can't be compiled into a
     # pcm, but which can re-export modular deps.
     "is_transient": provider_field(bool, default = False),
+    # For non-transient modules, the artifact of this module's modulemap.
+    "modulemap_artifact": provider_field(Artifact | None, default = None),
     "name": provider_field(str),
     "propagated_preprocessor_args_cmd": provider_field(typing.Any, default = None),  # cmd_args
     "uncompiled_sdk_modules": provider_field(list[str], default = []),

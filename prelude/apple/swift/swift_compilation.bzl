@@ -1260,6 +1260,7 @@ def get_swift_pcm_uncompile_info(
             is_transient = not ctx.attrs.modular or not exported_pre,
             exported_preprocessor = exported_pre,
             exported_deps = _exported_deps(ctx),
+            modulemap_artifact = exported_pre.modulemap_artifact if exported_pre else None,
             propagated_preprocessor_args_cmd = propagated_pp_args_cmd,
             uncompiled_sdk_modules = ctx.attrs.sdk_modules,
         )

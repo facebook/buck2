@@ -210,17 +210,17 @@ def prebuilt_apple_framework_impl(ctx: AnalysisContext) -> [list[Provider], Prom
         return get_prebuilt_apple_framework_providers([])
 
 def _create_uncompiled_pcm_module_info(ctx: AnalysisContext, framework_directory_artifact: Artifact, framework_name: str) -> SwiftPCMUncompiledInfo:
+    modulemap_artifact = framework_directory_artifact.project("Modules/module.modulemap").with_associated_artifacts([framework_directory_artifact])
     exported_pp_info = CPreprocessor(
         headers = [],
         modular_args = [],
         args = CPreprocessorArgs(args = [
             cmd_args(["-F", cmd_args(framework_directory_artifact, parent = 1)], delimiter = ""),
         ]),
-        modulemap_artifact = framework_directory_artifact.project("Modules/module.modulemap").with_associated_artifacts(
-            [framework_directory_artifact],
-        ),
+        modulemap_artifact = modulemap_artifact,
     )
     return SwiftPCMUncompiledInfo(
+        modulemap_artifact = modulemap_artifact,
         name = framework_name,
         is_transient = False,
         exported_preprocessor = exported_pp_info,

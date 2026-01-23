@@ -81,7 +81,7 @@ def _compiled_module_info(
 
     return SwiftCompiledModuleInfo(
         clang_importer_args = clang_importer_args,
-        clang_modulemap_path = cmd_args(pcm_info.exported_preprocessor.modulemap_artifact),
+        clang_modulemap_path = cmd_args(pcm_info.modulemap_artifact),
         is_framework = False,
         is_sdk_module = False,
         is_swiftmodule = False,
@@ -146,7 +146,7 @@ def _swift_pcm_compilation_impl(ctx: AnalysisContext) -> [Promise, list[Provider
         pcm_info = _compiled_module_info(module_name, pcm_output, uncompiled_pcm_info)
         debug_artifacts = [
             pcm_info.output_artifact,
-            uncompiled_pcm_info.exported_preprocessor.modulemap_artifact,
+            uncompiled_pcm_info.modulemap_artifact,
         ]
 
         return [
@@ -258,7 +258,7 @@ def compile_underlying_pcm(
         compiled_pcm_deps_providers,
         swift_cxx_args: list[str],
         framework_search_path_flags: cmd_args) -> SwiftCompiledModuleInfo:
-    modulemap_path = uncompiled_pcm_info.exported_preprocessor.modulemap_artifact
+    modulemap_path = uncompiled_pcm_info.modulemap_artifact
     cmd = cmd_args([
         "-Xcc",
         "-I",
@@ -315,7 +315,7 @@ def _get_base_pcm_flags(
     additional_cmd = cmd_args(
         "-o",
         pcm_output.as_output(),
-        uncompiled_pcm_info.exported_preprocessor.modulemap_artifact,
+        uncompiled_pcm_info.modulemap_artifact,
     )
 
     return (cmd, additional_cmd, pcm_output)
