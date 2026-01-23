@@ -47,6 +47,8 @@ use crate::values::FrozenStringValue;
 use crate::values::FrozenValueOfUnchecked;
 use crate::values::FrozenValueTyped;
 use crate::values::HeapSendable;
+use crate::values::OwnedFrozenValue;
+use crate::values::OwnedFrozenValueTyped;
 use crate::values::StarlarkValue;
 use crate::values::StringValue;
 use crate::values::Trace;
@@ -168,6 +170,37 @@ impl<'v> Heap<'v> {
 
     pub(crate) fn referenced_heaps(self) -> Vec<FrozenHeapRef> {
         self.0.refs.borrow().iter().duped().collect()
+    }
+
+    /// Get access to the underlying value within the context of this heap.
+    ///
+    /// Adds the frozen value's heap as a dependency of this heap.
+    ///
+    /// See the `branding` module for more details.
+    pub fn access_owned_frozen_value(self, v: &OwnedFrozenValue) -> Value<'v> {
+        let fh = v.owner();
+        let mut refs = self.0.refs.borrow_mut();
+        if !refs.contains(fh) {
+            refs.insert(fh.dupe());
+        }
+
+        // SAFETY: We just added a reference to this heap
+        unsafe { v.unchecked_frozen_value().to_value() }
+    }
+
+    /// Similar to `access_owned_frozen_value`, but typed.
+    pub fn access_owned_frozen_value_typed<T: for<'a> StarlarkValue<'a>>(
+        self,
+        v: &OwnedFrozenValueTyped<T>,
+    ) -> ValueTyped<'v, T> {
+        let fh = v.owner();
+        let mut refs = self.0.refs.borrow_mut();
+        if !refs.contains(fh) {
+            refs.insert(fh.dupe());
+        }
+
+        // SAFETY: We just added a reference to this heap
+        unsafe { v.value_typed().to_value_typed() }
     }
 }
 

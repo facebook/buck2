@@ -19,6 +19,7 @@
 
 pub(crate) mod allocator;
 pub(crate) mod arena;
+mod branding;
 pub(crate) mod call_enter_exit;
 mod fast_cell;
 pub(crate) mod heap_type;
