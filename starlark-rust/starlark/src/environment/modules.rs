@@ -352,6 +352,12 @@ impl Module {
         f(module).await
     }
 
+    /// Create a new module environment with no contents that will use the provided heap.
+    pub fn with_heap<'v>(_heap: Heap<'v>) -> Self {
+        // TODO(JakobDegen): Actually do this
+        Self::new()
+    }
+
     pub(crate) fn enable_retained_heap_profile(&self, mode: RetainedHeapProfileMode) {
         self.heap_profile_on_freeze.set(Some(mode));
     }
