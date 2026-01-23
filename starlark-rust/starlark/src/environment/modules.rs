@@ -334,6 +334,17 @@ impl Module {
         }
     }
 
+    /// Create a new module environment with no contents and make it available to the user.
+    ///
+    /// Module is discarded after the function returns.
+    pub fn with_temp_heap<R, F>(f: F) -> R
+    where
+        F: for<'v> FnOnce(Module) -> R,
+    {
+        let module = Self::new();
+        f(module)
+    }
+
     pub(crate) fn enable_retained_heap_profile(&self, mode: RetainedHeapProfileMode) {
         self.heap_profile_on_freeze.set(Some(mode));
     }
