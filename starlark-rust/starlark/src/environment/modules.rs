@@ -313,15 +313,8 @@ impl FrozenModuleData {
     }
 }
 
-impl Default for Module {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
 impl Module {
-    /// Create a new module environment with no contents.
-    pub fn new() -> Self {
+    fn new() -> Self {
         Self {
             heap: OwnedHeap::new(),
             frozen_heap: FrozenHeap::new(),
