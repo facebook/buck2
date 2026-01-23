@@ -572,13 +572,14 @@ impl<'a> Assert<'a> {
     /// ```
     pub fn eq(&self, lhs: &str, rhs: &str) {
         self.with_gc(|gc| {
-            Module::with_temp_heap(|lhs_m| {
-                Module::with_temp_heap(|rhs_m| {
-                    let lhs_v = self.execute_unwrap("eq", "lhs.bzl", lhs, &lhs_m, gc);
-                    let rhs_v = self.execute_unwrap("eq", "rhs.bzl", rhs, &rhs_m, gc);
-                    if lhs_v != rhs_v {
-                        panic!(
-                            "starlark::assert::eq, values differ!
+            Heap::temp(|heap| {
+                let lhs_m = Module::with_heap(heap);
+                let rhs_m = Module::with_heap(heap);
+                let lhs_v = self.execute_unwrap("eq", "lhs.bzl", lhs, &lhs_m, gc);
+                let rhs_v = self.execute_unwrap("eq", "rhs.bzl", rhs, &rhs_m, gc);
+                if lhs_v != rhs_v {
+                    panic!(
+                        "starlark::assert::eq, values differ!
 Code 1:
 {lhs}
 Code 2:
@@ -587,9 +588,8 @@ Value 1:
 {lhs_v}
 Value 2
 {rhs_v}"
-                        );
-                    }
-                })
+                    );
+                }
             })
         })
     }
