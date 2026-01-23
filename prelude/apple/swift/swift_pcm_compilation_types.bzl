@@ -13,19 +13,16 @@ load(
 load("@prelude//apple/swift:swift_toolchain_types.bzl", "SwiftCompiledModuleTset")
 load("@prelude//cxx:preprocessor.bzl", "CPreprocessor")
 
-SwiftPCMUncompiledInfo = provider(
-    # @unsorted-dict-items
-    fields = {
-        "name": provider_field(str),
-        # If True represents an apple_library targe that can't be compiled into
-        # a pcm, but which can re-export modular deps.
-        "is_transient": provider_field(bool, default = False),
-        "exported_preprocessor": provider_field([CPreprocessor, None], default = None),
-        "exported_deps": provider_field(list[Dependency], default = []),
-        "propagated_preprocessor_args_cmd": provider_field(typing.Any, default = None),  # cmd_args
-        "uncompiled_sdk_modules": provider_field(list[str], default = []),
-    },
-)
+SwiftPCMUncompiledInfo = provider(fields = {
+    "exported_deps": provider_field(list[Dependency], default = []),
+    "exported_preprocessor": provider_field([CPreprocessor, None], default = None),
+    # If True represents an apple_library target that can't be compiled into a
+    # pcm, but which can re-export modular deps.
+    "is_transient": provider_field(bool, default = False),
+    "name": provider_field(str),
+    "propagated_preprocessor_args_cmd": provider_field(typing.Any, default = None),  # cmd_args
+    "uncompiled_sdk_modules": provider_field(list[str], default = []),
+})
 
 WrappedSwiftPCMCompiledInfo = provider(fields = {
     "clang_debug_info": provider_field(ArtifactTSet),
