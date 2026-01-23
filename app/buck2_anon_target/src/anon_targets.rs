@@ -428,7 +428,7 @@ impl AnonTargetKey {
         let eval_kind = self.0.dupe().eval_kind();
         let provider = StarlarkEvaluatorProvider::new(dice, eval_kind).await?;
 
-        BuckStarlarkModule::with_profiling_async(|env| async move {
+        BuckStarlarkModule::with_profiling_async(async move |env| {
             let print = EventDispatcherPrintHandler(get_dispatcher());
             let mut reentrant_eval =
                 provider.make_reentrant_evaluator(&env, cancellation.into())?;

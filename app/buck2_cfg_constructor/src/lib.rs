@@ -230,7 +230,7 @@ async fn eval_underlying(
     let eval_kind = StarlarkEvalKind::Unknown("constraint-analysis invocation".into());
     let provider = StarlarkEvaluatorProvider::new(ctx, eval_kind).await?;
 
-    BuckStarlarkModule::with_profiling_async(|module| async move {
+    BuckStarlarkModule::with_profiling_async(async move |module| {
         let mut reentrant_eval = provider.make_reentrant_evaluator(&module, cancellation.into())?;
 
         // Pre constraint-analysis

@@ -308,13 +308,13 @@ impl BuckStarlarkModule {
     }
 
     /// This function allows us to ensure that profiling is reported (in the successful path) of any starlark evaluation.
-    pub async fn with_profiling_async<
-        R,
-        F: Future<Output = buck2_error::Result<(ProfilingReportedToken, R)>>,
-    >(
-        func: impl FnOnce(BuckStarlarkModule) -> F,
-    ) -> buck2_error::Result<R> {
-        match Module::with_temp_heap(|m| func(BuckStarlarkModule(m))).await {
+    pub async fn with_profiling_async<F, R>(func: F) -> buck2_error::Result<R>
+    where
+        F: AsyncFnOnce(BuckStarlarkModule) -> buck2_error::Result<(ProfilingReportedToken, R)>,
+    {
+        match Module::with_temp_heap_async(|m| async move { func(BuckStarlarkModule(m)).await })
+            .await
+        {
             Ok((ProfilingReportedToken(..), res)) => Ok(res),
             Err(e) => Err(e),
         }

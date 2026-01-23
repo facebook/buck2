@@ -240,7 +240,7 @@ async fn run_analysis_with_env_underlying(
     analysis_env: AnalysisEnv<'_>,
     node: ConfiguredTargetNodeRef<'_>,
 ) -> buck2_error::Result<AnalysisResult> {
-    BuckStarlarkModule::with_profiling_async(|env| async move {
+    BuckStarlarkModule::with_profiling_async(async move |env| {
         let print = EventDispatcherPrintHandler(get_dispatcher());
 
         let validations_from_deps = analysis_env
