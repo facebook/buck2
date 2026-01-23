@@ -269,6 +269,7 @@ mod tests {
     use crate::eval::runtime::profile::mode::ProfileMode;
     use crate::syntax::AstModule;
     use crate::syntax::Dialect;
+    use crate::values::Heap;
     use crate::values::Value;
 
     #[test]
@@ -286,41 +287,41 @@ f
             &Dialect::AllOptionsInternal,
         )?;
         let globals = Globals::standard();
-        Module::with_temp_heap(|module| {
-            Module::with_temp_heap(|module2| {
-                Module::with_temp_heap(|module3| {
-                    let mut eval = Evaluator::new(&module);
-                    eval.enable_profile(&ProfileMode::HeapSummaryAllocated)
-                        .unwrap();
-                    let f = eval.eval_module(ast, &globals)?;
+        Heap::temp(|heap| {
+            let module = Module::with_heap(heap);
+            let module2 = Module::with_heap(heap);
+            let module3 = Module::with_heap(heap);
 
-                    // first check module profiling works
-                    HeapProfile::write_summarized_heap_profile(module.heap());
-                    HeapProfile::write_flame_heap_profile(module.heap());
+            let mut eval = Evaluator::new(&module);
+            eval.enable_profile(&ProfileMode::HeapSummaryAllocated)
+                .unwrap();
+            let f = eval.eval_module(ast, &globals)?;
 
-                    // second check function profiling works
-                    let mut eval = Evaluator::new(&module2);
-                    eval.enable_profile(&ProfileMode::HeapSummaryAllocated)
-                        .unwrap();
-                    eval.eval_function(f, &[Value::testing_new_int(100)], &[])?;
+            // first check module profiling works
+            HeapProfile::write_summarized_heap_profile(module.heap());
+            HeapProfile::write_flame_heap_profile(module.heap());
 
-                    HeapProfile::write_summarized_heap_profile(module2.heap());
-                    HeapProfile::write_flame_heap_profile(module2.heap());
+            // second check function profiling works
+            let mut eval = Evaluator::new(&module2);
+            eval.enable_profile(&ProfileMode::HeapSummaryAllocated)
+                .unwrap();
+            eval.eval_function(f, &[Value::testing_new_int(100)], &[])?;
 
-                    // finally, check a user can add values into the heap before/after
-                    let mut eval = Evaluator::new(&module3);
-                    module3.heap().alloc("Thing that goes before");
-                    eval.enable_profile(&ProfileMode::HeapSummaryAllocated)
-                        .unwrap();
-                    eval.eval_function(f, &[Value::testing_new_int(100)], &[])?;
+            HeapProfile::write_summarized_heap_profile(module2.heap());
+            HeapProfile::write_flame_heap_profile(module2.heap());
 
-                    module3.heap().alloc("Thing that goes after");
-                    HeapProfile::write_summarized_heap_profile(module3.heap());
-                    HeapProfile::write_flame_heap_profile(module3.heap());
+            // finally, check a user can add values into the heap before/after
+            let mut eval = Evaluator::new(&module3);
+            module3.heap().alloc("Thing that goes before");
+            eval.enable_profile(&ProfileMode::HeapSummaryAllocated)
+                .unwrap();
+            eval.eval_function(f, &[Value::testing_new_int(100)], &[])?;
 
-                    Ok(())
-                })
-            })
+            module3.heap().alloc("Thing that goes after");
+            HeapProfile::write_summarized_heap_profile(module3.heap());
+            HeapProfile::write_flame_heap_profile(module3.heap());
+
+            Ok(())
         })
     }
 }
