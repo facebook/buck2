@@ -445,6 +445,10 @@ impl Module {
         // slot-index in the code, and we don't walk into them, so don't know if
         // they are used.
         let freezer = Freezer::new(&frozen_heap);
+        // FIXME(JakobDegen): Fix the `Freezer` API to make it impossible to forget this
+        for r in heap.as_ref().referenced_heaps() {
+            frozen_heap.add_reference(&r);
+        }
         let slots = slots.freeze(&freezer)?;
         let extra_value = extra_value.into_inner().freeze(&freezer)?;
         let stacks = if let Some(mode) = heap_profile_on_freeze.get() {

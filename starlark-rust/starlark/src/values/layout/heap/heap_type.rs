@@ -34,6 +34,7 @@ use std::sync::Arc;
 use allocative::Allocative;
 use bumpalo::Bump;
 use dupe::Dupe;
+use dupe::IterDupedExt;
 use starlark_map::small_set::SmallSet;
 
 use crate::cast;
@@ -88,6 +89,8 @@ pub struct OwnedHeap {
     peak_allocated: Cell<usize>,
     arena: FastCell<Arena<Bump>>,
     str_interner: RefCell<StringValueInterner<'static>>,
+    /// Memory I depend on.
+    refs: RefCell<SmallSet<FrozenHeapRef>>,
 }
 
 impl Debug for OwnedHeap {
@@ -109,6 +112,7 @@ impl OwnedHeap {
             peak_allocated: Default::default(),
             arena: Default::default(),
             str_interner: Default::default(),
+            refs: Default::default(),
         }
     }
 
@@ -160,6 +164,10 @@ impl<'v> Heap<'v> {
 
     pub(crate) fn trace_interner(self, tracer: &Tracer<'v>) {
         self.string_interner().trace(tracer);
+    }
+
+    pub(crate) fn referenced_heaps(self) -> Vec<FrozenHeapRef> {
+        self.0.refs.borrow().iter().duped().collect()
     }
 }
 
