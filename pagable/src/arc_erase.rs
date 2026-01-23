@@ -38,7 +38,7 @@ use crate::storage::DataKey;
 /// Primary use cases:
 /// - Storing heterogeneous Arcs in a single collection
 /// - Serializing Arcs when the concrete type is not statically known
-pub trait ArcEraseDyn: std::fmt::Debug + std::any::Any + Send + Sync + 'static {
+pub trait ArcEraseDyn: std::any::Any + Send + Sync + 'static {
     // we could use upcasting for this, but we hold Box<dyn ArcEraseDyn> and the box itself also implements Any and so it's easy to accidentally upcast the wrong thing.
     fn as_arc_any(&self) -> &dyn std::any::Any;
 
@@ -99,7 +99,7 @@ impl<T: ArcErase> ArcEraseDyn for T {
 ///
 /// This is the weak reference counterpart to [`ArcEraseDyn`], enabling
 /// dynamic dispatch over weak references to different types.
-pub trait WeakEraseDyn: std::fmt::Debug + std::any::Any + Send + Sync + 'static {
+pub trait WeakEraseDyn: std::any::Any + Send + Sync + 'static {
     fn as_weak_any(&self) -> &dyn std::any::Any;
     fn upgrade(&self) -> Option<Box<dyn ArcEraseDyn>>;
     fn is_expired(&self) -> bool;
@@ -121,7 +121,7 @@ impl<T: WeakErase> WeakEraseDyn for T {
 ///
 /// Implemented for weak reference types like `std::sync::Weak<T>`.
 /// Types implementing this trait can be stored as `Box<dyn WeakEraseDyn>`.
-pub trait WeakErase: std::fmt::Debug + std::any::Any + Sized + Send + Sync + 'static {
+pub trait WeakErase: std::any::Any + Sized + Send + Sync + 'static {
     /// Returns true if the referenced Arc has been dropped.
     fn is_expired(&self) -> bool;
     /// Attempts to upgrade to a strong reference, returning None if expired.
@@ -147,7 +147,7 @@ pub trait WeakErase: std::fmt::Debug + std::any::Any + Sized + Send + Sync + 'st
 /// - `triomphe::ThinArc<H, T>`
 ///
 /// where `T` (and `H`) implement `PagableSerialize + PagableDeserialize`.
-pub trait ArcErase: std::fmt::Debug + std::any::Any + Sized + Send + Sync + 'static {
+pub trait ArcErase: std::any::Any + Sized + Send + Sync + 'static {
     type Weak: WeakErase + 'static;
 
     fn dupe_strong(&self) -> Self;
@@ -179,9 +179,8 @@ pub trait ArcErase: std::fmt::Debug + std::any::Any + Sized + Send + Sync + 'sta
     fn deserialize_inner<'de, D: PagableDeserializer<'de>>(deser: &mut D) -> crate::Result<Self>;
 }
 
-impl<
-    T: PagableSerialize + for<'de> PagableDeserialize<'de> + std::fmt::Debug + Send + Sync + 'static,
-> WeakErase for std::sync::Weak<T>
+impl<T: PagableSerialize + for<'de> PagableDeserialize<'de> + Send + Sync + 'static> WeakErase
+    for std::sync::Weak<T>
 {
     fn is_expired(&self) -> bool {
         self.strong_count() == 0
@@ -192,9 +191,8 @@ impl<
     }
 }
 
-impl<
-    T: PagableSerialize + for<'de> PagableDeserialize<'de> + std::fmt::Debug + Send + Sync + 'static,
-> ArcErase for std::sync::Arc<T>
+impl<T: PagableSerialize + for<'de> PagableDeserialize<'de> + Send + Sync + 'static> ArcErase
+    for std::sync::Arc<T>
 {
     type Weak = std::sync::Weak<T>;
     fn dupe_strong(&self) -> Self {
@@ -222,9 +220,8 @@ impl<
     }
 }
 
-impl<
-    T: PagableSerialize + for<'de> PagableDeserialize<'de> + std::fmt::Debug + Send + Sync + 'static,
-> WeakErase for std::sync::Weak<[T]>
+impl<T: PagableSerialize + for<'de> PagableDeserialize<'de> + Send + Sync + 'static> WeakErase
+    for std::sync::Weak<[T]>
 {
     fn is_expired(&self) -> bool {
         self.strong_count() == 0
@@ -235,9 +232,8 @@ impl<
     }
 }
 
-impl<
-    T: PagableSerialize + for<'de> PagableDeserialize<'de> + std::fmt::Debug + Send + Sync + 'static,
-> ArcErase for std::sync::Arc<[T]>
+impl<T: PagableSerialize + for<'de> PagableDeserialize<'de> + Send + Sync + 'static> ArcErase
+    for std::sync::Arc<[T]>
 {
     type Weak = std::sync::Weak<[T]>;
 
@@ -276,9 +272,8 @@ impl WeakErase for () {
     }
 }
 
-impl<
-    T: PagableSerialize + for<'de> PagableDeserialize<'de> + std::fmt::Debug + Send + Sync + 'static,
-> ArcErase for triomphe::Arc<T>
+impl<T: PagableSerialize + for<'de> PagableDeserialize<'de> + Send + Sync + 'static> ArcErase
+    for triomphe::Arc<T>
 {
     type Weak = ();
     fn dupe_strong(&self) -> Self {
@@ -306,9 +301,8 @@ impl<
     }
 }
 
-impl<
-    T: PagableSerialize + for<'de> PagableDeserialize<'de> + std::fmt::Debug + Send + Sync + 'static,
-> ArcErase for triomphe::Arc<[T]>
+impl<T: PagableSerialize + for<'de> PagableDeserialize<'de> + Send + Sync + 'static> ArcErase
+    for triomphe::Arc<[T]>
 {
     type Weak = ();
     fn dupe_strong(&self) -> Self {
@@ -338,8 +332,8 @@ impl<
 }
 
 impl<
-    H: PagableSerialize + for<'de> PagableDeserialize<'de> + Send + std::fmt::Debug + Sync + 'static,
-    T: PagableSerialize + for<'de> PagableDeserialize<'de> + Send + std::fmt::Debug + Sync + 'static,
+    H: PagableSerialize + for<'de> PagableDeserialize<'de> + Send + Sync + 'static,
+    T: PagableSerialize + for<'de> PagableDeserialize<'de> + Send + Sync + 'static,
 > ArcErase for triomphe::ThinArc<H, T>
 {
     type Weak = ();

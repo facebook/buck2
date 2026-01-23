@@ -29,21 +29,17 @@ use crate::storage::PagableStorageHandle;
 ///
 /// This trait is automatically implemented for any type that implements:
 /// - `Send + Sync` - for thread safety
-/// - `Debug` - for debug printing
 /// - `PagableSerialize` - for serialization
 /// - `PagableDeserialize<'a>` for all lifetimes `'a` - for deserialization
 /// - `'static` - no borrowed data
 ///
 /// Use `#[derive(Pagable)]` to derive both PagableSerialize and PagableDeserialize.
 pub trait Pagable:
-    Send + Sync + std::fmt::Debug + PagableSerialize + for<'a> PagableDeserialize<'a> + 'static
+    Send + Sync + PagableSerialize + for<'a> PagableDeserialize<'a> + 'static
 {
 }
 
-impl<T: Send + Sync + std::fmt::Debug + PagableSerialize + for<'a> PagableDeserialize<'a> + 'static>
-    Pagable for T
-{
-}
+impl<T: Send + Sync + PagableSerialize + for<'a> PagableDeserialize<'a> + 'static> Pagable for T {}
 // ============================================================================
 // Serialize/Deserialize traits for types
 // ============================================================================

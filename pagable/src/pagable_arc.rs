@@ -510,7 +510,7 @@ pub struct PinnedPagableArc<T: Pagable> {
     pointer: triomphe::Arc<PagableArcInner<T>>,
 }
 
-impl<T: Pagable> std::fmt::Debug for PinnedPagableArc<T> {
+impl<T: Pagable + std::fmt::Debug> std::fmt::Debug for PinnedPagableArc<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Arc")
             .field("pointer", &self.pointer)
