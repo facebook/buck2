@@ -113,6 +113,11 @@ def _apple_bundle_like_common_attrs():
         # Target-level attribute always takes precedence over buckconfigs.
         "code_signing_configuration": attrs.option(attrs.enum(CodeSignConfiguration.values()), default = None),
         "codesign_type": attrs.option(attrs.enum(CodeSignType.values()), default = None),
+        "entitlements_verification_check_enabled": attrs.bool(default = select({
+            "DEFAULT": read_bool("apple", "entitlements_verification_check_enabled", default = False, root_cell = True),
+            "config//features/apple:entitlements_verification_check_disabled": False,
+            "config//features/apple:entitlements_verification_check_enabled": True,
+        })),
         "fast_adhoc_signing_enabled": attrs.option(attrs.bool(), default = None),
         "provisioning_profile_filter": attrs.option(attrs.string(), default = None),
         "skip_adhoc_resigning_scrubbed_frameworks": attrs.option(attrs.bool(), default = None),
