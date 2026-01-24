@@ -14,7 +14,6 @@ use postcard::ser_flavors::Flavor;
 
 use crate::PagableDeserializer;
 use crate::PagableSerializer;
-use crate::arc_erase::ArcErase;
 use crate::arc_erase::ArcEraseDyn;
 use crate::storage::DataKey;
 use crate::storage::PagableStorageHandle;
@@ -57,17 +56,12 @@ impl PagableSerializerImpl {
 }
 
 impl PagableSerializer for PagableSerializerImpl {
-    fn serialize_serde_flattened<T: serde::Serialize>(&mut self, value: &T) -> anyhow::Result<()> {
-        value.serialize(&mut self.inner)?;
-        Ok(())
-    }
-
     fn serde(&mut self) -> &mut postcard::Serializer<postcard::ser_flavors::StdVec> {
         &mut self.inner
     }
 
-    fn serialize_arc<T: ArcErase>(&mut self, arc: T) -> anyhow::Result<()> {
-        let arc = Box::new(arc);
+    fn serialize_arc(&mut self, arc: &dyn ArcEraseDyn) -> anyhow::Result<()> {
+        let arc = arc.clone_dyn();
         self.arcs.push(arc as _);
         Ok(())
     }
@@ -99,11 +93,17 @@ impl<'de, 's> PagableDeserializerImpl<'de, 's> {
 }
 
 impl<'de, 's> PagableDeserializer<'de> for PagableDeserializerImpl<'de, 's> {
-    fn serde(&mut self) -> impl serde::Deserializer<'de, Error = postcard::Error> + '_ {
-        &mut self.inner
+    fn serde(&mut self) -> Box<dyn erased_serde::Deserializer<'de> + '_> {
+        Box::new(<dyn erased_serde::Deserializer>::erase(&mut self.inner))
     }
 
-    fn deserialize_arc<T: ArcErase>(&mut self) -> anyhow::Result<T> {
+    fn deserialize_arc(
+        &mut self,
+        type_id: TypeId,
+        deserialize_fn: for<'a> fn(
+            &mut dyn PagableDeserializer<'a>,
+        ) -> crate::Result<Box<dyn ArcEraseDyn>>,
+    ) -> crate::Result<Box<dyn ArcEraseDyn>> {
         // Read the DataKey from the arcs list
         let key = self
             .arcs
@@ -114,33 +114,22 @@ impl<'de, 's> PagableDeserializer<'de> for PagableDeserializerImpl<'de, 's> {
         match self
             .storage
             .backing_storage()
-            .fetch_arc_or_data_blocking(&TypeId::of::<T>(), &key)?
+            .fetch_arc_or_data_blocking(&type_id, key)?
         {
             either::Either::Left(arc) => {
-                // We got an arc - try to cast it to the expected type
-                let arc_any = arc.as_arc_any();
-                let typed_arc = arc_any.downcast_ref::<T>().ok_or_else(|| {
-                    anyhow::anyhow!(
-                        "Type mismatch: expected {}, got {}",
-                        std::any::type_name::<T>(),
-                        arc.type_name()
-                    )
-                })?;
-                Ok(T::dupe_strong(typed_arc))
+                // We got a cached arc - return it
+                Ok(arc)
             }
             either::Either::Right(data) => {
                 // We got serialized data - deserialize it
                 let mut deserializer =
-                    PagableDeserializerImpl::new(&data.data, &data.arcs, &self.storage);
-                let arc = T::deserialize_inner(&mut deserializer)?;
+                    PagableDeserializerImpl::new(&data.data, &data.arcs, self.storage);
+                let arc = deserialize_fn(&mut deserializer)?;
 
                 // Record the deserialized arc in storage for future lookups
-                self.storage.backing_storage().on_arc_deserialized(
-                    TypeId::of::<T>(),
-                    *key,
-                    Box::new(T::dupe_strong(&arc)),
-                );
-
+                self.storage
+                    .backing_storage()
+                    .on_arc_deserialized(type_id, *key, arc.clone_dyn());
                 Ok(arc)
             }
         }

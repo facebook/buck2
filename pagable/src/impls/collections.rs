@@ -19,7 +19,7 @@ use crate::traits::PagableSerializer;
 impl<K: PagableSerialize, V: PagableSerialize> PagableSerialize
     for std::collections::BTreeMap<K, V>
 {
-    fn pagable_serialize<S: PagableSerializer>(&self, serializer: &mut S) -> crate::Result<()> {
+    fn pagable_serialize(&self, serializer: &mut dyn PagableSerializer) -> crate::Result<()> {
         usize::serialize(&self.len(), serializer.serde())?;
         for (k, v) in self {
             k.pagable_serialize(serializer)?;
@@ -32,7 +32,7 @@ impl<K: PagableSerialize, V: PagableSerialize> PagableSerialize
 impl<'de, K: Ord + PagableDeserialize<'de>, V: PagableDeserialize<'de>> PagableDeserialize<'de>
     for std::collections::BTreeMap<K, V>
 {
-    fn pagable_deserialize<D: PagableDeserializer<'de>>(
+    fn pagable_deserialize<D: PagableDeserializer<'de> + ?Sized>(
         deserializer: &mut D,
     ) -> crate::Result<Self> {
         let items = usize::deserialize(deserializer.serde())?;
@@ -47,7 +47,7 @@ impl<'de, K: Ord + PagableDeserialize<'de>, V: PagableDeserialize<'de>> PagableD
 }
 
 impl<T: PagableSerialize> PagableSerialize for Vec<T> {
-    fn pagable_serialize<S: PagableSerializer>(&self, serializer: &mut S) -> crate::Result<()> {
+    fn pagable_serialize(&self, serializer: &mut dyn PagableSerializer) -> crate::Result<()> {
         usize::serialize(&self.len(), serializer.serde())?;
         for v in self {
             v.pagable_serialize(serializer)?;
@@ -57,7 +57,7 @@ impl<T: PagableSerialize> PagableSerialize for Vec<T> {
 }
 
 impl<'de, T: PagableDeserialize<'de>> PagableDeserialize<'de> for Vec<T> {
-    fn pagable_deserialize<D: PagableDeserializer<'de>>(
+    fn pagable_deserialize<D: PagableDeserializer<'de> + ?Sized>(
         deserializer: &mut D,
     ) -> crate::Result<Self> {
         let items = usize::deserialize(deserializer.serde())?;
@@ -70,7 +70,7 @@ impl<'de, T: PagableDeserialize<'de>> PagableDeserialize<'de> for Vec<T> {
 }
 
 impl<'a, T: PagableSerialize> PagableSerialize for &'a [T] {
-    fn pagable_serialize<S: PagableSerializer>(&self, serializer: &mut S) -> crate::Result<()> {
+    fn pagable_serialize(&self, serializer: &mut dyn PagableSerializer) -> crate::Result<()> {
         for v in *self {
             v.pagable_serialize(serializer)?;
         }
@@ -82,7 +82,7 @@ macro_rules! array_impls {
     ($($len:expr => ($($n:tt)+))+) => {
         $(
             impl<T: PagableSerialize> PagableSerialize for [T; $len] {
-                fn pagable_serialize<S: PagableSerializer>(&self, serializer: &mut S)-> crate::Result<()> {
+                fn pagable_serialize(&self, serializer: &mut dyn PagableSerializer)-> crate::Result<()> {
                     for v in self {
                         v.pagable_serialize(serializer)?;
                     }
@@ -91,7 +91,7 @@ macro_rules! array_impls {
             }
 
             impl<'de, T: PagableDeserialize<'de> + Sized> PagableDeserialize<'de> for [T; $len] {
-                fn pagable_deserialize<D: PagableDeserializer<'de>>(
+                fn pagable_deserialize<D: PagableDeserializer<'de> + ?Sized>(
                     deserializer: &mut D,
                 ) -> crate::Result<Self> {
                     Ok([$(

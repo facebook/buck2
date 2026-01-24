@@ -1054,9 +1054,9 @@ macro_rules! smallmap {
 
 #[cfg(feature = "pagable")]
 impl<K: Pagable, V: Pagable> PagableSerialize for SmallMap<K, V> {
-    fn pagable_serialize<S: pagable::PagableSerializer>(
+    fn pagable_serialize(
         &self,
-        serializer: &mut S,
+        serializer: &mut dyn pagable::PagableSerializer,
     ) -> pagable::__internal::anyhow::Result<()> {
         self.entries.pagable_serialize(serializer)
     }
@@ -1064,7 +1064,7 @@ impl<K: Pagable, V: Pagable> PagableSerialize for SmallMap<K, V> {
 
 #[cfg(feature = "pagable")]
 impl<'de, K: Pagable, V: Pagable> PagableDeserialize<'de> for SmallMap<K, V> {
-    fn pagable_deserialize<D: pagable::PagableDeserializer<'de>>(
+    fn pagable_deserialize<D: pagable::PagableDeserializer<'de> + ?Sized>(
         deserializer: &mut D,
     ) -> pagable::Result<Self> {
         let entries =

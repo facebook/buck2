@@ -10,6 +10,8 @@
 
 #![allow(unused)]
 
+use std::any::TypeId;
+
 use dupe::Dupe;
 use strong_hash::StrongHash;
 
@@ -18,22 +20,24 @@ use crate::PagableDeserializer;
 use crate::PagableSerialize;
 use crate::PagableSerializer;
 use crate::arc_erase::ArcErase;
+use crate::arc_erase::ArcEraseDyn;
+use crate::arc_erase::deserialize_arc;
 
 impl<T: for<'a> PagableDeserialize<'a> + PagableSerialize + Send + Sync + std::any::Any + 'static>
     PagableSerialize for std::sync::Arc<T>
 {
-    fn pagable_serialize<S: PagableSerializer>(&self, serializer: &mut S) -> crate::Result<()> {
-        serializer.serialize_arc(self.dupe())
+    fn pagable_serialize(&self, serializer: &mut dyn PagableSerializer) -> crate::Result<()> {
+        serializer.serialize_arc(self)
     }
 }
 
 impl<'de, T: PagableSerialize + for<'a> PagableDeserialize<'a> + Send + Sync + std::any::Any>
     PagableDeserialize<'de> for std::sync::Arc<T>
 {
-    fn pagable_deserialize<D: PagableDeserializer<'de>>(
+    fn pagable_deserialize<D: PagableDeserializer<'de> + ?Sized>(
         deserializer: &mut D,
     ) -> crate::Result<Self> {
-        deserializer.deserialize_arc::<Self>()
+        deserialize_arc::<Self, _>(deserializer)
     }
 }
 
@@ -46,18 +50,18 @@ impl<
         + std::any::Any,
 > PagableSerialize for std::sync::Arc<[T]>
 {
-    fn pagable_serialize<S: PagableSerializer>(&self, serializer: &mut S) -> crate::Result<()> {
-        serializer.serialize_arc(self.dupe())
+    fn pagable_serialize(&self, serializer: &mut dyn PagableSerializer) -> crate::Result<()> {
+        serializer.serialize_arc(self)
     }
 }
 
 impl<'de, T: PagableSerialize + for<'a> PagableDeserialize<'a> + Send + Sync + std::any::Any>
     PagableDeserialize<'de> for std::sync::Arc<[T]>
 {
-    fn pagable_deserialize<D: PagableDeserializer<'de>>(
+    fn pagable_deserialize<D: PagableDeserializer<'de> + ?Sized>(
         deserializer: &mut D,
     ) -> crate::Result<Self> {
-        deserializer.deserialize_arc::<Self>()
+        deserialize_arc::<Self, _>(deserializer)
     }
 }
 
@@ -70,18 +74,18 @@ impl<
         + std::any::Any,
 > PagableSerialize for triomphe::Arc<T>
 {
-    fn pagable_serialize<S: PagableSerializer>(&self, serializer: &mut S) -> crate::Result<()> {
-        serializer.serialize_arc(self.clone())
+    fn pagable_serialize(&self, serializer: &mut dyn PagableSerializer) -> crate::Result<()> {
+        serializer.serialize_arc(self)
     }
 }
 
 impl<'de, T: PagableSerialize + for<'a> PagableDeserialize<'a> + Send + Sync + std::any::Any>
     PagableDeserialize<'de> for triomphe::Arc<T>
 {
-    fn pagable_deserialize<D: PagableDeserializer<'de>>(
+    fn pagable_deserialize<D: PagableDeserializer<'de> + ?Sized>(
         deserializer: &mut D,
     ) -> crate::Result<Self> {
-        deserializer.deserialize_arc::<Self>()
+        deserialize_arc::<Self, _>(deserializer)
     }
 }
 
@@ -94,18 +98,18 @@ impl<
         + std::any::Any,
 > PagableSerialize for triomphe::Arc<[T]>
 {
-    fn pagable_serialize<S: PagableSerializer>(&self, serializer: &mut S) -> crate::Result<()> {
-        serializer.serialize_arc(self.clone())
+    fn pagable_serialize(&self, serializer: &mut dyn PagableSerializer) -> crate::Result<()> {
+        serializer.serialize_arc(self)
     }
 }
 
 impl<'de, T: PagableSerialize + for<'a> PagableDeserialize<'a> + Send + Sync + std::any::Any>
     PagableDeserialize<'de> for triomphe::Arc<[T]>
 {
-    fn pagable_deserialize<D: PagableDeserializer<'de>>(
+    fn pagable_deserialize<D: PagableDeserializer<'de> + ?Sized>(
         deserializer: &mut D,
     ) -> crate::Result<Self> {
-        deserializer.deserialize_arc::<Self>()
+        deserialize_arc::<Self, _>(deserializer)
     }
 }
 
@@ -114,8 +118,8 @@ impl<
     T: for<'a> PagableDeserialize<'a> + PagableSerialize + Send + Sync + std::any::Any,
 > PagableSerialize for triomphe::ThinArc<H, T>
 {
-    fn pagable_serialize<S: PagableSerializer>(&self, serializer: &mut S) -> crate::Result<()> {
-        serializer.serialize_arc(self.clone())
+    fn pagable_serialize(&self, serializer: &mut dyn PagableSerializer) -> crate::Result<()> {
+        serializer.serialize_arc(self)
     }
 }
 
@@ -125,9 +129,9 @@ impl<
     T: PagableSerialize + for<'a> PagableDeserialize<'a> + Send + Sync + std::any::Any,
 > PagableDeserialize<'de> for triomphe::ThinArc<H, T>
 {
-    fn pagable_deserialize<D: PagableDeserializer<'de>>(
+    fn pagable_deserialize<D: PagableDeserializer<'de> + ?Sized>(
         deserializer: &mut D,
     ) -> crate::Result<Self> {
-        deserializer.deserialize_arc::<Self>()
+        deserialize_arc::<Self, _>(deserializer)
     }
 }

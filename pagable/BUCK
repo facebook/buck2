@@ -13,6 +13,7 @@ rust_library(
         "fbsource//third-party/rust:async-trait",
         "fbsource//third-party/rust:bytemuck",
         "fbsource//third-party/rust:either",
+        "fbsource//third-party/rust:erased-serde",
         "fbsource//third-party/rust:parking_lot",
         "fbsource//third-party/rust:postcard",
         "fbsource//third-party/rust:relative-path",

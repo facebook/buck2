@@ -46,16 +46,13 @@ pub struct ArcS<V: StringInside + ?Sized> {
 }
 
 impl<S: StringInside + ?Sized> PagableSerialize for ArcS<S> {
-    fn pagable_serialize<Ser: PagableSerializer>(
-        &self,
-        serializer: &mut Ser,
-    ) -> pagable::Result<()> {
+    fn pagable_serialize(&self, serializer: &mut dyn PagableSerializer) -> pagable::Result<()> {
         Ok(self.serialize(serializer.serde())?)
     }
 }
 
 impl<'de, S: StringInside + ?Sized> PagableDeserialize<'de> for ArcS<S> {
-    fn pagable_deserialize<D: PagableDeserializer<'de>>(
+    fn pagable_deserialize<D: PagableDeserializer<'de> + ?Sized>(
         deserializer: &mut D,
     ) -> pagable::Result<Self> {
         Ok(Self::deserialize(deserializer.serde())?)

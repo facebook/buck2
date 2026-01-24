@@ -366,13 +366,13 @@ impl<'de> Deserialize<'de> for CellPath {
 }
 
 impl PagableSerialize for CellPath {
-    fn pagable_serialize<S: PagableSerializer>(&self, serializer: &mut S) -> pagable::Result<()> {
+    fn pagable_serialize(&self, serializer: &mut dyn PagableSerializer) -> pagable::Result<()> {
         Ok(self.serialize(serializer.serde())?)
     }
 }
 
 impl<'de> PagableDeserialize<'de> for CellPath {
-    fn pagable_deserialize<D: PagableDeserializer<'de>>(
+    fn pagable_deserialize<D: PagableDeserializer<'de> + ?Sized>(
         deserializer: &mut D,
     ) -> pagable::Result<Self> {
         Ok(CellPath::deserialize(deserializer.serde())?)

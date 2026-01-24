@@ -19,13 +19,13 @@ use crate::traits::PagableSerialize;
 use crate::traits::PagableSerializer;
 
 impl PagableSerialize for () {
-    fn pagable_serialize<S: PagableSerializer>(&self, _serializer: &mut S) -> crate::Result<()> {
+    fn pagable_serialize(&self, _serializer: &mut dyn PagableSerializer) -> crate::Result<()> {
         Ok(())
     }
 }
 
 impl<'de> PagableDeserialize<'de> for () {
-    fn pagable_deserialize<D: PagableDeserializer<'de>>(
+    fn pagable_deserialize<D: PagableDeserializer<'de> + ?Sized>(
         _deserializer: &mut D,
     ) -> crate::Result<Self> {
         Ok(())
@@ -33,13 +33,13 @@ impl<'de> PagableDeserialize<'de> for () {
 }
 
 impl<'a, T: PagableSerialize> PagableSerialize for &'a T {
-    fn pagable_serialize<S: PagableSerializer>(&self, serializer: &mut S) -> crate::Result<()> {
+    fn pagable_serialize(&self, serializer: &mut dyn PagableSerializer) -> crate::Result<()> {
         (**self).pagable_serialize(serializer)
     }
 }
 
 impl<T: PagableSerialize> PagableSerialize for Option<T> {
-    fn pagable_serialize<S: PagableSerializer>(&self, serializer: &mut S) -> crate::Result<()> {
+    fn pagable_serialize(&self, serializer: &mut dyn PagableSerializer) -> crate::Result<()> {
         bool::serialize(&self.is_some(), serializer.serde())?;
         if let Some(v) = self {
             v.pagable_serialize(serializer)?;
@@ -49,7 +49,7 @@ impl<T: PagableSerialize> PagableSerialize for Option<T> {
 }
 
 impl<'de, T: PagableDeserialize<'de>> PagableDeserialize<'de> for Option<T> {
-    fn pagable_deserialize<D: PagableDeserializer<'de>>(
+    fn pagable_deserialize<D: PagableDeserializer<'de> + ?Sized>(
         deserializer: &mut D,
     ) -> crate::Result<Self> {
         if bool::deserialize(deserializer.serde())? {
@@ -61,13 +61,13 @@ impl<'de, T: PagableDeserialize<'de>> PagableDeserialize<'de> for Option<T> {
 }
 
 impl<T: ?Sized> PagableSerialize for std::marker::PhantomData<T> {
-    fn pagable_serialize<S: PagableSerializer>(&self, _serializer: &mut S) -> crate::Result<()> {
+    fn pagable_serialize(&self, _serializer: &mut dyn PagableSerializer) -> crate::Result<()> {
         Ok(())
     }
 }
 
 impl<'de, T: ?Sized> PagableDeserialize<'de> for std::marker::PhantomData<T> {
-    fn pagable_deserialize<D: PagableDeserializer<'de>>(
+    fn pagable_deserialize<D: PagableDeserializer<'de> + ?Sized>(
         _deserializer: &mut D,
     ) -> crate::Result<Self> {
         Ok(std::marker::PhantomData)
@@ -75,13 +75,13 @@ impl<'de, T: ?Sized> PagableDeserialize<'de> for std::marker::PhantomData<T> {
 }
 
 impl<T: PagableSerialize> PagableSerialize for Box<T> {
-    fn pagable_serialize<S: PagableSerializer>(&self, serializer: &mut S) -> crate::Result<()> {
+    fn pagable_serialize(&self, serializer: &mut dyn PagableSerializer) -> crate::Result<()> {
         (**self).pagable_serialize(serializer)
     }
 }
 
 impl<'de, T: PagableDeserialize<'de>> PagableDeserialize<'de> for Box<T> {
-    fn pagable_deserialize<D: PagableDeserializer<'de>>(
+    fn pagable_deserialize<D: PagableDeserializer<'de> + ?Sized>(
         deserializer: &mut D,
     ) -> crate::Result<Self> {
         Ok(Box::new(T::pagable_deserialize(deserializer)?))
@@ -89,7 +89,7 @@ impl<'de, T: PagableDeserialize<'de>> PagableDeserialize<'de> for Box<T> {
 }
 
 impl<T: PagableSerialize> PagableSerialize for [T] {
-    fn pagable_serialize<S: PagableSerializer>(&self, serializer: &mut S) -> crate::Result<()> {
+    fn pagable_serialize(&self, serializer: &mut dyn PagableSerializer) -> crate::Result<()> {
         usize::serialize(&self.len(), serializer.serde())?;
         for v in self.iter() {
             v.pagable_serialize(serializer)?;
@@ -99,13 +99,13 @@ impl<T: PagableSerialize> PagableSerialize for [T] {
 }
 
 impl<T: PagableSerialize> PagableSerialize for Box<[T]> {
-    fn pagable_serialize<S: PagableSerializer>(&self, serializer: &mut S) -> crate::Result<()> {
+    fn pagable_serialize(&self, serializer: &mut dyn PagableSerializer) -> crate::Result<()> {
         <[T] as PagableSerialize>::pagable_serialize(&**self, serializer)
     }
 }
 
 impl<'de, T: PagableDeserialize<'de>> PagableDeserialize<'de> for Box<[T]> {
-    fn pagable_deserialize<D: PagableDeserializer<'de>>(
+    fn pagable_deserialize<D: PagableDeserializer<'de> + ?Sized>(
         deserializer: &mut D,
     ) -> crate::Result<Self> {
         let items = usize::deserialize(deserializer.serde())?;
@@ -118,7 +118,7 @@ impl<'de, T: PagableDeserialize<'de>> PagableDeserialize<'de> for Box<[T]> {
 }
 
 impl PagableSerialize for AtomicI64 {
-    fn pagable_serialize<S: PagableSerializer>(&self, serializer: &mut S) -> crate::Result<()> {
+    fn pagable_serialize(&self, serializer: &mut dyn PagableSerializer) -> crate::Result<()> {
         Ok(i64::serialize(
             &self.load(core::sync::atomic::Ordering::Relaxed),
             serializer.serde(),
@@ -127,7 +127,7 @@ impl PagableSerialize for AtomicI64 {
 }
 
 impl<'de> PagableDeserialize<'de> for AtomicI64 {
-    fn pagable_deserialize<D: PagableDeserializer<'de>>(
+    fn pagable_deserialize<D: PagableDeserializer<'de> + ?Sized>(
         deserializer: &mut D,
     ) -> crate::Result<Self> {
         let val = i64::deserialize(deserializer.serde())?;

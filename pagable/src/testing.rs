@@ -41,7 +41,6 @@ use postcard::ser_flavors::Flavor;
 use serde::Deserialize;
 use serde::Serialize;
 
-use crate::arc_erase::ArcErase;
 use crate::arc_erase::ArcEraseDyn;
 use crate::storage::DataKey;
 use crate::storage::PagableStorage;
@@ -88,23 +87,18 @@ impl Default for TestingSerializer {
 }
 
 impl PagableSerializer for TestingSerializer {
-    fn serialize_serde_flattened<T: Serialize>(&mut self, value: &T) -> crate::Result<()> {
-        value.serialize(&mut self.serde)?;
-        Ok(())
-    }
-
     fn serde(&mut self) -> &mut postcard::Serializer<postcard::ser_flavors::StdVec> {
         &mut self.serde
     }
 
-    fn serialize_arc<T: ArcErase>(&mut self, arc: T) -> crate::Result<()> {
+    fn serialize_arc(&mut self, arc: &dyn ArcEraseDyn) -> crate::Result<()> {
         let identity = arc.identity();
         // Always write identity first
-        self.serialize_serde_flattened(&identity)?;
+        identity.serialize(self.serde())?;
 
         if self.seen_arcs.insert(identity) {
             // First time seeing this arc, serialize its contents
-            arc.serialize_inner(self)?;
+            arc.serialize(self)?;
         }
         // If already seen, nothing more to write - identity is enough
         Ok(())
@@ -138,32 +132,27 @@ impl<'de> TestingDeserializer<'de> {
 }
 
 impl<'de> PagableDeserializer<'de> for TestingDeserializer<'de> {
-    fn serde(&mut self) -> impl serde::Deserializer<'de, Error = postcard::Error> + '_ {
-        &mut self.serde
+    fn serde(&mut self) -> Box<dyn erased_serde::Deserializer<'de> + '_> {
+        Box::new(<dyn erased_serde::Deserializer>::erase(&mut self.serde))
     }
 
-    fn deserialize_arc<T: ArcErase>(&mut self) -> crate::Result<T> {
+    fn deserialize_arc(
+        &mut self,
+        _type_id: std::any::TypeId,
+        deserialize_fn: for<'a> fn(
+            &mut dyn PagableDeserializer<'a>,
+        ) -> crate::Result<Box<dyn ArcEraseDyn>>,
+    ) -> crate::Result<Box<dyn ArcEraseDyn>> {
         // Read identity first
-        let identity: usize = Deserialize::deserialize(self.serde())?;
+        let identity: usize = Deserialize::deserialize(&mut self.serde)?;
 
         if let Some(arc_dyn) = self.seen_arcs.get(&identity) {
-            // Already seen - downcast and dupe
-            let arc = arc_dyn
-                .as_arc_any()
-                .downcast_ref::<T>()
-                .ok_or_else(|| {
-                    anyhow::anyhow!(
-                        "Type mismatch on deserialize_arc: expected {}, got {}",
-                        std::any::type_name::<T>(),
-                        arc_dyn.type_name()
-                    )
-                })?
-                .dupe_strong();
-            Ok(arc)
+            // Already seen - return a clone
+            Ok(arc_dyn.clone_dyn())
         } else {
             // First time - deserialize, store in map, return
-            let arc = T::deserialize_inner(self)?;
-            self.seen_arcs.insert(identity, Box::new(arc.dupe_strong()));
+            let arc = deserialize_fn(self)?;
+            self.seen_arcs.insert(identity, arc.clone_dyn());
             Ok(arc)
         }
     }

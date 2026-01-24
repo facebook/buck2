@@ -25,6 +25,7 @@ use pagable::PagableSerializer;
 use pagable::arc_erase::ArcErase;
 use pagable::arc_erase::ArcEraseType;
 use pagable::arc_erase::StdArcEraseType;
+use pagable::arc_erase::deserialize_arc;
 use serde::Deserialize;
 use serde::Serialize;
 use static_assertions::assert_eq_size;
@@ -147,19 +148,19 @@ impl<'de> Deserialize<'de> for ArcStr {
 }
 
 impl PagableSerialize for ArcStr {
-    fn pagable_serialize<S: PagableSerializer>(
+    fn pagable_serialize(
         &self,
-        serializer: &mut S,
+        serializer: &mut dyn PagableSerializer,
     ) -> pagable::__internal::anyhow::Result<()> {
-        serializer.serialize_arc(self.dupe())
+        serializer.serialize_arc(&self.dupe())
     }
 }
 
 impl<'de> PagableDeserialize<'de> for ArcStr {
-    fn pagable_deserialize<D: PagableDeserializer<'de>>(
+    fn pagable_deserialize<D: PagableDeserializer<'de> + ?Sized>(
         deserializer: &mut D,
     ) -> pagable::Result<Self> {
-        deserializer.deserialize_arc::<Self>()
+        deserialize_arc::<Self, _>(deserializer)
     }
 }
 
@@ -182,14 +183,14 @@ impl ArcErase for ArcStr {
         None
     }
 
-    fn serialize_inner<S: PagableSerializer>(
+    fn serialize_inner(
         &self,
-        ser: &mut S,
+        ser: &mut dyn PagableSerializer,
     ) -> pagable::__internal::anyhow::Result<()> {
-        Ok(self.serialize(ser.serde())?)
+        Ok(Serialize::serialize(&self, ser.serde())?)
     }
 
-    fn deserialize_inner<'de, D: PagableDeserializer<'de>>(
+    fn deserialize_inner<'de, D: PagableDeserializer<'de> + ?Sized>(
         deser: &mut D,
     ) -> pagable::__internal::anyhow::Result<Self> {
         Ok(Self::deserialize(deser.serde())?)

@@ -16,14 +16,14 @@
 //! - [`PagableSerialize`] / [`PagableDeserialize`] - traits for types that can be serialized/deserialized
 //! - [`PagableSerializer`] / [`PagableDeserializer`] - traits for serializer/deserializer implementations
 
+use std::any::TypeId;
+
+use crate::arc_erase::ArcEraseDyn;
+use crate::storage::PagableStorageHandle;
+
 // ============================================================================
 // Combined Pagable trait
 // ============================================================================
-
-use crate::arc_erase::ArcErase;
-use crate::arc_erase::ArcEraseDyn;
-use crate::arc_erase::ArcEraseType;
-use crate::storage::PagableStorageHandle;
 
 /// A convenience trait for types that are pagable serializable/deserializable.
 ///
@@ -52,7 +52,7 @@ impl<T: Send + Sync + PagableSerialize + for<'a> PagableDeserialize<'a> + 'stati
 /// Use `#[derive(PagableSerialize)]` for automatic implementation.
 pub trait PagableSerialize {
     /// Serialize this value using the provided serializer.
-    fn pagable_serialize<S: PagableSerializer>(&self, serializer: &mut S) -> crate::Result<()>;
+    fn pagable_serialize(&self, serializer: &mut dyn PagableSerializer) -> crate::Result<()>;
 }
 
 /// Trait for types that should be serialized eagerly.
@@ -75,7 +75,7 @@ pub trait PagableEagerSerialize {
 /// Use `#[derive(PagableDeserialize)]` for automatic implementation.
 pub trait PagableDeserialize<'de>: Sized {
     /// Deserialize a value using the provided deserializer.
-    fn pagable_deserialize<D: PagableDeserializer<'de>>(
+    fn pagable_deserialize<D: PagableDeserializer<'de> + ?Sized>(
         deserializer: &mut D,
     ) -> crate::Result<Self>;
 }
@@ -86,7 +86,7 @@ pub trait PagableDeserialize<'de>: Sized {
 /// rather than being deferred.
 pub trait PagableEagerDeserialize<'de>: Sized {
     /// Eagerly deserialize a value using the provided deserializer.
-    fn eager_pagable_deserialize<D: PagableDeserializer<'de>>(
+    fn eager_pagable_deserialize<D: PagableDeserializer<'de> + ?Sized>(
         deserializer: &mut D,
     ) -> crate::Result<Self>;
 }
@@ -100,9 +100,6 @@ pub trait PagableEagerDeserialize<'de>: Sized {
 /// Implementors provide access to an underlying serde serializer and the ability
 /// to preserve arc instance equality across serialization.
 pub trait PagableSerializer {
-    /// Serialize a value using serde, flattening it into the output stream.
-    fn serialize_serde_flattened<T: serde::Serialize>(&mut self, value: &T) -> crate::Result<()>;
-
     /// Get a mutable reference to the underlying postcard serializer.
     fn serde(&mut self) -> &mut postcard::Serializer<postcard::ser_flavors::StdVec>;
 
@@ -110,21 +107,38 @@ pub trait PagableSerializer {
     ///
     /// Implementations should track Arc identity so that the same Arc serialized
     /// multiple times results in shared references after deserialization.
-    fn serialize_arc<T: ArcErase>(&mut self, arc: T) -> crate::Result<()>;
+    fn serialize_arc(&mut self, arc: &dyn ArcEraseDyn) -> crate::Result<()>;
 }
 
-pub trait PagableSerializerDyn {}
+static_assertions::assert_obj_safe!(PagableSerializer);
 
 /// Trait for deserializers that support pagable deserialization.
+///
+/// This trait is object-safe, using type-erased return types to enable dynamic dispatch:
+/// - `serde()` returns `Box<dyn erased_serde::Deserializer>` instead of `impl Deserializer`
 pub trait PagableDeserializer<'de> {
-    /// Get a serde deserializer for deserializing values.
-    fn serde(&mut self) -> impl serde::Deserializer<'de, Error = postcard::Error> + '_;
+    /// Get a type-erased serde deserializer.
+    ///
+    /// Returns a boxed `erased_serde::Deserializer` that can deserialize any serde-compatible type.
+    fn serde(&mut self) -> Box<dyn erased_serde::Deserializer<'de> + '_>;
 
     /// Deserialize an Arc, restoring shared references for deduplicated Arcs.
     ///
     /// If the same Arc was serialized multiple times via `serialize_arc`, this method
     /// should return clones that point to the same allocation (preserving identity).
-    fn deserialize_arc<T: ArcErase>(&mut self) -> crate::Result<T>;
+    ///
+    /// Takes a function pointer that performs the actual deserialization. The function
+    /// receives a type-erased deserializer and returns a type-erased Arc.
+    ///
+    /// The `type_id` parameter provides the TypeId of the Arc being deserialized,
+    /// which is needed for storage cache lookups.
+    fn deserialize_arc(
+        &mut self,
+        type_id: std::any::TypeId,
+        deserialize_fn: for<'a> fn(
+            &mut dyn PagableDeserializer<'a>,
+        ) -> crate::Result<Box<dyn ArcEraseDyn>>,
+    ) -> crate::Result<Box<dyn ArcEraseDyn>>;
 
     /// Returns a reference to the storage handle used for paging operations.
     ///
@@ -133,9 +147,26 @@ pub trait PagableDeserializer<'de> {
     fn storage(&self) -> PagableStorageHandle;
 }
 
-pub trait PagableDeserializerDyn<'de> {
-    fn pop_arc(&mut self, ty: dyn ArcEraseType) -> crate::Result<Box<dyn ArcEraseDyn>>;
+static_assertions::assert_obj_safe!(PagableDeserializer<'_>);
+
+impl<'de, D: PagableDeserializer<'de>> PagableDeserializer<'de> for &mut D {
+    fn serde(&mut self) -> Box<dyn erased_serde::Deserializer<'de> + '_> {
+        <D as PagableDeserializer<'de>>::serde(self)
+    }
+
+    fn deserialize_arc(
+        &mut self,
+        type_id: TypeId,
+        deserialize_fn: for<'a> fn(
+            &mut dyn PagableDeserializer<'a>,
+        ) -> crate::Result<Box<dyn ArcEraseDyn>>,
+    ) -> crate::Result<Box<dyn ArcEraseDyn>> {
+        <D as PagableDeserializer<'de>>::deserialize_arc(self, type_id, deserialize_fn)
+    }
+
+    fn storage(&self) -> PagableStorageHandle {
+        <D as PagableDeserializer<'de>>::storage(self)
+    }
 }
 
-static_assertions::assert_obj_safe!(PagableDeserializerDyn<'_>);
-static_assertions::assert_obj_safe!(PagableSerializerDyn);
+static_assertions::assert_impl_all!(dyn PagableDeserializer<'static>: PagableDeserializer<'static>);

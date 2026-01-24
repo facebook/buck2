@@ -34,7 +34,9 @@ use pagable::PagableDeserializer;
 use pagable::PagableSerialize;
 #[cfg(feature = "pagable")]
 use pagable::PagableSerializer;
+#[cfg(feature = "pagable")]
 use serde::Deserialize;
+#[cfg(feature = "pagable")]
 use serde::Serialize;
 
 use crate::Equivalent;
@@ -319,7 +321,7 @@ impl<K: Eq + Hash, V> FromIterator<(K, V)> for UnorderedMap<K, V> {
 
 #[cfg(feature = "pagable")]
 impl<K: PagableSerialize, V: PagableSerialize> PagableSerialize for UnorderedMap<K, V> {
-    fn pagable_serialize<S: PagableSerializer>(&self, serializer: &mut S) -> pagable::Result<()> {
+    fn pagable_serialize(&self, serializer: &mut dyn PagableSerializer) -> pagable::Result<()> {
         usize::serialize(&self.len(), serializer.serde())?;
         for (k, v) in self.entries_unordered() {
             k.pagable_serialize(serializer)?;
@@ -335,7 +337,7 @@ where
     K: PagableDeserialize<'de> + Eq + Hash,
     V: PagableDeserialize<'de>,
 {
-    fn pagable_deserialize<D: PagableDeserializer<'de>>(
+    fn pagable_deserialize<D: PagableDeserializer<'de> + ?Sized>(
         deserializer: &mut D,
     ) -> pagable::Result<Self> {
         let len = usize::deserialize(deserializer.serde())?;

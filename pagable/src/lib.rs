@@ -43,6 +43,7 @@ pub use traits::PagableSerialize;
 pub use traits::PagableSerializer;
 
 pub type Result<O> = anyhow::Result<O>;
+pub type Error = anyhow::Error;
 
 pub mod __internal {
     pub use anyhow;

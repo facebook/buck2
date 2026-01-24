@@ -13,6 +13,7 @@ blake3 = { workspace = true }
 bytemuck = { workspace = true }
 dupe = { workspace = true }
 either = { workspace = true }
+erased-serde = { workspace = true }
 gazebo = { workspace = true }
 pagable_derive = { path = "../pagable_derive" }
 parking_lot = { workspace = true }

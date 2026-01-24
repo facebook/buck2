@@ -37,6 +37,7 @@ use pagable::PagableSerializer;
 use pagable::arc_erase::ArcErase;
 use pagable::arc_erase::ArcEraseType;
 use pagable::arc_erase::StdArcEraseType;
+use pagable::arc_erase::deserialize_arc;
 use strong_hash::StrongHash;
 
 pub struct Interner<T: 'static, H = DefaultHasher> {
@@ -106,11 +107,13 @@ impl<
         None
     }
 
-    fn serialize_inner<S: PagableSerializer>(&self, ser: &mut S) -> pagable::Result<()> {
+    fn serialize_inner(&self, ser: &mut dyn PagableSerializer) -> pagable::Result<()> {
         T::pagable_serialize(&self, ser)
     }
 
-    fn deserialize_inner<'de, D: PagableDeserializer<'de>>(deser: &mut D) -> pagable::Result<Self> {
+    fn deserialize_inner<'de, D: PagableDeserializer<'de> + ?Sized>(
+        deser: &mut D,
+    ) -> pagable::Result<Self> {
         let interner = T::interner();
         let val = T::pagable_deserialize(deser)?;
         Ok(interner.intern(val))
@@ -130,8 +133,8 @@ impl<
     H: Hasher + Default + 'static,
 > PagableSerialize for Intern<T>
 {
-    fn pagable_serialize<S: PagableSerializer>(&self, serializer: &mut S) -> pagable::Result<()> {
-        serializer.serialize_arc(*self)
+    fn pagable_serialize(&self, serializer: &mut dyn PagableSerializer) -> pagable::Result<()> {
+        serializer.serialize_arc(self)
     }
 }
 
@@ -149,10 +152,10 @@ impl<
     H: Hasher + Default + 'static,
 > PagableDeserialize<'de> for Intern<T>
 {
-    fn pagable_deserialize<D: PagableDeserializer<'de>>(
+    fn pagable_deserialize<D: PagableDeserializer<'de> + ?Sized>(
         deserializer: &mut D,
     ) -> pagable::Result<Self> {
-        deserializer.deserialize_arc::<Self>()
+        deserialize_arc::<Self, _>(deserializer)
     }
 }
 

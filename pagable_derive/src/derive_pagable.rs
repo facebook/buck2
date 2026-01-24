@@ -302,7 +302,7 @@ fn derive_pagable_impl(
         quote_spanned! {input.span()=>
             #[allow(clippy::redundant_closure_call, unused, clippy::todo)]
             impl #ser_impl_generics pagable::PagableSerialize for #name #type_generics #where_clause {
-                    fn pagable_serialize<S: pagable::PagableSerializer>(&self, serializer: &mut S) -> pagable::__internal::anyhow::Result<()> {
+                    fn pagable_serialize(&self, serializer: &mut dyn pagable::PagableSerializer) -> pagable::__internal::anyhow::Result<()> {
                         #body
                         Ok(())
                     }
@@ -319,7 +319,7 @@ fn derive_pagable_impl(
         quote_spanned! {input.span()=>
             #[allow(clippy::redundant_closure_call, unused, clippy::todo)]
             impl #de_impl_generics pagable::PagableDeserialize<'de> for #name #type_generics #where_clause {
-                fn pagable_deserialize<D: pagable::PagableDeserializer<'de>>(deserializer: &mut D) -> pagable::Result<Self> {
+                fn pagable_deserialize<D: pagable::PagableDeserializer<'de> + ?Sized>(deserializer: &mut D) -> pagable::Result<Self> {
                     let res : pagable::Result<Self> = (|| {Ok(#body)})();
                     pagable::__internal::anyhow::Context::with_context(res, || format!("deserializing type {}", #name_str))
                 }

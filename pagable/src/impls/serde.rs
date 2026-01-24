@@ -18,21 +18,22 @@ use serde::Serialize;
 use crate as pagable;
 use crate::PagableDeserialize;
 use crate::PagableSerialize;
+use crate::PagableSerializer;
+
 #[macro_export]
 macro_rules! use_serde {
     ($ty:ty) => {
         impl pagable::PagableSerialize for $ty {
-            fn pagable_serialize<S: pagable::PagableSerializer>(
+            fn pagable_serialize(
                 &self,
-                serializer: &mut S,
+                serializer: &mut dyn pagable::PagableSerializer,
             ) -> pagable::Result<()> {
-                serializer
-                    .serialize_serde_flattened(self)
+                self.serialize(serializer.serde())
                     .with_context(|| format!("serializing type {}", std::any::type_name::<$ty>()))
             }
         }
         impl<'de> pagable::PagableDeserialize<'de> for $ty {
-            fn pagable_deserialize<D: pagable::PagableDeserializer<'de>>(
+            fn pagable_deserialize<D: pagable::PagableDeserializer<'de> + ?Sized>(
                 deserializer: &mut D,
             ) -> pagable::Result<Self> {
                 <Self as pagable::__internal::serde::Deserialize<'de>>::deserialize(
@@ -64,10 +65,7 @@ use_serde!(Duration);
 use_serde!(Box<str>);
 
 impl PagableSerialize for serde_json::Value {
-    fn pagable_serialize<S: crate::PagableSerializer>(
-        &self,
-        serializer: &mut S,
-    ) -> crate::Result<()> {
+    fn pagable_serialize(&self, serializer: &mut dyn PagableSerializer) -> crate::Result<()> {
         match self {
             serde_json::Value::Null => {
                 usize::serialize(&0, serializer.serde())?;
@@ -110,7 +108,7 @@ impl PagableSerialize for serde_json::Value {
 }
 
 impl<'de> PagableDeserialize<'de> for serde_json::Value {
-    fn pagable_deserialize<D: crate::PagableDeserializer<'de>>(
+    fn pagable_deserialize<D: crate::PagableDeserializer<'de> + ?Sized>(
         deserializer: &mut D,
     ) -> crate::Result<Self> {
         let case = usize::deserialize(deserializer.serde())?;

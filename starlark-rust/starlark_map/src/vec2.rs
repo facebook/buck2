@@ -114,9 +114,9 @@ unsafe impl<A: Sync, B: Sync> Sync for Vec2<A, B> {}
 
 #[cfg(feature = "pagable")]
 impl<A: PagableSerialize, B: PagableSerialize> PagableSerialize for Vec2<A, B> {
-    fn pagable_serialize<S: pagable::PagableSerializer>(
+    fn pagable_serialize(
         &self,
-        serializer: &mut S,
+        serializer: &mut dyn pagable::PagableSerializer,
     ) -> pagable::__internal::anyhow::Result<()> {
         usize::serialize(&self.len, serializer.serde())?;
         for v in self.iter() {
@@ -130,7 +130,7 @@ impl<A: PagableSerialize, B: PagableSerialize> PagableSerialize for Vec2<A, B> {
 impl<'de, A: PagableDeserialize<'de>, B: PagableDeserialize<'de>> PagableDeserialize<'de>
     for Vec2<A, B>
 {
-    fn pagable_deserialize<D: pagable::PagableDeserializer<'de>>(
+    fn pagable_deserialize<D: pagable::PagableDeserializer<'de> + ?Sized>(
         deserializer: &mut D,
     ) -> pagable::Result<Self> {
         let len = usize::deserialize(deserializer.serde())?;

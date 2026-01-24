@@ -100,6 +100,7 @@
 
 #![allow(unused)]
 
+use std::any::TypeId;
 use std::cell::UnsafeCell;
 use std::future::Future;
 use std::num::NonZeroU128;
@@ -133,6 +134,7 @@ use crate::arc_erase::ArcErase;
 use crate::arc_erase::ArcEraseDyn;
 use crate::arc_erase::ArcEraseType;
 use crate::arc_erase::StdArcEraseType;
+use crate::arc_erase::deserialize_arc;
 use crate::storage::DataKey;
 use crate::storage::OptionalDataKey;
 use crate::storage::PagableStorage;
@@ -927,16 +929,16 @@ impl<T: Pagable> PagableArcInner<T> {
 }
 
 impl<T: Pagable> PagableSerialize for PagableArc<T> {
-    fn pagable_serialize<S: PagableSerializer>(&self, serializer: &mut S) -> anyhow::Result<()> {
-        serializer.serialize_arc(self.dupe())
+    fn pagable_serialize(&self, serializer: &mut dyn PagableSerializer) -> anyhow::Result<()> {
+        serializer.serialize_arc(self)
     }
 }
 
 impl<'de, T: Pagable> PagableDeserialize<'de> for PagableArc<T> {
-    fn pagable_deserialize<D: PagableDeserializer<'de>>(
+    fn pagable_deserialize<D: PagableDeserializer<'de> + ?Sized>(
         deserializer: &mut D,
     ) -> crate::Result<Self> {
-        deserializer.deserialize_arc::<Self>()
+        deserialize_arc::<Self, _>(deserializer)
     }
 }
 
@@ -971,12 +973,14 @@ impl<T: Pagable> ArcErase for PagableArc<T> {
         self.get_data_key().is_none()
     }
 
-    fn serialize_inner<S: PagableSerializer>(&self, ser: &mut S) -> anyhow::Result<()> {
+    fn serialize_inner(&self, ser: &mut dyn PagableSerializer) -> anyhow::Result<()> {
         let strong = self.pin_sync()?;
         <T as PagableSerialize>::pagable_serialize(&strong, ser)
     }
 
-    fn deserialize_inner<'de, D: PagableDeserializer<'de>>(deser: &mut D) -> anyhow::Result<Self> {
+    fn deserialize_inner<'de, D: PagableDeserializer<'de> + ?Sized>(
+        deser: &mut D,
+    ) -> anyhow::Result<Self> {
         Ok(Self::new(
             <T as PagableDeserialize>::pagable_deserialize(deser)?,
             deser.storage().dupe(),
@@ -985,16 +989,16 @@ impl<T: Pagable> ArcErase for PagableArc<T> {
 }
 
 impl<T: Pagable> PagableSerialize for PinnedPagableArc<T> {
-    fn pagable_serialize<S: PagableSerializer>(&self, serializer: &mut S) -> anyhow::Result<()> {
-        serializer.serialize_arc(self.dupe())
+    fn pagable_serialize(&self, serializer: &mut dyn PagableSerializer) -> anyhow::Result<()> {
+        serializer.serialize_arc(self)
     }
 }
 
 impl<'de, T: Pagable> PagableDeserialize<'de> for PinnedPagableArc<T> {
-    fn pagable_deserialize<D: PagableDeserializer<'de>>(
+    fn pagable_deserialize<D: PagableDeserializer<'de> + ?Sized>(
         deserializer: &mut D,
     ) -> crate::Result<Self> {
-        deserializer.deserialize_arc::<Self>()
+        deserialize_arc::<Self, _>(deserializer)
     }
 }
 
@@ -1021,11 +1025,13 @@ impl<T: Pagable> ArcErase for PinnedPagableArc<T> {
         None
     }
 
-    fn serialize_inner<S: PagableSerializer>(&self, ser: &mut S) -> anyhow::Result<()> {
+    fn serialize_inner(&self, ser: &mut dyn PagableSerializer) -> anyhow::Result<()> {
         <T as PagableSerialize>::pagable_serialize(self, ser)
     }
 
-    fn deserialize_inner<'de, D: PagableDeserializer<'de>>(deser: &mut D) -> anyhow::Result<Self> {
+    fn deserialize_inner<'de, D: PagableDeserializer<'de> + ?Sized>(
+        deser: &mut D,
+    ) -> anyhow::Result<Self> {
         Ok(Self::new(
             <T as PagableDeserialize>::pagable_deserialize(deser)?,
             deser.storage().dupe(),

@@ -100,13 +100,13 @@ impl PluginKind {
 pub struct PluginKindSet(*const ());
 
 impl PagableSerialize for PluginKindSet {
-    fn pagable_serialize<S: PagableSerializer>(&self, serializer: &mut S) -> pagable::Result<()> {
+    fn pagable_serialize(&self, serializer: &mut dyn PagableSerializer) -> pagable::Result<()> {
         self.unpack().pagable_serialize(serializer)
     }
 }
 
 impl<'de> PagableDeserialize<'de> for PluginKindSet {
-    fn pagable_deserialize<D: PagableDeserializer<'de>>(
+    fn pagable_deserialize<D: PagableDeserializer<'de> + ?Sized>(
         deserializer: &mut D,
     ) -> pagable::Result<Self> {
         Ok(PluginKindSet::pack(

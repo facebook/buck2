@@ -24,13 +24,13 @@ use crate::PagableSerialize;
 use crate::PagableSerializer;
 
 impl PagableSerialize for RelativePathBuf {
-    fn pagable_serialize<S: PagableSerializer>(&self, serializer: &mut S) -> crate::Result<()> {
+    fn pagable_serialize(&self, serializer: &mut dyn PagableSerializer) -> crate::Result<()> {
         Ok(serializer.serde().serialize_str(self.as_str())?)
     }
 }
 
 impl<'de> PagableDeserialize<'de> for RelativePathBuf {
-    fn pagable_deserialize<D: PagableDeserializer<'de>>(
+    fn pagable_deserialize<D: PagableDeserializer<'de> + ?Sized>(
         deserializer: &mut D,
     ) -> crate::Result<Self> {
         Ok(RelativePathBuf::from(String::deserialize(
