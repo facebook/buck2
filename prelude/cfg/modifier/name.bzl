@@ -31,10 +31,6 @@ NAMED_CONSTRAINT_SETTINGS = {
     "ovr_config//build_mode/constraints:arvr_mode": (lambda label: "arvr" if str(label.name) == "arvr_mode_enabled" else None),
 }
 
-UNIFIED_CONSTRAINT_SETTING_DEFAULTS = {
-    "ovr_config//build_mode:sanitizer_type": "no-san",
-}
-
 # Mark all modifier generated configurations with a `cfg:` prefix.
 # We do this so that we can easily recognize which configuration is generated
 # by modifiers and query for it in Scuba.
@@ -54,8 +50,6 @@ def cfg_name(cfg: ConfigurationInfo) -> str:
                 constraint_name = transform(constraint_value_label)
             else:
                 constraint_name = str(constraint_value_label.name)
-        elif constraint_setting in UNIFIED_CONSTRAINT_SETTING_DEFAULTS:
-            constraint_name = UNIFIED_CONSTRAINT_SETTING_DEFAULTS[constraint_setting]
         if constraint_name:
             name_list.append(constraint_name)
 
