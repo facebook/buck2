@@ -80,6 +80,21 @@ pub trait PagableDeserialize<'de>: Sized {
     ) -> crate::Result<Self>;
 }
 
+/// Trait for types that can be deserialized into a [`Box<Self>`].
+///
+/// This trait returns `Box<Self>` instead of `Self` which can be used for unsized types including
+/// trait objects (`dyn Trait`) which can't be returned by value.
+///
+/// This enables deserialization of `Arc<T>` where `T: ?Sized`.
+pub trait PagableBoxDeserialize<'de> {
+    /// Deserialize a value into a boxed instance.
+    ///
+    /// This method is called when deserializing unsized types that must be heap-allocated.
+    fn deserialize_box<D: PagableDeserializer<'de> + ?Sized>(
+        deserializer: &mut D,
+    ) -> crate::Result<Box<Self>>;
+}
+
 /// Trait for types that should be deserialized eagerly.
 ///
 /// This is used for types where deserialization should happen immediately

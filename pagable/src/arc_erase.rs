@@ -24,6 +24,7 @@ use std::sync::Arc;
 
 use dupe::Dupe;
 
+use crate::PagableBoxDeserialize;
 use crate::PagableDeserialize;
 use crate::PagableDeserializer;
 use crate::PagableSerialize;
@@ -221,8 +222,8 @@ pub trait ArcErase: std::any::Any + Sized + Send + Sync + 'static {
     ) -> crate::Result<Self>;
 }
 
-impl<T: PagableSerialize + for<'de> PagableDeserialize<'de> + Send + Sync + 'static> WeakErase
-    for std::sync::Weak<T>
+impl<T: ?Sized + PagableSerialize + for<'de> PagableBoxDeserialize<'de> + Send + Sync + 'static>
+    WeakErase for std::sync::Weak<T>
 {
     fn is_expired(&self) -> bool {
         self.strong_count() == 0
@@ -233,8 +234,8 @@ impl<T: PagableSerialize + for<'de> PagableDeserialize<'de> + Send + Sync + 'sta
     }
 }
 
-impl<T: PagableSerialize + for<'de> PagableDeserialize<'de> + Send + Sync + 'static> ArcErase
-    for std::sync::Arc<T>
+impl<T: ?Sized + PagableSerialize + for<'de> PagableBoxDeserialize<'de> + Send + Sync + 'static>
+    ArcErase for std::sync::Arc<T>
 {
     type Weak = std::sync::Weak<T>;
     fn dupe_strong(&self) -> Self {
@@ -246,7 +247,7 @@ impl<T: PagableSerialize + for<'de> PagableDeserialize<'de> + Send + Sync + 'sta
     }
 
     fn identity(&self) -> usize {
-        Arc::as_ptr(self) as usize
+        Arc::as_ptr(self) as *const () as usize
     }
 
     fn downgrade(&self) -> Option<Self::Weak> {
@@ -260,7 +261,7 @@ impl<T: PagableSerialize + for<'de> PagableDeserialize<'de> + Send + Sync + 'sta
     fn deserialize_inner<'de, D: PagableDeserializer<'de> + ?Sized>(
         deser: &mut D,
     ) -> crate::Result<Self> {
-        Ok(Self::new(T::pagable_deserialize(deser)?))
+        Ok(Arc::from(T::deserialize_box(deser)?))
     }
 }
 

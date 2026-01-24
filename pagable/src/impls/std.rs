@@ -13,6 +13,7 @@ use core::sync::atomic::AtomicI64;
 use ::serde::Deserialize;
 use ::serde::ser::Serialize;
 
+use crate::traits::PagableBoxDeserialize;
 use crate::traits::PagableDeserialize;
 use crate::traits::PagableDeserializer;
 use crate::traits::PagableSerialize;
@@ -85,6 +86,15 @@ impl<'de, T: PagableDeserialize<'de>> PagableDeserialize<'de> for Box<T> {
         deserializer: &mut D,
     ) -> crate::Result<Self> {
         Ok(Box::new(T::pagable_deserialize(deserializer)?))
+    }
+}
+
+impl<'de, T: PagableDeserialize<'de>> PagableBoxDeserialize<'de> for T {
+    fn deserialize_box<D: PagableDeserializer<'de> + ?Sized>(
+        deserializer: &mut D,
+    ) -> crate::Result<Box<Self>> {
+        let val = Self::pagable_deserialize(deserializer)?;
+        Ok(Box::new(val))
     }
 }
 

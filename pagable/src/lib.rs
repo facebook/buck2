@@ -35,6 +35,7 @@ pub mod testing;
 pub mod traits;
 
 pub use traits::Pagable;
+pub use traits::PagableBoxDeserialize;
 pub use traits::PagableDeserialize;
 pub use traits::PagableDeserializer;
 pub use traits::PagableEagerDeserialize;
