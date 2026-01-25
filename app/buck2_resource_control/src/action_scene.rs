@@ -19,6 +19,7 @@ use crate::CommandType;
 use crate::RetryFuture;
 use crate::action_cgroups::ActionCgroupResult;
 use crate::action_cgroups::ActionCgroups;
+use crate::action_cgroups::SceneResourceReading;
 use crate::memory_tracker::MemoryTrackerHandle;
 use crate::memory_tracker::read_memory_current;
 use crate::memory_tracker::read_memory_swap_current;
@@ -62,6 +63,23 @@ impl ActionScene {
             command_type,
             action_digest,
         })
+    }
+
+    pub(crate) async fn poll_resources(&mut self) -> buck2_error::Result<SceneResourceReading> {
+        match tokio::try_join!(
+            read_memory_current(&mut self.memory_current_file),
+            read_memory_swap_current(&mut self.memory_swap_current_file)
+        ) {
+            Ok((memory_current, swap_current)) => {
+                let memory_current = memory_current.saturating_sub(self.memory_initial);
+                let swap_current = swap_current.saturating_sub(self.swap_initial);
+                Ok(SceneResourceReading {
+                    memory_current,
+                    swap_current,
+                })
+            }
+            Err(e) => Err(e),
+        }
     }
 }
 

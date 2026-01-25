@@ -27,14 +27,8 @@ use crate::cgroup::EffectiveResourceConstraints;
 use crate::event::EventSenderState;
 use crate::event::ResourceControlEventMostly;
 use crate::memory_tracker::MemoryReading;
-use crate::memory_tracker::read_memory_current;
-use crate::memory_tracker::read_memory_swap_current;
 use crate::path::CgroupPath;
 use crate::pool::CgroupPool;
-
-type ActionFreezeEventSender = mpsc::UnboundedSender<ActionFreezeEvent>;
-
-type KillSender = oneshot::Sender<RetryFuture>;
 
 #[derive(Debug, Clone)]
 pub struct ActionCgroupResult {
@@ -66,6 +60,15 @@ impl ActionCgroupResult {
         }
     }
 }
+
+pub(crate) struct SceneResourceReading {
+    pub(crate) memory_current: u64,
+    pub(crate) swap_current: u64,
+}
+
+type ActionFreezeEventSender = mpsc::UnboundedSender<ActionFreezeEvent>;
+
+type KillSender = oneshot::Sender<RetryFuture>;
 
 #[derive(Debug)]
 enum SuspendImplementation {
@@ -298,21 +301,12 @@ impl ActionCgroups {
             .map(|c| &mut c.cgroup)
             .chain(self.suspended_cgroups.iter_mut().map(|c| &mut c.cgroup))
         {
-            // Need to continuously poll memory.current when using a cgroup pool because we can't reset memory.peak
-            // in kernels older than 6.12.
-            match tokio::try_join!(
-                read_memory_current(&mut cgroup.action_scene.memory_current_file),
-                read_memory_swap_current(&mut cgroup.action_scene.memory_swap_current_file)
-            ) {
-                Ok((memory_current, swap_current)) => {
-                    let memory_current =
-                        memory_current.saturating_sub(cgroup.action_scene.memory_initial);
-                    let swap_current =
-                        swap_current.saturating_sub(cgroup.action_scene.swap_initial);
-                    cgroup.memory_current = memory_current;
-                    cgroup.memory_peak = cgroup.memory_peak.max(memory_current);
-                    cgroup.swap_current = swap_current;
-                    cgroup.swap_peak = cgroup.swap_peak.max(swap_current);
+            match cgroup.action_scene.poll_resources().await {
+                Ok(res) => {
+                    cgroup.memory_current = res.memory_current;
+                    cgroup.memory_peak = cgroup.memory_peak.max(res.memory_current);
+                    cgroup.swap_current = res.swap_current;
+                    cgroup.swap_peak = cgroup.swap_peak.max(res.swap_current);
                 }
                 Err(e) => {
                     cgroup.error = Some(e);
