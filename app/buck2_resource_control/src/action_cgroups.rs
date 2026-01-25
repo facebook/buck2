@@ -19,6 +19,7 @@ use tokio::sync::mpsc;
 use tokio::sync::oneshot;
 
 use crate::ActionFreezeEvent;
+use crate::CommandType;
 use crate::KillFuture;
 use crate::RetryFuture;
 use crate::action_scene::ActionScene;
@@ -27,6 +28,13 @@ use crate::event::EventSenderState;
 use crate::event::ResourceControlEventMostly;
 use crate::memory_tracker::MemoryReading;
 use crate::pool::CgroupPool;
+
+/// Some information about the scene used for logging only
+#[derive(Debug)]
+pub(crate) struct SceneDescription {
+    pub(crate) action_digest: Option<String>,
+    pub(crate) command_type: CommandType,
+}
 
 #[derive(Debug, Clone)]
 pub(crate) struct SceneResult {
@@ -95,6 +103,7 @@ impl SceneId {
 #[derive(Debug)]
 pub(crate) struct ActionCgroup {
     pub(crate) action_scene: ActionScene,
+    pub(crate) description: SceneDescription,
     scene_id: SceneId,
     pub(crate) memory_peak: u64,
     pub(crate) memory_current: u64,
@@ -231,6 +240,7 @@ impl ActionCgroups {
     pub(crate) async fn action_started(
         &mut self,
         action_scene: ActionScene,
+        description: SceneDescription,
         disable_kill_and_retry_suspend: bool,
     ) -> buck2_error::Result<(SceneId, RetryFuture)> {
         let suspend_strategy = if disable_kill_and_retry_suspend {
@@ -243,6 +253,7 @@ impl ActionCgroups {
 
         let action_cgroup = ActionCgroup {
             action_scene,
+            description,
             scene_id: scene_id.copy(),
             memory_current: 0,
             memory_peak: 0,
@@ -579,24 +590,22 @@ mod tests {
         };
         let scene1 = action_cgroups
             .action_started(
-                ActionScene::new(
-                    cgroup_1.clone(),
-                    CommandType::Build,
-                    Some("action_1".to_owned()),
-                )
-                .await?,
+                ActionScene::new(cgroup_1.clone()).await?,
+                SceneDescription {
+                    command_type: CommandType::Build,
+                    action_digest: Some("action_1".to_owned()),
+                },
                 false,
             )
             .await?
             .0;
         let scene2 = action_cgroups
             .action_started(
-                ActionScene::new(
-                    cgroup_2.clone(),
-                    CommandType::Build,
-                    Some("action_2".to_owned()),
-                )
-                .await?,
+                ActionScene::new(cgroup_2.clone()).await?,
+                SceneDescription {
+                    command_type: CommandType::Build,
+                    action_digest: Some("action_2".to_owned()),
+                },
                 false,
             )
             .await?
@@ -647,14 +656,22 @@ mod tests {
         };
         let scene1 = action_cgroups
             .action_started(
-                ActionScene::new(cgroup_1.clone(), CommandType::Build, None).await?,
+                ActionScene::new(cgroup_1.clone()).await?,
+                SceneDescription {
+                    command_type: CommandType::Build,
+                    action_digest: None,
+                },
                 false,
             )
             .await?
             .0;
         let scene2 = action_cgroups
             .action_started(
-                ActionScene::new(cgroup_2.clone(), CommandType::Build, None).await?,
+                ActionScene::new(cgroup_2.clone()).await?,
+                SceneDescription {
+                    command_type: CommandType::Build,
+                    action_digest: None,
+                },
                 false,
             )
             .await?

@@ -19,6 +19,7 @@ use tokio::sync::Mutex;
 use crate::CommandType;
 use crate::RetryFuture;
 use crate::action_cgroups::ActionCgroups;
+use crate::action_cgroups::SceneDescription;
 use crate::action_cgroups::SceneId;
 use crate::action_cgroups::SceneResourceReading;
 use crate::memory_tracker::MemoryTrackerHandle;
@@ -42,17 +43,11 @@ pub(crate) struct ActionScene {
     pub(crate) memory_swap_current_file: File,
     pub(crate) memory_initial: u64,
     pub(crate) swap_initial: u64,
-    pub(crate) command_type: CommandType,
-    pub(crate) action_digest: Option<String>,
     error: Option<buck2_error::Error>,
 }
 
 impl ActionScene {
-    pub(crate) async fn new(
-        cgroup_path: CgroupPathBuf,
-        command_type: CommandType,
-        action_digest: Option<String>,
-    ) -> buck2_error::Result<Self> {
+    pub(crate) async fn new(cgroup_path: CgroupPathBuf) -> buck2_error::Result<Self> {
         let mut memory_current_file = File::open(cgroup_path.as_path().join("memory.current"))
             .await
             .with_buck_error_context(|| "failed to open memory.current")?;
@@ -69,8 +64,6 @@ impl ActionScene {
             memory_swap_current_file,
             memory_initial,
             swap_initial,
-            command_type,
-            action_digest,
             error: None,
         })
     }
@@ -122,15 +115,21 @@ impl ActionCgroupSession {
 
         let (cgroup_id, cgroup_path) = action_cgroups.cgroup_pool.acquire().await?;
 
-        let start_future = async {
-            let action_scene =
-                ActionScene::new(cgroup_path.clone(), command_type, action_digest).await?;
+        let f = async {
+            let action_scene = ActionScene::new(cgroup_path.clone()).await?;
             action_cgroups
-                .action_started(action_scene, disable_kill_and_retry_suspend)
+                .action_started(
+                    action_scene,
+                    SceneDescription {
+                        action_digest,
+                        command_type,
+                    },
+                    disable_kill_and_retry_suspend,
+                )
                 .await
         };
 
-        let (scene_id, start_future) = match start_future.await {
+        let (scene_id, start_future) = match f.await {
             Ok(x) => x,
             Err(e) => {
                 // FIXME(JakobDegen): A proper drop impl on the id would be better than this
