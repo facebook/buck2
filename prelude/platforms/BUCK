@@ -11,6 +11,8 @@ prelude = native
 
 execution_platform(
     name = "default",
+    abi_configuration = host_configuration.abi,
+    compiler_configuration = host_configuration.compiler,
     cpu_configuration = host_configuration.cpu,
     cpp_stdlib_configuration = host_configuration.cpp_stdlib,
     distro_configuration = host_configuration.distro,
