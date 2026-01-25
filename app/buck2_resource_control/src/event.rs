@@ -110,8 +110,14 @@ impl EventSenderState {
             actions_suspended,
             actions_running,
 
-            action_kind: cgroup.map(|cgroup| cgroup.command_type),
-            action_digest: cgroup.map(|cgroup| cgroup.action_digest.clone().unwrap_or_default()),
+            action_kind: cgroup.map(|cgroup| cgroup.action_scene.command_type),
+            action_digest: cgroup.map(|cgroup| {
+                cgroup
+                    .action_scene
+                    .action_digest
+                    .clone()
+                    .unwrap_or_default()
+            }),
             action_cgroup_memory_current: cgroup.map(|cgroup| cgroup.memory_current),
             action_cgroup_memory_peak: cgroup.map(|cgroup| cgroup.memory_peak),
             action_cgroup_swap_current: cgroup.map(|cgroup| cgroup.swap_current),

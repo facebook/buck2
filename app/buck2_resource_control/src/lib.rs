@@ -17,6 +17,8 @@ use tokio::sync::oneshot;
 #[cfg(unix)]
 pub mod action_cgroups;
 #[cfg(unix)]
+pub mod action_scene;
+#[cfg(unix)]
 pub mod buck_cgroup_tree;
 #[cfg(unix)]
 pub mod cgroup;
@@ -121,11 +123,10 @@ pub struct RetryFuture(
 );
 
 #[cfg(not(unix))]
-pub mod action_cgroups {
-    use std::time::Duration;
-
+pub mod action_scene {
     use crate::CommandType;
     use crate::RetryFuture;
+    use crate::action_cgroups::ActionCgroupResult;
     use crate::memory_tracker::MemoryTrackerHandle;
     use crate::path::CgroupPathBuf;
 
@@ -148,6 +149,11 @@ pub mod action_cgroups {
             unreachable!("not supported");
         }
     }
+}
+
+#[cfg(not(unix))]
+pub mod action_cgroups {
+    use std::time::Duration;
 
     pub struct ActionCgroupResult {
         pub memory_peak: Option<u64>,

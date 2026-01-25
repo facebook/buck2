@@ -12,7 +12,6 @@ index_vec = { workspace = true }
 ref-cast = { workspace = true }
 tokio = { workspace = true }
 tokio-util = { workspace = true }
-tracing = { workspace = true }
 
 allocative = { workspace = true }
 dupe = { workspace = true }

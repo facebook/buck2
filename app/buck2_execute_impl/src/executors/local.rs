@@ -84,7 +84,7 @@ use buck2_fs::paths::abs_path::AbsPath;
 use buck2_resource_control::ActionFreezeEvent;
 use buck2_resource_control::ActionFreezeEventReceiver;
 use buck2_resource_control::CommandType;
-use buck2_resource_control::action_cgroups::ActionCgroupSession;
+use buck2_resource_control::action_scene::ActionCgroupSession;
 use buck2_resource_control::memory_tracker::MemoryTrackerHandle;
 use buck2_resource_control::path::CgroupPathBuf;
 use buck2_util::process::background_command;

@@ -9,36 +9,32 @@
  */
 
 use std::collections::VecDeque;
-use std::sync::Arc;
 use std::time::Duration;
 use std::time::Instant;
 
 use buck2_common::init::ActionSuspendStrategy;
 use buck2_common::init::ResourceControlConfig;
-use buck2_error::BuckErrorContext;
 use buck2_error::internal_error;
 use buck2_events::daemon_id::DaemonId;
-use dupe::Dupe;
-use tokio::fs::File;
-use tokio::sync::Mutex;
 use tokio::sync::mpsc;
 use tokio::sync::oneshot;
 
 use crate::ActionFreezeEvent;
-use crate::CommandType;
 use crate::KillFuture;
 use crate::RetryFuture;
+use crate::action_scene::ActionScene;
 use crate::cgroup::EffectiveResourceConstraints;
 use crate::event::EventSenderState;
 use crate::event::ResourceControlEventMostly;
 use crate::memory_tracker::MemoryReading;
-use crate::memory_tracker::MemoryTrackerHandle;
 use crate::memory_tracker::read_memory_current;
 use crate::memory_tracker::read_memory_swap_current;
 use crate::path::CgroupPath;
-use crate::path::CgroupPathBuf;
-use crate::pool::CgroupID;
 use crate::pool::CgroupPool;
+
+type ActionFreezeEventSender = mpsc::UnboundedSender<ActionFreezeEvent>;
+
+type KillSender = oneshot::Sender<RetryFuture>;
 
 #[derive(Debug, Clone)]
 pub struct ActionCgroupResult {
@@ -71,10 +67,6 @@ impl ActionCgroupResult {
     }
 }
 
-type ActionFreezeEventSender = mpsc::UnboundedSender<ActionFreezeEvent>;
-
-type KillSender = oneshot::Sender<RetryFuture>;
-
 #[derive(Debug)]
 enum SuspendImplementation {
     // We store the kill sender here not with the expectation that we'll use it, but so that we hold
@@ -100,21 +92,15 @@ enum WakeImplementation {
 
 #[derive(Debug)]
 pub(crate) struct ActionCgroup {
-    path: CgroupPathBuf,
-    memory_current_file: File,
-    memory_swap_current_file: File,
-    memory_initial: u64,
+    pub(crate) action_scene: ActionScene,
     pub(crate) memory_peak: u64,
     pub(crate) memory_current: u64,
-    swap_initial: u64,
     pub(crate) swap_current: u64,
     pub(crate) swap_peak: u64,
     error: Option<buck2_error::Error>,
     suspend_duration: Option<Duration>,
     suspend_count: u64,
     suspend_strategy: ActionSuspendStrategy,
-    pub(crate) command_type: CommandType,
-    pub(crate) action_digest: Option<String>,
 }
 
 #[derive(Debug)]
@@ -167,69 +153,7 @@ pub(crate) struct ActionCgroups {
     total_memory_during_last_suspend: Option<u64>,
     event_sender_state: EventSenderState,
     // Constraints for the cgroup hierarchy
-    cgroup_pool: CgroupPool,
-}
-
-// Interface between forkserver/executors and ActionCgroups used to report when commands
-// are active and return cgroup results for a single command.
-pub struct ActionCgroupSession {
-    // Pointer to the cgroup pool and not owned by the session. This is mainly used for the session to mark a cgroup as being used
-    // when starting a command and then releasing it back to the pool when the command finishes.
-    action_cgroups: Arc<Mutex<ActionCgroups>>,
-    cgroup_id: CgroupID,
-    pub path: CgroupPathBuf,
-}
-
-impl ActionCgroupSession {
-    pub async fn maybe_create(
-        tracker: &Option<MemoryTrackerHandle>,
-        command_type: CommandType,
-        action_digest: Option<String>,
-        disable_kill_and_retry_suspend: bool,
-    ) -> buck2_error::Result<Option<(Self, RetryFuture)>> {
-        let Some(tracker) = tracker else {
-            return Ok(None);
-        };
-
-        let mut action_cgroups = tracker.action_cgroups.lock().await;
-
-        let (cgroup_id, path) = action_cgroups.cgroup_pool.acquire().await?;
-
-        let start_future = match action_cgroups
-            .action_started(
-                path.clone(),
-                command_type,
-                action_digest.clone(),
-                disable_kill_and_retry_suspend,
-            )
-            .await
-        {
-            Ok(x) => x,
-            Err(e) => {
-                // FIXME(JakobDegen): A proper drop impl on the id would be better than this
-                action_cgroups.cgroup_pool.release(cgroup_id);
-                return Err(e);
-            }
-        };
-
-        Ok(Some((
-            ActionCgroupSession {
-                action_cgroups: tracker.action_cgroups.dupe(),
-                cgroup_id,
-                path,
-            },
-            start_future,
-        )))
-    }
-
-    pub async fn action_finished(&mut self) -> ActionCgroupResult {
-        let mut action_cgroups = self.action_cgroups.lock().await;
-        let res = action_cgroups.action_finished(&self.path);
-
-        action_cgroups.cgroup_pool.release(self.cgroup_id);
-
-        res
-    }
+    pub(crate) cgroup_pool: CgroupPool,
 }
 
 impl ActionCgroups {
@@ -294,24 +218,11 @@ impl ActionCgroups {
         self.event_sender_state.command_started(event_tx);
     }
 
-    async fn action_started(
+    pub(crate) async fn action_started(
         &mut self,
-        cgroup_path: CgroupPathBuf,
-        command_type: CommandType,
-        action_digest: Option<String>,
+        action_scene: ActionScene,
         disable_kill_and_retry_suspend: bool,
     ) -> buck2_error::Result<RetryFuture> {
-        let mut memory_current_file = File::open(cgroup_path.as_path().join("memory.current"))
-            .await
-            .with_buck_error_context(|| "failed to open memory.current")?;
-        let mut memory_swap_current_file =
-            File::open(cgroup_path.as_path().join("memory.swap.current"))
-                .await
-                .with_buck_error_context(|| "failed to open memory.swap.current")?;
-
-        let memory_initial = read_memory_current(&mut memory_current_file).await?;
-        let swap_initial = read_memory_swap_current(&mut memory_swap_current_file).await?;
-
         let suspend_strategy = if disable_kill_and_retry_suspend {
             ActionSuspendStrategy::CgroupFreeze
         } else {
@@ -319,21 +230,15 @@ impl ActionCgroups {
         };
 
         let action_cgroup = ActionCgroup {
-            path: cgroup_path.clone(),
-            memory_current_file,
-            memory_swap_current_file,
-            memory_initial,
+            action_scene,
             memory_current: 0,
             memory_peak: 0,
-            swap_initial,
             swap_current: 0,
             swap_peak: 0,
             error: None,
             suspend_duration: None,
             suspend_count: 0,
             suspend_strategy,
-            command_type,
-            action_digest,
         };
 
         let (start_tx, start_rx) = oneshot::channel();
@@ -358,11 +263,11 @@ impl ActionCgroups {
         Ok(start_future)
     }
 
-    fn action_finished(&mut self, cgroup_path: &CgroupPath) -> ActionCgroupResult {
+    pub(crate) fn action_finished(&mut self, cgroup_path: &CgroupPath) -> ActionCgroupResult {
         if let Some(i) = self
             .running_cgroups
             .iter()
-            .position(|cg| &*cg.cgroup.path == cgroup_path)
+            .position(|cg| &*cg.cgroup.action_scene.path == cgroup_path)
         {
             let cgroup = self.running_cgroups.remove(i);
             self.wake();
@@ -370,7 +275,7 @@ impl ActionCgroups {
         } else if let Some(i) = self
             .suspended_cgroups
             .iter()
-            .position(|cg| &*cg.cgroup.path == cgroup_path)
+            .position(|cg| &*cg.cgroup.action_scene.path == cgroup_path)
         {
             let cgroup = self.suspended_cgroups.remove(i).unwrap();
             // Command can finish after freezing a cgroup either because freezing may take some time
@@ -396,12 +301,14 @@ impl ActionCgroups {
             // Need to continuously poll memory.current when using a cgroup pool because we can't reset memory.peak
             // in kernels older than 6.12.
             match tokio::try_join!(
-                read_memory_current(&mut cgroup.memory_current_file),
-                read_memory_swap_current(&mut cgroup.memory_swap_current_file)
+                read_memory_current(&mut cgroup.action_scene.memory_current_file),
+                read_memory_swap_current(&mut cgroup.action_scene.memory_swap_current_file)
             ) {
                 Ok((memory_current, swap_current)) => {
-                    let memory_current = memory_current.saturating_sub(cgroup.memory_initial);
-                    let swap_current = swap_current.saturating_sub(cgroup.swap_initial);
+                    let memory_current =
+                        memory_current.saturating_sub(cgroup.action_scene.memory_initial);
+                    let swap_current =
+                        swap_current.saturating_sub(cgroup.action_scene.swap_initial);
                     cgroup.memory_current = memory_current;
                     cgroup.memory_peak = cgroup.memory_peak.max(memory_current);
                     cgroup.swap_current = swap_current;
@@ -462,11 +369,6 @@ impl ActionCgroups {
         let cgroup = self.running_cgroups.pop().unwrap();
 
         let (suspended_cgroup, event_kind) = suspend_cgroup(cgroup, now);
-        tracing::debug!(
-            "Froze action: {:?} (type: {:?})",
-            suspended_cgroup.cgroup.path,
-            suspended_cgroup.cgroup.command_type
-        );
 
         self.total_memory_during_last_suspend = Some(memory_reading.allprocs_memory_current);
         // Push it onto the list before emitting the event so that the action count in the event is
@@ -532,12 +434,6 @@ impl ActionCgroups {
         let Some(mut suspended_cgroup) = self.suspended_cgroups.pop_front() else {
             return;
         };
-
-        tracing::debug!(
-            "Awaking action: {:?} (type: {:?})",
-            suspended_cgroup.cgroup.path,
-            suspended_cgroup.cgroup.command_type
-        );
 
         if let Some(suspend_start) = suspended_cgroup.suspend_start {
             let suspend_elapsed = Instant::now() - suspend_start;
@@ -658,6 +554,8 @@ mod tests {
     use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
 
     use super::*;
+    use crate::CommandType;
+    use crate::path::CgroupPathBuf;
 
     #[tokio::test]
     async fn test_peak_memory_and_swap() -> buck2_error::Result<()> {
@@ -678,17 +576,23 @@ mod tests {
         };
         action_cgroups
             .action_started(
-                cgroup_1.clone(),
-                CommandType::Build,
-                Some("action_1".to_owned()),
+                ActionScene::new(
+                    cgroup_1.clone(),
+                    CommandType::Build,
+                    Some("action_1".to_owned()),
+                )
+                .await?,
                 false,
             )
             .await?;
         action_cgroups
             .action_started(
-                cgroup_2.clone(),
-                CommandType::Build,
-                Some("action_2".to_owned()),
+                ActionScene::new(
+                    cgroup_2.clone(),
+                    CommandType::Build,
+                    Some("action_2".to_owned()),
+                )
+                .await?,
                 false,
             )
             .await?;
@@ -737,10 +641,16 @@ mod tests {
             return Ok(());
         };
         action_cgroups
-            .action_started(cgroup_1.clone(), CommandType::Build, None, false)
+            .action_started(
+                ActionScene::new(cgroup_1.clone(), CommandType::Build, None).await?,
+                false,
+            )
             .await?;
         action_cgroups
-            .action_started(cgroup_2.clone(), CommandType::Build, None, false)
+            .action_started(
+                ActionScene::new(cgroup_2.clone(), CommandType::Build, None).await?,
+                false,
+            )
             .await?;
 
         fs::write(cgroup_1.as_path().join("memory.current"), "1")?;
