@@ -9,6 +9,7 @@
  */
 
 use std::sync::Arc;
+use std::time::Duration;
 
 use buck2_error::BuckErrorContext;
 use dupe::Dupe;
@@ -17,7 +18,6 @@ use tokio::sync::Mutex;
 
 use crate::CommandType;
 use crate::RetryFuture;
-use crate::action_cgroups::ActionCgroupResult;
 use crate::action_cgroups::ActionCgroups;
 use crate::action_cgroups::SceneId;
 use crate::action_cgroups::SceneResourceReading;
@@ -27,6 +27,15 @@ use crate::memory_tracker::read_memory_swap_current;
 use crate::path::CgroupPathBuf;
 use crate::pool::CgroupID;
 
+#[derive(Debug, Clone)]
+pub struct ActionCgroupResult {
+    pub memory_peak: Option<u64>,
+    pub swap_peak: Option<u64>,
+    pub error: Option<buck2_error::Error>,
+    pub suspend_duration: Option<Duration>,
+    pub suspend_count: u64,
+}
+
 #[derive(Debug)]
 pub(crate) struct ActionScene {
     pub(crate) memory_current_file: File,
@@ -35,6 +44,7 @@ pub(crate) struct ActionScene {
     pub(crate) swap_initial: u64,
     pub(crate) command_type: CommandType,
     pub(crate) action_digest: Option<String>,
+    error: Option<buck2_error::Error>,
 }
 
 impl ActionScene {
@@ -61,10 +71,11 @@ impl ActionScene {
             swap_initial,
             command_type,
             action_digest,
+            error: None,
         })
     }
 
-    pub(crate) async fn poll_resources(&mut self) -> buck2_error::Result<SceneResourceReading> {
+    pub(crate) async fn poll_resources(&mut self) -> Option<SceneResourceReading> {
         match tokio::try_join!(
             read_memory_current(&mut self.memory_current_file),
             read_memory_swap_current(&mut self.memory_swap_current_file)
@@ -72,12 +83,15 @@ impl ActionScene {
             Ok((memory_current, swap_current)) => {
                 let memory_current = memory_current.saturating_sub(self.memory_initial);
                 let swap_current = swap_current.saturating_sub(self.swap_initial);
-                Ok(SceneResourceReading {
+                Some(SceneResourceReading {
                     memory_current,
                     swap_current,
                 })
             }
-            Err(e) => Err(e),
+            Err(e) => {
+                self.error = Some(e);
+                None
+            }
         }
     }
 }
@@ -138,10 +152,26 @@ impl ActionCgroupSession {
 
     pub async fn action_finished(self) -> ActionCgroupResult {
         let mut action_cgroups = self.action_cgroups.lock().await;
-        let res = action_cgroups.action_finished(self.scene_id);
+        let (res, action_scene) = action_cgroups.action_finished(self.scene_id);
 
         action_cgroups.cgroup_pool.release(self.cgroup_id);
 
-        res
+        if let Some(error) = action_scene.error {
+            ActionCgroupResult {
+                memory_peak: None,
+                swap_peak: None,
+                error: Some(error),
+                suspend_duration: None,
+                suspend_count: 0,
+            }
+        } else {
+            ActionCgroupResult {
+                memory_peak: Some(res.memory_peak),
+                swap_peak: Some(res.swap_peak),
+                error: None,
+                suspend_duration: res.suspend_duration,
+                suspend_count: res.suspend_count,
+            }
+        }
     }
 }

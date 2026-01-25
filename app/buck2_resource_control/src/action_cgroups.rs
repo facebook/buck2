@@ -29,32 +29,20 @@ use crate::memory_tracker::MemoryReading;
 use crate::pool::CgroupPool;
 
 #[derive(Debug, Clone)]
-pub struct ActionCgroupResult {
-    pub memory_peak: Option<u64>,
-    pub swap_peak: Option<u64>,
-    pub error: Option<buck2_error::Error>,
-    pub suspend_duration: Option<Duration>,
-    pub suspend_count: u64,
+pub(crate) struct SceneResult {
+    pub(crate) memory_peak: u64,
+    pub(crate) swap_peak: u64,
+    pub(crate) suspend_duration: Option<Duration>,
+    pub(crate) suspend_count: u64,
 }
 
-impl ActionCgroupResult {
-    fn from_info(cgroup_info: ActionCgroup) -> Self {
+impl SceneResult {
+    fn from_info(cgroup_info: &ActionCgroup) -> Self {
         Self {
-            memory_peak: Some(cgroup_info.memory_peak),
-            swap_peak: Some(cgroup_info.swap_peak),
-            error: cgroup_info.error,
+            memory_peak: cgroup_info.memory_peak,
+            swap_peak: cgroup_info.swap_peak,
             suspend_duration: cgroup_info.suspend_duration,
             suspend_count: cgroup_info.suspend_count,
-        }
-    }
-
-    pub fn from_error(e: buck2_error::Error) -> Self {
-        Self {
-            memory_peak: None,
-            swap_peak: None,
-            error: Some(e),
-            suspend_duration: None,
-            suspend_count: 0,
         }
     }
 }
@@ -112,7 +100,6 @@ pub(crate) struct ActionCgroup {
     pub(crate) memory_current: u64,
     pub(crate) swap_current: u64,
     pub(crate) swap_peak: u64,
-    error: Option<buck2_error::Error>,
     suspend_duration: Option<Duration>,
     suspend_count: u64,
     suspend_strategy: ActionSuspendStrategy,
@@ -261,7 +248,6 @@ impl ActionCgroups {
             memory_peak: 0,
             swap_current: 0,
             swap_peak: 0,
-            error: None,
             suspend_duration: None,
             suspend_count: 0,
             suspend_strategy,
@@ -289,7 +275,7 @@ impl ActionCgroups {
         Ok((scene_id, start_future))
     }
 
-    pub(crate) fn action_finished(&mut self, scene_id: SceneId) -> ActionCgroupResult {
+    pub(crate) fn action_finished(&mut self, scene_id: SceneId) -> (SceneResult, ActionScene) {
         if let Some(i) = self
             .running_cgroups
             .iter()
@@ -297,7 +283,10 @@ impl ActionCgroups {
         {
             let cgroup = self.running_cgroups.remove(i);
             self.wake();
-            ActionCgroupResult::from_info(cgroup.cgroup)
+            (
+                SceneResult::from_info(&cgroup.cgroup),
+                cgroup.cgroup.action_scene,
+            )
         } else if let Some(i) = self
             .suspended_cgroups
             .iter()
@@ -306,7 +295,10 @@ impl ActionCgroups {
             let cgroup = self.suspended_cgroups.remove(i).unwrap();
             // Command can finish after freezing a cgroup either because freezing may take some time
             // or because we started freezing after the command finished.
-            ActionCgroupResult::from_info(cgroup.cgroup)
+            (
+                SceneResult::from_info(&cgroup.cgroup),
+                cgroup.cgroup.action_scene,
+            )
         } else {
             unreachable!("Scene disappeared!")
         }
@@ -321,16 +313,13 @@ impl ActionCgroups {
             .map(|c| &mut c.cgroup)
             .chain(self.suspended_cgroups.iter_mut().map(|c| &mut c.cgroup))
         {
-            match cgroup.action_scene.poll_resources().await {
-                Ok(res) => {
-                    cgroup.memory_current = res.memory_current;
-                    cgroup.memory_peak = cgroup.memory_peak.max(res.memory_current);
-                    cgroup.swap_current = res.swap_current;
-                    cgroup.swap_peak = cgroup.swap_peak.max(res.swap_current);
-                }
-                Err(e) => {
-                    cgroup.error = Some(e);
-                }
+            // If we get back `None` that means the thign encountered an error. Not much to be done
+            // about that
+            if let Some(res) = cgroup.action_scene.poll_resources().await {
+                cgroup.memory_current = res.memory_current;
+                cgroup.memory_peak = cgroup.memory_peak.max(res.memory_current);
+                cgroup.swap_current = res.swap_current;
+                cgroup.swap_peak = cgroup.swap_peak.max(res.swap_current);
             }
         }
 
@@ -627,12 +616,12 @@ mod tests {
         };
         action_cgroups.update(memory_reading).await;
 
-        let cgroup_1_res = action_cgroups.action_finished(scene1);
-        let cgroup_2_res = action_cgroups.action_finished(scene2);
-        assert_eq!(cgroup_1_res.memory_peak, Some(10));
-        assert_eq!(cgroup_2_res.memory_peak, Some(0));
-        assert_eq!(cgroup_1_res.swap_peak, Some(3));
-        assert_eq!(cgroup_2_res.swap_peak, Some(0));
+        let cgroup_1_res = action_cgroups.action_finished(scene1).0;
+        let cgroup_2_res = action_cgroups.action_finished(scene2).0;
+        assert_eq!(cgroup_1_res.memory_peak, 10);
+        assert_eq!(cgroup_2_res.memory_peak, 0);
+        assert_eq!(cgroup_1_res.swap_peak, 3);
+        assert_eq!(cgroup_2_res.swap_peak, 0);
 
         Ok(())
     }
@@ -683,7 +672,7 @@ mod tests {
         };
         action_cgroups.update(memory_reading).await;
 
-        let cgroup_1_res = action_cgroups.action_finished(scene1);
+        let cgroup_1_res = action_cgroups.action_finished(scene1).0;
         assert!(cgroup_1_res.suspend_duration.is_none());
 
         let memory_reading_2 = MemoryReading {
@@ -695,7 +684,7 @@ mod tests {
         };
         action_cgroups.update(memory_reading_2).await;
 
-        let cgroup_2_res = action_cgroups.action_finished(scene2);
+        let cgroup_2_res = action_cgroups.action_finished(scene2).0;
         assert!(cgroup_2_res.suspend_duration.is_some());
 
         Ok(())

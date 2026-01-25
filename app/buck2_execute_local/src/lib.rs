@@ -27,7 +27,7 @@ use buck2_fs::fs_util;
 use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_fs::paths::abs_path::AbsPath;
 use buck2_resource_control::ActionFreezeEventReceiver;
-use buck2_resource_control::action_cgroups::ActionCgroupResult;
+use buck2_resource_control::action_scene::ActionCgroupResult;
 use buck2_resource_control::path::CgroupPathBuf;
 use bytes::Bytes;
 use futures::future::Future;

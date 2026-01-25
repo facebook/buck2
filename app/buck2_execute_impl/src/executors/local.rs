@@ -489,7 +489,7 @@ impl LocalExecutor {
             break res;
         };
 
-        if let Some(mut cgroup_session) = cgroup_session {
+        if let Some(cgroup_session) = cgroup_session {
             let cgroup_res = cgroup_session.action_finished().await;
             if let Ok(res) = &mut res {
                 res.2.cgroup_result = Some(cgroup_res);
