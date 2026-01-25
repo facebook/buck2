@@ -141,6 +141,7 @@ load(
     "cxx_attr_resources",
     "cxx_is_gnu",
 )
+load(":linker.bzl", "wrap_linker_flags")
 load(
     ":cxx_link_utility.bzl",
     "executable_shared_lib_arguments",
@@ -387,9 +388,10 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
     )
 
     # Gather link inputs.
+    cxx_toolchain_info = get_cxx_toolchain_info(ctx)
     own_link_flags = (
-        get_cxx_toolchain_info(ctx).linker_info.binary_linker_flags +
-        cxx_attr_linker_flags(ctx) +
+        cxx_toolchain_info.linker_info.binary_linker_flags +
+        wrap_linker_flags(cxx_toolchain_info.linker_info.type, cxx_attr_linker_flags(ctx)) +
         impl_params.extra_link_flags +
         impl_params.extra_exported_link_flags
     )

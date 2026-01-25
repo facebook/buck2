@@ -27,6 +27,7 @@ load(
     "from_named_set",
 )
 load(":cxx_context.bzl", "get_cxx_platform_info", "get_cxx_toolchain_info")
+load(":linker.bzl", "wrap_linker_flags")
 load(
     ":cxx_toolchain_types.bzl",
     "LinkerType",
@@ -65,15 +66,20 @@ def cxx_attr_linker_flags_all(ctx: AnalysisContext) -> LinkerFlags:
     if local_linker_script_flags_attr:
         flags.extend(local_linker_script_flags_attr)
 
-    post_flags = getattr(ctx.attrs, "post_linker_flags", [])
+    post_flags = list(getattr(ctx.attrs, "post_linker_flags", []))
 
     exported_flags = cxx_attr_exported_linker_flags(ctx)
     exported_post_flags = cxx_attr_exported_post_linker_flags(ctx)
+
+    # Wrap linker flags with -Wl, prefix for linker types that use a compiler
+    # driver (gnu, darwin). This ensures flags like --as-needed, --push-state,
+    # etc. are properly passed through to the linker.
+    linker_type = get_cxx_toolchain_info(ctx).linker_info.type
     return LinkerFlags(
-        flags = flags,
-        post_flags = post_flags,
-        exported_flags = exported_flags,
-        exported_post_flags = exported_post_flags,
+        flags = wrap_linker_flags(linker_type, flags),
+        post_flags = wrap_linker_flags(linker_type, post_flags),
+        exported_flags = wrap_linker_flags(linker_type, exported_flags),
+        exported_post_flags = wrap_linker_flags(linker_type, exported_post_flags),
     )
 
 def cxx_attr_exported_linker_flags(ctx: AnalysisContext) -> list[typing.Any]:
