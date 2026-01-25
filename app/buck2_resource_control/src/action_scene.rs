@@ -19,6 +19,7 @@ use crate::CommandType;
 use crate::RetryFuture;
 use crate::action_cgroups::ActionCgroupResult;
 use crate::action_cgroups::ActionCgroups;
+use crate::action_cgroups::SceneId;
 use crate::action_cgroups::SceneResourceReading;
 use crate::memory_tracker::MemoryTrackerHandle;
 use crate::memory_tracker::read_memory_current;
@@ -28,7 +29,6 @@ use crate::pool::CgroupID;
 
 #[derive(Debug)]
 pub(crate) struct ActionScene {
-    pub(crate) path: CgroupPathBuf,
     pub(crate) memory_current_file: File,
     pub(crate) memory_swap_current_file: File,
     pub(crate) memory_initial: u64,
@@ -55,7 +55,6 @@ impl ActionScene {
         let swap_initial = read_memory_swap_current(&mut memory_swap_current_file).await?;
 
         Ok(ActionScene {
-            path: cgroup_path.clone(),
             memory_current_file,
             memory_swap_current_file,
             memory_initial,
@@ -90,6 +89,7 @@ pub struct ActionCgroupSession {
     // when starting a command and then releasing it back to the pool when the command finishes.
     action_cgroups: Arc<Mutex<ActionCgroups>>,
     cgroup_id: CgroupID,
+    scene_id: SceneId,
     pub path: CgroupPathBuf,
 }
 
@@ -116,7 +116,7 @@ impl ActionCgroupSession {
                 .await
         };
 
-        let start_future = match start_future.await {
+        let (scene_id, start_future) = match start_future.await {
             Ok(x) => x,
             Err(e) => {
                 // FIXME(JakobDegen): A proper drop impl on the id would be better than this
@@ -129,15 +129,16 @@ impl ActionCgroupSession {
             ActionCgroupSession {
                 action_cgroups: tracker.action_cgroups.dupe(),
                 cgroup_id,
+                scene_id,
                 path: cgroup_path,
             },
             start_future,
         )))
     }
 
-    pub async fn action_finished(&mut self) -> ActionCgroupResult {
+    pub async fn action_finished(self) -> ActionCgroupResult {
         let mut action_cgroups = self.action_cgroups.lock().await;
-        let res = action_cgroups.action_finished(&self.path);
+        let res = action_cgroups.action_finished(self.scene_id);
 
         action_cgroups.cgroup_pool.release(self.cgroup_id);
 

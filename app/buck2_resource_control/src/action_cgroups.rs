@@ -14,7 +14,6 @@ use std::time::Instant;
 
 use buck2_common::init::ActionSuspendStrategy;
 use buck2_common::init::ResourceControlConfig;
-use buck2_error::internal_error;
 use buck2_events::daemon_id::DaemonId;
 use tokio::sync::mpsc;
 use tokio::sync::oneshot;
@@ -27,7 +26,6 @@ use crate::cgroup::EffectiveResourceConstraints;
 use crate::event::EventSenderState;
 use crate::event::ResourceControlEventMostly;
 use crate::memory_tracker::MemoryReading;
-use crate::path::CgroupPath;
 use crate::pool::CgroupPool;
 
 #[derive(Debug, Clone)]
@@ -93,9 +91,23 @@ enum WakeImplementation {
     UnblockStart(oneshot::Sender<(KillFuture, mpsc::UnboundedReceiver<ActionFreezeEvent>)>),
 }
 
+/// A globally unique identifier for a scene
+///
+/// This type is intentionally not `Copy` or `Clone`, ensuring that `scene_finished` can't be called
+/// twice
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub(crate) struct SceneId(u64);
+
+impl SceneId {
+    fn copy(&self) -> SceneId {
+        SceneId(self.0)
+    }
+}
+
 #[derive(Debug)]
 pub(crate) struct ActionCgroup {
     pub(crate) action_scene: ActionScene,
+    scene_id: SceneId,
     pub(crate) memory_peak: u64,
     pub(crate) memory_current: u64,
     pub(crate) swap_current: u64,
@@ -155,6 +167,7 @@ pub(crate) struct ActionCgroups {
     // cgroups.
     total_memory_during_last_suspend: Option<u64>,
     event_sender_state: EventSenderState,
+    next_scene_id: SceneId,
     // Constraints for the cgroup hierarchy
     pub(crate) cgroup_pool: CgroupPool,
 }
@@ -195,6 +208,7 @@ impl ActionCgroups {
             last_correction_time: None,
             total_memory_during_last_suspend: None,
             event_sender_state: EventSenderState::new(daemon_id, effective_resource_constraints),
+            next_scene_id: SceneId(0),
             cgroup_pool,
         }
     }
@@ -221,19 +235,28 @@ impl ActionCgroups {
         self.event_sender_state.command_started(event_tx);
     }
 
+    fn allocate_scene_id(&mut self) -> SceneId {
+        // This is 64 bits so we don't need to worry about reuse
+        let after_scene_id = SceneId(self.next_scene_id.0 + 1);
+        std::mem::replace(&mut self.next_scene_id, after_scene_id)
+    }
+
     pub(crate) async fn action_started(
         &mut self,
         action_scene: ActionScene,
         disable_kill_and_retry_suspend: bool,
-    ) -> buck2_error::Result<RetryFuture> {
+    ) -> buck2_error::Result<(SceneId, RetryFuture)> {
         let suspend_strategy = if disable_kill_and_retry_suspend {
             ActionSuspendStrategy::CgroupFreeze
         } else {
             self.preferred_action_suspend_strategy
         };
 
+        let scene_id = self.allocate_scene_id();
+
         let action_cgroup = ActionCgroup {
             action_scene,
+            scene_id: scene_id.copy(),
             memory_current: 0,
             memory_peak: 0,
             swap_current: 0,
@@ -263,14 +286,14 @@ impl ActionCgroups {
             self.suspended_cgroups.push_back(suspended_action_cgroup);
         }
 
-        Ok(start_future)
+        Ok((scene_id, start_future))
     }
 
-    pub(crate) fn action_finished(&mut self, cgroup_path: &CgroupPath) -> ActionCgroupResult {
+    pub(crate) fn action_finished(&mut self, scene_id: SceneId) -> ActionCgroupResult {
         if let Some(i) = self
             .running_cgroups
             .iter()
-            .position(|cg| &*cg.cgroup.action_scene.path == cgroup_path)
+            .position(|cg| cg.cgroup.scene_id == scene_id)
         {
             let cgroup = self.running_cgroups.remove(i);
             self.wake();
@@ -278,17 +301,14 @@ impl ActionCgroups {
         } else if let Some(i) = self
             .suspended_cgroups
             .iter()
-            .position(|cg| &*cg.cgroup.action_scene.path == cgroup_path)
+            .position(|cg| cg.cgroup.scene_id == scene_id)
         {
             let cgroup = self.suspended_cgroups.remove(i).unwrap();
             // Command can finish after freezing a cgroup either because freezing may take some time
             // or because we started freezing after the command finished.
             ActionCgroupResult::from_info(cgroup.cgroup)
         } else {
-            ActionCgroupResult::from_error(internal_error!(
-                "cgroup not found for {:?}",
-                cgroup_path
-            ))
+            unreachable!("Scene disappeared!")
         }
     }
 
@@ -568,7 +588,7 @@ mod tests {
         let Some(mut action_cgroups) = ActionCgroups::testing_new().await else {
             return Ok(());
         };
-        action_cgroups
+        let scene1 = action_cgroups
             .action_started(
                 ActionScene::new(
                     cgroup_1.clone(),
@@ -578,8 +598,9 @@ mod tests {
                 .await?,
                 false,
             )
-            .await?;
-        action_cgroups
+            .await?
+            .0;
+        let scene2 = action_cgroups
             .action_started(
                 ActionScene::new(
                     cgroup_2.clone(),
@@ -589,7 +610,8 @@ mod tests {
                 .await?,
                 false,
             )
-            .await?;
+            .await?
+            .0;
 
         fs::write(cgroup_1.as_path().join("memory.current").as_path(), "20")?;
         fs::write(cgroup_2.as_path().join("memory.current").as_path(), "5")?;
@@ -605,8 +627,8 @@ mod tests {
         };
         action_cgroups.update(memory_reading).await;
 
-        let cgroup_1_res = action_cgroups.action_finished(&cgroup_1);
-        let cgroup_2_res = action_cgroups.action_finished(&cgroup_2);
+        let cgroup_1_res = action_cgroups.action_finished(scene1);
+        let cgroup_2_res = action_cgroups.action_finished(scene2);
         assert_eq!(cgroup_1_res.memory_peak, Some(10));
         assert_eq!(cgroup_2_res.memory_peak, Some(0));
         assert_eq!(cgroup_1_res.swap_peak, Some(3));
@@ -634,18 +656,20 @@ mod tests {
         let Some(mut action_cgroups) = ActionCgroups::testing_new().await else {
             return Ok(());
         };
-        action_cgroups
+        let scene1 = action_cgroups
             .action_started(
                 ActionScene::new(cgroup_1.clone(), CommandType::Build, None).await?,
                 false,
             )
-            .await?;
-        action_cgroups
+            .await?
+            .0;
+        let scene2 = action_cgroups
             .action_started(
                 ActionScene::new(cgroup_2.clone(), CommandType::Build, None).await?,
                 false,
             )
-            .await?;
+            .await?
+            .0;
 
         fs::write(cgroup_1.as_path().join("memory.current"), "1")?;
         fs::write(cgroup_2.as_path().join("memory.current"), "2")?;
@@ -659,7 +683,7 @@ mod tests {
         };
         action_cgroups.update(memory_reading).await;
 
-        let cgroup_1_res = action_cgroups.action_finished(&cgroup_1);
+        let cgroup_1_res = action_cgroups.action_finished(scene1);
         assert!(cgroup_1_res.suspend_duration.is_none());
 
         let memory_reading_2 = MemoryReading {
@@ -671,7 +695,7 @@ mod tests {
         };
         action_cgroups.update(memory_reading_2).await;
 
-        let cgroup_2_res = action_cgroups.action_finished(&cgroup_2);
+        let cgroup_2_res = action_cgroups.action_finished(scene2);
         assert!(cgroup_2_res.suspend_duration.is_some());
 
         Ok(())
