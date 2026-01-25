@@ -12,6 +12,8 @@ prelude = native
 execution_platform(
     name = "default",
     cpu_configuration = host_configuration.cpu,
+    cpp_stdlib_configuration = host_configuration.cpp_stdlib,
+    distro_configuration = host_configuration.distro,
     os_configuration = host_configuration.os,
     use_windows_path_separators = host_info().os.is_windows,
     visibility = ["PUBLIC"],
