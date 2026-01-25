@@ -80,13 +80,12 @@ def _host_os_configuration() -> str:
 
 def _host_cpp_stdlib_configuration() -> str:
     os = host_info().os
-    # macOS defaults to libc++
-    if os.is_macos:
+
+    if os.is_macos or os.is_linux:
+        # macOS and Linux default to libc++ (works better with clang)
         return "prelude//cpp:libc++"
-    # For other platforms, default to libstdc++
-    # (Windows and Linux both default to libstdc++ - on Windows this represents
-    # the general C++ stdlib concept, on Linux it's typically the actual libstdc++)
     else:
+        # Windows defaults to libstdc++ (represents the general C++ stdlib concept)
         return "prelude//cpp:libstdc++"
 
 def _host_distro_configuration() -> str | None:
