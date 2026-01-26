@@ -199,4 +199,47 @@ mod tests {
             Ok(_) => panic!("Expected error, got Ok"),
         }
     }
+
+    #[test]
+    fn test_starlark_str_is_registered() {
+        use crate::values::types::string::str_type::StarlarkStr;
+        let type_id = DeserTypeId::of::<StarlarkStr>();
+        let vtable = lookup_vtable(type_id);
+        assert!(
+            vtable.is_ok(),
+            "Expected StarlarkStr to be registered. Available types: {:?}",
+            registered_type_ids()
+        );
+        let vt = vtable.unwrap();
+        assert!(vt.is_str);
+    }
+
+    #[test]
+    fn test_frozen_tuple_is_registered() {
+        use crate::values::types::tuple::value::FrozenTuple;
+        let type_id = DeserTypeId::of::<FrozenTuple>();
+        let vtable = lookup_vtable(type_id);
+        assert!(
+            vtable.is_ok(),
+            "Expected FrozenTuple to be registered. Available types: {:?}",
+            registered_type_ids()
+        );
+        let vt = vtable.unwrap();
+        assert_eq!(vt.type_name, "tuple");
+    }
+
+    #[test]
+    fn test_frozen_list_is_registered() {
+        use crate::values::list::value::ListGen;
+        use crate::values::types::list::value::FrozenListData;
+        let type_id = DeserTypeId::of::<ListGen<FrozenListData>>();
+        let vtable = lookup_vtable(type_id);
+        assert!(
+            vtable.is_ok(),
+            "Expected ListGen<FrozenListData> to be registered. Available types: {:?}",
+            registered_type_ids()
+        );
+        let vt = vtable.unwrap();
+        assert_eq!(vt.type_name, "list");
+    }
 }

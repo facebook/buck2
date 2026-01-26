@@ -20,6 +20,7 @@ use std::ptr::copy_nonoverlapping;
 use starlark_map::Hashed;
 
 use crate::collections::StarlarkHashValue;
+use crate::pagable::vtable_register::register_special_avalue_frozen;
 use crate::values::FreezeResult;
 use crate::values::Freezer;
 use crate::values::FrozenHeap;
@@ -207,3 +208,6 @@ impl<'v> Heap<'v> {
         self.alloc_str(res)
     }
 }
+
+// Register vtable for StarlarkStr (special type not handled by #[starlark_value] macro).
+register_special_avalue_frozen!(StarlarkStr, StarlarkStrAValue);

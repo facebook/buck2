@@ -19,6 +19,7 @@ use std::convert::Infallible;
 use std::mem;
 
 use crate::collections::maybe_uninit_backport::maybe_uninit_write_slice;
+use crate::pagable::vtable_register::register_special_avalue_frozen;
 use crate::values::FreezeResult;
 use crate::values::Freezer;
 use crate::values::FrozenHeap;
@@ -214,3 +215,6 @@ impl<'v> Heap<'v> {
         self.alloc_raw(list_avalue(array)).to_value()
     }
 }
+
+// Register vtable for ListGen<FrozenListData> (special type not handled by #[starlark_value] macro).
+register_special_avalue_frozen!(ListGen<FrozenListData>, AValueFrozenList);

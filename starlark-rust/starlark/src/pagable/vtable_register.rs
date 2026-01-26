@@ -44,3 +44,21 @@ macro_rules! register_avalue_simple_frozen {
         }
     };
 }
+
+/// Macro to register a vtable for a special type with a custom AValue implementation.
+///
+/// This macro is for special types (like `StarlarkStr`, `FrozenTuple`, `ListGen<FrozenListData>`)
+/// that use custom AValue implementations instead of `AValueSimple<T>`.
+macro_rules! register_special_avalue_frozen {
+    ($starlark_value:ty, $avalue:ty) => {
+        #[cfg(feature = "pagable")]
+        inventory::submit! {
+            $crate::pagable::vtable_registry::VTableRegistryEntry {
+                deser_type_id: $crate::__derive_refs::DeserTypeId::of::<$starlark_value>(),
+                vtable: $crate::values::layout::vtable::AValueVTable::new::<$avalue>(),
+            }
+        }
+    };
+}
+
+pub(crate) use register_special_avalue_frozen;
