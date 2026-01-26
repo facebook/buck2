@@ -18,6 +18,7 @@ load("@prelude//apple:apple_info_plist.bzl", "MergeOperations", "RestrictedMerge
 load("@prelude//apple:apple_metal_library.bzl", "apple_metal_library_impl")
 load("@prelude//apple:apple_platforms.bzl", "APPLE_PLATFORMS_KEY")
 load("@prelude//apple:apple_resource_dedupe_alias.bzl", "apple_resource_dedupe_alias_impl")
+load("@prelude//apple:apple_resource_types.bzl", "AppleResourceDestination")
 load("@prelude//apple:apple_rules_impl_utility.bzl", "AppleFrameworkBundleModuleMapType", "apple_bundle_extra_attrs", "apple_test_extra_attrs", "get_apple_info_plist_build_system_identification_attrs")
 load("@prelude//apple:apple_simulators.bzl", "apple_simulators_impl")
 load("@prelude//apple:apple_static_archive.bzl", "apple_static_archive_impl")
@@ -90,8 +91,6 @@ load(":scene_kit_assets.bzl", "scene_kit_assets_impl")
 AdditionalActions = ["pre_scheme_actions", "post_scheme_actions"]
 
 AppleBundleExtension = ["app", "framework", "appex", "plugin", "bundle", "xctest", "dsym", "xpc", "prefpane", "qlgenerator"]
-
-AppleResourceBundleDestination = ["resources", "frameworks", "executables", "plugins", "xpcservices", "loginitems", "systemextensions"]
 
 LaunchStyle = ["auto", "wait"]
 
@@ -869,7 +868,7 @@ apple_resource = prelude_rule(
                  reachable through apple\\_library rules. This field allows for resources which are not reachable
                  using the above traversal strategy to be considered for inclusion in the bundle.
             """),
-            "destination": attrs.option(attrs.enum(AppleResourceBundleDestination), default = None, doc = """
+            "destination": attrs.option(attrs.enum(AppleResourceDestination.values()), default = None, doc = """
                 Specifies the destination in the final application bundle where resource will be copied. Possible
                  values: "resources", "frameworks", "executables", "plugins", "xpcservices".
             """),
