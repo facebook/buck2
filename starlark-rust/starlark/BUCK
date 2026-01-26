@@ -21,6 +21,7 @@ buck_filegroup(
 rust_library(
     name = "starlark",
     srcs = glob(["src/**/*.rs"]),
+    features = ["pagable"],
     rustc_flags = [
         "--cfg=rust_nightly",
     ],

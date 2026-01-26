@@ -468,6 +468,8 @@ pub mod util;
 pub mod values;
 pub mod wasm;
 
+pub mod pagable;
+
 pub mod coerce;
 #[cfg(test)]
 mod tests;

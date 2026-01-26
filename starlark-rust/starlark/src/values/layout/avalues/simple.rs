@@ -45,7 +45,8 @@ pub(crate) fn simple<'v, T: StarlarkValue<'v> + Send + Sync + 'static>(
     AValueImpl::<AValueSimple<T>>::new(x)
 }
 
-pub(crate) struct AValueSimple<T>(PhantomData<T>);
+/// AValue implementation for simple Starlark values.
+pub struct AValueSimple<T>(PhantomData<T>);
 
 impl<'v, T: StarlarkValue<'v>> AValue<'v> for AValueSimple<T> {
     type StarlarkValue = T;

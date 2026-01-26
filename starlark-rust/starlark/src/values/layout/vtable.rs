@@ -108,7 +108,11 @@ impl StarlarkValueRawPtr {
     }
 }
 
-pub(crate) struct AValueVTable {
+/// VTable for `AValue` operations.
+///
+/// This struct contains function pointers for all operations on a Starlark value,
+/// allowing dynamic dispatch.
+pub struct AValueVTable {
     // Common `AValue` fields.
     pub(crate) static_type_of_value: ConstTypeId,
     pub(crate) starlark_type_id: StarlarkTypeId,

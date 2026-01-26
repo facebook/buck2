@@ -32,3 +32,11 @@ pub mod invoke_macro_error;
 pub mod param_spec;
 pub mod parse_args;
 pub mod sig;
+
+// Re-exports for vtable registration macro.
+#[cfg(feature = "pagable")]
+pub use crate::pagable::vtable_registry::DeserTypeId;
+#[cfg(feature = "pagable")]
+pub use crate::pagable::vtable_registry::VTableRegistryEntry;
+pub use crate::values::layout::avalues::simple::AValueSimple;
+pub use crate::values::layout::vtable::AValueVTable;

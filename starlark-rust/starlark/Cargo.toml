@@ -15,6 +15,11 @@ name = "starlark"
 repository = "https://github.com/facebook/starlark-rust"
 version = "0.13.0"
 
+[features]
+default = []
+# Enable pagable serialization support, requiring TypeMatcherRegistered for all TypeMatcher impls.
+pagable = []
+
 [dependencies]
 anyhow = "1.0.65"
 bumpalo = "3.8"
@@ -56,4 +61,4 @@ rustyline = "14.0"
 rand = { version = "0.9", features = ["small_rng"] }
 
 [lints.rust]
-unexpected_cfgs = { level = "warn", check-cfg = ["cfg(rust_nightly)"] }
+unexpected_cfgs = { level = "warn", check-cfg = ["cfg(rust_nightly)", "cfg(feature, values(\"pagable\"))"] }
