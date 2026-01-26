@@ -47,6 +47,19 @@ use crate::values::typing::type_compiled::type_matcher_factory::TypeMatcherFacto
 pub trait TypeMatcherAlloc: Sized {
     type Result;
 
+    // When the `pagable` feature is enabled, we explicitly require `TypeMatcherRegistered`,
+    // although it is reuqired by TypeMatcher.
+    // It can produce better error messages. Generic matchers that not impls TypeMatcherRegistered
+    // will have concrete type in the error messages.
+    #[cfg(feature = "pagable")]
+    fn alloc<
+        T: TypeMatcher + crate::values::typing::type_compiled::matcher::TypeMatcherRegistered,
+    >(
+        self,
+        matcher: T,
+    ) -> Self::Result;
+
+    #[cfg(not(feature = "pagable"))]
     fn alloc<T: TypeMatcher>(self, matcher: T) -> Self::Result;
 
     fn custom(self, custom: &TyCustom) -> Self::Result;

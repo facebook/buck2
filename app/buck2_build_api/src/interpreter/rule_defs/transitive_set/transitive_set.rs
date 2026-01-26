@@ -33,6 +33,7 @@ use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
 use starlark::environment::MethodsStatic;
 use starlark::eval::Evaluator;
+use starlark::type_matcher;
 use starlark::values::Freeze;
 use starlark::values::FreezeResult;
 use starlark::values::Freezer;
@@ -84,6 +85,7 @@ pub(crate) struct TransitiveSetMatcher {
     pub(crate) type_instance_id: TypeInstanceId,
 }
 
+#[type_matcher]
 impl TypeMatcher for TransitiveSetMatcher {
     fn matches(&self, value: Value) -> bool {
         let Some(tset) = ValueTypedComplex::<TransitiveSet>::new(value) else {

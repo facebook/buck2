@@ -26,6 +26,7 @@ use allocative::Allocative;
 use dupe::Dupe;
 use starlark_derive::starlark_module;
 use starlark_derive::starlark_value;
+use starlark_derive::type_matcher;
 use starlark_map::StarlarkHasher;
 use starlark_syntax::slice_vec_ext::SliceExt;
 use starlark_syntax::slice_vec_ext::VecExt;
@@ -119,6 +120,7 @@ where
     ProvidesStaticType,
     NoSerialize
 )]
+/// A compiled type expression wrapped as a Starlark value with a type matcher.
 pub struct TypeCompiledImplAsStarlarkValue<T: 'static> {
     type_compiled_impl: T,
     ty: Ty,
@@ -143,6 +145,7 @@ where
 #[derive(Hash, Eq, PartialEq, Debug, Clone, Allocative)]
 pub struct DummyTypeMatcher;
 
+#[type_matcher]
 impl TypeMatcher for DummyTypeMatcher {
     fn matches(&self, _value: Value) -> bool {
         unreachable!()

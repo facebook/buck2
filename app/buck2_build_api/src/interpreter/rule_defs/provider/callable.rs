@@ -39,6 +39,7 @@ use starlark::eval::Evaluator;
 use starlark::eval::ParametersSpec;
 use starlark::eval::ParametersSpecParam;
 use starlark::eval::param_specs;
+use starlark::type_matcher;
 use starlark::typing::Ty;
 use starlark::typing::TyCallable;
 use starlark::typing::TyStarlarkValue;
@@ -334,6 +335,7 @@ struct UserProviderMatcher {
     type_instance_id: TypeInstanceId,
 }
 
+#[type_matcher]
 impl TypeMatcher for UserProviderMatcher {
     fn matches(&self, value: Value) -> bool {
         match UserProvider::from_value(value) {

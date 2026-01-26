@@ -242,4 +242,36 @@ mod tests {
         let vt = vtable.unwrap();
         assert_eq!(vt.type_name, "list");
     }
+
+    #[test]
+    fn test_type_compiled_non_generic_matcher_is_registered() {
+        // IsAnyOf is a non-generic TypeMatcher, so TypeCompiledImplAsStarlarkValue<IsAnyOf>
+        // should be registered by the #[type_matcher] macro.
+        use crate::values::typing::type_compiled::compiled::TypeCompiledImplAsStarlarkValue;
+        use crate::values::typing::type_compiled::matchers::IsAnyOf;
+        let type_id = DeserTypeId::of::<TypeCompiledImplAsStarlarkValue<IsAnyOf>>();
+        let vtable = lookup_vtable(type_id);
+        assert!(
+            vtable.is_ok(),
+            "Expected TypeCompiledImplAsStarlarkValue<IsAnyOf> to be registered. Available types: {:?}",
+            registered_type_ids()
+        );
+    }
+
+    #[test]
+    fn test_type_compiled_generic_matcher_is_not_registered() {
+        // IsListOf is a generic TypeMatcher (IsListOf<I>), so TypeCompiledImplAsStarlarkValue
+        // for specific instantiations like IsListOf<TypeMatcherBox> should NOT be registered
+        // (the macro skips vtable registration for generic types).
+        use crate::values::typing::type_compiled::compiled::TypeCompiledImplAsStarlarkValue;
+        use crate::values::typing::type_compiled::matcher::TypeMatcherBox;
+        use crate::values::typing::type_compiled::matchers::IsListOf;
+        let type_id =
+            DeserTypeId::of::<TypeCompiledImplAsStarlarkValue<IsListOf<TypeMatcherBox>>>();
+        let vtable = lookup_vtable(type_id);
+        assert!(
+            vtable.is_err(),
+            "Expected TypeCompiledImplAsStarlarkValue<IsListOf<TypeMatcherBox>> to NOT be registered, but it was found"
+        );
+    }
 }

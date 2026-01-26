@@ -18,15 +18,52 @@
 use std::fmt::Debug;
 
 use allocative::Allocative;
+use starlark_derive::type_matcher;
 
+use crate as starlark;
 use crate::typing::custom::TyCustom;
 use crate::values::Value;
 use crate::values::typing::type_compiled::alloc::TypeMatcherAlloc;
 use crate::values::typing::type_compiled::type_matcher_factory::TypeMatcherFactory;
 
+/// Marker trait for type matchers which are registered.
+///
+/// This trait is automatically implemented by the `#[type_matcher]` proc macro.
+///
+/// # Safety
+///
+/// This trait must only be implemented by the `#[type_matcher]` proc macro,
+/// which ensures the type is properly registered in the vtable registry.
+/// Manual implementations may break deserialization.
+#[cfg_attr(not(feature = "pagable"), allow(dead_code))]
+pub unsafe trait TypeMatcherRegistered {}
+
+/// Base trait for type matchers
+///
+///  When `pagable` is enabled, matchers must also implement `TypeMatcherRegistered`
+/// to ensure they are registered.
+#[cfg(feature = "pagable")]
+pub trait TypeMatcherBase:
+    TypeMatcherRegistered + Allocative + Debug + Clone + Sized + Send + Sync + 'static
+{
+}
+
+#[cfg(feature = "pagable")]
+impl<T> TypeMatcherBase for T where
+    T: TypeMatcherRegistered + Allocative + Debug + Clone + Sized + Send + Sync + 'static
+{
+}
+
+/// Base trait for type matchers
+#[cfg(not(feature = "pagable"))]
+pub trait TypeMatcherBase: Allocative + Debug + Clone + Sized + Send + Sync + 'static {}
+
+#[cfg(not(feature = "pagable"))]
+impl<T> TypeMatcherBase for T where T: Allocative + Debug + Clone + Sized + Send + Sync + 'static {}
+
 /// Runtime type matcher. E.g. when `isinstance(1, int)` is called,
 /// implementation of `TypeMatcher` for `int` is used.
-pub trait TypeMatcher: Allocative + Debug + Clone + Sized + Send + Sync + 'static {
+pub trait TypeMatcher: TypeMatcherBase {
     /// Check if the value matches the type.
     fn matches(&self, value: Value) -> bool;
     /// True if this matcher matches any value.
@@ -71,6 +108,7 @@ impl Clone for TypeMatcherBox {
     }
 }
 
+#[type_matcher]
 impl TypeMatcher for TypeMatcherBox {
     fn matches(&self, value: Value) -> bool {
         self.0.matches_dyn(value)

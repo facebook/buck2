@@ -17,7 +17,9 @@
 
 use allocative::Allocative;
 use dupe::Dupe;
+use starlark_derive::type_matcher;
 
+use crate as starlark;
 use crate::typing::starlark_value::TyStarlarkValue;
 use crate::values::UnpackValue;
 use crate::values::Value;
@@ -37,6 +39,7 @@ use crate::values::typing::type_compiled::matcher::TypeMatcherBox;
 #[derive(Clone, Copy, Dupe, Allocative, Debug)]
 pub(crate) struct IsAny;
 
+#[type_matcher]
 impl TypeMatcher for IsAny {
     fn matches(&self, _value: Value) -> bool {
         true
@@ -50,6 +53,7 @@ impl TypeMatcher for IsAny {
 #[derive(Clone, Copy, Dupe, Allocative, Debug)]
 pub(crate) struct IsNever;
 
+#[type_matcher]
 impl TypeMatcher for IsNever {
     fn matches(&self, _value: Value) -> bool {
         false
@@ -59,6 +63,7 @@ impl TypeMatcher for IsNever {
 #[derive(Clone, Copy, Dupe, Allocative, Debug)]
 pub(crate) struct IsStr;
 
+#[type_matcher]
 impl TypeMatcher for IsStr {
     fn matches(&self, value: Value) -> bool {
         value.unpack_str().is_some()
@@ -68,6 +73,7 @@ impl TypeMatcher for IsStr {
 #[derive(Clone, Copy, Dupe, Allocative, Debug)]
 pub(crate) struct IsList;
 
+#[type_matcher]
 impl TypeMatcher for IsList {
     fn matches(&self, value: Value) -> bool {
         value.starlark_type_id() == StarlarkTypeId::of::<FrozenList>()
@@ -77,6 +83,7 @@ impl TypeMatcher for IsList {
 #[derive(Clone, Allocative, Debug)]
 pub(crate) struct IsListOf<I: TypeMatcher>(pub(crate) I);
 
+#[type_matcher]
 impl<I: TypeMatcher> TypeMatcher for IsListOf<I> {
     fn matches(&self, value: Value) -> bool {
         match ListRef::from_value(value) {
@@ -89,6 +96,7 @@ impl<I: TypeMatcher> TypeMatcher for IsListOf<I> {
 #[derive(Clone, Allocative, Debug)]
 pub(crate) struct IsTupleOf<A: TypeMatcher>(pub(crate) A);
 
+#[type_matcher]
 impl<A: TypeMatcher> TypeMatcher for IsTupleOf<A> {
     fn matches(&self, value: Value) -> bool {
         match Tuple::from_value(value) {
@@ -101,6 +109,7 @@ impl<A: TypeMatcher> TypeMatcher for IsTupleOf<A> {
 #[derive(Clone, Allocative, Debug)]
 pub(crate) struct IsTupleElems(pub(crate) Vec<TypeMatcherBox>);
 
+#[type_matcher]
 impl TypeMatcher for IsTupleElems {
     fn matches(&self, value: Value) -> bool {
         match Tuple::from_value(value) {
@@ -115,6 +124,7 @@ impl TypeMatcher for IsTupleElems {
 #[derive(Clone, Allocative, Debug)]
 pub(crate) struct IsTupleElems0;
 
+#[type_matcher]
 impl TypeMatcher for IsTupleElems0 {
     fn matches(&self, value: Value) -> bool {
         match Tuple::from_value(value).map(|t| t.content()) {
@@ -127,6 +137,7 @@ impl TypeMatcher for IsTupleElems0 {
 #[derive(Clone, Allocative, Debug)]
 pub(crate) struct IsTupleElems1<A: TypeMatcher>(pub(crate) A);
 
+#[type_matcher]
 impl<A: TypeMatcher> TypeMatcher for IsTupleElems1<A> {
     fn matches(&self, value: Value) -> bool {
         match Tuple::from_value(value).map(|t| t.content()) {
@@ -139,6 +150,7 @@ impl<A: TypeMatcher> TypeMatcher for IsTupleElems1<A> {
 #[derive(Clone, Allocative, Debug)]
 pub(crate) struct IsTupleElems2<A: TypeMatcher, B: TypeMatcher>(pub(crate) A, pub(crate) B);
 
+#[type_matcher]
 impl<A: TypeMatcher, B: TypeMatcher> TypeMatcher for IsTupleElems2<A, B> {
     fn matches(&self, value: Value) -> bool {
         match Tuple::from_value(value).map(|t| t.content()) {
@@ -151,6 +163,7 @@ impl<A: TypeMatcher, B: TypeMatcher> TypeMatcher for IsTupleElems2<A, B> {
 #[derive(Clone, Copy, Dupe, Allocative, Debug)]
 pub(crate) struct IsDict;
 
+#[type_matcher]
 impl TypeMatcher for IsDict {
     fn matches(&self, value: Value) -> bool {
         value.starlark_type_id() == StarlarkTypeId::of::<FrozenDict>()
@@ -160,6 +173,7 @@ impl TypeMatcher for IsDict {
 #[derive(Clone, Allocative, Debug)]
 pub(crate) struct IsDictOf<K: TypeMatcher, V: TypeMatcher>(pub(crate) K, pub(crate) V);
 
+#[type_matcher]
 impl<K: TypeMatcher, V: TypeMatcher> TypeMatcher for IsDictOf<K, V> {
     fn matches(&self, value: Value) -> bool {
         match DictRef::from_value(value) {
@@ -174,6 +188,7 @@ impl<K: TypeMatcher, V: TypeMatcher> TypeMatcher for IsDictOf<K, V> {
 #[derive(Clone, Copy, Dupe, Allocative, Debug)]
 pub(crate) struct IsSet;
 
+#[type_matcher]
 impl TypeMatcher for IsSet {
     fn matches(&self, value: Value) -> bool {
         value.starlark_type_id() == StarlarkTypeId::of::<FrozenSet>()
@@ -183,6 +198,7 @@ impl TypeMatcher for IsSet {
 #[derive(Clone, Allocative, Debug)]
 pub(crate) struct IsSetOf<I: TypeMatcher>(pub(crate) I);
 
+#[type_matcher]
 impl<I: TypeMatcher> TypeMatcher for IsSetOf<I> {
     fn matches(&self, value: Value) -> bool {
         match SetRef::unpack_value_opt(value) {
@@ -195,6 +211,7 @@ impl<I: TypeMatcher> TypeMatcher for IsSetOf<I> {
 #[derive(Clone, Allocative, Debug)]
 pub(crate) struct IsAnyOfTwo<A: TypeMatcher, B: TypeMatcher>(pub(crate) A, pub(crate) B);
 
+#[type_matcher]
 impl<A: TypeMatcher, B: TypeMatcher> TypeMatcher for IsAnyOfTwo<A, B> {
     fn matches(&self, value: Value) -> bool {
         self.0.matches(value) || self.1.matches(value)
@@ -204,6 +221,7 @@ impl<A: TypeMatcher, B: TypeMatcher> TypeMatcher for IsAnyOfTwo<A, B> {
 #[derive(Clone, Allocative, Debug)]
 pub(crate) struct IsAnyOf(pub(crate) Vec<TypeMatcherBox>);
 
+#[type_matcher]
 impl TypeMatcher for IsAnyOf {
     fn matches(&self, value: Value) -> bool {
         self.0.iter().any(|t| t.matches(value))
@@ -213,6 +231,7 @@ impl TypeMatcher for IsAnyOf {
 #[derive(Allocative, Clone, Copy, Dupe, Debug)]
 pub(crate) struct IsCallable;
 
+#[type_matcher]
 impl TypeMatcher for IsCallable {
     fn matches(&self, value: Value) -> bool {
         value.vtable().starlark_value.HAS_invoke
@@ -222,6 +241,7 @@ impl TypeMatcher for IsCallable {
 #[derive(Allocative, Clone, Copy, Dupe, Debug)]
 pub(crate) struct IsType;
 
+#[type_matcher]
 impl TypeMatcher for IsType {
     fn matches(&self, value: Value) -> bool {
         TyStarlarkValue::is_type_from_vtable(&value.vtable().starlark_value)
@@ -231,6 +251,7 @@ impl TypeMatcher for IsType {
 #[derive(Copy, Clone, Dupe, Debug, Allocative)]
 pub(crate) struct IsIterable;
 
+#[type_matcher]
 impl TypeMatcher for IsIterable {
     fn matches(&self, value: Value) -> bool {
         TyStarlarkValue::is_iterable(&value.vtable().starlark_value)
@@ -240,6 +261,7 @@ impl TypeMatcher for IsIterable {
 #[derive(Clone, Copy, Dupe, Allocative, Debug)]
 pub(crate) struct IsInt;
 
+#[type_matcher]
 impl TypeMatcher for IsInt {
     fn matches(&self, value: Value) -> bool {
         StarlarkIntRef::unpack(value).is_some()
@@ -249,6 +271,7 @@ impl TypeMatcher for IsInt {
 #[derive(Clone, Copy, Dupe, Allocative, Debug)]
 pub(crate) struct IsBool;
 
+#[type_matcher]
 impl TypeMatcher for IsBool {
     fn matches(&self, value: Value) -> bool {
         value.unpack_bool().is_some()
@@ -258,6 +281,7 @@ impl TypeMatcher for IsBool {
 #[derive(Clone, Copy, Dupe, Allocative, Debug)]
 pub(crate) struct IsNone;
 
+#[type_matcher]
 impl TypeMatcher for IsNone {
     fn matches(&self, value: Value) -> bool {
         value.is_none()
@@ -277,6 +301,7 @@ impl StarlarkTypeIdMatcher {
     }
 }
 
+#[type_matcher]
 impl TypeMatcher for StarlarkTypeIdMatcher {
     fn matches(&self, value: Value) -> bool {
         value.starlark_type_id() == self.starlark_type_id.get()

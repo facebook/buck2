@@ -21,8 +21,10 @@ use std::fmt::Formatter;
 
 use allocative::Allocative;
 use dupe::Dupe;
+use starlark_derive::type_matcher;
 use starlark_map::sorted_map::SortedMap;
 
+use crate as starlark;
 use crate::codemap::Span;
 use crate::typing::ParamSpec;
 use crate::typing::Ty;
@@ -39,6 +41,16 @@ use crate::values::starlark_type_id::StarlarkTypeId;
 use crate::values::types::namespace::value::Namespace;
 use crate::values::typing::type_compiled::alloc::TypeMatcherAlloc;
 use crate::values::typing::type_compiled::matcher::TypeMatcher;
+
+#[derive(Allocative, Eq, PartialEq, Hash, Debug, Clone, Copy, Dupe)]
+struct NamespaceMatcher;
+
+#[type_matcher]
+impl TypeMatcher for NamespaceMatcher {
+    fn matches(&self, value: Value) -> bool {
+        value.starlark_type_id() == StarlarkTypeId::of::<Namespace<'static>>()
+    }
+}
 
 #[derive(
     Allocative, Clone, Copy, Dupe, Debug, Eq, PartialEq, Hash, Ord, PartialOrd
@@ -106,15 +118,6 @@ impl TyCustomImpl for TyNamespace {
     }
 
     fn matcher<T: TypeMatcherAlloc>(&self, factory: T) -> T::Result {
-        #[derive(Allocative, Eq, PartialEq, Hash, Debug, Clone, Copy, Dupe)]
-        struct NamespaceMatcher;
-
-        impl TypeMatcher for NamespaceMatcher {
-            fn matches(&self, value: Value) -> bool {
-                value.starlark_type_id() == StarlarkTypeId::of::<Namespace<'static>>()
-            }
-        }
-
         factory.alloc(NamespaceMatcher)
     }
 }

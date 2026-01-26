@@ -22,8 +22,10 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use dupe::Dupe;
+use starlark_derive::type_matcher;
 use starlark_map::sorted_map::SortedMap;
 
+use crate as starlark;
 use crate::typing::Ty;
 use crate::typing::TyBasic;
 use crate::typing::TypingBinOp;
@@ -36,6 +38,16 @@ use crate::values::Value;
 use crate::values::structs::StructRef;
 use crate::values::typing::type_compiled::alloc::TypeMatcherAlloc;
 use crate::values::typing::type_compiled::matcher::TypeMatcher;
+
+#[derive(Allocative, Eq, PartialEq, Hash, Debug, Clone, Copy, Dupe)]
+struct StructMatcher;
+
+#[type_matcher]
+impl TypeMatcher for StructMatcher {
+    fn matches(&self, value: Value) -> bool {
+        StructRef::is_instance(value)
+    }
+}
 
 /// Struct type.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Allocative)]
@@ -109,15 +121,6 @@ impl TyCustomImpl for TyStruct {
     }
 
     fn matcher<T: TypeMatcherAlloc>(&self, factory: T) -> T::Result {
-        #[derive(Allocative, Eq, PartialEq, Hash, Debug, Clone, Copy, Dupe)]
-        struct StructMatcher;
-
-        impl TypeMatcher for StructMatcher {
-            fn matches(&self, value: Value) -> bool {
-                StructRef::is_instance(value)
-            }
-        }
-
         factory.alloc(StructMatcher)
     }
 }

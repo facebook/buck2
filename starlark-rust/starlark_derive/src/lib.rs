@@ -33,6 +33,7 @@ mod serde;
 mod starlark_type_repr;
 mod starlark_value;
 mod trace;
+mod type_matcher;
 mod unpack_value;
 mod util;
 mod v_lifetime;
@@ -219,4 +220,25 @@ pub fn derive_provides_static_type(input: proc_macro::TokenStream) -> proc_macro
 #[proc_macro_derive(Coerce)]
 pub fn derive_coerce(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     coerce::derive_coerce(input)
+}
+
+/// Attribute macro for `impl TypeMatcher for X` blocks.
+///
+/// This macro generates:
+/// 1. `impl TypeMatcherRegistered for X {}` - marks the type as registered
+/// 2. For non-generic types: vtable registration via `register_avalue_simple_frozen!`
+///
+/// Example:
+/// ```ignore
+/// #[type_matcher]
+/// impl TypeMatcher for IsAny {
+///     fn matches(&self, _value: Value) -> bool { true }
+/// }
+/// ```
+#[proc_macro_attribute]
+pub fn type_matcher(
+    attr: proc_macro::TokenStream,
+    input: proc_macro::TokenStream,
+) -> proc_macro::TokenStream {
+    type_matcher::derive_type_matcher(attr, input)
 }
