@@ -33,6 +33,7 @@
 #[macro_export]
 macro_rules! register_avalue_simple_frozen {
     ($type:ty) => {
+        #[cfg(feature = "pagable")]
         $crate::__derive_refs::inventory::submit! {
             $crate::__derive_refs::VTableRegistryEntry {
                 deser_type_id: $crate::__derive_refs::DeserTypeId::of::<$type>(),

@@ -192,7 +192,11 @@ impl AValueVTable {
         }
     }
 
-    pub(crate) const fn new<'v, T: AValue<'v>>() -> &'static AValueVTable {
+    /// Public for use by `register_avalue_simple_frozen!` macro in doctests.
+    /// Hidden from docs and uses private `AValue` bound to prevent direct external use.
+    #[doc(hidden)]
+    #[allow(private_bounds)]
+    pub const fn new<'v, T: AValue<'v>>() -> &'static AValueVTable {
         &AValueVTable {
             drop_in_place: |p| unsafe {
                 ptr::drop_in_place(p.value_ptr::<T::StarlarkValue>());

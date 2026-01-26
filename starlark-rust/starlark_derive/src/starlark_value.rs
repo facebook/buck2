@@ -71,7 +71,7 @@ impl syn::parse::Parse for StarlarkValueAttrs {
             } else {
                 return Err(syn::Error::new_spanned(
                     name,
-                    "unknown attribute, allowed attribute is `UnpackValue`, `StarlarkTypeRepr`",
+                    "unknown attribute, allowed attributes are `UnpackValue`, `StarlarkTypeRepr`",
                 ));
             }
         }
@@ -488,6 +488,70 @@ impl ImplStarlarkValue {
             }))
         }
     }
+
+    /// Check if the type is generic (has any generic arguments, including lifetimes).
+    /// If so, we cannot register it statically.
+    ///
+    /// Examples that return `true`:
+    /// - `impl<T> StarlarkValue<'static> for Foo<T>` - has type parameter
+    /// - `impl<const N: usize> StarlarkValue<'static> for Foo<N>` - has const parameter
+    /// - `impl<'v> StarlarkValue<'v> for Array<'v>` - self type has lifetime argument
+    /// - `impl StarlarkValue<'static> for List<Value>` - self type has type argument
+    ///
+    /// Examples that return `false`:
+    /// - `impl<'v> StarlarkValue<'v> for NoneType` - only lifetime in impl, self type has no args
+    /// - `impl StarlarkValue<'static> for StarlarkBool` - no generics at all
+    fn has_generic_params(&self) -> bool {
+        for param in &self.input.generics.params {
+            match param {
+                syn::GenericParam::Lifetime(_) => {
+                    // Lifetime parameters in impl are fine, but we still need to check
+                    // if the self type uses them (checked below).
+                }
+                syn::GenericParam::Type(_) | syn::GenericParam::Const(_) => {
+                    return true;
+                }
+            }
+        }
+
+        // Check if the self type has any generic arguments (including lifetimes).
+        if let syn::Type::Path(type_path) = &*self.input.self_ty {
+            if let Some(last_segment) = type_path.path.segments.last() {
+                if let syn::PathArguments::AngleBracketed(args) = &last_segment.arguments {
+                    if !args.args.is_empty() {
+                        return true;
+                    }
+                }
+            }
+        }
+
+        false
+    }
+
+    /// Generate vtable registration via inventory.
+    /// This allows vtable lookup during deserialization.
+    ///
+    /// Returns None for:
+    /// - Generic types (which cannot be registered statically)
+    /// - Types that override `is_special` (they have custom AValue implementations
+    ///   and should use `#[register_avalue_vtable]` on their AValue impl instead)
+    fn vtable_registration(&self) -> Option<proc_macro2::TokenStream> {
+        // Skip registration for generic types
+        if self.has_generic_params() {
+            return None;
+        }
+
+        // Check if is_special is overridden in this impl block.
+        if self.has_fn("is_special") {
+            return None;
+        }
+
+        let self_ty = &self.input.self_ty;
+
+        Some(quote! {
+            starlark::register_avalue_simple_frozen!(#self_ty);
+        })
+    }
 }
 
 fn derive_starlark_value_impl(
@@ -506,6 +570,7 @@ fn derive_starlark_value_impl(
     let attr_ty = impl_starlark_value.attr_ty()?;
     let bit_or = impl_starlark_value.bit_or()?;
     let canonical = impl_starlark_value.canonical_member()?;
+    let vtable_registration = impl_starlark_value.vtable_registration();
 
     input.items.splice(
         0..0,
@@ -529,5 +594,7 @@ fn derive_starlark_value_impl(
         #impl_unpack_value
 
         #input
+
+        #vtable_registration
     })
 }

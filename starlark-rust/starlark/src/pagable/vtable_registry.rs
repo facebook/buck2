@@ -109,7 +109,6 @@ mod tests {
     use super::*;
     // Alias crate as starlark so proc macro generated paths work
     use crate as starlark;
-    use crate::register_avalue_simple_frozen;
     use crate::starlark_simple_value;
     use crate::values::StarlarkValue;
 
@@ -119,9 +118,6 @@ mod tests {
     struct TestVTableType;
 
     starlark_simple_value!(TestVTableType);
-
-    // TODO(nero): auto-register this type through starlark_value macro
-    register_avalue_simple_frozen!(TestVTableType);
 
     #[starlark_value(type = "TestVtableType")]
     impl<'v> StarlarkValue<'v> for TestVTableType {}
