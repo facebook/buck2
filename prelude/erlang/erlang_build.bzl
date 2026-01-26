@@ -287,12 +287,10 @@ def _build_erl(
     hermetic_src = hermetic_src_dir.project(src.basename)
 
     def dynamic_lambda(ctx: AnalysisContext, artifacts, outputs):
-        trampoline = toolchain.erlc_trampoline
         erlc = toolchain.otp_binaries.erlc
         erl_opts = _get_erl_opts(ctx, toolchain, src)
         deps_args, mapping = _dependencies_to_args(artifacts, final_dep_file, build_environment)
         erlc_cmd = cmd_args(
-            trampoline,
             erlc,
             erl_opts,
             deps_args,

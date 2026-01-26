@@ -161,8 +161,6 @@ ErlangToolchainInfo = provider(
         "dependency_analyzer": provider_field(Tool),
         "dependency_finalizer": provider_field(Tool),
         "dependency_merger": provider_field(Tool),
-        # trampoline rerouting stdout to stderr
-        "erlc_trampoline": provider_field(Artifact),
         "escript_trampoline": provider_field(Artifact),
         # name to parse_transform artifacts mapping for core parse_transforms (that are always used) and
         # user defines ones
