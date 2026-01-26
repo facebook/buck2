@@ -102,38 +102,82 @@ pub(crate) fn registered_type_ids() -> Vec<DeserTypeId> {
 mod tests {
     use allocative::Allocative;
     use derive_more::Display;
+    use starlark_derive::Freeze;
     use starlark_derive::NoSerialize;
-    use starlark_derive::ProvidesStaticType;
+    use starlark_derive::Trace;
     use starlark_derive::starlark_value;
 
     use super::*;
     // Alias crate as starlark so proc macro generated paths work
     use crate as starlark;
+    use crate::starlark_complex_value;
     use crate::starlark_simple_value;
+    use crate::values::Coerce;
+    use crate::values::ProvidesStaticType;
     use crate::values::StarlarkValue;
+    use crate::values::ValueLifetimeless;
+    use crate::values::ValueLike;
 
-    /// A custom test type to verify vtable registration works end-to-end.
+    /// A simple test type to verify vtable registration works for simple values.
     #[derive(Debug, Display, ProvidesStaticType, NoSerialize, Allocative)]
-    #[display("TestVTableType")]
-    struct TestVTableType;
+    #[display("TestSimpleType")]
+    struct TestSimpleType;
 
-    starlark_simple_value!(TestVTableType);
+    starlark_simple_value!(TestSimpleType);
 
-    #[starlark_value(type = "TestVtableType")]
-    impl<'v> StarlarkValue<'v> for TestVTableType {}
+    #[starlark_value(type = "TestSimpleType")]
+    impl<'v> StarlarkValue<'v> for TestSimpleType {}
+
+    /// A simple complex type to verify vtable registration works for complex values.
+    #[derive(
+        Debug,
+        Display,
+        ProvidesStaticType,
+        NoSerialize,
+        Allocative,
+        Clone,
+        Trace,
+        Freeze,
+        Coerce
+    )]
+    #[display("TestComplex")]
+    #[repr(C)]
+    struct TestComplexGen<V: ValueLifetimeless> {
+        _value: V,
+    }
+
+    starlark_complex_value!(TestComplex);
+
+    #[starlark_value(type = "TestComplex")]
+    impl<'v, V: ValueLike<'v>> StarlarkValue<'v> for TestComplexGen<V> where Self: ProvidesStaticType<'v>
+    {}
 
     #[test]
-    fn test_custom_type_is_registered() {
-        // Verify that our custom test type was registered
-        let deser_type_id = DeserTypeId::of::<TestVTableType>();
+    fn test_simple_type_is_registered() {
+        // Verify that our simple test type was registered
+        let deser_type_id = DeserTypeId::of::<TestSimpleType>();
         let vtable = lookup_vtable(deser_type_id);
         assert!(
             vtable.is_ok(),
-            "Expected TestVTableType to be registered. Available types: {:?}",
+            "Expected TestSimpleType to be registered. Available types: {:?}",
             registered_type_ids()
         );
         let vt = vtable.unwrap();
-        assert_eq!(vt.type_name, "TestVtableType");
+        assert_eq!(vt.type_name, "TestSimpleType");
+    }
+
+    #[test]
+    fn test_complex_type_frozen_is_registered() {
+        // Verify that the frozen variant of complex type was registered
+        let type_id = DeserTypeId::of::<FrozenTestComplex>();
+        let vtable = lookup_vtable(type_id);
+        assert!(
+            vtable.is_ok(),
+            "Expected FrozenTestComplex to be registered. Available types: {:?}",
+            registered_type_ids()
+        );
+        let vt = vtable.unwrap();
+        assert_eq!(vt.type_name, "TestComplex");
     }
 
     #[test]

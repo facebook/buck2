@@ -391,9 +391,8 @@ impl ImplStarlarkValue {
         Ok(false)
     }
 
-    /// Make `Canonical` type.
-    /// Replace type arguments with `Value<'v>`.
-    fn do_make_canonical_type(&self) -> syn::Result<syn::Type> {
+    /// Extract path from self_ty for type transformation.
+    fn extract_self_ty_path(&self) -> syn::Result<syn::Path> {
         let syn::Type::Path(type_path) = &*self.input.self_ty else {
             return Err(syn::Error::new_spanned(
                 &self.input.self_ty,
@@ -407,6 +406,13 @@ impl ImplStarlarkValue {
                 "qualified self not supported",
             ));
         }
+        Ok(path.clone())
+    }
+
+    /// Make `Canonical` type.
+    /// Replace type arguments with `Value<'v>`.
+    fn do_make_canonical_type(&self) -> syn::Result<syn::Type> {
+        let mut path = self.extract_self_ty_path()?;
 
         // If type name is `FrozenXxx`, it is likely that it should have `Canonical`
         // pointing to `Xxx`. Make it an error and force user to specify it explicitly to be safe.
@@ -418,8 +424,6 @@ impl ImplStarlarkValue {
                 ));
             }
         }
-
-        let mut path = path.clone();
 
         struct PatchTypesVisitor<'a> {
             lifetime: &'a syn::Lifetime,
@@ -489,68 +493,95 @@ impl ImplStarlarkValue {
         }
     }
 
-    /// Check if the type is generic (has any generic arguments, including lifetimes).
-    /// If so, we cannot register it statically.
+    /// Make frozen type by replacing ValueLike param with FrozenValue
+    /// and lifetime params with 'static.
+    /// This is similar to `do_make_canonical_type` but for the frozen variant.
     ///
-    /// Examples that return `true`:
-    /// - `impl<T> StarlarkValue<'static> for Foo<T>` - has type parameter
-    /// - `impl<const N: usize> StarlarkValue<'static> for Foo<N>` - has const parameter
-    /// - `impl<'v> StarlarkValue<'v> for Array<'v>` - self type has lifetime argument
-    /// - `impl StarlarkValue<'static> for List<Value>` - self type has type argument
-    ///
-    /// Examples that return `false`:
-    /// - `impl<'v> StarlarkValue<'v> for NoneType` - only lifetime in impl, self type has no args
-    /// - `impl StarlarkValue<'static> for StarlarkBool` - no generics at all
-    fn has_generic_params(&self) -> bool {
-        for param in &self.input.generics.params {
-            match param {
-                syn::GenericParam::Lifetime(_) => {
-                    // Lifetime parameters in impl are fine, but we still need to check
-                    // if the self type uses them (checked below).
-                }
-                syn::GenericParam::Type(_) | syn::GenericParam::Const(_) => {
-                    return true;
-                }
+    /// e.g.
+    /// FooGen<'v, T> -> FooGen<'static, FrozenValue>
+    /// or
+    /// FooGen<T> -> FooGen<FrozenValue>
+    fn make_frozen_type(&self) -> syn::Result<syn::Type> {
+        let mut path = self.extract_self_ty_path()?;
+
+        struct PatchToFrozen;
+
+        impl syn::visit_mut::VisitMut for PatchToFrozen {
+            fn visit_type_mut(&mut self, i: &mut syn::Type) {
+                *i = syn::parse_quote! {
+                    starlark::values::FrozenValue
+                };
+            }
+
+            fn visit_lifetime_mut(&mut self, i: &mut syn::Lifetime) {
+                *i = syn::parse_quote! { 'static };
             }
         }
 
-        // Check if the self type has any generic arguments (including lifetimes).
-        if let syn::Type::Path(type_path) = &*self.input.self_ty {
-            if let Some(last_segment) = type_path.path.segments.last() {
-                if let syn::PathArguments::AngleBracketed(args) = &last_segment.arguments {
-                    if !args.args.is_empty() {
-                        return true;
+        syn::visit_mut::VisitMut::visit_path_mut(&mut PatchToFrozen, &mut path);
+
+        Ok(syn::parse_quote! { #path })
+    }
+
+    /// Get the frozen type to register for vtable lookup.
+    /// Returns Ok(None) if this type should not be registered.
+    fn frozen_type_for_registration(&self) -> syn::Result<Option<syn::Type>> {
+        // Check for ValueLike type parameter
+        let mut has_value_like_param = false;
+        for param in &self.input.generics.params {
+            match param {
+                syn::GenericParam::Lifetime(_) => {}
+                syn::GenericParam::Const(_) => return Ok(None), // Can't register with const param
+                syn::GenericParam::Type(p) => {
+                    if self.type_param_is_value_like(p)? {
+                        if has_value_like_param {
+                            return Ok(None); // Multiple ValueLike params not supported
+                        }
+                        has_value_like_param = true;
+                    } else {
+                        return Ok(None); // Non-ValueLike type param not supported
                     }
                 }
             }
         }
 
-        false
+        if has_value_like_param {
+            // Complex value: replace ValueLike param with FrozenValue
+            Ok(Some(self.make_frozen_type()?))
+        } else {
+            // Simple value: check self_ty has no generic args
+            if let syn::Type::Path(type_path) = &*self.input.self_ty {
+                if let Some(last) = type_path.path.segments.last() {
+                    if !matches!(last.arguments, syn::PathArguments::None) {
+                        return Ok(None);
+                    }
+                }
+            }
+            Ok(Some((*self.input.self_ty).clone()))
+        }
     }
 
     /// Generate vtable registration via inventory.
     /// This allows vtable lookup during deserialization.
     ///
-    /// Returns None for:
-    /// - Generic types (which cannot be registered statically)
+    /// Returns Ok(None) for:
+    /// - Types with unsupported generic parameters
     /// - Types that override `is_special` (they have custom AValue implementations
     ///   and should use `#[register_avalue_vtable]` on their AValue impl instead)
-    fn vtable_registration(&self) -> Option<proc_macro2::TokenStream> {
-        // Skip registration for generic types
-        if self.has_generic_params() {
-            return None;
-        }
-
+    fn vtable_registration(&self) -> syn::Result<Option<proc_macro2::TokenStream>> {
         // Check if is_special is overridden in this impl block.
         if self.has_fn("is_special") {
-            return None;
+            return Ok(None);
         }
 
-        let self_ty = &self.input.self_ty;
+        // Get the frozen type for registration
+        let Some(frozen_ty) = self.frozen_type_for_registration()? else {
+            return Ok(None);
+        };
 
-        Some(quote! {
-            starlark::register_avalue_simple_frozen!(#self_ty);
-        })
+        Ok(Some(quote! {
+            starlark::register_avalue_simple_frozen!(#frozen_ty);
+        }))
     }
 }
 
@@ -570,7 +601,7 @@ fn derive_starlark_value_impl(
     let attr_ty = impl_starlark_value.attr_ty()?;
     let bit_or = impl_starlark_value.bit_or()?;
     let canonical = impl_starlark_value.canonical_member()?;
-    let vtable_registration = impl_starlark_value.vtable_registration();
+    let vtable_registration = impl_starlark_value.vtable_registration()?;
 
     input.items.splice(
         0..0,
