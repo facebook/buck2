@@ -136,7 +136,7 @@ link_to_artifact_dir(File, Root, ArtifactAnnotationMFA) ->
                 unicode_characters_to_list(string:replace(RelativePath, "/", ".", all)),
             case filelib:is_file(File, ?raw_file_access) of
                 true ->
-                    file:make_symlink(File, join_paths(ArtifactDir, FullFileName)),
+                    file:make_symlink(filename:absname(File), join_paths(ArtifactDir, FullFileName)),
                     Annotation = artifact_annotations:create_artifact_annotation(FullFileName, ArtifactAnnotationMFA),
                     dump_annotation(Annotation, FullFileName);
                 _ ->
