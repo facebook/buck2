@@ -70,17 +70,8 @@ def _compiled_module_info(
         module_name: str,
         pcm_output: Artifact,
         pcm_info: SwiftPCMUncompiledInfo) -> SwiftCompiledModuleInfo:
-    clang_importer_args = cmd_args(
-        cmd_args(pcm_info.exported_preprocessor.args.args, prepend = "-Xcc"),
-        # When using header maps for non-modular libraries, the symlink tree
-        # preprocessor will only be included in modular_args. This will add
-        # redundant -fmodule-map-file flags too while we work towards dropping
-        # header includes from Swift compilation entirely.
-        cmd_args(pcm_info.exported_preprocessor.modular_args, prepend = "-Xcc"),
-    )
-
     return SwiftCompiledModuleInfo(
-        clang_importer_args = clang_importer_args,
+        clang_importer_args = pcm_info.exported_clang_importer_args,
         clang_modulemap_path = cmd_args(pcm_info.modulemap_artifact),
         is_framework = False,
         is_sdk_module = False,
@@ -128,11 +119,6 @@ def _swift_pcm_compilation_impl(ctx: AnalysisContext) -> [Promise, list[Provider
             pcm_deps_tset,
             ctx.attrs.swift_cxx_args,
         )
-
-        # When compiling pcm files, module's exported pps and inherited pps
-        # must be provided to an action like hmaps which are used for headers resolution.
-        if uncompiled_pcm_info.propagated_preprocessor_args_cmd:
-            cmd.add(uncompiled_pcm_info.propagated_preprocessor_args_cmd)
 
         compile_with_argsfile(
             ctx,
@@ -298,17 +284,11 @@ def _get_base_pcm_flags(
         sdk_deps_tset.project_as_args("clang_module_file_flags"),
         pcm_deps_tset.project_as_args("clang_module_file_flags"),
         pcm_deps_tset.project_as_args("clang_importer_flags"),
-        # To correctly resolve modulemap's headers,
-        # a search path to the root of modulemap should be passed.
-        cmd_args(uncompiled_pcm_info.exported_preprocessor.args.args, prepend = "-Xcc"),
+        # Order is important here, we need to add the symlink tree search paths
+        # before the headermaps to avoid mixing include paths.
+        uncompiled_pcm_info.exported_clang_importer_args,
+        uncompiled_pcm_info.clang_importer_args,
     )
-
-    # When using header maps for non-modular libraries, the symlink tree
-    # preprocessor will only be included in modular_args. This will add
-    # redundant -fmodule-map-file flags too while we work towards dropping
-    # header includes from Swift compilation entirely.
-    for modular_args in uncompiled_pcm_info.exported_preprocessor.modular_args:
-        cmd.add(cmd_args(modular_args, prepend = "-Xcc"))
 
     cmd.add(swift_cxx_args)
 

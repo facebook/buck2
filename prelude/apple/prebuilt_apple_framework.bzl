@@ -211,21 +211,14 @@ def prebuilt_apple_framework_impl(ctx: AnalysisContext) -> [list[Provider], Prom
 
 def _create_uncompiled_pcm_module_info(ctx: AnalysisContext, framework_directory_artifact: Artifact, framework_name: str) -> SwiftPCMUncompiledInfo:
     modulemap_artifact = framework_directory_artifact.project("Modules/module.modulemap").with_associated_artifacts([framework_directory_artifact])
-    exported_pp_info = CPreprocessor(
-        headers = [],
-        modular_args = [],
-        args = CPreprocessorArgs(args = [
-            cmd_args(["-F", cmd_args(framework_directory_artifact, parent = 1)], delimiter = ""),
-        ]),
-        modulemap_artifact = modulemap_artifact,
-    )
+    clang_importer_args = cmd_args(framework_directory_artifact, parent = 1, format = "-F{}")
     return SwiftPCMUncompiledInfo(
+        clang_importer_args = cmd_args(),
+        exported_clang_importer_args = clang_importer_args,
+        exported_deps = ctx.attrs.deps,
+        is_transient = False,
         modulemap_artifact = modulemap_artifact,
         name = framework_name,
-        is_transient = False,
-        exported_preprocessor = exported_pp_info,
-        exported_deps = ctx.attrs.deps,
-        propagated_preprocessor_args_cmd = cmd_args([]),
         uncompiled_sdk_modules = ctx.attrs.sdk_modules,
     )
 
