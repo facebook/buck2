@@ -129,7 +129,7 @@ root//:arm (<unbound>):
       key=root//:cpu
     )
   ])
-root//:dummy (cfg:no-san#<HASH>):
+root//:dummy (cfg:<empty>#<HASH>):
   Providers([
     DefaultInfo(
       sub_targets={},
@@ -139,7 +139,7 @@ root//:dummy (cfg:no-san#<HASH>):
     Provider1( os="macos" ),
     Provider2( cpu="default" )
   ])
-root//:dummy2 (cfg:no-san#<HASH>):
+root//:dummy2 (cfg:<empty>#<HASH>):
   Providers([
     DefaultInfo(
       sub_targets={},
@@ -149,7 +149,7 @@ root//:dummy2 (cfg:no-san#<HASH>):
     Provider1( os="macos" ),
     Provider2( cpu="default" )
   ])
-root//:dummy_with_subtarget (cfg:no-san#<HASH>):
+root//:dummy_with_subtarget (cfg:<empty>#<HASH>):
   Providers([ DefaultInfo(
     sub_targets={ "sub": Providers([
       DefaultInfo(

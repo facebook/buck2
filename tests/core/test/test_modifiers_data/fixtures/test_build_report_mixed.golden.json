@@ -8,7 +8,7 @@
   "results": {
     "root//:fail?root//:linux": {
       "configured": {
-        "cfg:no-san#<HASH>": {
+        "cfg:<empty>#<HASH>": {
           "configured_graph_size": null,
           "errors": [],
           "other_outputs": {},
@@ -24,7 +24,7 @@
     },
     "root//:fail_build?root//:arm": {
       "configured": {
-        "cfg:no-san#<HASH>": {
+        "cfg:<empty>#<HASH>": {
           "configured_graph_size": null,
           "errors": [
             {
@@ -50,7 +50,7 @@
     },
     "root//:ok?root//:macos": {
       "configured": {
-        "cfg:no-san#<HASH>": {
+        "cfg:<empty>#<HASH>": {
           "configured_graph_size": null,
           "errors": [],
           "other_outputs": {},
