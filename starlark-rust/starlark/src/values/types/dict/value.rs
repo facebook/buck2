@@ -30,6 +30,7 @@ use std::ops::Deref;
 use allocative::Allocative;
 use display_container::fmt_keyed_container;
 use serde::Serialize;
+use starlark::register_avalue_simple_frozen;
 use starlark_derive::starlark_value;
 use starlark_map::Equivalent;
 
@@ -400,6 +401,9 @@ pub(crate) fn dict_methods() -> Option<&'static Methods> {
     static RES: MethodsStatic = MethodsStatic::new();
     RES.methods(crate::values::types::dict::methods::dict_methods)
 }
+
+// Register vtable for FrozenDict (special type not handled by #[starlark_value] macro, because V is not ValueLike).
+register_avalue_simple_frozen!(FrozenDict);
 
 #[starlark_value(type = Dict::TYPE)]
 impl<'v, T: DictLike<'v> + 'v> StarlarkValue<'v> for DictGen<T>

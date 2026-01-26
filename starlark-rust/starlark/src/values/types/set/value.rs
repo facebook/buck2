@@ -26,6 +26,7 @@ use std::ops::Deref;
 use allocative::Allocative;
 use display_container::fmt_container;
 use serde::Serialize;
+use starlark::register_avalue_simple_frozen;
 use starlark_map::Hashed;
 use starlark_map::small_set::SmallSet;
 
@@ -206,6 +207,9 @@ impl<'v> SetLike<'v> for FrozenSetData {
         coerce(&self.content)
     }
 }
+
+// Register vtable for FrozenSet (special type not handled by #[starlark_value] macro, because V is not ValueLike).
+register_avalue_simple_frozen!(FrozenSet);
 
 #[starlark_value(type = "set")]
 impl<'v, T: SetLike<'v> + 'v> StarlarkValue<'v> for SetGen<T>
