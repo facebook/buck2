@@ -23,35 +23,34 @@ SwiftObjectFormat = enum(
     "object-embed-bitcode",
 )
 
-SwiftToolchainInfo = provider(
-    fields = {
-        "architecture": provider_field(str),
-        "compiler": provider_field(cmd_args),
-        "compiler_flags": provider_field(list[ArgLike]),
-        "mk_swift_comp_db": provider_field(RunInfo),
-        "mk_swift_interface": provider_field(cmd_args),
-        "object_format": provider_field(SwiftObjectFormat),
-        "platform_path": provider_field([Artifact, str, None]),
-        "provide_swift_debug_info": provider_field(bool, default = True),
-        "resource_dir": provider_field([Artifact, None]),
-        "sdk_debug_info": provider_field([ArtifactTSet, None]),
-        "sdk_module_path_prefixes": provider_field(dict[str, Artifact]),
-        "sdk_path": provider_field([Artifact, str, None]),
-        "serialized_diags_to_json": provider_field([RunInfo, None], default = None),
-        "supports_explicit_module_debug_serialization": provider_field(bool, default = False),
-        "supports_incremental_file_hashing": provider_field(bool, default = False),
-        "supports_relative_resource_dir": provider_field(bool),
-        "swift_experimental_features": provider_field(dict[str, list[str]]),  # { "5": [], "6", [] }
-        "swift_ide_test_tool": provider_field([RunInfo, None], default = None),
-        "swift_stdlib_tool": provider_field(RunInfo),
-        "swift_stdlib_tool_flags": provider_field(list[ArgLike]),
-        "swift_upcoming_features": provider_field(dict[str, list[str]]),  # { "5": [], "6", [] }
-        "uncompiled_clang_sdk_modules_deps": provider_field(dict[str, Dependency]),
-        "uncompiled_swift_sdk_modules_deps": provider_field(dict[str, Dependency]),
-        "use_depsfiles": provider_field(bool, default = False),
-        "uses_experimental_content_based_path_hashing": provider_field(bool, default = False),
-    },
-)
+SwiftToolchainInfo = provider(fields = {
+    "architecture": provider_field(str),
+    "compiler": provider_field(cmd_args),
+    "compiler_flags": provider_field(list[ArgLike]),
+    "mk_swift_comp_db": provider_field(RunInfo),
+    "mk_swift_interface": provider_field(cmd_args),
+    "object_format": provider_field(SwiftObjectFormat),
+    "platform_path": provider_field([Artifact, str, None]),
+    "provide_swift_debug_info": provider_field(bool, default = True),
+    "resource_dir": provider_field([Artifact, None]),
+    "sdk_debug_info": provider_field([ArtifactTSet, None]),
+    "sdk_module_path_prefixes": provider_field(dict[str, Artifact]),
+    "sdk_path": provider_field([Artifact, str, None]),
+    "serialized_diags_to_json": provider_field([RunInfo, None], default = None),
+    "supports_explicit_module_debug_serialization": provider_field(bool, default = False),
+    "supports_incremental_file_hashing": provider_field(bool, default = False),
+    "supports_modulemaps_with_hmaps": provider_field(bool, default = False),
+    "supports_relative_resource_dir": provider_field(bool),
+    "swift_experimental_features": provider_field(dict[str, list[str]]),  # { "5": [], "6", [] }
+    "swift_ide_test_tool": provider_field([RunInfo, None], default = None),
+    "swift_stdlib_tool": provider_field(RunInfo),
+    "swift_stdlib_tool_flags": provider_field(list[ArgLike]),
+    "swift_upcoming_features": provider_field(dict[str, list[str]]),  # { "5": [], "6", [] }
+    "uncompiled_clang_sdk_modules_deps": provider_field(dict[str, Dependency]),
+    "uncompiled_swift_sdk_modules_deps": provider_field(dict[str, Dependency]),
+    "use_depsfiles": provider_field(bool, default = False),
+    "uses_experimental_content_based_path_hashing": provider_field(bool, default = False),
+})
 
 # A provider that represents a non-yet-compiled SDK (Swift or Clang) module,
 # and doesn't contain any artifacts because Swift toolchain isn't resolved yet.

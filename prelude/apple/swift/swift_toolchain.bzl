@@ -108,6 +108,7 @@ def swift_toolchain_impl(ctx):
             serialized_diags_to_json = ctx.attrs.serialized_diags_to_json[RunInfo] if ctx.attrs.serialized_diags_to_json else None,
             supports_explicit_module_debug_serialization = ctx.attrs.supports_explicit_module_debug_serialization,
             supports_incremental_file_hashing = ctx.attrs.supports_incremental_file_hashing,
+            supports_modulemaps_with_hmaps = ctx.attrs.supports_modulemaps_with_hmaps,
             supports_relative_resource_dir = ctx.attrs.supports_relative_resource_dir,
             swift_ide_test_tool = ctx.attrs.swift_ide_test_tool[RunInfo] if ctx.attrs.swift_ide_test_tool else None,
             swift_stdlib_tool = ctx.attrs.swift_stdlib_tool[RunInfo],
