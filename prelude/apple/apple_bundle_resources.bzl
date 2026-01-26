@@ -277,14 +277,14 @@ def _create_framework_module_map(ctx: AnalysisContext) -> Artifact:
         ))
 
     module_name = apple_library_for_distribution_info.module_name
-    _, module_map = create_modulemap(
+    preprocessor_info = create_modulemap(
         ctx,
         name = "module",
         module_name = module_name,
         headers = cheaders,
         is_framework = True,
     )
-    return module_map
+    return preprocessor_info.modulemap_artifact
 
 def _copy_module_map(ctx: AnalysisContext) -> list[AppleBundlePart]:
     extension = get_extension_attr(ctx)

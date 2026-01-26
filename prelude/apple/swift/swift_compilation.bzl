@@ -417,7 +417,7 @@ def compile_swift(
     index_store = _compile_index_store(ctx, toolchain, shared_flags, srcs)
 
     # Swift libraries extend the ObjC modulemaps to include the -Swift.h header
-    modulemap_pp_info, extended_modulemap = create_modulemap(
+    modulemap_pp_info = create_modulemap(
         ctx,
         name = "swift-extended",
         module_name = module_name,
@@ -446,7 +446,7 @@ def compile_swift(
     )
     pre = CPreprocessor(headers = [swift_header])
 
-    clang_debug_artifacts = [extended_modulemap]
+    clang_debug_artifacts = [exported_pp_info.modulemap_artifact]
     if exported_compiled_underlying_pcm:
         # The compiled PCM of the underlying clang module
         clang_debug_artifacts.append(exported_compiled_underlying_pcm.output_artifact)

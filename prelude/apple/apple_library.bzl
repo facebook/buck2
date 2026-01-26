@@ -113,7 +113,7 @@ load(
     "AppleDebuggableInfo",
     "DEBUGINFO_SUBTARGET",
 )
-load(":modulemap.bzl", "preprocessor_info_for_modulemap")
+load(":modulemap.bzl", "create_modulemap")
 load(":resource_groups.bzl", "create_resource_graph")
 load(":xcode.bzl", "apple_populate_xcode_attributes")
 load(":xctest_swift_support.bzl", "xctest_swift_support_info")
@@ -345,7 +345,7 @@ def apple_library_rule_constructor_params_and_swift_providers(ctx: AnalysisConte
     # ObjC code in Swift so must be done before Swift compilation.
     if ctx.attrs.modular or swift_srcs:
         modulemap_name = module_name
-        exported_modulemap_pre = preprocessor_info_for_modulemap(
+        exported_modulemap_pre = create_modulemap(
             ctx,
             name = modulemap_name,
             module_name = module_name,

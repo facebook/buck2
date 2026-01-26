@@ -20,22 +20,13 @@ load(
     "CPreprocessor",
 )
 
-def preprocessor_info_for_modulemap(
-        ctx: AnalysisContext,
-        name: str,
-        module_name: str,
-        headers: list[CHeader],
-        swift_header: Artifact | None) -> CPreprocessor:
-    preprocessor_info, _ = create_modulemap(ctx, name, module_name, headers, swift_header)
-    return preprocessor_info
-
 def create_modulemap(
         ctx: AnalysisContext,
         name: str,
         module_name: str,
         headers: list[CHeader],
         swift_header: Artifact | None = None,
-        is_framework: bool = False) -> (CPreprocessor, Artifact):
+        is_framework: bool = False) -> CPreprocessor:
     # We don't want to name this module.modulemap to avoid implicit importing
     if name == "module" and not is_framework:
         fail("Don't use the name `module` for modulemaps, this will allow for implicit importing.")
@@ -89,11 +80,10 @@ def create_modulemap(
             cmd.add(hdr)
 
     ctx.actions.run(cmd, category = "modulemap", identifier = name)
-    pp = CPreprocessor(
+    return CPreprocessor(
         modular_args = [
             cmd_args(output, format = "-fmodule-map-file={}"),
             cmd_args(symlink_tree, format = "-I{}"),
         ],
         modulemap_artifact = output,
     )
-    return pp, output
