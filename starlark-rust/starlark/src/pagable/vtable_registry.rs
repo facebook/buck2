@@ -259,10 +259,9 @@ mod tests {
     }
 
     #[test]
-    fn test_type_compiled_generic_matcher_is_not_registered() {
-        // IsListOf is a generic TypeMatcher (IsListOf<I>), so TypeCompiledImplAsStarlarkValue
-        // for specific instantiations like IsListOf<TypeMatcherBox> should NOT be registered
-        // (the macro skips vtable registration for generic types).
+    fn test_type_compiled_generic_matcher_is_registered() {
+        // IsListOf is a generic TypeMatcher (IsListOf<I>). Specific instantiations
+        // are registered via register_type_matcher! (e.g., IsListOf<TypeMatcherBox>).
         use crate::values::typing::type_compiled::compiled::TypeCompiledImplAsStarlarkValue;
         use crate::values::typing::type_compiled::matcher::TypeMatcherBox;
         use crate::values::typing::type_compiled::matchers::IsListOf;
@@ -270,8 +269,9 @@ mod tests {
             DeserTypeId::of::<TypeCompiledImplAsStarlarkValue<IsListOf<TypeMatcherBox>>>();
         let vtable = lookup_vtable(type_id);
         assert!(
-            vtable.is_err(),
-            "Expected TypeCompiledImplAsStarlarkValue<IsListOf<TypeMatcherBox>> to NOT be registered, but it was found"
+            vtable.is_ok(),
+            "Expected TypeCompiledImplAsStarlarkValue<IsListOf<TypeMatcherBox>> to be registered. Available types: {:?}",
+            registered_type_ids()
         );
     }
 }

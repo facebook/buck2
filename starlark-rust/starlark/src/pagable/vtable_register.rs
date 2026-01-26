@@ -62,3 +62,26 @@ macro_rules! register_special_avalue_frozen {
 }
 
 pub(crate) use register_special_avalue_frozen;
+
+/// Macro to register a vtable for a generic `TypeMatcher` implementation.
+///
+/// This macro is for generic `TypeMatcher` types (like `IsListOf<TypeMatcherBox>`,
+/// `IsDictOf<TypeMatcherBox, TypeMatcherBox>`) that cannot use the `#[type_matcher]`
+/// attribute macro (which only supports non-generic types).
+///
+/// # Example
+///
+/// ```ignore
+/// register_type_matcher!(IsTupleOf<TypeMatcherBox>);
+/// ```
+#[macro_export]
+macro_rules! register_type_matcher {
+    ($matcher:ty) => {
+        #[cfg(feature = "pagable")]
+        $crate::register_avalue_simple_frozen!(
+            $crate::values::typing::TypeCompiledImplAsStarlarkValue<
+                $matcher,
+            >
+        );
+    };
+}
