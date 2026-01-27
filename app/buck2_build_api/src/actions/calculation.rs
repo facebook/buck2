@@ -501,6 +501,7 @@ fn try_run_error_handler(
             dispatcher
                 .clone()
                 .span(buck2_data::ActionErrorHandlerExecutionStart {}, || {
+                    // patternlint-disable-next-line buck2-no-starlark-module: FIXME(JakobDegen): Wrong
                     Module::with_temp_heap(|env| {
                         let heap = env.heap();
                         let print = EventDispatcherPrintHandler(get_dispatcher());

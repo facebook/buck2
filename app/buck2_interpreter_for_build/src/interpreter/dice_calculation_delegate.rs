@@ -279,6 +279,7 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
         let value: serde_json::Value = serde_json::from_str(&contents)
             .with_buck_error_context(|| format!("Parsing {path}"))?;
 
+        // patternlint-disable-next-line buck2-no-starlark-module: We expect these to be small + simple
         let frozen = Module::with_temp_heap(|module| {
             module.set("value", module.heap().alloc(value));
             module.freeze().map_err(from_freeze_error)
@@ -303,6 +304,7 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
             toml::from_str(&contents).with_buck_error_context(|| format!("Parsing {path}"))?;
         let json_value = toml_value_to_json(value);
 
+        // patternlint-disable-next-line buck2-no-starlark-module: We expect these to be small + simple
         let frozen = Module::with_temp_heap(|module| {
             module.set("value", module.heap().alloc(json_value));
             module.freeze().map_err(from_freeze_error)

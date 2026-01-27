@@ -221,6 +221,7 @@ mod tests {
     }
 
     fn env(name: StarlarkModulePath) -> FrozenModule {
+        // patternlint-disable-next-line buck2-no-starlark-module: Test
         Module::with_temp_heap(|m| {
             m.set("name", m.heap().alloc(name.to_string()));
             m.freeze()

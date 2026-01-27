@@ -301,6 +301,7 @@ impl BuckStarlarkModule<'_> {
     pub fn with_profiling<R, E>(
         func: impl for<'v> FnOnce(BuckStarlarkModule<'v>) -> Result<(ProfilingReportedToken, R), E>,
     ) -> Result<R, E> {
+        // patternlint-disable-next-line buck2-no-starlark-module: This is `BuckStarlarkModule`
         match Module::with_temp_heap(|m| func(BuckStarlarkModule(m))) {
             Ok((ProfilingReportedToken(..), res)) => Ok(res),
             Err(e) => Err(e),
@@ -314,6 +315,7 @@ impl BuckStarlarkModule<'_> {
             BuckStarlarkModule<'v>,
         ) -> buck2_error::Result<(ProfilingReportedToken, R)>,
     {
+        // patternlint-disable-next-line buck2-no-starlark-module: This is `BuckStarlarkModule`
         match Module::with_temp_heap_async(async |m| func(BuckStarlarkModule(m)).await).await {
             Ok((ProfilingReportedToken(..), res)) => Ok(res),
             Err(e) => Err(e),
