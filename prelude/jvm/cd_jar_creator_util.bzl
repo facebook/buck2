@@ -23,8 +23,8 @@ load(
 load("@prelude//java/utils:java_utils.bzl", "declare_prefixed_name")
 load("@prelude//utils:expect.bzl", "expect")
 
-def declare_prefixed_output(actions: AnalysisActions, prefix: [str, None], output: str, uses_experimental_content_based_path_hashing: bool, dir: bool = False) -> Artifact:
-    return actions.declare_output(declare_prefixed_name(output, prefix), dir = dir, uses_experimental_content_based_path_hashing = uses_experimental_content_based_path_hashing)
+def declare_prefixed_output(actions: AnalysisActions, prefix: [str, None], output: str, has_content_based_path: bool, dir: bool = False) -> Artifact:
+    return actions.declare_output(declare_prefixed_name(output, prefix), dir = dir, has_content_based_path = has_content_based_path)
 
 # The library and the toolchain can both set a specific abi generation
 # mode. The toolchain's setting is effectively the "highest" form of abi
@@ -108,14 +108,14 @@ def get_qualified_name(label: Label, target_type: TargetType) -> str:
         TargetType("source_only_abi"): base_qualified_name(label) + "[source-only-abi]",
     }[target_type]
 
-def define_output_paths(actions: AnalysisActions, prefix: [str, None], label: Label, uses_experimental_content_based_path_hashing: bool) -> OutputPaths:
+def define_output_paths(actions: AnalysisActions, prefix: [str, None], label: Label, uses_content_based_paths: bool) -> OutputPaths:
     # currently, javacd requires that at least some outputs are in the root
     # output dir. so we put all of them there. If javacd is updated we
     # could consolidate some of these into one subdir.
     return OutputPaths(
-        jar = declare_prefixed_output(actions, prefix, "jar/{}.jar".format(label.name), uses_experimental_content_based_path_hashing),
-        classes = declare_prefixed_output(actions, prefix, "__classes__", uses_experimental_content_based_path_hashing, dir = True),
-        annotations = declare_prefixed_output(actions, prefix, "__gen__", uses_experimental_content_based_path_hashing, dir = True),
+        jar = declare_prefixed_output(actions, prefix, "jar/{}.jar".format(label.name), uses_content_based_paths),
+        classes = declare_prefixed_output(actions, prefix, "__classes__", uses_content_based_paths, dir = True),
+        annotations = declare_prefixed_output(actions, prefix, "__gen__", uses_content_based_paths, dir = True),
     )
 
 def encode_output_paths(label: Label, paths: OutputPaths, target_type: TargetType) -> struct:
@@ -325,15 +325,15 @@ def setup_dep_files(
         used_classes_json_outputs: list[cmd_args],
         used_jars_json_output: Artifact,
         abi_to_abi_dir_map: [TransitiveSetArgsProjection, list[cmd_args], None],
-        uses_experimental_content_based_path_hashing: bool):
-    dep_file = declare_prefixed_output(actions, actions_identifier, "jar/dep-file.txt", uses_experimental_content_based_path_hashing)
+        uses_content_based_paths: bool):
+    dep_file = declare_prefixed_output(actions, actions_identifier, "jar/dep-file.txt", uses_content_based_paths)
 
     post_build_params["usedClasses"] = used_classes_json_outputs
     post_build_params["depFile"] = classpath_jars_tag.tag_artifacts(dep_file.as_output())
     post_build_params["usedJarsFile"] = used_jars_json_output.as_output()
 
     if abi_to_abi_dir_map:
-        abi_to_abi_dir_map_file = declare_prefixed_output(actions, actions_identifier, "abi_to_abi_dir_map", uses_experimental_content_based_path_hashing)
+        abi_to_abi_dir_map_file = declare_prefixed_output(actions, actions_identifier, "abi_to_abi_dir_map", uses_content_based_paths)
         actions.write(abi_to_abi_dir_map_file, abi_to_abi_dir_map)
         post_build_params["jarToJarDirMap"] = classpath_jars_tag.tag_artifacts(abi_to_abi_dir_map_file)
 
@@ -447,7 +447,7 @@ def prepare_final_jar(
         jar_postprocessor: [RunInfo, None],
         jar_postprocessor_runner: RunInfo | None,
         zip_scrubber: RunInfo,
-        uses_experimental_content_based_path_hashing: bool) -> FinalJarOutput:
+        uses_content_based_paths: bool) -> FinalJarOutput:
     def make_output(jar: Artifact) -> FinalJarOutput:
         if jar_postprocessor:
             expect(jar_postprocessor_runner != None, "Must provide a jar_postprocessor_runner if jar_postprocessor is provided!")
@@ -466,7 +466,7 @@ def prepare_final_jar(
 
     merged_jar = output
     if not merged_jar:
-        merged_jar = declare_prefixed_output(actions, actions_identifier, "merged.jar", uses_experimental_content_based_path_hashing)
+        merged_jar = declare_prefixed_output(actions, actions_identifier, "merged.jar", uses_content_based_paths)
     files_to_merge = [output_paths.jar, additional_compiled_srcs]
     files_to_merge_file = actions.write(declare_prefixed_name("files_to_merge.txt", actions_identifier), files_to_merge)
     actions.run(
@@ -558,7 +558,7 @@ def generate_abi_jars(
         track_class_usage: bool,
         encode_abi_command: typing.Callable,
         define_action: typing.Callable,
-        uses_experimental_content_based_path_hashing: bool,
+        uses_content_based_paths: bool,
         kotlin_extra_params_builder: typing.Callable | None = None) -> tuple:
     class_abi = None
     source_abi = None
@@ -574,16 +574,16 @@ def generate_abi_jars(
             source_abi_identifier = declare_prefixed_name("source_abi", actions_identifier)
             source_abi_target_type = TargetType("source_abi")
             source_abi_qualified_name = get_qualified_name(label, source_abi_target_type)
-            source_abi_output_paths = define_output_paths(actions, source_abi_identifier, label, uses_experimental_content_based_path_hashing)
+            source_abi_output_paths = define_output_paths(actions, source_abi_identifier, label, uses_content_based_paths)
             source_abi_classpath_jars_tag = actions.artifact_tag()
-            source_abi_dir = declare_prefixed_output(actions, source_abi_identifier, "source-abi-dir", uses_experimental_content_based_path_hashing, dir = True)
+            source_abi_dir = declare_prefixed_output(actions, source_abi_identifier, "source-abi-dir", uses_content_based_paths, dir = True)
 
             if kotlin_extra_params_builder:
                 source_abi_kotlin_classes = declare_prefixed_output(
                     actions,
                     source_abi_identifier,
                     "__kotlin_classes__",
-                    uses_experimental_content_based_path_hashing,
+                    uses_content_based_paths,
                     dir = True,
                 )
                 source_abi_kotlin_extra_params = kotlin_extra_params_builder(kotlin_classes = source_abi_kotlin_classes)
@@ -619,9 +619,9 @@ def generate_abi_jars(
             source_only_abi_identifier = declare_prefixed_name("source_only_abi", actions_identifier)
             source_only_abi_target_type = TargetType("source_only_abi")
             source_only_abi_qualified_name = get_qualified_name(label, source_only_abi_target_type)
-            source_only_abi_output_paths = define_output_paths(actions, source_only_abi_identifier, label, uses_experimental_content_based_path_hashing)
+            source_only_abi_output_paths = define_output_paths(actions, source_only_abi_identifier, label, uses_content_based_paths)
             source_only_abi_classpath_jars_tag = actions.artifact_tag()
-            source_only_abi_dir = declare_prefixed_output(actions, source_only_abi_identifier, "dir", uses_experimental_content_based_path_hashing, dir = True)
+            source_only_abi_dir = declare_prefixed_output(actions, source_only_abi_identifier, "dir", uses_content_based_paths, dir = True)
             source_only_abi_compiling_deps = _get_source_only_abi_compiling_deps(compiling_deps_tset, source_only_abi_deps)
 
             if kotlin_extra_params_builder:
@@ -629,7 +629,7 @@ def generate_abi_jars(
                     actions,
                     source_only_abi_identifier,
                     "__kotlin_classes__",
-                    uses_experimental_content_based_path_hashing,
+                    uses_content_based_paths,
                     dir = True,
                 )
                 source_only_abi_kotlin_extra_params = kotlin_extra_params_builder(kotlin_classes = source_only_abi_kotlin_classes)
