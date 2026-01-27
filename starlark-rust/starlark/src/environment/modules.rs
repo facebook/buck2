@@ -57,6 +57,7 @@ use crate::values::OwnedFrozenValue;
 use crate::values::Trace;
 use crate::values::Tracer;
 use crate::values::Value;
+use crate::values::layout::heap::heap_type::FrozenHeapName;
 use crate::values::layout::heap::heap_type::HeapKind;
 use crate::values::layout::heap::profile::aggregated::AggregateHeapProfileInfo;
 use crate::values::layout::heap::profile::aggregated::RetainedHeapProfile;
@@ -425,6 +426,17 @@ impl<'v> Module<'v> {
 
     /// Freeze the environment, all its value will become immutable afterwards.
     pub fn freeze(self) -> FreezeResult<FrozenModule> {
+        self.freeze_impl(None)
+    }
+
+    /// Freeze the environment and assign a name to the contained frozen heap.
+    ///
+    /// See `FrozenHeapRef::name` for more details.
+    pub fn freeze_and_name(self, name: FrozenHeapName) -> FreezeResult<FrozenModule> {
+        self.freeze_impl(Some(name))
+    }
+
+    fn freeze_impl(self, name: Option<FrozenHeapName>) -> FreezeResult<FrozenModule> {
         let Module {
             names,
             slots,
@@ -470,7 +482,7 @@ impl<'v> Module<'v> {
         }
 
         Ok(FrozenModule {
-            heap: frozen_heap.into_ref(),
+            heap: frozen_heap.into_ref_impl(name),
             module: frozen_module_ref,
             extra_value,
             eval_duration: start.elapsed() + eval_duration.get(),

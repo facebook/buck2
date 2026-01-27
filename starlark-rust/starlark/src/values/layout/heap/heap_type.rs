@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+use std::any::Any;
 use std::cell::Cell;
 use std::cell::RefCell;
 use std::cell::RefMut;
@@ -215,13 +216,17 @@ pub struct FrozenHeap {
     str_interner: RefCell<FrozenStringValueInterner>,
 }
 
+pub type FrozenHeapName = Box<dyn Any + Send + Sync + 'static>;
+
 /// `FrozenHeap` when it is no longer modified and can be share between threads.
 /// Although, `arena` is not safe to share between threads, but at least `refs` is.
-#[derive(Default, Allocative)]
+#[derive(Allocative)]
 #[allow(clippy::non_send_fields_in_send_ty)]
 struct FrozenFrozenHeap {
     arena: Arena<ChunkAllocator>,
     refs: Box<[FrozenHeapRef]>,
+    #[allocative(skip)] // We don't really expect it to be big
+    name: Option<FrozenHeapName>,
 }
 
 // Safe because we never mutate the Arena other than with &mut
@@ -302,6 +307,22 @@ impl FrozenHeapRef {
             .as_ref()
             .map_or_else(HeapSummary::default, |a| a.arena.allocated_summary())
     }
+
+    /// Get the name of this heap.
+    ///
+    /// Names can be assigned when finalizing frozen heaps; in practice, this is done when freezing
+    /// modules, see `Module::freeze_and_name`.
+    ///
+    /// The name is intentionally made available here and not at a higher point like the module
+    /// level so that it can be inspected even when traversing the dependency graph of frozen heaps.
+    pub fn name(&self) -> Option<&FrozenHeapName> {
+        self.0.as_ref().and_then(|a| a.name.as_ref())
+    }
+
+    /// Get the frozen heaps that this frozen heap depends on.
+    pub fn refs(&self) -> impl Iterator<Item = &FrozenHeapRef> {
+        self.0.as_ref().map(|h| h.refs.iter()).into_iter().flatten()
+    }
 }
 
 impl FrozenHeap {
@@ -310,10 +331,21 @@ impl FrozenHeap {
         Self::default()
     }
 
+    /// `into_ref` but also assign a name
+    ///
+    /// See `FrozenHeapRef::name` for more details.
+    pub fn name_and_into_ref(self, name: FrozenHeapName) -> FrozenHeapRef {
+        self.into_ref_impl(Some(name))
+    }
+
     /// After all values have been allocated, convert the [`FrozenHeap`] into a
     /// [`FrozenHeapRef`] which can be [`clone`](Clone::clone)d, shared between threads,
     /// and ensures the underlying values allocated on the [`FrozenHeap`] remain valid.
     pub fn into_ref(self) -> FrozenHeapRef {
+        self.into_ref_impl(None)
+    }
+
+    pub(crate) fn into_ref_impl(self, name: Option<FrozenHeapName>) -> FrozenHeapRef {
         let FrozenHeap {
             mut arena, refs, ..
         } = self;
@@ -325,6 +357,7 @@ impl FrozenHeap {
             FrozenHeapRef(Some(Arc::new(FrozenFrozenHeap {
                 arena,
                 refs: refs.into_iter().collect(),
+                name,
             })))
         }
     }
