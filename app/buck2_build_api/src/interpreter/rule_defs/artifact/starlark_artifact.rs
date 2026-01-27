@@ -86,7 +86,7 @@ impl Display for StarlarkArtifact {
             f,
             "<{} ",
             if self.artifact.is_source() {
-                "source"
+                "source artifact"
             } else {
                 "build artifact"
             }

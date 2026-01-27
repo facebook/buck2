@@ -94,7 +94,7 @@ async def test_bxl_artifact_path(buck: Buck) -> None:
 
     outputs = json.loads(result.stdout)
 
-    assert outputs["source_artifact"] == "<source artifacts/DATA>"
+    assert outputs["source_artifact"] == "<source artifact artifacts/DATA>"
     # The project relative path of the source artifact
     assert outputs["source_artifact_project_rel_path"] == "artifacts/DATA"
 

@@ -23,8 +23,8 @@ async def test_bxl_actions(buck: Buck) -> None:
     )
 
     # FIXME(JakobDegen): The first assert doesn't test anything the second doesn't cover
-    assert "<source artifact_test/TARGETS.fixture>" in result.stdout
-    assert "[<source artifact_test/TARGETS.fixture>]" in result.stdout
+    assert "<source artifact artifact_test/TARGETS.fixture>" in result.stdout
+    assert "[<source artifact artifact_test/TARGETS.fixture>]" in result.stdout
 
 
 @buck_test()
