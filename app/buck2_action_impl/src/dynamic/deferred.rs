@@ -169,6 +169,89 @@ pub fn invoke_dynamic_output_lambda<'v>(
     Ok(provider_collection)
 }
 
+fn execute_lambda_inner<'v>(
+    env: &Module<'v>,
+    lambda: OwnedRefFrozenRef<'_, FrozenDynamicLambdaParams>,
+    self_key: &DynamicLambdaResultsKey,
+    resolved_dynamic_values: HashMap<DynamicValue, FrozenProviderCollectionValue>,
+    ensured_artifacts: &IndexMap<&Artifact, &ArtifactValue>,
+    input_artifacts_materialized: InputArtifactsMaterialized,
+    digest_config: DigestConfig,
+    artifact_fs: &ArtifactFs,
+) -> buck2_error::Result<AnalysisRegistry<'v>> {
+    let heap = env.heap();
+    let print = EventDispatcherPrintHandler(get_dispatcher());
+    let mut eval = Evaluator::new(&env);
+    eval.set_print_handler(&print);
+    eval.set_soft_error_handler(&Buck2StarlarkSoftErrorHandler);
+    let dynamic_lambda_ctx_data = dynamic_lambda_ctx_data(
+        lambda,
+        self_key.dupe(),
+        input_artifacts_materialized,
+        &ensured_artifacts,
+        &resolved_dynamic_values,
+        &artifact_fs,
+        digest_config,
+        &env,
+    )?;
+    let ctx = AnalysisContext::prepare(
+        heap,
+        dynamic_lambda_ctx_data.lambda.attributes()?,
+        self_key.owner().configured_label(),
+        dynamic_lambda_ctx_data.lambda.plugins()?,
+        dynamic_lambda_ctx_data.registry,
+        dynamic_lambda_ctx_data.digest_config,
+    );
+
+    let args = match (
+        &dynamic_lambda_ctx_data.lambda.attr_values,
+        &dynamic_lambda_ctx_data.spec,
+    ) {
+        (
+            None,
+            DynamicLambdaCtxDataSpec::Old {
+                outputs,
+                artifact_values,
+            },
+        ) => DynamicLambdaArgs::OldPositional {
+            ctx: ctx.to_value(),
+            artifact_values: *artifact_values,
+            outputs: *outputs,
+        },
+        (Some(_arg), DynamicLambdaCtxDataSpec::New { attr_values }) => {
+            DynamicLambdaArgs::DynamicActionsNamed {
+                // TODO(nga): no need to create `ctx`
+                //   because we only need `actions` here.
+                actions: ctx.actions,
+                attr_values: attr_values.clone(),
+            }
+        }
+        (None, DynamicLambdaCtxDataSpec::New { .. })
+        | (Some(_), DynamicLambdaCtxDataSpec::Old { .. }) => {
+            Err(internal_error!(
+                "Unexpected combination of attr_values and spec"
+            ))?;
+            unreachable!();
+        }
+    };
+
+    let providers: ProviderCollection =
+        invoke_dynamic_output_lambda(&mut eval, dynamic_lambda_ctx_data.lambda.lambda(), args)?;
+    let providers = eval.heap().alloc(providers);
+    let providers = ValueTypedComplex::<ProviderCollection>::new(providers)
+        .internal_error("Just allocated ProviderCollection")?;
+
+    ctx.assert_no_promises()?;
+
+    let registry = ctx.take_state();
+
+    registry
+        .analysis_value_storage
+        .set_result_value(providers)?;
+
+    Ok(registry)
+}
+
 async fn execute_lambda(
     lambda: OwnedRefFrozenRef<'_, FrozenDynamicLambdaParams>,
     dice: &mut DiceComputations<'_>,
@@ -222,82 +305,16 @@ async fn execute_lambda(
                 let mut declared_artifacts = None;
 
                 let output: buck2_error::Result<_> = Module::with_temp_heap(|env| {
-                    let analysis_registry = {
-                        let heap = env.heap();
-                        let print = EventDispatcherPrintHandler(get_dispatcher());
-                        let mut eval = Evaluator::new(&env);
-                        eval.set_print_handler(&print);
-                        eval.set_soft_error_handler(&Buck2StarlarkSoftErrorHandler);
-                        let dynamic_lambda_ctx_data = dynamic_lambda_ctx_data(
-                            lambda,
-                            self_key.dupe(),
-                            input_artifacts_materialized,
-                            &ensured_artifacts,
-                            &resolved_dynamic_values,
-                            &artifact_fs,
-                            digest_config,
-                            &env,
-                        )?;
-                        let ctx = AnalysisContext::prepare(
-                            heap,
-                            dynamic_lambda_ctx_data.lambda.attributes()?,
-                            self_key.owner().configured_label(),
-                            dynamic_lambda_ctx_data.lambda.plugins()?,
-                            dynamic_lambda_ctx_data.registry,
-                            dynamic_lambda_ctx_data.digest_config,
-                        );
-
-                        let args = match (
-                            &dynamic_lambda_ctx_data.lambda.attr_values,
-                            &dynamic_lambda_ctx_data.spec,
-                        ) {
-                            (
-                                None,
-                                DynamicLambdaCtxDataSpec::Old {
-                                    outputs,
-                                    artifact_values,
-                                },
-                            ) => DynamicLambdaArgs::OldPositional {
-                                ctx: ctx.to_value(),
-                                artifact_values: *artifact_values,
-                                outputs: *outputs,
-                            },
-                            (Some(_arg), DynamicLambdaCtxDataSpec::New { attr_values }) => {
-                                DynamicLambdaArgs::DynamicActionsNamed {
-                                    // TODO(nga): no need to create `ctx`
-                                    //   because we only need `actions` here.
-                                    actions: ctx.actions,
-                                    attr_values: attr_values.clone(),
-                                }
-                            }
-                            (None, DynamicLambdaCtxDataSpec::New { .. })
-                            | (Some(_), DynamicLambdaCtxDataSpec::Old { .. }) => {
-                                Err(internal_error!(
-                                    "Unexpected combination of attr_values and spec"
-                                ))?;
-                                unreachable!();
-                            }
-                        };
-
-                        let providers: ProviderCollection = invoke_dynamic_output_lambda(
-                            &mut eval,
-                            dynamic_lambda_ctx_data.lambda.lambda(),
-                            args,
-                        )?;
-                        let providers = eval.heap().alloc(providers);
-                        let providers = ValueTypedComplex::<ProviderCollection>::new(providers)
-                            .internal_error("Just allocated ProviderCollection")?;
-
-                        ctx.assert_no_promises()?;
-
-                        let registry = ctx.take_state();
-
-                        registry
-                            .analysis_value_storage
-                            .set_result_value(providers)?;
-
-                        registry
-                    };
+                    let analysis_registry = execute_lambda_inner(
+                        &env,
+                        lambda,
+                        &self_key,
+                        resolved_dynamic_values,
+                        ensured_artifacts,
+                        input_artifacts_materialized,
+                        digest_config,
+                        &artifact_fs,
+                    )?;
 
                     declared_actions = Some(analysis_registry.num_declared_actions());
                     declared_artifacts = Some(analysis_registry.num_declared_artifacts());
