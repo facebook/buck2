@@ -418,6 +418,13 @@ def _compile_single_cxx(
 
     headers_dep_files = src_compile_cmd.cxx_compile_cmd.headers_dep_files
 
+    # Generate pre-processed sources
+    preproc = actions.declare_output(
+        "__preprocessed__",
+        "{}.{}".format(filename_base, "i"),
+        has_content_based_path = content_based,
+    )
+
     # Distributed NVCC compilation doesn't support dep files because we'll
     # dryrun cmd and the dep files won't be materialized.
     # TODO (T219249723): investigate if dep files are needed for dist nvcc.
@@ -633,11 +640,6 @@ def _compile_single_cxx(
         diagnostics = None
 
     # Generate pre-processed sources
-    preproc = actions.declare_output(
-        "__preprocessed__",
-        "{}.{}".format(filename_base, "i"),
-        has_content_based_path = content_based,
-    )
     preproc_cmd = _get_base_compile_cmd(
         bitcode_args = bitcode_args,
         src_compile_cmd = src_compile_cmd,
