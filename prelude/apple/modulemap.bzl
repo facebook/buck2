@@ -48,25 +48,23 @@ def create_modulemap(
         header_map[swift_header_name] = swift_header
 
     # Create a symlink dir for the headers to import
-    symlink_tree = ctx.actions.symlinked_dir(name.replace(".", "_") + "_symlink_tree", header_map, uses_experimental_content_based_path_hashing = uses_experimental_content_based_path_hashing)
+    symlink_tree_name = name.replace(".", "_") + "_symlink_tree"
+    symlink_tree = ctx.actions.symlinked_dir(symlink_tree_name, header_map, uses_experimental_content_based_path_hashing = uses_experimental_content_based_path_hashing)
 
-    # Create a modulemap at the root of that tree
     output = ctx.actions.declare_output(name + ".modulemap", uses_experimental_content_based_path_hashing = uses_experimental_content_based_path_hashing)
     cmd = cmd_args(ctx.attrs._apple_tools[AppleToolsInfo].make_modulemap)
-    cmd.add([
+    cmd.add(
         "--output",
         output.as_output(),
         "--name",
         module_name,
-        "--symlink-tree",
-        symlink_tree,
-    ])
+    )
 
     if swift_header:
-        cmd.add([
+        cmd.add(
             "--swift-header",
-            swift_header,
-        ])
+            cmd_args(symlink_tree, format = "{}/" + swift_header_name),
+        )
 
     if getattr(ctx.attrs, "use_submodules", False):
         cmd.add("--use-submodules")
@@ -74,16 +72,32 @@ def create_modulemap(
     if is_framework:
         cmd.add("--framework")
 
-    for hdr in sorted(header_map.keys()):
+    for include_path in sorted(header_map.keys()):
         # Don't include the Swift header in the mappings, this is handled separately.
-        if hdr != swift_header_name:
-            cmd.add(hdr)
+        if include_path == swift_header_name:
+            continue
+
+        if is_framework:
+            # Framework headers are the same as their include paths, they are
+            # compiled relative to the framework's Headers folder.
+            cmd.add(include_path)
+            cmd.add(include_path)
+        else:
+            # With symlink trees the include path should match the symlink name
+            # nested in the symlink tree root.
+            cmd.add(include_path)
+            cmd.add(cmd_args(symlink_tree, format = "{}/" + include_path))
 
     ctx.actions.run(cmd, category = "modulemap", identifier = name)
+
+    header_artifacts = header_map.values() + [symlink_tree]
+    modular_args = [cmd_args(output, format = "-fmodule-map-file={}", hidden = header_artifacts)]
+    if not is_framework:
+        # When using relative paths we rely on the hmaps provided by regular
+        # cxx preprocessor.
+        modular_args.append(cmd_args(symlink_tree, format = "-I{}"))
+
     return CPreprocessor(
-        modular_args = [
-            cmd_args(output, format = "-fmodule-map-file={}"),
-            cmd_args(symlink_tree, format = "-I{}"),
-        ],
-        modulemap_artifact = output,
+        modular_args = modular_args,
+        modulemap_artifact = output.with_associated_artifacts(header_artifacts),
     )
