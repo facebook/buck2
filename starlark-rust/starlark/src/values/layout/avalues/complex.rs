@@ -41,6 +41,7 @@ use crate::values::layout::avalue::try_freeze_directly;
 use crate::values::layout::heap::repr::AValueHeader;
 use crate::values::layout::heap::repr::AValueRepr;
 use crate::values::layout::heap::repr::ForwardPtr;
+use crate::values::layout::heap::send::HeapSyncable;
 
 #[derive(Debug, thiserror::Error)]
 enum AValueError {
@@ -53,7 +54,7 @@ struct AValueComplex<T>(PhantomData<T>);
 impl<'v, T> AValue<'v> for AValueComplex<T>
 where
     T: ComplexValue<'v>,
-    T::Frozen: StarlarkValue<'static>,
+    T::Frozen: StarlarkValue<'static> + HeapSendable<'static> + HeapSyncable<'static>,
 {
     type StarlarkValue = T;
 
@@ -139,7 +140,7 @@ impl<'v> Heap<'v> {
     pub fn alloc_complex<T>(self, x: T) -> Value<'v>
     where
         T: ComplexValue<'v>,
-        T::Frozen: StarlarkValue<'static>,
+        T::Frozen: StarlarkValue<'static> + HeapSendable<'static> + HeapSyncable<'static>,
         T: HeapSendable<'v>,
     {
         assert!(!T::is_special(Private));

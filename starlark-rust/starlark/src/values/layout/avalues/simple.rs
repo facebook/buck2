@@ -48,7 +48,9 @@ pub(crate) fn simple<'v, T: StarlarkValue<'v> + HeapSendable<'v> + HeapSyncable<
 /// AValue implementation for simple Starlark values.
 pub struct AValueSimple<T>(PhantomData<T>);
 
-impl<'v, T: StarlarkValue<'v>> AValue<'v> for AValueSimple<T> {
+impl<'v, T: StarlarkValue<'v> + HeapSendable<'v> + HeapSyncable<'v>> AValue<'v>
+    for AValueSimple<T>
+{
     type StarlarkValue = T;
 
     type ExtraElem = ();

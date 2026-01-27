@@ -28,6 +28,7 @@ use crate::any::ProvidesStaticType;
 use crate::values::FreezeResult;
 use crate::values::Freezer;
 use crate::values::FrozenValue;
+use crate::values::HeapSendable;
 use crate::values::StarlarkValue;
 use crate::values::Tracer;
 use crate::values::Value;
@@ -36,6 +37,7 @@ use crate::values::layout::heap::arena::MIN_ALLOC;
 use crate::values::layout::heap::repr::AValueHeader;
 use crate::values::layout::heap::repr::AValueRepr;
 use crate::values::layout::heap::repr::ForwardPtr;
+use crate::values::layout::heap::send::HeapSyncable;
 use crate::values::layout::value_alloc_size::ValueAllocSize;
 
 /// Extended vtable methods (those not covered by `StarlarkValue`).
@@ -87,9 +89,9 @@ pub(crate) trait AValue<'v>: Sized + 'v {
             + allocative::size_of_unique_allocated_data(value)
     }
 
-    unsafe fn heap_freeze(
+    unsafe fn heap_freeze<'fv>(
         me: *mut AValueRepr<Self::StarlarkValue>,
-        freezer: &Freezer,
+        freezer: &Freezer<'fv>,
     ) -> FreezeResult<FrozenValue>;
 
     unsafe fn heap_copy(me: *mut AValueRepr<Self::StarlarkValue>, tracer: &Tracer<'v>)
@@ -137,6 +139,7 @@ pub(super) unsafe fn heap_freeze_simple_impl<'v, A>(
 ) -> FreezeResult<FrozenValue>
 where
     A: AValue<'v, ExtraElem = ()>,
+    A::StarlarkValue: HeapSendable<'v> + HeapSyncable<'v>,
 {
     unsafe {
         let (fv, r) = freezer.reserve::<A>();

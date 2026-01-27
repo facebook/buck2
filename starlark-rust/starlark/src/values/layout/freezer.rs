@@ -22,9 +22,11 @@ use crate::values::AllocFrozenValue;
 use crate::values::FreezeResult;
 use crate::values::FrozenHeap;
 use crate::values::FrozenRef;
+use crate::values::HeapSendable;
 use crate::values::layout::avalue::AValue;
 use crate::values::layout::heap::arena::Reservation;
 use crate::values::layout::heap::repr::AValueOrForwardUnpack;
+use crate::values::layout::heap::send::HeapSyncable;
 use crate::values::layout::value::FrozenValue;
 use crate::values::layout::value::Value;
 
@@ -49,9 +51,12 @@ impl<'fv> Freezer<'fv> {
         val.alloc_frozen_value(self.heap)
     }
 
-    pub(crate) fn reserve<'v, 'v2, T: AValue<'v2, ExtraElem = ()>>(
-        &'v self,
-    ) -> (FrozenValue, Reservation<'v2, T>) {
+    pub(crate) fn reserve<'v, 'v2, T>(&'v self) -> (FrozenValue, Reservation<'v2, T>)
+    where
+        T: AValue<'v2, ExtraElem = ()>,
+        T::StarlarkValue: HeapSendable<'v2>,
+        T::StarlarkValue: HeapSyncable<'v2>,
+    {
         let (fv, r, extra) = self.heap.reserve_with_extra::<T>(0);
         let extra = unsafe { &mut *extra };
         debug_assert!(extra.is_empty());

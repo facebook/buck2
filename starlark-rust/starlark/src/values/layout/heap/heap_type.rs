@@ -456,14 +456,19 @@ impl FrozenHeap {
         self.arena.allocated_summary()
     }
 
-    pub(crate) fn reserve_with_extra<'v, 'v2, T: AValue<'v2>>(
+    pub(crate) fn reserve_with_extra<'v, 'v2, T>(
         &'v self,
         extra_len: usize,
     ) -> (
         FrozenValue,
         Reservation<'v2, T>,
         *mut [MaybeUninit<T::ExtraElem>],
-    ) {
+    )
+    where
+        T: AValue<'v2>,
+        T::StarlarkValue: HeapSendable<'v2>,
+        T::StarlarkValue: HeapSyncable<'v2>,
+    {
         let (r, extra) = self.arena.reserve_with_extra::<T>(extra_len);
         let fv = FrozenValue::new_ptr(unsafe { cast::ptr_lifetime(r.ptr()) }, false);
         (fv, r, extra)
