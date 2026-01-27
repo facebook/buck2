@@ -560,16 +560,15 @@ def _compile_single_cxx(
     else:
         object_format = default_object_format
 
-    compile_index_store_cmd = _get_base_compile_cmd(
-        bitcode_args = bitcode_args,
-        src_compile_cmd = src_compile_cmd,
-        flavors = flavors,
-        flavor_flags = toolchain.compiler_flavor_flags,
-    )
-
     index_store = None
 
     if CxxCompileFlavor("pic") in flavors:
+        compile_index_store_cmd = _get_base_compile_cmd(
+            bitcode_args = bitcode_args,
+            src_compile_cmd = src_compile_cmd,
+            flavors = flavors,
+            flavor_flags = toolchain.compiler_flavor_flags,
+        )
         index_store = _compile_index_store(actions, target_label, src_compile_cmd, toolchain, compile_index_store_cmd)
 
     # Generate asm for compiler which accept `-S` (TODO: support others)
