@@ -167,4 +167,5 @@ def run_worker_commands(
         identifier = identifier,
         # Handshake seems more prone to failure when running locally, so workaround by running remotely where possible.
         prefer_remote = True,
+        expect_eligible_for_dedupe = has_content_based_path,
     )
