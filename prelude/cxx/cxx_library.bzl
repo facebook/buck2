@@ -1149,6 +1149,70 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
         bc_provider = BitcodeBundleInfo(bitcode = bitcode_bundle, bitcode_bundle = ctx.actions.tset(BitcodeTSet, value = bitcode_bundle))
         additional_providers.append(bc_provider)
 
+    # Add prefer-static and prefer-shared sub-targets for dependent-specific linkage control.
+    # These expose the library with different preferred linkages, allowing dependents to
+    # explicitly choose static or shared linking regardless of the library's default.
+    if impl_params.generate_providers.merged_native_link_info:
+        for linkage in (Linkage("static"), Linkage("shared")):
+            # Get the appropriate output for this linkage
+            linkage_output_style = get_lib_output_style(to_link_strategy(cxx_attr_link_style(ctx)), linkage, pic_behavior)
+            linkage_output = library_outputs.outputs.get(linkage_output_style, {}).get(LinkableFlavor("default"), None)
+
+            # Create MergedLinkInfo with this linkage (reuses inherited_*_link from above)
+            linkage_merged_link_info = create_merged_link_info(
+                ctx,
+                pic_behavior,
+                library_outputs.link_infos,
+                preferred_linkage = linkage,
+                deps = inherited_non_exported_link,
+                exported_deps = inherited_exported_link,
+                frameworks_linkable = frameworks_linkable,
+                swiftmodule_linkable = swiftmodule_linkable,
+            )
+
+            # Check if we have the required output styles for this linkage
+            required_output_styles = get_output_styles_for_linkage(linkage)
+            has_required_outputs = all([style in library_outputs.link_infos for style in required_output_styles])
+
+            # Include all providers needed for this sub-target to be usable as a dependency
+            linkage_providers = [
+                linkage_merged_link_info,
+                propagated_preprocessor,
+                LinkGroupLibInfo(libs = {}),
+                SharedLibraryInfo(set = None),
+            ]
+
+            # Only create LinkableGraph if we have all required output styles for this linkage
+            if has_required_outputs and impl_params.generate_providers.linkable_graph:
+                linkage_linkable_graph = create_linkable_graph(
+                    ctx,
+                    node = create_linkable_graph_node(
+                        ctx,
+                        linkable_node = create_linkable_node(
+                            ctx = ctx,
+                            default_soname = _soname(ctx, impl_params),
+                            preferred_linkage = linkage,
+                            default_link_strategy = cxx_attr_link_strategy(ctx.attrs),
+                            deps = non_exported_deps,
+                            exported_deps = exported_deps,
+                            include_in_android_mergemap = getattr(ctx.attrs, "include_in_android_merge_map_output", True) and default_output != None,
+                            link_infos = library_outputs.link_infos,
+                            shared_libs = shared_libs,
+                            linker_flags = linker_flags,
+                            can_be_asset = getattr(ctx.attrs, "can_be_asset", False) or False,
+                            stub = getattr(ctx.attrs, "stub", False),
+                        ),
+                        excluded = {ctx.label: None} if not value_or(ctx.attrs.supports_merged_linking, True) else {},
+                    ),
+                    deps = linkable_graph_deps,
+                )
+                linkage_providers.append(linkage_linkable_graph)
+            if linkage_output:
+                linkage_providers.append(DefaultInfo(
+                    default_output = linkage_output.default,
+                ))
+            sub_targets["prefer-{}".format(linkage.value)] = linkage_providers
+
     if impl_params.generate_providers.default:
         if False:
             # TODO(nga): `default_output.unstripped` is never `None`.
