@@ -504,8 +504,7 @@ def _compile_single_cxx(
             cmd,
         )
 
-    dist_nvcc_dag = None
-    dist_nvcc_env = None
+    cuda_compile_output = None
     if src_compile_cmd.src.extension == ".cu":
         cuda_compile_output = cuda_compile(
             actions,
@@ -524,8 +523,6 @@ def _compile_single_cxx(
             error_handler = src_compile_cmd.error_handler,
             cuda_compile_style = cuda_compile_style,
         )
-        if cuda_compile_output:
-            dist_nvcc_dag, dist_nvcc_env = cuda_compile_output
     else:
         is_producing_compiled_pch = bool(compile_pch)
         is_consuming_compiled_pch = bool(precompiled_header and precompiled_header[CPrecompiledHeaderInfo].compiled)
@@ -668,8 +665,8 @@ def _compile_single_cxx(
         assembly = assembly,
         diagnostics = diagnostics,
         preproc = preproc,
-        nvcc_dag = dist_nvcc_dag,
-        nvcc_env = dist_nvcc_env,
+        nvcc_dag = cuda_compile_output.nvcc_dag if cuda_compile_output else None,
+        nvcc_env = cuda_compile_output.nvcc_env if cuda_compile_output else None,
         pch_object_output = pch_object_output,
     )
 

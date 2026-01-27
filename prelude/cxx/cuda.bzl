@@ -153,7 +153,7 @@ def cuda_compile(
         action_dep_files: dict[str, ArtifactTag],
         allow_dep_file_cache_upload: bool,
         error_handler: [typing.Callable, None],
-        cuda_compile_style: CudaCompileStyle | None) -> list[Artifact] | None:
+        cuda_compile_style: CudaCompileStyle | None) -> CudaDistributedCompileOutput | None:
     """
     Compile a CUDA file using either monolithic or distributed compilation.
     This is a convenience function that dispatches to the appropriate implementation.
@@ -182,7 +182,10 @@ def cuda_compile(
             src_compile_cmd,
             cuda_compile_info,
         )
-        return [cuda_dist_output.nvcc_dag, cuda_dist_output.nvcc_env]
+        return CudaDistributedCompileOutput(
+            nvcc_dag = cuda_dist_output.nvcc_dag,
+            nvcc_env = cuda_dist_output.nvcc_env,
+        )
     else:
         fail("Unsupported CUDA compile style: {}".format(cuda_compile_style))
 
