@@ -1019,7 +1019,7 @@ impl RunAction {
             .map(|metadata_param| &metadata_param.ignore_tags);
         let mut run_action_visitor =
             RunActionVisitor::new(&self.inner.dep_files, incremental_action_ignore_tags);
-        waiting_data.start_waiting_category(WaitingCategory::PreparingAction);
+        waiting_data.start_waiting_category_now(WaitingCategory::PreparingAction);
         let (prepared_run_action, cmdline_digest_for_dep_files, host_sharing_requirements) =
             self.prepare(&mut run_action_visitor, ctx).await?;
 
@@ -1047,7 +1047,7 @@ impl RunAction {
         // Prepare the action, check the action cache, fully check the local dep file cache if needed, then execute the command
         let re_outputs_required = ctx.run_action_knobs().re_outputs_required;
         let prepared_action = ctx.prepare_action(&req, re_outputs_required)?;
-        waiting_data.start_waiting_category(WaitingCategory::CheckingCaches);
+        waiting_data.start_waiting_category_now(WaitingCategory::CheckingCaches);
         let manager = ctx.command_execution_manager(waiting_data);
 
         let action_cache_result = ctx.action_cache(manager, &req, &prepared_action).await;
@@ -1116,7 +1116,7 @@ impl RunAction {
                 manager
                     .inner
                     .waiting_data
-                    .start_waiting_category(WaitingCategory::Unknown);
+                    .start_waiting_category_now(WaitingCategory::Unknown);
                 let (req, prepared_action) = if self.inner.incremental_remote_outputs {
                     // For the case of incremental remote outputs, we checked the caches using the action which
                     // does not include the outputs as inputs.

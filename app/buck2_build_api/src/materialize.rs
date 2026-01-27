@@ -80,7 +80,7 @@ async fn materialize_artifact_group(
     let mut waiting_data = WaitingData::new();
 
     if let MaterializationContext::Materialize { force } = materialization_context {
-        waiting_data.start_waiting_category(WaitingCategory::MaterializerPrepare);
+        waiting_data.start_waiting_category_now(WaitingCategory::MaterializerPrepare);
         let queue_tracker = ctx
             .per_transaction_data()
             .get_materialization_queue_tracker();
@@ -121,7 +121,7 @@ async fn materialize_artifact_group(
             }
         }
 
-        waiting_data.start_waiting_category(WaitingCategory::MaterializerStage2);
+        waiting_data.start_waiting_category_now(WaitingCategory::MaterializerStage2);
         ctx.try_compute_join(
             configuration_path_to_content_based_path_symlinks,
             |ctx, (path, value)| {
@@ -139,7 +139,7 @@ async fn materialize_artifact_group(
             "Failed to declare configuration path to content-based path symlinks",
         )?;
 
-        waiting_data.start_waiting_category(WaitingCategory::Unknown);
+        waiting_data.start_waiting_category_now(WaitingCategory::Unknown);
         ctx.try_compute_join(artifacts_to_materialize, |ctx, (artifact, path)| {
             let waiting_data = waiting_data.clone();
 

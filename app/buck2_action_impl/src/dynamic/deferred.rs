@@ -381,7 +381,7 @@ pub(crate) async fn prepare_and_execute_lambda(
             owner: Some(self_holder_key.owner().to_proto().into()),
         },
         async move {
-            waiting_data.start_waiting_category(WaitingCategory::MaterializingInputs);
+            waiting_data.start_waiting_category_now(WaitingCategory::MaterializingInputs);
             let (input_artifacts_materialized, resolved_dynamic_values) = span_async_simple(
                 buck2_data::DeferredPreparationStageStart {
                     stage: Some(buck2_data::MaterializedArtifacts {}.into()),
@@ -398,7 +398,7 @@ pub(crate) async fn prepare_and_execute_lambda(
                 buck2_data::DeferredPreparationStageEnd {},
             )
             .await?;
-            waiting_data.start_waiting_category(WaitingCategory::Unknown);
+            waiting_data.start_waiting_category_now(WaitingCategory::Unknown);
             let (time_span, spans, res) = cancellation
                 .with_structured_cancellation(|observer| {
                     execute_lambda(

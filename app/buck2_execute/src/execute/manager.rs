@@ -151,7 +151,7 @@ impl CommandExecutionManager {
     pub fn start_waiting_category(&mut self, waiting_category: WaitingCategory) {
         self.inner
             .waiting_data
-            .start_waiting_category(waiting_category);
+            .start_waiting_category_now(waiting_category);
     }
 }
 

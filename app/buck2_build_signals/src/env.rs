@@ -85,10 +85,12 @@ impl WaitingData {
 
     /// Records the start of a new waiting category phase.
     /// Tracks timing boundaries between different phases of action execution.
-    pub fn start_waiting_category(&mut self, category: WaitingCategory) {
-        self.init()
-            .categorized_waiting
-            .push((Instant::now(), category));
+    pub fn start_waiting_category_now(&mut self, category: WaitingCategory) {
+        self.start_waiting_category_at(category, Instant::now());
+    }
+
+    fn start_waiting_category_at(&mut self, category: WaitingCategory, start_time: Instant) {
+        self.init().categorized_waiting.push((start_time, category));
     }
 
     fn init(&mut self) -> &mut WaitingDataInitialized {
