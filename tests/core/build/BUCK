@@ -10,6 +10,11 @@ buck2_core_tests(
         "test_paranoid": {
             "data": "//buck2/tests/targets:isolated_targets",
         },
+        "test_retained_analysis_memory_sketch": {
+            "env": {
+                "SKETCH_SIZE_BIN": "$(location fbcode//buck2/shed/setsketch:sketch_size)",
+            },
+        },
         "test_uncategorized": {
             "env": {
                 "RECLI": "$(location fbsource//xplat/remote_execution/dotslash:recli)",

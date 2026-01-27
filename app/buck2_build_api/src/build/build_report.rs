@@ -157,6 +157,9 @@ pub(crate) struct ConfiguredBuildReportEntry {
     // The serialized graph sketch based on unconfigured target labels, if it was produced.
     #[serde(skip_serializing_if = "Option::is_none")]
     configured_graph_unconfigured_sketch: Option<String>,
+    /// A sketch of the analysis memory used by this target
+    #[serde(skip_serializing_if = "Option::is_none")]
+    retained_analysis_memory_sketch: Option<String>,
 }
 
 /// DO NOT UPDATE WITHOUT UPDATING `docs/users/build_observability/build_report.md`!
@@ -771,10 +774,10 @@ impl<'a> BuildReportCollector<'a> {
                 &result.graph_properties
             {
                 configured_report.inner.configured_graph_size =
-                    Some(graph_properties.configured_graph_size);
+                    Some(graph_properties.configured.configured_graph_size);
 
                 if let Some(configured_graph_sketch) =
-                    graph_properties.configured_graph_sketch.as_ref()
+                    graph_properties.configured.configured_graph_sketch.as_ref()
                 {
                     if self.graph_properties_opts.configured_graph_sketch {
                         configured_report.configured_graph_sketch =
@@ -786,8 +789,19 @@ impl<'a> BuildReportCollector<'a> {
                     }
                 }
 
-                if let Some(per_configuration_sketch) =
-                    graph_properties.per_configuration_sketch.as_ref()
+                if let Some(retained_analysis_memory_sketch) =
+                    graph_properties.retained_analysis_memory_sketch.as_ref()
+                {
+                    if self.graph_properties_opts.retained_analysis_memory_sketch {
+                        configured_report.retained_analysis_memory_sketch =
+                            Some(retained_analysis_memory_sketch.serialize());
+                    }
+                }
+
+                if let Some(per_configuration_sketch) = graph_properties
+                    .configured
+                    .per_configuration_sketch
+                    .as_ref()
                 {
                     if self
                         .graph_properties_opts

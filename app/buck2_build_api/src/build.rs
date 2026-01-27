@@ -676,13 +676,14 @@ async fn build_configured_label_inner<'a>(
     }
 
     if !opts.graph_properties.is_empty() {
-        let graph_properties = graph_properties::get_configured_graph_properties(
+        let graph_properties = graph_properties::get_graph_properties(
             &mut ctx.get(),
             providers_label.target(),
             opts.graph_properties
                 .should_compute_configured_graph_sketch(),
             opts.graph_properties
                 .should_compute_per_configuration_sketch(),
+            opts.graph_properties.retained_analysis_memory_sketch,
         )
         .await
         .map_err(|e| e.into());

@@ -124,6 +124,13 @@ ConfiguredBuildReportEntry {
     # Enabled by setting `-c buck2.log_configured_graph_sketch=true`.
     configured_graph_sketch: Optional[str],
 
+    # Set sketch of analysis memory utilization stored in a hex string.
+    #
+    # Computing the cardinality of this sketch returns an (approximate) number of bytes.
+    #
+    # Enabled by setting `-c buck2.log_retained_analysis_memory_sketch=true`
+    retained_analysis_memory_sketch: Optional[str],
+
     # Metrics for this target. Represents the aggregated metrics for top level targets.
     metrics: TargetBuildMetrics,
 
