@@ -343,7 +343,9 @@ impl<'v> Module<'v> {
     }
 
     /// Create a new module environment with no contents that will use the provided heap.
-    pub fn with_heap(heap: Heap<'v>) -> Self {
+    // FIXME(JakobDegen): Private for now because this disables GC and it's hard to make it sound in
+    // combination with that. Once GC is fixed, can be made public.
+    pub(crate) fn with_heap(heap: Heap<'v>) -> Self {
         Self {
             heap,
             frozen_heap: FrozenHeap::new(),

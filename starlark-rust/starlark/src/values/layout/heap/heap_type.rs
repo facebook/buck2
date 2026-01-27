@@ -84,9 +84,9 @@ pub(crate) enum HeapKind {
 
 /// An owned heap on which [`Value`]s can be allocated.
 ///
-/// This type owns a [`Heap`] and derefs to it for convenience. Use [`OwnedHeap::new`]
-/// to create a new heap.
-pub struct OwnedHeap {
+/// Private for now, but there's no reason it couldn't be public as long as access is restricted to
+/// branded functions with signatures like those of `Heap::temp`
+struct OwnedHeap {
     /// Peak memory seen when a garbage collection takes place (may be lower than currently allocated)
     peak_allocated: Cell<usize>,
     arena: FastCell<Arena<Bump>>,
@@ -96,21 +96,9 @@ pub struct OwnedHeap {
     ban_gc: Cell<bool>,
 }
 
-impl Debug for OwnedHeap {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        Debug::fmt(&self.as_ref(), f)
-    }
-}
-
-impl Default for OwnedHeap {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
 impl OwnedHeap {
     /// Create a new [`OwnedHeap`].
-    pub fn new() -> Self {
+    fn new() -> Self {
         Self {
             peak_allocated: Default::default(),
             arena: Default::default(),
@@ -118,11 +106,6 @@ impl OwnedHeap {
             refs: Default::default(),
             ban_gc: Cell::new(true),
         }
-    }
-
-    /// Get access to the underlying [`Heap`].
-    pub fn as_ref<'v>(&'v self) -> Heap<'v> {
-        Heap(self, PhantomData)
     }
 }
 
@@ -152,7 +135,7 @@ impl<'v> Heap<'v> {
         F: for<'v2> FnOnce(Heap<'v2>) -> R,
     {
         let heap = OwnedHeap::new();
-        f(heap.as_ref())
+        f(Heap(&heap, PhantomData))
     }
 
     /// Like `temp`, but `async`
@@ -166,7 +149,7 @@ impl<'v> Heap<'v> {
         // "returned" by this function to do so. We make that sound by also capturing the heap
         // itself in the future.
         let heap = OwnedHeap::new();
-        f(heap.as_ref()).await
+        f(Heap(&heap, PhantomData)).await
     }
 
     pub(in crate::values::layout) fn string_interner(self) -> RefMut<'v, StringValueInterner<'v>> {
