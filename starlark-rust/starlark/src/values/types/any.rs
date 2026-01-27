@@ -133,7 +133,7 @@ impl<T: Debug + Send + Sync + 'static> StarlarkAny<T> {
 impl FrozenHeap {
     /// Allocate any value in the frozen heap.
     pub fn alloc_any<T: Debug + Send + Sync>(&self, value: T) -> FrozenRef<'static, T> {
-        self.alloc_simple_typed(StarlarkAny::new(value))
+        self.alloc_simple_typed_static(StarlarkAny::new(value))
             .as_frozen_ref()
             .map(|r| &r.0)
     }

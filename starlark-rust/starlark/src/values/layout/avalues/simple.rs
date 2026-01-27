@@ -38,7 +38,7 @@ use crate::values::layout::avalue::try_freeze_directly;
 use crate::values::layout::heap::repr::AValueRepr;
 use crate::values::layout::heap::send::HeapSyncable;
 
-pub(crate) fn simple<'v, T: StarlarkValue<'v> + Send + Sync + 'static>(
+pub(crate) fn simple<'v, T: StarlarkValue<'v> + HeapSendable<'v> + HeapSyncable<'v> + 'v>(
     x: T,
 ) -> AValueImpl<'v, AValueSimple<T>> {
     assert!(!T::is_special(Private));
@@ -83,7 +83,7 @@ impl<'v, T: StarlarkValue<'v>> AValue<'v> for AValueSimple<T> {
 }
 
 impl FrozenHeap {
-    pub(crate) fn alloc_simple_typed<
+    pub(crate) fn alloc_simple_typed_static<
         T: StarlarkValue<'static> + HeapSendable<'static> + HeapSyncable<'static> + Send + Sync,
     >(
         &self,
@@ -92,6 +92,17 @@ impl FrozenHeap {
         // SAFETY: Not.
         let this: &'static FrozenHeap = unsafe { cast::ptr_lifetime(self) };
         this.alloc_raw(simple(val))
+    }
+
+    /// Allocate a value on the heap
+    pub fn alloc_simple_typed<
+        'fv,
+        T: StarlarkValue<'fv> + HeapSendable<'fv> + HeapSyncable<'fv>,
+    >(
+        &'fv self,
+        val: T,
+    ) -> FrozenValueTyped<'fv, T> {
+        self.alloc_raw(simple(val))
     }
 
     /// Allocate a simple [`StarlarkValue`] on this heap.
@@ -105,7 +116,7 @@ impl FrozenHeap {
         &self,
         val: T,
     ) -> FrozenValue {
-        self.alloc_simple_typed(val).to_frozen_value()
+        self.alloc_simple_typed_static(val).to_frozen_value()
     }
 }
 
@@ -117,7 +128,9 @@ impl<'v> Heap<'v> {
     /// * is not special builtin (e.g. `None`)
     ///
     /// Must be [`Send`] and [`Sync`] because it will be reused in frozen values.
-    pub fn alloc_simple<T: StarlarkValue<'v> + HeapSendable<'v> + Send + Sync + 'static>(
+    pub fn alloc_simple<
+        T: StarlarkValue<'v> + HeapSendable<'v> + HeapSyncable<'v> + Send + Sync + 'static,
+    >(
         self,
         x: T,
     ) -> Value<'v> {

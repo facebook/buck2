@@ -66,7 +66,7 @@ pub(crate) fn local_as_value(
     )> = Lazy::new(|| {
         let heap = FrozenHeap::new();
         let locals = array::from_fn(|i| {
-            heap.alloc_simple_typed(LocalAsValue {
+            heap.alloc_simple_typed_static(LocalAsValue {
                 local: LocalSlotId(i as u32),
             })
         });

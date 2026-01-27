@@ -172,7 +172,7 @@ impl MethodsBuilder {
         let value = self.heap.alloc(value);
         self.members.insert(
             name,
-            UnboundValue::Attr(self.heap.alloc_simple_typed(NativeAttribute {
+            UnboundValue::Attr(self.heap.alloc_simple_typed_static(NativeAttribute {
                 speculative_exec_safe: true,
                 docstring,
                 typ: V::starlark_type_repr(),
@@ -196,7 +196,7 @@ impl MethodsBuilder {
     ) {
         self.members.insert(
             name,
-            UnboundValue::Attr(self.heap.alloc_simple_typed(NativeAttribute {
+            UnboundValue::Attr(self.heap.alloc_simple_typed_static(NativeAttribute {
                 speculative_exec_safe,
                 docstring,
                 typ,
@@ -220,7 +220,7 @@ impl MethodsBuilder {
 
         self.members.insert(
             name,
-            UnboundValue::Method(self.heap.alloc_simple_typed(NativeMethod {
+            UnboundValue::Method(self.heap.alloc_simple_typed_static(NativeMethod {
                 function: NativeMeth(f, sig),
                 name: name.to_owned(),
                 speculative_exec_safe: components.speculative_exec_safe,
