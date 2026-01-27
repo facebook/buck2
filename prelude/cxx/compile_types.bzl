@@ -109,7 +109,7 @@ DeclaredIndexStore = record(
 # - compile: Called during execution (inside dynamic action) to run the compilation
 IndexStoreFactory = record(
     declare = field(typing.Callable[[AnalysisActions, typing.Any], DeclaredIndexStore | None]),
-    compile = field(typing.Callable[[AnalysisActions, Label, Artifact, str, CxxToolchainInfo, cmd_args], None]),
+    compile = field(typing.Callable[[AnalysisActions, Label, OutputArtifact, str, CxxToolchainInfo, cmd_args], None]),
 )
 
 # Information about how to compile a source file.

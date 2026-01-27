@@ -109,6 +109,8 @@ def cuda_distributed_compile(
     one Buck action per sub-command.
     """
     content_based = cuda_compile_info.uses_experimental_content_based_path_hashing
+
+    # TODO (amrdef) move this and pass it as a reference
     hostcc_argsfile = actions.declare_output(
         cuda_compile_info.output_prefix,
         "{}.hostcc_argsfile".format(cuda_compile_info.filename),
@@ -121,7 +123,7 @@ def cuda_distributed_compile(
     cmd.add([
         "-_NVCC_DRYRUN_",
         "-_NVCC_HOSTCC_ARGSFILE_",
-        hostcc_argsfile.as_output(),
+        as_output(hostcc_argsfile),
         "-_NVCC_DRYRUN_ENV_OUT_",
         as_output(cuda_dist_output.nvcc_env),
         "-_NVCC_DRYRUN_DAG_OUT_",
@@ -153,7 +155,8 @@ def cuda_compile(
         action_dep_files: dict[str, ArtifactTag],
         allow_dep_file_cache_upload: bool,
         error_handler: [typing.Callable, None],
-        cuda_compile_style: CudaCompileStyle | None) -> CudaDistributedCompileOutput | None:
+        cuda_compile_style: CudaCompileStyle | None,
+        cuda_dist_output: CudaDistributedCompileOutput | None = None) -> None:
     """
     Compile a CUDA file using either monolithic or distributed compilation.
     This is a convenience function that dispatches to the appropriate implementation.
@@ -171,8 +174,8 @@ def cuda_compile(
         )
         return None
     elif cuda_compile_style == CudaCompileStyle("dist"):
-        # For dist style, outputs must be declared externally
-        cuda_dist_output = declare_cuda_dist_compile_output(actions, cuda_compile_info)
+        if cuda_dist_output == None:
+            fail("cuda_dist_output is required for distributed CUDA compilation")
         cuda_distributed_compile(
             actions,
             toolchain,
@@ -181,10 +184,6 @@ def cuda_compile(
             cuda_dist_output,
             src_compile_cmd,
             cuda_compile_info,
-        )
-        return CudaDistributedCompileOutput(
-            nvcc_dag = cuda_dist_output.nvcc_dag,
-            nvcc_env = cuda_dist_output.nvcc_env,
         )
     else:
         fail("Unsupported CUDA compile style: {}".format(cuda_compile_style))
