@@ -409,6 +409,32 @@ def _compile_single_cxx(
             "__diagnostics__",
             "{}.diag.txt".format(short_path),
         )
+
+    # If we're building with split debugging, where the debug info is in the
+    # original object, then add the object as external debug info
+    # FIXME: ThinLTO generates debug info in a separate dwo dir, but we still
+    # need to track object files if the object file is not compiled to bitcode.
+    # We should track whether ThinLTO is used on a per-object basis rather than
+    # globally on a toolchain level.
+    object_has_external_debug_info = (
+        toolchain.split_debug_mode == SplitDebugMode("single")
+    )
+
+    index_store = None
+    if CxxCompileFlavor("pic") in flavors:
+        index_store = _compile_index_store(
+            actions,
+            target_label,
+            src_compile_cmd,
+            toolchain,
+            _get_base_compile_cmd(
+                bitcode_args = bitcode_args,
+                src_compile_cmd = src_compile_cmd,
+                flavors = flavors,
+                flavor_flags = toolchain.compiler_flavor_flags,
+            ),
+        )
+
     clang_llvm_statistics = None
     if toolchain.clang_llvm_statistics and compiler_type == "clang":
         clang_llvm_statistics = actions.declare_output(
@@ -561,31 +587,6 @@ def _compile_single_cxx(
             error_handler = src_compile_cmd.error_handler,
             outputs_for_error_handler = outputs_for_error_handler,
             local_only = is_producing_compiled_pch or is_consuming_compiled_pch,
-        )
-
-    # If we're building with split debugging, where the debug info is in the
-    # original object, then add the object as external debug info
-    # FIXME: ThinLTO generates debug info in a separate dwo dir, but we still
-    # need to track object files if the object file is not compiled to bitcode.
-    # We should track whether ThinLTO is used on a per-object basis rather than
-    # globally on a toolchain level.
-    object_has_external_debug_info = (
-        toolchain.split_debug_mode == SplitDebugMode("single")
-    )
-
-    index_store = None
-    if CxxCompileFlavor("pic") in flavors:
-        index_store = _compile_index_store(
-            actions,
-            target_label,
-            src_compile_cmd,
-            toolchain,
-            _get_base_compile_cmd(
-                bitcode_args = bitcode_args,
-                src_compile_cmd = src_compile_cmd,
-                flavors = flavors,
-                flavor_flags = toolchain.compiler_flavor_flags,
-            ),
         )
 
     # Generate asm for compiler which accept `-S` (TODO: support others)
