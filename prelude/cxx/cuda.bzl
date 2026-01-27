@@ -44,6 +44,7 @@ def declare_cuda_dist_compile_output(actions: AnalysisActions, cuda_compile_info
     # Create the following files for each CUDA file:
     # - Envvars to run the NVCC sub-commands with.
     # - A dependency graph of the NVCC sub-commands.
+    # - Argsfile for the host compiler.
     env = actions.declare_output(
         cuda_compile_info.output_prefix,
         "{}.env".format(cuda_compile_info.filename),
@@ -54,9 +55,15 @@ def declare_cuda_dist_compile_output(actions: AnalysisActions, cuda_compile_info
         "{}.json".format(cuda_compile_info.filename),
         uses_experimental_content_based_path_hashing = content_based,
     )
+    hostcc_argsfile = actions.declare_output(
+        cuda_compile_info.output_prefix,
+        "{}.hostcc_argsfile".format(cuda_compile_info.filename),
+        uses_experimental_content_based_path_hashing = content_based,
+    )
     return CudaDistributedCompileOutput(
         nvcc_dag = subcmds,
         nvcc_env = env,
+        hostcc_argsfile = hostcc_argsfile,
     )
 
 def cuda_mono_compile(
@@ -108,14 +115,7 @@ def cuda_distributed_compile(
     NVCC provides the compilation plan, but compilation is split into
     one Buck action per sub-command.
     """
-    content_based = cuda_compile_info.uses_experimental_content_based_path_hashing
-
-    # TODO (amrdef) move this and pass it as a reference
-    hostcc_argsfile = actions.declare_output(
-        cuda_compile_info.output_prefix,
-        "{}.hostcc_argsfile".format(cuda_compile_info.filename),
-        uses_experimental_content_based_path_hashing = content_based,
-    )
+    hostcc_argsfile = cuda_dist_output.hostcc_argsfile
 
     # We'll first run nvcc with -dryrun. So do not bind the object file yet.
     cmd.add(["-o", object.short_path])

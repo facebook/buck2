@@ -78,6 +78,8 @@ CudaDistributedCompileOutput = record(
     nvcc_dag = field(Artifact),
     # Environment variables for the NVCC sub-commands.
     nvcc_env = field(Artifact),
+    # Argsfile for the host compiler.
+    hostcc_argsfile = field(Artifact),
 )
 
 # Information about how to compile a source file of particular extension.
