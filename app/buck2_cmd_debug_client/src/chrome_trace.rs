@@ -32,7 +32,10 @@ use buck2_event_log::read::EventLogPathBuf;
 use buck2_event_log::stream_value::StreamValue;
 use buck2_event_log::utils::Invocation;
 use buck2_event_observer::display;
+use buck2_event_observer::display::CriticalPathEntryDisplay;
 use buck2_event_observer::display::TargetDisplayOptions;
+use buck2_event_observer::unpack_event::UnpackedBuckEvent;
+use buck2_event_observer::unpack_event::unpack_event;
 use buck2_events::BuckEvent;
 use buck2_fs::paths::abs_path::AbsPathBuf;
 use derive_more::Display;
@@ -85,6 +88,7 @@ struct ChromeTraceFirstPass {
     pub local_actions: HashSet<buck2_events::span::SpanId>,
     pub critical_path_action_keys: HashSet<buck2_data::ActionKey>,
     pub critical_path_span_ids: HashSet<u64>,
+    pub command_start: SystemTime,
 }
 
 impl ChromeTraceFirstPass {
@@ -97,6 +101,7 @@ impl ChromeTraceFirstPass {
             local_actions: HashSet::new(),
             critical_path_action_keys: HashSet::new(),
             critical_path_span_ids: HashSet::new(),
+            command_start: SystemTime::UNIX_EPOCH,
         }
     }
 
@@ -104,6 +109,9 @@ impl ChromeTraceFirstPass {
         match event.data() {
             buck2_data::buck_event::Data::SpanStart(start) => {
                 match start.data.as_ref() {
+                    Some(buck2_data::span_start_event::Data::Command(..)) => {
+                        self.command_start = event.timestamp();
+                    }
                     Some(buck2_data::span_start_event::Data::ExecutorStage(exec)) => {
                         // A local stage means that we want to show the entire action execution.
                         use buck2_data::executor_stage_start::Stage;
@@ -528,6 +536,10 @@ enum SpanCategorization {
     Uncategorized,
     #[display("critical-path")]
     CriticalPath,
+    #[display("detailed-critical-path")]
+    DetailedCriticalPath,
+    #[display("detailed-slowest-path")]
+    DetailedSlowestPath,
 }
 
 impl ChromeTraceWriter {
@@ -561,10 +573,10 @@ impl ChromeTraceWriter {
         match parent_track_id {
             None => {
                 let max = match track_key {
-                    // Always show the critical path (but it's only going to be one track anyway).
                     SpanCategorization::CriticalPath => None,
-                    // No point showing hundreds of tracks for the rest. Show what you can.
                     SpanCategorization::Uncategorized => Some(20),
+                    SpanCategorization::DetailedCriticalPath => None,
+                    SpanCategorization::DetailedSlowestPath => None,
                 };
 
                 let track = self
@@ -837,8 +849,8 @@ impl ChromeTraceWriter {
             buck2_data::buck_event::Data::SpanEnd(end) => self.handle_event_end(end, event)?,
             buck2_data::buck_event::Data::Instant(buck2_data::InstantEvent {
                 data: Some(instant_data),
-            }) => {
-                if let buck2_data::instant_event::Data::Snapshot(snapshot) = instant_data {
+            }) => match instant_data {
+                buck2_data::instant_event::Data::Snapshot(snapshot) => {
                     self.process_memory_counters.set(
                         event.timestamp(),
                         "max_rss_gigabyte",
@@ -936,21 +948,96 @@ impl ChromeTraceWriter {
                             "http_download_bytes",
                             snapshot.http_download_bytes,
                         )?;
-                } else if let buck2_data::instant_event::Data::ResourceControlEvents(events) =
-                    instant_data
-                {
+                }
+                buck2_data::instant_event::Data::ResourceControlEvents(events) => {
                     self.snapshot_counters.set(
                         event.timestamp(),
                         "allprocs_memory_pressure",
                         events.allprocs_memory_pressure,
                     )?
                 }
-            }
+                _ => {}
+            },
             // Data field is oneof and `None` means the event is produced with newer version of `.proto` file
             // which added a variant which is not available in version used when compiling this program.
             buck2_data::buck_event::Data::Instant(buck2_data::InstantEvent { data: None }) => {}
             buck2_data::buck_event::Data::Record(_) => {}
         };
+        Ok(())
+    }
+
+    fn write_critical_path(
+        &mut self,
+        name: SpanCategorization,
+        critical_path: &[buck2_data::CriticalPathEntry2],
+    ) -> buck2_error::Result<()> {
+        // Write critical path as a series of spans on a dedicated track
+        let target_display_options = TargetDisplayOptions::for_chrome_trace();
+
+        for entry in critical_path {
+            let start_time = self
+                .first_pass
+                .command_start
+                .checked_add(Duration::from_nanos(entry.start_offset_ns.unwrap_or(0)))
+                .unwrap();
+            let critical_duration = entry
+                .total_duration
+                .as_ref()
+                .and_then(|d| d.try_into_duration().ok())
+                .unwrap_or(Duration::ZERO);
+            let non_critical_duration = entry
+                .non_critical_path_duration
+                .as_ref()
+                .and_then(|d| d.try_into_duration().ok())
+                .unwrap_or(Duration::ZERO);
+            let duration = critical_duration + non_critical_duration;
+
+            if duration < Duration::from_millis(1) {
+                continue;
+            }
+
+            // Determine a display name for this entry
+            let entry_display =
+                CriticalPathEntryDisplay::from_entry(entry, target_display_options)?;
+            let entry_display = match entry_display {
+                Some(display) => display,
+                None => continue,
+            };
+
+            // Build args with all available metadata
+            let mut args = serde_json::Map::new();
+            args.insert("kind".to_owned(), json!(entry_display.kind));
+            if !entry_display.name.is_empty() {
+                args.insert("name".to_owned(), json!(entry_display.name));
+            }
+            if let Some(category) = entry_display.category {
+                args.insert("category".to_owned(), json!(category));
+            }
+            if let Some(identifier) = entry_display.identifier {
+                args.insert("identifier".to_owned(), json!(identifier));
+            }
+            if let Some(execution_kind) = entry_display.execution_kind {
+                args.insert("execution_kind".to_owned(), json!(execution_kind));
+            }
+
+            let entry_name = entry_display.display_name();
+
+            self.trace_events.push(
+                ChromeTraceClosedSpan {
+                    open: ChromeTraceOpenSpan {
+                        name: entry_name,
+                        start: start_time,
+                        process_id: 0,
+                        track: SpanTrackAssignment::Owned(TrackId(name, 1)),
+                        categories: vec![],
+                        args: args.into(),
+                    },
+                    duration,
+                }
+                .to_json()?,
+            );
+        }
+
         Ok(())
     }
 
@@ -1066,15 +1153,40 @@ impl ChromeTraceCommand {
     async fn trace_writer(log: EventLogPathBuf) -> buck2_error::Result<ChromeTraceWriter> {
         let (invocation, mut stream) = Self::load_events(log.clone()).await?;
         let mut first_pass = ChromeTraceFirstPass::new();
+        let mut build_graph_info = None;
         while let Some(event) = tokio_stream::StreamExt::try_next(&mut stream).await? {
             first_pass
                 .handle_event(&event)
                 .with_buck_error_context(|| {
                     display::InvalidBuckEvent(Arc::new(event.clone())).to_string()
                 })?;
+            if let Ok(UnpackedBuckEvent::Instant(
+                _,
+                _,
+                buck2_data::instant_event::Data::BuildGraphInfo(info),
+            )) = unpack_event(&event)
+            {
+                build_graph_info = Some(info.clone());
+            }
         }
 
         let mut writer = ChromeTraceWriter::new(invocation, first_pass);
+
+        // We do this to ensure that these are the first two tracks.
+        if let Some(info) = build_graph_info {
+            if !info.slowest_path.is_empty() {
+                writer.write_critical_path(
+                    SpanCategorization::DetailedSlowestPath,
+                    &info.slowest_path,
+                )?;
+            }
+            if !info.critical_path2.is_empty() {
+                writer.write_critical_path(
+                    SpanCategorization::DetailedCriticalPath,
+                    &info.critical_path2,
+                )?;
+            }
+        }
 
         // We just read events again from log file, in order to avoid holding all logs in memory
         let (_invocation, mut stream) = Self::load_events(log).await?;
