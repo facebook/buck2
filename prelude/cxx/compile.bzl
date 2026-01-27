@@ -442,12 +442,20 @@ def _compile_single_cxx(
             uses_experimental_content_based_path_hashing = content_based,
         )
 
-        # GCNO file
+    # GCNO file
     gcno_file = None
     if toolchain.gcno_files and src_compile_cmd.src.extension not in (".S", ".sx"):
         gcno_file = actions.declare_output(
             paths.join("__objects__", "{}.gcno".format(filename_base)),
             uses_experimental_content_based_path_hashing = content_based,
+        )
+
+    # Clang remarks
+    clang_remarks = None
+    if toolchain.clang_remarks and compiler_type == "clang":
+        clang_remarks = actions.declare_output(
+            paths.join("__objects__", "{}.opt.yaml".format(filename_base)),
+            has_content_based_path = content_based,
         )
 
     if precompiled_header and precompiled_header[CPrecompiledHeaderInfo] and precompiled_header[CPrecompiledHeaderInfo].compiled:
@@ -499,13 +507,8 @@ def _compile_single_cxx(
             has_content_based_path = content_based,
         )
 
-    clang_remarks = None
-    if toolchain.clang_remarks and compiler_type == "clang":
+    if clang_remarks:
         cmd.add(["-fsave-optimization-record", "-fdiagnostics-show-hotness", "-foptimization-record-passes=" + toolchain.clang_remarks])
-        clang_remarks = actions.declare_output(
-            paths.join("__objects__", "{}.opt.yaml".format(filename_base)),
-            has_content_based_path = content_based,
-        )
         cmd.add(cmd_args(hidden = clang_remarks.as_output()))
 
     if clang_llvm_statistics:
