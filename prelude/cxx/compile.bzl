@@ -342,7 +342,8 @@ def _prepare_cxx_compilation(
         provide_syntax_only: bool,
         use_header_units: bool,
         separate_debug_info: bool,
-        cuda_compile_style: CudaCompileStyle | None) -> CxxCompileInput:
+        cuda_compile_style: CudaCompileStyle | None,
+        compile_pch: CxxPrecompiledHeader | None) -> CxxCompileInput:
     short_path = src_compile_cmd.src.short_path
     if src_compile_cmd.index != None:
         # Add a unique postfix if we have duplicate source files with different flags
@@ -469,6 +470,17 @@ def _prepare_cxx_compilation(
             output_prefix = folder_name,
             uses_experimental_content_based_path_hashing = content_based,
         ))
+
+    # Declare PCH object output for Windows compiler when compiling header files
+    # Only declare this when we're actually producing a PCH (compile_pch is set)
+    pch_object_output = None
+    if compiler_type == "windows" and compile_pch:
+        pch_object_output = actions.declare_output(
+            folder_name,
+            "{}.pch.o".format(filename_base),
+            has_content_based_path = content_based,
+        )
+
     declared_artifacts = CxxCompileOutput(
         object = object,
         object_format = object_format,
@@ -483,6 +495,7 @@ def _prepare_cxx_compilation(
         diagnostics = diagnostics,
         preproc = preproc,
         dist_cuda = cuda_dist_output,
+        pch_object_output = pch_object_output,
     )
 
     info = CxxCompileInfo(
@@ -518,7 +531,17 @@ def _compile_single_cxx(
     """
 
     src_compile_cmd = input.info.compile_cmd
+    filename_base = input.info.filename_base
+    index_store_base = input.info.index_store_base
+    identifier = input.info.identifier
+    folder_name = input.info.folder_name
+    short_path = input.info.short_path
+    flavor_flags = input.info.flavor_flags
+
+    # declare outputs
     compiler_type = src_compile_cmd.cxx_compile_cmd.compiler_type
+    cuda_distributed_compile_output = input.declared_artifacts.dist_cuda
+    pch_object_output = input.declared_artifacts.pch_object_output
     object = input.declared_artifacts.object
     external_debug_info = input.declared_artifacts.external_debug_info
     clang_remarks = input.declared_artifacts.clang_remarks
@@ -529,27 +552,13 @@ def _compile_single_cxx(
     diagnostics = input.declared_artifacts.diagnostics
     preproc = input.declared_artifacts.preproc
     index_store = input.declared_artifacts.index_store
-    cuda_distributed_compile_output = input.declared_artifacts.dist_cuda
-    filename_base = input.info.filename_base
-    index_store_base = input.info.index_store_base
-    identifier = input.info.identifier
-    folder_name = input.info.folder_name
-    short_path = input.info.short_path
-    flavor_flags = input.info.flavor_flags
-    content_based = src_compile_cmd.uses_experimental_content_based_path_hashing
     object_has_external_debug_info = input.declared_artifacts.object_has_external_debug_info
+    content_based = src_compile_cmd.uses_experimental_content_based_path_hashing
 
-    pch_object_output = None
     if src_compile_cmd.src.extension == ".cu":
         output_args = None
     elif compile_pch:
         if src_compile_cmd.cxx_compile_cmd.compiler_type == "windows":
-            # TODO (amrdef) move this and pass it as a reference
-            pch_object_output = actions.declare_output(
-                folder_name,
-                "{}.pch.o".format(filename_base),
-                has_content_based_path = content_based,
-            )
             output_args = [
                 cmd_args(object.as_output(), format = "/Fp{}"),
                 cmd_args(pch_object_output.as_output(), format = "/Fo{}"),
@@ -873,6 +882,7 @@ def compile_cxx(
             use_header_units = use_header_units,
             separate_debug_info = separate_debug_info,
             cuda_compile_style = cuda_compile_style,
+            compile_pch = compile_pch,
         )
 
         cxx_compile_output = _compile_single_cxx(
