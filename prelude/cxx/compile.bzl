@@ -486,6 +486,23 @@ def _compile_single_cxx(
         )
         cmd.add(cmd_args(hidden = gcno_file.as_output()))
 
+    # .S extension is native assembly code (machine level, processor specific)
+    # and clang will happily compile them to .o files, but the object are always
+    # native even if we ask for bitcode.  If we don't mark the output format,
+    # other tools would try and parse the .o file as LLVM-IR and fail.
+    if src_compile_cmd.src.extension in [".S", ".s"]:
+        object_format = CxxObjectFormat("native")
+    else:
+        object_format = default_object_format
+
+    assembly = _declare_assembly(
+        actions = actions,
+        compiler_type = compiler_type,
+        object_format = object_format,
+        filename_base = filename_base,
+        content_based = content_based,
+    )
+
     external_debug_info = None
     extension_supports_external_debug_info = src_compile_cmd.src.extension not in (".hip")
     use_external_debug_info = separate_debug_info and toolchain.split_debug_mode == SplitDebugMode("split") and compiler_type == "clang" and extension_supports_external_debug_info
@@ -556,15 +573,6 @@ def _compile_single_cxx(
         toolchain.split_debug_mode == SplitDebugMode("single")
     )
 
-    # .S extension is native assembly code (machine level, processor specific)
-    # and clang will happily compile them to .o files, but the object are always
-    # native even if we ask for bitcode.  If we don't mark the output format,
-    # other tools would try and parse the .o file as LLVM-IR and fail.
-    if src_compile_cmd.src.extension in [".S", ".s"]:
-        object_format = CxxObjectFormat("native")
-    else:
-        object_format = default_object_format
-
     index_store = None
     if CxxCompileFlavor("pic") in flavors:
         index_store = _compile_index_store(
@@ -581,16 +589,7 @@ def _compile_single_cxx(
         )
 
     # Generate asm for compiler which accept `-S` (TODO: support others)
-    if compiler_type in ["clang", "gcc"]:
-        # Generate assembler or llvm bitcode output file
-        assembly_extension = "s"
-        if compiler_type == "clang" and object_format == CxxObjectFormat("bitcode"):
-            assembly_extension = "ll"
-        assembly = actions.declare_output(
-            "__assembly__",
-            "{}.{}".format(filename_base, assembly_extension),
-            has_content_based_path = content_based,
-        )
+    if assembly:
         assembly_cmd = _get_base_compile_cmd(
             bitcode_args = bitcode_args,
             src_compile_cmd = src_compile_cmd,
@@ -606,8 +605,6 @@ def _compile_single_cxx(
             allow_dep_file_cache_upload = False,
             error_handler = src_compile_cmd.error_handler,
         )
-    else:
-        assembly = None
 
     if diagnostics:
         syntax_only_cmd = _get_base_compile_cmd(
@@ -1699,3 +1696,27 @@ def _declare_clang_trace_output(
             has_content_based_path = content_based,
         )
     return None
+
+def _declare_assembly(
+        actions: AnalysisActions,
+        compiler_type: str,
+        object_format: CxxObjectFormat,
+        filename_base: str,
+        content_based: bool) -> Artifact | None:
+    """
+    Declares an output artifact for assembly or LLVM IR output file.
+    Returns None for compilers that don't support the -S flag.
+    """
+    if compiler_type not in ["clang", "gcc"]:
+        return None
+
+    # Generate assembler or llvm bitcode output file
+    assembly_extension = "s"
+    if compiler_type == "clang" and object_format == CxxObjectFormat("bitcode"):
+        assembly_extension = "ll"
+
+    return actions.declare_output(
+        "__assembly__",
+        "{}.{}".format(filename_base, assembly_extension),
+        has_content_based_path = content_based,
+    )
