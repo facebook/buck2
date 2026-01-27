@@ -51,7 +51,10 @@ impl<'v> AnonPromisesDyn<'v> for AnonPromises<'v> {
     async fn run_promises<'a, 'e: 'a>(
         self: Box<Self>,
         accessor: &mut dyn RunAnonPromisesAccessor<'v, 'a, 'e>,
-    ) -> buck2_error::Result<()> {
+    ) -> buck2_error::Result<()>
+    where
+        'v: 'a,
+    {
         // Resolve all the targets in parallel
         // We have vectors of vectors, so we create a "shape" which has the same shape but with indices
         let mut shape = Vec::new();
@@ -83,13 +86,13 @@ impl<'v> AnonPromisesDyn<'v> for AnonPromises<'v> {
             for (promise, xs) in shape.iter() {
                 match xs {
                     Either::Left(i) => {
-                        let val = values[*i].providers()?.add_heap_ref(eval.frozen_heap());
+                        let val = values[*i].providers()?.add_heap_ref(eval.heap());
                         promise.resolve(val.to_value(), eval)?
                     }
                     Either::Right(is) => {
                         let xs: Vec<_> = is
                             .clone()
-                            .map(|i| Ok(values[i].providers()?.add_heap_ref(eval.frozen_heap())))
+                            .map(|i| Ok(values[i].providers()?.add_heap_ref(eval.heap())))
                             .collect::<buck2_error::Result<_>>()?;
                         let list = eval.heap().alloc(AllocList(xs));
                         promise.resolve(list, eval)?

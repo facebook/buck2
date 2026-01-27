@@ -61,11 +61,11 @@ enum ContextError {
 }
 
 #[derive(Debug)]
-pub(crate) struct Context {
+pub(crate) struct Context<'v> {
     pub(crate) mode: ContextMode,
     pub(crate) print_non_none: bool,
     pub(crate) prelude: Vec<FrozenModule>,
-    pub(crate) module: Option<Module>,
+    pub(crate) module: Option<Module<'v>>,
     pub(crate) dialect: Dialect,
     pub(crate) globals: Globals,
     pub(crate) builtin_docs: HashMap<LspUrl, String>,
@@ -73,7 +73,7 @@ pub(crate) struct Context {
     pub(crate) suppression_rules: Vec<GlobLintSuppression>,
 }
 
-impl FileLoader for Context {
+impl<'v> FileLoader for Context<'v> {
     fn load(&self, path: &str) -> starlark::Result<FrozenModule> {
         self.load_path(Path::new(path))
     }
@@ -100,12 +100,12 @@ enum ResolveLoadError {
     WrongScheme(String, LspUrl),
 }
 
-impl Context {
+impl<'v> Context<'v> {
     pub(crate) fn new(
         mode: ContextMode,
         print_non_none: bool,
         prelude: &[PathBuf],
-        module: Option<Module>,
+        module: Option<Module<'v>>,
         dialect: Dialect,
         globals: Globals,
         suppression_rules: Vec<GlobLintSuppression>,
@@ -308,7 +308,7 @@ impl Context {
     }
 }
 
-impl LspContext for Context {
+impl<'v> LspContext for Context<'v> {
     fn parse_file_with_contents(&self, uri: &LspUrl, content: String) -> LspEvalResult {
         match uri {
             LspUrl::File(uri) => {

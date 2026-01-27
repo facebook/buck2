@@ -22,7 +22,6 @@
 
 use std::cell::Cell;
 use std::cell::RefCell;
-use std::mem;
 use std::time::Duration;
 use std::time::Instant;
 
@@ -31,7 +30,6 @@ use dupe::Dupe;
 use itertools::Itertools;
 use starlark_syntax::syntax::ast::Visibility;
 
-use crate::cast::transmute;
 use crate::collections::Hashed;
 use crate::docs::DocModule;
 use crate::docs::DocString;
@@ -56,7 +54,6 @@ use crate::values::FrozenStringValue;
 use crate::values::FrozenValue;
 use crate::values::Heap;
 use crate::values::OwnedFrozenValue;
-use crate::values::OwnedHeap;
 use crate::values::Trace;
 use crate::values::Tracer;
 use crate::values::Value;
@@ -110,15 +107,15 @@ pub(crate) struct FrozenModuleData {
 /// [`heap`](Module::heap). Be careful not to use these values after the [`Module`] has been
 /// released unless you obtain a reference to the frozen heap.
 #[derive(Debug)]
-pub struct Module {
-    heap: OwnedHeap,
+pub struct Module<'v> {
+    heap: Heap<'v>,
     frozen_heap: FrozenHeap,
     names: MutableNames,
     // Should really be MutableSlots<'v>, where &'v self
     // Values are allocated from heap. Because of variance
     // you can inject the wrong values in, so make sure slots aren't
     // exported.
-    slots: MutableSlots<'static>,
+    slots: MutableSlots<'v>,
     docstring: RefCell<Option<String>>,
     /// Module evaluation duration:
     /// * evaluation of the top-level statements
@@ -127,7 +124,7 @@ pub struct Module {
     /// * does not include parsing time
     eval_duration: Cell<Duration>,
     /// Field that can be used for any purpose you want.
-    extra_value: Cell<Option<Value<'static>>>,
+    extra_value: Cell<Option<Value<'v>>>,
     /// When `Some`, heap profile is collected on freeze.
     heap_profile_on_freeze: Cell<Option<RetainedHeapProfileMode>>,
 }
@@ -313,10 +310,42 @@ impl FrozenModuleData {
     }
 }
 
-impl Module {
-    fn new() -> Self {
+impl<'v> Module<'v> {
+    /// Create a new module environment with no contents and make it available to the user.
+    ///
+    /// Module is discarded after the function returns.
+    pub fn with_temp_heap<R, F>(f: F) -> R
+    where
+        F: for<'v2> FnOnce(Module<'v2>) -> R,
+    {
+        Heap::temp(|h| {
+            // SAFETY: Mostly not
+            unsafe {
+                h.allow_gc();
+            }
+            f(Module::with_heap(h))
+        })
+    }
+
+    /// Like `with_temp_heap`, but async.
+    pub async fn with_temp_heap_async<R, F>(f: F) -> R
+    where
+        F: for<'v2> AsyncFnOnce(Module<'v2>) -> R,
+    {
+        Heap::temp_async(async |h| {
+            // SAFETY: Mostly not
+            unsafe {
+                h.allow_gc();
+            }
+            f(Module::with_heap(h)).await
+        })
+        .await
+    }
+
+    /// Create a new module environment with no contents that will use the provided heap.
+    pub fn with_heap(heap: Heap<'v>) -> Self {
         Self {
-            heap: OwnedHeap::new(),
+            heap,
             frozen_heap: FrozenHeap::new(),
             names: MutableNames::new(),
             slots: MutableSlots::new(),
@@ -327,52 +356,13 @@ impl Module {
         }
     }
 
-    /// Create a new module environment with no contents and make it available to the user.
-    ///
-    /// Module is discarded after the function returns.
-    pub fn with_temp_heap<R, F>(f: F) -> R
-    where
-        F: for<'v> FnOnce(Module) -> R,
-    {
-        let module = Self::new();
-        // SAFETY: Mostly not
-        unsafe {
-            module.heap().allow_gc();
-        }
-        f(module)
-    }
-
-    /// Like `with_temp_heap`, but async.
-    pub async fn with_temp_heap_async<R, F>(f: F) -> R
-    where
-        F: for<'a> AsyncFnOnce(Module) -> R,
-    {
-        // It's interesting to note that this is in fact more expressive than `with_temp_heap`
-        // alone. While it's possible for `with_temp_heap` to return a future which the user can
-        // then await externally, that future can't capture a reference to the heap. Here though, we
-        // allow the future "returned" by this function to do so. We make that sound by also
-        // capturing the heap itself in the future.
-        let module = Self::new();
-        // SAFETY: Mostly not
-        unsafe {
-            module.heap().allow_gc();
-        }
-        f(module).await
-    }
-
-    /// Create a new module environment with no contents that will use the provided heap.
-    pub fn with_heap<'v>(_heap: Heap<'v>) -> Self {
-        // TODO(JakobDegen): Actually do this
-        Self::new()
-    }
-
     pub(crate) fn enable_retained_heap_profile(&self, mode: RetainedHeapProfileMode) {
         self.heap_profile_on_freeze.set(Some(mode));
     }
 
     /// Get the heap on which values are allocated by this module.
-    pub fn heap(&self) -> Heap<'_> {
-        self.heap.as_ref()
+    pub fn heap(&self) -> Heap<'v> {
+        self.heap
     }
 
     /// Get the frozen heap on which frozen values are allocated by this module.
@@ -395,7 +385,7 @@ impl Module {
             })
     }
 
-    pub(crate) fn values_by_slot_id<'v>(&'v self) -> Vec<(ModuleSlotId, Value<'v>)> {
+    pub(crate) fn values_by_slot_id(&self) -> Vec<(ModuleSlotId, Value<'v>)> {
         self.slots().values_by_slot_id()
     }
 
@@ -410,16 +400,12 @@ impl Module {
         &self.names
     }
 
-    pub(crate) fn slots<'v>(&'v self) -> &'v MutableSlots<'v> {
-        // Not true because of variance, but mostly true. Don't export further.
-        unsafe { transmute!(&'v MutableSlots<'static>, &'v MutableSlots<'v>, &self.slots) }
+    pub(crate) fn slots(&self) -> &MutableSlots<'v> {
+        &self.slots
     }
 
     /// Get value, exported or private by name.
-    pub(crate) fn get_any_visibility<'v>(
-        &'v self,
-        name: Hashed<&str>,
-    ) -> Option<(Value<'v>, Visibility)> {
+    pub(crate) fn get_any_visibility(&self, name: Hashed<&str>) -> Option<(Value<'v>, Visibility)> {
         let (slot, vis) = self.names.get_name(name)?;
         let value = self.slots().get_slot(slot)?;
         Some((value, vis))
@@ -427,7 +413,7 @@ impl Module {
 
     /// Get the value of the exported variable `name`.
     /// Returns [`None`] if the variable isn't defined in the module or it is private.
-    pub fn get<'v>(&'v self, name: &str) -> Option<Value<'v>> {
+    pub fn get(&self, name: &str) -> Option<Value<'v>> {
         self.get_any_visibility(Hashed::new(name))
             .and_then(|(v, vis)| match vis {
                 Visibility::Private => None,
@@ -454,7 +440,7 @@ impl Module {
         // they are used.
         let freezer = Freezer::new(&frozen_heap);
         // FIXME(JakobDegen): Fix the `Freezer` API to make it impossible to forget this
-        for r in heap.as_ref().referenced_heaps() {
+        for r in heap.referenced_heaps() {
             frozen_heap.add_reference(&r);
         }
         let slots = slots.freeze(&freezer)?;
@@ -462,8 +448,7 @@ impl Module {
         let stacks = if let Some(mode) = heap_profile_on_freeze.get() {
             // TODO(nga): retained heap profile does not store information about data
             //   allocated in frozen heap before freeze starts.
-            let heap_profile =
-                AggregateHeapProfileInfo::collect(heap.as_ref(), Some(HeapKind::Frozen));
+            let heap_profile = AggregateHeapProfileInfo::collect(heap, Some(HeapKind::Frozen));
             Some(RetainedHeapProfile {
                 info: heap_profile,
                 mode,
@@ -479,11 +464,8 @@ impl Module {
         };
         let frozen_module_ref = freezer.heap.alloc_any(rest);
         for frozen_def in freezer.frozen_defs.borrow().as_slice() {
-            frozen_def.post_freeze(frozen_module_ref, heap.as_ref(), &freezer.heap);
+            frozen_def.post_freeze(frozen_module_ref, heap, &freezer.heap);
         }
-        // The values MUST be alive up until this point (as the above line uses them),
-        // but can now be dropped
-        mem::drop(heap);
 
         Ok(FrozenModule {
             heap: frozen_heap.into_ref(),
@@ -496,7 +478,7 @@ impl Module {
     /// Set the value of a variable in the environment.
     /// Modifying these variables while executing is ongoing can have
     /// surprising effects.
-    pub fn set<'v>(&'v self, name: &str, value: Value<'v>) {
+    pub fn set(&self, name: &str, value: Value<'v>) {
         let slot = self.names.add_name(self.frozen_heap.alloc_str_intern(name));
         let slots = self.slots();
         slots.ensure_slot(slot);
@@ -513,7 +495,7 @@ impl Module {
 
     /// Set the value of a variable in the environment. Set its visibliity to
     /// "private" to ensure that it is not re-exported
-    pub(crate) fn set_private<'v>(&'v self, name: FrozenStringValue, value: Value<'v>) {
+    pub(crate) fn set_private(&self, name: FrozenStringValue, value: Value<'v>) {
         let slot = self.names.add_name_visibility(name, Visibility::Private);
         let slots = self.slots();
         slots.ensure_slot(slot);
@@ -532,8 +514,8 @@ impl Module {
         }
     }
 
-    pub(crate) fn load_symbol<'v>(
-        &'v self,
+    pub(crate) fn load_symbol(
+        &self,
         module: &FrozenModule,
         symbol: &str,
     ) -> crate::Result<Value<'v>> {
@@ -559,7 +541,7 @@ impl Module {
         self.eval_duration.set(self.eval_duration.get() + duration);
     }
 
-    pub(crate) fn trace<'v>(&'v self, tracer: &Tracer<'v>) {
+    pub(crate) fn trace(&self, tracer: &Tracer<'v>) {
         self.slots().get_slots_mut().trace(tracer);
 
         let extra_value = self.extra_value();
@@ -572,14 +554,13 @@ impl Module {
     }
 
     /// Field that can be used for any purpose you want.
-    pub fn set_extra_value<'v>(&'v self, v: Value<'v>) {
+    pub fn set_extra_value(&self, v: Value<'v>) {
         // Cast lifetime.
-        let v = unsafe { transmute!(Value, Value, v) };
         self.extra_value.set(Some(v));
     }
 
     /// Set extra value, but fail if it's already set.
-    pub fn set_extra_value_no_overwrite<'v>(&'v self, v: Value<'v>) -> anyhow::Result<()> {
+    pub fn set_extra_value_no_overwrite(&self, v: Value<'v>) -> anyhow::Result<()> {
         if let Some(existing) = self.extra_value() {
             return Err(ModuleError::ExtraValueAlreadySet(existing.get_type()).into());
         }
@@ -588,9 +569,8 @@ impl Module {
     }
 
     /// Field that can be used for any purpose you want.
-    pub fn extra_value<'v>(&'v self) -> Option<Value<'v>> {
-        // Cast lifetime.
-        unsafe { transmute!(Option<Value>, Option<Value>, self.extra_value.get()) }
+    pub fn extra_value(&self) -> Option<Value<'v>> {
+        self.extra_value.get()
     }
 }
 

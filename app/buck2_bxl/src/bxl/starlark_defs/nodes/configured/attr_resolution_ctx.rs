@@ -95,7 +95,7 @@ impl LazyAttrResolutionCache {
 }
 
 impl<'v, 'a, 'e, 'c> AttrResolutionContext<'v> for LazyAttrResolutionContext<'v, 'a, 'e, 'c> {
-    fn starlark_module(&self) -> &'v Module {
+    fn starlark_module(&self) -> &Module<'v> {
         self.eval.module()
     }
 

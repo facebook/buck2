@@ -53,7 +53,7 @@ impl<'v> Freeze for InterpreterExtraValue<'v> {
 }
 
 impl<'v> InterpreterExtraValue<'v> {
-    pub(crate) fn get(module: &'v Module) -> buck2_error::Result<&'v InterpreterExtraValue<'v>> {
+    pub(crate) fn get(module: &Module<'v>) -> buck2_error::Result<&'v InterpreterExtraValue<'v>> {
         Ok(&module
             .extra_value()
             .internal_error("Extra value is missing")?

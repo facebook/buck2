@@ -518,14 +518,14 @@ impl FrozenProviderCollectionValue {
 
     pub fn add_heap_ref<'v>(
         &self,
-        heap: &'v FrozenHeap,
+        heap: Heap<'v>,
     ) -> FrozenValueTyped<'v, FrozenProviderCollection> {
         self.as_ref().add_heap_ref(heap)
     }
 
-    pub fn add_heap_ref_static(
+    pub fn add_heap_ref_static<'v>(
         &self,
-        heap: &FrozenHeap,
+        heap: Heap<'v>,
     ) -> FrozenValueTyped<'static, FrozenProviderCollection> {
         unsafe {
             mem::transmute::<
@@ -574,7 +574,7 @@ impl<'f> FrozenProviderCollectionValueRef<'f> {
 
     pub fn add_heap_ref<'v>(
         self,
-        heap: &'v FrozenHeap,
+        heap: Heap<'v>,
     ) -> FrozenValueTyped<'v, FrozenProviderCollection> {
         heap.add_reference(self.heap);
         unsafe {

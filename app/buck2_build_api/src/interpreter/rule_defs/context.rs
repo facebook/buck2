@@ -86,7 +86,10 @@ impl<'v> AnalysisActions<'v> {
     pub async fn run_promises<'a, 'e: 'a>(
         &self,
         accessor: &mut dyn RunAnonPromisesAccessor<'v, 'a, 'e>,
-    ) -> buck2_error::Result<()> {
+    ) -> buck2_error::Result<()>
+    where
+        'v: 'a,
+    {
         // We need to loop here because running the promises evaluates promise.map, which might produce more promises.
         // We keep going until there are no promises left.
         loop {

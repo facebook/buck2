@@ -205,11 +205,11 @@ impl CallCompiled {
         })?
     }
 
-    fn try_spec_exec(
+    fn try_spec_exec<'v>(
         span: FrameSpan,
         fun: &ExprCompiled,
         args: &ArgsCompiledValue,
-        ctx: &mut OptCtx,
+        ctx: &mut OptCtx<'v, '_, '_, '_>,
     ) -> Option<ExprCompiled> {
         let fun = fun.as_value()?;
 

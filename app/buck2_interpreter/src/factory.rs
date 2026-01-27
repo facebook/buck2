@@ -145,7 +145,7 @@ impl StarlarkEvaluatorProvider {
     ///  (3) re-enter evaluation to resolve promises.
     pub fn make_reentrant_evaluator<'v, 'a, 'e>(
         mut self,
-        module: &'v BuckStarlarkModule,
+        module: &'a BuckStarlarkModule<'v>,
         cancellation: CancellationPoller<'a>,
     ) -> buck2_error::Result<ReentrantStarlarkEvaluator<'v, 'a, 'e>> {
         let (_, _v) = (buck2_error::Ok(()), 1);
@@ -184,7 +184,7 @@ impl StarlarkEvaluatorProvider {
     /// when debugging.
     pub fn with_evaluator<'v, 'a, 'e: 'a, R>(
         self,
-        module: &'v BuckStarlarkModule,
+        module: &'a BuckStarlarkModule<'v>,
         cancellation: CancellationPoller<'a>,
         closure: impl FnOnce(&mut Evaluator<'v, 'a, 'e>, bool) -> buck2_error::Result<R>,
     ) -> buck2_error::Result<(FinishedStarlarkEvaluation, R)> {
@@ -286,20 +286,20 @@ impl SetProfileEventListener {
 pub struct ProfilingReportedToken(());
 
 /// A simple wrapper around a starlark Module that allows us to ensure that profiling is reported.
-pub struct BuckStarlarkModule(Module);
+pub struct BuckStarlarkModule<'v>(Module<'v>);
 
-impl std::ops::Deref for BuckStarlarkModule {
-    type Target = Module;
+impl<'v> std::ops::Deref for BuckStarlarkModule<'v> {
+    type Target = Module<'v>;
 
     fn deref(&self) -> &Self::Target {
         &self.0
     }
 }
 
-impl BuckStarlarkModule {
+impl BuckStarlarkModule<'_> {
     /// This function allows us to ensure that profiling is reported (in the successful path) of any starlark evaluation.
     pub fn with_profiling<R, E>(
-        func: impl FnOnce(BuckStarlarkModule) -> Result<(ProfilingReportedToken, R), E>,
+        func: impl for<'v> FnOnce(BuckStarlarkModule<'v>) -> Result<(ProfilingReportedToken, R), E>,
     ) -> Result<R, E> {
         match Module::with_temp_heap(|m| func(BuckStarlarkModule(m))) {
             Ok((ProfilingReportedToken(..), res)) => Ok(res),
@@ -310,11 +310,11 @@ impl BuckStarlarkModule {
     /// This function allows us to ensure that profiling is reported (in the successful path) of any starlark evaluation.
     pub async fn with_profiling_async<F, R>(func: F) -> buck2_error::Result<R>
     where
-        F: AsyncFnOnce(BuckStarlarkModule) -> buck2_error::Result<(ProfilingReportedToken, R)>,
+        F: for<'v> AsyncFnOnce(
+            BuckStarlarkModule<'v>,
+        ) -> buck2_error::Result<(ProfilingReportedToken, R)>,
     {
-        match Module::with_temp_heap_async(|m| async move { func(BuckStarlarkModule(m)).await })
-            .await
-        {
+        match Module::with_temp_heap_async(async |m| func(BuckStarlarkModule(m)).await).await {
             Ok((ProfilingReportedToken(..), res)) => Ok(res),
             Err(e) => Err(e),
         }

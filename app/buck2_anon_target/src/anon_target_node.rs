@@ -189,8 +189,8 @@ impl AnonTargetDyn for AnonTarget {
 
     fn resolve_attrs<'v>(
         &self,
-        env: &'v Module,
-        dependents_analyses: AnonTargetDependentAnalysisResults<'v>,
+        env: &Module<'v>,
+        dependents_analyses: AnonTargetDependentAnalysisResults<'_>,
         exec_resolution: ExecutionPlatformResolution,
     ) -> buck2_error::Result<ValueOfUncheckedGeneric<Value<'v>, StructRef<'static>>> {
         let dep_analysis_results =

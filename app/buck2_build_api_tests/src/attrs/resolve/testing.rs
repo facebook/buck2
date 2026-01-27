@@ -41,21 +41,21 @@ use starlark_map::smallmap;
 
 use crate::interpreter::rule_defs::artifact::testing::artifactory;
 
-pub(crate) fn resolution_ctx(module: &Module) -> impl AttrResolutionContext<'_> {
+pub(crate) fn resolution_ctx<'v>(module: &Module<'v>) -> impl AttrResolutionContext<'v> {
     resolution_ctx_with_providers(module).0
 }
 
-pub(crate) fn resolution_ctx_with_providers(
-    module: &Module,
-) -> (impl AttrResolutionContext<'_>, ProviderIdSet) {
-    struct Ctx<'v> {
-        module: &'v Module,
+pub(crate) fn resolution_ctx_with_providers<'v>(
+    module: &Module<'v>,
+) -> (impl AttrResolutionContext<'v>, ProviderIdSet) {
+    struct Ctx<'a, 'v> {
+        module: &'a Module<'v>,
         // This module needs to be kept alive in order for the FrozenValues to stick around
         _deps_env: FrozenModule,
         deps: SmallMap<ConfiguredProvidersLabel, FrozenProviderCollectionValue>,
     }
 
-    impl Ctx<'_> {
+    impl Ctx<'_, '_> {
         fn eval(env: &Module, globals: &Globals) {
             testing::to_value(
                 env,
@@ -140,8 +140,8 @@ pub(crate) fn resolution_ctx_with_providers(
             let frozen = Module::with_temp_heap(|env| {
                 env.frozen_heap()
                     .add_reference(frozen_provider_env.frozen_heap());
-                env.set("FooInfo", foo_info.value());
-                env.set("BarInfo", bar_info.value());
+                env.set("FooInfo", env.heap().access_owned_frozen_value(&foo_info));
+                env.set("BarInfo", env.heap().access_owned_frozen_value(&bar_info));
                 Self::eval(&env, &globals);
                 env.freeze()
             })
@@ -211,8 +211,8 @@ pub(crate) fn resolution_ctx_with_providers(
         }
     }
 
-    impl<'v> AttrResolutionContext<'v> for Ctx<'v> {
-        fn starlark_module(&self) -> &'v Module {
+    impl<'v> AttrResolutionContext<'v> for Ctx<'_, 'v> {
+        fn starlark_module(&self) -> &Module<'v> {
             self.module
         }
 
@@ -225,7 +225,7 @@ pub(crate) fn resolution_ctx_with_providers(
                 .get(target)
                 .duped()
                 .buck_error_context("missing dep")?
-                .add_heap_ref(self.module.frozen_heap()))
+                .add_heap_ref(self.module.heap()))
         }
 
         fn resolve_unkeyed_placeholder(

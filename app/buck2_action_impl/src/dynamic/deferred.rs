@@ -555,7 +555,7 @@ fn new_attr_value<'v>(
     artifact_fs: &ArtifactFs,
     registry: &mut AnalysisRegistry<'v>,
     resolved_dynamic_values: &HashMap<DynamicValue, FrozenProviderCollectionValue>,
-    env: &'v Module,
+    env: &Module<'v>,
 ) -> buck2_error::Result<Value<'v>> {
     match value {
         DynamicAttrValue::Output(artifact) => {
@@ -600,7 +600,7 @@ fn new_attr_value<'v>(
                 .get(v)
                 .internal_error("Missing resolved dynamic value")?;
             Ok(env.heap().alloc(StarlarkResolvedDynamicValue {
-                value: v.add_heap_ref_static(env.frozen_heap()),
+                value: v.add_heap_ref_static(env.heap()),
             }))
         }
         DynamicAttrValue::Value(v) => Ok(v.to_value()),
@@ -685,7 +685,7 @@ fn new_attr_values<'v>(
     artifact_fs: &ArtifactFs,
     registry: &mut AnalysisRegistry<'v>,
     resolved_dynamic_values: &HashMap<DynamicValue, FrozenProviderCollectionValue>,
-    env: &'v Module,
+    env: &Module<'v>,
 ) -> buck2_error::Result<Box<[(String, Value<'v>)]>> {
     if values.values.len() != callable.attrs.len() {
         return Err(internal_error!("Parameter count mismatch"));
@@ -720,11 +720,11 @@ pub fn dynamic_lambda_ctx_data<'v>(
     resolved_dynamic_values: &HashMap<DynamicValue, FrozenProviderCollectionValue>,
     artifact_fs: &ArtifactFs,
     digest_config: DigestConfig,
-    env: &'v Module,
+    env: &Module<'v>,
 ) -> buck2_error::Result<DynamicLambdaCtxData<'v>> {
     let self_key = Arc::new(self_key);
 
-    let dynamic_lambda = dynamic_lambda.add_heap_ref(env.frozen_heap());
+    let dynamic_lambda = dynamic_lambda.add_unfrozen_heap_ref(env.heap());
 
     let mut registry = AnalysisRegistry::new_from_owner_and_deferred(
         dynamic_lambda.static_fields.execution_platform.dupe(),

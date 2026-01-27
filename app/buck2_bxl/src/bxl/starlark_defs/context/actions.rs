@@ -199,7 +199,7 @@ impl<'v> BxlActions<'v> {
         exec_deps: Vec<ConfiguredProvidersLabel>,
         toolchains: Vec<ConfiguredProvidersLabel>,
         heap: Heap<'v>,
-        frozen_heap: &'v FrozenHeap,
+        frozen_heap: &FrozenHeap,
         ctx: &'c mut DiceComputations<'_>,
     ) -> buck2_error::Result<BxlActions<'v>> {
         let exec_deps = alloc_deps(exec_deps, heap, frozen_heap, ctx).await?;
@@ -227,7 +227,7 @@ impl<'v> BxlActions<'v> {
 async fn alloc_deps<'v, 'c>(
     deps: Vec<ConfiguredProvidersLabel>,
     heap: Heap<'v>,
-    frozen_heap: &'v FrozenHeap,
+    frozen_heap: &FrozenHeap,
     ctx: &'c mut DiceComputations<'_>,
 ) -> buck2_error::Result<ValueOfUnchecked<'v, DictType<StarlarkProvidersLabel, Dependency<'v>>>> {
     let analysis_results: Vec<_> = ctx

@@ -30,6 +30,7 @@ use dupe::Dupe_;
 use crate::values::FrozenHeap;
 use crate::values::FrozenHeapRef;
 use crate::values::FrozenRef;
+use crate::values::Heap;
 
 /// A reference to a value stored in a frozen heap with a reference to the heap.
 #[derive(Copy_, Clone_, Dupe_)]
@@ -72,6 +73,12 @@ impl<'f, T: ?Sized> OwnedRefFrozenRef<'f, T> {
 
     /// Add a reference to a new heap, and return the pointer with the lifetime of the new heap.
     pub fn add_heap_ref<'v>(self, heap: &'v FrozenHeap) -> &'v T {
+        heap.add_reference(self.owner);
+        unsafe { mem::transmute::<&'f T, &'v T>(self.value.as_ref()) }
+    }
+
+    /// Like `add_heap_ref`, but for an unfrozen heap.
+    pub fn add_unfrozen_heap_ref<'v>(self, heap: Heap<'v>) -> &'v T {
         heap.add_reference(self.owner);
         unsafe { mem::transmute::<&'f T, &'v T>(self.value.as_ref()) }
     }

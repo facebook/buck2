@@ -74,15 +74,15 @@ enum AnalysisError {
 
 // Contains a `module` that things must live on, and various `FrozenProviderCollectionValue`s
 // that are NOT tied to that module. Must claim ownership of them via `add_reference` before returning them.
-pub struct RuleAnalysisAttrResolutionContext<'v> {
-    pub module: &'v Module,
+pub struct RuleAnalysisAttrResolutionContext<'a, 'v> {
+    pub module: &'a Module<'v>,
     pub dep_analysis_results: HashMap<ConfiguredTargetLabel, FrozenProviderCollectionValue>,
     pub query_results: HashMap<String, Arc<AnalysisQueryResult>>,
     pub execution_platform_resolution: ExecutionPlatformResolution,
 }
 
-impl<'v> AttrResolutionContext<'v> for &'_ RuleAnalysisAttrResolutionContext<'v> {
-    fn starlark_module(&self) -> &'v Module {
+impl<'a, 'v> AttrResolutionContext<'v> for &'_ RuleAnalysisAttrResolutionContext<'a, 'v> {
+    fn starlark_module(&self) -> &Module<'v> {
         self.module
     }
 
@@ -116,14 +116,14 @@ impl<'v> AttrResolutionContext<'v> for &'_ RuleAnalysisAttrResolutionContext<'v>
 pub fn get_dep<'v>(
     dep_analysis_results: &HashMap<ConfiguredTargetLabel, FrozenProviderCollectionValue>,
     target: &ConfiguredProvidersLabel,
-    module: &'v Module,
+    module: &Module<'v>,
 ) -> buck2_error::Result<FrozenValueTyped<'v, FrozenProviderCollection>> {
     match dep_analysis_results.get(target.target()) {
         None => Err(AnalysisError::MissingDep(target.dupe()).into()),
         Some(x) => {
             let x = x.lookup_inner(target)?;
             // IMPORTANT: Anything given back to the user must be kept alive
-            Ok(x.add_heap_ref(module.frozen_heap()))
+            Ok(x.add_heap_ref(module.heap()))
         }
     }
 }
@@ -131,7 +131,7 @@ pub fn get_dep<'v>(
 pub fn resolve_unkeyed_placeholder<'v>(
     dep_analysis_results: &HashMap<ConfiguredTargetLabel, FrozenProviderCollectionValue>,
     name: &str,
-    module: &'v Module,
+    module: &Module<'v>,
 ) -> Option<FrozenCommandLineArg> {
     // TODO(cjhopman): Make it an error if two deps provide a value for the placeholder.
     for providers in dep_analysis_results.values() {

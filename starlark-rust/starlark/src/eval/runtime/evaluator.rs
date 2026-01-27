@@ -120,7 +120,7 @@ pub(crate) const DEFAULT_STACK_SIZE: usize = 50;
 /// Holds everything about an ongoing evaluation (local variables, globals, module resolution etc).
 pub struct Evaluator<'v, 'a, 'e> {
     // The module that is being used for this evaluation
-    pub(crate) module_env: &'v Module,
+    pub(crate) module_env: &'a Module<'v>,
     /// Current function (`def` or `lambda`) frame: locals and bytecode stack.
     pub(crate) current_frame: BcFramePtr<'v>,
     // How we deal with a `load` function.
@@ -243,7 +243,7 @@ impl<'v, 'a, 'e: 'a> Evaluator<'v, 'a, 'e> {
     ///
     /// If your program contains `load()` statements, you also need to call
     /// [`set_loader`](Evaluator::set_loader).
-    pub fn new(module: &'v Module) -> Self {
+    pub fn new(module: &'a Module<'v>) -> Self {
         Evaluator {
             call_stack: CheapCallStack::default(),
             module_env: module,
@@ -526,7 +526,7 @@ impl<'v, 'a, 'e: 'a> Evaluator<'v, 'a, 'e> {
     }
 
     /// Module which was passed to the evaluator.
-    pub fn module(&self) -> &'v Module {
+    pub fn module(&self) -> &'a Module<'v> {
         self.module_env
     }
 
@@ -535,7 +535,7 @@ impl<'v, 'a, 'e: 'a> Evaluator<'v, 'a, 'e> {
     /// as the results of this execution are required.
     /// Suitable for use with [`add_reference`](FrozenHeap::add_reference)
     /// and [`OwnedFrozenValue::owned_frozen_value`](crate::values::OwnedFrozenValue::owned_frozen_value).
-    pub fn frozen_heap(&self) -> &'v FrozenHeap {
+    pub fn frozen_heap(&self) -> &'a FrozenHeap {
         self.module_env.frozen_heap()
     }
 

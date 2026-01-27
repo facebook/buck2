@@ -48,7 +48,7 @@ impl ConfiguredQueryAttrExt for QueryAttr<ConfiguredProvidersLabel> {
             dependencies.push(DepAttrType::alloc_dependency(
                 ctx.starlark_module(),
                 &providers_label,
-                providers.add_heap_ref(ctx.starlark_module().frozen_heap()),
+                providers.add_heap_ref(ctx.starlark_module().heap()),
                 None,
             ));
         }

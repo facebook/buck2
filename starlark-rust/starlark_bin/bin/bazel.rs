@@ -159,20 +159,20 @@ pub(crate) fn main(
     Ok(())
 }
 
-pub(crate) struct BazelContext {
+pub(crate) struct BazelContext<'v> {
     pub(crate) workspace_name: Option<String>,
     pub(crate) external_output_base: Option<PathBuf>,
     pub(crate) mode: ContextMode,
     pub(crate) print_non_none: bool,
     pub(crate) prelude: Vec<FrozenModule>,
-    pub(crate) module: Option<Module>,
+    pub(crate) module: Option<Module<'v>>,
     pub(crate) dialect: Dialect,
     pub(crate) globals: Globals,
     pub(crate) builtin_docs: HashMap<LspUrl, String>,
     pub(crate) builtin_symbols: HashMap<String, LspUrl>,
 }
 
-impl BazelContext {
+impl<'v> BazelContext<'v> {
     const DEFAULT_WORKSPACE_NAME: &'static str = "__main__";
     const BUILD_FILE_NAMES: [&'static str; 2] = ["BUILD", "BUILD.bazel"];
     const LOADABLE_EXTENSIONS: [&'static str; 1] = ["bzl"];
@@ -181,7 +181,7 @@ impl BazelContext {
         mode: ContextMode,
         print_non_none: bool,
         prelude: &[PathBuf],
-        module: Option<Module>,
+        module: Option<Module<'v>>,
         dialect: Dialect,
         globals: Globals,
     ) -> anyhow::Result<Self> {
@@ -626,7 +626,7 @@ impl BazelContext {
     }
 }
 
-impl LspContext for BazelContext {
+impl<'v> LspContext for BazelContext<'v> {
     fn parse_file_with_contents(&self, uri: &LspUrl, content: String) -> LspEvalResult {
         match uri {
             LspUrl::File(uri) => {

@@ -281,7 +281,7 @@ impl<'a> Assert<'a> {
         &self,
         path: &str,
         program: &str,
-        module: &'v Module,
+        module: &Module<'v>,
         gc: GcStrategy,
     ) -> crate::Result<Value<'v>> {
         let mut modules = HashMap::with_capacity(self.modules.len());
@@ -315,7 +315,7 @@ impl<'a> Assert<'a> {
         &self,
         func: &str,
         program: &str,
-        module: &'v Module,
+        module: &Module<'v>,
         gc: GcStrategy,
     ) -> crate::Error {
         match self.execute("assert.bzl", program, module, gc) {
@@ -331,7 +331,7 @@ impl<'a> Assert<'a> {
         func: &str,
         path: &str,
         program: &str,
-        module: &'v Module,
+        module: &Module<'v>,
         gc: GcStrategy,
     ) -> Value<'v> {
         match self.execute(path, program, module, gc) {
@@ -349,7 +349,7 @@ impl<'a> Assert<'a> {
         &self,
         func: &str,
         program: &str,
-        module: &'v Module,
+        module: &Module<'v>,
         gc: GcStrategy,
     ) {
         let v = self.execute_unwrap(func, "assert.bzl", program, module, gc);
@@ -364,7 +364,7 @@ impl<'a> Assert<'a> {
         &self,
         func: &str,
         program: &str,
-        module: &'v Module,
+        module: &Module<'v>,
         gc: GcStrategy,
     ) {
         let v = self.execute_unwrap(func, "assert.bzl", program, module, gc);

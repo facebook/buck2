@@ -155,6 +155,20 @@ impl<'v> Heap<'v> {
         f(heap.as_ref())
     }
 
+    /// Like `temp`, but `async`
+    pub async fn temp_async<F, R>(f: F) -> R
+    where
+        F: for<'v2> AsyncFnOnce(Heap<'v2>) -> R,
+    {
+        // It's interesting to note that this is in fact more expressive than `temp` alone. While
+        // it's possible for `temp` to return a future which the user can then await externally,
+        // that future can't capture a reference to the heap. Here though, we allow the future
+        // "returned" by this function to do so. We make that sound by also capturing the heap
+        // itself in the future.
+        let heap = OwnedHeap::new();
+        f(heap.as_ref()).await
+    }
+
     pub(in crate::values::layout) fn string_interner(self) -> RefMut<'v, StringValueInterner<'v>> {
         // SAFETY: The lifetime of the interner is the lifetime of the heap.
         unsafe {
@@ -180,11 +194,7 @@ impl<'v> Heap<'v> {
     ///
     /// See the `branding` module for more details.
     pub fn access_owned_frozen_value(self, v: &OwnedFrozenValue) -> Value<'v> {
-        let fh = v.owner();
-        let mut refs = self.0.refs.borrow_mut();
-        if !refs.contains(fh) {
-            refs.insert(fh.dupe());
-        }
+        self.add_reference(v.owner());
 
         // SAFETY: We just added a reference to this heap
         unsafe { v.unchecked_frozen_value().to_value() }
@@ -195,14 +205,18 @@ impl<'v> Heap<'v> {
         self,
         v: &OwnedFrozenValueTyped<T>,
     ) -> ValueTyped<'v, T> {
-        let fh = v.owner();
-        let mut refs = self.0.refs.borrow_mut();
-        if !refs.contains(fh) {
-            refs.insert(fh.dupe());
-        }
+        self.add_reference(v.owner());
 
         // SAFETY: We just added a reference to this heap
         unsafe { v.value_typed().to_value_typed() }
+    }
+
+    /// Add a dependency onto the provided frozen heap.
+    pub fn add_reference(&self, h: &FrozenHeapRef) {
+        let mut refs = self.0.refs.borrow_mut();
+        if !refs.contains(h) {
+            refs.insert(h.dupe());
+        }
     }
 }
 

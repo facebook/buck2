@@ -84,7 +84,7 @@ pub(crate) fn new_transitive_set(
 
         Module::with_temp_heap(|env2| {
             let ret = Evaluator::new(&env2).eval_function(
-                make.owned_value(&env2.frozen_heap()),
+                env2.heap().access_owned_frozen_value(&make),
                 &[],
                 &[],
             )?;

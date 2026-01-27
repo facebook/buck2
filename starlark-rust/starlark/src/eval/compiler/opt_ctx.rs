@@ -69,7 +69,7 @@ impl<'v, 'a, 'e> OptCtxEval<'v, 'a, 'e> for Evaluator<'v, 'a, 'e> {
 /// We perform optimization
 /// * during compilation of AST to IR, and
 /// * when freezing the heap.
-pub(crate) struct OptCtx<'v, 'a, 'e: 'a, 'x> {
+pub(crate) struct OptCtx<'v: 'a, 'a, 'e: 'a, 'x> {
     pub(crate) eval: &'x mut dyn OptCtxEval<'v, 'a, 'e>,
     /// Current function parameter slot count. Zero when compiling module.
     pub(crate) param_count: u32,

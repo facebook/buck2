@@ -21,10 +21,12 @@ pub trait AnonPromisesDyn<'v>: 'v {
     async fn run_promises<'a, 'e: 'a>(
         self: Box<Self>,
         accessor: &mut dyn RunAnonPromisesAccessor<'v, 'a, 'e>,
-    ) -> buck2_error::Result<()>;
+    ) -> buck2_error::Result<()>
+    where
+        'v: 'a;
 }
 
-pub trait RunAnonPromisesAccessor<'v, 'a, 'e> {
+pub trait RunAnonPromisesAccessor<'v: 'a, 'a, 'e> {
     fn with_evaluator(
         &mut self,
         closure: &mut dyn FnMut(&mut Evaluator<'v, 'a, 'e>) -> buck2_error::Result<()>,
@@ -59,7 +61,7 @@ impl<'me, 'v, 'a, 'e, 'd> RunAnonPromisesAccessor<'v, 'a, 'e>
     }
 }
 
-impl<'v, 'a, 'e> dyn RunAnonPromisesAccessor<'v, 'a, 'e> + '_ {
+impl<'v: 'a, 'a, 'e> dyn RunAnonPromisesAccessor<'v, 'a, 'e> + '_ {
     pub fn with_dice<'s, T: 's>(
         &'s mut self,
         f: impl for<'d> FnOnce(&'s mut DiceComputations<'d>) -> T,

@@ -327,7 +327,7 @@ impl<'v> AnalysisRegistry<'v> {
     /// It requires both to get the lifetimes to line up.
     pub fn finalize(
         self,
-        env: &'v Module,
+        env: &Module<'v>,
     ) -> buck2_error::Result<
         impl FnOnce(&FrozenModule) -> buck2_error::Result<RecordedAnalysisValues> + use<>,
     > {
@@ -492,7 +492,7 @@ impl<'v> AnalysisValueStorage<'v> {
     }
 
     /// Write self to `module` extra value.
-    fn write_to_module(self, module: &'v Module) -> buck2_error::Result<()> {
+    fn write_to_module(self, module: &Module<'v>) -> buck2_error::Result<()> {
         let extra_v = AnalysisExtraValue::get_or_init(module)?;
         let res = extra_v.analysis_value_storage.set(
             module

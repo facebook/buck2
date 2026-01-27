@@ -176,7 +176,7 @@ pub trait Action: Allocative + Debug + Send + Sync + 'static {
         indexmap! {}
     }
 
-    fn error_handler(&self) -> Option<OwnedFrozenValue> {
+    fn error_handler(&self) -> Option<&OwnedFrozenValue> {
         None
     }
 

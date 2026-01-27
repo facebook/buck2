@@ -47,22 +47,22 @@ use crate::anon_targets::get_artifact_from_anon_target_analysis;
 
 // No macros in anon targets, so query results are empty. Execution platform resolution should
 // always be inherited from the anon target.
-pub(crate) struct AnonTargetAttrResolutionContext<'v> {
-    pub(crate) promised_artifacts_map: HashMap<&'v PromiseArtifactAttr, Artifact>,
-    pub(crate) rule_analysis_attr_resolution_ctx: RuleAnalysisAttrResolutionContext<'v>,
+pub(crate) struct AnonTargetAttrResolutionContext<'a, 'v> {
+    pub(crate) promised_artifacts_map: HashMap<&'a PromiseArtifactAttr, Artifact>,
+    pub(crate) rule_analysis_attr_resolution_ctx: RuleAnalysisAttrResolutionContext<'a, 'v>,
 }
 
 pub(crate) trait AnonTargetAttrResolution {
-    fn resolve<'v>(
+    fn resolve<'a, 'v>(
         &self,
         pkg: PackageLabel,
-        ctx: &AnonTargetAttrResolutionContext<'v>,
+        ctx: &AnonTargetAttrResolutionContext<'a, 'v>,
     ) -> buck2_error::Result<Vec<Value<'v>>>;
 
-    fn resolve_single<'v>(
+    fn resolve_single<'a, 'v>(
         &self,
         pkg: PackageLabel,
-        ctx: &AnonTargetAttrResolutionContext<'v>,
+        ctx: &AnonTargetAttrResolutionContext<'a, 'v>,
     ) -> buck2_error::Result<Value<'v>>;
 }
 
@@ -73,20 +73,20 @@ impl AnonTargetAttrResolution for AnonTargetAttr {
     /// an inappropriate number of elements is returned. e.g. `attrs.list()` might
     /// accept and merge multiple returned values from `attrs.source()`, but
     /// `attrs.optional()` might only accept a single value, and fail otherwise.
-    fn resolve<'v>(
+    fn resolve<'a, 'v>(
         &self,
         pkg: PackageLabel,
-        ctx: &AnonTargetAttrResolutionContext<'v>,
+        ctx: &AnonTargetAttrResolutionContext<'a, 'v>,
     ) -> buck2_error::Result<Vec<Value<'v>>> {
         Ok(vec![self.resolve_single(pkg, ctx)?])
     }
 
     /// Resolving a single value is common, so `resolve_single` will validate
     /// this function's output, and return a single value or an error.
-    fn resolve_single<'v>(
+    fn resolve_single<'a, 'v>(
         &self,
         pkg: PackageLabel,
-        anon_resolution_ctx: &AnonTargetAttrResolutionContext<'v>,
+        anon_resolution_ctx: &AnonTargetAttrResolutionContext<'a, 'v>,
     ) -> buck2_error::Result<Value<'v>> {
         let mut ctx = &anon_resolution_ctx.rule_analysis_attr_resolution_ctx;
         match self {

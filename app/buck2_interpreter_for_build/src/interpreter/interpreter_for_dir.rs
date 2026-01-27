@@ -314,12 +314,12 @@ impl InterpreterForDir {
         })
     }
 
-    fn create_env(
+    fn create_env<'v>(
         &self,
-        env: BuckStarlarkModule,
+        env: BuckStarlarkModule<'v>,
         starlark_path: StarlarkPath<'_>,
         loaded_modules: &LoadedModules,
-    ) -> buck2_error::Result<BuckStarlarkModule> {
+    ) -> buck2_error::Result<BuckStarlarkModule<'v>> {
         if let Some(prelude_import) = self.prelude_import(starlark_path) {
             let prelude_env = loaded_modules
                 .map
@@ -348,15 +348,15 @@ impl InterpreterForDir {
     // functions can be invoked when evaluating a build file, the package (cell
     // + path) is available. It also includes the implicit root include and
     // implicit package include.
-    fn create_build_env(
+    fn create_build_env<'v>(
         &self,
-        env: BuckStarlarkModule,
+        env: BuckStarlarkModule<'v>,
         build_file: &BuildFilePath,
         package_listing: &PackageListing,
         super_package: SuperPackage,
         package_boundary_exception: bool,
         loaded_modules: &LoadedModules,
-    ) -> buck2_error::Result<(BuckStarlarkModule, ModuleInternals)> {
+    ) -> buck2_error::Result<(BuckStarlarkModule<'v>, ModuleInternals)> {
         let internals = self.global_state.configuror.new_extra_context(
             &self.cell_info,
             build_file.clone(),

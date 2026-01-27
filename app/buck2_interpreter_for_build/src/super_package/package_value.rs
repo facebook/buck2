@@ -249,7 +249,9 @@ pub(crate) fn read_parent_package_value_impl<'v>(
         .values
         .get(key)
     {
-        Some(value) => Ok(value.owned_frozen_value().owned_value(eval.frozen_heap())),
+        Some(value) => Ok(eval
+            .heap()
+            .access_owned_frozen_value(value.owned_frozen_value())),
         None => Ok(Value::new_none()),
     }
 }
@@ -285,7 +287,9 @@ pub(crate) fn register_read_package_value(globals: &mut GlobalsBuilder) {
             .values
             .get(key)
         {
-            Some(value) => Ok(value.owned_frozen_value().owned_value(eval.frozen_heap())),
+            Some(value) => Ok(eval
+                .heap()
+                .access_owned_frozen_value(value.owned_frozen_value())),
             None => Ok(Value::new_none()),
         }
     }

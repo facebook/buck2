@@ -529,7 +529,7 @@ fn try_run_error_handler(
                             );
 
                         let error_handler_result = eval.eval_function(
-                            error_handler.value(),
+                            heap.access_owned_frozen_value(error_handler),
                             &[heap.alloc(error_handler_ctx)],
                             &[],
                         );

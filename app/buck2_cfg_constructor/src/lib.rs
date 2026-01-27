@@ -80,8 +80,8 @@ async fn eval_pre_constraint_analysis<'v, 'a>(
     target_cfg_modifiers: Option<&MetadataValue>,
     cli_modifiers: &[String],
     rule_type: &RuleType,
-    aliases: Option<&'v OwnedFrozenValue>,
-    extra_data: Option<&'v OwnedFrozenValue>,
+    aliases: Option<Value<'v>>,
+    extra_data: Option<Value<'v>>,
     configuring_exec_dep: bool,
     print: &'a EventDispatcherPrintHandler,
 ) -> buck2_error::Result<(Vec<String>, Value<'v>)> {
@@ -107,11 +107,11 @@ async fn eval_pre_constraint_analysis<'v, 'a>(
         let cli_modifiers = eval.heap().alloc(cli_modifiers);
         let rule_name = eval.heap().alloc(rule_type.name());
         let aliases = match aliases {
-            Some(v) => v.value(),
+            Some(v) => v,
             None => Value::new_none(),
         };
         let extra_data = match extra_data {
-            Some(v) => v.value(),
+            Some(v) => v,
             None => Value::new_none(),
         };
         let configuring_exec_dep = eval.heap().alloc(configuring_exec_dep);
@@ -195,7 +195,12 @@ fn eval_post_constraint_analysis<'v>(
                     refs_providers_map
                         .into_iter()
                         .map(|(label, providers)| {
-                            (label, providers.value().owned_value(eval.frozen_heap()))
+                            (
+                                label,
+                                eval.heap()
+                                    .access_owned_frozen_value_typed(providers.value())
+                                    .to_value(),
+                            )
                         })
                         .collect::<SmallMap<String, Value<'_>>>(),
                 ),
@@ -233,19 +238,32 @@ async fn eval_underlying(
     BuckStarlarkModule::with_profiling_async(async move |module| {
         let mut reentrant_eval = provider.make_reentrant_evaluator(&module, cancellation.into())?;
 
+        let cfg_constructor_pre_constraint_analysis = module
+            .heap()
+            .access_owned_frozen_value(&cfg_constructor.cfg_constructor_pre_constraint_analysis);
+        let cfg_constructor_post_constraint_analysis = module
+            .heap()
+            .access_owned_frozen_value(&cfg_constructor.cfg_constructor_post_constraint_analysis);
+        let aliases = cfg_constructor
+            .aliases
+            .as_ref()
+            .map(|v| module.heap().access_owned_frozen_value(v));
+        let extra_data = cfg_constructor
+            .extra_data
+            .as_ref()
+            .map(|v| module.heap().access_owned_frozen_value(v));
+
         // Pre constraint-analysis
         let (refs, params) = eval_pre_constraint_analysis(
-            cfg_constructor
-                .cfg_constructor_pre_constraint_analysis
-                .value(),
+            cfg_constructor_pre_constraint_analysis,
             &mut reentrant_eval,
             cfg,
             package_cfg_modifiers,
             target_cfg_modifiers,
             cli_modifiers,
             rule_type,
-            cfg_constructor.aliases.as_ref(),
-            cfg_constructor.extra_data.as_ref(),
+            aliases,
+            extra_data,
             configuring_exec_dep,
             &print,
         )
@@ -256,9 +274,7 @@ async fn eval_underlying(
 
         // Post constraint-analysis
         let res = eval_post_constraint_analysis(
-            cfg_constructor
-                .cfg_constructor_post_constraint_analysis
-                .value(),
+            cfg_constructor_post_constraint_analysis,
             params,
             &mut reentrant_eval,
             refs_providers_map,

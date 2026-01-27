@@ -328,7 +328,9 @@ pub(crate) fn register_read_package_value_function(builder: &mut GlobalsBuilder)
         match SuperPackageValuesImpl::get(&**super_package.package_values())?
             .get_package_value(metadata_key)
         {
-            Some(value) => Ok(value.owned_frozen_value().owned_value(eval.frozen_heap())),
+            Some(value) => Ok(eval
+                .heap()
+                .access_owned_frozen_value(value.owned_frozen_value())),
             None => Ok(Value::new_none()),
         }
     }

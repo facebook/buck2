@@ -84,7 +84,7 @@ pub(crate) fn expr_throw_starlark_result<'v, T>(
 
 pub(crate) struct Compiler<'v, 'a, 'e, 'x> {
     pub(crate) eval: &'x mut Evaluator<'v, 'a, 'e>,
-    pub(crate) scope_data: ModuleScopeData<'v>,
+    pub(crate) scope_data: ModuleScopeData<'x>,
     pub(crate) locals: Vec<ScopeId>,
     pub(crate) globals: FrozenRef<'static, Globals>,
     pub(crate) codemap: FrozenRef<'static, CodeMap>,

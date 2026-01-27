@@ -44,7 +44,7 @@ pub trait DepAttrTypeExt {
     ) -> buck2_error::Result<()>;
 
     fn alloc_dependency<'v>(
-        env: &'v Module,
+        env: &Module<'v>,
         target: &ConfiguredProvidersLabel,
         v: FrozenValueTyped<'v, FrozenProviderCollection>,
         execution_platform_resolution: Option<&ExecutionPlatformResolution>,
@@ -83,7 +83,7 @@ impl DepAttrTypeExt for DepAttrType {
     }
 
     fn alloc_dependency<'v>(
-        env: &'v Module,
+        env: &Module<'v>,
         target: &ConfiguredProvidersLabel,
         v: FrozenValueTyped<'v, FrozenProviderCollection>,
         execution_platform_resolution: Option<&ExecutionPlatformResolution>,

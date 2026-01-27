@@ -145,7 +145,7 @@ pub(crate) fn register_host_info(builder: &mut GlobalsBuilder) {
         // that might reuse each other's output.
         let host_info = &BuildContext::from_context(eval)?.host_info;
         Ok(ValueOfUnchecked::new(
-            host_info.value.owned_value(eval.frozen_heap()),
+            eval.heap().access_owned_frozen_value(&host_info.value),
         ))
     }
 }

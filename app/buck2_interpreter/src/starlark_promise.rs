@@ -403,18 +403,18 @@ mod tests {
         }
     }
 
-    fn alloc_promises<'v>(modu: &'v Module) {
+    fn alloc_promises<'v>(modu: &Module<'v>) {
         modu.set(
             "__promises__",
             modu.heap().alloc_complex_no_freeze(Promises::default()),
         )
     }
 
-    fn get_promises<'v>(modu: &'v Module) -> &'v Promises<'v> {
+    fn get_promises<'v>(modu: &Module<'v>) -> &'v Promises<'v> {
         modu.get("__promises__").unwrap().downcast_ref().unwrap()
     }
 
-    fn assert_promise<'v>(modu: &'v Module, content: &str) -> buck2_error::Result<Value<'v>> {
+    fn assert_promise<'v>(modu: &Module<'v>, content: &str) -> buck2_error::Result<Value<'v>> {
         alloc_promises(modu);
         let globals = GlobalsBuilder::standard().with(helpers).build();
         let ast = AstModule::parse(
@@ -431,7 +431,7 @@ mod tests {
         Ok(res)
     }
 
-    fn assert_promise_err<'v>(modu: &'v Module, content: &str, err: &str) -> buck2_error::Error {
+    fn assert_promise_err<'v>(modu: &Module<'v>, content: &str, err: &str) -> buck2_error::Error {
         match assert_promise(modu, content) {
             Ok(_) => panic!("Expected an error, got a result"),
             Err(e) => {

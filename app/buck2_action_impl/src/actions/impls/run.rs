@@ -1424,8 +1424,8 @@ impl Action for RunAction {
         }
     }
 
-    fn error_handler(&self) -> Option<OwnedFrozenValue> {
-        self.error_handler.clone()
+    fn error_handler(&self) -> Option<&OwnedFrozenValue> {
+        self.error_handler.as_ref()
     }
 
     fn failed_action_output_artifacts<'v>(

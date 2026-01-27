@@ -64,7 +64,7 @@ fn run_ctx_test(
 
         Module::with_temp_heap(|env| {
             let file_loader = ReturnFileLoader { modules: &modules };
-            let test_function = test_function.owned_value(env.frozen_heap());
+            let test_function = env.heap().access_owned_frozen_value(&test_function);
             let mut eval = Evaluator::new(&env);
             eval.set_loader(&file_loader);
             let label = TargetLabel::testing_parse("root//foo/bar:some_name")

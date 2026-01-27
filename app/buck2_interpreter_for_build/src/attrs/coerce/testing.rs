@@ -83,7 +83,7 @@ fn cell_resolver() -> CellResolver {
     )
 }
 
-pub fn to_value<'v>(env: &'v Module, globals: &Globals, content: &str) -> Value<'v> {
+pub fn to_value<'v>(env: &Module<'v>, globals: &Globals, content: &str) -> Value<'v> {
     let import_path = ImportPath::testing_new("root//:defs.bzl");
     let ast = AstModule::parse(
         &import_path.to_string(),
