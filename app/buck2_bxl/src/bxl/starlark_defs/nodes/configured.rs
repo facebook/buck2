@@ -825,7 +825,7 @@ fn configured_attr_methods(builder: &mut MethodsBuilder) {
             .to_value(PackageLabelOption::PackageLabel(this.1.dupe()), heap)?)
     }
 
-    /// Returns this attribute with all configuraions stripped.
+    /// Returns this attribute with all configurations stripped.
     ///
     /// This is useful when you want to display or compare attributes after configuration
     /// without configuration-specific information in the output. For example, macros

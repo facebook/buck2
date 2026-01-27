@@ -99,7 +99,7 @@ pub(crate) fn any_artifact_methods(builder: &mut MethodsBuilder) {
 
 #[starlark_module]
 fn input_artifact_methods(builder: &mut MethodsBuilder) {
-    /// Returns a `StarlarkOutputArtifact` instance, or fails if the artifact is
+    /// Returns an `OutputArtifact` instance, or fails if the artifact is
     /// either an `Artifact`, or is a bound `Artifact` (You cannot bind twice)
     fn as_output<'v>(
         this: ValueOf<'v, &'v dyn StarlarkInputArtifactLike<'v>>,
@@ -122,15 +122,15 @@ fn input_artifact_methods(builder: &mut MethodsBuilder) {
         Ok(this.project(path, hide_prefix)?)
     }
 
-    /// Returns a `StarlarkArtifact` instance which is identical to the original artifact, except
-    /// with no associated artifacts
+    /// Returns an `Artifact` instance which is identical to the original artifact, except
+    /// with no associated artifacts.
     fn without_associated_artifacts<'v>(
         this: &'v dyn StarlarkInputArtifactLike<'v>,
     ) -> starlark::Result<EitherStarlarkInputArtifact<'v>> {
         Ok(this.without_associated_artifacts()?)
     }
 
-    /// Returns a `StarlarkArtifact` instance which is identical to the original artifact, but with
+    /// Returns an `Artifact` instance which is identical to the original artifact, but with
     /// potentially additional artifacts. The artifacts must be bound.
     fn with_associated_artifacts<'v>(
         this: &'v dyn StarlarkInputArtifactLike<'v>,
