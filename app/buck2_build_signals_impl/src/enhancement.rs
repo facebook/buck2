@@ -48,8 +48,6 @@ impl CriticalPathProtoEnhancer {
         } = entry;
         let proto_entry = key.into_critical_path_entry_data(&data.extra_data);
 
-        let mut current_category: Option<(Instant, &WaitingCategory)> = None;
-
         let waiting_for_deps_start = self.last_entry_end;
         let waiting_for_deps_end = deps_finished_time.unwrap_or(waiting_for_deps_start);
         if !waiting_for_deps_end
@@ -76,33 +74,38 @@ impl CriticalPathProtoEnhancer {
         }
 
         let node_start = data.duration.total.start();
-        let sentinel = (node_start, WaitingCategory::Unknown);
 
-        for (start, category) in data.waiting_data.iter().chain(std::iter::once(&sentinel)) {
-            let start = start.clamp(&waiting_for_deps_end, &node_start);
-            if let Some((prev_start, category)) = current_category.take() {
-                let duration = start.saturating_duration_since(prev_start).as_micros();
-                // We skip adding WaitingCategory::Unknown entries if they are 0 duration. We don't skip other categories because
-                // it is useful to know that we measure that time specifically so that a user knows that the adjacent waiting spans
-                // are not that (i.e. for a local action execution, maybe there'd be an Unknown span and a 0-duration ::LocalQueued
-                // span and you'd know that the Unknown time was not being spent in the local queue).
-                if duration > 0 || category != &WaitingCategory::Unknown {
-                    self.add_simple_entry(
-                        None,
-                        buck2_data::critical_path_entry2::Entry::Waiting(
-                            buck2_data::critical_path_entry2::Waiting {
-                                category: Some(category.variant_name_lowercase().to_owned()),
-                            },
-                        ),
-                        TimeSpan::new_saturating(prev_start, *start),
-                        false,
-                    );
+        let waiting_span = TimeSpan::new_saturating(waiting_for_deps_end, node_start);
+
+        for (time_span, category) in data
+            .waiting_data
+            .iter_spans(waiting_for_deps_end, node_start)
+        {
+            match time_span.intersection(&waiting_span) {
+                Some(time_span) => {
+                    // We skip adding WaitingCategory::Unknown entries if they are 0 duration. We don't skip other categories because
+                    // it is useful to know that we measure that time specifically so that a user knows that the adjacent waiting spans
+                    // are not that (i.e. for a local action execution, maybe there'd be an Unknown span and a 0-duration ::LocalQueued
+                    // span and you'd know that the Unknown time was not being spent in the local queue).
+                    if time_span.duration() > Duration::ZERO
+                        || category != &WaitingCategory::Unknown
+                    {
+                        self.add_simple_entry(
+                            None,
+                            buck2_data::critical_path_entry2::Entry::Waiting(
+                                buck2_data::critical_path_entry2::Waiting {
+                                    category: Some(category.variant_name_lowercase().to_owned()),
+                                },
+                            ),
+                            time_span,
+                            false,
+                        );
+                    }
                 }
-            }
-            match category {
-                WaitingCategory::Unknown => {}
-                _ => {
-                    current_category = Some((*start, category));
+                None => {
+                    // this shouldn't happen, it indicates the waiting data continued until the node started or that it started
+                    // before the node's deps were finished. The best we can do at this point is to ignore it (we could make this
+                    // a soft error in the future, but haven't seen issues from it).
                 }
             }
         }
