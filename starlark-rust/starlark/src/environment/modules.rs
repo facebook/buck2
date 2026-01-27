@@ -335,6 +335,10 @@ impl Module {
         F: for<'v> FnOnce(Module) -> R,
     {
         let module = Self::new();
+        // SAFETY: Mostly not
+        unsafe {
+            module.heap().allow_gc();
+        }
         f(module)
     }
 
@@ -349,6 +353,10 @@ impl Module {
         // allow the future "returned" by this function to do so. We make that sound by also
         // capturing the heap itself in the future.
         let module = Self::new();
+        // SAFETY: Mostly not
+        unsafe {
+            module.heap().allow_gc();
+        }
         f(module).await
     }
 

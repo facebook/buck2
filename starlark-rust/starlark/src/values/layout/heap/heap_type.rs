@@ -93,6 +93,7 @@ pub struct OwnedHeap {
     str_interner: RefCell<StringValueInterner<'static>>,
     /// Memory I depend on.
     refs: RefCell<SmallSet<FrozenHeapRef>>,
+    ban_gc: Cell<bool>,
 }
 
 impl Debug for OwnedHeap {
@@ -115,6 +116,7 @@ impl OwnedHeap {
             arena: Default::default(),
             str_interner: Default::default(),
             refs: Default::default(),
+            ban_gc: Cell::new(true),
         }
     }
 
@@ -540,11 +542,24 @@ impl<'v> Heap<'v> {
         unsafe { (*self.0.arena.get_mut()).visit_arena(HeapKind::Unfrozen, forward_heap_kind, v) }
     }
 
+    /// Allow gcing in this heap
+    ///
+    /// # SAFETY
+    ///
+    /// This is basically impossible to reason about, hence its existence in the first place
+    pub(crate) unsafe fn allow_gc(&self) {
+        self.0.ban_gc.set(false);
+    }
+
     /// Garbage collect any values that are unused. This function is _unsafe_ in
     /// the sense that any `Value<'v>` not returned by `Tracer` _will become
     /// invalid_. Furthermore, any references to values, e.g `&'v str` will
     /// also become invalid.
     pub(crate) unsafe fn garbage_collect(self, f: impl FnOnce(&Tracer<'v>)) {
+        if self.0.ban_gc.get() {
+            return;
+        }
+
         unsafe {
             // Record the highest peak, so it never decreases
             self.0.peak_allocated.set(self.peak_allocated_bytes());
