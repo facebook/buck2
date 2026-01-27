@@ -345,7 +345,7 @@ def _use_projection_with_content_based_path_impl(ctx):
             "import sys",
             "shutil.copyfile(sys.argv[1], sys.argv[2])",
         ],
-        uses_experimental_content_based_path_hashing = True,
+        has_content_based_path = True,
     )
 
     first_copy_projection1 = ctx.actions.declare_output("first_copied_projection1.txt", has_content_based_path = True)
@@ -494,10 +494,10 @@ def _incremental_action_impl(ctx) -> list[Provider]:
             "with open(sys.argv[1], 'w') as f:",
             "  f.write('hello')",
         ],
-        uses_experimental_content_based_path_hashing = True,
+        has_content_based_path = True,
     )
 
-    out = ctx.actions.declare_output("out", uses_experimental_content_based_path_hashing = True)
+    out = ctx.actions.declare_output("out", has_content_based_path = True)
     args = cmd_args(["fbpython", script, out.as_output()])
 
     ctx.actions.run(
@@ -552,7 +552,7 @@ def _not_eligible_for_dedupe_impl(ctx) -> list[Provider]:
             "with open(sys.argv[1], 'w') as f:",
             "  f.write('hello')",
         ],
-        uses_experimental_content_based_path_hashing = False,
+        has_content_based_path = False,
     )
 
     out = ctx.actions.declare_output("out", uses_experimental_content_based_path_hashing = ctx.attrs.run_action_output_has_content_based_path)

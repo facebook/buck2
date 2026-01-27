@@ -862,7 +862,7 @@ def _create_precompile_cmd(
     input_header = actions.write(
         module_name,
         cmd_args(input_header_contents, cmd_args(["\n"])),
-        uses_experimental_content_based_path_hashing = True,
+        has_content_based_path = True,
     )
 
     import_stub = actions.write(
@@ -889,7 +889,7 @@ module "{}" {{
     modulemap_file = actions.write(
         "module.modulemap" + group_name,
         modulemap_content,
-        uses_experimental_content_based_path_hashing = True,
+        has_content_based_path = True,
     )
 
     src_dir = actions.symlinked_dir(
@@ -1377,7 +1377,7 @@ def _mk_argsfiles(
             compiler_info_argsfile = actions.copy_file(
                 filename_prefix + "filtered_toolchain_cxx_args",
                 filtered_info_argsfile,
-                uses_experimental_content_based_path_hashing = True,
+                has_content_based_path = True,
             )
 
         argsfiles.append(compiler_info_argsfile)

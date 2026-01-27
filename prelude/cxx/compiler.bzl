@@ -55,7 +55,7 @@ def get_flags_for_colorful_output(compiler_type: str) -> list[str]:
 def cc_dep_files(actions: AnalysisActions, filename_base: str, _input_file: Artifact) -> (cmd_args, cmd_args):
     intermediary_dep_file = actions.declare_output(
         paths.join("__dep_files_intermediaries__", filename_base),
-        uses_experimental_content_based_path_hashing = True,
+        has_content_based_path = True,
     ).as_output()
 
     return (cmd_args(intermediary_dep_file), cmd_args(["-MD", "-MF", intermediary_dep_file]))

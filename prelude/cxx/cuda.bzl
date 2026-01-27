@@ -250,7 +250,7 @@ def _include_symlinked_stubs_dir(
     stubs_dir = actions.declare_output(
         "__stubs__",
         dir = True,
-        uses_experimental_content_based_path_hashing = True,
+        has_content_based_path = True,
     )
     stubs = {}
     for file, artifact in file2artifact.items():
@@ -262,7 +262,7 @@ def _include_symlinked_stubs_dir(
     symlinked_dir = actions.symlinked_dir(
         stubs_dir,
         stubs,
-        uses_experimental_content_based_path_hashing = True,
+        has_content_based_path = True,
     )
     subcmd.add(cmd_args(symlinked_dir, format = "-I{}"))
 
