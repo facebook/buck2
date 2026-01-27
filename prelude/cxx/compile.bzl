@@ -668,8 +668,7 @@ def _compile_single_cxx(
         assembly = assembly,
         diagnostics = diagnostics,
         preproc = preproc,
-        nvcc_dag = cuda_compile_output.nvcc_dag if cuda_compile_output else None,
-        nvcc_env = cuda_compile_output.nvcc_env if cuda_compile_output else None,
+        dist_cuda = cuda_compile_output,
         pch_object_output = pch_object_output,
     )
 
@@ -1084,10 +1083,9 @@ def cxx_objects_sub_targets(outs: list[CxxCompileOutput]) -> dict[str, list[Prov
             sub_targets["assembly"] = [DefaultInfo(obj.assembly)]
         if obj.preproc:
             sub_targets["preprocessed"] = [DefaultInfo(obj.preproc)]
-        if obj.nvcc_dag:
-            sub_targets["nvcc-dag"] = [DefaultInfo(obj.nvcc_dag)]
-        if obj.nvcc_env:
-            sub_targets["nvcc-env"] = [DefaultInfo(obj.nvcc_env)]
+        if obj.dist_cuda:
+            sub_targets["nvcc-dag"] = [DefaultInfo(obj.dist_cuda.nvcc_dag)]
+            sub_targets["nvcc-env"] = [DefaultInfo(obj.dist_cuda.nvcc_env)]
         objects_sub_targets[obj.object.short_path] = [DefaultInfo(
             obj.object,
             sub_targets = sub_targets,

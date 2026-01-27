@@ -165,10 +165,7 @@ CxxCompileOutput = record(
     assembly = field(Artifact | None, None),
     diagnostics = field(Artifact | None, None),
     preproc = field(Artifact | None, None),
-    # Dependency graph of the NVCC sub-commands.
-    nvcc_dag = field(Artifact | None, None),
-    # Environment variables for the NVCC sub-commands.
-    nvcc_env = field(Artifact | None, None),
+    dist_cuda = field(CudaDistributedCompileOutput | None, None),
     pch_object_output = field(Artifact | None, None),
 )
 
