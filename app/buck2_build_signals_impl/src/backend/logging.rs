@@ -11,6 +11,7 @@
 use buck2_build_signals::env::CriticalPathBackendName;
 use buck2_build_signals::env::NodeDuration;
 use buck2_build_signals::env::WaitingData;
+use buck2_build_signals::error::CriticalPathError;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_data::QuickUnstableE2eData;
 use buck2_events::dispatch::EventDispatcher;
@@ -87,7 +88,7 @@ impl BuildListenerBackend for LoggingBackend {
     ) {
     }
 
-    fn finish(self) -> buck2_error::Result<BuildInfo> {
+    fn finish(self) -> Result<BuildInfo, CriticalPathError> {
         Ok(BuildInfo {
             critical_path: DetailedCriticalPath::empty(),
             slowest_path: DetailedCriticalPath::empty(),

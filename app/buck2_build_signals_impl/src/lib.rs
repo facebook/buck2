@@ -42,13 +42,13 @@ use buck2_build_signals::env::EarlyCommandTiming;
 use buck2_build_signals::env::FinishBuildSignals;
 use buck2_build_signals::env::NodeDuration;
 use buck2_build_signals::env::WaitingData;
+use buck2_build_signals::error::CriticalPathError;
 use buck2_build_signals::node_key::BuildSignalsNodeKey;
 use buck2_common::package_listing::dice::PackageListingKey;
 use buck2_common::package_listing::dice::PackageListingKeyActivationData;
 use buck2_core::package::PackageLabel;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_data::ToProtoMessage;
-use buck2_error::BuckErrorContext;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_events::dispatch::instant_event;
 use buck2_events::dispatch::with_dispatcher_async;
@@ -83,6 +83,7 @@ use crate::test_signals::TestListingSignal;
 
 mod backend;
 mod enhancement;
+mod error;
 mod test_signals;
 
 /// A node in our critical path graph.
@@ -504,17 +505,15 @@ impl DeferredBuildSignals for DeferredBuildSignalsImpl {
 
 pub(crate) struct FinishBuildSignalsImpl {
     sender: Arc<BuildSignalSender>,
-    handle: JoinHandle<buck2_error::Result<()>>,
+    handle: JoinHandle<Result<(), CriticalPathError>>,
 }
 
 #[async_trait]
 impl FinishBuildSignals for FinishBuildSignalsImpl {
-    async fn finish(self: Box<Self>) -> buck2_error::Result<()> {
+    async fn finish(self: Box<Self>) -> Result<(), CriticalPathError> {
         let _ignored = self.sender.sender.send(BuildSignal::BuildFinished);
 
-        self.handle
-            .await
-            .buck_error_context("Error joining critical path task")?
+        self.handle.await.expect("Error joining critical path task")
     }
 }
 
@@ -523,7 +522,7 @@ fn start_backend(
     receiver: UnboundedReceiver<BuildSignal>,
     backend: impl BuildListenerBackend + Send + 'static,
     ctx: BuildSignalsContext,
-) -> JoinHandle<buck2_error::Result<()>> {
+) -> JoinHandle<Result<(), CriticalPathError>> {
     let listener = BuildSignalReceiver::new(receiver, backend);
     tokio::spawn(with_dispatcher_async(events.dupe(), async move {
         listener.run_and_log(ctx).await
@@ -556,22 +555,21 @@ where
         }
     }
 
-    pub(crate) async fn run_and_log(mut self, ctx: BuildSignalsContext) -> buck2_error::Result<()> {
+    pub(crate) async fn run_and_log(
+        mut self,
+        ctx: BuildSignalsContext,
+    ) -> Result<(), CriticalPathError> {
         while let Some(event) = self.receiver.next().await {
             match event {
                 BuildSignal::Evaluation(eval) => self.process_evaluation(eval),
-                BuildSignal::TopLevelTarget(top_level) => {
-                    self.process_top_level_target(top_level)?
-                }
+                BuildSignal::TopLevelTarget(top_level) => self.process_top_level_target(top_level),
                 BuildSignal::FinalMaterialization(final_materialization) => {
-                    self.process_final_materialization(final_materialization)?
+                    self.process_final_materialization(final_materialization)
                 }
                 BuildSignal::TestExecution(test_execution) => {
-                    self.process_test_execution(test_execution)?
+                    self.process_test_execution(test_execution)
                 }
-                BuildSignal::TestListing(test_listing) => {
-                    self.process_test_listing(test_listing)?
-                }
+                BuildSignal::TestListing(test_listing) => self.process_test_listing(test_listing),
                 BuildSignal::BuildFinished => break,
             }
         }
@@ -586,17 +584,22 @@ where
             top_level_targets,
         } = self.backend.finish()?;
 
-        let critical_path2 =
-            critical_path.into_critical_path_proto(&ctx.early_command_timing, now)?;
+        let critical_path2 = critical_path
+            .into_critical_path_proto(&ctx.early_command_timing, now)
+            .map_err(CriticalPathError::IntoProto)?;
 
-        let slowest_path = slowest_path.into_critical_path_proto(&ctx.early_command_timing, now)?;
+        let slowest_path = slowest_path
+            .into_critical_path_proto(&ctx.early_command_timing, now)
+            .map_err(CriticalPathError::IntoProto)?;
 
-        let top_level_targets = top_level_targets.try_map(|(key, duration)| {
-            buck2_error::Ok(buck2_data::TopLevelTargetCriticalPath {
+        let top_level_targets =
+            top_level_targets.map(|(key, duration)| buck2_data::TopLevelTargetCriticalPath {
                 target: Some(key.as_proto()),
-                duration: Some((*duration).try_into()?),
-            })
-        })?;
+                duration: Some((*duration).try_into().unwrap_or(prost_types::Duration {
+                    seconds: i64::MAX,
+                    nanos: 0,
+                })),
+            });
 
         instant_event(buck2_data::BuildGraphExecutionInfo {
             critical_path2,
@@ -667,10 +670,7 @@ where
     }
 
     // TODO: We would need something similar with anon targets.
-    fn process_top_level_target(
-        &mut self,
-        top_level: TopLevelTargetSignal,
-    ) -> buck2_error::Result<()> {
+    fn process_top_level_target(&mut self, top_level: TopLevelTargetSignal) {
         self.backend.process_top_level_target(
             top_level.label,
             top_level.artifacts.map(|k| match k {
@@ -680,14 +680,9 @@ where
                 }
             }),
         );
-
-        Ok(())
     }
 
-    fn process_final_materialization(
-        &mut self,
-        materialization: FinalMaterializationSignal,
-    ) -> buck2_error::Result<()> {
+    fn process_final_materialization(&mut self, materialization: FinalMaterializationSignal) {
         let dep = NodeKey::BuildKey(BuildKey(materialization.artifact.key().dupe()));
 
         self.backend.process_node(
@@ -698,11 +693,9 @@ where
             materialization.span_id.into_iter().collect(),
             materialization.waiting_data,
         );
-
-        Ok(())
     }
 
-    fn process_test_execution(&mut self, signal: TestExecutionSignal) -> buck2_error::Result<()> {
+    fn process_test_execution(&mut self, signal: TestExecutionSignal) {
         let key = TestExecutionBuildSignalKey {
             target: signal.target.dupe(),
             suite: Arc::new(signal.suite.to_owned()),
@@ -729,11 +722,9 @@ where
             Default::default(),
             WaitingData::new(),
         );
-
-        Ok(())
     }
 
-    fn process_test_listing(&mut self, signal: TestListingSignal) -> buck2_error::Result<()> {
+    fn process_test_listing(&mut self, signal: TestListingSignal) {
         let key = TestListingBuildSignalKey {
             target: signal.target,
             suite: Arc::new(signal.suite.to_owned()),
@@ -758,8 +749,6 @@ where
             Default::default(),
             WaitingData::new(),
         );
-
-        Ok(())
     }
 }
 

@@ -10,12 +10,12 @@
 
 use std::collections::BinaryHeap;
 
-use buck2_error::BuckErrorContext;
 use crossbeam::thread;
 
 use crate::critical_path_accessor::CriticalPathAccessor;
 use crate::graph::Graph;
 use crate::graph::PathCost;
+use crate::graph::TopoSortError;
 use crate::types::CriticalPathIndex;
 use crate::types::CriticalPathVertexData;
 use crate::types::OptionalCriticalPathIndex;
@@ -31,12 +31,15 @@ use crate::types::VertexId;
 pub fn compute_critical_path_potentials(
     deps: &Graph,
     weights: &VertexData<u64>,
-) -> buck2_error::Result<(
-    CriticalPathVertexData<VertexId>,
-    PathCost,
-    CriticalPathVertexData<PathCost>,
-    CriticalPathAccessor,
-)> {
+) -> Result<
+    (
+        CriticalPathVertexData<VertexId>,
+        PathCost,
+        CriticalPathVertexData<PathCost>,
+        CriticalPathAccessor,
+    ),
+    TopoSortError,
+> {
     let mut rdeps = None;
     let mut topo_order = None;
 
@@ -48,8 +51,7 @@ pub fn compute_critical_path_potentials(
             topo_order = Some(deps.topo_sort());
         });
     })
-    .ok()
-    .buck_error_context("Threads panicked")?;
+    .expect("Threads panicked");
 
     let rdeps = rdeps.unwrap();
     let topo_order = topo_order.unwrap()?;
@@ -69,8 +71,7 @@ pub fn compute_critical_path_potentials(
             predecessors = Some(pred);
         });
     })
-    .ok()
-    .buck_error_context("Threads panicked")?;
+    .expect("Threads panicked");
 
     let cost_to_sink = cost_to_sink.unwrap();
     let cost_from_source = cost_from_source.unwrap();
@@ -160,8 +161,7 @@ pub fn compute_critical_path_potentials(
             }
         });
     })
-    .ok()
-    .buck_error_context("Threads panicked")?;
+    .expect("Threads panicked");
 
     // Compute the cost of the longest path through each vertex. We do this here instead of inline
     // later to avoid jumping around 3 arrays later (whereas here we can do so linearly).

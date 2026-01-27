@@ -25,6 +25,8 @@ use dice::UserComputationData;
 use dupe::Dupe;
 use gazebo::variants::VariantName;
 
+use crate::error::CriticalPathError;
+
 pub const OTHER_COMMAND_START_OVERHEAD: &str = "other-command-start-overhead";
 pub const EXCLUSIVE_COMMAND_WAIT: &str = "exclusive-command-wait";
 pub const FILE_WATCHER_WAIT: &str = "file-watcher-wait";
@@ -207,7 +209,7 @@ pub trait DeferredBuildSignals: Send {
 /// Returned by DeferredBuildSignals once started. Lets us report that we finished.
 #[async_trait]
 pub trait FinishBuildSignals: Send {
-    async fn finish(self: Box<Self>) -> buck2_error::Result<()>;
+    async fn finish(self: Box<Self>) -> Result<(), CriticalPathError>;
 }
 
 /// Start the backend for a DeferredBuildSignals instance.

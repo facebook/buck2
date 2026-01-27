@@ -14,8 +14,10 @@ use buck2_analysis::analysis::calculation::AnalysisKey;
 use buck2_build_signals::env::CriticalPathBackendName;
 use buck2_build_signals::env::NodeDuration;
 use buck2_build_signals::env::WaitingData;
+use buck2_build_signals::error::CriticalPathError;
 use buck2_core::soft_error;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
+use buck2_critical_path::AddEdgesError;
 use buck2_critical_path::Graph;
 use buck2_critical_path::GraphBuilder;
 use buck2_critical_path::OptionalVertexId;
@@ -39,7 +41,7 @@ use crate::backend::backend::BuildListenerBackend;
 /// An implementation of critical path that uses a longest-paths graph in order to produce
 /// potential savings in addition to the critical path.
 pub(crate) struct LongestPathGraphBackend {
-    builder: buck2_error::Result<GraphBuilder<NodeKey, NodeData>>,
+    builder: Result<GraphBuilder<NodeKey, NodeData>, CriticalPathError>,
     top_level_targets: Vec<TopLevelTarget>,
 }
 
@@ -85,9 +87,9 @@ impl BuildListenerBackend for LongestPathGraphBackend {
         );
 
         let res = res.or_else(|err| match err {
-            e @ PushError::Overflow => Err(e.into()),
+            PushError::Overflow => Err(CriticalPathError::GraphBuildOverflow),
             e @ PushError::DuplicateKey { .. } => {
-                soft_error!("critical_path_duplicate_key", e.into(), quiet: true)?;
+                drop(soft_error!("critical_path_duplicate_key", e.into(), quiet: true));
                 Ok(())
             }
         });
@@ -109,7 +111,7 @@ impl BuildListenerBackend for LongestPathGraphBackend {
         })
     }
 
-    fn finish(self) -> buck2_error::Result<BuildInfo> {
+    fn finish(self) -> Result<BuildInfo, CriticalPathError> {
         let (graph, keys, data) = {
             let (graph, keys, data) = self.builder?.finish();
 
@@ -167,33 +169,37 @@ impl BuildListenerBackend for LongestPathGraphBackend {
                 }
             }
 
-            let graph = graph
-                .add_edges(&first_analysis, n)
-                .buck_error_context("Error adding first_analysis edges to graph")?;
+            let graph = match graph.add_edges(&first_analysis, n) {
+                Ok(g) => g,
+                Err(AddEdgesError::Overflow) => {
+                    return Err(CriticalPathError::GraphBuildOverflow);
+                }
+            };
 
             (graph, keys, data)
         };
 
-        let durations = data.try_map_ref(|d| {
+        let durations = data.map_ref(|d| {
             d.duration
                 .critical_path_duration()
                 .as_micros()
                 .try_into()
-                .buck_error_context("Duration `as_micros()` exceeds u64")
-        })?;
+                .unwrap_or(u64::MAX)
+        });
 
-        let (slowest_path, critical_path, critical_path_for_top_level_targets) =
-            std::thread::scope(|s| {
-                let cp = s.spawn(|| {
-                    compute_critical_paths(&graph, &keys, &data, durations, &self.top_level_targets)
-                });
-                let slow = s.spawn(|| compute_slowest_paths(&graph, &keys, &data));
+        let (slowest_path, cp_res) = std::thread::scope(|s| {
+            let cp = s.spawn(|| {
+                compute_critical_paths(&graph, &keys, &data, durations, &self.top_level_targets)
+            });
+            let slow = s.spawn(|| compute_slowest_paths(&graph, &keys, &data));
 
-                let (cp, cp_top) = cp.join().expect("thread panicked")?;
-                let slow = slow.join().expect("thread panicked")?;
+            let cp = cp.join().expect("thread panicked");
+            let slow = slow.join().expect("thread panicked");
 
-                buck2_error::Ok((slow, cp, cp_top))
-            })?;
+            (slow, cp)
+        });
+
+        let (critical_path, critical_path_for_top_level_targets) = cp_res?;
 
         Ok(BuildInfo {
             critical_path,
@@ -215,10 +221,9 @@ fn compute_critical_paths(
     data: &VertexData<NodeData>,
     durations: VertexData<u64>,
     top_level_targets: &[TopLevelTarget],
-) -> buck2_error::Result<(DetailedCriticalPath, Vec<(ConfiguredTargetLabel, Duration)>)> {
+) -> Result<(DetailedCriticalPath, Vec<(ConfiguredTargetLabel, Duration)>), CriticalPathError> {
     let (critical_path, critical_path_cost, replacement_durations, critical_path_accessor) =
-        compute_critical_path_potentials(&graph, &durations)
-            .buck_error_context("Error computing critical path potentials")?;
+        compute_critical_path_potentials(&graph, &durations)?;
 
     let critical_path_for_top_level_targets = top_level_targets
         .iter()
@@ -296,7 +301,7 @@ fn compute_slowest_paths(
     graph: &Graph,
     keys: &VertexKeys<NodeKey>,
     data: &VertexData<NodeData>,
-) -> buck2_error::Result<DetailedCriticalPath> {
+) -> DetailedCriticalPath {
     let mut last = None;
 
     for d in graph.iter_vertices() {
@@ -330,5 +335,5 @@ fn compute_slowest_paths(
 
     slowest_path.reverse();
 
-    Ok(DetailedCriticalPath::new(slowest_path))
+    DetailedCriticalPath::new(slowest_path)
 }

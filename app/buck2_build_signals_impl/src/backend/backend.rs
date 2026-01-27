@@ -11,6 +11,7 @@
 use buck2_build_signals::env::CriticalPathBackendName;
 use buck2_build_signals::env::NodeDuration;
 use buck2_build_signals::env::WaitingData;
+use buck2_build_signals::error::CriticalPathError;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_events::span::SpanId;
 use smallvec::SmallVec;
@@ -36,7 +37,7 @@ pub(crate) trait BuildListenerBackend {
         artifacts: impl IntoIterator<Item = NodeKey>,
     );
 
-    fn finish(self) -> buck2_error::Result<BuildInfo>;
+    fn finish(self) -> Result<BuildInfo, CriticalPathError>;
 
     fn name() -> CriticalPathBackendName;
 }
