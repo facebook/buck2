@@ -104,6 +104,14 @@ DeclaredIndexStore = record(
     filename_base = field(str),
 )
 
+# Factory for creating and compiling index stores
+# - declare: Called during analysis to declare the output artifact
+# - compile: Called during execution (inside dynamic action) to run the compilation
+IndexStoreFactory = record(
+    declare = field(typing.Callable[[AnalysisActions, typing.Any], DeclaredIndexStore | None]),
+    compile = field(typing.Callable[[AnalysisActions, Label, Artifact, str, CxxToolchainInfo, cmd_args], None]),
+)
+
 # Information about how to compile a source file.
 CxxSrcCompileCommand = record(
     # Source file to compile.
@@ -120,7 +128,7 @@ CxxSrcCompileCommand = record(
     # Whether to use content-based paths for the outputs of the compilation command.
     uses_experimental_content_based_path_hashing = field(bool),
     # The index store factory to use to generate index store for this source file.
-    index_store_factory = field(typing.Callable[[AnalysisActions, Label, typing.Any, CxxToolchainInfo, cmd_args], Artifact | None] | None, None),  # use typing.Any as "self" seems to be not supported
+    index_store_factory = field(IndexStoreFactory | None, None),
     error_handler = field([typing.Callable, None], None),
 )
 

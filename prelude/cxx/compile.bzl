@@ -313,11 +313,6 @@ def create_compile_cmds(
         comp_db_compile_cmds = src_compile_cmds + hdr_compile_cmds,
     )
 
-def _compile_index_store(actions: AnalysisActions, target_label: Label, src_compile_cmd: CxxSrcCompileCommand, toolchain: CxxToolchainInfo, compile_cmd: cmd_args) -> Artifact | None:
-    if src_compile_cmd.index_store_factory:
-        return src_compile_cmd.index_store_factory(actions, target_label, src_compile_cmd, toolchain, compile_cmd)
-    return None
-
 COMMON_PREPROCESSOR_OUTPUT_ARGS = cmd_args("-E", "-dD")
 
 def _compile_single_cxx(
@@ -421,19 +416,19 @@ def _compile_single_cxx(
     )
 
     index_store = None
-    if CxxCompileFlavor("pic") in flavors:
-        index_store = _compile_index_store(
-            actions,
-            target_label,
-            src_compile_cmd,
-            toolchain,
-            _get_base_compile_cmd(
-                bitcode_args = bitcode_args,
-                src_compile_cmd = src_compile_cmd,
-                flavors = flavors,
-                flavor_flags = toolchain.compiler_flavor_flags,
-            ),
+    declared_index_store = None
+    if CxxCompileFlavor("pic") in flavors and src_compile_cmd.index_store_factory:
+        declared_index_store = src_compile_cmd.index_store_factory.declare(actions, src_compile_cmd)
+
+    if declared_index_store:
+        index_store = declared_index_store.output
+        compile_index_store_cmd = _get_base_compile_cmd(
+            bitcode_args = bitcode_args,
+            src_compile_cmd = src_compile_cmd,
+            flavors = flavors,
+            flavor_flags = toolchain.compiler_flavor_flags,
         )
+        src_compile_cmd.index_store_factory.compile(actions, target_label, declared_index_store.output, declared_index_store.filename_base, toolchain, compile_index_store_cmd)
 
     clang_llvm_statistics = None
     if toolchain.clang_llvm_statistics and compiler_type == "clang":

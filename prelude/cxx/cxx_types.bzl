@@ -33,12 +33,14 @@ load(
     "SharedLibrary",  # @unused Used as a type
 )
 load(":argsfiles.bzl", "CompileArgsfiles")
-load(":compile_types.bzl", "CxxSrcCompileCommand")
+load(
+    ":compile_types.bzl",
+    "IndexStoreFactory",
+)
 load(
     ":cxx_sources.bzl",
     "CxxSrcWithFlags",  # @unused Used as a type
 )
-load(":cxx_toolchain_types.bzl", "CxxToolchainInfo")
 load(
     ":headers.bzl",
     "CxxHeadersLayout",
@@ -252,7 +254,7 @@ CxxRuleConstructorParams = record(
     # modulename-Swift.h header for building objc targets that rely on this swift dep
     swift_objc_header = field([Artifact, None], None),
     error_handler = field([typing.Callable, None], None),
-    index_store_factory = field(typing.Callable[[AnalysisActions, Label, CxxSrcCompileCommand, CxxToolchainInfo, cmd_args], Artifact | None] | None, None),
+    index_store_factory = field(IndexStoreFactory | None, None),
     # Swift index stores to propagate
     index_stores = field(list[Artifact] | None, None),
     # Whether to add header units from dependencies to the command line.

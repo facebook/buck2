@@ -45,6 +45,7 @@ load(
     "AsmExtensions",
     "CxxSrcCompileCommand",  # @unused Used as a type
     "DeclaredIndexStore",
+    "IndexStoreFactory",
 )
 load("@prelude//cxx:cxx_context.bzl", "get_cxx_toolchain_info")
 load(
@@ -229,16 +230,12 @@ def _declare_index_store(actions: AnalysisActions, src_compile_cmd: CxxSrcCompil
         filename_base = filename_base,
     )
 
-def _compile_index_store(actions: AnalysisActions, target_label: Label, src_compile_cmd: CxxSrcCompileCommand, toolchain: CxxToolchainInfo, compile_cmd: cmd_args) -> Artifact | None:
-    identifier = src_compile_cmd.src.short_path
-    if src_compile_cmd.index != None:
-        # Add a unique postfix if we have duplicate source files with different flags
-        identifier = identifier + "_" + str(src_compile_cmd.index)
-    filename_base = identifier
-    identifier += " (index_store)"
-
-    if src_compile_cmd.src.extension in AsmExtensions.values():
-        return None
+def _compile_index_store(actions: AnalysisActions, target_label: Label, index_store_output: Artifact, filename_base: str, toolchain: CxxToolchainInfo, compile_cmd: cmd_args) -> None:
+    """
+    Compile index store inside the dynamic action.
+    This is called after outputs are declared, during execution.
+    """
+    identifier = filename_base + " (index_store)"
 
     # Use remap_cwd.py to set -ffile-prefix-map, so we have paths relative to the
     # working directory.
@@ -255,26 +252,21 @@ def _compile_index_store(actions: AnalysisActions, target_label: Label, src_comp
     )
     cmd.add(["-o", output_name])
 
-    index_store = actions.declare_output(paths.join("__indexstore__", filename_base, "index_store"), dir = True)
-
     # Haven't use `-fdebug-prefix-map` for now, will use index-import to remap the path. But it's not ideal.
     cmd.add([
         "-fsyntax-only",
         "-index-ignore-system-symbols",
         "-index-store-path",
-        index_store.as_output(),
+        index_store_output.as_output(),
     ])
 
-    category = "apple_cxx_index_store"
     actions.run(
         cmd,
-        category = category,
+        category = "apple_cxx_index_store",
         identifier = identifier,
         allow_cache_upload = False,
         local_only = True,
     )
-
-    return index_store
 
 def _make_apple_library_for_distribution_info_provider(ctx: AnalysisContext, swift_library_for_distribution: [None, SwiftLibraryForDistributionOutput]) -> list[AppleLibraryForDistributionInfo]:
     return [AppleLibraryForDistributionInfo(
@@ -575,7 +567,7 @@ def apple_library_rule_constructor_params_and_swift_providers(ctx: AnalysisConte
         lang_preprocessor_flags = ctx.attrs.lang_preprocessor_flags,
         swift_objc_header = swift_objc_header,
         error_handler = cxx_error_handler if cxx_error_deserializer(ctx) else apple_build_error_handler,
-        index_store_factory = _compile_index_store,
+        index_store_factory = IndexStoreFactory(declare = _declare_index_store, compile = _compile_index_store),
         index_stores = [swift_compile.index_store] if swift_compile else None,
         extra_transitive_diagnostics = [swift_compile.typecheck_file] if swift_compile else [],
         extra_diagnostics = {"swift": swift_compile.typecheck_file} if swift_compile else None,
