@@ -52,7 +52,10 @@ use buck2_execute::artifact_value::ArtifactValue;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::digest_config::HasDigestConfig;
 use buck2_execute::materialize::materializer::HasMaterializer;
-use buck2_interpreter::from_freeze::from_freeze_error;
+use buck2_interpreter::dice::starlark_provider::StarlarkEvalKind;
+use buck2_interpreter::factory::BuckStarlarkModule;
+use buck2_interpreter::factory::FinishedStarlarkEvaluation;
+use buck2_interpreter::factory::StarlarkEvaluatorProvider;
 use buck2_interpreter::print_handler::EventDispatcherPrintHandler;
 use buck2_interpreter::soft_error::Buck2StarlarkSoftErrorHandler;
 use buck2_util::time_span::TimeSpan;
@@ -170,7 +173,9 @@ pub fn invoke_dynamic_output_lambda<'v>(
 }
 
 fn execute_lambda_inner<'v>(
-    env: &Module<'v>,
+    env: &BuckStarlarkModule<'v>,
+    eval_provider: StarlarkEvaluatorProvider,
+    liveness: CancellationObserver,
     lambda: OwnedRefFrozenRef<'_, FrozenDynamicLambdaParams>,
     self_key: &DynamicLambdaResultsKey,
     resolved_dynamic_values: HashMap<DynamicValue, FrozenProviderCollectionValue>,
@@ -178,78 +183,79 @@ fn execute_lambda_inner<'v>(
     input_artifacts_materialized: InputArtifactsMaterialized,
     digest_config: DigestConfig,
     artifact_fs: &ArtifactFs,
-) -> buck2_error::Result<AnalysisRegistry<'v>> {
-    let heap = env.heap();
+) -> buck2_error::Result<(FinishedStarlarkEvaluation, AnalysisRegistry<'v>)> {
     let print = EventDispatcherPrintHandler(get_dispatcher());
-    let mut eval = Evaluator::new(&env);
-    eval.set_print_handler(&print);
-    eval.set_soft_error_handler(&Buck2StarlarkSoftErrorHandler);
-    let dynamic_lambda_ctx_data = dynamic_lambda_ctx_data(
-        lambda,
-        self_key.dupe(),
-        input_artifacts_materialized,
-        &ensured_artifacts,
-        &resolved_dynamic_values,
-        &artifact_fs,
-        digest_config,
-        &env,
-    )?;
-    let ctx = AnalysisContext::prepare(
-        heap,
-        dynamic_lambda_ctx_data.lambda.attributes()?,
-        self_key.owner().configured_label(),
-        dynamic_lambda_ctx_data.lambda.plugins()?,
-        dynamic_lambda_ctx_data.registry,
-        dynamic_lambda_ctx_data.digest_config,
-    );
+    eval_provider.with_evaluator(env, liveness.into(), |eval, _| {
+        let heap = env.heap();
+        eval.set_print_handler(&print);
+        eval.set_soft_error_handler(&Buck2StarlarkSoftErrorHandler);
+        let dynamic_lambda_ctx_data = dynamic_lambda_ctx_data(
+            lambda,
+            self_key.dupe(),
+            input_artifacts_materialized,
+            &ensured_artifacts,
+            &resolved_dynamic_values,
+            &artifact_fs,
+            digest_config,
+            &env,
+        )?;
+        let ctx = AnalysisContext::prepare(
+            heap,
+            dynamic_lambda_ctx_data.lambda.attributes()?,
+            self_key.owner().configured_label(),
+            dynamic_lambda_ctx_data.lambda.plugins()?,
+            dynamic_lambda_ctx_data.registry,
+            dynamic_lambda_ctx_data.digest_config,
+        );
 
-    let args = match (
-        &dynamic_lambda_ctx_data.lambda.attr_values,
-        &dynamic_lambda_ctx_data.spec,
-    ) {
-        (
-            None,
-            DynamicLambdaCtxDataSpec::Old {
-                outputs,
-                artifact_values,
+        let args = match (
+            &dynamic_lambda_ctx_data.lambda.attr_values,
+            &dynamic_lambda_ctx_data.spec,
+        ) {
+            (
+                None,
+                DynamicLambdaCtxDataSpec::Old {
+                    outputs,
+                    artifact_values,
+                },
+            ) => DynamicLambdaArgs::OldPositional {
+                ctx: ctx.to_value(),
+                artifact_values: *artifact_values,
+                outputs: *outputs,
             },
-        ) => DynamicLambdaArgs::OldPositional {
-            ctx: ctx.to_value(),
-            artifact_values: *artifact_values,
-            outputs: *outputs,
-        },
-        (Some(_arg), DynamicLambdaCtxDataSpec::New { attr_values }) => {
-            DynamicLambdaArgs::DynamicActionsNamed {
-                // TODO(nga): no need to create `ctx`
-                //   because we only need `actions` here.
-                actions: ctx.actions,
-                attr_values: attr_values.clone(),
+            (Some(_arg), DynamicLambdaCtxDataSpec::New { attr_values }) => {
+                DynamicLambdaArgs::DynamicActionsNamed {
+                    // TODO(nga): no need to create `ctx`
+                    //   because we only need `actions` here.
+                    actions: ctx.actions,
+                    attr_values: attr_values.clone(),
+                }
             }
-        }
-        (None, DynamicLambdaCtxDataSpec::New { .. })
-        | (Some(_), DynamicLambdaCtxDataSpec::Old { .. }) => {
-            Err(internal_error!(
-                "Unexpected combination of attr_values and spec"
-            ))?;
-            unreachable!();
-        }
-    };
+            (None, DynamicLambdaCtxDataSpec::New { .. })
+            | (Some(_), DynamicLambdaCtxDataSpec::Old { .. }) => {
+                Err(internal_error!(
+                    "Unexpected combination of attr_values and spec"
+                ))?;
+                unreachable!();
+            }
+        };
 
-    let providers: ProviderCollection =
-        invoke_dynamic_output_lambda(&mut eval, dynamic_lambda_ctx_data.lambda.lambda(), args)?;
-    let providers = eval.heap().alloc(providers);
-    let providers = ValueTypedComplex::<ProviderCollection>::new(providers)
-        .internal_error("Just allocated ProviderCollection")?;
+        let providers: ProviderCollection =
+            invoke_dynamic_output_lambda(eval, dynamic_lambda_ctx_data.lambda.lambda(), args)?;
+        let providers = eval.heap().alloc(providers);
+        let providers = ValueTypedComplex::<ProviderCollection>::new(providers)
+            .internal_error("Just allocated ProviderCollection")?;
 
-    ctx.assert_no_promises()?;
+        ctx.assert_no_promises()?;
 
-    let registry = ctx.take_state();
+        let registry = ctx.take_state();
 
-    registry
-        .analysis_value_storage
-        .set_result_value(providers)?;
+        registry
+            .analysis_value_storage
+            .set_result_value(providers)?;
 
-    Ok(registry)
+        Ok(registry)
+    })
 }
 
 async fn execute_lambda(
@@ -281,10 +287,17 @@ async fn execute_lambda(
         .await;
         (TimeSpan::empty_now(), SmallVec::new(), res)
     } else {
-        let artifact_fs = match dice.get_artifact_fs().await {
-            Ok(fs) => fs,
+        let r = async {
+            let artifact_fs = dice.get_artifact_fs().await?;
+            let eval_kind = StarlarkEvalKind::DynamicOutput(Arc::new(self_key.dupe()));
+            let eval_provider = StarlarkEvaluatorProvider::new(dice, eval_kind).await?;
+            buck2_error::Ok((artifact_fs, eval_provider))
+        }
+        .await;
+        let (artifact_fs, eval_provider) = match r {
+            Ok(x) => x,
             Err(e) => {
-                return (TimeSpan::empty_now(), SmallVec::new(), Err(e.into()));
+                return (TimeSpan::empty_now(), SmallVec::new(), Err(e));
             }
         };
 
@@ -304,9 +317,11 @@ async fn execute_lambda(
                 let mut declared_actions = None;
                 let mut declared_artifacts = None;
 
-                let output: buck2_error::Result<_> = Module::with_temp_heap(|env| {
-                    let analysis_registry = execute_lambda_inner(
+                let output: buck2_error::Result<_> = BuckStarlarkModule::with_profiling(|env| {
+                    let (finished_evaluation, analysis_registry) = execute_lambda_inner(
                         &env,
+                        eval_provider,
+                        liveness,
                         lambda,
                         &self_key,
                         resolved_dynamic_values,
@@ -319,8 +334,9 @@ async fn execute_lambda(
                     declared_actions = Some(analysis_registry.num_declared_actions());
                     declared_artifacts = Some(analysis_registry.num_declared_artifacts());
                     let registry_finalizer = analysis_registry.finalize(&env)?;
-                    let frozen_env = env.freeze().map_err(from_freeze_error)?;
-                    registry_finalizer(&frozen_env)
+                    let (token, frozen_env, _) = finished_evaluation.freeze_and_finish(env)?;
+                    let finalized = registry_finalizer(&frozen_env)?;
+                    Ok((token, finalized))
                 });
 
                 (

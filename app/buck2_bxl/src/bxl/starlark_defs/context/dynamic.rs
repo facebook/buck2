@@ -130,6 +130,7 @@ pub(crate) async fn eval_bxl_for_dynamic_output<'v>(
         scope_and_collect_with_dice(dice_ctx, |dice_ctx, s| {
             s.spawn_cancellable(
                 limited_executor.execute(async move {
+                    // FIXME(JakobDegen): "foo"? Really?
                     let eval_kind = StarlarkEvalKind::BxlDynamic(Arc::new("foo".to_owned()));
                     let eval_provider = StarlarkEvaluatorProvider::new(dice_ctx, eval_kind).await?;
                     tokio::task::block_in_place(|| eval_ctx.do_eval(eval_provider, dice_ctx))

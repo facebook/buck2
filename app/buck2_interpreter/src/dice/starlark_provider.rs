@@ -78,6 +78,7 @@ pub enum StarlarkEvalKind {
     Transition(Arc<TransitionId>),
     // These types are defined in higher crates, so we just accept dyn DynEvalKindKey here.
     AnonTarget(Arc<dyn DynEvalKindKey>),
+    DynamicOutput(Arc<dyn DynEvalKindKey>),
     Bxl(Arc<dyn DynEvalKindKey>),
     BxlDynamic(Arc<dyn DynEvalKindKey>),
     Unknown(ThinArcStr),
@@ -134,6 +135,7 @@ impl std::fmt::Display for StarlarkEvalKind {
             StarlarkEvalKind::LoadBuildFile(package_label) => write!(f, "load/{}", package_label),
             StarlarkEvalKind::Transition(t) => write!(f, "transition/{}", t),
             StarlarkEvalKind::AnonTarget(target) => write!(f, "anon_target/{}", target),
+            StarlarkEvalKind::DynamicOutput(dynamic) => write!(f, "dynamic_output/{}", dynamic),
             StarlarkEvalKind::Bxl(bxl) => write!(f, "bxl/{}", bxl),
             StarlarkEvalKind::BxlDynamic(bxl_dynamic) => write!(f, "bxl_dynamic/{}", bxl_dynamic),
             StarlarkEvalKind::Unknown(label) => write!(f, "unknown/{}", label),
