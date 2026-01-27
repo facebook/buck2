@@ -928,6 +928,135 @@ pub fn sanitize_output_colors(stderr: &[u8]) -> String {
     sanitized
 }
 
+/// Display information extracted from a CriticalPathEntry2.
+pub struct CriticalPathEntryDisplay<'a> {
+    /// The kind of critical path entry (e.g., "action", "analysis", "materialization").
+    pub kind: &'a str,
+    /// The name/label of the entry (e.g., target label, package name).
+    pub name: String,
+    /// Optional category (e.g., for actions).
+    pub category: Option<&'a str>,
+    /// Optional identifier (e.g., action identifier, file path for materializations).
+    pub identifier: Option<&'a str>,
+    /// Optional execution kind for actions (e.g., "local", "remote").
+    pub execution_kind: Option<&'static str>,
+}
+
+impl<'a> CriticalPathEntryDisplay<'a> {
+    /// Extracts display information from a CriticalPathEntry2.
+    pub fn from_entry(
+        entry: &'a buck2_data::CriticalPathEntry2,
+        opts: TargetDisplayOptions,
+    ) -> buck2_error::Result<Option<Self>> {
+        use buck2_data::critical_path_entry2::Entry;
+
+        let entry_data = match &entry.entry {
+            Some(entry) => entry,
+            None => return Ok(None),
+        };
+
+        let (kind, name, category, identifier, execution_kind) = match entry_data {
+            Entry::Analysis(analysis) => {
+                use buck2_data::critical_path_entry2::analysis::Target;
+
+                let name = match &analysis.target {
+                    Some(Target::StandardTarget(t)) => display_configured_target_label(t, opts)?,
+                    None => "unknown".to_owned(),
+                };
+                ("analysis", name, None, None, None)
+            }
+            Entry::DynamicAnalysis(analysis) => {
+                use buck2_data::critical_path_entry2::dynamic_analysis::Target;
+
+                let name = match &analysis.target {
+                    Some(Target::StandardTarget(t)) => display_configured_target_label(t, opts)?,
+                    None => "anon-unknown".to_owned(),
+                };
+                ("dynamic_analysis", name, None, None, None)
+            }
+            Entry::ActionExecution(action_execution) => {
+                use buck2_data::critical_path_entry2::action_execution::Owner;
+
+                let category = action_execution.name.as_ref().map(|n| n.category.as_str());
+                let identifier = action_execution
+                    .name
+                    .as_ref()
+                    .map(|n| n.identifier.as_str());
+
+                let execution_kind = Some(
+                    buck2_data::ActionExecutionKind::try_from(action_execution.execution_kind)
+                        .unwrap_or(buck2_data::ActionExecutionKind::NotSet)
+                        .as_str_name(),
+                );
+
+                let name = match &action_execution.owner {
+                    Some(Owner::TargetLabel(t)) => display_configured_target_label(t, opts)?,
+                    Some(Owner::BxlKey(t)) => display_bxl_key(t)?,
+                    Some(Owner::AnonTarget(t)) => display_anon_target(t)?,
+                    None => "unknown".to_owned(),
+                };
+                ("action", name, category, identifier, execution_kind)
+            }
+            Entry::FinalMaterialization(materialization) => {
+                use buck2_data::critical_path_entry2::final_materialization::Owner;
+
+                let identifier = Some(materialization.path.as_str());
+
+                let name = match &materialization.owner {
+                    Some(Owner::TargetLabel(t)) => display_configured_target_label(t, opts)?,
+                    Some(Owner::BxlKey(t)) => display_bxl_key(t)?,
+                    Some(Owner::AnonTarget(t)) => display_anon_target(t)?,
+                    None => "unknown".to_owned(),
+                };
+                ("materialization", name, None, identifier, None)
+            }
+            Entry::ComputeCriticalPath(..) => {
+                ("compute-critical-path", String::new(), None, None, None)
+            }
+            Entry::Load(load) => ("load", load.package.clone(), None, None, None),
+            Entry::Listing(listing) => ("listing", listing.package.clone(), None, None, None),
+            Entry::GenericEntry(generic_entry) => {
+                (generic_entry.kind.as_str(), String::new(), None, None, None)
+            }
+            Entry::Waiting(entry) => {
+                let name = entry.category.clone().unwrap_or_default();
+                ("waiting", name, None, None, None)
+            }
+            Entry::TestExecution(test_execution) => {
+                let name = match &test_execution.target_label {
+                    Some(t) => display_configured_target_label(t, opts)?,
+                    None => "unknown".to_owned(),
+                };
+                ("test-execution", name, None, None, None)
+            }
+            Entry::TestListing(test_listing) => {
+                let name = match &test_listing.target_label {
+                    Some(t) => display_configured_target_label(t, opts)?,
+                    None => "unknown".to_owned(),
+                };
+                ("test-listing", name, None, None, None)
+            }
+        };
+
+        Ok(Some(CriticalPathEntryDisplay {
+            kind,
+            name,
+            category,
+            identifier,
+            execution_kind,
+        }))
+    }
+
+    /// Returns a formatted display name combining kind and name.
+    pub fn display_name(&self) -> String {
+        if self.name.is_empty() {
+            self.kind.to_owned()
+        } else {
+            format!("{}: {}", self.kind, self.name)
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

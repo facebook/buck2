@@ -21,7 +21,7 @@ use buck2_client_ctx::exit_result::ClientIoError;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_error::conversion::from_any_with_tag;
 use buck2_event_log::stream_value::StreamValue;
-use buck2_event_observer::display;
+use buck2_event_observer::display::CriticalPathEntryDisplay;
 use buck2_event_observer::display::TargetDisplayOptions;
 use serde::Serialize;
 use tokio_stream::StreamExt;
@@ -261,133 +261,26 @@ async fn log_critical_path(
         }
 
         for entry in path {
-            use buck2_data::critical_path_entry2::Entry;
+            let entry_display =
+                match CriticalPathEntryDisplay::from_entry(entry, target_display_options)? {
+                    Some(display) => display,
+                    None => continue,
+                };
 
-            let mut critical_path = CriticalPathEntry::default();
-
-            let entry_data = match &entry.entry {
-                Some(entry) => entry,
-                None => continue,
+            let critical_path = CriticalPathEntry {
+                kind: entry_display.kind,
+                name: entry_display.name,
+                category: entry_display.category,
+                identifier: entry_display.identifier,
+                execution_kind: entry_display.execution_kind,
+                total_duration: OptionalDuration::new(entry.total_duration)?,
+                user_duration: OptionalDuration::new(entry.user_duration)?,
+                potential_improvement_duration: OptionalDuration::new(
+                    entry.potential_improvement_duration,
+                )?,
+                non_critical_path_time: OptionalDuration::new(entry.non_critical_path_duration)?,
+                start_offset: entry.start_offset_ns.map(|v| v / 1000).unwrap_or(0),
             };
-
-            critical_path.name = match entry_data {
-                Entry::Analysis(analysis) => {
-                    use buck2_data::critical_path_entry2::analysis::Target;
-
-                    critical_path.kind = "analysis";
-
-                    match &analysis.target {
-                        Some(Target::StandardTarget(t)) => {
-                            display::display_configured_target_label(t, target_display_options)?
-                        }
-                        None => "unknown".to_owned(),
-                    }
-                }
-                Entry::DynamicAnalysis(analysis) => {
-                    use buck2_data::critical_path_entry2::dynamic_analysis::Target;
-
-                    critical_path.kind = "dynamic_analysis";
-
-                    match &analysis.target {
-                        Some(Target::StandardTarget(t)) => {
-                            display::display_configured_target_label(t, target_display_options)?
-                        }
-                        None => "anon-unknown".to_owned(),
-                    }
-                }
-                Entry::ActionExecution(action_execution) => {
-                    use buck2_data::critical_path_entry2::action_execution::Owner;
-
-                    critical_path.kind = "action";
-
-                    match &action_execution.name {
-                        Some(name) => {
-                            critical_path.category = Some(&name.category);
-                            critical_path.identifier = Some(&name.identifier);
-                        }
-                        None => {}
-                    }
-
-                    critical_path.execution_kind = Some(
-                        buck2_data::ActionExecutionKind::try_from(action_execution.execution_kind)
-                            .unwrap_or(buck2_data::ActionExecutionKind::NotSet)
-                            .as_str_name(),
-                    );
-
-                    match &action_execution.owner {
-                        Some(Owner::TargetLabel(t)) => {
-                            display::display_configured_target_label(t, target_display_options)?
-                        }
-                        Some(Owner::BxlKey(t)) => display::display_bxl_key(t)?,
-                        Some(Owner::AnonTarget(t)) => display::display_anon_target(t)?,
-                        None => "unknown".to_owned(),
-                    }
-                }
-                Entry::FinalMaterialization(materialization) => {
-                    use buck2_data::critical_path_entry2::final_materialization::Owner;
-
-                    critical_path.kind = "materialization";
-                    critical_path.identifier = Some(&materialization.path);
-
-                    match &materialization.owner {
-                        Some(Owner::TargetLabel(t)) => {
-                            display::display_configured_target_label(t, target_display_options)?
-                        }
-                        Some(Owner::BxlKey(t)) => display::display_bxl_key(t)?,
-                        Some(Owner::AnonTarget(t)) => display::display_anon_target(t)?,
-                        None => "unknown".to_owned(),
-                    }
-                }
-                Entry::ComputeCriticalPath(..) => {
-                    critical_path.kind = "compute-critical-path";
-                    "".to_owned()
-                }
-                Entry::Load(load) => {
-                    critical_path.kind = "load";
-                    load.package.clone()
-                }
-                Entry::Listing(listing) => {
-                    critical_path.kind = "listing";
-                    listing.package.clone()
-                }
-                Entry::GenericEntry(generic_entry) => {
-                    critical_path.kind = &generic_entry.kind;
-                    "".to_owned()
-                }
-                Entry::Waiting(entry) => {
-                    critical_path.kind = "waiting";
-                    match &entry.category {
-                        Some(category) => category.clone(),
-                        None => "".to_owned(),
-                    }
-                }
-                Entry::TestExecution(test_execution) => {
-                    critical_path.kind = "test-execution";
-                    match &test_execution.target_label {
-                        Some(t) => {
-                            display::display_configured_target_label(t, target_display_options)?
-                        }
-                        None => "unknown".to_owned(),
-                    }
-                }
-                Entry::TestListing(test_listing) => {
-                    critical_path.kind = "test-listing";
-                    match &test_listing.target_label {
-                        Some(t) => {
-                            display::display_configured_target_label(t, target_display_options)?
-                        }
-                        None => "unknown".to_owned(),
-                    }
-                }
-            };
-
-            critical_path.total_duration = OptionalDuration::new(entry.total_duration)?;
-            critical_path.user_duration = OptionalDuration::new(entry.user_duration)?;
-            critical_path.potential_improvement_duration =
-                OptionalDuration::new(entry.potential_improvement_duration)?;
-            critical_path.non_critical_path_time =
-                OptionalDuration::new(entry.non_critical_path_duration)?;
-            critical_path.start_offset = entry.start_offset_ns.map(|v| v / 1000).unwrap_or(0);
 
             let res: Result<(), ClientIoError> = {
                 match &mut log_writer {
