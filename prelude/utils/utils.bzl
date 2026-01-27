@@ -10,6 +10,16 @@
 
 load("@prelude//utils:expect.bzl", "expect")
 
+def as_output(artifact: Artifact | OutputArtifact) -> OutputArtifact:
+    """
+    Convert an Artifact or OutputArtifact to an OutputArtifact.
+    Useful when a function needs to accept either type.
+    """
+    if isinstance(artifact, OutputArtifact):
+        return artifact
+    else:
+        return artifact.as_output()
+
 def value_or(x: [None, typing.Any], default: typing.Any) -> typing.Any:
     return default if x == None else x
 

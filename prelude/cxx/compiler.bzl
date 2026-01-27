@@ -7,6 +7,10 @@
 # above-listed licenses.
 
 load("@prelude//:paths.bzl", "paths")
+load(
+    "@prelude//utils:utils.bzl",
+    "as_output",
+)
 load(":cxx_toolchain_types.bzl", "DepTrackingMode")
 
 # TODO(T110378132): Added here for compat with v1, but this might make more
@@ -82,8 +86,8 @@ def get_headers_dep_files_flags_factory(dep_tracking_mode: DepTrackingMode) -> [
 
     return None
 
-def get_output_flags(compiler_type: str, output: Artifact) -> list[typing.Any]:
+def get_output_flags(compiler_type: str, output: Artifact | OutputArtifact) -> list[typing.Any]:
     if compiler_type in ["windows", "clang_cl", "windows_ml64"]:
-        return [cmd_args(output.as_output(), format = "/Fo{}")]
+        return [cmd_args(as_output(output), format = "/Fo{}")]
     else:
-        return ["-o", output.as_output()]
+        return ["-o", as_output(output)]
