@@ -584,13 +584,9 @@ where
             top_level_targets,
         } = self.backend.finish()?;
 
-        let critical_path2 = critical_path
-            .into_critical_path_proto(&ctx.early_command_timing, now)
-            .map_err(CriticalPathError::IntoProto)?;
+        let critical_path2 = critical_path.into_critical_path_proto(&ctx.early_command_timing, now);
 
-        let slowest_path = slowest_path
-            .into_critical_path_proto(&ctx.early_command_timing, now)
-            .map_err(CriticalPathError::IntoProto)?;
+        let slowest_path = slowest_path.into_critical_path_proto(&ctx.early_command_timing, now);
 
         let top_level_targets =
             top_level_targets.map(|(key, duration)| buck2_data::TopLevelTargetCriticalPath {
@@ -792,7 +788,7 @@ impl DetailedCriticalPath {
     fn create_proto_entries_for_early_timings(
         enhancer: &mut CriticalPathProtoEnhancer,
         early_command_timing: &EarlyCommandTiming,
-    ) -> buck2_error::Result<()> {
+    ) {
         let generic_entry = |kind: &str| -> buck2_data::critical_path_entry2::Entry {
             buck2_data::critical_path_entry2::GenericEntry {
                 kind: kind.to_owned(),
@@ -803,47 +799,48 @@ impl DetailedCriticalPath {
         let mut current_kind = "buckd_command_init";
         let mut current_start = early_command_timing.command_start;
         for (span_start, kind) in &early_command_timing.early_spans {
+            let span_start = span_start.max(&current_start);
+
             enhancer.add_simple_entry(
                 None,
                 generic_entry(current_kind),
-                TimeSpan::new(current_start, *span_start)?,
+                TimeSpan::new_saturating(current_start, *span_start),
                 true,
-            )?;
+            );
             current_kind = kind;
             current_start = *span_start;
         }
         enhancer.add_simple_entry(
             None,
             generic_entry(current_kind),
-            TimeSpan::new(current_start, early_command_timing.early_command_end)?,
+            TimeSpan::new_saturating(current_start, early_command_timing.early_command_end),
             true,
-        )?;
-        Ok(())
+        );
     }
 
     fn into_critical_path_proto(
         self,
         early_command_timing: &EarlyCommandTiming,
         critical_path_compute_start: Instant,
-    ) -> buck2_error::Result<Vec<buck2_data::CriticalPathEntry2>> {
+    ) -> Vec<buck2_data::CriticalPathEntry2> {
         let mut enhancer = CriticalPathProtoEnhancer::new(
             early_command_timing.command_start,
             1 + early_command_timing.early_spans.len() + self.entries.len() + 1,
         );
 
-        Self::create_proto_entries_for_early_timings(&mut enhancer, early_command_timing)?;
+        Self::create_proto_entries_for_early_timings(&mut enhancer, early_command_timing);
 
         for entry in self.entries {
-            enhancer.add_entry(entry)?;
+            enhancer.add_entry(entry);
         }
 
         enhancer.add_simple_entry(
             Some("unknown_final_work"),
             buck2_data::critical_path_entry2::ComputeCriticalPath {}.into(),
-            TimeSpan::new(critical_path_compute_start, Instant::now())?,
+            TimeSpan::new_saturating(critical_path_compute_start, Instant::now()),
             true,
-        )?;
-        Ok(enhancer.into_entries())
+        );
+        enhancer.into_entries()
     }
 }
 
@@ -937,4 +934,11 @@ fn create_build_signals() -> (BuildSignalsInstaller, Box<dyn DeferredBuildSignal
 
 pub fn init_late_bindings() {
     CREATE_BUILD_SIGNALS.init(create_build_signals)
+}
+
+pub(crate) fn duration_to_proto_saturating(duration: Duration) -> prost_types::Duration {
+    duration.try_into().unwrap_or(prost_types::Duration {
+        seconds: i64::MAX,
+        nanos: i32::MAX,
+    })
 }

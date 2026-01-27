@@ -23,8 +23,6 @@ pub enum CriticalPathError {
     GraphBuildOverflow,
     #[error("Critical path graph has a cycle")]
     TopoSortError(TopoSortError),
-    #[error("Error converting critical path to proto: {0:#}")]
-    IntoProto(buck2_error::Error),
 }
 
 impl From<TopoSortError> for CriticalPathError {

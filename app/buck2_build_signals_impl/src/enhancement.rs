@@ -16,6 +16,7 @@ use buck2_util::time_span::TimeSpan;
 use gazebo::variants::VariantName;
 
 use crate::DetailedCriticalPathEntry;
+use crate::duration_to_proto_saturating;
 
 /// Helper for building critical path protobuf entries.
 ///
@@ -38,10 +39,7 @@ impl CriticalPathProtoEnhancer {
         }
     }
 
-    pub(crate) fn add_entry(
-        &mut self,
-        entry: DetailedCriticalPathEntry,
-    ) -> buck2_error::Result<()> {
+    pub(crate) fn add_entry(&mut self, entry: DetailedCriticalPathEntry) {
         let DetailedCriticalPathEntry {
             key,
             mut data,
@@ -55,7 +53,7 @@ impl CriticalPathProtoEnhancer {
         let waiting_for_deps_start = self.last_entry_end;
         let waiting_for_deps_end = deps_finished_time.unwrap_or(waiting_for_deps_start);
         if !waiting_for_deps_end
-            .duration_since(waiting_for_deps_start)
+            .saturating_duration_since(waiting_for_deps_start)
             .is_zero()
         {
             self.add_simple_entry(
@@ -65,15 +63,16 @@ impl CriticalPathProtoEnhancer {
                         category: Some("for_deps".to_owned()),
                     },
                 ),
-                TimeSpan::new(waiting_for_deps_start, waiting_for_deps_end)?,
+                TimeSpan::new_saturating(waiting_for_deps_start, waiting_for_deps_end),
                 false,
-            )?;
+            );
         }
 
         // TODO(cjhopman): If data.duration.total.start() < waiting_for_deps_end, we have overlapping entries. That should be an error (as it indicates that we claim that
         // both A depends on B and that A started before B finished). For now, ignore the overlapping span.
         if waiting_for_deps_end > data.duration.total.start() {
-            data.duration.total = TimeSpan::new(waiting_for_deps_end, data.duration.total.end())?;
+            data.duration.total =
+                TimeSpan::new_saturating(waiting_for_deps_end, data.duration.total.end());
         }
 
         let node_start = data.duration.total.start();
@@ -82,7 +81,7 @@ impl CriticalPathProtoEnhancer {
         for (start, category) in data.waiting_data.iter().chain(std::iter::once(&sentinel)) {
             let start = start.clamp(&waiting_for_deps_end, &node_start);
             if let Some((prev_start, category)) = current_category.take() {
-                let duration = start.duration_since(prev_start).as_micros();
+                let duration = start.saturating_duration_since(prev_start).as_micros();
                 // We skip adding WaitingCategory::Unknown entries if they are 0 duration. We don't skip other categories because
                 // it is useful to know that we measure that time specifically so that a user knows that the adjacent waiting spans
                 // are not that (i.e. for a local action execution, maybe there'd be an Unknown span and a 0-duration ::LocalQueued
@@ -95,9 +94,9 @@ impl CriticalPathProtoEnhancer {
                                 category: Some(category.variant_name_lowercase().to_owned()),
                             },
                         ),
-                        TimeSpan::new(prev_start, *start)?,
+                        TimeSpan::new_saturating(prev_start, *start),
                         false,
-                    )?;
+                    );
                 }
             }
             match category {
@@ -117,26 +116,27 @@ impl CriticalPathProtoEnhancer {
                     .iter()
                     .map(|span_id| (*span_id).into())
                     .collect(),
-                duration: Some(data.duration.critical_path_duration().try_into()?),
-                user_duration: Some(data.duration.user.try_into()?),
-                queue_duration: data.duration.queue.map(|d| d.try_into()).transpose()?,
-                total_duration: Some(data.duration.total.duration().try_into()?),
+                duration: Some(duration_to_proto_saturating(
+                    data.duration.critical_path_duration(),
+                )),
+                user_duration: Some(duration_to_proto_saturating(data.duration.user)),
+                queue_duration: data.duration.queue.map(duration_to_proto_saturating),
+                total_duration: Some(duration_to_proto_saturating(data.duration.total.duration())),
                 potential_improvement_duration: potential_improvement
-                    .map(|p| p.try_into())
-                    .transpose()?,
+                    .map(duration_to_proto_saturating),
                 entry: Some(proto_entry),
                 non_critical_path_duration: None,
                 start_offset_ns: Some(
                     data.duration
                         .total
                         .start()
-                        .checked_duration_since(self.command_start)
-                        .unwrap_or(Duration::ZERO)
+                        .saturating_duration_since(self.command_start)
                         .as_nanos()
-                        .try_into()?,
+                        .try_into()
+                        .unwrap_or(u64::MAX),
                 ),
             },
-        )
+        );
     }
 
     /// Add a simple critical path entry for generic build phases.
@@ -154,7 +154,7 @@ impl CriticalPathProtoEnhancer {
         entry: buck2_data::critical_path_entry2::Entry,
         time_span: TimeSpan,
         is_critical: bool,
-    ) -> buck2_error::Result<()> {
+    ) {
         let (duration, non_critical_duration) = if is_critical {
             (time_span.duration(), Duration::ZERO)
         } else {
@@ -163,7 +163,7 @@ impl CriticalPathProtoEnhancer {
         self.add_entry_impl(
             waiting_category,
             time_span,
-            self.create_simple_entry(entry, time_span.start(), duration, non_critical_duration)?,
+            self.create_simple_entry(entry, time_span.start(), duration, non_critical_duration),
         )
     }
 
@@ -181,11 +181,9 @@ impl CriticalPathProtoEnhancer {
         waiting_category: Option<&str>,
         time_span: TimeSpan,
         entry: buck2_data::CriticalPathEntry2,
-    ) -> buck2_error::Result<()> {
+    ) {
         let entry_start = time_span.start();
-        let missing_duration = entry_start
-            .checked_duration_since(self.last_entry_end)
-            .unwrap_or(Duration::ZERO);
+        let missing_duration = entry_start.saturating_duration_since(self.last_entry_end);
         if missing_duration.as_millis() > 0 {
             self.entries.push(
                 self.create_simple_entry(
@@ -196,12 +194,11 @@ impl CriticalPathProtoEnhancer {
                     self.last_entry_end,
                     Duration::ZERO,
                     missing_duration,
-                )?,
+                ),
             );
         }
         self.entries.push(entry);
         self.last_entry_end = time_span.end();
-        Ok(())
     }
 
     fn create_simple_entry(
@@ -210,24 +207,24 @@ impl CriticalPathProtoEnhancer {
         start_time: Instant,
         duration: Duration,
         non_critical_duration: Duration,
-    ) -> buck2_error::Result<buck2_data::CriticalPathEntry2> {
-        let duration_proto: prost_types::Duration = duration.try_into()?;
-        Ok(buck2_data::CriticalPathEntry2 {
+    ) -> buck2_data::CriticalPathEntry2 {
+        let duration_proto = duration_to_proto_saturating(duration);
+        buck2_data::CriticalPathEntry2 {
             span_ids: Vec::new(),
             duration: Some(duration_proto),
-            user_duration: Some(Duration::ZERO.try_into()?),
+            user_duration: Some(prost_types::Duration::default()),
             queue_duration: None,
             total_duration: Some(duration_proto),
-            potential_improvement_duration: Some(Duration::ZERO.try_into()?),
-            non_critical_path_duration: Some(non_critical_duration.try_into()?),
+            potential_improvement_duration: Some(prost_types::Duration::default()),
+            non_critical_path_duration: Some(duration_to_proto_saturating(non_critical_duration)),
             entry: Some(entry),
             start_offset_ns: Some(
                 start_time
-                    .checked_duration_since(self.command_start)
-                    .unwrap_or(Duration::ZERO)
+                    .saturating_duration_since(self.command_start)
                     .as_nanos()
-                    .try_into()?,
+                    .try_into()
+                    .unwrap_or(u64::MAX),
             ),
-        })
+        }
     }
 }
