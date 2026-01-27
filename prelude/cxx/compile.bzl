@@ -409,6 +409,12 @@ def _compile_single_cxx(
             "__diagnostics__",
             "{}.diag.txt".format(short_path),
         )
+    clang_llvm_statistics = None
+    if toolchain.clang_llvm_statistics and compiler_type == "clang":
+        clang_llvm_statistics = actions.declare_output(
+            paths.join("__objects__", "{}.stats".format(filename_base)),
+            uses_experimental_content_based_path_hashing = content_based,
+        )
 
     if precompiled_header and precompiled_header[CPrecompiledHeaderInfo] and precompiled_header[CPrecompiledHeaderInfo].compiled:
         pch_info = precompiled_header[DefaultInfo].sub_targets["pch"]
@@ -457,13 +463,7 @@ def _compile_single_cxx(
         )
         cmd.add(cmd_args(hidden = clang_remarks.as_output()))
 
-    clang_llvm_statistics = None
-    if toolchain.clang_llvm_statistics and compiler_type == "clang":
-        clang_llvm_statistics = actions.declare_output(
-            paths.join("__objects__", "{}.stats".format(filename_base)),
-            uses_experimental_content_based_path_hashing = content_based,
-        )
-
+    if clang_llvm_statistics:
         # Use stderr_to_file to capture clang statistics output
         cmd = cmd_args(
             toolchain.internal_tools.stderr_to_file,
