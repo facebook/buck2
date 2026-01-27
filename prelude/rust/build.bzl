@@ -795,7 +795,7 @@ def rust_compile(
 # For native dependencies, we use -Clink-arg=@argsfile
 #
 # Second element of returned tuple is an @argsfile containing the -Ldependency=<dir> for transitive dependencies.
-# It is a seperate from the first element because some commands (e.g., rustc) do NOT support nested @argsfiles.
+# It is separate from the first element because some commands (e.g., rustc) do NOT support nested @argsfiles.
 #
 # Third element of returned tuple is a mapping from crate names back to target
 # label, needed for applying autofixes for rustc's unused_crate_dependencies

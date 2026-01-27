@@ -29,8 +29,8 @@ Soname = record(
     ensure_str = field(typing.Callable),
     # Return `True` if the SONAME is respresented as a string.
     is_str = field(bool),
-    # The the actual SONAME can be rerepsented by a static string, or the
-    # contents of a file genrated at build time.
+    # The actual SONAME can be represented by a static string, or the
+    # contents of a file generated at build time.
     _soname = field(str | Artifact),
 )
 

@@ -1225,7 +1225,7 @@ prebuilt_cxx_library_group = prelude_rule(
             "static_link": attrs.list(attrs.string(), default = [], doc = """
                 The arguments to use when linking this library group using the static link style.
                  The actual paths to libraries should be listed in the `static_libs` parameter,
-                 and referenced via the the `$(lib [index])` macro in these args.
+                 and referenced via the `$(lib [index])` macro in these args.
             """),
             "static_libs": attrs.list(attrs.source(), default = [], doc = """
                 The paths to the libraries used when using the static link style.
@@ -1235,7 +1235,7 @@ prebuilt_cxx_library_group = prelude_rule(
             "static_pic_link": attrs.list(attrs.string(), default = [], doc = """
                 The arguments to use when linking this library group using the static-pic link style.
                  The actual paths to libraries should be listed in the `static_pic_libs`
-                 parameter, and referenced via the the `$(lib [index])` macro in
+                 parameter, and referenced via the `$(lib [index])` macro in
                  these args.
             """),
             "static_pic_libs": attrs.list(attrs.source(), default = [], doc = """
@@ -1246,7 +1246,7 @@ prebuilt_cxx_library_group = prelude_rule(
             "shared_link": attrs.list(attrs.string(), default = [], doc = """
                 The arguments to use when linking this library group using the shared link style.
                  The actual paths to libraries should be listed in the `shared_libs`
-                 parameter, and referenced via the the `$(lib [name])` macro (or the
+                 parameter, and referenced via the `$(lib [name])` macro (or the
                  `$(rel-lib [name])` macro, when the shared library should be linked
                  using the `-L[dir] -l[name]` style) in these args.
             """),

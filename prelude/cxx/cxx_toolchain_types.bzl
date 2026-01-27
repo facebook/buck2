@@ -205,7 +205,7 @@ CxxObjectFormat = enum(
 PicBehavior = enum(
     # Regardless of whether -fPIC is specified explicitly
     # every compiled artifact will have a position-independent representation.
-    # This should be the the default when targeting x86_64 + arm64.
+    # This should be the default when targeting x86_64 + arm64.
     "always_enabled",
     # The -fPIC flag is known and changes the compiled artifact.
     "supported",

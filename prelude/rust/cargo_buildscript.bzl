@@ -87,7 +87,7 @@ def _make_rustc_shim(ctx: AnalysisContext, cwd: Artifact) -> cmd_args:
         dep_file, _ = ctx.actions.write("rustc_dep_file", dep_args, allow_args = True)
         sysroot_args = cmd_args(
             cmd_args("@", dep_file, delimiter = "", hidden = dep_args),
-            # add dep_argsfiles as a seperate argument because rustc does NOT support nested @argsfiles
+            # add dep_argsfiles as a separate argument because rustc does NOT support nested @argsfiles
             dep_argsfiles,
         )
     else:
