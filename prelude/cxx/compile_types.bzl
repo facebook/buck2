@@ -98,6 +98,12 @@ CxxCompileCommand = record(
     allow_content_based_paths = field(bool),
 )
 
+# Declared index store output and metadata
+DeclaredIndexStore = record(
+    output = field(Artifact),
+    filename_base = field(str),
+)
+
 # Information about how to compile a source file.
 CxxSrcCompileCommand = record(
     # Source file to compile.

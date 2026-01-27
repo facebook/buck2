@@ -44,6 +44,7 @@ load(
     "@prelude//cxx:compile_types.bzl",
     "AsmExtensions",
     "CxxSrcCompileCommand",  # @unused Used as a type
+    "DeclaredIndexStore",
 )
 load("@prelude//cxx:cxx_context.bzl", "get_cxx_toolchain_info")
 load(
@@ -207,6 +208,26 @@ def apple_library_impl(ctx: AnalysisContext) -> [Promise, list[Provider]]:
         # Rule is apple_library_for_distribution
         providers = _create_apple_library_for_distribution_providers(ctx, providers)
     return providers
+
+def _declare_index_store(actions: AnalysisActions, src_compile_cmd: CxxSrcCompileCommand) -> DeclaredIndexStore | None:
+    """
+    Declare index store output artifact upfront during analysis.
+    This is called before the dynamic action is created.
+    """
+    if src_compile_cmd.src.extension in AsmExtensions.values():
+        return None
+
+    identifier = src_compile_cmd.src.short_path
+    if src_compile_cmd.index != None:
+        # Add a unique postfix if we have duplicate source files with different flags
+        identifier = identifier + "_" + str(src_compile_cmd.index)
+    filename_base = identifier
+
+    index_store = actions.declare_output(paths.join("__indexstore__", filename_base, "index_store"), dir = True)
+    return DeclaredIndexStore(
+        output = index_store,
+        filename_base = filename_base,
+    )
 
 def _compile_index_store(actions: AnalysisActions, target_label: Label, src_compile_cmd: CxxSrcCompileCommand, toolchain: CxxToolchainInfo, compile_cmd: cmd_args) -> Artifact | None:
     identifier = src_compile_cmd.src.short_path
