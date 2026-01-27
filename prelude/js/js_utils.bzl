@@ -51,6 +51,7 @@ ASSET_EXTENSIONS = [
     "ttf",
     # Archives (virtual files)
     "zip",
+    "lottie",
 ]
 
 # Matches the default value for resolver.platforms in metro-config
