@@ -33,6 +33,7 @@ load(
     "XCODE_ARG_SUBSTITUTIONS",
 )
 load("@prelude//linking:lto.bzl", "LtoMode")
+load("@prelude//utils:expect.bzl", "expect")
 load(
     "@prelude//utils:utils.bzl",
     "flatten",
@@ -506,6 +507,7 @@ def _compile_single_cxx(
 
     cuda_compile_output = None
     if src_compile_cmd.src.extension == ".cu":
+        expect(cuda_compile_style != None, "CUDA compile style should be configured for targets with .cu sources")
         cuda_compile_output = cuda_compile(
             actions,
             toolchain,
