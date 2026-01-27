@@ -480,6 +480,17 @@ def _compile_single_cxx(
             action_dep_files,
         )
 
+    # External debug info
+    external_debug_info = None
+    extension_supports_external_debug_info = src_compile_cmd.src.extension not in (".hip")
+    use_external_debug_info = separate_debug_info and toolchain.split_debug_mode == SplitDebugMode("split") and compiler_type == "clang" and extension_supports_external_debug_info
+    if use_external_debug_info:
+        external_debug_info = actions.declare_output(
+            folder_name,
+            "{}.{}".format(filename_base, "dwo"),
+            has_content_based_path = content_based,
+        )
+
     clang_remarks = None
     if toolchain.clang_remarks and compiler_type == "clang":
         cmd.add(["-fsave-optimization-record", "-fdiagnostics-show-hotness", "-foptimization-record-passes=" + toolchain.clang_remarks])
@@ -529,15 +540,7 @@ def _compile_single_cxx(
         content_based = content_based,
     )
 
-    external_debug_info = None
-    extension_supports_external_debug_info = src_compile_cmd.src.extension not in (".hip")
-    use_external_debug_info = separate_debug_info and toolchain.split_debug_mode == SplitDebugMode("split") and compiler_type == "clang" and extension_supports_external_debug_info
-    if use_external_debug_info:
-        external_debug_info = actions.declare_output(
-            folder_name,
-            "{}.{}".format(filename_base, "dwo"),
-            has_content_based_path = content_based,
-        )
+    if external_debug_info:
         cmd.add(cmd_args(external_debug_info.as_output(), format = "--fbcc-create-external-debug-info={}"))
 
     outputs_for_error_handler = []
