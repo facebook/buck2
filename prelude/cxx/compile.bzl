@@ -403,6 +403,12 @@ def _compile_single_cxx(
         use_header_units = use_header_units,
         output_args = output_args,
     )
+    diagnostics = None
+    if compiler_type == "clang" and provide_syntax_only:
+        diagnostics = actions.declare_output(
+            "__diagnostics__",
+            "{}.diag.txt".format(short_path),
+        )
 
     if precompiled_header and precompiled_header[CPrecompiledHeaderInfo] and precompiled_header[CPrecompiledHeaderInfo].compiled:
         pch_info = precompiled_header[DefaultInfo].sub_targets["pch"]
@@ -603,11 +609,7 @@ def _compile_single_cxx(
     else:
         assembly = None
 
-    if compiler_type == "clang" and provide_syntax_only:
-        diagnostics = actions.declare_output(
-            "__diagnostics__",
-            "{}.diag.txt".format(short_path),
-        )
+    if diagnostics:
         syntax_only_cmd = _get_base_compile_cmd(
             bitcode_args = bitcode_args,
             src_compile_cmd = src_compile_cmd,
@@ -638,8 +640,6 @@ def _compile_single_cxx(
             allow_dep_file_cache_upload = False,
             error_handler = src_compile_cmd.error_handler,
         )
-    else:
-        diagnostics = None
 
     # Generate pre-processed sources
     preproc_cmd = _get_base_compile_cmd(
