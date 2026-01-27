@@ -24,20 +24,31 @@ use buck2_util::arc_str::ThinArcStr;
 use dice_futures::cancellation::CancellationContext;
 use dice_futures::cancellation::CancellationObserver;
 use dupe::Dupe;
+use strong_hash::StrongHash;
 
 use crate::paths::module::OwnedStarlarkModulePath;
 
 pub trait DynEvalKindKey: Display + Send + Sync + Debug + Allocative + 'static {
     fn hash(&self, state: &mut dyn Hasher);
+    fn strong_hash(&self, state: &mut dyn Hasher);
     fn eq(&self, other: &dyn DynEvalKindKey) -> bool;
     fn as_any(&self) -> &dyn Any;
+
+    fn type_name(&self) -> &'static str {
+        std::any::type_name::<Self>()
+    }
 }
 
-impl<T: Display + Send + Sync + Debug + Allocative + Hash + Eq + PartialEq + Any + 'static>
-    DynEvalKindKey for T
+impl<
+    T: Display + Send + Sync + Debug + StrongHash + Allocative + Hash + Eq + PartialEq + Any + 'static,
+> DynEvalKindKey for T
 {
     fn hash(&self, mut state: &mut dyn Hasher) {
         Hash::hash(self, &mut state)
+    }
+
+    fn strong_hash(&self, mut state: &mut dyn Hasher) {
+        StrongHash::strong_hash(self, &mut state)
     }
 
     fn eq(&self, other: &dyn DynEvalKindKey) -> bool {
@@ -58,6 +69,13 @@ impl Hash for dyn DynEvalKindKey {
     }
 }
 
+impl StrongHash for dyn DynEvalKindKey {
+    fn strong_hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        StrongHash::strong_hash(self.type_name(), state);
+        DynEvalKindKey::strong_hash(self, state)
+    }
+}
+
 impl PartialEq for dyn DynEvalKindKey {
     fn eq(&self, other: &Self) -> bool {
         DynEvalKindKey::eq(self, other)
@@ -69,7 +87,7 @@ impl Eq for dyn DynEvalKindKey {}
 /// StarlarkEvalKind is used as an identifier for a particular starlark evaluation.
 ///
 /// It's used to selectively enable profiling and provides an identifier for the debugger.
-#[derive(Debug, Clone, Dupe, Hash, Eq, PartialEq, Allocative)]
+#[derive(Debug, Clone, Dupe, Hash, Eq, PartialEq, Allocative, StrongHash)]
 pub enum StarlarkEvalKind {
     Analysis(ConfiguredTargetLabel),
     Load(Arc<OwnedStarlarkModulePath>),

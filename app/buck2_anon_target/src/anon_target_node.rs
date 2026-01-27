@@ -348,3 +348,24 @@ impl BaseDeferredKeyDyn for AnonTarget {
         }
     }
 }
+
+impl buck2_interpreter::dice::starlark_provider::DynEvalKindKey for AnonTarget {
+    fn hash(&self, state: &mut dyn Hasher) {
+        state.write_u64(self.hash);
+    }
+
+    fn strong_hash(&self, state: &mut dyn Hasher) {
+        state.write_u64(self.strong_hash);
+    }
+
+    fn eq(&self, other: &dyn buck2_interpreter::dice::starlark_provider::DynEvalKindKey) -> bool {
+        match other.as_any().downcast_ref::<Self>() {
+            None => false,
+            Some(v) => v == self,
+        }
+    }
+
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+}

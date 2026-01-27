@@ -21,6 +21,7 @@ use buck2_core::cells::name::CellName;
 use dupe::Dupe;
 use gazebo::variants::UnpackVariants;
 use starlark::collections::Equivalent;
+use strong_hash::StrongHash;
 
 use crate::paths::path::OwnedStarlarkPath;
 use crate::paths::path::StarlarkPath;
@@ -34,6 +35,7 @@ use crate::paths::path::StarlarkPath;
     Debug,
     UnpackVariants,
     Hash,
+    StrongHash,
     Eq,
     PartialEq
 )]
@@ -110,6 +112,12 @@ pub enum OwnedStarlarkModulePath {
 impl Hash for OwnedStarlarkModulePath {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.borrow().hash(state)
+    }
+}
+
+impl StrongHash for OwnedStarlarkModulePath {
+    fn strong_hash<H: Hasher>(&self, state: &mut H) {
+        self.borrow().strong_hash(state)
     }
 }
 

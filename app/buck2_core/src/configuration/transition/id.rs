@@ -11,12 +11,15 @@
 use allocative::Allocative;
 use derive_more::Display;
 use pagable::Pagable;
+use strong_hash::StrongHash;
 
 use crate::bzl::ImportPath;
 use crate::provider::label::ProvidersLabel;
 
 /// Identifier of transition function.
-#[derive(Debug, Clone, Hash, Eq, PartialEq, Display, Allocative, Pagable)]
+#[derive(
+    Debug, Clone, Hash, StrongHash, Eq, PartialEq, Display, Allocative, Pagable
+)]
 pub enum TransitionId {
     #[display("{}#{}", path, name)]
     MagicObject { path: ImportPath, name: String },
