@@ -38,6 +38,7 @@ AndroidToolchainInfo = provider(
         "filter_prebuilt_native_library_dir": provider_field(typing.Any, default = None),
         "filter_resources": provider_field(typing.Any, default = None),
         "framework_aidl_file": provider_field(typing.Any, default = None),
+        # @oss-disable[end= ]: "gatorade_mergemap_tool": provider_field(typing.Any, default = None),
         "generate_build_config": provider_field(typing.Any, default = None),
         "generate_manifest": provider_field(typing.Any, default = None),
         "installer": provider_field(typing.Any, default = None),
