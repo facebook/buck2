@@ -213,7 +213,7 @@ async fn do_apply_transition(
                 }
             })
             .map_err(buck2_error::Error::from)?;
-        let (token, _) = finished_eval.finish(None)?;
+        let (token, _) = finished_eval.finish()?;
         Ok((token, res))
     })
 }

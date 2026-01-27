@@ -281,7 +281,7 @@ async fn eval_underlying(
         )?;
 
         let finished_eval = reentrant_eval.finish_evaluation();
-        let (token, _) = finished_eval.finish(None)?;
+        let (token, _) = finished_eval.finish()?;
 
         Ok((token, res))
     })

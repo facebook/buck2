@@ -90,7 +90,7 @@ pub(crate) async fn check_starlark_stack_size(
                             }
                         }
                     })?;
-                Ok((finished_eval.finish(None)?.0, ()))
+                Ok((finished_eval.finish()?.0, ()))
             })
         }
 

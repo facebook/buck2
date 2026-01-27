@@ -642,7 +642,7 @@ impl InterpreterForDir {
                     let (token, frozen, _) = finished_eval.freeze_and_finish(env)?;
                     (token, FrozenPackageFileExtra::get(&frozen)?)
                 } else {
-                    let (token, _) = finished_eval.finish(None)?;
+                    let (token, _) = finished_eval.finish()?;
                     (token, None)
                 };
 
@@ -723,7 +723,7 @@ impl InterpreterForDir {
                 )
                 .into())
             } else {
-                let (token, profile_data) = finished_eval.finish(None)?;
+                let (token, profile_data) = finished_eval.finish()?;
 
                 Ok((
                     token,

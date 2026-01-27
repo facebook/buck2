@@ -49,8 +49,7 @@ pub struct FinishedStarlarkEvaluation {
 }
 
 impl FinishedStarlarkEvaluation {
-    /// Collect all profiling data.
-    pub fn finish(
+    fn finish_impl(
         self,
         frozen_module: Option<&FrozenModule>,
     ) -> buck2_error::Result<(
@@ -66,6 +65,16 @@ impl FinishedStarlarkEvaluation {
         res.map(|res| (ProfilingReportedToken(()), res))
     }
 
+    /// Collect all profiling data.
+    pub fn finish(
+        self,
+    ) -> buck2_error::Result<(
+        ProfilingReportedToken,
+        Option<Arc<StarlarkProfileDataAndStats>>,
+    )> {
+        self.finish_impl(None)
+    }
+
     pub fn freeze_and_finish(
         self,
         env: BuckStarlarkModule,
@@ -74,8 +83,11 @@ impl FinishedStarlarkEvaluation {
         FrozenModule,
         Option<Arc<StarlarkProfileDataAndStats>>,
     )> {
-        let frozen = env.0.freeze().map_err(from_freeze_error)?;
-        let (token, profile_data) = self.finish(Some(&frozen))?;
+        let frozen = env
+            .0
+            .freeze_and_name(Box::new(self.eval_kind.dupe()))
+            .map_err(from_freeze_error)?;
+        let (token, profile_data) = self.finish_impl(Some(&frozen))?;
         Ok((token, frozen, profile_data))
     }
 }
