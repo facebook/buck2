@@ -442,6 +442,14 @@ def _compile_single_cxx(
             uses_experimental_content_based_path_hashing = content_based,
         )
 
+        # GCNO file
+    gcno_file = None
+    if toolchain.gcno_files and src_compile_cmd.src.extension not in (".S", ".sx"):
+        gcno_file = actions.declare_output(
+            paths.join("__objects__", "{}.gcno".format(filename_base)),
+            uses_experimental_content_based_path_hashing = content_based,
+        )
+
     if precompiled_header and precompiled_header[CPrecompiledHeaderInfo] and precompiled_header[CPrecompiledHeaderInfo].compiled:
         pch_info = precompiled_header[DefaultInfo].sub_targets["pch"]
         pch_subtargets = pch_info.get(DefaultInfo).sub_targets
@@ -514,13 +522,8 @@ def _compile_single_cxx(
         cmd.add(["-ftime-trace"])
         cmd.add(cmd_args(hidden = clang_trace.as_output()))
 
-    gcno_file = None
-    if toolchain.gcno_files and src_compile_cmd.src.extension not in (".S", ".sx"):
+    if gcno_file:
         cmd.add(["--coverage"])
-        gcno_file = actions.declare_output(
-            paths.join("__objects__", "{}.gcno".format(filename_base)),
-            uses_experimental_content_based_path_hashing = content_based,
-        )
         cmd.add(cmd_args(hidden = gcno_file.as_output()))
 
     # .S extension is native assembly code (machine level, processor specific)
