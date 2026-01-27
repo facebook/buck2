@@ -72,6 +72,14 @@ HeadersDepFiles = record(
     dep_tracking_mode = field(DepTrackingMode),
 )
 
+# Output from CUDA distributed compilation
+CudaDistributedCompileOutput = record(
+    # Dependency graph of the NVCC sub-commands.
+    nvcc_dag = field(Artifact),
+    # Environment variables for the NVCC sub-commands.
+    nvcc_env = field(Artifact),
+)
+
 # Information about how to compile a source file of particular extension.
 CxxCompileCommand = record(
     # The compiler and any args which are independent of the rule.
