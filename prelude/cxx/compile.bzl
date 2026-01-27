@@ -458,13 +458,9 @@ def _compile_single_cxx(
             ["-mllvm", "-stats"],
         )
 
-    clang_trace = None
-    if toolchain.clang_trace and compiler_type == "clang":
+    clang_trace = _declare_clang_trace_output(toolchain, compiler_type, actions, filename_base, content_based)
+    if clang_trace:
         cmd.add(["-ftime-trace"])
-        clang_trace = actions.declare_output(
-            paths.join("__objects__", "{}.json".format(filename_base)),
-            has_content_based_path = content_based,
-        )
         cmd.add(cmd_args(hidden = clang_trace.as_output()))
 
     gcno_file = None
@@ -1683,3 +1679,19 @@ def _get_use_pch_args(
         ))
 
     return pch_args
+
+def _declare_clang_trace_output(
+        toolchain: CxxToolchainInfo,
+        compiler_type: str,
+        actions: AnalysisActions,
+        filename_base: str,
+        content_based: bool) -> Artifact | None:
+    """
+    Declares an output artifact for clang trace JSON file.
+    """
+    if toolchain.clang_trace and compiler_type == "clang":
+        return actions.declare_output(
+            paths.join("__objects__", "{}.json".format(filename_base)),
+            has_content_based_path = content_based,
+        )
+    return None
