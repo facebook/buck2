@@ -14,6 +14,7 @@ use std::time::Duration;
 
 use async_trait::async_trait;
 use buck2_core::execution_types::executor_config::MetaInternalExtraParams;
+use buck2_core::execution_types::executor_config::ReGangWorker;
 use buck2_core::execution_types::executor_config::RemoteExecutorDependency;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_core::fs::project::ProjectRoot;
@@ -88,6 +89,7 @@ pub struct ReExecutor {
     pub materialize_failed_inputs: bool,
     pub materialize_failed_outputs: bool,
     pub dependencies: Vec<RemoteExecutorDependency>,
+    pub gang_workers: Vec<ReGangWorker>,
     pub deduplicate_get_digests_ttl_calls: bool,
     pub output_trees_download_config: OutputTreesDownloadConfig,
 }

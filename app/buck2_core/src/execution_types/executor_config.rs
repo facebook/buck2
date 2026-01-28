@@ -50,6 +50,7 @@ pub struct RemoteEnabledExecutorOptions {
     pub remote_cache_enabled: bool,
     pub remote_dep_file_cache_enabled: bool,
     pub dependencies: Vec<RemoteExecutorDependency>,
+    pub gang_workers: Vec<ReGangWorker>,
     pub custom_image: Option<Box<RemoteExecutorCustomImage>>,
     pub meta_internal_extra_params: MetaInternalExtraParams,
 }
@@ -95,7 +96,7 @@ pub struct RemoteExecutorDependency {
 /// Describes a worker in a gang for Remote Execution.
 /// A gang is a collection of workers that are scheduled together for distributed execution.
 /// Each worker specifies its capabilities (platform requirements).
-#[derive(Debug, Eq, PartialEq, Clone, Hash, Allocative)]
+#[derive(Debug, Eq, PartialEq, Clone, Hash, Allocative, Pagable)]
 pub struct ReGangWorker {
     /// The platform capabilities required for this gang worker
     pub capabilities: SortedMap<String, String>,

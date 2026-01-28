@@ -21,6 +21,7 @@ use buck2_core::execution_types::executor_config::ImagePackageIdentifier;
 use buck2_core::execution_types::executor_config::LocalExecutorOptions;
 use buck2_core::execution_types::executor_config::MetaInternalExtraParams;
 use buck2_core::execution_types::executor_config::PathSeparatorKind;
+use buck2_core::execution_types::executor_config::ReGangWorker;
 use buck2_core::execution_types::executor_config::RePlatformFields;
 use buck2_core::execution_types::executor_config::RemoteEnabledExecutor;
 use buck2_core::execution_types::executor_config::RemoteEnabledExecutorOptions;
@@ -100,6 +101,7 @@ pub fn register_command_executor_config(builder: &mut GlobalsBuilder) {
     /// * `remote_output_paths`: How to express output paths to RE
     /// * `remote_execution_resource_units`: The resources (eg. GPUs) to use for remote execution
     /// * `remote_execution_dependencies`: Dependencies for remote execution for this platform
+    /// * `remote_execution_gang_workers`: Gang workers for gang scheduling in remote execution
     /// * `remote_execution_custom_image`: Custom Tupperware image for remote execution for this platform
     /// * `meta_internal_extra_params`: Json dict of extra params to pass to RE related to Meta internal infra.
     #[starlark(as_type = StarlarkCommandExecutorConfig)]
@@ -131,6 +133,8 @@ pub fn register_command_executor_config(builder: &mut GlobalsBuilder) {
         remote_execution_resource_units: NoneOr<i64>,
         #[starlark(default=UnpackList::default(), require = named)]
         remote_execution_dependencies: UnpackList<SmallMap<&'v str, &'v str>>,
+        #[starlark(default=UnpackList::default(), require = named)]
+        remote_execution_gang_workers: UnpackList<SmallMap<&'v str, &'v str>>,
         #[starlark(default = NoneType, require = named)] remote_execution_dynamic_image: Value<'v>,
         #[starlark(default = NoneOr::None, require = named)] meta_internal_extra_params: NoneOr<
             DictRef<'v>,
@@ -172,6 +176,11 @@ pub fn register_command_executor_config(builder: &mut GlobalsBuilder) {
                 .into_iter()
                 .map(RemoteExecutorDependency::parse)
                 .collect::<buck2_error::Result<Vec<RemoteExecutorDependency>>>()?;
+
+            let re_gang_workers = remote_execution_gang_workers
+                .into_iter()
+                .map(ReGangWorker::parse)
+                .collect::<buck2_error::Result<Vec<ReGangWorker>>>()?;
 
             let re_dynamic_image = parse_custom_re_image(
                 "remote_execution_custom_image",
@@ -291,6 +300,7 @@ pub fn register_command_executor_config(builder: &mut GlobalsBuilder) {
                         remote_cache_enabled,
                         remote_dep_file_cache_enabled,
                         dependencies: re_dependencies,
+                        gang_workers: re_gang_workers,
                         custom_image: re_dynamic_image,
                         meta_internal_extra_params: extra_params,
                     })
@@ -308,6 +318,7 @@ pub fn register_command_executor_config(builder: &mut GlobalsBuilder) {
                         remote_cache_enabled: true,
                         remote_dep_file_cache_enabled,
                         dependencies: re_dependencies,
+                        gang_workers: re_gang_workers,
                         custom_image: re_dynamic_image,
                         meta_internal_extra_params: extra_params,
                     })

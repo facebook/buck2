@@ -24,6 +24,7 @@ use buck2_core::execution_types::executor_config::HybridExecutionLevel;
 use buck2_core::execution_types::executor_config::LocalExecutorOptions;
 use buck2_core::execution_types::executor_config::MetaInternalExtraParams;
 use buck2_core::execution_types::executor_config::PathSeparatorKind;
+use buck2_core::execution_types::executor_config::ReGangWorker;
 use buck2_core::execution_types::executor_config::RePlatformFields;
 use buck2_core::execution_types::executor_config::RemoteEnabledExecutor;
 use buck2_core::execution_types::executor_config::RemoteEnabledExecutorOptions;
@@ -222,7 +223,8 @@ impl HasCommandExecutor for CommandExecutorFactory {
              re_use_case: &RemoteExecutorUseCase,
              re_action_key: &Option<String>,
              remote_cache_enabled: bool,
-             dependencies: &[RemoteExecutorDependency]| {
+             dependencies: &[RemoteExecutorDependency],
+             gang_workers: &[ReGangWorker]| {
                 ReExecutor {
                     artifact_fs: artifact_fs.clone(),
                     project_fs: self.project_root.clone(),
@@ -239,6 +241,7 @@ impl HasCommandExecutor for CommandExecutorFactory {
                     materialize_failed_inputs: self.materialize_failed_inputs,
                     materialize_failed_outputs: self.materialize_failed_outputs,
                     dependencies: dependencies.to_vec(),
+                    gang_workers: gang_workers.to_vec(),
                     deduplicate_get_digests_ttl_calls: self.deduplicate_get_digests_ttl_calls,
                     output_trees_download_config: self.output_trees_download_config.dupe(),
                 }
@@ -339,6 +342,7 @@ impl HasCommandExecutor for CommandExecutorFactory {
                                 &remote_options.re_action_key,
                                 remote_options.remote_cache_enabled,
                                 &remote_options.dependencies,
+                                &remote_options.gang_workers,
                             )))
                         }
                         RemoteEnabledExecutor::Hybrid {
@@ -356,6 +360,7 @@ impl HasCommandExecutor for CommandExecutorFactory {
                                 &remote_options.re_action_key,
                                 remote_options.remote_cache_enabled,
                                 &remote_options.dependencies,
+                                &remote_options.gang_workers,
                             );
                             let executor_preference = self.strategy.hybrid_preference();
                             let low_pass_filter = self.low_pass_filter.dupe();
@@ -512,6 +517,7 @@ pub fn get_default_executor_config(host_platform: HostPlatformOverride) -> Comma
             remote_cache_enabled: true,
             remote_dep_file_cache_enabled: false,
             dependencies: vec![],
+            gang_workers: vec![],
             custom_image: None,
             meta_internal_extra_params: MetaInternalExtraParams::default(),
         })
