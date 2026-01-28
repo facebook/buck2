@@ -37,3 +37,11 @@ conditional_modifier(
         "ovr_config//os:linux": None,
     },
 )
+
+conditional_modifier(
+    name = "test_conditional_modifier_with_relative_key",
+    modifier = {
+        ":test1": "ovr_config//cpu/constraints:arm64",
+        "DEFAULT": None,
+    },
+)
