@@ -457,6 +457,12 @@ pub struct Buck2OssReConfiguration {
     pub grpc_keepalive_timeout_secs: Option<u64>,
     /// Whether to send HTTP/2 pings when connection is idle.
     pub grpc_keepalive_while_idle: Option<bool>,
+    /// Minimum number of HTTP/2 connections per host in the connection pool.
+    pub min_connections: Option<usize>,
+    /// Maximum number of HTTP/2 connections per host in the connection pool.
+    pub max_connections: Option<usize>,
+    /// Maximum concurrent streams per connection.
+    pub max_concurrency_per_connection: Option<usize>,
 }
 
 #[derive(Clone, Debug, Default, Allocative)]
@@ -573,6 +579,18 @@ impl Buck2OssReConfiguration {
             grpc_keepalive_while_idle: legacy_config.parse(BuckconfigKeyRef {
                 section: BUCK2_RE_CLIENT_CFG_SECTION,
                 property: "grpc_keepalive_while_idle",
+            })?,
+            min_connections: legacy_config.parse(BuckconfigKeyRef {
+                section: BUCK2_RE_CLIENT_CFG_SECTION,
+                property: "min_connections",
+            })?,
+            max_connections: legacy_config.parse(BuckconfigKeyRef {
+                section: BUCK2_RE_CLIENT_CFG_SECTION,
+                property: "max_connections",
+            })?,
+            max_concurrency_per_connection: legacy_config.parse(BuckconfigKeyRef {
+                section: BUCK2_RE_CLIENT_CFG_SECTION,
+                property: "max_concurrency_per_connection",
             })?,
         })
     }
