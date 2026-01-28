@@ -89,6 +89,7 @@ FRAMEWORK_INTRODUCED_VERSIONS = {
         "watchos": (9, 0, 0),
     },
     "AppKit": {"maccatalyst": (13, 0, 0), "macosx": (10, 0, 0)},
+    "AppMigrationKit": {"iphoneos": (26, 1, 0)},
     "AppTrackingTransparency": {
         "appletvos": (14, 0, 0),
         "iphoneos": (14, 0, 0),
