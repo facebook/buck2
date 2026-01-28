@@ -154,6 +154,21 @@ def test_modifiers_match_with_constraint_without_default(test_refs: TestRefs):
     linux_only = test_refs.make_cfg(["ovr_config//os/constraints:linux"])
     asserts.equals(None, resolve_modifier(linux_only, modifier_info))
 
+def test_cell_alias_in_modifier_keys(test_refs: TestRefs):
+    # Test that cell aliases work correctly in modifier keys and values.
+    # Uses "config//os/constraints:windows" which is an alias for "ovr_config//os/constraints:windows".
+    # Uses "config//build dictionary-based key and value mapping correctly handles cell alias resolution.
+    match = test_refs.get_modifier_info({
+        "DEFAULT": "config//build_mode:sanitizer_type[tsan]",
+        "config//os/constraints:windows": None,
+    })
+    windows_cfg = test_refs.make_cfg(["ovr_config//os/constraints:windows"])
+    linux_cfg = test_refs.make_cfg(["ovr_config//os/constraints:linux"])
+    asserts.equals(None, resolve_modifier(windows_cfg, match))
+
+    # The result should be the resolved constraint value (ovr_config//...), even though the input used cell alias
+    asserts.equals(test_refs.get("ovr_config//build_mode:sanitizer_type[tsan]")[ConstraintValueInfo], resolve_modifier(linux_cfg, match))
+
 def _impl(ctx: bxl.Context):
     test_refs = get_test_refs(ctx)
 
@@ -163,6 +178,7 @@ def _impl(ctx: bxl.Context):
     test_modifiers_match_with_none(test_refs)
     test_modifiers_match_with_default_constraint_value(test_refs)
     test_modifiers_match_with_constraint_without_default(test_refs)
+    test_cell_alias_in_modifier_keys(test_refs)
 
 test = bxl_main(
     cli_args = {},
