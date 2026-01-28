@@ -575,12 +575,6 @@ impl RemoteExecutionClientImpl {
 
                 let mut re_client_config = create_default_config();
 
-                // gRPC settings
-                re_client_config.action_cache_client_config.connection_count =
-                    static_metadata.action_cache_connection_count;
-                re_client_config.action_cache_client_config.address =
-                    static_metadata.action_cache_address.clone();
-
                 let mut embedded_cas_daemon_config = EmbeddedCASDaemonClientCfg {
                     connection_count: static_metadata.cas_connection_count,
                     address: static_metadata.cas_address.clone(),
