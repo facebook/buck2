@@ -466,6 +466,7 @@ impl BxlServerCommand {
                 unstable_streaming_build_report_filename: bxl_opts
                     .unstable_streaming_build_report_filename
                     .clone(),
+                unstable_exclude_action_error_diagnostics: false,
             };
 
             write_bxl_build_report(

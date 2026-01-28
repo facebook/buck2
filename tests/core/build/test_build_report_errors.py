@@ -339,3 +339,35 @@ async def test_missing_report_on_wrong_package(buck: Buck, tmp_path: Path) -> No
     )
     if report.exists():
         raise AssertionError("Expected no report to be written")
+
+
+# TODO fix on windows and mac
+if not running_on_windows() and not running_on_mac():
+
+    @buck_test()
+    async def test_exclude_action_error_diagnostics(buck: Buck, tmp_path: Path) -> None:
+        # Test that --build-report-options=exclude-action-error-diagnostics removes
+        # error_diagnostics from the build report.
+        report = tmp_path / "build-report.json"
+        await expect_failure(
+            buck.build(
+                "--build-report",
+                str(report),
+                "--build-report-options",
+                "fill-out-failures,exclude-action-error-diagnostics",
+                "//fail_action:fail_one_with_error_handler",
+            )
+        )
+        with open(report) as f:
+            report_data = json.loads(f.read())
+
+        sanitize_build_report(report_data)
+
+        golden(
+            output=sanitize_hashes(
+                sanitize_python(
+                    json.dumps(report_data, indent=2, sort_keys=True), buck.cwd
+                )
+            ),
+            rel_path="fixtures/test_exclude_action_error_diagnostics.golden.json",
+        )

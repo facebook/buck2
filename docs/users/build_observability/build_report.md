@@ -12,6 +12,20 @@ successful outcomes are well served by direct usage of the CLI.
 To request a build report, pass `--build-report <path>` to `buck build` on the
 CLI.
 
+You can also pass `--build-report-options` with a comma-separated list of
+options to customize the build report:
+
+- `fill-out-failures`: Fill out the `failures` field in the build report (for
+  Buck1 backwards compatibility).
+- `package-project-relative-paths`: Include the project-relative path of
+  packages for built targets.
+- `include-artifact-hash-information`: Include artifact hash information in the
+  output.
+- `exclude-action-error-diagnostics`: Exclude the `error_diagnostics` field from
+  action errors in the build report. This can reduce the size of build reports
+  when detailed error diagnostic information from action error handlers is not
+  needed.
+
 At a high level, the build report outputs information for each of the targets
 that you requested to have built on the CLI. As a result, it may report
 information for more than one configuration or subtarget of a target. For

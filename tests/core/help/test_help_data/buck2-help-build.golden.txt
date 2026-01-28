@@ -80,6 +80,9 @@ Options:
           `package-project-relative-paths`: emit the project-relative path of packages for the
           targets that were built.
 
+          `exclude-action-error-diagnostics`: exclude error_diagnostics field from action errors in
+          the build report.
+
       --streaming-build-report <PATH>
           Stream intermediary build reports to a file in json lines format.
 

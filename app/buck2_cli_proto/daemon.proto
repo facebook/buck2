@@ -446,6 +446,7 @@ message CommonBuildOptions {
   bool unstable_include_package_project_relative_paths = 4242005;
   bool unstable_include_artifact_hash_information = 4242006;
   string unstable_streaming_build_report_filename = 4242007;
+  bool unstable_exclude_action_error_diagnostics = 4242008;
 }
 
 message BuildRequest {

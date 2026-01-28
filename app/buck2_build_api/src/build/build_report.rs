@@ -266,6 +266,7 @@ pub struct BuildReportOpts {
     pub unstable_build_report_filename: String,
     pub graph_properties_opts: GraphPropertiesOptions,
     pub unstable_streaming_build_report_filename: String,
+    pub unstable_exclude_action_error_diagnostics: bool,
 }
 
 pub struct BuildReportCollector<'a> {
@@ -280,6 +281,7 @@ pub struct BuildReportCollector<'a> {
     include_failures: bool,
     include_package_project_relative_paths: bool,
     include_artifact_hash_information: bool,
+    exclude_action_error_diagnostics: bool,
     graph_properties_opts: GraphPropertiesOptions,
     total_configured_graph_sketch: Option<VersionedSketcher<ConfiguredTargetLabel>>,
     total_configured_graph_unconfigured_sketch: Option<VersionedSketcher<TargetLabel>>,
@@ -311,6 +313,7 @@ impl<'a> BuildReportCollector<'a> {
         include_failures: bool,
         include_package_project_relative_paths: bool,
         include_artifact_hash_information: bool,
+        exclude_action_error_diagnostics: bool,
         graph_properties_opts: GraphPropertiesOptions,
     ) -> Self {
         Self {
@@ -325,6 +328,7 @@ impl<'a> BuildReportCollector<'a> {
             include_failures,
             include_package_project_relative_paths,
             include_artifact_hash_information,
+            exclude_action_error_diagnostics,
             graph_properties_opts,
             total_configured_graph_sketch: if graph_properties_opts.total_configured_graph_sketch {
                 Some(DEFAULT_SKETCH_VERSION.create_sketcher())
@@ -358,6 +362,7 @@ impl<'a> BuildReportCollector<'a> {
         include_failures: bool,
         include_package_project_relative_paths: bool,
         include_artifact_hash_information: bool,
+        exclude_action_error_diagnostics: bool,
         configured: &BTreeMap<ConfiguredProvidersLabel, Option<ConfiguredBuildTargetResult>>,
         configured_to_pattern_modifiers: &HashMap<ConfiguredProvidersLabel, BTreeSet<Modifiers>>,
         other_errors: &BTreeMap<Option<ProvidersLabel>, Vec<buck2_error::Error>>,
@@ -371,6 +376,7 @@ impl<'a> BuildReportCollector<'a> {
             include_failures,
             include_package_project_relative_paths,
             include_artifact_hash_information,
+            exclude_action_error_diagnostics,
             graph_properties_opts,
         );
         let mut entries = HashMap::new();
@@ -490,6 +496,7 @@ impl<'a> BuildReportCollector<'a> {
         include_failures: bool,
         include_package_project_relative_paths: bool,
         include_artifact_hash_information: bool,
+        exclude_action_error_diagnostics: bool,
         bxl_label: &BxlFunctionLabel,
         errors: &[buck2_error::Error],
         detailed_metrics: Option<DetailedAggregatedMetrics>,
@@ -502,6 +509,7 @@ impl<'a> BuildReportCollector<'a> {
             include_failures,
             include_package_project_relative_paths,
             include_artifact_hash_information,
+            exclude_action_error_diagnostics,
             graph_properties_opts,
         );
         let mut entries = HashMap::new();
@@ -898,9 +906,9 @@ impl<'a> BuildReportCollector<'a> {
                 cause_index: self.error_cause_cache.get(&root).copied(),
                 message,
                 error_tags,
-                action_error: e
-                    .action_error()
-                    .map(|e| BuildReportActionError::new(e, self)),
+                action_error: e.action_error().map(|e| {
+                    BuildReportActionError::new(e, self, self.exclude_action_error_diagnostics)
+                }),
             });
         }
         // Sort the errors. This sort *almost* guarantees full determinism, but unfortunately
@@ -1084,6 +1092,8 @@ pub async fn build_report_opts<'a>(
         unstable_streaming_build_report_filename: build_opts
             .unstable_streaming_build_report_filename
             .clone(),
+        unstable_exclude_action_error_diagnostics: build_opts
+            .unstable_exclude_action_error_diagnostics,
     };
 
     Ok(build_report_opts)
@@ -1134,6 +1144,7 @@ pub fn write_build_report(
         opts.unstable_include_failures_build_report,
         opts.unstable_include_package_project_relative_paths,
         opts.unstable_include_artifact_hash_information,
+        opts.unstable_exclude_action_error_diagnostics,
         configured,
         configured_to_pattern_modifiers,
         other_errors,
@@ -1169,6 +1180,7 @@ pub fn write_bxl_build_report(
         opts.unstable_include_failures_build_report,
         opts.unstable_include_package_project_relative_paths,
         opts.unstable_include_artifact_hash_information,
+        opts.unstable_exclude_action_error_diagnostics,
         bxl_label,
         errors,
         detailed_metrics,
@@ -1204,6 +1216,7 @@ pub fn stream_build_report(
         opts.unstable_include_failures_build_report,
         opts.unstable_include_package_project_relative_paths,
         opts.unstable_include_artifact_hash_information,
+        opts.unstable_exclude_action_error_diagnostics,
         configured,
         configured_to_pattern_modifiers,
         other_errors,

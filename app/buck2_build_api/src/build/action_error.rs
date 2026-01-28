@@ -76,7 +76,11 @@ pub(crate) struct BuildReportActionError {
 }
 
 impl BuildReportActionError {
-    pub(crate) fn new<'a>(error: &ActionError, collector: &mut BuildReportCollector<'a>) -> Self {
+    pub(crate) fn new<'a>(
+        error: &ActionError,
+        collector: &mut BuildReportCollector<'a>,
+        exclude_action_error_diagnostics: bool,
+    ) -> Self {
         let reason = get_action_error_reason(error).ok().unwrap_or_default();
 
         let command_details = error.last_command.as_ref().and_then(|c| c.details.as_ref());
@@ -101,38 +105,42 @@ impl BuildReportActionError {
                 .map_or(String::default(), |name| name.identifier.clone()),
         };
 
-        let error_diagnostics = error.error_diagnostics.clone().map(|error_diagnostics| {
-            match error_diagnostics.data.unwrap() {
-                buck2_data::action_error_diagnostics::Data::SubErrors(sub_errors) => {
-                    let sub_errors = sub_errors
-                        .sub_errors
-                        .iter()
-                        .map(|s| BuildReportActionSubError {
-                            category: s.category.clone(),
-                            message_content: s
-                                .message
-                                .clone()
-                                .map(|m| collector.update_string_cache(m)),
-                            file: s.file.clone(),
-                            lnum: s.lnum,
-                            end_lnum: s.end_lnum,
-                            col: s.col,
-                            end_col: s.end_col,
-                            error_type: s.error_type.clone(),
-                            error_number: s.error_number,
-                            subcategory: s.subcategory.clone(),
-                            remediation: s.remediation.clone(),
-                        })
-                        .collect();
-                    BuildReportActionErrorDiagnostics::SubErrors(sub_errors)
+        let error_diagnostics = if exclude_action_error_diagnostics {
+            None
+        } else {
+            error.error_diagnostics.clone().map(|error_diagnostics| {
+                match error_diagnostics.data.unwrap() {
+                    buck2_data::action_error_diagnostics::Data::SubErrors(sub_errors) => {
+                        let sub_errors = sub_errors
+                            .sub_errors
+                            .iter()
+                            .map(|s| BuildReportActionSubError {
+                                category: s.category.clone(),
+                                message_content: s
+                                    .message
+                                    .clone()
+                                    .map(|m| collector.update_string_cache(m)),
+                                file: s.file.clone(),
+                                lnum: s.lnum,
+                                end_lnum: s.end_lnum,
+                                col: s.col,
+                                end_col: s.end_col,
+                                error_type: s.error_type.clone(),
+                                error_number: s.error_number,
+                                subcategory: s.subcategory.clone(),
+                                remediation: s.remediation.clone(),
+                            })
+                            .collect();
+                        BuildReportActionErrorDiagnostics::SubErrors(sub_errors)
+                    }
+                    buck2_data::action_error_diagnostics::Data::HandlerInvocationError(
+                        invocation_failure,
+                    ) => BuildReportActionErrorDiagnostics::HandlerInvocationError(
+                        collector.update_string_cache(invocation_failure.clone()),
+                    ),
                 }
-                buck2_data::action_error_diagnostics::Data::HandlerInvocationError(
-                    invocation_failure,
-                ) => BuildReportActionErrorDiagnostics::HandlerInvocationError(
-                    collector.update_string_cache(invocation_failure.clone()),
-                ),
-            }
-        });
+            })
+        };
 
         let stderr = command_details.map_or(String::default(), |c| {
             console::strip_ansi_codes(&c.cmd_stderr).to_string()

@@ -27,12 +27,16 @@ pub struct BuildReportOption {
 
     /// Include artifact hash information in the output.
     include_artifact_hash_information: bool,
+
+    /// Exclude error diagnostics from action errors in the build report.
+    exclude_action_error_diagnostics: bool,
 }
 
 fn parse_build_report_option(s: &str) -> buck2_error::Result<BuildReportOption> {
     let mut fill_out_failures = false;
     let mut include_package_project_relative_paths = false;
     let mut include_artifact_hash_information = false;
+    let mut exclude_action_error_diagnostics = false;
 
     if s.to_lowercase() == "fill-out-failures" {
         fill_out_failures = true;
@@ -40,9 +44,11 @@ fn parse_build_report_option(s: &str) -> buck2_error::Result<BuildReportOption> 
         include_package_project_relative_paths = true;
     } else if s.to_lowercase() == "include-artifact-hash-information" {
         include_artifact_hash_information = true;
+    } else if s.to_lowercase() == "exclude-action-error-diagnostics" {
+        exclude_action_error_diagnostics = true;
     } else {
         warn!(
-            "Incorrect syntax for build report option. Got: `{}` but expected one of `fill-out-failures, package-project-relative-paths`",
+            "Incorrect syntax for build report option. Got: `{}` but expected one of `fill-out-failures, package-project-relative-paths, include-artifact-hash-information, exclude-action-error-diagnostics`",
             s.to_owned()
         )
     }
@@ -50,6 +56,7 @@ fn parse_build_report_option(s: &str) -> buck2_error::Result<BuildReportOption> 
         fill_out_failures,
         include_package_project_relative_paths,
         include_artifact_hash_information,
+        exclude_action_error_diagnostics,
     })
 }
 
@@ -78,6 +85,9 @@ pub struct CommonBuildOptions {
     ///
     /// `package-project-relative-paths`:
     /// emit the project-relative path of packages for the targets that were built.
+    ///
+    /// `exclude-action-error-diagnostics`:
+    /// exclude error_diagnostics field from action errors in the build report.
     #[clap(
         long = "build-report-options",
         requires = "build_report",
@@ -213,6 +223,10 @@ impl CommonBuildOptions {
             .build_report_options
             .iter()
             .any(|option| option.include_artifact_hash_information);
+        let unstable_exclude_action_error_diagnostics = self
+            .build_report_options
+            .iter()
+            .any(|option| option.exclude_action_error_diagnostics);
         let concurrency = self
             .num_threads
             .map(|num| buck2_cli_proto::Concurrency { concurrency: num });
@@ -254,6 +268,7 @@ impl CommonBuildOptions {
             unstable_include_package_project_relative_paths,
             unstable_include_artifact_hash_information,
             unstable_streaming_build_report_filename,
+            unstable_exclude_action_error_diagnostics,
         }
     }
 }
