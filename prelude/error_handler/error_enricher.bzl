@@ -23,13 +23,23 @@ def match_error(matcher: str | BuckRegex, text: str) -> bool:
     else:
         fail("Unknown matcher type: {}".format(type(matcher)))
 
+def _apply_subcategory_remediation(error: ActionSubError, enricher: ErrorEnricher, text: str):
+    """
+    Extracts an error subcategory (if configured) and applies the remediation
+    specific to that subcategory. Subcategories let you target tailored fixes
+    for specific error objects within a broader category.
+    """
+    if enricher.subcategory_extractor:
+        subcategory = enricher.subcategory_extractor(text)
+        if subcategory:
+            error.subcategory = subcategory
+            if enricher.subcategory_remediations and subcategory in enricher.subcategory_remediations:
+                error.remediation = enricher.subcategory_remediations[subcategory]
+
 def enrich_errors(
         errors: list[ActionSubError],
         enrichers: list[ErrorEnricher],
         category_prefix: str = "") -> list[ActionSubError]:
-    """
-    Add additional information to build errors based on a list of enrichers.
-    """
     for error in errors:
         message = error.message if error.message else ""
 
@@ -38,19 +48,37 @@ def enrich_errors(
                 continue
 
             error.category = category_prefix + enricher.category
-
-            # Subcategory extraction provides finer-grained classification
-            # within a broad error category, enabling targeted remediations
-            if enricher.subcategory_extractor:
-                subcategory = enricher.subcategory_extractor(error.message)
-                if subcategory:
-                    error.subcategory = subcategory
-                    if enricher.subcategory_remediations and subcategory in enricher.subcategory_remediations:
-                        error.remediation = enricher.subcategory_remediations[subcategory]
-                elif enricher.message:
-                    error.remediation = enricher.message
-            elif enricher.message:
-                error.remediation = enricher.message
+            _apply_subcategory_remediation(error, enricher, message)
             break
+
+    return errors
+
+def create_and_enrich_errors(
+        ctx: ActionErrorCtx,
+        text: str,
+        enrichers: list[ErrorEnricher],
+        category_prefix: str = "") -> list[ActionSubError]:
+    """
+    Create an ActionSubError for EACH matching enricher.
+
+    Unlike enrich_errors() which enriches existing errors with the first match,
+    this function creates new errors for every matching enricher pattern.
+
+    Use this for stderr-based error handlers where multiple categories
+    may match the same output.
+    """
+    errors = []
+    for enricher in enrichers:
+        if not match_error(enricher.matcher, text):
+            continue
+
+        # Create new error for this match
+        error = ctx.new_sub_error(
+            category = category_prefix + enricher.category,
+            message = enricher.message,
+        )
+
+        _apply_subcategory_remediation(error, enricher, text)
+        errors.append(error)
 
     return errors
