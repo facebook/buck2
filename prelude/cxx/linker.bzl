@@ -203,6 +203,28 @@ def get_link_whole_args(linker_type: LinkerType, inputs: list[Artifact]) -> list
 
     return args
 
+def wrap_linker_flags(linker_type: LinkerType, flags: list[typing.Any]) -> list[typing.Any]:
+    """
+    Wrap linker flags with -Wl, prefix for linker types that use a compiler
+    driver (e.g., clang++, g++) as the linker.
+
+    When using a compiler driver as the linker, linker-specific flags must be
+    prefixed with -Wl, to be passed through to the actual linker. This function
+    handles that wrapping automatically for gnu and darwin linker types.
+
+    Flags already prefixed with -Wl, are left unchanged.
+    """
+    if linker_type not in (LinkerType("gnu"), LinkerType("darwin")):
+        return flags
+
+    result = []
+    for flag in flags:
+        if type(flag) == "string" and flag.startswith("-Wl,"):
+            result.append(flag)
+        else:
+            result.append(cmd_args(flag, format = "-Wl,{}"))
+    return result
+
 def get_objects_as_library_args(linker_type: LinkerType, objects: list[Artifact]) -> list[typing.Any]:
     """
     Return linker args used to link the given objects as a library.
