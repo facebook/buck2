@@ -30,8 +30,6 @@ public class ApkBuilderUtils {
    * The type of a keystore created via the {@code jarsigner} command in Sun/Oracle Java. See
    * http://docs.oracle.com/javase/7/docs/technotes/guides/security/StandardNames.html#KeyStore.
    */
-  private static final String JARSIGNER_KEY_STORE_TYPE = "jks";
-
   public static void buildApk(
       Path resourceApk,
       Path pathToOutputApkFile,
@@ -60,23 +58,22 @@ public class ApkBuilderUtils {
             packageMetaInfVersionFiles,
             output,
             excludedResources);
-    for (Path nativeLibraryDirectory : nativeLibraryDirectories) {
+    for (Path nativeLibraryDirectory : nativeLibraryDirectories.stream().sorted().toList()) {
       builder.addNativeLibraries(nativeLibraryDirectory.toFile());
     }
-    for (Path assetDirectory : assetDirectories) {
+    for (Path assetDirectory : assetDirectories.stream().sorted().toList()) {
       builder.addSourceFolder(assetDirectory.toFile());
     }
-    for (Path zipFile : zipFiles) {
+    for (Path zipFile : zipFiles.stream().sorted().toList()) {
       // TODO(natthu): Skipping silently is bad. These should really be assertions.
       if (Files.exists(zipFile) && Files.isRegularFile(zipFile)) {
         builder.addZipFile(zipFile.toFile());
       }
     }
-    for (Path jarFileThatMayContainResources : jarFilesThatMayContainResources) {
+    for (Path jarFileThatMayContainResources :
+        jarFilesThatMayContainResources.stream().sorted().toList()) {
       builder.addResourcesFromJar(jarFileThatMayContainResources.toFile());
     }
-
-    // Build the APK
     builder.sealApk();
   }
 }
