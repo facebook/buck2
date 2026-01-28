@@ -75,6 +75,36 @@ impl<'de, T: ?Sized> PagableDeserialize<'de> for std::marker::PhantomData<T> {
     }
 }
 
+impl<T: PagableSerialize, E: PagableSerialize> PagableSerialize for Result<T, E> {
+    fn pagable_serialize(&self, serializer: &mut dyn PagableSerializer) -> crate::Result<()> {
+        match self {
+            Ok(v) => {
+                bool::serialize(&true, serializer.serde())?;
+                v.pagable_serialize(serializer)?;
+            }
+            Err(e) => {
+                bool::serialize(&false, serializer.serde())?;
+                e.pagable_serialize(serializer)?;
+            }
+        }
+        Ok(())
+    }
+}
+
+impl<'de, T: PagableDeserialize<'de>, E: PagableDeserialize<'de>> PagableDeserialize<'de>
+    for Result<T, E>
+{
+    fn pagable_deserialize<D: PagableDeserializer<'de> + ?Sized>(
+        deserializer: &mut D,
+    ) -> crate::Result<Self> {
+        if bool::deserialize(deserializer.serde())? {
+            Ok(Ok(T::pagable_deserialize(deserializer)?))
+        } else {
+            Ok(Err(E::pagable_deserialize(deserializer)?))
+        }
+    }
+}
+
 impl<T: PagableSerialize> PagableSerialize for Box<T> {
     fn pagable_serialize(&self, serializer: &mut dyn PagableSerializer) -> crate::Result<()> {
         (**self).pagable_serialize(serializer)
@@ -142,5 +172,35 @@ impl<'de> PagableDeserialize<'de> for AtomicI64 {
     ) -> crate::Result<Self> {
         let val = i64::deserialize(deserializer.serde())?;
         Ok(AtomicI64::new(val))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::testing::TestingDeserializer;
+    use crate::testing::TestingSerializer;
+
+    #[test]
+    fn test_result_roundtrip() -> crate::Result<()> {
+        // Test Ok variant
+        let ok_result: Result<String, String> = Ok("success".to_owned());
+        let mut serializer = TestingSerializer::new();
+        ok_result.pagable_serialize(&mut serializer)?;
+        let bytes = serializer.finish();
+        let mut deserializer = TestingDeserializer::new(&bytes);
+        let restored: Result<String, String> = Result::pagable_deserialize(&mut deserializer)?;
+        assert_eq!(ok_result, restored);
+
+        // Test Err variant
+        let err_result: Result<String, String> = Err("failure".to_owned());
+        let mut serializer = TestingSerializer::new();
+        err_result.pagable_serialize(&mut serializer)?;
+        let bytes = serializer.finish();
+        let mut deserializer = TestingDeserializer::new(&bytes);
+        let restored: Result<String, String> = Result::pagable_deserialize(&mut deserializer)?;
+        assert_eq!(err_result, restored);
+
+        Ok(())
     }
 }
