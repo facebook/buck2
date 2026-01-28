@@ -603,7 +603,7 @@ fn test_cancellation() -> crate::Result<()> {
             &Dialect::Standard,
         )
         .unwrap();
-        eval.eval_module(ast, &globals).unwrap();
+        eval.eval_module(ast, &globals).unwrap_err();
 
         let ast = AstModule::parse(
             "prelude.bzl",

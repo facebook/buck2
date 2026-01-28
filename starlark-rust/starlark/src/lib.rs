@@ -407,6 +407,7 @@
 #![cfg_attr(rust_nightly, feature(const_type_id))]
 #![cfg_attr(rust_nightly, feature(core_intrinsics))]
 #![cfg_attr(rust_nightly, feature(cfg_sanitize))]
+#![cfg_attr(rust_nightly, feature(cold_path))]
 #![cfg_attr(rust_nightly, feature(const_type_name))]
 // Good reasons
 #![allow(clippy::needless_return)] // Mixing explicit returns with implicit ones sometimes looks odd

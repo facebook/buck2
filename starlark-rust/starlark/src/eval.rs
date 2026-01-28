@@ -142,6 +142,8 @@ impl<'v, 'a, 'e> Evaluator<'v, 'a, 'e> {
         #[cfg(not(target_arch = "wasm32"))]
         self.module_env.add_eval_duration(start.elapsed());
 
+        self.run_infrequent_instr_checks()?;
+
         // Return the result of evaluation
         res.map_err(|e| e.into_error())
     }
@@ -168,9 +170,14 @@ impl<'v, 'a, 'e> Evaluator<'v, 'a, 'e> {
         )?;
         // eval_module pushes an "empty" call stack frame. other places expect that first frame to be ignorable, and
         // so we push an empty frame too (otherwise things would ignore this function's own frame).
-        self.with_call_stack(Value::new_none(), None, |this| {
-            function.invoke(&params, this)
-        })
-        .map_err(Into::into)
+        let res = self
+            .with_call_stack(Value::new_none(), None, |this| {
+                function.invoke(&params, this)
+            })
+            .map_err(Into::into);
+
+        self.run_infrequent_instr_checks()?;
+
+        res
     }
 }

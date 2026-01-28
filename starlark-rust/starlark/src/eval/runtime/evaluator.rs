@@ -932,15 +932,22 @@ impl<'v, 'a, 'e: 'a> Evaluator<'v, 'a, 'e> {
     }
 
     #[inline(always)]
-    pub(crate) fn run_infrequent_instr_checks(&mut self) -> crate::Result<()> {
+    pub(crate) fn report_forward_progress(&mut self) -> crate::Result<()> {
         self.infrequent_instr_check_counter += 1;
         if self.infrequent_instr_check_counter >= INFREQUENT_INSTRUCTION_CHECK_PERIOD {
-            if (self.is_cancelled)() {
-                return Err(crate::Error::new_other(EvaluatorError::Cancelled));
-            }
+            #[cfg(rust_nightly)]
+            std::hint::cold_path();
+            self.run_infrequent_instr_checks()?;
             self.infrequent_instr_check_counter = 0
         };
 
+        Ok(())
+    }
+
+    pub(crate) fn run_infrequent_instr_checks(&mut self) -> crate::Result<()> {
+        if (self.is_cancelled)() {
+            return Err(crate::Error::new_other(EvaluatorError::Cancelled));
+        }
         // TODO(T219887296): implement CPU-time-limiting checks here
         Ok(())
     }
