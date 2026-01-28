@@ -62,18 +62,9 @@ def _get_modifier_info(
         ),
     )
 
-# currently we don't have the method can directly convert the ConfiguredProvidersLabel to ProvidersLabel
-# TODO(nero): after we provide such api, clean this.
-def _configured_providers_label_to_providers_label(label: ConfiguredProvidersLabel) -> ProvidersLabel:
-    sub_target_name = label.sub_target
-    if sub_target_name == None:
-        sub_target_name = []
-    target_label = label.raw_target()
-    return target_label.with_sub_target(sub_target_name)
-
 def _impl(ctx: AnalysisContext) -> list[Provider]:
-    key_to_provider = {str(_configured_providers_label_to_providers_label(dep.label)): dep.get(ConfigurationInfo) for dep in ctx.attrs._conditional_keys}
-    value_to_provider = {str(_configured_providers_label_to_providers_label(dep.label)): dep.get(ConditionalModifierInfo) for dep in ctx.attrs._conditional_values}
+    key_to_provider = {k: dep.get(ConfigurationInfo) for k, dep in ctx.attrs._conditional_keys.items()}
+    value_to_provider = {k: dep.get(ConditionalModifierInfo) for k, dep in ctx.attrs._conditional_values.items()}
     conditional_modifier_info = _get_modifier_info(ctx.attrs.modifier, key_to_provider, value_to_provider)
     return [DefaultInfo(), conditional_modifier_info]
 
@@ -128,59 +119,42 @@ _conditional_modifier = rule(
     """,
     attrs = {
         "modifier": attrs.any(doc = "A conditional modifier to set"),
-        "_conditional_keys": attrs.list(attrs.dep(providers = [ConfigurationInfo]), doc = "internal attribute"),
-        "_conditional_values": attrs.list(attrs.dep(providers = [ConditionalModifierInfo]), doc = "internal attribute"),
+        # _conditional_keys maps original modifier keys to resolved providers
+        # We need to preserve the original keys to resolve cell aliases correctly
+        "_conditional_keys": attrs.dict(attrs.string(), attrs.dep(providers = [ConfigurationInfo]), doc = "internal attribute"),
+        # _conditional_values maps original modifier values to resolved providers
+        # We need to preserve the original values to resolve cell aliases correctly
+        "_conditional_values": attrs.dict(attrs.string(), attrs.dep(providers = [ConditionalModifierInfo]), doc = "internal attribute"),
     },
     is_configuration_rule = True,
 )
 
-def _get_conditional_keys(modifier: ModifiersMatch) -> list[str]:
-    result = [k for k in modifier.keys() if k != "DEFAULT"]
+def _get_conditional_keys(modifier: ModifiersMatch) -> dict[str, str]:
+    result = {k: k for k in modifier.keys() if k != "DEFAULT"}
     for v in modifier.values():
         if isinstance(v, dict):
-            result += _get_conditional_keys(v)
-        elif isinstance(v, str):
-            result.append(v)
-        elif v:
+            result.update(_get_conditional_keys(v))
+        elif v and not isinstance(v, str):
             fail("`{}` is not a valid modifier".format(v))
     return result
 
-def _get_conditional_values(modifier: ModifiersMatch) -> list[str]:
-    result = []
+def _get_conditional_values(modifier: ModifiersMatch) -> dict[str, str]:
+    result = {}
     for v in modifier.values():
         if isinstance(v, dict):
-            result += _get_conditional_values(v)
+            result.update(_get_conditional_values(v))
         elif isinstance(v, str):
-            result.append(v)
+            result[v] = v
         elif v:
             fail("`{}` is not a valid modifier".format(v))
     return result
-
-def _fully_qualify(modifier: Modifier) -> Modifier:
-    if modifier == None:
-        return None
-
-    if isinstance(modifier, str):
-        if modifier.startswith(":"):
-            return "{}//{}{}".format(get_cell_name(), package_name(), modifier)
-        if modifier.startswith("//"):
-            return "{}{}".format(get_cell_name(), modifier)
-        return modifier
-
-    fully_qualified = {}
-    for k, v in modifier.items():
-        if k == "DEFAULT":
-            fully_qualified[k] = _fully_qualify(v)
-        else:
-            fully_qualified[_fully_qualify(k)] = _fully_qualify(v)
-    return fully_qualified
 
 def conditional_modifier(name: str, modifier: ModifiersMatch):
     _conditional_modifier(
         name = name,
         _conditional_keys = _get_conditional_keys(modifier),
         _conditional_values = _get_conditional_values(modifier),
-        modifier = _fully_qualify(modifier),
+        modifier = modifier,
     )
 
 # Exported for testing purposes only. Do not use in production code.
