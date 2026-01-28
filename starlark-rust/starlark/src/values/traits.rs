@@ -673,8 +673,7 @@ pub trait StarlarkValue<'v>:
         None
     }
 
-    /// Add `other` to the current value. Pass both self and
-    /// the Value form of self as original. Should return [`None`]
+    /// Add `rhs` to the current value. Should return [`None`]
     /// to fall through to `radd`.
     ///
     /// # Examples
