@@ -29,7 +29,7 @@ use crate::PagableDeserialize;
 use crate::PagableDeserializer;
 use crate::PagableSerialize;
 use crate::PagableSerializer;
-use crate::storage::DataKey;
+use crate::storage::data::DataKey;
 
 /// Object-safe trait for type-erased Arc handling.
 ///

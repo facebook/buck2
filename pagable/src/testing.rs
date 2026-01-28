@@ -42,9 +42,10 @@ use serde::Deserialize;
 use serde::Serialize;
 
 use crate::arc_erase::ArcEraseDyn;
-use crate::storage::DataKey;
-use crate::storage::PagableStorage;
-use crate::storage::PagableStorageHandle;
+use crate::storage::data::DataKey;
+use crate::storage::data::PagableData;
+use crate::storage::handle::PagableStorageHandle;
+use crate::storage::traits::PagableStorage;
 use crate::traits::PagableDeserializer;
 use crate::traits::PagableSerializer;
 
@@ -170,18 +171,13 @@ impl PagableStorage for EmptyPagableStorage {
         &self,
         _type_id: &std::any::TypeId,
         _key: &DataKey,
-    ) -> anyhow::Result<
-        either::Either<Box<dyn ArcEraseDyn>, std::sync::Arc<crate::storage::PagableData>>,
-    > {
+    ) -> anyhow::Result<either::Either<Box<dyn ArcEraseDyn>, std::sync::Arc<PagableData>>> {
         Err(anyhow::anyhow!(
             "No storage available for testing deserializer"
         ))
     }
 
-    async fn fetch_data(
-        &self,
-        _key: &DataKey,
-    ) -> anyhow::Result<std::sync::Arc<crate::storage::PagableData>> {
+    async fn fetch_data(&self, _key: &DataKey) -> anyhow::Result<std::sync::Arc<PagableData>> {
         Err(anyhow::anyhow!(
             "No storage available for testing deserializer"
         ))

@@ -19,7 +19,7 @@
 use std::any::TypeId;
 
 use crate::arc_erase::ArcEraseDyn;
-use crate::storage::PagableStorageHandle;
+use crate::storage::handle::PagableStorageHandle;
 
 // ============================================================================
 // Combined Pagable trait
