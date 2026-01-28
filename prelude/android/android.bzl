@@ -85,6 +85,50 @@ RE_USE_CASE = attrs.option(attrs.dict(key = attrs.string(), value = attrs.string
 #    }
 META_INTERNAL_EXTRA_PARAMS = attrs.option(attrs.dict(key = attrs.string(), value = attrs.any()), default = None)
 
+# Common extra attributes shared by android_binary and android_bundle
+ANDROID_BINARY_BUNDLE_COMMON_EXTRA_ATTRS = {
+    "application_module_blocklist": attrs.option(attrs.list(attrs.transition_dep(cfg = cpu_transition)), default = None),
+    "application_module_configs": attrs.dict(key = attrs.string(), value = attrs.list(attrs.transition_dep(cfg = cpu_transition)), sorted = False, default = {}),
+    "build_config_values_file": attrs.option(attrs.one_of(attrs.transition_dep(cfg = cpu_transition), attrs.source()), default = None),
+    "default_module_manifest_skeleton": attrs.option(attrs.one_of(attrs.transition_dep(cfg = cpu_transition), attrs.source()), default = None),
+    "deps": attrs.list(attrs.split_transition_dep(cfg = cpu_split_transition), default = []),
+    "duplicate_class_checker_enabled": attrs.bool(default = False),
+    "duplicate_resource_behavior": attrs.enum(DuplicateResourceBehaviour, default = "allow_by_default"),  # Match default in V1
+    "manifest": attrs.option(attrs.one_of(attrs.transition_dep(cfg = cpu_transition), attrs.source()), default = None),
+    "manifest_skeleton": attrs.option(attrs.one_of(attrs.transition_dep(cfg = cpu_transition), attrs.source()), default = None),
+    "min_sdk_version": attrs.option(attrs.int(), default = None),
+    "native_library_merge_code_generator": attrs.option(attrs.exec_dep(), default = None),
+    "native_library_merge_glue": attrs.option(attrs.split_transition_dep(cfg = cpu_split_transition), default = None),
+    "native_library_merge_linker_args": attrs.option(attrs.dict(key = attrs.string(), value = attrs.list(attrs.arg())), default = None),
+    "package_validators": attrs.list(
+        attrs.tuple(
+            attrs.exec_dep(providers = [RunInfo]),
+            attrs.list(attrs.arg(), default = []),
+        ),
+        default = [],
+    ),
+    "relinker_extra_deps": attrs.list(attrs.split_transition_dep(cfg = cpu_split_transition), default = []),
+    "_android_toolchain": toolchains_common.android(),
+    "_cxx_toolchain": attrs.split_transition_dep(cfg = cpu_split_transition, default = "toolchains//:android-hack"),
+    "_dex_toolchain": toolchains_common.dex(),
+    "_exec_os_type": buck.exec_os_type_arg(),
+    "_is_building_android_binary": attrs.default_only(attrs.bool(default = True)),
+    "_is_force_single_cpu": attrs.default_only(attrs.bool(default = FORCE_SINGLE_CPU)),
+    "_is_force_single_default_cpu": attrs.default_only(attrs.bool(default = FORCE_SINGLE_DEFAULT_CPU)),
+    "_java_toolchain": toolchains_common.java_for_android(),
+    VALIDATION_DEPS_ATTR_NAME: attrs.set(attrs.transition_dep(cfg = cpu_transition), sorted = True, default = []),
+}
+
+# android_binary specific extra attributes
+ANDROID_BINARY_EXTRA_ATTRS = {
+    "strip_libraries": attrs.bool(default = not DISABLE_STRIPPING),
+} | constraint_overrides.attributes
+
+# android_bundle specific extra attributes
+ANDROID_BUNDLE_EXTRA_ATTRS = {
+    "use_derived_apk": attrs.bool(default = False),
+}
+
 extra_attributes = {
     "android_aar": {
         "abi_generation_mode": attrs.option(attrs.enum(AbiGenerationMode), default = None),
@@ -110,78 +154,14 @@ extra_attributes = {
         "_android_toolchain": toolchains_common.android(),
         "_build_only_native_code": attrs.default_only(attrs.bool(default = is_build_only_native_code())),
     },
-    "android_binary": {
-        "application_module_blocklist": attrs.option(attrs.list(attrs.transition_dep(cfg = cpu_transition)), default = None),
-        "application_module_configs": attrs.dict(key = attrs.string(), value = attrs.list(attrs.transition_dep(cfg = cpu_transition)), sorted = False, default = {}),
-        "build_config_values_file": attrs.option(attrs.one_of(attrs.transition_dep(cfg = cpu_transition), attrs.source()), default = None),
-        "default_module_manifest_skeleton": attrs.option(attrs.one_of(attrs.transition_dep(cfg = cpu_transition), attrs.source()), default = None),
-        "deps": attrs.list(attrs.split_transition_dep(cfg = cpu_split_transition), default = []),
-        "duplicate_class_checker_enabled": attrs.bool(default = False),
-        "duplicate_resource_behavior": attrs.enum(DuplicateResourceBehaviour, default = "allow_by_default"),  # Match default in V1
-        "manifest": attrs.option(attrs.one_of(attrs.transition_dep(cfg = cpu_transition), attrs.source()), default = None),
-        "manifest_skeleton": attrs.option(attrs.one_of(attrs.transition_dep(cfg = cpu_transition), attrs.source()), default = None),
-        "min_sdk_version": attrs.option(attrs.int(), default = None),
-        "native_library_merge_code_generator": attrs.option(attrs.exec_dep(), default = None),
-        "native_library_merge_glue": attrs.option(attrs.split_transition_dep(cfg = cpu_split_transition), default = None),
-        "native_library_merge_linker_args": attrs.option(attrs.dict(key = attrs.string(), value = attrs.list(attrs.arg())), default = None),
-        "package_validators": attrs.list(
-            attrs.tuple(
-                attrs.exec_dep(providers = [RunInfo]),
-                attrs.list(attrs.arg(), default = []),
-            ),
-            default = [],
-        ),
-        "relinker_extra_deps": attrs.list(attrs.split_transition_dep(cfg = cpu_split_transition), default = []),
-        "strip_libraries": attrs.bool(default = not DISABLE_STRIPPING),
-        "_android_toolchain": toolchains_common.android(),
-        "_cxx_toolchain": attrs.split_transition_dep(cfg = cpu_split_transition, default = "toolchains//:android-hack"),
-        "_dex_toolchain": toolchains_common.dex(),
-        "_exec_os_type": buck.exec_os_type_arg(),
-        "_is_building_android_binary": attrs.default_only(attrs.bool(default = True)),
-        "_is_force_single_cpu": attrs.default_only(attrs.bool(default = FORCE_SINGLE_CPU)),
-        "_is_force_single_default_cpu": attrs.default_only(attrs.bool(default = FORCE_SINGLE_DEFAULT_CPU)),
-        "_java_toolchain": toolchains_common.java_for_android(),
-        VALIDATION_DEPS_ATTR_NAME: attrs.set(attrs.transition_dep(cfg = cpu_transition), sorted = True, default = []),
-    } | constraint_overrides.attributes,
+    "android_binary": ANDROID_BINARY_BUNDLE_COMMON_EXTRA_ATTRS | ANDROID_BINARY_EXTRA_ATTRS,
     "android_build_config": {
         "_android_toolchain": toolchains_common.android(),
         "_build_only_native_code": attrs.default_only(attrs.bool(default = is_build_only_native_code())),
         "_is_building_android_binary": is_building_android_binary_attr(),
         "_java_toolchain": toolchains_common.java_for_android(),
     },
-    "android_bundle": {
-        "application_module_blocklist": attrs.option(attrs.list(attrs.transition_dep(cfg = cpu_transition)), default = None),
-        "application_module_configs": attrs.dict(key = attrs.string(), value = attrs.list(attrs.transition_dep(cfg = cpu_transition)), sorted = False, default = {}),
-        "build_config_values_file": attrs.option(attrs.one_of(attrs.transition_dep(cfg = cpu_transition), attrs.source()), default = None),
-        "default_module_manifest_skeleton": attrs.option(attrs.one_of(attrs.transition_dep(cfg = cpu_transition), attrs.source()), default = None),
-        "deps": attrs.list(attrs.split_transition_dep(cfg = cpu_split_transition), default = []),
-        "duplicate_class_checker_enabled": attrs.bool(default = False),
-        "duplicate_resource_behavior": attrs.enum(DuplicateResourceBehaviour, default = "allow_by_default"),  # Match default in V1
-        "manifest": attrs.option(attrs.one_of(attrs.transition_dep(cfg = cpu_transition), attrs.source()), default = None),
-        "manifest_skeleton": attrs.option(attrs.one_of(attrs.transition_dep(cfg = cpu_transition), attrs.source()), default = None),
-        "min_sdk_version": attrs.option(attrs.int(), default = None),
-        "native_library_merge_code_generator": attrs.option(attrs.exec_dep(), default = None),
-        "native_library_merge_glue": attrs.option(attrs.split_transition_dep(cfg = cpu_split_transition), default = None),
-        "native_library_merge_linker_args": attrs.option(attrs.dict(key = attrs.string(), value = attrs.list(attrs.arg())), default = None),
-        "package_validators": attrs.list(
-            attrs.tuple(
-                attrs.exec_dep(providers = [RunInfo]),
-                attrs.list(attrs.arg(), default = []),
-            ),
-            default = [],
-        ),
-        "relinker_extra_deps": attrs.list(attrs.split_transition_dep(cfg = cpu_split_transition), default = []),
-        "use_derived_apk": attrs.bool(default = False),
-        "_android_toolchain": toolchains_common.android(),
-        "_cxx_toolchain": attrs.split_transition_dep(cfg = cpu_split_transition, default = "toolchains//:android-hack"),
-        "_dex_toolchain": toolchains_common.dex(),
-        "_exec_os_type": buck.exec_os_type_arg(),
-        "_is_building_android_binary": attrs.default_only(attrs.bool(default = True)),
-        "_is_force_single_cpu": attrs.default_only(attrs.bool(default = FORCE_SINGLE_CPU)),
-        "_is_force_single_default_cpu": attrs.default_only(attrs.bool(default = FORCE_SINGLE_DEFAULT_CPU)),
-        "_java_toolchain": toolchains_common.java_for_android(),
-        VALIDATION_DEPS_ATTR_NAME: attrs.set(attrs.transition_dep(cfg = cpu_transition), sorted = True, default = []),
-    },
+    "android_bundle": ANDROID_BINARY_BUNDLE_COMMON_EXTRA_ATTRS | ANDROID_BUNDLE_EXTRA_ATTRS,
     "android_instrumentation_apk": {
         "apk": attrs.dep(),
         "cpu_filters": attrs.list(attrs.enum(TargetCpuType), default = []),
