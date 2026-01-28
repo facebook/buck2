@@ -125,13 +125,13 @@ impl CoercedAttrExr for CoercedAttr {
                         CoercedAttr::Concat(l) => l.0.into_vec(),
                         l => vec![l],
                     };
-                    let r = CoercedAttr::coerce(attr, configurable, ctx, r, None)?;
-                    let r = match r {
-                        CoercedAttr::Concat(r) => r.0.into_vec(),
-                        r => vec![r],
+                    match CoercedAttr::coerce(attr, configurable, ctx, r, None)? {
+                        CoercedAttr::Concat(r) => {
+                            l.extend(r.0.into_vec());
+                        }
+                        r => l.push(r),
                     };
 
-                    l.extend(r);
                     Ok(CoercedAttr::Concat(CoercedConcat(l.into_boxed_slice())))
                 }
             }
