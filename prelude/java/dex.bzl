@@ -34,8 +34,6 @@ def get_dex_produced_from_java_library(
         needs_desugar: bool = False,
         desugar_deps: [TransitiveSetArgsProjection, None] = None,
         weight_factor: int = 1) -> DexLibraryInfo:
-    # TODO(T102963008) check whether the java_library actually contains any classes
-
     d8_cmd = cmd_args(dex_toolchain.d8_command[RunInfo])
 
     library_path = jar_to_dex.short_path
