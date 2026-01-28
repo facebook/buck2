@@ -1478,7 +1478,6 @@ impl BcFrozenCallable for FrozenValue {
         args: &Arguments<'v, '_>,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> crate::Result<Value<'v>> {
-        eval.report_forward_progress()?;
         self.to_value().invoke_with_loc(Some(location), args, eval)
     }
 }
@@ -1491,7 +1490,6 @@ impl BcFrozenCallable for FrozenValueTyped<'static, FrozenDef> {
         args: &Arguments<'v, '_>,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> crate::Result<Value<'v>> {
-        eval.report_forward_progress()?;
         eval.with_call_stack(self.to_value(), Some(location), |eval| {
             self.as_ref().invoke(self.to_value(), args, eval)
         })
@@ -1506,7 +1504,6 @@ impl BcFrozenCallable for BcNativeFunction {
         args: &Arguments<'v, '_>,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> crate::Result<Value<'v>> {
-        eval.report_forward_progress()?;
         eval.with_call_stack(self.to_value(), Some(location), |eval| {
             self.invoke(args, eval)
         })
@@ -1738,7 +1735,6 @@ impl InstrNoFlowImpl for InstrPossibleGcImpl {
         _ip: BcPtrAddr,
         (): &(),
     ) -> crate::Result<()> {
-        eval.report_forward_progress()?;
         possible_gc(eval);
         Ok(())
     }
