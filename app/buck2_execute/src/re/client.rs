@@ -479,6 +479,9 @@ struct RemoteExecutionClientImpl {
     /// How many simultaneous requests to RE
     #[allocative(skip)]
     cas_semaphore: Arc<Semaphore>,
+    /// How many simultaneous execute requests to RE
+    #[allocative(skip)]
+    exec_semaphore: Arc<Semaphore>,
     /// How many files we can be downloading concurrently.
     #[allocative(skip)]
     download_files_semapore: Arc<Semaphore>,
@@ -935,6 +938,7 @@ impl RemoteExecutionClientImpl {
                 client: Some(client),
                 skip_remote_cache: re_config.skip_remote_cache,
                 cas_semaphore: Arc::new(Semaphore::new(static_metadata.cas_semaphore_size())),
+                exec_semaphore: Arc::new(Semaphore::new(static_metadata.exec_semaphore_size())),
                 download_files_semapore: Arc::new(Semaphore::new(download_concurrency)),
                 download_chunk_size,
                 respect_file_symlinks,
@@ -1352,6 +1356,8 @@ impl RemoteExecutionClientImpl {
         meta_internal_extra_params: &MetaInternalExtraParams,
         worker_tool_action_digest: Option<ActionDigest>,
     ) -> buck2_error::Result<ExecuteResponseOrCancelled> {
+        let _exec_permit = self.exec_semaphore.acquire().await;
+
         #[cfg(not(fbcode_build))]
         let _unused = worker_tool_action_digest;
         #[cfg(not(fbcode_build))]
