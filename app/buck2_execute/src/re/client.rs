@@ -302,6 +302,7 @@ impl RemoteExecutionClient {
         knobs: &ExecutorGlobalKnobs,
         meta_internal_extra_params: &MetaInternalExtraParams,
         worker_tool_action_digest: Option<ActionDigest>,
+        priority: Option<i32>,
     ) -> buck2_error::Result<ExecuteResponseOrCancelled> {
         self.data
             .executes
@@ -320,6 +321,7 @@ impl RemoteExecutionClient {
                 knobs,
                 meta_internal_extra_params,
                 worker_tool_action_digest,
+                priority,
             ))
             .await
     }
@@ -1351,6 +1353,7 @@ impl RemoteExecutionClientImpl {
         knobs: &ExecutorGlobalKnobs,
         meta_internal_extra_params: &MetaInternalExtraParams,
         worker_tool_action_digest: Option<ActionDigest>,
+        priority: Option<i32>,
     ) -> buck2_error::Result<ExecuteResponseOrCancelled> {
         #[cfg(not(fbcode_build))]
         let _unused = worker_tool_action_digest;
@@ -1388,9 +1391,8 @@ impl RemoteExecutionClientImpl {
                 || induced_cache_miss.is_some(),
             execution_policy: Some(TExecutionPolicy {
                 affinity_keys: vec![identity.affinity_key.clone()],
-                priority: meta_internal_extra_params
-                    .remote_execution_policy
-                    .priority
+                priority: priority
+                    .or(meta_internal_extra_params.remote_execution_policy.priority)
                     .unwrap_or_default(),
                 region_preference: meta_internal_extra_params
                     .remote_execution_policy

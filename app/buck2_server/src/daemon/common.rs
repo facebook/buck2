@@ -224,7 +224,8 @@ impl HasCommandExecutor for CommandExecutorFactory {
              re_action_key: &Option<String>,
              remote_cache_enabled: bool,
              dependencies: &[RemoteExecutorDependency],
-             gang_workers: &[ReGangWorker]| {
+             gang_workers: &[ReGangWorker],
+             priority: Option<i32>| {
                 ReExecutor {
                     artifact_fs: artifact_fs.clone(),
                     project_fs: self.project_root.clone(),
@@ -244,6 +245,7 @@ impl HasCommandExecutor for CommandExecutorFactory {
                     gang_workers: gang_workers.to_vec(),
                     deduplicate_get_digests_ttl_calls: self.deduplicate_get_digests_ttl_calls,
                     output_trees_download_config: self.output_trees_download_config.dupe(),
+                    priority,
                 }
             };
 
@@ -343,6 +345,7 @@ impl HasCommandExecutor for CommandExecutorFactory {
                                 remote_options.remote_cache_enabled,
                                 &remote_options.dependencies,
                                 &remote_options.gang_workers,
+                                remote_options.priority,
                             )))
                         }
                         RemoteEnabledExecutor::Hybrid {
@@ -361,6 +364,7 @@ impl HasCommandExecutor for CommandExecutorFactory {
                                 remote_options.remote_cache_enabled,
                                 &remote_options.dependencies,
                                 &remote_options.gang_workers,
+                                remote_options.priority,
                             );
                             let executor_preference = self.strategy.hybrid_preference();
                             let low_pass_filter = self.low_pass_filter.dupe();
@@ -520,6 +524,7 @@ pub fn get_default_executor_config(host_platform: HostPlatformOverride) -> Comma
             gang_workers: vec![],
             custom_image: None,
             meta_internal_extra_params: MetaInternalExtraParams::default(),
+            priority: None,
         })
     };
 
