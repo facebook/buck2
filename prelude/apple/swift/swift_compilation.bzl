@@ -60,7 +60,7 @@ load(
     "get_incremental_file_hashing_enabled",
     "get_incremental_object_compilation_flags",
     "get_incremental_remote_outputs_enabled",
-    "get_uses_experimental_content_based_path_hashing",
+    "get_uses_content_based_paths",
     "should_build_swift_incrementally",
 )
 load(":swift_module_map.bzl", "write_swift_module_map_with_deps")
@@ -311,7 +311,7 @@ def compile_swift(
     framework_search_paths = cmd_args()
     framework_search_paths.add(_get_xctest_swiftmodule_search_path(ctx))
 
-    uses_experimental_content_based_path_hashing = get_uses_experimental_content_based_path_hashing(ctx)
+    uses_experimental_content_based_path_hashing = get_uses_content_based_paths(ctx)
 
     # Pass the framework search paths to the driver and clang importer. This is required
     # for pcm compilation, which does not pass through driver search paths.
@@ -597,7 +597,7 @@ def _compile_typecheck_diagnostics(
         shared_flags: cmd_args,
         srcs: list[CxxSrcWithFlags]) -> Artifact:
     category = "swift_typecheck"
-    uses_experimental_content_based_path_hashing = get_uses_experimental_content_based_path_hashing(ctx)
+    uses_experimental_content_based_path_hashing = get_uses_content_based_paths(ctx)
 
     if uses_explicit_modules(ctx):
         category += "_with_explicit_mods"
@@ -654,7 +654,7 @@ def _compile_object(
     emit_depsfiles = toolchain.use_depsfiles and not get_incremental_file_hashing_enabled(ctx)
     skip_incremental_outputs = False
     module_name = get_module_name(ctx)
-    uses_experimental_content_based_path_hashing = get_uses_experimental_content_based_path_hashing(ctx)
+    uses_experimental_content_based_path_hashing = get_uses_content_based_paths(ctx)
 
     if should_build_swift_incrementally(ctx):
         #define this here as we will only have an artifact for the purposes of incremental rebuilds.
@@ -1440,7 +1440,7 @@ def _create_objc_swift_interface(ctx: AnalysisContext, shared_flags: cmd_args, m
     if not swift_ide_test_tool:
         return DefaultInfo()
     mk_swift_interface = swift_toolchain.mk_swift_interface
-    uses_experimental_content_based_path_hashing = get_uses_experimental_content_based_path_hashing(ctx)
+    uses_experimental_content_based_path_hashing = get_uses_content_based_paths(ctx)
 
     identifier = module_name + ".swift_interface"
 

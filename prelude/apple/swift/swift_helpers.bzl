@@ -14,7 +14,7 @@ load("@prelude//cxx:cxx_sources.bzl", "CxxSrcWithFlags")
 load(
     ":swift_incremental_support.bzl",
     "IncrementalCompilationInput",  # @unused Used as a type
-    "get_uses_experimental_content_based_path_hashing",
+    "get_uses_content_based_paths",
     "should_build_swift_incrementally",
 )
 load(":swift_output_file_map.bzl", "add_output_file_map_flags", "add_serialized_diagnostics_output")
@@ -48,7 +48,7 @@ def compile_with_argsfile_cmd(
         artifact_tag: ArtifactTag | None) -> CompileWithArgsFileCmdOutput:
     object_outputs = [obj.as_output() for obj in objects]
 
-    uses_experimental_content_based_path_hashing = get_uses_experimental_content_based_path_hashing(ctx)
+    uses_experimental_content_based_path_hashing = get_uses_content_based_paths(ctx)
 
     writable_incremental_args = []
     if incremental_artifacts:

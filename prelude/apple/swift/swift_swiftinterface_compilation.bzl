@@ -17,7 +17,7 @@ load(
 )
 load(
     ":swift_incremental_support.bzl",
-    "get_uses_experimental_content_based_path_hashing",
+    "get_uses_content_based_paths",
 )
 load(":swift_module_map.bzl", "write_swift_module_map_with_deps")
 load(":swift_sdk_flags.bzl", "get_sdk_flags")
@@ -53,7 +53,7 @@ def compile_swiftinterface_common(
         category,
         additional_compiled_pcm,
         additional_compiled_swiftmodules = None):
-    uses_experimental_content_based_path_hashing = get_uses_experimental_content_based_path_hashing(ctx)
+    uses_experimental_content_based_path_hashing = get_uses_content_based_paths(ctx)
     swift_toolchain = get_swift_toolchain_info(ctx)
     cmd = cmd_args(swift_toolchain.compiler)
     cmd.add(partial_cmd)

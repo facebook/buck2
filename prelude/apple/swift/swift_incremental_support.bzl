@@ -96,7 +96,7 @@ def get_swift_incremental_logging_enabled(ctx: AnalysisContext):
 def get_incremental_remote_outputs_enabled(ctx: AnalysisContext):
     return getattr(ctx.attrs, "incremental_remote_outputs", False)
 
-def get_uses_experimental_content_based_path_hashing(ctx):
+def get_uses_content_based_paths(ctx):
     toolchain = get_swift_toolchain_info(ctx)
     return toolchain.uses_experimental_content_based_path_hashing or getattr(ctx.attrs, "has_content_based_path", False)
 
@@ -132,7 +132,7 @@ def _get_incremental_compilation_flags_and_objects(
 
     skip_incremental_outputs = _get_skip_swift_incremental_outputs(ctx)
     incremental_remote_outputs = False
-    uses_experimental_content_based_path_hashing = get_uses_experimental_content_based_path_hashing(ctx)
+    uses_experimental_content_based_path_hashing = get_uses_content_based_paths(ctx)
     if get_swift_incremental_logging_enabled(ctx):
         cmd.add([
             "-driver-show-incremental",
@@ -182,7 +182,7 @@ def _get_incremental_compilation_flags_and_objects(
 def _get_output_file_map(
         ctx: AnalysisContext,
         srcs: list[CxxSrcWithFlags]) -> _OutputFileMapData:
-    uses_experimental_content_based_path_hashing = get_uses_experimental_content_based_path_hashing(ctx)
+    uses_experimental_content_based_path_hashing = get_uses_content_based_paths(ctx)
     if _get_skip_swift_incremental_outputs(ctx):
         all_outputs = []
         swiftdeps = []

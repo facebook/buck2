@@ -15,7 +15,7 @@ load(
 )
 load(
     ":swift_incremental_support.bzl",
-    "get_uses_experimental_content_based_path_hashing",
+    "get_uses_content_based_paths",
 )
 load(":swift_sdk_flags.bzl", "get_sdk_flags")
 load(":swift_toolchain.bzl", "get_swift_toolchain_info_dep")
@@ -113,7 +113,7 @@ def _swift_sdk_pcm_compilation_impl(ctx: AnalysisContext) -> [Promise, list[Prov
     def k(sdk_pcm_deps_providers) -> list[Provider]:
         uncompiled_sdk_module_info = ctx.attrs.dep[SdkUncompiledModuleInfo]
         sdk_deps_tset = get_compiled_sdk_clang_deps_tset(ctx, sdk_pcm_deps_providers)
-        uses_experimental_content_based_path_hashing = get_uses_experimental_content_based_path_hashing(ctx)
+        uses_experimental_content_based_path_hashing = get_uses_content_based_paths(ctx)
 
         # We pass in Swift and Clang SDK module deps to get the transitive
         # Clang dependencies compiled with the correct Swift cxx args. For

@@ -14,7 +14,7 @@ load("@prelude//apple:apple_utility.bzl", "get_apple_architecture")
 # @oss-disable[end= ]: load("@prelude//apple/meta_only:shared_library_interfaces.bzl", "get_shared_library_interface_generation_linker_flags")
 load(
     "@prelude//apple/swift:swift_incremental_support.bzl",
-    "get_uses_experimental_content_based_path_hashing",
+    "get_uses_content_based_paths",
 )
 load("@prelude//cxx:cxx_context.bzl", "get_cxx_toolchain_info")
 load(
@@ -710,7 +710,7 @@ def cxx_darwin_dist_link(
 
     prepared_archive_artifacts = {}
 
-    uses_content_based_paths = get_uses_experimental_content_based_path_hashing(ctx)
+    uses_content_based_paths = get_uses_content_based_paths(ctx)
 
     recorded_artifact_names = {}
     for link in link_infos:

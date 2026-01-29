@@ -31,7 +31,7 @@ load(
 load("@prelude//apple/swift:swift_helpers.bzl", "uses_explicit_modules")
 load(
     "@prelude//apple/swift:swift_incremental_support.bzl",
-    "get_uses_experimental_content_based_path_hashing",
+    "get_uses_content_based_paths",
 )
 load("@prelude//apple/swift:swift_toolchain_types.bzl", "SwiftToolchainInfo")
 load("@prelude//apple/swift:swift_types.bzl", "SWIFT_EXTENSION")
@@ -574,7 +574,7 @@ def apple_library_rule_constructor_params_and_swift_providers(ctx: AnalysisConte
         allow_cache_upload = cxx_attrs_get_allow_cache_upload(ctx.attrs, get_cxx_toolchain_info(ctx).cxx_compiler_info.allow_cache_upload),
         precompiled_header = ctx.attrs.precompiled_header,
         prefix_header = ctx.attrs.prefix_header,
-        use_content_based_paths = get_uses_experimental_content_based_path_hashing(ctx),
+        use_content_based_paths = get_uses_content_based_paths(ctx),
     )
 
 def _get_extra_linker_outputs(ctx: AnalysisContext, extra_linker_output_category: ExtraLinkerOutputCategory = ExtraLinkerOutputCategory("produced-during-local-link")) -> ExtraLinkerOutputs:
