@@ -245,7 +245,7 @@ nix = { version = "0.30.1", features = ["dir", "event", "hostname", "inotify", "
 nom = "8"
 nom-language = "0.1"
 notify = "=5.0.0"
-num-bigint = { version = "0.4.3", features = ["serde"] }
+num-bigint = "0.4.3"
 num-traits = "0.2"
 num_cpus = "1.11"
 num_enum = "0.7"
