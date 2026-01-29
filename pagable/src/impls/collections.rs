@@ -135,6 +135,38 @@ impl<'de, K: Ord + PagableDeserialize<'de>, V: PagableDeserialize<'de>> PagableD
     }
 }
 
+impl<K: PagableSerialize, V: PagableSerialize, H> PagableSerialize for indexmap::IndexMap<K, V, H> {
+    fn pagable_serialize(&self, serializer: &mut dyn PagableSerializer) -> crate::Result<()> {
+        usize::serialize(&self.len(), serializer.serde())?;
+        for (k, v) in self {
+            k.pagable_serialize(serializer)?;
+            v.pagable_serialize(serializer)?;
+        }
+        Ok(())
+    }
+}
+
+impl<
+    'de,
+    K: std::hash::Hash + Eq + PagableDeserialize<'de>,
+    V: PagableDeserialize<'de>,
+    H: std::default::Default + std::hash::BuildHasher,
+> PagableDeserialize<'de> for indexmap::IndexMap<K, V, H>
+{
+    fn pagable_deserialize<D: PagableDeserializer<'de> + ?Sized>(
+        deserializer: &mut D,
+    ) -> crate::Result<Self> {
+        let items = usize::deserialize(deserializer.serde())?;
+        let mut map: indexmap::IndexMap<K, V, H> = indexmap::IndexMap::default();
+        for _ in 0..items {
+            let k = K::pagable_deserialize(deserializer)?;
+            let v = V::pagable_deserialize(deserializer)?;
+            map.insert(k, v);
+        }
+        Ok(map)
+    }
+}
+
 impl<V: PagableSerialize> PagableSerialize for std::collections::BTreeSet<V> {
     fn pagable_serialize(&self, serializer: &mut dyn PagableSerializer) -> crate::Result<()> {
         usize::serialize(&self.len(), serializer.serde())?;
@@ -152,6 +184,31 @@ impl<'de, V: Ord + PagableDeserialize<'de>> PagableDeserialize<'de>
     ) -> crate::Result<Self> {
         let items = usize::deserialize(deserializer.serde())?;
         let mut set = std::collections::BTreeSet::new();
+        for _ in 0..items {
+            let v = V::pagable_deserialize(deserializer)?;
+            set.insert(v);
+        }
+        Ok(set)
+    }
+}
+
+impl<V: PagableSerialize> PagableSerialize for indexmap::IndexSet<V> {
+    fn pagable_serialize(&self, serializer: &mut dyn PagableSerializer) -> crate::Result<()> {
+        usize::serialize(&self.len(), serializer.serde())?;
+        for v in self {
+            v.pagable_serialize(serializer)?;
+        }
+        Ok(())
+    }
+}
+impl<'de, V: std::hash::Hash + Eq + PagableDeserialize<'de>> PagableDeserialize<'de>
+    for indexmap::IndexSet<V>
+{
+    fn pagable_deserialize<D: PagableDeserializer<'de> + ?Sized>(
+        deserializer: &mut D,
+    ) -> crate::Result<Self> {
+        let items = usize::deserialize(deserializer.serde())?;
+        let mut set = indexmap::IndexSet::new();
         for _ in 0..items {
             let v = V::pagable_deserialize(deserializer)?;
             set.insert(v);
@@ -345,6 +402,46 @@ mod tests {
 
         let mut deserializer = TestingDeserializer::new(&bytes);
         let restored: BTreeSet<String> = BTreeSet::pagable_deserialize(&mut deserializer)?;
+
+        assert_eq!(set, restored);
+        Ok(())
+    }
+
+    #[test]
+    fn test_indexmap_roundtrip() -> crate::Result<()> {
+        use indexmap::IndexMap;
+
+        let mut map: IndexMap<String, i32> = IndexMap::new();
+        map.insert("one".to_owned(), 1);
+        map.insert("two".to_owned(), 2);
+        map.insert("three".to_owned(), 3);
+
+        let mut serializer = TestingSerializer::new();
+        map.pagable_serialize(&mut serializer)?;
+        let bytes = serializer.finish();
+
+        let mut deserializer = TestingDeserializer::new(&bytes);
+        let restored: IndexMap<String, i32> = IndexMap::pagable_deserialize(&mut deserializer)?;
+
+        assert_eq!(map, restored);
+        Ok(())
+    }
+
+    #[test]
+    fn test_indexset_roundtrip() -> crate::Result<()> {
+        use indexmap::IndexSet;
+
+        let mut set: IndexSet<String> = IndexSet::new();
+        set.insert("one".to_owned());
+        set.insert("two".to_owned());
+        set.insert("three".to_owned());
+
+        let mut serializer = TestingSerializer::new();
+        set.pagable_serialize(&mut serializer)?;
+        let bytes = serializer.finish();
+
+        let mut deserializer = TestingDeserializer::new(&bytes);
+        let restored: IndexSet<String> = IndexSet::pagable_deserialize(&mut deserializer)?;
 
         assert_eq!(set, restored);
         Ok(())
