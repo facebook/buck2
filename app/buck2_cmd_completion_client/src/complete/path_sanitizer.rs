@@ -48,7 +48,7 @@ impl SanitizedPath {
     }
 
     pub(crate) fn is_ready_for_next_dir(&self) -> bool {
-        let is_root_dir = self.given == "";
+        let is_root_dir = self.given.is_empty();
         let is_slash_terminated_dir = fs_util::metadata(&self.abs_path).is_ok_and(|m| m.is_dir())
             && self.given.ends_with('/');
         is_root_dir || is_slash_terminated_dir
@@ -137,7 +137,7 @@ impl PathSanitizer {
         given_cell_str: &str,
         cell_path: &str,
     ) -> Result<SanitizedPath, buck2_error::Error> {
-        let given_cell = if given_cell_str == "" {
+        let given_cell = if given_cell_str.is_empty() {
             self.cell_resolver.find(&self.cwd_roots.cwd)
         } else {
             self.resolve_alias(given_cell_str)?
