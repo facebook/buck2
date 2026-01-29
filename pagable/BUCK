@@ -16,6 +16,7 @@ rust_library(
         "fbsource//third-party/rust:dashmap",
         "fbsource//third-party/rust:either",
         "fbsource//third-party/rust:erased-serde",
+        "fbsource//third-party/rust:num-bigint",
         "fbsource//third-party/rust:parking_lot",
         "fbsource//third-party/rust:postcard",
         "fbsource//third-party/rust:relative-path",
