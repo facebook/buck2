@@ -252,7 +252,7 @@ impl strong_hash::StrongHash for PluginKindSet {
 
 impl PartialOrd for PluginKindSet {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        PartialOrd::partial_cmp(&self.unpack(), &other.unpack())
+        Some(self.cmp(other))
     }
 }
 

@@ -738,7 +738,7 @@ impl<Kind: CasDigestKind> Borrow<CasDigest<Kind>> for &TrackedCasDigest<Kind> {
 
 impl<Kind: CasDigestKind> PartialOrd for TrackedCasDigest<Kind> {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        self.data().partial_cmp(other.data())
+        Some(self.cmp(other))
     }
 }
 
