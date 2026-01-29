@@ -240,28 +240,6 @@ async fn build(
         .await?
         .unwrap_or_default();
 
-    let want_configured_graph_unconfigured_sketch = ctx
-        .parse_legacy_config_property(
-            cell_resolver.root_cell(),
-            BuckconfigKeyRef {
-                section: "buck2",
-                property: "log_configured_graph_unconfigured_sketch",
-            },
-        )
-        .await?
-        .unwrap_or_default();
-
-    let want_total_configured_graph_unconfigured_sketch = ctx
-        .parse_legacy_config_property(
-            cell_resolver.root_cell(),
-            BuckconfigKeyRef {
-                section: "buck2",
-                property: "log_total_configured_graph_unconfigured_sketch",
-            },
-        )
-        .await?
-        .unwrap_or_default();
-
     let want_retained_analysis_memory_sketch = ctx
         .parse_legacy_config_property(
             cell_resolver.root_cell(),
@@ -276,9 +254,7 @@ async fn build(
     let graph_properties = GraphPropertiesOptions {
         configured_graph_size: want_configured_graph_size,
         configured_graph_sketch: want_configured_graph_sketch,
-        configured_graph_unconfigured_sketch: want_configured_graph_unconfigured_sketch,
         total_configured_graph_sketch: want_total_configured_graph_sketch,
-        total_configured_graph_unconfigured_sketch: want_total_configured_graph_unconfigured_sketch,
         retained_analysis_memory_sketch: want_retained_analysis_memory_sketch,
     };
 

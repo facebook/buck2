@@ -56,12 +56,8 @@ pub(crate) async fn server_execute(
                     continue;
                 };
                 let now = Instant::now();
-                let props = debug_compute_configured_graph_properties_uncached(
-                    node,
-                    command.sketch,
-                    // TODO: add a flag to enable this
-                    false,
-                );
+                let props =
+                    debug_compute_configured_graph_properties_uncached(node, command.sketch);
                 let duration = Instant::now() - now;
                 results.insert(
                     target,

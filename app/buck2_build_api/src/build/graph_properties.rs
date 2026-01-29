@@ -11,16 +11,13 @@
 use std::collections::HashSet;
 use std::fmt;
 use std::hash::BuildHasherDefault;
-use std::hash::Hash;
 use std::sync::Arc;
 
 use allocative::Allocative;
 use async_trait::async_trait;
 use base64::write::EncoderWriter;
 use buck2_core::configuration::compatibility::MaybeCompatible;
-use buck2_core::configuration::data::ConfigurationData;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
-use buck2_core::target::label::label::TargetLabel;
 use buck2_interpreter::dice::starlark_provider::StarlarkEvalKind;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_node::nodes::configured_frontend::ConfiguredTargetNodeCalculation;
@@ -37,7 +34,6 @@ use ref_cast::RefCast;
 use setsketch::SetSketchParams;
 use setsketch::SetSketcher;
 use starlark::values::FrozenHeapRef;
-use starlark_map::ordered_map::OrderedMap;
 use strong_hash::StrongHash;
 use strong_hash::UseStrongHashing;
 
@@ -47,9 +43,7 @@ use crate::analysis::calculation::RuleAnalysisCalculation;
 pub struct GraphPropertiesOptions {
     pub configured_graph_size: bool,
     pub configured_graph_sketch: bool,
-    pub configured_graph_unconfigured_sketch: bool,
     pub total_configured_graph_sketch: bool,
-    pub total_configured_graph_unconfigured_sketch: bool,
     pub retained_analysis_memory_sketch: bool,
 }
 
@@ -58,9 +52,7 @@ impl fmt::Display for GraphPropertiesOptions {
         let Self {
             configured_graph_size,
             configured_graph_sketch,
-            configured_graph_unconfigured_sketch,
             total_configured_graph_sketch,
-            total_configured_graph_unconfigured_sketch,
             retained_analysis_memory_sketch,
         } = *self;
 
@@ -76,19 +68,9 @@ impl fmt::Display for GraphPropertiesOptions {
             write!(f, "configured_graph_sketch")?;
         }
 
-        if configured_graph_unconfigured_sketch {
-            comma(f)?;
-            write!(f, "configured_graph_unconfigured_sketch")?;
-        }
-
         if total_configured_graph_sketch {
             comma(f)?;
             write!(f, "total_configured_graph_sketch")?;
-        }
-
-        if total_configured_graph_unconfigured_sketch {
-            comma(f)?;
-            write!(f, "total_configured_graph_unconfigured_sketch")?;
         }
 
         if retained_analysis_memory_sketch {
@@ -105,26 +87,18 @@ impl GraphPropertiesOptions {
         let Self {
             configured_graph_size,
             configured_graph_sketch,
-            configured_graph_unconfigured_sketch,
             total_configured_graph_sketch,
-            total_configured_graph_unconfigured_sketch,
             retained_analysis_memory_sketch,
         } = self;
 
         !configured_graph_size
             && !configured_graph_sketch
-            && !configured_graph_unconfigured_sketch
             && !total_configured_graph_sketch
-            && !total_configured_graph_unconfigured_sketch
             && !retained_analysis_memory_sketch
     }
 
     pub(crate) fn should_compute_configured_graph_sketch(self) -> bool {
         self.configured_graph_sketch || self.total_configured_graph_sketch
-    }
-
-    pub(crate) fn should_compute_per_configuration_sketch(self) -> bool {
-        self.configured_graph_unconfigured_sketch || self.total_configured_graph_unconfigured_sketch
     }
 }
 
@@ -132,8 +106,6 @@ impl GraphPropertiesOptions {
 pub struct ConfiguredGraphPropertiesValues {
     pub configured_graph_size: u64,
     pub configured_graph_sketch: Option<MergeableGraphSketch<ConfiguredTargetLabel>>,
-    pub per_configuration_sketch:
-        Option<Arc<OrderedMap<ConfigurationData, MergeableGraphSketch<TargetLabel>>>>,
 }
 
 #[derive(Clone, Dupe, Debug, Eq, PartialEq, Allocative)]
@@ -200,15 +172,13 @@ impl<T: StrongHash> MergeableGraphSketch<T> {
     Allocative
 )]
 #[display(
-    "GraphPropertiesKey: {}, configured_graph_sketch={}, per_configuration_sketch={}",
+    "GraphPropertiesKey: {}, configured_graph_sketch={}",
     label,
-    configured_graph_sketch,
-    per_configuration_sketch
+    configured_graph_sketch
 )]
 struct ConfiguredGraphPropertiesKey {
     label: ConfiguredTargetLabel,
     configured_graph_sketch: bool,
-    per_configuration_sketch: bool,
 }
 
 #[async_trait]
@@ -225,7 +195,6 @@ impl Key for ConfiguredGraphPropertiesKey {
             debug_compute_configured_graph_properties_uncached(
                 configured_node,
                 self.configured_graph_sketch,
-                self.per_configuration_sketch,
             )
         }))
     }
@@ -305,39 +274,11 @@ impl<T: StrongHash> VersionedSketcher<T> {
     }
 }
 
-pub(crate) struct VersionedSketcherMap<K: Dupe + Hash + Eq, T: StrongHash> {
-    map: OrderedMap<K, VersionedSketcher<T>>,
-    version: SketchVersion,
-}
-
-impl<K: Dupe + Hash + Eq, T: StrongHash> VersionedSketcherMap<K, T> {
-    pub(crate) fn new(version: SketchVersion) -> Self {
-        Self {
-            map: OrderedMap::new(),
-            version,
-        }
-    }
-
-    pub(crate) fn entry_or_insert(&mut self, key: K) -> &mut VersionedSketcher<T> {
-        self.map
-            .entry(key)
-            .or_insert_with(|| self.version.create_sketcher())
-    }
-
-    pub(crate) fn into_mergeable_graph_sketch_map(self) -> OrderedMap<K, MergeableGraphSketch<T>> {
-        self.map
-            .into_iter()
-            .map(|(k, v)| (k, v.into_mergeable_graph_sketch()))
-            .collect()
-    }
-}
-
 /// Returns the total graph size for all dependencies of a target.
 pub async fn get_graph_properties(
     ctx: &mut DiceComputations<'_>,
     label: &ConfiguredTargetLabel,
     configured_graph_sketch: bool,
-    per_configuration_sketch: bool,
     retained_analysis_memory_sketch: bool,
 ) -> buck2_error::Result<MaybeCompatible<GraphPropertiesValues>> {
     let (conf, analysis) = ctx
@@ -347,7 +288,6 @@ pub async fn get_graph_properties(
                     ctx.compute(&ConfiguredGraphPropertiesKey {
                         label: label.dupe(),
                         configured_graph_sketch,
-                        per_configuration_sketch,
                     })
                     .await?
                 }
@@ -382,7 +322,6 @@ pub async fn get_graph_properties(
 pub fn debug_compute_configured_graph_properties_uncached(
     node: ConfiguredTargetNode,
     configured_graph_sketch: bool,
-    per_configuration_sketch: bool,
 ) -> ConfiguredGraphPropertiesValues {
     let mut queue = vec![&node];
     let mut visited: HashSet<_, fxhash::FxBuildHasher> = HashSet::default();
@@ -393,12 +332,6 @@ pub fn debug_compute_configured_graph_properties_uncached(
     } else {
         None
     };
-    let mut per_configuration_sketch: Option<VersionedSketcherMap<ConfigurationData, TargetLabel>> =
-        if per_configuration_sketch {
-            Some(VersionedSketcherMap::new(DEFAULT_SKETCH_VERSION))
-        } else {
-            None
-        };
 
     while let Some(item) = queue.pop() {
         for d in item.deps() {
@@ -410,22 +343,12 @@ pub fn debug_compute_configured_graph_properties_uncached(
         if let Some(sketch) = configured_graph_sketch.as_mut() {
             sketch.sketch(item.label());
         }
-        if let Some(per_configuration_sketch) = per_configuration_sketch.as_mut() {
-            let sketch = per_configuration_sketch.entry_or_insert(item.label().cfg().dupe());
-            // Note this may sketch same unconfigured target label multiple times.
-            // This is fine because merge(sketch(A), sketch(B)) = sketch(A+B), and it's probably cheaper memory-wise
-            // than keeping a set of unconfigured target labels.
-            sketch.sketch(item.label().unconfigured());
-        }
     }
 
     ConfiguredGraphPropertiesValues {
         configured_graph_size: visited.len() as _,
         configured_graph_sketch: configured_graph_sketch
             .map(|sketch| sketch.into_mergeable_graph_sketch()),
-        per_configuration_sketch: per_configuration_sketch.map(|per_configuration_sketch| {
-            Arc::new(per_configuration_sketch.into_mergeable_graph_sketch_map())
-        }),
     }
 }
 

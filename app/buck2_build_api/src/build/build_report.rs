@@ -44,7 +44,6 @@ use buck2_core::provider::label::NonDefaultProvidersName;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::provider::label::ProvidersName;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
-use buck2_core::target::label::label::TargetLabel;
 use buck2_data::ErrorReport;
 use buck2_directory::directory::entry::DirectoryEntry;
 use buck2_error::BuckErrorContext;
@@ -108,8 +107,6 @@ pub struct BuildReport {
     #[serde(skip_serializing_if = "Option::is_none")]
     total_configured_graph_sketch: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    total_configured_graph_unconfigured_sketch: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
     error_category: Option<String>,
 }
 
@@ -151,9 +148,6 @@ pub(crate) struct ConfiguredBuildReportEntry {
     /// Build metrics for this target.
     #[serde(skip_serializing_if = "Option::is_none")]
     build_metrics: Option<Arc<TargetBuildMetrics>>,
-    // The serialized graph sketch based on unconfigured target labels, if it was produced.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    configured_graph_unconfigured_sketch: Option<String>,
     /// A sketch of the analysis memory used by this target
     #[serde(skip_serializing_if = "Option::is_none")]
     retained_analysis_memory_sketch: Option<String>,
@@ -274,7 +268,6 @@ pub struct BuildReportCollector<'a> {
     exclude_action_error_diagnostics: bool,
     graph_properties_opts: GraphPropertiesOptions,
     total_configured_graph_sketch: Option<VersionedSketcher<ConfiguredTargetLabel>>,
-    total_configured_graph_unconfigured_sketch: Option<VersionedSketcher<TargetLabel>>,
 }
 
 // Build report generation should never produce an input error, always return an error with an infra tag
@@ -320,13 +313,6 @@ impl<'a> BuildReportCollector<'a> {
             exclude_action_error_diagnostics,
             graph_properties_opts,
             total_configured_graph_sketch: if graph_properties_opts.total_configured_graph_sketch {
-                Some(DEFAULT_SKETCH_VERSION.create_sketcher())
-            } else {
-                None
-            },
-            total_configured_graph_unconfigured_sketch: if graph_properties_opts
-                .total_configured_graph_unconfigured_sketch
-            {
                 Some(DEFAULT_SKETCH_VERSION.create_sketcher())
             } else {
                 None
@@ -536,9 +522,6 @@ impl<'a> BuildReportCollector<'a> {
         let total_configured_graph_sketch = self
             .total_configured_graph_sketch
             .map(|sketcher| sketcher.into_mergeable_graph_sketch().serialize());
-        let total_configured_graph_unconfigured_sketch = self
-            .total_configured_graph_unconfigured_sketch
-            .map(|sketcher| sketcher.into_mergeable_graph_sketch().serialize());
 
         // Determine error category using existing Buck2 error classification
         let error_category = if let Some(best_error_report) = best_error(&all_error_reports) {
@@ -562,7 +545,6 @@ impl<'a> BuildReportCollector<'a> {
             build_metrics: detailed_metrics
                 .map(|m| Self::convert_all_target_build_metrics(&m.all_targets_build_metrics)),
             total_configured_graph_sketch,
-            total_configured_graph_unconfigured_sketch,
             error_category,
         })
     }
@@ -784,42 +766,6 @@ impl<'a> BuildReportCollector<'a> {
                     if self.graph_properties_opts.retained_analysis_memory_sketch {
                         configured_report.retained_analysis_memory_sketch =
                             Some(retained_analysis_memory_sketch.serialize());
-                    }
-                }
-
-                if let Some(per_configuration_sketch) = graph_properties
-                    .configured
-                    .per_configuration_sketch
-                    .as_ref()
-                {
-                    if self
-                        .graph_properties_opts
-                        .configured_graph_unconfigured_sketch
-                        || self
-                            .graph_properties_opts
-                            .total_configured_graph_unconfigured_sketch
-                    {
-                        let mut configured_graph_unconfigured_sketcher =
-                            DEFAULT_SKETCH_VERSION.create_sketcher();
-                        for sketch in per_configuration_sketch.values() {
-                            configured_graph_unconfigured_sketcher.merge(sketch)?;
-                        }
-                        let configured_graph_unconfigured_sketch =
-                            configured_graph_unconfigured_sketcher.into_mergeable_graph_sketch();
-
-                        if self
-                            .graph_properties_opts
-                            .configured_graph_unconfigured_sketch
-                        {
-                            configured_report.configured_graph_unconfigured_sketch =
-                                Some(configured_graph_unconfigured_sketch.serialize());
-                        }
-
-                        if let Some(sketcher) =
-                            self.total_configured_graph_unconfigured_sketch.as_mut()
-                        {
-                            sketcher.merge(&configured_graph_unconfigured_sketch)?;
-                        }
                     }
                 }
             }
