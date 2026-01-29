@@ -16,7 +16,6 @@ dupe = { workspace = true }
 either = { workspace = true }
 erased-serde = { workspace = true }
 gazebo = { workspace = true }
-indexmap = { workspace = true }
 num-bigint = { workspace = true }
 pagable_derive = { path = "../pagable_derive" }
 parking_lot = { workspace = true }
