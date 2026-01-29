@@ -563,6 +563,11 @@ FRAMEWORK_INTRODUCED_VERSIONS = {
         "macosx": (10, 8, 0),
         "watchos": (2, 0, 0),
     },
+    "ImagePlayground": {
+        "iphoneos": (18, 1, 0),
+        "maccatalyst": (18, 1, 0),
+        "macosx": (15, 1, 0),
+    },
     "InputMethodKit": {"macosx": (10, 5, 0)},
     "InstallerPlugins": {"macosx": (10, 4, 0)},
     "InstantMessage": {"macosx": (10, 4, 0)},
