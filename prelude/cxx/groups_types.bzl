@@ -15,6 +15,11 @@ MATCH_ALL_LABEL = "MATCH_ALL"
 # against the final binary
 NO_MATCH_LABEL = "NO_MATCH"
 
+# Label for special group mapping which causes every target associated with it to be included
+# in any groups that contain any targets with direct dependencies on it.
+# Sample use case: Vendor-supplied shared libraries that are used from multiple link-groups.
+MATCH_DIRECT_DEPS_LABEL = "MATCH_DIRECT_DEPS"
+
 Traversal = enum(
     # Includes the target and all of it's transitive dependencies in the group.
     "tree",
