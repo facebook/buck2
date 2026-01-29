@@ -620,7 +620,7 @@ where
             evaluation.key,
             evaluation.extra_data,
             evaluation.duration,
-            evaluation.dep_keys.into_iter(),
+            evaluation.dep_keys,
             evaluation.spans,
             evaluation.waiting_data,
         );
@@ -741,7 +741,7 @@ where
             node_key,
             NodeExtraData::None,
             signal.duration,
-            deps.into_iter(),
+            deps,
             Default::default(),
             WaitingData::new(),
         );

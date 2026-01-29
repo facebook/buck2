@@ -297,9 +297,9 @@ mod tests {
     fn test_graph() -> (Graph, VertexKeys<&'static str>, VertexData<&'static str>) {
         let mut builder = GraphBuilder::new();
         builder.push(K3, std::iter::empty(), K3).unwrap();
-        builder.push(K2, vec![K3].into_iter(), K2).unwrap();
+        builder.push(K2, vec![K3], K2).unwrap();
         builder.push(K1, std::iter::empty(), K1).unwrap();
-        builder.push(K0, vec![K1, K2].into_iter(), K0).unwrap();
+        builder.push(K0, vec![K1, K2], K0).unwrap();
 
         builder.finish()
     }
