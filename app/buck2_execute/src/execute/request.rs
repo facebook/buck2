@@ -201,10 +201,7 @@ impl ExecutorPreference {
     }
 
     fn erases_preferences(self) -> bool {
-        match self {
-            Self::DefaultErasePreferences => true,
-            _ => false,
-        }
+        matches!(self, Self::DefaultErasePreferences)
     }
 }
 

@@ -283,10 +283,10 @@ impl ConfigurationData {
     }
 
     pub fn is_unbound(&self) -> bool {
-        match &self.0.configuration_platform {
-            ConfigurationPlatform::Builtin(BuiltinPlatform::Unbound) => true,
-            _ => false,
-        }
+        matches!(
+            &self.0.configuration_platform,
+            ConfigurationPlatform::Builtin(BuiltinPlatform::Unbound)
+        )
     }
 
     pub fn bound(&self) -> Option<&BoundConfigurationLabel> {
@@ -304,10 +304,10 @@ impl ConfigurationData {
     }
 
     pub fn is_bound(&self) -> bool {
-        match &self.0.configuration_platform {
-            ConfigurationPlatform::Bound(..) => true,
-            _ => false,
-        }
+        matches!(
+            &self.0.configuration_platform,
+            ConfigurationPlatform::Bound(..)
+        )
     }
 
     pub fn output_hash(&self) -> &ConfigurationHash {

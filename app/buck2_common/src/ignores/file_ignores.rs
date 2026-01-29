@@ -70,10 +70,7 @@ impl FileIgnoreResult {
 
     /// Returns true if the file is ignored, false otherwise.
     pub fn is_ignored(&self) -> bool {
-        match self {
-            FileIgnoreResult::Ok => false,
-            _ => true,
-        }
+        !matches!(self, FileIgnoreResult::Ok)
     }
 }
 

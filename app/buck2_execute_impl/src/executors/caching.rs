@@ -485,10 +485,7 @@ enum CacheUploadOutcome {
 
 impl CacheUploadOutcome {
     fn uploaded(&self) -> bool {
-        match self {
-            CacheUploadOutcome::Success(_) => true,
-            _ => false,
-        }
+        matches!(self, CacheUploadOutcome::Success(_))
     }
 
     fn error(&self) -> String {

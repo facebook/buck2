@@ -199,15 +199,14 @@ impl StableRevisionCheck {
             && context.branched_from_revision.is_some()
             && context.parsed_target_patterns.is_some()
             && context.has_excess_cache_misses
-            && context
-                .command_data
-                .as_ref()
-                .is_some_and(|data| match data {
+            && context.command_data.as_ref().is_some_and(|data| {
+                matches!(
+                    data,
                     buck2_data::command_start::Data::Build(..)
-                    | buck2_data::command_start::Data::Test(..)
-                    | buck2_data::command_start::Data::Install(..) => true,
-                    _ => false,
-                })
+                        | buck2_data::command_start::Data::Test(..)
+                        | buck2_data::command_start::Data::Install(..)
+                )
+            })
     }
 
     fn target_bookmarks(

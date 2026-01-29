@@ -452,18 +452,15 @@ impl SpanTrackable for BuckEvent {
                     Some(Stage::Local(stage)) => {
                         use buck2_data::local_stage::Stage;
 
-                        match stage.stage.as_ref() {
-                            Some(Stage::Queued(..) | Stage::AcquireLocalResource(..)) => true,
-                            _ => false,
-                        }
+                        matches!(
+                            stage.stage.as_ref(),
+                            Some(Stage::Queued(..) | Stage::AcquireLocalResource(..))
+                        )
                     }
                     Some(Stage::Re(stage)) => {
                         use buck2_data::re_stage::Stage;
 
-                        match stage.stage.as_ref() {
-                            Some(Stage::Queue(..)) => true,
-                            _ => false,
-                        }
+                        matches!(stage.stage.as_ref(), Some(Stage::Queue(..)))
                     }
                     _ => false,
                 }

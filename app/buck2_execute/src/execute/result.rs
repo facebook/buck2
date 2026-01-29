@@ -266,49 +266,45 @@ impl CommandExecutionResult {
     }
 
     pub fn was_success(&self) -> bool {
-        match self.report.status {
-            CommandExecutionStatus::Success { .. } => true,
-            _ => false,
-        }
+        matches!(self.report.status, CommandExecutionStatus::Success { .. })
     }
 
     pub fn was_served_by_remote_dep_file_cache(&self) -> bool {
-        match self.report.status {
+        matches!(
+            self.report.status,
             CommandExecutionStatus::Success {
                 execution_kind: CommandExecutionKind::RemoteDepFileCache { .. },
-            } => true,
-            _ => false,
-        }
+            }
+        )
     }
 
     pub fn was_remotely_executed(&self) -> bool {
-        match self.report.status {
+        matches!(
+            self.report.status,
             CommandExecutionStatus::Success {
                 execution_kind: CommandExecutionKind::Remote { .. },
-            } => true,
-            _ => false,
-        }
+            }
+        )
     }
 
     pub fn was_locally_executed(&self) -> bool {
-        match self.report.status {
+        matches!(
+            self.report.status,
             CommandExecutionStatus::Success {
                 execution_kind: CommandExecutionKind::Local { .. },
-            } => true,
-            CommandExecutionStatus::Success {
+            } | CommandExecutionStatus::Success {
                 execution_kind: CommandExecutionKind::LocalWorker { .. },
-            } => true,
-            _ => false,
-        }
+            }
+        )
     }
 
     pub fn was_action_cache_hit(&self) -> bool {
-        match self.report.status {
+        matches!(
+            self.report.status,
             CommandExecutionStatus::Success {
                 execution_kind: CommandExecutionKind::ActionCache { .. },
-            } => true,
-            _ => false,
-        }
+            }
+        )
     }
 
     /// For content-based outputs, resolve the outputs to the "constant" (non-content-based) paths

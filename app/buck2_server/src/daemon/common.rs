@@ -468,24 +468,15 @@ trait ExecutionStrategyExt {
 
 impl ExecutionStrategyExt for ExecutionStrategy {
     fn ban_local(&self) -> bool {
-        match self {
-            Self::RemoteOnly | Self::NoExecution => true,
-            _ => false,
-        }
+        matches!(self, Self::RemoteOnly | Self::NoExecution)
     }
 
     fn ban_remote(&self) -> bool {
-        match self {
-            Self::LocalOnly | Self::NoExecution => true,
-            _ => false,
-        }
+        matches!(self, Self::LocalOnly | Self::NoExecution)
     }
 
     fn ban_hybrid(&self) -> bool {
-        match self {
-            Self::NoExecution => true,
-            _ => false,
-        }
+        matches!(self, Self::NoExecution)
     }
 
     fn hybrid_preference(&self) -> ExecutorPreference {

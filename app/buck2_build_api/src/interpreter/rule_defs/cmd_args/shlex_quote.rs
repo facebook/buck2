@@ -28,10 +28,32 @@ use std::borrow::Cow;
 pub(crate) fn shlex_quote(in_str: &str) -> Cow<'_, str> {
     if in_str.is_empty() {
         "\"\"".into()
-    } else if in_str.bytes().any(|c| match c as char {
-        '|' | '&' | ';' | '<' | '>' | '(' | ')' | '$' | '`' | '\\' | '"' | '\'' | ' ' | '\t'
-        | '\r' | '\n' | '*' | '?' | '[' | '#' | '~' | '=' | '%' => true,
-        _ => false,
+    } else if in_str.bytes().any(|c| {
+        matches!(
+            c as char,
+            '|' | '&'
+                | ';'
+                | '<'
+                | '>'
+                | '('
+                | ')'
+                | '$'
+                | '`'
+                | '\\'
+                | '"'
+                | '\''
+                | ' '
+                | '\t'
+                | '\r'
+                | '\n'
+                | '*'
+                | '?'
+                | '['
+                | '#'
+                | '~'
+                | '='
+                | '%'
+        )
     }) {
         let mut out: Vec<u8> = Vec::new();
         out.push(b'"');

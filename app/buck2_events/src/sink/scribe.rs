@@ -201,12 +201,10 @@ impl RemoteEventSink {
                                 Ok(ActionExecutionKind::Simple) => false,
                                 Ok(ActionExecutionKind::Deferred) => false,
                                 Ok(ActionExecutionKind::NotSet) => false,
-                                _ => {
-                                    match (action_has_cache_hit(a), self.schedule_type.is_diff()) {
-                                        (true, true) => false,
-                                        _ => true,
-                                    }
-                                }
+                                _ => !matches!(
+                                    (action_has_cache_hit(a), self.schedule_type.is_diff()),
+                                    (true, true)
+                                ),
                             }
                     }
                     Some(Data::Analysis(..)) => !self.schedule_type.is_diff(),

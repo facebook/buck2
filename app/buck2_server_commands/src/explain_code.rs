@@ -62,13 +62,13 @@ impl ActionEntry {
                 .ok()
                 .map(|v| v.as_str_name().to_owned());
         let input_files_bytes = action_execution.input_files_bytes;
-        let affected_by_file_changes = match &action_execution.invalidation_info {
+        let affected_by_file_changes = matches!(
+            &action_execution.invalidation_info,
             Some(CommandInvalidationInfo {
                 changed_file: Some(_),
                 ..
-            }) => true,
-            _ => false,
-        };
+            })
+        );
 
         let (target, mut entry) = match action {
             WhatRanRelevantAction::ActionExecution(act) => {
