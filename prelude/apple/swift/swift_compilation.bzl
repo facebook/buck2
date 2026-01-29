@@ -1407,14 +1407,19 @@ def _create_compilation_database(
 
     identifier = module_name + ".swift_comp_db.json"
     cdb_artifact = ctx.actions.declare_output(identifier)
+
+    srcs_args = cmd_args([s.file for s in srcs])
+
     cmd = cmd_args(mk_comp_db)
     cmd.add(cmd_args(cdb_artifact.as_output(), format = "--output={}"))
     cmd.add(cmd_args(_get_project_root_file(ctx), format = "--project-root-file={}"))
-    cmd.add(["--files"] + [s.file for s in srcs])
+    cmd.add("--files", srcs_args)
 
     cmd.add("--")
-    cmd.add(argfile.cmd_form)
-    cmd.add([s.file for s in srcs])
+
+    cmd_form_and_srcs = cmd_args(argfile.cmd_form, srcs_args)
+    cmd.add(cmd_form_and_srcs)
+
     ctx.actions.run(
         cmd,
         category = "swift_compilation_database",
@@ -1422,7 +1427,7 @@ def _create_compilation_database(
         error_handler = apple_build_error_handler,
     )
 
-    return SwiftCompilationDatabase(db = cdb_artifact, other_outputs = argfile.cmd_form)
+    return SwiftCompilationDatabase(db = cdb_artifact, other_outputs = cmd_form_and_srcs)
 
 def _create_objc_swift_interface(ctx: AnalysisContext, shared_flags: cmd_args, module_name: str) -> DefaultInfo:
     """Generates the Swift interface representation of a modular Obj-C(++) target."""
