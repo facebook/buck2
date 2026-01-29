@@ -135,10 +135,10 @@ use crate::arc_erase::ArcEraseDyn;
 use crate::arc_erase::ArcEraseType;
 use crate::arc_erase::StdArcEraseType;
 use crate::arc_erase::deserialize_arc;
-use crate::storage::data::DataKey;
-use crate::storage::data::OptionalDataKey;
-use crate::storage::handle::PagableStorageHandle;
-use crate::storage::traits::PagableStorage;
+use crate::storage::DataKey;
+use crate::storage::OptionalDataKey;
+use crate::storage::PagableStorage;
+use crate::storage::PagableStorageHandle;
 
 /// A reference-counted smart pointer that supports paging data to/from storage.
 ///
