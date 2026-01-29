@@ -91,4 +91,11 @@ def benchmark_call_def_8name():
     return y
 
 
+def benchmark_call_def_4pos_4name():
+    y = 0
+    for x in range(REPEAT_100M):
+        op7(x, x, x, x, e=x, f=x, g=x, h=x)
+    return y
+
+
 print(benchmark_call_def_1name())

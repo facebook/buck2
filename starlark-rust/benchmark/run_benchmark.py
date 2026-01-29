@@ -114,7 +114,11 @@ def main():
             if len(args.benchmarks) == 0 or name in args.benchmarks:
                 print("Benchmarking: " + name + " ", end="", flush=True)
                 (py, st) = absh(("python3", file), (starlark, file), repeat=args.repeat)
-                print("Python3 {:.2f}s, Starlark Rust {:.2f}s".format(py, st))
+                print(
+                    "Python3 {:.2f}s, Starlark Rust {:.2f}s  Starlark/Python {:.2f}%".format(
+                        py, st, (st / py) * 100
+                    )
+                )
 
 
 if __name__ == "__main__":
