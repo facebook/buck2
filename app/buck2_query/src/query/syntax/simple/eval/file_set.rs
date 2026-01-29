@@ -100,6 +100,10 @@ impl FileSet {
         self.files.len()
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.files.is_empty()
+    }
+
     pub fn contains(&self, item: &FileNode) -> bool {
         self.files.contains(item)
     }

@@ -90,6 +90,10 @@ impl<T: LabeledNode> LabelIndexedSet<T> {
         self.nodes.len()
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.nodes.is_empty()
+    }
+
     pub fn get(&self, value: &T::Key) -> Option<&T> {
         self.nodes
             .get(&LabelIndexer(Hashed::new(value)))
