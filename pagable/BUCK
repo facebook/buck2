@@ -20,6 +20,7 @@ rust_library(
         "fbsource//third-party/rust:parking_lot",
         "fbsource//third-party/rust:postcard",
         "fbsource//third-party/rust:relative-path",
+        "fbsource//third-party/rust:sequence_trie",
         "fbsource//third-party/rust:serde",
         "fbsource//third-party/rust:serde_json",
         "fbsource//third-party/rust:static_assertions",
