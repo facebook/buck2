@@ -26,8 +26,12 @@ SwiftDependencyInfo = provider(fields = {
     "debug_info_tset": provider_field(ArtifactTSet),
     # Includes modules through exported_deps, used for compilation
     "exported_swiftmodules": provider_field(SwiftCompiledModuleTset),
+    # If this target has exported_headers, used to validate non-modular dep exports
+    "has_exported_headers": provider_field(bool),
     # Macro deps cannot be mixed with apple_library deps
     "is_macro": provider_field(bool),
+    # If this target provides a clang module, used to validate non-modular dep exports
+    "is_modular": provider_field(bool),
 })
 
 def _swift_framework_implicit_search_paths_args(args: cmd_args):

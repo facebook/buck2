@@ -1297,6 +1297,10 @@ def create_swift_dependency_info(
     return SwiftDependencyInfo(
         debug_info_tset = debug_info_tset,
         exported_swiftmodules = exported_swiftmodules,
+        # prebuilt_apple_framework do not have exported_headers, we can exclude
+        # them from validation safely.
+        has_exported_headers = len(getattr(ctx.attrs, "exported_headers", [])) > 0,
+        is_modular = ctx.attrs.modular,
         is_macro = is_macro,
     )
 
