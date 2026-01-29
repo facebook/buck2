@@ -16,9 +16,9 @@ use std::time::UNIX_EPOCH;
 use buck2_fs::paths::abs_path::AbsPath;
 use buck2_http::HttpClient;
 use buck2_http::HttpClientBuilder;
-use buck2_http::retries::AsBuck2Error;
 use buck2_http::retries::HttpError;
 use buck2_http::retries::HttpErrorForRetry;
+use buck2_http::retries::IntoBuck2Error;
 use buck2_http::retries::http_retry;
 use bytes::Bytes;
 use dupe::Dupe;
@@ -90,14 +90,14 @@ impl HttpErrorForRetry for HttpAppendError {
     }
 }
 
-impl AsBuck2Error for HttpWriteError {
-    fn as_buck2_error(self) -> buck2_error::Error {
+impl IntoBuck2Error for HttpWriteError {
+    fn into_buck2_error(self) -> buck2_error::Error {
         buck2_error::Error::from(self)
     }
 }
 
-impl AsBuck2Error for HttpAppendError {
-    fn as_buck2_error(self) -> buck2_error::Error {
+impl IntoBuck2Error for HttpAppendError {
+    fn into_buck2_error(self) -> buck2_error::Error {
         buck2_error::Error::from(self)
     }
 }
