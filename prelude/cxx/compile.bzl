@@ -467,7 +467,7 @@ def _prepare_cxx_compilation(
             filename = filename_base,
             identifier = identifier,
             output_prefix = folder_name,
-            uses_experimental_content_based_path_hashing = content_based,
+            uses_content_based_paths = content_based,
         ))
 
     # Declare PCH object output for Windows compiler
@@ -686,7 +686,7 @@ def _compile_single_cxx(
             filename = filename_base,
             identifier = identifier,
             output_prefix = folder_name,
-            uses_experimental_content_based_path_hashing = content_based,
+            uses_content_based_paths = content_based,
         )
         cuda_compile(
             actions,

@@ -22,7 +22,7 @@ CudaCompileInfo = record(
     identifier = field(str),
     # Output sub-directory where all CUDA compilation artifacts will go to
     output_prefix = field(str),
-    uses_experimental_content_based_path_hashing = field(bool),
+    uses_content_based_paths = field(bool),
 )
 
 CudaCompileStyle = enum(
@@ -39,7 +39,7 @@ def declare_cuda_dist_compile_output(actions: AnalysisActions, cuda_compile_info
     Declare output artifacts for CUDA distributed compilation upfront.
     This should be called during analysis before the dynamic action.
     """
-    content_based = cuda_compile_info.uses_experimental_content_based_path_hashing
+    content_based = cuda_compile_info.uses_content_based_paths
 
     # Create the following files for each CUDA file:
     # - Envvars to run the NVCC sub-commands with.
@@ -48,17 +48,17 @@ def declare_cuda_dist_compile_output(actions: AnalysisActions, cuda_compile_info
     env = actions.declare_output(
         cuda_compile_info.output_prefix,
         "{}.env".format(cuda_compile_info.filename),
-        uses_experimental_content_based_path_hashing = content_based,
+        has_content_based_path = content_based,
     )
     subcmds = actions.declare_output(
         cuda_compile_info.output_prefix,
         "{}.json".format(cuda_compile_info.filename),
-        uses_experimental_content_based_path_hashing = content_based,
+        has_content_based_path = content_based,
     )
     hostcc_argsfile = actions.declare_output(
         cuda_compile_info.output_prefix,
         "{}.hostcc_argsfile".format(cuda_compile_info.filename),
-        uses_experimental_content_based_path_hashing = content_based,
+        has_content_based_path = content_based,
     )
     return CudaDistributedCompileOutput(
         nvcc_dag = subcmds,
@@ -193,7 +193,7 @@ def _create_file_to_artifact_map(
         plan_json: list[dict[str, typing.Any]],
         src_compile_cmd: CxxSrcCompileCommand,
         output_declared_artifact: OutputArtifact,
-        uses_experimental_content_based_path_hashing: bool) -> dict[str, Artifact | OutputArtifact]:
+        uses_content_based_paths: bool) -> dict[str, Artifact | OutputArtifact]:
     # Create artifacts for all intermediate input and output files.
     file2artifact = {}
     for cmd_node in plan_json:
@@ -206,7 +206,7 @@ def _create_file_to_artifact_map(
                 else:
                     input_artifact = actions.declare_output(
                         input,
-                        uses_experimental_content_based_path_hashing = uses_experimental_content_based_path_hashing,
+                        has_content_based_path = uses_content_based_paths,
                     )
                     file2artifact[input] = input_artifact
         for output in node_outputs:
@@ -216,7 +216,7 @@ def _create_file_to_artifact_map(
                 else:
                     output_artifact = actions.declare_output(
                         output,
-                        uses_experimental_content_based_path_hashing = uses_experimental_content_based_path_hashing,
+                        has_content_based_path = uses_content_based_paths,
                     )
                     file2artifact[output] = output_artifact
     return file2artifact
@@ -276,7 +276,7 @@ def _nvcc_dynamic_compile(
         env_artifact: ArtifactValue,
         output_declared_artifact: OutputArtifact) -> list[Provider]:
     plan = plan_artifact.read_json()
-    content_based = cuda_compile_info.uses_experimental_content_based_path_hashing
+    content_based = cuda_compile_info.uses_content_based_paths
     file2artifact = _create_file_to_artifact_map(
         actions,
         plan,
