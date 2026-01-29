@@ -178,10 +178,10 @@ fn attr_with_stripped_cfg(attr: &ConfiguredAttr) -> buck2_error::Result<CoercedA
                                 match macr {
                                     buck2_node::attrs::attr_type::arg::MacroBase::Location {
                                         label,
-                                        exec_dep,
+                                        dep_kind,
                                     } => buck2_node::attrs::attr_type::arg::MacroBase::Location {
                                         label: label.unconfigured(),
-                                        exec_dep: *exec_dep,
+                                        dep_kind: *dep_kind,
                                     },
                                     buck2_node::attrs::attr_type::arg::MacroBase::Exe {
                                         label,

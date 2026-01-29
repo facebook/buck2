@@ -18,6 +18,7 @@ pub struct ConfiguredAttrInfoForTests {
     // Including transitioned deps.
     pub deps: SmallSet<ConfiguredProvidersLabel>,
     pub execution_deps: SmallSet<ConfiguredProvidersLabel>,
+    pub toolchain_deps: SmallSet<ConfiguredProvidersLabel>,
 }
 
 impl ConfiguredAttrInfoForTests {
@@ -34,6 +35,11 @@ impl ConfiguredAttrTraversal for ConfiguredAttrInfoForTests {
 
     fn exec_dep(&mut self, dep: &ConfiguredProvidersLabel) -> buck2_error::Result<()> {
         self.execution_deps.insert(dep.clone());
+        Ok(())
+    }
+
+    fn toolchain_dep(&mut self, dep: &ConfiguredProvidersLabel) -> buck2_error::Result<()> {
+        self.toolchain_deps.insert(dep.clone());
         Ok(())
     }
 }

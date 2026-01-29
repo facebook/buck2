@@ -15,6 +15,7 @@ use std::mem;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_node::attrs::attr_type::arg::ArgAttrType;
 use buck2_node::attrs::attr_type::arg::MacroBase;
+use buck2_node::attrs::attr_type::arg::MacroDepKind;
 use buck2_node::attrs::attr_type::arg::QueryExpansion;
 use buck2_node::attrs::attr_type::arg::StringWithMacrosPart;
 use buck2_node::attrs::attr_type::arg::UnconfiguredMacro;
@@ -86,9 +87,14 @@ impl AttrTypeCoerce for ArgAttrType {
                 }) => {
                     let part = match macro_type.as_ref() {
                         "location" | "location-platform" if args.len() == 1 => {
-                            UnconfiguredMacro::new_location(ctx, args, false)?
+                            UnconfiguredMacro::new_location(ctx, args, MacroDepKind::Regular)?
                         }
-                        "location_exec" => UnconfiguredMacro::new_location(ctx, args, true)?,
+                        "location_exec" => {
+                            UnconfiguredMacro::new_location(ctx, args, MacroDepKind::Exec)?
+                        }
+                        "location_toolchain" => {
+                            UnconfiguredMacro::new_location(ctx, args, MacroDepKind::Toolchain)?
+                        }
                         "exe" => UnconfiguredMacro::new_exe(ctx, args, true)?,
                         "exe_target" => UnconfiguredMacro::new_exe(ctx, args, false)?,
                         "source" => UnconfiguredMacro::new_source(ctx, args)?,
@@ -135,11 +141,11 @@ pub trait UnconfiguredMacroExt {
     fn new_location(
         ctx: &dyn AttrCoercionContext,
         args: Vec<String>,
-        exec_dep: bool,
+        dep_kind: MacroDepKind,
     ) -> buck2_error::Result<UnconfiguredMacro> {
         Ok(UnconfiguredMacro::Location {
             label: get_single_target_arg(args, ctx)?,
-            exec_dep,
+            dep_kind,
         })
     }
 
@@ -237,6 +243,7 @@ mod tests {
     use buck2_core::target::label::label::TargetLabel;
     use buck2_error::buck2_error;
     use buck2_node::attrs::attr_type::AttrType;
+    use buck2_node::attrs::attr_type::arg::MacroBase;
     use buck2_node::attrs::coerced_deps_collector::CoercedDepsCollector;
     use buck2_node::attrs::configuration_context::AttrConfigurationContext;
     use buck2_node::attrs::configured_attr_info_for_tests::ConfiguredAttrInfoForTests;
@@ -265,9 +272,16 @@ mod tests {
             let mut visitor = CoercedDepsCollector::new();
             self.traverse(&mut visitor, PackageLabel::testing_new("root", ""))?;
             let CoercedDepsCollector {
-                deps, exec_deps, ..
+                deps,
+                exec_deps,
+                toolchain_deps,
+                ..
             } = visitor;
-            Ok(deps.into_iter().chain(exec_deps).collect())
+            Ok(deps
+                .into_iter()
+                .chain(exec_deps)
+                .chain(toolchain_deps)
+                .collect())
         }
     }
 
@@ -301,8 +315,11 @@ mod tests {
     #[test]
     fn test_location() -> buck2_error::Result<()> {
         let ctx = coercion_ctx();
-        let location =
-            UnconfiguredMacro::new_location(&ctx, vec!["//some:target".to_owned()], false)?;
+        let location = UnconfiguredMacro::new_location(
+            &ctx,
+            vec!["//some:target".to_owned()],
+            MacroDepKind::Regular,
+        )?;
         let deps = location.get_deps()?.map(|t| t.to_string());
         assert_eq!(vec!["root//some:target".to_owned()], deps);
 
@@ -310,7 +327,7 @@ mod tests {
 
         if let MacroBase::Location {
             label: target,
-            exec_dep: false,
+            dep_kind: MacroDepKind::Regular,
         } = &configured
         {
             let mut info = ConfiguredAttrInfoForTests::new();
@@ -329,8 +346,11 @@ mod tests {
     #[test]
     fn test_location_exec() -> buck2_error::Result<()> {
         let ctx = coercion_ctx();
-        let location =
-            UnconfiguredMacro::new_location(&ctx, vec!["//some:target".to_owned()], true)?;
+        let location = UnconfiguredMacro::new_location(
+            &ctx,
+            vec!["//some:target".to_owned()],
+            MacroDepKind::Exec,
+        )?;
         let deps = location.get_deps()?.map(|t| t.to_string());
         assert_eq!(vec!["root//some:target".to_owned()], deps);
         assert_eq!("location_exec root//some:target", &location.to_string());
@@ -344,6 +364,41 @@ mod tests {
             assert_eq!(label.cfg(), config_ctx.exec_cfg()?.cfg());
             assert_eq!(smallset![label.dupe()], info.execution_deps);
             assert_eq!(smallset![], info.deps);
+        } else {
+            return Err(buck2_error!(
+                buck2_error::ErrorTag::Input,
+                "Expected Location"
+            ));
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_location_toolchain() -> buck2_error::Result<()> {
+        let ctx = coercion_ctx();
+        let location = UnconfiguredMacro::new_location(
+            &ctx,
+            vec!["//some:target".to_owned()],
+            MacroDepKind::Toolchain,
+        )?;
+        let deps = location.get_deps()?.map(|t| t.to_string());
+        assert_eq!(vec!["root//some:target".to_owned()], deps);
+        assert_eq!(
+            "location_toolchain root//some:target",
+            &location.to_string()
+        );
+
+        let config_ctx = configuration_ctx();
+        let configured = location.configure(&config_ctx)?;
+
+        if let MacroBase::Location { label, .. } = &configured {
+            let mut info = ConfiguredAttrInfoForTests::new();
+            configured.traverse(&mut info, PackageLabel::testing_new("root", ""))?;
+            assert_eq!(label.cfg(), config_ctx.toolchain_cfg().cfg());
+            assert_eq!(smallset![label.dupe()], info.toolchain_deps);
+            assert_eq!(smallset![], info.deps);
+            assert_eq!(smallset![], info.execution_deps);
         } else {
             return Err(buck2_error!(
                 buck2_error::ErrorTag::Input,

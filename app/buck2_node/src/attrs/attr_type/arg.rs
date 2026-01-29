@@ -30,6 +30,19 @@ use crate::attrs::configuration_context::AttrConfigurationContext;
 use crate::attrs::configured_traversal::ConfiguredAttrTraversal;
 use crate::attrs::traversal::CoercedAttrTraversal;
 
+/// The kind of dependency for a macro like `$(location ...)` or `$(exe ...)`.
+#[derive(
+    Debug, Eq, PartialEq, Hash, Clone, Copy, Dupe, Allocative, Pagable, StrongHash
+)]
+pub enum MacroDepKind {
+    /// Regular target dependency (configured with target configuration).
+    Regular,
+    /// Execution dependency (configured with exec configuration).
+    Exec,
+    /// Toolchain dependency (configured with toolchain configuration).
+    Toolchain,
+}
+
 #[derive(Debug, Eq, PartialEq, Hash, Clone, Copy, Dupe, Allocative, Pagable)]
 pub struct ArgAttrType {
     pub anon_target_compatible: bool,
@@ -160,7 +173,7 @@ pub struct UnrecognizedMacro {
 pub enum MacroBase<P: ProvidersLabelMaybeConfigured> {
     Location {
         label: P,
-        exec_dep: bool,
+        dep_kind: MacroDepKind,
     },
     /// Represents both $(exe) and $(exe_target) usages.
     Exe {
@@ -193,11 +206,15 @@ impl MacroBase<ConfiguredProvidersLabel> {
             MacroBase::UserKeyedPlaceholder(box (_, l, _)) => traversal.dep(l),
             MacroBase::Location {
                 label,
-                exec_dep: true,
+                dep_kind: MacroDepKind::Exec,
             } => traversal.exec_dep(label),
             MacroBase::Location {
                 label,
-                exec_dep: false,
+                dep_kind: MacroDepKind::Toolchain,
+            } => traversal.toolchain_dep(label),
+            MacroBase::Location {
+                label,
+                dep_kind: MacroDepKind::Regular,
             } => traversal.dep(label),
             MacroBase::Exe {
                 label,
@@ -225,13 +242,13 @@ impl MacroBase<ProvidersLabel> {
         ctx: &dyn AttrConfigurationContext,
     ) -> buck2_error::Result<ConfiguredMacro> {
         Ok(match self {
-            UnconfiguredMacro::Location { label, exec_dep } => ConfiguredMacro::Location {
-                label: if *exec_dep {
-                    ctx.configure_exec_target(label)?
-                } else {
-                    ctx.configure_target(label)
+            UnconfiguredMacro::Location { label, dep_kind } => ConfiguredMacro::Location {
+                label: match dep_kind {
+                    MacroDepKind::Exec => ctx.configure_exec_target(label)?,
+                    MacroDepKind::Toolchain => ctx.configure_toolchain_target(label),
+                    MacroDepKind::Regular => ctx.configure_target(label),
                 },
-                exec_dep: *exec_dep,
+                dep_kind: *dep_kind,
             },
             UnconfiguredMacro::Exe { label, exec_dep } => ConfiguredMacro::Exe {
                 label: if *exec_dep {
@@ -270,11 +287,15 @@ impl MacroBase<ProvidersLabel> {
             MacroBase::UserKeyedPlaceholder(box (_, l, _)) => traversal.dep(l),
             MacroBase::Location {
                 label,
-                exec_dep: true,
+                dep_kind: MacroDepKind::Exec,
             } => traversal.exec_dep(label),
             MacroBase::Location {
                 label,
-                exec_dep: false,
+                dep_kind: MacroDepKind::Toolchain,
+            } => traversal.toolchain_dep(label),
+            MacroBase::Location {
+                label,
+                dep_kind: MacroDepKind::Regular,
             } => traversal.dep(label),
             MacroBase::Exe {
                 label,
@@ -319,14 +340,14 @@ impl<P: ProvidersLabelMaybeConfigured> Display for MacroBase<P> {
         // TODO: this should re-escape values in the args that need to be escaped to have returned that arg (it's not possible
         // to tell where there were unnecessary escapes and it's not worth tracking that).
         match self {
-            MacroBase::Location { label, exec_dep } => {
+            MacroBase::Location { label, dep_kind } => {
                 write!(
                     f,
                     "{} {}",
-                    if *exec_dep {
-                        "location_exec"
-                    } else {
-                        "location"
+                    match dep_kind {
+                        MacroDepKind::Exec => "location_exec",
+                        MacroDepKind::Toolchain => "location_toolchain",
+                        MacroDepKind::Regular => "location",
                     },
                     label
                 )
