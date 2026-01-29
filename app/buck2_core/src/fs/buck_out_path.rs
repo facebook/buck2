@@ -520,11 +520,10 @@ mod tests {
             resolved
         );
 
-        assert_eq!(
+        assert!(
             artifact_fs
                 .resolve_source(SourcePath::testing_new("none_existent//baz", "fazx").as_ref())
-                .is_err(),
-            true
+                .is_err()
         );
 
         Ok(())

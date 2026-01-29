@@ -591,20 +591,20 @@ mod tests {
     #[test]
     fn version_range_contains() {
         let r1 = VersionRange::bounded(VersionNumber::new(3), VersionNumber::new(6));
-        assert_eq!(r1.contains(&VersionNumber::new(1)), false);
-        assert_eq!(r1.contains(&VersionNumber::new(2)), false);
-        assert_eq!(r1.contains(&VersionNumber::new(3)), true);
-        assert_eq!(r1.contains(&VersionNumber::new(4)), true);
-        assert_eq!(r1.contains(&VersionNumber::new(5)), true);
-        assert_eq!(r1.contains(&VersionNumber::new(6)), false);
-        assert_eq!(r1.contains(&VersionNumber::new(7)), false);
-        assert_eq!(r1.contains(&VersionNumber::new(8)), false);
+        assert!(!(r1.contains(&VersionNumber::new(1))));
+        assert!(!(r1.contains(&VersionNumber::new(2))));
+        assert!(r1.contains(&VersionNumber::new(3)));
+        assert!(r1.contains(&VersionNumber::new(4)));
+        assert!(r1.contains(&VersionNumber::new(5)));
+        assert!(!(r1.contains(&VersionNumber::new(6))));
+        assert!(!(r1.contains(&VersionNumber::new(7))));
+        assert!(!(r1.contains(&VersionNumber::new(8))));
 
         let r1 = VersionRange::begins_with(VersionNumber::new(3));
-        assert_eq!(r1.contains(&VersionNumber::new(2)), false);
-        assert_eq!(r1.contains(&VersionNumber::new(3)), true);
-        assert_eq!(r1.contains(&VersionNumber::new(4)), true);
-        assert_eq!(r1.contains(&VersionNumber::new(5000)), true);
+        assert!(!(r1.contains(&VersionNumber::new(2))));
+        assert!(r1.contains(&VersionNumber::new(3)));
+        assert!(r1.contains(&VersionNumber::new(4)));
+        assert!(r1.contains(&VersionNumber::new(5000)));
     }
 
     #[test]
@@ -710,52 +710,52 @@ mod tests {
         let r1 = VersionRange::bounded(VersionNumber::new(1), VersionNumber::new(4));
         let r2 = VersionRange::bounded(VersionNumber::new(1), VersionNumber::new(4));
 
-        assert_eq!(r1 == r2, true);
-        assert_eq!(r1 < r2, false);
-        assert_eq!(r1 > r2, false);
+        assert!(r1 == r2);
+        assert!(!(r1 < r2));
+        assert!(!(r1 > r2));
 
         let r2 = VersionRange::bounded(VersionNumber::new(2), VersionNumber::new(5));
-        assert_eq!(r1 == r2, false);
-        assert_eq!(r1 < r2, true);
-        assert_eq!(r1 > r2, false);
+        assert!(!(r1 == r2));
+        assert!(r1 < r2);
+        assert!(!(r1 > r2));
 
         let r2 = VersionRange::bounded(VersionNumber::new(2), VersionNumber::new(3));
-        assert_eq!(r1 == r2, false);
-        assert_eq!(r1 < r2, true);
-        assert_eq!(r1 > r2, false);
+        assert!(!(r1 == r2));
+        assert!(r1 < r2);
+        assert!(!(r1 > r2));
 
         let r2 = VersionRange::bounded(VersionNumber::new(1), VersionNumber::new(3));
-        assert_eq!(r1 == r2, false);
-        assert_eq!(r1 < r2, false);
-        assert_eq!(r1 > r2, true);
+        assert!(!(r1 == r2));
+        assert!(!(r1 < r2));
+        assert!(r1 > r2);
 
         let r2 = VersionRange::begins_with(VersionNumber::new(2));
-        assert_eq!(r1 == r2, false);
-        assert_eq!(r1 < r2, true);
-        assert_eq!(r1 > r2, false);
+        assert!(!(r1 == r2));
+        assert!(r1 < r2);
+        assert!(!(r1 > r2));
 
         let r2 = VersionRange::begins_with(VersionNumber::new(0));
-        assert_eq!(r1 == r2, false);
-        assert_eq!(r1 < r2, false);
-        assert_eq!(r1 > r2, true);
+        assert!(!(r1 == r2));
+        assert!(!(r1 < r2));
+        assert!(r1 > r2);
 
         let r1 = VersionRange::begins_with(VersionNumber::new(1));
         let r2 = VersionRange::bounded(VersionNumber::new(1), VersionNumber::new(4));
-        assert_eq!(r1 == r2, false);
-        assert_eq!(r1 < r2, false);
-        assert_eq!(r1 > r2, true);
+        assert!(!(r1 == r2));
+        assert!(!(r1 < r2));
+        assert!(r1 > r2);
 
         let r1 = VersionRange::begins_with(VersionNumber::new(1));
         let r2 = VersionRange::bounded(VersionNumber::new(2), VersionNumber::new(4));
-        assert_eq!(r1 == r2, false);
-        assert_eq!(r1 < r2, true);
-        assert_eq!(r1 > r2, false);
+        assert!(!(r1 == r2));
+        assert!(r1 < r2);
+        assert!(!(r1 > r2));
 
         let r1 = VersionRange::begins_with(VersionNumber::new(1));
         let r2 = VersionRange::begins_with(VersionNumber::new(1));
-        assert_eq!(r1 == r2, true);
-        assert_eq!(r1 < r2, false);
-        assert_eq!(r1 > r2, false);
+        assert!(r1 == r2);
+        assert!(!(r1 < r2));
+        assert!(!(r1 > r2));
     }
 
     #[test]

@@ -128,7 +128,7 @@ mod tests {
             Box::new(|| unreachable!("should return less")),
         );
         assert_eq!(fake.cmp(&fake), Ordering::Less);
-        assert_eq!(fake.eq(&fake), false);
+        assert!(!fake.eq(&fake));
 
         let fake = FakeComparable(
             Box::new(|| Ordering::Greater),
@@ -136,7 +136,7 @@ mod tests {
             Box::new(|| unreachable!("should return less")),
         );
         assert_eq!(fake.cmp(&fake), Ordering::Greater);
-        assert_eq!(fake.eq(&fake), false);
+        assert!(!fake.eq(&fake));
 
         let fake = FakeComparable(
             Box::new(|| Ordering::Equal),
@@ -144,7 +144,7 @@ mod tests {
             Box::new(|| unreachable!("should return less")),
         );
         assert_eq!(fake.cmp(&fake), Ordering::Less);
-        assert_eq!(fake.eq(&fake), false);
+        assert!(!fake.eq(&fake));
 
         let fake = FakeComparable(
             Box::new(|| Ordering::Equal),
@@ -152,7 +152,7 @@ mod tests {
             Box::new(|| Ordering::Greater),
         );
         assert_eq!(fake.cmp(&fake), Ordering::Greater);
-        assert_eq!(fake.eq(&fake), false);
+        assert!(!fake.eq(&fake));
 
         let fake = FakeComparable(
             Box::new(|| Ordering::Equal),
@@ -160,6 +160,6 @@ mod tests {
             Box::new(|| Ordering::Equal),
         );
         assert_eq!(fake.cmp(&fake), Ordering::Equal);
-        assert_eq!(fake.eq(&fake), true);
+        assert!(fake.eq(&fake));
     }
 }

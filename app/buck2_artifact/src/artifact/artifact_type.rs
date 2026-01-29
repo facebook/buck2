@@ -841,8 +841,8 @@ mod tests {
             let artifact2_executable =
                 fs_util::metadata(expected_path2)?.permissions().mode() & 0o100 != 0;
 
-            assert_eq!(false, artifact1_executable);
-            assert_eq!(true, artifact2_executable);
+            assert!(!artifact1_executable);
+            assert!(artifact2_executable);
         }
 
         Ok(())

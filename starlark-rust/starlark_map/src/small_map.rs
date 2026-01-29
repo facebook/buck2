@@ -1142,7 +1142,7 @@ mod tests {
     #[test]
     fn empty_map() {
         let m = SmallMap::<i8, &str>::new();
-        assert_eq!(m.is_empty(), true);
+        assert!(m.is_empty());
         assert_eq!(m.len(), 0);
         assert_eq!(m.iter().next(), None);
     }
@@ -1155,16 +1155,16 @@ mod tests {
 
         let entries2 = [(1, 'b'), (0, 'a')];
         let m2 = entries2.iter().copied().collect::<SmallMap<_, _>>();
-        assert_eq!(m1.is_empty(), false);
+        assert!(!m1.is_empty());
         assert_eq!(m1.len(), 2);
-        assert_eq!(m2.is_empty(), false);
+        assert!(!m2.is_empty());
         assert_eq!(m2.len(), 2);
 
-        assert_eq!(m1.iter().eq(entries1.iter().map(|(k, v)| (k, v))), true);
-        assert_eq!(m2.iter().eq(entries2.iter().map(|(k, v)| (k, v))), true);
-        assert_eq!(m1.iter().eq(m2.iter()), false);
-        assert_eq!(m1.eq(&m1), true);
-        assert_eq!(m2.eq(&m2), true);
+        assert!(m1.iter().eq(entries1.iter().map(|(k, v)| (k, v))));
+        assert!(m2.iter().eq(entries2.iter().map(|(k, v)| (k, v))));
+        assert!(!m1.iter().eq(m2.iter()));
+        assert!(m1.eq(&m1));
+        assert!(m2.eq(&m2));
         assert_eq!(m1, m2);
 
         assert_eq!(m1.get(&0), Some(&'a'));
@@ -1195,16 +1195,16 @@ mod tests {
         let letters = ('a'..='z').rev();
         let entries2 = numbers.zip(letters);
         let m2 = entries2.clone().collect::<SmallMap<_, _>>();
-        assert_eq!(m1.is_empty(), false);
+        assert!(!m1.is_empty());
         assert_eq!(m1.len(), 26);
-        assert_eq!(m2.is_empty(), false);
+        assert!(!m2.is_empty());
         assert_eq!(m2.len(), 26);
 
-        assert_eq!(m1.clone().into_iter().eq(entries1), true);
-        assert_eq!(m2.clone().into_iter().eq(entries2), true);
-        assert_eq!(m1.iter().eq(m2.iter()), false);
-        assert_eq!(m1.eq(&m1), true);
-        assert_eq!(m2.eq(&m2), true);
+        assert!(m1.clone().into_iter().eq(entries1));
+        assert!(m2.clone().into_iter().eq(entries2));
+        assert!(!m1.iter().eq(m2.iter()));
+        assert!(m1.eq(&m1));
+        assert!(m2.eq(&m2));
         assert_eq!(m1, m2);
 
         assert_eq!(m1.get(&1), Some(&'b'));

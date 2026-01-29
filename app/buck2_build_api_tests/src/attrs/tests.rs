@@ -521,7 +521,7 @@ fn test_resolved_deps() -> buck2_error::Result<()> {
         );
 
         let success = to_value(&env, &globals, content);
-        assert_eq!(true, success.is_none());
+        assert!(success.is_none());
         Ok(())
     })
 }
@@ -722,7 +722,7 @@ fn test_source_label_resolution() -> buck2_error::Result<()> {
 
             env.set("res", resolved);
             let success = to_value(&env, &globals, test_content);
-            assert_eq!(true, success.is_none());
+            assert!(success.is_none());
             Ok(())
         })
     }
@@ -787,8 +787,8 @@ fn test_single_source_label_fails_if_multiple_returned() -> buck2_error::Result<
                 .resolve_single(PackageLabel::testing(), &mut resolution_ctx)
                 .expect_err("Getting multiple values when expecting a single one should fail");
 
-            assert_eq!(true, err.to_string().contains("Expected a single artifact"));
-            assert_eq!(true, err.to_string().contains("3 artifacts"));
+            assert!(err.to_string().contains("Expected a single artifact"));
+            assert!(err.to_string().contains("3 artifacts"));
             Ok(())
         })
     })

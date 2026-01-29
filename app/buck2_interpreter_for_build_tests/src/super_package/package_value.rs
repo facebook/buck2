@@ -463,5 +463,5 @@ async fn test_config_unification_rollout_function_override() {
     let target_nodes: Vec<_> = result.targets().values().collect();
     assert_eq!(1, target_nodes.len());
     let target_node = &target_nodes[0];
-    assert_eq!(false, target_node.test_config_unification_rollout());
+    assert!(!target_node.test_config_unification_rollout());
 }

@@ -126,7 +126,7 @@ mod tests {
                 .contains("cell//pkg:baz (<testing>#")
         );
         assert_eq!(target.type_(), Some("foo_lib"));
-        assert_eq!(target.deps().unwrap().is_empty(), true);
+        assert!(target.deps().unwrap().is_empty());
 
         let target2 = build.targets().unwrap().get(1);
         assert!(

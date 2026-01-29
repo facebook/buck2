@@ -419,12 +419,12 @@ mod tests {
             &[ConfigOverride::flag_no_cell("sec1.d=e")],
         )?;
 
-        assert_eq!(config1.compare(&config1), true);
-        assert_eq!(config2.compare(&config2), true);
-        assert_eq!(config3.compare(&config3), true);
-        assert_eq!(config1.compare(&config2), true);
-        assert_eq!(config1.compare(&config3), false);
-        assert_eq!(config2.compare(&config3), false);
+        assert!(config1.compare(&config1));
+        assert!(config2.compare(&config2));
+        assert!(config3.compare(&config3));
+        assert!(config1.compare(&config2));
+        assert!(!config1.compare(&config3));
+        assert!(!config2.compare(&config3));
 
         Ok(())
     }

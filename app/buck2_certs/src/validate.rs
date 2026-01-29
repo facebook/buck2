@@ -167,7 +167,7 @@ mod tests {
 
         let empty_path = format!("{base_path}/test_empty.pem");
         let empty_res = verify(&OsString::from(empty_path)).await;
-        assert_eq!(true, empty_res.is_err());
+        assert!(empty_res.is_err());
         let err_msg = empty_res.unwrap_err().to_string();
         assert!(
             err_msg.starts_with("Could not find any certs to validate"),
@@ -177,7 +177,7 @@ mod tests {
 
         let invalid_path = format!("{base_path}/test_invalid.pem");
         let invalid_res = verify(&OsString::from(invalid_path)).await;
-        assert_eq!(true, invalid_res.is_err());
+        assert!(invalid_res.is_err());
         let err_msg = invalid_res.unwrap_err().to_string();
         assert!(
             err_msg.starts_with("Could not find any certs to validate"),
@@ -188,7 +188,7 @@ mod tests {
         // Self-signed cert for testing. Expired 05/31/2024
         let expired_path = format!("{base_path}/test_expired.pem");
         let expired_res = verify(&OsString::from(expired_path)).await;
-        assert_eq!(true, expired_res.is_err());
+        assert!(expired_res.is_err());
         let err_msg = expired_res.unwrap_err().to_string();
         assert!(
             err_msg.starts_with("Certificate Expired"),
@@ -207,6 +207,6 @@ mod tests {
         // Copy content in x509.crt
         let base_path = env::var("TEST_CERT_LOCATIONS").unwrap();
         let valid_path = format!("{base_path}/test_valid.pem");
-        assert_eq!(true, verify(&OsString::from(valid_path)).await.is_ok());
+        assert!(verify(&OsString::from(valid_path)).await.is_ok());
     }
 }

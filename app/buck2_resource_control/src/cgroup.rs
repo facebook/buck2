@@ -642,10 +642,7 @@ mod tests {
             return;
         };
 
-        assert_eq!(
-            fs_util::try_exists(cgroup.path().as_abs_path()).unwrap(),
-            true
-        );
+        assert!(fs_util::try_exists(cgroup.path().as_abs_path()).unwrap());
         assert_eq!(cgroup.kind.procs.read_to_string().await.unwrap().len(), 0);
     }
 

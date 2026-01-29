@@ -91,8 +91,8 @@ fn declaring_artifacts() -> buck2_error::Result<()> {
             panic!("should error due to duplicate artifact")
         }
 
-        assert_eq!(actions.testing_artifacts().contains(&declared1), true);
-        assert_eq!(actions.testing_artifacts().contains(&declared2), true);
+        assert!(actions.testing_artifacts().contains(&declared1));
+        assert!(actions.testing_artifacts().contains(&declared2));
 
         Ok(())
     })
@@ -190,7 +190,7 @@ fn register_actions() -> buck2_error::Result<()> {
         )?;
 
         assert_eq!(actions.testing_pending_action_keys(), vec![key]);
-        assert_eq!(declared.testing_is_bound(), true);
+        assert!(declared.testing_is_bound());
 
         Ok(())
     })
@@ -244,11 +244,10 @@ fn finalizing_actions() -> buck2_error::Result<()> {
 
         let result = (actions.finalize()?)(&AnalysisValueFetcher::testing_new(holder_key))?;
 
-        assert_eq!(
+        assert!(
             result
                 .lookup(&declared.testing_action_key().unwrap())
                 .is_ok(),
-            true,
             "Expected results to contain `{}`, had `[{}]`",
             declared.testing_action_key().unwrap(),
             result.iter_actions().map(|v| v.key()).join(", ")

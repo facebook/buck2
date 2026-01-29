@@ -153,8 +153,7 @@ mod tests {
             true,
         )?;
 
-        assert_eq!(
-            true,
+        assert!(
             ignores
                 .check(UncheckedCellRelativePath::unchecked_new(
                     "some/long/path/Class.java"
@@ -162,15 +161,13 @@ mod tests {
                 .is_ignored()
         );
 
-        assert_eq!(
-            true,
+        assert!(
             ignores
                 .check(UncheckedCellRelativePath::unchecked_new("other_cell"))
                 .is_ignored()
         );
 
-        assert_eq!(
-            true,
+        assert!(
             ignores
                 .check(UncheckedCellRelativePath::unchecked_new(
                     "other_cell/some/lib"
@@ -178,22 +175,19 @@ mod tests {
                 .is_ignored()
         );
 
-        assert_eq!(
-            false,
-            ignores
+        assert!(
+            !ignores
                 .check(UncheckedCellRelativePath::unchecked_new("third"))
                 .is_ignored()
         );
 
-        assert_eq!(
-            false,
-            ignores
+        assert!(
+            !ignores
                 .check(UncheckedCellRelativePath::unchecked_new("one/two/three"))
                 .is_ignored()
         );
 
-        assert_eq!(
-            true,
+        assert!(
             ignores
                 .check(UncheckedCellRelativePath::unchecked_new(
                     "recursive/two/three"
@@ -201,8 +195,7 @@ mod tests {
                 .is_ignored()
         );
 
-        assert_eq!(
-            true,
+        assert!(
             ignores
                 .check(UncheckedCellRelativePath::unchecked_new(
                     "trailing_slash/BUCK"

@@ -137,20 +137,20 @@ async fn lookup_deferred_from_analysis() -> buck2_error::Result<()> {
     let mut dice = dice.build(dice_data)?.commit().await;
     let deferred_result = dice.compute_deferred_data(&data0).await?;
     assert_eq!(deferred_result.0, 1);
-    assert_eq!(executed0.load(Ordering::SeqCst), true);
+    assert!(executed0.load(Ordering::SeqCst));
     // we should cache deferred execution
     executed0.store(false, Ordering::SeqCst);
     let deferred_result = dice.compute_deferred_data(&data0).await?;
     assert_eq!(deferred_result.0, 1);
-    assert_eq!(executed0.load(Ordering::SeqCst), false);
+    assert!(!executed0.load(Ordering::SeqCst));
 
     let deferred_result = dice.compute_deferred_data(&data1).await?;
     assert_eq!(deferred_result.0, 5);
-    assert_eq!(executed1.load(Ordering::SeqCst), true);
+    assert!(executed1.load(Ordering::SeqCst));
     // we should cache deferred execution
     executed1.store(false, Ordering::SeqCst);
     assert_eq!(deferred_result.0, 5);
-    assert_eq!(executed1.load(Ordering::SeqCst), false);
+    assert!(!executed1.load(Ordering::SeqCst));
 
     Ok(())
 }
@@ -240,12 +240,12 @@ async fn lookup_deferred_that_has_deferreds() -> buck2_error::Result<()> {
     let mut dice = dice.build(dice_data)?.commit().await;
     let deferred_result = dice.compute_deferred_data(&data).await?;
     assert_eq!(deferred_result.0, 8);
-    assert_eq!(executed.load(Ordering::SeqCst), true);
+    assert!(executed.load(Ordering::SeqCst));
     // we should cache deferred execution
     executed.store(false, Ordering::SeqCst);
     let deferred_result = dice.compute_deferred_data(&data).await?;
     assert_eq!(deferred_result.0, 8);
-    assert_eq!(executed.load(Ordering::SeqCst), false);
+    assert!(!executed.load(Ordering::SeqCst));
 
     Ok(())
 }

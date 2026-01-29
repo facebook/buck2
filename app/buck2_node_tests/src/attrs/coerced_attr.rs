@@ -59,7 +59,7 @@ fn selector_equals_accounts_for_ordering() {
         .unwrap(),
     ));
 
-    assert_eq!(s1 == s2, true);
+    assert!(s1 == s2);
 
     let s2 = CoercedAttr::Selector(Box::new(
         CoercedSelector::new(
@@ -78,7 +78,7 @@ fn selector_equals_accounts_for_ordering() {
         .unwrap(),
     ));
 
-    assert_eq!(s1 == s2, false);
+    assert!(s1 != s2);
 }
 
 #[test]

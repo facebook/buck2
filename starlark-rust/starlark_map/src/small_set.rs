@@ -537,9 +537,9 @@ where
 /// use starlark_map::smallset;
 ///
 /// let set = smallset! {"a", "b"};
-/// assert_eq!(set.contains("a"), true);
+/// assert!(set.contains("a"));
 /// assert_eq!(set.len(), 2);
-/// assert_eq!(set.contains("c"), false);
+/// assert!(!set.contains("c"));
 /// ```
 #[macro_export]
 macro_rules! smallset {
@@ -623,7 +623,7 @@ mod tests {
     #[test]
     fn empty_set() {
         let m = SmallSet::<i8>::new();
-        assert_eq!(m.is_empty(), true);
+        assert!(m.is_empty());
         assert_eq!(m.len(), 0);
         assert_eq!(m.iter().next(), None);
     }
@@ -635,16 +635,16 @@ mod tests {
 
         let entries2 = [(1), (0)];
         let m2 = entries2.iter().duped().collect::<SmallSet<_>>();
-        assert_eq!(m1.is_empty(), false);
+        assert!(!m1.is_empty());
         assert_eq!(m1.len(), 2);
-        assert_eq!(m2.is_empty(), false);
+        assert!(!m2.is_empty());
         assert_eq!(m2.len(), 2);
 
-        assert_eq!(m1.iter().eq(entries1.iter()), true);
-        assert_eq!(m2.iter().eq(entries2.iter()), true);
-        assert_eq!(m1.iter().eq(m2.iter()), false);
-        assert_eq!(m1.eq(&m1), true);
-        assert_eq!(m2.eq(&m2), true);
+        assert!(m1.iter().eq(entries1.iter()));
+        assert!(m2.iter().eq(entries2.iter()));
+        assert!(!m1.iter().eq(m2.iter()));
+        assert!(m1.eq(&m1));
+        assert!(m2.eq(&m2));
         assert_eq!(m1, m2);
 
         assert_ne!(m1, smallset![1])
@@ -666,16 +666,16 @@ mod tests {
         let letters = ('a'..='z').rev();
         let entries2 = letters;
         let m2 = entries2.clone().collect::<SmallSet<_>>();
-        assert_eq!(m1.is_empty(), false);
+        assert!(!m1.is_empty());
         assert_eq!(m1.len(), 26);
-        assert_eq!(m2.is_empty(), false);
+        assert!(!m2.is_empty());
         assert_eq!(m2.len(), 26);
 
-        assert_eq!(m1.clone().into_iter().eq(entries1), true);
-        assert_eq!(m2.clone().into_iter().eq(entries2), true);
-        assert_eq!(m1.iter().eq(m2.iter()), false);
-        assert_eq!(m1.eq(&m1), true);
-        assert_eq!(m2.eq(&m2), true);
+        assert!(m1.clone().into_iter().eq(entries1));
+        assert!(m2.clone().into_iter().eq(entries2));
+        assert!(!m1.iter().eq(m2.iter()));
+        assert!(m1.eq(&m1));
+        assert!(m2.eq(&m2));
         assert_eq!(m1, m2);
 
         let not_m1 = {
@@ -699,10 +699,10 @@ mod tests {
     #[test]
     fn small_set_inserts() {
         let mut s = SmallSet::new();
-        assert_eq!(s.insert(2), true);
-        assert_eq!(s.insert(5), true);
+        assert!(s.insert(2));
+        assert!(s.insert(5));
 
-        assert_eq!(s.insert(5), false);
+        assert!(!s.insert(5));
     }
 
     #[test]

@@ -387,7 +387,7 @@ mod tests {
             Some("cell/pkg/BUCK")
         );
         assert_eq!(target.code_pointer().unwrap().line(), 0);
-        assert_eq!(target.deps().unwrap().is_empty(), true);
+        assert!(target.deps().unwrap().is_empty());
 
         let target2 = build.targets().unwrap().get(1);
         assert_eq!(
