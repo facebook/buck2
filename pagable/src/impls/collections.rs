@@ -46,6 +46,35 @@ impl<'de, K: Ord + PagableDeserialize<'de>, V: PagableDeserialize<'de>> PagableD
     }
 }
 
+impl<K: PagableSerialize, V: PagableSerialize> PagableSerialize
+    for std::collections::HashMap<K, V>
+{
+    fn pagable_serialize(&self, serializer: &mut dyn PagableSerializer) -> crate::Result<()> {
+        usize::serialize(&self.len(), serializer.serde())?;
+        for (k, v) in self {
+            k.pagable_serialize(serializer)?;
+            v.pagable_serialize(serializer)?;
+        }
+        Ok(())
+    }
+}
+impl<'de, K: std::hash::Hash + Eq + PagableDeserialize<'de>, V: PagableDeserialize<'de>>
+    PagableDeserialize<'de> for std::collections::HashMap<K, V>
+{
+    fn pagable_deserialize<D: PagableDeserializer<'de> + ?Sized>(
+        deserializer: &mut D,
+    ) -> crate::Result<Self> {
+        let items = usize::deserialize(deserializer.serde())?;
+        let mut map = std::collections::HashMap::new();
+        for _ in 0..items {
+            let k = K::pagable_deserialize(deserializer)?;
+            let v = V::pagable_deserialize(deserializer)?;
+            map.insert(k, v);
+        }
+        Ok(map)
+    }
+}
+
 impl<T: PagableSerialize> PagableSerialize for Vec<T> {
     fn pagable_serialize(&self, serializer: &mut dyn PagableSerializer) -> crate::Result<()> {
         usize::serialize(&self.len(), serializer.serde())?;
@@ -139,4 +168,32 @@ array_impls! {
     30 => (0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29)
     31 => (0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30)
     32 => (0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31)
+}
+
+#[cfg(test)]
+mod tests {
+    use std::collections::HashMap;
+
+    use crate::testing::TestingDeserializer;
+    use crate::testing::TestingSerializer;
+    use crate::traits::PagableDeserialize;
+    use crate::traits::PagableSerialize;
+
+    #[test]
+    fn test_hashmap_roundtrip() -> crate::Result<()> {
+        let mut map: HashMap<String, i32> = HashMap::new();
+        map.insert("one".to_owned(), 1);
+        map.insert("two".to_owned(), 2);
+        map.insert("three".to_owned(), 3);
+
+        let mut serializer = TestingSerializer::new();
+        map.pagable_serialize(&mut serializer)?;
+        let bytes = serializer.finish();
+
+        let mut deserializer = TestingDeserializer::new(&bytes);
+        let restored: HashMap<String, i32> = HashMap::pagable_deserialize(&mut deserializer)?;
+
+        assert_eq!(map, restored);
+        Ok(())
+    }
 }
