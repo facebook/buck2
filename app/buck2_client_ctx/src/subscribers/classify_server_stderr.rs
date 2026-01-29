@@ -86,8 +86,7 @@ static RUST_CONTEXT: Lazy<regex::Regex> = Lazy::new(|| regex::Regex::new(r"^\s*a
 fn extract_rust_frame(line: &str) -> ControlFlow<(), Option<String>> {
     if let Some(capture) = RUST_STACK_FRAME
         .captures(line)
-        .map(|captures| captures.get(1))
-        .flatten()
+        .and_then(|captures| captures.get(1))
     {
         ControlFlow::Continue(Some(capture.as_str().to_owned()))
     } else if RUST_CONTEXT.is_match(line) {
@@ -112,14 +111,12 @@ static FOLLY_LINUX_CONTEXT: Lazy<regex::Regex> =
 fn extract_folly_frame(line: &str) -> ControlFlow<(), Option<String>> {
     if let Some(capture) = FOLLY_MAC_STACK_FRAME
         .captures(line)
-        .map(|captures| captures.get(1))
-        .flatten()
+        .and_then(|captures| captures.get(1))
     {
         ControlFlow::Continue(Some(capture.as_str().to_owned()))
     } else if let Some(capture) = FOLLY_LINUX_STACK_FRAME
         .captures(line)
-        .map(|captures| captures.get(1))
-        .flatten()
+        .and_then(|captures| captures.get(1))
     {
         ControlFlow::Continue(Some(capture.as_str().to_owned()))
     } else if FOLLY_LINUX_CONTEXT.is_match(line) {

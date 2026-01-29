@@ -202,7 +202,7 @@ impl LegacyConfigParser {
     ) -> Vec<buck2_data::ConfigValue> {
         self.values
             .iter()
-            .map(|(k, v)| {
+            .flat_map(|(k, v)| {
                 v.values.iter().map(|(key, value)| buck2_data::ConfigValue {
                     section: k.to_owned(),
                     key: key.to_owned(),
@@ -211,7 +211,6 @@ impl LegacyConfigParser {
                     is_cli,
                 })
             })
-            .flatten()
             .collect()
     }
     pub(crate) fn combine(external_path_configs: Vec<ExternalPathBuckconfigData>) -> Self {

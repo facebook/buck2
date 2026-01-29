@@ -224,7 +224,7 @@ impl Error {
     }
 
     pub fn get_tier(&self) -> Option<Tier> {
-        best_tag(self.tags()).map(error_tag_category).flatten()
+        best_tag(self.tags()).and_then(error_tag_category)
     }
 
     pub fn exit_code(&self) -> ExitCode {

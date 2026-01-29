@@ -485,8 +485,7 @@ impl ErrorLike for buck2_data::ErrorReport {
 
     fn category(&self) -> Tier {
         self.best_tag()
-            .map(|t| tag_metadata(t).category)
-            .flatten()
+            .and_then(|t| tag_metadata(t).category)
             .unwrap_or(Tier::Tier0)
     }
 }

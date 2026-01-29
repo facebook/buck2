@@ -89,8 +89,7 @@ fn collect_digests(directory_entry: &ActionDirectoryEntry<ActionSharedDirectory>
             let mut digests: Vec<_> = dir
                 .entries()
                 .into_iter()
-                .map(|(_, entry)| collect_digests(entry))
-                .flatten()
+                .flat_map(|(_, entry)| collect_digests(entry))
                 .collect();
             digests.push(dir.fingerprint().to_re());
             digests

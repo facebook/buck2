@@ -35,8 +35,7 @@ pub(crate) fn get_interngraph_client_subdomain_and_auth(
     match x2p::current()
         .ok()
         .filter(|user| user.supports_vpnless())
-        .map(CpeUserX2pInfo::http1_proxy_port_url)
-        .flatten()
+        .and_then(CpeUserX2pInfo::http1_proxy_port_url)
     {
         Some(proxy_port_url) => Ok((
             Subdomain::InternmcX2pProxyProtocol(proxy_port_url),

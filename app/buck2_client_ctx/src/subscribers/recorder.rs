@@ -1084,12 +1084,9 @@ impl InvocationRecorder {
             local_cache_hits_files_from_memory_cache,
             local_cache_hits_files_from_filesystem_cache,
             local_cache_lookups,
-            re_average_local_cache_lookup_microseconds: local_cache_lookups
-                .map(|c| {
-                    local_cache_lookup_latency_microseconds
-                        .map(|duration| duration as f64 / c as f64)
-                })
-                .flatten(),
+            re_average_local_cache_lookup_microseconds: local_cache_lookups.and_then(|c| {
+                local_cache_lookup_latency_microseconds.map(|duration| duration as f64 / c as f64)
+            }),
             max_dice_in_progress_keys: Some(self.max_dice_in_progress_keys),
             max_dice_compute_keys: Some(self.max_dice_compute_keys),
             max_in_progress_actions: Some(self.max_in_progress_actions),

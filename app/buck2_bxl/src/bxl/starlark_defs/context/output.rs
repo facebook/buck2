@@ -690,19 +690,16 @@ fn output_stream_methods(builder: &mut MethodsBuilder) {
         let extra = BxlEvalExtra::from_context(eval)?;
         let streaming_writer = BxlStreamingWriter::new(&extra.dice);
 
-        let wait_on = wait_on
-            .into_iter()
-            .map(|wait_on| match wait_on {
-                Either::Left(ensured_artifact) => {
-                    vec![EnsuredArtifactOrGroup::Artifact(ensured_artifact.dupe())]
-                }
-                Either::Right(ensured_group) => ensured_group
-                    .inner()
-                    .iter()
-                    .map(|group| EnsuredArtifactOrGroup::ArtifactGroup(group.dupe()))
-                    .collect(),
-            })
-            .flatten();
+        let wait_on = wait_on.into_iter().flat_map(|wait_on| match wait_on {
+            Either::Left(ensured_artifact) => {
+                vec![EnsuredArtifactOrGroup::Artifact(ensured_artifact.dupe())]
+            }
+            Either::Right(ensured_group) => ensured_group
+                .inner()
+                .iter()
+                .map(|group| EnsuredArtifactOrGroup::ArtifactGroup(group.dupe()))
+                .collect(),
+        });
 
         let streaming_output = StreamingOutput::new(wait_on, this.state.dupe(), streaming_writer);
         this.print(args.into_iter(), sep, eval, streaming_output)?;
@@ -747,19 +744,16 @@ fn output_stream_methods(builder: &mut MethodsBuilder) {
     ) -> starlark::Result<NoneType> {
         let extra = BxlEvalExtra::from_context(eval)?;
         let streaming_writer = BxlStreamingWriter::new(&extra.dice);
-        let wait_on = wait_on
-            .into_iter()
-            .map(|wait_on| match wait_on {
-                Either::Left(ensured_artifact) => {
-                    vec![EnsuredArtifactOrGroup::Artifact(ensured_artifact.dupe())]
-                }
-                Either::Right(ensured_group) => ensured_group
-                    .inner()
-                    .iter()
-                    .map(|group| EnsuredArtifactOrGroup::ArtifactGroup(group.dupe()))
-                    .collect(),
-            })
-            .flatten();
+        let wait_on = wait_on.into_iter().flat_map(|wait_on| match wait_on {
+            Either::Left(ensured_artifact) => {
+                vec![EnsuredArtifactOrGroup::Artifact(ensured_artifact.dupe())]
+            }
+            Either::Right(ensured_group) => ensured_group
+                .inner()
+                .iter()
+                .map(|group| EnsuredArtifactOrGroup::ArtifactGroup(group.dupe()))
+                .collect(),
+        });
         let streaming_output = StreamingOutput::new(wait_on, this.state.dupe(), streaming_writer);
 
         this.print_json(value, pretty, eval, streaming_output)?;
