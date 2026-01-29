@@ -131,19 +131,6 @@ build_report_test(
 )
 
 build_report_test(
-    "test_build_report_format_per_configuration_sketch",
-    [
-        "//:rule1",
-        "//:dir1",
-        "//subdir:rule",
-        # Let's look at something more interesting than unspecified platform
-        "--target-platforms=root//:platform",
-        "-c",
-        "buck2.log_total_per_configuration_sketch=true",
-    ],
-)
-
-build_report_test(
     "test_build_report_format_all_sketches",
     [
         "//:rule1",
@@ -159,8 +146,6 @@ build_report_test(
         "buck2.log_total_configured_graph_sketch=true",
         "-c",
         "buck2.log_total_configured_graph_unconfigured_sketch=true",
-        "-c",
-        "buck2.log_total_per_configuration_sketch=true",
     ],
 )
 

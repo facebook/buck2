@@ -78,7 +78,6 @@ use crate::build::detailed_aggregated_metrics::types::TopLevelTargetAggregatedDa
 use crate::build::graph_properties::DEFAULT_SKETCH_VERSION;
 use crate::build::graph_properties::GraphPropertiesOptions;
 use crate::build::graph_properties::VersionedSketcher;
-use crate::build::graph_properties::VersionedSketcherMap;
 use crate::bxl::types::BxlFunctionLabel;
 
 #[derive(Debug, Serialize)]
@@ -110,8 +109,6 @@ pub struct BuildReport {
     total_configured_graph_sketch: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     total_configured_graph_unconfigured_sketch: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    per_configuration_data: Option<HashMap<String, PerConfigurationEntry>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     error_category: Option<String>,
 }
@@ -251,13 +248,6 @@ enum EntryLabel {
     BxlFunction(BxlFunctionLabel),
 }
 
-#[derive(Debug, Serialize)]
-struct PerConfigurationEntry {
-    hash: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    total_unconfigured_sketch: Option<String>,
-}
-
 pub struct BuildReportOpts {
     pub print_unconfigured_section: bool,
     pub unstable_include_failures_build_report: bool,
@@ -285,7 +275,6 @@ pub struct BuildReportCollector<'a> {
     graph_properties_opts: GraphPropertiesOptions,
     total_configured_graph_sketch: Option<VersionedSketcher<ConfiguredTargetLabel>>,
     total_configured_graph_unconfigured_sketch: Option<VersionedSketcher<TargetLabel>>,
-    total_per_configuration_sketch: Option<VersionedSketcherMap<ConfigurationData, TargetLabel>>,
 }
 
 // Build report generation should never produce an input error, always return an error with an infra tag
@@ -339,12 +328,6 @@ impl<'a> BuildReportCollector<'a> {
                 .total_configured_graph_unconfigured_sketch
             {
                 Some(DEFAULT_SKETCH_VERSION.create_sketcher())
-            } else {
-                None
-            },
-            total_per_configuration_sketch: if graph_properties_opts.total_per_configuration_sketch
-            {
-                Some(VersionedSketcherMap::new(DEFAULT_SKETCH_VERSION))
             } else {
                 None
             },
@@ -543,14 +526,13 @@ impl<'a> BuildReportCollector<'a> {
 
     /// Assembles the BuildReport from collected data
     fn assemble_build_report(
-        mut self,
+        self,
         trace_id: &TraceId,
         project_root: &ProjectRoot,
         entries: HashMap<EntryLabel, BuildReportEntry>,
         all_error_reports: Vec<ErrorReport>,
         detailed_metrics: Option<DetailedAggregatedMetrics>,
     ) -> Result<BuildReport, BuildReportGenerationError> {
-        let per_configuration_data = self.collect_per_configuration_data()?;
         let total_configured_graph_sketch = self
             .total_configured_graph_sketch
             .map(|sketcher| sketcher.into_mergeable_graph_sketch().serialize());
@@ -581,7 +563,6 @@ impl<'a> BuildReportCollector<'a> {
                 .map(|m| Self::convert_all_target_build_metrics(&m.all_targets_build_metrics)),
             total_configured_graph_sketch,
             total_configured_graph_unconfigured_sketch,
-            per_configuration_data,
             error_category,
         })
     }
@@ -840,12 +821,6 @@ impl<'a> BuildReportCollector<'a> {
                             sketcher.merge(&configured_graph_unconfigured_sketch)?;
                         }
                     }
-
-                    if let Some(total_per_configuration_sketcher) =
-                        self.total_per_configuration_sketch.as_mut()
-                    {
-                        total_per_configuration_sketcher.merge(per_configuration_sketch.iter())?;
-                    }
                 }
             }
 
@@ -976,31 +951,6 @@ impl<'a> BuildReportCollector<'a> {
         }
 
         out
-    }
-
-    fn collect_per_configuration_data(
-        &mut self,
-    ) -> buck2_error::Result<Option<HashMap<String, PerConfigurationEntry>>> {
-        let Some(total_per_configuration_sketcher) = self.total_per_configuration_sketch.take()
-        else {
-            return Ok(None);
-        };
-
-        let per_configuration_data = total_per_configuration_sketcher
-            .into_iter()
-            .map(|(cfg_data, sketcher)| {
-                let total_unconfigured_sketch =
-                    Some(sketcher.into_mergeable_graph_sketch().serialize());
-                Ok((
-                    cfg_data.full_name().to_owned(),
-                    PerConfigurationEntry {
-                        hash: cfg_data.output_hash().as_str().to_owned(),
-                        total_unconfigured_sketch,
-                    },
-                ))
-            })
-            .collect::<buck2_error::Result<HashMap<String, PerConfigurationEntry>>>()?;
-        Ok(Some(per_configuration_data))
     }
 }
 

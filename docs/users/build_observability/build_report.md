@@ -79,11 +79,6 @@ BuildReport {
     # Enabled by setting
     # `-c buck2.log_total_configured_graph_unconfigured_sketch=true`.
     total_configured_graph_unconfigured_sketch: Optional[str],
-
-    # Reports data about each configuration encountered as part of the build,
-    # if requested. Currently shows total unconfigured sketch per configuration
-    # if `-c buck2.log_total_per_configuration_sketch=true` is set.
-    per_configuration_data: dict[str, PerConfigurationData],
 }
 
 BuildReportEntry {
@@ -198,13 +193,6 @@ AggregatedBuildMetrics {
 
     analysis_retained_memory: float
     declared_actions: float
-}
-
-PerConfigurationData {
-    # Unique hash of the configuration. This is same hash used in buck-out.
-    hash: str,
-    # Sketch of unconfigured target labels for all targets of that configuration
-    total_unconfigured_sketch: str,
 }
 
 Error {

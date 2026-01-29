@@ -50,7 +50,6 @@ pub struct GraphPropertiesOptions {
     pub configured_graph_unconfigured_sketch: bool,
     pub total_configured_graph_sketch: bool,
     pub total_configured_graph_unconfigured_sketch: bool,
-    pub total_per_configuration_sketch: bool,
     pub retained_analysis_memory_sketch: bool,
 }
 
@@ -62,7 +61,6 @@ impl fmt::Display for GraphPropertiesOptions {
             configured_graph_unconfigured_sketch,
             total_configured_graph_sketch,
             total_configured_graph_unconfigured_sketch,
-            total_per_configuration_sketch,
             retained_analysis_memory_sketch,
         } = *self;
 
@@ -93,11 +91,6 @@ impl fmt::Display for GraphPropertiesOptions {
             write!(f, "total_configured_graph_unconfigured_sketch")?;
         }
 
-        if total_per_configuration_sketch {
-            comma(f)?;
-            write!(f, "total_per_configuration_sketch")?;
-        }
-
         if retained_analysis_memory_sketch {
             comma(f)?;
             write!(f, "retained_analysis_memory_sketch")?;
@@ -115,7 +108,6 @@ impl GraphPropertiesOptions {
             configured_graph_unconfigured_sketch,
             total_configured_graph_sketch,
             total_configured_graph_unconfigured_sketch,
-            total_per_configuration_sketch,
             retained_analysis_memory_sketch,
         } = self;
 
@@ -124,7 +116,6 @@ impl GraphPropertiesOptions {
             && !configured_graph_unconfigured_sketch
             && !total_configured_graph_sketch
             && !total_configured_graph_unconfigured_sketch
-            && !total_per_configuration_sketch
             && !retained_analysis_memory_sketch
     }
 
@@ -133,9 +124,7 @@ impl GraphPropertiesOptions {
     }
 
     pub(crate) fn should_compute_per_configuration_sketch(self) -> bool {
-        self.configured_graph_unconfigured_sketch
-            || self.total_configured_graph_unconfigured_sketch
-            || self.total_per_configuration_sketch
+        self.configured_graph_unconfigured_sketch || self.total_configured_graph_unconfigured_sketch
     }
 }
 
@@ -335,30 +324,11 @@ impl<K: Dupe + Hash + Eq, T: StrongHash> VersionedSketcherMap<K, T> {
             .or_insert_with(|| self.version.create_sketcher())
     }
 
-    pub(crate) fn merge<'a>(
-        &mut self,
-        other: impl Iterator<Item = (&'a K, &'a MergeableGraphSketch<T>)>,
-    ) -> buck2_error::Result<()>
-    where
-        K: 'a,
-        T: 'a,
-    {
-        for (k, other_sketch) in other {
-            let sketcher = self.entry_or_insert(k.dupe());
-            sketcher.merge(other_sketch)?;
-        }
-        Ok(())
-    }
-
     pub(crate) fn into_mergeable_graph_sketch_map(self) -> OrderedMap<K, MergeableGraphSketch<T>> {
         self.map
             .into_iter()
             .map(|(k, v)| (k, v.into_mergeable_graph_sketch()))
             .collect()
-    }
-
-    pub(crate) fn into_iter(self) -> impl Iterator<Item = (K, VersionedSketcher<T>)> {
-        self.map.into_iter()
     }
 }
 
