@@ -135,31 +135,6 @@ impl<'de, K: Ord + PagableDeserialize<'de>, V: PagableDeserialize<'de>> PagableD
     }
 }
 
-impl<V: PagableSerialize> PagableSerialize for std::collections::BTreeSet<V> {
-    fn pagable_serialize(&self, serializer: &mut dyn PagableSerializer) -> crate::Result<()> {
-        usize::serialize(&self.len(), serializer.serde())?;
-        for v in self {
-            v.pagable_serialize(serializer)?;
-        }
-        Ok(())
-    }
-}
-impl<'de, V: Ord + PagableDeserialize<'de>> PagableDeserialize<'de>
-    for std::collections::BTreeSet<V>
-{
-    fn pagable_deserialize<D: PagableDeserializer<'de> + ?Sized>(
-        deserializer: &mut D,
-    ) -> crate::Result<Self> {
-        let items = usize::deserialize(deserializer.serde())?;
-        let mut set = std::collections::BTreeSet::new();
-        for _ in 0..items {
-            let v = V::pagable_deserialize(deserializer)?;
-            set.insert(v);
-        }
-        Ok(set)
-    }
-}
-
 impl<T: PagableSerialize> PagableSerialize for Vec<T> {
     fn pagable_serialize(&self, serializer: &mut dyn PagableSerializer) -> crate::Result<()> {
         usize::serialize(&self.len(), serializer.serde())?;
@@ -327,26 +302,6 @@ mod tests {
             SortedVectorMap::pagable_deserialize(&mut deserializer)?;
 
         assert_eq!(map, restored);
-        Ok(())
-    }
-
-    #[test]
-    fn test_btreeset_roundtrip() -> crate::Result<()> {
-        use std::collections::BTreeSet;
-
-        let mut set: BTreeSet<String> = BTreeSet::new();
-        set.insert("one".to_owned());
-        set.insert("two".to_owned());
-        set.insert("three".to_owned());
-
-        let mut serializer = TestingSerializer::new();
-        set.pagable_serialize(&mut serializer)?;
-        let bytes = serializer.finish();
-
-        let mut deserializer = TestingDeserializer::new(&bytes);
-        let restored: BTreeSet<String> = BTreeSet::pagable_deserialize(&mut deserializer)?;
-
-        assert_eq!(set, restored);
         Ok(())
     }
 }
