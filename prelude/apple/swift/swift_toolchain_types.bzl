@@ -49,7 +49,7 @@ SwiftToolchainInfo = provider(fields = {
     "uncompiled_clang_sdk_modules_deps": provider_field(dict[str, Dependency]),
     "uncompiled_swift_sdk_modules_deps": provider_field(dict[str, Dependency]),
     "use_depsfiles": provider_field(bool, default = False),
-    "uses_experimental_content_based_path_hashing": provider_field(bool, default = False),
+    "uses_content_based_paths": provider_field(bool, default = False),
 })
 
 # A provider that represents a non-yet-compiled SDK (Swift or Clang) module,

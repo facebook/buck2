@@ -1269,7 +1269,7 @@ swift_toolchain = prelude_rule(
             "swiftc": attrs.exec_dep(providers = [RunInfo]),
             "swiftc_flags": attrs.list(attrs.arg(), default = []),
             "use_depsfiles": attrs.bool(default = False),
-            "uses_experimental_content_based_path_hashing": attrs.bool(default = False),
+            "uses_content_based_paths": attrs.bool(default = False),
             # TODO(T111858757): Mirror of `sdk_path` but treated as a string. It allows us to
             #                   pass abs paths during development and using the currently selected Xcode.
             "_internal_sdk_path": attrs.option(attrs.string(), default = None),

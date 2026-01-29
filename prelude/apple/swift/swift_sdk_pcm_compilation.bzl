@@ -113,7 +113,7 @@ def _swift_sdk_pcm_compilation_impl(ctx: AnalysisContext) -> [Promise, list[Prov
     def k(sdk_pcm_deps_providers) -> list[Provider]:
         uncompiled_sdk_module_info = ctx.attrs.dep[SdkUncompiledModuleInfo]
         sdk_deps_tset = get_compiled_sdk_clang_deps_tset(ctx, sdk_pcm_deps_providers)
-        uses_experimental_content_based_path_hashing = get_uses_content_based_paths(ctx)
+        uses_content_based_paths = get_uses_content_based_paths(ctx)
 
         # We pass in Swift and Clang SDK module deps to get the transitive
         # Clang dependencies compiled with the correct Swift cxx args. For
@@ -190,7 +190,7 @@ def _swift_sdk_pcm_compilation_impl(ctx: AnalysisContext) -> [Promise, list[Prov
         _add_sdk_module_search_path(argsfile_cmd, uncompiled_sdk_module_info, swift_toolchain)
 
         shell_quoted_args = cmd_args(argsfile_cmd, quote = "shell")
-        argsfile, _ = ctx.actions.write("sdk_pcm_compile_argsfile", shell_quoted_args, allow_args = True, uses_experimental_content_based_path_hashing = uses_experimental_content_based_path_hashing)
+        argsfile, _ = ctx.actions.write("sdk_pcm_compile_argsfile", shell_quoted_args, allow_args = True, has_content_based_path = uses_content_based_paths)
         cmd.add(cmd_args(argsfile, format = "@{}", delimiter = ""))
         cmd.add(cmd_args(hidden = [argsfile_cmd]))
 
@@ -198,7 +198,7 @@ def _swift_sdk_pcm_compilation_impl(ctx: AnalysisContext) -> [Promise, list[Prov
             swift_toolchain,
             uncompiled_sdk_module_info.input_relative_path,
         )
-        pcm_output = ctx.actions.declare_output(module_name + ".pcm", uses_experimental_content_based_path_hashing = uses_experimental_content_based_path_hashing)
+        pcm_output = ctx.actions.declare_output(module_name + ".pcm", has_content_based_path = uses_content_based_paths)
         cmd.add([
             "-o",
             pcm_output.as_output(),

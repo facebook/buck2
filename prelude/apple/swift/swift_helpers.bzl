@@ -48,7 +48,7 @@ def compile_with_argsfile_cmd(
         artifact_tag: ArtifactTag | None) -> CompileWithArgsFileCmdOutput:
     object_outputs = [obj.as_output() for obj in objects]
 
-    uses_experimental_content_based_path_hashing = get_uses_content_based_paths(ctx)
+    uses_content_based_paths = get_uses_content_based_paths(ctx)
 
     writable_incremental_args = []
     if incremental_artifacts:
@@ -68,7 +68,7 @@ def compile_with_argsfile_cmd(
     # input tracking.
     shell_quoted_args = cmd_args(shared_flags, quote = "shell")
 
-    if artifact_tag != None and uses_experimental_content_based_path_hashing:
+    if artifact_tag != None and uses_content_based_paths:
         # This is a little bit convoluted due to the way that content-based paths affect argfiles.
         # If an unused tagged input changes, we don't want to re-run the action, but if it is a
         # content-based input that is written to the argfile, then the argfile will also change
@@ -78,12 +78,12 @@ def compile_with_argsfile_cmd(
         # and tagged as unused so that it is not used for dep-file comparison, and an argfile
         # that uses placeholders instead of content-based paths, which is not tagged for dep-files
         # and therefore causes a dep-file miss if it changes.
-        argsfile, _ = ctx.actions.write(".{}_argsfile".format(category), shell_quoted_args, allow_args = True, uses_experimental_content_based_path_hashing = uses_experimental_content_based_path_hashing)
-        placeholder_argsfile, _ = ctx.actions.write(".{}_argsfile_placeholder".format(category), shell_quoted_args, allow_args = True, use_dep_files_placeholder_for_content_based_paths = True, uses_experimental_content_based_path_hashing = uses_experimental_content_based_path_hashing)
+        argsfile, _ = ctx.actions.write(".{}_argsfile".format(category), shell_quoted_args, allow_args = True, has_content_based_path = uses_content_based_paths)
+        placeholder_argsfile, _ = ctx.actions.write(".{}_argsfile_placeholder".format(category), shell_quoted_args, allow_args = True, use_dep_files_placeholder_for_content_based_paths = True, has_content_based_path = uses_content_based_paths)
         cmd.add(cmd_args(hidden = placeholder_argsfile))
         argsfile_cmd_form = cmd_args(artifact_tag.tag_artifacts(argsfile), format = "@{}", delimiter = "", hidden = shared_flags)
     else:
-        argsfile, _ = ctx.actions.write(".{}_argsfile".format(category), shell_quoted_args, allow_args = True, uses_experimental_content_based_path_hashing = uses_experimental_content_based_path_hashing)
+        argsfile, _ = ctx.actions.write(".{}_argsfile".format(category), shell_quoted_args, allow_args = True, has_content_based_path = uses_content_based_paths)
         argsfile_cmd_form = cmd_args(argsfile, format = "@{}", delimiter = "", hidden = shared_flags)
     cmd.add(argsfile_cmd_form)
 
@@ -93,7 +93,7 @@ def compile_with_argsfile_cmd(
 
         # This path needs to be kept in sync with the _SWIFT_FILES_ARGSFILE
         # variable in swift_exec.py.
-        swift_files, _ = ctx.actions.write(".{}_swift_srcs".format(category), swift_quoted_files, allow_args = True, uses_experimental_content_based_path_hashing = uses_experimental_content_based_path_hashing)
+        swift_files, _ = ctx.actions.write(".{}_swift_srcs".format(category), swift_quoted_files, allow_args = True, has_content_based_path = uses_content_based_paths)
         swift_files_cmd_form = cmd_args(swift_files, format = "@{}", delimiter = "", hidden = swift_quoted_files)
         cmd.add(swift_files_cmd_form)
 
@@ -104,7 +104,7 @@ def compile_with_argsfile_cmd(
     error_outputs = []
 
     if supports_serialized_errors and error_deserializer:
-        json_error_output = ctx.actions.declare_output("__diagnostics__/{}.json".format(category), uses_experimental_content_based_path_hashing = uses_experimental_content_based_path_hashing).as_output()
+        json_error_output = ctx.actions.declare_output("__diagnostics__/{}.json".format(category), has_content_based_path = uses_content_based_paths).as_output()
         error_outputs.append(json_error_output)
         is_incremental = incremental_artifacts != None
         add_serialized_diagnostics_output(
@@ -126,7 +126,7 @@ def compile_with_argsfile_cmd(
             # .dia output for each .o output. These need to be made writable.
             for obj in objects:
                 name_without_extension, _ = paths.split_extension(obj.short_path)
-                diag_output = ctx.actions.declare_output("{}.dia".format(name_without_extension), uses_experimental_content_based_path_hashing = uses_experimental_content_based_path_hashing)
+                diag_output = ctx.actions.declare_output("{}.dia".format(name_without_extension), has_content_based_path = uses_content_based_paths)
                 cmd.add(cmd_args(hidden = diag_output.as_output()))
                 writable_incremental_args.append(diag_output.as_output())
 

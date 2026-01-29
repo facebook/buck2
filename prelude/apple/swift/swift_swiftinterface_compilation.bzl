@@ -53,7 +53,7 @@ def compile_swiftinterface_common(
         category,
         additional_compiled_pcm,
         additional_compiled_swiftmodules = None):
-    uses_experimental_content_based_path_hashing = get_uses_content_based_paths(ctx)
+    uses_content_based_paths = get_uses_content_based_paths(ctx)
     swift_toolchain = get_swift_toolchain_info(ctx)
     cmd = cmd_args(swift_toolchain.compiler)
     cmd.add(partial_cmd)
@@ -88,7 +88,7 @@ def compile_swiftinterface_common(
         swift_module_map_artifact,
     ])
 
-    swiftmodule_output = ctx.actions.declare_output(uncompiled_module_info_name + SWIFTMODULE_EXTENSION, uses_experimental_content_based_path_hashing = uses_experimental_content_based_path_hashing)
+    swiftmodule_output = ctx.actions.declare_output(uncompiled_module_info_name + SWIFTMODULE_EXTENSION, has_content_based_path = uses_content_based_paths)
     cmd.add([
         "-o",
         swiftmodule_output.as_output(),

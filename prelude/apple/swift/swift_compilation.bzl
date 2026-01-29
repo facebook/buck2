@@ -311,7 +311,7 @@ def compile_swift(
     framework_search_paths = cmd_args()
     framework_search_paths.add(_get_xctest_swiftmodule_search_path(ctx))
 
-    uses_experimental_content_based_path_hashing = get_uses_content_based_paths(ctx)
+    uses_content_based_paths = get_uses_content_based_paths(ctx)
 
     # Pass the framework search paths to the driver and clang importer. This is required
     # for pcm compilation, which does not pass through driver search paths.
@@ -355,21 +355,21 @@ def compile_swift(
         return SwiftCompileResult(swift_compilation = None, objc_swift_interface = objc_swift_interface_info, swiftinterface = None)
 
     toolchain = get_swift_toolchain_info(ctx)
-    output_header = ctx.actions.declare_output(module_name + "-Swift.h", uses_experimental_content_based_path_hashing = uses_experimental_content_based_path_hashing)
-    output_swiftmodule = ctx.actions.declare_output(module_name + SWIFTMODULE_EXTENSION, uses_experimental_content_based_path_hashing = uses_experimental_content_based_path_hashing)
+    output_header = ctx.actions.declare_output(module_name + "-Swift.h", has_content_based_path = uses_content_based_paths)
+    output_swiftmodule = ctx.actions.declare_output(module_name + SWIFTMODULE_EXTENSION, has_content_based_path = uses_content_based_paths)
 
     swift_framework_output = None
 
     if _should_compile_with_evolution(ctx):
         swift_framework_output = SwiftLibraryForDistributionOutput(
-            swiftinterface = ctx.actions.declare_output(module_name + ".swiftinterface", uses_experimental_content_based_path_hashing = uses_experimental_content_based_path_hashing),
-            private_swiftinterface = ctx.actions.declare_output(module_name + ".private.swiftinterface", uses_experimental_content_based_path_hashing = uses_experimental_content_based_path_hashing),
-            swiftdoc = ctx.actions.declare_output(module_name + ".swiftdoc", uses_experimental_content_based_path_hashing = uses_experimental_content_based_path_hashing),  #this is generated automatically once we pass -emit-module-info, so must have this name
+            swiftinterface = ctx.actions.declare_output(module_name + ".swiftinterface", has_content_based_path = uses_content_based_paths),
+            private_swiftinterface = ctx.actions.declare_output(module_name + ".private.swiftinterface", has_content_based_path = uses_content_based_paths),
+            swiftdoc = ctx.actions.declare_output(module_name + ".swiftdoc", has_content_based_path = uses_content_based_paths),  #this is generated automatically once we pass -emit-module-info, so must have this name
         )
 
     output_swiftinterface = None
     if getattr(ctx.attrs, "swiftinterface_subtarget_enabled", False):
-        output_swiftinterface = ctx.actions.declare_output(module_name + ".swiftinterface", uses_experimental_content_based_path_hashing = uses_experimental_content_based_path_hashing)
+        output_swiftinterface = ctx.actions.declare_output(module_name + ".swiftinterface", has_content_based_path = uses_content_based_paths)
         _compile_swiftinterface(
             ctx,
             toolchain,
@@ -597,7 +597,7 @@ def _compile_typecheck_diagnostics(
         shared_flags: cmd_args,
         srcs: list[CxxSrcWithFlags]) -> Artifact:
     category = "swift_typecheck"
-    uses_experimental_content_based_path_hashing = get_uses_content_based_paths(ctx)
+    uses_content_based_paths = get_uses_content_based_paths(ctx)
 
     if uses_explicit_modules(ctx):
         category += "_with_explicit_mods"
@@ -624,7 +624,7 @@ def _compile_typecheck_diagnostics(
         artifact_tag = None,
     )
 
-    typecheck_file = ctx.actions.declare_output("swift-typecheck-stderr", uses_experimental_content_based_path_hashing = uses_experimental_content_based_path_hashing)
+    typecheck_file = ctx.actions.declare_output("swift-typecheck-stderr", has_content_based_path = uses_content_based_paths)
 
     cxx_toolchain = get_cxx_toolchain_info(ctx)
     typecheck_cmd = cmd_args([
@@ -654,11 +654,11 @@ def _compile_object(
     emit_depsfiles = toolchain.use_depsfiles and not get_incremental_file_hashing_enabled(ctx)
     skip_incremental_outputs = False
     module_name = get_module_name(ctx)
-    uses_experimental_content_based_path_hashing = get_uses_content_based_paths(ctx)
+    uses_content_based_paths = get_uses_content_based_paths(ctx)
 
     if should_build_swift_incrementally(ctx):
         #define this here as we will only have an artifact for the purposes of incremental rebuilds.
-        output_swiftdoc = ctx.actions.declare_output(module_name + ".swiftdoc", uses_experimental_content_based_path_hashing = uses_experimental_content_based_path_hashing)
+        output_swiftdoc = ctx.actions.declare_output(module_name + ".swiftdoc", has_content_based_path = uses_content_based_paths)
 
         incremental_compilation_output = get_incremental_object_compilation_flags(ctx, srcs, output_swiftmodule, output_swiftdoc, output_header)
         cmd = incremental_compilation_output.incremental_flags_cmd
@@ -676,7 +676,7 @@ def _compile_object(
     else:
         num_threads = 1
         swiftdeps = []
-        output_object = ctx.actions.declare_output(module_name + ".o", uses_experimental_content_based_path_hashing = uses_experimental_content_based_path_hashing)
+        output_object = ctx.actions.declare_output(module_name + ".o", has_content_based_path = uses_content_based_paths)
         objects = [output_object]
         object_format = toolchain.object_format.value
         embed_bitcode = False
@@ -1440,7 +1440,7 @@ def _create_objc_swift_interface(ctx: AnalysisContext, shared_flags: cmd_args, m
     if not swift_ide_test_tool:
         return DefaultInfo()
     mk_swift_interface = swift_toolchain.mk_swift_interface
-    uses_experimental_content_based_path_hashing = get_uses_content_based_paths(ctx)
+    uses_content_based_paths = get_uses_content_based_paths(ctx)
 
     identifier = module_name + ".swift_interface"
 
@@ -1448,9 +1448,9 @@ def _create_objc_swift_interface(ctx: AnalysisContext, shared_flags: cmd_args, m
         identifier + "_argsfile",
         shared_flags,
         allow_args = True,
-        uses_experimental_content_based_path_hashing = uses_experimental_content_based_path_hashing,
+        has_content_based_path = uses_content_based_paths,
     )
-    interface_artifact = ctx.actions.declare_output(identifier, uses_experimental_content_based_path_hashing = uses_experimental_content_based_path_hashing)
+    interface_artifact = ctx.actions.declare_output(identifier, has_content_based_path = uses_content_based_paths)
 
     mk_swift_args = cmd_args(
         mk_swift_interface,

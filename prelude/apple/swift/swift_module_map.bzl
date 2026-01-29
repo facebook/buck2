@@ -17,11 +17,11 @@ def write_swift_module_map_with_deps(
         ctx: AnalysisContext,
         module_name: str,
         all_deps: SwiftCompiledModuleTset) -> ArgLike:
-    uses_experimental_content_based_path_hashing = get_uses_content_based_paths(ctx)
+    uses_content_based_paths = get_uses_content_based_paths(ctx)
     return ctx.actions.write_json(
         module_name + ".swift_module_map.json",
         all_deps.project_as_json("swift_module_map"),
         pretty = True,
         with_inputs = True,
-        uses_experimental_content_based_path_hashing = uses_experimental_content_based_path_hashing,
+        has_content_based_path = uses_content_based_paths,
     )
