@@ -1363,16 +1363,14 @@ async fn build_target_result(
         if skip_build_based_on_labels {
             return Ok((BuildTargetResult::new(), providers));
         }
-    } else {
-        if !(build_default_info
-            || build_run_info
-                && providers
-                    .provider_collection()
-                    .builtin_provider::<FrozenRunInfo>()
-                    .is_some())
-        {
-            return Ok((BuildTargetResult::new(), providers));
-        }
+    } else if !(build_default_info
+        || build_run_info
+            && providers
+                .provider_collection()
+                .builtin_provider::<FrozenRunInfo>()
+                .is_some())
+    {
+        return Ok((BuildTargetResult::new(), providers));
     }
 
     let materialization_and_upload = MaterializationAndUploadContext::skip();

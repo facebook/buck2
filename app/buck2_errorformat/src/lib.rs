@@ -561,13 +561,11 @@ impl ShareContext {
         if let Some(file) = file_path {
             if std::path::Path::new(file).is_absolute() {
                 Some(file.to_owned())
+            } else if let Some(dir) = self.dir_stack.last() {
+                let path = std::path::Path::new(dir).join(file);
+                Some(path.to_string_lossy().into_owned())
             } else {
-                if let Some(dir) = self.dir_stack.last() {
-                    let path = std::path::Path::new(dir).join(file);
-                    Some(path.to_string_lossy().into_owned())
-                } else {
-                    Some(file.to_owned())
-                }
+                Some(file.to_owned())
             }
         } else {
             self.dir_stack.last().map(|s| s.to_owned())

@@ -265,14 +265,12 @@ impl BaseDeferredKeyDyn for BxlDynamicKeyData {
             if action_key.is_none() { "" } else { "/" },
             if path_resolution_method == BuckOutPathKind::Configuration {
                 output_hash.as_str()
+            } else if let Some(content_hash) = content_hash {
+                content_hash.as_str()
             } else {
-                if let Some(content_hash) = content_hash {
-                    content_hash.as_str()
-                } else {
-                    return Err(PathResolutionError::ContentBasedPathWithNoContentHash(
-                        path.to_buf(),
-                    ))?;
-                }
+                return Err(PathResolutionError::ContentBasedPathWithNoContentHash(
+                    path.to_buf(),
+                ))?;
             },
             "/",
             path.as_str(),

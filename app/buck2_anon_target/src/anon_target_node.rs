@@ -308,14 +308,12 @@ impl BaseDeferredKeyDyn for AnonTarget {
             },
             if path_resolution_method == BuckOutPathKind::Configuration {
                 self.path_hash()
+            } else if let Some(content_hash) = content_hash {
+                content_hash.as_str()
             } else {
-                if let Some(content_hash) = content_hash {
-                    content_hash.as_str()
-                } else {
-                    return Err(PathResolutionError::ContentBasedPathWithNoContentHash(
-                        path.to_buf(),
-                    ))?;
-                }
+                return Err(PathResolutionError::ContentBasedPathWithNoContentHash(
+                    path.to_buf(),
+                ))?;
             },
             "/__",
             self.name().name().as_str(),

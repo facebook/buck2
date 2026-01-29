@@ -215,10 +215,8 @@ async fn cquery(
             }),
         )
         .await?;
-    } else {
-        if universes.is_some() {
-            return Err(internal_error!("We did not request universes"));
-        }
+    } else if universes.is_some() {
+        return Err(internal_error!("We did not request universes"));
     }
 
     ctx.with_linear_recompute(|ctx| async move {
