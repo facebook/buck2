@@ -10,7 +10,6 @@
 
 use serde::Deserialize;
 use serde::Serialize;
-use sorted_vector_map::SortedVectorMap;
 
 use crate::traits::PagableDeserialize;
 use crate::traits::PagableDeserializer;
@@ -100,36 +99,6 @@ impl<'de, K: std::hash::Hash + Eq + PagableDeserialize<'de>, V: PagableDeseriali
             let k = Vec::<K>::pagable_deserialize(deserializer)?;
             let v = V::pagable_deserialize(deserializer)?;
             map.insert_owned(k, v);
-        }
-        Ok(map)
-    }
-}
-
-impl<K: PagableSerialize, V: PagableSerialize> PagableSerialize for SortedVectorMap<K, V>
-where
-    K: Ord,
-{
-    fn pagable_serialize(&self, serializer: &mut dyn PagableSerializer) -> crate::Result<()> {
-        usize::serialize(&self.len(), serializer.serde())?;
-        for (k, v) in self {
-            k.pagable_serialize(serializer)?;
-            v.pagable_serialize(serializer)?;
-        }
-        Ok(())
-    }
-}
-impl<'de, K: Ord + PagableDeserialize<'de>, V: PagableDeserialize<'de>> PagableDeserialize<'de>
-    for SortedVectorMap<K, V>
-{
-    fn pagable_deserialize<D: PagableDeserializer<'de> + ?Sized>(
-        deserializer: &mut D,
-    ) -> crate::Result<Self> {
-        let items = usize::deserialize(deserializer.serde())?;
-        let mut map = SortedVectorMap::new();
-        for _ in 0..items {
-            let k = K::pagable_deserialize(deserializer)?;
-            let v = V::pagable_deserialize(deserializer)?;
-            map.insert(k, v);
         }
         Ok(map)
     }
@@ -281,27 +250,6 @@ mod tests {
         for (k, v) in &original {
             assert_eq!(restored.get(k.iter().map(|s| s.as_str())), Some(v));
         }
-        Ok(())
-    }
-
-    #[test]
-    fn test_sorted_vector_map_roundtrip() -> crate::Result<()> {
-        use sorted_vector_map::SortedVectorMap;
-
-        let mut map: SortedVectorMap<String, i32> = SortedVectorMap::new();
-        map.insert("one".to_owned(), 1);
-        map.insert("two".to_owned(), 2);
-        map.insert("three".to_owned(), 3);
-
-        let mut serializer = TestingSerializer::new();
-        map.pagable_serialize(&mut serializer)?;
-        let bytes = serializer.finish();
-
-        let mut deserializer = TestingDeserializer::new(&bytes);
-        let restored: SortedVectorMap<String, i32> =
-            SortedVectorMap::pagable_deserialize(&mut deserializer)?;
-
-        assert_eq!(map, restored);
         Ok(())
     }
 }
