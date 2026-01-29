@@ -471,19 +471,19 @@ def _prepare_cxx_compilation(
         ))
 
     # Declare PCH object output for Windows compiler
-    pch_object_output = None
+    pch_object = None
     if compiler_type == "windows" and compile_pch:
-        pch_object_output = actions.declare_output(
+        pch_object = actions.declare_output(
             folder_name,
             "{}.pch.o".format(filename_base),
             has_content_based_path = content_based,
         )
 
     # JSON error output
-    json_error_output = None
+    json_error = None
     serialized_diags_to_json = toolchain.binary_utilities_info.custom_tools.get("serialized-diags-to-json", None)
     if serialized_diags_to_json and src_compile_cmd.error_handler and compiler_type == "clang" and src_compile_cmd.src.extension != ".cu":
-        json_error_output = actions.declare_output(
+        json_error = actions.declare_output(
             "__diagnostics__/{}.json".format(filename_base),
             has_content_based_path = content_based,
         )
@@ -502,8 +502,8 @@ def _prepare_cxx_compilation(
         diagnostics = diagnostics,
         preproc = preproc,
         dist_cuda = cuda_dist_output,
-        pch_object_output = pch_object_output,
-        json_error_output = json_error_output,
+        pch_object = pch_object,
+        json_error = json_error,
     )
 
     info = CxxCompileInfo(
@@ -549,7 +549,7 @@ def _compile_single_cxx(
     # declare outputs
     compiler_type = src_compile_cmd.cxx_compile_cmd.compiler_type
     cuda_distributed_compile_output = input.declared_artifacts.dist_cuda
-    pch_object_output = input.declared_artifacts.pch_object_output
+    pch_object = input.declared_artifacts.pch_object
     object = input.declared_artifacts.object
     external_debug_info = input.declared_artifacts.external_debug_info
     clang_remarks = input.declared_artifacts.clang_remarks
@@ -562,7 +562,7 @@ def _compile_single_cxx(
     index_store = input.declared_artifacts.index_store
     object_has_external_debug_info = input.declared_artifacts.object_has_external_debug_info
     content_based = src_compile_cmd.uses_experimental_content_based_path_hashing
-    json_error_output = input.declared_artifacts.json_error_output
+    json_error = input.declared_artifacts.json_error
 
     if src_compile_cmd.src.extension == ".cu":
         output_args = None
@@ -570,7 +570,7 @@ def _compile_single_cxx(
         if src_compile_cmd.cxx_compile_cmd.compiler_type == "windows":
             output_args = [
                 cmd_args(object.as_output(), format = "/Fp{}"),
-                cmd_args(pch_object_output.as_output(), format = "/Fo{}"),
+                cmd_args(pch_object.as_output(), format = "/Fo{}"),
                 cmd_args(compile_pch.path, format = "/Yc{}"),
             ]
         else:
@@ -666,15 +666,15 @@ def _compile_single_cxx(
         cmd.add(cmd_args(external_debug_info.as_output(), format = "--fbcc-create-external-debug-info={}"))
 
     outputs_for_error_handler = []
-    if json_error_output:
+    if json_error:
         # We need to wrap the entire compile to provide serialized diagnostics
         # output and on error convert it to JSON.
         serialized_diags_to_json = toolchain.binary_utilities_info.custom_tools.get("serialized-diags-to-json", None)
-        outputs_for_error_handler.append(json_error_output.as_output())
+        outputs_for_error_handler.append(json_error.as_output())
         cmd = cmd_args(
             toolchain.internal_tools.serialized_diagnostics_to_json_wrapper,
             serialized_diags_to_json,
-            json_error_output.as_output(),
+            json_error.as_output(),
             cmd,
         )
 
@@ -797,7 +797,7 @@ def _compile_single_cxx(
         diagnostics = diagnostics,
         preproc = preproc,
         dist_cuda = cuda_compile_output,
-        pch_object_output = pch_object_output,
+        pch_object = pch_object,
     )
 
 def _get_base_compile_cmd(

@@ -1294,7 +1294,7 @@ def _get_library_compile_output(
     objects = [out.object for out in outs]
     stripped_objects = _strip_objects(actions, cxx_toolchain_info, objects, supports_stripping, has_content_based_path)
 
-    pch_object_output = [out.pch_object_output for out in outs if out.pch_object_output]
+    pch_object_output = [out.pch_object for out in outs if out.pch_object]
 
     bitcode_objects = [
         out.object

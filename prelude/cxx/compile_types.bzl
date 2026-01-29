@@ -176,8 +176,8 @@ CxxCompileOutput = record(
     diagnostics = field(Artifact | None, None),
     preproc = field(Artifact | None, None),
     dist_cuda = field(CudaDistributedCompileOutput | None, None),
-    pch_object_output = field(Artifact | None, None),
-    json_error_output = field(Artifact | None, None),
+    pch_object = field(Artifact | None, None),
+    json_error = field(Artifact | None, None),
 )
 
 CxxCompileFlavor = enum(
