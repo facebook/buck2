@@ -10,7 +10,11 @@
 
 use std::sync::Arc;
 use std::sync::Mutex;
+use std::sync::atomic::AtomicBool;
+use std::sync::atomic::AtomicUsize;
+use std::sync::atomic::Ordering;
 use std::time::Duration;
+use std::time::Instant;
 
 use buck2_client_ctx::client_ctx::BuckSubcommand;
 use buck2_client_ctx::client_ctx::ClientCommandContext;
@@ -18,12 +22,14 @@ use buck2_client_ctx::common::BuckArgMatches;
 use buck2_client_ctx::common::CommonCommandOptions;
 use buck2_client_ctx::common::CommonEventLogOptions;
 use buck2_client_ctx::common::target_cfg::TargetCfgUnusedOptions;
+use buck2_client_ctx::common::ui::ConsoleType;
 use buck2_client_ctx::daemon::client::BuckdLifecycleLock;
 use buck2_client_ctx::daemon::client::kill::kill_command_impl;
 use buck2_client_ctx::events_ctx::EventsCtx;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::final_console::FinalConsole;
 use buck2_client_ctx::startup_deadline::StartupDeadline;
+use buck2_client_ctx::subscribers::superconsole::StatefulSuperConsole;
 use buck2_common::daemon_dir::DaemonDir;
 use buck2_error::BuckErrorContext;
 use buck2_fs::fs_util;
@@ -31,6 +37,9 @@ use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_fs::paths::abs_path::AbsPath;
 use dupe::Dupe;
 use gazebo::prelude::SliceExt;
+use superconsole::Line;
+use superconsole::SuperConsole;
+use superconsole::components::Spinner;
 use threadpool::ThreadPool;
 use uuid::Uuid;
 use walkdir::WalkDir;
@@ -148,6 +157,7 @@ impl BuckSubcommand for InnerCleanCommand {
                 daemon_dir,
                 trash_dir,
                 console,
+                self.common_opts.console_opts.console_type,
                 None,
                 self.background,
             )
@@ -170,6 +180,7 @@ impl BuckSubcommand for InnerCleanCommand {
             daemon_dir,
             trash_dir,
             console,
+            self.common_opts.console_opts.console_type,
             Some(&lifecycle_lock),
             self.background,
         )
@@ -187,6 +198,7 @@ async fn clean(
     daemon_dir: DaemonDir,
     trash_dir: AbsNormPathBuf,
     console: &FinalConsole,
+    console_type: ConsoleType,
     // None means "dry run".
     lifecycle_lock: Option<&BuckdLifecycleLock>,
     background: bool,
@@ -233,7 +245,7 @@ async fn clean(
                     .map(|path| path.display().to_string()),
             );
             tokio::task::spawn_blocking(move || {
-                clean_buck_out_with_retry(&trash_target_normalized)
+                clean_buck_out_with_retry(&trash_target_normalized, console_type)
             })
             .await?
             .buck_error_context("Failed to spawn clean")?;
@@ -248,9 +260,11 @@ async fn clean(
             paths_to_clean =
                 collect_paths_to_clean(&buck_out_dir)?.map(|path| path.display().to_string());
             if lifecycle_lock.is_some() {
-                tokio::task::spawn_blocking(move || clean_buck_out_with_retry(&buck_out_dir))
-                    .await?
-                    .buck_error_context("Failed to spawn clean")?;
+                tokio::task::spawn_blocking(move || {
+                    clean_buck_out_with_retry(&buck_out_dir, console_type)
+                })
+                .await?
+                .buck_error_context("Failed to spawn clean")?;
             }
         }
 
@@ -287,8 +301,11 @@ fn collect_paths_to_clean(
 /// the daemon can fail with this error: `The process cannot access the
 /// file because it is being used by another process.`. To get around this,
 /// add a single retry.
-fn clean_buck_out_with_retry(path: &AbsNormPathBuf) -> buck2_error::Result<()> {
-    let mut result = clean_buck_out(path);
+fn clean_buck_out_with_retry(
+    path: &AbsNormPathBuf,
+    console_type: ConsoleType,
+) -> buck2_error::Result<()> {
+    let mut result = clean_buck_out(path, console_type);
     match result {
         Ok(_) => {
             return result;
@@ -298,16 +315,127 @@ fn clean_buck_out_with_retry(path: &AbsNormPathBuf) -> buck2_error::Result<()> {
                 "Retrying buck-out clean, first attempted failed with: {:#}",
                 e
             );
-            result = clean_buck_out(path);
+            result = clean_buck_out(path, console_type);
         }
     }
     result
 }
 
-fn clean_buck_out(path: &AbsNormPathBuf) -> buck2_error::Result<()> {
+/// State shared between the progress display and the file deletion threads.
+struct CleanProgressState {
+    files_deleted: Arc<AtomicUsize>,
+    start_time: Instant,
+}
+
+impl CleanProgressState {
+    fn new() -> Self {
+        Self {
+            files_deleted: Arc::new(AtomicUsize::new(0)),
+            start_time: Instant::now(),
+        }
+    }
+
+    fn counter(&self) -> Arc<AtomicUsize> {
+        self.files_deleted.dupe()
+    }
+
+    fn files_deleted(&self) -> usize {
+        self.files_deleted.load(Ordering::Relaxed)
+    }
+
+    fn format_message(&self) -> Line {
+        let elapsed = Instant::now() - self.start_time;
+        Line::sanitized(&format!(
+            "Cleaning buck-out: {} files deleted ({}s)",
+            self.files_deleted(),
+            elapsed.as_secs()
+        ))
+    }
+
+    fn format_final_message(&self) -> Line {
+        let elapsed = Instant::now() - self.start_time;
+        Line::sanitized(&format!(
+            "Cleaned {} files in {:.1}s",
+            self.files_deleted(),
+            elapsed.as_secs_f64()
+        ))
+    }
+}
+
+/// Runs the progress display loop using superconsole.
+fn run_superconsole_progress(
+    mut console: SuperConsole,
+    state: &CleanProgressState,
+    stop: impl Fn() -> bool,
+) {
+    let mut tick = 0;
+    while !stop() {
+        let spinner = Spinner::new(tick, state.format_message());
+        if console.render(&spinner).is_err() {
+            break;
+        }
+        tick += 1;
+        std::thread::sleep(Duration::from_millis(100));
+    }
+    // Finalize with the final message (no spinner prefix in Final mode)
+    let final_spinner = Spinner::new(tick, state.format_final_message());
+    drop(console.finalize(&final_spinner));
+}
+
+/// Handle for the superconsole-based progress display.
+/// When dropped, it stops the display thread and shows the completion message.
+struct CleanProgressHandle {
+    stop_flag: Arc<AtomicBool>,
+    handle: Option<std::thread::JoinHandle<()>>,
+}
+
+impl CleanProgressHandle {
+    fn new(state: Arc<CleanProgressState>, console: SuperConsole) -> Self {
+        let stop_flag = Arc::new(AtomicBool::new(false));
+        let stop_flag_clone = stop_flag.dupe();
+
+        let handle = std::thread::spawn(move || {
+            run_superconsole_progress(console, &state, || stop_flag_clone.load(Ordering::Relaxed));
+        });
+
+        Self {
+            stop_flag,
+            handle: Some(handle),
+        }
+    }
+}
+
+impl Drop for CleanProgressHandle {
+    fn drop(&mut self) {
+        self.stop_flag.store(true, Ordering::Relaxed);
+        if let Some(handle) = self.handle.take() {
+            drop(handle.join());
+        }
+    }
+}
+
+fn clean_buck_out(path: &AbsNormPathBuf, console_type: ConsoleType) -> buck2_error::Result<()> {
     let walk = WalkDir::new(path);
     let thread_pool = ThreadPool::new(buck2_util::threads::available_parallelism());
     let error = Arc::new(Mutex::new(None));
+
+    let state = Arc::new(CleanProgressState::new());
+    let counter = state.counter();
+
+    // Show progress using superconsole, respecting the --console option.
+    // Use the same console_builder() as other buck2 commands to ensure consistent behavior.
+    let _progress_handle = match console_type {
+        ConsoleType::None
+        | ConsoleType::Simple
+        | ConsoleType::SimpleNoTty
+        | ConsoleType::SimpleTty => None,
+        ConsoleType::Auto | ConsoleType::Super => StatefulSuperConsole::console_builder()
+            .build()
+            .ok()
+            .flatten()
+            .map(|console| CleanProgressHandle::new(state, console)),
+    };
+
     for dir_entry in walk.into_iter().flatten() {
         let file_type = dir_entry.file_type();
         // As in the daemon, heavily parallel writes to directories in btrfs perform really poorly,
@@ -317,13 +445,16 @@ fn clean_buck_out(path: &AbsNormPathBuf) -> buck2_error::Result<()> {
         // than it is here. Change that or write a comment justifying it.
         if !file_type.is_dir() && !file_type.is_symlink() {
             let error = error.dupe();
+            let counter = counter.dupe();
             thread_pool.execute(move || {
                 // The wlak gives us back absolute paths since we give it absolute paths.
                 let res = AbsPath::new(dir_entry.path())
                     .and_then(|p| fs_util::remove_file(p).map_err(Into::into));
 
                 match res {
-                    Ok(_) => {}
+                    Ok(_) => {
+                        counter.fetch_add(1, Ordering::Relaxed);
+                    }
                     Err(e) => {
                         let mut error = error.lock().unwrap();
                         if error.is_none() {
@@ -336,6 +467,10 @@ fn clean_buck_out(path: &AbsNormPathBuf) -> buck2_error::Result<()> {
     }
 
     thread_pool.join();
+
+    // Drop the progress handle to stop the display and show final message
+    drop(_progress_handle);
+
     if let Some(e) = error.lock().unwrap().take() {
         return Err(e.into());
     }
