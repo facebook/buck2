@@ -59,6 +59,10 @@ where
             Self::Shared(dir) => dir.inner.data.entries.len(),
         }
     }
+
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
 }
 
 impl<L, H> ImmutableDirectory<L, H>
