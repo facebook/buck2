@@ -151,3 +151,42 @@ impl<
         deserialize_arc::<Self, _>(deserializer)
     }
 }
+
+impl PagableSerialize for std::sync::Arc<str> {
+    fn pagable_serialize(&self, serializer: &mut dyn PagableSerializer) -> crate::Result<()> {
+        use serde::Serialize;
+        Ok(self.serialize(serializer.serde())?)
+    }
+}
+
+impl<'de> PagableDeserialize<'de> for std::sync::Arc<str> {
+    fn pagable_deserialize<D: PagableDeserializer<'de> + ?Sized>(
+        deserializer: &mut D,
+    ) -> crate::Result<Self> {
+        use serde::Deserialize;
+        let v = String::deserialize(deserializer.serde())?;
+        Ok(v.into())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::Arc;
+
+    use crate::testing::TestingDeserializer;
+    use crate::testing::TestingSerializer;
+    use crate::traits::PagableDeserialize;
+    use crate::traits::PagableSerialize;
+
+    #[test]
+    fn test_arc_str_roundtrip() -> crate::Result<()> {
+        let t1: Arc<str> = Arc::from("hello world");
+        let mut serializer = TestingSerializer::new();
+        t1.pagable_serialize(&mut serializer)?;
+        let bytes = serializer.finish();
+        let mut deserializer = TestingDeserializer::new(&bytes);
+        let t2: Arc<str> = Arc::pagable_deserialize(&mut deserializer)?;
+        assert_eq!(t1, t2);
+        Ok(())
+    }
+}
