@@ -25,7 +25,7 @@ def get_nullsafe_info(
     nullsafe_extra_args = java_toolchain.nullsafe_extra_args
 
     if nullsafe_plugin:
-        nullsafe_output = ctx.actions.declare_output("reports", dir = True)
+        nullsafe_output = ctx.actions.declare_output("reports", dir = True, has_content_based_path = True)
         nullsafe_plugin_params = create_plugin_params(ctx, [nullsafe_plugin])
 
         nullsafe_args = cmd_args(
