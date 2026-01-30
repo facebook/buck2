@@ -354,13 +354,14 @@ def _compute_pex_providers(
             stripped_shlibs.append((shlib, libdir))
             debuginfo_files.append(((libdir, shlib, ".debuginfo"), debuginfo))
         shared_libs = stripped_shlibs
+        stripped_extensions = {}
         for name, (extension, label) in extensions.items():
             stripped, debuginfo = strip_debug_with_gnu_debuglink(
                 ctx = ctx,
                 name = name,
                 obj = extension.unstripped_output,
             )
-            extensions[name] = (
+            stripped_extensions[name] = (
                 LinkedObject(
                     output = stripped,
                     unstripped_output = extension.unstripped_output,
@@ -369,6 +370,7 @@ def _compute_pex_providers(
                 label,
             )
             debuginfo_files.append((name + ".debuginfo", debuginfo))
+        extensions = stripped_extensions
 
     # Combine sources and extensions into a map of all modules.
     pex_modules = PexModules(
