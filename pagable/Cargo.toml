@@ -23,6 +23,7 @@ postcard = { workspace = true }
 relative-path = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
+sequence_trie = { workspace = true }
 static_assertions = { workspace = true }
 strong_hash = { workspace = true }
 take_mut = { workspace = true }

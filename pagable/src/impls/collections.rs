@@ -75,6 +75,35 @@ impl<'de, K: std::hash::Hash + Eq + PagableDeserialize<'de>, V: PagableDeseriali
     }
 }
 
+impl<K: sequence_trie::TrieKey + PagableSerialize, V: PagableSerialize> PagableSerialize
+    for sequence_trie::SequenceTrie<K, V>
+{
+    fn pagable_serialize(&self, serializer: &mut dyn PagableSerializer) -> crate::Result<()> {
+        usize::serialize(&self.iter().count(), serializer.serde())?;
+        for (k, v) in self.iter() {
+            <Vec<&K>>::pagable_serialize(&k, serializer)?;
+            v.pagable_serialize(serializer)?;
+        }
+        Ok(())
+    }
+}
+impl<'de, K: std::hash::Hash + Eq + PagableDeserialize<'de>, V: PagableDeserialize<'de>>
+    PagableDeserialize<'de> for sequence_trie::SequenceTrie<K, V>
+{
+    fn pagable_deserialize<D: PagableDeserializer<'de> + ?Sized>(
+        deserializer: &mut D,
+    ) -> crate::Result<Self> {
+        let items = usize::deserialize(deserializer.serde())?;
+        let mut map = sequence_trie::SequenceTrie::new();
+        for _ in 0..items {
+            let k = Vec::<K>::pagable_deserialize(deserializer)?;
+            let v = V::pagable_deserialize(deserializer)?;
+            map.insert_owned(k, v);
+        }
+        Ok(map)
+    }
+}
+
 impl<T: PagableSerialize> PagableSerialize for Vec<T> {
     fn pagable_serialize(&self, serializer: &mut dyn PagableSerializer) -> crate::Result<()> {
         usize::serialize(&self.len(), serializer.serde())?;
@@ -194,6 +223,33 @@ mod tests {
         let restored: HashMap<String, i32> = HashMap::pagable_deserialize(&mut deserializer)?;
 
         assert_eq!(map, restored);
+        Ok(())
+    }
+
+    #[test]
+    fn test_sequence_trie_roundtrip() -> crate::Result<()> {
+        use sequence_trie::SequenceTrie;
+
+        let mut trie: SequenceTrie<String, i32> = SequenceTrie::new();
+        trie.insert(&["a".to_owned(), "b".to_owned()], 1);
+        trie.insert(&["a".to_owned(), "c".to_owned()], 2);
+        trie.insert(&["d".to_owned()], 3);
+
+        let mut serializer = TestingSerializer::new();
+        trie.pagable_serialize(&mut serializer)?;
+        let bytes = serializer.finish();
+
+        let mut deserializer = TestingDeserializer::new(&bytes);
+        let restored: SequenceTrie<String, i32> =
+            SequenceTrie::pagable_deserialize(&mut deserializer)?;
+
+        // SequenceTrie doesn't implement Eq, so compare by iterating
+        let original: Vec<_> = trie.iter().map(|(k, v)| (k, *v)).collect();
+        let restored_items: Vec<_> = restored.iter().map(|(k, v)| (k, *v)).collect();
+        assert_eq!(original.len(), restored_items.len());
+        for (k, v) in &original {
+            assert_eq!(restored.get(k.iter().map(|s| s.as_str())), Some(v));
+        }
         Ok(())
     }
 }
