@@ -9,38 +9,41 @@
  */
 
 use std::path::Path;
-use std::path::PathBuf;
 use std::str::FromStr;
 
 use anyhow::Context as _;
 
 use crate::buck;
 use crate::buck::Buck;
+use crate::cli::TargetOrFile;
 use crate::diagnostics;
-use crate::path::safe_canonicalize;
 
 pub(crate) struct Check {
     pub(crate) buck: buck::Buck,
     pub(crate) use_clippy: bool,
-    pub(crate) saved_file: PathBuf,
+    pub(crate) target_or_saved_file: TargetOrFile,
 }
 
 impl Check {
-    pub(crate) fn new(buck: Buck, use_clippy: bool, saved_file: PathBuf) -> Self {
-        let saved_file = safe_canonicalize(&saved_file);
+    pub(crate) fn new(buck: Buck, use_clippy: bool, target_or_saved_file: TargetOrFile) -> Self {
+        let target_or_saved_file = target_or_saved_file.canonicalize();
 
         Self {
             buck,
             use_clippy,
-            saved_file,
+            target_or_saved_file,
         }
     }
 
+    #[tracing::instrument(name = "check", skip_all, fields(target = %self.target_or_saved_file))]
     pub(crate) fn run(&self) -> Result<(), anyhow::Error> {
         let start = std::time::Instant::now();
         let buck = &self.buck;
 
-        let check_output = buck.check_saved_file(self.use_clippy, &self.saved_file)?;
+        let check_output = match &self.target_or_saved_file {
+            TargetOrFile::Target(target) => buck.check_target(self.use_clippy, target)?,
+            TargetOrFile::File(saved_file) => buck.check_saved_file(self.use_clippy, saved_file)?,
+        };
 
         let mut diagnostics = vec![];
         for path in check_output.diagnostic_paths {
@@ -81,7 +84,7 @@ impl Check {
             println!("{out}");
         }
 
-        crate::scuba::log_check(start.elapsed(), &self.saved_file, self.use_clippy);
+        crate::scuba::log_check(start.elapsed(), &self.target_or_saved_file, self.use_clippy);
 
         Ok(())
     }
