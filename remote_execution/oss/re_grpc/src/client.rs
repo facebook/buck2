@@ -252,6 +252,8 @@ pub struct RERuntimeOpts {
     cas_ttl_secs: i64,
     /// Maximum retries for network requests.
     max_retries: usize,
+    /// Timeout for RPC requests.
+    grpc_timeout: Duration,
 }
 
 #[derive(Clone)]
@@ -335,6 +337,7 @@ impl REClientBuilder {
             if let Some(keepalive_while_idle) = opts.grpc_keepalive_while_idle {
                 channel = channel.keep_alive_while_idle(keepalive_while_idle);
             }
+            channel = channel.timeout(Duration::from_secs(opts.grpc_timeout));
 
             anyhow::Ok(
                 channel
@@ -441,6 +444,7 @@ impl REClientBuilder {
                 // on the TTL of the remote blob.
                 cas_ttl_secs: opts.cas_ttl_secs.unwrap_or(60),
                 max_retries: opts.max_retries,
+                grpc_timeout: Duration::from_secs(opts.grpc_timeout),
             },
             grpc_clients,
             capabilities,
@@ -705,7 +709,7 @@ impl REClient {
                             ..Default::default()
                         },
                         metadata,
-                        self.runtime_opts.use_fbcode_metadata,
+                        self.runtime_opts,
                     ))
                     .await?;
 
@@ -743,7 +747,7 @@ impl REClient {
                             ..Default::default()
                         },
                         metadata,
-                        self.runtime_opts.use_fbcode_metadata,
+                        self.runtime_opts,
                     ))
                     .await?;
 
@@ -791,7 +795,7 @@ impl REClient {
                     .execute(with_re_metadata(
                         request,
                         metadata,
-                        self.runtime_opts.use_fbcode_metadata,
+                        self.runtime_opts,
                     ))
                     .await?
                     .into_inner();
@@ -912,7 +916,7 @@ impl REClient {
             |re_request| async {
                 let metadata = metadata.clone();
                 let mut cas_client = self.grpc_clients.cas_client.clone();
-                let use_fbcode_metadata = self.runtime_opts.use_fbcode_metadata;
+                let runtime_opts = self.runtime_opts;
 
                 retry(
                     move || {
@@ -924,7 +928,7 @@ impl REClient {
                                 .batch_update_blobs(with_re_metadata(
                                     re_request,
                                     metadata,
-                                    use_fbcode_metadata,
+                                    runtime_opts,
                                 ))
                                 .await?;
                             Ok(resp.into_inner())
@@ -940,7 +944,7 @@ impl REClient {
             |segments| async {
                 let metadata = metadata.clone();
                 let mut bytestream_client = self.grpc_clients.bytestream_client.clone();
-                let use_fbcode_metadata = self.runtime_opts.use_fbcode_metadata;
+                let runtime_opts = self.runtime_opts;
 
                 retry(
                     move || {
@@ -952,7 +956,7 @@ impl REClient {
                                 .write(with_re_metadata(
                                     requests,
                                     metadata,
-                                    use_fbcode_metadata,
+                                    runtime_opts,
                                 ))
                                 .await?;
 
@@ -1009,7 +1013,7 @@ impl REClient {
             |re_request| async {
                 let metadata = metadata.clone();
                 let mut client = self.grpc_clients.cas_client.clone();
-                let use_fbcode_metadata = self.runtime_opts.use_fbcode_metadata;
+                let runtime_opts = self.runtime_opts;
 
                 retry(
                     move || {
@@ -1021,7 +1025,7 @@ impl REClient {
                                 .batch_read_blobs(with_re_metadata(
                                     re_request,
                                     metadata,
-                                    use_fbcode_metadata,
+                                    runtime_opts,
                                 ))
                                 .await?
                                 .into_inner())
@@ -1036,7 +1040,7 @@ impl REClient {
             },
             |read_request| {
                 let metadata = metadata.clone();
-                let use_fbcode_metadata = self.runtime_opts.use_fbcode_metadata;
+                let runtime_opts = self.runtime_opts;
                 async move {
                     let mut client = self.grpc_clients.bytestream_client.clone();
                     retry(
@@ -1049,7 +1053,7 @@ impl REClient {
                                     .read(with_re_metadata(
                                         read_request,
                                         metadata,
-                                        use_fbcode_metadata,
+                                        runtime_opts,
                                     ))
                                     .await?
                                     .into_inner();
@@ -1110,7 +1114,7 @@ impl REClient {
             if !digests_to_check.is_empty() {
                 tracing::debug!(num_digests = digests_to_check.len(), "FindMissingBlobs");
 
-                let use_fbcode_metadata = self.runtime_opts.use_fbcode_metadata;
+                let runtime_opts = self.runtime_opts;
                 let missing_blobs = retry(
                     || {
                         let mut cas_client = cas_client.clone();
@@ -1127,7 +1131,7 @@ impl REClient {
                                         ..Default::default()
                                     },
                                     metadata,
-                                    use_fbcode_metadata,
+                                    runtime_opts,
                                 ))
                                 .await
                                 .context("Failed to request what blobs are not present on remote")
@@ -1848,7 +1852,7 @@ where
 fn with_re_metadata<T>(
     t: T,
     metadata: RemoteExecutionMetadata,
-    use_fbcode_metadata: bool,
+    runtime_opts: RERuntimeOpts,
 ) -> tonic::Request<T> {
     // This creates a new Tonic request with attached metadata for the RE
     // backend. There are two cases here we need to support:
@@ -1870,8 +1874,9 @@ fn with_re_metadata<T>(
     // Meta builds catch those issues earlier.
 
     let mut msg = tonic::Request::new(t);
+    msg.set_timeout(runtime_opts.grpc_timeout);
 
-    if use_fbcode_metadata {
+    if runtime_opts.use_fbcode_metadata {
         // This is pretty ugly, but the protobuf spec that defines this is
         // internal, so considering field numbers need to be stable anyway (=
         // low risk), and this is not used in prod (= low impact if this goes
