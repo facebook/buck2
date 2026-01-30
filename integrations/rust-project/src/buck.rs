@@ -461,6 +461,24 @@ impl Buck {
         cmd.args([
             "-c=client.id=rust-project",
             "-c=rust.rust_project_build=true",
+            // Buck owner() queries stop at the innermost BUCK file unless
+            // package_boundary_exceptions is set.
+            //
+            // This is arguably a bug in buck, because it's possible for a parent BUCK
+            // file to own a file in a subdirectory that has its own BUCK file.
+            //
+            // Buck probably didn't intend to allow this pattern: it doesn't work when you
+            // use `srcs = glob()`, but it does work for srcs with explicit paths.
+            //
+            // The intent of package_boundary_exceptions (added to buck2 in D34073360,
+            // rolled out in D4339610) was to enforce boundaries with an explicit opt-out
+            // list.
+            //
+            // However, due to the confusion with srcs, we can end up with owner() not
+            // finding the target even when the package is not opted-out. Instead, opt-out
+            // all packages for this query, so owner() always looks at parent BUCK files
+            // and finds the relevant target.
+            "-c=project.package_boundary_exceptions=.",
         ]);
 
         cmd
@@ -738,25 +756,6 @@ impl Buck {
 
         command.args([
             "prelude//rust/rust-analyzer/resolve_deps.bxl:resolve_owning_buildfile",
-            // Buck owner() queries stop at the innermost BUCK file unless
-            // package_boundary_exceptions is set.
-            //
-            // This is arguably a bug in buck, because it's possible for a parent BUCK
-            // file to own a file in a subdirectory that has its own BUCK file.
-            //
-            // Buck probably didn't intend to allow this pattern: it doesn't work when you
-            // use `srcs = glob()`, but it does work for srcs with explicit paths.
-            //
-            // The intent of package_boundary_exceptions (added to buck2 in D34073360,
-            // rolled out in D4339610) was to enforce boundaries with an explicit opt-out
-            // list.
-            //
-            // However, due to the confusion with srcs, we can end up with owner() not
-            // finding the target even when the package is not opted-out. Instead, opt-out
-            // all packages for this query, so owner() always looks at parent BUCK files
-            // and finds the relevant target.
-            "-c",
-            "project.package_boundary_exceptions=.",
             "--",
         ]);
 
