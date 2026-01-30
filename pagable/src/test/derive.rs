@@ -40,9 +40,23 @@ mod inner {
 
     #[cfg(test)]
     mod tests {
+        use std::collections::HashMap;
+
+        use dashmap::DashMap;
+        use dupe::Dupe;
+        use either::Either;
+
         use super::*;
+        use crate::Pagable;
+        use crate::arc_erase::ArcEraseDyn;
+        use crate::pagable_arc::PagableArc;
         use crate::pagable_arc::PinnedPagableArc;
+        use crate::storage::DataKey;
+        use crate::storage::InMemoryPagableStorage;
+        use crate::storage::PagableData;
+        use crate::storage::PagableStorage;
         use crate::storage::PagableStorageHandle;
+        use crate::storage::SerializerForPaging;
         use crate::testing::EmptyPagableStorage;
         use crate::testing::TestingDeserializer;
         use crate::testing::TestingSerializer;
@@ -161,6 +175,202 @@ mod inner {
             // This creates a pin and converts weak1 to pinned.
             let pinned = weak1.pin().await?;
             assert_eq!(weak1.pinned_count(), 2);
+            Ok(())
+        }
+
+        #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+        async fn test_pagable_arc_paging() -> anyhow::Result<()> {
+            let mut backing_storage = InMemoryPagableStorage::new();
+            let storage = PagableStorageHandle::new(backing_storage.handle());
+
+            let pagable = PagableArc::new("hello world".to_owned(), storage.clone());
+            pagable.unpin();
+
+            assert_eq!(backing_storage.pending_paging_count(), 1);
+            assert!(!pagable.is_paged_out());
+
+            backing_storage.page_out_pending();
+
+            assert!(pagable.is_paged_out());
+            assert!(pagable.get_data_key().is_some());
+
+            let key = pagable.get_data_key().unwrap();
+            let deserialized: String = storage.deserialize_pagable_data(&key).await.unwrap();
+            let arc2 = PinnedPagableArc::new(deserialized, storage.clone());
+
+            let arc1 = pagable.pin().await?;
+            assert!(pagable.is_pinned());
+            assert!(!pagable.is_paged_out());
+
+            assert_eq!(*arc1, "hello world");
+            assert_eq!(&arc1, &arc2);
+            Ok(())
+        }
+
+        #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+        async fn test_pagable_arc_shared_arc() -> anyhow::Result<()> {
+            let mut backing_storage = InMemoryPagableStorage::new();
+            let storage = PagableStorageHandle::new(backing_storage.handle());
+
+            let inner_std_arc = std::sync::Arc::new("hello world".to_owned());
+            let pagable1 = PagableArc::new(inner_std_arc.dupe(), storage.clone());
+            let pagable2 = PagableArc::new(inner_std_arc.dupe(), storage.clone());
+            pagable1.unpin();
+            pagable2.unpin();
+
+            backing_storage.page_out_pending();
+
+            assert!(pagable1.is_paged_out());
+            assert!(pagable2.is_paged_out());
+
+            let strong1 = pagable1.pin().await?;
+            let strong2 = pagable2.pin().await?;
+
+            assert!(!PinnedPagableArc::ptr_eq(&strong1, &strong2));
+            assert!(std::sync::Arc::ptr_eq(&*strong1, &*strong2));
+            Ok(())
+        }
+
+        #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+        async fn test_pagable_arc() -> anyhow::Result<()> {
+            let mut backing_storage = InMemoryPagableStorage::new();
+            let storage = PagableStorageHandle::new(backing_storage.handle());
+
+            #[derive(Pagable, Eq, PartialEq, Debug)]
+            struct UNodeData(usize);
+
+            #[derive(Pagable, Debug, Clone, Dupe)]
+            struct UNode(PagableArc<UNodeData>);
+            impl UNode {
+                fn new(x: usize, storage: PagableStorageHandle) -> Self {
+                    Self(PagableArc::new(UNodeData(x), storage))
+                }
+            }
+
+            #[derive(Pagable, Debug, Clone, Dupe)]
+            struct EvalResult(PagableArc<Vec<UNode>>);
+            impl EvalResult {
+                fn new(x: Vec<UNode>, storage: PagableStorageHandle) -> Self {
+                    Self(PagableArc::new(x, storage))
+                }
+            }
+
+            #[derive(Pagable, Debug)]
+            struct CfgNodeData {
+                node: PinnedPagableArc<UNodeData>,
+                deps: Vec<CfgNode>,
+            }
+
+            #[derive(Pagable, Debug, Clone, Dupe)]
+            struct CfgNode(PagableArc<CfgNodeData>);
+
+            impl CfgNode {
+                fn new(node: UNode, deps: Vec<CfgNode>, storage: PagableStorageHandle) -> Self {
+                    Self(PagableArc::new(
+                        CfgNodeData {
+                            node: node.0.pin_sync().unwrap(),
+                            deps,
+                        },
+                        storage,
+                    ))
+                }
+            }
+
+            let node1 = UNode::new(1, storage.dupe());
+            let node2 = UNode::new(2, storage.dupe());
+            let node3 = UNode::new(3, storage.dupe());
+
+            let weak_node1 = node1.0.dupe();
+            let weak_node2 = node2.0.dupe();
+            let weak_node3 = node3.0.dupe();
+
+            weak_node1.unpin();
+            weak_node2.unpin();
+            weak_node3.unpin();
+
+            let eval_result = EvalResult::new(
+                vec![node1.dupe(), node2.dupe(), node3.dupe()],
+                storage.dupe(),
+            );
+            let cfgnode1 = CfgNode::new(node1.dupe(), vec![], storage.dupe());
+            let cfgnode2 = CfgNode::new(node2.dupe(), vec![cfgnode1.dupe()], storage.dupe());
+            let cfgnode3 = CfgNode::new(
+                node3.dupe(),
+                vec![cfgnode1.dupe(), cfgnode2.dupe()],
+                storage.dupe(),
+            );
+
+            eprintln!("node1: {}", node1.0.identity());
+            eprintln!("node2: {}", node2.0.identity());
+            eprintln!("node3: {}", node3.0.identity());
+            eprintln!("eval_result: {}", eval_result.0.identity());
+            eprintln!("cfgnode1: {}", cfgnode1.0.identity());
+            eprintln!("cfgnode2: {}", cfgnode2.0.identity());
+            eprintln!("cfgnode3: {}", cfgnode3.0.identity());
+
+            drop(node1);
+            drop(node2);
+            drop(node3);
+
+            backing_storage.page_out_pending();
+
+            eval_result.0.unpin();
+            cfgnode1.0.unpin();
+            cfgnode2.0.unpin();
+            cfgnode3.0.unpin();
+
+            backing_storage.page_out_pending();
+
+            assert!(cfgnode1.0.get_data_key().is_some());
+            assert!(cfgnode2.0.get_data_key().is_some());
+            assert!(cfgnode3.0.get_data_key().is_some());
+            assert!(eval_result.0.get_data_key().is_some());
+            assert!(weak_node1.get_data_key().is_some());
+            assert!(weak_node2.get_data_key().is_some());
+            assert!(weak_node3.get_data_key().is_some());
+
+            assert!(cfgnode1.0.is_paged_out());
+            assert!(cfgnode2.0.is_paged_out());
+            assert!(cfgnode3.0.is_paged_out());
+            assert!(eval_result.0.is_paged_out());
+            assert!(weak_node1.is_paged_out());
+            assert!(weak_node2.is_paged_out());
+            assert!(weak_node3.is_paged_out());
+
+            eprintln!("upgrading cfgnode1");
+            assert!(!cfgnode1.0.is_pinned());
+            let strong_cfgnode1 = cfgnode1.0.pin().await?;
+            assert!(cfgnode1.0.is_pinned());
+
+            eprintln!("upgrading eval_result");
+            let strong_eval_result = eval_result.0.pin().await?;
+
+            assert!(!eval_result.0.is_paged_out());
+
+            assert_eq!((*strong_eval_result).len(), 3);
+
+            // cfgnode1 is pinned above, so the reference here shouldn't be paged out.
+            assert!(!strong_eval_result[0].0.is_paged_out());
+
+            // TODO(cjhopman): Several of these asserts here depend on PagableArc being lazily serialized in (as is our intent in the future), but that's not implemented yet.
+
+            // assert!(strong_eval_result[1].0.is_paged_out());
+            // assert!(strong_eval_result[2].0.is_paged_out());
+
+            // node1 was loaded in by cfgnode1 above, but the arc held here should not be strong.
+            assert!(strong_eval_result[0].0.is_pinned());
+            // assert!(!strong_eval_result[0].0.is_pinned());
+
+            // assert!(!strong_eval_result[1].0.is_pinned());
+
+            let strong_node2 = strong_eval_result[1].0.pin().await?;
+            assert!(strong_eval_result[1].0.is_pinned());
+
+            // assert!(!cfgnode3.0.is_pinned());
+
+            let strong_cfgnode3 = cfgnode3.0.pin().await?;
+            assert!(cfgnode3.0.is_pinned());
+
             Ok(())
         }
     }
