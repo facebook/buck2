@@ -43,6 +43,7 @@ python_library(
     deps = [
         "prelude//apple/tools:plistlib_utils",
         "prelude//apple/tools/info_plist_processor:process",
+        # @oss-disable[end= ]: "prelude//apple/tools/meta_only/entitlements_mismatch:check_entitlements_lib",
     ],
 )
 

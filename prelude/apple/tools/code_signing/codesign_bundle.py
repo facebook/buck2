@@ -15,6 +15,7 @@ import logging
 import os
 import shutil
 import subprocess
+import sys
 import tempfile
 import uuid
 from contextlib import ExitStack
@@ -25,6 +26,9 @@ from typing import Any, cast, Dict, List, Optional, Union
 
 from apple.tools.plistlib_utils import detect_format_and_load
 
+# @oss-disable[end= ]: from ..meta_only.entitlements_mismatch.check_entitlements import (
+    # @oss-disable[end= ]: verify_entitlements,
+# @oss-disable[end= ]: )
 from .apple_platform import ApplePlatform
 from .codesign_command_factory import (
     DefaultCodesignCommandFactory,
@@ -81,6 +85,18 @@ class CodesignedPath:
     """
     Extra paths to be codesign. Applicable to dry-run codesigning only.
     """
+
+
+def _verify_entitlements(
+    entitlements_path: Optional[Path],
+    profile_path: Path,
+) -> None:
+    result = verify_entitlements(
+        entitlements_path,
+        profile_path,
+    )
+    if result == 1:
+        sys.exit(1)
 
 
 def _log_codesign_identities(
@@ -204,6 +220,7 @@ def signing_context_with_profile_selection(
     strict_provisioning_profile_search: bool = False,
     provisioning_profile_filter: Optional[str] = None,
     no_check_certificates: bool = False,
+    should_verify_entitlements: bool = False,
 ) -> SigningContextWithProfileSelection:
     with open(info_plist_source, mode="rb") as info_plist_file:
         info_plist_metadata = InfoPlistMetadata.from_file(info_plist_file)
@@ -219,6 +236,10 @@ def signing_context_with_profile_selection(
         provisioning_profile_filter=provisioning_profile_filter,
         no_check_certificates=no_check_certificates,
     )
+
+    profile_path = selected_profile_info.profile.file_path
+    # @oss-disable[end= ]: if should_verify_entitlements:
+        # @oss-disable[end= ]: _verify_entitlements(entitlements_path, profile_path)
 
     return SigningContextWithProfileSelection(
         info_plist_source,
