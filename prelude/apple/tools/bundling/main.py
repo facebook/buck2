@@ -14,23 +14,15 @@ import json
 import logging
 import os
 import pstats
-import shlex
 import sys
 from pathlib import Path
 from typing import Dict, List, Optional
 
-from apple.tools.code_signing.apple_platform import ApplePlatform
 from apple.tools.code_signing.codesign_bundle import (
-    AdhocSigningContext,
     codesign_bundle,
     CodesignConfiguration,
     CodesignedPath,
-    signing_context_with_profile_selection,
     write_empty_codesign_manifest,
-)
-from apple.tools.code_signing.list_codesign_identities import (
-    AdHocListCodesignIdentities,
-    ListCodesignIdentities,
 )
 from apple.tools.re_compatibility_utils.writable import make_dir_recursively_writable
 
