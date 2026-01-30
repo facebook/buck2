@@ -413,6 +413,13 @@ impl PreparedCommandExecutor for ReExecutor {
 
         let execution_time = TimeSpan::start_now();
 
+        let re_gang_workers: Vec<_> = self
+            .gang_workers
+            .iter()
+            .chain(re_gang_workers.iter())
+            .cloned()
+            .collect();
+
         let (manager, response) = self
             .re_execute(
                 manager,
@@ -424,7 +431,7 @@ impl PreparedCommandExecutor for ReExecutor {
                 self.dependencies
                     .iter()
                     .chain(remote_execution_dependencies.iter()),
-                re_gang_workers,
+                &re_gang_workers,
                 &command.request.meta_internal_extra_params(),
                 worker_tool_action_digest,
             )
