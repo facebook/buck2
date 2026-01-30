@@ -14,6 +14,7 @@ mod serde;
 mod std;
 mod tuples;
 
+use num_bigint::BigInt;
 use relative_path::RelativePathBuf;
 
 use crate::__internal::serde::Deserialize;
@@ -36,5 +37,43 @@ impl<'de> PagableDeserialize<'de> for RelativePathBuf {
         Ok(RelativePathBuf::from(String::deserialize(
             deserializer.serde(),
         )?))
+    }
+}
+
+impl PagableSerialize for BigInt {
+    fn pagable_serialize(&self, serializer: &mut dyn PagableSerializer) -> crate::Result<()> {
+        use ::serde::Serialize;
+        Ok(self.serialize(serializer.serde())?)
+    }
+}
+
+impl<'de> PagableDeserialize<'de> for BigInt {
+    fn pagable_deserialize<D: PagableDeserializer<'de> + ?Sized>(
+        deserializer: &mut D,
+    ) -> crate::Result<Self> {
+        use ::serde::Deserialize;
+        Ok(Deserialize::deserialize(deserializer.serde())?)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use num_bigint::BigInt;
+
+    use crate::testing::TestingDeserializer;
+    use crate::testing::TestingSerializer;
+    use crate::traits::PagableDeserialize;
+    use crate::traits::PagableSerialize;
+
+    #[test]
+    fn test_bigint_roundtrip() -> crate::Result<()> {
+        let value = BigInt::from(123456789012345678901234567890_i128);
+        let mut serializer = TestingSerializer::new();
+        value.pagable_serialize(&mut serializer)?;
+        let bytes = serializer.finish();
+        let mut deserializer = TestingDeserializer::new(&bytes);
+        let restored = BigInt::pagable_deserialize(&mut deserializer)?;
+        assert_eq!(value, restored);
+        Ok(())
     }
 }
