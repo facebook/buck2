@@ -21,12 +21,14 @@ _TARGETS = [
     "ovr_config//os/constraints:linux",
     "ovr_config//os/constraints:macos",
     "ovr_config//os/constraints:windows",
+    "config//os/constraints:windows",  # Cell alias for ovr_config//os/constraints:windows
     "ovr_config//build_mode:sanitizer_type",
     "ovr_config//build_mode:sanitizer_type[no-san]",
     "ovr_config//build_mode:sanitizer_type[asan]",
     "ovr_config//build_mode:sanitizer_type[asan-ubsan]",
     "ovr_config//build_mode:sanitizer_type[hwasan]",
     "ovr_config//build_mode:sanitizer_type[tsan]",
+    "config//build_mode:sanitizer_type[tsan]",  # Cell alias for ovr_config//build_mode:sanitizer_type[tsan]
     # TODO: This will probably get broken by updates to clang constraints.
     # Figure out how to handle this.
     "ovr_config//toolchain/clang/constraints:15",
@@ -69,10 +71,38 @@ def _parse_target_with_subtarget(ctx: bxl.Context, target_str: str):
 def _get_providers(ctx: bxl.Context, targets: list[str]) -> dict[str, ProviderCollection]:
     configured = [_parse_target_with_subtarget(ctx, t) for t in targets]
     analysis_result = ctx.analysis(configured)
-    return {
-        str(target.raw_target().with_sub_target(target.sub_target)) if target.sub_target else str(target.raw_target()): v.providers()
-        for target, v in analysis_result.items()
-    }
+
+    # Build a mapping from resolved target to list of original target strings
+    # This handles cases where multiple target strings resolve to the same target (e.g., cell aliases)
+    resolved_to_originals = {}
+    for original_key, configured_target in zip(targets, configured):
+        # Get the resolved key for this configured target
+        # configured_target can be either a ConfiguredTargetNode (has .label) or ConfiguredProvidersLabel
+        if hasattr(configured_target, "label"):
+            label = configured_target.label
+        else:
+            label = configured_target
+
+        # Extract raw target - handle both with and without sub_target
+        raw = label.raw_target() if hasattr(label, "raw_target") else label
+        sub = label.sub_target if hasattr(label, "sub_target") else None
+        resolved_key = str(raw.with_sub_target(sub)) if sub else str(raw)
+        if resolved_key not in resolved_to_originals:
+            resolved_to_originals[resolved_key] = []
+        resolved_to_originals[resolved_key].append(original_key)
+
+    result = {}
+    for target, v in analysis_result.items():
+        providers = v.providers()
+        resolved_key = str(target.raw_target().with_sub_target(target.sub_target)) if target.sub_target else str(target.raw_target())
+        result[resolved_key] = providers
+
+        # Also add all original target strings as keys if they differ from the resolved key
+        # This allows tests to use cell aliases (e.g., "config//..." instead of "ovr_config//...")
+        for original_key in resolved_to_originals.get(resolved_key, []):
+            if original_key != resolved_key:
+                result[original_key] = providers
+    return result
 
 def get_test_refs(ctx: bxl.Context) -> TestRefs:
     def get(target: str) -> ProviderCollection:
