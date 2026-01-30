@@ -365,13 +365,14 @@ public class AndroidBundleUtils {
    */
   private static boolean checkFolderForPackaging(String folderName) {
     return !folderName.equalsIgnoreCase("nonJvmMain")
-        && // nonJvmMain is only useful when build multiplatform and we are building an APK here
-        !folderName.equalsIgnoreCase("commonMain")
-        && // commonMain folder is part of multiple AndroidX libraries, exclude it to avoid
+        // nonJvmMain is only useful when build multiplatform and we are building an APK here
+        // commonMain folder is part of multiple AndroidX libraries, exclude it to avoid
         // duplicate file error
-        !folderName.equalsIgnoreCase("nativeMain")
-        && // nativeMain holds platform-specific code for native environments like iOS and macOS,
-        !folderName.startsWith("_");
+        && !folderName.equalsIgnoreCase("commonMain")
+        // nativeMain holds platform-specific code for native environments like iOS and macOS,
+        // exclude it to avoid duplicate file error
+        // see https://kotlinlang.org/docs/multiplatform-discover-project.html
+        && !folderName.equalsIgnoreCase("nativeMain");
   }
 
   /**
