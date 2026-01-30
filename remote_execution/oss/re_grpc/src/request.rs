@@ -12,34 +12,34 @@ pub use crate::digest::*;
 use crate::grpc::Platform as TPlatform;
 use crate::response::TActionResult2;
 
-#[derive(Default)]
+#[derive(Clone, Default)]
 pub struct ActionResultRequest {
     pub digest: TDigest,
     pub _dot_dot: (),
 }
 
-#[derive(Default)]
+#[derive(Clone, Default)]
 pub struct DownloadRequest {
     pub inlined_digests: Option<Vec<TDigest>>,
     pub file_digests: Option<Vec<NamedDigestWithPermissions>>,
     pub _dot_dot: (),
 }
 
-#[derive(Default)]
+#[derive(Clone, Default)]
 pub struct NamedDigestWithPermissions {
     pub named_digest: NamedDigest,
     pub is_executable: bool,
     pub _dot_dot: (),
 }
 
-#[derive(Default)]
+#[derive(Clone, Default)]
 pub struct NamedDigest {
     pub name: String,
     pub digest: TDigest,
     pub _dot_dot: (),
 }
 
-#[derive(Default)]
+#[derive(Clone, Default)]
 pub struct UploadRequest {
     pub files_with_digest: Option<Vec<NamedDigest>>,
     pub inlined_blobs_with_digest: Option<Vec<InlinedBlobWithDigest>>,
@@ -48,7 +48,7 @@ pub struct UploadRequest {
     pub _dot_dot: (),
 }
 
-#[derive(Default)]
+#[derive(Clone, Default)]
 pub struct Path {
     pub path: String,
     pub follow_symlinks: bool,
@@ -56,26 +56,26 @@ pub struct Path {
     pub _dot_dot: (),
 }
 
-#[derive(Default)]
+#[derive(Clone, Default)]
 pub struct InlinedBlobWithDigest {
     pub blob: Vec<u8>,
     pub digest: TDigest,
     pub _dot_dot: (),
 }
 
-#[derive(Default)]
+#[derive(Clone, Default)]
 pub struct FindMissingBlobsRequest {
     pub digests: Vec<TDigest>,
     pub _dot_dot: (),
 }
 
-#[derive(Default)]
+#[derive(Clone, Default)]
 pub struct GetDigestsTtlRequest {
     pub digests: Vec<TDigest>,
     pub _dot_dot: (),
 }
 
-#[derive(Default)]
+#[derive(Clone, Default)]
 pub struct ExtendDigestsTtlRequest {
     pub digests: Vec<TDigest>,
     pub ttl: i64,

@@ -98,8 +98,12 @@ use crate::error::*;
 use crate::metadata::*;
 use crate::request::*;
 use crate::response::*;
+use crate::retry::retry;
 
 const DEFAULT_MAX_TOTAL_BATCH_SIZE: usize = 4 * 1000 * 1000;
+const MAX_RETRIES: usize = 5;
+const INITIAL_DELAY: Duration = Duration::from_millis(100);
+const MAX_DELAY: Duration = Duration::from_secs(10);
 
 fn tdigest_to(tdigest: TDigest) -> Digest {
     Digest {
@@ -238,6 +242,7 @@ pub struct RECapabilities {
 }
 
 /// Contains runtime options for the remote execution client as set under `buck2_re_client`
+#[derive(Clone, Copy)]
 pub struct RERuntimeOpts {
     /// Use the Meta version of the request metadata
     use_fbcode_metadata: bool,
@@ -249,6 +254,7 @@ pub struct RERuntimeOpts {
     max_retries: usize,
 }
 
+#[derive(Clone)]
 struct InstanceName(Option<String>);
 
 impl InstanceName {
@@ -685,24 +691,35 @@ impl REClient {
         metadata: RemoteExecutionMetadata,
         request: ActionResultRequest,
     ) -> anyhow::Result<ActionResultResponse> {
-        let mut client = self.grpc_clients.action_cache_client.clone();
+        retry(
+            || async {
+                let mut client = self.grpc_clients.action_cache_client.clone();
+                let request = request.clone();
+                let metadata = metadata.clone();
 
-        let res = client
-            .get_action_result(with_re_metadata(
-                GetActionResultRequest {
-                    instance_name: self.instance_name.as_str().to_owned(),
-                    action_digest: Some(tdigest_to(request.digest)),
-                    ..Default::default()
-                },
-                metadata,
-                self.runtime_opts.use_fbcode_metadata,
-            ))
-            .await?;
+                let res = client
+                    .get_action_result(with_re_metadata(
+                        GetActionResultRequest {
+                            instance_name: self.instance_name.as_str().to_owned(),
+                            action_digest: Some(tdigest_to(request.digest)),
+                            ..Default::default()
+                        },
+                        metadata,
+                        self.runtime_opts.use_fbcode_metadata,
+                    ))
+                    .await?;
 
-        Ok(ActionResultResponse {
-            action_result: convert_action_result(res.into_inner())?,
-            ttl: 0,
-        })
+                Ok(ActionResultResponse {
+                    action_result: convert_action_result(res.into_inner())?,
+                    ttl: 0,
+                })
+            },
+            MAX_RETRIES,
+            INITIAL_DELAY,
+            MAX_DELAY,
+            false,
+        )
+        .await
     }
 
     pub async fn write_action_result(
@@ -710,26 +727,37 @@ impl REClient {
         metadata: RemoteExecutionMetadata,
         request: WriteActionResultRequest,
     ) -> anyhow::Result<WriteActionResultResponse> {
-        let mut client = self.grpc_clients.action_cache_client.clone();
+        retry(
+            || async {
+                let mut client = self.grpc_clients.action_cache_client.clone();
+                let request = request.clone();
+                let metadata = metadata.clone();
 
-        let res = client
-            .update_action_result(with_re_metadata(
-                UpdateActionResultRequest {
-                    instance_name: self.instance_name.as_str().to_owned(),
-                    action_digest: Some(tdigest_to(request.action_digest)),
-                    action_result: Some(convert_t_action_result2(request.action_result)?),
-                    results_cache_policy: None,
-                    ..Default::default()
-                },
-                metadata,
-                self.runtime_opts.use_fbcode_metadata,
-            ))
-            .await?;
+                let res = client
+                    .update_action_result(with_re_metadata(
+                        UpdateActionResultRequest {
+                            instance_name: self.instance_name.as_str().to_owned(),
+                            action_digest: Some(tdigest_to(request.action_digest)),
+                            action_result: Some(convert_t_action_result2(request.action_result)?),
+                            results_cache_policy: None,
+                            ..Default::default()
+                        },
+                        metadata,
+                        self.runtime_opts.use_fbcode_metadata,
+                    ))
+                    .await?;
 
-        Ok(WriteActionResultResponse {
-            actual_action_result: convert_action_result(res.into_inner())?,
-            ttl_seconds: 0,
-        })
+                Ok(WriteActionResultResponse {
+                    actual_action_result: convert_action_result(res.into_inner())?,
+                    ttl_seconds: 0,
+                })
+            },
+            MAX_RETRIES,
+            INITIAL_DELAY,
+            MAX_DELAY,
+            false,
+        )
+        .await
     }
 
     pub async fn execute_with_progress(
@@ -753,14 +781,28 @@ impl REClient {
             ..Default::default()
         };
 
-        let stream = client
-            .execute(with_re_metadata(
-                request,
-                metadata,
-                self.runtime_opts.use_fbcode_metadata,
-            ))
-            .await?
-            .into_inner();
+        let stream = retry(
+            || async {
+                let mut client = self.grpc_clients.execution_client.clone();
+                let request = request.clone();
+                let metadata = metadata.clone();
+
+                let stream = client
+                    .execute(with_re_metadata(
+                        request,
+                        metadata,
+                        self.runtime_opts.use_fbcode_metadata,
+                    ))
+                    .await?
+                    .into_inner();
+                Ok(stream)
+            },
+            MAX_RETRIES,
+            INITIAL_DELAY,
+            MAX_DELAY,
+            true,
+        )
+        .await?;
 
         let stream = futures::stream::try_unfold(stream, move |mut stream| async {
             let msg = match stream.try_next().await.context("RE channel error")? {
@@ -870,28 +912,59 @@ impl REClient {
             |re_request| async {
                 let metadata = metadata.clone();
                 let mut cas_client = self.grpc_clients.cas_client.clone();
-                let resp = cas_client
-                    .batch_update_blobs(with_re_metadata(
-                        re_request,
-                        metadata,
-                        self.runtime_opts.use_fbcode_metadata,
-                    ))
-                    .await?;
-                Ok(resp.into_inner())
+                let use_fbcode_metadata = self.runtime_opts.use_fbcode_metadata;
+
+                retry(
+                    move || {
+                        let metadata = metadata.clone();
+                        let mut cas_client = cas_client.clone();
+                        let re_request = re_request.clone();
+                        async move {
+                            let resp = cas_client
+                                .batch_update_blobs(with_re_metadata(
+                                    re_request,
+                                    metadata,
+                                    use_fbcode_metadata,
+                                ))
+                                .await?;
+                            Ok(resp.into_inner())
+                        }
+                    },
+                    MAX_RETRIES,
+                    INITIAL_DELAY,
+                    MAX_DELAY,
+                    false,
+                )
+                .await
             },
             |segments| async {
                 let metadata = metadata.clone();
                 let mut bytestream_client = self.grpc_clients.bytestream_client.clone();
-                let requests = futures::stream::iter(segments);
-                let resp = bytestream_client
-                    .write(with_re_metadata(
-                        requests,
-                        metadata,
-                        self.runtime_opts.use_fbcode_metadata,
-                    ))
-                    .await?;
+                let use_fbcode_metadata = self.runtime_opts.use_fbcode_metadata;
 
-                Ok(resp.into_inner())
+                retry(
+                    move || {
+                        let metadata = metadata.clone();
+                        let mut bytestream_client = bytestream_client.clone();
+                        let requests = futures::stream::iter(segments.clone());
+                        async move {
+                            let resp = bytestream_client
+                                .write(with_re_metadata(
+                                    requests,
+                                    metadata,
+                                    use_fbcode_metadata,
+                                ))
+                                .await?;
+
+                            Ok(resp.into_inner())
+                        }
+                    },
+                    MAX_RETRIES,
+                    INITIAL_DELAY,
+                    MAX_DELAY,
+                    false,
+                )
+                .await
             },
         )
         .await
@@ -936,28 +1009,69 @@ impl REClient {
             |re_request| async {
                 let metadata = metadata.clone();
                 let mut client = self.grpc_clients.cas_client.clone();
-                Ok(client
-                    .batch_read_blobs(with_re_metadata(
-                        re_request,
-                        metadata,
-                        self.runtime_opts.use_fbcode_metadata,
-                    ))
-                    .await?
-                    .into_inner())
+                let use_fbcode_metadata = self.runtime_opts.use_fbcode_metadata;
+
+                retry(
+                    move || {
+                        let metadata = metadata.clone();
+                        let mut client = client.clone();
+                        let re_request = re_request.clone();
+                        async move {
+                            Ok(client
+                                .batch_read_blobs(with_re_metadata(
+                                    re_request,
+                                    metadata,
+                                    use_fbcode_metadata,
+                                ))
+                                .await?
+                                .into_inner())
+                        }
+                    },
+                    MAX_RETRIES,
+                    INITIAL_DELAY,
+                    MAX_DELAY,
+                    false,
+                )
+                .await
             },
             |read_request| {
                 let metadata = metadata.clone();
+                let use_fbcode_metadata = self.runtime_opts.use_fbcode_metadata;
                 async move {
                     let mut client = self.grpc_clients.bytestream_client.clone();
-                    let response = client
-                        .read(with_re_metadata(
-                            read_request,
-                            metadata,
-                            self.runtime_opts.use_fbcode_metadata,
-                        ))
-                        .await?
-                        .into_inner();
-                    Ok(Box::pin(response.into_stream()))
+                    retry(
+                        move || {
+                            let metadata = metadata.clone();
+                            let mut client = client.clone();
+                            let read_request = read_request.clone();
+                            async move {
+                                let response = client
+                                    .read(with_re_metadata(
+                                        read_request,
+                                        metadata,
+                                        use_fbcode_metadata,
+                                    ))
+                                    .await?
+                                    .into_inner();
+                                Ok(Box::pin(response.into_stream())
+                                    as Pin<
+                                        Box<
+                                            dyn Stream<
+                                                    Item = Result<
+                                                        re_grpc_proto::google::bytestream::ReadResponse,
+                                                        tonic::Status,
+                                                    >,
+                                                > + Send,
+                                        >,
+                                    >)
+                            }
+                        },
+                        MAX_RETRIES,
+                        INITIAL_DELAY,
+                        MAX_DELAY,
+                        false,
+                    )
+                    .await
                 }
             },
         )
@@ -995,20 +1109,37 @@ impl REClient {
             // Send a request and notify others of the result
             if !digests_to_check.is_empty() {
                 tracing::debug!(num_digests = digests_to_check.len(), "FindMissingBlobs");
-                let missing_blobs = cas_client
-                    .find_missing_blobs(with_re_metadata(
-                        FindMissingBlobsRequest {
-                            instance_name: self.instance_name.as_str().to_owned(),
-                            blob_digests: digests_to_check.map(|b| tdigest_to(b.clone())),
-                            ..Default::default()
-                        },
-                        metadata.clone(),
-                        self.runtime_opts.use_fbcode_metadata,
-                    ))
-                    .await
-                    .context("Failed to request what blobs are not present on remote")?;
-                let resp: FindMissingBlobsResponse = missing_blobs.into_inner();
 
+                let use_fbcode_metadata = self.runtime_opts.use_fbcode_metadata;
+                let missing_blobs = retry(
+                    || {
+                        let mut cas_client = cas_client.clone();
+                        let metadata = metadata.clone();
+                        let digest_to_check = digest_to_check.clone();
+                        let instance_name = self.instance_name.as_str().to_owned();
+
+                        async move {
+                            cas_client
+                                .find_missing_blobs(with_re_metadata(
+                                    FindMissingBlobsRequest {
+                                        instance_name,
+                                        blob_digests: digest_to_check.map(|b| tdigest_to(b.clone())),
+                                        ..Default::default()
+                                    },
+                                    metadata,
+                                    use_fbcode_metadata,
+                                ))
+                                .await
+                                .context("Failed to request what blobs are not present on remote")
+                        }
+                    },
+                    MAX_RETRIES,
+                    INITIAL_DELAY,
+                    MAX_DELAY,
+                    false,
+                )
+                .await?;
+                let resp: FindMissingBlobsResponse = missing_blobs.into_inner();
                 // Update the results and the cache
                 let mut find_missing_cache = self.find_missing_cache.lock().unwrap();
                 for digest in &digests_to_check {
@@ -1268,7 +1399,7 @@ async fn download_impl<Byt, BytRet, Cas>(
 ) -> anyhow::Result<DownloadResponse>
 where
     Byt: Future<Output = anyhow::Result<Pin<Box<BytRet>>>>,
-    BytRet: Stream<Item = Result<ReadResponse, tonic::Status>> + Send,
+    BytRet: Stream<Item = Result<ReadResponse, tonic::Status>> + Send + ?Sized,
     Cas: Future<Output = anyhow::Result<BatchReadBlobsResponse>>,
 {
     fn resource_name(

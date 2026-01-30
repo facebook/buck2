@@ -15,12 +15,14 @@ mod grpc;
 mod metadata;
 mod request;
 mod response;
+mod retry;
 pub use client::*;
 pub use error::*;
 pub use grpc::*;
 pub use metadata::*;
 pub use request::*;
 pub use response::*;
+pub use retry::*;
 
 pub fn get_network_stats() -> anyhow::Result<NetworkStatisticsResponse> {
     // TODO: Support this in this client.
