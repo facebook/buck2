@@ -619,10 +619,9 @@ mod tests {
                 assert!(events.try_next().await.is_err());
             }
             Compression::Zstd => {
-                assert!(
-                    events.try_next().await.unwrap().is_none(),
-                    "expecting no more events"
-                );
+                // TODO(similar to gzip): `tick` does not write zstd footer,
+                // so even after `tick` generated file is not a valid zstd file.
+                assert!(events.try_next().await.is_err());
             }
             Compression::None => unreachable!(),
         }
