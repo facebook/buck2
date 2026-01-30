@@ -470,6 +470,8 @@ pub struct Buck2OssReConfiguration {
     pub execution_concurrency_limit: Option<usize>,
     /// Maximum retries for network requests.
     pub max_retries: usize,
+    /// Timeout for RPC requests in seconds. Defaults to 60s.
+    pub grpc_timeout: u64,
 }
 
 #[derive(Clone, Debug, Default, Allocative)]
@@ -597,6 +599,12 @@ impl Buck2OssReConfiguration {
                     property: "max_retries",
                 })?
                 .unwrap_or(0),
+            grpc_timeout: legacy_config
+                .parse(BuckconfigKeyRef {
+                    section: BUCK2_RE_CLIENT_CFG_SECTION,
+                    property: "grpc_timeout",
+                })?
+                .unwrap_or(60),
         })
     }
 }
