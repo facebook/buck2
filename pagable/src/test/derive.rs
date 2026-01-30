@@ -51,12 +51,12 @@ mod inner {
         use crate::arc_erase::ArcEraseDyn;
         use crate::pagable_arc::PagableArc;
         use crate::pagable_arc::PinnedPagableArc;
-        use crate::storage::DataKey;
-        use crate::storage::InMemoryPagableStorage;
-        use crate::storage::PagableData;
-        use crate::storage::PagableStorage;
-        use crate::storage::PagableStorageHandle;
-        use crate::storage::SerializerForPaging;
+        use crate::storage::data::DataKey;
+        use crate::storage::data::PagableData;
+        use crate::storage::handle::PagableStorageHandle;
+        use crate::storage::in_memory::InMemoryPagableStorage;
+        use crate::storage::support::SerializerForPaging;
+        use crate::storage::traits::PagableStorage;
         use crate::testing::EmptyPagableStorage;
         use crate::testing::TestingDeserializer;
         use crate::testing::TestingSerializer;

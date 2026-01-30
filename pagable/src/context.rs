@@ -15,8 +15,8 @@ use postcard::ser_flavors::Flavor;
 use crate::PagableDeserializer;
 use crate::PagableSerializer;
 use crate::arc_erase::ArcEraseDyn;
-use crate::storage::DataKey;
-use crate::storage::PagableStorageHandle;
+use crate::storage::data::DataKey;
+use crate::storage::handle::PagableStorageHandle;
 
 /// Concrete implementation of [`PagableSerializer`] backed by postcard.
 ///
