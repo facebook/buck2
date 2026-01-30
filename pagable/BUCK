@@ -24,6 +24,7 @@ rust_library(
         "fbsource//third-party/rust:sequence_trie",
         "fbsource//third-party/rust:serde",
         "fbsource//third-party/rust:serde_json",
+        "fbsource//third-party/rust:smallvec",
         "fbsource//third-party/rust:static_assertions",
         "fbsource//third-party/rust:take_mut",
         "fbsource//third-party/rust:tokio",

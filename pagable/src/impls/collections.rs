@@ -240,6 +240,31 @@ impl<'de, T: PagableDeserialize<'de>> PagableDeserialize<'de> for Vec<T> {
     }
 }
 
+impl<T: PagableSerialize, const N: usize> PagableSerialize for smallvec::SmallVec<[T; N]> {
+    fn pagable_serialize(&self, serializer: &mut dyn PagableSerializer) -> crate::Result<()> {
+        usize::serialize(&self.len(), serializer.serde())?;
+        for v in self {
+            v.pagable_serialize(serializer)?;
+        }
+        Ok(())
+    }
+}
+
+impl<'de, T: PagableDeserialize<'de>, const N: usize> PagableDeserialize<'de>
+    for smallvec::SmallVec<[T; N]>
+{
+    fn pagable_deserialize<D: PagableDeserializer<'de> + ?Sized>(
+        deserializer: &mut D,
+    ) -> crate::Result<Self> {
+        let items = usize::deserialize(deserializer.serde())?;
+        let mut v = smallvec::SmallVec::with_capacity(items);
+        for _ in 0..items {
+            v.push(T::pagable_deserialize(deserializer)?);
+        }
+        Ok(v)
+    }
+}
+
 impl<'a, T: PagableSerialize> PagableSerialize for &'a [T] {
     fn pagable_serialize(&self, serializer: &mut dyn PagableSerializer) -> crate::Result<()> {
         for v in *self {
@@ -444,6 +469,26 @@ mod tests {
         let restored: IndexSet<String> = IndexSet::pagable_deserialize(&mut deserializer)?;
 
         assert_eq!(set, restored);
+        Ok(())
+    }
+
+    #[test]
+    fn test_smallvec_roundtrip() -> crate::Result<()> {
+        use smallvec::SmallVec;
+
+        let mut vec: SmallVec<[String; 4]> = SmallVec::new();
+        vec.push("one".to_owned());
+        vec.push("two".to_owned());
+        vec.push("three".to_owned());
+
+        let mut serializer = TestingSerializer::new();
+        vec.pagable_serialize(&mut serializer)?;
+        let bytes = serializer.finish();
+
+        let mut deserializer = TestingDeserializer::new(&bytes);
+        let restored: SmallVec<[String; 4]> = SmallVec::pagable_deserialize(&mut deserializer)?;
+
+        assert_eq!(vec, restored);
         Ok(())
     }
 }
