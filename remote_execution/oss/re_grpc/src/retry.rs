@@ -65,19 +65,31 @@ where
 }
 
 fn is_retryable(err: &anyhow::Error, retry_not_found: bool) -> bool {
-    if let Some(re_err) = err.downcast_ref::<REClientError>() {
-        return match re_err.code {
-             TCode::UNKNOWN | TCode::DEADLINE_EXCEEDED | TCode::ABORTED | TCode::INTERNAL | TCode::UNAVAILABLE | TCode::RESOURCE_EXHAUSTED => true,
-             TCode::NOT_FOUND => retry_not_found,
-             _ => false,
-        };
-    }
-    if let Some(status) = err.downcast_ref::<tonic::Status>() {
-        return match status.code() {
-            tonic::Code::Unknown | tonic::Code::DeadlineExceeded | tonic::Code::Aborted | tonic::Code::Internal | tonic::Code::Unavailable | tonic::Code::ResourceExhausted => true,
-            tonic::Code::NotFound => retry_not_found,
-            _ => false,
-        };
+    for cause in err.chain() {
+        if let Some(re_err) = cause.downcast_ref::<REClientError>() {
+            return match re_err.code {
+                TCode::UNKNOWN
+                | TCode::DEADLINE_EXCEEDED
+                | TCode::ABORTED
+                | TCode::INTERNAL
+                | TCode::UNAVAILABLE
+                | TCode::RESOURCE_EXHAUSTED => true,
+                TCode::NOT_FOUND => retry_not_found,
+                _ => false,
+            };
+        }
+        if let Some(status) = cause.downcast_ref::<tonic::Status>() {
+            return match status.code() {
+                tonic::Code::Unknown
+                | tonic::Code::DeadlineExceeded
+                | tonic::Code::Aborted
+                | tonic::Code::Internal
+                | tonic::Code::Unavailable
+                | tonic::Code::ResourceExhausted => true,
+                tonic::Code::NotFound => retry_not_found,
+                _ => false,
+            };
+        }
     }
     false
 }
