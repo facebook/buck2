@@ -36,6 +36,12 @@ PostConstraintAnalysisParams = record(
     configuring_exec_dep = bool,
 )
 
+def _get_buckconfig_backed_modifiers(extra_data: struct, configuring_exec_dep: bool) -> str | None:
+    # If we are configuring an exec dep, we don't want to apply any modifiers from buckconfig.
+    if configuring_exec_dep:
+        return None
+    return getattr(extra_data, "buckconfig_backed_modifiers", None)
+
 def cfg_constructor_pre_constraint_analysis(
         *,
         legacy_platform: PlatformInfo | None,
@@ -86,7 +92,7 @@ def cfg_constructor_pre_constraint_analysis(
     cli_modifiers = [resolved_modifier for modifier in cli_modifiers for resolved_modifier in resolve_alias(modifier, aliases)]
 
     refs = []
-    buckconfig_backed_modifiers = getattr(extra_data, "buckconfig_backed_modifiers", None)
+    buckconfig_backed_modifiers = _get_buckconfig_backed_modifiers(extra_data, configuring_exec_dep)
     if buckconfig_backed_modifiers:
         refs.append(buckconfig_backed_modifiers)
 
@@ -136,7 +142,7 @@ def cfg_constructor_post_constraint_analysis(
 
     constraint_setting_to_modifier_infos = {}
     cli_modifier_validation = getattr(params.extra_data, "cli_modifier_validation", None)
-    buckconfig_backed_modifiers = getattr(params.extra_data, "buckconfig_backed_modifiers", None)
+    buckconfig_backed_modifiers = _get_buckconfig_backed_modifiers(params.extra_data, params.configuring_exec_dep)
 
     if buckconfig_backed_modifiers:
         apply_buckconfig_backed_modifiers(constraint_setting_to_modifier_infos, refs[buckconfig_backed_modifiers][BuckconfigBackedModifierInfo].pre_platform_modifiers)
