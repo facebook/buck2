@@ -69,6 +69,7 @@ fn is_retryable(err: &anyhow::Error, retry_not_found: bool) -> bool {
         if let Some(re_err) = cause.downcast_ref::<REClientError>() {
             return match re_err.code {
                 TCode::UNKNOWN
+                | TCode::CANCELLED
                 | TCode::DEADLINE_EXCEEDED
                 | TCode::ABORTED
                 | TCode::INTERNAL
@@ -81,6 +82,7 @@ fn is_retryable(err: &anyhow::Error, retry_not_found: bool) -> bool {
         if let Some(status) = cause.downcast_ref::<tonic::Status>() {
             return match status.code() {
                 tonic::Code::Unknown
+                | tonic::Code::Cancelled
                 | tonic::Code::DeadlineExceeded
                 | tonic::Code::Aborted
                 | tonic::Code::Internal
