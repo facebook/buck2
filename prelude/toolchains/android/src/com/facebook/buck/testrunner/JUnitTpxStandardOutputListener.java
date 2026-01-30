@@ -12,9 +12,17 @@ package com.facebook.buck.testrunner;
 
 import com.facebook.buck.testresultsoutput.TestResultsOutputSender;
 import com.facebook.buck.testrunner.JavaUtilLoggingHelper.LogHandlers;
+import com.fasterxml.jackson.core.JsonFactory;
+import com.fasterxml.jackson.core.JsonGenerator;
 import java.io.ByteArrayOutputStream;
-import java.util.HashMap;
+import java.io.IOException;
+import java.io.StringWriter;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Level;
 import org.junit.runner.Description;
 import org.junit.runner.notification.Failure;
@@ -37,6 +45,8 @@ public class JUnitTpxStandardOutputListener extends RunListener {
     private ByteArrayOutputStream julLogBytes;
     private ByteArrayOutputStream julErrLogBytes;
     private LogHandlers logHandlers;
+    private StandardOutputRecorder stdoutRecorder;
+    private StandardOutputRecorder stderrRecorder;
 
     public TestLogState() {
       this.julLogBytes = new ByteArrayOutputStream();
@@ -58,10 +68,27 @@ public class JUnitTpxStandardOutputListener extends RunListener {
     public LogHandlers getLogHandlers() {
       return logHandlers;
     }
+
+    public void setStdoutRecorder(StandardOutputRecorder stdoutRecorder) {
+      this.stdoutRecorder = stdoutRecorder;
+    }
+
+    public StandardOutputRecorder getStdoutRecorder() {
+      return stdoutRecorder;
+    }
+
+    public void setStderrRecorder(StandardOutputRecorder stderrRecorder) {
+      this.stderrRecorder = stderrRecorder;
+    }
+
+    public StandardOutputRecorder getStderrRecorder() {
+      return stderrRecorder;
+    }
   }
 
-  // Map to store per-test logging state using test description as key
-  private final Map<String, TestLogState> testLogStates = new HashMap<>();
+  // Map to store per-test logging state using test description as key.
+  // Uses ConcurrentHashMap to support parallel test execution.
+  private final Map<String, TestLogState> testLogStates = new ConcurrentHashMap<>();
 
   public JUnitTpxStandardOutputListener(TestResultsOutputSender sender) {
     this.listener = new TpxStandardOutputTestListener(sender);
@@ -110,6 +137,15 @@ public class JUnitTpxStandardOutputListener extends RunListener {
             this.stdErrLogLevel);
 
     testLogState.setLogHandlers(logHandlers);
+
+    // Start capturing stdout/stderr for per-test artifacts
+    try {
+      testLogState.setStdoutRecorder(StandardOutputRecorder.stdOut(this.stdOutLogLevel).record());
+      testLogState.setStderrRecorder(StandardOutputRecorder.stdErr(this.stdErrLogLevel).record());
+    } catch (IOException e) {
+      // Log warning but continue - artifact capture is best-effort
+      System.err.println("Warning: Failed to set up stdout/stderr capture: " + e.getMessage());
+    }
 
     // Store the test log state in the map
     testLogStates.put(testName, testLogState);
@@ -169,6 +205,24 @@ public class JUnitTpxStandardOutputListener extends RunListener {
     TestLogState testLogState = testLogStates.get(testName);
 
     if (testLogState != null) {
+      // Complete stdout/stderr capture
+      if (testLogState.getStdoutRecorder() != null) {
+        testLogState.getStdoutRecorder().complete();
+      }
+      if (testLogState.getStderrRecorder() != null) {
+        testLogState.getStderrRecorder().complete();
+      }
+
+      // Write per-test artifacts if directories are available
+      String artifactsDir = System.getenv("TEST_RESULT_ARTIFACTS_DIR");
+      String annotationsDir = System.getenv("TEST_RESULT_ARTIFACT_ANNOTATIONS_DIR");
+
+      if (artifactsDir != null && annotationsDir != null) {
+        // Use the same test name format as TPX: "methodName (className)"
+        String testCaseName = getFullTestName(description);
+        writePerTestArtifacts(testLogState, artifactsDir, annotationsDir, testCaseName);
+      }
+
       // Clean up logging handlers
       JavaUtilLoggingHelper.cleanupLogging(testLogState.getLogHandlers());
 
@@ -176,7 +230,94 @@ public class JUnitTpxStandardOutputListener extends RunListener {
       testLogStates.remove(testName);
     }
 
+    // Notify listener that test finished (stdout/stderr only go to artifact files, not Test Output)
     listener.testFinished(testName);
+  }
+
+  /**
+   * Writes per-test stdout/stderr artifacts and their annotation files.
+   *
+   * @param state the test log state containing captured output
+   * @param artifactsDir directory where artifact files should be written
+   * @param annotationsDir directory where annotation files should be written
+   * @param testCaseName the test case name in format "methodName (className)"
+   */
+  private void writePerTestArtifacts(
+      TestLogState state, String artifactsDir, String annotationsDir, String testCaseName) {
+    // Get captured output from the recorders. Each recorder captures two streams:
+    // 1. Direct prints (System.out/System.err) - e.g., System.out.println() in test code
+    // 2. java.util.logging (JUL) messages - structured logs from libraries/frameworks
+    // The header ("====DEBUG LOGS====" or "====ERROR LOGS====") separates these two streams
+    // in the artifact file, helping developers distinguish test output from framework logs.
+    String stdout = null;
+    String stderr = null;
+
+    if (state.getStdoutRecorder() != null) {
+      stdout = state.getStdoutRecorder().toString(true, "====DEBUG LOGS====\n");
+    }
+    if (state.getStderrRecorder() != null) {
+      stderr = state.getStderrRecorder().toString(true, "====ERROR LOGS====\n");
+    }
+
+    // Sanitize test name for use in filenames to avoid collisions between tests.
+    // JUnit artifacts are written to a shared directory and TPX collects them at the end,
+    // so we need unique filenames to preserve each test's output.
+    // The test_case annotation associates each artifact with its specific test.
+    String safeTestName =
+        testCaseName.replace(" ", "_").replace("(", "").replace(")", "").replace("/", "_");
+
+    // Write stdout artifact
+    if (stdout != null) {
+      String filename = "Test Stdout " + safeTestName;
+      writeArtifactWithAnnotation(artifactsDir, annotationsDir, filename, stdout, testCaseName);
+    }
+
+    // Write stderr artifact
+    if (stderr != null) {
+      String filename = "Test Stderr " + safeTestName;
+      writeArtifactWithAnnotation(artifactsDir, annotationsDir, filename, stderr, testCaseName);
+    }
+  }
+
+  /**
+   * Writes an artifact file and its corresponding annotation file.
+   *
+   * @param artifactsDir directory where the artifact file should be written
+   * @param annotationsDir directory where the annotation file should be written
+   * @param filename name of the artifact file (annotation will have .annotation appended)
+   * @param content content to write to the artifact file
+   * @param testCaseName the test case name in format "methodName (className)" for annotation
+   */
+  private void writeArtifactWithAnnotation(
+      String artifactsDir,
+      String annotationsDir,
+      String filename,
+      String content,
+      String testCaseName) {
+    try {
+      // Write artifact file
+      Path artifactPath = Paths.get(artifactsDir, filename);
+      Files.write(artifactPath, content.getBytes(StandardCharsets.UTF_8));
+
+      // Write annotation file with test_case field using Jackson core
+      StringWriter stringWriter = new StringWriter();
+      try (JsonGenerator gen = new JsonFactory().createGenerator(stringWriter)) {
+        gen.writeStartObject();
+        gen.writeObjectFieldStart("type");
+        gen.writeObjectFieldStart("generic_text_log");
+        gen.writeEndObject();
+        gen.writeEndObject();
+        gen.writeStringField("test_case", testCaseName);
+        gen.writeEndObject();
+      }
+      String annotationJson = stringWriter.toString();
+      Path annotationPath = Paths.get(annotationsDir, filename + ".annotation");
+      Files.write(annotationPath, annotationJson.getBytes(StandardCharsets.UTF_8));
+    } catch (IOException e) {
+      // Log warning but don't fail the test - artifact writing is best-effort
+      System.err.println(
+          "Warning: Failed to write test artifact '" + filename + "': " + e.getMessage());
+    }
   }
 
   /**
