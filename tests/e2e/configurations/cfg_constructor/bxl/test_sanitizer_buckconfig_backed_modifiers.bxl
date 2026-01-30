@@ -20,6 +20,7 @@ def _run_cfg_constructor(test_refs: TestRefs, target_modifiers: list[str] | None
         rule_name = "_dummy",
         aliases = ALIASES,
         extra_data = struct(),
+        configuring_exec_dep = False,
     )
     refs = {ref: test_refs.get(ref) for ref in refs}
     return cfg_constructor_post_constraint_analysis(refs = refs, params = params)

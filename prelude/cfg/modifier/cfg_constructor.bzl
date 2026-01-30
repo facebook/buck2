@@ -33,6 +33,7 @@ PostConstraintAnalysisParams = record(
     target_modifiers = list[Modifier],
     cli_modifiers = list[Modifier],
     extra_data = struct,
+    configuring_exec_dep = bool,
 )
 
 def cfg_constructor_pre_constraint_analysis(
@@ -46,6 +47,7 @@ def cfg_constructor_pre_constraint_analysis(
         rule_name: str,
         aliases: struct,
         extra_data: struct,
+        configuring_exec_dep: bool,
         **_kwargs) -> (list[str], PostConstraintAnalysisParams):
     """
     First stage of cfg constructor for modifiers.
@@ -102,6 +104,7 @@ def cfg_constructor_pre_constraint_analysis(
         target_modifiers = target_modifiers,
         cli_modifiers = cli_modifiers,
         extra_data = extra_data,
+        configuring_exec_dep = configuring_exec_dep,
     )
 
 def cfg_constructor_post_constraint_analysis(
@@ -175,6 +178,12 @@ def cfg_constructor_post_constraint_analysis(
                 modifier = modifier,
                 location = ModifierCliLocation(),
             )
+
+            # Exclude CLI modifier allowlist validation when evaluating the exec configuration,
+            # because modifiers from CLI are not applied to exec dependencies.
+            # Instead, we treat the original platform constraints as "CLI modifiers" so they take precedence.
+            if params.configuring_exec_dep:
+                continue
             if cli_modifier_validation:
                 cli_modifier_validation(constraint_setting_label, modifier)
 

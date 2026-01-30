@@ -38,6 +38,7 @@ def _run_cfg_constructor(
         rule_name = rule_name,
         aliases = ALIASES,
         extra_data = struct(),
+        configuring_exec_dep = False,
     )
     refs = {ref: test_refs.get(ref) for ref in refs}
     return cfg_constructor_post_constraint_analysis(refs = refs, params = params)
