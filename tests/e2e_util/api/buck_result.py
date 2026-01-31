@@ -62,7 +62,7 @@ class ExitCodeV2(Enum):
     SIGNAL_INTERRUPT = 141
 
 
-class AutoName(Enum):
+class AutoName(str, Enum):
     """Makes the value of the Enum its name"""
 
     @staticmethod
