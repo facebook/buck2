@@ -50,6 +50,7 @@ use re_grpc_proto::build::bazel::remote::execution::v2::ExecuteOperationMetadata
 use re_grpc_proto::build::bazel::remote::execution::v2::ExecuteRequest as GExecuteRequest;
 use re_grpc_proto::build::bazel::remote::execution::v2::ExecuteResponse as GExecuteResponse;
 use re_grpc_proto::build::bazel::remote::execution::v2::ExecutedActionMetadata;
+use re_grpc_proto::build::bazel::remote::execution::v2::ExecutionPolicy;
 use re_grpc_proto::build::bazel::remote::execution::v2::FindMissingBlobsRequest;
 use re_grpc_proto::build::bazel::remote::execution::v2::FindMissingBlobsResponse;
 use re_grpc_proto::build::bazel::remote::execution::v2::GetActionResultRequest;
@@ -744,7 +745,12 @@ impl REClient {
         let request = GExecuteRequest {
             instance_name: self.instance_name.as_str().to_owned(),
             skip_cache_lookup: false,
-            execution_policy: None,
+            execution_policy: Some(ExecutionPolicy {
+                priority: execute_request
+                    .execution_policy
+                    .map(|ep| ep.priority)
+                    .unwrap_or_default(),
+            }),
             results_cache_policy: Some(ResultsCachePolicy { priority: 0 }),
             action_digest: Some(action_digest.clone()),
             ..Default::default()

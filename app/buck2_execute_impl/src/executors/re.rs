@@ -92,6 +92,7 @@ pub struct ReExecutor {
     pub gang_workers: Vec<ReGangWorker>,
     pub deduplicate_get_digests_ttl_calls: bool,
     pub output_trees_download_config: OutputTreesDownloadConfig,
+    pub priority: Option<i32>,
 }
 
 impl ReExecutor {
@@ -193,6 +194,7 @@ impl ReExecutor {
             &self.knobs,
             meta_internal_extra_params,
             worker_tool_action_digest,
+            self.priority,
         );
 
         let execute_response =

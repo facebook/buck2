@@ -53,6 +53,7 @@ pub struct RemoteEnabledExecutorOptions {
     pub gang_workers: Vec<ReGangWorker>,
     pub custom_image: Option<Box<RemoteExecutorCustomImage>>,
     pub meta_internal_extra_params: MetaInternalExtraParams,
+    pub priority: Option<i32>,
 }
 
 #[derive(Debug, buck2_error::Error)]
