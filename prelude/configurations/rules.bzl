@@ -7,6 +7,7 @@
 # above-listed licenses.
 
 load("@prelude//cfg/modifier:constraint_modifier_info.bzl", "make_constraint_modifier_info")
+load("@prelude//cfg/modifier:types.bzl", "ConditionalModifierInfo")
 load(":util.bzl", "util")
 
 _ExecutionModifierInfo = provider(fields = {
@@ -16,7 +17,14 @@ _ExecutionModifierInfo = provider(fields = {
 def config_setting_impl(ctx):
     subinfos = [util.constraint_values_to_configuration(ctx.attrs.constraint_values)]
     subinfos.append(ConfigurationInfo(constraints = {}, values = ctx.attrs.values))
-    return [DefaultInfo(), util.configuration_info_union(subinfos)]
+    cfg_info = util.configuration_info_union(subinfos)
+    providers = [DefaultInfo(), cfg_info]
+    if len(ctx.attrs.constraint_values) == 1:
+        # When only have one constraint, we return an additional ConditionalModifierInfo provider for
+        # conditional modifier
+        conditional_modifier_info = ctx.attrs.constraint_values[0][ConditionalModifierInfo]
+        providers.append(conditional_modifier_info)
+    return providers
 
 def constraint_setting_impl(ctx):
     return [
