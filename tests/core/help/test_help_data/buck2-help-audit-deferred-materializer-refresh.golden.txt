@@ -33,6 +33,7 @@ Universal Options:
           actions, status, stats, success) to fine-tune the verbosity of the log. Example usage
           "-v=1,stderr"
 
+          [env: BUCK_VERBOSE=]
           [default: 1]
 
       --oncall <ONCALL>

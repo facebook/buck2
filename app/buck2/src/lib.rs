@@ -54,6 +54,7 @@ use buck2_common::argv::Argv;
 use buck2_common::invocation_paths_result::InvocationPathsResult;
 use buck2_common::invocation_roots::get_invocation_paths_result;
 use buck2_core::buck2_env;
+use buck2_core::buck2_env_name;
 use buck2_data::ErrorReport;
 use buck2_error::BuckErrorContext;
 use buck2_error::ErrorTag;
@@ -115,7 +116,8 @@ struct BeforeSubcommandOptions {
         long = "verbose",
         default_value = "1",
         global = true,
-        value_parser= buck_error_clap_parser(Verbosity::try_from_cli)
+        env = buck2_env_name!("BUCK_VERBOSE"),
+        value_parser = buck_error_clap_parser(Verbosity::try_from_cli)
     )]
     verbosity: Verbosity,
 
