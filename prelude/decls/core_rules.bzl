@@ -11,6 +11,7 @@
 # the generated docs, and so those should be verified to be accurate and
 # well-formatted (and then delete this TODO)
 
+load("@prelude//cfg/exec_platform:marker.bzl", "get_exec_platform_marker")
 load("@prelude//transitions:constraint_overrides.bzl", "constraint_overrides")
 load(":common.bzl", "OnDuplicateEntry", "buck", "prelude_rule", "validate_uri")
 load(":genrule_common.bzl", "genrule_common")
@@ -346,6 +347,7 @@ constraint_setting = prelude_rule(
     further = None,
     attrs = (
         {
+            "execution_modifier": attrs.bool(default = False),
         }
     ),
 )
@@ -361,6 +363,10 @@ constraint_value = prelude_rule(
             "constraint_setting": attrs.configuration_label(
                 doc = "The constraint setting this value is attached to.",
             ),
+            # Dependency on the exec platform marker constraint.
+            # Modifiers with execution_modifier=False will be wrapped in a conditional modifier
+            # that skips them on exec platforms.
+            "_exec_platform_marker": attrs.dep(providers = [ConfigurationInfo], default = get_exec_platform_marker()),
         }
     ),
 )
@@ -391,6 +397,11 @@ constraint = prelude_rule(
             "default": attrs.string(
                 doc = "Default value (must be one of the `values`).",
             ),
+            "execution_modifier": attrs.bool(default = False),
+            # Dependency on the exec platform marker constraint.
+            # Modifiers with execution_modifier=False will be wrapped in a conditional modifier
+            # that skips them on exec platforms.
+            "_exec_platform_marker": attrs.dep(providers = [ConfigurationInfo], default = get_exec_platform_marker()),
         }
     ),
 )

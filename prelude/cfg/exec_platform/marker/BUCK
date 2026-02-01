@@ -6,6 +6,7 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
+load("@prelude//:native.bzl", prelude = "native")
 load("@prelude//utils:source_listing.bzl", "source_listing")
 
 oncall("build_infra")
@@ -26,5 +27,12 @@ exec_platform_marker_constraint(
         "true",
         "false",
     ],
+    visibility = ["PUBLIC"],
+)
+
+# Export BUCK file for inclusion in prelude//:prelude filegroup
+prelude.export_file(
+    name = "buck_file",
+    src = "BUCK",
     visibility = ["PUBLIC"],
 )

@@ -46,6 +46,7 @@ prelude.filegroup(
     srcs = {
         "": ":files",
         "android/constraints/BUCK": ":copy_android_constraint",
+        "cfg/exec_platform/marker/BUCK": "//cfg/exec_platform/marker:buck_file",
         "rust/tools/attrs.bzl": "//rust/tools:attrs.bzl",
     },
     visibility = ["PUBLIC"],

@@ -6,8 +6,12 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
-load("@prelude//cfg/modifier:types.bzl", "ConditionalModifierInfo")
+load("@prelude//cfg/modifier:constraint_modifier_info.bzl", "make_constraint_modifier_info")
 load(":util.bzl", "util")
+
+_ExecutionModifierInfo = provider(fields = {
+    "execution_modifier": bool,
+})
 
 def config_setting_impl(ctx):
     subinfos = [util.constraint_values_to_configuration(ctx.attrs.constraint_values)]
@@ -15,13 +19,20 @@ def config_setting_impl(ctx):
     return [DefaultInfo(), util.configuration_info_union(subinfos)]
 
 def constraint_setting_impl(ctx):
-    return [DefaultInfo(), ConstraintSettingInfo(label = ctx.label.raw_target())]
+    return [
+        DefaultInfo(),
+        ConstraintSettingInfo(label = ctx.label.raw_target()),
+        # In order for the constraint_value to access the execution modifier info, we need to provide an additional provider here.
+        _ExecutionModifierInfo(execution_modifier = ctx.attrs.execution_modifier),
+    ]
 
 def constraint_value_impl(ctx):
     constraint_value = ConstraintValueInfo(
         setting = ctx.attrs.constraint_setting[ConstraintSettingInfo],
         label = ctx.label.raw_target(),
     )
+    execution_modifier_info = ctx.attrs.constraint_setting[_ExecutionModifierInfo]
+
     return [
         DefaultInfo(),
         constraint_value,
@@ -32,9 +43,11 @@ def constraint_value_impl(ctx):
             },
             values = {},
         ),
-        ConditionalModifierInfo(
-            inner = constraint_value,
+        make_constraint_modifier_info(
+            constraint_value = constraint_value,
             key = constraint_value.setting.label,
+            execution_modifier = execution_modifier_info.execution_modifier,
+            exec_platform_marker_configuration_info = ctx.attrs._exec_platform_marker[ConfigurationInfo],
         ),
     ]
 
@@ -69,6 +82,16 @@ def constraint_impl(ctx):
         default = main_label.with_sub_target(default),
     )
 
+    # exec_platform_marker_constraint() and constraint() rule both use this impl,
+    # but only constraint() has this attribute.
+    exec_platform_marker_configuration_info = None
+    if hasattr(ctx.attrs, "_exec_platform_marker"):
+        exec_platform_marker_configuration_info = ctx.attrs._exec_platform_marker[ConfigurationInfo]
+
+    execution_modifier = False
+    if hasattr(ctx.attrs, "execution_modifier"):
+        execution_modifier = ctx.attrs.execution_modifier
+
     # Create subtargets for each value
     sub_targets = {}
     for value_name in values:
@@ -87,9 +110,11 @@ def constraint_impl(ctx):
                 },
                 values = {},
             ),
-            ConditionalModifierInfo(
-                inner = constraint_value,
+            make_constraint_modifier_info(
+                constraint_value = constraint_value,
                 key = main_label,
+                execution_modifier = execution_modifier,
+                exec_platform_marker_configuration_info = exec_platform_marker_configuration_info,
             ),
         ]
 
