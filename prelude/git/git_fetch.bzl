@@ -38,12 +38,18 @@ def git_fetch_impl(ctx: AnalysisContext) -> list[Provider]:
         short_path = "work-tree"
     work_tree = ctx.actions.declare_output(short_path, dir = True)
 
+    if ctx.attrs.update_submodules:
+        update_submodules = cmd_args("--update-submodules")
+    else:
+        update_submodules = cmd_args()
+
     cmd = [
         ctx.attrs._git_fetch_tool[RunInfo],
         cmd_args("--git-dir=", git_dir.as_output(), delimiter = ""),
         cmd_args("--work-tree=", work_tree.as_output(), delimiter = ""),
         cmd_args("--repo=", ctx.attrs.repo, delimiter = ""),
         cmd_args("--rev=", rev, delimiter = ""),
+        update_submodules,
     ]
     if object_format != None:
         cmd.append(cmd_args("--object-format=", object_format, delimiter = ""))
