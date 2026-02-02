@@ -518,6 +518,7 @@ python_wheel = rule(
         link_execution_preference = link_execution_preference_attr(),
         _wheel = attrs.default_only(attrs.exec_dep(default = "prelude//python/tools:wheel")),
         _patchelf = attrs.default_only(attrs.exec_dep(default = "prelude//python/tools:patchelf")),
+        _python_wheel_toolchain = toolchains_common.python_wheel(),
         _create_link_tree = attrs.default_only(attrs.exec_dep(default = "prelude//python/tools:create_link_tree")),
         _cxx_toolchain = toolchains_common.cxx(),
         _python_toolchain = toolchains_common.python(),

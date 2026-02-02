@@ -23,6 +23,7 @@ load(
     "@prelude//kotlin:kotlin_toolchain.bzl",
     "KotlinToolchainInfo",
 )
+load("@prelude//python:python_wheel_toolchain.bzl", "PythonWheelToolchainInfo")
 load("@prelude//python:toolchain.bzl", "PythonPlatformInfo", "PythonToolchainInfo")
 load("@prelude//python_bootstrap:python_bootstrap.bzl", "PythonBootstrapToolchainInfo")
 load("@prelude//rust:rust_toolchain.bzl", "RustToolchainInfo")
@@ -86,6 +87,9 @@ def _python_toolchain():
 def _python_bootstrap_toolchain():
     return _toolchain("python_bootstrap", [PythonBootstrapToolchainInfo])
 
+def _python_wheel_toolchain():
+    return _toolchain("python_wheel", [PythonWheelToolchainInfo])
+
 def _rust_toolchain():
     return _toolchain("rust", [RustToolchainInfo])
 
@@ -116,6 +120,7 @@ toolchains_common = struct(
     prebuilt_jar = _prebuilt_jar_toolchain,
     python = _python_toolchain,
     python_bootstrap = _python_bootstrap_toolchain,
+    python_wheel = _python_wheel_toolchain,
     test_toolchain = _test_toolchain,
     rust = _rust_toolchain,
     zip_file = _zip_file_toolchain,
