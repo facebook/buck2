@@ -555,7 +555,7 @@ def _not_eligible_for_dedupe_impl(ctx) -> list[Provider]:
         has_content_based_path = False,
     )
 
-    out = ctx.actions.declare_output("out", uses_experimental_content_based_path_hashing = ctx.attrs.run_action_output_has_content_based_path)
+    out = ctx.actions.declare_output("out", has_content_based_path = ctx.attrs.run_action_output_has_content_based_path)
     args = cmd_args(["fbpython", script, out.as_output()])
 
     ctx.actions.run(
