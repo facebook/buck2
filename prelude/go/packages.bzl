@@ -135,6 +135,6 @@ def cgo_exported_preprocessor(ctx: AnalysisContext, pkg_info: GoPackageInfo) -> 
             cxx_toolchain_info,
             {"{}/{}.h".format(ctx.label.package, ctx.label.name): pkg_info.cgo_gen_dir.project("_cgo_export.h")},
             "cgo-exported-headers",
-            uses_experimental_content_based_path_hashing = True,
+            uses_content_based_paths = True,
         ).include_path,
     ]))

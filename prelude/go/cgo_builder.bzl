@@ -164,7 +164,7 @@ def _cxx_wrapper(actions: AnalysisActions, go_toolchain: GoToolchainInfo, cgo_bu
 # build CPreprocessor similar as cxx_private_preprocessor_info does, but with our filtered headers
 def _own_pre(actions: AnalysisActions, cgo_build_context: CGoBuildContext, h_files: list[Artifact]) -> CPreprocessor:
     header_map = {paths.join(cgo_build_context.header_namespace, h.short_path): h for h in h_files}
-    header_root = prepare_headers(actions, cgo_build_context.cxx_toolchain_info, header_map, "h_files-private-headers", uses_experimental_content_based_path_hashing = True)
+    header_root = prepare_headers(actions, cgo_build_context.cxx_toolchain_info, header_map, "h_files-private-headers", uses_content_based_paths = True)
 
     return CPreprocessor(
         args = CPreprocessorArgs(args = ["-I", header_root.include_path] if header_root != None else []),
@@ -209,7 +209,7 @@ def build_cgo(
             cgo_build_context.cxx_toolchain_info,
             {h.basename: h for h in c_gen_headers},
             "cgo-private-headers",
-            uses_experimental_content_based_path_hashing = True,
+            uses_content_based_paths = True,
         ).include_path,
     ]))
 
