@@ -91,7 +91,7 @@ def create_jar_artifact_javacd(
     bootclasspath_entries = build_bootclasspath(custom_bootclasspath, source_level, java_toolchain)
     abi_generation_mode = get_abi_generation_mode(abi_generation_mode, java_toolchain, srcs, annotation_processor_properties)
 
-    uses_content_based_paths = java_toolchain.uses_experimental_content_based_path_hashing
+    uses_content_based_paths = java_toolchain.uses_content_based_paths
 
     should_create_class_abi = (
         not additional_compiled_srcs and
