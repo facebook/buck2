@@ -768,8 +768,14 @@ class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
                     it.name.asString() == propertyName
                   }
 
-          if (hasProperty || hasEnumEntry) {
-            // Found a class in dependencies that has the property or enum entry - no stub needed
+          // For annotation classes, constants are Java static fields which may not be
+          // represented as FirPropertySymbol. Trust that the constant exists if the
+          // annotation class is on the classpath.
+          val isAnnotationClass =
+              firRegularClass != null && firRegularClass.classKind == ClassKind.ANNOTATION_CLASS
+
+          if (hasProperty || hasEnumEntry || isAnnotationClass) {
+            // Found a class in dependencies that has the member - no stub needed
             return null
           }
         }
