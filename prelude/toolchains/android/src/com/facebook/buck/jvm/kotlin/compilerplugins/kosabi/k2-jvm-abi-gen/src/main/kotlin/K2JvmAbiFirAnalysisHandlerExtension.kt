@@ -271,33 +271,47 @@ class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
   ) {
     val outputDir = configuration[JVMConfigurationKeys.OUTPUT_DIRECTORY] ?: return
 
+    // Collect all packages that have Kotlin IR files
+    val allKotlinPackages = mutableSetOf<String>()
     // Collect package-to-file-facade mappings by scanning IR for *Kt classes
     val packageToFileFacades = mutableMapOf<String, MutableSet<String>>()
 
-    // Iterate through all IR files and find file facade classes (classes ending with "Kt")
+    // Iterate through all IR files to:
+    // 1. Track all packages (for files with only objects/classes)
+    // 2. Find file facade classes (classes ending with "Kt" for top-level functions)
     for (irFile in moduleFragment.files) {
+      val packageFqName = irFile.packageFqName.asString()
+      allKotlinPackages.add(packageFqName)
+
       for (decl in irFile.declarations) {
         if (decl is IrClass && decl.name.asString().endsWith("Kt")) {
           // This is a file facade class
-          val packageFqName = irFile.packageFqName.asString()
           val classShortName = decl.name.asString()
-
           packageToFileFacades.getOrPut(packageFqName) { mutableSetOf() }.add(classShortName)
         }
       }
     }
 
-    if (packageToFileFacades.isEmpty()) return
+    // Generate .kotlin_module if there are any Kotlin packages
+    // even if they don't have file facades (e.g., files with only objects/classes)
+    if (allKotlinPackages.isEmpty()) return
 
     // Build the Module protobuf
     val moduleBuilder = JvmModuleProtoBuf.Module.newBuilder()
 
-    for ((packageFqName, fileFacades) in packageToFileFacades) {
+    // Iterate over all packages (including those without file facades)
+    for (packageFqName in allKotlinPackages.sorted()) {
       val packagePartsBuilder = JvmModuleProtoBuf.PackageParts.newBuilder()
       packagePartsBuilder.packageFqName = packageFqName
-      for (fileFacade in fileFacades.sorted()) {
-        packagePartsBuilder.addShortClassName(fileFacade)
+
+      // Add file facades if this package has any
+      val fileFacades = packageToFileFacades[packageFqName]
+      if (fileFacades != null) {
+        for (fileFacade in fileFacades.sorted()) {
+          packagePartsBuilder.addShortClassName(fileFacade)
+        }
       }
+
       moduleBuilder.addPackageParts(packagePartsBuilder.build())
     }
 
