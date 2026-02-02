@@ -11,6 +11,8 @@
 package com.facebook
 
 import com.facebook.buck.jvm.kotlin.compilerplugins.common.isStub
+import java.io.ByteArrayOutputStream
+import java.io.DataOutputStream
 import java.io.File
 import org.jetbrains.kotlin.GeneratedDeclarationKey
 import org.jetbrains.kotlin.backend.common.extensions.IrGenerationExtension
@@ -116,6 +118,8 @@ import org.jetbrains.kotlin.ir.types.IrSimpleType
 import org.jetbrains.kotlin.ir.types.IrType
 import org.jetbrains.kotlin.ir.types.makeNullable
 import org.jetbrains.kotlin.ir.visitors.IrElementTransformer
+import org.jetbrains.kotlin.metadata.jvm.JvmModuleProtoBuf
+import org.jetbrains.kotlin.metadata.jvm.deserialization.JvmMetadataVersion
 import org.jetbrains.kotlin.modules.Module
 import org.jetbrains.kotlin.modules.TargetId
 import org.jetbrains.kotlin.name.CallableId
@@ -144,9 +148,10 @@ class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
   override fun doAnalysis(project: Project, configuration: CompilerConfiguration): Boolean {
     val updatedConfiguration =
         configuration.copy().apply {
-          put(JVMConfigurationKeys.SKIP_BODIES, true)
-          put(JVMConfigurationKeys.RETAIN_OUTPUT_IN_MEMORY, true)
+          put(JVMConfigurationKeys.RETAIN_OUTPUT_IN_MEMORY, false)
+          put(JVMConfigurationKeys.OUTPUT_DIRECTORY, File(outputPath))
           put(JVMConfigurationKeys.VALIDATE_BYTECODE, true)
+          put(JVMConfigurationKeys.SKIP_BODIES, true)
         }
     // the disposable is responsible to dispose the project after the analysis is done
     val disposable = Disposer.newDisposable("K2KosabiSession.project")
@@ -246,7 +251,79 @@ class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
             sourceFiles,
         )
 
-    return generateCodeFromIr(irInput, compilerEnvironment)
+    val result = generateCodeFromIr(irInput, compilerEnvironment)
+
+    // Manually generate .kotlin_module file since SKIP_BODIES=true is set
+    generateKotlinModuleFile(irInput.irModuleFragment, module.getModuleName(), configuration)
+
+    return result
+  }
+
+  // Generate the .kotlin_module file manually
+  // With SKIP_BODIES=true, the standard generateCodeFromIr doesn't produce a .kotlin_module file
+  // because top-level properties/functions are not fully represented in the IR. However, the
+  // file facade classes (*Kt.class) ARE generated and present in the IR, so we scan the IR
+  // for them and build the module metadata.
+  private fun generateKotlinModuleFile(
+      moduleFragment: IrModuleFragment,
+      moduleName: String,
+      configuration: CompilerConfiguration,
+  ) {
+    val outputDir = configuration[JVMConfigurationKeys.OUTPUT_DIRECTORY] ?: return
+
+    // Collect package-to-file-facade mappings by scanning IR for *Kt classes
+    val packageToFileFacades = mutableMapOf<String, MutableSet<String>>()
+
+    // Iterate through all IR files and find file facade classes (classes ending with "Kt")
+    for (irFile in moduleFragment.files) {
+      for (decl in irFile.declarations) {
+        if (decl is IrClass && decl.name.asString().endsWith("Kt")) {
+          // This is a file facade class
+          val packageFqName = irFile.packageFqName.asString()
+          val classShortName = decl.name.asString()
+
+          packageToFileFacades.getOrPut(packageFqName) { mutableSetOf() }.add(classShortName)
+        }
+      }
+    }
+
+    if (packageToFileFacades.isEmpty()) return
+
+    // Build the Module protobuf
+    val moduleBuilder = JvmModuleProtoBuf.Module.newBuilder()
+
+    for ((packageFqName, fileFacades) in packageToFileFacades) {
+      val packagePartsBuilder = JvmModuleProtoBuf.PackageParts.newBuilder()
+      packagePartsBuilder.packageFqName = packageFqName
+      for (fileFacade in fileFacades.sorted()) {
+        packagePartsBuilder.addShortClassName(fileFacade)
+      }
+      moduleBuilder.addPackageParts(packagePartsBuilder.build())
+    }
+
+    val moduleProto = moduleBuilder.build()
+
+    // Serialize the module
+    val version = JvmMetadataVersion.INSTANCE
+    val versionArray = version.toArray()
+    // 4KB initial buffer - aligns with memory page size and is sufficient for most .kotlin_module
+    // files
+    val baos = ByteArrayOutputStream(4096)
+    val out = DataOutputStream(baos)
+    out.writeInt(versionArray.size)
+    for (number in versionArray) {
+      out.writeInt(number)
+    }
+    // Write flags for Kotlin 1.4+
+    out.writeInt(0)
+    moduleProto.writeTo(out)
+    out.flush()
+
+    // Write to META-INF/<moduleName>.kotlin_module
+    val metaInfDir = File(outputDir, "META-INF")
+    metaInfDir.mkdirs()
+    val moduleFile = File(metaInfDir, "$moduleName.kotlin_module")
+    moduleFile.writeBytes(baos.toByteArray())
   }
 
   private class NonAbiDeclarationsStrippingIrExtension(private val sourceFiles: List<KtFile>) :
