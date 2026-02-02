@@ -51,6 +51,7 @@ load(
     "create_manifest_for_shared_libs",
 )
 load("@prelude//python:python.bzl", "PythonLibraryInfo")
+load("@prelude//python:python_wheel_toolchain.bzl", "PythonWheelToolchainInfo")
 load("@prelude//python:toolchain.bzl", "PythonToolchainInfo")
 load("@prelude//transitions:constraint_overrides.bzl", "constraint_overrides")
 load("@prelude//utils:expect.bzl", "expect")
@@ -79,6 +80,7 @@ def _link_deps(
 def _whl_cmd(
         ctx: AnalysisContext,
         output: Artifact,
+        platform: str,
         manifests: list[ManifestInfo] = [],
         srcs: dict[str, Artifact] = {}) -> cmd_args:
     cmd = []
@@ -91,7 +93,7 @@ def _whl_cmd(
     cmd.append("--version={}".format(ctx.attrs.version))
     cmd.append("--python-tag={}".format(ctx.attrs.python))
     cmd.append("--abi-tag={}".format(ctx.attrs.abi))
-    cmd.append("--platform-tag={}".format(ctx.attrs.platform))
+    cmd.append("--platform-tag={}".format(platform))
 
     if ctx.attrs.entry_points:
         cmd.append("--entry-points={}".format(json.encode(ctx.attrs.entry_points)))
@@ -369,6 +371,12 @@ def _impl(ctx: AnalysisContext) -> list[Provider]:
             ),
         )
 
+    # Resolve platform: use attr if set, otherwise fall back to toolchain default
+    wheel_toolchain = ctx.attrs._python_wheel_toolchain[PythonWheelToolchainInfo]
+    platform = ctx.attrs.platform or wheel_toolchain.platform
+    if not platform:
+        fail("platform must be set either on python_wheel target or in python_wheel_toolchain")
+
     def normalize_name(name):
         # Normalize name part of the *.whl file per:
         #  * https://packaging.python.org/en/latest/specifications/recording-installed-packages/#the-dist-info-directory
@@ -399,12 +407,12 @@ def _impl(ctx: AnalysisContext) -> list[Provider]:
         ctx.attrs.version,
         ctx.attrs.python,
         ctx.attrs.abi,
-        ctx.attrs.platform,
+        platform,
     ]
 
     # Action to create wheel.
     wheel = ctx.actions.declare_output("{}.whl".format("-".join(name_parts)))
-    whl_cmd = _whl_cmd(ctx = ctx, output = wheel, manifests = srcs + native_srcs)
+    whl_cmd = _whl_cmd(ctx = ctx, output = wheel, platform = platform, manifests = srcs + native_srcs)
     ctx.actions.run(whl_cmd, category = "wheel")
 
     # Create symlink tree for inplace module layout.
@@ -448,7 +456,7 @@ def _impl(ctx: AnalysisContext) -> list[Provider]:
 
     # Action to create editable wheel.
     ewheel = ctx.actions.declare_output("__editable__/{}.whl".format("-".join(name_parts)))
-    ewhl_cmd = _whl_cmd(ctx = ctx, output = ewheel, srcs = {"{}.pth".format(dist): pth})
+    ewhl_cmd = _whl_cmd(ctx = ctx, output = ewheel, platform = platform, srcs = {"{}.pth".format(dist): pth})
     ctx.actions.run(ewhl_cmd, category = "editable_wheel")
     sub_targets["editable"] = [
         DefaultInfo(
@@ -496,12 +504,10 @@ python_wheel = rule(
             default = {},
         ),
         abi = attrs.string(default = "none"),
-        platform = attrs.string(
-            default = select({
-                "DEFAULT": "any",
-                # @oss-disable[end= ]: "ovr_config//os:linux-arm64": "linux_aarch64",
-                # @oss-disable[end= ]: "ovr_config//os:linux-x86_64": "linux_x86_64",
-            }),
+        platform = attrs.option(
+            attrs.string(),
+            default = None,
+            doc = "Platform tag for the wheel. If not set, uses the toolchain default.",
         ),
         omnibus = attrs.bool(default = False),
         libraries = attrs.list(attrs.dep(providers = [PythonLibraryInfo]), default = []),

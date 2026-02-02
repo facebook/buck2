@@ -16,5 +16,7 @@ Python wheels, particularly for manylinux compliance via auditwheel.
 PythonWheelToolchainInfo = provider(
     doc = "Python wheel toolchain info",
     fields = {
+        # Default platform tag for wheels (e.g., linux_x86_64, manylinux_2_28_x86_64)
+        "platform": provider_field(str | None, default = None),
     },
 )
