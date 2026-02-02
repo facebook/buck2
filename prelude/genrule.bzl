@@ -182,7 +182,7 @@ def process_genrule(
 
     executable_outs = getattr(ctx.attrs, "executable_outs", None)
 
-    content_based = getattr(ctx.attrs, "uses_experimental_content_based_path_hashing", False) or getattr(ctx.attrs, "has_content_based_path", False)
+    content_based = getattr(ctx.attrs, "has_content_based_path", False)
 
     # TODO(cjhopman): verify output paths are ".", "./", or forward-relative.
     if out_attr != None:

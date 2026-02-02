@@ -790,7 +790,6 @@ genrule = prelude_rule(
                 Only valid if the `outs` arg is present. Dictates which of those named outputs are marked as
                 executable.
             """),
-            "uses_experimental_content_based_path_hashing": attrs.bool(default = False),
         } |
         _has_content_based_path_attr() |
         genrule_common.env_arg() |
