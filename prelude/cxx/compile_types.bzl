@@ -128,7 +128,7 @@ CxxSrcCompileCommand = record(
     # Is this a header file?
     is_header = field(bool, False),
     # Whether to use content-based paths for the outputs of the compilation command.
-    uses_experimental_content_based_path_hashing = field(bool),
+    uses_content_based_paths = field(bool),
     # The index store factory to use to generate index store for this source file.
     index_store_factory = field(IndexStoreFactory | None, None),
     error_handler = field([typing.Callable, None], None),

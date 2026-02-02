@@ -308,7 +308,7 @@ def create_compile_cmds(
             args = src_args,
             index = src.index,
             is_header = src.is_header,
-            uses_experimental_content_based_path_hashing = cxx_compile_cmd.allow_content_based_paths,
+            uses_content_based_paths = cxx_compile_cmd.allow_content_based_paths,
             index_store_factory = impl_params.index_store_factory,
             error_handler = impl_params.error_handler,
         )
@@ -359,7 +359,7 @@ def _prepare_cxx_compilation(
         filename_base = "{}.{}".format(filename_base, flavor.value)
         identifier = "{} ({})".format(identifier, flavor.value)
 
-    content_based = src_compile_cmd.uses_experimental_content_based_path_hashing
+    content_based = src_compile_cmd.uses_content_based_paths
     folder_name = "__objects__"
     compiler_type = src_compile_cmd.cxx_compile_cmd.compiler_type
 
@@ -393,7 +393,7 @@ def _prepare_cxx_compilation(
     if toolchain.clang_llvm_statistics and compiler_type == "clang":
         clang_llvm_statistics = actions.declare_output(
             paths.join("__objects__", "{}.stats".format(filename_base)),
-            uses_experimental_content_based_path_hashing = content_based,
+            has_content_based_path = content_based,
         )
 
     # GCNO file
@@ -401,7 +401,7 @@ def _prepare_cxx_compilation(
     if toolchain.gcno_files and src_compile_cmd.src.extension not in (".S", ".sx"):
         gcno_file = actions.declare_output(
             paths.join("__objects__", "{}.gcno".format(filename_base)),
-            uses_experimental_content_based_path_hashing = content_based,
+            has_content_based_path = content_based,
         )
 
     # Clang remarks
@@ -561,7 +561,7 @@ def _compile_single_cxx(
     preproc = input.declared_artifacts.preproc
     index_store = input.declared_artifacts.index_store
     object_has_external_debug_info = input.declared_artifacts.object_has_external_debug_info
-    content_based = src_compile_cmd.uses_experimental_content_based_path_hashing
+    content_based = src_compile_cmd.uses_content_based_paths
     json_error = input.declared_artifacts.json_error
 
     if src_compile_cmd.src.extension == ".cu":
@@ -1000,7 +1000,7 @@ export
 #endif
 import \"{}\";
 """.format(module_name),
-        uses_experimental_content_based_path_hashing = True,
+        has_content_based_path = True,
     )
 
     symlinked_files = {}
@@ -1026,7 +1026,7 @@ module "{}" {{
             import_name: import_stub,
             "module.modulemap": modulemap_file,
         },
-        uses_experimental_content_based_path_hashing = True,
+        has_content_based_path = True,
     )
 
     args = []
@@ -1046,7 +1046,7 @@ module "{}" {{
             compiler_info = compiler_info,
             preprocessor = cxx_merge_cpreprocessors(actions, extra_preprocessors, []),
             ext = CxxExtension(".cpp"),
-            uses_experimental_content_based_path_hashing = True,
+            has_content_based_path = True,
             filename_prefix = "export{}_".format(group_name),
         )
 
@@ -1143,7 +1143,7 @@ def precompile_cxx(
             headers_tag,
             is_xcode_argsfile = False,
             is_precompile = True,
-            uses_experimental_content_based_path_hashing = True,
+            uses_content_based_paths = True,
             filename_prefix = "pre_",
         )
         header_units_argsfile = _mk_header_units_argsfile(
@@ -1151,7 +1151,7 @@ def precompile_cxx(
             compiler_info,
             header_preprocessor_info,
             ext,
-            uses_experimental_content_based_path_hashing = True,
+            has_content_based_path = True,
             filename_prefix = "pre_",
         )
         return CxxCompileCommand(
@@ -1443,7 +1443,7 @@ def _mk_argsfiles(
         is_xcode_argsfile: bool,
         is_precompile: bool = False,
         filename_prefix: str = "",
-        uses_experimental_content_based_path_hashing: bool = False) -> CompileArgsfile:
+        uses_content_based_paths: bool = False) -> CompileArgsfile:
     """
     Generate and return an {ext}.argsfile artifact and command args that utilize the argsfile.
     """
@@ -1465,7 +1465,7 @@ def _mk_argsfiles(
             filename,
             content,
             allow_args = True,
-            uses_experimental_content_based_path_hashing = uses_experimental_content_based_path_hashing,
+            has_content_based_path = uses_content_based_paths,
             use_dep_files_placeholder_for_content_based_paths = use_dep_files_placeholder_for_content_based_paths,
         )
         return argsfile
@@ -1639,7 +1639,7 @@ def _mk_argsfiles(
         file_args,
         allow_args = True,
         absolute = is_xcode_argsfile,
-        uses_experimental_content_based_path_hashing = uses_experimental_content_based_path_hashing,
+        has_content_based_path = uses_content_based_paths,
     )
 
     args = create_cmd_args(is_nasm, is_xcode_argsfile, args_list)
@@ -1664,7 +1664,7 @@ def _mk_header_units_argsfile(
         preprocessor: CPreprocessorInfo,
         ext: CxxExtension,
         filename_prefix: str = "",
-        uses_experimental_content_based_path_hashing: bool = False) -> CompileArgsfile | None:
+        has_content_based_path: bool = False) -> CompileArgsfile | None:
     """
     Generate and return an argsfile artifact containing all header unit options, and
     command args that utilize the argsfile.
@@ -1700,7 +1700,7 @@ def _mk_header_units_argsfile(
         file_name,
         file_args,
         allow_args = True,
-        uses_experimental_content_based_path_hashing = uses_experimental_content_based_path_hashing,
+        has_content_based_path = has_content_based_path,
     )
     cmd_form = cmd_args(argsfile, format = "@{}", hidden = file_args)
 
@@ -1766,7 +1766,7 @@ def _generate_base_compile_command(
             headers_tag,
             is_precompile = False,
             filename_prefix = filename_prefix,
-            uses_experimental_content_based_path_hashing = not is_xcode_argsfile,
+            uses_content_based_paths = not is_xcode_argsfile,
             is_xcode_argsfile = is_xcode_argsfile,
         )
 
@@ -1779,7 +1779,7 @@ def _generate_base_compile_command(
         pre,
         ext,
         filename_prefix,
-        uses_experimental_content_based_path_hashing = True,
+        has_content_based_path = True,
     )
 
     allow_content_based_paths = bool(compiler_info.supports_content_based_paths and impl_params.use_content_based_paths)

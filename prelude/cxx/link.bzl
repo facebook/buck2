@@ -266,7 +266,7 @@ def cxx_link_into(
         link_unit_generation_link_args.link_args,
         allow_args = True,
         with_inputs = True,
-        uses_experimental_content_based_path_hashing = cxx_toolchain_info.cxx_compiler_info.supports_content_based_paths,
+        has_content_based_path = cxx_toolchain_info.cxx_compiler_info.supports_content_based_paths,
     )
 
     if opts.produce_shared_library_interface:
@@ -278,7 +278,7 @@ def cxx_link_into(
             shared_library_interface_generation_linker_args,
             allow_args = True,
             with_inputs = True,
-            uses_experimental_content_based_path_hashing = cxx_toolchain_info.cxx_compiler_info.supports_content_based_paths,
+            has_content_based_path = cxx_toolchain_info.cxx_compiler_info.supports_content_based_paths,
         )
         link_cmd_parts = cxx_link_cmd_parts(cxx_toolchain_info, is_result_executable)
         shared_library_interface_generation_command = cmd_args(
