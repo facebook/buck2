@@ -10,7 +10,6 @@
 
 # FIXME(JakobDegen): These tests should be isolated and moved into `tests/isolated/audit`
 
-import json
 from pathlib import Path
 from typing import Iterable, Set
 

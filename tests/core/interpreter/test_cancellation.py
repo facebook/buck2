@@ -12,8 +12,7 @@ import time
 
 import pytest
 from buck2.tests.e2e_util.api.buck import Buck
-from buck2.tests.e2e_util.api.buck_result import BuckException, BuildResult, BxlResult
-from buck2.tests.e2e_util.api.process import Process
+from buck2.tests.e2e_util.api.buck_result import BuckException
 from buck2.tests.e2e_util.buck_workspace import buck_test
 
 

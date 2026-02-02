@@ -8,7 +8,6 @@
 
 # pyre-unsafe
 
-import json
 import os
 import re
 import typing
