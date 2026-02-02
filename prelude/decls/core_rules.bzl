@@ -537,7 +537,6 @@ export_file = prelude_rule(
                  However, this mode does not work across repositories or if the 'out' property is set.
                  For read-only operations, 'reference' can be more performant.
             """),
-            "uses_experimental_content_based_path_hashing": attrs.bool(default = False),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
         } |
         _has_content_based_path_attr() |
@@ -611,7 +610,6 @@ filegroup = prelude_rule(
             "out": attrs.option(attrs.string(), default = None, doc = """
                 The name of the output directory. Defaults to the rule's name.
             """),
-            "uses_experimental_content_based_path_hashing": attrs.bool(default = False),
         } |
         _has_content_based_path_attr() |
         buck.licenses_arg() |
