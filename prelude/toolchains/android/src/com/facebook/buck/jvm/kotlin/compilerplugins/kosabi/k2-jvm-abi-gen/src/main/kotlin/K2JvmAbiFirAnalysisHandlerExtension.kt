@@ -278,16 +278,36 @@ class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
 
     // Iterate through all IR files to:
     // 1. Track all packages (for files with only objects/classes)
-    // 2. Find file facade classes (classes ending with "Kt" for top-level functions)
+    // 2. Find file facade classes (classes for top-level functions)
     for (irFile in moduleFragment.files) {
       val packageFqName = irFile.packageFqName.asString()
       allKotlinPackages.add(packageFqName)
 
       for (decl in irFile.declarations) {
-        if (decl is IrClass && decl.name.asString().endsWith("Kt")) {
-          // This is a file facade class
-          val classShortName = decl.name.asString()
-          packageToFileFacades.getOrPut(packageFqName) { mutableSetOf() }.add(classShortName)
+        if (decl is IrClass) {
+          // File facade classes are synthetic classes that hold top-level declarations.
+          // They can be named:
+          // 1. Default: <filename>Kt (e.g., "UtilsKt" for Utils.kt)
+          // 2. Custom: @file:JvmName("CustomName") (e.g., "InsightsHostUtils")
+          //
+          // Since we're using SKIP_BODIES=true, we can't reliably check for functions.
+          // Instead, we detect file facades by checking if the class:
+          // - Is at file-level (already guaranteed by being in irFile.declarations)
+          // - Is not a companion object
+          // - Contains functions or appears to be a file facade
+          //
+          // The safest approach is to include all potential file facades.
+          // Invalid entries are handled gracefully by the Kotlin compiler.
+          val className = decl.name.asString()
+          val isLikelyFileFacade =
+              className.endsWith("Kt") || // Default file facade pattern
+                  (!decl.isCompanion && // Not a companion object
+                      !decl.isInner && // Not an inner class
+                      decl.declarations.any { it is IrSimpleFunction }) // Has functions
+
+          if (isLikelyFileFacade) {
+            packageToFileFacades.getOrPut(packageFqName) { mutableSetOf() }.add(className)
+          }
         }
       }
     }
