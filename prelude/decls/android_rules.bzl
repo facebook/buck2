@@ -1046,7 +1046,6 @@ apk_genrule = prelude_rule(
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
             "enable_sandbox": attrs.option(attrs.bool(), default = None),
             "is_cacheable": attrs.bool(default = False),
-            "need_android_tools": attrs.bool(default = False),
             "remote": attrs.option(attrs.bool(), default = None),
         } |
         buck.licenses_arg() |

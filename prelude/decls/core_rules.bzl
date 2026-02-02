@@ -812,7 +812,6 @@ genrule = prelude_rule(
             """),
             "cacheable": attrs.option(attrs.bool(), default = None),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
-            "need_android_tools": attrs.bool(default = False),
             "_exec_os_type": buck.exec_os_type_arg(),
         } |
         genrule_common.error_handler_arg() |

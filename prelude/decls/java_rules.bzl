@@ -62,7 +62,6 @@ jar_genrule = prelude_rule(
             "enable_sandbox": attrs.option(attrs.bool(), default = None),
             "environment_expansion_separator": attrs.option(attrs.string(), default = None),
             "weight": attrs.option(attrs.int(), default = None),
-            "need_android_tools": attrs.bool(default = False),
             "remote": attrs.option(attrs.bool(), default = None),
             "srcs": attrs.named_set(attrs.source(), sorted = False, default = []),
             "type": attrs.option(attrs.string(), default = None),

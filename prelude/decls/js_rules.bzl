@@ -55,7 +55,6 @@ js_bundle_genrule = prelude_rule(
             "enable_sandbox": attrs.option(attrs.bool(), default = None),
             "environment_expansion_separator": attrs.option(attrs.string(), default = None),
             "js_bundle": attrs.dep(),
-            "need_android_tools": attrs.bool(default = False),
             "remote": attrs.option(attrs.bool(), default = None),
             "rewrite_deps_file": attrs.bool(default = False),
             "rewrite_misc": attrs.bool(default = False),
