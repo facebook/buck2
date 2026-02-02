@@ -14,6 +14,7 @@ import com.android.ddmlib.testrunner.ITestRunListener;
 import com.android.ddmlib.testrunner.TestIdentifier;
 import com.facebook.buck.android.exopackage.AdbUtils;
 import com.facebook.buck.android.exopackage.AndroidDevice;
+import com.facebook.buck.testresultsoutput.TestResultsOutputEvent.RunFailureStatus;
 import com.facebook.buck.testresultsoutput.TestResultsOutputSender;
 import java.util.Map;
 
@@ -31,11 +32,13 @@ import java.util.Map;
  */
 public class InstrumentationTpxStandardOutputTestListener implements ITestRunListener {
   private final TpxStandardOutputTestListener listener;
+  private final TestResultsOutputSender sender;
   private final AndroidDevice mAndroidDevice;
   private final AdbUtils mAdbUtils;
 
   public InstrumentationTpxStandardOutputTestListener(
       TestResultsOutputSender sender, AndroidDevice androidDevice, AdbUtils adbUtils) {
+    this.sender = sender;
     this.listener = new TpxStandardOutputTestListener(sender);
     this.mAndroidDevice = androidDevice;
     this.mAdbUtils = adbUtils;
@@ -120,7 +123,21 @@ public class InstrumentationTpxStandardOutputTestListener implements ITestRunLis
    * @param errorMessage {@link String} describing reason for run failure.
    */
   @Override
-  public void testRunFailed(String errorMessage) {}
+  public void testRunFailed(String errorMessage) {
+    // Enhance error message with device logs if available
+    String enhancedMessage = errorMessage;
+    if (mAndroidDevice != null
+        && mAdbUtils != null
+        && CrashCapturer.deviceHasCrashLogs(errorMessage)) {
+      enhancedMessage = CrashCapturer.addDeviceLogcatTrace(mAndroidDevice, mAdbUtils, errorMessage);
+    }
+
+    sender.sendRunFailure(
+        RunFailureStatus.FATAL,
+        System.currentTimeMillis(),
+        enhancedMessage,
+        null); // stacktrace is embedded in the message
+  }
 
   /**
    * Reports the start of a test run.
