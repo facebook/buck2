@@ -8,7 +8,6 @@
 
 # pyre-ignore-all-errors
 
-import json
 import os
 import tempfile
 
