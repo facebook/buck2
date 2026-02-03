@@ -19,6 +19,8 @@ use buck2_core::rollout_percentage::RolloutPercentage;
 
 static BUCK2_RE_CLIENT_CFG_SECTION: &str = "buck2_re_client";
 
+const DEFAULT_MAX_RETRIES: usize = 5;
+
 /// We put functions here that both things need to implement for code that isn't gated behind a
 /// fbcode_build or not(fbcode_build)
 pub trait RemoteExecutionStaticMetadataImpl: Sized {
@@ -447,7 +449,7 @@ pub struct Buck2OssReConfiguration {
     pub grpc_keepalive_timeout_secs: Option<u64>,
     /// Whether to send HTTP/2 pings when connection is idle.
     pub grpc_keepalive_while_idle: Option<bool>,
-    /// Maximum retries for network requests.
+    /// MaximumRetries for RPC requests. Defaults to 5.
     pub max_retries: usize,
     /// Timeout for RPC requests in seconds. Defaults to 60s.
     pub grpc_timeout: u64,
@@ -573,7 +575,7 @@ impl Buck2OssReConfiguration {
                     section: BUCK2_RE_CLIENT_CFG_SECTION,
                     property: "max_retries",
                 })?
-                .unwrap_or(0),
+                .unwrap_or(DEFAULT_MAX_RETRIES),
             grpc_timeout: legacy_config
                 .parse(BuckconfigKeyRef {
                     section: BUCK2_RE_CLIENT_CFG_SECTION,
