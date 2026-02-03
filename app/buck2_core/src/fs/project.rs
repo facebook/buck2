@@ -367,7 +367,8 @@ impl ProjectRoot {
         if let Some(parent) = dest_abs.parent() {
             fs_util::create_dir_all(parent)?;
         }
-        fs_util::symlink(src, dest_abs)
+        fs_util::symlink(src, dest_abs)?;
+        Ok(())
     }
 
     /// Create a relative symlink between two relative paths
@@ -397,7 +398,8 @@ impl ProjectRoot {
         if let Some(parent) = dest_abs.parent() {
             fs_util::create_dir_all(parent)?;
         }
-        fs_util::symlink(target_relative, dest_abs)
+        fs_util::symlink(target_relative, dest_abs)?;
+        Ok(())
     }
 
     /// Copy from one path to another. This works for both files and directories.
@@ -511,7 +513,8 @@ impl ProjectRoot {
             );
             target = Self::find_relative_path(&AbsNormPathBuf::try_from(absolute_target)?, dest);
         }
-        fs_util::symlink(target, dest)
+        fs_util::symlink(target, dest)?;
+        Ok(())
     }
 
     fn copy_file(src: &AbsNormPathBuf, dst: &AbsNormPathBuf) -> buck2_error::Result<()> {

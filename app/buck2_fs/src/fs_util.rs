@@ -82,48 +82,47 @@ fn if_exists<T>(r: io::Result<T>) -> io::Result<Option<T>> {
     }
 }
 
-pub fn symlink<P, Q>(original: P, link: Q) -> buck2_error::Result<()>
+pub fn symlink<P, Q>(original: P, link: Q) -> Result<(), IoError>
 where
     P: AsRef<Path>,
     Q: AsRef<AbsPath>,
 {
     let _guard = IoCounterKey::Symlink.guard();
-    symlink_impl(original.as_ref(), link.as_ref()).with_buck_error_context(|| {
-        format!(
+    let original_ref = original.as_ref();
+    let link_ref = link.as_ref();
+    symlink_impl(original_ref, link_ref).map_err(|e| {
+        e.context(format!(
             "symlink(original={}, link={})",
-            original.as_ref().display(),
-            link.as_ref().display()
-        )
+            original_ref.display(),
+            link_ref.display(),
+        ))
+        .check_eden(link_ref)
     })
 }
 
 #[cfg(unix)]
-fn symlink_impl(original: &Path, link: &AbsPath) -> buck2_error::Result<()> {
-    std::os::unix::fs::symlink(original, link.as_maybe_relativized()).map_err(|e| e.into())
+fn symlink_impl(original: &Path, link: &AbsPath) -> Result<(), IoError> {
+    std::os::unix::fs::symlink(original, link.as_maybe_relativized()).map_err(IoError::new)
 }
 
 /// Create symlink on Windows.
 #[cfg(windows)]
-fn symlink_impl(original: &Path, link: &AbsPath) -> buck2_error::Result<()> {
+fn symlink_impl(original: &Path, link: &AbsPath) -> Result<(), IoError> {
     use std::io::ErrorKind;
 
+    use buck2_error::ErrorTag;
     use common_path::common_path;
 
-    fn permission_check(result: io::Result<()>) -> buck2_error::Result<()> {
+    fn permission_check(result: io::Result<()>) -> Result<(), IoError> {
         match result {
             // Standard issue on Windows machines, so hint at the resolution, as it is not obvious.
             // Unfortunately this doesn't have an `ErrorKind`, so have to do it with substring matching.
-            Err(e) if e.to_string().contains("privilege is not held") => {
-                Err(buck2_error::buck2_error!(
-                    buck2_error::ErrorTag::Environment,
-                    "{}",
-                    e.to_string()
-                )
+            Err(e) if e.to_string().contains("privilege is not held") => Err(IoError::new(e)
                 .context(
                     "Perhaps you need to turn on 'Developer Mode' in Windows to enable symlinks.",
-                ))
-            }
-            Err(e) => Err(e.into()),
+                )
+                .tag(ErrorTag::Environment)),
+            Err(e) => Err(IoError::new(e)),
             Ok(_) => Ok(()),
         }
     }
@@ -137,15 +136,16 @@ fn symlink_impl(original: &Path, link: &AbsPath) -> buck2_error::Result<()> {
         Cow::Owned(
             link.parent()
                 .ok_or_else(|| {
-                    buck2_error::buck2_error!(
-                        buck2_error::ErrorTag::SymlinkParentMissing,
-                        "Expected path with a parent in symlink target"
-                    )
+                    IoError::new(io::Error::new(
+                        io::ErrorKind::NotFound,
+                        "Expected path with a parent in symlink target",
+                    ))
+                    .tag(ErrorTag::SymlinkParentMissing)
                 })?
                 .join(original),
         )
     };
-    let target_abspath = std::path::absolute(&target_abspath)?;
+    let target_abspath = std::path::absolute(&target_abspath).map_err(IoError::new)?;
 
     // Relative symlinks in Windows are relative from the real/canonical path of the link,
     // so it can get messy when the symlink lives in buck-out. For Windows, we'll canonicalize,
@@ -161,10 +161,10 @@ fn symlink_impl(original: &Path, link: &AbsPath) -> buck2_error::Result<()> {
     } else {
         // target doesn't exist yet, try to guess the canonical path
         if let Some(common_path) = common_path(&target_abspath, link) {
-            let from_common = target_abspath.strip_prefix(&common_path)?;
-            let common_canonicalized = common_path
-                .canonicalize()
-                .buck_error_context(format!("Failed to get canonical path of {common_path:?}"))?;
+            let from_common = target_abspath
+                .strip_prefix(&common_path)
+                .map_err(|e| IoError::new(io::Error::new(io::ErrorKind::Other, e)))?;
+            let common_canonicalized = common_path.canonicalize().map_err(IoError::new)?;
             common_canonicalized.join(from_common)
         } else {
             target_abspath
@@ -176,7 +176,7 @@ fn symlink_impl(original: &Path, link: &AbsPath) -> buck2_error::Result<()> {
         Ok(meta) if meta.is_dir() => {
             permission_check(std::os::windows::fs::symlink_dir(&target_canonical, link))
         }
-        Err(e) if e.kind() != ErrorKind::NotFound => Err(e.into()),
+        Err(e) if e.kind() != ErrorKind::NotFound => Err(IoError::new(e)),
         _ => {
             // Either file or not existent. Default to file.
             // TODO(T144443238): This will cause issues if the file type turns out to be directory, fix this
@@ -859,6 +859,18 @@ mod tests {
         symlink(&target_path, &symlink_path)?;
         write(&target_path, b"File content")?;
         assert_eq!(read_to_string(&symlink_path)?, "File content");
+        Ok(())
+    }
+
+    #[test]
+    fn symlink_with_missing_parent() -> buck2_error::Result<()> {
+        let tempdir = tempfile::tempdir()?;
+        let root = AbsPath::new(tempdir.path())?;
+        let symlink_path = root.join("missing/symlink");
+        let target_path = root.join("file");
+        let res = symlink(&target_path, &symlink_path).map_err(|e| e.categorize_for_source_file());
+        let err = buck2_error::Error::from(res.unwrap_err());
+        assert!(err.has_tag(ErrorTag::Input));
         Ok(())
     }
 

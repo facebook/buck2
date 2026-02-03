@@ -21,6 +21,7 @@ impl IoError {
         Self {
             e,
             context: Vec::new(),
+            tags: Vec::new(),
             is_eden: false,
         }
     }
@@ -34,6 +35,11 @@ impl IoError {
 
     pub fn context(mut self, op: impl Into<String>) -> Self {
         self.context.push(op.into());
+        self
+    }
+
+    pub fn tag(mut self, tag: ErrorTag) -> Self {
+        self.tags.push(tag);
         self
     }
 
@@ -63,6 +69,7 @@ impl IoError {
                 _ => tags.push(ErrorTag::IoEden),
             }
         }
+        tags.extend(self.tags);
         let context = self.context.clone();
         let source_error: buck2_error::Error = self.e.into();
         let mut result = source_error.tag(tags);
@@ -89,6 +96,7 @@ impl IoError {
 pub struct IoError {
     pub(crate) e: io::Error,
     pub(crate) context: Vec<String>,
+    pub(crate) tags: Vec<ErrorTag>,
     pub(crate) is_eden: bool,
 }
 
