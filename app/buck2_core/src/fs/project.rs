@@ -342,7 +342,7 @@ impl ProjectRoot {
     // TODO(nga): refactor this to global function.
     pub fn set_executable(&self, path: impl AsRef<ProjectRelativePath>) -> buck2_error::Result<()> {
         let path = self.root().join(path.as_ref());
-        fs_util::set_executable(path, true)
+        fs_util::set_executable(path, true).map_err(Into::into)
     }
 
     /// Create a soft link from one location to another.

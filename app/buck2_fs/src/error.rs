@@ -16,21 +16,49 @@ use buck2_error::ErrorTag;
 
 use crate::paths::abs_path::AbsPath;
 
+/// The inner error type that IoError can hold.
+#[derive(Debug)]
+pub enum IoErrorSource {
+    Io(io::Error),
+    Internal(buck2_error::Error),
+}
+
+impl From<io::Error> for IoErrorSource {
+    fn from(e: io::Error) -> Self {
+        IoErrorSource::Io(e)
+    }
+}
+
 impl IoError {
-    pub fn new(e: io::Error) -> Self {
+    /// Create an error from an io::Error or buck2_error::Error.
+    pub fn new<T: Into<IoErrorSource>>(e: T) -> Self {
         Self {
-            e,
+            source: e.into(),
             context: Vec::new(),
             tags: Vec::new(),
             is_eden: false,
         }
     }
 
-    pub fn new_with_path<P: AsRef<AbsPath>>(op: &str, path: P, e: io::Error) -> Self {
+    pub fn internal(e: buck2_error::Error) -> Self {
+        Self {
+            source: IoErrorSource::Internal(e),
+            context: Vec::new(),
+            tags: Vec::new(),
+            is_eden: false,
+        }
+    }
+
+    /// Set operation and is_eden based on provided path.
+    pub fn new_with_path<T: Into<IoErrorSource>, P: AsRef<AbsPath>>(
+        op: &str,
+        path: P,
+        e: T,
+    ) -> Self {
         let path = path.as_ref();
         IoError::new(e)
-            .check_eden(path)
             .context(format!("{}({})", op, path.display()))
+            .check_eden(path)
     }
 
     pub fn context(mut self, op: impl Into<String>) -> Self {
@@ -54,14 +82,16 @@ impl IoError {
     }
 
     #[cfg(not(fbcode_build))]
-    pub fn check_eden(mut self, path: &AbsPath) -> Self {
+    pub fn check_eden(self, _path: &AbsPath) -> Self {
         self
     }
 
     fn convert_to_buck2_error(self) -> buck2_error::Error {
         let mut tags = vec![ErrorTag::IoSystem];
-        if self.is_eden {
-            match self.e.kind() {
+        if self.is_eden
+            && let IoErrorSource::Io(e) = &self.source
+        {
+            match e.kind() {
                 io::ErrorKind::NotFound => tags.push(ErrorTag::IoEdenFileNotFound),
                 // Eden timeouts are most likely caused by network issues.
                 // TODO check network health to be sure.
@@ -71,7 +101,10 @@ impl IoError {
         }
         tags.extend(self.tags);
         let context = self.context.clone();
-        let source_error: buck2_error::Error = self.e.into();
+        let source_error: buck2_error::Error = match self.source {
+            IoErrorSource::Io(e) => e.into(),
+            IoErrorSource::Internal(e) => e,
+        };
         let mut result = source_error.tag(tags);
         for ctx in context.into_iter().rev() {
             result = result.context(ctx);
@@ -80,21 +113,32 @@ impl IoError {
     }
 
     pub fn categorize_for_source_file(self) -> buck2_error::Error {
-        if self.e.kind() == io::ErrorKind::NotFound {
+        let is_not_found = match &self.source {
+            IoErrorSource::Io(e) => e.kind() == io::ErrorKind::NotFound,
+            IoErrorSource::Internal(_) => false,
+        };
+        if is_not_found {
             buck2_error::Error::from(self).tag([ErrorTag::Input]).into()
         } else {
             self.into()
         }
     }
 
-    pub fn inner_error(self) -> io::Error {
-        self.e
+    pub fn inner_error(self) -> IoErrorSource {
+        self.source
+    }
+
+    pub fn io_error_kind(&self) -> Option<io::ErrorKind> {
+        match &self.source {
+            IoErrorSource::Io(e) => Some(e.kind()),
+            IoErrorSource::Internal(_) => None,
+        }
     }
 }
 
 #[derive(Debug)]
 pub struct IoError {
-    pub(crate) e: io::Error,
+    pub(crate) source: IoErrorSource,
     pub(crate) context: Vec<String>,
     pub(crate) tags: Vec<ErrorTag>,
     pub(crate) is_eden: bool,

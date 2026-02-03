@@ -30,6 +30,7 @@ use relative_path::RelativePathBuf;
 
 use crate::cwd::assert_cwd_is_not_set;
 pub use crate::error::IoError;
+pub use crate::error::IoErrorSource;
 use crate::io_counters::IoCounterGuard;
 use crate::io_counters::IoCounterKey;
 use crate::paths::abs_norm_path::AbsNormPath;
@@ -185,10 +186,10 @@ fn symlink_impl(original: &Path, link: &AbsPath) -> Result<(), IoError> {
     }
 }
 
-pub fn set_current_dir<P: AsRef<AbsPath>>(path: P) -> buck2_error::Result<()> {
-    assert_cwd_is_not_set()?;
+pub fn set_current_dir<P: AsRef<AbsPath>>(path: P) -> Result<(), IoError> {
+    assert_cwd_is_not_set().map_err(IoError::internal)?;
     env::set_current_dir(path.as_ref())
-        .with_buck_error_context(|| format!("set_current_dir({})", P::as_ref(&path).display()))
+        .map_err(|e| IoError::new_with_path("set_current_dir", path, e))
 }
 
 pub fn create_dir_all<P: AsRef<AbsPath>>(path: P) -> Result<(), IoError> {
@@ -416,7 +417,7 @@ pub fn set_permissions<P: AsRef<AbsPath>>(path: P, perm: fs::Permissions) -> Res
         })
 }
 
-pub fn set_executable<P: AsRef<AbsPath>>(path: P, executable: bool) -> buck2_error::Result<()> {
+pub fn set_executable<P: AsRef<AbsPath>>(path: P, executable: bool) -> Result<(), IoError> {
     let path = path.as_ref();
 
     #[cfg(unix)]
@@ -469,7 +470,9 @@ pub fn remove_all<P: AsRef<AbsPath>>(path: P) -> Result<(), IoError> {
         // `NotADirectory` means we are trying to delete a path (e.g. "/foo/bar") that has a subpath
         // pointing to a regular file (e.g. "/foo"). In this case do not fail and behave similarly to as
         // when path we are trying to delete does not exist.
-        Err(e) if e.e.kind() == io::ErrorKind::NotADirectory => return Ok(()),
+        Err(e) if e.io_error_kind() == Some(io::ErrorKind::NotADirectory) => {
+            return Ok(());
+        }
         Err(e) => Err(e),
     }?;
 
@@ -511,21 +514,25 @@ pub fn read_if_exists<P: AsRef<AbsPath>>(path: P) -> Result<Option<Vec<u8>>, IoE
         .map_err(|e| IoError::new_with_path("read_if_exists", path, e))
 }
 
-pub fn canonicalize<P: AsRef<AbsPath>>(path: P) -> buck2_error::Result<AbsNormPathBuf> {
+pub fn canonicalize<P: AsRef<AbsPath>>(path: P) -> Result<AbsNormPathBuf, IoError> {
     let _guard = IoCounterKey::Canonicalize.guard();
-    let path = with_retries(|| dunce::canonicalize(path.as_ref()))
-        .map_err(|e| IoError::new_with_path("canonicalize", path, e))?;
-    AbsNormPathBuf::new(path)
+    with_retries(|| dunce::canonicalize(path.as_ref()).into())
+        .map_err(IoErrorSource::from)
+        .and_then(|path| AbsNormPathBuf::new(path).map_err(IoErrorSource::Internal))
+        .map_err(|e| IoError::new_with_path("canonicalize", path, e))
 }
 
 pub fn canonicalize_if_exists<P: AsRef<AbsPath>>(
     path: P,
-) -> buck2_error::Result<Option<AbsNormPathBuf>> {
+) -> Result<Option<AbsNormPathBuf>, IoError> {
     let _guard = IoCounterKey::Canonicalize.guard();
-    let path = with_retries(|| if_exists(dunce::canonicalize(path.as_ref())))
-        .map_err(|e| IoError::new_with_path("canonicalize_if_exists", path, e))?;
-
-    path.map(AbsNormPathBuf::new).transpose()
+    with_retries(|| if_exists(dunce::canonicalize(path.as_ref())))
+        .map_err(IoErrorSource::from)
+        .and_then(|path| {
+            path.map(|path| AbsNormPathBuf::new(path).map_err(IoErrorSource::Internal))
+                .transpose()
+        })
+        .map_err(|e| IoError::new_with_path("canonicalize_if_exists", path, e))
 }
 
 /// Convert Windows UNC path to regular path.
@@ -1335,7 +1342,10 @@ mod tests {
             io::Read::read_to_string(&mut file, &mut buf).unwrap();
             assert_eq!(buf, TEST_FILE_CONTENT);
         } else {
-            assert_eq!(io_result.err().map(|e| e.e.kind()).unwrap(), error_kind);
+            assert_eq!(
+                io_result.err().and_then(|e| e.io_error_kind()),
+                Some(error_kind)
+            );
             assert_eq!(attempts, expected_attempts);
         }
     }
