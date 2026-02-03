@@ -104,7 +104,6 @@ use crate::retry::retry;
 use crate::stats::CountingConnector;
 
 const DEFAULT_MAX_TOTAL_BATCH_SIZE: usize = 4 * 1000 * 1000;
-const MAX_RETRIES: usize = 5;
 const INITIAL_DELAY: Duration = Duration::from_millis(100);
 const MAX_DELAY: Duration = Duration::from_secs(10);
 
@@ -720,7 +719,7 @@ impl REClient {
                     ttl: 0,
                 })
             },
-            MAX_RETRIES,
+            self.runtime_opts.max_retries,
             INITIAL_DELAY,
             MAX_DELAY,
             false,
@@ -758,7 +757,7 @@ impl REClient {
                     ttl_seconds: 0,
                 })
             },
-            MAX_RETRIES,
+            self.runtime_opts.max_retries,
             INITIAL_DELAY,
             MAX_DELAY,
             false,
@@ -802,7 +801,7 @@ impl REClient {
                     .into_inner();
                 Ok(stream)
             },
-            MAX_RETRIES,
+            self.runtime_opts.max_retries,
             INITIAL_DELAY,
             MAX_DELAY,
             true,
@@ -935,7 +934,7 @@ impl REClient {
                             Ok(resp.into_inner())
                         }
                     },
-                    MAX_RETRIES,
+                    self.runtime_opts.max_retries,
                     INITIAL_DELAY,
                     MAX_DELAY,
                     false,
@@ -960,7 +959,7 @@ impl REClient {
                             Ok(resp.into_inner())
                         }
                     },
-                    MAX_RETRIES,
+                    self.runtime_opts.max_retries,
                     INITIAL_DELAY,
                     MAX_DELAY,
                     false,
@@ -1028,7 +1027,7 @@ impl REClient {
                                 .into_inner())
                         }
                     },
-                    MAX_RETRIES,
+                    self.runtime_opts.max_retries,
                     INITIAL_DELAY,
                     MAX_DELAY,
                     false,
@@ -1067,7 +1066,7 @@ impl REClient {
                                     >)
                             }
                         },
-                        MAX_RETRIES,
+                        self.runtime_opts.max_retries,
                         INITIAL_DELAY,
                         MAX_DELAY,
                         false,
@@ -1134,7 +1133,7 @@ impl REClient {
                                 .context("Failed to request what blobs are not present on remote")
                         }
                     },
-                    MAX_RETRIES,
+                    self.runtime_opts.max_retries,
                     INITIAL_DELAY,
                     MAX_DELAY,
                     false,
