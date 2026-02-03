@@ -10,7 +10,9 @@
 
 
 from buck2.tests.e2e_util.api.buck import Buck
+from buck2.tests.e2e_util.asserts import expect_failure
 from buck2.tests.e2e_util.buck_workspace import buck_test
+from buck2.tests.e2e_util.helper.golden import golden, sanitize_stderr
 
 
 @buck_test(data_dir="everything")
@@ -31,3 +33,15 @@ async def test_empty_dynamic_list(buck: Buck) -> None:
 @buck_test(data_dir="artifact_eq_bug")
 async def test_artifact_eq_bug(buck: Buck) -> None:
     await buck.build("root//:bug")
+
+
+@buck_test(data_dir="analysis_failure")
+async def test_dynamic_output_analysis_failure(buck: Buck) -> None:
+    result = await expect_failure(
+        buck.build("root//:analysis_failure"),
+        stderr_regex="Analysis failed: this is a test failure message",
+    )
+    golden(
+        output=sanitize_stderr(result.stderr),
+        rel_path="analysis_failure/golden/test_dynamic_output_analysis_failure.golden.txt",
+    )
