@@ -340,21 +340,23 @@ fn remove_file_impl(path: &Path) -> io::Result<()> {
 
 pub fn copy<P: AsRef<AbsPath>, Q: AsRef<AbsPath>>(from: P, to: Q) -> Result<u64, IoError> {
     let _guard = IoCounterKey::Copy.guard();
+    let from_ref = from.as_ref();
+    let to_ref = to.as_ref();
     with_retries(|| {
         fs::copy(
-            from.as_ref().as_maybe_relativized(),
-            to.as_ref().as_maybe_relativized(),
+            from_ref.as_maybe_relativized(),
+            to_ref.as_maybe_relativized(),
         )
     })
     .map_err(|e| {
-        IoError::new(
-            format!(
+        IoError::new(e)
+            .context(format!(
                 "copy(from={}, to={})",
-                P::as_ref(&from).display(),
-                Q::as_ref(&to).display()
-            ),
-            e,
-        )
+                from_ref.display(),
+                to_ref.display(),
+            ))
+            .check_eden(from_ref)
+            .check_eden(to_ref)
     })
 }
 
@@ -366,21 +368,23 @@ pub fn read_link<P: AsRef<AbsPath>>(path: P) -> Result<PathBuf, IoError> {
 
 pub fn rename<P: AsRef<AbsPath>, Q: AsRef<AbsPath>>(from: P, to: Q) -> Result<(), IoError> {
     let _guard = IoCounterKey::Rename.guard();
+    let from_ref = from.as_ref();
+    let to_ref = to.as_ref();
     with_retries(|| {
         fs::rename(
-            from.as_ref().as_maybe_relativized(),
-            to.as_ref().as_maybe_relativized(),
+            from_ref.as_maybe_relativized(),
+            to_ref.as_maybe_relativized(),
         )
     })
     .map_err(|e| {
-        IoError::new(
-            format!(
+        IoError::new(e)
+            .context(format!(
                 "rename(from={}, to={})",
-                P::as_ref(&from).display(),
-                Q::as_ref(&to).display()
-            ),
-            e,
-        )
+                from_ref.display(),
+                to_ref.display()
+            ))
+            .check_eden(from_ref)
+            .check_eden(to_ref)
     })
 }
 
@@ -406,10 +410,9 @@ pub fn set_permissions<P: AsRef<AbsPath>>(path: P, perm: fs::Permissions) -> Res
     let _guard = IoCounterKey::Chmod.guard();
     with_retries(|| fs::set_permissions(path.as_ref().as_maybe_relativized(), perm.clone()))
         .map_err(|e| {
-            IoError::new(
-                format!("set_permissions({}, _)", P::as_ref(&path).display()),
-                e,
-            )
+            IoError::new(e)
+                .context(format!("set_permissions({}, _)", path.as_ref().display()))
+                .check_eden(path.as_ref())
         })
 }
 
@@ -1310,8 +1313,8 @@ mod tests {
                 Err(io::Error::new(error_kind, error_kind.to_string()))
             }
         };
-        let io_result =
-            with_retries(|| open_fn(path)).map_err(|e| IoError::new("test123".to_owned(), e));
+        let io_result = with_retries(|| open_fn(path))
+            .map_err(|e| IoError::new(e).context("test123".to_owned()));
 
         if should_succeed {
             let mut file = io_result.unwrap();
@@ -1379,7 +1382,8 @@ mod tests {
             ))
         };
 
-        let file = with_retries(fail_fn).map_err(|e| IoError::new("should fail".to_owned(), e));
+        let file =
+            with_retries(fail_fn).map_err(|e| IoError::new(e).context("should fail".to_owned()));
         let buck2_error = buck2_error::Error::from(file.err().unwrap());
 
         assert_eq!(

@@ -117,7 +117,7 @@ pub fn cleanup_path(fs: &ProjectRoot, path: &ProjectRelativePath) -> buck2_error
             Err(e) => {
                 // Continue going up. Eventually we should reach the output directory, which should
                 // exist.
-                tracing::trace!(path = %path, "continue (error: {:#})", e);
+                tracing::trace!(path = %path, "continue (error: {:?})", e);
             }
         }
     }

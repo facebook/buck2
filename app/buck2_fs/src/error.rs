@@ -17,26 +17,59 @@ use buck2_error::ErrorTag;
 use crate::paths::abs_path::AbsPath;
 
 impl IoError {
-    pub fn new(op: String, e: io::Error) -> Self {
+    pub fn new(e: io::Error) -> Self {
         Self {
-            op,
             e,
+            context: Vec::new(),
             is_eden: false,
         }
     }
 
     pub fn new_with_path<P: AsRef<AbsPath>>(op: &str, path: P, e: io::Error) -> Self {
-        let path = P::as_ref(&path);
-        #[cfg(fbcode_build)]
-        let is_eden = path
+        let path = path.as_ref();
+        IoError::new(e)
+            .check_eden(path)
+            .context(format!("{}({})", op, path.display()))
+    }
+
+    pub fn context(mut self, op: impl Into<String>) -> Self {
+        self.context.push(op.into());
+        self
+    }
+
+    /// Set the is_eden flag if provided path is on an eden fs
+    #[cfg(fbcode_build)]
+    pub fn check_eden(mut self, path: &AbsPath) -> Self {
+        self.is_eden |= path
             .parent()
             .and_then(|p| detect_eden::is_eden(p.to_path_buf()).ok())
             .unwrap_or(false);
-        #[cfg(not(fbcode_build))]
-        let is_eden = false;
+        self
+    }
 
-        let op = format!("{}({})", op, path.display());
-        Self { op, e, is_eden }
+    #[cfg(not(fbcode_build))]
+    pub fn check_eden(mut self, path: &AbsPath) -> Self {
+        self
+    }
+
+    fn convert_to_buck2_error(self) -> buck2_error::Error {
+        let mut tags = vec![ErrorTag::IoSystem];
+        if self.is_eden {
+            match self.e.kind() {
+                io::ErrorKind::NotFound => tags.push(ErrorTag::IoEdenFileNotFound),
+                // Eden timeouts are most likely caused by network issues.
+                // TODO check network health to be sure.
+                io::ErrorKind::TimedOut => tags.push(ErrorTag::Environment),
+                _ => tags.push(ErrorTag::IoEden),
+            }
+        }
+        let context = self.context.clone();
+        let source_error: buck2_error::Error = self.e.into();
+        let mut result = source_error.tag(tags);
+        for ctx in context.into_iter().rev() {
+            result = result.context(ctx);
+        }
+        result
     }
 
     pub fn categorize_for_source_file(self) -> buck2_error::Error {
@@ -52,26 +85,16 @@ impl IoError {
     }
 }
 
-fn io_error_tags(e: &io::Error, is_eden: bool) -> Vec<ErrorTag> {
-    let mut tags = vec![ErrorTag::IoSystem];
-    if is_eden {
-        match e.kind() {
-            io::ErrorKind::NotFound => tags.push(ErrorTag::IoEdenFileNotFound),
-            // Eden timeouts are most likely caused by network issues.
-            // TODO check network health to be sure.
-            io::ErrorKind::TimedOut => tags.push(ErrorTag::Environment),
-            _ => tags.push(ErrorTag::IoEden),
-        }
-    }
-    tags
+#[derive(Debug)]
+pub struct IoError {
+    pub(crate) e: io::Error,
+    pub(crate) context: Vec<String>,
+    pub(crate) is_eden: bool,
 }
 
-#[derive(buck2_error::Error, Debug)]
-#[buck2(tags = io_error_tags(e, *is_eden))]
-#[error("{op}")]
-pub struct IoError {
-    pub(crate) op: String,
-    #[source]
-    pub(crate) e: io::Error,
-    pub(crate) is_eden: bool,
+// TODO remove this
+impl From<IoError> for buck2_error::Error {
+    fn from(e: IoError) -> Self {
+        e.convert_to_buck2_error()
+    }
 }
