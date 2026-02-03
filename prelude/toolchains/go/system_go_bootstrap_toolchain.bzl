@@ -57,7 +57,7 @@ system_go_bootstrap_toolchain = rule(
       visibility = ["PUBLIC"],
   )""",
     attrs = {
-        "go_wrapper": attrs.default_only(attrs.dep(providers = [RunInfo], default = "prelude//go/tools:go_wrapper_py")),
+        "go_wrapper": attrs.default_only(attrs.dep(providers = [RunInfo], default = "prelude//go_bootstrap/tools:go_wrapper_py")),
     },
     is_toolchain_rule = True,
 )

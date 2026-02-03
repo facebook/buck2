@@ -28,7 +28,7 @@ go_bootstrap_toolchain = rule(
         "env_go_arch": attrs.string(),
         "env_go_os": attrs.string(),
         "go_bootstrap_distr": attrs.exec_dep(providers = [GoBootstrapDistrInfo]),
-        "go_wrapper": attrs.exec_dep(providers = [RunInfo], default = "prelude//go/tools:go_wrapper_py"),
+        "go_wrapper": attrs.exec_dep(providers = [RunInfo], default = "prelude//go_bootstrap/tools:go_wrapper_py"),
     },
 )
 

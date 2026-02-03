@@ -12,12 +12,6 @@ prelude.python_bootstrap_binary(
     visibility = ["PUBLIC"],
 )
 
-prelude.python_bootstrap_binary(
-    name = "go_wrapper_py",
-    main = "go_wrapper.py",
-    visibility = ["PUBLIC"],
-)
-
 prelude.go_stdlib(
     name = "stdlib",
     visibility = ["PUBLIC"],
@@ -29,4 +23,33 @@ prelude.go_bootstrap_binary(
         "cmd/pack",
     ],
     visibility = ["PUBLIC"],
+)
+
+prelude.go_bootstrap_binary(
+    name = "concat_files",
+    srcs = ["concat_files.go"],
+    build_args = [
+        "concat_files.go",
+    ],
+    visibility = ["PUBLIC"],
+)
+
+prelude.go_bootstrap_binary(
+    name = "go_wrapper",
+    srcs = ["go_wrapper.go"],
+    build_args = [
+        "go_wrapper.go",
+    ],
+    visibility = ["PUBLIC"],
+)
+
+prelude.go_bootstrap_binary(
+    name = "testmaingen",
+    srcs = ["testmaingen.go"],
+    build_args = [
+        "testmaingen.go",
+    ],
+    visibility = [
+        "PUBLIC",
+    ],
 )
