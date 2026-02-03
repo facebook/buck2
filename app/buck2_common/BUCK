@@ -7,26 +7,6 @@ rust_library(
     srcs = glob(
         ["src/**/*.rs"],
     ),
-    os_deps = [
-        (
-            "linux",
-            [
-                "fbsource//third-party/rust:hyper-util",
-                "fbsource//third-party/rust:nix",
-                "fbsource//third-party/rust:tower",
-                "fbsource//third-party/rust:xattr",
-            ],
-        ),
-        (
-            "macos",
-            [
-                "fbsource//third-party/rust:hyper-util",
-                "fbsource//third-party/rust:nix",
-                "fbsource//third-party/rust:tower",
-                "fbsource//third-party/rust:xattr",
-            ],
-        ),
-    ],
     test_deps = [
         "fbsource//third-party/rust:assert_matches",
         "fbsource//third-party/rust:indoc",
@@ -93,5 +73,19 @@ rust_library(
         # @oss-disable[end= ]: "//common/rust/gflags:gflags",
         "//common/rust/shed/fbinit:fbinit",
         # @oss-disable[end= ]: "//common/rust/shed/hostcaps:hostcaps",
-    ],
+    ] + select({
+        "DEFAULT": [],
+        "ovr_config//os:linux": [
+            "fbsource//third-party/rust:hyper-util",
+            "fbsource//third-party/rust:nix",
+            "fbsource//third-party/rust:tower",
+            "fbsource//third-party/rust:xattr",
+        ],
+        "ovr_config//os:macos": [
+            "fbsource//third-party/rust:hyper-util",
+            "fbsource//third-party/rust:nix",
+            "fbsource//third-party/rust:tower",
+            "fbsource//third-party/rust:xattr",
+        ],
+    }),
 )

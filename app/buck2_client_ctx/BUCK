@@ -5,28 +5,6 @@ oncall("build_infra")
 rust_library(
     name = "buck2_client_ctx",
     srcs = glob(["src/**/*.rs"]),
-    os_deps = [
-        (
-            "linux",
-            [
-                "fbsource//third-party/rust:nix",
-                "fbsource//third-party/rust:termios",
-            ],
-        ),
-        (
-            "macos",
-            [
-                "fbsource//third-party/rust:nix",
-                "fbsource//third-party/rust:termios",
-            ],
-        ),
-        (
-            "windows",
-            [
-                "fbsource//third-party/rust:winapi",
-            ],
-        ),
-    ],
     test_deps = [
         "fbsource//third-party/rust:assert_matches",
         "fbsource//third-party/rust:indoc",
@@ -92,5 +70,18 @@ rust_library(
         "//buck2/superconsole:superconsole",
         # @oss-disable[end= ]: "//common/rust/shed/detect_eden:detect_eden",
         "//common/rust/shed/fbinit:fbinit",
-    ],
+    ] + select({
+        "DEFAULT": [],
+        "ovr_config//os:linux": [
+            "fbsource//third-party/rust:nix",
+            "fbsource//third-party/rust:termios",
+        ],
+        "ovr_config//os:macos": [
+            "fbsource//third-party/rust:nix",
+            "fbsource//third-party/rust:termios",
+        ],
+        "ovr_config//os:windows": [
+            "fbsource//third-party/rust:winapi",
+        ],
+    }),
 )

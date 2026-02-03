@@ -10,32 +10,6 @@ prelude = native
 rust_library(
     name = "buck2",
     srcs = glob(["src/**/*.rs"]),
-    os_deps = [
-        (
-            "linux",
-            [
-                "fbsource//third-party/rust:dirs",
-                "fbsource//third-party/rust:libc",
-                "fbsource//third-party/rust:nix",
-                "//buck2/app/buck2_forkserver:buck2_forkserver",
-            ],
-        ),
-        (
-            "macos",
-            [
-                "fbsource//third-party/rust:dirs",
-                "fbsource//third-party/rust:libc",
-                "fbsource//third-party/rust:nix",
-                "//buck2/app/buck2_forkserver:buck2_forkserver",
-            ],
-        ),
-        (
-            "windows",
-            [
-                "fbsource//third-party/rust:winapi",
-            ],
-        ),
-    ],
     rustc_flags = select({
         ":buck2_client_only_build": ["--cfg=client_only"],
         "DEFAULT": [],
@@ -71,6 +45,23 @@ rust_library(
             "//buck2/app/buck2_daemon:buck2_daemon",
             "//buck2/app/buck2_server:buck2_server",
             "//buck2/app/buck2_test_runner:buck2_test_runner",
+        ],
+    }) + select({
+        "DEFAULT": [],
+        "ovr_config//os:linux": [
+            "fbsource//third-party/rust:dirs",
+            "fbsource//third-party/rust:libc",
+            "fbsource//third-party/rust:nix",
+            "//buck2/app/buck2_forkserver:buck2_forkserver",
+        ],
+        "ovr_config//os:macos": [
+            "fbsource//third-party/rust:dirs",
+            "fbsource//third-party/rust:libc",
+            "fbsource//third-party/rust:nix",
+            "//buck2/app/buck2_forkserver:buck2_forkserver",
+        ],
+        "ovr_config//os:windows": [
+            "fbsource//third-party/rust:winapi",
         ],
     }),
 )
