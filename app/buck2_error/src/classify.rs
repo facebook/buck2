@@ -396,6 +396,7 @@ fn tag_metadata(tag: ErrorTag) -> TagMetadata {
         ErrorTag::ActionCommandFailure => rank!(input),
         ErrorTag::ProjectMissingPath => rank!(input),
         ErrorTag::ArtifactMissingFilename => rank!(input),
+        ErrorTag::MissingInputPath => rank!(input),
         ErrorTag::StarlarkFail => rank!(input),
         ErrorTag::StarlarkStackOverflow => rank!(input),
         ErrorTag::StarlarkValue => rank!(input),
@@ -442,6 +443,7 @@ fn tag_metadata(tag: ErrorTag) -> TagMetadata {
         ErrorTag::BuildSketchError => rank!(unspecified),
         ErrorTag::Tokio => rank!(unspecified),
         ErrorTag::Tonic => rank!(unspecified),
+        ErrorTag::MissingInternalPath => rank!(unspecified),
         // Build phases
         ErrorTag::DaemonStateInitFailed => rank!(unspecified),
         ErrorTag::DaemonConnect => rank!(unspecified),

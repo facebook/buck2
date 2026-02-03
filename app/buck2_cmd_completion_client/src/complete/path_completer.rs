@@ -9,8 +9,8 @@
  */
 
 use buck2_client_ctx::command_outcome::CommandOutcome;
+use buck2_fs::IoResultExt;
 use buck2_fs::fs_util;
-use buck2_fs::fs_util::IoError;
 use buck2_fs::paths::abs_norm_path::AbsNormPath;
 use buck2_fs::working_dir::AbsWorkingDir;
 
@@ -82,7 +82,7 @@ impl<'a, 'b> PathCompleter<'a, 'b> {
             scan_dir = scan_dir.join(offset_dir);
         }
         let scan_dir = AbsNormPath::new(&scan_dir)?;
-        let entries = fs_util::read_dir(scan_dir).map_err(IoError::categorize_for_source_file)?;
+        let entries = fs_util::read_dir(scan_dir).categorize_input()?;
         for entry_result in entries {
             let entry = entry_result?;
             if entry.path().is_dir() && file_name_string(&entry).starts_with(partial_base) {
@@ -104,7 +104,7 @@ impl<'a, 'b> PathCompleter<'a, 'b> {
         }
 
         let scan_dir = AbsNormPath::new(&scan_dir)?;
-        let entries = fs_util::read_dir(scan_dir).map_err(IoError::categorize_for_source_file)?;
+        let entries = fs_util::read_dir(scan_dir).categorize_input()?;
         for entry_result in entries {
             let entry = entry_result?;
             if entry.path().is_dir() && file_name_string(&entry).starts_with(partial_base) {

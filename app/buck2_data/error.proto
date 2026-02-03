@@ -161,6 +161,11 @@ enum ErrorTag {
   // Artifact is missing a filename
   ARTIFACT_MISSING_FILENAME = 31;
 
+  // Path not found for path found in input or source
+  MISSING_INPUT_PATH = 32;
+  // Path not found for buck or system path not provided by user
+  MISSING_INTERNAL_PATH = 33;
+
   ACTION_MISMATCHED_OUTPUTS = 601;
   ACTION_MISSING_OUTPUTS = 602;
   ACTION_WRONG_OUTPUT_TYPE = 603;

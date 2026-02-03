@@ -875,9 +875,9 @@ mod tests {
         let root = AbsPath::new(tempdir.path())?;
         let symlink_path = root.join("missing/symlink");
         let target_path = root.join("file");
-        let res = symlink(&target_path, &symlink_path).map_err(|e| e.categorize_for_source_file());
+        let res = symlink(&target_path, &symlink_path).map_err(|e| e.categorize_input());
         let err = buck2_error::Error::from(res.unwrap_err());
-        assert!(err.has_tag(ErrorTag::Input));
+        assert!(err.has_tag(ErrorTag::MissingInputPath));
         Ok(())
     }
 

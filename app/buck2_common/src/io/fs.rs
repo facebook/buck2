@@ -17,8 +17,8 @@ use async_trait::async_trait;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_error::BuckErrorContext;
+use buck2_fs::IoResultExt;
 use buck2_fs::fs_util;
-use buck2_fs::fs_util::IoError;
 use buck2_fs::paths::RelativePathBuf;
 use buck2_fs::paths::abs_path::AbsPath;
 use buck2_fs::paths::abs_path::AbsPathBuf;
@@ -116,9 +116,10 @@ impl IoProvider for FsIoProvider {
         static SEMAPHORE: Lazy<Semaphore> = Lazy::new(|| Semaphore::new(100));
         let _permit = SEMAPHORE.acquire().await.unwrap();
 
-        tokio::task::spawn_blocking(move || fs_util::read_to_string_if_exists(path))
-            .await?
-            .map_err(|e| IoError::categorize_for_source_file(e).into())
+        tokio::task::spawn_blocking(move || {
+            fs_util::read_to_string_if_exists(path).categorize_input()
+        })
+        .await?
     }
 
     async fn read_dir_impl(
@@ -134,8 +135,7 @@ impl IoProvider for FsIoProvider {
         let path = self.fs.resolve(&path);
 
         tokio::task::spawn_blocking(move || {
-            let dir_entries =
-                fs_util::read_dir(path).map_err(IoError::categorize_for_source_file)?;
+            let dir_entries = fs_util::read_dir(path).categorize_input()?;
 
             let mut entries = Vec::new();
 
@@ -293,12 +293,9 @@ enum ExactPathMetadata {
 impl ExactPathMetadata {
     fn from_exact_path(curr: &PathAndAbsPath) -> buck2_error::Result<Self> {
         Ok(
-            match fs_util::symlink_metadata_if_exists(&curr.abspath)
-                .map_err(IoError::categorize_for_source_file)?
-            {
+            match fs_util::symlink_metadata_if_exists(&curr.abspath).categorize_input()? {
                 Some(meta) if meta.file_type().is_symlink() => {
-                    let dest = fs_util::read_link(&curr.abspath)
-                        .map_err(IoError::categorize_for_source_file)?;
+                    let dest = fs_util::read_link(&curr.abspath).categorize_input()?;
 
                     let out = if dest.is_absolute() {
                         ExactPathSymlinkMetadata::ExternalSymlink(dest)

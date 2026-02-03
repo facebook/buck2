@@ -28,3 +28,5 @@ pub mod fs_util;
 pub mod io_counters;
 pub mod paths;
 pub mod working_dir;
+
+pub use error::IoResultExt;
