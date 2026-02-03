@@ -67,6 +67,10 @@ extra_attributes = {
     } | constraint_overrides.attributes,
     "java_library": {
         "abi_generation_mode": attrs.option(attrs.enum(AbiGenerationMode), default = None),
+        # Dependencies used only for inheriting class-to-source map info for debugging.
+        # This allows libraries that don't compile sources (e.g., java version wrappers
+        # that depend on prebuilt jars) to inherit classmap info from the source library.
+        "class_to_src_map_deps": attrs.list(attrs.dep(), default = []),
         "resources_root": attrs.option(attrs.string(), default = None),
         VALIDATION_DEPS_ATTR_NAME: attrs.set(attrs.dep(), sorted = True, default = []),
         "_build_only_native_code": attrs.default_only(attrs.bool(default = is_build_only_native_code())),

@@ -713,6 +713,7 @@ def build_java_library(
         outputs = outputs,
         deps = ctx.attrs.deps + deps_query + ctx.attrs.exported_deps,
         generate_sources_jar = True,
+        class_to_src_map_deps = getattr(ctx.attrs, "class_to_src_map_deps", []),
     )
     extra_sub_targets = extra_sub_targets | class_to_src_map_sub_targets
 
