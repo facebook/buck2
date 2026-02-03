@@ -52,6 +52,39 @@ use crate::utils::LogMode;
 
 type EventLogReader<'a> = Box<dyn AsyncRead + Send + Sync + Unpin + 'a>;
 
+/// Check if an error is caused by a truncated compressed stream. This
+/// can happen when reading in-progress event logs that don't have a
+/// proper compression footer yet.
+fn is_truncated_stream_error(error: &buck2_error::Error) -> bool {
+    // Match exact error messages from compression-codecs library:
+    // - zstd/bzip2/lz4: "... stream did not finish"
+    // - gzip: "unexpected end of file" (default UnexpectedEof message)
+    let msg = error.to_string().to_lowercase();
+    msg.contains("did not finish") || msg.contains("unexpected end of file")
+}
+
+/// Wrap a stream to treat truncated compressed stream errors as EOF.
+/// This allows reading in-progress event logs that may not have a
+/// proper compression footer yet.
+fn tolerant_of_truncation<T>(
+    stream: impl Stream<Item = buck2_error::Result<T>>,
+) -> impl Stream<Item = buck2_error::Result<T>> {
+    stream.scan(false, |stopped, result| {
+        if *stopped {
+            return futures::future::ready(None);
+        }
+        match result {
+            Ok(item) => futures::future::ready(Some(Ok(item))),
+            Err(e) if is_truncated_stream_error(&e) => {
+                // Treat truncation error as end of stream
+                *stopped = true;
+                futures::future::ready(None)
+            }
+            Err(e) => futures::future::ready(Some(Err(e))),
+        }
+    })
+}
+
 pub struct ReaderStats {
     compressed_bytes: AtomicUsize,
     decompressed_bytes: AtomicUsize,
@@ -215,6 +248,9 @@ impl EventLogPathBuf {
                 .with_buck_error_context(|| format!("Invalid line: {}", line.trim_end()))
         });
 
+        // Wrap in tolerant_of_truncation to handle in-progress logs
+        let events = tolerant_of_truncation(events);
+
         Ok((invocation, events.boxed()))
     }
 
@@ -250,6 +286,9 @@ impl EventLogPathBuf {
                 )),
             }
         });
+
+        // Wrap in tolerant_of_truncation to handle in-progress logs
+        let events = tolerant_of_truncation(events);
 
         Ok((invocation, events.boxed()))
     }

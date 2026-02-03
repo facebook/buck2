@@ -612,16 +612,16 @@ mod tests {
         assert_eq!(retrieved_event.data(), event.data());
 
         match encoding.compression {
-            Compression::Gzip => {
-                // TODO(nga): `tick` does not write gzip footer, so even after `tick`
-                //   generated file is not a valid gzip file.
-                // assert!(events.try_next().await.unwrap().is_none(), "expecting no more events");
-                assert!(events.try_next().await.is_err());
-            }
-            Compression::Zstd => {
-                // TODO(similar to gzip): `tick` does not write zstd footer,
-                // so even after `tick` generated file is not a valid zstd file.
-                assert!(events.try_next().await.is_err());
+            Compression::Gzip | Compression::Zstd => {
+                // `tick` does not write compression footer, so even
+                // after `tick` the generated file is not a valid
+                // compressed file. However, the reader now gracefully
+                // handles truncated streams by treating them as
+                // end-of-stream.
+                assert!(
+                    events.try_next().await.unwrap().is_none(),
+                    "expecting no more events"
+                );
             }
             Compression::None => unreachable!(),
         }
