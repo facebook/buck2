@@ -23,6 +23,7 @@
 
 pub mod async_fs_util;
 pub mod cwd;
+pub mod error;
 pub mod fs_util;
 pub mod io_counters;
 pub mod paths;

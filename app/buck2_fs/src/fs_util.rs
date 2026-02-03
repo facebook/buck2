@@ -24,76 +24,17 @@ use std::path::PathBuf;
 
 pub use buck2_env::soft_error::soft_error;
 use buck2_error::BuckErrorContext;
-use buck2_error::ErrorTag;
 use buck2_error::buck2_error;
 use relative_path::RelativePath;
 use relative_path::RelativePathBuf;
 
 use crate::cwd::assert_cwd_is_not_set;
+pub use crate::error::IoError;
 use crate::io_counters::IoCounterGuard;
 use crate::io_counters::IoCounterKey;
 use crate::paths::abs_norm_path::AbsNormPath;
 use crate::paths::abs_norm_path::AbsNormPathBuf;
 use crate::paths::abs_path::AbsPath;
-
-impl IoError {
-    pub fn new(op: String, e: io::Error) -> Self {
-        Self {
-            op,
-            e,
-            is_eden: false,
-        }
-    }
-
-    pub fn new_with_path<P: AsRef<AbsPath>>(op: &str, path: P, e: io::Error) -> Self {
-        let path = P::as_ref(&path);
-        #[cfg(fbcode_build)]
-        let is_eden = path
-            .parent()
-            .and_then(|p| detect_eden::is_eden(p.to_path_buf()).ok())
-            .unwrap_or(false);
-        #[cfg(not(fbcode_build))]
-        let is_eden = false;
-
-        let op = format!("{}({})", op, path.display());
-        Self { op, e, is_eden }
-    }
-
-    pub fn categorize_for_source_file(self) -> buck2_error::Error {
-        if self.e.kind() == io::ErrorKind::NotFound {
-            buck2_error::Error::from(self).tag([ErrorTag::Input]).into()
-        } else {
-            self.into()
-        }
-    }
-    pub fn inner_error(self) -> io::Error {
-        self.e
-    }
-}
-
-fn io_error_tags(e: &io::Error, is_eden: bool) -> Vec<ErrorTag> {
-    let mut tags = vec![ErrorTag::IoSystem];
-    if is_eden {
-        match e.kind() {
-            io::ErrorKind::NotFound => tags.push(ErrorTag::IoEdenFileNotFound),
-            // Eden timeouts are most likely caused by network issues.
-            // TODO check network health to be sure.
-            io::ErrorKind::TimedOut => tags.push(ErrorTag::Environment),
-            _ => tags.push(ErrorTag::IoEden),
-        }
-    }
-    tags
-}
-
-#[derive(buck2_error::Error, Debug)]
-#[buck2(tags = io_error_tags(e, *is_eden))]
-#[error("{op}")]
-pub struct IoError {
-    op: String,
-    #[source]
-    e: io::Error,
-    is_eden: bool,
-}
 
 fn is_retryable(err: &io::Error) -> bool {
     cfg!(target_os = "macos")
