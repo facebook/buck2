@@ -116,10 +116,7 @@ impl IoProvider for FsIoProvider {
         static SEMAPHORE: Lazy<Semaphore> = Lazy::new(|| Semaphore::new(100));
         let _permit = SEMAPHORE.acquire().await.unwrap();
 
-        tokio::task::spawn_blocking(move || {
-            fs_util::read_to_string_if_exists(path).categorize_input()
-        })
-        .await?
+        tokio::task::spawn_blocking(move || fs_util::read_to_string_if_exists(path)).await?
     }
 
     async fn read_dir_impl(
@@ -292,37 +289,35 @@ enum ExactPathMetadata {
 
 impl ExactPathMetadata {
     fn from_exact_path(curr: &PathAndAbsPath) -> buck2_error::Result<Self> {
-        Ok(
-            match fs_util::symlink_metadata_if_exists(&curr.abspath).categorize_input()? {
-                Some(meta) if meta.file_type().is_symlink() => {
-                    let dest = fs_util::read_link(&curr.abspath).categorize_input()?;
+        Ok(match fs_util::symlink_metadata_if_exists(&curr.abspath)? {
+            Some(meta) if meta.file_type().is_symlink() => {
+                let dest = fs_util::read_link(&curr.abspath).categorize_input()?;
 
-                    let out = if dest.is_absolute() {
-                        ExactPathSymlinkMetadata::ExternalSymlink(dest)
-                    } else {
-                        // Remove the symlink name.
-                        let link_path = curr
-                            .path
-                            .parent()
-                            .expect("We pushed a component to this so it cannot be empty")
-                            .join_system_normalized(&dest)
-                            .with_buck_error_context(|| {
-                                format!("Invalid symlink at `{}`: `{}`", curr.path, dest.display())
-                            })?;
+                let out = if dest.is_absolute() {
+                    ExactPathSymlinkMetadata::ExternalSymlink(dest)
+                } else {
+                    // Remove the symlink name.
+                    let link_path = curr
+                        .path
+                        .parent()
+                        .expect("We pushed a component to this so it cannot be empty")
+                        .join_system_normalized(&dest)
+                        .with_buck_error_context(|| {
+                            format!("Invalid symlink at `{}`: `{}`", curr.path, dest.display())
+                        })?;
 
-                        // FIXME(JakobDegen): Remove the `unwrap` after we fork `relative_path`
-                        ExactPathSymlinkMetadata::InternalSymlink(
-                            link_path,
-                            RelativePathBuf::from_path(dest).unwrap(),
-                        )
-                    };
+                    // FIXME(JakobDegen): Remove the `unwrap` after we fork `relative_path`
+                    ExactPathSymlinkMetadata::InternalSymlink(
+                        link_path,
+                        RelativePathBuf::from_path(dest).unwrap(),
+                    )
+                };
 
-                    ExactPathMetadata::Symlink(out)
-                }
-                Some(meta) => ExactPathMetadata::FileOrDirectory(meta),
-                None => ExactPathMetadata::DoesNotExist,
-            },
-        )
+                ExactPathMetadata::Symlink(out)
+            }
+            Some(meta) => ExactPathMetadata::FileOrDirectory(meta),
+            None => ExactPathMetadata::DoesNotExist,
+        })
     }
 }
 

@@ -31,6 +31,7 @@ use relative_path::RelativePathBuf;
 use crate::cwd::assert_cwd_is_not_set;
 pub use crate::error::IoError;
 pub use crate::error::IoErrorSource;
+use crate::error::IoResultExt;
 use crate::io_counters::IoCounterGuard;
 use crate::io_counters::IoCounterKey;
 use crate::paths::abs_norm_path::AbsNormPath;
@@ -192,10 +193,10 @@ pub fn set_current_dir<P: AsRef<AbsPath>>(path: P) -> Result<(), IoError> {
         .map_err(|e| IoError::new_with_path("set_current_dir", path, e))
 }
 
-pub fn create_dir_all<P: AsRef<AbsPath>>(path: P) -> Result<(), IoError> {
+pub fn create_dir_all<P: AsRef<AbsPath>>(path: P) -> buck2_error::Result<()> {
     let _guard = IoCounterKey::MkDir.guard();
     with_retries(|| fs::create_dir_all(path.as_ref().as_maybe_relativized()))
-        .map_err(|e| IoError::new_with_path("create_dir_all", path, e))
+        .map_err(|e| IoError::new_with_path("create_dir_all", path, e).categorize_internal())
 }
 
 pub fn create_dir<P: AsRef<AbsPath>>(path: P) -> Result<(), IoError> {
@@ -281,18 +282,18 @@ pub fn read_dir<P: AsRef<AbsNormPath>>(path: P) -> Result<ReadDir, IoError> {
         .map(|read_dir| ReadDir { read_dir, _guard })
 }
 
-pub fn read_dir_if_exists<P: AsRef<AbsNormPath>>(path: P) -> Result<Option<ReadDir>, IoError> {
+pub fn read_dir_if_exists<P: AsRef<AbsNormPath>>(path: P) -> buck2_error::Result<Option<ReadDir>> {
     let _guard = IoCounterKey::ReadDir.guard();
     let path = path.as_ref();
     with_retries(|| if_exists(fs::read_dir(path)))
-        .map_err(|e| IoError::new_with_path("read_dir_if_exists", path, e))
+        .map_err(|e| IoError::new_with_path("read_dir_if_exists", path, e).categorize_internal())
         .map(|opt| opt.map(|read_dir| ReadDir { read_dir, _guard }))
 }
 
-pub fn try_exists<P: AsRef<AbsPath>>(path: P) -> Result<bool, IoError> {
+pub fn try_exists<P: AsRef<AbsPath>>(path: P) -> buck2_error::Result<bool> {
     let _guard = IoCounterKey::Stat.guard();
     with_retries(|| path.as_ref().as_maybe_relativized().try_exists())
-        .map_err(|e| IoError::new_with_path("try_exists", path, e))
+        .map_err(|e| IoError::new_with_path("try_exists", path, e).categorize_internal())
 }
 
 pub fn remove_file<P: AsRef<AbsPath>>(path: P) -> Result<(), IoError> {
@@ -451,8 +452,7 @@ pub fn remove_dir_all<P: AsRef<AbsPath>>(path: P) -> Result<(), IoError> {
         .map_err(|e| IoError::new_with_path("remove_dir_all", path, e))
 }
 
-/// `None` if file does not exist.
-pub fn symlink_metadata_if_exists<P: AsRef<AbsPath>>(
+fn symlink_metadata_if_exists_impl<P: AsRef<AbsPath>>(
     path: P,
 ) -> Result<Option<fs::Metadata>, IoError> {
     let _guard = IoCounterKey::Stat.guard();
@@ -460,11 +460,18 @@ pub fn symlink_metadata_if_exists<P: AsRef<AbsPath>>(
         .map_err(|e| IoError::new_with_path("symlink_metadata", path, e))
 }
 
+/// `None` if file does not exist.
+pub fn symlink_metadata_if_exists<P: AsRef<AbsPath>>(
+    path: P,
+) -> buck2_error::Result<Option<fs::Metadata>> {
+    symlink_metadata_if_exists_impl(path).categorize_internal()
+}
+
 /// Remove whatever exists at `path`, be it a file, directory, pipe, broken symlink, etc.
 /// Do nothing if `path` does not exist.
 pub fn remove_all<P: AsRef<AbsPath>>(path: P) -> Result<(), IoError> {
     // There are no counters because every function called here has its own counter.
-    let metadata = match symlink_metadata_if_exists(&path) {
+    let metadata = match symlink_metadata_if_exists_impl(&path) {
         Ok(None) => return Ok(()),
         Ok(Some(s)) => Ok(s),
         // `NotADirectory` means we are trying to delete a path (e.g. "/foo/bar") that has a subpath
@@ -481,7 +488,11 @@ pub fn remove_all<P: AsRef<AbsPath>>(path: P) -> Result<(), IoError> {
     } else {
         remove_file(&path)
     };
-    if r.is_err() && symlink_metadata_if_exists(&path)?.is_none() {
+    if r.is_err()
+        && symlink_metadata_if_exists(&path)
+            .map_err(IoError::internal)?
+            .is_none()
+    {
         // Other process removed it, our goal is achieved.
         return Ok(());
     }
@@ -501,17 +512,18 @@ pub fn read_to_string<P: AsRef<AbsPath>>(path: P) -> Result<String, IoError> {
 }
 
 /// Read a file, if it exists. Returns `None` when the file does not exist.
-pub fn read_to_string_if_exists<P: AsRef<AbsPath>>(path: P) -> Result<Option<String>, IoError> {
+pub fn read_to_string_if_exists<P: AsRef<AbsPath>>(path: P) -> buck2_error::Result<Option<String>> {
     let _guard = IoCounterKey::Read.guard();
-    with_retries(|| if_exists(fs::read_to_string(path.as_ref().as_maybe_relativized())))
-        .map_err(|e| IoError::new_with_path("read_to_string_if_exists", path, e))
+    with_retries(|| if_exists(fs::read_to_string(path.as_ref().as_maybe_relativized()))).map_err(
+        |e| IoError::new_with_path("read_to_string_if_exists", path, e).categorize_internal(),
+    )
 }
 
 /// Read a file, if it exists. Returns `None` when the file does not exist.
-pub fn read_if_exists<P: AsRef<AbsPath>>(path: P) -> Result<Option<Vec<u8>>, IoError> {
+pub fn read_if_exists<P: AsRef<AbsPath>>(path: P) -> buck2_error::Result<Option<Vec<u8>>> {
     let _guard = IoCounterKey::Read.guard();
     with_retries(|| if_exists(fs::read(path.as_ref().as_maybe_relativized())))
-        .map_err(|e| IoError::new_with_path("read_if_exists", path, e))
+        .map_err(|e| IoError::new_with_path("read_if_exists", path, e).categorize_internal())
 }
 
 pub fn canonicalize<P: AsRef<AbsPath>>(path: P) -> Result<AbsNormPathBuf, IoError> {
@@ -524,7 +536,7 @@ pub fn canonicalize<P: AsRef<AbsPath>>(path: P) -> Result<AbsNormPathBuf, IoErro
 
 pub fn canonicalize_if_exists<P: AsRef<AbsPath>>(
     path: P,
-) -> Result<Option<AbsNormPathBuf>, IoError> {
+) -> buck2_error::Result<Option<AbsNormPathBuf>> {
     let _guard = IoCounterKey::Canonicalize.guard();
     with_retries(|| if_exists(dunce::canonicalize(path.as_ref())))
         .map_err(IoErrorSource::from)
@@ -532,7 +544,9 @@ pub fn canonicalize_if_exists<P: AsRef<AbsPath>>(
             path.map(|path| AbsNormPathBuf::new(path).map_err(IoErrorSource::Internal))
                 .transpose()
         })
-        .map_err(|e| IoError::new_with_path("canonicalize_if_exists", path, e))
+        .map_err(|e| {
+            IoError::new_with_path("canonicalize_if_exists", path, e).categorize_internal()
+        })
 }
 
 /// Convert Windows UNC path to regular path.
@@ -673,9 +687,10 @@ fn create_file_if_not_exists_impl<P: AsRef<AbsPath>>(
 
 pub fn create_file_if_not_exists<P: AsRef<AbsPath>>(
     path: P,
-) -> Result<Option<FileWriteGuard>, IoError> {
-    with_retries(|| create_file_if_not_exists_impl(&path))
-        .map_err(|e| IoError::new_with_path("create_file_if_not_exists", path, e))
+) -> buck2_error::Result<Option<FileWriteGuard>> {
+    with_retries(|| create_file_if_not_exists_impl(&path)).map_err(|e| {
+        IoError::new_with_path("create_file_if_not_exists", path, e).categorize_internal()
+    })
 }
 
 pub struct FileReadGuard {
@@ -699,10 +714,13 @@ pub fn open_file<P: AsRef<AbsPath>>(path: P) -> Result<FileReadGuard, IoError> {
     })
 }
 
-pub fn open_file_if_exists<P: AsRef<AbsPath>>(path: P) -> Result<Option<FileReadGuard>, IoError> {
+pub fn open_file_if_exists<P: AsRef<AbsPath>>(
+    path: P,
+) -> buck2_error::Result<Option<FileReadGuard>> {
     let guard = IoCounterKey::Read.guard();
-    let Some(file) = with_retries(|| if_exists(File::open(path.as_ref().as_maybe_relativized())))
-        .map_err(|e| IoError::new_with_path("open_file", path, e))?
+    let Some(file) =
+        with_retries(|| if_exists(File::open(path.as_ref().as_maybe_relativized())))
+            .map_err(|e| IoError::new_with_path("open_file", path, e).categorize_internal())?
     else {
         return Ok(None);
     };
