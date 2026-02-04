@@ -126,17 +126,10 @@ impl RageCommand {
         )?;
 
         // If there is a daemon, start connecting.
-        let info = BuckdProcessInfo::load(&daemon_dir).map_err(buck2_error::Error::from);
+        let info = BuckdProcessInfo::load(&daemon_dir);
 
         let buckd = match &info {
-            Ok(info) => async {
-                info.create_channel()
-                    .await?
-                    .upgrade()
-                    .await
-                    .map_err(buck2_error::Error::from)
-            }
-            .boxed(),
+            Ok(info) => async { info.create_channel().await?.upgrade().await }.boxed(),
             Err(e) => futures::future::ready(Err(e.dupe())).boxed(),
         }
         .shared();

@@ -515,7 +515,7 @@ impl Stats {
 
         let mut e = buck2_error::Error::from(TargetsError::FailedToParse(self.errors, package_str));
         e = e.tag(self.error_tags.iter().copied());
-        Some(e.into())
+        Some(e)
     }
 }
 

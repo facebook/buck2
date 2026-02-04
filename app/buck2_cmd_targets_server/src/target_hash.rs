@@ -406,10 +406,7 @@ impl TargetHashes {
 
                         hasher.finish_u128()
                     };
-                    (
-                        target.node_key().unconfigured_label().dupe(),
-                        hash_result.map_err(buck2_error::Error::from),
-                    )
+                    (target.node_key().unconfigured_label().dupe(), hash_result)
                 }
                 .boxed()
                 .shared()
