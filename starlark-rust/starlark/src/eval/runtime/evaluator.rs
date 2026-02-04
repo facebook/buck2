@@ -116,12 +116,18 @@ This error is usually emitted some time after the limit is actually exceeded, so
 be informative."
     )]
     HeapLimitExceeded(usize),
+    #[error("Max tick count is already set")]
+    TickLimitAlreadySet,
+    #[error("Max tick count cannot be zero")]
+    ZeroTickLimit,
+    #[error("Execution duration limit of {0} ticks has been exceeded")]
+    TickLimitExceeded(u64),
 }
 
 /// Number of bytes to allocate between GC's.
 pub(crate) const GC_THRESHOLD: usize = 100000;
 
-/// Number of instructions to execute before running "infrequent" checks
+/// Number of ticks to execute before running "infrequent" checks
 const INFREQUENT_INSTRUCTION_CHECK_PERIOD: u32 = 1000;
 
 /// Default value for max starlark stack size
@@ -180,6 +186,8 @@ pub struct Evaluator<'v, 'a, 'e> {
     pub(crate) max_callstack_size: Option<usize>,
     /// Max size of heap memory in bytes
     pub(crate) max_heap_size: Option<usize>,
+    /// Max number of ticks to execute
+    pub(crate) max_tick_count: Option<u64>,
     // The Starlark-level call-stack of functions.
     // Must go last because it's quite a big structure
     pub(crate) call_stack: CheapCallStack<'v>,
@@ -187,6 +195,8 @@ pub struct Evaluator<'v, 'a, 'e> {
     pub(crate) is_cancelled: Box<dyn Fn() -> bool + 'a>,
     /// A counter to track when to perform "infrequent" checks like cancellation, timeouts, etc
     pub(crate) infrequent_instr_check_counter: u32,
+    /// Total number of ticks executed so far
+    pub(crate) total_tick_count_at_last_infrequent_check: u64,
 }
 
 // We use this to validate that the Evaluator lifetimes have the expected variance.
@@ -281,8 +291,10 @@ impl<'v, 'a, 'e: 'a> Evaluator<'v, 'a, 'e> {
             static_typechecking: false,
             max_callstack_size: None,
             max_heap_size: None,
+            max_tick_count: None,
             is_cancelled: Box::new(|| false),
             infrequent_instr_check_counter: 0,
+            total_tick_count_at_last_infrequent_check: 0,
         }
     }
 
@@ -946,6 +958,8 @@ impl<'v, 'a, 'e: 'a> Evaluator<'v, 'a, 'e> {
 
     /// Sets maximum size of the starlark heap in bytes.
     ///
+    /// Evaluation will fail with an error after the limit is exceeded.
+    ///
     /// Putting aside that starlark-rust should in general not be considered secure against truly
     /// malicious code, this check in particular is best-effort and should absolutely not be treated
     /// as a way to guarantee bounded memory use of an evaluation. Use OS-level APIs in a subprocess
@@ -999,12 +1013,75 @@ impl<'v, 'a, 'e: 'a> Evaluator<'v, 'a, 'e> {
             )))
         } else if current > (limit / 2) {
             Some(ResourceCheckResult::Warn {
+                usage: current as u64,
+                limit: limit as u64,
+            })
+        } else {
+            Some(ResourceCheckResult::Ok)
+        }
+    }
+
+    /// Set a limit on the tick count of this starlark evaluation.
+    ///
+    /// Evaluation will fail with an error after the limit is exceeded.
+    ///
+    /// Appropriate values for this parameter can be found by running representative evaluations and
+    /// inspecting `get_total_tick_count` at the end.
+    ///
+    /// Putting aside that starlark-rust should in general not be considered secure against truly
+    /// malicious code, this check in particular is best-effort and should absolutely not be treated
+    /// as a way to guarantee bounded runtime. Use OS-level APIs in a subprocess if you want that.
+    ///
+    /// For the purpose of this check one "tick" is either one function call or one loop
+    /// backedge. The primary upside of this choice is that it is deterministic, cheap to implement,
+    /// and most importantly is *stable*, ie is unlikely to change unexpectedly from inocuous
+    /// looking changes to either starlark code or the internals of starlark-rust.
+    ///
+    /// The tradeoff is that it is not very "fair" in any meaningful sense; some loop bodies are
+    /// more expensive than others. The intent is that this is useful protection against the kinds
+    /// of blowups in runtime that users are liable to write accidentally.
+    ///
+    /// Like for `set_max_heap_size`, you may wish to call `check_tick_count_limit` at the
+    /// end of evaluations and log a warning if indicated to prevent surprises.
+    pub fn set_max_tick_count(&mut self, tick_count: u64) -> anyhow::Result<()> {
+        if tick_count == 0 {
+            return Err(EvaluatorError::ZeroTickLimit.into());
+        }
+        if self.max_tick_count.is_some() {
+            return Err(EvaluatorError::TickLimitAlreadySet.into());
+        }
+        self.max_tick_count = Some(tick_count);
+        Ok(())
+    }
+
+    /// Check if the tick count limit has been exceeded.
+    ///
+    /// Returns `None` if no limit is set.
+    #[inline]
+    pub fn check_tick_count_limit(&self) -> Option<ResourceCheckResult> {
+        let limit = self.max_tick_count?;
+        let current = self.get_total_tick_count();
+
+        if current > limit {
+            Some(ResourceCheckResult::Exceeded(crate::Error::new_other(
+                EvaluatorError::TickLimitExceeded(limit),
+            )))
+        } else if current > (limit / 2) {
+            Some(ResourceCheckResult::Warn {
                 usage: current,
                 limit,
             })
         } else {
             Some(ResourceCheckResult::Ok)
         }
+    }
+
+    /// Get the total number of ticks executed in this evaluator.
+    ///
+    /// See `set_max_tick_count` for a bit more about this.
+    #[inline]
+    pub fn get_total_tick_count(&self) -> u64 {
+        self.total_tick_count_at_last_infrequent_check + self.infrequent_instr_check_counter as u64
     }
 
     #[inline(always)]
@@ -1014,7 +1091,9 @@ impl<'v, 'a, 'e: 'a> Evaluator<'v, 'a, 'e> {
             #[cfg(rust_nightly)]
             std::hint::cold_path();
             self.run_infrequent_instr_checks()?;
-            self.infrequent_instr_check_counter = 0
+            self.total_tick_count_at_last_infrequent_check +=
+                self.infrequent_instr_check_counter as u64;
+            self.infrequent_instr_check_counter = 0;
         };
 
         Ok(())
@@ -1027,7 +1106,9 @@ impl<'v, 'a, 'e: 'a> Evaluator<'v, 'a, 'e> {
         if let Some(ResourceCheckResult::Exceeded(e)) = self.check_heap_size_limit() {
             return Err(e);
         }
-        // TODO(T219887296): implement CPU-time-limiting checks here
+        if let Some(ResourceCheckResult::Exceeded(e)) = self.check_tick_count_limit() {
+            return Err(e);
+        }
         Ok(())
     }
 }
@@ -1036,8 +1117,8 @@ pub enum ResourceCheckResult {
     Ok,
     /// Returned if the actual usage is more than half the limit.
     Warn {
-        usage: usize,
-        limit: usize,
+        usage: u64,
+        limit: u64,
     },
     Exceeded(crate::Error),
 }
@@ -1174,6 +1255,44 @@ mod tests {
             let err = eval.eval_module(ast, &globals);
 
             let expected = "Heap memory limit";
+            let err_msg = format!("{err:#?}");
+            if !err_msg.contains(expected) {
+                panic!("Error:\n{err:#?}\nExpected:\n{expected:?}")
+            }
+
+            Ok(())
+        })
+    }
+
+    #[test]
+    fn test_tick_count_limit() -> crate::Result<()> {
+        // Test that the tick count limit is enforced during evaluation
+        let globals = Globals::standard();
+        Module::with_temp_heap(|module| {
+            let mut eval = Evaluator::new(&module);
+            // Set a low tick limit (10000 ticks)
+            eval.set_max_tick_count(10000).unwrap();
+
+            let ast = AstModule::parse(
+                "test.bzl",
+                // Small program that shouldn't exceed the limit
+                "x = 1 + 1".to_owned(),
+                &Dialect::Standard,
+            )
+            .unwrap();
+            // This should succeed
+            eval.eval_module(ast, &globals).unwrap();
+
+            let ast = AstModule::parse(
+                "test.bzl",
+                // Loop many times to exceed tick limit
+                "def loop():\n    for i in range(1000000):\n        pass\nloop()".to_owned(),
+                &Dialect::Standard,
+            )
+            .unwrap();
+            let err = eval.eval_module(ast, &globals);
+
+            let expected = "ticks has been exceeded";
             let err_msg = format!("{err:#?}");
             if !err_msg.contains(expected) {
                 panic!("Error:\n{err:#?}\nExpected:\n{expected:?}")
