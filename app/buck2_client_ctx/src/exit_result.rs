@@ -154,7 +154,7 @@ impl ExitResult {
 
     pub fn err(err: buck2_error::Error) -> Self {
         Self {
-            variant: ExitResultVariant::StatusWithErr(err.exit_code(), err.into()),
+            variant: ExitResultVariant::StatusWithErr(err.exit_code(), err),
             stdout: Vec::new(),
             emitted_errors: Vec::new(),
         }
@@ -162,7 +162,7 @@ impl ExitResult {
 
     pub fn err_with_exit_code(err: buck2_error::Error, exit_code: ExitCode) -> Self {
         Self {
-            variant: ExitResultVariant::StatusWithErr(exit_code, err.into()),
+            variant: ExitResultVariant::StatusWithErr(exit_code, err),
             stdout: Vec::new(),
             emitted_errors: Vec::new(),
         }

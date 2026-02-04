@@ -481,7 +481,7 @@ impl<'a> BuckdLifecycle<'a> {
                     // Signal termination is not considered a success, so wait() results in an appropriate ExitStatus
                     buck2_error::Ok(child.wait().await?)
                 }
-                Ok(result) => result.map_err(|e| buck2_error::Error::from(e).into()),
+                Ok(result) => result.map_err(buck2_error::Error::from),
             }
         };
         let stdout_fut = async {
@@ -633,14 +633,11 @@ pub async fn connect_buckd(
     events_ctx: &mut EventsCtx,
     paths: &InvocationPaths,
 ) -> buck2_error::Result<BuckdClientConnector> {
-    match BootstrapBuckdClient::connect(paths, constraints, events_ctx)
-        .await
-        .map_err(buck2_error::Error::from)
-    {
+    match BootstrapBuckdClient::connect(paths, constraints, events_ctx).await {
         Ok(client) => Ok(client.to_connector()),
         Err(e) => {
             events_ctx.handle_daemon_connection_failure();
-            Err(e.into())
+            Err(e)
         }
     }
 }
@@ -661,7 +658,6 @@ pub async fn establish_connection_existing(
             },
         )
         .await
-        .map_err(buck2_error::Error::from)
 }
 
 async fn establish_connection(
@@ -679,7 +675,6 @@ async fn establish_connection(
             |timeout| establish_connection_inner(paths, constraints, timeout, events_ctx),
         )
         .await
-        .map_err(buck2_error::Error::from)
 }
 
 fn explain_failed_to_connect_reason(reason: buck2_data::DaemonWasStartedReason) -> &'static str {

@@ -62,7 +62,7 @@ pub async fn kill_command_impl(
             // No time out: we just errored out. This is likely indicative that there is no
             // buckd (i.e. our connection got rejected), so let's check for this and then
             // provide some information.
-            let e: buck2_error::Error = e.into();
+            let e = e;
 
             // TODO(minglunli): Look into checking for explicit 'Connection Refused' or something more
             // concretely pointing to `no server running` instead of all transport errors

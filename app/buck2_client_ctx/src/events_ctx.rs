@@ -332,15 +332,14 @@ impl<'a> DaemonEventsCtx<'a> {
     }
 
     async fn handle_error_owned(&mut self, error: buck2_error::Error) -> buck2_error::Error {
-        let error: buck2_error::Error = error.into();
         let result: Result<(), buck2_error::Error> = self
             .inner
             .try_for_each_subscriber(|subscriber| subscriber.handle_error(&error))
             .await;
         match result {
-            Ok(()) => error.into(),
+            Ok(()) => error,
             Err(e) => EventsCtxError::WrappedStreamError {
-                source: error.into(),
+                source: error,
                 other: e,
             }
             .into(),

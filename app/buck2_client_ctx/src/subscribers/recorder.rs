@@ -1296,7 +1296,7 @@ impl InvocationRecorder {
                     Ok(Some(build_count)) => build_count,
                     Ok(None) => Default::default(),
                     Err(e) => {
-                        let _ignored = soft_error!("build_count_error", e.into());
+                        let _ignored = soft_error!("build_count_error", e);
                         Default::default()
                     }
                 }
@@ -1946,7 +1946,7 @@ impl InvocationRecorder {
 
         for stat in update.network_interface_stats.values() {
             if stat.rx_bytes > 0 || stat.tx_bytes > 0 {
-                self.active_networks_kinds.insert(stat.network_kind.into());
+                self.active_networks_kinds.insert(stat.network_kind);
             }
         }
         self.try_read_health_check_tags();

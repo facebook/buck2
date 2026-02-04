@@ -304,9 +304,9 @@ mod tests {
             ..Default::default()
         };
         buck2_data::buck_event::Data::SpanEnd(buck2_data::SpanEndEvent {
-            data: Some(buck2_data::span_end_event::Data::ActionExecution(
-                Box::new(action_end).into(),
-            )),
+            data: Some(buck2_data::span_end_event::Data::ActionExecution(Box::new(
+                action_end,
+            ))),
             ..buck2_data::SpanEndEvent::default()
         })
     }
@@ -359,8 +359,8 @@ mod tests {
             events_tx,
         );
 
-        let event1 = test_event(event_for_excess_cache_miss().into());
-        let event2 = test_event(event_for_excess_cache_miss().into());
+        let event1 = test_event(event_for_excess_cache_miss());
+        let event2 = test_event(event_for_excess_cache_miss());
 
         subscriber.handle_event(&event1).await.unwrap();
         subscriber.handle_event(&event2).await.unwrap();

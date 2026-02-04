@@ -113,7 +113,7 @@ impl<'a> ClientCommandContext<'a> {
         match &self.paths {
             InvocationPathsResult::Paths(p) => Ok(p),
             InvocationPathsResult::OutsideOfRepo(e) | InvocationPathsResult::OtherError(e) => {
-                Err(e.dupe().into())
+                Err(e.dupe())
             }
         }
     }
@@ -122,7 +122,7 @@ impl<'a> ClientCommandContext<'a> {
         match &self.paths {
             InvocationPathsResult::Paths(p) => Ok(Some(p)),
             InvocationPathsResult::OutsideOfRepo(_) => Ok(None), // commands like log don't need a root but still need to create an invocation record
-            InvocationPathsResult::OtherError(e) => Err(e.dupe().into()),
+            InvocationPathsResult::OtherError(e) => Err(e.dupe()),
         }
     }
 

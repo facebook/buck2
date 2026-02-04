@@ -68,9 +68,7 @@ async fn get_cfg_constructor(
             ctx: &mut DiceComputations,
             _cancellations: &CancellationContext,
         ) -> Self::Value {
-            get_cfg_constructor_uncached(ctx)
-                .await
-                .map_err(buck2_error::Error::from)
+            get_cfg_constructor_uncached(ctx).await
         }
 
         fn equality(_x: &Self::Value, _y: &Self::Value) -> bool {
@@ -78,9 +76,7 @@ async fn get_cfg_constructor(
         }
     }
 
-    ctx.compute(&GetCfgConstructorKey)
-        .await?
-        .map_err(buck2_error::Error::from)
+    ctx.compute(&GetCfgConstructorKey).await?
 }
 
 #[async_trait]
@@ -130,7 +126,6 @@ impl CfgConstructorCalculationImpl for CfgConstructorCalculationInstance {
                         cancellation,
                     )
                     .await
-                    .map_err(buck2_error::Error::from)
             }
 
             fn equality(x: &Self::Value, y: &Self::Value) -> bool {

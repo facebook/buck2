@@ -472,7 +472,7 @@ fn clean_buck_out(path: &AbsNormPathBuf, console_type: ConsoleType) -> buck2_err
     drop(_progress_handle);
 
     if let Some(e) = error.lock().unwrap().take() {
-        return Err(e.into());
+        return Err(e);
     }
 
     // Buck's cwd is typically the directory that is passed in here, which means that on Windows we
