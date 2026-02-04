@@ -49,7 +49,7 @@
 //! confusion" that we want to disallow, and indeed this fails to compile (though the error message
 //! is unfortunately not super helpful):
 //!
-//! ```rust,ignore
+//! ```text
 //! error[E0521]: borrowed data escapes outside of closure
 //!   --> fbcode/buck2/starlark-rust/starlark/src/values/layout/heap/branding.rs:55:32
 //!    |

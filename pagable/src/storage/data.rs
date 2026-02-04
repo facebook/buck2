@@ -22,6 +22,8 @@ use dupe::Dupe;
 /// (< 1e-15 after 820 billion samples).
 ///
 /// The u128 here is morally a NonZeroU128, but this integrates better with bytemuck by using a u128.
+///
+/// [`PagableArc`]: crate::PagableArc
 #[derive(
     Debug,
     Eq,
