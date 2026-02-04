@@ -116,6 +116,19 @@ public class JUnitTpxStandardOutputListener extends RunListener {
   }
 
   /**
+   * Checks if a description represents the NoTestsRemainException error that occurs when all tests
+   * in a class are filtered out (e.g., when TPX retries only @Ignore tests). These errors should be
+   * ignored and not reported to TPX.
+   *
+   * @param description the test description to check
+   * @return true if this is a NoTestsRemainException error, false otherwise
+   */
+  private static boolean isNoTestsRemainError(Description description) {
+    return "initializationError".equals(description.getMethodName())
+        && "org.junit.runner.manipulation.Filter".equals(description.getClassName());
+  }
+
+  /**
    * Called when an atomic test is about to be started.
    *
    * @param description the description of the test that is about to be run (generally a class and
@@ -123,6 +136,10 @@ public class JUnitTpxStandardOutputListener extends RunListener {
    */
   @Override
   public void testStarted(Description description) {
+    if (isNoTestsRemainError(description)) {
+      return;
+    }
+
     String testName = getFullTestName(description);
 
     // Create new test log state for this test
@@ -167,7 +184,11 @@ public class JUnitTpxStandardOutputListener extends RunListener {
    */
   @Override
   public void testFailure(Failure failure) {
-    listener.testFailed(getFullTestName(failure.getDescription()), failure.getTrace());
+    Description description = failure.getDescription();
+    if (isNoTestsRemainError(description)) {
+      return;
+    }
+    listener.testFailed(getFullTestName(description), failure.getTrace());
   }
 
   /**
@@ -199,6 +220,10 @@ public class JUnitTpxStandardOutputListener extends RunListener {
    */
   @Override
   public void testFinished(Description description) {
+    if (isNoTestsRemainError(description)) {
+      return;
+    }
+
     String testName = getFullTestName(description);
 
     // Get the test log state from the map

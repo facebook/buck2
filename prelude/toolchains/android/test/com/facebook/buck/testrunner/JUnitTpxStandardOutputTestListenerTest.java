@@ -141,4 +141,33 @@ public class JUnitTpxStandardOutputTestListenerTest {
       Assert.assertNull(reader.readLine());
     }
   }
+
+  @Test
+  public void testNoTestsRemainExceptionIsIgnored() throws IOException {
+    // When all tests are filtered out (e.g., TPX retries only @Ignore tests),
+    // JUnit fires testStarted/testFailure/testFinished for an "initializationError"
+    // with className "org.junit.runner.manipulation.Filter". This should be ignored
+    // and not reported to TPX.
+    try (FileOutputStream fileOutputStream = new FileOutputStream(tempFile)) {
+      JUnitTpxStandardOutputListener listener = createListener(fileOutputStream);
+
+      Description description =
+          Description.createTestDescription(
+              "org.junit.runner.manipulation.Filter", "initializationError");
+      listener.testStarted(description);
+      Failure testFailure =
+          new Failure(
+              description,
+              new Exception(
+                  "No tests found matching TestSelectorList-filter from"
+                      + " org.junit.runner.Request$1@86733"));
+      listener.testFailure(testFailure);
+      listener.testFinished(description);
+    }
+
+    // The file should be empty - no events should have been sent
+    try (BufferedReader reader = new BufferedReader(new FileReader(tempFile))) {
+      Assert.assertNull("Expected no events for NoTestsRemainException", reader.readLine());
+    }
+  }
 }
