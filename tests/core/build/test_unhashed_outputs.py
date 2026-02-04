@@ -57,7 +57,7 @@ async def test_conflict_with_content_based_paths(buck: Buck) -> None:
         buck.cwd / "buck-out" / "v2" / "gen" / "root" / "conflict" / "shared_name"
     )
     content_based_path: Path = (
-        buck.cwd / "buck-out" / "v2" / "cbp" / "root" / "conflict" / "shared_name"
+        buck.cwd / "buck-out" / "v2" / "art" / "root" / "conflict" / "shared_name"
     )
     subtarget_output: Path
     # sanity check that we're starting from a clean state

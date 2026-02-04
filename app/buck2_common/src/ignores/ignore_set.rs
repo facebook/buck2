@@ -115,7 +115,7 @@ mod tests {
     fn test_ignore_set_defaults() {
         let set = IgnoreSet::from_ignore_spec("", true).unwrap();
         assert!(set.is_match(CellRelativePath::testing_new("buck-out/gen/src/file.txt")));
-        assert!(set.is_match(CellRelativePath::testing_new("buck-out/cbp/src/file.txt")));
+        assert!(set.is_match(CellRelativePath::testing_new("buck-out/art/src/file.txt")));
         assert!(!set.is_match(CellRelativePath::testing_new("src/file.txt")));
     }
 }

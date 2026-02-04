@@ -154,7 +154,7 @@ fn get_cell_path<'v>(
     cell_resolver: &'v CellResolver,
     generated_prefix: &'v str,
 ) -> buck2_error::Result<BuckOutPathData> {
-    let is_anon = generated_prefix == "gen-anon";
+    let is_anon = generated_prefix == "art-anon" || generated_prefix == "gen-anon";
     let is_test = generated_prefix == "test";
     // Get cell name and validate it exists
     let Some(cell_name) = iter.next() else {
@@ -350,7 +350,7 @@ impl BuckOutPathParser {
         &'v self,
         mut iter: Peekable<impl Iterator<Item = &'v FileName> + Clone>,
     ) -> buck2_error::Result<BuckOutPathType> {
-        // Advance the iterator to the prefix (tmp, test, gen, gen-anon, or gen-bxl)
+        // Advance the iterator to the prefix (tmp, test, gen, art-anon, or art-bxl)
         match iter.next() {
             Some(part) => {
                 let result = match part.as_str() {
@@ -387,7 +387,7 @@ impl BuckOutPathParser {
                             common_attrs,
                         })
                     }
-                    "gen" | "cbp" => {
+                    "gen" | "art" => {
                         let buck_out_path_data =
                             get_cell_path(&mut iter, &self.cell_resolver, part.as_str())?;
                         let target_label =
@@ -412,7 +412,7 @@ impl BuckOutPathParser {
                             common_attrs,
                         })
                     }
-                    "gen-anon" => {
+                    "gen-anon" | "art-anon" => {
                         let buck_out_path_data =
                             get_cell_path(&mut iter, &self.cell_resolver, part.as_str())?;
                         let target_label =
@@ -432,7 +432,7 @@ impl BuckOutPathParser {
                             common_attrs,
                         })
                     }
-                    "gen-bxl" => {
+                    "gen-bxl" | "art-bxl" => {
                         let buck_out_path_data =
                             get_cell_path(&mut iter, &self.cell_resolver, part.as_str())?;
                         let bxl_function_label =
@@ -450,7 +450,7 @@ impl BuckOutPathParser {
                     }
                     _ => Err(buck2_error!(
                         buck2_error::ErrorTag::InvalidBuckOutPath,
-                        "Directory after isolation dir is invalid (should be cbp, gen, gen-bxl, gen-anon, tmp, or test)"
+                        "Directory after isolation dir is invalid (should be gen, art, art-bxl, art-anon, tmp, or test)"
                     )),
                 };
 

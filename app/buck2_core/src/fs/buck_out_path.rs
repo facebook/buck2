@@ -271,14 +271,13 @@ impl BuckOutPathResolver {
         content_hash: Option<&ContentBasedPathHash>,
     ) -> buck2_error::Result<ProjectRelativePathBuf> {
         self.prefixed_path_for_owner(
-            // content-based paths are placed in a different directory to avoid collisions with unhashed symlinks in gen
             ForwardRelativePath::unchecked_new(
+                // we hit the uninitialized path in the unit tests
                 if *DECONFLICT_CONTENT_BASED_PATHS_ROLLOUT
                     .get()
                     .unwrap_or(&false)
-                    && path.path_resolution_method() == BuckOutPathKind::ContentHash
                 {
-                    "cbp"
+                    "art"
                 } else {
                     "gen"
                 },
@@ -301,7 +300,17 @@ impl BuckOutPathResolver {
         path: &BuildArtifactPath,
     ) -> buck2_error::Result<ProjectRelativePathBuf> {
         self.prefixed_path_for_owner(
-            ForwardRelativePath::unchecked_new("gen"),
+            ForwardRelativePath::unchecked_new(
+                // we hit the uninitialized path in the unit tests
+                if *DECONFLICT_CONTENT_BASED_PATHS_ROLLOUT
+                    .get()
+                    .unwrap_or(&false)
+                {
+                    "art"
+                } else {
+                    "gen"
+                },
+            ),
             path.owner().owner(),
             path.dynamic_actions_action_key()
                 .as_ref()
