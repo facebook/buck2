@@ -1073,11 +1073,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
         paths
             .into_iter()
             .map(|p| {
-                let Some((root_path, data)) =
-                    Self::find_artifact_containing_path(&mut self.tree, &p)
-                else {
-                    return None;
-                };
+                let (root_path, data) = Self::find_artifact_containing_path(&mut self.tree, &p)?;
                 if root_path != p {
                     // Artifact is declared above our path or not materialized
                     return None;
