@@ -33,8 +33,9 @@ where
                 if retries >= max_retries {
                     return Err(err);
                 }
+                let retryable = is_retryable(&err, retry_not_found);
 
-                if !is_retryable(&err, retry_not_found) {
+                if retryable == Retryable::NO {
                     return Err(err);
                 }
 
@@ -51,47 +52,57 @@ where
                     }
                 };
 
-                warn!("Retrying request after error: {}. Attempt {}/{}", msg, retries, max_retries);
+                if retryable == Retryable::WAIT {
+                    warn!("Retrying request after error: {}. Attempt {}/{} (waiting {:?})", msg, retries, max_retries, delay);
+                    tokio::time::sleep(delay).await;
 
-                tokio::time::sleep(delay).await;
-
-                delay *= 2;
-                if delay > max_delay {
-                    delay = max_delay;
+                    delay *= 2;
+                    if delay > max_delay {
+                        delay = max_delay;
+                    }
+                } else {
+                    warn!("Retrying request after error: {}. Attempt {}/{}", msg, retries, max_retries);
                 }
             }
         }
     }
 }
 
-fn is_retryable(err: &anyhow::Error, retry_not_found: bool) -> bool {
+#[derive(PartialEq)]
+enum Retryable {
+    IMMEDIATELY,
+    WAIT,
+    NO,
+}
+
+fn is_retryable(err: &anyhow::Error, retry_not_found: bool) -> Retryable {
     for cause in err.chain() {
         if let Some(re_err) = cause.downcast_ref::<REClientError>() {
             return match re_err.code {
+                TCode::DEADLINE_EXCEEDED => Retryable::IMMEDIATELY,
                 TCode::UNKNOWN
                 | TCode::CANCELLED
-                | TCode::DEADLINE_EXCEEDED
                 | TCode::ABORTED
                 | TCode::INTERNAL
                 | TCode::UNAVAILABLE
-                | TCode::RESOURCE_EXHAUSTED => true,
-                TCode::NOT_FOUND => retry_not_found,
-                _ => false,
+                | TCode::RESOURCE_EXHAUSTED => Retryable::WAIT,
+                TCode::NOT_FOUND if retry_not_found => Retryable::WAIT,
+                _ => Retryable::NO
             };
         }
         if let Some(status) = cause.downcast_ref::<tonic::Status>() {
             return match status.code() {
+                tonic::Code::DeadlineExceeded => Retryable::IMMEDIATELY,
                 tonic::Code::Unknown
                 | tonic::Code::Cancelled
-                | tonic::Code::DeadlineExceeded
                 | tonic::Code::Aborted
                 | tonic::Code::Internal
                 | tonic::Code::Unavailable
-                | tonic::Code::ResourceExhausted => true,
-                tonic::Code::NotFound => retry_not_found,
-                _ => false,
+                | tonic::Code::ResourceExhausted => Retryable::WAIT,
+                tonic::Code::NotFound if retry_not_found => Retryable::WAIT,
+                _ => Retryable::NO
             };
         }
     }
-    false
+    Retryable::NO
 }
