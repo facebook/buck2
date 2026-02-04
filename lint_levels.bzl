@@ -77,7 +77,6 @@ CLIPPY_DENY = [
     "clippy::rest_pat_in_fully_bound_structs",
     "clippy::same_functions_in_if_condition",
     "clippy::str_to_string",
-    "clippy::string_to_string",
     "clippy::todo",
     "clippy::trivially_copy_pass_by_ref",
     "clippy::tuple_array_conversions",
