@@ -247,8 +247,7 @@ fn target_node_value_methods(builder: &mut MethodsBuilder) {
         Ok(AllocList(
             this.0
                 .deps()
-                .map(|label| StarlarkTargetLabel::new(label.dupe()))
-                .into_iter(),
+                .map(|label| StarlarkTargetLabel::new(label.dupe())),
         ))
     }
 

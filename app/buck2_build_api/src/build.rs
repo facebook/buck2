@@ -496,7 +496,7 @@ pub async fn build_configured_label(
     {
         event_consumer.consume_configured(ConfiguredBuildEvent {
             label: providers_label,
-            variant: ConfiguredBuildEventVariant::Error { err: e.into() },
+            variant: ConfiguredBuildEventVariant::Error { err: e },
         });
     }
 }
@@ -526,7 +526,7 @@ async fn build_configured_label_inner<'a>(
                 });
                 return Ok(());
             } else {
-                return Err(reason.to_err().into());
+                return Err(reason.to_err());
             };
         }
         MaybeCompatible::Compatible(v) => v,
@@ -618,7 +618,7 @@ async fn build_configured_label_inner<'a>(
                             values,
                             provider_type,
                         }),
-                        Err(e) => Err(buck2_error::Error::from(e)),
+                        Err(e) => Err(e),
                     };
                     ConfiguredBuildEventExecutionVariant::BuildOutput { index, output: res }
                 })
@@ -683,8 +683,7 @@ async fn build_configured_label_inner<'a>(
                 .should_compute_configured_graph_sketch(),
             opts.graph_properties.retained_analysis_memory_sketch,
         )
-        .await
-        .map_err(|e| e.into());
+        .await;
 
         event_consumer.consume_configured(ConfiguredBuildEvent {
             label: providers_label,

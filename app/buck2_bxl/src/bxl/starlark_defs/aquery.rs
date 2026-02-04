@@ -94,8 +94,7 @@ impl<'v> StarlarkAQueryCtx<'v> {
         ctx: ValueTyped<'v, BxlContext<'v>>,
         global_target_platform: ValueAsStarlarkTargetLabel<'v>,
     ) -> buck2_error::Result<StarlarkAQueryCtx<'v>> {
-        let global_cfg_options =
-            ctx.resolve_global_cfg_options(global_target_platform, vec![].into())?;
+        let global_cfg_options = ctx.resolve_global_cfg_options(global_target_platform, vec![])?;
 
         Ok(Self {
             ctx,

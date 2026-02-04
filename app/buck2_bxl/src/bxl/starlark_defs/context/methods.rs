@@ -347,7 +347,7 @@ pub(crate) fn bxl_context_methods(builder: &mut MethodsBuilder) {
         #[starlark(default = ValueAsStarlarkTargetLabel::NONE)]
         target_platform: ValueAsStarlarkTargetLabel<'v>,
     ) -> starlark::Result<StarlarkCQueryCtx<'v>> {
-        let global_cfg_options = this.resolve_global_cfg_options(target_platform, vec![].into())?;
+        let global_cfg_options = this.resolve_global_cfg_options(target_platform, vec![])?;
         Ok(StarlarkCQueryCtx::new(this, global_cfg_options)?)
     }
 
@@ -524,7 +524,7 @@ pub(crate) fn bxl_context_methods(builder: &mut MethodsBuilder) {
                             }
                             // We will have a soft error for accessing bxl.Actions.exec_deps and
                             // bxl.Actions.toolchains for anon targets and dynamic actions
-                            (vec![].into(), vec![].into())
+                            (vec![], vec![])
                         }
                     };
 

@@ -285,7 +285,7 @@ impl StarlarkLazy {
         Self {
             lazy: Arc::new(LazyOperation::ConfiguredTargetNode {
                 arg,
-                global_cfg_options: global_cfg_options.map_err(buck2_error::Error::from),
+                global_cfg_options,
             }),
         }
     }

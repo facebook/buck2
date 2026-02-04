@@ -144,7 +144,6 @@ impl<'v, V: ValueLike<'v>> WorkerInfoGen<V> {
 
     pub fn env(&self) -> Vec<(&'v str, &'v dyn CommandLineArgLike<'v>)> {
         iter_env(self.env.get().to_value())
-            .into_iter()
             .map(|e| e.expect("validated at construction"))
             .collect_vec()
     }

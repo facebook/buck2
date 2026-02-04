@@ -363,7 +363,7 @@ fn eval_bxl<'v>(
             .console_message("Re-run the script with `-v5` to show the full stacktrace".to_owned());
     }
 
-    Err(e.into())
+    Err(e)
 }
 
 pub(crate) fn get_bxl_callable(

@@ -145,7 +145,7 @@ where
                         error: e,
                     });
                 } else {
-                    return Err(e.into());
+                    return Err(e);
                 }
             }
         }

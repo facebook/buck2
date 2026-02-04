@@ -146,8 +146,7 @@ impl<'v, 'a, 'e, 'c> AttrResolutionContext<'v> for LazyAttrResolutionContext<'v,
                 buck2_error::ErrorTag::Bxl,
                 "Error resolving query: `{}`",
                 e
-            ))
-            .map_err(buck2_error::Error::from),
+            )),
         }
     }
 

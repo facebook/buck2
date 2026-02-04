@@ -498,8 +498,7 @@ impl Key for EnsureProjectedArtifactKey {
         if path.is_empty() {
             return Err(internal_error!(
                 "EnsureProjectedArtifactKey with non-empty projected path"
-            )
-            .into());
+            ));
         }
 
         let base_value = ensure_base_artifact_staged(ctx, base.dupe())

@@ -261,10 +261,13 @@ where
 {
     let handle = deferred.start(events, backend, ctx);
     let result = func().await;
-    handle
+    if let Err(e) = handle
         .finish()
         .await
-        .buck_error_context("Error computing critical path")?;
+        .buck_error_context("Error computing critical path")
+    {
+        buck2_fs::fs_util::soft_error!("critical_path_computation_failed", e)?;
+    }
     result
 }
 

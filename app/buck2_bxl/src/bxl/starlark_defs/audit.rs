@@ -127,7 +127,7 @@ fn audit_methods(builder: &mut MethodsBuilder) {
         let heap = eval.heap();
         let global_cfg_options = this
             .ctx
-            .resolve_global_cfg_options(target_platform, vec![].into())?;
+            .resolve_global_cfg_options(target_platform, vec![])?;
 
         Ok(this.ctx.via_dice(eval, |ctx| {
             ctx.via(|ctx| {

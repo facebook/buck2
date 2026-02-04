@@ -184,7 +184,7 @@ pub(crate) fn build<'v>(
         ValueTyped<'v, StarlarkBxlBuildResult>,
     >,
 > {
-    let global_cfg_options = ctx.resolve_global_cfg_options(target_platform, vec![].into())?;
+    let global_cfg_options = ctx.resolve_global_cfg_options(target_platform, vec![])?;
 
     let build_result = ctx.via_dice(eval, |dice| {
         dice.via(|dice| {
@@ -247,7 +247,7 @@ pub(crate) fn build<'v>(
         .chain(build_result.other_errors.values().flatten())
         .next()
     {
-        return Err(err.dupe().into());
+        return Err(err.dupe());
     }
 
     Ok(build_result

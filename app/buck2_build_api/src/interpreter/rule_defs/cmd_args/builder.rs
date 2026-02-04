@@ -121,7 +121,7 @@ impl CommandLineContext for AbsCommandLineContext<'_> {
     ) -> buck2_error::Result<CommandLineLocation<'_>> {
         Ok(CommandLineLocation::from_root(
             self.0.fs().fs().fs(),
-            path.into(),
+            path,
             self.fs().path_separator(),
         ))
     }
