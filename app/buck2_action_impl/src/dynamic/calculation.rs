@@ -24,6 +24,7 @@ use buck2_core::deferred::base_deferred_key::BaseDeferredKey;
 use buck2_core::deferred::dynamic::DynamicLambdaResultsKey;
 use buck2_core::deferred::key::DeferredHolderKey;
 use buck2_data::ToProtoMessage;
+use buck2_error::BuckErrorContext;
 use dice::CancellationContext;
 use dice::Demand;
 use dice::DiceComputations;
@@ -80,8 +81,11 @@ impl Key for DynamicLambdaDiceKey {
             &self.0,
         )?;
 
-        let analysis_values =
-            prepare_and_execute_lambda(ctx, cancellation, lambda, self.0.dupe()).await?;
+        let analysis_values = prepare_and_execute_lambda(ctx, cancellation, lambda, self.0.dupe())
+            .await
+            .with_buck_error_context(|| {
+                format!("Error running dynamic analysis for `{}`", &self.0.owner())
+            })?;
         let res = Arc::new(DynamicLambdaResult { analysis_values });
         ctx.analysis_complete(
             &self_deferred_key,
