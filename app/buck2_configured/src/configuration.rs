@@ -138,10 +138,10 @@ async fn compute_platform_configuration_no_label_check(
     ctx: &mut DiceComputations<'_>,
     target: &TargetLabel,
 ) -> buck2_error::Result<ConfigurationData> {
-    (&ctx
+    ctx
         // TODO(T198223238): Not supporting platforms being supplied via subtargets for now
         .get_configuration_analysis_result(&ProvidersLabel::default_for(target.dupe()))
-        .await?)
+        .await?
         .provider_collection()
         .builtin_provider::<FrozenPlatformInfo>()
         .ok_or_else(|| ConfigurationError::MissingPlatformInfo(target.dupe()))?
