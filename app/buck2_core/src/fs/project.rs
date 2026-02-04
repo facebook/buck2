@@ -17,7 +17,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use buck2_error::BuckErrorContext;
-use buck2_fs::fs_util;
+use buck2_fs::fs_util::uncategorized as fs_util;
 use buck2_fs::paths::RelativePath;
 use buck2_fs::paths::abs_norm_path::AbsNormPath;
 use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
@@ -552,7 +552,7 @@ mod tests {
     use std::path::Path;
     use std::path::PathBuf;
 
-    use buck2_fs::fs_util;
+    use buck2_fs::fs_util::uncategorized as fs_util;
     use buck2_fs::paths::abs_path::AbsPath;
     use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
 

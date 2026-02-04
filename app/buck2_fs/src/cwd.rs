@@ -105,7 +105,7 @@ impl WorkingDirectoryImpl for PortableWorkingDirectoryImpl {
     }
 
     fn chdir(&self, path: &AbsNormPath) -> buck2_error::Result<()> {
-        fs_util::set_current_dir(path)?;
+        fs_util::uncategorized::set_current_dir(path)?;
         Ok(())
     }
 

@@ -15,6 +15,7 @@ use buck2_core::cells::CellResolver;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_error::BuckErrorContext;
+use buck2_fs::IoResultExt;
 use buck2_fs::fs_util;
 use buck2_fs::fs_util::IoError;
 use buck2_fs::paths::RelativePath;
@@ -117,7 +118,8 @@ impl ConfigParserFileOps for DefaultConfigParserFileOps {
             .lines()
             .into_iter()
             .collect::<Result<Vec<_>, _>>()
-            .map_err(|e| IoError::new_with_path("read_line", path, e))?;
+            .map_err(|e| IoError::new_with_path("read_line", path, e))
+            .uncategorized()?;
 
         Ok(Some(lines))
     }
@@ -259,7 +261,7 @@ pub(crate) fn push_all_files_from_a_directory<'a>(
 
 #[cfg(test)]
 mod tests {
-    use buck2_fs::fs_util;
+    use buck2_fs::fs_util::uncategorized as fs_util;
     use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
     use buck2_fs::paths::abs_path::AbsPath;
 

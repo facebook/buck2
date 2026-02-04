@@ -628,7 +628,7 @@ impl Cgroup<NoMemoryMonitoring, CgroupKindInternal> {
 mod tests {
     use std::time::Duration;
 
-    use buck2_fs::fs_util;
+    use buck2_fs::fs_util::uncategorized as fs_util;
     use buck2_fs::paths::file_name::FileNameBuf;
     use buck2_util::process::background_command;
     use dupe::Dupe;

@@ -18,7 +18,7 @@ use buck2_build_api::build::ProviderArtifacts;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_error::BuckErrorContext;
-use buck2_fs::fs_util;
+use buck2_fs::fs_util::uncategorized as fs_util;
 use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_fs::paths::abs_path::AbsPath;
 use buck2_query::__derive_refs::indexmap::IndexMap;

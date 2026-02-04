@@ -27,7 +27,7 @@ pub async fn get_channel_uds(
     unix_socket: &Path,
     change_to_parent_dir: bool,
 ) -> buck2_error::Result<Channel> {
-    use buck2_fs::fs_util;
+    use buck2_fs::fs_util::uncategorized as fs_util;
 
     use crate::home_buck_tmp::home_buck_tmp_dir;
     use crate::temp_path::TempPath;

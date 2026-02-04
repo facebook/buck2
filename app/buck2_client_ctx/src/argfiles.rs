@@ -21,7 +21,7 @@ use buck2_common::argv::ExpandedArgv;
 use buck2_common::argv::ExpandedArgvBuilder;
 use buck2_core::is_open_source;
 use buck2_error::BuckErrorContext;
-use buck2_fs::fs_util;
+use buck2_fs::fs_util::uncategorized as fs_util;
 use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_fs::paths::abs_path::AbsPath;
 use buck2_fs::working_dir::AbsWorkingDir;

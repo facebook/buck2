@@ -13,7 +13,7 @@ use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_error::BuckErrorContext;
 use buck2_error::buck2_error;
-use buck2_fs::fs_util;
+use buck2_fs::fs_util::uncategorized as fs_util;
 use buck2_fs::paths::abs_norm_path::AbsNormPath;
 
 use crate::execute::blocking::IoRequest;
@@ -55,18 +55,12 @@ fn tag_environment_error(error: buck2_error::Error) -> buck2_error::Error {
     }
 }
 
-use buck2_fs::fs_util::IoError;
-fn tag_cleanup_path_env_error(res: Result<(), IoError>) -> buck2_error::Result<()> {
-    res.map_err(buck2_error::Error::from)
-        .map_err(tag_environment_error)
-}
-
 #[tracing::instrument(level = "debug", skip(fs), fields(path = %path))]
 pub fn cleanup_path(fs: &ProjectRoot, path: &ProjectRelativePath) -> buck2_error::Result<()> {
     let path = fs.resolve(path);
 
     // This will remove the path if it exists.
-    tag_cleanup_path_env_error(fs_util::remove_all(&path))?;
+    fs_util::remove_all(&path).map_err(tag_environment_error)?;
 
     let mut path: &AbsNormPath = &path;
 
@@ -95,7 +89,8 @@ pub fn cleanup_path(fs: &ProjectRoot, path: &ProjectRelativePath) -> buck2_error
                     // There was a file or a symlink, so it's safe to delete and then we can exit
                     // because we'll be able to create a dir here.
                     tracing::trace!(path = %path, "remove_file");
-                    tag_cleanup_path_env_error(fs_util::remove_file(path))?;
+
+                    fs_util::remove_file(path).map_err(tag_environment_error)?;
                 }
                 return Ok(());
             }

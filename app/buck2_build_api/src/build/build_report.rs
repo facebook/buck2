@@ -55,7 +55,7 @@ use buck2_execute::artifact::artifact_dyn::ArtifactDyn;
 use buck2_execute::directory::ActionDirectoryEntry;
 use buck2_execute::directory::ActionDirectoryMember;
 use buck2_execute::directory::ActionSharedDirectory;
-use buck2_fs::fs_util;
+use buck2_fs::fs_util::uncategorized as fs_util;
 use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_wrapper_common::invocation_id::TraceId;
 use derivative::Derivative;

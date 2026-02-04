@@ -407,6 +407,7 @@ mod tests {
     use std::os::unix;
 
     use assert_matches::assert_matches;
+    use buck2_fs::fs_util::uncategorized as fs_util;
     use tempfile::TempDir;
 
     use super::*;

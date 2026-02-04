@@ -13,7 +13,7 @@ use std::io::Read;
 
 use buck2_error::BuckErrorContext;
 
-use crate::fs_util;
+use crate::fs_util::uncategorized as fs_util;
 use crate::io_counters::IoCounterKey;
 use crate::paths::abs_path::AbsPath;
 

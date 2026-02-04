@@ -73,7 +73,7 @@ pub(crate) fn check_user_allowed() -> buck2_error::Result<()> {
 
     use buck2_core::soft_error;
     use buck2_error::BuckErrorContext;
-    use buck2_fs::fs_util;
+    use buck2_fs::fs_util::uncategorized as fs_util;
     use buck2_fs::paths::abs_path::AbsPath;
 
     #[derive(Debug, buck2_error::Error)]

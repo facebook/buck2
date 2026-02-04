@@ -20,7 +20,7 @@ use buck2_execute::directory::ActionDirectoryMember;
 use buck2_execute::directory::ActionDirectoryRef;
 use buck2_execute::directory::ActionSharedDirectory;
 use buck2_execute::execute::blocking::IoRequest;
-use buck2_fs::fs_util;
+use buck2_fs::fs_util::uncategorized as fs_util;
 use buck2_fs::paths::abs_norm_path::AbsNormPath;
 use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
 

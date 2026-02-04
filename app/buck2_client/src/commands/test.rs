@@ -37,7 +37,7 @@ use buck2_error::BuckErrorContext;
 use buck2_error::ErrorTag;
 use buck2_error::ExitCode;
 use buck2_error::buck2_error;
-use buck2_fs::fs_util;
+use buck2_fs::fs_util::uncategorized as fs_util;
 use buck2_fs::working_dir::AbsWorkingDir;
 use superconsole::Line;
 use superconsole::Span;

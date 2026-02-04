@@ -30,7 +30,7 @@ use buck2_error::BuckErrorContext;
 use buck2_error::conversion::clap::buck_error_clap_parser;
 use buck2_events::daemon_id::DaemonId;
 use buck2_events::daemon_id::set_daemon_id_for_panics;
-use buck2_fs::fs_util;
+use buck2_fs::fs_util::uncategorized as fs_util;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_resource_control::buck_cgroup_tree::PreppedBuckCgroups;
 use buck2_server::daemon::daemon_tcp::create_listener;

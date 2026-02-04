@@ -14,7 +14,7 @@ use buck2_cli_proto::new_generic::DocsResponse;
 use buck2_cli_proto::new_generic::DocsStarlarkBuiltinsRequest;
 use buck2_error::BuckErrorContext;
 use buck2_error::internal_error;
-use buck2_fs::fs_util;
+use buck2_fs::fs_util::uncategorized as fs_util;
 use buck2_fs::paths::abs_path::AbsPathBuf;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_interpreter_for_build::interpreter::globals::register_analysis_natives;

@@ -857,7 +857,7 @@ impl DaemonState {
         #[cfg(fbcode_build)]
         {
             use buck2_core::soft_error;
-            use buck2_fs::fs_util;
+            use buck2_fs::fs_util::uncategorized as fs_util;
 
             let project_root = self.paths.project_root().root();
             if !detect_eden::is_eden(project_root.to_path_buf())? {

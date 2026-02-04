@@ -71,7 +71,7 @@ pub fn get_local_logs(logdir: &AbsNormPath) -> buck2_error::Result<Vec<EventLogP
         .collect())
 }
 
-fn sort_logs(dir: fs_util::ReadDir) -> Vec<AbsNormPathBuf> {
+fn sort_logs(dir: buck2_fs::fs_util::ReadDir) -> Vec<AbsNormPathBuf> {
     let mut logfiles = dir
         .filter_map(Result::ok)
         .filter(|entry| entry.file_type().ok().is_some_and(|ft| ft.is_file()))
@@ -137,7 +137,7 @@ mod tests {
     use std::time::Duration;
     use std::time::SystemTime;
 
-    use buck2_fs::fs_util;
+    use buck2_fs::fs_util::uncategorized as fs_util;
     use buck2_fs::paths::abs_norm_path::AbsNormPath;
     use buck2_fs::paths::abs_path::AbsPath;
 

@@ -14,7 +14,7 @@ use std::sync::Arc;
 use allocative::Allocative;
 use buck2_core::buck2_env;
 use buck2_core::cells::cell_path::CellPath;
-use buck2_fs::fs_util;
+use buck2_fs::fs_util::uncategorized as fs_util;
 use buck2_fs::paths::RelativePath;
 use buck2_fs::paths::RelativePathBuf;
 use buck2_fs::paths::abs_path::AbsPath;
@@ -161,7 +161,7 @@ impl FileDigest {
     /// Read the file from the xattr, or skip if it's not available.
     #[cfg(unix)]
     fn from_file_attr(file: &AbsPath, config: FileDigestConfig) -> Option<Self> {
-        use buck2_fs::fs_util;
+        use buck2_fs::fs_util::uncategorized as fs_util;
 
         use crate::cas_digest::RawDigest;
 

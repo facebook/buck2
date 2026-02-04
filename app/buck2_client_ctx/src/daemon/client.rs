@@ -21,7 +21,7 @@ use buck2_common::daemon_dir::DaemonDir;
 use buck2_data::error::ErrorTag;
 use buck2_error::BuckErrorContext;
 use buck2_event_log::stream_value::StreamValue;
-use buck2_fs::fs_util;
+use buck2_fs::fs_util::uncategorized as fs_util;
 use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_fs::paths::file_name::FileName;
 use futures::Stream;

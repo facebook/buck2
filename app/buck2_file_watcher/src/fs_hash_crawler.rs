@@ -32,7 +32,7 @@ use buck2_data::FileWatcherEventType;
 use buck2_data::FileWatcherKind;
 use buck2_error::BuckErrorContext;
 use buck2_events::dispatch::span_async;
-use buck2_fs::fs_util;
+use buck2_fs::fs_util::uncategorized as fs_util;
 use buck2_fs::paths::abs_norm_path::AbsNormPath;
 use buck2_fs::paths::file_name::FileNameBuf;
 use compact_str::CompactString;
@@ -333,7 +333,7 @@ mod tests {
     use buck2_core::fs::project_rel_path::ProjectRelativePath;
     use buck2_data::FileWatcherEventType;
     use buck2_data::FileWatcherKind;
-    use buck2_fs::fs_util;
+    use buck2_fs::fs_util::uncategorized as fs_util;
     use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
     use buck2_fs::paths::abs_path::AbsPathBuf;
 

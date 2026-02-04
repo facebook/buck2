@@ -34,7 +34,7 @@ use buck2_execute::execute::result::CommandExecutionResult;
 use buck2_execute_local::CommandResult;
 use buck2_execute_local::GatherOutputStatus;
 use buck2_execute_local::StdRedirectPaths;
-use buck2_fs::fs_util;
+use buck2_fs::fs_util::uncategorized as fs_util;
 use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_fs::paths::file_name::FileName;
 use buck2_util::time_span::TimeSpan;

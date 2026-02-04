@@ -170,13 +170,6 @@ pub struct IoError {
     pub(crate) is_input_path: Option<bool>,
 }
 
-// TODO remove this
-impl From<IoError> for buck2_error::Error {
-    fn from(e: IoError) -> Self {
-        e.convert_to_buck2_error()
-    }
-}
-
 pub trait IoResultExt<T> {
     fn categorize_input(self) -> buck2_error::Result<T>;
     fn categorize_internal(self) -> buck2_error::Result<T>;

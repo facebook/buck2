@@ -20,7 +20,7 @@ use buck2_core::pattern::unparsed::UnparsedPatterns;
 use buck2_error::BuckErrorContext;
 use buck2_error::buck2_error;
 use buck2_error::conversion::from_any_with_tag;
-use buck2_fs::fs_util;
+use buck2_fs::fs_util::uncategorized as fs_util;
 use buck2_fs::paths::abs_norm_path::AbsNormPath;
 use buck2_fs::paths::abs_path::AbsPath;
 use buck2_interpreter::starlark_profiler::config::StarlarkProfilerConfiguration;

@@ -22,7 +22,7 @@ use buck2_common::argv::SanitizedArgv;
 use buck2_error::BuckErrorContext;
 use buck2_error::ErrorTag;
 use buck2_error::buck2_error;
-use buck2_fs::fs_util;
+use buck2_fs::fs_util::uncategorized as fs_util;
 use buck2_fs::paths::abs_path::AbsPath;
 use buck2_util::process::background_command;
 
@@ -264,7 +264,7 @@ fn set_up_project(repo_root: &AbsPath, git: bool, prelude: bool) -> buck2_error:
 
 #[cfg(test)]
 mod tests {
-    use buck2_fs::fs_util;
+    use buck2_fs::fs_util::uncategorized as fs_util;
     use buck2_fs::paths::abs_path::AbsPath;
 
     use crate::commands::init::initialize_buckconfig;

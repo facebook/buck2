@@ -44,9 +44,8 @@ use buck2_execute::materialize::materializer::WriteRequest;
 use buck2_execute::output_size::OutputSize;
 use buck2_execute::re::error::RemoteExecutionError;
 use buck2_execute::re::manager::ReConnectionManager;
-use buck2_fs::fs_util;
-use buck2_fs::fs_util::IoError;
 use buck2_fs::fs_util::ReadDir;
+use buck2_fs::fs_util::uncategorized as fs_util;
 use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_http::HttpClient;
 use chrono::Duration;
@@ -141,7 +140,7 @@ pub trait IoHandler: Sized + Sync + Send + 'static {
         min_ttl: Duration,
     ) -> Option<BoxFuture<'static, buck2_error::Result<()>>>;
 
-    fn read_dir(&self, path: &AbsNormPathBuf) -> Result<ReadDir, IoError>;
+    fn read_dir(&self, path: &AbsNormPathBuf) -> buck2_error::Result<ReadDir>;
     fn buck_out_path(&self) -> &ProjectRelativePathBuf;
     fn re_client_manager(&self) -> &Arc<ReConnectionManager>;
     fn fs(&self) -> &ProjectRoot;
@@ -447,7 +446,7 @@ impl IoHandler for DefaultIoHandler {
             .map(|f| f.boxed())
     }
 
-    fn read_dir(&self, path: &AbsNormPathBuf) -> Result<ReadDir, IoError> {
+    fn read_dir(&self, path: &AbsNormPathBuf) -> buck2_error::Result<ReadDir> {
         fs_util::read_dir(path)
     }
 

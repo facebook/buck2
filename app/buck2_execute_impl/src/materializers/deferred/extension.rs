@@ -23,7 +23,7 @@ use buck2_execute::materialize::materializer::DeferredMaterializerEntry;
 use buck2_execute::materialize::materializer::DeferredMaterializerExtensions;
 use buck2_execute::materialize::materializer::DeferredMaterializerIterItem;
 use buck2_execute::materialize::materializer::DeferredMaterializerSubscription;
-use buck2_fs::fs_util;
+use buck2_fs::fs_util::uncategorized as fs_util;
 use chrono::DateTime;
 use chrono::Duration;
 use chrono::TimeZone;

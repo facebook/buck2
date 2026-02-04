@@ -34,6 +34,7 @@ use buck2_error::ErrorTag;
 use buck2_error::buck2_error;
 use buck2_error::conversion::from_any_with_tag;
 use buck2_events::daemon_id::DaemonId;
+use buck2_fs::fs_util;
 use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_resource_control::spawn_daemon::ResourceControlRunner;
 use buck2_resource_control::spawn_daemon::replace_unit_delimiter;
@@ -576,7 +577,7 @@ impl BootstrapBuckdClient {
     ) -> buck2_error::Result<Self> {
         let daemon_dir = paths.daemon_dir()?;
 
-        buck2_fs::fs_util::create_dir_all(&daemon_dir.path)
+        fs_util::create_dir_all(&daemon_dir.path)
             .with_buck_error_context(|| format!("Error creating daemon dir: {daemon_dir}"))?;
 
         let res = match constraints {

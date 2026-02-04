@@ -850,7 +850,7 @@ mod tests {
     use buck2_execute::materialize::nodisk::NoDiskMaterializer;
     use buck2_execute::re::manager::UnconfiguredRemoteExecutionClient;
     use buck2_execute::re::output_trees_download_config::OutputTreesDownloadConfig;
-    use buck2_fs::fs_util;
+    use buck2_fs::fs_util::uncategorized as fs_util;
     use buck2_http::HttpClientBuilder;
     use dice_futures::cancellation::CancellationContext;
     use dupe::Dupe;

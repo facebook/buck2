@@ -16,7 +16,6 @@ use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::directory::ActionDirectoryBuilder;
 use buck2_execute::directory::insert_file;
 use buck2_execute::materialize::materializer::DeferredMaterializerSubscription;
-use buck2_fs::fs_util::IoError;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
 
 use super::*;
@@ -106,8 +105,8 @@ mod state_machine {
     use buck2_execute::directory::ActionSharedDirectory;
     use buck2_execute::directory::INTERNER;
     use buck2_execute::execute::blocking::IoRequest;
-    use buck2_fs::fs_util;
     use buck2_fs::fs_util::ReadDir;
+    use buck2_fs::fs_util::uncategorized as fs_util;
     use buck2_fs::paths::RelativePathBuf;
     use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
     use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
@@ -329,7 +328,7 @@ mod state_machine {
             unimplemented!()
         }
 
-        fn read_dir(&self, path: &AbsNormPathBuf) -> Result<ReadDir, IoError> {
+        fn read_dir(&self, path: &AbsNormPathBuf) -> buck2_error::Result<ReadDir> {
             if let Some(barriers) = self.read_dir_barriers.as_ref() {
                 // Allow tests to advance here, execute something and then continue
                 barriers.as_ref().0.wait();

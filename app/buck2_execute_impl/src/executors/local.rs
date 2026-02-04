@@ -78,7 +78,7 @@ use buck2_execute_local::maybe_absolutize_exe;
 use buck2_execute_local::spawn_command_and_stream_events;
 use buck2_execute_local::status_decoder::DefaultStatusDecoder;
 use buck2_fs::async_fs_util;
-use buck2_fs::fs_util;
+use buck2_fs::fs_util::uncategorized as fs_util;
 use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_fs::paths::abs_path::AbsPath;
 use buck2_resource_control::ActionFreezeEvent;
