@@ -162,9 +162,9 @@ impl DownloadFileAction {
             Some(s) => Some(s),
             None => {
                 let url = self.url(client);
-                let head = http_head(client, url).await.map_err(|e| {
-                    buck2_error::Error::from(e).tag([ErrorTag::DownloadFileHeadRequest])
-                })?;
+                let head = http_head(client, url)
+                    .await
+                    .map_err(|e| e.tag([ErrorTag::DownloadFileHeadRequest]))?;
 
                 head.headers()
                     .get(http::header::CONTENT_LENGTH)

@@ -258,7 +258,6 @@ impl Action for CasArtifactAction {
                     DirectoryKind::Tree => re_client
                         .download_typed_blobs::<RE::Tree>(None, vec![self.inner.digest.to_re()])
                         .await
-                        .map_err(buck2_error::Error::from)
                         .and_then(|trees| {
                             trees
                                 .into_iter()
@@ -275,7 +274,6 @@ impl Action for CasArtifactAction {
                                 vec![self.inner.digest.to_re()],
                             )
                             .await
-                            .map_err(buck2_error::Error::from)
                             .and_then(|dirs| {
                                 dirs.into_iter()
                                     .next()

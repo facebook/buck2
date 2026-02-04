@@ -198,10 +198,9 @@ impl Action for WriteMacrosToFileAction {
                 }
 
                 if self.outputs.len() != output_contents.len() {
-                    return Err(buck2_error::Error::from(
-                        WriteMacrosActionValidationError::InconsistentNumberOfMacroArtifacts,
-                    )
-                    .into());
+                    return Err(
+                        WriteMacrosActionValidationError::InconsistentNumberOfMacroArtifacts.into(),
+                    );
                 }
 
                 std::iter::zip(self.outputs.iter(), output_contents.into_iter())

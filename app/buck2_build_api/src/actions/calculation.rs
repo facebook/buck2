@@ -351,8 +351,7 @@ async fn build_action_inner(
                 .mark_emitted({
                     let owner = action.owner().dupe();
                     Arc::new(move |f| write!(f, "Failed to build '{owner}'"))
-                })
-                .into());
+                }));
 
             error_diagnostics
         }
@@ -639,8 +638,7 @@ impl ActionCalculation {
         // build_action is called for every action key. We don't use `async fn` to ensure that it has minimal cost.
         // We don't currently consume this in buck_e2e but it's good to log for debugging purposes.
         debug!("build_action {}", action_key);
-        ctx.compute(BuildKey::ref_cast(action_key))
-            .map(|v| v?.map_err(buck2_error::Error::from))
+        ctx.compute(BuildKey::ref_cast(action_key)).map(|v| v?)
     }
 
     pub fn build_artifact<'a>(
@@ -664,9 +662,7 @@ impl Key for BuildKey {
         ctx: &mut DiceComputations,
         cancellation: &CancellationContext,
     ) -> Self::Value {
-        build_action_impl(ctx, cancellation, &self.0)
-            .await
-            .map_err(buck2_error::Error::from)
+        build_action_impl(ctx, cancellation, &self.0).await
     }
 
     fn equality(x: &Self::Value, y: &Self::Value) -> bool {

@@ -180,9 +180,7 @@ mod tests {
     fn test_error_conversion() {
         let error = buck2_error!(ErrorTag::Http, "error");
 
-        let execute_error = ExecuteError::Error {
-            error: error.into(),
-        };
+        let execute_error = ExecuteError::Error { error };
 
         let action_error = ActionError::new(
             execute_error,

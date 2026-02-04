@@ -134,7 +134,7 @@ pub async fn resolve_queries(
 
     span_async_simple(
         buck2_data::AnalysisResolveQueriesStart {
-            standard_target: Some(configured_node.label().as_proto().into()),
+            standard_target: Some(configured_node.label().as_proto()),
         },
         resolve_queries_impl(ctx, configured_node, queries),
         buck2_data::AnalysisResolveQueriesEnd {},

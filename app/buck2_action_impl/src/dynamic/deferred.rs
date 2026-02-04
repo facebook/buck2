@@ -623,7 +623,7 @@ fn new_attr_value<'v>(
             )?;
             // `InputArtifactsMaterialized` marker indicates that the artifact is materialized.
             Ok(env.heap().alloc(StarlarkArtifactValue::new(
-                Artifact::from(artifact.dupe()),
+                artifact.dupe(),
                 path.to_owned(),
                 artifact_fs.fs().dupe(),
             )))

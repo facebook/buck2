@@ -1368,9 +1368,7 @@ impl DeclaredDepFiles {
             };
             let path = dep_file
                 .resolve_path(fs, content_hash.as_ref())
-                .map_err(|e| MaterializeDepFilesError::MaterializationFailed {
-                    source: e.into(),
-                })?;
+                .map_err(|e| MaterializeDepFilesError::MaterializationFailed { source: e })?;
             paths.push(path);
         }
 
@@ -1382,7 +1380,7 @@ impl DeclaredDepFiles {
         let mut stream = materializer
             .materialize_many(paths)
             .await
-            .map_err(|e| MaterializeDepFilesError::MaterializationFailed { source: e.into() })?;
+            .map_err(|e| MaterializeDepFilesError::MaterializationFailed { source: e })?;
 
         while let Some(dep_file) = stream.next().await {
             match dep_file {
@@ -1443,7 +1441,6 @@ impl DeclaredDepFiles {
                                 "Dep file is missing at {}",
                                 dep_file_path
                             )
-                            .into()
                         )?;
                         return Ok(None);
                     }
@@ -1586,10 +1583,9 @@ impl ConcreteDepFiles {
                 for after_segment in after.iter() {
                     if is_hash(after_segment.as_str()) {
                         return Err(buck2_error::internal_error!(
-                                "Path {} cannot be normalized for dep-files because it has two path segments that look like a content-based hash!",
-                                path,
-                            )
-                            .into());
+                            "Path {} cannot be normalized for dep-files because it has two path segments that look like a content-based hash!",
+                            path,
+                        ));
                     }
                 }
                 if let Some(dir_in_builder) = dir_in_builder {
@@ -1613,8 +1609,7 @@ impl ConcreteDepFiles {
                                 "Found content-based hash {} in path {} that was a leaf in the input directory!",
                                 segment,
                                 path,
-                            )
-                            .into());
+                            ));
                         }
                     }
                 }

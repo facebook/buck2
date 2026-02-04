@@ -331,7 +331,7 @@ fn to_anon_target_one_of(
             }
         }
     }
-    Err(AnonTargetCoercionError::one_of_many(errs).into())
+    Err(AnonTargetCoercionError::one_of_many(errs))
 }
 
 fn to_anon_target_tuple(
