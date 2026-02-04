@@ -743,6 +743,132 @@ pub fn relative_path_from_system(path: &Path) -> buck2_error::Result<Cow<'_, Rel
     Ok(res)
 }
 
+/// Wrapper for fs_util functions that convert to buck2_error::Result without categorization.
+/// Should only be used in tests.
+pub mod uncategorized {
+    use std::fs;
+    use std::path::Path;
+    use std::path::PathBuf;
+
+    pub use super::canonicalize_if_exists;
+    pub use super::create_dir_all;
+    pub use super::create_file_if_not_exists;
+    pub use super::disk_space_stats;
+    pub use super::open_file_if_exists;
+    pub use super::read_dir_if_exists;
+    pub use super::read_if_exists;
+    pub use super::read_to_string_if_exists;
+    pub use super::relative_path_from_system;
+    pub use super::simplified;
+    pub use super::symlink_metadata_if_exists;
+    pub use super::try_exists;
+    use crate::error::IoResultExt;
+    use crate::fs_util::FileReadGuard;
+    use crate::fs_util::FileWriteGuard;
+    use crate::fs_util::ReadDir;
+    use crate::paths::abs_norm_path::AbsNormPath;
+    use crate::paths::abs_norm_path::AbsNormPathBuf;
+    use crate::paths::abs_path::AbsPath;
+
+    pub fn symlink<P, Q>(original: P, link: Q) -> buck2_error::Result<()>
+    where
+        P: AsRef<Path>,
+        Q: AsRef<AbsPath>,
+    {
+        super::symlink(original, link).uncategorized()
+    }
+
+    pub fn set_current_dir<P: AsRef<AbsPath>>(path: P) -> buck2_error::Result<()> {
+        super::set_current_dir(path).uncategorized()
+    }
+
+    pub fn create_dir<P: AsRef<AbsPath>>(path: P) -> buck2_error::Result<()> {
+        super::create_dir(path).uncategorized()
+    }
+
+    pub fn create_dir_if_not_exists<P: AsRef<AbsPath>>(path: P) -> buck2_error::Result<()> {
+        super::create_dir_if_not_exists(path).uncategorized()
+    }
+
+    pub fn read_dir<P: AsRef<AbsNormPath>>(path: P) -> buck2_error::Result<ReadDir> {
+        super::read_dir(path).uncategorized()
+    }
+
+    pub fn remove_file<P: AsRef<AbsPath>>(path: P) -> buck2_error::Result<()> {
+        super::remove_file(path).uncategorized()
+    }
+
+    pub fn copy<P: AsRef<AbsPath>, Q: AsRef<AbsPath>>(from: P, to: Q) -> buck2_error::Result<u64> {
+        super::copy(from, to).uncategorized()
+    }
+
+    pub fn read_link<P: AsRef<AbsPath>>(path: P) -> buck2_error::Result<PathBuf> {
+        super::read_link(path).uncategorized()
+    }
+
+    pub fn rename<P: AsRef<AbsPath>, Q: AsRef<AbsPath>>(from: P, to: Q) -> buck2_error::Result<()> {
+        super::rename(from, to).uncategorized()
+    }
+
+    pub fn write<P: AsRef<AbsPath>, C: AsRef<[u8]>>(
+        path: P,
+        contents: C,
+    ) -> buck2_error::Result<()> {
+        super::write(path, contents).uncategorized()
+    }
+
+    pub fn metadata<P: AsRef<AbsPath>>(path: P) -> buck2_error::Result<fs::Metadata> {
+        super::metadata(path).uncategorized()
+    }
+
+    pub fn symlink_metadata<P: AsRef<AbsPath>>(path: P) -> buck2_error::Result<fs::Metadata> {
+        super::symlink_metadata(path).uncategorized()
+    }
+
+    pub fn set_permissions<P: AsRef<AbsPath>>(
+        path: P,
+        perm: fs::Permissions,
+    ) -> buck2_error::Result<()> {
+        super::set_permissions(path, perm).uncategorized()
+    }
+
+    pub fn set_executable<P: AsRef<AbsPath>>(path: P, executable: bool) -> buck2_error::Result<()> {
+        super::set_executable(path, executable).uncategorized()
+    }
+
+    pub fn remove_dir_all<P: AsRef<AbsPath>>(path: P) -> buck2_error::Result<()> {
+        super::remove_dir_all(path).uncategorized()
+    }
+
+    pub fn remove_all<P: AsRef<AbsPath>>(path: P) -> buck2_error::Result<()> {
+        super::remove_all(path).uncategorized()
+    }
+
+    pub fn read<P: AsRef<AbsPath>>(path: P) -> buck2_error::Result<Vec<u8>> {
+        super::read(path).uncategorized()
+    }
+
+    pub fn read_to_string<P: AsRef<AbsPath>>(path: P) -> buck2_error::Result<String> {
+        super::read_to_string(path).uncategorized()
+    }
+
+    pub fn canonicalize<P: AsRef<AbsPath>>(path: P) -> buck2_error::Result<AbsNormPathBuf> {
+        super::canonicalize(path).uncategorized()
+    }
+
+    pub fn remove_dir<P: AsRef<AbsPath>>(path: P) -> buck2_error::Result<()> {
+        super::remove_dir(path).uncategorized()
+    }
+
+    pub fn create_file<P: AsRef<AbsPath>>(path: P) -> buck2_error::Result<FileWriteGuard> {
+        super::create_file(path).uncategorized()
+    }
+
+    pub fn open_file<P: AsRef<AbsPath>>(path: P) -> buck2_error::Result<FileReadGuard> {
+        super::open_file(path).uncategorized()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::collections::HashMap;
