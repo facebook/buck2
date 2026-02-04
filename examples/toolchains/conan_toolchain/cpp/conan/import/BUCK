@@ -2,6 +2,9 @@
 # Update using `buck2 run self//cpp/conan:update`
 
 load(
+
+oncall("build_infra")
+
     "@prelude//toolchains/conan:defs.bzl",
     "conan_component",
     "conan_dep",
