@@ -44,7 +44,7 @@ use crate::file_watcher::FileWatcher;
 use crate::mergebase::Mergebase;
 use crate::stats::FileWatcherStats;
 
-fn ignore_event_kind(event_kind: &EventKind) -> bool {
+fn ignore_event_kind(event_kind: EventKind) -> bool {
     match event_kind {
         EventKind::Access(_) => true,
         EventKind::Modify(ModifyKind::Metadata(MetadataKind::Ownership))
@@ -115,7 +115,7 @@ impl NotifyFileData {
                 debug!("FileWatcher: File change events were missed");
             }
 
-            if ignore || ignore_event_kind(&event.kind) {
+            if ignore || ignore_event_kind(event.kind) {
                 self.ignored += 1;
             } else {
                 self.events.insert((cell_path, event.kind.clone()));
