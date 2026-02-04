@@ -95,7 +95,19 @@ def _cxx_tools_info_toolchain_impl(ctx: AnalysisContext):
 def _cxx_toolchain_from_cxx_tools_info(ctx: AnalysisContext, cxx_tools_info: CxxToolsInfo, target_name = "x86_64"):
     os = ctx.attrs._target_os_type[OsLookup].os
     archiver_supports_argfiles = os != Os("macos")
-    additional_linker_flags = ["-fuse-ld=lld"] if os == Os("linux") and cxx_tools_info.linker != "g++" and cxx_tools_info.cxx_compiler != "g++" else []
+
+    # Determine stdlib-specific flags for clang
+    stdlib_compiler_flags = []
+    stdlib_linker_flags = []
+    is_clang = cxx_tools_info.compiler_type == "clang"
+    if is_clang and (os == Os("linux") or os == Os("macos")):
+        stdlib_compiler_flags = ["-stdlib=libc++"]
+        stdlib_linker_flags = ["-stdlib=libc++"]
+
+    additional_linker_flags = []
+    if os == Os("linux") and cxx_tools_info.linker != "g++" and cxx_tools_info.cxx_compiler != "g++":
+        additional_linker_flags.append("-fuse-ld=lld")
+    additional_linker_flags.extend(stdlib_linker_flags)
 
     if os == Os("windows"):
         linker_type = LinkerType("windows")
@@ -187,7 +199,7 @@ def _cxx_toolchain_from_cxx_tools_info(ctx: AnalysisContext, cxx_tools_info: Cxx
             cxx_compiler_info = CxxCompilerInfo(
                 compiler = _run_info(cxx_tools_info.cxx_compiler),
                 preprocessor_flags = [],
-                compiler_flags = ctx.attrs.cxx_flags,
+                compiler_flags = stdlib_compiler_flags + ctx.attrs.cxx_flags,
                 compiler_type = cxx_tools_info.compiler_type,
                 supports_two_phase_compilation = supports_two_phase_compilation,
                 supports_content_based_paths = ctx.attrs.supports_content_based_paths,
@@ -195,7 +207,7 @@ def _cxx_toolchain_from_cxx_tools_info(ctx: AnalysisContext, cxx_tools_info: Cxx
             c_compiler_info = CCompilerInfo(
                 compiler = _run_info(cxx_tools_info.compiler),
                 preprocessor_flags = [],
-                compiler_flags = ctx.attrs.c_flags,
+                compiler_flags = stdlib_compiler_flags + ctx.attrs.c_flags,
                 compiler_type = cxx_tools_info.compiler_type,
                 supports_content_based_paths = ctx.attrs.supports_content_based_paths,
             ),
