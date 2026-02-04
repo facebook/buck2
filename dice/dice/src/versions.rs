@@ -706,6 +706,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::nonminimal_bool)]
     fn version_range_ops() {
         let r1 = VersionRange::bounded(VersionNumber::new(1), VersionNumber::new(4));
         let r2 = VersionRange::bounded(VersionNumber::new(1), VersionNumber::new(4));
