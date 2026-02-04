@@ -19,15 +19,6 @@ rust_library(
         # ```
         "ovr_config//os:windows": False,
     }),
-    os_deps = [
-        (
-            "windows",
-            [
-                "fbsource//third-party/rust:common-path",
-                "fbsource//third-party/rust:winapi",
-            ],
-        ),
-    ],
     test_deps = [
         "fbsource//third-party/rust:assert_matches",
         "fbsource//third-party/rust:serde_json",
@@ -75,7 +66,13 @@ rust_library(
         "//buck2/shed/static_interner:static_interner",
         "//buck2/starlark-rust/starlark_map:starlark_map",
         # @oss-disable[end= ]: "//common/rust/user:user",
-    ],
+    ] + select({
+        "DEFAULT": [],
+        "ovr_config//os:windows": [
+            "fbsource//third-party/rust:common-path",
+            "fbsource//third-party/rust:winapi",
+        ],
+    }),
 )
 
 rust_unittest(

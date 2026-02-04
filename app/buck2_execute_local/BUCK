@@ -7,28 +7,6 @@ rust_library(
     srcs = glob(
         ["src/**/*.rs"],
     ),
-    os_deps = [
-        (
-            "linux",
-            [
-                "fbsource//third-party/rust:nix",
-            ],
-        ),
-        (
-            "macos",
-            [
-                "fbsource//third-party/rust:nix",
-            ],
-        ),
-        (
-            "windows",
-            [
-                "fbsource//third-party/rust:winapi",
-                "//buck2/app/buck2_wrapper_common:buck2_wrapper_common",
-                "//buck2/gazebo/dupe:dupe",
-            ],
-        ),
-    ],
     test_deps = [
         "fbsource//third-party/rust:assert_matches",
         "fbsource//third-party/rust:sysinfo",
@@ -54,5 +32,18 @@ rust_library(
         "//buck2/app/buck2_fs:buck2_fs",
         "//buck2/app/buck2_miniperf_proto:buck2_miniperf_proto",
         "//buck2/app/buck2_resource_control:buck2_resource_control",
-    ],
+    ] + select({
+        "DEFAULT": [],
+        "ovr_config//os:linux": [
+            "fbsource//third-party/rust:nix",
+        ],
+        "ovr_config//os:macos": [
+            "fbsource//third-party/rust:nix",
+        ],
+        "ovr_config//os:windows": [
+            "fbsource//third-party/rust:winapi",
+            "//buck2/app/buck2_wrapper_common:buck2_wrapper_common",
+            "//buck2/gazebo/dupe:dupe",
+        ],
+    }),
 )

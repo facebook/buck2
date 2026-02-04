@@ -7,20 +7,6 @@ rust_library(
     srcs = glob(
         ["src/**/*.rs"],
     ),
-    os_deps = [
-        (
-            "linux",
-            [
-                "fbsource//third-party/rust:nix",
-            ],
-        ),
-        (
-            "macos",
-            [
-                "fbsource//third-party/rust:nix",
-            ],
-        ),
-    ],
     test_deps = [
         "fbsource//third-party/rust:tempfile",
     ],
@@ -44,5 +30,13 @@ rust_library(
         "//buck2/app/buck2_util:buck2_util",
         "//buck2/app/buck2_wrapper_common:buck2_wrapper_common",
         "//buck2/gazebo/dupe:dupe",
-    ],
+    ] + select({
+        "DEFAULT": [],
+        "ovr_config//os:linux": [
+            "fbsource//third-party/rust:nix",
+        ],
+        "ovr_config//os:macos": [
+            "fbsource//third-party/rust:nix",
+        ],
+    }),
 )

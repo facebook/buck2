@@ -10,20 +10,6 @@ rust_library(
     named_deps = {
         # @oss-disable[end= ]: "edenfs_clients": "//eden/fs/service:thrift-rust-clients",
     },
-    os_deps = [
-        (
-            "linux",
-            [
-                "fbsource//third-party/rust:nix",
-            ],
-        ),
-        (
-            "macos",
-            [
-                "fbsource//third-party/rust:nix",
-            ],
-        ),
-    ],
     deps = [
         "fbsource//third-party/rust:anyhow",
         "fbsource//third-party/rust:clap",
@@ -58,5 +44,13 @@ rust_library(
         "//buck2/starlark-rust/starlark_syntax:starlark_syntax",
         "//buck2/superconsole:superconsole",
         "//watchman/rust/watchman_client:watchman_client",
-    ],
+    ] + select({
+        "DEFAULT": [],
+        "ovr_config//os:linux": [
+            "fbsource//third-party/rust:nix",
+        ],
+        "ovr_config//os:macos": [
+            "fbsource//third-party/rust:nix",
+        ],
+    }),
 )

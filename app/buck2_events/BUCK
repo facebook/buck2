@@ -7,20 +7,6 @@ rust_library(
     srcs = glob(
         ["src/**/*.rs"],
     ),
-    os_deps = [
-        (
-            "windows",
-            ["fbsource//third-party/rust:winver"],
-        ),
-        (
-            "linux",
-            ["fbsource//third-party/rust:sys-info"],
-        ),
-        (
-            "macos",
-            ["fbsource//third-party/rust:sys-info"],
-        ),
-    ],
     test_deps = ["fbsource//third-party/rust:tokio"],
     deps = [
         "fbsource//third-party/rust:console",
@@ -53,5 +39,16 @@ rust_library(
         # @oss-disable[end= ]: "//common/rust/user:user",
         # @oss-disable[end= ]: "//devx_www/cross_env_session_id:cross_env_session_id",
         # @oss-disable[end= ]: "//devx_www/devx_session_id_rust:devx_session_id",
-    ],
+    ] + select({
+        "DEFAULT": [],
+        "ovr_config//os:linux": [
+            "fbsource//third-party/rust:sys-info",
+        ],
+        "ovr_config//os:macos": [
+            "fbsource//third-party/rust:sys-info",
+        ],
+        "ovr_config//os:windows": [
+            "fbsource//third-party/rust:winver",
+        ],
+    }),
 )

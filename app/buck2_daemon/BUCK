@@ -5,20 +5,6 @@ oncall("build_infra")
 rust_library(
     name = "buck2_daemon",
     srcs = glob(["src/**/*.rs"]),
-    os_deps = [
-        (
-            "linux",
-            [
-                "fbsource//third-party/rust:nix",
-            ],
-        ),
-        (
-            "macos",
-            [
-                "fbsource//third-party/rust:nix",
-            ],
-        ),
-    ],
     test_deps = [
         "//buck2/app/buck2_certs:buck2_certs",
         "//common/rust/shed/fbinit:fbinit",
@@ -47,5 +33,13 @@ rust_library(
         "//buck2/dice/dice:dice",
         "//buck2/gazebo/dupe:dupe",
         # @oss-disable[end= ]: "//common/rust/gflags:gflags",
-    ],
+    ] + select({
+        "DEFAULT": [],
+        "ovr_config//os:linux": [
+            "fbsource//third-party/rust:nix",
+        ],
+        "ovr_config//os:macos": [
+            "fbsource//third-party/rust:nix",
+        ],
+    }),
 )

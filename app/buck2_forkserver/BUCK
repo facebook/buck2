@@ -12,14 +12,6 @@ rust_library(
         "ovr_config//os:linux",
         "ovr_config//os:macos",
     ],
-    os_deps = [
-        (
-            "linux",
-            [
-                ":buck2_miniperf_data",
-            ],
-        ),
-    ],
     deps = [
         "fbsource//third-party/rust:arc-swap",
         "fbsource//third-party/rust:async-trait",
@@ -40,7 +32,12 @@ rust_library(
         "//buck2/app/buck2_resource_control:buck2_resource_control",
         "//buck2/app/buck2_util:buck2_util",
         "//buck2/gazebo/dupe:dupe",
-    ],
+    ] + select({
+        "DEFAULT": [],
+        "ovr_config//os:linux": [
+            ":buck2_miniperf_data",
+        ],
+    }),
 )
 
 rust_linkable_symbol(
