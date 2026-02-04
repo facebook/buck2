@@ -244,15 +244,6 @@ def compile_underlying_pcm(
         compiled_pcm_deps_providers,
         swift_cxx_args: list[str],
         framework_search_path_flags: cmd_args) -> SwiftCompiledModuleInfo:
-    modulemap_path = uncompiled_pcm_info.modulemap_artifact
-    cmd = cmd_args([
-        "-Xcc",
-        "-I",
-        "-Xcc",
-        cmd_args([cmd_args(modulemap_path, parent = 1), "exported_symlink_tree"], delimiter = "/"),
-    ])
-    cmd.add(framework_search_path_flags)
-
     return _compile_pcm(
         ctx,
         "swift_underlying_pcm_compile",
@@ -260,7 +251,7 @@ def compile_underlying_pcm(
         uncompiled_pcm_info,
         compiled_pcm_deps_providers,
         swift_cxx_args,
-        cmd,
+        framework_search_path_flags,
     )
 
 def _get_base_pcm_flags(
