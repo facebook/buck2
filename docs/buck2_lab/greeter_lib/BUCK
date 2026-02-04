@@ -3,6 +3,9 @@
 # @oss-disable[end= ]: load("@fbsource//tools/build_defs:rust_library.bzl", "rust_library")
 # @oss-disable[end= ]: load("@fbsource//tools/build_defs:rust_unittest.bzl", "rust_unittest")
 
+
+oncall("build_infra")
+
 rust_library(
     name = "library",
     srcs = ["src/lib.rs"],
