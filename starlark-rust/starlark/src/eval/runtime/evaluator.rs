@@ -106,6 +106,16 @@ enum EvaluatorError {
     ZeroCallstackSize,
     #[error("Evaluation cancelled")]
     Cancelled,
+    #[error("Max heap size is already set")]
+    HeapSizeAlreadySet,
+    #[error("Max heap size cannot be zero")]
+    ZeroHeapSize,
+    #[error(
+        "Heap memory limit of {0} bytes exceeded.
+This error is usually emitted some time after the limit is actually exceeded, so the span may not \
+be informative."
+    )]
+    HeapLimitExceeded(usize),
 }
 
 /// Number of bytes to allocate between GC's.
@@ -168,6 +178,8 @@ pub struct Evaluator<'v, 'a, 'e> {
     pub(crate) soft_error_handler: &'a (dyn SoftErrorHandler + 'a),
     /// Max size of starlark stack
     pub(crate) max_callstack_size: Option<usize>,
+    /// Max size of heap memory in bytes
+    pub(crate) max_heap_size: Option<usize>,
     // The Starlark-level call-stack of functions.
     // Must go last because it's quite a big structure
     pub(crate) call_stack: CheapCallStack<'v>,
@@ -268,6 +280,7 @@ impl<'v, 'a, 'e: 'a> Evaluator<'v, 'a, 'e> {
             verbose_gc: false,
             static_typechecking: false,
             max_callstack_size: None,
+            max_heap_size: None,
             is_cancelled: Box::new(|| false),
             infrequent_instr_check_counter: 0,
         }
@@ -931,6 +944,69 @@ impl<'v, 'a, 'e: 'a> Evaluator<'v, 'a, 'e> {
         Ok(())
     }
 
+    /// Sets maximum size of the starlark heap in bytes.
+    ///
+    /// Putting aside that starlark-rust should in general not be considered secure against truly
+    /// malicious code, this check in particular is best-effort and should absolutely not be treated
+    /// as a way to guarantee bounded memory use of an evaluation. Use OS-level APIs in a subprocess
+    /// if you want that.
+    ///
+    /// Particular limitations:
+    ///  1. This limit is not enforced on allocation, but instead checked once every so often during
+    ///     evaluation. No promises on the exact frequency. It's probably possible for a user to
+    ///     allocate a large amount of memory in between two such checks, significantly exceeding
+    ///     this limit.
+    ///  2. As a result of the above, the error generated when this check fails usually will not
+    ///     point to where the memory allocation actually happened, but rather a bit later.
+    ///  3. This check only limits the memory use of the starlark heap itself. `StarlarkValue`s that
+    ///     allocate data in the Rust heap will not have that data accounted for.
+    ///  4. `starlark-rust` itself has some types that do this, in particular structs and dicts.
+    ///     Even a large dict costs only constant memory in the starlark heap, though the starlark
+    ///     values that make up the keys and values themselves will obviously have their memory use
+    ///     accounted for in their own allocations.
+    ///  5. The exact amount of memory used by a particular evaluation is of course not a stable API
+    ///     guarantee; however, the previous point means that changes to the behavior of `dict`,
+    ///     `struct`, or other types that allocate in the native heap could cause swings that would
+    ///     otherwise be unexpectedly large. For this and other reasons, users using this are
+    ///     encouraged to call `check_heap_size_limit` at the end of their evaluation and log a
+    ///     warning in case they're approaching the limit so that proactive action can be taken.
+    ///
+    /// Despite those limitations, the intent is obviously that this is useful protection against
+    /// the kinds of memory overruns that are likely from normal code patterns.
+    pub fn set_max_heap_size(&mut self, heap_size: usize) -> anyhow::Result<()> {
+        if heap_size == 0 {
+            return Err(EvaluatorError::ZeroHeapSize.into());
+        }
+        if self.max_heap_size.is_some() {
+            return Err(EvaluatorError::HeapSizeAlreadySet.into());
+        }
+        self.max_heap_size = Some(heap_size);
+        Ok(())
+    }
+
+    /// Check if the heap size limit has been exceeded
+    ///
+    /// Returns `None` if no limit is set
+    #[inline]
+    pub fn check_heap_size_limit(&mut self) -> Option<ResourceCheckResult> {
+        let limit = self.max_heap_size?;
+
+        let current = self.heap().peak_allocated_bytes() + self.frozen_heap().allocated_bytes();
+
+        if current > limit {
+            Some(ResourceCheckResult::Exceeded(crate::Error::new_other(
+                EvaluatorError::HeapLimitExceeded(limit),
+            )))
+        } else if current > (limit / 2) {
+            Some(ResourceCheckResult::Warn {
+                usage: current,
+                limit,
+            })
+        } else {
+            Some(ResourceCheckResult::Ok)
+        }
+    }
+
     #[inline(always)]
     pub(crate) fn report_forward_progress(&mut self) -> crate::Result<()> {
         self.infrequent_instr_check_counter += 1;
@@ -948,9 +1024,22 @@ impl<'v, 'a, 'e: 'a> Evaluator<'v, 'a, 'e> {
         if (self.is_cancelled)() {
             return Err(crate::Error::new_other(EvaluatorError::Cancelled));
         }
+        if let Some(ResourceCheckResult::Exceeded(e)) = self.check_heap_size_limit() {
+            return Err(e);
+        }
         // TODO(T219887296): implement CPU-time-limiting checks here
         Ok(())
     }
+}
+
+pub enum ResourceCheckResult {
+    Ok,
+    /// Returned if the actual usage is more than half the limit.
+    Warn {
+        usage: usize,
+        limit: usize,
+    },
+    Exceeded(crate::Error),
 }
 
 pub(crate) trait EvaluationCallbacks {
@@ -1045,4 +1134,52 @@ pub(crate) fn before_stmt(
         "`before_stmt` cannot be modified during evaluation"
     );
     result
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::environment::Globals;
+    use crate::environment::Module;
+    use crate::eval::Evaluator;
+    use crate::syntax::AstModule;
+    use crate::syntax::Dialect;
+
+    #[test]
+    fn test_heap_memory_limit() -> crate::Result<()> {
+        // Test that the heap memory limit is enforced during evaluation
+        let globals = Globals::standard();
+        Module::with_temp_heap(|module| {
+            let mut eval = Evaluator::new(&module);
+            // Set a low heap limit (1000 bytes)
+            eval.set_max_heap_size(10000).unwrap();
+
+            let ast = AstModule::parse(
+                "test.bzl",
+                // Small program that shouldn't exceed the limit
+                "x = 1 + 1".to_owned(),
+                &Dialect::Standard,
+            )
+            .unwrap();
+            // This should succeed
+            eval.eval_module(ast, &globals).unwrap();
+
+            let ast = AstModule::parse(
+                "test.bzl",
+                // Allocate many strings to exceed heap limit
+                "def allocate():\n    x = [str(i) * 100 for i in range(10000)]\nallocate()"
+                    .to_owned(),
+                &Dialect::Standard,
+            )
+            .unwrap();
+            let err = eval.eval_module(ast, &globals);
+
+            let expected = "Heap memory limit";
+            let err_msg = format!("{err:#?}");
+            if !err_msg.contains(expected) {
+                panic!("Error:\n{err:#?}\nExpected:\n{expected:?}")
+            }
+
+            Ok(())
+        })
+    }
 }
