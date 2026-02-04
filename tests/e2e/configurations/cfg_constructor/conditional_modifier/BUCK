@@ -45,3 +45,13 @@ conditional_modifier(
         "DEFAULT": None,
     },
 )
+
+# Test that cell aliases work correctly for both key and value.
+# config// is an alias for ovr_config//.
+conditional_modifier(
+    name = "test_cell_alias_conditional_modifier",
+    modifier = {
+        "DEFAULT": "config//build_mode:sanitizer_type[tsan]",
+        "config//os:windows": None,
+    },
+)
