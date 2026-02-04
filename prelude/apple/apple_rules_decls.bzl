@@ -963,6 +963,7 @@ apple_test = prelude_rule(
         apple_common.codesign_identity_arg() |
         apple_common.defaults_arg() |
         apple_common.deps_arg() |
+        cxx_common.exported_deps_arg() |
         apple_common.devirt_enabled_arg() |
         apple_common.diagnostics_arg() |
         apple_common.enable_cxx_interop_arg() |
