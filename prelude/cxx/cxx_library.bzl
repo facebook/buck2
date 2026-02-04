@@ -812,6 +812,8 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
         # This code sets merged_native_link_info only in some cases, leaving it unassigned in others.
         # Add a fake definition set to None so the assignment checker is satisfied.
         merged_native_link_info = None
+        inherited_non_exported_link = None
+        inherited_exported_link = None
 
     # Propagate shared libraries up the tree.
     if impl_params.generate_providers.shared_libraries:
@@ -1172,7 +1174,11 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
 
             # Check if we have the required output styles for this linkage
             required_output_styles = get_output_styles_for_linkage(linkage)
-            has_required_outputs = all([style in library_outputs.link_infos for style in required_output_styles])
+            has_required_outputs = True
+            for style in required_output_styles:
+                if style not in library_outputs.link_infos:
+                    has_required_outputs = False
+                    break
 
             # Include all providers needed for this sub-target to be usable as a dependency
             linkage_providers = [
