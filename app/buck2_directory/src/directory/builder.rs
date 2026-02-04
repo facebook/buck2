@@ -402,7 +402,7 @@ where
                     }
                     Entry::Vacant(entry) => {
                         if let MapEntryOperation::Overwrite(enew) =
-                            map_leaf(ctx, None, &entry.key())?
+                            map_leaf(ctx, None, entry.key())?
                         {
                             entry.insert(enew);
                         }

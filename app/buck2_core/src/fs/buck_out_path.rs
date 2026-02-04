@@ -371,7 +371,7 @@ impl BuckOutPathResolver {
         self.prefixed_path_for_owner(
             ForwardRelativePath::unchecked_new("tmp"),
             &path.owner,
-            Some(&path.action_key.as_str()),
+            Some(path.action_key.as_str()),
             &path.path,
             // Fully hash scratch path as it can be very long and cause path too long issue on Windows.
             true,
@@ -416,7 +416,7 @@ impl BuckOutPathResolver {
             ForwardRelativePath::unchecked_new("test_discovery"),
             &BaseDeferredKey::TargetLabel(label.target().dupe()),
             None,
-            &path,
+            path,
             true,
             BuckOutPathKind::Configuration,
             None,

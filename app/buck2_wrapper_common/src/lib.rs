@@ -109,7 +109,7 @@ fn find_buck2_processes(who_is_asking: WhoIsAsking) -> Vec<ProcessInfo> {
     for (pid, process) in system.processes() {
         // See comment on `get_all_tgids_linux`
         if let Some(filtered_proc_list) = filtered_proc_list.as_ref() {
-            if !filtered_proc_list.contains(&pid) {
+            if !filtered_proc_list.contains(pid) {
                 continue;
             }
         }

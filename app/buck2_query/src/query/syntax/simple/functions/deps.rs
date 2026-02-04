@@ -125,7 +125,7 @@ impl<'a, Env: QueryEnvironment> DepsFunction<Env> {
                 }
 
                 Some(Filter::<'a, Env> {
-                    inner_env: &env,
+                    inner_env: env,
                     functions,
                     expr,
                 })
@@ -142,7 +142,7 @@ impl<'a, Env: QueryEnvironment> DepsFunction<Env> {
         depth: Option<i32>,
         captured_expr: Option<&CapturedExpr<'_>>,
     ) -> buck2_error::Result<TargetSet<Env::Target>> {
-        let filter = self.make_filter(&env, functions, captured_expr);
+        let filter = self.make_filter(env, functions, captured_expr);
         let filter_ref = filter
             .as_ref()
             .map(|v| v as &dyn TraversalFilter<Env::Target>);
@@ -159,7 +159,7 @@ impl<'a, Env: QueryEnvironment> DepsFunction<Env> {
         depth: Option<i32>,
         captured_expr: Option<&CapturedExpr<'_>>,
     ) -> buck2_error::Result<TargetSet<Env::Target>> {
-        let filter = self.make_filter(&env, functions, captured_expr);
+        let filter = self.make_filter(env, functions, captured_expr);
         let filter_ref = filter
             .as_ref()
             .map(|v| v as &dyn TraversalFilter<Env::Target>);
@@ -175,7 +175,7 @@ impl<'a, Env: QueryEnvironment> DepsFunction<Env> {
         to: &TargetSet<Env::Target>,
         captured_expr: Option<&CapturedExpr<'_>>,
     ) -> buck2_error::Result<TargetSet<Env::Target>> {
-        let filter = self.make_filter(&env, functions, captured_expr);
+        let filter = self.make_filter(env, functions, captured_expr);
         let filter_ref = filter
             .as_ref()
             .map(|v| v as &dyn TraversalFilter<Env::Target>);
@@ -191,7 +191,7 @@ impl<'a, Env: QueryEnvironment> DepsFunction<Env> {
         to: &TargetSet<Env::Target>,
         captured_expr: Option<&CapturedExpr<'_>>,
     ) -> buck2_error::Result<TargetSet<Env::Target>> {
-        let filter = self.make_filter(&env, functions, captured_expr);
+        let filter = self.make_filter(env, functions, captured_expr);
         let filter_ref = filter
             .as_ref()
             .map(|v| v as &dyn TraversalFilter<Env::Target>);
