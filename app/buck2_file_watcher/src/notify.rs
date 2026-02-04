@@ -118,7 +118,7 @@ impl NotifyFileData {
             if ignore || ignore_event_kind(event.kind) {
                 self.ignored += 1;
             } else {
-                self.events.insert((cell_path, event.kind.clone()));
+                self.events.insert((cell_path, event.kind));
             }
         }
         Ok(())
