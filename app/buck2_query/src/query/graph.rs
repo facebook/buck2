@@ -11,6 +11,7 @@
 pub(crate) mod async_bfs;
 pub mod bfs;
 pub mod dfs;
+#[allow(clippy::module_inception)]
 pub(crate) mod graph;
 pub mod node;
 pub mod successors;

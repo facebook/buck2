@@ -9,5 +9,6 @@
  */
 
 pub mod interner;
+#[allow(clippy::module_inception)]
 pub mod label;
 pub(crate) mod triomphe_thin_arc_borrow;

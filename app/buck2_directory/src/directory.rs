@@ -11,6 +11,7 @@
 pub mod builder;
 pub mod builder_lazy;
 pub mod dashmap_directory_interner;
+#[allow(clippy::module_inception)]
 pub mod directory;
 pub mod directory_data;
 pub mod directory_hasher;
