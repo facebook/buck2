@@ -33,15 +33,18 @@
 #[macro_export]
 macro_rules! register_avalue_simple_frozen {
     ($type:ty) => {
-        #[cfg(feature = "pagable")]
-        $crate::__derive_refs::inventory::submit! {
-            $crate::__derive_refs::VTableRegistryEntry {
-                deser_type_id: $crate::__derive_refs::DeserTypeId::of::<$type>(),
-                vtable: $crate::__derive_refs::AValueVTable::new::<
-                    $crate::__derive_refs::AValueSimple<$type>
-                >(),
+        #[allow(unexpected_cfgs)]
+        const _: () = {
+            #[cfg(feature = "pagable")]
+            $crate::__derive_refs::inventory::submit! {
+                $crate::__derive_refs::VTableRegistryEntry {
+                    deser_type_id: $crate::__derive_refs::DeserTypeId::of::<$type>(),
+                    vtable: $crate::__derive_refs::AValueVTable::new::<
+                        $crate::__derive_refs::AValueSimple<$type>
+                    >(),
+                }
             }
-        }
+        };
     };
 }
 
@@ -51,13 +54,16 @@ macro_rules! register_avalue_simple_frozen {
 /// that use custom AValue implementations instead of `AValueSimple<T>`.
 macro_rules! register_special_avalue_frozen {
     ($starlark_value:ty, $avalue:ty) => {
-        #[cfg(feature = "pagable")]
-        inventory::submit! {
-            $crate::pagable::vtable_registry::VTableRegistryEntry {
-                deser_type_id: $crate::__derive_refs::DeserTypeId::of::<$starlark_value>(),
-                vtable: $crate::values::layout::vtable::AValueVTable::new::<$avalue>(),
+        #[allow(unexpected_cfgs)]
+        const _: () = {
+            #[cfg(feature = "pagable")]
+            inventory::submit! {
+                $crate::pagable::vtable_registry::VTableRegistryEntry {
+                    deser_type_id: $crate::__derive_refs::DeserTypeId::of::<$starlark_value>(),
+                    vtable: $crate::values::layout::vtable::AValueVTable::new::<$avalue>(),
+                }
             }
-        }
+        };
     };
 }
 
@@ -77,11 +83,14 @@ pub(crate) use register_special_avalue_frozen;
 #[macro_export]
 macro_rules! register_type_matcher {
     ($matcher:ty) => {
-        #[cfg(feature = "pagable")]
-        $crate::register_avalue_simple_frozen!(
-            $crate::values::typing::TypeCompiledImplAsStarlarkValue<
-                $matcher,
-            >
-        );
+        #[allow(unexpected_cfgs)]
+        const _: () = {
+            #[cfg(feature = "pagable")]
+            $crate::register_avalue_simple_frozen!(
+                $crate::values::typing::TypeCompiledImplAsStarlarkValue<
+                    $matcher,
+                >
+            );
+        };
     };
 }
