@@ -161,7 +161,7 @@ async def buck_fixture(  # noqa C901 : "too complex"
             if sys.platform == "linux":
                 extra_config_lines.append("[host_features]\ngvfs = true\n")
             # NOTE: This buckconfig is depended on by our CI validation for
-            # CLI modifiers in tools/build_defs/buck2/cfg/validation.bzl. If
+            # CLI modifiers in tools/build_defs/buck2/cfg/validation/validation.bzl. If
             # the name of this buckconfig ever changes, please update the validation
             # as well.
             extra_config_lines.append("[buildfile]\nextra_for_test = TARGETS.test\n")
