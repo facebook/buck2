@@ -30,6 +30,9 @@ pub struct BuildReportOption {
 
     /// Exclude error diagnostics from action errors in the build report.
     exclude_action_error_diagnostics: bool,
+
+    /// Truncate error content in the build report to reduce size.
+    truncate_error_content: bool,
 }
 
 fn parse_build_report_option(s: &str) -> buck2_error::Result<BuildReportOption> {
@@ -37,6 +40,7 @@ fn parse_build_report_option(s: &str) -> buck2_error::Result<BuildReportOption> 
     let mut include_package_project_relative_paths = false;
     let mut include_artifact_hash_information = false;
     let mut exclude_action_error_diagnostics = false;
+    let mut truncate_error_content = false;
 
     if s.to_lowercase() == "fill-out-failures" {
         fill_out_failures = true;
@@ -46,9 +50,11 @@ fn parse_build_report_option(s: &str) -> buck2_error::Result<BuildReportOption> 
         include_artifact_hash_information = true;
     } else if s.to_lowercase() == "exclude-action-error-diagnostics" {
         exclude_action_error_diagnostics = true;
+    } else if s.to_lowercase() == "truncate-error-content" {
+        truncate_error_content = true;
     } else {
         warn!(
-            "Incorrect syntax for build report option. Got: `{}` but expected one of `fill-out-failures, package-project-relative-paths, include-artifact-hash-information, exclude-action-error-diagnostics`",
+            "Incorrect syntax for build report option. Got: `{}` but expected one of `fill-out-failures, package-project-relative-paths, include-artifact-hash-information, exclude-action-error-diagnostics, truncate-error-content`",
             s.to_owned()
         )
     }
@@ -57,6 +63,7 @@ fn parse_build_report_option(s: &str) -> buck2_error::Result<BuildReportOption> 
         include_package_project_relative_paths,
         include_artifact_hash_information,
         exclude_action_error_diagnostics,
+        truncate_error_content,
     })
 }
 
@@ -88,6 +95,9 @@ pub struct CommonBuildOptions {
     ///
     /// `exclude-action-error-diagnostics`:
     /// exclude error_diagnostics field from action errors in the build report.
+    ///
+    /// `truncate-error-content`:
+    /// truncate error content in the build report to reduce size.
     #[clap(
         long = "build-report-options",
         requires = "build_report",
@@ -227,6 +237,10 @@ impl CommonBuildOptions {
             .build_report_options
             .iter()
             .any(|option| option.exclude_action_error_diagnostics);
+        let unstable_truncate_error_content = self
+            .build_report_options
+            .iter()
+            .any(|option| option.truncate_error_content);
         let concurrency = self
             .num_threads
             .map(|num| buck2_cli_proto::Concurrency { concurrency: num });
@@ -269,6 +283,7 @@ impl CommonBuildOptions {
             unstable_include_artifact_hash_information,
             unstable_streaming_build_report_filename,
             unstable_exclude_action_error_diagnostics,
+            unstable_truncate_error_content,
         }
     }
 }

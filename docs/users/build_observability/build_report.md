@@ -25,6 +25,9 @@ options to customize the build report:
   action errors in the build report. This can reduce the size of build reports
   when detailed error diagnostic information from action error handlers is not
   needed.
+- `truncate-error-content`: Truncate error message content in the build report
+  to reduce size. This applies the same truncation limits used for error logging
+  (20KB per error message).
 
 At a high level, the build report outputs information for each of the targets
 that you requested to have built on the CLI. As a result, it may report

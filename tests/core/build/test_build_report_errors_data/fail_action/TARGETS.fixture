@@ -71,3 +71,8 @@ fail_error_handler_with_output(
     name = "fail_error_handler_output_not_written",
     src = "fail_compile.py",
 )
+
+fail_one_with_error_handler(
+    name = "fail_large_error",
+    src = "fail_large_error.py",
+)

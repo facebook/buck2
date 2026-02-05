@@ -83,6 +83,8 @@ Options:
           `exclude-action-error-diagnostics`: exclude error_diagnostics field from action errors in
           the build report.
 
+          `truncate-error-content`: truncate error content in the build report to reduce size.
+
       --streaming-build-report <PATH>
           Stream intermediary build reports to a file in json lines format.
 

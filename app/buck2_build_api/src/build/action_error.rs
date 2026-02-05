@@ -20,6 +20,19 @@ use serde::Serialize;
 
 use crate::build::build_report::BuildReportCollector;
 
+/// Maximum size for error content when truncation is enabled (20KB).
+/// This matches the MAX_STRING_BYTES limit used in smart_truncate_event.rs for Scribe logging.
+pub(crate) const MAX_ERROR_CONTENT_BYTES: usize = 20 * 1024;
+
+/// Options for building action errors in build reports.
+#[derive(Debug, Clone, Copy, Default)]
+pub(crate) struct ActionErrorBuildOptions {
+    /// Exclude error diagnostics from action errors.
+    pub exclude_action_error_diagnostics: bool,
+    /// Truncate error content to reduce build report size.
+    pub truncate_error_content: bool,
+}
+
 #[derive(Debug, Clone, Serialize, PartialOrd, Ord, PartialEq, Eq)]
 struct BuildReportActionName {
     category: String,
@@ -79,7 +92,7 @@ impl BuildReportActionError {
     pub(crate) fn new<'a>(
         error: &ActionError,
         collector: &mut BuildReportCollector<'a>,
-        exclude_action_error_diagnostics: bool,
+        opts: ActionErrorBuildOptions,
     ) -> Self {
         let reason = get_action_error_reason(error).ok().unwrap_or_default();
 
@@ -105,7 +118,7 @@ impl BuildReportActionError {
                 .map_or(String::default(), |name| name.identifier.clone()),
         };
 
-        let error_diagnostics = if exclude_action_error_diagnostics {
+        let error_diagnostics = if opts.exclude_action_error_diagnostics {
             None
         } else {
             error.error_diagnostics.clone().map(|error_diagnostics| {
@@ -146,6 +159,17 @@ impl BuildReportActionError {
             console::strip_ansi_codes(&c.cmd_stderr).to_string()
         });
         let stdout = command_details.map_or(String::default(), |c| c.cmd_stdout.clone());
+
+        // Apply truncation if enabled
+        let (reason, stderr, stdout) = if opts.truncate_error_content {
+            (
+                buck2_util::truncate::truncate(&reason, MAX_ERROR_CONTENT_BYTES),
+                buck2_util::truncate::truncate(&stderr, MAX_ERROR_CONTENT_BYTES),
+                buck2_util::truncate::truncate(&stdout, MAX_ERROR_CONTENT_BYTES),
+            )
+        } else {
+            (reason, stderr, stdout)
+        };
 
         let error_content = collector.update_string_cache(reason);
         let stderr_content = collector.update_string_cache(stderr);

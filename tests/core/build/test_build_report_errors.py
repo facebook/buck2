@@ -371,3 +371,32 @@ if not running_on_windows() and not running_on_mac():
             ),
             rel_path="fixtures/test_exclude_action_error_diagnostics.golden.json",
         )
+
+    @buck_test()
+    async def test_truncate_error_content(buck: Buck, tmp_path: Path) -> None:
+        # Test that --build-report-options=truncate-error-content truncates
+        # error message content in the build report when errors exceed 20KB.
+        # Uses a target that produces a 25KB+ error message.
+        report = tmp_path / "build-report.json"
+        await expect_failure(
+            buck.build(
+                "--build-report",
+                str(report),
+                "--build-report-options",
+                "fill-out-failures,truncate-error-content",
+                "//fail_action:fail_large_error",
+            )
+        )
+        with open(report) as f:
+            report_data = json.loads(f.read())
+
+        sanitize_build_report(report_data)
+
+        golden(
+            output=sanitize_hashes(
+                sanitize_python(
+                    json.dumps(report_data, indent=2, sort_keys=True), buck.cwd
+                )
+            ),
+            rel_path="fixtures/test_truncate_error_content.golden.json",
+        )

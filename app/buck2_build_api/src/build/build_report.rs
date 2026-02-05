@@ -71,7 +71,9 @@ use starlark_map::small_set::SmallSet;
 
 use crate::build::BuildProviderType;
 use crate::build::ConfiguredBuildTargetResult;
+use crate::build::action_error::ActionErrorBuildOptions;
 use crate::build::action_error::BuildReportActionError;
+use crate::build::action_error::MAX_ERROR_CONTENT_BYTES;
 use crate::build::detailed_aggregated_metrics::types::AllTargetsAggregatedData;
 use crate::build::detailed_aggregated_metrics::types::DetailedAggregatedMetrics;
 use crate::build::detailed_aggregated_metrics::types::TopLevelTargetAggregatedData;
@@ -252,6 +254,7 @@ pub struct BuildReportOpts {
     pub graph_properties_opts: GraphPropertiesOptions,
     pub unstable_streaming_build_report_filename: String,
     pub unstable_exclude_action_error_diagnostics: bool,
+    pub unstable_truncate_error_content: bool,
 }
 
 pub struct BuildReportCollector<'a> {
@@ -267,6 +270,7 @@ pub struct BuildReportCollector<'a> {
     include_package_project_relative_paths: bool,
     include_artifact_hash_information: bool,
     exclude_action_error_diagnostics: bool,
+    truncate_error_content: bool,
     graph_properties_opts: GraphPropertiesOptions,
     total_configured_graph_sketch: Option<VersionedSketcher<ConfiguredTargetLabel>>,
 }
@@ -297,6 +301,7 @@ impl<'a> BuildReportCollector<'a> {
         include_package_project_relative_paths: bool,
         include_artifact_hash_information: bool,
         exclude_action_error_diagnostics: bool,
+        truncate_error_content: bool,
         graph_properties_opts: GraphPropertiesOptions,
     ) -> Self {
         Self {
@@ -312,6 +317,7 @@ impl<'a> BuildReportCollector<'a> {
             include_package_project_relative_paths,
             include_artifact_hash_information,
             exclude_action_error_diagnostics,
+            truncate_error_content,
             graph_properties_opts,
             total_configured_graph_sketch: if graph_properties_opts.total_configured_graph_sketch {
                 Some(DEFAULT_SKETCH_VERSION.create_sketcher())
@@ -333,6 +339,7 @@ impl<'a> BuildReportCollector<'a> {
         include_package_project_relative_paths: bool,
         include_artifact_hash_information: bool,
         exclude_action_error_diagnostics: bool,
+        truncate_error_content: bool,
         configured: &BTreeMap<ConfiguredProvidersLabel, Option<ConfiguredBuildTargetResult>>,
         configured_to_pattern_modifiers: &HashMap<ConfiguredProvidersLabel, BTreeSet<Modifiers>>,
         other_errors: &BTreeMap<Option<ProvidersLabel>, Vec<buck2_error::Error>>,
@@ -347,6 +354,7 @@ impl<'a> BuildReportCollector<'a> {
             include_package_project_relative_paths,
             include_artifact_hash_information,
             exclude_action_error_diagnostics,
+            truncate_error_content,
             graph_properties_opts,
         );
         let mut entries = HashMap::new();
@@ -467,6 +475,7 @@ impl<'a> BuildReportCollector<'a> {
         include_package_project_relative_paths: bool,
         include_artifact_hash_information: bool,
         exclude_action_error_diagnostics: bool,
+        truncate_error_content: bool,
         bxl_label: &BxlFunctionLabel,
         errors: &[buck2_error::Error],
         detailed_metrics: Option<DetailedAggregatedMetrics>,
@@ -480,6 +489,7 @@ impl<'a> BuildReportCollector<'a> {
             include_package_project_relative_paths,
             include_artifact_hash_information,
             exclude_action_error_diagnostics,
+            truncate_error_content,
             graph_properties_opts,
         );
         let mut entries = HashMap::new();
@@ -817,6 +827,12 @@ impl<'a> BuildReportCollector<'a> {
             } else {
                 error_report.message
             };
+            // Apply truncation if enabled
+            let message = if self.truncate_error_content {
+                buck2_util::truncate::truncate(&message, MAX_ERROR_CONTENT_BYTES)
+            } else {
+                message
+            };
             let error_tags = e
                 .tags()
                 .into_iter()
@@ -829,7 +845,14 @@ impl<'a> BuildReportCollector<'a> {
                 message,
                 error_tags,
                 action_error: e.action_error().map(|e| {
-                    BuildReportActionError::new(e, self, self.exclude_action_error_diagnostics)
+                    BuildReportActionError::new(
+                        e,
+                        self,
+                        ActionErrorBuildOptions {
+                            exclude_action_error_diagnostics: self.exclude_action_error_diagnostics,
+                            truncate_error_content: self.truncate_error_content,
+                        },
+                    )
                 }),
             });
         }
@@ -991,6 +1014,7 @@ pub async fn build_report_opts<'a>(
             .clone(),
         unstable_exclude_action_error_diagnostics: build_opts
             .unstable_exclude_action_error_diagnostics,
+        unstable_truncate_error_content: build_opts.unstable_truncate_error_content,
     };
 
     Ok(build_report_opts)
@@ -1043,6 +1067,7 @@ pub fn write_build_report(
         opts.unstable_include_package_project_relative_paths,
         opts.unstable_include_artifact_hash_information,
         opts.unstable_exclude_action_error_diagnostics,
+        opts.unstable_truncate_error_content,
         configured,
         configured_to_pattern_modifiers,
         other_errors,
@@ -1079,6 +1104,7 @@ pub fn write_bxl_build_report(
         opts.unstable_include_package_project_relative_paths,
         opts.unstable_include_artifact_hash_information,
         opts.unstable_exclude_action_error_diagnostics,
+        opts.unstable_truncate_error_content,
         bxl_label,
         errors,
         detailed_metrics,
@@ -1115,6 +1141,7 @@ pub fn stream_build_report(
         opts.unstable_include_package_project_relative_paths,
         opts.unstable_include_artifact_hash_information,
         opts.unstable_exclude_action_error_diagnostics,
+        opts.unstable_truncate_error_content,
         configured,
         configured_to_pattern_modifiers,
         other_errors,
