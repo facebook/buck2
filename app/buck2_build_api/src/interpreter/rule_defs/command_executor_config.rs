@@ -438,70 +438,72 @@ pub fn parse_custom_re_image(
 fn parse_remote_execution_policy(
     policy: Option<Value>,
 ) -> buck2_error::Result<RemoteExecutionPolicy> {
-    if policy.is_none() {
-        Ok(RemoteExecutionPolicy::default())
-    } else {
-        let re_policy_dict = DictRef::from_value(policy.unwrap().to_value()).ok_or_else(|| {
-            buck2_error::Error::from(CommandExecutorConfigErrors::RePolicyNotADict(
-                policy.unwrap().to_value().to_repr(),
-                policy.unwrap().to_value().get_type().to_owned(),
-            ))
-        })?;
+    match policy {
+        None => Ok(RemoteExecutionPolicy::default()),
+        Some(policy) => {
+            let re_policy_dict = DictRef::from_value(policy.to_value()).ok_or_else(|| {
+                buck2_error::Error::from(CommandExecutorConfigErrors::RePolicyNotADict(
+                    policy.to_value().to_repr(),
+                    policy.to_value().get_type().to_owned(),
+                ))
+            })?;
 
-        Ok(RemoteExecutionPolicy {
-            setup_preference_key: re_policy_dict
-                .get_str("setup_preference_key")
-                .and_then(|v| v.unpack_str())
-                .map(|s| s.to_owned()),
-            region_preference: re_policy_dict
-                .get_str("region_preference")
-                .and_then(|v| v.unpack_str())
-                .map(|s| s.to_owned()),
-            priority: re_policy_dict
-                .get_str("priority")
-                .and_then(|v| v.unpack_i32())
-                .map(|i| i.to_owned()),
-        })
+            Ok(RemoteExecutionPolicy {
+                setup_preference_key: re_policy_dict
+                    .get_str("setup_preference_key")
+                    .and_then(|v| v.unpack_str())
+                    .map(|s| s.to_owned()),
+                region_preference: re_policy_dict
+                    .get_str("region_preference")
+                    .and_then(|v| v.unpack_str())
+                    .map(|s| s.to_owned()),
+                priority: re_policy_dict
+                    .get_str("priority")
+                    .and_then(|v| v.unpack_i32())
+                    .map(|i| i.to_owned()),
+            })
+        }
     }
 }
 
 fn parse_remote_execution_caf_fbpkgs(
     caf_fbpkgs: Option<Value>,
 ) -> buck2_error::Result<Vec<RemoteExecutorCafFbpkg>> {
-    if caf_fbpkgs.is_none() {
-        Ok(vec![])
-    } else {
-        let re_caf_fbpkgs_list =
-            ListRef::from_value(caf_fbpkgs.unwrap().to_value()).ok_or_else(|| {
-                buck2_error::Error::from(CommandExecutorConfigErrors::ReCafFbpkgsNotAList(
-                    caf_fbpkgs.unwrap().to_value().to_repr(),
-                    caf_fbpkgs.unwrap().to_value().get_type().to_owned(),
-                ))
-            })?;
+    match caf_fbpkgs {
+        None => Ok(vec![]),
+        Some(caf_fbpkgs) => {
+            let re_caf_fbpkgs_list =
+                ListRef::from_value(caf_fbpkgs.to_value()).ok_or_else(|| {
+                    buck2_error::Error::from(CommandExecutorConfigErrors::ReCafFbpkgsNotAList(
+                        caf_fbpkgs.to_value().to_repr(),
+                        caf_fbpkgs.to_value().get_type().to_owned(),
+                    ))
+                })?;
 
-        Ok(re_caf_fbpkgs_list
-            .iter()
-            .map(|caf_fbpkg| match DictRef::from_value(caf_fbpkg) {
-                Some(dict_ref) => Ok(RemoteExecutorCafFbpkg {
-                    name: dict_ref
-                        .get_str("name")
-                        .ok_or(CommandExecutorConfigErrors::MissingField("name"))?
-                        .to_str(),
-                    uuid: dict_ref
-                        .get_str("uuid")
-                        .ok_or(CommandExecutorConfigErrors::MissingField("uuid"))?
-                        .to_str(),
-                    tag: dict_ref.get_str("tag").map(|v| v.to_str()),
-                    permissions: dict_ref.get_str("permissions").map(|v| v.to_str()),
-                }),
-                None => Err(buck2_error::Error::from(
-                    CommandExecutorConfigErrors::ReCafFbpkgNotADict(
-                        caf_fbpkg.to_repr(),
-                        caf_fbpkg.get_type().to_owned(),
-                    ),
-                )),
-            })
-            .collect::<buck2_error::Result<Vec<RemoteExecutorCafFbpkg>>>()?)
+            Ok(re_caf_fbpkgs_list
+                .iter()
+                .map(|caf_fbpkg| match DictRef::from_value(caf_fbpkg) {
+                    Some(dict_ref) => Ok(RemoteExecutorCafFbpkg {
+                        name: dict_ref
+                            .get_str("name")
+                            .ok_or(CommandExecutorConfigErrors::MissingField("name"))?
+                            .to_str(),
+                        uuid: dict_ref
+                            .get_str("uuid")
+                            .ok_or(CommandExecutorConfigErrors::MissingField("uuid"))?
+                            .to_str(),
+                        tag: dict_ref.get_str("tag").map(|v| v.to_str()),
+                        permissions: dict_ref.get_str("permissions").map(|v| v.to_str()),
+                    }),
+                    None => Err(buck2_error::Error::from(
+                        CommandExecutorConfigErrors::ReCafFbpkgNotADict(
+                            caf_fbpkg.to_repr(),
+                            caf_fbpkg.get_type().to_owned(),
+                        ),
+                    )),
+                })
+                .collect::<buck2_error::Result<Vec<RemoteExecutorCafFbpkg>>>()?)
+        }
     }
 }
 
