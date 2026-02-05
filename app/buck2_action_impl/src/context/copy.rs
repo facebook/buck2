@@ -33,18 +33,14 @@ fn create_dir_tree<'v>(
     output: OutputArtifactArg<'v>,
     srcs: UnpackDictEntries<&'v str, ValueAsInputArtifactLike<'v>>,
     copy: CopyMode,
-    uses_experimental_content_based_path_hashing: Option<bool>,
+    has_content_based_path: Option<bool>,
 ) -> buck2_error::Result<ValueTyped<'v, StarlarkDeclaredArtifact<'v>>> {
     let action = UnregisteredSymlinkedDirAction::new(copy, srcs)?;
     let unioned_associated_artifacts = action.unioned_associated_artifacts();
 
     let mut this = this.state()?;
-    let (declaration, output_artifact) = this.get_or_declare_output(
-        eval,
-        output,
-        OutputType::Directory,
-        uses_experimental_content_based_path_hashing,
-    )?;
+    let (declaration, output_artifact) =
+        this.get_or_declare_output(eval, output, OutputType::Directory, has_content_based_path)?;
     this.register_action(indexset![output_artifact], action, None, None)?;
 
     Ok(declaration.into_declared_artifact(unioned_associated_artifacts))
@@ -57,19 +53,15 @@ fn copy_file_impl<'v>(
     src: ValueAsInputArtifactLike<'v>,
     copy: CopyMode,
     output_type: OutputType,
-    uses_experimental_content_based_path_hashing: Option<bool>,
+    has_content_based_path: Option<bool>,
 ) -> buck2_error::Result<ValueTyped<'v, StarlarkDeclaredArtifact<'v>>> {
     let src = src.0;
 
     let artifact = src.get_artifact_group()?;
     let associated_artifacts = src.get_associated_artifacts();
     let mut this = this.state()?;
-    let (declaration, output_artifact) = this.get_or_declare_output(
-        eval,
-        dest,
-        output_type,
-        uses_experimental_content_based_path_hashing,
-    )?;
+    let (declaration, output_artifact) =
+        this.get_or_declare_output(eval, dest, output_type, has_content_based_path)?;
 
     this.register_action(
         indexset![output_artifact],
@@ -94,8 +86,6 @@ pub(crate) fn analysis_actions_methods_copy(methods: &mut MethodsBuilder) {
         this: &AnalysisActions<'v>,
         #[starlark(require = pos)] dest: OutputArtifactArg<'v>,
         #[starlark(require = pos)] src: ValueAsInputArtifactLike<'v>,
-        #[starlark(require = named, default = NoneOr::None)]
-        uses_experimental_content_based_path_hashing: NoneOr<bool>,
         #[starlark(require = named, default = NoneOr::None)] has_content_based_path: NoneOr<bool>,
         #[starlark(require = named, default = NoneOr::None)] executable_bit_override: NoneOr<bool>,
         eval: &mut Evaluator<'v, '_, '_>,
@@ -111,9 +101,7 @@ pub(crate) fn analysis_actions_methods_copy(methods: &mut MethodsBuilder) {
                 executable_bit_override: executable_bit_override.into_option(),
             },
             OutputType::FileOrDirectory,
-            uses_experimental_content_based_path_hashing
-                .into_option()
-                .or(has_content_based_path.into_option()),
+            has_content_based_path.into_option(),
         )?)
     }
 
@@ -124,8 +112,6 @@ pub(crate) fn analysis_actions_methods_copy(methods: &mut MethodsBuilder) {
         this: &AnalysisActions<'v>,
         #[starlark(require = pos)] dest: OutputArtifactArg<'v>,
         #[starlark(require = pos)] src: ValueAsInputArtifactLike<'v>,
-        #[starlark(require = named, default = NoneOr::None)]
-        uses_experimental_content_based_path_hashing: NoneOr<bool>,
         #[starlark(require = named, default = NoneOr::None)] has_content_based_path: NoneOr<bool>,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<ValueTyped<'v, StarlarkDeclaredArtifact<'v>>> {
@@ -138,9 +124,7 @@ pub(crate) fn analysis_actions_methods_copy(methods: &mut MethodsBuilder) {
             src,
             CopyMode::Symlink,
             OutputType::FileOrDirectory,
-            uses_experimental_content_based_path_hashing
-                .into_option()
-                .or(has_content_based_path.into_option()),
+            has_content_based_path.into_option(),
         )?)
     }
 
@@ -149,8 +133,6 @@ pub(crate) fn analysis_actions_methods_copy(methods: &mut MethodsBuilder) {
         this: &AnalysisActions<'v>,
         #[starlark(require = pos)] dest: OutputArtifactArg<'v>,
         #[starlark(require = pos)] src: ValueAsInputArtifactLike<'v>,
-        #[starlark(require = named, default = NoneOr::None)]
-        uses_experimental_content_based_path_hashing: NoneOr<bool>,
         #[starlark(require = named, default = NoneOr::None)] has_content_based_path: NoneOr<bool>,
         #[starlark(require = named, default = NoneOr::None)] executable_bit_override: NoneOr<bool>,
         eval: &mut Evaluator<'v, '_, '_>,
@@ -164,9 +146,7 @@ pub(crate) fn analysis_actions_methods_copy(methods: &mut MethodsBuilder) {
                 executable_bit_override: executable_bit_override.into_option(),
             },
             OutputType::Directory,
-            uses_experimental_content_based_path_hashing
-                .into_option()
-                .or(has_content_based_path.into_option()),
+            has_content_based_path.into_option(),
         )?)
     }
 
@@ -176,8 +156,6 @@ pub(crate) fn analysis_actions_methods_copy(methods: &mut MethodsBuilder) {
         this: &AnalysisActions<'v>,
         #[starlark(require = pos)] output: OutputArtifactArg<'v>,
         #[starlark(require = pos)] srcs: UnpackDictEntries<&'v str, ValueAsInputArtifactLike<'v>>,
-        #[starlark(require = named, default = NoneOr::None)]
-        uses_experimental_content_based_path_hashing: NoneOr<bool>,
         #[starlark(require = named, default = NoneOr::None)] has_content_based_path: NoneOr<bool>,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<ValueTyped<'v, StarlarkDeclaredArtifact<'v>>> {
@@ -187,9 +165,7 @@ pub(crate) fn analysis_actions_methods_copy(methods: &mut MethodsBuilder) {
             output,
             srcs,
             CopyMode::Symlink,
-            uses_experimental_content_based_path_hashing
-                .into_option()
-                .or(has_content_based_path.into_option()),
+            has_content_based_path.into_option(),
         )?)
     }
 
@@ -199,8 +175,6 @@ pub(crate) fn analysis_actions_methods_copy(methods: &mut MethodsBuilder) {
         this: &AnalysisActions<'v>,
         #[starlark(require = pos)] output: OutputArtifactArg<'v>,
         #[starlark(require = pos)] srcs: UnpackDictEntries<&'v str, ValueAsInputArtifactLike<'v>>,
-        #[starlark(require = named, default = NoneOr::None)]
-        uses_experimental_content_based_path_hashing: NoneOr<bool>,
         #[starlark(require = named, default = NoneOr::None)] has_content_based_path: NoneOr<bool>,
         #[starlark(require = named, default = NoneOr::None)] executable_bit_override: NoneOr<bool>,
         eval: &mut Evaluator<'v, '_, '_>,
@@ -213,9 +187,7 @@ pub(crate) fn analysis_actions_methods_copy(methods: &mut MethodsBuilder) {
             CopyMode::Copy {
                 executable_bit_override: executable_bit_override.into_option(),
             },
-            uses_experimental_content_based_path_hashing
-                .into_option()
-                .or(has_content_based_path.into_option()),
+            has_content_based_path.into_option(),
         )?)
     }
 }
