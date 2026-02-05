@@ -20,6 +20,7 @@ use buck2_error::BuckErrorContext;
 use buck2_error::ErrorTag;
 use buck2_error::conversion::from_any_with_tag;
 use buck2_fs::async_fs_util;
+use buck2_fs::error::IoResultExt;
 use buck2_fs::fs_util::uncategorized as fs_util;
 use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_fs::paths::abs_path::AbsPathBuf;
@@ -89,7 +90,9 @@ impl HealthCheckRpcClient {
 
         let tcp_port = retrying(initial_delay, max_delay, timeout, || async {
             // Wait for the health check server to write the TCP port to the file.
-            async_fs_util::read_to_string(&file_path).await
+            async_fs_util::read_to_string(&file_path)
+                .await
+                .categorize_internal()
         })
         .await
         .buck_error_context("Failed to find TCP socket from health check server")?;
@@ -216,7 +219,9 @@ mod tests {
         let (dir, file) = temp_state_info(&temp_dir_guard).await?;
 
         // Write some content representing a previous health check server state.
-        async_fs_util::write(&file, "TestContent").await?;
+        async_fs_util::write(&file, "TestContent")
+            .await
+            .uncategorized()?;
 
         let client = HealthCheckRpcClient::new(dir.clone());
         client.get_state_info_file_path().await.unwrap();

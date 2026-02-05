@@ -11,48 +11,50 @@
 use std::fs::Metadata;
 use std::io::Read;
 
-use buck2_error::BuckErrorContext;
-
-use crate::fs_util::uncategorized as fs_util;
+use crate::error::IoError;
+use crate::fs_util;
 use crate::io_counters::IoCounterKey;
 use crate::paths::abs_path::AbsPath;
 
-pub async fn open<P: AsRef<AbsPath>>(path: P) -> buck2_error::Result<tokio::fs::File> {
+pub async fn open<P: AsRef<AbsPath>>(path: P) -> Result<tokio::fs::File, IoError> {
     let _guard = IoCounterKey::Read.guard();
-    tokio::fs::File::open(path.as_ref().as_maybe_relativized())
+    let path = path.as_ref();
+    tokio::fs::File::open(path.as_maybe_relativized())
         .await
-        .with_buck_error_context(|| format!("open({})", path.as_ref().display()))
+        .map_err(|e| IoError::new_with_path("open", path, e))
 }
 
-pub async fn read<P: AsRef<AbsPath>>(path: P, buf: &mut [u8]) -> buck2_error::Result<usize> {
+pub async fn read<P: AsRef<AbsPath>>(path: P, buf: &mut [u8]) -> Result<usize, IoError> {
     let path = path.as_ref().to_owned();
     let mut buffer = buf.to_vec();
 
-    let (n, buffer) = tokio::task::spawn_blocking(move || {
-        let mut read_guard = fs_util::open_file(path)?;
+    let (n, new_buffer) = tokio::task::spawn_blocking(move || {
+        let mut read_guard = fs_util::open_file(&path)?;
         let n = read_guard
             .read(&mut buffer)
-            .map_err(buck2_error::Error::from)?;
-        buck2_error::Ok((n, buffer))
+            .map_err(|e| IoError::new_with_path("read", &path, e))?;
+        Ok::<_, IoError>((n, buffer))
     })
-    .await??;
+    .await
+    .map_err(IoError::from_join)??;
 
-    buf.copy_from_slice(&buffer);
+    buf.copy_from_slice(&new_buffer);
     Ok(n)
 }
 
-pub async fn write<P: AsRef<AbsPath>>(
-    path: P,
-    content: impl AsRef<[u8]>,
-) -> buck2_error::Result<()> {
+pub async fn write<P: AsRef<AbsPath>>(path: P, content: impl AsRef<[u8]>) -> Result<(), IoError> {
     let path = path.as_ref().to_owned();
     let content = content.as_ref().to_owned();
-    tokio::task::spawn_blocking(move || fs_util::write(path, content)).await?
+    tokio::task::spawn_blocking(move || fs_util::write(path, content))
+        .await
+        .map_err(IoError::from_join)?
 }
 
-pub async fn read_to_string<P: AsRef<AbsPath>>(path: P) -> buck2_error::Result<String> {
+pub async fn read_to_string<P: AsRef<AbsPath>>(path: P) -> Result<String, IoError> {
     let path = path.as_ref().to_owned();
-    tokio::task::spawn_blocking(move || fs_util::read_to_string(path)).await?
+    tokio::task::spawn_blocking(move || fs_util::read_to_string(path))
+        .await
+        .map_err(IoError::from_join)?
 }
 
 pub async fn read_to_string_if_exists<P: AsRef<AbsPath>>(
@@ -67,7 +69,9 @@ pub async fn create_dir_all<P: AsRef<AbsPath>>(dir: P) -> buck2_error::Result<()
     tokio::task::spawn_blocking(move || fs_util::create_dir_all(dir)).await?
 }
 
-pub async fn metadata<P: AsRef<AbsPath>>(path: P) -> buck2_error::Result<Metadata> {
+pub async fn metadata<P: AsRef<AbsPath>>(path: P) -> Result<Metadata, IoError> {
     let path = path.as_ref().to_owned();
-    tokio::task::spawn_blocking(move || fs_util::metadata(path)).await?
+    tokio::task::spawn_blocking(move || fs_util::metadata(path))
+        .await
+        .map_err(IoError::from_join)?
 }

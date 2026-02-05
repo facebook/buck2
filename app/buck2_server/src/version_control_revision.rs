@@ -131,7 +131,7 @@ async fn get_hg_revision(
         revision.command_error = Some(format!(
             "Failed to read the first 20 bytes of {}: {:#}",
             dirstate.display(),
-            e
+            e.categorize_internal(),
         ));
         return;
     }

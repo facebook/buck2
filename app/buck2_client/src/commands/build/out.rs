@@ -20,6 +20,7 @@ use buck2_core::fs::project::ProjectRoot;
 use buck2_error::BuckErrorContext;
 use buck2_error::buck2_error;
 use buck2_fs::async_fs_util;
+use buck2_fs::error::IoResultExt;
 use buck2_fs::fs_util::uncategorized as fs_util;
 use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_fs::paths::abs_path::AbsPath;
@@ -136,7 +137,9 @@ pub(super) async fn copy_to_out(
     for to_be_copied in outputs_to_be_copied {
         match out {
             OutputDestinationArg::Stream => {
-                let mut file = async_fs_util::open(&to_be_copied.from_path).await?;
+                let mut file = async_fs_util::open(&to_be_copied.from_path)
+                    .await
+                    .categorize_internal()?;
                 tokio::io::copy(&mut file, &mut tokio::io::stdout())
                     .await
                     .map_err(convert_broken_pipe_error)?;

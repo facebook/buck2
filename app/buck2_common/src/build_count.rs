@@ -14,6 +14,7 @@ use std::time::Duration;
 use buck2_data::ParsedTargetPatterns;
 use buck2_error::BuckErrorContext;
 use buck2_fs::async_fs_util;
+use buck2_fs::error::IoResultExt;
 use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_fs::paths::file_name::FileName;
 use serde::Deserialize;
@@ -159,7 +160,9 @@ impl BuildCountManager {
     }
 
     async fn write(&self, build_count: &BuildCountMap) -> buck2_error::Result<()> {
-        async_fs_util::write(&self.file_path, &serde_json::to_vec(build_count)?).await
+        async_fs_util::write(&self.file_path, &serde_json::to_vec(build_count)?)
+            .await
+            .categorize_internal()
     }
 
     async fn lock_with_timeout(&self) -> buck2_error::Result<FileLockGuard> {

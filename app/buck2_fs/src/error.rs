@@ -13,6 +13,7 @@
 use std::io;
 
 use buck2_error::ErrorTag;
+use tokio::task::JoinError;
 
 use crate::paths::abs_path::AbsPath;
 
@@ -42,13 +43,11 @@ impl IoError {
     }
 
     pub fn internal(e: buck2_error::Error) -> Self {
-        Self {
-            source: IoErrorSource::Internal(e),
-            context: Vec::new(),
-            tags: Vec::new(),
-            is_eden: false,
-            is_input_path: None,
-        }
+        Self::new(IoErrorSource::Internal(e))
+    }
+
+    pub fn from_join(e: JoinError) -> Self {
+        Self::internal(buck2_error::Error::from(e))
     }
 
     /// Set operation and is_eden based on provided path.

@@ -16,6 +16,7 @@ use buck2_build_api::actions::calculation::ActionCalculation;
 use buck2_error::BuckErrorContext;
 use buck2_execute::materialize::materializer::HasMaterializer;
 use buck2_fs::async_fs_util;
+use buck2_fs::error::IoResultExt;
 use derive_more::Display;
 use dice::CancellationContext;
 use dice::DiceComputations;
@@ -85,6 +86,7 @@ impl Key for SingleValidationKey {
 
         let content = async_fs_util::read_to_string(&validation_result_path)
             .await
+            .categorize_internal()
             .buck_error_context("Reading validation result")?;
 
         match parse_validation_result(&content) {

@@ -24,6 +24,7 @@ use buck2_cli_proto::*;
 use buck2_error::BuckErrorContext;
 use buck2_events::BuckEvent;
 use buck2_fs::async_fs_util;
+use buck2_fs::error::IoResultExt;
 use buck2_fs::paths::abs_path::AbsPath;
 use buck2_fs::paths::abs_path::AbsPathBuf;
 use buck2_wrapper_common::invocation_id::TraceId;
@@ -344,7 +345,9 @@ impl EventLogPathBuf {
             None => (None, None),
         };
 
-        let file = async_fs_util::open(&self.path).await?;
+        let file = async_fs_util::open(&self.path)
+            .await
+            .categorize_internal()?;
         let file = CountingReader::new(file, compressed_bytes);
         let file = match self.encoding.compression {
             Compression::None => {
