@@ -14,7 +14,8 @@ use buck2_cli_proto::new_generic::DocsResponse;
 use buck2_cli_proto::new_generic::DocsStarlarkBuiltinsRequest;
 use buck2_error::BuckErrorContext;
 use buck2_error::internal_error;
-use buck2_fs::fs_util::uncategorized as fs_util;
+use buck2_fs::error::IoResultExt;
+use buck2_fs::fs_util;
 use buck2_fs::paths::abs_path::AbsPathBuf;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_interpreter_for_build::interpreter::globals::register_analysis_natives;
@@ -71,7 +72,8 @@ pub(crate) fn write_docs_to_subdir(
         }
         // Since we just <Link> to the docs, we need to import the Link component at the top of the file
         let final_rendered_conent = format!("import Link from '@docusaurus/Link';\n\n{rendered}");
-        fs_util::write(path, &final_rendered_conent)?;
+        // input path from --output-dir
+        fs_util::write(path, &final_rendered_conent).categorize_input()?;
     }
 
     Ok(())

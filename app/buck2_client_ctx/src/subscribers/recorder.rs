@@ -58,7 +58,8 @@ use buck2_events::BuckEvent;
 use buck2_events::daemon_id::DaemonId;
 use buck2_events::sink::remote::ScribeConfig;
 use buck2_events::sink::remote::new_remote_event_sink_if_enabled;
-use buck2_fs::fs_util::uncategorized as fs_util;
+use buck2_fs::error::IoResultExt;
+use buck2_fs::fs_util;
 use buck2_fs::paths::abs_path::AbsPathBuf;
 use buck2_util::network_speed_average::NetworkSpeedAverage;
 use buck2_util::sliding_window::SlidingWindow;
@@ -1203,7 +1204,10 @@ impl InvocationRecorder {
 
         if let Some(path) = &self.write_to_path {
             let res = (|| {
-                let out = fs_util::create_file(path).buck_error_context("Error opening")?;
+                let out = fs_util::create_file(path)
+                    // input path from --unstable-write-invocation-record
+                    .categorize_input()
+                    .buck_error_context("Error opening")?;
                 let mut out = std::io::BufWriter::new(out);
                 serde_json::to_writer(&mut out, event.event())
                     .buck_error_context("Error writing")?;

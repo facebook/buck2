@@ -23,7 +23,8 @@ use buck2_error::classify::ErrorLike;
 use buck2_error::classify::ErrorTagExtra;
 use buck2_error::classify::best_error;
 use buck2_error::conversion::from_any_with_tag;
-use buck2_fs::fs_util::uncategorized as fs_util;
+use buck2_fs::error::IoResultExt;
+use buck2_fs::fs_util;
 use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_fs::paths::abs_path::AbsPathBuf;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
@@ -264,7 +265,7 @@ impl ExitResult {
             // No buck_log_dir, no command_report_path, do nothing.
             return Ok(());
         };
-        let file = fs_util::create_file(&path)?;
+        let file = fs_util::create_file(&path).categorize_internal()?;
         let mut file = std::io::BufWriter::new(file);
 
         let error_messages = self
@@ -290,7 +291,8 @@ impl ExitResult {
                 }
                 // buck wrapper depends on command report being written.
                 file.flush()?;
-                fs_util::copy(path, report_path)?;
+                // input path from --command-report-path
+                fs_util::copy(path, report_path).categorize_input()?;
             }
         }
 

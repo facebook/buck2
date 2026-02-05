@@ -19,7 +19,8 @@ use buck2_core::cells::CellResolver;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::package::PackageLabel;
-use buck2_fs::fs_util::uncategorized as fs_util;
+use buck2_fs::error::IoResultExt;
+use buck2_fs::fs_util;
 use buck2_fs::paths::abs_norm_path::AbsNormPath;
 use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_fs::paths::file_name::FileNameBuf;
@@ -185,8 +186,8 @@ fn resolve_path(
     //
     // Note if the path is already absolute, this operation is a no-op.
     let path = current_cell_abs_path.as_abs_path().join(path);
-
-    let abs_path = fs_util::canonicalize(path)?;
+    // input path from `buck2 audit includes [BUILD_FILES]`
+    let abs_path = fs_util::canonicalize(path).categorize_input()?;
 
     let project_path = fs.relativize(&abs_path)?;
     Ok(cells.get_cell_path(&project_path))

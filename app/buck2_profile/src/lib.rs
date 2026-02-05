@@ -20,7 +20,8 @@ use buck2_core::pattern::unparsed::UnparsedPatterns;
 use buck2_error::BuckErrorContext;
 use buck2_error::buck2_error;
 use buck2_error::conversion::from_any_with_tag;
-use buck2_fs::fs_util::uncategorized as fs_util;
+use buck2_fs::error::IoResultExt;
+use buck2_fs::fs_util;
 use buck2_fs::paths::abs_norm_path::AbsNormPath;
 use buck2_fs::paths::abs_path::AbsPath;
 use buck2_interpreter::starlark_profiler::config::StarlarkProfilerConfiguration;
@@ -105,7 +106,8 @@ pub fn write_starlark_profile(
     targets: &[String],
     output: &AbsPath,
 ) -> buck2_error::Result<()> {
-    fs_util::create_dir_if_not_exists(output)?;
+    // input path from --profile-output
+    fs_util::create_dir_if_not_exists(output).categorize_input()?;
 
     fs_util::write(
         output.join("targets.txt"),
@@ -115,6 +117,7 @@ pub fn write_starlark_profile(
             .map(|t| format!("{t}\n"))
             .collect::<String>(),
     )
+    .categorize_internal()
     .buck_error_context("Failed to write targets")?;
 
     match profile_data.profile_data.profile_mode() {
@@ -147,8 +150,10 @@ pub fn write_starlark_profile(
                 .buck_error_context("writing SVG from profile data")?;
 
             fs_util::write(output.join("flame.src"), &profile)
+                .categorize_internal()
                 .buck_error_context("Failed to write flame.src")?;
             fs_util::write(output.join("flame.svg"), &svg)
+                .categorize_internal()
                 .buck_error_context("Failed to write flame.svg")?;
         }
         _ => {}
@@ -159,6 +164,7 @@ pub fn write_starlark_profile(
         _ => {
             let profile = profile_data.profile_data.gen_csv()?;
             fs_util::write(output.join("profile.csv"), profile)
+                .categorize_internal()
                 .buck_error_context("Failed to write profile")?;
         }
     };

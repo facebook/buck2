@@ -31,7 +31,8 @@ use buck2_data::ReQueueOverQuota;
 use buck2_error::BuckErrorContext;
 use buck2_error::buck2_error;
 use buck2_error::conversion::from_any_with_tag;
-use buck2_fs::fs_util::uncategorized as fs_util;
+use buck2_fs::error::IoResultExt;
+use buck2_fs::fs_util;
 use buck2_fs::paths::abs_norm_path::AbsNormPath;
 #[cfg(fbcode_build)]
 use buck2_re_configuration::CASdMode;
@@ -535,7 +536,9 @@ fn anticipated_queue_duration(
 // it's true after the first time we execute the action
 static INDUCED_CACHE_MISSES: LazyLock<Option<HashMap<String, AtomicBool>>> = LazyLock::new(|| {
     if let Ok(p) = std::env::var("BUCK2_INDUCED_CACHE_MISSES") {
-        let c = fs_util::read_to_string(AbsNormPath::new(&p).unwrap()).unwrap();
+        let c = fs_util::read_to_string(AbsNormPath::new(&p).unwrap())
+            .categorize_input()
+            .unwrap();
         Some(
             c.lines()
                 .map(|s| (s.to_owned(), AtomicBool::new(false)))
@@ -563,7 +566,7 @@ impl RemoteExecutionClientImpl {
             let mut persistent_cache_mode = None;
             #[cfg(fbcode_build)]
             let client = {
-                use buck2_fs::fs_util::uncategorized as fs_util;
+                use buck2_fs::fs_util;
                 use remote_execution::CASDaemonClientCfg;
                 use remote_execution::CopyPolicy;
                 use remote_execution::CurlReactorConfig;

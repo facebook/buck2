@@ -15,7 +15,8 @@ use buck2_core::bxl::BxlFilePath;
 use buck2_core::bzl::ImportPath;
 use buck2_core::cells::build_file_cell::BuildFileCell;
 use buck2_core::cells::cell_path::CellPath;
-use buck2_fs::fs_util::uncategorized as fs_util;
+use buck2_fs::error::IoResultExt;
+use buck2_fs::fs_util;
 use buck2_fs::paths::abs_path::AbsPathBuf;
 use buck2_interpreter::load_module::InterpreterCalculation;
 use buck2_interpreter::paths::module::OwnedStarlarkModulePath;
@@ -42,7 +43,8 @@ pub(crate) async fn debug_eval_command(
             let ctx = &ctx;
             for path in req.paths {
                 let path = AbsPathBuf::new(path)?;
-                let path = fs_util::canonicalize(&path)?;
+                // input path from `buck2 debug eval <PATH>`
+                let path = fs_util::canonicalize(&path).categorize_input()?;
                 let path = context.project_root().relativize(&path)?;
                 let path = cell_resolver.get_cell_path(&path);
                 let import_path = if path.path().as_str().ends_with(".bzl") {
