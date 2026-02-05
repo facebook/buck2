@@ -979,6 +979,7 @@ fn collect_config_metadata_into(config: &LegacyBuckConfig, data: &mut UserComput
         }
     }
 
+    // TODO(pbergen): Remove this when we desupport client.id in config.
     add_config(
         &mut metadata,
         &config,
@@ -988,6 +989,21 @@ fn collect_config_metadata_into(config: &LegacyBuckConfig, data: &mut UserComput
         },
         "client",
     );
+
+    // Warn if client.id is set in buckconfig (deprecated)
+    if let Some(client_id) = config.get(BuckconfigKeyRef {
+        section: "client",
+        property: "id",
+    }) {
+        warn!(
+            "Because it invalidates the DICE graph which causes performance loss, \
+             setting `client.id` via config (`-c|--config client.id={}`) is deprecated. \
+             Please migrate to `--client-metadata=id={}` instead. \
+             This will become a hard error in a future Buck2 release (tentatively Q2 2026). \
+             For more information, see: https://internalfb.com/intern/staticdocs/buck2/docs/rule_authors/client_metadata/",
+            client_id, client_id
+        );
+    }
 
     if let Ok(schedule_type) = SandcastleScheduleType::new() {
         if let Some(schedule_type_str) = schedule_type.as_str() {
