@@ -128,21 +128,16 @@ ObjectsLinkable = record(
 
 # Framework + library information for Apple/Cxx targets.
 FrameworksLinkable = record(
-    # A list of trimmed framework paths, example: ["Foundation", "UIKit"]
-    # Used to construct `-framework` args.
-    framework_names = field(list[str], []),
-    # A list of unresolved framework paths (i.e., containing $SDKROOT, etc).
-    # Used to construct `-F` args for compilation and linking.
+    # An untrimmed list of framework paths, used to construct `-framework` args.
+    frameworks = field(typing.Iterable, []),
+    # A untrimmed list of library names, used to construct `-l` args.
+    libraries = field(typing.Iterable, []),
     #
-    # Framework path resolution _must_ happen at the target site because
-    # different targets might use different toolchains. For example,
-    # an `apple_library()` might get _compiled_ using one toolchain
-    # and then linked by as part of an `apple_binary()` using another
-    # compatible toolchain. The resolved framework directories passed
-    # using `-F` would be different for the compilation and the linking.
-    unresolved_framework_paths = field(list[str], []),
-    # A list of library names, used to construct `-l` args.
-    library_names = field(list[str], []),
+    ## WHY ITERABLES? ##
+    #
+    # For leaf nodes we just insert the attrs.frameworks + attrs.libraries
+    # interned strings/lists.
+    # They get dedupped into sets as they propagate.
 )
 
 FrameworksLinkableEmpty = FrameworksLinkable()
@@ -586,7 +581,7 @@ def create_merged_link_info(
             if value:
                 external_debug_info_children.append(value)
 
-        frameworks[link_strategy] = merge_framework_linkables(framework_linkables)
+        frameworks[link_strategy] = _merge_framework_linkables(framework_linkables)
         swiftmodules[link_strategy] = merge_swiftmodule_linkables(ctx, swiftmodule_linkables)
 
         if actual_output_style in link_infos:
@@ -637,7 +632,7 @@ def create_merged_link_info_for_propagation(
             label = ctx.label,
             children = filter(None, [x._external_debug_info.get(link_strategy) for x in xs]),
         )
-        frameworks[link_strategy] = merge_framework_linkables([x.frameworks[link_strategy] for x in xs])
+        frameworks[link_strategy] = _merge_framework_linkables([x.frameworks[link_strategy] for x in xs])
         swiftmodules[link_strategy] = merge_swiftmodule_linkables(ctx, [x.swiftmodules[link_strategy] for x in xs])
 
     return MergedLinkInfo(
@@ -977,30 +972,29 @@ def legacy_output_style_to_link_style(output_style: LibOutputStyle) -> LinkStyle
         return LinkStyle("static_pic")
     fail("unrecognized output_style {}".format(output_style))
 
-def merge_framework_linkables(linkables: list[[FrameworksLinkable, None]]) -> FrameworksLinkable:
-    if not any(linkables):
+def has_framework_linkable(linkables: list[[FrameworksLinkable, None]]) -> bool:
+    for linkable in linkables:
+        if linkable:
+            return True
+
+    return False
+
+def _merge_framework_linkables(linkables: list[[FrameworksLinkable, None]]) -> FrameworksLinkable:
+    if not has_framework_linkable(linkables):
         return FrameworksLinkableEmpty
 
-    unique_framework_names = {}
-    unique_framework_paths = {}
-    unique_library_names = {}
+    unique_frameworks = set()
+    unique_libraries = set()
     for linkable in linkables:
         if not linkable:
             continue
 
-        # Avoid building a huge list and then de-duplicating, instead we
-        # use a set to track each used entry, order does not matter.
-        for framework in linkable.framework_names:
-            unique_framework_names[framework] = True
-        for framework_path in linkable.unresolved_framework_paths:
-            unique_framework_paths[framework_path] = True
-        for library_name in linkable.library_names:
-            unique_library_names[library_name] = True
+        unique_frameworks.update(linkable.frameworks)
+        unique_libraries.update(linkable.libraries)
 
     return FrameworksLinkable(
-        framework_names = unique_framework_names.keys(),
-        unresolved_framework_paths = unique_framework_paths.keys(),
-        library_names = unique_library_names.keys(),
+        frameworks = unique_frameworks,
+        libraries = unique_libraries,
     )
 
 def merge_swiftmodule_linkables(ctx: AnalysisContext, linkables: list[[SwiftmoduleLinkable, None]]) -> SwiftmoduleLinkable:
