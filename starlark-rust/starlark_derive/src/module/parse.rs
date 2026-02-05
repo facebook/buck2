@@ -87,13 +87,13 @@ pub(crate) fn parse(mut input: ItemFn) -> syn::Result<StarModule> {
         return Err(syn::Error::new(pat.span(), "Expected ident"));
     };
     // Replace the argument with a known one - the user can't depend on it anyway
-    *pat = Box::new(syn::Pat::Ident(syn::PatIdent {
+    **pat = syn::Pat::Ident(syn::PatIdent {
         attrs: Default::default(),
         by_ref: None,
         mutability: None,
         ident: syn::Ident::new("globals_builder", pat.span()),
         subpat: None,
-    }));
+    });
 
     let stmts = std::mem::replace(
         &mut input.block,
