@@ -213,9 +213,7 @@ pub fn handle_soft_error(
         );
     }
     if hard_error_config()?.should_hard_error(category) {
-        return Err(err
-            .context("Upgraded warning to failure via $BUCK2_HARD_ERROR")
-            .into());
+        return Err(err.context("Upgraded warning to failure via $BUCK2_HARD_ERROR"));
     }
 
     // @oss-disable: let is_open_source = false;

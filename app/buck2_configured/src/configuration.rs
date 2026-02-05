@@ -308,9 +308,7 @@ pub(crate) async fn get_platform_configuration(
             ctx: &mut DiceComputations,
             _cancellation: &CancellationContext,
         ) -> Self::Value {
-            compute_platform_configuration(ctx, &self.0)
-                .await
-                .map_err(buck2_error::Error::from)
+            compute_platform_configuration(ctx, &self.0).await
         }
 
         fn equality(x: &Self::Value, y: &Self::Value) -> bool {
@@ -323,7 +321,6 @@ pub(crate) async fn get_platform_configuration(
 
     ctx.compute(&PlatformConfigurationKey(target.dupe()))
         .await?
-        .map_err(buck2_error::Error::from)
 }
 
 pub(crate) async fn compute_platform_cfgs(

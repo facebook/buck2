@@ -84,7 +84,7 @@ impl<'a, T: WalkType<'a>> DirectoryIterator for Walk<'a, T> {
                     DirectoryEntry::Dir(dir) => {
                         self.stack.push(WalkFrame {
                             name: Some(name),
-                            entries: T::Entries::from(T::directory_entries(dir)),
+                            entries: T::directory_entries(dir),
                             _phantom: PhantomData,
                         });
                         None

@@ -407,7 +407,7 @@ impl ErrorsAndIncompatibilities {
                         );
                     }
                     Err(e) => {
-                        self.errs.push(e.into());
+                        self.errs.push(e);
                     }
                 }
             }
@@ -422,7 +422,7 @@ impl ErrorsAndIncompatibilities {
             return Some(Ok(MaybeCompatible::Incompatible(incompat)));
         }
         if let Some(err) = self.errs.pop() {
-            return Some(Err(err.into()));
+            return Some(Err(err));
         }
         None
     }
@@ -1167,10 +1167,10 @@ impl ConfiguredTargetNodeCalculationImpl for ConfiguredTargetNodeCalculationInst
                     &IncompatiblePlatformReasonCause::Dependency(_)
                 ) {
                     if check_error_on_incompatible_dep(ctx, target.unconfigured_label()).await? {
-                        return Err(reason.to_err().into());
+                        return Err(reason.to_err());
                     }
                     soft_error!(
-                        "dep_only_incompatible_version_two", reason.to_soft_err().into(),
+                        "dep_only_incompatible_version_two", reason.to_soft_err(),
                         quiet: false,
                         // Log at least one sample per unique package.
                         low_cardinality_key_for_additional_logview_samples: Some(Box::new(target.unconfigured().pkg())),
@@ -1184,7 +1184,7 @@ impl ConfiguredTargetNodeCalculationImpl for ConfiguredTargetNodeCalculationInst
                         for custom_soft_error in custom_soft_errors {
                             soft_error!(
                                 &custom_soft_error,
-                                reason.to_soft_err().into(),
+                                reason.to_soft_err(),
                                 quiet: true,
                                 task: false,
                             )?;

@@ -223,7 +223,7 @@ mod tests {
         );
 
         crate::Error::check_equal(
-            &crate::Error::from(Option::<()>::None.buck_error_context("string").unwrap_err()),
+            &Option::<()>::None.buck_error_context("string").unwrap_err(),
             &Option::<()>::None
                 .compute_context(
                     |_t: Arc<SomeContext>| -> SomeContext { panic!() },

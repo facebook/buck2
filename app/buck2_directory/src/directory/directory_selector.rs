@@ -167,7 +167,7 @@ impl<'a, 'b, T: WalkType<'b>> Search<'a, 'b, T> {
                 inner: SearchInner::Stack(vec![SearchFrame {
                     search,
                     name: None,
-                    entries: T::directory_entries(root).into(),
+                    entries: T::directory_entries(root),
                 }]),
             },
             DirectorySelector::Take => Search {
@@ -215,7 +215,7 @@ impl<'b, T: WalkType<'b>> DirectoryIterator for Search<'_, 'b, T> {
                                     stack.push(SearchFrame {
                                         name: Some(name),
                                         search: t,
-                                        entries: T::directory_entries(d).into(),
+                                        entries: T::directory_entries(d),
                                     });
                                     continue;
                                 }

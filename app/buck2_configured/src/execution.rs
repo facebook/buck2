@@ -320,7 +320,7 @@ pub(crate) async fn get_execution_platform_toolchain_dep(
         let (gathered_deps, errors_and_incompats) =
             gather_deps(target_label, target_node, &cfg_ctx, ctx).await?;
         if let Some(ret) = errors_and_incompats.finalize() {
-            return ret.map_err(Into::into);
+            return ret;
         }
         Ok(MaybeCompatible::Compatible(
             resolve_execution_platform(
@@ -520,7 +520,7 @@ async fn check_execution_platform(
         }
     }
     if let Some(e) = errs.pop() {
-        return Err(e.into());
+        return Err(e);
     }
 
     Ok(Ok(()))
@@ -571,7 +571,7 @@ async fn resolve_execution_platform_from_constraints(
             Ok(ExecutionPlatformResolution::new(None, skipped))
         }
         ExecutionPlatformFallback::Error => {
-            Err(ExecutionPlatformError::NoCompatiblePlatform(Arc::new(skipped).into()).into())
+            Err(ExecutionPlatformError::NoCompatiblePlatform(Arc::new(skipped)).into())
         }
         ExecutionPlatformFallback::Platform(platform) => Ok(ExecutionPlatformResolution::new(
             Some(platform.dupe()),

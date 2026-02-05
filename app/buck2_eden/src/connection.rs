@@ -225,7 +225,7 @@ impl EdenConnectionManager {
                     .client
                     .clone()
                     .await
-                    .map_err(|e| ConnectAndRequestError::ConnectionError(e.into()))?;
+                    .map_err(|e| ConnectAndRequestError::ConnectionError(e))?;
 
                 f(client.as_ref())
                     .await
