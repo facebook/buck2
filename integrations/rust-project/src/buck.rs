@@ -459,7 +459,7 @@ impl Buck {
     {
         let mut cmd = self.command_without_config(subcommands);
         cmd.args([
-            "-c=client.id=rust-project",
+            CLIENT_METADATA_RUST_PROJECT,
             "-c=rust.rust_project_build=true",
             // Buck owner() queries stop at the innermost BUCK file unless
             // package_boundary_exceptions is set.
