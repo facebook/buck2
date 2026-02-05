@@ -1610,26 +1610,14 @@ async fn batch_read_blobs<Cas>(
 where
     Cas: Future<Output = anyhow::Result<BatchReadBlobsResponse>>,
 {
-    for i in 1..=opts.max_retries + 1 {
-        // TODO: Hopefully this isn't too expensive? Can we take a reference to the request
-        // instead?
-        match cas_f(read_blobs_request.clone()).await {
-            Ok(resp) => {
-                return Ok(resp);
-            }
-            Err(e) => {
-                tracing::debug!(
-                    request = ?read_blobs_request,
-                    "Failed to make BatchReadBlobs request, retrying after sleeping {} seconds: {}",
-                    i,
-                    e
-                );
-                tokio::time::sleep(Duration::from_secs(i as u64)).await;
-            }
-        }
-    }
-
-    cas_f(read_blobs_request).await
+    retry(
+        || async { cas_f(read_blobs_request.clone()).await },
+        opts.max_retries,
+        INITIAL_DELAY,
+        MAX_DELAY,
+        true,
+    )
+    .await
 }
 
 async fn upload_impl<Byt, Cas>(
