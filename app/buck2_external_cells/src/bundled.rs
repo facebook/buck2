@@ -49,7 +49,8 @@ use buck2_execute::materialize::materializer::WriteRequest;
 use buck2_external_cells_bundled::BundledCell;
 use buck2_external_cells_bundled::BundledFile;
 use buck2_external_cells_bundled::get_bundled_data;
-use buck2_fs::fs_util::uncategorized as fs_util;
+use buck2_fs::error::IoResultExt;
+use buck2_fs::fs_util;
 use buck2_fs::paths::abs_path::AbsPathBuf;
 use buck2_fs::paths::file_name::FileName;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
@@ -93,7 +94,7 @@ fn load_nano_prelude() -> buck2_error::Result<BundledCell> {
             match FileType::from(entry.file_type()?) {
                 FileType::Directory => dir_stack.push((entry_path, entry_rel_path)),
                 FileType::File => {
-                    let contents = fs_util::read(&entry_path)?;
+                    let contents = fs_util::read(&entry_path).categorize_internal()?;
                     files.push(BundledFile {
                         path: entry_rel_path.as_str().to_owned().leak(),
                         contents: contents.leak(),

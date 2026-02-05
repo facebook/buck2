@@ -21,7 +21,8 @@ use buck2_common::daemon_dir::DaemonDir;
 use buck2_data::error::ErrorTag;
 use buck2_error::BuckErrorContext;
 use buck2_event_log::stream_value::StreamValue;
-use buck2_fs::fs_util::uncategorized as fs_util;
+use buck2_fs::error::IoResultExt;
+use buck2_fs::fs_util;
 use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_fs::paths::file_name::FileName;
 use futures::Stream;
@@ -134,13 +135,13 @@ impl BuckdLifecycleLock {
             .join(FileName::new(Self::BUCKD_PREV_DIR).unwrap());
         if keep_prev {
             if prev_daemon_dir.is_dir() {
-                fs_util::remove_dir_all(&prev_daemon_dir)?;
+                fs_util::remove_dir_all(&prev_daemon_dir).categorize_internal()?;
             }
             fs_util::create_dir_all(&prev_daemon_dir)?;
         }
 
         let mut seen_lifecycle = false;
-        for p in fs_util::read_dir(&self.daemon_dir.path)? {
+        for p in fs_util::read_dir(&self.daemon_dir.path).categorize_internal()? {
             let p = p?;
             if p.file_name() == Self::BUCKD_LIFECYCLE {
                 seen_lifecycle = true;
@@ -150,10 +151,11 @@ impl BuckdLifecycleLock {
                 if p.file_name() != Self::BUCKD_PREV_DIR {
                     let file_name = p.file_name();
                     let file_name = FileName::from_os_string(&file_name)?;
-                    fs_util::rename(p.path(), prev_daemon_dir.join(file_name))?;
+                    fs_util::rename(p.path(), prev_daemon_dir.join(file_name))
+                        .categorize_internal()?;
                 }
             } else {
-                fs_util::remove_all(p.path())?;
+                fs_util::remove_all(p.path()).categorize_internal()?;
             }
         }
         if !seen_lifecycle {

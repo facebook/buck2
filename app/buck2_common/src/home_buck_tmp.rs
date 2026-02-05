@@ -10,7 +10,8 @@
 
 use std::time::SystemTime;
 
-use buck2_fs::fs_util::uncategorized as fs_util;
+use buck2_fs::error::IoResultExt;
+use buck2_fs::fs_util;
 use buck2_fs::paths::abs_norm_path::AbsNormPath;
 use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_fs::paths::file_name::FileName;
@@ -25,7 +26,7 @@ pub fn home_buck_tmp_dir() -> buck2_error::Result<&'static AbsNormPath> {
     fn remove_old_files(tmp_dir: &AbsNormPath) -> buck2_error::Result<()> {
         let mut now = None;
 
-        for entry in fs_util::read_dir(tmp_dir)? {
+        for entry in fs_util::read_dir(tmp_dir).categorize_internal()? {
             let entry = entry?;
             let timestamp = match entry.metadata().and_then(|m| m.modified()) {
                 Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
@@ -38,7 +39,7 @@ pub fn home_buck_tmp_dir() -> buck2_error::Result<&'static AbsNormPath> {
 
             let now = *now.get_or_insert_with(SystemTime::now);
             if now.duration_since(timestamp).unwrap_or_default().as_secs() > 3 * 86400 {
-                fs_util::remove_all(entry.path())?;
+                fs_util::remove_all(entry.path()).categorize_internal()?;
             }
         }
 

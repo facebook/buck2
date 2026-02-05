@@ -23,7 +23,8 @@ use buck2_execute::materialize::materializer::DeferredMaterializerEntry;
 use buck2_execute::materialize::materializer::DeferredMaterializerExtensions;
 use buck2_execute::materialize::materializer::DeferredMaterializerIterItem;
 use buck2_execute::materialize::materializer::DeferredMaterializerSubscription;
-use buck2_fs::fs_util::uncategorized as fs_util;
+use buck2_fs::error::IoResultExt;
+use buck2_fs::fs_util;
 use chrono::DateTime;
 use chrono::Duration;
 use chrono::TimeZone;
@@ -219,7 +220,8 @@ impl<T: IoHandler> ExtensionCommand<T> for Fsck {
             // actual things are in flight.
 
             let path = ProjectRelativePathBuf::from(path);
-            let res = fs_util::symlink_metadata(processor.io.fs().resolve(&path));
+            let res =
+                fs_util::symlink_metadata(processor.io.fs().resolve(&path)).categorize_internal();
             match res {
                 Ok(..) => {}
                 Err(e) => {

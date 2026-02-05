@@ -21,7 +21,7 @@ use buck2_error::BuckErrorContext;
 use buck2_error::buck2_error;
 use buck2_fs::async_fs_util;
 use buck2_fs::error::IoResultExt;
-use buck2_fs::fs_util::uncategorized as fs_util;
+use buck2_fs::fs_util;
 use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_fs::paths::abs_path::AbsPath;
 use buck2_fs::paths::abs_path::AbsPathBuf;
@@ -148,7 +148,8 @@ pub(super) async fn copy_to_out(
                 let path = path.resolve(working_dir);
                 if to_be_copied.is_dir {
                     let context = CopyContext {
-                        relative_symlink_boundary: fs_util::canonicalize(&to_be_copied.from_path)?,
+                        relative_symlink_boundary: fs_util::canonicalize(&to_be_copied.from_path)
+                            .categorize_internal()?,
                     };
                     copy_directory(&to_be_copied.from_path, &path, &context).await?;
                 } else {
@@ -167,32 +168,41 @@ fn copy_symlink<P: AsRef<AbsPath>, Q: AsRef<AbsPath>>(
     context: &CopyContext,
 ) -> buck2_error::Result<()> {
     // Make symlinks overwrite items which were already present at destination path
-    fs_util::remove_all(&dst_path).buck_error_context(format!(
-        "Removing pre-existing item at path {:?}",
-        src_path.as_ref()
-    ))?;
-    let symlink_target_abs_path = fs_util::canonicalize(src_path.as_ref()).buck_error_context(
-        format!("Resolving symlink to be copied {:?}", src_path.as_ref()),
-    )?;
+    fs_util::remove_all(&dst_path)
+        .categorize_internal()
+        .buck_error_context(format!(
+            "Removing pre-existing item at path {:?}",
+            src_path.as_ref()
+        ))?;
+    let symlink_target_abs_path = fs_util::canonicalize(src_path.as_ref())
+        .categorize_internal()
+        .buck_error_context(format!(
+            "Resolving symlink to be copied {:?}",
+            src_path.as_ref()
+        ))?;
     // Now recreate the symlink
     let symlink_target = {
         if symlink_target_abs_path.starts_with(&context.relative_symlink_boundary) {
             // Symlink is not pointing outside the original output we are copying.
             // Just keep it as it is.
-            fs_util::read_link(&src_path).buck_error_context(format!(
-                "Reading value of a symlink to be copied {:?}",
-                src_path.as_ref()
-            ))?
+            fs_util::read_link(&src_path)
+                .categorize_internal()
+                .buck_error_context(format!(
+                    "Reading value of a symlink to be copied {:?}",
+                    src_path.as_ref()
+                ))?
         } else {
             // Force "copied" symlink to be absolute as it points outside of original output we are copying.
             symlink_target_abs_path.into_path_buf()
         }
     };
-    fs_util::symlink(&symlink_target, &dst_path).buck_error_context(format!(
-        "Creating symlink at {:?} pointing to {:?}",
-        dst_path.as_ref(),
-        &symlink_target
-    ))?;
+    fs_util::symlink(&symlink_target, &dst_path)
+        .categorize_internal()
+        .buck_error_context(format!(
+            "Creating symlink at {:?} pointing to {:?}",
+            dst_path.as_ref(),
+            &symlink_target
+        ))?;
 
     Ok(())
 }
@@ -288,6 +298,7 @@ mod tests {
     #[cfg(unix)]
     use std::path::PathBuf;
 
+    use buck2_fs::fs_util::uncategorized as fs_util;
     use tempfile::TempDir;
 
     use super::*;

@@ -17,7 +17,8 @@ use buck2_event_log::file_names::find_log_by_trace_id;
 use buck2_event_log::file_names::retrieve_nth_recent_log;
 use buck2_event_log::read::EventLogPathBuf;
 use buck2_event_log::utils::Encoding;
-use buck2_fs::fs_util::uncategorized as fs_util;
+use buck2_fs::error::IoResultExt;
+use buck2_fs::fs_util;
 use buck2_fs::paths::abs_path::AbsPathBuf;
 use buck2_fs::paths::file_name::FileName;
 use buck2_fs::paths::file_name::FileNameBuf;
@@ -194,7 +195,7 @@ impl EventLogOptions {
                 .parent()
                 .buck_error_context("Error identifying log dir")?,
         )?;
-        fs_util::rename(temp_path.path(), &log_path)?;
+        fs_util::rename(temp_path.path(), &log_path).categorize_internal()?;
         crate::eprintln!("Downloaded event-log to `{}`", log_path.display())?;
 
         temp_path.close()?;

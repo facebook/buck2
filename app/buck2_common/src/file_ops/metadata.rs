@@ -14,7 +14,8 @@ use std::sync::Arc;
 use allocative::Allocative;
 use buck2_core::buck2_env;
 use buck2_core::cells::cell_path::CellPath;
-use buck2_fs::fs_util::uncategorized as fs_util;
+use buck2_fs::error::IoResultExt;
+use buck2_fs::fs_util;
 use buck2_fs::paths::RelativePath;
 use buck2_fs::paths::RelativePathBuf;
 use buck2_fs::paths::abs_path::AbsPath;
@@ -161,8 +162,6 @@ impl FileDigest {
     /// Read the file from the xattr, or skip if it's not available.
     #[cfg(unix)]
     fn from_file_attr(file: &AbsPath, config: FileDigestConfig) -> Option<Self> {
-        use buck2_fs::fs_util::uncategorized as fs_util;
-
         use crate::cas_digest::RawDigest;
 
         enum Digest {
@@ -217,7 +216,7 @@ impl FileDigest {
     /// Get the digest from disk. You should usually prefer `from_file`
     /// which also uses faster methods of getting the SHA1 if it can.
     fn from_file_disk(file: &AbsPath, config: FileDigestConfig) -> buck2_error::Result<Self> {
-        let f = fs_util::open_file(file)?;
+        let f = fs_util::open_file(file).categorize_internal()?;
         FileDigest::from_reader(f, config.as_cas_digest_config())
     }
 }

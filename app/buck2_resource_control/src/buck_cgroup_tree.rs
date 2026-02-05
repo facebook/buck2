@@ -9,7 +9,8 @@
  */
 
 use buck2_common::init::ResourceControlConfig;
-use buck2_fs::fs_util::uncategorized as fs_util;
+use buck2_fs::error::IoResultExt;
+use buck2_fs::fs_util;
 use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_fs::paths::abs_path::AbsPath;
 use buck2_fs::paths::file_name::FileName;
@@ -74,7 +75,8 @@ impl PreppedBuckCgroups {
     /// This function is the part of the cgroup prepping that must be done early on during daemon
     /// startup because it moves the daemon process.
     pub fn prep_current_process() -> buck2_error::Result<Self> {
-        let procfs_out = fs_util::read_to_string(AbsPath::new("/proc/self/cgroup").unwrap())?;
+        let procfs_out = fs_util::read_to_string(AbsPath::new("/proc/self/cgroup").unwrap())
+            .categorize_internal()?;
         let root_cgroup_path = parse_procfs_cgroup_output(&procfs_out)?;
         let root_cgroup = CgroupMinimal::sync_try_from_path(root_cgroup_path)?;
         // Make the daemon cgroup and move ourselves into it. That's all we have to do at this

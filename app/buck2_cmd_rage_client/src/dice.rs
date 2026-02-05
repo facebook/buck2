@@ -18,7 +18,8 @@ use buck2_client_ctx::events_ctx::EventsCtx;
 use buck2_common::manifold::Bucket;
 use buck2_common::manifold::ManifoldClient;
 use buck2_error::BuckErrorContext;
-use buck2_fs::fs_util::uncategorized as fs_util;
+use buck2_fs::error::IoResultExt;
+use buck2_fs::fs_util;
 use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_fs::paths::abs_path::AbsPathBuf;
 use buck2_util::process::async_background_command;
@@ -141,11 +142,16 @@ async fn upload_to_manifold(
 
 impl Drop for DiceDump {
     fn drop(&mut self) {
-        if let Err(e) = fs_util::remove_all(&self.dump_folder).with_buck_error_context(|| {
-            format!(
-                "Failed to remove Buck2 DICE dump folder at `{}`. Please remove this manually as it could be quite large.",
-                self.dump_folder.display()
-            )
-        }) { tracing::warn!("{:#}", e); };
+        if let Err(e) = fs_util::remove_all(&self.dump_folder)
+            .categorize_internal()
+            .with_buck_error_context(|| {
+                format!(
+                    "Failed to remove Buck2 DICE dump folder at `{}`. Please remove this manually as it could be quite large.",
+                    self.dump_folder.display()
+                )
+            })
+        {
+            tracing::warn!("{:#}", e);
+        };
     }
 }

@@ -13,7 +13,8 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use buck2_error::BuckErrorContext;
-use buck2_fs::fs_util::uncategorized as fs_util;
+use buck2_fs::error::IoResultExt;
+use buck2_fs::fs_util;
 use buck2_fs::paths::abs_norm_path::AbsNormPath;
 use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_fs::paths::file_name::FileName;
@@ -137,7 +138,7 @@ pub trait SqliteDb {
         // We delete the entire directory and not just the db file because sqlite
         // can leave behind other files.
         if db_dir.exists() {
-            fs_util::remove_dir_all(&db_dir)?;
+            fs_util::remove_dir_all(&db_dir).categorize_internal()?;
         }
         fs_util::create_dir_all(&db_dir)?;
 

@@ -30,7 +30,8 @@ use buck2_error::BuckErrorContext;
 use buck2_error::conversion::clap::buck_error_clap_parser;
 use buck2_events::daemon_id::DaemonId;
 use buck2_events::daemon_id::set_daemon_id_for_panics;
-use buck2_fs::fs_util::uncategorized as fs_util;
+use buck2_fs::error::IoResultExt;
+use buck2_fs::fs_util;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_resource_control::buck_cgroup_tree::PreppedBuckCgroups;
 use buck2_server::daemon::daemon_tcp::create_listener;
@@ -140,7 +141,10 @@ fn verify_current_daemon(daemon_dir: &DaemonDir) -> buck2_error::Result<()> {
     let file = daemon_dir.buckd_pid();
     let my_pid = process::id();
 
-    let recorded_pid: u32 = fs_util::read_to_string(&file)?.trim().parse()?;
+    let recorded_pid: u32 = fs_util::read_to_string(&file)
+        .categorize_internal()?
+        .trim()
+        .parse()?;
     if recorded_pid != my_pid {
         return Err(
             DaemonError::PidFileMismatch(file.into_path_buf(), my_pid, recorded_pid).into(),
@@ -210,7 +214,7 @@ impl DaemonCommand {
         //   `--no-buckd` should capture correct directories earlier.
         //   Or even better, client should set current directory to project root,
         //   and resolve all paths relative to original cwd.
-        fs_util::set_current_dir(paths.project_root().root())?;
+        fs_util::set_current_dir(paths.project_root().root()).categorize_internal()?;
 
         let server_init_ctx = BuckdServerInitPreferences {
             detect_cycles: buck2_env!("DICE_DETECT_CYCLES_UNSTABLE", type=DetectCycles)?,
@@ -243,7 +247,7 @@ impl DaemonCommand {
 
             Self::daemonize(stdout, stderr)?;
 
-            fs_util::write(&pid_path, format!("{}", process::id()))?;
+            fs_util::write(&pid_path, format!("{}", process::id())).categorize_internal()?;
 
             let pid = process::id();
             let process_info = DaemonProcessInfo {
@@ -261,7 +265,7 @@ impl DaemonCommand {
 
             (listener, process_info, endpoint)
         } else {
-            fs_util::write(&pid_path, format!("{}", process::id()))?;
+            fs_util::write(&pid_path, format!("{}", process::id())).categorize_internal()?;
 
             if !in_process {
                 Self::redirect_output(stdout, stderr)?;
@@ -506,7 +510,8 @@ impl DaemonCommand {
             fs_util::write(
                 daemon_dir.buckd_error_log(),
                 serde_json::to_string(&buck2_data::ErrorReport::from(err))?,
-            )?;
+            )
+            .categorize_internal()?;
         }
         res
     }

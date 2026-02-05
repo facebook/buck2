@@ -44,8 +44,9 @@ use buck2_execute::materialize::materializer::WriteRequest;
 use buck2_execute::output_size::OutputSize;
 use buck2_execute::re::error::RemoteExecutionError;
 use buck2_execute::re::manager::ReConnectionManager;
+use buck2_fs::error::IoResultExt;
+use buck2_fs::fs_util;
 use buck2_fs::fs_util::ReadDir;
-use buck2_fs::fs_util::uncategorized as fs_util;
 use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_http::HttpClient;
 use chrono::Duration;
@@ -447,7 +448,7 @@ impl IoHandler for DefaultIoHandler {
     }
 
     fn read_dir(&self, path: &AbsNormPathBuf) -> buck2_error::Result<ReadDir> {
-        fs_util::read_dir(path)
+        fs_util::read_dir(path).categorize_internal()
     }
 
     fn buck_out_path(&self) -> &ProjectRelativePathBuf {

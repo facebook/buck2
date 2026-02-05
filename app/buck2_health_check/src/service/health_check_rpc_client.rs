@@ -21,7 +21,7 @@ use buck2_error::ErrorTag;
 use buck2_error::conversion::from_any_with_tag;
 use buck2_fs::async_fs_util;
 use buck2_fs::error::IoResultExt;
-use buck2_fs::fs_util::uncategorized as fs_util;
+use buck2_fs::fs_util;
 use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_fs::paths::abs_path::AbsPathBuf;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
@@ -123,9 +123,11 @@ impl HealthCheckRpcClient {
         let exe = AbsPathBuf::new(
             std::env::current_exe().buck_error_context("Cannot get Buck2 executable")?,
         )?;
-        let exe = fs_util::canonicalize(&exe).buck_error_context(
-            "Failed to canonicalize path to Buck2 executable. Try running `buck2 kill`.",
-        )?;
+        let exe = fs_util::canonicalize(&exe)
+            .categorize_internal()
+            .buck_error_context(
+                "Failed to canonicalize path to Buck2 executable. Try running `buck2 kill`.",
+            )?;
 
         let exe = exe.as_abs_path();
         let exe_dir = exe
@@ -146,7 +148,7 @@ impl HealthCheckRpcClient {
             let state_info_file = dir.join(ForwardRelativePath::unchecked_new(CLI_INFO_FILE));
             if fs_util::try_exists(&state_info_file)? {
                 // Clean up any state info file from previous build.
-                fs_util::remove_file(&state_info_file)?;
+                fs_util::remove_file(&state_info_file).categorize_internal()?;
             }
             Ok(state_info_file)
         }

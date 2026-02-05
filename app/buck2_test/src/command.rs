@@ -68,7 +68,8 @@ use buck2_error::BuckErrorContext;
 use buck2_error::ErrorTag;
 use buck2_events::dispatch::console_message;
 use buck2_events::dispatch::with_dispatcher_async;
-use buck2_fs::fs_util::uncategorized as fs_util;
+use buck2_fs::error::IoResultExt;
+use buck2_fs::fs_util;
 use buck2_fs::paths::abs_path::AbsPathBuf;
 use buck2_interpreter::extra::InterpreterHostPlatform;
 use buck2_interpreter_for_build::interpreter::context::HasInterpreterContext;
@@ -1657,9 +1658,11 @@ fn post_process_test_executor(s: &str) -> buck2_error::Result<PathBuf> {
             let exe = AbsPathBuf::new(
                 std::env::current_exe().buck_error_context("Cannot get Buck2 executable")?,
             )?;
-            let exe = fs_util::canonicalize(&exe).buck_error_context(
-                "Failed to canonicalize path to Buck2 executable. Try running `buck2 kill`.",
-            )?;
+            let exe = fs_util::canonicalize(&exe)
+                .categorize_internal()
+                .buck_error_context(
+                    "Failed to canonicalize path to Buck2 executable. Try running `buck2 kill`.",
+                )?;
 
             let exe = exe.as_abs_path();
             let exe_dir = exe

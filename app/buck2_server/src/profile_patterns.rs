@@ -12,7 +12,8 @@ use std::collections::HashMap;
 use std::sync::Mutex;
 
 use buck2_error::internal_error;
-use buck2_fs::fs_util::uncategorized as fs_util;
+use buck2_fs::error::IoResultExt;
+use buck2_fs::fs_util;
 use buck2_fs::paths::abs_path::AbsPathBuf;
 use buck2_fs::paths::file_name::FileName;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
@@ -52,7 +53,8 @@ impl FileWritingProfileEventListener {
         fs_util::write(
             self.base_path.join("all_keys.list"),
             lock.evaluations.iter().join("\n"),
-        )?;
+        )
+        .categorize_internal()?;
         if let Some(e) = lock.errors.first() {
             return Err(e.dupe());
         }
@@ -96,7 +98,7 @@ impl FileWritingProfileEventListener {
 
         let output_path = self.base_path.join(subpath.as_path());
         fs_util::create_dir_all(output_path.parent().unwrap())?;
-        fs_util::write(output_path, profile_data.profile_data.gen_csv()?)?;
+        fs_util::write(output_path, profile_data.profile_data.gen_csv()?).categorize_internal()?;
         Ok(())
     }
 }

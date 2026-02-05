@@ -32,7 +32,8 @@ use buck2_client_ctx::startup_deadline::StartupDeadline;
 use buck2_client_ctx::subscribers::superconsole::StatefulSuperConsole;
 use buck2_common::daemon_dir::DaemonDir;
 use buck2_error::BuckErrorContext;
-use buck2_fs::fs_util::uncategorized as fs_util;
+use buck2_fs::error::IoResultExt;
+use buck2_fs::fs_util;
 use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_fs::paths::abs_path::AbsPath;
 use dupe::Dupe;
@@ -219,7 +220,7 @@ async fn clean(
                 buck_out_dir.display(),
                 trash_target.display()
             ))?;
-            fs_util::rename(&buck_out_dir, &trash_target)?;
+            fs_util::rename(&buck_out_dir, &trash_target).categorize_internal()?;
         }
 
         // Clean the daemon_dir first
@@ -287,7 +288,7 @@ fn collect_paths_to_clean(
     buck_out_path: &AbsNormPathBuf,
 ) -> buck2_error::Result<Vec<AbsNormPathBuf>> {
     let mut paths_to_clean = vec![];
-    let dir = fs_util::read_dir(buck_out_path)?;
+    let dir = fs_util::read_dir(buck_out_path).categorize_internal()?;
     for entry in dir {
         let entry = entry?;
         let path = entry.path();
@@ -448,8 +449,11 @@ fn clean_buck_out(path: &AbsNormPathBuf, console_type: ConsoleType) -> buck2_err
             let counter = counter.dupe();
             thread_pool.execute(move || {
                 // The wlak gives us back absolute paths since we give it absolute paths.
-                let res = AbsPath::new(dir_entry.path())
-                    .and_then(|p| fs_util::remove_file(p).map_err(Into::into));
+                let res = AbsPath::new(dir_entry.path()).and_then(|p| {
+                    fs_util::remove_file(p)
+                        .categorize_internal()
+                        .map_err(Into::into)
+                });
 
                 match res {
                     Ok(_) => {
@@ -478,11 +482,11 @@ fn clean_buck_out(path: &AbsNormPathBuf, console_type: ConsoleType) -> buck2_err
     // Buck's cwd is typically the directory that is passed in here, which means that on Windows we
     // often fail to delete this if we don't clean up all our child processes. Leaving zombies
     // around isn't great though...
-    let dir = fs_util::read_dir(path)?;
+    let dir = fs_util::read_dir(path).categorize_internal()?;
     for entry in dir {
         let entry = entry?;
         let path = entry.path();
-        fs_util::remove_dir_all(path)?;
+        fs_util::remove_dir_all(path).categorize_internal()?;
     }
     Ok(())
 }

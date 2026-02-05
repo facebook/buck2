@@ -32,7 +32,8 @@ use buck2_data::FileWatcherEventType;
 use buck2_data::FileWatcherKind;
 use buck2_error::BuckErrorContext;
 use buck2_events::dispatch::span_async;
-use buck2_fs::fs_util::uncategorized as fs_util;
+use buck2_fs::error::IoResultExt;
+use buck2_fs::fs_util;
 use buck2_fs::paths::abs_norm_path::AbsNormPath;
 use buck2_fs::paths::file_name::FileNameBuf;
 use compact_str::CompactString;
@@ -262,7 +263,7 @@ impl FsSnapshot {
         cells: &CellResolver,
         disk_path: &AbsNormPath,
     ) -> buck2_error::Result<()> {
-        for file in fs_util::read_dir(disk_path)? {
+        for file in fs_util::read_dir(disk_path).categorize_internal()? {
             let file = file?;
             let filetype = file.file_type()?;
             let filename = file.file_name();

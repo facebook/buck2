@@ -857,7 +857,8 @@ impl DaemonState {
         #[cfg(fbcode_build)]
         {
             use buck2_core::soft_error;
-            use buck2_fs::fs_util::uncategorized as fs_util;
+            use buck2_fs::error::IoResultExt;
+            use buck2_fs::fs_util;
 
             let project_root = self.paths.project_root().root();
             if !detect_eden::is_eden(project_root.to_path_buf())? {
@@ -879,7 +880,9 @@ impl DaemonState {
                 {
                     use std::os::unix::fs::MetadataExt;
 
-                    let project_device = fs_util::symlink_metadata(project_root)?.dev();
+                    let project_device = fs_util::symlink_metadata(project_root)
+                        .categorize_internal()?
+                        .dev();
                     let buck_out_device = buck_out_root_meta.dev();
 
                     if project_device != buck_out_device {

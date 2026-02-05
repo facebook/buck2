@@ -23,7 +23,8 @@ use buck2_common::file_ops::metadata::TrackedFileDigest;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_error::BuckErrorContext;
-use buck2_fs::fs_util::uncategorized as fs_util;
+use buck2_fs::error::IoResultExt;
+use buck2_fs::fs_util;
 use buck2_http::HttpClient;
 use buck2_http::retries::HttpError;
 use buck2_http::retries::HttpErrorForRetry;
@@ -272,7 +273,8 @@ pub async fn http_download(
 
             let (head, stream) = response.into_parts();
             let file = fs_util::create_file(&abs_path)
-                .map_err(|e| HttpDownloadError::IoError(buck2_error::Error::from(e)))?;
+                .categorize_internal()
+                .map_err(HttpDownloadError::IoError)?;
             let buf_writer = std::io::BufWriter::new(file);
 
             let digest = copy_and_hash(

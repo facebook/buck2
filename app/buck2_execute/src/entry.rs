@@ -19,7 +19,8 @@ use buck2_common::file_ops::metadata::FileType;
 use buck2_common::file_ops::metadata::TrackedFileDigest;
 use buck2_directory::directory::entry::DirectoryEntry;
 use buck2_error::BuckErrorContext;
-use buck2_fs::fs_util::uncategorized as fs_util;
+use buck2_fs::error::IoResultExt;
+use buck2_fs::fs_util;
 use buck2_fs::paths::RelativePath;
 use buck2_fs::paths::abs_norm_path::AbsNormPath;
 use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
@@ -115,7 +116,11 @@ async fn build_dir_from_disk(
     let mut file_futures: Vec<_> = Vec::new();
 
     let files = blocking_executor
-        .execute_io_inline(|| fs_util::read_dir(&disk_path).map_err(Into::into))
+        .execute_io_inline(|| {
+            fs_util::read_dir(&disk_path)
+                .categorize_internal()
+                .map_err(Into::into)
+        })
         .await?;
     for file in files {
         let file = file?;
@@ -210,15 +215,17 @@ fn create_symlink(
     path: &AbsNormPathBuf,
     project_root: &AbsNormPath,
 ) -> buck2_error::Result<ActionDirectoryMember> {
-    let mut symlink_target = fs_util::read_link(path)?;
+    let mut symlink_target = fs_util::read_link(path).categorize_internal()?;
     if cfg!(windows) && symlink_target.is_relative() {
         let directory_path = path
             .parent()
             .buck_error_context(format!("failed to get parent of {}", path.display()))?;
-        let canonical_path = fs_util::canonicalize(directory_path).buck_error_context(format!(
-            "failed to get canonical path of {}",
-            directory_path.display()
-        ))?;
+        let canonical_path = fs_util::canonicalize(directory_path)
+            .categorize_internal()
+            .buck_error_context(format!(
+                "failed to get canonical path of {}",
+                directory_path.display()
+            ))?;
         if !canonical_path.starts_with(project_root) {
             let normalized_target = symlink_target
                 .to_str()

@@ -55,7 +55,8 @@ use buck2_execute::artifact::artifact_dyn::ArtifactDyn;
 use buck2_execute::directory::ActionDirectoryEntry;
 use buck2_execute::directory::ActionDirectoryMember;
 use buck2_execute::directory::ActionSharedDirectory;
-use buck2_fs::fs_util::uncategorized as fs_util;
+use buck2_fs::error::IoResultExt;
+use buck2_fs::fs_util;
 use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_wrapper_common::invocation_id::TraceId;
 use derivative::Derivative;
@@ -1008,8 +1009,9 @@ fn write_or_serialize_build_report(
         if let Some(parent) = path.parent() {
             fs_util::create_dir_all(parent)?;
         }
-        let file =
-            fs_util::create_file(path.clone()).buck_error_context("Error writing build report")?;
+        let file = fs_util::create_file(path.clone())
+            .categorize_internal()
+            .buck_error_context("Error writing build report")?;
         let mut file = BufWriter::new(file);
         serde_json::to_writer_pretty(&mut file, build_report)?
     } else {
@@ -1154,6 +1156,7 @@ pub fn initialize_streaming_build_report(
 
     // create and clear the file
     let _file = fs_util::create_file(path.clone())
+        .categorize_internal()
         .buck_error_context("Error initializing streaming build report")?;
 
     Ok(())

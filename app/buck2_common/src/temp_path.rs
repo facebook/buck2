@@ -11,7 +11,8 @@
 use std::env;
 use std::mem;
 
-use buck2_fs::fs_util::uncategorized as fs_util;
+use buck2_fs::error::IoResultExt;
+use buck2_fs::fs_util;
 use buck2_fs::paths::abs_norm_path::AbsNormPath;
 use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_fs::paths::file_name::FileNameBuf;
@@ -51,7 +52,7 @@ impl TempPath {
     /// and `drop` can only panic or ignore error.
     pub fn close(mut self) -> buck2_error::Result<()> {
         let path = mem::take(&mut self.path).unwrap();
-        fs_util::remove_all(path)?;
+        fs_util::remove_all(path).categorize_internal()?;
         Ok(())
     }
 }

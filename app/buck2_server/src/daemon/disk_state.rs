@@ -28,7 +28,8 @@ use buck2_execute_impl::sqlite::incremental_state_db::IncrementalStateSqliteDb;
 use buck2_execute_impl::sqlite::materializer_db::MATERIALIZER_DB_SCHEMA_VERSION;
 use buck2_execute_impl::sqlite::materializer_db::MaterializerState;
 use buck2_execute_impl::sqlite::materializer_db::MaterializerStateSqliteDb;
-use buck2_fs::fs_util::uncategorized as fs_util;
+use buck2_fs::error::IoResultExt;
+use buck2_fs::fs_util;
 use buck2_fs::paths::abs_norm_path::AbsNormPath;
 use buck2_fs::paths::file_name::FileName;
 
@@ -109,6 +110,7 @@ pub(crate) async fn maybe_initialize_materializer_sqlite_db(
         io_executor
             .execute_io_inline(|| {
                 fs_util::remove_all(paths.materializer_state_path())
+                    .categorize_internal()
                     .map_err(buck2_error::Error::from)
             })
             .await?;
@@ -162,6 +164,7 @@ pub(crate) async fn maybe_initialize_incremental_sqlite_db(
         io_executor
             .execute_io_inline(|| {
                 fs_util::remove_all(paths.incremental_state_path())
+                    .categorize_internal()
                     .map_err(buck2_error::Error::from)
             })
             .await?;
@@ -212,7 +215,7 @@ pub(crate) fn delete_unknown_disk_state(
 ) -> buck2_error::Result<()> {
     let res: buck2_error::Result<()> = try {
         if cache_dir_path.exists() {
-            for entry in fs_util::read_dir(cache_dir_path)? {
+            for entry in fs_util::read_dir(cache_dir_path).categorize_internal()? {
                 let entry = entry?;
                 let filename = entry.file_name();
                 let filename = filename
@@ -222,7 +225,7 @@ pub(crate) fn delete_unknown_disk_state(
 
                 // known_dir_names is always small, so this contains isn't expensive
                 if !known_dir_names.contains(&filename) || !entry.path().is_dir() {
-                    fs_util::remove_all(cache_dir_path.join(filename))?;
+                    fs_util::remove_all(cache_dir_path.join(filename)).categorize_internal()?;
                 }
             }
         }
@@ -240,6 +243,7 @@ pub(crate) fn delete_unknown_disk_state(
 mod tests {
     use buck2_core::fs::project::ProjectRootTemp;
     use buck2_core::fs::project_rel_path::ProjectRelativePath;
+    use buck2_fs::fs_util::uncategorized as fs_util;
     use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
 
     use super::*;

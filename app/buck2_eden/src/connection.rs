@@ -26,7 +26,8 @@ use buck2_core::soft_error;
 use buck2_error::BuckErrorContext;
 use buck2_error::buck2_error;
 use buck2_error::conversion::from_any_with_tag;
-use buck2_fs::fs_util::uncategorized as fs_util;
+use buck2_fs::error::IoResultExt;
+use buck2_fs::fs_util;
 use buck2_fs::paths::abs_path::AbsPath;
 use buck2_fs::paths::abs_path::AbsPathBuf;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
@@ -93,8 +94,9 @@ impl EdenConnectionManager {
         }
         let connector = Self::get_eden_connector(fb, &dot_eden_dir)?;
 
-        let canon_project_root = fs_util::canonicalize(project_root.root())?;
-        let canon_eden_mount = fs_util::canonicalize(&connector.mount.0)?;
+        let canon_project_root =
+            fs_util::canonicalize(project_root.root()).categorize_internal()?;
+        let canon_eden_mount = fs_util::canonicalize(&connector.mount.0).categorize_internal()?;
 
         let rel_project_root = canon_project_root
             .strip_prefix(&canon_eden_mount)
@@ -126,16 +128,18 @@ impl EdenConnectionManager {
         // Based off of how watchman picks up the config: fbcode/watchman/watcher/eden.cpp:138
         if cfg!(windows) {
             let config_path = dot_eden_dir.join("config");
-            let config_contents = fs_util::read_to_string(config_path)?;
+            let config_contents = fs_util::read_to_string(config_path).categorize_internal()?;
             let config: EdenConfig = toml::from_str(&config_contents)
                 .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::IoEdenConfigError))?;
             let mount = Arc::new(EdenMountPoint(AbsPathBuf::new(config.config.root)?));
             let socket = AbsPathBuf::new(PathBuf::from(config.config.socket))?;
             Ok(EdenConnector { fb, mount, socket })
         } else {
-            let mount = fs_util::read_link(dot_eden_dir.join("root"))?;
+            let mount = fs_util::read_link(dot_eden_dir.join("root")).categorize_internal()?;
             let mount = Arc::new(EdenMountPoint(AbsPathBuf::new(mount)?));
-            let socket = AbsPathBuf::new(fs_util::read_link(dot_eden_dir.join("socket"))?)?;
+            let socket = AbsPathBuf::new(
+                fs_util::read_link(dot_eden_dir.join("socket")).categorize_internal()?,
+            )?;
             Ok(EdenConnector { fb, mount, socket })
         }
     }

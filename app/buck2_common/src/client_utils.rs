@@ -27,7 +27,8 @@ pub async fn get_channel_uds(
     unix_socket: &Path,
     change_to_parent_dir: bool,
 ) -> buck2_error::Result<Channel> {
-    use buck2_fs::fs_util::uncategorized as fs_util;
+    use buck2_fs::error::IoResultExt;
+    use buck2_fs::fs_util;
 
     use crate::home_buck_tmp::home_buck_tmp_dir;
     use crate::temp_path::TempPath;
@@ -38,7 +39,7 @@ pub async fn get_channel_uds(
     if change_to_parent_dir {
         let symlink = TempPath::new_in(home_buck_tmp_dir()?)?;
 
-        fs_util::symlink(unix_socket, symlink.path())?;
+        fs_util::symlink(unix_socket, symlink.path()).categorize_internal()?;
 
         let r = get_channel_uds_no_symlink(symlink.path())
             .await

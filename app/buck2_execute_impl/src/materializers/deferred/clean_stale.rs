@@ -31,7 +31,8 @@ use buck2_events::dispatch::EventDispatcher;
 use buck2_events::metadata;
 use buck2_execute::execute::blocking::IoRequest;
 use buck2_execute::execute::clean_output_paths::cleanup_path;
-use buck2_fs::fs_util::uncategorized as fs_util;
+use buck2_fs::error::IoResultExt;
+use buck2_fs::fs_util;
 use buck2_fs::paths::abs_norm_path::AbsNormPath;
 use buck2_fs::paths::file_name::FileName;
 use buck2_fs::paths::file_name::FileNameBuf;
@@ -467,7 +468,7 @@ impl IoRequest for CleanInvalidatedPathRequest {
 pub fn get_size(path: &AbsNormPath) -> buck2_error::Result<u64> {
     let mut result = 0;
     if path.is_dir() {
-        for entry in fs_util::read_dir(path)? {
+        for entry in fs_util::read_dir(path).categorize_internal()? {
             result += get_size(&entry?.path())?;
         }
     } else {

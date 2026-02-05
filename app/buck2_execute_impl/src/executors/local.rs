@@ -77,8 +77,9 @@ use buck2_execute_local::decode_command_event_stream;
 use buck2_execute_local::maybe_absolutize_exe;
 use buck2_execute_local::spawn_command_and_stream_events;
 use buck2_execute_local::status_decoder::DefaultStatusDecoder;
+use buck2_fs::IoResultExt;
 use buck2_fs::async_fs_util;
-use buck2_fs::fs_util::uncategorized as fs_util;
+use buck2_fs::fs_util;
 use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_fs::paths::abs_path::AbsPath;
 use buck2_resource_control::ActionFreezeEvent;
@@ -1447,7 +1448,7 @@ async fn check_inputs(
                                 // want to propagate it.
                                 let _ignored = tag_result!(
                                     "missing_local_inputs",
-                                    fs_util::symlink_metadata(&abs_path).buck_error_context("Missing input").map_err(|e| e.into()),
+                                    fs_util::symlink_metadata(&abs_path).categorize_internal().buck_error_context("Missing input").map_err(|e| e.into()),
                                     quiet: true,
                                     task: false,
                                     daemon_materializer_state_is_corrupted: true

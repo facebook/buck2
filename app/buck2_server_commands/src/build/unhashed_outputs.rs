@@ -18,7 +18,8 @@ use buck2_build_api::build::ProviderArtifacts;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_error::BuckErrorContext;
-use buck2_fs::fs_util::uncategorized as fs_util;
+use buck2_fs::error::IoResultExt;
+use buck2_fs::fs_util;
 use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_fs::paths::abs_path::AbsPath;
 use buck2_query::__derive_refs::indexmap::IndexMap;
@@ -119,9 +120,11 @@ fn create_unhashed_link(
             };
 
             if meta.is_file() || meta.is_symlink() {
-                fs_util::remove_file(prefix).with_buck_error_context(
-                    || "was not able to remove file while cleaning up prefixes",
-                )?;
+                fs_util::remove_file(prefix)
+                    .categorize_internal()
+                    .with_buck_error_context(
+                        || "was not able to remove file while cleaning up prefixes",
+                    )?;
             }
         }
 
@@ -129,23 +132,29 @@ fn create_unhashed_link(
             .with_buck_error_context(|| "while creating unhashed directory for symlink")?;
     }
 
-    match fs_util::symlink_metadata(&abs_unhashed_path) {
+    match fs_util::symlink_metadata(&abs_unhashed_path).categorize_internal() {
         Ok(metadata) => {
             if metadata.is_dir() {
-                fs_util::remove_dir_all(&abs_unhashed_path).with_buck_error_context(
-                    || "was not able to remove absolute unhashed path (directory)",
-                )?
+                fs_util::remove_dir_all(&abs_unhashed_path)
+                    .categorize_internal()
+                    .with_buck_error_context(
+                        || "was not able to remove absolute unhashed path (directory)",
+                    )?
             } else {
-                fs_util::remove_file(&abs_unhashed_path).with_buck_error_context(
-                    || "was not able to remove absolute unhashed path (file)",
-                )?
+                fs_util::remove_file(&abs_unhashed_path)
+                    .categorize_internal()
+                    .with_buck_error_context(
+                        || "was not able to remove absolute unhashed path (file)",
+                    )?
             }
         }
         Err(_) => {}
     }
-    fs_util::symlink(original_path, abs_unhashed_path).with_buck_error_context(
-        || "was not able to symlink original path to absolute unhashed path",
-    )?;
+    fs_util::symlink(original_path, abs_unhashed_path)
+        .categorize_internal()
+        .with_buck_error_context(
+            || "was not able to symlink original path to absolute unhashed path",
+        )?;
     Ok(())
 }
 

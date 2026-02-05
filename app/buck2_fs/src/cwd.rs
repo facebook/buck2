@@ -14,6 +14,7 @@ use std::sync::OnceLock;
 use allocative::Allocative;
 use buck2_error::BuckErrorContext;
 
+use crate::IoResultExt;
 use crate::fs_util;
 use crate::paths::abs_norm_path::AbsNormPath;
 use crate::paths::abs_norm_path::AbsNormPathBuf;
@@ -105,7 +106,7 @@ impl WorkingDirectoryImpl for PortableWorkingDirectoryImpl {
     }
 
     fn chdir(&self, path: &AbsNormPath) -> buck2_error::Result<()> {
-        fs_util::uncategorized::set_current_dir(path)?;
+        fs_util::set_current_dir(path).categorize_internal()?;
         Ok(())
     }
 

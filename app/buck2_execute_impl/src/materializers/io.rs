@@ -20,7 +20,8 @@ use buck2_execute::directory::ActionDirectoryMember;
 use buck2_execute::directory::ActionDirectoryRef;
 use buck2_execute::directory::ActionSharedDirectory;
 use buck2_execute::execute::blocking::IoRequest;
-use buck2_fs::fs_util::uncategorized as fs_util;
+use buck2_fs::error::IoResultExt;
+use buck2_fs::fs_util;
 use buck2_fs::paths::abs_norm_path::AbsNormPath;
 use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
 
@@ -163,22 +164,31 @@ where
         }
         DirectoryEntry::Leaf(ActionDirectoryMember::File(_)) => {
             if let Some(src) = file_src(dest) {
-                fs_util::copy(src, &dest)?;
+                fs_util::copy(src, &dest).categorize_internal()?;
                 if let Some(executable_bit_override) = executable_bit_override {
-                    fs_util::set_executable(&dest, executable_bit_override)?;
+                    fs_util::set_executable(&dest, executable_bit_override)
+                        .categorize_internal()?;
                 }
             }
             Ok(())
         }
         DirectoryEntry::Leaf(ActionDirectoryMember::Symlink(s)) => {
-            if materialize_dirs_and_syms && fs_util::symlink_metadata(&dest).is_err() {
-                fs_util::symlink(s.target().as_str(), dest)?;
+            if materialize_dirs_and_syms
+                && fs_util::symlink_metadata(&dest)
+                    .categorize_internal()
+                    .is_err()
+            {
+                fs_util::symlink(s.target().as_str(), dest).categorize_internal()?;
             }
             Ok(())
         }
         DirectoryEntry::Leaf(ActionDirectoryMember::ExternalSymlink(s)) => {
-            if materialize_dirs_and_syms && fs_util::symlink_metadata(&dest).is_err() {
-                fs_util::symlink(s.target(), dest)?;
+            if materialize_dirs_and_syms
+                && fs_util::symlink_metadata(&dest)
+                    .categorize_internal()
+                    .is_err()
+            {
+                fs_util::symlink(s.target(), dest).categorize_internal()?;
             }
             Ok(())
         }

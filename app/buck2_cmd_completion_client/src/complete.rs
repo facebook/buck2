@@ -24,7 +24,8 @@ use buck2_client_ctx::exit_result::ExitResult;
 use buck2_core::buck2_env;
 use buck2_error::ErrorTag;
 use buck2_error::buck2_error;
-use buck2_fs::fs_util::uncategorized as fs_util;
+use buck2_fs::error::IoResultExt;
+use buck2_fs::fs_util;
 use buck2_fs::paths::abs_path::AbsPath;
 use package::PackageCompleter;
 use target::CompleteTargetCommand;
@@ -87,7 +88,7 @@ impl CompleteCommand {
             .transpose()?;
 
         if let Some(lockfile) = lockfile {
-            drop(fs_util::write(lockfile, ""));
+            drop(fs_util::write(lockfile, "").categorize_internal());
         }
 
         let timeout = Duration::from_millis(self.timeout_ms);
@@ -100,7 +101,7 @@ impl CompleteCommand {
         });
 
         if let Some(lockfile) = lockfile {
-            drop(fs_util::remove_file(lockfile));
+            drop(fs_util::remove_file(lockfile).categorize_internal());
         }
 
         match res {

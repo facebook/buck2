@@ -34,7 +34,8 @@ use buck2_forkserver_proto::RequestEvent;
 use buck2_forkserver_proto::SetLogFilterRequest;
 use buck2_forkserver_proto::SetLogFilterResponse;
 use buck2_forkserver_proto::forkserver_server::Forkserver;
-use buck2_fs::fs_util::uncategorized as fs_util;
+use buck2_fs::error::IoResultExt;
+use buck2_fs::fs_util;
 use buck2_fs::paths::abs_norm_path::AbsNormPath;
 use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_fs::paths::abs_path::AbsPath;
@@ -375,8 +376,8 @@ impl MiniperfContainer {
         let miniperf = forkserver_state_dir.join(ForwardRelativePath::unchecked_new("miniperf"));
         let output_dir = forkserver_state_dir.join(ForwardRelativePath::unchecked_new("out"));
 
-        fs_util::remove_all(&miniperf)?;
-        fs_util::remove_all(&output_dir)?;
+        fs_util::remove_all(&miniperf).categorize_internal()?;
+        fs_util::remove_all(&output_dir).categorize_internal()?;
         fs_util::create_dir_all(&output_dir)?;
 
         let mut opts = OpenOptions::new();

@@ -17,7 +17,8 @@ use buck2_client_ctx::path_arg::PathArg;
 use buck2_common::argv::Argv;
 use buck2_common::argv::SanitizedArgv;
 use buck2_common::invocation_roots::find_invocation_roots;
-use buck2_fs::fs_util::uncategorized as fs_util;
+use buck2_fs::error::IoResultExt;
+use buck2_fs::fs_util;
 use buck2_fs::working_dir::AbsWorkingDir;
 
 #[derive(Debug, Clone, clap::ValueEnum)]
@@ -77,7 +78,7 @@ impl RootCommand {
                     // Note: While `canonicalize` is usually wrong, in this case it's necessary
                     // because our definition of where the project root is doesn't make sense for
                     // non-normalized paths
-                    let base_dir = fs_util::canonicalize(&base_dir)?;
+                    let base_dir = fs_util::canonicalize(&base_dir).categorize_internal()?;
                     working_dir_data = AbsWorkingDir::unchecked_new(base_dir);
                     let roots = find_invocation_roots(&working_dir_data)?;
                     imm_ctx_data = ImmediateConfigContext::new(&working_dir_data);

@@ -13,7 +13,8 @@ use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_error::BuckErrorContext;
 use buck2_error::buck2_error;
-use buck2_fs::fs_util::uncategorized as fs_util;
+use buck2_fs::error::IoResultExt;
+use buck2_fs::fs_util;
 use buck2_fs::paths::abs_norm_path::AbsNormPath;
 
 use crate::execute::blocking::IoRequest;
@@ -60,7 +61,9 @@ pub fn cleanup_path(fs: &ProjectRoot, path: &ProjectRelativePath) -> buck2_error
     let path = fs.resolve(path);
 
     // This will remove the path if it exists.
-    fs_util::remove_all(&path).map_err(tag_environment_error)?;
+    fs_util::remove_all(&path)
+        .categorize_internal()
+        .map_err(tag_environment_error)?;
 
     let mut path: &AbsNormPath = &path;
 
@@ -90,7 +93,9 @@ pub fn cleanup_path(fs: &ProjectRoot, path: &ProjectRelativePath) -> buck2_error
                     // because we'll be able to create a dir here.
                     tracing::trace!(path = %path, "remove_file");
 
-                    fs_util::remove_file(path).map_err(tag_environment_error)?;
+                    fs_util::remove_file(path)
+                        .categorize_internal()
+                        .map_err(tag_environment_error)?;
                 }
                 return Ok(());
             }

@@ -34,7 +34,8 @@ use buck2_execute::execute::result::CommandExecutionResult;
 use buck2_execute_local::CommandResult;
 use buck2_execute_local::GatherOutputStatus;
 use buck2_execute_local::StdRedirectPaths;
-use buck2_fs::fs_util::uncategorized as fs_util;
+use buck2_fs::error::IoResultExt;
+use buck2_fs::fs_util;
 use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_fs::paths::file_name::FileName;
 use buck2_util::time_span::TimeSpan;
@@ -195,7 +196,7 @@ fn spawn_via_forkserver(
         // Socket is created by worker so won't exist if initialization fails.
         if fs_util::try_exists(&socket_path)? {
             // TODO(ctolliday) delete directory (after logs are moved to buck-out)
-            fs_util::remove_file(&socket_path)?;
+            fs_util::remove_file(&socket_path).categorize_internal()?;
         }
         res
     })
@@ -309,8 +310,10 @@ async fn spawn_worker(
                 Ok(GatherOutputStatus::SpawnFailed(e)) => WorkerInitError::SpawnFailed(e),
                 Ok(GatherOutputStatus::Finished { exit_code, .. }) => {
                     let stdout = fs_util::read_to_string(&std_redirects.stdout)
+                        .categorize_internal()
                         .map_err(|e| WorkerInitError::InternalError(e.into()))?;
                     let stderr = fs_util::read_to_string(&std_redirects.stderr)
+                        .categorize_internal()
                         .map_err(|e| WorkerInitError::InternalError(e.into()))?;
                     WorkerInitError::EarlyExit {
                         exit_code: Some(exit_code),
