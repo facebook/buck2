@@ -85,7 +85,8 @@ use buck2_execute::re::output_trees_download_config::OutputTreesDownloadConfig;
 use buck2_execute_impl::executors::worker::WorkerPool;
 use buck2_execute_impl::low_pass_filter::LowPassFilter;
 use buck2_file_watcher::mergebase::SetMergebase;
-use buck2_fs::fs_util::uncategorized as fs_util;
+use buck2_fs::error::IoResultExt;
+use buck2_fs::fs_util;
 use buck2_fs::paths::abs_norm_path::AbsNormPath;
 use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_fs::paths::file_name::FileName;
@@ -534,7 +535,9 @@ impl ServerCommandContext<'_> {
                 match config_path {
                     ConfigPath::Global(p) => {
                         // FIXME(JakobDegen): This is wrong, since we might fail to add symlinks that we depend on.
-                        let p = fs_util::canonicalize(p)?;
+                        let p = fs_util::canonicalize(p)
+                            // input path could be from --config-file
+                            .categorize_input()?;
                         tracing_provider.add_external_path(p)
                     }
                     ConfigPath::Project(p) => tracing_provider.add_project_path(p.clone()),

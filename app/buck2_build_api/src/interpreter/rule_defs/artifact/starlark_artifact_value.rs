@@ -19,7 +19,8 @@ use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_error::BuckErrorContext;
 use buck2_error::ErrorTag;
-use buck2_fs::fs_util::uncategorized as fs_util;
+use buck2_fs::error::IoResultExt;
+use buck2_fs::fs_util;
 use gazebo::prelude::*;
 use starlark::any::ProvidesStaticType;
 use starlark::collections::SmallMap;
@@ -164,6 +165,8 @@ fn artifact_value_methods(builder: &mut MethodsBuilder) {
     fn read_string(this: &StarlarkArtifactValue) -> starlark::Result<String> {
         let path = this.fs.resolve(&this.path);
         let contents = fs_util::read_to_string(path)
+            // input path from starlark
+            .categorize_input()
             .map_err(|e| buck2_error::Error::from(e).tag([ErrorTag::StarlarkValue]))?;
         Ok(contents)
     }

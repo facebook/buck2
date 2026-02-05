@@ -21,7 +21,8 @@ use buck2_common::argv::ExpandedArgv;
 use buck2_common::argv::ExpandedArgvBuilder;
 use buck2_core::is_open_source;
 use buck2_error::BuckErrorContext;
-use buck2_fs::fs_util::uncategorized as fs_util;
+use buck2_fs::error::IoResultExt;
+use buck2_fs::fs_util;
 use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_fs::paths::abs_path::AbsPath;
 use buck2_fs::working_dir::AbsWorkingDir;
@@ -307,8 +308,8 @@ fn resolve_flagfile(
     };
 
     // FIXME(JakobDegen): Don't canonicalize
-
-    let canonicalized_path = fs_util::canonicalize(resolved_path)?;
+    // input path from --flagfile/@argfile (errors on path missing)
+    let canonicalized_path = fs_util::canonicalize(resolved_path).categorize_input()?;
     context.push_trace(&canonicalized_path);
     context.resolve_argfile_kind(canonicalized_path, flag)
 }
@@ -317,6 +318,7 @@ fn resolve_flagfile(
 mod tests {
     use buck2_common::argv::ExpandedArgSource;
     use buck2_common::argv::FlagfileArgSource;
+    use buck2_fs::fs_util::uncategorized as fs_util;
     use buck2_fs::paths::abs_path::AbsPath;
     use buck2_fs::paths::abs_path::AbsPathBuf;
     use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
