@@ -354,6 +354,10 @@ def compile_swift(
     if not srcs:
         return SwiftCompileResult(swift_compilation = None, objc_swift_interface = objc_swift_interface_info, swiftinterface = None)
 
+    # Content-based path hashing and Swift incremental compilation are incompatible.
+    if uses_content_based_paths and should_build_swift_incrementally(ctx):
+        fail("Content-based path hashing and Swift incremental compilation cannot be enabled at the same time.")
+
     toolchain = get_swift_toolchain_info(ctx)
     output_header = ctx.actions.declare_output(module_name + "-Swift.h", has_content_based_path = uses_content_based_paths)
     output_swiftmodule = ctx.actions.declare_output(module_name + SWIFTMODULE_EXTENSION, has_content_based_path = uses_content_based_paths)
