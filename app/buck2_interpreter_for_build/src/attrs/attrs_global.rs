@@ -38,7 +38,6 @@ use starlark::values::ValueOf;
 use starlark::values::ValueTypedComplex;
 use starlark::values::list_or_tuple::UnpackListOrTuple;
 use starlark::values::tuple::UnpackTuple;
-use tracing::error;
 
 use crate::attrs::coerce::attr_type::AttrTypeExt;
 use crate::attrs::coerce::ctx::BuildAttrCoercionContext;

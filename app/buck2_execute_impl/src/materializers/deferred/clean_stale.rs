@@ -44,7 +44,6 @@ use dupe::Dupe;
 use futures::FutureExt;
 use futures::future::BoxFuture;
 use tokio::sync::oneshot::Sender;
-use tracing::error;
 
 use crate::materializers::deferred::ArtifactMaterializationStage;
 use crate::materializers::deferred::DeferredMaterializerCommandProcessor;

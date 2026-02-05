@@ -465,7 +465,6 @@ mod tests {
 
     use crate::Intern;
     use crate::InternDisposition;
-    use crate::interner;
 
     #[derive(Debug, Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
     pub struct StringValue(String);
