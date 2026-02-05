@@ -135,7 +135,10 @@ impl ChunkChain {
                     // because real allocator never finishes with an empty last chunk part.
                     // For that reason we don't care about somewhat unoptimal code below:
                     // we could extend the `after` chunk with the `before` chunk.
-                    assert!(cfg!(test) && SPLIT_AT_ZERO_TEST.get());
+                    #[allow(clippy::assertions_on_constants)]
+                    {
+                        assert!(cfg!(test) && SPLIT_AT_ZERO_TEST.get());
+                    }
 
                     unsafe {
                         // We are abandoning `before` chunk,
