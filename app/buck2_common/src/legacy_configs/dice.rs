@@ -310,7 +310,7 @@ impl HasLegacyConfigs for DiceComputations<'_> {
             .compute_opaque(&LegacyBuckConfigForCellKey { cell_name })
             .await?;
         if let Some(error) = self.projection(&config, &LegacyBuckConfigErrorKey())? {
-            return Err(error.into());
+            return Err(error);
         }
         Ok(OpaqueLegacyBuckConfigOnDice {
             config: Arc::new(config),

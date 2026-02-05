@@ -124,7 +124,6 @@ impl Key for CellAliasResolverKey {
             root_aliases,
             BuckConfigBasedCells::get_cell_aliases_from_config(&config)?,
         )
-        .map_err(Into::into)
     }
 
     fn equality(x: &Self::Value, y: &Self::Value) -> bool {

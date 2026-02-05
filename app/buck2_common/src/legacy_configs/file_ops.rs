@@ -116,7 +116,6 @@ impl ConfigParserFileOps for DefaultConfigParserFileOps {
 
         let lines = file
             .lines()
-            .into_iter()
             .collect::<Result<Vec<_>, _>>()
             .map_err(|e| IoError::new_with_path("read_line", path, e))
             .categorize_internal()?;

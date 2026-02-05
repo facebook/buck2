@@ -117,7 +117,7 @@ pub fn get_invocation_paths_result(
         Ok(None) => {
             InvocationPathsResult::OutsideOfRepo(BuckCliError::NoBuckRoot(from.to_owned()).into())
         }
-        Err(e) => InvocationPathsResult::OtherError(e.into()),
+        Err(e) => InvocationPathsResult::OtherError(e),
     }
 }
 
@@ -148,8 +148,7 @@ pub(crate) fn home_buck_dir() -> buck2_error::Result<&'static AbsNormPath> {
         Ok(home.join(FileName::new(".buck")?))
     }
 
-    static DIR: Lazy<buck2_error::Result<AbsNormPathBuf>> =
-        Lazy::new(|| find_dir().map_err(buck2_error::Error::from));
+    static DIR: Lazy<buck2_error::Result<AbsNormPathBuf>> = Lazy::new(find_dir);
 
     Ok(&Lazy::force(&DIR).as_ref().map_err(dupe::Dupe::dupe)?)
 }

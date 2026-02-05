@@ -408,7 +408,6 @@ pub mod testing {
 
             Ok(Some(
                 file.lines()
-                    .into_iter()
                     .collect::<Result<Vec<_>, _>>()
                     .map_err(buck2_error::Error::from)?,
             ))
@@ -818,7 +817,7 @@ pub(crate) mod tests {
                         r#"
                             [cells]
                               root = .
-                            
+
                             [apple]
                               key = value1
                         "#

@@ -323,10 +323,7 @@ impl Key for ReadDirKey {
         _cancellations: &CancellationContext,
     ) -> Self::Value {
         let file_ops = get_delegated_file_ops(ctx, self.path.cell(), self.check_ignores).await?;
-        file_ops
-            .read_dir(ctx, self.path.as_ref().path())
-            .await
-            .map_err(buck2_error::Error::from)
+        file_ops.read_dir(ctx, self.path.as_ref().path()).await
     }
 
     fn equality(x: &Self::Value, y: &Self::Value) -> bool {

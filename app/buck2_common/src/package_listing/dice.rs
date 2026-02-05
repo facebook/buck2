@@ -106,8 +106,6 @@ impl DicePackageListingResolver<'_, '_> {
         &mut self,
         package: PackageLabel,
     ) -> buck2_error::Result<PackageListing> {
-        self.resolve(package)
-            .await
-            .map_err(buck2_error::Error::from)
+        self.resolve(package).await
     }
 }
