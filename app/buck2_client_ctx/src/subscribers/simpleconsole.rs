@@ -558,7 +558,7 @@ where
         result: &buck2_data::TestResult,
         _event: &BuckEvent,
     ) -> buck2_error::Result<()> {
-        if let Some(msg) = display::format_test_result(result)? {
+        if let Some(msg) = display::format_test_result(result, self.verbosity)? {
             let mut buffer = String::new();
 
             for line in msg {

@@ -574,6 +574,7 @@ pub struct InvalidBuckEvent(pub Arc<BuckEvent>);
 
 pub fn format_test_result(
     test_result: &buck2_data::TestResult,
+    verbosity: Verbosity,
 ) -> buck2_error::Result<Option<Lines>> {
     let buck2_data::TestResult {
         name,
@@ -585,9 +586,12 @@ pub fn format_test_result(
     let status = TestStatus::try_from(*status)?;
 
     // Pass results normally have no details, unless the --print-passing-details is set.
-    // Do not display anything for passing tests unless details are present to avoid
-    // cluttering the UI with unimportant test results.
-    if matches!(&status, TestStatus::PASS | TestStatus::LISTING_SUCCESS) && details.is_empty() {
+    // Do not display anything for passing tests unless verbosity is high or details are present
+    // to avoid cluttering the UI with unimportant test results.
+    if matches!(&status, TestStatus::PASS | TestStatus::LISTING_SUCCESS)
+        && details.is_empty()
+        && !verbosity.print_all_commands()
+    {
         return Ok(None);
     }
 

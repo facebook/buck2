@@ -671,7 +671,7 @@ impl StatefulSuperConsoleImpl {
         &mut self,
         result: &buck2_data::TestResult,
     ) -> buck2_error::Result<()> {
-        if let Some(msg) = display::format_test_result(result)? {
+        if let Some(msg) = display::format_test_result(result, self.verbosity)? {
             self.super_console.emit(msg);
         }
 
