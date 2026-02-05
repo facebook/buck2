@@ -76,14 +76,11 @@ pub(crate) fn derive_unpack_variants(input: DeriveInput) -> syn::Result<proc_mac
             let mut inner_type = Vec::new();
 
             for field in variant.fields.iter() {
-                patterns.push(field.ident.clone().map_or_else(
-                    || {
-                        let id = Ident::new(&format!("_v{count}"), Span::call_site());
-                        count += 1;
-                        id
-                    },
-                    |f| f,
-                ));
+                patterns.push(field.ident.clone().unwrap_or_else(|| {
+                    let id = Ident::new(&format!("_v{count}"), Span::call_site());
+                    count += 1;
+                    id
+                }));
 
                 inner_type.push(&field.ty);
             }
