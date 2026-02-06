@@ -66,9 +66,11 @@ import org.jetbrains.kotlin.fir.backend.jvm.JvmFir2IrExtensions
 import org.jetbrains.kotlin.fir.declarations.FirRegularClass
 import org.jetbrains.kotlin.fir.declarations.impl.FirResolvedDeclarationStatusImpl
 import org.jetbrains.kotlin.fir.declarations.utils.isConst
+import org.jetbrains.kotlin.fir.declarations.utils.isFromLibrary
 import org.jetbrains.kotlin.fir.expressions.FirAnnotation
 import org.jetbrains.kotlin.fir.expressions.FirAnnotationCall
 import org.jetbrains.kotlin.fir.expressions.FirErrorExpression
+import org.jetbrains.kotlin.fir.expressions.FirFunctionCall
 import org.jetbrains.kotlin.fir.expressions.FirGetClassCall
 import org.jetbrains.kotlin.fir.expressions.FirNamedArgumentExpression
 import org.jetbrains.kotlin.fir.expressions.FirQualifiedAccessExpression
@@ -145,6 +147,7 @@ import org.jetbrains.kotlin.ir.symbols.UnsafeDuringIrConstructionAPI
 import org.jetbrains.kotlin.ir.types.IrErrorType
 import org.jetbrains.kotlin.ir.types.IrSimpleType
 import org.jetbrains.kotlin.ir.types.IrType
+import org.jetbrains.kotlin.ir.types.classOrNull
 import org.jetbrains.kotlin.ir.types.makeNullable
 import org.jetbrains.kotlin.ir.util.kotlinFqName
 import org.jetbrains.kotlin.ir.visitors.IrElementTransformer
@@ -545,6 +548,12 @@ class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
     // even after we've stripped them from FIR files. The IR constant evaluator will crash
     // if it encounters error expressions during annotation evaluation.
     stripAnnotationsWithErrorsFromFirMetadataSources(irInput.irModuleFragment)
+
+    // Strip internal supertypes from FIR metadata sources.
+    // When a public class implements an interface from an internal class, the Kotlin
+    // metadata would still reference the internal supertype even after we strip it from
+    // IR. This causes consumers to fail with "cannot access supertype" errors.
+    stripInternalSupertypesFromFirMetadataSources(irInput.irModuleFragment)
 
     val result = generateCodeFromIr(irInput, compilerEnvironment)
 
@@ -1087,14 +1096,142 @@ class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
     )
   }
 
+  // Strip internal supertypes from FIR metadata sources attached to IR class declarations.
+  // When a public class implements an interface from an internal class, the Kotlin metadata
+  // would still reference the internal supertype (in the d2 array) even after we strip it from
+  // the IR superTypes list. This causes consumers to fail with "cannot access supertype" errors.
+  private fun stripInternalSupertypesFromFirMetadataSources(moduleFragment: IrModuleFragment) {
+    moduleFragment.accept(
+        object : IrElementVisitorVoid {
+          override fun visitElement(element: IrElement) {
+            element.acceptChildren(this, null)
+          }
+
+          override fun visitClass(declaration: IrClass) {
+            stripInternalSupertypesFromDeclaration(declaration)
+            super.visitClass(declaration)
+          }
+
+          private fun stripInternalSupertypesFromDeclaration(declaration: IrClass) {
+            // Access metadata via IrMetadataSourceOwner interface
+            val metadataSourceOwner = declaration as? IrMetadataSourceOwner ?: return
+            val metadataSource = metadataSourceOwner.metadata ?: return
+
+            // Check if this is a FirMetadataSource
+            val firMetadataSource = metadataSource as? FirMetadataSource ?: return
+
+            // Get the FIR class declaration
+            val firClass = firMetadataSource.fir as? FirRegularClass ?: return
+
+            // Filter out internal supertypes from the FIR class's superTypeRefs
+            try {
+              // Access the superTypeRefs field using reflection
+              val superTypeRefsField = firClass.javaClass.getDeclaredField("superTypeRefs")
+              superTypeRefsField.isAccessible = true
+              val superTypeRefsWrapper = superTypeRefsField.get(firClass) ?: return
+
+              // The field is of type MutableOrEmptyList<FirTypeRef>
+              // Get the internal "list" field
+              val listField = superTypeRefsWrapper.javaClass.getDeclaredField("list")
+              listField.isAccessible = true
+              @Suppress("UNCHECKED_CAST")
+              val superTypeRefs =
+                  listField.get(superTypeRefsWrapper)
+                      as? MutableList<org.jetbrains.kotlin.fir.types.FirTypeRef> ?: return
+
+              // Find supertypes that reference internal classes
+              val toRemove =
+                  superTypeRefs.filter { typeRef ->
+                    try {
+                      val coneType = typeRef.coneType
+                      val classId =
+                          (coneType as? org.jetbrains.kotlin.fir.types.ConeClassLikeType)
+                              ?.lookupTag
+                              ?.classId ?: return@filter false
+
+                      // Check if the class or any of its containing classes are internal
+                      // We need to resolve the class symbol to check its visibility
+                      val session = firClass.moduleData.session
+                      val classSymbol =
+                          session.symbolProvider.getClassLikeSymbolByClassId(classId)
+                              as? FirClassSymbol<*> ?: return@filter false
+
+                      // Check if the class is internal/private
+                      if (!isClassPubliclyAccessible(classSymbol)) {
+                        return@filter true
+                      }
+
+                      // Also check if any containing class is internal
+                      val outerClassId = classId.outerClassId
+                      if (outerClassId != null) {
+                        val outerSymbol =
+                            session.symbolProvider.getClassLikeSymbolByClassId(outerClassId)
+                                as? FirClassSymbol<*>
+                        if (outerSymbol != null && !isClassPubliclyAccessible(outerSymbol)) {
+                          return@filter true
+                        }
+                      }
+
+                      false
+                    } catch (_: Exception) {
+                      false
+                    }
+                  }
+
+              if (toRemove.isNotEmpty()) {
+                superTypeRefs.removeAll(toRemove)
+              }
+            } catch (_: Exception) {
+              // Reflection may fail in some cases, silently ignore
+            }
+          }
+
+          private fun isClassPubliclyAccessible(classSymbol: FirClassSymbol<*>): Boolean {
+            val visibility = classSymbol.resolvedStatus.visibility
+            return visibility == Visibilities.Public || visibility == Visibilities.Protected
+          }
+        },
+        null,
+    )
+  }
+
   // Recursively check if a FIR element contains error expressions.
   // This detects both direct FirErrorExpression nodes and qualified accesses with error types.
+  // Additionally, for const val references from dependencies, it checks if the initializer
+  // is resolvable (not a TODO() or error expression from source-only ABI stubs).
+  @OptIn(SymbolInternals::class)
   private fun hasErrorExpressionRecursive(element: FirElement): Boolean {
     return when (element) {
       is FirErrorExpression -> true
       is FirQualifiedAccessExpression -> {
         try {
-          element.resolvedType is ConeErrorType || element.calleeReference is FirErrorNamedReference
+          // Check for error types/references
+          if (
+              element.resolvedType is ConeErrorType ||
+                  element.calleeReference is FirErrorNamedReference
+          ) {
+            return true
+          }
+
+          // Check if this is a reference to a const val with an unresolvable initializer.
+          // This can happen when the const val is from a source-only ABI stub with TODO().
+          val calleeReference = element.calleeReference
+          if (calleeReference is FirResolvedNamedReference) {
+            val symbol = calleeReference.resolvedSymbol
+            if (symbol is FirPropertySymbol && symbol.isConst) {
+              // Check if the const val's initializer is resolvable
+              val initializer = symbol.fir.initializer
+              if (initializer == null) {
+                // No initializer means it can't be evaluated
+                return true
+              }
+              // Check if the initializer itself contains errors (like TODO())
+              if (isConstValInitializerUnresolvable(initializer)) {
+                return true
+              }
+            }
+          }
+          false
         } catch (_: Exception) {
           false
         }
@@ -1113,6 +1250,39 @@ class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
         )
         hasError
       }
+    }
+  }
+
+  // Check if a const val initializer is unresolvable (contains TODO(), error expressions, etc.)
+  // This is a non-recursive check to avoid infinite loops when dealing with cross-references.
+  private fun isConstValInitializerUnresolvable(initializer: FirElement): Boolean {
+    return when (initializer) {
+      is FirErrorExpression -> true
+      is FirFunctionCall -> {
+        // Check for TODO() calls which are used in source-only ABI stubs
+        try {
+          val calleeReference = initializer.calleeReference
+          if (calleeReference is FirResolvedNamedReference) {
+            val name = calleeReference.name.asString()
+            if (name == "TODO") {
+              return true
+            }
+          }
+          // Also check if the function call has error type
+          initializer.resolvedType is ConeErrorType
+        } catch (_: Exception) {
+          false
+        }
+      }
+      is FirQualifiedAccessExpression -> {
+        try {
+          initializer.resolvedType is ConeErrorType ||
+              initializer.calleeReference is FirErrorNamedReference
+        } catch (_: Exception) {
+          false
+        }
+      }
+      else -> false
     }
   }
 
@@ -1153,12 +1323,25 @@ class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
       element.acceptChildren(this)
     }
 
+    private fun findFieldInHierarchy(clazz: Class<*>, fieldName: String): java.lang.reflect.Field? {
+      var current: Class<*>? = clazz
+      while (current != null) {
+        val field = current.declaredFields.find { it.name == fieldName }
+        if (field != null) return field
+        current = current.superclass
+      }
+      return null
+    }
+
     private fun stripAnnotationsWithErrors(
         declaration: org.jetbrains.kotlin.fir.declarations.FirDeclaration
     ) {
       try {
         // FIR annotations are mostly immutable, but we can access the mutable list via reflection
-        val annotationsField = declaration.javaClass.getDeclaredField("annotations")
+        // Use findFieldInHierarchy because the field may be in a parent class (e.g.,
+        // FirDefaultPropertyBackingField extends FirBackingFieldImpl which has the annotations
+        // field)
+        val annotationsField = findFieldInHierarchy(declaration.javaClass, "annotations") ?: return
         annotationsField.isAccessible = true
         @Suppress("UNCHECKED_CAST")
         val annotations =
@@ -1227,10 +1410,16 @@ class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
                 // If it's a const val, only treat as error if the initializer:
                 // 1. Is null (no value available)
                 // 2. Contains error expressions (unresolvable)
+                // 3. Is a TODO() call (stub placeholder that can't be evaluated)
                 // Otherwise, the const val has a valid resolvable value.
                 if (prop.isConst) {
                   val initializer = prop.initializer
                   if (initializer == null || hasErrorExpression(initializer)) {
+                    return true
+                  }
+                  // Check if the initializer is a TODO() call - stubs replace complex
+                  // const val initializers with TODO() which can't be evaluated at compile time
+                  if (isTodoCall(initializer)) {
                     return true
                   }
                   // The const val has a valid initializer, don't treat as error
@@ -1285,6 +1474,23 @@ class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
         }
         else -> false
       }
+    }
+
+    /**
+     * Checks if an expression is a TODO() function call. Stubs replace complex const val
+     * initializers with TODO() which cannot be evaluated at compile time during source-only ABI
+     * generation.
+     */
+    private fun isTodoCall(element: FirElement): Boolean {
+      if (element !is org.jetbrains.kotlin.fir.expressions.FirFunctionCall) {
+        return false
+      }
+      val calleeRef = element.calleeReference
+      if (calleeRef is FirResolvedNamedReference) {
+        val name = calleeRef.name.asString()
+        return name == "TODO"
+      }
+      return false
     }
   }
 
@@ -1473,7 +1679,30 @@ class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
     }
 
     override fun visitClass(declaration: IrClass, data: Nothing?): IrStatement {
+      // Strip internal/private supertypes from the class's implemented interfaces.
+      // This handles the case where a public class implements an internal interface
+      // (e.g., RefreshableAppBarLayoutBehavior implements ShortTabClampingHelper.Delegate).
+      // Without stripping, consumers of the ABI can't resolve the internal supertype.
+      declaration.superTypes =
+          declaration.superTypes.filter { superType ->
+            val superClass = superType.classOrNull?.owner ?: return@filter true
+            // Check if the class or any of its containing classes are non-public
+            isClassPubliclyAccessible(superClass)
+          }
       return super.visitClass(declaration, data)
+    }
+
+    // Check if a class is publicly accessible (it and all its containing classes are public)
+    private fun isClassPubliclyAccessible(irClass: IrClass): Boolean {
+      var current: IrClass? = irClass
+      while (current != null) {
+        if (!current.visibility.isPublicAPI) {
+          return false
+        }
+        // Get the containing class, if any
+        current = current.parent as? IrClass
+      }
+      return true
     }
 
     override fun visitField(declaration: IrField, data: Nothing?): IrStatement {
@@ -1554,10 +1783,16 @@ class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
 
     private fun IrDeclarationContainer.removeNonPublicApi() {
       this.declarations.removeAll { declaration ->
-        (!declaration.origin.isSynthetic &&
-            declaration !is IrConstructor &&
-            (declaration as? IrDeclarationWithVisibility)?.visibility?.isPublicAPI == false) &&
-            (declaration as? IrClass)?.isCompanion == true
+        // Keep synthetic declarations (generated by compiler)
+        if (declaration.origin.isSynthetic) return@removeAll false
+        // Keep constructors (needed for instantiation)
+        if (declaration is IrConstructor) return@removeAll false
+        // Keep companion objects (may contain public members)
+        if ((declaration as? IrClass)?.isCompanion == true) return@removeAll false
+
+        // Remove non-public API members (private, internal, etc.)
+        val visibility = (declaration as? IrDeclarationWithVisibility)?.visibility
+        visibility?.isPublicAPI == false
       }
     }
 
@@ -1892,16 +2127,27 @@ class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
                   return@any true
                 }
 
-                // For const vals, check if we can actually resolve the initializer value
+                // For const vals from library/bytecode dependencies, trust they have valid values
+                // even if the initializer is not available in FIR (bytecode doesn't preserve
+                // initializer expressions, but the ConstantValue is accessible at runtime)
+                if (prop.fir.isFromLibrary) {
+                  return@any true
+                }
+
+                // For source-compiled const vals, check if we can actually resolve the initializer
                 // Const vals from source-only ABI JARs may exist but have no evaluable value
                 val initializer = prop.fir.initializer
                 initializer != null && !hasErrorExpressionRecursive(initializer)
               }
 
           // Check for any callable with matching name (covers Java static fields)
+          // Exclude FirPropertySymbol since those are already handled by hasResolvableProperty
+          // above.
+          // Properties with non-resolvable initializers (like TODO()) need stubs, so we must not
+          // let hasCallable short-circuit the check.
           val hasCallable =
               firClassSymbol.declarationSymbols.filterIsInstance<FirCallableSymbol<*>>().any {
-                it.name.asString() == propertyName
+                it.name.asString() == propertyName && it !is FirPropertySymbol
               }
 
           // Also check for enum entry with matching name
@@ -1945,7 +2191,12 @@ class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
                     return@any true
                   }
 
-                  // For const vals, check if initializer is resolvable
+                  // For const vals from library/bytecode dependencies, trust they have valid values
+                  if (prop.fir.isFromLibrary) {
+                    return@any true
+                  }
+
+                  // For source-compiled const vals, check if initializer is resolvable
                   val initializer = prop.fir.initializer
                   initializer != null && !hasErrorExpressionRecursive(initializer)
                 }
@@ -1970,8 +2221,16 @@ class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
         FqName.fromSegments(segments.take(originalImportLength - 1).map { it.asString() })
     val classNameParts = segments.drop(originalImportLength - 1)
 
-    // Skip if from source package
-    if (packageFqName in sourcePackages) {
+    // Skip if from source package or a class in a source package
+    // For self-imports like "import test.PermissionType.Companion.CONST" with package "test",
+    // packageFqName would be "test.PermissionType" which starts with source package "test".
+    // This indicates the constant is defined in source code, not in dependencies.
+    if (
+        sourcePackages.any { sourcePackage ->
+          packageFqName == sourcePackage ||
+              packageFqName.asString().startsWith(sourcePackage.asString() + ".")
+        }
+    ) {
       return null
     }
 
