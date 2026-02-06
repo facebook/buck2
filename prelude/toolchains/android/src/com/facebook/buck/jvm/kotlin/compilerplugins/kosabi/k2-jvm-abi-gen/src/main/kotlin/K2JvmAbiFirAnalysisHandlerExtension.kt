@@ -451,14 +451,22 @@ class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
       analysisResults: FirResult,
       environment: ModuleCompilerEnvironment,
       sourceFiles: List<KtFile>,
+      project: Project,
   ): ModuleCompilerIrBackendInput {
     val extensions = JvmFir2IrExtensions(configuration, JvmIrDeserializerImpl())
+    // Get registered IR generation extensions (e.g., Parcelize) and run them before our stripping
+    // extension.
+    // This ensures Parcelize generates the CREATOR companion object field before we strip non-ABI
+    // declarations.
+    val registeredIrExtensions = IrGenerationExtension.getInstances(project)
+    val allIrExtensions =
+        registeredIrExtensions + NonAbiDeclarationsStrippingIrExtension(sourceFiles)
     val (moduleFragment, components, pluginContext, irActualizedResult, _, symbolTable) =
         analysisResults.convertToIrAndActualizeForJvm(
             extensions,
             configuration,
             environment.diagnosticsReporter,
-            listOf(NonAbiDeclarationsStrippingIrExtension(sourceFiles)),
+            allIrExtensions,
         )
 
     return ModuleCompilerIrBackendInput(
@@ -507,6 +515,7 @@ class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
             analysisResults,
             compilerEnvironment,
             sourceFiles,
+            projectEnvironment.project,
         )
 
     // Strip all @Throws annotations from FIR metadata sources.
