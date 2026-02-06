@@ -214,6 +214,7 @@ impl BuckCgroupTree {
                     .await?;
             }
         }
+        allprocs.set_memory_oom_group().await?;
 
         Ok(Self {
             allprocs,

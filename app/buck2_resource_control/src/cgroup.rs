@@ -162,6 +162,22 @@ impl<M: MemoryMonitoring, K: CgroupKind> Cgroup<M, K> {
         .await
     }
 
+    /// Setting this means that various OOM killer implementations will always kill the entire
+    /// cgroup and all its children together, instead of just subgroups.
+    ///
+    /// In buck2 we want this because there's a risk that actions will not correctly report failures
+    /// if sub-processes are getting killed.
+    pub(crate) async fn set_memory_oom_group(&self) -> buck2_error::Result<()> {
+        CgroupFile::open(
+            self.dir.dupe(),
+            FileNameBuf::unchecked_new("memory.oom.group"),
+            true,
+        )
+        .await?
+        .write("1")
+        .await
+    }
+
     async fn read_resource_constraints(&self) -> buck2_error::Result<EffectiveResourceConstraints> {
         let read = |f| async move {
             let f = CgroupFile::open(self.dir.dupe(), FileNameBuf::unchecked_new(f), false).await?;
