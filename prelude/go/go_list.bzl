@@ -29,59 +29,29 @@ GoListOut = record(
     cgo_cppflags = field(list[str], default = []),
 )
 
-def go_list(actions: AnalysisActions, go_toolchain: GoToolchainInfo, pkg_name: str, srcs: list[Artifact], package_root: str, build_tags: list[str], cgo_enabled: bool, with_tests: bool, asan: bool) -> Artifact:
+def go_list(actions: AnalysisActions, go_toolchain: GoToolchainInfo, pkg_name: str, srcs: list[Artifact], package_root: str, build_tags: list[str], cgo_enabled: bool, with_tests: bool) -> Artifact:
     env = get_toolchain_env_vars(go_toolchain)
-    env["GO111MODULE"] = "off"
-    env["CGO_ENABLED"] = "1" if cgo_enabled else "0"
 
     go_list_out = actions.declare_output(paths.basename(pkg_name) + "_go_list.json", has_content_based_path = True)
 
-    # Create file structure that `go list` can recognize
-    # Use copied_dir, because embed doesn't work with symlinks
-    srcs_dir = actions.copied_dir(
+    srcs_dir = actions.symlinked_dir(
         "__{}_srcs_dir__".format(paths.basename(pkg_name)),
         {src.short_path.removeprefix(package_root).lstrip("/"): src for src in srcs},
         has_content_based_path = True,
     )
     all_tags = [] + go_toolchain.build_tags + build_tags
-    if asan:
-        all_tags.append("asan")
-
-    required_felds = [
-        "Name",
-        "Imports",
-        "GoFiles",
-        "CgoFiles",
-        "HFiles",
-        "CFiles",
-        "CXXFiles",
-        "SFiles",
-        "CgoCFLAGS",
-        "CgoCPPFLAGS",
-        "IgnoredGoFiles",
-        "IgnoredOtherFiles",
-    ]
-    if with_tests:
-        required_felds += [
-            "TestImports",
-            "XTestImports",
-            "TestGoFiles",
-            "XTestGoFiles",
-        ]
 
     go_list_args = [
-        go_toolchain.go_wrapper,
-        ["--go", go_toolchain.go],
-        ["--workdir", srcs_dir],
-        ["--output", go_list_out.as_output()],
-        "--use-fake-goroot",  # HACK: avoid sending unnecessary 200MB+ of data to the RE workers
-        "list",
-        "-e",
-        "-json=" + ",".join(required_felds),
-        ["-tags", ",".join(all_tags) if all_tags else []],
+        go_toolchain.pkg_analyzer,
+        ["-o", go_list_out.as_output()],
+        ["-goos", go_toolchain.env_go_os],
+        ["-goarch", go_toolchain.env_go_arch],
+        [["-tags", ",".join(all_tags)] if all_tags else []],
         ["-race"] if go_toolchain.race and cgo_enabled else [],
         ["-asan"] if go_toolchain.asan and cgo_enabled else [],
-        ".",
+        ["-cgo"] if cgo_enabled else [],
+        ["-tests"] if with_tests else [],
+        srcs_dir,
     ]
 
     identifier = paths.basename(pkg_name)

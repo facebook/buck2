@@ -34,6 +34,7 @@ GoToolchainInfo = provider(
         "compiler": provider_field(RunInfo),
         "compiler_flags": provider_field(typing.Any, default = []),
         "concat_files": provider_field(RunInfo),
+        "pkg_analyzer": provider_field(RunInfo),
         "cover": provider_field(RunInfo),
         "env_go_arch": provider_field(str),
         "env_go_os": provider_field(str),

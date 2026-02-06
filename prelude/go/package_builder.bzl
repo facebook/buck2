@@ -66,7 +66,7 @@ def build_package(
 
     package_root = package_root if package_root != None else infer_package_root(srcs)
 
-    go_list_out = go_list(actions, go_toolchain, pkg_name, srcs, package_root, build_tags, cgo_enabled, with_tests = with_tests, asan = asan)
+    go_list_out = go_list(actions, go_toolchain, pkg_name, srcs, package_root, build_tags, cgo_enabled, with_tests = with_tests)
 
     test_go_files_argsfile = actions.declare_output(paths.basename(pkg_name) + "_test_go_files.go_package_argsfile", has_content_based_path = True)
     coverage_vars_argsfile = actions.declare_output(paths.basename(pkg_name) + "_coverage_vars.go_package_argsfile", has_content_based_path = True)

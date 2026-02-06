@@ -53,3 +53,14 @@ prelude.go_bootstrap_binary(
         "PUBLIC",
     ],
 )
+
+prelude.go_bootstrap_binary(
+    name = "pkg_analyzer",
+    srcs = ["pkg_analyzer.go"],
+    build_args = [
+        "pkg_analyzer.go",
+    ],
+    visibility = [
+        "PUBLIC",
+    ],
+)
