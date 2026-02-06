@@ -26,9 +26,9 @@ use tokio_util::sync::CancellationToken;
 use crate::action_scene::ActionScene;
 use crate::buck_cgroup_tree::BuckCgroupTree;
 use crate::pool::CgroupPool;
-use crate::scheduler::ActionCgroups;
 use crate::scheduler::SceneIdRef;
 use crate::scheduler::SceneResourceReading;
+use crate::scheduler::Scheduler;
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct MemoryReading {
@@ -47,7 +47,7 @@ pub type MemoryTrackerHandle = Arc<MemoryTrackerSharedState>;
 pub struct MemoryTrackerSharedState {
     pub cgroup_tree: BuckCgroupTree,
     // Written to by executors and tracker, read by executors
-    pub(crate) action_cgroups: tokio::sync::Mutex<ActionCgroups>,
+    pub(crate) action_cgroups: std::sync::Mutex<Scheduler>,
     /// A pool of cgroups to be used for actions.
     ///
     /// There's only one invariant associated with this pool, which is that cgroups will never be
@@ -82,7 +82,7 @@ pub fn spawn_memory_reporter(
         memory_tracker
             .action_cgroups
             .lock()
-            .await
+            .unwrap()
             .command_started(resource_control_event_tx);
 
         loop {
@@ -121,15 +121,14 @@ pub async fn create_memory_tracker(
     )
     .await?;
     let effective_resource_constraints = *cgroup_tree.effective_resource_constraints();
-    let action_cgroups = ActionCgroups::init(
+    let action_cgroups = Scheduler::init(
         resource_control_config,
         daemon_id,
         effective_resource_constraints,
-    )
-    .await?;
+    );
     let handle = MemoryTrackerSharedState {
         cgroup_tree,
-        action_cgroups: tokio::sync::Mutex::new(action_cgroups),
+        action_cgroups: std::sync::Mutex::new(action_cgroups),
         pool: tokio::sync::Mutex::new(cgroup_pool),
         scene_action_mapping: tokio::sync::Mutex::new(HashMap::new()),
     };
@@ -166,7 +165,7 @@ impl MemoryTracker {
                 continue;
             };
 
-            let mut action_cgroups = self.handle.action_cgroups.lock().await;
+            let mut action_cgroups = self.handle.action_cgroups.lock().unwrap();
             action_cgroups.update(memory_reading, scene_readings);
         }
     }
@@ -239,7 +238,7 @@ mod tests {
         tracker
             .action_cgroups
             .lock()
-            .await
+            .unwrap()
             .command_started(resource_control_event_tx);
 
         // Make sure we get some zeros

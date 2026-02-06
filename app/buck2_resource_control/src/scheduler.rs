@@ -47,7 +47,7 @@ pub(crate) struct SceneResult {
 }
 
 impl SceneResult {
-    fn from_info(cgroup_info: &ActionCgroup) -> Self {
+    fn from_info(cgroup_info: &Scene) -> Self {
         Self {
             memory_peak: cgroup_info.memory_peak,
             swap_peak: cgroup_info.swap_peak,
@@ -85,7 +85,7 @@ enum WakeImplementation {
     },
     KillAndRetry(oneshot::Sender<(KillFuture, mpsc::UnboundedReceiver<ActionFreezeEvent>)>),
     /// Semantically essentially the same as `KillAndRetry`, but indicates that instead of this
-    /// being a retry after a kill, it's starting an action that had never been started yet
+    /// being a retry after a kill, it's starting a scene that had never been started yet
     UnblockStart(oneshot::Sender<(KillFuture, mpsc::UnboundedReceiver<ActionFreezeEvent>)>),
 }
 
@@ -106,8 +106,12 @@ impl SceneId {
 #[derive(Debug, Clone, Copy, Dupe, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub(crate) struct SceneIdRef(u64);
 
+/// A scene is the unit of work that the scheduler manages.
+///
+/// You should typically think of this as an action, but in principle it might be anything that buck
+/// does which needs access to significant system resources for some amount of time.
 #[derive(Debug)]
-struct ActionCgroup {
+struct Scene {
     description: SceneDescription,
     scene_id: SceneIdRef,
     memory_peak: u64,
@@ -120,49 +124,54 @@ struct ActionCgroup {
 }
 
 #[derive(Debug)]
-struct RunningActionCgroup {
-    cgroup: ActionCgroup,
+struct RunningScene {
+    scene: Scene,
     suspend_implementation: SuspendImplementation,
 }
 
 #[derive(Debug)]
-struct SuspendedActionCgroup {
-    cgroup: ActionCgroup,
-    // None indicates that this action was never started
+struct SuspendedScene {
+    scene: Scene,
+    // None indicates that this scene was never started
     suspend_start: Option<Instant>,
     memory_current_when_suspended: Option<u64>,
     wake_implementation: WakeImplementation,
 }
 
-pub(crate) struct ActionCgroups {
+pub(crate) struct Scheduler {
     enable_suspension: bool,
     preferred_action_suspend_strategy: ActionSuspendStrategy,
     pressure_suspend_threshold: f64,
-    /// Currently running and suspended actions
+    /// Currently running and suspended scenes
     ///
-    /// Actions in both of these lists are sorted in start order; in other words, excepting for
-    /// actions that have already completed, actions that started first are at the beginning of the
-    /// `running` list, then actions at the end of the `running` list, then actions at the beginning
-    /// of the `suspended` list, etc.
+    /// A scene is guaranteed to exist in exactly one of the two lists. Once completed a scene is
+    /// removed from the lists entirely. Across these two lists, scenes always appear in the order
+    /// in which they were originally started; so, if we have scenes S1, S2, and S3, originally
+    /// started in that order, the list might look like:
     ///
-    /// When suspending/waking actions, we move them between the end of the running list and the
-    /// beginning of the suspended list. The restriction this places on the choice of which actions
-    /// we suspend/wake is important, as it guarantees forward progress; specifically, the very
-    /// first action in the running list is guaranteed to never be suspended before it finishes.
-    /// Without this kind of a guarantee, we risk creating a deadlock where no action ever finishes
-    /// before it's killed and retried.
+    /// ```rust,ignore
+    /// running_scenes: [S1],
+    /// suspended_scenes: [S2, S3],
+    /// ```
+    ///
+    /// When suspending/waking scenes, we move them between the end of the running list and the
+    /// beginning of the suspended list to maintain this property. The restriction this places on
+    /// the choice of which scenes we suspend/wake is important, as it guarantees forward progress;
+    /// specifically, the very first scene in the running list is guaranteed to never be suspended
+    /// before it finishes. Without this kind of a guarantee, we risk creating a deadlock where no
+    /// scene ever finishes before it's killed and retried.
     ///
     /// The high-level structure of our scheduling algorithm is as follows: By default, we hold the
-    /// number of running actions constant, scheduling an additional one whenever another finishes.
-    /// We may then additionally take corrective actions in the form of increasing or decreasing the
+    /// number of running scenes constant, scheduling an additional one whenever another finishes.
+    /// We may then additionally take corrective scenes in the form of increasing or decreasing the
     /// running count when we detect that we're doing a poor job; either because we're not using our
     /// resources well enough, or because we're creating contention. The details of when we do that
     /// are found in code-below.
     ///
-    /// Note that the total number of actions being managed here (ie the sum of the lengths of these
+    /// Note that the total number of scenes being managed here (ie the sum of the lengths of these
     /// lists) is still hard capped by the local action parallelism limit (-j)
-    running_cgroups: Vec<RunningActionCgroup>,
-    suspended_cgroups: VecDeque<SuspendedActionCgroup>,
+    running_scenes: Vec<RunningScene>,
+    suspended_scenes: VecDeque<SuspendedScene>,
     last_correction_time: Option<Instant>,
     // Total allprocs memory when the last suspend happened. Used to calculate when we should wake
     // cgroups.
@@ -171,21 +180,21 @@ pub(crate) struct ActionCgroups {
     next_scene_id: SceneId,
 }
 
-impl ActionCgroups {
-    pub(crate) async fn init(
+impl Scheduler {
+    pub(crate) fn init(
         resource_control_config: &ResourceControlConfig,
         daemon_id: &DaemonId,
         effective_resource_constraints: EffectiveResourceConstraints,
-    ) -> buck2_error::Result<Self> {
+    ) -> Self {
         let enable_suspension = resource_control_config.enable_suspension;
 
-        Ok(Self::new(
+        Self::new(
             enable_suspension,
             resource_control_config.preferred_action_suspend_strategy,
             resource_control_config.memory_pressure_threshold_percent as f64,
             effective_resource_constraints,
             daemon_id,
-        ))
+        )
     }
 
     pub(crate) fn new(
@@ -199,8 +208,8 @@ impl ActionCgroups {
             enable_suspension,
             preferred_action_suspend_strategy,
             pressure_suspend_threshold,
-            running_cgroups: Vec::new(),
-            suspended_cgroups: VecDeque::new(),
+            running_scenes: Vec::new(),
+            suspended_scenes: VecDeque::new(),
             last_correction_time: None,
             total_memory_during_last_suspend: None,
             event_sender_state: EventSenderState::new(daemon_id, effective_resource_constraints),
@@ -209,14 +218,14 @@ impl ActionCgroups {
     }
 
     #[cfg(test)]
-    pub(crate) fn testing_new() -> Option<Self> {
-        Some(Self::new(
+    pub(crate) fn testing_new() -> Self {
+        Self::new(
             true,
             ActionSuspendStrategy::KillAndRetry,
             10.0,
             EffectiveResourceConstraints::default(),
             &DaemonId::new(),
-        ))
+        )
     }
 
     /// Register a command to start receiving events.
@@ -235,7 +244,7 @@ impl ActionCgroups {
         std::mem::replace(&mut self.next_scene_id, after_scene_id)
     }
 
-    pub(crate) fn action_started(
+    pub(crate) fn scene_started(
         &mut self,
         description: SceneDescription,
         disable_kill_and_retry_suspend: bool,
@@ -248,7 +257,7 @@ impl ActionCgroups {
 
         let scene_id = self.allocate_scene_id();
 
-        let action_cgroup = ActionCgroup {
+        let scene_cgroup = Scene {
             description,
             scene_id: scene_id.as_ref(),
             memory_current: 0,
@@ -264,42 +273,42 @@ impl ActionCgroups {
         let start_future = RetryFuture(start_rx);
         let start_wake_implemenation = WakeImplementation::UnblockStart(start_tx);
 
-        if self.suspended_cgroups.is_empty() {
-            let running_action_cgroup = wake_cgroup(action_cgroup, start_wake_implemenation).0;
+        if self.suspended_scenes.is_empty() {
+            let running_scene_cgroup = wake_scene(scene_cgroup, start_wake_implemenation).0;
 
-            self.running_cgroups.push(running_action_cgroup);
+            self.running_scenes.push(running_scene_cgroup);
         } else {
-            // If we have any suspended actions, don't also start new ones
-            let suspended_action_cgroup = SuspendedActionCgroup {
-                cgroup: action_cgroup,
+            // If we have any suspended scenes, don't also start new ones
+            let suspended_scene_cgroup = SuspendedScene {
+                scene: scene_cgroup,
                 suspend_start: None,
                 memory_current_when_suspended: None,
                 wake_implementation: start_wake_implemenation,
             };
-            self.suspended_cgroups.push_back(suspended_action_cgroup);
+            self.suspended_scenes.push_back(suspended_scene_cgroup);
         }
 
         (scene_id, start_future)
     }
 
-    pub(crate) fn action_finished(&mut self, scene_id: SceneId) -> SceneResult {
+    pub(crate) fn scene_finished(&mut self, scene_id: SceneId) -> SceneResult {
         if let Some(i) = self
-            .running_cgroups
+            .running_scenes
             .iter()
-            .position(|cg| cg.cgroup.scene_id == scene_id.as_ref())
+            .position(|cg| cg.scene.scene_id == scene_id.as_ref())
         {
-            let cgroup = self.running_cgroups.remove(i);
+            let cgroup = self.running_scenes.remove(i);
             self.wake();
-            SceneResult::from_info(&cgroup.cgroup)
+            SceneResult::from_info(&cgroup.scene)
         } else if let Some(i) = self
-            .suspended_cgroups
+            .suspended_scenes
             .iter()
-            .position(|cg| cg.cgroup.scene_id == scene_id.as_ref())
+            .position(|cg| cg.scene.scene_id == scene_id.as_ref())
         {
-            let cgroup = self.suspended_cgroups.remove(i).unwrap();
+            let cgroup = self.suspended_scenes.remove(i).unwrap();
             // Command can finish after freezing a cgroup either because freezing may take some time
             // or because we started freezing after the command finished.
-            SceneResult::from_info(&cgroup.cgroup)
+            SceneResult::from_info(&cgroup.scene)
         } else {
             unreachable!("Scene disappeared!")
         }
@@ -313,10 +322,10 @@ impl ActionCgroups {
         self.event_sender_state
             .update_memory_reading(memory_reading);
         for cgroup in self
-            .running_cgroups
+            .running_scenes
             .iter_mut()
-            .map(|c| &mut c.cgroup)
-            .chain(self.suspended_cgroups.iter_mut().map(|c| &mut c.cgroup))
+            .map(|c| &mut c.scene)
+            .chain(self.suspended_scenes.iter_mut().map(|c| &mut c.scene))
         {
             // If we get back `None` that means the thign encountered an error. Not much to be done
             // about that
@@ -346,8 +355,8 @@ impl ActionCgroups {
         };
         self.event_sender_state.maybe_send_scheduled_event(
             scheduled_event_freq,
-            self.running_cgroups.len() as u64,
-            self.suspended_cgroups.len() as u64,
+            self.running_scenes.len() as u64,
+            self.suspended_scenes.len() as u64,
         );
     }
 
@@ -366,29 +375,29 @@ impl ActionCgroups {
             return;
         }
 
-        // Don't suspend if there's only one action
-        if self.running_cgroups.len() <= 1 {
+        // Don't suspend if there's only one scene
+        if self.running_scenes.len() <= 1 {
             return;
         }
         let now = Instant::now();
         self.last_correction_time = Some(now);
 
         // Length checked above
-        let cgroup = self.running_cgroups.pop().unwrap();
+        let cgroup = self.running_scenes.pop().unwrap();
 
-        let (suspended_cgroup, event_kind) = suspend_cgroup(cgroup, now);
+        let (suspended_cgroup, event_kind) = suspend_scene(cgroup, now);
 
         self.total_memory_during_last_suspend = Some(memory_reading.allprocs_memory_current);
         // Push it onto the list before emitting the event so that the action count in the event is
         // correct
-        self.suspended_cgroups.push_front(suspended_cgroup);
-        let suspended_cgroup = self.suspended_cgroups.front().unwrap();
+        self.suspended_scenes.push_front(suspended_cgroup);
+        let suspended_cgroup = self.suspended_scenes.front().unwrap();
 
         self.event_sender_state.send_event(
             event_kind,
-            Some(&suspended_cgroup.cgroup),
-            self.running_cgroups.len() as u64,
-            self.suspended_cgroups.len() as u64,
+            Some(&suspended_cgroup.scene),
+            self.running_scenes.len() as u64,
+            self.suspended_scenes.len() as u64,
         );
     }
 
@@ -403,11 +412,11 @@ impl ActionCgroups {
             return;
         }
 
-        let Some(suspended_cgroup) = self.suspended_cgroups.front() else {
+        let Some(suspended_cgroup) = self.suspended_scenes.front() else {
             return;
         };
 
-        // We suspend actions when there's memory pressure; there being memory pressure essentially
+        // We suspend scenes when there's memory pressure; there being memory pressure essentially
         // guarantees that we're at our memory limit, so this value is really just a proxy for our
         // memory cap
         let total_memory_during_last_suspend =
@@ -421,7 +430,7 @@ impl ActionCgroups {
                 memory_current_when_suspended
             }
             None => {
-                // If we've never scheduled an action before, this is some kind of a default
+                // If we've never scheduled an scene before, this is some kind of a default
                 // assumption as to how much memory it needs
                 std::cmp::min(1_000_000_000, total_memory_during_last_suspend / 5)
             }
@@ -439,44 +448,42 @@ impl ActionCgroups {
     }
 
     fn wake(&mut self) {
-        let Some(mut suspended_cgroup) = self.suspended_cgroups.pop_front() else {
+        let Some(mut suspended_cgroup) = self.suspended_scenes.pop_front() else {
             return;
         };
 
         if let Some(suspend_start) = suspended_cgroup.suspend_start {
             let suspend_elapsed = Instant::now() - suspend_start;
 
-            suspended_cgroup.cgroup.suspend_duration =
-                Some(match suspended_cgroup.cgroup.suspend_duration {
+            suspended_cgroup.scene.suspend_duration =
+                Some(match suspended_cgroup.scene.suspend_duration {
                     Some(duration) => duration + suspend_elapsed,
                     None => suspend_elapsed,
                 });
-            suspended_cgroup.cgroup.suspend_count += 1;
+            suspended_cgroup.scene.suspend_count += 1;
         }
 
-        let (running_cgroup, event_kind) = wake_cgroup(
-            suspended_cgroup.cgroup,
-            suspended_cgroup.wake_implementation,
-        );
+        let (running_cgroup, event_kind) =
+            wake_scene(suspended_cgroup.scene, suspended_cgroup.wake_implementation);
 
         // Push it onto the list before emitting the event so that the action count in the event is
         // correct
-        self.running_cgroups.push(running_cgroup);
-        let running_cgroup = self.running_cgroups.last().unwrap();
+        self.running_scenes.push(running_cgroup);
+        let running_cgroup = self.running_scenes.last().unwrap();
 
         self.event_sender_state.send_event(
             event_kind,
-            Some(&running_cgroup.cgroup),
-            self.running_cgroups.len() as u64,
-            self.suspended_cgroups.len() as u64,
+            Some(&running_cgroup.scene),
+            self.running_scenes.len() as u64,
+            self.suspended_scenes.len() as u64,
         );
     }
 }
 
-fn suspend_cgroup(
-    cgroup: RunningActionCgroup,
+fn suspend_scene(
+    cgroup: RunningScene,
     now: Instant,
-) -> (SuspendedActionCgroup, buck2_data::ResourceControlEventKind) {
+) -> (SuspendedScene, buck2_data::ResourceControlEventKind) {
     let (wake_implementation, event_kind) = match cgroup.suspend_implementation {
         SuspendImplementation::CgroupFreeze(kill_sender, freeze_sender) => {
             drop(freeze_sender.send(ActionFreezeEvent::Freeze));
@@ -498,9 +505,9 @@ fn suspend_cgroup(
         }
     };
     (
-        SuspendedActionCgroup {
-            memory_current_when_suspended: Some(cgroup.cgroup.memory_current),
-            cgroup: cgroup.cgroup,
+        SuspendedScene {
+            memory_current_when_suspended: Some(cgroup.scene.memory_current),
+            scene: cgroup.scene,
             wake_implementation,
             suspend_start: Some(now),
         },
@@ -508,10 +515,10 @@ fn suspend_cgroup(
     )
 }
 
-fn wake_cgroup(
-    cgroup: ActionCgroup,
+fn wake_scene(
+    cgroup: Scene,
     wake_implementation: WakeImplementation,
-) -> (RunningActionCgroup, buck2_data::ResourceControlEventKind) {
+) -> (RunningScene, buck2_data::ResourceControlEventKind) {
     let (retry_tx, event_kind) = match wake_implementation {
         WakeImplementation::CgroupUnfreeze {
             unfreeze_sender,
@@ -519,8 +526,8 @@ fn wake_cgroup(
         } => {
             drop(unfreeze_sender.send(ActionFreezeEvent::Unfreeze));
             return (
-                RunningActionCgroup {
-                    cgroup,
+                RunningScene {
+                    scene: cgroup,
                     suspend_implementation: SuspendImplementation::CgroupFreeze(
                         kill_sender,
                         unfreeze_sender,
@@ -547,8 +554,8 @@ fn wake_cgroup(
         ActionSuspendStrategy::KillAndRetry => SuspendImplementation::KillAndRetry(kill_tx),
     };
     (
-        RunningActionCgroup {
-            cgroup,
+        RunningScene {
+            scene: cgroup,
             suspend_implementation,
         },
         event_kind,
@@ -593,11 +600,9 @@ mod tests {
 
     #[test]
     fn test_peak_memory_and_swap() -> buck2_error::Result<()> {
-        let Some(mut scheduler) = ActionCgroups::testing_new() else {
-            return Ok(());
-        };
+        let mut scheduler = Scheduler::testing_new();
         let scene1 = scheduler
-            .action_started(
+            .scene_started(
                 SceneDescription {
                     command_type: CommandType::Build,
                     action_digest: Some("action_1".to_owned()),
@@ -606,7 +611,7 @@ mod tests {
             )
             .0;
         let scene2 = scheduler
-            .action_started(
+            .scene_started(
                 SceneDescription {
                     command_type: CommandType::Build,
                     action_digest: Some("action_2".to_owned()),
@@ -637,8 +642,8 @@ mod tests {
                 .build(),
         );
 
-        let scene_1_res = scheduler.action_finished(scene1);
-        let scene_2_res = scheduler.action_finished(scene2);
+        let scene_1_res = scheduler.scene_finished(scene1);
+        let scene_2_res = scheduler.scene_finished(scene2);
         assert_eq!(scene_1_res.memory_peak, 10);
         assert_eq!(scene_2_res.memory_peak, 0);
         assert_eq!(scene_1_res.swap_peak, 3);
@@ -649,11 +654,9 @@ mod tests {
 
     #[tokio::test]
     async fn test_freeze() -> buck2_error::Result<()> {
-        let Some(mut scheduler) = ActionCgroups::testing_new() else {
-            return Ok(());
-        };
+        let mut scheduler = Scheduler::testing_new();
         let scene1 = scheduler
-            .action_started(
+            .scene_started(
                 SceneDescription {
                     command_type: CommandType::Build,
                     action_digest: None,
@@ -662,7 +665,7 @@ mod tests {
             )
             .0;
         let scene2 = scheduler
-            .action_started(
+            .scene_started(
                 SceneDescription {
                     command_type: CommandType::Build,
                     action_digest: None,
@@ -686,7 +689,7 @@ mod tests {
                 .build(),
         );
 
-        let cgroup_1_res = scheduler.action_finished(scene1);
+        let cgroup_1_res = scheduler.scene_finished(scene1);
         assert!(cgroup_1_res.suspend_duration.is_none());
 
         let memory_reading_2 = MemoryReading {
@@ -698,7 +701,7 @@ mod tests {
         };
         scheduler.update(memory_reading_2, UpdateBuilder::new().build());
 
-        let cgroup_2_res = scheduler.action_finished(scene2);
+        let cgroup_2_res = scheduler.scene_finished(scene2);
         assert!(cgroup_2_res.suspend_duration.is_some());
 
         Ok(())

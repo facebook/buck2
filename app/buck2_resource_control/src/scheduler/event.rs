@@ -20,7 +20,7 @@ use tokio::sync::mpsc;
 use crate::CommandType;
 use crate::cgroup::EffectiveResourceConstraints;
 use crate::memory_tracker::MemoryReading;
-use crate::scheduler::ActionCgroup;
+use crate::scheduler::Scene;
 
 pub(crate) struct EventSenderState {
     metadata: HashMap<String, String>,
@@ -85,7 +85,7 @@ impl EventSenderState {
     pub(crate) fn send_event(
         &mut self,
         kind: buck2_data::ResourceControlEventKind,
-        cgroup: Option<&ActionCgroup>,
+        cgroup: Option<&Scene>,
         actions_running: u64,
         actions_suspended: u64,
     ) {
@@ -96,7 +96,7 @@ impl EventSenderState {
     fn make_event(
         &self,
         kind: buck2_data::ResourceControlEventKind,
-        cgroup: Option<&ActionCgroup>,
+        cgroup: Option<&Scene>,
         actions_running: u64,
         actions_suspended: u64,
     ) -> ResourceControlEventMostly {

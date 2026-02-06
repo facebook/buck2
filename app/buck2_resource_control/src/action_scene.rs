@@ -107,8 +107,7 @@ impl ActionCgroupSession {
             }
         };
 
-        let mut action_cgroups = tracker.action_cgroups.lock().await;
-        let (scene_id, start_future) = action_cgroups.action_started(
+        let (scene_id, start_future) = tracker.action_cgroups.lock().unwrap().scene_started(
             SceneDescription {
                 action_digest,
                 command_type,
@@ -147,8 +146,8 @@ impl ActionCgroupSession {
             .tracker
             .action_cgroups
             .lock()
-            .await
-            .action_finished(self.scene_id);
+            .unwrap()
+            .scene_finished(self.scene_id);
 
         if let Some(error) = action_scene.error {
             ActionCgroupResult {
