@@ -24,10 +24,12 @@ use crate::KillFuture;
 use crate::RetryFuture;
 use crate::action_scene::ActionScene;
 use crate::cgroup::EffectiveResourceConstraints;
-use crate::event::EventSenderState;
-use crate::event::ResourceControlEventMostly;
 use crate::memory_tracker::MemoryReading;
 use crate::pool::CgroupPool;
+use crate::scheduler::event::EventSenderState;
+use crate::scheduler::event::ResourceControlEventMostly;
+
+mod event;
 
 /// Some information about the scene used for logging only
 #[derive(Debug)]
@@ -101,14 +103,14 @@ impl SceneId {
 }
 
 #[derive(Debug)]
-pub(crate) struct ActionCgroup {
-    pub(crate) action_scene: ActionScene,
-    pub(crate) description: SceneDescription,
+struct ActionCgroup {
+    action_scene: ActionScene,
+    description: SceneDescription,
     scene_id: SceneId,
-    pub(crate) memory_peak: u64,
-    pub(crate) memory_current: u64,
-    pub(crate) swap_current: u64,
-    pub(crate) swap_peak: u64,
+    memory_peak: u64,
+    memory_current: u64,
+    swap_current: u64,
+    swap_peak: u64,
     suspend_duration: Option<Duration>,
     suspend_count: u64,
     suspend_strategy: ActionSuspendStrategy,

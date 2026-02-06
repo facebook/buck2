@@ -23,8 +23,6 @@ pub mod cgroup;
 #[cfg(unix)]
 pub mod cgroup_files;
 #[cfg(unix)]
-pub mod event;
-#[cfg(unix)]
 pub mod memory_tracker;
 pub mod path;
 #[cfg(unix)]
