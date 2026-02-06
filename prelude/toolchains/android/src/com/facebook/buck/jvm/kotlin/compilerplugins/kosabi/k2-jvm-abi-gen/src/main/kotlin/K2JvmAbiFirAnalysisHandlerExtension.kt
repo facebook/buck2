@@ -689,7 +689,9 @@ class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
               className.endsWith("Kt") || // Default file facade pattern
                   (!decl.isCompanion && // Not a companion object
                       !decl.isInner && // Not an inner class
-                      decl.declarations.any { it is IrSimpleFunction }) // Has functions
+                      decl.declarations.any {
+                        it is IrSimpleFunction || it is IrProperty || it is IrField
+                      }) // Has functions or properties
 
           if (isLikelyFileFacade) {
             packageToFileFacades.getOrPut(packageFqName) { mutableSetOf() }.add(className)
