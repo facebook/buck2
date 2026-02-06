@@ -22,6 +22,7 @@ use buck2_core::target::name::EQ_SIGN_SUBST;
 use buck2_core::target::name::TargetNameRef;
 use buck2_error::BuckErrorContext;
 use buck2_error::buck2_error;
+use buck2_error::internal_error;
 use buck2_fs::paths::file_name::FileName;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
@@ -228,7 +229,7 @@ fn get_cell_path<'v>(
         let (cell_relative_path, anon_hash) = if is_anon {
             let path = cell_relative_path
                 .parent()
-                .with_buck_error_context(|| "Invalid path for anonymous target")?
+                .ok_or_else(|| internal_error!("Invalid path for anonymous target"))?
                 .to_buf();
             let anon_hash = cell_relative_path.file_name().unwrap().as_str().to_owned();
             (path, Some(anon_hash))

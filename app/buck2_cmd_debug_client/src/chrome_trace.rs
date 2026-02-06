@@ -28,6 +28,7 @@ use buck2_client_ctx::path_arg::PathArg;
 use buck2_common::convert::ProstDurationExt;
 use buck2_error::BuckErrorContext;
 use buck2_error::buck2_error;
+use buck2_error::internal_error;
 use buck2_event_log::read::EventLogPathBuf;
 use buck2_event_log::stream_value::StreamValue;
 use buck2_event_log::utils::Invocation;
@@ -1051,7 +1052,7 @@ impl ChromeTraceWriter {
             let duration = end
                 .duration
                 .as_ref()
-                .buck_error_context("Expected SpanEndEvent to have duration")?
+                .ok_or_else(|| internal_error!("Expected SpanEndEvent to have duration"))?
                 .try_into_duration()?;
             if let SpanTrackAssignment::Owned(track_id) = &open.track {
                 self.unused_track_ids

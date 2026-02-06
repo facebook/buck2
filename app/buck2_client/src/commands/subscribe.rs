@@ -25,6 +25,7 @@ use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::stream_util::reborrow_stream_for_static;
 use buck2_client_ctx::streaming::StreamingCommand;
 use buck2_error::BuckErrorContext;
+use buck2_error::internal_error;
 use buck2_subscription_proto::SubscriptionRequest;
 use futures::stream::StreamExt;
 use futures::stream::TryStreamExt;
@@ -208,7 +209,7 @@ impl PartialResultHandler for SubscriptionPartialResultHandler {
     ) -> buck2_error::Result<()> {
         let response = partial_res
             .response
-            .buck_error_context("Empty `SubscriptionResponseWrapper`")?;
+            .ok_or_else(|| internal_error!("Empty `SubscriptionResponseWrapper`"))?;
 
         if let Some(buck2_subscription_proto::subscription_response::Response::Goodbye(goodbye)) =
             &response.response

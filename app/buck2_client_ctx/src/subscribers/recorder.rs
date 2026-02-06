@@ -1280,7 +1280,7 @@ impl InvocationRecorder {
         let command_data = command
             .data
             .as_ref()
-            .buck_error_context("Missing command data")?;
+            .ok_or_else(|| internal_error!("Missing command data"))?;
 
         let build_count = match command_data {
             buck2_data::command_end::Data::Build(..)
@@ -2107,7 +2107,11 @@ impl InvocationRecorder {
 
         match event.data() {
             buck2_data::buck_event::Data::SpanStart(start) => {
-                match start.data.as_ref().buck_error_context("Missing `start`")? {
+                match start
+                    .data
+                    .as_ref()
+                    .ok_or_else(|| internal_error!("Missing `start`"))?
+                {
                     buck2_data::span_start_event::Data::Command(command) => {
                         self.handle_command_start(command, event)
                     }
@@ -2139,7 +2143,11 @@ impl InvocationRecorder {
                 }
             }
             buck2_data::buck_event::Data::SpanEnd(end) => {
-                match end.data.as_ref().buck_error_context("Missing `end`")? {
+                match end
+                    .data
+                    .as_ref()
+                    .ok_or_else(|| internal_error!("Missing `end`"))?
+                {
                     buck2_data::span_end_event::Data::Command(command) => {
                         self.handle_command_end(command, event).await
                     }
@@ -2186,7 +2194,11 @@ impl InvocationRecorder {
                 }
             }
             buck2_data::buck_event::Data::Instant(instant) => {
-                match instant.data.as_ref().buck_error_context("Missing `data`")? {
+                match instant
+                    .data
+                    .as_ref()
+                    .ok_or_else(|| internal_error!("Missing `data`"))?
+                {
                     buck2_data::instant_event::Data::ReSession(session) => {
                         self.handle_re_session_created(session, event)
                     }

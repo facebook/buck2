@@ -16,7 +16,7 @@ use buck2_cli_proto::ConfiguredTargetsRequest;
 use buck2_cli_proto::ConfiguredTargetsResponse;
 use buck2_common::pattern::parse_from_cli::parse_patterns_with_modifiers_from_cli_args;
 use buck2_core::pattern::pattern_type::TargetPatternExtra;
-use buck2_error::BuckErrorContext;
+use buck2_error::internal_error;
 use buck2_node::load_patterns::MissingTargetBehavior;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::global_cfg_options::global_cfg_options_from_client_context;
@@ -74,7 +74,7 @@ impl ServerCommandTemplate for ConfiguredTargetsServerCommand {
             self.req
                 .target_cfg
                 .as_ref()
-                .internal_error("target_cfg must be set")?,
+                .ok_or_else(|| internal_error!("target_cfg must be set"))?,
             server_ctx,
             &mut ctx,
         )

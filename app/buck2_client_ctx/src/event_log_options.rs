@@ -13,6 +13,7 @@ use std::process::Stdio;
 use buck2_common::init::LogDownloadMethod;
 use buck2_common::temp_path::TempPath;
 use buck2_error::BuckErrorContext;
+use buck2_error::internal_error;
 use buck2_event_log::file_names::find_log_by_trace_id;
 use buck2_event_log::file_names::retrieve_nth_recent_log;
 use buck2_event_log::read::EventLogPathBuf;
@@ -137,7 +138,7 @@ impl EventLogOptions {
                         .path()
                         .as_os_str()
                         .to_str()
-                        .buck_error_context("temp_path is not valid UTF-8")?,
+                        .ok_or_else(|| internal_error!("temp_path is not valid UTF-8"))?,
                 ];
                 crate::eprintln!("Spawning: manifold {}", args.join(" "))?;
                 (
@@ -162,7 +163,7 @@ impl EventLogOptions {
                         .path()
                         .as_os_str()
                         .to_str()
-                        .buck_error_context("temp_path is not valid UTF-8")?,
+                        .ok_or_else(|| internal_error!("temp_path is not valid UTF-8"))?,
                 ];
                 crate::eprintln!("Spawning: curl {}", args.join(" "))?;
                 (
@@ -193,7 +194,7 @@ impl EventLogOptions {
         fs_util::create_dir_all(
             log_path
                 .parent()
-                .buck_error_context("Error identifying log dir")?,
+                .ok_or_else(|| internal_error!("Error identifying log dir"))?,
         )?;
         fs_util::rename(temp_path.path(), &log_path).categorize_internal()?;
         crate::eprintln!("Downloaded event-log to `{}`", log_path.display())?;

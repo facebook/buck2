@@ -8,7 +8,7 @@
  * above-listed licenses.
  */
 
-use buck2_error::BuckErrorContext;
+use buck2_error::internal_error;
 use buck2_event_observer::test_state::TestState;
 use crossterm::style::Color;
 use crossterm::style::ContentStyle;
@@ -107,7 +107,7 @@ impl TestCounterColumn {
             label: self.label,
             count: (self.get_from_test_statues)(test_statuses)
                 .as_ref()
-                .with_buck_error_context(|| format!("Missing {} in TestStatuses", self.label))?
+                .ok_or_else(|| internal_error!("Missing {} in TestStatuses", self.label))?
                 .count,
             color: self.color,
         }

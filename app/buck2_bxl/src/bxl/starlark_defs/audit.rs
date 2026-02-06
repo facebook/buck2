@@ -14,7 +14,7 @@ use buck2_build_api::audit_output::AuditOutputResult;
 use buck2_build_api::audit_output::audit_output;
 use buck2_core::cells::CellResolver;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
-use buck2_error::BuckErrorContext;
+use buck2_error::internal_error;
 use buck2_interpreter::types::target_label::StarlarkTargetLabel;
 use derivative::Derivative;
 use derive_more::Display;
@@ -146,7 +146,9 @@ fn audit_methods(builder: &mut MethodsBuilder) {
                             AuditOutputResult::Match(action) => heap.alloc(StarlarkAction(
                                 action
                                     .action()
-                                    .buck_error_context("audit_output did not return an action")?
+                                    .ok_or_else(|| {
+                                        internal_error!("audit_output did not return an action")
+                                    })?
                                     .dupe(),
                             )),
                             AuditOutputResult::MaybeRelevantForConfigurationHashPath(label) => {

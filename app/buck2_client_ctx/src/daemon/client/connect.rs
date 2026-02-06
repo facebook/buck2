@@ -33,6 +33,7 @@ use buck2_error::BuckErrorContext;
 use buck2_error::ErrorTag;
 use buck2_error::buck2_error;
 use buck2_error::conversion::from_any_with_tag;
+use buck2_error::internal_error;
 use buck2_events::daemon_id::DaemonId;
 use buck2_fs::fs_util;
 use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
@@ -461,12 +462,12 @@ impl<'a> BuckdLifecycle<'a> {
         let mut stdout_taken = child
             .stdout
             .take()
-            .buck_error_context("Child should have its stdout piped")
+            .ok_or_else(|| internal_error!("Child should have its stdout piped"))
             .unwrap();
         let mut stderr_taken = child
             .stderr
             .take()
-            .buck_error_context("Child should have its stderr piped")
+            .ok_or_else(|| internal_error!("Child should have its stderr piped"))
             .unwrap();
 
         let status_fut = async {
@@ -1042,7 +1043,7 @@ pub fn get_daemon_exe() -> buck2_error::Result<PathBuf> {
         let ext = if cfg!(windows) { ".exe" } else { "" };
         Ok(exe
             .parent()
-            .buck_error_context("Expected current exe to be in a directory")?
+            .ok_or_else(|| internal_error!("Expected current exe to be in a directory"))?
             .join(format!("buck2-daemon{ext}")))
     } else {
         Ok(exe)

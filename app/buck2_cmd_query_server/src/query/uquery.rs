@@ -16,7 +16,7 @@ use buck2_cli_proto::HasClientContext as _;
 use buck2_cli_proto::UqueryRequest;
 use buck2_cli_proto::UqueryResponse;
 use buck2_common::dice::cells::HasCellResolver;
-use buck2_error::BuckErrorContext;
+use buck2_error::internal_error;
 use buck2_node::attrs::display::AttrDisplayWithContext;
 use buck2_node::attrs::display::AttrDisplayWithContextExt;
 use buck2_node::attrs::fmt_context::AttrFmtContext;
@@ -138,7 +138,9 @@ async fn uquery(
         ..
     } = request;
 
-    let client_ctx = context.as_ref().internal_error("No client context")?;
+    let client_ctx = context
+        .as_ref()
+        .ok_or_else(|| internal_error!("No client context"))?;
 
     let target_call_stacks = client_ctx.target_call_stacks;
 

@@ -12,6 +12,7 @@ use std::path::Path;
 
 use buck2_core::package::PackageLabel;
 use buck2_error::BuckErrorContext;
+use buck2_error::internal_error;
 use buck2_events::dispatch::console_message;
 use buck2_fs::paths::abs_path::AbsPath;
 use buck2_interpreter::starlark_profiler::data::StarlarkProfileDataAndStats;
@@ -26,9 +27,10 @@ pub(crate) async fn write_query_profile_for_targets(
     output_path: Option<&str>,
     targets: impl IntoIterator<Item = PackageLabel>,
 ) -> buck2_error::Result<()> {
-    let output_path = output_path.internal_error("Outut path must be set for profile mode")?;
+    let output_path =
+        output_path.ok_or_else(|| internal_error!("Outut path must be set for profile mode"))?;
     let output_path = AbsPath::new(Path::new(output_path))
-        .internal_error("Output path must be set to absolute path by the client")?;
+        .buck_error_context("Output path must be set to absolute path by the client")?;
     do_write_query_profile_for_targets(ctx, output_path, Vec::from_iter(targets))
         .boxed()
         .await
@@ -52,7 +54,7 @@ async fn do_write_query_profile_for_targets(
         let profile = eval_results
             .starlark_profile
             .as_ref()
-            .internal_error("Starlark profile must be set")?;
+            .ok_or_else(|| internal_error!("Starlark profile must be set"))?;
         let profile = StarlarkProfileDataAndStats::downcast(&**profile)?;
         profiles.push(profile.clone());
     }

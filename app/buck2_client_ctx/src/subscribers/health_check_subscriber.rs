@@ -16,7 +16,7 @@ use async_trait::async_trait;
 use buck2_common::invocation_paths::InvocationPaths;
 use buck2_core::soft_error;
 use buck2_data::buck_event::Data::*;
-use buck2_error::BuckErrorContext;
+use buck2_error::internal_error;
 use buck2_events::BuckEvent;
 use buck2_health_check::health_check_client::HealthCheckClient;
 use buck2_health_check::health_check_client::StreamingHealthCheckClient;
@@ -111,7 +111,7 @@ impl HealthCheckSubscriber {
                 match end
                     .data
                     .as_ref()
-                    .buck_error_context("Missing `data` in SpanEnd")?
+                    .ok_or_else(|| internal_error!("Missing `data` in SpanEnd"))?
                 {
                     FileWatcher(file_watcher) => file_watcher
                         .stats
@@ -147,7 +147,7 @@ impl HealthCheckSubscriber {
                 match instant
                     .data
                     .as_ref()
-                    .buck_error_context("Missing `data` in `Instant`")?
+                    .ok_or_else(|| internal_error!("Missing `data` in `Instant`"))?
                 {
                     SystemInfo(system_info) => Some(HealthCheckEvent::HealthCheckContextEvent(
                         HealthCheckContextEvent::ExperimentConfigurations(system_info.clone()),

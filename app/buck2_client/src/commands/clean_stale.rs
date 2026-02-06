@@ -25,6 +25,7 @@ use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::streaming::StreamingCommand;
 use buck2_error::BuckErrorContext;
 use buck2_error::conversion::from_any_with_tag;
+use buck2_error::internal_error;
 use chrono::DateTime;
 use chrono::Duration;
 use chrono::TimeZone;
@@ -110,7 +111,7 @@ impl StreamingCommand for CleanStaleCommand {
             KeepSinceArg::Duration(duration) => {
                 let keep_since_time: DateTime<Utc> = Utc::now()
                     .checked_sub_signed(duration)
-                    .buck_error_context("Duration underflow")?;
+                    .ok_or_else(|| internal_error!("Duration underflow"))?;
                 buck2_client_ctx::eprintln!(
                     "Cleaning artifacts more than {} old",
                     humantime::format_duration(
@@ -130,7 +131,7 @@ impl StreamingCommand for CleanStaleCommand {
             KeepSinceArg::Time(timestamp) => Utc
                 .timestamp_opt(timestamp, 0)
                 .single()
-                .buck_error_context("Invalid timestamp")?,
+                .ok_or_else(|| internal_error!("Invalid timestamp"))?,
         };
 
         let context = ctx.client_context(matches, &self)?;

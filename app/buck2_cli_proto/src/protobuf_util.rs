@@ -51,7 +51,7 @@ impl Decoder for ProtobufSplitter {
 
 #[cfg(test)]
 mod tests {
-    use buck2_error::BuckErrorContext;
+    use buck2_error::internal_error;
     use futures::stream::StreamExt;
     use prost::Message;
     use tokio_util::codec::FramedRead;
@@ -90,13 +90,19 @@ mod tests {
         let mut stream = FramedRead::new(stream, ProtobufSplitter);
         assert_eq!(
             TestMessage::decode_length_delimited(
-                stream.next().await.buck_error_context("Missing `foo`")??
+                stream
+                    .next()
+                    .await
+                    .ok_or_else(|| internal_error!("Missing `foo`"))??
             )?,
             foo
         );
         assert_eq!(
             TestMessage::decode_length_delimited(
-                stream.next().await.buck_error_context("Missing `bar`")??
+                stream
+                    .next()
+                    .await
+                    .ok_or_else(|| internal_error!("Missing `bar`"))??
             )?,
             bar
         );

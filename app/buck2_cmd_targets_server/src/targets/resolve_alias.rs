@@ -173,7 +173,13 @@ pub(crate) async fn targets_resolve_aliases(
         // validate it exists.
         let node = packages
             .get(package)
-            .with_buck_error_context(|| format!("Package does not exist: `{package}`"))
+            .ok_or_else(|| {
+                buck2_error::buck2_error!(
+                    buck2_error::ErrorTag::Input,
+                    "Package does not exist: `{}`",
+                    package
+                )
+            })
             .and_then(|package_data| {
                 package_data
                     .as_ref()

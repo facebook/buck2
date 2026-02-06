@@ -37,6 +37,7 @@ use buck2_error::BuckErrorContext;
 use buck2_error::ErrorTag;
 use buck2_error::ExitCode;
 use buck2_error::buck2_error;
+use buck2_error::internal_error;
 use buck2_fs::error::IoResultExt;
 use buck2_fs::fs_util;
 use buck2_fs::working_dir::AbsWorkingDir;
@@ -248,31 +249,31 @@ impl StreamingCommand for TestCommand {
         let listing_failed = statuses
             .listing_failed
             .as_ref()
-            .buck_error_context("Missing `listing_failed`")?;
+            .ok_or_else(|| internal_error!("Missing `listing_failed`"))?;
         let passed = statuses
             .passed
             .as_ref()
-            .buck_error_context("Missing `passed`")?;
+            .ok_or_else(|| internal_error!("Missing `passed`"))?;
         let failed = statuses
             .failed
             .as_ref()
-            .buck_error_context("Missing `failed`")?;
+            .ok_or_else(|| internal_error!("Missing `failed`"))?;
         let fatals = statuses
             .fatals
             .as_ref()
-            .buck_error_context("Missing `fatals`")?;
+            .ok_or_else(|| internal_error!("Missing `fatals`"))?;
         let skipped = statuses
             .skipped
             .as_ref()
-            .buck_error_context("Missing `skipped`")?;
+            .ok_or_else(|| internal_error!("Missing `skipped`"))?;
         let omitted = statuses
             .omitted
             .as_ref()
-            .buck_error_context("Missing `omitted`")?;
+            .ok_or_else(|| internal_error!("Missing `omitted`"))?;
         let infra_failure = statuses
             .infra_failure
             .as_ref()
-            .buck_error_context("Missing `infra failure`")?;
+            .ok_or_else(|| internal_error!("Missing `infra failure`"))?;
 
         let console = self.common_opts.console_opts.final_console();
         print_build_result(&console, &response.errors)?;

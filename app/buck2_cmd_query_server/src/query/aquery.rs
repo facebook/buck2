@@ -15,7 +15,7 @@ use buck2_build_api::actions::query::ActionQueryNode;
 use buck2_build_api::query::oneshot::QUERY_FRONTEND;
 use buck2_cli_proto::HasClientContext;
 use buck2_common::dice::cells::HasCellResolver;
-use buck2_error::BuckErrorContext;
+use buck2_error::internal_error;
 use buck2_query::query::environment::AttrFmtOptions;
 use buck2_query::query::syntax::simple::eval::values::QueryEvaluationResult;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
@@ -114,7 +114,7 @@ async fn aquery(
         request
             .target_cfg
             .as_ref()
-            .internal_error("target_cfg must be set")?,
+            .ok_or_else(|| internal_error!("target_cfg must be set"))?,
         server_ctx,
         &mut ctx,
     )

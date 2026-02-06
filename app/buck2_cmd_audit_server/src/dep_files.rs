@@ -15,7 +15,7 @@ use buck2_cmd_audit_client::dep_files::AuditDepFilesCommand;
 use buck2_common::pattern::parse_from_cli::parse_patterns_from_cli_args;
 use buck2_core::category::CategoryRef;
 use buck2_core::pattern::pattern_type::TargetPatternExtra;
-use buck2_error::BuckErrorContext;
+use buck2_error::internal_error;
 use buck2_node::target_calculation::ConfiguredTargetCalculation;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::ctx::ServerCommandDiceContext;
@@ -49,7 +49,7 @@ impl ServerAuditSubcommand for AuditDepFilesCommand {
                 .await?
                 .into_iter()
                 .next()
-                .buck_error_context("Parsing patterns returned nothing")?
+                .ok_or_else(|| internal_error!("Parsing patterns returned nothing"))?
                 .as_target_label(&self.pattern)?;
 
                 let label = ctx

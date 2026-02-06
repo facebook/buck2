@@ -17,7 +17,7 @@ use buck2_core::cells::paths::CellRelativePath;
 use buck2_core::configuration::data::ConfigurationData;
 use buck2_core::package::PackageLabel;
 use buck2_core::target::label::label::TargetLabel;
-use buck2_error::BuckErrorContext;
+use buck2_error::internal_error;
 use buck2_interpreter_for_build::interpreter::package_file_calculation::EvalPackageFile;
 use buck2_node::cfg_constructor::CfgConstructorCalculationImpl;
 use buck2_node::cfg_constructor::CfgConstructorImpl;
@@ -111,9 +111,9 @@ impl CfgConstructorCalculationImpl for CfgConstructorCalculationInstance {
                 ctx: &mut DiceComputations,
                 cancellation: &CancellationContext,
             ) -> Self::Value {
-                let cfg_constructor = get_cfg_constructor(ctx).await?.buck_error_context(
-                    "Internal error: Global cfg constructor instance should exist",
-                )?;
+                let cfg_constructor = get_cfg_constructor(ctx).await?.ok_or_else(|| {
+                    internal_error!("Global cfg constructor instance should exist")
+                })?;
                 cfg_constructor
                     .eval(
                         ctx,

@@ -16,7 +16,6 @@ use buck2_cli_proto::ProfileRequest;
 use buck2_cli_proto::ProfileResponse;
 use buck2_cli_proto::profile_request::ProfileOpts;
 use buck2_common::dice::cells::HasCellResolver;
-use buck2_error::BuckErrorContext;
 use buck2_error::buck2_error;
 use buck2_error::internal_error;
 use buck2_fs::paths::abs_path::AbsPath;
@@ -92,7 +91,7 @@ impl ServerCommandTemplate for BxlProfileServerCommand {
         let global_cfg_options = global_cfg_options_from_client_context(
             opts.target_cfg
                 .as_ref()
-                .internal_error("target_cfg must be set")?,
+                .ok_or_else(|| internal_error!("target_cfg must be set"))?,
             server_ctx,
             &mut ctx,
         )

@@ -24,9 +24,9 @@ use buck2_client_ctx::events_ctx::EventsCtx;
 use buck2_client_ctx::exit_result::ExitResult;
 use buck2_client_ctx::path_arg::PathArg;
 use buck2_client_ctx::streaming::StreamingCommand;
-use buck2_error::BuckErrorContext;
 use buck2_error::ErrorTag;
 use buck2_error::buck2_error;
+use buck2_error::internal_error;
 use dupe::Dupe;
 
 #[derive(Debug, Clone, Dupe, clap::ValueEnum)]
@@ -87,7 +87,7 @@ impl StreamingCommand for DocsStarlarkCommand {
                 let p = self
                     .output_dir
                     .as_ref()
-                    .internal_error("Checked by clap")?
+                    .ok_or_else(|| internal_error!("Checked by clap"))?
                     .resolve(&ctx.working_dir);
                 DocsOutputFormat::Markdown(p)
             }

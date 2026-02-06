@@ -239,7 +239,7 @@ async fn targets_with_output(
                     request
                         .target_cfg
                         .as_ref()
-                        .internal_error("target_cfg must be set")?,
+                        .ok_or_else(|| internal_error!("target_cfg must be set"))?,
                     server_ctx,
                     &mut dice,
                 )

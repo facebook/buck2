@@ -20,6 +20,7 @@ use buck2_cli_proto::CommandResult;
 use buck2_cli_proto::command_result;
 use buck2_error::BuckErrorContext;
 use buck2_error::ErrorTag;
+use buck2_error::internal_error;
 use buck2_event_log::stream_value::StreamValue;
 use buck2_events::BuckEvent;
 use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
@@ -179,7 +180,7 @@ impl<'a> DaemonEventsCtx<'a> {
                 StreamValue::PartialResult(partial_res) => {
                     let partial_res = partial_res
                         .partial_result
-                        .buck_error_context("Empty partial result")?
+                        .ok_or_else(|| internal_error!("Empty partial result"))?
                         .try_into()
                         .map_err(|e| {
                             buck2_error::buck2_error!(

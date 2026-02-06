@@ -20,8 +20,8 @@ use buck2_common::dice::data::HasIoProvider;
 use buck2_common::io::IoProvider;
 use buck2_core::cells::CellResolver;
 use buck2_core::cells::name::CellName;
-use buck2_error::BuckErrorContext;
 use buck2_error::buck2_error;
+use buck2_error::internal_error;
 use buck2_interpreter::file_type::StarlarkFileType;
 use buck2_interpreter::paths::module::OwnedStarlarkModulePath;
 use buck2_interpreter::paths::path::OwnedStarlarkPath;
@@ -99,7 +99,7 @@ impl Cache<'_> {
             .io
             .read_file_if_exists(proj_path)
             .await?
-            .with_buck_error_context(|| format!("File not found: `{path_str}`"))?;
+            .ok_or_else(|| internal_error!("File not found: `{path_str}`"))?;
 
         let mut dice = self.dice.clone();
         let interp = dice

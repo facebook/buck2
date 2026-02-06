@@ -28,8 +28,8 @@ use buck2_common::events::HasEvents;
 use buck2_common::scope::scope_and_collect_with_dice;
 use buck2_core::execution_types::execution::ExecutionPlatformResolution;
 use buck2_core::global_cfg_options::GlobalCfgOptions;
-use buck2_error::BuckErrorContext;
 use buck2_error::buck2_error;
+use buck2_error::internal_error;
 use buck2_execute::digest_config::HasDigestConfig;
 use buck2_interpreter::factory::BuckStarlarkModule;
 use buck2_interpreter::factory::StarlarkEvaluatorProvider;
@@ -310,8 +310,8 @@ async fn eval_bxl_for_anon_target_inner(
                 .get_fulfilled_promise_artifacts(promise_artifact_mappings, res, eval)
         })?;
 
-        let res =
-            ValueTypedComplex::new(res).internal_error("Just allocated the provider collection")?;
+        let res = ValueTypedComplex::new(res)
+            .ok_or_else(|| internal_error!("Just allocated the provider collection"))?;
 
         let analysis_registry = bxl_ctx.take_state_anon()?;
         analysis_registry

@@ -21,8 +21,8 @@ use buck2_client_ctx::subscribers::stdout_stderr_forwarder::StdoutStderrForwarde
 use buck2_common::argv::Argv;
 use buck2_common::argv::SanitizedArgv;
 use buck2_common::daemon_dir::DaemonDir;
-use buck2_error::BuckErrorContext;
 use buck2_error::conversion::from_any_with_tag;
+use buck2_error::internal_error;
 use chrono::DateTime;
 use humantime::format_duration;
 use walkdir::WalkDir;
@@ -124,7 +124,7 @@ impl StatusCommand {
 
 fn timestamp_to_string(seconds: u64, nanos: u32) -> buck2_error::Result<String> {
     Ok(DateTime::from_timestamp(seconds as i64, nanos)
-        .buck_error_context("Incorrect seconds/nanos argument")?
+        .ok_or_else(|| internal_error!("Incorrect seconds/nanos argument"))?
         .format("%Y-%m-%dT%H:%M:%SZ")
         .to_string())
 }

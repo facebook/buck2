@@ -17,6 +17,7 @@ use std::process::ExitStatus;
 use std::time::Duration;
 
 use buck2_error::BuckErrorContext;
+use buck2_error::internal_error;
 use buck2_resource_control::ActionFreezeEventReceiver;
 use buck2_resource_control::path::CgroupPathBuf;
 use tokio::io;
@@ -162,7 +163,7 @@ impl ProcessGroupImpl {
         let handle = self
             .child
             .as_option()
-            .buck_error_context("can't resume an exited process")?
+            .ok_or_else(|| internal_error!("Can't resume an exited process"))?
             .as_std()
             .main_thread_handle()
             .as_raw_handle();

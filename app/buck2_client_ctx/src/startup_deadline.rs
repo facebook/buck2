@@ -15,6 +15,7 @@ use std::time::Instant;
 
 use buck2_common::client_utils::retrying;
 use buck2_error::BuckErrorContext;
+use buck2_error::internal_error;
 
 /// Utility to time out properly with context during buck2 client startup.
 ///
@@ -45,7 +46,7 @@ impl StartupDeadline {
         Ok(StartupDeadline {
             deadline: Instant::now()
                 .checked_add(duration)
-                .buck_error_context("overflow")?,
+                .ok_or_else(|| internal_error!("overflow"))?,
         })
     }
 
@@ -60,7 +61,7 @@ impl StartupDeadline {
         let new_deadline = self
             .deadline
             .checked_sub(Duration::from_millis(100))
-            .buck_error_context("deadline underflow")?;
+            .ok_or_else(|| internal_error!("deadline underflow"))?;
         Ok(StartupDeadline {
             deadline: new_deadline,
         })
@@ -108,7 +109,7 @@ impl StartupDeadline {
     pub(crate) fn min(&self, other: Duration) -> buck2_error::Result<StartupDeadline> {
         let other = Instant::now()
             .checked_add(other)
-            .buck_error_context("overflow")?;
+            .ok_or_else(|| internal_error!("overflow"))?;
         Ok(StartupDeadline {
             deadline: cmp::min(self.deadline, other),
         })
@@ -120,7 +121,7 @@ impl StartupDeadline {
         let duration = self.deadline.duration_since(now) / 2;
         let deadline = now
             .checked_add(duration)
-            .buck_error_context("duration overflow")?;
+            .ok_or_else(|| internal_error!("duration overflow"))?;
         Ok(StartupDeadline { deadline })
     }
 
