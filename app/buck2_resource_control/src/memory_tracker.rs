@@ -25,9 +25,9 @@ use tokio::io::AsyncSeekExt;
 use tokio::sync::mpsc;
 use tokio_util::sync::CancellationToken;
 
-use crate::action_cgroups::ActionCgroups;
 use crate::buck_cgroup_tree::BuckCgroupTree;
 use crate::pool::CgroupPool;
+use crate::scheduler::ActionCgroups;
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct MemoryReading {

@@ -18,9 +18,9 @@ use buck2_wrapper_common::invocation_id::TraceId;
 use tokio::sync::mpsc;
 
 use crate::CommandType;
-use crate::action_cgroups::ActionCgroup;
 use crate::cgroup::EffectiveResourceConstraints;
 use crate::memory_tracker::MemoryReading;
+use crate::scheduler::ActionCgroup;
 
 pub(crate) struct EventSenderState {
     metadata: HashMap<String, String>,

@@ -15,8 +15,6 @@ use tokio::sync::mpsc;
 use tokio::sync::oneshot;
 
 #[cfg(unix)]
-pub(crate) mod action_cgroups;
-#[cfg(unix)]
 pub mod action_scene;
 #[cfg(unix)]
 pub mod buck_cgroup_tree;
@@ -31,6 +29,8 @@ pub mod memory_tracker;
 pub mod path;
 #[cfg(unix)]
 pub mod pool;
+#[cfg(unix)]
+pub(crate) mod scheduler;
 pub mod spawn_daemon;
 
 pub struct HasResourceControl(pub bool);
