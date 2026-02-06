@@ -77,9 +77,9 @@ use crate::build::action_error::MAX_ERROR_CONTENT_BYTES;
 use crate::build::detailed_aggregated_metrics::types::AllTargetsAggregatedData;
 use crate::build::detailed_aggregated_metrics::types::DetailedAggregatedMetrics;
 use crate::build::detailed_aggregated_metrics::types::TopLevelTargetAggregatedData;
-use crate::build::graph_properties::DEFAULT_SKETCH_VERSION;
 use crate::build::graph_properties::GraphPropertiesOptions;
-use crate::build::graph_properties::VersionedSketcher;
+use crate::build::sketch_impl::DEFAULT_SKETCH_VERSION;
+use crate::build::sketch_impl::VersionedSketcher;
 use crate::bxl::types::BxlFunctionLabel;
 
 #[derive(Debug, Serialize)]

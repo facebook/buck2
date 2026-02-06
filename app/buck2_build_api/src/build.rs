@@ -67,6 +67,7 @@ pub mod build_report;
 pub mod detailed_aggregated_metrics;
 pub mod graph_properties;
 pub mod outputs;
+pub(crate) mod sketch_impl;
 
 /// The types of provider to build on the configured providers label
 #[derive(Debug, Clone, Dupe, Copy, Allocative, PartialEq)]
