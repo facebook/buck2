@@ -207,21 +207,16 @@ def main(argv: List[str]) -> int:
     parser.add_argument("--out", help="The output native object file.")
     parser.add_argument("--input", help="The input bitcode object file.")
     parser.add_argument("--index", help="The thinlto index file.")
-    parser.add_argument("--split-dwarf", required=False, help="Split dwarf option.")
-    parser.add_argument(
-        "--create-external-debug-info",
-        required=False,
-        help="""
-        Creates empty external debug info file if one was not produced by clang. Needed because buck2 always require output artifacts to exist if declared, but clang do not produce empty files. 
-        This filename should match what clang would otherwise implicitly produce. That is usually <input_base_name.dwo>: https://fburl.com/code/l98cksg9
-        """,
-    )
+    parser.add_argument("--split-dwarf", help="Split dwarf option.", default="none")
+    parser.add_argument("--dwo", help="Split-dwarf .dwo file to be created.")
     parser.add_argument(
         "--args", help="The argsfile containing unfiltered and unprocessed flags."
     )
     parser.add_argument("--debug", action="store_true", help="Dump clang -cc1 flags.")
     parser.add_argument("opt_args", nargs=argparse.REMAINDER)
     args = parser.parse_args(argv[1:])
+    split_dwarf: str = args.split_dwarf
+    dwo: str | None = args.dwo
 
     with open(args.args, "r") as argsfile:
         clang_opt_flags = _filter_flags(argsfile.read().splitlines())
@@ -239,9 +234,12 @@ def main(argv: List[str]) -> int:
             f"-fthinlto-index={args.index}",
         ]
     )
-    if args.split_dwarf == "none":
+    if split_dwarf == "none":
+        assert dwo is None
         clang_opt_flags.append("-gno-split-dwarf")
     else:
+        # Note that -gsplit-dwarf=single does not create a .dwo file.
+        assert (dwo is not None) == (split_dwarf == "split")
         clang_opt_flags.append(f"-gsplit-dwarf={args.split_dwarf}")
 
     # The following args slices manipulating may be confusing. The first 4 element of opt_args are:
@@ -266,13 +264,14 @@ def main(argv: List[str]) -> int:
         print("error: opt produced empty file")
         return EXIT_FAILURE
 
-    if args.create_external_debug_info:
-        # Creates empty external debug info file if one was not produced by clang. Needed because buck2
-        # always require output artifacts to exist if declared, but clang do not produce empty files.
+    if dwo is not None:
+        # Unfortunately some users manually add `-gno-split-dwarf` to the
+        # compiler flags contradicting the --split-dwarf setting. Create an
+        # empty file so buck rules are not missing the file...
         try:
-            with open(args.create_external_debug_info, "x") as _:
+            with open(dwo, "x") as _:
                 pass
-        except FileExistsError:
+        except IOError:
             pass
 
     return EXIT_SUCCESS
