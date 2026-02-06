@@ -208,7 +208,9 @@ impl Action for CasArtifactAction {
                     })?
                     .into_iter()
                     .next()
-                    .buck_error_context("get_digest_expirations did not return anything")
+                    .ok_or_else(|| {
+                        internal_error!("get_digest_expirations did not return anything")
+                    })
                     .tag(buck2_error::ErrorTag::ReCasArtifactGetDigestExpirationError)?
                     .1,
             )
@@ -262,7 +264,7 @@ impl Action for CasArtifactAction {
                             trees
                                 .into_iter()
                                 .next()
-                                .buck_error_context("RE response was empty")
+                                .ok_or_else(|| internal_error!("RE response was empty"))
                         })
                         .with_buck_error_context(|| {
                             format!("Error downloading tree: {}", self.inner.digest)
@@ -277,7 +279,7 @@ impl Action for CasArtifactAction {
                             .and_then(|dirs| {
                                 dirs.into_iter()
                                     .next()
-                                    .buck_error_context("RE response was empty")
+                                    .ok_or_else(|| internal_error!("RE response was empty"))
                             })
                             .with_buck_error_context(|| {
                                 format!("Error downloading dir: {}", self.inner.digest)

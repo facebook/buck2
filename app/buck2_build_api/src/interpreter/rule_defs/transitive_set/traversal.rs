@@ -9,7 +9,7 @@
  */
 
 use allocative::Allocative;
-use buck2_error::BuckErrorContext;
+use buck2_error::internal_error;
 use derive_more::Display;
 use dupe::Dupe;
 use starlark::any::ProvidesStaticType;
@@ -92,8 +92,8 @@ where
     Self: ProvidesStaticType<'v>,
 {
     fn iterate_collect(&self, _heap: Heap<'v>) -> starlark::Result<Vec<Value<'v>>> {
-        let tset =
-            TransitiveSet::from_value(self.inner.to_value()).buck_error_context("Invalid inner")?;
+        let tset = TransitiveSet::from_value(self.inner.to_value())
+            .ok_or_else(|| internal_error!("Invalid inner"))?;
         Ok(tset.iter_values(self.ordering)?.collect())
     }
 }
@@ -128,7 +128,7 @@ where
 {
     fn iterate_collect(&self, _heap: Heap<'v>) -> starlark::Result<Vec<Value<'v>>> {
         let set = TransitiveSet::from_value(self.transitive_set.get().to_value())
-            .buck_error_context("Invalid inner")?;
+            .ok_or_else(|| internal_error!("Invalid inner"))?;
         Ok(set
             .iter_projection_values(self.ordering, self.projection)?
             .collect())

@@ -31,6 +31,7 @@ use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_core::unsafe_send_future::UnsafeSendFuture;
 use buck2_error::BuckErrorContext;
 use buck2_error::conversion::from_any_with_tag;
+use buck2_error::internal_error;
 use buck2_events::dispatch::get_dispatcher;
 use buck2_execute::digest_config::HasDigestConfig;
 use buck2_interpreter::dice::starlark_provider::StarlarkEvalKind;
@@ -378,7 +379,7 @@ fn get_rule_callable(
     let rule_callable = rule_callable.owned_value(eval.frozen_heap());
     let rule_callable = rule_callable
         .unpack_frozen()
-        .internal_error("Must be frozen")?;
+        .ok_or_else(|| internal_error!("Must be frozen"))?;
     Ok(rule_callable)
 }
 

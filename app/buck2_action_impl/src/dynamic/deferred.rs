@@ -39,7 +39,6 @@ use buck2_core::deferred::base_deferred_key::BaseDeferredKey;
 use buck2_core::deferred::dynamic::DynamicLambdaResultsKey;
 use buck2_core::deferred::key::DeferredHolderKey;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
-use buck2_error::BuckErrorContext;
 use buck2_error::buck2_error;
 use buck2_error::internal_error;
 use buck2_events::dispatch::get_dispatcher;
@@ -244,7 +243,7 @@ fn execute_lambda_inner<'v>(
             invoke_dynamic_output_lambda(eval, dynamic_lambda_ctx_data.lambda.lambda(), args)?;
         let providers = eval.heap().alloc(providers);
         let providers = ValueTypedComplex::<ProviderCollection>::new(providers)
-            .internal_error("Just allocated ProviderCollection")?;
+            .ok_or_else(|| internal_error!("Just allocated ProviderCollection"))?;
 
         ctx.assert_no_promises()?;
 
@@ -613,7 +612,9 @@ fn new_attr_value<'v>(
                     Some(
                         ensured_artifacts
                             .get(artifact)
-                            .internal_error("Dynamic action missing input artifact value!")?
+                            .ok_or_else(|| {
+                                internal_error!("Dynamic action missing input artifact value!")
+                            })?
                             .content_based_path_hash(),
                     )
                 } else {
@@ -631,7 +632,7 @@ fn new_attr_value<'v>(
         DynamicAttrValue::DynamicValue(v) => {
             let v = resolved_dynamic_values
                 .get(v)
-                .internal_error("Missing resolved dynamic value")?;
+                .ok_or_else(|| internal_error!("Missing resolved dynamic value"))?;
             Ok(env.heap().alloc(StarlarkResolvedDynamicValue {
                 value: v.add_heap_ref_static(env.heap()),
             }))

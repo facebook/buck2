@@ -162,8 +162,8 @@ async fn resolve_queries_impl(
                         HashMap::with_capacity(resolved_literals_labels.0.len());
                     for ((offset, len), label) in resolved_literals_labels.0 {
                         let literal = &query[offset..offset + len];
-                        let node = deps.get(label.target()).with_internal_error(|| {
-                            format!("Literal `{literal}` not found in `deps`")
+                        let node = deps.get(label.target()).ok_or_else(|| {
+                            internal_error!("Literal `{literal}` not found in `deps`")
                         })?;
                         resolved_literals.insert(literal.to_owned(), node.dupe());
                     }
@@ -345,7 +345,7 @@ async fn get_analysis_result_inner(
             let (res, spans) = record_root_spans(|| {
                 let one_dep_analysis = dep_analysis
                     .pop()
-                    .internal_error("Forward node analysis produced no results")?;
+                    .ok_or_else(|| internal_error!("Forward node analysis produced no results"))?;
                 if !dep_analysis.is_empty() {
                     return Err(internal_error!(
                         "Forward node analysis produced more than one result"

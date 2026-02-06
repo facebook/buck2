@@ -23,8 +23,8 @@ use buck2_build_api::interpreter::rule_defs::artifact::unpack_artifact::UnpackNo
 use buck2_build_api::interpreter::rule_defs::context::AnalysisActions;
 use buck2_core::deferred::dynamic::DynamicLambdaResultsKey;
 use buck2_core::deferred::key::DeferredHolderKey;
-use buck2_error::BuckErrorContext;
 use buck2_error::conversion::from_any_with_tag;
+use buck2_error::internal_error;
 use dupe::Dupe;
 use starlark::environment::MethodsBuilder;
 use starlark::starlark_module;
@@ -271,9 +271,11 @@ pub(crate) fn analysis_actions_methods_dynamic_output(methods: &mut MethodsBuild
             .try_borrow_mut()
             .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?
             .take()
-            .buck_error_context(
-                "dynamic_action data can be used only in one `dynamic_output_new` call",
-            )?;
+            .ok_or_else(|| {
+                internal_error!(
+                    "dynamic_action data can be used only in one `dynamic_output_new` call",
+                )
+            })?;
         let StarlarkDynamicActionsData {
             attr_values,
             callable,

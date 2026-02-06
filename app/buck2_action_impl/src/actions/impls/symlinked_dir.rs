@@ -28,6 +28,7 @@ use buck2_build_signals::env::WaitingData;
 use buck2_core::category::CategoryRef;
 use buck2_core::content_hash::ContentBasedPathHash;
 use buck2_error::BuckErrorContext;
+use buck2_error::internal_error;
 use buck2_execute::artifact::artifact_dyn::ArtifactDyn;
 use buck2_execute::artifact_utils::ArtifactValueBuilder;
 use buck2_execute::execute::command_executor::ActionExecutionTimingData;
@@ -236,7 +237,9 @@ impl Action for SymlinkedDirAction {
                 .artifact_values(group)
                 .iter()
                 .into_singleton()
-                .buck_error_context("Input did not dereference to exactly one artifact")?;
+                .ok_or_else(|| {
+                    internal_error!("Input did not dereference to exactly one artifact")
+                })?;
 
             let src = src_artifact.resolve_path(
                 ctx.fs(),

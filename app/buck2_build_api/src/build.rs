@@ -25,7 +25,7 @@ use buck2_core::pattern::pattern::Modifiers;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
-use buck2_error::BuckErrorContext;
+use buck2_error::internal_error;
 use buck2_events::dispatch::console_message;
 use buck2_node::nodes::configured_frontend::ConfiguredTargetNodeCalculation;
 use dice::LinearRecomputeDiceComputations;
@@ -225,9 +225,9 @@ impl BuildTargetResultBuilder {
             ConfiguredBuildEventVariant::Execution(execution_variant) => {
                 let is_err = {
                     let results = self.res.get_mut(&label)
-                        .with_internal_error(|| format!("ConfiguredBuildEventVariant::Execution before ConfiguredBuildEventVariant::Prepared for {label}"))?
+                        .ok_or_else(|| internal_error!("ConfiguredBuildEventVariant::Execution before ConfiguredBuildEventVariant::Prepared for {label}"))?
                         .as_mut()
-                        .with_internal_error(|| format!("ConfiguredBuildEventVariant::Execution for a skipped target: `{label}`"))?;
+                        .ok_or_else(|| internal_error!("ConfiguredBuildEventVariant::Execution for a skipped target: `{label}`"))?;
                     match execution_variant {
                         ConfiguredBuildEventExecutionVariant::Validation { result } => {
                             if let Err(e) = result {
@@ -257,16 +257,16 @@ impl BuildTargetResultBuilder {
             }
             ConfiguredBuildEventVariant::GraphProperties { graph_properties } => {
                 self.res.get_mut(&label)
-                     .with_internal_error(|| format!("ConfiguredBuildEventVariant::GraphProperties before ConfiguredBuildEventVariant::Prepared for {label}"))?
+                     .ok_or_else(|| internal_error!("ConfiguredBuildEventVariant::GraphProperties before ConfiguredBuildEventVariant::Prepared for {label}"))?
                      .as_mut()
-                     .with_internal_error(|| format!("ConfiguredBuildEventVariant::GraphProperties for a skipped target: `{label}`"))?
+                     .ok_or_else(|| internal_error!("ConfiguredBuildEventVariant::GraphProperties for a skipped target: `{label}`"))?
                      .graph_properties = Some(graph_properties);
             }
             ConfiguredBuildEventVariant::Timeout => {
                 self.res.get_mut(&label)
-                     .with_internal_error(|| format!("ConfiguredBuildEventVariant::Timeout before ConfiguredBuildEventVariant::Prepared for {label}"))?
+                     .ok_or_else(|| internal_error!("ConfiguredBuildEventVariant::Timeout before ConfiguredBuildEventVariant::Prepared for {label}"))?
                      .as_mut()
-                     .with_internal_error(|| format!("ConfiguredBuildEventVariant::Timeout for a skipped target: `{label}`"))?
+                     .ok_or_else(|| internal_error!("ConfiguredBuildEventVariant::Timeout for a skipped target: `{label}`"))?
                      .errors.push(buck2_error::Error::from(BuildDeadlineExpired));
                 // TODO(cjhopman): Why don't we break here?
                 self.build_failed = true;

@@ -14,7 +14,7 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use buck2_core::bzl::ImportPath;
-use buck2_error::BuckErrorContext;
+use buck2_error::internal_error;
 use buck2_interpreter::build_context::starlark_path_from_build_context;
 use buck2_interpreter::paths::path::StarlarkPath;
 use derive_more::Display;
@@ -288,7 +288,7 @@ impl<'v> StarlarkValue<'v> for TransitiveSetDefinition<'v> {
         let exported = self
             .exported
             .get()
-            .buck_error_context("cannot hash a transitive_set_definition without id")?;
+            .ok_or_else(|| internal_error!("cannot hash a transitive_set_definition without id"))?;
         exported.id.hash(hasher);
         Ok(())
     }

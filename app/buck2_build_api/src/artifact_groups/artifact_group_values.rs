@@ -16,6 +16,7 @@ use allocative::Allocative;
 use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_error::BuckErrorContext;
+use buck2_error::internal_error;
 use buck2_execute::artifact::artifact_dyn::ArtifactDyn;
 use buck2_execute::artifact::group::artifact_group_values_dyn::ArtifactGroupValuesDyn;
 use buck2_execute::artifact_value::ArtifactValue;
@@ -61,11 +62,10 @@ impl ArtifactGroupValues {
             // NOTE: Technically, we could fall back to iterating the artifacts in the
             // ArtifactGroupValues here, but we *do* rely on the fact that TransitiveSetProjections
             // produce intermediate directories, so if they don't, it is preferable to report it.
-            let child_dir = child
-                .0
-                .directory
-                .as_ref()
-                .buck_error_context("TransitiveSetProjection was missing directory!")?;
+            let child_dir =
+                child.0.directory.as_ref().ok_or_else(|| {
+                    internal_error!("TransitiveSetProjection was missing directory!")
+                })?;
 
             builder
                 .merge(child_dir.dupe())

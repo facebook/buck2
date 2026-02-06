@@ -25,7 +25,6 @@ use buck2_core::deferred::base_deferred_key::BaseDeferredKey;
 use buck2_core::deferred::key::DeferredHolderKey;
 use buck2_core::execution_types::execution::ExecutionPlatformResolution;
 use buck2_core::fs::buck_out_path::BuckOutPathKind;
-use buck2_error::BuckErrorContext;
 use buck2_error::internal_error;
 use buck2_execute::execute::request::OutputType;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
@@ -557,7 +556,7 @@ impl AnalysisValueFetcher {
                 let analysis_extra_value = FrozenAnalysisExtraValue::get(module)?
                     .value
                     .analysis_value_storage
-                    .internal_error("analysis_value_storage not set")?
+                    .ok_or_else(|| internal_error!("analysis_value_storage not set"))?
                     .as_ref();
                 Ok(Some((&analysis_extra_value.value, module.frozen_heap())))
             }
@@ -602,7 +601,7 @@ impl AnalysisValueFetcher {
             Some(module) => Some(FrozenAnalysisExtraValue::get(module)?.try_map(|v| {
                 v.value
                     .analysis_value_storage
-                    .internal_error("analysis_value_storage not set")
+                    .ok_or_else(|| internal_error!("analysis_value_storage not set"))
             })?),
         };
 
@@ -680,9 +679,9 @@ impl RecordedAnalysisValues {
         }
         self.analysis_storage
             .as_ref()
-            .with_internal_error(|| format!("Missing analysis storage for `{key}`"))?
+            .ok_or_else(|| internal_error!("Missing analysis storage for `{key}`"))?
             .maybe_map(|v| v.value.transitive_sets.get(key.index().0 as usize).copied())
-            .with_internal_error(|| format!("Missing transitive set `{key}`"))
+            .ok_or_else(|| internal_error!("Missing transitive set `{key}`"))
     }
 
     pub fn lookup_action(&self, key: &ActionKey) -> buck2_error::Result<ActionLookup> {
@@ -707,7 +706,7 @@ impl RecordedAnalysisValues {
         Ok(self
             .analysis_storage
             .as_ref()
-            .internal_error("missing analysis storage")?
+            .ok_or_else(|| internal_error!("missing analysis storage"))?
             .as_owned_ref_frozen_ref()
             .map(|v| &v.value))
     }
@@ -723,12 +722,12 @@ impl RecordedAnalysisValues {
         let analysis_storage = self
             .analysis_storage
             .as_ref()
-            .internal_error("missing analysis storage")?;
+            .ok_or_else(|| internal_error!("missing analysis storage"))?;
         let value = analysis_storage
             .as_ref()
             .value
             .result_value
-            .internal_error("missing provider collection")?;
+            .ok_or_else(|| internal_error!("missing provider collection"))?;
         unsafe {
             Ok(FrozenProviderCollectionValueRef::new(
                 analysis_storage.owner(),
@@ -741,7 +740,7 @@ impl RecordedAnalysisValues {
         Ok(self
             .analysis_storage
             .as_ref()
-            .internal_error("missing analysis storage")?
+            .ok_or_else(|| internal_error!("missing analysis storage"))?
             .owner()
             .allocated_bytes())
     }

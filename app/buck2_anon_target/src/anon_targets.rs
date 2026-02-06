@@ -154,7 +154,7 @@ impl AnonTargetKey {
             key.into_any()
                 .downcast()
                 .ok()
-                .internal_error("Expecting AnonTarget")?,
+                .ok_or_else(|| internal_error!("Expecting AnonTarget"))?,
         ))
     }
 
@@ -479,7 +479,7 @@ impl AnonTargetKey {
             })?;
 
             let res = ValueTypedComplex::new(res)
-                .internal_error("Just allocated the provider collection")?;
+                .ok_or_else(|| internal_error!("Just allocated the provider collection"))?;
 
             // Pull the ctx object back out, and steal ctx.action's state back
             let analysis_registry = ctx.take_state();
@@ -589,7 +589,9 @@ impl<'v> AnonTargetsRegistry<'v> {
         let registry: &mut AnonTargetsRegistry = registry
             .as_any_mut()
             .downcast_mut::<AnonTargetsRegistry>()
-            .internal_error("AnonTargetsRegistryDyn is not an AnonTargetsRegistry")?;
+            .ok_or_else(|| {
+                internal_error!("AnonTargetsRegistryDyn is not an AnonTargetsRegistry")
+            })?;
         unsafe {
             // It is hard or impossible to express this safely with the borrow checker.
             // Has something to do with 'v being invariant.

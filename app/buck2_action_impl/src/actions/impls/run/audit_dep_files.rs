@@ -18,8 +18,8 @@ use buck2_core::deferred::base_deferred_key::BaseDeferredKey;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_directory::directory::directory::Directory;
 use buck2_directory::directory::directory_iterator::DirectoryIterator;
-use buck2_error::BuckErrorContext;
 use buck2_error::buck2_error;
+use buck2_error::internal_error;
 use buck2_execute::digest_config::HasDigestConfig;
 use buck2_execute::materialize::materializer::HasMaterializer;
 use dice::DiceTransaction;
@@ -45,7 +45,7 @@ async fn audit_dep_files(
     let key = RunActionKey::new(BaseDeferredKey::TargetLabel(label), category, identifier);
 
     let state = get_dep_files(&key)
-        .with_buck_error_context(|| format!("Failed to find dep files for key `{key}`"))?;
+        .ok_or_else(|| internal_error!("Failed to find dep files for key `{key}`"))?;
 
     let declared_dep_files = match state.declared_dep_files() {
         Some(declared_dep_files) => declared_dep_files,
@@ -65,9 +65,8 @@ async fn audit_dep_files(
         &artifact_fs,
         ctx.per_transaction_data().get_materializer().as_ref(),
     )
-    .await
-    .buck_error_context("Failed to read dep files")?
-    .buck_error_context("Dep fils have expired")?;
+    .await?
+    .ok_or_else(|| internal_error!("Dep files have expired"))?;
 
     let fingerprints = state.locked_compute_fingerprints(
         Cow::Owned(dep_files),

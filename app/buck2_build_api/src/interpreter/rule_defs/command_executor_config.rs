@@ -32,6 +32,7 @@ use buck2_core::execution_types::executor_config::RemoteExecutorDependency;
 use buck2_core::execution_types::executor_config::RemoteExecutorOptions;
 use buck2_core::execution_types::executor_config::RemoteExecutorUseCase;
 use buck2_error::BuckErrorContext;
+use buck2_error::internal_error;
 use derive_more::Display;
 use starlark::any::ProvidesStaticType;
 use starlark::collections::SmallMap;
@@ -195,16 +196,16 @@ pub fn register_command_executor_config(builder: &mut GlobalsBuilder) {
             } else {
                 let re_use_case = remote_execution_use_case
                     .unpack_str()
-                    .buck_error_context("remote_execution_use_case is not a string")?;
+                    .ok_or_else(|| internal_error!("remote_execution_use_case is not a string"))?;
                 Some(RemoteExecutorUseCase::new(re_use_case.to_owned()))
             };
 
             let re_action_key = if remote_execution_action_key.is_none() {
                 None
             } else {
-                let re_action_key = remote_execution_action_key
-                    .unpack_str()
-                    .buck_error_context("remote_execution_action_key is not a string")?;
+                let re_action_key = remote_execution_action_key.unpack_str().ok_or_else(|| {
+                    internal_error!("remote_execution_action_key is not a string")
+                })?;
                 Some(re_action_key.to_owned())
             };
 

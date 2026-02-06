@@ -20,7 +20,7 @@ use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::NonDefaultProvidersName;
 use buck2_core::provider::label::ProviderName;
 use buck2_core::provider::label::ProvidersName;
-use buck2_error::BuckErrorContext;
+use buck2_error::internal_error;
 use buck2_interpreter::starlark_promise::StarlarkPromise;
 use buck2_interpreter::types::provider::callable::ValueAsProviderCallableLike;
 use display_container::fmt_container;
@@ -431,9 +431,11 @@ impl<'v> Freeze for ProviderCollection<'v> {
 
 impl FrozenProviderCollection {
     pub fn default_info<'a>(&'a self) -> buck2_error::Result<FrozenRef<'a, FrozenDefaultInfo>> {
-        self.builtin_provider().internal_error(
-            "DefaultInfo should always be set for providers returned from rule function",
-        )
+        self.builtin_provider().ok_or_else(|| {
+            internal_error!(
+                "DefaultInfo should always be set for providers returned from rule function"
+            )
+        })
     }
 
     pub fn contains_provider(&self, provider_id: &ProviderId) -> bool {

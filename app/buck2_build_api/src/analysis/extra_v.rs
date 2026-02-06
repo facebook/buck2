@@ -11,8 +11,8 @@
 use std::cell::OnceCell;
 
 use allocative::Allocative;
-use buck2_error::BuckErrorContext;
 use buck2_error::conversion::from_any_with_tag;
+use buck2_error::internal_error;
 use gazebo::prelude::OptionExt;
 use starlark::any::ProvidesStaticType;
 use starlark::environment::FrozenModule;
@@ -87,7 +87,7 @@ impl<'v> AnalysisExtraValue<'v> {
                     .alloc(StarlarkAnyComplex::new(AnalysisExtraValue::default())),
             )
             .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?;
-        Self::get(module)?.internal_error("extra_value must be set")
+        Self::get(module)?.ok_or_else(|| internal_error!("extra_value must be set"))
     }
 }
 
@@ -98,7 +98,7 @@ impl FrozenAnalysisExtraValue {
     {
         Ok(module
             .owned_extra_value()
-            .internal_error("extra_value not set")?
+            .ok_or_else(|| internal_error!("extra_value not set"))?
             .downcast_starlark()?)
     }
 }

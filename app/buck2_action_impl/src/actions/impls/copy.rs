@@ -25,7 +25,7 @@ use buck2_build_api::artifact_groups::ArtifactGroup;
 use buck2_build_signals::env::WaitingData;
 use buck2_core::category::CategoryRef;
 use buck2_core::content_hash::ContentBasedPathHash;
-use buck2_error::BuckErrorContext;
+use buck2_error::internal_error;
 use buck2_execute::artifact::artifact_dyn::ArtifactDyn;
 use buck2_execute::artifact_utils::ArtifactValueBuilder;
 use buck2_execute::execute::command_executor::ActionExecutionTimingData;
@@ -159,7 +159,7 @@ impl Action for CopyAction {
             .artifact_values(self.input())
             .iter()
             .into_singleton()
-            .buck_error_context("Input did not dereference to exactly one artifact")?;
+            .ok_or_else(|| internal_error!("Input did not dereference to exactly one artifact"))?;
 
         let artifact_fs = ctx.fs();
         let src = input.resolve_path(

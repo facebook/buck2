@@ -16,7 +16,7 @@ use buck2_build_api::interpreter::rule_defs::artifact::starlark_output_artifact:
 use buck2_build_api::interpreter::rule_defs::plugins::AnalysisPlugins;
 use buck2_build_api::interpreter::rule_defs::plugins::FrozenAnalysisPlugins;
 use buck2_core::execution_types::execution::ExecutionPlatformResolution;
-use buck2_error::BuckErrorContext;
+use buck2_error::internal_error;
 use gazebo::prelude::OptionExt;
 use starlark::any::ProvidesStaticType;
 use starlark::values::Freeze;
@@ -92,7 +92,7 @@ impl FrozenDynamicLambdaParams {
         };
         Ok(Some(
             ValueTypedComplex::new(plugins.to_value())
-                .internal_error("plugins must be AnalysisPlugins")?,
+                .ok_or_else(|| internal_error!("plugins must be AnalysisPlugins"))?,
         ))
     }
 

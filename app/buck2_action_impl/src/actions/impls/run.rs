@@ -65,6 +65,7 @@ use buck2_core::fs::buck_out_path::BuckOutPathKind;
 use buck2_core::fs::buck_out_path::BuildArtifactPath;
 use buck2_error::BuckErrorContext;
 use buck2_error::buck2_error;
+use buck2_error::internal_error;
 use buck2_events::dispatch::span_async_simple;
 use buck2_execute::artifact::fs::ExecutorFs;
 use buck2_execute::execute::action_digest::ActionDigest;
@@ -260,7 +261,8 @@ impl UnregisteredAction for UnregisteredRunAction {
         starlark_data: Option<OwnedFrozenValue>,
         error_handler: Option<OwnedFrozenValue>,
     ) -> buck2_error::Result<Box<dyn Action>> {
-        let starlark_values = starlark_data.internal_error("module data to be present")?;
+        let starlark_values =
+            starlark_data.ok_or_else(|| internal_error!("module data to be present"))?;
         let run_action = RunAction::new(*self, starlark_values, outputs, error_handler)?;
         Ok(Box::new(run_action))
     }
@@ -462,11 +464,12 @@ impl RunAction {
             None => Vec::new(),
             Some(env) => {
                 let d = DictRef::from_value(env.to_value().get())
-                    .buck_error_context("expecting dict")?;
+                    .ok_or_else(|| internal_error!("expecting dict"))?;
                 let mut res = Vec::with_capacity(d.len());
                 for (k, v) in d.iter() {
                     res.push((
-                        k.unpack_str().buck_error_context("expecting string")?,
+                        k.unpack_str()
+                            .ok_or_else(|| internal_error!("expecting string"))?,
                         ValueAsCommandLineLike::unpack_value_err(v)?.0,
                     ));
                 }

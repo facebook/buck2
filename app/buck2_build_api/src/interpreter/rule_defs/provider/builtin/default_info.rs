@@ -17,6 +17,7 @@ use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_artifact::artifact::artifact_type::OutputArtifact;
 use buck2_build_api_derive::internal_provider;
 use buck2_error::BuckErrorContext;
+use buck2_error::internal_error;
 use dupe::Dupe;
 use starlark::any::ProvidesStaticType;
 use starlark::coerce::Coerce;
@@ -214,7 +215,7 @@ impl FrozenDefaultInfo {
         name: &str,
     ) -> buck2_error::Result<Option<FrozenValueTyped<'static, FrozenProviderCollection>>> {
         FrozenDictRef::from_frozen_value(self.sub_targets.get())
-            .buck_error_context("sub_targets should be a dict-like object")?
+            .ok_or_else(|| internal_error!("sub_targets should be a dict-like object"))?
             .get_str(name)
             .map(|v| {
                 FrozenValueTyped::new_err(v).buck_error_context(
@@ -235,10 +236,12 @@ impl FrozenDefaultInfo {
         &self,
     ) -> buck2_error::Result<impl Iterator<Item = buck2_error::Result<StarlarkArtifact>> + '_> {
         let list = ListRef::from_frozen_value(self.default_outputs.get())
-            .buck_error_context("Should be list of artifacts")?;
+            .ok_or_else(|| internal_error!("Should be list of artifacts"))?;
 
         Ok(list.iter().map(|v| {
-            let frozen_value = v.unpack_frozen().buck_error_context("should be frozen")?;
+            let frozen_value = v
+                .unpack_frozen()
+                .ok_or_else(|| internal_error!("should be frozen"))?;
 
             Ok(
                 if let Some(starlark_artifact) = frozen_value.downcast_ref::<StarlarkArtifact>() {
@@ -247,7 +250,7 @@ impl FrozenDefaultInfo {
                     // This code path is for StarlarkPromiseArtifact. We have to create a `StarlarkArtifact` object here.
                     let artifact_like =
                         ValueAsInputArtifactLike::unpack_value(frozen_value.to_value())?
-                            .buck_error_context("Should be list of artifacts")?;
+                            .ok_or_else(|| internal_error!("Should be list of artifacts"))?;
                     artifact_like.0.get_bound_starlark_artifact()?
                 },
             )
@@ -272,17 +275,17 @@ impl FrozenDefaultInfo {
         + '_,
     > {
         let sub_targets = FrozenDictRef::from_frozen_value(self.sub_targets.get())
-            .buck_error_context("sub_targets should be a dict-like object")?;
+            .ok_or_else(|| internal_error!("sub_targets should be a dict-like object"))?;
 
         Ok(sub_targets.iter().map(|(k, v)| {
             buck2_error::Ok((
                 k.to_value()
                     .unpack_str()
-                    .buck_error_context("sub_targets should have string keys")?,
+                    .ok_or_else(|| internal_error!("sub_targets should have string keys"))?,
                 v.downcast_frozen_ref::<FrozenProviderCollection>()
-                    .buck_error_context(
+                    .ok_or_else(|| internal_error!(
                         "Values inside of a frozen provider should be frozen provider collection",
-                    )?,
+                    ))?,
             ))
         }))
     }

@@ -13,7 +13,7 @@ use std::collections::HashSet;
 use std::collections::VecDeque;
 use std::collections::hash_map::Entry;
 
-use buck2_error::BuckErrorContext;
+use buck2_error::internal_error;
 use buck2_util::hash::BuckHasherBuilder;
 use starlark::values::Value;
 use starlark::values::ValueIdentity;
@@ -38,8 +38,8 @@ where
     TransitiveSetGen<V>: TransitiveSetLike<'v>,
 {
     TransitiveSetLike::from_value(child)
-        .with_buck_error_context(|| {
-            format!(
+        .ok_or_else(|| {
+            internal_error!(
                 "Invalid set: expected {:?}, got: {:?}",
                 std::any::type_name::<V>(),
                 child

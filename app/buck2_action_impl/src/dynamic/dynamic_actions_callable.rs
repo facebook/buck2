@@ -16,6 +16,7 @@ use allocative::Allocative;
 use buck2_build_api::interpreter::rule_defs::context::AnalysisActions;
 use buck2_build_api::interpreter::rule_defs::provider::ty::abstract_provider::AbstractProvider;
 use buck2_error::BuckErrorContext;
+use buck2_error::internal_error;
 use dupe::Dupe;
 use starlark::any::ProvidesStaticType;
 use starlark::environment::Methods;
@@ -176,7 +177,9 @@ impl<'v> StarlarkValue<'v> for FrozenStarlarkDynamicActionsCallable {
         args: &Arguments<'v, '_>,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<Value<'v>> {
-        let me = me.unpack_frozen().internal_error("me must be frozen")?;
+        let me = me
+            .unpack_frozen()
+            .ok_or_else(|| internal_error!("me must be frozen"))?;
         let me = FrozenValueTyped::new_err(me)?;
         let attr_values: DynamicAttrValues<Value<'v>> =
             self.signature.parser(args, eval, |parser, _eval| {

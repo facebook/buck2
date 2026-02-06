@@ -18,6 +18,7 @@ use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact_like::V
 use buck2_build_api::interpreter::rule_defs::artifact_tagging::ArtifactTag;
 use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
 use buck2_error::BuckErrorContext;
+use buck2_error::internal_error;
 use buck2_interpreter_for_build::interpreter::testing::Tester;
 use dupe::Dupe;
 use fxhash::FxHashMap;
@@ -61,7 +62,7 @@ fn test_tagging() -> buck2_error::Result<()> {
             artifact: ValueAsInputArtifactLike<'v>,
         ) -> starlark::Result<Value<'v>> {
             let tag = ArtifactTag::from_value(tag)
-                .buck_error_context("Invalid tag")?
+                .ok_or_else(|| internal_error!("Invalid tag"))?
                 .dupe();
 
             let artifact = artifact

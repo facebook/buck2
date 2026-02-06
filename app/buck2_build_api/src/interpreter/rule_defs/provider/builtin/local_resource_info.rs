@@ -12,7 +12,7 @@ use std::time::Duration;
 
 use allocative::Allocative;
 use buck2_build_api_derive::internal_provider;
-use buck2_error::BuckErrorContext;
+use buck2_error::internal_error;
 use either::Either;
 use indexmap::IndexMap;
 use starlark::any::ProvidesStaticType;
@@ -95,7 +95,7 @@ where
     }
 
     let setup = ValueTypedComplex::<StarlarkCmdArgs>::new(info.setup.get().to_value())
-        .internal_error("Validated in constructor")?;
+        .ok_or_else(|| internal_error!("Validated in constructor"))?;
     let setup_is_empty = match setup.unpack() {
         Either::Left(a) => a.is_empty(),
         Either::Right(b) => b.is_empty(),

@@ -35,7 +35,7 @@ use buck2_build_signals::env::WaitingData;
 use buck2_common::file_ops::metadata::TrackedFileDigest;
 use buck2_core::category::CategoryRef;
 use buck2_core::content_hash::ContentBasedPathHash;
-use buck2_error::BuckErrorContext;
+use buck2_error::internal_error;
 use buck2_execute::artifact::fs::ExecutorFs;
 use buck2_execute::execute::command_executor::ActionExecutionTimingData;
 use buck2_execute::materialize::materializer::WriteRequest;
@@ -296,10 +296,11 @@ impl Action for WriteAction {
             .await?
             .into_iter()
             .next()
-            .buck_error_context("Write did not execute")?;
+            .ok_or_else(|| internal_error!("Write did not execute"))?;
 
         let wall_time = Instant::now()
-            - execution_start.buck_error_context("Action did not set execution_start")?;
+            - execution_start
+                .ok_or_else(|| internal_error!("Action did not set execution_start"))?;
 
         Ok((
             ActionOutputs::new(indexmap![self.output.get_path().dupe() => value]),

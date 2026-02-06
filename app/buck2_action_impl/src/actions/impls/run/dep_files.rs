@@ -46,6 +46,7 @@ use buck2_directory::directory::entry::DirectoryEntry;
 use buck2_directory::directory::find::find;
 use buck2_directory::directory::fingerprinted_directory::FingerprintedDirectory;
 use buck2_error::BuckErrorContext;
+use buck2_error::internal_error;
 use buck2_events::dispatch::span_async_simple;
 use buck2_execute::artifact::artifact_dyn::ArtifactDyn;
 use buck2_execute::artifact_value::ArtifactValue;
@@ -1036,7 +1037,7 @@ async fn eagerly_compute_fingerprints(
 ) -> buck2_error::Result<StoredFingerprints> {
     let dep_files = read_dep_files(false, declared_dep_files, result, artifact_fs, materializer)
         .await?
-        .buck_error_context("Dep file not found")?;
+        .ok_or_else(|| internal_error!("Dep file not found"))?;
 
     let fingerprints = compute_fingerprints(
         shared_declared_inputs.clone().unshare(),
@@ -1091,8 +1092,9 @@ pub(crate) async fn populate_dep_files(
                 }),
             },
             None => {
-                let shared_declared_inputs = shared_declared_inputs
-                    .internal_error("Must have inputs when dep-files are present!")?;
+                let shared_declared_inputs = shared_declared_inputs.ok_or_else(|| {
+                    internal_error!("Must have inputs when dep-files are present!")
+                })?;
                 let input_signatures = if should_compute_fingerprints {
                     let fingerprints = eagerly_compute_fingerprints(
                         ctx.digest_config(),

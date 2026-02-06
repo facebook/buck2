@@ -20,6 +20,7 @@ use buck2_core::provider::label::ProvidersName;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_error::BuckErrorContext;
 use buck2_error::conversion::from_any_with_tag;
+use buck2_error::internal_error;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_interpreter::late_binding_ty::AnalysisContextReprLate;
 use buck2_interpreter::types::configured_providers_label::StarlarkConfiguredProvidersLabel;
@@ -77,10 +78,10 @@ impl<'v> AnalysisActions<'v> {
             .state
             .try_borrow_mut()
             .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))
-            .internal_error("AnalysisActions.state is already borrowed")?;
+            .buck_error_context("AnalysisActions.state is already borrowed")?;
         RefMut::filter_map(state, |x| x.as_mut())
             .ok()
-            .internal_error("state to be present during execution")
+            .ok_or_else(|| internal_error!("state to be present during execution"))
     }
 
     pub async fn run_promises<'a, 'e: 'a>(
@@ -304,10 +305,9 @@ fn analysis_context_methods(builder: &mut MethodsBuilder) {
     fn attrs<'v>(
         this: RefAnalysisContext<'v>,
     ) -> starlark::Result<ValueOfUnchecked<'v, StructRef<'static>>> {
-        Ok(this
-            .0
-            .attrs
-            .buck_error_context("`attrs` is not available for `dynamic_output` or BXL")?)
+        Ok(this.0.attrs.ok_or_else(|| {
+            internal_error!("`attrs` is not available for `dynamic_output` or BXL")
+        })?)
     }
 
     /// Returns an `actions` value containing functions to define actual actions that are run.
@@ -335,10 +335,9 @@ fn analysis_context_methods(builder: &mut MethodsBuilder) {
     fn plugins<'v>(
         this: RefAnalysisContext<'v>,
     ) -> starlark::Result<ValueTypedComplex<'v, AnalysisPlugins<'v>>> {
-        Ok(this
-            .0
-            .plugins
-            .buck_error_context("`plugins` is not available for `dynamic_output` or BXL")?)
+        Ok(this.0.plugins.ok_or_else(|| {
+            internal_error!("`plugins` is not available for `dynamic_output` or BXL")
+        })?)
     }
 }
 
