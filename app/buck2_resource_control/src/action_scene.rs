@@ -8,13 +8,11 @@
  * above-listed licenses.
  */
 
-use std::sync::Arc;
 use std::time::Duration;
 
 use buck2_error::BuckErrorContext;
 use dupe::Dupe;
 use tokio::fs::File;
-use tokio::sync::Mutex;
 
 use crate::CommandType;
 use crate::RetryFuture;
@@ -23,7 +21,6 @@ use crate::memory_tracker::read_memory_current;
 use crate::memory_tracker::read_memory_swap_current;
 use crate::path::CgroupPathBuf;
 use crate::pool::CgroupID;
-use crate::scheduler::ActionCgroups;
 use crate::scheduler::SceneDescription;
 use crate::scheduler::SceneId;
 use crate::scheduler::SceneResourceReading;
@@ -94,7 +91,7 @@ impl ActionScene {
 pub struct ActionCgroupSession {
     // Pointer to the cgroup pool and not owned by the session. This is mainly used for the session to mark a cgroup as being used
     // when starting a command and then releasing it back to the pool when the command finishes.
-    action_cgroups: Arc<Mutex<ActionCgroups>>,
+    tracker: MemoryTrackerHandle,
     cgroup_id: CgroupID,
     scene_id: SceneId,
     pub path: CgroupPathBuf,
@@ -102,7 +99,7 @@ pub struct ActionCgroupSession {
 
 impl ActionCgroupSession {
     pub async fn maybe_create(
-        tracker: &Option<MemoryTrackerHandle>,
+        tracker: Option<MemoryTrackerHandle>,
         command_type: CommandType,
         action_digest: Option<String>,
         disable_kill_and_retry_suspend: bool,
@@ -140,7 +137,7 @@ impl ActionCgroupSession {
 
         Ok(Some((
             ActionCgroupSession {
-                action_cgroups: tracker.action_cgroups.dupe(),
+                tracker: tracker.dupe(),
                 cgroup_id,
                 scene_id,
                 path: cgroup_path,
@@ -150,7 +147,7 @@ impl ActionCgroupSession {
     }
 
     pub async fn action_finished(self) -> ActionCgroupResult {
-        let mut action_cgroups = self.action_cgroups.lock().await;
+        let mut action_cgroups = self.tracker.action_cgroups.lock().await;
         let (res, action_scene) = action_cgroups.action_finished(self.scene_id);
 
         action_cgroups.cgroup_pool.release(self.cgroup_id);

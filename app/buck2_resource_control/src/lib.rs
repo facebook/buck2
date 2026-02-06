@@ -141,7 +141,7 @@ pub mod action_scene {
     }
     impl ActionCgroupSession {
         pub async fn maybe_create(
-            _tracker: &Option<MemoryTrackerHandle>,
+            _tracker: Option<MemoryTrackerHandle>,
             _command_type: CommandType,
             _action_digest: Option<String>,
             _disable_kill_and_retry_suspend: bool,

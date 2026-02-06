@@ -401,7 +401,7 @@ impl LocalExecutor {
             };
             let disable_kill_and_retry_suspend = !request.outputs_cleanup;
             match ActionCgroupSession::maybe_create(
-                &self.memory_tracker,
+                self.memory_tracker.dupe(),
                 command_type,
                 Some(action_digest.to_string()),
                 disable_kill_and_retry_suspend,

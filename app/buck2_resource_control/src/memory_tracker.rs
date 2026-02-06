@@ -46,14 +46,14 @@ pub type MemoryTrackerHandle = Arc<MemoryTrackerHandleInner>;
 pub struct MemoryTrackerHandleInner {
     pub cgroup_tree: BuckCgroupTree,
     // Written to by executors and tracker, read by executors
-    pub(crate) action_cgroups: Arc<tokio::sync::Mutex<ActionCgroups>>,
+    pub(crate) action_cgroups: tokio::sync::Mutex<ActionCgroups>,
 }
 
 impl MemoryTrackerHandleInner {
     fn new(cgroup_tree: BuckCgroupTree, action_cgroups: ActionCgroups) -> Self {
         Self {
             cgroup_tree,
-            action_cgroups: Arc::new(tokio::sync::Mutex::new(action_cgroups)),
+            action_cgroups: tokio::sync::Mutex::new(action_cgroups),
         }
     }
 }
@@ -183,7 +183,7 @@ impl MemoryTracker {
                 daemon_swap_current,
             };
 
-            let mut action_cgroups = self.handle.action_cgroups.as_ref().lock().await;
+            let mut action_cgroups = self.handle.action_cgroups.lock().await;
             action_cgroups.update(memory_reading).await;
         }
     }
