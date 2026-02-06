@@ -8,10 +8,11 @@
  * above-listed licenses.
  */
 
-use std::path::Path;
 use std::time::Duration;
 
 use crate::cli::Input;
+#[cfg(not(fbcode_build))]
+use crate::cli::TargetOrFile;
 
 #[cfg(fbcode_build)]
 pub(crate) fn log_develop(duration: Duration, input: Input, invoked_by_ra: bool) {
@@ -56,32 +57,60 @@ fn get_sl_revision() -> String {
 }
 
 #[cfg(fbcode_build)]
-pub(crate) fn log_check(duration: Duration, saved_file: &Path, use_clippy: bool) {
+pub(crate) fn log_check(duration: Duration, target_or_saved_file: &TargetOrFile, use_clippy: bool) {
     if !is_ci() {
         let mut sample = new_sample("check");
         sample.add("duration_ms", duration.as_millis() as i64);
-        sample.add("saved_file", saved_file.display().to_string());
+        match target_or_saved_file {
+            TargetOrFile::Target(target) => {
+                sample.add("target", target);
+            }
+            TargetOrFile::File(path) => {
+                sample.add("saved_file", path.display().to_string());
+            }
+        }
         sample.add("use_clippy", use_clippy.to_string());
         sample.log();
     }
 }
 
 #[cfg(not(fbcode_build))]
-pub(crate) fn log_check(_duration: Duration, _saved_file: &Path, _use_clippy: bool) {}
+pub(crate) fn log_check(
+    _duration: Duration,
+    _target_or_saved_file: &TargetOrFile,
+    _use_clippy: bool,
+) {
+}
 
 #[cfg(fbcode_build)]
-pub(crate) fn log_check_error(error: &anyhow::Error, saved_file: &Path, use_clippy: bool) {
+pub(crate) fn log_check_error(
+    error: &anyhow::Error,
+    target_or_saved_file: &TargetOrFile,
+    use_clippy: bool,
+) {
     if !is_ci() {
         let mut sample = new_sample("check");
         sample.add("error", format!("{error:#?}"));
-        sample.add("saved_file", saved_file.display().to_string());
+        match target_or_saved_file {
+            TargetOrFile::Target(target) => {
+                sample.add("target", target);
+            }
+            TargetOrFile::File(path) => {
+                sample.add("saved_file", path.display().to_string());
+            }
+        }
         sample.add("use_clippy", use_clippy.to_string());
         sample.log();
     }
 }
 
 #[cfg(not(fbcode_build))]
-pub(crate) fn log_check_error(_error: &anyhow::Error, _saved_file: &Path, _use_clippy: bool) {}
+pub(crate) fn log_check_error(
+    _error: &anyhow::Error,
+    _target_or_saved_file: &TargetOrFile,
+    _use_clippy: bool,
+) {
+}
 
 #[cfg(fbcode_build)]
 fn new_sample(kind: &str) -> scuba::ScubaSampleBuilder {

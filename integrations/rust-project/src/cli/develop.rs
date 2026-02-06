@@ -10,7 +10,6 @@
 
 use std::io::BufWriter;
 use std::io::Write;
-use std::path::Path;
 use std::path::PathBuf;
 
 use rustc_hash::FxHashMap;
@@ -29,6 +28,7 @@ use crate::project_json::ProjectJson;
 use crate::project_json::Sysroot;
 use crate::sysroot::SysrootConfig;
 use crate::sysroot::resolve_buckconfig_sysroot;
+use crate::sysroot::resolve_provided_sysroot;
 use crate::sysroot::resolve_rustup_sysroot;
 use crate::target::Target;
 
@@ -39,6 +39,7 @@ pub(crate) struct Develop {
     pub(crate) check_cycles: bool,
     pub(crate) invoked_by_ra: bool,
     pub(crate) include_all_buildfiles: bool,
+    pub(crate) use_clippy: bool,
 }
 
 pub(crate) struct OutputCfg {
@@ -62,12 +63,14 @@ impl Develop {
             stdout,
             prefer_rustup_managed_toolchain,
             sysroot,
+            sysroot_src,
             pretty,
             mode,
             check_cycles,
             buck2_command,
             include_all_buildfiles,
             max_extra_targets,
+            use_clippy,
             ..
         } = command
         {
@@ -78,10 +81,18 @@ impl Develop {
             };
 
             let sysroot = if prefer_rustup_managed_toolchain {
-                SysrootConfig::Rustup
+                SysrootConfig::Rustup { sysroot_src }
             } else if let Some(sysroot) = sysroot {
-                SysrootConfig::Sysroot(sysroot)
+                SysrootConfig::Sysroot {
+                    sysroot,
+                    sysroot_src,
+                }
             } else {
+                if sysroot_src.is_some() {
+                    tracing::warn!(
+                        "Ignoring --sysroot-src, must use with --sysroot or --prefer-rustup-managed-toolchain. Using value from buckconfig."
+                    )
+                }
                 SysrootConfig::BuckConfig
             };
 
@@ -94,6 +105,7 @@ impl Develop {
                 check_cycles,
                 invoked_by_ra: false,
                 include_all_buildfiles,
+                use_clippy,
             };
             let max_extra_targets = max_extra_targets.unwrap_or(DEFAULT_EXTRA_TARGETS);
             let out = OutputCfg {
@@ -118,6 +130,7 @@ impl Develop {
             buck2_command,
             max_extra_targets,
             mode,
+            use_clippy,
             ..
         } = command
         {
@@ -125,14 +138,20 @@ impl Develop {
 
             let sysroot = match sysroot_mode {
                 crate::SysrootMode::BuckConfig => SysrootConfig::BuckConfig,
-                crate::SysrootMode::Rustc => SysrootConfig::Rustup,
-                crate::SysrootMode::FullPath(path) => SysrootConfig::Sysroot(path),
+                crate::SysrootMode::Rustc => SysrootConfig::Rustup { sysroot_src: None },
+                crate::SysrootMode::FullPath(sysroot) => SysrootConfig::Sysroot {
+                    sysroot,
+                    sysroot_src: None,
+                },
                 crate::SysrootMode::Command(cmd_args) => {
                     let cmd = cmd_args[0].clone();
                     let args = cmd_args[1..].to_vec();
                     let output = std::process::Command::new(cmd).args(args).output().unwrap();
                     let path = String::from_utf8(output.stdout).unwrap();
-                    SysrootConfig::Sysroot(PathBuf::from(path.trim()))
+                    SysrootConfig::Sysroot {
+                        sysroot: PathBuf::from(path.trim()),
+                        sysroot_src: None,
+                    }
                 }
             };
 
@@ -145,6 +164,7 @@ impl Develop {
                 check_cycles: false,
                 invoked_by_ra: true,
                 include_all_buildfiles: false,
+                use_clippy,
             };
             let max_extra_targets = max_extra_targets.unwrap_or(DEFAULT_EXTRA_TARGETS);
             let out = OutputCfg {
@@ -277,21 +297,21 @@ impl Develop {
             buck,
             check_cycles,
             include_all_buildfiles,
+            use_clippy,
             ..
         } = self;
 
         info!(kind = "progress", "finding std source code");
         let sysroot = match &sysroot {
-            SysrootConfig::Sysroot(path) => Sysroot {
-                sysroot: safe_canonicalize(&expand_tilde(path)?),
-                sysroot_src: None,
-                sysroot_project: None,
-            },
+            SysrootConfig::Sysroot {
+                sysroot,
+                sysroot_src,
+            } => resolve_provided_sysroot(sysroot, sysroot_src.as_deref())?,
             SysrootConfig::BuckConfig => {
                 let project_root = buck.resolve_project_root()?;
                 resolve_buckconfig_sysroot(&buck, &project_root)?
             }
-            SysrootConfig::Rustup => resolve_rustup_sysroot()?,
+            SysrootConfig::Rustup { sysroot_src } => resolve_rustup_sysroot(sysroot_src.clone())?,
         };
 
         let exclude_workspaces =
@@ -310,6 +330,7 @@ impl Develop {
             exclude_workspaces,
             *check_cycles,
             *include_all_buildfiles,
+            *use_clippy,
             extra_cfgs,
         )
     }
@@ -329,17 +350,6 @@ impl Develop {
     }
 }
 
-fn expand_tilde(path: &Path) -> Result<PathBuf, anyhow::Error> {
-    if path.starts_with("~") {
-        let path = path.strip_prefix("~")?;
-        let home = std::env::var("HOME")?;
-        let home = PathBuf::from(home);
-        Ok(home.join(path))
-    } else {
-        Ok(path.to_path_buf())
-    }
-}
-
 pub(crate) fn develop_with_sysroot(
     buck: &Buck,
     targets: Vec<Target>,
@@ -347,6 +357,7 @@ pub(crate) fn develop_with_sysroot(
     exclude_workspaces: bool,
     check_cycles: bool,
     include_all_buildfiles: bool,
+    use_clippy: bool,
     extra_cfgs: &[String],
 ) -> Result<ProjectJson, anyhow::Error> {
     info!(kind = "progress", "building generated code");
@@ -363,6 +374,7 @@ pub(crate) fn develop_with_sysroot(
         aliased_libraries,
         check_cycles,
         include_all_buildfiles,
+        use_clippy,
         extra_cfgs,
         buck,
     )?;

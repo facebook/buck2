@@ -14,6 +14,7 @@ use std::process::Command;
 use std::process::Stdio;
 
 use anyhow::Context;
+use anyhow::anyhow;
 use tracing::instrument;
 
 use crate::buck::Buck;
@@ -25,9 +26,14 @@ use crate::target::Target;
 
 #[derive(Debug)]
 pub(crate) enum SysrootConfig {
-    Sysroot(PathBuf),
+    Sysroot {
+        sysroot: PathBuf,
+        sysroot_src: Option<PathBuf>,
+    },
     BuckConfig,
-    Rustup,
+    Rustup {
+        sysroot_src: Option<PathBuf>,
+    },
 }
 
 /// Choose sysroot and sysroot_src based on platform.
@@ -79,10 +85,11 @@ pub(crate) fn resolve_buckconfig_sysroot(
         vec![sysroot_targets],
         Sysroot {
             sysroot: sysroot.clone(),
-            sysroot_src: Some(sysroot_src.clone()),
+            sysroot_src: sysroot_src.clone(),
             sysroot_project: None,
         },
         true,
+        false,
         false,
         false,
         &[], // sysroot doesn't get any extra cfgs
@@ -98,13 +105,15 @@ pub(crate) fn resolve_buckconfig_sysroot(
 
     Ok(Sysroot {
         sysroot,
-        sysroot_src: Some(sysroot_src),
+        sysroot_src,
         sysroot_project: Some(sysroot_project),
     })
 }
 
 #[instrument(ret)]
-pub(crate) fn resolve_rustup_sysroot() -> Result<Sysroot, anyhow::Error> {
+pub(crate) fn resolve_rustup_sysroot(
+    sysroot_src_override: Option<PathBuf>,
+) -> Result<Sysroot, anyhow::Error> {
     let mut cmd = Command::new("rustc");
     cmd.arg("--print=sysroot")
         .stdin(Stdio::null())
@@ -114,17 +123,79 @@ pub(crate) fn resolve_rustup_sysroot() -> Result<Sysroot, anyhow::Error> {
     let mut output = utf8_output(cmd.output(), &cmd)?;
     truncate_line_ending(&mut output);
     let sysroot = PathBuf::from(output);
-    let sysroot_src = sysroot
-        .join("lib")
-        .join("rustlib")
-        .join("src")
-        .join("rust")
-        .join("library");
 
-    let sysroot = Sysroot {
-        sysroot,
-        sysroot_src: Some(sysroot_src),
-        sysroot_project: None, // rustup sysroot is not buckified
+    let sysroot = if let Some(sysroot_src) = sysroot_src_override {
+        validate(&sysroot_src)
+            .context("Invalid --sysroot-src, did not contain the standard library source code")?;
+        Sysroot {
+            sysroot,
+            sysroot_src,
+            sysroot_project: None,
+        }
+    } else {
+        let sysroot_src = Sysroot::sysroot_src_for_sysroot(&sysroot);
+        validate(&sysroot_src)
+            .context("Rustup toolchain did not have rust-src component installed")?;
+        Sysroot {
+            sysroot_src,
+            sysroot,
+            sysroot_project: None,
+        }
     };
+
     Ok(sysroot)
+}
+
+pub(crate) fn resolve_provided_sysroot(
+    sysroot: &Path,
+    sysroot_src_override: Option<&Path>,
+) -> Result<Sysroot, anyhow::Error> {
+    let sysroot = expand_tilde(sysroot)?.canonicalize().context(format!(
+        "--sysroot path could not be canonicalized: {}",
+        sysroot.display()
+    ))?;
+    let sysroot_src = if let Some(path) = sysroot_src_override {
+        let path = expand_tilde(path)?.canonicalize().context(format!(
+            "--sysroot-src path could not be canonicalized: {}",
+            path.display()
+        ))?;
+        validate(&path)
+            .context("Invalid --sysroot-src, did not contain the standard library source code")?;
+        path
+    } else {
+        let path = Sysroot::sysroot_src_for_sysroot(&sysroot);
+        validate(&path)
+            .context("Provided --sysroot did not contain the standard library source code")?;
+        path
+    };
+    Ok(Sysroot {
+        sysroot,
+        sysroot_src,
+        sysroot_project: None,
+    })
+}
+
+fn validate(sysroot_src: &Path) -> Result<(), anyhow::Error> {
+    let core = sysroot_src.join("core");
+    if !sysroot_src.exists() {
+        return Err(anyhow!("No such directory {}", sysroot_src.display()));
+    }
+    if !core.exists() {
+        return Err(anyhow!(
+            "No `core` directory in {}. Are you sure this is a sysroot src directory?",
+            sysroot_src.display()
+        ));
+    }
+    Ok(())
+}
+
+fn expand_tilde(path: &Path) -> Result<PathBuf, anyhow::Error> {
+    if path.starts_with("~") {
+        let path = path.strip_prefix("~")?;
+        let home = std::env::var("HOME").context("HOME environment variable not set")?;
+        let home = PathBuf::from(home);
+        Ok(home.join(path))
+    } else {
+        Ok(path.to_path_buf())
+    }
 }
