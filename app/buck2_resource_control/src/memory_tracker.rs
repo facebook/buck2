@@ -26,6 +26,7 @@ use tokio_util::sync::CancellationToken;
 
 use crate::action_scene::ActionScene;
 use crate::buck_cgroup_tree::BuckCgroupTree;
+use crate::cgroup::MemoryPressureHandle;
 use crate::pool::CgroupPool;
 use crate::scheduler::SceneIdRef;
 use crate::scheduler::SceneResourceReading;
@@ -35,7 +36,7 @@ use crate::scheduler::Scheduler;
 pub struct MemoryReading {
     pub allprocs_memory_current: u64,
     pub allprocs_swap_current: u64,
-    /// The some/avg10 memory pressure
+    /// The average "some" memory pressure since the last sample
     pub allprocs_memory_pressure: f64,
     pub daemon_memory_current: u64,
     pub daemon_swap_current: u64,
@@ -62,10 +63,6 @@ pub struct MemoryTrackerSharedState {
     /// of the scenes. This map stores the current pairing of scenes to the actions they're
     /// associated with, and is used by the memory tracker to update the scheduler.
     pub(crate) scene_action_mapping: tokio::sync::Mutex<HashMap<SceneIdRef, ActionScene>>,
-}
-
-struct MemoryTracker {
-    handle: MemoryTrackerHandle,
 }
 
 pub struct MemoryReporter {
@@ -138,10 +135,16 @@ pub async fn create_memory_tracker(
     let handle = Arc::new(handle);
     let memory_tracker = MemoryTracker {
         handle: handle.dupe(),
+        allprocs_memory_pressure_handle: MemoryPressureHandle::new(),
     };
     const TICK_DURATION: Duration = Duration::from_millis(300);
     memory_tracker.spawn(TICK_DURATION).await?;
     Ok(Some(handle))
+}
+
+struct MemoryTracker {
+    handle: MemoryTrackerHandle,
+    allprocs_memory_pressure_handle: MemoryPressureHandle,
 }
 
 impl MemoryTracker {
@@ -156,15 +159,20 @@ impl MemoryTracker {
         Ok(())
     }
 
-    async fn run(self, duration: Duration) {
+    async fn run(mut self, duration: Duration) {
         let mut timer = tokio::time::interval(duration);
         timer.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
         loop {
             timer.tick().await;
 
             let now = Instant::now();
-            let (memory_reading, scene_readings) =
-                tokio::join!(self.collect_memory_reading(), self.collect_scene_readings());
+            let (memory_reading, scene_readings) = tokio::join!(
+                Self::collect_memory_reading(
+                    &self.handle,
+                    &mut self.allprocs_memory_pressure_handle,
+                ),
+                Self::collect_scene_readings(&self.handle)
+            );
             let Some(memory_reading) = memory_reading else {
                 continue;
             };
@@ -174,7 +182,10 @@ impl MemoryTracker {
         }
     }
 
-    async fn collect_memory_reading(&self) -> Option<MemoryReading> {
+    async fn collect_memory_reading(
+        handle: &MemoryTrackerHandle,
+        mut allprocs_memory_pressure_handle: &mut MemoryPressureHandle,
+    ) -> Option<MemoryReading> {
         let Ok((
             allprocs_memory_current,
             allprocs_swap_current,
@@ -182,11 +193,14 @@ impl MemoryTracker {
             daemon_memory_current,
             daemon_swap_current,
         )) = tokio::try_join!(
-            self.handle.cgroup_tree.allprocs().read_memory_current(),
-            self.handle.cgroup_tree.allprocs().read_swap_current(),
-            self.handle.cgroup_tree.allprocs().read_memory_pressure(),
-            self.handle.cgroup_tree.daemon().read_memory_current(),
-            self.handle.cgroup_tree.daemon().read_swap_current(),
+            handle.cgroup_tree.allprocs().read_memory_current(),
+            handle.cgroup_tree.allprocs().read_swap_current(),
+            handle
+                .cgroup_tree
+                .allprocs()
+                .read_memory_pressure_total(&mut allprocs_memory_pressure_handle),
+            handle.cgroup_tree.daemon().read_memory_current(),
+            handle.cgroup_tree.daemon().read_swap_current(),
         )
         else {
             return None;
@@ -201,8 +215,10 @@ impl MemoryTracker {
         })
     }
 
-    async fn collect_scene_readings(&self) -> HashMap<SceneIdRef, SceneResourceReading> {
-        let mut scenes = self.handle.scene_action_mapping.lock().await;
+    async fn collect_scene_readings(
+        handle: &MemoryTrackerHandle,
+    ) -> HashMap<SceneIdRef, SceneResourceReading> {
+        let mut scenes = handle.scene_action_mapping.lock().await;
         scenes
             .iter_mut()
             .map(|(id, action)| async move { Some((*id, action.poll_resources().await?)) })

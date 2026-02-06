@@ -183,6 +183,7 @@ pub(crate) struct Scheduler {
     estimated_memory_cap: u64,
 
     allprocs_memory_current: Timeseries,
+    allprocs_memory_pressure: Timeseries,
 
     event_sender_state: EventSenderState,
     next_scene_id: SceneId,
@@ -231,6 +232,7 @@ impl Scheduler {
             last_correction_time: None,
             estimated_memory_cap,
             allprocs_memory_current: Timeseries::new(Duration::from_secs(60), now, 0.0),
+            allprocs_memory_pressure: Timeseries::new(Duration::from_secs(60), now, 0.0),
             event_sender_state: EventSenderState::new(daemon_id, estimated_memory_cap),
             next_scene_id: SceneId(0),
         }
@@ -341,17 +343,30 @@ impl Scheduler {
         scene_readings: HashMap<SceneIdRef, SceneResourceReading>,
         now: Instant,
     ) {
+        self.allprocs_memory_current
+            .add_sample(now, memory_reading.allprocs_memory_current as f64);
+        self.allprocs_memory_pressure
+            .add_sample(now, memory_reading.allprocs_memory_pressure);
+
         if memory_reading.allprocs_memory_pressure > 10.0 {
             self.estimated_memory_cap = memory_reading.allprocs_memory_current;
             self.event_sender_state
                 .update_estimated_memory_cap(self.estimated_memory_cap);
         }
 
-        self.allprocs_memory_current
-            .add_sample(now, memory_reading.allprocs_memory_current as f64);
-
         self.event_sender_state
-            .update_memory_reading(memory_reading);
+            .update_memory_reading(MemoryReading {
+                allprocs_memory_pressure: self.allprocs_memory_pressure.average_over_last(
+                    if cfg!(test) {
+                        // We have tests that want to check memory pressure without waiting an
+                        // entire minute
+                        Duration::from_secs(5)
+                    } else {
+                        Duration::from_secs(60)
+                    },
+                ),
+                ..memory_reading
+            });
         for cgroup in self
             .running_scenes
             .iter_mut()
@@ -368,8 +383,10 @@ impl Scheduler {
             }
         }
 
-        let is_above_pressure_limit =
-            memory_reading.allprocs_memory_pressure > self.pressure_suspend_threshold;
+        let is_above_pressure_limit = self
+            .allprocs_memory_pressure
+            .average_over_last(Duration::from_secs(60))
+            > self.pressure_suspend_threshold;
 
         if is_above_pressure_limit {
             self.maybe_decrease_running_count(now);
@@ -695,6 +712,26 @@ mod tests {
     #[tokio::test]
     async fn test_freeze() -> buck2_error::Result<()> {
         let (mut scheduler, timeline) = TestTimeline::new();
+
+        // First create 60 seconds of pressure
+        let memory_reading = MemoryReading {
+            allprocs_memory_current: 10000,
+            allprocs_swap_current: 0,
+            allprocs_memory_pressure: 12.0,
+            daemon_memory_current: 8000,
+            daemon_swap_current: 0,
+        };
+        scheduler.update(
+            memory_reading,
+            UpdateBuilder::new().build(),
+            timeline.secs(0),
+        );
+        scheduler.update(
+            memory_reading,
+            UpdateBuilder::new().build(),
+            timeline.secs(60),
+        );
+
         let scene1 = scheduler
             .scene_started(
                 SceneDescription {
@@ -714,23 +751,16 @@ mod tests {
             )
             .0;
 
-        let memory_reading = MemoryReading {
-            allprocs_memory_current: 10000,
-            allprocs_swap_current: 0,
-            allprocs_memory_pressure: 12.0,
-            daemon_memory_current: 8000,
-            daemon_swap_current: 0,
-        };
         scheduler.update(
             memory_reading,
             UpdateBuilder::new()
                 .add(scene1.as_ref(), 2)
                 .add(scene2.as_ref(), 3)
                 .build(),
-            timeline.secs(0),
+            timeline.secs(61),
         );
 
-        let cgroup_1_res = scheduler.scene_finished(scene1, timeline.secs(2));
+        let cgroup_1_res = scheduler.scene_finished(scene1, timeline.secs(63));
         assert!(cgroup_1_res.suspend_duration.is_none());
 
         let memory_reading_2 = MemoryReading {
@@ -743,10 +773,10 @@ mod tests {
         scheduler.update(
             memory_reading_2,
             UpdateBuilder::new().build(),
-            timeline.secs(3),
+            timeline.secs(64),
         );
 
-        let cgroup_2_res = scheduler.scene_finished(scene2, timeline.secs(4));
+        let cgroup_2_res = scheduler.scene_finished(scene2, timeline.secs(65));
         assert_eq!(cgroup_2_res.suspend_duration, Some(Duration::from_secs(2)));
 
         Ok(())

@@ -16,6 +16,7 @@ use std::process::Command;
 use std::sync::Arc;
 #[cfg(test)]
 use std::time::Duration;
+use std::time::Instant;
 
 use buck2_fs::paths::file_name::FileName;
 use buck2_fs::paths::file_name::FileNameBuf;
@@ -472,14 +473,68 @@ impl<K: CgroupKind> Cgroup<WithMemoryMonitoring, K> {
         self.memory.swap_current.read_int().await
     }
 
-    pub async fn read_memory_pressure(&self) -> buck2_error::Result<f64> {
-        Ok(self
+    /// Reads the memory pressure of this cgroup
+    ///
+    /// Memory pressure is not a point in time value - it's always an average over some time period.
+    /// For a given handle, this function returns 0 the first time it's called, and on subsequent
+    /// calls returns the average memory pressure since the last call using the same handle.
+    pub async fn read_memory_pressure_total(
+        &self,
+        handle: &mut MemoryPressureHandle,
+    ) -> buck2_error::Result<f64> {
+        let before = Instant::now();
+        let new_total = self
             .memory
             .memory_pressure
             .read_resource_pressure()
             .await?
             .some
-            .avg10)
+            .total;
+        let after = Instant::now();
+
+        let pressure = match handle.time {
+            Some(last_time) => {
+                // The provided value is in microseconds of stall time, we convert to a percentage-like unit
+                let delta = new_total - handle.total;
+                // Note: The time interval we use is from before the last measurement to after the
+                // current measurment. This causes us to overcount some time, but in exchange means
+                // that the time interval is strictly longer than the "true" one. That way if for
+                // some reason something stalls or this takes a long time, we don't accidentally
+                // divide by a too short interval and report a vary large value. It's also for this
+                // reason that it's quite important that we measure the time here in this function,
+                // and don't use some higher-level current time
+                //
+                // Ideally, we'd check if (after - before) is greater than some reasonable value for
+                // how long this should take and then log a warning or something. In practice
+                // though, that would only happen in cases where resource contention is already
+                // extremely high, and we don't appear to actually be capable of emitting logs at
+                // that time.
+                //
+                // Note also that none of the above is theoretical, this is based on data from
+                // actual prod runs.
+                let delta_time = after.duration_since(last_time);
+                let delta_time_us = delta_time.as_secs_f64() * 1_000_000f64;
+                100.0 * (delta as f64) / delta_time_us
+            }
+            None => 0.0f64,
+        };
+        handle.time = Some(before);
+        handle.total = new_total;
+        Ok(pressure)
+    }
+}
+
+pub struct MemoryPressureHandle {
+    time: Option<Instant>,
+    total: u64,
+}
+
+impl MemoryPressureHandle {
+    pub fn new() -> Self {
+        Self {
+            time: None,
+            total: 0,
+        }
     }
 }
 
@@ -634,6 +689,7 @@ mod tests {
     use dupe::Dupe;
 
     use crate::cgroup::Cgroup;
+    use crate::cgroup::MemoryPressureHandle;
     use crate::cgroup_files::CgroupFile;
 
     #[tokio::test]
@@ -752,6 +808,14 @@ mod tests {
             return;
         };
         let cgroup = cgroup.enable_memory_monitoring().await.unwrap();
+        let mut pressure_handle = MemoryPressureHandle::new();
+        assert_eq!(
+            cgroup
+                .read_memory_pressure_total(&mut pressure_handle)
+                .await
+                .unwrap(),
+            0.0
+        );
 
         let stat = cgroup.read_memory_stat().await.unwrap();
         // Never spawned a process into it, so should be empty
@@ -759,7 +823,13 @@ mod tests {
         assert_eq!(stat.file, 0);
         assert_eq!(cgroup.read_memory_current().await.unwrap(), 0);
         assert_eq!(cgroup.read_swap_current().await.unwrap(), 0);
-        assert_eq!(cgroup.read_memory_pressure().await.unwrap(), 0.0);
+        assert_eq!(
+            cgroup
+                .read_memory_pressure_total(&mut pressure_handle)
+                .await
+                .unwrap(),
+            0.0
+        );
 
         cgroup.set_memory_high("19000000").await.unwrap();
         let mut child = cgroup
@@ -774,8 +844,11 @@ mod tests {
         assert!(memory_current > 15000000, "{:?}", memory_current);
         let swap_current = cgroup.read_swap_current().await.unwrap();
         assert!(swap_current > 500000, "{:?}", swap_current);
-        let memory_pressure = cgroup.read_memory_pressure().await.unwrap();
-        assert!(memory_pressure > 5.0, "{:?}", memory_pressure);
+        let memory_pressure = cgroup
+            .read_memory_pressure_total(&mut pressure_handle)
+            .await
+            .unwrap();
+        assert!(memory_pressure > 20.0, "{:?}", memory_pressure);
 
         child.kill().unwrap();
         child.wait().unwrap();

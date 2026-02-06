@@ -266,12 +266,6 @@ impl MemoryStat {
 }
 
 pub(crate) struct ResourcePressurePart {
-    pub(crate) avg10: f64,
-    #[allow(dead_code)] // For completeness
-    pub(crate) avg60: f64,
-    #[allow(dead_code)] // For completeness
-    pub(crate) avg300: f64,
-    #[allow(dead_code)] // For completeness
     pub(crate) total: u64,
 }
 
@@ -314,17 +308,14 @@ impl ResourcePressure {
                     Some(value)
                 }
             };
-            let avg10 = getitem("avg10")?;
-            let avg60 = getitem("avg60")?;
-            let avg300 = getitem("avg300")?;
+            let _avg10 = getitem("avg10")?;
+            let _avg60 = getitem("avg60")?;
+            let _avg300 = getitem("avg300")?;
             let total = getitem("total")?;
             if !rest.is_empty() {
                 return None;
             }
             Some(ResourcePressurePart {
-                avg10: avg10.parse().ok()?,
-                avg60: avg60.parse().ok()?,
-                avg300: avg300.parse().ok()?,
                 total: total.parse().ok()?,
             })
         };
@@ -383,13 +374,7 @@ slab 262144"#;
 full avg10=1.10 avg60=2.20 avg300=3.30 total=45781727"#;
 
         let pressure = crate::cgroup_files::ResourcePressure::parse(sample_pressure).unwrap();
-        assert_eq!(pressure.some.avg10, 1.01);
-        assert_eq!(pressure.some.avg60, 2.02);
-        assert_eq!(pressure.some.avg300, 3.03);
         assert_eq!(pressure.some.total, 45904150);
-        assert_eq!(pressure.full.avg10, 1.10);
-        assert_eq!(pressure.full.avg60, 2.20);
-        assert_eq!(pressure.full.avg300, 3.30);
         assert_eq!(pressure.full.total, 45781727);
     }
 }
