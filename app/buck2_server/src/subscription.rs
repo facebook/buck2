@@ -11,7 +11,6 @@
 use std::time::Duration;
 
 use buck2_error::BuckErrorContext;
-use buck2_error::buck2_error;
 use buck2_error::internal_error;
 use buck2_events::dispatch::span_async;
 use buck2_server_ctx::commands::command_end;

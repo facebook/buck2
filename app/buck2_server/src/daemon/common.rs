@@ -163,6 +163,7 @@ impl CommandExecutorFactory {
     }
 }
 
+#[allow(clippy::large_enum_variant)]
 #[derive(buck2_error::Error, Debug)]
 #[buck2(input)]
 enum ExecutorCompatibilityError {
