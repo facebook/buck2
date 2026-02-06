@@ -14,7 +14,6 @@ use smallvec::smallvec;
 
 use crate::context_value::ContextValue;
 use crate::context_value::TypedContext;
-use crate::{self as buck2_error};
 
 /// Provides the `context` method for `Result`.
 ///
@@ -114,51 +113,6 @@ where
     }
 }
 
-#[derive(Debug, buck2_error_derive::Error)]
-#[error("NoneError")]
-#[buck2(tag = UnexpectedNone)]
-struct NoneError;
-
-impl<T> Sealed for Option<T> {}
-
-impl<T> BuckErrorContext<T> for Option<T> {
-    fn buck_error_context<C>(self, c: C) -> crate::Result<T>
-    where
-        C: Into<ContextValue>,
-    {
-        match self {
-            Some(x) => Ok(x),
-            None => Err(crate::Error::from(NoneError).context(c)),
-        }
-    }
-
-    fn with_buck_error_context<C, F>(self, f: F) -> crate::Result<T>
-    where
-        C: Into<ContextValue>,
-        F: FnOnce() -> C,
-    {
-        match self {
-            Some(x) => Ok(x),
-            None => Err(crate::Error::from(NoneError).context(f())),
-        }
-    }
-
-    #[track_caller]
-    fn compute_context<
-        TC: TypedContext,
-        C1: Into<ContextValue>,
-        C2: Into<ContextValue>,
-        F: FnOnce(Arc<TC>) -> C1,
-        F2: FnOnce() -> C2,
-    >(
-        self,
-        _map_context: F,
-        new_context: F2,
-    ) -> crate::Result<T> {
-        Err(crate::Error::from(NoneError).context(new_context()))
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use std::any::Any;
@@ -220,16 +174,6 @@ mod tests {
                     |_t: Arc<SomeContext>| -> SomeContext { SomeContext(vec![0, 1, 2]) },
                     || "string",
                 ),
-        );
-
-        crate::Error::check_equal(
-            &Option::<()>::None.buck_error_context("string").unwrap_err(),
-            &Option::<()>::None
-                .compute_context(
-                    |_t: Arc<SomeContext>| -> SomeContext { panic!() },
-                    || "string",
-                )
-                .unwrap_err(),
         );
     }
 }

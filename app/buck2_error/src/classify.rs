@@ -438,7 +438,6 @@ fn tag_metadata(tag: ErrorTag) -> TagMetadata {
         ErrorTag::Http => rank!(unspecified),
         ErrorTag::DownloadFileHeadRequest => rank!(unspecified),
         ErrorTag::StarlarkError => rank!(unspecified),
-        ErrorTag::UnexpectedNone => rank!(unspecified),
         ErrorTag::UnusedDefaultTag => rank!(unspecified),
         ErrorTag::BuildSketchError => rank!(unspecified),
         ErrorTag::Tokio => rank!(unspecified),

@@ -41,7 +41,7 @@ enum ErrorTier {
 //
 // Feel free to continue using error types if you like.
 enum ErrorTag {
-  reserved 2001, 11, 19;
+  reserved 2001, 11, 19, 6001;
 
   // Same as above
   UNUSED_DEFAULT_TAG = 0;
@@ -409,9 +409,6 @@ enum ErrorTag {
 
   // From ExitResult::bail
   BAIL = 8023;
-
-  // None turned into an error. This carries no useful information whatsoever.
-  UNEXPECTED_NONE = 6001;
 
   // Only used by tests, should not occur outside test execution.
   TEST_ONLY = 8031;
