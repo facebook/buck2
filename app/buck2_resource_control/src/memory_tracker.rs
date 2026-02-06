@@ -8,26 +8,27 @@
  * above-listed licenses.
  */
 
+use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
 
 use allocative::Allocative;
 use buck2_common::init::ResourceControlConfig;
-use buck2_error::BuckErrorContext;
-use buck2_error::internal_error;
 use buck2_events::daemon_id::DaemonId;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_util::threads::thread_spawn;
 use dupe::Dupe;
-use tokio::fs::File;
-use tokio::io::AsyncReadExt;
-use tokio::io::AsyncSeekExt;
+use futures::StreamExt as _;
+use futures::stream::FuturesUnordered;
 use tokio::sync::mpsc;
 use tokio_util::sync::CancellationToken;
 
+use crate::action_scene::ActionScene;
 use crate::buck_cgroup_tree::BuckCgroupTree;
 use crate::pool::CgroupPool;
 use crate::scheduler::ActionCgroups;
+use crate::scheduler::SceneIdRef;
+use crate::scheduler::SceneResourceReading;
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct MemoryReading {
@@ -39,28 +40,30 @@ pub struct MemoryReading {
     pub daemon_swap_current: u64,
 }
 
-pub type MemoryTrackerHandle = Arc<MemoryTrackerHandleInner>;
+pub type MemoryTrackerHandle = Arc<MemoryTrackerSharedState>;
 
 #[derive(Allocative)]
 #[allocative(skip)]
-pub struct MemoryTrackerHandleInner {
+pub struct MemoryTrackerSharedState {
     pub cgroup_tree: BuckCgroupTree,
     // Written to by executors and tracker, read by executors
     pub(crate) action_cgroups: tokio::sync::Mutex<ActionCgroups>,
+    /// A pool of cgroups to be used for actions.
+    ///
+    /// There's only one invariant associated with this pool, which is that cgroups will never be
+    /// destroyed. Other than that, take one out, it's yours, put it back, someone else can use it.
+    /// Hold onto it for reasonable amounts of time to prevent having to make too many cgroups.
+    ///
+    /// In particular, there's no guarantees about any particular correspondence between things
+    /// being taken out of this pool and the lifecycle of an action.
+    pub(crate) pool: tokio::sync::Mutex<CgroupPool>,
+    /// The memory tracker regularly updates the scheduler with information about the memory state
+    /// of the scenes. This map stores the current pairing of scenes to the actions they're
+    /// associated with, and is used by the memory tracker to update the scheduler.
+    pub(crate) scene_action_mapping: tokio::sync::Mutex<HashMap<SceneIdRef, ActionScene>>,
 }
 
-impl MemoryTrackerHandleInner {
-    fn new(cgroup_tree: BuckCgroupTree, action_cgroups: ActionCgroups) -> Self {
-        Self {
-            cgroup_tree,
-            action_cgroups: tokio::sync::Mutex::new(action_cgroups),
-        }
-    }
-}
-
-#[derive(Allocative)]
-pub struct MemoryTracker {
-    #[allocative(skip)]
+struct MemoryTracker {
     handle: MemoryTrackerHandle,
 }
 
@@ -122,25 +125,24 @@ pub async fn create_memory_tracker(
         resource_control_config,
         daemon_id,
         effective_resource_constraints,
-        cgroup_pool,
     )
     .await?;
-    let handle = MemoryTrackerHandleInner::new(cgroup_tree, action_cgroups);
-    let memory_tracker = MemoryTracker::new(handle);
-    let tracker_handle = memory_tracker.handle.dupe();
+    let handle = MemoryTrackerSharedState {
+        cgroup_tree,
+        action_cgroups: tokio::sync::Mutex::new(action_cgroups),
+        pool: tokio::sync::Mutex::new(cgroup_pool),
+        scene_action_mapping: tokio::sync::Mutex::new(HashMap::new()),
+    };
+    let handle = Arc::new(handle);
+    let memory_tracker = MemoryTracker {
+        handle: handle.dupe(),
+    };
     const TICK_DURATION: Duration = Duration::from_millis(300);
     memory_tracker.spawn(TICK_DURATION).await?;
-    Ok(Some(tracker_handle))
+    Ok(Some(handle))
 }
 
 impl MemoryTracker {
-    fn new(handle: MemoryTrackerHandleInner) -> Self {
-        Self {
-            handle: Arc::new(handle),
-        }
-    }
-
-    #[doc(hidden)]
     pub(crate) async fn spawn(self, duration: Duration) -> buck2_error::Result<()> {
         thread_spawn("memory-tracker", move || {
             let rt = tokio::runtime::Builder::new_current_thread()
@@ -158,66 +160,56 @@ impl MemoryTracker {
         loop {
             timer.tick().await;
 
-            let Ok((
-                allprocs_memory_current,
-                allprocs_swap_current,
-                allprocs_memory_pressure,
-                daemon_memory_current,
-                daemon_swap_current,
-            )) = tokio::try_join!(
-                self.handle.cgroup_tree.allprocs().read_memory_current(),
-                self.handle.cgroup_tree.allprocs().read_swap_current(),
-                self.handle.cgroup_tree.allprocs().read_memory_pressure(),
-                self.handle.cgroup_tree.daemon().read_memory_current(),
-                self.handle.cgroup_tree.daemon().read_swap_current(),
-            )
-            else {
+            let (memory_reading, scene_readings) =
+                tokio::join!(self.collect_memory_reading(), self.collect_scene_readings());
+            let Some(memory_reading) = memory_reading else {
                 continue;
             };
 
-            let memory_reading = MemoryReading {
-                allprocs_memory_current,
-                allprocs_swap_current,
-                allprocs_memory_pressure,
-                daemon_memory_current,
-                daemon_swap_current,
-            };
-
             let mut action_cgroups = self.handle.action_cgroups.lock().await;
-            action_cgroups.update(memory_reading).await;
+            action_cgroups.update(memory_reading, scene_readings);
         }
     }
-}
 
-async fn read_memory_file(file: &mut File, file_name: &str) -> buck2_error::Result<u64> {
-    file.rewind().await?;
-    // Memory cgroup files contain a byte count as a string which is at most u64::MAX (20 digits)
-    // using fixed buffer to avoid heap allocation
-    let mut data = vec![0u8; 24];
-    let read = file
-        .read(&mut data)
-        .await
-        .with_buck_error_context(|| format!("Error reading cgroup {}", file_name))?;
-    if read == 0 {
-        return Err(internal_error!("no bytes read from {}", file_name));
+    async fn collect_memory_reading(&self) -> Option<MemoryReading> {
+        let Ok((
+            allprocs_memory_current,
+            allprocs_swap_current,
+            allprocs_memory_pressure,
+            daemon_memory_current,
+            daemon_swap_current,
+        )) = tokio::try_join!(
+            self.handle.cgroup_tree.allprocs().read_memory_current(),
+            self.handle.cgroup_tree.allprocs().read_swap_current(),
+            self.handle.cgroup_tree.allprocs().read_memory_pressure(),
+            self.handle.cgroup_tree.daemon().read_memory_current(),
+            self.handle.cgroup_tree.daemon().read_swap_current(),
+        )
+        else {
+            return None;
+        };
+
+        Some(MemoryReading {
+            allprocs_memory_current,
+            allprocs_swap_current,
+            allprocs_memory_pressure,
+            daemon_memory_current,
+            daemon_swap_current,
+        })
     }
 
-    data.truncate(read);
-    let string = str::from_utf8(&data)?.trim();
-    string
-        .parse::<u64>()
-        .map_err(buck2_error::Error::from)
-        .with_buck_error_context(|| {
-            format!("Expected a numeric value in cgroup file, found {}", string)
-        })
-}
-
-pub async fn read_memory_current(memory_current: &mut File) -> buck2_error::Result<u64> {
-    read_memory_file(memory_current, "memory.current").await
-}
-
-pub async fn read_memory_swap_current(memory_swap_current: &mut File) -> buck2_error::Result<u64> {
-    read_memory_file(memory_swap_current, "memory.swap.current").await
+    async fn collect_scene_readings(&self) -> HashMap<SceneIdRef, SceneResourceReading> {
+        let mut scenes = self.handle.scene_action_mapping.lock().await;
+        scenes
+            .iter_mut()
+            .map(|(id, action)| async move { Some((*id, action.poll_resources().await?)) })
+            .collect::<FuturesUnordered<_>>()
+            .collect::<Vec<_>>()
+            .await
+            .into_iter()
+            .flatten()
+            .collect()
+    }
 }
 
 #[cfg(test)]

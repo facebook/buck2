@@ -8,7 +8,6 @@ version = "0.1.0"
 [dependencies]
 derive_more = { workspace = true }
 futures = { workspace = true }
-index_vec = { workspace = true }
 ref-cast = { workspace = true }
 tokio = { workspace = true }
 tokio-util = { workspace = true }
@@ -23,8 +22,6 @@ buck2_events = { workspace = true }
 buck2_fs = { workspace = true }
 buck2_util = { workspace = true }
 buck2_wrapper_common = { workspace = true }
-
-tempfile = { workspace = true }
 
 [target.'cfg(unix)'.dependencies]
 nix = { workspace = true }

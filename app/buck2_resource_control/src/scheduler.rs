@@ -8,6 +8,7 @@
  * above-listed licenses.
  */
 
+use std::collections::HashMap;
 use std::collections::VecDeque;
 use std::time::Duration;
 use std::time::Instant;
@@ -15,6 +16,7 @@ use std::time::Instant;
 use buck2_common::init::ActionSuspendStrategy;
 use buck2_common::init::ResourceControlConfig;
 use buck2_events::daemon_id::DaemonId;
+use dupe::Dupe;
 use tokio::sync::mpsc;
 use tokio::sync::oneshot;
 
@@ -22,10 +24,8 @@ use crate::ActionFreezeEvent;
 use crate::CommandType;
 use crate::KillFuture;
 use crate::RetryFuture;
-use crate::action_scene::ActionScene;
 use crate::cgroup::EffectiveResourceConstraints;
 use crate::memory_tracker::MemoryReading;
-use crate::pool::CgroupPool;
 use crate::scheduler::event::EventSenderState;
 use crate::scheduler::event::ResourceControlEventMostly;
 
@@ -97,16 +97,19 @@ enum WakeImplementation {
 pub(crate) struct SceneId(u64);
 
 impl SceneId {
-    fn copy(&self) -> SceneId {
-        SceneId(self.0)
+    pub(crate) fn as_ref(&self) -> SceneIdRef {
+        SceneIdRef(self.0)
     }
 }
 
+/// Analogue of `SceneId` but which can be copied; not used in some APIs
+#[derive(Debug, Clone, Copy, Dupe, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub(crate) struct SceneIdRef(u64);
+
 #[derive(Debug)]
 struct ActionCgroup {
-    action_scene: ActionScene,
     description: SceneDescription,
-    scene_id: SceneId,
+    scene_id: SceneIdRef,
     memory_peak: u64,
     memory_current: u64,
     swap_current: u64,
@@ -166,8 +169,6 @@ pub(crate) struct ActionCgroups {
     total_memory_during_last_suspend: Option<u64>,
     event_sender_state: EventSenderState,
     next_scene_id: SceneId,
-    // Constraints for the cgroup hierarchy
-    pub(crate) cgroup_pool: CgroupPool,
 }
 
 impl ActionCgroups {
@@ -175,7 +176,6 @@ impl ActionCgroups {
         resource_control_config: &ResourceControlConfig,
         daemon_id: &DaemonId,
         effective_resource_constraints: EffectiveResourceConstraints,
-        cgroup_pool: CgroupPool,
     ) -> buck2_error::Result<Self> {
         let enable_suspension = resource_control_config.enable_suspension;
 
@@ -185,7 +185,6 @@ impl ActionCgroups {
             resource_control_config.memory_pressure_threshold_percent as f64,
             effective_resource_constraints,
             daemon_id,
-            cgroup_pool,
         ))
     }
 
@@ -195,7 +194,6 @@ impl ActionCgroups {
         pressure_suspend_threshold: f64,
         effective_resource_constraints: EffectiveResourceConstraints,
         daemon_id: &DaemonId,
-        cgroup_pool: CgroupPool,
     ) -> Self {
         Self {
             enable_suspension,
@@ -207,19 +205,17 @@ impl ActionCgroups {
             total_memory_during_last_suspend: None,
             event_sender_state: EventSenderState::new(daemon_id, effective_resource_constraints),
             next_scene_id: SceneId(0),
-            cgroup_pool,
         }
     }
 
     #[cfg(test)]
-    pub(crate) async fn testing_new() -> Option<Self> {
+    pub(crate) fn testing_new() -> Option<Self> {
         Some(Self::new(
             true,
             ActionSuspendStrategy::KillAndRetry,
             10.0,
             EffectiveResourceConstraints::default(),
             &DaemonId::new(),
-            CgroupPool::testing_new().await?,
         ))
     }
 
@@ -239,12 +235,11 @@ impl ActionCgroups {
         std::mem::replace(&mut self.next_scene_id, after_scene_id)
     }
 
-    pub(crate) async fn action_started(
+    pub(crate) fn action_started(
         &mut self,
-        action_scene: ActionScene,
         description: SceneDescription,
         disable_kill_and_retry_suspend: bool,
-    ) -> buck2_error::Result<(SceneId, RetryFuture)> {
+    ) -> (SceneId, RetryFuture) {
         let suspend_strategy = if disable_kill_and_retry_suspend {
             ActionSuspendStrategy::CgroupFreeze
         } else {
@@ -254,9 +249,8 @@ impl ActionCgroups {
         let scene_id = self.allocate_scene_id();
 
         let action_cgroup = ActionCgroup {
-            action_scene,
             description,
-            scene_id: scene_id.copy(),
+            scene_id: scene_id.as_ref(),
             memory_current: 0,
             memory_peak: 0,
             swap_current: 0,
@@ -285,39 +279,37 @@ impl ActionCgroups {
             self.suspended_cgroups.push_back(suspended_action_cgroup);
         }
 
-        Ok((scene_id, start_future))
+        (scene_id, start_future)
     }
 
-    pub(crate) fn action_finished(&mut self, scene_id: SceneId) -> (SceneResult, ActionScene) {
+    pub(crate) fn action_finished(&mut self, scene_id: SceneId) -> SceneResult {
         if let Some(i) = self
             .running_cgroups
             .iter()
-            .position(|cg| cg.cgroup.scene_id == scene_id)
+            .position(|cg| cg.cgroup.scene_id == scene_id.as_ref())
         {
             let cgroup = self.running_cgroups.remove(i);
             self.wake();
-            (
-                SceneResult::from_info(&cgroup.cgroup),
-                cgroup.cgroup.action_scene,
-            )
+            SceneResult::from_info(&cgroup.cgroup)
         } else if let Some(i) = self
             .suspended_cgroups
             .iter()
-            .position(|cg| cg.cgroup.scene_id == scene_id)
+            .position(|cg| cg.cgroup.scene_id == scene_id.as_ref())
         {
             let cgroup = self.suspended_cgroups.remove(i).unwrap();
             // Command can finish after freezing a cgroup either because freezing may take some time
             // or because we started freezing after the command finished.
-            (
-                SceneResult::from_info(&cgroup.cgroup),
-                cgroup.cgroup.action_scene,
-            )
+            SceneResult::from_info(&cgroup.cgroup)
         } else {
             unreachable!("Scene disappeared!")
         }
     }
 
-    pub async fn update(&mut self, memory_reading: MemoryReading) {
+    pub(crate) fn update(
+        &mut self,
+        memory_reading: MemoryReading,
+        scene_readings: HashMap<SceneIdRef, SceneResourceReading>,
+    ) {
         self.event_sender_state
             .update_memory_reading(memory_reading);
         for cgroup in self
@@ -328,7 +320,7 @@ impl ActionCgroups {
         {
             // If we get back `None` that means the thign encountered an error. Not much to be done
             // about that
-            if let Some(res) = cgroup.action_scene.poll_resources().await {
+            if let Some(res) = scene_readings.get(&cgroup.scene_id) {
                 cgroup.memory_current = res.memory_current;
                 cgroup.memory_peak = cgroup.memory_peak.max(res.memory_current);
                 cgroup.swap_current = res.swap_current;
@@ -565,122 +557,119 @@ fn wake_cgroup(
 
 #[cfg(test)]
 mod tests {
-    use std::fs;
-
-    use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
-
     use super::*;
-    use crate::CommandType;
-    use crate::path::CgroupPathBuf;
 
-    #[tokio::test]
-    async fn test_peak_memory_and_swap() -> buck2_error::Result<()> {
-        let cgroup_1 = tempfile::tempdir()?;
-        let cgroup_2 = tempfile::tempdir()?;
-        let cgroup_1 =
-            CgroupPathBuf::new(AbsNormPathBuf::unchecked_new(cgroup_1.path().to_path_buf()));
-        let cgroup_2 =
-            CgroupPathBuf::new(AbsNormPathBuf::unchecked_new(cgroup_2.path().to_path_buf()));
+    struct UpdateBuilder(HashMap<SceneIdRef, SceneResourceReading>);
 
-        fs::write(cgroup_1.as_path().join("memory.current"), "10")?;
-        fs::write(cgroup_2.as_path().join("memory.current"), "10")?;
-        fs::write(cgroup_1.as_path().join("memory.swap.current"), "15")?;
-        fs::write(cgroup_2.as_path().join("memory.swap.current"), "15")?;
+    impl UpdateBuilder {
+        fn new() -> Self {
+            Self(HashMap::new())
+        }
 
-        let Some(mut action_cgroups) = ActionCgroups::testing_new().await else {
+        fn add(self, scene_id: SceneIdRef, memory_current: u64) -> Self {
+            self.add_with_swap(scene_id, memory_current, 0)
+        }
+
+        fn add_with_swap(
+            mut self,
+            scene_id: SceneIdRef,
+            memory_current: u64,
+            swap_current: u64,
+        ) -> Self {
+            self.0.insert(
+                scene_id,
+                SceneResourceReading {
+                    memory_current,
+                    swap_current,
+                },
+            );
+            self
+        }
+
+        fn build(self) -> HashMap<SceneIdRef, SceneResourceReading> {
+            self.0
+        }
+    }
+
+    #[test]
+    fn test_peak_memory_and_swap() -> buck2_error::Result<()> {
+        let Some(mut scheduler) = ActionCgroups::testing_new() else {
             return Ok(());
         };
-        let scene1 = action_cgroups
+        let scene1 = scheduler
             .action_started(
-                ActionScene::new(cgroup_1.clone()).await?,
                 SceneDescription {
                     command_type: CommandType::Build,
                     action_digest: Some("action_1".to_owned()),
                 },
                 false,
             )
-            .await?
             .0;
-        let scene2 = action_cgroups
+        let scene2 = scheduler
             .action_started(
-                ActionScene::new(cgroup_2.clone()).await?,
                 SceneDescription {
                     command_type: CommandType::Build,
                     action_digest: Some("action_2".to_owned()),
                 },
                 false,
             )
-            .await?
             .0;
 
-        fs::write(cgroup_1.as_path().join("memory.current").as_path(), "20")?;
-        fs::write(cgroup_2.as_path().join("memory.current").as_path(), "5")?;
-        fs::write(cgroup_1.as_path().join("memory.swap.current"), "18")?;
-        fs::write(cgroup_2.as_path().join("memory.swap.current"), "6")?;
-
-        let memory_reading = MemoryReading {
+        let dummy_memory_reading = MemoryReading {
             allprocs_memory_current: 10000,
             allprocs_swap_current: 0,
             allprocs_memory_pressure: 12.0,
             daemon_memory_current: 8000,
             daemon_swap_current: 0,
         };
-        action_cgroups.update(memory_reading).await;
+        scheduler.update(
+            dummy_memory_reading,
+            UpdateBuilder::new()
+                .add_with_swap(scene1.as_ref(), 10, 1)
+                .add_with_swap(scene2.as_ref(), 0, 0)
+                .build(),
+        );
+        scheduler.update(
+            dummy_memory_reading,
+            UpdateBuilder::new()
+                .add_with_swap(scene1.as_ref(), 5, 3)
+                .add_with_swap(scene2.as_ref(), 0, 0)
+                .build(),
+        );
 
-        let cgroup_1_res = action_cgroups.action_finished(scene1).0;
-        let cgroup_2_res = action_cgroups.action_finished(scene2).0;
-        assert_eq!(cgroup_1_res.memory_peak, 10);
-        assert_eq!(cgroup_2_res.memory_peak, 0);
-        assert_eq!(cgroup_1_res.swap_peak, 3);
-        assert_eq!(cgroup_2_res.swap_peak, 0);
+        let scene_1_res = scheduler.action_finished(scene1);
+        let scene_2_res = scheduler.action_finished(scene2);
+        assert_eq!(scene_1_res.memory_peak, 10);
+        assert_eq!(scene_2_res.memory_peak, 0);
+        assert_eq!(scene_1_res.swap_peak, 3);
+        assert_eq!(scene_2_res.swap_peak, 0);
 
         Ok(())
     }
 
     #[tokio::test]
     async fn test_freeze() -> buck2_error::Result<()> {
-        let cgroup_1 = tempfile::tempdir()?;
-        let cgroup_2 = tempfile::tempdir()?;
-        let cgroup_1 =
-            CgroupPathBuf::new(AbsNormPathBuf::unchecked_new(cgroup_1.path().to_path_buf()));
-        let cgroup_2 =
-            CgroupPathBuf::new(AbsNormPathBuf::unchecked_new(cgroup_2.path().to_path_buf()));
-
-        fs::write(cgroup_1.as_path().join("memory.current"), "0")?;
-        fs::write(cgroup_2.as_path().join("memory.current"), "0")?;
-        fs::write(cgroup_1.as_path().join("cgroup.freeze"), "0")?;
-        fs::write(cgroup_2.as_path().join("cgroup.freeze"), "0")?;
-        fs::write(cgroup_1.as_path().join("memory.swap.current"), "0")?;
-        fs::write(cgroup_2.as_path().join("memory.swap.current"), "0")?;
-
-        let Some(mut action_cgroups) = ActionCgroups::testing_new().await else {
+        let Some(mut scheduler) = ActionCgroups::testing_new() else {
             return Ok(());
         };
-        let scene1 = action_cgroups
+        let scene1 = scheduler
             .action_started(
-                ActionScene::new(cgroup_1.clone()).await?,
                 SceneDescription {
                     command_type: CommandType::Build,
                     action_digest: None,
                 },
                 false,
             )
-            .await?
             .0;
-        let scene2 = action_cgroups
+        let scene2 = scheduler
             .action_started(
-                ActionScene::new(cgroup_2.clone()).await?,
                 SceneDescription {
                     command_type: CommandType::Build,
                     action_digest: None,
                 },
                 false,
             )
-            .await?
             .0;
-
-        fs::write(cgroup_1.as_path().join("memory.current"), "1")?;
-        fs::write(cgroup_2.as_path().join("memory.current"), "2")?;
 
         let memory_reading = MemoryReading {
             allprocs_memory_current: 10000,
@@ -689,9 +678,15 @@ mod tests {
             daemon_memory_current: 8000,
             daemon_swap_current: 0,
         };
-        action_cgroups.update(memory_reading).await;
+        scheduler.update(
+            memory_reading,
+            UpdateBuilder::new()
+                .add(scene1.as_ref(), 2)
+                .add(scene2.as_ref(), 3)
+                .build(),
+        );
 
-        let cgroup_1_res = action_cgroups.action_finished(scene1).0;
+        let cgroup_1_res = scheduler.action_finished(scene1);
         assert!(cgroup_1_res.suspend_duration.is_none());
 
         let memory_reading_2 = MemoryReading {
@@ -701,9 +696,9 @@ mod tests {
             daemon_memory_current: 0,
             daemon_swap_current: 0,
         };
-        action_cgroups.update(memory_reading_2).await;
+        scheduler.update(memory_reading_2, UpdateBuilder::new().build());
 
-        let cgroup_2_res = action_cgroups.action_finished(scene2).0;
+        let cgroup_2_res = scheduler.action_finished(scene2);
         assert!(cgroup_2_res.suspend_duration.is_some());
 
         Ok(())

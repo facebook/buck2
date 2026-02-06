@@ -10,17 +10,13 @@
 
 use std::time::Duration;
 
-use buck2_error::BuckErrorContext;
 use dupe::Dupe;
-use tokio::fs::File;
 
 use crate::CommandType;
 use crate::RetryFuture;
+use crate::cgroup::CgroupLeaf;
 use crate::memory_tracker::MemoryTrackerHandle;
-use crate::memory_tracker::read_memory_current;
-use crate::memory_tracker::read_memory_swap_current;
 use crate::path::CgroupPathBuf;
-use crate::pool::CgroupID;
 use crate::scheduler::SceneDescription;
 use crate::scheduler::SceneId;
 use crate::scheduler::SceneResourceReading;
@@ -34,31 +30,23 @@ pub struct ActionCgroupResult {
     pub suspend_count: u64,
 }
 
-#[derive(Debug)]
 pub(crate) struct ActionScene {
-    pub(crate) memory_current_file: File,
-    pub(crate) memory_swap_current_file: File,
+    pub(crate) cgroup: CgroupLeaf,
     pub(crate) memory_initial: u64,
     pub(crate) swap_initial: u64,
     error: Option<buck2_error::Error>,
 }
 
 impl ActionScene {
-    pub(crate) async fn new(cgroup_path: CgroupPathBuf) -> buck2_error::Result<Self> {
-        let mut memory_current_file = File::open(cgroup_path.as_path().join("memory.current"))
-            .await
-            .with_buck_error_context(|| "failed to open memory.current")?;
-        let mut memory_swap_current_file =
-            File::open(cgroup_path.as_path().join("memory.swap.current"))
-                .await
-                .with_buck_error_context(|| "failed to open memory.swap.current")?;
-
-        let memory_initial = read_memory_current(&mut memory_current_file).await?;
-        let swap_initial = read_memory_swap_current(&mut memory_swap_current_file).await?;
+    async fn new(cgroup: CgroupLeaf) -> Result<Self, (buck2_error::Error, CgroupLeaf)> {
+        let (memory_initial, swap_initial) =
+            match tokio::try_join!(cgroup.read_memory_current(), cgroup.read_swap_current(),) {
+                Ok(x) => x,
+                Err(e) => return Err((e, cgroup)),
+            };
 
         Ok(ActionScene {
-            memory_current_file,
-            memory_swap_current_file,
+            cgroup,
             memory_initial,
             swap_initial,
             error: None,
@@ -67,8 +55,8 @@ impl ActionScene {
 
     pub(crate) async fn poll_resources(&mut self) -> Option<SceneResourceReading> {
         match tokio::try_join!(
-            read_memory_current(&mut self.memory_current_file),
-            read_memory_swap_current(&mut self.memory_swap_current_file)
+            self.cgroup.read_memory_current(),
+            self.cgroup.read_swap_current(),
         ) {
             Ok((memory_current, swap_current)) => {
                 let memory_current = memory_current.saturating_sub(self.memory_initial);
@@ -92,7 +80,6 @@ pub struct ActionCgroupSession {
     // Pointer to the cgroup pool and not owned by the session. This is mainly used for the session to mark a cgroup as being used
     // when starting a command and then releasing it back to the pool when the command finishes.
     tracker: MemoryTrackerHandle,
-    cgroup_id: CgroupID,
     scene_id: SceneId,
     pub path: CgroupPathBuf,
 }
@@ -108,49 +95,60 @@ impl ActionCgroupSession {
             return Ok(None);
         };
 
-        let mut action_cgroups = tracker.action_cgroups.lock().await;
+        let cgroup = tracker.pool.lock().await.acquire().await?;
+        let path = cgroup.path().to_buf();
 
-        let (cgroup_id, cgroup_path) = action_cgroups.cgroup_pool.acquire().await?;
-
-        let f = async {
-            let action_scene = ActionScene::new(cgroup_path.clone()).await?;
-            action_cgroups
-                .action_started(
-                    action_scene,
-                    SceneDescription {
-                        action_digest,
-                        command_type,
-                    },
-                    disable_kill_and_retry_suspend,
-                )
-                .await
-        };
-
-        let (scene_id, start_future) = match f.await {
+        let action_scene = match ActionScene::new(cgroup).await {
             Ok(x) => x,
-            Err(e) => {
+            Err((e, cgroup)) => {
                 // FIXME(JakobDegen): A proper drop impl on the id would be better than this
-                action_cgroups.cgroup_pool.release(cgroup_id);
+                tracker.pool.lock().await.release(cgroup);
                 return Err(e);
             }
         };
 
+        let mut action_cgroups = tracker.action_cgroups.lock().await;
+        let (scene_id, start_future) = action_cgroups.action_started(
+            SceneDescription {
+                action_digest,
+                command_type,
+            },
+            disable_kill_and_retry_suspend,
+        );
+
+        tracker
+            .scene_action_mapping
+            .lock()
+            .await
+            .insert(scene_id.as_ref(), action_scene);
+
         Ok(Some((
             ActionCgroupSession {
                 tracker: tracker.dupe(),
-                cgroup_id,
                 scene_id,
-                path: cgroup_path,
+                path,
             },
             start_future,
         )))
     }
 
     pub async fn action_finished(self) -> ActionCgroupResult {
-        let mut action_cgroups = self.tracker.action_cgroups.lock().await;
-        let (res, action_scene) = action_cgroups.action_finished(self.scene_id);
+        let action_scene = self
+            .tracker
+            .scene_action_mapping
+            .lock()
+            .await
+            .remove(&self.scene_id.as_ref())
+            .unwrap();
 
-        action_cgroups.cgroup_pool.release(self.cgroup_id);
+        self.tracker.pool.lock().await.release(action_scene.cgroup);
+
+        let res = self
+            .tracker
+            .action_cgroups
+            .lock()
+            .await
+            .action_finished(self.scene_id);
 
         if let Some(error) = action_scene.error {
             ActionCgroupResult {
