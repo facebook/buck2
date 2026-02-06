@@ -15,6 +15,7 @@ use async_trait::async_trait;
 use buck2_core::buck2_env;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_error::BuckErrorContext;
+use buck2_error::internal_error;
 use buck2_util::threads::thread_spawn;
 use crossbeam_channel::unbounded;
 use dice::DiceComputations;
@@ -63,7 +64,7 @@ impl dyn BlockingExecutor {
         }))
         .await
         .tag(buck2_error::ErrorTag::IoBlockingExecutor)?;
-        res.buck_error_context("Inline I/O did not execute")
+        res.ok_or_else(|| internal_error!("Inline I/O did not execute"))
     }
 }
 

@@ -13,6 +13,7 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use buck2_error::BuckErrorContext;
+use buck2_error::internal_error;
 use buck2_fs::error::IoResultExt;
 use buck2_fs::fs_util;
 use buck2_fs::paths::abs_norm_path::AbsNormPath;
@@ -189,9 +190,7 @@ impl<T: SqliteTable> SqliteTables<T> {
             .get(IDENTITY_KEY)
             .buck_error_context("Error reading creation metadata")?
             .map(SqliteIdentity)
-            .with_buck_error_context(|| {
-                format!("Identity key is missing in db: `{IDENTITY_KEY}`")
-            })?;
+            .ok_or_else(|| internal_error!("Identity key is missing in db: `{IDENTITY_KEY}`"))?;
 
         Ok(identity)
     }

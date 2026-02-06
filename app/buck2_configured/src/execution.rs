@@ -32,6 +32,7 @@ use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::target::label::label::TargetLabel;
 use buck2_core::target::target_configured_target_label::TargetConfiguredTargetLabel;
 use buck2_error::BuckErrorContext;
+use buck2_error::internal_error;
 use dice_futures::cancellation::CancellationContext;
 use buck2_node::attrs::configuration_context::AttrConfigurationContext;
 use buck2_node::attrs::configuration_context::AttrConfigurationContextImpl;
@@ -531,7 +532,7 @@ async fn get_execution_platforms_enabled(
 ) -> buck2_error::Result<ExecutionPlatforms> {
     ctx.get_execution_platforms()
         .await?
-        .buck_error_context("Execution platforms are not enabled")
+        .ok_or_else(|| internal_error!("Execution platforms are not enabled"))
 }
 
 async fn resolve_execution_platform_from_constraints(

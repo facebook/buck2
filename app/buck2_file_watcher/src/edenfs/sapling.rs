@@ -15,6 +15,7 @@ use std::process::Stdio;
 use allocative::Allocative;
 use buck2_error::BuckErrorContext;
 use buck2_error::buck2_error;
+use buck2_error::internal_error;
 use buck2_util::process::async_background_command;
 use tokio::io::AsyncBufReadExt;
 use tokio::io::BufReader;
@@ -94,7 +95,7 @@ fn parse_log_output(output: Vec<u8>) -> buck2_error::Result<Option<MergebaseDeta
     let v: Vec<&str> = output.trim().splitn(3, '\n').collect();
     let mergebase = v
         .first()
-        .buck_error_context("Failed to parse mergebase")?
+        .ok_or_else(|| internal_error!("Failed to parse mergebase"))?
         .to_string();
     let timestamp = v
         .get(1)

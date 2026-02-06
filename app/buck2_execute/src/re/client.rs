@@ -31,6 +31,7 @@ use buck2_data::ReQueueOverQuota;
 use buck2_error::BuckErrorContext;
 use buck2_error::buck2_error;
 use buck2_error::conversion::from_any_with_tag;
+use buck2_error::internal_error;
 use buck2_fs::error::IoResultExt;
 use buck2_fs::fs_util;
 use buck2_fs::paths::abs_norm_path::AbsNormPath;
@@ -1574,7 +1575,7 @@ impl RemoteExecutionClientImpl {
             .flat_map(|blobs| blobs.into_iter())
             .next()
             .map(|blob| (blob.blob, response.local_cache_stats))
-            .with_buck_error_context(|| format!("No digest was returned in request for {digest}"))
+            .ok_or_else(|| internal_error!("No digest was returned in request for {digest}"))
     }
 
     pub async fn upload_blob(

@@ -44,7 +44,6 @@ use buck2_directory::directory::fingerprinted_directory::FingerprintedDirectory;
 use buck2_directory::directory::immutable_directory::ImmutableDirectory;
 use buck2_directory::directory::shared_directory::SharedDirectory;
 use buck2_directory::directory::walk::unordered_entry_walk;
-use buck2_error::BuckErrorContext;
 use buck2_error::internal_error;
 use buck2_fs::paths::RelativePathBuf;
 use buck2_fs::paths::file_name::FileName;
@@ -524,12 +523,12 @@ pub fn relativize_directory(
 
             let orig_dest = orig_path
                 .parent()
-                .buck_error_context("Symlink has no dir parent")?
+                .ok_or_else(|| internal_error!("Symlink has no dir parent"))?
                 .join_normalized(link.target())?;
 
             let new_dest = new_path
                 .parent()
-                .buck_error_context("Symlink has no dir parent")?
+                .ok_or_else(|| internal_error!("Symlink has no dir parent"))?
                 .as_forward_relative_path()
                 .as_relative_path()
                 .relative(orig_dest);
@@ -611,11 +610,9 @@ pub fn insert_entry<D>(
         // can't "fix" it, and using the full symlink destination instead of
         // `s.without_remaining_path()`, but considering this doesn't seem to be something very
         // widespread and I might be missing something, I did not do it.
-        let fixed_source_path = s
-            .fix_source_path(path.as_ref())
-            .with_buck_error_context(|| {
-                format!("Error locating source path for symlink at {path}: {s}")
-            })?;
+        let fixed_source_path = s.fix_source_path(path.as_ref()).ok_or_else(|| {
+            internal_error!("Error locating source path for symlink at {path}: {s}")
+        })?;
         let path = ProjectRelativePath::unchecked_new(fixed_source_path.as_str()).to_buf();
         let entry = DirectoryEntry::Leaf(ActionDirectoryMember::ExternalSymlink(
             s.without_remaining_path(),
@@ -854,7 +851,6 @@ pub fn extract_artifact_value(
 
 #[cfg(test)]
 mod tests {
-    use buck2_error::BuckErrorContext;
 
     use super::*;
 
@@ -998,7 +994,7 @@ mod tests {
         let digest_config = DigestConfig::testing_default();
         let root = build_test_dir()?;
         let value = extract_artifact_value(&root, &path("d6"), digest_config)?
-            .buck_error_context("Not value!")?;
+            .ok_or_else(|| internal_error!("Not value!"))?;
         assert!(value.deps().is_none());
         Ok(())
     }
@@ -1009,7 +1005,7 @@ mod tests {
 
         let root = build_test_dir()?;
         let value = extract_artifact_value(&root, &path("d1/d2/d3"), digest_config)?
-            .buck_error_context("Not value!")?;
+            .ok_or_else(|| internal_error!("Not value!"))?;
 
         let expected = {
             let mut builder = ActionDirectoryBuilder::empty();
@@ -1017,7 +1013,7 @@ mod tests {
             for p in &["d6/s4", "d6/f4", "d1/d2/d4", "f1"] {
                 let path = path(p);
                 let entry = find(root.as_ref(), path.as_forward_relative_path())?
-                    .with_buck_error_context(|| format!("Missing {path}"))?
+                    .ok_or_else(|| internal_error!("Missing {path}"))?
                     .map_dir(|d| d.to_builder())
                     .map_leaf(|l| l.dupe());
                 insert_entry(&mut builder, path, entry)?;
@@ -1026,7 +1022,10 @@ mod tests {
             builder
         };
 
-        assert_dirs_eq(value.deps().buck_error_context("No deps!")?, &expected);
+        assert_dirs_eq(
+            value.deps().ok_or_else(|| internal_error!("No deps!"))?,
+            &expected,
+        );
 
         Ok(())
     }
@@ -1037,7 +1036,7 @@ mod tests {
 
         let root = build_test_dir()?;
         let value = extract_artifact_value(&root, &path("d1/d2/d3/s3"), digest_config)?
-            .buck_error_context("Not value!")?;
+            .ok_or_else(|| internal_error!("Not value!"))?;
 
         let expected = {
             let mut builder = ActionDirectoryBuilder::empty();
@@ -1049,7 +1048,10 @@ mod tests {
             builder
         };
 
-        assert_dirs_eq(value.deps().buck_error_context("No deps!")?, &expected);
+        assert_dirs_eq(
+            value.deps().ok_or_else(|| internal_error!("No deps!"))?,
+            &expected,
+        );
 
         Ok(())
     }
@@ -1079,9 +1081,12 @@ mod tests {
         };
 
         let value = extract_artifact_value(&builder, &path("d1/f1"), digest_config)?
-            .buck_error_context("Not value!")?;
+            .ok_or_else(|| internal_error!("Not value!"))?;
 
-        assert_dirs_eq(value.deps().buck_error_context("No deps!")?, &expected);
+        assert_dirs_eq(
+            value.deps().ok_or_else(|| internal_error!("No deps!"))?,
+            &expected,
+        );
 
         Ok(())
     }
@@ -1113,7 +1118,7 @@ mod tests {
         )?;
 
         let value = extract_artifact_value(&builder, &path("l1"), digest_config)?
-            .buck_error_context("Not value!")?;
+            .ok_or_else(|| internal_error!("Not value!"))?;
 
         let expected = {
             let mut builder = ActionDirectoryBuilder::empty();
@@ -1133,7 +1138,10 @@ mod tests {
             builder
         };
 
-        assert_dirs_eq(value.deps().buck_error_context("No deps!")?, &expected);
+        assert_dirs_eq(
+            value.deps().ok_or_else(|| internal_error!("No deps!"))?,
+            &expected,
+        );
 
         Ok(())
     }
@@ -1223,7 +1231,7 @@ mod tests {
         )?;
 
         extract_artifact_value(&builder, &path("d1/f1"), digest_config)?
-            .buck_error_context("Not value!")?;
+            .ok_or_else(|| internal_error!("Not value!"))?;
         Ok(())
     }
 

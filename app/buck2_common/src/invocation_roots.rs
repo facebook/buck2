@@ -13,6 +13,7 @@ use buck2_core::buck2_env;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_error::BuckErrorContext;
+use buck2_error::internal_error;
 use buck2_fs::fs_util;
 use buck2_fs::paths::abs_norm_path::AbsNormPath;
 use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
@@ -141,8 +142,8 @@ pub fn get_invocation_paths_result(
 ///    output directories between different buckd instances.
 pub(crate) fn home_buck_dir() -> buck2_error::Result<&'static AbsNormPath> {
     fn find_dir() -> buck2_error::Result<AbsNormPathBuf> {
-        let home =
-            dirs::home_dir().buck_error_context("Expected a HOME directory to be available")?;
+        let home = dirs::home_dir()
+            .ok_or_else(|| internal_error!("Expected a HOME directory to be available"))?;
         let home =
             AbsNormPathBuf::new(home).buck_error_context("Expected an absolute HOME directory")?;
         Ok(home.join(FileName::new(".buck")?))

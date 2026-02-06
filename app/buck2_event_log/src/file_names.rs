@@ -9,7 +9,7 @@
  */
 
 use buck2_common::invocation_paths::InvocationPaths;
-use buck2_error::BuckErrorContext;
+use buck2_error::internal_error;
 use buck2_events::BuckEvent;
 use buck2_fs::fs_util;
 use buck2_fs::paths::abs_norm_path::AbsNormPath;
@@ -105,7 +105,8 @@ pub fn do_find_log_by_trace_id(
     log_dir: &AbsNormPath,
     trace_id: &TraceId,
 ) -> buck2_error::Result<EventLogPathBuf> {
-    find_log_by_trace_id(log_dir, trace_id)?.buck_error_context("Error finding log by trace id")
+    find_log_by_trace_id(log_dir, trace_id)?
+        .ok_or_else(|| internal_error!("Error finding log by trace id"))
 }
 
 pub fn retrieve_nth_recent_log(

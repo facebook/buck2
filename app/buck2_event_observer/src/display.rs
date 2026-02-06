@@ -27,6 +27,7 @@ use buck2_data::TargetLabel;
 use buck2_data::action_key;
 use buck2_data::span_start_event::Data;
 use buck2_error::BuckErrorContext;
+use buck2_error::internal_error;
 use buck2_events::BuckEvent;
 use buck2_test_api::data::TestStatus;
 use buck2_util::commas::commas;
@@ -136,7 +137,7 @@ pub fn display_analysis_target(
             match dynamic
                 .owner
                 .as_ref()
-                .buck_error_context("Missing `owner`")?
+                .ok_or_else(|| internal_error!("Missing `owner`"))?
             {
                 Owner::TargetLabel(target_label) => {
                     display_configured_target_label(target_label, opts)
@@ -267,7 +268,7 @@ pub fn display_event(event: &BuckEvent, opts: TargetDisplayOptions) -> buck2_err
                 let stage = info
                     .stage
                     .as_ref()
-                    .buck_error_context("analysis stage is missing")?;
+                    .ok_or_else(|| internal_error!("analysis stage is missing"))?;
                 let stage = display_analysis_stage(stage);
                 Ok(stage.into())
             }
@@ -284,9 +285,9 @@ pub fn display_event(event: &BuckEvent, opts: TargetDisplayOptions) -> buck2_err
                 let stage = info
                     .stage
                     .as_ref()
-                    .buck_error_context("executor stage is missing")?;
-                let stage =
-                    display_executor_stage(stage).buck_error_context("unknown executor stage")?;
+                    .ok_or_else(|| internal_error!("executor stage is missing"))?;
+                let stage = display_executor_stage(stage)
+                    .ok_or_else(|| internal_error!("unknown executor stage"))?;
                 Ok(stage.into())
             }
             Data::TestDiscovery(discovery) => Ok(format!(
@@ -360,7 +361,11 @@ pub fn display_event(event: &BuckEvent, opts: TargetDisplayOptions) -> buck2_err
             }
             Data::DeferredPreparationStage(prep) => {
                 use buck2_data::deferred_preparation_stage_start::Stage;
-                match prep.stage.as_ref().buck_error_context("Missing `stage`")? {
+                match prep
+                    .stage
+                    .as_ref()
+                    .ok_or_else(|| internal_error!("Missing `stage`"))?
+                {
                     Stage::MaterializedArtifacts(_) => Ok("local_materialize_inputs".to_owned()),
                 }
             }
@@ -370,7 +375,7 @@ pub fn display_event(event: &BuckEvent, opts: TargetDisplayOptions) -> buck2_err
                 let label = match lambda
                     .owner
                     .as_ref()
-                    .buck_error_context("Missing `owner`")?
+                    .ok_or_else(|| internal_error!("Missing `owner`"))?
                 {
                     Owner::TargetLabel(target_label) => {
                         display_configured_target_label(target_label, opts)
@@ -777,7 +782,7 @@ pub fn get_action_error_reason(error: &buck2_data::ActionError) -> buck2_error::
         match error
             .error
             .as_ref()
-            .buck_error_context("Internal error: Missing error in action error")?
+            .ok_or_else(|| internal_error!("Internal error: Missing error in action error"))?
         {
             Error::MissingOutputs(missing_outputs) => {
                 format!("Required outputs are missing: {}", missing_outputs.message)
@@ -823,12 +828,12 @@ fn failure_reason_for_command_execution(
     let command = command_execution
         .details
         .as_ref()
-        .buck_error_context("CommandExecution did not include a `command`")?;
+        .ok_or_else(|| internal_error!("CommandExecution did not include a `command`"))?;
 
     let status = command_execution
         .status
         .as_ref()
-        .buck_error_context("CommandExecution did not include a `status`")?;
+        .ok_or_else(|| internal_error!("CommandExecution did not include a `status`"))?;
 
     let locality = if let Some(command_kind) = command.command_kind.as_ref() {
         use buck2_data::command_execution_kind::Command;
@@ -877,7 +882,7 @@ fn failure_reason_for_command_execution(
         Status::Timeout(Timeout { duration }) => {
             let duration = duration
                 .as_ref()
-                .buck_error_context("Timeout did not include a `duration`")?
+                .ok_or_else(|| internal_error!("Timeout did not include a `duration`"))?
                 .try_into_duration()
                 .buck_error_context("Timeout `duration` was invalid")?;
 
@@ -903,7 +908,7 @@ pub fn success_stderr(
             &command
                 .details
                 .as_ref()
-                .buck_error_context("CommandExecution did not include a `command`")?
+                .ok_or_else(|| internal_error!("CommandExecution did not include a `command`"))?
                 .cmd_stderr
         }
         None => return Ok(None),

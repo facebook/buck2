@@ -16,7 +16,7 @@ use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering;
 
 use arc_swap::ArcSwapOption;
-use buck2_error::BuckErrorContext;
+use buck2_error::internal_error;
 use once_cell::sync::Lazy;
 use starlark_map::small_set::SmallSet;
 
@@ -145,7 +145,7 @@ fn hard_error_config() -> buck2_error::Result<Arc<HardErrorConfig>> {
     HARD_ERROR_CONFIG
         .config
         .load_full()
-        .internal_error("Just stored a value")
+        .ok_or_else(|| internal_error!("Just stored a value"))
 }
 
 pub fn reload_hard_error_config(var_value: &str) -> buck2_error::Result<()> {

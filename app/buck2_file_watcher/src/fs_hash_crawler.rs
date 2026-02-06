@@ -31,6 +31,7 @@ use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_data::FileWatcherEventType;
 use buck2_data::FileWatcherKind;
 use buck2_error::BuckErrorContext;
+use buck2_error::internal_error;
 use buck2_events::dispatch::span_async;
 use buck2_fs::error::IoResultExt;
 use buck2_fs::fs_util;
@@ -271,7 +272,7 @@ impl FsSnapshot {
             let filename = FileNameBuf::try_from(CompactString::new(
                 filename
                     .to_str()
-                    .buck_error_context("Filename is not UTF-8")?,
+                    .ok_or_else(|| internal_error!("Filename is not UTF-8"))?,
             ))
             .with_buck_error_context(|| format!("Invalid filename: {}", disk_path.display()))?;
 

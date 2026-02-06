@@ -489,7 +489,7 @@ where
     ) -> buck2_error::Result<WatchmanSyncResult> {
         let client = client
             .as_mut()
-            .buck_error_context("No Watchman connection")?;
+            .ok_or_else(|| internal_error!("No Watchman connection"))?;
 
         let make_query = |last_clock, last_mergebase| {
             let mut query = self.query.clone();
@@ -609,7 +609,7 @@ where
         async move {
             tx_res
                 .ok()
-                .buck_error_context("SyncableQueryHandler has exited")?;
+                .ok_or_else(|| internal_error!("SyncableQueryHandler has exited"))?;
 
             let out = sync_done_rx
                 .await

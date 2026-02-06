@@ -653,10 +653,9 @@ fn verify_transitioned_attrs(
     node: &ConfiguredTargetNode,
 ) -> buck2_error::Result<()> {
     for (attr, attr_value) in pre_transition_attrs {
-        let transition_configured_attr = node
-            .get(attr, AttrInspectOptions::All)
-            .with_internal_error(|| {
-                format!(
+        let transition_configured_attr =
+            node.get(attr, AttrInspectOptions::All).ok_or_else(|| {
+                internal_error!(
                     "Attr {} was not found in transition for target {} ({})",
                     attr,
                     node.label(),

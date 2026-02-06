@@ -11,7 +11,7 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use buck2_error::BuckErrorContext;
+use buck2_error::internal_error;
 use buck2_events::BuckEvent;
 use buck2_events::span::SpanId;
 use derivative::Derivative;
@@ -115,10 +115,11 @@ impl<'a, T: SpanTrackable> SpanHandle<'a, T> {
                 .tracker
                 .all
                 .get(c.0)
-                .with_buck_error_context(|| {
-                    format!(
+                .ok_or_else(|| {
+                    internal_error!(
                         "Invariant violation: span `{:?}` references non-existent child `{}`",
-                        self.span.info.event, c.0
+                        self.span.info.event,
+                        c.0
                     )
                 })
                 .unwrap();

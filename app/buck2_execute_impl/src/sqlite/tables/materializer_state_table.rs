@@ -25,6 +25,7 @@ use buck2_directory::directory::entry::DirectoryEntry;
 use buck2_directory::directory::walk::unordered_entry_walk;
 use buck2_error::BuckErrorContext;
 use buck2_error::conversion::from_any_with_tag;
+use buck2_error::internal_error;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::directory::ActionDirectoryBuilder;
 use buck2_execute::directory::ActionDirectoryEntry;
@@ -319,7 +320,7 @@ fn convert_sqlite_entries_to_materializer_state(
             let last_access_time = Utc
                 .timestamp_opt(last_access_time, 0)
                 .single()
-                .with_buck_error_context(|| "invalid timestamp")?;
+                .ok_or_else(|| internal_error!("invalid timestamp"))?;
             match entry.artifact_type {
                 ArtifactType::Directory => {
                     if let Some(directory_size) = entry.directory_size {

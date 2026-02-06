@@ -30,6 +30,7 @@ use buck2_data::FileWatcherKind as Kind;
 use buck2_eden::connection::EdenConnectionManager;
 use buck2_eden::semaphore;
 use buck2_error::BuckErrorContext;
+use buck2_error::internal_error;
 use buck2_events::dispatch::span_async;
 use buck2_fs::paths::abs_norm_path::AbsNormPath;
 use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
@@ -454,8 +455,8 @@ impl EdenFsFileWatcher {
                 // If we error out here then we might miss other changes. This seems like
                 // it shouldn't happen, since the empty path should always be a valid path.
                 let path = find_first_valid_parent(&eden_rel_path)
-                    .with_buck_error_context(|| {
-                        format!(
+                    .ok_or_else(|| {
+                        internal_error!(
                             "Invalid path had no valid parent: `{}`",
                             eden_rel_path.display()
                         )

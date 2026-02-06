@@ -22,6 +22,7 @@ use std::sync::Arc;
 use buck2_common::convert::ProstDurationExt;
 use buck2_core::logging::LogConfigurationReloadHandle;
 use buck2_error::BuckErrorContext;
+use buck2_error::internal_error;
 use buck2_execute_local::DefaultKillProcess;
 use buck2_execute_local::GatherOutputStatus;
 use buck2_execute_local::StdRedirectPaths;
@@ -92,7 +93,11 @@ impl ValidatedCommand {
         } = cmd_request;
 
         let exe = OsStr::from_bytes(&exe);
-        let cwd = OsStr::from_bytes(&cwd.as_ref().buck_error_context("Missing cwd")?.path);
+        let cwd = OsStr::from_bytes(
+            &cwd.as_ref()
+                .ok_or_else(|| internal_error!("Missing cwd"))?
+                .path,
+        );
         let cwd = AbsPath::new(Path::new(cwd)).buck_error_context("Invalid cwd")?;
 
         let timeout = timeout
@@ -154,7 +159,7 @@ impl UnixForkserverService {
             .await?
             .and_then(|m| m.data)
             .and_then(|m| m.into_command_request())
-            .buck_error_context("RequestEvent was not a CommandRequest!")?;
+            .ok_or_else(|| internal_error!("RequestEvent was not a CommandRequest!"))?;
         Ok(cmd_request)
     }
 
@@ -168,7 +173,7 @@ impl UnixForkserverService {
             match directive
                 .data
                 .as_ref()
-                .buck_error_context("EnvDirective is missing data")?
+                .ok_or_else(|| internal_error!("EnvDirective is missing data"))?
             {
                 Data::Clear(..) => {
                     cmd.env_clear();

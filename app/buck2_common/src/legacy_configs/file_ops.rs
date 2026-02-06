@@ -15,6 +15,7 @@ use buck2_core::cells::CellResolver;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_error::BuckErrorContext;
+use buck2_error::internal_error;
 use buck2_fs::IoResultExt;
 use buck2_fs::fs_util;
 use buck2_fs::fs_util::IoError;
@@ -54,12 +55,12 @@ impl ConfigPath {
         match self {
             ConfigPath::Project(path) => Ok(path
                 .parent()
-                .buck_error_context("file has no parent")?
+                .ok_or_else(|| internal_error!("file has no parent"))?
                 .join_normalized(rel)
                 .map(ConfigPath::Project)?),
             ConfigPath::Global(path) => Ok(ConfigPath::Global(
                 path.parent()
-                    .buck_error_context("file has no parent")?
+                    .ok_or_else(|| internal_error!("file has no parent"))?
                     .join(rel.as_str()),
             )),
         }

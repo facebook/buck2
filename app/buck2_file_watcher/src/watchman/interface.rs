@@ -21,7 +21,7 @@ use buck2_core::cells::CellResolver;
 use buck2_core::cells::name::CellName;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::rollout_percentage::RolloutPercentage;
-use buck2_error::BuckErrorContext;
+use buck2_error::internal_error;
 use buck2_events::dispatch::span_async;
 use buck2_fs::paths::abs_norm_path::AbsNormPath;
 use buck2_util::process::async_background_command;
@@ -84,8 +84,11 @@ impl WatchmanQueryProcessor {
                     // If we error out here then we might miss other changes. This seems like
                     // it shouldn't happen, since the empty path should always be a valid path.
                     let path = find_first_valid_parent(&ev.path)
-                        .with_buck_error_context(|| {
-                            format!("Invalid path had no valid parent: `{}`", ev.path.display())
+                        .ok_or_else(|| {
+                            internal_error!(
+                                "Invalid path had no valid parent: `{}`",
+                                ev.path.display()
+                            )
                         })
                         .unwrap();
 

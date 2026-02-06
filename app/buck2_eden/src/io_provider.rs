@@ -31,6 +31,7 @@ use buck2_core::io_counters::IoCounterKey;
 use buck2_core::soft_error;
 use buck2_error::BuckErrorContext;
 use buck2_error::ErrorTag;
+use buck2_error::internal_error;
 use compact_str::CompactString;
 use dupe::Dupe;
 use edenfs::FileAttributes;
@@ -162,13 +163,13 @@ impl EdenIoProvider {
             .res
             .into_iter()
             .next()
-            .buck_error_context("Eden did not return file info")?
+            .ok_or_else(|| internal_error!("Eden did not return file info"))?
             .into_result()
         {
             Ok(data) => {
                 let source_control_type = data
                     .sourceControlType
-                    .buck_error_context("Eden did not return a type")?
+                    .ok_or_else(|| internal_error!("Eden did not return a type"))?
                     .into_result()
                     .buck_error_context("Eden returned an error for sourceControlType")?;
 
@@ -201,7 +202,7 @@ impl EdenIoProvider {
 
                 let size = data
                     .size
-                    .buck_error_context("Eden did not return a size")?
+                    .ok_or_else(|| internal_error!("Eden did not return a size"))?
                     .into_result()
                     .buck_error_context("Eden returned an error for size")?
                     .try_into()
@@ -212,23 +213,23 @@ impl EdenIoProvider {
                     Digest::Sha1 => {
                         let sha1 = data
                             .sha1
-                            .buck_error_context("Eden did not return a sha1")?
+                            .ok_or_else(|| internal_error!("Eden did not return a sha1"))?
                             .into_result()
                             .buck_error_context("Eden returned an error for sha1")?
                             .try_into()
                             .ok()
-                            .buck_error_context("Eden returned an invalid sha1")?;
+                            .ok_or_else(|| internal_error!("Eden returned an invalid sha1"))?;
                         FileDigest::new_sha1(sha1, size)
                     }
                     Digest::Blake3Keyed => {
                         let blake3 = data
                             .blake3
-                            .buck_error_context("Eden did not return a blake3")?
+                            .ok_or_else(|| internal_error!("Eden did not return a blake3"))?
                             .into_result()
                             .buck_error_context("Eden returned an error for blake3")?
                             .try_into()
                             .ok()
-                            .buck_error_context("Eden returned an invalid blake3")?;
+                            .ok_or_else(|| internal_error!("Eden returned an invalid blake3"))?;
                         FileDigest::new_blake3_keyed(blake3, size)
                     }
                 };
@@ -281,7 +282,7 @@ impl EdenIoProvider {
             .dirLists
             .into_iter()
             .next()
-            .buck_error_context("Eden did not return a directory result")?;
+            .ok_or_else(|| internal_error!("Eden did not return a directory result"))?;
 
         let data = match res {
             edenfs::DirListAttributeDataOrError::dirListAttributeData(data) => data,
@@ -315,7 +316,7 @@ impl EdenIoProvider {
                 let source_control_type = attrs
                     .into_result()?
                     .sourceControlType
-                    .buck_error_context("Missing sourceControlType")?
+                    .ok_or_else(|| internal_error!("Missing sourceControlType"))?
                     .into_result()?;
 
                 let file_type = match source_control_type {

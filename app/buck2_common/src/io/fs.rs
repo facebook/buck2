@@ -17,6 +17,7 @@ use async_trait::async_trait;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_error::BuckErrorContext;
+use buck2_error::internal_error;
 use buck2_fs::IoResultExt;
 use buck2_fs::fs_util;
 use buck2_fs::paths::RelativePathBuf;
@@ -248,7 +249,7 @@ fn read_path_metadata<P: AsRef<AbsPath>>(
     }
 
     // If we get here that means we never hit a symlink. So, the metadata we have
-    let meta = meta.buck_error_context("Attempted to access empty path")?;
+    let meta = meta.ok_or_else(|| internal_error!("Attempted to access empty path"))?;
     let meta = convert_metadata(&curr, meta, file_digest_config)?;
 
     if cfg!(test) {

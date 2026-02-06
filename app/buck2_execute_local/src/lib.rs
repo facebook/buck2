@@ -23,6 +23,7 @@ use std::time::Duration;
 
 use async_trait::async_trait;
 use buck2_error::BuckErrorContext;
+use buck2_error::internal_error;
 use buck2_fs::fs_util;
 use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_fs::paths::abs_path::AbsPath;
@@ -256,10 +257,10 @@ where
     let stdio = if std_redirects.is_none() {
         let stdout = process_group
             .take_stdout()
-            .buck_error_context("Child stdout is not piped")?;
+            .ok_or_else(|| internal_error!("Child stdout is not piped"))?;
         let stderr = process_group
             .take_stderr()
-            .buck_error_context("Child stderr is not piped")?;
+            .ok_or_else(|| internal_error!("Child stderr is not piped"))?;
 
         #[cfg(unix)]
         type Drainer<R> = self::interruptible_async_read::UnixNonBlockingDrainer<R>;
@@ -664,8 +665,12 @@ mod tests {
             gather_output(cmd, Some(Duration::from_secs(timeout))).await?;
         let out = str::from_utf8(&stdout)?;
         let pids: Vec<&str> = out.split('\n').collect();
-        let ppid = Pid::from_str(pids.first().buck_error_context("no ppid")?.trim())?;
-        let pid = Pid::from_str(pids.get(1).buck_error_context("no pid")?.trim())?;
+        let ppid = Pid::from_str(
+            pids.first()
+                .ok_or_else(|| internal_error!("no ppid"))?
+                .trim(),
+        )?;
+        let pid = Pid::from_str(pids.get(1).ok_or_else(|| internal_error!("no pid"))?.trim())?;
         let sys = System::new_all();
 
         // we want to check if existed process doesn't have the same parent because of pid reuse

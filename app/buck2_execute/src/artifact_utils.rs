@@ -14,7 +14,7 @@ use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_directory::directory::entry::DirectoryEntry;
-use buck2_error::BuckErrorContext;
+use buck2_error::internal_error;
 use buck2_fs::fs_util;
 use dupe::Dupe;
 
@@ -110,7 +110,7 @@ impl<'a> ArtifactValueBuilder<'a> {
                 // TODO: This seems like it normally shouldn't need to be normalizing anything.
                 let reldest = self.project_fs.relative_path(
                     src.parent()
-                        .buck_error_context("Symlink has no dir parent")?,
+                        .ok_or_else(|| internal_error!("Symlink has no dir parent"))?,
                     dest,
                 );
                 // RelativePathBuf converts platform specific path separators.

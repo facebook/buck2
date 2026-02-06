@@ -42,6 +42,7 @@ use buck2_directory::directory::immutable_directory::ImmutableDirectory;
 use buck2_error::BuckErrorContext;
 use buck2_error::buck2_error;
 use buck2_error::conversion::from_any_with_tag;
+use buck2_error::internal_error;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::digest_config::HasDigestConfig;
 use buck2_execute::materialize::materializer::HasMaterializer;
@@ -89,7 +90,7 @@ fn load_nano_prelude() -> buck2_error::Result<BundledCell> {
                 entry
                     .file_name()
                     .to_str()
-                    .buck_error_context("not UTF-8 string")?,
+                    .ok_or_else(|| internal_error!("not UTF-8 string"))?,
             )?);
             match FileType::from(entry.file_type()?) {
                 FileType::Directory => dir_stack.push((entry_path, entry_rel_path)),
