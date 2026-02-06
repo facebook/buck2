@@ -33,7 +33,6 @@ use buck2_core::execution_types::executor_config::RemoteExecutorOptions;
 use buck2_core::execution_types::executor_config::RemoteExecutorUseCase;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_core::fs::project::ProjectRoot;
-use buck2_error::BuckErrorContext;
 use buck2_events::daemon_id::DaemonId;
 use buck2_execute::execute::blocking::BlockingExecutor;
 use buck2_execute::execute::cache_uploader::NoOpCacheUploader;
@@ -164,6 +163,17 @@ impl CommandExecutorFactory {
     }
 }
 
+#[derive(buck2_error::Error, Debug)]
+#[buck2(input)]
+enum ExecutorCompatibilityError {
+    #[error("The desired execution strategy (`{0:?}`) is incompatible with the local executor")]
+    LocalIncompatible(ExecutionStrategy),
+    #[error(
+        "The desired execution strategy (`{0:?}`) is incompatible with the executor config that was selected: {1:?}"
+    )]
+    SelectedConfig(ExecutionStrategy, CommandExecutorConfig),
+}
+
 impl HasCommandExecutor for CommandExecutorFactory {
     fn get_command_executor(
         &self,
@@ -201,11 +211,7 @@ impl HasCommandExecutor for CommandExecutorFactory {
             });
 
             if self.strategy.ban_local() {
-                return Err(buck2_error::buck2_error!(
-                    buck2_error::ErrorTag::Input,
-                    "The desired execution strategy (`{:?}`) is incompatible with the local executor",
-                    self.strategy,
-                ));
+                return Err(ExecutorCompatibilityError::LocalIncompatible(self.strategy).into());
             }
 
             return Ok(CommandExecutorResponse {
@@ -452,9 +458,9 @@ impl HasCommandExecutor for CommandExecutorFactory {
             }
         };
 
-        let response = response
-            .with_buck_error_context(|| format!("The desired execution strategy (`{:?}`) is incompatible with the executor config that was selected: {:?}", self.strategy, executor_config)).tag(buck2_error::ErrorTag::Input)?;
-
+        let response = response.ok_or_else(|| {
+            ExecutorCompatibilityError::SelectedConfig(self.strategy, executor_config.clone())
+        })?;
         Ok(response)
     }
 }
