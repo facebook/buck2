@@ -173,9 +173,16 @@ pub(crate) struct Scheduler {
     running_scenes: Vec<RunningScene>,
     suspended_scenes: VecDeque<SuspendedScene>,
     last_correction_time: Option<Instant>,
-    // Total allprocs memory when the last suspend happened. Used to calculate when we should wake
-    // cgroups.
-    total_memory_during_last_suspend: Option<u64>,
+    /// Current best estimate for the maximum amount of memory we can use.
+    ///
+    /// This is approximately computed as the total memory in use by buck the last time we saw
+    /// significant memory pressure. As a result it doesn't just reflect system-wide limits, but
+    /// also implicitly incorporates information about what processes other than buck are doing.
+    ///
+    /// FIXME(JakobDegen): Is having a single value for this enough? Should we be averaging over the
+    /// last N samples?
+    estimated_memory_cap: u64,
+
     event_sender_state: EventSenderState,
     next_scene_id: SceneId,
 }
@@ -185,6 +192,7 @@ impl Scheduler {
         resource_control_config: &ResourceControlConfig,
         daemon_id: &DaemonId,
         effective_resource_constraints: EffectiveResourceConstraints,
+        system_memory_max: u64,
     ) -> Self {
         let enable_suspension = resource_control_config.enable_suspension;
 
@@ -193,6 +201,7 @@ impl Scheduler {
             resource_control_config.preferred_action_suspend_strategy,
             resource_control_config.memory_pressure_threshold_percent as f64,
             effective_resource_constraints,
+            system_memory_max,
             daemon_id,
         )
     }
@@ -202,8 +211,13 @@ impl Scheduler {
         preferred_action_suspend_strategy: ActionSuspendStrategy,
         pressure_suspend_threshold: f64,
         effective_resource_constraints: EffectiveResourceConstraints,
+        system_memory_max: u64,
         daemon_id: &DaemonId,
     ) -> Self {
+        let estimated_memory_cap = effective_resource_constraints
+            .memory_high
+            .or(effective_resource_constraints.memory_max)
+            .unwrap_or(system_memory_max);
         Self {
             enable_suspension,
             preferred_action_suspend_strategy,
@@ -211,8 +225,8 @@ impl Scheduler {
             running_scenes: Vec::new(),
             suspended_scenes: VecDeque::new(),
             last_correction_time: None,
-            total_memory_during_last_suspend: None,
-            event_sender_state: EventSenderState::new(daemon_id, effective_resource_constraints),
+            estimated_memory_cap,
+            event_sender_state: EventSenderState::new(daemon_id, estimated_memory_cap),
             next_scene_id: SceneId(0),
         }
     }
@@ -224,6 +238,7 @@ impl Scheduler {
             ActionSuspendStrategy::KillAndRetry,
             10.0,
             EffectiveResourceConstraints::default(),
+            1_000_000, // System memory max
             &DaemonId::new(),
         )
     }
@@ -320,6 +335,12 @@ impl Scheduler {
         scene_readings: HashMap<SceneIdRef, SceneResourceReading>,
         now: Instant,
     ) {
+        if memory_reading.allprocs_memory_pressure > 10.0 {
+            self.estimated_memory_cap = memory_reading.allprocs_memory_current;
+            self.event_sender_state
+                .update_estimated_memory_cap(self.estimated_memory_cap);
+        }
+
         self.event_sender_state
             .update_memory_reading(memory_reading);
         for cgroup in self
@@ -342,7 +363,7 @@ impl Scheduler {
             memory_reading.allprocs_memory_pressure > self.pressure_suspend_threshold;
 
         if is_above_pressure_limit {
-            self.maybe_decrease_running_count(memory_reading, now);
+            self.maybe_decrease_running_count(now);
         } else {
             self.maybe_increase_running_count(memory_reading, now);
         }
@@ -362,7 +383,7 @@ impl Scheduler {
         );
     }
 
-    fn maybe_decrease_running_count(&mut self, memory_reading: MemoryReading, now: Instant) {
+    fn maybe_decrease_running_count(&mut self, now: Instant) {
         if !self.enable_suspension {
             return;
         }
@@ -388,7 +409,6 @@ impl Scheduler {
 
         let (suspended_cgroup, event_kind) = suspend_scene(cgroup, now);
 
-        self.total_memory_during_last_suspend = Some(memory_reading.allprocs_memory_current);
         // Push it onto the list before emitting the event so that the action count in the event is
         // correct
         self.suspended_scenes.push_front(suspended_cgroup);
@@ -417,14 +437,6 @@ impl Scheduler {
             return;
         };
 
-        // We suspend scenes when there's memory pressure; there being memory pressure essentially
-        // guarantees that we're at our memory limit, so this value is really just a proxy for our
-        // memory cap
-        let total_memory_during_last_suspend =
-            // We probably don't expect to end up here, but it does mean that we never suspended and
-            // so allowing early wakeups is fine
-            self.total_memory_during_last_suspend.unwrap_or(u64::MAX);
-
         let required_memory_headroom = match suspended_cgroup.memory_current_when_suspended {
             Some(memory_current_when_suspended) => {
                 // FIXME(JakobDegen): Justify this a bit better
@@ -433,12 +445,12 @@ impl Scheduler {
             None => {
                 // If we've never scheduled an scene before, this is some kind of a default
                 // assumption as to how much memory it needs
-                std::cmp::min(1_000_000_000, total_memory_during_last_suspend / 5)
+                std::cmp::min(1_000_000_000, self.estimated_memory_cap / 5)
             }
         };
 
         let should_wake = memory_reading.allprocs_memory_current + required_memory_headroom
-            < total_memory_during_last_suspend;
+            < self.estimated_memory_cap;
 
         if !should_wake {
             return;

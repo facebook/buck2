@@ -18,26 +18,22 @@ use buck2_wrapper_common::invocation_id::TraceId;
 use tokio::sync::mpsc;
 
 use crate::CommandType;
-use crate::cgroup::EffectiveResourceConstraints;
 use crate::memory_tracker::MemoryReading;
 use crate::scheduler::Scene;
 
 pub(crate) struct EventSenderState {
     metadata: HashMap<String, String>,
-    effective_resource_constraints: EffectiveResourceConstraints,
+    estimated_memory_cap: u64,
     memory_reading: MemoryReading,
     last_scheduled_event_time: Option<Instant>,
     txs: Vec<mpsc::UnboundedSender<ResourceControlEventMostly>>,
 }
 
 impl EventSenderState {
-    pub(crate) fn new(
-        daemon_id: &DaemonId,
-        effective_resource_constraints: EffectiveResourceConstraints,
-    ) -> Self {
+    pub(crate) fn new(daemon_id: &DaemonId, estimated_memory_cap: u64) -> Self {
         Self {
             metadata: buck2_events::metadata::collect(daemon_id),
-            effective_resource_constraints,
+            estimated_memory_cap,
             last_scheduled_event_time: None,
             memory_reading: MemoryReading {
                 allprocs_memory_current: 0,
@@ -61,6 +57,10 @@ impl EventSenderState {
         self.memory_reading = memory_reading;
     }
 
+    pub(crate) fn update_estimated_memory_cap(&mut self, estimated_memory_cap: u64) {
+        self.estimated_memory_cap = estimated_memory_cap;
+    }
+
     pub(crate) fn maybe_send_scheduled_event(
         &mut self,
         freq: Duration,
@@ -70,7 +70,7 @@ impl EventSenderState {
     ) {
         if self
             .last_scheduled_event_time
-            .is_none_or(|last| now.duration_since(last) > freq)
+            .is_none_or(|last| now.duration_since(last) >= freq)
         {
             self.last_scheduled_event_time = Some(now);
             self.send_event(
@@ -103,10 +103,10 @@ impl EventSenderState {
         ResourceControlEventMostly {
             event_time: SystemTime::now(),
             metadata: self.metadata.clone(),
-            effective_resource_constraints: self.effective_resource_constraints,
             kind,
 
             memory_reading: self.memory_reading,
+            estimated_memory_cap: self.estimated_memory_cap,
             actions_suspended,
             actions_running,
 
@@ -125,10 +125,10 @@ impl EventSenderState {
 pub(crate) struct ResourceControlEventMostly {
     event_time: SystemTime,
     metadata: HashMap<String, String>,
-    effective_resource_constraints: EffectiveResourceConstraints,
     kind: buck2_data::ResourceControlEventKind,
 
     memory_reading: MemoryReading,
+    estimated_memory_cap: u64,
     actions_running: u64,
     actions_suspended: u64,
 
@@ -169,10 +169,11 @@ impl ResourceControlEventMostly {
             metadata: self.metadata,
 
             ancestor_cgroup_constraints: Some(buck2_data::AncestorCgroupConstraints {
-                memory_max: self.effective_resource_constraints.memory_max,
-                memory_high: self.effective_resource_constraints.memory_high,
-                memory_swap_max: self.effective_resource_constraints.memory_swap_max,
-                memory_swap_high: self.effective_resource_constraints.memory_swap_high,
+                // FIXME(JakobDegen): Replace with more appropriate columns
+                memory_max: Some(self.estimated_memory_cap),
+                memory_high: Some(self.estimated_memory_cap),
+                memory_swap_max: None,
+                memory_swap_high: None,
             }),
         }
     }

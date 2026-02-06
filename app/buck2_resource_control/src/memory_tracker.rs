@@ -126,6 +126,7 @@ pub async fn create_memory_tracker(
         resource_control_config,
         daemon_id,
         effective_resource_constraints,
+        buck2_util::system_stats::system_memory_stats(),
     );
     let handle = MemoryTrackerSharedState {
         cgroup_tree,
