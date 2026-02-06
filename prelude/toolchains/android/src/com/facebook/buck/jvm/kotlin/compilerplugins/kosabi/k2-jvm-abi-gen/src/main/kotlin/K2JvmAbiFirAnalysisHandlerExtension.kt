@@ -87,6 +87,7 @@ import org.jetbrains.kotlin.fir.session.createSymbolProviders
 import org.jetbrains.kotlin.fir.session.environment.AbstractProjectFileSearchScope
 import org.jetbrains.kotlin.fir.session.firCachesFactoryForCliMode
 import org.jetbrains.kotlin.fir.symbols.SymbolInternals
+import org.jetbrains.kotlin.fir.symbols.impl.FirCallableSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirClassLikeSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirClassSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirEnumEntrySymbol
@@ -759,6 +760,12 @@ class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
                 it.name.asString() == propertyName
               }
 
+          // Check for any callable with matching name (covers Java static fields)
+          val hasCallable =
+              firClassSymbol.declarationSymbols.filterIsInstance<FirCallableSymbol<*>>().any {
+                it.name.asString() == propertyName
+              }
+
           // Also check for enum entry with matching name
           val firRegularClass = firClassSymbol.fir as? FirRegularClass
           val hasEnumEntry =
@@ -774,7 +781,7 @@ class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
           val isAnnotationClass =
               firRegularClass != null && firRegularClass.classKind == ClassKind.ANNOTATION_CLASS
 
-          if (hasProperty || hasEnumEntry || isAnnotationClass) {
+          if (hasProperty || hasCallable || hasEnumEntry || isAnnotationClass) {
             // Found a class in dependencies that has the member - no stub needed
             return null
           }
