@@ -233,10 +233,14 @@ pub struct ResourceControlConfig {
     pub memory_max_per_action: Option<String>,
     /// A memory threshold that any action is allowed to reach before being throttled.
     pub memory_high_per_action: Option<String>,
-    /// Memory high limit for action cgroup pool. Used when enable_action_cgroup_pool is true.
-    /// The corresponding buckconfig is `buck2_resource_control.memory_high_action_cgroup_pool`.
+    /// Memory high limit for all actions.
+    ///
     /// Mainly for testing purpose.
-    pub memory_high_action_cgroup_pool: Option<String>,
+    pub memory_high_actions: Option<String>,
+    /// Memory max limit for all actions.
+    ///
+    /// Mainly for testing purpose.
+    pub memory_max_actions: Option<String>,
     /// Enable suspension when memory pressure is high.
     pub enable_suspension: bool,
     pub preferred_action_suspend_strategy: ActionSuspendStrategy,
@@ -343,9 +347,13 @@ impl ResourceControlConfig {
                 section: "buck2_resource_control",
                 property: "memory_high_per_action",
             })?;
-            let memory_high_action_cgroup_pool = config.parse(BuckconfigKeyRef {
+            let memory_high_actions = config.parse(BuckconfigKeyRef {
                 section: "buck2_resource_control",
-                property: "memory_high_action_cgroup_pool",
+                property: "memory_high_actions",
+            })?;
+            let memory_max_actions = config.parse(BuckconfigKeyRef {
+                section: "buck2_resource_control",
+                property: "memory_max_actions",
             })?;
             let enable_suspension = config.parse(BuckconfigKeyRef {
                 section: "buck2_resource_control",
@@ -371,7 +379,8 @@ impl ResourceControlConfig {
                 memory_high,
                 memory_max_per_action,
                 memory_high_per_action,
-                memory_high_action_cgroup_pool,
+                memory_high_actions,
+                memory_max_actions,
                 enable_suspension,
                 preferred_action_suspend_strategy,
             })

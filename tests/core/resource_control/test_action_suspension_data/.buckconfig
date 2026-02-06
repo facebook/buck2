@@ -8,7 +8,7 @@
 [buck2_resource_control]
     status = required
     enable_suspension = true
-    memory_high_action_cgroup_pool = 200000000
+    memory_max_actions = 200000000
 
 [build]
     threads = 5

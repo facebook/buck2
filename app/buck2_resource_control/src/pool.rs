@@ -63,8 +63,11 @@ impl CgroupPool {
             .enable_memory_monitoring()
             .await?;
 
-        if let Some(pool_memory_high) = &config.memory_high_action_cgroup_pool {
+        if let Some(pool_memory_high) = &config.memory_high_actions {
             pool_cgroup.set_memory_high(pool_memory_high).await?;
+        }
+        if let Some(pool_memory_max) = &config.memory_max_actions {
+            pool_cgroup.set_memory_max(pool_memory_max).await?;
         }
 
         Ok(CgroupPool {
