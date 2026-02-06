@@ -28,8 +28,10 @@ use crate::cgroup::EffectiveResourceConstraints;
 use crate::memory_tracker::MemoryReading;
 use crate::scheduler::event::EventSenderState;
 use crate::scheduler::event::ResourceControlEventMostly;
+use crate::scheduler::timeseries::Timeseries;
 
 mod event;
+mod timeseries;
 
 /// Some information about the scene used for logging only
 #[derive(Debug)]
@@ -110,7 +112,6 @@ pub(crate) struct SceneIdRef(u64);
 ///
 /// You should typically think of this as an action, but in principle it might be anything that buck
 /// does which needs access to significant system resources for some amount of time.
-#[derive(Debug)]
 struct Scene {
     description: SceneDescription,
     scene_id: SceneIdRef,
@@ -123,13 +124,11 @@ struct Scene {
     suspend_strategy: ActionSuspendStrategy,
 }
 
-#[derive(Debug)]
 struct RunningScene {
     scene: Scene,
     suspend_implementation: SuspendImplementation,
 }
 
-#[derive(Debug)]
 struct SuspendedScene {
     scene: Scene,
     // None indicates that this scene was never started
@@ -183,6 +182,8 @@ pub(crate) struct Scheduler {
     /// last N samples?
     estimated_memory_cap: u64,
 
+    allprocs_memory_current: Timeseries,
+
     event_sender_state: EventSenderState,
     next_scene_id: SceneId,
 }
@@ -193,6 +194,7 @@ impl Scheduler {
         daemon_id: &DaemonId,
         effective_resource_constraints: EffectiveResourceConstraints,
         system_memory_max: u64,
+        now: Instant,
     ) -> Self {
         let enable_suspension = resource_control_config.enable_suspension;
 
@@ -203,6 +205,7 @@ impl Scheduler {
             effective_resource_constraints,
             system_memory_max,
             daemon_id,
+            now,
         )
     }
 
@@ -213,6 +216,7 @@ impl Scheduler {
         effective_resource_constraints: EffectiveResourceConstraints,
         system_memory_max: u64,
         daemon_id: &DaemonId,
+        now: Instant,
     ) -> Self {
         let estimated_memory_cap = effective_resource_constraints
             .memory_high
@@ -226,13 +230,14 @@ impl Scheduler {
             suspended_scenes: VecDeque::new(),
             last_correction_time: None,
             estimated_memory_cap,
+            allprocs_memory_current: Timeseries::new(Duration::from_secs(60), now, 0.0),
             event_sender_state: EventSenderState::new(daemon_id, estimated_memory_cap),
             next_scene_id: SceneId(0),
         }
     }
 
     #[cfg(test)]
-    pub(crate) fn testing_new() -> Self {
+    pub(crate) fn testing_new(now: Instant) -> Self {
         Self::new(
             true,
             ActionSuspendStrategy::KillAndRetry,
@@ -240,6 +245,7 @@ impl Scheduler {
             EffectiveResourceConstraints::default(),
             1_000_000, // System memory max
             &DaemonId::new(),
+            now,
         )
     }
 
@@ -341,6 +347,9 @@ impl Scheduler {
                 .update_estimated_memory_cap(self.estimated_memory_cap);
         }
 
+        self.allprocs_memory_current
+            .add_sample(now, memory_reading.allprocs_memory_current as f64);
+
         self.event_sender_state
             .update_memory_reading(memory_reading);
         for cgroup in self
@@ -365,7 +374,7 @@ impl Scheduler {
         if is_above_pressure_limit {
             self.maybe_decrease_running_count(now);
         } else {
-            self.maybe_increase_running_count(memory_reading, now);
+            self.maybe_increase_running_count(now);
         }
 
         // Report resource control events every 10 seconds normally, but every second during times
@@ -422,7 +431,7 @@ impl Scheduler {
         );
     }
 
-    fn maybe_increase_running_count(&mut self, memory_reading: MemoryReading, now: Instant) {
+    fn maybe_increase_running_count(&mut self, now: Instant) {
         // We increase the running count at most once every 3 seconds since memory changes of
         // previous suspensions will take several seconds to take effect. This ensures that we don't
         // wake too quickly
@@ -449,7 +458,10 @@ impl Scheduler {
             }
         };
 
-        let should_wake = memory_reading.allprocs_memory_current + required_memory_headroom
+        let should_wake = (self
+            .allprocs_memory_current
+            .average_over_last(Duration::from_secs(5)) as u64)
+            + required_memory_headroom
             < self.estimated_memory_cap;
 
         if !should_wake {
@@ -614,8 +626,9 @@ mod tests {
     struct TestTimeline(Instant);
 
     impl TestTimeline {
-        fn new() -> Self {
-            TestTimeline(Instant::now())
+        fn new() -> (Scheduler, Self) {
+            let now = Instant::now();
+            (Scheduler::testing_new(now), Self(now))
         }
 
         fn secs(&self, n: u64) -> Instant {
@@ -625,8 +638,7 @@ mod tests {
 
     #[test]
     fn test_peak_memory_and_swap() -> buck2_error::Result<()> {
-        let mut scheduler = Scheduler::testing_new();
-        let timeline = TestTimeline::new();
+        let (mut scheduler, timeline) = TestTimeline::new();
         let scene1 = scheduler
             .scene_started(
                 SceneDescription {
@@ -682,8 +694,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_freeze() -> buck2_error::Result<()> {
-        let mut scheduler = Scheduler::testing_new();
-        let timeline = TestTimeline::new();
+        let (mut scheduler, timeline) = TestTimeline::new();
         let scene1 = scheduler
             .scene_started(
                 SceneDescription {
