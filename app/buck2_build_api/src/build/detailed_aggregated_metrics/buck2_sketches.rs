@@ -12,7 +12,9 @@ use std::collections::HashSet;
 
 use allocative::Allocative;
 use async_trait::async_trait;
+use buck2_artifact::actions::key::ActionKey;
 use buck2_core::configuration::compatibility::MaybeCompatible;
+use buck2_core::deferred::key::DeferredHolderKey;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_interpreter::dice::starlark_provider::StarlarkEvalKind;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
@@ -24,9 +26,35 @@ use fxhash::FxHashSet;
 use starlark::values::FrozenHeapRef;
 
 use crate::analysis::calculation::RuleAnalysisCalculation;
+use crate::artifact_groups::ArtifactGroup;
 use crate::build::graph_properties::ConfiguredGraphPropertiesValues;
 use crate::build::sketch_impl::DEFAULT_SKETCH_VERSION;
 use crate::build::sketch_impl::MergeableGraphSketch;
+use crate::deferred::calculation::DeferredHolder;
+
+/// Computes an unweighted sketch of the action graph by traversing from root artifacts.
+///
+/// This function traverses the action graph starting from the provided root artifacts,
+/// sketching each unique action key encountered. The sketch can be used for similarity
+/// comparisons between action graphs.
+///
+/// Returns a tuple of (is_complete, sketch) where is_complete indicates whether the
+/// traversal was able to visit all nodes (false if some nodes were missing due to
+/// failed analysis or dynamic nodes).
+pub fn compute_action_graph_sketch<'a>(
+    root_artifacts: impl IntoIterator<Item = &'a ArtifactGroup>,
+    state: &fxhash::FxHashMap<DeferredHolderKey, DeferredHolder>,
+) -> buck2_error::Result<(bool, MergeableGraphSketch<ActionKey>)> {
+    let (complete, actions) =
+        super::implementation::traverse::traverse_partial_action_graph(root_artifacts, state)?;
+
+    let mut sketcher = DEFAULT_SKETCH_VERSION.create_sketcher();
+    for action_key in actions.iter() {
+        sketcher.sketch(action_key);
+    }
+
+    Ok((complete, sketcher.into_mergeable_graph_sketch()))
+}
 
 /// Returns the total graph size for all dependencies of a target without caching the result on the DICE graph.
 /// The cost of storing this on DICE is extremely low, so there's almost no reason to use this function (we currently
