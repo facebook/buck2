@@ -23,6 +23,8 @@ use crate::build::detailed_aggregated_metrics::types::ActionExecutionMetrics;
 use crate::build::detailed_aggregated_metrics::types::DetailedAggregatedMetrics;
 use crate::build::detailed_aggregated_metrics::types::PerBuildEvents;
 use crate::build::detailed_aggregated_metrics::types::TopLevelTargetSpec;
+use crate::build::graph_properties::GraphPropertiesOptions;
+use crate::build::sketch_impl::MergeableGraphSketch;
 use crate::deferred::calculation::DeferredHolder;
 
 pub(crate) enum DetailedAggregatedMetricsEvent {
@@ -30,7 +32,12 @@ pub(crate) enum DetailedAggregatedMetricsEvent {
     AnalysisComplete(DeferredHolderKey, DeferredHolder),
     ComputeMetrics(
         PerBuildEvents,
+        GraphPropertiesOptions,
         tokio::sync::oneshot::Sender<buck2_error::Result<DetailedAggregatedMetrics>>,
+    ),
+    ComputeActionGraphSketch(
+        Vec<TopLevelTargetSpec>,
+        tokio::sync::oneshot::Sender<buck2_error::Result<Option<MergeableGraphSketch<ActionKey>>>>,
     ),
     ActionExecuted(ActionExecutionMetrics),
 }
@@ -91,11 +98,31 @@ impl DetailedAggregatedMetricsEventHandler {
     pub(crate) async fn compute_metrics(
         &self,
         events: PerBuildEvents,
+        graph_properties: GraphPropertiesOptions,
     ) -> buck2_error::Result<DetailedAggregatedMetrics> {
         let (tx, rx) = tokio::sync::oneshot::channel();
         self.0
             .sender
-            .send(DetailedAggregatedMetricsEvent::ComputeMetrics(events, tx))
+            .send(DetailedAggregatedMetricsEvent::ComputeMetrics(
+                events,
+                graph_properties,
+                tx,
+            ))
+            .map_err(|_| internal_error!("detailed metrics state tracker is gone"))?;
+        rx.await?
+    }
+
+    pub(crate) async fn compute_action_graph_sketch(
+        &self,
+        top_level_targets: Vec<TopLevelTargetSpec>,
+    ) -> buck2_error::Result<Option<MergeableGraphSketch<ActionKey>>> {
+        let (tx, rx) = tokio::sync::oneshot::channel();
+        self.0
+            .sender
+            .send(DetailedAggregatedMetricsEvent::ComputeActionGraphSketch(
+                top_level_targets,
+                tx,
+            ))
             .map_err(|_| internal_error!("detailed metrics state tracker is gone"))?;
         rx.await?
     }
@@ -148,8 +175,4 @@ impl DetailedAggregatedMetricsPerBuildEventsHolder {
 
         Ok(events)
     }
-}
-pub enum ActionGraph {
-    ActionExecuted(ActionExecutionMetrics),
-    TopLevelTarget(TopLevelTargetSpec),
 }

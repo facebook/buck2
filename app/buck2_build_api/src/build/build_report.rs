@@ -110,6 +110,8 @@ pub struct BuildReport {
     #[serde(skip_serializing_if = "Option::is_none")]
     total_configured_graph_sketch: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
+    action_graph_sketch: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     error_category: Option<String>,
 }
 
@@ -154,6 +156,9 @@ pub(crate) struct ConfiguredBuildReportEntry {
     /// A sketch of the analysis memory used by this target
     #[serde(skip_serializing_if = "Option::is_none")]
     retained_analysis_memory_sketch: Option<String>,
+    /// A sketch of the action graph for this target
+    #[serde(skip_serializing_if = "Option::is_none")]
+    action_graph_sketch: Option<String>,
 }
 
 /// DO NOT UPDATE WITHOUT UPDATING `docs/users/build_observability/build_report.md`!
@@ -365,13 +370,20 @@ impl<'a> BuildReportCollector<'a> {
             this.overall_success = false;
         }
 
-        let mut metrics_by_configured = HashMap::new();
+        let mut metrics_by_configured: HashMap<ConfiguredProvidersLabel, Arc<TargetBuildMetrics>> =
+            HashMap::new();
+        let mut action_graph_sketches_by_configured: HashMap<ConfiguredProvidersLabel, String> =
+            HashMap::new();
         if let Some(detailed_metrics) = detailed_metrics.as_ref() {
             for top_level_metrics in &detailed_metrics.top_level_target_metrics {
                 metrics_by_configured.insert(
-                    &top_level_metrics.target,
+                    top_level_metrics.target.clone(),
                     Self::convert_per_target_metrics(top_level_metrics).into(),
                 );
+                if let Some(sketch) = &top_level_metrics.action_graph_sketch {
+                    action_graph_sketches_by_configured
+                        .insert(top_level_metrics.target.clone(), sketch.serialize());
+                }
             }
         }
 
@@ -448,6 +460,7 @@ impl<'a> BuildReportCollector<'a> {
                     modifiers_results,
                     errors,
                     &mut metrics_by_configured,
+                    &action_graph_sketches_by_configured,
                     &mut all_error_reports,
                 )?;
 
@@ -534,6 +547,11 @@ impl<'a> BuildReportCollector<'a> {
             .total_configured_graph_sketch
             .map(|sketcher| sketcher.into_mergeable_graph_sketch().serialize());
 
+        let action_graph_sketch = detailed_metrics
+            .as_ref()
+            .and_then(|m| m.action_graph_sketch.as_ref())
+            .map(|sketch| sketch.serialize());
+
         // Determine error category using existing Buck2 error classification
         let error_category = if let Some(best_error_report) = best_error(&all_error_reports) {
             Some(best_error_report.category().to_string())
@@ -556,6 +574,7 @@ impl<'a> BuildReportCollector<'a> {
             build_metrics: detailed_metrics
                 .map(|m| Self::convert_all_target_build_metrics(&m.all_targets_build_metrics)),
             total_configured_graph_sketch,
+            action_graph_sketch,
             error_category,
         })
     }
@@ -623,7 +642,8 @@ impl<'a> BuildReportCollector<'a> {
             ),
         >,
         errors: &[buck2_error::Error],
-        metrics: &mut HashMap<&'b ConfiguredProvidersLabel, Arc<TargetBuildMetrics>>,
+        metrics: &mut HashMap<ConfiguredProvidersLabel, Arc<TargetBuildMetrics>>,
+        action_graph_sketches: &HashMap<ConfiguredProvidersLabel, String>,
         all_error_reports: &mut Vec<ErrorReport>,
     ) -> buck2_error::Result<BuildReportEntry> {
         // NOTE: if we're actually building a thing, then the package path must exist, but be
@@ -653,6 +673,7 @@ impl<'a> BuildReportCollector<'a> {
                 target_with_modifiers.dupe(),
                 results,
                 metrics,
+                action_graph_sketches,
                 all_error_reports,
             )?;
 
@@ -709,7 +730,8 @@ impl<'a> BuildReportCollector<'a> {
                 &'b ConfiguredBuildTargetResult,
             ),
         >,
-        metrics: &mut HashMap<&'b ConfiguredProvidersLabel, Arc<TargetBuildMetrics>>,
+        metrics: &mut HashMap<ConfiguredProvidersLabel, Arc<TargetBuildMetrics>>,
+        action_graph_sketches: &HashMap<ConfiguredProvidersLabel, String>,
         all_error_reports: &mut Vec<ErrorReport>,
     ) -> buck2_error::Result<ConfiguredBuildReportEntry> {
         let mut configured_report = ConfiguredBuildReportEntry::default();
@@ -782,6 +804,7 @@ impl<'a> BuildReportCollector<'a> {
             }
 
             configured_report.build_metrics = metrics.get(label).duped();
+            configured_report.action_graph_sketch = action_graph_sketches.get(label).cloned();
         }
         configured_report.errors =
             self.convert_error_list(&errors, EntryLabel::Target(target_with_modifiers));

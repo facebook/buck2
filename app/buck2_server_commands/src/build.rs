@@ -252,11 +252,23 @@ async fn build(
         .await?
         .unwrap_or_default();
 
+    let want_action_graph_sketch = ctx
+        .parse_legacy_config_property(
+            cell_resolver.root_cell(),
+            BuckconfigKeyRef {
+                section: "buck2",
+                property: "log_action_graph_sketch",
+            },
+        )
+        .await?
+        .unwrap_or_default();
+
     let graph_properties = GraphPropertiesOptions {
         configured_graph_size: want_configured_graph_size,
         configured_graph_sketch: want_configured_graph_sketch,
         total_configured_graph_sketch: want_total_configured_graph_sketch,
         retained_analysis_memory_sketch: want_retained_analysis_memory_sketch,
+        action_graph_sketch: want_action_graph_sketch,
     };
 
     let (streaming_build_result_tx, streaming_build_result_rx) =
@@ -311,10 +323,38 @@ async fn build(
         .await?
         .unwrap_or_default();
 
-    let detailed_metrics = if want_detailed_metrics {
-        let events = ctx.take_per_build_events()?;
-        let metrics = ctx.compute_detailed_metrics(events).await?;
-        instant_event(metrics.as_proto());
+    // We need to take per-build events if we want either detailed metrics or action graph sketch
+    let need_events = want_detailed_metrics || graph_properties.action_graph_sketch;
+    let events = if need_events {
+        Some(ctx.take_per_build_events()?)
+    } else {
+        None
+    };
+
+    // Compute action graph sketch independently if requested (doesn't require detailed_metrics)
+    let action_graph_sketch = if graph_properties.action_graph_sketch {
+        if let Some(ref events) = events {
+            ctx.compute_action_graph_sketch(events).await?
+        } else {
+            None
+        }
+    } else {
+        None
+    };
+
+    let detailed_metrics = if want_detailed_metrics || graph_properties.action_graph_sketch {
+        let events = events
+            .expect("events should be Some when detailed metrics or action_graph_sketch is needed");
+        let mut metrics = ctx
+            .compute_detailed_metrics(events, graph_properties)
+            .await?;
+        // If action_graph_sketch was already computed above, use that instead of recomputing
+        if action_graph_sketch.is_some() {
+            metrics.action_graph_sketch = action_graph_sketch;
+        }
+        if want_detailed_metrics {
+            instant_event(metrics.as_proto());
+        }
         Some(metrics)
     } else {
         None

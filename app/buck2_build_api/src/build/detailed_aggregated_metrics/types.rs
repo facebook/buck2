@@ -21,6 +21,7 @@ use dupe::Dupe;
 
 use crate::artifact_groups::ArtifactGroup;
 use crate::build::BuildProviderType;
+use crate::build::sketch_impl::MergeableGraphSketch;
 
 #[derive(Clone)]
 pub struct ActionExecutionMetrics {
@@ -36,6 +37,7 @@ pub struct AnalysisMetrics {
     pub retained_memory: usize,
 }
 
+#[derive(Clone)]
 pub struct TopLevelTargetSpec {
     pub label: ConfiguredProvidersLabel,
     pub target: ConfiguredTargetNode,
@@ -51,6 +53,7 @@ pub struct PerBuildEvents {
 pub struct DetailedAggregatedMetrics {
     pub top_level_target_metrics: Vec<TopLevelTargetAggregatedData>,
     pub all_targets_build_metrics: AllTargetsAggregatedData,
+    pub action_graph_sketch: Option<MergeableGraphSketch<ActionKey>>,
 }
 
 impl ToProtoMessage for DetailedAggregatedMetrics {
@@ -109,6 +112,8 @@ pub struct TopLevelTargetAggregatedData {
     pub amortized_metrics: AggregatedBuildMetrics,
     pub remote_max_memory_peak_bytes: u64,
     pub local_max_memory_peak_bytes: u64,
+    /// Per-target action graph sketch for similarity comparison
+    pub action_graph_sketch: Option<MergeableGraphSketch<ActionKey>>,
 }
 
 #[derive(Clone, Copy, Dupe)]
@@ -118,7 +123,11 @@ pub enum BuiltWhen {
 }
 
 impl TopLevelTargetAggregatedData {
-    pub fn new(target: ConfiguredProvidersLabel, action_graph_size: Option<usize>) -> Self {
+    pub fn new(
+        target: ConfiguredProvidersLabel,
+        action_graph_size: Option<usize>,
+        action_graph_sketch: Option<MergeableGraphSketch<ActionKey>>,
+    ) -> Self {
         Self {
             target,
             action_graph_size: action_graph_size.map(|v| v as u64),
@@ -126,6 +135,7 @@ impl TopLevelTargetAggregatedData {
             amortized_metrics: AggregatedBuildMetrics::default(),
             remote_max_memory_peak_bytes: 0,
             local_max_memory_peak_bytes: 0,
+            action_graph_sketch,
         }
     }
 
@@ -231,6 +241,7 @@ impl AggregatedBuildMetrics {
     }
 }
 
+#[derive(Default)]
 pub struct AllTargetsAggregatedData {
     pub metrics: AggregatedBuildMetrics,
     pub action_graph_size: Option<u64>,

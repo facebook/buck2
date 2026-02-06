@@ -34,6 +34,7 @@ pub struct GraphPropertiesOptions {
     pub configured_graph_sketch: bool,
     pub total_configured_graph_sketch: bool,
     pub retained_analysis_memory_sketch: bool,
+    pub action_graph_sketch: bool,
 }
 
 impl fmt::Display for GraphPropertiesOptions {
@@ -43,6 +44,7 @@ impl fmt::Display for GraphPropertiesOptions {
             configured_graph_sketch,
             total_configured_graph_sketch,
             retained_analysis_memory_sketch,
+            action_graph_sketch,
         } = *self;
 
         let mut comma = commas();
@@ -67,6 +69,11 @@ impl fmt::Display for GraphPropertiesOptions {
             write!(f, "retained_analysis_memory_sketch")?;
         }
 
+        if action_graph_sketch {
+            comma(f)?;
+            write!(f, "action_graph_sketch")?;
+        }
+
         Ok(())
     }
 }
@@ -78,12 +85,14 @@ impl GraphPropertiesOptions {
             configured_graph_sketch,
             total_configured_graph_sketch,
             retained_analysis_memory_sketch,
+            action_graph_sketch,
         } = self;
 
         !configured_graph_size
             && !configured_graph_sketch
             && !total_configured_graph_sketch
             && !retained_analysis_memory_sketch
+            && !action_graph_sketch
     }
 
     pub(crate) fn should_compute_configured_graph_sketch(self) -> bool {
