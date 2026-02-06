@@ -24,6 +24,8 @@ pub use pagable_arc::PinnedPagableArcBorrow;
 pub use pagable_derive::Pagable;
 pub use pagable_derive::PagableDeserialize;
 pub use pagable_derive::PagableSerialize;
+pub use pagable_derive::pagable_typetag;
+pub use typetag::PagableTagged;
 
 pub mod arc_erase;
 pub mod context;
@@ -33,6 +35,7 @@ pub mod storage;
 mod test;
 pub mod testing;
 pub mod traits;
+pub mod typetag;
 
 pub use traits::Pagable;
 pub use traits::PagableBoxDeserialize;
@@ -48,5 +51,6 @@ pub type Error = anyhow::Error;
 
 pub mod __internal {
     pub use anyhow;
+    pub use inventory;
     pub use serde;
 }

@@ -164,7 +164,7 @@ pub trait PagableDeserializer<'de> {
 
 static_assertions::assert_obj_safe!(PagableDeserializer<'_>);
 
-impl<'de, D: PagableDeserializer<'de>> PagableDeserializer<'de> for &mut D {
+impl<'de, D: PagableDeserializer<'de> + ?Sized> PagableDeserializer<'de> for &mut D {
     fn serde(&mut self) -> Box<dyn erased_serde::Deserializer<'de> + '_> {
         <D as PagableDeserializer<'de>>::serde(self)
     }

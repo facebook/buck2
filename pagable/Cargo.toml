@@ -18,6 +18,7 @@ erased-serde = { workspace = true }
 gazebo = { workspace = true }
 indexmap = { workspace = true }
 num-bigint = { workspace = true }
+inventory = { workspace = true }
 pagable_derive = { path = "../pagable_derive" }
 parking_lot = { workspace = true }
 postcard = { workspace = true }
