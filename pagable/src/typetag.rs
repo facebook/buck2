@@ -122,6 +122,28 @@ mod tests {
         }
     }
 
+    #[derive(Pagable, Debug, Eq, PartialEq)]
+    #[crate::pagable_typetag(Named)]
+    pub struct Bar {
+        pub name: Arc<String>,
+    }
+
+    pub trait NamedDyn: PagableTagged + Send + Sync + Debug {
+        fn name(&self) -> &str;
+    }
+
+    impl NamedDyn for Bar {
+        fn name(&self) -> &str {
+            &self.name
+        }
+    }
+
+    impl<T: NamedDyn> Named for T {
+        fn name(&self) -> &str {
+            NamedDyn::name(self)
+        }
+    }
+
     #[test]
     fn test_typetag_roundtrip() -> crate::Result<()> {
         use crate::testing::TestingDeserializer;
@@ -129,6 +151,28 @@ mod tests {
         use crate::traits::PagableBoxDeserialize;
 
         let value: Arc<dyn Named> = Arc::new(Key {
+            name: Arc::new("test".to_owned()),
+        });
+
+        let mut serializer = TestingSerializer::new();
+        value.serialize_tagged(&mut serializer)?;
+        let bytes = serializer.finish();
+
+        let mut deserializer = TestingDeserializer::new(&bytes);
+
+        let restored: Box<dyn Named> = <dyn Named>::deserialize_box(&mut deserializer)?;
+
+        assert_eq!(restored.name(), "test");
+        Ok(())
+    }
+
+    #[test]
+    fn test_typetag_roundtrip_indirect_impl() -> crate::Result<()> {
+        use crate::testing::TestingDeserializer;
+        use crate::testing::TestingSerializer;
+        use crate::traits::PagableBoxDeserialize;
+
+        let value: Arc<dyn Named> = Arc::new(Bar {
             name: Arc::new("test".to_owned()),
         });
 
