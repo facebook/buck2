@@ -27,6 +27,8 @@ GoListOut = record(
     ignored_other_files = field(list[Artifact], default = []),
     cgo_cflags = field(list[str], default = []),
     cgo_cppflags = field(list[str], default = []),
+    embed_patterns = field(list[str], default = []),
+    test_embed_patterns = field(list[str], default = []),
 )
 
 def go_list(actions: AnalysisActions, go_toolchain: GoToolchainInfo, pkg_name: str, srcs: list[Artifact], package_root: str, build_tags: list[str], cgo_enabled: bool, with_tests: bool) -> Artifact:
@@ -93,6 +95,8 @@ def parse_go_list_out(srcs: list[Artifact], package_root: str, go_list_out: Arti
     x_test_imports = go_list.get("XTestImports", [])
     cgo_cflags = go_list.get("CgoCFLAGS", [])
     cgo_cppflags = go_list.get("CgoCPPFLAGS", [])
+    embed_patterns = go_list.get("EmbedPatterns", [])
+    test_embed_patterns = go_list.get("TestEmbedPatterns", [])
 
     return GoListOut(
         name = name,
@@ -111,4 +115,6 @@ def parse_go_list_out(srcs: list[Artifact], package_root: str, go_list_out: Arti
         cgo_cppflags = cgo_cppflags,
         ignored_go_files = ignored_go_files,
         ignored_other_files = ignored_other_files,
+        embed_patterns = embed_patterns,
+        test_embed_patterns = test_embed_patterns,
     )

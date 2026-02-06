@@ -73,6 +73,7 @@ go_binary = prelude_rule(
         go_common.assembler_flags_arg() |
         go_common.linker_flags_arg() |
         go_common.external_linker_flags_arg() |
+        go_common.embed_srcs_arg() |
         go_common.embedcfg_arg() |
         {
             "build_mode": attrs.option(attrs.enum(BuildMode), doc = """
@@ -173,13 +174,14 @@ go_exported_library = prelude_rule(
         go_common.cgo_enabled_arg() |
         go_common.build_tags_arg() |
         go_common.generate_exported_header() |
+        go_common.embed_srcs_arg() |
+        go_common.embedcfg_arg() |
         {
             "resources": attrs.list(attrs.source(), default = [], doc = """
                 Static files to be symlinked into the working directory of the test. You can access these in your
                  by opening the files as relative paths, e.g. `ioutil.ReadFile("testdata/input")`.
             """),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
-            "embedcfg": attrs.option(attrs.source(), default = None),
             "platform": attrs.option(attrs.string(), default = None),
         } |
         buck.licenses_arg() |
@@ -219,6 +221,7 @@ go_library = prelude_rule(
         go_common.deps_arg() |
         go_common.compiler_flags_arg() |
         go_common.assembler_flags_arg() |
+        go_common.embed_srcs_arg() |
         go_common.embedcfg_arg() |
         go_common.package_root_arg() |
         go_common.override_cgo_enabled_arg() |
@@ -332,6 +335,7 @@ go_test = prelude_rule(
         go_common.assembler_flags_arg() |
         go_common.linker_flags_arg() |
         go_common.external_linker_flags_arg() |
+        go_common.embed_srcs_arg() |
         go_common.embedcfg_arg() |
         go_common.package_root_arg() |
         go_common.cgo_enabled_arg() |

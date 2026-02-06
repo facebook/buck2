@@ -36,6 +36,7 @@ def build_package(
         compiler_flags: list[str] = [],
         assembler_flags: list[str] = [],
         build_tags: list[str] = [],
+        embed_srcs: list[Artifact] = [],
         cgo_enabled: bool = False,
         coverage_mode: GoCoverageMode | None = None,
         embedcfg: Artifact | None = None,
@@ -88,6 +89,7 @@ def build_package(
         assembler_flags = assembler_flags,
         coverage_mode = coverage_mode,
         embedcfg = embedcfg,
+        embed_srcs = embed_srcs,
         with_tests = with_tests,
         go_toolchain = go_toolchain,
         go_stdlib = go_stdlib,
@@ -129,6 +131,7 @@ def _build_package_action_impl(
         assembler_flags: list[str],
         coverage_mode: None | GoCoverageMode,
         embedcfg: Artifact | None,
+        embed_srcs: list[Artifact],
         with_tests: bool,
         go_toolchain: GoToolchainInfo,
         go_stdlib: GoStdlib,
@@ -183,6 +186,12 @@ def _build_package_action_impl(
     actions.write(test_go_files_argsfile, cmd_args((go_list.test_go_files if with_tests else []), ""))
 
     symabis = _symabis(actions, go_toolchain, pkg_name, main, s_files, go_list.h_files, assembler_flags)
+
+    # todo(michaelpo): Keep it here to give OSS users some time to migrate.
+    # Remove embed_files attr from _compile() together with embedcfg.
+    if embedcfg == None:
+        embed_patterns = [] + go_list.embed_patterns + (go_list.test_embed_patterns if with_tests else [])
+        embedcfg = _embedcfg(actions, go_toolchain, pkg_name, package_root, embed_srcs, embed_patterns)
 
     # Use -complete flag when compiling Go code only
     complete_flag = len(go_list.cgo_files) + len(s_files) + len(c_files) == 0
@@ -241,6 +250,7 @@ _build_package_action = dynamic_actions(
         "assembler_flags": dynattrs.value(list[str]),
         "coverage_mode": dynattrs.value(GoCoverageMode | None),
         "embedcfg": dynattrs.value(Artifact | None),
+        "embed_srcs": dynattrs.value(list[Artifact]),
         "with_tests": dynattrs.value(bool),
         "go_toolchain": dynattrs.value(GoToolchainInfo),
         "go_stdlib": dynattrs.value(GoStdlib),
@@ -422,6 +432,30 @@ def _pack(actions: AnalysisActions, go_toolchain: GoToolchainInfo, pkg_name: str
     actions.run(pack_cmd, env = env, category = "go_pack", identifier = identifier + suffix)
 
     return pkg_file
+
+def _embedcfg(actions: AnalysisActions, go_toolchain: GoToolchainInfo, pkg_name: str, package_root: str, embed_srcs: list[Artifact], embed_patterns: list[str]) -> Artifact | None:
+    if len(embed_patterns) == 0:
+        return None
+
+    embedcfg = actions.declare_output("embedcfg", has_content_based_path = True)
+
+    srcs_dir = actions.copied_dir(
+        "__embed_srcs_dir__",
+        {src.short_path.removeprefix(package_root).lstrip("/"): src for src in embed_srcs},
+        has_content_based_path = True,
+    )
+
+    embed_cmd = [
+        go_toolchain.gen_embedcfg,
+        ["-o", embedcfg.as_output()],
+        ["-pkgdir", srcs_dir],
+        embed_patterns,
+    ]
+
+    identifier = paths.basename(pkg_name)
+    actions.run(embed_cmd, category = "go_embedcfg", identifier = identifier)
+
+    return embedcfg.with_associated_artifacts([srcs_dir])
 
 def _asm_args(go_toolchain: GoToolchainInfo, pkg_name: str, main: bool, shared: bool):
     return [

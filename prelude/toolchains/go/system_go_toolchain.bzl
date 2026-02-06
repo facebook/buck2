@@ -46,6 +46,7 @@ def _system_go_toolchain_impl(ctx):
             cgo = RunInfo(cmd_script(ctx.actions, "cgo", cmd_args(go, "tool", "cgo"), script_language)),
             concat_files = ctx.attrs.concat_files[RunInfo],
             pkg_analyzer = ctx.attrs.pkg_analyzer[RunInfo],
+            gen_embedcfg = ctx.attrs.gen_embedcfg[RunInfo],
             compiler = RunInfo(cmd_script(ctx.actions, "compile", cmd_args(go, "tool", "compile"), script_language)),
             cover = RunInfo(cmd_script(ctx.actions, "cover", cmd_args(go, "tool", "cover"), script_language)),
             env_go_arch = go_arch,
@@ -73,6 +74,7 @@ system_go_toolchain = rule(
   )""",
     attrs = {
         "concat_files": attrs.default_only(attrs.dep(providers = [RunInfo], default = "prelude//go/tools:concat_files")),
+        "gen_embedcfg": attrs.default_only(attrs.dep(providers = [RunInfo], default = "prelude//go/tools:gen_embedcfg")),
         "gen_stdlib_importcfg": attrs.default_only(attrs.dep(providers = [RunInfo], default = "prelude//go/tools:gen_stdlib_importcfg")),
         "go_wrapper": attrs.default_only(attrs.dep(providers = [RunInfo], default = "prelude//go/tools:go_wrapper")),
         "pkg_analyzer": attrs.default_only(attrs.dep(providers = [RunInfo], default = "prelude//go/tools:pkg_analyzer")),

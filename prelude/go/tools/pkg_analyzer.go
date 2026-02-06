@@ -47,6 +47,8 @@ type AnalyzerOutput struct {
 	IgnoredOtherFiles []string `json:"IgnoredOtherFiles,omitempty"`
 	CgoCFLAGS         []string `json:"CgoCFLAGS,omitempty"`
 	CgoCPPFLAGS       []string `json:"CgoCPPFLAGS,omitempty"`
+	EmbedPatterns     []string `json:"EmbedPatterns,omitempty"`
+	TestEmbedPatterns []string `json:"TestEmbedPatterns,omitempty"`
 
 	// Error information (matches go list -e output)
 	// Error *PackageError `json:"Error,omitempty"`
@@ -139,6 +141,7 @@ Flags:
 		IgnoredOtherFiles: pkg.IgnoredOtherFiles,
 		CgoCFLAGS:         pkg.CgoCFLAGS,
 		CgoCPPFLAGS:       pkg.CgoCPPFLAGS,
+		EmbedPatterns:     pkg.EmbedPatterns,
 		// Error:             pkgErr,
 	}
 
@@ -148,6 +151,7 @@ Flags:
 		out.XTestGoFiles = pkg.XTestGoFiles
 		out.TestImports = pkg.TestImports
 		out.XTestImports = pkg.XTestImports
+		out.TestEmbedPatterns = pkg.TestEmbedPatterns
 	}
 
 	jsonData, err := json.MarshalIndent(out, "", "\t")

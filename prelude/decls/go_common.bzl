@@ -95,6 +95,15 @@ def _external_linker_flags_arg():
 """),
     }
 
+def _embed_srcs_arg():
+    return {
+        "embed_srcs": attrs.list(attrs.source(), default = [], doc = """
+    The set of files and directories to be embeded if match go:embed patters, e.g. `//go:embed *.txt`
+
+    ```
+"""),
+    }
+
 def _embedcfg_arg():
     return {
         "embedcfg": attrs.option(attrs.source(), default = None, doc = """
@@ -178,6 +187,7 @@ go_common = struct(
     linker_flags_arg = _linker_flags_arg,
     external_linker_flags_arg = _external_linker_flags_arg,
     embedcfg_arg = _embedcfg_arg,
+    embed_srcs_arg = _embed_srcs_arg,
     cgo_enabled_arg = _cgo_enabled_arg,
     override_cgo_enabled_arg = _override_cgo_enabled_arg,
     build_tags_arg = _build_tags_arg,

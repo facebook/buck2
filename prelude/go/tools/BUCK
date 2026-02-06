@@ -64,3 +64,14 @@ prelude.go_bootstrap_binary(
         "PUBLIC",
     ],
 )
+
+prelude.go_bootstrap_binary(
+    name = "gen_embedcfg",
+    srcs = ["gen_embedcfg.go"],
+    build_args = [
+        "gen_embedcfg.go",
+    ],
+    visibility = [
+        "PUBLIC",
+    ],
+)

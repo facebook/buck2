@@ -68,6 +68,7 @@ def go_library_impl(ctx: AnalysisContext) -> list[Provider]:
         build_tags = ctx.attrs._build_tags,
         coverage_mode = coverage_mode,
         embedcfg = ctx.attrs.embedcfg,
+        embed_srcs = ctx.attrs.embed_srcs,
         cgo_enabled = evaluate_cgo_enabled(cxx_toolchain_available, ctx.attrs._cgo_enabled, ctx.attrs.override_cgo_enabled),
     )
 
