@@ -2260,7 +2260,7 @@ impl InvocationRecorder {
                     buck2_data::instant_event::Data::DiceStateSnapshot(dice_state_snapshot) => {
                         self.handle_dice_state_snapshot(dice_state_snapshot)
                     }
-                    buck2_data::instant_event::Data::ComandOptions(command_options) => {
+                    buck2_data::instant_event::Data::CommandOptions(command_options) => {
                         self.handle_command_options(command_options)
                     }
                     _ => Ok(()),

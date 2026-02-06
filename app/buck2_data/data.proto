@@ -267,7 +267,7 @@ message InstantEvent {
     StarlarkUserEvent starlark_user_event = 30;
 
     // Log options that are command-level and processed by the daemon.
-    CommandOptions comand_options = 31;
+    CommandOptions command_options = 31;
 
     // Concurrent active commands.
     ConcurrentCommands concurrent_commands = 32;
