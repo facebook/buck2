@@ -488,7 +488,7 @@ impl<K: CgroupKind> Cgroup<WithMemoryMonitoring, K> {
             .memory_pressure
             .read_resource_pressure()
             .await?
-            .some
+            .full
             .total;
         let after = Instant::now();
 

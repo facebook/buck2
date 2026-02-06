@@ -270,8 +270,6 @@ pub(crate) struct ResourcePressurePart {
 }
 
 pub(crate) struct ResourcePressure {
-    pub(crate) some: ResourcePressurePart,
-    #[allow(dead_code)] // For completeness
     pub(crate) full: ResourcePressurePart,
 }
 
@@ -320,8 +318,9 @@ impl ResourcePressure {
             })
         };
 
+        let _some = parse_part(some, "some")?;
+
         Some(Self {
-            some: parse_part(some, "some")?,
             full: parse_part(full, "full")?,
         })
     }
@@ -374,7 +373,6 @@ slab 262144"#;
 full avg10=1.10 avg60=2.20 avg300=3.30 total=45781727"#;
 
         let pressure = crate::cgroup_files::ResourcePressure::parse(sample_pressure).unwrap();
-        assert_eq!(pressure.some.total, 45904150);
         assert_eq!(pressure.full.total, 45781727);
     }
 }

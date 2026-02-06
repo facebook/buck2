@@ -36,7 +36,7 @@ use crate::scheduler::Scheduler;
 pub struct MemoryReading {
     pub allprocs_memory_current: u64,
     pub allprocs_swap_current: u64,
-    /// The average "some" memory pressure since the last sample
+    /// The average "full" memory pressure since the last sample
     pub allprocs_memory_pressure: f64,
     pub daemon_memory_current: u64,
     pub daemon_swap_current: u64,
