@@ -8,6 +8,7 @@
  * above-listed licenses.
  */
 
+pub mod buck2_sketches;
 pub mod dice;
 pub mod events;
 mod implementation;
