@@ -137,6 +137,11 @@ struct SuspendedScene {
     wake_implementation: WakeImplementation,
 }
 
+enum CurrentIntent {
+    Increase,
+    Decrease,
+}
+
 pub(crate) struct Scheduler {
     enable_suspension: bool,
     preferred_action_suspend_strategy: ActionSuspendStrategy,
@@ -170,7 +175,10 @@ pub(crate) struct Scheduler {
     /// lists) is still hard capped by the local action parallelism limit (-j)
     running_scenes: Vec<RunningScene>,
     suspended_scenes: VecDeque<SuspendedScene>,
-    last_correction_time: Option<Instant>,
+    /// At any given time, we're either considering increasing or decreasing parallelism. This
+    /// indicates which.
+    current_intent: CurrentIntent,
+    last_correction_time: Instant,
     /// Current best estimate for the maximum amount of memory we can use.
     ///
     /// This is approximately computed as the total memory in use by buck the last time we saw
@@ -225,7 +233,8 @@ impl Scheduler {
             preferred_action_suspend_strategy,
             running_scenes: Vec::new(),
             suspended_scenes: VecDeque::new(),
-            last_correction_time: None,
+            current_intent: CurrentIntent::Increase,
+            last_correction_time: now,
             estimated_memory_cap,
             allprocs_memory_current: Timeseries::new(Duration::from_secs(60), now, 0.0),
             allprocs_memory_pressure: Timeseries::new(Duration::from_secs(60), now, 0.0),
@@ -383,24 +392,43 @@ impl Scheduler {
             }
         }
 
-        let is_above_pressure_limit = self
-            .allprocs_memory_pressure
-            .average_over_last(Duration::from_secs(60))
-            > 10.0;
-
-        if is_above_pressure_limit {
-            self.maybe_decrease_running_count(now);
-        } else {
-            self.maybe_increase_running_count(now);
+        // Consider flipping the intent. In either case if we do, we set the `last_correction_time`,
+        // since we don't want to take any action immediately after flipping intent
+        match self.current_intent {
+            CurrentIntent::Decrease => {
+                if self
+                    .allprocs_memory_pressure
+                    .average_over_last(Duration::from_secs(30))
+                    < 5.0
+                {
+                    self.current_intent = CurrentIntent::Increase;
+                    self.last_correction_time = now;
+                }
+            }
+            CurrentIntent::Increase => {
+                if self
+                    .allprocs_memory_pressure
+                    .average_over_last(Duration::from_secs(5))
+                    > 10.0
+                {
+                    self.current_intent = CurrentIntent::Decrease;
+                    self.last_correction_time = now;
+                }
+            }
+        }
+        match self.current_intent {
+            CurrentIntent::Decrease => self.maybe_decrease_running_count(now),
+            CurrentIntent::Increase => self.maybe_increase_running_count(now),
         }
 
         // Report resource control events every 10 seconds normally, but every second during times
         // of pressure
-        let scheduled_event_freq = if cfg!(test) || is_above_pressure_limit {
-            Duration::from_secs(1)
-        } else {
-            Duration::from_secs(10)
-        };
+        let scheduled_event_freq =
+            if cfg!(test) || matches!(self.current_intent, CurrentIntent::Decrease) {
+                Duration::from_secs(1)
+            } else {
+                Duration::from_secs(10)
+            };
         self.event_sender_state.maybe_send_scheduled_event(
             scheduled_event_freq,
             self.running_scenes.len() as u64,
@@ -414,21 +442,60 @@ impl Scheduler {
             return;
         }
 
-        // We decrease the running count at most once a second since memory changes of previous
-        // suspensions will take a few seconds to take effect. This maybe not be enough, but we don't
-        // want to wait too long that we encounter OOMs
-        if self
-            .last_correction_time
-            .is_some_and(|t| now - t < Duration::from_secs(1))
-        {
-            return;
-        }
-
         // Don't suspend if there's only one scene
         if self.running_scenes.len() <= 1 {
             return;
         }
-        self.last_correction_time = Some(now);
+
+        let this_kill_interval = {
+            // We have to decide whether or not to kill an action now, or wait a bit longer.
+            //
+            // To understand how we make this decision, let's first review what oomd does: It monitors
+            // the memory pressure average over the last 60 seconds and kills if that exceeds some
+            // configured threshold. So our job is to stay under that.
+            //
+            // These are common values (and what we appear to use in prod in at least some places).
+            const PRESUMED_OOMD_LOOKBACK: Duration = Duration::from_secs(60);
+            const PRESUMED_OOMD_THRESHOLD: f64 = 40.0;
+            // We do this by first predicting what we think our pressure in the future will be.
+            //
+            // Start with our pressure in the recent past
+            let approx_current_pressure = self
+                .allprocs_memory_pressure
+                .average_over_last(Duration::from_secs(10));
+            // And take an educated guess about how much it's likely to increase.
+            let estimated_future_pressure = f64::min(
+                // Halfway between current value and max
+                (100.0 + approx_current_pressure) / 2.0,
+                approx_current_pressure * 1.5,
+            );
+            // We now ask: If our pressure were to suddenly jump to this level and remain there
+            // indefinitely, how long would we have until we get OOM killed?
+            let Some(estimated_point_of_oom_kill) = self
+                .allprocs_memory_pressure
+                .predict_average_over_last_values(PRESUMED_OOMD_LOOKBACK, |_| {
+                    estimated_future_pressure
+                })
+                .filter(|(_, expected_average_pressure)| {
+                    *expected_average_pressure > PRESUMED_OOMD_THRESHOLD
+                })
+                .map(|x| x.0)
+                .next()
+            else {
+                // We don't anticipate we're in danger of being OOM killed
+                return;
+            };
+            let estimated_time_till_oom_kill = estimated_point_of_oom_kill - now;
+            // Finally, choose the kill frequency that corresponds to giving us enough time to kill
+            // all the open scenes at regular intervals between now and then
+            estimated_time_till_oom_kill.div_f64(self.running_scenes.len() as f64)
+        };
+
+        if now - self.last_correction_time < this_kill_interval {
+            return;
+        }
+
+        self.last_correction_time = now;
 
         // Length checked above
         let cgroup = self.running_scenes.pop().unwrap();
@@ -452,10 +519,7 @@ impl Scheduler {
         // We increase the running count at most once every 3 seconds since memory changes of
         // previous suspensions will take several seconds to take effect. This ensures that we don't
         // wake too quickly
-        if self
-            .last_correction_time
-            .is_some_and(|t| now - t < Duration::from_secs(3))
-        {
+        if now - self.last_correction_time < Duration::from_secs(3) {
             return;
         }
 
@@ -485,7 +549,7 @@ impl Scheduler {
             return;
         }
 
-        self.last_correction_time = Some(now);
+        self.last_correction_time = now;
         self.wake(now)
     }
 
@@ -717,7 +781,7 @@ mod tests {
         let memory_reading = MemoryReading {
             allprocs_memory_current: 10000,
             allprocs_swap_current: 0,
-            allprocs_memory_pressure: 12.0,
+            allprocs_memory_pressure: 50.0,
             daemon_memory_current: 8000,
             daemon_swap_current: 0,
         };
@@ -757,10 +821,10 @@ mod tests {
                 .add(scene1.as_ref(), 2)
                 .add(scene2.as_ref(), 3)
                 .build(),
-            timeline.secs(61),
+            timeline.secs(80),
         );
 
-        let cgroup_1_res = scheduler.scene_finished(scene1, timeline.secs(63));
+        let cgroup_1_res = scheduler.scene_finished(scene1, timeline.secs(90));
         assert!(cgroup_1_res.suspend_duration.is_none());
 
         let memory_reading_2 = MemoryReading {
@@ -773,12 +837,118 @@ mod tests {
         scheduler.update(
             memory_reading_2,
             UpdateBuilder::new().build(),
-            timeline.secs(64),
+            timeline.secs(95),
         );
 
-        let cgroup_2_res = scheduler.scene_finished(scene2, timeline.secs(65));
-        assert_eq!(cgroup_2_res.suspend_duration, Some(Duration::from_secs(2)));
+        let cgroup_2_res = scheduler.scene_finished(scene2, timeline.secs(100));
+        assert_eq!(cgroup_2_res.suspend_duration, Some(Duration::from_secs(10)));
 
         Ok(())
+    }
+
+    /// Model a scenario in which two actions run and encounter the given pressure levels for the
+    /// given amounts of time
+    ///
+    /// At the end of the sequence of pressure levels, check whether an action was/was not killed
+    fn multi_pressure_level_test(
+        pre_start_durations_and_levels: &[(u64, f64)],
+        durations_and_levels: &[(u64, f64)],
+        expect_kill: bool,
+    ) {
+        let (mut scheduler, timeline) = TestTimeline::new();
+
+        let mut past = 0;
+        for (duration, level) in pre_start_durations_and_levels.iter().copied() {
+            let reading = MemoryReading {
+                allprocs_memory_pressure: level,
+                // Killing is entirely pressure based so we don't care about these
+                allprocs_memory_current: 0,
+                allprocs_swap_current: 0,
+                daemon_memory_current: 0,
+                daemon_swap_current: 0,
+            };
+            for i in 0..duration {
+                scheduler.update(
+                    reading,
+                    UpdateBuilder::new().build(),
+                    timeline.secs(past + i),
+                );
+            }
+            past += duration;
+        }
+
+        let (_, mut scene1_start) = scheduler.scene_started(
+            SceneDescription {
+                command_type: CommandType::Build,
+                action_digest: None,
+            },
+            false,
+        );
+        let mut scene1_kill = scene1_start.0.try_recv().unwrap().0;
+        let (_, mut scene2_start) = scheduler.scene_started(
+            SceneDescription {
+                command_type: CommandType::Build,
+                action_digest: None,
+            },
+            false,
+        );
+        let mut scene2_kill = scene2_start.0.try_recv().unwrap().0;
+
+        for (duration, level) in durations_and_levels.iter().copied() {
+            let reading = MemoryReading {
+                allprocs_memory_pressure: level,
+                // Killing is entirely pressure based so we don't care about these
+                allprocs_memory_current: 0,
+                allprocs_swap_current: 0,
+                daemon_memory_current: 0,
+                daemon_swap_current: 0,
+            };
+            for i in 0..duration {
+                scheduler.update(
+                    reading,
+                    UpdateBuilder::new().build(),
+                    timeline.secs(past + i),
+                );
+                if !expect_kill {
+                    assert!(
+                        scene2_kill.0.try_recv().is_err(),
+                        "Scene killed {} seconds into level {} but no kill was expected",
+                        i,
+                        level,
+                    );
+                }
+            }
+            past += duration;
+        }
+
+        // Scene1 should never have been killed, that would mean all scenes were killed
+        assert!(scene1_kill.0.try_recv().is_err());
+
+        if expect_kill {
+            assert!(scene2_kill.0.try_recv().is_ok(), "scene was not killed");
+        }
+    }
+
+    // Model a scenario in which the pressure level starts by sitting at zero, and then suddenly
+    // changes to the given value, all while two actions are running. Assert that a kill did or did
+    // not happen by the given amount of time after the level change
+    fn two_pressure_level_test(second_level: f64, after_duration: u64, expect_kill: bool) {
+        multi_pressure_level_test(
+            &[],
+            &[(60, 0.0), (after_duration, second_level)],
+            expect_kill,
+        )
+    }
+
+    #[test]
+    fn test_no_insta_kill() {
+        two_pressure_level_test(100.0, 3, false);
+        two_pressure_level_test(100.0, 100, true);
+    }
+
+    #[test]
+    fn test_doesnt_indefinitely_sit_below_threshold() {
+        // Make sure the scheduler doesn't let pressure just sit right below the OOM threshold
+        two_pressure_level_test(39.0, 50, true);
     }
 }

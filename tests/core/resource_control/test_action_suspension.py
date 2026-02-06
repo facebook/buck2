@@ -176,9 +176,6 @@ async def test_suspend_one_of_two(
     buck: Buck,
     kill_and_retry: bool,
 ) -> None:
-    # TODO(JakobDegen): Re-enable
-    if True:
-        return
     temp = TemporaryDirectory()
     _configure(buck, kill_and_retry)
 
