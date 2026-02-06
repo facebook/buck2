@@ -140,7 +140,6 @@ struct SuspendedScene {
 pub(crate) struct Scheduler {
     enable_suspension: bool,
     preferred_action_suspend_strategy: ActionSuspendStrategy,
-    pressure_suspend_threshold: f64,
     /// Currently running and suspended scenes
     ///
     /// A scene is guaranteed to exist in exactly one of the two lists. Once completed a scene is
@@ -202,7 +201,6 @@ impl Scheduler {
         Self::new(
             enable_suspension,
             resource_control_config.preferred_action_suspend_strategy,
-            resource_control_config.memory_pressure_threshold_percent as f64,
             effective_resource_constraints,
             system_memory_max,
             daemon_id,
@@ -213,7 +211,6 @@ impl Scheduler {
     pub(crate) fn new(
         enable_suspension: bool,
         preferred_action_suspend_strategy: ActionSuspendStrategy,
-        pressure_suspend_threshold: f64,
         effective_resource_constraints: EffectiveResourceConstraints,
         system_memory_max: u64,
         daemon_id: &DaemonId,
@@ -226,7 +223,6 @@ impl Scheduler {
         Self {
             enable_suspension,
             preferred_action_suspend_strategy,
-            pressure_suspend_threshold,
             running_scenes: Vec::new(),
             suspended_scenes: VecDeque::new(),
             last_correction_time: None,
@@ -243,7 +239,6 @@ impl Scheduler {
         Self::new(
             true,
             ActionSuspendStrategy::KillAndRetry,
-            10.0,
             EffectiveResourceConstraints::default(),
             1_000_000, // System memory max
             &DaemonId::new(),
@@ -391,7 +386,7 @@ impl Scheduler {
         let is_above_pressure_limit = self
             .allprocs_memory_pressure
             .average_over_last(Duration::from_secs(60))
-            > self.pressure_suspend_threshold;
+            > 10.0;
 
         if is_above_pressure_limit {
             self.maybe_decrease_running_count(now);

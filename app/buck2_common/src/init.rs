@@ -237,9 +237,6 @@ pub struct ResourceControlConfig {
     /// The corresponding buckconfig is `buck2_resource_control.memory_high_action_cgroup_pool`.
     /// Mainly for testing purpose.
     pub memory_high_action_cgroup_pool: Option<String>,
-    /// If provided and above the threshold, the cgroups will enforce this memory pressure and will freeze/kill actions
-    /// to stay under this pressure limit. (Currently only used for logging purposes and doesn't actually do the above)
-    pub memory_pressure_threshold_percent: u64,
     /// Enable suspension when memory pressure is high.
     pub enable_suspension: bool,
     pub preferred_action_suspend_strategy: ActionSuspendStrategy,
@@ -350,12 +347,6 @@ impl ResourceControlConfig {
                 section: "buck2_resource_control",
                 property: "memory_high_action_cgroup_pool",
             })?;
-            let memory_pressure_threshold_percent = config
-                .parse(BuckconfigKeyRef {
-                    section: "buck2_resource_control",
-                    property: "memory_pressure_threshold_percent",
-                })?
-                .unwrap_or(10);
             let enable_suspension = config.parse(BuckconfigKeyRef {
                 section: "buck2_resource_control",
                 property: "enable_suspension",
@@ -381,7 +372,6 @@ impl ResourceControlConfig {
                 memory_max_per_action,
                 memory_high_per_action,
                 memory_high_action_cgroup_pool,
-                memory_pressure_threshold_percent,
                 enable_suspension,
                 preferred_action_suspend_strategy,
             })
