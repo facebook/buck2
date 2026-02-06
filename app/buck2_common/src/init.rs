@@ -348,7 +348,7 @@ impl FromStr for ResourceControlInit {
 /// algo that fixes a bug. Incrementing this to `N + 1` and setting the
 /// `buck2_resource_control.enable_suspension_if_min_algo_version` buckconfig to `N + 1` enables
 /// suspension only if your bug fix is actually included in the version of buck in use
-const RESOURCE_CONTROL_ALGO_VERSION: u32 = 3;
+const RESOURCE_CONTROL_ALGO_VERSION: u32 = 4;
 
 impl ResourceControlConfig {
     pub fn from_config(config: &LegacyBuckConfig) -> buck2_error::Result<Self> {
