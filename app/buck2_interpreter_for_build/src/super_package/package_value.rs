@@ -15,6 +15,7 @@ use std::sync::Arc;
 use allocative::Allocative;
 use buck2_error::BuckErrorContext;
 use buck2_error::conversion::from_any_with_tag;
+use buck2_error::internal_error;
 use buck2_interpreter::file_type::StarlarkFileType;
 use buck2_node::metadata::key::MetadataKey;
 use buck2_node::metadata::key::MetadataKeyRef;
@@ -58,7 +59,7 @@ impl SuperPackageValuesImpl {
         values
             .as_any()
             .downcast_ref::<SuperPackageValuesImpl>()
-            .internal_error("Expecting SuperPackageValuesImpl")
+            .ok_or_else(|| internal_error!("Expecting SuperPackageValuesImpl"))
     }
 
     pub fn get_package_value(

@@ -20,6 +20,7 @@ use buck2_downward_api_proto::LogRequest;
 use buck2_downward_api_proto::downward_api_client;
 use buck2_downward_api_proto::downward_api_server;
 use buck2_error::BuckErrorContext;
+use buck2_error::internal_error;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_events::dispatch::with_dispatcher_async;
 use buck2_grpc::ServerHandle;
@@ -173,7 +174,7 @@ impl TestOrchestratorClient {
             .await?
             .into_inner();
 
-        let response = match response.buck_error_context("Missing `response`")? {
+        let response = match response.ok_or_else(|| internal_error!("Missing `response`"))? {
             buck2_test_proto::execute_response2::Response::Result(res) => {
                 ExecuteResponse::Result(res.try_into().buck_error_context("Invalid `result`")?)
             }
@@ -404,7 +405,7 @@ where
             let ReportTestResultRequest { result } = request.into_inner();
 
             let result = result
-                .buck_error_context("Missing `result`")?
+                .ok_or_else(|| internal_error!("Missing `result`"))?
                 .try_into()
                 .buck_error_context("Invalid `result`")?;
 
@@ -426,13 +427,13 @@ where
             let ReportTestsDiscoveredRequest { target, testing } = request.into_inner();
 
             let target = target
-                .buck_error_context("Missing `target`")?
+                .ok_or_else(|| internal_error!("Missing `target`"))?
                 .try_into()
                 .buck_error_context("Invalid `target`")?;
 
             let Testing {
                 suite, testcases, ..
-            } = testing.buck_error_context("Missing `testing`")?;
+            } = testing.ok_or_else(|| internal_error!("Missing `testing`"))?;
 
             self.inner
                 .report_tests_discovered(target, suite, testcases)
@@ -481,7 +482,7 @@ where
                 env,
                 pre_create_dirs,
             } = test_executable
-                .buck_error_context("Missing `test_executable`")?
+                .ok_or_else(|| internal_error!("Missing `test_executable`"))?
                 .try_into()
                 .buck_error_context("Invalid `test_executable`")
                 .buck_error_context("Invalid prepare_for_local_execution request")?;
@@ -534,7 +535,7 @@ where
             let ConsoleRequest { level, message } = request.into_inner();
 
             let level = level
-                .buck_error_context("Missing `level`")?
+                .ok_or_else(|| internal_error!("Missing `level`"))?
                 .try_into()
                 .buck_error_context("Invalid `level`")?;
 
@@ -556,7 +557,7 @@ where
             let LogRequest { level, message } = request.into_inner();
 
             let level = level
-                .buck_error_context("Missing `level`")?
+                .ok_or_else(|| internal_error!("Missing `level`"))?
                 .try_into()
                 .buck_error_context("Invalid `level`")?;
 
@@ -578,7 +579,7 @@ where
             let ExternalEventRequest { event } = request.into_inner();
 
             let event = event
-                .buck_error_context("Missing `event`")?
+                .ok_or_else(|| internal_error!("Missing `event`"))?
                 .try_into()
                 .buck_error_context("Invalid `event`")?;
 

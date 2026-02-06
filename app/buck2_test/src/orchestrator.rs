@@ -82,6 +82,7 @@ use buck2_data::ToProtoMessage;
 use buck2_error::BuckErrorContext;
 use buck2_error::ErrorTag;
 use buck2_error::conversion::from_any_with_tag;
+use buck2_error::internal_error;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_execute::artifact::fs::ExecutorFs;
 use buck2_execute::artifact_value::ArtifactValue;
@@ -1325,7 +1326,9 @@ impl BuckTestOrchestrator<'_> {
                 c.as_ref()
                     .builtin_provider_value::<FrozenExternalRunnerTestInfo>()
             })
-            .buck_error_context("Test executable only supports ExternalRunnerTestInfo providers")
+            .ok_or_else(|| {
+                internal_error!("Test executable only supports ExternalRunnerTestInfo providers")
+            })
     }
 
     async fn get_test_executor(
@@ -1347,7 +1350,9 @@ impl BuckTestOrchestrator<'_> {
             Some(executor_override) => Some(
                 &test_info
                     .executor_override(&executor_override.name)
-                    .buck_error_context("The `executor_override` provided does not exist")
+                    .ok_or_else(|| {
+                        internal_error!("The `executor_override` provided does not exist")
+                    })
                     .with_buck_error_context(|| {
                         format!(
                             "Error processing `executor_override`: `{}`",
@@ -1793,13 +1798,13 @@ fn make_visit_arg_artifacts<'v>(
             ArgValueContent::ExternalRunnerSpecValue(ExternalRunnerSpecValue::ArgHandle(h)) => {
                 let arg = cli_args_for_interpolation
                     .get(h.0)
-                    .with_buck_error_context(|| format!("Invalid ArgHandle: {h:?}"))?;
+                    .ok_or_else(|| internal_error!("Invalid ArgHandle: {h:?}"))?;
                 arg.visit_artifacts(artifact_visitor)?;
             }
             ArgValueContent::ExternalRunnerSpecValue(ExternalRunnerSpecValue::EnvHandle(h)) => {
                 let arg = env_for_interpolation
                     .get(h.0.as_str())
-                    .with_buck_error_context(|| format!("Invalid EnvHandle: {h:?}"))?;
+                    .ok_or_else(|| internal_error!("Invalid EnvHandle: {h:?}"))?;
                 arg.visit_artifacts(artifact_visitor)?;
             }
             ArgValueContent::DeclaredOutput(_) | ArgValueContent::ExternalRunnerSpecValue(_) => {}
@@ -1896,13 +1901,13 @@ impl<'a> Execute2RequestExpander<'a> {
                 ArgValueContent::ExternalRunnerSpecValue(ExternalRunnerSpecValue::ArgHandle(h)) => {
                     let arg = cli_args_for_interpolation
                         .get(h.0)
-                        .with_buck_error_context(|| format!("Invalid ArgHandle: {h:?}"))?;
+                        .ok_or_else(|| internal_error!("Invalid ArgHandle: {h:?}"))?;
                     arg.add_to_command_line(&mut cli, ctx, &artifact_path_mapping)?;
                 }
                 ArgValueContent::ExternalRunnerSpecValue(ExternalRunnerSpecValue::EnvHandle(h)) => {
                     let arg = env_for_interpolation
                         .get(h.0.as_str())
-                        .with_buck_error_context(|| format!("Invalid EnvHandle: {h:?}"))?;
+                        .ok_or_else(|| internal_error!("Invalid EnvHandle: {h:?}"))?;
                     arg.add_to_command_line(&mut cli, ctx, &artifact_path_mapping)?;
                 }
                 ArgValueContent::DeclaredOutput(output) => {

@@ -25,6 +25,7 @@ use std::path::PathBuf;
 pub use buck2_env::soft_error::soft_error;
 use buck2_error::BuckErrorContext;
 use buck2_error::buck2_error;
+use buck2_error::internal_error;
 use relative_path::RelativePath;
 use relative_path::RelativePathBuf;
 
@@ -590,8 +591,8 @@ pub fn disk_space_stats<P: AsRef<AbsPath>>(path: P) -> buck2_error::Result<DiskS
         let fr_size = u64::from(statvfs.f_frsize);
         let free_space = u64::from(statvfs.f_bavail)
             .checked_mul(fr_size)
-            .with_buck_error_context(|| {
-                format!(
+            .ok_or_else(|| {
+                internal_error!(
                     "Multiplication overflow for statvfs free space for `{}`",
                     path.display()
                 )
@@ -599,8 +600,8 @@ pub fn disk_space_stats<P: AsRef<AbsPath>>(path: P) -> buck2_error::Result<DiskS
 
         let total_space = u64::from(statvfs.f_blocks)
             .checked_mul(fr_size)
-            .with_buck_error_context(|| {
-                format!(
+            .ok_or_else(|| {
+                internal_error!(
                     "Multiplication overflow for statvfs total space for `{}`",
                     path.display()
                 )

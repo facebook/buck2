@@ -28,6 +28,7 @@ use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::cell_path_with_allowed_relative_dir::CellPathWithAllowedRelativeDir;
 use buck2_error::BuckErrorContext;
 use buck2_error::conversion::from_any_with_tag;
+use buck2_error::internal_error;
 use buck2_event_observer::humanized::HumanizedBytes;
 use buck2_events::dispatch::get_dispatcher;
 use buck2_interpreter::factory::BuckStarlarkModule;
@@ -324,8 +325,10 @@ impl InterpreterForDir {
             let prelude_env = loaded_modules
                 .map
                 .get(&StarlarkModulePath::LoadFile(prelude_import.import_path()))
-                .with_internal_error(|| {
-                    format!("Should've had an env for the prelude import `{prelude_import}`",)
+                .ok_or_else(|| {
+                    internal_error!(
+                        "Should've had an env for the prelude import `{prelude_import}`"
+                    )
                 })?;
             env.import_public_symbols(prelude_env.env());
             if let StarlarkPath::BuildFile(_) = starlark_path {
@@ -375,8 +378,8 @@ impl InterpreterForDir {
             let root_env = loaded_modules
                 .map
                 .get(&StarlarkModulePath::LoadFile(&root_import))
-                .with_internal_error(|| {
-                    format!("Should've had an env for the root import `{root_import}`",)
+                .ok_or_else(|| {
+                    internal_error!("Should've had an env for the root import `{root_import}`")
                 })?
                 .env();
             env.import_public_symbols(root_env);

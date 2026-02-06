@@ -10,6 +10,7 @@
 
 use async_trait::async_trait;
 use buck2_error::BuckErrorContext;
+use buck2_error::internal_error;
 use buck2_server_ctx::ctx::ServerCommandContextTrait;
 use buck2_server_ctx::partial_result_dispatcher::NoPartialResult;
 use buck2_server_ctx::partial_result_dispatcher::PartialResultDispatcher;
@@ -58,12 +59,12 @@ impl ServerCommandTemplate for CleanStaleServerCommand {
 
                 let extension = deferred_materializer
                     .as_deferred_materializer_extension()
-                    .buck_error_context("Deferred materializer is not in use")?;
+                    .ok_or_else(|| internal_error!("Deferred materializer is not in use"))?;
 
                 let keep_since_time = Utc
                     .timestamp_opt(self.req.keep_since_time, 0)
                     .single()
-                    .buck_error_context("Invalid timestamp")?;
+                    .ok_or_else(|| internal_error!("Invalid timestamp"))?;
 
                 extension
                     .clean_stale_artifacts(keep_since_time, self.req.dry_run, self.req.tracked_only)

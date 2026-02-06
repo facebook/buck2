@@ -16,7 +16,7 @@ use buck2_certs::certs::find_internal_cert;
 use buck2_certs::certs::supports_vpnless;
 use buck2_certs::certs::tls_config_with_single_cert;
 use buck2_certs::certs::tls_config_with_system_roots;
-use buck2_error::BuckErrorContext;
+use buck2_error::internal_error;
 use hyper::Uri;
 use hyper_http_proxy::Proxy;
 use hyper_http_proxy::ProxyConnector;
@@ -84,7 +84,7 @@ impl HttpClientBuilder {
         let mut builder = Self::https_with_system_roots().await?;
         if supports_vpnless() {
             tracing::debug!("Using vpnless client");
-            let proxy = x2p::find_proxy()?.buck_error_context("Expected unix domain socket or http proxy port for x2p client but did not find either")?;
+            let proxy = x2p::find_proxy()?.ok_or_else(|| internal_error!("Expected unix domain socket or http proxy port for x2p client but did not find either"))?;
             builder.with_x2p_proxy(proxy);
         } else if let Some(cert_path) = find_internal_cert() {
             tracing::debug!("Using internal https client");

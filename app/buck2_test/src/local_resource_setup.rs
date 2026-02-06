@@ -14,8 +14,8 @@ use buck2_build_api::interpreter::rule_defs::provider::builtin::local_resource_i
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::soft_error;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
-use buck2_error::BuckErrorContext;
 use buck2_error::ErrorTag;
+use buck2_error::internal_error;
 use buck2_test_api::data::RequiredLocalResources;
 use buck2_test_api::data::TestStage;
 use dice::DiceComputations;
@@ -106,8 +106,8 @@ async fn get_local_resource_info<'v>(
             c.as_ref()
                 .builtin_provider_value::<FrozenLocalResourceInfo>()
         })
-        .buck_error_context(format!(
-            "Target `{target}` expected to contain `LocalResourceInfo` provider"
-        ))?;
+        .ok_or_else(|| {
+            internal_error!("Target `{target}` expected to contain `LocalResourceInfo` provider")
+        })?;
     Ok((target.target(), local_resource_info))
 }

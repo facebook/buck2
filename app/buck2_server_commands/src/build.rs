@@ -55,6 +55,7 @@ use buck2_core::target::label::label::TargetLabel;
 use buck2_data::BuildResult;
 use buck2_data::ToProtoMessage;
 use buck2_error::BuckErrorContext;
+use buck2_error::internal_error;
 use buck2_events::dispatch::console_message;
 use buck2_events::dispatch::instant_event;
 use buck2_events::dispatch::span_async;
@@ -178,7 +179,7 @@ async fn build(
         request
             .target_cfg
             .as_ref()
-            .internal_error("target_cfg must be set")?,
+            .ok_or_else(|| internal_error!("target_cfg must be set"))?,
         server_ctx,
         &request.target_universe,
     )

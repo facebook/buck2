@@ -17,7 +17,6 @@ use std::sync::OnceLock;
 use std::task::Poll;
 use std::thread;
 
-use buck2_error::BuckErrorContext;
 use buck2_error::internal_error;
 
 /// Get the available parallelism
@@ -140,7 +139,9 @@ pub(crate) fn on_thread_stop() {
 }
 
 pub fn check_stack_overflow() -> buck2_error::Result<()> {
-    let stack_range = STACK_RANGE.get().internal_error("stack range not set")?;
+    let stack_range = STACK_RANGE
+        .get()
+        .ok_or_else(|| internal_error!("stack range not set"))?;
     let stack_pointer = stack_pointer();
     if stack_pointer > stack_range.start {
         return Err(internal_error!("stack underflow, should not happen"));

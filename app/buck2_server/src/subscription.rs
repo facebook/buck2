@@ -43,7 +43,7 @@ pub(crate) async fn run_subscription_server_command(
 
             let materializer = materializer
                 .as_deferred_materializer_extension()
-                .buck_error_context("Subscriptions only work with the deferred materializer")?;
+                .ok_or_else(|| internal_error!("Subscriptions only work with the deferred materializer"))?;
 
             let mut materializer_subscription = materializer
                 .create_subscription()
@@ -80,7 +80,7 @@ pub(crate) async fn run_subscription_server_command(
                         }
                     }
                     path = materializer_subscription.next_materialization().fuse() => {
-                        let path = path.buck_error_context("Materializer hung up")?;
+                        let path = path.ok_or_else(|| internal_error!("Materializer hung up"))?;
                         partial_result_dispatcher.emit(buck2_cli_proto::SubscriptionResponseWrapper {
                             response: Some(buck2_subscription_proto::SubscriptionResponse {
                                 response: Some(buck2_subscription_proto::Materialized { path: path.to_string() }.into())

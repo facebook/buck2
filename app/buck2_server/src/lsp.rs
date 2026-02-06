@@ -32,8 +32,8 @@ use buck2_core::pattern::pattern::ParsedPattern;
 use buck2_core::pattern::pattern::TargetParsingRel;
 use buck2_core::pattern::pattern_type::ProvidersPatternExtra;
 use buck2_core::target::name::TargetName;
-use buck2_error::BuckErrorContext;
 use buck2_error::conversion::from_any_with_tag;
+use buck2_error::internal_error;
 use buck2_events::dispatch::span_async;
 use buck2_events::dispatch::with_dispatcher;
 use buck2_events::dispatch::with_dispatcher_async;
@@ -389,7 +389,9 @@ impl<'a> BuckLspContext<'a> {
             .with_dice_ctx(|mut dice_ctx| async move { dice_ctx.get_cell_resolver().await })
             .await?;
 
-        let path_str = path.to_str().buck_error_context("Path is not UTF-8")?;
+        let path_str = path
+            .to_str()
+            .ok_or_else(|| internal_error!("Path is not UTF-8"))?;
 
         let cell_path = cell_resolver.get_cell_path(&ProjectRelativePath::new(
             path_str.strip_prefix('/').unwrap_or(path_str),

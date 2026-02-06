@@ -17,8 +17,8 @@ use std::time::Duration;
 
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
-use buck2_error::BuckErrorContext;
 use buck2_error::conversion::from_any_with_tag;
+use buck2_error::internal_error;
 use buck2_events::dispatch::EventDispatcher;
 use buck2_fs::fs_util;
 use buck2_fs::paths::abs_norm_path::AbsNormPath;
@@ -533,10 +533,12 @@ impl DebugServer for ServerState {
                     .adapter
                     .inspect_variable(path.to_owned())
                     .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::StarlarkServer))?;
-                let current_frame_vars = self
-                    .variables_by_thread
-                    .get_mut(&thread_id)
-                    .buck_error_context("variables cache must exist in this codepath")?;
+                let current_frame_vars =
+                    self.variables_by_thread
+                        .get_mut(&thread_id)
+                        .ok_or_else(|| {
+                            internal_error!("variables cache must exist in this codepath")
+                        })?;
 
                 for child in inspect_result.sub_values {
                     let child_path = path.make_child(child.name.clone());

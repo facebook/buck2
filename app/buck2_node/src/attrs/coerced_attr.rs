@@ -507,7 +507,9 @@ impl CoercedAttr {
             }
 
             CoercedAttrWithType::OneOf(l, i, t) => {
-                let item_type = t.xs.get(i as usize).buck_error_context("invalid enum")?;
+                let item_type =
+                    t.xs.get(i as usize)
+                        .ok_or_else(|| internal_error!("invalid enum"))?;
                 l.traverse(item_type, pkg, traversal)
             }
             CoercedAttrWithType::Visibility(..) => Ok(()),
@@ -704,7 +706,9 @@ impl CoercedAttr {
             CoercedAttrWithType::Concat(items, t) => {
                 let singleton = items.len() == 1;
                 let mut it = items.iter().map(|item| item.configure(t, ctx));
-                let first = it.next().internal_error("concat with no items")??;
+                let first = it
+                    .next()
+                    .ok_or_else(|| internal_error!("concat with no items"))??;
                 if singleton {
                     first
                 } else {

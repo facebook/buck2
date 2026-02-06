@@ -14,7 +14,7 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use buck2_core::plugins::PluginKind;
-use buck2_error::BuckErrorContext;
+use buck2_error::internal_error;
 use buck2_interpreter::late_binding_ty::AnalysisContextReprLate;
 use buck2_interpreter::late_binding_ty::ProviderReprLate;
 use buck2_interpreter::late_binding_ty::TransitionReprLate;
@@ -494,7 +494,7 @@ fn unpack_frozen_rule(
     rule: FrozenValue,
 ) -> buck2_error::Result<FrozenRef<'static, FrozenStarlarkRuleCallable>> {
     rule.downcast_frozen_ref::<FrozenStarlarkRuleCallable>()
-        .buck_error_context("Expecting FrozenRuleCallable")
+        .ok_or_else(|| internal_error!("Expecting FrozenRuleCallable"))
 }
 
 pub(crate) fn init_frozen_rule_get_impl() {

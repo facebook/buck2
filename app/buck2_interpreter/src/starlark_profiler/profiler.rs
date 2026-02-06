@@ -108,12 +108,16 @@ impl ProfilerData {
         };
 
         Ok(Some(Arc::new(StarlarkProfileDataAndStats {
-            initialized_at: self.initialized_at.internal_error("did not initialize")?,
-            finalized_at: self.finalized_at.internal_error("did not finalize")?,
+            initialized_at: self
+                .initialized_at
+                .ok_or_else(|| internal_error!("did not initialize"))?,
+            finalized_at: self
+                .finalized_at
+                .ok_or_else(|| internal_error!("did not finalize"))?,
             total_retained_bytes,
             profile_data: self
                 .profile_data
-                .internal_error("profile_data not initialized")??,
+                .ok_or_else(|| internal_error!("profile_data not initialized"))??,
             targets: vec![target],
         })))
     }

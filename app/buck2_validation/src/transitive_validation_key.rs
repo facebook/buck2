@@ -19,6 +19,7 @@ use buck2_build_api::analysis::calculation::RuleAnalysisCalculation;
 use buck2_build_api::validation::transitive_validations::TransitiveValidations;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_error::BuckErrorContext;
+use buck2_error::internal_error;
 use derivative::Derivative;
 use derive_more::Display;
 use dice::CancellationContext;
@@ -188,7 +189,7 @@ async fn compute_single_validation(
 ) -> Result<(), TreatValidationFailureAsError> {
     let action_key = validation_result
         .action_key()
-        .internal_error("Expected validation to be a build artifact")?;
+        .ok_or_else(|| internal_error!("Expected validation to be a build artifact"))?;
     let key = SingleValidationKey(action_key.dupe());
     let result = ctx.compute(&key).await?;
     tighten_cached_validation_result(result)

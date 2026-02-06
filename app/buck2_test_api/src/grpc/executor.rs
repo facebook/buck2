@@ -9,6 +9,7 @@
  */
 
 use buck2_error::BuckErrorContext as _;
+use buck2_error::internal_error;
 use buck2_grpc::ServerHandle;
 use buck2_grpc::make_channel;
 use buck2_grpc::spawn_oneshot;
@@ -91,7 +92,7 @@ where
             let ExternalRunnerSpecRequest { test_spec } = request.into_inner();
 
             let test_spec = test_spec
-                .buck_error_context("Missing `test_spec`")?
+                .ok_or_else(|| internal_error!("Missing `test_spec`"))?
                 .try_into()
                 .buck_error_context("Invalid `test_spec`")?;
 

@@ -14,6 +14,7 @@ use buck2_artifact::actions::key::ActionKey;
 use buck2_build_api::actions::artifact::get_artifact_fs::GetArtifactFs;
 use buck2_build_api::actions::calculation::ActionCalculation;
 use buck2_error::BuckErrorContext;
+use buck2_error::internal_error;
 use buck2_execute::materialize::materializer::HasMaterializer;
 use buck2_fs::async_fs_util;
 use buck2_fs::error::IoResultExt;
@@ -61,7 +62,7 @@ impl Key for SingleValidationKey {
             let (gen_path, artifact_value) = build_result
                 .iter()
                 .next()
-                .internal_error("Just checked single element")?;
+                .ok_or_else(|| internal_error!("Just checked single element"))?;
             (gen_path.dupe(), artifact_value)
         };
 

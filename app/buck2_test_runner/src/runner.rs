@@ -11,6 +11,7 @@
 use std::time::Duration;
 
 use buck2_error::BuckErrorContext;
+use buck2_error::internal_error;
 use buck2_test_api::data::ArgValue;
 use buck2_test_api::data::ArgValueContent;
 use buck2_test_api::data::ConfiguredTargetHandle;
@@ -70,7 +71,7 @@ impl Buck2TestRunner {
             let mut maybe_receiver = self.spec_receiver.lock();
             receiver = maybe_receiver
                 .take()
-                .buck_error_context("Spec channel has already been consumed")?;
+                .ok_or_else(|| internal_error!("Spec channel has already been consumed"))?;
             drop(maybe_receiver);
         }
         let run_verdict = receiver

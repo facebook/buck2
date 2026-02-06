@@ -11,7 +11,7 @@
 use std::collections::BTreeMap;
 
 use buck2_core::provider::label::ProvidersLabel;
-use buck2_error::BuckErrorContext;
+use buck2_error::internal_error;
 use buck2_node::attrs::attr_type::query::QueryAttr;
 use buck2_node::attrs::attr_type::query::QueryAttrBase;
 use buck2_node::attrs::attr_type::query::QueryAttrType;
@@ -81,7 +81,7 @@ impl QueryAttrTypeExt for QueryAttrType {
                         .as_str()
                         .substr_range(l)
                         .map(|range| ((range.start, range.len()), p))
-                        .internal_error("Not found in query")
+                        .ok_or_else(|| internal_error!("Not found in query"))
                 })
                 .try_collect()?,
         );

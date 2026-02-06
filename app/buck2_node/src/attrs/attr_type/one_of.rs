@@ -11,7 +11,7 @@
 use std::fmt;
 
 use allocative::Allocative;
-use buck2_error::BuckErrorContext;
+use buck2_error::internal_error;
 use pagable::Pagable;
 
 use crate::attrs::attr_type::AttrType;
@@ -44,6 +44,6 @@ impl OneOfAttrType {
     pub(crate) fn get(&self, i: u32) -> buck2_error::Result<&AttrType> {
         self.xs
             .get(i as usize)
-            .with_internal_error(|| format!("Oneof index ({i}) out of bounds (internal error)"))
+            .ok_or_else(|| internal_error!("Oneof index ({i}) out of bounds (internal error)"))
     }
 }

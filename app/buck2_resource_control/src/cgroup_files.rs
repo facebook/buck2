@@ -12,6 +12,7 @@ use std::os::fd::OwnedFd;
 use std::sync::Arc;
 
 use buck2_error::BuckErrorContext;
+use buck2_error::internal_error;
 use buck2_fs::paths::file_name::FileNameBuf;
 use dupe::Dupe;
 use nix::fcntl::OFlag;
@@ -234,10 +235,10 @@ impl MemoryStat {
             let mut parts = line.split_whitespace();
             let key = parts
                 .next()
-                .with_buck_error_context(|| format!("Invalid line: '{}' (no key)", line))?;
+                .ok_or_else(|| internal_error!("Invalid line: '{}' (no key)", line))?;
             let value = parts
                 .next()
-                .with_buck_error_context(|| format!("Invalid line: '{}' (no value)", line))?
+                .ok_or_else(|| internal_error!("Invalid line: '{}' (no value)", line))?
                 .parse::<u64>()
                 .with_buck_error_context(|| format!("Invalid line: '{}' (invalid value)", line))?;
             if parts.next().is_some() {

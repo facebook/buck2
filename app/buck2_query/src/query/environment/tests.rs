@@ -14,6 +14,7 @@ use std::collections::HashMap;
 use std::fmt;
 use std::sync::Arc;
 
+use buck2_error::internal_error;
 use buck2_query::query::traversal::NodeLookup;
 use buck2_query::query::traversal::async_depth_first_postorder_traversal;
 use buck2_query::query::traversal::async_depth_limited_traversal;
@@ -137,7 +138,7 @@ impl NodeLookup<TestTarget> for TestEnv {
         self.graph
             .get(label)
             .duped()
-            .with_buck_error_context(|| format!("Invalid node: {label:?}"))
+            .ok_or_else(|| internal_error!("Invalid node: {label:?}"))
     }
 }
 
@@ -150,7 +151,7 @@ impl AsyncNodeLookup<TestTarget> for TestEnv {
         self.graph
             .get(label)
             .duped()
-            .with_buck_error_context(|| format!("Invalid node: {label:?}"))
+            .ok_or_else(|| internal_error!("Invalid node: {label:?}"))
     }
 }
 

@@ -66,6 +66,7 @@ use buck2_core::target::label::label::TargetLabel;
 use buck2_data::BuildResult;
 use buck2_error::BuckErrorContext;
 use buck2_error::ErrorTag;
+use buck2_error::internal_error;
 use buck2_events::dispatch::console_message;
 use buck2_events::dispatch::with_dispatcher_async;
 use buck2_fs::error::IoResultExt;
@@ -128,7 +129,7 @@ impl TestOutcome {
     fn exit_code(&self) -> buck2_error::Result<i32> {
         self.executor_report
             .exit_code
-            .buck_error_context("Test executor did not provide an exit code")
+            .ok_or_else(|| internal_error!("Test executor did not provide an exit code"))
     }
 }
 
@@ -373,7 +374,7 @@ async fn test(
         request
             .target_cfg
             .as_ref()
-            .internal_error("target_cfg must be set")?,
+            .ok_or_else(|| internal_error!("target_cfg must be set"))?,
         server_ctx,
         &mut ctx,
     )
@@ -452,7 +453,7 @@ async fn test(
     let options = request
         .session_options
         .as_ref()
-        .buck_error_context("Missing `options`")?;
+        .ok_or_else(|| internal_error!("Missing `options`"))?;
 
     let session = TestSession::new(TestSessionOptions {
         allow_re: options.allow_re,
@@ -463,7 +464,7 @@ async fn test(
     let build_opts = request
         .build_opts
         .as_ref()
-        .buck_error_context("should have build options")?;
+        .ok_or_else(|| internal_error!("should have build options"))?;
 
     let timeout = request
         .timeout
@@ -1667,7 +1668,7 @@ fn post_process_test_executor(s: &str) -> buck2_error::Result<PathBuf> {
             let exe = exe.as_abs_path();
             let exe_dir = exe
                 .parent()
-                .buck_error_context("Buck2 executable directory has no parent")?;
+                .ok_or_else(|| internal_error!("Buck2 executable directory has no parent"))?;
 
             Ok(exe_dir.join(rest).to_path_buf())
         }
