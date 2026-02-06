@@ -37,9 +37,7 @@ use buck2_error::internal_error;
 use buck2_events::daemon_id::DaemonId;
 use buck2_fs::fs_util;
 use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
-use buck2_resource_control::spawn_daemon::ResourceControlRunner;
-use buck2_resource_control::spawn_daemon::replace_unit_delimiter;
-use buck2_util::process::async_background_command;
+use buck2_resource_control::spawn_daemon::create_daemon_spawn_command;
 use buck2_util::truncate::truncate;
 use buck2_wrapper_common::kill::process_exists;
 use buck2_wrapper_common::pid::Pid;
@@ -395,34 +393,28 @@ impl<'a> BuckdLifecycle<'a> {
 
         let daemon_exe = get_daemon_exe()?;
 
-        let mut has_cgroup = false;
-
-        // create a unique slice/scope name by converting the full project path to a underscore-separated string
-        // This ensures different projects with the same directory name (e.g., /path/to/proj and /other/proj)
-        // get distinct systemd scope units, avoiding "Unit was already loaded" conflictss
+        // Create a unique name that we know won't overlap with other buck2 daemons and has enough
+        // information to understand at least a little bit about which daemon it is
         let repo_name = project_dir
             .root()
             .file_name()
             .map(|s| s.to_string_lossy().into_owned())
             .unwrap_or(String::new());
-
-        let scope_name = format!(
+        let unit_name = format!(
             "buck2-daemon.{}.{}.{}",
-            replace_unit_delimiter(&repo_name),
-            replace_unit_delimiter(self.paths.isolation.as_str()),
-            replace_unit_delimiter(&daemon_id.to_string()),
+            &repo_name,
+            self.paths.isolation.as_str(),
+            &daemon_id,
         );
-        let resource_control_runner =
-            ResourceControlRunner::create_if_enabled(&daemon_startup_config.resource_control)
-                .await?;
-        let mut cmd = if let Some(resource_control_runner) = &resource_control_runner {
-            has_cgroup = true;
-            resource_control_runner
-                .cgroup_scoped_command(daemon_exe, &scope_name, &project_dir.root())
-                .into()
-        } else {
-            async_background_command(daemon_exe)
-        };
+
+        let (cmd, resource_control_args) = create_daemon_spawn_command(
+            &daemon_startup_config.resource_control,
+            daemon_exe,
+            unit_name,
+            &project_dir.root(),
+        )
+        .await?;
+        let mut cmd: tokio::process::Command = cmd.into();
 
         cmd.current_dir(project_dir.root())
             .stdout(std::process::Stdio::piped())
@@ -431,9 +423,7 @@ impl<'a> BuckdLifecycle<'a> {
 
         cmd.arg(daemon_startup_config.serialize()?);
 
-        if has_cgroup {
-            cmd.arg("--has-cgroup");
-        }
+        cmd.args(&resource_control_args);
 
         if buck2_env!("BUCK_DAEMON_LOG_TO_FILE", type=u8)? == Some(1) {
             cmd.env("BUCK_LOG_TO_FILE_PATH", self.paths.log_dir().as_os_str());

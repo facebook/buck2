@@ -37,51 +37,60 @@ enum SystemdNotAvailableReason {
     UnsupportedPlatform,
 }
 
-pub struct ResourceControlRunner(());
+enum DaemonSpawner {
+    None,
+    Systemd,
+}
 
-impl ResourceControlRunner {
-    pub async fn create_if_enabled(
-        config: &ResourceControlConfig,
-    ) -> buck2_error::Result<Option<Self>> {
-        if config.status == ResourceControlStatus::Off {
-            return Ok(None);
+/// Generates the command to spawn a daemon process, wrapped as appropriate for the resource control setup.
+///
+/// Returns the command, followed by a list of additional flags to pass to `buck2 daemon`.
+pub async fn create_daemon_spawn_command(
+    config: &ResourceControlConfig,
+    program: impl AsRef<OsStr>,
+    unit_name: String,
+    working_directory: &AbsNormPath,
+) -> buck2_error::Result<(std::process::Command, Vec<String>)> {
+    let daemon_spawner = match config.status {
+        ResourceControlStatus::Off => DaemonSpawner::None,
+        ResourceControlStatus::Required => {
+            systemd_check_available().await?;
+            DaemonSpawner::Systemd
         }
+        ResourceControlStatus::IfAvailable => match systemd_check_available().await {
+            Ok(()) => DaemonSpawner::Systemd,
+            Err(_) => DaemonSpawner::None,
+        },
+    };
 
-        match systemd_check_available().await {
-            Ok(()) => Ok(Some(ResourceControlRunner(()))),
-            Err(e) => match config.status {
-                ResourceControlStatus::Off => unreachable!("Checked earlier"),
-                ResourceControlStatus::IfAvailable => Ok(None),
-                ResourceControlStatus::Required => Err(e),
-            },
-        }
-    }
+    // These are special in systemd so avoid them
+    let unit_name = unit_name.replace("-", "_").replace(":", "_");
 
-    /// Creates `std::process::Command` to run `program` under a systemd scope unit (cgroup). `unit_name` is
-    /// an arbitrary string that you name the unit so it can be identified by the name later.
-    pub fn cgroup_scoped_command<S: AsRef<OsStr>>(
-        &self,
-        program: S,
-        unit_name: &str,
-        working_directory: &AbsNormPath,
-    ) -> std::process::Command {
-        let mut cmd = process::background_command("systemd-run");
-        cmd.arg("--user");
-        cmd.arg("--scope");
-        cmd.arg("--quiet");
-        cmd.arg("--collect");
-        cmd.arg("--property=Delegate=yes");
-        cmd.arg("--slice=buck2");
-        cmd.arg(format!("--working-directory={working_directory}"));
-        cmd.arg(format!("--unit={unit_name}"));
-        cmd.arg(program);
-        cmd
+    match daemon_spawner {
+        DaemonSpawner::None => Ok((process::background_command(program), Vec::new())),
+        DaemonSpawner::Systemd => Ok((
+            systemd_run_command(program, &unit_name, working_directory),
+            vec!["--has-cgroup".to_owned()],
+        )),
     }
 }
 
-// Helper function to replace a special characters in a cgroup unit name
-pub fn replace_unit_delimiter(unit: &str) -> String {
-    unit.replace("-", "_").replace(":", "_")
+fn systemd_run_command(
+    program: impl AsRef<OsStr>,
+    unit_name: &str,
+    working_directory: &AbsNormPath,
+) -> std::process::Command {
+    let mut cmd = process::background_command("systemd-run");
+    cmd.arg("--user");
+    cmd.arg("--scope");
+    cmd.arg("--quiet");
+    cmd.arg("--collect");
+    cmd.arg("--property=Delegate=yes");
+    cmd.arg("--slice=buck2");
+    cmd.arg(format!("--working-directory={working_directory}"));
+    cmd.arg(format!("--unit={unit_name}"));
+    cmd.arg(program);
+    cmd
 }
 
 fn validate_systemd_version(raw_stdout: &[u8]) -> Result<(), SystemdNotAvailableReason> {
