@@ -263,7 +263,7 @@ public class KotlincStep implements IsolatedStep {
     }
 
     if (invokingRule.isSourceOnlyAbi()) {
-      configureSourceOnlyOptions(builder, languageVersion);
+      configureSourceOnlyOptions(builder, languageVersion, ruleCellRoot);
     } else if (invokingRule.isSourceAbi()) {
       throw new Error("Source ABI flavor is not supported for Kotlin targets");
     } else if (!buildClasspathEntries.isEmpty()) {
@@ -326,7 +326,9 @@ public class KotlincStep implements IsolatedStep {
   }
 
   protected void configureSourceOnlyOptions(
-      ImmutableList.Builder<String> builder, LanguageVersion languageVersion) {
+      ImmutableList.Builder<String> builder,
+      LanguageVersion languageVersion,
+      AbsPath ruleCellRoot) {
     if (languageVersion.getSupportsK2()
         && resolvedKosabiPluginOptionPath.containsKey(
             KosabiConfig.PROPERTY_KOSABI_STUBS_GEN_K2_PLUGIN)) {
@@ -349,7 +351,9 @@ public class KotlincStep implements IsolatedStep {
           resolvedKosabiPluginOptionPath.get(KosabiConfig.PROPERTY_KOSABI_JVM_ABI_GEN_K2_PLUGIN);
       builder.add(X_PLUGIN_ARG + jvmAbiPlugin);
       builder.add(PLUGIN);
-      builder.add("plugin:com.facebook.k2.jvm.abi.gen:outputDir=" + outputPaths.getClassesDir());
+      builder.add(
+          "plugin:com.facebook.k2.jvm.abi.gen:outputDir="
+              + ruleCellRoot.resolve(outputDirectory).toString());
     } else {
       if (resolvedKosabiPluginOptionPath.containsKey(
           KosabiConfig.PROPERTY_KOSABI_JVM_ABI_GEN_PLUGIN)) {

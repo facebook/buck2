@@ -14,7 +14,6 @@ import com.facebook.buck.jvm.kotlin.compilerplugins.common.isStub
 import java.io.ByteArrayOutputStream
 import java.io.DataOutputStream
 import java.io.File
-import java.util.LinkedHashMap
 import org.jetbrains.kotlin.GeneratedDeclarationKey
 import org.jetbrains.kotlin.backend.common.extensions.IrGenerationExtension
 import org.jetbrains.kotlin.backend.common.extensions.IrPluginContext
@@ -55,7 +54,6 @@ import org.jetbrains.kotlin.descriptors.EffectiveVisibility
 import org.jetbrains.kotlin.descriptors.Modality
 import org.jetbrains.kotlin.descriptors.Visibilities
 import org.jetbrains.kotlin.diagnostics.DiagnosticReporterFactory
-import org.jetbrains.kotlin.diagnostics.impl.BaseDiagnosticsCollector
 import org.jetbrains.kotlin.extensions.CompilerConfigurationExtension
 import org.jetbrains.kotlin.extensions.PreprocessedFileCreator
 import org.jetbrains.kotlin.fir.DependencyListForCliModule
@@ -66,19 +64,17 @@ import org.jetbrains.kotlin.fir.FirSession
 import org.jetbrains.kotlin.fir.backend.FirMetadataSource
 import org.jetbrains.kotlin.fir.backend.jvm.JvmFir2IrExtensions
 import org.jetbrains.kotlin.fir.declarations.FirRegularClass
-import org.jetbrains.kotlin.fir.declarations.FirValueParameter
 import org.jetbrains.kotlin.fir.declarations.impl.FirResolvedDeclarationStatusImpl
+import org.jetbrains.kotlin.fir.declarations.utils.isConst
 import org.jetbrains.kotlin.fir.expressions.FirAnnotation
 import org.jetbrains.kotlin.fir.expressions.FirAnnotationCall
 import org.jetbrains.kotlin.fir.expressions.FirErrorExpression
-import org.jetbrains.kotlin.fir.expressions.FirExpression
 import org.jetbrains.kotlin.fir.expressions.FirGetClassCall
 import org.jetbrains.kotlin.fir.expressions.FirNamedArgumentExpression
 import org.jetbrains.kotlin.fir.expressions.FirQualifiedAccessExpression
 import org.jetbrains.kotlin.fir.expressions.FirVarargArgumentsExpression
 import org.jetbrains.kotlin.fir.expressions.FirWrappedArgumentExpression
 import org.jetbrains.kotlin.fir.expressions.builder.buildLiteralExpression
-import org.jetbrains.kotlin.fir.expressions.builder.buildNamedArgumentExpression
 import org.jetbrains.kotlin.fir.expressions.impl.FirResolvedArgumentList
 import org.jetbrains.kotlin.fir.extensions.ExperimentalTopLevelDeclarationsGenerationApi
 import org.jetbrains.kotlin.fir.extensions.FirAnalysisHandlerExtension
@@ -89,10 +85,13 @@ import org.jetbrains.kotlin.fir.extensions.MemberGenerationContext
 import org.jetbrains.kotlin.fir.java.FirProjectSessionProvider
 import org.jetbrains.kotlin.fir.moduleData
 import org.jetbrains.kotlin.fir.pipeline.FirResult
-import org.jetbrains.kotlin.fir.pipeline.buildResolveAndCheckFirFromKtFiles
+import org.jetbrains.kotlin.fir.pipeline.ModuleCompilerAnalyzedOutput
+import org.jetbrains.kotlin.fir.pipeline.buildFirFromKtFiles
+import org.jetbrains.kotlin.fir.pipeline.runResolution
 import org.jetbrains.kotlin.fir.plugin.createMemberProperty
 import org.jetbrains.kotlin.fir.plugin.createTopLevelClass
 import org.jetbrains.kotlin.fir.references.FirErrorNamedReference
+import org.jetbrains.kotlin.fir.references.FirResolvedNamedReference
 import org.jetbrains.kotlin.fir.resolve.providers.dependenciesSymbolProvider
 import org.jetbrains.kotlin.fir.resolve.providers.symbolProvider
 import org.jetbrains.kotlin.fir.session.FirJvmIncrementalCompilationSymbolProviders
@@ -111,10 +110,6 @@ import org.jetbrains.kotlin.fir.symbols.impl.FirEnumEntrySymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirPropertySymbol
 import org.jetbrains.kotlin.fir.types.ConeErrorType
 import org.jetbrains.kotlin.fir.types.coneType
-import org.jetbrains.kotlin.fir.types.isBoolean
-import org.jetbrains.kotlin.fir.types.isInt
-import org.jetbrains.kotlin.fir.types.isLong
-import org.jetbrains.kotlin.fir.types.isString
 import org.jetbrains.kotlin.fir.types.resolvedType
 import org.jetbrains.kotlin.fir.visitors.FirDefaultVisitorVoid
 import org.jetbrains.kotlin.idea.KotlinFileType
@@ -126,7 +121,6 @@ import org.jetbrains.kotlin.ir.declarations.IrClass
 import org.jetbrains.kotlin.ir.declarations.IrConstructor
 import org.jetbrains.kotlin.ir.declarations.IrDeclarationBase
 import org.jetbrains.kotlin.ir.declarations.IrDeclarationContainer
-import org.jetbrains.kotlin.ir.declarations.IrDeclarationOrigin.GeneratedByPlugin
 import org.jetbrains.kotlin.ir.declarations.IrDeclarationWithVisibility
 import org.jetbrains.kotlin.ir.declarations.IrFactory
 import org.jetbrains.kotlin.ir.declarations.IrField
@@ -234,7 +228,6 @@ class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
           runFrontendForKosabi(
               projectEnvironment,
               updatedConfiguration,
-              messageCollector,
               sourceFiles,
               module,
           )
@@ -252,7 +245,6 @@ class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
             runFrontendForKosabi(
                 projectEnvironment,
                 updatedConfiguration,
-                messageCollector,
                 sourceFiles,
                 module,
                 detectedMissingIrClasses,
@@ -494,18 +486,13 @@ class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
     val cleanDiagnosticReporter = DiagnosticReporterFactory.createPendingReporter(messageCollector)
     val compilerEnvironment = ModuleCompilerEnvironment(projectEnvironment, cleanDiagnosticReporter)
 
-    // Transform FIR to replace error expressions in annotations with valid literals.
-    // This is necessary because K2 FIR may fail to resolve const vals from K1-generated
-    // stub JARs (source-only ABI), resulting in FirErrorExpression nodes that cause
-    // FIR-to-IR conversion to crash.
-    fixFirErrorExpressionsInAnnotations(analysisResults)
-
-    // Strip @Throws annotations that have error type exception classes.
-    // This is necessary because safe Kotlin plugin crashes on @Throws with
-    // FirVarargArgumentsExpression
-    // containing unresolved class references. K1 Kosabi naturally strips these, so we replicate
-    // that.
-    stripThrowsWithErrorTypes(analysisResults)
+    // Strip ALL annotations that have error expressions in their arguments.
+    // This is necessary because K2 FIR may fail to resolve const vals or other references
+    // from K1-generated stub JARs (source-only ABI), resulting in error expressions that
+    // cause FIR-to-IR conversion to crash. K1 Kosabi naturally omits unresolvable annotations,
+    // so we replicate that behavior. This is more robust than trying to replace error
+    // expressions with literals (FIR mutation is unreliable).
+    stripAnnotationsWithErrors(analysisResults)
 
     // Fix property initializers containing error expressions.
     // During FIR-to-IR conversion, constant evaluation of field initializers crashes
@@ -528,14 +515,32 @@ class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
     // This prevents Safe Kotlin plugin from encountering @Throws during metadata reading.
     stripThrowsFromFirMetadataSources(irInput.irModuleFragment)
 
+    // Strip ALL annotations with error expressions from FIR metadata sources.
+    // This is necessary because annotations can persist into IR through FirMetadataSource
+    // even after we've stripped them from FIR files. The IR constant evaluator will crash
+    // if it encounters error expressions during annotation evaluation.
+    stripAnnotationsWithErrorsFromFirMetadataSources(irInput.irModuleFragment)
+
     val result = generateCodeFromIr(irInput, compilerEnvironment)
+
+    // Write bytecode from generationState.factory to disk.
+    // With SKIP_BODIES=true, the output is kept in memory and not written automatically
+    // by the standard pipeline. We need to manually extract and write each output file.
+    val outputDir = configuration[JVMConfigurationKeys.OUTPUT_DIRECTORY]
+    if (outputDir != null) {
+      val outputFiles = result.generationState.factory.asList()
+      outputFiles.forEach { outputFile ->
+        val file = File(outputDir, outputFile.relativePath)
+        file.parentFile?.mkdirs()
+        file.writeBytes(outputFile.asByteArray())
+      }
+    }
 
     // Strip @Throws annotations from bytecode.
     // K2 JVM backend writes @Throws to both the throws clause AND RuntimeInvisibleAnnotations,
     // while K1 only writes the throws clause. Safe Kotlin reads from RuntimeInvisibleAnnotations
     // and complains even when exceptions are caught. We strip @Throws from bytecode annotations
     // while keeping the throws clause intact.
-    val outputDir = configuration[JVMConfigurationKeys.OUTPUT_DIRECTORY]
     if (outputDir != null) {
       stripThrowsAnnotationsFromBytecode(outputDir)
     }
@@ -741,27 +746,15 @@ class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
     moduleFile.writeBytes(baos.toByteArray())
   }
 
-  // Fix FirErrorExpression nodes in annotation arguments by replacing them with valid literals.
-  // This is necessary because K2 FIR may fail to resolve const vals from K1-generated stub JARs
-  // (source-only ABI dependencies). When this happens, the FIR contains FirErrorExpression nodes
-  // which cause the FIR-to-IR conversion to crash. For ABI generation, we don't need the actual
-  // values - we just need valid bytecode, so we replace error expressions with default literals.
-  private fun fixFirErrorExpressionsInAnnotations(analysisResults: FirResult) {
+  // Strip ALL annotations that have error expressions in their arguments.
+  // This is necessary because K2 FIR may fail to resolve const vals or other references
+  // from K1-generated stub JARs (source-only ABI), resulting in error expressions that
+  // cause FIR-to-IR conversion to crash. K1 Kosabi naturally omits unresolvable annotations,
+  // so we replicate that behavior by stripping any annotation with errors.
+  private fun stripAnnotationsWithErrors(analysisResults: FirResult) {
     for (output in analysisResults.outputs) {
       for (firFile in output.fir) {
-        firFile.accept(FirErrorExpressionFixerVisitor())
-      }
-    }
-  }
-
-  // Strip @Throws annotations that have error type exception classes.
-  // The safe Kotlin plugin crashes when reading @Throws with unresolved exception classes
-  // because it expects FirGetClassCall but gets something else after deserialization.
-  // K1 Kosabi naturally strips these because it can't resolve the exception classes.
-  private fun stripThrowsWithErrorTypes(analysisResults: FirResult) {
-    for (output in analysisResults.outputs) {
-      for (firFile in output.fir) {
-        firFile.accept(FirThrowsStrippingVisitor())
+        firFile.accept(FirAnnotationStrippingVisitor())
       }
     }
   }
@@ -918,12 +911,147 @@ class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
               }
               is FirQualifiedAccessExpression -> {
                 try {
-                  element.resolvedType is ConeErrorType
+                  element.resolvedType is ConeErrorType ||
+                      element.calleeReference is FirErrorNamedReference
                 } catch (_: Exception) {
                   false
                 }
               }
               is FirErrorExpression -> true
+              else -> false
+            }
+          }
+        },
+        null,
+    )
+  }
+
+  // Strip ALL annotations with error expressions from FIR metadata sources attached to IR
+  // declarations. This is necessary because annotations persist into IR through FirMetadataSource,
+  // and the IR constant evaluator crashes when encountering error expressions during annotation
+  // evaluation. We strip any annotation that has error expressions in its arguments.
+  private fun stripAnnotationsWithErrorsFromFirMetadataSources(moduleFragment: IrModuleFragment) {
+    moduleFragment.accept(
+        object : IrElementVisitorVoid {
+          override fun visitElement(element: IrElement) {
+            element.acceptChildren(this, null)
+          }
+
+          override fun visitFile(file: IrFile) {
+            super.visitFile(file)
+          }
+
+          override fun visitClass(declaration: IrClass) {
+            stripAnnotationsWithErrorsFromDeclaration(declaration)
+            super.visitClass(declaration)
+          }
+
+          override fun visitSimpleFunction(declaration: IrSimpleFunction) {
+            stripAnnotationsWithErrorsFromDeclaration(declaration)
+            super.visitSimpleFunction(declaration)
+          }
+
+          override fun visitProperty(declaration: IrProperty) {
+            stripAnnotationsWithErrorsFromDeclaration(declaration)
+            super.visitProperty(declaration)
+          }
+
+          override fun visitConstructor(declaration: IrConstructor) {
+            stripAnnotationsWithErrorsFromDeclaration(declaration)
+            super.visitConstructor(declaration)
+          }
+
+          private fun stripAnnotationsWithErrorsFromDeclaration(declaration: IrDeclarationBase) {
+            // Access metadata via IrMetadataSourceOwner interface
+            val metadataSourceOwner = declaration as? IrMetadataSourceOwner ?: return
+            val metadataSource = metadataSourceOwner.metadata ?: return
+
+            // Check if this is a FirMetadataSource
+            val firMetadataSource = metadataSource as? FirMetadataSource ?: return
+
+            // Strip annotations with errors from the FIR declaration
+            stripAnnotationsWithErrorsFromFirDeclaration(firMetadataSource.fir)
+          }
+
+          private fun stripAnnotationsWithErrorsFromFirDeclaration(
+              declaration: org.jetbrains.kotlin.fir.declarations.FirDeclaration?
+          ) {
+            if (declaration == null) return
+
+            try {
+              // Access the annotations field
+              val annotationsField = declaration.javaClass.getDeclaredField("annotations")
+              annotationsField.isAccessible = true
+              val annotationsWrapper = annotationsField.get(declaration) ?: return
+
+              // MutableOrEmptyList is a value class wrapping MutableList<T>?
+              // Get the internal "list" field
+              val listField = annotationsWrapper.javaClass.getDeclaredField("list")
+              listField.isAccessible = true
+              @Suppress("UNCHECKED_CAST")
+              val annotations =
+                  listField.get(annotationsWrapper) as? MutableList<FirAnnotation> ?: return
+
+              // Remove any annotation that has error expressions in its arguments
+              val toRemove =
+                  annotations.filter { annotation -> hasErrorExpressionInFirAnnotation(annotation) }
+
+              if (toRemove.isNotEmpty()) {
+                annotations.removeAll(toRemove)
+              }
+            } catch (_: Exception) {
+              // If reflection fails, skip this declaration
+            }
+          }
+
+          private fun hasErrorExpressionInFirAnnotation(annotation: FirAnnotation): Boolean {
+            val annotationCall = annotation as? FirAnnotationCall ?: return false
+            val argumentList = annotationCall.argumentList
+            if (argumentList is FirResolvedArgumentList) {
+              for ((argument, _) in argumentList.mapping) {
+                if (hasErrorExpressionInFirElement(argument)) {
+                  return true
+                }
+              }
+            }
+            return false
+          }
+
+          private fun hasErrorExpressionInFirElement(element: FirElement): Boolean {
+            return when (element) {
+              is FirErrorExpression -> true
+              is FirNamedArgumentExpression -> hasErrorExpressionInFirElement(element.expression)
+              is FirWrappedArgumentExpression -> hasErrorExpressionInFirElement(element.expression)
+              is FirVarargArgumentsExpression ->
+                  element.arguments.any { hasErrorExpressionInFirElement(it) }
+              is FirQualifiedAccessExpression -> {
+                try {
+                  element.resolvedType is ConeErrorType ||
+                      element.calleeReference is FirErrorNamedReference
+                } catch (_: Exception) {
+                  false
+                }
+              }
+              is FirGetClassCall -> {
+                try {
+                  val argument = element.argument
+                  if (argument is FirQualifiedAccessExpression) {
+                    argument.resolvedType is ConeErrorType
+                  } else {
+                    element.resolvedType is ConeErrorType
+                  }
+                } catch (_: Exception) {
+                  false
+                }
+              }
+              is org.jetbrains.kotlin.fir.expressions.FirFunctionCall -> {
+                try {
+                  element.resolvedType is ConeErrorType ||
+                      element.calleeReference is FirErrorNamedReference
+                } catch (_: Exception) {
+                  false
+                }
+              }
               else -> false
             }
           }
@@ -939,7 +1067,7 @@ class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
       is FirErrorExpression -> true
       is FirQualifiedAccessExpression -> {
         try {
-          element.resolvedType is ConeErrorType
+          element.resolvedType is ConeErrorType || element.calleeReference is FirErrorNamedReference
         } catch (_: Exception) {
           false
         }
@@ -986,81 +1114,47 @@ class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
     }
   }
 
-  // Visitor that strips @Throws annotations with error type exception classes
-  private class FirThrowsStrippingVisitor : FirDefaultVisitorVoid() {
-    companion object {
-      private val THROWS_FQ_NAME = FqName("kotlin.jvm.Throws")
-      private val THROWS_KOTLIN_FQ_NAME = FqName("kotlin.Throws")
-    }
-
+  // Visitor that strips ALL annotations that have error expressions in their arguments.
+  // This is more robust than trying to replace error expressions with literals,
+  // because FIR mutation is unreliable. If an annotation can't be resolved, we remove it
+  // entirely - for ABI generation, it's better to have no annotation than to crash.
+  // This matches K1 kosabi behavior where unresolved annotations are naturally omitted.
+  private class FirAnnotationStrippingVisitor : FirDefaultVisitorVoid() {
     override fun visitElement(element: FirElement) {
+      // Strip annotations from any annotated element
+      if (element is org.jetbrains.kotlin.fir.declarations.FirDeclaration) {
+        stripAnnotationsWithErrors(element)
+      }
       element.acceptChildren(this)
     }
 
-    override fun visitSimpleFunction(
-        simpleFunction: org.jetbrains.kotlin.fir.declarations.FirSimpleFunction
-    ) {
-      stripThrowsAnnotationsWithErrors(simpleFunction)
-      super.visitSimpleFunction(simpleFunction)
-    }
-
-    override fun visitProperty(property: org.jetbrains.kotlin.fir.declarations.FirProperty) {
-      stripThrowsAnnotationsWithErrors(property)
-      super.visitProperty(property)
-    }
-
-    override fun visitRegularClass(regularClass: FirRegularClass) {
-      stripThrowsAnnotationsWithErrors(regularClass)
-      super.visitRegularClass(regularClass)
-    }
-
-    override fun visitConstructor(
-        constructor: org.jetbrains.kotlin.fir.declarations.FirConstructor
-    ) {
-      stripThrowsAnnotationsWithErrors(constructor)
-      super.visitConstructor(constructor)
-    }
-
-    private fun stripThrowsAnnotationsWithErrors(
+    private fun stripAnnotationsWithErrors(
         declaration: org.jetbrains.kotlin.fir.declarations.FirDeclaration
     ) {
       try {
-        // FIR annotations are mostly immutable, but we can try to access the mutable list via
-        // reflection
+        // FIR annotations are mostly immutable, but we can access the mutable list via reflection
         val annotationsField = declaration.javaClass.getDeclaredField("annotations")
         annotationsField.isAccessible = true
         @Suppress("UNCHECKED_CAST")
         val annotations =
             annotationsField.get(declaration) as? MutableList<FirAnnotationCall> ?: return
 
-        val toRemove = annotations.filter { annotation -> isThrowsWithErrorType(annotation) }
+        val toRemove =
+            annotations.filter { annotation -> hasErrorExpressionInAnnotation(annotation) }
 
         if (toRemove.isNotEmpty()) {
           annotations.removeAll(toRemove)
         }
-      } catch (_: Exception) {
+      } catch (e: Exception) {
         // If reflection fails, skip this declaration
       }
     }
 
-    private fun isThrowsWithErrorType(annotation: FirAnnotationCall): Boolean {
-      // Check if this is @Throws annotation
-      val annotationType = annotation.annotationTypeRef.coneType
-      val fqName =
-          (annotationType as? org.jetbrains.kotlin.fir.types.ConeClassLikeType)
-              ?.lookupTag
-              ?.classId
-              ?.asSingleFqName()
-
-      if (fqName != THROWS_FQ_NAME && fqName != THROWS_KOTLIN_FQ_NAME) {
-        return false
-      }
-
-      // Check if any exception class argument is an error type
+    private fun hasErrorExpressionInAnnotation(annotation: FirAnnotationCall): Boolean {
       val argumentList = annotation.argumentList
       if (argumentList is FirResolvedArgumentList) {
         for ((argument, _) in argumentList.mapping) {
-          if (hasErrorTypeInClassReference(argument)) {
+          if (hasErrorExpression(argument)) {
             return true
           }
         }
@@ -1068,163 +1162,66 @@ class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
       return false
     }
 
-    private fun hasErrorTypeInClassReference(element: FirElement): Boolean {
-      return when (element) {
-        is FirVarargArgumentsExpression ->
-            element.arguments.any { hasErrorTypeInClassReference(it) }
-        is FirGetClassCall -> {
-          try {
-            val argument = element.argument
-            if (argument is FirQualifiedAccessExpression) {
-              argument.resolvedType is ConeErrorType
-            } else {
-              element.resolvedType is ConeErrorType
-            }
-          } catch (_: Exception) {
-            false
-          }
-        }
-        is FirQualifiedAccessExpression -> {
-          try {
-            element.resolvedType is ConeErrorType
-          } catch (_: Exception) {
-            false
-          }
-        }
-        is FirErrorExpression -> true
-        else -> false
-      }
-    }
-  }
-
-  // Visitor that walks FIR trees and fixes error expressions in annotation arguments.
-  // The FIR API is complex and mostly immutable, so we use a best-effort approach:
-  // - For FirVarargArgumentsExpression, access the mutable arguments list via cast to impl
-  // - For other expressions, visit children recursively
-  private class FirErrorExpressionFixerVisitor : FirDefaultVisitorVoid() {
-    override fun visitElement(element: FirElement) {
-      // Visit all children
-      element.acceptChildren(this)
-    }
-
-    override fun visitAnnotationCall(annotationCall: FirAnnotationCall) {
-      // Fix error expressions in annotation arguments
-      val argumentList = annotationCall.argumentList
-      if (argumentList is FirResolvedArgumentList) {
-        var needsRebuild = false
-        // Check if any arguments contain errors that need fixing
-        for ((argument, _) in argumentList.mapping) {
-          if (hasErrorExpression(argument)) {
-            needsRebuild = true
-            break
-          }
-        }
-
-        if (needsRebuild) {
-          // Build a new argument list with errors replaced by literals
-          // Use reflection to access the internal mapping and create a new list
-          try {
-            // Get the mapping field from FirResolvedArgumentList
-            val mappingField = argumentList.javaClass.getDeclaredField("mapping")
-            mappingField.isAccessible = true
-
-            @Suppress("UNCHECKED_CAST")
-            val oldMapping =
-                mappingField.get(argumentList) as MutableMap<FirExpression, FirValueParameter>
-
-            // Create a new mapping with fixed expressions
-            val newMapping = LinkedHashMap<FirExpression, FirValueParameter>()
-            for ((argument, param) in oldMapping) {
-              val fixedArgument = fixOrReplaceArgument(argument)
-              newMapping[fixedArgument] = param
-            }
-
-            // Replace the mapping
-            oldMapping.clear()
-            oldMapping.putAll(newMapping)
-          } catch (_: Exception) {
-            // If reflection fails, try the old approach
-            for ((argument, _) in argumentList.mapping) {
-              fixErrorExpressionsInArgument(argument)
-            }
-          }
-        } else {
-          // No errors to fix, just visit normally
-          for ((argument, _) in argumentList.mapping) {
-            fixErrorExpressionsInArgument(argument)
-          }
-        }
-      }
-
-      // Also visit any nested annotations
-      super.visitAnnotationCall(annotationCall)
-    }
-
-    private fun fixErrorExpressionsInArgument(argument: FirElement) {
-      when (argument) {
-        is FirVarargArgumentsExpression -> {
-          // VarargArgumentsExpression has a mutable list of arguments
-          // We need to cast to the impl class to access the mutable list
-          try {
-            val argList = argument.arguments
-            if (argList is MutableList<*>) {
-              @Suppress("UNCHECKED_CAST") val mutableArgs = argList as MutableList<FirExpression>
-              for (i in mutableArgs.indices) {
-                val arg = mutableArgs[i]
-                // Check for error expressions including unresolved enum values
-                if (hasErrorExpression(arg)) {
-                  // Replace with a default literal (0 for Int)
-                  mutableArgs[i] =
-                      buildLiteralExpression(
-                          source = null,
-                          kind = ConstantValueKind.Int,
-                          value = 0,
-                          setType = true,
-                      )
-                } else {
-                  // Recursively check nested expressions
-                  fixErrorExpressionsInArgument(arg)
-                }
-              }
-            }
-          } catch (_: Exception) {
-            // If we can't modify the list, skip this argument
-          }
-        }
-        is FirNamedArgumentExpression -> {
-          fixErrorExpressionsInArgument(argument.expression)
-        }
-        is FirWrappedArgumentExpression -> {
-          fixErrorExpressionsInArgument(argument.expression)
-        }
-        else -> {
-          // For other cases, visit children
-          argument.acceptChildren(this)
-        }
-      }
-    }
-
+    @OptIn(SymbolInternals::class)
     private fun hasErrorExpression(element: FirElement): Boolean {
       return when (element) {
         is FirErrorExpression -> true
         is FirNamedArgumentExpression -> hasErrorExpression(element.expression)
         is FirWrappedArgumentExpression -> hasErrorExpression(element.expression)
-        is FirVarargArgumentsExpression -> element.arguments.any { hasErrorExpression(it) }
+        is org.jetbrains.kotlin.fir.expressions.FirSpreadArgumentExpression -> {
+          // Spread operator (*array) - check the underlying expression
+          hasErrorExpression(element.expression)
+        }
+        is FirVarargArgumentsExpression -> {
+          // Vararg parameter - check all arguments
+          element.arguments.any { hasErrorExpression(it) }
+        }
         is FirQualifiedAccessExpression -> {
           // Check if the resolved type is an error type (covers unresolved enum values like
           // NO_RESTRICTION)
           // Also check if the callee reference itself is an error (catches cases where the type
           // is valid like Int, but the actual reference can't be resolved from stub JARs)
           try {
-            element.resolvedType is ConeErrorType ||
-                element.calleeReference is FirErrorNamedReference
-          } catch (_: Exception) {
+            if (
+                element.resolvedType is ConeErrorType ||
+                    element.calleeReference is FirErrorNamedReference
+            ) {
+              return true
+            }
+
+            // Check if this references a const val - these cannot be evaluated during IR
+            // constant evaluation when building source-only ABI because the actual const value
+            // is only available in stub JARs. This catches cases like UserConstants.NO_RESTRICTION
+            // where the type (Int) is known and the property symbol is resolvable, but the
+            // const value can't be evaluated.
+            val calleeRef = element.calleeReference
+            if (calleeRef is FirResolvedNamedReference) {
+              val symbol = calleeRef.resolvedSymbol
+              if (symbol is FirPropertySymbol) {
+                val prop = symbol.fir
+                // If it's a const val, only treat as error if the initializer:
+                // 1. Is null (no value available)
+                // 2. Contains error expressions (unresolvable)
+                // Otherwise, the const val has a valid resolvable value.
+                if (prop.isConst) {
+                  val initializer = prop.initializer
+                  if (initializer == null || hasErrorExpression(initializer)) {
+                    return true
+                  }
+                  // The const val has a valid initializer, don't treat as error
+                  return false
+                }
+              }
+            }
             false
+          } catch (_: Exception) {
+            // If we can't access the type/reference due to an exception, treat it as an error
+            // This catches cases where the element is in an inconsistent state
+            true
           }
         }
         is FirGetClassCall -> {
           // For class references like IOException::class, check if the class type is an error type
-          // This handles @Throws with unresolved exception classes
           try {
             val argument = element.argument
             if (argument is FirQualifiedAccessExpression) {
@@ -1233,133 +1230,36 @@ class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
               element.resolvedType is ConeErrorType
             }
           } catch (_: Exception) {
-            false
+            // Treat exceptions as errors
+            true
+          }
+        }
+        is org.jetbrains.kotlin.fir.expressions.FirArrayLiteral -> {
+          // Array literal [a, b, c] - check all elements
+          // FirArrayLiteral interface doesn't expose 'arguments' directly, use reflection
+          try {
+            val argumentListMethod = element.javaClass.getMethod("getArgumentList")
+            val argumentList =
+                argumentListMethod.invoke(element)
+                    as? org.jetbrains.kotlin.fir.expressions.FirArgumentList
+            argumentList?.arguments?.any { hasErrorExpression(it) } ?: false
+          } catch (_: Exception) {
+            // If reflection fails, treat as error to be safe
+            true
           }
         }
         is org.jetbrains.kotlin.fir.expressions.FirFunctionCall -> {
           // Check if function call has error type (unresolved calls)
           try {
-            element.resolvedType is ConeErrorType
+            element.resolvedType is ConeErrorType ||
+                element.calleeReference is FirErrorNamedReference
           } catch (_: Exception) {
-            false
+            // Treat exceptions as errors
+            true
           }
         }
         else -> false
       }
-    }
-
-    private fun fixOrReplaceArgument(argument: FirExpression): FirExpression {
-      return when (argument) {
-        is FirErrorExpression -> buildDefaultLiteral(argument)
-        is FirQualifiedAccessExpression -> {
-          // If resolved type is error, replace with default literal
-          // This covers unresolved enum values like NO_RESTRICTION
-          try {
-            if (argument.resolvedType is ConeErrorType) {
-              buildDefaultLiteralFromExpression(argument)
-            } else {
-              argument
-            }
-          } catch (_: Exception) {
-            argument
-          }
-        }
-        is org.jetbrains.kotlin.fir.expressions.FirFunctionCall -> {
-          // If function call has error type (unresolved call), replace with default literal
-          try {
-            if (argument.resolvedType is ConeErrorType) {
-              buildDefaultLiteralFromExpression(argument)
-            } else {
-              argument
-            }
-          } catch (_: Exception) {
-            argument
-          }
-        }
-        is FirNamedArgumentExpression -> {
-          if (hasErrorExpression(argument.expression)) {
-            // Build a new named argument with the expression replaced
-            buildNamedArgumentExpression {
-              source = argument.source
-              expression = fixOrReplaceArgument(argument.expression)
-              isSpread = argument.isSpread
-              name = argument.name
-            }
-          } else {
-            argument
-          }
-        }
-        is FirVarargArgumentsExpression -> {
-          // Fix vararg arguments
-          val argList = argument.arguments
-          if (argList is MutableList<*>) {
-            @Suppress("UNCHECKED_CAST") val mutableArgs = argList as MutableList<FirExpression>
-            for (i in mutableArgs.indices) {
-              val arg = mutableArgs[i]
-              if (hasErrorExpression(arg)) {
-                mutableArgs[i] = fixOrReplaceArgument(arg)
-              }
-            }
-          }
-          argument
-        }
-        else -> argument
-      }
-    }
-
-    private fun buildDefaultLiteral(error: FirErrorExpression): FirExpression {
-      // Try to determine the expected type from the error expression
-      // For strings, use empty string; for numbers, use 0
-      val typeRef = error.resolvedType
-      val kind =
-          when {
-            typeRef.isString -> ConstantValueKind.String
-            typeRef.isInt -> ConstantValueKind.Int
-            typeRef.isLong -> ConstantValueKind.Long
-            typeRef.isBoolean -> ConstantValueKind.Boolean
-            else -> ConstantValueKind.String // Default to string for annotations
-          }
-      val value: Any =
-          when (kind) {
-            ConstantValueKind.String -> ""
-            ConstantValueKind.Int -> 0
-            ConstantValueKind.Long -> 0L
-            ConstantValueKind.Boolean -> false
-            else -> ""
-          }
-      return buildLiteralExpression(
-          source = null,
-          kind = kind,
-          value = value,
-          setType = true,
-      )
-    }
-
-    private fun buildDefaultLiteralFromExpression(expression: FirExpression): FirExpression {
-      // Build a default literal based on the expression's resolved type
-      val typeRef = expression.resolvedType
-      val kind =
-          when {
-            typeRef.isString -> ConstantValueKind.String
-            typeRef.isInt -> ConstantValueKind.Int
-            typeRef.isLong -> ConstantValueKind.Long
-            typeRef.isBoolean -> ConstantValueKind.Boolean
-            else -> ConstantValueKind.String // Default to string for annotations
-          }
-      val value: Any =
-          when (kind) {
-            ConstantValueKind.String -> ""
-            ConstantValueKind.Int -> 0
-            ConstantValueKind.Long -> 0L
-            ConstantValueKind.Boolean -> false
-            else -> ""
-          }
-      return buildLiteralExpression(
-          source = null,
-          kind = kind,
-          value = value,
-          setType = true,
-      )
     }
   }
 
@@ -1509,11 +1409,17 @@ class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
       // Remove IR files that were generated from stubs
       moduleFragment.files.removeAll { irFile -> stubPaths.contains(irFile.fileEntry.name) }
 
-      // Remove plugin-generated declarations from all files
-      moduleFragment.files.forEach { irFile ->
-        irFile.declarations.removeAll { declaration ->
-          (declaration.origin as? GeneratedByPlugin)?.pluginKey == JvmAbiGenPlugin
-        }
+      // Remove IR files for plugin-generated declarations (e.g., "__GENERATED DECLARATIONS__")
+      // These files contain stub declarations generated by our
+      // MissingConstantDeclarationGenerationExtension
+      // for FIR resolution of missing constants and transitive dependencies. They're temporary
+      // artifacts
+      // used during FIR analysis and should not be included in the final bytecode.
+      // Note: This filtering preserves legitimate plugin-generated methods like Parcelize's
+      // describeContents()/writeToParcel() which are generated directly in the class.
+      moduleFragment.files.removeAll { irFile ->
+        irFile.fileEntry.name.contains("__GENERATED DECLARATIONS__") ||
+            irFile.fileEntry.name.contains("GENERATED_DECLARATIONS")
       }
 
       moduleFragment.transform(
@@ -1948,9 +1854,23 @@ class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
         val firClassSymbol = classSymbol as? FirClassSymbol<*>
         if (firClassSymbol != null) {
           // Check for property with matching name
-          val hasProperty =
-              firClassSymbol.declarationSymbols.filterIsInstance<FirPropertySymbol>().any {
-                it.name.asString() == propertyName
+          // For const vals, also verify the initializer is resolvable (not an error expression)
+          // Source-only ABI JARs may have const vals with stripped initializers
+          val hasResolvableProperty =
+              firClassSymbol.declarationSymbols.filterIsInstance<FirPropertySymbol>().any { prop ->
+                if (prop.name.asString() != propertyName) {
+                  return@any false
+                }
+
+                // If it's not a const, it's usable as-is
+                if (!prop.isConst) {
+                  return@any true
+                }
+
+                // For const vals, check if we can actually resolve the initializer value
+                // Const vals from source-only ABI JARs may exist but have no evaluable value
+                val initializer = prop.fir.initializer
+                initializer != null && !hasErrorExpressionRecursive(initializer)
               }
 
           // Check for any callable with matching name (covers Java static fields)
@@ -1974,19 +1894,41 @@ class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
           val isAnnotationClass =
               firRegularClass != null && firRegularClass.classKind == ClassKind.ANNOTATION_CLASS
 
-          if (hasProperty || hasCallable || hasEnumEntry || isAnnotationClass) {
+          if (hasResolvableProperty || hasCallable || hasEnumEntry || isAnnotationClass) {
             // Found a class in dependencies that has the member - no stub needed
             return null
           }
 
-          // Note: We intentionally do NOT check the Companion object here.
-          // While companion object const vals are accessible as Class.PROPERTY in Kotlin,
-          // K2 FIR cannot properly resolve them from deserialized stub JARs because:
-          // 1. The bytecode has const vals as static fields on the outer class
-          // 2. The Companion metadata describes the properties but has no accessor bytecode
-          // 3. FIR resolution fails when trying to evaluate the constant value
-          // By NOT returning null here, we allow the code to continue and potentially
-          // generate a stub or handle the case differently.
+          // Check companion object for const vals
+          // Companion object const vals are accessible as Class.PROPERTY in Kotlin bytecode,
+          // but from source-only ABI JARs, the initializer values may be stripped.
+          // We need to check if the companion has the property AND if it's resolvable.
+          val companionSymbol =
+              firClassSymbol.declarationSymbols.filterIsInstance<FirClassSymbol<*>>().firstOrNull {
+                it.name.asString() == "Companion"
+              }
+          if (companionSymbol != null) {
+            val hasResolvableCompanionProperty =
+                companionSymbol.declarationSymbols.filterIsInstance<FirPropertySymbol>().any { prop
+                  ->
+                  if (prop.name.asString() != propertyName) {
+                    return@any false
+                  }
+
+                  // Non-const properties in companion are usable
+                  if (!prop.isConst) {
+                    return@any true
+                  }
+
+                  // For const vals, check if initializer is resolvable
+                  val initializer = prop.fir.initializer
+                  initializer != null && !hasErrorExpressionRecursive(initializer)
+                }
+            if (hasResolvableCompanionProperty) {
+              // Found resolvable companion property - no stub needed
+              return null
+            }
+          }
         }
         // Class exists but doesn't have the property/entry - continue probing
       }
@@ -2043,15 +1985,12 @@ class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
   fun runFrontendForKosabi(
       environment: VfsBasedProjectEnvironment,
       configuration: CompilerConfiguration,
-      messageCollector: MessageCollector,
       sources: List<KtFile>,
       module: Module,
       missingIrClasses: Set<ClassId> = emptySet(),
   ): FirResult {
-    val diagnosticsReporter = DiagnosticReporterFactory.createPendingReporter(messageCollector)
     return compileSourceFilesToAnalyzedFirViaPsi(
         sources,
-        diagnosticsReporter,
         module.getModuleName(),
         module.getFriendPaths(),
         true,
@@ -2063,7 +2002,6 @@ class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
 
   private fun compileSourceFilesToAnalyzedFirViaPsi(
       ktFiles: List<KtFile>,
-      diagnosticsReporter: BaseDiagnosticsCollector,
       rootModuleName: String,
       friendPaths: List<String>,
       ignoreErrors: Boolean = false,
@@ -2108,7 +2046,11 @@ class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
           session.jvmAbiGenService.state.missingConstants.putAll(missingConstants)
           // Add missing IR classes detected from previous FIR run
           session.jvmAbiGenService.state.missingIrClasses.addAll(missingIrClasses)
-          buildResolveAndCheckFirFromKtFiles(session, sources, diagnosticsReporter)
+          // Skip checkers - ABI generation only needs resolved types, and third-party
+          // plugin checkers (like Litho K2) crash on unresolved references from stubs.
+          val firFiles = session.buildFirFromKtFiles(sources)
+          val (scopeSession, fir) = session.runResolution(firFiles)
+          ModuleCompilerAnalyzedOutput(session, scopeSession, fir)
         }
 
     return FirResult(outputs)
