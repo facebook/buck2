@@ -7,21 +7,15 @@ rust_library(
     srcs = glob(["src/**/*.rs"]),
     test_deps = [
         "fbsource//third-party/rust:httptest-0-16",
-    ],
-    test_os_deps = [
-        (
-            "linux",
-            [
-                "fbsource//third-party/rust:tempfile",
-            ],
-        ),
-        (
-            "macos",
-            [
-                "fbsource//third-party/rust:tempfile",
-            ],
-        ),
-    ],
+    ] + select({
+        "DEFAULT": [],
+        "ovr_config//os:linux": [
+            "fbsource//third-party/rust:tempfile",
+        ],
+        "ovr_config//os:macos": [
+            "fbsource//third-party/rust:tempfile",
+        ],
+    }),
     deps = [
         "fbsource//third-party/rust:bytes",
         "fbsource//third-party/rust:futures",

@@ -10,25 +10,19 @@ rust_library(
     },
     test_deps = [
         "fbsource//third-party/rust:tempfile",
-    ],
-    test_os_deps = [
-        (
-            "linux",
-            [
-                "fbsource//third-party/rust:assert_matches",
-                "//buck2/app/buck2_util:buck2_util",
-                "//buck2/gazebo/gazebo:gazebo",
-            ],
-        ),
-        (
-            "macos",
-            [
-                "fbsource//third-party/rust:assert_matches",
-                "//buck2/app/buck2_util:buck2_util",
-                "//buck2/gazebo/gazebo:gazebo",
-            ],
-        ),
-    ],
+    ] + select({
+        "DEFAULT": [],
+        "ovr_config//os:linux": [
+            "fbsource//third-party/rust:assert_matches",
+            "//buck2/app/buck2_util:buck2_util",
+            "//buck2/gazebo/gazebo:gazebo",
+        ],
+        "ovr_config//os:macos": [
+            "fbsource//third-party/rust:assert_matches",
+            "//buck2/app/buck2_util:buck2_util",
+            "//buck2/gazebo/gazebo:gazebo",
+        ],
+    }),
     deps = [
         "fbsource//third-party/rust:async-trait",
         "fbsource//third-party/rust:blake3",
