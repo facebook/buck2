@@ -14,6 +14,7 @@ import com.facebook.buck.jvm.kotlin.compilerplugins.common.isStub
 import java.io.ByteArrayOutputStream
 import java.io.DataOutputStream
 import java.io.File
+import java.util.LinkedHashMap
 import org.jetbrains.kotlin.GeneratedDeclarationKey
 import org.jetbrains.kotlin.backend.common.extensions.IrGenerationExtension
 import org.jetbrains.kotlin.backend.common.extensions.IrPluginContext
@@ -58,13 +59,24 @@ import org.jetbrains.kotlin.diagnostics.impl.BaseDiagnosticsCollector
 import org.jetbrains.kotlin.extensions.CompilerConfigurationExtension
 import org.jetbrains.kotlin.extensions.PreprocessedFileCreator
 import org.jetbrains.kotlin.fir.DependencyListForCliModule
+import org.jetbrains.kotlin.fir.FirElement
 import org.jetbrains.kotlin.fir.FirModuleData
 import org.jetbrains.kotlin.fir.FirModuleDataImpl
 import org.jetbrains.kotlin.fir.FirSession
 import org.jetbrains.kotlin.fir.backend.jvm.JvmFir2IrExtensions
 import org.jetbrains.kotlin.fir.declarations.FirRegularClass
+import org.jetbrains.kotlin.fir.declarations.FirValueParameter
 import org.jetbrains.kotlin.fir.declarations.impl.FirResolvedDeclarationStatusImpl
+import org.jetbrains.kotlin.fir.expressions.FirAnnotationCall
+import org.jetbrains.kotlin.fir.expressions.FirErrorExpression
+import org.jetbrains.kotlin.fir.expressions.FirExpression
+import org.jetbrains.kotlin.fir.expressions.FirNamedArgumentExpression
+import org.jetbrains.kotlin.fir.expressions.FirQualifiedAccessExpression
+import org.jetbrains.kotlin.fir.expressions.FirVarargArgumentsExpression
+import org.jetbrains.kotlin.fir.expressions.FirWrappedArgumentExpression
 import org.jetbrains.kotlin.fir.expressions.builder.buildLiteralExpression
+import org.jetbrains.kotlin.fir.expressions.builder.buildNamedArgumentExpression
+import org.jetbrains.kotlin.fir.expressions.impl.FirResolvedArgumentList
 import org.jetbrains.kotlin.fir.extensions.ExperimentalTopLevelDeclarationsGenerationApi
 import org.jetbrains.kotlin.fir.extensions.FirAnalysisHandlerExtension
 import org.jetbrains.kotlin.fir.extensions.FirDeclarationGenerationExtension
@@ -92,6 +104,14 @@ import org.jetbrains.kotlin.fir.symbols.impl.FirClassLikeSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirClassSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirEnumEntrySymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirPropertySymbol
+import org.jetbrains.kotlin.fir.types.ConeErrorType
+import org.jetbrains.kotlin.fir.types.coneType
+import org.jetbrains.kotlin.fir.types.isBoolean
+import org.jetbrains.kotlin.fir.types.isInt
+import org.jetbrains.kotlin.fir.types.isLong
+import org.jetbrains.kotlin.fir.types.isString
+import org.jetbrains.kotlin.fir.types.resolvedType
+import org.jetbrains.kotlin.fir.visitors.FirDefaultVisitorVoid
 import org.jetbrains.kotlin.idea.KotlinFileType
 import org.jetbrains.kotlin.ir.IrBuiltIns
 import org.jetbrains.kotlin.ir.IrElement
@@ -247,6 +267,13 @@ class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
     // Ignore all FE errors
     val cleanDiagnosticReporter = DiagnosticReporterFactory.createPendingReporter(messageCollector)
     val compilerEnvironment = ModuleCompilerEnvironment(projectEnvironment, cleanDiagnosticReporter)
+
+    // Transform FIR to replace error expressions in annotations with valid literals.
+    // This is necessary because K2 FIR may fail to resolve const vals from K1-generated
+    // stub JARs (source-only ABI), resulting in FirErrorExpression nodes that cause
+    // FIR-to-IR conversion to crash.
+    fixFirErrorExpressionsInAnnotations(analysisResults)
+
     val irInput =
         convertAnalyzedFirToIr(
             configuration,
@@ -363,6 +390,245 @@ class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
     metaInfDir.mkdirs()
     val moduleFile = File(metaInfDir, "$moduleName.kotlin_module")
     moduleFile.writeBytes(baos.toByteArray())
+  }
+
+  // Fix FirErrorExpression nodes in annotation arguments by replacing them with valid literals.
+  // This is necessary because K2 FIR may fail to resolve const vals from K1-generated stub JARs
+  // (source-only ABI dependencies). When this happens, the FIR contains FirErrorExpression nodes
+  // which cause the FIR-to-IR conversion to crash. For ABI generation, we don't need the actual
+  // values - we just need valid bytecode, so we replace error expressions with default literals.
+  private fun fixFirErrorExpressionsInAnnotations(analysisResults: FirResult) {
+    for (output in analysisResults.outputs) {
+      for (firFile in output.fir) {
+        firFile.accept(FirErrorExpressionFixerVisitor())
+      }
+    }
+  }
+
+  // Visitor that walks FIR trees and fixes error expressions in annotation arguments.
+  // The FIR API is complex and mostly immutable, so we use a best-effort approach:
+  // - For FirVarargArgumentsExpression, access the mutable arguments list via cast to impl
+  // - For other expressions, visit children recursively
+  private class FirErrorExpressionFixerVisitor : FirDefaultVisitorVoid() {
+    override fun visitElement(element: FirElement) {
+      // Visit all children
+      element.acceptChildren(this)
+    }
+
+    override fun visitAnnotationCall(annotationCall: FirAnnotationCall) {
+      // Fix error expressions in annotation arguments
+      val argumentList = annotationCall.argumentList
+      if (argumentList is FirResolvedArgumentList) {
+        var needsRebuild = false
+        // Check if any arguments contain errors that need fixing
+        for ((argument, _) in argumentList.mapping) {
+          if (hasErrorExpression(argument)) {
+            needsRebuild = true
+            break
+          }
+        }
+
+        if (needsRebuild) {
+          // Build a new argument list with errors replaced by literals
+          // Use reflection to access the internal mapping and create a new list
+          try {
+            // Get the mapping field from FirResolvedArgumentList
+            val mappingField = argumentList.javaClass.getDeclaredField("mapping")
+            mappingField.isAccessible = true
+
+            @Suppress("UNCHECKED_CAST")
+            val oldMapping =
+                mappingField.get(argumentList) as MutableMap<FirExpression, FirValueParameter>
+
+            // Create a new mapping with fixed expressions
+            val newMapping = LinkedHashMap<FirExpression, FirValueParameter>()
+            for ((argument, param) in oldMapping) {
+              val fixedArgument = fixOrReplaceArgument(argument)
+              newMapping[fixedArgument] = param
+            }
+
+            // Replace the mapping
+            oldMapping.clear()
+            oldMapping.putAll(newMapping)
+          } catch (_: Exception) {
+            // If reflection fails, try the old approach
+            for ((argument, _) in argumentList.mapping) {
+              fixErrorExpressionsInArgument(argument)
+            }
+          }
+        } else {
+          // No errors to fix, just visit normally
+          for ((argument, _) in argumentList.mapping) {
+            fixErrorExpressionsInArgument(argument)
+          }
+        }
+      }
+
+      // Also visit any nested annotations
+      super.visitAnnotationCall(annotationCall)
+    }
+
+    private fun fixErrorExpressionsInArgument(argument: FirElement) {
+      when (argument) {
+        is FirVarargArgumentsExpression -> {
+          // VarargArgumentsExpression has a mutable list of arguments
+          // We need to cast to the impl class to access the mutable list
+          try {
+            val argList = argument.arguments
+            if (argList is MutableList<*>) {
+              @Suppress("UNCHECKED_CAST") val mutableArgs = argList as MutableList<FirExpression>
+              for (i in mutableArgs.indices) {
+                val arg = mutableArgs[i]
+                if (arg is FirErrorExpression) {
+                  // Replace with a default literal (0 for Int)
+                  mutableArgs[i] =
+                      buildLiteralExpression(
+                          source = null,
+                          kind = ConstantValueKind.Int,
+                          value = 0,
+                          setType = true,
+                      )
+                } else {
+                  // Recursively check nested expressions
+                  fixErrorExpressionsInArgument(arg)
+                }
+              }
+            }
+          } catch (_: Exception) {
+            // If we can't modify the list, skip this argument
+          }
+        }
+        is FirNamedArgumentExpression -> {
+          fixErrorExpressionsInArgument(argument.expression)
+        }
+        is FirWrappedArgumentExpression -> {
+          fixErrorExpressionsInArgument(argument.expression)
+        }
+        else -> {
+          // For other cases, visit children
+          argument.acceptChildren(this)
+        }
+      }
+    }
+
+    private fun hasErrorExpression(element: FirElement): Boolean {
+      return when (element) {
+        is FirErrorExpression -> true
+        is FirNamedArgumentExpression -> hasErrorExpression(element.expression)
+        is FirWrappedArgumentExpression -> hasErrorExpression(element.expression)
+        is FirVarargArgumentsExpression -> element.arguments.any { hasErrorExpression(it) }
+        is FirQualifiedAccessExpression -> {
+          // Check if the resolved type is an error type
+          try {
+            element.resolvedType is ConeErrorType
+          } catch (_: Exception) {
+            false
+          }
+        }
+        else -> false
+      }
+    }
+
+    private fun fixOrReplaceArgument(argument: FirExpression): FirExpression {
+      return when (argument) {
+        is FirErrorExpression -> buildDefaultLiteral(argument)
+        is FirQualifiedAccessExpression -> {
+          // If resolved type is error, replace with default literal
+          try {
+            if (argument.resolvedType is ConeErrorType) {
+              buildDefaultLiteralFromExpression(argument)
+            } else {
+              argument
+            }
+          } catch (_: Exception) {
+            argument
+          }
+        }
+        is FirNamedArgumentExpression -> {
+          if (hasErrorExpression(argument.expression)) {
+            // Build a new named argument with the expression replaced
+            buildNamedArgumentExpression {
+              source = argument.source
+              expression = fixOrReplaceArgument(argument.expression)
+              isSpread = argument.isSpread
+              name = argument.name
+            }
+          } else {
+            argument
+          }
+        }
+        is FirVarargArgumentsExpression -> {
+          // Fix vararg arguments
+          val argList = argument.arguments
+          if (argList is MutableList<*>) {
+            @Suppress("UNCHECKED_CAST") val mutableArgs = argList as MutableList<FirExpression>
+            for (i in mutableArgs.indices) {
+              val arg = mutableArgs[i]
+              if (hasErrorExpression(arg)) {
+                mutableArgs[i] = fixOrReplaceArgument(arg)
+              }
+            }
+          }
+          argument
+        }
+        else -> argument
+      }
+    }
+
+    private fun buildDefaultLiteral(error: FirErrorExpression): FirExpression {
+      // Try to determine the expected type from the error expression
+      // For strings, use empty string; for numbers, use 0
+      val typeRef = error.resolvedType
+      val kind =
+          when {
+            typeRef.isString -> ConstantValueKind.String
+            typeRef.isInt -> ConstantValueKind.Int
+            typeRef.isLong -> ConstantValueKind.Long
+            typeRef.isBoolean -> ConstantValueKind.Boolean
+            else -> ConstantValueKind.String // Default to string for annotations
+          }
+      val value: Any =
+          when (kind) {
+            ConstantValueKind.String -> ""
+            ConstantValueKind.Int -> 0
+            ConstantValueKind.Long -> 0L
+            ConstantValueKind.Boolean -> false
+            else -> ""
+          }
+      return buildLiteralExpression(
+          source = null,
+          kind = kind,
+          value = value,
+          setType = true,
+      )
+    }
+
+    private fun buildDefaultLiteralFromExpression(expression: FirExpression): FirExpression {
+      // Build a default literal based on the expression's resolved type
+      val typeRef = expression.resolvedType
+      val kind =
+          when {
+            typeRef.isString -> ConstantValueKind.String
+            typeRef.isInt -> ConstantValueKind.Int
+            typeRef.isLong -> ConstantValueKind.Long
+            typeRef.isBoolean -> ConstantValueKind.Boolean
+            else -> ConstantValueKind.String // Default to string for annotations
+          }
+      val value: Any =
+          when (kind) {
+            ConstantValueKind.String -> ""
+            ConstantValueKind.Int -> 0
+            ConstantValueKind.Long -> 0L
+            ConstantValueKind.Boolean -> false
+            else -> ""
+          }
+      return buildLiteralExpression(
+          source = null,
+          kind = kind,
+          value = value,
+          setType = true,
+      )
+    }
   }
 
   private class NonAbiDeclarationsStrippingIrExtension(private val sourceFiles: List<KtFile>) :
@@ -659,10 +925,28 @@ class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
     override fun visitAnnotationEntry(annotationEntry: KtAnnotationEntry) {
       // Use getArgumentExpression()?.text to get just the value, not the parameter name
       // For @Annotation(param = VALUE), we want "VALUE", not "param = VALUE"
+      // For array expressions like [A, B], extract individual elements
       annotationEntry.valueArgumentList
           ?.arguments
           ?.mapNotNull { it.getArgumentExpression()?.text }
-          ?.let(usedConstants::addAll)
+          ?.forEach { expressionText ->
+            if (expressionText.startsWith("[") && expressionText.endsWith("]")) {
+              // Array expression: parse and extract individual elements
+              val arrayContent = expressionText.substring(1, expressionText.length - 1).trim()
+              if (arrayContent.isNotEmpty()) {
+                // Simple comma split - for annotation arguments, we don't expect complex nesting
+                arrayContent.split(",").forEach { element ->
+                  val trimmed = element.trim()
+                  if (trimmed.isNotEmpty()) {
+                    usedConstants.add(trimmed)
+                  }
+                }
+              }
+            } else {
+              // Regular expression: add as-is
+              usedConstants.add(expressionText)
+            }
+          }
       return super.visitAnnotationEntry(annotationEntry)
     }
   }
@@ -827,6 +1111,15 @@ class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
             // Found a class in dependencies that has the member - no stub needed
             return null
           }
+
+          // Note: We intentionally do NOT check the Companion object here.
+          // While companion object const vals are accessible as Class.PROPERTY in Kotlin,
+          // K2 FIR cannot properly resolve them from deserialized stub JARs because:
+          // 1. The bytecode has const vals as static fields on the outer class
+          // 2. The Companion metadata describes the properties but has no accessor bytecode
+          // 3. FIR resolution fails when trying to evaluate the constant value
+          // By NOT returning null here, we allow the code to continue and potentially
+          // generate a stub or handle the case differently.
         }
         // Class exists but doesn't have the property/entry - continue probing
       }
@@ -850,12 +1143,32 @@ class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
 
     // Build the ClassId with potential nested class path
     val topLevelClassName = classNameParts.first()
-    return if (classNameParts.size == 1) {
-      ClassId(packageFqName, topLevelClassName)
-    } else {
-      // For nested classes, create ClassId with nested class path
-      ClassId(packageFqName, FqName.fromSegments(classNameParts.map { it.asString() }), false)
+    val baseClassId =
+        if (classNameParts.size == 1) {
+          ClassId(packageFqName, topLevelClassName)
+        } else {
+          // For nested classes, create ClassId with nested class path
+          ClassId(packageFqName, FqName.fromSegments(classNameParts.map { it.asString() }), false)
+        }
+
+    // If the class already exists in dependencies but doesn't have the property,
+    // the property might be in its Companion object. Check if a Companion exists
+    // and if so, generate the stub for the Companion class instead to avoid conflicts.
+    val existingClass = session.dependenciesSymbolProvider.getClassLikeSymbolByClassId(baseClassId)
+    if (existingClass != null) {
+      val companionClassId = baseClassId.createNestedClassId(Name.identifier("Companion"))
+      val existingCompanion =
+          session.dependenciesSymbolProvider.getClassLikeSymbolByClassId(companionClassId)
+      if (existingCompanion != null) {
+        // Companion exists but doesn't have the property - generate stub in Companion
+        return companionClassId
+      }
+      // Class exists but no Companion - can't generate stub without conflict
+      // Return null to avoid generating conflicting class
+      return null
     }
+
+    return baseClassId
   }
 
   // A frontend entry point for Kosabi.
