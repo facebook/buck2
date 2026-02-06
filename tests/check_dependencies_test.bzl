@@ -31,6 +31,7 @@ def _check_dependencies_test(
         labels = labels,
         test_with_compiled_buck2 = False,
         test_with_deployed_buck2 = True,
+        skip_deployed_buck2_version_dep = True,
         use_buck_api = False,
         # In order for target determinator to trigger this test when the `target` specified has changed, we need to introduce a dep on `target`.
         # However, we cannot introduce a configured dep, because the `target` may not be compatible with platform of dependencies test.
