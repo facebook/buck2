@@ -64,6 +64,13 @@ pub struct ChromeTraceCommand {
     )]
     pub path: Option<PathArg>,
 
+    #[clap(
+        long,
+        help = "How many tracks to render events into",
+        value_name = "MAX_TRACKS"
+    )]
+    pub max_tracks: Option<u64>,
+
     #[clap(flatten)]
     pub(crate) event_log: EventLogOptions,
 }
@@ -523,6 +530,7 @@ struct ChromeTraceWriter {
     open_spans: HashMap<buck2_events::span::SpanId, ChromeTraceOpenSpan>,
     invocation: Invocation,
     first_pass: ChromeTraceFirstPass,
+    max_tracks: u64,
     span_counters: SpanCounters,
     unused_track_ids: HashMap<SpanCategorization, TrackIdAllocator>,
     // Wrappers to contain values from InstantEvent.Data.Snapshot as a timeseries
@@ -546,12 +554,13 @@ enum SpanCategorization {
 impl ChromeTraceWriter {
     const BYTES_PER_GIGABYTE: f64 = 1000000000.0;
 
-    pub fn new(invocation: Invocation, first_pass: ChromeTraceFirstPass) -> Self {
+    pub fn new(invocation: Invocation, first_pass: ChromeTraceFirstPass, max_tracks: u64) -> Self {
         Self {
             trace_events: vec![],
             open_spans: HashMap::new(),
             invocation,
             first_pass,
+            max_tracks,
             unused_track_ids: HashMap::new(),
             span_counters: SpanCounters::new("spans"),
             snapshot_counters: SimpleCounters::<u64>::new("snapshot_counters", 0),
@@ -575,7 +584,7 @@ impl ChromeTraceWriter {
             None => {
                 let max = match track_key {
                     SpanCategorization::CriticalPath => None,
-                    SpanCategorization::Uncategorized => Some(20),
+                    SpanCategorization::Uncategorized => Some(self.max_tracks),
                     SpanCategorization::DetailedCriticalPath => None,
                     SpanCategorization::DetailedSlowestPath => None,
                 };
@@ -1137,7 +1146,7 @@ impl BuckSubcommand for ChromeTraceCommand {
             trace_path
         };
 
-        let writer = Self::trace_writer(log).await?;
+        let writer = Self::trace_writer(log, self.max_tracks.unwrap_or(20)).await?;
 
         let tracefile = std::fs::OpenOptions::new()
             .create(true)
@@ -1151,7 +1160,10 @@ impl BuckSubcommand for ChromeTraceCommand {
 }
 
 impl ChromeTraceCommand {
-    async fn trace_writer(log: EventLogPathBuf) -> buck2_error::Result<ChromeTraceWriter> {
+    async fn trace_writer(
+        log: EventLogPathBuf,
+        max_tracks: u64,
+    ) -> buck2_error::Result<ChromeTraceWriter> {
         let (invocation, mut stream) = Self::load_events(log.clone()).await?;
         let mut first_pass = ChromeTraceFirstPass::new();
         let mut build_graph_info = None;
@@ -1171,7 +1183,7 @@ impl ChromeTraceCommand {
             }
         }
 
-        let mut writer = ChromeTraceWriter::new(invocation, first_pass);
+        let mut writer = ChromeTraceWriter::new(invocation, first_pass, max_tracks);
 
         // We do this to ensure that these are the first two tracks.
         if let Some(info) = build_graph_info {
