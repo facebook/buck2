@@ -319,7 +319,7 @@ message InstantEvent {
     StdoutStreamingOutput streaming_output = 51;
 
     // Used to track all resource control events as they happen
-    ResourceControlEvents resource_control_events = 54;
+    ResourceControlEvent resource_control_event = 54;
   }
 }
 
@@ -737,10 +737,11 @@ message TestDiscovery {
   }
 }
 
-message ResourceControlEvents {
+message ResourceControlEvent {
   string uuid = 1;
   ResourceControlEventKind kind = 3;
-  google.protobuf.Timestamp event_time = 4;
+  google.protobuf.Timestamp time_event_generated = 4;
+  google.protobuf.Timestamp time_collected = 50;
 
   // Memory information regarding buck2.slice cgroup
   uint64 allprocs_memory_current = 6;

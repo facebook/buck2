@@ -41,6 +41,7 @@ impl EventSenderState {
                 allprocs_memory_pressure: 0.0,
                 daemon_memory_current: 0,
                 daemon_swap_current: 0,
+                time_collected: SystemTime::now(),
             },
             txs: Vec::new(),
         }
@@ -101,7 +102,7 @@ impl EventSenderState {
         actions_suspended: u64,
     ) -> ResourceControlEventMostly {
         ResourceControlEventMostly {
-            event_time: SystemTime::now(),
+            time_event_generated: SystemTime::now(),
             metadata: self.metadata.clone(),
             kind,
 
@@ -123,7 +124,7 @@ impl EventSenderState {
 
 #[derive(Clone)]
 pub(crate) struct ResourceControlEventMostly {
-    event_time: SystemTime,
+    time_event_generated: SystemTime,
     metadata: HashMap<String, String>,
     kind: buck2_data::ResourceControlEventKind,
 
@@ -141,12 +142,13 @@ pub(crate) struct ResourceControlEventMostly {
 }
 
 impl ResourceControlEventMostly {
-    pub(crate) fn complete(self, uuid: &TraceId) -> buck2_data::ResourceControlEvents {
-        buck2_data::ResourceControlEvents {
+    pub(crate) fn complete(self, uuid: &TraceId) -> buck2_data::ResourceControlEvent {
+        buck2_data::ResourceControlEvent {
             uuid: uuid.to_string(),
             kind: self.kind.into(),
 
-            event_time: Some(self.event_time.into()),
+            time_collected: Some(self.memory_reading.time_collected.into()),
+            time_event_generated: Some(self.time_event_generated.into()),
 
             allprocs_memory_current: self.memory_reading.allprocs_memory_current,
             allprocs_memory_swap_current: self.memory_reading.allprocs_swap_current,

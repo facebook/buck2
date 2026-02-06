@@ -670,6 +670,8 @@ fn wake_scene(
 
 #[cfg(test)]
 mod tests {
+    use std::time::SystemTime;
+
     use super::*;
 
     struct UpdateBuilder(HashMap<SceneIdRef, SceneResourceReading>);
@@ -745,6 +747,7 @@ mod tests {
             allprocs_memory_pressure: 12.0,
             daemon_memory_current: 8000,
             daemon_swap_current: 0,
+            time_collected: SystemTime::now(),
         };
         scheduler.update(
             dummy_memory_reading,
@@ -784,6 +787,7 @@ mod tests {
             allprocs_memory_pressure: 50.0,
             daemon_memory_current: 8000,
             daemon_swap_current: 0,
+            time_collected: SystemTime::now(),
         };
         scheduler.update(
             memory_reading,
@@ -833,6 +837,7 @@ mod tests {
             allprocs_memory_pressure: 0.0,
             daemon_memory_current: 0,
             daemon_swap_current: 0,
+            time_collected: SystemTime::now(),
         };
         scheduler.update(
             memory_reading_2,
@@ -866,6 +871,7 @@ mod tests {
                 allprocs_swap_current: 0,
                 daemon_memory_current: 0,
                 daemon_swap_current: 0,
+                time_collected: SystemTime::now(),
             };
             for i in 0..duration {
                 scheduler.update(
@@ -902,6 +908,7 @@ mod tests {
                 allprocs_swap_current: 0,
                 daemon_memory_current: 0,
                 daemon_swap_current: 0,
+                time_collected: SystemTime::now(),
             };
             for i in 0..duration {
                 scheduler.update(

@@ -49,7 +49,7 @@ async def test_memory_pressure_telemetry(
     )
 
     resource_control_events = await filter_events(
-        buck, "Event", "data", "Instant", "data", "ResourceControlEvents"
+        buck, "Event", "data", "Instant", "data", "ResourceControlEvent"
     )
 
     # We can't reliably predict how many events will be fired and how high the pressure % will reach,
@@ -90,7 +90,7 @@ async def test_resource_control_events_created(
         "data",
         "Instant",
         "data",
-        "ResourceControlEvents",
+        "ResourceControlEvent",
     )
 
     # 10 means scheduled event

@@ -950,7 +950,7 @@ impl ChromeTraceWriter {
                             snapshot.http_download_bytes,
                         )?;
                 }
-                buck2_data::instant_event::Data::ResourceControlEvents(events) => {
+                buck2_data::instant_event::Data::ResourceControlEvent(events) => {
                     self.snapshot_counters.set(
                         event.timestamp(),
                         "allprocs_memory_pressure",

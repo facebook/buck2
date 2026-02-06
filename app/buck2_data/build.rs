@@ -154,6 +154,14 @@ fn main() -> io::Result<()> {
             "#[serde(default, with = \"crate::serialize_timestamp\")]",
         )
         .field_attribute(
+            "time_event_generated",
+            "#[serde(default, with = \"crate::serialize_timestamp\")]",
+        )
+        .field_attribute(
+            "time_collected",
+            "#[serde(default, with = \"crate::serialize_timestamp\")]",
+        )
+        .field_attribute(
             "suspend_duration",
             "#[serde(default, with = \"crate::serialize_duration_as_micros\")]",
         )

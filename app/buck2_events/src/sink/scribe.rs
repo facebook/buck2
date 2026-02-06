@@ -230,7 +230,7 @@ impl RemoteEventSink {
                     Some(Data::CleanStaleResult(..)) => true,
                     Some(Data::ConfigurationCreated(..)) => true,
                     Some(Data::DetailedAggregatedMetrics(..)) => true,
-                    Some(Data::ResourceControlEvents(..)) => true,
+                    Some(Data::ResourceControlEvent(..)) => true,
                     None => false,
                     _ => false,
                 }

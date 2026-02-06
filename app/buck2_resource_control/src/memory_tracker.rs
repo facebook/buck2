@@ -12,6 +12,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
 use std::time::Instant;
+use std::time::SystemTime;
 
 use allocative::Allocative;
 use buck2_common::init::ResourceControlConfig;
@@ -40,6 +41,8 @@ pub struct MemoryReading {
     pub allprocs_memory_pressure: f64,
     pub daemon_memory_current: u64,
     pub daemon_swap_current: u64,
+    /// Time this data was collected - only for logs
+    pub time_collected: SystemTime,
 }
 
 pub type MemoryTrackerHandle = Arc<MemoryTrackerSharedState>;
@@ -212,6 +215,7 @@ impl MemoryTracker {
             allprocs_memory_pressure,
             daemon_memory_current,
             daemon_swap_current,
+            time_collected: SystemTime::now(),
         })
     }
 
@@ -280,11 +284,10 @@ mod tests {
         assert_eq!(events[0].daemon_memory_current, 0);
         assert_eq!(events[0].daemon_swap_current, 0);
 
-        let assert_max_over =
-            |f: fn(&buck2_data::ResourceControlEvents) -> u64, val, name: &str| {
-                let max = events.iter().map(f).max().unwrap();
-                assert!(max > val, "{}: {} is not greater than {}", name, max, val);
-            };
+        let assert_max_over = |f: fn(&buck2_data::ResourceControlEvent) -> u64, val, name: &str| {
+            let max = events.iter().map(f).max().unwrap();
+            assert!(max > val, "{}: {} is not greater than {}", name, max, val);
+        };
 
         assert_max_over(
             |e| e.allprocs_memory_current,
