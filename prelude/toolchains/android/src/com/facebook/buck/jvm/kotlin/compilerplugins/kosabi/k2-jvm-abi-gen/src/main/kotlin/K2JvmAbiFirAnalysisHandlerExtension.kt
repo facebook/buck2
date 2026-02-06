@@ -454,13 +454,29 @@ class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
       project: Project,
   ): ModuleCompilerIrBackendInput {
     val extensions = JvmFir2IrExtensions(configuration, JvmIrDeserializerImpl())
-    // Get registered IR generation extensions (e.g., Parcelize) and run them before our stripping
-    // extension.
-    // This ensures Parcelize generates the CREATOR companion object field before we strip non-ABI
-    // declarations.
+    // Include Parcelize IR extension to generate CREATOR field for @Parcelize classes.
+    //
+    // KNOWN LIMITATION: Parcelize crashes on @WriteWith<CustomParceler> when the parceler comes
+    // from source-only-abi deps (missing override chain info). See T219106236.
+    //
+    // CURRENT WORKAROUND: Targets with custom parcelers need required_for_source_only_abi = True.
+    //
+    // RECOMMENDED LONG-TERM FIX: Replicate Parcelize generation inside K2 Kosabi (like K1 does):
+    // - Don't run Parcelize IR extension at all
+    // - Detect @Parcelize classes in IR after FIR-to-IR conversion
+    // - Generate CREATOR field and method stubs ourselves
+    // This avoids the @WriteWith issue entirely because we don't try to resolve parceler methods.
+    //
+    // WHY K1 DOESN'T HAVE THIS PROBLEM:
+    // K1 Kosabi uses ClassBuilderMode.ABI with KotlinCodegenFacade.compileCorrectFiles().
+    // In this mode, Parcelize generates declarations during codegen with method bodies
+    // automatically stubbed - no need to resolve custom parceler methods.
     val registeredIrExtensions = IrGenerationExtension.getInstances(project)
-    val allIrExtensions =
-        registeredIrExtensions + NonAbiDeclarationsStrippingIrExtension(sourceFiles)
+    val abiSafeIrExtensions =
+        registeredIrExtensions.filter { extension ->
+          extension.javaClass.name.contains("parcelize", ignoreCase = true)
+        }
+    val allIrExtensions = abiSafeIrExtensions + NonAbiDeclarationsStrippingIrExtension(sourceFiles)
     val (moduleFragment, components, pluginContext, irActualizedResult, _, symbolTable) =
         analysisResults.convertToIrAndActualizeForJvm(
             extensions,
