@@ -206,7 +206,7 @@ def _build_package_action_impl(
             complete = complete_flag,
             coveragecfg = coveragecfg,
             embedcfg = embedcfg,
-            embed_files = go_list.embed_files,
+            embed_files = srcs,  # pass all srcs for simplicity
             symabis = symabis,
             gen_asmhdr = len(s_files) > 0,
         )
