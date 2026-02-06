@@ -348,23 +348,28 @@ impl Scheduler {
         self.allprocs_memory_pressure
             .add_sample(now, memory_reading.allprocs_memory_pressure);
 
-        if memory_reading.allprocs_memory_pressure > 10.0 {
-            self.estimated_memory_cap = memory_reading.allprocs_memory_current;
+        if self
+            .allprocs_memory_pressure
+            .average_over_last(Duration::from_secs(15))
+            > 10.0
+        {
+            self.estimated_memory_cap = self
+                .allprocs_memory_current
+                .average_over_last(Duration::from_secs(15))
+                .round() as u64;
             self.event_sender_state
                 .update_estimated_memory_cap(self.estimated_memory_cap);
         }
 
         self.event_sender_state
             .update_memory_reading(MemoryReading {
-                allprocs_memory_pressure: self.allprocs_memory_pressure.average_over_last(
-                    if cfg!(test) {
-                        // We have tests that want to check memory pressure without waiting an
-                        // entire minute
-                        Duration::from_secs(5)
-                    } else {
-                        Duration::from_secs(60)
-                    },
-                ),
+                // It's not so clear what we should report as "the memory pressure" in events. Just
+                // reporting the value since the last sample risks being spikey, but reporting
+                // something like avg60 is quite diluted and hard to reason about. This seems like
+                // an ok compromise?
+                allprocs_memory_pressure: self
+                    .allprocs_memory_pressure
+                    .average_over_last(Duration::from_secs(5)),
                 ..memory_reading
             });
         for cgroup in self
