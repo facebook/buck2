@@ -94,6 +94,7 @@ import org.jetbrains.kotlin.fir.symbols.impl.FirEnumEntrySymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirPropertySymbol
 import org.jetbrains.kotlin.idea.KotlinFileType
 import org.jetbrains.kotlin.ir.IrBuiltIns
+import org.jetbrains.kotlin.ir.IrElement
 import org.jetbrains.kotlin.ir.IrStatement
 import org.jetbrains.kotlin.ir.declarations.IrAnonymousInitializer
 import org.jetbrains.kotlin.ir.declarations.IrClass
@@ -103,11 +104,13 @@ import org.jetbrains.kotlin.ir.declarations.IrDeclarationContainer
 import org.jetbrains.kotlin.ir.declarations.IrDeclarationOrigin.GeneratedByPlugin
 import org.jetbrains.kotlin.ir.declarations.IrDeclarationWithVisibility
 import org.jetbrains.kotlin.ir.declarations.IrFactory
+import org.jetbrains.kotlin.ir.declarations.IrField
 import org.jetbrains.kotlin.ir.declarations.IrFile
 import org.jetbrains.kotlin.ir.declarations.IrModuleFragment
 import org.jetbrains.kotlin.ir.declarations.IrProperty
 import org.jetbrains.kotlin.ir.declarations.IrSimpleFunction
 import org.jetbrains.kotlin.ir.expressions.IrBody
+import org.jetbrains.kotlin.ir.expressions.IrCall
 import org.jetbrains.kotlin.ir.expressions.IrExpression
 import org.jetbrains.kotlin.ir.expressions.IrExpressionBody
 import org.jetbrains.kotlin.ir.expressions.IrReturn
@@ -119,6 +122,7 @@ import org.jetbrains.kotlin.ir.types.IrSimpleType
 import org.jetbrains.kotlin.ir.types.IrType
 import org.jetbrains.kotlin.ir.types.makeNullable
 import org.jetbrains.kotlin.ir.visitors.IrElementTransformer
+import org.jetbrains.kotlin.ir.visitors.IrElementVisitorVoid
 import org.jetbrains.kotlin.metadata.jvm.JvmModuleProtoBuf
 import org.jetbrains.kotlin.metadata.jvm.deserialization.JvmMetadataVersion
 import org.jetbrains.kotlin.modules.Module
@@ -406,6 +410,44 @@ class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
 
     override fun visitClass(declaration: IrClass, data: Nothing?): IrStatement {
       return super.visitClass(declaration, data)
+    }
+
+    override fun visitField(declaration: IrField, data: Nothing?): IrStatement {
+      // For fields with initializers containing function calls,
+      // replace the initializer with a default constant value.
+      // This handles cases like: const val X = (10 * TimeConstants.MS_PER_SECOND).toInt()
+      // where the initializer contains a function call that can't be evaluated at compile time
+      // in source-only ABI mode.
+      // We specifically check for IrCall to avoid replacing valid expressions like unary minus
+      // (-1).
+      val initializer = declaration.initializer
+      if (initializer != null) {
+        val expression = initializer.expression
+        if (containsFunctionCalls(expression)) {
+          // Replace with a default constant value based on the field type
+          val defaultExpressionBody = generateDefaultExpressionBody(declaration.type)
+          if (defaultExpressionBody != null) {
+            declaration.initializer = defaultExpressionBody
+          }
+        }
+      }
+      return super.visitField(declaration, data)
+    }
+
+    // Check if an expression tree contains any function calls
+    private fun containsFunctionCalls(expression: IrExpression): Boolean {
+      if (expression is IrCall) return true
+      var hasCall = false
+      expression.acceptChildren(
+          object : IrElementVisitorVoid {
+            override fun visitElement(element: IrElement) {
+              if (element is IrCall) hasCall = true
+              element.acceptChildren(this, null)
+            }
+          },
+          null,
+      )
+      return hasCall
     }
 
     // we shouldn't generate default values for constants becuase the values are getting inlined
