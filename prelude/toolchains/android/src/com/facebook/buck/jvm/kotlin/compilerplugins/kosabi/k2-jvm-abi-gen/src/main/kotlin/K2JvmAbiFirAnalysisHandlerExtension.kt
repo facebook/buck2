@@ -94,6 +94,7 @@ import org.jetbrains.kotlin.fir.plugin.createMemberProperty
 import org.jetbrains.kotlin.fir.plugin.createTopLevelClass
 import org.jetbrains.kotlin.fir.references.FirErrorNamedReference
 import org.jetbrains.kotlin.fir.resolve.providers.dependenciesSymbolProvider
+import org.jetbrains.kotlin.fir.resolve.providers.symbolProvider
 import org.jetbrains.kotlin.fir.session.FirJvmIncrementalCompilationSymbolProviders
 import org.jetbrains.kotlin.fir.session.FirJvmSessionFactory
 import org.jetbrains.kotlin.fir.session.FirSessionConfigurator
@@ -184,6 +185,10 @@ data object JvmAbiGenPlugin : GeneratedDeclarationKey()
 class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
     FirAnalysisHandlerExtension() {
 
+  // Store missing IR classes detected from first FIR run.
+  // This must be class-level because each FIR run creates a new session.
+  private val detectedMissingIrClasses = mutableSetOf<ClassId>()
+
   override fun isApplicable(configuration: CompilerConfiguration): Boolean {
     return true
   }
@@ -223,7 +228,9 @@ class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
               projectEnvironment.project,
               configuration.kotlinSourceRoots,
           )
-      val analysisResults =
+
+      // Run FIR frontend once
+      val initialAnalysisResults =
           runFrontendForKosabi(
               projectEnvironment,
               updatedConfiguration,
@@ -231,6 +238,29 @@ class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
               sourceFiles,
               module,
           )
+
+      // Detect missing transitive dependencies by checking if all supertypes can be resolved
+      val missingTypes = collectMissingTypesFromFir(initialAnalysisResults)
+
+      // If there are missing types, store them class-level and re-run FIR frontend
+      val analysisResults =
+          if (missingTypes.isNotEmpty()) {
+            // Store in class-level field so it survives session recreation
+            detectedMissingIrClasses.addAll(missingTypes)
+
+            // Re-run frontend - pass the missing types explicitly
+            runFrontendForKosabi(
+                projectEnvironment,
+                updatedConfiguration,
+                messageCollector,
+                sourceFiles,
+                module,
+                detectedMissingIrClasses,
+            )
+          } else {
+            initialAnalysisResults
+          }
+
       runBackendForKosabi(
           messageCollector,
           projectEnvironment,
@@ -243,6 +273,184 @@ class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
       Disposer.dispose(disposable)
     }
     return true
+  }
+
+  // Collect missing transitive dependencies by checking if supertypes can be resolved.
+  // When FIR loads a class from bytecode (e.g., from a stub JAR), it includes references
+  // to that class's supertypes. If those supertypes are not on the classpath (because
+  // they're transitive dependencies not included in the stub JAR), we detect them here.
+  private fun collectMissingTypesFromFir(analysisResults: FirResult): Set<ClassId> {
+    val missingTypes = mutableSetOf<ClassId>()
+
+    for (output in analysisResults.outputs) {
+      val session = output.session
+
+      for (firFile in output.fir) {
+        firFile.accept(MissingTypeCollectorVisitor(session, missingTypes))
+      }
+    }
+
+    return missingTypes
+  }
+
+  // Visitor that walks FIR and checks if all referenced types can be resolved,
+  // including the entire supertype hierarchy of dependency classes
+  @OptIn(SymbolInternals::class)
+  private class MissingTypeCollectorVisitor(
+      private val session: FirSession,
+      private val missingTypes: MutableSet<ClassId>,
+  ) : FirDefaultVisitorVoid() {
+
+    // Track already-checked classes to avoid infinite recursion
+    private val checkedClasses = mutableSetOf<ClassId>()
+
+    override fun visitElement(element: FirElement) {
+      // Only visit declarations, not expressions/bodies (avoid deep recursion)
+      // We only care about type references in declarations
+    }
+
+    override fun visitFile(file: org.jetbrains.kotlin.fir.declarations.FirFile) {
+      // Visit top-level declarations
+      for (declaration in file.declarations) {
+        declaration.accept(this)
+      }
+    }
+
+    override fun visitRegularClass(regularClass: FirRegularClass) {
+      // Check if all supertypes can be resolved, including their supertypes
+      for (superTypeRef in regularClass.superTypeRefs) {
+        // Start with isFromDependencyChain=false - we're in a source class
+        // Once we resolve a dependency class, we'll set it to true
+        checkTypeResolvableRecursively(superTypeRef.coneType, isFromDependencyChain = false)
+      }
+      // Visit nested declarations (but not bodies)
+      for (declaration in regularClass.declarations) {
+        declaration.accept(this)
+      }
+    }
+
+    override fun visitSimpleFunction(
+        simpleFunction: org.jetbrains.kotlin.fir.declarations.FirSimpleFunction
+    ) {
+      // Check return type - these are from source, so start with isFromDependencyChain=false
+      checkTypeResolvableRecursively(
+          simpleFunction.returnTypeRef.coneType,
+          isFromDependencyChain = false,
+      )
+
+      // Check parameter types
+      for (valueParameter in simpleFunction.valueParameters) {
+        checkTypeResolvableRecursively(
+            valueParameter.returnTypeRef.coneType,
+            isFromDependencyChain = false,
+        )
+      }
+      // Do NOT call super - we don't need to visit function bodies
+    }
+
+    override fun visitProperty(property: org.jetbrains.kotlin.fir.declarations.FirProperty) {
+      // Check property type
+      checkTypeResolvableRecursively(property.returnTypeRef.coneType, isFromDependencyChain = false)
+      // Do NOT call super - we don't need to visit property initializers
+    }
+
+    override fun visitConstructor(
+        constructor: org.jetbrains.kotlin.fir.declarations.FirConstructor
+    ) {
+      // Check parameter types
+      for (valueParameter in constructor.valueParameters) {
+        checkTypeResolvableRecursively(
+            valueParameter.returnTypeRef.coneType,
+            isFromDependencyChain = false,
+        )
+      }
+      // Do NOT call super - we don't need to visit constructor bodies
+    }
+
+    // Check if a type can be resolved via the symbol provider, and recursively
+    // check all supertypes of resolved classes. This is necessary because stub JARs
+    // may contain classes that extend other classes not in the stub JAR.
+    // The isFromDependencyChain parameter tracks whether we're checking a type that
+    // was found in the supertype chain of a dependency class.
+    private fun checkTypeResolvableRecursively(
+        type: org.jetbrains.kotlin.fir.types.ConeKotlinType,
+        isFromDependencyChain: Boolean = false,
+    ) {
+      when (type) {
+        is org.jetbrains.kotlin.fir.types.ConeClassLikeType -> {
+          val classId = type.lookupTag.classId
+
+          // Skip if already checked
+          if (classId in checkedClasses) return
+          checkedClasses.add(classId)
+
+          // Skip standard library classes - they're always available
+          if (
+              classId.packageFqName.asString().startsWith("kotlin") ||
+                  classId.packageFqName.asString().startsWith("java")
+          ) {
+            return
+          }
+
+          // Skip local classes (anonymous classes, lambdas, object expressions)
+          // These are local to the source file and can't be missing transitive dependencies.
+          // Also, the symbol provider throws an error when trying to look them up.
+          if (classId.isLocal) {
+            return
+          }
+
+          // Try to resolve the class symbol from dependencies
+          val depSymbol = session.dependenciesSymbolProvider.getClassLikeSymbolByClassId(classId)
+          if (depSymbol == null) {
+            // Not in dependencies - could be a source class (Kotlin or Java)
+            // Try to resolve from all symbol providers (includes Java sources)
+            val sourceSymbol = session.symbolProvider.getClassLikeSymbolByClassId(classId)
+            if (sourceSymbol == null) {
+              // Cannot be resolved at all
+              if (isFromDependencyChain) {
+                // This class is in the supertype chain of a dependency or source class
+                // but cannot be resolved - it's a missing transitive dependency
+                missingTypes.add(classId)
+              }
+              return
+            } else {
+              // Found in sources (Kotlin or Java) - recursively check its supertypes
+              // When checking source class supertypes, we're now in a dependency chain
+              // because any supertype not in sources must come from dependencies
+              val firClass = sourceSymbol.fir as? FirRegularClass
+              if (firClass != null) {
+                for (superTypeRef in firClass.superTypeRefs) {
+                  checkTypeResolvableRecursively(
+                      superTypeRef.coneType,
+                      isFromDependencyChain = true,
+                  )
+                }
+              }
+            }
+          } else {
+            // Class IS resolvable from dependencies - now recursively check ITS supertypes
+            // These are now definitely from the dependency chain
+            val firClass = depSymbol.fir as? FirRegularClass
+            if (firClass != null) {
+              for (superTypeRef in firClass.superTypeRefs) {
+                checkTypeResolvableRecursively(superTypeRef.coneType, isFromDependencyChain = true)
+              }
+            }
+          }
+        }
+        is org.jetbrains.kotlin.fir.types.ConeTypeParameterType -> {
+          // Type parameters are always resolvable
+        }
+        is org.jetbrains.kotlin.fir.types.ConeFlexibleType -> {
+          // Check both bounds
+          checkTypeResolvableRecursively(type.lowerBound, isFromDependencyChain)
+          checkTypeResolvableRecursively(type.upperBound, isFromDependencyChain)
+        }
+        else -> {
+          // Other types don't need checking
+        }
+      }
+    }
   }
 
   fun convertAnalyzedFirToIr(
@@ -1838,6 +2046,7 @@ class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
       messageCollector: MessageCollector,
       sources: List<KtFile>,
       module: Module,
+      missingIrClasses: Set<ClassId> = emptySet(),
   ): FirResult {
     val diagnosticsReporter = DiagnosticReporterFactory.createPendingReporter(messageCollector)
     return compileSourceFilesToAnalyzedFirViaPsi(
@@ -1848,6 +2057,7 @@ class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
         true,
         environment,
         configuration,
+        missingIrClasses,
     )!!
   }
 
@@ -1859,6 +2069,7 @@ class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
       ignoreErrors: Boolean = false,
       projectEnvironment: VfsBasedProjectEnvironment,
       configuration: CompilerConfiguration,
+      missingIrClasses: Set<ClassId> = emptySet(),
   ): FirResult? {
 
     val sourceScope =
@@ -1895,6 +2106,8 @@ class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
         sessionsWithSources.map { (session, sources) ->
           val missingConstants = collectMissingConstantsFromSourceFiles(sources, session)
           session.jvmAbiGenService.state.missingConstants.putAll(missingConstants)
+          // Add missing IR classes detected from previous FIR run
+          session.jvmAbiGenService.state.missingIrClasses.addAll(missingIrClasses)
           buildResolveAndCheckFirFromKtFiles(session, sources, diagnosticsReporter)
         }
 
@@ -2097,7 +2310,8 @@ class MissingConstantDeclarationGenerationExtension(
 
   override fun getTopLevelClassIds(): Set<ClassId> {
     val missingConstants = session.jvmAbiGenService.state.missingConstants
-    return missingConstants.keys.toSet()
+    val missingIrClasses = session.jvmAbiGenService.state.missingIrClasses
+    return missingConstants.keys.toSet() + missingIrClasses
   }
 
   override fun getTopLevelCallableIds(): Set<CallableId> {
@@ -2111,18 +2325,29 @@ class MissingConstantDeclarationGenerationExtension(
 
   override fun generateTopLevelClassLikeDeclaration(classId: ClassId): FirClassLikeSymbol<*>? {
     val missingConstants = session.jvmAbiGenService.state.missingConstants
+    val missingIrClasses = session.jvmAbiGenService.state.missingIrClasses
 
-    // Only generate if this class has missing constants
-    val constantsForClass = missingConstants[classId] ?: return null
+    // Generate if this class has missing constants or is a missing IR class
+    val hasMissingConstants = classId in missingConstants
+    val isMissingIrClass = classId in missingIrClasses
 
-    val createdClass = createTopLevelClass(classId, JvmAbiGenPlugin, ClassKind.OBJECT)
+    if (!hasMissingConstants && !isMissingIrClass) {
+      return null
+    }
+
+    // For missing IR classes (transitive dependencies), generate an open class
+    // so it can appear in supertype chains. For missing constants, generate objects.
+    val classKind = if (isMissingIrClass) ClassKind.CLASS else ClassKind.OBJECT
+    val modality = if (isMissingIrClass) Modality.OPEN else Modality.FINAL
+
+    val createdClass = createTopLevelClass(classId, JvmAbiGenPlugin, classKind)
     createdClass.replaceStatus(
         FirResolvedDeclarationStatusImpl(
                 Visibilities.Public,
-                Modality.FINAL,
+                modality,
                 EffectiveVisibility.Public,
             )
-            .apply { isStatic = true }
+            .apply { isStatic = !isMissingIrClass }
     )
     return createdClass.symbol
   }
@@ -2158,9 +2383,11 @@ class MissingConstantDeclarationGenerationExtension(
 
   override fun hasPackage(packageFqName: FqName): Boolean {
     val missingConstants = session.jvmAbiGenService.state.missingConstants
+    val missingIrClasses = session.jvmAbiGenService.state.missingIrClasses
 
     // Return true for any package that contains classes we're generating
-    return missingConstants.keys.any { classId -> classId.packageFqName == packageFqName }
+    return missingConstants.keys.any { classId -> classId.packageFqName == packageFqName } ||
+        missingIrClasses.any { classId -> classId.packageFqName == packageFqName }
   }
 
   private fun generateConstantProperty(
@@ -2209,6 +2436,7 @@ class JvmAbiGenService(session: FirSession, state: AbiGenState) :
 
 class AbiGenState {
   val missingConstants: MutableMap<ClassId, Set<String>> = mutableMapOf()
+  val missingIrClasses: MutableSet<ClassId> = mutableSetOf()
 }
 
 val FirSession.jvmAbiGenService: JvmAbiGenService by FirSession.sessionComponentAccessor()
