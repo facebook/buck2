@@ -136,8 +136,8 @@ async fn write_task(
     mut stdin: impl io::AsyncBufRead + Unpin,
 ) -> buck2_error::Result<()> {
     let mut write_position = 0;
+    let mut buf = vec![0; 64 * 1024]; // maximum pipe size in linux
     loop {
-        let mut buf = vec![0; 64 * 1024]; // maximum pipe size in linux
         let bytes_read = stdin.read(&mut buf).await?;
         if bytes_read == 0 {
             break; // closed stdin
