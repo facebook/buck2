@@ -131,16 +131,20 @@ import org.jetbrains.kotlin.ir.declarations.IrProperty
 import org.jetbrains.kotlin.ir.declarations.IrSimpleFunction
 import org.jetbrains.kotlin.ir.expressions.IrBody
 import org.jetbrains.kotlin.ir.expressions.IrCall
+import org.jetbrains.kotlin.ir.expressions.IrConstructorCall
 import org.jetbrains.kotlin.ir.expressions.IrExpression
 import org.jetbrains.kotlin.ir.expressions.IrExpressionBody
+import org.jetbrains.kotlin.ir.expressions.IrGetEnumValue
 import org.jetbrains.kotlin.ir.expressions.IrReturn
 import org.jetbrains.kotlin.ir.expressions.impl.IrConstImpl
 import org.jetbrains.kotlin.ir.expressions.impl.IrReturnImpl
 import org.jetbrains.kotlin.ir.symbols.IrReturnTargetSymbol
 import org.jetbrains.kotlin.ir.symbols.UnsafeDuringIrConstructionAPI
+import org.jetbrains.kotlin.ir.types.IrErrorType
 import org.jetbrains.kotlin.ir.types.IrSimpleType
 import org.jetbrains.kotlin.ir.types.IrType
 import org.jetbrains.kotlin.ir.types.makeNullable
+import org.jetbrains.kotlin.ir.util.kotlinFqName
 import org.jetbrains.kotlin.ir.visitors.IrElementTransformer
 import org.jetbrains.kotlin.ir.visitors.IrElementVisitorVoid
 import org.jetbrains.kotlin.metadata.jvm.JvmModuleProtoBuf
@@ -213,14 +217,33 @@ class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
               sourceFiles,
               module,
           )
-      runBackendForKosabi(
-          messageCollector,
-          projectEnvironment,
-          updatedConfiguration,
-          module,
-          analysisResults,
-          sourceFiles,
-      )
+      try {
+        runBackendForKosabi(
+            messageCollector,
+            projectEnvironment,
+            updatedConfiguration,
+            module,
+            analysisResults,
+            sourceFiles,
+        )
+      } catch (e: IllegalStateException) {
+        // Handle cases where K2 can't find IR classes for Kotlin types from source-only ABI
+        // dependencies when processing Java sources that extend them. This happens because
+        // K2's lazy IR loading can't resolve parent class symbols from bytecode-only JARs.
+        // Rethrow with a more informative message.
+        if (
+            e.message?.contains("IR class for") == true && e.message?.contains("not found") == true
+        ) {
+          throw IllegalStateException(
+              "K2 Kosabi failed to resolve IR class from source-only ABI dependency. " +
+                  "This typically happens when Java sources extend Kotlin types from dependencies. " +
+                  "Consider disabling K2 Kosabi for this target with should_kosabi_jvm_abi_gen_use_k2 = False. " +
+                  "Original error: ${e.message}",
+              e,
+          )
+        }
+        throw e
+      }
     } finally {
       Disposer.dispose(disposable)
     }
@@ -633,6 +656,120 @@ class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
 
   private class NonAbiDeclarationsStrippingIrExtension(private val sourceFiles: List<KtFile>) :
       IrGenerationExtension {
+
+    private fun hasSourceRetention(annotation: IrConstructorCall): Boolean {
+      // Get the annotation class from the constructor symbol
+      val annotationClass = annotation.symbol.owner.parent as? IrClass ?: return false
+
+      // Don't strip @Throws - it has SOURCE retention but affects bytecode generation
+      // (adds throws clause to method signatures for Java interop)
+      val annotationFqName = annotationClass.kotlinFqName.asString()
+      if (annotationFqName == "kotlin.jvm.Throws" || annotationFqName == "kotlin.Throws") {
+        return false
+      }
+
+      // Look for @Retention annotation on the annotation class
+      for (retentionAnnotation in annotationClass.annotations) {
+        val retentionClass = retentionAnnotation.symbol.owner.parent as? IrClass ?: continue
+        if (retentionClass.kotlinFqName.asString() == "kotlin.annotation.Retention") {
+          // Extract the value argument
+          if (retentionAnnotation.valueArgumentsCount > 0) {
+            val arg = retentionAnnotation.getValueArgument(0)
+            if (arg is IrGetEnumValue) {
+              // Check if it's AnnotationRetention.SOURCE
+              return arg.symbol.owner.name.asString() == "SOURCE"
+            }
+          }
+        }
+      }
+      return false
+    }
+
+    // Check if an annotation contains error types in its arguments.
+    // Error types occur when K2 cannot resolve constants from source-only ABI dependencies.
+    // These annotations cause crashes during constant evaluation, so we strip them.
+    private fun hasErrorType(annotation: IrConstructorCall): Boolean {
+      for (i in 0 until annotation.valueArgumentsCount) {
+        val arg = annotation.getValueArgument(i)
+        if (arg != null && containsErrorType(arg)) {
+          return true
+        }
+      }
+      return false
+    }
+
+    // Recursively check if an IR expression contains error types
+    private fun containsErrorType(expression: IrExpression): Boolean {
+      // Check if the expression's type is an error type
+      if (expression.type is IrErrorType) {
+        return true
+      }
+
+      // Recursively check children
+      var hasError = false
+      expression.acceptChildren(
+          object : IrElementVisitorVoid {
+            override fun visitElement(element: IrElement) {
+              if (element is IrExpression && element.type is IrErrorType) {
+                hasError = true
+              }
+              element.acceptChildren(this, null)
+            }
+          },
+          null,
+      )
+      return hasError
+    }
+
+    private fun stripSourceRetentionAnnotations(moduleFragment: IrModuleFragment) {
+      moduleFragment.accept(
+          object : IrElementVisitorVoid {
+            override fun visitElement(element: IrElement) {
+              element.acceptChildren(this, null)
+            }
+
+            override fun visitClass(declaration: IrClass) {
+              declaration.annotations =
+                  declaration.annotations.filter { !hasSourceRetention(it) && !hasErrorType(it) }
+              super.visitClass(declaration)
+            }
+
+            override fun visitSimpleFunction(declaration: IrSimpleFunction) {
+              declaration.annotations =
+                  declaration.annotations.filter { !hasSourceRetention(it) && !hasErrorType(it) }
+              declaration.valueParameters.forEach { param ->
+                param.annotations =
+                    param.annotations.filter { !hasSourceRetention(it) && !hasErrorType(it) }
+              }
+              super.visitSimpleFunction(declaration)
+            }
+
+            override fun visitField(declaration: IrField) {
+              declaration.annotations =
+                  declaration.annotations.filter { !hasSourceRetention(it) && !hasErrorType(it) }
+              super.visitField(declaration)
+            }
+
+            override fun visitProperty(declaration: IrProperty) {
+              declaration.annotations =
+                  declaration.annotations.filter { !hasSourceRetention(it) && !hasErrorType(it) }
+              super.visitProperty(declaration)
+            }
+
+            override fun visitConstructor(declaration: IrConstructor) {
+              declaration.annotations =
+                  declaration.annotations.filter { !hasSourceRetention(it) && !hasErrorType(it) }
+              declaration.valueParameters.forEach { param ->
+                param.annotations =
+                    param.annotations.filter { !hasSourceRetention(it) && !hasErrorType(it) }
+              }
+              super.visitConstructor(declaration)
+            }
+          },
+          null,
+      )
+    }
+
     @OptIn(UnsafeDuringIrConstructionAPI::class)
     override fun generate(moduleFragment: IrModuleFragment, pluginContext: IrPluginContext) {
       // Filter out files generated from stubs, similar to K1 implementation
@@ -648,6 +785,9 @@ class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
           (declaration.origin as? GeneratedByPlugin)?.pluginKey == JvmAbiGenPlugin
         }
       }
+
+      // Strip SOURCE retention annotations
+      stripSourceRetentionAnnotations(moduleFragment)
 
       moduleFragment.transform(
           NonAbiDeclarationsStrippingIrVisitor(pluginContext.irFactory, pluginContext.irBuiltIns),
@@ -1202,9 +1342,13 @@ class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
       configuration: CompilerConfiguration,
   ): FirResult? {
 
-    val sourceScope =
-        projectEnvironment.getSearchScopeByPsiFiles(ktFiles) +
-            projectEnvironment.getSearchScopeForProjectJavaSources()
+    val sourceScope = projectEnvironment.getSearchScopeByPsiFiles(ktFiles)
+    // Note: We intentionally do NOT include Java sources here.
+    // Including Java sources causes K2 to process Java files that may extend Kotlin
+    // types from source-only ABI dependencies. K2's FIR-to-IR can't find IR classes
+    // for those Kotlin types (only bytecode is available), causing
+    // "IR class for X not found" errors. For source-only ABI generation, we only
+    // need Kotlin sources - Java sources are handled separately by javac.
 
     var librariesScope = projectEnvironment.getSearchScopeForProjectLibraries()
 
