@@ -63,13 +63,16 @@ import org.jetbrains.kotlin.fir.FirElement
 import org.jetbrains.kotlin.fir.FirModuleData
 import org.jetbrains.kotlin.fir.FirModuleDataImpl
 import org.jetbrains.kotlin.fir.FirSession
+import org.jetbrains.kotlin.fir.backend.FirMetadataSource
 import org.jetbrains.kotlin.fir.backend.jvm.JvmFir2IrExtensions
 import org.jetbrains.kotlin.fir.declarations.FirRegularClass
 import org.jetbrains.kotlin.fir.declarations.FirValueParameter
 import org.jetbrains.kotlin.fir.declarations.impl.FirResolvedDeclarationStatusImpl
+import org.jetbrains.kotlin.fir.expressions.FirAnnotation
 import org.jetbrains.kotlin.fir.expressions.FirAnnotationCall
 import org.jetbrains.kotlin.fir.expressions.FirErrorExpression
 import org.jetbrains.kotlin.fir.expressions.FirExpression
+import org.jetbrains.kotlin.fir.expressions.FirGetClassCall
 import org.jetbrains.kotlin.fir.expressions.FirNamedArgumentExpression
 import org.jetbrains.kotlin.fir.expressions.FirQualifiedAccessExpression
 import org.jetbrains.kotlin.fir.expressions.FirVarargArgumentsExpression
@@ -89,6 +92,7 @@ import org.jetbrains.kotlin.fir.pipeline.FirResult
 import org.jetbrains.kotlin.fir.pipeline.buildResolveAndCheckFirFromKtFiles
 import org.jetbrains.kotlin.fir.plugin.createMemberProperty
 import org.jetbrains.kotlin.fir.plugin.createTopLevelClass
+import org.jetbrains.kotlin.fir.references.FirErrorNamedReference
 import org.jetbrains.kotlin.fir.resolve.providers.dependenciesSymbolProvider
 import org.jetbrains.kotlin.fir.session.FirJvmIncrementalCompilationSymbolProviders
 import org.jetbrains.kotlin.fir.session.FirJvmSessionFactory
@@ -126,16 +130,19 @@ import org.jetbrains.kotlin.ir.declarations.IrDeclarationWithVisibility
 import org.jetbrains.kotlin.ir.declarations.IrFactory
 import org.jetbrains.kotlin.ir.declarations.IrField
 import org.jetbrains.kotlin.ir.declarations.IrFile
+import org.jetbrains.kotlin.ir.declarations.IrMetadataSourceOwner
 import org.jetbrains.kotlin.ir.declarations.IrModuleFragment
 import org.jetbrains.kotlin.ir.declarations.IrProperty
 import org.jetbrains.kotlin.ir.declarations.IrSimpleFunction
 import org.jetbrains.kotlin.ir.expressions.IrBody
 import org.jetbrains.kotlin.ir.expressions.IrCall
+import org.jetbrains.kotlin.ir.expressions.IrClassReference
 import org.jetbrains.kotlin.ir.expressions.IrConstructorCall
 import org.jetbrains.kotlin.ir.expressions.IrExpression
 import org.jetbrains.kotlin.ir.expressions.IrExpressionBody
 import org.jetbrains.kotlin.ir.expressions.IrGetEnumValue
 import org.jetbrains.kotlin.ir.expressions.IrReturn
+import org.jetbrains.kotlin.ir.expressions.IrVararg
 import org.jetbrains.kotlin.ir.expressions.impl.IrConstImpl
 import org.jetbrains.kotlin.ir.expressions.impl.IrReturnImpl
 import org.jetbrains.kotlin.ir.symbols.IrReturnTargetSymbol
@@ -163,6 +170,13 @@ import org.jetbrains.kotlin.psi.KtTreeVisitorVoid
 import org.jetbrains.kotlin.resolve.multiplatform.hmppModuleName
 import org.jetbrains.kotlin.resolve.multiplatform.isCommonSource
 import org.jetbrains.kotlin.types.ConstantValueKind
+import org.jetbrains.org.objectweb.asm.AnnotationVisitor
+import org.jetbrains.org.objectweb.asm.ClassReader
+import org.jetbrains.org.objectweb.asm.ClassVisitor
+import org.jetbrains.org.objectweb.asm.ClassWriter
+import org.jetbrains.org.objectweb.asm.FieldVisitor
+import org.jetbrains.org.objectweb.asm.MethodVisitor
+import org.jetbrains.org.objectweb.asm.Opcodes
 
 data object JvmAbiGenPlugin : GeneratedDeclarationKey()
 
@@ -217,33 +231,14 @@ class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
               sourceFiles,
               module,
           )
-      try {
-        runBackendForKosabi(
-            messageCollector,
-            projectEnvironment,
-            updatedConfiguration,
-            module,
-            analysisResults,
-            sourceFiles,
-        )
-      } catch (e: IllegalStateException) {
-        // Handle cases where K2 can't find IR classes for Kotlin types from source-only ABI
-        // dependencies when processing Java sources that extend them. This happens because
-        // K2's lazy IR loading can't resolve parent class symbols from bytecode-only JARs.
-        // Rethrow with a more informative message.
-        if (
-            e.message?.contains("IR class for") == true && e.message?.contains("not found") == true
-        ) {
-          throw IllegalStateException(
-              "K2 Kosabi failed to resolve IR class from source-only ABI dependency. " +
-                  "This typically happens when Java sources extend Kotlin types from dependencies. " +
-                  "Consider disabling K2 Kosabi for this target with should_kosabi_jvm_abi_gen_use_k2 = False. " +
-                  "Original error: ${e.message}",
-              e,
-          )
-        }
-        throw e
-      }
+      runBackendForKosabi(
+          messageCollector,
+          projectEnvironment,
+          updatedConfiguration,
+          module,
+          analysisResults,
+          sourceFiles,
+      )
     } finally {
       Disposer.dispose(disposable)
     }
@@ -297,6 +292,19 @@ class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
     // FIR-to-IR conversion to crash.
     fixFirErrorExpressionsInAnnotations(analysisResults)
 
+    // Strip @Throws annotations that have error type exception classes.
+    // This is necessary because safe Kotlin plugin crashes on @Throws with
+    // FirVarargArgumentsExpression
+    // containing unresolved class references. K1 Kosabi naturally strips these, so we replicate
+    // that.
+    stripThrowsWithErrorTypes(analysisResults)
+
+    // Fix property initializers containing error expressions.
+    // During FIR-to-IR conversion, constant evaluation of field initializers crashes
+    // when encountering error expressions. We need to clear these initializers at the
+    // FIR level before convertToIrAndActualizeForJvm is called.
+    fixFirErrorExpressionsInPropertyInitializers(analysisResults)
+
     val irInput =
         convertAnalyzedFirToIr(
             configuration,
@@ -306,12 +314,122 @@ class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
             sourceFiles,
         )
 
+    // Strip all @Throws annotations from FIR metadata sources.
+    // The IR still has @Throws annotations for bytecode generation (throws clause),
+    // but the FIR metadata sources (used for metadata serialization) have them removed.
+    // This prevents Safe Kotlin plugin from encountering @Throws during metadata reading.
+    stripThrowsFromFirMetadataSources(irInput.irModuleFragment)
+
     val result = generateCodeFromIr(irInput, compilerEnvironment)
+
+    // Strip @Throws annotations from bytecode.
+    // K2 JVM backend writes @Throws to both the throws clause AND RuntimeInvisibleAnnotations,
+    // while K1 only writes the throws clause. Safe Kotlin reads from RuntimeInvisibleAnnotations
+    // and complains even when exceptions are caught. We strip @Throws from bytecode annotations
+    // while keeping the throws clause intact.
+    val outputDir = configuration[JVMConfigurationKeys.OUTPUT_DIRECTORY]
+    if (outputDir != null) {
+      stripThrowsAnnotationsFromBytecode(outputDir)
+    }
 
     // Manually generate .kotlin_module file since SKIP_BODIES=true is set
     generateKotlinModuleFile(irInput.irModuleFragment, module.getModuleName(), configuration)
 
     return result
+  }
+
+  // Strip @Throws annotations from bytecode in all .class files.
+  // K2 JVM backend writes @Throws to both the method's throws clause AND to
+  // RuntimeInvisibleAnnotations, while K1 only writes the throws clause.
+  // Safe Kotlin plugin reads @Throws from RuntimeInvisibleAnnotations and complains
+  // even when exceptions are properly caught. We post-process the bytecode to remove
+  // @Throws from annotations while keeping the throws clause intact.
+  private fun stripThrowsAnnotationsFromBytecode(outputDir: File) {
+    outputDir
+        .walkTopDown()
+        .filter { it.extension == "class" }
+        .forEach { classFile ->
+          val originalBytes = classFile.readBytes()
+          val reader = ClassReader(originalBytes)
+          val writer = ClassWriter(0) // Don't compute frames/maxs, just copy
+
+          val visitor =
+              object : ClassVisitor(Opcodes.ASM9, writer) {
+                // Filter class-level annotations
+                override fun visitAnnotation(
+                    descriptor: String,
+                    visible: Boolean,
+                ): AnnotationVisitor? {
+                  return if (isThrowsAnnotation(descriptor)) {
+                    null // Skip @Throws annotation
+                  } else {
+                    super.visitAnnotation(descriptor, visible)
+                  }
+                }
+
+                // Filter method-level annotations
+                override fun visitMethod(
+                    access: Int,
+                    name: String,
+                    descriptor: String,
+                    signature: String?,
+                    exceptions: Array<out String>?,
+                ): MethodVisitor? {
+                  val methodVisitor =
+                      super.visitMethod(access, name, descriptor, signature, exceptions)
+                  return if (methodVisitor != null) {
+                    object : MethodVisitor(Opcodes.ASM9, methodVisitor) {
+                      override fun visitAnnotation(
+                          desc: String,
+                          visible: Boolean,
+                      ): AnnotationVisitor? {
+                        return if (isThrowsAnnotation(desc)) {
+                          null // Skip @Throws annotation
+                        } else {
+                          super.visitAnnotation(desc, visible)
+                        }
+                      }
+                    }
+                  } else {
+                    null
+                  }
+                }
+
+                // Filter field-level annotations
+                override fun visitField(
+                    access: Int,
+                    name: String,
+                    descriptor: String,
+                    signature: String?,
+                    value: Any?,
+                ): FieldVisitor? {
+                  val fieldVisitor = super.visitField(access, name, descriptor, signature, value)
+                  return if (fieldVisitor != null) {
+                    object : FieldVisitor(Opcodes.ASM9, fieldVisitor) {
+                      override fun visitAnnotation(
+                          desc: String,
+                          visible: Boolean,
+                      ): AnnotationVisitor? {
+                        return if (isThrowsAnnotation(desc)) {
+                          null // Skip @Throws annotation
+                        } else {
+                          super.visitAnnotation(desc, visible)
+                        }
+                      }
+                    }
+                  } else {
+                    null
+                  }
+                }
+
+                private fun isThrowsAnnotation(descriptor: String): Boolean {
+                  return descriptor == "Lkotlin/jvm/Throws;" || descriptor == "Lkotlin/Throws;"
+                }
+              }
+
+          reader.accept(visitor, 0)
+          classFile.writeBytes(writer.toByteArray())
+        }
   }
 
   // Generate the .kotlin_module file manually
@@ -428,6 +546,349 @@ class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
     }
   }
 
+  // Strip @Throws annotations that have error type exception classes.
+  // The safe Kotlin plugin crashes when reading @Throws with unresolved exception classes
+  // because it expects FirGetClassCall but gets something else after deserialization.
+  // K1 Kosabi naturally strips these because it can't resolve the exception classes.
+  private fun stripThrowsWithErrorTypes(analysisResults: FirResult) {
+    for (output in analysisResults.outputs) {
+      for (firFile in output.fir) {
+        firFile.accept(FirThrowsStrippingVisitor())
+      }
+    }
+  }
+
+  // Fix property initializers containing error expressions.
+  // During FIR-to-IR conversion, constant evaluation fails when encountering error
+  // expressions in property initializers, causing the compiler to crash.
+  // For ABI generation, we only need property types, not the actual initializer values,
+  // so we can safely clear initializers that contain errors.
+  private fun fixFirErrorExpressionsInPropertyInitializers(analysisResults: FirResult) {
+    for (output in analysisResults.outputs) {
+      for (firFile in output.fir) {
+        firFile.accept(FirPropertyInitializerFixerVisitor())
+      }
+    }
+  }
+
+  // Strip @Throws annotations with error types from FIR metadata sources attached to IR
+  // declarations.
+  // We only remove @Throws with error types to avoid breaking Java interop, while keeping valid
+  // @Throws annotations so Safe Kotlin plugin can enforce exception handling correctly.
+  private fun stripThrowsFromFirMetadataSources(moduleFragment: IrModuleFragment) {
+    val THROWS_FQ_NAME = FqName("kotlin.jvm.Throws")
+    val THROWS_KOTLIN_FQ_NAME = FqName("kotlin.Throws")
+
+    moduleFragment.accept(
+        object : IrElementVisitorVoid {
+          override fun visitElement(element: IrElement) {
+            element.acceptChildren(this, null)
+          }
+
+          override fun visitFile(file: IrFile) {
+            // IrFile doesn't extend IrDeclarationBase, but we still want to process its
+            // declarations
+            super.visitFile(file)
+          }
+
+          override fun visitClass(declaration: IrClass) {
+            stripThrowsFromDeclaration(declaration)
+            super.visitClass(declaration)
+          }
+
+          override fun visitSimpleFunction(declaration: IrSimpleFunction) {
+            stripThrowsFromDeclaration(declaration)
+            super.visitSimpleFunction(declaration)
+          }
+
+          override fun visitProperty(declaration: IrProperty) {
+            stripThrowsFromDeclaration(declaration)
+            super.visitProperty(declaration)
+          }
+
+          override fun visitConstructor(declaration: IrConstructor) {
+            stripThrowsFromDeclaration(declaration)
+            super.visitConstructor(declaration)
+          }
+
+          private fun stripThrowsFromDeclaration(declaration: IrDeclarationBase) {
+            // Access metadata via IrMetadataSourceOwner interface
+            val metadataSourceOwner = declaration as? IrMetadataSourceOwner ?: return
+            val metadataSource = metadataSourceOwner.metadata ?: return
+
+            // Check if this is a FirMetadataSource
+            val firMetadataSource = metadataSource as? FirMetadataSource ?: return
+
+            // Strip @Throws from the FIR declaration
+            stripThrowsFromFirDeclaration(firMetadataSource.fir)
+          }
+
+          private fun stripThrowsFromFirDeclaration(
+              declaration: org.jetbrains.kotlin.fir.declarations.FirDeclaration?
+          ) {
+            if (declaration == null) return
+
+            try {
+              // Access the annotations field - it's of type MutableOrEmptyList<FirAnnotation>
+              val annotationsField = declaration.javaClass.getDeclaredField("annotations")
+              annotationsField.isAccessible = true
+              val annotationsWrapper = annotationsField.get(declaration) ?: return
+
+              // MutableOrEmptyList is a value class wrapping MutableList<T>?
+              // Get the internal "list" field
+              val listField = annotationsWrapper.javaClass.getDeclaredField("list")
+              listField.isAccessible = true
+              @Suppress("UNCHECKED_CAST")
+              val annotations =
+                  listField.get(annotationsWrapper) as? MutableList<FirAnnotation> ?: return
+
+              // Only remove @Throws annotations that have error types in their exception class
+              // arguments
+              val toRemove =
+                  annotations.filter { annotation ->
+                    hasErrorTypeInThrowsAnnotation(
+                        annotation,
+                        THROWS_FQ_NAME,
+                        THROWS_KOTLIN_FQ_NAME,
+                    )
+                  }
+
+              if (toRemove.isNotEmpty()) {
+                annotations.removeAll(toRemove)
+              }
+            } catch (_: Exception) {
+              // If reflection fails, skip this declaration
+            }
+          }
+
+          private fun hasErrorTypeInThrowsAnnotation(
+              annotation: FirAnnotation,
+              throwsFqName: FqName,
+              throwsKotlinFqName: FqName,
+          ): Boolean {
+            // Check if this is @Throws annotation
+            val annotationType = annotation.annotationTypeRef.coneType
+            val fqName =
+                (annotationType as? org.jetbrains.kotlin.fir.types.ConeClassLikeType)
+                    ?.lookupTag
+                    ?.classId
+                    ?.asSingleFqName()
+
+            if (fqName != throwsFqName && fqName != throwsKotlinFqName) {
+              return false
+            }
+
+            // Check if any exception class argument is an error type
+            // FirAnnotation doesn't have argumentList, only FirAnnotationCall does
+            val annotationCall = annotation as? FirAnnotationCall ?: return false
+            val argumentList = annotationCall.argumentList
+            if (argumentList is FirResolvedArgumentList) {
+              for ((argument, _) in argumentList.mapping) {
+                if (hasErrorTypeInFirClassReference(argument)) {
+                  return true
+                }
+              }
+            }
+            return false
+          }
+
+          private fun hasErrorTypeInFirClassReference(element: FirElement): Boolean {
+            return when (element) {
+              is FirVarargArgumentsExpression ->
+                  element.arguments.any { hasErrorTypeInFirClassReference(it) }
+              is FirGetClassCall -> {
+                try {
+                  val argument = element.argument
+                  if (argument is FirQualifiedAccessExpression) {
+                    argument.resolvedType is ConeErrorType
+                  } else {
+                    element.resolvedType is ConeErrorType
+                  }
+                } catch (_: Exception) {
+                  false
+                }
+              }
+              is FirQualifiedAccessExpression -> {
+                try {
+                  element.resolvedType is ConeErrorType
+                } catch (_: Exception) {
+                  false
+                }
+              }
+              is FirErrorExpression -> true
+              else -> false
+            }
+          }
+        },
+        null,
+    )
+  }
+
+  // Recursively check if a FIR element contains error expressions.
+  // This detects both direct FirErrorExpression nodes and qualified accesses with error types.
+  private fun hasErrorExpressionRecursive(element: FirElement): Boolean {
+    return when (element) {
+      is FirErrorExpression -> true
+      is FirQualifiedAccessExpression -> {
+        try {
+          element.resolvedType is ConeErrorType
+        } catch (_: Exception) {
+          false
+        }
+      }
+      else -> {
+        // Check children recursively
+        var hasError = false
+        element.acceptChildren(
+            object : FirDefaultVisitorVoid() {
+              override fun visitElement(childElement: FirElement) {
+                if (hasErrorExpressionRecursive(childElement)) {
+                  hasError = true
+                }
+                // Continue visiting children
+                childElement.acceptChildren(this)
+              }
+            }
+        )
+        hasError
+      }
+    }
+  }
+
+  // Visitor that clears property initializers containing error expressions
+  private inner class FirPropertyInitializerFixerVisitor : FirDefaultVisitorVoid() {
+    override fun visitElement(element: FirElement) {
+      element.acceptChildren(this)
+    }
+
+    override fun visitProperty(property: org.jetbrains.kotlin.fir.declarations.FirProperty) {
+      val initializer = property.initializer
+      if (initializer != null && hasErrorExpressionRecursive(initializer)) {
+        // Clear the initializer using reflection
+        try {
+          val initializerField = property.javaClass.getDeclaredField("initializer")
+          initializerField.isAccessible = true
+          initializerField.set(property, null)
+        } catch (_: Exception) {
+          // If reflection fails, skip this property
+        }
+      }
+      // Continue visiting nested declarations
+      super.visitProperty(property)
+    }
+  }
+
+  // Visitor that strips @Throws annotations with error type exception classes
+  private class FirThrowsStrippingVisitor : FirDefaultVisitorVoid() {
+    companion object {
+      private val THROWS_FQ_NAME = FqName("kotlin.jvm.Throws")
+      private val THROWS_KOTLIN_FQ_NAME = FqName("kotlin.Throws")
+    }
+
+    override fun visitElement(element: FirElement) {
+      element.acceptChildren(this)
+    }
+
+    override fun visitSimpleFunction(
+        simpleFunction: org.jetbrains.kotlin.fir.declarations.FirSimpleFunction
+    ) {
+      stripThrowsAnnotationsWithErrors(simpleFunction)
+      super.visitSimpleFunction(simpleFunction)
+    }
+
+    override fun visitProperty(property: org.jetbrains.kotlin.fir.declarations.FirProperty) {
+      stripThrowsAnnotationsWithErrors(property)
+      super.visitProperty(property)
+    }
+
+    override fun visitRegularClass(regularClass: FirRegularClass) {
+      stripThrowsAnnotationsWithErrors(regularClass)
+      super.visitRegularClass(regularClass)
+    }
+
+    override fun visitConstructor(
+        constructor: org.jetbrains.kotlin.fir.declarations.FirConstructor
+    ) {
+      stripThrowsAnnotationsWithErrors(constructor)
+      super.visitConstructor(constructor)
+    }
+
+    private fun stripThrowsAnnotationsWithErrors(
+        declaration: org.jetbrains.kotlin.fir.declarations.FirDeclaration
+    ) {
+      try {
+        // FIR annotations are mostly immutable, but we can try to access the mutable list via
+        // reflection
+        val annotationsField = declaration.javaClass.getDeclaredField("annotations")
+        annotationsField.isAccessible = true
+        @Suppress("UNCHECKED_CAST")
+        val annotations =
+            annotationsField.get(declaration) as? MutableList<FirAnnotationCall> ?: return
+
+        val toRemove = annotations.filter { annotation -> isThrowsWithErrorType(annotation) }
+
+        if (toRemove.isNotEmpty()) {
+          annotations.removeAll(toRemove)
+        }
+      } catch (_: Exception) {
+        // If reflection fails, skip this declaration
+      }
+    }
+
+    private fun isThrowsWithErrorType(annotation: FirAnnotationCall): Boolean {
+      // Check if this is @Throws annotation
+      val annotationType = annotation.annotationTypeRef.coneType
+      val fqName =
+          (annotationType as? org.jetbrains.kotlin.fir.types.ConeClassLikeType)
+              ?.lookupTag
+              ?.classId
+              ?.asSingleFqName()
+
+      if (fqName != THROWS_FQ_NAME && fqName != THROWS_KOTLIN_FQ_NAME) {
+        return false
+      }
+
+      // Check if any exception class argument is an error type
+      val argumentList = annotation.argumentList
+      if (argumentList is FirResolvedArgumentList) {
+        for ((argument, _) in argumentList.mapping) {
+          if (hasErrorTypeInClassReference(argument)) {
+            return true
+          }
+        }
+      }
+      return false
+    }
+
+    private fun hasErrorTypeInClassReference(element: FirElement): Boolean {
+      return when (element) {
+        is FirVarargArgumentsExpression ->
+            element.arguments.any { hasErrorTypeInClassReference(it) }
+        is FirGetClassCall -> {
+          try {
+            val argument = element.argument
+            if (argument is FirQualifiedAccessExpression) {
+              argument.resolvedType is ConeErrorType
+            } else {
+              element.resolvedType is ConeErrorType
+            }
+          } catch (_: Exception) {
+            false
+          }
+        }
+        is FirQualifiedAccessExpression -> {
+          try {
+            element.resolvedType is ConeErrorType
+          } catch (_: Exception) {
+            false
+          }
+        }
+        is FirErrorExpression -> true
+        else -> false
+      }
+    }
+  }
+
   // Visitor that walks FIR trees and fixes error expressions in annotation arguments.
   // The FIR API is complex and mostly immutable, so we use a best-effort approach:
   // - For FirVarargArgumentsExpression, access the mutable arguments list via cast to impl
@@ -502,7 +963,8 @@ class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
               @Suppress("UNCHECKED_CAST") val mutableArgs = argList as MutableList<FirExpression>
               for (i in mutableArgs.indices) {
                 val arg = mutableArgs[i]
-                if (arg is FirErrorExpression) {
+                // Check for error expressions including unresolved enum values
+                if (hasErrorExpression(arg)) {
                   // Replace with a default literal (0 for Int)
                   mutableArgs[i] =
                       buildLiteralExpression(
@@ -541,7 +1003,33 @@ class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
         is FirWrappedArgumentExpression -> hasErrorExpression(element.expression)
         is FirVarargArgumentsExpression -> element.arguments.any { hasErrorExpression(it) }
         is FirQualifiedAccessExpression -> {
-          // Check if the resolved type is an error type
+          // Check if the resolved type is an error type (covers unresolved enum values like
+          // NO_RESTRICTION)
+          // Also check if the callee reference itself is an error (catches cases where the type
+          // is valid like Int, but the actual reference can't be resolved from stub JARs)
+          try {
+            element.resolvedType is ConeErrorType ||
+                element.calleeReference is FirErrorNamedReference
+          } catch (_: Exception) {
+            false
+          }
+        }
+        is FirGetClassCall -> {
+          // For class references like IOException::class, check if the class type is an error type
+          // This handles @Throws with unresolved exception classes
+          try {
+            val argument = element.argument
+            if (argument is FirQualifiedAccessExpression) {
+              argument.resolvedType is ConeErrorType
+            } else {
+              element.resolvedType is ConeErrorType
+            }
+          } catch (_: Exception) {
+            false
+          }
+        }
+        is org.jetbrains.kotlin.fir.expressions.FirFunctionCall -> {
+          // Check if function call has error type (unresolved calls)
           try {
             element.resolvedType is ConeErrorType
           } catch (_: Exception) {
@@ -557,6 +1045,19 @@ class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
         is FirErrorExpression -> buildDefaultLiteral(argument)
         is FirQualifiedAccessExpression -> {
           // If resolved type is error, replace with default literal
+          // This covers unresolved enum values like NO_RESTRICTION
+          try {
+            if (argument.resolvedType is ConeErrorType) {
+              buildDefaultLiteralFromExpression(argument)
+            } else {
+              argument
+            }
+          } catch (_: Exception) {
+            argument
+          }
+        }
+        is org.jetbrains.kotlin.fir.expressions.FirFunctionCall -> {
+          // If function call has error type (unresolved call), replace with default literal
           try {
             if (argument.resolvedType is ConeErrorType) {
               buildDefaultLiteralFromExpression(argument)
@@ -657,27 +1158,29 @@ class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
   private class NonAbiDeclarationsStrippingIrExtension(private val sourceFiles: List<KtFile>) :
       IrGenerationExtension {
 
-    private fun hasSourceRetention(annotation: IrConstructorCall): Boolean {
-      // Get the annotation class from the constructor symbol
+    private fun shouldStripAnnotation(annotation: IrConstructorCall): Boolean {
       val annotationClass = annotation.symbol.owner.parent as? IrClass ?: return false
-
-      // Don't strip @Throws - it has SOURCE retention but affects bytecode generation
-      // (adds throws clause to method signatures for Java interop)
       val annotationFqName = annotationClass.kotlinFqName.asString()
+
+      // Keep @Throws annotation in IR to generate bytecode throws clause for Java interop.
+      // The JVM backend (FunctionCodegen.getThrownExceptions) reads @Throws from IR annotations
+      // to generate the method's throws clause. If we strip it here, Java code cannot catch
+      // checked exceptions because the throws clause won't be in bytecode.
+      // Note: K2 JVM backend writes @Throws to both throws clause AND RuntimeInvisibleAnnotations.
+      // We strip it from RuntimeInvisibleAnnotations via bytecode post-processing (see
+      // stripThrowsAnnotationsFromBytecode) to match K1 behavior and prevent Safe Kotlin errors.
       if (annotationFqName == "kotlin.jvm.Throws" || annotationFqName == "kotlin.Throws") {
         return false
       }
 
-      // Look for @Retention annotation on the annotation class
+      // Strip SOURCE retention annotations (not needed in ABI)
       for (retentionAnnotation in annotationClass.annotations) {
         val retentionClass = retentionAnnotation.symbol.owner.parent as? IrClass ?: continue
         if (retentionClass.kotlinFqName.asString() == "kotlin.annotation.Retention") {
-          // Extract the value argument
           if (retentionAnnotation.valueArgumentsCount > 0) {
             val arg = retentionAnnotation.getValueArgument(0)
-            if (arg is IrGetEnumValue) {
-              // Check if it's AnnotationRetention.SOURCE
-              return arg.symbol.owner.name.asString() == "SOURCE"
+            if (arg is IrGetEnumValue && arg.symbol.owner.name.asString() == "SOURCE") {
+              return true
             }
           }
         }
@@ -705,12 +1208,31 @@ class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
         return true
       }
 
+      // For class references (like IOException::class in @Throws), check if the referenced type
+      // is an error type. This handles cases where @Throws has unresolved exception classes.
+      if (expression is IrClassReference && expression.classType is IrErrorType) {
+        return true
+      }
+
+      // For varargs (like @Throws(E1::class, E2::class)), check all elements
+      if (expression is IrVararg) {
+        for (element in expression.elements) {
+          if (element is IrExpression && containsErrorType(element)) {
+            return true
+          }
+        }
+      }
+
       // Recursively check children
       var hasError = false
       expression.acceptChildren(
           object : IrElementVisitorVoid {
             override fun visitElement(element: IrElement) {
               if (element is IrExpression && element.type is IrErrorType) {
+                hasError = true
+              }
+              // Also check class references in children
+              if (element is IrClassReference && element.classType is IrErrorType) {
                 hasError = true
               }
               element.acceptChildren(this, null)
@@ -730,38 +1252,38 @@ class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
 
             override fun visitClass(declaration: IrClass) {
               declaration.annotations =
-                  declaration.annotations.filter { !hasSourceRetention(it) && !hasErrorType(it) }
+                  declaration.annotations.filter { !shouldStripAnnotation(it) && !hasErrorType(it) }
               super.visitClass(declaration)
             }
 
             override fun visitSimpleFunction(declaration: IrSimpleFunction) {
               declaration.annotations =
-                  declaration.annotations.filter { !hasSourceRetention(it) && !hasErrorType(it) }
+                  declaration.annotations.filter { !shouldStripAnnotation(it) && !hasErrorType(it) }
               declaration.valueParameters.forEach { param ->
                 param.annotations =
-                    param.annotations.filter { !hasSourceRetention(it) && !hasErrorType(it) }
+                    param.annotations.filter { !shouldStripAnnotation(it) && !hasErrorType(it) }
               }
               super.visitSimpleFunction(declaration)
             }
 
             override fun visitField(declaration: IrField) {
               declaration.annotations =
-                  declaration.annotations.filter { !hasSourceRetention(it) && !hasErrorType(it) }
+                  declaration.annotations.filter { !shouldStripAnnotation(it) && !hasErrorType(it) }
               super.visitField(declaration)
             }
 
             override fun visitProperty(declaration: IrProperty) {
               declaration.annotations =
-                  declaration.annotations.filter { !hasSourceRetention(it) && !hasErrorType(it) }
+                  declaration.annotations.filter { !shouldStripAnnotation(it) && !hasErrorType(it) }
               super.visitProperty(declaration)
             }
 
             override fun visitConstructor(declaration: IrConstructor) {
               declaration.annotations =
-                  declaration.annotations.filter { !hasSourceRetention(it) && !hasErrorType(it) }
+                  declaration.annotations.filter { !shouldStripAnnotation(it) && !hasErrorType(it) }
               declaration.valueParameters.forEach { param ->
                 param.annotations =
-                    param.annotations.filter { !hasSourceRetention(it) && !hasErrorType(it) }
+                    param.annotations.filter { !shouldStripAnnotation(it) && !hasErrorType(it) }
               }
               super.visitConstructor(declaration)
             }
@@ -785,9 +1307,6 @@ class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
           (declaration.origin as? GeneratedByPlugin)?.pluginKey == JvmAbiGenPlugin
         }
       }
-
-      // Strip SOURCE retention annotations
-      stripSourceRetentionAnnotations(moduleFragment)
 
       moduleFragment.transform(
           NonAbiDeclarationsStrippingIrVisitor(pluginContext.irFactory, pluginContext.irBuiltIns),
@@ -1342,13 +1861,9 @@ class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
       configuration: CompilerConfiguration,
   ): FirResult? {
 
-    val sourceScope = projectEnvironment.getSearchScopeByPsiFiles(ktFiles)
-    // Note: We intentionally do NOT include Java sources here.
-    // Including Java sources causes K2 to process Java files that may extend Kotlin
-    // types from source-only ABI dependencies. K2's FIR-to-IR can't find IR classes
-    // for those Kotlin types (only bytecode is available), causing
-    // "IR class for X not found" errors. For source-only ABI generation, we only
-    // need Kotlin sources - Java sources are handled separately by javac.
+    val sourceScope =
+        projectEnvironment.getSearchScopeByPsiFiles(ktFiles) +
+            projectEnvironment.getSearchScopeForProjectJavaSources()
 
     var librariesScope = projectEnvironment.getSearchScopeForProjectLibraries()
 
