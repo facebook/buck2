@@ -81,6 +81,7 @@ use dupe::Dupe;
 use fbinit::FacebookInit;
 use gazebo::prelude::*;
 use gazebo::variants::VariantName;
+use host_sharing::NamedSemaphores;
 use remote::ScribeConfig;
 use tokio::runtime::Handle;
 use tokio::sync::Mutex;
@@ -201,6 +202,10 @@ pub struct DaemonStateData {
 
     /// A unique identifier for this instance of the daemon
     pub daemon_id: DaemonId,
+
+    /// Semaphores for running actions locally. These need to be shared across commands.
+    #[allocative(skip)]
+    pub named_semaphores_for_run_actions: Arc<NamedSemaphores>,
 }
 
 impl DaemonStateData {
@@ -706,6 +711,7 @@ impl DaemonState {
                 previous_command_data: LockedPreviousCommandData::new(),
                 incremental_db_state,
                 daemon_id: daemon_id.dupe(),
+                named_semaphores_for_run_actions: Arc::new(NamedSemaphores::new()),
             }))
         })
         .await?

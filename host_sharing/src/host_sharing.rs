@@ -10,6 +10,7 @@
 
 use std::fmt;
 use std::iter;
+use std::sync::Arc;
 
 use allocative::Allocative;
 use anyhow::Context;
@@ -127,7 +128,7 @@ pub struct HostSharingGuard {
 pub struct HostSharingBroker {
     permits: SharedSemaphore,
     num_machine_permits: usize,
-    named_semaphores: NamedSemaphores,
+    named_semaphores: Arc<NamedSemaphores>,
 }
 
 pub struct RequestedPermits {
@@ -163,7 +164,11 @@ impl HostSharingBroker {
         }
     }
 
-    pub fn new(host_sharing_strategy: HostSharingStrategy, num_machine_permits: usize) -> Self {
+    pub fn new_with_named_semaphores(
+        host_sharing_strategy: HostSharingStrategy,
+        num_machine_permits: usize,
+        named_semaphores: Arc<NamedSemaphores>,
+    ) -> Self {
         let permits = match host_sharing_strategy {
             HostSharingStrategy::Fifo => SharedSemaphore::new(true, num_machine_permits),
             HostSharingStrategy::SmallerTasksFirst => {
@@ -174,8 +179,16 @@ impl HostSharingBroker {
         Self {
             permits,
             num_machine_permits,
-            named_semaphores: NamedSemaphores::new(),
+            named_semaphores,
         }
+    }
+
+    pub fn new(host_sharing_strategy: HostSharingStrategy, num_machine_permits: usize) -> Self {
+        Self::new_with_named_semaphores(
+            host_sharing_strategy,
+            num_machine_permits,
+            Arc::new(NamedSemaphores::new()),
+        )
     }
 
     pub fn num_machine_permits(&self) -> usize {

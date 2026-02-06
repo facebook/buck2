@@ -715,8 +715,15 @@ impl DiceCommandUpdater<'_, '_> {
             re_fallback_on_estimated_queue_time_exceeds,
         };
 
-        let host_sharing_broker =
-            HostSharingBroker::new(HostSharingStrategy::SmallerTasksFirst, concurrency);
+        let host_sharing_broker = HostSharingBroker::new_with_named_semaphores(
+            HostSharingStrategy::SmallerTasksFirst,
+            concurrency,
+            self.cmd_ctx
+                .base_context
+                .daemon
+                .named_semaphores_for_run_actions
+                .dupe(),
+        );
 
         // We use the job count for the low pass filter too. The low pass filter prevents sending
         // RE-eligile tasks to local if their concurrency is higher than our threshold. While it
