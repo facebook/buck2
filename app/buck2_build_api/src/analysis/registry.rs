@@ -622,6 +622,16 @@ pub struct RecordedAnalysisValues {
 }
 
 impl RecordedAnalysisValues {
+    /// Creates a minimal RecordedAnalysisValues for testing action lookups only.
+    /// This version doesn't require DYNAMIC_LAMBDA_PARAMS_STORAGES to be initialized.
+    pub fn testing_new_actions_only(self_key: DeferredHolderKey, actions: RecordedActions) -> Self {
+        Self {
+            self_key,
+            analysis_storage: None,
+            actions,
+        }
+    }
+
     pub fn testing_new(
         self_key: DeferredHolderKey,
         transitive_sets: Vec<(TransitiveSetKey, OwnedFrozenValueTyped<FrozenTransitiveSet>)>,

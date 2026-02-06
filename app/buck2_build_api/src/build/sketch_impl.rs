@@ -22,6 +22,12 @@ use setsketch::SetSketcher;
 use strong_hash::StrongHash;
 use strong_hash::UseStrongHashing;
 
+/// Trait for sketch operations, allowing for mocking in tests.
+pub(crate) trait Sketcher<T> {
+    fn sketch(&mut self, t: &T);
+    fn sketch_weighted(&mut self, t: &T, weight: u64);
+}
+
 /// This is a struct representing graph sketches returned from DICE call to compute sketches.
 /// It satisfies 2 properties.
 /// (1) It can be merged with other sketches via VersionedSketcher's `merge` method. It does
@@ -107,16 +113,32 @@ pub(crate) struct VersionedSketcher<T: StrongHash> {
     sketcher: SetSketcher<UseStrongHashing<T>, Blake3StrongHasher>,
 }
 
-impl<T: StrongHash> VersionedSketcher<T> {
-    pub(crate) fn sketch(&mut self, t: &T) {
+impl<T: StrongHash> Sketcher<T> for VersionedSketcher<T> {
+    fn sketch(&mut self, t: &T) {
         self.sketcher.sketch(UseStrongHashing::ref_cast(t));
     }
 
-    pub(crate) fn sketch_weighted(&mut self, t: &T, weight: u64) {
+    fn sketch_weighted(&mut self, t: &T, weight: u64) {
         self.sketcher
             .sketch_weighted_locality_unstable(UseStrongHashing::ref_cast(t), weight);
     }
+}
 
+impl<T, S: Sketcher<T>> Sketcher<T> for Option<S> {
+    fn sketch(&mut self, t: &T) {
+        if let Some(s) = self {
+            s.sketch(t);
+        }
+    }
+
+    fn sketch_weighted(&mut self, t: &T, weight: u64) {
+        if let Some(s) = self {
+            s.sketch_weighted(t, weight);
+        }
+    }
+}
+
+impl<T: StrongHash> VersionedSketcher<T> {
     pub(crate) fn into_mergeable_graph_sketch(self) -> MergeableGraphSketch<T> {
         MergeableGraphSketch::new(self.version, self.sketcher)
     }
