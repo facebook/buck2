@@ -16,7 +16,8 @@ load(
 )
 load("@prelude//android:android_toolchain.bzl", "AndroidToolchainInfo")
 load("@prelude//android:cpu_filters.bzl", "CPU_FILTER_FOR_PRIMARY_PLATFORM", "CPU_FILTER_TO_ABI_DIRECTORY")
-load("@prelude//android:util.bzl", "EnhancementContext")
+load("@prelude//android:relinker_linker_outputs.bzl", "get_extra_relinker_args")
+load("@prelude//android:util.bzl", "EnhancementContext", "merge_extra_linker_args")
 load("@prelude//android:voltron.bzl", "ROOT_MODULE", "all_targets_in_root_module", "get_apk_module_graph_info", "is_root_module")
 # @oss-disable[end= ]: load("@prelude//android/meta_only:gatorade.bzl", "add_gatorade_relinker_args", "early_gatorade_libraries", "gatorade_libraries", "is_late_gatorade_enabled")
 load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxToolchainInfo", "PicBehavior")
@@ -1864,6 +1865,7 @@ def _bolt_libraries(
 #    only if they are caused by the relinker changes themselves).
 # 5. extract the list of undefined symbols in the relinked libs (i.e. those symbols needed from dependencies and what had been
 #    used in (1) above from higher nodes).
+
 def relink_libraries(ctx: AnalysisContext, libraries_by_platform: dict[str, dict[str, SharedLibrary]]) -> dict[str, dict[str, SharedLibrary]]:
     relinker_extra_deps = getattr(ctx.attrs, "relinker_extra_deps", None)
     relinker_extra_args = getattr(ctx.attrs, "relinker_extra_args", {})
@@ -1929,6 +1931,8 @@ def relink_libraries(ctx: AnalysisContext, libraries_by_platform: dict[str, dict
 
             extra_args = {} # @oss-enable
             # @oss-disable[end= ]: extra_args = add_gatorade_relinker_args(ctx, cxx_toolchain, output_path)
+            relinker_output_args = get_extra_relinker_args(ctx, output_path)
+            extra_args = merge_extra_linker_args([extra_args, relinker_output_args])
             shared_lib = create_shared_lib(
                 ctx,
                 output_path = output_path,

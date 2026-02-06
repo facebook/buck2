@@ -6,6 +6,55 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
+load(
+    "@prelude//linking:link_info.bzl",
+    "ExtraLinkerOutputs",
+)
+
+def merge_extra_linker_args(arg_dicts: list[dict[str, typing.Any]]) -> dict[str, typing.Any]:
+    """Merge multiple extra linker output factory dicts.
+
+    This function combines multiple extra linker output configurations into a single
+    configuration. It handles both the outputs factory (which produces artifacts and
+    providers) and the flags factory (which produces linker flags).
+
+    Args:
+        arg_dicts: A list of dicts, each potentially containing:
+            - "extra_linker_outputs_factory": A function (ctx) -> ExtraLinkerOutputs
+            - "extra_linker_outputs_flags_factory": A function (ctx, outputs) -> list
+
+    Returns:
+        A merged dict with combined factory functions, or an empty dict if no
+        non-empty dicts were provided.
+    """
+    non_empty = [d for d in arg_dicts if d]
+    if len(non_empty) == 0:
+        return {}
+    if len(non_empty) == 1:
+        return non_empty[0]
+
+    def combined_outputs_factory(ctx: AnalysisContext) -> ExtraLinkerOutputs:
+        artifacts = {}
+        providers = {}
+        for arg_dict in non_empty:
+            if "extra_linker_outputs_factory" in arg_dict:
+                result = arg_dict["extra_linker_outputs_factory"](ctx)
+                artifacts |= result.artifacts
+                providers |= result.providers
+        return ExtraLinkerOutputs(artifacts = artifacts, providers = providers)
+
+    def combined_flags_factory(ctx: AnalysisContext, outputs: dict[str, Artifact]) -> list:
+        flags = []
+        for arg_dict in non_empty:
+            if "extra_linker_outputs_flags_factory" in arg_dict:
+                flags += arg_dict["extra_linker_outputs_flags_factory"](ctx, outputs)
+        return flags
+
+    return {
+        "extra_linker_outputs_factory": combined_outputs_factory,
+        "extra_linker_outputs_flags_factory": combined_flags_factory,
+    }
+
 def package_validators_decorator(
         ctx: AnalysisContext,
         build_func,
