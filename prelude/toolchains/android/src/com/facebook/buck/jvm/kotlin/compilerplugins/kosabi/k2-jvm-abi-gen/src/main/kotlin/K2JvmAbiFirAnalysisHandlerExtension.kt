@@ -1105,11 +1105,9 @@ class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
         element.acceptChildren(
             object : FirDefaultVisitorVoid() {
               override fun visitElement(childElement: FirElement) {
-                if (hasErrorExpressionRecursive(childElement)) {
+                if (!hasError && hasErrorExpressionRecursive(childElement)) {
                   hasError = true
                 }
-                // Continue visiting children
-                childElement.acceptChildren(this)
               }
             }
         )
