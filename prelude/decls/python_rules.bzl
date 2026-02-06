@@ -43,7 +43,6 @@ def _python_executable_attrs():
         "bolt_profile": attrs.option(attrs.source(), default = None),
         "compiler_flags": attrs.list(attrs.arg(anon_target_compatible = True), default = []),
         "cxx_main": attrs.source(default = "prelude//python/tools:embedded_main.cpp"),
-        "distributed_thinlto_partial_split_dwarf": attrs.bool(default = False),
         "enable_distributed_thinlto": attrs.bool(default = False),
         "exe_allow_cache_upload": attrs.bool(
             default = False,

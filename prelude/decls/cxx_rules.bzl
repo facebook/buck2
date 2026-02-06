@@ -52,7 +52,6 @@ def _cxx_binary_and_test_attrs():
         # of the target's dependencies.
         "coverage_instrumentation_compiler_flags": attrs.list(attrs.string(), default = []),
         "cuda_compile_style": attrs.enum(CudaCompileStyle.values(), default = "mono"),
-        "distributed_thinlto_partial_split_dwarf": attrs.bool(default = False),
         "enable_distributed_thinlto": attrs.bool(default = False),
         "exported_needs_coverage_instrumentation": attrs.bool(default = False),
         "extra_dwp_flags": attrs.list(attrs.string(), default = []),
