@@ -11,6 +11,7 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
+use std::time::Instant;
 
 use allocative::Allocative;
 use buck2_common::init::ResourceControlConfig;
@@ -159,6 +160,7 @@ impl MemoryTracker {
         loop {
             timer.tick().await;
 
+            let now = Instant::now();
             let (memory_reading, scene_readings) =
                 tokio::join!(self.collect_memory_reading(), self.collect_scene_readings());
             let Some(memory_reading) = memory_reading else {
@@ -166,7 +168,7 @@ impl MemoryTracker {
             };
 
             let mut action_cgroups = self.handle.action_cgroups.lock().unwrap();
-            action_cgroups.update(memory_reading, scene_readings);
+            action_cgroups.update(memory_reading, scene_readings, now);
         }
     }
 

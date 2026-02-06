@@ -291,14 +291,14 @@ impl Scheduler {
         (scene_id, start_future)
     }
 
-    pub(crate) fn scene_finished(&mut self, scene_id: SceneId) -> SceneResult {
+    pub(crate) fn scene_finished(&mut self, scene_id: SceneId, now: Instant) -> SceneResult {
         if let Some(i) = self
             .running_scenes
             .iter()
             .position(|cg| cg.scene.scene_id == scene_id.as_ref())
         {
             let cgroup = self.running_scenes.remove(i);
-            self.wake();
+            self.wake(now);
             SceneResult::from_info(&cgroup.scene)
         } else if let Some(i) = self
             .suspended_scenes
@@ -318,6 +318,7 @@ impl Scheduler {
         &mut self,
         memory_reading: MemoryReading,
         scene_readings: HashMap<SceneIdRef, SceneResourceReading>,
+        now: Instant,
     ) {
         self.event_sender_state
             .update_memory_reading(memory_reading);
@@ -341,9 +342,9 @@ impl Scheduler {
             memory_reading.allprocs_memory_pressure > self.pressure_suspend_threshold;
 
         if is_above_pressure_limit {
-            self.maybe_decrease_running_count(memory_reading);
+            self.maybe_decrease_running_count(memory_reading, now);
         } else {
-            self.maybe_increase_running_count(memory_reading);
+            self.maybe_increase_running_count(memory_reading, now);
         }
 
         // Report resource control events every 10 seconds normally, but every second during times
@@ -357,10 +358,11 @@ impl Scheduler {
             scheduled_event_freq,
             self.running_scenes.len() as u64,
             self.suspended_scenes.len() as u64,
+            now,
         );
     }
 
-    fn maybe_decrease_running_count(&mut self, memory_reading: MemoryReading) {
+    fn maybe_decrease_running_count(&mut self, memory_reading: MemoryReading, now: Instant) {
         if !self.enable_suspension {
             return;
         }
@@ -370,7 +372,7 @@ impl Scheduler {
         // want to wait too long that we encounter OOMs
         if self
             .last_correction_time
-            .is_some_and(|t| Instant::now() - t < Duration::from_secs(1))
+            .is_some_and(|t| now - t < Duration::from_secs(1))
         {
             return;
         }
@@ -379,7 +381,6 @@ impl Scheduler {
         if self.running_scenes.len() <= 1 {
             return;
         }
-        let now = Instant::now();
         self.last_correction_time = Some(now);
 
         // Length checked above
@@ -401,13 +402,13 @@ impl Scheduler {
         );
     }
 
-    fn maybe_increase_running_count(&mut self, memory_reading: MemoryReading) {
+    fn maybe_increase_running_count(&mut self, memory_reading: MemoryReading, now: Instant) {
         // We increase the running count at most once every 3 seconds since memory changes of
         // previous suspensions will take several seconds to take effect. This ensures that we don't
         // wake too quickly
         if self
             .last_correction_time
-            .is_some_and(|t| Instant::now() - t < Duration::from_secs(3))
+            .is_some_and(|t| now - t < Duration::from_secs(3))
         {
             return;
         }
@@ -443,17 +444,17 @@ impl Scheduler {
             return;
         }
 
-        self.last_correction_time = Some(Instant::now());
-        self.wake()
+        self.last_correction_time = Some(now);
+        self.wake(now)
     }
 
-    fn wake(&mut self) {
+    fn wake(&mut self, now: Instant) {
         let Some(mut suspended_cgroup) = self.suspended_scenes.pop_front() else {
             return;
         };
 
         if let Some(suspend_start) = suspended_cgroup.suspend_start {
-            let suspend_elapsed = Instant::now() - suspend_start;
+            let suspend_elapsed = now - suspend_start;
 
             suspended_cgroup.scene.suspend_duration =
                 Some(match suspended_cgroup.scene.suspend_duration {
@@ -598,9 +599,22 @@ mod tests {
         }
     }
 
+    struct TestTimeline(Instant);
+
+    impl TestTimeline {
+        fn new() -> Self {
+            TestTimeline(Instant::now())
+        }
+
+        fn secs(&self, n: u64) -> Instant {
+            self.0 + Duration::from_secs(n)
+        }
+    }
+
     #[test]
     fn test_peak_memory_and_swap() -> buck2_error::Result<()> {
         let mut scheduler = Scheduler::testing_new();
+        let timeline = TestTimeline::new();
         let scene1 = scheduler
             .scene_started(
                 SceneDescription {
@@ -633,6 +647,7 @@ mod tests {
                 .add_with_swap(scene1.as_ref(), 10, 1)
                 .add_with_swap(scene2.as_ref(), 0, 0)
                 .build(),
+            timeline.secs(1),
         );
         scheduler.update(
             dummy_memory_reading,
@@ -640,10 +655,11 @@ mod tests {
                 .add_with_swap(scene1.as_ref(), 5, 3)
                 .add_with_swap(scene2.as_ref(), 0, 0)
                 .build(),
+            timeline.secs(2),
         );
 
-        let scene_1_res = scheduler.scene_finished(scene1);
-        let scene_2_res = scheduler.scene_finished(scene2);
+        let scene_1_res = scheduler.scene_finished(scene1, timeline.secs(3));
+        let scene_2_res = scheduler.scene_finished(scene2, timeline.secs(3));
         assert_eq!(scene_1_res.memory_peak, 10);
         assert_eq!(scene_2_res.memory_peak, 0);
         assert_eq!(scene_1_res.swap_peak, 3);
@@ -655,6 +671,7 @@ mod tests {
     #[tokio::test]
     async fn test_freeze() -> buck2_error::Result<()> {
         let mut scheduler = Scheduler::testing_new();
+        let timeline = TestTimeline::new();
         let scene1 = scheduler
             .scene_started(
                 SceneDescription {
@@ -687,9 +704,10 @@ mod tests {
                 .add(scene1.as_ref(), 2)
                 .add(scene2.as_ref(), 3)
                 .build(),
+            timeline.secs(0),
         );
 
-        let cgroup_1_res = scheduler.scene_finished(scene1);
+        let cgroup_1_res = scheduler.scene_finished(scene1, timeline.secs(2));
         assert!(cgroup_1_res.suspend_duration.is_none());
 
         let memory_reading_2 = MemoryReading {
@@ -699,10 +717,14 @@ mod tests {
             daemon_memory_current: 0,
             daemon_swap_current: 0,
         };
-        scheduler.update(memory_reading_2, UpdateBuilder::new().build());
+        scheduler.update(
+            memory_reading_2,
+            UpdateBuilder::new().build(),
+            timeline.secs(3),
+        );
 
-        let cgroup_2_res = scheduler.scene_finished(scene2);
-        assert!(cgroup_2_res.suspend_duration.is_some());
+        let cgroup_2_res = scheduler.scene_finished(scene2, timeline.secs(4));
+        assert_eq!(cgroup_2_res.suspend_duration, Some(Duration::from_secs(2)));
 
         Ok(())
     }

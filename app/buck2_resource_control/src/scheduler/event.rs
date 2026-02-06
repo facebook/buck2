@@ -66,8 +66,8 @@ impl EventSenderState {
         freq: Duration,
         actions_running: u64,
         actions_suspended: u64,
+        now: Instant,
     ) {
-        let now = Instant::now();
         if self
             .last_scheduled_event_time
             .is_none_or(|last| now.duration_since(last) > freq)

@@ -9,6 +9,7 @@
  */
 
 use std::time::Duration;
+use std::time::Instant;
 
 use dupe::Dupe;
 
@@ -147,7 +148,7 @@ impl ActionCgroupSession {
             .action_cgroups
             .lock()
             .unwrap()
-            .scene_finished(self.scene_id);
+            .scene_finished(self.scene_id, Instant::now());
 
         if let Some(error) = action_scene.error {
             ActionCgroupResult {
