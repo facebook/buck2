@@ -56,6 +56,12 @@ pub(crate) struct EffectiveResourceConstraints {
 #[derive(Dupe, Clone)]
 pub(crate) struct EnabledControllers(Arc<[String]>);
 
+impl EnabledControllers {
+    pub(crate) fn contains(&self, controller: &str) -> bool {
+        self.0.iter().any(|c| &c[1..] == controller)
+    }
+}
+
 pub trait MemoryMonitoring {}
 
 pub struct NoMemoryMonitoring;
@@ -227,6 +233,24 @@ impl<M: MemoryMonitoring, K: CgroupKind> Cgroup<M, K> {
             memory_swap_high: min_options(parent.memory_swap_high, me.memory_swap_high),
         })
     }
+
+    /// For now, only available in tests.
+    ///
+    /// Before using outside of tests:
+    ///  1. Write tests
+    ///  2. Ensure that the pid controller is available
+    ///  3. Consider holding the FD open
+    #[cfg(test)]
+    pub(crate) async fn read_pid_count(&self) -> buck2_error::Result<u64> {
+        CgroupFile::open(
+            self.dir.dupe(),
+            FileNameBuf::unchecked_new("pids.current"),
+            false,
+        )
+        .await?
+        .read_int()
+        .await
+    }
 }
 
 impl Cgroup<NoMemoryMonitoring, CgroupKindUndecided> {
@@ -291,14 +315,21 @@ impl Cgroup<NoMemoryMonitoring, CgroupKindUndecided> {
             subtree_control.write(controller.clone()).await?;
         }
 
-        Ok(Cgroup {
+        Ok(self.into_internal_with_subtree_control_already_enabled(enabled_controllers))
+    }
+
+    pub(crate) fn into_internal_with_subtree_control_already_enabled(
+        self,
+        enabled_controllers: EnabledControllers,
+    ) -> Cgroup<NoMemoryMonitoring, CgroupKindInternal> {
+        Cgroup {
             dir: self.dir,
             path: self.path,
             memory: self.memory,
             kind: CgroupKindInternal {
                 controllers: enabled_controllers,
             },
-        })
+        }
     }
 }
 

@@ -14,6 +14,8 @@ use std::time::Duration;
 use allocative::Allocative;
 use buck2_core::buck2_env;
 use buck2_error::BuckErrorContext;
+#[cfg(unix)]
+use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
 use serde::Deserialize;
 use serde::Serialize;
 
@@ -219,6 +221,9 @@ pub struct ResourceControlConfig {
     /// The corresponding buckconfig is `buck2_resource_control.status` that can take
     /// one of `{off | if_available | required}`.
     pub status: ResourceControlStatus,
+    /// If resource control is enabled, buck needs to get a cgroup to run in from somewhere - this is
+    /// where.
+    pub init: ResourceControlInit,
     /// Maximum allowed memory usage for all work buck2 manages.
     ///
     /// Accepts either a number of bytes or a percentage of the available resources.
@@ -311,6 +316,34 @@ impl FromStr for ResourceControlStatus {
     }
 }
 
+#[derive(Allocative, Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+pub enum ResourceControlInit {
+    Systemd,
+    #[cfg(unix)]
+    Cgroup(AbsNormPathBuf),
+}
+
+impl FromStr for ResourceControlInit {
+    type Err = buck2_error::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        if s == "systemd" {
+            return Ok(ResourceControlInit::Systemd);
+        }
+        #[cfg(unix)]
+        if let Some(p) = s.strip_prefix("cgroup:") {
+            return Ok(ResourceControlInit::Cgroup(AbsNormPathBuf::from(
+                p.to_owned(),
+            )?));
+        }
+        Err(buck2_error::buck2_error!(
+            buck2_error::ErrorTag::Input,
+            "Unknown resource control initializer: `{}`",
+            s
+        ))
+    }
+}
+
 /// The current version of the resource control algorithm. Say you have some important change to the
 /// algo that fixes a bug. Incrementing this to `N + 1` and setting the
 /// `buck2_resource_control.enable_suspension_if_min_algo_version` buckconfig to `N + 1` enables
@@ -331,6 +364,12 @@ impl ResourceControlConfig {
                     property: "status",
                 })?
                 .unwrap_or(ResourceControlStatus::Off);
+            let init = config
+                .parse(BuckconfigKeyRef {
+                    section: "buck2_resource_control",
+                    property: "init",
+                })?
+                .unwrap_or(ResourceControlInit::Systemd);
             let memory_max = config.parse(BuckconfigKeyRef {
                 section: "buck2_resource_control",
                 property: "memory_max",
@@ -375,6 +414,7 @@ impl ResourceControlConfig {
                 .unwrap_or(ActionSuspendStrategy::KillAndRetry);
             Ok(Self {
                 status,
+                init,
                 memory_max,
                 memory_high,
                 memory_max_per_action,

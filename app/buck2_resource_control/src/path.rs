@@ -76,6 +76,11 @@ impl CgroupPathBuf {
     pub fn new(path: AbsNormPathBuf) -> Self {
         Self(path)
     }
+
+    pub fn new_in_cgroup_fs(path: &AbsNormPath) -> Self {
+        // Can't use .join() since the second part is absolute too
+        Self(AbsNormPathBuf::from(format!("/sys/fs/cgroup{path}")).unwrap())
+    }
 }
 
 impl Deref for CgroupPath {

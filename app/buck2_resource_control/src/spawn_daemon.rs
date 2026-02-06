@@ -13,10 +13,18 @@ use std::io::ErrorKind;
 use std::num::ParseIntError;
 
 use buck2_common::init::ResourceControlConfig;
+use buck2_common::init::ResourceControlInit;
 use buck2_common::init::ResourceControlStatus;
 use buck2_fs::paths::abs_norm_path::AbsNormPath;
 use buck2_util::process;
 use buck2_util::process::async_background_command;
+
+#[cfg(unix)]
+use crate::cgroup::Cgroup;
+#[cfg(unix)]
+use crate::cgroup::CgroupKindInternal;
+#[cfg(unix)]
+use crate::cgroup::NoMemoryMonitoring;
 
 #[derive(Debug, buck2_error::Error)]
 #[buck2(tag = Environment)]
@@ -40,6 +48,37 @@ enum SystemdNotAvailableReason {
 enum DaemonSpawner {
     None,
     Systemd,
+    #[cfg(unix)]
+    Cgroup(Cgroup<NoMemoryMonitoring, CgroupKindInternal>),
+}
+
+async fn get_daemon_spawner(init: &ResourceControlInit) -> buck2_error::Result<DaemonSpawner> {
+    match &init {
+        ResourceControlInit::Systemd => systemd_check_available()
+            .await
+            .map(|_| DaemonSpawner::Systemd),
+        #[cfg(unix)]
+        ResourceControlInit::Cgroup(path) => {
+            use crate::cgroup::CgroupMinimal;
+            use crate::path::CgroupPathBuf;
+
+            let path = CgroupPathBuf::new_in_cgroup_fs(path);
+            let parent = CgroupMinimal::try_from_path(path).await?;
+            let controllers = parent.read_enabled_controllers().await?;
+            for controller in ["memory", "cpu"] {
+                if !controllers.contains(controller) {
+                    return Err(buck2_error::buck2_error!(
+                        buck2_error::ErrorTag::Input,
+                        "Buck parent cgroup does not have {} controller enabled",
+                        controller
+                    ));
+                }
+            }
+            Ok(DaemonSpawner::Cgroup(
+                parent.into_internal_with_subtree_control_already_enabled(controllers),
+            ))
+        }
+    }
 }
 
 /// Generates the command to spawn a daemon process, wrapped as appropriate for the resource control setup.
@@ -51,16 +90,17 @@ pub async fn create_daemon_spawn_command(
     unit_name: String,
     working_directory: &AbsNormPath,
 ) -> buck2_error::Result<(std::process::Command, Vec<String>)> {
-    let daemon_spawner = match config.status {
-        ResourceControlStatus::Off => DaemonSpawner::None,
-        ResourceControlStatus::Required => {
-            systemd_check_available().await?;
-            DaemonSpawner::Systemd
+    let daemon_spawner = {
+        if config.status == ResourceControlStatus::Off {
+            DaemonSpawner::None
+        } else {
+            match (config.status, get_daemon_spawner(&config.init).await) {
+                (ResourceControlStatus::Off, _) => unreachable!("Checked above"),
+                (_, Ok(s)) => s,
+                (ResourceControlStatus::Required, Err(e)) => return Err(e),
+                (ResourceControlStatus::IfAvailable, Err(_)) => DaemonSpawner::None,
+            }
         }
-        ResourceControlStatus::IfAvailable => match systemd_check_available().await {
-            Ok(()) => DaemonSpawner::Systemd,
-            Err(_) => DaemonSpawner::None,
-        },
     };
 
     // These are special in systemd so avoid them
@@ -72,6 +112,23 @@ pub async fn create_daemon_spawn_command(
             systemd_run_command(program, &unit_name, working_directory),
             vec!["--has-cgroup".to_owned()],
         )),
+        #[cfg(unix)]
+        DaemonSpawner::Cgroup(parent) => {
+            use buck2_error::BuckErrorContext;
+            use buck2_fs::paths::file_name::FileName;
+
+            let child = parent
+                .make_leaf_child(
+                    FileName::new(&unit_name)
+                        .internal_error("Unitname isn't a valid filename")?
+                        .to_owned(),
+                )
+                .await?;
+            let mut cmd = process::background_command(program);
+            child.setup_command(&mut cmd);
+
+            Ok((cmd, vec!["--has-cgroup".to_owned()]))
+        }
     }
 }
 
@@ -197,5 +254,44 @@ mod tests {
             systemd_check_available().await.unwrap_err(),
             _error
         ));
+    }
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn test_spawn_into_specific_cgroup() {
+        // Ideally this would be an integration test, but as it stands that's a little bit hard rn.
+        // So unit test instead
+        use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
+
+        let Some(parent) = Cgroup::create_internal_for_test().await else {
+            return;
+        };
+        let p = parent
+            .path()
+            .to_str()
+            .unwrap()
+            .strip_prefix("/sys/fs/cgroup")
+            .unwrap()
+            .to_owned();
+        let (mut cmd, _) = create_daemon_spawn_command(
+            &ResourceControlConfig {
+                status: ResourceControlStatus::Required,
+                init: ResourceControlInit::Cgroup(AbsNormPathBuf::from(p).unwrap()),
+                ..ResourceControlConfig::testing_default()
+            },
+            "sleep",
+            "myunitname".to_owned(),
+            // Working dir, doesn't matter
+            AbsNormPath::new("/").unwrap(),
+        )
+        .await
+        .unwrap();
+        cmd.arg("1m");
+        let mut c = cmd.spawn().unwrap();
+
+        assert!(parent.read_pid_count().await.unwrap() > 0);
+
+        c.kill().unwrap();
+        c.wait().unwrap();
     }
 }

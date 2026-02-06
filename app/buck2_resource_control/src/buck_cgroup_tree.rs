@@ -11,7 +11,7 @@
 use buck2_common::init::ResourceControlConfig;
 use buck2_fs::error::IoResultExt;
 use buck2_fs::fs_util;
-use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
+use buck2_fs::paths::abs_norm_path::AbsNormPath;
 use buck2_fs::paths::abs_path::AbsPath;
 use buck2_fs::paths::file_name::FileName;
 use buck2_fs::paths::file_name::FileNameBuf;
@@ -53,9 +53,7 @@ fn parse_procfs_cgroup_output(out: &str) -> buck2_error::Result<CgroupPathBuf> {
     let Some(cgroup) = find_v2(out) else {
         return Err(CgroupParsingError::NoCgroupV2Membership(out.trim().to_owned()).into());
     };
-    // Can't use .join() since the second part is absolute too
-    let path = AbsNormPathBuf::new(format!("/sys/fs/cgroup{cgroup}").into())?;
-    Ok(CgroupPathBuf::new(path))
+    Ok(CgroupPathBuf::new_in_cgroup_fs(AbsNormPath::new(cgroup)?))
 }
 
 pub struct PreppedBuckCgroups {
