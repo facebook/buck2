@@ -53,7 +53,6 @@ use futures::future::BoxFuture;
 use futures::future::Shared;
 use host_sharing::HostSharingBroker;
 use host_sharing::HostSharingStrategy;
-use host_sharing::NamedSemaphores;
 use indexmap::IndexMap;
 use tokio::sync::mpsc::UnboundedSender;
 use tokio::task::JoinHandle;
