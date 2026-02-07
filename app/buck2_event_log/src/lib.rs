@@ -31,9 +31,6 @@ pub mod write;
 pub mod writer;
 
 pub fn should_upload_log() -> buck2_error::Result<bool> {
-    if buck2_core::is_open_source() {
-        return Ok(false);
-    }
     Ok(!buck2_env!(
         "BUCK2_TEST_DISABLE_LOG_UPLOAD",
         bool,
