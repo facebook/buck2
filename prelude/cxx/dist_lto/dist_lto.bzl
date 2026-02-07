@@ -541,7 +541,7 @@ def cxx_gnu_dist_link(
             # need to bind the artifact.
             if not plan_json["is_bc"]:
                 ctx.actions.write(outputs[opt_object], "")
-                if external_debug_info != None:
+                if external_debug_info != None and external_debug_info != opt_object:
                     ctx.actions.write(outputs[external_debug_info], "")
                 return
 
