@@ -881,12 +881,12 @@ impl RemoteExecutionClientImpl {
 
                 if static_metadata.engine_host.is_some() || static_metadata.engine_port.is_some() {
                     if static_metadata.engine_host.is_some()
-                        && static_metadata.engine_port.is_some()
+                        && let Some(engine_port) = static_metadata.engine_port
                     {
                         re_client_config.thrift_execution_client_config.host_port =
                             Some(remote_execution::HostPort {
                                 host: static_metadata.engine_host.clone().unwrap(),
-                                port: static_metadata.engine_port.unwrap(),
+                                port: engine_port,
                                 ..Default::default()
                             });
                     } else {
