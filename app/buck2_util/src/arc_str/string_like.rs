@@ -157,6 +157,21 @@ pub struct ThinArcS<S: StringInside + ?Sized> {
 unsafe impl<S: StringInside + ?Sized + Sync + Send> Send for ThinArcS<S> {}
 unsafe impl<S: StringInside + ?Sized + Sync + Send> Sync for ThinArcS<S> {}
 
+impl<S: StringInside + ?Sized> PagableSerialize for ThinArcS<S> {
+    fn pagable_serialize(&self, serializer: &mut dyn PagableSerializer) -> pagable::Result<()> {
+        Ok(self.s.serialize(serializer.serde())?)
+    }
+}
+
+impl<'de, S: StringInside + ?Sized> PagableDeserialize<'de> for ThinArcS<S> {
+    fn pagable_deserialize<D: PagableDeserializer<'de> + ?Sized>(
+        deserializer: &mut D,
+    ) -> pagable::Result<Self> {
+        let v = String::deserialize(deserializer.serde())?;
+        Ok(ThinArcS::from(S::from_str(&v)))
+    }
+}
+
 impl<S: StringInside + ?Sized> ThinArcS<S> {
     // Cannot implement `TryFrom` trait, something about conflicting implementations.
     #[inline]
