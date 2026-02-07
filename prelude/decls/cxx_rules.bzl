@@ -145,6 +145,7 @@ cxx_binary = prelude_rule(
         cxx_common.runtime_dependency_handling_arg() |
         cxx_common.use_fbcc_rust_wrapper_arg() |
         cxx_common.use_content_based_paths_arg() |
+        cxx_common.module_scanning_arg() |
         {
             "cxx_runtime_type": attrs.option(attrs.enum(CxxRuntimeType), default = None),
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
@@ -477,6 +478,7 @@ library_attrs = (
     cxx_common.version_arg() |
     cxx_common.use_fbcc_rust_wrapper_arg() |
     cxx_common.use_content_based_paths_arg() |
+    cxx_common.module_scanning_arg() |
     validation_common.attrs_validators_arg() |
     {
         "archive_allow_cache_upload": attrs.bool(default = False),
@@ -838,6 +840,7 @@ cxx_test = prelude_rule(
         cxx_common.headers_arg() |
         cxx_common.preprocessor_flags_arg() |
         cxx_common.compiler_flags_arg() |
+        cxx_common.module_scanning_arg() |
         cxx_common.linker_flags_arg() |
         cxx_common.precompiled_header_arg() |
         buck.deps_query_arg() |
@@ -1054,6 +1057,7 @@ cxx_toolchain = prelude_rule(
             "strip_debug_flags": attrs.option(attrs.list(attrs.arg()), default = None),
             "strip_non_global_flags": attrs.option(attrs.list(attrs.arg()), default = None),
             "use_header_map": attrs.bool(default = False),
+            "clang_scan_deps": attrs.option(attrs.source(), default = None),
         } |
         buck.licenses_arg() |
         buck.labels_arg() |
