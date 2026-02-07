@@ -1,0 +1,66 @@
+load(":error_rule.bzl", "error_rule")
+
+platform(
+    name = "platform1",
+    constraint_values = [
+        "//:constraint1",
+    ],
+)
+
+platform(
+    name = "platform2",
+    constraint_values = [
+        "//:constraint2",
+    ],
+)
+
+platform(
+    name = "platform3",
+    constraint_values = [
+    ],
+)
+
+constraint_setting(
+    name = "setting",
+)
+
+constraint_value(
+    name = "constraint1",
+    constraint_setting = ":setting",
+)
+
+constraint_value(
+    name = "constraint2",
+    constraint_setting = ":setting",
+)
+
+constraint_value(
+    name = "constraint3",
+    constraint_setting = ":setting",
+)
+
+error_rule(
+    name = "foo",
+    data = select({
+        "//:constraint1": "constraint1",
+        "//:constraint2": select_fail("fail message"),
+        "DEFAULT": select_fail("default fail message"),
+    }),
+)
+
+error_rule(
+    name = "foo2",
+    data = select_fail("bad use") if read_root_config("user", "check_bad_coercion") != None else "",
+)
+
+# This fails at load time if select_map is applied to the select_fail case.
+error_rule(
+    name = "select_map_ignores",
+    data = select_map(select({"DEFAULT": select_fail("")}), lambda x: fail()),
+)
+
+# This fails at load time if select_test is applied to the select_fail case.
+error_rule(
+    name = "select_test_ignores",
+    data = fail() if select_test(select({"DEFAULT": select_fail("")}), lambda x: True) else "success",
+)

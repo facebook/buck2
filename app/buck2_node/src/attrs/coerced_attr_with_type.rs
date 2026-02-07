@@ -11,6 +11,7 @@
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::target::label::label::TargetLabel;
+use buck2_util::arc_str::ArcStr;
 
 use super::attr_type::target_modifiers::TargetModifiersAttrType;
 use crate::attrs::attr_type::AttrType;
@@ -76,6 +77,7 @@ enum CoercedAttrWithTypeError {
 pub enum CoercedAttrWithType<'a, 't> {
     Selector(&'a CoercedSelector, &'t AttrType),
     Concat(&'a [CoercedAttr], &'t AttrType),
+    SelectFail(&'a ArcStr, &'t AttrType),
 
     Some(&'a CoercedAttr, &'t OptionAttrType),
     None,
@@ -122,6 +124,7 @@ impl<'a, 't> CoercedAttrWithType<'a, 't> {
         match (attr, &ty.0.inner) {
             (CoercedAttr::Selector(s), _) => Ok(CoercedAttrWithType::Selector(s, ty)),
             (CoercedAttr::Concat(c), _) => Ok(CoercedAttrWithType::Concat(&c.0, ty)),
+            (CoercedAttr::SelectFail(c), _) => Ok(CoercedAttrWithType::SelectFail(&c, ty)),
 
             (CoercedAttr::None, _) => Ok(CoercedAttrWithType::None),
             (attr, AttrTypeInner::Option(t)) => Ok(CoercedAttrWithType::Some(attr, t)),
@@ -221,7 +224,7 @@ impl<'a, 't> CoercedAttrWithType<'a, 't> {
     #[inline]
     fn pack_any(attr: &'a CoercedAttr) -> buck2_error::Result<CoercedAttrWithType<'a, 't>> {
         match attr {
-            CoercedAttr::Selector(_) | CoercedAttr::Concat(_) => {
+            CoercedAttr::Selector(_) | CoercedAttr::Concat(_) | CoercedAttr::SelectFail(_) => {
                 Err(CoercedAttrWithTypeError::Select.into())
             }
             CoercedAttr::Bool(b) => Ok(CoercedAttrWithType::Bool(*b, BoolAttrType)),

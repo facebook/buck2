@@ -27,6 +27,7 @@ use buck2_error::BuckErrorContext;
 use buck2_error::buck2_error;
 use buck2_error::internal_error;
 use buck2_util::arc_str::ArcSlice;
+use buck2_util::arc_str::ArcStr;
 use display_container::fmt_keyed_container;
 use dupe::Dupe;
 use gazebo::prelude::SliceExt;
@@ -219,6 +220,19 @@ impl CoercedSelector {
             ("entries".to_owned(), select),
         ])))
     }
+
+    fn fail_to_json(message: &ArcStr) -> Result<serde_json::Value, buck2_error::Error> {
+        Ok(serde_json::Value::Object(serde_json::Map::from_iter([
+            (
+                "__type".to_owned(),
+                serde_json::Value::String("select_fail".to_owned()),
+            ),
+            (
+                "message".to_owned(),
+                serde_json::Value::String(message.to_string()),
+            ),
+        ])))
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Allocative, Pagable)]
@@ -278,18 +292,11 @@ impl AttrSerializeWithContext for CoercedConcat {
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Allocative, Pagable)]
 pub enum CoercedAttr {
     Selector(Box<CoercedSelector>),
+    SelectFail(ArcStr),
     Concat(CoercedConcat),
 
     Bool(BoolLiteral),
     Int(i64),
-    // Note we store `String`, not `Arc<str>` here, because we store full attributes
-    // in unconfigured target node, but configured target node is basically a pair
-    // (reference to unconfigured target node, configuration).
-    //
-    // Configured attributes are created on demand and destroyed immediately after use.
-    //
-    // So when working with configured attributes with pay with CPU for string copies,
-    // but don't increase total memory usage, because these string copies are short living.
     String(StringLiteral),
     // Like String, but drawn from a set of variants, so doesn't support concat
     EnumVariant(StringLiteral),
@@ -335,6 +342,7 @@ impl AttrDisplayWithContext for CoercedAttr {
     fn fmt(&self, ctx: &AttrFmtContext, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             CoercedAttr::Selector(s) => s.fmt(ctx, f),
+            CoercedAttr::SelectFail(s) => write!(f, "select_fail(\"{}\")", &s),
             CoercedAttr::Concat(c) => c.fmt(ctx, f),
             CoercedAttr::Bool(v) => {
                 write!(f, "{v}")
@@ -390,6 +398,9 @@ impl CoercedAttr {
     pub fn to_json(&self, ctx: &AttrFmtContext) -> buck2_error::Result<serde_json::Value> {
         match self {
             CoercedAttr::Selector(s) => s.to_json(ctx),
+            CoercedAttr::SelectFail(string_literal) => {
+                CoercedSelector::fail_to_json(string_literal)
+            }
             CoercedAttr::Concat(c) => c.to_json(ctx),
             CoercedAttr::Bool(v) => Ok(to_value(v)?),
             CoercedAttr::Int(v) => Ok(to_value(v)?),
@@ -453,6 +464,7 @@ impl CoercedAttr {
                 }
                 Ok(())
             }
+            CoercedAttrWithType::SelectFail(..) => Ok(()),
 
             CoercedAttrWithType::None => Ok(()),
             CoercedAttrWithType::Some(attr, t) => attr.traverse(&t.inner, pkg, traversal),
@@ -715,7 +727,12 @@ impl CoercedAttr {
                     first.concat(t, &mut it)?
                 }
             }
-
+            CoercedAttrWithType::SelectFail(message, _) => {
+                return Err(buck2_error!(
+                    buck2_error::ErrorTag::Input,
+                    "select resolved to select_fail(): {message}"
+                ));
+            }
             CoercedAttrWithType::AnyList(list) => ConfiguredAttr::List(ListLiteral(
                 list.try_map(|v| v.configure(AttrType::any_ref(), ctx))?
                     .into(),
@@ -821,6 +838,7 @@ impl CoercedAttr {
                 }
                 Ok(false)
             }
+            CoercedAttr::SelectFail(_) => Ok(false),
             CoercedAttr::String(v) | CoercedAttr::EnumVariant(v) => filter(v),
             CoercedAttr::List(vals) => vals.any_matches(filter),
             CoercedAttr::Tuple(vals) => vals.any_matches(filter),

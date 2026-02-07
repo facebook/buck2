@@ -13,6 +13,7 @@ use std::fmt::Display;
 
 use allocative::Allocative;
 use buck2_error::BuckErrorContext;
+use buck2_interpreter::types::select_fail::StarlarkSelectFail;
 use starlark::any::ProvidesStaticType;
 use starlark::coerce::Coerce;
 use starlark::collections::SmallMap;
@@ -149,14 +150,19 @@ impl<'v> StarlarkSelector<'v> {
                     let selector = DictRef::from_value(selector.get()).unwrap();
                     let mut mapped = SmallMap::with_capacity(selector.len());
                     for (k, v) in selector.iter_hashed() {
-                        mapped.insert_hashed(
-                            k,
-                            if RECURSE {
-                                Self::select_map::<RECURSE>(eval, v, func)
-                            } else {
-                                invoke(eval, v, func)
-                            }?,
-                        );
+                        if StarlarkSelectFail::from_value(v).is_some() {
+                            // mappings don't get applied to SelectFail values.
+                            mapped.insert_hashed(k, v);
+                        } else {
+                            mapped.insert_hashed(
+                                k,
+                                if RECURSE {
+                                    Self::select_map::<RECURSE>(eval, v, func)
+                                } else {
+                                    invoke(eval, v, func)
+                                }?,
+                            );
+                        }
                     }
                     Ok(eval.heap().alloc(StarlarkSelector::new(
                         ValueOf::unpack_value_err(eval.heap().alloc(Dict::new(mapped)))
@@ -201,9 +207,12 @@ impl<'v> StarlarkSelector<'v> {
                 StarlarkSelectorGen::Primary(selector) => {
                     let selector = DictRef::from_value(selector.get()).unwrap();
                     for v in selector.values() {
-                        let result = invoke(eval, func, v)?;
-                        if result {
-                            return Ok(true);
+                        // select_test only applies the test to non-SelectFail values.
+                        if StarlarkSelectFail::from_value(v).is_none() {
+                            let result = invoke(eval, func, v)?;
+                            if result {
+                                return Ok(true);
+                            }
                         }
                     }
                     Ok(false)
@@ -305,6 +314,30 @@ pub fn register_select(globals: &mut GlobalsBuilder) {
         Ok(StarlarkSelector::new(d))
     }
 
+    /// Create a value to be used in select() statements to indicate a failure case.
+    ///
+    /// This function is used within a `select()` statement to provide a clear error message
+    /// when a particular configuration condition is selected but should not be valid.
+    ///
+    /// # Example
+    /// ```python
+    /// # Fail with a custom message if the build is configured for iOS but the feature is not supported
+    /// some_attr = select({
+    ///     "//conditions:is_android": "android_value",
+    ///     "//conditions:is_ios": select_fail("This feature is not supported on iOS"),
+    ///     "DEFAULT": "default_value",
+    /// })
+    /// ```
+    ///
+    /// During configuration, if the iOS case is selected, the build will fail with a message that includes
+    /// "This feature is not supported on iOS". If the target is loaded but never configured, it's not an error
+    /// and if the target is configured such that the iOS case is not selected, the build will not fail.
+    fn select_fail<'v>(
+        #[starlark(require = pos)] msg: StringValue<'v>,
+    ) -> starlark::Result<StarlarkSelectFail<'v>> {
+        Ok(StarlarkSelectFail::new(msg))
+    }
+
     /// Maps a selector.
     ///
     /// For selector additions values:
@@ -329,6 +362,8 @@ pub fn register_select(globals: &mut GlobalsBuilder) {
     /// recurse=True case, the mapping functino cannot change the existing
     /// structure. In either case the mapping function can return a selector for
     /// a non-selector input, causing the selector structure to get deeper.
+    ///
+    /// The mapping is not applied to `select_fail()` values.
     ///
     /// Ex:
     /// ```python
@@ -355,13 +390,14 @@ pub fn register_select(globals: &mut GlobalsBuilder) {
 
     /// Test values in the select expression using the given function.
     ///
-    /// Returns True, if any value in the select passes, else False.
+    /// Returns True, if any value in the select passes, else False. The function is not tested against select_fail values.
     ///
     /// Ex:
     /// ```python
     /// select_test([1] + select({"c": [1]}), lambda a: len(a) > 1) == False
     /// select_test([1, 2] + select({"c": [1]}), lambda a: len(a) > 1) == True
     /// select_test([1] + select({"c": [1, 2]}), lambda a: len(a) > 1) == True
+    /// select_test(select({"c": select_fail("")}), lambda a: True) == False
     /// ```
     fn select_test<'v>(
         #[starlark(require = pos)] d: Value<'v>,

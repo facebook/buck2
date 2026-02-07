@@ -12,6 +12,7 @@
 
 use buck2_error::BuckErrorContext;
 use buck2_error::internal_error;
+use buck2_interpreter::types::select_fail::StarlarkSelectFail;
 use buck2_node::attrs::attr_type::AttrType;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::coerced_attr::CoercedConcat;
@@ -87,7 +88,25 @@ impl CoercedAttrExr for CoercedAttr {
                                 .ok_or_else(|| SelectError::KeyNotString(k.to_repr()))?;
                             let v = match default_attr {
                                 Some(default_attr) if v.is_none() => default_attr.clone(),
-                                _ => CoercedAttr::coerce(attr, configurable, ctx, v, default_attr)?,
+                                _ => match CoercedAttr::coerce(
+                                    attr,
+                                    configurable,
+                                    ctx,
+                                    v,
+                                    default_attr,
+                                ) {
+                                    Ok(v) => v,
+                                    Err(e) => {
+                                        if let Some(select_fail) = StarlarkSelectFail::from_value(v)
+                                        {
+                                            CoercedAttr::SelectFail(
+                                                ctx.intern_str(select_fail.as_str()),
+                                            )
+                                        } else {
+                                            return Err(e);
+                                        }
+                                    }
+                                },
                             };
                             if k == "DEFAULT" {
                                 if default.is_some() {
