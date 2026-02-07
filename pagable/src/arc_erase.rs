@@ -222,6 +222,16 @@ pub trait ArcErase: std::any::Any + Sized + Send + Sync + 'static {
     ) -> crate::Result<Self>;
 }
 
+impl WeakErase for () {
+    fn is_expired(&self) -> bool {
+        true
+    }
+
+    fn upgrade_weak(&self) -> Option<Box<dyn ArcEraseDyn>> {
+        None
+    }
+}
+
 impl<T: ?Sized + PagableSerialize + for<'de> PagableBoxDeserialize<'de> + Send + Sync + 'static>
     WeakErase for std::sync::Weak<T>
 {
@@ -265,60 +275,6 @@ impl<T: ?Sized + PagableSerialize + for<'de> PagableBoxDeserialize<'de> + Send +
     }
 }
 
-impl<T: PagableSerialize + for<'de> PagableDeserialize<'de> + Send + Sync + 'static> WeakErase
-    for std::sync::Weak<[T]>
-{
-    fn is_expired(&self) -> bool {
-        self.strong_count() == 0
-    }
-
-    fn upgrade_weak(&self) -> Option<Box<dyn ArcEraseDyn>> {
-        self.upgrade().map(|t| Box::new(t) as _)
-    }
-}
-
-impl<T: PagableSerialize + for<'de> PagableDeserialize<'de> + Send + Sync + 'static> ArcErase
-    for std::sync::Arc<[T]>
-{
-    type Weak = std::sync::Weak<[T]>;
-
-    fn dupe_strong(&self) -> Self {
-        self.dupe()
-    }
-
-    fn erase_type() -> impl ArcEraseType {
-        StdArcEraseType::<Self>::new()
-    }
-
-    fn identity(&self) -> usize {
-        Arc::as_ptr(self) as *const T as usize
-    }
-
-    fn downgrade(&self) -> Option<std::sync::Weak<[T]>> {
-        Some(Arc::downgrade(self))
-    }
-
-    fn serialize_inner(&self, ser: &mut dyn PagableSerializer) -> crate::Result<()> {
-        <[T] as PagableSerialize>::pagable_serialize(self, ser)
-    }
-
-    fn deserialize_inner<'de, D: PagableDeserializer<'de> + ?Sized>(
-        deser: &mut D,
-    ) -> crate::Result<Self> {
-        Ok(<Box<[T]>>::pagable_deserialize(deser)?.into())
-    }
-}
-
-impl WeakErase for () {
-    fn is_expired(&self) -> bool {
-        true
-    }
-
-    fn upgrade_weak(&self) -> Option<Box<dyn ArcEraseDyn>> {
-        None
-    }
-}
-
 impl<T: PagableSerialize + for<'de> PagableDeserialize<'de> + Send + Sync + 'static> ArcErase
     for triomphe::Arc<T>
 {
@@ -347,6 +303,36 @@ impl<T: PagableSerialize + for<'de> PagableDeserialize<'de> + Send + Sync + 'sta
         deser: &mut D,
     ) -> crate::Result<Self> {
         Ok(Self::new(T::pagable_deserialize(deser)?))
+    }
+}
+
+impl ArcErase for triomphe::Arc<str> {
+    type Weak = ();
+    fn dupe_strong(&self) -> Self {
+        (*self).clone()
+    }
+
+    fn erase_type() -> impl ArcEraseType {
+        StdArcEraseType::<Self>::new()
+    }
+
+    fn identity(&self) -> usize {
+        self.as_ptr() as *const () as usize
+    }
+
+    fn downgrade(&self) -> Option<Self::Weak> {
+        None
+    }
+
+    fn serialize_inner(&self, ser: &mut dyn PagableSerializer) -> crate::Result<()> {
+        <str as PagableSerialize>::pagable_serialize(self, ser)
+    }
+
+    fn deserialize_inner<'de, D: PagableDeserializer<'de> + ?Sized>(
+        deser: &mut D,
+    ) -> crate::Result<Self> {
+        let s: String = String::pagable_deserialize(deser)?;
+        Ok(s.into())
     }
 }
 

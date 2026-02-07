@@ -105,17 +105,17 @@ impl<'de, T: PagableDeserialize<'de>, E: PagableDeserialize<'de>> PagableDeseria
     }
 }
 
-impl<T: PagableSerialize> PagableSerialize for Box<T> {
+impl<T: ?Sized + PagableSerialize> PagableSerialize for Box<T> {
     fn pagable_serialize(&self, serializer: &mut dyn PagableSerializer) -> crate::Result<()> {
         (**self).pagable_serialize(serializer)
     }
 }
 
-impl<'de, T: PagableDeserialize<'de>> PagableDeserialize<'de> for Box<T> {
+impl<'de, T: ?Sized + PagableBoxDeserialize<'de>> PagableDeserialize<'de> for Box<T> {
     fn pagable_deserialize<D: PagableDeserializer<'de> + ?Sized>(
         deserializer: &mut D,
     ) -> crate::Result<Self> {
-        Ok(Box::new(T::pagable_deserialize(deserializer)?))
+        T::deserialize_box(deserializer)
     }
 }
 
@@ -138,16 +138,10 @@ impl<T: PagableSerialize> PagableSerialize for [T] {
     }
 }
 
-impl<T: PagableSerialize> PagableSerialize for Box<[T]> {
-    fn pagable_serialize(&self, serializer: &mut dyn PagableSerializer) -> crate::Result<()> {
-        <[T] as PagableSerialize>::pagable_serialize(&**self, serializer)
-    }
-}
-
-impl<'de, T: PagableDeserialize<'de>> PagableDeserialize<'de> for Box<[T]> {
-    fn pagable_deserialize<D: PagableDeserializer<'de> + ?Sized>(
+impl<'de, T: PagableDeserialize<'de>> PagableBoxDeserialize<'de> for [T] {
+    fn deserialize_box<D: PagableDeserializer<'de> + ?Sized>(
         deserializer: &mut D,
-    ) -> crate::Result<Self> {
+    ) -> crate::Result<Box<Self>> {
         let items = usize::deserialize(deserializer.serde())?;
         let mut v = Vec::with_capacity(items);
         for _ in 0..items {
@@ -172,6 +166,21 @@ impl<'de> PagableDeserialize<'de> for AtomicI64 {
     ) -> crate::Result<Self> {
         let val = i64::deserialize(deserializer.serde())?;
         Ok(AtomicI64::new(val))
+    }
+}
+
+impl PagableSerialize for str {
+    fn pagable_serialize(&self, serializer: &mut dyn PagableSerializer) -> crate::Result<()> {
+        Ok(self.serialize(serializer.serde())?)
+    }
+}
+
+impl<'de> PagableBoxDeserialize<'de> for str {
+    fn deserialize_box<D: PagableDeserializer<'de> + ?Sized>(
+        deserializer: &mut D,
+    ) -> crate::Result<Box<Self>> {
+        let s = String::deserialize(deserializer.serde())?;
+        Ok(s.into_boxed_str())
     }
 }
 
