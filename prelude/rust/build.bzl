@@ -1565,6 +1565,7 @@ def _rustc_invoke(
             local_only = local_only,
             prefer_local = prefer_local,
             category = "deferred_link",
+            identifier = identifier,
             allow_cache_upload = allow_cache_upload,
         )
 
