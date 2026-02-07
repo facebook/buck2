@@ -253,7 +253,7 @@ pub trait StarlarkValue<'v>:
     ///
     /// This can be only implemented by the [`#[starlark_value]`](crate::values::starlark_value)
     /// proc macro.
-    const TYPE: &'static str = panic!("This field is implemented by #[starlark_value] proc macro");
+    const TYPE: &'static str;
 
     /// Like [`TYPE`](Self::TYPE), but returns a reusable [`FrozenStringValue`]
     /// pointer to it. This function deliberately doesn't take a heap,
