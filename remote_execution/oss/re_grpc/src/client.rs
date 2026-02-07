@@ -344,6 +344,7 @@ impl REClientBuilder {
             // be set here instead of on the endpoint
             let mut http = HttpConnector::new();
             http.enforce_http(false);
+            http.set_keepalive(Some(Duration::from_secs(180)));
             let connector = CountingConnector::new(http);
 
             endpoint = endpoint.timeout(Duration::from_secs(opts.grpc_timeout));
