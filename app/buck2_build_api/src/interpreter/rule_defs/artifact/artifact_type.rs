@@ -8,7 +8,7 @@
  * above-listed licenses.
  */
 
-#![allow(clippy::empty_enum)]
+#![allow(clippy::empty_enums)]
 
 use starlark::environment::GlobalsBuilder;
 use starlark::values::starlark_value_as_type::StarlarkValueAsType;

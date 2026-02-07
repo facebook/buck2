@@ -217,7 +217,7 @@ pub(crate) fn delete_unknown_disk_state(
     let res: buck2_error::Result<()> = try {
         if cache_dir_path.exists() {
             for entry in fs_util::read_dir(cache_dir_path).categorize_internal()? {
-                let entry = entry?;
+                let entry = entry.map_err(buck2_error::Error::from)?;
                 let filename = entry.file_name();
                 let filename = filename
                     .to_str()

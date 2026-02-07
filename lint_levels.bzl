@@ -60,7 +60,7 @@ CLIPPY_DENY = [
     "clippy::await_holding_refcell_ref",
     "clippy::dbg_macro",
     "clippy::debug_assert_with_mut_call",
-    "clippy::empty_enum",
+    "clippy::empty_enums",
     "clippy::filter_map_next",
     "clippy::flat_map_option",
     "clippy::large_stack_arrays",

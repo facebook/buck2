@@ -22,8 +22,8 @@ cargo install --path=app/buck2
 Or, alternatively, install it directly from GitHub:
 
 ```sh
-rustup install nightly-2025-10-25
-cargo +nightly-2025-10-25 install --git https://github.com/facebook/buck2.git buck2
+rustup install nightly-2025-12-05
+cargo +nightly-2025-12-05 install --git https://github.com/facebook/buck2.git buck2
 ```
 
 ### Side note: using [Nix] to compile the source

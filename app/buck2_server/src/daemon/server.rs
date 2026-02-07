@@ -1340,7 +1340,10 @@ impl DaemonApi for BuckdServer {
 
         let res: buck2_error::Result<_> = try {
             let client_ctx = req.get_ref().client_context()?;
-            let trace_id = client_ctx.trace_id.parse()?;
+            let trace_id = client_ctx
+                .trace_id
+                .parse()
+                .map_err(buck2_error::Error::from)?;
             let (event_source, dispatcher) = self.0.daemon_state.prepare_events(trace_id).await?;
             let active_command = ActiveCommand::new(&dispatcher, client_ctx.sanitized_argv.clone());
             (event_source, dispatcher, active_command)
