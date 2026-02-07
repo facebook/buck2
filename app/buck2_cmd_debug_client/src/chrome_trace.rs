@@ -97,6 +97,7 @@ struct ChromeTraceFirstPass {
     pub critical_path_action_keys: HashSet<buck2_data::ActionKey>,
     pub critical_path_span_ids: HashSet<u64>,
     pub command_start: SystemTime,
+    pub command_options: Option<buck2_data::CommandOptions>,
 }
 
 impl ChromeTraceFirstPass {
@@ -110,6 +111,7 @@ impl ChromeTraceFirstPass {
             critical_path_action_keys: HashSet::new(),
             critical_path_span_ids: HashSet::new(),
             command_start: SystemTime::UNIX_EPOCH,
+            command_options: None,
         }
     }
 
@@ -182,6 +184,9 @@ impl ChromeTraceFirstPass {
                         .iter()
                         .flat_map(|entry| entry.span_ids.iter().copied())
                         .collect()
+                }
+                Some(buck2_data::instant_event::Data::CommandOptions(options)) => {
+                    self.command_options = Some(*options);
                 }
                 _ => {}
             },
@@ -1146,7 +1151,7 @@ impl BuckSubcommand for ChromeTraceCommand {
             trace_path
         };
 
-        let writer = Self::trace_writer(log, self.max_tracks.unwrap_or(20)).await?;
+        let writer = Self::trace_writer(log, self.max_tracks).await?;
 
         let tracefile = std::fs::OpenOptions::new()
             .create(true)
@@ -1162,7 +1167,7 @@ impl BuckSubcommand for ChromeTraceCommand {
 impl ChromeTraceCommand {
     async fn trace_writer(
         log: EventLogPathBuf,
-        max_tracks: u64,
+        max_tracks: Option<u64>,
     ) -> buck2_error::Result<ChromeTraceWriter> {
         let (invocation, mut stream) = Self::load_events(log.clone()).await?;
         let mut first_pass = ChromeTraceFirstPass::new();
@@ -1182,6 +1187,12 @@ impl ChromeTraceCommand {
                 build_graph_info = Some(info.clone());
             }
         }
+
+        let max_tracks = max_tracks.unwrap_or(
+            first_pass
+                .command_options
+                .map_or(20, |opt| opt.configured_parallelism),
+        );
 
         let mut writer = ChromeTraceWriter::new(invocation, first_pass, max_tracks);
 
