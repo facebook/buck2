@@ -277,7 +277,6 @@ def rust_library(
         os_deps = None,
         test_deps = None,
         test_env = None,
-        test_os_deps = None,
         autocargo = None,
         unittests = None,
         mapped_srcs = {},
@@ -285,7 +284,7 @@ def rust_library(
         cxx_bridge = None,
         visibility = ["PUBLIC"],
         **kwargs):
-    _unused = (test_deps, test_env, test_os_deps, named_deps, autocargo, unittests, visibility, cpp_deps, cxx_bridge)  # @unused
+    _unused = (test_deps, test_env, named_deps, autocargo, unittests, visibility, cpp_deps, cxx_bridge)  # @unused
     deps = _fix_deps(deps)
     mapped_srcs = _maybe_select_map(mapped_srcs, _fix_mapped_srcs)
     if os_deps:
