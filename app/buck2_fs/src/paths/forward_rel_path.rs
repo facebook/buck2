@@ -20,6 +20,10 @@ use buck2_util::arc_str::StringInside;
 use derive_more::Display;
 use gazebo::transmute;
 use pagable::Pagable;
+use pagable::PagableBoxDeserialize;
+use pagable::PagableDeserialize;
+use pagable::PagableDeserializer;
+use pagable::PagableSerialize;
 use ref_cast::RefCastCustom;
 use ref_cast::ref_cast_custom;
 use relative_path::RelativePath;
@@ -50,7 +54,8 @@ use crate::paths::path_util::path_remove_prefix;
     Ord,
     Hash,
     Allocative,
-    StrongHash
+    StrongHash,
+    PagableSerialize
 )]
 #[repr(transparent)]
 pub struct ForwardRelativePath(
@@ -1014,6 +1019,16 @@ impl Clone for Box<ForwardRelativePath> {
     #[inline]
     fn clone(&self) -> Self {
         self.to_buf().into_box()
+    }
+}
+
+impl<'de> PagableBoxDeserialize<'de> for ForwardRelativePath {
+    fn deserialize_box<D: PagableDeserializer<'de> + ?Sized>(
+        deserializer: &mut D,
+    ) -> pagable::Result<Box<Self>> {
+        let owned =
+            <ForwardRelativePathBuf as PagableDeserialize>::pagable_deserialize(deserializer)?;
+        Ok(owned.into_box())
     }
 }
 

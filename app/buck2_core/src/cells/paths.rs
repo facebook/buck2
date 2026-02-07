@@ -29,6 +29,10 @@ use derivative::Derivative;
 use derive_more::Display;
 use gazebo::transmute;
 use pagable::Pagable;
+use pagable::PagableBoxDeserialize;
+use pagable::PagableDeserialize;
+use pagable::PagableDeserializer;
+use pagable::PagableSerialize;
 use ref_cast::RefCast;
 use relative_path::RelativePath;
 use serde::Serialize;
@@ -36,7 +40,17 @@ use strong_hash::StrongHash;
 
 /// A un-owned forward pointing, fully normalized path that is relative to the cell
 #[derive(
-    Display, Derivative, Hash, PartialEq, Eq, RefCast, PartialOrd, Ord, Allocative, StrongHash
+    Display,
+    Derivative,
+    Hash,
+    PartialEq,
+    Eq,
+    RefCast,
+    PartialOrd,
+    Ord,
+    Allocative,
+    StrongHash,
+    PagableSerialize
 )]
 #[derivative(Debug)]
 #[repr(transparent)]
@@ -58,6 +72,15 @@ pub struct CellRelativePathBuf(
 impl Clone for Box<CellRelativePath> {
     fn clone(&self) -> Self {
         self.to_box()
+    }
+}
+
+impl<'de> PagableBoxDeserialize<'de> for CellRelativePath {
+    fn deserialize_box<D: PagableDeserializer<'de> + ?Sized>(
+        deserializer: &mut D,
+    ) -> pagable::Result<Box<Self>> {
+        let owned = <CellRelativePathBuf as PagableDeserialize>::pagable_deserialize(deserializer)?;
+        Ok(owned.into_box())
     }
 }
 

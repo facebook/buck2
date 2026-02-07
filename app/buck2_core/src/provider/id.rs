@@ -15,8 +15,6 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use pagable::Pagable;
-use serde::Deserialize;
-use serde::Serialize;
 
 use crate::cells::cell_path::CellPath;
 
@@ -42,8 +40,6 @@ use crate::cells::cell_path::CellPath;
     PartialOrd,
     Allocative,
     strong_hash::StrongHash,
-    Serialize,
-    Deserialize,
     Pagable
 )]
 pub struct ProviderId {

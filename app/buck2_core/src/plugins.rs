@@ -19,8 +19,6 @@ use pagable::PagableDeserialize;
 use pagable::PagableDeserializer;
 use pagable::PagableSerialize;
 use pagable::PagableSerializer;
-use serde::Deserialize;
-use serde::Serialize;
 use starlark_map::ordered_map::OrderedMap;
 use starlark_map::small_map::Entry;
 use static_interner::Intern;
@@ -40,9 +38,7 @@ use crate::target::label::label::TargetLabel;
     Hash,
     Ord,
     PartialOrd,
-    Allocative,
-    Serialize,
-    Deserialize
+    Allocative
 )]
 #[display("{name}")]
 struct PluginKindInner {
