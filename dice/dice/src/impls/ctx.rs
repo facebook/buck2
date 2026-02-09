@@ -36,6 +36,7 @@ use crate::LinearRecomputeDiceComputations;
 use crate::UserCycleDetectorGuard;
 use crate::api::activation_tracker::ActivationData;
 use crate::api::computations::DiceComputations;
+use crate::api::computations::DiceComputationsData;
 use crate::api::data::DiceData;
 use crate::api::invalidation_tracking::DiceKeyTrackedInvalidationPaths;
 use crate::api::key::Key;
@@ -377,6 +378,12 @@ impl ModernComputeCtx<'_> {
             high,
         )
     }
+
+    pub(crate) fn data(&self) -> DiceComputationsData {
+        DiceComputationsData(ModernDiceComputationsData(
+            self.ctx_data().async_evaluator.dupe(),
+        ))
+    }
 }
 
 impl<'a> From<ModernComputeCtx<'a>> for DiceComputations<'a> {
@@ -457,6 +464,20 @@ impl<'a> ModernComputeCtxParallelBuilder<'a> {
             )
             .right_future(),
         }
+    }
+}
+
+/// A holder for the user data attached to DICE.
+#[derive(Clone, Dupe)]
+pub struct ModernDiceComputationsData(AsyncEvaluator);
+
+impl ModernDiceComputationsData {
+    pub fn global_data(&self) -> &DiceData {
+        &self.0.dice.global_data
+    }
+
+    pub fn per_transaction_data(&self) -> &UserComputationData {
+        &self.0.user_data
     }
 }
 

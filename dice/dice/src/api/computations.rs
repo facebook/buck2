@@ -16,6 +16,7 @@ use async_trait::async_trait;
 use dice_error::DiceResult;
 use dice_futures::cancellation::CancellationContext;
 use dice_futures::owning_future::OwningFuture;
+use dupe::Dupe;
 use futures::FutureExt;
 use futures::future::BoxFuture;
 
@@ -28,6 +29,7 @@ use crate::api::opaque::OpaqueValue;
 use crate::api::user_data::UserComputationData;
 use crate::ctx::DiceComputationsImpl;
 use crate::ctx::LinearRecomputeDiceComputationsImpl;
+use crate::impls::ctx::ModernDiceComputationsData;
 
 /// The context for computations to register themselves, and request for additional dependencies.
 /// The dependencies accessed are tracked for caching via the `DiceCtx`.
@@ -318,6 +320,12 @@ impl DiceComputations<'_> {
         closure
     }
 
+    /// Returns a handle to the DICE data that provides access to global and per-transaction
+    /// data without the ability to request new keys.
+    pub fn data(&self) -> DiceComputationsData {
+        self.0.data()
+    }
+
     /// Data that is static per the entire lifetime of Dice. These data are initialized at the
     /// time that Dice is initialized via the constructor.
     pub fn global_data(&self) -> &DiceData {
@@ -395,6 +403,27 @@ impl LinearRecomputeDiceComputations<'_> {
             + 'static,
     {
         OwningFuture::new(self.get(), |ctx| ctx.spawned(closure).boxed())
+    }
+}
+
+/// A holder for the user data attached to DICE. APIs that require access to data stored on DICE
+/// but that won't request keys can indicate that by accepting a `DiceComputationsData`.
+#[derive(Clone, Dupe)]
+pub struct DiceComputationsData(pub(crate) ModernDiceComputationsData);
+
+impl DiceComputationsData {
+    /// Data that is static per the entire lifetime of Dice. These data are initialized at the
+    /// time that Dice is initialized via the constructor.
+    pub fn global_data(&self) -> &DiceData {
+        self.0.global_data()
+    }
+
+    /// Data that is static for the lifetime of the current request context. This lifetime is
+    /// the lifetime of the top-level `DiceComputation` used for all requests.
+    /// The data is also specific to each request context, so multiple concurrent requests can
+    /// each have their own individual data.
+    pub fn per_transaction_data(&self) -> &UserComputationData {
+        self.0.per_transaction_data()
     }
 }
 

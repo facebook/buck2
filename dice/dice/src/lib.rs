@@ -199,6 +199,7 @@ pub(crate) type HashSet<K> = std::collections::HashSet<K, fxhash::FxBuildHasher>
 pub use crate::api::activation_tracker::ActivationData;
 pub use crate::api::activation_tracker::ActivationTracker;
 pub use crate::api::computations::DiceComputations;
+pub use crate::api::computations::DiceComputationsData;
 pub use crate::api::computations::LinearRecomputeDiceComputations;
 pub use crate::api::cycles::DetectCycles;
 pub use crate::api::data::DiceData;

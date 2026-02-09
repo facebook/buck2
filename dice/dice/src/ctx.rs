@@ -20,6 +20,7 @@ use futures::future::BoxFuture;
 use crate::LinearRecomputeDiceComputations;
 use crate::ProjectionKey;
 use crate::api::computations::DiceComputations;
+use crate::api::computations::DiceComputationsData;
 use crate::api::data::DiceData;
 use crate::api::invalidation_tracking::DiceKeyTrackedInvalidationPaths;
 use crate::api::key::Key;
@@ -185,6 +186,10 @@ impl DiceComputationsImpl<'_> {
 
     pub fn get_invalidation_paths(&mut self) -> DiceKeyTrackedInvalidationPaths {
         self.0.get_invalidation_paths()
+    }
+
+    pub(crate) fn data(&self) -> DiceComputationsData {
+        self.0.data()
     }
 }
 
