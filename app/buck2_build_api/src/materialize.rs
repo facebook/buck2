@@ -46,7 +46,7 @@ use crate::artifact_groups::calculation::ArtifactGroupCalculation;
 pub async fn materialize_and_upload_artifact_group(
     ctx: &mut DiceComputations<'_>,
     artifact_group: &ArtifactGroup,
-    contexts: &MaterializationAndUploadContext,
+    contexts: MaterializationAndUploadContext,
     queue_tracker: &Arc<DashSet<BuildArtifact>>,
 ) -> buck2_error::Result<ArtifactGroupValues> {
     let (values, _) = ctx
@@ -231,7 +231,7 @@ impl From<Materializations> for MaterializationContext {
     }
 }
 
-#[derive(Clone, Dupe)]
+#[derive(Clone, Dupe, Copy)]
 enum UploadContext {
     Skip,
     Upload,
@@ -245,7 +245,7 @@ impl From<Uploads> for UploadContext {
     }
 }
 
-#[derive(Clone, Dupe)]
+#[derive(Clone, Dupe, Copy)]
 pub struct MaterializationAndUploadContext(MaterializationContext, UploadContext);
 impl MaterializationAndUploadContext {
     pub fn skip() -> Self {

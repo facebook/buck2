@@ -479,7 +479,7 @@ pub struct BuildConfiguredLabelOptions {
 pub async fn build_configured_label(
     event_consumer: &dyn BuildEventConsumer,
     ctx: &LinearRecomputeDiceComputations<'_>,
-    materialization_and_upload: &MaterializationAndUploadContext,
+    materialization_and_upload: MaterializationAndUploadContext,
     providers_label: ConfiguredProvidersLabel,
     providers_to_build: &ProvidersToBuild,
     opts: BuildConfiguredLabelOptions,
@@ -506,7 +506,7 @@ pub async fn build_configured_label(
 async fn build_configured_label_inner<'a>(
     event_consumer: &dyn BuildEventConsumer,
     ctx: &'a LinearRecomputeDiceComputations<'_>,
-    materialization_and_upload: &'a MaterializationAndUploadContext,
+    materialization_and_upload: MaterializationAndUploadContext,
     providers_label: ConfiguredProvidersLabel,
     providers_to_build: &ProvidersToBuild,
     opts: BuildConfiguredLabelOptions,
@@ -612,13 +612,12 @@ async fn build_configured_label_inner<'a>(
         .enumerate()
         .map({
             |(index, (output, provider_type))| {
-                let materialization_and_upload = materialization_and_upload.dupe();
                 let queue_tracker = queue_tracker.dupe();
                 Either::Left(async move {
                     let res = match materialize_and_upload_artifact_group(
                         &mut ctx.get(),
                         &output,
-                        &materialization_and_upload,
+                        materialization_and_upload,
                         &queue_tracker,
                     )
                     .await

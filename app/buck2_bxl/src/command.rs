@@ -293,7 +293,7 @@ impl BxlServerCommand {
     ) -> Vec<buck2_error::Error> {
         let materialization_context = self.create_materialization_context();
 
-        self.ensure_all_artifacts(dice_ctx, &materialization_context, bxl_result, output)
+        self.ensure_all_artifacts(dice_ctx, materialization_context, bxl_result, output)
             .await
     }
 
@@ -319,7 +319,7 @@ impl BxlServerCommand {
     async fn ensure_all_artifacts(
         &self,
         ctx: &mut DiceComputations<'_>,
-        materialization_context: &MaterializationAndUploadContext,
+        materialization_context: MaterializationAndUploadContext,
         bxl_result: Arc<BxlResult>,
         output: &mut (impl Write + Send),
     ) -> Vec<buck2_error::Error> {
@@ -354,7 +354,7 @@ impl BxlServerCommand {
     async fn materialize_collected_artifacts(
         &self,
         ctx: &mut DiceComputations<'_>,
-        materialization_context: &MaterializationAndUploadContext,
+        materialization_context: MaterializationAndUploadContext,
         bxl_result: Arc<BxlResult>,
         output: &mut (impl Write + Send),
     ) -> Result<(), Vec<buck2_error::Error>> {

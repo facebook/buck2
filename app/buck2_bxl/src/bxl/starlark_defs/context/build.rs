@@ -211,7 +211,7 @@ pub(crate) fn build<'v>(
                                     build_configured_label(
                                         &consumer,
                                         &ctx,
-                                        &(materializations, uploads).into(),
+                                        (materializations, uploads).into(),
                                         target,
                                         &ProvidersToBuild {
                                             default: true,

@@ -857,7 +857,7 @@ async fn build_launch_installer<'a>(
                     materialize_and_upload_artifact_group(
                         ctx,
                         &input,
-                        &MaterializationAndUploadContext::materialize(),
+                        MaterializationAndUploadContext::materialize(),
                         &ctx.per_transaction_data()
                             .get_materialization_queue_tracker(),
                     )
@@ -952,7 +952,7 @@ async fn build_files(
                                 materialize_and_upload_artifact_group(
                                     ctx,
                                     &artifact,
-                                    &MaterializationAndUploadContext::materialize(),
+                                    MaterializationAndUploadContext::materialize(),
                                     &ctx.per_transaction_data()
                                         .get_materialization_queue_tracker(),
                                 )

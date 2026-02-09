@@ -1387,7 +1387,7 @@ async fn build_target_result(
             build_configured_label(
                 &consumer,
                 &ctx,
-                &materialization_and_upload,
+                materialization_and_upload,
                 label,
                 &ProvidersToBuild {
                     default: build_default_info,
