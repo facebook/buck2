@@ -106,18 +106,12 @@ fn call_transition_function<'v>(
                 }
                 Ok(TransitionApplied::Split(SortedMap::from(split)))
             }
-            None => Err(buck2_error::Error::from(
-                ApplyTransitionError::SplitTransitionMustReturnDict,
-            )
-            .into()),
+            None => Err(ApplyTransitionError::SplitTransitionMustReturnDict.into()),
         }
     } else {
         match <&PlatformInfo>::unpack_value_err(new_platforms) {
             Ok(platform) => Ok(TransitionApplied::Single(platform.to_configuration()?)),
-            Err(_) => Err(buck2_error::Error::from(
-                ApplyTransitionError::NonSplitTransitionMustReturnPlatformInfo,
-            )
-            .into()),
+            Err(_) => Err(ApplyTransitionError::NonSplitTransitionMustReturnPlatformInfo.into()),
         }
     }
 }
@@ -145,8 +139,8 @@ async fn do_apply_transition(
     let eval_kind = StarlarkEvalKind::Transition(Arc::new(transition_id.clone()));
     let provider = StarlarkEvaluatorProvider::new(ctx, eval_kind).await?;
     BuckStarlarkModule::with_profiling(|module| {
-        let (finished_eval, res) = provider
-            .with_evaluator(&module, cancellation.into(), |eval, _| {
+        let (finished_eval, res) =
+            provider.with_evaluator(&module, cancellation.into(), |eval, _| {
                 eval.set_print_handler(&print);
                 eval.set_soft_error_handler(&Buck2StarlarkSoftErrorHandler);
                 let refs = module.heap().alloc(AllocStruct(refs));
@@ -211,8 +205,7 @@ async fn do_apply_transition(
                         Ok(TransitionApplied::Split(split))
                     }
                 }
-            })
-            .map_err(buck2_error::Error::from)?;
+            })?;
         let (token, _) = finished_eval.finish()?;
         Ok((token, res))
     })
@@ -340,6 +333,6 @@ impl TransitionCalculation for TransitionCalculationImpl {
             attrs,
         };
 
-        ctx.compute(&key).await?.map_err(buck2_error::Error::from)
+        ctx.compute(&key).await?
     }
 }

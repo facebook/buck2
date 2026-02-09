@@ -215,7 +215,7 @@ async fn resolve_literals_in_universe(
                 universe_ref.get(&resolved_pattern)
             };
 
-            (lit.to_owned(), result.map_err(buck2_error::Error::from))
+            (lit.to_owned(), result)
         })
         .collect();
 

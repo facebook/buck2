@@ -69,7 +69,6 @@ impl TransitiveValidationKey {
             .validations()
             .filter(|spec| !spec.optional() || enabled_optional_validations.contains(spec.name()))
             .map(|spec| spec.validation_result().get_bound_artifact())
-            .map(|r| r.map_err(buck2_error::Error::from))
             .collect::<buck2_error::Result<Vec<Artifact>>>()?;
         ctx.try_compute_join(artifacts, |ctx, output| {
             async move { compute_single_validation(ctx, output).await }.boxed()

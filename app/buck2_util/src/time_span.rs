@@ -44,7 +44,7 @@ impl TimeSpan {
         if end >= start {
             Ok(Self { start, end })
         } else {
-            Err(TimeSpanError::InvalidTimeOrder { start, end }.into())
+            Err(TimeSpanError::InvalidTimeOrder { start, end })
         }
     }
 

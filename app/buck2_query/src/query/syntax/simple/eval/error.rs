@@ -83,7 +83,7 @@ impl From<Spanned<QueryError>> for QueryError {
 impl QueryError {
     pub fn drop_spans(err: Spanned<Self>) -> buck2_error::Error {
         match err.value {
-            Self::Error(inner) => inner.into(),
+            Self::Error(inner) => inner,
             Self::Inner(inner) => Self::drop_spans(*inner),
             e => {
                 // TODO(cjhopman): This is going to drop the backtrace attached to the error, we should figure
@@ -96,9 +96,7 @@ impl QueryError {
         let context = err.get_err_context(input);
 
         match err.value {
-            Self::Error(inner) => inner
-                .context(format!("Error evaluating expression:{context}"))
-                .into(),
+            Self::Error(inner) => inner.context(format!("Error evaluating expression:{context}")),
             Self::Inner(inner) => Self::convert_error(*inner, input)
                 .context(format!("Error evaluating expression:{context}")),
             e => {

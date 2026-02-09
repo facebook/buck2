@@ -538,7 +538,6 @@ impl<'a> TargetNodeRef<'a> {
         .map(move |x|
                 // use unwrap here, if fail here it means we iter over a key not in the match list from `special_attr_or_none`
                 (x, self.special_attr_or_none(x).unwrap()))
-        .into_iter()
     }
 
     pub fn metadata(self) -> buck2_error::Result<Option<&'a MetadataMap>> {

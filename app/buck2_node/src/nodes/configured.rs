@@ -732,7 +732,6 @@ impl<'a> ConfiguredTargetNodeRef<'a> {
                 self.special_attr_or_none(key).unwrap(),
             )
         })
-        .into_iter()
     }
 
     pub fn attrs(

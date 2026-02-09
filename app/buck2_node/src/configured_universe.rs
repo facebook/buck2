@@ -186,7 +186,6 @@ impl CqueryUniverse {
             label.pkg(),
             &PackageSpec::Targets(vec![(label.name().to_owned(), TargetPatternExtra)]),
         )
-        .into_iter()
         .map(|(node, _extra)| node.label().dupe())
         .collect()
     }

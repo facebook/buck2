@@ -255,7 +255,7 @@ impl<T: PatternType> LoadedPatterns<T> {
             let targets = result
                 .as_ref()
                 .map(|pkg| pkg.targets.values().map(|t| t.dupe()).collect::<Vec<_>>())
-                .map_err(|e| e.dupe().into());
+                .map_err(|e| e.dupe());
             (package.dupe(), targets)
         })
     }
@@ -339,7 +339,7 @@ pub async fn load_patterns<T: PatternType>(
         let mut results: BTreeMap<PackageLabel, buck2_error::Result<Arc<EvaluationResult>>> =
             BTreeMap::new();
         while let Some((pkg, load_res)) = load_package_futs.next().await {
-            results.insert(pkg, load_res.map_err(buck2_error::Error::from));
+            results.insert(pkg, load_res);
         }
 
         apply_spec(spec, results, skip_missing_targets)
@@ -359,7 +359,7 @@ pub async fn load_patterns_with_modifiers<T: PatternType>(
         let mut results: BTreeMap<PackageLabel, buck2_error::Result<Arc<EvaluationResult>>> =
             BTreeMap::new();
         while let Some((pkg, load_res)) = load_package_futs.next().await {
-            results.insert(pkg, load_res.map_err(buck2_error::Error::from));
+            results.insert(pkg, load_res);
         }
 
         apply_spec(spec, results, skip_missing_targets)

@@ -96,7 +96,7 @@ impl Key for SingleValidationKey {
                 self.0.owner().dupe(),
                 validation_result_path,
             )),
-            Err(e) => Err(buck2_error::Error::from(e)),
+            Err(e) => Err(e),
         }
     }
 

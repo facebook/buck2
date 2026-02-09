@@ -142,7 +142,7 @@ impl<T: QueryTarget> PreresolvedQueryLiterals<T> {
             .await;
         let mut resolved_literals = HashMap::new();
         for (literal, result) in resolved_literal_results {
-            resolved_literals.insert(literal, result.map_err(buck2_error::Error::from));
+            resolved_literals.insert(literal, result);
         }
         Self { resolved_literals }
     }
@@ -172,7 +172,7 @@ impl<T: QueryTarget> QueryLiterals<T> for PreresolvedQueryLiterals<T> {
                 .ok_or_else(|| QueryLiteralResolutionError::LiteralMissing((*lit).to_owned()))?
             {
                 Ok(v) => v,
-                Err(e) => return Err(e.dupe().into()),
+                Err(e) => return Err(e.dupe()),
             };
             targets.extend(resolved);
         }
