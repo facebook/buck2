@@ -282,7 +282,7 @@ impl ServerCommandDiceContext for dyn ServerCommandContextTrait + '_ {
                             exclusive_cmd,
                             self.cancellation_context(),
                             preemptible,
-                            self.previous_command_data().into(),
+                            self.previous_command_data(),
                             self.project_root(),
                             exit_when,
                             early_command_timing,

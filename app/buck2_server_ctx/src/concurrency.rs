@@ -1364,7 +1364,7 @@ mod tests {
 
         let fut3_result = fut3.await?;
 
-        let fut3_error: buck2_error::Error = fut3_result.unwrap_err().into();
+        let fut3_error: buck2_error::Error = fut3_result.unwrap_err();
         assert!(
             fut3_error
                 .tags()
@@ -1487,7 +1487,7 @@ mod tests {
 
         drop(blocked1);
         let fut1_result = fut1.await?;
-        let fut1_error: buck2_error::Error = fut1_result.unwrap_err().into();
+        let fut1_error: buck2_error::Error = fut1_result.unwrap_err();
         assert!(
             fut1_error
                 .tags()
@@ -1999,7 +1999,7 @@ mod tests {
 
         // Second command should fail immediately
         let fut2_result = fut2.await?;
-        let fut2_error: buck2_error::Error = fut2_result.unwrap_err().into();
+        let fut2_error: buck2_error::Error = fut2_result.unwrap_err();
         assert!(
             fut2_error
                 .tags()
@@ -2083,7 +2083,7 @@ mod tests {
 
         // Second command should fail immediately
         let fut2_result = fut2.await?;
-        let fut2_error: buck2_error::Error = fut2_result.unwrap_err().into();
+        let fut2_error: buck2_error::Error = fut2_result.unwrap_err();
         assert!(
             fut2_error
                 .tags()
@@ -2191,7 +2191,7 @@ mod tests {
 
         // Both second and third commands should fail
         let fut2_result = fut2.await?;
-        let fut2_error: buck2_error::Error = fut2_result.unwrap_err().into();
+        let fut2_error: buck2_error::Error = fut2_result.unwrap_err();
         assert!(
             fut2_error
                 .tags()
@@ -2199,7 +2199,7 @@ mod tests {
         );
 
         let fut3_result = fut3.await?;
-        let fut3_error: buck2_error::Error = fut3_result.unwrap_err().into();
+        let fut3_error: buck2_error::Error = fut3_result.unwrap_err();
         assert!(
             fut3_error
                 .tags()
@@ -2284,7 +2284,7 @@ mod tests {
 
         // Second command should fail immediately, even though first is preemptible
         let fut2_result = fut2.await?;
-        let fut2_error: buck2_error::Error = fut2_result.unwrap_err().into();
+        let fut2_error: buck2_error::Error = fut2_result.unwrap_err();
         assert!(
             fut2_error
                 .tags()
@@ -2351,7 +2351,7 @@ mod tests {
 
                 // Check if we got preempted
                 if let Err(ref e) = result {
-                    let error: buck2_error::Error = e.clone().into();
+                    let error: buck2_error::Error = e.clone();
                     if error
                         .tags()
                         .contains(&buck2_error::ErrorTag::DaemonPreempted)
@@ -2476,7 +2476,7 @@ mod tests {
 
         // Both second and third commands should fail
         let fut2_result = fut2.await?;
-        let fut2_error: buck2_error::Error = fut2_result.unwrap_err().into();
+        let fut2_error: buck2_error::Error = fut2_result.unwrap_err();
         assert!(
             fut2_error
                 .tags()

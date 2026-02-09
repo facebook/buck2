@@ -612,10 +612,10 @@ impl LspContext for BuckLspContext<'_> {
 
                         buck2_error::Ok(url)
                     }
-                    _ => Err(buck2_error::Error::from(ResolveLoadError::WrongScheme(
+                    _ => Err(ResolveLoadError::WrongScheme(
                         "file://".to_owned(),
                         current_file.clone(),
-                    ))
+                    )
                     .into()),
                 }
             }))
@@ -741,11 +741,9 @@ pub(crate) async fn run_lsp_server_command(
         .command_start_event(buck2_data::LspCommandStart {}.into())
         .await?;
     span_async(start_event, async move {
-        let result = run_lsp_server(ctx, partial_result_dispatcher, req)
-            .await
-            .map_err(Into::into);
+        let result = run_lsp_server(ctx, partial_result_dispatcher, req).await;
         let end_event = command_end(&result, buck2_data::LspCommandEnd {});
-        (result.map_err(Into::into), end_event)
+        (result, end_event)
     })
     .await
 }

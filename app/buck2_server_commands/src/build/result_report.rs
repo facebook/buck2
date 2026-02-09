@@ -102,7 +102,7 @@ impl<'a> ResultReporter<'a> {
 
         if !error_list.is_empty() {
             if let Some(e) = check_cert_state(cert_state).await {
-                error_list.push(e.into());
+                error_list.push(e);
             }
         }
 

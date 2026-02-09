@@ -263,12 +263,7 @@ impl<'a> BuckTestOrchestrator<'a> {
 
         let test_target = self.session.get(test_target)?;
 
-        let fs = self
-            .dice
-            .clone()
-            .get_artifact_fs()
-            .await
-            .map_err(buck2_error::Error::from)?;
+        let fs = self.dice.clone().get_artifact_fs().await?;
         let pre_create_dirs = Arc::new(pre_create_dirs);
 
         let ExecuteData {
@@ -1008,7 +1003,7 @@ impl BuckTestOrchestrator<'_> {
 
         let prepared_action = match executor.prepare_action(&request, digest_config, false) {
             Ok(prepared_action) => prepared_action,
-            Err(e) => return Err(ExecuteError::Error(e.into())),
+            Err(e) => return Err(ExecuteError::Error(e)),
         };
         let prepared_command = PreparedCommand {
             target: &test_target as _,
@@ -1082,7 +1077,7 @@ impl BuckTestOrchestrator<'_> {
                         .await
                     {
                         Ok(result) => result,
-                        Err(e) => return Err(ExecuteError::Error(e.into())),
+                        Err(e) => return Err(ExecuteError::Error(e)),
                     };
                 }
                 result
@@ -1601,7 +1596,7 @@ impl BuckTestOrchestrator<'_> {
             .iter()
             .map(|t| lock.get(t).unwrap().clone())
             .collect();
-        Ok(result.map_err(buck2_error::Error::from)?)
+        Ok(result?)
     }
 
     async fn prepare_local_resource(
@@ -1745,14 +1740,13 @@ impl BuckTestOrchestrator<'_> {
                 ));
             }
             CommandExecutionStatus::Error { error, .. } => {
-                return Err(error.into());
+                return Err(error);
             }
             CommandExecutionStatus::Cancelled { .. } => {
                 return Err(buck2_error::buck2_error!(
                     ErrorTag::LocalResourceSetup,
                     "Local resource setup command cancelled"
-                )
-                .into());
+                ));
             }
         };
 
@@ -1912,7 +1906,7 @@ impl<'a> Execute2RequestExpander<'a> {
                 }
                 ArgValueContent::DeclaredOutput(output) => {
                     let test_path =
-                        BuckOutTestPath::new(output_root.to_owned(), output.name.into());
+                        BuckOutTestPath::new(output_root.to_owned(), output.name.clone());
                     let path = fs.fs().buck_out_path_resolver().resolve_test(&test_path);
                     cli.push_location(ctx.resolve_project_path(path)?);
                     declared_outputs.insert(test_path, OutputCreationBehavior::Parent);

@@ -795,7 +795,7 @@ impl DaemonState {
 
         tag_result!(
             "eden_not_connected",
-            check_working_dir::check_working_dir().map_err(|e| e.into()),
+            check_working_dir::check_working_dir(),
             quiet: true,
             daemon_in_memory_state_is_corrupted: true,
             task: false
@@ -849,7 +849,7 @@ impl DaemonState {
 
             tag_result!(
                 "stale_cwd",
-                res.map_err(|e| e.into()),
+                res,
                 quiet: true,
                 daemon_in_memory_state_is_corrupted: true,
                 task: false
@@ -904,8 +904,7 @@ impl DaemonState {
                     "Buck is running in an Eden repository, but `buck-out` is not redirected. \
                      This will likely lead to failed or slow builds. \
                      To remediate, run `eden redirect fixup`."
-                )
-                .into(),
+                ),
                 quiet:false
             )?;
         }

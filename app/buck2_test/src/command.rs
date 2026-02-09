@@ -1027,7 +1027,7 @@ impl<'a, 'e> TestDriver<'a, 'e> {
                 {
                     Ok(res) => res,
                     Err(e) => {
-                        let e: buck2_error::Error = e.into();
+                        let e: buck2_error::Error = e;
                         let mut events = Vec::new();
                         // Try to associate the error to concrete targets, if possible
                         match spec {
@@ -1151,7 +1151,7 @@ impl<'a, 'e> TestDriver<'a, 'e> {
                 Err(e) => {
                     return ControlFlow::Break(vec![BuildEvent::OtherError {
                         label: Some(providers_label),
-                        err: e.into(),
+                        err: e,
                     }]);
                 }
             };
@@ -1165,9 +1165,7 @@ impl<'a, 'e> TestDriver<'a, 'e> {
                 Ok(node) => node,
                 Err(e) => {
                     return ControlFlow::Break(create_and_map_configured_build_error(
-                        label,
-                        e.into(),
-                        modifiers,
+                        label, e, modifiers,
                     ));
                 }
             };

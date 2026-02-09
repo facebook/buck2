@@ -769,7 +769,7 @@ async fn build_targets_for_spec(
     let res = match ctx.get().get_interpreter_results(package.dupe()).await {
         Ok(res) => res,
         Err(e) => {
-            let e: buck2_error::Error = e.into();
+            let e: buck2_error::Error = e;
             // Try to associate the error to concrete targets, if possible
             let targets = match spec {
                 PackageSpec::Targets(targets) => Either::Left(
@@ -879,7 +879,7 @@ async fn build_target(
         Err(e) => {
             event_consumer.consume(BuildEvent::OtherError {
                 label: Some(spec.target.dupe()),
-                err: e.into(),
+                err: e,
             });
             return;
         }

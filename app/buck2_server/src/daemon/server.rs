@@ -540,7 +540,7 @@ impl BuckdServer {
                         Ok(_) => dispatch.command_result(result_to_command_result(result)),
                         Err(e) => match check_cert_state(cert_state).await {
                             Some(err) => dispatch.command_result(error_to_command_result(
-                                err.context(format!("{e:?}")).into(),
+                                err.context(format!("{e:?}")),
                             )),
                             _ => dispatch.command_result(error_to_command_result(e)),
                         },
@@ -580,9 +580,7 @@ impl BuckdServer {
         match self.run_streaming_fallible(req, opts, func).await {
             Ok(resp) => Ok(resp),
             Err(e) => match check_cert_state(self.0.cert_state.dupe()).await {
-                Some(err) => Ok(error_to_response_stream(
-                    err.context(format!("{e:?}")).into(),
-                )),
+                Some(err) => Ok(error_to_response_stream(err.context(format!("{e:?}")))),
                 _ => Ok(error_to_response_stream(e)),
             },
         }

@@ -88,12 +88,11 @@ pub async fn run_server_command<T: ServerCommandTemplate>(
                 },
                 command.exclusive_command_name(),
             )
-            .await
-            .map_err(Into::into);
+            .await;
         let end_event = command_end_ext(&result, command.end_event(&result), |result| {
             command.build_result(result)
         });
-        (result.map_err(Into::into), end_event)
+        (result, end_event)
     })
     .await
 }
