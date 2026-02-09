@@ -288,7 +288,7 @@ where
                     let this = heap.alloc(StarlarkSelector::new(v));
                     Some(Ok(StarlarkSelector::sum(this, other, heap)))
                 }
-                Err(e) => Some(Err(e.into())),
+                Err(e) => Some(Err(e)),
             },
             Self::Sum(l, r) => {
                 let this = StarlarkSelector::sum(l.to_value(), r.to_value(), heap);

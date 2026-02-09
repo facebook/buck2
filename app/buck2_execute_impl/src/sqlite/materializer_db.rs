@@ -24,7 +24,6 @@ use buck2_fs::paths::abs_norm_path::AbsNormPath;
 use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
 use chrono::DateTime;
 use chrono::Utc;
-use derive_more::From;
 use dupe::Dupe;
 
 use crate::materializers::deferred::artifact_tree::ArtifactMetadata;
@@ -123,7 +122,7 @@ impl MaterializerStateSqliteDb {
         digest_config: DigestConfig,
         reject_identity: Option<&SqliteIdentity>,
     ) -> buck2_error::Result<(Self, buck2_error::Result<MaterializerState>)> {
-        let reject_identity = reject_identity.map(|id| SqliteIdentity::from(id.clone()));
+        let reject_identity = reject_identity.cloned();
 
         match Self::get_sqlite_db(
             &materializer_state_dir,

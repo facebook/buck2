@@ -83,8 +83,7 @@ pub(crate) async fn check_starlark_stack_size(
                                 p,
                                 buck2_error::starlark_error::NativeErrorHandling::Unknown,
                                 false,
-                            )
-                            .into()),
+                            )),
                             Ok(_) => {
                                 Err(CheckStarlarkStackSizeError::CheckStarlarkStackSizeError.into())
                             }

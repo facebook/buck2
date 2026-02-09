@@ -181,7 +181,7 @@ impl CacheUploader {
                     Ok(CacheUploadOutcome::Success(result_for_dep_file))
                 }
                 .await
-                .map_err(|e: buck2_error::Error| buck2_error::Error::from(e))
+                .map_err(|e: buck2_error::Error| e)
                 .unwrap_or_else(CacheUploadOutcome::Failed);
 
                 let cache_upload_end_event = buck2_data::CacheUploadEnd {

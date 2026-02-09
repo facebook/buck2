@@ -228,11 +228,11 @@ impl DefaultIoHandler {
                 let connection = self.re_client_manager.get_re_connection();
                 let re_client = connection.get_client().with_use_case(info.re_use_case);
 
-                re_client.materialize_files(files).await.map_err(|e| {
-                    let e: buck2_error::Error = e.into();
-                    match e.find_typed_context::<RemoteExecutionError>() {
+                re_client
+                    .materialize_files(files)
+                    .await
+                    .map_err(|e| match e.find_typed_context::<RemoteExecutionError>() {
                         Some(re_error) if re_error.code == TCode::NOT_FOUND => {
-                            let e: buck2_error::Error = e.into();
                             MaterializeEntryError::NotFound(CasNotFoundError {
                                 path: Arc::from(path),
                                 info: info.dupe(),
@@ -243,8 +243,7 @@ impl DefaultIoHandler {
                         _ => MaterializeEntryError::Error(e.context({
                             format!("Error materializing files declared by action: {info}")
                         })),
-                    }
-                })?;
+                    })?;
             }
             ArtifactMaterializationMethod::HttpDownload { info } => {
                 async {
@@ -342,7 +341,7 @@ impl IoHandler for DefaultIoHandler {
                 }),
                 cancellations,
             )
-            .map_err(|e| SharedMaterializingError::Error(e.into()))
+            .map_err(SharedMaterializingError::Error)
             .boxed()
     }
 
@@ -375,7 +374,7 @@ impl IoHandler for DefaultIoHandler {
                 }),
                 cancellations,
             )
-            .map(|r| r.map_err(buck2_error::Error::from))
+            .map(|r| r)
             .boxed()
     }
 
@@ -632,9 +631,7 @@ impl IoRequest for WriteIoRequest {
     fn execute(self: Box<Self>, project_fs: &ProjectRoot) -> buck2_error::Result<()> {
         // NOTE: No spans here! We should perhaps add one, but this needs to be considered
         // carefully as it's a lot of spans, and we haven't historically emitted those for writes.
-        let res = self
-            .execute_inner(project_fs)
-            .map_err(buck2_error::Error::from);
+        let res = self.execute_inner(project_fs);
 
         // If the materializer has shut down, we ignore this.
         let _ignored = self.command_sender.send_low_priority(
@@ -660,7 +657,7 @@ impl IoRequest for CleanIoRequest {
     fn execute(self: Box<Self>, project_fs: &ProjectRoot) -> buck2_error::Result<()> {
         // NOTE: No spans here! We should perhaps add one, but this needs to be considered
         // carefully as it's a lot of spans, and we haven't historically emitted those for writes.
-        let res = cleanup_path(project_fs, &self.path).map_err(buck2_error::Error::from);
+        let res = cleanup_path(project_fs, &self.path);
 
         // If the materializer has shut down, we ignore this.
         let _ignored = self.command_sender.send_low_priority(

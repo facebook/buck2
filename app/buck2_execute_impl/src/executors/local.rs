@@ -1396,8 +1396,7 @@ pub async fn materialize_inputs(
                     task: false,
                     daemon_in_memory_state_is_corrupted: true,
                     action_cache_is_corrupted: corrupted
-                )
-                .into());
+                ));
             }
             Err(e) => {
                 return Err(e.into());
@@ -1448,7 +1447,7 @@ async fn check_inputs(
                                 // want to propagate it.
                                 let _ignored = tag_result!(
                                     "missing_local_inputs",
-                                    fs_util::symlink_metadata(&abs_path).categorize_internal().buck_error_context("Missing input").map_err(|e| e.into()),
+                                    fs_util::symlink_metadata(&abs_path).categorize_internal().buck_error_context("Missing input"),
                                     quiet: true,
                                     task: false,
                                     daemon_materializer_state_is_corrupted: true

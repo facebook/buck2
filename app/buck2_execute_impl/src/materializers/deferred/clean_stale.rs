@@ -172,7 +172,7 @@ impl CleanStaleArtifactsCommand {
                 },
                 Err(e) => Err(e),
             };
-            let result: Result<CleanResult, buck2_error::Error> = result.map_err(|e| e.into());
+            let result: Result<CleanResult, buck2_error::Error> = result;
             let result_event: buck2_data::CleanStaleResult = create_result(
                 result.clone(),
                 trace_id,
@@ -180,7 +180,7 @@ impl CleanStaleArtifactsCommand {
                 (Instant::now() - start_time).as_secs(),
             );
             dispatcher_dup.instant_event(result_event);
-            Ok(result?.into())
+            result
         }
         .boxed()
     }
@@ -294,8 +294,7 @@ impl CleanStaleArtifactsCommand {
                     stats,
                 };
                 // quiet just because it's also returned, soft_error to log to scribe
-                return Err(soft_error!("clean_stale_error", error.into(), quiet: true)
-                    .map(|e| e.into())?);
+                return Err(soft_error!("clean_stale_error", error.into(), quiet: true)?);
             }
         }
 
@@ -439,11 +438,10 @@ async fn clean_artifact<T: IoHandler>(
     {
         Ok(()) => Ok(Some(size)),
         Err(e) => {
-            let e: buck2_error::Error = e.into();
             if e.has_tag(ErrorTag::CleanInterrupt) {
                 Ok(None)
             } else {
-                Err(e.into())
+                Err(e)
             }
         }
     }
@@ -457,7 +455,7 @@ pub struct CleanInvalidatedPathRequest {
 impl IoRequest for CleanInvalidatedPathRequest {
     fn execute(self: Box<Self>, project_fs: &ProjectRoot) -> buck2_error::Result<()> {
         if !self.liveliness_observer.is_alive_sync() {
-            return Err(buck2_error!(ErrorTag::CleanInterrupt, "Interrupt").into());
+            return Err(buck2_error!(ErrorTag::CleanInterrupt, "Interrupt"));
         }
         cleanup_path(project_fs, &self.path)?;
         Ok(())

@@ -507,7 +507,6 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
                 interpreter
                     .eval_package_file_uncached(self.0.dupe(), cancellation)
                     .await
-                    .map_err(buck2_error::Error::from)
             }
 
             fn equality(x: &Self::Value, y: &Self::Value) -> bool {
@@ -522,10 +521,7 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
             }
         }
 
-        self.ctx
-            .compute(&PackageFileKey(path))
-            .await?
-            .map_err(buck2_error::Error::from)
+        self.ctx.compute(&PackageFileKey(path)).await?
     }
 
     /// Most directories do not contain a `PACKAGE` file, this function
@@ -658,7 +654,9 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
             if eval_result.starlark_profile.is_some() {
                 return (
                     now.unwrap().end_now(),
-                    Err(internal_error!("starlark_profile field must not be set yet").into()),
+                    Err(internal_error!(
+                        "starlark_profile field must not be set yet"
+                    )),
                 );
             }
             eval_result.starlark_profile = profile_data.map(|d| d as _);

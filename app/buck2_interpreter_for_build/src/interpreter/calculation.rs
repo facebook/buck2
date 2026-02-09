@@ -115,7 +115,7 @@ impl TargetGraphCalculationImpl for TargetGraphCalculationInstance {
                     .eval_build_file(package.dupe(), cancellation)
                     .await
             }
-            Err(e) => (TimeSpan::empty_now(), Err(e.into())),
+            Err(e) => (TimeSpan::empty_now(), Err(e)),
         }
     }
 
@@ -125,7 +125,7 @@ impl TargetGraphCalculationImpl for TargetGraphCalculationInstance {
         package: PackageLabel,
     ) -> BoxFuture<'a, buck2_error::Result<Arc<EvaluationResult>>> {
         ctx.compute(&InterpreterResultsKey(package.dupe()))
-            .map(|v| v?.map_err(buck2_error::Error::from))
+            .map(|v| v?)
             .boxed()
     }
 }

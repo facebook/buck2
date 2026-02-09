@@ -299,9 +299,8 @@ impl CasDownloader<'_> {
                 match artifacts {
                     Ok(artifacts) => artifacts,
                     Err(e) => {
-                        let error: buck2_error::Error = e
-                            .context(format!("action_digest={}", details.action_digest))
-                            .into();
+                        let error: buck2_error::Error =
+                            e.context(format!("action_digest={}", details.action_digest));
                         let is_storage_resource_exhausted = error
                             .find_typed_context::<RemoteExecutionError>()
                             .is_some_and(|re_client_error| {

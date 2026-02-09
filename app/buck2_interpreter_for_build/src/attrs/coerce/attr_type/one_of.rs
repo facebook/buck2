@@ -38,7 +38,7 @@ impl AttrTypeCoerce for OneOfAttrType {
                 }
             }
         }
-        Err(CoercionError::one_of_many(errs).into())
+        Err(CoercionError::one_of_many(errs))
     }
 
     fn starlark_type(&self) -> TyMaybeSelect {

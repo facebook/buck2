@@ -392,7 +392,7 @@ impl ArtifactTree {
             }
             Err(e) => {
                 // NOTE: This shouldn't normally happen?
-                soft_error!("cleanup_finished_vacant", e.into(), quiet: true).unwrap();
+                soft_error!("cleanup_finished_vacant", e, quiet: true).unwrap();
             }
         }
     }

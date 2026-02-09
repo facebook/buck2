@@ -79,7 +79,7 @@ pub fn run_simple_starlark_test(content: &str) -> buck2_error::Result<()> {
     let mut tester = Tester::new()?;
     match tester.run_starlark_test(content) {
         Ok(_) => Ok(()),
-        Err(e) => Err(buck2_error::Error::from(e)),
+        Err(e) => Err(e),
     }
 }
 
@@ -412,9 +412,7 @@ impl Tester {
             test()
             "#
         );
-        self.add_import(&test_path, test_content)
-            .map(|_| ())
-            .map_err(|e| e.into())
+        self.add_import(&test_path, test_content).map(|_| ())
     }
 
     pub fn run_starlark_bzl_test_expecting_error(&mut self, content: &str, expected: &str) {

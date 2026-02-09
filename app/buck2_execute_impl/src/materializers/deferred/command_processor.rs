@@ -547,7 +547,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                         // This should never happen
                         soft_error!(
                             "clean_stale_no_config",
-                            buck2_error!(buck2_error::ErrorTag::Tier0, "clean scheduled without being configured").into(),
+                            buck2_error!(buck2_error::ErrorTag::Tier0, "clean scheduled without being configured"),
                             quiet: true
                         )
                             .unwrap();
@@ -628,13 +628,9 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                 // TODO: This probably shouldn't return a CleanFuture
                 sender
                     .send(
-                        async move {
-                            join_all_existing_futs(existing_futs?)
-                                .await
-                                .map_err(buck2_error::Error::from)
-                        }
-                        .boxed()
-                        .shared(),
+                        async move { join_all_existing_futs(existing_futs?).await }
+                            .boxed()
+                            .shared(),
                     )
                     .ok();
             }
@@ -768,10 +764,9 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
             self.materialize_artifact(path.as_ref(), event_dispatcher.dupe())
                 .map(move |fut| {
                     fut.map_err(move |e| match e {
-                        SharedMaterializingError::Error(source) => MaterializationError::Error {
-                            path,
-                            source: source.into(),
-                        },
+                        SharedMaterializingError::Error(source) => {
+                            MaterializationError::Error { path, source }
+                        }
                         SharedMaterializingError::NotFound(source) => {
                             MaterializationError::NotFound { source }
                         }
@@ -1051,7 +1046,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
             Ok(res) => res,
             Err(e) => Some(
                 future::err(SharedMaterializingError::Error(
-                    e.context(format!("materializing {stack}")).into(),
+                    e.context(format!("materializing {stack}")),
                 ))
                 .boxed()
                 .shared(),
@@ -1268,7 +1263,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
             cleaning_fut
                 .await
                 .with_buck_error_context(|| "Error cleaning output path")
-                .map_err(|e| SharedMaterializingError::Error(e.into()))?;
+                .map_err(SharedMaterializingError::Error)?;
         };
 
         // In case this is a local copy, we first need to materialize the

@@ -63,7 +63,7 @@ impl ProcessCommand {
     pub(crate) fn spawn(self) -> Result<ProcessGroup, (SpawnError, Self)> {
         match self.inner.spawn() {
             Ok(inner) => Ok(ProcessGroup { inner }),
-            Err((e, inner)) => Err((e.into(), Self { inner })),
+            Err((e, inner)) => Err((e, Self { inner })),
         }
     }
 }

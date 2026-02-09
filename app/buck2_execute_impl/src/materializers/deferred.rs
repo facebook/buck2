@@ -303,7 +303,7 @@ impl From<buck2_error::Error> for MaterializeEntryError {
 impl From<MaterializeEntryError> for SharedMaterializingError {
     fn from(e: MaterializeEntryError) -> SharedMaterializingError {
         match e {
-            MaterializeEntryError::Error(e) => Self::Error(e.into()),
+            MaterializeEntryError::Error(e) => Self::Error(e),
             MaterializeEntryError::NotFound(e) => Self::NotFound(e),
         }
     }
@@ -506,7 +506,7 @@ impl<T: IoHandler + Allocative> Materializer for DeferredMaterializerAccessor<T>
 
         // Wait on future to finish before invalidation can continue.
         let invalidate_fut = recv.await?;
-        invalidate_fut.await.map_err(buck2_error::Error::from)
+        invalidate_fut.await
     }
 
     async fn materialize_many(

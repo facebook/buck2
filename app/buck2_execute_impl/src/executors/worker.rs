@@ -230,18 +230,15 @@ async fn spawn_worker(
     // Use fixed length path at /tmp to avoid 108 character limit for unix domain sockets
     let dir_name = format!("{}-{}", dispatcher.trace_id(), worker_id);
     let worker_dir = AbsNormPathBuf::from("/tmp/buck2_worker".to_owned())
-        .map_err(|e| WorkerInitError::InternalError(e.into()))?
+        .map_err(WorkerInitError::InternalError)?
         .join(FileName::unchecked_new(&dir_name));
     let socket_path = worker_dir.join(FileName::unchecked_new("socket"));
     if fs_util::try_exists(&worker_dir).map_err(|e| WorkerInitError::InternalError(e.into()))? {
-        return Err(WorkerInitError::InternalError(
-            buck2_error!(
-                buck2_error::ErrorTag::WorkerDirectoryExists,
-                "Directory for worker already exists: {:?}",
-                worker_dir
-            )
-            .into(),
-        ));
+        return Err(WorkerInitError::InternalError(buck2_error!(
+            buck2_error::ErrorTag::WorkerDirectoryExists,
+            "Directory for worker already exists: {:?}",
+            worker_dir
+        )));
     }
     // TODO(ctolliday) put these in buck-out/<iso>/workers and only use /tmp dir for sockets
     let std_redirects = StdRedirectPaths {
@@ -322,15 +319,12 @@ async fn spawn_worker(
                     }
                 }
                 Ok(GatherOutputStatus::Cancelled | GatherOutputStatus::TimedOut(_)) => {
-                    WorkerInitError::InternalError(
-                        buck2_error!(
-                            buck2_error::ErrorTag::WorkerCancelled,
-                            "Worker cancelled by buck"
-                        )
-                        .into(),
-                    )
+                    WorkerInitError::InternalError(buck2_error!(
+                        buck2_error::ErrorTag::WorkerCancelled,
+                        "Worker cancelled by buck"
+                    ))
                 }
-                Err(e) => WorkerInitError::InternalError(e.into()),
+                Err(e) => WorkerInitError::InternalError(e),
             }),
         }?
     };

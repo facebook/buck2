@@ -80,7 +80,6 @@ impl VpnCheck {
                         optin_target_regex,
                         e
                     )
-                    .into()
                 );
                 Some(false)
             }

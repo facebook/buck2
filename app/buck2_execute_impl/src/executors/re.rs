@@ -135,7 +135,7 @@ impl ReExecutor {
         match upload_response {
             Ok(()) => {}
             Err(e) => {
-                let e: buck2_error::Error = e.into();
+                let e: buck2_error::Error = e;
                 let is_storage_resource_exhausted = e
                     .find_typed_context::<RemoteExecutionError>()
                     .is_some_and(|re_client_error| {
@@ -325,7 +325,6 @@ impl ReExecutor {
                         execution_time.as_secs(),
                         timeout.as_secs(),
                     )
-                    .into()
                 );
 
                 if let Err(e) = res {

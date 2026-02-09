@@ -25,7 +25,6 @@ use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
 use chrono::DateTime;
 use chrono::Utc;
 use dashmap::DashMap;
-use derive_more::From;
 use dupe::Dupe;
 
 use crate::incremental_actions_helper::IncrementalPathMap;
@@ -186,7 +185,7 @@ impl IncrementalStateSqliteDb {
         current_instance_metadata: HashMap<String, String>,
         reject_identity: Option<&SqliteIdentity>,
     ) -> buck2_error::Result<IncrementalDbState> {
-        let reject_identity = reject_identity.map(|id| SqliteIdentity::from(id.clone()));
+        let reject_identity = reject_identity.cloned();
 
         let (db, state) = match Self::get_sqlite_db(
             &incremental_state_dir,

@@ -70,7 +70,7 @@ impl HealthCheckRpcClient {
         };
         match self.connection.get_or_init(init_fut).await {
             Ok(v) => Ok(v),
-            Err(e) => Err(e.dupe().into()),
+            Err(e) => Err(e.dupe()),
         }
     }
 

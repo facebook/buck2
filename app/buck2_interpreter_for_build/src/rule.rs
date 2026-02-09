@@ -547,24 +547,22 @@ impl<'v> StarlarkValue<'v> for FrozenStarlarkRuleCallable {
             None
         };
         let arg_count = args.len()?;
-        self.signature
-            .parser(args, eval, |param_parser, eval| {
-                // The body of the callable returned by `rule()`.
-                // Records the target in this package's `TargetMap`.
-                let internals = ModuleInternals::from_context(eval, self.rule.rule_type.name())?;
-                let target_node = TargetNode::from_params(
-                    self.rule.dupe(),
-                    internals.package(),
-                    internals,
-                    param_parser,
-                    arg_count,
-                    self.ignore_attrs_for_profiling,
-                    call_stack,
-                )?;
-                internals.record(target_node)?;
-                Ok(Value::new_none())
-            })
-            .map_err(Into::into)
+        self.signature.parser(args, eval, |param_parser, eval| {
+            // The body of the callable returned by `rule()`.
+            // Records the target in this package's `TargetMap`.
+            let internals = ModuleInternals::from_context(eval, self.rule.rule_type.name())?;
+            let target_node = TargetNode::from_params(
+                self.rule.dupe(),
+                internals.package(),
+                internals,
+                param_parser,
+                arg_count,
+                self.ignore_attrs_for_profiling,
+                call_stack,
+            )?;
+            internals.record(target_node)?;
+            Ok(Value::new_none())
+        })
     }
 
     fn documentation(&self) -> DocItem {

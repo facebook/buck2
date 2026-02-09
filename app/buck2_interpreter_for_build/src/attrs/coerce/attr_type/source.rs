@@ -64,9 +64,7 @@ impl AttrTypeCoerce for SourceAttrType {
                     .into(),
             )
         } else {
-            Err(path_err
-                .context(format!("Coercing `{}` as a source", value.to_str()))
-                .into())
+            Err(path_err.context(format!("Coercing `{}` as a source", value.to_str())))
         }
     }
 
