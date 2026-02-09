@@ -106,7 +106,13 @@ pub(crate) async fn with_error_handler<T>(
                 .map(|e| (e.code, e.group))
                 .unwrap_or((TCode::UNKNOWN, TCodeReasonGroup::UNKNOWN));
 
-            Err(re_error(re_action, re_session_id, format!("{e:#}"), code, group).into())
+            Err(re_error(
+                re_action,
+                re_session_id,
+                format!("{e:#}"),
+                code,
+                group,
+            ))
         }
     }
 }

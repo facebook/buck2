@@ -208,11 +208,10 @@ impl RemoteExecutionClient {
             match Self::new(re_config).await {
                 Ok(v) => return Ok(v),
                 Err(e) => {
-                    let e: buck2_error::Error = e.into();
                     if e.find_typed_context::<RemoteExecutionError>().is_none() {
                         // If we cannot connect to RE due to some non-RE error, we should not retry
                         // And should just return the error immediately as it's unlikely to be flakey
-                        return Err(e.into());
+                        return Err(e);
                     }
 
                     tracing::warn!(
@@ -990,13 +989,10 @@ impl RemoteExecutionClientImpl {
 
         match res {
             Ok(r) => Ok(Some(r)),
-            Err(e) => {
-                let e: buck2_error::Error = e.into();
-                match e.find_typed_context::<RemoteExecutionError>() {
-                    Some(e) if e.code == TCode::NOT_FOUND => Ok(None),
-                    _ => Err(e.into()),
-                }
-            }
+            Err(e) => match e.find_typed_context::<RemoteExecutionError>() {
+                Some(re_err) if re_err.code == TCode::NOT_FOUND => Ok(None),
+                _ => Err(e),
+            },
         }
     }
 
@@ -1281,7 +1277,6 @@ impl RemoteExecutionClientImpl {
             // boxed() to segment the future
             .boxed()
             .await
-            .map_err(anyhow::Error::from)
             .context("Failed to start remote execution")?;
 
         // Now we wait until the ExecuteResponse shows up, and produce events accordingly. If

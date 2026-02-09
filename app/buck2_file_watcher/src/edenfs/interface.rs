@@ -252,10 +252,9 @@ impl EdenFsFileWatcher {
                                 "EdenFS reported SmallChangeNotification::renamed directory: '{}' -> '{}'. \
                                  Directory renames are handled as LargeChangeNotification changes. \
                                  EdenFS Thrift API has changed and the buck2 code needs to be updated.",
-                                 bytes_to_string_or_unknown(&renamed.from),
-                                 bytes_to_string_or_unknown(&renamed.to)
+                                bytes_to_string_or_unknown(&renamed.from),
+                                bytes_to_string_or_unknown(&renamed.to)
                             )
-                            .into()
                         )?;
                     } else {
                         let kind = dtype_into_file_watcher_kind(renamed.fileType);
@@ -339,7 +338,6 @@ impl EdenFsFileWatcher {
                              EdenFS Thrift API has changed and the buck2 code needs to be updated.",
                             small_change
                         )
-                        .into()
                     )?;
                     ProcessChangeStatus::LargeOrUnknown
                 }
@@ -391,7 +389,6 @@ impl EdenFsFileWatcher {
                              EdenFS Thrift API has changed and the buck2 code needs to be updated.",
                             large_change
                         )
-                        .into()
                     )?;
                     ProcessChangeStatus::LargeOrUnknown
                 }
@@ -409,7 +406,6 @@ impl EdenFsFileWatcher {
                          EdenFS Thrift API has changed and the buck2 code needs to be updated.",
                         change
                     )
-                    .into()
                 )?;
                 ProcessChangeStatus::LargeOrUnknown
             }

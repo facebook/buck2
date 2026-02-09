@@ -97,12 +97,11 @@ impl ForkserverClient {
         if let Some(err) = &*self.inner.error.load() {
             return Err(tag_error!(
                 "forkserver_exit",
-                err.as_ref().dupe().into(),
+                err.as_ref().dupe(),
                 quiet: true,
                 task: false,
                 daemon_in_memory_state_is_corrupted: true,
-            )
-            .into());
+            ));
         }
 
         let cancel_stream = stream::once(cancel.map(|()| buck2_forkserver_proto::RequestEvent {

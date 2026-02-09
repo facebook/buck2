@@ -215,7 +215,7 @@ impl CommandExecutionMetadata {
             input_materialization_duration: metadata.input_materialization_duration.try_into().ok(),
             execution_stats: metadata.execution_stats,
             hashing_duration: metadata.hashing_duration.try_into().ok(),
-            hashed_artifacts_count: metadata.hashed_artifacts_count.try_into().ok().unwrap_or(0),
+            hashed_artifacts_count: metadata.hashed_artifacts_count,
             queue_duration: metadata.queue_duration.and_then(|d| d.try_into().ok()),
             suspend_duration: metadata.suspend_duration.and_then(|d| d.try_into().ok()),
             suspend_count: metadata.suspend_count,

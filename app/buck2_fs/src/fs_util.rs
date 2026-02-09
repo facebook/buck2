@@ -588,8 +588,11 @@ pub fn disk_space_stats<P: AsRef<AbsPath>>(path: P) -> buck2_error::Result<DiskS
                 return Err(IoError::new_with_path("statvfs", path, e).categorize_internal());
             }
         }
-        let fr_size = u64::from(statvfs.f_frsize);
-        let free_space = u64::from(statvfs.f_bavail)
+        // These casts are required because statvfs fields are u32 on macOS but u64 on Linux.
+        #[allow(clippy::unnecessary_cast)]
+        let fr_size = statvfs.f_frsize as u64;
+        #[allow(clippy::unnecessary_cast)]
+        let free_space = (statvfs.f_bavail as u64)
             .checked_mul(fr_size)
             .ok_or_else(|| {
                 internal_error!(
@@ -598,7 +601,8 @@ pub fn disk_space_stats<P: AsRef<AbsPath>>(path: P) -> buck2_error::Result<DiskS
                 )
             })?;
 
-        let total_space = u64::from(statvfs.f_blocks)
+        #[allow(clippy::unnecessary_cast)]
+        let total_space = (statvfs.f_blocks as u64)
             .checked_mul(fr_size)
             .ok_or_else(|| {
                 internal_error!(

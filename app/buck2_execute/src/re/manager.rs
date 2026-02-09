@@ -149,7 +149,7 @@ impl LazyRemoteExecutionClient {
         let init_fut = async move { self.init().boxed().await };
         match self.client.get_or_init(init_fut).await {
             Ok(v) => Ok(v),
-            Err(e) => Err(e.dupe().into()),
+            Err(e) => Err(e.dupe()),
         }
     }
 

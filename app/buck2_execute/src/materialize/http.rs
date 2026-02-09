@@ -291,7 +291,7 @@ pub async fn http_download(
 
             if executable {
                 fs.set_executable(path)
-                    .map_err(|e| HttpDownloadError::IoError(e.into()))?;
+                    .map_err(HttpDownloadError::IoError)?;
             }
 
             Result::<_, HttpDownloadError>::Ok(TrackedFileDigest::new(

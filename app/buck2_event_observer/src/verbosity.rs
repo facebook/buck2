@@ -145,7 +145,7 @@ impl Verbosity {
         }
 
         if levels.len() > 1 {
-            return Err(buck2_error::Error::from(VerbosityError::MoreThan1Level).into());
+            return Err(VerbosityError::MoreThan1Level.into());
         }
 
         if let Some(level) = levels.first() {
