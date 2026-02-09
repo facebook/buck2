@@ -339,7 +339,6 @@ def standard_java_test(
     test_srcs = native.glob(["*Test.java"])
 
     if len(test_srcs) > 0:
-        # @lint-ignore BUCKLINT
         buck_java_test(
             name = name,
             srcs = test_srcs,

@@ -1,4 +1,3 @@
-# @lint-ignore BUCKLINT
 """ Sets up some targets for testing the classpath() query function
 
 Especially tests handling around tsets. The combiner rule basically allows

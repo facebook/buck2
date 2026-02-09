@@ -7,7 +7,6 @@
 # above-listed licenses.
 
 # `native` is fine to use in the prelude for v2
-# @lint-ignore-every BUCKLINT
 
 # This is buck2's shim import. Any public symbols here will be available within
 # **all** interpreted files.

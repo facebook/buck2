@@ -230,7 +230,6 @@ def _define_platform(
         visibility,
         deps,
         platform_rule) -> None:
-    # @lint-ignore BUCKLINT - We set the visibility to PUBLIC directly and can bypass fb_native
     platform_rule(
         name = _get_generated_name(base_name, platform, build_mode),
         constraint_values = constraint_values,
