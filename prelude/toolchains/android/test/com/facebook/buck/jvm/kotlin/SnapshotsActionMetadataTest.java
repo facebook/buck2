@@ -287,4 +287,27 @@ public class SnapshotsActionMetadataTest {
 
     assertTrue(snapshotsActionMetadata.hasClasspathRemoval());
   }
+
+  @Test
+  public void when_contentBasedPathChanges_then_hasClasspathRemovalReturnsFalse() {
+    Map<Path, String> previousDigest = new HashMap<>();
+    previousDigest.put(
+        Paths.get("gen/pkg/__target__/__action__/abc123def456789a/foo_snapshot.bin"), "digest1");
+    previousDigest.put(
+        Paths.get("gen/pkg/__target__/__action__/abc123def456789a/bar_snapshot.bin"), "digest2");
+    Map<Path, String> currentDigest = new HashMap<>();
+    currentDigest.put(
+        Paths.get("gen/pkg/__target__/__action__/fedcba9876543210/foo_snapshot.bin"),
+        "digest1_new");
+    currentDigest.put(
+        Paths.get("gen/pkg/__target__/__action__/fedcba9876543210/bar_snapshot.bin"),
+        "digest2_new");
+
+    ActionMetadata actionMetadata =
+        new ActionMetadata(Paths.get("metadata.json"), previousDigest, currentDigest);
+    SnapshotsActionMetadata snapshotsActionMetadata = new SnapshotsActionMetadata(actionMetadata);
+
+    assertTrue(
+        snapshotsActionMetadata.hasClasspathRemoval()); // Bug, false detected as class path removal
+  }
 }
