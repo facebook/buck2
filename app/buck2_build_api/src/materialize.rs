@@ -54,7 +54,7 @@ pub async fn materialize_and_upload_artifact_group(
             |mut ctx| {
                 let group = &artifact_group;
                 async move {
-                    materialize_artifact_group(&mut ctx, group, &contexts.0, queue_tracker).await
+                    materialize_artifact_group(&mut ctx, group, contexts.0, queue_tracker).await
                 }
                 .boxed()
             },
@@ -76,7 +76,7 @@ pub async fn materialize_and_upload_artifact_group(
 async fn materialize_artifact_group(
     ctx: &mut DiceComputations<'_>,
     artifact_group: &ArtifactGroup,
-    materialization_context: &MaterializationContext,
+    materialization_context: MaterializationContext,
     queue_tracker: &Arc<DashSet<BuildArtifact>>,
 ) -> buck2_error::Result<ArtifactGroupValues> {
     let values = ctx.ensure_artifact_group(artifact_group).await?;
@@ -145,7 +145,7 @@ async fn materialize_artifact_group(
             let waiting_data = waiting_data.clone();
 
             async move {
-                ctx.try_materialize_requested_artifact(artifact, waiting_data, *force, path)
+                ctx.try_materialize_requested_artifact(artifact, waiting_data, force, path)
                     .await
             }
             .boxed()
@@ -211,7 +211,7 @@ async fn ensure_uploaded(
     Ok(())
 }
 
-#[derive(Clone, Dupe)]
+#[derive(Clone, Dupe, Copy)]
 enum MaterializationContext {
     Skip,
     Materialize {
@@ -244,6 +244,7 @@ impl From<Uploads> for UploadContext {
     }
 }
 
+#[derive(Clone, Dupe)]
 pub struct MaterializationAndUploadContext(MaterializationContext, UploadContext);
 impl MaterializationAndUploadContext {
     pub fn skip() -> Self {
