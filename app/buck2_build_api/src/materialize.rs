@@ -85,11 +85,13 @@ async fn materialize_artifact_group(
 
     if let MaterializationContext::Materialize { force } = materialization_context {
         waiting_data.start_waiting_category_now(WaitingCategory::MaterializerPrepare);
+        let artifact_fs = ctx.get_artifact_fs().await?;
+        let digest_config = ctx.global_data().get_digest_config();
+        let materializer = ctx.per_transaction_data().get_materializer();
+
         let mut artifacts_to_materialize = Vec::new();
         let mut configuration_path_to_content_based_path_symlinks = Vec::new();
-        let artifact_fs = ctx.get_artifact_fs().await?;
-        let fs = artifact_fs.fs();
-        let digest_config = ctx.global_data().get_digest_config();
+
         for (artifact, value) in values.iter() {
             if let BaseArtifactKind::Build(artifact) = artifact.as_parts().0 {
                 if !queue_tracker.insert(artifact.dupe()) {
@@ -106,7 +108,7 @@ async fn materialize_artifact_group(
                         Some(&value.content_based_path_hash()),
                     )?;
 
-                    let mut builder = ArtifactValueBuilder::new(fs, digest_config);
+                    let mut builder = ArtifactValueBuilder::new(artifact_fs.fs(), digest_config);
                     builder.add_symlinked(
                         // The materializer doesn't care about the `src_value`.
                         &ArtifactValue::dir(digest_config.empty_directory()),
@@ -123,17 +125,13 @@ async fn materialize_artifact_group(
         }
 
         waiting_data.start_waiting_category_now(WaitingCategory::MaterializerStage2);
-        ctx.try_compute_join(
-            configuration_path_to_content_based_path_symlinks,
-            |ctx, (path, value)| {
-                async move {
-                    ctx.per_transaction_data()
-                        .get_materializer()
-                        .declare_copy(path, value, vec![])
-                        .await
-                }
-                .boxed()
-            },
+        buck2_util::future::try_join_all(
+            configuration_path_to_content_based_path_symlinks
+                .into_iter()
+                .map(|(path, value)| {
+                    let materializer = materializer.dupe();
+                    async move { materializer.declare_copy(path, value, vec![]).await }
+                }),
         )
         .await
         .buck_error_context(
