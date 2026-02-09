@@ -289,6 +289,11 @@ def _to_protocol_error(error: bxl.Error, expected_target: bxl.ConfiguredTargetNo
             first_line, _, _ = msg.partition("\n")
             msg = "A dependency has an error:\n" + first_line
 
+    elif msg.startswith("Error running dynamic analysis for "):
+        if "\nCaused by:\n" in msg:
+            _, _, actual_error = msg.partition("\nCaused by:\n")
+            msg = "Analysis error root-cause:\n" + actual_error
+
     # Todo: if an error is a compilation error parse line info?
     # Question: Shall we do it in the Go part of the driver?
 
