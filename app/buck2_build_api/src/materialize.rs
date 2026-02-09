@@ -88,6 +88,7 @@ async fn materialize_artifact_group(
         let artifact_fs = ctx.get_artifact_fs().await?;
         let digest_config = ctx.global_data().get_digest_config();
         let materializer = ctx.per_transaction_data().get_materializer();
+        let data = ctx.data();
 
         let mut artifacts_to_materialize = Vec::new();
         let mut configuration_path_to_content_based_path_symlinks = Vec::new();
@@ -139,15 +140,16 @@ async fn materialize_artifact_group(
         )?;
 
         waiting_data.start_waiting_category_now(WaitingCategory::Unknown);
-        ctx.try_compute_join(artifacts_to_materialize, |ctx, (artifact, path)| {
-            let waiting_data = waiting_data.clone();
-
-            async move {
-                ctx.try_materialize_requested_artifact(artifact, waiting_data, force, path)
-                    .await
-            }
-            .boxed()
-        })
+        buck2_util::future::try_join_all(artifacts_to_materialize.into_iter().map(
+            |(artifact, path)| {
+                let waiting_data = waiting_data.clone();
+                let data = data.dupe();
+                async move {
+                    data.try_materialize_requested_artifact(artifact, waiting_data, force, path)
+                        .await
+                }
+            },
+        ))
         .await
         .buck_error_context("Failed to materialize artifacts")?;
     }

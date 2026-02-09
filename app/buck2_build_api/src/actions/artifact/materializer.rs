@@ -21,6 +21,7 @@ use buck2_events::dispatch::span_async_simple;
 use buck2_execute::materialize::materializer::HasMaterializer;
 use buck2_util::time_span::TimeSpan;
 use dice::DiceComputations;
+use dice::DiceComputationsData;
 use dupe::Dupe;
 
 use crate::build_signals::HasBuildSignals;
@@ -30,7 +31,7 @@ pub trait ArtifactMaterializer {
     /// called to materialized the final set of requested artifacts for the build of a target.
     /// This method will render events in superconsole
     async fn try_materialize_requested_artifact(
-        &mut self,
+        &self,
         artifact: &BuildArtifact,
         waiting_data: WaitingData,
         required: bool,
@@ -39,9 +40,9 @@ pub trait ArtifactMaterializer {
 }
 
 #[async_trait]
-impl ArtifactMaterializer for DiceComputations<'_> {
+impl ArtifactMaterializer for DiceComputationsData {
     async fn try_materialize_requested_artifact(
-        &mut self,
+        &self,
         artifact: &BuildArtifact,
         waiting_data: WaitingData,
         required: bool,
@@ -87,5 +88,20 @@ impl ArtifactMaterializer for DiceComputations<'_> {
             },
         )
         .await
+    }
+}
+
+#[async_trait]
+impl ArtifactMaterializer for DiceComputations<'_> {
+    async fn try_materialize_requested_artifact(
+        &self,
+        artifact: &BuildArtifact,
+        waiting_data: WaitingData,
+        required: bool,
+        path: ProjectRelativePathBuf,
+    ) -> buck2_error::Result<()> {
+        self.data()
+            .try_materialize_requested_artifact(artifact, waiting_data, required, path)
+            .await
     }
 }
