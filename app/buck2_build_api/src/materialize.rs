@@ -56,10 +56,16 @@ pub struct MaterializerFastRolloutConfig {
 }
 
 pub trait HasMaterializerFastRolloutConfig {
+    fn set_materializer_fast_rollout_config(&mut self, config: MaterializerFastRolloutConfig);
+
     fn get_materializer_fast_rollout_config(&self) -> MaterializerFastRolloutConfig;
 }
 
 impl HasMaterializerFastRolloutConfig for UserComputationData {
+    fn set_materializer_fast_rollout_config(&mut self, config: MaterializerFastRolloutConfig) {
+        self.data.set(config);
+    }
+
     fn get_materializer_fast_rollout_config(&self) -> MaterializerFastRolloutConfig {
         const DEFAULT: MaterializerFastRolloutConfig = MaterializerFastRolloutConfig {
             spawn: false,

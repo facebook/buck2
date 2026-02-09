@@ -32,6 +32,8 @@ use buck2_build_api::build_signals::create_build_signals;
 use buck2_build_api::context::SetBuildContextData;
 use buck2_build_api::keep_going::HasKeepGoing;
 use buck2_build_api::materialize::HasMaterializationQueueTracker;
+use buck2_build_api::materialize::HasMaterializerFastRolloutConfig;
+use buck2_build_api::materialize::MaterializerFastRolloutConfig;
 use buck2_build_api::spawner::BuckSpawner;
 use buck2_build_signals::env::CriticalPathBackendName;
 use buck2_build_signals::env::EarlyCommandTimingBuilder;
@@ -839,6 +841,43 @@ impl DiceCommandUpdater<'_, '_> {
             property: "override_use_case",
         })?;
 
+        let (materializer_fast_rollout_tag, materializer_fast_rollout_config) = {
+            let spawn_cfg: Option<bool> = root_config.parse(BuckconfigKeyRef {
+                section: "buck2",
+                property: "materializer_fast_rollout_spawn_override",
+            })?;
+            let unconstrained_cfg: Option<bool> = root_config.parse(BuckconfigKeyRef {
+                section: "buck2",
+                property: "materializer_fast_rollout_unconstrained_override",
+            })?;
+            let materializer_fast_rollout_cfg = root_config.parse(BuckconfigKeyRef {
+                section: "buck2",
+                property: "materializer_fast_rollout",
+            })?;
+
+            let materializer_fast_enabled = materializer_fast_rollout_cfg.unwrap_or(false);
+            let spawn = spawn_cfg.unwrap_or(materializer_fast_enabled);
+            let unconstrained = unconstrained_cfg.unwrap_or(materializer_fast_enabled);
+
+            let tag = if spawn_cfg.is_some() || unconstrained_cfg.is_some() {
+                "materializer_fast_rollout=custom"
+            } else if materializer_fast_enabled {
+                "materializer_fast_rollout=enabled"
+            } else {
+                "materializer_fast_rollout=disabled"
+            };
+
+            (
+                tag,
+                MaterializerFastRolloutConfig {
+                    spawn,
+                    unconstrained,
+                },
+            )
+        };
+
+        data.set_materializer_fast_rollout_config(materializer_fast_rollout_config);
+
         set_fallback_executor_config(&mut data.data, self.executor_config.dupe());
         // This client is only used in places that do not use the RE use case specified in the executor config.
         // They currently use either a usecase specified in actions (cas_artifact), or a global default (buck2.default_remote_execution_use_case).
@@ -901,6 +940,7 @@ impl DiceCommandUpdater<'_, '_> {
             format!("lazy-cycle-detector:{}", has_cycle_detector),
             format!("miniperf:{}", enable_miniperf),
             format!("log-configured-graph-size:{}", log_configured_graph_size),
+            materializer_fast_rollout_tag.to_owned(),
         ];
         self.cmd_ctx
             .events()
