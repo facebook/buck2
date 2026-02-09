@@ -14,6 +14,7 @@ import com.facebook.buck.core.filesystems.RelPath
 import com.facebook.buck.io.file.FileExtensionMatcher
 import com.facebook.buck.jvm.java.ActionMetadata
 import java.nio.file.Path
+import java.nio.file.Paths
 import kotlin.collections.Map
 import kotlin.collections.component1
 import kotlin.collections.component2
@@ -43,16 +44,27 @@ class SnapshotsActionMetadata(actionMetaData: ActionMetadata) {
   }
 
   /**
-   * Returns true if any classpath entries were removed (present in previous but not in current).
-   * This is important because the Kotlin incremental compiler doesn't reliably handle classpath
-   * removals - it may fail to detect that existing compiled code references classes from the
-   * removed dependency.
+   * Returns true if classpath entries were removed. Normalizes paths by stripping content-based
+   * hash segments to avoid false positives from Buck2's content-based path hashing.
    */
   fun hasClasspathRemoval(): Boolean {
-    return previousSnapshotsDigest.keys.any { path -> !currentSnapshotsDigest.containsKey(path) }
+    val currentNormalized =
+        currentSnapshotsDigest.keys.mapTo(HashSet()) { it.stripContentHashSegments() }
+    return previousSnapshotsDigest.keys.any { path ->
+      !currentNormalized.contains(path.stripContentHashSegments())
+    }
   }
 
   companion object {
     private val SNAPSHOT_PATH_MATCHER = FileExtensionMatcher.of("bin")
+    private val CONTENT_HASH_PATTERN = Regex("^[0-9a-f]{16}$")
+
+    /** Removes 16-char hex hash segments that Buck2 inserts for content-based paths. */
+    internal fun Path.stripContentHashSegments(): Path {
+      val segments = (0 until nameCount).map { getName(it).toString() }
+      val filtered = segments.filterNot { CONTENT_HASH_PATTERN.matches(it) }
+      if (filtered.size == segments.size || filtered.isEmpty()) return this
+      return Paths.get(filtered[0], *filtered.subList(1, filtered.size).toTypedArray())
+    }
   }
 }

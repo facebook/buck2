@@ -307,7 +307,26 @@ public class SnapshotsActionMetadataTest {
         new ActionMetadata(Paths.get("metadata.json"), previousDigest, currentDigest);
     SnapshotsActionMetadata snapshotsActionMetadata = new SnapshotsActionMetadata(actionMetadata);
 
-    assertTrue(
-        snapshotsActionMetadata.hasClasspathRemoval()); // Bug, false detected as class path removal
+    assertFalse(snapshotsActionMetadata.hasClasspathRemoval());
+  }
+
+  @Test
+  public void when_sameFilenameButDifferentPackage_removalDetected() {
+    Map<Path, String> previousDigest = new HashMap<>();
+    previousDigest.put(
+        Paths.get("gen/pkgA/__model__/__action__/aaaaaaaaaaaaaaaa/model_snapshot.bin"), "digest1");
+    previousDigest.put(
+        Paths.get("gen/pkgB/__model__/__action__/bbbbbbbbbbbbbbbb/model_snapshot.bin"), "digest2");
+    Map<Path, String> currentDigest = new HashMap<>();
+    // pkgA/:model removed, only pkgB/:model remains (with new content hash)
+    currentDigest.put(
+        Paths.get("gen/pkgB/__model__/__action__/cccccccccccccccc/model_snapshot.bin"),
+        "digest2_new");
+
+    ActionMetadata actionMetadata =
+        new ActionMetadata(Paths.get("metadata.json"), previousDigest, currentDigest);
+    SnapshotsActionMetadata snapshotsActionMetadata = new SnapshotsActionMetadata(actionMetadata);
+
+    assertTrue(snapshotsActionMetadata.hasClasspathRemoval());
   }
 }
