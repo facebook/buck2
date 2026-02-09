@@ -435,7 +435,6 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
         mut self,
         commands: MaterializerReceiver<T>,
         ttl_refresh: TtlRefreshConfiguration,
-        access_time_update_max_buffer_size: usize,
         access_time_updates: AccessTimesUpdates,
         clean_stale_config: Option<CleanStaleConfig>,
     ) {
@@ -477,7 +476,6 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                 Op::Command(command) => {
                     self.process_one_command(command);
                     counters.ack_received();
-                    self.flush_access_times(access_time_update_max_buffer_size);
                 }
                 Op::LowPriorityCommand(command) => {
                     self.process_one_low_priority_command(command);
@@ -523,7 +521,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                 Op::Tick => {
                     if matches!(access_time_updates, AccessTimesUpdates::Full) {
                         // Force a periodic flush.
-                        self.flush_access_times(0);
+                        self.flush_access_times();
                     };
                 }
                 Op::CleanStaleRequest => {
@@ -728,13 +726,13 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
         }
     }
 
-    pub(super) fn flush_access_times(&mut self, max_buffer_size: usize) -> String {
+    pub(super) fn flush_access_times(&mut self) -> String {
         if let Some(access_times_buffer) = self.access_times_buffer.as_mut() {
-            let size = access_times_buffer.len();
-            if size < max_buffer_size {
-                return "Access times buffer is not full yet".to_owned();
+            if access_times_buffer.is_empty() {
+                return "Access times buffer is empty".to_owned();
             }
 
+            let size = access_times_buffer.len();
             let buffer = std::mem::take(access_times_buffer);
             let now = Instant::now();
             tracing::debug!("Flushing access times buffer");

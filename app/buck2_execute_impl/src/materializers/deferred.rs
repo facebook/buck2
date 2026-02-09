@@ -37,7 +37,6 @@ use async_trait::async_trait;
 use buck2_common::file_ops::metadata::FileMetadata;
 use buck2_common::file_ops::metadata::TrackedFileDigest;
 use buck2_common::liveliness_observer::LivelinessGuard;
-use buck2_core::buck2_env;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_directory::directory::directory::Directory;
@@ -153,10 +152,6 @@ impl<T: IoHandler> Drop for DeferredMaterializerAccessor<T> {
 pub struct DeferredMaterializerStats {
     declares: AtomicU64,
     declares_reused: AtomicU64,
-}
-
-fn access_time_update_max_buffer_size() -> buck2_error::Result<usize> {
-    buck2_env!("BUCK_ACCESS_TIME_UPDATE_MAX_BUFFER_SIZE", type=usize, default=5000)
 }
 
 pub struct DeferredMaterializerConfigs {
@@ -680,8 +675,6 @@ impl DeferredMaterializerAccessor<DefaultIoHandler> {
             }
         };
 
-        let access_time_update_max_buffer_size = access_time_update_max_buffer_size()?;
-
         let command_thread = thread_spawn("buck2-dm", {
             move || {
                 let rt = tokio::runtime::Builder::new_current_thread()
@@ -694,7 +687,6 @@ impl DeferredMaterializerAccessor<DefaultIoHandler> {
                 rt.block_on(command_processor(cancellations).run(
                     command_receiver,
                     configs.ttl_refresh,
-                    access_time_update_max_buffer_size,
                     configs.update_access_times,
                     configs.clean_stale_config,
                 ));

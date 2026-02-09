@@ -86,60 +86,6 @@ async def test_artifact_access_time(buck: Buck) -> None:
 
 
 @buck_test()
-@env("BUCK_ACCESS_TIME_UPDATE_MAX_BUFFER_SIZE", "0")
-async def test_artifact_access_time_flushing(buck: Buck) -> None:
-    # Create artifact
-    await buck.build("root//:copy")
-    # Access artifact to trigger update, because buffer size is 0,
-    # flushing should happen instantly
-    await buck.build("root//:copy")
-    # Force empty flush
-    flush = await buck.audit("deferred-materializer", "flush-access-times")
-    # Validate that there was nothing to flush
-    assert re.search("Finished flushing \\d+ entries in \\d+ ms", flush.stdout)
-    data = re.findall("\\d+", flush.stdout)
-    assert len(data) == 2
-    assert data[0] == "0"
-
-
-@buck_test()
-@env("BUCK_ACCESS_TIME_UPDATE_MAX_BUFFER_SIZE", "0")
-async def test_artifact_access_time_flushing_disabled(buck: Buck) -> None:
-    modify_acess_times_updates(buck, "disabled")
-    # Create artifact
-    await buck.build("root//:copy")
-    # Access artifact to trigger update
-    await buck.build("root//:copy")
-    # Force flush
-    flush = await buck.audit("deferred-materializer", "flush-access-times")
-    # Validate update didn't happen since access times updates are disabled
-    assert (
-        "Access time updates are disabled. Consider removing `update_access_times = false` from your .buckconfig"
-        in flush.stdout
-    )
-
-
-@buck_test()
-@env("BUCK_ACCESS_TIME_UPDATE_MAX_BUFFER_SIZE", "2")
-async def test_artifact_access_time_flushing_partial(buck: Buck) -> None:
-    modify_acess_times_updates(buck, "partial")
-    # Create artifact
-    await buck.build("root//:copy")
-    # Access artifact to trigger update. Buffer size is 1 now so no flushign should be happening
-    await buck.build("root//:copy")
-
-    # Wait a bit more than what the normal periodic flush would take (5 secs as indicated here https://fburl.com/code/ot5944b2)
-    time.sleep(10)
-    # Force flush
-    flush = await buck.audit("deferred-materializer", "flush-access-times")
-
-    # Validate buffer is not flushed since periodic flush is not triggered
-    assert re.search("Finished flushing \\d+ entries in \\d+ ms", flush.stdout)
-    data = re.findall("\\d+", flush.stdout)
-    assert data[0] == "1"
-
-
-@buck_test()
 @env("BUCK_LOG", "buck2_execute_impl::materializers=trace")
 @env("BUCK_ACCESS_TIME_UPDATE_MAX_BUFFER_SIZE", "0")
 async def test_clean_stale_artifacts(buck: Buck) -> None:

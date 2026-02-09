@@ -122,7 +122,7 @@ struct Iterate {
 impl<T: IoHandler> ExtensionCommand<T> for Iterate {
     fn execute(self: Box<Self>, processor: &mut DeferredMaterializerCommandProcessor<T>) {
         // Ensure up to date access times
-        processor.flush_access_times(0);
+        processor.flush_access_times();
         for (path, data) in processor.tree.iter_with_paths() {
             let stage = match &data.stage {
                 ArtifactMaterializationStage::Declared { method, .. } => {
@@ -345,7 +345,7 @@ impl<T: IoHandler> ExtensionCommand<T> for FlushAccessTimes {
     fn execute(self: Box<Self>, processor: &mut DeferredMaterializerCommandProcessor<T>) {
         let mut out = String::new();
 
-        writeln!(&mut out, "{}", processor.flush_access_times(0)).unwrap();
+        writeln!(&mut out, "{}", processor.flush_access_times()).unwrap();
         let _ignored = self.sender.send(out);
     }
 }

@@ -514,7 +514,6 @@ mod state_machine {
                         min_ttl: chrono::Duration::zero(),
                         enabled: false,
                     },
-                    0,
                     AccessTimesUpdates::Disabled,
                     clean_stale_config,
                 ));
