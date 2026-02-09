@@ -33,10 +33,11 @@ def stamp_build_info(ctx: AnalysisContext, obj: Artifact, stamped_output: Artifa
         # This can be run remotely, but it's often cheaper to do this locally for large
         # binaries, especially on CI using limited hybrid
         prefer_local = not getattr(ctx.attrs, "optimize_for_action_throughput", False)
+        toolchain = get_cxx_toolchain_info(ctx)
 
         ctx.actions.run(
             cmd_args([
-                get_cxx_toolchain_info(ctx).binary_utilities_info.objcopy,
+                toolchain.binary_utilities_info.objcopy,
                 "--add-section",
                 cmd_args(build_info_json, format = "fb_build_info={}"),
                 obj,
@@ -48,6 +49,7 @@ def stamp_build_info(ctx: AnalysisContext, obj: Artifact, stamped_output: Artifa
             # binaries, especially on CI using limited hybrid.
             prefer_local = prefer_local,
             prefer_remote = not prefer_local,
+            allow_cache_upload = toolchain.cxx_compiler_info.allow_cache_upload,
         )
         return stamped_output
     return obj
