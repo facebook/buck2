@@ -59,6 +59,7 @@ use crate::build_signals::HasBuildSignals;
 use crate::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue;
 use crate::keep_going::KeepGoing;
 use crate::materialize::HasMaterializationQueueTracker;
+use crate::materialize::HasMaterializerFastRolloutConfig;
 use crate::materialize::MaterializationAndUploadContext;
 use crate::materialize::materialize_and_upload_artifact_group;
 use crate::validation::validation_impl::VALIDATION_IMPL;
@@ -606,31 +607,55 @@ async fn build_configured_label_inner<'a>(
         .per_transaction_data()
         .get_materialization_queue_tracker();
 
+    let materializer_fast_config = ctx
+        .get()
+        .per_transaction_data()
+        .get_materializer_fast_rollout_config();
+
     let mut outputs: Vec<_> = outputs
         .iter()
         .duped()
         .enumerate()
-        .map({
-            |(index, (output, provider_type))| {
-                let queue_tracker = queue_tracker.dupe();
-                Either::Left(async move {
-                    let res = match materialize_and_upload_artifact_group(
+        .map(|(index, (output, provider_type))| {
+            let queue_tracker = queue_tracker.dupe();
+
+            let fut = if materializer_fast_config.spawn {
+                ctx.spawned(move |ctx, _cancellations| {
+                    async move {
+                        materialize_and_upload_artifact_group(
+                            ctx,
+                            &output,
+                            materialization_and_upload,
+                            &queue_tracker,
+                        )
+                        .await
+                    }
+                    .boxed()
+                })
+                .left_future()
+            } else {
+                async move {
+                    materialize_and_upload_artifact_group(
                         &mut ctx.get(),
                         &output,
                         materialization_and_upload,
                         &queue_tracker,
                     )
                     .await
-                    {
-                        Ok(values) => Ok(ProviderArtifacts {
-                            values,
-                            provider_type,
-                        }),
-                        Err(e) => Err(e),
-                    };
-                    ConfiguredBuildEventExecutionVariant::BuildOutput { index, output: res }
-                })
-            }
+                }
+                .right_future()
+            };
+
+            Either::Left(fut.map(move |v| {
+                let res = match v {
+                    Ok(values) => Ok(ProviderArtifacts {
+                        values,
+                        provider_type,
+                    }),
+                    Err(e) => Err(e),
+                };
+                ConfiguredBuildEventExecutionVariant::BuildOutput { index, output: res }
+            }))
         })
         .collect();
 
@@ -676,7 +701,11 @@ async fn build_configured_label_inner<'a>(
         })
         .collect();
 
-    while let Some(variant) = outputs.next().await {
+    while let Some(variant) = if materializer_fast_config.unconstrained {
+        tokio::task::unconstrained(outputs.next()).await
+    } else {
+        outputs.next().await
+    } {
         event_consumer.consume_configured(ConfiguredBuildEvent {
             label: providers_label.dupe(),
             variant,

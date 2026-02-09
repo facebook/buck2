@@ -31,9 +31,12 @@ use buck2_execute::execute::blobs::ActionBlobs;
 use buck2_execute::materialize::materializer::HasMaterializer;
 use dashmap::DashSet;
 use dice::DiceComputations;
+use dice::DiceComputationsData;
 use dice::UserComputationData;
+use dice_futures::spawn::spawn_dropcancel;
 use dupe::Dupe;
 use futures::FutureExt;
+use futures::future::BoxFuture;
 
 use crate::actions::artifact::get_artifact_fs::GetArtifactFs;
 use crate::actions::artifact::materializer::ArtifactMaterializer;
@@ -43,18 +46,71 @@ use crate::artifact_groups::ArtifactGroup;
 use crate::artifact_groups::ArtifactGroupValues;
 use crate::artifact_groups::calculation::ArtifactGroupCalculation;
 
+/// Configuration for experimental faster materialization mode.
+#[derive(Clone, Copy)]
+pub struct MaterializerFastRolloutConfig {
+    /// If true, spawn materialization futures early rather than running inline.
+    pub spawn: bool,
+    /// If true, use `tokio::task::unconstrained` when polling materialization futures.
+    pub unconstrained: bool,
+}
+
+pub trait HasMaterializerFastRolloutConfig {
+    fn get_materializer_fast_rollout_config(&self) -> MaterializerFastRolloutConfig;
+}
+
+impl HasMaterializerFastRolloutConfig for UserComputationData {
+    fn get_materializer_fast_rollout_config(&self) -> MaterializerFastRolloutConfig {
+        const DEFAULT: MaterializerFastRolloutConfig = MaterializerFastRolloutConfig {
+            spawn: false,
+            unconstrained: false,
+        };
+        *self
+            .data
+            .get::<MaterializerFastRolloutConfig>()
+            .unwrap_or(&DEFAULT)
+    }
+}
+
+fn maybe_spawned<T: Send + 'static>(
+    data: &DiceComputationsData,
+    should_spawn: bool,
+    f: BoxFuture<'static, T>,
+) -> impl Future<Output = T> {
+    if should_spawn {
+        spawn_dropcancel(
+            move |_cancellations| f,
+            &*data.per_transaction_data().spawner,
+            data.per_transaction_data(),
+        )
+        .left_future()
+    } else {
+        f.right_future()
+    }
+}
+
 pub async fn materialize_and_upload_artifact_group(
     ctx: &mut DiceComputations<'_>,
     artifact_group: &ArtifactGroup,
     contexts: MaterializationAndUploadContext,
     queue_tracker: &Arc<DashSet<BuildArtifact>>,
 ) -> buck2_error::Result<ArtifactGroupValues> {
-    let (values, _) = ctx
-        .try_compute2(
+    let config = ctx
+        .per_transaction_data()
+        .get_materializer_fast_rollout_config();
+    let (values, _) = {
+        let fut = ctx.try_compute2(
             |mut ctx| {
                 let group = &artifact_group;
                 async move {
-                    materialize_artifact_group(&mut ctx, group, contexts.0, queue_tracker).await
+                    materialize_artifact_group(
+                        &mut ctx,
+                        config.spawn,
+                        group,
+                        contexts.0,
+                        queue_tracker,
+                    )
+                    .await
                 }
                 .boxed()
             },
@@ -68,13 +124,21 @@ pub async fn materialize_and_upload_artifact_group(
                 }
                 .boxed()
             },
-        )
-        .await?;
+        );
+
+        if config.unconstrained {
+            tokio::task::unconstrained(fut).await?
+        } else {
+            fut.await?
+        }
+    };
+
     Ok(values)
 }
 
 async fn materialize_artifact_group(
     ctx: &mut DiceComputations<'_>,
+    should_spawn: bool,
     artifact_group: &ArtifactGroup,
     materialization_context: MaterializationContext,
     queue_tracker: &Arc<DashSet<BuildArtifact>>,
@@ -88,8 +152,9 @@ async fn materialize_artifact_group(
         let artifact_fs = ctx.get_artifact_fs().await?;
         let digest_config = ctx.global_data().get_digest_config();
 
+        let data = ctx.data();
         let shared_data = Arc::new((
-            ctx.data(),
+            data.dupe(),
             artifact_fs.clone(),
             ctx.per_transaction_data().get_materializer(),
         ));
@@ -111,6 +176,7 @@ async fn materialize_artifact_group(
 
                     async move {
                         let (data, artifact_fs, materializer) = &*shared_data;
+
                         let configuration_hash_path = artifact_fs
                             .resolve_build_configuration_hash_path(&artifact.get_path())?;
 
@@ -148,7 +214,7 @@ async fn materialize_artifact_group(
                         buck2_error::Ok(())
                     }
                 };
-                materialize_futs.push(fut);
+                materialize_futs.push(maybe_spawned(&data, should_spawn, fut.boxed()));
             }
         }
 
