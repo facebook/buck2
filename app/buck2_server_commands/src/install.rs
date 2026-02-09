@@ -32,6 +32,7 @@ use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineArgLike;
 use buck2_build_api::interpreter::rule_defs::cmd_args::SimpleCommandLineArtifactVisitor;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::install_info::FrozenInstallInfo;
 use buck2_build_api::interpreter::rule_defs::provider::builtin::run_info::FrozenRunInfo;
+use buck2_build_api::materialize::HasMaterializationQueueTracker;
 use buck2_build_api::materialize::MaterializationAndUploadContext;
 use buck2_build_api::materialize::materialize_and_upload_artifact_group;
 use buck2_build_api::validation::validation_impl::VALIDATION_IMPL;
@@ -857,6 +858,8 @@ async fn build_launch_installer<'a>(
                         ctx,
                         &input,
                         &MaterializationAndUploadContext::materialize(),
+                        &ctx.per_transaction_data()
+                            .get_materialization_queue_tracker(),
                     )
                     .await
                     .map(|value| (input, value))
@@ -950,6 +953,8 @@ async fn build_files(
                                     ctx,
                                     &artifact,
                                     &MaterializationAndUploadContext::materialize(),
+                                    &ctx.per_transaction_data()
+                                        .get_materialization_queue_tracker(),
                                 )
                                 .await
                             }

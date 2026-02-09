@@ -47,13 +47,16 @@ pub async fn materialize_and_upload_artifact_group(
     ctx: &mut DiceComputations<'_>,
     artifact_group: &ArtifactGroup,
     contexts: &MaterializationAndUploadContext,
+    queue_tracker: &Arc<DashSet<BuildArtifact>>,
 ) -> buck2_error::Result<ArtifactGroupValues> {
     let (values, _) = ctx
         .try_compute2(
             |mut ctx| {
                 let group = &artifact_group;
-                async move { materialize_artifact_group(&mut ctx, group, &contexts.0).await }
-                    .boxed()
+                async move {
+                    materialize_artifact_group(&mut ctx, group, &contexts.0, queue_tracker).await
+                }
+                .boxed()
             },
             |mut ctx| {
                 let group = &artifact_group;
@@ -74,6 +77,7 @@ async fn materialize_artifact_group(
     ctx: &mut DiceComputations<'_>,
     artifact_group: &ArtifactGroup,
     materialization_context: &MaterializationContext,
+    queue_tracker: &Arc<DashSet<BuildArtifact>>,
 ) -> buck2_error::Result<ArtifactGroupValues> {
     let values = ctx.ensure_artifact_group(artifact_group).await?;
 
@@ -81,9 +85,6 @@ async fn materialize_artifact_group(
 
     if let MaterializationContext::Materialize { force } = materialization_context {
         waiting_data.start_waiting_category_now(WaitingCategory::MaterializerPrepare);
-        let queue_tracker = ctx
-            .per_transaction_data()
-            .get_materialization_queue_tracker();
         let mut artifacts_to_materialize = Vec::new();
         let mut configuration_path_to_content_based_path_symlinks = Vec::new();
         let artifact_fs = ctx.get_artifact_fs().await?;

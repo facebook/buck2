@@ -58,6 +58,7 @@ use crate::build::outputs::get_outputs_for_top_level_target;
 use crate::build_signals::HasBuildSignals;
 use crate::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue;
 use crate::keep_going::KeepGoing;
+use crate::materialize::HasMaterializationQueueTracker;
 use crate::materialize::MaterializationAndUploadContext;
 use crate::materialize::materialize_and_upload_artifact_group;
 use crate::validation::validation_impl::VALIDATION_IMPL;
@@ -600,6 +601,11 @@ async fn build_configured_label_inner<'a>(
         ));
     }
 
+    let queue_tracker = ctx
+        .get()
+        .per_transaction_data()
+        .get_materialization_queue_tracker();
+
     let mut outputs: Vec<_> = outputs
         .iter()
         .duped()
@@ -607,11 +613,13 @@ async fn build_configured_label_inner<'a>(
         .map({
             |(index, (output, provider_type))| {
                 let materialization_and_upload = materialization_and_upload.dupe();
+                let queue_tracker = queue_tracker.dupe();
                 Either::Left(async move {
                     let res = match materialize_and_upload_artifact_group(
                         &mut ctx.get(),
                         &output,
                         &materialization_and_upload,
+                        &queue_tracker,
                     )
                     .await
                     {

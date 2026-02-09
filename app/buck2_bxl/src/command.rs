@@ -21,6 +21,7 @@ use buck2_build_api::build::build_report::write_bxl_build_report;
 use buck2_build_api::bxl::result::BxlResult;
 use buck2_build_api::bxl::result::PendingStreamingOutput;
 use buck2_build_api::bxl::types::BxlFunctionLabel;
+use buck2_build_api::materialize::HasMaterializationQueueTracker;
 use buck2_build_api::materialize::MaterializationAndUploadContext;
 use buck2_build_api::materialize::materialize_and_upload_artifact_group;
 use buck2_cli_proto::BxlRequest;
@@ -367,6 +368,8 @@ impl BxlServerCommand {
                             ctx,
                             &artifact,
                             materialization_context,
+                            &ctx.per_transaction_data()
+                                .get_materialization_queue_tracker(),
                         )
                         .await;
                         match res {
