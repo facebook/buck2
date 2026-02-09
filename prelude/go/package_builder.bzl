@@ -145,6 +145,9 @@ def _build_package_action_impl(
         test_go_files_argsfile: OutputArtifact):
     go_list = parse_go_list_out(srcs, package_root, go_list_out)
 
+    if go_list.error != None:
+        fail("Invalid go package: {}", go_list.error.err)
+
     if len(go_list.x_test_go_files) > 0:
         fail("External tests are not supported, remove suffix '_test' from package declaration '{}': {}", go_list.name, target_label)
 

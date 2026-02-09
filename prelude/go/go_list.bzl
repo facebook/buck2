@@ -9,6 +9,10 @@
 load("@prelude//:paths.bzl", "paths")
 load(":toolchain.bzl", "GoToolchainInfo", "get_toolchain_env_vars")
 
+GoListError = record(
+    err = field(str),
+)
+
 # Modeled after: https://pkg.go.dev/cmd/go/internal/list#pkg-variables
 GoListOut = record(
     name = field(str),
@@ -29,6 +33,7 @@ GoListOut = record(
     cgo_cppflags = field(list[str], default = []),
     embed_patterns = field(list[str], default = []),
     test_embed_patterns = field(list[str], default = []),
+    error = field(GoListError | None, default = None),
 )
 
 def go_list(actions: AnalysisActions, go_toolchain: GoToolchainInfo, pkg_name: str, srcs: list[Artifact], package_root: str, build_tags: list[str], cgo_enabled: bool, with_tests: bool) -> Artifact:
@@ -97,6 +102,7 @@ def parse_go_list_out(srcs: list[Artifact], package_root: str, go_list_out: Arti
     cgo_cppflags = go_list.get("CgoCPPFLAGS", [])
     embed_patterns = go_list.get("EmbedPatterns", [])
     test_embed_patterns = go_list.get("TestEmbedPatterns", [])
+    error = _parse_error(go_list.get("Error", None))
 
     return GoListOut(
         name = name,
@@ -117,4 +123,15 @@ def parse_go_list_out(srcs: list[Artifact], package_root: str, go_list_out: Arti
         ignored_other_files = ignored_other_files,
         embed_patterns = embed_patterns,
         test_embed_patterns = test_embed_patterns,
+        error = error,
     )
+
+def _parse_error(error: dict | None) -> GoListError | None:
+    if error == None:
+        return None
+
+    if "Err" not in error:
+        # Should never happen, but if it does, fail the build.
+        fail("Invalid go_analyzer error: {}".format(error))
+
+    return GoListError(err = error.get("Err"))

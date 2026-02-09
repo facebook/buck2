@@ -19,6 +19,7 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"go/build"
@@ -51,13 +52,13 @@ type AnalyzerOutput struct {
 	TestEmbedPatterns []string `json:"TestEmbedPatterns,omitempty"`
 
 	// Error information (matches go list -e output)
-	// Error *PackageError `json:"Error,omitempty"`
+	Error *PackageError `json:"Error,omitempty"`
 }
 
 // PackageError describes an error loading information about a package.
-// type PackageError struct {
-// 	Err string `json:"Err"`
-// }
+type PackageError struct {
+	Err string `json:"Err"`
+}
 
 func main() {
 	tags := flag.String("tags", "", "Build tags (comma-separated)")
@@ -119,12 +120,17 @@ Flags:
 
 	// Import the package
 	pkg, err := ctx.ImportDir(absDir, build.ImportComment|build.IgnoreVendor)
-	// var pkgErr *PackageError
+	var pkgErr *PackageError
 	if err != nil {
-		// TODO(michaelpo): Uncomments this once we be ready to handle package loading errors
-		// pkgErr = &PackageError{
-		// 	Err: err.Error(),
-		// }
+		var noGoErr *build.NoGoError
+		if errors.As(err, &noGoErr) {
+			// TODO(michaelpo): Skip unil we are ready to handle no-go errors.
+			// We likely be skippling this in the future as well and return an error directly in the build-rules.
+		} else {
+			pkgErr = &PackageError{
+				Err: err.Error(),
+			}
+		}
 	}
 
 	// Build the output
@@ -142,7 +148,7 @@ Flags:
 		CgoCFLAGS:         pkg.CgoCFLAGS,
 		CgoCPPFLAGS:       pkg.CgoCPPFLAGS,
 		EmbedPatterns:     pkg.EmbedPatterns,
-		// Error:             pkgErr,
+		Error:             pkgErr,
 	}
 
 	// Include test files if requested

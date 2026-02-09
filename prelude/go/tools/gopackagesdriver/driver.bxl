@@ -210,6 +210,9 @@ def _make_protocol_package(load_mode: LoadMode, go_list_out: GoListOut, td: Targ
     if load_mode.need_imports:
         package["Imports"] = _imports(go_list_out, import_table)
 
+    if go_list_out.error != None:
+        errors.add(PackageError(Msg = go_list_out.error.err))
+
     if len(errors) > 0:
         package["Errors"] = list(errors)
 
