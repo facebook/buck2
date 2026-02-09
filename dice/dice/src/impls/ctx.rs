@@ -20,7 +20,9 @@ use dice_error::DiceError;
 use dice_error::DiceResult;
 use dice_error::result::CancellableResult;
 use dice_error::result::CancellationReason;
+use dice_futures::cancellation::CancellationContext;
 use dice_futures::owning_future::OwningFuture;
+use dice_futures::spawn::spawn_dropcancel;
 use dupe::Dupe;
 use futures::FutureExt;
 use futures::TryFutureExt;
@@ -285,6 +287,57 @@ impl ModernComputeCtx<'_> {
             }
             self_dep_trackers.update_invalidation_paths(dep_trackers.invalidation_paths.dupe());
             v
+        })
+    }
+
+    pub fn spawned<'a, T, Compute>(
+        &'a mut self,
+        closure: Compute,
+    ) -> impl Future<Output = T> + use<'a, Compute, T>
+    where
+        T: Send + 'static,
+        Compute: (for<'x> FnOnce(
+                &'x mut DiceComputations<'_>,
+                &'x CancellationContext,
+            ) -> BoxFuture<'x, T>)
+            + Send
+            + 'static,
+    {
+        let (ctx_data, self_dep_trackers) = self.unpack();
+        let mut inner_ctx: DiceComputations<'static> =
+            DiceComputations(DiceComputationsImpl(ModernComputeCtx::new(
+                ctx_data.parent_key,
+                ctx_data.cycles.clone(),
+                ctx_data.async_evaluator.dupe(),
+            )));
+
+        let user_data = ctx_data.per_transaction_data();
+        let spawner = user_data.spawner.dupe();
+        let ctx_data = user_data.dupe();
+
+        let task = spawn_dropcancel(
+            |cancellation| {
+                async move {
+                    let res = closure(&mut inner_ctx, cancellation).await;
+                    let dep_trackers = inner_ctx.0.0.into_owned().1;
+                    (res, dep_trackers)
+                }
+                .boxed()
+            },
+            &*spawner,
+            ctx_data,
+        );
+
+        task.map(move |(res, dep_trackers)| {
+            let deps = dep_trackers.collect_deps();
+            let validity = deps.deps_validity;
+            let mut self_dep_trackers = self_dep_trackers.lock();
+            for k in deps.deps.iter_keys() {
+                self_dep_trackers.record(k, validity, TrackedInvalidationPaths::clean())
+            }
+            self_dep_trackers.update_invalidation_paths(deps.invalidation_paths.dupe());
+
+            res
         })
     }
 

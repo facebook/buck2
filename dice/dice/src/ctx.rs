@@ -13,6 +13,7 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use dice_error::DiceResult;
+use dice_futures::cancellation::CancellationContext;
 use futures::FutureExt;
 use futures::future::BoxFuture;
 
@@ -135,6 +136,25 @@ impl DiceComputationsImpl<'_> {
         Fut: Future<Output = T>,
     {
         self.0.with_linear_recompute(func)
+    }
+
+    /// Spawn a computation on a new tokio task.
+    ///
+    /// See [`DiceComputations::spawned`](crate::api::computations::DiceComputations::spawned) for details.
+    pub fn spawned<'a, T, Compute>(
+        &'a mut self,
+        closure: Compute,
+    ) -> impl Future<Output = T> + use<'a, Compute, T>
+    where
+        T: Send + 'static,
+        Compute: (for<'x> FnOnce(
+                &'x mut DiceComputations<'_>,
+                &'x CancellationContext,
+            ) -> BoxFuture<'x, T>)
+            + Send
+            + 'static,
+    {
+        self.0.spawned(closure)
     }
 
     /// Data that is static per the entire lifetime of Dice. These data are initialized at the

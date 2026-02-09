@@ -15,6 +15,8 @@ use allocative::Allocative;
 use async_trait::async_trait;
 use dice_error::DiceResult;
 use dice_futures::cancellation::CancellationContext;
+use dice_futures::owning_future::OwningFuture;
+use futures::FutureExt;
 use futures::future::BoxFuture;
 
 use crate::DiceKeyTrackedInvalidationPaths;
@@ -345,6 +347,28 @@ impl DiceComputations<'_> {
     pub fn get_invalidation_paths(&mut self) -> DiceKeyTrackedInvalidationPaths {
         self.0.get_invalidation_paths()
     }
+
+    /// Spawn a computation on a new tokio task.
+    ///
+    /// This allows spawning work that requires access to the `DiceComputations` context
+    /// without running into lifetime issues with `tokio::spawn` requiring `'static` futures.
+    /// Dependencies accessed in the spawned task are tracked and merged back into the
+    /// parent computation. If the returned future is dropped, the spawned task will be cancelled.
+    pub fn spawned<'a, T, Compute>(
+        &'a mut self,
+        closure: Compute,
+    ) -> impl Future<Output = T> + use<'a, Compute, T>
+    where
+        T: Send + 'static,
+        Compute: (for<'x> FnOnce(
+                &'x mut DiceComputations<'_>,
+                &'x CancellationContext,
+            ) -> BoxFuture<'x, T>)
+            + Send
+            + 'static,
+    {
+        self.0.spawned(closure)
+    }
 }
 
 pub struct LinearRecomputeDiceComputations<'a>(pub(crate) LinearRecomputeDiceComputationsImpl<'a>);
@@ -352,6 +376,25 @@ pub struct LinearRecomputeDiceComputations<'a>(pub(crate) LinearRecomputeDiceCom
 impl LinearRecomputeDiceComputations<'_> {
     pub fn get(&self) -> DiceComputations<'_> {
         self.0.get()
+    }
+
+    /// Spawn a computation on a new tokio task.
+    ///
+    /// See [`DiceComputations::spawned`] for details.
+    pub fn spawned<'a, T, Compute>(
+        &'a self,
+        closure: Compute,
+    ) -> impl Future<Output = T> + use<'a, Compute, T>
+    where
+        T: Send + 'static,
+        Compute: (for<'x> FnOnce(
+                &'x mut DiceComputations<'_>,
+                &'x CancellationContext,
+            ) -> BoxFuture<'x, T>)
+            + Send
+            + 'static,
+    {
+        OwningFuture::new(self.get(), |ctx| ctx.spawned(closure).boxed())
     }
 }
 
