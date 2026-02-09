@@ -87,11 +87,14 @@ async fn materialize_artifact_group(
         waiting_data.start_waiting_category_now(WaitingCategory::MaterializerPrepare);
         let artifact_fs = ctx.get_artifact_fs().await?;
         let digest_config = ctx.global_data().get_digest_config();
-        let materializer = ctx.per_transaction_data().get_materializer();
-        let data = ctx.data();
 
-        let mut artifacts_to_materialize = Vec::new();
-        let mut configuration_path_to_content_based_path_symlinks = Vec::new();
+        let shared_data = Arc::new((
+            ctx.data(),
+            artifact_fs.clone(),
+            ctx.per_transaction_data().get_materializer(),
+        ));
+
+        let mut materialize_futs = Vec::new();
 
         for (artifact, value) in values.iter() {
             if let BaseArtifactKind::Build(artifact) = artifact.as_parts().0 {
@@ -100,58 +103,56 @@ async fn materialize_artifact_group(
                     continue;
                 }
 
-                let configuration_hash_path =
-                    artifact_fs.resolve_build_configuration_hash_path(&artifact.get_path())?;
+                let fut = {
+                    let waiting_data = waiting_data.clone();
+                    let artifact = artifact.dupe();
+                    let value = value.dupe();
+                    let shared_data = shared_data.dupe();
 
-                if artifact.get_path().is_content_based_path() {
-                    let content_based_path = artifact_fs.resolve_build(
-                        artifact.get_path(),
-                        Some(&value.content_based_path_hash()),
-                    )?;
+                    async move {
+                        let (data, artifact_fs, materializer) = &*shared_data;
+                        let configuration_hash_path = artifact_fs
+                            .resolve_build_configuration_hash_path(&artifact.get_path())?;
 
-                    let mut builder = ArtifactValueBuilder::new(artifact_fs.fs(), digest_config);
-                    builder.add_symlinked(
-                        // The materializer doesn't care about the `src_value`.
-                        &ArtifactValue::dir(digest_config.empty_directory()),
-                        content_based_path,
-                        &configuration_hash_path,
-                    )?;
-                    let symlink_value = builder.build(&configuration_hash_path)?;
-                    configuration_path_to_content_based_path_symlinks
-                        .push((configuration_hash_path.clone(), symlink_value));
-                }
+                        if artifact.get_path().is_content_based_path() {
+                            let content_based_path = artifact_fs.resolve_build(
+                                artifact.get_path(),
+                                Some(&value.content_based_path_hash()),
+                            )?;
+                            let mut builder =
+                                ArtifactValueBuilder::new(artifact_fs.fs(), digest_config);
+                            builder.add_symlinked(
+                                // The materializer doesn't care about the `src_value`.
+                                &ArtifactValue::dir(digest_config.empty_directory()),
+                                content_based_path,
+                                &configuration_hash_path,
+                            )?;
+                            let symlink_value = builder.build(&configuration_hash_path)?;
 
-                artifacts_to_materialize.push((artifact, configuration_hash_path));
+                            materializer
+                            .declare_copy(configuration_hash_path.clone(), symlink_value, Vec::new())
+                            .await
+                            .buck_error_context(
+                                "Failed to declare configuration path to content-based path symlinks",
+                            )?;
+                        }
+
+                        data.try_materialize_requested_artifact(
+                            &artifact,
+                            waiting_data,
+                            force,
+                            configuration_hash_path,
+                        )
+                        .await
+                        .buck_error_context("Failed to materialize artifacts")?;
+                        buck2_error::Ok(())
+                    }
+                };
+                materialize_futs.push(fut);
             }
         }
 
-        waiting_data.start_waiting_category_now(WaitingCategory::MaterializerStage2);
-        buck2_util::future::try_join_all(
-            configuration_path_to_content_based_path_symlinks
-                .into_iter()
-                .map(|(path, value)| {
-                    let materializer = materializer.dupe();
-                    async move { materializer.declare_copy(path, value, vec![]).await }
-                }),
-        )
-        .await
-        .buck_error_context(
-            "Failed to declare configuration path to content-based path symlinks",
-        )?;
-
-        waiting_data.start_waiting_category_now(WaitingCategory::Unknown);
-        buck2_util::future::try_join_all(artifacts_to_materialize.into_iter().map(
-            |(artifact, path)| {
-                let waiting_data = waiting_data.clone();
-                let data = data.dupe();
-                async move {
-                    data.try_materialize_requested_artifact(artifact, waiting_data, force, path)
-                        .await
-                }
-            },
-        ))
-        .await
-        .buck_error_context("Failed to materialize artifacts")?;
+        buck2_util::future::try_join_all(materialize_futs).await?;
     }
 
     Ok(values)
