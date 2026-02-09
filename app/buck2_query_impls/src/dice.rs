@@ -16,7 +16,6 @@ use buck2_build_api::configure_targets::load_compatible_patterns_with_modifiers;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::dice::data::HasIoProvider;
 use buck2_common::file_ops::dice::DiceFileComputations;
-use buck2_common::package_boundary::HasPackageBoundaryExceptions;
 use buck2_common::package_listing::dice::DicePackageListingResolver;
 use buck2_common::package_listing::resolver::PackageListingResolver;
 use buck2_common::pattern::resolve::ResolveTargetPatterns;
@@ -28,6 +27,7 @@ use buck2_core::cells::CellResolver;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::cell_path_with_allowed_relative_dir::CellPathWithAllowedRelativeDir;
 use buck2_core::cells::name::CellName;
+use buck2_core::cells::paths::CellRelativePath;
 use buck2_core::configuration::compatibility::MaybeCompatible;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
@@ -277,30 +277,17 @@ impl UqueryDelegate for DiceQueryDelegate<'_, '_> {
         Ok(ResolveTargetPatterns::resolve(&mut self.ctx.get(), &parsed_patterns).await?)
     }
 
-    // This returns 1 package normally but can return multiple packages if the path is covered under `self.package_boundary_exceptions`.
+    // Returns all packages from immediate enclosing up to cell root that could potentially own the path.
     async fn get_enclosing_packages(
         &self,
         path: &CellPath,
     ) -> buck2_error::Result<Vec<PackageLabel>> {
-        // Without package boundary violations, there is only 1 owning package for a path.
-        // However, with package boundary violations, all parent packages of the enclosing package can also be owners.
-        if let Some(enclosing_violation_path) = self
-            .ctx
-            .get()
-            .get_package_boundary_exception(path.as_ref())
+        let cell_root = CellPath::new(path.cell(), CellRelativePath::empty().to_buf());
+        Ok(DicePackageListingResolver(&mut self.ctx.get())
+            .get_enclosing_packages(path.as_ref(), cell_root.as_ref())
             .await?
-        {
-            return Ok(DicePackageListingResolver(&mut self.ctx.get())
-                .get_enclosing_packages(path.as_ref(), (*enclosing_violation_path).as_ref())
-                .await?
-                .into_iter()
-                .collect());
-        }
-
-        let package = DicePackageListingResolver(&mut self.ctx.get())
-            .get_enclosing_package(path.as_ref())
-            .await?;
-        Ok(vec![package])
+            .into_iter()
+            .collect())
     }
 
     async fn eval_file_literal(&self, literal: &str) -> buck2_error::Result<FileSet> {

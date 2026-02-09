@@ -84,16 +84,6 @@ async def test_uquery_owner(buck: Buck) -> None:
 
 @buck_test(data_dir="bxl_simple")
 async def test_query_owner_with_explicit_package_boundary_violation(buck: Buck) -> None:
-    # This needs to be changed to `expect_failure` once Buck2 is checking path validity
-    # outside of `package_boundary_exceptions`
-    result = await buck.uquery(
-        """owner(package_boundary_violation/bin)""",
-        "-c",
-        "project.package_boundary_exceptions=",
-    )
-    assert "root//package_boundary_violation:bin" in result.stdout
-    assert "root//:package_boundary_violation" not in result.stdout
-
     result = await buck.uquery("""owner(package_boundary_violation/bin)""")
     assert "root//package_boundary_violation:bin" in result.stdout
     assert "root//:package_boundary_violation" in result.stdout
