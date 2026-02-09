@@ -18,6 +18,7 @@ use buck2_execute::directory::ActionDirectoryBuilder;
 use buck2_execute::directory::insert_file;
 use buck2_execute::materialize::materializer::DeferredMaterializerSubscription;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
+use parking_lot::Mutex;
 
 use super::*;
 

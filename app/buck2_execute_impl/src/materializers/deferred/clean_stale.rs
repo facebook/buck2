@@ -190,7 +190,7 @@ impl CleanStaleArtifactsCommand {
         processor: &mut DeferredMaterializerCommandProcessor<T>,
     ) -> buck2_error::Result<PendingCleanResult> {
         let (liveliness_observer, liveliness_guard) = LivelinessGuard::create_sync();
-        *processor.command_sender.clean_guard.lock() = Some(liveliness_guard);
+        *processor.command_sender.clean_guard.write() = Some(liveliness_guard);
 
         if let Some(sqlite_db) = processor.sqlite_db.as_mut() {
             if !processor.defer_write_actions {

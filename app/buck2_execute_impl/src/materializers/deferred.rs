@@ -77,7 +77,7 @@ use derivative::Derivative;
 use dice_futures::cancellation::CancellationContext;
 use dupe::Dupe;
 use futures::stream::BoxStream;
-use parking_lot::Mutex;
+use parking_lot::RwLock;
 use tokio::runtime::Handle;
 use tokio::sync::mpsc;
 use tokio::sync::oneshot;
@@ -239,7 +239,7 @@ pub struct MaterializerSender<T: 'static> {
     low_priority: mpsc::UnboundedSender<LowPriorityMaterializerCommand>,
     counters: MaterializerCounters,
     /// Liveliness guard held while clean stale executes, dropped to interrupt clean.
-    clean_guard: Mutex<Option<LivelinessGuard>>,
+    clean_guard: RwLock<Option<LivelinessGuard>>,
 }
 
 impl<T> MaterializerSender<T> {
@@ -247,7 +247,13 @@ impl<T> MaterializerSender<T> {
         &self,
         command: MaterializerCommand<T>,
     ) -> Result<(), mpsc::error::SendError<MaterializerCommand<T>>> {
-        *self.clean_guard.lock() = None;
+        {
+            let read = self.clean_guard.read();
+            if read.is_some() {
+                drop(read);
+                *self.clean_guard.write() = None;
+            }
+        }
         let res = self.high_priority.send(command);
         self.counters.sent.fetch_add(1, Ordering::Relaxed);
         res
@@ -621,7 +627,7 @@ impl DeferredMaterializerAccessor<DefaultIoHandler> {
             high_priority: high_priority_sender,
             low_priority: low_priority_sender,
             counters,
-            clean_guard: Mutex::new(None),
+            clean_guard: RwLock::new(None),
         });
 
         let command_receiver = MaterializerReceiver {
