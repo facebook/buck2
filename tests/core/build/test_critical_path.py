@@ -247,8 +247,8 @@ async def test_critical_path_metadata(buck: Buck) -> None:
     await buck.build(
         "//:step_0",
         "--no-remote-cache",
-        "-c",
-        "client.id=myclient",
+        "--client-metadata",
+        "id=myclient",
         "--oncall=myoncall",
     )
 

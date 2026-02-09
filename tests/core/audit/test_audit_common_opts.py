@@ -30,7 +30,7 @@ from buck2.tests.e2e_util.buck_workspace import buck_test
 )
 async def test_pass_common_opts_func(buck: Buck, cmd: str) -> None:
     cmd_call = getattr(buck, cmd)
-    await cmd_call("--config", "client.id=placeholder_id")
+    await cmd_call("--client-metadata", "id=placeholder_id")
 
 
 @buck_test()
@@ -48,9 +48,8 @@ async def test_pass_common_opts_func(buck: Buck, cmd: str) -> None:
 )
 async def test_pass_common_opts(buck: Buck, cmd: str) -> None:
     commands_requiring_target_pattern_arg_value = {"providers", "subtargets"}
-    arg = "//:dummy"
 
     if cmd in commands_requiring_target_pattern_arg_value:
-        await buck.audit(cmd, arg, "--config", "client.id=placeholder_id")
+        await buck.audit(cmd, "//:dummy", "--client-metadata", "id=placeholder_id")
     else:
-        await buck.audit(cmd, "--config", "client.id=placeholder_id")
+        await buck.audit(cmd, "--client-metadata", "id=placeholder_id")
