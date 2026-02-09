@@ -13,6 +13,7 @@ load(
 )
 load("@prelude//:paths.bzl", "paths")
 load("@prelude//:resources.bzl", "gather_resources")
+load("@prelude//cxx:cxx_context.bzl", "get_opt_cxx_toolchain_info")
 load(
     "@prelude//cxx:cxx_library_utility.bzl",
     "cxx_is_gnu",
@@ -577,6 +578,9 @@ def python_binary_impl(ctx: AnalysisContext) -> list[Provider] | Promise:
     standalone_resources = qualify_srcs(ctx.label, ctx.attrs.base_module, standalone_resources_map)
     default_resources = qualify_srcs(ctx.label, ctx.attrs.base_module, default_resources_map)
 
+    cxx_toolchain_info = get_opt_cxx_toolchain_info(ctx)
+    toolchain_allow_cache_upload = cxx_toolchain_info.cxx_compiler_info.allow_cache_upload if cxx_toolchain_info else None
+
     return python_executable(
         ctx,
         main,
@@ -584,6 +588,6 @@ def python_binary_impl(ctx: AnalysisContext) -> list[Provider] | Promise:
         default_resources,
         standalone_resources,
         compile = value_or(ctx.attrs.compile, False),
-        allow_cache_upload = cxx_attrs_get_allow_cache_upload(ctx.attrs),
+        allow_cache_upload = cxx_attrs_get_allow_cache_upload(ctx.attrs, toolchain_allow_cache_upload),
         executable_type = ExecutableType("binary"),
     )
