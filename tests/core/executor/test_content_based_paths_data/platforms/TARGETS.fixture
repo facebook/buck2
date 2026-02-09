@@ -1,0 +1,16 @@
+platform(
+    name = "default_platform",
+)
+
+execution_platform(
+    name = "default",
+    platform = ":default_platform",
+    remote_enabled = True,
+)
+
+execution_platforms(
+    name = "platforms",
+    platforms = [
+        ":default",
+    ],
+)
