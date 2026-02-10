@@ -30,6 +30,7 @@ rust_library(
         "fbsource//third-party/rust:tracing",
         "fbsource//third-party/rust:triomphe",
         "//buck2/allocative/allocative:allocative",
+        "//buck2/app/buck2_env:buck2_env",
         "//buck2/app/buck2_error:buck2_error",
         "//buck2/app/buck2_wrapper_common:buck2_wrapper_common",
         "//buck2/gazebo/dupe:dupe",

@@ -21,6 +21,7 @@ sysinfo = { workspace = true }
 tracing = { workspace = true }
 triomphe = { workspace = true }
 
+buck2_env = { workspace = true }
 buck2_error = { workspace = true }
 buck2_wrapper_common = { workspace = true }
 serde = { workspace = true }

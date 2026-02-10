@@ -129,6 +129,9 @@ where
                         DiceStateSnapshot(dice) => {
                             self.dice_state.update(dice);
                         }
+                        SystemInfo(system_info) => {
+                            self.system_info = system_info.clone();
+                        }
                         _ => {}
                     }
                 }
