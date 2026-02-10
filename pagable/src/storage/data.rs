@@ -10,6 +10,7 @@
 
 use std::num::NonZeroU128;
 
+use allocative::Allocative;
 use dupe::Dupe;
 
 /// A unique identifier for data stored in the paging backend.
@@ -25,6 +26,7 @@ use dupe::Dupe;
 ///
 /// [`PagableArc`]: crate::PagableArc
 #[derive(
+    Allocative,
     Debug,
     Eq,
     PartialEq,
@@ -71,10 +73,10 @@ impl DataKey {
 /// still used `NonZeroU128` internally, enabling niche optimization. By using an explicit
 /// enum instead of `Option<DataKey>`, we can maintain this optimization while allowing
 /// `DataKey` to use `u128` for bytemuck compatibility.
-#[derive(Debug, Clone, Copy, Hash)]
+#[derive(Debug, Clone, Copy, Hash, Allocative)]
 pub enum OptionalDataKey {
     None,
-    Some(NonZeroU128),
+    Some(#[allocative(skip)] NonZeroU128),
 }
 
 impl OptionalDataKey {
