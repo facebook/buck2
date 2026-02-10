@@ -38,6 +38,9 @@ mod inner {
         keep: String,
     }
 
+    #[derive(crate::PagablePanic)]
+    pub(super) struct TestPanic<T>(T);
+
     #[cfg(test)]
     mod tests {
         use std::collections::HashMap;
@@ -231,6 +234,21 @@ mod inner {
             Ok(())
         }
 
+        #[test]
+        #[should_panic]
+        fn test_panic_on_serialize() {
+            let t = TestPanic(());
+            let mut serializer = TestingSerializer::new();
+            t.pagable_serialize(&mut serializer).unwrap();
+        }
+
+        #[test]
+        #[should_panic]
+        fn test_panic_on_deserialize() {
+            let mut deserializer = TestingDeserializer::new(&[]);
+            let _ = TestPanic::<()>::pagable_deserialize(&mut deserializer).unwrap();
+        }
+
         #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
         async fn test_pagable_arc() -> anyhow::Result<()> {
             let mut backing_storage = InMemoryPagableStorage::new();
@@ -378,9 +396,13 @@ mod inner {
 
 mod asserts {
     use crate::traits::Pagable;
-    use crate::traits::PagableDeserialize;
+    use crate::traits::PagableDeserializeOwned;
     use crate::traits::PagableSerialize;
 
-    static_assertions::assert_impl_all!(super::inner::Test: PagableSerialize, PagableDeserialize<'static>);
+    static_assertions::assert_impl_all!(super::inner::Test: PagableSerialize, PagableDeserializeOwned);
     static_assertions::assert_impl_all!(super::inner::Test: Pagable);
+
+    struct NotPagable;
+    static_assertions::assert_impl_all!(super::inner::TestPanic<()>: PagableSerialize, PagableDeserializeOwned);
+    static_assertions::assert_impl_all!(super::inner::TestPanic<NotPagable>: PagableSerialize, PagableDeserializeOwned);
 }

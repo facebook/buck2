@@ -11,11 +11,20 @@
 use proc_macro::TokenStream;
 
 mod derive_pagable;
+mod derive_pagable_panic;
 mod typetag;
 
 #[proc_macro_derive(Pagable, attributes(pagable))]
 pub fn derive_pagable(input: TokenStream) -> TokenStream {
     derive_pagable::derive_pagable(input, true, true)
+}
+
+/// Derives `PagableSerialize` and `PagableDeserialize` implementations that panic
+/// when called. Useful for types that need to satisfy trait bounds but
+/// should never actually be serialized/deserialized.
+#[proc_macro_derive(PagablePanic, attributes(pagable))]
+pub fn derive_pagable_panic(input: TokenStream) -> TokenStream {
+    derive_pagable_panic::derive_pagable_panic(input)
 }
 
 #[proc_macro_derive(PagableSerialize, attributes(pagable))]
