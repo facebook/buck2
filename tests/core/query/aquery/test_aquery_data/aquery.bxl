@@ -130,7 +130,7 @@ def _impl_action_query_node(ctx):
     action = result[0]
     analysis = result[1]
 
-    _assert_eq(type(action.action()), "action")
+    _assert_eq(type(action.action()), "bxl.Action")
     _assert_eq(action.rule_type, "copy")
     _assert_eq(str(action.action().owner().raw_target()), "root//:test")
 
