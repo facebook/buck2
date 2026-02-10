@@ -39,6 +39,7 @@ BUCK2_TEST_FAIL_CONNECT                 bool                  false
 BUCK2_TEST_FAIL_RE_DOWNLOADS            bool                  false
 BUCK2_TEST_FAIL_RE_EXECUTE              bool                  false
 BUCK2_TEST_FAIL_STREAMING               bool                  false
+BUCK2_TEST_FAKE_SYSTEM_TOTAL_MEMORY     u64
 BUCK2_TEST_FORCE_CACHE_UPLOAD           bool                  false
 BUCK2_TEST_FORCE_DECLARE_MISMATCH       bool                  false
 BUCK2_TEST_INIT_DAEMON_ERROR            bool                  false
@@ -56,7 +57,6 @@ BUCK2_TEST_TPX_USE_TCP                  bool                  false
 BUCK2_WATCHMAN_TIMEOUT                  u64                   57
 BUCKD_STARTUP_INIT_TIMEOUT              u64
 BUCKD_STARTUP_TIMEOUT                   u64
-BUCK_ACCESS_TIME_UPDATE_MAX_BUFFER_SIZE usize                 5000
 BUCK_CONSOLE                            String
 BUCK_DAEMON_LOG_TO_FILE                 u8
 BUCK_DEFAULT_DIGEST_ALGORITHM           DigestAlgorithmFamily
