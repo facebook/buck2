@@ -11,6 +11,7 @@ load(
     "@prelude//apple/swift:swift_incremental_support.bzl",
     "get_uses_content_based_paths",
 )
+load("@prelude//apple/swift:swift_toolchain.bzl", "supports_modulemaps_with_hmaps")
 load(
     "@prelude//cxx:headers.bzl",
     "CHeader",  # @unused Used as a type
@@ -32,6 +33,7 @@ def create_modulemap(
         fail("Don't use the name `module` for modulemaps, this will allow for implicit importing.")
 
     uses_content_based_paths = get_uses_content_based_paths(ctx)
+    use_relative_paths = supports_modulemaps_with_hmaps(ctx)
 
     # Create a map of header import path to artifact location
     header_map = {}
@@ -47,9 +49,12 @@ def create_modulemap(
         swift_header_name = "{}/{}-Swift.h".format(module_name, module_name)
         header_map[swift_header_name] = swift_header
 
-    # Create a symlink dir for the headers to import
-    symlink_tree_name = name.replace(".", "_") + "_symlink_tree"
-    symlink_tree = ctx.actions.symlinked_dir(symlink_tree_name, header_map, has_content_based_path = uses_content_based_paths)
+    if use_relative_paths:
+        symlink_tree = None
+    else:
+        # Create a symlink dir for the headers to import
+        symlink_tree_name = name.replace(".", "_") + "_symlink_tree"
+        symlink_tree = ctx.actions.symlinked_dir(symlink_tree_name, header_map, has_content_based_path = uses_content_based_paths)
 
     output = ctx.actions.declare_output(name + ".modulemap", has_content_based_path = uses_content_based_paths)
     cmd = cmd_args(ctx.attrs._apple_tools[AppleToolsInfo].make_modulemap)
@@ -63,7 +68,7 @@ def create_modulemap(
     if swift_header:
         cmd.add(
             "--swift-header",
-            cmd_args(symlink_tree, format = "{}/" + swift_header_name),
+            swift_header if use_relative_paths else cmd_args(symlink_tree, format = "{}/" + swift_header_name),
         )
 
     if getattr(ctx.attrs, "use_submodules", False):
@@ -82,6 +87,12 @@ def create_modulemap(
             # compiled relative to the framework's Headers folder.
             cmd.add(include_path)
             cmd.add(include_path)
+        elif use_relative_paths:
+            # The path to the header artifact is relative to the containing
+            # folder of the modulemap. We can't get the paths in the prelude,
+            # the relativizing is done in the generation tool.
+            cmd.add(include_path)
+            cmd.add(header_map[include_path])
         else:
             # With symlink trees the include path should match the symlink name
             # nested in the symlink tree root.
@@ -90,12 +101,13 @@ def create_modulemap(
 
     ctx.actions.run(cmd, category = "modulemap", identifier = name)
 
-    header_artifacts = header_map.values() + [symlink_tree]
+    header_artifacts = header_map.values()
     modular_args = [cmd_args(output, format = "-fmodule-map-file={}", hidden = header_artifacts)]
-    if not is_framework:
+    if not use_relative_paths and not is_framework:
         # When using relative paths we rely on the hmaps provided by regular
         # cxx preprocessor.
         modular_args.append(cmd_args(symlink_tree, format = "-I{}"))
+        header_artifacts.append(symlink_tree)
 
     return CPreprocessor(
         modular_args = modular_args,

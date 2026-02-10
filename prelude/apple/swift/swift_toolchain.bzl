@@ -25,6 +25,24 @@ def get_swift_toolchain_info_dep(ctx: AnalysisContext) -> Dependency:
     else:
         return ctx.attrs._apple_toolchain
 
+def supports_modulemaps_with_hmaps(ctx: AnalysisContext) -> bool:
+    return get_swift_toolchain_info(ctx).supports_modulemaps_with_hmaps
+
+def include_path_for_relative_module_map_paths(ctx: AnalysisContext) -> list[str]:
+    if supports_modulemaps_with_hmaps(ctx):
+        # modulemap paths are relative to the modulemap file, but the compiler
+        # needs search paths to be able to find the headers themselves. When
+        # EmitClangHeaderWithNonModularIncludes is enabled, we need to be able
+        # to resolve these paths back to something that is in a headermap. The
+        # headermaps contain two forms:
+        #  1. <ModuleName/HeaderName.h>
+        #  2. <repo/relative/path/to/header.h>
+        # We can use the latter in every case by adding the repo root as a
+        # header search path for the ClangImporter when emitting ObjC headers.
+        return ["-Xcc", "-I."]
+    else:
+        return []
+
 def _traverse_sdk_modules_graph(
         swift_sdk_module_name_to_deps: dict[str, Dependency],
         clang_sdk_module_name_to_deps: dict[str, Dependency],

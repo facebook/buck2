@@ -13,6 +13,7 @@ load(
     "make_artifact_tset",
     "project_artifacts",
 )
+load("@prelude//:paths.bzl", "paths")
 load("@prelude//apple:apple_error_handler.bzl", "apple_build_error_handler")
 load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolchainInfo")
 load("@prelude//apple:apple_utility.bzl", "get_disable_pch_validation_flags", "get_module_name")
@@ -25,7 +26,13 @@ load(
     "@prelude//cxx:cxx_sources.bzl",
     "CxxSrcWithFlags",  # @unused Used as a type
 )
-load("@prelude//cxx:headers.bzl", "CHeader")
+load("@prelude//cxx:cxx_utility.bzl", "cxx_attrs_get_allow_cache_upload")
+load(
+    "@prelude//cxx:headers.bzl",
+    "CHeader",
+    "HeaderMode",
+    "prepare_headers",
+)
 load(
     "@prelude//cxx:link_groups.bzl",
     "get_link_group",
@@ -73,7 +80,7 @@ load(
 load(":swift_sdk_flags.bzl", "get_sdk_flags")
 load(":swift_sdk_pcm_compilation.bzl", "get_swift_sdk_pcm_anon_targets")
 load(":swift_swiftinterface_compilation.bzl", "get_swift_interface_anon_targets")
-load(":swift_toolchain.bzl", "get_swift_toolchain_info")
+load(":swift_toolchain.bzl", "get_swift_toolchain_info", "include_path_for_relative_module_map_paths", "supports_modulemaps_with_hmaps")
 load(
     ":swift_toolchain_types.bzl",
     "SwiftCompiledModuleInfo",
@@ -274,12 +281,43 @@ def _get_compiled_underlying_pcm(
         ctx: AnalysisContext,
         module_name: str,
         module_pp_info: CPreprocessor | None,
+        exported_headers: list[CHeader],
         deps_providers: list,
         swift_cxx_flags: list[str],
         framework_search_paths: cmd_args) -> SwiftCompiledModuleInfo | None:
+    if supports_modulemaps_with_hmaps(ctx):
+        # We need to provide a headermap pointing to the exported headers of
+        # this target. Normally this would be passed through from the cxx
+        # layer, but the underlying module compilation happens before the cxx
+        # header map is generated, so we need to create one specifically for
+        # this module.
+        exported_headers_dict = {
+            paths.join(h.namespace, h.name): h.artifact
+            for h in exported_headers
+        }
+        header_map = prepare_headers(
+            ctx.actions,
+            get_cxx_toolchain_info(ctx),
+            exported_headers_dict,
+            "swift-underlying-headers",
+            HeaderMode("header_map_only"),
+            allow_cache_upload = cxx_attrs_get_allow_cache_upload(ctx.attrs),
+        )
+        header_map_args = cmd_args(header_map.include_path, format = "-I{}")
+
+        # We need to collect the preprocessor info from exported_deps for their
+        # header map search paths.
+        preprocessor_info = cxx_merge_cpreprocessors(
+            ctx.actions,
+            [CPreprocessor(args = CPreprocessorArgs(args = [header_map_args]))],
+            cxx_inherited_preprocessor_infos(ctx.attrs.exported_deps),
+        )
+    else:
+        preprocessor_info = None
+
     underlying_swift_pcm_uncompiled_info = get_swift_pcm_uncompile_info(
         ctx,
-        None,
+        preprocessor_info,
         module_pp_info,
     )
     if not underlying_swift_pcm_uncompiled_info:
@@ -326,6 +364,7 @@ def compile_swift(
             ctx,
             module_name,
             exported_objc_modulemap_pp_info,
+            exported_headers,
             deps_providers,
             swift_cxx_flags,
             framework_search_paths,
@@ -546,14 +585,15 @@ def _compile_swiftmodule(
             "-experimental-skip-non-inlinable-function-bodies-without-types",
         ])
 
-    cmd = cmd_args([
+    cmd = cmd_args(
         "-emit-objc-header",
         "-emit-objc-header-path",
         output_header.as_output(),
         "-emit-module",
         "-emit-module-path",
         output_swiftmodule.as_output(),
-    ])
+    )
+    cmd.add(include_path_for_relative_module_map_paths(ctx))
 
     if swift_framework_output:
         argfile_cmd.add([
@@ -1266,9 +1306,17 @@ def get_swift_pcm_uncompile_info(
 
         exported_clang_importer_args = cmd_args()
         if exported_pre:
-            # We need special handling for our own exported_pre, which contains
-            # the header search path flags for the modules header symlink tree.
-            exported_clang_importer_args.add(cmd_args(exported_pre.modular_args, prepend = "-Xcc"))
+            if supports_modulemaps_with_hmaps(ctx):
+                # The cxx preprocessor info will not include the modular args,
+                # so include the required modulemap flags for this target only.
+                # The deps modular args will be included via projections on the
+                # deps SwiftCompiledModuleTsets.
+                clang_importer_args.add(cmd_args(exported_pre.modular_args, prepend = "-Xcc"))
+            else:
+                # We need special handling for our own exported_pre, which
+                # contains the header search path flags for the modules header
+                # symlink tree. This needs to be propagated to rdeps.
+                exported_clang_importer_args.add(cmd_args(exported_pre.modular_args, prepend = "-Xcc"))
 
         return SwiftPCMUncompiledInfo(
             clang_importer_args = clang_importer_args,

@@ -12,7 +12,7 @@ load(
     "@prelude//cxx:cxx_sources.bzl",
     "CxxSrcWithFlags",  # @unused Used as a type
 )
-load(":swift_toolchain.bzl", "get_swift_toolchain_info")
+load(":swift_toolchain.bzl", "get_swift_toolchain_info", "include_path_for_relative_module_map_paths")
 
 _OutputFileMapData = record(
     artifacts = field(list[Artifact]),
@@ -129,7 +129,7 @@ def _get_incremental_compilation_flags_and_objects(
         ],
         hidden = [output.as_output() for output in output_file_map_data.outputs] + extra_hidden,
     )
-
+    cmd.add(include_path_for_relative_module_map_paths(ctx))
     skip_incremental_outputs = _get_skip_swift_incremental_outputs(ctx)
     incremental_remote_outputs = False
     uses_content_based_paths = get_uses_content_based_paths(ctx)
