@@ -87,7 +87,6 @@ def create_jar_artifact_kotlincd(
         jar_postprocessor: [RunInfo, None] = None,
         debug_port: [int, None] = None,
         should_kosabi_jvm_abi_gen_use_k2: bool | None = False,
-        uses_content_based_path_for_jar_snapshot: bool = False,
         enable_depfiles: [bool, None] = True) -> (JavaCompileOutputs, Artifact):
     resources_map = get_resources_map(
         java_toolchain = java_toolchain,
@@ -262,7 +261,7 @@ def create_jar_artifact_kotlincd(
             uses_content_based_paths = uses_content_based_paths,
             kotlin_extra_params_builder = kotlin_extra_params_builder,
         )
-        abi_jar_snapshot = generate_java_classpath_snapshot(actions, java_toolchain.cp_snapshot_generator, ClasspathSnapshotGranularity("CLASS_MEMBER_LEVEL"), classpath_abi, actions_identifier, uses_content_based_path_for_jar_snapshot)
+        abi_jar_snapshot = generate_java_classpath_snapshot(actions, java_toolchain.cp_snapshot_generator, ClasspathSnapshotGranularity("CLASS_MEMBER_LEVEL"), classpath_abi, actions_identifier)
         return make_compile_outputs(
             full_library = final_jar_output.final_jar,
             preprocessed_library = final_jar_output.preprocessed_jar,
@@ -278,7 +277,7 @@ def create_jar_artifact_kotlincd(
             kotlin_classes = kotlin_classes,
         ), proto
     else:
-        full_jar_snapshot = generate_java_classpath_snapshot(actions, java_toolchain.cp_snapshot_generator, ClasspathSnapshotGranularity("CLASS_MEMBER_LEVEL"), final_jar_output.final_jar, actions_identifier, uses_content_based_path_for_jar_snapshot)
+        full_jar_snapshot = generate_java_classpath_snapshot(actions, java_toolchain.cp_snapshot_generator, ClasspathSnapshotGranularity("CLASS_MEMBER_LEVEL"), final_jar_output.final_jar, actions_identifier)
         return make_compile_outputs(
             full_library = final_jar_output.final_jar,
             preprocessed_library = final_jar_output.preprocessed_jar,

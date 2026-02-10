@@ -290,11 +290,6 @@ def _content_based_path_attr():
         # @oss-disable[end= ]: "config//runtime/constraints:android-unit-test": True,
     }))
 
-def _content_based_path_for_jar_snapshot():
-    return {
-        "uses_content_based_path_for_jar_snapshot": _content_based_path_attr(),
-    }
-
 def _kotlincd_content_based_paths():
     return {
         "uses_content_based_paths_for_kotlincd": _content_based_path_attr(),
@@ -341,7 +336,6 @@ jvm_common = struct(
     multi_release_jar = _multi_release_jar,
     should_kosabi_jvm_abi_gen_use_k2 = _should_kosabi_jvm_abi_gen_use_k2,
     classic_java_content_based_paths = _classic_java_content_based_paths,
-    content_based_path_for_jar_snapshot = _content_based_path_for_jar_snapshot,
     kotlincd_content_based_paths = _kotlincd_content_based_paths,
     content_based_path_attr = _content_based_path_attr,
 )

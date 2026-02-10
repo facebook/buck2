@@ -528,7 +528,6 @@ def build_kotlin_library(
                 "source_only_abi_deps": ctx.attrs.source_only_abi_deps,
                 "srcs": srcs,
                 "target_level": target_level,
-                "uses_content_based_path_for_jar_snapshot": getattr(ctx.attrs, "uses_content_based_path_for_jar_snapshot", False),
             }
 
             outputs, proto = create_jar_artifact_kotlincd(

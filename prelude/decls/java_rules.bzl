@@ -292,7 +292,6 @@ java_library = prelude_rule(
         jvm_common.plugins() |
         jvm_common.multi_release_jar() |
         jvm_common.javac() |
-        jvm_common.content_based_path_for_jar_snapshot() |
         jvm_common.classic_java_content_based_paths() |
         {
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
@@ -438,7 +437,7 @@ java_test = prelude_rule(
         buck.licenses_arg() |
         buck.contacts_arg() |
         validation_common.attrs_validators_arg()
-    ) | jvm_common.annotation_processors() | jvm_common.plugins() | jvm_common.javac() | test_common.attributes() | jvm_common.content_based_path_for_jar_snapshot() | jvm_common.classic_java_content_based_paths(),
+    ) | jvm_common.annotation_processors() | jvm_common.plugins() | jvm_common.javac() | test_common.attributes() | jvm_common.classic_java_content_based_paths(),
 )
 
 java_test_runner = prelude_rule(
@@ -541,8 +540,7 @@ prebuilt_jar = prelude_rule(
         } |
         buck.licenses_arg() |
         buck.labels_arg() |
-        buck.contacts_arg() |
-        jvm_common.content_based_path_for_jar_snapshot()
+        buck.contacts_arg()
     ),
 )
 

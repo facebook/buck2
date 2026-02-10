@@ -373,8 +373,7 @@ def generate_java_classpath_snapshot(
         snapshot_generator: Dependency | None,
         granularity: ClasspathSnapshotGranularity,
         library: Artifact,
-        action_identifier: str | None,
-        uses_content_based_path: bool) -> Artifact | None:
+        action_identifier: str | None) -> Artifact | None:
     if not snapshot_generator:
         return None
     identifier = (
@@ -385,7 +384,7 @@ def generate_java_classpath_snapshot(
             identifier,
             "cl" if ClasspathSnapshotGranularity("CLASS_LEVEL") == granularity else "cml",
         ),
-        has_content_based_path = uses_content_based_path,
+        has_content_based_path = True,
     )
     actions.run(
         [

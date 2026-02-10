@@ -55,7 +55,6 @@ def prebuilt_jar_impl(ctx: AnalysisContext) -> list[Provider]:
         ClasspathSnapshotGranularity("CLASS_LEVEL"),
         abi or output,
         "",
-        ctx.attrs.uses_content_based_path_for_jar_snapshot,
     )
 
     library_output_classpath_entry = JavaClasspathEntry(

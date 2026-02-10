@@ -444,8 +444,7 @@ android_build_config = prelude_rule(
         } |
         buck.licenses_arg() |
         buck.labels_arg() |
-        buck.contacts_arg() |
-        jvm_common.content_based_path_for_jar_snapshot()
+        buck.contacts_arg()
     ),
 )
 
@@ -705,7 +704,6 @@ android_library = prelude_rule(
                 jvm_common.kotlincd_content_based_paths() |
                 jvm_common.javac() |
                 jvm_common.enable_used_classes() |
-                jvm_common.content_based_path_for_jar_snapshot() |
                 jvm_common.classic_java_content_based_paths() |
                 {
                     "remove_classes": attrs.list(attrs.regex(), default = [], doc = """
@@ -883,7 +881,6 @@ android_prebuilt_aar = prelude_rule(
             "maven_coords": attrs.option(attrs.string(), default = None),
             "required_for_source_only_abi": attrs.bool(default = False),
         } |
-        jvm_common.content_based_path_for_jar_snapshot() |
         jvm_common.classic_java_content_based_paths() |
         buck.licenses_arg() |
         buck.labels_arg() |
