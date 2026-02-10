@@ -102,6 +102,7 @@ load(
 )
 load(
     "@prelude//utils:utils.bzl",
+    "flatten",
     "flatten_dict",
     "map_val",
 )
@@ -149,6 +150,7 @@ load(
     "CxxRuleConstructorParams",  # @unused Used as a type
 )
 load(":diagnostics.bzl", "check_sub_target")
+load(":gcno.bzl", "GcnoFilesInfo")
 load(":groups.bzl", "get_dedupped_roots_from_groups")
 load(
     ":link.bzl",
@@ -229,6 +231,7 @@ CxxExecutableOutput = record(
     sanitizer_runtime_files = field(list[Artifact], []),
     index_stores = field(list[Artifact], []),
     validation_specs = field(list[ValidationSpec], []),
+    gcno_files = field(list[Artifact], []),
 )
 
 def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, is_cxx_test: bool = False) -> CxxExecutableOutput:
@@ -283,6 +286,14 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
         use_header_units = impl_params.use_header_units,
         cuda_compile_style = impl_params.cuda_compile_style,
     )
+
+    gcno_files = [out.gcno_file for out in cxx_outs if out.gcno_file]
+    if get_cxx_toolchain_info(ctx).gcno_files:
+        gcno_files += flatten([
+            dep[GcnoFilesInfo].gcno_files
+            for dep in cxx_deps
+            if GcnoFilesInfo in dep
+        ])
 
     sub_targets[ARGSFILES_SUBTARGET] = [get_argsfiles_output(ctx, compile_cmd_output.argsfiles.relative, ARGSFILES_SUBTARGET)]
     sub_targets[XCODE_ARGSFILES_SUB_TARGET] = [get_argsfiles_output(ctx, compile_cmd_output.argsfiles.xcode, XCODE_ARGSFILES_SUB_TARGET)]
@@ -935,6 +946,7 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
         index_stores = index_stores,
         diagnostics = all_diagnostics,
         validation_specs = get_attrs_validation_specs(ctx),
+        gcno_files = dedupe(gcno_files),
     )
 
 _CxxLinkExecutableResult = record(

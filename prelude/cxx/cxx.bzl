@@ -124,6 +124,7 @@ load(
     "CxxRuleProviderParams",
     "CxxRuleSubTargetParams",
 )
+load(":gcno.bzl", "GcnoFilesInfo")
 load(
     ":groups_types.bzl",
     "Group",
@@ -328,6 +329,9 @@ def cxx_binary_impl(ctx: AnalysisContext) -> list[Provider]:
         extra_providers.append(CxxSanitizerRuntimeInfo(runtime_files = output.sanitizer_runtime_files))
     if output.validation_specs:
         extra_providers.append(ValidationInfo(validations = output.validation_specs))
+
+    if get_cxx_toolchain_info(ctx).gcno_files and output.gcno_files:
+        extra_providers.append(GcnoFilesInfo(gcno_files = output.gcno_files))
 
     # Unix env provider.
     extra_providers.append(
@@ -1006,6 +1010,9 @@ def cxx_test_impl(ctx: AnalysisContext) -> list[Provider]:
     ))
     if output.validation_specs:
         providers.append(ValidationInfo(validations = output.validation_specs))
+
+    if get_cxx_toolchain_info(ctx).gcno_files and output.gcno_files:
+        providers.append(GcnoFilesInfo(gcno_files = output.gcno_files))
 
     return providers
 
