@@ -97,8 +97,11 @@ def get_incremental_remote_outputs_enabled(ctx: AnalysisContext):
     return getattr(ctx.attrs, "incremental_remote_outputs", False)
 
 def get_uses_content_based_paths(ctx):
+    if getattr(ctx.attrs, "has_content_based_path", None) != None:
+        return ctx.attrs.has_content_based_path
+
     toolchain = get_swift_toolchain_info(ctx)
-    return toolchain.uses_content_based_paths or getattr(ctx.attrs, "has_content_based_path", False)
+    return toolchain.uses_content_based_paths
 
 def _get_incremental_compilation_flags_and_objects(
         ctx: AnalysisContext,
