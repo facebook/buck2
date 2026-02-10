@@ -219,7 +219,45 @@ def _parse_args():
         required=True,
         help="tool for scrubbing timestamps from zip files to produce deterministic output",
     )
+    parser.add_argument(
+        "--jdk_locator",
+        type=pathlib.Path,
+        required=False,
+        metavar="jdk_locator",
+        help="Path to Python script that extracts JAVA_HOME from javac binary",
+    )
+    parser.add_argument(
+        "--java_binary",
+        type=pathlib.Path,
+        required=False,
+        metavar="java_binary",
+        help="Path to java or javac binary for JDK home derivation",
+    )
     return parser.parse_args()
+
+
+def _get_jdk_home(jdk_locator: pathlib.Path, java_binary: pathlib.Path) -> str:
+    """Get JDK home by invoking jdk_locator with java binary."""
+    try:
+        if (
+            jdk_locator
+            and java_binary
+            and jdk_locator.exists()
+            and java_binary.exists()
+        ):
+            result = subprocess.run(
+                [str(jdk_locator), str(java_binary)],
+                capture_output=True,
+                text=True,
+                check=True,
+            )
+            java_home = result.stdout.strip()
+            if java_home and os.path.isdir(java_home):
+                return java_home
+            utils.log_message("jdk_locator returned invalid path: {}".format(java_home))
+    except Exception as e:
+        utils.log_message("Failed to get JDK home from jdk_locator: {}".format(e))
+    return None
 
 
 def _run_kotlinc(
@@ -229,6 +267,8 @@ def _run_kotlinc(
     ksp_cmd: List[str],
     kapt_cmd: List[str],
     temp_dir: TemporaryDirectory,
+    java_binary: pathlib.Path = None,
+    jdk_locator: pathlib.Path = None,
 ) -> pathlib.Path:
     kotlinc_cmd = []
 
@@ -247,6 +287,12 @@ def _run_kotlinc(
 
         kotlinc_cmd += ksp_cmd
         kotlinc_cmd += kapt_cmd
+
+        # Derive JAVA_HOME using jdk_locator + java_binary
+        jdk_home = _get_jdk_home(jdk_locator, java_binary)
+        if jdk_home:
+            utils.log_message("Derived JAVA_HOME from jdk_locator: {}".format(jdk_home))
+            kotlinc_cmd += ["-jdk-home", jdk_home]
 
         if kotlinc_output:
             kotlinc_cmd += ["-d", kotlinc_output]
@@ -454,6 +500,8 @@ def main():
     ksp_zipped_sources_output = args.ksp_zipped_sources_output
     ksp_generated_classes_and_resources = args.ksp_generated_classes_and_resources
     zip_scrubber = args.zip_scrubber
+    jdk_locator = args.jdk_locator
+    java_binary = args.java_binary
 
     utils.log_message("output: {}".format(output_path))
     utils.log_message("kotlinc_cmd_file: {}".format(kotlinc_cmd_file))
@@ -498,6 +546,8 @@ def main():
         )
     )
     utils.log_message("zip_scrubber: {}".format(zip_scrubber))
+    utils.log_message("jdk_locator: {}".format(jdk_locator))
+    utils.log_message("java_binary: {}".format(java_binary))
 
     if (
         kapt_annotation_processing_jar
@@ -570,6 +620,8 @@ def main():
             ksp_cmd,
             kapt_cmd,
             temp_dir,
+            java_binary,
+            jdk_locator,
         )
 
     if ksp_sources_output:
