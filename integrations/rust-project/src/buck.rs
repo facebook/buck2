@@ -608,7 +608,19 @@ impl Buck {
             "--targets",
         ]);
         command.args(targets);
-        deserialize_file_output(command.output(), &command)
+
+        let mut res: ExpandedAndResolved = deserialize_file_output(command.output(), &command)?;
+
+        res.expanded_targets = res
+            .expanded_targets
+            .into_iter()
+            .collect::<FxHashSet<_>>()
+            .into_iter()
+            .collect::<Vec<_>>();
+
+        res.expanded_targets.sort();
+
+        Ok(res)
     }
 
     /// Given a list of `targets`, find all the aliases in their transitive dependencies, and
@@ -624,10 +636,14 @@ impl Buck {
         // Recursively expand aliases until we find a target that isn't an alias, or
         // we've queried buck 5 times.
         for _ in 0..5 {
-            let alias_destinations = alias_map
+            let mut alias_destinations = alias_map
                 .values()
                 .map(|info| info.actual.clone())
+                .collect::<FxHashSet<_>>()
+                .into_iter()
                 .collect::<Vec<_>>();
+
+            alias_destinations.sort();
 
             let new_aliases =
                 match self.query_aliased_targets(&alias_destinations, &universe_targets) {
