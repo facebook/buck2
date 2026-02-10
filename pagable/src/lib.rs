@@ -13,6 +13,7 @@
 //! The main traits for types to implement are:
 //! - [`PagableSerialize`] - implemented by types that can be serialized
 //! - [`PagableDeserialize`] - implemented by types that can be deserialized
+//! - [`PagableDeserializeOwned`] - implemented by types that can be deserialized from any lifetime
 //! - [`Pagable`] - a convenience trait combining both PagableSerialize and PagableDeserialize with `Send + Sync + Debug`
 //!
 //! Implementations can use the derive macros `#[derive(Pagable)]` (which will derive both serialize and deserialize), `#[derive(PagableSerialize)]`,
@@ -40,6 +41,7 @@ pub mod typetag;
 pub use traits::Pagable;
 pub use traits::PagableBoxDeserialize;
 pub use traits::PagableDeserialize;
+pub use traits::PagableDeserializeOwned;
 pub use traits::PagableDeserializer;
 pub use traits::PagableEagerDeserialize;
 pub use traits::PagableEagerSerialize;

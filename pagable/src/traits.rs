@@ -14,6 +14,7 @@
 //!
 //! - [`Pagable`] - convenience trait combining serialization and deserialization
 //! - [`PagableSerialize`] / [`PagableDeserialize`] - traits for types that can be serialized/deserialized
+//! - [`PagableDeserializeOwned`] - trait for types that can be deserialized from any lifetime
 //! - [`PagableSerializer`] / [`PagableDeserializer`] - traits for serializer/deserializer implementations
 
 use std::any::TypeId;
@@ -79,6 +80,14 @@ pub trait PagableDeserialize<'de>: Sized {
         deserializer: &mut D,
     ) -> crate::Result<Self>;
 }
+
+/// Trait for types that can be deserialized from any lifetime.
+///
+/// This is analogous to serde's `DeserializeOwned` trait. It is automatically
+/// implemented for any type that implements `PagableDeserialize<'de>` for all
+/// lifetimes `'de`.
+pub trait PagableDeserializeOwned: for<'de> PagableDeserialize<'de> {}
+impl<T> PagableDeserializeOwned for T where T: for<'de> PagableDeserialize<'de> {}
 
 /// Trait for types that can be deserialized into a [`Box<Self>`].
 ///
