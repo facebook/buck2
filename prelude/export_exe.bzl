@@ -16,8 +16,8 @@ def _export_exe_impl(ctx: AnalysisContext) -> list[Provider]:
     src = ctx.attrs.src if ctx.attrs.src else ctx.attrs.exe
 
     providers = []
-    providers.append(DefaultInfo())
-    providers.append(RunInfo(args = cmd_args(src)))
+    providers.append(DefaultInfo(other_outputs = ctx.attrs.resources))
+    providers.append(RunInfo(args = cmd_args(src, hidden = ctx.attrs.resources)))
 
     if ctx.attrs.src != None:
         providers.append(
@@ -98,10 +98,32 @@ _export_exe = rule(
         name = "compiler",
         exe = "$(location :bin)/compiler",
     )
+
+    To ensure additional resources are materialized in Remote Execution (e.g., internal
+    compiler components that the executable invokes), use the `resources` parameter:
+
+    export_file(
+        name = "bin",
+        src = "bin",
+        mode = "reference",
+    )
+
+    export_file(
+        name = "libexec",
+        src = "libexec",
+        mode = "reference",
+    )
+
+    export_exe(
+        name = "compiler",
+        exe = "$(location :bin)/compiler",
+        resources = [":bin", ":libexec"],
+    )
     """,
     impl = _export_exe_impl,
     attrs = {
         "exe": attrs.option(attrs.arg(), default = None, doc = "arg which should evaluate to a path to an executable binary"),
+        "resources": attrs.list(attrs.source(), default = [], doc = "Additional artifacts to materialize alongside the executable (for Remote Execution)"),
         "src": attrs.option(attrs.source(), default = None, doc = "path to an executable binary relative to this package"),
     },
 )
