@@ -561,3 +561,73 @@ class TestSelection(unittest.TestCase):
             diagnostic_info,
             "Expected entitlement item key `com.made.up.entitlement` with value `buck` not found in provisioning profile.",
         )
+
+    def test_wildcard_app_entitlement_matches_any_value(self):
+        info_plist = InfoPlistMetadata("com.facebook.test", None, False)
+        identity = CodeSigningIdentity(
+            "fingerprint",
+            "name",
+        )
+        profile = ProvisioningProfileMetadata(
+            Path("/foo"),
+            "00000000-0000-0000-0000-000000000000",
+            datetime.max,
+            {"iOS"},
+            {identity.fingerprint},
+            {
+                "application-identifier": "AAAAAAAAAA.com.facebook.test",
+                "keychain-access-groups": ["AAAAAAAAAA.*"],
+                "aps-environment": "production",
+                "com.apple.security.hardened-process.enhanced-security-version": "*",
+                "com.apple.security.hardened-process.platform-restrictions": "*",
+            },
+        )
+        selected, _ = select_best_provisioning_profile(
+            info_plist,
+            [identity],
+            [profile],
+            {
+                "com.apple.security.hardened-process.enhanced-security-version": "1",
+                "com.apple.security.hardened-process.platform-restrictions": "2",
+            },
+            ApplePlatform.ios_device,
+            False,
+            None,
+        )
+        self.assertEqual(selected, SelectedProvisioningProfileInfo(profile, identity))
+
+    def test_unmatched_wildcard_app_entitlement(self):
+        info_plist = InfoPlistMetadata("com.facebook.test", None, False)
+        identity = CodeSigningIdentity(
+            "fingerprint",
+            "name",
+        )
+        profile = ProvisioningProfileMetadata(
+            Path("/foo"),
+            "00000000-0000-0000-0000-000000000000",
+            datetime.max,
+            {"iOS"},
+            {identity.fingerprint},
+            {
+                "application-identifier": "AAAAAAAAAA.com.facebook.test",
+                "keychain-access-groups": ["AAAAAAAAAA.*"],
+                "aps-environment": "production",
+            },
+        )
+        selected, diagnostic_info = select_best_provisioning_profile(
+            info_plist,
+            [identity],
+            [profile],
+            {
+                "com.apple.security.hardened-process.enhanced-security-version": "1",
+                "com.apple.security.hardened-process.platform-restrictions": "2",
+            },
+            ApplePlatform.ios_device,
+            False,
+            None,
+        )
+        self.assertIsNone(selected)
+        self.verify_diagnostic_info_candidate_profile(
+            diagnostic_info,
+            "Expected entitlement item key `com.apple.security.hardened-process.enhanced-security-version` with value `1` not found in provisioning profile.",
+        )

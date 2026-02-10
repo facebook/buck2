@@ -56,6 +56,9 @@ def _matches_or_array_is_subset_of(
 ) -> bool:
     if expected_value is None:
         return actual_value is None
+    if actual_value == "*":
+        # Certain entitlements have a wildcard value, which means any value is allowed.
+        return True
     if (
         actual_value is None
         and platform.is_desktop()
