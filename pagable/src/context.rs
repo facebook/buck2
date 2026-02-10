@@ -138,4 +138,8 @@ impl<'de, 's> PagableDeserializer<'de> for PagableDeserializerImpl<'de, 's> {
     fn storage(&self) -> PagableStorageHandle {
         self.storage.clone()
     }
+
+    fn as_dyn(&mut self) -> &mut dyn PagableDeserializer<'de> {
+        self
+    }
 }

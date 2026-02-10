@@ -169,6 +169,12 @@ pub trait PagableDeserializer<'de> {
     /// This allows deserializers to create [`PagableArc`](crate::PagableArc) instances
     /// that are connected to the appropriate storage backend for future paging.
     fn storage(&self) -> PagableStorageHandle;
+
+    /// Returns this deserializer as a trait object.
+    ///
+    /// This is useful when you need to pass the deserializer to code that
+    /// works with `dyn PagableDeserializer` rather than generic types.
+    fn as_dyn(&mut self) -> &mut dyn PagableDeserializer<'de>;
 }
 
 static_assertions::assert_obj_safe!(PagableDeserializer<'_>);
@@ -190,6 +196,10 @@ impl<'de, D: PagableDeserializer<'de> + ?Sized> PagableDeserializer<'de> for &mu
 
     fn storage(&self) -> PagableStorageHandle {
         <D as PagableDeserializer<'de>>::storage(self)
+    }
+
+    fn as_dyn(&mut self) -> &mut dyn PagableDeserializer<'de> {
+        self
     }
 }
 

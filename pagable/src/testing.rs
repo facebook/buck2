@@ -161,6 +161,10 @@ impl<'de> PagableDeserializer<'de> for TestingDeserializer<'de> {
     fn storage(&self) -> PagableStorageHandle {
         self.storage.clone()
     }
+
+    fn as_dyn(&mut self) -> &mut dyn crate::traits::PagableDeserializer<'de> {
+        self
+    }
 }
 
 pub(crate) struct EmptyPagableStorage;
