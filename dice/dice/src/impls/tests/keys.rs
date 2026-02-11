@@ -89,6 +89,7 @@ async fn concurrent_identical_requests_are_deduped() -> anyhow::Result<()> {
     Ok(())
 }
 
+#[cfg(fbcode_build)]
 #[test]
 fn different_requests_are_spawned_in_parallel() -> anyhow::Result<()> {
     let n_thread = 10usize;

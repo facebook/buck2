@@ -9,6 +9,7 @@
  */
 
 use std::sync::Arc;
+#[cfg(fbcode_build)]
 use std::sync::Barrier;
 use std::sync::Mutex;
 use std::sync::atomic::AtomicBool;
@@ -133,6 +134,7 @@ async fn set_injected_with_no_change_no_new_ctx() -> anyhow::Result<()> {
     Ok(())
 }
 
+#[cfg(fbcode_build)]
 #[test]
 fn dice_computations_are_parallel() {
     let n_thread = 10;
