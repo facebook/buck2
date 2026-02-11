@@ -869,6 +869,35 @@ def _cxx_dynamic_compile(
         dist_cuda: list[None | (OutputArtifact, OutputArtifact, OutputArtifact)],
         pch_object: list[OutputArtifact | None],
         json_error: list[OutputArtifact | None]) -> list[Provider]:
+    """
+    DYNAMIC ACTION CALLBACK: The bridge between declaration and execution phases.
+
+    This function is the implementation for Buck2's `dynamic_output_new` API. It runs
+    LAZILY—only when Buck2 determines that one or more of the declared outputs are
+    actually needed by the build. This is the key to memory optimization: action
+    graphs are not materialized until necessary.
+
+    ## How This Fits
+    ```
+    compile_cxx()                          # ANALYSIS PHASE
+        │
+        ├─► for each source file:
+        │       _prepare_cxx_compilation() # Declares outputs (Artifact)
+        │       collect declared artifacts
+        │
+        └─► actions.dynamic_output_new()   # Registers this callback
+                    │
+                    ▼
+            _cxx_dynamic_compile()         # EXECUTION PHASE (called lazily)
+                    │
+                    └─► for each source:
+                            _compile_single_cxx()  # Creates actual actions
+    ```
+
+    ## Why Batched Dynamic Actions?
+    All source files are compiled in a single `dynamic_output_new` call rather than
+    one per source file.
+    """
     flavors_set = set(flavors)
     for i in range(len(infos)):
         _compile_single_cxx(
