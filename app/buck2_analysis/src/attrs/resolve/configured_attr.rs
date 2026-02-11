@@ -191,25 +191,25 @@ fn configured_attr_to_value<'v>(
         ConfiguredAttr::Int(v) => heap.alloc(*v),
         ConfiguredAttr::String(s) | ConfiguredAttr::EnumVariant(s) => heap.alloc(s.as_str()),
         ConfiguredAttr::List(list) => {
-            heap.alloc(list.try_map(|v| configured_attr_to_value(&v, pkg, heap))?)
+            heap.alloc(list.try_map(|v| configured_attr_to_value(v, pkg, heap))?)
         }
         ConfiguredAttr::Tuple(v) => heap.alloc(AllocTuple(
-            v.try_map(|v| configured_attr_to_value(&v, pkg, heap))?,
+            v.try_map(|v| configured_attr_to_value(v, pkg, heap))?,
         )),
         ConfiguredAttr::Dict(map) => {
             let mut res = SmallMap::with_capacity(map.len());
 
             for (k, v) in map.iter() {
                 res.insert_hashed(
-                    configured_attr_to_value(&k, pkg, heap)?.get_hashed()?,
-                    configured_attr_to_value(&v, pkg, heap)?,
+                    configured_attr_to_value(k, pkg, heap)?.get_hashed()?,
+                    configured_attr_to_value(v, pkg, heap)?,
                 );
             }
 
             heap.alloc(Dict::new(res))
         }
         ConfiguredAttr::None => Value::new_none(),
-        ConfiguredAttr::OneOf(box l, _) => configured_attr_to_value(&l, pkg, heap)?,
+        ConfiguredAttr::OneOf(box l, _) => configured_attr_to_value(l, pkg, heap)?,
         ConfiguredAttr::Visibility(VisibilitySpecification(specs))
         | ConfiguredAttr::WithinView(WithinViewSpecification(specs)) => match specs {
             VisibilityPatternList::Public => heap.alloc(AllocList(["PUBLIC"])),

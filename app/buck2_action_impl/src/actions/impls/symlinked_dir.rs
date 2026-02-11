@@ -270,7 +270,7 @@ impl Action for SymlinkedDirAction {
             };
         }
 
-        let value = builder.build(&temp_output.as_ref())?;
+        let value = builder.build(temp_output.as_ref())?;
         let actual_output = ctx.fs().resolve_build(
             self.output().get_path(),
             if self.output().get_path().is_content_based_path() {

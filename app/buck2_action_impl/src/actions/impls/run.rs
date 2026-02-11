@@ -835,7 +835,7 @@ impl RunAction {
             if output.get_path().is_content_based_path() {
                 let full_path = cli_ctx
                     .resolve_project_path(fs.buck_out_path_resolver().resolve_gen(
-                        &output.get_path(),
+                        output.get_path(),
                         Some(&ContentBasedPathHash::for_output_artifact()),
                     )?)?
                     .into_string();

@@ -225,7 +225,7 @@ pub async fn get_loaded_module(
 ) -> buck2_error::Result<LoadedModule> {
     let module = match &func.path {
         BzlOrBxlPath::Bxl(bxl_file_path) => {
-            let module_path = StarlarkModulePath::BxlFile(&bxl_file_path);
+            let module_path = StarlarkModulePath::BxlFile(bxl_file_path);
             ctx.get_loaded_module(module_path).await?
         }
         BzlOrBxlPath::Bzl(import_path) => {

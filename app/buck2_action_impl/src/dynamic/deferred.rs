@@ -324,7 +324,7 @@ async fn execute_lambda(
                         lambda,
                         &self_key,
                         resolved_dynamic_values,
-                        ensured_artifacts,
+                        &ensured_artifacts,
                         input_artifacts_materialized,
                         digest_config,
                         &artifact_fs,
@@ -607,7 +607,7 @@ fn new_attr_value<'v>(
         }
         DynamicAttrValue::ArtifactValue(artifact) => {
             let path = artifact.get_path().resolve(
-                &artifact_fs,
+                artifact_fs,
                 if artifact.has_content_based_path() {
                     Some(
                         ensured_artifacts

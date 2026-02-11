@@ -293,7 +293,7 @@ async fn run_analysis_with_env_underlying(
                 dice.global_data().get_digest_config(),
             );
 
-            let list_res = analysis_env.rule_spec.invoke(&mut eval, ctx)?;
+            let list_res = analysis_env.rule_spec.invoke(eval, ctx)?;
 
             Ok((ctx, list_res))
         })?;

@@ -314,7 +314,7 @@ impl ParsedArgv {
         let expanded_args = self.argv.expanded_argv.clone();
         self.opt.exec(
             process,
-            &immediate_config,
+            immediate_config,
             BuckArgMatches::from_clap(&self.matches, &expanded_args),
             self.argv,
         )
@@ -460,7 +460,7 @@ impl CommandKind {
             let v = buck2_daemon::no_buckd::start_in_process_daemon(
                 immediate_config.daemon_startup_config()?,
                 paths.clone().get_result()?,
-                &runtime,
+                runtime,
             )?;
             #[cfg(client_only)]
             let v = unreachable!(); // case covered above
@@ -482,7 +482,7 @@ impl CommandKind {
             trace_id.dupe(),
             &mut shared.stdin,
             &mut shared.restarter,
-            &runtime,
+            runtime,
             common_opts.oncall,
             common_opts.client_metadata,
             common_opts.isolation_dir,

@@ -198,7 +198,7 @@ impl AnonTargetDyn for AnonTarget {
 
         // No attributes are allowed to contain macros or other stuff, so an empty resolution context works
         let rule_analysis_attr_resolution_ctx = RuleAnalysisAttrResolutionContext {
-            module: &env,
+            module: env,
             dep_analysis_results,
             query_results: HashMap::new(),
             execution_platform_resolution: exec_resolution,
