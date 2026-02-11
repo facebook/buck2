@@ -218,40 +218,52 @@ impl CleanStaleArtifactsCommand {
         liveliness_observer: Arc<dyn LivelinessObserverSync>,
     ) -> buck2_error::Result<PendingCleanResult> {
         let start_time = Instant::now();
-        let gen_path = io
-            .buck_out_path()
-            .join(ProjectRelativePathBuf::unchecked_new("gen".to_owned()));
-        let gen_dir = io.fs().resolve(&gen_path);
-        if !fs_util::try_exists(&gen_dir)? {
+
+        let mut artifact_dirs = Vec::new();
+        for dir_name in &["gen", "art"] {
+            let dir_path = io
+                .buck_out_path()
+                .join(ProjectRelativePathBuf::unchecked_new(dir_name.to_string()));
+            let dir_abs = io.fs().resolve(&dir_path);
+            if fs_util::try_exists(&dir_abs)? {
+                artifact_dirs.push(dir_path);
+            }
+        }
+        if artifact_dirs.is_empty() {
             return Ok(CleanStaleResultKind::SkippedNoGenDir.into());
         }
-        tracing::trace!(gen_dir = %gen_dir, "Scanning");
 
         let mut found_paths = Vec::new();
         if self.tracked_only {
             find_stale_tracked_only(tree, self.keep_since_time, &mut found_paths)?
         } else {
-            let gen_subtree = tree
-                .get_subtree(&mut gen_path.iter())
-                .buck_error_context("Found a file where gen dir expected")?;
+            for dir_path in &artifact_dirs {
+                tracing::trace!(dir = %io.fs().resolve(dir_path), "Scanning");
 
-            let empty;
+                let dir_subtree = tree
+                    .get_subtree(&mut dir_path.iter())
+                    .with_buck_error_context(|| {
+                        format!("Found a file where directory was expected: {}", dir_path)
+                    })?;
 
-            let gen_subtree = match gen_subtree {
-                Some(t) => t,
-                None => {
-                    empty = HashMap::new();
-                    &empty
+                let empty;
+
+                let dir_subtree = match dir_subtree {
+                    Some(t) => t,
+                    None => {
+                        empty = HashMap::new();
+                        &empty
+                    }
+                };
+
+                StaleFinder {
+                    io: io.dupe(),
+                    keep_since_time: self.keep_since_time,
+                    found_paths: &mut found_paths,
+                    liveliness_observer: liveliness_observer.clone(),
                 }
-            };
-
-            StaleFinder {
-                io: io.dupe(),
-                keep_since_time: self.keep_since_time,
-                found_paths: &mut found_paths,
-                liveliness_observer: liveliness_observer.clone(),
+                .visit_recursively(dir_path.clone(), dir_subtree)?;
             }
-            .visit_recursively(gen_path, gen_subtree)?;
         };
 
         let mut stats = stats_for_paths(&found_paths);
