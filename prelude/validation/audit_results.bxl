@@ -14,17 +14,34 @@ def _impl(ctx: bxl.Context):
     else:
         targets = ctx.cli_args.targets
 
+    results = ctx.lazy.join_all([
+        ctx.lazy.configured_target_node(target, modifiers = ctx.modifiers).catch()
+        for target in targets
+    ]).resolve()
+
+    analysis_promises = []
+    for result in results:
+        if not result.is_ok():
+            continue
+        analysis_promises.append(ctx.lazy.analysis(result.unwrap()).catch())
+
     info = {}
-    for target, analysis_result in ctx.analysis(ctx.configured_targets(targets, modifiers = ctx.modifiers)).items():
-        providers = analysis_result.providers()
+    for analysis_result in ctx.lazy.join_all(analysis_promises).resolve():
+        if not analysis_result.is_ok():
+            continue
+
+        providers = analysis_result.unwrap().providers()
         validation_info = providers.get(ValidationInfo)
         if not validation_info:
             if not ctx.cli_args.trim:
-                info[target] = {}
+                info[analysis_result.unwrap().as_dependency().label] = {}
             continue
 
         spec_name_to_path = {}
         for spec in validation_info.validations:
+            if ctx.cli_args.take and spec.name not in ctx.cli_args.take:
+                continue
+
             # Yes, I'm aware this is suboptimal. When running this script on
             # large targets are Meta, there is no discernable regression to performance.
             #
@@ -32,7 +49,8 @@ def _impl(ctx: bxl.Context):
             o = ctx.output.ensure(spec.validation_result)
             spec_name_to_path[spec.name] = o.abs_path()
 
-        info[target] = spec_name_to_path
+        if spec_name_to_path or not ctx.cli_args.trim:
+            info[analysis_result.unwrap().as_dependency().label] = spec_name_to_path
 
     # We chose to print to stdout because we run into an issue with
     # the ctx.bxl_actions().actions.write_json() API
@@ -57,6 +75,8 @@ def _impl(ctx: bxl.Context):
 main = bxl_main(
     impl = _impl,
     cli_args = {
+        # Filter specific validation specs.
+        "take": cli_args.list(cli_args.string(), default = []),
         "targets": cli_args.target_expr(),
         "transitive": cli_args.bool(False),
         "trim": cli_args.bool(
