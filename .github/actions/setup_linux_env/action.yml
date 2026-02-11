@@ -3,6 +3,9 @@ description: Setup Linux environment
 runs:
   using: composite
   steps:
+  - uses: actions/setup-node@v6
+    with:
+      node-version: 24
   - uses: SebRollen/toml-action@v1.2.0
     id: read_rust_toolchain
     with:
