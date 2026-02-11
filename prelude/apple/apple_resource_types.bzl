@@ -14,6 +14,7 @@ load(":scene_kit_assets_types.bzl", "SceneKitAssetsSpec")
 # Represents the values for the `destination` field of `apple_resource`
 AppleResourceDestination = enum(
     "executables",
+    "extensionkit_extensions",
     "frameworks",
     "loginitems",
     "plugins",
