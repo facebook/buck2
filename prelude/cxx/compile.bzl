@@ -845,6 +845,90 @@ def build_flavor_flags(flavor_flags: dict[str, list[str]], compiler_type: str) -
 
     return flavor_flags
 
+def _cxx_dynamic_compile(
+        actions: AnalysisActions,
+        label: Label,
+        toolchain: CxxToolchainInfo,
+        bitcode_args: list[str],
+        flavors: list[CxxCompileFlavor],
+        use_header_units: bool,
+        precompiled_header: Dependency | None,
+        compile_pch: CxxPrecompiledHeader | None,
+        cuda_compile_style: CudaCompileStyle | None,
+        infos: list[CxxCompileInfo],
+        object: list[OutputArtifact],
+        external_debug_info: list[OutputArtifact | None],
+        clang_remarks: list[OutputArtifact | None],
+        clang_llvm_statistics: list[OutputArtifact | None],
+        clang_trace: list[OutputArtifact | None],
+        gcno_file: list[OutputArtifact | None],
+        assembly: list[OutputArtifact | None],
+        diagnostics: list[OutputArtifact | None],
+        preproc: list[OutputArtifact],
+        index_store: list[OutputArtifact | None],
+        dist_cuda: list[None | (OutputArtifact, OutputArtifact, OutputArtifact)],
+        pch_object: list[OutputArtifact | None],
+        json_error: list[OutputArtifact | None]) -> list[Provider]:
+    flavors_set = set(flavors)
+    for i in range(len(infos)):
+        _compile_single_cxx(
+            actions = actions,
+            label = label,
+            toolchain = toolchain,
+            bitcode_args = bitcode_args,
+            flavors = flavors_set,
+            compile_pch = compile_pch,
+            precompiled_header = precompiled_header,
+            cuda_compile_style = cuda_compile_style,
+            use_header_units = use_header_units,
+            info = infos[i],
+            object = object[i],
+            external_debug_info = external_debug_info[i],
+            clang_remarks = clang_remarks[i],
+            clang_llvm_statistics = clang_llvm_statistics[i],
+            clang_trace = clang_trace[i],
+            gcno_file = gcno_file[i],
+            assembly = assembly[i],
+            diagnostics = diagnostics[i],
+            preproc = preproc[i],
+            index_store = index_store[i],
+            dist_cuda = dist_cuda[i],
+            pch_object = pch_object[i],
+            json_error = json_error[i],
+        )
+
+    return [DefaultInfo()]
+
+# https://buck2.build/docs/api/build/AnalysisActions/#analysisactionsdynamic_output_new
+# Dynamic actions factory for batch CXX compilation
+_dynamic_compile_rule = dynamic_actions(
+    impl = _cxx_dynamic_compile,
+    attrs = {
+        "assembly": dynattrs.list(dynattrs.option(dynattrs.output())),
+        "bitcode_args": dynattrs.list(dynattrs.value(str)),
+        "clang_llvm_statistics": dynattrs.list(dynattrs.option(dynattrs.output())),
+        "clang_remarks": dynattrs.list(dynattrs.option(dynattrs.output())),
+        "clang_trace": dynattrs.list(dynattrs.option(dynattrs.output())),
+        "compile_pch": dynattrs.option(dynattrs.value(CxxPrecompiledHeader)),
+        "cuda_compile_style": dynattrs.option(dynattrs.value(CudaCompileStyle)),
+        "diagnostics": dynattrs.list(dynattrs.option(dynattrs.output())),
+        "dist_cuda": dynattrs.list(dynattrs.option(dynattrs.tuple(dynattrs.output(), dynattrs.output(), dynattrs.output()))),
+        "external_debug_info": dynattrs.list(dynattrs.option(dynattrs.output())),
+        "flavors": dynattrs.list(dynattrs.value(CxxCompileFlavor)),
+        "gcno_file": dynattrs.list(dynattrs.option(dynattrs.output())),
+        "index_store": dynattrs.list(dynattrs.option(dynattrs.output())),
+        "infos": dynattrs.list(dynattrs.value(CxxCompileInfo)),
+        "json_error": dynattrs.list(dynattrs.option(dynattrs.output())),
+        "label": dynattrs.value(Label),
+        "object": dynattrs.list(dynattrs.output()),
+        "pch_object": dynattrs.list(dynattrs.option(dynattrs.output())),
+        "precompiled_header": dynattrs.option(dynattrs.value(Dependency)),
+        "preproc": dynattrs.list(dynattrs.output()),
+        "toolchain": dynattrs.value(CxxToolchainInfo),
+        "use_header_units": dynattrs.value(bool),
+    },
+)
+
 def compile_cxx(
         actions: AnalysisActions,
         target_label: Label,
@@ -884,6 +968,22 @@ def compile_cxx(
 
     objects = []
 
+    # Lists for dynamic action inputs
+    infos = []
+    object_outputs = []
+    external_debug_info_outputs = []
+    clang_remarks_outputs = []
+    clang_llvm_statistics_outputs = []
+    clang_trace_outputs = []
+    gcno_file_outputs = []
+    assembly_outputs = []
+    diagnostics_outputs = []
+    preproc_outputs = []
+    index_store_outputs = []
+    dist_cuda_outputs = []
+    pch_object_outputs = []
+    json_error_outputs = []
+
     for src_compile_cmd in src_compile_cmds:
         cxx_compile_input = _prepare_cxx_compilation(
             actions = actions,
@@ -898,36 +998,51 @@ def compile_cxx(
             compile_pch = compile_pch,
         )
 
-        declared = cxx_compile_input.declared_artifacts
-        info = cxx_compile_input.info
+        # Collect info (metadata without artifacts)
+        infos.append(cxx_compile_input.info)
 
-        _compile_single_cxx(
-            actions = actions,
-            label = target_label,
-            toolchain = toolchain,
-            bitcode_args = bitcode_args,
-            flavors = flavors,
-            compile_pch = compile_pch,
-            precompiled_header = precompiled_header,
-            cuda_compile_style = cuda_compile_style,
-            use_header_units = use_header_units,
-            info = info,
-            object = declared.object.as_output(),
-            external_debug_info = map_val(as_output, declared.external_debug_info),
-            clang_remarks = map_val(as_output, declared.clang_remarks),
-            clang_llvm_statistics = map_val(as_output, declared.clang_llvm_statistics),
-            clang_trace = map_val(as_output, declared.clang_trace),
-            gcno_file = map_val(as_output, declared.gcno_file),
-            assembly = map_val(as_output, declared.assembly),
-            diagnostics = map_val(as_output, declared.diagnostics),
-            preproc = declared.preproc.as_output(),
-            index_store = map_val(as_output, declared.index_store),
-            dist_cuda = map_val(lambda d: (d.nvcc_dag.as_output(), d.nvcc_env.as_output(), d.hostcc_argsfile.as_output()), declared.dist_cuda),
-            pch_object = map_val(as_output, declared.pch_object),
-            json_error = map_val(as_output, declared.json_error),
-        )
+        # Collect outputs - call .as_output() on each artifact
+        declared = cxx_compile_input.declared_artifacts
+        object_outputs.append(declared.object.as_output())
+        external_debug_info_outputs.append(map_val(as_output, declared.external_debug_info))
+        clang_remarks_outputs.append(map_val(as_output, declared.clang_remarks))
+        clang_llvm_statistics_outputs.append(map_val(as_output, declared.clang_llvm_statistics))
+        clang_trace_outputs.append(map_val(as_output, declared.clang_trace))
+        gcno_file_outputs.append(map_val(as_output, declared.gcno_file))
+        assembly_outputs.append(map_val(as_output, declared.assembly))
+        diagnostics_outputs.append(map_val(as_output, declared.diagnostics))
+        preproc_outputs.append(declared.preproc.as_output())
+        index_store_outputs.append(map_val(as_output, declared.index_store))
+        dist_cuda_outputs.append(map_val(lambda d: (d.nvcc_dag.as_output(), d.nvcc_env.as_output(), d.hostcc_argsfile.as_output()), declared.dist_cuda))
+        pch_object_outputs.append(map_val(as_output, declared.pch_object))
+        json_error_outputs.append(map_val(as_output, declared.json_error))
 
         objects.append(declared)
+
+    actions.dynamic_output_new(_dynamic_compile_rule(
+        assembly = assembly_outputs,
+        bitcode_args = bitcode_args,
+        clang_llvm_statistics = clang_llvm_statistics_outputs,
+        clang_remarks = clang_remarks_outputs,
+        clang_trace = clang_trace_outputs,
+        compile_pch = compile_pch,
+        cuda_compile_style = cuda_compile_style,
+        diagnostics = diagnostics_outputs,
+        dist_cuda = dist_cuda_outputs,
+        external_debug_info = external_debug_info_outputs,
+        flavors = list(flavors),
+        gcno_file = gcno_file_outputs,
+        index_store = index_store_outputs,
+        infos = infos,
+        json_error = json_error_outputs,
+        label = target_label,
+        object = object_outputs,
+        pch_object = pch_object_outputs,
+        precompiled_header = precompiled_header,
+        preproc = preproc_outputs,
+        toolchain = toolchain,
+        use_header_units = use_header_units,
+    ))
 
     return objects
 
