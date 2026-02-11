@@ -8,6 +8,7 @@ runs:
       prefix-key: buck2-release
   - name: Build buck2 binary (release)
     run: |-
+      rm -rf $RUNNER_TEMP/artifacts
       mkdir $RUNNER_TEMP/artifacts
       cargo build --bin=buck2 --release -Z unstable-options --artifact-dir=$RUNNER_TEMP/artifacts
     shell: bash
