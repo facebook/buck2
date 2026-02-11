@@ -177,6 +177,7 @@ def apple_test_extra_attrs():
         "stripped": attrs.bool(default = False),
         "swift_compilation_mode": attrs.enum(SwiftCompilationMode.values(), default = "wmo"),
         "swift_package_name": attrs.option(attrs.string(), default = None),
+        "swift_testing": attrs.bool(default = False),
         "test_device_type": attrs.enum(AppleTestDeviceType.values(), default = "default"),
         "test_re_capabilities": attrs.option(attrs.dict(key = attrs.string(), value = attrs.string(), sorted = False), default = None, doc = """
             An optional dictionary with the RE capabilities for the test execution.

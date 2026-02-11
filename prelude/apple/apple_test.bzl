@@ -84,8 +84,8 @@ def apple_test_impl(ctx: AnalysisContext) -> [list[Provider], Promise]:
             ctx,
             AppleLibraryAdditionalParams(
                 rule_type = "apple_test",
-                extra_exported_link_flags = get_xctest_framework_linker_flags(ctx) + _get_bundle_loader_flags(test_host_app_binary),
-                extra_swift_compiler_flags = _get_xctest_framework_search_paths_flags(ctx) + objc_bridging_header_flags,
+                extra_exported_link_flags = get_test_framework_linker_flags(ctx) + _get_bundle_loader_flags(test_host_app_binary),
+                extra_swift_compiler_flags = _get_test_framework_search_paths_flags(ctx) + objc_bridging_header_flags,
                 shared_library_flags = SharedLibraryFlagOverrides(
                     # When `-bundle` is used we can't use the `-install_name` args, thus we keep this field empty.
                     shared_library_name_linker_flags_format = [],
@@ -359,26 +359,29 @@ def _xcode_populate_attributes(
             data[XcodeDataInfoKeys.TEST_HOST_APP_TARGET] = ctx.attrs.test_host_app.label.raw_target()
     return data
 
-def _get_xctest_framework_search_paths(ctx: AnalysisContext) -> (cmd_args, cmd_args):
+def _get_test_framework_search_paths(ctx: AnalysisContext) -> (cmd_args, cmd_args):
     toolchain = ctx.attrs._apple_toolchain[AppleToolchainInfo]
-    xctest_swiftmodule_search_path = cmd_args([toolchain.platform_path, "Developer/usr/lib"], delimiter = "/")
-    xctest_framework_search_path = cmd_args([toolchain.platform_path, "Developer/Library/Frameworks"], delimiter = "/")
-    return (xctest_swiftmodule_search_path, xctest_framework_search_path)
+    test_swiftmodule_search_path = cmd_args([toolchain.platform_path, "Developer/usr/lib"], delimiter = "/")
+    test_framework_search_path = cmd_args([toolchain.platform_path, "Developer/Library/Frameworks"], delimiter = "/")
+    return (test_swiftmodule_search_path, test_framework_search_path)
 
-def _get_xctest_framework_search_paths_flags(ctx: AnalysisContext) -> list[[cmd_args, str]]:
-    xctest_swiftmodule_search_path, xctest_framework_search_path = _get_xctest_framework_search_paths(ctx)
+def _get_test_framework_search_paths_flags(ctx: AnalysisContext) -> list[[cmd_args, str]]:
+    test_swiftmodule_search_path, test_framework_search_path = _get_test_framework_search_paths(ctx)
     return [
         "-I",
-        xctest_swiftmodule_search_path,
+        test_swiftmodule_search_path,
         "-F",
-        xctest_framework_search_path,
+        test_framework_search_path,
     ]
 
-def get_xctest_framework_linker_flags(ctx: AnalysisContext) -> list[[cmd_args, str]]:
-    xctest_swiftmodule_search_path, xctest_framework_search_path = _get_xctest_framework_search_paths(ctx)
-    return [
+def get_test_framework_linker_flags(ctx: AnalysisContext) -> list[[cmd_args, str]]:
+    test_swiftmodule_search_path, test_framework_search_path = _get_test_framework_search_paths(ctx)
+    linker_flags = [
         "-L",
-        xctest_swiftmodule_search_path,
+        test_swiftmodule_search_path,
         "-F",
-        xctest_framework_search_path,
+        test_framework_search_path,
     ]
+    if ctx.attrs.swift_testing:
+        linker_flags += ["-lXCTestSwiftSupport"]
+    return linker_flags
