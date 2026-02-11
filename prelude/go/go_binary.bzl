@@ -35,7 +35,7 @@ def go_binary_impl(ctx: AnalysisContext) -> list[Provider]:
         ctx = ctx,
         pkg_name = pkg_name,
         main = True,
-        srcs = ctx.attrs.srcs,
+        srcs = ctx.attrs.srcs + ctx.attrs.headers,
         package_root = ctx.attrs.package_root,
         cgo_build_context = cgo_build_context,
         deps = ctx.attrs.deps,
