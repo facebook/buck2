@@ -234,10 +234,6 @@ pub struct CommonBuildConfigurationOptions {
     #[clap(long)]
     pub reuse_current_config: bool,
 
-    /// Used for exiting a concurrent command when a different state is detected.
-    #[clap(long, hide = true)]
-    pub exit_when_different_state: bool,
-
     /// Used to configure when this command could be preempted by another command for the same isolation dir.
     ///
     /// Normally, when you run two commands - from different terminals, say - buck2 will attempt
@@ -361,7 +357,6 @@ impl CommonBuildConfigurationOptions {
             fake_arch: None,
             fake_xcode_version: None,
             reuse_current_config: false,
-            exit_when_different_state: false,
             preemptible: Some(PreemptibleWhen::Never),
             exit_when: None,
         };
@@ -376,7 +371,6 @@ impl CommonBuildConfigurationOptions {
             fake_arch: None,
             fake_xcode_version: None,
             reuse_current_config: true,
-            exit_when_different_state: false,
             preemptible: Some(PreemptibleWhen::OnDifferentState),
             exit_when: None,
         };

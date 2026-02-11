@@ -1242,9 +1242,6 @@ mod tests {
 
     #[tokio::test]
     async fn parallel_invocation_exit_when_different_state() -> buck2_error::Result<()> {
-        // NOTE: The --exit-when-different-state flag is deprecated in favor of the
-        // --exit-when=differentstate enum value. If a users passes the deprecated flag
-        // the client will catch it and set the enum value instead.
         let dice = make_default_dice().await;
 
         let concurrency = ConcurrencyHandler::new(dice.dupe());

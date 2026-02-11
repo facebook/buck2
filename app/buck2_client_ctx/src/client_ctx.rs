@@ -226,15 +226,7 @@ impl<'a> ClientCommandContext<'a> {
             target_call_stacks: starlark_opts.target_call_stacks,
             representative_config_flags: arg_matches.get_representative_config_flags_by_source(),
             exit_when: match config_opts.exit_when {
-                None => {
-                    // The --exit-when-different-state flag is deprecated, but still valid.
-                    // If no --exit-when= value is provided, we'll still respect the old flag.
-                    if config_opts.exit_when_different_state {
-                        GrpcExitWhen::ExitDifferentState
-                    } else {
-                        GrpcExitWhen::ExitNever
-                    }
-                }
+                None => GrpcExitWhen::ExitNever,
                 Some(ExitWhen::Never) => GrpcExitWhen::ExitNever,
                 Some(ExitWhen::DifferentState) => GrpcExitWhen::ExitDifferentState,
                 Some(ExitWhen::NotIdle) => GrpcExitWhen::ExitNotIdle,

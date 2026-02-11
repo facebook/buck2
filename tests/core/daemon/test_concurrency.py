@@ -27,7 +27,7 @@ async def test_exit_when_different_state(buck: Buck) -> None:
     a = buck.build(
         "-c",
         "foo.bar=1",
-        "--exit-when-different-state",
+        "--exit-when=differentstate",
         ":long_running_target",
         "--local-only",
         "--no-remote-cache",
@@ -36,7 +36,7 @@ async def test_exit_when_different_state(buck: Buck) -> None:
     b = buck.build(
         "-c",
         "foo.bar=2",
-        "--exit-when-different-state",
+        "--exit-when=differentstate",
         ":long_running_target",
         "--local-only",
         "--no-remote-cache",
