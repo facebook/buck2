@@ -149,7 +149,7 @@ def cuda_compile(
         actions: AnalysisActions,
         toolchain: CxxToolchainInfo,
         cmd: cmd_args,
-        object: Artifact,
+        object: OutputArtifact,
         src_compile_cmd: CxxSrcCompileCommand,
         cuda_compile_info: CudaCompileInfo,
         action_dep_files: dict[str, ArtifactTag],
@@ -165,13 +165,14 @@ def cuda_compile(
         cuda_mono_compile(
             actions,
             cmd,
-            as_output(object),
+            object,
             src_compile_cmd,
             cuda_compile_info,
             action_dep_files,
             allow_dep_file_cache_upload,
             error_handler,
         )
+        return None
     elif cuda_compile_style == CudaCompileStyle("dist"):
         if cuda_dist_output == None:
             fail("cuda_dist_output is required for distributed CUDA compilation")
@@ -179,11 +180,12 @@ def cuda_compile(
             actions,
             toolchain,
             cmd,
-            as_output(object),
+            object,
             cuda_dist_output,
             src_compile_cmd,
             cuda_compile_info,
         )
+        return None
     else:
         fail("Unsupported CUDA compile style: {}".format(cuda_compile_style))
 

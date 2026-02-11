@@ -10,6 +10,7 @@ load("@prelude//:paths.bzl", "paths")
 load(
     "@prelude//cxx:compile_types.bzl",
     "AsmExtensions",
+    "CudaDistributedCompileOutput",
     "CxxCompileCommand",
     "CxxCompileCommandOutput",
     "CxxCompileFlavor",
@@ -37,7 +38,9 @@ load("@prelude//linking:lto.bzl", "LtoMode")
 load("@prelude//utils:expect.bzl", "expect")
 load(
     "@prelude//utils:utils.bzl",
+    "as_output",
     "flatten",
+    "map_val",
 )
 load(":argsfiles.bzl", "CompileArgsfile", "CompileArgsfiles")
 load(":attr_selection.bzl", "cxx_by_language_ext")
@@ -344,6 +347,9 @@ def _prepare_cxx_compilation(
         separate_debug_info: bool,
         cuda_compile_style: CudaCompileStyle | None,
         compile_pch: CxxPrecompiledHeader | None) -> CxxCompileInput:
+    """
+    DECLARATION PHASE: Declares all output artifacts for a single source file compilation.
+    """
     short_path = src_compile_cmd.src.short_path
     if src_compile_cmd.index != None:
         # Add a unique postfix if we have duplicate source files with different flags
@@ -524,53 +530,60 @@ def _prepare_cxx_compilation(
 def _compile_single_cxx(
         actions: AnalysisActions,
         label: Label,
-        input: CxxCompileInput,
         toolchain: CxxToolchainInfo,
         bitcode_args: list,
         flavors: set[CxxCompileFlavor],
         compile_pch: CxxPrecompiledHeader | None,
         precompiled_header: Dependency | None,
         cuda_compile_style: CudaCompileStyle | None,
-        default_object_format: CxxObjectFormat,
-        use_header_units: bool) -> CxxCompileOutput:
+        use_header_units: bool,
+        # CxxCompileInfo fields
+        info: CxxCompileInfo,
+        # Output artifacts
+        object: OutputArtifact,
+        external_debug_info: OutputArtifact | None,
+        clang_remarks: OutputArtifact | None,
+        clang_llvm_statistics: OutputArtifact | None,
+        clang_trace: OutputArtifact | None,
+        gcno_file: OutputArtifact | None,
+        assembly: OutputArtifact | None,
+        diagnostics: OutputArtifact | None,
+        preproc: OutputArtifact,
+        index_store: OutputArtifact | None,
+        dist_cuda: (OutputArtifact, OutputArtifact, OutputArtifact) | None,
+        pch_object: OutputArtifact | None,
+        json_error: OutputArtifact | None) -> None:
     """
-    Construct a final compile command for a single CXX source based on
-    `src_compile_command` and other compilation options.
+    EXECUTION PHASE: Creates compilation actions for a single source file.
+
+    This function runs INSIDE the dynamic action callback (`_cxx_dynamic_compile`),
+    meaning it only executes when Buck2 determines the compilation is actually needed.
+
+    ## Relationship to Declaration Phase
+    The output artifacts passed here were declared earlier by `_prepare_cxx_compilation`
+    during the analysis phase.
     """
 
-    src_compile_cmd = input.info.compile_cmd
-    filename_base = input.info.filename_base
-    index_store_base = input.info.index_store_base
-    identifier = input.info.identifier
-    folder_name = input.info.folder_name
-    short_path = input.info.short_path
-    flavor_flags = input.info.flavor_flags
+    # Extract info fields
+    src_compile_cmd = info.compile_cmd
+    filename_base = info.filename_base
+    index_store_base = info.index_store_base
+    identifier = info.identifier
+    folder_name = info.folder_name
+    short_path = info.short_path
+    flavor_flags = info.flavor_flags
 
-    # declare outputs
+    # Get compiler type
     compiler_type = src_compile_cmd.cxx_compile_cmd.compiler_type
-    cuda_distributed_compile_output = input.declared_artifacts.dist_cuda
-    pch_object = input.declared_artifacts.pch_object
-    object = input.declared_artifacts.object
-    external_debug_info = input.declared_artifacts.external_debug_info
-    clang_remarks = input.declared_artifacts.clang_remarks
-    clang_llvm_statistics = input.declared_artifacts.clang_llvm_statistics
-    clang_trace = input.declared_artifacts.clang_trace
-    gcno_file = input.declared_artifacts.gcno_file
-    assembly = input.declared_artifacts.assembly
-    diagnostics = input.declared_artifacts.diagnostics
-    preproc = input.declared_artifacts.preproc
-    index_store = input.declared_artifacts.index_store
-    object_has_external_debug_info = input.declared_artifacts.object_has_external_debug_info
     content_based = src_compile_cmd.uses_content_based_paths
-    json_error = input.declared_artifacts.json_error
 
     if src_compile_cmd.src.extension == ".cu":
         output_args = None
     elif compile_pch:
         if src_compile_cmd.cxx_compile_cmd.compiler_type == "windows":
             output_args = [
-                cmd_args(object.as_output(), format = "/Fp{}"),
-                cmd_args(pch_object.as_output(), format = "/Fo{}"),
+                cmd_args(object, format = "/Fp{}"),
+                cmd_args(pch_object, format = "/Fo{}"),
                 cmd_args(compile_pch.path, format = "/Yc{}"),
             ]
         else:
@@ -604,7 +617,7 @@ def _compile_single_cxx(
         src_compile_cmd.index_store_factory.compile(
             actions,
             label,
-            index_store.as_output(),
+            index_store,
             index_store_base,
             toolchain,
             compile_index_store_cmd,
@@ -643,51 +656,57 @@ def _compile_single_cxx(
 
     if clang_remarks:
         cmd.add(["-fsave-optimization-record", "-fdiagnostics-show-hotness", "-foptimization-record-passes=" + toolchain.clang_remarks])
-        cmd.add(cmd_args(hidden = clang_remarks.as_output()))
+        cmd.add(cmd_args(hidden = clang_remarks))
 
     if clang_llvm_statistics:
         # Use stderr_to_file to capture clang statistics output
         cmd = cmd_args(
             toolchain.internal_tools.stderr_to_file,
-            cmd_args(clang_llvm_statistics.as_output(), format = "--out={}"),
+            cmd_args(clang_llvm_statistics, format = "--out={}"),
             cmd,
             ["-mllvm", "-stats"],
         )
 
     if clang_trace:
         cmd.add(["-ftime-trace"])
-        cmd.add(cmd_args(hidden = clang_trace.as_output()))
+        cmd.add(cmd_args(hidden = clang_trace))
 
     if gcno_file:
         cmd.add(["--coverage"])
-        cmd.add(cmd_args(hidden = gcno_file.as_output()))
+        cmd.add(cmd_args(hidden = gcno_file))
 
     if external_debug_info:
-        cmd.add(cmd_args(external_debug_info.as_output(), format = "--fbcc-create-external-debug-info={}"))
+        cmd.add(cmd_args(external_debug_info, format = "--fbcc-create-external-debug-info={}"))
 
     outputs_for_error_handler = []
     if json_error:
         # We need to wrap the entire compile to provide serialized diagnostics
         # output and on error convert it to JSON.
         serialized_diags_to_json = toolchain.binary_utilities_info.custom_tools.get("serialized-diags-to-json", None)
-        outputs_for_error_handler.append(json_error.as_output())
+        outputs_for_error_handler.append(json_error)
         cmd = cmd_args(
             toolchain.internal_tools.serialized_diagnostics_to_json_wrapper,
             serialized_diags_to_json,
-            json_error.as_output(),
+            json_error,
             cmd,
         )
 
-    cuda_compile_output = None
     if src_compile_cmd.src.extension == ".cu":
         expect(cuda_compile_style != None, "CUDA compile style should be configured for targets with .cu sources")
-        cuda_compile_output = cuda_distributed_compile_output
         cuda_compile_info = CudaCompileInfo(
             filename = filename_base,
             identifier = identifier,
             output_prefix = folder_name,
             uses_content_based_paths = content_based,
         )
+
+        cuda_dist_output = None
+        if dist_cuda:
+            cuda_dist_output = CudaDistributedCompileOutput(
+                nvcc_dag = dist_cuda[0].as_input(),
+                nvcc_env = dist_cuda[1].as_input(),
+                hostcc_argsfile = dist_cuda[2].as_input(),
+            )
         cuda_compile(
             actions,
             toolchain,
@@ -699,7 +718,7 @@ def _compile_single_cxx(
             allow_dep_file_cache_upload = False,
             error_handler = src_compile_cmd.error_handler,
             cuda_compile_style = cuda_compile_style,
-            cuda_dist_output = cuda_distributed_compile_output,
+            cuda_dist_output = cuda_dist_output,
         )
     else:
         is_producing_compiled_pch = bool(compile_pch)
@@ -755,7 +774,7 @@ def _compile_single_cxx(
         actions.run(
             [
                 toolchain.internal_tools.stderr_to_file,
-                cmd_args(diagnostics.as_output(), format = "--out={}"),
+                cmd_args(diagnostics, format = "--out={}"),
                 syntax_only_cmd,
             ],
             category = "check",
@@ -781,23 +800,6 @@ def _compile_single_cxx(
         allow_cache_upload = src_compile_cmd.cxx_compile_cmd.allow_cache_upload,
         allow_dep_file_cache_upload = False,
         error_handler = src_compile_cmd.error_handler,
-    )
-
-    return CxxCompileOutput(
-        object = object,
-        object_format = default_object_format,
-        object_has_external_debug_info = object_has_external_debug_info,
-        external_debug_info = external_debug_info,
-        clang_remarks = clang_remarks,
-        clang_llvm_statistics = clang_llvm_statistics,
-        clang_trace = clang_trace,
-        gcno_file = gcno_file,
-        index_store = index_store,
-        assembly = assembly,
-        diagnostics = diagnostics,
-        preproc = preproc,
-        dist_cuda = cuda_compile_output,
-        pch_object = pch_object,
     )
 
 def _get_base_compile_cmd(
@@ -856,7 +858,10 @@ def compile_cxx(
         cuda_compile_style: CudaCompileStyle | None = None,
         compile_pch: CxxPrecompiledHeader | None = None) -> list[CxxCompileOutput]:
     """
-    For a given list of src_compile_cmds, generate output artifacts.
+    MAIN ENTRY POINT: Compiles a list of C/C++ source files.
+
+    This function implements a two-phases that separates output
+    declaration (analysis phase) from action creation (execution phase).
     """
     linker_info = toolchain.linker_info
 
@@ -878,8 +883,9 @@ def compile_cxx(
         default_object_format = CxxObjectFormat("bitcode")
 
     objects = []
+
     for src_compile_cmd in src_compile_cmds:
-        input = _prepare_cxx_compilation(
+        cxx_compile_input = _prepare_cxx_compilation(
             actions = actions,
             toolchain = toolchain,
             default_object_format = default_object_format,
@@ -892,20 +898,36 @@ def compile_cxx(
             compile_pch = compile_pch,
         )
 
-        cxx_compile_output = _compile_single_cxx(
+        declared = cxx_compile_input.declared_artifacts
+        info = cxx_compile_input.info
+
+        _compile_single_cxx(
             actions = actions,
             label = target_label,
-            input = input,
             toolchain = toolchain,
             bitcode_args = bitcode_args,
             flavors = flavors,
-            use_header_units = use_header_units,
-            precompiled_header = precompiled_header,
             compile_pch = compile_pch,
+            precompiled_header = precompiled_header,
             cuda_compile_style = cuda_compile_style,
-            default_object_format = default_object_format,
+            use_header_units = use_header_units,
+            info = info,
+            object = declared.object.as_output(),
+            external_debug_info = map_val(as_output, declared.external_debug_info),
+            clang_remarks = map_val(as_output, declared.clang_remarks),
+            clang_llvm_statistics = map_val(as_output, declared.clang_llvm_statistics),
+            clang_trace = map_val(as_output, declared.clang_trace),
+            gcno_file = map_val(as_output, declared.gcno_file),
+            assembly = map_val(as_output, declared.assembly),
+            diagnostics = map_val(as_output, declared.diagnostics),
+            preproc = declared.preproc.as_output(),
+            index_store = map_val(as_output, declared.index_store),
+            dist_cuda = map_val(lambda d: (d.nvcc_dag.as_output(), d.nvcc_env.as_output(), d.hostcc_argsfile.as_output()), declared.dist_cuda),
+            pch_object = map_val(as_output, declared.pch_object),
+            json_error = map_val(as_output, declared.json_error),
         )
-        objects.append(cxx_compile_output)
+
+        objects.append(declared)
 
     return objects
 
