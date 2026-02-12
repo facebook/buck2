@@ -139,7 +139,6 @@ def cpp_library(
         auto_headers = None,
         arch_preprocessor_flags = None,
         modular_headers = None,
-        os_deps = [],
         arch_compiler_flags = None,
         labels = None,
         linker_flags = None,
@@ -158,8 +157,6 @@ def cpp_library(
         header_base_path = header_base_path.replace("folly/", "", 1)
 
     _unused = (undefined_symbols, arch_preprocessor_flags, modular_headers, arch_compiler_flags, labels, propagated_pp_flags, feature, preferred_linkage)  # @unused
-    if os_deps:
-        deps += _select_os_deps(_fix_dict_deps(os_deps))
     if headers == None:
         headers = []
     if labels != None and "oss_dependency" in labels:
@@ -237,7 +234,6 @@ def cpp_binary(
         name,
         deps = [],
         external_deps = [],
-        os_deps = [],
         visibility = ["PUBLIC"],
         dlopen_enabled = None,
         compiler_specific_flags = None,
@@ -246,8 +242,6 @@ def cpp_binary(
         modules = None,
         **kwargs):
     _unused = (dlopen_enabled, compiler_specific_flags, os_linker_flags, allocator, modules)  # @unused
-    if os_deps:
-        deps += _select_os_deps(_fix_dict_deps(os_deps))
     prelude.cxx_binary(
         name = name,
         deps = _fix_deps(deps + external_deps_to_targets(external_deps)),
@@ -274,10 +268,8 @@ def rust_library(
         rustc_flags = [],
         deps = [],
         named_deps = None,
-        os_deps = None,
         test_deps = None,
         test_env = None,
-        test_os_deps = None,
         autocargo = None,
         unittests = None,
         mapped_srcs = {},
@@ -285,11 +277,9 @@ def rust_library(
         cxx_bridge = None,
         visibility = ["PUBLIC"],
         **kwargs):
-    _unused = (test_deps, test_env, test_os_deps, named_deps, autocargo, unittests, visibility, cpp_deps, cxx_bridge)  # @unused
+    _unused = (test_deps, test_env, named_deps, autocargo, unittests, visibility, cpp_deps, cxx_bridge)  # @unused
     deps = _fix_deps(deps)
     mapped_srcs = _maybe_select_map(mapped_srcs, _fix_mapped_srcs)
-    if os_deps:
-        deps += _select_os_deps(_fix_dict_deps(os_deps))
 
     # Reset visibility because internal and external paths are different.
     visibility = ["PUBLIC"]
@@ -510,20 +500,6 @@ def _maybe_select_map(v, mapper):
     if is_select(v):
         return select_map(v, mapper)
     return mapper(v)
-
-def _select_os_deps(xss) -> Select:
-    d = {
-        "prelude//os:" + os: xs
-        for os, xs in xss
-    }
-    d["DEFAULT"] = []
-    return select(d)
-
-def _fix_dict_deps(xss):
-    return [
-        (k, _fix_deps(xs))
-        for k, xs in xss
-    ]
 
 def _fix_mapped_srcs(xs: dict[str, str]):
     # For reasons, this is source -> file path, which is the opposite of what
