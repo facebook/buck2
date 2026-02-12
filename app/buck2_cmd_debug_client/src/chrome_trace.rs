@@ -93,6 +93,7 @@ struct ChromeTraceFirstPass {
     /// So this first pass builds up several lists of "interesting" span IDs.
     pub long_analyses: HashSet<buck2_events::span::SpanId>,
     pub long_loads: HashSet<buck2_events::span::SpanId>,
+    pub long_load_packages: HashSet<buck2_events::span::SpanId>,
     pub local_actions: HashSet<buck2_events::span::SpanId>,
     pub critical_path_action_keys: HashSet<buck2_data::ActionKey>,
     pub critical_path_span_ids: HashSet<u64>,
@@ -103,10 +104,12 @@ struct ChromeTraceFirstPass {
 impl ChromeTraceFirstPass {
     const LONG_ANALYSIS_CUTOFF: Duration = Duration::from_millis(50);
     const LONG_LOAD_CUTOFF: Duration = Duration::from_millis(50);
+    const LONG_LOAD_PACKAGE_CUTOFF: Duration = Duration::from_millis(50);
     fn new() -> Self {
         Self {
             long_analyses: HashSet::new(),
             long_loads: HashSet::new(),
+            long_load_packages: HashSet::new(),
             local_actions: HashSet::new(),
             critical_path_action_keys: HashSet::new(),
             critical_path_span_ids: HashSet::new(),
@@ -172,6 +175,17 @@ impl ChromeTraceFirstPass {
                             > Self::LONG_LOAD_CUTOFF
                         {
                             self.long_loads.insert(event.span_id().unwrap());
+                        }
+                    }
+                    Some(buck2_data::span_end_event::Data::LoadPackage(_)) => {
+                        if end
+                            .duration
+                            .as_ref()
+                            .expect("LoadPackage SpanEnd missing duration")
+                            .try_into_duration()?
+                            > Self::LONG_LOAD_PACKAGE_CUTOFF
+                        {
+                            self.long_load_packages.insert(event.span_id().unwrap());
                         }
                     }
                     _ => {}
@@ -754,6 +768,28 @@ impl ChromeTraceWriter {
                             Some(category) => Categorization::Show {
                                 category,
                                 name: format!("load {}", eval.module_id).into(),
+                            },
+                            None => Categorization::Omit,
+                        }
+                    }
+                    buck2_data::span_start_event::Data::LoadPackage(load_package) => {
+                        let category = if on_critical_path {
+                            Some(SpanCategorization::CriticalPath)
+                        } else if self
+                            .first_pass
+                            .long_load_packages
+                            .contains(&event.span_id().unwrap())
+                        {
+                            Some(SpanCategorization::Uncategorized)
+                        } else {
+                            None
+                        };
+
+                        match category {
+                            Some(category) => Categorization::Show {
+                                category,
+                                name: format!("load_package_file_tree {}", load_package.path)
+                                    .into(),
                             },
                             None => Categorization::Omit,
                         }
