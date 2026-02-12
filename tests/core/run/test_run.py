@@ -66,7 +66,7 @@ async def test_run_exit_result(buck: Buck, tmp_path: Path) -> None:
     assert record["exit_result_name"] == "EXEC"
 
 
-@buck_test()
+@buck_test(allow_soft_errors=True)
 async def test_passing_arguments(buck: Buck) -> None:
     async def f(args1: List[str], args2: List[str]) -> None:
         result = await buck.run("root//:echo_args", *args1, *args2)
@@ -74,7 +74,10 @@ async def test_passing_arguments(buck: Buck) -> None:
 
     await f(["--"], ["val", "--long", "-s", "spa  ces"])
     await f(["--"], ["val", "--", "test"])
-    await f([], ["val", "--long"])  # Would fail in Buck1 (--long not found)
+    # Without --, a deprecation warning is emitted but command still succeeds
+    result = await buck.run("root//:echo_args", "val", "--long")
+    assert result.stdout.strip() == "val --long"
+    assert "will require" in result.stderr
     await f([], ["val", "--", "x"])  # Would work differently in Buck1 (no -- to user)
     await expect_failure(
         buck.run("root//:echo_args", "--not-a-flag"),
@@ -88,6 +91,13 @@ async def test_executable_fail_to_build(buck: Buck) -> None:
         buck.run("root//:build_fail"),
         stderr_regex=r"Failed to build",
     )
+
+
+@buck_test(allow_soft_errors=True)
+async def test_run_args_without_separator_warning(buck: Buck) -> None:
+    result = await buck.run("root//:echo_args", "my_arg")
+    assert result.stdout.strip() == "my_arg"
+    assert "will require" in result.stderr
 
 
 @buck_test()

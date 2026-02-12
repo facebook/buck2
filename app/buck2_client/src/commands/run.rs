@@ -36,6 +36,7 @@ use buck2_client_ctx::path_arg::PathArg;
 use buck2_client_ctx::streaming::StreamingCommand;
 use buck2_common::argv::Argv;
 use buck2_common::argv::SanitizedArgv;
+use buck2_core::soft_error;
 use buck2_error::BuckErrorContext;
 use buck2_error::conversion::from_any_with_tag;
 use buck2_wrapper_common::BUCK_WRAPPER_START_TIME_ENV_VAR;
@@ -103,6 +104,18 @@ impl StreamingCommand for RunCommand {
         ctx: &mut ClientCommandContext<'_>,
         events_ctx: &mut EventsCtx,
     ) -> ExitResult {
+        if !self.extra_run_args.is_empty() {
+            let has_separator = std::env::args().any(|arg| arg == "--");
+            if !has_separator {
+                soft_error!(
+                    "run_args_without_separator",
+                    RunCommandError::MissingSeparator.into(),
+                    quiet: false,
+                    deprecation: true,
+                )?;
+            }
+        }
+
         let context = ctx.client_context(matches, &self)?;
         let has_target_universe = !self.target_cfg.target_universe.is_empty();
         // TODO(rafaelc): fail fast on the daemon if the target doesn't have RunInfo
@@ -271,4 +284,9 @@ pub enum RunCommandError {
     MultipleTargets,
     #[error("Target `{0}` is not found in the specified target universe")]
     TargetNotFoundInTargetUniverse(String),
+    #[error(
+        "`buck2 run` will require a `--` separator before target arguments in the future. \
+         Please use `buck2 run <target> -- <args>` instead of `buck2 run <target> <args>`"
+    )]
+    MissingSeparator,
 }
