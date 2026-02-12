@@ -8,6 +8,7 @@ version = "0.1.0"
 
 [dependencies]
 async-trait = { workspace = true }
+chrono = { workspace = true }
 clap = { workspace = true }
 derive_more = { workspace = true }
 futures = { workspace = true }

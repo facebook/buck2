@@ -41,6 +41,7 @@ use buck2_event_observer::unpack_event::UnpackedBuckEvent;
 use buck2_event_observer::unpack_event::unpack_event;
 use buck2_events::BuckEvent;
 use buck2_fs::paths::abs_path::AbsPathBuf;
+use chrono::DateTime;
 use derive_more::Display;
 use dupe::Dupe;
 use futures::TryStreamExt;
@@ -65,6 +66,14 @@ pub struct ChromeTraceCommand {
         hide = true
     )]
     pub path: Option<PathArg>,
+
+    #[clap(
+        long,
+        help = "Places a global instant event at the specified time. Floating point seconds and integer nanoseconds unixtime is accepted.",
+        value_name = "TIMESTAMP DESCRIPTION",
+        number_of_values = 2
+    )]
+    instant: Vec<String>,
 
     #[clap(
         long,
@@ -223,6 +232,51 @@ impl SpanTrackAssignment {
             Self::Owned(tid) => *tid,
             Self::Inherited(tid) => *tid,
         }
+    }
+}
+
+#[allow(dead_code)] // Process and Thread aren't used at this time, but are included for completeness.
+enum ChromeTraceInstantScope {
+    Global,
+    Process(u64),
+    Thread(u64, SpanTrackAssignment),
+}
+struct ChromeTraceInstant {
+    name: String,
+    timestamp: SystemTime,
+    scope: ChromeTraceInstantScope,
+}
+
+impl ChromeTraceInstant {
+    fn to_json(self) -> buck2_error::Result<serde_json::Value> {
+        let mut js = json!(
+            {
+                "name": self.name,
+                "ts": self.timestamp.duration_since(SystemTime::UNIX_EPOCH)?.as_micros() as u64,
+                "ph": "i", // Chrome trace "instant event"
+                "s": match self.scope {
+                    ChromeTraceInstantScope::Global => "g",
+                    ChromeTraceInstantScope::Process(_) => "p",
+                    ChromeTraceInstantScope::Thread(_, _) => "t",
+                },
+            }
+        );
+        let obj = js
+            .as_object_mut()
+            .ok_or(buck2_error::internal_error!("expected a mutable object"))?;
+
+        match self.scope {
+            ChromeTraceInstantScope::Global => {}
+            ChromeTraceInstantScope::Process(process_id) => {
+                obj.insert("pid".to_owned(), json!(process_id));
+            }
+            ChromeTraceInstantScope::Thread(process_id, track) => {
+                obj.insert("pid".to_owned(), json!(process_id));
+                obj.insert("tid".to_owned(), json!(String::from(track.get_track_id())));
+            }
+        }
+
+        Ok(js)
     }
 }
 
@@ -1019,6 +1073,14 @@ impl ChromeTraceWriter {
         Ok(())
     }
 
+    fn write_instant_events(&mut self, events: Vec<ChromeTraceInstant>) -> buck2_error::Result<()> {
+        self.trace_events.reserve(events.len());
+        for event in events.into_iter() {
+            self.trace_events.push(event.to_json()?);
+        }
+        Ok(())
+    }
+
     fn write_critical_path(
         &mut self,
         name: SpanCategorization,
@@ -1189,7 +1251,19 @@ impl BuckSubcommand for ChromeTraceCommand {
             trace_path
         };
 
-        let writer = Self::trace_writer(log, self.max_tracks).await?;
+        let mut instant_events = Vec::with_capacity(self.instant.len() / 2);
+        let (instant_args, instant_remainder) = self.instant.as_chunks::<2>();
+        if !instant_remainder.is_empty() {
+            return ExitResult::err(buck2_error::internal_error!(
+                "Expected even number of arguments for --instant"
+            ));
+        }
+        for instant in instant_args {
+            let event = Self::parse_marker_arg(&instant[0], &instant[1])?;
+            instant_events.push(event);
+        }
+
+        let writer = Self::trace_writer(log, self.max_tracks, instant_events).await?;
 
         let tracefile = std::fs::OpenOptions::new()
             .create(true)
@@ -1202,10 +1276,62 @@ impl BuckSubcommand for ChromeTraceCommand {
     }
 }
 
+#[derive(buck2_error::Error, Debug)]
+// #[buck2(tag = Input)]
+pub enum ChromeTraceError {
+    #[buck2(tag = Input)]
+    #[error("Can't parse a timestamp from `{0}`")]
+    InvalidTimestamp(String),
+}
+
 impl ChromeTraceCommand {
+    fn parse_timestamp_as_unixtime_float(time: &str) -> Option<DateTime<chrono::Utc>> {
+        let (ipart, fpart) = time.split_once(".")?;
+
+        let ipart = ipart.parse::<i64>().ok()?;
+        // The fractional part needs to be truncated to 9 places or right-padded (*10^pad)
+        // to nine places to be nanoseconds.
+        let fpart = if fpart.len() > 9 { &fpart[..9] } else { fpart };
+        let fmult = 10u32.pow(0i64.max(9i64 - (fpart.len() as i64)) as u32);
+        let fpart = fpart.parse::<u32>().ok()?;
+
+        DateTime::from_timestamp(ipart, fpart * fmult)
+    }
+    fn parse_timestamp_as_unixtime_seconds(time: &str) -> Option<DateTime<chrono::Utc>> {
+        let ipart = time.parse::<i64>().ok()?;
+        DateTime::from_timestamp(ipart, 0)
+    }
+    fn parse_timestamp_as_unixtime_nanoseconds(time: &str) -> Option<DateTime<chrono::Utc>> {
+        // Perfetto lets you copy the "raw value" of timestamps as billions of nanoseconds
+        if time.len() < 19 {
+            return None;
+        }
+        let ipart = time[..time.len() - 9].parse::<i64>().ok()?;
+        let fpart = time[time.len() - 9..].parse::<u32>().ok()?;
+        DateTime::from_timestamp(ipart, fpart)
+    }
+
+    fn parse_timestamp(time: &str) -> buck2_error::Result<DateTime<chrono::Utc>> {
+        Self::parse_timestamp_as_unixtime_float(time)
+            .or_else(|| Self::parse_timestamp_as_unixtime_seconds(time))
+            .or_else(|| Self::parse_timestamp_as_unixtime_nanoseconds(time))
+            .ok_or(ChromeTraceError::InvalidTimestamp(time.to_owned()).into())
+    }
+
+    fn parse_marker_arg(time: &str, name: &str) -> buck2_error::Result<ChromeTraceInstant> {
+        // Look for integer or float times. Note that we don't parse f64 in order to maintain the tv_nsec values
+        let datetime = Self::parse_timestamp(time)?;
+        Ok(ChromeTraceInstant {
+            name: name.to_owned(),
+            timestamp: datetime.into(),
+            scope: ChromeTraceInstantScope::Global,
+        })
+    }
+
     async fn trace_writer(
         log: EventLogPathBuf,
         max_tracks: Option<u64>,
+        instant_events: Vec<ChromeTraceInstant>,
     ) -> buck2_error::Result<ChromeTraceWriter> {
         let (invocation, mut stream) = Self::load_events(log.clone()).await?;
         let mut first_pass = ChromeTraceFirstPass::new();
@@ -1249,6 +1375,8 @@ impl ChromeTraceCommand {
                 )?;
             }
         }
+
+        writer.write_instant_events(instant_events)?;
 
         // We just read events again from log file, in order to avoid holding all logs in memory
         let (_invocation, mut stream) = Self::load_events(log).await?;
