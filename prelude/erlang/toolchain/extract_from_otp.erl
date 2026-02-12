@@ -54,7 +54,7 @@ copy_dir(From, To) ->
         io_lib:format("cp -r ~ts ~ts", [From, To])
     ),
     io:format(standard_error, "cmd: ~ts~n~ts~n~n", [Cmd, os:cmd(Cmd)]),
-    case filelib:is_dir(To, prim_file) of
+    case filelib:is_dir(To, prim_file) orelse filelib:is_file(To, prim_file) of
         true -> ok;
         false -> erlang:halt(1)
     end.

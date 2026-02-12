@@ -1,3 +1,4 @@
+load("@prelude//erlang:erlang_headers.bzl", "erlang_headers")
 load("@prelude//erlang:erlang_toolchain.bzl", "erlang_parse_transform", "toolchain_utilities")
 load("@prelude//utils:source_listing.bzl", "source_listing")
 
@@ -35,5 +36,10 @@ toolchain_utilities(
     extract_from_otp = "extract_from_otp.erl",
     release_variables_builder = "release_variables_builder.erl",
     utility_modules = ["dependency_utils.erl"],
+    visibility = ["PUBLIC"],
+)
+
+erlang_headers(
+    name = "erlang_headers",
     visibility = ["PUBLIC"],
 )
