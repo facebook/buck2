@@ -81,6 +81,8 @@ def _whl_cmd(
         ctx: AnalysisContext,
         output: Artifact,
         platform: str,
+        abi: str,
+        python: str,
         manifests: list[ManifestInfo] = [],
         srcs: dict[str, Artifact] = {}) -> cmd_args:
     cmd = []
@@ -91,8 +93,8 @@ def _whl_cmd(
     cmd.append(output.as_output())
     cmd.append("--name={}".format(ctx.attrs.dist or ctx.attrs.name))
     cmd.append("--version={}".format(ctx.attrs.version))
-    cmd.append("--python-tag={}".format(ctx.attrs.python))
-    cmd.append("--abi-tag={}".format(ctx.attrs.abi))
+    cmd.append("--python-tag={}".format(python))
+    cmd.append("--abi-tag={}".format(abi))
     cmd.append("--platform-tag={}".format(platform))
 
     if ctx.attrs.entry_points:
@@ -100,9 +102,6 @@ def _whl_cmd(
 
     for key, val in ctx.attrs.extra_metadata.items():
         cmd.extend(["--metadata", key, val])
-
-    version_matcher = ">=" if ctx.attrs.support_future_python_versions else "=="
-    cmd.extend(["--metadata", "Requires-Python", "{}{}.*".format(version_matcher, ctx.attrs.python[2:])])
 
     for requires in ctx.attrs.requires:
         cmd.extend(["--metadata", "Requires-Dist", requires])
@@ -373,6 +372,7 @@ def _impl(ctx: AnalysisContext) -> list[Provider]:
 
     # Resolve platform: use attr if set, otherwise fall back to toolchain default
     wheel_toolchain = ctx.attrs._python_wheel_toolchain[PythonWheelToolchainInfo]
+    python = value_or(ctx.attrs.python, wheel_toolchain.python)
     platform = ctx.attrs.platform or wheel_toolchain.platform
     if not platform:
         fail("platform must be set either on python_wheel target or in python_wheel_toolchain")
@@ -405,14 +405,21 @@ def _impl(ctx: AnalysisContext) -> list[Provider]:
         # only normalize `dist` in the *.whl filename (NOT the dist name in dist-info/METADATA)
         normalize_name(dist),
         ctx.attrs.version,
-        ctx.attrs.python,
-        ctx.attrs.abi,
+        python,
+        wheel_toolchain.abi,
         platform,
     ]
 
     # Action to create wheel.
     wheel = ctx.actions.declare_output("{}.whl".format("-".join(name_parts)))
-    whl_cmd = _whl_cmd(ctx = ctx, output = wheel, platform = platform, manifests = srcs + native_srcs)
+    whl_cmd = _whl_cmd(
+        ctx = ctx,
+        output = wheel,
+        platform = platform,
+        abi = wheel_toolchain.abi,
+        python = python,
+        manifests = srcs + native_srcs,
+    )
     ctx.actions.run(whl_cmd, category = "wheel")
 
     # Create symlink tree for inplace module layout.
@@ -456,7 +463,14 @@ def _impl(ctx: AnalysisContext) -> list[Provider]:
 
     # Action to create editable wheel.
     ewheel = ctx.actions.declare_output("__editable__/{}.whl".format("-".join(name_parts)))
-    ewhl_cmd = _whl_cmd(ctx = ctx, output = ewheel, platform = platform, srcs = {"{}.pth".format(dist): pth})
+    ewhl_cmd = _whl_cmd(
+        ctx = ctx,
+        output = ewheel,
+        platform = platform,
+        abi = wheel_toolchain.abi,
+        python = python,
+        srcs = {"{}.pth".format(dist): pth},
+    )
     ctx.actions.run(ewhl_cmd, category = "editable_wheel")
     sub_targets["editable"] = [
         DefaultInfo(
@@ -472,23 +486,13 @@ def _impl(ctx: AnalysisContext) -> list[Provider]:
 
     return providers
 
-_default_python = select({
-    "ovr_config//third-party/python/constraints:3.10": "py3.10",
-    "ovr_config//third-party/python/constraints:3.11": "py3.11",
-    "ovr_config//third-party/python/constraints:3.12": "py3.12",
-    "ovr_config//third-party/python/constraints:3.8": "py3.8",
-    "ovr_config//third-party/python/constraints:3.9": "py3.9",
-})
-
 python_wheel = rule(
     impl = _impl,
     cfg = constraint_overrides.transition,
     attrs = dict(
         dist = attrs.option(attrs.string(), default = None),
         version = attrs.string(default = "1.0.0"),
-        python = attrs.string(
-            # @oss-disable[end= ]: default = _default_python,
-        ),
+        python = attrs.option(attrs.string(), default = None),
         entry_points = attrs.dict(
             key = attrs.string(),
             value = attrs.dict(
@@ -503,7 +507,6 @@ python_wheel = rule(
             value = attrs.string(),
             default = {},
         ),
-        abi = attrs.string(default = "none"),
         platform = attrs.option(
             attrs.string(),
             default = None,
@@ -517,7 +520,6 @@ python_wheel = rule(
         resources = attrs.dict(key = attrs.string(), value = attrs.source(), default = {}),
         rpaths = attrs.list(attrs.string(), default = []),
         lib_dir = attrs.option(attrs.string(), default = None),
-        support_future_python_versions = attrs.bool(default = False),
         labels = attrs.list(attrs.string(), default = []),
         linker_flags = attrs.list(attrs.arg(anon_target_compatible = True), default = []),
         anonymous_link = attrs.bool(default = True),
