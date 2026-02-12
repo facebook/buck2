@@ -243,7 +243,7 @@ impl Action for SymlinkedDirAction {
 
             let src = src_artifact.resolve_path(
                 ctx.fs(),
-                if src_artifact.has_content_based_path() {
+                if src_artifact.path_resolution_requires_artifact_value() {
                     Some(value.content_based_path_hash())
                 } else {
                     None

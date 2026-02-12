@@ -49,22 +49,22 @@ impl PromiseArtifactWrapper {
 }
 
 #[derive(Clone, Debug, Display, Dupe, PartialEq, Eq, Hash, Allocative)]
-#[display("{} {}", key, has_content_based_path)]
+#[display("{} {}", key, path_resolution_may_require_artifact_value)]
 pub struct TransitiveSetProjectionWrapper {
     pub key: TransitiveSetProjectionKey,
-    pub has_content_based_path: bool,
+    pub path_resolution_may_require_artifact_value: bool,
     pub is_eligible_for_dedupe: bool,
 }
 
 impl TransitiveSetProjectionWrapper {
     pub fn new(
         key: TransitiveSetProjectionKey,
-        has_content_based_path: bool,
+        path_resolution_may_require_artifact_value: bool,
         is_eligible_for_dedupe: bool,
     ) -> Self {
         Self {
             key,
-            has_content_based_path,
+            path_resolution_may_require_artifact_value,
             is_eligible_for_dedupe,
         }
     }
@@ -117,10 +117,12 @@ impl ArtifactGroup {
         })
     }
 
-    pub fn uses_content_based_path(&self) -> bool {
+    pub fn path_resolution_may_require_artifact_value(&self) -> bool {
         match self {
-            ArtifactGroup::Artifact(a) => a.has_content_based_path(),
-            ArtifactGroup::TransitiveSetProjection(a) => a.has_content_based_path,
+            ArtifactGroup::Artifact(a) => a.path_resolution_requires_artifact_value(),
+            ArtifactGroup::TransitiveSetProjection(a) => {
+                a.path_resolution_may_require_artifact_value
+            }
             ArtifactGroup::Promise(p) => p.has_content_based_path,
         }
     }

@@ -139,7 +139,7 @@ impl PromiseArtifact {
             return Err(PromiseArtifactResolveError::SourceArtifact.into());
         }
 
-        let artifact_has_content_based_path = bound.has_content_based_path();
+        let artifact_has_content_based_path = bound.path_resolution_requires_artifact_value();
         if artifact_has_content_based_path && !promise_has_content_based_path {
             return Err(PromiseArtifactResolveError::UsesContentBasedPath(
                 self.id.clone(),

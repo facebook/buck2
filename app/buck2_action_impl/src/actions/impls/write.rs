@@ -73,7 +73,7 @@ impl CommandLineContentBasedInputVisitor {
 
 impl<'v> CommandLineArtifactVisitor<'v> for CommandLineContentBasedInputVisitor {
     fn visit_input(&mut self, input: ArtifactGroup, _tags: Vec<&ArtifactTag>) {
-        if input.uses_content_based_path() {
+        if input.path_resolution_may_require_artifact_value() {
             self.content_based_inputs.insert(input);
         }
     }
@@ -213,7 +213,7 @@ impl Action for WriteAction {
         let mut content_based_inputs = visitor.content_based_inputs;
         if let Some(macro_files) = &self.inner.macro_files {
             for artifact in macro_files {
-                if artifact.has_content_based_path() {
+                if artifact.path_resolution_requires_artifact_value() {
                     content_based_inputs.insert(ArtifactGroup::Artifact(artifact.dupe()));
                 }
             }

@@ -133,7 +133,8 @@ impl AnonTargetAttrResolution for AnonTargetAttr {
                     .unwrap();
 
                 let promise_has_content_based_path = promise_artifact_attr.has_content_based_path;
-                let artifact_has_content_based_path = artifact.has_content_based_path();
+                let artifact_has_content_based_path =
+                    artifact.path_resolution_requires_artifact_value();
                 if artifact_has_content_based_path && !promise_has_content_based_path {
                     return Err(PromiseArtifactResolveError::UsesContentBasedPath(
                         promise_id.clone(),

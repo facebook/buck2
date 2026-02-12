@@ -1358,7 +1358,10 @@ impl DeclaredDepFiles {
 
         for declared_dep_file in self.tagged.values() {
             let dep_file = &declared_dep_file.output;
-            let content_hash = if declared_dep_file.output.has_content_based_path() {
+            let content_hash = if declared_dep_file
+                .output
+                .path_resolution_requires_artifact_value()
+            {
                 Some(
                     result
                         .get_from_artifact_path(&declared_dep_file.output.get_path())
@@ -1415,7 +1418,10 @@ impl DeclaredDepFiles {
         let mut contents = HashMap::with_capacity(self.tagged.len());
 
         for declared_dep_file in self.tagged.values() {
-            let content_hash = if declared_dep_file.output.has_content_based_path() {
+            let content_hash = if declared_dep_file
+                .output
+                .path_resolution_requires_artifact_value()
+            {
                 Some(
                     result
                         .get_from_artifact_path(&declared_dep_file.output.get_path())

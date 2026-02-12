@@ -290,7 +290,7 @@ impl<'v, F: Fields<'v>> CommandLineArgLike<'v> for FieldsRef<'v, F> {
 
             impl<'v> CommandLineArtifactVisitor<'v> for IgnoredArtifactsVisitor {
                 fn visit_input(&mut self, input: ArtifactGroup, _tags: Vec<&ArtifactTag>) {
-                    if input.uses_content_based_path() {
+                    if input.path_resolution_may_require_artifact_value() {
                         self.content_based_artifacts.insert(input.to_string());
                     }
                 }

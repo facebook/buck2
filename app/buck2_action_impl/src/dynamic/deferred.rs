@@ -466,7 +466,7 @@ async fn materialize_inputs(
     for (artifact, artifact_value) in ensured_artifacts {
         let path = artifact.resolve_path(
             &artifact_fs,
-            if artifact.has_content_based_path() {
+            if artifact.path_resolution_requires_artifact_value() {
                 Some(artifact_value.content_based_path_hash())
             } else {
                 None
@@ -542,7 +542,7 @@ fn artifact_values<'v>(
         let k = StarlarkArtifact::new(artifact.dupe());
         let path = artifact.get_path().resolve(
             artifact_fs,
-            if artifact.has_content_based_path() {
+            if artifact.path_resolution_requires_artifact_value() {
                 Some(artifact_value.content_based_path_hash())
             } else {
                 None
@@ -608,7 +608,7 @@ fn new_attr_value<'v>(
         DynamicAttrValue::ArtifactValue(artifact) => {
             let path = artifact.get_path().resolve(
                 artifact_fs,
-                if artifact.has_content_based_path() {
+                if artifact.path_resolution_requires_artifact_value() {
                     Some(
                         ensured_artifacts
                             .get(artifact)

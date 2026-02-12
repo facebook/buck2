@@ -45,7 +45,7 @@ impl ArtifactGroupValues {
         let mut builder = LazyActionDirectoryBuilder::empty();
 
         for (artifact, value) in values.iter() {
-            if artifact.has_content_based_path() {
+            if artifact.path_resolution_requires_artifact_value() {
                 let path = artifact
                     .resolve_path(artifact_fs, Some(&value.content_based_path_hash()))
                     .buck_error_context("Invalid artifact")?;
@@ -105,7 +105,7 @@ impl ArtifactGroupValues {
         for (artifact, value) in self.iter() {
             let projrel_path = artifact.resolve_path(
                 artifact_fs,
-                if artifact.has_content_based_path() {
+                if artifact.path_resolution_requires_artifact_value() {
                     Some(value.content_based_path_hash())
                 } else {
                     None

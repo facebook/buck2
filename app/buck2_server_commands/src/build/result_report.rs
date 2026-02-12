@@ -278,7 +278,7 @@ impl<'a> ResultReporter<'a> {
     }
 }
 
-pub struct ErrorCountingArtifactPathMapperImpl<'a> {
+struct ErrorCountingArtifactPathMapperImpl<'a> {
     pub map: FxHashMap<&'a Artifact, ContentBasedPathHash>,
     pub content_based_paths_with_no_hash: Cell<usize>,
     pub scratch_content_based_path_hash: ContentBasedPathHash,
@@ -297,7 +297,7 @@ impl<'a> ErrorCountingArtifactPathMapperImpl<'a> {
 impl ArtifactPathMapper for ErrorCountingArtifactPathMapperImpl<'_> {
     fn get(&self, artifact: &Artifact) -> Option<&ContentBasedPathHash> {
         let content_based_path_hash = self.map.get(artifact);
-        if artifact.has_content_based_path() && content_based_path_hash.is_none() {
+        if artifact.path_resolution_requires_artifact_value() && content_based_path_hash.is_none() {
             self.content_based_paths_with_no_hash
                 .set(self.content_based_paths_with_no_hash.get() + 1);
             // We don't have a hash, but we want path resolution to succeed, so we use a scratch hash.

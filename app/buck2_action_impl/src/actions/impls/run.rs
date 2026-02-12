@@ -1444,7 +1444,7 @@ impl Action for RunAction {
         for x in self.starlark_values.outputs_for_error_handler.iter() {
             let artifact = x.inner().artifact();
 
-            let content_based_path_hash = if artifact.has_content_based_path() {
+            let content_based_path_hash = if artifact.path_resolution_requires_artifact_value() {
                 let outputs = outputs.ok_or_else(|| {
                     buck2_error::buck2_error!(
                         buck2_error::ErrorTag::Input,

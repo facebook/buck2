@@ -407,7 +407,7 @@ impl ActionExecutionCtx for BuckActionExecutionContext<'_> {
         self.inputs
             .iter()
             .filter(|(ag, _)| {
-                if !ag.uses_content_based_path() {
+                if !ag.path_resolution_may_require_artifact_value() {
                     return false;
                 }
 

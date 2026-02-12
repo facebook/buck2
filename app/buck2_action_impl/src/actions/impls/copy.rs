@@ -164,7 +164,7 @@ impl Action for CopyAction {
         let artifact_fs = ctx.fs();
         let src = input.resolve_path(
             artifact_fs,
-            if input.has_content_based_path() {
+            if input.path_resolution_requires_artifact_value() {
                 Some(src_value.content_based_path_hash())
             } else {
                 None

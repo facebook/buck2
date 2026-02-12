@@ -484,7 +484,7 @@ impl<'a> ConnectedInstaller<'a> {
             // TODO(T219919866): Support content-based paths by not passing the path to the installer until
             // the artifact is built.
             for (file_name, artifact) in install_files {
-                if artifact.has_content_based_path() {
+                if artifact.path_resolution_requires_artifact_value() {
                     return Err(InstallError::ContentBasedPath {
                         artifact: artifact.clone(),
                     }

@@ -241,7 +241,7 @@ async fn ensure_uploaded(
     for (artifact, value) in values.iter() {
         let path = artifact.resolve_path(
             &artifact_fs,
-            if artifact.has_content_based_path() {
+            if artifact.path_resolution_requires_artifact_value() {
                 Some(value.content_based_path_hash())
             } else {
                 None

@@ -127,7 +127,7 @@ pub struct TransitiveSetGen<V: ValueLifetimeless> {
     pub(crate) reductions: Box<[V]>,
 
     /// For each projection, whether it uses content based paths or not.
-    pub(crate) projection_uses_content_based_paths: Box<[bool]>,
+    pub(crate) projection_path_resolution_may_require_artifact_value: Box<[bool]>,
 
     /// For each projection, whether it uses configuration based paths or not.
     pub(crate) projection_is_eligible_for_dedupe: Box<[bool]>,
@@ -280,7 +280,7 @@ impl FrozenTransitiveSet {
                         key: v.key().dupe(),
                         projection,
                     },
-                    v.projection_uses_content_based_paths[projection],
+                    v.projection_path_resolution_may_require_artifact_value[projection],
                     v.projection_is_eligible_for_dedupe[projection],
                 ),
             )));
@@ -394,7 +394,7 @@ impl<'v> Freeze for TransitiveSet<'v> {
             definition,
             node,
             reductions,
-            projection_uses_content_based_paths,
+            projection_path_resolution_may_require_artifact_value,
             projection_is_eligible_for_dedupe,
             children,
         } = self;
@@ -402,14 +402,14 @@ impl<'v> Freeze for TransitiveSet<'v> {
         let node = node.try_map(|node| node.freeze(freezer))?;
         let children = children.freeze(freezer)?;
         let reductions = reductions.freeze(freezer)?;
-        let projection_uses_content_based_paths =
-            projection_uses_content_based_paths.freeze(freezer)?;
+        let projection_path_resolution_may_require_artifact_value =
+            projection_path_resolution_may_require_artifact_value.freeze(freezer)?;
         Ok(TransitiveSetGen {
             key,
             definition,
             node,
             reductions,
-            projection_uses_content_based_paths,
+            projection_path_resolution_may_require_artifact_value,
             projection_is_eligible_for_dedupe,
             children,
         })
@@ -502,7 +502,7 @@ impl<'v> TransitiveSet<'v> {
 
         struct InputVisitor {
             target_platform: Option<ConfigurationData>,
-            has_content_based_input: bool,
+            path_resolution_may_require_artifact_value: bool,
             is_eligible_for_dedupe: bool,
         }
 
@@ -510,7 +510,7 @@ impl<'v> TransitiveSet<'v> {
             fn new(target_platform: Option<ConfigurationData>) -> Self {
                 Self {
                     target_platform,
-                    has_content_based_input: false,
+                    path_resolution_may_require_artifact_value: false,
                     is_eligible_for_dedupe: true,
                 }
             }
@@ -518,8 +518,8 @@ impl<'v> TransitiveSet<'v> {
 
         impl<'v> CommandLineArtifactVisitor<'v> for InputVisitor {
             fn visit_input(&mut self, input: ArtifactGroup, _tags: Vec<&ArtifactTag>) {
-                if input.uses_content_based_path() {
-                    self.has_content_based_input = true;
+                if input.path_resolution_may_require_artifact_value() {
+                    self.path_resolution_may_require_artifact_value = true;
                 }
 
                 if self.is_eligible_for_dedupe {
@@ -545,16 +545,16 @@ impl<'v> TransitiveSet<'v> {
             None
         };
 
-        let (projection_uses_content_based_paths_iter, projection_is_eligible_for_dedupe_iter): (
-            Vec<bool>,
-            Vec<bool>,
-        ) = def
+        let (
+            projection_path_resolution_may_require_artifact_value,
+            projection_is_eligible_for_dedupe_iter,
+        ): (Vec<bool>, Vec<bool>) = def
             .operations()
             .projections
             .iter()
             .enumerate()
             .map(|(idx, (_name, spec))| {
-                let mut uses_content_based_paths = false;
+                let mut path_resolution_may_require_artifact_value = false;
                 let mut is_eligible_for_dedupe = true;
 
                 if let Some(node) = &node {
@@ -573,8 +573,8 @@ impl<'v> TransitiveSet<'v> {
                             visit_json_artifacts(*projection, &mut visitor)?
                         }
                     }
-                    if visitor.has_content_based_input {
-                        uses_content_based_paths = true;
+                    if visitor.path_resolution_may_require_artifact_value {
+                        path_resolution_may_require_artifact_value = true;
                     }
                     if !visitor.is_eligible_for_dedupe {
                         is_eligible_for_dedupe = false;
@@ -583,11 +583,11 @@ impl<'v> TransitiveSet<'v> {
 
                 for child in children_sets.iter() {
                     if *child
-                        .projection_uses_content_based_paths
+                        .projection_path_resolution_may_require_artifact_value
                         .get(idx)
                         .ok_or_else(|| internal_error!("Invalid projection id"))?
                     {
-                        uses_content_based_paths = true;
+                        path_resolution_may_require_artifact_value = true;
                     }
 
                     if is_eligible_for_dedupe
@@ -616,7 +616,7 @@ impl<'v> TransitiveSet<'v> {
                 }
 
                 Ok::<(bool, bool), buck2_error::Error>((
-                    uses_content_based_paths,
+                    path_resolution_may_require_artifact_value,
                     is_eligible_for_dedupe,
                 ))
             })
@@ -624,8 +624,11 @@ impl<'v> TransitiveSet<'v> {
             .into_iter()
             .unzip();
 
-        let (projection_uses_content_based_paths, projection_is_eligible_for_dedupe) = (
-            projection_uses_content_based_paths_iter.into_boxed_slice(),
+        let (
+            projection_path_resolution_may_require_artifact_value,
+            projection_is_eligible_for_dedupe,
+        ) = (
+            projection_path_resolution_may_require_artifact_value.into_boxed_slice(),
             projection_is_eligible_for_dedupe_iter.into_boxed_slice(),
         );
 
@@ -642,7 +645,7 @@ impl<'v> TransitiveSet<'v> {
             definition,
             node,
             reductions,
-            projection_uses_content_based_paths,
+            projection_path_resolution_may_require_artifact_value,
             projection_is_eligible_for_dedupe,
             children,
         })

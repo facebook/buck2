@@ -206,7 +206,7 @@ impl Artifact {
         )
     }
 
-    pub fn has_content_based_path(&self) -> bool {
+    pub fn path_resolution_requires_artifact_value(&self) -> bool {
         match self.as_parts().0 {
             BaseArtifactKind::Source(_) => false,
             BaseArtifactKind::Build(b) => b.get_path().is_content_based_path(),
@@ -250,7 +250,7 @@ impl ArtifactDyn for Artifact {
     }
 
     fn has_content_based_path(&self) -> bool {
-        self.has_content_based_path()
+        self.path_resolution_requires_artifact_value()
     }
 
     fn is_projected(&self) -> bool {
