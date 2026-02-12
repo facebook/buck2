@@ -1145,8 +1145,12 @@ def get_framework_linker_args(ctx: AnalysisContext, framework_names: list[str]) 
     if sdk_name.endswith("simulator"):
         sdk_name = sdk_name[:-len("simulator")] + "os"
 
+    weak_frameworks = []
+    strong_frameworks = []
+
     args = cmd_args()
     for name in framework_names:
+        is_weak = False
         versions = FRAMEWORK_INTRODUCED_VERSIONS.get(name, None)
         if versions:
             introduced = versions.get(sdk_name, None)
@@ -1156,14 +1160,17 @@ def get_framework_linker_args(ctx: AnalysisContext, framework_names: list[str]) 
                 fail(message)
 
             if _version_is_greater_than(introduced, deployment_target):
-                args.add("-weak_framework")
-            else:
-                args.add("-framework")
-        else:
-            # Assume this is a non-SDK framework
-            args.add("-framework")
+                is_weak = True
 
-        args.add(name)
+        if is_weak:
+            weak_frameworks.append(name)
+        else:
+            strong_frameworks.append(name)
+
+    if strong_frameworks:
+        args.add(cmd_args(strong_frameworks, prepend = "-framework"))
+    if weak_frameworks:
+        args.add(cmd_args(weak_frameworks, prepend = "-weak_framework"))
 
     return args
 
