@@ -784,7 +784,7 @@ mod tests {
         );
 
         assert_eq!(
-            Artifact::from(source).get_path().resolve(&fs, None)?,
+            &*Artifact::from(source).get_path().resolve(&fs, None)?,
             ProjectRelativePath::unchecked_new("cell_path/pkg/src.cpp")
         );
 

@@ -452,7 +452,7 @@ impl BuckOutPathResolver {
             ForwardRelativePathBuf::concat([
                 self.buck_out_v2.as_ref(),
                 ForwardRelativePath::unchecked_new("gen"),
-                &path.0.owner.owner().make_unhashed_path()?,
+                &*path.0.owner.owner().make_unhashed_path()?,
                 path.path(),
             ]),
         ))
