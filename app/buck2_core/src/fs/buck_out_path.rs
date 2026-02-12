@@ -399,6 +399,14 @@ impl BuckOutPathResolver {
         &self,
         label: &ConfiguredProvidersLabel,
     ) -> buck2_error::Result<ProjectRelativePathBuf> {
+        self.resolve_test_path(&ForwardRelativePath::unchecked_new("test_discovery"), label)
+    }
+
+    fn resolve_test_path(
+        &self,
+        prefix: &ForwardRelativePath,
+        label: &ConfiguredProvidersLabel,
+    ) -> buck2_error::Result<ProjectRelativePathBuf> {
         let path = match label.name() {
             ProvidersName::Default => "default".into(),
             ProvidersName::NonDefault(nd) => match nd.as_ref() {
@@ -413,7 +421,7 @@ impl BuckOutPathResolver {
         };
         let path = ForwardRelativePath::unchecked_new(&path);
         self.prefixed_path_for_owner(
-            ForwardRelativePath::unchecked_new("test_discovery"),
+            prefix,
             &BaseDeferredKey::TargetLabel(label.target().dupe()),
             None,
             path,
