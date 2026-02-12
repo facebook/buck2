@@ -280,7 +280,7 @@ async fn run_analysis_with_env_underlying(
         let mut reentrant_eval =
             eval_provider.make_reentrant_evaluator(&env, analysis_env.cancellation.into())?;
 
-        let (ctx, list_res) = reentrant_eval.with_evaluator(|mut eval| {
+        let (ctx, list_res) = reentrant_eval.with_evaluator(|eval| {
             eval.set_print_handler(&print);
             eval.set_soft_error_handler(&Buck2StarlarkSoftErrorHandler);
 
