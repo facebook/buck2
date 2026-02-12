@@ -1063,6 +1063,16 @@ impl ChromeTraceWriter {
                         events.allprocs_memory_pressure,
                     )?
                 }
+                buck2_data::instant_event::Data::CommandPreempted(..) => {
+                    self.trace_events.push(
+                        ChromeTraceInstant {
+                            name: "command_preempted".to_owned(),
+                            timestamp: event.timestamp(),
+                            scope: ChromeTraceInstantScope::Global,
+                        }
+                        .to_json()?,
+                    );
+                }
                 _ => {}
             },
             // Data field is oneof and `None` means the event is produced with newer version of `.proto` file
