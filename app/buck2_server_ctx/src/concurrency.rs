@@ -28,6 +28,7 @@ use buck2_cli_proto::client_context::PreemptibleWhen;
 use buck2_common::legacy_configs::dice::HasInjectedLegacyConfigs;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::soft_error;
+use buck2_data::CommandPreempted;
 use buck2_data::DiceBlockConcurrentCommandEnd;
 use buck2_data::DiceBlockConcurrentCommandStart;
 use buck2_data::DiceEqualityCheck;
@@ -427,6 +428,7 @@ impl ConcurrencyHandler {
         match future::select(result, preempt_receiver).await {
             Either::Left((result, _)) => Ok(result),
             Either::Right((_preemption, _)) => {
+                event_dispatcher.instant_event(CommandPreempted {});
                 Err(ConcurrencyHandlerError::ExitOnPreemption.into())
             }
         }

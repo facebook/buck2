@@ -201,6 +201,9 @@ message StdoutStreamingOutput {
   string message = 1;
 }
 
+/// Preemption of the running command was detected/allowed
+message CommandPreempted {}
+
 // An event that represents a single point in time.
 message InstantEvent {
   reserved 2, 8, 9, 12, 13, 22, 24, 38, 41, 52, 53;
@@ -320,6 +323,9 @@ message InstantEvent {
 
     // Used to track all resource control events as they happen
     ResourceControlEvent resource_control_event = 54;
+
+    // Command preemption was detected
+    CommandPreempted command_preempted = 55;
   }
 }
 
