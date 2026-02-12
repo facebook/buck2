@@ -124,8 +124,10 @@ using a `BUCK` file.
 ```python
 load("@fbsource//tools/build_defs:rust_binary.bzl", "rust_binary")
 
-rust_binary( name = "main", srcs = ["src/main.rs"], )
-
+rust_binary(
+    name = "main",
+    srcs = ["src/main.rs"],
+)
 ```
 
 </FbInternalOnly>
