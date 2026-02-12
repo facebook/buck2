@@ -168,12 +168,29 @@ buck2_lab
 
 With our Rust code and BUCK file in place, let's build the application!
 
+<FbInternalOnly>
+
+1. Open your terminal and make sure you are in the fbsource root directory.
+2. Run the following command:
+
+```bash
+buck2 build fbcode//scripts/<unixname>/buck2_lab/greeter_bin:main --show-output
+```
+
+Replace `<unixname>` with your unixname.
+
+</FbInternalOnly>
+
+<OssOnly>
+
 1. Open your terminal and make sure you are in the `greeter_bin` directory.
 2. Run the following command:
 
 ```bash
 buck2 build :main --show-output
 ```
+
+</OssOnly>
 
 - `buck2 build :main` tells Buck2 to build the target named main. The `:main`
   part means the target is defined in the BUCK file in the root of this package
@@ -220,11 +237,27 @@ export const TARGET_NAME = isInternal() ?
 
 Since our target is a runnable target, we can run it by `buck2 run`
 
+<FbInternalOnly>
+
+1. In your terminal (still in the fbsource root directory), execute:
+
+```bash
+buck2 run fbcode//scripts/<unixname>/buck2_lab/greeter_bin:main
+```
+
+Replace `<unixname>` with your unixname.
+
+</FbInternalOnly>
+
+<OssOnly>
+
 1. In your terminal (still in the `greeter_bin` directory), execute:
 
 ```bash
 buck2 run :main
 ```
+
+</OssOnly>
 
 This command tells Buck2 to run the `main` target. Buck2 will build it if it
 hasn't been built already, and then execute it. (i.e. We can do this without
@@ -243,6 +276,21 @@ There it is! Our program ran successfully and printed the message.
 This step is optional, but it's good to know how you can ask Buck2 about the
 targets you've defined.
 
+<FbInternalOnly>
+
+1. To see the target that we defined (still in the fbsource root directory),
+   run:
+
+```bash
+buck2 targets fbcode//scripts/<unixname>/buck2_lab/greeter_bin:
+```
+
+Replace `<unixname>` with your unixname.
+
+</FbInternalOnly>
+
+<OssOnly>
+
 1. To see the target that we defined (still in the `greeter_bin` directory),
    run:
 
@@ -250,11 +298,7 @@ targets you've defined.
 buck2 targets :
 ```
 
-or
-
-```bash
-buck2 targets fbcode//scripts/<unixname>/buck2_lab/greeter_bin:
-```
+</OssOnly>
 
 2. Expected Output:
 
