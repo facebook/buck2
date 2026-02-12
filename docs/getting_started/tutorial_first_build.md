@@ -243,7 +243,7 @@ export const TARGET_NAME = isInternal() ?
   from within its package (`greeter_bin`).
 - The full name {TARGET_NAME} is like an absolute path, uniquely identifying the
   target within your entire project (fbsource).
-- `buck-out/.../__main__/main` is the path of our binary output. It is the path
+- `buck-out/.../__main__/main` is the path of our binary output. It is the
   relative path to fbsource. You can use `--show-full-output` instead of
   `--show-output` to get the absolute path.
 
