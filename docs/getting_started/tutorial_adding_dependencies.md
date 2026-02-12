@@ -100,6 +100,7 @@ load("@fbsource//tools/build_defs:rust_library.bzl", "rust_library")
 rust_library(
     name = "library",
     srcs = ["src/lib.rs"],
+    crate_root = "src/lib.rs",
     visibility = ["PUBLIC"],
 )
 ```
@@ -112,6 +113,7 @@ rust_library(
 rust_library(
     name = "library",
     srcs = ["src/lib.rs"],
+    crate_root = "src/lib.rs",
     visibility = ["PUBLIC"],
 )
 ```
@@ -122,6 +124,7 @@ rust_library(
 - `name = "library"`: We're naming our library target "library". This name will
   also be used by default as the crate name for Rust.
 - `srcs = ["src/lib.rs"]`: Specifies the source file for this library.
+- `crate_root = "src/lib.rs"`: Specifies the root source file for this crate.
 - `visibility = ["PUBLIC"]`: This makes the library visible to all other
   targets.
 
