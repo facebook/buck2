@@ -8,6 +8,7 @@
 
 # pyre-strict
 
+import struct
 import sys
 from typing import BinaryIO, Optional
 
@@ -21,6 +22,17 @@ from .macho import (
     Symbol,
     SymtabCommand,
 )
+
+"""
+// Each LC_SYMTAB entry consists of the following fields:
+// - String Index: 4 bytes, offset into the string table (I == unsigned int)
+// - Type: 1 byte (B == unsigned char)
+// - Section: 1 byte, (B == unsigned char)
+// - Description: 2 bytes (H == unsigned short)
+// - Value: 8 bytes on 64bit, 4 bytes on 32bit (Q == unsigned long long)
+// - Everything is little-endian representation (denoted by <)
+"""
+_LC_SYMTAB_STRUCT = struct.Struct("<IBBHQ")
 
 
 def _read_bytes(f: BinaryIO, n_bytes: int) -> int:
@@ -110,14 +122,15 @@ def load_debug_symbols(f: BinaryIO, offset: int, n_symbol: int) -> list[Symbol]:
     // - Value: 8 bytes on 64bit, 4 bytes on 32bit
     """
     f.seek(offset)
-    symbols = []
-    for _ in range(n_symbol):
-        strtab_index = _read_bytes(f, 4)
-        sym_type = _read_bytes(f, 1)
-        section_idx = _read_bytes(f, 1)
-        desc = _read_bytes(f, 2)
-        value = _read_bytes(f, 8)
-        if sym_type == N_OSO:
-            symbol = Symbol(strtab_index, sym_type, section_idx, desc, value)
-            symbols.append(symbol)
-    return symbols
+    data = f.read(n_symbol * _LC_SYMTAB_STRUCT.size)
+    return [
+        Symbol(strtab_index, sym_type, section_idx, desc, value)
+        for (
+            strtab_index,
+            sym_type,
+            section_idx,
+            desc,
+            value,
+        ) in _LC_SYMTAB_STRUCT.iter_unpack(data)
+        if sym_type == N_OSO
+    ]
