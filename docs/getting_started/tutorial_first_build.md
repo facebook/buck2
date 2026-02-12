@@ -86,11 +86,25 @@ mkdir greeter_bin/src
 
 Our project structure should look like this:
 
+<FbInternalOnly>
+
+```
+fbcode/scripts/<unixname>/buck2_lab
+└── greeter_bin
+    └── src
+```
+
+</FbInternalOnly>
+
+<OssOnly>
+
 ```
 buck2_lab
 └── greeter_bin
     └── src
 ```
+
+</OssOnly>
 
 ## Step 2: Writing the "Hello, World!" Program
 
