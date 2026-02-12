@@ -81,6 +81,7 @@ def get_re_executors_from_props(ctx: AnalysisContext) -> ([CommandExecutorConfig
     listing_capabilities = re_props_copy.pop("listing_capabilities", None)
     remote_cache_enabled = re_props_copy.pop("remote_cache_enabled", None)
     re_dependencies = re_props_copy.pop("dependencies", [])
+    re_gang_workers = re_props_copy.pop("gang_workers", [])
     local_enabled = re_props_copy.pop("local_enabled", False)
     local_listing_enabled = re_props_copy.pop("local_listing_enabled", None)
     re_resource_units = re_props_copy.pop("resource_units", None)
@@ -97,6 +98,7 @@ def get_re_executors_from_props(ctx: AnalysisContext) -> ([CommandExecutorConfig
         remote_execution_use_case = use_case or "tpx-default",
         remote_cache_enabled = remote_cache_enabled,
         remote_execution_dependencies = re_dependencies,
+        remote_execution_gang_workers = re_gang_workers,
         remote_execution_resource_units = re_resource_units,
         remote_execution_dynamic_image = re_dynamic_image,
     )
