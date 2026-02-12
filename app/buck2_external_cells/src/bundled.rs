@@ -478,7 +478,6 @@ pub(crate) async fn materialize_all(
 
 #[cfg(test)]
 mod tests {
-    use std::assert_matches::assert_matches;
 
     use super::*;
 
@@ -512,7 +511,7 @@ mod tests {
     #[tokio::test]
     async fn test_executable_bit() {
         let ops = testing_ops();
-        assert_matches!(
+        assert!(matches!(
             ops.read_path_metadata_if_exists(&CellRelativePath::unchecked_new("dir/src.txt"))
                 .unwrap()
                 .unwrap(),
@@ -520,8 +519,8 @@ mod tests {
                 digest: _,
                 is_executable: false,
             }),
-        );
-        assert_matches!(
+        ));
+        assert!(matches!(
             ops.read_path_metadata_if_exists(&CellRelativePath::unchecked_new("dir/src2.txt"))
                 .unwrap()
                 .unwrap(),
@@ -529,7 +528,7 @@ mod tests {
                 digest: _,
                 is_executable: true,
             }),
-        );
+        ));
     }
 
     #[tokio::test]
@@ -538,7 +537,7 @@ mod tests {
 
         let root = CellRelativePath::unchecked_new("");
         let root_metadata = ops.read_path_metadata_if_exists(root).unwrap().unwrap();
-        assert_matches!(root_metadata, RawPathMetadata::Directory);
+        assert!(matches!(root_metadata, RawPathMetadata::Directory));
         let root_entries = ops.read_dir(root).await.unwrap();
         assert!(root_entries.is_sorted());
         assert_eq!(
@@ -561,7 +560,7 @@ mod tests {
 
         let dir = CellRelativePath::unchecked_new("dir");
         let dir_metadata = ops.read_path_metadata_if_exists(dir).unwrap().unwrap();
-        assert_matches!(dir_metadata, RawPathMetadata::Directory);
+        assert!(matches!(dir_metadata, RawPathMetadata::Directory));
         let dir_entries = ops.read_dir(dir).await.unwrap();
         assert!(dir_entries.is_sorted());
         assert_eq!(dir_entries.len(), 5);
