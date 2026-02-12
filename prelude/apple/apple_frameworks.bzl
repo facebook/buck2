@@ -62,9 +62,7 @@ def _get_apple_frameworks_linker_flags(ctx: AnalysisContext, linkables: list[[Fr
     expanded_frameworks_paths = _expand_sdk_framework_paths(ctx, unresolved_framework_paths)
     flags = _get_framework_search_path_flags(expanded_frameworks_paths)
     flags.add(get_framework_linker_args(ctx, framework_names))
-
-    for library in libraries:
-        flags.add("-l" + _library_name(library))
+    flags.add(cmd_args([_library_name(library) for library in libraries], format = "-l{}"))
 
     return flags
 

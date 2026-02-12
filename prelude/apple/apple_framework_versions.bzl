@@ -1129,7 +1129,7 @@ def validate_sdk_frameworks(frameworks: list[str]) -> None:
             if framework_name not in FRAMEWORK_INTRODUCED_VERSIONS:
                 fail("Framework {} is missing version information".format(framework_name))
 
-def get_framework_linker_args(ctx: AnalysisContext, framework_names: list[str]) -> list[str]:
+def get_framework_linker_args(ctx: AnalysisContext, framework_names: list[str]) -> cmd_args:
     if not has_apple_toolchain(ctx):
         return _get_unchecked_framework_linker_args(framework_names)
 
@@ -1145,7 +1145,7 @@ def get_framework_linker_args(ctx: AnalysisContext, framework_names: list[str]) 
     if sdk_name.endswith("simulator"):
         sdk_name = sdk_name[:-len("simulator")] + "os"
 
-    args = []
+    args = cmd_args()
     for name in framework_names:
         versions = FRAMEWORK_INTRODUCED_VERSIONS.get(name, None)
         if versions:
@@ -1156,24 +1156,19 @@ def get_framework_linker_args(ctx: AnalysisContext, framework_names: list[str]) 
                 fail(message)
 
             if _version_is_greater_than(introduced, deployment_target):
-                args.append("-weak_framework")
+                args.add("-weak_framework")
             else:
-                args.append("-framework")
+                args.add("-framework")
         else:
             # Assume this is a non-SDK framework
-            args.append("-framework")
+            args.add("-framework")
 
-        args.append(name)
-
-    return args
-
-def _get_unchecked_framework_linker_args(framework_names: list[str]) -> list[str]:
-    args = []
-    for f in framework_names:
-        args.append("-framework")
-        args.append(f)
+        args.add(name)
 
     return args
+
+def _get_unchecked_framework_linker_args(framework_names: list[str]) -> cmd_args:
+    return cmd_args(framework_names, prepend = "-framework")
 
 def _version_is_greater_than(x: (int, int, int), y: (int, int, int)) -> bool:
     return x[0] > y[0] or (x[0] == y[0] and x[1] > y[1]) or (x[0] == y[0] and x[1] == y[1] and x[2] > y[2])
