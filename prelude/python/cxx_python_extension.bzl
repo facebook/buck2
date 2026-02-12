@@ -85,6 +85,7 @@ load("@prelude//utils:utils.bzl", "value_or")
 load(":manifest.bzl", "create_manifest_for_source_map")
 load(":python.bzl", "NativeDepsInfo", "NativeDepsInfoTSet", "PythonLibraryInfo")
 load(":python_library.bzl", "create_python_library_info", "dest_prefix", "gather_dep_libraries", "qualify_srcs")
+load(":source_db.bzl", "create_python_source_db_info", "create_source_db_no_deps")
 load(":versions.bzl", "gather_versioned_dependencies")
 
 # This extension is basically cxx_library, plus base_module.
@@ -170,12 +171,6 @@ def cxx_python_extension_impl(ctx: AnalysisContext) -> list[Provider]:
     dumpbin_toolchain_path = cxx_toolchain.dumpbin_toolchain_path
     if dumpbin_toolchain_path:
         sub_targets[DUMPBIN_SUB_TARGET] = get_dumpbin_providers(ctx, extension.output, dumpbin_toolchain_path)
-
-    providers.append(DefaultInfo(
-        default_output = shared_output.default,
-        other_outputs = shared_output.other,
-        sub_targets = sub_targets,
-    ))
 
     cxx_deps = cxx_attr_deps(ctx)
 
@@ -283,16 +278,18 @@ def cxx_python_extension_impl(ctx: AnalysisContext) -> list[Provider]:
     providers.extend(cxx_library_info.providers)
 
     # If a type stub was specified, create a manifest for export.
+    src_types = None
     src_type_manifest = None
     if ctx.attrs.type_stub != None:
+        src_types = qualify_srcs(
+            ctx.label,
+            ctx.attrs.base_module,
+            {module_name + ".pyi": ctx.attrs.type_stub},
+        )
         src_type_manifest = create_manifest_for_source_map(
             ctx,
             "type_stub",
-            qualify_srcs(
-                ctx.label,
-                ctx.attrs.base_module,
-                {module_name + ".pyi": ctx.attrs.type_stub},
-            ),
+            src_types,
         )
 
     # Export library info.
@@ -318,6 +315,16 @@ def cxx_python_extension_impl(ctx: AnalysisContext) -> list[Provider]:
         is_native_dep = True,
     )
     providers.append(library_info)
+
+    # Source DBs.
+    if src_types != None:
+        sub_targets["source-db-no-deps"] = [create_source_db_no_deps(ctx, src_types), create_python_source_db_info(library_info.manifests)]
+
+    providers.append(DefaultInfo(
+        default_output = shared_output.default,
+        other_outputs = shared_output.other,
+        sub_targets = sub_targets,
+    ))
 
     # Omnibus providers
 

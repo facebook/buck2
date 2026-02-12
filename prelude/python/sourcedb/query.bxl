@@ -59,6 +59,12 @@ def do_query(
             target_patterns,
         )
     )
+
+    # Invariant: every target whose manifest has non-None src_types must also
+    # provide a "source-db-no-deps" subtarget, since build.bxl will attempt to
+    # build that subtarget for each target returned here.
+    # Rule types that currently satisfy this: python_library,
+    # prebuilt_python_library, and cxx_python_extension.
     return [
         manifest.label.configured_target()
         for manifest in manifests_of_transitive_dependencies.traverse()
