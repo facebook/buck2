@@ -8,6 +8,8 @@
  * above-listed licenses.
  */
 
+// TraceEvent spec used in this file documented here: https://docs.google.com/document/d/1CvAClvFfyA5R-PhYUmn5OOQtYMH4h6I0nSsKchNAySU/preview?tab=t.0
+
 use std::borrow::Cow;
 use std::collections::BTreeSet;
 use std::collections::HashMap;
