@@ -120,12 +120,7 @@ pub fn write_starlark_profile(
     .categorize_internal()
     .buck_error_context("Failed to write targets")?;
 
-    if let Some(mut profile) = profile_data.profile_data.gen_flame_data()? {
-        if profile.is_empty() {
-            // inferno does not like empty flamegraphs.
-            profile = "empty 1\n".to_owned();
-        }
-        let mut svg = Vec::new();
+    if let Some(profile) = profile_data.profile_data.gen_flame_data()? {
         let mut options = inferno::flamegraph::Options::default();
         let title = format!(
             "Flame Graph - {}",
@@ -139,16 +134,7 @@ pub fn write_starlark_profile(
             title
         };
 
-        inferno::flamegraph::from_reader(&mut options, profile.as_bytes(), &mut svg)
-            .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Profile))
-            .buck_error_context("writing SVG from profile data")?;
-
-        fs_util::write(output.join("flame.src"), &profile)
-            .categorize_internal()
-            .buck_error_context("Failed to write flame.src")?;
-        fs_util::write(output.join("flame.svg"), &svg)
-            .categorize_internal()
-            .buck_error_context("Failed to write flame.svg")?;
+        write_starlark_flamegraph(profile, &output.join("flame"), options)?;
     }
 
     match profile_data.profile_data.profile_mode() {
@@ -160,6 +146,34 @@ pub fn write_starlark_profile(
                 .buck_error_context("Failed to write profile")?;
         }
     };
+    Ok(())
+}
+
+/// Will write the flamegraph profile to `<output_prefix.src` and `<output_prefix>.svg`
+pub fn write_starlark_flamegraph(
+    mut profile: String,
+    output_prefix: &AbsPath,
+    mut options: inferno::flamegraph::Options,
+) -> buck2_error::Result<()> {
+    if profile.is_empty() {
+        // inferno does not like empty flamegraphs.
+        profile = "empty 1\n".to_owned();
+    }
+    let mut svg = Vec::new();
+
+    inferno::flamegraph::from_reader(&mut options, profile.as_bytes(), &mut svg)
+        .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Profile))
+        .buck_error_context("writing SVG from profile data")?;
+
+    let src_path = output_prefix.with_added_extension("src");
+    fs_util::write(&src_path, &profile)
+        .categorize_internal()
+        .buck_error_context(format!("Failed to write {src_path}"))?;
+    let svg_path = output_prefix.with_added_extension("svg");
+    fs_util::write(&svg_path, &svg)
+        .categorize_internal()
+        .buck_error_context(format!("Failed to write {svg_path}"))?;
+
     Ok(())
 }
 
