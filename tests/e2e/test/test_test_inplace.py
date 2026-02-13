@@ -26,7 +26,6 @@ from buck2.tests.e2e_util.buck_workspace import (
     get_mode_from_platform,
     is_deployed_buck2,
 )
-from buck2.tests.e2e_util.helper.utils import read_invocation_record
 
 MAC_AND_WINDOWS = ["darwin", "windows"]
 
@@ -842,16 +841,13 @@ async def test_test_worker(buck: Buck) -> None:
     )
 
 
-@buck_test(inplace=True)
+@buck_test(inplace=True, write_invocation_record=True)
 @env("TEST_MAKE_IT_FAIL", "1")
-async def test_failed_tests_has_error_category(buck: Buck, tmp_path: Path) -> None:
-    record_path = tmp_path / "record.json"
-    await expect_failure(
+async def test_failed_tests_has_error_category(buck: Buck) -> None:
+    res = await expect_failure(
         buck.test(
             "fbcode//buck2/tests/targets/rules/python/test:test",
             get_mode_from_platform(),
-            "--unstable-write-invocation-record",
-            str(record_path),
             "--",
             "--env",
             "TEST_MAKE_IT_FAIL=1",
@@ -859,7 +855,7 @@ async def test_failed_tests_has_error_category(buck: Buck, tmp_path: Path) -> No
         stderr_regex="1 TESTS FAILED",
     )
 
-    record = read_invocation_record(record_path)
+    record = res.invocation_record()
     errors = record["errors"]
 
     assert len(errors) == 1

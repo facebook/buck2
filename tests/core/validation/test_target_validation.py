@@ -8,12 +8,9 @@
 
 # pyre-strict
 
-from pathlib import Path
-
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.asserts import expect_failure
 from buck2.tests.e2e_util.buck_workspace import buck_test, env
-from buck2.tests.e2e_util.helper.utils import read_invocation_record
 
 
 @buck_test()
@@ -30,15 +27,11 @@ Full validation result is located at""",
     await buck.build(":date")
 
 
-@buck_test()
-async def test_validation_affects_run_command(buck: Buck, tmp_path: Path) -> None:
-    record_path = tmp_path / "record.json"
-
-    await expect_failure(
+@buck_test(write_invocation_record=True)
+async def test_validation_affects_run_command(buck: Buck) -> None:
+    res = await expect_failure(
         buck.run(
             ":plate",
-            "--unstable-write-invocation-record",
-            str(record_path),
         ),
         stderr_regex="""
 Validation for `prelude//:mate \\(<unspecified>\\)` failed:
@@ -48,22 +41,18 @@ Here I am describing the failure reason
 Full validation result is located at""",
     )
 
-    record = read_invocation_record(record_path)
+    record = res.invocation_record()
     assert len(record["errors"]) == 1
 
     await buck.run(":date")
 
 
-@buck_test()
+@buck_test(write_invocation_record=True)
 @env("BUCK2_ALLOW_INTERNAL_TEST_RUNNER_DO_NOT_USE", "1")
-async def test_validation_affects_test_command(buck: Buck, tmp_path: Path) -> None:
-    record_path = tmp_path / "record.json"
-
-    await expect_failure(
+async def test_validation_affects_test_command(buck: Buck) -> None:
+    res = await expect_failure(
         buck.test(
             ":plate",
-            "--unstable-write-invocation-record",
-            str(record_path),
             test_executor="",
         ),
         stderr_regex="""
@@ -74,41 +63,35 @@ Here I am describing the failure reason
 Full validation result is located at""",
     )
 
-    record = read_invocation_record(record_path)
+    record = res.invocation_record()
     assert len(record["errors"]) == 1
 
     await buck.test(":date", test_executor="")
 
 
-@buck_test()
-async def test_validation_affects_install_command(buck: Buck, tmp_path: Path) -> None:
-    record_path = tmp_path / "record.json"
-
-    await expect_failure(
+@buck_test(write_invocation_record=True)
+async def test_validation_affects_install_command(buck: Buck) -> None:
+    res = await expect_failure(
         buck.install(
             ":plate",
-            "--unstable-write-invocation-record",
-            str(record_path),
         ),
         stderr_regex="Validation for `prelude//:mate \\(<unspecified>\\)` failed",
     )
 
-    record = read_invocation_record(record_path)
+    record = res.invocation_record()
     assert len(record["errors"]) == 1
 
     # It's too complicated to set up installer properly.
     # We intentionally fail on the installer side, but interpret
     # an attempt to run it as a successful verification.
-    await expect_failure(
+    res = await expect_failure(
         buck.install(
             ":date",
-            "--unstable-write-invocation-record",
-            str(record_path),
         ),
         stderr_regex="Installer: Incoming connection accepted, now closing it",
     )
 
-    record = read_invocation_record(record_path)
+    record = res.invocation_record()
     assert len(record["errors"]) == 1
 
 

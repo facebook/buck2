@@ -13,12 +13,10 @@ import asyncio
 import json
 import os
 import signal
-from pathlib import Path
 
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.asserts import expect_failure
 from buck2.tests.e2e_util.buck_workspace import buck_test
-from buck2.tests.e2e_util.helper.utils import read_invocation_record
 
 TEST_DIGEST = "76f7aea8c1fc400287312b9608ceb24848ba02ac:14"
 
@@ -118,21 +116,18 @@ async def test_restart_disabled(buck: Buck) -> None:
     assert "Your command will now restart" not in result.stderr
 
 
-@buck_test()
-async def test_trace_id(buck: Buck, tmp_path: Path) -> None:
+@buck_test(write_invocation_record=True)
+async def test_trace_id(buck: Buck) -> None:
     trace_id = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
-    record_file = tmp_path / "record.json"
 
     # But if we force a restart...
-    await expect_failure(
+    res = await expect_failure(
         buck.targets(
             "//:invalid",
-            "--unstable-write-invocation-record",
-            str(record_file),
             env={"FORCE_WANT_RESTART": "true", "BUCK_WRAPPER_UUID": trace_id},
         )
     )
-    record = read_invocation_record(record_file)
+    record = res.invocation_record()
     assert record["trace_id"] != trace_id
     assert record["restarted_trace_id"] == trace_id
     assert record["should_restart"] is False

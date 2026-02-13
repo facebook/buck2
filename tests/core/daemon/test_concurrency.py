@@ -10,7 +10,6 @@
 
 
 import asyncio
-from pathlib import Path
 from typing import Optional
 
 import pytest
@@ -19,7 +18,6 @@ from buck2.tests.e2e_util.api.buck_result import BuckException, BuildResult
 from buck2.tests.e2e_util.api.process import Process
 from buck2.tests.e2e_util.asserts import expect_failure
 from buck2.tests.e2e_util.buck_workspace import buck_test
-from buck2.tests.e2e_util.helper.utils import read_invocation_record
 
 
 @buck_test()
@@ -110,16 +108,13 @@ async def test_exit_when_preemptible_always(buck: Buck, same_state: bool) -> Non
         assert exit_code == 5
 
 
-@buck_test()
-async def test_preemptible_logged(buck: Buck, tmp_path: Path) -> None:
-    record_path = tmp_path / "record.json"
-    await buck.targets(
+@buck_test(write_invocation_record=True)
+async def test_preemptible_logged(buck: Buck) -> None:
+    res = await buck.targets(
         "--preemptible=always",
         ":",
-        "--unstable-write-invocation-record",
-        str(record_path),
     )
-    record = read_invocation_record(record_path)
+    record = res.invocation_record()
     assert record["preemptible"] == "ALWAYS"
 
 

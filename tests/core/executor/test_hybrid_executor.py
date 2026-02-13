@@ -9,20 +9,14 @@
 # pyre-strict
 
 
-from pathlib import Path
-from typing import Any, Optional
+from typing import Optional
 
 import pytest
 from buck2.tests.e2e_util.api.buck import Buck
-from buck2.tests.e2e_util.api.buck_result import BuckException
+from buck2.tests.e2e_util.api.buck_result import BuckException, InvocationRecord
 from buck2.tests.e2e_util.asserts import expect_failure
 from buck2.tests.e2e_util.buck_workspace import buck_test, env
-from buck2.tests.e2e_util.helper.utils import (
-    json_get,
-    random_string,
-    read_invocation_record,
-    read_what_ran,
-)
+from buck2.tests.e2e_util.helper.utils import json_get, random_string, read_what_ran
 
 
 @buck_test()
@@ -361,26 +355,21 @@ async def test_build_offline(buck: Buck) -> None:
     assert executors == expected
 
 
-@buck_test()
-async def test_hybrid_executor_remote_queuing_fallback(
-    buck: Buck, tmp_path: Path
-) -> None:
+@buck_test(write_invocation_record=True)
+async def test_hybrid_executor_remote_queuing_fallback(buck: Buck) -> None:
     async def build(
         target: str, *opts: str, env: Optional[dict[str, str]] = None
-    ) -> dict[str, Any]:
-        record_path = tmp_path / "record.json"
+    ) -> InvocationRecord:
         # kill to update env
         await buck.kill()
-        await buck.build(
+        res = await buck.build(
             f"root//executor_race_tests:{target}",
             "-c",
             f"test.cache_buster={random_string()}",
-            "--unstable-write-invocation-record",
-            str(record_path),
             *opts,
             env=env,
         )
-        return read_invocation_record(record_path)
+        return res.invocation_record()
 
     async def scheduling_mode(buck: Buck) -> int:
         actions = await read_what_ran(buck)

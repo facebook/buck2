@@ -8,12 +8,9 @@
 
 # pyre-strict
 
-from pathlib import Path
-
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.asserts import expect_failure
 from buck2.tests.e2e_util.buck_workspace import buck_test
-from buck2.tests.e2e_util.helper.utils import read_invocation_record
 
 
 @buck_test()
@@ -36,19 +33,16 @@ async def test_bxl_analysis(buck: Buck) -> None:
     ]
 
 
-@buck_test()
-async def test_bxl_analysis_missing_subtarget(buck: Buck, tmp_path: Path) -> None:
-    record_path = tmp_path / "record.json"
-    await expect_failure(
+@buck_test(write_invocation_record=True)
+async def test_bxl_analysis_missing_subtarget(buck: Buck) -> None:
+    res = await expect_failure(
         buck.bxl(
             "//analysis.bxl:missing_subtarget_test",
-            "--unstable-write-invocation-record",
-            str(record_path),
         ),
         stderr_regex="requested sub target named `missing_subtarget` .* is not available",
     )
 
-    record = read_invocation_record(record_path)
+    record = res.invocation_record()
     errors = record["errors"]
 
     assert len(errors) == 1

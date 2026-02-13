@@ -8,56 +8,36 @@
 
 # pyre-unsafe
 
-import json
-import tempfile
-from pathlib import Path
-
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.buck_workspace import buck_test
 
 
-@buck_test()
+@buck_test(write_invocation_record=True)
 async def test_representative_config_flags_disregards_run_args(
     buck: Buck,
 ) -> None:
-    with tempfile.TemporaryDirectory() as d:
-        invocation_record_file = Path(d) / "record"
-        await buck.run(
-            "//:my_rule",
-            "--unstable-write-invocation-record",
-            str(invocation_record_file),
-            "--config",
-            "foo.bar=baz",
-            "--",
-            "--config",
-            "should.not=include",
-        )
-        with open(invocation_record_file) as f:
-            invocation_record = json.load(f)
+    res = await buck.run(
+        "//:my_rule",
+        "--config",
+        "foo.bar=baz",
+        "--",
+        "--config",
+        "should.not=include",
+    )
 
-    assert invocation_record["data"]["Record"]["data"]["InvocationRecord"][
-        "representative_config_flags"
-    ] == ["-c foo.bar=baz"]
+    assert res.invocation_record()["representative_config_flags"] == ["-c foo.bar=baz"]
 
 
-@buck_test()
+@buck_test(write_invocation_record=True)
 async def test_representative_config_flags_includes_build_args(
     buck: Buck,
 ) -> None:
-    with tempfile.TemporaryDirectory() as d:
-        invocation_record_file = Path(d) / "record"
-        await buck.build(
-            "--unstable-write-invocation-record",
-            str(invocation_record_file),
-            "--config",
-            "foo.bar=baz",
-            # For `build` commands, anything after `--` is a positional arg.
-            "--",
-            "//:my_rule",
-        )
-        with open(invocation_record_file) as f:
-            invocation_record = json.load(f)
+    res = await buck.build(
+        "--config",
+        "foo.bar=baz",
+        # For `build` commands, anything after `--` is a positional arg.
+        "--",
+        "//:my_rule",
+    )
 
-    assert invocation_record["data"]["Record"]["data"]["InvocationRecord"][
-        "representative_config_flags"
-    ] == ["-c foo.bar=baz"]
+    assert res.invocation_record()["representative_config_flags"] == ["-c foo.bar=baz"]

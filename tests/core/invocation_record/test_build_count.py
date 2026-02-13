@@ -9,38 +9,31 @@
 # pyre-strict
 
 import subprocess
-from pathlib import Path
 
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.asserts import expect_failure
 from buck2.tests.e2e_util.buck_workspace import buck_test
-from buck2.tests.e2e_util.helper.utils import read_invocation_record
 
 
-@buck_test(setup_eden=True)
-async def test_build_count_since_rebase(buck: Buck, tmp_path: Path) -> None:
+@buck_test(setup_eden=True, write_invocation_record=True)
+async def test_build_count_since_rebase(buck: Buck) -> None:
     # needed for mergebase to exist
     subprocess.run(["sl", "bookmark", "main"], cwd=buck.cwd, check=True)
-    record_path = tmp_path / "record.json"
-    await buck.build(
+    res = await buck.build(
         "//:test",
-        "--unstable-write-invocation-record",
-        str(record_path),
     )
-    record = read_invocation_record(record_path)
+    record = res.invocation_record()
     print(record["hg_revision"])
     assert record["min_attempted_build_count_since_rebase"] == 1
     assert record["min_build_count_since_rebase"] == 1
 
-    await expect_failure(
+    res2 = await expect_failure(
         buck.build(
             "//:test",
-            "--unstable-write-invocation-record",
-            str(record_path),
             "-c test.fail=1",
         )
     )
-    record = read_invocation_record(record_path)
+    record = res2.invocation_record()
     print(record["hg_revision"])
     assert record["min_attempted_build_count_since_rebase"] == 2
     assert record["min_build_count_since_rebase"] == 1

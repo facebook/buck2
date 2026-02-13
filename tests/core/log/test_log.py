@@ -15,10 +15,7 @@ from pathlib import Path
 
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.buck_workspace import buck_test
-from buck2.tests.e2e_util.helper.utils import (
-    is_running_on_windows,
-    read_invocation_record,
-)
+from buck2.tests.e2e_util.helper.utils import is_running_on_windows
 
 
 @buck_test()
@@ -39,13 +36,10 @@ async def test_log_show_invocation_record(buck: Buck, tmp_path: Path) -> None:
     assert "aa.bb=cc" not in command_line_args
 
 
-@buck_test()
-async def test_log_size_logging(buck: Buck, tmp_path: Path) -> None:
-    record_file = tmp_path / "record.json"
-    await buck.cquery(
+@buck_test(write_invocation_record=True)
+async def test_log_size_logging(buck: Buck) -> None:
+    res = await buck.cquery(
         "//:EEE",
-        "--unstable-write-invocation-record",
-        str(record_file),
     )
 
     out = await buck.log("last")
@@ -53,7 +47,7 @@ async def test_log_size_logging(buck: Buck, tmp_path: Path) -> None:
     with open(path, "rb") as f:
         log_size_in_disk = len(f.read())
 
-    logged_size = read_invocation_record(record_file)["compressed_event_log_size_bytes"]
+    logged_size = res.invocation_record()["compressed_event_log_size_bytes"]
 
     assert logged_size == log_size_in_disk
 

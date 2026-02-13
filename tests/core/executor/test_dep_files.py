@@ -23,7 +23,6 @@ from buck2.tests.e2e_util.helper.utils import (
     expect_exec_count,
     filter_events,
     random_string,
-    read_invocation_record,
     read_what_ran,
 )
 
@@ -688,10 +687,10 @@ async def test_re_dep_file_remote_upload(buck: Buck) -> None:
     await _check_uploaded_dep_file_key(buck, key)
 
 
-@buck_test(data_dir="upload_dep_files")
+@buck_test(data_dir="upload_dep_files", write_invocation_record=True)
 @env("BUCK_LOG", "buck2_action_impl=debug,buck2_execute_impl::executors::caching=debug")
 @env("BUCK2_TEST_SKIP_ACTION_CACHE_WRITE", "true")
-async def test_re_dep_file_cache_hit_upload(buck: Buck, tmpdir: Path) -> None:
+async def test_re_dep_file_cache_hit_upload(buck: Buck) -> None:
     target = [
         "root//:dep_files",
         "--remote-only",
@@ -704,14 +703,11 @@ async def test_re_dep_file_cache_hit_upload(buck: Buck, tmpdir: Path) -> None:
     await buck.build(*target)
     await buck.kill()
 
-    record = tmpdir / "record.json"
     # Check for action cache hit and dep file cache upload
-    await buck.build(
+    res = await buck.build(
         *target,
         "-c",
         "test.allow_dep_file_cache_upload=true",
-        "--unstable-write-invocation-record",
-        str(record),
     )
     what_ran = await read_what_ran(buck)
     assert what_ran[0]["reproducer"]["executor"] == "Cache"
@@ -719,7 +715,7 @@ async def test_re_dep_file_cache_hit_upload(buck: Buck, tmpdir: Path) -> None:
     key = await _dep_file_key_from_executions(buck)
     await _check_uploaded_dep_file_key(buck, key)
 
-    invocation_record = read_invocation_record(record)
+    invocation_record = res.invocation_record()
 
     assert invocation_record["dep_file_upload_count"] == 1
     assert (
