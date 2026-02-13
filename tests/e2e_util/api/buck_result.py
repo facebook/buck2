@@ -15,7 +15,7 @@ from asyncio import subprocess
 from collections import defaultdict
 from enum import auto, Enum
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Tuple
+from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 from buck2.tests.e2e_util.api.result import Result
 
@@ -75,6 +75,29 @@ class ResultType(AutoName):
     SUCCESS = auto()
 
 
+class InvocationRecord:
+    """Parsed invocation record from a Buck2 command."""
+
+    def __init__(self, path: Path) -> None:
+        record_json = json.loads(path.read_text(encoding="utf-8"))
+        self._data = record_json["data"]["Record"]["data"]["InvocationRecord"]
+        self._data["trace_id"] = record_json["trace_id"]
+
+    def __getitem__(self, key: str) -> Any:
+        return self._data[key]
+
+    def __contains__(self, key: str) -> bool:
+        return key in self._data
+
+    def get(self, key: str, default: Any = None) -> Any:
+        return self._data.get(key, default)
+
+    def single_error(self) -> Dict[str, Any]:
+        errors = self._data["errors"]
+        assert len(errors) == 1
+        return errors[0]
+
+
 class BuckResult(Result):
     """
     Represents a buck process that has finished running and succeeded.
@@ -87,11 +110,20 @@ class BuckResult(Result):
         stdout: str,
         stderr: str,
         buck_build_id: str,
+        invocation_record_path: Optional[Path] = None,
         args: str = "",
     ) -> None:
         super().__init__(process, stdout, stderr)
         self.buck_build_id = buck_build_id
         self.args = args
+        self.invocation_record_path = invocation_record_path
+
+    def invocation_record(self) -> InvocationRecord:
+        if self.invocation_record_path is None:
+            raise Exception(
+                "No invocation record available, write_invocation_record not set."
+            )
+        return InvocationRecord(self.invocation_record_path)
 
 
 class BuckException(Exception, BuckResult):
@@ -106,6 +138,7 @@ class BuckException(Exception, BuckResult):
         stdout: str,
         stderr: str,
         buck_build_id: str,
+        invocation_record_path: Optional[Path] = None,
     ) -> None:
         cmd = " ".join(str(e) for e in cmd_to_run)
         if stdout != "":
@@ -130,7 +163,9 @@ class BuckException(Exception, BuckResult):
             self,
             error_msg,
         )
-        BuckResult.__init__(self, process, stdout, stderr, buck_build_id)
+        BuckResult.__init__(
+            self, process, stdout, stderr, buck_build_id, invocation_record_path
+        )
 
     def check_returncode(self) -> None:
         assert self.process.returncode != 0

@@ -47,6 +47,7 @@ BuckTestMarker = namedtuple(
         "skip_final_kill",
         "setup_eden",
         "disable_daemon_cgroup",
+        "write_invocation_record",
     ],
 )
 
@@ -213,6 +214,7 @@ async def buck_fixture(  # noqa C901 : "too complex"
             cwd=buck_cwd,
             encoding="utf-8",
             env=env,
+            write_invocation_record=marker.write_invocation_record,
         )
 
         if isolation_prefix is not None:
@@ -481,6 +483,7 @@ def buck_test(
     skip_final_kill=False,
     setup_eden=False,
     disable_daemon_cgroup=True,
+    write_invocation_record=False,
 ) -> Callable:
     """
     Defines a buck test. This is a must have decorator on all test case functions.
@@ -548,6 +551,7 @@ def buck_test(
             skip_final_kill=skip_final_kill,
             setup_eden=setup_eden,
             disable_daemon_cgroup=disable_daemon_cgroup,
+            write_invocation_record=write_invocation_record,
         )
     )
 

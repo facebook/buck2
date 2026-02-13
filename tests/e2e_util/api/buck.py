@@ -40,10 +40,12 @@ class Buck(Executable):
         env: Dict[str, str],
         cwd: Optional[Path] = None,
         isolation_prefix: Optional[str] = None,
+        write_invocation_record: bool = False,
     ) -> None:
         super().__init__(path_to_executable, encoding, env, cwd)
         self.set_buckd(False)
         self.isolation_prefix = isolation_prefix
+        self.write_invocation_record = write_invocation_record
 
     def set_buckd(self, toggle: bool) -> None:
         """
@@ -686,6 +688,7 @@ class Buck(Executable):
             input=input,
             rel_cwd=rel_cwd,
             env=env,
+            can_write_invocation_record=False,
         )
 
     def status(
@@ -701,6 +704,7 @@ class Buck(Executable):
             input=input,
             rel_cwd=rel_cwd,
             env=env,
+            can_write_invocation_record=False,
         )
 
     def server(
@@ -801,6 +805,7 @@ class Buck(Executable):
         result_kwargs: Optional[Dict[str, Any]] = None,
         stdin: Optional[int] = None,
         intercept_stderr: bool = True,
+        can_write_invocation_record: bool = True,
     ) -> Process[R, BuckException]:
         """
         Returns a process created from the execuable path,
@@ -811,7 +816,21 @@ class Buck(Executable):
         if "BUCK_WRAPPER_UUID" not in command_env:
             command_env["BUCK_WRAPPER_UUID"] = buck_build_id
 
-        cmd_to_run = self.construct_buck_command(cmd, *argv)
+        cwd = self._get_cwd(rel_cwd)
+
+        args = list(argv)
+        invocation_record_path = None
+        if self.write_invocation_record and can_write_invocation_record:
+            invocation_record_dir = cwd / "buck-out" / "tmp"
+            invocation_record_dir.mkdir(parents=True, exist_ok=True)
+            invocation_record_path = invocation_record_dir / (buck_build_id + ".json")
+            separator_idx = args.index("--") if "--" in args else len(args)
+            args[separator_idx:separator_idx] = [
+                "--unstable-write-invocation-record",
+                str(invocation_record_path),
+            ]
+
+        cmd_to_run = self.construct_buck_command(cmd, *args)
 
         args = argv
         result_kwargs = result_kwargs or {}
@@ -822,6 +841,7 @@ class Buck(Executable):
                 stdout,
                 stderr,
                 buck_build_id,
+                invocation_record_path,
                 args=" ".join(args),
             )
             if result_type is BuckResult:
@@ -830,13 +850,20 @@ class Buck(Executable):
 
         def make_exception(cmd_to_run, working_dir, env, proc, stdout, stderr):
             return BuckException(
-                cmd_to_run, working_dir, env, proc, stdout, stderr, buck_build_id
+                cmd_to_run,
+                working_dir,
+                env,
+                proc,
+                stdout,
+                stderr,
+                buck_build_id,
+                invocation_record_path,
             )
 
         stderr = subprocess.PIPE if intercept_stderr else None
         return Process(
             cmd_to_run=cmd_to_run,
-            working_dir=self._get_cwd(rel_cwd),
+            working_dir=cwd,
             env=command_env,
             input=input,
             stdin=stdin,

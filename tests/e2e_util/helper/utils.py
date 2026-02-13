@@ -17,6 +17,7 @@ import typing
 from pathlib import Path
 
 from buck2.tests.e2e_util.api.buck import Buck
+from buck2.tests.e2e_util.api.buck_result import InvocationRecord
 
 
 async def read_what_ran(buck: Buck, *args) -> typing.List[typing.Dict[str, typing.Any]]:
@@ -108,11 +109,8 @@ def replace_digest(s: str) -> str:
     return re.sub(r"\b[0-9a-f]{40}:[0-9]{1,3}\b", "<DIGEST>", s)
 
 
-def read_invocation_record(record: Path) -> typing.Dict[str, typing.Any]:
-    record_json = json.loads(record.read_text(encoding="utf-8"))
-    record = record_json["data"]["Record"]["data"]["InvocationRecord"]
-    record["trace_id"] = record_json["trace_id"]
-    return record
+def read_invocation_record(record: Path) -> InvocationRecord:
+    return InvocationRecord(record)
 
 
 async def get_last_execution_kind(
