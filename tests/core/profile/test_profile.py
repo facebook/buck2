@@ -10,6 +10,7 @@
 
 import os
 from pathlib import Path
+from tempfile import TemporaryDirectory
 
 import pytest
 from buck2.tests.e2e_util.api.buck import Buck
@@ -17,6 +18,8 @@ from buck2.tests.e2e_util.api.buck_result import BuckException, BuckResult
 from buck2.tests.e2e_util.api.process import Process
 from buck2.tests.e2e_util.asserts import expect_failure
 from buck2.tests.e2e_util.buck_workspace import buck_test
+from buck2.tests.e2e_util.helper.golden import golden
+
 
 PROFILERS = [
     "heap-flame-allocated",
@@ -322,6 +325,43 @@ async def test_profile_loading_recursive_target_pattern(
     )
 
     await _assertions_for_profile_without_frozen_module(command, file_path, profiler)
+
+
+@buck_test(skip_for_os=["windows"])
+async def test_profile_patterns(buck: Buck, tmp_path: Path) -> None:
+    with TemporaryDirectory() as tmpdir:
+        tmp_path = Path(tmpdir)
+
+        await buck.build(
+            "//simple/...",
+            "--profile-patterns=.*",
+            "--profile-patterns-mode=statement",
+            f"--profile-patterns-output={tmp_path}",
+        )
+
+        # Use paths relative to tmpdir instead of just filenames
+        files_with_sizes = []
+        for root, _, files in os.walk(tmp_path):
+            for fname in files:
+                fpath = Path(root) / fname
+                try:
+                    size = fpath.stat().st_size
+                except FileNotFoundError:
+                    continue
+                rel_path = fpath.relative_to(tmp_path)
+
+                # Drop the first path component from rel_path before storing (it's nondeterministic of the format <timestamp>-<builduuid>)
+                assert len(rel_path.parts) > 1
+                rel_path = Path(*rel_path.parts[1:])
+
+                files_with_sizes.append((str(rel_path), size))
+
+        # Sort by filename
+        files_with_sizes.sort(key=lambda x: x[0])
+
+        # Format as "file: True/False" where bool indicates non-zero size
+        output_lines = [f"{fname}: {size > 0}" for fname, size in files_with_sizes]
+        golden(output="\n".join(output_lines), rel_path="profile_patterns.golden")
 
 
 async def _assertions_for_profile_without_frozen_module(
