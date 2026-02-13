@@ -37,6 +37,7 @@ load(
     ":packages.bzl",
     "GoPkg",  # @Unused used as type
     "GoStdlib",
+    "GoStdlibDynamicValue",
     "make_importcfg",
     "merge_pkgs",
 )
@@ -166,9 +167,6 @@ def link(
     identifier_prefix = ctx.label.name + "_" + _build_mode_param(build_mode)
 
     go_stdlib = ctx.attrs._go_stdlib[GoStdlib]
-    importcfg = make_importcfg(ctx.actions, go_toolchain, go_stdlib, identifier_prefix, all_pkgs, use_shared_code, link = True)
-
-    cmd.add("-importcfg", importcfg)
 
     executable_args = _process_shared_dependencies(ctx, output, deps, link_style)
 
@@ -248,9 +246,11 @@ def link(
     env = get_toolchain_env_vars(go_toolchain)
 
     ctx.actions.dynamic_output_new(_link(
+        go_stdlib_value = go_stdlib.dynamic_value,
         env_vars = env,
         link_args = cmd,
         main_pkg = main,
+        deps_pkgs = all_pkgs,
         shared = use_shared_code,
         identifier = identifier_prefix,
         out = output.as_output(),
@@ -266,15 +266,22 @@ def link(
 
 def _link_impl(
         actions: AnalysisActions,
+        go_stdlib_value: ResolvedDynamicValue,
         env_vars: dict[str, str | cmd_args | Artifact],
         link_args: cmd_args,
         main_pkg: GoPkg,
+        deps_pkgs: dict[str, GoPkg],
         shared: bool,
         identifier: str,
         out: OutputArtifact) -> list[Provider]:
+    go_stdlib_value = go_stdlib_value.providers[GoStdlibDynamicValue]
+
+    importcfg = make_importcfg(actions, go_stdlib_value, deps_pkgs, shared, link = True)
     main_pkg_o = main_pkg.pkg_shared if shared else main_pkg.pkg
+
     cmd = [
         link_args,
+        ["-importcfg", importcfg],
         ["-o", out],
         main_pkg_o,
     ]
@@ -285,9 +292,11 @@ _link = dynamic_actions(
     impl = _link_impl,
     # @unsorted-dict-items
     attrs = {
+        "go_stdlib_value": dynattrs.dynamic_value(),  # GoStdlibDynamicValue
         "env_vars": dynattrs.value(dict[str, str | cmd_args | Artifact]),
         "link_args": dynattrs.value(cmd_args),
         "main_pkg": dynattrs.value(GoPkg),
+        "deps_pkgs": dynattrs.value(dict[str, GoPkg]),
         "shared": dynattrs.value(bool),
         "identifier": dynattrs.value(str),
         "out": dynattrs.output(),

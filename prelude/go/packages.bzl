@@ -13,7 +13,6 @@ load(
     "CPreprocessor",
     "CPreprocessorArgs",
 )
-load("@prelude//go:toolchain.bzl", "GoToolchainInfo")
 load("@prelude//utils:utils.bzl", "value_or")
 
 # Information about a package for GOPACKAGESDRIVER
@@ -42,12 +41,20 @@ GoPkg = record(
     test_go_files = field(cmd_args),
 )
 
+StdPkg = record(
+    a_file = field(Artifact),
+    a_file_shared = field(Artifact),
+)
+
+GoStdlibDynamicValue = provider(
+    fields = {
+        "pkgs": provider_field(dict[str, StdPkg]),
+    },
+)
+
 GoStdlib = provider(
     fields = {
-        "importcfg": provider_field(Artifact),
-        "importcfg_shared": provider_field(Artifact),
-        "pkgdir": provider_field(Artifact),
-        "pkgdir_shared": provider_field(Artifact),
+        "dynamic_value": provider_field(DynamicValue),  # GoStdlibDynamicValue inside
     },
 )
 
@@ -93,37 +100,27 @@ def export_files(pkgs: dict[str, GoPkg], shared: bool) -> dict[str, Artifact]:
 
 def make_importcfg(
         actions: AnalysisActions,
-        go_toolchain: GoToolchainInfo,
-        stdlib: GoStdlib,
-        prefix_name: str,
+        stdlib: GoStdlibDynamicValue,
         own_pkgs: dict[str, GoPkg],
         shared: bool,
-        link: bool) -> cmd_args:
-    suffix = "__shared" if shared else ""  # suffix to make artifacts unique
-
+        link: bool) -> Artifact:
     content = []
+    a_files = []
     pkg_artifacts_map = pkg_artifacts(own_pkgs, shared) if link else export_files(own_pkgs, shared)
     for name_, pkg_ in pkg_artifacts_map.items():
         # Hack: we use cmd_args get "artifact" valid path and write it to a file.
-        content.append(cmd_args("packagefile ", name_, "=", pkg_, delimiter = ""))
+        content.append(cmd_args("packagefile ", name_, "=", pkg_, delimiter = "", hidden = [pkg_]))
+        a_files.append(pkg_)
 
-    own_importcfg = actions.declare_output("{}{}.importcfg".format(prefix_name, suffix), has_content_based_path = True)
-    actions.write(own_importcfg, content)
+    for name_, pkg_ in stdlib.pkgs.items():
+        a_file = pkg_.a_file_shared if shared else pkg_.a_file
+        content.append(cmd_args("packagefile ", name_, "=", a_file, delimiter = "", hidden = [a_file]))
+        a_files.append(a_file)
 
-    final_importcfg = actions.declare_output("{}{}.final.importcfg".format(prefix_name, suffix), has_content_based_path = True)
-    actions.run(
-        [
-            go_toolchain.concat_files,
-            "--output",
-            final_importcfg.as_output(),
-            stdlib.importcfg_shared if shared else stdlib.importcfg,
-            own_importcfg,
-        ],
-        category = "concat_importcfgs",
-        identifier = prefix_name + suffix,
-    )
+    importcfg = actions.declare_output("{}.importcfg".format("shared" if shared else "non_shared"), has_content_based_path = True)
+    actions.write(importcfg, content)
 
-    return cmd_args(final_importcfg, hidden = [stdlib.pkgdir_shared if shared else stdlib.pkgdir, pkg_artifacts_map.values()])
+    return importcfg.with_associated_artifacts(a_files)
 
 # Return "_cgo_export.h" to expose exported C declarations to non-Go rules
 def cgo_exported_preprocessor(ctx: AnalysisContext, pkg_info: GoPackageInfo) -> CPreprocessor:

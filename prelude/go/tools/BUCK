@@ -6,12 +6,6 @@ source_listing()
 
 prelude = native
 
-prelude.python_bootstrap_binary(
-    name = "gen_stdlib_importcfg",
-    main = "gen_stdlib_importcfg.py",
-    visibility = ["PUBLIC"],
-)
-
 prelude.go_stdlib(
     name = "stdlib",
     visibility = ["PUBLIC"],
@@ -21,15 +15,6 @@ prelude.go_bootstrap_binary(
     name = "tool_pack",
     build_args = [
         "cmd/pack",
-    ],
-    visibility = ["PUBLIC"],
-)
-
-prelude.go_bootstrap_binary(
-    name = "concat_files",
-    srcs = ["concat_files.go"],
-    build_args = [
-        "concat_files.go",
     ],
     visibility = ["PUBLIC"],
 )

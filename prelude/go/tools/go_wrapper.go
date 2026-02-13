@@ -12,8 +12,10 @@ package main
 
 import (
 	"bufio"
+	"encoding/json"
 	"flag"
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"os/exec"
@@ -138,6 +140,21 @@ func loadArgs(args []string) []string {
 	return newArgs
 }
 
+func jsonStreamToArray(r io.Reader, w io.Writer) error {
+	var objs []any
+	for dec := json.NewDecoder(r); dec.More(); {
+		var obj any
+		if err := dec.Decode(&obj); err != nil {
+			return fmt.Errorf("failed to decode json: %w", err)
+		}
+		objs = append(objs, obj)
+	}
+	if err := json.NewEncoder(w).Encode(objs); err != nil {
+		return fmt.Errorf("failed to encode json: %w", err)
+	}
+	return nil
+}
+
 func main() {
 	os.Args = loadArgs(os.Args)
 	var wrappedBinary = flag.String("go", "", "wrapped go binary")
@@ -145,6 +162,7 @@ func main() {
 	var defaultGoOS = flag.String("default-goos", "", "default GOOS (if not set by env)")
 	var defaultGoArch = flag.String("default-goarch", "", "default GOARCH (if not set by env)")
 	var outputFile = flag.String("output", "", "file to redirect stdout to")
+	var convertJsonStream = flag.Bool("convert-json-stream", false, "convert json stream to array")
 	var workdir = flag.String("workdir", "", "directory to run the command in")
 	var useFakeGoroot = flag.Bool("use-fake-goroot", false, "use a fake GOROOT")
 	var useTmpWorkdir = flag.Bool("use-tmp-workdir", false, "use BUCK_SCRATCH_PATH as workdir")
@@ -249,9 +267,28 @@ func main() {
 		cmd.Dir = *workdir
 	}
 
-	cmd.Stdout = output
+	stdout, err := cmd.StdoutPipe()
+	if err != nil {
+		log.Fatalf("Error creating stdout pipe: %s", err)
+	}
+	defer stdout.Close()
+
+	if err := cmd.Start(); err != nil {
+		log.Fatalf("Error starting command: %s", err)
+	}
+
+	if *convertJsonStream {
+		if err := jsonStreamToArray(stdout, output); err != nil {
+			log.Fatalf("Error converting json stream: %s", err)
+		}
+	} else {
+		if _, err := io.Copy(output, stdout); err != nil {
+			log.Fatalf("Error copying stdout: %s", err)
+		}
+	}
+
 	cmd.Stderr = os.Stderr
-	err = cmd.Run()
+	err = cmd.Wait()
 	if err != nil {
 		exitCode := 1
 		if exitErr, ok := err.(*exec.ExitError); ok {

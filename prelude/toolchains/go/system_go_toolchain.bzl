@@ -44,7 +44,6 @@ def _system_go_toolchain_impl(ctx):
         GoToolchainInfo(
             assembler = RunInfo(cmd_script(ctx.actions, "asm", cmd_args(go, "tool", "asm"), script_language)),
             cgo = RunInfo(cmd_script(ctx.actions, "cgo", cmd_args(go, "tool", "cgo"), script_language)),
-            concat_files = ctx.attrs.concat_files[RunInfo],
             pkg_analyzer = ctx.attrs.pkg_analyzer[RunInfo],
             gen_embedcfg = ctx.attrs.gen_embedcfg[RunInfo],
             compiler = RunInfo(cmd_script(ctx.actions, "compile", cmd_args(go, "tool", "compile"), script_language)),
@@ -52,7 +51,6 @@ def _system_go_toolchain_impl(ctx):
             env_go_arch = go_arch,
             env_go_os = go_os,
             external_linker_flags = [],
-            gen_stdlib_importcfg = ctx.attrs.gen_stdlib_importcfg[RunInfo],
             go = RunInfo(cmd_script(ctx.actions, "go", cmd_args(go), script_language)),
             go_wrapper = ctx.attrs.go_wrapper[RunInfo],
             linker = RunInfo(cmd_script(ctx.actions, "link", cmd_args(go, "tool", "link"), script_language)),
@@ -73,9 +71,7 @@ system_go_toolchain = rule(
       visibility = ["PUBLIC"],
   )""",
     attrs = {
-        "concat_files": attrs.default_only(attrs.dep(providers = [RunInfo], default = "prelude//go/tools:concat_files")),
         "gen_embedcfg": attrs.default_only(attrs.dep(providers = [RunInfo], default = "prelude//go/tools:gen_embedcfg")),
-        "gen_stdlib_importcfg": attrs.default_only(attrs.dep(providers = [RunInfo], default = "prelude//go/tools:gen_stdlib_importcfg")),
         "go_wrapper": attrs.default_only(attrs.dep(providers = [RunInfo], default = "prelude//go/tools:go_wrapper")),
         "pkg_analyzer": attrs.default_only(attrs.dep(providers = [RunInfo], default = "prelude//go/tools:pkg_analyzer")),
     },

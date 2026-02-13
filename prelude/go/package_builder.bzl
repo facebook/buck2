@@ -21,7 +21,7 @@ load(
 )
 load(":go_error_handler.bzl", "go_build_error_handler")
 load(":go_list.bzl", "go_list", "parse_go_list_out")
-load(":packages.bzl", "GoPackageInfo", "GoPkg", "GoStdlib", "make_importcfg", "merge_pkgs")
+load(":packages.bzl", "GoPackageInfo", "GoPkg", "GoStdlib", "GoStdlibDynamicValue", "make_importcfg", "merge_pkgs")
 load(":toolchain.bzl", "GoToolchainInfo", "get_toolchain_env_vars")
 
 def build_package(
@@ -92,7 +92,7 @@ def build_package(
         embed_srcs = embed_srcs,
         with_tests = with_tests,
         go_toolchain = go_toolchain,
-        go_stdlib = go_stdlib,
+        go_stdlib_value = go_stdlib.dynamic_value,
         go_list_out = go_list_out,
         cgo_gen_dir = cgo_gen_dir.as_output(),
         coverage_vars_argsfile = coverage_vars_argsfile.as_output(),
@@ -134,8 +134,8 @@ def _build_package_action_impl(
         embed_srcs: list[Artifact],
         with_tests: bool,
         go_toolchain: GoToolchainInfo,
-        go_stdlib: GoStdlib,
         go_list_out: ArtifactValue,
+        go_stdlib_value: ResolvedDynamicValue,
         cgo_gen_dir: OutputArtifact,
         coverage_vars_argsfile: OutputArtifact,
         out_a: OutputArtifact,
@@ -199,10 +199,14 @@ def _build_package_action_impl(
     # Use -complete flag when compiling Go code only
     complete_flag = len(go_list.cgo_files) + len(s_files) + len(c_files) == 0
 
+    go_stdlib_value = go_stdlib_value.providers[GoStdlibDynamicValue]
+
     def build_variant(shared: bool) -> (Artifact, Artifact):
         suffix = "_shared" if shared else "_non-shared"  # suffix to make artifacts unique
         go_files_to_compile = covered_go_files + transformed_cgo_files
-        importcfg = make_importcfg(actions, go_toolchain, go_stdlib, pkg_name, deps_pkgs, shared, link = False)
+
+        # importcfg = make_importcfg(actions, go_toolchain, go_stdlib, pkg_name, deps_pkgs, shared, link = False)
+        importcfg = make_importcfg(actions, go_stdlib_value, deps_pkgs, shared, link = False)
         go_x_file, go_a_file, asmhdr = _compile(
             actions = actions,
             go_toolchain = go_toolchain,
@@ -256,9 +260,10 @@ _build_package_action = dynamic_actions(
         "embed_srcs": dynattrs.value(list[Artifact]),
         "with_tests": dynattrs.value(bool),
         "go_toolchain": dynattrs.value(GoToolchainInfo),
-        "go_stdlib": dynattrs.value(GoStdlib),
         # Readable Artifacts
         "go_list_out": dynattrs.artifact_value(),
+        # Dynamic Values
+        "go_stdlib_value": dynattrs.dynamic_value(),  # GoStdlibDynamicValue
         # Outputs
         "cgo_gen_dir": dynattrs.output(),
         "coverage_vars_argsfile": dynattrs.output(),
@@ -276,7 +281,7 @@ def _compile(
         pkg_name: str,
         main: bool,
         go_srcs: list[Artifact],
-        importcfg: cmd_args,
+        importcfg: Artifact,
         compiler_flags: list[str],
         shared: bool,
         race: bool,

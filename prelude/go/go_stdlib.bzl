@@ -8,7 +8,7 @@
 
 load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxToolchainInfo")
 load("@prelude//cxx:target_sdk_version.bzl", "get_target_sdk_version_flags")
-load(":packages.bzl", "GoStdlib")
+load(":packages.bzl", "GoStdlib", "GoStdlibDynamicValue", "StdPkg")
 load(":toolchain.bzl", "GoToolchainInfo", "evaluate_cgo_enabled", "get_toolchain_env_vars")
 
 def go_stdlib_impl(ctx: AnalysisContext) -> list[Provider]:
@@ -50,8 +50,6 @@ def go_stdlib_impl(ctx: AnalysisContext) -> list[Provider]:
         env["CGO_CFLAGS"] = cflags
         env["CGO_CPPFLAGS"] = cmd_args(c_compiler.preprocessor_flags, delimiter = "\t", absolute_prefix = "%cwd%/")
 
-    importcfg = ctx.actions.declare_output("stdlib.importcfg", has_content_based_path = True)
-    importcfg_shared = ctx.actions.declare_output("stdlib_shared.importcfg", has_content_based_path = True)
     stdlib_pkgdir = ctx.actions.declare_output("stdlib_pkgdir", dir = True, has_content_based_path = True)
     stdlib_pkgdir_shared = ctx.actions.declare_output("stdlib_pkgdir_shared", dir = True, has_content_based_path = True)
 
@@ -78,27 +76,62 @@ def go_stdlib_impl(ctx: AnalysisContext) -> list[Provider]:
     ctx.actions.run(build_variant(stdlib_pkgdir, False), env = env, category = "go_build_stdlib", identifier = "go_build_stdlib")
     ctx.actions.run(build_variant(stdlib_pkgdir_shared, True), env = env, category = "go_build_stdlib", identifier = "go_build_stdlib_shared")
 
-    ctx.actions.run(
-        [
-            go_toolchain.gen_stdlib_importcfg,
-            ["--stdlib", stdlib_pkgdir],
-            ["--output", importcfg.as_output()],
-        ],
-        category = "go_gen_stdlib_importcfg",
-        identifier = "go_gen_stdlib_importcfg",
-    )
+    go_list_stdlib_out = ctx.actions.declare_output("go_list_stdlib.txt", has_content_based_path = True)
 
     ctx.actions.run(
         [
-            go_toolchain.gen_stdlib_importcfg,
-            ["--stdlib", stdlib_pkgdir_shared],
-            ["--output", importcfg_shared.as_output()],
+            go_toolchain.go_wrapper,
+            ["--go", go_toolchain.go],
+            ["--output", go_list_stdlib_out.as_output()],
+            "--convert-json-stream",
+            "list",
+            "-json",
+            ["-tags", ",".join(build_tags)] if build_tags else [],
+            ["-race"] if go_toolchain.race else [],
+            "std",
         ],
-        category = "go_gen_stdlib_importcfg",
-        identifier = "go_gen_stdlib_importcfg_shared",
+        env = env,
+        category = "go_list_stdlib",
+        identifier = "go_list_stdlib",
     )
+
+    go_stdlib_value = ctx.actions.dynamic_output_new(_produce_dynamic_value(
+        go_list_stdlib_out = go_list_stdlib_out,
+        pkgdir = stdlib_pkgdir,
+        pkgdir_shared = stdlib_pkgdir_shared,
+    ))
 
     return [
         DefaultInfo(default_output = stdlib_pkgdir),
-        GoStdlib(pkgdir = stdlib_pkgdir, importcfg = importcfg, pkgdir_shared = stdlib_pkgdir_shared, importcfg_shared = importcfg_shared),
+        GoStdlib(dynamic_value = go_stdlib_value),
     ]
+
+def _produce_dynamic_value_impl(actions: AnalysisActions, go_list_stdlib_out: ArtifactValue, pkgdir: Artifact, pkgdir_shared: Artifact) -> list[Provider]:
+    _ignore = (actions,)  # buildifier: disable=unused-variable
+
+    pkgs = {}
+    for lib in go_list_stdlib_out.read_json():
+        if "GoFiles" not in lib and "CgoFiles" not in lib:
+            continue  # skip test packages
+
+        import_path = lib["ImportPath"]
+        if import_path in ["unsafe", "builtin"]:
+            continue  # skip fake packages
+
+        pkgs[import_path] = StdPkg(
+            a_file = pkgdir.project(import_path + ".a"),
+            a_file_shared = pkgdir_shared.project(import_path + ".a"),
+        )
+
+    return [
+        GoStdlibDynamicValue(pkgs = pkgs),
+    ]
+
+_produce_dynamic_value = dynamic_actions(
+    impl = _produce_dynamic_value_impl,
+    attrs = {
+        "go_list_stdlib_out": dynattrs.artifact_value(),
+        "pkgdir": dynattrs.value(Artifact),
+        "pkgdir_shared": dynattrs.value(Artifact),
+    },
+)
