@@ -28,3 +28,9 @@ constraint_value(
     constraint_setting = ":test_runtime",
     visibility = ["PUBLIC"],
 )
+
+constraint_value(
+    name = "anywhere-linux",
+    constraint_setting = ":test_runtime",
+    visibility = ["PUBLIC"],
+)

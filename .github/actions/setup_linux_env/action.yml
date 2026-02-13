@@ -3,6 +3,9 @@ description: Setup Linux environment
 runs:
   using: composite
   steps:
+  - uses: actions/setup-node@v6
+    with:
+      node-version: 24
   - uses: SebRollen/toml-action@v1.2.0
     id: read_rust_toolchain
     with:
@@ -14,7 +17,7 @@ runs:
       components: clippy
   - run: sudo apt-get update
     shell: bash
-  - run: sudo apt-get install opam libzstd-dev python3-pip erlang
+  - run: sudo apt-get install -y --no-install-recommends opam libzstd-dev python3-pip erlang
     shell: bash
   - uses: haskell-actions/setup@v2
     with:
