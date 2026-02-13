@@ -18,6 +18,7 @@ use buck2_fs::paths::abs_path::AbsPathBuf;
 use buck2_fs::paths::file_name::FileName;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_interpreter::factory::ProfileEventListener;
+use buck2_profile::write_starlark_flamegraph;
 use dupe::Dupe;
 use itertools::Itertools;
 
@@ -89,7 +90,7 @@ impl FileWritingProfileEventListener {
             .parent()
             .ok_or_else(|| internal_error!("profiling path has no parent"))?
             .join(FileName::new(&format!(
-                "{}{}.profile",
+                "{}{}",
                 subpath
                     .file_name()
                     .ok_or_else(|| internal_error!("profiling path has no filename"))?,
@@ -98,7 +99,18 @@ impl FileWritingProfileEventListener {
 
         let output_path = self.base_path.join(subpath.as_path());
         fs_util::create_dir_all(output_path.parent().unwrap())?;
-        fs_util::write(output_path, profile_data.profile_data.gen_csv()?).categorize_internal()?;
+        fs_util::write(
+            output_path.with_added_extension("profile"),
+            profile_data.profile_data.gen_csv()?,
+        )
+        .categorize_internal()?;
+        if let Some(flame_profile) = profile_data.profile_data.gen_flame_data()? {
+            write_starlark_flamegraph(
+                flame_profile,
+                &output_path,
+                inferno::flamegraph::Options::default(),
+            )?;
+        }
         Ok(())
     }
 }
