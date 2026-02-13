@@ -15,15 +15,9 @@ from asyncio import subprocess
 from collections import defaultdict
 from enum import auto, Enum
 from pathlib import Path
-from typing import Any, Callable, Dict, Iterable, List, Tuple
+from typing import Any, Dict, Iterable, List, Tuple
 
-from buck2.tests.e2e_util.api.result import E, R, Result
-
-
-BuckResultType = Callable[[subprocess.Process, str, str, str], R]
-BuckExceptionType = Callable[
-    [Iterable[str], Path, Dict[str, str], subprocess.Process, str, str, str], E
-]
+from buck2.tests.e2e_util.api.result import Result
 
 
 class ExitCode(Enum):
@@ -88,10 +82,16 @@ class BuckResult(Result):
     """
 
     def __init__(
-        self, process: subprocess.Process, stdout: str, stderr: str, buck_build_id: str
+        self,
+        process: subprocess.Process,
+        stdout: str,
+        stderr: str,
+        buck_build_id: str,
+        args: str = "",
     ) -> None:
         super().__init__(process, stdout, stderr)
         self.buck_build_id = buck_build_id
+        self.args = args
 
 
 class BuckException(Exception, BuckResult):
@@ -215,16 +215,8 @@ LOG_COMPUTE_KEY = "build_api::actions::calculation: compute"
 class TargetsResult(BuckResult):
     """Represents a Buck process  of a targets command that has finished running"""
 
-    def __init__(
-        self,
-        process: subprocess.Process,
-        stdout: str,
-        stderr: str,
-        buck_build_id: str,
-        *argv: str,
-    ) -> None:
-        self.args = " ".join(argv)
-        super().__init__(process, stdout, stderr, buck_build_id)
+    def __init__(self, base: BuckResult) -> None:
+        self.__dict__.update(base.__dict__)
 
     def get_target_to_build_output(self) -> Dict[str, str]:
         """
@@ -249,16 +241,8 @@ class TargetsResult(BuckResult):
 class BuildResult(BuckResult):
     """Represents a Buck process  of a build command that has finished running"""
 
-    def __init__(
-        self,
-        process: subprocess.Process,
-        stdout: str,
-        stderr: str,
-        buck_build_id: str,
-        *argv: str,
-    ) -> None:
-        self.args = " ".join(argv)
-        super().__init__(process, stdout, stderr, buck_build_id)
+    def __init__(self, base: BuckResult) -> None:
+        self.__dict__.update(base.__dict__)
 
     def get_target_to_build_output(self) -> Dict[str, str]:
         """
@@ -339,15 +323,8 @@ class TestResultSummary:
 class TestResult(BuckResult):
     """Represents a Buck process  of a test command that has finished running"""
 
-    def __init__(
-        self,
-        process: subprocess.Process,
-        stdout: str,
-        stderr: str,
-        buck_build_id: str,
-        test_output_file: Path,
-    ) -> None:
-        super().__init__(process, stdout, stderr, buck_build_id)
+    def __init__(self, base: BuckResult, test_output_file: Path) -> None:
+        self.__dict__.update(base.__dict__)
         self.test_root = (
             ET.parse(str(test_output_file)).getroot()
             if test_output_file.exists()
@@ -397,16 +374,8 @@ class TestResult(BuckResult):
 class AuditConfigResult(BuckResult):
     """Represents a Buck process of an audit config command that has finished running"""
 
-    def __init__(
-        self,
-        process: subprocess.Process,
-        stdout: str,
-        stderr: str,
-        buck_build_id: str,
-        *argv: str,
-    ) -> None:
-        self.args = " ".join(argv)
-        super().__init__(process, stdout, stderr, buck_build_id)
+    def __init__(self, base: BuckResult) -> None:
+        self.__dict__.update(base.__dict__)
 
     def get_json(self) -> Dict[str, str]:
         """Returns a dict of the json sent back by buck"""
@@ -421,18 +390,3 @@ class AuditConfigResult(BuckResult):
         except Exception as e:
             print(f"stdout: {self.stdout}\nstderr: {self.stderr}")
             raise e
-
-
-class BxlResult(BuckResult):
-    """Represents a Buck process  of a bxl command that has finished running"""
-
-    def __init__(
-        self,
-        process: subprocess.Process,
-        stdout: str,
-        stderr: str,
-        buck_build_id: str,
-        *argv: str,
-    ) -> None:
-        self.args = " ".join(argv)
-        super().__init__(process, stdout, stderr, buck_build_id)
