@@ -57,6 +57,23 @@ load("@prelude//utils:label_provider.bzl", "LabelInfo")
 _JAVA_FILE_EXTENSION = [".java"]
 _SUPPORTED_ARCHIVE_SUFFIXES = [".src.zip", "-sources.jar"]
 
+_JAVAC_PLUGIN_JVM_ARGS = [
+    "-J--add-exports=jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED",
+    "-J--add-exports=jdk.compiler/com.sun.tools.javac.comp=ALL-UNNAMED",
+    "-J--add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED",
+    "-J--add-exports=jdk.compiler/com.sun.tools.javac.jvm=ALL-UNNAMED",
+    "-J--add-exports=jdk.compiler/com.sun.tools.javac.main=ALL-UNNAMED",
+    "-J--add-exports=jdk.compiler/com.sun.tools.javac.model=ALL-UNNAMED",
+    "-J--add-exports=jdk.compiler/com.sun.tools.javac.processing=ALL-UNNAMED",
+    "-J--add-exports=jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED",
+    "-J--add-exports=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED",
+    "-J--add-opens=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED",
+    "-J--add-opens=jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED",
+    "-J--add-opens=jdk.compiler/com.sun.tools.javac.jvm=ALL-UNNAMED",
+    "-J--add-opens=jdk.compiler/com.sun.tools.javac.processing=ALL-UNNAMED",
+    "-J--add-opens=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED",
+]
+
 def _process_classpath(
         actions: AnalysisActions,
         classpath_args: cmd_args,
@@ -452,6 +469,13 @@ def _create_jar_artifact(
         args.append("--skip_javac_run")
     else:
         args += ["--javac_tool", javac_tool]
+        if plugin_params:
+            jvm_args_file = ctx.actions.write(
+                declare_prefixed_name("javac_jvm_args", actions_identifier),
+                _JAVAC_PLUGIN_JVM_ARGS,
+                has_content_based_path = use_content_based_paths,
+            )
+            args += ["--javac_jvm_args_file", jvm_args_file]
 
     if resources:
         resource_dir = _copy_resources(ctx.actions, actions_identifier, java_toolchain, label.package, resources, resources_root, use_content_based_paths)
@@ -668,11 +692,11 @@ def build_java_library(
     if (
         common_compile_kwargs and
         srcs and
-        not java_toolchain.is_bootstrap_toolchain and
         not ctx.attrs._is_building_android_binary
     ):
         extra_sub_targets = _nullsafe_subtarget(ctx, extra_sub_targets, common_compile_kwargs)
-        extra_sub_targets = _semanticdb_subtarget(ctx, extra_sub_targets, java_toolchain, common_compile_kwargs)
+        if not java_toolchain.is_bootstrap_toolchain:
+            extra_sub_targets = _semanticdb_subtarget(ctx, extra_sub_targets, java_toolchain, common_compile_kwargs)
 
     gwt_output = None
     if (
