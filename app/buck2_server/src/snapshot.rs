@@ -100,6 +100,30 @@ impl SnapshotCollector {
             };
             *pointer = key.get();
         }
+
+        for key in IoCounterKey::ALL {
+            let pointer = match key {
+                IoCounterKey::Copy => &mut snapshot.io_copy_count,
+                IoCounterKey::Symlink => &mut snapshot.io_symlink_count,
+                IoCounterKey::Hardlink => &mut snapshot.io_hardlink_count,
+                IoCounterKey::MkDir => &mut snapshot.io_mkdir_count,
+                IoCounterKey::ReadDir => &mut snapshot.io_readdir_count,
+                IoCounterKey::ReadDirEden => &mut snapshot.io_readdir_eden_count,
+                IoCounterKey::RmDir => &mut snapshot.io_rmdir_count,
+                IoCounterKey::RmDirAll => &mut snapshot.io_rmdir_all_count,
+                IoCounterKey::Stat => &mut snapshot.io_stat_count,
+                IoCounterKey::StatEden => &mut snapshot.io_stat_eden_count,
+                IoCounterKey::Chmod => &mut snapshot.io_chmod_count,
+                IoCounterKey::ReadLink => &mut snapshot.io_readlink_count,
+                IoCounterKey::Remove => &mut snapshot.io_remove_count,
+                IoCounterKey::Rename => &mut snapshot.io_rename_count,
+                IoCounterKey::Read => &mut snapshot.io_read_count,
+                IoCounterKey::Write => &mut snapshot.io_write_count,
+                IoCounterKey::Canonicalize => &mut snapshot.io_canonicalize_count,
+                IoCounterKey::EdenSettle => &mut snapshot.io_eden_settle_count,
+            };
+            *pointer = Some(key.get_finished());
+        }
     }
 
     fn add_re_metrics(&self, snapshot: &mut buck2_data::Snapshot) {
