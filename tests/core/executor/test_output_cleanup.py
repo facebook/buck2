@@ -26,7 +26,7 @@ output_cleanup_targets = [
 ]
 
 
-@buck_test(skip_for_os=["windows"])
+@buck_test()
 @pytest.mark.parametrize(
     "first",
     output_cleanup_targets,
@@ -67,9 +67,3 @@ async def test_output_cleanup(
     await buck.build(":main", "-c", f"test.main={second}", "--out", str(clean))
 
     assert read_dir(rebuild) == read_dir(clean)
-
-
-# TODO(marwhal): Add this back one at least one test in this file passes on Windows
-@buck_test()
-async def test_noop(buck: Buck) -> None:
-    return
