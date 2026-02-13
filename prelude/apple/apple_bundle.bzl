@@ -14,8 +14,8 @@ load(
 )
 load("@prelude//:paths.bzl", "paths")
 load("@prelude//:validation_deps.bzl", "get_validation_deps_outputs")
+load("@prelude//apple:apple_test_frameworks_utility.bzl", "get_test_frameworks_bundle_parts")
 load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolchainInfo", "AppleToolsInfo")
-load("@prelude//apple:apple_xctest_frameworks_utility.bzl", "get_xctest_frameworks_bundle_parts")
 load("@prelude//apple:debug.bzl", "AppleSelectiveDebuggableMetadata")
 # @oss-disable[end= ]: load("@prelude//apple/meta_only:linker_outputs.bzl", "subtargets_for_apple_bundle_extra_outputs")
 load("@prelude//apple/user:apple_selected_debug_path_file.bzl", "SELECTED_DEBUG_PATH_FILE_NAME")
@@ -310,12 +310,12 @@ def get_apple_bundle_part_list(ctx: AnalysisContext, params: AppleBundlePartList
     if resource_part_list == None:
         resource_part_list = get_apple_bundle_resource_part_list(ctx)
 
-    xctest_frameworks_parts = []
+    test_frameworks_parts = []
     if getattr(ctx.attrs, "embed_xctest_frameworks", False):
         if getattr(ctx.attrs, "extension", "") == "app":
             # XCTest frameworks should only be enabled for the top-level app,
             # not for any other bundles in the dep graph
-            xctest_frameworks_parts = get_xctest_frameworks_bundle_parts(
+            test_frameworks_parts = get_test_frameworks_bundle_parts(
                 ctx,
                 # It's not possible to pass information down the graph whether
                 # the `apple_test()` rdep needs Swift support, so just assume
@@ -324,7 +324,7 @@ def get_apple_bundle_part_list(ctx: AnalysisContext, params: AppleBundlePartList
             )
 
     return AppleBundlePartListOutput(
-        parts = resource_part_list.resource_parts + params.binaries + xctest_frameworks_parts,
+        parts = resource_part_list.resource_parts + params.binaries + test_frameworks_parts,
         info_plist_part = resource_part_list.info_plist_part,
         codesign_manifest_parts = resource_part_list.codesign_manifest_parts,
         signing_context_parts = resource_part_list.signing_context_parts,

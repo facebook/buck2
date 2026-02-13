@@ -12,8 +12,8 @@ load(
 )
 load("@prelude//apple:apple_library.bzl", "AppleLibraryAdditionalParams", "apple_library_rule_constructor_params_and_swift_providers")
 load("@prelude//apple:apple_test_device_types.bzl", "AppleTestDeviceType", "get_default_test_device", "tpx_label_for_test_device_type")
+load("@prelude//apple:apple_test_frameworks_utility.bzl", "get_test_frameworks_bundle_parts")
 load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolchainInfo")
-load("@prelude//apple:apple_xctest_frameworks_utility.bzl", "get_xctest_frameworks_bundle_parts")
 # @oss-disable[end= ]: load("@prelude//apple/meta_only:apple_test_local_execution.bzl", "local_test_execution_is_available")
 # @oss-disable[end= ]: load("@prelude//apple/meta_only:apple_test_re_capabilities.bzl", "apple_test_re_capabilities")
 # @oss-disable[end= ]: load("@prelude//apple/meta_only:apple_test_re_use_case.bzl", "apple_test_re_use_case")
@@ -151,7 +151,7 @@ def apple_test_impl(ctx: AnalysisContext) -> [list[Provider], Promise]:
             # The XCTest frameworks should only be embedded in a single place,
             # either the test host (as per Xcode) or in the test itself
             if test_host_app_bundle != None or read_root_config("apple", "exclude_xctest_libraries", "false").lower() != "true":
-                bundle_parts += get_xctest_frameworks_bundle_parts(ctx, xctest_swift_support_needed)
+                bundle_parts += get_test_frameworks_bundle_parts(ctx, xctest_swift_support_needed)
 
         for sanitizer_runtime_dylib in cxx_library_output.sanitizer_runtime_files:
             frameworks_destination = AppleBundleDestination("frameworks")
