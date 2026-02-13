@@ -91,7 +91,14 @@ pub async fn create_daemon_spawn_command(
     working_directory: &AbsNormPath,
 ) -> buck2_error::Result<(std::process::Command, Vec<String>)> {
     let daemon_spawner = {
-        if config.status == ResourceControlStatus::Off {
+        if config.status == ResourceControlStatus::Off
+            || buck2_core::buck2_env!(
+                "BUCK2_TEST_DISABLE_DAEMON_CGROUP",
+                type = bool,
+                applicability = testing,
+            )?
+            .unwrap_or(false)
+        {
             DaemonSpawner::None
         } else {
             match (config.status, get_daemon_spawner(&config.init).await) {

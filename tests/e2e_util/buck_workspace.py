@@ -46,6 +46,7 @@ BuckTestMarker = namedtuple(
         "extra_buck_config",
         "skip_final_kill",
         "setup_eden",
+        "disable_daemon_cgroup",
     ],
 )
 
@@ -88,6 +89,9 @@ async def buck_fixture(  # noqa C901 : "too complex"
     env["BUCK2_IGNORE_VERSION_EXTRACTION_FAILURE"] = "true"
     env["SUPERCONSOLE_TESTING_WIDTH"] = "100"
     env["SUPERCONSOLE_TESTING_HEIGHT"] = "100"
+    # Don't try to assign to a new cgroup during tests.
+    if marker.disable_daemon_cgroup:
+        env["BUCK2_TEST_DISABLE_DAEMON_CGROUP"] = "true"
 
     assert "BUCK2_RUNTIME_THREADS" in env, (
         "BUCK2_RUNTIME_THREADS should be set by the test macros"
@@ -476,6 +480,7 @@ def buck_test(
     extra_buck_config: Optional[Dict[str, Dict[str, str]]] = None,
     skip_final_kill=False,
     setup_eden=False,
+    disable_daemon_cgroup=True,
 ) -> Callable:
     """
     Defines a buck test. This is a must have decorator on all test case functions.
@@ -542,6 +547,7 @@ def buck_test(
             extra_buck_config=extra_buck_config or {},
             skip_final_kill=skip_final_kill,
             setup_eden=setup_eden,
+            disable_daemon_cgroup=disable_daemon_cgroup,
         )
     )
 

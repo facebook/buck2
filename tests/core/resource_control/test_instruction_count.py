@@ -24,7 +24,7 @@ def helper_bin_flags() -> List[str]:
     ]
 
 
-@buck_test(skip_for_os=["windows", "darwin"])
+@buck_test(skip_for_os=["windows", "darwin"], disable_daemon_cgroup=False)
 async def test_instruction_count_disabled(buck: Buck) -> None:
     await buck.build(
         "root//:three_billion_instructions",
@@ -67,7 +67,7 @@ async def get_matching_details(buck: Buck) -> Dict[str, Any]:
     raise AssertionError("did not find the expected target")
 
 
-@buck_test(skip_for_os=["windows", "darwin"])
+@buck_test(skip_for_os=["windows", "darwin"], disable_daemon_cgroup=False)
 async def test_instruction_count_enabled(buck: Buck) -> None:
     await buck.build(
         "root//:three_billion_instructions",
@@ -90,7 +90,7 @@ async def test_instruction_count_enabled(buck: Buck) -> None:
     assert instruction_count < 3300000000
 
 
-@buck_test(skip_for_os=["windows", "darwin"])
+@buck_test(skip_for_os=["windows", "darwin"], disable_daemon_cgroup=False)
 async def test_instruction_count_remote(buck: Buck) -> None:
     await buck.build(
         "root//:three_billion_instructions",

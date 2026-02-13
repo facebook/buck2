@@ -29,7 +29,7 @@ def _use_some_memory_args(buck: Buck) -> list[str]:
     ]
 
 
-@buck_test(skip_for_os=["windows", "darwin"])
+@buck_test(skip_for_os=["windows", "darwin"], disable_daemon_cgroup=False)
 async def test_memory_reporting_disabled(buck: Buck) -> None:
     env = {"BUCK2_TEST_RESOURCE_CONTROL_CONFIG": '{"status":"Off"}'}
 
@@ -68,7 +68,7 @@ async def get_matching_details(buck: Buck) -> Dict[str, Any]:
     raise AssertionError("did not find the expected target")
 
 
-@buck_test(skip_for_os=["windows", "darwin"])
+@buck_test(skip_for_os=["windows", "darwin"], disable_daemon_cgroup=False)
 async def test_memory_reporting(buck: Buck) -> None:
     await buck.build(
         *_use_some_memory_args(buck),
@@ -82,7 +82,7 @@ async def test_memory_reporting(buck: Buck) -> None:
     assert memory_peak < 15000000
 
 
-@buck_test(skip_for_os=["windows", "darwin"])
+@buck_test(skip_for_os=["windows", "darwin"], disable_daemon_cgroup=False)
 async def test_memory_reporting_in_test(buck: Buck) -> None:
     await buck.test(
         *_use_some_memory_args(buck),

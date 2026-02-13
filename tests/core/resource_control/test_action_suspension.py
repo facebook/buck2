@@ -119,7 +119,7 @@ async def _check_suspends(  # noqa C901
     return num_suspended_actions
 
 
-@buck_test(skip_for_os=["darwin", "windows"])
+@buck_test(skip_for_os=["darwin", "windows"], disable_daemon_cgroup=False)
 @env("BUCK2_HARD_ERROR", "panic")
 @pytest.mark.parametrize("kill_and_retry", [True, False])
 async def test_action_suspend(
@@ -155,7 +155,7 @@ async def test_action_suspend(
     assert len(pressure_ends) == 1
 
 
-@buck_test(skip_for_os=["darwin", "windows"])
+@buck_test(skip_for_os=["darwin", "windows"], disable_daemon_cgroup=False)
 @env("BUCK2_HARD_ERROR", "panic")
 @pytest.mark.parametrize("kill_and_retry", [True, False])
 async def test_action_suspend_stress_test(
@@ -170,7 +170,7 @@ async def test_action_suspend_stress_test(
     )
 
 
-@buck_test(skip_for_os=["darwin", "windows"])
+@buck_test(skip_for_os=["darwin", "windows"], disable_daemon_cgroup=False)
 @pytest.mark.parametrize("kill_and_retry", [True, False])
 async def test_suspend_one_of_two(
     buck: Buck,

@@ -31,6 +31,7 @@ BUCK2_TESTING_INACTIVITY_TIMEOUT        bool                  false
 BUCK2_TEST_BLOCK_ON_UPLOAD              bool                  false
 BUCK2_TEST_BUILD_ERROR                  bool                  false
 BUCK2_TEST_DISABLE_CACHING              bool
+BUCK2_TEST_DISABLE_DAEMON_CGROUP        bool
 BUCK2_TEST_DISABLE_LOG_UPLOAD           bool                  false
 BUCK2_TEST_ERROR_ON_CACHE_UPLOAD        bool                  false
 BUCK2_TEST_EXTRA_EXTERNAL_CONFIG        String

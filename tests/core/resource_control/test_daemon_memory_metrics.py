@@ -15,7 +15,7 @@ from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.buck_workspace import buck_test
 
 
-@buck_test(skip_for_os=["darwin", "windows"])
+@buck_test(skip_for_os=["darwin", "windows"], disable_daemon_cgroup=False)
 async def test_metrics_cgroup_no_resource_control(buck: Buck) -> None:
     write_config(buck, resource_control=False)
     snapshot = await start_daemon_and_get_snapshot(buck)
@@ -23,7 +23,7 @@ async def test_metrics_cgroup_no_resource_control(buck: Buck) -> None:
     assert snapshot["forkserver_actions_cgroup"] is None
 
 
-@buck_test(skip_for_os=["darwin", "windows"])
+@buck_test(skip_for_os=["darwin", "windows"], disable_daemon_cgroup=False)
 async def test_metrics_cgroup_resource_control(buck: Buck) -> None:
     write_config(buck, resource_control=True)
     snapshot = await start_daemon_and_get_snapshot(buck)

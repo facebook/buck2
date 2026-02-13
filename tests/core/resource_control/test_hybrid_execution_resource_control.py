@@ -31,7 +31,7 @@ def _use_some_memory_args(buck: Buck) -> list[str]:
     ]
 
 
-@buck_test(skip_for_os=["darwin", "windows"])
+@buck_test(skip_for_os=["darwin", "windows"], disable_daemon_cgroup=False)
 async def test_memory_pressure_telemetry(
     buck: Buck,
 ) -> None:
@@ -62,7 +62,7 @@ async def test_memory_pressure_telemetry(
     )
 
 
-@buck_test(skip_for_os=["darwin", "windows"])
+@buck_test(skip_for_os=["darwin", "windows"], disable_daemon_cgroup=False)
 async def test_resource_control_events_created(
     buck: Buck,
 ) -> None:
@@ -112,7 +112,7 @@ def get_daemon_cgroup_path(pid: int) -> Path:
     raise Exception(f"Could not find cgroup v2 entry for PID {pid}")
 
 
-@buck_test(skip_for_os=["darwin", "windows"])
+@buck_test(skip_for_os=["darwin", "windows"], disable_daemon_cgroup=False)
 async def test_daemon_id_in_cgroup_path(buck: Buck) -> None:
     await buck.server()
 
