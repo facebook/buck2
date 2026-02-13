@@ -1098,70 +1098,285 @@ impl ChromeTraceWriter {
     ) -> buck2_error::Result<()> {
         // Write critical path as a series of spans on a dedicated track
         let target_display_options = TargetDisplayOptions::for_chrome_trace();
+        self.write_critical_path_hierarchical(name, critical_path, target_display_options)
+    }
+
+    /// Write the critical path with hierarchical structure:
+    /// - Non-waiting entries become parent spans
+    /// - Preceding waiting entries become child spans (nested within parent)
+    /// - The execution time of the non-waiting entry becomes a "critical execution time" child span
+    fn write_critical_path_hierarchical(
+        &mut self,
+        name: SpanCategorization,
+        critical_path: &[buck2_data::CriticalPathEntry2],
+        target_display_options: TargetDisplayOptions,
+    ) -> buck2_error::Result<()> {
+        use buck2_data::critical_path_entry2::Entry;
+
+        // All spans go on track 1. Parent-child relationships are determined by
+        // time containment in Chrome trace format.
+        const TRACK: u64 = 1;
+
+        // Collect entries into groups: each group is [Waiting*, NonWaiting]
+        // where the waiting entries are associated with the following non-waiting entry.
+        let mut pending_waiting: Vec<&buck2_data::CriticalPathEntry2> = Vec::new();
 
         for entry in critical_path {
-            let start_time = self
-                .first_pass
-                .command_start
-                .checked_add(Duration::from_nanos(entry.start_offset_ns.unwrap_or(0)))
-                .unwrap();
-            let critical_duration = entry
-                .total_duration
-                .as_ref()
-                .and_then(|d| d.try_into_duration().ok())
-                .unwrap_or(Duration::ZERO);
-            let non_critical_duration = entry
-                .non_critical_path_duration
-                .as_ref()
-                .and_then(|d| d.try_into_duration().ok())
-                .unwrap_or(Duration::ZERO);
-            let duration = critical_duration + non_critical_duration;
+            let is_waiting = matches!(&entry.entry, Some(Entry::Waiting(_)));
 
-            if duration < Duration::from_millis(1) {
-                continue;
+            if is_waiting {
+                pending_waiting.push(entry);
+            } else {
+                // This is a non-waiting entry - render the group
+                self.write_critical_path_group(
+                    name,
+                    &pending_waiting,
+                    entry,
+                    target_display_options,
+                    TRACK,
+                )?;
+                pending_waiting.clear();
             }
+        }
 
-            // Determine a display name for this entry
-            let entry_display =
-                CriticalPathEntryDisplay::from_entry(entry, target_display_options)?;
-            let entry_display = match entry_display {
-                Some(display) => display,
-                None => continue,
+        // Handle any trailing waiting entries by creating a synthetic parent
+        if !pending_waiting.is_empty() {
+            // Create a synthetic GenericEntry to act as the parent for orphaned waiting entries.
+            // The parent span needs to cover all waiting entries, so we set start_offset_ns
+            // to the last waiting entry's start and total_duration to its duration.
+            // This way the parent span will cover from first_waiting.start to last_waiting.end.
+            let last_waiting = pending_waiting.last().unwrap();
+
+            let synthetic_parent = buck2_data::CriticalPathEntry2 {
+                span_ids: Vec::new(),
+                duration: last_waiting.total_duration,
+                user_duration: None,
+                total_duration: last_waiting.total_duration,
+                potential_improvement_duration: None,
+                queue_duration: None,
+                non_critical_path_duration: last_waiting.non_critical_path_duration,
+                start_offset_ns: last_waiting.start_offset_ns,
+                entry: Some(Entry::GenericEntry(
+                    buck2_data::critical_path_entry2::GenericEntry {
+                        kind: "waiting".to_owned(),
+                    },
+                )),
             };
 
-            // Build args with all available metadata
-            let mut args = serde_json::Map::new();
-            args.insert("kind".to_owned(), json!(entry_display.kind));
-            if !entry_display.name.is_empty() {
-                args.insert("name".to_owned(), json!(entry_display.name));
-            }
-            if let Some(category) = entry_display.category {
-                args.insert("category".to_owned(), json!(category));
-            }
-            if let Some(identifier) = entry_display.identifier {
-                args.insert("identifier".to_owned(), json!(identifier));
-            }
-            if let Some(execution_kind) = entry_display.execution_kind {
-                args.insert("execution_kind".to_owned(), json!(execution_kind));
-            }
-
-            let entry_name = entry_display.display_name();
-
-            self.trace_events.push(
-                ChromeTraceClosedSpan {
-                    open: ChromeTraceOpenSpan {
-                        name: entry_name,
-                        start: start_time,
-                        process_id: 0,
-                        track: SpanTrackAssignment::Owned(TrackId(name, 1)),
-                        categories: vec![],
-                        args: args.into(),
-                    },
-                    duration,
-                }
-                .to_json()?,
-            );
+            self.write_critical_path_group(
+                name,
+                &pending_waiting,
+                &synthetic_parent,
+                target_display_options,
+                TRACK,
+            )?;
         }
+
+        Ok(())
+    }
+
+    /// Write a single group: parent span covering all entries, with child spans for
+    /// waiting entries and the execution time.
+    fn write_critical_path_group(
+        &mut self,
+        name: SpanCategorization,
+        waiting_entries: &[&buck2_data::CriticalPathEntry2],
+        main_entry: &buck2_data::CriticalPathEntry2,
+        target_display_options: TargetDisplayOptions,
+        track: u64,
+    ) -> buck2_error::Result<()> {
+        // Calculate the overall start time and duration for the parent span
+        let first_start_offset = waiting_entries
+            .first()
+            .map(|e| e.start_offset_ns.unwrap_or(0))
+            .unwrap_or_else(|| main_entry.start_offset_ns.unwrap_or(0));
+
+        let parent_start_time = self
+            .first_pass
+            .command_start
+            .checked_add(Duration::from_nanos(first_start_offset))
+            .unwrap();
+
+        // Calculate the end time from the main entry
+        let main_start_offset = main_entry.start_offset_ns.unwrap_or(0);
+        let main_critical_duration = main_entry
+            .total_duration
+            .as_ref()
+            .and_then(|d| d.try_into_duration().ok())
+            .unwrap_or(Duration::ZERO);
+        let main_non_critical_duration = main_entry
+            .non_critical_path_duration
+            .as_ref()
+            .and_then(|d| d.try_into_duration().ok())
+            .unwrap_or(Duration::ZERO);
+        let main_total_duration = main_critical_duration + main_non_critical_duration;
+
+        let parent_end_offset_ns = main_start_offset + main_total_duration.as_nanos() as u64;
+        let parent_duration = Duration::from_nanos(parent_end_offset_ns - first_start_offset);
+
+        if parent_duration < Duration::from_millis(1) {
+            return Ok(());
+        }
+
+        // Get display info for the main entry (this becomes the parent name)
+        let main_display =
+            CriticalPathEntryDisplay::from_entry(main_entry, target_display_options)?;
+        let main_display = match main_display {
+            Some(display) => display,
+            None => return Ok(()),
+        };
+
+        // Build args for parent span
+        let mut parent_args = serde_json::Map::new();
+        parent_args.insert("kind".to_owned(), json!(main_display.kind));
+        if !main_display.name.is_empty() {
+            parent_args.insert("name".to_owned(), json!(main_display.name));
+        }
+        if let Some(category) = main_display.category {
+            parent_args.insert("category".to_owned(), json!(category));
+        }
+        if let Some(identifier) = main_display.identifier {
+            parent_args.insert("identifier".to_owned(), json!(identifier));
+        }
+        if let Some(execution_kind) = main_display.execution_kind {
+            parent_args.insert("execution_kind".to_owned(), json!(execution_kind));
+        }
+
+        let parent_name = main_display.display_name();
+
+        // Create the track ID for this group - parent owns it, children inherit it
+        let track_id = TrackId(name, track);
+
+        // Write parent span (owns the track)
+        self.trace_events.push(
+            ChromeTraceClosedSpan {
+                open: ChromeTraceOpenSpan {
+                    name: parent_name,
+                    start: parent_start_time,
+                    process_id: 0,
+                    track: SpanTrackAssignment::Owned(track_id),
+                    categories: vec![],
+                    args: parent_args.into(),
+                },
+                duration: parent_duration,
+            }
+            .to_json()?,
+        );
+
+        // Small offset to avoid trace viewer rendering issues when parent/child
+        // share exact start/end times. Chrome trace uses microseconds.
+        const CHILD_TIME_OFFSET: Duration = Duration::from_micros(1);
+
+        // Write child spans for waiting entries (inherit the track from parent)
+        // Offset start time by 1 unit to avoid exact overlap with parent start
+        for waiting_entry in waiting_entries {
+            self.write_critical_path_child_entry(
+                waiting_entry,
+                target_display_options,
+                track_id,
+                CHILD_TIME_OFFSET,
+                Duration::ZERO, // no end offset for waiting entries
+            )?;
+        }
+
+        // Write "critical execution time" child span for the main entry's execution
+        let main_start_time = self
+            .first_pass
+            .command_start
+            .checked_add(Duration::from_nanos(main_start_offset))
+            .unwrap();
+
+        if main_total_duration >= Duration::from_millis(1) {
+            // Offset start by 1 unit and reduce duration by 1 unit so it ends before parent
+            let adjusted_start = main_start_time + CHILD_TIME_OFFSET;
+            let adjusted_duration = main_total_duration.saturating_sub(CHILD_TIME_OFFSET * 2);
+
+            if adjusted_duration >= Duration::from_millis(1) {
+                let exec_name = format!("{}: execution", main_display.kind);
+                self.trace_events.push(
+                    ChromeTraceClosedSpan {
+                        open: ChromeTraceOpenSpan {
+                            name: exec_name,
+                            start: adjusted_start,
+                            process_id: 0,
+                            track: SpanTrackAssignment::Inherited(track_id),
+                            categories: vec![],
+                            args: json!({"kind": "execution"}),
+                        },
+                        duration: adjusted_duration,
+                    }
+                    .to_json()?,
+                );
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Write a child critical path entry as a span (inherits track from parent).  start_offset and
+    /// end_offset are used to slightly shrink the child span to avoid exact overlap with parent
+    /// boundaries (as trace viewers have inconsistent behavior if child spans aren't strictly
+    /// nested in the parent).
+    fn write_critical_path_child_entry(
+        &mut self,
+        entry: &buck2_data::CriticalPathEntry2,
+        target_display_options: TargetDisplayOptions,
+        parent_track_id: TrackId,
+        start_offset: Duration,
+        end_offset: Duration,
+    ) -> buck2_error::Result<()> {
+        let start_time = self
+            .first_pass
+            .command_start
+            .checked_add(Duration::from_nanos(entry.start_offset_ns.unwrap_or(0)))
+            .unwrap()
+            + start_offset;
+        let critical_duration = entry
+            .total_duration
+            .as_ref()
+            .and_then(|d| d.try_into_duration().ok())
+            .unwrap_or(Duration::ZERO);
+        let non_critical_duration = entry
+            .non_critical_path_duration
+            .as_ref()
+            .and_then(|d| d.try_into_duration().ok())
+            .unwrap_or(Duration::ZERO);
+        let duration = (critical_duration + non_critical_duration)
+            .saturating_sub(start_offset)
+            .saturating_sub(end_offset);
+
+        if duration < Duration::from_millis(1) {
+            return Ok(());
+        }
+
+        let entry_display = CriticalPathEntryDisplay::from_entry(entry, target_display_options)?;
+        let entry_display = match entry_display {
+            Some(display) => display,
+            None => return Ok(()),
+        };
+
+        let mut args = serde_json::Map::new();
+        args.insert("kind".to_owned(), json!(entry_display.kind));
+        if !entry_display.name.is_empty() {
+            args.insert("name".to_owned(), json!(entry_display.name));
+        }
+
+        let entry_name = entry_display.display_name();
+
+        self.trace_events.push(
+            ChromeTraceClosedSpan {
+                open: ChromeTraceOpenSpan {
+                    name: entry_name,
+                    start: start_time,
+                    process_id: 0,
+                    track: SpanTrackAssignment::Inherited(parent_track_id),
+                    categories: vec![],
+                    args: args.into(),
+                },
+                duration,
+            }
+            .to_json()?,
+        );
 
         Ok(())
     }
