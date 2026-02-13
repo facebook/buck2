@@ -30,189 +30,118 @@ from buck2.tests.e2e_util.helper.utils import (
 )
 
 
-def read_single_error(record_path: Path) -> dict[str, str]:
-    record = read_invocation_record(record_path)
-    errors = record["errors"]
-    assert len(errors) == 1
-    return errors[0]
-
-
-@buck_test()
-async def test_action_error(buck: Buck, tmp_path: Path) -> None:
-    record_path = tmp_path / "record.json"
-    await expect_failure(
-        buck.build(
-            "//:action_fail", "--unstable-write-invocation-record", str(record_path)
-        ),
+@buck_test(write_invocation_record=True)
+async def test_action_error(buck: Buck) -> None:
+    res = await expect_failure(
+        buck.build("//:action_fail"),
         stderr_regex="Failed to build 'root//:action_fail",
     )
-    record = read_invocation_record(record_path)
-    errors = record["errors"]
-
-    assert len(errors) == 1
-    assert errors[0]["category"] == "USER"
+    error = res.invocation_record().single_error()
+    assert error["category"] == "USER"
     # This test is unfortunately liable to break as a result of refactorings, since this is not
     # stable. Feel free to delete it if it becomes a problem.
     assert (
-        errors[0]["source_location"]
-        == "buck2_build_api/src/actions/error.rs::ActionError"
+        error["source_location"] == "buck2_build_api/src/actions/error.rs::ActionError"
     )
 
 
-@buck_test()
-async def test_missing_outputs(buck: Buck, tmp_path: Path) -> None:
-    record_path = tmp_path / "record.json"
+@buck_test(write_invocation_record=True)
+async def test_missing_outputs(buck: Buck) -> None:
     # FIXME(JakobDegen): This doesn't work with non-local-only actions
-    await expect_failure(
-        buck.build(
-            "//:missing_outputs",
-            "--local-only",
-            "--unstable-write-invocation-record",
-            str(record_path),
-        ),
+    res = await expect_failure(
+        buck.build("//:missing_outputs", "--local-only"),
         stderr_regex="Failed to build 'root//:missing_outputs",
     )
-    record = read_invocation_record(record_path)
-    errors = record["errors"]
-    assert len(errors) == 1
-    assert errors[0]["category"] == "USER"
+    error = res.invocation_record().single_error()
+    assert error["category"] == "USER"
 
 
-@buck_test()
-async def test_bad_url(buck: Buck, tmp_path: Path) -> None:
-    record_path = tmp_path / "record.json"
-    await expect_failure(
-        buck.build(
-            "//:bad_url", "--unstable-write-invocation-record", str(record_path)
-        ),
+@buck_test(write_invocation_record=True)
+async def test_bad_url(buck: Buck) -> None:
+    res = await expect_failure(
+        buck.build("//:bad_url"),
         stderr_regex="Failed to build 'root//:bad_url",
     )
-    record = read_invocation_record(record_path)
-    errors = record["errors"]
-    assert len(errors) == 1
+    error = res.invocation_record().single_error()
     # Also liable to break as a result of refactorings, feel free to update
     # FIXME(minglunli): This is a regression from before, the commented line is better and we should fix this
-    assert "buck2_http/src/lib.rs" in errors[0]["source_location"]
-    # assert errors[0]["source_location"] == "buck2_http/src/lib.rs::HttpError::SendRequest"
+    assert "buck2_http/src/lib.rs" in error["source_location"]
+    # assert error["source_location"] == "buck2_http/src/lib.rs::HttpError::SendRequest"
 
 
-@buck_test()
-async def test_attr_coercion(buck: Buck, tmp_path: Path) -> None:
-    record_path = tmp_path / "record.json"
-    await expect_failure(
-        buck.build(
-            "//attr_coercion:int_rule",
-            "--unstable-write-invocation-record",
-            str(record_path),
-        ),
+@buck_test(write_invocation_record=True)
+async def test_attr_coercion(buck: Buck) -> None:
+    res = await expect_failure(
+        buck.build("//attr_coercion:int_rule"),
         stderr_regex="evaluating build file: `root//attr_coercion:TARGETS.fixture",
     )
-    record = read_invocation_record(record_path)
-    errors = record["errors"]
-    assert len(errors) == 1
+    error = res.invocation_record().single_error()
     # Just make sure there's some kind of error metadata
-    assert "StarlarkError::Value" in errors[0]["source_location"]
+    assert "StarlarkError::Value" in error["source_location"]
 
 
-@buck_test()
-async def test_buck2_fail(buck: Buck, tmp_path: Path) -> None:
-    record_path = tmp_path / "record.json"
-    await expect_failure(
-        buck.build(
-            "//buck2_fail:foobar",
-            "--unstable-write-invocation-record",
-            str(record_path),
-        ),
+@buck_test(write_invocation_record=True)
+async def test_buck2_fail(buck: Buck) -> None:
+    res = await expect_failure(
+        buck.build("//buck2_fail:foobar"),
         stderr_regex="evaluating build file: `root//buck2_fail:TARGETS.fixture`",
     )
-    record = read_invocation_record(record_path)
-    errors = record["errors"]
-    assert len(errors) == 1
+    error = res.invocation_record().single_error()
     # Just make sure that despite there being no context on the error, we still report the right
     # metadata
     assert (
-        errors[0]["source_location"]
+        error["source_location"]
         == "buck2_interpreter_for_build/src/interpreter/functions/internals.rs::BuckFail"
     )
 
 
-@buck_test()
-async def test_starlark_fail_error_categorization(buck: Buck, tmp_path: Path) -> None:
-    record_path = tmp_path / "record.json"
-    await expect_failure(
-        buck.build(
-            "//starlark_fail:foobar",
-            "--unstable-write-invocation-record",
-            str(record_path),
-        ),
+@buck_test(write_invocation_record=True)
+async def test_starlark_fail_error_categorization(buck: Buck) -> None:
+    res = await expect_failure(
+        buck.build("//starlark_fail:foobar"),
         stderr_regex="evaluating build file: `root//starlark_fail:TARGETS.fixture`",
     )
-    record = read_invocation_record(record_path)
-    errors = record["errors"]
-    assert len(errors) == 1
-    assert errors[0]["source_location"].endswith("StarlarkError::Fail")
-    assert errors[0]["source_area"] == "BUCK2"
-    assert errors[0]["category"] == "USER"
+    error = res.invocation_record().single_error()
+    assert error["source_location"].endswith("StarlarkError::Fail")
+    assert error["source_area"] == "BUCK2"
+    assert error["category"] == "USER"
 
 
-@buck_test()
-async def test_starlark_parse_error_categorization(buck: Buck, tmp_path: Path) -> None:
-    record_path = tmp_path / "record.json"
-    await expect_failure(
-        buck.build(
-            "//starlark_parse_error:starlark_parse_error",
-            "--unstable-write-invocation-record",
-            str(record_path),
-        ),
+@buck_test(write_invocation_record=True)
+async def test_starlark_parse_error_categorization(buck: Buck) -> None:
+    res = await expect_failure(
+        buck.build("//starlark_parse_error:starlark_parse_error"),
         stderr_regex=".*Parse error:.*",
     )
-    record = read_invocation_record(record_path)
-    errors = record["errors"]
-
-    assert len(errors) == 1
-    assert errors[0]["source_location"].endswith("StarlarkError::Parser")
-    assert errors[0]["tags"] == ["STARLARK_PARSER"]
-    assert errors[0]["source_area"] == "BUCK2"
-    assert errors[0]["category"] == "USER"
+    error = res.invocation_record().single_error()
+    assert error["source_location"].endswith("StarlarkError::Parser")
+    assert error["tags"] == ["STARLARK_PARSER"]
+    assert error["source_area"] == "BUCK2"
+    assert error["category"] == "USER"
 
 
-@buck_test()
-async def test_starlark_scope_error_categorization(buck: Buck, tmp_path: Path) -> None:
-    record_path = tmp_path / "record.json"
-    await expect_failure(
-        buck.build(
-            "//starlark_scope_error:value_err",
-            "--unstable-write-invocation-record",
-            str(record_path),
-        ),
+@buck_test(write_invocation_record=True)
+async def test_starlark_scope_error_categorization(buck: Buck) -> None:
+    res = await expect_failure(
+        buck.build("//starlark_scope_error:value_err"),
         stderr_regex="evaluating build file: .* not found",
     )
-    record = read_invocation_record(record_path)
-    errors = record["errors"]
-
-    assert len(errors) == 1
-    assert errors[0]["source_location"].endswith("StarlarkError::Scope")
-    assert errors[0]["tags"] == ["STARLARK_SCOPE"]
-    assert errors[0]["source_area"] == "BUCK2"
-    assert errors[0]["category"] == "USER"
+    error = res.invocation_record().single_error()
+    assert error["source_location"].endswith("StarlarkError::Scope")
+    assert error["tags"] == ["STARLARK_SCOPE"]
+    assert error["source_area"] == "BUCK2"
+    assert error["category"] == "USER"
 
 
-@buck_test()
-async def test_targets_error_categorization(buck: Buck, tmp_path: Path) -> None:
-    record_path = tmp_path / "record.json"
+@buck_test(write_invocation_record=True)
+async def test_targets_error_categorization(buck: Buck) -> None:
     res = await expect_failure(
-        buck.targets(
-            "//starlark_fail:foobar",
-            "--unstable-write-invocation-record",
-            str(record_path),
-        ),
+        buck.targets("//starlark_fail:foobar"),
         stderr_regex="evaluating build file: `root//starlark_fail:TARGETS.fixture`",
     )
-    record = read_invocation_record(record_path)
-    errors = record["errors"]
-    assert len(errors) == 1
-    assert errors[0]["tags"] == ["INPUT", "STARLARK_FAIL"]
-    assert errors[0]["category"] == "USER"
+    error = res.invocation_record().single_error()
+    assert error["tags"] == ["INPUT", "STARLARK_FAIL"]
+    assert error["category"] == "USER"
 
     golden(
         output=sanitize_stderr(res.stderr),
@@ -220,15 +149,14 @@ async def test_targets_error_categorization(buck: Buck, tmp_path: Path) -> None:
     )
 
 
-@buck_test()
-async def test_daemon_crash(buck: Buck, tmp_path: Path) -> None:
+@buck_test(write_invocation_record=True)
+async def test_daemon_crash(buck: Buck) -> None:
     await buck.build()
 
-    record = tmp_path / "record.json"
     res = await expect_failure(
-        buck.debug("crash", "panic", "--unstable-write-invocation-record", str(record)),
+        buck.debug("crash", "panic"),
     )
-    error = read_single_error(record)
+    error = res.invocation_record().single_error()
     if is_running_on_windows():
         assert "transport error" in error["message"]
     else:
@@ -258,17 +186,14 @@ async def test_daemon_crash(buck: Buck, tmp_path: Path) -> None:
         )
 
 
-@buck_test()
+@buck_test(write_invocation_record=True)
 @env("BUCKD_STARTUP_TIMEOUT", "0")
 @env("BUCKD_STARTUP_INIT_TIMEOUT", "0")
-async def test_connection_timeout(buck: Buck, tmp_path: Path) -> None:
-    record_path = tmp_path / "record.json"
-    res = await expect_failure(
-        buck.targets(":", "--unstable-write-invocation-record", str(record_path))
-    )
+async def test_connection_timeout(buck: Buck) -> None:
+    res = await expect_failure(buck.targets(":"))
     assert "timed out before establishing connection to Buck daemon" in res.stderr
 
-    record = read_invocation_record(record_path)
+    record = res.invocation_record()
 
     assert record["command_end"] is None
     assert record["has_command_result"] is False
@@ -276,7 +201,7 @@ async def test_connection_timeout(buck: Buck, tmp_path: Path) -> None:
     assert record["daemon_connection_failure"] is True
     assert record["daemon_was_started"] is None
 
-    assert record["errors"][0]["category_key"] == "CLIENT_STARTUP_TIMEOUT"
+    assert record.single_error()["category_key"] == "CLIENT_STARTUP_TIMEOUT"
 
     if not is_running_on_windows():
         golden(
@@ -285,15 +210,12 @@ async def test_connection_timeout(buck: Buck, tmp_path: Path) -> None:
         )
 
 
-@buck_test()
-async def test_daemon_abort(buck: Buck, tmp_path: Path) -> None:
+@buck_test(write_invocation_record=True)
+async def test_daemon_abort(buck: Buck) -> None:
     await buck.build()
 
-    record = tmp_path / "record.json"
-    await expect_failure(
-        buck.debug("crash", "abort", "--unstable-write-invocation-record", str(record))
-    )
-    error = read_single_error(record)
+    res = await expect_failure(buck.debug("crash", "abort"))
+    error = res.invocation_record().single_error()
     category_key = error["category_key"]
 
     if is_running_on_windows():
@@ -334,13 +256,13 @@ async def test_daemon_killed(buck: Buck, tmp_path: Path) -> None:
     os.kill(pid, signal.SIGKILL)
     await build.communicate()  # Wait for the client to exit
 
-    error = read_single_error(record)
+    error = read_invocation_record(record).single_error()
     assert error["category_key"] == "DAEMON_DISCONNECT"
     assert error["category"] == "ENVIRONMENT"
 
 
-@buck_test()
-async def test_build_file_race(buck: Buck, tmp_path: Path) -> None:
+@buck_test(write_invocation_record=True)
+async def test_build_file_race(buck: Buck) -> None:
     target = "//file_busy:file"
     # first build
     file_path = (await buck.build(target)).get_build_report().output_for_target(target)
@@ -348,20 +270,17 @@ async def test_build_file_race(buck: Buck, tmp_path: Path) -> None:
     # Open the file for writing and keep it open
     f = open(file_path, "w")
     # build again, source code has changed, binary must be rebuilt
-    record = tmp_path / "record.json"
     build = buck.build(
         target,
         "--show-output",
         "-c",
         "test.cache_buster=2",
-        "--unstable-write-invocation-record",
-        str(record),
     )
 
     if is_running_on_windows():
-        await expect_failure(build)
+        res = await expect_failure(build)
 
-        error = read_single_error(record)
+        error = res.invocation_record().single_error()
         assert error["best_tag"] == "IO_MATERIALIZER_FILE_BUSY"
         assert error["category"] == "ENVIRONMENT"
     else:
@@ -370,21 +289,18 @@ async def test_build_file_race(buck: Buck, tmp_path: Path) -> None:
     f.close()
 
 
-@buck_test()
-async def test_download_failure(buck: Buck, tmp_path: Path) -> None:
+@buck_test(write_invocation_record=True)
+async def test_download_failure(buck: Buck) -> None:
     # Upload action if necessary
     await buck.build("//:run_action", "--remote-only")
     await buck.clean()
-    record_path = tmp_path / "record.json"
     res = await expect_failure(
         buck.build(
             "//:run_action",
-            "--unstable-write-invocation-record",
-            str(record_path),
             env={"BUCK2_TEST_FAIL_RE_DOWNLOADS": "true"},
         )
     )
-    error = read_single_error(record_path)
+    error = res.invocation_record().single_error()
     assert error["category_key"] == "RE_NOT_FOUND:UNKNOWN"
     assert (
         "Your build requires materializing an artifact that has expired in the RE CAS and Buck does not have it. This likely happened because your Buck daemon has been online for a long time. This error is currently unrecoverable. To proceed, you should restart Buck using `buck2 killall`."
@@ -392,57 +308,48 @@ async def test_download_failure(buck: Buck, tmp_path: Path) -> None:
     )
 
 
-@buck_test()
-async def test_re_execute_failure(buck: Buck, tmp_path: Path) -> None:
+@buck_test(write_invocation_record=True)
+async def test_re_execute_failure(buck: Buck) -> None:
     # Upload action if necessary
     await buck.build("//:run_action", "--remote-only")
     await buck.clean()
-    record_path = tmp_path / "record.json"
-    await expect_failure(
+    res = await expect_failure(
         buck.build(
             "//:run_action",
-            "--unstable-write-invocation-record",
-            str(record_path),
             "--no-remote-cache",
             env={"BUCK2_TEST_FAIL_RE_EXECUTE": "true"},
         )
     )
-    error = read_single_error(record_path)
+    error = res.invocation_record().single_error()
     assert error["category_key"] == "RE_FAILED_PRECONDITION:UNKNOWN"
 
 
-@buck_test()
-async def test_local_incompatible(buck: Buck, tmp_path: Path) -> None:
-    record_path = tmp_path / "record.json"
+@buck_test(write_invocation_record=True)
+async def test_local_incompatible(buck: Buck) -> None:
     res = await expect_failure(
         buck.build(
             "//:local_run_action",
             "--remote-only",
             "--no-remote-cache",
-            "--unstable-write-invocation-record",
-            str(record_path),
         )
     )
     assert "Incompatible executor preferences" in res.stderr
 
-    error = read_single_error(record_path)
+    error = res.invocation_record().single_error()
     assert error["category"] == "USER"
     assert (
         error["category_key"] == "IncompatibleExecutorPreferences:ANY_ACTION_EXECUTION"
     )
 
 
-@buck_test()
+@buck_test(write_invocation_record=True)
 @env("BUCK2_TEST_INIT_DAEMON_ERROR", "true")
-async def test_daemon_startup_error(buck: Buck, tmp_path: Path) -> None:
-    record_path = tmp_path / "record.json"
-    res = await expect_failure(
-        buck.targets(":", "--unstable-write-invocation-record", str(record_path))
-    )
+async def test_daemon_startup_error(buck: Buck) -> None:
+    res = await expect_failure(buck.targets(":"))
     assert "Injected init daemon error" in res.stderr
     assert "Error initializing DaemonStateData" in res.stderr
 
-    error = read_single_error(record_path)
+    error = res.invocation_record().single_error()
     assert "DAEMON_CONNECT" in error["tags"]
     assert "DAEMON_STATE_INIT_FAILED" in error["tags"]
 
@@ -460,37 +367,28 @@ async def test_daemon_startup_error(buck: Buck, tmp_path: Path) -> None:
         }
     },
     skip_for_os=["windows"],
+    write_invocation_record=True,
 )
-async def test_eden_io_error_tagging(buck: Buck, tmp_path: Path) -> None:
+async def test_eden_io_error_tagging(buck: Buck) -> None:
     targets_file = buck.cwd / "TARGETS.fixture"
 
     # remove file read permissions during test execution, test setup will fail if permissions are set on any fixture earlier
     targets_file.chmod(0o000)
 
     # triggers file read IO error
-    record_path = tmp_path / "record.json"
-    await expect_failure(
-        buck.targets(
-            ":",
-            "--unstable-write-invocation-record",
-            str(record_path),
-        )
-    )
-    error = read_single_error(record_path)
+    res = await expect_failure(buck.targets(":"))
+    error = res.invocation_record().single_error()
     assert "IO_EDEN" in error["tags"]
     assert error["category_key"] == "IO_EDEN:IO_PERMISSION_DENIED"
 
 
-@buck_test()
+@buck_test(write_invocation_record=True)
 @env("BUCK2_TEST_FAIL_STREAMING", "true")
-async def test_client_streaming_error(buck: Buck, tmp_path: Path) -> None:
-    record_path = tmp_path / "record.json"
-    res = await expect_failure(
-        buck.targets(":", "--unstable-write-invocation-record", str(record_path))
-    )
+async def test_client_streaming_error(buck: Buck) -> None:
+    res = await expect_failure(buck.targets(":"))
     assert "Injected client streaming error" in res.stderr
 
-    error = read_single_error(record_path)
+    error = res.invocation_record().single_error()
     assert "Injected client streaming error" in error["message"]
 
     golden(
@@ -499,38 +397,29 @@ async def test_client_streaming_error(buck: Buck, tmp_path: Path) -> None:
     )
 
 
-@buck_test()
-async def test_action_error_has_categorization(buck: Buck, tmp_path: Path) -> None:
-    record_path = tmp_path / "record.json"
-    await expect_failure(
-        buck.build(
-            "//fail_action:error_handler_produced_error_categories",
-            "--unstable-write-invocation-record",
-            str(record_path),
-        ),
+@buck_test(write_invocation_record=True)
+async def test_action_error_has_categorization(buck: Buck) -> None:
+    res = await expect_failure(
+        buck.build("//fail_action:error_handler_produced_error_categories"),
         stderr_regex="Action sub-errors produced by error handlers",
     )
 
-    error = read_single_error(record_path)
+    error = res.invocation_record().single_error()
     assert "ACTION_COMMAND_FAILURE" in error["tags"]
     assert error["category_key"] == "ACTION_COMMAND_FAILURE:FirstError"
 
 
 @buck_test(
     skip_for_os=["darwin", "windows"],
+    write_invocation_record=True,
 )
-async def test_nix_errno(buck: Buck, tmp_path: Path) -> None:
-    record_path = tmp_path / "record.json"
+async def test_nix_errno(buck: Buck) -> None:
     await buck.build(":run_action", "--show-output")
     shutil.rmtree(buck.cwd / "buck-out/v2")
 
-    await expect_failure(
-        buck.targets(
-            ":",
-            "--unstable-write-invocation-record",
-            str(record_path),
-        ),
+    res = await expect_failure(
+        buck.targets(":"),
         stderr_regex="Failed to stat.*ENOENT: No such file or directory",
     )
-    error = read_single_error(record_path)
+    error = res.invocation_record().single_error()
     assert error["category_key"] == "NIX:ENOENT"
