@@ -9,6 +9,7 @@
  */
 
 use std::collections::HashMap;
+use std::sync::Arc;
 use std::sync::Mutex;
 
 use buck2_error::internal_error;
@@ -17,7 +18,9 @@ use buck2_fs::fs_util;
 use buck2_fs::paths::abs_path::AbsPathBuf;
 use buck2_fs::paths::file_name::FileName;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
+use buck2_interpreter::dice::starlark_provider::StarlarkEvalKind;
 use buck2_interpreter::factory::ProfileEventListener;
+use buck2_interpreter::starlark_profiler::data::StarlarkProfileDataAndStats;
 use buck2_profile::write_starlark_flamegraph;
 use dupe::Dupe;
 use itertools::Itertools;
@@ -29,8 +32,8 @@ pub(crate) struct FileWritingProfileEventListener {
 
 struct State {
     written: HashMap<ForwardRelativePathBuf, usize>,
-    evaluations: Vec<String>,
     errors: Vec<buck2_error::Error>,
+    profiles: Vec<Arc<StarlarkProfileDataAndStats>>,
 }
 
 impl FileWritingProfileEventListener {
@@ -39,8 +42,8 @@ impl FileWritingProfileEventListener {
             base_path,
             state: Mutex::new(State {
                 written: HashMap::new(),
-                evaluations: Vec::new(),
                 errors: Vec::new(),
+                profiles: Vec::new(),
             }),
         }
     }
@@ -51,11 +54,16 @@ impl FileWritingProfileEventListener {
     pub fn finalize(&self) -> buck2_error::Result<()> {
         let lock = self.state.lock().unwrap();
         fs_util::create_dir_all(&self.base_path)?;
+        let merged_profile =
+            StarlarkProfileDataAndStats::merge(lock.profiles.iter().map(|p| p.as_ref()))?;
+
         fs_util::write(
             self.base_path.join("all_keys.list"),
-            lock.evaluations.iter().join("\n"),
+            merged_profile.targets.iter().join("\n"),
         )
         .categorize_internal()?;
+        write_profile_data(&merged_profile, self.base_path.join("merged"))?;
+
         if let Some(e) = lock.errors.first() {
             return Err(e.dupe());
         }
@@ -64,16 +72,14 @@ impl FileWritingProfileEventListener {
 
     fn handle_profile_collected(
         &self,
-        eval_kind: buck2_interpreter::dice::starlark_provider::StarlarkEvalKind,
-        profile_data: &std::sync::Arc<
-            buck2_interpreter::starlark_profiler::data::StarlarkProfileDataAndStats,
-        >,
+        eval_kind: StarlarkEvalKind,
+        profile_data: &Arc<StarlarkProfileDataAndStats>,
     ) -> buck2_error::Result<()> {
         let subpath = eval_kind.as_path()?;
 
         let suffix = {
             let mut lock = self.state.lock().unwrap();
-            lock.evaluations.push(eval_kind.to_string());
+            lock.profiles.push(profile_data.dupe());
             match lock.written.entry(subpath.clone()) {
                 std::collections::hash_map::Entry::Occupied(mut occupied_entry) => {
                     *occupied_entry.get_mut() += 1;
@@ -98,30 +104,37 @@ impl FileWritingProfileEventListener {
             ))?);
 
         let output_path = self.base_path.join(subpath.as_path());
-        fs_util::create_dir_all(output_path.parent().unwrap())?;
-        fs_util::write(
-            output_path.with_added_extension("profile"),
-            profile_data.profile_data.gen_csv()?,
-        )
-        .categorize_internal()?;
-        if let Some(flame_profile) = profile_data.profile_data.gen_flame_data()? {
-            write_starlark_flamegraph(
-                flame_profile,
-                &output_path,
-                inferno::flamegraph::Options::default(),
-            )?;
-        }
+        write_profile_data(profile_data, output_path)?;
         Ok(())
     }
+}
+
+fn write_profile_data(
+    profile_data: &StarlarkProfileDataAndStats,
+    output_path_prefix: AbsPathBuf,
+) -> Result<(), buck2_error::Error> {
+    fs_util::create_dir_all(output_path_prefix.parent().unwrap())?;
+    fs_util::write(
+        output_path_prefix.with_added_extension("profile"),
+        profile_data.profile_data.gen_csv()?,
+    )
+    .categorize_internal()?;
+
+    if let Some(flame_profile) = profile_data.profile_data.gen_flame_data()? {
+        write_starlark_flamegraph(
+            flame_profile,
+            &output_path_prefix,
+            inferno::flamegraph::Options::default(),
+        )?;
+    }
+    Ok(())
 }
 
 impl ProfileEventListener for FileWritingProfileEventListener {
     fn profile_collected(
         &self,
-        eval_kind: buck2_interpreter::dice::starlark_provider::StarlarkEvalKind,
-        profile_data: &std::sync::Arc<
-            buck2_interpreter::starlark_profiler::data::StarlarkProfileDataAndStats,
-        >,
+        eval_kind: StarlarkEvalKind,
+        profile_data: &Arc<StarlarkProfileDataAndStats>,
     ) {
         if let Err(e) = self.handle_profile_collected(eval_kind, profile_data) {
             let mut lock = self.state.lock().unwrap();

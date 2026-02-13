@@ -14,4 +14,5 @@ load_bzl/nano_prelude/cfg_rules.bzl.profile: True
 load_bzl/nano_prelude/execution_platforms.bzl.profile: True
 load_bzl/nano_prelude/prelude.bzl.profile: True
 load_bzl/nano_prelude/stub_rules.bzl.profile: True
+merged.profile: True
 unknown/Check_starlark_stack_size.profile: True

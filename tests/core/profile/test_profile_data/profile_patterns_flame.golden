@@ -40,6 +40,9 @@ load_bzl/nano_prelude/prelude.bzl.svg: True
 load_bzl/nano_prelude/stub_rules.bzl.profile: False
 load_bzl/nano_prelude/stub_rules.bzl.src: True
 load_bzl/nano_prelude/stub_rules.bzl.svg: True
+merged.profile: False
+merged.src: True
+merged.svg: True
 unknown/Check_starlark_stack_size.profile: False
 unknown/Check_starlark_stack_size.src: True
 unknown/Check_starlark_stack_size.svg: True
