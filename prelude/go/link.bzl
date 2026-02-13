@@ -148,7 +148,6 @@ def link(
     cmd.add("--")
     cmd.add(go_toolchain.linker_flags)
 
-    cmd.add("-o", output.as_output())
     cmd.add("-buildmode=" + _build_mode_param(build_mode))
     cmd.add("-buildid=")  # Setting to a static buildid helps make the binary reproducible.
 
@@ -246,11 +245,16 @@ def link(
 
     cmd.add(linker_flags)
 
-    cmd.add(main.pkg_shared if use_shared_code else main.pkg)
-
     env = get_toolchain_env_vars(go_toolchain)
 
-    ctx.actions.run(cmd, env = env, category = "go_link", identifier = identifier_prefix)
+    ctx.actions.dynamic_output_new(_link(
+        env_vars = env,
+        link_args = cmd,
+        main_pkg = main,
+        shared = use_shared_code,
+        identifier = identifier_prefix,
+        out = output.as_output(),
+    ))
 
     # stamp only executable targets
     if build_mode in [GoBuildMode("exe"), GoBuildMode("pie")]:
@@ -259,3 +263,33 @@ def link(
     final_output = ctx.actions.copy_file(final_output_name, output)
 
     return (final_output, executable_args.runtime_files, executable_args.external_debug_info)
+
+def _link_impl(
+        actions: AnalysisActions,
+        env_vars: dict[str, str | cmd_args | Artifact],
+        link_args: cmd_args,
+        main_pkg: GoPkg,
+        shared: bool,
+        identifier: str,
+        out: OutputArtifact) -> list[Provider]:
+    main_pkg_o = main_pkg.pkg_shared if shared else main_pkg.pkg
+    cmd = [
+        link_args,
+        ["-o", out],
+        main_pkg_o,
+    ]
+    actions.run(cmd, env = env_vars, category = "go_link", identifier = identifier)
+    return []
+
+_link = dynamic_actions(
+    impl = _link_impl,
+    # @unsorted-dict-items
+    attrs = {
+        "env_vars": dynattrs.value(dict[str, str | cmd_args | Artifact]),
+        "link_args": dynattrs.value(cmd_args),
+        "main_pkg": dynattrs.value(GoPkg),
+        "shared": dynattrs.value(bool),
+        "identifier": dynattrs.value(str),
+        "out": dynattrs.output(),
+    },
+)
