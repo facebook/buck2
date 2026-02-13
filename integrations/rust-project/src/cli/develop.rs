@@ -289,7 +289,7 @@ impl Develop {
             },
             SysrootConfig::BuckConfig => {
                 let project_root = buck.resolve_project_root()?;
-                resolve_buckconfig_sysroot(&buck, &project_root)?
+                resolve_buckconfig_sysroot(&buck, &project_root, &targets)?
             }
             SysrootConfig::Rustup => resolve_rustup_sysroot()?,
         };

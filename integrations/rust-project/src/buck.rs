@@ -668,6 +668,36 @@ impl Buck {
         Ok(alias_map)
     }
 
+    /// Work out which items in `sysroot_package` (e.g. `fbsource//xplat/rust/toolchain/sysroot/1.93.0:`) are
+    /// visible to `universe_targets` (e.g. `fbcode//your/wonderful:project`).
+    pub(crate) fn query_sysroot_targets(
+        &self,
+        sysroot_package: &str,
+        universe_targets: &[Target],
+    ) -> Vec<Target> {
+        let mut command = self.command(["cquery"]);
+        if let Some(mode) = &self.mode {
+            command.arg(mode);
+        }
+
+        command.args(["--json", sysroot_package]);
+
+        let universe_arg = universe_targets
+            .iter()
+            .map(|t| format!("{t}"))
+            .collect::<Vec<_>>()
+            .join(",");
+        command.args(["--target-universe", &universe_arg]);
+
+        match deserialize_output::<Vec<Target>>(command.output(), &command) {
+            Ok(targets) => targets,
+            Err(e) => {
+                tracing::warn!("Failed to query sysroot targets: {e:?}");
+                vec![Target::new(sysroot_package)]
+            }
+        }
+    }
+
     /// Given a list of targets, for all targets that are aliases, return the targets
     /// that the aliases point to.
     ///

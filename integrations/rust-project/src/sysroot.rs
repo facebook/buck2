@@ -42,6 +42,7 @@ pub(crate) enum SysrootConfig {
 pub(crate) fn resolve_buckconfig_sysroot(
     buck: &Buck,
     project_root: &Path,
+    universe_targets: &[Target],
 ) -> Result<Sysroot, anyhow::Error> {
     let sysroot: PathBuf = {
         // TODO(diliopoulos): remove hardcoded path to toolchain sysroot and replace with something
@@ -69,14 +70,19 @@ pub(crate) fn resolve_buckconfig_sysroot(
     };
 
     let sysroot_src = buck.resolve_sysroot_src()?;
-    let sysroot_targets = Target::new(format!("fbsource//{}:", sysroot_src.to_string_lossy()));
+
+    let sysroot_targets = buck.query_sysroot_targets(
+        &format!("fbsource//{}:", sysroot_src.to_string_lossy()),
+        universe_targets,
+    );
+
     // the `library` path component needs to be appended to the `sysroot_src_path`
     // so that rust-analyzer will be able to find standard library sources.
     let sysroot_src = project_root.join(sysroot_src).join("library");
 
     let mut sysroot_project = develop_with_sysroot(
         buck,
-        vec![sysroot_targets],
+        sysroot_targets,
         Sysroot {
             sysroot: sysroot.clone(),
             sysroot_src: Some(sysroot_src.clone()),
