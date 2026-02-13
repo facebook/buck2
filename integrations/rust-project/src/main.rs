@@ -397,17 +397,17 @@ fn test_parse_use_clippy() {
     ));
 }
 
+#[cfg(fbcode_build)]
 #[test]
-#[ignore]
 fn json_args_pass() {
     let args = JsonArguments::Path(PathBuf::from("buck2/integrations/rust-project/src/main.rs"));
     let expected = Opt {
         command: Some(Command::DevelopJson {
             args,
-            sysroot_mode: SysrootMode::Rustc,
+            sysroot_mode: SysrootMode::BuckConfig,
             client: None,
             buck2_command: None,
-            max_extra_targets: None,
+            max_extra_targets: Some(50),
             mode: None,
         }),
         version: false,
@@ -424,10 +424,10 @@ fn json_args_pass() {
     let expected = Opt {
         command: Some(Command::DevelopJson {
             args,
-            sysroot_mode: SysrootMode::Rustc,
+            sysroot_mode: SysrootMode::BuckConfig,
             client: None,
             buck2_command: None,
-            max_extra_targets: None,
+            max_extra_targets: Some(50),
             mode: None,
         }),
         version: false,
@@ -444,10 +444,10 @@ fn json_args_pass() {
     let expected = Opt {
         command: Some(Command::DevelopJson {
             args,
-            sysroot_mode: SysrootMode::Rustc,
+            sysroot_mode: SysrootMode::BuckConfig,
             client: None,
             buck2_command: None,
-            max_extra_targets: None,
+            max_extra_targets: Some(50),
             mode: None,
         }),
         version: false,
