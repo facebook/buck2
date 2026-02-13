@@ -84,21 +84,14 @@ R = test()
             profile.normalize_for_golden_tests();
         }
 
-        match mode {
-            ProfileMode::HeapRetained
-            | ProfileMode::HeapFlameRetained
-            | ProfileMode::HeapAllocated
-            | ProfileMode::HeapFlameAllocated
-            | ProfileMode::TimeFlame => {
-                golden_test_template(
-                    &format!(
-                        "src/eval/runtime/profile/golden/{}.flame.golden",
-                        mode.name().replace('-', "_")
-                    ),
-                    &profile_data.gen_flame_data().unwrap(),
-                );
-            }
-            _ => {}
+        if let Some(profile) = profile_data.gen_flame_data().unwrap() {
+            golden_test_template(
+                &format!(
+                    "src/eval/runtime/profile/golden/{}.flame.golden",
+                    mode.name().replace('-', "_")
+                ),
+                &profile,
+            );
         }
 
         match mode {

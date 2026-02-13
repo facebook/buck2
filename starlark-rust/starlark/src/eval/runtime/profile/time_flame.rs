@@ -354,7 +354,13 @@ bar()
             )
             .unwrap();
 
-            let profile = eval.gen_profile().unwrap().gen_flame_data().unwrap();
+            let profile = eval
+                .gen_profile()
+                .unwrap()
+                .gen_flame_data()
+                .unwrap()
+                .unwrap();
+
             let the_line = profile
                 .lines()
                 .find(|l| l.contains("foo"))
