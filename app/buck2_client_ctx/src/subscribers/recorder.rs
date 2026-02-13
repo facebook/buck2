@@ -27,7 +27,6 @@ use buck2_common::build_count::BuildCountManager;
 use buck2_common::convert::ProstDurationExt;
 use buck2_common::invocation_paths::InvocationPaths;
 use buck2_core::buck2_env;
-use buck2_core::io_counters::IoCounterKey;
 use buck2_core::soft_error;
 use buck2_data::ErrorReport;
 use buck2_data::FileWatcherProvider;
@@ -272,24 +271,24 @@ pub struct InvocationRecorder {
     // CommandOptions data
     command_options: Option<buck2_data::CommandOptions>,
     // Initial IO counters captured at invocation start
-    initial_io_copy_count: u32,
-    initial_io_symlink_count: u32,
-    initial_io_hardlink_count: u32,
-    initial_io_mkdir_count: u32,
-    initial_io_readdir_count: u32,
-    initial_io_readdir_eden_count: u32,
-    initial_io_rmdir_count: u32,
-    initial_io_rmdir_all_count: u32,
-    initial_io_stat_count: u32,
-    initial_io_stat_eden_count: u32,
-    initial_io_chmod_count: u32,
-    initial_io_readlink_count: u32,
-    initial_io_remove_count: u32,
-    initial_io_rename_count: u32,
-    initial_io_read_count: u32,
-    initial_io_write_count: u32,
-    initial_io_canonicalize_count: u32,
-    initial_io_eden_settle_count: u32,
+    initial_io_copy_count: Option<u32>,
+    initial_io_symlink_count: Option<u32>,
+    initial_io_hardlink_count: Option<u32>,
+    initial_io_mkdir_count: Option<u32>,
+    initial_io_readdir_count: Option<u32>,
+    initial_io_readdir_eden_count: Option<u32>,
+    initial_io_rmdir_count: Option<u32>,
+    initial_io_rmdir_all_count: Option<u32>,
+    initial_io_stat_count: Option<u32>,
+    initial_io_stat_eden_count: Option<u32>,
+    initial_io_chmod_count: Option<u32>,
+    initial_io_readlink_count: Option<u32>,
+    initial_io_remove_count: Option<u32>,
+    initial_io_rename_count: Option<u32>,
+    initial_io_read_count: Option<u32>,
+    initial_io_write_count: Option<u32>,
+    initial_io_canonicalize_count: Option<u32>,
+    initial_io_eden_settle_count: Option<u32>,
 }
 
 #[derive(Clone, Debug)]
@@ -476,24 +475,24 @@ impl InvocationRecorder {
             memory_max_total_allprocs: None,
             memory_max_total_forkserver_actions: None,
             command_options: None,
-            initial_io_copy_count: IoCounterKey::Copy.get_finished(),
-            initial_io_symlink_count: IoCounterKey::Symlink.get_finished(),
-            initial_io_hardlink_count: IoCounterKey::Hardlink.get_finished(),
-            initial_io_mkdir_count: IoCounterKey::MkDir.get_finished(),
-            initial_io_readdir_count: IoCounterKey::ReadDir.get_finished(),
-            initial_io_readdir_eden_count: IoCounterKey::ReadDirEden.get_finished(),
-            initial_io_rmdir_count: IoCounterKey::RmDir.get_finished(),
-            initial_io_rmdir_all_count: IoCounterKey::RmDirAll.get_finished(),
-            initial_io_stat_count: IoCounterKey::Stat.get_finished(),
-            initial_io_stat_eden_count: IoCounterKey::StatEden.get_finished(),
-            initial_io_chmod_count: IoCounterKey::Chmod.get_finished(),
-            initial_io_readlink_count: IoCounterKey::ReadLink.get_finished(),
-            initial_io_remove_count: IoCounterKey::Remove.get_finished(),
-            initial_io_rename_count: IoCounterKey::Rename.get_finished(),
-            initial_io_read_count: IoCounterKey::Read.get_finished(),
-            initial_io_write_count: IoCounterKey::Write.get_finished(),
-            initial_io_canonicalize_count: IoCounterKey::Canonicalize.get_finished(),
-            initial_io_eden_settle_count: IoCounterKey::EdenSettle.get_finished(),
+            initial_io_copy_count: None,
+            initial_io_symlink_count: None,
+            initial_io_hardlink_count: None,
+            initial_io_mkdir_count: None,
+            initial_io_readdir_count: None,
+            initial_io_readdir_eden_count: None,
+            initial_io_rmdir_count: None,
+            initial_io_rmdir_all_count: None,
+            initial_io_stat_count: None,
+            initial_io_stat_eden_count: None,
+            initial_io_chmod_count: None,
+            initial_io_readlink_count: None,
+            initial_io_remove_count: None,
+            initial_io_rename_count: None,
+            initial_io_read_count: None,
+            initial_io_write_count: None,
+            initial_io_canonicalize_count: None,
+            initial_io_eden_settle_count: None,
         }
     }
 
@@ -718,6 +717,25 @@ impl InvocationRecorder {
         let mut local_cache_lookups = None;
         let mut local_cache_lookup_latency_microseconds = None;
 
+        let mut io_copy_count = None;
+        let mut io_symlink_count = None;
+        let mut io_hardlink_count = None;
+        let mut io_mkdir_count = None;
+        let mut io_readdir_count = None;
+        let mut io_readdir_eden_count = None;
+        let mut io_rmdir_count = None;
+        let mut io_rmdir_all_count = None;
+        let mut io_stat_count = None;
+        let mut io_stat_eden_count = None;
+        let mut io_chmod_count = None;
+        let mut io_readlink_count = None;
+        let mut io_remove_count = None;
+        let mut io_rename_count = None;
+        let mut io_read_count = None;
+        let mut io_write_count = None;
+        let mut io_canonicalize_count = None;
+        let mut io_eden_settle_count = None;
+
         if let Some(snapshot) = &self.last_snapshot {
             sink_success_count =
                 calculate_diff_if_some(&snapshot.sink_successes, &self.initial_sink_success_count);
@@ -840,6 +858,57 @@ impl InvocationRecorder {
             local_cache_lookup_latency_microseconds = calculate_diff_if_some(
                 &Some(snapshot.local_cache_lookup_latency_microseconds),
                 &self.initial_local_cache_lookup_latency_microseconds,
+            );
+
+            io_copy_count =
+                calculate_diff_if_some(&snapshot.io_copy_count, &self.initial_io_copy_count);
+            io_symlink_count =
+                calculate_diff_if_some(&snapshot.io_symlink_count, &self.initial_io_symlink_count);
+            io_hardlink_count = calculate_diff_if_some(
+                &snapshot.io_hardlink_count,
+                &self.initial_io_hardlink_count,
+            );
+            io_mkdir_count =
+                calculate_diff_if_some(&snapshot.io_mkdir_count, &self.initial_io_mkdir_count);
+            io_readdir_count =
+                calculate_diff_if_some(&snapshot.io_readdir_count, &self.initial_io_readdir_count);
+            io_readdir_eden_count = calculate_diff_if_some(
+                &snapshot.io_readdir_eden_count,
+                &self.initial_io_readdir_eden_count,
+            );
+            io_rmdir_count =
+                calculate_diff_if_some(&snapshot.io_rmdir_count, &self.initial_io_rmdir_count);
+            io_rmdir_all_count = calculate_diff_if_some(
+                &snapshot.io_rmdir_all_count,
+                &self.initial_io_rmdir_all_count,
+            );
+            io_stat_count =
+                calculate_diff_if_some(&snapshot.io_stat_count, &self.initial_io_stat_count);
+            io_stat_eden_count = calculate_diff_if_some(
+                &snapshot.io_stat_eden_count,
+                &self.initial_io_stat_eden_count,
+            );
+            io_chmod_count =
+                calculate_diff_if_some(&snapshot.io_chmod_count, &self.initial_io_chmod_count);
+            io_readlink_count = calculate_diff_if_some(
+                &snapshot.io_readlink_count,
+                &self.initial_io_readlink_count,
+            );
+            io_remove_count =
+                calculate_diff_if_some(&snapshot.io_remove_count, &self.initial_io_remove_count);
+            io_rename_count =
+                calculate_diff_if_some(&snapshot.io_rename_count, &self.initial_io_rename_count);
+            io_read_count =
+                calculate_diff_if_some(&snapshot.io_read_count, &self.initial_io_read_count);
+            io_write_count =
+                calculate_diff_if_some(&snapshot.io_write_count, &self.initial_io_write_count);
+            io_canonicalize_count = calculate_diff_if_some(
+                &snapshot.io_canonicalize_count,
+                &self.initial_io_canonicalize_count,
+            );
+            io_eden_settle_count = calculate_diff_if_some(
+                &snapshot.io_eden_settle_count,
+                &self.initial_io_eden_settle_count,
             );
 
             // We show memory/disk warnings in the console but we can't emit a tag event there due to having no access to dispatcher.
@@ -1099,96 +1168,24 @@ impl InvocationRecorder {
             memory_max_total_allprocs: self.memory_max_total_allprocs,
             memory_max_total_forkserver_actions: self.memory_max_total_forkserver_actions,
             command_options: self.command_options,
-            io_copy_count: Some(
-                IoCounterKey::Copy
-                    .get_finished()
-                    .saturating_sub(self.initial_io_copy_count),
-            ),
-            io_symlink_count: Some(
-                IoCounterKey::Symlink
-                    .get_finished()
-                    .saturating_sub(self.initial_io_symlink_count),
-            ),
-            io_hardlink_count: Some(
-                IoCounterKey::Hardlink
-                    .get_finished()
-                    .saturating_sub(self.initial_io_hardlink_count),
-            ),
-            io_mkdir_count: Some(
-                IoCounterKey::MkDir
-                    .get_finished()
-                    .saturating_sub(self.initial_io_mkdir_count),
-            ),
-            io_readdir_count: Some(
-                IoCounterKey::ReadDir
-                    .get_finished()
-                    .saturating_sub(self.initial_io_readdir_count),
-            ),
-            io_readdir_eden_count: Some(
-                IoCounterKey::ReadDirEden
-                    .get_finished()
-                    .saturating_sub(self.initial_io_readdir_eden_count),
-            ),
-            io_rmdir_count: Some(
-                IoCounterKey::RmDir
-                    .get_finished()
-                    .saturating_sub(self.initial_io_rmdir_count),
-            ),
-            io_rmdir_all_count: Some(
-                IoCounterKey::RmDirAll
-                    .get_finished()
-                    .saturating_sub(self.initial_io_rmdir_all_count),
-            ),
-            io_stat_count: Some(
-                IoCounterKey::Stat
-                    .get_finished()
-                    .saturating_sub(self.initial_io_stat_count),
-            ),
-            io_stat_eden_count: Some(
-                IoCounterKey::StatEden
-                    .get_finished()
-                    .saturating_sub(self.initial_io_stat_eden_count),
-            ),
-            io_chmod_count: Some(
-                IoCounterKey::Chmod
-                    .get_finished()
-                    .saturating_sub(self.initial_io_chmod_count),
-            ),
-            io_readlink_count: Some(
-                IoCounterKey::ReadLink
-                    .get_finished()
-                    .saturating_sub(self.initial_io_readlink_count),
-            ),
-            io_remove_count: Some(
-                IoCounterKey::Remove
-                    .get_finished()
-                    .saturating_sub(self.initial_io_remove_count),
-            ),
-            io_rename_count: Some(
-                IoCounterKey::Rename
-                    .get_finished()
-                    .saturating_sub(self.initial_io_rename_count),
-            ),
-            io_read_count: Some(
-                IoCounterKey::Read
-                    .get_finished()
-                    .saturating_sub(self.initial_io_read_count),
-            ),
-            io_write_count: Some(
-                IoCounterKey::Write
-                    .get_finished()
-                    .saturating_sub(self.initial_io_write_count),
-            ),
-            io_canonicalize_count: Some(
-                IoCounterKey::Canonicalize
-                    .get_finished()
-                    .saturating_sub(self.initial_io_canonicalize_count),
-            ),
-            io_eden_settle_count: Some(
-                IoCounterKey::EdenSettle
-                    .get_finished()
-                    .saturating_sub(self.initial_io_eden_settle_count),
-            ),
+            io_copy_count,
+            io_symlink_count,
+            io_hardlink_count,
+            io_mkdir_count,
+            io_readdir_count,
+            io_readdir_eden_count,
+            io_rmdir_count,
+            io_rmdir_all_count,
+            io_stat_count,
+            io_stat_eden_count,
+            io_chmod_count,
+            io_readlink_count,
+            io_remove_count,
+            io_rename_count,
+            io_read_count,
+            io_write_count,
+            io_canonicalize_count,
+            io_eden_settle_count,
         };
 
         let event = BuckEvent::new(
@@ -1900,6 +1897,62 @@ impl InvocationRecorder {
         {
             self.initial_local_cache_lookup_latency_microseconds =
                 Some(update.local_cache_lookup_latency_microseconds);
+        }
+
+        // Initialize IO counters from first snapshot
+        if self.initial_io_copy_count.is_none() {
+            self.initial_io_copy_count = update.io_copy_count;
+        }
+        if self.initial_io_symlink_count.is_none() {
+            self.initial_io_symlink_count = update.io_symlink_count;
+        }
+        if self.initial_io_hardlink_count.is_none() {
+            self.initial_io_hardlink_count = update.io_hardlink_count;
+        }
+        if self.initial_io_mkdir_count.is_none() {
+            self.initial_io_mkdir_count = update.io_mkdir_count;
+        }
+        if self.initial_io_readdir_count.is_none() {
+            self.initial_io_readdir_count = update.io_readdir_count;
+        }
+        if self.initial_io_readdir_eden_count.is_none() {
+            self.initial_io_readdir_eden_count = update.io_readdir_eden_count;
+        }
+        if self.initial_io_rmdir_count.is_none() {
+            self.initial_io_rmdir_count = update.io_rmdir_count;
+        }
+        if self.initial_io_rmdir_all_count.is_none() {
+            self.initial_io_rmdir_all_count = update.io_rmdir_all_count;
+        }
+        if self.initial_io_stat_count.is_none() {
+            self.initial_io_stat_count = update.io_stat_count;
+        }
+        if self.initial_io_stat_eden_count.is_none() {
+            self.initial_io_stat_eden_count = update.io_stat_eden_count;
+        }
+        if self.initial_io_chmod_count.is_none() {
+            self.initial_io_chmod_count = update.io_chmod_count;
+        }
+        if self.initial_io_readlink_count.is_none() {
+            self.initial_io_readlink_count = update.io_readlink_count;
+        }
+        if self.initial_io_remove_count.is_none() {
+            self.initial_io_remove_count = update.io_remove_count;
+        }
+        if self.initial_io_rename_count.is_none() {
+            self.initial_io_rename_count = update.io_rename_count;
+        }
+        if self.initial_io_read_count.is_none() {
+            self.initial_io_read_count = update.io_read_count;
+        }
+        if self.initial_io_write_count.is_none() {
+            self.initial_io_write_count = update.io_write_count;
+        }
+        if self.initial_io_canonicalize_count.is_none() {
+            self.initial_io_canonicalize_count = update.io_canonicalize_count;
+        }
+        if self.initial_io_eden_settle_count.is_none() {
+            self.initial_io_eden_settle_count = update.io_eden_settle_count;
         }
 
         for s in self.re_max_download_speeds.iter_mut() {
