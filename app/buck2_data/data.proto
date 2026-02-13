@@ -914,6 +914,26 @@ message Snapshot {
   uint32 io_in_flight_canonicalize = 1117;
   uint32 io_in_flight_eden_settle = 1118;
 
+  // Total I/O operations count.
+  optional uint32 io_copy_count = 1119;
+  optional uint32 io_symlink_count = 1120;
+  optional uint32 io_hardlink_count = 1121;
+  optional uint32 io_mkdir_count = 1122;
+  optional uint32 io_readdir_count = 1123;
+  optional uint32 io_readdir_eden_count = 1124;
+  optional uint32 io_rmdir_count = 1125;
+  optional uint32 io_rmdir_all_count = 1126;
+  optional uint32 io_stat_count = 1127;
+  optional uint32 io_stat_eden_count = 1128;
+  optional uint32 io_chmod_count = 1129;
+  optional uint32 io_readlink_count = 1130;
+  optional uint32 io_remove_count = 1131;
+  optional uint32 io_rename_count = 1132;
+  optional uint32 io_read_count = 1133;
+  optional uint32 io_write_count = 1134;
+  optional uint32 io_canonicalize_count = 1135;
+  optional uint32 io_eden_settle_count = 1136;
+
   // Time passed since buck2 daemon was started
   uint64 daemon_uptime_s = 7;
 
