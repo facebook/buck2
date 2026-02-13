@@ -422,6 +422,9 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
     # Target label to which link group it was included
     targets_consumed_by_link_groups = {}
     auto_link_groups = {}
+
+    # Linker map data for link group shared libraries, keyed by group name.
+    link_group_linker_map_data = {}
     labels_to_links = FinalLabelsToLinks(
         map = {},
     )
@@ -487,6 +490,8 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
                 auto_link_groups[name] = linked_link_group.artifact
                 if linked_link_group.library != None:
                     link_group_libs[name] = linked_link_group.library
+                if linked_link_group.linker_map_data != None:
+                    link_group_linker_map_data[name] = linked_link_group.linker_map_data
             own_exe_link_flags += linked_link_groups.symbol_ldflags
             targets_consumed_by_link_groups = linked_link_groups.targets_consumed_by_link_groups
 
@@ -808,6 +813,9 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
                     {group: readable_mappings[group]},
                 ),
             )]
+        if group in link_group_linker_map_data:
+            lm_data = link_group_linker_map_data[group]
+            targets["linker-map"] = [DefaultInfo(default_output = lm_data.map, other_outputs = [lm_data.binary])]
         shared_libraries_sub_targets[soname] = [DefaultInfo(
             default_output = shlib.lib.output,
             sub_targets = targets,

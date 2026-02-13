@@ -92,6 +92,7 @@ load(
 )
 load(
     ":link.bzl",
+    "CxxLinkerMapData",  # @unused Used as a type
     "cxx_link_shared_library",
 )
 load(
@@ -159,6 +160,7 @@ LinkGroupLibSpec = record(
 _LinkedLinkGroup = record(
     artifact = field(LinkedObject),
     library = field([LinkGroupLib, None], None),
+    linker_map_data = field([CxxLinkerMapData, None], None),
 )
 
 _LinkedLinkGroups = record(
@@ -866,6 +868,7 @@ def _get_roots_from_mappings(
 _CreatedLinkGroup = record(
     linked_object = field(LinkedObject),
     labels_to_links = field(FinalLabelsToLinks),
+    linker_map_data = field([CxxLinkerMapData, None], None),
 )
 
 _CreateLinkGroupParams = record(
@@ -955,6 +958,7 @@ def _create_link_group(
     return _CreatedLinkGroup(
         linked_object = link_result.linked_object,
         labels_to_links = filtered_labels_to_links,
+        linker_map_data = link_result.linker_map_data,
     )
 
 def _stub_library(
@@ -1235,6 +1239,7 @@ def create_link_groups(
                     default = link_info,
                 ),
             ),
+            linker_map_data = created_link_group.linker_map_data,
         )
 
         # Merge and format all symbol files into flags that we can pass into
