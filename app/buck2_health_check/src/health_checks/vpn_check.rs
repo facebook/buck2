@@ -103,7 +103,7 @@ impl VpnCheck {
         })
     }
 
-    #[cfg(any(target_os = "macos", target_os = "linux"))]
+    #[cfg(any(target_os = "macos", target_os = "linux", target_os = "freebsd"))]
     fn cisco_iface_connected() -> buck2_error::Result<bool> {
         // Brittle check based on Cisco client's current behaviour.
         // Small section copied from https://fburl.com/code/g7ttsdz3
