@@ -65,9 +65,14 @@ impl CompletionCommand {
     }
 }
 
-const GENERATED_INSERTION_POINT: &str = "# %INSERT_GENERATED_LINE%";
-const GENERATED_TAG: &str = concat!("@", "generated");
-const COMPLETION_INSERTION_POINT: &str = "# %INSERT_OPTION_COMPLETION%";
+// Use 'static here to avoid rust-analyzer crash when pattern matching
+// on these string literals. https://github.com/rust-lang/rust-analyzer/issues/20149
+#[allow(clippy::redundant_static_lifetimes)]
+const GENERATED_INSERTION_POINT: &'static str = "# %INSERT_GENERATED_LINE%";
+#[allow(clippy::redundant_static_lifetimes)]
+const GENERATED_TAG: &'static str = concat!("@", "generated");
+#[allow(clippy::redundant_static_lifetimes)]
+const COMPLETION_INSERTION_POINT: &'static str = "# %INSERT_OPTION_COMPLETION%";
 
 fn completion_wrapper(shell: Shell) -> &'static str {
     #[cfg(buck_build)]

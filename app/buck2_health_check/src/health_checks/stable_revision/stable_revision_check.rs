@@ -265,8 +265,12 @@ mod tests {
 
     struct MockBookmarkRevisionFetcher {}
 
-    const FBCODE_BOOKMARK: &str = "fbcode";
-    const RL_BOOKMARK: &str = "rl_land";
+    // Use 'static here to avoid rust-analyzer crash when pattern matching
+    // on these string literals. https://github.com/rust-lang/rust-analyzer/issues/20149
+    #[allow(clippy::redundant_static_lifetimes)]
+    const FBCODE_BOOKMARK: &'static str = "fbcode";
+    #[allow(clippy::redundant_static_lifetimes)]
+    const RL_BOOKMARK: &'static str = "rl_land";
     const STABLE_REVISION: &str = "304be95551a07cddaf39e03de82abe480a66f890";
     const STABLE_REVISION_2: &str = "e2518101869be9e5192ee52f56afdc7812d9b6a6";
     const UNSTABLE_REVISION: &str = "c9bf9e5716854c89bafbff5af830034a1b8c4b5b";
