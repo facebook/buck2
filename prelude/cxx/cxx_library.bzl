@@ -27,6 +27,7 @@ load(
     "apple_build_link_args_with_deduped_flags",
     "apple_create_frameworks_linkable",
     "apple_get_link_info_by_deduping_link_infos",
+    "get_framework_search_path_flags",
 )
 load(
     "@prelude//apple:apple_resource_types.bzl",
@@ -233,6 +234,7 @@ load(
 load(
     ":preprocessor.bzl",
     "CPreprocessor",  # @unused Used as a type
+    "CPreprocessorArgs",
     "CPreprocessorForTestsInfo",
     "CPreprocessorInfo",  # @unused Used as a type
     "cxx_exported_preprocessor_info",
@@ -466,6 +468,17 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
     )
     own_preprocessors = [own_non_exported_preprocessor_info, own_exported_preprocessor_info] + test_preprocessor_infos
     own_exported_preprocessors = [own_exported_preprocessor_info]
+
+    # Add framework search paths to exported preprocessors if frameworks attribute is set.
+    # This is needed for the apple_library -> cxx_library swap in fb_xplat_cxx_library.
+    frameworks = getattr(ctx.attrs, "frameworks", [])
+    if frameworks:
+        framework_search_paths_flags = get_framework_search_path_flags(ctx)
+        framework_search_path_pre = CPreprocessor(
+            args = CPreprocessorArgs(args = [framework_search_paths_flags]),
+        )
+        own_exported_preprocessors.insert(0, framework_search_path_pre)
+        own_preprocessors.insert(0, framework_search_path_pre)
 
     inherited_non_exported_preprocessor_infos = cxx_inherited_preprocessor_infos(
         # Legacy precompiled_header implementation is not exported. Proper precompiled headers can have exported linkables.

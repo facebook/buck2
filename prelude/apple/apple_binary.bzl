@@ -61,11 +61,6 @@ load(
 )
 load("@prelude//cxx:link_types.bzl", "ExtraLinkerOutputCategory")
 load(
-    "@prelude//cxx:preprocessor.bzl",
-    "CPreprocessor",
-    "CPreprocessorArgs",
-)
-load(
     "@prelude//linking:link_info.bzl",
     "CxxSanitizerRuntimeInfo",
     "ExtraLinkerOutputs",
@@ -129,10 +124,6 @@ def apple_binary_impl(ctx: AnalysisContext) -> [list[Provider], Promise]:
             ]
             extension_compiler_flags = ["-fapplication-extension"]
 
-        framework_search_path_pre = CPreprocessor(
-            args = CPreprocessorArgs(args = [framework_search_path_flags]),
-        )
-
         swift_dependency_info = swift_compile.dependency_info if swift_compile else get_swift_dependency_info(ctx, None, deps_providers, False)
         swift_debug_info = get_swift_debug_infos(
             ctx,
@@ -174,7 +165,7 @@ def apple_binary_impl(ctx: AnalysisContext) -> [list[Provider], Promise]:
             ),
             extra_link_input = swift_object_files,
             extra_link_input_has_external_debug_info = True,
-            extra_preprocessors = [framework_search_path_pre] + swift_preprocessor,
+            extra_preprocessors = swift_preprocessor,
             strip_executable = stripped,
             strip_args_factory = apple_strip_args,
             cxx_populate_xcode_attributes_func = lambda local_ctx, **kwargs: apple_populate_xcode_attributes(local_ctx, contains_swift_sources = contains_swift_sources, **kwargs),

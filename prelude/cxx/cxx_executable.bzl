@@ -25,6 +25,7 @@ load(
     "apple_build_link_args_with_deduped_flags",
     "apple_create_frameworks_linkable",
     "apple_get_link_info_by_deduping_link_infos",
+    "get_framework_search_path_flags",
 )
 load(
     "@prelude//cxx:cxx_bolt.bzl",
@@ -196,6 +197,8 @@ load(
 )
 load(
     ":preprocessor.bzl",
+    "CPreprocessor",
+    "CPreprocessorArgs",
     "cxx_inherited_preprocessor_infos",
     "cxx_private_preprocessor_info",
 )
@@ -247,6 +250,16 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
     )
     inherited_preprocessor_infos = cxx_inherited_preprocessor_infos(preprocessor_deps) + impl_params.extra_preprocessors_info
 
+    # Add framework search paths if frameworks attribute is set.
+    # This is needed for the apple_test/apple_binary -> cxx_test/cxx_binary swap.
+    frameworks = getattr(ctx.attrs, "frameworks", [])
+    framework_search_path_pre = None
+    if frameworks:
+        framework_search_paths_flags = get_framework_search_path_flags(ctx)
+        framework_search_path_pre = CPreprocessor(
+            args = CPreprocessorArgs(args = [framework_search_paths_flags]),
+        )
+
     # The link style to use.
     link_strategy = to_link_strategy(cxx_attr_link_style(ctx))
     link_strategy = process_link_strategy_for_pic_behavior(link_strategy, get_cxx_toolchain_info(ctx).pic_behavior)
@@ -254,12 +267,15 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
     sub_targets = {}
 
     # Compile objects.
+    own_preprocessors = [own_preprocessor_info] + test_preprocessor_infos
+    if framework_search_path_pre:
+        own_preprocessors.insert(0, framework_search_path_pre)
     compile_cmd_output = create_compile_cmds(
         ctx.actions,
         ctx.label,
         get_cxx_toolchain_info(ctx),
         impl_params,
-        [own_preprocessor_info] + test_preprocessor_infos,
+        own_preprocessors,
         inherited_preprocessor_infos,
         is_coverage_enabled_by_any_dep(ctx, preprocessor_deps),
     )

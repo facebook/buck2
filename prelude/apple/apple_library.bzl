@@ -90,7 +90,6 @@ load(
 load(
     "@prelude//cxx:preprocessor.bzl",
     "CPreprocessor",
-    "CPreprocessorArgs",
     "CPreprocessorInfo",  # @unused Used as a type
 )
 load("@prelude//cxx:target_sdk_version.bzl", "get_unversioned_target_triple")
@@ -445,10 +444,6 @@ def apple_library_rule_constructor_params_and_swift_providers(ctx: AnalysisConte
 
         return providers
 
-    framework_search_path_pre = CPreprocessor(
-        args = CPreprocessorArgs(args = [framework_search_paths_flags]),
-    )
-
     validation_deps_outputs = get_validation_deps_outputs(ctx)
     if swift_compile:
         swift_objc_header = swift_compile.exported_swift_header
@@ -528,7 +523,7 @@ def apple_library_rule_constructor_params_and_swift_providers(ctx: AnalysisConte
         extra_link_input = swift_object_files,
         extra_link_input_has_external_debug_info = True,
         extra_preprocessors = [swift_pre, modular_pre],
-        extra_exported_preprocessors = filter(None, [framework_search_path_pre, exported_pre]),
+        extra_exported_preprocessors = filter(None, [exported_pre]),
         srcs = cxx_srcs,
         additional = CxxRuleAdditionalParams(
             srcs = swift_srcs,
