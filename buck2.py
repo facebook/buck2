@@ -20,6 +20,7 @@ import argparse
 import os
 import platform
 import subprocess
+import sys
 from typing import List, Optional, Tuple
 
 
@@ -95,7 +96,8 @@ def main() -> None:
     if __file__ is not None:
         cwd = os.path.dirname(__file__)
     cmd = build_command(args, extra_args, cwd)
-    subprocess.run(cmd, cwd=cwd)
+    result = subprocess.run(cmd, cwd=cwd)
+    sys.exit(result.returncode)
 
 
 if __name__ == "__main__":
