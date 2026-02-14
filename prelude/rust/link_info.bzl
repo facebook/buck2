@@ -138,6 +138,9 @@ RustArtifact = record(
 def _project_artifacts(dep: RustArtifact) -> (Artifact, Artifact | None):
     return (dep.artifact, dep.crate.dynamic)
 
+def _project_as_dynamic_name_args(dep: RustArtifact) -> Artifact | cmd_args:
+    return dep.crate.dynamic or cmd_args()
+
 def _project_artifacts_args(dep: RustArtifact) -> Artifact:
     return dep.artifact
 
@@ -145,6 +148,7 @@ def _project_artifacts_args(dep: RustArtifact) -> Artifact:
 TransitiveDeps = transitive_set(
     args_projections = {
         "artifacts_args": _project_artifacts_args,
+        "dynamic_name_args": _project_as_dynamic_name_args,
     },
     json_projections = {
         "artifacts": _project_artifacts,
