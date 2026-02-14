@@ -105,6 +105,9 @@ pub fn register_command_executor_config(builder: &mut GlobalsBuilder) {
     /// * `remote_execution_gang_workers`: Gang workers for gang scheduling in remote execution
     /// * `remote_execution_custom_image`: Custom Tupperware image for remote execution for this platform
     /// * `meta_internal_extra_params`: Json dict of extra params to pass to RE related to Meta internal infra.
+    /// * `priority`: The priority for remote execution requests. The exact interpretation is up
+    ///   to the RE server. See the Bazel Remote Execution API for recommended interpretation:
+    ///   https://github.com/bazelbuild/remote-apis/blob/main/build/bazel/remote/execution/v2/remote_execution.proto#L1499
     #[starlark(as_type = StarlarkCommandExecutorConfig)]
     fn CommandExecutorConfig<'v>(
         #[starlark(require = named)] local_enabled: bool,
@@ -140,6 +143,7 @@ pub fn register_command_executor_config(builder: &mut GlobalsBuilder) {
         #[starlark(default = NoneOr::None, require = named)] meta_internal_extra_params: NoneOr<
             DictRef<'v>,
         >,
+        #[starlark(default = NoneOr::None, require = named)] priority: NoneOr<i32>,
     ) -> starlark::Result<StarlarkCommandExecutorConfig> {
         let command_executor_config = {
             let remote_execution_max_input_files_mebibytes: Option<i32> =
@@ -190,6 +194,8 @@ pub fn register_command_executor_config(builder: &mut GlobalsBuilder) {
 
             let extra_params =
                 parse_meta_internal_extra_params(meta_internal_extra_params.into_option())?;
+
+            let priority = priority.into_option();
 
             let re_use_case = if remote_execution_use_case.is_none() {
                 None
@@ -304,6 +310,7 @@ pub fn register_command_executor_config(builder: &mut GlobalsBuilder) {
                         gang_workers: re_gang_workers,
                         custom_image: re_dynamic_image,
                         meta_internal_extra_params: extra_params,
+                        priority,
                     })
                 }
                 (Some(local), None, true) => {
@@ -322,6 +329,7 @@ pub fn register_command_executor_config(builder: &mut GlobalsBuilder) {
                         gang_workers: re_gang_workers,
                         custom_image: re_dynamic_image,
                         meta_internal_extra_params: extra_params,
+                        priority,
                     })
                 }
                 // If remote cache is disabled, also disable the remote dep file cache as well

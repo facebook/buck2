@@ -225,34 +225,35 @@ impl HasCommandExecutor for CommandExecutorFactory {
             });
         }
 
-        let remote_executor_new =
-            |options: &RemoteExecutorOptions,
-             re_use_case: &RemoteExecutorUseCase,
-             re_action_key: &Option<String>,
-             remote_cache_enabled: bool,
-             dependencies: &[RemoteExecutorDependency],
-             gang_workers: &[ReGangWorker]| {
-                ReExecutor {
-                    artifact_fs: artifact_fs.clone(),
-                    project_fs: self.project_root.clone(),
-                    materializer: self.materializer.dupe(),
-                    incremental_db_state: self.incremental_db_state.dupe(),
-                    re_client: self.get_prepared_re_client(*re_use_case),
-                    re_action_key: re_action_key.clone(),
-                    re_max_queue_time: options.re_max_queue_time,
-                    re_resource_units: options.re_resource_units,
-                    knobs: self.executor_global_knobs.dupe(),
-                    skip_cache_read: self.skip_cache_read || !remote_cache_enabled,
-                    skip_cache_write: self.skip_cache_write || !remote_cache_enabled,
-                    paranoid: self.paranoid.dupe(),
-                    materialize_failed_inputs: self.materialize_failed_inputs,
-                    materialize_failed_outputs: self.materialize_failed_outputs,
-                    dependencies: dependencies.to_vec(),
-                    gang_workers: gang_workers.to_vec(),
-                    deduplicate_get_digests_ttl_calls: self.deduplicate_get_digests_ttl_calls,
-                    output_trees_download_config: self.output_trees_download_config.dupe(),
-                }
-            };
+        let remote_executor_new = |options: &RemoteExecutorOptions,
+                                   re_use_case: &RemoteExecutorUseCase,
+                                   re_action_key: &Option<String>,
+                                   remote_cache_enabled: bool,
+                                   dependencies: &[RemoteExecutorDependency],
+                                   gang_workers: &[ReGangWorker],
+                                   priority: Option<i32>| {
+            ReExecutor {
+                artifact_fs: artifact_fs.clone(),
+                project_fs: self.project_root.clone(),
+                materializer: self.materializer.dupe(),
+                incremental_db_state: self.incremental_db_state.dupe(),
+                re_client: self.get_prepared_re_client(*re_use_case),
+                re_action_key: re_action_key.clone(),
+                re_max_queue_time: options.re_max_queue_time,
+                re_resource_units: options.re_resource_units,
+                knobs: self.executor_global_knobs.dupe(),
+                skip_cache_read: self.skip_cache_read || !remote_cache_enabled,
+                skip_cache_write: self.skip_cache_write || !remote_cache_enabled,
+                paranoid: self.paranoid.dupe(),
+                materialize_failed_inputs: self.materialize_failed_inputs,
+                materialize_failed_outputs: self.materialize_failed_outputs,
+                dependencies: dependencies.to_vec(),
+                gang_workers: gang_workers.to_vec(),
+                deduplicate_get_digests_ttl_calls: self.deduplicate_get_digests_ttl_calls,
+                output_trees_download_config: self.output_trees_download_config.dupe(),
+                priority,
+            }
+        };
 
         let response = match &executor_config.executor {
             Executor::None => None,
@@ -350,6 +351,7 @@ impl HasCommandExecutor for CommandExecutorFactory {
                                 remote_options.remote_cache_enabled,
                                 &remote_options.dependencies,
                                 &remote_options.gang_workers,
+                                remote_options.priority,
                             )))
                         }
                         RemoteEnabledExecutor::Hybrid {
@@ -368,6 +370,7 @@ impl HasCommandExecutor for CommandExecutorFactory {
                                 remote_options.remote_cache_enabled,
                                 &remote_options.dependencies,
                                 &remote_options.gang_workers,
+                                remote_options.priority,
                             );
                             let executor_preference = self.strategy.hybrid_preference();
                             let low_pass_filter = self.low_pass_filter.dupe();
@@ -518,6 +521,7 @@ pub fn get_default_executor_config(host_platform: HostPlatformOverride) -> Comma
             gang_workers: vec![],
             custom_image: None,
             meta_internal_extra_params: MetaInternalExtraParams::default(),
+            priority: None,
         })
     };
 
