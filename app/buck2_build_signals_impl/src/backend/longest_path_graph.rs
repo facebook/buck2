@@ -223,7 +223,7 @@ fn compute_critical_paths(
     top_level_targets: &[TopLevelTarget],
 ) -> Result<(DetailedCriticalPath, Vec<(ConfiguredTargetLabel, Duration)>), CriticalPathError> {
     let (critical_path, critical_path_cost, replacement_durations, critical_path_accessor) =
-        compute_critical_path_potentials(&graph, &durations)?;
+        compute_critical_path_potentials(graph, &durations)?;
 
     let critical_path_for_top_level_targets = top_level_targets
         .iter()

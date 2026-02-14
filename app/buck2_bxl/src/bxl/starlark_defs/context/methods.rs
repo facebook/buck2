@@ -181,7 +181,7 @@ pub(crate) fn bxl_context_methods(builder: &mut MethodsBuilder) {
                         TargetListExpr::<'v, ConfiguredTargetNode>::unpack_allow_unconfigured(
                             labels,
                             &global_cfg_options,
-                            &this,
+                            this,
                             ctx,
                         )
                         .await?;

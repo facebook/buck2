@@ -791,7 +791,7 @@ impl OwnedTargetNodeArg {
                 match ParsedPattern::<TargetPatternExtra>::parse_relaxed(
                     ctx.target_alias_resolver(),
                     CellPathRef::new(ctx.cell_name(), CellRelativePath::empty()),
-                    &str,
+                    str,
                     ctx.cell_resolver(),
                     ctx.cell_alias_resolver(),
                 )? {

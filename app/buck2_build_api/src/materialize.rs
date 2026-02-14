@@ -125,7 +125,7 @@ pub async fn materialize_and_upload_artifact_group(
                 async move {
                     match contexts.1 {
                         UploadContext::Skip => Ok(()),
-                        UploadContext::Upload => ensure_uploaded(&mut ctx, group).await,
+                        UploadContext::Upload => ensure_uploaded(&mut ctx, group.clone()).await,
                     }
                 }
                 .boxed()
@@ -184,7 +184,7 @@ async fn materialize_artifact_group(
                         let (data, artifact_fs, materializer) = &*shared_data;
 
                         let configuration_hash_path = artifact_fs
-                            .resolve_build_configuration_hash_path(&artifact.get_path())?;
+                            .resolve_build_configuration_hash_path(artifact.get_path())?;
 
                         if artifact.get_path().is_content_based_path() {
                             let content_based_path = artifact_fs.resolve_build(
@@ -237,7 +237,7 @@ async fn ensure_uploaded(
     let digest_config = ctx.global_data().get_digest_config();
     let artifact_fs = ctx.get_artifact_fs().await?;
     let mut dir = ActionDirectoryBuilder::empty();
-    let values = ctx.ensure_artifact_group(&artifact_group).await?;
+    let values = ctx.ensure_artifact_group(artifact_group).await?;
     for (artifact, value) in values.iter() {
         let path = artifact.resolve_path(
             &artifact_fs,
@@ -248,7 +248,7 @@ async fn ensure_uploaded(
             }
             .as_ref(),
         )?;
-        buck2_execute::directory::insert_artifact(&mut dir, path, &value)?;
+        buck2_execute::directory::insert_artifact(&mut dir, path, value)?;
     }
     let dir = dir.fingerprint(digest_config.as_directory_serializer());
     let re_use_case = ctx

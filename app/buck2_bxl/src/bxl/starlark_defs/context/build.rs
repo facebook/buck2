@@ -192,7 +192,7 @@ pub(crate) fn build<'v>(
                 let build_spec = ProvidersExpr::<ConfiguredProvidersLabel>::unpack(
                     spec,
                     &global_cfg_options,
-                    &ctx,
+                    ctx,
                     dice,
                 )
                 .await?;

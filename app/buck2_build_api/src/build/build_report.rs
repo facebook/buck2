@@ -747,7 +747,7 @@ impl<'a> BuildReportCollector<'a> {
                                 update_artifact_info(
                                     &mut configured_report.artifact_info,
                                     provider_name.dupe(),
-                                    &value.entry(),
+                                    value.entry(),
                                 );
                             }
                             configured_report
