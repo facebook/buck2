@@ -88,3 +88,9 @@ constraint_value(
     constraint_setting = ":os",
     visibility = ["PUBLIC"],
 )
+
+constraint_value(
+    name = "unknown",
+    constraint_setting = ":os",
+    visibility = ["PUBLIC"],
+)
