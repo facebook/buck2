@@ -850,8 +850,7 @@ impl ChromeTraceWriter {
                         match category {
                             Some(category) => Categorization::Show {
                                 category,
-                                name: format!("load_package_file_tree {}", load_package.path)
-                                    .into(),
+                                name: format!("listing {}", load_package.path).into(),
                             },
                             None => Categorization::Omit,
                         }
