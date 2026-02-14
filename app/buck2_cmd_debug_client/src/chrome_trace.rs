@@ -9,6 +9,7 @@
  */
 
 // TraceEvent spec used in this file documented here: https://docs.google.com/document/d/1CvAClvFfyA5R-PhYUmn5OOQtYMH4h6I0nSsKchNAySU/preview?tab=t.0
+// Note: "rendering" centric stuff like cname colors are not supported: https://github.com/google/perfetto/issues/208, we'd have to switch to the protobuf API
 
 use std::borrow::Cow;
 use std::collections::BTreeSet;
@@ -245,6 +246,7 @@ struct ChromeTraceInstant {
     name: String,
     timestamp: SystemTime,
     scope: ChromeTraceInstantScope,
+    args: Option<serde_json::Value>,
 }
 
 impl ChromeTraceInstant {
@@ -264,6 +266,10 @@ impl ChromeTraceInstant {
         let obj = js
             .as_object_mut()
             .ok_or(buck2_error::internal_error!("expected a mutable object"))?;
+
+        if let Some(args) = self.args {
+            obj.insert("args".to_owned(), json!(args));
+        }
 
         match self.scope {
             ChromeTraceInstantScope::Global => {}
@@ -1069,6 +1075,7 @@ impl ChromeTraceWriter {
                             name: "command_preempted".to_owned(),
                             timestamp: event.timestamp(),
                             scope: ChromeTraceInstantScope::Global,
+                            args: None,
                         }
                         .to_json()?,
                     );
@@ -1402,6 +1409,34 @@ impl ChromeTraceWriter {
             self.trace_events
                 .push(ChromeTraceClosedSpan { open, duration }.to_json()?);
         }
+
+        match end.data.as_ref() {
+            Some(buck2_data::span_end_event::Data::Materialization(materialization)) => {
+                if !materialization.success {
+                    self.trace_events.push(
+                        ChromeTraceInstant {
+                            name: "materialization_failure".to_owned(),
+                            timestamp: event.timestamp(),
+                            // These have parent_id == 0, so we can't relate
+                            // them back to the action that cause them right now
+                            scope: ChromeTraceInstantScope::Global,
+                            args: Some(json!({
+                                "file_count": materialization.file_count,
+                                "total_bytes": materialization.total_bytes,
+                                "path": materialization.path,
+                                "action_digest": materialization.action_digest.as_ref().map(|digest| digest.to_string()),
+                                "success": materialization.success,
+                                "error": materialization.error,
+                                // "method": materialization.method, // TODO: convert to string?
+                            })),
+                        }
+                        .to_json()?,
+                    );
+                }
+            }
+            _ => {}
+        }
+
         Ok(())
     }
 }
@@ -1550,6 +1585,7 @@ impl ChromeTraceCommand {
             name: name.to_owned(),
             timestamp: datetime.into(),
             scope: ChromeTraceInstantScope::Global,
+            args: None,
         })
     }
 
