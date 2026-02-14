@@ -911,7 +911,7 @@ def symlinked_dirs(
         hidden = transitive_deps.project_as_args("artifacts_args"),
     )
 
-def _lintify(flag: str, clippy: bool, lints: list[ResolvedStringWithMacros]) -> cmd_args:
+def _lintify(flag: str, clippy: bool, lints: list[str | ResolvedStringWithMacros]) -> cmd_args:
     return cmd_args(
         [lint for lint in lints if clippy or not str(lint).startswith("\"clippy::")],
         format = "-{}{{}}".format(flag),
