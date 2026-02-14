@@ -188,7 +188,7 @@ impl<'a> ClientCommandContext<'a> {
         Ok(ClientContext {
             config_overrides: config_opts.config_overrides(
                 arg_matches,
-                &self.immediate_config,
+                self.immediate_config,
                 &self.working_dir,
             )?,
             host_platform: match config_opts.host_platform_override() {

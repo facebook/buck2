@@ -246,7 +246,7 @@ impl Component for BuckRootComponent<'_> {
             },
             mode,
         )?;
-        draw.draw(&TasksHeader::new(&self.header, self.state), mode)?;
+        draw.draw(&TasksHeader::new(self.header, self.state), mode)?;
         draw.draw(&TimedList::new(&CUTOFFS, self.state), mode)?;
 
         Ok(draw.finish())
@@ -635,7 +635,7 @@ impl StatefulSuperConsoleImpl {
         );
 
         if let Some(command) = command {
-            lines_for_command_details(&command, self.verbosity, &mut lines);
+            lines_for_command_details(command, self.verbosity, &mut lines);
         }
 
         if let Some(error_diagnostics) = error_diagnostics {

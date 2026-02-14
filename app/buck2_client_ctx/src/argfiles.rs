@@ -504,7 +504,7 @@ mod tests {
                     "{}{}",
                     v.kind,
                     if let Some(v) = &v.parent {
-                        display_flagfile(&v)
+                        display_flagfile(v)
                     } else {
                         "".to_owned()
                     }

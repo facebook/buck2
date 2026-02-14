@@ -51,7 +51,7 @@ pub(crate) async fn server_execute(
             // We intentionally don't do this in parallel so that we can get the computation time for them.
             for target in &targets {
                 let MaybeCompatible::Compatible(node) =
-                    ctx.get_configured_target_node(&target).await?
+                    ctx.get_configured_target_node(target).await?
                 else {
                     continue;
                 };

@@ -676,7 +676,7 @@ impl<'a> BuckArgMatches<'a> {
         for (flag_value, source) in config_args {
             let flagfile = match source {
                 ExpandedArgSource::Inline => None,
-                ExpandedArgSource::Flagfile(file) => get_flagfile_for_logging(&file),
+                ExpandedArgSource::Flagfile(file) => get_flagfile_for_logging(file),
             };
 
             match flagfile {

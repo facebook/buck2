@@ -411,7 +411,7 @@ impl<'a> BuckdLifecycle<'a> {
             &daemon_startup_config.resource_control,
             daemon_exe,
             unit_name,
-            &project_dir.root(),
+            project_dir.root(),
         )
         .await?;
         let mut cmd: tokio::process::Command = cmd.into();
