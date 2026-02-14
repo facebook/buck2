@@ -246,6 +246,7 @@ def cxx_library_generate(ctx: AnalysisContext, rule_type: str) -> list[Provider]
         # @oss-disable[end= ]: extra_linker_outputs_factory = get_extra_linker_outputs,
         # @oss-disable[end= ]: extra_linker_outputs_flags_factory = get_extra_linker_output_flags,
         supports_stripping = ctx.attrs.supports_stripping,
+        cxx_module_scanning = ctx.attrs.module_scanning,
     )
     output = cxx_library_parameterized(ctx, params)
     return output.providers
@@ -319,6 +320,7 @@ def cxx_binary_impl(ctx: AnalysisContext) -> list[Provider]:
         coverage_instrumentation_compiler_flags = ctx.attrs.coverage_instrumentation_compiler_flags,
         separate_debug_info = ctx.attrs.separate_debug_info,
         cuda_compile_style = CudaCompileStyle(ctx.attrs.cuda_compile_style),
+        cxx_module_scanning = ctx.attrs.module_scanning,
     )
     output = cxx_executable(ctx, params)
 
@@ -971,6 +973,7 @@ def cxx_test_impl(ctx: AnalysisContext) -> list[Provider]:
         coverage_instrumentation_compiler_flags = ctx.attrs.coverage_instrumentation_compiler_flags,
         separate_debug_info = ctx.attrs.separate_debug_info,
         cuda_compile_style = CudaCompileStyle(ctx.attrs.cuda_compile_style),
+        cxx_module_scanning = ctx.attrs.module_scanning,
     )
     output = cxx_executable(ctx, params, is_cxx_test = True)
 
