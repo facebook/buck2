@@ -1,3 +1,4 @@
+load("@prelude//:is_full_meta_repo.bzl", "is_full_meta_repo")
 load("@prelude//python:internal_tools.bzl", "python_internal_tools")
 load("@prelude//utils:source_listing.bzl", "source_listing")
 
@@ -65,7 +66,7 @@ prelude.command_alias(
         "$(location :run_inplace.py.in)",
         "--template-lite",
         "$(location :run_inplace_lite.py.in)",
-    ],
+    ] + (["--use-absolute-path-for-python-interpreter"] if is_full_meta_repo() else []),
     exe = ":make_py_package_inplace.py",
     visibility = ["PUBLIC"],
 )
