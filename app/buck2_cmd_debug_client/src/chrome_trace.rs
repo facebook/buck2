@@ -42,7 +42,6 @@ use buck2_event_observer::unpack_event::UnpackedBuckEvent;
 use buck2_event_observer::unpack_event::unpack_event;
 use buck2_events::BuckEvent;
 use buck2_fs::paths::abs_path::AbsPathBuf;
-use chrono::DateTime;
 use derive_more::Display;
 use dupe::Dupe;
 use futures::TryStreamExt;
@@ -1535,51 +1534,10 @@ impl BuckSubcommand for ChromeTraceCommand {
     }
 }
 
-#[derive(buck2_error::Error, Debug)]
-// #[buck2(tag = Input)]
-pub enum ChromeTraceError {
-    #[buck2(tag = Input)]
-    #[error("Can't parse a timestamp from `{0}`")]
-    InvalidTimestamp(String),
-}
-
 impl ChromeTraceCommand {
-    fn parse_timestamp_as_unixtime_float(time: &str) -> Option<DateTime<chrono::Utc>> {
-        let (ipart, fpart) = time.split_once(".")?;
-
-        let ipart = ipart.parse::<i64>().ok()?;
-        // The fractional part needs to be truncated to 9 places or right-padded (*10^pad)
-        // to nine places to be nanoseconds.
-        let fpart = if fpart.len() > 9 { &fpart[..9] } else { fpart };
-        let fmult = 10u32.pow(0i64.max(9i64 - (fpart.len() as i64)) as u32);
-        let fpart = fpart.parse::<u32>().ok()?;
-
-        DateTime::from_timestamp(ipart, fpart * fmult)
-    }
-    fn parse_timestamp_as_unixtime_seconds(time: &str) -> Option<DateTime<chrono::Utc>> {
-        let ipart = time.parse::<i64>().ok()?;
-        DateTime::from_timestamp(ipart, 0)
-    }
-    fn parse_timestamp_as_unixtime_nanoseconds(time: &str) -> Option<DateTime<chrono::Utc>> {
-        // Perfetto lets you copy the "raw value" of timestamps as billions of nanoseconds
-        if time.len() < 19 {
-            return None;
-        }
-        let ipart = time[..time.len() - 9].parse::<i64>().ok()?;
-        let fpart = time[time.len() - 9..].parse::<u32>().ok()?;
-        DateTime::from_timestamp(ipart, fpart)
-    }
-
-    fn parse_timestamp(time: &str) -> buck2_error::Result<DateTime<chrono::Utc>> {
-        Self::parse_timestamp_as_unixtime_float(time)
-            .or_else(|| Self::parse_timestamp_as_unixtime_seconds(time))
-            .or_else(|| Self::parse_timestamp_as_unixtime_nanoseconds(time))
-            .ok_or(ChromeTraceError::InvalidTimestamp(time.to_owned()).into())
-    }
-
     fn parse_marker_arg(time: &str, name: &str) -> buck2_error::Result<ChromeTraceInstant> {
         // Look for integer or float times. Note that we don't parse f64 in order to maintain the tv_nsec values
-        let datetime = Self::parse_timestamp(time)?;
+        let datetime = buck2_event_log::utils::timestamp::parse(time)?;
         Ok(ChromeTraceInstant {
             name: name.to_owned(),
             timestamp: datetime.into(),
