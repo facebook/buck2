@@ -52,6 +52,11 @@ pub(crate) enum ReplayError {
     InvalidSeek(f64),
 }
 
+enum Seek {
+    Relative(Duration),
+    Absolute(SystemTime),
+}
+
 /// Replay an event log.
 ///
 /// This command allows visualizing an existing event log in a Superconsole.
@@ -70,8 +75,13 @@ pub struct ReplayCommand {
 
     /// Skip to the given number of seconds after the start of the command before starting the
     /// replay
-    #[clap(long, default_value = "0.0")]
-    pub seek: f64,
+    #[clap(long, conflicts_with = "seek_absolute")]
+    pub seek: Option<f64>,
+
+    /// Skip to the given unixtime number of seconds (floating point) or
+    /// nanoseconds (integral) before starting the replay
+    #[clap(long, conflicts_with = "seek")]
+    pub seek_absolute: Option<String>,
 
     /// Preload the event log. This is typically only useful for benchmarking.
     #[clap(long)]
@@ -98,6 +108,7 @@ impl BuckSubcommand for ReplayCommand {
             event_log,
             speed,
             seek,
+            seek_absolute,
             preload,
             start_paused,
             console_opts,
@@ -107,11 +118,16 @@ impl BuckSubcommand for ReplayCommand {
             return ExitResult::from(buck2_error::Error::from(ReplayError::InvalidSpeed(speed)));
         }
 
-        if !seek.is_finite() || seek < 0.0 {
-            return ExitResult::from(buck2_error::Error::from(ReplayError::InvalidSeek(seek)));
-        }
-
-        let seek = Duration::from_secs(1).mul_f64(seek);
+        let seek = if let Some(seek) = seek {
+            if !seek.is_finite() || seek < 0.0 {
+                return ExitResult::from(buck2_error::Error::from(ReplayError::InvalidSeek(seek)));
+            }
+            Seek::Relative(Duration::from_secs(1).mul_f64(seek))
+        } else if let Some(seek_absolute) = seek_absolute {
+            Seek::Absolute(buck2_event_log::utils::timestamp::parse(seek_absolute.as_str())?.into())
+        } else {
+            Seek::Relative(Duration::from_secs(0))
+        };
 
         let work = async {
             let (event_stream, invocation, timekeeper) = make_replayer(
@@ -193,7 +209,7 @@ impl TryFrom<buck2_cli_proto::command_result::Result> for ReplayResult {
 async fn make_replayer(
     log_path: EventLogPathBuf,
     speed: f64,
-    seek: Duration,
+    seek: Seek,
     preload: bool,
     start_paused: bool,
 ) -> buck2_error::Result<(
@@ -231,7 +247,13 @@ async fn make_replayer(
         }
     };
 
-    let seek_timestamp = timestamp_add_duration(start_time, seek);
+    let seek_timestamp = match seek {
+        Seek::Relative(duration) => timestamp_add_duration(start_time, duration),
+        Seek::Absolute(time) => {
+            let time: SystemTime = time.into();
+            time.into()
+        }
+    };
 
     // Note: Seeking forward in time on a large log might take a while; intentionally do this before
     // computing the `command_start_instant` so that the time that superconsole starts up actually

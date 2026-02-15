@@ -32,7 +32,9 @@ Options:
           Skip to the given number of seconds after the start of the command before starting the
           replay
 
-          [default: 0.0]
+      --seek-absolute <SEEK_ABSOLUTE>
+          Skip to the given unixtime number of seconds (floating point) or nanoseconds (integral)
+          before starting the replay
 
       --preload
           Preload the event log. This is typically only useful for benchmarking
