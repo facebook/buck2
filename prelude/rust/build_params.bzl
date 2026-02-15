@@ -96,17 +96,17 @@ MetadataKind = enum(
 # Emitting this artifact generates code
 def dep_metadata_of_emit(emit: Emit) -> MetadataKind:
     return {
-        Emit("asm"): MetadataKind("link"),
-        Emit("llvm-bc"): MetadataKind("link"),
-        Emit("llvm-ir"): MetadataKind("link"),
-        Emit("llvm-ir-noopt"): MetadataKind("link"),
-        Emit("obj"): MetadataKind("link"),
+        Emit("asm"): MetadataKind("full"),
+        Emit("llvm-bc"): MetadataKind("full"),
+        Emit("llvm-ir"): MetadataKind("full"),
+        Emit("llvm-ir-noopt"): MetadataKind("full"),
+        Emit("obj"): MetadataKind("full"),
         Emit("link"): MetadataKind("link"),
-        Emit("mir"): MetadataKind("link"),
+        Emit("mir"): MetadataKind("full"),
         Emit("metadata-fast"): MetadataKind("fast"),
         Emit("clippy"): MetadataKind("fast"),
-        Emit("dep-info"): MetadataKind("full"),
-        Emit("expand"): MetadataKind("full"),
+        Emit("dep-info"): MetadataKind("fast"),
+        Emit("expand"): MetadataKind("fast"),
         Emit("metadata-full"): MetadataKind("full"),
     }[emit]
 
