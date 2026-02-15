@@ -125,7 +125,7 @@ pub async fn materialize_and_upload_artifact_group(
                 async move {
                     match contexts.1 {
                         UploadContext::Skip => Ok(()),
-                        UploadContext::Upload => ensure_uploaded(&mut ctx, group.clone()).await,
+                        UploadContext::Upload => ensure_uploaded(&mut ctx, group).await,
                     }
                 }
                 .boxed()
