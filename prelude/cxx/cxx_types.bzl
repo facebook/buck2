@@ -292,4 +292,8 @@ CxxRuleConstructorParams = record(
     # Cuda compile stype
     cuda_compile_style = field(CudaCompileStyle | None, None),
     supports_stripping = field(bool, True),
+    # If set, the source files must be scanned for module dependencies
+    # prior to compilation, so we can know the correct order to compile them
+    # as well as additional compiler flags to pass to the compiler.
+    cxx_module_scanning = field(bool, False),
 )

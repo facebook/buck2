@@ -229,6 +229,7 @@ CxxToolchainInfo = provider(
         "clang_llvm_statistics": provider_field(typing.Any, default = None),
         "clang_remarks": provider_field(typing.Any, default = None),
         "clang_trace": provider_field(typing.Any, default = None),
+        "clang_scan_deps": provider_field(typing.Any, default = None),
         "compiler_flavor_flags": provider_field(typing.Any, default = {}),
         "cpp_dep_tracking_mode": provider_field(typing.Any, default = None),
         "cuda_compiler_info": provider_field(typing.Any, default = None),
