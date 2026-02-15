@@ -77,6 +77,10 @@ pub struct ReplayCommand {
     #[clap(long)]
     preload: bool,
 
+    /// Start the replay in a paused state.
+    #[clap(long, help = "Start the replay in a paused state, press 'y' to resume")]
+    start_paused: bool,
+
     #[clap(flatten)]
     console_opts: CommonConsoleOptions,
 }
@@ -95,6 +99,7 @@ impl BuckSubcommand for ReplayCommand {
             speed,
             seek,
             preload,
+            start_paused,
             console_opts,
         } = self;
 
@@ -109,8 +114,14 @@ impl BuckSubcommand for ReplayCommand {
         let seek = Duration::from_secs(1).mul_f64(seek);
 
         let work = async {
-            let (event_stream, invocation, timekeeper) =
-                make_replayer(event_log.get(&ctx).await?, speed, seek, preload).await?;
+            let (event_stream, invocation, timekeeper) = make_replayer(
+                event_log.get(&ctx).await?,
+                speed,
+                seek,
+                preload,
+                start_paused,
+            )
+            .await?;
             let console = get_console_with_root(
                 invocation.trace_id,
                 console_opts.console_type,
@@ -184,6 +195,7 @@ async fn make_replayer(
     speed: f64,
     seek: Duration,
     preload: bool,
+    start_paused: bool,
 ) -> buck2_error::Result<(
     impl Stream<Item = buck2_error::Result<StreamValue>> + Unpin,
     Invocation,
@@ -230,6 +242,12 @@ async fn make_replayer(
     // subsequent events are calculated relative to this.
     let command_start_instant = Instant::now();
 
+    let (speed, pause_state) = if start_paused {
+        (0.0, Some(speed))
+    } else {
+        (speed, None)
+    };
+
     let syncher = Syncher {
         reference_instant: command_start_instant,
         reference_timestamp: seek_timestamp,
@@ -254,7 +272,7 @@ async fn make_replayer(
         Box::new(ReplayClock {
             syncher,
             speed_update_request_sender,
-            pause_state: None,
+            pause_state,
         }),
         EventTimestamp(start_time),
     );

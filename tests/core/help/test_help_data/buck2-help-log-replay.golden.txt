@@ -37,6 +37,9 @@ Options:
       --preload
           Preload the event log. This is typically only useful for benchmarking
 
+      --start-paused
+          Start the replay in a paused state, press 'y' to resume
+
   -h, --help
           Print help (see a summary with '-h')
 
