@@ -64,7 +64,13 @@ CompileContext = record(
     dep_ctx = field(DepCollectionContext),
     exec_is_windows = field(bool),
     internal_tools_info = field(RustInternalToolsInfo),
-    linker_args = field(cmd_args),
+    # The linker that we pass to `-Clinker`. This needs to be a wrapper script for two reasons:
+    #  1. The `linker` in the cxx toolchain is a `cmd_args` which might have multiple args, we need
+    #     this to be a single script.
+    #  2. We need to pass some linker args that are applied before the ones rustc passes. There's
+    #     unstable `-Zpre-link-arg` for that, but until that stabilizes, we pass them from within
+    #     this script.
+    linker_with_pre_args = field(cmd_args),
     path_sep = field(str),
     # Dylib name override, if any was provided by the target's `soname` attribute.
     soname = field(str | None),
@@ -81,7 +87,7 @@ def compile_context(ctx: AnalysisContext, binary: bool = False) -> CompileContex
     internal_tools_info = ctx.attrs._rust_internal_tools_toolchain[RustInternalToolsInfo]
     cxx_toolchain_info = get_cxx_toolchain_info(ctx)
 
-    linker = _linker_args(ctx, cxx_toolchain_info.linker_info, binary = binary)
+    linker_with_pre_args = _linker(ctx, cxx_toolchain_info.linker_info, binary = binary)
     clippy_wrapper = _clippy_wrapper(ctx, toolchain_info)
 
     dep_ctx = DepCollectionContext(
@@ -118,7 +124,7 @@ def compile_context(ctx: AnalysisContext, binary: bool = False) -> CompileContex
         dep_ctx = dep_ctx,
         exec_is_windows = exec_is_windows,
         internal_tools_info = internal_tools_info,
-        linker_args = linker,
+        linker_with_pre_args = linker_with_pre_args,
         path_sep = path_sep,
         soname = _attr_soname(ctx),
         symlinked_srcs = symlinked_srcs(ctx),
@@ -127,11 +133,7 @@ def compile_context(ctx: AnalysisContext, binary: bool = False) -> CompileContex
         transitive_dependency_dirs = set(),
     )
 
-# This is a hack because we need to pass the linker to rustc
-# using -Clinker=path and there is currently no way of doing this
-# without an artifact. We create a wrapper (which is an artifact),
-# and add -Clinker=
-def _linker_args(
+def _linker(
         ctx: AnalysisContext,
         linker_info: LinkerInfo,
         binary: bool = False) -> cmd_args:

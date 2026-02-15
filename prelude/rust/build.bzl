@@ -372,7 +372,7 @@ def generate_rustdoc_test(
         common_args.args,
         extern_arg([], attr_crate(ctx), rlib),
         "--extern=proc_macro" if ctx.attrs.proc_macro else [],
-        cmd_args(compile_ctx.linker_args, format = "-Clinker={}"),
+        cmd_args(compile_ctx.linker_with_pre_args, format = "-Clinker={}"),
         cmd_args(linker_argsfile, format = "-Clink-arg=@{}"),
         runtool,
         cmd_args(internal_tools_info.rustdoc_test_with_resources, format = "--test-runtool-arg={}"),
@@ -455,10 +455,10 @@ def rust_compile(
             compile_ctx.internal_tools_info.extract_link_action,
             cmd_args(out_argsfile.as_output(), format = "--out_argsfile={}"),
             cmd_args(out_artifacts_dir.as_output(), format = "--out_artifacts={}"),
-            compile_ctx.linker_args,
+            compile_ctx.linker_with_pre_args,
         )
 
-        linker_args = cmd_script(
+        linker = cmd_script(
             actions = ctx.actions,
             name = common_args.subdir + "/linker_wrapper",
             cmd = linker_cmd,
@@ -467,12 +467,12 @@ def rust_compile(
 
         deferred_link_cmd = cmd_args(
             compile_ctx.internal_tools_info.deferred_link_action,
-            compile_ctx.linker_args,
+            compile_ctx.linker_with_pre_args,
             cmd_args(out_argsfile, format = "@{}"),
             hidden = out_artifacts_dir,
         )
     else:
-        linker_args = compile_ctx.linker_args
+        linker = compile_ctx.linker_with_pre_args
 
     rustc_cmd = cmd_args(
         # Lints go first to allow other args to override them.
@@ -482,7 +482,7 @@ def rust_compile(
         common_args.args,
         cmd_args("--remap-path-prefix=", compile_ctx.symlinked_srcs, compile_ctx.path_sep, "=", compile_ctx.symlinked_srcs.owner.path, compile_ctx.path_sep, delimiter = ""),
         ["-Zremap-cwd-prefix=."] if toolchain_info.nightly_features else [],
-        cmd_args(linker_args, format = "-Clinker={}"),
+        cmd_args(linker, format = "-Clinker={}"),
         extra_flags,
     )
 
