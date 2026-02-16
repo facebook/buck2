@@ -50,6 +50,7 @@ import org.jetbrains.kotlin.config.JvmTarget
 import org.jetbrains.kotlin.config.languageVersionSettings
 import org.jetbrains.kotlin.config.messageCollector
 import org.jetbrains.kotlin.descriptors.ClassKind
+import org.jetbrains.kotlin.descriptors.DescriptorVisibilities
 import org.jetbrains.kotlin.descriptors.EffectiveVisibility
 import org.jetbrains.kotlin.descriptors.Modality
 import org.jetbrains.kotlin.descriptors.Visibilities
@@ -2056,9 +2057,11 @@ class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
         if (declaration.isInlineClassBackingMember(inlineClassBackingFieldName))
             return@removeAll false
 
-        // Remove non-public API members (private, internal, etc.)
+        // Remove private/local members only (NOT internal - K1 kept internal in ABI)
         val visibility = (declaration as? IrDeclarationWithVisibility)?.visibility
-        visibility?.isPublicAPI == false
+        visibility == DescriptorVisibilities.PRIVATE ||
+            visibility == DescriptorVisibilities.PRIVATE_TO_THIS ||
+            visibility == DescriptorVisibilities.LOCAL
       }
     }
 
