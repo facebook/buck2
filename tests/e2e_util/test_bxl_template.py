@@ -9,6 +9,7 @@
 import os
 
 from buck2.tests.e2e_util.api.buck import Buck
+from buck2.tests.e2e_util.api.buck_result import BuckException
 from buck2.tests.e2e_util.buck_workspace import buck_test
 
 
@@ -28,4 +29,8 @@ async def test_bxl(buck: Buck) -> None:
     if bxl_args:
         args += ["--"] + bxl_args.split(" ")
 
-    await buck.bxl(os.environ["BXL_MAIN"], *args)
+    try:
+        await buck.bxl(os.environ["BXL_MAIN"], *args)
+    except BuckException as e:
+        # Re-raise with stderr included in the message for better test output
+        raise AssertionError(f"BXL failed:\n{e.stderr}") from e
