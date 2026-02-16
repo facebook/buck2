@@ -62,6 +62,7 @@ load(
 load("@prelude//utils:utils.bzl", "flatten_dict")
 load(
     ":build.bzl",
+    "miri_command",
     "generate_rustdoc",
     "rust_compile",
 )
@@ -478,6 +479,40 @@ def _rust_binary_common(
     dupmbin_toolchain = compile_ctx.cxx_toolchain_info.dumpbin_toolchain_path
     if dupmbin_toolchain:
         sub_targets[DUMPBIN_SUB_TARGET] = get_dumpbin_providers(ctx, final_output, dupmbin_toolchain)
+
+    if toolchain_info.miri_driver and toolchain_info.miri_sysroot_path:
+        miri_cmd = miri_command(
+            ctx = ctx,
+            compile_ctx = compile_ctx,
+            params = strategy_param[DEFAULT_STATIC_LINK_STRATEGY],
+            default_roots = default_roots,
+            extra_flags = extra_flags,
+        )
+
+    # When we're building a test target, instead of injecting a `RunInfo` provider we inject an `ExternalRunnerTestInfo`
+    # provider so one can also just run `buck2 test //:target[miri]`
+    if hasattr(ctx.attrs, "_inject_test_env"):
+        # Setup RE executors based on the `remote_execution` param.
+        re_executor, executor_overrides = get_re_executors_from_props(ctx)
+
+        sub_targets["miri"] = inject_test_run_info(
+            ctx,
+            ExternalRunnerTestInfo(
+                type = "rust",
+                command = [args],
+                env = ctx.attrs.env | ctx.attrs.run_env,
+                labels = ctx.attrs.labels,
+                contacts = ctx.attrs.contacts,
+                default_executor = re_executor,
+                executor_overrides = executor_overrides,
+                run_from_project_root = True,
+                use_project_relative_paths = True,
+            ),
+        )
+    else:
+        sub_targets["miri"] = [
+            RunInfo(args = miri_cmd)
+        ]
 
     sub_targets.update({
         k: [DefaultInfo(default_output = v)]

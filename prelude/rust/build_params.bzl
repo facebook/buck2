@@ -69,6 +69,7 @@ Emit = enum(
     "mir",
     "expand",  # pseudo emit alias for -Zunpretty=expanded
     "clippy",
+    "miri",
     # Rustc actually has two different forms of metadata:
     #  - The full flavor, which is what's outputted when passing
     #    `--emit link,metadata` and can be used as a part of pipelined builds
@@ -91,6 +92,7 @@ MetadataKind = enum(
     "fast",
     "full",
     "link",
+    "miri"
 )
 
 # Emitting this artifact generates code
@@ -108,6 +110,7 @@ def dep_metadata_of_emit(emit: Emit) -> MetadataKind:
         Emit("dep-info"): MetadataKind("fast"),
         Emit("expand"): MetadataKind("fast"),
         Emit("metadata-full"): MetadataKind("full"),
+        Emit("miri"): MetadataKind("miri"),
     }[emit]
 
 # Represents a way of invoking rustc to produce an artifact. These values are computed from
