@@ -444,6 +444,63 @@ def generate_rustdoc_test(
         has_content_based_path = getattr(ctx.attrs, "use_content_based_paths", False),
     )
 
+# Construct a miri run command.
+def miri_command(
+        ctx: AnalysisContext,
+        compile_ctx: CompileContext,
+        params: BuildParams,
+        default_roots: list[str],
+        extra_flags: list[str | ResolvedStringWithMacros | Artifact] = []) -> cmd_args:
+    toolchain_info = compile_ctx.toolchain_info
+
+    dep_args, dep_argsfiles, _crate_map = dependency_args(
+        ctx = ctx,
+        internal_tools_info = compile_ctx.internal_tools_info,
+        transitive_dependency_dirs = compile_ctx.transitive_dependency_dirs,
+        toolchain_info = toolchain_info,
+        deps = resolve_rust_deps(ctx, compile_ctx.dep_ctx),
+        subdir = "miri",
+        dep_link_strategy = params.dep_link_strategy,
+        dep_metadata_kind = MetadataKind("miri"),
+        is_rustdoc_test = False,
+    )
+
+    root = crate_root(ctx, default_roots)
+    crate = attr_crate(ctx)
+    edition = ctx.attrs.edition or toolchain_info.default_edition or \
+              fail("missing 'edition' attribute, and there is no 'default_edition' set by the toolchain")
+
+    miri_sysroot = cmd_args(
+        "--sysroot=", toolchain_info.miri_sysroot_path, delimiter = "",
+    )
+
+    # Give miri a fake `-o` out file to silence the "generated executable for the input file conflicts
+    # with the existing directory" errors that happen otherwise
+    miri_out = ctx.actions.write(
+        ctx.actions.declare_output("__miri_out"),
+        [""]
+    )
+
+    return cmd_args(
+        toolchain_info.miri_driver,
+        cmd_args(compile_ctx.symlinked_srcs, compile_ctx.path_sep, root, delimiter = ""),
+        "--crate-name={}".format(crate.simple) if not crate.dynamic else
+            cmd_args("--crate-name", cmd_args("@", crate.dynamic, delimiter = "")),
+        "--crate-type={}".format(params.crate_type.value),
+        "--edition={}".format(edition),
+        "-o", miri_out,
+        ["--target={}".format(toolchain_info.rustc_target_triple)] if toolchain_info.rustc_target_triple else [],
+        miri_sysroot,
+        dep_args,
+        dep_argsfiles,
+        cmd_args(ctx.attrs.features, format = '--cfg=feature="{}"'),
+        _rustc_flags(toolchain_info.rustc_flags, toolchain_info),
+        _rustc_flags(ctx.attrs.rustc_flags, toolchain_info),
+        extra_flags,
+        toolchain_info.miri_flags,
+        hidden = [compile_ctx.symlinked_srcs],
+    )
+
 # Generate a compilation action. A single instance of rustc can emit
 # numerous output artifacts, so return an artifact object for each of
 # them.
@@ -512,7 +569,9 @@ def rust_compile(
         extra_flags,
     )
 
-    rustc_bin = compile_ctx.clippy_wrapper if emit == Emit("clippy") else toolchain_info.compiler
+    rustc_bin = compile_ctx.clippy_wrapper if emit == Emit("clippy") \
+        else compile_ctx.miri_wrapper if emit == Emit("miri") \
+        else toolchain_info.compiler
 
     # If we're using failure filtering then we need to make sure the final
     # artifact location is the predeclared one since its specific path may have
@@ -718,6 +777,7 @@ def rust_compile(
         ),
         required_outputs = [emit_op.output],
         is_clippy = emit.value == "clippy",
+        is_miri = emit.value == "miri",
         infallible_diagnostics = infallible_diagnostics,
         allow_cache_upload = allow_cache_upload and emit != Emit("clippy"),
         crate_map = common_args.crate_map,
@@ -862,7 +922,11 @@ def dependency_args(
 
         strategy = strategy_info(toolchain_info, dep.info, dep_link_strategy)
 
-        artifact = strategy.outputs[dep_metadata_kind]
+        # A metadata kind is absent when its artifact wasn't built (e.g. `miri`
+        # under a toolchain with Miri disabled).
+        artifact = strategy.outputs.get(dep_metadata_kind)
+        if artifact == None:
+            fail("dependency `{}` has no `{}` artifact; it was likely analyzed with a Rust toolchain that does not enable Miri".format(dep.label, dep_metadata_kind.value))
         singleton_tset = strategy.singleton_tset[dep_metadata_kind]
         transitive_artifacts = strategy.transitive_deps[dep_metadata_kind]
 
@@ -1052,6 +1116,7 @@ def _abbreviated_subdir(
         Emit("mir"): "m",
         Emit("expand"): "e",
         Emit("clippy"): "c",
+        Emit("miri"): "R",
         Emit("metadata-full"): "F",  # "Full metadata"
         Emit("metadata-fast"): "M",  # "Metadata"
     }[emit]
@@ -1350,7 +1415,7 @@ def _explain(crate_type: CrateType, link_strategy: LinkStrategy, emit: Emit, inf
     if emit == Emit("metadata-fast"):
         base = "diag" if infallible_diagnostics else "check"
 
-    if emit == Emit("link"):
+    if emit == Emit("link") or emit == Emit("miri"):
         link_strategy_suffix = {
             LinkStrategy("static"): "",
             LinkStrategy("static_pic"): " [pic]",
@@ -1473,6 +1538,8 @@ def _rustc_emit(
         elif emit == Emit("llvm-ir-noopt"):
             effective_emit = "llvm-ir"
             emit_args.add("-Cno-prepopulate-passes")
+        elif emit == Emit("miri"):
+            effective_emit = "link"
         else:
             effective_emit = emit.value
 
@@ -1534,6 +1601,7 @@ def _rustc_invoke(
     rustc_cmd: cmd_args,
     required_outputs: list[Artifact],
     is_clippy: bool,
+    is_miri: bool,
     infallible_diagnostics: bool,
     allow_cache_upload: bool,
     incremental_enabled: bool,
@@ -1599,6 +1667,15 @@ def _rustc_invoke(
     if is_clippy:
         category = "clippy"
         identifier = ""
+    elif is_miri:
+        category = "miri"
+        identifier = _explain(
+            crate_type = common_args.crate_type,
+            link_strategy = common_args.params.dep_link_strategy,
+            emit = common_args.emit,
+            infallible_diagnostics = infallible_diagnostics,
+            profile_mode = profile_mode,
+        )
     else:
         category = "rustc"
         identifier = _explain(
