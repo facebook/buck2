@@ -13,6 +13,7 @@ use std::path::PathBuf;
 use std::str::FromStr;
 
 use anyhow::Context as _;
+use rustc_hash::FxHashSet;
 
 use crate::buck;
 use crate::buck::Buck;
@@ -71,17 +72,22 @@ fn parse_diagnostics(
     contents: &[String],
     project_root: &Path,
 ) -> Result<Vec<serde_json::Value>, anyhow::Error> {
+    let mut seen = FxHashSet::default();
     let mut diagnostics = vec![];
     for content in contents {
         for l in content.lines() {
             if let Ok(mut message) = serde_json::from_str::<diagnostics::Message>(l) {
                 make_message_absolute(&mut message, project_root);
 
-                let span = serde_json::to_value(message)?;
-                // this is done under the assumption that the number of diagnostics inside the vector
-                // is small (e.g., 32 or 64), so a linear seach of a vector will faster than hashing each element.
-                if !diagnostics.contains(&span) {
-                    diagnostics.push(span);
+                // We may have diagnostics from both foo and foo-unittest
+                // targets. They are identical other than the target names
+                // and build directories.
+                //
+                // To deduplicate, we assume that two diagnostics with
+                // exactly the same spans and message are identical, and
+                // don't consider other fields.
+                if seen.insert(drop_minor_details(&message)) {
+                    diagnostics.push(serde_json::to_value(message)?);
                 }
             } else {
                 let value = serde_json::Value::from_str(l)?;
@@ -90,6 +96,14 @@ fn parse_diagnostics(
         }
     }
     Ok(diagnostics)
+}
+
+fn drop_minor_details(message: &diagnostics::Message) -> diagnostics::Message {
+    diagnostics::Message {
+        children: vec![],
+        rendered: Some("".to_owned()),
+        ..message.clone()
+    }
 }
 
 /// rustc returns diagnostics with relative paths. For example, the path for
@@ -191,6 +205,81 @@ mod tests {
 
         let result = parse_diagnostics(&contents, root).unwrap();
         assert_eq!(result.len(), 1);
+    }
+
+    #[test]
+    fn test_deduplicates_diagnostics_with_different_children() {
+        let msg1 = serde_json::json!({
+            "message": "unused variable",
+            "code": null,
+            "level": "error",
+            "spans": [{
+                "file_name": "src/lib.rs",
+                "byte_start": 0,
+                "byte_end": 1,
+                "line_start": 1,
+                "line_end": 1,
+                "column_start": 1,
+                "column_end": 2,
+                "is_primary": true,
+                "text": [],
+                "label": null,
+                "suggested_replacement": null,
+                "suggestion_applicability": null,
+                "expansion": null,
+            }],
+            "children": [{
+                "message": "see foo for more details",
+                "code": null,
+                "level": "help",
+                "spans": [],
+                "children": [],
+                "rendered": null,
+            }],
+            "rendered": "unused variable in foo",
+        })
+        .to_string();
+
+        let msg2 = serde_json::json!({
+            "message": "unused variable",
+            "code": null,
+            "level": "error",
+            "spans": [{
+                "file_name": "src/lib.rs",
+                "byte_start": 0,
+                "byte_end": 1,
+                "line_start": 1,
+                "line_end": 1,
+                "column_start": 1,
+                "column_end": 2,
+                "is_primary": true,
+                "text": [],
+                "label": null,
+                "suggested_replacement": null,
+                "suggestion_applicability": null,
+                "expansion": null,
+            }],
+            "children": [{
+                "message": "see foo-unittest for more details",
+                "code": null,
+                "level": "help",
+                "spans": [],
+                "children": [],
+                "rendered": null,
+            }],
+            "rendered": "unused variable in foo-unittest",
+        })
+        .to_string();
+
+        let contents = vec![format!("{msg1}\n{msg2}")];
+        let root = Path::new("/project");
+
+        let result = parse_diagnostics(&contents, root).unwrap();
+        assert_eq!(
+            result.len(),
+            1,
+            "messages differing only in children should be deduplicated"
+        );
     }
 
     #[test]
