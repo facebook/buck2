@@ -190,13 +190,6 @@ import org.jetbrains.kotlin.psi.KtTreeVisitorVoid
 import org.jetbrains.kotlin.resolve.multiplatform.hmppModuleName
 import org.jetbrains.kotlin.resolve.multiplatform.isCommonSource
 import org.jetbrains.kotlin.types.ConstantValueKind
-import org.jetbrains.org.objectweb.asm.AnnotationVisitor
-import org.jetbrains.org.objectweb.asm.ClassReader
-import org.jetbrains.org.objectweb.asm.ClassVisitor
-import org.jetbrains.org.objectweb.asm.ClassWriter
-import org.jetbrains.org.objectweb.asm.FieldVisitor
-import org.jetbrains.org.objectweb.asm.MethodVisitor
-import org.jetbrains.org.objectweb.asm.Opcodes
 
 data object JvmAbiGenPlugin : GeneratedDeclarationKey()
 
@@ -577,13 +570,6 @@ class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
     // IR. This causes consumers to fail with "cannot access supertype" errors.
     stripInternalSupertypesFromFirMetadataSources(irInput.irModuleFragment)
 
-    // Strip private declarations from FIR metadata sources.
-    // Private methods, properties, and constructors are stripped from IR but can persist
-    // in FIR metadata sources (used for Kotlin metadata serialization). This causes
-    // KSP2/DI processors to see private interface methods in the @Metadata annotation's
-    // d1/d2 arrays, leading to failures.
-    stripPrivateDeclarationsFromFirMetadataSources(irInput.irModuleFragment)
-
     val result = generateCodeFromIr(irInput, compilerEnvironment)
 
     // Write bytecode from generationState.factory to disk.
@@ -598,13 +584,9 @@ class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
       }
     }
 
-    // Strip @Throws annotations from bytecode.
-    // K2 JVM backend writes @Throws to both the throws clause AND RuntimeInvisibleAnnotations,
-    // while K1 only writes the throws clause. Safe Kotlin reads from RuntimeInvisibleAnnotations
-    // and complains even when exceptions are caught. We strip @Throws from bytecode annotations
-    // while keeping the throws clause intact.
+    // Post-process bytecode: strip @Throws annotations and private metadata.
     if (outputDir != null) {
-      stripThrowsAnnotationsFromBytecode(outputDir)
+      postProcessBytecode(outputDir)
     }
 
     // Manually generate .kotlin_module file for top-level declarations.
@@ -615,97 +597,24 @@ class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
     return result
   }
 
-  // Strip @Throws annotations from bytecode in all .class files.
-  // K2 JVM backend writes @Throws to both the method's throws clause AND to
-  // RuntimeInvisibleAnnotations, while K1 only writes the throws clause.
-  // Safe Kotlin plugin reads @Throws from RuntimeInvisibleAnnotations and complains
-  // even when exceptions are properly caught. We post-process the bytecode to remove
-  // @Throws from annotations while keeping the throws clause intact.
-  private fun stripThrowsAnnotationsFromBytecode(outputDir: File) {
+  private fun postProcessBytecode(outputDir: File) {
+    val transformers = listOf(ThrowsAnnotationStripper(), PrivateMetadataStripper())
     outputDir
         .walkTopDown()
         .filter { it.extension == "class" }
         .forEach { classFile ->
-          val originalBytes = classFile.readBytes()
-          val reader = ClassReader(originalBytes)
-          val writer = ClassWriter(0) // Don't compute frames/maxs, just copy
-
-          val visitor =
-              object : ClassVisitor(Opcodes.ASM9, writer) {
-                // Filter class-level annotations
-                override fun visitAnnotation(
-                    descriptor: String,
-                    visible: Boolean,
-                ): AnnotationVisitor? {
-                  return if (isThrowsAnnotation(descriptor)) {
-                    null // Skip @Throws annotation
-                  } else {
-                    super.visitAnnotation(descriptor, visible)
-                  }
-                }
-
-                // Filter method-level annotations
-                override fun visitMethod(
-                    access: Int,
-                    name: String,
-                    descriptor: String,
-                    signature: String?,
-                    exceptions: Array<out String>?,
-                ): MethodVisitor? {
-                  val methodVisitor =
-                      super.visitMethod(access, name, descriptor, signature, exceptions)
-                  return if (methodVisitor != null) {
-                    object : MethodVisitor(Opcodes.ASM9, methodVisitor) {
-                      override fun visitAnnotation(
-                          desc: String,
-                          visible: Boolean,
-                      ): AnnotationVisitor? {
-                        return if (isThrowsAnnotation(desc)) {
-                          null // Skip @Throws annotation
-                        } else {
-                          super.visitAnnotation(desc, visible)
-                        }
-                      }
-                    }
-                  } else {
-                    null
-                  }
-                }
-
-                // Filter field-level annotations
-                override fun visitField(
-                    access: Int,
-                    name: String,
-                    descriptor: String,
-                    signature: String?,
-                    value: Any?,
-                ): FieldVisitor? {
-                  val fieldVisitor = super.visitField(access, name, descriptor, signature, value)
-                  return if (fieldVisitor != null) {
-                    object : FieldVisitor(Opcodes.ASM9, fieldVisitor) {
-                      override fun visitAnnotation(
-                          desc: String,
-                          visible: Boolean,
-                      ): AnnotationVisitor? {
-                        return if (isThrowsAnnotation(desc)) {
-                          null // Skip @Throws annotation
-                        } else {
-                          super.visitAnnotation(desc, visible)
-                        }
-                      }
-                    }
-                  } else {
-                    null
-                  }
-                }
-
-                private fun isThrowsAnnotation(descriptor: String): Boolean {
-                  return descriptor == "Lkotlin/jvm/Throws;" || descriptor == "Lkotlin/Throws;"
-                }
-              }
-
-          reader.accept(visitor, 0)
-          classFile.writeBytes(writer.toByteArray())
+          var bytes = classFile.readBytes()
+          var modified = false
+          for (transformer in transformers) {
+            val result = transformer.transform(bytes)
+            if (result != null) {
+              bytes = result
+              modified = true
+            }
+          }
+          if (modified) {
+            classFile.writeBytes(bytes)
+          }
         }
   }
 
@@ -1723,7 +1632,7 @@ class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
       // checked exceptions because the throws clause won't be in bytecode.
       // Note: K2 JVM backend writes @Throws to both throws clause AND RuntimeInvisibleAnnotations.
       // We strip it from RuntimeInvisibleAnnotations via bytecode post-processing (see
-      // stripThrowsAnnotationsFromBytecode) to match K1 behavior and prevent Safe Kotlin errors.
+      // ThrowsAnnotationStripper) to match K1 behavior and prevent Safe Kotlin errors.
       if (annotationFqName == "kotlin.jvm.Throws" || annotationFqName == "kotlin.Throws") {
         return false
       }
