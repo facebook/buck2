@@ -11,7 +11,7 @@ load(
     "maybe_add_run_as_bundle_label",
 )
 
-def inject_test_run_info(ctx: AnalysisContext, test_info: ExternalRunnerTestInfo) -> list[Provider]:
+def inject_test_run_info(ctx: AnalysisContext, test_info: ExternalRunnerTestInfo, env_file_name: str = "test_env.json") -> list[Provider]:
     # Access this here so we get failures in CI if we forget to inject it
     # anywhere, regardless of whether an `env` is used.
     inject_test_env = ctx.attrs._inject_test_env[RunInfo]
@@ -28,7 +28,7 @@ def inject_test_run_info(ctx: AnalysisContext, test_info: ExternalRunnerTestInfo
     cell_root = ctx.label.cell_root
 
     env_file = ctx.actions.write_json(
-        "test_env.json",
+        env_file_name,
         {k: _maybe_relativize_path(test_info, cell_root, cmd_args(v, delimiter = " ")) for (k, v) in test_info.env.items()},
         with_inputs = True,
         absolute = True,
