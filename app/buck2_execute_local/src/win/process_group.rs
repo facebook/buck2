@@ -16,7 +16,6 @@ use std::process::Command;
 use std::process::ExitStatus;
 use std::time::Duration;
 
-use buck2_error::BuckErrorContext;
 use buck2_error::internal_error;
 use buck2_resource_control::ActionFreezeEventReceiver;
 use buck2_resource_control::path::CgroupPathBuf;

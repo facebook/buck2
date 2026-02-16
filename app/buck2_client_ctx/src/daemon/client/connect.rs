@@ -452,13 +452,11 @@ impl<'a> BuckdLifecycle<'a> {
         let mut stdout_taken = child
             .stdout
             .take()
-            .ok_or_else(|| internal_error!("Child should have its stdout piped"))
-            .unwrap();
+            .ok_or_else(|| internal_error!("Child should have its stdout piped"))?;
         let mut stderr_taken = child
             .stderr
             .take()
-            .ok_or_else(|| internal_error!("Child should have its stderr piped"))
-            .unwrap();
+            .ok_or_else(|| internal_error!("Child should have its stderr piped"))?;
 
         let status_fut = async {
             let result = timeout(timeout_secs, child.wait()).await;
