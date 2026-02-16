@@ -230,6 +230,11 @@ class PrivateMetadataStripper : BytecodeTransformer {
             kmClass.properties.removeAll { it.visibility in privateVisibilities }
         val constructorsRemoved =
             kmClass.constructors.removeAll { it.visibility in privateVisibilities }
+        // Note: Private supertype stripping is done at the FIR level in
+        // stripPrivateSupertypesFromFirMetadataSources() which has access to actual
+        // visibility info. The bytecode post-processing approach was too aggressive
+        // as it couldn't distinguish between private classes from the same target
+        // vs. dependencies from the same package.
         modified = functionsRemoved || propertiesRemoved || constructorsRemoved
       }
       is KotlinClassMetadata.FileFacade -> {
