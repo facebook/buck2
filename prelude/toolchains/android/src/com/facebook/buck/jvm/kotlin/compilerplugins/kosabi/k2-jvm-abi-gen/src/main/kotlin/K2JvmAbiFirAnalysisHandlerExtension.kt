@@ -67,6 +67,7 @@ import org.jetbrains.kotlin.fir.backend.jvm.JvmFir2IrExtensions
 import org.jetbrains.kotlin.fir.declarations.FirDeclaration
 import org.jetbrains.kotlin.fir.declarations.FirDeclarationOrigin
 import org.jetbrains.kotlin.fir.declarations.FirEnumEntry
+import org.jetbrains.kotlin.fir.declarations.FirMemberDeclaration
 import org.jetbrains.kotlin.fir.declarations.FirRegularClass
 import org.jetbrains.kotlin.fir.declarations.FirSimpleFunction
 import org.jetbrains.kotlin.fir.declarations.builder.buildSimpleFunctionCopy
@@ -575,6 +576,13 @@ class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
     // metadata would still reference the internal supertype even after we strip it from
     // IR. This causes consumers to fail with "cannot access supertype" errors.
     stripInternalSupertypesFromFirMetadataSources(irInput.irModuleFragment)
+
+    // Strip private declarations from FIR metadata sources.
+    // Private methods, properties, and constructors are stripped from IR but can persist
+    // in FIR metadata sources (used for Kotlin metadata serialization). This causes
+    // KSP2/DI processors to see private interface methods in the @Metadata annotation's
+    // d1/d2 arrays, leading to failures.
+    stripPrivateDeclarationsFromFirMetadataSources(irInput.irModuleFragment)
 
     val result = generateCodeFromIr(irInput, compilerEnvironment)
 
@@ -1337,6 +1345,66 @@ class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
           private fun isClassPubliclyAccessible(classSymbol: FirClassSymbol<*>): Boolean {
             val visibility = classSymbol.resolvedStatus.visibility
             return visibility == Visibilities.Public || visibility == Visibilities.Protected
+          }
+        },
+        null,
+    )
+  }
+
+  // Strip private declarations (methods, properties, constructors) from FIR metadata sources.
+  // Private members are stripped from IR but can persist in FIR metadata sources (used for
+  // Kotlin metadata serialization into @Metadata annotation's d1/d2 arrays). This causes
+  // KSP2/DI processors to fail when they see private interface methods.
+  private fun stripPrivateDeclarationsFromFirMetadataSources(moduleFragment: IrModuleFragment) {
+    moduleFragment.accept(
+        object : IrElementVisitorVoid {
+          override fun visitElement(element: IrElement) {
+            element.acceptChildren(this, null)
+          }
+
+          override fun visitClass(declaration: IrClass) {
+            stripPrivateDeclarationsFromClass(declaration)
+            super.visitClass(declaration)
+          }
+
+          private fun stripPrivateDeclarationsFromClass(declaration: IrClass) {
+            // Access metadata via IrMetadataSourceOwner interface
+            val metadataSourceOwner = declaration as? IrMetadataSourceOwner ?: return
+            val metadataSource = metadataSourceOwner.metadata ?: return
+
+            // Check if this is a FirMetadataSource
+            val firMetadataSource = metadataSource as? FirMetadataSource ?: return
+
+            // Get the FIR class declaration
+            val firClass = firMetadataSource.fir as? FirRegularClass ?: return
+
+            // Get private declarations to remove
+            val toRemove = firClass.declarations.filter { decl -> isPrivateFirDeclaration(decl) }
+
+            if (toRemove.isEmpty()) {
+              return
+            }
+
+            // Use reflection to access the underlying mutable declarations list
+            // firClass.declarations returns List<FirDeclaration> (read-only interface),
+            // but the underlying field is a MutableList
+            val declarationsField = firClass.javaClass.getDeclaredField("declarations")
+            declarationsField.isAccessible = true
+            @Suppress("UNCHECKED_CAST")
+            val declarations = declarationsField.get(firClass) as? MutableList<FirDeclaration>
+            if (declarations != null) {
+              declarations.removeAll(toRemove)
+            }
+          }
+
+          // Check if a FIR declaration is private (should be stripped from metadata)
+          private fun isPrivateFirDeclaration(decl: FirDeclaration): Boolean {
+            if (decl !is FirMemberDeclaration) return false
+
+            val visibility = decl.status.visibility
+            return visibility == Visibilities.Private ||
+                visibility == Visibilities.PrivateToThis ||
+                visibility == Visibilities.Local
           }
         },
         null,
