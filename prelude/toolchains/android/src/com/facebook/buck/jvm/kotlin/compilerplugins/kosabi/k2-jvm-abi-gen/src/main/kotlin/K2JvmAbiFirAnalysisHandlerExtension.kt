@@ -2023,6 +2023,13 @@ class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
             irFile.fileEntry.name.contains("GENERATED_DECLARATIONS")
       }
 
+      // Strip SOURCE retention annotations from all declarations.
+      // SOURCE retention annotations (like @IntDef from androidx.annotation) should not appear
+      // in bytecode, but K2 preserves them. K1 Kosabi naturally omits them because source stubs
+      // don't carry meta-annotations. We strip them here at the IR level where we can inspect
+      // the annotation class's @Retention policy.
+      stripSourceRetentionAnnotations(moduleFragment)
+
       moduleFragment.transform(
           NonAbiDeclarationsStrippingIrVisitor(pluginContext.irFactory, pluginContext.irBuiltIns),
           null,
