@@ -564,11 +564,14 @@ class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
     // if it encounters error expressions during annotation evaluation.
     stripAnnotationsWithErrorsFromFirMetadataSources(irInput.irModuleFragment)
 
-    // Strip internal supertypes from FIR metadata sources.
-    // When a public class implements an interface from an internal class, the Kotlin
-    // metadata would still reference the internal supertype even after we strip it from
-    // IR. This causes consumers to fail with "cannot access supertype" errors.
-    stripInternalSupertypesFromFirMetadataSources(irInput.irModuleFragment)
+    // NOTE: We no longer strip internal supertypes from FIR metadata sources.
+    // Internal classes and interfaces ARE kept in the source-only ABI JAR, so there's
+    // no need to strip the implements clause. Stripping it breaks default parameter
+    // resolution when calling interface methods with default values via the implementing
+    // class type. Example: fragmentDrawerController.onDismiss() fails with "no value
+    // passed for parameter" if the interface relationship is stripped.
+    // See: T219106236 (Kosabi K2 Migration)
+    // stripInternalSupertypesFromFirMetadataSources(irInput.irModuleFragment)
 
     val result = generateCodeFromIr(irInput, compilerEnvironment)
 
@@ -1804,24 +1807,23 @@ class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
     }
 
     override fun visitClass(declaration: IrClass, data: Nothing?): IrStatement {
-      // Strip internal/private supertypes from the class's implemented interfaces.
-      // This handles the case where a public class implements an internal interface
-      // (e.g., RefreshableAppBarLayoutBehavior implements ShortTabClampingHelper.Delegate).
-      // Without stripping, consumers of the ABI can't resolve the internal supertype.
+      // Strip PRIVATE supertypes from the class's implemented interfaces.
+      // Internal supertypes are kept because source-only ABI is consumed within the same
+      // module, where internal types are accessible. Stripping them would cause Java consumers
+      // to see "incompatible types" errors when a public class implements an internal interface.
 
-      // First, collect the supertypes that will be stripped (non-public)
+      // First, collect the supertypes that will be stripped (private only)
       val strippedSupertypes =
           declaration.superTypes.filter { superType ->
             val superClass = superType.classOrNull?.owner ?: return@filter false
-            !isClassPubliclyAccessible(superClass)
+            isClassPrivate(superClass)
           }
 
-      // Strip the non-public supertypes
+      // Strip the private supertypes
       declaration.superTypes =
           declaration.superTypes.filter { superType ->
             val superClass = superType.classOrNull?.owner ?: return@filter true
-            // Check if the class or any of its containing classes are non-public
-            isClassPubliclyAccessible(superClass)
+            !isClassPrivate(superClass)
           }
 
       // For each stripped supertype that was an interface, convert fake override methods
@@ -1939,6 +1941,23 @@ class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
         current = current.parent as? IrClass
       }
       return true
+    }
+
+    // Check if a class or any of its containing classes is private/local (not internal or public).
+    // Internal classes are accessible within the same module (source-only ABI scope).
+    private fun isClassPrivate(irClass: IrClass): Boolean {
+      var current: IrClass? = irClass
+      while (current != null) {
+        val visibility = current.visibility
+        if (
+            visibility == DescriptorVisibilities.PRIVATE ||
+                visibility == DescriptorVisibilities.LOCAL
+        ) {
+          return true
+        }
+        current = current.parent as? IrClass
+      }
+      return false
     }
 
     override fun visitField(declaration: IrField, data: Nothing?): IrStatement {
