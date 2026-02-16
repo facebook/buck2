@@ -63,12 +63,18 @@ import org.jetbrains.kotlin.fir.FirModuleDataImpl
 import org.jetbrains.kotlin.fir.FirSession
 import org.jetbrains.kotlin.fir.backend.FirMetadataSource
 import org.jetbrains.kotlin.fir.backend.jvm.JvmFir2IrExtensions
+import org.jetbrains.kotlin.fir.declarations.FirDeclaration
+import org.jetbrains.kotlin.fir.declarations.FirDeclarationOrigin
+import org.jetbrains.kotlin.fir.declarations.FirEnumEntry
 import org.jetbrains.kotlin.fir.declarations.FirRegularClass
+import org.jetbrains.kotlin.fir.declarations.FirSimpleFunction
+import org.jetbrains.kotlin.fir.declarations.builder.buildSimpleFunctionCopy
 import org.jetbrains.kotlin.fir.declarations.impl.FirResolvedDeclarationStatusImpl
 import org.jetbrains.kotlin.fir.declarations.utils.isConst
 import org.jetbrains.kotlin.fir.declarations.utils.isFromLibrary
 import org.jetbrains.kotlin.fir.expressions.FirAnnotation
 import org.jetbrains.kotlin.fir.expressions.FirAnnotationCall
+import org.jetbrains.kotlin.fir.expressions.FirAnonymousObjectExpression
 import org.jetbrains.kotlin.fir.expressions.FirErrorExpression
 import org.jetbrains.kotlin.fir.expressions.FirFunctionCall
 import org.jetbrains.kotlin.fir.expressions.FirGetClassCall
@@ -90,12 +96,14 @@ import org.jetbrains.kotlin.fir.pipeline.FirResult
 import org.jetbrains.kotlin.fir.pipeline.ModuleCompilerAnalyzedOutput
 import org.jetbrains.kotlin.fir.pipeline.buildFirFromKtFiles
 import org.jetbrains.kotlin.fir.pipeline.runResolution
+import org.jetbrains.kotlin.fir.plugin.createMemberFunction
 import org.jetbrains.kotlin.fir.plugin.createMemberProperty
 import org.jetbrains.kotlin.fir.plugin.createTopLevelClass
 import org.jetbrains.kotlin.fir.references.FirErrorNamedReference
 import org.jetbrains.kotlin.fir.references.FirResolvedNamedReference
 import org.jetbrains.kotlin.fir.resolve.providers.dependenciesSymbolProvider
 import org.jetbrains.kotlin.fir.resolve.providers.symbolProvider
+import org.jetbrains.kotlin.fir.serialization.providedDeclarationsForMetadataService
 import org.jetbrains.kotlin.fir.session.FirJvmIncrementalCompilationSymbolProviders
 import org.jetbrains.kotlin.fir.session.FirJvmSessionFactory
 import org.jetbrains.kotlin.fir.session.FirSessionConfigurator
@@ -109,9 +117,15 @@ import org.jetbrains.kotlin.fir.symbols.impl.FirCallableSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirClassLikeSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirClassSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirEnumEntrySymbol
+import org.jetbrains.kotlin.fir.symbols.impl.FirNamedFunctionSymbol
 import org.jetbrains.kotlin.fir.symbols.impl.FirPropertySymbol
+import org.jetbrains.kotlin.fir.types.ConeClassLikeType
 import org.jetbrains.kotlin.fir.types.ConeErrorType
+import org.jetbrains.kotlin.fir.types.ConeKotlinType
+import org.jetbrains.kotlin.fir.types.ConeTypeProjection
+import org.jetbrains.kotlin.fir.types.FirResolvedTypeRef
 import org.jetbrains.kotlin.fir.types.coneType
+import org.jetbrains.kotlin.fir.types.constructType
 import org.jetbrains.kotlin.fir.types.resolvedType
 import org.jetbrains.kotlin.fir.visitors.FirDefaultVisitorVoid
 import org.jetbrains.kotlin.idea.KotlinFileType
@@ -124,8 +138,10 @@ import org.jetbrains.kotlin.ir.declarations.IrConstructor
 import org.jetbrains.kotlin.ir.declarations.IrDeclaration
 import org.jetbrains.kotlin.ir.declarations.IrDeclarationBase
 import org.jetbrains.kotlin.ir.declarations.IrDeclarationContainer
+import org.jetbrains.kotlin.ir.declarations.IrDeclarationOrigin
 import org.jetbrains.kotlin.ir.declarations.IrDeclarationWithName
 import org.jetbrains.kotlin.ir.declarations.IrDeclarationWithVisibility
+import org.jetbrains.kotlin.ir.declarations.IrEnumEntry
 import org.jetbrains.kotlin.ir.declarations.IrFactory
 import org.jetbrains.kotlin.ir.declarations.IrField
 import org.jetbrains.kotlin.ir.declarations.IrFile
@@ -150,6 +166,7 @@ import org.jetbrains.kotlin.ir.symbols.UnsafeDuringIrConstructionAPI
 import org.jetbrains.kotlin.ir.types.IrErrorType
 import org.jetbrains.kotlin.ir.types.IrSimpleType
 import org.jetbrains.kotlin.ir.types.IrType
+import org.jetbrains.kotlin.ir.types.classFqName
 import org.jetbrains.kotlin.ir.types.classOrNull
 import org.jetbrains.kotlin.ir.types.makeNullable
 import org.jetbrains.kotlin.ir.util.kotlinFqName
@@ -561,8 +578,7 @@ class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
     val result = generateCodeFromIr(irInput, compilerEnvironment)
 
     // Write bytecode from generationState.factory to disk.
-    // With SKIP_BODIES=true, the output is kept in memory and not written automatically
-    // by the standard pipeline. We need to manually extract and write each output file.
+    // We need to manually extract and write each output file.
     val outputDir = configuration[JVMConfigurationKeys.OUTPUT_DIRECTORY]
     if (outputDir != null) {
       val outputFiles = result.generationState.factory.asList()
@@ -582,7 +598,9 @@ class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
       stripThrowsAnnotationsFromBytecode(outputDir)
     }
 
-    // Manually generate .kotlin_module file since SKIP_BODIES=true is set
+    // Manually generate .kotlin_module file for top-level declarations.
+    // The standard pipeline may not produce a complete .kotlin_module file,
+    // so we scan the IR for file facade classes and build the module metadata.
     generateKotlinModuleFile(irInput.irModuleFragment, module.getModuleName(), configuration)
 
     return result
@@ -682,11 +700,10 @@ class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
         }
   }
 
-  // Generate the .kotlin_module file manually
-  // With SKIP_BODIES=true, the standard generateCodeFromIr doesn't produce a .kotlin_module file
-  // because top-level properties/functions are not fully represented in the IR. However, the
-  // file facade classes (*Kt.class) ARE generated and present in the IR, so we scan the IR
-  // for them and build the module metadata.
+  // Generate the .kotlin_module file manually.
+  // The standard generateCodeFromIr may not produce a complete .kotlin_module file
+  // for source-only ABI generation. We scan the IR for file facade classes (*Kt.class)
+  // and build the module metadata ourselves.
   private fun generateKotlinModuleFile(
       moduleFragment: IrModuleFragment,
       moduleName: String,
@@ -713,8 +730,7 @@ class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
           // 1. Default: <filename>Kt (e.g., "UtilsKt" for Utils.kt)
           // 2. Custom: @file:JvmName("CustomName") (e.g., "InsightsHostUtils")
           //
-          // Since we're using SKIP_BODIES=true, we can't reliably check for functions.
-          // Instead, we detect file facades by checking if the class:
+          // We detect file facades by checking if the class:
           // - Is at file-level (already guaranteed by being in irFile.declarations)
           // - Is not a companion object
           // - Contains functions or appears to be a file facade
@@ -1126,66 +1142,194 @@ class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
             // Get the FIR class declaration
             val firClass = firMetadataSource.fir as? FirRegularClass ?: return
 
-            // Filter out internal supertypes from the FIR class's superTypeRefs
-            try {
-              // Access the superTypeRefs field using reflection
-              val superTypeRefsField = firClass.javaClass.getDeclaredField("superTypeRefs")
-              superTypeRefsField.isAccessible = true
-              val superTypeRefsWrapper = superTypeRefsField.get(firClass) ?: return
+            // Collect class IDs of internal supertypes that will be stripped
+            val strippedSupertypeClassIds = mutableSetOf<ClassId>()
 
-              // The field is of type MutableOrEmptyList<FirTypeRef>
-              // Get the internal "list" field
-              val listField = superTypeRefsWrapper.javaClass.getDeclaredField("list")
-              listField.isAccessible = true
-              @Suppress("UNCHECKED_CAST")
-              val superTypeRefs =
-                  listField.get(superTypeRefsWrapper)
-                      as? MutableList<org.jetbrains.kotlin.fir.types.FirTypeRef> ?: return
+            // Find supertypes that reference non-public classes
+            val toRemove =
+                firClass.superTypeRefs.filter { typeRef -> isInternalSupertype(typeRef, firClass) }
 
-              // Find supertypes that reference internal classes
-              val toRemove =
-                  superTypeRefs.filter { typeRef ->
-                    try {
-                      val coneType = typeRef.coneType
-                      val classId =
-                          (coneType as? org.jetbrains.kotlin.fir.types.ConeClassLikeType)
-                              ?.lookupTag
-                              ?.classId ?: return@filter false
-
-                      // Check if the class or any of its containing classes are internal
-                      // We need to resolve the class symbol to check its visibility
-                      val session = firClass.moduleData.session
-                      val classSymbol =
-                          session.symbolProvider.getClassLikeSymbolByClassId(classId)
-                              as? FirClassSymbol<*> ?: return@filter false
-
-                      // Check if the class is internal/private
-                      if (!isClassPubliclyAccessible(classSymbol)) {
-                        return@filter true
-                      }
-
-                      // Also check if any containing class is internal
-                      val outerClassId = classId.outerClassId
-                      if (outerClassId != null) {
-                        val outerSymbol =
-                            session.symbolProvider.getClassLikeSymbolByClassId(outerClassId)
-                                as? FirClassSymbol<*>
-                        if (outerSymbol != null && !isClassPubliclyAccessible(outerSymbol)) {
-                          return@filter true
-                        }
-                      }
-
-                      false
-                    } catch (_: Exception) {
-                      false
-                    }
-                  }
-
-              if (toRemove.isNotEmpty()) {
-                superTypeRefs.removeAll(toRemove)
+            // Collect the ClassIds of stripped supertypes for fake override conversion
+            for (typeRef in toRemove) {
+              val classId = getClassIdFromTypeRef(typeRef)
+              if (classId != null) {
+                strippedSupertypeClassIds.add(classId)
               }
-            } catch (_: Exception) {
-              // Reflection may fail in some cases, silently ignore
+            }
+
+            if (toRemove.isNotEmpty()) {
+              firClass.replaceSuperTypeRefs(firClass.superTypeRefs - toRemove.toSet())
+
+              // Convert fake override methods from stripped interfaces to real methods in FIR
+              // This is necessary because fake overrides are NOT serialized into Kotlin metadata,
+              // so downstream Kotlin code would fail with "unresolved reference" errors.
+              convertFirFakeOverridesFromStrippedSupertypes(firClass, strippedSupertypeClassIds)
+            }
+          }
+
+          // Extract ClassId from a type reference
+          private fun getClassIdFromTypeRef(
+              typeRef: org.jetbrains.kotlin.fir.types.FirTypeRef
+          ): ClassId? {
+            val coneType =
+                (typeRef as? org.jetbrains.kotlin.fir.types.FirResolvedTypeRef)?.coneType
+                    ?: return null
+            return (coneType as? org.jetbrains.kotlin.fir.types.ConeClassLikeType)
+                ?.lookupTag
+                ?.classId
+          }
+
+          // Add method declarations from stripped interfaces to the class.
+          // When we strip private interfaces from the supertype list, the methods
+          // from those interfaces need to be explicitly added to the class's
+          // declarations. For enums, FIR does NOT create fake override declarations
+          // for interface methods, so we must copy the methods from the interface.
+          @OptIn(SymbolInternals::class)
+          private fun convertFirFakeOverridesFromStrippedSupertypes(
+              firClass: FirRegularClass,
+              strippedSupertypeClassIds: Set<ClassId>,
+          ) {
+            if (strippedSupertypeClassIds.isEmpty()) {
+              return
+            }
+
+            // Collect methods from stripped interfaces
+            val interfaceMethods =
+                collectMethodsFromInterfaces(
+                    firClass.moduleData.session,
+                    strippedSupertypeClassIds,
+                )
+
+            if (interfaceMethods.isEmpty()) {
+              return
+            }
+
+            // Get existing method names in the class to avoid duplicates
+            val existingMethodNames =
+                firClass.declarations
+                    .filterIsInstance<FirSimpleFunction>()
+                    .map { it.name.asString() }
+                    .toSet()
+
+            // Copy methods from interfaces to the class
+            for (interfaceMethod in interfaceMethods) {
+              val methodName = interfaceMethod.name.asString()
+
+              // Skip if the class already has this method
+              if (methodName in existingMethodNames) {
+                continue
+              }
+
+              // Copy the method and add it to the class
+              val copiedMethod = copyInterfaceMethodToClass(interfaceMethod, firClass)
+              // Add to the mutable declarations list (needed for bytecode generation)
+              (firClass.declarations as MutableList<FirDeclaration>).add(copiedMethod)
+
+              // Register with the metadata service for proper serialization into Kotlin metadata.
+              // This is critical because FirElementSerializer.memberDeclarations() uses
+              // scope-based iteration and getProvidedCallables() from this service, NOT the
+              // declarations list.
+              firClass.moduleData.session.providedDeclarationsForMetadataService
+                  .registerDeclaration(copiedMethod)
+            }
+          }
+
+          // Copy an interface method to a target class, creating a new FirSimpleFunction
+          // with the appropriate origin and symbol for the target class.
+          @OptIn(SymbolInternals::class)
+          private fun copyInterfaceMethodToClass(
+              interfaceMethod: FirSimpleFunction,
+              targetClass: FirRegularClass,
+          ): FirSimpleFunction {
+            val targetClassId = targetClass.symbol.classId
+            val newCallableId =
+                CallableId(
+                    targetClassId.packageFqName,
+                    targetClassId.relativeClassName,
+                    interfaceMethod.name,
+                )
+
+            return buildSimpleFunctionCopy(interfaceMethod) {
+              origin = FirDeclarationOrigin.Source
+              symbol = FirNamedFunctionSymbol(newCallableId)
+              // Update the dispatch receiver type to the target class
+              dispatchReceiverType =
+                  targetClass.symbol.constructType(
+                      ConeTypeProjection.EMPTY_ARRAY,
+                      isMarkedNullable = false,
+                  )
+            }
+          }
+
+          // Collect methods from the given interface ClassIds
+          // Returns the actual FirSimpleFunction objects so they can be copied into target classes
+          @OptIn(SymbolInternals::class)
+          private fun collectMethodsFromInterfaces(
+              session: FirSession,
+              interfaceClassIds: Set<ClassId>,
+          ): List<FirSimpleFunction> {
+            val methods = mutableListOf<FirSimpleFunction>()
+            for (classId in interfaceClassIds) {
+              val classSymbol =
+                  session.symbolProvider.getClassLikeSymbolByClassId(classId) as? FirClassSymbol<*>
+                      ?: continue
+              val firClass = classSymbol.fir as? FirRegularClass ?: continue
+              if (firClass.classKind != ClassKind.INTERFACE) continue
+
+              for (decl in firClass.declarations) {
+                if (decl is FirSimpleFunction) {
+                  // Only include public/protected methods
+                  val visibility = decl.status.visibility
+                  if (visibility == Visibilities.Public || visibility == Visibilities.Protected) {
+                    methods.add(decl)
+                  }
+                }
+              }
+            }
+            return methods
+          }
+
+          private fun isInternalSupertype(
+              typeRef: org.jetbrains.kotlin.fir.types.FirTypeRef,
+              firClass: FirRegularClass,
+          ): Boolean {
+            try {
+              // Use coneTypeOrNull to avoid throwing on unresolved types
+              val coneType =
+                  (typeRef as? org.jetbrains.kotlin.fir.types.FirResolvedTypeRef)?.coneType
+                      ?: return false
+              val classId =
+                  (coneType as? org.jetbrains.kotlin.fir.types.ConeClassLikeType)
+                      ?.lookupTag
+                      ?.classId ?: return false
+
+              // Check if the class or any of its containing classes are internal
+              // We need to resolve the class symbol to check its visibility
+              val session = firClass.moduleData.session
+              val classSymbol =
+                  session.symbolProvider.getClassLikeSymbolByClassId(classId) as? FirClassSymbol<*>
+                      ?: return false
+
+              // Check if the class is internal/private
+              if (!isClassPubliclyAccessible(classSymbol)) {
+                return true
+              }
+
+              // Also check if any containing class is internal (recursively)
+              var outerClassId = classId.outerClassId
+              while (outerClassId != null) {
+                val outerSymbol =
+                    session.symbolProvider.getClassLikeSymbolByClassId(outerClassId)
+                        as? FirClassSymbol<*>
+                if (outerSymbol != null && !isClassPubliclyAccessible(outerSymbol)) {
+                  return true
+                }
+                outerClassId = outerClassId.outerClassId
+              }
+
+              return false
+            } catch (e: Exception) {
+              return false
             }
           }
 
@@ -1686,13 +1830,124 @@ class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
       // This handles the case where a public class implements an internal interface
       // (e.g., RefreshableAppBarLayoutBehavior implements ShortTabClampingHelper.Delegate).
       // Without stripping, consumers of the ABI can't resolve the internal supertype.
+
+      // First, collect the supertypes that will be stripped (non-public)
+      val strippedSupertypes =
+          declaration.superTypes.filter { superType ->
+            val superClass = superType.classOrNull?.owner ?: return@filter false
+            !isClassPubliclyAccessible(superClass)
+          }
+
+      // Strip the non-public supertypes
       declaration.superTypes =
           declaration.superTypes.filter { superType ->
             val superClass = superType.classOrNull?.owner ?: return@filter true
             // Check if the class or any of its containing classes are non-public
             isClassPubliclyAccessible(superClass)
           }
+
+      // For each stripped supertype that was an interface, convert fake override methods
+      // that implement that interface to real methods with stub bodies.
+      // This is needed because the JVM backend skips generating bytecode for fake overrides.
+      if (strippedSupertypes.isNotEmpty()) {
+        convertFakeOverridesFromStrippedSupertypes(declaration, strippedSupertypes)
+      }
+
+      // Also convert fake override methods that override non-public API methods.
+      // This handles cases like enum entry classes where the fake override methods
+      // override methods from the parent enum class that in turn implements a private interface.
+      convertPublicFakeOverridesOfNonPublicMethods(declaration)
+
       return super.visitClass(declaration, data)
+    }
+
+    // Convert public fake override methods that ultimately override non-public methods.
+    // This handles enum entry classes where getFlavor/getName are fake overrides that
+    // override the parent enum class's abstract methods (which themselves implement
+    // a stripped private interface).
+    private fun convertPublicFakeOverridesOfNonPublicMethods(irClass: IrClass) {
+      for (decl in irClass.declarations) {
+        if (decl !is IrSimpleFunction) continue
+        if (!decl.isFakeOverride) continue
+        if (!decl.visibility.isPublicAPI) continue
+
+        // Check if any of the overridden symbols is from a class that implements a non-public
+        // interface
+        val shouldMaterialize =
+            decl.overriddenSymbols.any { overriddenSymbol ->
+              val overridden = overriddenSymbol.owner
+              val overriddenParent = overridden.parent as? IrClass
+              overriddenParent != null && !isClassPubliclyAccessible(overriddenParent)
+            }
+
+        if (shouldMaterialize) {
+          materializeFakeOverride(decl)
+        }
+      }
+    }
+
+    // Convert fake override methods that came from stripped supertypes to real methods.
+    // The JVM backend skips generating bytecode for fake overrides (isFakeOverride = true),
+    // so when we strip a private interface from a public class, we need to convert the
+    // fake override methods that implemented that interface to real methods with stub bodies.
+    private fun convertFakeOverridesFromStrippedSupertypes(
+        irClass: IrClass,
+        strippedSupertypes: List<IrType>,
+    ) {
+      // Collect method signatures from stripped interfaces
+      val strippedInterfaceSignatures = mutableSetOf<MethodSignature>()
+      for (superType in strippedSupertypes) {
+        val superClass = superType.classOrNull?.owner ?: continue
+        if (superClass.kind != ClassKind.INTERFACE) continue
+        for (decl in superClass.declarations) {
+          if (decl is IrSimpleFunction && !decl.isFakeOverride) {
+            strippedInterfaceSignatures.add(decl.methodSignature())
+          }
+        }
+      }
+
+      if (strippedInterfaceSignatures.isEmpty()) return
+
+      // Materialize fake override methods matching stripped interface signatures
+      materializeFakeOverridesMatching(irClass, strippedInterfaceSignatures)
+
+      // For enum classes, also process enum entry classes
+      // Enum entry classes (correspondingClass) inherit methods from the enum class, and when
+      // a private interface is stripped from the enum class, those methods become orphaned
+      // fake overrides in the enum entry classes too.
+      if (irClass.kind == ClassKind.ENUM_CLASS) {
+        for (enumEntry in irClass.declarations.filterIsInstance<IrEnumEntry>()) {
+          val entryClass = enumEntry.correspondingClass ?: continue
+          materializeFakeOverridesMatching(entryClass, strippedInterfaceSignatures)
+        }
+      }
+    }
+
+    // Convert a fake override to a real method with a stub body.
+    private fun materializeFakeOverride(decl: IrSimpleFunction) {
+      decl.isFakeOverride = false
+      decl.modality = Modality.FINAL
+      decl.origin = IrDeclarationOrigin.DEFINED
+      if (decl.body == null) {
+        decl.body =
+            generateDefaultBody(decl.returnType, decl.symbol) ?: irFactory.createBlockBody(-1, -1)
+      }
+    }
+
+    // Find and materialize public fake override methods whose signature matches
+    // a method from a stripped interface.
+    private fun materializeFakeOverridesMatching(
+        irClass: IrClass,
+        signatures: Set<MethodSignature>,
+    ) {
+      for (decl in irClass.declarations) {
+        if (decl !is IrSimpleFunction) continue
+        if (!decl.isFakeOverride) continue
+        if (!decl.visibility.isPublicAPI) continue
+        if (decl.methodSignature() in signatures) {
+          materializeFakeOverride(decl)
+        }
+      }
     }
 
     // Check if a class is publicly accessible (it and all its containing classes are public)
@@ -2595,15 +2850,96 @@ class MissingConstantDeclarationGenerationExtension(
     return createdClass.symbol
   }
 
+  @OptIn(SymbolInternals::class)
   override fun getCallableNamesForClass(
       classSymbol: FirClassSymbol<*>,
       context: MemberGenerationContext,
   ): Set<Name> {
     val classId = classSymbol.classId
-    val missingConstants = session.jvmAbiGenService.state.missingConstants
-    val constantsForClass = missingConstants[classId] ?: return emptySet()
+    val state = session.jvmAbiGenService.state
 
-    return constantsForClass.map { Name.identifier(it) }.toSet()
+    // Existing code for missing constants
+    val missingConstants = state.missingConstants
+    val constantNames =
+        (missingConstants[classId] ?: emptySet()).map { Name.identifier(it) }.toSet()
+
+    // Detect methods from internal interfaces
+    val internalMethodNames = mutableSetOf<Name>()
+    val classDecl = classSymbol.fir as? FirRegularClass
+
+    if (classDecl != null) {
+      // Check if this class is public
+      val classVisibility = classDecl.status.visibility
+      if (classVisibility == Visibilities.Public || classVisibility == Visibilities.Protected) {
+        // Find internal interface supertypes
+        val interfaceMethodInfos = mutableListOf<InterfaceMethodInfo>()
+
+        for (superTypeRef in classDecl.superTypeRefs) {
+          val coneType =
+              (superTypeRef as? FirResolvedTypeRef)?.coneType as? ConeClassLikeType ?: continue
+          val superClassId = coneType.lookupTag.classId
+          val superSymbol =
+              session.symbolProvider.getClassLikeSymbolByClassId(superClassId) as? FirClassSymbol<*>
+                  ?: continue
+          val superClass = superSymbol.fir as? FirRegularClass ?: continue
+
+          // Check if interface is internal/private
+          val superVisibility = superClass.status.visibility
+          val isInternal =
+              superVisibility != Visibilities.Public && superVisibility != Visibilities.Protected
+
+          if (isInternal && superClass.classKind == ClassKind.INTERFACE) {
+            // Collect methods from this internal interface
+            for (decl in superClass.declarations) {
+              if (decl is FirSimpleFunction) {
+                val visibility = decl.status.visibility
+                if (visibility == Visibilities.Public || visibility == Visibilities.Protected) {
+                  // Check if method is not already declared in the class
+                  val alreadyDeclaredInClass =
+                      classDecl.declarations.any { it is FirSimpleFunction && it.name == decl.name }
+
+                  // For enums, also check if method is overridden in any enum entry
+                  val alreadyDeclaredInEnumEntry =
+                      classDecl.classKind == ClassKind.ENUM_CLASS &&
+                          classDecl.declarations.any { entry ->
+                            if (entry is FirEnumEntry) {
+                              val entryInit = entry.initializer as? FirAnonymousObjectExpression
+                              entryInit?.anonymousObject?.declarations?.any {
+                                it is FirSimpleFunction && it.name == decl.name
+                              } ?: false
+                            } else {
+                              false
+                            }
+                          }
+
+                  val alreadyDeclared = alreadyDeclaredInClass || alreadyDeclaredInEnumEntry
+                  if (!alreadyDeclared) {
+                    internalMethodNames.add(decl.name)
+                    interfaceMethodInfos.add(
+                        InterfaceMethodInfo(
+                            name = decl.name,
+                            returnType = decl.returnTypeRef.coneType,
+                            valueParameters =
+                                decl.valueParameters.map { param ->
+                                  param.name to param.returnTypeRef.coneType
+                                },
+                        )
+                    )
+                  }
+                }
+              }
+            }
+          }
+        }
+
+        // Store for later generation
+        if (interfaceMethodInfos.isNotEmpty()) {
+          state.internalInterfaceMethods[classId] = interfaceMethodInfos.toMutableList()
+        }
+      }
+    }
+
+    return constantNames + internalMethodNames
   }
 
   override fun generateProperties(
@@ -2622,6 +2958,45 @@ class MissingConstantDeclarationGenerationExtension(
     }
 
     return listOf(generateConstantProperty(constantName, owner))
+  }
+
+  override fun generateFunctions(
+      callableId: CallableId,
+      context: MemberGenerationContext?,
+  ): List<FirNamedFunctionSymbol> {
+    val owner = context?.owner ?: return emptyList()
+    val classId = callableId.classId ?: return emptyList()
+
+    val state = session.jvmAbiGenService.state
+    val methodInfos = state.internalInterfaceMethods[classId] ?: return emptyList()
+
+    val methodName = callableId.callableName
+    val methodInfo = methodInfos.find { it.name == methodName } ?: return emptyList()
+
+    // Generate the function using the plugin utility
+    val function =
+        createMemberFunction(
+            owner,
+            JvmAbiGenPlugin,
+            methodName,
+            methodInfo.returnType,
+        ) {
+          // Add value parameters
+          for ((paramName, paramType) in methodInfo.valueParameters) {
+            valueParameter(paramName, paramType)
+          }
+        }
+
+    // Set status: public and final (required for enum implementations)
+    function.replaceStatus(
+        FirResolvedDeclarationStatusImpl(
+            Visibilities.Public,
+            Modality.FINAL,
+            EffectiveVisibility.Public,
+        )
+    )
+
+    return listOf(function.symbol)
   }
 
   override fun hasPackage(packageFqName: FqName): Boolean {
@@ -2680,6 +3055,30 @@ class JvmAbiGenService(session: FirSession, state: AbiGenState) :
 class AbiGenState {
   val missingConstants: MutableMap<ClassId, Set<String>> = mutableMapOf()
   val missingIrClasses: MutableSet<ClassId> = mutableSetOf()
+  // Track methods from internal interfaces that need to be generated for classes
+  // Key: owning class's ClassId, Value: List of interface method details
+  val internalInterfaceMethods: MutableMap<ClassId, MutableList<InterfaceMethodInfo>> =
+      mutableMapOf()
 }
+
+// Holds information about a method from an internal interface that needs to be
+// generated in a class that implements that interface
+data class InterfaceMethodInfo(
+    val name: Name,
+    val returnType: ConeKotlinType,
+    val valueParameters: List<Pair<Name, ConeKotlinType>>,
+)
+
+// Method signature for matching overloaded methods (name + parameter types)
+private data class MethodSignature(
+    val name: String,
+    val parameterTypes: List<String>,
+)
+
+private fun IrSimpleFunction.methodSignature() =
+    MethodSignature(
+        name.asString(),
+        valueParameters.map { it.type.classFqName?.asString() ?: it.type.toString() },
+    )
 
 val FirSession.jvmAbiGenService: JvmAbiGenService by FirSession.sessionComponentAccessor()
