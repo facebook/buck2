@@ -21,8 +21,6 @@ def run_lazy_imports_analyzer(
     cmd = cmd_args(ctx.attrs.lazy_imports_analyzer[RunInfo], hidden = resources)
     cmd.add(dbg_source_db_output)  # First arg: <DB_PATH>
     cmd.add(output.as_output())  # Second arg: <OUTPUT_PATH>
-    cmd.add("--buck_mode")
-    cmd.add("buck-build")
 
     ctx.actions.run(
         cmd,
