@@ -280,6 +280,20 @@ def _compute_cxx_executable_info(
 
     extra_binary_link_flags.extend(python_toolchain.binary_linker_flags)
 
+    # Force the linker to retain all PyInit symbols for embeddable C extensions.
+    # The generated static_extension_info.cpp references these symbols via asm
+    # directives, but the linker may still drop archive members that define them
+    # if nothing else references them (e.g. when link groups or --gc-sections
+    # are in play). Adding -u flags ensures the linker treats them as undefined
+    # entry points and pulls in the necessary object files from archives.
+    pyinit_symbols = extension_info_reduced.python_module_names.values()
+    if pyinit_symbols:
+        pyinit_argsfile = ctx.actions.write(
+            "__pyinit_undefined_symbols__.argsfile",
+            cmd_args(["-u" + sym for sym in pyinit_symbols]),
+        )
+        extra_binary_link_flags.append(cmd_args(pyinit_argsfile, format = "@{}"))
+
     linker_info = get_cxx_toolchain_info(ctx).linker_info
 
     # Set rpaths to find 1) the shared libs dir and the 2) runtime libs dir.
