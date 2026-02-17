@@ -61,6 +61,14 @@ impl<T: StrongHash> MergeableGraphSketch<T> {
         Self { version, sketcher }
     }
 
+    /// Returns true if the sketch is effectively empty (all registers are zero).
+    /// An empty sketch occurs when no items were sketched, and serializes to a
+    /// long string of 'A's in base64. Detecting this allows callers to omit the
+    /// sketch from output to avoid wasting storage.
+    pub fn is_empty(&self) -> bool {
+        self.sketcher.get_registers().iter().all(|&v| v == 0)
+    }
+
     pub fn serialize(&self) -> String {
         let mut res = format!("{}:", self.version).into_bytes();
         let mut enc =

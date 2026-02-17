@@ -128,8 +128,8 @@ impl DetailedAggregatedMetricsStateTracker {
                             spec.outputs.iter().map(|(artifact, _)| artifact),
                             &analysis_nodes,
                         ) {
-                            Ok((_complete, sketch)) => Some(sketch),
-                            Err(_) => None,
+                            Ok((_complete, sketch)) if !sketch.is_empty() => Some(sketch),
+                            _ => None,
                         }
                     } else {
                         None
@@ -185,7 +185,9 @@ impl DetailedAggregatedMetricsStateTracker {
             }
         }
 
-        let action_graph_sketch = overall_sketcher.map(|s| s.into_mergeable_graph_sketch());
+        let action_graph_sketch = overall_sketcher
+            .map(|s| s.into_mergeable_graph_sketch())
+            .filter(|s| !s.is_empty());
 
         let mut all_targets_data = AllTargetsAggregatedData::new(if all_complete {
             Some(action_mappings.len())
@@ -251,6 +253,10 @@ impl DetailedAggregatedMetricsStateTracker {
         }
         let (_complete, sketch) =
             compute_action_graph_sketch(root_artifacts.iter().copied(), &self.analysis_nodes)?;
-        Ok(Some(sketch))
+        if sketch.is_empty() {
+            Ok(None)
+        } else {
+            Ok(Some(sketch))
+        }
     }
 }

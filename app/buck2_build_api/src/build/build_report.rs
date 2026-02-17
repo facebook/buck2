@@ -381,8 +381,10 @@ impl<'a> BuildReportCollector<'a> {
                     Self::convert_per_target_metrics(top_level_metrics).into(),
                 );
                 if let Some(sketch) = &top_level_metrics.action_graph_sketch {
-                    action_graph_sketches_by_configured
-                        .insert(top_level_metrics.target.clone(), sketch.serialize());
+                    if !sketch.is_empty() {
+                        action_graph_sketches_by_configured
+                            .insert(top_level_metrics.target.clone(), sketch.serialize());
+                    }
                 }
             }
         }
@@ -550,6 +552,7 @@ impl<'a> BuildReportCollector<'a> {
         let action_graph_sketch = detailed_metrics
             .as_ref()
             .and_then(|m| m.action_graph_sketch.as_ref())
+            .filter(|sketch| !sketch.is_empty())
             .map(|sketch| sketch.serialize());
 
         // Determine error category using existing Buck2 error classification
