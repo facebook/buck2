@@ -103,7 +103,8 @@ impl AnonTargetAttrTypeCoerce for AttrType {
                             DepAttrTransition::Exec => {
                                 match dep.execution_platform()? {
                                 Some(exec_dep_resolution) => {
-                                    if !exec_dep_resolution.eq(&ctx.execution_platform_resolution) {
+                                    // Compare only base platform, not the full resolution
+                                    if exec_dep_resolution.platform()? != ctx.execution_platform_resolution.platform()? {
                                         return Err(AnonTargetCoercionError::ExecDepPlatformMismatch(exec_dep_resolution.platform()?.id(), ctx.execution_platform_resolution.platform()?.id()).into());
                                     }
                                 },

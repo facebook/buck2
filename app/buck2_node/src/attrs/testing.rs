@@ -39,7 +39,7 @@ pub fn configuration_ctx() -> impl AttrConfigurationContext {
             ConfigurationNoExec::new(self.0.dupe())
         }
 
-        fn exec_cfg(&self) -> buck2_error::Result<ConfigurationNoExec> {
+        fn base_exec_cfg(&self) -> buck2_error::Result<ConfigurationNoExec> {
             Ok(ConfigurationNoExec::new(self.1.dupe()))
         }
 

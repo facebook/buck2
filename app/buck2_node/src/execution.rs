@@ -12,7 +12,7 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use buck2_common::legacy_configs::key::BuckconfigKeyRef;
-use buck2_core::execution_types::execution::ExecutionPlatformResolution;
+use buck2_core::execution_types::execution::ExecutionPlatformResolutionPartial;
 use buck2_core::execution_types::execution_platforms::ExecutionPlatforms;
 use buck2_core::target::label::label::TargetLabel;
 use buck2_core::target::target_configured_target_label::TargetConfiguredTargetLabel;
@@ -41,7 +41,7 @@ pub trait GetExecutionPlatformsImpl: 'static + Send + Sync {
         toolchain_deps: Arc<[TargetConfiguredTargetLabel]>,
         exec_compatible_with: Arc<[ConfigurationSettingKey]>,
         cell: CellNameForConfigurationResolution,
-    ) -> buck2_error::Result<ExecutionPlatformResolution>;
+    ) -> buck2_error::Result<ExecutionPlatformResolutionPartial>;
 }
 
 pub static GET_EXECUTION_PLATFORMS: LateBinding<&'static dyn GetExecutionPlatformsImpl> =

@@ -8,6 +8,7 @@ constraint(
         "none",
     ],
     default = "none",
+    visibility = ["PUBLIC"],
 )
 
 constraint(
@@ -18,6 +19,7 @@ constraint(
         "none",
     ],
     default = "none",
+    visibility = ["PUBLIC"],
 )
 
 # build mode will not be exec modifier

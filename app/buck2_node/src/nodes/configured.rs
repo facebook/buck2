@@ -668,7 +668,7 @@ impl<'a> ConfiguredTargetNodeRef<'a> {
     fn attr_configuration_context(self) -> AttrConfigurationContextImpl<'a> {
         AttrConfigurationContextImpl::new(
             &self.0.get().resolved_configuration,
-            self.0.get().execution_platform_resolution.cfg(),
+            &self.0.get().execution_platform_resolution,
             &self.0.get().resolved_transition_configurations,
             &self.0.get().platform_cfgs,
         )

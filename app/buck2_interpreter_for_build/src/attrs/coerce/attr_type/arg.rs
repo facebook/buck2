@@ -302,7 +302,7 @@ mod tests {
             assert_eq!(
                 format!(
                     r#""$(exe root//:foo ({})) $(location root//:bar ({}))""#,
-                    configuration_ctx().exec_cfg()?,
+                    configuration_ctx().base_exec_cfg()?,
                     ConfigurationData::testing_new(),
                 ),
                 configured.as_display_no_ctx().to_string(),
@@ -361,7 +361,7 @@ mod tests {
         if let MacroBase::Location { label, .. } = &configured {
             let mut info = ConfiguredAttrInfoForTests::new();
             configured.traverse(&mut info, PackageLabel::testing_new("root", ""))?;
-            assert_eq!(label.cfg(), config_ctx.exec_cfg()?.cfg());
+            assert_eq!(label.cfg(), config_ctx.base_exec_cfg()?.cfg());
             assert_eq!(smallset![label.dupe()], info.execution_deps);
             assert_eq!(smallset![], info.deps);
         } else {
@@ -423,7 +423,7 @@ mod tests {
         if let MacroBase::Exe { label, .. } = &configured {
             let mut info = ConfiguredAttrInfoForTests::new();
             configured.traverse(&mut info, PackageLabel::testing_new("root", ""))?;
-            assert_eq!(label.cfg(), config_ctx.exec_cfg()?.cfg());
+            assert_eq!(label.cfg(), config_ctx.base_exec_cfg()?.cfg());
             assert_eq!(smallset![label.dupe()], info.execution_deps);
             assert_eq!(smallset![], info.deps);
         } else {

@@ -44,6 +44,7 @@ use buck2_core::deferred::base_deferred_key::BaseDeferredKey;
 use buck2_core::deferred::base_deferred_key::BaseDeferredKeyDyn;
 use buck2_core::deferred::key::DeferredHolderKey;
 use buck2_core::execution_types::execution::ExecutionPlatformResolution;
+use buck2_core::execution_types::execution::ExecutionPlatformResolutionPartial;
 use buck2_core::package::PackageLabel;
 use buck2_core::pattern::pattern::PatternData;
 use buck2_core::pattern::pattern::lex_target_pattern;
@@ -215,7 +216,7 @@ impl AnonTargetKey {
             rule.rule_type().dupe(),
             name,
             attrs.into(),
-            execution_platform.cfg().dupe(),
+            execution_platform.base_cfg().dupe(),
         ))
     }
 
@@ -349,7 +350,7 @@ impl AnonTargetKey {
         let dependents = AnonTargetDependents::get_dependents(self)?;
         let dependents_analyses = dependents.get_analysis_results(dice).await?;
 
-        let exec_resolution = ExecutionPlatformResolution::new(
+        let exec_resolution = ExecutionPlatformResolutionPartial::new(
             Some(
                 find_execution_platform_by_configuration(
                     dice,
@@ -359,7 +360,8 @@ impl AnonTargetKey {
                 .await?,
             ),
             Vec::new(),
-        );
+        )
+        .finalize(OrderedMap::new());
 
         span_async(
             buck2_data::AnalysisStart {

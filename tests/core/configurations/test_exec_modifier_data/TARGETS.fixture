@@ -127,14 +127,14 @@ conditional_modifier(
 # Tool with conditional modifier based on OS
 labeled_tool(
     name = "tool_with_os_conditional_compiler",
-    modifiers = [":compiler_by_os"],
+    modifiers = ["root//:compiler_by_os"],
     visibility = ["PUBLIC"],
 )
 
 # Tool with conditional modifier based on CPU
 labeled_tool(
     name = "tool_with_cpu_conditional_compiler",
-    modifiers = [":compiler_by_cpu"],
+    modifiers = ["root//:compiler_by_cpu"],
     visibility = ["PUBLIC"],
 )
 

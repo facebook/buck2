@@ -6,6 +6,8 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
+load("@prelude//cfg/exec_platform:marker.bzl", "get_exec_platform_marker")
+
 def _execution_platform(ctx):
     return [
         DefaultInfo(),
@@ -38,7 +40,10 @@ def _execution_platforms(ctx):
 
     return [
         DefaultInfo(),
-        ExecutionPlatformRegistrationInfo(platforms = platforms),
+        ExecutionPlatformRegistrationInfo(
+            platforms = platforms,
+            exec_marker_constraint = get_exec_platform_marker(),
+        ),
     ]
 
 execution_platforms = rule(

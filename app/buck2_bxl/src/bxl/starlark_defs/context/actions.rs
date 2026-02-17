@@ -55,6 +55,7 @@ use starlark::values::ValueTyped;
 use starlark::values::dict::AllocDict;
 use starlark::values::dict::DictType;
 use starlark::values::starlark_value;
+use starlark_map::ordered_map::OrderedMap;
 use strong_hash::StrongHash;
 
 use crate::bxl::starlark_defs::context::BxlContext;
@@ -118,6 +119,10 @@ pub(crate) async fn resolve_bxl_execution_platform(
             e.configure_pair_no_exec(resolved_execution.platform()?.cfg_pair_no_exec().dupe());
         buck2_error::Ok(label)
     })?;
+
+    // Finalize the partial resolution with empty exec_dep_cfgs
+    // (BXL doesn't use modifiers for exec_deps)
+    let resolved_execution = resolved_execution.finalize(OrderedMap::new());
 
     Ok(BxlExecutionResolution {
         resolved_execution,
