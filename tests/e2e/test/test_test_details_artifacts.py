@@ -46,9 +46,6 @@ async def test_passing_test_details_uploaded_to_artifacts(buck: Buck) -> None:
         "--remote-only",
         "--",
         "--upload-passing-details",
-        # [todo(ysuleiman)]: remove the experiment flag after concluding the tpx_upload_passing_details experiment
-        "--experiment",
-        "tpx_upload_passing_details",
     )
 
     run_id = extract_test_run_id(output.stderr)
