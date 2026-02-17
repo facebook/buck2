@@ -12,6 +12,7 @@ package com.facebook.buck.android.aapt;
 
 import com.android.ide.common.resources.MergingException;
 import com.android.utils.StdLogger;
+import com.facebook.infer.annotation.Nullsafe;
 import com.google.common.collect.ImmutableList;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -22,12 +23,15 @@ import org.kohsuke.args4j.CmdLineParser;
 import org.kohsuke.args4j.Option;
 
 /** Main entry point for executing {@link MergeAndroidResourceSourcesUtils} calls. */
+@Nullsafe(Nullsafe.Mode.LOCAL)
 public class MergeAndroidResourceSourcesExecutableMain {
 
   @Option(name = "--resource-paths", required = true)
+  // NULLSAFE_FIXME[Field Not Initialized]
   private String resourcePathsList;
 
   @Option(name = "--output", required = true)
+  // NULLSAFE_FIXME[Field Not Initialized]
   private Path output;
 
   public static void main(String[] args) throws IOException {
@@ -39,7 +43,7 @@ public class MergeAndroidResourceSourcesExecutableMain {
       main.run();
       System.exit(0);
     } catch (CmdLineException e) {
-      System.err.println(e.getMessage());
+      System.err.println(e.toString());
       parser.printUsage(System.err);
       System.exit(1);
     }

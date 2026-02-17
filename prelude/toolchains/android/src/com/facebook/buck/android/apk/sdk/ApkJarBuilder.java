@@ -11,6 +11,7 @@
 package com.facebook.buck.android.apk.sdk;
 
 import com.facebook.buck.android.apk.sdk.ApkJarBuilder.IZipEntryFilter.ZipAbortException;
+import com.facebook.infer.annotation.Nullsafe;
 import com.google.common.collect.ImmutableSet;
 import java.io.BufferedOutputStream;
 import java.io.File;
@@ -19,13 +20,16 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.Calendar;
+import java.util.Objects;
 import java.util.Set;
 import java.util.jar.JarEntry;
 import java.util.jar.JarOutputStream;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
+import org.jetbrains.annotations.Nullable;
 
 /** A Jar file builder. */
+@Nullsafe(Nullsafe.Mode.LOCAL)
 public class ApkJarBuilder {
   private static final long DOS_FAKE_TIME;
 
@@ -53,7 +57,7 @@ public class ApkJarBuilder {
           "META-INF/services/kotlin.reflect.jvm.internal.impl.km.internal.extensions.MetadataExtensions",
           "META-INF/services/kotlinx.coroutines.CoroutineExceptionHandler",
           "META-INF/androidx.compose.ui_ui.version");
-  private JarOutputStream mOutputJar;
+  @Nullable private JarOutputStream mOutputJar;
   private byte[] mBuffer = new byte[4096];
   private boolean mPackageMetaInfVersionFiles;
 
@@ -208,7 +212,7 @@ public class ApkJarBuilder {
    * @throws IOException
    */
   public void close() throws IOException {
-    mOutputJar.close();
+    Objects.requireNonNull(mOutputJar).close();
     mOutputJar = null;
   }
 
@@ -235,15 +239,15 @@ public class ApkJarBuilder {
    */
   private void writeEntry(InputStream input, JarEntry entry) throws IOException {
     // add the entry to the jar archive
-    mOutputJar.putNextEntry(entry);
+    Objects.requireNonNull(mOutputJar).putNextEntry(entry);
 
     // read the content of the entry from the input stream, and write it into the archive.
     int count;
     while ((count = input.read(mBuffer)) != -1) {
-      mOutputJar.write(mBuffer, 0, count);
+      Objects.requireNonNull(mOutputJar).write(mBuffer, 0, count);
     }
 
     // close the entry for this file
-    mOutputJar.closeEntry();
+    Objects.requireNonNull(mOutputJar).closeEntry();
   }
 }
