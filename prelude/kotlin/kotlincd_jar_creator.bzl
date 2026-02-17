@@ -304,6 +304,8 @@ def _encode_kotlin_extra_params(
         kotlin_classes: Artifact,
         should_kosabi_jvm_abi_gen_use_k2: bool | None = False):
     kosabiPluginOptionsMap = {}
+    is_source_only_abi = actual_abi_generation_mode == AbiGenerationMode("source_only")
+
     if kotlin_toolchain.kosabi_stubs_gen_plugin != None:
         kosabiPluginOptionsMap["kosabi_stubs_gen_plugin"] = kotlin_toolchain.kosabi_stubs_gen_plugin
 
@@ -322,7 +324,7 @@ def _encode_kotlin_extra_params(
     if kotlin_toolchain.kosabi_jvm_abi_gen_k2_plugin != None:
         kosabiPluginOptionsMap["kosabi_jvm_abi_gen_k2_plugin"] = kotlin_toolchain.kosabi_jvm_abi_gen_k2_plugin
 
-    if kotlin_toolchain.kosabi_jvm_abi_gen_k2_plugin == None and should_kosabi_jvm_abi_gen_use_k2:
+    if kotlin_toolchain.kosabi_jvm_abi_gen_k2_plugin == None and should_kosabi_jvm_abi_gen_use_k2 and is_source_only_abi:
         fail("Kosabi jvm abi gen k2 plugin is not supported")
 
     return struct(
@@ -338,7 +340,7 @@ def _encode_kotlin_extra_params(
         jvmTarget = get_kotlinc_compatible_target(str(target_level)),
         kosabiJvmAbiGenEarlyTerminationMessagePrefix = "exception: java.lang.RuntimeException: Terminating compilation. We're done with ABI.",
         shouldUseJvmAbiGen = should_use_jvm_abi_gen,
-        shouldVerifySourceOnlyAbiConstraints = actual_abi_generation_mode == AbiGenerationMode("source_only"),
+        shouldVerifySourceOnlyAbiConstraints = is_source_only_abi,
         shouldGenerateAnnotationProcessingStats = True,
         extraKotlincArguments = extra_kotlinc_arguments,
         depTrackerPlugin = kotlin_toolchain.track_class_usage_plugin,
