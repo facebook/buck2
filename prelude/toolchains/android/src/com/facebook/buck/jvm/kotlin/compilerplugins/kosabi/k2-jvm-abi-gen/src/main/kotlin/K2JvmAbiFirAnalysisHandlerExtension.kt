@@ -70,6 +70,7 @@ import org.jetbrains.kotlin.fir.declarations.FirEnumEntry
 import org.jetbrains.kotlin.fir.declarations.FirMemberDeclaration
 import org.jetbrains.kotlin.fir.declarations.FirRegularClass
 import org.jetbrains.kotlin.fir.declarations.FirSimpleFunction
+import org.jetbrains.kotlin.fir.declarations.FirTypeAlias
 import org.jetbrains.kotlin.fir.declarations.builder.buildSimpleFunctionCopy
 import org.jetbrains.kotlin.fir.declarations.impl.FirResolvedDeclarationStatusImpl
 import org.jetbrains.kotlin.fir.declarations.utils.isConst
@@ -377,6 +378,16 @@ class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
       // Do NOT call super - we don't need to visit constructor bodies
     }
 
+    override fun visitTypeAlias(typeAlias: FirTypeAlias) {
+      // Check that the expanded type can be resolved - type aliases serialize
+      // expandedType into metadata, and if it references a missing transitive
+      // dependency the ABI jar will have corrupt TypeAlias protobuf
+      checkTypeResolvableRecursively(
+          typeAlias.expandedTypeRef.coneType,
+          isFromDependencyChain = false,
+      )
+    }
+
     // Check if a type can be resolved via the symbol provider, and recursively
     // check all supertypes of resolved classes. This is necessary because stub JARs
     // may contain classes that extend other classes not in the stub JAR.
@@ -427,24 +438,47 @@ class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
               // Found in sources (Kotlin or Java) - recursively check its supertypes
               // When checking source class supertypes, we're now in a dependency chain
               // because any supertype not in sources must come from dependencies
-              val firClass = sourceSymbol.fir as? FirRegularClass
-              if (firClass != null) {
-                for (superTypeRef in firClass.superTypeRefs) {
+              when (val firDecl = sourceSymbol.fir) {
+                is FirRegularClass -> {
+                  for (superTypeRef in firDecl.superTypeRefs) {
+                    checkTypeResolvableRecursively(
+                        superTypeRef.coneType,
+                        isFromDependencyChain = true,
+                    )
+                  }
+                }
+                is FirTypeAlias -> {
+                  // Follow the expanded type of the type alias - any expanded type
+                  // not in sources must come from dependencies
+                  checkTypeResolvableRecursively(
+                      firDecl.expandedTypeRef.coneType,
+                      isFromDependencyChain = true,
+                  )
+                }
+                else -> {}
+              }
+            }
+          } else {
+            // Class IS resolvable from dependencies - now recursively check ITS supertypes
+            // These are now definitely from the dependency chain
+            when (val firDecl = depSymbol.fir) {
+              is FirRegularClass -> {
+                for (superTypeRef in firDecl.superTypeRefs) {
                   checkTypeResolvableRecursively(
                       superTypeRef.coneType,
                       isFromDependencyChain = true,
                   )
                 }
               }
-            }
-          } else {
-            // Class IS resolvable from dependencies - now recursively check ITS supertypes
-            // These are now definitely from the dependency chain
-            val firClass = depSymbol.fir as? FirRegularClass
-            if (firClass != null) {
-              for (superTypeRef in firClass.superTypeRefs) {
-                checkTypeResolvableRecursively(superTypeRef.coneType, isFromDependencyChain = true)
+              is FirTypeAlias -> {
+                // Follow the expanded type of the type alias - it may reference
+                // a transitive dependency not on the source-only ABI classpath
+                checkTypeResolvableRecursively(
+                    firDecl.expandedTypeRef.coneType,
+                    isFromDependencyChain = true,
+                )
               }
+              else -> {}
             }
           }
         }
