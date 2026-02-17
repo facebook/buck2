@@ -10,6 +10,7 @@
 
 package com.facebook.buck.android.proguard;
 
+import com.facebook.infer.annotation.Nullsafe;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Functions;
 import com.google.common.collect.ImmutableMap;
@@ -26,6 +27,7 @@ import java.util.function.Function;
  * If we end up creating both an obfuscator function and a deobfuscator function, it would be nice
  * to load the proguard mapping file once. This class enables sharing that work.
  */
+@Nullsafe(Nullsafe.Mode.LOCAL)
 public class ProguardTranslatorFactory {
 
   private final Optional<ImmutableMap<String, String>> rawMap;
@@ -102,6 +104,7 @@ public class ProguardTranslatorFactory {
     return input -> {
       String mapped = map.get(input);
       if (isNullable || mapped != null) {
+        // NULLSAFE_FIXME[Return Not Nullable]
         return mapped;
       } else {
         return input;

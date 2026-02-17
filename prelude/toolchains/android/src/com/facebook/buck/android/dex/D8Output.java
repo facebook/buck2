@@ -10,9 +10,11 @@
 
 package com.facebook.buck.android.dex;
 
+import com.facebook.infer.annotation.Nullsafe;
 import java.util.Collection;
 
 /** Info exposed from {@code d8}. */
+@Nullsafe(Nullsafe.Mode.LOCAL)
 public class D8Output {
   /** Referenced resources returned by D8 */
   private Collection<String> referencedResources;

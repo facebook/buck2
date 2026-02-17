@@ -10,7 +10,10 @@
 
 package com.facebook.buck.android.dex;
 
+import com.facebook.infer.annotation.Nullsafe;
+
 /** Options to pass to {@code d8}. */
+@Nullsafe(Nullsafe.Mode.LOCAL)
 public enum D8Options {
   /** Specify the {@code --debug} flag. Otherwise --release is specified */
   NO_OPTIMIZE,

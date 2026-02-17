@@ -12,6 +12,7 @@ package com.facebook.buck.android.dex;
 
 import com.android.tools.r8.CompilationFailedException;
 import com.facebook.buck.util.zip.ZipScrubber;
+import com.facebook.infer.annotation.Nullsafe;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -29,25 +30,31 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
+import org.jetbrains.annotations.Nullable;
 import org.kohsuke.args4j.CmdLineException;
 import org.kohsuke.args4j.CmdLineParser;
 import org.kohsuke.args4j.Option;
 
 /** Main entry point for executing {@link com.android.tools.r8.D8Command} calls. */
+@Nullsafe(Nullsafe.Mode.LOCAL)
 public class D8ExecutableMain {
   /** name suffix that identifies it as a Java class file. */
   private static final String CLASS_NAME_SUFFIX = ".class";
 
   @Option(name = "--output-dex-file", required = true)
+  // NULLSAFE_FIXME[Field Not Initialized]
   private String outputDex;
 
   @Option(name = "--files-to-dex-list")
-  private String filesToDexList;
+  @Nullable
+  private String filesToDexList = null;
 
   @Option(name = "--file-to-dex")
-  private String fileToDex;
+  @Nullable
+  private String fileToDex = null;
 
   @Option(name = "--android-jar", required = true)
+  // NULLSAFE_FIXME[Field Not Initialized]
   private String androidJar;
 
   @Option(name = "--intermediate")
@@ -63,25 +70,32 @@ public class D8ExecutableMain {
   private boolean forceJumbo = false;
 
   @Option(name = "--primary-dex-class-names-path")
-  private String primaryDexClassNamesList;
+  @Nullable
+  private String primaryDexClassNamesList = null;
 
   @Option(name = "--referenced-resources-path")
-  private String referencedResourcesList;
+  @Nullable
+  private String referencedResourcesList = null;
 
   @Option(name = "--classpath-files")
-  private String classpathFilesList;
+  @Nullable
+  private String classpathFilesList = null;
 
   @Option(name = "--min-sdk-version")
-  private String minSdkVersionString;
+  @Nullable
+  private String minSdkVersionString = null;
 
   @Option(name = "--weight-estimate-path")
-  private String weightEstimateOutput;
+  @Nullable
+  private String weightEstimateOutput = null;
 
   @Option(name = "--weight-factor")
-  private String weightFactor;
+  @Nullable
+  private String weightFactor = null;
 
   @Option(name = "--class-names-path")
-  private String classNamesOutput;
+  @Nullable
+  private String classNamesOutput = null;
 
   /**
    * When using jar compression, the secondary dex directory consists of N secondary dex jars, each
@@ -99,16 +113,20 @@ public class D8ExecutableMain {
    * secondaryDexMetadataLine, and we use the secondaryDexCanaryClassName for the <canary class>.
    */
   @Option(name = "--secondary-dex-compression")
-  private String secondaryDexCompression;
+  @Nullable
+  private String secondaryDexCompression = null;
 
   @Option(name = "--secondary-dex-metadata-file")
-  private String secondaryDexMetadataFile;
+  @Nullable
+  private String secondaryDexMetadataFile = null;
 
   @Option(name = "--secondary-dex-metadata-line")
-  private String secondaryDexMetadataLine;
+  @Nullable
+  private String secondaryDexMetadataLine = null;
 
   @Option(name = "--secondary-dex-canary-class-name")
-  private String secondaryDexCanaryClassName;
+  @Nullable
+  private String secondaryDexCanaryClassName = null;
 
   private static final String DEX_JAR_SUFFIX = ".dex.jar";
 
@@ -120,7 +138,7 @@ public class D8ExecutableMain {
       main.run();
       System.exit(0);
     } catch (CmdLineException e) {
-      System.err.println(e.getMessage());
+      System.err.println(e.toString());
       parser.printUsage(System.err);
       System.exit(1);
     }

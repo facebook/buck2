@@ -11,6 +11,7 @@
 package com.facebook.buck.android.dex;
 
 import com.facebook.buck.android.apkmodule.APKModule;
+import com.facebook.infer.annotation.Nullsafe;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.ByteStreams;
@@ -24,6 +25,7 @@ import java.io.OutputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import org.jetbrains.annotations.Nullable;
 import org.kohsuke.args4j.CmdLineException;
 import org.kohsuke.args4j.CmdLineParser;
 import org.kohsuke.args4j.Option;
@@ -32,23 +34,30 @@ import org.tukaani.xz.XZ;
 import org.tukaani.xz.XZOutputStream;
 
 /** Executable for compressing secondary dex files. */
+@Nullsafe(Nullsafe.Mode.LOCAL)
 public class SecondaryDexCompressionExecutableMain {
   @Option(name = "--secondary-dex-output-dir", required = true)
+  // NULLSAFE_FIXME[Field Not Initialized]
   private String secondaryDexOutputDirString;
 
   @Option(name = "--raw-secondary-dexes-dir", required = true)
+  // NULLSAFE_FIXME[Field Not Initialized]
   private String rawSecondaryDexesDir;
 
   @Option(name = "--module", required = true)
+  // NULLSAFE_FIXME[Field Not Initialized]
   private String module;
 
+  @Nullable
   @Option(name = "--module-deps")
-  private String moduleDepsPathString;
+  private String moduleDepsPathString = null;
 
   @Option(name = "--canary-class-name", required = true)
+  // NULLSAFE_FIXME[Field Not Initialized]
   private String canaryClassName;
 
   @Option(name = "--compression", required = true)
+  // NULLSAFE_FIXME[Field Not Initialized]
   private String compression;
 
   @Option(name = "--xz-compression-level")
@@ -56,8 +65,9 @@ public class SecondaryDexCompressionExecutableMain {
 
   // Optional, if this is the main module there may be N dex files that are being treated as
   // preceding these given secondary dex files.
+  @Nullable
   @Option(name = "--bootstrap-dexes-dir")
-  private String bootstrapDexDirString;
+  private String bootstrapDexDirString = null;
 
   // Defaulted to 1 for the primary dex (classes.dex) upon which these secondaries will be numbered
   // after. If enabling bootstrap dex files, secondaries could start at a higher index.
@@ -71,7 +81,7 @@ public class SecondaryDexCompressionExecutableMain {
       main.run();
       System.exit(0);
     } catch (CmdLineException e) {
-      System.err.println(e.getMessage());
+      System.err.println(e.toString());
       parser.printUsage(System.err);
       System.exit(1);
     }
