@@ -137,75 +137,75 @@ license = "MIT OR Apache-2.0"
 repository = "https://github.com/facebook/buck2"
 
 [workspace.dependencies]
-anyhow = "1.0.65"
+anyhow = "1.0.98"
 anymap3 = "1.0.1"
 arc-swap = "1.6.0"
-argfile = "0.2"
+argfile = "0.2.1"
 assert_matches = "1.5"
 async-compression = { version = "0.4.9", features = ["tokio", "brotli", "deflate", "gzip", "zstd"] }
-async-condvar-fair = { version = "1.0", features = ["parking_lot_0_11", "tokio"] }
-async-recursion = "1.0"
+async-condvar-fair = { version = "1.0", features = ["parking_lot_0_12", "tokio"] }
+async-recursion = "1.1.1"
 async-scoped = { version = "0.9", features = ["use-tokio"] }
-async-trait = "0.1.24"
-atomic = "0.5.1"
+async-trait = "0.1.86"
+atomic = "0.5.3"
 backtrace = "0.3.51"
-base64 = "0.21.7"
+base64 = "0.22.1"
 bincode = "1.3.3"
-blake3 = { version = "1.3.1", features = ["default", "rayon", "std", "traits-preview"] }
-bumpalo = "3.11.1"
+blake3 = { version = "=1.8.2", features = ["default", "rayon", "std", "traits-preview"] }
+bumpalo = "3.19.1"
 bytemuck = { version = "1.24", features = ["const_zeroed", "derive", "min_const_generics", "must_cast", "nightly_portable_simd", "nightly_stdsimd"] }
-byteorder = "1.4.3"
-bytes = "1.0"
+byteorder = "1.5"
+bytes = "1.11.1"
 bytesize = "2.0"
-chrono = "0.4.38"
-clap = { version = "4.5.6", features = ["derive", "env", "string"] }
-clap_complete = "4.5.5"
+chrono = "0.4.41"
+clap = { version = "4.5.42", features = ["derive", "env", "string"] }
+clap_complete = "4.5.55"
 common-path = "1.0.0"
-compact_str = { version = "0.8", features = ["serde"] }
-console = "0.15.7"
+compact_str = { version = "0.8.0", features = ["serde"] }
+console = "0.15.11"
 const-oid = { version = "0.9.6", features = ["db"] }
 const_format = "0.2.32"
 constant_time_eq = "0.2.4"
-convert_case = "0.4.0"
-criterion = { version = "0.3.1", features = [] }
+convert_case = "0.10.0"
+criterion = { version = "0.5.1", features = [] }
 crossbeam = "0.8"
-crossbeam-channel = "0.5.8"
+crossbeam-channel = "0.5.15"
 crossbeam-epoch = "0.9.7"
-crossterm = "0.27"
-csv = "1.1"
-ctor = "0.1.16"
+crossterm = "0.28"
+csv = "1.3"
+ctor = "0.1.26"
 dashmap = "5.5.3"
 debugserver-types = "0.5.0"
 derivative = "2.2"
 derive_more = { version = "1.0.0", features = ["full"] }
 digest = { version = "0.10", features = ["oid"] }
-dirs = "3.0.1"
-dunce = "1.0.2"
+dirs = "6.0"
+dunce = "1.0.5"
 either = "1.8"
-enum-iterator = "1.4.1"
+enum-iterator = "2.1"
 enum-map = "2.7.3"
-env_logger = "0.9.0"
-equivalent = "1.0.0"
-erased-serde = "0.3.20"
-faccess = "0.2.3"
-fancy-regex = "0.16.0"
-flate2 = "1.0.22"
+env_logger = "0.11.8"
+equivalent = "1.0.2"
+erased-serde = "0.4.9"
+faccess = "0.2.4"
+fancy-regex = "0.16.2"
+flate2 = "1.0.33"
 fnv = "1.0"
 fs4 = { version = "0.9.1", features = ["sync"] }
-futures = { version = "0.3.28", features = ["async-await", "compat"] }
-futures-intrusive = "0.4"
+futures = { version = "0.3.31", features = ["async-await", "compat"] }
+futures-intrusive = "0.4.2"
 fxhash = "0.2.1"
-glob = "0.3.0"
-globset = "0.4.10"
+glob = "0.3.2"
+globset = "0.4.13"
 h2 = { version = "^0.4.13" } # force version bump for https://github.com/facebook/buck2/issues/1123
-hashbrown = { version = "0.14.3", features = ["raw"] }
+hashbrown = { version = "0.14.5", features = ["raw"] }
 hex = "0.4.3"
 hostname = "0.3.1"
 http = "1.3.1"
 http-body-util = "0.1.0"
 httparse = "1.7.1"
 httptest = "0.16"
-humantime = "2.0.1"
+humantime = "2.1"
 hyper = { version = "1.5.1", features = ["client", "http1", "http2"] }
 hyper-http-proxy = "1.0"
 hyper-rustls = { version = "0.27.0", features = ["http2"] }
@@ -213,31 +213,31 @@ hyper-timeout = "0.5"
 hyper-util = "0.1.10"
 hyperlocal = { version = "0.9", features = ["client"] }
 indent_write = "2.2.0"
-indenter = "0.3.3"
+indenter = "0.3.4"
 index_vec = "0.1.4"
-indexmap = { version = "2.12.1", features = ["serde"] }
+indexmap = { version = "2.13.0", features = ["serde"] }
 indoc = "2.0.2"
-inferno = { version = "0.11.19", default-features = false }
+inferno = { version = "0.11.21", default-features = false }
 internment = { version = "0.8", features = ["arc"] }
-inventory = "0.3.8"
+inventory = "0.3.21"
 ipnetwork = "0.20.0"
 is_proc_translated = "0.1.1"
-itertools = "0.13.0"
-lalrpop = { version = "0.19.7", artifact = "bin" }
-lalrpop-util = "0.19.7"
+itertools = "0.14.0"
+lalrpop = { version = "0.19.12", artifact = "bin" }
+lalrpop-util = "0.19.12"
 libc = "0.2.158"
 linked-hash-map = { version = "0.5", features = ["serde_impl"] }
-linkme = { version = "0.3.17", features = ["used_linker"] }
-log = "0.4"
-logos = "0.12"
-lru = "0.12.3"
-lsp-server = "0.7.2"
+linkme = { version = "0.3.32", features = ["used_linker"] }
+log = "0.4.27"
+logos = "0.15"
+lru = "0.16"
+lsp-server = "0.7.9"
 lsp-types = "0.94.1"
 maplit = "1.0.2"
 mappable-rc = { version = "0.1.1", features = ["std"] }
-memchr = "2.4.1"
-memmap2 = "0.5.0"
-memoffset = "0.6.4"
+memchr = "2.7.5"
+memmap2 = "0.9.5"
+memoffset = "0.9.1"
 mimalloc = "0.1.46"
 multimap = "0.8.2"
 native-tls = "0.2"
@@ -245,102 +245,102 @@ nix = { version = "0.30.1", features = ["dir", "event", "hostname", "inotify", "
 nom = "8"
 nom-language = "0.1"
 notify = "8.2.0"
-num-bigint = { version = "0.4.3", features = ["serde"] }
-num-traits = "0.2"
-num_cpus = "1.11"
-num_enum = "0.7"
+num-bigint = { version = "0.4.6", features = ["serde"] }
+num-traits = "0.2.19"
+num_cpus = "1.16"
+num_enum = "0.7.4"
 object = "0.36.7"
-once_cell = "1.8"
+once_cell = "1.21"
 os_str_bytes = { version = "6.6.0", features = ["conversions"] }
-parking_lot = { version = "0.11.2", features = ["send_guard"] }
-paste = "1.0"
+parking_lot = { version = "0.12.1", features = ["send_guard"] }
+paste = "1.0.14"
 pathdiff = "0.2"
 perf-event = "0.4"
 perf-event-open-sys = "5.0"
-pin-project = "0.4.29"
-plist = "1.4.3"
+pin-project = "1.1.10"
+plist = "1.7.1"
 postcard = { version = "1.0.8", features = ["use-crc", "use-std"] }
 pretty_assertions = "1.2.1"
 probminhash = { git = "https://github.com/krallin/probminhash", rev = "3d6b7a5315305c2893a7a04e0de9e23b305992c5", default-features = false } # WAITING_FOR_PR https://github.com/jean-pierreBoth/probminhash/pull/4
-proc-macro2 = "1.0"
+proc-macro2 = "1.0.106"
 prost = "0.13.4"
 prost-build = "0.13.4"
 prost-derive = "0.13.4"
 prost-types = "0.13.4"
 protoc-bin-vendored = "3.0.0"
 psutil = "3.2"
-quote = "1.0.3"
+quote = "1.0.44"
 rand = { version = "0.9", features = ["small_rng"] }
 rand_08 = { package = "rand", version = "0.8.4", features = ["small_rng"] }
 rand_chacha = "0.3"
 rand_distr = "0.5"
 rand_distr_04 = { package = "rand_distr", version = "0.4" }
 rand_xoshiro = "0.7"
-ref-cast = "1.0.0"
+ref-cast = "1.0.18"
 regex = "1.12.2"
 relative-path = { version = "1.7.0", features = ["serde"] }
 rusqlite = { version = "0.37.0", features = ["bundled"] }
-rustc-hash = { version = "2.1" }
+rustc-hash = { version = "2.1.1" }
 rustls = { package = "rustls", version = "0.23.29", features = ["aws-lc-rs"], default-features = false }
 rustls-native-certs = { version = "0.8.1" }
 rustls-pemfile = { package = "rustls-pemfile", version = "1.0.0" }
 rustls-pki-types = { version = "1.0", features = ["alloc", "std"] }
 rustyline = "14.0"
-scopeguard = "1.0.0"
+scopeguard = "1.2.0"
 sequence_trie = "0.3.6"
-serde = { version = "1.0", features = ["derive", "rc"] }
-serde_json = { version = "1.0.48", features = ["raw_value"] }
+serde = { version = "1.0.219", features = ["derive", "rc"] }
+serde_json = { version = "1.0.140", features = ["raw_value"] }
 serde_path_to_error = "0.1"
-sha1 = "0.10"
-sha2 = "0.10"
+sha1 = "0.10.5"
+sha2 = "0.10.6"
 shlex = "1.3"
-siphasher = "0.3.3"
+siphasher = "0.3.11"
 slab = "0.4.7"
-slog = "2.7.0"
-smallvec = { version = "1.10", features = ["const_generics", "const_new", "serde", "specialization", "union", "write"] }
+slog = "2.8.2"
+smallvec = { version = "1.15", features = ["const_generics", "const_new", "serde", "specialization", "union", "write"] }
 static_assertions = "1.1.0"
 strsim = "0.10.0"
-structopt = "0.3.23"
-strum = { version = "0.26.2", features = ["derive", "strum_macros"] }
-syn = { version = "2", features = ["extra-traits", "full", "visit"] }
-sync_wrapper = "0.1.0"
+structopt = "0.3.26"
+strum = { version = "0.27.1", features = ["derive", "strum_macros"] }
+syn = { version = "2.0.110", features = ["extra-traits", "full", "visit"] }
+sync_wrapper = "0.1.2"
 sys-info = "0.9.1"
-sysinfo = "0.35.1"
+sysinfo = "0.35.2"
 take_mut = "0.2.2"
-tar = "0.4.38"
-tempfile = "3.1.0"
+tar = "0.4.44"
+tempfile = "3.22"
 termimad = "0.30"
 termios = "0.3"
 termwiz = "0.23"
-test-case = "3.1.0"
-textwrap = { version = "0.11", features = ["term_size"] }
-thiserror = "1.0.36"
+test-case = "3.3.1"
+textwrap = { version = "0.16.0", features = ["terminal_size"] }
+thiserror = "2.0.18"
 threadpool = "1.8.1"
-tikv-jemallocator = { version = "0.6.0", features = ["profiling"] }
-tokio = { version = "1.25.0", features = ["full", "test-util", "tracing"] }
+tikv-jemallocator = { version = "0.6.1", features = ["profiling"] }
+tokio = { version = "1.47.1", features = ["full", "test-util", "tracing"] }
 tokio-rustls = { version = "0.26" }
-tokio-stream = { version = "0.1.14", features = ["fs", "io-util", "net", "sync", "time", "signal"] }
-tokio-util = { version = "0.6", features = ["full"] }
-toml = "0.5"
+tokio-stream = { version = "0.1.17", features = ["fs", "io-util", "net", "sync", "time", "signal"] }
+tokio-util = { version = "0.7.15", features = ["full"] }
+toml = "0.9.11"
 tonic = { version = "0.12.3", features = ["tls", "tls-webpki-roots"] }
 tonic-build = { version = "0.12.3", features = ["prost", "cleanup-markdown"] }
 tower = "0.4"
 tower-layer = "0.3.1"
 tower-service = "0.3.3"
-tracing = "0.1.22"
-tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+tracing = "0.1.41"
+tracing-subscriber = { version = "0.3.20", features = ["env-filter", "json"] }
 triomphe = "0.1.11"
 trybuild = "1.0.56"
 twox-hash = "1.6.1"
 typed-arena = "2.0"
-unicode-segmentation = "1.7"
+unicode-segmentation = "1.12.0"
 uuid = { version = "=1.19.0", features = ["v4"] }
 walkdir = "2.3.2"
 which = "4.3.0"
 winapi = { version = "0.3", features = ["everything", "std"] }
 x509-parser = "0.14.0"
-xattr = "0.2.2"
-zip = "0.5"
+xattr = "1.5.0"
+zip = "0.6.6"
 zstd = "0.13.0"
 
 # @oss-disable: fbinit.path = "../common/rust/shed/fbinit"

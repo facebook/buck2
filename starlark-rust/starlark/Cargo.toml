@@ -32,7 +32,7 @@ either = "1.8"
 erased-serde = "0.3.12"
 hashbrown = { version = "0.14.3", features = ["raw"] }
 inventory = "0.3.8"
-itertools = "0.13.0"
+itertools = "0.14.0"
 maplit = "1.0.2"
 memoffset = "0.6.4"
 num-bigint = { workspace = true }
@@ -49,7 +49,7 @@ starlark_syntax = { version = "0.13.0", path = "../starlark_syntax" }
 static_assertions = "1.1.0"
 strsim = "0.10.0"
 textwrap = "0.11"
-thiserror = "1.0.36"
+thiserror = "2.0.18"
 
 allocative = { workspace = true, features = ["bumpalo", "num-bigint"] }
 cmp_any = { workspace = true }

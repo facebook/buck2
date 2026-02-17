@@ -10,4 +10,4 @@ allocative = { workspace = true }
 cmp_any = { workspace = true }
 derive_more = { version = "1.0.0", features = ["full"] }
 dupe = { workspace = true }
-thiserror = "1.0.36"
+thiserror = "2.0.18"

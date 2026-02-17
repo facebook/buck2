@@ -21,10 +21,10 @@ futures = "0.3"
 fxhash = "0.2.1"
 gazebo = { workspace = true }
 indoc = { workspace = true }
-itertools = "0.13.0"
+itertools = "0.14.0"
 lock_free_hashtable = { workspace = true }
 lock_free_vec = { workspace = true }
-parking_lot = { version = "0.11.2", features = ["send_guard"] }
+parking_lot = { version = "0.12.1", features = ["send_guard"] }
 ref-cast = { workspace = true }
 scopeguard = { workspace = true }
 serde = { version = "1.0", features = ["derive"] }
@@ -34,7 +34,7 @@ sorted_vector_map.git = "https://github.com/facebookexperimental/rust-shed" # @o
 sorted_vector_map.version = "0.2"
 static_assertions = { workspace = true }
 take_mut = { workspace = true }
-thiserror = "1.0.36"
+thiserror = "2.0.18"
 tokio = { version = "1.5", features = ["full"] }
 tracing = "0.1.22"
 triomphe = { workspace = true }
