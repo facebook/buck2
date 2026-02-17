@@ -6,6 +6,11 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
+XPluginsManifestInfo = provider(fields = {
+    "function_mapping": provider_field(Artifact),
+    "manifest": provider_field(Artifact),
+})
+
 XPluginsPluginUsageInfo = provider(fields = {
     "target": provider_field(Label),
     "usage_info": provider_field(Artifact),
