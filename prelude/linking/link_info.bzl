@@ -1067,7 +1067,7 @@ def make_link_command_debug_output(linked_object: LinkedObject) -> [LinkCommandD
 # The JSON info file will contain entries for each link command. In addition,
 # it will _not_ materialize any inputs to the link command except:
 # - linker argfile
-def make_link_command_debug_output_json_info(ctx: AnalysisContext, debug_outputs: list[LinkCommandDebugOutput]) -> Artifact:
+def make_link_command_debug_output_json_info(actions: AnalysisActions, debug_outputs: list[LinkCommandDebugOutput]) -> Artifact:
     json_info = []
     associated_artifacts = []
     for debug_output in debug_outputs:
@@ -1083,6 +1083,6 @@ def make_link_command_debug_output_json_info(ctx: AnalysisContext, debug_outputs
     # Explicitly drop all inputs by using `with_inputs = False`, we don't want
     # to materialize all inputs to the link actions (which includes all object files
     # and possibly other shared libraries).
-    json_output = ctx.actions.write_json("linker.command", json_info, with_inputs = False)
+    json_output = actions.write_json("linker.command", json_info, with_inputs = False)
     json_output_with_artifacts = json_output.with_associated_artifacts(associated_artifacts)
     return json_output_with_artifacts

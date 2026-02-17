@@ -376,10 +376,12 @@ def apple_bundle_impl(ctx: AnalysisContext) -> list[Provider]:
     primary_binary_path = cmd_args([bundle, primary_binary_rel_path], delimiter = "/")
     primary_binary_path_arg = cmd_args(primary_binary_path, hidden = bundle)
 
-    linker_maps_directory, linker_map_info = _linker_maps_data(ctx)
+    deps_with_binary = ctx.attrs.deps + get_flattened_binary_deps(ctx.attrs.binary)
+
+    linker_maps_directory, linker_map_info = _linker_maps_data(ctx.actions, deps_with_binary)
     sub_targets["linker-maps"] = [DefaultInfo(default_output = linker_maps_directory)]
 
-    link_cmd_debug_file, link_cmd_debug_info = _link_command_debug_data(ctx)
+    link_cmd_debug_file, link_cmd_debug_info = _link_command_debug_data(ctx.actions, deps_with_binary)
     sub_targets["linker.command"] = [DefaultInfo(default_outputs = filter(None, [link_cmd_debug_file]))]
 
     # dsyms
@@ -435,7 +437,7 @@ def apple_bundle_impl(ctx: AnalysisContext) -> list[Provider]:
     # @oss-disable[end= ]: sub_targets.update(extra_output_subtargets)
 
     # index store
-    index_store_subtargets, index_store_info = _index_store_data(ctx)
+    index_store_subtargets, index_store_info = _index_store_data(ctx, deps_with_binary)
     sub_targets.update(index_store_subtargets)
 
     bundle_and_dsym_info_json = {
@@ -459,7 +461,7 @@ def apple_bundle_impl(ctx: AnalysisContext) -> list[Provider]:
     diagnostics_info = cxx_transitive_diagnostics_combine(
         ctx = ctx,
         diagnostics = [],
-        deps = ctx.attrs.deps + get_flattened_binary_deps(ctx.attrs.binary),
+        deps = deps_with_binary,
     )
     transitive_diagnostic_artifacts = project_artifacts(
         actions = ctx.actions,
@@ -545,33 +547,30 @@ def _get_debug_validators_subtargets_and_providers(ctx, artifacts: ArtifactTSet)
         },
     )
 
-def _linker_maps_data(ctx: AnalysisContext) -> (Artifact, AppleBundleLinkerMapInfo):
-    deps_with_binary = ctx.attrs.deps + get_flattened_binary_deps(ctx.attrs.binary)
+def _linker_maps_data(actions: AnalysisActions, deps_with_binary: list[Dependency]) -> (Artifact, AppleBundleLinkerMapInfo):
     deps_linker_map_infos = filter(
         None,
         [dep.get(AppleBundleLinkerMapInfo) for dep in deps_with_binary],
     )
     deps_linker_maps = flatten([info.linker_maps for info in deps_linker_map_infos])
     all_maps = {map.basename: map for map in deps_linker_maps}
-    directory = ctx.actions.copied_dir(
+    directory = actions.copied_dir(
         "LinkMap",
         all_maps,
     )
     provider = AppleBundleLinkerMapInfo(linker_maps = all_maps.values())
     return (directory, provider)
 
-def _link_command_debug_data(ctx: AnalysisContext) -> (Artifact, LinkCommandDebugOutputInfo):
-    deps_with_binary = ctx.attrs.deps + get_flattened_binary_deps(ctx.attrs.binary)
+def _link_command_debug_data(actions: AnalysisActions, deps_with_binary: list[Dependency]) -> (Artifact, LinkCommandDebugOutputInfo):
     debug_output_infos = filter(
         None,
         [dep.get(LinkCommandDebugOutputInfo) for dep in deps_with_binary],
     )
     all_debug_infos = flatten([debug_info.debug_outputs for debug_info in debug_output_infos])
-    link_cmd_debug_output_file = make_link_command_debug_output_json_info(ctx, all_debug_infos)
+    link_cmd_debug_output_file = make_link_command_debug_output_json_info(actions, all_debug_infos)
     return link_cmd_debug_output_file, LinkCommandDebugOutputInfo(debug_outputs = all_debug_infos)
 
-def _index_store_data(ctx: AnalysisContext) -> (dict[str, list[Provider]], IndexStoreInfo):
-    deps_with_binary = ctx.attrs.deps + get_flattened_binary_deps(ctx.attrs.binary)
+def _index_store_data(ctx: AnalysisContext, deps_with_binary: list[Dependency]) -> (dict[str, list[Provider]], IndexStoreInfo):
     index_store_subtargets, index_store_info = create_index_store_subtargets_and_provider(ctx, [], [], deps_with_binary)
     return index_store_subtargets, index_store_info
 

@@ -902,7 +902,7 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
 
     link_cmd_debug_output = make_link_command_debug_output(binary)
     if link_cmd_debug_output != None:
-        link_cmd_debug_output_file = make_link_command_debug_output_json_info(ctx, [link_cmd_debug_output])
+        link_cmd_debug_output_file = make_link_command_debug_output_json_info(ctx.actions, [link_cmd_debug_output])
         sub_targets["linker.command"] = [DefaultInfo(
             default_outputs = filter(None, [link_cmd_debug_output_file]),
         )]

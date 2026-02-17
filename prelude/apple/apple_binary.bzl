@@ -242,7 +242,9 @@ def apple_binary_impl(ctx: AnalysisContext) -> [list[Provider], Promise]:
 
         index_stores.extend(cxx_output.index_stores)
 
-        index_store_subtargets, index_store_info = create_index_store_subtargets_and_provider(ctx, index_stores, swift_index_stores, non_exported_deps + exported_deps)
+        all_deps = non_exported_deps + exported_deps
+
+        index_store_subtargets, index_store_info = create_index_store_subtargets_and_provider(ctx, index_stores, swift_index_stores, all_deps)
         cxx_output.sub_targets.update(index_store_subtargets)
 
         validation_providers = [ValidationInfo(validations = cxx_output.validation_specs)] if cxx_output.validation_specs else []
@@ -257,6 +259,7 @@ def apple_binary_impl(ctx: AnalysisContext) -> [list[Provider], Promise]:
             cxx_transitive_diagnostics_combine(
                 ctx = ctx,
                 diagnostics = all_diagnostics,
+                # TODO: We might be able to use all_deps, but, this changes the iteration order of deps.
                 deps = exported_deps + non_exported_deps,
             ),
         ]
