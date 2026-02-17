@@ -22,6 +22,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * If we end up creating both an obfuscator function and a deobfuscator function, it would be nice
@@ -75,23 +76,46 @@ public class ProguardTranslatorFactory {
   }
 
   public Function<String, String> createDeobfuscationFunction() {
-    return createFunction(false, false);
+    return createNonNullableFunction(false);
   }
 
   public Function<String, String> createObfuscationFunction() {
-    return createFunction(true, false);
+    return createNonNullableFunction(true);
   }
 
-  public Function<String, String> createNullableObfuscationFunction() {
-    return createFunction(true, true);
+  public Function<String, @Nullable String> createNullableObfuscationFunction() {
+    return createNullableFunction(true);
   }
 
-  private Function<String, String> createFunction(
-      final boolean isForObfuscation, final boolean isNullable) {
+  private Function<String, String> createNonNullableFunction(final boolean isForObfuscation) {
     if (!rawMap.isPresent()) {
       return Functions.identity();
     }
 
+    Map<String, String> map = buildMap(isForObfuscation);
+
+    return input -> {
+      String mapped = map.get(input);
+      if (mapped != null) {
+        return mapped;
+      } else {
+        return input;
+      }
+    };
+  }
+
+  private Function<String, @Nullable String> createNullableFunction(
+      final boolean isForObfuscation) {
+    if (!rawMap.isPresent()) {
+      return input -> input;
+    }
+
+    Map<String, String> map = buildMap(isForObfuscation);
+
+    return input -> map.get(input);
+  }
+
+  private Map<String, String> buildMap(boolean isForObfuscation) {
     ImmutableMap.Builder<String, String> builder = ImmutableMap.builder();
     for (Map.Entry<String, String> entry : rawMap.get().entrySet()) {
       String original = entry.getKey().replace('.', '/');
@@ -99,16 +123,6 @@ public class ProguardTranslatorFactory {
       builder.put(
           isForObfuscation ? original : obfuscated, isForObfuscation ? obfuscated : original);
     }
-    Map<String, String> map = builder.build();
-
-    return input -> {
-      String mapped = map.get(input);
-      if (isNullable || mapped != null) {
-        // NULLSAFE_FIXME[Return Not Nullable]
-        return mapped;
-      } else {
-        return input;
-      }
-    };
+    return builder.build();
   }
 }
