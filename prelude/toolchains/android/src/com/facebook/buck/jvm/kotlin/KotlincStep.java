@@ -212,10 +212,7 @@ public class KotlincStep implements IsolatedStep {
         returnedStderr = Optional.empty();
       }
 
-      // TODO: add used-classes support for Kosabi 2.0 T232722163
-      if (declaredDepsBuildResult == StepExecutionResults.SUCCESS_EXIT_CODE
-          && trackClassUsage
-          && !shouldKosabiJvmAbiGenUseK2) {
+      if (declaredDepsBuildResult == StepExecutionResults.SUCCESS_EXIT_CODE && trackClassUsage) {
         AbsPath ruleCellRoot = context.getRuleCellRoot();
         RelPath outputJarDirPath = outputPaths.getOutputJarDirPath();
         ClassUsageFileWriterFactory.create(kotlincMode)
@@ -286,8 +283,7 @@ public class KotlincStep implements IsolatedStep {
     builder.add(INCLUDE_RUNTIME_FLAG);
     builder.add(EXCLUDE_REFLECT);
 
-    // TODO: add used-classes support for Kosabi 2.0 T232722163
-    if (trackClassUsage && !shouldKosabiJvmAbiGenUseK2) {
+    if (trackClassUsage) {
       depTrackerPath.ifPresentOrElse(
           // New plugin, runtime dependency
           path -> {
