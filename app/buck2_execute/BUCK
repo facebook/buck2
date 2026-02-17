@@ -26,7 +26,7 @@ rust_library(
         "fbsource//third-party/rust:futures",
         "fbsource//third-party/rust:hex",
         "fbsource//third-party/rust:http-1",
-        "fbsource//third-party/rust:hyper-1-5-1",
+        "fbsource//third-party/rust:hyper",
         "fbsource//third-party/rust:indexmap",
         "fbsource//third-party/rust:itertools",
         "fbsource//third-party/rust:once_cell",
