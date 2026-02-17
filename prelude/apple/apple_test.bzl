@@ -24,6 +24,7 @@ load(
     "CompileArgsfile",  # @unused Used as a type
 )
 load("@prelude//cxx:cxx_library.bzl", "cxx_library_parameterized")
+load("@prelude//cxx:cxx_library_utility.bzl", "cxx_attr_deps", "cxx_attr_exported_deps")
 load(
     "@prelude//cxx:cxx_sources.bzl",
     "CxxSrcWithFlags",  # @unused Used as a type
@@ -39,6 +40,7 @@ load(
     "flatten_x",
 )
 load("@prelude//utils:expect.bzl", "expect")
+load("@prelude//xplugins:debug_artifacts.bzl", "xplugins_get_debug_artifacts_info", "xplugins_get_debug_artifacts_subtargets")
 load(":apple_bundle.bzl", "AppleBundlePartListConstructorParams", "get_apple_bundle_part_list")
 load(":apple_bundle_destination.bzl", "AppleBundleDestination", "bundle_relative_path_for_destination")
 load(":apple_bundle_part.bzl", "AppleBundlePart", "assemble_bundle", "bundle_output", "get_bundle_dir_name")
@@ -178,6 +180,11 @@ def apple_test_impl(ctx: AnalysisContext) -> [list[Provider], Promise]:
         )
         sub_targets = bundle_result.sub_targets
         sub_targets.update(cxx_library_output.sub_targets)
+
+        # Add xplugins debug artifacts as subtarget (similar to apple_bundle)
+        all_deps = cxx_attr_deps(ctx) + cxx_attr_exported_deps(ctx)
+        xplugins_debug_artifacts_info = xplugins_get_debug_artifacts_info(ctx, all_deps)
+        sub_targets["xplugins"] = xplugins_get_debug_artifacts_subtargets(ctx.actions, xplugins_debug_artifacts_info)
 
         dsym_artifact = get_apple_dsym(
             ctx = ctx,

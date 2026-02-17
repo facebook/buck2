@@ -53,6 +53,7 @@ load(
     "@prelude//utils:utils.bzl",
     "flatten",
 )
+load("@prelude//xplugins:debug_artifacts.bzl", "xplugins_get_debug_artifacts_info", "xplugins_get_debug_artifacts_subtargets")
 load(":apple_bundle_destination.bzl", "AppleBundleDestination")
 load(":apple_bundle_part.bzl", "AppleBundleCodesignManifestTreePart", "AppleBundlePart", "AppleBundleSigningContextTreePart", "SwiftStdlibArguments", "assemble_bundle", "bundle_output", "get_apple_bundle_part_relative_destination_path", "get_bundle_dir_name")
 load(":apple_bundle_resources.bzl", "get_apple_bundle_resource_part_list")
@@ -381,6 +382,9 @@ def apple_bundle_impl(ctx: AnalysisContext) -> list[Provider]:
     linker_maps_directory, linker_map_info = _linker_maps_data(ctx.actions, deps_with_binary)
     sub_targets["linker-maps"] = [DefaultInfo(default_output = linker_maps_directory)]
 
+    xplugins_debug_info = xplugins_get_debug_artifacts_info(ctx, deps_with_binary)
+    sub_targets["xplugins"] = xplugins_get_debug_artifacts_subtargets(ctx.actions, xplugins_debug_info)
+
     link_cmd_debug_file, link_cmd_debug_info = _link_command_debug_data(ctx.actions, deps_with_binary)
     sub_targets["linker.command"] = [DefaultInfo(default_outputs = filter(None, [link_cmd_debug_file]))]
 
@@ -469,7 +473,7 @@ def apple_bundle_impl(ctx: AnalysisContext) -> list[Provider]:
     )
     sub_targets["check"] = [DefaultInfo(default_output = None, other_outputs = transitive_diagnostic_artifacts)]
 
-    return [
+    providers = [
         DefaultInfo(default_output = bundle, sub_targets = sub_targets),
         AppleBundleInfo(
             bundle = bundle,
@@ -501,6 +505,10 @@ def apple_bundle_impl(ctx: AnalysisContext) -> list[Provider]:
         index_store_info,
         info_plist_info,
     ] + bundle_result.providers + validation_providers
+    if xplugins_debug_info:
+        providers.append(xplugins_debug_info)
+
+    return providers
 
 def _xcode_populate_attributes(ctx, processed_info_plist: Artifact, info_plist_relative_path: str) -> dict[str, typing.Any]:
     data = {

@@ -59,6 +59,7 @@ load("@prelude//linking:link_info.bzl", "LinkOrdering")
 load("@prelude//linking:types.bzl", "Linkage")
 load("@prelude//transitions:constraint_overrides.bzl", "constraint_overrides")
 load("@prelude//utils:buckconfig.bzl", "read_bool")
+load("@prelude//xplugins:attrs.bzl", "xplugins_common")
 load(":apple_app_intents.bzl", "apple_app_intents_impl")
 load(":apple_asset_catalog.bzl", "apple_asset_catalog_impl")
 load(":apple_binary.bzl", "apple_binary_impl")
@@ -375,7 +376,8 @@ apple_binary = prelude_rule(
         buck.allow_cache_upload_arg() |
         validation_common.attrs_validators_arg() |
         constraint_overrides.attributes |
-        get_skip_swift_incremental_outputs_attrs()
+        get_skip_swift_incremental_outputs_attrs() |
+        xplugins_common.debug_artifacts_arg
     ),
     impl = apple_binary_impl,
     cfg = target_sdk_version_transition,
@@ -685,7 +687,8 @@ apple_library = prelude_rule(
         get_swift_incremental_file_hashing_attrs() |
         get_swift_incremental_logging_attrs() |
         get_swift_incremental_remote_outputs_attrs() |
-        get_skip_swift_incremental_outputs_attrs()
+        get_skip_swift_incremental_outputs_attrs() |
+        xplugins_common.debug_artifacts_arg
     ),
     uses_plugins = [SwiftMacroPlugin],
     impl = apple_library_impl,
@@ -1033,6 +1036,7 @@ apple_test = prelude_rule(
         buck.inject_test_env_arg() |
         apple_test_extra_attrs() |
         test_common.attributes() |
+        xplugins_common.debug_artifacts_arg |
         constraint_overrides.attributes
     ),
     uses_plugins = [SwiftMacroPlugin],

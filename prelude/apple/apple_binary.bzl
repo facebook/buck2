@@ -70,6 +70,7 @@ load(
 load("@prelude//utils:arglike.bzl", "ArgLike")
 load("@prelude//utils:expect.bzl", "expect")
 load("@prelude//utils:utils.bzl", "map_val")
+load("@prelude//xplugins:debug_artifacts.bzl", "xplugins_get_debug_artifacts_info")
 load("@prelude//xplugins:utils.bzl", "get_xplugins_usage_info", "get_xplugins_usage_subtargets")
 load(":apple_bundle_types.bzl", "AppleBundleLinkerMapInfo", "AppleMinDeploymentVersionInfo")
 load(":apple_bundle_utility.bzl", "get_bundle_infos_from_graph", "merge_bundle_linker_maps_info")
@@ -264,7 +265,7 @@ def apple_binary_impl(ctx: AnalysisContext) -> [list[Provider], Promise]:
             ),
         ]
 
-        return [
+        providers = [
             DefaultInfo(default_output = cxx_output.binary, sub_targets = cxx_output.sub_targets),
             RunInfo(args = cmd_args(cxx_output.binary, hidden = cxx_output.runtime_files)),
             AppleEntitlementsInfo(entitlements_file = ctx.attrs.entitlements_file),
@@ -275,6 +276,12 @@ def apple_binary_impl(ctx: AnalysisContext) -> [list[Provider], Promise]:
             UnstrippedLinkOutputInfo(artifact = unstripped_binary),
             index_store_info,
         ] + [resource_graph] + min_version_providers + link_command_providers + sanitizer_runtime_providers + validation_providers + diagnostics_providers
+
+        xplugins_debug_artifacts_info = xplugins_get_debug_artifacts_info(ctx, all_deps)
+        if xplugins_debug_artifacts_info:
+            providers.append(xplugins_debug_artifacts_info)
+
+        return providers
 
     if uses_explicit_modules(ctx):
         return get_swift_anonymous_targets(ctx, get_apple_binary_providers)
