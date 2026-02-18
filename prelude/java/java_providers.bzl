@@ -378,7 +378,7 @@ def generate_java_classpath_snapshot(
         return None
     identifier = (
         "{}_".format(action_identifier) if action_identifier else ""
-    ) + library.short_path.replace("/", "_").split(".")[0]
+    ) + library.short_path.replace("/", "_").rsplit(".", 1)[0]  # remove the extension and preserve any [foo.baz].[jar] or [thing-1.2.3.4].[jar] style names
     output = actions.declare_output(
         "{}_jar_snapshot_{}.bin".format(
             identifier,
