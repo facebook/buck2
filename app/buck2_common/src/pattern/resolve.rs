@@ -275,7 +275,7 @@ mod tests {
                     p,
                     CellName::testing_new("root"),
                     &self.resolver,
-                    &self.resolver.root_cell_cell_alias_resolver(),
+                    self.resolver.root_cell_cell_alias_resolver(),
                 )
                 .unwrap()
             });
@@ -297,7 +297,7 @@ mod tests {
                         pattern_str,
                         CellName::testing_new("root"),
                         &self.resolver,
-                        &self.resolver.root_cell_cell_alias_resolver(),
+                        self.resolver.root_cell_cell_alias_resolver(),
                     )
                     .unwrap()
                 })

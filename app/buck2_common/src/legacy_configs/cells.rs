@@ -121,7 +121,7 @@ impl ExternalBuckconfigData {
         };
         let mut local_config_components = Vec::new();
         if let Ok(legacy_cells) =
-            BuckConfigBasedCells::parse_with_config_args(&project_root, &[]).await
+            BuckConfigBasedCells::parse_with_config_args(project_root, &[]).await
         {
             let path = ForwardRelativePath::new(DOT_BUCKCONFIG_LOCAL).expect(
                 "Internal error: .buckconfig.local should always be a valid forward relative path",
@@ -320,7 +320,7 @@ impl BuckConfigBasedCells {
         };
 
         // NOTE: This will _not_ perform IO unless it needs to.
-        let processed_config_args = resolve_config_args(&config_args, &mut file_ops).await?;
+        let processed_config_args = resolve_config_args(config_args, &mut file_ops).await?;
 
         let external_paths = get_external_buckconfig_paths(&mut file_ops).await?;
         let started_parse = LegacyBuckConfig::start_parse_for_external_files(

@@ -49,8 +49,7 @@ impl PackageListingResolver for InterpreterPackageListingResolver<'_, '_> {
         &mut self,
         path: CellPathRef<'async_trait>,
     ) -> buck2_error::Result<PackageLabel> {
-        let buildfile_candidates =
-            DiceFileComputations::buildfiles(&mut self.ctx, path.cell()).await?;
+        let buildfile_candidates = DiceFileComputations::buildfiles(self.ctx, path.cell()).await?;
         if let Some(path) = path.parent() {
             for path in path.ancestors() {
                 let listing = DiceFileComputations::read_dir(self.ctx, path)
@@ -73,8 +72,7 @@ impl PackageListingResolver for InterpreterPackageListingResolver<'_, '_> {
         path: CellPathRef<'async_trait>,
         enclosing_path: CellPathRef<'async_trait>,
     ) -> buck2_error::Result<Vec<PackageLabel>> {
-        let buildfile_candidates =
-            DiceFileComputations::buildfiles(&mut self.ctx, path.cell()).await?;
+        let buildfile_candidates = DiceFileComputations::buildfiles(self.ctx, path.cell()).await?;
         if let Some(path) = path.parent() {
             let mut packages = Vec::new();
             for path in path.ancestors() {

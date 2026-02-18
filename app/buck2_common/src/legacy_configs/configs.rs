@@ -278,7 +278,7 @@ impl LegacyBuckConfig {
         for main_config_file in config_paths {
             let mut parser = LegacyConfigParser::new();
             parser
-                .parse_file(&main_config_file, None, follow_includes, file_ops)
+                .parse_file(main_config_file, None, follow_includes, file_ops)
                 .await?;
             external_path_configs.push(ExternalPathBuckconfigData {
                 origin_path: main_config_file.clone(),
