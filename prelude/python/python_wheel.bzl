@@ -77,23 +77,6 @@ def _link_deps(
 
     return depth_first_traversal_by(link_infos, deps, find_deps)
 
-def _python_version_from_tag(tag):
-    """Extract Python version from a wheel tag: "py3.12" -> "3.12", "cp312" -> "3.12"."""
-    version = tag
-    for prefix in ("cp", "py"):
-        if tag.startswith(prefix):
-            version = tag[len(prefix):]
-            break
-    if "." in version:
-        return version
-    if len(version) >= 2:
-        return version[0] + "." + version[1:]
-    return version
-
-def _cpython_tag(python_version):
-    """Convert Python version to CPython tag: "3.12" -> "cp312"."""
-    return "cp" + python_version.replace(".", "")
-
 def _whl_cmd(
         ctx: AnalysisContext,
         output: Artifact,
@@ -101,8 +84,7 @@ def _whl_cmd(
         abi: str,
         python: str,
         manifests: list[ManifestInfo] = [],
-        srcs: dict[str, Artifact] = {},
-        computed_metadata: dict[str, str] = {}) -> cmd_args:
+        srcs: dict[str, Artifact] = {}) -> cmd_args:
     cmd = []
 
     cmd.append(ctx.attrs._wheel[RunInfo])
@@ -119,9 +101,6 @@ def _whl_cmd(
         cmd.append("--entry-points={}".format(json.encode(ctx.attrs.entry_points)))
 
     for key, val in ctx.attrs.extra_metadata.items():
-        cmd.extend(["--metadata", key, val])
-
-    for key, val in computed_metadata.items():
         cmd.extend(["--metadata", key, val])
 
     for requires in ctx.attrs.requires:
@@ -398,26 +377,6 @@ def _impl(ctx: AnalysisContext) -> list[Provider]:
     if not platform:
         fail("platform must be set either on python_wheel target or in python_wheel_toolchain")
 
-    # Resolve ABI tag: explicit attr > toolchain default
-    abi = value_or(ctx.attrs.abi, wheel_toolchain.abi)
-
-    # Auto-detect CPython tags for wheels with native extensions (PEP 427).
-    # When native extensions are present and no explicit ABI override is set,
-    # switch from py*-none to cpXXX-cpXXX tags.
-    python_version = _python_version_from_tag(python)
-
-    # Normalize python tag to PEP 425 format: "py3.12" -> "py312"
-    if "." in python:
-        python = python.replace(".", "")
-
-    if extensions and abi == "none":
-        cp_tag = _cpython_tag(python_version)
-        python = cp_tag
-        abi = cp_tag
-
-    # Computed metadata for WHEEL/METADATA files
-    computed_metadata = {"Requires-Python": "==" + python_version + ".*"}
-
     def normalize_name(name):
         # Normalize name part of the *.whl file per:
         #  * https://packaging.python.org/en/latest/specifications/recording-installed-packages/#the-dist-info-directory
@@ -447,7 +406,7 @@ def _impl(ctx: AnalysisContext) -> list[Provider]:
         normalize_name(dist),
         ctx.attrs.version,
         python,
-        abi,
+        wheel_toolchain.abi,
         platform,
     ]
 
@@ -457,10 +416,9 @@ def _impl(ctx: AnalysisContext) -> list[Provider]:
         ctx = ctx,
         output = wheel,
         platform = platform,
-        abi = abi,
+        abi = wheel_toolchain.abi,
         python = python,
         manifests = srcs + native_srcs,
-        computed_metadata = computed_metadata,
     )
     ctx.actions.run(whl_cmd, category = "wheel")
 
@@ -509,10 +467,9 @@ def _impl(ctx: AnalysisContext) -> list[Provider]:
         ctx = ctx,
         output = ewheel,
         platform = platform,
-        abi = abi,
+        abi = wheel_toolchain.abi,
         python = python,
         srcs = {"{}.pth".format(dist): pth},
-        computed_metadata = computed_metadata,
     )
     ctx.actions.run(ewhl_cmd, category = "editable_wheel")
     sub_targets["editable"] = [
@@ -536,7 +493,6 @@ python_wheel = rule(
         dist = attrs.option(attrs.string(), default = None),
         version = attrs.string(default = "1.0.0"),
         python = attrs.option(attrs.string(), default = None),
-        abi = attrs.option(attrs.string(), default = None),
         entry_points = attrs.dict(
             key = attrs.string(),
             value = attrs.dict(
