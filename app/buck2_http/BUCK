@@ -24,7 +24,7 @@ rust_library(
         "fbsource//third-party/rust:hyper",
         "fbsource//third-party/rust:hyper-http-proxy",
         "fbsource//third-party/rust:hyper-rustls-0-27",
-        "fbsource//third-party/rust:hyper-timeout-0-5",
+        "fbsource//third-party/rust:hyper-timeout",
         "fbsource//third-party/rust:hyper-util",
         "fbsource//third-party/rust:ipnetwork",
         "fbsource//third-party/rust:pin-project",
