@@ -14,6 +14,7 @@ load("@prelude//cxx:cxx_sources.bzl", "CxxSrcWithFlags")
 load(
     ":swift_incremental_support.bzl",
     "IncrementalCompilationInput",  # @unused Used as a type
+    "get_incremental_split_actions",
     "get_uses_content_based_paths",
     "should_build_swift_incrementally",
 )
@@ -55,7 +56,8 @@ def compile_with_argsfile_cmd(
         writable_incremental_args.extend(object_outputs)
         writable_incremental_args.extend([swiftdep.as_output() for swiftdep in incremental_artifacts.swiftdeps])
         writable_incremental_args.extend([depfile.as_output() for depfile in incremental_artifacts.depfiles])
-        writable_incremental_args.append(incremental_artifacts.swiftdoc.as_output())
+        if incremental_artifacts.swiftdoc:
+            writable_incremental_args.append(incremental_artifacts.swiftdoc.as_output())
 
     cmd = cmd_args(toolchain.compiler)
     cmd.add(additional_flags)
@@ -114,6 +116,7 @@ def compile_with_argsfile_cmd(
             diagnostics_output = json_error_output,
             is_incremental = is_incremental,
             skip_incremental_outputs = skip_incremental_outputs,
+            split_actions = get_incremental_split_actions(ctx),
         )
         cmd.add(
             "-Xwrapper",

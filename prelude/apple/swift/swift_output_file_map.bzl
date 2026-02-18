@@ -38,6 +38,7 @@ def add_serialized_diagnostics_output(
         cmd: cmd_args,
         diagnostics_output: OutputArtifact,
         is_incremental: bool = False,
+        split_actions: bool = False,
         skip_incremental_outputs: bool = False) -> None:
     if output_file_map == None:
         # Some actions, eg -emit-pcm, do not support output file maps. In this
@@ -51,7 +52,7 @@ def add_serialized_diagnostics_output(
         map["diagnostics"] = cmd_args(diagnostics_output, delimiter = "", format = "{}.dia")
         cmd.add(cmd_args("-serialize-diagnostics", hidden = [diagnostics_output]))
 
-        if is_incremental and not skip_incremental_outputs:
+        if is_incremental and not skip_incremental_outputs and not split_actions:
             uses_content_based_paths = get_uses_content_based_paths(ctx)
             module_name = get_module_name(ctx)
             module_dia = ctx.actions.declare_output("__swift_incremental__/swiftdeps/" + module_name + ".emit-module.dia", has_content_based_path = uses_content_based_paths)

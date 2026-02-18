@@ -78,6 +78,7 @@ load(
     "get_apple_xctoolchain_attr",
     "get_apple_xctoolchain_bundle_id_attr",
     "get_enable_library_evolution",
+    "get_incremental_split_actions_attrs",
     "get_skip_swift_incremental_outputs_attrs",
     "get_swift_incremental_file_hashing_attrs",
     "get_swift_incremental_logging_attrs",
@@ -688,7 +689,8 @@ apple_library = prelude_rule(
         get_swift_incremental_logging_attrs() |
         get_swift_incremental_remote_outputs_attrs() |
         get_skip_swift_incremental_outputs_attrs() |
-        xplugins_common.debug_artifacts_arg
+        xplugins_common.debug_artifacts_arg |
+        get_incremental_split_actions_attrs()
     ),
     uses_plugins = [SwiftMacroPlugin],
     impl = apple_library_impl,

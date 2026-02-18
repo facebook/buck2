@@ -107,6 +107,11 @@ def get_swift_incremental_logging_attrs():
         "swift_incremental_logging": attrs.bool(default = read_bool("apple", "swift_incremental_logging_enabled", False, False, True)),
     }
 
+def get_incremental_split_actions_attrs():
+    return {
+        "_swift_incremental_split_actions": attrs.bool(default = read_bool("apple", "swift_incremental_split_actions", False, False, True)),
+    }
+
 def _apple_bundle_like_common_attrs():
     # `apple_bundle()` and `apple_test()` share a common set of extra attrs
     attribs = {
@@ -199,6 +204,7 @@ def apple_test_extra_attrs():
     attribs.update(get_swift_incremental_file_hashing_attrs())
     attribs.update(get_swift_incremental_logging_attrs())
     attribs.update(get_skip_swift_incremental_outputs_attrs())
+    attribs.update(get_incremental_split_actions_attrs())
     return attribs
 
 def apple_xcuitest_extra_attrs():

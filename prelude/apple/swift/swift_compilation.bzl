@@ -67,6 +67,7 @@ load(
     "get_incremental_file_hashing_enabled",
     "get_incremental_object_compilation_flags",
     "get_incremental_remote_outputs_enabled",
+    "get_incremental_split_actions",
     "get_uses_content_based_paths",
     "should_build_swift_incrementally",
 )
@@ -421,10 +422,10 @@ def compile_swift(
             output_swiftinterface,
         )
 
-    # When compiling with WMO (ie, not incrementally), we compile the
-    # swiftmodule separately. In incremental mode, we generate the swiftmodule
+    # When compiling with WMO or incremental with split actions enabled, we compile
+    # the swiftmodule separately. In pure incremental mode, we generate the swiftmodule
     # as part of the compile action to make use of incrementality.
-    if not should_build_swift_incrementally(ctx):
+    if not should_build_swift_incrementally(ctx) or get_incremental_split_actions(ctx):
         _compile_swiftmodule(
             ctx,
             toolchain,
@@ -695,14 +696,16 @@ def _compile_object(
         category: str) -> SwiftObjectOutput:
     dep_files = {}
     output_file_map = {}
-    emit_depsfiles = toolchain.use_depsfiles and not get_incremental_file_hashing_enabled(ctx)
+    emit_depsfiles = toolchain.use_depsfiles and not get_incremental_file_hashing_enabled(ctx) and not get_incremental_split_actions(ctx)
     skip_incremental_outputs = False
     module_name = get_module_name(ctx)
     uses_content_based_paths = get_uses_content_based_paths(ctx)
 
     if should_build_swift_incrementally(ctx):
-        #define this here as we will only have an artifact for the purposes of incremental rebuilds.
-        output_swiftdoc = ctx.actions.declare_output(module_name + ".swiftdoc", has_content_based_path = uses_content_based_paths)
+        output_swiftdoc = None
+        if not get_incremental_split_actions(ctx):
+            #define this here as we will only have an artifact for the purposes of incremental rebuilds.
+            output_swiftdoc = ctx.actions.declare_output(module_name + ".swiftdoc", has_content_based_path = uses_content_based_paths)
 
         incremental_compilation_output = get_incremental_object_compilation_flags(ctx, srcs, output_swiftmodule, output_swiftdoc, output_header)
         cmd = incremental_compilation_output.incremental_flags_cmd

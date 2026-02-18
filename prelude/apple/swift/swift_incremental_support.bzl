@@ -31,13 +31,13 @@ IncrementalCompilationOutput = record(
     incremental_remote_outputs = field(bool),
     swiftdeps = field(list[Artifact]),
     depfiles = field(list[Artifact]),
-    swiftdoc = field(Artifact),
+    swiftdoc = field(Artifact | None),
 )
 
 IncrementalCompilationInput = record(
     swiftdeps = field(list[Artifact]),
     depfiles = field(list[Artifact]),
-    swiftdoc = field(Artifact),
+    swiftdoc = field(Artifact | None),
 )
 
 SwiftCompilationMode = enum(*SwiftCompilationModes)
@@ -64,7 +64,7 @@ def get_incremental_object_compilation_flags(
         ctx: AnalysisContext,
         srcs: list[CxxSrcWithFlags],
         output_swiftmodule: Artifact,
-        output_swiftdoc: Artifact,
+        output_swiftdoc: Artifact | None,
         output_header: Artifact) -> IncrementalCompilationOutput:
     output_file_map_data = _get_output_file_map(ctx, srcs)
     return _get_incremental_compilation_flags_and_objects(
@@ -92,6 +92,9 @@ def get_incremental_file_hashing_enabled(ctx: AnalysisContext):
 
 def get_swift_incremental_logging_enabled(ctx: AnalysisContext):
     return getattr(ctx.attrs, "swift_incremental_logging", False)
+
+def get_incremental_split_actions(ctx: AnalysisContext):
+    return getattr(ctx.attrs, "_swift_incremental_split_actions", False)
 
 def get_incremental_remote_outputs_enabled(ctx: AnalysisContext):
     return getattr(ctx.attrs, "incremental_remote_outputs", False)
@@ -123,16 +126,23 @@ def _get_incremental_compilation_flags_and_objects(
             str(INCREMENTAL_SWIFT_COMPILE_MAX_NUM_THREADS),
             "-driver-batch-size-limit",
             str(INCREMENTAL_SWIFT_COMPILE_BATCH_SIZE),
-            "-emit-objc-header",
-            "-emit-objc-header-path",
-            output_header.as_output(),
-            "-emit-module",
-            "-emit-module-path",
-            output_swiftmodule.as_output(),
         ],
         hidden = [output.as_output() for output in output_file_map_data.outputs] + extra_hidden,
     )
     cmd.add(include_path_for_relative_module_map_paths(ctx))
+
+    if not get_incremental_split_actions(ctx):
+        cmd.add(
+            [
+                "-emit-objc-header",
+                "-emit-objc-header-path",
+                output_header.as_output(),
+                "-emit-module",
+                "-emit-module-path",
+                output_swiftmodule.as_output(),
+            ],
+        )
+
     skip_incremental_outputs = _get_skip_swift_incremental_outputs(ctx)
     incremental_remote_outputs = False
     uses_content_based_paths = get_uses_content_based_paths(ctx)
