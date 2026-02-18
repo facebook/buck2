@@ -144,7 +144,7 @@ mod tests {
         let digests = match value.entry() {
             ActionDirectoryEntry::Dir(dir) => {
                 expected.push(dir.fingerprint().to_re());
-                collect_digests(&value.entry())
+                collect_digests(value.entry())
             }
             _ => vec![],
         };

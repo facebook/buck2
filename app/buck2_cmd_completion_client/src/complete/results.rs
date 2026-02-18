@@ -46,7 +46,7 @@ impl<'a> CompletionResults<'a> {
     }
 
     pub(crate) async fn insert_path(&mut self, path: &SanitizedPath) -> &mut Self {
-        self.insert_dir(&path.abs_path(), path.given()).await
+        self.insert_dir(path.abs_path(), path.given()).await
     }
 
     pub(crate) async fn insert_dir(&mut self, abs_dir: &AbsNormPath, nickname: &str) -> &mut Self {

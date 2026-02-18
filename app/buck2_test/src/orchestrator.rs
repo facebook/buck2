@@ -508,7 +508,7 @@ impl<'a> BuckTestOrchestrator<'a> {
                     signals.test_execution(
                         test_target.target().dupe(),
                         suite.to_owned(),
-                        &testcases,
+                        testcases,
                         variant.to_owned(),
                         duration,
                         &input_deps_action_keys,
@@ -996,7 +996,7 @@ impl BuckTestOrchestrator<'_> {
 
         let test_target = TestTarget {
             target: test_target_label.target(),
-            action_key_suffix: create_action_key_suffix(&stage),
+            action_key_suffix: create_action_key_suffix(stage),
         };
 
         // For test execution, we currently do not do any cache queries
@@ -1368,7 +1368,7 @@ impl BuckTestOrchestrator<'_> {
         let executor_config = Self::executor_config_with_remote_cache_override(
             &node,
             resolved_executor_override.as_ref().map(|a| &***a),
-            &stage,
+            stage,
         )?;
 
         let executor = Self::get_command_executor(dice, fs, &executor_config, stage)
@@ -1548,7 +1548,7 @@ impl BuckTestOrchestrator<'_> {
                 let fs = executor.fs();
                 let executor_fs = executor.executor_fs();
                 async move {
-                    Self::prepare_local_resource(dice, provider, &fs, &executor_fs, default_timeout)
+                    Self::prepare_local_resource(dice, provider, fs, &executor_fs, default_timeout)
                         .await
                 }
                 .boxed()

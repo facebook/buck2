@@ -198,7 +198,7 @@ pub(crate) async fn targets_resolve_aliases(
             formatter.separator(&mut buffer);
         }
         needs_separator = true;
-        formatter.emit(&alias, node.label(), &mut buffer);
+        formatter.emit(alias, node.label(), &mut buffer);
     }
 
     formatter.end(&mut buffer);

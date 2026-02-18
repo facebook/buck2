@@ -118,8 +118,7 @@ impl StarlarkServerSubcommand for StarlarkLintCommand {
                 let mut stdout = stdout.as_writer();
                 let mut lint_count = 0;
                 let files =
-                    starlark_files(&mut ctx, &self.paths, server_ctx, &cell_resolver, &**io)
-                        .await?;
+                    starlark_files(&mut ctx, &self.paths, server_ctx, cell_resolver, &**io).await?;
                 let mut cache = Cache::new(&ctx);
 
                 for file in &files {

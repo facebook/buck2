@@ -606,7 +606,7 @@ async fn test(
     let mut target_rule_type_names: Vec<String> = Vec::new();
     for configured in test_outcome.build_target_result.configured.keys() {
         target_rule_type_names
-            .push(get_target_rule_type_name(&mut ctx, &configured.target()).await?);
+            .push(get_target_rule_type_name(&mut ctx, configured.target()).await?);
     }
 
     let mut errors = test_outcome.errors;
@@ -1258,7 +1258,7 @@ impl<'a, 'e> TestDriver<'a, 'e> {
                 .with_linear_recompute(|ctx| async move {
                     build_target_result(
                         &ctx,
-                        &state.label_filtering,
+                        state.label_filtering,
                         build_label,
                         modifiers_dupe,
                         state.build_default_info,
@@ -1384,7 +1384,7 @@ async fn build_target_result(
             false,
             build_configured_label(
                 &consumer,
-                &ctx,
+                ctx,
                 materialization_and_upload,
                 label,
                 &ProvidersToBuild {

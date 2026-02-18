@@ -216,7 +216,7 @@ impl PathSanitizer {
     fn relative_to_cell(&self, dir: &AbsNormPath) -> buck2_error::Result<CellRelativePathBuf> {
         Ok(self
             .cell_resolver
-            .get_cell_path_from_abs_path(dir, &self.project_root())?
+            .get_cell_path_from_abs_path(dir, self.project_root())?
             .path()
             .to_owned())
     }

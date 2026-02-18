@@ -127,7 +127,7 @@ async fn do_apply_transition(
     let mut refs = Vec::new();
     let mut refs_refs = Vec::new();
     for (s, t) in transition.refs() {
-        let provider_collection_value = ctx.fetch_transition_function_reference(&t).await?;
+        let provider_collection_value = ctx.fetch_transition_function_reference(t).await?;
         refs.push((
             *s,
             // This is safe because we store a reference to provider collection in `refs_refs`.
@@ -150,7 +150,7 @@ async fn do_apply_transition(
                         for (name, value) in names.into_iter().zip_eq(values.iter()) {
                             let value = match value {
                                 Some(value) => (CONFIGURED_ATTR_TO_VALUE.get()?)(
-                                    &value,
+                                    value,
                                     PackageLabelOption::TransitionAttr,
                                     module.heap(),
                                 )

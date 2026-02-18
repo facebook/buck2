@@ -144,7 +144,7 @@ impl<'a> TargetCompleter<'a> {
         given_package: &str,
         partial_target: &str,
     ) -> CommandOutcome<Vec<String>> {
-        let sanitizer = PathSanitizer::new(&self.cell_configs, &self.cwd, &self.roots).await?;
+        let sanitizer = PathSanitizer::new(&self.cell_configs, &self.cwd, self.roots).await?;
         let path = sanitizer.sanitize(given_package)?;
         let completions = self
             .target_resolver
