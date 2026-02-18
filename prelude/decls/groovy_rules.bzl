@@ -11,7 +11,7 @@
 # the generated docs, and so those should be verified to be accurate and
 # well-formatted (and then delete this TODO)
 
-load(":common.bzl", "ForkMode", "LogLevel", "SourceAbiVerificationMode", "TestType", "UnusedDependenciesAction", "buck", "prelude_rule")
+load(":common.bzl", "ForkMode", "LogLevel", "SourceAbiVerificationMode", "TestType", "buck", "prelude_rule")
 load(":jvm_common.bzl", "jvm_common")
 
 groovy_library = prelude_rule(
@@ -114,7 +114,6 @@ groovy_library = prelude_rule(
             "manifest_file": attrs.option(attrs.source(), default = None),
             "maven_coords": attrs.option(attrs.string(), default = None),
             "never_mark_as_unused_dependency": attrs.option(attrs.bool(), default = None),
-            "on_unused_dependencies": attrs.option(attrs.enum(UnusedDependenciesAction), default = None),
             "proguard_config": attrs.option(attrs.source(), default = None),
             "remove_classes": attrs.list(attrs.regex(), default = []),
             "required_for_source_only_abi": attrs.bool(default = False),
@@ -158,7 +157,6 @@ groovy_test = prelude_rule(
             "manifest_file": attrs.option(attrs.source(), default = None),
             "maven_coords": attrs.option(attrs.string(), default = None),
             "never_mark_as_unused_dependency": attrs.option(attrs.bool(), default = None),
-            "on_unused_dependencies": attrs.option(attrs.enum(UnusedDependenciesAction), default = None),
             "proguard_config": attrs.option(attrs.source(), default = None),
             "provided_deps": attrs.list(attrs.dep(), default = []),
             "remove_classes": attrs.list(attrs.regex(), default = []),

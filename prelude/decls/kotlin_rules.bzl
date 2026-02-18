@@ -13,7 +13,7 @@
 
 load("@prelude//:attrs_validators.bzl", "validation_common")
 load("@prelude//decls:test_common.bzl", "test_common")
-load(":common.bzl", "AbiGenerationMode", "AnnotationProcessingTool", "LogLevel", "SourceAbiVerificationMode", "TestType", "UnusedDependenciesAction", "buck", "prelude_rule")
+load(":common.bzl", "AbiGenerationMode", "AnnotationProcessingTool", "LogLevel", "SourceAbiVerificationMode", "TestType", "buck", "prelude_rule")
 load(":jvm_common.bzl", "jvm_common")
 load(":re_test_common.bzl", "re_test_common")
 
@@ -137,7 +137,6 @@ kotlin_library = prelude_rule(
             "maven_coords": attrs.option(attrs.string(), default = None),
             "never_mark_as_unused_dependency": attrs.option(attrs.bool(), default = None),
             "no_x_jdk_release": attrs.bool(default = False, doc = _no_x_jdk_release_doc),
-            "on_unused_dependencies": attrs.option(attrs.enum(UnusedDependenciesAction), default = None),
             "proguard_config": attrs.option(attrs.source(), default = None),
             "required_for_source_only_abi": attrs.bool(default = False),
             "runtime_deps": attrs.list(attrs.dep(), default = []),
@@ -244,7 +243,6 @@ kotlin_test = prelude_rule(
             "maven_coords": attrs.option(attrs.string(), default = None),
             "never_mark_as_unused_dependency": attrs.option(attrs.bool(), default = None),
             "no_x_jdk_release": attrs.bool(default = False, doc = _no_x_jdk_release_doc),
-            "on_unused_dependencies": attrs.option(attrs.enum(UnusedDependenciesAction), default = None),
             "proguard_config": attrs.option(attrs.source(), default = None),
             "provided_deps": attrs.list(attrs.dep(), default = []),
             "remove_classes": attrs.list(attrs.regex(), default = []),

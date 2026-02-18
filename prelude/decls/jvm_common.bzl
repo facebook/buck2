@@ -11,7 +11,7 @@
 # the generated docs, and so those should be verified to be accurate and
 # well-formatted (and then delete this TODO)
 
-load(":common.bzl", "AbiGenerationMode", "UnusedDependenciesAction")
+load(":common.bzl", "AbiGenerationMode")
 
 def _test_env():
     return {
@@ -137,27 +137,6 @@ def _required_for_source_only_abi():
      completely flattening the build graph, thus reducing the performance win from source-only
      ABI generation. These rules should be kept small (ideally just containing annotations,
      constants, enums, and interfaces) and with minimal dependencies of their own.
-"""),
-    }
-
-def _on_unused_dependencies():
-    return {
-        "on_unused_dependencies": attrs.option(attrs.enum(UnusedDependenciesAction), default = None, doc = """
-    Action performed when Buck detects that some dependencies are not used during Java compilation.
-
-
-    Note that this feature is experimental and does not handle runtime dependencies.
-
-
-    The valid values are:
-     * `ignore` (default): ignore unused dependencies,
-     * `warn`: emit a warning to the console,
-     * `fail`: fail the compilation.
-
-
-
-    This option overrides the default value from
-    .
 """),
     }
 
@@ -325,7 +304,6 @@ jvm_common = struct(
     source_only_abi_deps = _source_only_abi_deps,
     abi_generation_mode = _abi_generation_mode,
     required_for_source_only_abi = _required_for_source_only_abi,
-    on_unused_dependencies = _on_unused_dependencies,
     k2 = _k2,
     incremental = _incremental,
     plugins = _plugins,

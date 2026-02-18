@@ -17,7 +17,7 @@ load("@prelude//decls:test_common.bzl", "test_common")
 load("@prelude//transitions:constraint_overrides.bzl", "constraint_overrides")
 load("@prelude//utils:clear_platform.bzl", "clear_platform_transition")
 load(":android_common.bzl", "android_common")
-load(":common.bzl", "AbiGenerationMode", "AnnotationProcessingTool", "ForkMode", "LogLevel", "OnDuplicateEntry", "SourceAbiVerificationMode", "TestType", "UnusedDependenciesAction", "buck", "prelude_rule")
+load(":common.bzl", "AbiGenerationMode", "AnnotationProcessingTool", "ForkMode", "LogLevel", "OnDuplicateEntry", "SourceAbiVerificationMode", "TestType", "buck", "prelude_rule")
 load(":core_rules.bzl", "TargetCpuType")
 load(":genrule_common.bzl", "genrule_common")
 load(":jvm_common.bzl", "jvm_common")
@@ -254,7 +254,6 @@ android_aar = prelude_rule(
             "native_library_merge_non_asset_libs": attrs.bool(default = False),
             "native_library_merge_linker_args_all": attrs.list(attrs.arg(), default = [], doc = "Extra linker arguments passed to all merged libraries."),
             "never_mark_as_unused_dependency": attrs.option(attrs.bool(), default = None),
-            "on_unused_dependencies": attrs.option(attrs.enum(UnusedDependenciesAction), default = None),
             "proguard_config": attrs.option(attrs.source(), default = None),
             "relinker_extra_args": attrs.dict(key = attrs.string(), value = attrs.list(attrs.arg()), sorted = False, default = {}, doc = "Per-library extra linker arguments passed when relinking, mapping sonames to lists of arguments."),
             "relinker_extra_args_all": attrs.list(attrs.arg(), default = [], doc = "Extra arguments passed when relinking all libraries."),
@@ -718,7 +717,6 @@ android_library = prelude_rule(
                     "manifest_file": attrs.option(attrs.source(), default = None),
                     "maven_coords": attrs.option(attrs.string(), default = None),
                     "never_mark_as_unused_dependency": attrs.option(attrs.bool(), default = None),
-                    "on_unused_dependencies": attrs.option(attrs.enum(UnusedDependenciesAction), default = None),
                     "proguard_config": attrs.option(attrs.source(), default = None),
                     "resource_union_package": attrs.option(attrs.string(), default = None),
                     "resources_root": attrs.option(attrs.source(), default = None),
@@ -1314,7 +1312,6 @@ robolectric_test = prelude_rule(
             "manifest_skeleton": attrs.option(attrs.source(), default = None),
             "maven_coords": attrs.option(attrs.string(), default = None),
             "never_mark_as_unused_dependency": attrs.option(attrs.bool(), default = None),
-            "on_unused_dependencies": attrs.option(attrs.enum(UnusedDependenciesAction), default = None),
             "preferred_density_for_binary_resources": attrs.option(attrs.string(), default = None),
             "proguard_config": attrs.option(attrs.source(), default = None),
             "provided_deps": attrs.list(attrs.dep(), default = []),
