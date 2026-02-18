@@ -90,3 +90,14 @@ buck2_e2e_test(
         "//buck2/tests/e2e_util/api:api",
     ],
 )
+
+buck2_e2e_test(
+    name = "test_brr_suite_level_retry",
+    srcs = ["test_brr_suite_level_retry.py"],
+    skip_for_os = [
+        "darwin",
+        "windows",
+    ],
+    test_with_deployed_buck2 = False,
+    use_compiled_buck2_client_and_tpx = True,
+)
