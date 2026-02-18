@@ -36,7 +36,6 @@ use buck2_client_ctx::path_arg::PathArg;
 use buck2_client_ctx::streaming::StreamingCommand;
 use buck2_common::argv::Argv;
 use buck2_common::argv::SanitizedArgv;
-use buck2_core::soft_error;
 use buck2_error::BuckErrorContext;
 use buck2_error::conversion::from_any_with_tag;
 use buck2_wrapper_common::BUCK_WRAPPER_START_TIME_ENV_VAR;
@@ -104,17 +103,8 @@ impl StreamingCommand for RunCommand {
         ctx: &mut ClientCommandContext<'_>,
         events_ctx: &mut EventsCtx,
     ) -> ExitResult {
-        if !self.extra_run_args.is_empty() {
-            let has_separator = std::env::args().any(|arg| arg == "--");
-            if !has_separator {
-                soft_error!(
-                    "run_args_without_separator",
-                    RunCommandError::MissingSeparator.into(),
-                    quiet: false,
-                    deprecation: true,
-                )?;
-            }
-        }
+        let run_args_missing_separator =
+            !self.extra_run_args.is_empty() && !std::env::args().any(|arg| arg == "--");
 
         let context = ctx.client_context(matches, &self)?;
         let has_target_universe = !self.target_cfg.target_universe.is_empty();
@@ -138,6 +128,7 @@ impl StreamingCommand for RunCommand {
                     final_artifact_uploads: Uploads::Never as i32,
                     target_universe: self.target_cfg.target_universe,
                     timeout: None, // TODO: maybe it shouild be supported here?
+                    run_args_missing_separator,
                 },
                 events_ctx,
                 ctx.console_interaction_stream(&self.common_opts.console_opts),

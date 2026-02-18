@@ -504,6 +504,9 @@ message BuildRequest {
   // quickly as possible and drop in-flight builds. The exit code will be a
   // user failure.
   optional google.protobuf.Duration timeout = 12;
+
+  // Set by `buck2 run` when extra args are passed without `--` separator.
+  bool run_args_missing_separator = 13;
 }
 
 message TestSessionOptions {

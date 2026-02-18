@@ -264,6 +264,7 @@ impl StreamingCommand for BuildCommand {
                     final_artifact_uploads: self.upload_final_artifacts.to_proto() as i32,
                     target_universe: self.target_cfg.target_universe,
                     timeout: self.timeout_options.overall_timeout()?,
+                    run_args_missing_separator: false,
                 },
                 events_ctx,
                 ctx.console_interaction_stream(&self.common_opts.console_opts),

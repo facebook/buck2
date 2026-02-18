@@ -51,6 +51,7 @@ use buck2_core::pattern::pattern_type::ConfiguredProvidersPatternExtra;
 use buck2_core::pattern::pattern_type::ProvidersPatternExtra;
 use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::provider::label::ProvidersName;
+use buck2_core::soft_error;
 use buck2_core::target::label::label::TargetLabel;
 use buck2_data::BuildResult;
 use buck2_data::ToProtoMessage;
@@ -137,11 +138,28 @@ fn expect_build_opts(req: &buck2_cli_proto::BuildRequest) -> &CommonBuildOptions
     req.build_opts.as_ref().expect("should have build options")
 }
 
+#[derive(buck2_error::Error, Debug)]
+#[buck2(tag = Input)]
+#[error(
+    "`buck2 run` will require a `--` separator before target arguments in the future. \
+     Please use `buck2 run <target> -- <args>` instead of `buck2 run <target> <args>`"
+)]
+struct RunArgsMissingSeparator;
+
 async fn build(
     server_ctx: &dyn ServerCommandContextTrait,
     mut ctx: DiceTransaction,
     request: &buck2_cli_proto::BuildRequest,
 ) -> buck2_error::Result<buck2_cli_proto::BuildResponse> {
+    if request.run_args_missing_separator {
+        soft_error!(
+            "run_args_without_separator",
+            RunArgsMissingSeparator.into(),
+            quiet: false,
+            deprecation: true,
+        )?;
+    }
+
     let cwd = server_ctx.working_dir();
 
     let build_opts: &CommonBuildOptions = expect_build_opts(request);
