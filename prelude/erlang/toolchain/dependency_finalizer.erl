@@ -87,7 +87,9 @@ build_dep_info(Source, DepFiles) ->
         {ok, Dependencies} ->
             Basename = filename:basename(Source, ~".dep"),
             Key = <<Basename/binary, ".erl"/utf8>>,
-            {NextKeys, NextVisited, NextAcc} = collect_dependencies_for_key(Dependencies, Key, [], sets:new([{version, 2}]), []),
+            {NextKeys, NextVisited, NextAcc} = collect_dependencies_for_key(
+                Dependencies, Key, [], sets:new([{version, 2}]), []
+            ),
             collect_dependencies(NextKeys, DepFiles, NextVisited, NextAcc);
         Err ->
             io:format(standard_error, "error, could no parse file correctly: ~tp~n", [Err]),
@@ -122,7 +124,11 @@ collect_dependencies_for_key([#{file := File, type := Type} = Dep | Deps], Curre
         true ->
             collect_dependencies_for_key(Deps, CurrentKey, KeysAcc, VisitedAcc, DepAcc);
         false when Type =:= include; Type =:= include_lib ->
-            collect_dependencies_for_key(Deps, CurrentKey, [NextKey | KeysAcc], sets:add_element(CurrentKey, VisitedAcc), [Dep | DepAcc]);
+            collect_dependencies_for_key(
+                Deps, CurrentKey, [NextKey | KeysAcc], sets:add_element(CurrentKey, VisitedAcc), [Dep | DepAcc]
+            );
         false ->
-            collect_dependencies_for_key(Deps, CurrentKey, KeysAcc, sets:add_element(CurrentKey, VisitedAcc), [Dep | DepAcc])
+            collect_dependencies_for_key(Deps, CurrentKey, KeysAcc, sets:add_element(CurrentKey, VisitedAcc), [
+                Dep | DepAcc
+            ])
     end.

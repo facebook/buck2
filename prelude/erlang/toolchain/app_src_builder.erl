@@ -457,9 +457,12 @@ construct_diff_spec([CommonItem | _] = LCS, AppSrcValue, [AddItem | TargetValue]
 ->
     construct_diff_spec(LCS, AppSrcValue, TargetValue, [{add, AddItem} | Acc]).
 
--define(LPAD, "          "). % 10 spaces
--define(MPAD, "                            "). % 28 spaces
--define(RPAD, "                                             "). % 45 spaces
+% 10 spaces
+-define(LPAD, "          ").
+% 28 spaces
+-define(MPAD, "                            ").
+% 45 spaces
+-define(RPAD, "                                             ").
 
 construct_diff(Spec) ->
     Header = [

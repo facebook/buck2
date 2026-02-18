@@ -47,8 +47,9 @@ do(Spec, ReleaseVariablesFile) ->
     {ok, Contents} = file:read_file(Spec, [raw]),
     Variables = json:decode(Contents),
     {ok, F} = file:open(ReleaseVariablesFile, [write, raw]),
-    [ ok = file:write(F, io_lib:format("~ts=\"~ts\"~n", [Key, Value]))
-      || Key := Value <- Variables#{"ERTS_VSN" => erlang:system_info(version)}
+    [
+        ok = file:write(F, io_lib:format("~ts=\"~ts\"~n", [Key, Value]))
+     || Key := Value <- Variables#{"ERTS_VSN" => erlang:system_info(version)}
     ],
     ok = file:close(F),
     ok.

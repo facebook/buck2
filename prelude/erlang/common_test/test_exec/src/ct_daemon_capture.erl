@@ -114,8 +114,9 @@ handle_io_request({put_chars, Encoding, Chars}, State) when is_atom(Encoding), i
     handle_put_chars(Chars, State);
 handle_io_request({put_chars, Encoding, Chars}, State) when is_atom(Encoding), is_list(Chars) ->
     handle_put_chars_list(Chars, State);
-handle_io_request({put_chars, Encoding, M, F, A}, State)
-  when is_atom(Encoding), is_atom(M), is_atom(F), is_list(A) ->
+handle_io_request({put_chars, Encoding, M, F, A}, State) when
+    is_atom(Encoding), is_atom(M), is_atom(F), is_list(A)
+->
     try erlang:apply(M, F, A) of
         Chars when is_binary(Chars) -> handle_put_chars(Chars, State);
         Chars when is_list(Chars) -> handle_put_chars_unsafe(Chars, State);
@@ -129,18 +130,26 @@ handle_io_request({put_chars, Chars}, State) when is_list(Chars) ->
     handle_put_chars_list(Chars, State);
 handle_io_request({put_chars, M, F, A}, State) when is_atom(M), is_atom(F), is_list(A) ->
     handle_io_request({put_chars, latin1, M, F, A}, State);
-handle_io_request({get_chars, _, _, _}, State) -> {eof, State};
-handle_io_request({get_line, _, _}, State) -> {eof, State};
-handle_io_request({get_until, _, _, _, _, _}, State) -> {eof, State};
-handle_io_request({get_geometry, _}, State) -> {{error, enotsup}, State};
-handle_io_request(getopts, State) -> {[{encoding, unicode}], State};
-handle_io_request({setopts, _}, State) -> {ok, State};
+handle_io_request({get_chars, _, _, _}, State) ->
+    {eof, State};
+handle_io_request({get_line, _, _}, State) ->
+    {eof, State};
+handle_io_request({get_until, _, _, _, _, _}, State) ->
+    {eof, State};
+handle_io_request({get_geometry, _}, State) ->
+    {{error, enotsup}, State};
+handle_io_request(getopts, State) ->
+    {[{encoding, unicode}], State};
+handle_io_request({setopts, _}, State) ->
+    {ok, State};
 handle_io_request({requests, Reqs}, State) when is_list(Reqs) -> handle_requests(Reqs, State, ok);
-handle_io_request(_, State) -> {{error, request}, State}.
+handle_io_request(_, State) ->
+    {{error, request}, State}.
 
 -spec handle_put_chars(iodata(), state()) -> {ok, state()}.
-handle_put_chars(Chars, State = #state{original_gl = GL, capture_pid = Cap})
-  when is_binary(Chars); is_list(Chars) ->
+handle_put_chars(Chars, State = #state{original_gl = GL, capture_pid = Cap}) when
+    is_binary(Chars); is_list(Chars)
+->
     %% Always forward to the original group leader
     GL ! {io_request, self(), make_ref(), {put_chars, unicode, Chars}},
     %% If capturing, send captured output to capture_pid's mailbox
@@ -180,8 +189,10 @@ chars_to_string(Chars) ->
     case unicode:characters_to_list(Chars) of
         Result when is_list(Result) -> Result;
         _ ->
-            try binary_to_list(iolist_to_binary(Chars))
-            catch _:_ -> lists:flatten(io_lib:format("~tp", [Chars]))
+            try
+                binary_to_list(iolist_to_binary(Chars))
+            catch
+                _:_ -> lists:flatten(io_lib:format("~tp", [Chars]))
             end
     end.
 

@@ -67,9 +67,15 @@ test_put_chars_without_capture(Config) ->
     CaptureGL = proplists:get_value(capture_gl, Config),
     Ref = make_ref(),
     CaptureGL ! {io_request, self(), Ref, {put_chars, unicode, ~"test output"}},
-    receive {io_reply, Ref, ok} -> ok after 1000 -> ?assert(false) end,
+    receive
+        {io_reply, Ref, ok} -> ok
+    after 1000 -> ?assert(false)
+    end,
     %% No captured message should be received
-    receive {captured, _} -> ?assert(false) after 100 -> ok end.
+    receive
+        {captured, _} -> ?assert(false)
+    after 100 -> ok
+    end.
 
 %% Test put_chars with capture enabled
 test_put_chars_with_capture(Config) ->
@@ -78,7 +84,10 @@ test_put_chars_with_capture(Config) ->
     Ref = make_ref(),
     CaptureGL ! {io_request, self(), Ref, {put_chars, unicode, ~"captured output"}},
     %% Should receive both io_reply and captured message
-    receive {io_reply, Ref, ok} -> ok after 1000 -> ?assert(false) end,
+    receive
+        {io_reply, Ref, ok} -> ok
+    after 1000 -> ?assert(false)
+    end,
     receive
         {captured, "captured output"} -> ok;
         {captured, Other} -> ?assertEqual("captured output", Other)

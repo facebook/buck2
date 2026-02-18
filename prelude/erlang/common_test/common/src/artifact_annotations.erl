@@ -65,14 +65,15 @@ default_annotation(FileName) ->
         description => unicode_characters_to_binary(FileName)
     }.
 
--spec test_metrics_artifact_annotation(file:filename(), nonempty_list(#ct_test{})) -> test_result_artifact_annotations().
+-spec test_metrics_artifact_annotation(file:filename(), nonempty_list(#ct_test{})) ->
+    test_result_artifact_annotations().
 test_metrics_artifact_annotation(FileName, Tests) ->
     FirstTest = hd(Tests),
     FirstTestName = unicode_characters_to_binary(
-                cth_tpx_test_tree:qualified_name(
-                    lists:reverse(FirstTest#ct_test.groups),
-                    FirstTest#ct_test.test_name
-                )
-            ),
-            % All tests share this artifact. Attach to first test only to prevent the Scuba uploader from uploading the same data multiple times.
-            #{type => #{generic_blob => #{}}, description => list_to_binary(FileName), test_case => FirstTestName}.
+        cth_tpx_test_tree:qualified_name(
+            lists:reverse(FirstTest#ct_test.groups),
+            FirstTest#ct_test.test_name
+        )
+    ),
+    % All tests share this artifact. Attach to first test only to prevent the Scuba uploader from uploading the same data multiple times.
+    #{type => #{generic_blob => #{}}, description => list_to_binary(FileName), test_case => FirstTestName}.
