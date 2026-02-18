@@ -1356,7 +1356,13 @@ impl BuckTestOrchestrator<'_> {
                     })?
                     .0,
             ),
-            None => test_info.default_executor().map(|o| &o.0),
+            None => match stage {
+                TestStage::Listing { .. } if test_info.has_executor_overrides() => test_info
+                    .executor_override("listing")
+                    .or(test_info.default_executor())
+                    .map(|o| &o.0),
+                _ => test_info.default_executor().map(|o| &o.0),
+            },
         };
 
         let executor_config = Self::executor_config_with_remote_cache_override(

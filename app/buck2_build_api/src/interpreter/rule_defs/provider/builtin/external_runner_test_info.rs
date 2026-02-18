@@ -155,6 +155,10 @@ impl FrozenExternalRunnerTestInfo {
         unpack_opt_executor(self.default_executor.get().to_value()).unwrap()
     }
 
+    pub fn has_executor_overrides(&self) -> bool {
+        !self.executor_overrides.get().to_value().is_none()
+    }
+
     /// Access a specific executor override.
     pub fn executor_override(&self, key: &str) -> Option<&StarlarkCommandExecutorConfig> {
         let executor_overrides =
