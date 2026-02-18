@@ -53,8 +53,14 @@ FRAMEWORK_INTRODUCED_VERSIONS = {
         "macosx": (11, 0, 0),
         "watchos": (7, 0, 0),
     },
+    "AccessoryNotifications": {
+        "iphoneos": (26, 4, 0),
+    },
     "AccessorySetupKit": {
         "iphoneos": (18, 0, 0),
+    },
+    "AccessoryTransportExtension": {
+        "iphoneos": (26, 2, 0),
     },
     "Accounts": {
         "iphoneos": (5, 0, 0),
