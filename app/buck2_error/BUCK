@@ -16,7 +16,7 @@ rust_library(
         "fbsource//third-party/rust:derive_more",
         "fbsource//third-party/rust:fancy-regex",
         "fbsource//third-party/rust:hex",
-        "fbsource//third-party/rust:http-1",
+        "fbsource//third-party/rust:http",
         "fbsource//third-party/rust:hyper",
         "fbsource//third-party/rust:hyper-util",
         "fbsource//third-party/rust:libc",
