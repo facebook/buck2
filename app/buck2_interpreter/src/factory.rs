@@ -35,7 +35,6 @@ pub struct StarlarkEvaluatorProvider {
     debugger: Option<Box<dyn StarlarkDebugController>>,
     profile_listener: Option<Arc<dyn ProfileEventListener>>,
     starlark_max_callstack_size: Option<usize>,
-    starlark_enable_cancellation: bool,
 }
 
 /// Holds profiler data associated with completed Starlark evaluation.
@@ -100,7 +99,6 @@ impl StarlarkEvaluatorProvider {
             eval_kind,
             debugger: None,
             starlark_max_callstack_size: None,
-            starlark_enable_cancellation: false,
             profile_listener: None,
         }
     }
@@ -123,14 +121,6 @@ impl StarlarkEvaluatorProvider {
                 property: "starlark_max_callstack_size",
             })?;
 
-        let starlark_enable_cancellation = root_buckconfig
-            .view(ctx)
-            .parse::<bool>(BuckconfigKeyRef {
-                section: "buck2",
-                property: "starlark_enable_cancellation",
-            })?
-            .unwrap_or(false);
-
         let debugger_handle = ctx.get_starlark_debugger_handle();
         let debugger = match debugger_handle {
             Some(v) => Some(v.start_eval(&eval_kind.to_string()).await?),
@@ -142,7 +132,6 @@ impl StarlarkEvaluatorProvider {
             eval_kind,
             debugger,
             starlark_max_callstack_size,
-            starlark_enable_cancellation,
             profile_listener,
         })
     }
@@ -167,15 +156,13 @@ impl StarlarkEvaluatorProvider {
                 .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?;
         }
 
-        if self.starlark_enable_cancellation {
-            match cancellation.dupe() {
-                CancellationPoller::None => {}
-                CancellationPoller::Context(c) => {
-                    eval.set_check_cancelled(Box::new(|| c.is_cancelled()))
-                }
-                CancellationPoller::Observer(o) => {
-                    eval.set_check_cancelled(Box::new(move || o.is_cancelled()))
-                }
+        match cancellation.dupe() {
+            CancellationPoller::None => {}
+            CancellationPoller::Context(c) => {
+                eval.set_check_cancelled(Box::new(|| c.is_cancelled()))
+            }
+            CancellationPoller::Observer(o) => {
+                eval.set_check_cancelled(Box::new(move || o.is_cancelled()))
             }
         }
 

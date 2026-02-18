@@ -22,8 +22,6 @@ ALL_STAGES = ["load", "package", "analysis", "bxl"]
 @buck_test()
 @pytest.mark.parametrize("stage", ALL_STAGES)
 async def test_cancellation(buck: Buck, stage: str) -> None:
-    return  # TODO(S530607) disabled due to sev
-
     if stage == "bxl":
         preempted_target = "//:root.bxl:loop_test"
         a_method = buck.bxl
