@@ -10,6 +10,7 @@
 
 use std::collections::HashMap;
 use std::sync::Arc;
+use std::time::Duration;
 
 use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_artifact::artifact::artifact_type::ArtifactErrors;
@@ -71,6 +72,8 @@ pub(crate) enum RunActionError {
     NoOutputsSpecified,
     #[error("`weight` must be a positive integer, got `{0}`")]
     InvalidWeight(i32),
+    #[error("`timeout_seconds` must be a positive integer, got `{0}`")]
+    InvalidTimeout(i32),
     #[error("`weight` and `weight_percentage` cannot both be passed")]
     DuplicateWeightsSpecified,
     #[error("`dep_files` value with key `{}` has an invalid count of associated outputs. Expected 1, got {}.", .key, .count)]
@@ -188,6 +191,8 @@ pub(crate) fn analysis_actions_methods_run(methods: &mut MethodsBuilder) {
     ///     * `drop_host_mount_globs`: list of strings containing file
     ///     globs. Any mounts globs specified will not be bind mounted
     ///     from the host.
+    /// * `timeout_seconds`: an optional timeout for the action, in seconds. If the action takes
+    ///   longer than this, it will be cancelled. Must be a positive number.
     ///  * `meta_internal_extra_params`: a dictionary to pass extra parameters to RE, can add more keys in the future:
     ///     * `remote_execution_policy`: refer to TExecutionPolicy.
     ///  * `error_handler`: an optional function that analyzes action failures and produces structured error information.
@@ -270,6 +275,7 @@ pub(crate) fn analysis_actions_methods_run(methods: &mut MethodsBuilder) {
             SmallMap<&'v str, &'v str>,
         >,
         #[starlark(default = NoneType, require = named)] remote_execution_dynamic_image: Value<'v>,
+        #[starlark(require = named, default = NoneOr::None)] timeout_seconds: NoneOr<i32>,
         #[starlark(require = named, default = NoneOr::None)] meta_internal_extra_params: NoneOr<
             DictRef<'v>,
         >,
@@ -556,6 +562,17 @@ pub(crate) fn analysis_actions_methods_run(methods: &mut MethodsBuilder) {
         let extra_params =
             parse_meta_internal_extra_params(meta_internal_extra_params.into_option())?;
 
+        let timeout = match timeout_seconds.into_option() {
+            Some(t) => {
+                let t: u64 =
+                    t.try_into().ok().filter(|t| *t > 0).ok_or_else(|| {
+                        buck2_error::Error::from(RunActionError::InvalidTimeout(t))
+                    })?;
+                Some(Duration::from_secs(t))
+            }
+            None => None,
+        };
+
         if incremental_remote_outputs {
             for o in artifacts.declared_outputs.iter() {
                 if o.has_content_based_path() {
@@ -588,6 +605,7 @@ pub(crate) fn analysis_actions_methods_run(methods: &mut MethodsBuilder) {
             remote_execution_custom_image: re_custom_image,
             meta_internal_extra_params: extra_params,
             expected_eligible_for_dedupe: expect_eligible_for_dedupe.into_option(),
+            timeout,
         };
 
         if expect_eligible_for_dedupe.into_option().unwrap_or(false) {

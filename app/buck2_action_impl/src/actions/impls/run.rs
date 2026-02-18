@@ -10,6 +10,7 @@
 
 use std::borrow::Cow;
 use std::ops::ControlFlow;
+use std::time::Duration;
 
 use allocative::Allocative;
 use async_trait::async_trait;
@@ -252,6 +253,7 @@ pub(crate) struct UnregisteredRunAction {
     pub(crate) remote_execution_custom_image: Option<Box<RemoteExecutorCustomImage>>,
     pub(crate) meta_internal_extra_params: MetaInternalExtraParams,
     pub(crate) expected_eligible_for_dedupe: Option<bool>,
+    pub(crate) timeout: Option<Duration>,
 }
 
 impl UnregisteredAction for UnregisteredRunAction {
@@ -1209,6 +1211,10 @@ impl RunAction {
             )
             .with_meta_internal_extra_params(self.inner.meta_internal_extra_params.clone())
             .with_outputs_for_error_handler(outputs_for_error_handler);
+
+        if let Some(timeout) = self.inner.timeout {
+            req = req.with_timeout(timeout);
+        }
 
         if self.inner.no_outputs_cleanup {
             if self
