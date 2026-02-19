@@ -18,39 +18,50 @@ import com.facebook.buck.android.apk.ApkSignerUtils;
 import com.facebook.buck.android.apk.KeystoreProperties;
 import com.facebook.buck.android.zipalign.ZipAlign;
 import com.facebook.buck.util.zip.ZipScrubber;
+import com.facebook.infer.annotation.Nullsafe;
 import com.google.common.collect.ImmutableList;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import org.jetbrains.annotations.Nullable;
 import org.kohsuke.args4j.CmdLineException;
 import org.kohsuke.args4j.CmdLineParser;
 import org.kohsuke.args4j.Option;
 
+@Nullsafe(Nullsafe.Mode.LOCAL)
 public class AndroidBundleApksBuilderExecutableMain {
 
   @Option(name = "--output-apk", required = true)
+  // NULLSAFE_FIXME[Field Not Initialized]
   private Path outputApk;
 
   @Option(name = "--input-bundle", required = true)
+  // NULLSAFE_FIXME[Field Not Initialized]
   private Path inputBundle;
 
   @Option(name = "--p7zip", required = true)
+  // NULLSAFE_FIXME[Field Not Initialized]
   private Path p7zipBinaryPath;
 
   @Option(name = "--aapt2", required = true)
+  // NULLSAFE_FIXME[Field Not Initialized]
   private Path aapt2BinaryPath;
 
   @Option(name = "--zipalign", required = true)
+  // NULLSAFE_FIXME[Field Not Initialized]
   private String zipalignTool;
 
   @Option(name = "--keystore", depends = "--keystore-properties")
-  private Path keystorePath;
+  @Nullable
+  private Path keystorePath = null;
 
   @Option(name = "--keystore-properties", depends = "--keystore")
-  private Path keystorePropertiesPath;
+  @Nullable
+  private Path keystorePropertiesPath = null;
 
   private void run() throws Exception {
     Path apksDirectory = Files.createTempDirectory("derived.apks");
+    // NULLSAFE_FIXME[Unvetted Third Party In Nullsafe]
     BuildApksCommand.Builder buildApksCommandBuilder =
         BuildApksCommand.builder()
             .setApkBuildMode(BuildApksCommand.ApkBuildMode.UNIVERSAL)
@@ -60,6 +71,7 @@ public class AndroidBundleApksBuilderExecutableMain {
             .setOutputFile(apksDirectory)
             .setBundlePath(inputBundle);
 
+    // NULLSAFE_FIXME[Unvetted Third Party In Nullsafe]
     buildApksCommandBuilder.build().execute();
 
     Path universalApkPath = apksDirectory.resolve("universal.apk");
@@ -91,11 +103,11 @@ public class AndroidBundleApksBuilderExecutableMain {
       main.run();
       System.exit(0);
     } catch (CmdLineException e) {
-      System.err.println(e.getMessage());
+      System.err.println(e.toString());
       parser.printUsage(System.err);
       System.exit(1);
     } catch (Exception e) {
-      System.err.println(e.getMessage());
+      System.err.println(e.toString());
       System.exit(1);
     }
   }

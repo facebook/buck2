@@ -15,6 +15,7 @@ import com.facebook.buck.android.apk.sdk.ApkCreationException;
 import com.facebook.buck.android.apk.sdk.DuplicateFileException;
 import com.facebook.buck.android.apk.sdk.SealedApkException;
 import com.facebook.buck.util.zip.ZipScrubber;
+import com.facebook.infer.annotation.Nullsafe;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -28,50 +29,64 @@ import java.util.HashSet;
 import java.util.Objects;
 import java.util.Set;
 import java.util.function.Function;
+import org.jetbrains.annotations.Nullable;
 import org.kohsuke.args4j.CmdLineException;
 import org.kohsuke.args4j.CmdLineParser;
 import org.kohsuke.args4j.Option;
 
 /** Main entry point for building an Android bundle. */
+@Nullsafe(Nullsafe.Mode.LOCAL)
 public class AndroidBundleBuilderExecutableMain {
   @Option(name = "--output-bundle", required = true)
+  // NULLSAFE_FIXME[Field Not Initialized]
   private String outputBundle;
 
   @Option(name = "--path-to-bundle-config-file")
-  private String pathToBundleConfigFile;
+  @Nullable
+  private String pathToBundleConfigFile = null;
 
   @Option(name = "--resource-apk", required = true)
+  // NULLSAFE_FIXME[Field Not Initialized]
   private String resourceApk;
 
   @Option(name = "--dex-file", required = true)
+  // NULLSAFE_FIXME[Field Not Initialized]
   private String dexFile;
 
   @Option(name = "--root-module-asset-directories-list", required = true)
+  // NULLSAFE_FIXME[Field Not Initialized]
   private String rootModuleAssetDirectoriesList;
 
   @Option(name = "--non-root-module-asset-directories-list", required = true)
+  // NULLSAFE_FIXME[Field Not Initialized]
   private String nonRootModuleAssetDirectoriesList;
 
   @Option(name = "--non-root-module-asset-native-lib-directories-list", required = true)
+  // NULLSAFE_FIXME[Field Not Initialized]
   private String nonRootModuleAssetNativeLibDirectoriesList;
 
   @Option(name = "--native-libraries-directories-list", required = true)
+  // NULLSAFE_FIXME[Field Not Initialized]
   private String nativeLibrariesDirectoriesList;
 
   @Option(name = "--zip-files-list", required = true)
+  // NULLSAFE_FIXME[Field Not Initialized]
   private String zipFilesList;
 
   @Option(name = "--jar-files-that-may-contain-resources-list", required = true)
+  // NULLSAFE_FIXME[Field Not Initialized]
   private String jarFilesThatMayContainResourcesList;
 
   @Option(name = "--package-meta-inf-version-files")
   private boolean packageMetaInfVersionFiles;
 
   @Option(name = "--module-assets-dir")
-  private Path moduleAssetsDir;
+  @Nullable
+  private Path moduleAssetsDir = null;
 
   @Option(name = "--excluded-resources")
-  private String excludedResourcesList;
+  @Nullable
+  private String excludedResourcesList = null;
 
   public static void main(String[] args) throws IOException {
     AndroidBundleBuilderExecutableMain main = new AndroidBundleBuilderExecutableMain();
@@ -81,7 +96,7 @@ public class AndroidBundleBuilderExecutableMain {
       main.run();
       System.exit(0);
     } catch (CmdLineException e) {
-      System.err.println(e.getMessage());
+      System.err.println(e.toString());
       parser.printUsage(System.err);
       System.exit(1);
     }
@@ -118,6 +133,7 @@ public class AndroidBundleBuilderExecutableMain {
     Path tempDir = Files.createTempDirectory("bundleTempDir");
     Path rootModuleZip = tempDir.resolve("base.zip");
     modulePaths.add(rootModuleZip);
+    // NULLSAFE_FIXME[Unvetted Third Party In Nullsafe]
     Path fakeResourcesApk = Files.createFile(tempDir.resolve("fake.txt"));
     Set<String> perModuleAddedFiles = new HashSet<>();
     Set<Path> addedSourceFiles = new HashSet<>();
@@ -248,6 +264,7 @@ public class AndroidBundleBuilderExecutableMain {
     }
 
     Path outputPath = Paths.get(outputBundle);
+    // NULLSAFE_FIXME[Unvetted Third Party In Nullsafe]
     BuildBundleCommand.Builder bundleBuilder =
         BuildBundleCommand.builder()
             .setOutputPath(outputPath)
@@ -257,6 +274,7 @@ public class AndroidBundleBuilderExecutableMain {
     if (pathToBundleConfigFile != null) {
       bundleBuilder.setBundleConfig(Paths.get(pathToBundleConfigFile));
     }
+    // NULLSAFE_FIXME[Unvetted Third Party In Nullsafe]
     bundleBuilder.build().execute();
 
     ZipScrubber.scrubZip(outputPath);

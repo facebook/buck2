@@ -19,6 +19,7 @@ import com.facebook.buck.android.apk.sdk.ApkJarBuilder;
 import com.facebook.buck.android.apk.sdk.DuplicateFileException;
 import com.facebook.buck.android.apk.sdk.IArchiveBuilder;
 import com.facebook.buck.android.apk.sdk.SealedApkException;
+import com.facebook.infer.annotation.Nullsafe;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import java.io.File;
@@ -29,11 +30,13 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Enumeration;
+import java.util.Objects;
 import java.util.Set;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
-import javax.annotation.Nullable;
+import org.jetbrains.annotations.Nullable;
 
+@Nullsafe(Nullsafe.Mode.LOCAL)
 public class AndroidBundleUtils {
 
   public interface DuplicateFileListener {
@@ -60,6 +63,7 @@ public class AndroidBundleUtils {
       Set<String> excludedResources)
       throws ApkCreationException, SealedApkException, DuplicateFileException, IOException {
 
+    // NULLSAFE_FIXME[Parameter Not Nullable]
     ApkBuilder moduleBuilder =
         new ApkBuilder(
             moduleZipOutputFile,
@@ -104,6 +108,7 @@ public class AndroidBundleUtils {
       addFile(
           moduleBuilder,
           dexFile,
+          // NULLSAFE_FIXME[Unvetted Third Party In Nullsafe]
           Paths.get(BundleModule.DEX_DIRECTORY.toString())
               .resolve(dexFile.getFileName())
               .toString(),
@@ -232,6 +237,7 @@ public class AndroidBundleUtils {
     path = Paths.get(path).resolve(file.getName()).toString();
     if (file.isDirectory() && ApkBuilder.checkFolderForPackaging(file.getName())) {
       if (file.getName().equals(BundleModule.RESOURCES_DIRECTORY.toString())) {
+        // NULLSAFE_FIXME[Unvetted Third Party In Nullsafe]
         path = BundleModule.RESOURCES_DIRECTORY.toString();
       }
       File[] files = file.listFiles();
@@ -247,6 +253,7 @@ public class AndroidBundleUtils {
         addFile(
             builder,
             file.toPath(),
+            // NULLSAFE_FIXME[Unvetted Third Party In Nullsafe]
             Paths.get(BundleModule.DEX_DIRECTORY.toString()).resolve(file.getName()).toString(),
             addedFiles,
             addedSourceFiles,
@@ -255,6 +262,7 @@ public class AndroidBundleUtils {
         addFile(
             builder,
             file.toPath(),
+            // NULLSAFE_FIXME[Unvetted Third Party In Nullsafe]
             Paths.get(BundleModule.MANIFEST_DIRECTORY.toString())
                 .resolve(file.getName())
                 .toString(),
@@ -262,6 +270,7 @@ public class AndroidBundleUtils {
             addedSourceFiles,
             duplicateFileListener);
       } else if (file.getName()
+          // NULLSAFE_FIXME[Unvetted Third Party In Nullsafe]
           .equals(BundleModule.SpecialModuleEntry.RESOURCE_TABLE.getPath().toString())) {
         addFile(
             builder,
@@ -307,6 +316,7 @@ public class AndroidBundleUtils {
           continue;
         }
         Path libPath =
+            // NULLSAFE_FIXME[Unvetted Third Party In Nullsafe]
             Paths.get(BundleModule.LIB_DIRECTORY.toString())
                 .resolve(abi.getName())
                 .resolve(lib.getName());
@@ -421,17 +431,23 @@ public class AndroidBundleUtils {
     String empty = "";
 
     if (entry.getName().equals(BundleModule.MANIFEST_FILENAME)) {
+      // NULLSAFE_FIXME[Unvetted Third Party In Nullsafe]
       location = BundleModule.MANIFEST_DIRECTORY.toString();
 
+      // NULLSAFE_FIXME[Unvetted Third Party In Nullsafe]
     } else if (entry.getName().startsWith(BundleModule.LIB_DIRECTORY.toString() + fileSeparator)
+        // NULLSAFE_FIXME[Unvetted Third Party In Nullsafe]
         || entry.getName().startsWith(BundleModule.RESOURCES_DIRECTORY.toString() + fileSeparator)
+        // NULLSAFE_FIXME[Unvetted Third Party In Nullsafe]
         || entry.getName().startsWith(BundleModule.ASSETS_DIRECTORY.toString() + fileSeparator)
+        // NULLSAFE_FIXME[Unvetted Third Party In Nullsafe]
         || entry.getName().startsWith(BundleModule.DEX_DIRECTORY.toString() + fileSeparator)
         || entry.getName().endsWith(".pb")) {
       // They are already in the right folder
       location = empty;
 
     } else {
+      // NULLSAFE_FIXME[Unvetted Third Party In Nullsafe]
       location = BundleModule.ROOT_DIRECTORY.toString();
     }
 
@@ -443,7 +459,7 @@ public class AndroidBundleUtils {
     File tempFile = tempFilePath.toFile();
     tempFile.deleteOnExit();
     try (InputStream in = zipFile.getInputStream(ze)) {
-      Files.copy(in, tempFilePath, REPLACE_EXISTING);
+      Files.copy(Objects.requireNonNull(in), tempFilePath, REPLACE_EXISTING);
     }
     return tempFile;
   }

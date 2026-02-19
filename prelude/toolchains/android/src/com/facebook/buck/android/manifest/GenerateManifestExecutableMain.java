@@ -12,6 +12,7 @@ package com.facebook.buck.android.manifest;
 
 import com.android.utils.StdLogger;
 import com.facebook.buck.util.ThrowingPrintWriter;
+import com.facebook.infer.annotation.Nullsafe;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import java.io.FileOutputStream;
@@ -19,6 +20,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import org.jetbrains.annotations.Nullable;
 import org.kohsuke.args4j.CmdLineException;
 import org.kohsuke.args4j.CmdLineParser;
 import org.kohsuke.args4j.Option;
@@ -29,27 +31,35 @@ import org.kohsuke.args4j.Option;
  * <p>Expected usage: {@code this_binary <skeleton_manifest_path> <module_name>
  * <library_manifest_paths_file> <placeholder_entries_file> <output_path> <merge_report_path} .
  */
+@Nullsafe(Nullsafe.Mode.LOCAL)
 public class GenerateManifestExecutableMain {
   @Option(name = "--skeleton-manifest", required = true)
+  // NULLSAFE_FIXME[Field Not Initialized]
   private String skeletonManifest;
 
   @Option(name = "--module-name", required = true)
+  // NULLSAFE_FIXME[Field Not Initialized]
   private String moduleName;
 
   @Option(name = "--library-manifests-list", required = true)
+  // NULLSAFE_FIXME[Field Not Initialized]
   private String libraryManifestsList;
 
   @Option(name = "--placeholder-entries-list", required = true)
+  // NULLSAFE_FIXME[Field Not Initialized]
   private String placeholderEntriesList;
 
   @Option(name = "--output", required = true)
+  // NULLSAFE_FIXME[Field Not Initialized]
   private String output;
 
   @Option(name = "--merge-report", required = true)
+  // NULLSAFE_FIXME[Field Not Initialized]
   private String mergeReport;
 
   @Option(name = "--preprocess-log", required = false)
-  private String preprocessLog;
+  @Nullable
+  private String preprocessLog = null;
 
   public static void main(String[] args) throws IOException {
     GenerateManifestExecutableMain main = new GenerateManifestExecutableMain();
@@ -59,7 +69,7 @@ public class GenerateManifestExecutableMain {
       main.run();
       System.exit(0);
     } catch (CmdLineException e) {
-      System.err.println(e.getMessage());
+      System.err.println(String.valueOf(e.getMessage()));
       parser.printUsage(System.err);
       System.exit(1);
     }

@@ -17,6 +17,7 @@ import com.facebook.buck.android.apk.sdk.SealedApkException;
 import com.facebook.buck.android.zipalign.ZipAlign;
 import com.facebook.buck.util.zip.RepackZipEntries;
 import com.facebook.buck.util.zip.ZipCompressionLevel;
+import com.facebook.infer.annotation.Nullsafe;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import java.io.BufferedInputStream;
@@ -32,40 +33,52 @@ import java.util.Set;
 import java.util.regex.Pattern;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
+import org.jetbrains.annotations.Nullable;
 import org.kohsuke.args4j.CmdLineException;
 import org.kohsuke.args4j.CmdLineParser;
 import org.kohsuke.args4j.Option;
 
 /** Main entry point for executing {@link ApkBuilderUtils} calls. */
+@Nullsafe(Nullsafe.Mode.LOCAL)
 public class ApkBuilderExecutableMain {
   @Option(name = "--output-apk", required = true)
+  // NULLSAFE_FIXME[Field Not Initialized]
   private String outputApk;
 
   @Option(name = "--resource-apk", required = true)
+  // NULLSAFE_FIXME[Field Not Initialized]
   private String resourceApk;
 
   @Option(name = "--dex-file", required = true)
+  // NULLSAFE_FIXME[Field Not Initialized]
   private String dexFile;
 
   @Option(name = "--keystore-path", required = true)
+  // NULLSAFE_FIXME[Field Not Initialized]
   private String keystore;
 
   @Option(name = "--keystore-properties-path", required = true)
+  // NULLSAFE_FIXME[Field Not Initialized]
   private String keystoreProperties;
 
   @Option(name = "--asset-directories-list", required = true)
+  // NULLSAFE_FIXME[Field Not Initialized]
   private String assetDirectoriesList;
 
   @Option(name = "--native-libraries-directories-list", required = true)
+  // NULLSAFE_FIXME[Field Not Initialized]
   private String nativeLibrariesDirectoriesList;
 
   @Option(name = "--zip-files-list", required = true)
+  // NULLSAFE_FIXME[Field Not Initialized]
   private String zipFilesList;
 
   @Option(name = "--jar-files-that-may-contain-resources-list", required = true)
+  // NULLSAFE_FIXME[Field Not Initialized]
   private String jarFilesThatMayContainResourcesList;
 
   @Option(name = "--zipalign_tool", required = true)
+  // NULLSAFE_FIXME[Field Not Initialized]
   private String zipalignTool;
 
   @Option(name = "--compress-resources-dot-arsc")
@@ -75,10 +88,12 @@ public class ApkBuilderExecutableMain {
   private boolean packageMetaInfVersionFiles;
 
   @Option(name = "--excluded-resources")
-  private String excludedResourcesList;
+  @Nullable
+  private String excludedResourcesList = null;
 
   @Option(name = "--uncompressed-files")
-  private String uncompressedFilesList;
+  @Nullable
+  private String uncompressedFilesList = null;
 
   public static void main(String[] args) throws IOException {
     ApkBuilderExecutableMain main = new ApkBuilderExecutableMain();
@@ -88,7 +103,7 @@ public class ApkBuilderExecutableMain {
       main.run();
       System.exit(0);
     } catch (CmdLineException e) {
-      System.err.println(e.getMessage());
+      System.err.println(e.toString());
       parser.printUsage(System.err);
       System.exit(1);
     }

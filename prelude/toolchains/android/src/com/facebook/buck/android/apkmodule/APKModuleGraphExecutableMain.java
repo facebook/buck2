@@ -12,6 +12,7 @@ package com.facebook.buck.android.apkmodule;
 
 import com.facebook.buck.core.filesystems.AbsPath;
 import com.facebook.buck.util.json.ObjectMappers;
+import com.facebook.infer.annotation.Nullsafe;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -35,39 +36,50 @@ import java.util.SortedMap;
 import java.util.SortedSet;
 import java.util.function.Function;
 import java.util.stream.Stream;
+import org.jetbrains.annotations.Nullable;
 import org.kohsuke.args4j.CmdLineException;
 import org.kohsuke.args4j.CmdLineParser;
 import org.kohsuke.args4j.Option;
 
 /** Main entry point for constructing an {@link APKModuleGraph} from an external graph. */
+@Nullsafe(Nullsafe.Mode.LOCAL)
 public class APKModuleGraphExecutableMain {
 
   @Option(name = "--root-target", required = true)
+  // NULLSAFE_FIXME[Field Not Initialized]
   private String rootTarget;
 
   @Option(name = "--target-graph", required = true)
+  // NULLSAFE_FIXME[Field Not Initialized]
   private String targetGraphPath;
 
   @Option(name = "--seed-config-map", required = true)
+  // NULLSAFE_FIXME[Field Not Initialized]
   private String seedConfigMapPath;
 
   @Option(name = "--app-module-dependencies-map", required = true)
+  // NULLSAFE_FIXME[Field Not Initialized]
   private String appModuleDependenciesPath;
 
   @Option(name = "--output", required = true)
+  // NULLSAFE_FIXME[Field Not Initialized]
   private String outputPath;
 
   @Option(name = "--always-in-main-apk-seeds")
-  private String alwaysInMainApkSeedsPath;
+  @Nullable
+  private String alwaysInMainApkSeedsPath = null;
 
   @Option(name = "--targets-to-jars")
-  private String targetsToJarsPath;
+  @Nullable
+  private String targetsToJarsPath = null;
 
   @Option(name = "--targets-to-so-names")
-  private String targetsToSoNamesPath;
+  @Nullable
+  private String targetsToSoNamesPath = null;
 
   @Option(name = "--targets-to-non-asset-prebuilt-native-library-dirs")
-  private String targetsToNonAssetPrebuiltNativeLibraryDirsPath;
+  @Nullable
+  private String targetsToNonAssetPrebuiltNativeLibraryDirsPath = null;
 
   @Option(name = "--output-module-info-and-target-to-module-only")
   private boolean outputModuleInfoAndTargetToModuleOnly;
@@ -80,7 +92,7 @@ public class APKModuleGraphExecutableMain {
       main.run();
       System.exit(0);
     } catch (CmdLineException e) {
-      System.err.println(e.getMessage());
+      System.err.println(e.toString());
       parser.printUsage(System.err);
       System.exit(1);
     }
@@ -88,16 +100,20 @@ public class APKModuleGraphExecutableMain {
 
   private void run() throws IOException {
     Map<String, ImmutableList<String>> rawTargetGraphMap =
-        ObjectMappers.READER.readValue(
-            ObjectMappers.createParser(Paths.get(targetGraphPath)),
-            new TypeReference<Map<String, ImmutableList<String>>>() {});
+        Objects.requireNonNull(
+            ObjectMappers.READER.readValue(
+                ObjectMappers.createParser(Paths.get(targetGraphPath)),
+                new TypeReference<Map<String, ImmutableList<String>>>() {}),
+            "Expected non-null target graph from " + targetGraphPath);
 
     ExternalTargetGraph targetGraph = buildTargetGraph(rawTargetGraphMap);
 
     Map<String, ImmutableList<String>> rawSeedConfigMap =
-        ObjectMappers.READER.readValue(
-            ObjectMappers.createParser(Paths.get(seedConfigMapPath)),
-            new TypeReference<Map<String, ImmutableList<String>>>() {});
+        Objects.requireNonNull(
+            ObjectMappers.READER.readValue(
+                ObjectMappers.createParser(Paths.get(seedConfigMapPath)),
+                new TypeReference<Map<String, ImmutableList<String>>>() {}),
+            "Expected non-null seed config map from " + seedConfigMapPath);
     ImmutableMap<String, ImmutableList<ExternalTargetGraph.ExternalBuildTarget>> seedConfigMap =
         rawSeedConfigMap.entrySet().stream()
             .collect(
@@ -117,9 +133,11 @@ public class APKModuleGraphExecutableMain {
                             .collect(ImmutableList.toImmutableList())));
 
     ImmutableMap<String, ImmutableList<String>> appModuleDependenciesMap =
-        ObjectMappers.READER.readValue(
-            ObjectMappers.createParser(Paths.get(appModuleDependenciesPath)),
-            new TypeReference<ImmutableMap<String, ImmutableList<String>>>() {});
+        Objects.requireNonNull(
+            ObjectMappers.READER.readValue(
+                ObjectMappers.createParser(Paths.get(appModuleDependenciesPath)),
+                new TypeReference<ImmutableMap<String, ImmutableList<String>>>() {}),
+            "Expected non-null app module dependencies map from " + appModuleDependenciesPath);
 
     Optional<List<ExternalTargetGraph.ExternalBuildTarget>> alwaysInMainApkSeeds =
         alwaysInMainApkSeedsPath == null
@@ -130,10 +148,15 @@ public class APKModuleGraphExecutableMain {
                     .filter(Objects::nonNull)
                     .collect(ImmutableList.toImmutableList()));
 
+    ExternalTargetGraph.ExternalBuildTarget rootBuildTarget =
+        targetGraph.getBuildTarget(rootTarget);
+    Preconditions.checkState(
+        rootBuildTarget != null, "Expected to find a build target for root: " + rootTarget);
+
     APKModuleGraph<ExternalTargetGraph.ExternalBuildTarget> apkModuleGraph =
         new APKModuleGraph<>(
             targetGraph,
-            targetGraph.getBuildTarget(rootTarget),
+            rootBuildTarget,
             Optional.of(seedConfigMap),
             Optional.of(appModuleDependenciesMap),
             alwaysInMainApkSeeds);
@@ -151,7 +174,10 @@ public class APKModuleGraphExecutableMain {
         String[] parts = line.split(" ");
         Preconditions.checkState(parts.length == 2);
         ExternalTargetGraph.ExternalBuildTarget target = targetGraph.getBuildTarget(parts[0]);
-        APKModule module = apkModuleGraph.findModuleForTarget(target);
+        APKModule module =
+            target != null
+                ? apkModuleGraph.findModuleForTarget(target)
+                : apkModuleGraph.getRootAPKModule();
         builder.put(module, Paths.get(parts[1]));
       }
 
@@ -171,7 +197,10 @@ public class APKModuleGraphExecutableMain {
         // First part is the target string, second part is the so name.
         Preconditions.checkState(parts.length == 2);
         ExternalTargetGraph.ExternalBuildTarget target = targetGraph.getBuildTarget(parts[0]);
-        APKModule module = apkModuleGraph.findModuleForTarget(target);
+        APKModule module =
+            target != null
+                ? apkModuleGraph.findModuleForTarget(target)
+                : apkModuleGraph.getRootAPKModule();
         builder.put(module, parts[1]);
       }
     }
@@ -183,7 +212,10 @@ public class APKModuleGraphExecutableMain {
         // First part is the target string, second part is the prebuilt native library dir.
         Preconditions.checkState(parts.length == 2);
         ExternalTargetGraph.ExternalBuildTarget target = targetGraph.getBuildTarget(parts[0]);
-        APKModule module = apkModuleGraph.findModuleForTarget(target);
+        APKModule module =
+            target != null
+                ? apkModuleGraph.findModuleForTarget(target)
+                : apkModuleGraph.getRootAPKModule();
         Path nonAssetPrebuiltNativeLibraryDir = Paths.get(parts[1]);
         try (Stream<Path> paths = Files.walk(nonAssetPrebuiltNativeLibraryDir)) {
           paths.forEach(
@@ -228,7 +260,7 @@ public class APKModuleGraphExecutableMain {
                         entry -> buildTargetMap.get(entry.getKey()),
                         entry ->
                             new ExternalTargetGraph.ExternalTargetNode(
-                                buildTargetMap.get(entry.getKey()),
+                                Objects.requireNonNull(buildTargetMap.get(entry.getKey())),
                                 entry.getValue().stream()
                                     .map(buildTargetMap::get)
                                     .collect(ImmutableSet.toImmutableSet()))));

@@ -14,6 +14,7 @@ import com.facebook.buck.android.apk.sdk.ApkBuilder;
 import com.facebook.buck.android.apk.sdk.ApkCreationException;
 import com.facebook.buck.android.apk.sdk.DuplicateFileException;
 import com.facebook.buck.android.apk.sdk.SealedApkException;
+import com.facebook.infer.annotation.Nullsafe;
 import com.google.common.collect.ImmutableSet;
 import java.io.IOException;
 import java.io.PrintStream;
@@ -22,8 +23,10 @@ import java.nio.file.Path;
 import java.security.KeyStoreException;
 import java.security.NoSuchAlgorithmException;
 import java.security.UnrecoverableKeyException;
+import org.jetbrains.annotations.Nullable;
 
 /** A class that provides methods useful for building an APK. */
+@Nullsafe(Nullsafe.Mode.LOCAL)
 public class ApkBuilderUtils {
 
   /**
@@ -41,7 +44,7 @@ public class ApkBuilderUtils {
       Path pathToKeystore,
       KeystoreProperties keystoreProperties,
       boolean packageMetaInfVersionFiles,
-      PrintStream output,
+      @Nullable PrintStream output,
       ImmutableSet<String> excludedResources)
       throws IOException,
           ApkCreationException,
@@ -50,6 +53,7 @@ public class ApkBuilderUtils {
           SealedApkException,
           UnrecoverableKeyException,
           DuplicateFileException {
+    // NULLSAFE_FIXME[Parameter Not Nullable]
     ApkBuilder builder =
         new ApkBuilder(
             pathToOutputApkFile.toFile(),
@@ -58,18 +62,22 @@ public class ApkBuilderUtils {
             packageMetaInfVersionFiles,
             output,
             excludedResources);
+    // NULLSAFE_FIXME[Unvetted Third Party In Nullsafe]
     for (Path nativeLibraryDirectory : nativeLibraryDirectories.stream().sorted().toList()) {
       builder.addNativeLibraries(nativeLibraryDirectory.toFile());
     }
+    // NULLSAFE_FIXME[Unvetted Third Party In Nullsafe]
     for (Path assetDirectory : assetDirectories.stream().sorted().toList()) {
       builder.addSourceFolder(assetDirectory.toFile());
     }
+    // NULLSAFE_FIXME[Unvetted Third Party In Nullsafe]
     for (Path zipFile : zipFiles.stream().sorted().toList()) {
       // TODO(natthu): Skipping silently is bad. These should really be assertions.
       if (Files.exists(zipFile) && Files.isRegularFile(zipFile)) {
         builder.addZipFile(zipFile.toFile());
       }
     }
+    // NULLSAFE_FIXME[Unvetted Third Party In Nullsafe]
     for (Path jarFileThatMayContainResources :
         jarFilesThatMayContainResources.stream().sorted().toList()) {
       builder.addResourcesFromJar(jarFileThatMayContainResources.toFile());
