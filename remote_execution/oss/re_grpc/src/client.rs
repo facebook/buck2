@@ -670,7 +670,7 @@ impl REClient {
             capabilities,
             instance_name,
             find_missing_cache: Mutex::new(FindMissingCache {
-                cache: LruCache::new(NonZeroUsize::new(50 << 20).unwrap()), // 50Mb
+                cache: LruCache::new(NonZeroUsize::new(500_000).unwrap()),
                 ttl: Duration::from_hours(12), // 12 hours TODO: Tune this parameter
                 last_check: Instant::now(),
             }),
