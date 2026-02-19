@@ -10,6 +10,7 @@
 
 package com.facebook.buck.android.exopackage;
 
+import com.facebook.infer.annotation.Nullsafe;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.Multimap;
@@ -19,10 +20,12 @@ import java.io.InputStreamReader;
 import java.nio.file.Path;
 import java.util.Collections;
 import java.util.Map;
+import java.util.Objects;
 import java.util.regex.Pattern;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 
+@Nullsafe(Nullsafe.Mode.LOCAL)
 public class ExopackageUtil {
   public static ImmutableMap<Path, Path> applyFilenameFormat(
       Map<String, Path> filesToHashes, Path deviceDir, String filenameFormat) {
@@ -59,7 +62,9 @@ public class ExopackageUtil {
 
         BufferedReader sigContents = null;
         try {
-          sigContents = new BufferedReader(new InputStreamReader(packageZip.getInputStream(entry)));
+          sigContents =
+              new BufferedReader(
+                  new InputStreamReader(Objects.requireNonNull(packageZip.getInputStream(entry))));
           // For each line in the signature file.
           while (true) {
             String line = sigContents.readLine();

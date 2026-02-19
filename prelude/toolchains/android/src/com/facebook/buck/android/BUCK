@@ -46,6 +46,8 @@ buck_kotlin_library(
         "prelude//toolchains/android/src/com/facebook/buck/util:util",
         "prelude//toolchains/android/src/com/facebook/buck/util/environment:environment",
         "prelude//toolchains/android/third-party:guava",
+        "prelude//toolchains/android/third-party:infer-annotations",
+        "prelude//toolchains/android/third-party:kotlin-annotations",
         "prelude//toolchains/android/third-party:kotlinx-coroutines-core-jvm",
         "prelude//toolchains/android/third-party:zstd-jni",
         ":manifest_utils",
@@ -84,6 +86,8 @@ buck_java_library(
     deps = [
         "prelude//toolchains/android/src/com/facebook/buck/util/xml:xml",
         "prelude//toolchains/android/third-party:args4j",
+        "prelude//toolchains/android/third-party:infer-annotations",
+        "prelude//toolchains/android/third-party:kotlin-annotations",
     ],
 )
 
@@ -109,5 +113,7 @@ buck_kotlin_library(
         "prelude//toolchains/android/src/com/facebook/buck/util/environment:platform",
         "prelude//toolchains/android/src/com/facebook/buck/util/xml:xml",
         "prelude//toolchains/android/third-party:guava",
+        "prelude//toolchains/android/third-party:infer-annotations",
+        "prelude//toolchains/android/third-party:kotlin-annotations",
     ],
 )

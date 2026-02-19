@@ -17,6 +17,7 @@ import com.facebook.buck.core.filesystems.AbsPath;
 import com.facebook.buck.core.util.log.Logger;
 import com.facebook.buck.io.filesystem.impl.ProjectFilesystemUtils;
 import com.facebook.buck.util.NamedTemporaryFile;
+import com.facebook.infer.annotation.Nullsafe;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Splitter;
@@ -36,12 +37,14 @@ import java.nio.file.Paths;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-import javax.annotation.Nullable;
+import org.jetbrains.annotations.Nullable;
 
 /** ExopackageInstaller manages the installation of apps with the "exopackage" flag set to true. */
+@Nullsafe(Nullsafe.Mode.LOCAL)
 public class ExopackageInstaller {
 
   private static final Logger LOG = Logger.get(ExopackageInstaller.class);
@@ -335,7 +338,8 @@ public class ExopackageInstaller {
     try (Closer closer = Closer.create()) {
       Map<Path, Path> filesToInstall = new HashMap<>();
       for (Map.Entry<Path, String> entry : metadataToInstall.entrySet()) {
-        NamedTemporaryFile temp = closer.register(new NamedTemporaryFile("metadata", "tmp"));
+        NamedTemporaryFile temp =
+            Objects.requireNonNull(closer.register(new NamedTemporaryFile("metadata", "tmp")));
         com.google.common.io.Files.write(
             entry.getValue().getBytes(StandardCharsets.UTF_8), temp.get().toFile());
         filesToInstall.put(entry.getKey(), temp.get());

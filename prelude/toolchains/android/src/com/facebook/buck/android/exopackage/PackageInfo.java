@@ -10,9 +10,11 @@
 
 package com.facebook.buck.android.exopackage;
 
+import com.facebook.infer.annotation.Nullsafe;
 import com.google.common.annotations.VisibleForTesting;
 
 @VisibleForTesting
+@Nullsafe(Nullsafe.Mode.LOCAL)
 public class PackageInfo {
   public final String apkPath;
   public final String nativeLibPath;

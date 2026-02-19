@@ -12,6 +12,7 @@ package com.facebook.buck.android.exopackage;
 
 import com.facebook.buck.core.filesystems.AbsPath;
 import com.facebook.buck.io.filesystem.impl.ProjectFilesystemUtils;
+import com.facebook.infer.annotation.Nullsafe;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableMap;
@@ -20,6 +21,7 @@ import java.nio.file.Paths;
 import java.util.stream.Stream;
 
 /** Installs resources for exo. */
+@Nullsafe(Nullsafe.Mode.LOCAL)
 public class ResourcesExoHelper implements ExoHelper {
 
   @VisibleForTesting public static final Path RESOURCES_DIR = Paths.get("resources");

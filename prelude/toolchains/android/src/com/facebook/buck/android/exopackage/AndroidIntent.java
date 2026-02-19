@@ -10,7 +10,10 @@
 
 package com.facebook.buck.android.exopackage;
 
+import com.facebook.infer.annotation.Nullsafe;
+
 /** Data class for parameters to a `adb shell am start` command. */
+@Nullsafe(Nullsafe.Mode.LOCAL)
 public class AndroidIntent {
 
   public static final String ACTION_MAIN = "android.intent.action.MAIN";

@@ -28,6 +28,7 @@ import com.facebook.buck.util.Console;
 import com.facebook.buck.util.MoreSuppliers;
 import com.facebook.buck.util.Threads;
 import com.facebook.buck.util.environment.EnvVariablesProvider;
+import com.facebook.infer.annotation.Nullsafe;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
@@ -51,6 +52,7 @@ import java.util.Collections;
 import java.util.Enumeration;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CancellationException;
@@ -65,9 +67,10 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
-import javax.annotation.Nullable;
+import org.jetbrains.annotations.Nullable;
 
 /** Helper for executing commands over ADB, especially for multiple devices. */
+@Nullsafe(Nullsafe.Mode.LOCAL)
 public class AdbHelper implements AndroidDevicesHelper {
 
   private static final Logger LOG = Logger.get(AdbHelper.class);
@@ -186,7 +189,7 @@ public class AdbHelper implements AndroidDevicesHelper {
       }
       devices = result.devices;
     } catch (Exception e) {
-      throw new RuntimeException(e.getMessage());
+      throw new RuntimeException(e.toString());
     }
 
     // Start executions on all matching devices.
@@ -480,13 +483,17 @@ public class AdbHelper implements AndroidDevicesHelper {
     final AndroidIntent intent;
     final String intentTargetNiceName;
     if (intentUri != null) {
+      // NULLSAFE_FIXME[Parameter Not Nullable]
       intent =
           new AndroidIntent(
               packageName,
+              // NULLSAFE_FIXME[Parameter Not Nullable]
               null,
               AndroidIntent.ACTION_VIEW,
+              // NULLSAFE_FIXME[Parameter Not Nullable]
               null,
               intentUri,
+              // NULLSAFE_FIXME[Parameter Not Nullable]
               null,
               waitForDebugger,
               skipSetDebugApp);
@@ -520,6 +527,7 @@ public class AdbHelper implements AndroidDevicesHelper {
               activity,
               AndroidIntent.ACTION_MAIN,
               AndroidIntent.CATEGORY_LAUNCHER,
+              // NULLSAFE_FIXME[Parameter Not Nullable]
               null,
               "0x10200000",
               waitForDebugger,
@@ -850,7 +858,8 @@ public class AdbHelper implements AndroidDevicesHelper {
 
         // Extract the manifest directly to byte array
         byte[] manifestBytes;
-        try (java.io.InputStream inputStream = zipFile.getInputStream(manifestEntry);
+        try (java.io.InputStream inputStream =
+                Objects.requireNonNull(zipFile.getInputStream(manifestEntry));
             java.io.ByteArrayOutputStream outputStream = new java.io.ByteArrayOutputStream()) {
           byte[] buffer = new byte[8192];
           int bytesRead;

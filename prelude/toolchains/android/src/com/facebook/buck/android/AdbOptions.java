@@ -10,6 +10,9 @@
 
 package com.facebook.buck.android;
 
+import com.facebook.infer.annotation.Nullsafe;
+
+@Nullsafe(Nullsafe.Mode.LOCAL)
 public class AdbOptions {
 
   public static final String MULTI_INSTALL_MODE_SHORT_ARG = "-x";
