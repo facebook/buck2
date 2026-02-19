@@ -16,8 +16,6 @@ main module, you can import this module as tools.test.stubs.fbpyunit, to access
 any of its code to help implement your main module.
 """
 
-# pyre-unsafe
-
 from __future__ import print_function
 
 import contextlib

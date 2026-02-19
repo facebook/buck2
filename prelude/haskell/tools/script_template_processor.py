@@ -19,8 +19,6 @@ The macros in the script should be in the format `<MACRO_NAME>`.
 For example, `echo <binutils_path>` is an expression that would be replaced.
 """
 
-# pyre-unsafe
-
 import argparse
 import os
 import re

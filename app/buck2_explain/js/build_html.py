@@ -7,7 +7,6 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
-# pyre-unsafe
 
 # credits to implementation in https://www.internalfb.com/code/fbsource/fbcode/eden/addons/build-tar.py
 

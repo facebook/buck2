@@ -6,7 +6,6 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
-# pyre-unsafe
 
 from buck2.tests.e2e.configurations.cfg_constructor.modifiers_util import get_cfg
 from buck2.tests.e2e_util.api.buck import Buck

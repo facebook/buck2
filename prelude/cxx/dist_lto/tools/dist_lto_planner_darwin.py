@@ -19,8 +19,6 @@ This script:
 Starlark code holds a representation of each input object file or archive in memory in an array. When code here needs to communicate characteristics about a particular element of this array, it encodes this using the index into this array. These indices are referred to as "starlark array index"
 """
 
-# pyre-unsafe
-
 import argparse
 import dataclasses
 import json

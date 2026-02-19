@@ -30,8 +30,6 @@ Both opt and link plans use indices to refer to other files because it allows th
 code to easily map back to other objects held in buck memory.
 """
 
-# pyre-unsafe
-
 import argparse
 import json
 import os
