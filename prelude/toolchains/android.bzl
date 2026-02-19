@@ -87,6 +87,7 @@ def system_android_toolchain(
     kwargs["generate_manifest"] = "prelude//toolchains/android/src/com/facebook/buck/android/manifest:generate_manifest_binary"
     kwargs["installer"] = "prelude//toolchains/android/src/com/facebook/buck/installer/android:android_installer"
     kwargs["instrumentation_test_can_run_locally"] = True
+    kwargs["collect_perfetto"] = False
     kwargs["instrumentation_test_runner_classpath"] = [
         "prelude//toolchains/android/src/com/facebook/buck/testrunner:testrunner-bin-android-fixed",
         "prelude//toolchains/android/third-party:android-common",
@@ -166,6 +167,7 @@ def system_android_toolchain_rule_impl(ctx):
             generate_manifest = ctx.attrs.generate_manifest,
             installer = ctx.attrs.installer,
             instrumentation_test_can_run_locally = ctx.attrs.instrumentation_test_can_run_locally,
+            collect_perfetto = ctx.attrs.collect_perfetto,
             instrumentation_test_runner_classpath = ctx.attrs.instrumentation_test_runner_classpath,
             instrumentation_test_runner_main_class = ctx.attrs.instrumentation_test_runner_main_class,
             jar_splitter_command = ctx.attrs.jar_splitter_command,
@@ -209,6 +211,7 @@ system_android_toolchain_rule = rule(
         "app_without_resources_stub": attrs.source(),
         "bundle_apks_builder": attrs.dep(providers = [RunInfo]),
         "bundle_builder": attrs.dep(providers = [RunInfo]),
+        "collect_perfetto": attrs.bool(),
         "combine_native_library_dirs": attrs.dep(providers = [RunInfo]),
         "consolidate_class_names": attrs.option(attrs.dep(providers = [RunInfo]), default = None),
         "copy_string_resources": attrs.dep(providers = [RunInfo]),
