@@ -11,6 +11,7 @@
 package com.facebook.buck.android.resources;
 
 import com.facebook.buck.util.MoreSuppliers;
+import com.facebook.infer.annotation.Nullsafe;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSortedSet;
@@ -34,6 +35,7 @@ import java.util.stream.IntStream;
  * ...) and a keys string pool (containing the names of resources). Then follows a TypeSpec for each
  * type (# of types can be derived from the size of the types stringpool).
  */
+@Nullsafe(Nullsafe.Mode.LOCAL)
 public class ResTablePackage extends ResChunk {
   public static final int HEADER_SIZE = 288;
   public static final int APP_PACKAGE_ID = 0x7F;

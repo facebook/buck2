@@ -13,6 +13,7 @@ package com.facebook.buck.android.resources;
 import com.facebook.buck.android.zipalign.ZipAlign;
 import com.facebook.buck.core.filesystems.AbsPath;
 import com.facebook.buck.core.filesystems.RelPath;
+import com.facebook.infer.annotation.Nullsafe;
 import com.google.common.hash.Hashing;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -23,26 +24,34 @@ import org.kohsuke.args4j.CmdLineParser;
 import org.kohsuke.args4j.Option;
 
 /** Main entry point for executing {@link ExoResourcesRewriter} calls. */
+@Nullsafe(Nullsafe.Mode.LOCAL)
 public class ExoResourcesRewriterExecutableMain {
   @Option(name = "--original-r-dot-txt", required = true)
+  // NULLSAFE_FIXME[Field Not Initialized]
   private String originalRDotTxt;
 
   @Option(name = "--new-r-dot-txt", required = true)
+  // NULLSAFE_FIXME[Field Not Initialized]
   private String newRDotTxt;
 
   @Option(name = "--original-primary-apk-resources", required = true)
+  // NULLSAFE_FIXME[Field Not Initialized]
   private String originalPrimaryApkResources;
 
   @Option(name = "--new-primary-apk-resources", required = true)
+  // NULLSAFE_FIXME[Field Not Initialized]
   private String newPrimaryApkResources;
 
   @Option(name = "--exo-resources", required = true)
+  // NULLSAFE_FIXME[Field Not Initialized]
   private String exoResources;
 
   @Option(name = "--exo-resources-hash", required = true)
+  // NULLSAFE_FIXME[Field Not Initialized]
   private String exoResourcesHash;
 
   @Option(name = "--zipalign-tool", required = true)
+  // NULLSAFE_FIXME[Field Not Initialized]
   private String zipalignTool;
 
   public static void main(String[] args) throws IOException {
@@ -53,7 +62,7 @@ public class ExoResourcesRewriterExecutableMain {
       main.run();
       System.exit(0);
     } catch (CmdLineException e) {
-      System.err.println(e.getMessage());
+      System.err.println(e.toString());
       parser.printUsage(System.err);
       System.exit(1);
     }

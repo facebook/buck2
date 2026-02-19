@@ -15,6 +15,7 @@ import com.facebook.buck.core.filesystems.RelPath;
 import com.facebook.buck.io.file.MostFiles;
 import com.facebook.buck.io.filesystem.impl.ProjectFilesystemUtils;
 import com.facebook.buck.util.MoreSuppliers;
+import com.facebook.infer.annotation.Nullsafe;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedMap;
@@ -33,6 +34,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.SortedMap;
 import java.util.function.Function;
@@ -102,6 +104,7 @@ import java.util.zip.ZipFile;
  * I didn't think it was worth it now to further investigate the feasibility/difficulty of using
  * different package ids.
  */
+@Nullsafe(Nullsafe.Mode.LOCAL)
 public class ExoResourcesRewriter {
   private ExoResourcesRewriter() {}
 
@@ -200,7 +203,7 @@ public class ExoResourcesRewriter {
         String line = iter.next();
         Matcher reg = regular.matcher(line);
         if (reg.matches()) {
-          String newId = mapping.apply(reg.group(3));
+          String newId = mapping.apply(Objects.requireNonNull(reg.group(3)));
           mappedLines.add(String.format("int %s %s %s", reg.group(1), reg.group(2), newId));
           continue;
         }
@@ -210,9 +213,9 @@ public class ExoResourcesRewriter {
         }
         String values = stMatcher.group(3);
         ArrayList<String> ids = new ArrayList<>();
-        Matcher m = number.matcher(values);
+        Matcher m = number.matcher(Objects.requireNonNull(values));
         while (m.find()) {
-          String id = mapping.apply(m.group(1));
+          String id = mapping.apply(Objects.requireNonNull(m.group(1)));
           ids.add(id);
         }
         Map<String, Integer> newIndex = new HashMap<>();
@@ -236,8 +239,8 @@ public class ExoResourcesRewriter {
           if (!m.matches()) {
             throw new RuntimeException("Unmatched: " + line);
           }
-          int idx = Integer.parseInt(m.group(3));
-          int newIdx = newIndex.get(ids.get(idx));
+          int idx = Integer.parseInt(Objects.requireNonNull(m.group(3)));
+          int newIdx = Objects.requireNonNull(newIndex.get(ids.get(idx)));
           mappedLines.add(String.format("int styleable %s %d", m.group(2), newIdx));
         }
       }
@@ -314,7 +317,7 @@ public class ExoResourcesRewriter {
     }
 
     public ZipEntry getEntry(String path) {
-      return entries.get(path);
+      return Objects.requireNonNull(entries.get(path));
     }
 
     Iterable<ResourcesXml> getResourcesXmls() {
@@ -335,7 +338,9 @@ public class ExoResourcesRewriter {
 
     private byte[] extractContent(String path) {
       try {
-        return ByteStreams.toByteArray(zipFile.getInputStream(entries.get(path)));
+        return ByteStreams.toByteArray(
+            Objects.requireNonNull(
+                zipFile.getInputStream(Objects.requireNonNull(entries.get(path)))));
       } catch (IOException e) {
         throw new RuntimeException(e);
       }

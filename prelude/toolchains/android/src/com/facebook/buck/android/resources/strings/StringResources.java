@@ -10,6 +10,7 @@
 
 package com.facebook.buck.android.resources.strings;
 
+import com.facebook.infer.annotation.Nullsafe;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -30,6 +31,7 @@ import java.util.TreeMap;
  * Represents string resources of types string, plural and array for a locale. Also responsible for
  * generating a custom format binary file for the resources.
  */
+@Nullsafe(Nullsafe.Mode.LOCAL)
 public class StringResources {
 
   /**

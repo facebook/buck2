@@ -11,6 +11,7 @@
 package com.facebook.buck.android.resources.strings;
 
 import com.facebook.buck.core.filesystems.AbsPath;
+import com.facebook.infer.annotation.Nullsafe;
 import com.google.common.collect.ImmutableList;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -21,11 +22,14 @@ import org.kohsuke.args4j.CmdLineParser;
 import org.kohsuke.args4j.Option;
 
 /** Entry point for copying string resources. */
+@Nullsafe(Nullsafe.Mode.LOCAL)
 public class CopyStringResourcesExecutableMain {
   @Option(name = "--res-dirs", required = true)
+  // NULLSAFE_FIXME[Field Not Initialized]
   private String resDirsFileString;
 
   @Option(name = "--output", required = true)
+  // NULLSAFE_FIXME[Field Not Initialized]
   private String outputPathString;
 
   @Option(name = "--is-voltron")
@@ -39,7 +43,7 @@ public class CopyStringResourcesExecutableMain {
       main.run();
       System.exit(0);
     } catch (CmdLineException e) {
-      System.err.println(e.getMessage());
+      System.err.println(e.toString());
       parser.printUsage(System.err);
       System.exit(1);
     }

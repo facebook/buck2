@@ -11,6 +11,7 @@
 package com.facebook.buck.android.resources;
 
 import com.facebook.buck.util.zip.DeterministicZipBuilder;
+import com.facebook.infer.annotation.Nullsafe;
 import java.io.ByteArrayInputStream;
 import java.io.Closeable;
 import java.io.IOException;
@@ -30,6 +31,7 @@ import java.util.zip.Deflater;
  * <p>(*) Due to a bug in Android's zip handling, we actually create a 1-byte manifest... See
  * https://android.googlesource.com/platform/system/core/+/48953a1b8fdcf1d6fa1aeeb40c57821d33fc87d2
  */
+@Nullsafe(Nullsafe.Mode.LOCAL)
 public class ResourcesZipBuilder implements Closeable {
   public static final String ANDROID_MANIFEST_XML = "AndroidManifest.xml";
   private boolean needsManifest;

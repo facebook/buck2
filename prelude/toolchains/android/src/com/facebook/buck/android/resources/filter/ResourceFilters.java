@@ -12,6 +12,7 @@ package com.facebook.buck.android.resources.filter;
 
 import com.facebook.buck.core.filesystems.AbsPath;
 import com.facebook.buck.io.filesystem.impl.ProjectFilesystemUtils;
+import com.facebook.infer.annotation.Nullsafe;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.FluentIterable;
@@ -24,9 +25,11 @@ import com.google.common.collect.Table;
 import java.nio.file.Path;
 import java.util.Collection;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.function.Predicate;
 
+@Nullsafe(Nullsafe.Mode.LOCAL)
 public class ResourceFilters {
 
   /** Utility class: do not instantiate. */
@@ -174,11 +177,13 @@ public class ResourceFilters {
     // key: res/some.png/    |  res/drawable-mdpi/some.png          res/drawable-hdpi/some.png
     // key: res/some.png/fr  |  res/drawable-fr-hdpi/some.png
     for (Path candidate : candidates) {
-      Qualifiers qualifiers = Qualifiers.from(candidate.getParent());
+      Qualifiers qualifiers = Qualifiers.from(Objects.requireNonNull(candidate.getParent()));
 
       String filename = candidate.getFileName().toString();
       Density density = qualifiers.density;
-      String resDirectory = candidate.getParent().getParent().toString();
+      String resDirectory =
+          Objects.requireNonNull(Objects.requireNonNull(candidate.getParent()).getParent())
+              .toString();
       String key = String.format("%s/%s/%s", resDirectory, filename, qualifiers.others);
       imageValues.put(key, density, candidate);
     }
@@ -222,7 +227,7 @@ public class ResourceFilters {
 
       // Mark remaining densities for removal.
       for (Density density : Sets.difference(available, toKeep)) {
-        removals.add(options.get(density));
+        removals.add(Objects.requireNonNull(options.get(density)));
       }
     }
 

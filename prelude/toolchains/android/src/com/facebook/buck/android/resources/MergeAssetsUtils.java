@@ -14,6 +14,7 @@ import com.facebook.buck.android.apkmodule.APKModule;
 import com.facebook.buck.core.filesystems.AbsPath;
 import com.facebook.buck.core.filesystems.RelPath;
 import com.facebook.buck.io.filesystem.impl.ProjectFilesystemUtils;
+import com.facebook.infer.annotation.Nullsafe;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -31,6 +32,7 @@ import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.util.Collections;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.regex.Pattern;
 import java.util.zip.Deflater;
@@ -38,6 +40,7 @@ import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 
 /** Utils for merging assets into an apk. */
+@Nullsafe(Nullsafe.Mode.LOCAL)
 public class MergeAssetsUtils {
   public enum BinaryType {
     APK,
@@ -102,7 +105,7 @@ public class MergeAssetsUtils {
             boolean shouldCompress =
                 inputEntry.getMethod() != ZipEntry.STORED
                     && !isNoCompress(apkPath, allNoCompressExtensions, noCompressPattern);
-            try (InputStream stream = base.getInputStream(inputEntry)) {
+            try (InputStream stream = Objects.requireNonNull(base.getInputStream(inputEntry))) {
               outputApkResources.addEntry(
                   stream,
                   inputEntry.getSize(),
@@ -162,7 +165,7 @@ public class MergeAssetsUtils {
             String.format(
                 "Invalid regex pattern in additional_aapt_params --no-compress-regex: '%s'. Error:"
                     + " %s",
-                regex, e.getMessage()),
+                regex, e.toString()),
             e);
       }
     }

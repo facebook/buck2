@@ -15,6 +15,7 @@ import com.facebook.buck.io.file.GlobPatternMatcher;
 import com.facebook.buck.io.file.PathMatcher;
 import com.facebook.buck.io.filesystem.impl.ProjectFilesystemUtils;
 import com.facebook.buck.util.json.ObjectMappers;
+import com.facebook.infer.annotation.Nullsafe;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableBiMap;
@@ -27,49 +28,62 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.Map;
+import java.util.Objects;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
+import org.jetbrains.annotations.Nullable;
 import org.kohsuke.args4j.CmdLineException;
 import org.kohsuke.args4j.CmdLineParser;
 import org.kohsuke.args4j.Option;
 
 /** Entry point for filtering resources. */
+@Nullsafe(Nullsafe.Mode.LOCAL)
 public class FilterResourcesExecutableMain {
   private static final ImmutableList<PathMatcher> NON_ASSET_FILENAMES_MATCHERS =
       ImmutableList.of(GlobPatternMatcher.of("**/.DS_Store"));
 
   @Option(name = "--in-res-dir-to-out-res-dir-map", required = true)
+  // NULLSAFE_FIXME[Field Not Initialized]
   private String inResDirToOutResDirMapPath;
 
   @Option(name = "--voltron-in-res-dir-to-out-res-dir-map")
-  private String voltronInResDirToOutResDirMapPath;
+  @Nullable
+  private String voltronInResDirToOutResDirMapPath = null;
 
   @Option(name = "--target-densities")
-  private String targetDensities;
+  @Nullable
+  private String targetDensities = null;
 
   @Option(name = "--enable-string-as-assets-filtering")
   private boolean enableStringsAsAssetsFiltering;
 
   @Option(name = "--not-filtered-string-dirs")
-  private String notFilteredStringDirsFile;
+  @Nullable
+  private String notFilteredStringDirsFile = null;
 
   @Option(name = "--string-files-list-output")
-  private String stringFilesListOutput;
+  @Nullable
+  private String stringFilesListOutput = null;
 
   @Option(name = "--locales")
-  private String localesString;
+  @Nullable
+  private String localesString = null;
 
   @Option(name = "--packaged-locales")
-  private String packagedLocalesString;
+  @Nullable
+  private String packagedLocalesString = null;
 
   @Option(name = "--post-filter-resources-cmd")
-  private String postFilterResourcesCmd;
+  @Nullable
+  private String postFilterResourcesCmd = null;
 
   @Option(name = "--post-filter-resources-cmd-override-symbols-output")
-  private String postFilterResourcesCmdOverrideSymbols;
+  @Nullable
+  private String postFilterResourcesCmdOverrideSymbols = null;
 
   @Option(name = "--allowlisted-locales")
-  private String allowlistedLocalesFile;
+  @Nullable
+  private String allowlistedLocalesFile = null;
 
   public static void main(String[] args) throws IOException {
     FilterResourcesExecutableMain main = new FilterResourcesExecutableMain();
@@ -79,7 +93,7 @@ public class FilterResourcesExecutableMain {
       main.run();
       System.exit(0);
     } catch (CmdLineException e) {
-      System.err.println(e.getMessage());
+      System.err.println(e.toString());
       parser.printUsage(System.err);
       System.exit(1);
     }
@@ -91,7 +105,8 @@ public class FilterResourcesExecutableMain {
         ObjectMappers.READER.readValue(
             ObjectMappers.createParser(Paths.get(inResDirToOutResDirMapPath)),
             new TypeReference<Map<String, ImmutableBiMap<Path, Path>>>() {});
-    ImmutableBiMap<Path, Path> inResDirToOutResDirMap = rawMap.get("res_dir_map");
+    ImmutableBiMap<Path, Path> inResDirToOutResDirMap =
+        Objects.requireNonNull(rawMap.get("res_dir_map"));
     ImmutableSet<ResourceFilters.Density> targetDensitiesSet =
         targetDensities != null
             ? Arrays.stream(targetDensities.split(","))
@@ -144,7 +159,8 @@ public class FilterResourcesExecutableMain {
           ObjectMappers.READER.readValue(
               ObjectMappers.createParser(Paths.get(voltronInResDirToOutResDirMapPath)),
               new TypeReference<Map<String, ImmutableBiMap<Path, Path>>>() {});
-      ImmutableBiMap<Path, Path> voltronInResDirToOutResDirMap = rawVoltronMap.get("res_dir_map");
+      ImmutableBiMap<Path, Path> voltronInResDirToOutResDirMap =
+          Objects.requireNonNull(rawVoltronMap.get("res_dir_map"));
 
       FilteredDirectoryCopier.copyDirs(
           root,
@@ -167,7 +183,10 @@ public class FilterResourcesExecutableMain {
       try {
         int exitCode = postFilterResourcesProcess.waitFor();
         if (exitCode != 0) {
-          String error = new String(postFilterResourcesProcess.getErrorStream().readAllBytes());
+          String error =
+              new String(
+                  Objects.requireNonNull(postFilterResourcesProcess.getErrorStream())
+                      .readAllBytes());
           throw new RuntimeException("post_filter_resources_cmd failed with error: " + error);
         }
       } catch (InterruptedException e) {

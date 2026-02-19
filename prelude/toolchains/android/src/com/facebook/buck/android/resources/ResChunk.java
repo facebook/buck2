@@ -10,6 +10,7 @@
 
 package com.facebook.buck.android.resources;
 
+import com.facebook.infer.annotation.Nullsafe;
 import com.google.common.base.Preconditions;
 import com.google.common.primitives.Shorts;
 import java.nio.ByteBuffer;
@@ -29,6 +30,7 @@ import java.util.Arrays;
  * https://android.googlesource.com/platform/frameworks/base/+/kitkat-release/include/androidfw/ResourceTypes.h
  * for full specification.
  */
+@Nullsafe(Nullsafe.Mode.LOCAL)
 public abstract class ResChunk {
   public static final short CHUNK_STRING_POOL = 0x001;
   public static final short CHUNK_RESOURCE_TABLE = 0x002;

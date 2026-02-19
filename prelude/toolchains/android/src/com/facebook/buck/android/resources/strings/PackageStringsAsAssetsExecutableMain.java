@@ -19,6 +19,7 @@ import com.facebook.buck.util.zip.CustomZipOutputStream;
 import com.facebook.buck.util.zip.Zip;
 import com.facebook.buck.util.zip.ZipCompressionLevel;
 import com.facebook.buck.util.zip.ZipOutputStreams;
+import com.facebook.infer.annotation.Nullsafe;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import java.io.BufferedOutputStream;
@@ -29,32 +30,40 @@ import java.nio.file.Paths;
 import java.util.Map;
 import java.util.TreeMap;
 import java.util.function.Function;
+import org.jetbrains.annotations.Nullable;
 import org.kohsuke.args4j.CmdLineException;
 import org.kohsuke.args4j.CmdLineParser;
 import org.kohsuke.args4j.Option;
 import org.xml.sax.SAXException;
 
 /** Entry point for packaging string resources as assets. */
+@Nullsafe(Nullsafe.Mode.LOCAL)
 public class PackageStringsAsAssetsExecutableMain {
   private static final String STRING_ASSET_FILE_EXTENSION = ".fbstr";
 
   @Option(name = "--string-files-list", required = true)
+  // NULLSAFE_FIXME[Field Not Initialized]
   private String stringFilesList;
 
   @Option(name = "--r-dot-txt", required = true)
+  // NULLSAFE_FIXME[Field Not Initialized]
   private String rDotTxt;
 
   @Option(name = "--string-assets-dir", required = true)
+  // NULLSAFE_FIXME[Field Not Initialized]
   private String stringAssetsDir;
 
   @Option(name = "--string-assets-zip", required = true)
+  // NULLSAFE_FIXME[Field Not Initialized]
   private String stringAssetsZip;
 
   @Option(name = "--all-locales-string-assets-zip", required = true)
+  // NULLSAFE_FIXME[Field Not Initialized]
   private String allLocalesStringAssetsZip;
 
   @Option(name = "--locales")
-  private String localesString;
+  @Nullable
+  private String localesString = null;
 
   public static void main(String[] args) throws IOException {
     PackageStringsAsAssetsExecutableMain main = new PackageStringsAsAssetsExecutableMain();
@@ -64,7 +73,7 @@ public class PackageStringsAsAssetsExecutableMain {
       main.run();
       System.exit(0);
     } catch (CmdLineException e) {
-      System.err.println(e.getMessage());
+      System.err.println(e.toString());
       parser.printUsage(System.err);
       System.exit(1);
     }

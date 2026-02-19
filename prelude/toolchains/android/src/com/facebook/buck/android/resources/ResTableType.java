@@ -10,13 +10,14 @@
 
 package com.facebook.buck.android.resources;
 
+import com.facebook.infer.annotation.Nullsafe;
 import com.google.common.base.Preconditions;
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
 import java.nio.ByteBuffer;
 import java.text.DecimalFormat;
 import java.util.stream.Stream;
-import javax.annotation.Nullable;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * ResTableType is a ResChunk holding the resource values for a given type and configuration. It
@@ -35,6 +36,7 @@ import javax.annotation.Nullable;
  *
  * <p>and `count` map entries of the form: ResRef name ResValue value
  */
+@Nullsafe(Nullsafe.Mode.LOCAL)
 public class ResTableType extends ResChunk {
   private static final int CONFIG_OFFSET = 20;
   private static final int FLAG_COMPLEX = 0x1;

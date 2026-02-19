@@ -10,6 +10,7 @@
 
 package com.facebook.buck.android.resources;
 
+import com.facebook.infer.annotation.Nullsafe;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import java.io.PrintStream;
@@ -18,7 +19,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.IntStream;
-import javax.annotation.Nullable;
+import org.jetbrains.annotations.Nullable;
 
 /**
  * ResourcesXml handles Android's compiled xml format. It consists of: ResChunk_header u16
@@ -45,6 +46,7 @@ import javax.annotation.Nullable;
  * <p>XML_START_ELEMENT is then followed by attrCount attributes of the form: StringRef namespace
  * StringRef name StringRef rawValue Res_value typedValue
  */
+@Nullsafe(Nullsafe.Mode.LOCAL)
 public class ResourcesXml extends ResChunk {
   private static final boolean DEBUG = true;
 

@@ -13,6 +13,7 @@ package com.facebook.buck.android.resources.filter;
 import com.facebook.buck.core.filesystems.AbsPath;
 import com.facebook.buck.io.filesystem.CopySourceMode;
 import com.facebook.buck.io.filesystem.impl.ProjectFilesystemUtils;
+import com.facebook.infer.annotation.Nullsafe;
 import java.io.IOException;
 import java.nio.file.DirectoryStream;
 import java.nio.file.FileVisitResult;
@@ -33,6 +34,7 @@ import java.util.function.Predicate;
  *   <li>Empty directories will not be created.
  * </ul>
  */
+@Nullsafe(Nullsafe.Mode.LOCAL)
 public class FilteredDirectoryCopier {
 
   private FilteredDirectoryCopier() {}
