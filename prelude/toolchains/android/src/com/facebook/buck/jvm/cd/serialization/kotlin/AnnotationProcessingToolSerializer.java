@@ -11,6 +11,7 @@
 package com.facebook.buck.jvm.cd.serialization.kotlin;
 
 import com.facebook.buck.jvm.cd.command.kotlin.AnnotationProcessingTool;
+import com.facebook.infer.annotation.Nullsafe;
 
 /**
  * Marshalling between:
@@ -21,6 +22,7 @@ import com.facebook.buck.jvm.cd.command.kotlin.AnnotationProcessingTool;
  *       buffer model).
  * </ul>
  */
+@Nullsafe(Nullsafe.Mode.LOCAL)
 public class AnnotationProcessingToolSerializer {
 
   private AnnotationProcessingToolSerializer() {}

@@ -14,6 +14,7 @@ import com.facebook.buck.core.filesystems.AbsPath;
 import com.facebook.buck.jvm.cd.command.kotlin.KotlinExtraParams;
 import com.facebook.buck.jvm.cd.serialization.AbsPathSerializer;
 import com.facebook.buck.jvm.cd.serialization.java.ResolvedJavacOptionsSerializer;
+import com.facebook.infer.annotation.Nullsafe;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedSet;
@@ -30,6 +31,7 @@ import java.util.Optional;
  *       model).
  * </ul>
  */
+@Nullsafe(Nullsafe.Mode.LOCAL)
 public class KotlinExtraParamsSerializer {
 
   private KotlinExtraParamsSerializer() {}

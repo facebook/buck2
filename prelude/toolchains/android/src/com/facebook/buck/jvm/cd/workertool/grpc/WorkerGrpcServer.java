@@ -18,6 +18,7 @@ import com.facebook.buck.util.Console;
 import com.facebook.buck.util.Verbosity;
 import com.facebook.buck.util.perf.PerfStatsTracking;
 import com.facebook.buck.util.unit.SizeUnit;
+import com.facebook.infer.annotation.Nullsafe;
 import io.grpc.ForwardingServerCallListener;
 import io.grpc.Metadata;
 import io.grpc.Server;
@@ -44,6 +45,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
 /** Worker tool grpc server using unix domain sockets */
+@Nullsafe(Nullsafe.Mode.LOCAL)
 public class WorkerGrpcServer implements ServerInterceptor {
   private static final Logger LOG = Logger.get(WorkerGrpcServer.class);
 
@@ -66,7 +68,7 @@ public class WorkerGrpcServer implements ServerInterceptor {
         server.run();
       }
     } catch (InterruptedException | IOException e) {
-      System.err.println(e.getMessage());
+      System.err.println(e.toString());
       System.exit(1);
     }
     System.exit(0);
