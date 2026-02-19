@@ -191,8 +191,16 @@ pub(crate) fn analysis_actions_methods_run(methods: &mut MethodsBuilder) {
     ///     * `drop_host_mount_globs`: list of strings containing file
     ///     globs. Any mounts globs specified will not be bind mounted
     ///     from the host.
-    /// * `timeout_seconds`: an optional timeout for the action, in seconds. If the action takes
-    ///   longer than this, it will be cancelled. Must be a positive number.
+    /// * `timeout_seconds`: an optional timeout for the action, in seconds. If
+    ///   the action takes longer than this, it will be cancelled and behave as if
+    ///   it has failed. Must be a positive number. The default is no timeout.
+    ///     * Use this to abort misbehaving actions (e.g. if an action sometimes
+    ///     deadlock). In other words, use this when the build will fail either
+    ///     way, and you want to just make it fail faster.
+    ///     * Do NOT use  this to attempt to enforce e.g. a runtime policy on a
+    ///     specific set of actions: action runtime is often variable so setting
+    ///     a timeout to try and enforce a specific runtime goal will inevitably
+    ///     result in flaky failures for end users running builds.
     ///  * `meta_internal_extra_params`: a dictionary to pass extra parameters to RE, can add more keys in the future:
     ///     * `remote_execution_policy`: refer to TExecutionPolicy.
     ///  * `error_handler`: an optional function that analyzes action failures and produces structured error information.
