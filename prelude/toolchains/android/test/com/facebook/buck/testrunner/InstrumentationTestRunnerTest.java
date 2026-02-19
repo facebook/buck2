@@ -332,8 +332,18 @@ public class InstrumentationTestRunnerTest {
         Paths.get("/data/misc/perfetto-traces/ait_perfetto_trace.perfetto-trace"),
         "fake perfetto trace data".getBytes());
 
+    // Mock shell command responses for PerfettoReportLayer
+    Map<String, String> mockResponses = new HashMap<>();
+    mockResponses.put(
+        "perfetto --txt --background --config /data/local/tmp/perfetto_config.txt"
+            + " --out /data/misc/perfetto-traces/ait_perfetto_trace.perfetto-trace",
+        "[123]");
+    mockResponses.put(
+        "ls -la /data/misc/perfetto-traces/ait_perfetto_trace.perfetto-trace",
+        "-rw-r--r-- 1 root root 1234 Jan 1 00:00 ait_perfetto_trace.perfetto-trace");
+
     InstrumentationTestRunner runner =
-        createInstrumentationTestRunnerWithDevice(files, env, "--collect-perfetto");
+        createInstrumentationTestRunnerWithDevice(files, env, mockResponses, "--collect-perfetto");
     runner.run();
 
     Path traceFile = tra.resolve("ait_perfetto_trace.perfetto-trace");
