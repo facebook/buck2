@@ -550,7 +550,14 @@ def rust_compile(
     import_library = None
     pdb_artifact = None
     dwp_inputs = []
-    if crate_type_linked(params.crate_type) and common_args.emit_requires_linking:
+    if crate_type_linked(params.crate_type) and emit == Emit("link"):
+        if params.crate_type in [CrateType("cdylib"), CrateType("dylib")]:
+            linker_info = compile_ctx.cxx_toolchain_info.linker_info
+            shlib_name = compile_ctx.soname
+            rustc_cmd.add(cmd_args(
+                get_shared_library_name_linker_flags(linker_info.type, shlib_name),
+                format = "-Clink-arg={}",
+            ))
         subdir = common_args.subdir
         tempfile = common_args.tempfile
 
@@ -1067,8 +1074,6 @@ def _compute_common_args(
     # could be provided by other means, say, a link group
     dep_metadata_kind = dep_metadata_of_emit(emit)
 
-    # FIXME(JakobDegen): This computation is an awfully broad over-approximation
-    emit_requires_linking = dep_metadata_kind == MetadataKind("link")
     if compile_ctx.dep_ctx.advanced_unstable_linking or not crate_type_codegen(crate_type):
         if dep_metadata_kind == MetadataKind("link"):
             dep_metadata_kind = MetadataKind("full")
@@ -1090,14 +1095,6 @@ def _compute_common_args(
 
     if crate_type == CrateType("proc-macro"):
         dep_args.add("--extern=proc_macro")
-
-    if crate_type in [CrateType("cdylib"), CrateType("dylib")] and emit_requires_linking:
-        linker_info = compile_ctx.cxx_toolchain_info.linker_info
-        shlib_name = compile_ctx.soname
-        dep_args.add(cmd_args(
-            get_shared_library_name_linker_flags(linker_info.type, shlib_name),
-            format = "-Clink-arg={}",
-        ))
 
     toolchain_info = compile_ctx.toolchain_info
     edition = ctx.attrs.edition or toolchain_info.default_edition or \
@@ -1222,7 +1219,6 @@ def _compute_common_args(
         crate_type = crate_type,
         params = params,
         emit = emit,
-        emit_requires_linking = emit_requires_linking,
         crate_map = crate_map,
     )
 

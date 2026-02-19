@@ -35,7 +35,6 @@ CommonArgsInfo = record(
     crate_type = field(CrateType),
     params = field(BuildParams),
     emit = field(Emit),
-    emit_requires_linking = field(bool),
     crate_map = field(list[(CrateName, Label)]),
 )
 
