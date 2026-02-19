@@ -39,7 +39,7 @@ def _analyze_llvm_lines(
 def _llvm_time_trace(
         compile_ctx: CompileContext,
         llvm_time_trace: RustcOutput) -> list[Provider]:
-    return _make_trace_providers(compile_ctx, llvm_time_trace.profile_output)
+    return _make_trace_providers(compile_ctx, llvm_time_trace.compile_output.profile_output)
 
 def _self_profile(
         ctx: AnalysisContext,
@@ -51,7 +51,7 @@ def _self_profile(
     ctx.actions.run(
         cmd_args(
             compile_ctx.internal_tools_info.symlink_only_dir_entry,
-            self_profile.profile_output,
+            self_profile.compile_output.profile_output,
             profdata.as_output(),
         ),
         category = "find_profdata",

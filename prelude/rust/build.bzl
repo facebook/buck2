@@ -112,7 +112,7 @@ load(
     "resolve_rust_deps",
     "strategy_info",
 )
-load(":outputs.bzl", "RustcOutput")
+load(":outputs.bzl", "RustcCompileOutput", "RustcLinkOutput", "RustcOutput")
 load(":resources.bzl", "rust_attr_resources")
 load(":rust_toolchain.bzl", "PanicRuntime", "RustToolchainInfo")
 
@@ -546,10 +546,11 @@ def rust_compile(
     else:
         dep_external_debug_infos = []
 
+    requires_linking = crate_type_linked(params.crate_type) and emit == Emit("link")
     import_library = None
     pdb_artifact = None
     dwp_inputs = []
-    if crate_type_linked(params.crate_type) and emit == Emit("link"):
+    if requires_linking:
         if params.crate_type in [CrateType("cdylib"), CrateType("dylib")]:
             linker_info = compile_ctx.cxx_toolchain_info.linker_info
             shlib_name = compile_ctx.soname
@@ -745,7 +746,7 @@ def rust_compile(
         dwo_output_directory = None
         extra_external_debug_info = []
 
-    if emit == Emit("link") and \
+    if requires_linking and \
        dwp_available(compile_ctx.cxx_toolchain_info):
         dwp_output = dwp(
             ctx,
@@ -762,18 +763,21 @@ def rust_compile(
     else:
         dwp_output = None
 
-    stripped_output = strip_debug_info(
-        ctx.actions,
-        paths.join(common_args.subdir, "stripped", output_filename(
-            compile_ctx,
-            attr_simple_crate_for_filenames(ctx),
-            Emit("link"),
-            params,
-        )),
-        filtered_output,
-        compile_ctx.cxx_toolchain_info,
-        has_content_based_path = cxx_attr_use_content_based_paths(ctx),
-    )
+    if not requires_linking and emit == Emit("link"):
+        stripped_output = strip_debug_info(
+            ctx.actions,
+            paths.join(common_args.subdir, "stripped", output_filename(
+                compile_ctx,
+                attr_simple_crate_for_filenames(ctx),
+                Emit("link"),
+                params,
+            )),
+            filtered_output,
+            compile_ctx.cxx_toolchain_info,
+            has_content_based_path = cxx_attr_use_content_based_paths(ctx),
+        )
+    else:
+        stripped_output = None
 
     # When profile_mode is remarks, the remarks are included in the diagnostic stream
     # (same as diag_txt/diag_json), not a separate artifact
@@ -783,17 +787,21 @@ def rust_compile(
     return RustcOutput(
         output = filtered_output,
         singleton_tset = singleton_tset,
-        stripped_output = stripped_output,
-        diag_txt = invoke.diag_txt,
-        diag_json = invoke.diag_json,
-        import_library = import_library,
-        pdb = pdb_artifact,
-        dwp_output = dwp_output,
-        dwo_output_directory = dwo_output_directory,
         extra_external_debug_info = extra_external_debug_info,
-        profile_output = emit_op.profile_out,
-        remarks_txt = remarks_txt,
-        remarks_json = remarks_json,
+        compile_output = RustcCompileOutput(
+            stripped_output = stripped_output,
+            diag_txt = invoke.diag_txt,
+            diag_json = invoke.diag_json,
+            dwo_output_directory = dwo_output_directory,
+            profile_output = emit_op.profile_out,
+            remarks_txt = remarks_txt,
+            remarks_json = remarks_json,
+        ),
+        link_output = RustcLinkOutput(
+            import_library = import_library,
+            pdb = pdb_artifact,
+            dwp_output = dwp_output,
+        ) if emit == Emit("link") else None,
     )
 
 # --extern <crate>=<path> for direct dependencies

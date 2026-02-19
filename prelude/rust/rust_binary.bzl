@@ -231,7 +231,7 @@ def _rust_binary_common(
         tsets = inherited_external_debug_info(
             ctx,
             compile_ctx.dep_ctx,
-            link.dwo_output_directory,
+            link.compile_output.dwo_output_directory,
             link_strategy,
         ),
     )
@@ -379,10 +379,10 @@ def _rust_binary_common(
         profile_mode = ProfileMode("remarks"),
         transformation_spec_context = transformation_spec_context,
     )
-    if remarks.remarks_txt:
-        extra_compiled_targets["remarks.txt"] = remarks.remarks_txt
-    if remarks.remarks_json:
-        extra_compiled_targets["remarks.json"] = remarks.remarks_json
+    if remarks.compile_output.remarks_txt:
+        extra_compiled_targets["remarks.txt"] = remarks.compile_output.remarks_txt
+    if remarks.compile_output.remarks_json:
+        extra_compiled_targets["remarks.json"] = remarks.compile_output.remarks_json
 
     extra_compiled_targets["expand"] = rust_compile(
         ctx = ctx,
@@ -460,10 +460,10 @@ def _rust_binary_common(
     if named_deps_names:
         extra_compiled_targets["named_deps"] = named_deps_names
 
-    if link.dwp_output:
+    if link.link_output.dwp_output:
         sub_targets["dwp"] = [
             DefaultInfo(
-                default_output = link.dwp_output,
+                default_output = link.link_output.dwp_output,
                 other_outputs = [
                     shlib.lib.dwp
                     for shlib in shared_libs
@@ -472,8 +472,8 @@ def _rust_binary_common(
             ),
         ]
 
-    if link.pdb:
-        sub_targets[PDB_SUB_TARGET] = get_pdb_providers(pdb = link.pdb, binary = final_output)
+    if link.link_output.pdb:
+        sub_targets[PDB_SUB_TARGET] = get_pdb_providers(pdb = link.link_output.pdb, binary = final_output)
 
     dupmbin_toolchain = compile_ctx.cxx_toolchain_info.dumpbin_toolchain_path
     if dupmbin_toolchain:

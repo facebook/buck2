@@ -12,20 +12,16 @@ load(
 )
 load(":link_info.bzl", "TransitiveDeps")
 
-RustcOutput = record(
-    output = field(Artifact),
-    singleton_tset = field(TransitiveDeps),
-    stripped_output = field(Artifact),
+# Outputs that are generally associated with object code compilation, as opposed to linking
+RustcCompileOutput = record(
+    # A stripped version of the output, only available if the main output is not linked and
+    # stripping makes sense for it
+    stripped_output = Artifact | None,
     diag_txt = field(Artifact),
     diag_json = field(Artifact),
-    # Windows .lib artifact for linking against .dll
-    import_library = field(Artifact | None),
-    pdb = field(Artifact | None),
-    dwp_output = field(Artifact | None),
     # Zero or more Split DWARF debug info files are emitted into this directory
     # with unpredictable filenames.
     dwo_output_directory = field(Artifact | None),
-    extra_external_debug_info = field(list[ArtifactTSet]),
     # The output of the profiler. Set only if `rust_compile` was invoked with a
     # `profile_mode`
     profile_output = field(Artifact | None),
@@ -35,13 +31,30 @@ RustcOutput = record(
     remarks_json = field(Artifact | None),
 )
 
+RustcLinkOutput = record(
+    # Windows .lib artifact for linking against .dll
+    import_library = field(Artifact | None),
+    pdb = field(Artifact | None),
+    dwp_output = field(Artifact | None),
+)
+
+RustcOutput = record(
+    output = Artifact,
+    singleton_tset = TransitiveDeps,
+    extra_external_debug_info = list[ArtifactTSet],
+    compile_output = RustcCompileOutput,
+    # As expected, only available when the combination of params actually
+    # requires linking.
+    link_output = RustcLinkOutput | None,
+)
+
 def output_as_diag_subtargets(o: RustcOutput, clippy: RustcOutput) -> dict[str, Artifact]:
     return {
         "check": o.output,
-        "clippy.json": clippy.diag_json,
-        "clippy.txt": clippy.diag_txt,
-        "diag.json": o.diag_json,
-        "diag.txt": o.diag_txt,
+        "clippy.json": clippy.compile_output.diag_json,
+        "clippy.txt": clippy.compile_output.diag_txt,
+        "diag.json": o.compile_output.diag_json,
+        "diag.txt": o.compile_output.diag_txt,
     }
 
 # Access to additional outputs from Rust compilation.

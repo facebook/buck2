@@ -531,15 +531,15 @@ def _link_infos(
         external_debug_info = make_artifact_tset(
             actions = ctx.actions,
             label = ctx.label,
-            artifacts = filter(None, [lib.dwo_output_directory]),
+            artifacts = filter(None, [lib.compile_output.dwo_output_directory]),
             children = lib.extra_external_debug_info,
         )
         if output_style == LibOutputStyle("shared_lib"):
             exported_shlib = lib.output
 
             # Link against import library on Windows.
-            if lib.import_library:
-                exported_shlib = lib.import_library
+            if lib.link_output.import_library:
+                exported_shlib = lib.link_output.import_library
 
             link_infos[output_style] = LinkInfos(
                 default = LinkInfo(
@@ -564,7 +564,7 @@ def _link_infos(
                 ),
                 stripped = LinkInfo(
                     linkables = [ArchiveLinkable(
-                        archive = Archive(artifact = lib.stripped_output),
+                        archive = Archive(artifact = lib.compile_output.stripped_output),
                         linker_type = linker_type,
                         link_whole = link_whole,
                     )],
@@ -606,7 +606,7 @@ def _handle_rust_artifact(
         rust_debug_info = make_artifact_tset(
             actions = ctx.actions,
             label = ctx.label,
-            artifacts = filter(None, [link_output.dwo_output_directory]),
+            artifacts = filter(None, [link_output.compile_output.dwo_output_directory]),
             children = rust_debug_info,
         )
         return RustLinkStrategyInfo(
@@ -614,7 +614,7 @@ def _handle_rust_artifact(
             singleton_tset = {m: x.singleton_tset for m, x in outputs.items()},
             transitive_deps = tdeps,
             transitive_proc_macro_deps = tprocmacrodeps,
-            pdb = link_output.pdb,
+            pdb = link_output.link_output.pdb if link_output.link_output else None,
             rust_debug_info = rust_debug_info,
         )
     else:
@@ -625,7 +625,7 @@ def _handle_rust_artifact(
             singleton_tset = {m: link_output.singleton_tset for m in MetadataKind},
             transitive_deps = {m: no_transitive_deps for m in MetadataKind},
             transitive_proc_macro_deps = set(),
-            pdb = link_output.pdb,
+            pdb = link_output.link_output.pdb,
             rust_debug_info = ArtifactTSet(),
         )
 
@@ -670,17 +670,18 @@ def _default_providers(
             artifact = native_param_artifact[param]
 
         nested_sub_targets = {k: [DefaultInfo(default_output = v.output)] for k, v in param_subtargets[param].items()}
-        nested_sub_targets["stripped"] = [DefaultInfo(default_output = artifact.stripped_output)]
-        if artifact.pdb:
-            nested_sub_targets[PDB_SUB_TARGET] = get_pdb_providers(pdb = artifact.pdb, binary = artifact.output)
-        if artifact.import_library:
-            nested_sub_targets[IMPORT_LIBRARY_SUB_TARGET] = [DefaultInfo(default_output = artifact.import_library)]
+        if artifact.compile_output.stripped_output:
+            nested_sub_targets["stripped"] = [DefaultInfo(default_output = artifact.compile_output.stripped_output)]
+        if artifact.link_output and artifact.link_output.pdb:
+            nested_sub_targets[PDB_SUB_TARGET] = get_pdb_providers(pdb = artifact.link_output.pdb, binary = artifact.output)
+        if artifact.link_output and artifact.link_output.import_library:
+            nested_sub_targets[IMPORT_LIBRARY_SUB_TARGET] = [DefaultInfo(default_output = artifact.link_output.import_library)]
 
         # Add remarks subtargets (shared across all link styles)
-        if remarks_artifact.remarks_txt:
-            nested_sub_targets["remarks.txt"] = [DefaultInfo(default_output = remarks_artifact.remarks_txt)]
-        if remarks_artifact.remarks_json:
-            nested_sub_targets["remarks.json"] = [DefaultInfo(default_output = remarks_artifact.remarks_json)]
+        if remarks_artifact.compile_output.remarks_txt:
+            nested_sub_targets["remarks.txt"] = [DefaultInfo(default_output = remarks_artifact.compile_output.remarks_txt)]
+        if remarks_artifact.compile_output.remarks_json:
+            nested_sub_targets["remarks.json"] = [DefaultInfo(default_output = remarks_artifact.compile_output.remarks_json)]
 
         sub_targets[name] = [DefaultInfo(
             default_output = artifact.output,
@@ -789,8 +790,8 @@ def _advanced_unstable_link_providers(
             output = shared_lib_output,
             unstripped_output = shared_lib_output,
             external_debug_info = link_infos[LibOutputStyle("shared_lib")].default.external_debug_info,
-            import_library = build_params.import_library,
-            dwp = build_params.dwp_output,
+            import_library = build_params.link_output.import_library,
+            dwp = build_params.link_output.dwp_output,
         )
 
     # Native shared library provider.

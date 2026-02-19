@@ -25,14 +25,14 @@ def _check_targets_impl(ctx: bxl.Context) -> list[bxl.EnsuredArtifact]:
         # Temporarily disabled due to ICE reports in https://fb.workplace.com/groups/rust.analyzer/posts/1512577186779084
         # and https://github.com/rust-lang/rust/issues/141540
         # if ctx.cli_args.use_clippy:
-        #     artifacts.append(o.clippy_incr.diag_json)
+        #     artifacts.append(o.clippy_incr.compile_output.diag_json)
         # else:
-        #     artifacts.append(o.metadata_incr.diag_json)
+        #     artifacts.append(o.metadata_incr.compile_output.diag_json)
 
         if ctx.cli_args.use_clippy:
-            artifacts.append(o.clippy.diag_json)
+            artifacts.append(o.clippy.compile_output.diag_json)
         else:
-            artifacts.append(o.metadata.diag_json)
+            artifacts.append(o.metadata.compile_output.diag_json)
 
     art_output = ctx.output.ensure_multiple(artifacts)
 
