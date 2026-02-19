@@ -110,7 +110,7 @@ async fn query_action_cache_and_download_result(
 
     let identity = None; // TODO(#503): implement this
     if upload_all_actions {
-        match re_client
+        if let Err(e) = re_client
             .upload(
                 artifact_fs.fs(),
                 materializer,
@@ -123,11 +123,8 @@ async fn query_action_cache_and_download_result(
             )
             .await
         {
-            Err(e) => {
-                return ControlFlow::Break(manager.error("upload", e));
-            }
-            Ok(_) => {}
-        };
+            return ControlFlow::Break(manager.error("upload", e));
+        }
     }
 
     let response = match action_cache_response {

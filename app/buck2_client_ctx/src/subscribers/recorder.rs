@@ -1481,23 +1481,20 @@ impl InvocationRecorder {
                 }
                 _ => {}
             },
-            Some(buck2_data::executor_stage_start::Stage::Local(local_stage)) => match &local_stage
-                .stage
+            Some(buck2_data::executor_stage_start::Stage::Local(local_stage))
+                if let Some(buck2_data::local_stage::Stage::Execute(_)) = &local_stage.stage =>
             {
-                Some(buck2_data::local_stage::Stage::Execute(_)) => {
-                    self.executor_stages_by_span
-                        .insert(span_id.into(), ExecutorStageType::LocalAction);
-                    self.current_in_progress_local_actions =
-                        self.current_in_progress_local_actions.saturating_add(1);
-                    self.max_in_progress_local_actions = max(
-                        self.max_in_progress_local_actions,
-                        self.current_in_progress_local_actions,
-                    );
-                    self.time_to_first_command_execution_start
-                        .get_or_insert_with(|| duration_since(event.timestamp(), self.start_time));
-                }
-                _ => {}
-            },
+                self.executor_stages_by_span
+                    .insert(span_id.into(), ExecutorStageType::LocalAction);
+                self.current_in_progress_local_actions =
+                    self.current_in_progress_local_actions.saturating_add(1);
+                self.max_in_progress_local_actions = max(
+                    self.max_in_progress_local_actions,
+                    self.current_in_progress_local_actions,
+                );
+                self.time_to_first_command_execution_start
+                    .get_or_insert_with(|| duration_since(event.timestamp(), self.start_time));
+            }
             _ => {}
         }
         Ok(())
@@ -2397,11 +2394,9 @@ impl EventSubscriber for InvocationRecorder {
         &mut self,
         c: &Option<SuperConsoleToggle>,
     ) -> buck2_error::Result<()> {
-        match c {
-            Some(c) => self
-                .tags
-                .push(format!("superconsole-toggle:{}", c.key()).to_owned()),
-            None => {}
+        if let Some(c) = c {
+            self.tags
+                .push(format!("superconsole-toggle:{}", c.key()).to_owned())
         }
         Ok(())
     }

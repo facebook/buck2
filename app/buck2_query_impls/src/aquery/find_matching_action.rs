@@ -92,23 +92,23 @@ async fn find_matching_action(
                 },
             ))
         {
-            match check_output_path(&build_artifact, &short_path)? {
-                Some(action_key_match) => match action_key_match {
+            if let Some(action_key_match) = check_output_path(&build_artifact, &short_path)? {
+                match action_key_match {
                     ActionKeyMatch::Exact(key) => {
                         return Ok(Some(dice_aquery_delegate.get_action_node(key).await?));
                     }
-                    ActionKeyMatch::OutputsOf(artifact) => match &maybe_match {
-                        Some(maybe) => {
+                    ActionKeyMatch::OutputsOf(artifact) => {
+                        if let Some(maybe) = &maybe_match {
                             if artifact.get_path().path().as_str().len()
                                 < maybe.get_path().path().as_str().len()
                             {
                                 maybe_match = Some(artifact.dupe());
                             }
+                        } else {
+                            maybe_match = Some(artifact.dupe())
                         }
-                        None => maybe_match = Some(artifact.dupe()),
-                    },
-                },
-                None => (),
+                    }
+                }
             }
         }
 

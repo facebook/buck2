@@ -40,12 +40,9 @@ where
         let mut count = 0;
         let mut walk = unordered_entry_walk(self.as_ref().map_dir(|d| Directory::as_ref(d)));
         while let Some((_path, entry)) = walk.next() {
-            match entry {
-                DirectoryEntry::Leaf(ActionDirectoryMember::File(f)) => {
-                    bytes += f.digest.size();
-                    count += 1;
-                }
-                _ => {}
+            if let DirectoryEntry::Leaf(ActionDirectoryMember::File(f)) = entry {
+                bytes += f.digest.size();
+                count += 1;
             }
         }
         OutputCountAndBytes { count, bytes }

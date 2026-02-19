@@ -287,13 +287,10 @@ impl FromStr for HardErrorConfig {
 
         let mut parts = s.split('=');
 
-        match (parts.next(), parts.next(), parts.next()) {
-            (Some("only"), Some(v), None) => {
-                return Ok(Self::Selected(
-                    v.split(',').map(|s| s.trim().to_owned()).collect(),
-                ));
-            }
-            _ => {}
+        if let (Some("only"), Some(v), None) = (parts.next(), parts.next(), parts.next()) {
+            return Ok(Self::Selected(
+                v.split(',').map(|s| s.trim().to_owned()).collect(),
+            ));
         }
 
         Err(InvalidHardErrorConfig(s.to_owned()))

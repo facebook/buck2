@@ -58,17 +58,12 @@ impl BuckSubcommand for ExternalConfigsCommand {
         )?;
 
         while let Some(event) = events.try_next().await? {
-            match event {
-                StreamValue::Event(event) => match event.data {
-                    Some(buck2_data::buck_event::Data::Instant(instant)) => match instant.data {
-                        Some(buck2_data::instant_event::Data::BuckconfigInputValues(configs)) => {
-                            log_external_configs(&configs.components, format.clone()).await?;
-                        }
-                        _ => {}
-                    },
-                    _ => {}
-                },
-                _ => {}
+            if let StreamValue::Event(event) = event
+                && let Some(buck2_data::buck_event::Data::Instant(instant)) = event.data
+                && let Some(buck2_data::instant_event::Data::BuckconfigInputValues(configs)) =
+                    instant.data
+            {
+                log_external_configs(&configs.components, format.clone()).await?;
             }
         }
 

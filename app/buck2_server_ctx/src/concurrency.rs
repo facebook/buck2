@@ -695,12 +695,9 @@ impl ConcurrencyHandler {
             if is_same_state && cmd.preemption_setting == PreemptibleWhen::OnDifferentState {
                 continue;
             }
-            match cmd.preempt.take() {
-                Some(preempt) => {
-                    let _ = preempt.send(());
-                }
-                None => {}
-            };
+            if let Some(preempt) = cmd.preempt.take() {
+                let _ = preempt.send(());
+            }
         }
     }
 
@@ -730,18 +727,15 @@ impl ConcurrencyHandler {
     ) -> buck2_error::Result<()> {
         let active_commands = format_traces(active_commands, current_command);
 
-        match state {
-            RunState::NestedSameState => {
-                soft_error!(
-                    "nested_invocation_same_dice_state",
-                    ConcurrencyHandlerError::NestedInvocationWithSameStates(
-                        active_commands,
-                        current_command.format_argv(),
-                    )
-                    .into()
-                )?;
-            }
-            _ => {}
+        if let RunState::NestedSameState = state {
+            soft_error!(
+                "nested_invocation_same_dice_state",
+                ConcurrencyHandlerError::NestedInvocationWithSameStates(
+                    active_commands,
+                    current_command.format_argv(),
+                )
+                .into()
+            )?;
         }
 
         Ok(())

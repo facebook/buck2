@@ -37,16 +37,10 @@ pub trait AttrCoercionContext {
     fn coerce_target_label(&self, value: &str) -> buck2_error::Result<TargetLabel> {
         let label = self.coerce_providers_label(value)?;
 
-        match label.name() {
-            ProvidersName::NonDefault(flavor) => {
-                if let NonDefaultProvidersName::Named(_) = flavor.as_ref() {
-                    return Err(AttrCoercionContextError::UnexpectedProvidersName(
-                        value.to_owned(),
-                    )
-                    .into());
-                }
-            }
-            _ => {}
+        if let ProvidersName::NonDefault(flavor) = label.name()
+            && matches!(flavor.as_ref(), NonDefaultProvidersName::Named(_))
+        {
+            return Err(AttrCoercionContextError::UnexpectedProvidersName(value.to_owned()).into());
         }
 
         Ok(label.into_parts().0)

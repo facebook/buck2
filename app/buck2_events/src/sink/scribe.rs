@@ -148,30 +148,26 @@ impl RemoteEventSink {
     fn prepare_event(event: &mut buck2_data::BuckEvent) {
         use buck2_data::buck_event::Data;
 
-        match &mut event.data {
-            Some(Data::SpanEnd(s)) => match &mut s.data {
-                Some(buck2_data::span_end_event::Data::ActionExecution(action)) => {
-                    let mut is_cache_hit = false;
+        if let Some(Data::SpanEnd(s)) = &mut event.data
+            && let Some(buck2_data::span_end_event::Data::ActionExecution(action)) = &mut s.data
+        {
+            let mut is_cache_hit = false;
 
-                    for command in action.commands.iter_mut() {
-                        let Some(details) = command.details.as_mut() else {
-                            continue;
-                        };
+            for command in action.commands.iter_mut() {
+                let Some(details) = command.details.as_mut() else {
+                    continue;
+                };
 
-                        if get_is_cache_hit(details) {
-                            is_cache_hit = true;
-                            details.metadata = None;
-                        }
-                    }
-
-                    if is_cache_hit {
-                        action.dep_file_key = None;
-                        action.outputs.clear();
-                    }
+                if get_is_cache_hit(details) {
+                    is_cache_hit = true;
+                    details.metadata = None;
                 }
-                _ => {}
-            },
-            _ => {}
+            }
+
+            if is_cache_hit {
+                action.dep_file_key = None;
+                action.outputs.clear();
+            }
         }
     }
 

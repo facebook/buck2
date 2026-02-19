@@ -684,12 +684,9 @@ impl<'v, 'x> CommandLineOptionsRef<'v, 'x> {
                 if let Some(format) = &self.opts.format {
                     arg = format.as_str().replace("{}", &arg);
                 }
-                match &self.opts.quote {
-                    Some(QuoteStyle::Shell) => {
-                        let quoted = shlex_quote(&arg);
-                        arg = quoted.into_owned();
-                    }
-                    _ => {}
+                if let Some(QuoteStyle::Shell) = &self.opts.quote {
+                    let quoted = shlex_quote(&arg);
+                    arg = quoted.into_owned();
                 }
                 arg
             }

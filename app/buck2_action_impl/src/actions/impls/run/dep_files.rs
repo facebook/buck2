@@ -334,10 +334,9 @@ impl CommonDigests {
         digester.update(self.fingerprint(digest_config).raw_digest().as_bytes());
 
         // Take the digest of the mergebase to get the closest hit.
-        match mergebase {
-            Some(m) => digester.update(m.as_bytes()),
-            None => (),
-        };
+        if let Some(m) = mergebase {
+            digester.update(m.as_bytes());
+        }
         let inner_remote_dep_file_key = digester.finalize().to_string();
 
         let mut blobs = ActionDigestAndBlobsBuilder::new(digest_config);

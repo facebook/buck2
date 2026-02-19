@@ -257,65 +257,51 @@ impl CommandReproducer {
         data: &buck2_data::buck_event::Data,
         options: &WhatRanOptions,
     ) -> Option<Self> {
-        match data {
-            buck2_data::buck_event::Data::SpanStart(span) => match &span.data {
-                Some(buck2_data::span_start_event::Data::ExecutorStage(executor_stage)) => {
-                    match &executor_stage.stage {
-                        Some(buck2_data::executor_stage_start::Stage::CacheQuery(cache_hit))
-                            if options.emit_cache_queries =>
-                        {
-                            return Some(CommandReproducer::CacheQuery(cache_hit.clone()));
-                        }
-                        Some(buck2_data::executor_stage_start::Stage::CacheHit(cache_hit))
-                            if !options.skip_cache_hits =>
-                        {
-                            return Some(CommandReproducer::CacheHit(cache_hit.clone()));
-                        }
-                        Some(buck2_data::executor_stage_start::Stage::Re(re_stage))
-                            if !options.skip_remote_executions =>
-                        {
-                            match &re_stage.stage {
-                                Some(buck2_data::re_stage::Stage::Execute(execute)) => {
-                                    return Some(CommandReproducer::ReExecute(execute.clone()));
-                                }
-                                _ => {}
+        if let buck2_data::buck_event::Data::SpanStart(span) = data
+            && let Some(buck2_data::span_start_event::Data::ExecutorStage(executor_stage)) =
+                &span.data
+        {
+            match &executor_stage.stage {
+                Some(buck2_data::executor_stage_start::Stage::CacheQuery(cache_hit))
+                    if options.emit_cache_queries =>
+                {
+                    return Some(CommandReproducer::CacheQuery(cache_hit.clone()));
+                }
+                Some(buck2_data::executor_stage_start::Stage::CacheHit(cache_hit))
+                    if !options.skip_cache_hits =>
+                {
+                    return Some(CommandReproducer::CacheHit(cache_hit.clone()));
+                }
+                Some(buck2_data::executor_stage_start::Stage::Re(re_stage))
+                    if !options.skip_remote_executions =>
+                {
+                    if let Some(buck2_data::re_stage::Stage::Execute(execute)) = &re_stage.stage {
+                        return Some(CommandReproducer::ReExecute(execute.clone()));
+                    }
+                }
+                Some(buck2_data::executor_stage_start::Stage::Local(local_stage)) => {
+                    if !options.skip_local_executions {
+                        match &local_stage.stage {
+                            Some(buck2_data::local_stage::Stage::Execute(local_execute)) => {
+                                return Some(CommandReproducer::LocalExecute(
+                                    local_execute.clone(),
+                                ));
                             }
-                        }
-                        Some(buck2_data::executor_stage_start::Stage::Local(local_stage)) => {
-                            if !options.skip_local_executions {
-                                match &local_stage.stage {
-                                    Some(buck2_data::local_stage::Stage::Execute(
-                                        local_execute,
-                                    )) => {
-                                        return Some(CommandReproducer::LocalExecute(
-                                            local_execute.clone(),
-                                        ));
-                                    }
-                                    Some(buck2_data::local_stage::Stage::WorkerExecute(
-                                        worker_execute,
-                                    )) => {
-                                        return Some(CommandReproducer::WorkerExecute(
-                                            worker_execute.clone(),
-                                        ));
-                                    }
-                                    Some(buck2_data::local_stage::Stage::WorkerInit(
-                                        worker_init,
-                                    )) => {
-                                        return Some(CommandReproducer::WorkerInit(
-                                            worker_init.clone(),
-                                        ));
-                                    }
-                                    _ => {}
-                                }
+                            Some(buck2_data::local_stage::Stage::WorkerExecute(worker_execute)) => {
+                                return Some(CommandReproducer::WorkerExecute(
+                                    worker_execute.clone(),
+                                ));
                             }
+                            Some(buck2_data::local_stage::Stage::WorkerInit(worker_init)) => {
+                                return Some(CommandReproducer::WorkerInit(worker_init.clone()));
+                            }
+                            _ => {}
                         }
-                        _ => {}
                     }
                 }
                 _ => {}
-            },
-            _ => {}
-        };
+            }
+        }
 
         None
     }

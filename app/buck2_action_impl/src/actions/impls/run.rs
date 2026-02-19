@@ -1307,15 +1307,12 @@ impl<'a> RunActionVisitor<'a> {
 
 impl<'v> CommandLineArtifactVisitor<'v> for RunActionVisitor<'v> {
     fn visit_input(&mut self, input: ArtifactGroup, tags: Vec<&ArtifactTag>) {
-        match self.incremental_metadata_ignore_tags {
-            Some(ignore_tags) => {
-                if !tags.iter().any(|t| ignore_tags.contains(*t)) {
-                    self.incremental_metadata_inputs.push(input.dupe());
-                }
+        // If incremental_metadata_ignore_tags is None, then we're not going to produce
+        // incremental metadata at all, so there's nothing to do here.
+        if let Some(ignore_tags) = self.incremental_metadata_ignore_tags {
+            if !tags.iter().any(|t| ignore_tags.contains(*t)) {
+                self.incremental_metadata_inputs.push(input.dupe());
             }
-            // If incremental_metadata_ignore_tags is None, then we're not going to produce
-            // incremental metadata at all, so there's nothing to do here.
-            None => {}
         }
 
         self.dep_files_visitor.visit_input(input, tags);

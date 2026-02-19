@@ -223,9 +223,8 @@ impl WhatRanCommandState {
         let mut cmd = Self::default();
 
         while let Some(event) = events.try_next().await? {
-            match event {
-                StreamValue::Event(event) => cmd.event(event, output, options)?,
-                _ => {}
+            if let StreamValue::Event(event) = event {
+                cmd.event(event, output, options)?;
             }
         }
 
@@ -282,55 +281,39 @@ impl WhatRanCommandState {
                 return Ok(());
             }
             // Emit WhatRanRelevantAction when we see the corresponding SpanEnd
-            match &data {
-                buck2_data::buck_event::Data::SpanEnd(span) => {
-                    if let Some(mut entry) =
-                        self.known_actions.remove(&SpanId::from_u64(event.span_id)?)
-                    {
-                        if should_emit_finished_action(&span.data, options) {
-                            // Get extra data out of SpanEnd event
-                            let (execution_kind, std_err, duration, scheduling_mode) = match &span
-                                .data
-                            {
-                                Some(buck2_data::span_end_event::Data::ActionExecution(
-                                    action_exec,
-                                )) => (
-                                    Some(action_exec.execution_kind),
-                                    action_exec.commands.iter().last().and_then(|cmd| {
-                                        cmd.details.as_ref().map(|d| d.cmd_stderr.as_ref())
-                                    }),
-                                    action_exec.wall_time.as_ref().map(
-                                        |prost_types::Duration { seconds, nanos }| {
-                                            std::time::Duration::new(*seconds as u64, *nanos as u32)
-                                        },
-                                    ),
-                                    action_exec
-                                        .scheduling_mode
-                                        .as_ref()
-                                        .and_then(|o| SchedulingMode::try_from(*o).ok()),
-                                ),
-                                _ => (None, None, None, None),
-                            };
+            if let buck2_data::buck_event::Data::SpanEnd(span) = &data
+                && let Some(mut entry) =
+                    self.known_actions.remove(&SpanId::from_u64(event.span_id)?)
+                && should_emit_finished_action(&span.data, options)
+            {
+                // Get extra data out of SpanEnd event
+                let (execution_kind, std_err, duration, scheduling_mode) =
+                    match &span.data {
+                        Some(buck2_data::span_end_event::Data::ActionExecution(action_exec)) => (
+                            Some(action_exec.execution_kind),
+                            action_exec.commands.iter().last().and_then(|cmd| {
+                                cmd.details.as_ref().map(|d| d.cmd_stderr.as_ref())
+                            }),
+                            action_exec.wall_time.as_ref().map(
+                                |prost_types::Duration { seconds, nanos }| {
+                                    std::time::Duration::new(*seconds as u64, *nanos as u32)
+                                },
+                            ),
+                            action_exec
+                                .scheduling_mode
+                                .as_ref()
+                                .and_then(|o| SchedulingMode::try_from(*o).ok()),
+                        ),
+                        _ => (None, None, None, None),
+                    };
 
-                            if execution_kind
-                                == Some(buck2_data::ActionExecutionKind::LocalDepFile as i32)
-                            {
-                                entry
-                                    .reproducers
-                                    .push(CommandReproducer::LocalDepFileCacheHit);
-                            }
-
-                            entry.emit_what_ran_entry(
-                                output,
-                                options,
-                                std_err,
-                                duration,
-                                scheduling_mode,
-                            )?;
-                        }
-                    }
+                if execution_kind == Some(buck2_data::ActionExecutionKind::LocalDepFile as i32) {
+                    entry
+                        .reproducers
+                        .push(CommandReproducer::LocalDepFileCacheHit);
                 }
-                _ => {}
+
+                entry.emit_what_ran_entry(output, options, std_err, duration, scheduling_mode)?;
             }
         }
 

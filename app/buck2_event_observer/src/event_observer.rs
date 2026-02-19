@@ -73,16 +73,12 @@ where
                 SpanEnd(end) => {
                     use buck2_data::span_end_event::Data::*;
 
-                    match end
+                    if let ActionExecution(action_execution_end) = end
                         .data
                         .as_ref()
                         .ok_or_else(|| internal_error!("Missing `data` in SpanEnd"))?
                     {
-                        ActionExecution(action_execution_end) => {
-                            self.action_stats.update(action_execution_end);
-                        }
-
-                        _ => {}
+                        self.action_stats.update(action_execution_end);
                     }
                 }
                 Instant(instant) => {

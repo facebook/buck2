@@ -125,12 +125,12 @@ impl ArtifactMetadata {
                 // In Windows, the 'executable bit' absence can cause Buck2 to re-download identical artifacts.
                 // To avoid this, we exclude the executable bit from the comparison.
                 if cfg!(windows) {
-                    match (l1, l2) {
-                        (
-                            ActionDirectoryMember::File(meta1),
-                            ActionDirectoryMember::File(meta2),
-                        ) => return meta1.digest == meta2.digest,
-                        _ => (),
+                    if let (
+                        ActionDirectoryMember::File(meta1),
+                        ActionDirectoryMember::File(meta2),
+                    ) = (l1, l2)
+                    {
+                        return meta1.digest == meta2.digest;
                     }
                 }
                 l1 == l2

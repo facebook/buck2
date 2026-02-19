@@ -73,18 +73,14 @@ impl<T> SpanMap<T> {
     }
 
     fn running(&mut self, id: SpanId) -> Option<&mut T> {
-        match self.map.get_mut(&id) {
-            Some((state, v)) => {
-                match state {
-                    State::Started => {
-                        *state = State::Running;
-                        self.running += 1;
-                    }
-                    _ => {}
-                }
-                Some(v)
+        if let Some((state, v)) = self.map.get_mut(&id) {
+            if let State::Started = state {
+                *state = State::Running;
+                self.running += 1;
             }
-            None => None,
+            Some(v)
+        } else {
+            None
         }
     }
 

@@ -50,20 +50,17 @@ pub fn map_flavors(flavors: &str, full_target: &str) -> buck2_error::Result<Prov
     let mut flavors_parts: Vec<&str> = flavors.split(',').collect();
     assert!(!flavors_parts.is_empty());
 
-    match flavors_parts.iter().position(|x| is_platform_flavor(x)) {
-        Some(index) => {
-            // remove platform flavor from the vector of flavors
-            // We log the target with the offending flavor here, though in practice we'll have to
-            // rely on the wrapping span in order to find
-            soft_error!(
-                "platform_flavor",
-                buck2_error::buck2_error!(buck2_error::ErrorTag::Input, "Platform flavor found in target: {}", full_target),
-                deprecation: true,
-                quiet: true
-            )?;
-            flavors_parts.remove(index);
-        }
-        None => {}
+    if let Some(index) = flavors_parts.iter().position(|x| is_platform_flavor(x)) {
+        // remove platform flavor from the vector of flavors
+        // We log the target with the offending flavor here, though in practice we'll have to
+        // rely on the wrapping span in order to find
+        soft_error!(
+            "platform_flavor",
+            buck2_error::buck2_error!(buck2_error::ErrorTag::Input, "Platform flavor found in target: {}", full_target),
+            deprecation: true,
+            quiet: true
+        )?;
+        flavors_parts.remove(index);
     }
 
     // sort a flavors list to have a deterministic order.

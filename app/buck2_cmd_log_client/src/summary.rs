@@ -117,17 +117,11 @@ impl Stats {
                         self.system_total_memory_bytes = system_info.system_total_memory_bytes;
                     }
                     Some(buck2_data::instant_event::Data::VersionControlRevision(vcs)) => {
-                        match vcs.hg_revision {
-                            Some(ref revision) => {
-                                self.hg_revision = Some(revision.clone());
-                            }
-                            None => {}
+                        if let Some(ref revision) = vcs.hg_revision {
+                            self.hg_revision = Some(revision.clone());
                         }
-                        match vcs.has_local_changes {
-                            Some(ref has_local_changes) => {
-                                self.has_local_changes = Some(*has_local_changes);
-                            }
-                            None => {}
+                        if let Some(ref has_local_changes) = vcs.has_local_changes {
+                            self.has_local_changes = Some(*has_local_changes);
                         }
                     }
                     _ => {}

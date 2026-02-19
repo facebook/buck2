@@ -415,13 +415,10 @@ impl ConfiguredTargetFormatter for JsonFormat {
         }
 
         if self.target_call_stacks {
-            match target_node.call_stack() {
-                Some(call_stack) => {
-                    self.print_attr(buffer, &mut is_first_entry, TARGET_CALL_STACK, || {
-                        QuotedJson::quote_str(&call_stack)
-                    });
-                }
-                None => {}
+            if let Some(call_stack) = target_node.call_stack() {
+                self.print_attr(buffer, &mut is_first_entry, TARGET_CALL_STACK, || {
+                    QuotedJson::quote_str(&call_stack)
+                });
             }
         }
 
@@ -534,12 +531,10 @@ struct TargetNameFormat {
 impl TargetFormatter for TargetNameFormat {
     fn target(&self, target_info: TargetInfo<'_>, buffer: &mut String) {
         if self.target_hash_graph_type != TargetHashGraphType::None {
-            match target_info.target_hash {
-                Some(hash) => {
-                    writeln!(buffer, "{label} {hash}", label = target_info.node.label()).unwrap()
-                }
-                None => {} // print nothing if there is no hash and show_target_hash is specified.
-            };
+            if let Some(hash) = target_info.target_hash {
+                writeln!(buffer, "{label} {hash}", label = target_info.node.label()).unwrap()
+            }
+            // print nothing if there is no hash and show_target_hash is specified.
         } else {
             writeln!(buffer, "{}", target_info.node.label()).unwrap();
         }

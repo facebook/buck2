@@ -941,11 +941,8 @@ impl<Env: QueryEnvironment> DefaultQueryFunctions<Env> {
     ) -> Result<QueryValue<Env::Target>, QueryError> {
         // Special-case String + String to match buck1 behavior:
         // treat both strings as target literals in a single evaluation.
-        match (&left, &right) {
-            (QueryValue::String(l), QueryValue::String(r)) => {
-                return Ok(QueryValue::TargetSet(env.eval_literals(&[l, r]).await?));
-            }
-            _ => {}
+        if let (QueryValue::String(l), QueryValue::String(r)) = (&left, &right) {
+            return Ok(QueryValue::TargetSet(env.eval_literals(&[l, r]).await?));
         }
 
         self.apply_set_op(

@@ -42,11 +42,8 @@ pub(crate) fn smart_truncate_event(d: &mut buck2_data::buck_event::Data) {
         }
         Data::Instant(inst) => {
             use buck2_data::instant_event::Data;
-            match &mut inst.data {
-                Some(Data::TargetPatterns(target_patterns)) => {
-                    truncate_target_patterns(&mut target_patterns.target_patterns);
-                }
-                _ => {}
+            if let Some(Data::TargetPatterns(target_patterns)) = &mut inst.data {
+                truncate_target_patterns(&mut target_patterns.target_patterns);
             }
         }
         Data::Record(rec) => {

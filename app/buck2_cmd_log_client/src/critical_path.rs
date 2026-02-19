@@ -136,26 +136,18 @@ async fn log_critical_path_command_exec(
     )?;
 
     while let Some(event) = events.try_next().await? {
-        match event {
-            StreamValue::Event(event) => match event.data {
-                Some(buck2_data::buck_event::Data::Instant(instant)) => match instant.data {
-                    Some(buck2_data::instant_event::Data::BuildGraphInfo(build_graph)) => {
-                        match path_kind {
-                            PathKind::Critical => {
-                                log_critical_path(&build_graph.critical_path2, format.clone())
-                                    .await?;
-                            }
-                            PathKind::Slowest => {
-                                log_critical_path(&build_graph.slowest_path, format.clone())
-                                    .await?;
-                            }
-                        }
-                    }
-                    _ => {}
-                },
-                _ => {}
-            },
-            _ => {}
+        if let StreamValue::Event(event) = event
+            && let Some(buck2_data::buck_event::Data::Instant(instant)) = event.data
+            && let Some(buck2_data::instant_event::Data::BuildGraphInfo(build_graph)) = instant.data
+        {
+            match path_kind {
+                PathKind::Critical => {
+                    log_critical_path(&build_graph.critical_path2, format.clone()).await?;
+                }
+                PathKind::Slowest => {
+                    log_critical_path(&build_graph.slowest_path, format.clone()).await?;
+                }
+            }
         }
     }
 

@@ -80,11 +80,10 @@ impl<K: Hash + Eq + PartialEq + Dupe, V: Dupe> NodeCache<K, V> {
         key: K,
         f: F,
     ) -> V {
-        if let Some(v) = self.map.get(&key).map(|entry| entry.value().clone()) {
-            match v.await {
-                Ok(v) => return v,
-                Err(_) => {}
-            }
+        if let Some(v) = self.map.get(&key).map(|entry| entry.value().clone())
+            && let Ok(v) = v.await
+        {
+            return v;
         }
 
         loop {
@@ -99,9 +98,8 @@ impl<K: Hash + Eq + PartialEq + Dupe, V: Dupe> NodeCache<K, V> {
                 Entry::Occupied(occ) => {
                     let fut = occ.get().clone();
                     drop(occ);
-                    match fut.await {
-                        Ok(v) => return v,
-                        Err(_) => {}
+                    if let Ok(v) = fut.await {
+                        return v;
                     }
                 }
                 Entry::Vacant(vacant) => {

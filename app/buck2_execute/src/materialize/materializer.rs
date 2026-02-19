@@ -377,17 +377,16 @@ impl dyn Materializer {
     /// path. This function runs a check on all declared artifacts and returns `Err` if they
     /// are external symlinks with an existing value on `remaining_path` and `Ok` otherwise.
     fn check_declared_external_symlink(&self, value: &ArtifactValue) -> buck2_error::Result<()> {
-        match value.entry() {
-            DirectoryEntry::Leaf(ActionDirectoryMember::ExternalSymlink(external_symlink)) => {
-                if !external_symlink.remaining_path().is_empty() {
-                    return Err(buck2_error::buck2_error!(
-                        buck2_error::ErrorTag::Tier0,
-                        "Internal error: external symlink should not be declared on materializer with non-empty remaining path: '{}'",
-                        external_symlink.dupe().to_path_buf().display()
-                    ));
-                }
+        if let DirectoryEntry::Leaf(ActionDirectoryMember::ExternalSymlink(external_symlink)) =
+            value.entry()
+        {
+            if !external_symlink.remaining_path().is_empty() {
+                return Err(buck2_error::buck2_error!(
+                    buck2_error::ErrorTag::Tier0,
+                    "Internal error: external symlink should not be declared on materializer with non-empty remaining path: '{}'",
+                    external_symlink.dupe().to_path_buf().display()
+                ));
             }
-            _ => {}
         }
         Ok(())
     }

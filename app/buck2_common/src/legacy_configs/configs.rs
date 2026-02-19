@@ -470,20 +470,16 @@ pub(crate) mod tests {
     }
 
     fn assert_config_value_is_empty(config: &LegacyBuckConfig, section: &str, key: &str) {
-        match config.get_section(section) {
-            Some(values) => match values.get(key) {
-                Some(v) => {
-                    panic!(
-                        "Expected `{}.{}` to not exist. Got `{}` for value.",
-                        section,
-                        key,
-                        v.as_str()
-                    );
-                }
-                _ => {}
-            },
-            _ => {}
-        };
+        if let Some(values) = config.get_section(section)
+            && let Some(v) = values.get(key)
+        {
+            panic!(
+                "Expected `{}.{}` to not exist. Got `{}` for value.",
+                section,
+                key,
+                v.as_str()
+            );
+        }
     }
 
     #[test]

@@ -135,28 +135,21 @@ pub(crate) async fn get(log: &EventLogPathBuf) -> buck2_error::Result<BuildInfo>
 }
 
 fn extract_info(info: &mut LogInfo, event: Box<buck2_data::BuckEvent>) -> buck2_error::Result<()> {
-    match event.data {
-        Some(buck2_data::buck_event::Data::SpanStart(span)) => match &span.data {
-            Some(buck2_data::span_start_event::Data::Command(action)) => {
-                if info.revision.is_none() && action.metadata.contains_key("buck2_revision") {
-                    if let Some(buck2_revision) = action.metadata.get("buck2_revision") {
-                        info.revision.get_or_insert(buck2_revision.clone());
-                    }
-                }
-            }
-            _ => (),
-        },
-        Some(buck2_data::buck_event::Data::Instant(span)) => match &span.data {
-            Some(buck2_data::instant_event::Data::Snapshot(snapshot)) => {
-                info.daemon_uptime_s.get_or_insert(snapshot.daemon_uptime_s);
-            }
-            Some(buck2_data::instant_event::Data::ReSession(session)) => {
-                info.re_session_id.get_or_insert(session.session_id.clone());
-            }
-            _ => (),
-        },
-
-        _ => (),
+    if let Some(buck2_data::buck_event::Data::SpanStart(span)) = &event.data
+        && let Some(buck2_data::span_start_event::Data::Command(action)) = &span.data
+    {
+        if info.revision.is_none()
+            && action.metadata.contains_key("buck2_revision")
+            && let Some(buck2_revision) = action.metadata.get("buck2_revision")
+        {
+            info.revision.get_or_insert(buck2_revision.clone());
+        }
+    } else if let Some(buck2_data::buck_event::Data::Instant(span)) = &event.data {
+        if let Some(buck2_data::instant_event::Data::Snapshot(snapshot)) = &span.data {
+            info.daemon_uptime_s.get_or_insert(snapshot.daemon_uptime_s);
+        } else if let Some(buck2_data::instant_event::Data::ReSession(session)) = &span.data {
+            info.re_session_id.get_or_insert(session.session_id.clone());
+        }
     }
     if let Some(timestamp) = event.timestamp {
         info.timestamp_end = Some(SystemTime::try_from(timestamp)?)

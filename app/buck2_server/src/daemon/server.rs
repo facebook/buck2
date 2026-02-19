@@ -891,12 +891,9 @@ impl DaemonApi for BuckdServer {
 
     async fn ping(&self, req: Request<PingRequest>) -> Result<Response<CommandResult>, Status> {
         self.oneshot(req, DefaultCommandOptions, move |req| async move {
-            match &req.delay {
-                Some(delay) => {
-                    let delay = convert_positive_duration(delay)?;
-                    tokio::time::sleep(delay).await;
-                }
-                _ => {}
+            if let Some(delay) = &req.delay {
+                let delay = convert_positive_duration(delay)?;
+                tokio::time::sleep(delay).await;
             }
 
             let mut payload = vec![

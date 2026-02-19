@@ -132,89 +132,86 @@ impl ChromeTraceFirstPass {
     fn handle_event(&mut self, event: &BuckEvent) -> buck2_error::Result<()> {
         match event.data() {
             buck2_data::buck_event::Data::SpanStart(start) => {
-                match start.data.as_ref() {
-                    Some(buck2_data::span_start_event::Data::Command(..)) => {
-                        self.command_start = event.timestamp();
-                    }
-                    Some(buck2_data::span_start_event::Data::ExecutorStage(exec)) => {
-                        // A local stage means that we want to show the entire action execution.
-                        use buck2_data::executor_stage_start::Stage;
+                if let Some(buck2_data::span_start_event::Data::Command(..)) = start.data.as_ref() {
+                    self.command_start = event.timestamp();
+                } else if let Some(buck2_data::span_start_event::Data::ExecutorStage(exec)) =
+                    start.data.as_ref()
+                {
+                    // A local stage means that we want to show the entire action execution.
+                    use buck2_data::executor_stage_start::Stage;
 
-                        if let Some(Stage::Local(local)) = &exec.stage {
-                            use buck2_data::local_stage::Stage;
+                    if let Some(Stage::Local(local)) = &exec.stage {
+                        use buck2_data::local_stage::Stage;
 
-                            let local_execution = match local.stage.as_ref() {
-                                Some(Stage::Queued(..)) => false,
-                                Some(Stage::Execute(..)) => true,
-                                Some(Stage::MaterializeInputs(..)) => false,
-                                Some(Stage::PrepareOutputs(..)) => false,
-                                Some(Stage::AcquireLocalResource(..)) => false,
-                                Some(Stage::WorkerInit(..)) => false,
-                                Some(Stage::WorkerExecute(..)) => true,
-                                Some(Stage::WorkerQueued(..)) => false,
-                                Some(Stage::WorkerWait(..)) => false,
-                                None => false,
-                            };
+                        let local_execution = match local.stage.as_ref() {
+                            Some(Stage::Queued(..)) => false,
+                            Some(Stage::Execute(..)) => true,
+                            Some(Stage::MaterializeInputs(..)) => false,
+                            Some(Stage::PrepareOutputs(..)) => false,
+                            Some(Stage::AcquireLocalResource(..)) => false,
+                            Some(Stage::WorkerInit(..)) => false,
+                            Some(Stage::WorkerExecute(..)) => true,
+                            Some(Stage::WorkerQueued(..)) => false,
+                            Some(Stage::WorkerWait(..)) => false,
+                            None => false,
+                        };
 
-                            if local_execution {
-                                self.local_actions.insert(event.parent_id().unwrap());
-                            }
+                        if local_execution {
+                            self.local_actions.insert(event.parent_id().unwrap());
                         }
                     }
-                    _ => {}
                 }
             }
             buck2_data::buck_event::Data::SpanEnd(end) => {
-                match end.data.as_ref() {
-                    Some(buck2_data::span_end_event::Data::Analysis(_)) => {
-                        if end
-                            .duration
-                            .as_ref()
-                            .expect("Analysis SpanEnd missing duration")
-                            .try_into_duration()?
-                            > Self::LONG_ANALYSIS_CUTOFF
-                        {
-                            self.long_analyses.insert(event.span_id().unwrap());
-                        }
+                if let Some(buck2_data::span_end_event::Data::Analysis(_)) = end.data.as_ref() {
+                    if end
+                        .duration
+                        .as_ref()
+                        .expect("Analysis SpanEnd missing duration")
+                        .try_into_duration()?
+                        > Self::LONG_ANALYSIS_CUTOFF
+                    {
+                        self.long_analyses.insert(event.span_id().unwrap());
                     }
-                    Some(buck2_data::span_end_event::Data::Load(_)) => {
-                        if end
-                            .duration
-                            .as_ref()
-                            .expect("Load SpanEnd missing duration")
-                            .try_into_duration()?
-                            > Self::LONG_LOAD_CUTOFF
-                        {
-                            self.long_loads.insert(event.span_id().unwrap());
-                        }
+                } else if let Some(buck2_data::span_end_event::Data::Load(_)) = end.data.as_ref() {
+                    if end
+                        .duration
+                        .as_ref()
+                        .expect("Load SpanEnd missing duration")
+                        .try_into_duration()?
+                        > Self::LONG_LOAD_CUTOFF
+                    {
+                        self.long_loads.insert(event.span_id().unwrap());
                     }
-                    Some(buck2_data::span_end_event::Data::LoadPackage(_)) => {
-                        if end
-                            .duration
-                            .as_ref()
-                            .expect("LoadPackage SpanEnd missing duration")
-                            .try_into_duration()?
-                            > Self::LONG_LOAD_PACKAGE_CUTOFF
-                        {
-                            self.long_load_packages.insert(event.span_id().unwrap());
-                        }
+                } else if let Some(buck2_data::span_end_event::Data::LoadPackage(_)) =
+                    end.data.as_ref()
+                {
+                    if end
+                        .duration
+                        .as_ref()
+                        .expect("LoadPackage SpanEnd missing duration")
+                        .try_into_duration()?
+                        > Self::LONG_LOAD_PACKAGE_CUTOFF
+                    {
+                        self.long_load_packages.insert(event.span_id().unwrap());
                     }
-                    _ => {}
-                };
+                }
             }
-            buck2_data::buck_event::Data::Instant(instant) => match instant.data.as_ref() {
-                Some(buck2_data::instant_event::Data::BuildGraphInfo(info)) => {
+            buck2_data::buck_event::Data::Instant(instant) => {
+                if let Some(buck2_data::instant_event::Data::BuildGraphInfo(info)) =
+                    instant.data.as_ref()
+                {
                     self.critical_path_span_ids = info
                         .critical_path2
                         .iter()
                         .flat_map(|entry| entry.span_ids.iter().copied())
                         .collect()
-                }
-                Some(buck2_data::instant_event::Data::CommandOptions(options)) => {
+                } else if let Some(buck2_data::instant_event::Data::CommandOptions(options)) =
+                    instant.data.as_ref()
+                {
                     self.command_options = Some(*options);
                 }
-                _ => {}
-            },
+            }
             buck2_data::buck_event::Data::Record(_) => {}
         };
         Ok(())

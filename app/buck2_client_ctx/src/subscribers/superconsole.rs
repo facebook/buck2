@@ -691,8 +691,8 @@ impl StatefulSuperConsoleImpl {
         &mut self,
         c: &Option<SuperConsoleToggle>,
     ) -> buck2_error::Result<()> {
-        match c {
-            Some(c) => match c {
+        if let Some(c) = c {
+            match c {
                 SuperConsoleToggle::Dice => {
                     self.toggle(c.description(), c.key(), |s| {
                         &mut s.state.config.enable_dice
@@ -769,8 +769,7 @@ impl StatefulSuperConsoleImpl {
                     ))
                     .await?
                 }
-            },
-            None => {}
+            }
         }
 
         Ok(())

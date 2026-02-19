@@ -987,7 +987,7 @@ async fn http_client_from_startup_config(
         Timeout::Value(d) => {
             builder.with_write_timeout(Some(d));
         }
-        _ => {}
+        Timeout::Default | Timeout::NoTimeout => {}
     }
 
     Ok(builder)

@@ -387,16 +387,14 @@ impl<T: IoHandler> DeferredMaterializerExtensions for DeferredMaterializerAccess
             .send(MaterializerCommand::Extension(
                 Box::new(RefreshTtls { sender, min_ttl }) as _,
             ))?;
-        match receiver
+        if let Some(task) = receiver
             .await
             .buck_error_context("No response from materializer")?
         {
-            Some(task) => task
-                .await
+            task.await
                 .buck_error_context("Refresh task aborted")?
-                .buck_error_context("Refresh failed")?,
-            None => {}
-        };
+                .buck_error_context("Refresh failed")?;
+        }
         Ok(())
     }
 

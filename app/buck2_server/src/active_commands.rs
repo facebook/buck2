@@ -191,12 +191,9 @@ impl ActiveCommandStateWriter {
             Instant(instant) => {
                 use buck2_data::instant_event::Data::*;
 
-                match instant.data.as_ref() {
-                    Some(DiceStateSnapshot(snapshot)) => {
-                        self.dice_state.update(snapshot);
-                        changed = true;
-                    }
-                    _ => {}
+                if let Some(DiceStateSnapshot(snapshot)) = instant.data.as_ref() {
+                    self.dice_state.update(snapshot);
+                    changed = true;
                 }
             }
             _ => {}

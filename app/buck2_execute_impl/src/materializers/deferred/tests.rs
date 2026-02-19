@@ -296,11 +296,8 @@ mod state_machine {
             _cancellations: &CancellationContext,
         ) -> Result<(), MaterializeEntryError> {
             // Simulate a non-immediate materialization if configured
-            match self.materialization_config.get(&path) {
-                Some(duration) => {
-                    sleep(*duration).await;
-                }
-                None => (),
+            if let Some(duration) = self.materialization_config.get(&path) {
+                sleep(*duration).await;
             }
 
             if (*self.fail_paths.lock()).contains(&path) || *self.fail.lock() {
@@ -311,11 +308,8 @@ mod state_machine {
                 )
                 .into())
             } else {
-                match _method.as_ref() {
-                    ArtifactMaterializationMethod::Write(write) => {
-                        self.actually_write(&path, write);
-                    }
-                    _ => {}
+                if let ArtifactMaterializationMethod::Write(write) = _method.as_ref() {
+                    self.actually_write(&path, write);
                 }
                 self.log.lock().push((Op::Materialize, path));
                 Ok(())

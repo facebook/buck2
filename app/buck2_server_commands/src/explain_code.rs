@@ -138,53 +138,41 @@ pub(crate) async fn explain(
     let mut changed_files = vec![];
 
     while let Some(event) = events.try_next().await? {
-        match event {
-            StreamValue::Event(event) => {
-                // TODO iguridi: deduplicate this from whatran code
-                if let Some(data) = event.data {
-                    if let Some(action) = WhatRanRelevantAction::from_buck_data(&data) {
-                        known_actions.insert(
-                            SpanId::from_u64(event.span_id)?,
-                            ActionEntry {
-                                action,
-                                reproducers: Default::default(),
-                            },
-                        );
-                    }
-                    if let Some(repro) = CommandReproducer::from_buck_data(&data, &options) {
-                        if let Some(parent_id) = SpanId::from_u64_opt(event.parent_id) {
-                            if let Some(entry) = known_actions.get_mut(&parent_id) {
-                                entry.reproducers.push(repro);
-                            }
-                        }
-                    }
+        if let StreamValue::Event(event) = event {
+            // TODO iguridi: deduplicate this from whatran code
+            if let Some(data) = event.data {
+                if let Some(action) = WhatRanRelevantAction::from_buck_data(&data) {
+                    known_actions.insert(
+                        SpanId::from_u64(event.span_id)?,
+                        ActionEntry {
+                            action,
+                            reproducers: Default::default(),
+                        },
+                    );
+                }
+                if let Some(repro) = CommandReproducer::from_buck_data(&data, &options)
+                    && let Some(parent_id) = SpanId::from_u64_opt(event.parent_id)
+                    && let Some(entry) = known_actions.get_mut(&parent_id)
+                {
+                    entry.reproducers.push(repro);
+                }
 
-                    match data {
-                        buck2_data::buck_event::Data::SpanEnd(span) => {
-                            if let Some(entry) =
-                                known_actions.remove(&SpanId::from_u64(event.span_id)?)
-                            {
-                                if let Some(entry) = entry.format_action(&span)? {
-                                    executed_actions.push(entry);
-                                }
-                            }
-                            match &span.data {
-                                Some(buck2_data::span_end_event::Data::FileWatcher(end)) => {
-                                    let events: &[FileWatcherEvent] =
-                                        end.stats.as_ref().expect("of source eh").events.as_ref();
-                                    for event in events {
-                                        let path = event.path.clone();
-                                        changed_files.push(path);
-                                    }
-                                }
-                                _ => {}
-                            }
+                if let buck2_data::buck_event::Data::SpanEnd(span) = data {
+                    if let Some(entry) = known_actions.remove(&SpanId::from_u64(event.span_id)?)
+                        && let Some(entry) = entry.format_action(&span)?
+                    {
+                        executed_actions.push(entry);
+                    }
+                    if let Some(buck2_data::span_end_event::Data::FileWatcher(end)) = &span.data {
+                        let events: &[FileWatcherEvent] =
+                            end.stats.as_ref().expect("of source eh").events.as_ref();
+                        for event in events {
+                            let path = event.path.clone();
+                            changed_files.push(path);
                         }
-                        _ => {}
                     }
                 }
             }
-            _ => {}
         }
     }
 

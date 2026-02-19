@@ -232,28 +232,25 @@ async fn materialize_failed_build_outputs(
         request.outputs_for_error_handler().iter().collect();
 
     for output in request.outputs() {
-        match output {
-            CommandExecutionOutputRef::BuildArtifact { path, .. } => {
-                // If materialize_failed_re_action_outputs is not set and materialize_select_outputs is not empty,
-                // only materialize outputs in the set. Otherwise, materialize all outputs.
-                if !materialize_failed_re_action_outputs
-                    && !materialize_select_outputs.is_empty()
-                    && !materialize_select_outputs.contains(path)
-                {
-                    continue;
-                }
-
-                let content_hash = available_outputs.get(&output.cloned()).and_then(|value| {
-                    if path.is_content_based_path() {
-                        Some(value.content_based_path_hash())
-                    } else {
-                        None
-                    }
-                });
-
-                paths.push(artifact_fs.resolve_build(path, content_hash.as_ref())?);
+        if let CommandExecutionOutputRef::BuildArtifact { path, .. } = output {
+            // If materialize_failed_re_action_outputs is not set and materialize_select_outputs is not empty,
+            // only materialize outputs in the set. Otherwise, materialize all outputs.
+            if !materialize_failed_re_action_outputs
+                && !materialize_select_outputs.is_empty()
+                && !materialize_select_outputs.contains(path)
+            {
+                continue;
             }
-            _ => {}
+
+            let content_hash = available_outputs.get(&output.cloned()).and_then(|value| {
+                if path.is_content_based_path() {
+                    Some(value.content_based_path_hash())
+                } else {
+                    None
+                }
+            });
+
+            paths.push(artifact_fs.resolve_build(path, content_hash.as_ref())?);
         }
     }
 
