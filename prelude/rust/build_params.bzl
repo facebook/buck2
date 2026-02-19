@@ -31,17 +31,9 @@ CrateType = enum(
     "staticlib",
 )
 
-# Crate type is intended for native linkage (eg C++)
-def crate_type_native_linkage(crate_type: CrateType) -> bool:
-    return crate_type.value in ("cdylib", "staticlib")
-
-# Crate type which invokes the linker
+# Crate type requires linking
 def crate_type_linked(crate_type: CrateType) -> bool:
     return crate_type.value in ("bin", "dylib", "proc-macro", "cdylib")
-
-# Crate type which should always need codegen
-def crate_type_codegen(crate_type: CrateType) -> bool:
-    return crate_type_linked(crate_type) or crate_type_native_linkage(crate_type)
 
 # -Crelocation-model= from --print relocation-models
 RelocModel = enum(

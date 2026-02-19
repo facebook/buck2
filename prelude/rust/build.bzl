@@ -71,7 +71,6 @@ load(
     "MetadataKind",
     "ProfileMode",  # @unused Used as a type
     "RelocModel",
-    "crate_type_codegen",
     "crate_type_linked",
     "dep_metadata_of_emit",
 )
@@ -1074,7 +1073,7 @@ def _compute_common_args(
     # could be provided by other means, say, a link group
     dep_metadata_kind = dep_metadata_of_emit(emit)
 
-    if compile_ctx.dep_ctx.advanced_unstable_linking or not crate_type_codegen(crate_type):
+    if compile_ctx.dep_ctx.advanced_unstable_linking or crate_type == CrateType("rlib"):
         if dep_metadata_kind == MetadataKind("link"):
             dep_metadata_kind = MetadataKind("full")
 
@@ -1387,8 +1386,8 @@ def _rustc_emit(
         emit_env["RUSTC_BOOTSTRAP"] = "1"
 
         if emit == Emit("metadata-full"):
-            if crate_type_codegen(crate_type):
-                # We don't ever have metadata-only deps on codegen crates, so we can
+            if crate_type not in (CrateType("rlib"), CrateType("dylib")):
+                # Nothing ever needs the metadata from these crate types, so we can
                 # fall back to the `metadata-fast` behavior. Normally though, this
                 # artifact should be unused and so this shouldn't matter.
                 effective_emit = "metadata"
