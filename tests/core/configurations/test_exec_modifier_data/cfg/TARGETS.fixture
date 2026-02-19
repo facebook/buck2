@@ -9,6 +9,7 @@ constraint(
     ],
     default = "none",
     visibility = ["PUBLIC"],
+    execution_modifier = True,
 )
 
 constraint(
@@ -20,9 +21,10 @@ constraint(
     ],
     default = "none",
     visibility = ["PUBLIC"],
+    execution_modifier = True,
 )
 
-# build mode will not be exec modifier
+# Build mode is not an execution modifier
 constraint(
     name = "build_mode",
     values = [
@@ -32,6 +34,7 @@ constraint(
     ],
     default = "none",
     visibility = ["PUBLIC"],
+    execution_modifier = False,
 )
 
 # Compiler constraint
@@ -44,6 +47,7 @@ constraint(
     ],
     default = "none",
     visibility = ["PUBLIC"],
+    execution_modifier = True,
 )
 
 # Platform definitions
@@ -79,6 +83,7 @@ platform(
 )
 
 # OS + CPU platform combinations (excluding "none")
+# These platforms are execution platforms
 platform(
     name = "linux_x86_64",
     constraint_values = [
