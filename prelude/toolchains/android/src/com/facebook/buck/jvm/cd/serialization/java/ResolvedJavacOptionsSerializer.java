@@ -13,10 +13,12 @@ package com.facebook.buck.jvm.cd.serialization.java;
 import com.facebook.buck.core.filesystems.RelPath;
 import com.facebook.buck.jvm.cd.serialization.RelPathSerializer;
 import com.facebook.buck.jvm.java.ResolvedJavacOptions;
+import com.facebook.infer.annotation.Nullsafe;
 import com.google.common.collect.ImmutableList;
 import java.util.Optional;
 
 /** {@link ResolvedJavacOptions} to protobuf serializer */
+@Nullsafe(Nullsafe.Mode.LOCAL)
 public class ResolvedJavacOptionsSerializer {
 
   private ResolvedJavacOptionsSerializer() {}

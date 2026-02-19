@@ -14,12 +14,14 @@ import com.facebook.buck.cd.model.java.ResolvedJavacOptions;
 import com.facebook.buck.core.filesystems.RelPath;
 import com.facebook.buck.jvm.cd.serialization.RelPathSerializer;
 import com.facebook.buck.jvm.java.ResolvedJavacPluginProperties;
+import com.facebook.infer.annotation.Nullsafe;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSortedSet;
 import java.util.Map;
 
 /** {@link ResolvedJavacPluginProperties} to protobuf serializer */
+@Nullsafe(Nullsafe.Mode.LOCAL)
 class ResolvedJavacPluginPropertiesSerializer {
 
   private ResolvedJavacPluginPropertiesSerializer() {}

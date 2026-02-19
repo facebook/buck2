@@ -13,10 +13,12 @@ package com.facebook.buck.jvm.cd.serialization.java;
 import com.facebook.buck.jvm.cd.serialization.SerializationUtil;
 import com.facebook.buck.jvm.java.JdkProvidedInMemoryJavac;
 import com.facebook.buck.jvm.java.ResolvedJavac;
+import com.facebook.infer.annotation.Nullsafe;
 import com.google.common.collect.ImmutableList;
 import com.google.protobuf.ProtocolStringList;
 
 /** {@link ResolvedJavac} to protobuf serializer */
+@Nullsafe(Nullsafe.Mode.LOCAL)
 public class ResolvedJavacSerializer {
 
   private ResolvedJavacSerializer() {}

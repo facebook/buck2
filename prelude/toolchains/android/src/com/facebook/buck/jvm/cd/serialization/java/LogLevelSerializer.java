@@ -12,9 +12,11 @@ package com.facebook.buck.jvm.cd.serialization.java;
 
 import com.facebook.buck.cd.model.java.JarParameters;
 import com.facebook.buck.jvm.cd.serialization.SerializationUtil;
+import com.facebook.infer.annotation.Nullsafe;
 import java.util.logging.Level;
 
 /** {@link Level} to protobuf serializer */
+@Nullsafe(Nullsafe.Mode.LOCAL)
 class LogLevelSerializer {
 
   private LogLevelSerializer() {}
