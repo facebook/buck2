@@ -442,36 +442,12 @@ def rust_compile(
         profile_mode = profile_mode,
     )
 
-    deferred_link_cmd = None
+    requires_linking = crate_type_linked(params.crate_type) and emit == Emit("link")
 
     # TODO(pickett): We can expand this to support all linked crate types (cdylib + binary)
     # We can also share logic here for producing linked artifacts with cxx_library (instead of using)
     # deferred_link_action
-    if _deferred_link_enabled(compile_ctx, params, emit):
-        out_argsfile = ctx.actions.declare_output(common_args.subdir + "/extracted-link-args.args")
-        out_artifacts_dir = ctx.actions.declare_output(common_args.subdir + "/extracted-link-artifacts", dir = True)
-        linker_cmd = cmd_args(
-            compile_ctx.internal_tools_info.extract_link_action,
-            cmd_args(out_argsfile.as_output(), format = "--out_argsfile={}"),
-            cmd_args(out_artifacts_dir.as_output(), format = "--out_artifacts={}"),
-            compile_ctx.linker_with_pre_args,
-        )
-
-        linker = cmd_script(
-            actions = ctx.actions,
-            name = common_args.subdir + "/linker_wrapper",
-            cmd = linker_cmd,
-            language = ctx.attrs._exec_os_type[OsLookup].script,
-        )
-
-        deferred_link_cmd = cmd_args(
-            compile_ctx.internal_tools_info.deferred_link_action,
-            compile_ctx.linker_with_pre_args,
-            cmd_args(out_argsfile, format = "@{}"),
-            hidden = out_artifacts_dir,
-        )
-    else:
-        linker = compile_ctx.linker_with_pre_args
+    deferred_link_enabled = requires_linking and _deferred_link_enabled(compile_ctx, params, emit)
 
     rustc_cmd = cmd_args(
         # Lints go first to allow other args to override them.
@@ -481,7 +457,6 @@ def rust_compile(
         common_args.args,
         cmd_args("--remap-path-prefix=", compile_ctx.symlinked_srcs, compile_ctx.path_sep, "=", compile_ctx.symlinked_srcs.owner.path, compile_ctx.path_sep, delimiter = ""),
         ["-Zremap-cwd-prefix=."] if toolchain_info.nightly_features else [],
-        cmd_args(linker, format = "-Clinker={}"),
         extra_flags,
     )
 
@@ -512,7 +487,7 @@ def rust_compile(
             params = params,
             predeclared_output = predeclared_output,
             incremental_enabled = incremental_enabled,
-            deferred_link = deferred_link_cmd != None,
+            deferred_link = deferred_link_enabled,
             profile_mode = profile_mode,
         )
 
@@ -546,7 +521,7 @@ def rust_compile(
     else:
         dep_external_debug_infos = []
 
-    requires_linking = crate_type_linked(params.crate_type) and emit == Emit("link")
+    deferred_link_cmd = None
     import_library = None
     pdb_artifact = None
     dwp_inputs = []
@@ -647,28 +622,50 @@ def rust_compile(
             cmd_args(link_args_output.link_args, separate_debug_info_args),
             allow_args = True,
         )
-        linker_hidden = link_args_output.hidden
-        if separate_debug_info_path_file:
-            linker_hidden.append(separate_debug_info_path_file)
+        linker_argsfile = cmd_args(
+            linker_argsfile,
+            hidden = [link_args_output.hidden, separate_debug_info_args],
+        )
 
         pdb_artifact = link_args_output.pdb_artifact
         dwp_inputs = [link_args_output.link_args]
 
-        # If we are deferring the real link to a separate action, we no longer pass the linker
-        # argsfile to rustc. This allows the rustc action to complete with only transitive dep rmeta.
-        if deferred_link_cmd != None:
-            deferred_link_cmd.add(cmd_args(linker_argsfile, format = "@{}"))
-            deferred_link_cmd.add(cmd_args(hidden = linker_hidden))
+        if deferred_link_enabled:
+            out_argsfile = ctx.actions.declare_output(common_args.subdir + "/extracted-link-args.args")
+            out_artifacts_dir = ctx.actions.declare_output(common_args.subdir + "/extracted-link-artifacts", dir = True)
+            linker_cmd = cmd_args(
+                compile_ctx.internal_tools_info.extract_link_action,
+                cmd_args(out_argsfile.as_output(), format = "--out_argsfile={}"),
+                cmd_args(out_artifacts_dir.as_output(), format = "--out_artifacts={}"),
+                compile_ctx.linker_with_pre_args,
+            )
 
+            linker = cmd_script(
+                actions = ctx.actions,
+                name = common_args.subdir + "/linker_wrapper",
+                cmd = linker_cmd,
+                language = ctx.attrs._exec_os_type[OsLookup].script,
+            )
+
+            deferred_link_cmd = cmd_args(
+                compile_ctx.internal_tools_info.deferred_link_action,
+                compile_ctx.linker_with_pre_args,
+                cmd_args(out_argsfile, format = "@{}"),
+                # If we are deferring the real link to a separate action, we no longer pass the linker
+                # argsfile to rustc. This allows the rustc action to complete with only transitive dep rmeta.
+                cmd_args(linker_argsfile, format = "@{}"),
+                # The -o flag passed to the linker by rustc is a temporary file. So we will strip it
+                # out in `extract_link_action.py` and provide our own output path here.
+                get_output_flags(compile_ctx.cxx_toolchain_info.linker_info.type, emit_op.output),
+                hidden = out_artifacts_dir,
+            )
             if toolchain_info.sysroot_path:
                 deferred_link_cmd.add(cmd_args(hidden = toolchain_info.sysroot_path))
-
-            # The -o flag passed to the linker by rustc is a temporary file. So we will strip it
-            # out in `extract_link_action.py` and provide our own output path here.
-            deferred_link_cmd.add(get_output_flags(compile_ctx.cxx_toolchain_info.linker_info.type, emit_op.output))
         else:
             rustc_cmd.add(cmd_args(linker_argsfile, format = "-Clink-arg=@{}"))
-            rustc_cmd.add(cmd_args(hidden = linker_hidden))
+            linker = compile_ctx.linker_with_pre_args
+
+        rustc_cmd.add(cmd_args(linker, format = "-Clinker={}"))
 
     if toolchain_info.rust_target_path != None:
         emit_op.env["RUST_TARGET_PATH"] = toolchain_info.rust_target_path[DefaultInfo].default_outputs[0]
