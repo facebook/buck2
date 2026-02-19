@@ -142,6 +142,46 @@ class AndroidDeviceImpl(val serial: String, val adbUtils: AdbUtils) : AndroidDev
           )
         }
 
+        // If the apex package has changed (e.g. not previously), fall back to
+        // remount + push so the apex lands directly in /system/apex.
+        if ((e.message ?: "").contains("INSTALL_FAILED_PACKAGE_CHANGED")) {
+          LOG.info(
+              "INSTALL_FAILED_PACKAGE_CHANGED for ${apex.name}, " +
+                  "attempting fallback install via remount and push"
+          )
+          try {
+            // Remount so that we can write to /system_ext/apex
+            executeAdbCommand("root")
+            executeAdbCommand("wait-for-device")
+            executeAdbCommand("remount")
+
+            // Remount sometimes requires a reboot because verity is enabled.
+            if (executeAdbShellCommand("getprop ro.boot.veritymode") == "enforcing") {
+              executeAdbCommand("reboot")
+              executeAdbCommand("wait-for-device")
+              waitForBootComplete()
+
+              executeAdbCommand("root")
+              executeAdbCommand("wait-for-device")
+              executeAdbCommand("remount")
+            }
+
+            // Potentially make this customizable in the future.
+            executeAdbCommand("push ${apex.absolutePath} /system_ext/apex/")
+
+            // Reboot to activate the apex
+            executeAdbCommand("reboot")
+            executeAdbCommand("wait-for-device")
+            waitForBootComplete()
+          } catch (fallbackError: AdbCommandFailedException) {
+            throw AndroidInstallException.adbCommandFailedException(
+                "Failed to install ${apex.name} via fallback remount+push.",
+                fallbackError.message,
+            )
+          }
+          return@measureTimeMillis
+        }
+
         throw AndroidInstallException.adbCommandFailedException(
             "Failed to install ${apex.name}.",
             e.message,
