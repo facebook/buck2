@@ -1302,7 +1302,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                 .into_iter()
                 .filter_map(|p| {
                     self.materialize_artifact_recurse(
-                        MaterializeStack::Child(&stack, path),
+                        MaterializeStack::Child(stack, path),
                         p.as_ref(),
                         event_dispatcher.dupe(),
                     )
@@ -1325,7 +1325,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                 .iter()
                 .filter_map(|a| {
                     self.materialize_artifact_recurse(
-                        MaterializeStack::Child(&stack, path),
+                        MaterializeStack::Child(stack, path),
                         a.src.as_ref(),
                         event_dispatcher.dupe(),
                     )

@@ -228,8 +228,8 @@ async fn query_action_cache_and_download_result(
     {
         save_content_based_incremental_state(
             run_action_key.clone(),
-            &incremental_db_state,
-            &artifact_fs,
+            incremental_db_state,
+            artifact_fs,
             &res,
         );
     }

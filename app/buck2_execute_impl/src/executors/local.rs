@@ -283,7 +283,7 @@ impl LocalExecutor {
                         self.blocking_executor.dupe(),
                         cancellations,
                     ),
-                    prep_scratch_path(&scratch_path, &self.artifact_fs),
+                    prep_scratch_path(scratch_path, &self.artifact_fs),
                 )
                 .buck_error_context("Error creating output directories")?;
 
@@ -1135,7 +1135,7 @@ impl LocalExecutor {
             .iter()
             .map(|path| {
                 self.artifact_fs
-                    .resolve_build(&path, Some(&ContentBasedPathHash::OutputArtifact))
+                    .resolve_build(path, Some(&ContentBasedPathHash::OutputArtifact))
             })
             .collect::<buck2_error::Result<Vec<_>>>()?;
 
@@ -1155,7 +1155,7 @@ impl LocalExecutor {
             .buck_error_context("Failed to cleanup output directory")?;
 
         if let Some(state) =
-            get_incremental_path_map(&self.incremental_db_state, &request.run_action_key())
+            get_incremental_path_map(&self.incremental_db_state, request.run_action_key())
         {
             let mut copy_futs = Vec::new();
 

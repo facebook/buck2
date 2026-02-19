@@ -583,7 +583,7 @@ impl UploadCache for CacheUploader {
                 .upload_local_outputs(
                     info,
                     res,
-                    &action_digest_and_blobs,
+                    action_digest_and_blobs,
                     error_on_cache_upload,
                     dep_file_bundle.is_some(),
                 )

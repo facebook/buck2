@@ -222,7 +222,7 @@ impl ReExecutor {
             None,
             self.re_client.get_session_id().await.ok(),
             self.re_client.use_case,
-            &platform,
+            platform,
             worker_tool_action_digest.is_some(),
         );
 
@@ -366,7 +366,7 @@ impl PreparedCommandExecutor for ReExecutor {
             command.request.remote_dep_file_key,
             self.re_client.get_session_id().await.ok(),
             self.re_client.use_case,
-            &platform,
+            platform,
             request.remote_worker().is_some() && worker_tool_init_action.is_some(),
         );
         let manager = manager.with_execution_kind(CommandExecutionKind::Remote {
@@ -433,7 +433,7 @@ impl PreparedCommandExecutor for ReExecutor {
                     .iter()
                     .chain(remote_execution_dependencies.iter()),
                 &re_gang_workers,
-                &command.request.meta_internal_extra_params(),
+                command.request.meta_internal_extra_params(),
                 worker_tool_action_digest,
             )
             .await?;

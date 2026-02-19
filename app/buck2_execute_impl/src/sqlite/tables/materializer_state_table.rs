@@ -444,7 +444,7 @@ fn digest(
         .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))
         .with_buck_error_context(|| format!("Invalid entry_hash_kind: `{entry_hash_kind}`"))?;
 
-    let file_digest = FileDigest::from_digest_bytes(entry_hash_kind, &entry_hash, size)?;
+    let file_digest = FileDigest::from_digest_bytes(entry_hash_kind, entry_hash, size)?;
     Ok(TrackedFileDigest::new(
         file_digest,
         digest_config.cas_digest_config(),

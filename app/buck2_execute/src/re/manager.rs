@@ -103,7 +103,7 @@ pub struct RemoteExecutionConfig {
 
 impl RemoteExecutionConfig {
     async fn connect_now(&self) -> buck2_error::Result<RemoteExecutionClient> {
-        RemoteExecutionClient::new_retry(&self).await
+        RemoteExecutionClient::new_retry(self).await
     }
 }
 

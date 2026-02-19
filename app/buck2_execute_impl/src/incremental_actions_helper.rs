@@ -70,7 +70,7 @@ pub(crate) fn save_content_based_incremental_state(
         {
             let p = path.path().to_buf();
             let content_based_path =
-                artifact_fs.resolve_build(&path, Some(&v.content_based_path_hash())).
+                artifact_fs.resolve_build(path, Some(&v.content_based_path_hash())).
                 expect("Non-content-based path provided even though is_content_based_path() returned true");
 
             incremental_path_map.insert(p, content_based_path);

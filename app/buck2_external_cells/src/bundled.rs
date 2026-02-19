@@ -491,7 +491,7 @@ mod tests {
     async fn test_smoke_read() {
         let ops = testing_ops();
         let content = ops
-            .read_file_if_exists(&CellRelativePath::unchecked_new("dir/src.txt"))
+            .read_file_if_exists(CellRelativePath::unchecked_new("dir/src.txt"))
             .unwrap()
             .unwrap();
         let content = if cfg!(windows) {
@@ -503,7 +503,7 @@ mod tests {
         };
         assert_eq!(content, "foobar\n");
         assert!(
-            ops.read_file_if_exists(&CellRelativePath::unchecked_new("dir/does_not_exist.txt"))
+            ops.read_file_if_exists(CellRelativePath::unchecked_new("dir/does_not_exist.txt"))
                 .unwrap()
                 .is_none()
         );
@@ -513,7 +513,7 @@ mod tests {
     async fn test_executable_bit() {
         let ops = testing_ops();
         assert_matches!(
-            ops.read_path_metadata_if_exists(&CellRelativePath::unchecked_new("dir/src.txt"))
+            ops.read_path_metadata_if_exists(CellRelativePath::unchecked_new("dir/src.txt"))
                 .unwrap()
                 .unwrap(),
             RawPathMetadata::File(FileMetadata {
@@ -522,7 +522,7 @@ mod tests {
             }),
         );
         assert_matches!(
-            ops.read_path_metadata_if_exists(&CellRelativePath::unchecked_new("dir/src2.txt"))
+            ops.read_path_metadata_if_exists(CellRelativePath::unchecked_new("dir/src2.txt"))
                 .unwrap()
                 .unwrap(),
             RawPathMetadata::File(FileMetadata {

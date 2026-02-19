@@ -674,7 +674,7 @@ impl EdenFsFileWatcher {
         processed_changes: &mut HashSet<EdenFsEvent>,
     ) -> buck2_error::Result<ProcessChangeStatus> {
         if self
-            .update_mergebase(&to)
+            .update_mergebase(to)
             .await
             .buck_error_context("Failed to update mergebase.")?
         {
@@ -682,7 +682,7 @@ impl EdenFsFileWatcher {
             Ok(ProcessChangeStatus::LargeOrUnknown)
         } else {
             // Mergebase has not changed - compute changes form source control
-            self.process_source_control_changes(tracker, stats, &from, Some(to), processed_changes)
+            self.process_source_control_changes(tracker, stats, from, Some(to), processed_changes)
                 .await
         }
     }
