@@ -53,7 +53,9 @@ def is_running_on_windows() -> bool:
     return sys.platform == "win32"
 
 
-def get_targets_from_what_ran(what_ran):
+def get_targets_from_what_ran(
+    what_ran: typing.List[typing.Dict[str, typing.Any]],
+) -> typing.Set[typing.Tuple[str, str]]:
     targets = set()
 
     for entry in what_ran:
@@ -70,7 +72,9 @@ async def expect_exec_count(buck: Buck, n: int) -> None:
     assert len(out) == n, "unexpected actions: %s" % (out,)
 
 
-async def filter_events(buck: Buck, *args, rel_cwd: typing.Optional[Path] = None):
+async def filter_events(
+    buck: Buck, *args: str, rel_cwd: typing.Optional[Path] = None
+) -> typing.List[typing.Any]:
     log = (await buck.log("show", rel_cwd=rel_cwd)).stdout.strip().splitlines()
     found = []
     for line in log:
@@ -81,7 +85,7 @@ async def filter_events(buck: Buck, *args, rel_cwd: typing.Optional[Path] = None
     return found
 
 
-def json_get(data, *key):
+def json_get(data: str, *key: str) -> typing.Any:
     data = json.loads(data)
 
     for k in key:
@@ -92,7 +96,7 @@ def json_get(data, *key):
     return data
 
 
-def random_string():
+def random_string() -> str:
     return "".join(random.choice(string.ascii_lowercase) for i in range(256))
 
 

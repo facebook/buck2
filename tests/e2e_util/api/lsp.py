@@ -15,29 +15,29 @@ from asyncio import subprocess, wait_for
 from asyncio.streams import StreamReader, StreamWriter
 from collections import deque
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Optional, Self
 
 CONTENT_HEADER_REGEX = re.compile(r"Content-Length: (\d+)")
 
 
 class LSPResponseError(Exception):
-    def __init__(self, json_error: Any):
+    def __init__(self, json_error: Any) -> None:
         super().__init__(f"Error returned from LSP: `{json_error}`")
         self.json_error = json_error
 
 
 class LspClient(contextlib.AbstractAsyncContextManager):
-    def __init__(self, process: subprocess.Process, cwd: Path):
+    def __init__(self, process: subprocess.Process, cwd: Path) -> None:
         self.process = process
         self.cwd = cwd
         self.id = 0
         self.notifications = deque()
         self.responses = {}
 
-    async def __aenter__(self):
+    async def __aenter__(self) -> Self:
         return self
 
-    async def __aexit__(self, exc_type, exc, tb):
+    async def __aexit__(self, exc_type, exc, tb) -> None:
         try:
             self.process.kill()
         except ProcessLookupError:
@@ -59,7 +59,7 @@ class LspClient(contextlib.AbstractAsyncContextManager):
         else:
             return self.process.stdout
 
-    async def write_message(self, payload: Any):
+    async def write_message(self, payload: Any) -> None:
         payload_bytes = json.dumps(payload).encode("utf-8")
         self.stdin().write(
             f"Content-Length: {len(payload_bytes)}\r\n\r\n".encode("utf-8")
@@ -136,7 +136,7 @@ class LspClient(contextlib.AbstractAsyncContextManager):
         req_id = await self.send_request("starlark/fileContents", payload)
         return await self.receive_response(req_id)
 
-    async def send_notification(self, method: str, notification: Any):
+    async def send_notification(self, method: str, notification: Any) -> None:
         payload = {"jsonrpc": "2.0", "method": method, "params": notification}
         await self.write_message(payload)
 
@@ -170,7 +170,9 @@ class LspClient(contextlib.AbstractAsyncContextManager):
         await self.write_message(payload)
         return id
 
-    async def receive_response(self, request_id: int, retries: int = 10):
+    async def receive_response(
+        self, request_id: int, retries: int = 10
+    ) -> Optional[Any]:
         for _ in range(0, retries):
             await self.read_message()
             if request_id not in self.responses:
@@ -182,7 +184,7 @@ class LspClient(contextlib.AbstractAsyncContextManager):
                 raise LSPResponseError(response["error"])
         return None
 
-    async def init_connection(self):
+    async def init_connection(self) -> None:
         repo_uri = self.cwd.as_uri()
         request = copy.deepcopy(_INIT_REQUEST)
         request["workspaceFolders"][0]["uri"] = repo_uri

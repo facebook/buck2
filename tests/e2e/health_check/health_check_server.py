@@ -21,7 +21,13 @@ from buck2.app.buck2_health_check_proto import health_check_pb2, health_check_pb
 
 
 class HealthChecker(health_check_pb2_grpc.HealthCheckServicer):
-    def __init__(self, stop_event, argsparse, *args, **kwargs):
+    def __init__(
+        self,
+        stop_event: threading.Event,
+        argsparse: argparse.Namespace,
+        *args,
+        **kwargs,
+    ) -> None:
         self.args = argsparse
         self.delay = argsparse.delay
         self.with_request_hang = argsparse.with_request_hang
@@ -29,7 +35,11 @@ class HealthChecker(health_check_pb2_grpc.HealthCheckServicer):
             os.environ["HEALTH_CHECK_SERVER_STATS_OUTPUT"], "w+"
         )
 
-    def UpdateContext(self, request, context):
+    def UpdateContext(
+        self,
+        request: health_check_pb2.HealthCheckContextEvent,
+        context: grpc.ServicerContext,
+    ) -> health_check_pb2.Empty:
         self.stats_file_handle.write("UpdateContext Requested\n")
         self.stats_file_handle.flush()
         self.handle_request_delays()
@@ -37,7 +47,11 @@ class HealthChecker(health_check_pb2_grpc.HealthCheckServicer):
         self.stats_file_handle.flush()
         return health_check_pb2.Empty()
 
-    def RunChecks(self, request, context):
+    def RunChecks(
+        self,
+        request: health_check_pb2.HealthCheckSnapshotData,
+        context: grpc.ServicerContext,
+    ) -> health_check_pb2.HealthCheckResult:
         self.stats_file_handle.write("RunChecks Requested\n")
         self.stats_file_handle.flush()
         self.handle_request_delays()
@@ -47,7 +61,7 @@ class HealthChecker(health_check_pb2_grpc.HealthCheckServicer):
             reports=[health_check_pb2.Report(tag="test_tag")]
         )
 
-    def handle_request_delays(self):
+    def handle_request_delays(self) -> None:
         if self.with_request_hang:
             while True:
                 time.sleep(1)
@@ -55,11 +69,11 @@ class HealthChecker(health_check_pb2_grpc.HealthCheckServicer):
             time.sleep(int(self.delay))
 
 
-def shutdown(stop_event):
+def shutdown(stop_event: threading.Event) -> None:
     stop_event.set()
 
 
-def serve(args):
+def serve(args: argparse.Namespace) -> None:
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
     stop_event = threading.Event()
     health_checker = HealthChecker(stop_event, args)
@@ -83,7 +97,7 @@ def serve(args):
         print("Exiting health check server")
 
 
-def parse_args(args=None):
+def parse_args(args: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Parse args for health check server")
     parser.add_argument(
         "--state-info-file",
@@ -110,8 +124,8 @@ def parse_args(args=None):
         required=False,
     )
     # no need to parse --tcp-port and other not related params
-    args, _ = parser.parse_known_args(args)
-    return args
+    parsed_args, _ = parser.parse_known_args(args)
+    return parsed_args
 
 
 def main() -> None:

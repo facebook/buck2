@@ -42,8 +42,7 @@ class FileWatcherEvent:
     kind: FileWatcherKind
     path: str
 
-    # pyre-ignore[2] - Missing parameter annotation
-    def __lt__(self, other) -> bool:
+    def __lt__(self, other: "FileWatcherEvent") -> bool:
         return (
             (self.event.value < other.event.value)
             or (
