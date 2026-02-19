@@ -71,9 +71,9 @@ pub(crate) enum RunActionError {
     #[error("expected at least one output artifact, did not get any")]
     NoOutputsSpecified,
     #[error("`weight` must be a positive integer, got `{0}`")]
-    InvalidWeight(i32),
+    InvalidWeight(u32),
     #[error("`timeout_seconds` must be a positive integer, got `{0}`")]
-    InvalidTimeout(i32),
+    InvalidTimeout(u32),
     #[error("`weight` and `weight_percentage` cannot both be passed")]
     DuplicateWeightsSpecified,
     #[error("`dep_files` value with key `{}` has an invalid count of associated outputs. Expected 1, got {}.", .key, .count)]
@@ -247,8 +247,8 @@ pub(crate) fn analysis_actions_methods_run(methods: &mut MethodsBuilder) {
         #[starlark(require = named, default = false)] prefer_remote: bool,
         #[starlark(require = named, default = true)] low_pass_filter: bool,
         #[starlark(require = named, default = false)] always_print_stderr: bool,
-        #[starlark(require = named)] weight: Option<i32>,
-        #[starlark(require = named)] weight_percentage: Option<i32>,
+        #[starlark(require = named)] weight: Option<u32>,
+        #[starlark(require = named)] weight_percentage: Option<u32>,
         #[starlark(require = named)] dep_files: Option<SmallMap<&'v str, &'v ArtifactTag>>,
         #[starlark(require = named)] metadata_env_var: Option<String>,
         #[starlark(require = named)] metadata_path: Option<String>,
@@ -275,7 +275,7 @@ pub(crate) fn analysis_actions_methods_run(methods: &mut MethodsBuilder) {
             SmallMap<&'v str, &'v str>,
         >,
         #[starlark(default = NoneType, require = named)] remote_execution_dynamic_image: Value<'v>,
-        #[starlark(require = named, default = NoneOr::None)] timeout_seconds: NoneOr<i32>,
+        #[starlark(require = named, default = NoneOr::None)] timeout_seconds: NoneOr<u32>,
         #[starlark(require = named, default = NoneOr::None)] meta_internal_extra_params: NoneOr<
             DictRef<'v>,
         >,
@@ -409,11 +409,10 @@ pub(crate) fn analysis_actions_methods_run(methods: &mut MethodsBuilder) {
         let weight = match (weight, weight_percentage) {
             (None, None) => WeightClass::Permits(1),
             (Some(v), None) => {
-                if v < 1 {
+                if v == 0 {
                     return Err(buck2_error::Error::from(RunActionError::InvalidWeight(v)).into());
-                } else {
-                    WeightClass::Permits(v as usize)
                 }
+                WeightClass::Permits(v.try_into().unwrap()) // We don't support < 32 bit platforms.
             }
             (None, Some(v)) => WeightClass::Percentage(
                 WeightPercentage::try_new(v)
@@ -564,11 +563,10 @@ pub(crate) fn analysis_actions_methods_run(methods: &mut MethodsBuilder) {
 
         let timeout = match timeout_seconds.into_option() {
             Some(t) => {
-                let t: u64 =
-                    t.try_into().ok().filter(|t| *t > 0).ok_or_else(|| {
-                        buck2_error::Error::from(RunActionError::InvalidTimeout(t))
-                    })?;
-                Some(Duration::from_secs(t))
+                if t == 0 {
+                    return Err(buck2_error::Error::from(RunActionError::InvalidTimeout(t)).into());
+                }
+                Some(Duration::from_secs(t.into()))
             }
             None => None,
         };
