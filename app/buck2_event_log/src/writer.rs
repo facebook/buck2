@@ -148,7 +148,7 @@ impl NamedEventLogWriter {
         self.process_to_wait_for.take()
     }
 
-    fn serialize_event<'b, T>(&self, mut buf: &mut Vec<u8>, event: &T) -> buck2_error::Result<()>
+    fn serialize_event<'b, T>(&self, buf: &mut Vec<u8>, event: &T) -> buck2_error::Result<()>
     where
         T: SerializeForLog + 'b,
     {
@@ -156,14 +156,14 @@ impl NamedEventLogWriter {
             EventLogType::System => {
                 match self.path.encoding.mode {
                     LogMode::Json => {
-                        event.serialize_to_json(&mut buf)?;
+                        event.serialize_to_json(buf)?;
                         buf.push(b'\n');
                     }
-                    LogMode::Protobuf => event.serialize_to_protobuf_length_delimited(&mut buf)?,
+                    LogMode::Protobuf => event.serialize_to_protobuf_length_delimited(buf)?,
                 };
             }
             EventLogType::User => {
-                if event.maybe_serialize_user_event(&mut buf)? {
+                if event.maybe_serialize_user_event(buf)? {
                     buf.push(b'\n');
                 }
             }
@@ -185,7 +185,7 @@ impl NamedEventLogWriter {
 
     pub(crate) async fn write_events<'b, T, I>(
         &mut self,
-        mut buf: &mut Vec<u8>,
+        buf: &mut Vec<u8>,
         events: &I,
     ) -> Result<(), buck2_error::Error>
     where
@@ -193,10 +193,9 @@ impl NamedEventLogWriter {
         I: IntoIterator<Item = &'b T> + Clone + 'b,
     {
         for event in events.clone() {
-            self.serialize_event(&mut buf, event)?;
+            self.serialize_event(buf, event)?;
         }
-        self.write_all(&buf).await?;
-        Ok(())
+        self.write_all(buf).await
     }
 }
 

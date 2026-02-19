@@ -214,15 +214,15 @@ fn action_to_fbs<'a>(
     let category = action
         .category
         .as_ref()
-        .map(|c| builder.create_shared_string(&c));
+        .map(|c| builder.create_shared_string(c));
     let identifier = action
         .identifier
         .as_ref()
-        .map(|c| builder.create_shared_string(&c));
+        .map(|c| builder.create_shared_string(c));
     let execution_kind = action
         .execution_kind
         .as_ref()
-        .map(|c| builder.create_shared_string(&c));
+        .map(|c| builder.create_shared_string(c));
     let repros = {
         let list = action
             .repros

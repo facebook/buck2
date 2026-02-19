@@ -376,7 +376,7 @@ pub(crate) async fn get_matched_cfg_keys_for_node(
             .then_some(d)
         })
         .map(ConfigurationSettingKey::ref_cast);
-    get_matched_cfg_keys(ctx, &target_cfg, target_cell, d).await
+    get_matched_cfg_keys(ctx, target_cfg, target_cell, d).await
 }
 
 struct ConfigurationCalculationDynImpl;

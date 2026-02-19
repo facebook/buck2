@@ -618,7 +618,7 @@ async fn resolve_transition_attrs<'a>(
     for tr in transitions {
         let attrs = TRANSITION_ATTRS_PROVIDER
             .get()?
-            .transition_attrs(ctx, &tr)
+            .transition_attrs(ctx, tr)
             .await?;
         if let Some(attrs) = attrs {
             for attr in attrs.as_ref() {
@@ -627,7 +627,7 @@ async fn resolve_transition_attrs<'a>(
                     continue;
                 }
 
-                if let Some(coerced_attr) = target_node.attr(&attr, AttrInspectOptions::All)? {
+                if let Some(coerced_attr) = target_node.attr(attr, AttrInspectOptions::All)? {
                     let configured_attr = coerced_attr.configure(&cfg_ctx)?;
                     if let Some(old_val) =
                         result.insert(configured_attr.name, Arc::new(configured_attr.value))
@@ -1259,7 +1259,7 @@ async fn check_target_enabled_for_config(
 
         async fn compute(
             &self,
-            mut ctx: &mut DiceComputations,
+            ctx: &mut DiceComputations,
             _cancellation: &CancellationContext,
         ) -> Self::Value {
             let cell_resolver = ctx.get_cell_resolver().await?;
@@ -1267,10 +1267,10 @@ async fn check_target_enabled_for_config(
             let alias_resolver = ctx.get_cell_alias_resolver(root_cell).await?;
             let root_conf = ctx.get_legacy_root_config_on_dice().await?;
             let patterns: Vec<String> = root_conf
-                .view(&mut ctx)
+                .view(ctx)
                 .parse_list(BuckconfigKeyRef {
                     section: self.section,
-                    property: &self.property,
+                    property: self.property,
                 })?
                 .unwrap_or_default();
 
@@ -1319,14 +1319,14 @@ async fn get_dep_only_incompatible_custom_soft_error(
 
         async fn compute(
             &self,
-            mut ctx: &mut DiceComputations,
+            ctx: &mut DiceComputations,
             _cancellation: &CancellationContext,
         ) -> Self::Value {
             let cell_resolver = ctx.get_cell_resolver().await?;
             let root_cell = cell_resolver.root_cell();
             let alias_resolver = ctx.get_cell_alias_resolver(root_cell).await?;
             let root_conf = ctx.get_legacy_root_config_on_dice().await?;
-            let Some(target) = root_conf.view(&mut ctx).parse::<String>(BuckconfigKeyRef {
+            let Some(target) = root_conf.view(ctx).parse::<String>(BuckconfigKeyRef {
                 section: "buck2",
                 property: "dep_only_incompatible_info",
             })?

@@ -188,7 +188,7 @@ impl WriteEventLog {
         if let Some(extra_path) = maybe_extra_path {
             writers.push(
                 open_event_log_for_writing(
-                    EventLogPathBuf::infer_opt(&extra_path)?.unwrap_or_else(|| EventLogPathBuf {
+                    EventLogPathBuf::infer_opt(extra_path)?.unwrap_or_else(|| EventLogPathBuf {
                         path: extra_path.clone(),
                         encoding: Encoding::JSON_GZIP,
                     }),
@@ -203,7 +203,7 @@ impl WriteEventLog {
         if let Some(extra_user_event_log_path) = maybe_extra_user_event_log_path {
             writers.push(
                 open_event_log_for_writing(
-                    EventLogPathBuf::infer_opt(&extra_user_event_log_path)?.unwrap_or_else(|| {
+                    EventLogPathBuf::infer_opt(extra_user_event_log_path)?.unwrap_or_else(|| {
                         EventLogPathBuf {
                             path: extra_user_event_log_path.clone(),
                             encoding: Encoding::JSON,

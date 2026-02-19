@@ -80,7 +80,7 @@ pub async fn main(
         let manifold = ManifoldClient::new().await?;
 
         manifold
-            .read_and_upload(Bucket::EVENT_LOGS, &p, Default::default(), &mut cursor)
+            .read_and_upload(Bucket::EVENT_LOGS, p, Default::default(), &mut cursor)
             .await?;
     }
 

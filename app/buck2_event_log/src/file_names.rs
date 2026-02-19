@@ -180,7 +180,7 @@ mod tests {
         }
 
         // Call the function to keep 3 logs (should delete 3 oldest, leave 2 newest)
-        remove_old_logs(&logdir_norm, 3).await;
+        remove_old_logs(logdir_norm, 3).await;
 
         // Check that the 3 oldest logs are removed (indices 0,1,2 - earliest created)
         for path in &log_paths[0..3] {
