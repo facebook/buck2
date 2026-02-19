@@ -20,6 +20,7 @@ mod target;
 
 use std::io;
 use std::io::IsTerminal as _;
+use std::path::Path;
 use std::path::PathBuf;
 use std::str::FromStr;
 
@@ -235,6 +236,45 @@ impl FromStr for JsonArguments {
     }
 }
 
+/// Given a file path, walk up parent directories to find the parentmost
+/// directory containing `.projectid`, which indicates the project root.
+fn find_project_root_from_file(file: &Path) -> Option<PathBuf> {
+    let start_dir = if file.is_dir() {
+        file.to_owned()
+    } else {
+        file.parent()?.to_owned()
+    };
+
+    // Canonicalize to resolve symlinks and relative paths.
+    let canonical = std::fs::canonicalize(&start_dir).ok()?;
+
+    let mut result = None;
+    let mut dir = canonical.as_path();
+    loop {
+        if dir.join(".projectid").exists() {
+            result = Some(dir.to_owned());
+        }
+        match dir.parent() {
+            Some(parent) => dir = parent,
+            None => break,
+        }
+    }
+    result
+}
+
+/// Extract a representative file path from the command, if one is available.
+fn file_from_command(command: &Command) -> Option<&Path> {
+    match command {
+        Command::Develop { files, .. } => files.first().map(|p| p.as_path()),
+        Command::DevelopJson { args, .. } => match args {
+            JsonArguments::Path(p) | JsonArguments::Buildfile(p) => Some(p.as_path()),
+            JsonArguments::Label(_) => None,
+        },
+        Command::Check { saved_file, .. } => Some(saved_file.as_path()),
+        Command::New { .. } => None,
+    }
+}
+
 fn main() -> Result<(), anyhow::Error> {
     #[cfg(fbcode_build)]
     {
@@ -262,12 +302,14 @@ fn main() -> Result<(), anyhow::Error> {
         .with_ansi(io::stderr().is_terminal())
         .with_writer(io::stderr);
 
+    let project_root = file_from_command(&command).and_then(find_project_root_from_file);
+
     match command {
         c @ Command::Develop { .. } => {
             let subscriber = tracing_subscriber::registry().with(fmt.with_filter(filter));
             tracing::subscriber::set_global_default(subscriber)?;
 
-            let (develop, input, out) = cli::Develop::from_command(c);
+            let (develop, input, out) = cli::Develop::from_command(c, project_root);
             match develop.run(input.clone(), out) {
                 Ok(_) => Ok(()),
                 Err(e) => {
@@ -288,7 +330,7 @@ fn main() -> Result<(), anyhow::Error> {
                 .with(progress::ProgressLayer::new(std::io::stdout).with_filter(filter));
             tracing::subscriber::set_global_default(subscriber)?;
 
-            let (develop, input, out) = cli::Develop::from_command(c);
+            let (develop, input, out) = cli::Develop::from_command(c, project_root);
             match develop.run(input.clone(), out) {
                 Ok(_) => Ok(()),
                 Err(e) => {
@@ -320,7 +362,7 @@ fn main() -> Result<(), anyhow::Error> {
             let subscriber = tracing_subscriber::registry().with(fmt.with_filter(filter));
             tracing::subscriber::set_global_default(subscriber)?;
 
-            let buck = Buck::new(buck2_command, mode);
+            let buck = Buck::new(buck2_command, mode, project_root);
 
             cli::Check::new(buck, use_clippy, saved_file.clone())
                 .run()

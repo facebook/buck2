@@ -438,13 +438,21 @@ fn merge_unit_test_targets(
 pub(crate) struct Buck {
     command: String,
     mode: Option<String>,
+    project_root: Option<PathBuf>,
 }
 
 impl Buck {
-    pub(crate) fn new(command: Option<String>, mode: Option<String>) -> Self {
+    pub(crate) fn new(
+        command: Option<String>,
+        mode: Option<String>,
+        project_root: Option<PathBuf>,
+    ) -> Self {
+        tracing::info!(?project_root, "Project root was set");
+
         Buck {
             command: command.unwrap_or_else(|| "buck2".into()),
             mode,
+            project_root,
         }
     }
 
@@ -505,6 +513,10 @@ impl Buck {
         cmd.args(["--isolation-dir", ".rust-analyzer"]);
         cmd.args(subcommands);
         cmd.args(["--oncall", "rust_devx"]);
+
+        if let Some(root) = &self.project_root {
+            cmd.current_dir(root);
+        }
 
         cmd
     }
