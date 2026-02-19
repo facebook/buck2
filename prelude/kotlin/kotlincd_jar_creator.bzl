@@ -142,7 +142,6 @@ def create_jar_artifact_kotlincd(
         debug_port,
         uses_content_based_paths,
         incremental_metadata_ignored_inputs_tag,
-        should_kosabi_jvm_abi_gen_use_k2 == True,
     )
 
     library_classpath_jars_tag = actions.artifact_tag()
@@ -440,7 +439,6 @@ def _define_kotlincd_action(
         debug_port: [int, None],
         uses_content_based_paths: bool,
         incremental_metadata_ignored_inputs_tag: ArtifactTag,
-        should_kosabi_jvm_abi_gen_use_k2: bool,
         # end of factory provided
         category_prefix: str,
         actions_identifier: [str, None],
