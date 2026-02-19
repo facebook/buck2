@@ -20,6 +20,7 @@ import com.facebook.buck.android.exopackage.AndroidDevice;
 import com.facebook.buck.android.exopackage.AndroidDeviceImpl;
 import com.facebook.buck.testresultsoutput.TestResultsOutputSender;
 import com.facebook.buck.testrunner.reportlayer.LogExtractorReportLayer;
+import com.facebook.buck.testrunner.reportlayer.PerfettoReportLayer;
 import com.facebook.buck.testrunner.reportlayer.ReportLayer;
 import com.facebook.buck.testrunner.reportlayer.TombstonesReportLayer;
 import com.facebook.buck.testrunner.reportlayer.VideoRecordingReportLayer;
@@ -257,6 +258,7 @@ public class InstrumentationTestRunner extends DeviceRunner {
     boolean disableAnimations = false;
     boolean collectTombstones = false;
     boolean recordVideo = false;
+    boolean collectPerfetto = false;
     Map<String, String> extraInstrumentationArguments = new HashMap<String, String>();
     Map<String, String> extraFilesToPull = new HashMap<String, String>();
     Map<String, String> extraDirsToPull = new HashMap<String, String>();
@@ -376,6 +378,9 @@ public class InstrumentationTestRunner extends DeviceRunner {
             break;
           case VideoRecordingReportLayer.ARG:
             recordVideo = true;
+            break;
+          case PerfettoReportLayer.ARG:
+            collectPerfetto = true;
             break;
           case LogExtractorReportLayer.ARG:
             String logExtractorArg = args[++i];
@@ -513,6 +518,9 @@ public class InstrumentationTestRunner extends DeviceRunner {
       runner.addReportLayer(new VideoRecordingReportLayer(runner));
     }
     runner.addReportLayer(new TombstonesReportLayer(runner, argsParser.collectTombstones));
+    if (argsParser.collectPerfetto) {
+      runner.addReportLayer(new PerfettoReportLayer(runner));
+    }
     if (!argsParser.logExtractors.isEmpty()) {
       runner.addReportLayer(new LogExtractorReportLayer(runner, argsParser.logExtractors));
     }
@@ -1117,6 +1125,14 @@ public class InstrumentationTestRunner extends DeviceRunner {
             androidDevice.getSerialNumber(),
             true);
     return output.contains("exists");
+  }
+
+  /**
+   * Execute adb shell command. Public wrapper around executeAdbShellCommand for use by report
+   * layers in other packages.
+   */
+  public String runShellCommand(String command) throws Exception {
+    return executeAdbShellCommand(command);
   }
 
   protected void transferFile(String operation, String source, String destination)

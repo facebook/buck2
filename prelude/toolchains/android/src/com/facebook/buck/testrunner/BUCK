@@ -97,6 +97,7 @@ buck_kotlin_library(
         "RunShellCommand.java",
         "TpxStandardOutputTestListener.java",
         "reportlayer/LogExtractorReportLayer.java",
+        "reportlayer/PerfettoReportLayer.java",
         "reportlayer/ReportLayer.java",
         "reportlayer/TombstonesReportLayer.java",
         "reportlayer/VideoRecordingReportLayer.java",

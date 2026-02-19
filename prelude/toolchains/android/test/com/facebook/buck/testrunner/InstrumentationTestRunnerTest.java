@@ -20,6 +20,7 @@ import com.facebook.buck.android.TestAndroidDevice;
 import com.facebook.buck.android.TestDevice;
 import com.facebook.buck.android.exopackage.AndroidDevice;
 import com.facebook.buck.testrunner.reportlayer.LogExtractorReportLayer;
+import com.facebook.buck.testrunner.reportlayer.PerfettoReportLayer;
 import com.facebook.buck.testrunner.reportlayer.TombstonesReportLayer;
 import com.facebook.buck.testrunner.reportlayer.VideoRecordingReportLayer;
 import com.facebook.buck.testutil.TemporaryPaths;
@@ -316,6 +317,32 @@ public class InstrumentationTestRunnerTest {
       Path tombstone = zipfs.getPath("subdir/tombstone");
       Assert.assertEquals("tombstone", Files.readString(tombstone));
     }
+  }
+
+  @Test
+  public void collectPerfettoTraceToTRA() throws Throwable {
+    Map<String, String> env = new HashMap<>();
+    Path tra = Files.createTempDirectory("ait-tra-");
+    Path tra_annot = Files.createTempDirectory("ait-tra-annot-");
+    env.put("TEST_RESULT_ARTIFACTS_DIR", tra.toString());
+    env.put("TEST_RESULT_ARTIFACT_ANNOTATIONS_DIR", tra_annot.toString());
+
+    Map<Path, byte[]> files = new HashMap<>();
+    files.put(
+        Paths.get("/data/misc/perfetto-traces/ait_perfetto_trace.perfetto-trace"),
+        "fake perfetto trace data".getBytes());
+
+    InstrumentationTestRunner runner =
+        createInstrumentationTestRunnerWithDevice(files, env, "--collect-perfetto");
+    runner.run();
+
+    Path traceFile = tra.resolve("ait_perfetto_trace.perfetto-trace");
+    Path traceAnnotation = tra_annot.resolve("ait_perfetto_trace.perfetto-trace.annotation");
+    Assert.assertTrue("Trace file should exist", Files.exists(traceFile));
+    Assert.assertTrue("Annotation file should exist", Files.exists(traceAnnotation));
+    Assert.assertEquals(
+        "{\"type\": {\"generic_blob\": {}}, \"description\": \"Perfetto trace\"}",
+        Files.readString(traceAnnotation));
   }
 
   @Test
@@ -1470,6 +1497,9 @@ public class InstrumentationTestRunnerTest {
       runner.addReportLayer(new VideoRecordingReportLayer(runner));
     }
     runner.addReportLayer(new TombstonesReportLayer(runner, argsParser.collectTombstones));
+    if (argsParser.collectPerfetto) {
+      runner.addReportLayer(new PerfettoReportLayer(runner));
+    }
     if (!argsParser.logExtractors.isEmpty()) {
       runner.addReportLayer(new LogExtractorReportLayer(runner, argsParser.logExtractors));
     }
