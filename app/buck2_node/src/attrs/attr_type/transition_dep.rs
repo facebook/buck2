@@ -145,7 +145,7 @@ impl CoercedTransitionDep {
                 traversal.configuration_dep(label, ConfigurationDepKind::Transition)?
             }
         };
-        traversal.transition_dep(&self.dep, &transition)
+        traversal.transition_dep(&self.dep, transition)
     }
 
     /// If there's a dynamic transition, return the target

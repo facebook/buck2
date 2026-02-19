@@ -204,7 +204,7 @@ async fn generate_profile(
         Action::Loading => {
             let resolved = parse_and_resolve_patterns_from_cli_args::<TargetPatternExtra>(
                 &mut ctx,
-                &target_patterns,
+                target_patterns,
                 server_ctx.working_dir(),
             )
             .await?;

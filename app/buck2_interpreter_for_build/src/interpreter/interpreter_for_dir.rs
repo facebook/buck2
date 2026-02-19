@@ -193,7 +193,7 @@ impl LoadResolver for InterpreterLoadResolver {
             current_dir_with_allowed_relative: &self.config.current_dir_with_allowed_relative_dirs,
         };
         let path = parse_import(
-            &self.config.cell_info.cell_alias_resolver(),
+            self.config.cell_info.cell_alias_resolver(),
             relative_import_option,
             path,
         )?;

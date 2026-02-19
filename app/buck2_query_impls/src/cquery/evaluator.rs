@@ -121,13 +121,13 @@ pub(crate) async fn eval_cquery(
                     }
 
                     (
-                        resolve_literals_in_universe(&dice_query_delegate, &literals, &universe)
+                        resolve_literals_in_universe(dice_query_delegate, &literals, &universe)
                             .await?,
                         universe,
                     )
                 }
                 Some(universe) => (
-                    resolve_literals_in_universe(&dice_query_delegate, &literals, &universe)
+                    resolve_literals_in_universe(dice_query_delegate, &literals, universe)
                         .await?,
                     universe.dupe(),
                 ),

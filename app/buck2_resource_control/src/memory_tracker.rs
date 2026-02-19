@@ -118,7 +118,7 @@ pub async fn create_memory_tracker(
 
     let cgroup_pool = CgroupPool::create_in_parent_cgroup(
         cgroup_tree.forkserver_and_actions(),
-        &resource_control_config,
+        resource_control_config,
     )
     .await?;
     let effective_resource_constraints = *cgroup_tree.effective_resource_constraints();

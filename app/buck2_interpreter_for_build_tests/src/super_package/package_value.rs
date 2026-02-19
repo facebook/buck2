@@ -70,7 +70,7 @@ async fn test_package_value_same_dir_package_file() {
         .unwrap();
 
     let result = interpreter
-        .eval_build_file(package_label, &CancellationContext::testing())
+        .eval_build_file(package_label, CancellationContext::testing())
         .await
         .1
         .unwrap();
@@ -129,7 +129,7 @@ async fn test_package_value_parent_dir_package_file() {
         .unwrap();
 
     let result = interpreter
-        .eval_build_file(package_label, &CancellationContext::testing())
+        .eval_build_file(package_label, CancellationContext::testing())
         .await
         .1
         .unwrap();
@@ -168,7 +168,7 @@ async fn test_overwrite_package_value_not_allowed_without_overwrite_flag() {
         .await
         .unwrap();
     let err = interpreter
-        .eval_build_file(package_label, &CancellationContext::testing())
+        .eval_build_file(package_label, CancellationContext::testing())
         .await
         .1;
     assert!(
@@ -256,7 +256,7 @@ async fn test_read_parent_package_value() {
         .unwrap();
 
     let result = interpreter
-        .eval_build_file(package_label, &CancellationContext::testing())
+        .eval_build_file(package_label, CancellationContext::testing())
         .await
         .1
         .unwrap();
@@ -324,7 +324,7 @@ async fn test_read_parent_package_value_from_bzl() {
         .unwrap();
 
     let result = interpreter
-        .eval_build_file(package_label, &CancellationContext::testing())
+        .eval_build_file(package_label, CancellationContext::testing())
         .await
         .1
         .unwrap();
@@ -362,7 +362,7 @@ async fn test_read_parent_package_value_is_suggested_in_package_file() {
         .await
         .unwrap();
     let err = interpreter
-        .eval_build_file(package_label, &CancellationContext::testing())
+        .eval_build_file(package_label, CancellationContext::testing())
         .await
         .1;
     assert!(
@@ -407,7 +407,7 @@ async fn test_read_parent_package_value_is_suggested_in_bzl_file() {
         .await
         .unwrap();
     let err = interpreter
-        .eval_build_file(package_label, &CancellationContext::testing())
+        .eval_build_file(package_label, CancellationContext::testing())
         .await;
     assert!(
         format!("{err:?}")
@@ -455,7 +455,7 @@ async fn test_config_unification_rollout_function_override() {
         .unwrap();
 
     let result = interpreter
-        .eval_build_file(package_label, &CancellationContext::testing())
+        .eval_build_file(package_label, CancellationContext::testing())
         .await
         .1
         .unwrap();

@@ -124,7 +124,7 @@ impl<'a> AqueryFunctions<'a> {
         }
 
         let nodes = buck2_util::future::try_join_all(
-            action_keys.iter().map(|key| env.delegate.get_node(&key)),
+            action_keys.iter().map(|key| env.delegate.get_node(key)),
         )
         .await?;
         res.extend(nodes);

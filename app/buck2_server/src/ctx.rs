@@ -992,7 +992,7 @@ fn collect_config_metadata_into(config: &LegacyBuckConfig, data: &mut UserComput
 
     add_config(
         &mut metadata,
-        &config,
+        config,
         BuckconfigKeyRef {
             section: "log",
             property: "repository",
@@ -1018,7 +1018,7 @@ fn collect_config_metadata_into(config: &LegacyBuckConfig, data: &mut UserComput
     // metadata. Depending on what sort of things we're missing by dropping int default columns, we might want
     // to consider adding support to the protocol for integer metadata.
 
-    if let Some(normals_obj) = extract_scuba_defaults(&config) {
+    if let Some(normals_obj) = extract_scuba_defaults(config) {
         for (key, value) in normals_obj.iter() {
             if let Some(value) = value.as_str() {
                 metadata.insert(key.clone(), value.to_owned());
@@ -1029,7 +1029,7 @@ fn collect_config_metadata_into(config: &LegacyBuckConfig, data: &mut UserComput
     // TODO(pbergen): Remove this when we desupport client.id in config.
     add_config(
         &mut metadata,
-        &config,
+        config,
         BuckconfigKeyRef {
             section: "client",
             property: "id",

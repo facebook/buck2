@@ -185,7 +185,7 @@ impl CgroupFile {
             .ok_or_else(|| {
                 CgroupFileError::UnexpectedFormat(
                     self.1.clone(),
-                    String::from_utf8_lossy(&data).to_string(),
+                    String::from_utf8_lossy(data).to_string(),
                 )
                 .into()
             })
@@ -201,7 +201,7 @@ impl CgroupFile {
             .ok_or_else(|| {
                 CgroupFileError::UnexpectedFormat(
                     self.1.clone(),
-                    String::from_utf8_lossy(&data).to_string(),
+                    String::from_utf8_lossy(data).to_string(),
                 )
                 .into()
             })

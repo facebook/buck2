@@ -517,7 +517,7 @@ impl<'a> BuckLspContext<'a> {
             } else {
                 TargetParsingRel::AllowLimitedRelative(current_package)
             },
-            &cell_resolver,
+            cell_resolver,
             &cell_alias_resolver,
         ) {
             Ok(ParsedPattern::Target(package, target, _)) => {

@@ -258,7 +258,7 @@ impl Tester {
             ast,
             loaded_modules.clone(),
             provider,
-            &CancellationContext::testing(),
+            CancellationContext::testing(),
         )?;
         Ok(LoadedModule::new(
             OwnedStarlarkModulePath::LoadFile(path.clone()),
@@ -309,7 +309,7 @@ impl Tester {
             loaded_modules,
             provider,
             true,
-            &CancellationContext::testing(),
+            CancellationContext::testing(),
         )?;
         Ok(eval_result_with_stats.result)
     }

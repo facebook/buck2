@@ -109,7 +109,7 @@ async fn resolve_patterns_and_load_buildfiles<'c, T: PatternType>(
         }
     }
 
-    collect_package_roots(&DiceFileOps(&ctx), recursive_packages, |package| {
+    collect_package_roots(&DiceFileOps(ctx), recursive_packages, |package| {
         let package = package?;
         spec.add_package(package.dupe(), Modifiers::new(None));
         builder.load_package(package);
@@ -148,7 +148,7 @@ async fn resolve_patterns_with_modifiers_and_load_buildfiles<'c, T: PatternType>
             ParsedPattern::Recursive(cell_path) => {
                 let mut roots = Vec::new();
 
-                collect_package_roots(&DiceFileOps(&ctx), vec![cell_path], |package| {
+                collect_package_roots(&DiceFileOps(ctx), vec![cell_path], |package| {
                     let package = package?;
                     roots.push(package);
                     buck2_error::Ok(())

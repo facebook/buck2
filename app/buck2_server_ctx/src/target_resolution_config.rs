@@ -65,7 +65,7 @@ impl TargetResolutionConfig {
                 (UNIVERSE_FROM_LITERALS.get()?)(
                     ctx,
                     server_ctx.working_dir(),
-                    &target_universe,
+                    target_universe,
                     global_cfg_options,
                 )
                 .await?,
@@ -156,7 +156,7 @@ impl TargetResolutionConfig {
         } = &label;
         match &extra.cfg {
             ConfigurationPredicate::Any => {
-                self.get_configured_target(ctx, &target_label, None).await
+                self.get_configured_target(ctx, target_label, None).await
             }
             ConfigurationPredicate::Builtin(p) => Err(
                 PatternNotSupportedError::BuiltinConfigurationsNotSupported(p.to_string()).into(),

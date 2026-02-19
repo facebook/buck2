@@ -165,7 +165,7 @@ mod tests {
                 spec,
                 CellName::testing_new("root"),
                 &cell_resolver,
-                &cell_alias_resolver,
+                cell_alias_resolver,
             )
             .is_ok()
             {
@@ -178,7 +178,7 @@ mod tests {
                 spec,
                 CellName::testing_new("root"),
                 &cell_resolver,
-                &cell_alias_resolver,
+                cell_alias_resolver,
             )
             .unwrap_or_else(|_| panic!("Expected parsing `{spec}` to succeed."))
         };
@@ -228,7 +228,7 @@ mod tests {
             "target://lib/...->//:p1 target://lib2/foo/...->//:p2 target:alias1//map/...->alias1//:alias",
             CellName::testing_new("root"),
             &cell_resolver,
-            &cell_alias_resolver,
+            cell_alias_resolver,
         )?;
 
         let p1 = TargetLabel::testing_parse("root//:p1");

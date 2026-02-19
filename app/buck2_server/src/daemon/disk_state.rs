@@ -71,7 +71,7 @@ fn sqlite_db_setup_metadata_and_versions(
     deferred_materializer_config: Option<&DeferredMaterializerConfigs>,
     daemon_id: &DaemonId,
 ) -> buck2_error::Result<(HashMap<String, String>, HashMap<String, String>)> {
-    let metadata = buck2_events::metadata::collect(&daemon_id);
+    let metadata = buck2_events::metadata::collect(daemon_id);
 
     let mut versions = HashMap::from([("schema_version".to_owned(), schema_version)]);
 
