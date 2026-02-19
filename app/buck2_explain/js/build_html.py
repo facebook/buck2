@@ -35,7 +35,7 @@ print_err = functools.partial(print, file=sys.stderr)
 glob_r = functools.partial(glob.glob, recursive=True)
 
 
-def run(command: List[str], cwd=None, env=None):
+def run(command: List[str], cwd=None, env=None) -> None:
     print_err(f"{cwd if cwd else ' '} $ {shlex.join(command)}")
 
     if env is not None:
@@ -46,7 +46,7 @@ def run(command: List[str], cwd=None, env=None):
     subprocess.run(command, shell=(os.name == "nt"), check=True, cwd=cwd, env=env)
 
 
-def copy_writable(src, dst, *, follow_symlinks=True):
+def copy_writable(src, dst, *, follow_symlinks=True) -> None:
     """shutil.copy, but ensure that yarn.lock is writable
     - RE might make src/ read-only with its "restrictive mode".
     - When copying the RE "restrictive" src/, yarn.lock is read-only.
@@ -57,7 +57,7 @@ def copy_writable(src, dst, *, follow_symlinks=True):
         os.chmod(dst, 0o666)
 
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser(description="Creates a html from explain source.")
     parser.add_argument(
         "-o",

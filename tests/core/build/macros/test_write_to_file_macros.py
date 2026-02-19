@@ -21,7 +21,7 @@ def _normalize_path(p: str) -> str:
     return p
 
 
-def _find_file(dir, name: str):
+def _find_file(dir, name: str) -> str:
     files = []
     for root, _, filenames in os.walk(dir):
         for filename in filenames:

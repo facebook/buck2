@@ -37,7 +37,7 @@ async def get_detailed_metrics(buck: Buck) -> typing.Any:
 def parse_metrics(metrics: typing.Any) -> tuple[typing.Any, dict[str, typing.Any]]:
     all_targets = metrics["all_targets_build_metrics"]
 
-    def stringify(t):
+    def stringify(t) -> str:
         t = t["label"]
         return f"{t['package']}:{t['name']}"
 
