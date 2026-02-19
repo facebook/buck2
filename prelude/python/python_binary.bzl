@@ -316,6 +316,12 @@ def _compute_pex_providers(
         if ctx.attrs.runtime_bundle_full:
             extra_artifacts["runtime/include/{}".format(bundle.include.basename)] = bundle.include
 
+    # Add additional runtime libs
+    for name, dep in ctx.attrs.runtime_libs.items():
+        dep_info = dep.get(DefaultInfo)
+        if dep_info != None:
+            extra_artifacts["runtime/lib/{}".format(name)] = dep_info.default_outputs[0]
+
     extra_manifests = create_manifest_for_source_map(ctx, "extra_manifests", extra_artifacts)
     package_style = get_package_style(ctx)
 
