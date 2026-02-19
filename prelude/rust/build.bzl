@@ -659,8 +659,6 @@ def rust_compile(
                 get_output_flags(compile_ctx.cxx_toolchain_info.linker_info.type, emit_op.output),
                 hidden = out_artifacts_dir,
             )
-            if toolchain_info.sysroot_path:
-                deferred_link_cmd.add(cmd_args(hidden = toolchain_info.sysroot_path))
         else:
             rustc_cmd.add(cmd_args(linker_argsfile, format = "-Clink-arg=@{}"))
             linker = compile_ctx.linker_with_pre_args

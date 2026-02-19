@@ -42,7 +42,7 @@ def _compute_rust_deps(
         ctx: AnalysisContext,
         dep_ctx: DepCollectionContext) -> list[Dependency]:
     dep_ctx = DepCollectionContext(
-        advanced_unstable_linking = dep_ctx.advanced_unstable_linking,
+        advanced_unstable_linking = False,
         # Include doc deps here for any doctests that may be present in the target.
         include_doc_deps = True,
         is_proc_macro = dep_ctx.is_proc_macro,

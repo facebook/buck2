@@ -319,6 +319,8 @@ def _do_resolve_deps(
 def gather_explicit_sysroot_deps(dep_ctx: DepCollectionContext) -> list[RustOrNativeDependency]:
     explicit_sysroot_deps = dep_ctx.explicit_sysroot_deps
     if not explicit_sysroot_deps:
+        if dep_ctx.advanced_unstable_linking:
+            fail("Explicit sysroot deps are required when advanced_unstable_linking is on")
         return []
 
     out = []
