@@ -319,6 +319,56 @@ def _test_tool_with_cpu_conditional_modifier_arm64(ctx: bxl.Context):
         expected_labels = ["build_mode:none", "compiler:clang", "os:linux", "cpu:arm64"],
     )
 
+# ============================================================================
+# Tests for buckconfig_backed_modifiers exclusion from exec deps
+# ============================================================================
+
+def _test_buckconfig_backed_modifiers_not_applied_to_exec_deps(ctx: bxl.Context):
+    """
+    Test that buckconfig_backed_modifiers are NOT applied to exec deps.
+
+    The PACKAGE sets buckconfig_backed_modifiers with
+    buckconfig_backed:enabled as a post_platform_modifiers.
+
+    Expected behavior:
+    - The binary target SHOULD get buckconfig_backed:enabled from buckconfig-backed modifiers
+    - The tool (exec_dep) should NOT get buckconfig_backed:enabled - should have buckconfig_backed:none
+    """
+    ctx.output.stream("\n=== Testing buckconfig_backed_modifiers NOT applied to exec deps ===")
+
+    node = ctx.configured_targets("//buckconfig_backed:binary_with_buckconfig_modifier")
+
+    exec_platform = getattr(node.attrs_eager(), "buck.execution_platform").value()
+    _assert_eq(exec_platform, "root//cfg:exec_linux_x86_64")
+
+    labels = node.get_attr("labels")
+    _assert_eq(
+        labels,
+        ["build_mode:debug", "compiler:clang", "os:none", "cpu:none"],
+        "Binary should have buckconfig_backed:enabled from buckconfig-backed modifiers",
+    )
+
+    # The binary SHOULD have buckconfig_backed:enabled from buckconfig-backed modifiers
+    _assert_eq(
+        node.get_attr("buckconfig_backed_label"),
+        "buckconfig_backed:enabled",
+    )
+
+    universe = ctx.target_universe(node)
+
+    exec_dep_node = _test_dependency_in_universe(
+        universe,
+        "root//buckconfig_backed:simple_tool",
+        expected_labels = ["build_mode:none", "compiler:none", "os:linux", "cpu:x86_64"],
+    )
+
+    # The tool (exec_dep) should NOT have buckconfig_backed:enabled
+    # It should have buckconfig_backed:none because buckconfig-backed modifiers are excluded for exec deps
+    _assert_eq(
+        exec_dep_node.get_attr("buckconfig_backed_label"),
+        "buckconfig_backed:none",
+    )
+
 def _main(ctx: bxl.Context):
     ctx.output.stream("Testing exec modifiers and toolchain dependencies...\n")
 
@@ -334,6 +384,9 @@ def _main(ctx: bxl.Context):
     _test_tool_with_os_conditional_modifier_linux(ctx)
     _test_tool_with_os_conditional_modifier_macos(ctx)
     _test_tool_with_cpu_conditional_modifier_arm64(ctx)
+
+    # Buckconfig-backed modifiers test
+    _test_buckconfig_backed_modifiers_not_applied_to_exec_deps(ctx)
 
     ctx.output.stream("\n✅ All tests passed!")
 

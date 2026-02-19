@@ -50,6 +50,18 @@ constraint(
     execution_modifier = True,
 )
 
+# Buckconfig backed test constraint - used to test buckconfig_backed_modifiers exclusion from exec deps
+constraint(
+    name = "buckconfig_backed",
+    values = [
+        "enabled",
+        "none",
+    ],
+    default = "none",
+    visibility = ["PUBLIC"],
+    execution_modifier = False,
+)
+
 # Platform definitions
 platform(
     name = "debug_platform",

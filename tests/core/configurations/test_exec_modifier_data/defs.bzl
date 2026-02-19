@@ -20,6 +20,12 @@ def get_labels():
         "//cfg:cpu[x86_64]": ["cpu:x86_64"],
     })
 
+def get_buckconfig_backed_label():
+    return select({
+        "//cfg:buckconfig_backed[enabled]": "buckconfig_backed:enabled",
+        "//cfg:buckconfig_backed[none]": "buckconfig_backed:none",
+    })
+
 def _dummy(ctx):
     _ignore = ctx
     return [
@@ -30,6 +36,7 @@ def _dummy(ctx):
 dummy = rule(
     impl = _dummy,
     attrs = {
+        "buckconfig_backed_label": attrs.string(default = ""),
         "configured_deps": attrs.list(attrs.configured_dep(), default = []),
         "deps": attrs.list(attrs.dep(), default = []),
         "exec_deps": attrs.list(attrs.exec_dep(), default = []),
@@ -51,6 +58,9 @@ def labeled_dummy(name, **kwargs):
     # Set labels if not already provided
     if "labels" not in kwargs:
         kwargs["labels"] = get_labels()
+
+    if "buckconfig_backed_label" not in kwargs:
+        kwargs["buckconfig_backed_label"] = get_buckconfig_backed_label()
 
     # Set default_target_platform if not provided
     if "default_target_platform" not in kwargs:
