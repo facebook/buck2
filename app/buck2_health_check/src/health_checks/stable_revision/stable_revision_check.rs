@@ -322,9 +322,7 @@ mod tests {
             parsed_target_patterns: Some(target_patterns("fbcode//tools".to_owned())),
             has_excess_cache_misses: true,
             command_data: Some(buck2_data::command_start::Data::Build(
-                buck2_data::BuildCommandStart {
-                    ..Default::default()
-                },
+                buck2_data::BuildCommandStart {},
             )),
             experiment_configurations: Some(buck2_data::SystemInfo {
                 enable_stable_revision_check: Some(true),
@@ -346,11 +344,7 @@ mod tests {
 
     fn target_patterns(pattern: String) -> buck2_data::ParsedTargetPatterns {
         buck2_data::ParsedTargetPatterns {
-            target_patterns: vec![buck2_data::TargetPattern {
-                value: pattern,
-                ..Default::default()
-            }],
-            ..Default::default()
+            target_patterns: vec![buck2_data::TargetPattern { value: pattern }],
         }
     }
 
@@ -460,14 +454,11 @@ mod tests {
             target_patterns: vec![
                 buck2_data::TargetPattern {
                     value: "fbcode//tools".to_owned(),
-                    ..Default::default()
                 },
                 buck2_data::TargetPattern {
                     value: "fbsource//arvr/tools".to_owned(),
-                    ..Default::default()
                 },
             ],
-            ..Default::default()
         });
 
         let mut checker = test_stable_revision_checker();
@@ -512,14 +503,11 @@ mod tests {
             target_patterns: vec![
                 buck2_data::TargetPattern {
                     value: "fbcode//tools".to_owned(),
-                    ..Default::default()
                 },
                 buck2_data::TargetPattern {
                     value: "other//target".to_owned(),
-                    ..Default::default()
                 },
             ],
-            ..Default::default()
         });
         let mut checker = StableRevisionCheck::new_with_bookmark_map_and_fetcher(
             Arc::new(MockBookmarkRevisionFetcher {}),

@@ -1160,7 +1160,6 @@ impl ServerCommandContextTrait for ServerCommandContext<'_> {
             data: Some(data),
             cli_args: self.sanitized_argv.clone(),
             tags: self.base_context.daemon.tags.clone(),
-            ..Default::default()
         })
     }
 

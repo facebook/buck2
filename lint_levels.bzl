@@ -38,7 +38,6 @@ CLIPPY_ALLOW = [
     "clippy::needless_lifetimes",  # This is throwing false positives
     "clippy::needless_pass_by_ref_mut",  # Mostly identifies cases where we are accepting `&mut T` because we logically accept a mut reference but don't technically require it (i.e. we want the api to enforce the caller has a mut ref, but we don't technically need it).
     "clippy::needless_raw_string_hashes",  # False positives
-    "clippy::needless_update",  # Our RE structs have slightly different definitions in internal and OSS.
     "clippy::new_without_default",  # Default is not always useful
     "clippy::non_canonical_partial_ord_impl",  # Almost exclusively identifies cases where a type delegates ord/partial ord to something else (including Derivative-derived PartialOrd) and in that case being explicit about that delegation is better than following some canonical partialord impl.
     "clippy::question_mark",
