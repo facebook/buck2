@@ -49,7 +49,6 @@ CLIPPY_ALLOW = [
     "clippy::unnecessary_wraps",  # Sometimes unnecessary wraps provide the right API
     "clippy::unwrap_or_default",  # Defaults aren't always more clear as it removes the type information when reading code
     "clippy::useless_conversion",  # Removed all obvious but there are some reports I'm unclear how to fix
-    "clippy::wrong_self_convention",  # These rules are useless pedantry
 ]
 
 # buildifier: keep sorted

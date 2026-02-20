@@ -240,7 +240,7 @@ fn read_path_metadata<P: AsRef<AbsPath>>(
             ExactPathMetadata::DoesNotExist => return Ok(None),
             ExactPathMetadata::Symlink(symlink) => {
                 let rest: ForwardRelativePathBuf = relpath_components.collect();
-                return Ok(Some(symlink.to_raw_path_metadata(curr, rest)?));
+                return Ok(Some(symlink.into_raw_path_metadata(curr, rest)?));
             }
             ExactPathMetadata::FileOrDirectory(path_meta) => {
                 meta = Some(path_meta);
@@ -330,7 +330,7 @@ enum ExactPathSymlinkMetadata {
 }
 
 impl ExactPathSymlinkMetadata {
-    fn to_raw_path_metadata(
+    fn into_raw_path_metadata(
         self,
         curr: PathAndAbsPath,
         rest: ForwardRelativePathBuf,
@@ -385,7 +385,7 @@ fn read_unchecked<P: AsRef<AbsPath>>(
             ReadUncheckedOptions::Anything => convert_metadata(&curr, meta, file_digest_config),
         },
         ExactPathMetadata::Symlink(link) => {
-            link.to_raw_path_metadata(curr, ForwardRelativePathBuf::default())
+            link.into_raw_path_metadata(curr, ForwardRelativePathBuf::default())
         }
     }
 }

@@ -121,7 +121,7 @@ async fn build_action_no_redirect(
                     buck2_error::Ok(
                         ensure_artifact_group_staged(ctx, resolved.clone())
                             .await?
-                            .to_group_values(&resolved)?,
+                            .into_group_values(&resolved)?,
                     )
                 }
                 .boxed()

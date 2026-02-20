@@ -298,7 +298,7 @@ struct ChromeTraceClosedSpan {
 }
 
 impl ChromeTraceClosedSpan {
-    fn to_json(self) -> buck2_error::Result<serde_json::Value> {
+    fn into_json(self) -> buck2_error::Result<serde_json::Value> {
         Ok(json!(
             {
                 "name": self.open.name,
@@ -681,7 +681,7 @@ impl ChromeTraceWriter {
         }
     }
 
-    pub fn to_writer<W>(mut self, file: W) -> buck2_error::Result<()>
+    pub fn into_writer<W>(mut self, file: W) -> buck2_error::Result<()>
     where
         W: Write,
     {
@@ -1262,7 +1262,7 @@ impl ChromeTraceWriter {
                 },
                 duration: parent_duration,
             }
-            .to_json()?,
+            .into_json()?,
         );
 
         // Small offset to avoid trace viewer rendering issues when parent/child
@@ -1307,7 +1307,7 @@ impl ChromeTraceWriter {
                         },
                         duration: adjusted_duration,
                     }
-                    .to_json()?,
+                    .into_json()?,
                 );
             }
         }
@@ -1377,7 +1377,7 @@ impl ChromeTraceWriter {
                 },
                 duration,
             }
-            .to_json()?,
+            .into_json()?,
         );
 
         Ok(())
@@ -1402,7 +1402,7 @@ impl ChromeTraceWriter {
                     .mark_unused(track_id.1);
             }
             self.trace_events
-                .push(ChromeTraceClosedSpan { open, duration }.to_json()?);
+                .push(ChromeTraceClosedSpan { open, duration }.into_json()?);
         }
 
         match end.data.as_ref() {
@@ -1525,7 +1525,7 @@ impl BuckSubcommand for ChromeTraceCommand {
             .write(true)
             .truncate(true)
             .open(dest_path)?;
-        writer.to_writer(BufWriter::new(tracefile))?;
+        writer.into_writer(BufWriter::new(tracefile))?;
 
         ExitResult::success()
     }

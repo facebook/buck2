@@ -171,7 +171,7 @@ impl CounterWithExamples {
         }
     }
 
-    fn to_cli_proto_counter(self) -> buck2_cli_proto::CounterWithExamples {
+    fn into_cli_proto_counter(self) -> buck2_cli_proto::CounterWithExamples {
         buck2_cli_proto::CounterWithExamples {
             count: self.count,
             max: self.max,
@@ -526,56 +526,56 @@ async fn test(
                 .executor_report
                 .statuses
                 .passed
-                .to_cli_proto_counter(),
+                .into_cli_proto_counter(),
         ),
         skipped: Some(
             test_outcome
                 .executor_report
                 .statuses
                 .skipped
-                .to_cli_proto_counter(),
+                .into_cli_proto_counter(),
         ),
         omitted: Some(
             test_outcome
                 .executor_report
                 .statuses
                 .omitted
-                .to_cli_proto_counter(),
+                .into_cli_proto_counter(),
         ),
         failed: Some(
             test_outcome
                 .executor_report
                 .statuses
                 .failed
-                .to_cli_proto_counter(),
+                .into_cli_proto_counter(),
         ),
         fatals: Some(
             test_outcome
                 .executor_report
                 .statuses
                 .fatals
-                .to_cli_proto_counter(),
+                .into_cli_proto_counter(),
         ),
         infra_failure: Some(
             test_outcome
                 .executor_report
                 .statuses
                 .infra_failure
-                .to_cli_proto_counter(),
+                .into_cli_proto_counter(),
         ),
         listing_success: Some(
             test_outcome
                 .executor_report
                 .statuses
                 .listing_success
-                .to_cli_proto_counter(),
+                .into_cli_proto_counter(),
         ),
         listing_failed: Some(
             test_outcome
                 .executor_report
                 .statuses
                 .listing_failed
-                .to_cli_proto_counter(),
+                .into_cli_proto_counter(),
         ),
         build_errors: build_errors_count,
     };

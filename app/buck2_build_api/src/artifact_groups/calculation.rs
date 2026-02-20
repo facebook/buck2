@@ -83,7 +83,7 @@ impl ArtifactGroupCalculation for DiceComputations<'_> {
         let resolved_artifacts = input.resolved_artifact(self).await?;
         ensure_artifact_group_staged(self, resolved_artifacts.clone())
             .await?
-            .to_group_values(&resolved_artifacts)
+            .into_group_values(&resolved_artifacts)
     }
 }
 
@@ -102,7 +102,7 @@ impl ArtifactGroupCalculation for DiceComputations<'_> {
 ///  - The staged future is kept to a minimum size (which we track in an assertion below).
 ///  - The result of the staged future is kept to a minimum size (also tracked below).
 ///  - For the single Artifact case from ensure_artifact_group_staged, we defer allocation
-///    of the ArtifactGroupValues until `to_group_values()` is called. For callers waiting
+///    of the ArtifactGroupValues until `into_group_values()` is called. For callers waiting
 ///    on many inputs, this allows them to only allocate those large values only after all
 ///    inputs are ready.
 pub(crate) fn ensure_artifact_group_staged<'a>(
@@ -217,7 +217,7 @@ pub(crate) enum EnsureArtifactGroupReady {
 impl EnsureArtifactGroupReady {
     /// Converts the ensured artifact to an ArtifactGroupValues. The caller must ensure that the passed in artifact
     /// is the same one that was used to ensure this.
-    pub(crate) fn to_group_values<'v>(
+    pub(crate) fn into_group_values<'v>(
         self,
         resolved_artifact_group: &ResolvedArtifactGroup<'v>,
     ) -> buck2_error::Result<ArtifactGroupValues> {
@@ -597,7 +597,7 @@ impl Key for EnsureTransitiveSetProjectionKey {
                         values.push((artifact.dupe(), ready.unpack_single()?))
                     }
                     ResolvedArtifactGroup::TransitiveSetProjection(..) => {
-                        children.push(ready.to_group_values(group)?)
+                        children.push(ready.into_group_values(group)?)
                     }
                 }
             }

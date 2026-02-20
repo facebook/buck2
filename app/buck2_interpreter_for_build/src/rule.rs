@@ -403,7 +403,7 @@ enum FrozenRuleImpl {
 }
 
 impl FrozenRuleImpl {
-    fn to_frozen_value(self) -> FrozenValue {
+    fn into_frozen_value(self) -> FrozenValue {
         match self {
             FrozenRuleImpl::BuildRule(callable) => callable.0,
             FrozenRuleImpl::BxlAnon(callable) => callable.0,
@@ -500,7 +500,7 @@ fn unpack_frozen_rule(
 pub(crate) fn init_frozen_rule_get_impl() {
     FROZEN_RULE_GET_IMPL.init(|rule| {
         let rule = unpack_frozen_rule(rule)?;
-        Ok(rule.implementation.dupe().to_frozen_value())
+        Ok(rule.implementation.dupe().into_frozen_value())
     })
 }
 
