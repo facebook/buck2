@@ -199,6 +199,8 @@ pub fn handle_soft_error(
         ALL_SOFT_ERROR_COUNTERS.lock().unwrap().push(count);
     });
 
+    let quiet = options.quiet;
+
     // We want to limit each error to appearing at most 10 times in a build (no point spamming people)
     if count.fetch_add(1, Ordering::SeqCst) < 10 {
         if let Some(handler) = HANDLER.get() {
@@ -218,9 +220,10 @@ pub fn handle_soft_error(
 
     // @oss-disable: let is_open_source = false;
     let is_open_source = true; // @oss-enable
-    if is_open_source {
+    if is_open_source && !quiet {
         // We don't log these, and we have no legacy users, and they might not upgrade that often,
-        // so lets just break open source things immediately.
+        // so lets just break open source things immediately. We only do this when quiet = False
+        // because we typically use quiet = True for logging purposes.
         return Err(err);
     }
 
