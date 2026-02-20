@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+set -eu -o pipefail
+
+act_build()
+{
+    act \
+        --bind \
+        --container-architecture linux/x86_64 \
+        --platform 4-core-ubuntu=catthehacker/ubuntu:act-22.04 \
+        --workflows .github/workflows/build-and-test.yml \
+        --job linux-build-and-test \
+        "$@"
+}
+
+if [ ${1-} = --clean ]; then
+    if [ -d "$(dotslash -- cache-dir)" ]; then
+        dotslash -- clean
+    fi
+    rm -rf ~/.cache/act ~/.cache/actcache
+    rm -rf build/fbcode_builder/getdeps/__pycache__/
+
+    rm -rf buck-out/
+    rm -rf conan-build/
+
+
+    act_build \
+        --rebuild \
+        --container-options --init
+else
+    act_build \
+        --reuse
+fi

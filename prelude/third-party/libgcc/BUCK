@@ -1,0 +1,13 @@
+load("@prelude//utils:source_listing.bzl", "source_listing")
+
+oncall("build_infra")
+
+source_listing()
+
+config_setting(
+    name = "11.x",
+    constraint_values = [
+        "//third-party/libgcc/constraints:11.x",
+    ],
+    visibility = ["PUBLIC"],
+)

@@ -267,7 +267,7 @@ jobs:
         chmod +x artifacts/buck2-release
     - name: Install dependencies
       run: |
-        sudo apt-get install -y yarn
+        sudo apt-get install -y --no-install-recommends yarn
       id: build
     - name: Build the Website
       run: |

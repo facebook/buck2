@@ -13,6 +13,10 @@ load(
     "PythonToolchainInfo",
 )
 load(
+    "@prelude//python:python_wheel_toolchain.bzl",
+    "PythonWheelToolchainInfo",
+)
+load(
     "@prelude//python_bootstrap:python_bootstrap.bzl",
     "PythonBootstrapToolchainInfo",
 )
@@ -117,6 +121,22 @@ python_toolchain = rule(
     },
     is_toolchain_rule = True,
     doc = "A Python toolchain that can build Python extensions, given an interpreter and the extra linker flags to use with it. See `remote_python_toolchain` for a toolchain that configures the interpreter and linker flags for you.",
+)
+
+def _python_wheel_toolchain_impl(ctx):
+    return [
+        DefaultInfo(),
+        PythonWheelToolchainInfo(
+            platform = ctx.attrs.platform,
+        ),
+    ]
+
+python_wheel_toolchain = rule(
+    impl = _python_wheel_toolchain_impl,
+    attrs = {
+        "platform": attrs.option(attrs.string(), default = None),
+    },
+    is_toolchain_rule = True,
 )
 
 # archives for 3.13
