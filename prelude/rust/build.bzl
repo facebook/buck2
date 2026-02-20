@@ -1692,5 +1692,4 @@ def process_env(
 def _deferred_link_enabled(compile_ctx: CompileContext, params: BuildParams, emit: Emit) -> bool:
     return compile_ctx.toolchain_info.advanced_unstable_linking and \
            params.crate_type == CrateType("dylib") and \
-           emit == Emit("link") and \
-           compile_ctx.cxx_toolchain_info.linker_info.type == LinkerType("gnu")
+           emit == Emit("link")
