@@ -13,6 +13,7 @@
 
 load("@prelude//:attrs_validators.bzl", "validation_common")
 load("@prelude//apple:apple_common.bzl", "apple_common")
+load("@prelude//cxx:cmake.bzl", "CMakeSubstitutionInfo")
 load("@prelude//cxx:cuda.bzl", "CudaCompileStyle")
 load("@prelude//cxx:headers.bzl", "CPrecompiledHeaderInfo")
 load("@prelude//cxx:link_groups_types.bzl", "LINK_GROUP_MAP_ATTR")
@@ -23,6 +24,7 @@ load("@prelude//linking:execution_preference.bzl", "link_execution_preference_at
 load("@prelude//linking:link_info.bzl", "ArchiveContentsType", "LinkOrdering", "LinkStyle")
 load("@prelude//linking:types.bzl", "Linkage")
 load("@prelude//transitions:constraint_overrides.bzl", "constraint_overrides")
+load("@prelude//utils:value.bzl", "GenericValueInfo")
 load(":common.bzl", "CxxRuntimeType", "CxxSourceType", "HeadersAsRawHeadersMode", "buck", "prelude_rule")
 load(":cxx_common.bzl", "cxx_common")
 load(":genrule_common.bzl", "genrule_common")
@@ -81,6 +83,98 @@ LinkerProviderType = ["darwin", "gnu", "windows", "unknown", "wasm"]
 PicType = ["pic", "pdc"]
 
 SharedLibraryInterfaceParamsType = ["disabled", "enabled", "defined_only"]
+
+cmake_configure_file = prelude_rule(
+    name = "cmake_configure_file",
+    docs = """
+        
+        Implements the behavior of CMake's `configure_file()` builtin.
+
+        https://cmake.org/cmake/help/latest/command/configure_file.html
+
+        It accepts a template file that adheres to the `configure_file` syntax specification and outputs a processed file after performing
+        the appropriate variable substitutions.
+
+        It also adds some additional functionality beyond what is built into CMake's `configure_file()`.  In particular, it adds two main
+        features:
+
+        1. It is by default "strict", meaning that if you pass in substitutions that are not found in the template file, the rule will fail.
+           Similarly, if there are variables in the template file that no user substitutions were passed in for, it will also fail.  strict
+           mode is controlled by the `strict` rule attribute, and can be disabled.
+
+        2. It supports file embeddings.  This is very difficult and cumbersome to do in CMake and is not supported out of the box.  Here, we
+           support it through the `embeddings` argument, which can reference targets previously declared with the `cmake_embedding` rule.
+
+    """,
+    examples = """
+        ```
+        
+        ```
+    """,
+    attrs = {
+        "template": attrs.source(),
+        "substitutions": attrs.list(attrs.dep(providers=[CMakeSubstitutionInfo])),
+        "at_sub": attrs.bool(default=True),
+        "var_sub": attrs.bool(default=True),
+        "escape_quotes": attrs.bool(default=False),
+        "copy_only": attrs.bool(default=False),
+        "output": attrs.option(attrs.string(), default = None),
+        "strict": attrs.bool(default=True),
+        "script": attrs.default_only(attrs.exec_dep(default="prelude//cxx/tools:expand_cmake_template", providers=[RunInfo]))
+    }
+)
+
+cmake_substitution = prelude_rule(
+    name = "cmake_substitution",
+    docs = """
+        A `cmake_type_size_substitution()` is like `cmake_substitution()`, but it requires its value to be a target that was declared with the
+        `cctest_type_size()` rule (or any other rule that returns a `CcTestTypeSizeInfo` provider).  It will result in the template variable
+        `${<NAME>_CODE} being replaced with either `#define <NAME> <VALUE>`, or not defind at all if the value is None.
+    """,
+    examples = """
+        ```
+        ```
+    """,
+    attrs = {
+        "variable": attrs.option(attrs.string(), default=None),
+        "value": attrs.dep(providers=[GenericValueInfo])
+    }
+)
+
+cmake_immediate_substitution = prelude_rule(
+    name = "cmake_immediate_substitution",
+    docs = """
+        A `cmake_immediate_substitution()` is like `cmake_substitution()`, but it requires its value to be a target that was declared with the
+        `cctest_type_size()` rule (or any other rule that returns a `CcTestTypeSizeInfo` provider).  It will result in the template variable
+        `${<NAME>_CODE} being replaced with either `#define <NAME> <VALUE>`, or not defind at all if the value is None.
+    """,
+    examples = """
+        ```
+        ```
+    """,
+    attrs = {
+        "variable": attrs.option(attrs.string(), default=None),
+        "value": attrs.option(attrs.one_of(attrs.string(), attrs.int(), attrs.bool()), default=None)
+    }
+)
+
+cmake_type_size_substitution = prelude_rule(
+    name = "cmake_type_size_substitution",
+    docs = """
+        A `cmake_type_size_substitution()` is like `cmake_substitution()`, but it requires its value to be a target that was declared with the
+        `cctest_type_size()` rule (or any other rule that returns a `CcTestTypeSizeInfo` provider).  It will result in the template variable
+        `${<NAME>_CODE} being replaced with either `#define <NAME> <VALUE>`, or not defind at all if the value is None.
+    """,
+    examples = """
+        ```
+        ```
+    """,
+    attrs = {
+        "variable": attrs.option(attrs.string(), default=None),
+        "size": attrs.option(attrs.dep(providers=[GenericValueInfo]), default=None),
+    }
+)
+
 
 cxx_binary = prelude_rule(
     name = "cxx_binary",
@@ -1303,6 +1397,10 @@ llvm_link_bitcode = prelude_rule(
 )
 
 cxx_rules = struct(
+    cmake_configure_file = cmake_configure_file,
+    cmake_type_size_substitution = cmake_type_size_substitution,
+    cmake_substitution = cmake_substitution,
+    cmake_immediate_substitution = cmake_immediate_substitution,
     cxx_binary = cxx_binary,
     cxx_genrule = cxx_genrule,
     cxx_library = cxx_library,

@@ -16,6 +16,7 @@ load("@prelude//transitions:constraint_overrides.bzl", "constraint_overrides")
 load(":common.bzl", "OnDuplicateEntry", "buck", "prelude_rule", "validate_uri")
 load(":genrule_common.bzl", "genrule_common")
 load(":remote_common.bzl", "remote_common")
+load("@prelude//utils:value.bzl", "GenericValueInfo")
 
 ExportFileDescriptionMode = ["reference", "copy"]
 
@@ -617,6 +618,123 @@ filegroup = prelude_rule(
         buck.contacts_arg()
     ),
     cfg = constraint_overrides.transition,
+)
+
+
+generic_simple_value = prelude_rule(
+    name = "generic_simple_value",
+    docs = """
+        A `generic_simple_value` rule encodes a single value of type boolean, int, or string.  None can be specified to
+        indicate the non-existance of the value.  This rule produces no outputs and serves only to carry values through
+        to other rule apis that depend on them.
+    """,
+    examples = """
+        ```
+
+        generic_simple_value(
+            name="sizeof-socket_t",
+            value=select({
+                "config//os:windows": select({
+                    "config//cpu:x86_64": 8,
+                    "DEFAULT": 4
+                }),
+                "DEFAULT": 4
+            })
+        )
+
+        ```
+    """,
+    attrs = {
+        "value": attrs.option(attrs.one_of(attrs.bool(), attrs.int(), attrs.string()), default=None)
+    }
+)
+
+generic_file_value = prelude_rule(
+    name = "generic_file_value",
+    docs = """
+        A `generic_file_value` rule takes an artifact as input (for example a source file) and makes its content available
+        to other value-based rules as a dynamic input.
+    """,
+    examples = """
+        ```
+
+        generic_file_value(
+            name="embedded-content",
+            file="embedded_content.h"
+        )
+
+        ```
+    """,
+    attrs = {
+        "file": attrs.source()
+    }
+)
+
+generic_value_mapping = prelude_rule(
+    name = "generic_value_mapping",
+    docs = """
+        A `generic_value_mapping` rule takes a reference to a previously defined `generic_simple_value`, and maps its value
+        to a new value using a user-supplied lookup table.  It is an error if the lookup table does not contain an entry for
+        the current value.
+    """,
+    examples = """
+        ```
+        ```
+    """,
+    attrs = {
+        "original": attrs.dep(providers = [GenericValueInfo]),
+        "new": attrs.dict(
+            attrs.one_of(attrs.bool(), attrs.int(), attrs.string()),
+            attrs.option(attrs.one_of(attrs.bool(), attrs.int(), attrs.string()), default=None),
+        )
+    }
+)
+
+generic_value_join_list = prelude_rule(
+    name = "generic_value_join_list",
+    docs = """
+        A 'generic_value_mapping` can combine the values of each of the input values and produce a new value that has all of
+        the input values concatenated together using user-specified delimiters, item prefixes, item suffixes, and global prefixes
+        and suffixes.  If any of the inputs is a `generic_list_value`, it will be flattened (including recursively), and if any of
+        the values is a `generic_file_value` its content will be joined with the other items.  The output of this rule is a dynamic
+        output artifact containing the joined content, which can then be used by other rules as if it were a generic_file_value itself.
+    """,
+    examples = """
+        ```
+        generic_simple_value(name="4", value=4)
+        generic_simple_value(name="true", value=True)
+        generic_file_value(name="input.txt", file="input.txt")
+
+
+        # Assuming the content of `input.txt` is "Hello world", this produces a generic value whose contents resolves to the string
+        #
+        #    [(4), (True), (Hello World)]
+        #
+        generic_value_join_list(
+            name="joined", 
+            values=[
+                ":4",
+                ":true",
+                ":input.txt"
+            ],
+            item_prefix="(",
+            item_suffix=")",
+            prefix="[",
+            suffix="]",
+            delimiter=", "
+        )
+
+        ```
+    """,
+    attrs = {
+        "values": attrs.list(attrs.dep(providers=[GenericValueInfo])),
+        "prefix": attrs.string(default=""),
+        "suffix": attrs.string(default=""),
+        "item_prefix": attrs.string(default=""),
+        "item_suffix": attrs.string(default=""),
+        "delimiter": attrs.string(default=","),
+        "trailing_delimiter": attrs.bool(default=False),
+    }
 )
 
 genrule = prelude_rule(
@@ -1577,6 +1695,10 @@ core_rules = struct(
     export_file = export_file,
     external_test_runner = external_test_runner,
     filegroup = filegroup,
+    generic_simple_value = generic_simple_value,
+    generic_file_value = generic_file_value,
+    generic_value_mapping = generic_value_mapping,
+    generic_value_join_list = generic_value_join_list,
     genrule = genrule,
     http_archive = http_archive,
     http_file = http_file,
