@@ -166,9 +166,6 @@ RustLinkStrategyInfo = record(
     # This does not include the proc macros, which are passed separately in `RustLinkInfo`
     transitive_deps = field(dict[MetadataKind, TransitiveDeps]),
     transitive_proc_macro_deps = field(set[RustProcMacroMarker]),
-
-    # Path to PDB file with Windows debug data.
-    pdb = field(Artifact | None),
     # Rustc-generated debug info which is referenced -- but not included -- by the
     # linkable rlib. Does not include external debug info from non-Rust native deps.
     #

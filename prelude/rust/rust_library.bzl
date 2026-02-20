@@ -630,7 +630,6 @@ def _handle_rust_artifact(
             singleton_tset = {m: x.singleton_tset for m, x in outputs.items()},
             transitive_deps = tdeps,
             transitive_proc_macro_deps = tprocmacrodeps,
-            pdb = link_output.link_output.pdb if link_output.link_output else None,
             rust_debug_info = rust_debug_info,
         )
     else:
@@ -641,7 +640,6 @@ def _handle_rust_artifact(
             singleton_tset = {m: link_output.singleton_tset for m in MetadataKind},
             transitive_deps = {m: no_transitive_deps for m in MetadataKind},
             transitive_proc_macro_deps = set(),
-            pdb = link_output.link_output.pdb,
             rust_debug_info = ArtifactTSet(),
         )
 
