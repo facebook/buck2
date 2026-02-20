@@ -633,6 +633,8 @@ def _compile_swiftmodule(
         dep_files = dep_files,
         output_file_map = output_file_map,
         artifact_tag = inputs_tag,
+        # The swiftmodule action always uses WMO, so incremental mode shouldn't be allowed.
+        incremental_build_allowed = False,
     )
     return ret
 
