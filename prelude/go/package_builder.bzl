@@ -370,6 +370,7 @@ def _symabis(
         ["-o", symabis.as_output()],
         ["-I", cmd_args(fake_asmhdr, parent = 1)],
         [cmd_args(h_files, parent = 1, prepend = "-I")] if h_files else [],
+        [cmd_args(s_files, parent = 1, prepend = "-I")],  # some .s files can include other .s files
         ["-trimpath", "%cwd%"],
         s_files,
     ]
@@ -411,6 +412,7 @@ def _asssembly(
             ["-o", o_file.as_output()],
             ["-I", cmd_args(asmhdr, parent = 1)] if asmhdr else [],  # can it actually be None?
             [cmd_args(h_files, parent = 1, prepend = "-I")] if h_files else [],
+            [cmd_args(s_files, parent = 1, prepend = "-I")],  # some .s files can include other .s files
             ["-trimpath", "%cwd%"],
             s_file,
         ]
