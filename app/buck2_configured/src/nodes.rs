@@ -454,7 +454,7 @@ pub(crate) async fn gather_deps(
 
     impl ConfiguredAttrTraversal for Traversal {
         fn dep(&mut self, dep: &ConfiguredProvidersLabel) -> buck2_error::Result<()> {
-            self.deps.entry(dep.dupe()).or_insert_with(SmallSet::new);
+            self.deps.entry(dep.dupe()).or_default();
             Ok(())
         }
 
@@ -465,7 +465,7 @@ pub(crate) async fn gather_deps(
         ) -> buck2_error::Result<()> {
             self.deps
                 .entry(dep.dupe())
-                .or_insert_with(SmallSet::new)
+                .or_default()
                 .insert(plugin_kinds.dupe());
             Ok(())
         }

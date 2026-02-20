@@ -145,10 +145,7 @@ impl LegacyConfigParser {
         let pair = config_pair.to_owned();
         let cell_matches = pair.cell.as_deref() == Some(current_cell) || pair.cell.is_none();
         if cell_matches {
-            let config_section = self
-                .values
-                .entry(pair.section)
-                .or_insert_with(SectionBuilder::default);
+            let config_section = self.values.entry(pair.section).or_default();
 
             match pair.value {
                 Some(raw_value) => {
@@ -174,7 +171,7 @@ impl LegacyConfigParser {
             for (key, value) in section_builder.values.iter() {
                 self.values
                     .entry(section.to_owned())
-                    .or_insert_with(SectionBuilder::default)
+                    .or_default()
                     .values
                     .insert(key.to_owned(), value.clone());
             }
@@ -415,11 +412,7 @@ impl<'p> LegacyConfigFileParser<'p> {
     fn commit_section(&mut self, section: (String, BTreeMap<String, ConfigValue>)) {
         let (section, values) = section;
         // Commit the previous section.
-        let committed = self
-            .values
-            .values
-            .entry(section)
-            .or_insert_with(SectionBuilder::default);
+        let committed = self.values.values.entry(section).or_default();
         values.into_iter().for_each(|(k, v)| {
             committed.values.insert(k, v);
         });

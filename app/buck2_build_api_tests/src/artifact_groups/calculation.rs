@@ -73,7 +73,7 @@ fn mock_analysis_for_tsets(
             DeferredHolderKey::Base(BaseDeferredKey::TargetLabel(target)) => {
                 by_target
                     .entry(target.dupe())
-                    .or_insert(Vec::new())
+                    .or_default()
                     .push((key, value.dupe()));
             }
             _ => unreachable!("we only make fake tsets with configured targets `{}`", key),

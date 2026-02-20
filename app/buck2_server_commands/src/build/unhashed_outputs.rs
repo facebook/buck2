@@ -55,9 +55,7 @@ pub(crate) fn create_unhashed_outputs(
                 .as_ref(),
             )?;
             let abs_unhashed_path = fs.resolve(&unhashed_path);
-            let entry = unhashed_to_hashed
-                .entry(abs_unhashed_path)
-                .or_insert_with(HashSet::new);
+            let entry = unhashed_to_hashed.entry(abs_unhashed_path).or_default();
             entry.insert(fs.resolve(&path));
         }
     }

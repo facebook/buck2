@@ -504,10 +504,7 @@ impl DebugServer for ServerState {
                 .adapter
                 .variables()
                 .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::StarlarkServer))?;
-            let known_variables = self
-                .variables_by_thread
-                .entry(thread_id)
-                .or_insert_with(VariablesKnownPaths::default);
+            let known_variables = self.variables_by_thread.entry(thread_id).or_default();
 
             for v in vars_info.locals {
                 let has_children = v.has_children;

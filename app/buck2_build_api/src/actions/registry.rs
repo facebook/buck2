@@ -247,9 +247,8 @@ impl<'v> ActionsRegistry<'v> {
                 let action = a.register(starlark_data, error_handler)?;
                 match (action.category(), action.identifier()) {
                     (category, Some(identifier)) => {
-                        let existing_identifiers = observed_names
-                            .entry(category.to_owned())
-                            .or_insert_with(HashSet::<String>::new);
+                        let existing_identifiers =
+                            observed_names.entry(category.to_owned()).or_default();
                         // false -> identifier was already present in the set
                         if !existing_identifiers.insert(identifier.to_owned()) {
                             return Err(ActionErrors::ActionCategoryIdentifierNotUnique(

@@ -619,7 +619,7 @@ impl PendingStreaming {
             for wait_on in waits_on {
                 indexes
                     .entry(wait_on.dupe())
-                    .or_insert_with(Vec::new)
+                    .or_default()
                     .push(pending_streaming_output.dupe())
             }
         }
