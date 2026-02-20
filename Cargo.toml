@@ -269,6 +269,7 @@ prost-derive = "0.13.4"
 prost-types = "0.13.4"
 protoc-bin-vendored = "3.0.0"
 psutil = "3.2"
+quick-xml = { version = "0.37", features = ["overlapped-lists", "serialize"] }
 quote = "1.0.44"
 rand = { version = "0.9", features = ["small_rng"] }
 rand_08 = { package = "rand", version = "0.8.4", features = ["small_rng"] }

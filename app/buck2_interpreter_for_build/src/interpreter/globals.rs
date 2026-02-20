@@ -40,6 +40,7 @@ use crate::interpreter::functions::sha256::register_sha256;
 use crate::interpreter::functions::soft_error::register_soft_error;
 use crate::interpreter::functions::starlark::register_set_starlark_peak_allocated_byte_limit;
 use crate::interpreter::functions::warning::register_warning;
+use crate::interpreter::functions::xml::register_xml;
 use crate::interpreter::natives::register_module_natives;
 use crate::interpreter::selector::register_select;
 use crate::interpreter::selector::register_select_internal;
@@ -135,6 +136,7 @@ fn register_all_internals(builder: &mut GlobalsBuilder) {
     register_internals(builder);
     from_late_binding(&REGISTER_BUCK2_BUILD_API_INTERNALS, builder);
     register_select_internal(builder);
+    register_xml(builder);
 }
 
 /// The standard set of globals that is available in all files.

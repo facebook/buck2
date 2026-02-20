@@ -22,6 +22,7 @@ indoc = { workspace = true }
 itertools = { workspace = true }
 maplit = { workspace = true }
 once_cell = { workspace = true }
+quick-xml = { workspace = true }
 serde_json = { workspace = true }
 sha1 = { workspace = true }
 sha2 = { workspace = true }

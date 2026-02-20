@@ -20,3 +20,4 @@ pub(crate) mod sha256;
 pub(crate) mod soft_error;
 pub(crate) mod starlark;
 pub(crate) mod warning;
+pub(crate) mod xml;
