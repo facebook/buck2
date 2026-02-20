@@ -138,7 +138,7 @@ _DEFAULT_ROOTS = ["lib.rs"]
 # Add provider for default output, and for each lib output style...
 _SUB_TARGET_BUILD_LANG_STYLE = {
     "cdylib": (LinkageLang("native-bundled"), LibOutputStyle("shared_lib")),
-    "shared": (LinkageLang("rust"), LibOutputStyle("shared_lib")),
+    "dylib": (LinkageLang("rust"), LibOutputStyle("shared_lib")),
     # FIXME(JakobDegen): Ideally we'd use the same
     # `subtarget_for_output_style` as C++, but that uses `static-pic`
     # instead of `static_pic`. Would be nice if that were consistent
@@ -681,6 +681,9 @@ def _default_providers(
     }
     sub_targets["profile"] = profiles
     if linked_object:
+        # FIXME(JakobDegen): Should this have some debuginfo or such in `other_outputs`? Fix or
+        # leave a comment explaining
+        sub_targets["shared"] = [DefaultInfo(default_output = linked_object.output)]
         if linked_object.pdb:
             sub_targets[PDB_SUB_TARGET] = get_pdb_providers(pdb = linked_object.pdb, binary = linked_object.output)
         if linked_object.import_library:
