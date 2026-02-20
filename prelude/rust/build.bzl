@@ -523,45 +523,6 @@ def rust_compile(
                 get_shared_library_name_linker_flags(linker_info.type, shlib_name),
                 format = "-Clink-arg={}",
             ))
-        subdir = common_args.subdir
-        tempfile = common_args.tempfile
-
-        # If this crate type has an associated native dep link style, include deps
-        # of that style.
-
-        if rust_cxx_link_group_info:
-            filtered_links = rust_cxx_link_group_info.filtered_links
-
-            # Unfortunately, link_groups does not use MergedLinkInfo to represent the args
-            # for the resolved nodes in the graph.
-            # Thus, we have no choice but to traverse all the nodes to dedupe the framework linker args.
-            additional_links = apple_get_link_info_by_deduping_link_infos(
-                ctx,
-                infos = filtered_links,
-                framework_linkable = None,
-                swiftmodule_linkable = None,
-            )
-            if additional_links:
-                filtered_links.append(additional_links)
-
-            inherited_link_args = LinkArgs(
-                infos = filtered_links + [rust_cxx_link_group_info.symbol_files_info],
-            )
-        else:
-            inherited_link_args = apple_build_link_args_with_deduped_flags(
-                ctx,
-                deps_merged_link_infos = inherited_merged_link_infos(
-                    ctx,
-                    compile_ctx.dep_ctx,
-                ),
-                frameworks_linkable = None,
-                link_strategy = params.dep_link_strategy,
-                swiftmodule_linkable = None,
-                prefer_stripped = False,
-                transformation_spec_context = transformation_spec_context,
-            )
-
-        if params.crate_type in (CrateType("cdylib"), CrateType("dylib")):
             (import_library, import_library_args) = get_import_library(
                 ctx = ctx,
                 linker_type = compile_ctx.cxx_toolchain_info.linker_info.type,
@@ -569,6 +530,17 @@ def rust_compile(
             )
         else:
             import_library_args = []
+
+        subdir = common_args.subdir
+        tempfile = common_args.tempfile
+
+        inherited_link_args = _inherited_link_args(
+            ctx,
+            compile_ctx,
+            params.dep_link_strategy,
+            rust_cxx_link_group_info,
+            transformation_spec_context,
+        )
 
         link_args_output = make_link_args(
             ctx,
@@ -1674,3 +1646,43 @@ def _deferred_link_enabled(compile_ctx: CompileContext, params: BuildParams, emi
     return compile_ctx.toolchain_info.advanced_unstable_linking and \
            params.crate_type == CrateType("dylib") and \
            emit == Emit("link")
+
+def _inherited_link_args(
+        ctx: AnalysisContext,
+        compile_ctx: CompileContext,
+        dep_link_style: LinkStrategy,
+        rust_cxx_link_group_info: RustCxxLinkGroupInfo | None,
+        transformation_spec_context: TransformationSpecContext | None) -> LinkArgs:
+    if rust_cxx_link_group_info:
+        filtered_links = rust_cxx_link_group_info.filtered_links
+
+        # Unfortunately, link_groups does not use MergedLinkInfo to represent the args
+        # for the resolved nodes in the graph.
+        # Thus, we have no choice but to traverse all the nodes to dedupe the framework linker args.
+        additional_links = apple_get_link_info_by_deduping_link_infos(
+            ctx,
+            infos = filtered_links,
+            framework_linkable = None,
+            swiftmodule_linkable = None,
+        )
+        if additional_links:
+            filtered_links.append(additional_links)
+
+        inherited_link_args = LinkArgs(
+            infos = filtered_links + [rust_cxx_link_group_info.symbol_files_info],
+        )
+    else:
+        inherited_link_args = apple_build_link_args_with_deduped_flags(
+            ctx,
+            deps_merged_link_infos = inherited_merged_link_infos(
+                ctx,
+                compile_ctx.dep_ctx,
+            ),
+            frameworks_linkable = None,
+            link_strategy = dep_link_style,
+            swiftmodule_linkable = None,
+            prefer_stripped = False,
+            transformation_spec_context = transformation_spec_context,
+        )
+
+    return inherited_link_args
