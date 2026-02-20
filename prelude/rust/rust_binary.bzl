@@ -199,7 +199,7 @@ def _rust_binary_common(
 
     # link groups shared libraries link args are directly added to the link command,
     # we don't have to add them here
-    executable_args = executable_shared_lib_arguments(
+    executable_shlib_args = executable_shared_lib_arguments(
         ctx,
         compile_ctx.cxx_toolchain_info,
         final_output,
@@ -213,7 +213,7 @@ def _rust_binary_common(
         emit = Emit("link"),
         params = params,
         default_roots = default_roots,
-        extra_link_args = executable_args.extra_link_args,
+        extra_link_args = executable_shlib_args.extra_link_args,
         predeclared_output = predeclared_output,
         extra_flags = extra_flags,
         allow_cache_upload = allow_cache_upload,
@@ -225,7 +225,7 @@ def _rust_binary_common(
     if enable_late_build_info_stamping:
         stamp_build_info(ctx, link.output, final_output)
 
-    args = cmd_args(final_output, hidden = executable_args.runtime_files)
+    args = cmd_args(final_output, hidden = executable_shlib_args.runtime_files)
     external_debug_info = project_artifacts(
         actions = ctx.actions,
         tsets = inherited_external_debug_info(
@@ -239,7 +239,7 @@ def _rust_binary_common(
     # If we have some resources, write it to the resources JSON file and add
     # it and all resources to "runtime_files" so that we make to materialize
     # them with the final binary.
-    runtime_files = list(executable_args.runtime_files)
+    runtime_files = list(executable_shlib_args.runtime_files)
     relocatable_resources_json = None
     relocatable_resources_contents = None
     if resources:
@@ -288,7 +288,7 @@ def _rust_binary_common(
                     for soname, shlib in str_soname_shlibs.items()
                     if shlib.lib.dwp
                 ],
-                "rpathtree": ["{}:{}[rpath-tree]".format(ctx.label.path, ctx.label.name)] if executable_args.shared_libs_symlink_tree else [],
+                "rpathtree": ["{}:{}[rpath-tree]".format(ctx.label.path, ctx.label.name)] if executable_shlib_args.shared_libs_symlink_tree else [],
             },
         ),
         sub_targets = {
@@ -300,9 +300,9 @@ def _rust_binary_common(
         },
     )]
 
-    if isinstance(executable_args.shared_libs_symlink_tree, Artifact):
+    if isinstance(executable_shlib_args.shared_libs_symlink_tree, Artifact):
         sub_targets["rpath-tree"] = [DefaultInfo(
-            default_output = executable_args.shared_libs_symlink_tree,
+            default_output = executable_shlib_args.shared_libs_symlink_tree,
             other_outputs = [
                 shlib.lib.output
                 for shlib in shared_libs
@@ -409,7 +409,7 @@ def _rust_binary_common(
         emit = Emit("link"),
         params = params,
         default_roots = default_roots,
-        extra_link_args = executable_args.extra_link_args,
+        extra_link_args = executable_shlib_args.extra_link_args,
         extra_flags = extra_flags,
         rust_cxx_link_group_info = rust_cxx_link_group_info,
         incremental_enabled = ctx.attrs.incremental_enabled,
@@ -421,7 +421,7 @@ def _rust_binary_common(
         emit = Emit("link"),
         params = params,
         default_roots = default_roots,
-        extra_link_args = executable_args.extra_link_args,
+        extra_link_args = executable_shlib_args.extra_link_args,
         extra_flags = extra_flags,
         rust_cxx_link_group_info = rust_cxx_link_group_info,
         incremental_enabled = ctx.attrs.incremental_enabled,
@@ -468,7 +468,7 @@ def _rust_binary_common(
                     shlib.lib.dwp
                     for shlib in shared_libs
                     if shlib.lib.dwp
-                ] + ([executable_args.dwp_symlink_tree] if executable_args.dwp_symlink_tree else []),
+                ] + ([executable_shlib_args.dwp_symlink_tree] if executable_shlib_args.dwp_symlink_tree else []),
             ),
         ]
 
@@ -487,7 +487,7 @@ def _rust_binary_common(
     providers += [
         DefaultInfo(
             default_output = final_output,
-            other_outputs = runtime_files + executable_args.external_debug_info + external_debug_info,
+            other_outputs = runtime_files + executable_shlib_args.external_debug_info + external_debug_info,
             sub_targets = sub_targets,
         ),
         DistInfo(
