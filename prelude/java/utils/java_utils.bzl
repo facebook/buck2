@@ -103,7 +103,9 @@ def get_default_info(
         packaging_info: JavaPackagingInfo,
         extra_sub_targets: dict = {}) -> DefaultInfo:
     sub_targets = get_classpath_subtargets(actions, packaging_info)
-    default_info = DefaultInfo()
+    default_info = DefaultInfo(
+        sub_targets = extra_sub_targets | sub_targets,
+    )
     if outputs:
         abis = [
             ("class-abi", outputs.class_abi),
