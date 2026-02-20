@@ -7,6 +7,8 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
+# pyre-strict
+
 """
 This file contains the main module code for buck python test programs.
 
