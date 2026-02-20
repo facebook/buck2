@@ -273,6 +273,8 @@ func main() {
 	}
 	defer stdout.Close()
 
+	cmd.Stderr = os.Stderr
+
 	if err := cmd.Start(); err != nil {
 		log.Fatalf("Error starting command: %s", err)
 	}
@@ -287,7 +289,6 @@ func main() {
 		}
 	}
 
-	cmd.Stderr = os.Stderr
 	err = cmd.Wait()
 	if err != nil {
 		exitCode := 1
