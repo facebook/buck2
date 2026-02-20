@@ -39,6 +39,8 @@ INHERITED_ENV = [
     "HOME",
     "RUSTUP_HOME",
     "TMPDIR",
+    # Required for linker wrappers that expand nested argsfiles
+    "BUCK_SCRATCH_PATH",
     # Required on Windows
     "LOCALAPPDATA",
     "PROGRAMDATA",
