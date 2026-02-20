@@ -403,6 +403,7 @@ def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
         lang_style_param = lang_style_param,
         param_output = param_output,
         param_subtargets = param_subtargets,
+        linked_object = linked_object,
         remarks_artifact = remarks_artifact,
         rustdoc = rustdoc,
         rustdoc_test = rustdoc_test,
@@ -652,6 +653,7 @@ def _default_providers(
         lang_style_param: dict[(LinkageLang, LibOutputStyle), BuildParams],
         param_output: dict[BuildParams, RustcOutput],
         param_subtargets: dict[BuildParams, dict[str, RustcOutput]],
+        linked_object: LinkedObject | None,
         remarks_artifact: RustcOutput,
         rustdoc: Artifact,
         rustdoc_test: cmd_args,
@@ -676,6 +678,11 @@ def _default_providers(
         for (k, v) in targets.items()
     }
     sub_targets["profile"] = profiles
+    if linked_object:
+        if linked_object.pdb:
+            sub_targets[PDB_SUB_TARGET] = get_pdb_providers(pdb = linked_object.pdb, binary = linked_object.output)
+        if linked_object.import_library:
+            sub_targets[IMPORT_LIBRARY_SUB_TARGET] = [DefaultInfo(default_output = linked_object.import_library)]
 
     for name, lang_style in _SUB_TARGET_BUILD_LANG_STYLE.items():
         if lang_style not in lang_style_param:
@@ -687,10 +694,6 @@ def _default_providers(
         nested_sub_targets = {k: [DefaultInfo(default_output = v.output)] for k, v in param_subtargets[param].items()}
         if artifact.compile_output.stripped_output:
             nested_sub_targets["stripped"] = [DefaultInfo(default_output = artifact.compile_output.stripped_output)]
-        if artifact.link_output and artifact.link_output.pdb:
-            nested_sub_targets[PDB_SUB_TARGET] = get_pdb_providers(pdb = artifact.link_output.pdb, binary = artifact.output)
-        if artifact.link_output and artifact.link_output.import_library:
-            nested_sub_targets[IMPORT_LIBRARY_SUB_TARGET] = [DefaultInfo(default_output = artifact.link_output.import_library)]
 
         # Add remarks subtargets (shared across all link styles)
         if remarks_artifact.compile_output.remarks_txt:
