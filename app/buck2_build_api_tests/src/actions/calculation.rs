@@ -173,7 +173,7 @@ fn mock_analysis_for_action_resolution(
             ConfiguredTargetNode::testing_new(
                 configured_target_label,
                 "foo_lib",
-                ExecutionPlatformResolution::new(None, Vec::new()),
+                ExecutionPlatformResolution::new_for_testing(None, Vec::new()),
                 vec![],
                 None,
             ),

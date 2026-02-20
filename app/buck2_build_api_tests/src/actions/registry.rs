@@ -205,7 +205,7 @@ fn finalizing_actions() -> buck2_error::Result<()> {
         ));
         let mut actions = ActionsRegistry::new(
             DeferredHolderKey::Base(base.dupe()),
-            ExecutionPlatformResolution::new(
+            ExecutionPlatformResolution::new_for_testing(
                 Some(ExecutionPlatform::legacy_execution_platform(
                     CommandExecutorConfig::testing_local(),
                     ConfigurationNoExec::testing_new(),
@@ -291,7 +291,7 @@ fn category_identifier_test(
     let base = DeferredHolderKey::testing_new("cell//pkg:foo");
     let mut actions = ActionsRegistry::new(
         base.dupe(),
-        ExecutionPlatformResolution::new(
+        ExecutionPlatformResolution::new_for_testing(
             Some(ExecutionPlatform::legacy_execution_platform(
                 CommandExecutorConfig::testing_local(),
                 ConfigurationNoExec::testing_new(),

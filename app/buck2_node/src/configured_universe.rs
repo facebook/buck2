@@ -340,7 +340,7 @@ mod tests {
             CqueryUniverse::build(&TargetSet::from_iter([ConfiguredTargetNode::testing_new(
                 target_label.dupe(),
                 "idris_library",
-                ExecutionPlatformResolution::new(None, Vec::new()),
+                ExecutionPlatformResolution::new_for_testing(None, Vec::new()),
                 vec![],
                 None,
             )]))

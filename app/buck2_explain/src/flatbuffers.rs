@@ -414,7 +414,7 @@ mod tests {
                 ConfigurationData::testing_new(),
                 CommandExecutorConfig::testing_local(),
             );
-            ExecutionPlatformResolution::new(Some(platform), Vec::new())
+            ExecutionPlatformResolution::new_for_testing(Some(platform), Vec::new())
         };
 
         let target = ConfiguredTargetNode::testing_new(

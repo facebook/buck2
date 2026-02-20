@@ -124,7 +124,7 @@ async fn lookup_deferred_from_analysis() -> buck2_error::Result<()> {
                 ConfiguredTargetNode::testing_new(
                     target.dupe(),
                     "foo_lib",
-                    ExecutionPlatformResolution::new(None, Vec::new()),
+                    ExecutionPlatformResolution::new_for_testing(None, Vec::new()),
                     vec![],
                     vec![],
                 ),
@@ -227,7 +227,7 @@ async fn lookup_deferred_that_has_deferreds() -> buck2_error::Result<()> {
                 ConfiguredTargetNode::testing_new(
                     target.dupe(),
                     "foo_lib",
-                    ExecutionPlatformResolution::new(None, Vec::new()),
+                    ExecutionPlatformResolution::new_for_testing(None, Vec::new()),
                     vec![],
                     vec![],
                 ),

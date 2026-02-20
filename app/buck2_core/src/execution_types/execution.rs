@@ -304,7 +304,7 @@ impl ExecutionPlatformResolution {
 
     /// Create a new complete resolution directly for testing purposes.
     /// In production code, use `ExecutionPlatformResolutionPartial::new(...).finalize(...)`.
-    pub fn new(
+    pub fn new_for_testing(
         platform: Option<ExecutionPlatform>,
         skipped: Vec<(String, ExecutionPlatformIncompatibleReason)>,
     ) -> Self {
