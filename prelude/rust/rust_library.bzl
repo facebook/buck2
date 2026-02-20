@@ -561,7 +561,6 @@ def _link_infos(
             link_infos[output_style] = LinkInfos(
                 default = LinkInfo(
                     linkables = [SharedLibLinkable(lib = exported_shlib)],
-                    external_debug_info = external_debug_info,
                     pre_flags = ctx.attrs.exported_linker_flags,
                     post_flags = ctx.attrs.exported_post_linker_flags,
                 ),
