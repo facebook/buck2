@@ -101,6 +101,29 @@ def __patch_spawn(var_names: list[str], saved_env: dict[str, str]) -> None:
     mp_util.spawnv_passfds = spawnv_passfds
 
 
+def __patch_spawn_preparation_data() -> None:
+    import multiprocessing.spawn as mp_spawn
+
+    orig_get_preparation_data = mp_spawn.get_preparation_data
+
+    def get_preparation_data(name):  # type: ignore
+        d = orig_get_preparation_data(name)
+        if "sys_path" in d:
+            resolved = []
+            for entry in d["sys_path"]:
+                if entry.startswith("/proc/self/fd/"):
+                    try:
+                        resolved.append(os.readlink(entry))
+                    except OSError:
+                        resolved.append(entry)
+                else:
+                    resolved.append(entry)
+            d["sys_path"] = resolved
+        return d
+
+    mp_spawn.get_preparation_data = get_preparation_data
+
+
 def __clear_env(patch_spawn: bool = True, patch_ctypes: bool = True) -> None:
     saved_env = {}
 
@@ -140,6 +163,7 @@ def __clear_env(patch_spawn: bool = True, patch_ctypes: bool = True) -> None:
 
     if patch_spawn:
         __patch_spawn(var_names, saved_env)
+        __patch_spawn_preparation_data()
 
     if patch_ctypes:
         __patch_ctypes(saved_env)
