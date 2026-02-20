@@ -213,8 +213,7 @@ def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
                 )
             param_subtargets[params].update(subtargets_to_add)
 
-        if LinkageLang("native") in langs or LinkageLang("native-unbundled") in langs:
-            native_param_artifact[params] = link
+        native_param_artifact[params] = link
 
     rust_artifacts = _rust_artifacts(
         ctx = ctx,
@@ -521,7 +520,7 @@ def _link_infos(
         return {}
 
     advanced_unstable_linking = compile_ctx.toolchain_info.advanced_unstable_linking
-    lang = LinkageLang("native-unbundled") if advanced_unstable_linking else LinkageLang("native")
+    lang = LinkageLang("rust") if advanced_unstable_linking else LinkageLang("native")
     linker_type = compile_ctx.cxx_toolchain_info.linker_info.type
     output_styles = get_output_styles_for_linkage(Linkage(ctx.attrs.preferred_linkage))
 
@@ -782,7 +781,7 @@ def _advanced_unstable_link_providers(
     shlib_name = compile_ctx.soname
 
     # Only add a shared library if we generated one.
-    shared_lib_params = lang_style_param.get((LinkageLang("native-unbundled"), LibOutputStyle("shared_lib")), None)
+    shared_lib_params = lang_style_param.get((LinkageLang("rust"), LibOutputStyle("shared_lib")), None)
     if shared_lib_params:
         build_params = native_param_artifact[shared_lib_params]
         shared_lib_output = build_params.output
