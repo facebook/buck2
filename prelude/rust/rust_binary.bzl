@@ -231,10 +231,11 @@ def _rust_binary_common(
         tsets = inherited_external_debug_info(
             ctx,
             compile_ctx.dep_ctx,
-            link.compile_output.dwo_output_directory,
             link_strategy,
         ),
     )
+    if link.compile_output.dwo_output_directory:
+        external_debug_info.append(link.compile_output.dwo_output_directory)
 
     # If we have some resources, write it to the resources JSON file and add
     # it and all resources to "runtime_files" so that we make to materialize

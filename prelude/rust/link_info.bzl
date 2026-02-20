@@ -653,10 +653,10 @@ def inherited_rust_external_debug_info(
         for d in resolve_rust_deps(ctx, dep_ctx)
     ])
 
-def inherited_dep_external_debug_infos(
+def inherited_external_debug_info(
         ctx: AnalysisContext,
         dep_ctx: DepCollectionContext,
-        dep_link_strategy: LinkStrategy) -> list[ArtifactTSet]:
+        dep_link_strategy: LinkStrategy) -> ArtifactTSet:
     inherited_debug_infos = []
     for d in inherited_merged_link_infos(ctx, dep_ctx):
         native_debug_info = d._external_debug_info.get(dep_link_strategy)
@@ -665,28 +665,9 @@ def inherited_dep_external_debug_infos(
 
     inherited_debug_infos.extend(inherited_rust_external_debug_info(ctx, dep_ctx, dep_link_strategy))
 
-    return inherited_debug_infos
-
-def inherited_external_debug_info_from_dep_infos(
-        ctx: AnalysisContext,
-        dwo_output_directory: Artifact | None,
-        dep_infos: list[ArtifactTSet]) -> ArtifactTSet:
     return make_artifact_tset(
         actions = ctx.actions,
-        label = ctx.label,
-        artifacts = filter(None, [dwo_output_directory]),
-        children = dep_infos,
-    )
-
-def inherited_external_debug_info(
-        ctx: AnalysisContext,
-        dep_ctx: DepCollectionContext,
-        dwo_output_directory: Artifact | None,
-        dep_link_strategy: LinkStrategy) -> ArtifactTSet:
-    return inherited_external_debug_info_from_dep_infos(
-        ctx,
-        dwo_output_directory,
-        inherited_dep_external_debug_infos(ctx, dep_ctx, dep_link_strategy),
+        children = inherited_debug_infos,
     )
 
 def normalize_crate(label: str | ResolvedStringWithMacros) -> str | ResolvedStringWithMacros:

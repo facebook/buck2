@@ -103,7 +103,7 @@ load(
     "attr_simple_crate_for_filenames",
     "executable_shared_lib_arguments_from_shared_library_info",
     "get_available_proc_macros",
-    "inherited_dep_external_debug_infos",
+    "inherited_external_debug_info",
     "inherited_merged_link_infos",
     "inherited_shared_libs",
     "normalize_crate",
@@ -586,7 +586,7 @@ def rust_compile(
         if has_split_debug:
             external_debug_infos = project_artifacts(
                 ctx.actions,
-                inherited_dep_external_debug_infos(
+                inherited_external_debug_info(
                     ctx = ctx,
                     dep_ctx = compile_ctx.dep_ctx,
                     dep_link_strategy = params.dep_link_strategy,
