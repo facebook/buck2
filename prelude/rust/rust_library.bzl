@@ -353,7 +353,7 @@ def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
     rustdoc_test = generate_rustdoc_test(
         ctx = ctx,
         compile_ctx = compile_ctx,
-        rlib = param_metadata_outputs[static_library_params][MetadataKind("link")].output,
+        rlib = param_output[static_library_params].output,
         link_infos = link_infos,
         params = rustdoc_test_params,
         default_roots = _DEFAULT_ROOTS,
@@ -401,7 +401,6 @@ def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
     providers = []
     providers += _default_providers(
         lang_style_param = lang_style_param,
-        param_metadata_outputs = param_metadata_outputs,
         param_output = param_output,
         param_subtargets = param_subtargets,
         remarks_artifact = remarks_artifact,
@@ -629,7 +628,6 @@ def _handle_rust_artifact(
 
 def _default_providers(
         lang_style_param: dict[(LinkageLang, LibOutputStyle), BuildParams],
-        param_metadata_outputs: dict[BuildParams, dict[MetadataKind, RustcOutput]],
         param_output: dict[BuildParams, RustcOutput],
         param_subtargets: dict[BuildParams, dict[str, RustcOutput]],
         remarks_artifact: RustcOutput,
@@ -662,10 +660,7 @@ def _default_providers(
             continue
 
         param = lang_style_param[lang_style]
-        if lang_style[0] == LinkageLang("rust"):
-            artifact = param_metadata_outputs[param][MetadataKind("link")]
-        else:
-            artifact = param_output[param]
+        artifact = param_output[param]
 
         nested_sub_targets = {k: [DefaultInfo(default_output = v.output)] for k, v in param_subtargets[param].items()}
         if artifact.compile_output.stripped_output:
