@@ -221,7 +221,7 @@ def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
         param_metadata_outputs = param_metadata_outputs,
     )
 
-    link_infos = _link_infos(
+    link_infos, linked_object = _link_infos(
         ctx = ctx,
         compile_ctx = compile_ctx,
         lang_style_param = lang_style_param,
@@ -428,19 +428,17 @@ def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
         providers += _advanced_unstable_link_providers(
             ctx = ctx,
             compile_ctx = compile_ctx,
-            lang_style_param = lang_style_param,
             rust_artifacts = rust_artifacts,
-            param_output = param_output,
             link_infos = link_infos,
+            linked_object = linked_object,
         )
     else:
         providers += _stable_link_providers(
             ctx = ctx,
             compile_ctx = compile_ctx,
-            lang_style_param = lang_style_param,
             rust_artifacts = rust_artifacts,
-            param_output = param_output,
             link_infos = link_infos,
+            linked_object = linked_object,
         )
 
     deps = [dep.dep for dep in resolve_deps(ctx, compile_ctx.dep_ctx)]
@@ -512,10 +510,10 @@ def _link_infos(
         ctx: AnalysisContext,
         compile_ctx: CompileContext,
         lang_style_param: dict[(LinkageLang, LibOutputStyle), BuildParams],
-        param_artifact: dict[BuildParams, RustcOutput]) -> dict[LibOutputStyle, LinkInfos]:
+        param_artifact: dict[BuildParams, RustcOutput]) -> (dict[LibOutputStyle, LinkInfos], LinkedObject | None):
     if ctx.attrs.proc_macro:
         # Don't need any of this for proc macros
-        return {}
+        return ({}, None)
 
     advanced_unstable_linking = compile_ctx.toolchain_info.advanced_unstable_linking
     lang = LinkageLang("rust") if advanced_unstable_linking else LinkageLang("native-bundled")
@@ -523,6 +521,7 @@ def _link_infos(
     output_styles = get_output_styles_for_linkage(Linkage(ctx.attrs.preferred_linkage))
 
     link_infos = {}
+    linked_object = None
     for output_style in output_styles:
         params = lang_style_param[(lang, output_style)]
         lib = param_artifact[params]
@@ -546,6 +545,13 @@ def _link_infos(
             children = external_debug_infos_to_bundle,
         )
         if output_style == LibOutputStyle("shared_lib"):
+            linked_object = LinkedObject(
+                output = lib.output,
+                unstripped_output = lib.output,
+                external_debug_info = external_debug_info,
+                import_library = lib.link_output.import_library,
+                dwp = lib.link_output.dwp_output,
+            )
             exported_shlib = lib.output
 
             # Link against import library on Windows.
@@ -583,7 +589,7 @@ def _link_infos(
                     post_flags = ctx.attrs.exported_post_linker_flags,
                 ),
             )
-    return link_infos
+    return (link_infos, linked_object)
 
 def _rust_artifacts(
         ctx: AnalysisContext,
@@ -752,10 +758,9 @@ def _proc_macro_link_providers(
 def _advanced_unstable_link_providers(
         ctx: AnalysisContext,
         compile_ctx: CompileContext,
-        lang_style_param: dict[(LinkageLang, LibOutputStyle), BuildParams],
         rust_artifacts: dict[LinkStrategy, RustLinkStrategyInfo],
-        param_output: dict[BuildParams, RustcOutput],
-        link_infos: dict[LibOutputStyle, LinkInfos]) -> list[Provider]:
+        link_infos: dict[LibOutputStyle, LinkInfos],
+        linked_object: LinkedObject | None) -> list[Provider]:
     crate = attr_crate(ctx)
     pic_behavior = compile_ctx.cxx_toolchain_info.pic_behavior
     preferred_linkage = Linkage(ctx.attrs.preferred_linkage)
@@ -790,17 +795,8 @@ def _advanced_unstable_link_providers(
     shlib_name = compile_ctx.soname
 
     # Only add a shared library if we generated one.
-    shared_lib_params = lang_style_param.get((LinkageLang("rust"), LibOutputStyle("shared_lib")), None)
-    if shared_lib_params:
-        build_params = param_output[shared_lib_params]
-        shared_lib_output = build_params.output
-        solibs[shlib_name] = LinkedObject(
-            output = shared_lib_output,
-            unstripped_output = shared_lib_output,
-            external_debug_info = link_infos[LibOutputStyle("shared_lib")].default.external_debug_info,
-            import_library = build_params.link_output.import_library,
-            dwp = build_params.link_output.dwp_output,
-        )
+    if linked_object:
+        solibs[shlib_name] = linked_object
 
     # Native shared library provider.
     shared_libs = create_shared_libraries(ctx, solibs)
@@ -909,10 +905,9 @@ def _advanced_unstable_link_providers(
 def _stable_link_providers(
         ctx: AnalysisContext,
         compile_ctx: CompileContext,
-        lang_style_param: dict[(LinkageLang, LibOutputStyle), BuildParams],
-        param_output: dict[BuildParams, RustcOutput],
         rust_artifacts: dict[LinkStrategy, RustLinkStrategyInfo],
-        link_infos: dict[LibOutputStyle, LinkInfos]) -> list[Provider]:
+        link_infos: dict[LibOutputStyle, LinkInfos],
+        linked_object: LinkedObject | None) -> list[Provider]:
     providers = []
 
     crate = attr_crate(ctx)
@@ -934,7 +929,7 @@ def _stable_link_providers(
     )
 
     providers.append(rust_link_info)
-    providers += _native_link_providers(ctx, compile_ctx, lang_style_param, param_output, link_infos, rust_link_info)
+    providers += _native_link_providers(ctx, compile_ctx, link_infos, linked_object, rust_link_info)
     return providers
 
 def _rust_link_providers(
@@ -961,9 +956,8 @@ def _rust_link_providers(
 def _native_link_providers(
         ctx: AnalysisContext,
         compile_ctx: CompileContext,
-        lang_style_param: dict[(LinkageLang, LibOutputStyle), BuildParams],
-        param_artifact: dict[BuildParams, RustcOutput],
         link_infos: dict[LibOutputStyle, LinkInfos],
+        linked_object: LinkedObject | None,
         rust_link_info: RustLinkInfo) -> list[Provider]:
     """
     Return the set of providers needed to link Rust as a dependency for native
@@ -979,9 +973,6 @@ def _native_link_providers(
     inherited_exported_deps = dfs_dedupe_by_label(rust_link_info.exported_link_deps)
 
     providers = []
-
-    shared_lib_params = lang_style_param.get((LinkageLang("native-bundled"), LibOutputStyle("shared_lib")), None)
-    shared_lib_output = param_artifact[shared_lib_params].output if shared_lib_params else None
 
     preferred_linkage = Linkage(ctx.attrs.preferred_linkage)
 
@@ -1001,12 +992,8 @@ def _native_link_providers(
     shlib_name = compile_ctx.soname
 
     # Only add a shared library if we generated one.
-    if shared_lib_output:
-        solibs[shlib_name] = LinkedObject(
-            output = shared_lib_output,
-            unstripped_output = shared_lib_output,
-            external_debug_info = link_infos[LibOutputStyle("shared_lib")].default.external_debug_info,
-        )
+    if linked_object:
+        solibs[shlib_name] = linked_object
 
     # Native shared library provider.
     shared_libs = create_shared_libraries(ctx, solibs)
