@@ -33,6 +33,7 @@ def _generate_framework_and_dsym_select_maps(prebuilt_xcframework_args, platform
                 bash = bash_cmd,
                 out = framework_name + ".framework",
                 default_target_platform = default_target_platform,
+                has_content_based_path = True,
             )
 
             dsym_artifacts = selects.apply(
@@ -72,6 +73,7 @@ def _generate_dsym_artifact(name, platform_folder, xcframework, default_target_p
         bash = bash_cmd_dsyms,
         out = dsym_filename,
         default_target_platform = default_target_platform,
+        has_content_based_path = True,
     )
     return ":" + dsym_name
 

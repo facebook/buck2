@@ -20,6 +20,10 @@ load(
     "get_external_debug_info_tsets",
     "get_swift_framework_anonymous_targets",
 )
+load(
+    "@prelude//apple/swift:swift_incremental_support.bzl",
+    "get_uses_content_based_paths",
+)
 load("@prelude//apple/swift:swift_pcm_compilation.bzl", "compile_framework_pcm")
 load(
     "@prelude//apple/swift:swift_pcm_compilation_types.bzl",
@@ -97,10 +101,13 @@ def prebuilt_apple_framework_impl(ctx: AnalysisContext) -> [list[Provider], Prom
 
         # Check this rule's `supported_platforms_regex` with the current platform.
         if cxx_platform_supported(ctx):
+            uses_content_based_path = get_uses_content_based_paths(ctx)
+
             # Sandbox the framework, to avoid leaking other frameworks via search paths.
             framework_dir = ctx.actions.symlinked_dir(
                 "Frameworks",
                 {framework_name + ".framework": framework_directory_artifact},
+                has_content_based_path = uses_content_based_path,
             )
 
             # Add framework & pp info from deps.
