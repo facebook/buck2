@@ -2016,6 +2016,7 @@ def strip_lib(ctx: AnalysisContext, cxx_toolchain: CxxToolchainInfo, shlib: Arti
         shlib,
         strip_flags,
         output_path = output_path,
+        allow_cache_upload = True,
     )
 
 def create_shared_lib(
@@ -2051,6 +2052,7 @@ def create_shared_lib(
             cxx_toolchain = cxx_toolchain,
             extra_linker_outputs_factory = extra_linker_outputs_factory,
             extra_linker_outputs_flags_factory = extra_linker_outputs_flags_factory,
+            allow_cache_upload = True,
         ),
     )
 
