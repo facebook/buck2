@@ -106,7 +106,6 @@ load(
     "inherited_dep_external_debug_infos",
     "inherited_external_debug_info_from_dep_infos",
     "inherited_merged_link_infos",
-    "inherited_rust_external_debug_info",
     "inherited_shared_libs",
     "normalize_crate",
     "resolve_rust_deps",
@@ -721,21 +720,6 @@ def rust_compile(
 
     if link_with_split_debug:
         dwo_output_directory = emit_op.extra_out
-
-        # staticlibs and cdylibs are "bundled" in the sense that they are used
-        # without their dependencies by the rest of the rules. This is normally
-        # correct, except that the split debuginfo rustc emits for these crate
-        # types is not bundled. This is arguably inconsistent behavior from
-        # rustc, but in any case, it means we need to do this bundling manually
-        # by collecting all the external debuginfo from dependencies
-        if params.crate_type == CrateType("cdylib") or params.crate_type == CrateType("staticlib"):
-            extra_external_debug_info = inherited_rust_external_debug_info(
-                ctx = ctx,
-                dep_ctx = compile_ctx.dep_ctx,
-                link_strategy = params.dep_link_strategy,
-            )
-        else:
-            extra_external_debug_info = []
         all_external_debug_info = inherited_external_debug_info_from_dep_infos(
             ctx = ctx,
             dwo_output_directory = dwo_output_directory,
@@ -744,7 +728,6 @@ def rust_compile(
         dwp_inputs.extend(project_artifacts(ctx.actions, all_external_debug_info))
     else:
         dwo_output_directory = None
-        extra_external_debug_info = []
 
     if requires_linking and \
        dwp_available(compile_ctx.cxx_toolchain_info):
@@ -787,7 +770,6 @@ def rust_compile(
     return RustcOutput(
         output = filtered_output,
         singleton_tset = singleton_tset,
-        extra_external_debug_info = extra_external_debug_info,
         compile_output = RustcCompileOutput(
             stripped_output = stripped_output,
             diag_txt = invoke.diag_txt,

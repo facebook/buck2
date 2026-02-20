@@ -41,7 +41,6 @@ RustcLinkOutput = record(
 RustcOutput = record(
     output = Artifact,
     singleton_tset = TransitiveDeps,
-    extra_external_debug_info = list[ArtifactTSet],
     compile_output = RustcCompileOutput,
     # As expected, only available when the combination of params actually
     # requires linking.

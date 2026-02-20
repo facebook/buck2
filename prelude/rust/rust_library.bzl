@@ -113,6 +113,7 @@ load(
     "inherited_linkable_graphs",
     "inherited_merged_link_infos",
     "inherited_native_link_deps",
+    "inherited_rust_external_debug_info",
     "inherited_shared_libs",
     "inherited_third_party_builds",
     "resolve_deps",
@@ -523,12 +524,26 @@ def _link_infos(
 
     link_infos = {}
     for output_style in output_styles:
-        lib = param_artifact[lang_style_param[(lang, output_style)]]
+        params = lang_style_param[(lang, output_style)]
+        lib = param_artifact[params]
+        external_debug_infos_to_bundle = []
+        if lang == LinkageLang("native-bundled"):
+            # staticlibs and cdylibs are "bundled" in the sense that they are used
+            # without their dependencies by the rest of the rules. This is normally
+            # correct, except that the split debuginfo rustc emits for these crate
+            # types is not bundled. This is arguably inconsistent behavior from
+            # rustc, but in any case, it means we need to do this bundling manually
+            # by collecting all the external debuginfo from dependencies
+            external_debug_infos_to_bundle = inherited_rust_external_debug_info(
+                ctx = ctx,
+                dep_ctx = compile_ctx.dep_ctx,
+                link_strategy = params.dep_link_strategy,
+            )
         external_debug_info = make_artifact_tset(
             actions = ctx.actions,
             label = ctx.label,
             artifacts = filter(None, [lib.compile_output.dwo_output_directory]),
-            children = lib.extra_external_debug_info,
+            children = external_debug_infos_to_bundle,
         )
         if output_style == LibOutputStyle("shared_lib"):
             exported_shlib = lib.output
