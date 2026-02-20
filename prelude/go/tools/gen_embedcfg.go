@@ -194,9 +194,6 @@ func matchPattern(pkgdir, pattern string, all bool) ([]string, error) {
 			if isBadEmbedName(base) {
 				continue
 			}
-			if !all && isHidden(base) {
-				continue
-			}
 			result = append(result, rel)
 		}
 	}
