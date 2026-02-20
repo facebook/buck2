@@ -272,7 +272,8 @@ def _compute_pex_providers(
         link_args: list[LinkArgs],
         extra: dict[str, typing.Any],
         link_extra_artifacts: dict[str, typing.Any],
-        executable_type: ExecutableType) -> list[Provider] | Promise:
+        executable_type: ExecutableType,
+        linker_map_data = None) -> list[Provider] | Promise:
     dbg_source_db_output = ctx.actions.declare_output("dbg-db.json", has_content_based_path = True)
     dbg_source_db = create_dbg_source_db(ctx, dbg_source_db_output, src_manifest, python_deps)
 
@@ -413,6 +414,12 @@ def _compute_pex_providers(
 
     pex.sub_targets.update(extra)
 
+    if linker_map_data != None:
+        pex.sub_targets["linker-map"] = [DefaultInfo(
+            default_output = linker_map_data.map,
+            other_outputs = [linker_map_data.binary],
+        )]
+
     updated_pex = _add_executable_subtargets(ctx, pex, dbg_source_db, dbg_source_db_output, library, main, source_db_no_deps, src_manifest, python_deps)
 
     return compute_providers(ctx, updated_pex, executable_type)
@@ -480,9 +487,10 @@ def _convert_python_library_to_executable(
                 providers[LinkProviders].extra,
                 providers[LinkProviders].extra_artifacts,
                 executable_type,
+                providers[LinkProviders].linker_map_data,
             ))
         else:
-            shared_libs, extensions, link_args, extra, extra_artifacts = process_native_linking(
+            shared_libs, extensions, link_args, extra, extra_artifacts, linker_map_data = process_native_linking(
                 ctx,
                 deps,
                 python_toolchain,
@@ -509,6 +517,7 @@ def _convert_python_library_to_executable(
                     ))
 
     else:
+        linker_map_data = None
         extensions = {}
         for manifest in library.manifests.traverse():
             if manifest.extensions:
@@ -543,6 +552,7 @@ def _convert_python_library_to_executable(
         extra,
         extra_artifacts,
         executable_type,
+        linker_map_data = linker_map_data if link_strategy == NativeLinkStrategy("native") else None,
     )
 
 def python_binary_impl(ctx: AnalysisContext) -> list[Provider] | Promise:

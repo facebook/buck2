@@ -24,6 +24,7 @@ load(
     "Traversal",
 )
 load("@prelude//cxx:headers.bzl", "cxx_get_regular_cxx_headers_layout")
+load("@prelude//cxx:link.bzl", "CxxLinkerMapData")  # @unused Used as a type
 load(
     "@prelude//cxx:link_groups.bzl",
     "LinkGroupLibSpec",
@@ -368,6 +369,7 @@ def process_native_linking(
     list[LinkArgs],
     dict[str, typing.Any],
     dict[str, typing.Any],
+    [CxxLinkerMapData, None],
 ):
     #TODO @dcssiva: fix types
     extra = {}
@@ -450,4 +452,4 @@ def process_native_linking(
 
     link_args = executable_info.link_args
     extra_artifacts["static_extension_finder.py"] = ctx.attrs.static_extension_finder
-    return shared_libs, extensions, link_args, extra, extra_artifacts
+    return shared_libs, extensions, link_args, extra, extra_artifacts, executable_info.linker_map_data
