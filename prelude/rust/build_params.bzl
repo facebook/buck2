@@ -147,7 +147,7 @@ RuleType = enum("binary", "library")
 
 LinkageLang = enum(
     "rust",
-    "native",
+    "native-bundled",
 )
 
 _BINARY = 0
@@ -241,7 +241,7 @@ _INPUTS = {
     ("binary", False, None, "rust"): _BINARY,
     ("binary", True, None, "rust"): _RUST_PROC_MACRO_RUSTDOC_TEST,
     # Native linkable shared object
-    ("library", False, "shared_lib", "native"): _NATIVE_LINKABLE_SHARED_OBJECT,
+    ("library", False, "shared_lib", "native-bundled"): _NATIVE_LINKABLE_SHARED_OBJECT,
     # Rust dylib shared object
     ("library", False, "shared_lib", "rust"): _RUST_DYLIB_SHARED,
     # Rust proc-macro
@@ -253,9 +253,9 @@ _INPUTS = {
     # Rust static (non-pic) library
     ("library", False, "archive", "rust"): _RUST_STATIC_NON_PIC_LIBRARY,
     # Native linkable static_pic
-    ("library", False, "pic_archive", "native"): _NATIVE_LINKABLE_STATIC_PIC,
+    ("library", False, "pic_archive", "native-bundled"): _NATIVE_LINKABLE_STATIC_PIC,
     # Native linkable static non-pic
-    ("library", False, "archive", "native"): _NATIVE_LINKABLE_STATIC_NON_PIC,
+    ("library", False, "archive", "native-bundled"): _NATIVE_LINKABLE_STATIC_NON_PIC,
 }
 
 # Check types of _INPUTS, writing these out as types is too verbose, but let's make sure we don't have any typos.

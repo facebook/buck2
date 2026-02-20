@@ -136,15 +136,15 @@ load(":targets.bzl", "targets")
 _DEFAULT_ROOTS = ["lib.rs"]
 
 # Add provider for default output, and for each lib output style...
-_SUB_TARGET_BUILD_PARAMS = {
-    "cdylib": (LinkageLang("native"), LibOutputStyle("shared_lib")),
+_SUB_TARGET_BUILD_LANG_STYLE = {
+    "cdylib": (LinkageLang("native-bundled"), LibOutputStyle("shared_lib")),
     "shared": (LinkageLang("rust"), LibOutputStyle("shared_lib")),
     # FIXME(JakobDegen): Ideally we'd use the same
     # `subtarget_for_output_style` as C++, but that uses `static-pic`
     # instead of `static_pic`. Would be nice if that were consistent
     "static": (LinkageLang("rust"), LibOutputStyle("archive")),
     "static_pic": (LinkageLang("rust"), LibOutputStyle("pic_archive")),
-    "staticlib": (LinkageLang("native"), LibOutputStyle("archive")),
+    "staticlib": (LinkageLang("native-bundled"), LibOutputStyle("archive")),
 }
 
 def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
@@ -173,8 +173,8 @@ def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
     # Generate the actions to build various output artifacts. Given the set of
     # parameters we need, populate maps to the linkable and metadata
     # artifacts by linkage lang.
-    rust_param_artifact = {}
-    native_param_artifact = {}
+    param_metadata_outputs = {}
+    param_output = {}
     param_subtargets = {}
     for params, langs in param_lang.items():
         link = rust_compile(
@@ -185,10 +185,11 @@ def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
             default_roots = _DEFAULT_ROOTS,
             incremental_enabled = ctx.attrs.incremental_enabled,
         )
-        param_subtargets.setdefault(params, {})
+        param_output[params] = link
 
+        param_subtargets.setdefault(params, {})
         if LinkageLang("rust") in langs:
-            rust_param_artifact[params] = {
+            param_metadata_outputs[params] = {
                 MetadataKind("link"): link,
                 MetadataKind("full"): rust_compile(
                     ctx = ctx,
@@ -213,20 +214,18 @@ def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
                 )
             param_subtargets[params].update(subtargets_to_add)
 
-        native_param_artifact[params] = link
-
     rust_artifacts = _rust_artifacts(
         ctx = ctx,
         compile_ctx = compile_ctx,
         lang_style_param = lang_style_param,
-        rust_param_artifact = rust_param_artifact,
+        param_metadata_outputs = param_metadata_outputs,
     )
 
     link_infos = _link_infos(
         ctx = ctx,
         compile_ctx = compile_ctx,
         lang_style_param = lang_style_param,
-        param_artifact = native_param_artifact,
+        param_artifact = param_output,
     )
 
     # For doctests, we need to know two things to know how to link them. The
@@ -354,7 +353,7 @@ def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
     rustdoc_test = generate_rustdoc_test(
         ctx = ctx,
         compile_ctx = compile_ctx,
-        rlib = rust_param_artifact[static_library_params][MetadataKind("link")].output,
+        rlib = param_metadata_outputs[static_library_params][MetadataKind("link")].output,
         link_infos = link_infos,
         params = rustdoc_test_params,
         default_roots = _DEFAULT_ROOTS,
@@ -402,8 +401,8 @@ def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
     providers = []
     providers += _default_providers(
         lang_style_param = lang_style_param,
-        rust_param_artifact = rust_param_artifact,
-        native_param_artifact = native_param_artifact,
+        param_metadata_outputs = param_metadata_outputs,
+        param_output = param_output,
         param_subtargets = param_subtargets,
         remarks_artifact = remarks_artifact,
         rustdoc = rustdoc,
@@ -432,7 +431,7 @@ def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
             compile_ctx = compile_ctx,
             lang_style_param = lang_style_param,
             rust_artifacts = rust_artifacts,
-            native_param_artifact = native_param_artifact,
+            param_output = param_output,
             link_infos = link_infos,
         )
     else:
@@ -441,7 +440,7 @@ def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
             compile_ctx = compile_ctx,
             lang_style_param = lang_style_param,
             rust_artifacts = rust_artifacts,
-            native_param_artifact = native_param_artifact,
+            param_output = param_output,
             link_infos = link_infos,
         )
 
@@ -520,7 +519,7 @@ def _link_infos(
         return {}
 
     advanced_unstable_linking = compile_ctx.toolchain_info.advanced_unstable_linking
-    lang = LinkageLang("rust") if advanced_unstable_linking else LinkageLang("native")
+    lang = LinkageLang("rust") if advanced_unstable_linking else LinkageLang("native-bundled")
     linker_type = compile_ctx.cxx_toolchain_info.linker_info.type
     output_styles = get_output_styles_for_linkage(Linkage(ctx.attrs.preferred_linkage))
 
@@ -577,14 +576,14 @@ def _rust_artifacts(
         ctx: AnalysisContext,
         compile_ctx: CompileContext,
         lang_style_param: dict[(LinkageLang, LibOutputStyle), BuildParams],
-        rust_param_artifact: dict[BuildParams, dict[MetadataKind, RustcOutput]]) -> dict[LinkStrategy, RustLinkStrategyInfo]:
+        param_metadata_outputs: dict[BuildParams, dict[MetadataKind, RustcOutput]]) -> dict[LinkStrategy, RustLinkStrategyInfo]:
     pic_behavior = compile_ctx.cxx_toolchain_info.pic_behavior
     preferred_linkage = Linkage(ctx.attrs.preferred_linkage)
 
     rust_artifacts = {}
     for link_strategy in LinkStrategy:
         params = lang_style_param[(LinkageLang("rust"), get_lib_output_style(link_strategy, preferred_linkage, pic_behavior))]
-        rust_artifacts[link_strategy] = _handle_rust_artifact(ctx, compile_ctx.dep_ctx, link_strategy, rust_param_artifact[params])
+        rust_artifacts[link_strategy] = _handle_rust_artifact(ctx, compile_ctx.dep_ctx, link_strategy, param_metadata_outputs[params])
     return rust_artifacts
 
 def _handle_rust_artifact(
@@ -630,8 +629,8 @@ def _handle_rust_artifact(
 
 def _default_providers(
         lang_style_param: dict[(LinkageLang, LibOutputStyle), BuildParams],
-        rust_param_artifact: dict[BuildParams, dict[MetadataKind, RustcOutput]],
-        native_param_artifact: dict[BuildParams, RustcOutput],
+        param_metadata_outputs: dict[BuildParams, dict[MetadataKind, RustcOutput]],
+        param_output: dict[BuildParams, RustcOutput],
         param_subtargets: dict[BuildParams, dict[str, RustcOutput]],
         remarks_artifact: RustcOutput,
         rustdoc: Artifact,
@@ -658,15 +657,15 @@ def _default_providers(
     }
     sub_targets["profile"] = profiles
 
-    for name, params in _SUB_TARGET_BUILD_PARAMS.items():
-        if params not in lang_style_param:
+    for name, lang_style in _SUB_TARGET_BUILD_LANG_STYLE.items():
+        if lang_style not in lang_style_param:
             continue
 
-        param = lang_style_param[params]
-        if params[0] == LinkageLang("rust"):
-            artifact = rust_param_artifact[param][MetadataKind("link")]
+        param = lang_style_param[lang_style]
+        if lang_style[0] == LinkageLang("rust"):
+            artifact = param_metadata_outputs[param][MetadataKind("link")]
         else:
-            artifact = native_param_artifact[param]
+            artifact = param_output[param]
 
         nested_sub_targets = {k: [DefaultInfo(default_output = v.output)] for k, v in param_subtargets[param].items()}
         if artifact.compile_output.stripped_output:
@@ -744,7 +743,7 @@ def _advanced_unstable_link_providers(
         compile_ctx: CompileContext,
         lang_style_param: dict[(LinkageLang, LibOutputStyle), BuildParams],
         rust_artifacts: dict[LinkStrategy, RustLinkStrategyInfo],
-        native_param_artifact: dict[BuildParams, RustcOutput],
+        param_output: dict[BuildParams, RustcOutput],
         link_infos: dict[LibOutputStyle, LinkInfos]) -> list[Provider]:
     crate = attr_crate(ctx)
     pic_behavior = compile_ctx.cxx_toolchain_info.pic_behavior
@@ -783,7 +782,7 @@ def _advanced_unstable_link_providers(
     # Only add a shared library if we generated one.
     shared_lib_params = lang_style_param.get((LinkageLang("rust"), LibOutputStyle("shared_lib")), None)
     if shared_lib_params:
-        build_params = native_param_artifact[shared_lib_params]
+        build_params = param_output[shared_lib_params]
         shared_lib_output = build_params.output
         solibs[shlib_name] = LinkedObject(
             output = shared_lib_output,
@@ -912,7 +911,7 @@ def _stable_link_providers(
         ctx: AnalysisContext,
         compile_ctx: CompileContext,
         lang_style_param: dict[(LinkageLang, LibOutputStyle), BuildParams],
-        native_param_artifact: dict[BuildParams, RustcOutput],
+        param_output: dict[BuildParams, RustcOutput],
         rust_artifacts: dict[LinkStrategy, RustLinkStrategyInfo],
         link_infos: dict[LibOutputStyle, LinkInfos]) -> list[Provider]:
     providers = []
@@ -937,7 +936,7 @@ def _stable_link_providers(
     )
 
     providers.append(rust_link_info)
-    providers += _native_link_providers(ctx, compile_ctx, lang_style_param, native_param_artifact, link_infos, rust_link_info)
+    providers += _native_link_providers(ctx, compile_ctx, lang_style_param, param_output, link_infos, rust_link_info)
     return providers
 
 def _rust_link_providers(
@@ -985,7 +984,7 @@ def _native_link_providers(
 
     providers = []
 
-    shared_lib_params = lang_style_param.get((LinkageLang("native"), LibOutputStyle("shared_lib")), None)
+    shared_lib_params = lang_style_param.get((LinkageLang("native-bundled"), LibOutputStyle("shared_lib")), None)
     shared_lib_output = param_artifact[shared_lib_params].output if shared_lib_params else None
 
     preferred_linkage = Linkage(ctx.attrs.preferred_linkage)
