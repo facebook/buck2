@@ -670,6 +670,8 @@ def _default_providers(
     targets["expand"] = expand
     targets["doc"] = rustdoc
     targets["doc-coverage"] = rustdoc_coverage
+    targets["remarks.txt"] = remarks_artifact.compile_output.remarks_txt
+    targets["remarks.json"] = remarks_artifact.compile_output.remarks_json
     if named_deps_names:
         targets["named_deps"] = named_deps_names
 
@@ -694,12 +696,6 @@ def _default_providers(
         nested_sub_targets = {k: [DefaultInfo(default_output = v.output)] for k, v in param_subtargets[param].items()}
         if artifact.compile_output.stripped_output:
             nested_sub_targets["stripped"] = [DefaultInfo(default_output = artifact.compile_output.stripped_output)]
-
-        # Add remarks subtargets (shared across all link styles)
-        if remarks_artifact.compile_output.remarks_txt:
-            nested_sub_targets["remarks.txt"] = [DefaultInfo(default_output = remarks_artifact.compile_output.remarks_txt)]
-        if remarks_artifact.compile_output.remarks_json:
-            nested_sub_targets["remarks.json"] = [DefaultInfo(default_output = remarks_artifact.compile_output.remarks_json)]
 
         sub_targets[name] = [DefaultInfo(
             default_output = artifact.output,
