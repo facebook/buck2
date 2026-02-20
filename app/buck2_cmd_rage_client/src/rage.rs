@@ -615,9 +615,9 @@ async fn log_index(
     Ok(index)
 }
 
-async fn user_prompt_select_log<'a>(
+async fn user_prompt_select_log(
     stdin: impl AsyncBufRead + Unpin,
-    logs: &'a [EventLogPathBuf],
+    logs: &[EventLogPathBuf],
 ) -> buck2_error::Result<usize> {
     buck2_client_ctx::eprintln!("Which buck invocation would you like to report?\n")?;
     let logs_summary = futures::future::join_all(

@@ -176,10 +176,10 @@ struct BxlInnerEvaluator {
 }
 
 impl BxlInnerEvaluator {
-    fn do_eval<'a>(
+    fn do_eval(
         self,
         provider: StarlarkEvaluatorProvider,
-        dice: &'a mut DiceComputations,
+        dice: &mut DiceComputations,
     ) -> Result<(BxlResult, Option<Arc<StarlarkProfileDataAndStats>>)> {
         let BxlInnerEvaluator {
             data,

@@ -129,10 +129,10 @@ pub fn get_dep<'v>(
     }
 }
 
-pub fn resolve_unkeyed_placeholder<'v>(
+pub fn resolve_unkeyed_placeholder(
     dep_analysis_results: &HashMap<ConfiguredTargetLabel, FrozenProviderCollectionValue>,
     name: &str,
-    module: &Module<'v>,
+    module: &Module,
 ) -> Option<FrozenCommandLineArg> {
     // TODO(cjhopman): Make it an error if two deps provide a value for the placeholder.
     for providers in dep_analysis_results.values() {

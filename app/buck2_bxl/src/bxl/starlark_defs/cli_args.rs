@@ -145,7 +145,7 @@ impl CliArgs {
         })
     }
 
-    pub(crate) fn to_clap<'a>(&'a self, arg: clap::Arg) -> clap::Arg {
+    pub(crate) fn to_clap(&self, arg: clap::Arg) -> clap::Arg {
         let mut arg = self.coercer.to_clap(arg.help(self.doc.clone()));
         if let Some(short) = self.short {
             arg = arg.short(short);
@@ -529,7 +529,7 @@ impl CliArgType {
         })
     }
 
-    pub(crate) fn to_clap<'a>(&'a self, clap: clap::Arg) -> clap::Arg {
+    pub(crate) fn to_clap(&self, clap: clap::Arg) -> clap::Arg {
         match self {
             CliArgType::Bool => clap
                 .num_args(1)

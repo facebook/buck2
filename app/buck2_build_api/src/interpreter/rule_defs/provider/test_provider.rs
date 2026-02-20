@@ -107,9 +107,7 @@ impl TestProvider for FrozenExternalRunnerTestInfo {
 }
 
 impl dyn TestProvider {
-    pub fn from_collection<'a>(
-        providers: &'a FrozenProviderCollection,
-    ) -> Option<&'a dyn TestProvider> {
+    pub fn from_collection(providers: &FrozenProviderCollection) -> Option<&dyn TestProvider> {
         if let Some(provider) = providers.builtin_provider::<FrozenExternalRunnerTestInfo>() {
             return Some(provider.as_ref());
         }

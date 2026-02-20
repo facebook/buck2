@@ -334,8 +334,8 @@ async fn get_template_info_provider_artifacts(
     Ok(artifacts)
 }
 
-pub(crate) async fn get_from_template_placeholder_info<'x>(
-    ctx: &'x mut DiceComputations<'_>,
+pub(crate) async fn get_from_template_placeholder_info(
+    ctx: &mut DiceComputations<'_>,
     template_name: &'static str,
     targets: impl IntoIterator<Item = ConfiguredTargetLabel>,
 ) -> buck2_error::Result<IndexMap<ConfiguredTargetLabel, Artifact>> {

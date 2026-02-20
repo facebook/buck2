@@ -403,7 +403,7 @@ mod tests {
         }
     }
 
-    fn alloc_promises<'v>(modu: &Module<'v>) {
+    fn alloc_promises(modu: &Module) {
         modu.set(
             "__promises__",
             modu.heap().alloc_complex_no_freeze(Promises::default()),
@@ -431,6 +431,7 @@ mod tests {
         Ok(res)
     }
 
+    #[allow(clippy::needless_lifetimes)]
     fn assert_promise_err<'v>(modu: &Module<'v>, content: &str, err: &str) -> buck2_error::Error {
         match assert_promise(modu, content) {
             Ok(_) => panic!("Expected an error, got a result"),

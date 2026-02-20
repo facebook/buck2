@@ -214,9 +214,9 @@ fn compute_tset_node<'c>(
     .boxed()
 }
 
-async fn get_tset_node<'c>(
+async fn get_tset_node(
     node_cache: DiceAqueryNodesCache,
-    ctx: &'c mut DiceComputations<'_>,
+    ctx: &mut DiceComputations<'_>,
     key: TransitiveSetProjectionKey,
 ) -> buck2_error::Result<SetProjectionInputs> {
     let copied_node_cache = node_cache.dupe();
@@ -242,9 +242,9 @@ fn compute_action_node<'c>(
     .boxed()
 }
 
-async fn get_action_node<'c>(
+async fn get_action_node(
     node_cache: DiceAqueryNodesCache,
-    ctx: &'c mut DiceComputations<'_>,
+    ctx: &mut DiceComputations<'_>,
     key: ActionKey,
     fs: Arc<ArtifactFs>,
 ) -> buck2_error::Result<ActionQueryNode> {

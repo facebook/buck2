@@ -74,8 +74,8 @@ pub struct ErrorWithPackageLabel {
     pub error: buck2_error::Error,
 }
 
-pub async fn get_maybe_compatible_targets<'a, T>(
-    ctx: &'a mut DiceComputations<'_>,
+pub async fn get_maybe_compatible_targets<T>(
+    ctx: &mut DiceComputations<'_>,
     loaded_targets: T,
     global_cfg_options: &GlobalCfgOptions,
     keep_going: bool,

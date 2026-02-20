@@ -383,9 +383,9 @@ impl QueryEnvironment for UqueryEnvironment<'_> {
     }
 }
 
-pub(crate) async fn allbuildfiles<'c, T: QueryTarget>(
+pub(crate) async fn allbuildfiles<T: QueryTarget>(
     universe: &TargetSet<T>,
-    delegate: &'c dyn UqueryDelegate,
+    delegate: &dyn UqueryDelegate,
 ) -> buck2_error::Result<FileSet> {
     let mut paths = IndexSet::<FileNode>::new();
 
@@ -413,10 +413,10 @@ pub(crate) async fn allbuildfiles<'c, T: QueryTarget>(
     Ok(FileSet::new(paths).union(&FileSet::new(new_paths)))
 }
 
-pub(crate) async fn rbuildfiles<'c>(
+pub(crate) async fn rbuildfiles(
     universe: &FileSet,
     argset: &FileSet,
-    delegate: &'c dyn UqueryDelegate,
+    delegate: &dyn UqueryDelegate,
 ) -> buck2_error::Result<FileSet> {
     let universe_paths: Vec<ArcCellPath> =
         universe.iter().map(|file| Arc::new(file.clone())).collect();
@@ -558,9 +558,9 @@ pub(crate) async fn rbuildfiles<'c>(
     Ok(FileSet::new(output_files))
 }
 
-async fn split_universe_files<'c>(
+async fn split_universe_files(
     universe: &[ArcCellPath],
-    delegate: &'c dyn UqueryDelegate,
+    delegate: &dyn UqueryDelegate,
 ) -> buck2_error::Result<(Vec<ArcCellPath>, Vec<ArcCellPath>)> {
     let mut buildfiles = Vec::<ArcCellPath>::new();
     let mut bzlfiles = Vec::<ArcCellPath>::new();
@@ -591,10 +591,10 @@ async fn split_universe_files<'c>(
     Ok((buildfiles, bzlfiles))
 }
 
-async fn top_level_imports_by_build_file<'c>(
+async fn top_level_imports_by_build_file(
     buildfiles: &[ArcCellPath],
     bzlfiles: &[ArcCellPath],
-    delegate: &'c dyn UqueryDelegate,
+    delegate: &dyn UqueryDelegate,
 ) -> buck2_error::Result<HashMap<ArcCellPath, Vec<ImportPath>>> {
     let mut top_level_import_by_build_file = HashMap::<ArcCellPath, Vec<ImportPath>>::new();
 
@@ -632,9 +632,9 @@ async fn top_level_imports_by_build_file<'c>(
 
 // TODO: no need to get all the first order imports prior to the traversal - we can do this
 // at the same time as the actual traversal.
-async fn first_order_imports<'c>(
+async fn first_order_imports(
     all_top_level_imports: &[ImportPath],
-    delegate: &'c dyn UqueryDelegate,
+    delegate: &dyn UqueryDelegate,
 ) -> buck2_error::Result<HashMap<ImportPath, Vec<ImportPath>>> {
     let all_imports = get_transitive_loads(
         all_top_level_imports.to_vec(),

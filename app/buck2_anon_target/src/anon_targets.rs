@@ -547,8 +547,8 @@ pub(crate) fn init_get_promised_artifact() {
     });
 }
 
-pub(crate) async fn get_artifact_from_anon_target_analysis<'v>(
-    promise_id: &'v PromiseArtifactId,
+pub(crate) async fn get_artifact_from_anon_target_analysis(
+    promise_id: &PromiseArtifactId,
     ctx: &mut DiceComputations<'_>,
 ) -> buck2_error::Result<Artifact> {
     let owner = promise_id.owner();

@@ -75,7 +75,7 @@ impl<'s> BxlDiceComputations<'s> {
         })
     }
 
-    pub(crate) fn global_data<'a>(&'a self) -> &'a DiceData {
+    pub(crate) fn global_data(&self) -> &DiceData {
         self.0.access(|dice| dice.global_data())
     }
 

@@ -61,7 +61,7 @@ impl<T: LabeledNode<Key = T>> AsyncNodeLookup<T> for NodeLookupId {
 }
 
 #[async_trait]
-impl<'a, T: LabeledNode, A: AsyncNodeLookup<T>> AsyncNodeLookup<T> for &'a A {
+impl<T: LabeledNode, A: AsyncNodeLookup<T>> AsyncNodeLookup<T> for &A {
     async fn get(&self, label: &T::Key) -> buck2_error::Result<T> {
         (*self).get(label).await
     }

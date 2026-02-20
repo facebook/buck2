@@ -229,11 +229,11 @@ impl<'v> BxlActions<'v> {
     }
 }
 
-async fn alloc_deps<'v, 'c>(
+async fn alloc_deps<'v>(
     deps: Vec<ConfiguredProvidersLabel>,
     heap: Heap<'v>,
     frozen_heap: &FrozenHeap,
-    ctx: &'c mut DiceComputations<'_>,
+    ctx: &mut DiceComputations<'_>,
 ) -> buck2_error::Result<ValueOfUnchecked<'v, DictType<StarlarkProvidersLabel, Dependency<'v>>>> {
     let analysis_results: Vec<_> = ctx
         .try_compute_join(deps, |ctx, target| {

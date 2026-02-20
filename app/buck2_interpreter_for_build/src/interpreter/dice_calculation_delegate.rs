@@ -223,8 +223,8 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
         ))
     }
 
-    pub async fn prepare_eval<'a>(
-        &'a mut self,
+    pub async fn prepare_eval(
+        &mut self,
         starlark_file: StarlarkPath<'_>,
     ) -> buck2_error::Result<(AstModule, ModuleDeps)> {
         let ParseData(ast, imports) = self.parse_file(starlark_file).await??;
@@ -236,8 +236,8 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
         Ok((ast, deps))
     }
 
-    pub fn prepare_eval_with_content<'a>(
-        &'a self,
+    pub fn prepare_eval_with_content(
+        &self,
         starlark_file: StarlarkPath<'_>,
         content: String,
     ) -> buck2_error::Result<ParseResult> {

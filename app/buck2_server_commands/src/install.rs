@@ -703,8 +703,8 @@ impl<'a> ConnectedInstaller<'a> {
     }
 }
 
-async fn handle_install_request<'a>(
-    ctx: &'a mut DiceComputations<'_>,
+async fn handle_install_request(
+    ctx: &mut DiceComputations<'_>,
     install_log_dir: &AbsNormPathBuf,
     install_request_data: &InstallRequestData<'_>,
     initial_installer_run_args: &[String],
@@ -829,8 +829,8 @@ async fn upload_installer_logs(log_path: &AbsNormPathBuf) -> buck2_error::Result
         .await
 }
 
-async fn build_launch_installer<'a>(
-    ctx: &'a mut DiceComputations<'_>,
+async fn build_launch_installer(
+    ctx: &mut DiceComputations<'_>,
     providers_label: &ConfiguredProvidersLabel,
     installer_run_args: &[String],
     installer_log_console: bool,

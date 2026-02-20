@@ -214,7 +214,7 @@ impl FrozenBxlFunction {
         self.implementation
     }
 
-    pub(crate) fn to_clap<'v>(&'v self, mut clap: clap::Command) -> clap::Command {
+    pub(crate) fn to_clap(&self, mut clap: clap::Command) -> clap::Command {
         if let Some(docs) = self.docs.as_ref() {
             clap = clap.about(docs.clone())
         }

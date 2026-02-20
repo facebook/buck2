@@ -257,7 +257,7 @@ impl FrozenDefaultInfo {
         }))
     }
 
-    pub fn default_outputs<'a>(&'a self) -> Vec<StarlarkArtifact> {
+    pub fn default_outputs(&self) -> Vec<StarlarkArtifact> {
         self.default_outputs_impl()
             .unwrap()
             .collect::<Result<_, _>>()

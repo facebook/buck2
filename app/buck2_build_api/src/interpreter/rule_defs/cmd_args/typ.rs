@@ -453,7 +453,7 @@ impl<'v> Fields<'v> for FrozenStarlarkCmdArgs {
     }
 }
 
-impl<'a, 'v, F: Fields<'v>> Fields<'v> for &'a F {
+impl<'v, F: Fields<'v>> Fields<'v> for &F {
     fn items(&self) -> &[CommandLineArg<'v>] {
         (*self).items()
     }

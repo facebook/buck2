@@ -876,8 +876,8 @@ fn output_stream_methods(builder: &mut MethodsBuilder) {
     }
 }
 
-pub(crate) fn get_cmd_line_inputs<'v>(
-    cmd_line: &'v dyn CommandLineArgLike,
+pub(crate) fn get_cmd_line_inputs(
+    cmd_line: &dyn CommandLineArgLike,
 ) -> buck2_error::Result<StarlarkCommandLineInputs> {
     let mut visitor = SimpleCommandLineArtifactVisitor::new();
     cmd_line.visit_artifacts(&mut visitor)?;
