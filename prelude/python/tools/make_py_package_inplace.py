@@ -84,6 +84,11 @@ def parse_args() -> argparse.Namespace:
         help="The host python binary to use to e.g. compiling bytecode",
     )
     parser.add_argument(
+        "--use-absolute-path-for-python-interpreter",
+        action="store_true",
+        help="Convert relative python interpreter paths to absolute paths",
+    )
+    parser.add_argument(
         "--python-interpreter-flags",
         default="-Es",
         help="The interpreter flags for the hashbang",
@@ -186,7 +191,11 @@ def write_bootstrapper(args: argparse.Namespace) -> None:
         ld_preload = [p.name for p in args.preload_libraries]
 
     python = str(args.python)
-    if not os.path.isabs(python) and os.path.sep in python:
+    if (
+        args.use_absolute_path_for_python_interpreter
+        and not os.path.isabs(python)
+        and os.path.sep in python
+    ):
         python = os.path.abspath(python)
 
     new_data = data.replace("<PYTHON>", f"/usr/bin/env {python}")
