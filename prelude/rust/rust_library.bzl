@@ -112,7 +112,6 @@ load(
     "inherited_link_group_lib_infos",
     "inherited_linkable_graphs",
     "inherited_merged_link_infos",
-    "inherited_native_debug_info",
     "inherited_native_link_deps",
     "inherited_shared_libs",
     "inherited_third_party_builds",
@@ -600,12 +599,17 @@ def _handle_rust_artifact(
     link_output = outputs[MetadataKind("link")]
     if not ctx.attrs.proc_macro:
         tdeps, rust_debug_info, tprocmacrodeps = _compute_transitive_deps(ctx, dep_ctx, link_strategy)
-        rust_debug_info = make_artifact_tset(
-            actions = ctx.actions,
-            label = ctx.label,
-            artifacts = filter(None, [link_output.compile_output.dwo_output_directory]),
-            children = rust_debug_info,
-        )
+
+        toolchain_info = ctx.attrs._rust_toolchain[RustToolchainInfo]
+        if toolchain_info.advanced_unstable_linking:
+            rust_debug_info = None
+        else:
+            rust_debug_info = make_artifact_tset(
+                actions = ctx.actions,
+                label = ctx.label,
+                artifacts = filter(None, [link_output.compile_output.dwo_output_directory]),
+                children = rust_debug_info,
+            )
         return RustLinkStrategyInfo(
             outputs = {m: x.output for m, x in outputs.items()},
             singleton_tset = {m: x.singleton_tset for m, x in outputs.items()},
@@ -726,7 +730,6 @@ def _proc_macro_link_providers(
         crate = attr_crate(ctx),
         strategies = rust_artifacts,
         native_link_deps = ctx.actions.tset(RustNativeLinkDeps),
-        native_debug_info = {},
         exported_link_deps = ctx.actions.tset(RustExportedLinkDeps),
         shared_libs = merge_shared_libraries(ctx.actions),
         third_party_build_info = third_party_build_info(actions = ctx.actions),
@@ -748,7 +751,6 @@ def _advanced_unstable_link_providers(
 
     dep_ctx = compile_ctx.dep_ctx
 
-    inherited_debug_info = inherited_native_debug_info(ctx, dep_ctx)
     inherited_link_infos = inherited_merged_link_infos(ctx, dep_ctx)
     inherited_shlibs = inherited_shared_libs(ctx, dep_ctx)
     inherited_graphs_tset = inherited_linkable_graphs(ctx, dep_ctx)
@@ -865,17 +867,6 @@ def _advanced_unstable_link_providers(
                 ),
             ],
         ),
-        native_debug_info = {
-            strategy: make_artifact_tset(
-                actions = ctx.actions,
-                label = ctx.label,
-                children = filter(None, [
-                    inherited_debug_info[strategy],
-                    merged_link_info._external_debug_info.get(strategy),
-                ]),
-            )
-            for strategy in LinkStrategy
-        },
         exported_link_deps = inherited_exported_deps_tset,
         shared_libs = shared_library_info,
         third_party_build_info = third_party_build_info,
@@ -913,14 +904,13 @@ def _stable_link_providers(
 
     crate = attr_crate(ctx)
 
-    native_link_deps, native_debug_info, shared_libs, linkable_graphs, exported_link_deps, third_party_builds = _rust_link_providers(ctx, compile_ctx.dep_ctx)
+    native_link_deps, shared_libs, linkable_graphs, exported_link_deps, third_party_builds = _rust_link_providers(ctx, compile_ctx.dep_ctx)
 
     # Create rust library provider.
     rust_link_info = RustLinkInfo(
         crate = crate,
         strategies = rust_artifacts,
         native_link_deps = native_link_deps,
-        native_debug_info = native_debug_info,
         exported_link_deps = exported_link_deps,
         shared_libs = shared_libs,
         third_party_build_info = third_party_build_info(
@@ -938,14 +928,12 @@ def _rust_link_providers(
         ctx: AnalysisContext,
         dep_ctx: DepCollectionContext) -> (
     RustNativeLinkDeps,
-    dict[LinkStrategy, ArtifactTSet],
     SharedLibraryInfo,
     RustLinkableGraphs,
     RustExportedLinkDeps,
     list[ThirdPartyBuildInfo],
 ):
     native_link_deps = inherited_native_link_deps(ctx, dep_ctx)
-    native_debug_info = inherited_native_debug_info(ctx, dep_ctx)
     inherited_shlibs = inherited_shared_libs(ctx, dep_ctx)
     inherited_graphs = inherited_linkable_graphs(ctx, dep_ctx)
     inherited_exported_deps = inherited_exported_link_deps(ctx, dep_ctx)
@@ -955,7 +943,7 @@ def _rust_link_providers(
         ctx.actions,
         deps = inherited_shlibs,
     )
-    return (native_link_deps, native_debug_info, shared_libs, inherited_graphs, inherited_exported_deps, inherited_third_party)
+    return (native_link_deps, shared_libs, inherited_graphs, inherited_exported_deps, inherited_third_party)
 
 def _native_link_providers(
         ctx: AnalysisContext,
@@ -1100,7 +1088,8 @@ def _compute_transitive_deps(
             transitive_deps[m].append(strategy.singleton_tset[m])
             transitive_deps[m].append(strategy.transitive_deps[m])
 
-        rust_debug_info.append(strategy.rust_debug_info)
+        if strategy.rust_debug_info:
+            rust_debug_info.append(strategy.rust_debug_info)
 
         transitive_proc_macro_deps.update(strategy.transitive_proc_macro_deps)
 
