@@ -12,6 +12,7 @@ use std::future::Future;
 use std::pin::Pin;
 
 use async_trait::async_trait;
+use buck2_artifact::actions::key::ActionKey;
 use buck2_core::cells::CellResolver;
 use buck2_core::cells::name::CellName;
 use buck2_core::configuration::compatibility::MaybeCompatible;
@@ -181,6 +182,11 @@ pub trait BxlAqueryFunctions: Send {
         &self,
         dice: &mut DiceComputations<'_>,
         targets: &TargetSet<ActionQueryNode>,
+    ) -> buck2_error::Result<TargetSet<ActionQueryNode>>;
+    async fn get_action_nodes(
+        &self,
+        dice: &mut DiceComputations<'_>,
+        action_keys: Vec<ActionKey>,
     ) -> buck2_error::Result<TargetSet<ActionQueryNode>>;
 }
 
