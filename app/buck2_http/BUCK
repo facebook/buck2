@@ -6,7 +6,7 @@ rust_library(
     name = "buck2_http",
     srcs = glob(["src/**/*.rs"]),
     test_deps = [
-        "fbsource//third-party/rust:httptest-0-16",
+        "fbsource//third-party/rust:httptest",
     ] + select({
         "DEFAULT": [],
         "ovr_config//os:linux": [
