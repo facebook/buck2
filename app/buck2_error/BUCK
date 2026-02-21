@@ -34,7 +34,7 @@ rust_library(
         "fbsource//third-party/rust:thiserror",
         "fbsource//third-party/rust:tokio",
         "fbsource//third-party/rust:toml",
-        "fbsource//third-party/rust:tonic-0-12-3",
+        "fbsource//third-party/rust:tonic-0-12",
         "fbsource//third-party/rust:uuid",
         "//buck2/allocative/allocative:allocative",
         "//buck2/app/buck2_data:buck2_data",

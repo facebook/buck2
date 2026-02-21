@@ -31,7 +31,7 @@ rust_library(
         "fbsource//third-party/rust:serde",
         "fbsource//third-party/rust:serde_json",
         "fbsource//third-party/rust:tokio",
-        "fbsource//third-party/rust:tonic-0-12-3",
+        "fbsource//third-party/rust:tonic-0-12",
         "fbsource//third-party/rust:tracing",
         "//buck2/app/buck2_common:buck2_common",
         "//buck2/app/buck2_core:buck2_core",

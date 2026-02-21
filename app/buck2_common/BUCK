@@ -48,7 +48,7 @@ rust_library(
         "fbsource//third-party/rust:smallvec",
         "fbsource//third-party/rust:strsim",
         "fbsource//third-party/rust:tokio",
-        "fbsource//third-party/rust:tonic-0-12-3",
+        "fbsource//third-party/rust:tonic-0-12",
         "fbsource//third-party/rust:tracing",
         "//buck2/allocative/allocative:allocative",
         "//buck2/app/buck2_cli_proto:buck2_cli_proto",

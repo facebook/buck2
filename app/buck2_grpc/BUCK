@@ -13,7 +13,7 @@ rust_library(
         "fbsource//third-party/rust:hyper-util",
         "fbsource//third-party/rust:pin-project",
         "fbsource//third-party/rust:tokio",
-        "fbsource//third-party/rust:tonic-0-12-3",
+        "fbsource//third-party/rust:tonic-0-12",
         "fbsource//third-party/rust:tower",
         "//buck2/app/buck2_error:buck2_error",
     ],

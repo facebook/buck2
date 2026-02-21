@@ -62,7 +62,7 @@ def rust_protobuf_library_prost_0134(
         "prost-0-13-4",
         protos,
         [
-            "fbsource//third-party/rust:tonic-0-12-3",
+            "fbsource//third-party/rust:tonic-0-12",
         ] + (deps or []),
         test_deps,
         doctests,
