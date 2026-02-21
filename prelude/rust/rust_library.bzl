@@ -551,6 +551,7 @@ def _link_infos(
                 unstripped_output = lib.output,
                 external_debug_info = external_debug_info,
                 import_library = lib.link_output.import_library,
+                pdb = lib.link_output.pdb,
                 dwp = lib.link_output.dwp_output,
             )
             exported_shlib = lib.output
