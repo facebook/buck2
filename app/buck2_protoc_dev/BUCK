@@ -9,7 +9,7 @@ rust_library(
         "--cfg=buck2_build",
     ],
     deps = [
-        "fbsource//third-party/rust:tonic-build",
+        "fbsource//third-party/rust:tonic-build-0-10",
     ],
 )
 
