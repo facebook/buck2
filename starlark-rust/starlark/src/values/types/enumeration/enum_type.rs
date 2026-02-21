@@ -41,6 +41,7 @@ use crate::environment::MethodsBuilder;
 use crate::environment::MethodsStatic;
 use crate::eval::Arguments;
 use crate::eval::Evaluator;
+use crate::register_avalue_simple_frozen;
 use crate::typing::ParamSpec;
 use crate::typing::Ty;
 use crate::typing::callable::TyCallable;
@@ -169,6 +170,8 @@ impl<'v, V: EnumCell + ValueLike<'v>> Display for EnumTypeGen<V> {
 pub type EnumType<'v> = EnumTypeGen<Value<'v>>;
 /// Frozen enum type.
 pub type FrozenEnumType = EnumTypeGen<FrozenValue>;
+
+register_avalue_simple_frozen!(FrozenEnumType);
 
 impl<'v> EnumType<'v> {
     pub(crate) fn new(
