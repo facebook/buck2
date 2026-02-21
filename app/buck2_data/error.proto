@@ -147,8 +147,6 @@ enum ErrorTag {
   // A process couldn't be killed
   FAILED_TO_KILL = 8027;
 
-  // No valid internal or VPNless certs could be found
-  NO_VALID_CERTS = 25;
   // Build failed during materialization
   MATERIALIZATION_ERROR = 26;
   // Could not find buck project root
@@ -365,9 +363,14 @@ enum ErrorTag {
   MALLCTL = 8038;
   CPU_STATS = 8026;
 
+  // Cert related tags
+  CERTS = 22000;
+  // No valid internal or VPNless certs could be found
+  NO_VALID_CERTS = 25;
+  CERT_EXPIRED = 22001;
+
   // Misc phases/subsystem tags
   BXL = 11000;
-  CERTS = 22000;
   LOG_CMD = 13000;
   OFFLINE_ARCHIVE = 14000;
   PROFILE = 15000;

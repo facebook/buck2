@@ -160,6 +160,7 @@ fn tag_metadata(tag: ErrorTag) -> TagMetadata {
     match tag {
         // Environment errors
         ErrorTag::NoValidCerts => rank!(environment),
+        ErrorTag::CertExpired => rank!(environment),
         ErrorTag::ServerSigterm => rank!(environment),
         ErrorTag::IoMaterializerFileBusy => rank!(environment),
         ErrorTag::IoClientBrokenPipe => rank!(environment).exit_code(ExitCode::ClientIoBrokenPipe),
