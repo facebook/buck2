@@ -6,10 +6,6 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
-load(
-    "@prelude//:artifact_tset.bzl",
-    "ArtifactTSet",  # @unused Used as a type
-)
 load(":link_info.bzl", "TransitiveDeps")
 
 # Outputs that are generally associated with object code compilation, as opposed to linking
