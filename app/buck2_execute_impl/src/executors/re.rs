@@ -502,7 +502,7 @@ impl PreparedCommandExecutor for ReExecutor {
     inner.code,
     inner.message
 )]
-#[buck2(tier0, tag = get_re_error_tag(&inner.code))]
+#[buck2(tag = get_re_error_tag(&inner.code))]
 struct ReErrorWrapper {
     action_digest: ActionDigest,
     inner: remote_execution::TStatus,
