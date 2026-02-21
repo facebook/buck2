@@ -178,7 +178,7 @@ cxx_binary = prelude_rule(
         buck.contacts_arg() |
         _cxx_binary_and_test_attrs()
     ),
-    cfg = constraint_overrides.transition,
+    supports_incoming_transition = True,
 )
 
 cxx_genrule = prelude_rule(
@@ -939,7 +939,7 @@ cxx_test = prelude_rule(
         test_common.attributes() |
         _cxx_binary_and_test_attrs()
     ),
-    cfg = constraint_overrides.transition,
+    supports_incoming_transition = True,
 )
 
 cxx_toolchain = prelude_rule(
