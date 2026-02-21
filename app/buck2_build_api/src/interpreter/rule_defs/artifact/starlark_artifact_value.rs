@@ -10,7 +10,6 @@
 
 use std::fmt;
 use std::fmt::Display;
-use std::fs::File;
 use std::io::BufReader;
 
 use allocative::Allocative;
@@ -167,15 +166,17 @@ fn artifact_value_methods(builder: &mut MethodsBuilder) {
         let contents = fs_util::read_to_string(path)
             // input path from starlark
             .categorize_input()
-            .map_err(|e| buck2_error::Error::from(e).tag([ErrorTag::StarlarkValue]))?;
+            .tag(ErrorTag::StarlarkValue)?;
         Ok(contents)
     }
 
     /// Reads and parses the artifact as JSON
     fn read_json<'v>(this: &StarlarkArtifactValue, heap: Heap<'v>) -> starlark::Result<Value<'v>> {
         let path = this.fs.resolve(&this.path);
-        let file =
-            File::open(&path).with_buck_error_context(|| format!("Error opening file `{path}`"))?;
+        let file = fs_util::open_file(&path)
+            // input path from starlark
+            .categorize_input()
+            .tag(ErrorTag::StarlarkValue)?;
         let reader = BufReader::new(file);
         let value: serde_json::Value = serde_json::from_reader(reader)
             .with_buck_error_context(|| format!("Error parsing JSON file `{path}`"))?;
