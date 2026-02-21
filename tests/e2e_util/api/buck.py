@@ -841,7 +841,7 @@ class Buck(Executable):
                 stderr,
                 buck_build_id,
                 invocation_record_path,
-                args=" ".join(args),
+                buck_args=" ".join(args),
             )
             if result_type is BuckResult:
                 return base

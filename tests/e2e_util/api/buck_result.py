@@ -112,11 +112,11 @@ class BuckResult(Result):
         stderr: str,
         buck_build_id: str,
         invocation_record_path: Optional[Path] = None,
-        args: str = "",
+        buck_args: str = "",
     ) -> None:
         super().__init__(process, stdout, stderr)
         self.buck_build_id = buck_build_id
-        self.args = args
+        self.buck_args = buck_args
         self.invocation_record_path = invocation_record_path
 
     def invocation_record(self) -> InvocationRecord:
@@ -259,9 +259,9 @@ class TargetsResult(BuckResult):
         Returns a dict of the target and its output file in buck-out
         """
         target_to_output = {}
-        assert "--show-output" in self.args or "--show-full-output" in self.args, (
-            "Must add --show-output or --show-full-output arg to get targets output"
-        )
+        assert (
+            "--show-output" in self.buck_args or "--show-full-output" in self.buck_args
+        ), "Must add --show-output or --show-full-output arg to get targets output"
         show_output = self.stdout.strip().splitlines()
         for line in show_output:
             output_mapping = line.split()
@@ -286,11 +286,11 @@ class BuildResult(BuckResult):
         Prints to build target followed by path to buck-out file to stdout
         """
         target_to_output = {}
-        assert "--show-output" in self.args or "--show-full-output" in self.args, (
-            "Must add --show-output or --show-full-output arg to get build output"
-        )
+        assert (
+            "--show-output" in self.buck_args or "--show-full-output" in self.buck_args
+        ), "Must add --show-output or --show-full-output arg to get build output"
         show_output = self.stdout.strip().splitlines()
-        if "--build-report=-" in self.args:
+        if "--build-report=-" in self.buck_args:
             # When mixing --show-output with --build-report=-, the first line is
             # the build report, and the remaining ones are the results, we only
             # want the results for the purpose of this function so we skip the report
@@ -415,7 +415,7 @@ class AuditConfigResult(BuckResult):
 
     def get_json(self) -> Dict[str, str]:
         """Returns a dict of the json sent back by buck"""
-        assert "--style=json" in self.args or "--style json" in self.args, (
+        assert "--style=json" in self.buck_args or "--style json" in self.buck_args, (
             "Must add --style=json or `--style json` arg to get json output"
         )
         try:
