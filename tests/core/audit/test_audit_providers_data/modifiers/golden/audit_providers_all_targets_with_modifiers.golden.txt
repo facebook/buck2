@@ -10,7 +10,8 @@ root//:os (<unbound>):
     ConstraintSettingInfo(
       label=root//:os,
       default=None
-    )
+    ),
+    _ExecutionModifierInfo( execution_modifier=False )
   ])
 root//:linux (<unbound>):
   Providers([
@@ -37,12 +38,27 @@ root//:linux (<unbound>):
       values={}
     ),
     ConditionalModifierInfo(
-      inner=ConstraintValueInfo(
-        setting=ConstraintSettingInfo(
-          label=root//:os,
-          default=None
-        ),
-        label=root//:linux
+      inner=record[ModifiersMatchInfo](
+        selector=[ (
+          ConfigurationInfo(
+            constraints={ prelude//cfg/exec_platform/marker:is_exec_platform: ConstraintValueInfo(
+              setting=ConstraintSettingInfo(
+                label=prelude//cfg/exec_platform/marker:is_exec_platform,
+                default=prelude//cfg/exec_platform/marker:is_exec_platform[false]
+              ),
+              label=prelude//cfg/exec_platform/marker:is_exec_platform[true]
+            ) },
+            values={}
+          ),
+          None
+        ) ],
+        default=ConstraintValueInfo(
+          setting=ConstraintSettingInfo(
+            label=root//:os,
+            default=None
+          ),
+          label=root//:linux
+        )
       ),
       key=root//:os
     )
@@ -72,12 +88,27 @@ root//:macos (<unbound>):
       values={}
     ),
     ConditionalModifierInfo(
-      inner=ConstraintValueInfo(
-        setting=ConstraintSettingInfo(
-          label=root//:os,
-          default=None
-        ),
-        label=root//:macos
+      inner=record[ModifiersMatchInfo](
+        selector=[ (
+          ConfigurationInfo(
+            constraints={ prelude//cfg/exec_platform/marker:is_exec_platform: ConstraintValueInfo(
+              setting=ConstraintSettingInfo(
+                label=prelude//cfg/exec_platform/marker:is_exec_platform,
+                default=prelude//cfg/exec_platform/marker:is_exec_platform[false]
+              ),
+              label=prelude//cfg/exec_platform/marker:is_exec_platform[true]
+            ) },
+            values={}
+          ),
+          None
+        ) ],
+        default=ConstraintValueInfo(
+          setting=ConstraintSettingInfo(
+            label=root//:os,
+            default=None
+          ),
+          label=root//:macos
+        )
       ),
       key=root//:os
     )
@@ -92,7 +123,8 @@ root//:cpu (<unbound>):
     ConstraintSettingInfo(
       label=root//:cpu,
       default=None
-    )
+    ),
+    _ExecutionModifierInfo( execution_modifier=False )
   ])
 root//:arm (<unbound>):
   Providers([
@@ -119,12 +151,27 @@ root//:arm (<unbound>):
       values={}
     ),
     ConditionalModifierInfo(
-      inner=ConstraintValueInfo(
-        setting=ConstraintSettingInfo(
-          label=root//:cpu,
-          default=None
-        ),
-        label=root//:arm
+      inner=record[ModifiersMatchInfo](
+        selector=[ (
+          ConfigurationInfo(
+            constraints={ prelude//cfg/exec_platform/marker:is_exec_platform: ConstraintValueInfo(
+              setting=ConstraintSettingInfo(
+                label=prelude//cfg/exec_platform/marker:is_exec_platform,
+                default=prelude//cfg/exec_platform/marker:is_exec_platform[false]
+              ),
+              label=prelude//cfg/exec_platform/marker:is_exec_platform[true]
+            ) },
+            values={}
+          ),
+          None
+        ) ],
+        default=ConstraintValueInfo(
+          setting=ConstraintSettingInfo(
+            label=root//:cpu,
+            default=None
+          ),
+          label=root//:arm
+        )
       ),
       key=root//:cpu
     )
