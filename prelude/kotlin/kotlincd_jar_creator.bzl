@@ -142,6 +142,7 @@ def create_jar_artifact_kotlincd(
         debug_port,
         uses_content_based_paths,
         incremental_metadata_ignored_inputs_tag,
+        jar_postprocessor,
     )
 
     library_classpath_jars_tag = actions.artifact_tag()
@@ -219,6 +220,7 @@ def create_jar_artifact_kotlincd(
         jar_postprocessor_runner = java_toolchain.postprocessor_runner[RunInfo] if java_toolchain.postprocessor_runner else None,
         zip_scrubber = java_toolchain.zip_scrubber,
         uses_content_based_paths = uses_content_based_paths,
+        postprocessor_merged_into_compile_action = jar_postprocessor != None,
     )
 
     if not is_creating_subtarget:
@@ -439,6 +441,7 @@ def _define_kotlincd_action(
         debug_port: [int, None],
         uses_content_based_paths: bool,
         incremental_metadata_ignored_inputs_tag: ArtifactTag,
+        jar_postprocessor: [RunInfo, None],
         # end of factory provided
         category_prefix: str,
         actions_identifier: [str, None],
@@ -488,6 +491,11 @@ def _define_kotlincd_action(
 
     if incremental_state_dir:
         post_build_params["incrementalStateDir"] = incremental_state_dir.as_output()
+
+    if jar_postprocessor and target_type == TargetType("library"):
+        if "libraryJar" not in post_build_params:
+            post_build_params["libraryJar"] = output_paths.jar.as_output()
+        post_build_params["postProcessorCmd"] = cmd_args(jar_postprocessor, delimiter = " ")
 
     dep_files = {}
     used_jars_json_output = None

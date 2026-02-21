@@ -44,4 +44,5 @@ message PostBuildParams {
   string incrementalStateDir = 10;
   bool shouldCreateClassAbi = 11;
   string usedJarsFile = 12;
+  string postProcessorCmd = 13;
 }

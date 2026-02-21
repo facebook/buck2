@@ -26,6 +26,7 @@ class PostBuildParams(
     val incrementalStateDir: Path?,
     val shouldCreateClassAbi: Boolean,
     val usedJarsPath: Path?,
+    val postProcessorCmd: String?,
 ) {
   companion object {
     fun fromProto(model: PostBuildParamsProto): PostBuildParams =
@@ -41,6 +42,7 @@ class PostBuildParams(
             model.incrementalStateDir.takeIf { it.isNotEmpty() }?.let(Paths::get),
             model.shouldCreateClassAbi,
             model.usedJarsFile.takeIf { it.isNotEmpty() }?.let(Paths::get),
+            model.postProcessorCmd.takeIf { it.isNotEmpty() },
         )
   }
 }

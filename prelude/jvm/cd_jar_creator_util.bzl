@@ -447,9 +447,10 @@ def prepare_final_jar(
         jar_postprocessor: [RunInfo, None],
         jar_postprocessor_runner: RunInfo | None,
         zip_scrubber: RunInfo,
-        uses_content_based_paths: bool) -> FinalJarOutput:
+        uses_content_based_paths: bool,
+        postprocessor_merged_into_compile_action: bool = False) -> FinalJarOutput:
     def make_output(jar: Artifact) -> FinalJarOutput:
-        if jar_postprocessor:
+        if jar_postprocessor and not postprocessor_merged_into_compile_action:
             expect(jar_postprocessor_runner != None, "Must provide a jar_postprocessor_runner if jar_postprocessor is provided!")
             postprocessed_jar = postprocess_jar(actions, zip_scrubber, jar_postprocessor, jar_postprocessor_runner, jar, actions_identifier)
             return FinalJarOutput(final_jar = postprocessed_jar, preprocessed_jar = jar)
