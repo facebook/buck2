@@ -36,7 +36,6 @@ use futures::stream::BoxStream;
 use futures::stream::StreamExt;
 use futures::stream::TryStreamExt;
 use gazebo::prelude::*;
-use hyper_util::client::legacy::connect::HttpConnector;
 use lru::LruCache;
 use once_cell::sync::Lazy;
 use prost::Message;
@@ -90,17 +89,17 @@ use tonic::metadata;
 use tonic::metadata::MetadataKey;
 use tonic::metadata::MetadataValue;
 use tonic::service::Interceptor;
-use tonic::transport::Certificate;
 use tonic::transport::Channel;
-use tonic::transport::Identity;
-use tonic::transport::Uri;
-use tonic::transport::channel::ClientTlsConfig;
 
 use crate::error::*;
 use crate::metadata::*;
+use crate::pool::ChannelConfig;
+use crate::pool::ChannelPool;
+use crate::pool::PoolConfig;
+use crate::pool::PooledChannel;
+use crate::pool::create_channel;
 use crate::request::*;
 use crate::response::*;
-use crate::stats::CountingConnector;
 
 const DEFAULT_MAX_TOTAL_BATCH_SIZE: usize = 4 * 1000 * 1000;
 
@@ -155,78 +154,6 @@ fn ttimestamp_from(ts: Option<::prost_types::Timestamp>) -> TTimestamp {
         },
         None => TTimestamp::unix_epoch(),
     }
-}
-
-async fn create_tls_config(opts: &Buck2OssReConfiguration) -> anyhow::Result<ClientTlsConfig> {
-    let config = ClientTlsConfig::new().with_enabled_roots();
-
-    let config = match opts.tls_ca_certs.as_ref() {
-        Some(tls_ca_certs) => {
-            let tls_ca_certs =
-                substitute_env_vars(tls_ca_certs).context("Invalid `tls_ca_certs`")?;
-            let data = tokio::fs::read(&tls_ca_certs)
-                .await
-                .with_context(|| format!("Error reading `{tls_ca_certs}`"))?;
-            config.ca_certificate(Certificate::from_pem(data))
-        }
-        None => {
-            // We set the `tls-webpki-roots` feature so we'll get that default.
-            config
-        }
-    };
-
-    let config = match opts.tls_client_cert.as_ref() {
-        Some(tls_client_cert) => {
-            let tls_client_cert =
-                substitute_env_vars(tls_client_cert).context("Invalid `tls_client_cert`")?;
-            let data = tokio::fs::read(&tls_client_cert)
-                .await
-                .with_context(|| format!("Error reading `{tls_client_cert}`"))?;
-            config.identity(Identity::from_pem(&data, &data))
-        }
-        None => config,
-    };
-
-    Ok(config)
-}
-
-fn prepare_uri(uri: Uri, tls: bool) -> anyhow::Result<Uri> {
-    // Now do some awkward things with the protocol. Why do we do all this? The reason is
-    // because we'd like our configuration to not be super confusing. We don't want to e.g.
-    // allow setting the address to `https://foobar` without enabling TLS (or enabling tls
-    // and using `http://foobar`), so we restrict ourselves to schemes that are actually
-    // remotely valid in GRPC (which is more restrictive than what Tonic allows).
-
-    // This is the GRPC spec for naming: https://github.com/grpc/grpc/blob/master/doc/naming.md
-    // Many people (including Bazel), use grpc://, so we tolerate it.
-
-    match uri.scheme_str() {
-        Some("grpc") | Some("dns") | Some("ipv4") | Some("ipv6") | None => {}
-        Some(scheme) => {
-            return Err(anyhow::anyhow!(
-                "Invalid URI scheme: `{}` for `{}` (you should omit it)",
-                scheme,
-                uri,
-            ));
-        }
-    };
-
-    // And now, let's put back a proper scheme for Tonic to be happy with. First, because
-    // Tonic will blow up if we don't. Second, so we get port inference.
-    let mut parts = uri.into_parts();
-    parts.scheme = Some(if tls {
-        http::uri::Scheme::HTTPS
-    } else {
-        http::uri::Scheme::HTTP
-    });
-
-    // Is this API actually designed to be unusable? If you've got a scheme, you must
-    // have a path_and_query. I'm sure there's a good reason, so we abide:
-    if parts.path_and_query.is_none() {
-        parts.path_and_query = Some(http::uri::PathAndQuery::from_static(""));
-    }
-
-    Ok(Uri::from_parts(parts)?)
 }
 
 /// Contains information queried from the the Remote Execution Capabilities service.
@@ -300,66 +227,21 @@ pub struct REClientBuilder;
 
 impl REClientBuilder {
     pub async fn build_and_connect(opts: &Buck2OssReConfiguration) -> anyhow::Result<REClient> {
-        // We just always create this just in case, so that we implicitly validate it if set.
-        let tls_config = create_tls_config(opts)
+        // Create channel config once (reads TLS files)
+        let channel_config = ChannelConfig::new(opts)
             .await
-            .context("Invalid TLS config")?;
+            .context("Failed to create channel config")?;
 
-        let tls_config = &tls_config;
-
-        let create_channel = |address: Option<String>| async move {
-            let address = address.as_ref().context("No address")?;
-            let address = substitute_env_vars(address).context("Invalid address")?;
-            let uri = address.parse().context("Invalid address")?;
-            let uri = prepare_uri(uri, opts.tls).context("Invalid URI")?;
-
-            let mut endpoint = Channel::builder(uri);
-            if opts.tls {
-                endpoint = endpoint.tls_config(tls_config.clone())?;
-            }
-
-            // Configure gRPC keepalive settings
-            if let Some(keepalive_time_secs) = opts.grpc_keepalive_time_secs {
-                endpoint =
-                    endpoint.http2_keep_alive_interval(Duration::from_secs(keepalive_time_secs));
-            }
-            if let Some(keepalive_timeout_secs) = opts.grpc_keepalive_timeout_secs {
-                endpoint = endpoint.keep_alive_timeout(Duration::from_secs(keepalive_timeout_secs));
-            }
-            if let Some(keepalive_while_idle) = opts.grpc_keepalive_while_idle {
-                endpoint = endpoint.keep_alive_while_idle(keepalive_while_idle);
-            }
-
-            // Since we are creating the HttpConnector ourselves, any TCP
-            // settings (tcp_nodelay, tcp_keepalive, connect_timeout), need to
-            // be set here instead of on the endpoint
-            let mut http = HttpConnector::new();
-            http.enforce_http(false);
-            let connector = CountingConnector::new(http);
-
-            anyhow::Ok(
-                endpoint
-                    .connect_with_connector(connector)
-                    .await
-                    .with_context(|| format!("Error connecting to `{address}`"))?,
-            )
-        };
-
-        let (cas, execution, action_cache, bytestream, capabilities) = futures::future::join5(
-            create_channel(opts.cas_address.clone()),
-            create_channel(opts.engine_address.clone()),
-            create_channel(opts.action_cache_address.clone()),
-            create_channel(opts.cas_address.clone()),
-            create_channel(opts.engine_address.clone()),
-        )
-        .await;
+        // Create a single channel for fetching capabilities. Other channels are created
+        // on-demand through the connection pool.
+        let engine_address = opts.engine_address.as_ref().context("No engine address")?;
+        let capabilities_channel = create_channel(&channel_config, engine_address)
+            .context("Error creating Capabilities channel")?;
 
         let interceptor = InjectHeadersInterceptor::new(&opts.http_headers)?;
 
-        let mut capabilities_client = CapabilitiesClient::with_interceptor(
-            capabilities.context("Error creating Capabilities client")?,
-            interceptor.dupe(),
-        );
+        let mut capabilities_client =
+            CapabilitiesClient::with_interceptor(capabilities_channel, interceptor.dupe());
 
         if let Some(max_decoding_message_size) = opts.max_decoding_message_size {
             capabilities_client =
@@ -412,26 +294,25 @@ impl REClientBuilder {
             None
         };
 
-        let grpc_clients = GRPCClients {
-            cas_client: ContentAddressableStorageClient::with_interceptor(
-                cas.context("Error creating CAS client")?,
-                interceptor.dupe(),
-            )
-            .max_decoding_message_size(max_decoding_msg_size),
-            execution_client: ExecutionClient::with_interceptor(
-                execution.context("Error creating Execution client")?,
-                interceptor.dupe(),
-            ),
-            action_cache_client: ActionCacheClient::with_interceptor(
-                action_cache.context("Error creating ActionCache client")?,
-                interceptor.dupe(),
-            ),
-            bytestream_client: ByteStreamClient::with_interceptor(
-                bytestream.context("Error creating Bytestream client")?,
-                interceptor.dupe(),
-            )
-            .max_decoding_message_size(max_decoding_msg_size),
+        // Extract addresses
+        let cas_address = opts
+            .cas_address
+            .clone()
+            .context("No CAS address")?;
+        let action_cache_address = opts
+            .action_cache_address
+            .clone()
+            .context("No action cache address")?;
+
+        // Create connection pool
+        let min_connections = opts.min_connections.unwrap_or(1).max(1);
+        let max_connections = opts.max_connections.unwrap_or(100).max(min_connections);
+        let pool_config = PoolConfig {
+            min_connections,
+            max_connections,
+            max_concurrency_per_connection: opts.max_concurrency_per_connection.unwrap_or(100),
         };
+        let pool = ChannelPool::new(pool_config, channel_config);
 
         Ok(REClient::new(
             RERuntimeOpts {
@@ -441,15 +322,20 @@ impl REClientBuilder {
                 // on the TTL of the remote blob.
                 cas_ttl_secs: opts.cas_ttl_secs.unwrap_or(60),
             },
-            grpc_clients,
             capabilities,
             instance_name,
             bystream_compressor,
+            pool,
+            max_decoding_msg_size,
+            interceptor,
+            cas_address,
+            engine_address.clone(),
+            action_cache_address,
         ))
     }
 
     async fn fetch_rbe_capabilities(
-        client: &mut CapabilitiesClient<GrpcService>,
+        client: &mut CapabilitiesClient<InterceptedService<Channel, InjectHeadersInterceptor>>,
         instance_name: &InstanceName,
         max_total_batch_size: Option<usize>,
     ) -> anyhow::Result<RECapabilities> {
@@ -543,14 +429,7 @@ impl Interceptor for InjectHeadersInterceptor {
     }
 }
 
-type GrpcService = InterceptedService<Channel, InjectHeadersInterceptor>;
-
-pub struct GRPCClients {
-    cas_client: ContentAddressableStorageClient<GrpcService>,
-    execution_client: ExecutionClient<GrpcService>,
-    action_cache_client: ActionCacheClient<GrpcService>,
-    bytestream_client: ByteStreamClient<GrpcService>,
-}
+type GrpcService = InterceptedService<PooledChannel, InjectHeadersInterceptor>;
 
 #[derive(Debug, Copy, Clone)]
 enum DigestRemoteState {
@@ -587,12 +466,17 @@ impl FindMissingCache {
 
 pub struct REClient {
     runtime_opts: RERuntimeOpts,
-    grpc_clients: GRPCClients,
+    pool: ChannelPool,
     capabilities: RECapabilities,
     instance_name: InstanceName,
     // buck2 calls find_missing for same blobs
     find_missing_cache: Mutex<FindMissingCache>,
     bystream_compressor: Option<Compressor>,
+    max_decoding_msg_size: usize,
+    interceptor: InjectHeadersInterceptor,
+    cas_address: String,
+    engine_address: String,
+    action_cache_address: String,
 }
 
 impl Drop for REClient {
@@ -659,14 +543,19 @@ impl BatchUploadReqAggregator {
 impl REClient {
     fn new(
         runtime_opts: RERuntimeOpts,
-        grpc_clients: GRPCClients,
         capabilities: RECapabilities,
         instance_name: InstanceName,
         bystream_compressor: Option<Compressor>,
+        pool: ChannelPool,
+        max_decoding_msg_size: usize,
+        interceptor: InjectHeadersInterceptor,
+        cas_address: String,
+        engine_address: String,
+        action_cache_address: String,
     ) -> Self {
         REClient {
             runtime_opts,
-            grpc_clients,
+            pool,
             capabilities,
             instance_name,
             find_missing_cache: Mutex::new(FindMissingCache {
@@ -675,6 +564,11 @@ impl REClient {
                 last_check: Instant::now(),
             }),
             bystream_compressor,
+            max_decoding_msg_size,
+            interceptor,
+            cas_address,
+            engine_address,
+            action_cache_address,
         }
     }
 
@@ -683,7 +577,7 @@ impl REClient {
         metadata: RemoteExecutionMetadata,
         request: ActionResultRequest,
     ) -> anyhow::Result<ActionResultResponse> {
-        let mut client = self.grpc_clients.action_cache_client.clone();
+        let mut client = self.acquire_action_cache_client().await?;
 
         let res = client
             .get_action_result(with_re_metadata(
@@ -708,7 +602,7 @@ impl REClient {
         metadata: RemoteExecutionMetadata,
         request: WriteActionResultRequest,
     ) -> anyhow::Result<WriteActionResultResponse> {
-        let mut client = self.grpc_clients.action_cache_client.clone();
+        let mut client = self.acquire_action_cache_client().await?;
 
         let res = client
             .update_action_result(with_re_metadata(
@@ -738,7 +632,7 @@ impl REClient {
         // TODO(aloiscochard): Map those properly in the request
         // use crate::proto::build::bazel::remote::execution::v2::ExecutionPolicy;
 
-        let mut client = self.grpc_clients.execution_client.clone();
+        let mut client = self.acquire_execution_client().await?;
 
         let action_digest = tdigest_to(execute_request.action_digest.clone());
 
@@ -872,7 +766,7 @@ impl REClient {
             self.runtime_opts.max_concurrent_uploads_per_action,
             |re_request| async {
                 let metadata = metadata.clone();
-                let mut cas_client = self.grpc_clients.cas_client.clone();
+                let mut cas_client = self.acquire_cas_client().await?;
                 let resp = cas_client
                     .batch_update_blobs(with_re_metadata(
                         re_request,
@@ -884,7 +778,7 @@ impl REClient {
             },
             |segments| async {
                 let metadata = metadata.clone();
-                let mut bytestream_client = self.grpc_clients.bytestream_client.clone();
+                let mut bytestream_client = self.acquire_bytestream_client().await?;
                 let requests = futures::stream::iter(segments);
                 let resp = bytestream_client
                     .write(with_re_metadata(
@@ -937,7 +831,7 @@ impl REClient {
             self.capabilities.max_total_batch_size,
             |re_request| async {
                 let metadata = metadata.clone();
-                let mut client = self.grpc_clients.cas_client.clone();
+                let mut client = self.acquire_cas_client().await?;
                 Ok(client
                     .batch_read_blobs(with_re_metadata(
                         re_request,
@@ -950,7 +844,7 @@ impl REClient {
             |read_request| {
                 let metadata = metadata.clone();
                 async move {
-                    let mut client = self.grpc_clients.bytestream_client.clone();
+                    let mut client = self.acquire_bytestream_client().await?;
                     let response = client
                         .read(with_re_metadata(
                             read_request,
@@ -971,7 +865,7 @@ impl REClient {
         metadata: RemoteExecutionMetadata,
         request: GetDigestsTtlRequest,
     ) -> anyhow::Result<GetDigestsTtlResponse> {
-        let mut cas_client = self.grpc_clients.cas_client.clone();
+        let mut cas_client = self.acquire_cas_client().await?;
         let mut remote_results: HashMap<TDigest, DigestRemoteState> = HashMap::new();
         let mut digests_to_check: Vec<TDigest> = Vec::new();
 
@@ -1064,6 +958,42 @@ impl REClient {
 
     pub fn get_action_cache_client(&self) -> &Self {
         self
+    }
+
+    async fn acquire_bytestream_client(&self) -> anyhow::Result<ByteStreamClient<GrpcService>> {
+        let channel = self.pool.get(&self.cas_address).await?;
+        Ok(ByteStreamClient::new(InterceptedService::new(
+            channel,
+            self.interceptor.dupe(),
+        ))
+        .max_decoding_message_size(self.max_decoding_msg_size))
+    }
+
+    async fn acquire_cas_client(
+        &self,
+    ) -> anyhow::Result<ContentAddressableStorageClient<GrpcService>> {
+        let channel = self.pool.get(&self.cas_address).await?;
+        Ok(ContentAddressableStorageClient::new(InterceptedService::new(
+            channel,
+            self.interceptor.dupe(),
+        ))
+        .max_decoding_message_size(self.max_decoding_msg_size))
+    }
+
+    async fn acquire_execution_client(&self) -> anyhow::Result<ExecutionClient<GrpcService>> {
+        let channel = self.pool.get(&self.engine_address).await?;
+        Ok(ExecutionClient::new(InterceptedService::new(
+            channel,
+            self.interceptor.dupe(),
+        )))
+    }
+
+    async fn acquire_action_cache_client(&self) -> anyhow::Result<ActionCacheClient<GrpcService>> {
+        let channel = self.pool.get(&self.action_cache_address).await?;
+        Ok(ActionCacheClient::new(InterceptedService::new(
+            channel,
+            self.interceptor.dupe(),
+        )))
     }
 
     pub fn get_metrics_client(&self) -> &Self {
@@ -1309,7 +1239,6 @@ where
             let blob_reader = StreamReader::new(
                 p.map(|r| r.map(|rr| Cursor::new(rr.data)).map_err(io::Error::other)),
             );
-            // Wrap the blob reader in a compression reader
             let reader: Pin<Box<dyn AsyncRead + Unpin + Send>> = match bystream_compressor {
                 None => Pin::new(Box::new(blob_reader)),
                 Some(Compressor::Zstd) => {
