@@ -318,6 +318,9 @@ def get_language_version(ctx: AnalysisContext) -> str:
             else:
                 current_language_version = current_kotlin_release_version
     else:  # use K1
+        # K1 frontend is deprecated in Kotlin 2.3 and will be removed in future versions
+        if current_kotlin_release_version >= "2.3":
+            fail("K1 mode (k2=False) is not supported with Kotlin {}. The K1 frontend is deprecated in Kotlin 2.3 and will be removed in future releases. Please use K2 mode instead.".format(kotlin_toolchain.kotlin_version))
         if not current_language_version or current_language_version >= "2.0":
             if current_kotlin_release_version >= "2.0":
                 current_language_version = "1.9"
