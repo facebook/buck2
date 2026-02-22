@@ -1036,10 +1036,7 @@ def _pex_modules_args(
         # If content-based path hashing is enabled, we need to pass in the actual
         # bytecode artifacts alongside the manifest in order to replace the
         # placeholder "output_artifacts" portion of the path with the resolved hash.
-        # This isn't needed for inplace builds which symlink to original bytecode artifacts without path resolution.
-        inplace = package_style in [PackageStyle("inplace"), PackageStyle("inplace_lite")]
         if (
-            not inplace and
             getattr(ctx.attrs, "supports_pyc_content_based_paths", False) and
             ctx.attrs._python_toolchain[PythonToolchainInfo].supports_content_based_paths
         ):
