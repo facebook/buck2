@@ -25,7 +25,7 @@ def rust_protobuf_library(
         srcs,
         build_script,
         "buck2_protoc_dev",
-        "prost",
+        "0.12",
         protos,
         [
             "fbsource//third-party/rust:tonic-0-10",
@@ -59,7 +59,7 @@ def rust_protobuf_library_prost_0134(
         srcs,
         build_script,
         "buck2_protoc_dev-tonic-0-12-3",
-        "prost-0-13-4",
+        "0.13",
         protos,
         [
             "fbsource//third-party/rust:tonic-0-12",
@@ -82,7 +82,7 @@ def _rust_protobuf_library(
         srcs,
         build_script,
         buck2_protoc_dev,
-        versioned_prost_target,
+        prost_version,
         protos,
         deps,
         test_deps,
@@ -90,6 +90,10 @@ def _rust_protobuf_library(
         build_env,
         proto_srcs,
         crate_name):
+    versioned_prost_target = {
+        "0.12": "prost",
+        "0.13": "prost-0-13-4",
+    }[prost_version]
     build_name = name + "-build" + "-" + versioned_prost_target
     proto_name = name + "-proto" + "-" + versioned_prost_target
 
@@ -120,7 +124,10 @@ def _rust_protobuf_library(
         out = ".",
     )
 
-    new_deps = ["fbsource//third-party/rust:" + versioned_prost_target] + (deps or [])
+    new_deps = [{
+        "0.12": "fbsource//third-party/rust:prost-0-12",
+        "0.13": "fbsource//third-party/rust:prost-0-13-4",
+    }[prost_version]] + (deps or [])
 
     rust_library(
         name = name + "_" + versioned_prost_target,
