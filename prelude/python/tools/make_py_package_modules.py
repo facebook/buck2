@@ -55,6 +55,7 @@ import errno
 import json
 import os
 import platform
+import re
 import shutil
 from pathlib import Path
 from typing import Dict, Set, Tuple
@@ -68,6 +69,36 @@ _MODULE_SUFFIXES = {
     ".pyd",
     ".so",
 }
+
+_CONTENT_HASH_PLACEHOLDER: str = "/output_artifacts/"
+
+
+def create_pyc_hash_dict(args: argparse.Namespace) -> Dict[str, str]:
+    """Construct a map of bytecode artifact path prefixes to content hashes."""
+    pyc_hash_dict: Dict[str, str] = {}
+    if args.bytecode_artifacts:
+        pattern = re.compile(
+            r"(.*)/([a-fA-F0-9]{16})/(?:bytecode_CHECKED_HASH|bytecode_UNCHECKED_HASH)"
+        )
+        for bytecode_artifact in args.bytecode_artifacts:
+            with open(bytecode_artifact) as f:
+                for line in f:
+                    match = pattern.search(line)
+                    if match:
+                        prefix = match.group(1)
+                        content_hash = match.group(2)
+                        pyc_hash_dict[prefix] = content_hash
+    return pyc_hash_dict
+
+
+def replace_pyc_hash_placeholder(path: str, pyc_hash_dict: Dict[str, str]) -> str:
+    """Replace the placeholder string in a bytecode artifact path with the actual content hash."""
+    if _CONTENT_HASH_PLACEHOLDER in path:
+        prefix = path.split(_CONTENT_HASH_PLACEHOLDER)[0]
+        content_hash = pyc_hash_dict.get(prefix)
+        if content_hash:
+            path = path.replace(_CONTENT_HASH_PLACEHOLDER, f"/{content_hash}/")
+    return path
 
 
 def parse_args() -> argparse.Namespace:
@@ -151,6 +182,13 @@ def parse_args() -> argparse.Namespace:
         default=False,
         action="store_true",
         help="Copy files instead of symlinking them",
+    )
+    parser.add_argument(
+        "--bytecode-artifacts",
+        action="append",
+        dest="bytecode_artifacts",
+        default=[],
+        help="A file listing resolved bytecode artifact paths for content-based path resolution.",
     )
 
     return parser.parse_args()
@@ -253,6 +291,11 @@ def _lexists(path: Path) -> bool:
 def create_modules_dir(args: argparse.Namespace) -> None:
     args.modules_dir.mkdir(parents=True, exist_ok=True)
 
+    # Build a mapping of content-based path prefixes to resolved content hashes.
+    # This is used to replace placeholder "/output_artifacts/" paths in bytecode
+    # manifest entries with their actual content-hashed paths.
+    pyc_hash_dict = create_pyc_hash_dict(args)
+
     # Mapping of destination files -> the symlink target (e.g. "../foo")
     path_mapping: Dict[Path, Tuple[str, str]] = {}
     # Set of directories that need to be created in the link tree before
@@ -268,7 +311,7 @@ def create_modules_dir(args: argparse.Namespace) -> None:
         with open(manifest) as manifest_file:
             for dest, src, origin in json.load(manifest_file):
                 dest = Path(dest)
-                src = Path(src)
+                src = Path(replace_pyc_hash_placeholder(src, pyc_hash_dict))
 
                 # Add `__init__.py` files for all parent dirs (except the root).
                 if dest.suffix in _MODULE_SUFFIXES:
