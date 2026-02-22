@@ -10,7 +10,7 @@ rust_library(
     deps = [
         "fbsource//third-party/rust:async-trait",
         "fbsource//third-party/rust:itertools",
-        "fbsource//third-party/rust:prost-types-0-13-4",
+        "fbsource//third-party/rust:prost-types-0-13",
         "fbsource//third-party/rust:serde",
         "fbsource//third-party/rust:serde_json",
         "fbsource//third-party/rust:smallvec",

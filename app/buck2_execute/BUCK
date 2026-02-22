@@ -9,7 +9,7 @@ rust_library(
     ),
     test_deps = [
         "fbsource//third-party/rust:assert_matches",
-        "fbsource//third-party/rust:prost-types-0-13-4",
+        "fbsource//third-party/rust:prost-types-0-13",
     ],
     deps = [
         "fbsource//third-party/rust:anyhow",
@@ -31,7 +31,7 @@ rust_library(
         "fbsource//third-party/rust:itertools",
         "fbsource//third-party/rust:once_cell",
         "fbsource//third-party/rust:pathdiff",
-        "fbsource//third-party/rust:prost-0-13-4",
+        "fbsource//third-party/rust:prost-0-13",
         "fbsource//third-party/rust:ref-cast",
         "fbsource//third-party/rust:serde",
         "fbsource//third-party/rust:serde_json",

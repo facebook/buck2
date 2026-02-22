@@ -15,7 +15,7 @@ rust_library(
         "fbsource//third-party/rust:derivative",
         "fbsource//third-party/rust:derive_more",
         "fbsource//third-party/rust:futures",
-        "fbsource//third-party/rust:prost-types-0-13-4",
+        "fbsource//third-party/rust:prost-types-0-13",
         "fbsource//third-party/rust:tokio",
         "fbsource//third-party/rust:tonic-0-12",
         "fbsource//third-party/rust:tower-layer",

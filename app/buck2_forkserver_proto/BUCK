@@ -11,7 +11,7 @@ rust_protobuf_library_prost_0134(
     proto_srcs = ":buck2_forkserver_proto.proto",
     deps = [
         "fbsource//third-party/rust:derive_more",
-        "fbsource//third-party/rust:prost-types-0-13-4",
+        "fbsource//third-party/rust:prost-types-0-13",
         "//buck2/app/buck2_data:buck2_data",
         "//buck2/gazebo/gazebo:gazebo",
     ],

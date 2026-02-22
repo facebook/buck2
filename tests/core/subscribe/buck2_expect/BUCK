@@ -11,7 +11,7 @@ rust_binary(
         "fbsource//third-party/rust:anyhow",
         "fbsource//third-party/rust:clap",
         "fbsource//third-party/rust:futures",
-        "fbsource//third-party/rust:prost-0-13-4",
+        "fbsource//third-party/rust:prost-0-13",
         "fbsource//third-party/rust:tokio",
         "fbsource//third-party/rust:tokio-util",
         "//buck2/app/buck2_cli_proto:buck2_cli_proto",

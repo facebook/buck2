@@ -12,7 +12,7 @@ rust_protobuf_library_prost_0134(
     deps = [
         "fbsource//third-party/rust:derive_more",
         "fbsource//third-party/rust:hex",
-        "fbsource//third-party/rust:prost-types-0-13-4",
+        "fbsource//third-party/rust:prost-types-0-13",
         "fbsource//third-party/rust:serde",
         "//buck2/allocative/allocative:allocative",
         "//buck2/app/buck2_host_sharing_proto:buck2_host_sharing_proto",

@@ -126,7 +126,7 @@ def _rust_protobuf_library(
 
     new_deps = [{
         "0.12": "fbsource//third-party/rust:prost-0-12",
-        "0.13": "fbsource//third-party/rust:prost-0-13-4",
+        "0.13": "fbsource//third-party/rust:prost-0-13",
     }[prost_version]] + (deps or [])
 
     rust_library(

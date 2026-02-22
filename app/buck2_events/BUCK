@@ -16,7 +16,7 @@ rust_library(
         "fbsource//third-party/rust:hostname",
         "fbsource//third-party/rust:is_proc_translated",
         "fbsource//third-party/rust:pin-project",
-        # @oss-disable[end= ]: "fbsource//third-party/rust:prost-0-13-4",
+        # @oss-disable[end= ]: "fbsource//third-party/rust:prost-0-13",
         "fbsource//third-party/rust:serde",
         # @oss-disable[end= ]: "fbsource//third-party/rust:serde_json",
         "fbsource//third-party/rust:smallvec",

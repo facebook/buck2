@@ -24,7 +24,7 @@ rust_library(
         "fbsource//third-party/rust:once_cell",
         "fbsource//third-party/rust:parking_lot",
         "fbsource//third-party/rust:pin-project",
-        "fbsource//third-party/rust:prost-0-13-4",
+        "fbsource//third-party/rust:prost-0-13",
         "fbsource//third-party/rust:regex",
         "fbsource//third-party/rust:rusqlite",
         "fbsource//third-party/rust:tokio",
