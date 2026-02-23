@@ -18,6 +18,7 @@ def _select_platform():
         "DEFAULT": select({
             "DEFAULT": "android",
             "config//os/constraints:iphoneos": "ios",
+            "config//os/constraints:macos": "macos",
             "config//os/constraints:windows": "windows",
         }),
         "config//react-native:macos": "macos",
