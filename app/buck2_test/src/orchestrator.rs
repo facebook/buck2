@@ -18,6 +18,9 @@ use std::collections::HashMap;
 use std::collections::HashSet;
 use std::ffi::OsStr;
 use std::fmt::Display;
+use std::hash::DefaultHasher;
+use std::hash::Hash;
+use std::hash::Hasher;
 use std::ops::ControlFlow;
 use std::ops::DerefMut;
 use std::sync::Arc;
@@ -162,7 +165,6 @@ use indexmap::indexset;
 use itertools::Itertools;
 use sorted_vector_map::SortedVectorMap;
 use starlark::values::OwnedFrozenValueTyped;
-use uuid::Uuid;
 
 use crate::local_resource_api::LocalResourcesSetupResult;
 use crate::local_resource_registry::HasLocalResourceRegistry;
@@ -404,6 +406,7 @@ impl<'a> BuckTestOrchestrator<'a> {
             Cow::Borrowed(&pre_create_dirs),
             &test_executor.executor().executor_fs(),
             prefix,
+            &stage,
             options,
         )
         .boxed()
@@ -853,6 +856,7 @@ impl TestOrchestrator for BuckTestOrchestrator<'_> {
             Cow::Owned(pre_create_dirs),
             &test_executor.executor().executor_fs(),
             TestExecutionPrefix::new(&stage, &self.session),
+            &stage,
             self.session.options(),
         )
         .await?;
@@ -1390,9 +1394,10 @@ impl BuckTestOrchestrator<'_> {
         pre_create_dirs: Cow<'a, [DeclaredOutput]>,
         executor_fs: &ExecutorFs<'_>,
         prefix: TestExecutionPrefix,
+        stage: &TestStage,
         opts: TestSessionOptions,
     ) -> buck2_error::Result<ExpandedTestExecutable> {
-        let output_root = resolve_output_root(dice, test_target, prefix).await?;
+        let output_root = resolve_output_root(dice, test_target, prefix, stage).await?;
 
         let mut declared_outputs = IndexMap::<BuckOutTestPath, OutputCreationBehavior>::new();
 
@@ -1996,18 +2001,36 @@ async fn resolve_output_root(
     dice: &mut DiceComputations<'_>,
     test_target: &ConfiguredProvidersLabel,
     prefix: TestExecutionPrefix,
+    stage: &TestStage,
 ) -> Result<ForwardRelativePathBuf, buck2_error::Error> {
-    let output_root = match prefix {
-        TestExecutionPrefix::Listing => {
-            let resolver = dice.get_buck_out_path().await?;
+    // TODO(ianc) removed in next diff
+    let _prefix = prefix;
+    let resolver = dice.get_buck_out_path().await?;
+    let output_root = match stage {
+        TestStage::Listing { .. } => resolver
+            .resolve_test_discovery(test_target)?
+            .into_forward_relative_path_buf(),
+        TestStage::Testing {
+            testcases, variant, ..
+        } => {
+            let extra_info_path = if let Some(variant) = variant {
+                format!("{}/{}", variant, testcases.join("/"),)
+            } else {
+                testcases.join("/")
+            };
+            let mut hasher = DefaultHasher::new();
+            extra_info_path.hash(&mut hasher);
+            let extra_info_hashed = format!("{:016x}", hasher.finish());
+
             resolver
-                .resolve_test_discovery(test_target)?
+                .resolve_test_execution(
+                    test_target,
+                    &ForwardRelativePath::unchecked_new(&extra_info_hashed),
+                )?
                 .into_forward_relative_path_buf()
         }
-        TestExecutionPrefix::Testing(prefix) => prefix.join(ForwardRelativePathBuf::unchecked_new(
-            Uuid::new_v4().to_string(),
-        )),
     };
+
     Ok(output_root)
 }
 
