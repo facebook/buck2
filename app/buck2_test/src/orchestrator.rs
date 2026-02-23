@@ -918,10 +918,16 @@ impl TestOrchestrator for BuckTestOrchestrator<'_> {
         Ok(())
     }
 
-    async fn upload_to_cas(&self, _local_path: String) -> buck2_error::Result<CasDigest> {
-        Err(buck2_error::internal_error!(
-            "upload_to_cas not yet implemented"
-        ))
+    async fn upload_to_cas(&self, local_path: String) -> buck2_error::Result<CasDigest> {
+        let digest_config = self.dice.global_data().get_digest_config();
+        let re_digest = self
+            .re_client
+            .upload_local_file(&local_path, digest_config)
+            .await?;
+        Ok(CasDigest {
+            hash: re_digest.hash,
+            size_bytes: re_digest.size_in_bytes,
+        })
     }
 }
 #[derive(Allocative, Clone)]

@@ -12,15 +12,21 @@ use std::collections::HashSet;
 use std::sync::Arc;
 use std::sync::Mutex;
 
+use buck2_common::file_ops::metadata::FileDigest;
+use buck2_common::file_ops::metadata::FileDigestConfig;
+use buck2_core::execution_types::executor_config::RemoteExecutorUseCase;
 use buck2_error::Ok;
 use buck2_execute::artifact_value::ArtifactValue;
 use buck2_execute::digest::CasDigestToReExt;
+use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::directory::ActionDirectoryEntry;
 use buck2_execute::directory::ActionDirectoryMember;
 use buck2_execute::directory::ActionSharedDirectory;
 use buck2_execute::re::manager::UnconfiguredRemoteExecutionClient;
+use buck2_fs::paths::abs_path::AbsPathBuf;
 use buck2_test_api::data::RemoteStorageConfig;
 use dupe::Dupe;
+use remote_execution::NamedDigest;
 use remote_execution::TDigest;
 
 type CacheKey = TDigest;
@@ -79,6 +85,43 @@ impl ReClientWithCache {
             }
             _ => Ok(()),
         }
+    }
+
+    /// Upload a raw local file to CAS by its absolute path.
+    ///
+    /// Computes the file's digest, uploads it to CAS, and returns the RE digest.
+    /// Called by the `upload_to_cas` RPC handler when tpx requests CAS upload
+    /// of a local test artifact file.
+    pub async fn upload_local_file(
+        &self,
+        local_path: &str,
+        digest_config: DigestConfig,
+    ) -> buck2_error::Result<TDigest> {
+        let file_config = FileDigestConfig::build(digest_config.cas_digest_config());
+        let file_path = AbsPathBuf::new(local_path)?;
+        let tracked_digest =
+            tokio::task::spawn_blocking(move || FileDigest::from_file(&file_path, file_config))
+                .await??;
+        let re_digest = tracked_digest.to_re();
+
+        let managed_client = self
+            .client
+            .dupe()
+            .with_use_case(RemoteExecutorUseCase::buck2_default());
+
+        managed_client
+            .upload_files_and_directories(
+                vec![NamedDigest {
+                    name: local_path.to_owned(),
+                    digest: re_digest.clone(),
+                    ..Default::default()
+                }],
+                vec![],
+                vec![],
+            )
+            .await?;
+
+        Ok(re_digest)
     }
 }
 
