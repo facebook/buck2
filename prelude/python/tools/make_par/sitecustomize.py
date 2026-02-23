@@ -142,6 +142,7 @@ def __clear_env(patch_spawn: bool = True, patch_ctypes: bool = True) -> None:
 
     var_names = [
         "PYTHONPATH",
+        "PYTHONHOME",
         # We use this env var to tag the process and it's `multiprocessing`
         # workers.  It's important that we clear it out (so that unrelated sub-
         # processes don't inherit it), but it can be read via
