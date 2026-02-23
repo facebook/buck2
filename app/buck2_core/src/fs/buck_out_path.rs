@@ -386,12 +386,7 @@ impl BuckOutPathResolver {
 
     /// Resolve a test path
     pub fn resolve_test(&self, path: &BuckOutTestPath) -> ProjectRelativePathBuf {
-        ProjectRelativePathBuf::from(ForwardRelativePathBuf::concat([
-            self.buck_out_v2.as_forward_relative_path(),
-            ForwardRelativePath::new("test").unwrap(),
-            &path.base,
-            &path.path,
-        ]))
+        ProjectRelativePathBuf::from(path.base.join(&path.path))
     }
 
     /// Resolve a test path for test discovery
