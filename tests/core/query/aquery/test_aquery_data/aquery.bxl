@@ -176,3 +176,56 @@ action_deps = bxl_main(
     impl = _impl_action_deps,
     cli_args = {},
 )
+
+def _impl_atarget_set_test(ctx):
+    """Test bxl.atarget_set() creates a target set from ActionQueryNodes"""
+    nodes = ctx.aquery().eval("//:test")
+
+    # Get two action query nodes
+    node_a = nodes[0]
+    node_b = nodes[1]
+
+    # Create a target set from action query nodes
+    action_set = bxl.atarget_set([node_a, node_b])
+
+    # Verify it's a target_set type
+    _assert_eq(type(action_set), "target_set")
+
+    # Verify we can use it in further aquery operations
+    deps = ctx.aquery().deps(action_set, depth = 0)
+    _assert_eq(len(deps), 2)
+
+atarget_set_test = bxl_main(
+    impl = _impl_atarget_set_test,
+    cli_args = {},
+)
+
+def _impl_analysis_label_test(ctx):
+    """Test analysis.label() returns the configured providers label"""
+    nodes = ctx.aquery().eval("//:test")
+
+    # Find an analysis node by iterating through results
+    analysis = None
+    for node in nodes:
+        if node.rule_type == "analysis":
+            analysis = node.analysis()
+            break
+
+    if not analysis:
+        fail("No analysis node found in results")
+
+    _assert_eq(type(analysis), "bxl.AnalysisResult")
+
+    # Test the label() method
+    label = analysis.label()
+    _assert_eq(type(label), "Label")
+
+    # Verify it's a valid label (should contain the target)
+    label_str = str(label)
+    if "root//:test" not in label_str:
+        fail("Expected label to contain 'root//:test', got: {}".format(label_str))
+
+analysis_label_test = bxl_main(
+    impl = _impl_analysis_label_test,
+    cli_args = {},
+)
