@@ -1245,6 +1245,14 @@ def _precompile_single_cxx(
         has_content_based_path = True,
     )
 
+    # Declare stub artifact
+    stub_filename = "{}.pcm.stub".format(identifier)
+    stub = actions.declare_output(
+        "__pcm_files__",
+        stub_filename,
+        has_content_based_path = True,
+    )
+
     cmd = cmd_args(src_compile_cmd.cxx_compile_cmd.base_compile_cmd)
     if src_compile_cmd.cxx_compile_cmd.header_units_argsfile:
         cmd.add(src_compile_cmd.cxx_compile_cmd.header_units_argsfile.cmd_form)
@@ -1252,7 +1260,6 @@ def _precompile_single_cxx(
         cmd.add(src_compile_cmd.extra_argsfile.cmd_form)
     cmd.add(src_compile_cmd.cxx_compile_cmd.argsfile.cmd_form)
     cmd.add(src_compile_cmd.args)
-    cmd.add(["-o", module.as_output()])
 
     clang_trace = None
     if toolchain.clang_trace and toolchain.cxx_compiler_info.compiler_type == "clang":
@@ -1265,16 +1272,20 @@ def _precompile_single_cxx(
 
     # TODO(nml): We don't meaningfully support dep files. See T225373444.
     actions.run(
-        cmd,
+        cmd_args(cmd, "-o", module.as_output()),
         category = "cxx_modules_precompile",
         identifier = identifier,
         allow_cache_upload = src_compile_cmd.cxx_compile_cmd.allow_cache_upload,
         low_pass_filter = False,
     )
 
+    # TODO: Build the stub artifact correctly with stubs
+    actions.copy_file(stub.as_output(), module)
+
     return HeaderUnit(
         name = _get_module_name(target_label, group_name),
         module = module,
+        stub = stub,
         include_dir = src_compile_cmd.src,
         import_include = _get_import_filename(target_label, group_name) if impl_params.export_header_unit == "preload" else None,
         clang_trace = clang_trace,
@@ -1872,7 +1883,8 @@ def _mk_header_units_argsfile(
 
     # TODO(nml): Tag args with headers_tag.tag_artifacts() once -MD -MF reports correct
     # usage of PCMs. See T225373444 and _mk_header_units_argsfile() below.
-    args.add(preprocessor.set.project_as_args("header_units_args"))
+    projection_name = "header_unit_stubs_args" if stub else "header_units_args"
+    args.add(preprocessor.set.project_as_args(projection_name))
     file_args = cmd_args(args, quote = "shell")
     argsfile, _ = actions.write(
         file_name,

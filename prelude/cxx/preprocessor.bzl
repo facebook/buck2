@@ -53,6 +53,7 @@ CPreprocessorArgs = record(
 HeaderUnit = record(
     name = field(str),
     module = field(Artifact),
+    stub = field(Artifact | None),
     include_dir = field(Artifact),
     import_include = field(str | None),
     clang_trace = field(Artifact | None),
@@ -100,16 +101,24 @@ def _cpreprocessor_precompile_args(pres: list[CPreprocessor]):
         args.add(pre.args.precompile_args)
     return args
 
-def _cpreprocessor_header_units_args(pres: list[CPreprocessor]):
+def _cpreprocessor_header_units_args_impl(pres: list[CPreprocessor], stub: bool):
     args = cmd_args()
     for pre in pres:
         for h in pre.header_units:
-            args.add(cmd_args("-fmodule-file=", h.name, "=", h.module, delimiter = ""))
-            args.add(cmd_args(h.include_dir, format = "-I{}"))
-            args.add(cmd_args(h.include_dir, format = "-fmodule-map-file={}/module.modulemap"))
-            if h.import_include:
-                args.add(["-include", h.import_include])
+            artifact = h.stub if stub else h.module
+            if artifact:
+                args.add(cmd_args("-fmodule-file=", h.name, "=", artifact, delimiter = ""))
+                args.add(cmd_args(h.include_dir, format = "-I{}"))
+                args.add(cmd_args(h.include_dir, format = "-fmodule-map-file={}/module.modulemap"))
+                if h.import_include:
+                    args.add(["-include", h.import_include])
     return args
+
+def _cpreprocessor_header_units_args(pres: list[CPreprocessor]):
+    return _cpreprocessor_header_units_args_impl(pres, stub = False)
+
+def _cpreprocessor_header_unit_stubs_args(pres: list[CPreprocessor]):
+    return _cpreprocessor_header_units_args_impl(pres, stub = True)
 
 def _cpreprocessor_has_header_units_args(children: list[bool], pres: [list[CPreprocessor], None]):
     if pres:
@@ -149,6 +158,7 @@ CPreprocessorTSet = transitive_set(
     args_projections = {
         "args": _cpreprocessor_args,
         "file_prefix_args": _cpreprocessor_file_prefix_args,
+        "header_unit_stubs_args": _cpreprocessor_header_unit_stubs_args,
         "header_units_args": _cpreprocessor_header_units_args,
         "include_dirs": _cpreprocessor_include_dirs,
         "modular_args": _cpreprocessor_modular_args,
