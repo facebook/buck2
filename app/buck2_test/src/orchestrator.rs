@@ -128,6 +128,7 @@ use buck2_node::nodes::configured_frontend::ConfiguredTargetNodeCalculation;
 use buck2_resource_control::HasResourceControl;
 use buck2_test_api::data::ArgValue;
 use buck2_test_api::data::ArgValueContent;
+use buck2_test_api::data::CasDigest;
 use buck2_test_api::data::ConfiguredTargetHandle;
 use buck2_test_api::data::DeclaredOutput;
 use buck2_test_api::data::ExecuteResponse;
@@ -915,6 +916,12 @@ impl TestOrchestrator for BuckTestOrchestrator<'_> {
             .unbounded_send(Ok(ExecutorMessage::InfoMessage(message)))
             .map_err(|_| buck2_error::internal_error!("Message received after end-of-tests"))?;
         Ok(())
+    }
+
+    async fn upload_to_cas(&self, _local_path: String) -> buck2_error::Result<CasDigest> {
+        Err(buck2_error::internal_error!(
+            "upload_to_cas not yet implemented"
+        ))
     }
 }
 #[derive(Allocative, Clone)]

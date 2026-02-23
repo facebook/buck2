@@ -36,6 +36,8 @@ use buck2_test_proto::ReportTestResultRequest;
 use buck2_test_proto::ReportTestSessionRequest;
 use buck2_test_proto::ReportTestsDiscoveredRequest;
 use buck2_test_proto::Testing;
+use buck2_test_proto::UploadFileToCasRequest;
+use buck2_test_proto::UploadFileToCasResponse;
 use buck2_test_proto::test_orchestrator_client;
 use buck2_test_proto::test_orchestrator_server;
 use dupe::Dupe;
@@ -51,6 +53,7 @@ use tower_layer::Layer;
 use tracing::Level;
 
 use crate::data::ArgValue;
+use crate::data::CasDigest;
 use crate::data::ConfiguredTargetHandle;
 use crate::data::DeclaredOutput;
 use crate::data::ExecuteRequest2;
@@ -296,6 +299,18 @@ impl TestOrchestratorClient {
             .await?;
         Ok(())
     }
+
+    pub async fn upload_to_cas(&self, local_path: String) -> buck2_error::Result<CasDigest> {
+        let UploadFileToCasResponse { digest } = self
+            .test_orchestrator_client
+            .clone()
+            .upload_file_to_cas(UploadFileToCasRequest { local_path })
+            .await?
+            .into_inner();
+
+        let digest = digest.ok_or_else(|| internal_error!("Missing `digest`"))?;
+        Ok(digest)
+    }
 }
 
 struct TestOrchestratorService<T: TestOrchestrator> {
@@ -513,6 +528,26 @@ where
                 .buck_error_context("Failed to attach info messages")?;
 
             Ok(Empty {})
+        })
+        .await
+    }
+
+    async fn upload_file_to_cas(
+        &self,
+        request: tonic::Request<UploadFileToCasRequest>,
+    ) -> Result<tonic::Response<UploadFileToCasResponse>, tonic::Status> {
+        to_tonic(async move {
+            let UploadFileToCasRequest { local_path } = request.into_inner();
+
+            let digest = self
+                .inner
+                .upload_to_cas(local_path)
+                .await
+                .buck_error_context("Failed to upload file to CAS")?;
+
+            Ok(UploadFileToCasResponse {
+                digest: Some(digest),
+            })
         })
         .await
     }

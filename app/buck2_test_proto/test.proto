@@ -335,6 +335,15 @@ message AttachInfoMessageRequest {
   string message = 1;
 }
 
+message UploadFileToCasRequest {
+  // Absolute path to the local file to upload to CAS.
+  string local_path = 1;
+}
+
+message UploadFileToCasResponse {
+  CasDigest digest = 1;
+}
+
 message UnstableHeapDumpRequest {
   // The path to write the heap dump to. If this path is relative, it is made
   // absolute relative to the working directory of the daemon.
@@ -351,6 +360,7 @@ service TestOrchestrator {
   rpc PrepareForLocalExecution(PrepareForLocalExecutionRequest)
       returns (PrepareForLocalExecutionResponse);
   rpc AttachInfoMessage(AttachInfoMessageRequest) returns (Empty);
+  rpc UploadFileToCas(UploadFileToCasRequest) returns (UploadFileToCasResponse);
 }
 
 service TestExecutor {
