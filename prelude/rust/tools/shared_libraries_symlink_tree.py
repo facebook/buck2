@@ -45,6 +45,7 @@
 import argparse
 import json
 import os
+import sys
 from pathlib import Path
 from typing import IO, NamedTuple
 
@@ -88,6 +89,8 @@ def main():
 
     shared_libraries_info = json.load(args.shared_libraries_info_json)
 
+    seen: dict[str, str] = {}
+
     for shared_libraries in shared_libraries_info:
         for shared_library in shared_libraries:
             is_str, soname, output, dwp = shared_library
@@ -96,6 +99,19 @@ def main():
             else:
                 link_name = Path(soname).read_text().strip()
 
+            existing = seen.get(link_name)
+            if existing is not None:
+                if existing != output:
+                    print(
+                        f"Warning: Duplicate shared library {link_name}:\n"
+                        f"  first:  {existing}\n"
+                        f"  second: {output}\n"
+                        f"  Using the first one.",
+                        file=sys.stderr,
+                    )
+                continue
+
+            seen[link_name] = output
             target = output
 
             symlink_relative(args.shared_libs_symlink_tree / link_name, target)
