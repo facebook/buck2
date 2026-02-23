@@ -29,6 +29,7 @@ use buck2_error::internal_error;
 use buck2_execute::execute::request::OutputType;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
+use buck2_util::thin_box::ThinBoxSlice;
 use derivative::Derivative;
 use dupe::Dupe;
 use indexmap::IndexSet;
@@ -399,7 +400,7 @@ pub struct AnalysisValueStorage<'v> {
 pub struct FrozenAnalysisValueStorage {
     pub self_key: DeferredHolderKey,
     action_data: SmallMap<ActionIndex, (Option<FrozenValue>, Option<FrozenStarlarkCallable>)>,
-    transitive_sets: Vec<FrozenValueTyped<'static, FrozenTransitiveSet>>,
+    transitive_sets: ThinBoxSlice<FrozenValueTyped<'static, FrozenTransitiveSet>>,
     pub lambda_params: Box<dyn FrozenDynamicLambdaParamsStorage>,
     result_value: Option<FrozenValueTyped<'static, FrozenProviderCollection>>,
 }
@@ -450,7 +451,7 @@ impl<'v> Freeze for AnalysisValueStorage<'v> {
                     FrozenValueTyped::new_err(v.to_value().freeze(freezer)?)
                         .map_err(|e| FreezeError::new(e.to_string()))
                 })
-                .collect::<FreezeResult<_>>()?,
+                .collect::<FreezeResult<ThinBoxSlice<_>>>()?,
             lambda_params: lambda_params.freeze(freezer)?,
             result_value: result_value.freeze(freezer)?,
         })
@@ -654,7 +655,7 @@ impl RecordedAnalysisValues {
             value: FrozenAnalysisValueStorage {
                 self_key: self_key.dupe(),
                 action_data: SmallMap::new(),
-                transitive_sets: alloced_tsets,
+                transitive_sets: alloced_tsets.into_iter().collect(),
                 lambda_params: DYNAMIC_LAMBDA_PARAMS_STORAGES
                     .get()
                     .unwrap()
