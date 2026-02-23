@@ -186,6 +186,15 @@ load(
 #####################################################################
 # Operations
 
+def _get_use_header_units_mode(use_header_units: bool | str) -> UseHeaderUnitsMode:
+    """Convert the use_header_units attribute to UseHeaderUnitsMode enum."""
+    if use_header_units == True:
+        return UseHeaderUnitsMode("pcm")
+    elif use_header_units == "stub":
+        return UseHeaderUnitsMode("stub")
+    else:
+        return UseHeaderUnitsMode("none")
+
 def _get_shared_link_style_sub_targets_and_providers(
         output_style: LibOutputStyle,
         ctx: AnalysisContext,
@@ -233,7 +242,7 @@ def cxx_library_generate(ctx: AnalysisContext, rule_type: str) -> list[Provider]
         lang_compiler_flags = ctx.attrs.lang_compiler_flags,
         preprocessor_flags = ctx.attrs.preprocessor_flags,
         lang_preprocessor_flags = ctx.attrs.lang_preprocessor_flags,
-        use_header_units = UseHeaderUnitsMode("pcm") if ctx.attrs.use_header_units else UseHeaderUnitsMode("none"),
+        use_header_units = _get_use_header_units_mode(ctx.attrs.use_header_units),
         export_header_unit = ctx.attrs.export_header_unit,
         export_header_unit_filter = ctx.attrs.export_header_unit_filter,
         error_handler = get_cxx_toolchain_info(ctx).cxx_error_handler,
@@ -310,7 +319,7 @@ def cxx_binary_impl(ctx: AnalysisContext) -> list[Provider]:
         lang_compiler_flags = ctx.attrs.lang_compiler_flags,
         preprocessor_flags = ctx.attrs.preprocessor_flags,
         lang_preprocessor_flags = ctx.attrs.lang_preprocessor_flags,
-        use_header_units = UseHeaderUnitsMode("pcm") if ctx.attrs.use_header_units else UseHeaderUnitsMode("none"),
+        use_header_units = _get_use_header_units_mode(ctx.attrs.use_header_units),
         runtime_dependency_handling = cxx_attr_runtime_dependency_handling(ctx),
         error_handler = get_cxx_toolchain_info(ctx).cxx_error_handler,
         extra_dwp_flags = ctx.attrs.extra_dwp_flags,
@@ -962,7 +971,7 @@ def cxx_test_impl(ctx: AnalysisContext) -> list[Provider]:
         lang_compiler_flags = ctx.attrs.lang_compiler_flags,
         preprocessor_flags = ctx.attrs.preprocessor_flags,
         lang_preprocessor_flags = ctx.attrs.lang_preprocessor_flags,
-        use_header_units = UseHeaderUnitsMode("pcm") if ctx.attrs.use_header_units else UseHeaderUnitsMode("none"),
+        use_header_units = _get_use_header_units_mode(ctx.attrs.use_header_units),
         runtime_dependency_handling = cxx_attr_runtime_dependency_handling(ctx),
         error_handler = get_cxx_toolchain_info(ctx).cxx_error_handler,
         extra_dwp_flags = ctx.attrs.extra_dwp_flags,

@@ -1240,6 +1240,7 @@ def _precompile_single_cxx(
         group_name: str,
         src_compile_cmd: CxxSrcPrecompileCommand) -> HeaderUnit:
     identifier = src_compile_cmd.src.short_path
+    cxx_cmd = src_compile_cmd.cxx_compile_cmd
 
     filename = "{}.pcm".format(identifier)
     module = actions.declare_output(
@@ -1256,34 +1257,49 @@ def _precompile_single_cxx(
         has_content_based_path = True,
     )
 
-    cmd = cmd_args(src_compile_cmd.cxx_compile_cmd.base_compile_cmd)
-    if src_compile_cmd.cxx_compile_cmd.header_units_argsfile:
-        cmd.add(src_compile_cmd.cxx_compile_cmd.header_units_argsfile.cmd_form)
+    # Build actual header units
+    # TODO(nml): We don't meaningfully support dep files. See T225373444.
+    cmd = cmd_args(cxx_cmd.base_compile_cmd)
+    if cxx_cmd.header_units_argsfile:
+        cmd.add(cxx_cmd.header_units_argsfile.cmd_form)
     if src_compile_cmd.extra_argsfile:
         cmd.add(src_compile_cmd.extra_argsfile.cmd_form)
-    cmd.add(src_compile_cmd.cxx_compile_cmd.argsfile.cmd_form)
+    cmd.add(cxx_cmd.argsfile.cmd_form)
     cmd.add(src_compile_cmd.args)
+    cmd.add("-o", module.as_output())
 
     clang_trace = None
     if toolchain.clang_trace and toolchain.cxx_compiler_info.compiler_type == "clang":
-        cmd.add(["-ftime-trace"])
         clang_trace = actions.declare_output(
             paths.join("__pcm_files__", "{}.json".format(identifier)),
             has_content_based_path = True,
         )
-        cmd.add(cmd_args(hidden = clang_trace.as_output()))
+        cmd.add(cmd_args("-ftime-trace", hidden = clang_trace.as_output()))
 
-    # TODO(nml): We don't meaningfully support dep files. See T225373444.
     actions.run(
-        cmd_args(cmd, "-o", module.as_output()),
+        cmd,
         category = "cxx_modules_precompile",
         identifier = identifier,
-        allow_cache_upload = src_compile_cmd.cxx_compile_cmd.allow_cache_upload,
+        allow_cache_upload = cxx_cmd.allow_cache_upload,
         low_pass_filter = False,
     )
 
-    # TODO: Build the stub artifact correctly with stubs
-    actions.copy_file(stub.as_output(), module)
+    # Build the stub artifact using the stub_header_unit tool
+    stub_cmd = cmd_args(toolchain.internal_tools.stub_header_unit)
+    stub_cmd.add(cxx_cmd.base_compile_cmd)
+    if cxx_cmd.header_unit_stubs_argsfile:
+        stub_cmd.add(cmd_args(hidden = cxx_cmd.header_unit_stubs_argsfile.file))
+    stub_cmd.add(cxx_cmd.argsfile.cmd_form)
+    stub_cmd.add(src_compile_cmd.args)
+    stub_cmd.add("-o", stub.as_output())
+
+    actions.run(
+        stub_cmd,
+        category = "cxx_modules_precompile_stub",
+        identifier = identifier,
+        allow_cache_upload = cxx_cmd.allow_cache_upload,
+        low_pass_filter = False,
+    )
 
     return HeaderUnit(
         name = _get_module_name(target_label, group_name),

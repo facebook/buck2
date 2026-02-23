@@ -170,7 +170,7 @@ cxx_binary = prelude_rule(
             "thin_lto": attrs.bool(default = False),
             "version_universe": attrs.option(attrs.string(), default = None),
             "weak_framework_names": attrs.list(attrs.string(), default = []),
-            "use_header_units": attrs.bool(default = False),
+            "use_header_units": attrs.one_of(attrs.bool(), attrs.enum(["stub"]), default = False),
         } |
         buck.allow_cache_upload_arg() |
         buck.licenses_arg() |
@@ -510,11 +510,12 @@ library_attrs = (
         "uses_cxx_explicit_modules": attrs.bool(default = False),
         "version_universe": attrs.option(attrs.string(), default = None),
         "weak_framework_names": attrs.list(attrs.string(), default = []),
-        "use_header_units": attrs.bool(default = False, doc = """
+        "use_header_units": attrs.one_of(attrs.bool(), attrs.enum(["stub"]), default = False, doc = """
             If True, makes any header unit exported by a dependency (including
             recursively) through export_header_unit available to the compiler. If
             false, the compilation ignores header units, regardless of what is
-            exported by dependencies.
+            exported by dependencies. If "stub", uses stub header units instead
+            of full PCM files.
         """),
         "export_header_unit": attrs.option(attrs.enum(["include", "preload"]), default = None, doc = """
             If not None, export a C++20 header unit visible to dependants (including
@@ -925,11 +926,12 @@ cxx_test = prelude_rule(
             "use_default_test_main": attrs.option(attrs.bool(), default = None),
             "version_universe": attrs.option(attrs.string(), default = None),
             "weak_framework_names": attrs.list(attrs.string(), default = []),
-            "use_header_units": attrs.bool(default = False, doc = """
+            "use_header_units": attrs.one_of(attrs.bool(), attrs.enum(["stub"]), default = False, doc = """
                 If True, makes any header unit exported by a dependency (including
                 recursively) through export_header_unit available to the compiler. If
                 false, the compilation ignores header units, regardless of what is
-                exported by dependencies.
+                exported by dependencies. If "stub", uses stub header units instead
+                of full PCM files.
             """),
         } |
         buck.allow_cache_upload_arg() |

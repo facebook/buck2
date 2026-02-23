@@ -22,6 +22,7 @@ def _cxx_internal_tools_impl(ctx: AnalysisContext) -> list[Provider]:
             remap_cwd = ctx.attrs.remap_cwd[RunInfo],
             serialized_diagnostics_to_json_wrapper = ctx.attrs.serialized_diagnostics_to_json_wrapper[RunInfo],
             stderr_to_file = ctx.attrs.stderr_to_file[RunInfo],
+            stub_header_unit = ctx.attrs.stub_header_unit[RunInfo],
         ),
     ]
 
@@ -40,6 +41,7 @@ cxx_internal_tools = rule(
         "remap_cwd": attrs.dep(providers = [RunInfo], default = "prelude//cxx/tools:remap_cwd"),
         "serialized_diagnostics_to_json_wrapper": attrs.dep(providers = [RunInfo], default = "prelude//cxx/tools:serialized_diagnostics_to_json_wrapper"),
         "stderr_to_file": attrs.dep(providers = [RunInfo], default = "prelude//cxx/tools:stderr_to_file"),
+        "stub_header_unit": attrs.dep(providers = [RunInfo], default = "prelude//cxx/tools:stub_header_unit"),
     },
 )
 

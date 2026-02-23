@@ -185,6 +185,7 @@ CxxInternalTools = provider(fields = dict(
     remap_cwd = RunInfo,
     serialized_diagnostics_to_json_wrapper = RunInfo,
     stderr_to_file = RunInfo,
+    stub_header_unit = RunInfo,
 ))
 
 CxxObjectFormat = enum(
