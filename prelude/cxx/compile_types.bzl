@@ -92,6 +92,8 @@ CxxCompileCommand = record(
     xcode_argsfile = field(CompileArgsfile),
     # The argsfile containing header units args.
     header_units_argsfile = field(CompileArgsfile | None),
+    # The argsfile containing header unit stubs args.
+    header_unit_stubs_argsfile = field(CompileArgsfile | None),
     headers_dep_files = field([HeadersDepFiles, None]),
     compiler_type = field(str),
     # The action category

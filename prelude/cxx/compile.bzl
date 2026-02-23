@@ -1319,12 +1319,23 @@ def precompile_cxx(
             ext,
             has_content_based_path = True,
             filename_prefix = "pre_",
+            stub = False,
+        )
+        header_unit_stubs_argsfile = _mk_header_units_argsfile(
+            actions,
+            compiler_info,
+            header_preprocessor_info,
+            ext,
+            has_content_based_path = True,
+            filename_prefix = "pre_",
+            stub = True,
         )
         return CxxCompileCommand(
             base_compile_cmd = base_compile_cmd,
             argsfile = argsfile,
             xcode_argsfile = argsfile,  # Unused
             header_units_argsfile = header_units_argsfile,
+            header_unit_stubs_argsfile = header_unit_stubs_argsfile,
             headers_dep_files = None,
             compiler_type = compiler_info.compiler_type,
             category = "cxx_modules_precompile",
@@ -1830,7 +1841,8 @@ def _mk_header_units_argsfile(
         preprocessor: CPreprocessorInfo,
         ext: CxxExtension,
         filename_prefix: str = "",
-        has_content_based_path: bool = False) -> CompileArgsfile | None:
+        has_content_based_path: bool = False,
+        stub: bool = False) -> CompileArgsfile | None:
     """
     Generate and return an argsfile artifact containing all header unit options, and
     command args that utilize the argsfile.
@@ -1844,7 +1856,7 @@ def _mk_header_units_argsfile(
     if not preprocessor.set.reduce("has_header_units_args"):
         return None
 
-    file_name = "{}.{}header_units_args".format(ext.value, filename_prefix)
+    file_name = "{}.{}header_unit{}_args".format(ext.value, filename_prefix, "_stubs" if stub else "s")
     args = cmd_args()
     args.add([
         # TODO(nml): We only support Clang 17+, which don't need/want the extra -f
@@ -1946,6 +1958,17 @@ def _generate_base_compile_command(
         ext,
         filename_prefix,
         has_content_based_path = True,
+        stub = False,
+    )
+
+    header_unit_stubs_argsfile = _mk_header_units_argsfile(
+        actions,
+        compiler_info,
+        pre,
+        ext,
+        filename_prefix,
+        has_content_based_path = True,
+        stub = True,
     )
 
     allow_content_based_paths = bool(compiler_info.supports_content_based_paths and impl_params.use_content_based_paths)
@@ -1954,6 +1977,7 @@ def _generate_base_compile_command(
         argsfile = argsfile,
         xcode_argsfile = xcode_argsfile,
         header_units_argsfile = header_units_argsfile,
+        header_unit_stubs_argsfile = header_unit_stubs_argsfile,
         headers_dep_files = headers_dep_files,
         compiler_type = compiler_info.compiler_type,
         category = category,
