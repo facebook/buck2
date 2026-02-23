@@ -238,7 +238,8 @@ pub(crate) struct UnregisteredRunAction {
     pub(crate) weight: WeightClass,
     pub(crate) low_pass_filter: bool,
     pub(crate) dep_files: RunActionDepFiles,
-    pub(crate) metadata_param: Option<MetadataParameter>,
+    // Since this is usually None, use a Box to reduce memory.
+    pub(crate) metadata_param: Option<Box<MetadataParameter>>,
     pub(crate) no_outputs_cleanup: bool,
     pub(crate) incremental_remote_outputs: bool,
     pub(crate) allow_cache_upload: Option<bool>,

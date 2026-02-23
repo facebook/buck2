@@ -506,14 +506,14 @@ pub(crate) fn analysis_actions_methods_run(methods: &mut MethodsBuilder) {
             (Some(env_var), Some(path)) => {
                 let path: ForwardRelativePathBuf = path.try_into()?;
                 this.state()?.claim_output_path(eval, &path)?;
-                buck2_error::Ok(Some(MetadataParameter {
+                buck2_error::Ok(Some(Box::new(MetadataParameter {
                     env_var,
                     path,
                     ignore_tags: incremental_metadata_ignore_tags
                         .into_iter()
                         .map(|x| x.dupe())
                         .collect(),
-                }))
+                })))
             }
             (Some(_), None) => Err(RunActionError::MetadataPathMissing.into()),
             (None, Some(_)) => Err(RunActionError::MetadataEnvVarMissing.into()),
