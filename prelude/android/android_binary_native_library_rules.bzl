@@ -360,6 +360,10 @@ def get_android_binary_native_library_info(
                 native_library_merge_debug_outputs["merged_library_map.txt"] = merged_library_map
                 native_library_merge_debug_outputs["mergemap_gencode.jar"] = mergemap_gencode_jar
 
+                # Write the JNI_OnLoad mappings file (merged SO name -> constituent targets)
+                jni_on_load_mappings = write_jni_on_load_mappings(ctx, merged_shared_libs_by_platform)
+                native_library_merge_debug_outputs["jni_on_load_mappings.txt"] = jni_on_load_mappings
+
             ctx.actions.symlinked_dir(outputs[native_merge_debug], native_library_merge_debug_outputs)
 
             final_shared_libs_by_platform = {
@@ -1111,6 +1115,8 @@ MergedSharedLibrary = record(
     apk_module = str,
     # this only includes solib constituents that are included in the android merge map
     solib_constituents = list[str],
+    # targets that correspond to solib_constituents (i.e., targets with include_in_android_mergemap = True)
+    solib_constituent_targets = list[Label],
     is_actually_merged = bool,
     primary_constituents = list[Label],
 )
@@ -1178,6 +1184,49 @@ def run_mergemap_codegen(ctx: AnalysisContext, merge_generator: Dependency, merg
     args.add([merged_library_map, mapping_java.as_output()])
     ctx.actions.run(args, category = "mergemap_codegen", allow_cache_upload = True)
     return mapping_java
+
+def write_jni_on_load_mappings(ctx: AnalysisContext, shared_libs_by_platform: dict[str, dict[str, MergedSharedLibrary]]) -> Artifact:
+    """
+    Writes a mapping from merged library soname to the targets that are included in the android merge map.
+
+    This only includes targets with include_in_android_mergemap = True, which are the same targets
+    that appear in merged_library_map.txt.
+
+    The output format matches the merge sequence format:
+    ```
+    (
+        "libappdrivenaudiomerged.so",
+        [
+            "fbandroid/java/com/facebook/rsys/appdrivenaudio:appdrivenaudio-jni",
+            "fbandroid/java/com/facebook/rsys/audio/frame:frame-jni",
+        ],
+    ),
+    ```
+    """
+    solib_to_targets = {}  # dict[final_soname, list[str]]
+    for shared_libs in shared_libs_by_platform.values():
+        for soname, merged_shared_lib in shared_libs.items():
+            if not merged_shared_lib.is_actually_merged:
+                continue
+
+            # Only use solib_constituent_targets, which are targets with include_in_android_mergemap = True
+            solib_to_targets.setdefault(soname, set()).update(merged_shared_lib.solib_constituent_targets)
+
+    lines = []
+    for soname, targets in sorted(solib_to_targets.items()):
+        sorted_targets = sorted([t.raw_target() for t in targets])
+
+        # Format targets as a list with proper indentation
+        if len(sorted_targets) == 0:
+            targets_str = "[]"
+        elif len(sorted_targets) == 1:
+            targets_str = '["{}"]'.format(sorted_targets[0])
+        else:
+            target_lines = ",\n            ".join(['"{}"'.format(t) for t in sorted_targets])
+            targets_str = "[\n            {},\n        ]".format(target_lines)
+        lines.append('    (\n        "{}",\n        {},\n    ),'.format(soname, targets_str))
+
+    return ctx.actions.write("jni_on_load_mappings.txt", "\n".join(lines))
 
 # We can't merge a prebuilt shared (that has no archive) and must use it's original info.
 # Ideally this would probably be structured info on the linkablenode.
@@ -1445,6 +1494,7 @@ def _get_merged_linkables_for_platform(
                     lib = shared_lib,
                     apk_module = group_data.apk_module,
                     solib_constituents = [],
+                    solib_constituent_targets = [],
                     is_actually_merged = False,
                     primary_constituents = [target],
                 )
@@ -1458,6 +1508,7 @@ def _get_merged_linkables_for_platform(
             links.append(set_link_info_link_whole(glue_linkable[1]))
 
         solib_constituents = []
+        solib_constituent_targets = []
         group_deps = []
         group_exported_deps = []
         for key in group_data.constituents:
@@ -1472,6 +1523,7 @@ def _get_merged_linkables_for_platform(
                 included_default_solibs[soname] = True
                 if node.include_in_android_mergemap:
                     solib_constituents.append(soname)
+                    solib_constituent_targets.append(key)
 
             node = linkable_nodes[key]
             link_info = node.link_infos[archive_output_style].default
@@ -1547,6 +1599,7 @@ def _get_merged_linkables_for_platform(
             lib = shared_lib,
             apk_module = group_data.apk_module,
             solib_constituents = solib_constituents,
+            solib_constituent_targets = solib_constituent_targets,
             is_actually_merged = is_actually_merged,
             primary_constituents = group_data.constituents,
         )
