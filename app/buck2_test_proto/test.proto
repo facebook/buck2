@@ -338,6 +338,8 @@ message AttachInfoMessageRequest {
 message UploadFileToCasRequest {
   // Absolute path to the local file to upload to CAS.
   string local_path = 1;
+  // TTL and use-case configuration for the uploaded blob.
+  TtlConfig ttl_config = 2;
 }
 
 message UploadFileToCasResponse {

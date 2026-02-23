@@ -300,11 +300,22 @@ impl TestOrchestratorClient {
         Ok(())
     }
 
-    pub async fn upload_to_cas(&self, local_path: String) -> buck2_error::Result<CasDigest> {
+    pub async fn upload_to_cas(
+        &self,
+        local_path: String,
+        ttl_seconds: i64,
+        use_case: String,
+    ) -> buck2_error::Result<CasDigest> {
         let UploadFileToCasResponse { digest } = self
             .test_orchestrator_client
             .clone()
-            .upload_file_to_cas(UploadFileToCasRequest { local_path })
+            .upload_file_to_cas(UploadFileToCasRequest {
+                local_path,
+                ttl_config: Some(buck2_test_proto::TtlConfig {
+                    ttl_seconds,
+                    use_case,
+                }),
+            })
             .await?
             .into_inner();
 
@@ -537,11 +548,16 @@ where
         request: tonic::Request<UploadFileToCasRequest>,
     ) -> Result<tonic::Response<UploadFileToCasResponse>, tonic::Status> {
         to_tonic(async move {
-            let UploadFileToCasRequest { local_path } = request.into_inner();
+            let UploadFileToCasRequest {
+                local_path,
+                ttl_config,
+            } = request.into_inner();
+
+            let ttl_config = ttl_config.ok_or_else(|| internal_error!("Missing `ttl_config`"))?;
 
             let digest = self
                 .inner
-                .upload_to_cas(local_path)
+                .upload_to_cas(local_path, ttl_config.ttl_seconds, ttl_config.use_case)
                 .await
                 .buck_error_context("Failed to upload file to CAS")?;
 

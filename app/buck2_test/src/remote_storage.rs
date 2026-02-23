@@ -11,6 +11,7 @@
 use std::collections::HashSet;
 use std::sync::Arc;
 use std::sync::Mutex;
+use std::time::Duration;
 
 use buck2_common::file_ops::metadata::FileDigest;
 use buck2_common::file_ops::metadata::FileDigestConfig;
@@ -96,6 +97,8 @@ impl ReClientWithCache {
         &self,
         local_path: &str,
         digest_config: DigestConfig,
+        ttl_seconds: i64,
+        use_case: &str,
     ) -> buck2_error::Result<TDigest> {
         let file_config = FileDigestConfig::build(digest_config.cas_digest_config());
         let file_path = AbsPathBuf::new(local_path)?;
@@ -104,10 +107,9 @@ impl ReClientWithCache {
                 .await??;
         let re_digest = tracked_digest.to_re();
 
-        let managed_client = self
-            .client
-            .dupe()
-            .with_use_case(RemoteExecutorUseCase::buck2_default());
+        let re_use_case = RemoteExecutorUseCase::new(use_case.to_owned());
+
+        let managed_client = self.client.dupe().with_use_case(re_use_case);
 
         managed_client
             .upload_files_and_directories(
@@ -118,6 +120,13 @@ impl ReClientWithCache {
                 }],
                 vec![],
                 vec![],
+            )
+            .await?;
+
+        managed_client
+            .extend_digest_ttl(
+                vec![re_digest.clone()],
+                Duration::from_secs(ttl_seconds as u64),
             )
             .await?;
 

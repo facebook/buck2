@@ -110,7 +110,12 @@ pub trait TestOrchestrator: Send + Sync {
     ///
     /// This is called by tpx to upload local test artifacts to CAS instead of
     /// Everstore. Buck2 handles the actual CAS upload using its RE client.
-    async fn upload_to_cas(&self, local_path: String) -> buck2_error::Result<CasDigest>;
+    async fn upload_to_cas(
+        &self,
+        local_path: String,
+        ttl_seconds: i64,
+        use_case: String,
+    ) -> buck2_error::Result<CasDigest>;
 }
 
 // TODO need to figure out what this is. we can go without it for now
