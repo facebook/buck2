@@ -42,10 +42,10 @@ rust_library(
     ] + select({
         "DEFAULT": [],
         "ovr_config//os:linux": [
-            "fbsource//third-party/rust:hyperlocal-0-9",
+            "fbsource//third-party/rust:hyperlocal",
         ],
         "ovr_config//os:macos": [
-            "fbsource//third-party/rust:hyperlocal-0-9",
+            "fbsource//third-party/rust:hyperlocal",
         ],
     }),
 )
