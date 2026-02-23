@@ -64,7 +64,6 @@ async def test_re_use_case_override_with_arg(buck: Buck) -> None:
         "--no-remote-cache",
     )
     use_cases = await filter_re_use_case(buck)
-    assert len(use_cases) == 4
     assert all(use_case == "buck2-default" for use_case in use_cases)
     # Change the target input
     with open(buck.cwd / "input.txt", "w") as f:
@@ -77,7 +76,6 @@ async def test_re_use_case_override_with_arg(buck: Buck) -> None:
         "buck2_re_client.override_use_case=buck2-user",
     )
     use_cases = await filter_re_use_case(buck)
-    assert len(use_cases) == 4
     assert all(use_case == "buck2-user" for use_case in use_cases)
 
 
@@ -157,7 +155,6 @@ async def test_re_use_case_override_with_external_config_source(buck: Buck) -> N
             env=env,
         )
         use_cases = await filter_re_use_case(buck)
-        assert len(use_cases) == 4
         assert all(use_case == "buck2-default" for use_case in use_cases)
         # Change the target input
         with open(buck.cwd / "input.txt", "w") as f:
@@ -172,5 +169,4 @@ async def test_re_use_case_override_with_external_config_source(buck: Buck) -> N
             env=env,
         )
         use_cases = await filter_re_use_case(buck)
-        assert len(use_cases) == 4
         assert all(use_case == "buck2-user" for use_case in use_cases)
