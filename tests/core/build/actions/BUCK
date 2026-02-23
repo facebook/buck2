@@ -13,5 +13,11 @@ buck2_core_tests(
                 "CPE_RUST_X2P_SUPPORTS_VPNLESS": "0",
             },
         },
+        "test_run_action_timeout": {
+            "compatible_with": [
+                "ovr_config//os:linux",
+                "ovr_config//os:macos",
+            ],
+        },
     },
 )
