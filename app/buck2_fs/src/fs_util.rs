@@ -23,8 +23,10 @@ use std::path::Path;
 use std::path::PathBuf;
 
 pub use buck2_env::soft_error::soft_error;
+#[cfg(not(windows))]
 use buck2_error::BuckErrorContext;
 use buck2_error::buck2_error;
+#[cfg(not(windows))]
 use buck2_error::internal_error;
 use relative_path::RelativePath;
 use relative_path::RelativePathBuf;
@@ -166,7 +168,7 @@ fn symlink_impl(original: &Path, link: &AbsPath) -> Result<(), IoError> {
         if let Some(common_path) = common_path(&target_abspath, link) {
             let from_common = target_abspath
                 .strip_prefix(&common_path)
-                .map_err(|e| IoError::new(io::Error::new(io::ErrorKind::Other, e)))?;
+                .map_err(|e| IoError::new(io::Error::other(e)))?;
             let common_canonicalized = common_path.canonicalize().map_err(IoError::new)?;
             common_canonicalized.join(from_common)
         } else {
