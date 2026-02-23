@@ -400,7 +400,7 @@ impl BuckOutPathResolver {
         label: &ConfiguredProvidersLabel,
     ) -> buck2_error::Result<ProjectRelativePathBuf> {
         self.resolve_test_path(
-            &ForwardRelativePath::unchecked_new("test_discovery"),
+            &ForwardRelativePath::unchecked_new("test/discovery"),
             label,
             None,
         )
@@ -413,7 +413,7 @@ impl BuckOutPathResolver {
         extra_path: &ForwardRelativePath,
     ) -> buck2_error::Result<ProjectRelativePathBuf> {
         self.resolve_test_path(
-            &ForwardRelativePath::unchecked_new("test_execution"),
+            &ForwardRelativePath::unchecked_new("test/execution"),
             label,
             Some(extra_path),
         )
@@ -844,7 +844,7 @@ mod tests {
         let providers = ProvidersName::Default.push(ProviderName::new_unchecked("bar/baz".into()));
         let providers_label = ConfiguredProvidersLabel::new(cfg_target, providers);
         let result = path_resolver.resolve_test_discovery(&providers_label)?;
-        let expected_result = Regex::new("buck-out/test_discovery/foo/[0-9a-f]{16}/bar\\+baz")?;
+        let expected_result = Regex::new("buck-out/test/discovery/foo/[0-9a-f]{16}/bar\\+baz")?;
         assert!(expected_result.is_match(result.as_str()));
         Ok(())
     }
@@ -865,7 +865,7 @@ mod tests {
         let extra_path = ForwardRelativePath::unchecked_new("extra_info_hash");
         let result = path_resolver.resolve_test_execution(&providers_label, extra_path)?;
         let expected_result =
-            Regex::new("buck-out/test_execution/foo/[0-9a-f]{16}/extra_info_hash/bar\\+baz")?;
+            Regex::new("buck-out/test/execution/foo/[0-9a-f]{16}/extra_info_hash/bar\\+baz")?;
         assert!(expected_result.is_match(result.as_str()));
         Ok(())
     }
