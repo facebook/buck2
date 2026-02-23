@@ -70,8 +70,6 @@ CompileContext = record(
     #     unstable `-Zpre-link-arg` for that, but until that stabilizes, we pass them from within
     #     this script.
     linker_with_pre_args = field(cmd_args),
-    # The same pre-args, not wrapped in a script
-    linker_pre_args = field(cmd_args),
     path_sep = field(str),
     # Dylib name override, if any was provided by the target's `soname` attribute.
     soname = field(str | None),
@@ -88,7 +86,7 @@ def compile_context(ctx: AnalysisContext, binary: bool = False) -> CompileContex
     internal_tools_info = ctx.attrs._rust_internal_tools_toolchain[RustInternalToolsInfo]
     cxx_toolchain_info = get_cxx_toolchain_info(ctx)
 
-    linker_with_pre_args, linker_pre_args = _linker(ctx, cxx_toolchain_info.linker_info, binary = binary)
+    linker_with_pre_args = _linker(ctx, cxx_toolchain_info.linker_info, binary = binary)
     clippy_wrapper = _clippy_wrapper(ctx, toolchain_info)
 
     dep_ctx = DepCollectionContext(
@@ -126,7 +124,6 @@ def compile_context(ctx: AnalysisContext, binary: bool = False) -> CompileContex
         exec_is_windows = exec_is_windows,
         internal_tools_info = internal_tools_info,
         linker_with_pre_args = linker_with_pre_args,
-        linker_pre_args = linker_pre_args,
         path_sep = path_sep,
         soname = _attr_soname(ctx),
         symlinked_srcs = symlinked_srcs(ctx),
@@ -138,8 +135,9 @@ def compile_context(ctx: AnalysisContext, binary: bool = False) -> CompileContex
 def _linker(
         ctx: AnalysisContext,
         linker_info: LinkerInfo,
-        binary: bool = False) -> (cmd_args, cmd_args):
-    pre_args = cmd_args(
+        binary: bool = False) -> cmd_args:
+    linker = cmd_args(
+        linker_info.linker,
         linker_info.linker_flags or [],
         # For "binary" rules, add C++ toolchain binary-specific linker flags.
         # TODO(agallagher): This feels a bit wrong -- it might be better to have
@@ -153,12 +151,9 @@ def _linker(
     return cmd_script(
         actions = ctx.actions,
         name = "linker_wrapper",
-        cmd = cmd_args(
-            linker_info.linker,
-            pre_args,
-        ),
+        cmd = linker,
         language = ctx.attrs._exec_os_type[OsLookup].script,
-    ), pre_args
+    )
 
 # Return wrapper script for clippy-driver to make sure sysroot is set right
 # We need to make sure clippy is using the same sysroot - compiler, std libraries -
