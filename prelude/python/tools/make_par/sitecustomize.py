@@ -14,6 +14,7 @@ from __future__ import annotations
 import itertools
 import multiprocessing.util as mp_util
 import os
+import subprocess
 import sys
 import threading
 import warnings
@@ -137,7 +138,50 @@ def __patch_spawn_preparation_data() -> None:
     mp_spawn.get_preparation_data = get_preparation_data
 
 
-def __clear_env(patch_spawn: bool = True, patch_ctypes: bool = True) -> None:
+def __patch_subprocess_run() -> None:
+    std_run = subprocess.run
+
+    # pyre-fixme[2]: Parameter must be annotated.
+    # pyre-fixme[53]: Captured variable `std_run` is not annotated.
+    def _patched_run(args, env=None, **kwargs) -> None:
+        if (
+            args
+            and isinstance(args, (list, tuple))
+            # We use is for a few reasons:
+            # 1) It's super conservative, you must literally be passing sys.executable
+            # 2) We don't need to worry about checking the type if you're passing a path
+            and args[0] is sys.executable
+            and (env is None or "PYTHONPATH" not in env)
+            and (env is None or "PYTHONHOME" not in env)
+        ):
+            # make subprocess.run work with par files when invoking sys.executable
+            if env is None:
+                env = os.environ.copy()
+            # Resolve /proc/self/fd/<N> paths (used by fastzip PARs) to real
+            # filesystem paths so the child process can find modules (including
+            # sitecustomize.py which clears PYTHONHOME).
+            resolved_path = []
+            for entry in sys.path:
+                if entry.startswith("/proc/self/fd/"):
+                    try:
+                        resolved_path.append(os.readlink(entry))
+                    except OSError:
+                        resolved_path.append(entry)
+                else:
+                    resolved_path.append(entry)
+            env["PYTHONPATH"] = os.path.pathsep.join(resolved_path)
+            env["PYTHONHOME"] = sys.prefix
+
+        return std_run(args, env=env, **kwargs)
+
+    subprocess.run = _patched_run
+
+
+def __clear_env(
+    patch_spawn: bool = True,
+    patch_ctypes: bool = True,
+    patch_subprocess_run: bool = True,
+) -> None:
     saved_env = {}
 
     var_names = [
@@ -181,6 +225,9 @@ def __clear_env(patch_spawn: bool = True, patch_ctypes: bool = True) -> None:
 
     if patch_ctypes:
         __patch_ctypes(saved_env)
+
+    if patch_subprocess_run:
+        __patch_subprocess_run()
 
 
 def __startup__() -> None:
