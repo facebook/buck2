@@ -48,7 +48,7 @@ def _build_release(ctx: AnalysisContext, apps: ErlAppDependencies) -> dict[str, 
     # erts
     maybe_erts = _build_erts(ctx, toolchain)
 
-    maybe_boot_scripts = _build_boot_script(ctx, toolchain, lib_dir["lib"])
+    maybe_boot_scripts = _build_boot_scripts(ctx, toolchain, lib_dir["lib"])
 
     # start_erl.data for releases with bundled ERTS
     maybe_start_erl_data = _build_start_erl_data(ctx, toolchain)
@@ -97,7 +97,34 @@ def build_lib_dir(
     )
     return {"lib": lib_dir}
 
-def _build_boot_script(
+def _build_boot_scripts(
+        ctx: AnalysisContext,
+        toolchain: Toolchain,
+        lib_dir: Artifact) -> dict[str, Artifact]:
+    link_spec = {}
+
+    if ctx.attrs.generate_default_bootscript:
+        maybe_default_boot_script = _build_default_boot_scripts(ctx, toolchain, lib_dir)
+        link_spec.update(maybe_default_boot_script)
+
+    # write applications spec to file
+    data = [
+        _app_info_to_data(app_info)
+        for app_info in ctx.attrs.applications
+    ]
+    spec_file = ctx.actions.write_json(
+        paths.join(erlang_build.utils.BUILD_DIR, "bootscripts", "applications_json"),
+        data,
+    )
+
+    for script_name, builder in ctx.attrs.bootscript_builders.items():
+        builder_args = builder[RunInfo].args
+        custom_boot_script_spec = _build_custom_boot_scripts(ctx, toolchain, spec_file, script_name, builder_args, lib_dir)
+        link_spec.update(custom_boot_script_spec)
+
+    return link_spec
+
+def _build_default_boot_scripts(
         ctx: AnalysisContext,
         toolchain: Toolchain,
         lib_dir: Artifact) -> dict[str, Artifact]:
@@ -193,6 +220,39 @@ def _build_boot_script(
         paths.join("releases", ctx.attrs.version, file): scripts_dir.project(file)
         for file in boot_files
     }
+
+def _build_custom_boot_scripts(
+        ctx: AnalysisContext,
+        toolchain: Toolchain,
+        spec_file: Artifact,
+        script_name: str,
+        builder: cmd_args,
+        lib_dir: Artifact) -> dict[str, Artifact]:
+    boot_script = ctx.actions.declare_output(paths.join(erlang_build.utils.BUILD_DIR, "bootscripts", script_name))
+    raw_script_name = paths.replace_extension(script_name, ".script")
+    raw_script = ctx.actions.declare_output(paths.join(erlang_build.utils.BUILD_DIR, "bootscripts", raw_script_name))
+
+    erlang_build.utils.run_with_env(
+        ctx,
+        toolchain,
+        cmd_args(builder, spec_file, lib_dir, boot_script.as_output(), raw_script.as_output()),
+        category = "build_custom_boot_script",
+        identifier = script_name,
+    )
+
+    return {
+        paths.join("releases", ctx.attrs.version, script_name): boot_script,
+        paths.join("releases", ctx.attrs.version, raw_script_name): raw_script,
+    }
+
+def _app_info_to_data(app_info: Dependency | (Dependency, str)) -> (str, str):
+    if type(app_info) == "tuple":
+        app_info, start_type = app_info
+    else:
+        start_type = "permanent"
+
+    erlang_app = app_info[ErlangAppInfo]
+    return (erlang_app.name, start_type)
 
 def _build_overlays(ctx: AnalysisContext) -> dict[str, Artifact]:
     installed = {}

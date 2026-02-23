@@ -217,6 +217,17 @@ rules_attributes = {
                 type. Top-level applications without given start type are started with type
                 [`permanent`](https://www.erlang.org/doc/man/application.html#type-restart_type).
             """),
+        "bootscript_builders": attrs.dict(key = attrs.string(), value = attrs.dep(), default = {}, doc = """
+                The mapping listed here maps from boot script name (e.g. "start.boot") to a binary (e.g. "$(location ...)") generating the boot script.
+                The binary receives three input arguments:
+                1. path of to a json file containing the applications, i.e. `["app1", ("app2", "load"), ...]`
+                2. the location of the lib dir containing the <app>_<version> folders
+                3. the output location of the boot script
+                4. the output location of the script file
+                """),
+        "generate_default_bootscript": attrs.bool(default = True, doc = """
+                This attribute controls wether the default bootscript should be generated with OTP's systools.
+                """),
         "include_erts": attrs.bool(default = False, doc = """
                 This field controls whether OTP applications and the Erlang runtime system should be included as part of the release.
                 Please note, that at the moment the erts folder is just `erts/`.
