@@ -128,13 +128,18 @@ impl ReDirectorySerializer {
                         digest: Some(d.as_fingerprinted_dyn().fingerprint().to_grpc()),
                     });
                 }
+                // OSS vs internal divergence.
+                #[allow(clippy::needless_update)]
                 DirectoryEntry::Leaf(ActionDirectoryMember::File(f)) => {
                     files.push(RE::FileNode {
                         name: name.as_str().into(),
                         digest: Some(f.digest.to_grpc()),
                         is_executable: f.is_executable,
+                        ..Default::default()
                     });
                 }
+                // OSS vs internal divergence.
+                #[allow(clippy::needless_update)]
                 DirectoryEntry::Leaf(ActionDirectoryMember::Symlink(s)) => {
                     let target = if let Some(renamer) = directory_renamer {
                         let mut target = None;
@@ -151,12 +156,16 @@ impl ReDirectorySerializer {
                     symlinks.push(RE::SymlinkNode {
                         name: name.as_str().into(),
                         target,
+                        ..Default::default()
                     });
                 }
+                // OSS vs internal divergence.
+                #[allow(clippy::needless_update)]
                 DirectoryEntry::Leaf(ActionDirectoryMember::ExternalSymlink(s)) => {
                     symlinks.push(RE::SymlinkNode {
                         name: name.as_str().into(),
                         target: s.target_str().to_owned(),
+                        ..Default::default()
                     });
                 }
             }
@@ -178,10 +187,13 @@ impl ReDirectorySerializer {
         });
         symlinks.sort_by(|a, b| a.name.cmp(&b.name));
 
+        // OSS vs internal divergence.
+        #[allow(clippy::needless_update)]
         RE::Directory {
             files,
             directories,
             symlinks,
+            ..Default::default()
         }
     }
 
