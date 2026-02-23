@@ -36,6 +36,7 @@ load(":argsfiles.bzl", "CompileArgsfiles")
 load(
     ":compile_types.bzl",
     "IndexStoreFactory",
+    "UseHeaderUnitsMode",
 )
 load(
     ":cxx_sources.bzl",
@@ -258,7 +259,7 @@ CxxRuleConstructorParams = record(
     # Swift index stores to propagate
     index_stores = field(list[Artifact] | None, None),
     # Whether to add header units from dependencies to the command line.
-    use_header_units = field(bool, False),
+    use_header_units = field(UseHeaderUnitsMode, UseHeaderUnitsMode("none")),
     # Whether to export a header unit to all dependents.
     export_header_unit = field([str, None], None),
     # Filter what headers to include in header units.

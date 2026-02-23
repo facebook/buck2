@@ -13,6 +13,10 @@ load(
 )
 load("@prelude//apple:resource_groups.bzl", "create_resource_graph")
 load(
+    "@prelude//cxx:compile_types.bzl",
+    "UseHeaderUnitsMode",
+)
+load(
     "@prelude//cxx:cuda.bzl",
     "CudaCompileStyle",
 )
@@ -229,7 +233,7 @@ def cxx_library_generate(ctx: AnalysisContext, rule_type: str) -> list[Provider]
         lang_compiler_flags = ctx.attrs.lang_compiler_flags,
         preprocessor_flags = ctx.attrs.preprocessor_flags,
         lang_preprocessor_flags = ctx.attrs.lang_preprocessor_flags,
-        use_header_units = ctx.attrs.use_header_units,
+        use_header_units = UseHeaderUnitsMode("pcm") if ctx.attrs.use_header_units else UseHeaderUnitsMode("none"),
         export_header_unit = ctx.attrs.export_header_unit,
         export_header_unit_filter = ctx.attrs.export_header_unit_filter,
         error_handler = get_cxx_toolchain_info(ctx).cxx_error_handler,
@@ -306,7 +310,7 @@ def cxx_binary_impl(ctx: AnalysisContext) -> list[Provider]:
         lang_compiler_flags = ctx.attrs.lang_compiler_flags,
         preprocessor_flags = ctx.attrs.preprocessor_flags,
         lang_preprocessor_flags = ctx.attrs.lang_preprocessor_flags,
-        use_header_units = ctx.attrs.use_header_units,
+        use_header_units = UseHeaderUnitsMode("pcm") if ctx.attrs.use_header_units else UseHeaderUnitsMode("none"),
         runtime_dependency_handling = cxx_attr_runtime_dependency_handling(ctx),
         error_handler = get_cxx_toolchain_info(ctx).cxx_error_handler,
         extra_dwp_flags = ctx.attrs.extra_dwp_flags,
@@ -958,7 +962,7 @@ def cxx_test_impl(ctx: AnalysisContext) -> list[Provider]:
         lang_compiler_flags = ctx.attrs.lang_compiler_flags,
         preprocessor_flags = ctx.attrs.preprocessor_flags,
         lang_preprocessor_flags = ctx.attrs.lang_preprocessor_flags,
-        use_header_units = ctx.attrs.use_header_units,
+        use_header_units = UseHeaderUnitsMode("pcm") if ctx.attrs.use_header_units else UseHeaderUnitsMode("none"),
         runtime_dependency_handling = cxx_attr_runtime_dependency_handling(ctx),
         error_handler = get_cxx_toolchain_info(ctx).cxx_error_handler,
         extra_dwp_flags = ctx.attrs.extra_dwp_flags,

@@ -50,6 +50,22 @@ HeaderExtension = enum(
     ".cuh",
 )
 
+# Mode for using header units in compilation
+UseHeaderUnitsMode = enum(
+    # Don't use header units
+    "none",
+    # Use full precompiled modules (.pcm files)
+    "pcm",
+    # Use module stubs (.pcm.stub files): those are not directly used in the compilation
+    # command line; instead, they are inert stand-ins that behave like real PCM files,
+    # cache-wise (i.e. expected to be cached when real PCM files would be cached, and
+    # rebuilt when PCM files would be). You can enable these to trace and model the
+    # behaviour of module-enabled builds before actually migrating to them. This steps
+    # helps estimate the overhead of precompiling modules in terms of additional
+    # uncached Buck actions.
+    "stub",
+)
+
 # File types for dep files
 DepFileType = enum(
     "cpp",

@@ -21,6 +21,7 @@ load(
     "DepFileType",
     "HeaderExtension",
     "HeadersDepFiles",
+    "UseHeaderUnitsMode",
 )
 load(
     "@prelude//cxx:cuda.bzl",
@@ -343,7 +344,7 @@ def _prepare_cxx_compilation(
         src_compile_cmd: CxxSrcCompileCommand,
         flavors: set[CxxCompileFlavor],
         provide_syntax_only: bool,
-        use_header_units: bool,
+        use_header_units: UseHeaderUnitsMode,
         separate_debug_info: bool,
         cuda_compile_style: CudaCompileStyle | None,
         compile_pch: CxxPrecompiledHeader | None) -> CxxCompileInput:
@@ -358,7 +359,7 @@ def _prepare_cxx_compilation(
     filename_base = short_path
     identifier = short_path
 
-    if src_compile_cmd.cxx_compile_cmd.category == "cxx_compile" and use_header_units and src_compile_cmd.cxx_compile_cmd.header_units_argsfile:
+    if src_compile_cmd.cxx_compile_cmd.category == "cxx_compile" and use_header_units == UseHeaderUnitsMode("pcm") and src_compile_cmd.cxx_compile_cmd.header_units_argsfile:
         identifier += " (modular)"
 
     for flavor in flavors:
@@ -536,7 +537,7 @@ def _compile_single_cxx(
         compile_pch: CxxPrecompiledHeader | None,
         precompiled_header: Dependency | None,
         cuda_compile_style: CudaCompileStyle | None,
-        use_header_units: bool,
+        use_header_units: UseHeaderUnitsMode,
         # CxxCompileInfo fields
         info: CxxCompileInfo,
         # Output artifacts
@@ -808,7 +809,7 @@ def _get_base_compile_cmd(
         flavors: set[CxxCompileFlavor],
         flavor_flags: dict[str, list[str]],
         output_args: list | None = None,
-        use_header_units: bool = False) -> cmd_args:
+        use_header_units: UseHeaderUnitsMode = UseHeaderUnitsMode("none")) -> cmd_args:
     """
     Construct a shared compile command for a single CXX source based on
     `src_compile_command` and other compilation options.
@@ -817,8 +818,10 @@ def _get_base_compile_cmd(
     if output_args:
         cmd.add(output_args)
 
-    if use_header_units and src_compile_cmd.cxx_compile_cmd.header_units_argsfile:
+    if use_header_units == UseHeaderUnitsMode("pcm") and src_compile_cmd.cxx_compile_cmd.header_units_argsfile:
         cmd.add(src_compile_cmd.cxx_compile_cmd.header_units_argsfile.cmd_form)
+    elif use_header_units == UseHeaderUnitsMode("stub") and src_compile_cmd.cxx_compile_cmd.header_unit_stubs_argsfile:
+        cmd.add(cmd_args(hidden = src_compile_cmd.cxx_compile_cmd.header_unit_stubs_argsfile.file))
 
     cmd.add(src_compile_cmd.cxx_compile_cmd.argsfile.cmd_form)
 
@@ -851,7 +854,7 @@ def _cxx_dynamic_compile(
         toolchain: CxxToolchainInfo,
         bitcode_args: list[str],
         flavors: list[CxxCompileFlavor],
-        use_header_units: bool,
+        use_header_units: UseHeaderUnitsMode,
         precompiled_header: Dependency | None,
         compile_pch: CxxPrecompiledHeader | None,
         cuda_compile_style: CudaCompileStyle | None,
@@ -954,7 +957,7 @@ _dynamic_compile_rule = dynamic_actions(
         "precompiled_header": dynattrs.option(dynattrs.value(Dependency)),
         "preproc": dynattrs.list(dynattrs.output()),
         "toolchain": dynattrs.value(CxxToolchainInfo),
-        "use_header_units": dynattrs.value(bool),
+        "use_header_units": dynattrs.value(UseHeaderUnitsMode),
     },
 )
 
@@ -966,7 +969,7 @@ def compile_cxx(
         flavors: set[CxxCompileFlavor],
         provide_syntax_only: bool,
         separate_debug_info: bool,
-        use_header_units: bool = False,
+        use_header_units: UseHeaderUnitsMode = UseHeaderUnitsMode("none"),
         precompiled_header: Dependency | None = None,
         cuda_compile_style: CudaCompileStyle | None = None,
         compile_pch: CxxPrecompiledHeader | None = None) -> list[CxxCompileOutput]:
