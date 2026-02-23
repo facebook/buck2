@@ -285,7 +285,6 @@ impl<'a> BuckTestOrchestrator<'a> {
                 executor_override: executor_override.map(Arc::new),
                 required_local_resources: Arc::new(required_local_resources),
                 pre_create_dirs: pre_create_dirs.dupe(),
-                prefix: TestExecutionPrefix::new(&stage, &self.session),
                 stage: Arc::new(stage),
                 options: self.session.options(),
                 timeout,
@@ -382,7 +381,6 @@ impl<'a> BuckTestOrchestrator<'a> {
             pre_create_dirs,
             stage,
             options,
-            prefix,
             timeout,
             host_sharing_requirements,
         } = key;
@@ -405,7 +403,6 @@ impl<'a> BuckTestOrchestrator<'a> {
             Cow::Borrowed(&env),
             Cow::Borrowed(&pre_create_dirs),
             &test_executor.executor().executor_fs(),
-            prefix,
             &stage,
             options,
         )
@@ -534,33 +531,8 @@ struct TestExecutionKey {
     pre_create_dirs: Arc<Vec<DeclaredOutput>>,
     stage: Arc<TestStage>,
     options: TestSessionOptions,
-    prefix: TestExecutionPrefix,
     timeout: Duration,
     host_sharing_requirements: Arc<HostSharingRequirements>,
-}
-
-#[derive(Clone, Dupe, Debug, Eq, Hash, PartialEq, Allocative)]
-enum TestExecutionPrefix {
-    Listing,
-    Testing(Arc<ForwardRelativePathBuf>),
-}
-
-impl TestExecutionPrefix {
-    fn new(stage: &TestStage, session: &TestSession) -> Self {
-        match stage {
-            TestStage::Listing { .. } => TestExecutionPrefix::Listing,
-            TestStage::Testing { .. } => TestExecutionPrefix::Testing(session.prefix().dupe()),
-        }
-    }
-}
-
-impl Display for TestExecutionPrefix {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            TestExecutionPrefix::Listing => write!(f, "Listing"),
-            TestExecutionPrefix::Testing(prefix) => write!(f, "Testing({prefix})"),
-        }
-    }
 }
 
 #[async_trait]
@@ -657,10 +629,9 @@ impl Display for TestExecutionKey {
         fmt_container(f, "pre_create_dirs = [", "], ", self.pre_create_dirs.iter())?;
         write!(
             f,
-            "stage = {}, options = {}, prefix = {}, timeout = {}, host_sharing_requirements = {}",
+            "stage = {}, options = {}, timeout = {}, host_sharing_requirements = {}",
             self.stage,
             self.options,
-            self.prefix,
             self.timeout.as_millis(),
             self.host_sharing_requirements
         )
@@ -855,7 +826,6 @@ impl TestOrchestrator for BuckTestOrchestrator<'_> {
             Cow::Owned(env),
             Cow::Owned(pre_create_dirs),
             &test_executor.executor().executor_fs(),
-            TestExecutionPrefix::new(&stage, &self.session),
             &stage,
             self.session.options(),
         )
@@ -1393,11 +1363,10 @@ impl BuckTestOrchestrator<'_> {
         env: Cow<'a, SortedVectorMap<String, ArgValue>>,
         pre_create_dirs: Cow<'a, [DeclaredOutput]>,
         executor_fs: &ExecutorFs<'_>,
-        prefix: TestExecutionPrefix,
         stage: &TestStage,
         opts: TestSessionOptions,
     ) -> buck2_error::Result<ExpandedTestExecutable> {
-        let output_root = resolve_output_root(dice, test_target, prefix, stage).await?;
+        let output_root = resolve_output_root(dice, test_target, stage).await?;
 
         let mut declared_outputs = IndexMap::<BuckOutTestPath, OutputCreationBehavior>::new();
 
@@ -2000,11 +1969,8 @@ impl<'a> Execute2RequestExpander<'a> {
 async fn resolve_output_root(
     dice: &mut DiceComputations<'_>,
     test_target: &ConfiguredProvidersLabel,
-    prefix: TestExecutionPrefix,
     stage: &TestStage,
 ) -> Result<ForwardRelativePathBuf, buck2_error::Error> {
-    // TODO(ianc) removed in next diff
-    let _prefix = prefix;
     let resolver = dice.get_buck_out_path().await?;
     let output_root = match stage {
         TestStage::Listing { .. } => resolver

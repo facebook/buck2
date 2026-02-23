@@ -9,16 +9,13 @@
  */
 
 use core::fmt;
-use std::sync::Arc;
 use std::sync::atomic::AtomicU64;
 use std::sync::atomic::Ordering;
 
 use allocative::Allocative;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_error::internal_error;
-use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_test_api::data::ConfiguredTargetHandle;
-use chrono::Local;
 use dashmap::DashMap;
 use dupe::Dupe;
 
@@ -47,10 +44,6 @@ pub struct TestSession {
     /// A mapping of ConfiguredTargetHandle (which Tpx can use with) to the underlying provider in
     /// Buck2.
     labels: DashMap<ConfiguredTargetHandle, ConfiguredProvidersLabel>,
-    /// The prefix to assign to all paths for this test session. This isn't used to provide any
-    /// uniqueness (at least not at this time), but it's helpful to group outputs in a way that
-    /// more-or-less matches a given test session.
-    prefix: Arc<ForwardRelativePathBuf>,
     /// Options overriding the behavior of tests executed in this session. This is primarily
     /// intended for unstable or debugging features.
     options: TestSessionOptions,
@@ -58,27 +51,15 @@ pub struct TestSession {
 
 impl TestSession {
     pub fn new(options: TestSessionOptions) -> Self {
-        // NOTE: This is the format that Tpx has historically used. We don't really *have* to use
-        // this considering we don't even put it in the same place (we do it in ./buck-out/v2/tmp,
-        // but Tpx put it in /tmp), but it's a reasonable one.
-        let now = Local::now();
-        let now = now.format("%Y%m%d-%H%M%S").to_string();
-        let prefix = ForwardRelativePathBuf::unchecked_new(now);
-
         Self {
             next_id: AtomicU64::new(0),
             labels: DashMap::new(),
-            prefix: Arc::new(prefix),
             options,
         }
     }
 
     pub fn options(&self) -> TestSessionOptions {
         self.options
-    }
-
-    pub fn prefix(&self) -> Arc<ForwardRelativePathBuf> {
-        self.prefix.dupe()
     }
 
     /// Insert a new provider and retrieve the matching handle.
