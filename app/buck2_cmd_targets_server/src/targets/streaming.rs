@@ -62,10 +62,10 @@ fn write_str(outputter: &mut dyn Write, s: &mut String) -> buck2_error::Result<(
 ///
 /// # Arguments
 ///
-/// `keep_going` - On loading errors, put buck.error in the output stream and continue
-///                Passing from cli args `--keep-going` from `app/buck2_client/src/commands/targets.rs`.
+/// * `keep_going` - On loading errors, put buck.error in the output stream and continue
+///   Passing from cli args `--keep-going` from `app/buck2_client/src/commands/targets.rs`.
 /// * `imports` - Show the imports of each package/import. Shows an additional output per package/import (not per target), including implicit dependencies (e.g. the prelude) but only direct dependencies (not the transitive closure)
-///               Passing from cli args `--imports` from `app/buck2_client/src/commands/targets.rs`.
+///   Passing from cli args `--imports` from `app/buck2_client/src/commands/targets.rs`.
 pub(crate) async fn targets_streaming(
     server_ctx: &dyn ServerCommandContextTrait,
     mut dice: DiceTransaction,

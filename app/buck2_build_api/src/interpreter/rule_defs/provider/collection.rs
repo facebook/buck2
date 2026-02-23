@@ -546,6 +546,13 @@ impl FrozenProviderCollectionValue {
 }
 
 impl<'f> FrozenProviderCollectionValueRef<'f> {
+    /// Creates a new `FrozenProviderCollectionValueRef` from a heap reference and value.
+    ///
+    /// # Safety
+    ///
+    /// The caller must ensure that:
+    /// - The `value` was allocated on the `heap` and the heap outlives the returned reference.
+    /// - The lifetime `'f` accurately represents the lifetime of the heap allocation.
     pub unsafe fn new(
         heap: &'f FrozenHeapRef,
         value: FrozenValueTyped<'f, FrozenProviderCollection>,

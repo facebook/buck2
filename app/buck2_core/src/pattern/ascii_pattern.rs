@@ -36,6 +36,13 @@ const fn assert_ascii_str(s: &str) -> &[u8] {
 /// Fixed ASCII string as search pattern.
 ///
 /// Caller of this trait skips boundary checks/UTF-8 checks, so this trait is `unsafe`.
+///
+/// # Safety
+///
+/// Implementors must ensure that all methods correctly handle ASCII strings and that
+/// the pattern methods (`first_index_in`, `last_index_in`, `is_prefix_of`, `is_suffix_of`)
+/// return valid byte indices that lie on UTF-8 character boundaries when used with
+/// valid UTF-8 strings. The `len()` method must return the correct byte length of the pattern.
 pub(crate) unsafe trait AsciiPattern {
     fn first_index_in(&self, s: &str) -> Option<usize>;
     #[allow(dead_code)]

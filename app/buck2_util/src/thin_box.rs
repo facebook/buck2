@@ -197,6 +197,12 @@ impl<T: 'static> DerefMut for ThinBoxSlice<T> {
 }
 
 impl<T> ThinBoxSlice<MaybeUninit<T>> {
+    /// Converts the `ThinBoxSlice<MaybeUninit<T>>` to `ThinBoxSlice<T>`.
+    ///
+    /// # Safety
+    ///
+    /// The caller must ensure that all elements in the slice have been properly initialized
+    /// before calling this method. Reading uninitialized memory is undefined behavior.
     #[inline]
     pub unsafe fn assume_init(self) -> ThinBoxSlice<T> {
         let result = ThinBoxSlice {

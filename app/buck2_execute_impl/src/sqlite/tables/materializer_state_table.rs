@@ -80,14 +80,14 @@ type SqliteDigest = Vec<u8>;
 /// Representation of row in sqlite table. All datatypes used implement rusqlite's `FromSql` trait.
 /// A single row might represent different things:
 /// 1. Row fully represent an artifact.
-///     That could be file, symlink, external symlink or directory stored in "compact" form (see [`DirectoryMetadata::Compact`]).
+///    That could be file, symlink, external symlink or directory stored in "compact" form (see [`DirectoryMetadata::Compact`]).
 /// 2. Row represents a directory when it's stored in "full" form (see [`DirectoryMetadata::Full`]).
-///     In this case all directory's content will be stored in other rows as well in order to be able to recreate [`ActionSharedDirectory`] from DB.
-///     Only `path`, `last_access_time` and `artifact_type` equal to [`ArtifactType::Directory`] will be present for such rows.
-///     Other rows which have `parent_path` equal to `path` of this row represent directory's content.
+///    In this case all directory's content will be stored in other rows as well in order to be able to recreate [`ActionSharedDirectory`] from DB.
+///    Only `path`, `last_access_time` and `artifact_type` equal to [`ArtifactType::Directory`] will be present for such rows.
+///    Other rows which have `parent_path` equal to `path` of this row represent directory's content.
 /// 3. Row represents a content inside a "full" directory.
-///     `path` is prefixed by a directory artifact path (not relative to containing directory).
-///     `parent_path` will be present for such rows. `last_access_time` will be missing from such rows.
+///    `path` is prefixed by a directory artifact path (not relative to containing directory).
+///    `parent_path` will be present for such rows. `last_access_time` will be missing from such rows.
 #[derive(Debug)]
 struct SqliteEntry<'a> {
     path: Cow<'a, str>,

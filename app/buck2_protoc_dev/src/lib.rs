@@ -121,6 +121,14 @@ impl Builder {
         }
     }
 
+    /// Sets up the PROTOC and PROTOC_INCLUDE environment variables.
+    ///
+    /// # Safety
+    ///
+    /// This function calls `std::env::set_var` which is unsafe due to potential data races
+    /// when environment variables are read concurrently from other threads. The caller must
+    /// ensure that no other threads are reading environment variables while this function
+    /// is executing, or that such concurrent access is properly synchronized.
     pub unsafe fn setup_protoc(self) -> Self {
         // It would be great if there were on the config rather than an env variables...
         unsafe { maybe_set_protoc() };
