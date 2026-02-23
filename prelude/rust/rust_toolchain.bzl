@@ -62,6 +62,8 @@ rust_toolchain_attrs = {
     "rustdoc_env": provider_field(dict[str, typing.Any], default = {}),
     # Extra flags for rustdoc invocations
     "rustdoc_flags": provider_field(list[typing.Any], default = []),
+    # Extra flags to pass to the linker
+    "linker_flags": provider_field(list[typing.Any], default = []),
     # When you `buck test` a library, also compile and run example code in its
     # documentation comments.
     "doctests": provider_field(bool, default = False),

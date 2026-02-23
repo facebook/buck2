@@ -144,6 +144,7 @@ def _linker(
         # the Rust toolchain have it's own `binary_linker_flags` instead of
         # implicltly using the one from the C++ toolchain.
         linker_info.binary_linker_flags if binary else [],
+        ctx.attrs._rust_toolchain[RustToolchainInfo].linker_flags,
         ctx.attrs.linker_flags,
     )
 
