@@ -304,7 +304,6 @@ fn tag_metadata(tag: ErrorTag) -> TagMetadata {
         ErrorTag::CrashRequested => rank!(tier0),
         ErrorTag::CpuStats => rank!(tier0),
         ErrorTag::FailedToKill => rank!(tier0),
-        ErrorTag::CopyOutputs => rank!(tier0),
         ErrorTag::LogFilter => rank!(tier0),
         ErrorTag::TestOnly => rank!(tier0),
         ErrorTag::Bail => rank!(tier0),
@@ -375,6 +374,7 @@ fn tag_metadata(tag: ErrorTag) -> TagMetadata {
 
         // Input errors
         ErrorTag::ClapMatch => rank!(input),
+        ErrorTag::CopyOutputs => rank!(input),
         ErrorTag::ReFailedPrecondition => rank!(input),
         // FIXME(JakobDegen): Make this bad experience once that's available. Usually when this
         // happens, it's probably because the user tried to shut down with Ctrl+C and something
