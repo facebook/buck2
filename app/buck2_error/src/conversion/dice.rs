@@ -9,6 +9,7 @@
  */
 
 use dice_error::DiceErrorImpl;
+use dice_error::cycles::DetectCyclesParseError;
 use dice_error::result::CancellationReason;
 
 use crate::ErrorTag;
@@ -38,5 +39,13 @@ impl From<dice_error::DiceError> for crate::Error {
             error = error.string_tag(&reason.to_string());
         }
         error
+    }
+}
+
+impl From<DetectCyclesParseError> for crate::Error {
+    #[cold]
+    #[track_caller]
+    fn from(value: DetectCyclesParseError) -> Self {
+        crate::conversion::from_any_with_tag(value, ErrorTag::Input)
     }
 }

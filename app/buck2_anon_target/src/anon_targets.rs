@@ -115,6 +115,8 @@ pub enum AnonTargetsError {
     AssertNoPromisesFailed,
     #[error("Invalid `name` attribute, must be a label or a string, got `{value}` of type `{typ}`")]
     InvalidNameType { typ: String, value: String },
+    #[error("`name` attribute must be a valid target label, got `{0}`")]
+    InvalidTargetLabel(String),
     #[error("Unknown attribute `{0}`")]
     UnknownAttribute(String),
     #[error("Internal attribute `{0}` not allowed as argument to `anon_targets`")]
@@ -285,7 +287,7 @@ impl AnonTargetKey {
                 )?,
                 target_name.as_ref(),
             )),
-            _ => Err(err().into()),
+            _ => Err(AnonTargetsError::InvalidTargetLabel(x.to_owned()).into()),
         }
     }
 

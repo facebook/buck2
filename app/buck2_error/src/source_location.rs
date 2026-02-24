@@ -217,12 +217,16 @@ mod tests {
 
     #[test]
     fn test_via_implicit() {
-        fn foo() -> Result<(), String> {
-            Err("Some string error".to_owned())
+        #[derive(Debug, thiserror::Error)]
+        #[error("Some string error")]
+        struct TestError;
+
+        fn foo() -> Result<(), TestError> {
+            Err(TestError)
         }
 
         fn bar() -> Result<(), crate::Error> {
-            Ok(foo()?)
+            foo().map_err(|e| crate::conversion::from_any_with_tag(e, crate::ErrorTag::Input))
         }
 
         let e = bar().unwrap_err();

@@ -18,6 +18,13 @@ use std::hash::Hasher;
 use allocative::Allocative;
 use cmp_any::PartialEqAny;
 
+/// Error returned when parsing a `DetectCycles` value from a string.
+#[derive(Debug, thiserror::Error)]
+#[error("Invalid type of DetectCycles: `{value}`")]
+pub struct DetectCyclesParseError {
+    pub value: String,
+}
+
 /// A `Key` that has been requested within Dice.
 pub trait RequestedKey: Allocative + Display + Debug + Send + Sync {
     fn get_key_equality(&self) -> PartialEqAny<'_>;

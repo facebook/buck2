@@ -14,6 +14,7 @@ use std::fmt::Debug;
 use std::str::FromStr;
 
 use allocative::Allocative;
+pub use dice_error::cycles::DetectCyclesParseError;
 use dupe::Dupe;
 use gazebo::variants::VariantName;
 
@@ -24,7 +25,7 @@ pub enum DetectCycles {
 }
 
 impl FromStr for DetectCycles {
-    type Err = String;
+    type Err = DetectCyclesParseError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         if s.eq_ignore_ascii_case("ENABLED") {
@@ -32,7 +33,9 @@ impl FromStr for DetectCycles {
         } else if s.eq_ignore_ascii_case("DISABLED") {
             Ok(DetectCycles::Disabled)
         } else {
-            Err(format!("Invalid type of DetectCycles: `{s}`"))
+            Err(DetectCyclesParseError {
+                value: s.to_owned(),
+            })
         }
     }
 }
@@ -58,10 +61,6 @@ mod tests {
 
         let invalid = "foo".parse::<DetectCycles>();
         assert!(invalid.is_err());
-        assert!(
-            invalid
-                .unwrap_err()
-                .contains("Invalid type of DetectCycles: `foo`")
-        );
+        assert_eq!(invalid.unwrap_err().value, "foo");
     }
 }
