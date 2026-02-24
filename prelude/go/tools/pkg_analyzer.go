@@ -156,7 +156,6 @@ Flags:
 		out.TestGoFiles = pkg.TestGoFiles
 		out.XTestGoFiles = pkg.XTestGoFiles
 		out.TestImports = pkg.TestImports
-		out.XTestImports = pkg.XTestImports
 		out.TestEmbedPatterns = pkg.TestEmbedPatterns
 	}
 

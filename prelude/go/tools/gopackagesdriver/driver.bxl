@@ -242,7 +242,7 @@ def _imports(go_list_out: GoListOut, import_table: dict[str, str]) -> dict[str, 
     # todo: make it work when deps are not requested
 
     # We don't need to use "if" statements for test imports, because they are always empty for non-test targets
-    all_imports = [] + go_list_out.imports + go_list_out.test_imports + go_list_out.x_test_imports
+    all_imports = [] + go_list_out.imports + go_list_out.test_imports
 
     # resolve imports, consider an import as stdlib import if not found in buck deps
     imports = {imp: import_table.get(imp, imp) for imp in all_imports if imp != "C"}

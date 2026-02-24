@@ -18,7 +18,6 @@ GoListOut = record(
     name = field(str),
     imports = field(list[str], default = []),
     test_imports = field(list[str], default = []),
-    x_test_imports = field(list[str], default = []),
     go_files = field(list[Artifact], default = []),
     h_files = field(list[Artifact], default = []),
     c_files = field(list[Artifact], default = []),
@@ -97,7 +96,6 @@ def parse_go_list_out(srcs: list[Artifact], package_root: str, go_list_out: Arti
     name = go_list.get("Name", "")
     imports = go_list.get("Imports", [])
     test_imports = go_list.get("TestImports", [])
-    x_test_imports = go_list.get("XTestImports", [])
     cgo_cflags = go_list.get("CgoCFLAGS", [])
     cgo_cppflags = go_list.get("CgoCPPFLAGS", [])
     embed_patterns = go_list.get("EmbedPatterns", [])
@@ -108,7 +106,6 @@ def parse_go_list_out(srcs: list[Artifact], package_root: str, go_list_out: Arti
         name = name,
         imports = imports,
         test_imports = test_imports,
-        x_test_imports = x_test_imports,
         go_files = go_files,
         h_files = h_files,
         c_files = c_files,
