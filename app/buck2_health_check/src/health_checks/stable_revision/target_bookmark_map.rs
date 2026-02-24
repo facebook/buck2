@@ -42,7 +42,7 @@ impl TargetBookmarkMap {
                     vec!["fbsource_waandroid_stable".to_owned()],
                 ),
                 (
-                    Regex::new(r"wa_android//xplat/whatsapp/wearos:apk")?,
+                    Regex::new(r"wa_android//apps/wearos:apk")?,
                     vec!["fbsource_waandroid_stable".to_owned()],
                 ),
                 (
