@@ -343,7 +343,7 @@ collect_results_broken_run(Tests, _Suite, ErrorMsg, ResultExec, RelevantLogFiles
                             [FormattedErrorMsg, ResultExec]
                         )
                     ),
-                outcome => failed,
+                outcome => skipped,
                 std_out => unicode_characters_to_list(StdOut)
             }
         }
