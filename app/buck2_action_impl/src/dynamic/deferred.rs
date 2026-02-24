@@ -324,7 +324,7 @@ async fn execute_lambda(
                         lambda,
                         &self_key,
                         resolved_dynamic_values,
-                        &ensured_artifacts,
+                        ensured_artifacts,
                         input_artifacts_materialized,
                         digest_config,
                         &artifact_fs,

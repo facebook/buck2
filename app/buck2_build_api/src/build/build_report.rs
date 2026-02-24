@@ -798,11 +798,10 @@ impl<'a> BuildReportCollector<'a> {
 
                 if let Some(retained_analysis_memory_sketch) =
                     graph_properties.retained_analysis_memory_sketch.as_ref()
+                    && self.graph_properties_opts.retained_analysis_memory_sketch
                 {
-                    if self.graph_properties_opts.retained_analysis_memory_sketch {
-                        configured_report.retained_analysis_memory_sketch =
-                            Some(retained_analysis_memory_sketch.serialize());
-                    }
+                    configured_report.retained_analysis_memory_sketch =
+                        Some(retained_analysis_memory_sketch.serialize());
                 }
             }
 

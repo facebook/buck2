@@ -63,7 +63,7 @@ pub(crate) fn register_target_function(builder: &mut GlobalsBuilder) {
     ) -> starlark::Result<StarlarkTargetSet<ConfiguredTargetNode>> {
         Ok(StarlarkTargetSet::from_iter(
             nodes
-                .unwrap_or(UnpackList::default())
+                .unwrap_or_default()
                 .items
                 .into_iter()
                 .map(|node| node.0),
@@ -86,7 +86,7 @@ pub(crate) fn register_target_function(builder: &mut GlobalsBuilder) {
     ) -> starlark::Result<StarlarkTargetSet<TargetNode>> {
         Ok(StarlarkTargetSet::from_iter(
             nodes
-                .unwrap_or(UnpackList::default())
+                .unwrap_or_default()
                 .items
                 .into_iter()
                 .map(|node| node.0),

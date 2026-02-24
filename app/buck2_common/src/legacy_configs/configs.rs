@@ -299,7 +299,7 @@ impl LegacyBuckConfig {
         let mut parser = LegacyConfigParser::combine(external_path_configs);
         for main_config_file in main_config_files {
             parser
-                .parse_file(&main_config_file, None, follow_includes, file_ops)
+                .parse_file(main_config_file, None, follow_includes, file_ops)
                 .await?;
         }
 

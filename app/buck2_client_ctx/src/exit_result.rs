@@ -77,11 +77,7 @@ impl ExitResult {
     }
 
     pub fn is_success(&self) -> bool {
-        if let ExitResultVariant::Status(ExitCode::Success) = &self.variant {
-            true
-        } else {
-            false
-        }
+        matches!(self.variant, ExitResultVariant::Status(ExitCode::Success))
     }
 
     /// Return the stored error that hasn't been shown to the user yet, if there is one.

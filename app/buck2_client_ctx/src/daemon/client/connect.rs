@@ -399,7 +399,7 @@ impl<'a> BuckdLifecycle<'a> {
             .root()
             .file_name()
             .map(|s| s.to_string_lossy().into_owned())
-            .unwrap_or(String::new());
+            .unwrap_or_default();
         let unit_name = format!(
             "buck2-daemon.{}.{}.{}",
             &repo_name,

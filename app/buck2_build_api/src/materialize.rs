@@ -106,26 +106,20 @@ pub async fn materialize_and_upload_artifact_group(
         .get_materializer_fast_rollout_config();
     let (values, _) = {
         let fut = ctx.try_compute2(
-            |mut ctx| {
-                let group = &artifact_group;
+            |ctx| {
+                let group = artifact_group;
                 async move {
-                    materialize_artifact_group(
-                        &mut ctx,
-                        config.spawn,
-                        group,
-                        contexts.0,
-                        queue_tracker,
-                    )
-                    .await
+                    materialize_artifact_group(ctx, config.spawn, group, contexts.0, queue_tracker)
+                        .await
                 }
                 .boxed()
             },
-            |mut ctx| {
-                let group = &artifact_group;
+            |ctx| {
+                let group = artifact_group;
                 async move {
                     match contexts.1 {
                         UploadContext::Skip => Ok(()),
-                        UploadContext::Upload => ensure_uploaded(&mut ctx, group.clone()).await,
+                        UploadContext::Upload => ensure_uploaded(ctx, group).await,
                     }
                 }
                 .boxed()

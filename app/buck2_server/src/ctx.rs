@@ -808,7 +808,7 @@ impl DiceCommandUpdater<'_, '_> {
             fingerprint_re_output_trees_eagerly,
         );
 
-        _ = buck2_core::faster_directories::VALUE.store(
+        buck2_core::faster_directories::VALUE.store(
             root_config
                 .parse::<bool>(BuckconfigKeyRef {
                     section: "buck2",
