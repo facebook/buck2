@@ -198,8 +198,8 @@ def link(
             cxx_toolchain,
             [ext_links],
         )
-        ext_link_args = cmd_args(hidden = ext_link_args_output.hidden)
-        ext_link_args.add(cmd_args(executable_args.extra_link_args, quote = "shell"))
+        ext_link_args = cmd_args(hidden = ext_link_args_output.hidden, quote = "shell")
+        ext_link_args.add(executable_args.extra_link_args)
         ext_link_args.add(external_linker_flags)
         ext_link_args.add(ext_link_args_output.link_args)
 
