@@ -115,7 +115,8 @@ def _execution_platform(ctx):
                 allow_limited_hybrid_fallbacks = False,
                 allow_hybrid_fallbacks_on_failure = False,
                 remote_execution_use_case = "buck2-testing",
-                allow_cache_uploads = False,
+                remote_cache_enabled = ctx.attrs.remote_cache_enabled,
+                allow_cache_uploads = ctx.attrs.allow_cache_uploads,
                 max_cache_upload_mebibytes = 1,
             ),
         ),
@@ -124,8 +125,10 @@ def _execution_platform(ctx):
 execution_platform = rule(
     impl = _execution_platform,
     attrs = {
+        "allow_cache_uploads": attrs.bool(default = False),
         "local_enabled": attrs.bool(default = True),
         "platform": attrs.dep(providers = [PlatformInfo]),
+        "remote_cache_enabled": attrs.option(attrs.bool(), default = None),
         "remote_enabled": attrs.bool(default = False),
     },
 )
