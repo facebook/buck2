@@ -98,17 +98,62 @@ def export_files(pkgs: dict[str, GoPkg], shared: bool) -> dict[str, Artifact]:
         for name, pkg in pkgs.items()
     }
 
-def make_importcfg(
+def make_compile_importcfg(
         actions: AnalysisActions,
         stdlib: GoStdlibDynamicValue,
-        own_pkgs: dict[str, GoPkg],
-        shared: bool,
-        link: bool) -> Artifact:
-    content = []
-    a_files = []
-    pkg_artifacts_map = pkg_artifacts(own_pkgs, shared) if link else export_files(own_pkgs, shared)
-    for name_, pkg_ in pkg_artifacts_map.items():
+        deps: dict[str, GoPkg],
+        imports: set[str],
+        has_cgo_files: bool,
+        coverage_enabled: bool,
+        shared: bool) -> Artifact:
+    required_pkgs = set(imports)  # copy set to avoid modifying it
+    if has_cgo_files:
+        required_pkgs.add("runtime/cgo")
+        required_pkgs.add("syscall")
+
+    if coverage_enabled:
+        required_pkgs.add("runtime/coverage")
+
+    # remove fake packages, build system should never try to provide them
+    required_pkgs -= set(["unsafe", "builtin", "C"])
+
+    provided_pkgs = set()
+    content, a_files = [], []
+    for name_, pkg_ in export_files(deps, shared).items():
+        # skip packages not used by the current package
+        if name_ not in required_pkgs:
+            continue
+
         # Hack: we use cmd_args get "artifact" valid path and write it to a file.
+        content.append(cmd_args("packagefile ", name_, "=", pkg_, delimiter = "", hidden = [pkg_]))
+        a_files.append(pkg_)
+        provided_pkgs.add(name_)
+
+    for name_, pkg_ in stdlib.pkgs.items():
+        # skip packages not used by the current package
+        if name_ not in required_pkgs:
+            continue
+
+        a_file = pkg_.a_file_shared if shared else pkg_.a_file
+        content.append(cmd_args("packagefile ", name_, "=", a_file, delimiter = "", hidden = [a_file]))
+        a_files.append(a_file)
+        provided_pkgs.add(name_)
+
+    if len(provided_pkgs) != len(required_pkgs):
+        fail("required Go dependencies were not provided: {}".format(required_pkgs.difference(provided_pkgs)))
+
+    importcfg = actions.declare_output("{}.importcfg".format("shared" if shared else "non_shared"), has_content_based_path = True)
+    actions.write(importcfg, content)
+
+    return importcfg.with_associated_artifacts(a_files)
+
+def make_link_importcfg(
+        actions: AnalysisActions,
+        stdlib: GoStdlibDynamicValue,
+        deps: dict[str, GoPkg],
+        shared: bool) -> Artifact:
+    content, a_files = [], []
+    for name_, pkg_ in pkg_artifacts(deps, shared).items():
         content.append(cmd_args("packagefile ", name_, "=", pkg_, delimiter = "", hidden = [pkg_]))
         a_files.append(pkg_)
 

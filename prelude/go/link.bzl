@@ -38,7 +38,7 @@ load(
     "GoPkg",  # @Unused used as type
     "GoStdlib",
     "GoStdlibDynamicValue",
-    "make_importcfg",
+    "make_link_importcfg",
     "merge_pkgs",
 )
 load(":toolchain.bzl", "GoToolchainInfo", "get_toolchain_env_vars")
@@ -276,7 +276,7 @@ def _link_impl(
         out: OutputArtifact) -> list[Provider]:
     go_stdlib_value = go_stdlib_value.providers[GoStdlibDynamicValue]
 
-    importcfg = make_importcfg(actions, go_stdlib_value, deps_pkgs, shared, link = True)
+    importcfg = make_link_importcfg(actions, go_stdlib_value, deps_pkgs, shared)
     main_pkg_o = main_pkg.pkg_shared if shared else main_pkg.pkg
 
     cmd = [
