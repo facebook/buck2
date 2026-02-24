@@ -14,7 +14,6 @@ from __future__ import annotations
 import itertools
 import multiprocessing.util as mp_util
 import os
-import subprocess
 import sys
 import threading
 import warnings
@@ -139,11 +138,15 @@ def __patch_spawn_preparation_data() -> None:
 
 
 def __patch_subprocess_run() -> None:
+    import subprocess
+    from functools import wraps
+
     std_run = subprocess.run
 
+    @wraps(std_run)
     # pyre-fixme[2]: Parameter must be annotated.
     # pyre-fixme[53]: Captured variable `std_run` is not annotated.
-    def _patched_run(args, env=None, **kwargs) -> None:
+    def _patched_run(args, env=None, **kwargs) -> subprocess.CompletedProcess[str]:
         if (
             args
             and isinstance(args, (list, tuple))
