@@ -386,7 +386,12 @@ impl BuckOutPathResolver {
 
     /// Resolve a test path
     pub fn resolve_test(&self, path: &BuckOutTestPath) -> ProjectRelativePathBuf {
-        ProjectRelativePathBuf::from(path.base.join(&path.path))
+        ProjectRelativePathBuf::from(ForwardRelativePathBuf::concat([
+            self.buck_out_v2.as_forward_relative_path(),
+            ForwardRelativePath::new("test").unwrap(),
+            &path.base,
+            &path.path,
+        ]))
     }
 
     /// Resolve a test path for test discovery
@@ -394,31 +399,13 @@ impl BuckOutPathResolver {
         &self,
         label: &ConfiguredProvidersLabel,
     ) -> buck2_error::Result<ProjectRelativePathBuf> {
-        self.resolve_test_path(
-            &ForwardRelativePath::unchecked_new("test/discovery"),
-            label,
-            None,
-        )
-    }
-
-    /// Resolve a test path for test execution
-    pub fn resolve_test_execution(
-        &self,
-        label: &ConfiguredProvidersLabel,
-        extra_path: &ForwardRelativePath,
-    ) -> buck2_error::Result<ProjectRelativePathBuf> {
-        self.resolve_test_path(
-            &ForwardRelativePath::unchecked_new("test/execution"),
-            label,
-            Some(extra_path),
-        )
+        self.resolve_test_path(&ForwardRelativePath::unchecked_new("test_discovery"), label)
     }
 
     fn resolve_test_path(
         &self,
         prefix: &ForwardRelativePath,
         label: &ConfiguredProvidersLabel,
-        extra_path: Option<&ForwardRelativePath>,
     ) -> buck2_error::Result<ProjectRelativePathBuf> {
         let path = match label.name() {
             ProvidersName::Default => "default".into(),
@@ -433,11 +420,6 @@ impl BuckOutPathResolver {
             },
         };
         let path = ForwardRelativePath::unchecked_new(&path);
-        let path = if let Some(extra_path) = extra_path {
-            &extra_path.join(path)
-        } else {
-            path
-        };
         self.prefixed_path_for_owner(
             prefix,
             &BaseDeferredKey::TargetLabel(label.target().dupe()),
@@ -492,7 +474,6 @@ mod tests {
     use std::sync::Arc;
 
     use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
-    use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
     use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
     use dupe::Dupe;
     use regex::Regex;
@@ -839,28 +820,7 @@ mod tests {
         let providers = ProvidersName::Default.push(ProviderName::new_unchecked("bar/baz".into()));
         let providers_label = ConfiguredProvidersLabel::new(cfg_target, providers);
         let result = path_resolver.resolve_test_discovery(&providers_label)?;
-        let expected_result = Regex::new("buck-out/test/discovery/foo/[0-9a-f]{16}/bar\\+baz")?;
-        assert!(expected_result.is_match(result.as_str()));
-        Ok(())
-    }
-
-    #[test]
-    fn test_resolve_test_execution() -> buck2_error::Result<()> {
-        let path_resolver =
-            BuckOutPathResolver::new(ProjectRelativePathBuf::unchecked_new("buck-out".into()));
-
-        let pkg = PackageLabel::new(
-            CellName::testing_new("foo"),
-            CellRelativePath::unchecked_new("baz-package"),
-        )?;
-        let target = TargetLabel::new(pkg, TargetNameRef::unchecked_new("target-name"));
-        let cfg_target = target.configure(ConfigurationData::testing_new());
-        let providers = ProvidersName::Default.push(ProviderName::new_unchecked("bar/baz".into()));
-        let providers_label = ConfiguredProvidersLabel::new(cfg_target, providers);
-        let extra_path = ForwardRelativePath::unchecked_new("extra_info_hash");
-        let result = path_resolver.resolve_test_execution(&providers_label, extra_path)?;
-        let expected_result =
-            Regex::new("buck-out/test/execution/foo/[0-9a-f]{16}/extra_info_hash/bar\\+baz")?;
+        let expected_result = Regex::new("buck-out/test_discovery/foo/[0-9a-f]{16}/bar\\+baz")?;
         assert!(expected_result.is_match(result.as_str()));
         Ok(())
     }
