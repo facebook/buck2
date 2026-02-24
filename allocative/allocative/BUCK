@@ -59,7 +59,7 @@ rust_library(
         "fbsource//third-party/rust:dashmap",
         "fbsource//third-party/rust:either",
         "fbsource//third-party/rust:futures",
-        "fbsource//third-party/rust:hashbrown",
+        "fbsource//third-party/rust:hashbrown-0-14",
         "fbsource//third-party/rust:indexmap",
         "fbsource//third-party/rust:num-bigint",
         "fbsource//third-party/rust:once_cell",

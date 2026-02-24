@@ -45,7 +45,7 @@ rust_library(
         "fbsource//third-party/rust:derive_more",
         "fbsource//third-party/rust:either",
         "fbsource//third-party/rust:erased-serde",
-        "fbsource//third-party/rust:hashbrown",
+        "fbsource//third-party/rust:hashbrown-0-14",
         "fbsource//third-party/rust:inventory",
         "fbsource//third-party/rust:itertools",
         "fbsource//third-party/rust:maplit",
