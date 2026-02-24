@@ -117,6 +117,19 @@ async def test_cpp_test(buck: Buck) -> None:
     )
 
 
+@buck_test(inplace=True, skip_for_os=["windows"])
+async def test_cpp_stress_runs(buck: Buck) -> None:
+    mode = get_mode_from_platform()
+    res = await buck.test(
+        "fbcode//buck2/tests/targets/rules/cxx:cpp_test_pass",
+        mode,
+        "--",
+        "--stress-runs=10",
+    )
+
+    assert "Pass 10" in res.stderr, "Expected stress runs to be run"
+
+
 @buck_test(inplace=True, skip_for_os=["darwin"])
 async def test_cpp_test_fdb_message(buck: Buck) -> None:
     await expect_failure(
