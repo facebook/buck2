@@ -8,8 +8,52 @@
  * above-listed licenses.
  */
 
-// TraceEvent spec used in this file documented here: https://docs.google.com/document/d/1CvAClvFfyA5R-PhYUmn5OOQtYMH4h6I0nSsKchNAySU/preview?tab=t.0
-// Note: "rendering" centric stuff like cname colors are not supported: https://github.com/google/perfetto/issues/208, we'd have to switch to the protobuf API
+// TraceEvent spec used in this file documented here:
+// https://docs.google.com/document/d/1CvAClvFfyA5R-PhYUmn5OOQtYMH4h6I0nSsKchNAySU/preview?tab=t.0
+// Note: "rendering" centric stuff like cname colors are not supported:
+// https://github.com/google/perfetto/issues/208, we'd have to switch to the
+// protobuf API
+//
+// Originally [perfetto](https://perfetto.dev/docs/) was built by google for
+// chrome tracing, and then later for android,  linux system tracing, etc. It
+// has a concept of "processes" and "threads", which for "normal" traces are
+// directly translated into TraceEvents json objects. Field like `pid` and `tid`
+// are traditionally process id and thread id.
+//
+// In these traces, it's not really practical to assign the actual  pid/tid that
+// produced the BuckEvents in the logs to the TraceEvent objects. MUCH of buck's
+// work is done in asynchronous futures, and the thread assignments for them are
+// (somewhat) irrelevant. If an action execution future gets moved between
+// executor threads, say, we would still like to represent the spans as relating
+// to each other/owning each other.
+//
+// The json TraceEvent api is interpreted by the perfetto viewer to assume
+// relationships between events that it uses to render them. The "thread id"
+// parameter is used to group duration events together in the same horizontal
+// "track", because a thread in a program is normally executing synchronous code
+// (partcularly at the time perfetto was first written).
+//
+// We exploit that, and treat the `tid` parameter as not a literal thread id,
+// but as a "track id", assuming that perfetto will render any events with the
+// same tid in the same horizontal track.
+//
+// When processing the async spans in the logs, we keep track of which displayed
+// spans are "open" over time and which ones are assigned to tracks. As tracks
+// fill up, we just stop displaying new spans in any tracks, as perfetto doesn't
+// have a concept of duration events spanning across each other, they may only
+// nest.
+//
+//   Note: the TraceEvent data model does allow for async events, which we may
+//   want to experiment with. whether tracery supports them may determine if we
+//   can use them.
+//
+// Generally this track assignment works really well for loads, because all
+// loads occur on a limited pool of local executors, so we can generally have
+// perfetto render enough tracks/threads to render all concurrently running
+// loads. This falls apart for action execution, because we allow many thousands
+// of futures to be created and be running in parallel. Perfetto's UI tops out
+// at ~200-256 tracks/threads, so we will probably NEVER be able to render them
+// all.
 
 use std::borrow::Cow;
 use std::collections::BTreeSet;
@@ -274,9 +318,62 @@ impl ChromeTraceInstant {
             }
             ChromeTraceInstantScope::Thread(process_id, track) => {
                 obj.insert("pid".to_owned(), json!(process_id));
-                obj.insert("tid".to_owned(), json!(String::from(track.get_track_id())));
+                obj.insert("tid".to_owned(), json!(track.get_track_id().as_u64()?));
             }
         }
+
+        Ok(js)
+    }
+}
+
+// N.B. "Process" and "Thread" here are chrome/perfetto TraceEvent json object
+// terms. See comments at the top of this file about how the pid/tid field map
+// to how we use them to represent buck's activity in a trace.
+#[allow(dead_code)] // Process isn't used at this time, but is included for completeness.
+enum ChromeTraceMetadataKind {
+    Process { pid: u64 },
+    Thread { pid: u64, tid: u64 },
+}
+
+struct ChromeTraceMetadata {
+    name: String,
+    kind: ChromeTraceMetadataKind,
+    labels: Option<Vec<String>>,
+    sort_index: Option<u64>,
+}
+
+impl ChromeTraceMetadata {
+    fn into_json(self) -> buck2_error::Result<serde_json::Value> {
+        let (ev_name, pid, tid) = match self.kind {
+            ChromeTraceMetadataKind::Process { pid } => ("process_name", pid, None),
+            ChromeTraceMetadataKind::Thread { pid, tid } => ("thread_name", pid, Some(tid)),
+        };
+        let mut js = json!({
+            "name": ev_name,
+            "ph": "M", // Chrome trace "metadata event"
+            "pid": pid,
+        });
+        let obj = js
+            .as_object_mut()
+            .ok_or(buck2_error::internal_error!("expected a mutable object"))?;
+
+        if let Some(tid) = tid {
+            obj.insert("tid".to_owned(), json!(tid));
+        }
+
+        let mut args = serde_json::Map::<String, serde_json::Value>::new();
+
+        args.insert("name".to_owned(), json!(self.name));
+        if let Some(labels) = self.labels
+            && !labels.is_empty()
+        {
+            args.insert("labels".to_owned(), json!(labels));
+        }
+        if let Some(sort_index) = self.sort_index {
+            args.insert("sort_index".to_owned(), json!(sort_index));
+        }
+
+        obj.insert("args".to_owned(), args.into());
 
         Ok(js)
     }
@@ -306,7 +403,7 @@ impl ChromeTraceClosedSpan {
                 "dur": self.duration.as_micros() as u64,
                 "ph": "X", // Chrome trace "complete event"
                 "pid": self.open.process_id,
-                "tid": String::from(self.open.track.get_track_id()),
+                "tid": self.open.track.get_track_id().as_u64()?,
                 "cat": self.open.categories.join(","),
                 "args": self.open.args,
             }
@@ -316,13 +413,36 @@ impl ChromeTraceClosedSpan {
 
 /// Spans are directed to a category, like "critical-path" or "misc". Spans in a
 /// category that would overlap are put on different tracks within that category.
-#[derive(Clone, Copy, Dupe)]
-struct TrackId(SpanCategorization, u64);
+#[derive(Clone, Copy, Debug, Dupe)]
+struct TrackId {
+    track_key: SpanCategorization,
+    track: u64,
+}
 
 impl From<TrackId> for String {
     fn from(tid: TrackId) -> String {
         // Outputs like "misc-00", "misc-01", ...
-        format!("{}-{:02}", tid.0, tid.1)
+        format!("{}-{:02}", tid.track_key, tid.track)
+    }
+}
+
+impl TrackId {
+    fn as_u64(&self) -> buck2_error::Result<u64> {
+        // The choice of constant here is mostly arbitratry. It needs to be
+        // larger than the total number of tracks being displayed for any given
+        // track_key, which in turn is limited by the max tracks we allow to be
+        // allocated, which is limited by perfetto's max track/thread display,
+        // which is in the ~200-256 range.
+        const TRACK_KEY_MULTIPLIER: u64 = 1000;
+        if self.track >= TRACK_KEY_MULTIPLIER {
+            return Err(buck2_error::internal_error!(
+                "Track id {:?} has a track component {} that exceeds the key multiplier {}, increase the key multiplier",
+                self,
+                self.track,
+                TRACK_KEY_MULTIPLIER
+            ));
+        }
+        Ok((self.track_key as u64) * TRACK_KEY_MULTIPLIER + self.track)
     }
 }
 
@@ -366,6 +486,13 @@ impl TrackIdAllocator {
 
     pub fn mark_unused(&mut self, tid: u64) {
         self.unused_track_ids.insert(tid);
+    }
+
+    // Some spans hard-code the track assignments they are on. We ensure we bump
+    // `lowest_never_used` to encompass such assignments to ensure we output the
+    // correct track sorting order.
+    pub fn mark_used(&mut self, tid: u64) {
+        self.lowest_never_used = self.lowest_never_used.max(tid + 1);
     }
 }
 
@@ -616,16 +743,17 @@ struct ChromeTraceWriter {
     rate_of_change_counters: AverageRateOfChangeCounters,
 }
 
+#[repr(u8)]
 #[derive(Copy, Clone, Dupe, Debug, Display, Hash, PartialEq, Eq)]
 enum SpanCategorization {
-    #[display("uncategorized")]
-    Uncategorized,
     #[display("critical-path")]
-    CriticalPath,
+    CriticalPath = 0,
     #[display("detailed-critical-path")]
-    DetailedCriticalPath,
+    DetailedCriticalPath = 1,
     #[display("detailed-slowest-path")]
-    DetailedSlowestPath,
+    DetailedSlowestPath = 2,
+    #[display("uncategorized")]
+    Uncategorized = 3,
 }
 
 impl ChromeTraceWriter {
@@ -646,16 +774,33 @@ impl ChromeTraceWriter {
         }
     }
 
+    fn mark_track_used(
+        &mut self,
+        track_key: SpanCategorization,
+        track_id: u64,
+    ) -> buck2_error::Result<TrackId> {
+        self.unused_track_ids
+            .entry(track_key)
+            .or_insert_with(TrackIdAllocator::new)
+            .mark_used(track_id);
+        Ok(TrackId {
+            track_key,
+            track: track_id,
+        })
+    }
+
     fn assign_track_for_span(
         &mut self,
         track_key: SpanCategorization,
-        event: &BuckEvent,
+        event: Option<&BuckEvent>,
     ) -> buck2_error::Result<Option<SpanTrackAssignment>> {
-        let parent_track_id = event.parent_id().and_then(|parent_id| {
-            self.open_spans
-                .get(&parent_id)
-                .map(|open_span| open_span.track.get_track_id())
-        });
+        let parent_track_id = event
+            .and_then(|event| event.parent_id)
+            .and_then(|parent_id| {
+                self.open_spans
+                    .get(&parent_id)
+                    .map(|open_span| open_span.track.get_track_id())
+            });
 
         match parent_track_id {
             None => {
@@ -673,7 +818,7 @@ impl ChromeTraceWriter {
                     .assign_track(max);
 
                 let assignment =
-                    track.map(|track| SpanTrackAssignment::Owned(TrackId(track_key, track)));
+                    track.map(|track| SpanTrackAssignment::Owned(TrackId { track_key, track }));
 
                 Ok(assignment)
             }
@@ -721,7 +866,7 @@ impl ChromeTraceWriter {
         track_key: SpanCategorization,
     ) -> buck2_error::Result<()> {
         // Allocate this span to its parent's track or to a new track.
-        let track = self.assign_track_for_span(track_key, event)?;
+        let track = self.assign_track_for_span(track_key, Some(event))?;
         if let Some(track) = track {
             self.open_span(
                 event,
@@ -1093,14 +1238,34 @@ impl ChromeTraceWriter {
         Ok(())
     }
 
+    fn write_thread_names(&mut self) -> buck2_error::Result<()> {
+        for (track_key, allocator) in self.unused_track_ids.iter() {
+            for track in 0..allocator.lowest_never_used {
+                let track_id = TrackId {
+                    track_key: *track_key,
+                    track,
+                };
+                let tid = track_id.as_u64()?;
+                let event = ChromeTraceMetadata {
+                    kind: ChromeTraceMetadataKind::Thread { pid: 0, tid },
+                    name: String::from(track_id),
+                    labels: None,
+                    sort_index: Some(tid),
+                };
+                self.trace_events.push(event.into_json()?);
+            }
+        }
+        Ok(())
+    }
+
     fn write_critical_path(
         &mut self,
-        name: SpanCategorization,
+        track_key: SpanCategorization,
         critical_path: &[buck2_data::CriticalPathEntry2],
     ) -> buck2_error::Result<()> {
         // Write critical path as a series of spans on a dedicated track
         let target_display_options = TargetDisplayOptions::for_chrome_trace();
-        self.write_critical_path_hierarchical(name, critical_path, target_display_options)
+        self.write_critical_path_hierarchical(track_key, critical_path, target_display_options)
     }
 
     /// Write the critical path with hierarchical structure:
@@ -1247,7 +1412,7 @@ impl ChromeTraceWriter {
         let parent_name = main_display.display_name();
 
         // Create the track ID for this group - parent owns it, children inherit it
-        let track_id = TrackId(name, track);
+        let track_id = self.mark_track_used(name, track)?;
 
         // Write parent span (owns the track)
         self.trace_events.push(
@@ -1397,9 +1562,9 @@ impl ChromeTraceWriter {
                 .try_into_duration()?;
             if let SpanTrackAssignment::Owned(track_id) = &open.track {
                 self.unused_track_ids
-                    .get_mut(&track_id.0)
+                    .get_mut(&track_id.track_key)
                     .unwrap()
-                    .mark_unused(track_id.1);
+                    .mark_unused(track_id.track);
             }
             self.trace_events
                 .push(ChromeTraceClosedSpan { open, duration }.into_json()?);
@@ -1601,6 +1766,9 @@ impl ChromeTraceCommand {
                 .handle_event(&event)
                 .with_buck_error_context(|| display::InvalidBuckEvent(event).to_string())?;
         }
+
+        writer.write_thread_names()?;
+
         Ok(writer)
     }
 }
