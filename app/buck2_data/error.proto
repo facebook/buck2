@@ -408,7 +408,11 @@ enum ErrorTag {
   STRING_CONVERSION = 9016;
   CSTRING_NUL = 9023;
 
+  // errno.h values 9100 + errno
+  // codes from: https://en.wikipedia.org/wiki/Errno.h
+  // (underscore in names is to not break C codegen)
   E_PERM = 9101;
+  E_AGAIN = 9111;
 
   // From `buck2 debug crash`
   CRASH_REQUESTED = 8022;

@@ -31,6 +31,8 @@ pub(crate) fn classify_server_stderr(
         // thread 'buck2-dm' has overflowed its stack
         // ```
         Some(ErrorTag::ServerStackOverflow)
+    } else if stderr.contains("Resource temporarily unavailable") {
+        Some(ErrorTag::EAgain)
     } else if stderr.contains("Signal 11 (SIGSEGV)") {
         // P1180289404
         Some(ErrorTag::ServerSegv)

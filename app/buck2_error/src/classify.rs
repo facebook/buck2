@@ -366,6 +366,8 @@ fn tag_metadata(tag: ErrorTag) -> TagMetadata {
         ErrorTag::DiceCancelled => rank!(tier0),
         ErrorTag::DiceUnexpectedCycleGuardType => rank!(tier0),
         ErrorTag::DiceDuplicateActivationData => rank!(tier0),
+        // "Resource temporarily unavailable"
+        ErrorTag::EAgain => rank!(tier0),
         ErrorTag::InstallerUnknown => rank!(tier0),
         ErrorTag::InstallerTier0 => rank!(tier0).hidden(),
         ErrorTag::InternalError => rank!(tier0),

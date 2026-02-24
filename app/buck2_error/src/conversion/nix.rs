@@ -17,6 +17,7 @@ impl From<nix::errno::Errno> for crate::Error {
 
         let tag = match value {
             nix::errno::Errno::EPERM => Some(crate::ErrorTag::EPerm),
+            nix::errno::Errno::EAGAIN => Some(crate::ErrorTag::EAgain),
             _ => None,
         };
         if let Some(tag) = tag {
