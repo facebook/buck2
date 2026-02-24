@@ -73,6 +73,7 @@ impl TCodeReasonGroup {
     pub const UNKNOWN: Self = TCodeReasonGroup(0i32);
     pub const RE_CONNECTION: Self = TCodeReasonGroup(1i32);
     pub const USER_QUOTA: Self = TCodeReasonGroup(2i32);
+    pub const USER_BAD_CERTS: Self = TCodeReasonGroup(3i32);
 }
 
 impl Display for TCodeReasonGroup {
@@ -80,6 +81,7 @@ impl Display for TCodeReasonGroup {
         match *self {
             TCodeReasonGroup::RE_CONNECTION => write!(f, "RE_CONNECTION"),
             TCodeReasonGroup::USER_QUOTA => write!(f, "USER_QUOTA"),
+            TCodeReasonGroup::USER_BAD_CERTS => write!(f, "USER_BAD_CERTS"),
             _ => write!(f, "UNKNOWN"),
         }
     }
