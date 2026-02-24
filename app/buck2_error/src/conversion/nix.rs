@@ -14,6 +14,15 @@ impl From<nix::errno::Errno> for crate::Error {
     #[track_caller]
     fn from(value: nix::errno::Errno) -> Self {
         let error = crate::conversion::from_any_with_tag(value, crate::ErrorTag::Nix);
-        error.string_tag(&format!("{:?}", value))
+
+        let tag = match value {
+            nix::errno::Errno::EPERM => Some(crate::ErrorTag::EPerm),
+            _ => None,
+        };
+        if let Some(tag) = tag {
+            error.tag([tag])
+        } else {
+            error.string_tag(&format!("{:?}", value))
+        }
     }
 }

@@ -186,6 +186,9 @@ fn tag_metadata(tag: ErrorTag) -> TagMetadata {
         ErrorTag::HttpClient => rank!(environment).exit_code(ExitCode::UserError),
         // Mostly caused by network related operation being too slow/timeout.
         ErrorTag::IoEdenNetworkCurlTimedout => rank!(environment),
+        ErrorTag::RePermissionDenied => rank!(environment),
+        ErrorTag::ReUserBadCerts => rank!(environment),
+        ErrorTag::EPerm => rank!(environment),
 
         // Tier 0 errors
         ErrorTag::ServerJemallocAssert => rank!(tier0),
@@ -213,7 +216,6 @@ fn tag_metadata(tag: ErrorTag) -> TagMetadata {
         ErrorTag::ReInvalidArgument => rank!(tier0),
         ErrorTag::ReNotFound => rank!(tier0),
         ErrorTag::ReAlreadyExists => rank!(tier0),
-        ErrorTag::RePermissionDenied => rank!(tier0),
         ErrorTag::ReResourceExhausted => rank!(tier0),
         ErrorTag::ReAborted => rank!(tier0),
         ErrorTag::ReOutOfRange => rank!(tier0),

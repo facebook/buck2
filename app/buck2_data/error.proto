@@ -278,6 +278,7 @@ enum ErrorTag {
   // TCodeReasonGroup values: https://fburl.com/code/pvsy2jgv
   RE_CONNECTION = 1340;
   RE_USER_QUOTA = 1341;
+  RE_USER_BAD_CERTS = 1342;
 
   // Dice Errors
   // Value: https://fburl.com/code/5dxzaw41
@@ -406,6 +407,8 @@ enum ErrorTag {
   STRING_UTF8 = 9015;
   STRING_CONVERSION = 9016;
   CSTRING_NUL = 9023;
+
+  E_PERM = 9101;
 
   // From `buck2 debug crash`
   CRASH_REQUESTED = 8022;
