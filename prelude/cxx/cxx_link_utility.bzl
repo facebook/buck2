@@ -77,6 +77,19 @@ def linker_map_args(toolchain: CxxToolchainInfo, linker_map) -> LinkArgs:
         fail("Linker type {} not supported for linker maps".format(linker_type))
     return LinkArgs(flags = flags)
 
+def gc_sections_args(toolchain: CxxToolchainInfo, gc_sections_output) -> LinkArgs:
+    """Generate linker args for gc-sections output file."""
+    linker_type = toolchain.linker_info.type
+    if linker_type == LinkerType("gnu"):
+        # The linker wrapper (ld.py) handles --gc-sections-output flag
+        flags = [
+            "--gc-sections-output",
+            gc_sections_output,
+        ]
+    else:
+        fail("gc-sections output is only supported for GNU linker, got: {}".format(linker_type))
+    return LinkArgs(flags = flags)
+
 LinkArgsOutput = record(
     link_args = ArgLike,
     hidden = list[typing.Any],
