@@ -895,13 +895,20 @@ def _lint_flags(compile_ctx: CompileContext, infallible_diagnostics: bool, is_cl
         _lintify("W", is_clippy, toolchain_info.warn_lints),
     )
 
-def _rustc_flags(flags: list[str | ResolvedStringWithMacros | Artifact]) -> list[str | ResolvedStringWithMacros | Artifact]:
+def _rustc_flags(
+        flags: list[str | ResolvedStringWithMacros | Artifact],
+        toolchain_info: RustToolchainInfo) -> list[str | ResolvedStringWithMacros | Artifact]:
     # Rustc's "-g" flag is documented as being exactly equivalent to
     # "-Cdebuginfo=2". Rustdoc supports the latter, it just doesn't have the
     # "-g" shorthand for it.
     for i, flag in enumerate(flags):
         if str(flag) == '"-g"':
             flags[i] = "-Cdebuginfo=2"
+        if toolchain_info.advanced_unstable_linking:
+            if isinstance(flag, str):
+                if flag.startswith("-Clink-arg"):
+                    fail("-Clink-arg is not supported with advanced_unstable_linking, use the " +
+                         "target's or toolchain's `linker_flags` instead")
 
     return flags
 
@@ -1156,13 +1163,13 @@ def _compute_common_args(
         split_debuginfo_flags,
         compile_ctx.sysroot_args,
         ["-Cpanic=abort", "-Zpanic-abort-tests=yes"] if toolchain_info.panic_runtime == PanicRuntime("abort") else [],
-        _rustc_flags(toolchain_info.rustc_flags),
+        _rustc_flags(toolchain_info.rustc_flags, toolchain_info),
         # `rustc_check_flags` is specifically interpreted as flags that are used
         # only on the metadata-fast graph.
-        _rustc_flags(toolchain_info.rustc_check_flags) if dep_metadata_kind == MetadataKind("fast") else [],
-        _rustc_flags(toolchain_info.rustc_coverage_flags) if ctx.attrs.coverage else [],
-        _rustc_flags(ctx.attrs.rustc_flags),
-        _rustc_flags(toolchain_info.extra_rustc_flags),
+        _rustc_flags(toolchain_info.rustc_check_flags, toolchain_info) if dep_metadata_kind == MetadataKind("fast") else [],
+        _rustc_flags(toolchain_info.rustc_coverage_flags, toolchain_info) if ctx.attrs.coverage else [],
+        _rustc_flags(ctx.attrs.rustc_flags, toolchain_info),
+        _rustc_flags(toolchain_info.extra_rustc_flags, toolchain_info),
         cmd_args(ctx.attrs.features, format = '--cfg=feature="{}"'),
         dep_args,
     )
