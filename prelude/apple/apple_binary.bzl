@@ -329,7 +329,8 @@ def _get_bridging_header_flags(ctx: AnalysisContext) -> list[ArgLike]:
         cxx_toolchain_info = get_cxx_toolchain_info(ctx)
         header_mode = map_val(HeaderMode, getattr(ctx.attrs, "header_mode", None))
         allow_cache_upload = cxx_attrs_get_allow_cache_upload(ctx.attrs)
-        header_root = prepare_headers(ctx.actions, cxx_toolchain_info, header_map, "apple-binary-private-headers", header_mode = header_mode, allow_cache_upload = allow_cache_upload)
+        uses_content_based_paths = get_uses_content_based_paths(ctx)
+        header_root = prepare_headers(ctx.actions, cxx_toolchain_info, header_map, "apple-binary-private-headers", header_mode = header_mode, allow_cache_upload = allow_cache_upload, uses_content_based_paths = uses_content_based_paths)
         if header_root != None:
             private_headers_args = [cmd_args("-I"), header_root.include_path]
         else:
