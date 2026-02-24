@@ -119,7 +119,7 @@ def _apple_bundle_like_common_attrs():
         "code_signing_configuration": attrs.option(attrs.enum(CodeSignConfiguration.values()), default = None),
         "codesign_type": attrs.option(attrs.enum(CodeSignType.values()), default = None),
         "entitlements_verification_check_enabled": attrs.bool(default = select({
-            "DEFAULT": read_bool("apple", "entitlements_verification_check_enabled", default = False, root_cell = True),
+            "DEFAULT": read_bool("apple", "entitlements_verification_check_enabled", default = True, root_cell = True),
             "config//features/apple:entitlements_verification_check_disabled": False,
             "config//features/apple:entitlements_verification_check_enabled": True,
         })),
