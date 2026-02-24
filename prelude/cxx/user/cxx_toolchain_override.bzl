@@ -79,17 +79,18 @@ def _cxx_toolchain_override(ctx):
         allow_cache_upload = _pick_raw(ctx.attrs.c_compiler_allow_cache_upload, base_c_info.allow_cache_upload),
         supports_content_based_paths = base_c_info.supports_content_based_paths,
     )
-    base_objc_info = base_toolchain.objc_compiler_info
-    objc_info = ObjcCompilerInfo(
-        compiler = _pick_bin(ctx.attrs.c_compiler, base_c_info.compiler),
-        compiler_type = base_c_info.compiler_type,
-        compiler_flags = _pick_and_add(ctx.attrs.c_compiler_flags, ctx.attrs.additional_c_compiler_flags, base_objc_info.compiler_flags),
-        preprocessor = _pick_bin(ctx.attrs.c_compiler, base_c_info.preprocessor),
-        preprocessor_type = base_c_info.preprocessor_type,
-        preprocessor_flags = _pick(ctx.attrs.c_preprocessor_flags, base_c_info.preprocessor_flags),
-        allow_cache_upload = _pick_raw(ctx.attrs.c_compiler_allow_cache_upload, base_c_info.allow_cache_upload),
-        supports_content_based_paths = base_c_info.supports_content_based_paths,
-    )
+    objc_info = base_toolchain.objc_compiler_info
+    if objc_info != None:
+        objc_info = ObjcCompilerInfo(
+            compiler = _pick_bin(ctx.attrs.c_compiler, base_c_info.compiler),
+            compiler_type = base_c_info.compiler_type,
+            compiler_flags = _pick_and_add(ctx.attrs.c_compiler_flags, ctx.attrs.additional_c_compiler_flags, objc_info.compiler_flags),
+            preprocessor = _pick_bin(ctx.attrs.c_compiler, base_c_info.preprocessor),
+            preprocessor_type = base_c_info.preprocessor_type,
+            preprocessor_flags = _pick(ctx.attrs.c_preprocessor_flags, base_c_info.preprocessor_flags),
+            allow_cache_upload = _pick_raw(ctx.attrs.c_compiler_allow_cache_upload, base_c_info.allow_cache_upload),
+            supports_content_based_paths = base_c_info.supports_content_based_paths,
+        )
     base_cxx_info = base_toolchain.cxx_compiler_info
     cxx_info = CxxCompilerInfo(
         compiler = _pick_bin(ctx.attrs.cxx_compiler, base_cxx_info.compiler),
@@ -101,17 +102,18 @@ def _cxx_toolchain_override(ctx):
         allow_cache_upload = _pick_raw(ctx.attrs.cxx_compiler_allow_cache_upload, base_cxx_info.allow_cache_upload),
         supports_content_based_paths = base_cxx_info.supports_content_based_paths,
     )
-    base_objcxx_info = base_toolchain.objcxx_compiler_info
-    objcxx_info = ObjcxxCompilerInfo(
-        compiler = _pick_bin(ctx.attrs.cxx_compiler, base_cxx_info.compiler),
-        compiler_type = base_cxx_info.compiler_type,
-        compiler_flags = _pick_and_add(ctx.attrs.cxx_compiler_flags, ctx.attrs.additional_cxx_compiler_flags, base_objcxx_info.compiler_flags),
-        preprocessor = _pick_bin(ctx.attrs.cxx_compiler, base_cxx_info.preprocessor),
-        preprocessor_type = base_cxx_info.preprocessor_type,
-        preprocessor_flags = _pick(ctx.attrs.cxx_preprocessor_flags, base_cxx_info.preprocessor_flags),
-        allow_cache_upload = _pick_raw(ctx.attrs.cxx_compiler_allow_cache_upload, base_cxx_info.allow_cache_upload),
-        supports_content_based_paths = base_cxx_info.supports_content_based_paths,
-    )
+    objcxx_info = base_toolchain.objcxx_compiler_info
+    if objcxx_info != None:
+        objcxx_info = ObjcxxCompilerInfo(
+            compiler = _pick_bin(ctx.attrs.cxx_compiler, base_cxx_info.compiler),
+            compiler_type = base_cxx_info.compiler_type,
+            compiler_flags = _pick_and_add(ctx.attrs.cxx_compiler_flags, ctx.attrs.additional_cxx_compiler_flags, objcxx_info.compiler_flags),
+            preprocessor = _pick_bin(ctx.attrs.cxx_compiler, base_cxx_info.preprocessor),
+            preprocessor_type = base_cxx_info.preprocessor_type,
+            preprocessor_flags = _pick(ctx.attrs.cxx_preprocessor_flags, base_cxx_info.preprocessor_flags),
+            allow_cache_upload = _pick_raw(ctx.attrs.cxx_compiler_allow_cache_upload, base_cxx_info.allow_cache_upload),
+            supports_content_based_paths = base_cxx_info.supports_content_based_paths,
+        )
     base_linker_info = base_toolchain.linker_info
     linker_type = LinkerType(ctx.attrs.linker_type) if ctx.attrs.linker_type != None else base_linker_info.type
     pdb_expected = is_pdb_generated(linker_type, ctx.attrs.linker_flags) if ctx.attrs.linker_flags != None else base_linker_info.is_pdb_generated
