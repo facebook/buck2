@@ -289,6 +289,7 @@ pub struct InvocationRecorder {
     initial_io_write_count: Option<u32>,
     initial_io_canonicalize_count: Option<u32>,
     initial_io_eden_settle_count: Option<u32>,
+    repo_path: Option<String>,
 }
 
 #[derive(Clone, Debug)]
@@ -493,6 +494,7 @@ impl InvocationRecorder {
             initial_io_write_count: None,
             initial_io_canonicalize_count: None,
             initial_io_eden_settle_count: None,
+            repo_path: None,
         }
     }
 
@@ -571,6 +573,7 @@ impl InvocationRecorder {
         self.compressed_event_log_size_bytes = log_size_counter_bytes;
         self.health_check_tags_receiver = health_check_tags_receiver;
         self.preemptible = build_config_opts.and_then(|opts| opts.preemptible);
+        self.repo_path = paths.map(|p| p.project_root().root().to_string());
     }
 
     async fn build_count(
@@ -1186,6 +1189,7 @@ impl InvocationRecorder {
             io_write_count,
             io_canonicalize_count,
             io_eden_settle_count,
+            repo_path: self.repo_path.take(),
         };
 
         let event = BuckEvent::new(

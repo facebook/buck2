@@ -63,6 +63,7 @@ async def test_has_end_of_stream_true(buck: Buck) -> None:
 
     assert record["has_end_of_stream"]
     assert record["has_command_result"]
+    assert record["repo_path"] == str(buck.cwd)
 
 
 @buck_test(skip_for_os=["windows"], write_invocation_record=True)  # TODO(T154836632)

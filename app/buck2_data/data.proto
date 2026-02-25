@@ -2713,6 +2713,9 @@ message InvocationRecord {
   optional uint32 io_write_count = 428;
   optional uint32 io_canonicalize_count = 429;
   optional uint32 io_eden_settle_count = 430;
+
+  // Absolute path to the repo (project root).
+  optional string repo_path = 431;
 }
 
 enum InvocationOutcome {
