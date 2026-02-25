@@ -8,6 +8,8 @@
  * above-listed licenses.
  */
 
+#[cfg(unix)]
+use std::os::unix::fs::PermissionsExt;
 use std::time::Duration;
 use std::time::Instant;
 
@@ -54,6 +56,49 @@ impl HashingInfo {
             hashed_artifacts_count,
         }
     }
+}
+
+// When cleaning up artifacts in buck-out, std::fs::remove_dir_all() (and
+// non-sudo `rm -rf`) is not able to list/remove files from directories without
+// the read/write/execute bits being set. Since buck and RE make no promises
+// about preserving anything other than the execution bit, we normalize the
+// **directory** permissions here on the outputs of local actions to allow for
+// removal later by operations like "prepare output directory" or "clean" or
+// "clean stale".
+//
+// We also normalize file permissions, so that local action outputs have the
+// same permissions they would as if the action had run remotely, and we'd
+// downloaded the result from CAS. Note that `std::fs:remove*` _can_ remove
+// non-writable files. It's the directories that matter for the cleanup operations.
+fn do_normalize_permissions(path: &AbsNormPathBuf) -> buck2_error::Result<()> {
+    // While the path ould have been populated by an action, we only get here if
+    // we've walked the output tree and know the path exists already. Hence we
+    // categorize this as internal, not user.
+    let m = fs_util::symlink_metadata(path).categorize_internal()?;
+    let mut perms = m.permissions();
+    #[cfg(unix)]
+    {
+        let mode = perms.mode()
+            | if m.is_dir() {
+                0o755
+            } else if 0 != (perms.mode() & 0o111) {
+                0o444
+            } else {
+                0o644
+            };
+        if mode != perms.mode() {
+            perms.set_mode(mode);
+            fs_util::set_permissions(path, perms).categorize_input()?;
+        }
+    }
+    #[cfg(not(unix))]
+    {
+        if perms.readonly() {
+            perms.set_readonly(false);
+            fs_util::set_permissions(&path, perms).categorize_internal()?;
+        }
+    }
+    Ok(())
 }
 
 pub async fn build_entry_from_disk(
@@ -107,7 +152,7 @@ pub async fn build_entry_from_disk(
     let value = match FileType::from(m.file_type()) {
         FileType::File => {
             let (file_metadata, file_hashing_info): (FileMetadata, HashingInfo) =
-                build_file_metadata(path, digest_config, blocking_executor).await?;
+                build_file_metadata(path, digest_config).await?;
             hashing_info = hashing_info.add(file_hashing_info);
             DirectoryEntry::Leaf(ActionDirectoryMember::File(file_metadata))
         }
@@ -147,6 +192,7 @@ async fn build_dir_from_disk(
 
     let files = blocking_executor
         .execute_io_inline(|| {
+            do_normalize_permissions(&disk_path)?;
             fs_util::read_dir(&disk_path)
                 .categorize_internal()
                 .map_err(Into::into)
@@ -170,8 +216,7 @@ async fn build_dir_from_disk(
 
         match FileType::from(filetype) {
             FileType::File => {
-                let file_future =
-                    build_file_metadata(child_disk_path, digest_config, blocking_executor);
+                let file_future = build_file_metadata(child_disk_path, digest_config);
                 file_names.push(filename);
                 file_futures.push(file_future)
             }
@@ -219,25 +264,28 @@ async fn build_dir_from_disk(
 fn build_file_metadata(
     disk_path: AbsNormPathBuf,
     digest_config: FileDigestConfig,
-    blocking_executor: &dyn BlockingExecutor,
-) -> impl Future<Output = buck2_error::Result<(FileMetadata, HashingInfo)>> + '_ {
+) -> impl Future<Output = buck2_error::Result<(FileMetadata, HashingInfo)>> {
     static SEMAPHORE: Lazy<Semaphore> = Lazy::new(|| Semaphore::new(100));
-    let exec_path = disk_path.clone();
-    let executable = blocking_executor.execute_io_inline(move || Ok(exec_path.executable()));
-    let file_digest =
-        tokio::task::spawn_blocking(move || FileDigest::from_file(&disk_path, digest_config));
+    let io_task = move || {
+        do_normalize_permissions(&disk_path)?;
+        let hashing_start = Instant::now();
+        let digest = FileDigest::from_file(&disk_path, digest_config);
+        let hashing_info = HashingInfo::new(Instant::now() - hashing_start, 1);
+
+        buck2_error::Ok((disk_path.executable(), hashing_info, digest))
+    };
 
     async move {
         let _permit = SEMAPHORE.acquire().await.unwrap();
-        let hashing_start = Instant::now();
-        let file_digest = file_digest.await??;
-        let hashing_duration = HashingInfo::new(Instant::now() - hashing_start, 1);
+        let io_task = tokio::task::spawn_blocking(io_task);
+        let (is_executable, hashing_info, file_digest) = io_task.await??;
+        let file_digest = file_digest?;
         let file_metadata = FileMetadata {
             digest: TrackedFileDigest::new(file_digest, digest_config.as_cas_digest_config()),
-            is_executable: executable.await?,
+            is_executable,
         };
 
-        Ok((file_metadata, hashing_duration))
+        Ok((file_metadata, hashing_info))
     }
 }
 

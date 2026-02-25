@@ -12,7 +12,7 @@
 import os
 import sys
 from pathlib import Path
-from typing import Any
+from typing import Any, Union
 
 import pytest
 from buck2.tests.e2e_util.api.buck import Buck
@@ -50,90 +50,6 @@ for x in output_cleanup_targets:
         DARWIN_EXPECTED_UPLOAD_ERROR
     )
 
-# TODO: remove keep_temp when we remove expected_failures
-expected_failures_linux: set[str] = {
-    "symlinked_dir-local_nonexec_dir",
-    "write-local_readonly_dir",
-    "local_readonly_file-local_readonly_dir",
-}
-
-# TODO: remove keep_temp when we remove expected_failures
-expected_failures_darwin: set[str] = {
-    "write-local_readonly_dir",
-    "symlinked_dir-local_nonexec_dir",
-    "local_readonly_file-local_readonly_dir",
-}
-
-# TODO: remove keep_temp when we remove expected_failures
-expected_failures_nonwin: set[str] = {
-    "copy-local_nonexec_dir",
-    "copy-local_readonly_dir",
-    "local_action-local_nonexec_dir",
-    "local_action-local_readonly_dir",
-    "local_nonexec_dir-copy",
-    "local_nonexec_dir-local_action",
-    "local_nonexec_dir-local_nonexec_dir",
-    "local_nonexec_dir-local_readonly_dir",
-    "local_nonexec_dir-local_readonly_file",
-    "local_nonexec_dir-remote_action",
-    "local_nonexec_dir-remote_nonexec_dir",
-    "local_nonexec_dir-remote_readonly_dir",
-    "local_nonexec_dir-remote_readonly_file",
-    "local_nonexec_dir-symlinked_dir",
-    "local_nonexec_dir-write",
-    "local_readonly_dir-copy",
-    "local_readonly_dir-local_action",
-    "local_readonly_dir-local_nonexec_dir",
-    "local_readonly_dir-local_readonly_dir",
-    "local_readonly_dir-local_readonly_file",
-    "local_readonly_dir-remote_action",
-    "local_readonly_dir-remote_nonexec_dir",
-    "local_readonly_dir-remote_readonly_dir",
-    "local_readonly_dir-remote_readonly_file",
-    "local_readonly_dir-symlinked_dir",
-    "local_readonly_dir-write",
-    "local_readonly_file-local_nonexec_dir",
-    "remote_action-local_nonexec_dir",
-    "remote_action-local_readonly_dir",
-    "remote_nonexec_dir-local_nonexec_dir",
-    "remote_nonexec_dir-local_readonly_dir",
-    "remote_readonly_dir-local_nonexec_dir",
-    "remote_readonly_dir-local_readonly_dir",
-    "remote_readonly_file-local_nonexec_dir",
-    "remote_readonly_file-local_readonly_dir",
-    "symlinked_dir-local_readonly_dir",
-    "write-local_nonexec_dir",
-}
-
-expected_failures: set[tuple[str, str]] = (
-    (expected_failures_nonwin if sys.platform != "win32" else set())
-    | (expected_failures_linux if sys.platform == "linux" else set())
-    | (expected_failures_darwin if sys.platform == "darwin" else set())
-)
-
-
-# TODO: remove
-def or_perm(path: Path, mode: int, *, domod: bool) -> None:
-    before = path.stat().st_mode
-    if domod:
-        os.chmod(str(path), before | mode)
-    print(
-        f"MOD {path!s} {before:o} => {path.stat().st_mode:o}",
-        file=sys.stderr,
-    )
-
-
-# TODO: remove
-def walkit(root: Path, domod: bool = False) -> None:
-    for dirname, dirnames, filenames in os.walk(root):
-        dirname = Path(dirname)
-
-        or_perm(dirname, 0o755, domod=domod)
-        for name in filenames:
-            or_perm(dirname / name, 0o644, domod=domod)
-        for name in dirnames:
-            or_perm(dirname / name, 0o755, domod=domod)
-
 
 @buck_test()
 # Note: listing these second...first makes the parameterization appear [first-second-...] in the job names
@@ -167,12 +83,8 @@ async def test_output_cleanup(
     rebuild = tmp_path / "rebuild"
     clean = tmp_path / "clean"
     test_key = f"{sys.platform}-test_output_cleanup[{first}-{second}]"
-    expect_key = f"{first}-{second}"
-
     first = f"{first}-a"
     second = f"{second}-b"
-
-    expect_failure = expect_key in expected_failures
 
     try:
         await buck.build(":main", "-c", f"test.main={first}")
@@ -185,16 +97,84 @@ async def test_output_cleanup(
 
         if test_key in EXPECTED_FAILURES:
             raise Exception(f"Expected failure for {test_key}")
-        if expect_failure:
-            raise RuntimeError(f"Expected failure from these targets {first} {second}")
     except BuckException as e:
-        if expect_failure:
-            return
         msg = EXPECTED_FAILURES.get(test_key)
         if msg is not None and e.stderr and msg in e.stderr:
             return
         raise e
 
-    finally:
-        # TODO: for now, we have to make this deletable so `buck.clean` can remote the temp dir. Remove this when we fix the permissions.
-        walkit(Path(buck.cwd) / "buck-out/v2/gen", domod=True)
+
+@buck_test()
+@pytest.mark.parametrize("kind", ["readonly_file", "readonly_dir", "nonexec_dir"])
+async def test_permissions_match_local_remote(
+    buck: Buck, tmp_path: Path, kind: str
+) -> None:
+    target = "root//:main"
+    lhs = f"local_{kind}-a"
+    rhs = f"remote_{kind}-a"
+
+    def add_entry(
+        ret: dict[str, tuple[Union[int, str], ...]],
+        root: Path,
+        path: Path,
+        with_file_contents: bool,
+    ) -> None:
+        key = path.relative_to(root)
+        s = path.stat(follow_symlinks=False)
+        entry = (s.st_mode,)
+        if path.exists() and path.is_file() and with_file_contents:
+            with open(path) as f:
+                entry += (f.read(),)
+        ret[str(key)] = entry
+
+    def get_entries(
+        root: Path, with_file_contents: bool
+    ) -> dict[str, tuple[Union[int, str], ...]]:
+        ret = {}
+        if root.is_file():
+            add_entry(ret, root, root, with_file_contents)
+        else:
+            for dirname, _, filenames in os.walk(root):
+                dirname = Path(dirname)
+                add_entry(ret, root, dirname, with_file_contents)
+                for filename in filenames:
+                    add_entry(ret, root, dirname / filename, with_file_contents)
+        return ret
+
+    test_key = f"{sys.platform}-test_permissions_match_local_remote[{kind}]"
+    lhs_entries = rhs_entries = lhs_entries_and_contents = rhs_entries_and_contents = (
+        None
+    )
+    try:
+        lhs_res = (
+            (await buck.build(":main", "-c", f"test.main={lhs}"))
+            .get_build_report()
+            .output_for_target(target)
+        )
+        lhs_entries = get_entries(lhs_res, False)
+        lhs_entries_and_contents = get_entries(lhs_res, True)
+
+        await buck.clean()
+        rhs_res = (
+            (await buck.build(":main", "-c", f"test.main={rhs}"))
+            .get_build_report()
+            .output_for_target(target)
+        )
+        rhs_entries = get_entries(rhs_res, False)
+        rhs_entries_and_contents = get_entries(rhs_res, True)
+        if test_key in EXPECTED_FAILURES:
+            raise Exception("Expected failure for {test_key}")
+    except BuckException as e:
+        msg = EXPECTED_FAILURES.get(test_key)
+        if msg is not None and e.stderr and msg in e.stderr:
+            return
+        raise e
+
+    if lhs_entries != rhs_entries:
+        raise ValueError(
+            f"Permissions mismatch between local and remote: lhs_entries != rhs_entries: {lhs_entries} != {rhs_entries}"
+        )
+    if lhs_entries_and_contents == rhs_entries_and_contents:
+        raise ValueError(
+            f"Test error, contents of files weren't different: {lhs_entries_and_contents} != {rhs_entries_and_contents}"
+        )
