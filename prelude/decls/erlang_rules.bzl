@@ -221,7 +221,7 @@ rules_attributes = {
                 The mapping listed here maps from boot script name (e.g. "start.boot") to a binary (e.g. "$(location ...)") generating the boot script.
                 The binary receives three input arguments:
                 1. path of to a json file containing the applications, i.e. `["app1", ("app2", "load"), ...]`
-                2. the location of the lib dir containing the <app>_<version> folders
+                2. the location of the lib dir containing the `<app>_<version>` folders
                 3. the output location of the boot script
                 4. the output location of the script file
                 """),
