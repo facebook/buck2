@@ -101,6 +101,19 @@ def __patch_spawn(var_names: list[str], saved_env: dict[str, str]) -> None:
     mp_util.spawnv_passfds = spawnv_passfds
 
 
+def _resolve_path_entries(path: list[str], dirs_only: bool = False) -> list[str]:
+    resolved = []
+    for entry in path:
+        if entry.startswith("/proc/self/fd/"):
+            try:
+                entry = os.readlink(entry)
+            except OSError:
+                pass
+        if not dirs_only or os.path.isdir(entry):
+            resolved.append(entry)
+    return resolved
+
+
 def __patch_spawn_preparation_data() -> None:
     # Only needed for fastzip PARs, which use /proc/self/fd/<N> paths in
     # sys.path. Other PAR styles (e.g. xar) use real filesystem paths and
@@ -122,16 +135,7 @@ def __patch_spawn_preparation_data() -> None:
     def get_preparation_data(name):  # type: ignore
         d = orig_get_preparation_data(name)
         if "sys_path" in d:
-            resolved = []
-            for entry in d["sys_path"]:
-                if entry.startswith("/proc/self/fd/"):
-                    try:
-                        resolved.append(os.readlink(entry))
-                    except OSError:
-                        resolved.append(entry)
-                else:
-                    resolved.append(entry)
-            d["sys_path"] = resolved
+            d["sys_path"] = _resolve_path_entries(d["sys_path"])
         return d
 
     mp_spawn.get_preparation_data = get_preparation_data
@@ -163,17 +167,18 @@ def __patch_subprocess_run() -> None:
             # Resolve /proc/self/fd/<N> paths (used by fastzip PARs) to real
             # filesystem paths so the child process can find modules (including
             # sitecustomize.py which clears PYTHONHOME).
-            resolved_path = []
-            for entry in sys.path:
-                if entry.startswith("/proc/self/fd/"):
-                    try:
-                        resolved_path.append(os.readlink(entry))
-                    except OSError:
-                        resolved_path.append(entry)
-                else:
-                    resolved_path.append(entry)
-            env["PYTHONPATH"] = os.path.pathsep.join(resolved_path)
-            env["PYTHONHOME"] = sys.prefix
+            # dirs_only=True filters out .par zip files from PYTHONPATH to
+            # avoid RecursionError during early Python init (zipimport's
+            # _read_directory triggers a lazy `import struct` cycle).
+            resolved = _resolve_path_entries(sys.path, dirs_only=True)
+            env["PYTHONPATH"] = os.path.pathsep.join(resolved)
+            # Only set PYTHONHOME if the child will find sitecustomize.py
+            # (which clears it). Otherwise PYTHONHOME leaks and the child
+            # uses the PAR's prefix for stdlib, causing hangs.
+            if any(
+                os.path.isfile(os.path.join(d, "sitecustomize.py")) for d in resolved
+            ):
+                env["PYTHONHOME"] = sys.prefix
 
         return std_run(args, env=env, **kwargs)
 
