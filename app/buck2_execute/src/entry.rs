@@ -66,9 +66,38 @@ pub async fn build_entry_from_disk(
     HashingInfo,
 )> {
     // Get file metadata. If the file is missing, ignore it.
-    // TODO(nga): explain why we ignore missing files.
+    //
+    // If the symlink points to an input or output of this action, the artifact
+    // value associated with the symlink will include its target, and something
+    // can just consume the symlink artifact. If the symlink targets something
+    // that isn't in the inputs or outputs, the artifactvalue won't have it
+    // either, and consumers will need to explicitly have the artifact both for
+    // the symlink and its target. Note that this function only processes the
+    // symlink itself, not the target/destination. If the target is also an
+    // output artifact for this action, another call to `build_entry_from_disk`
+    // may process it.
     let m = match std::fs::symlink_metadata(&path) {
         Ok(m) => m,
+        // A NotFound error here means that the action failed to produce one of
+        // its expected outputs. While this output is missing, others may not
+        // be. We intensionally ignore this error so that we can process the
+        // other outputs and normalize their permissions (so the files can be
+        // removed later by the materializer). Ignoring failures here and
+        // catching them later also allows the action executor to report stats
+        // on the action execution prior to turnl If we returned an error here
+        // we'd cut that process short.  The BuckActionExecutor has a check for
+        // missing outputs. When `None` is returned here the output isn't listed
+        // in the digested results, and that check will produce a missing
+        // outputs error.
+        //
+        // Additionally, it's possible the output doesn't exist because the
+        // action failed due to corrupted materialized state (eg a user
+        // deleted/changed a file in buck-out). The "check all inputs match the
+        // materializer state" check is expensive. We don't perform it before
+        // running every action, it's only run if the action returns an
+        // exit_code != 0. If we returned an error for missing files here, we'd
+        // skip those checks, and not know that the materialized state was
+        // incorrect.
         Err(ref err) if err.kind() == std::io::ErrorKind::NotFound => {
             return Ok((None, HashingInfo::default()));
         }

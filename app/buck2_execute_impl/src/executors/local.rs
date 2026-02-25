@@ -710,6 +710,14 @@ impl LocalExecutor {
                 exit_code,
                 execution_stats,
             } => {
+                // N.B. calculate_and_declare_output_values ignores missing
+                // output files in order to guarantee we run the accounting
+                // checks below. If the output is missing because the action
+                // failed, we'll run the `exit_code != 0` branch below, allowing
+                // us to detect corrupted materializer state in check_inputs. If
+                // the output is just missing because the action didn't produce
+                // it, that's detected when BuckActionExecutor.execute validates
+                // that all outputs were actually returned.
                 let (outputs, hashing_time) = match self
                     .calculate_and_declare_output_values(request, digest_config)
                     .boxed()
