@@ -40,6 +40,7 @@ LinkerInfo = provider(
         "dist_thin_lto_codegen_flags": provider_field([cmd_args, None], default = None),
         "extra_outputs": provider_field(list[str], default = []),
         "generate_linker_maps": provider_field(typing.Any, default = None),  # bool
+        "generate_gc_sections": provider_field(typing.Any, default = None),  # bool
         # Whether to run native links locally.  We support this for fbcode platforms
         # to avoid issues with C++ static links (see comment in
         # `platform/cxx_toolchains.bzl` for details).
