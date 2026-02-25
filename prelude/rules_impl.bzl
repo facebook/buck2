@@ -22,7 +22,7 @@ load("@prelude//apple:apple_common.bzl", "apple_common")
 load("@prelude//apple:apple_rules_decls.bzl", "apple_rules")
 load("@prelude//apple:apple_rules_impl.bzl", _apple_extra_attributes = "extra_attributes", _apple_implemented_rules = "implemented_rules")
 load("@prelude//configurations:rules.bzl", _config_extra_attributes = "extra_attributes", _config_implemented_rules = "implemented_rules")
-load("@prelude//csharp:csharp.bzl", "csharp_library_impl", "prebuilt_dotnet_library_impl")
+load("@prelude//csharp:csharp.bzl", "csharp_library_impl", "csharp_binary_impl", "prebuilt_dotnet_library_impl")
 load("@prelude//cxx:bitcode.bzl", "llvm_link_bitcode_impl")
 load("@prelude//cxx:cuda.bzl", "CudaCompileStyle")
 load("@prelude//cxx:cxx.bzl", "cxx_binary_impl", "cxx_library_impl", "cxx_precompiled_header_impl", "cxx_test_impl", "prebuilt_cxx_library_impl")
@@ -181,6 +181,7 @@ extra_implemented_rules = struct(
 
     #c#
     csharp_library = csharp_library_impl,
+    csharp_binary = csharp_binary_impl,
     prebuilt_dotnet_library = prebuilt_dotnet_library_impl,
 
     #c++
@@ -273,6 +274,9 @@ def _python_runtime_bundle_attrs():
 
 _dotnet_extra_attributes = {
     "csharp_library": {
+        "_csharp_toolchain": toolchains_common.csharp(),
+    },
+    "csharp_binary": {
         "_csharp_toolchain": toolchains_common.csharp(),
     },
 }

@@ -9,26 +9,22 @@
 load(":csharp_providers.bzl", "DllDepTSet", "DllReference", "DotNetLibraryInfo", "generate_target_tset_children")
 load(":toolchain.bzl", "CSharpToolchainInfo")
 
-def csharp_library_impl(ctx: AnalysisContext) -> list[Provider]:
+def _csharp_library_or_exe(ctx: AnalysisContext, library_or_exe_name: str, target_type: str) -> DotNetLibraryInfo:
     toolchain = ctx.attrs._csharp_toolchain[CSharpToolchainInfo]
 
-    # Automatically set the output dll_name to this target's name if the caller did not specify a
-    # custom name.
-    dll_name = "{}.dll".format(ctx.attrs.name) if not ctx.attrs.dll_name else ctx.attrs.dll_name
+    # Declare that this rule will produce a dll or exe.
+    library_or_exe = ctx.actions.declare_output(library_or_exe_name)
 
-    # Declare that this rule will produce a dll.
-    library = ctx.actions.declare_output(dll_name)
-
-    # Create a command invoking a wrapper script that calls csc.exe to compile the .dll.
+    # Create a command invoking a wrapper script that calls csc.exe to compile the .dll or the .exe.
     cmd = [toolchain.csc]
 
     # Add caller specified compiler flags.
     cmd.append(ctx.attrs.compiler_flags)
 
     # Set the output target as a .NET library.
-    cmd.append("/target:library")
+    cmd.append("/target:" + target_type)
     cmd.append(cmd_args(
-        library.as_output(),
+        library_or_exe.as_output(),
         format = "/out:{}",
     ))
 
@@ -63,13 +59,32 @@ def csharp_library_impl(ctx: AnalysisContext) -> list[Provider]:
     # Run the C# compiler to produce the output artifact.
     ctx.actions.run(cmd, category = "csharp_compile")
 
+    return DotNetLibraryInfo(
+        name = library_or_exe_name,
+        object = library_or_exe,
+        dll_deps = ctx.actions.tset(DllDepTSet, value = DllReference(reference = library_or_exe), children = child_deps),
+    )
+
+def csharp_library_impl(ctx: AnalysisContext) -> list[Provider]:
+    # Automatically set the output dll_name to this target's name if the caller did not specify a
+    # custom name.
+    dll_name = "{}.dll".format(ctx.attrs.name) if not ctx.attrs.dll_name else ctx.attrs.dll_name
+
+    dotNetLibraryInfo = _csharp_library_or_exe(ctx, dll_name, "library")
+
     return [
-        DefaultInfo(default_output = library),
-        DotNetLibraryInfo(
-            name = ctx.attrs.dll_name,
-            object = library,
-            dll_deps = ctx.actions.tset(DllDepTSet, value = DllReference(reference = library), children = child_deps),
-        ),
+        DefaultInfo(default_output = dotNetLibraryInfo.object),
+        dotNetLibraryInfo,
+    ]
+
+def csharp_binary_impl(ctx: AnalysisContext) -> list[Provider]:
+    exe_name = "{}.exe".format(ctx.attrs.name) if not ctx.attrs.exe_name else ctx.attrs.exe_name
+
+    dotNetLibraryInfo = _csharp_library_or_exe(ctx, exe_name, "exe")
+
+    return [
+        DefaultInfo(default_output = dotNetLibraryInfo.object),
+        RunInfo(args = cmd_args(dotNetLibraryInfo.object)),
     ]
 
 def prebuilt_dotnet_library_impl(ctx: AnalysisContext) -> list[Provider]:

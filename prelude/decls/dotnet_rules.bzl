@@ -70,6 +70,64 @@ csharp_library = prelude_rule(
     ),
 )
 
+csharp_binary = prelude_rule(
+    name = "csharp_binary",
+    docs = """
+        A csharp\\_binary() rule builds a .Net library from the supplied set of C# source files
+         and dependencies by invoking csc.
+    """,
+    examples = """
+        For more examples, check out our [integration tests](https://github.com/facebook/buck/tree/dev/test/com/facebook/buck/rust/testdata/).
+
+
+        ```
+
+        csharp_binary(
+          name = 'simple',
+          exe_name = 'Cake.exe',
+          framework_ver = 'net46',
+          srcs = [
+            'Hello.cs',
+          ],
+          resources = {
+            'greeting.txt': '//some:target',
+          },
+          deps=[
+            ':other',
+            'System.dll',
+          ],
+        )
+
+        prebuilt_dotnet_library(
+          name = 'other',
+          assembly = 'other-1.0.dll',
+        )
+
+        ```
+    """,
+    further = None,
+    attrs = (
+        # @unsorted-dict-items
+        {
+            "exe_name": attrs.string(default = "", doc = """
+                The output name of the dll. This allows you to specify the name of
+                 the dll exactly. When this is not set, the dll will be named after
+                 the short name of the target.
+            """),
+        } |
+        dotnet_common.srcs_arg() |
+        dotnet_common.resources_arg() |
+        dotnet_common.framework_ver_arg() |
+        dotnet_common.deps_arg() |
+        dotnet_common.compiler_flags_arg() |
+        dotnet_common.default_host_platform_arg() |
+        dotnet_common.add_hermetic_arguments_arg() |
+        buck.licenses_arg() |
+        buck.labels_arg() |
+        buck.contacts_arg()
+    ),
+)
+
 prebuilt_dotnet_library = prelude_rule(
     name = "prebuilt_dotnet_library",
     docs = """
@@ -113,5 +171,6 @@ prebuilt_dotnet_library = prelude_rule(
 
 dotnet_rules = struct(
     csharp_library = csharp_library,
+    csharp_binary = csharp_binary,
     prebuilt_dotnet_library = prebuilt_dotnet_library,
 )
