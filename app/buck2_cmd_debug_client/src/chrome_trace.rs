@@ -59,7 +59,6 @@ use std::borrow::Cow;
 use std::collections::BTreeSet;
 use std::collections::HashMap;
 use std::collections::HashSet;
-use std::io::BufWriter;
 use std::io::Write;
 use std::sync::Arc;
 use std::time::Duration;
@@ -88,6 +87,8 @@ use buck2_events::BuckEvent;
 use buck2_fs::paths::abs_path::AbsPathBuf;
 use derive_more::Display;
 use dupe::Dupe;
+use flate2::Compression;
+use flate2::write::GzEncoder;
 use futures::TryStreamExt;
 use futures::stream::BoxStream;
 use serde::Serialize;
@@ -95,11 +96,8 @@ use serde_json::json;
 
 #[derive(Debug, clap::Parser)]
 pub struct ChromeTraceCommand {
-    #[clap(
-        long,
-        help = "Where to write the chrome trace JSON. If a directory is passed, the filename of the event log will be used as a base filename."
-    )]
-    pub trace_path: PathArg,
+    #[clap(flatten)]
+    pub output: OutputArgs,
 
     /// The path to read the event log from.
     #[clap(
@@ -110,7 +108,6 @@ pub struct ChromeTraceCommand {
         hide = true
     )]
     pub event_log_path: Option<PathArg>,
-
     #[clap(
         long,
         help = "Places a global instant event at the specified time. Floating point seconds and integer nanoseconds unixtime is accepted.",
@@ -128,6 +125,24 @@ pub struct ChromeTraceCommand {
 
     #[clap(flatten)]
     pub(crate) event_log: EventLogOptions,
+}
+
+#[derive(Debug, clap::Parser)]
+#[group(required = true, multiple = true)]
+pub struct OutputArgs {
+    #[clap(
+        long,
+        help = "Where to write the chrome trace JSON. If a directory is passed, the filename of the event log will be used as a base filename."
+    )]
+    #[cfg(fbcode_build)]
+    pub trace_path: Option<PathArg>,
+    #[cfg(not(fbcode_build))]
+    pub trace_path: PathArg,
+
+    /// Uploads the result to manifold and generates a perfetto link for you
+    #[cfg(fbcode_build)]
+    #[clap(long)]
+    pub upload: bool,
 }
 
 struct ChromeTraceFirstPass {
@@ -1663,7 +1678,26 @@ impl BuckSubcommand for ChromeTraceCommand {
         } else {
             self.event_log.get(&ctx).await?
         };
-        let trace_path = self.trace_path.resolve(&ctx.working_dir);
+
+        #[cfg(fbcode_build)]
+        let (trace_path, _temp_trace_file) = match (self.output.trace_path, self.output.upload) {
+            (Some(trace_path), _) => (trace_path.resolve(&ctx.working_dir), None),
+            (None, false) => {
+                return ExitResult::err(buck2_error::internal_error!(
+                    "clap should have required at least one of --trace-path/--upload"
+                ));
+            }
+            (None, true) => {
+                let temp_trace_file = tempfile::NamedTempFile::new()?;
+                (
+                    ctx.working_dir.resolve(temp_trace_file.path()),
+                    Some(temp_trace_file),
+                )
+            }
+        };
+        #[cfg(not(fbcode_build))]
+        let trace_path = self.output.trace_path.resolve(&ctx.working_dir);
+
         let dest_path = if trace_path.is_dir() {
             Self::trace_path_from_dir(trace_path, log.path())
                 .buck_error_context("Could not determine trace path")?
@@ -1684,13 +1718,64 @@ impl BuckSubcommand for ChromeTraceCommand {
         }
 
         let writer = Self::trace_writer(log, self.max_tracks, instant_events).await?;
+        #[cfg(fbcode_build)]
+        let trace_id = writer.invocation.trace_id.clone();
 
         let tracefile = std::fs::OpenOptions::new()
             .create(true)
             .write(true)
             .truncate(true)
-            .open(dest_path)?;
-        writer.into_writer(BufWriter::new(tracefile))?;
+            .open(&dest_path)?;
+        let mut enc = GzEncoder::new(tracefile, Compression::default());
+        writer.into_writer(&mut enc)?;
+        drop(enc);
+
+        #[cfg(fbcode_build)]
+        if self.output.upload {
+            let bucket = buck2_common::manifold::Bucket::EVENT_LOGS;
+            let sys_info = buck2_events::metadata::system_info();
+            let username = sys_info
+                .username
+                .unwrap_or_else(|| "unknown_user".to_owned());
+            let timestamp = chrono::Utc::now().to_rfc3339();
+
+            let manifold_filename =
+                format!("flat/{trace_id}_{username}_{timestamp}.chrome_trace.gz");
+            println!("Uploading {manifold_filename}...");
+            let client = buck2_common::manifold::ManifoldClient::new().await?;
+            let explorer_url = client
+                .upload_file(
+                    &dest_path,
+                    manifold_filename.clone(),
+                    bucket,
+                    buck2_common::manifold::Ttl::from_days(30),
+                )
+                .await?;
+            fn ansi_url(url: &str, text: &str) -> String {
+                const ESC: &str = "\x1b";
+                const ESCURL: &str = const_format::concatcp!(ESC, "]8;;");
+                const ESCSEP: &str = const_format::concatcp!(ESC, "\\");
+                format!("{ESCURL}{url}{ESCSEP}{text}{ESCURL}{ESCSEP}")
+            }
+            let download_url = bucket.intern_url(manifold_filename.as_str());
+            println!(
+                "Uploaded generated trace: {}",
+                ansi_url(&explorer_url, &explorer_url)
+            );
+            println!(
+                "Direct download: {}",
+                ansi_url(&download_url, &download_url)
+            );
+
+            const PERFETTO_URL: &str =
+                "https://interncache-all.fbcdn.net/manifold/perfetto-artifacts/tree/ui/index.html";
+            let mut query_string = form_urlencoded::Serializer::new("".to_owned());
+            query_string.append_pair("url", &download_url);
+            let query_string = query_string.finish();
+            let perfetto_url = format!("{PERFETTO_URL}#!/?{}", query_string);
+
+            println!("Perfetto: {}", ansi_url(&perfetto_url, &perfetto_url));
+        }
 
         ExitResult::success()
     }

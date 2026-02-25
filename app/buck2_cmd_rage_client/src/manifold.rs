@@ -17,9 +17,9 @@ use buck2_fs::error::IoResultExt;
 use buck2_fs::paths::abs_path::AbsPath;
 
 pub(crate) fn manifold_leads(bucket: &Bucket, filename: String) -> String {
-    let full_path = format!("{}/{}", bucket.name, filename);
+    let full_path = bucket.path(filename.as_str());
     let command = format!("manifold get {full_path}");
-    let url = format!("https://interncache-all.fbcdn.net/manifold/{full_path}");
+    let url = bucket.intern_url(filename.as_str());
     format!("{command}\n{url}")
 }
 

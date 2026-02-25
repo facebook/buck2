@@ -8,13 +8,17 @@ version = "0.1.0"
 
 [dependencies]
 async-trait = { workspace = true }
+chrono = { workspace = true }
 clap = { workspace = true }
 derive_more = { workspace = true }
+flate2 = { workspace = true }
 futures = { workspace = true }
 humantime = { workspace = true }
+lsp-types = { workspace = true }
 prost = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
+tempfile = { workspace = true }
 tokio = { workspace = true }
 tokio-stream = { workspace = true }
 tracing = { workspace = true }

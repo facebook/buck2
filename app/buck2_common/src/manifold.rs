@@ -159,15 +159,26 @@ impl Bucket {
         name: "buck2_installer_logs",
         key: "buck2_installer_logs-key",
     };
+
+    pub fn path(&self, filename: &str) -> String {
+        format!("{}/{}", self.name, filename)
+    }
+
+    pub fn intern_url(&self, filename: &str) -> String {
+        format!(
+            "https://interncache-all.fbcdn.net/manifold/{}",
+            self.path(filename)
+        )
+    }
 }
 
-fn manifold_url(bucket: &Bucket, filename: String) -> String {
+fn manifold_explorer_url(bucket: &Bucket, filename: String) -> String {
     let full_path = format!("{}/{}", bucket.name, filename);
     format!("https://www.internalfb.com/manifold/explorer/{full_path}")
 }
 
-/// Return the place to upload logs, or None to not upload logs at all
-fn log_upload_url(use_vpnless: bool) -> Option<&'static str> {
+/// Return the scheme+host manifold endpoint to upload to manifold, or None to not upload at all.
+fn upload_endpoint_url(use_vpnless: bool) -> Option<&'static str> {
     #[cfg(fbcode_build)]
     if hostcaps::is_prod() {
         Some("https://manifold.facebook.net")
@@ -191,7 +202,7 @@ pub struct ManifoldClient {
 impl ManifoldClient {
     pub async fn new() -> buck2_error::Result<Self> {
         let client = HttpClientBuilder::internal().await?.build();
-        let manifold_url = log_upload_url(client.supports_vpnless()).map(|s| s.to_owned());
+        let manifold_url = upload_endpoint_url(client.supports_vpnless()).map(|s| s.to_owned());
 
         Ok(Self {
             client,
@@ -325,7 +336,7 @@ impl ManifoldClient {
         self.read_and_upload(bucket, &filename, ttl, &mut file)
             .await?;
 
-        Ok(manifold_url(&bucket, filename))
+        Ok(manifold_explorer_url(&bucket, filename))
     }
 }
 
