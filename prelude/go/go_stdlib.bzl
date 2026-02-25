@@ -85,7 +85,7 @@ def go_stdlib_impl(ctx: AnalysisContext) -> list[Provider]:
             ["--output", go_list_stdlib_out.as_output()],
             "--convert-json-stream",
             "list",
-            "-json",
+            "-json=GoFiles,CgoFiles,ImportPath",
             ["-tags", ",".join(build_tags)] if build_tags else [],
             ["-race"] if go_toolchain.race else [],
             "std",
