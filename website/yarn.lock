@@ -4872,7 +4872,7 @@ docusaurus-lunr-search@^2.3.2:
     unified "^9.0.0"
     unist-util-is "^4.0.2"
 
-docusaurus-plugin-internaldocs-fb@^1.19.1:
+docusaurus-plugin-internaldocs-fb@^1.19.2:
   version "1.19.2"
   resolved "https://registry.yarnpkg.com/docusaurus-plugin-internaldocs-fb/-/docusaurus-plugin-internaldocs-fb-1.19.2.tgz#9346fb260bfb98f551c7efdbab0bd0c303ddaff8"
   integrity sha512-l+mrmdioWaqpSx4Dqw+8LRC/6ws/zrNjqpDB9+EmvCl4PuyKAwinA/v43nNbvQMFEPgAd0Ve3bdXvyiL44uxbQ==
