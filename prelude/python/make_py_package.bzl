@@ -150,34 +150,6 @@ def _live_par_generated_files(
     artifacts.append((lpar_bootstrap, "_bootstrap.sh"))
     return artifacts
 
-def _live_par_windows_bootstrap(
-        ctx: AnalysisContext,
-        output: Artifact,
-        python_toolchain: PythonToolchainInfo,
-        python_internal_tools: PythonInternalToolsInfo,
-        main: EntryPoint,
-        preload_libraries: ArgLike,
-        shared_libraries: list[(SharedLibrary, str)],
-        symlink_tree_path: Artifact,
-        output_suffix: str):
-    # Windows can't use _bootstrap.sh, so reuse existing make_py_package_inplace tool
-    # to generate a Python bootstrap script.
-    bootstrap = cmd_args(python_internal_tools.make_py_package_inplace)
-    bootstrap.add(_pex_bootstrap_args(
-        python_toolchain,
-        main,
-        output,
-        len(shared_libraries) > 0,
-        preload_libraries,
-        symlink_tree_path,
-        PackageStyle("inplace"),
-        True,
-    ))
-    if ctx.attrs.runtime_env:
-        for k, v in ctx.attrs.runtime_env.items():
-            bootstrap.add(cmd_args(["--runtime_env", "{}={}".format(k, v)]))
-    ctx.actions.run(bootstrap, category = "par", identifier = "bootstrap{}".format(output_suffix))
-
 def make_default_info(pex: PexProviders) -> Provider:
     return DefaultInfo(
         default_output = pex.default_output,
@@ -432,7 +404,7 @@ def _make_py_package_wrapper(
         pex_modules: PexModules,
         output_suffix: str,
         allow_cache_upload: bool) -> PexProviders:
-    if package_style == PackageStyle("inplace") and ctx.attrs.use_rust_make_par:
+    if package_style == PackageStyle("inplace") and ctx.attrs.use_rust_make_par and make_py_package_cmd != None:
         return _make_py_package_live(
             ctx,
             python_toolchain.make_py_package_live[RunInfo],
@@ -680,32 +652,16 @@ def _make_py_package_live(
 
     generated_files = []
     generated_files.extend(common_generated_files)
-
-    is_windows = ctx.attrs._target_os_type[OsLookup].os == Os("windows")
-
-    if is_windows:
-        _live_par_windows_bootstrap(
-            ctx,
-            output,
-            python_toolchain,
-            python_internal_tools,
-            main,
-            preload_libraries,
-            shared_libraries,
-            symlink_tree_path,
-            output_suffix,
-        )
-    else:
-        generated_files.extend(_live_par_generated_files(
-            ctx,
-            output,
-            python_toolchain,
-            python_internal_tools,
-            build_args,
-            main,
-            preload_libraries,
-            output_suffix,
-        ))
+    generated_files.extend(_live_par_generated_files(
+        ctx,
+        output,
+        python_toolchain,
+        python_internal_tools,
+        build_args,
+        main,
+        preload_libraries,
+        output_suffix,
+    ))
 
     cmd = cmd_args(make_py_package_live)
     cmd.add(cmd_args(symlink_tree_path.as_output(), format = "--output-path={}"))
@@ -818,11 +774,6 @@ def _make_py_package_live(
         sub_targets = {},
     )]
 
-    run_args = []
-    if is_windows:
-        run_args.append(python_toolchain.interpreter)
-    run_args.append(output)
-
     return PexProviders(
         default_output = output,
         other_outputs = runtime_files,
@@ -830,7 +781,7 @@ def _make_py_package_live(
         hidden_resources = hidden_resources,
         sub_targets = sub_targets,
         run_cmd = cmd_args(
-            run_args,
+            [output],
             hidden = runtime_files + hidden_resources + [python_toolchain.interpreter],
         ),
     )
