@@ -155,7 +155,6 @@ load(":gcno.bzl", "GcnoFilesInfo")
 load(":groups.bzl", "get_dedupped_roots_from_groups")
 load(
     ":link.bzl",
-    "CxxGcSectionsData",
     "CxxLinkerMapData",
     "cxx_link_into",
 )
@@ -230,7 +229,6 @@ CxxExecutableOutput = record(
     compilation_db = CxxCompilationDbInfo,
     xcode_data = XcodeDataInfo,
     linker_map_data = [CxxLinkerMapData, None],
-    gc_sections_data = [CxxGcSectionsData, None],
     link_command_debug_output = field([LinkCommandDebugOutput, None], None),
     dist_info = DistInfo,
     sanitizer_runtime_files = field(list[Artifact], []),
@@ -738,7 +736,6 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
     runtime_files = link_result.runtime_files
     shared_libs_symlink_tree = link_result.shared_libs_symlink_tree
     linker_map_data = link_result.linker_map_data
-    gc_sections_data = link_result.gc_sections_data
 
     # Define the xcode data sub target
     xcode_data_default_info, xcode_data_info = generate_xcode_data(
@@ -899,9 +896,6 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
     if linker_map_data:
         sub_targets["linker-map"] = [DefaultInfo(default_output = linker_map_data.map, other_outputs = [linker_map_data.binary])]
 
-    if gc_sections_data:
-        sub_targets["gc-sections"] = [DefaultInfo(default_output = gc_sections_data.gc_sections, other_outputs = [gc_sections_data.binary])]
-
     sub_targets["linker.argsfile"] = [DefaultInfo(
         default_output = binary.linker_argsfile,
     )]
@@ -965,7 +959,6 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
         compilation_db = comp_db_info,
         xcode_data = xcode_data_info,
         linker_map_data = linker_map_data,
-        gc_sections_data = gc_sections_data,
         link_command_debug_output = link_cmd_debug_output,
         dist_info = DistInfo(
             shared_libs = shlib_info.set,
@@ -995,7 +988,6 @@ _CxxLinkExecutableResult = record(
     # Optional shared libs symlink tree symlinked_dir action
     shared_libs_symlink_tree = [list[Artifact], Artifact, None],
     linker_map_data = [CxxLinkerMapData, None],
-    gc_sections_data = [CxxGcSectionsData, None],
     sanitizer_runtime_files = list[Artifact],
     # Extra output providers produced by extra_linker_outputs_factory
     extra_outputs = dict[str, list[DefaultInfo]],
@@ -1037,7 +1029,6 @@ def _link_into_executable(
         shared_libs_symlink_tree = executable_args.shared_libs_symlink_tree,
         dwp_symlink_tree = executable_args.dwp_symlink_tree,
         linker_map_data = link_result.linker_map_data,
-        gc_sections_data = link_result.gc_sections_data,
         sanitizer_runtime_files = link_result.sanitizer_runtime_files,
         extra_outputs = link_result.extra_outputs if link_result.extra_outputs else {},
     )

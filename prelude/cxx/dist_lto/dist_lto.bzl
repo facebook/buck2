@@ -21,7 +21,6 @@ load("@prelude//cxx:cxx_context.bzl", "get_cxx_toolchain_info")
 load(
     "@prelude//cxx:cxx_link_utility.bzl",
     "cxx_link_cmd_parts",
-    "gc_sections_args",
     "linker_map_args",
 )
 load("@prelude//cxx:cxx_toolchain_types.bzl", "LinkerType")
@@ -93,7 +92,6 @@ def cxx_gnu_dist_link(
         output: Artifact,
         opts: LinkOptions,
         linker_map: Artifact | None = None,
-        gc_sections_output: Artifact | None = None,
         # This action will only happen if split_dwarf is enabled via the toolchain.
         dwp_tool_available: bool = True,
         executable_link: bool = True) -> LinkedObject:
@@ -720,8 +718,6 @@ def cxx_gnu_dist_link(
         link_cmd.add("-o", outputs[output].as_output())
         if linker_map:
             link_cmd.add(linker_map_args(cxx_toolchain, outputs[linker_map].as_output()).flags)
-        if gc_sections_output:
-            link_cmd.add(gc_sections_args(cxx_toolchain, outputs[gc_sections_output].as_output()).flags)
         link_cmd_hidden.extend([
             opt_objects,
         ])
@@ -734,7 +730,7 @@ def cxx_gnu_dist_link(
     ctx.actions.dynamic_output(
         dynamic = final_link_inputs,
         inputs = [],
-        outputs = [output.as_output()] + ([linker_map.as_output()] if linker_map else []) + ([gc_sections_output.as_output()] if gc_sections_output else []),
+        outputs = [output.as_output()] + ([linker_map.as_output()] if linker_map else []),
         f = thin_lto_final_link,
     )
 

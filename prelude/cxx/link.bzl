@@ -63,7 +63,6 @@ load(
     "LinkArgsOutput",
     "cxx_link_cmd_parts",
     "cxx_sanitizer_runtime_arguments",
-    "gc_sections_args",
     "generates_split_debug",
     "linker_map_args",
     "linker_supports_linker_maps",
@@ -87,16 +86,10 @@ CxxLinkerMapData = record(
     binary = field(Artifact),
 )
 
-CxxGcSectionsData = record(
-    gc_sections = field(Artifact),
-    binary = field(Artifact),
-)
-
 CxxLinkResult = record(
     # The resulting artifact from the link
     linked_object = LinkedObject,
     linker_map_data = [CxxLinkerMapData, None],
-    gc_sections_data = [CxxGcSectionsData, None],
     link_execution_preference_info = LinkExecutionPreferenceInfo,
     # A list of runtime shared libraries
     sanitizer_runtime_files = field(list[Artifact]),
@@ -162,16 +155,6 @@ def cxx_link_into(
         linker_map = None
         linker_map_data = None
 
-    if linker_info.generate_gc_sections and linker_info.type == LinkerType("gnu"):
-        gc_sections_output = ctx.actions.declare_output(output.short_path + "-gc-sections.json")
-        gc_sections_data = CxxGcSectionsData(
-            gc_sections = gc_sections_output,
-            binary = output,
-        )
-    else:
-        gc_sections_output = None
-        gc_sections_data = None
-
     shared_library_interface = ctx.actions.declare_output(output.short_path + ".tbd") if opts.produce_shared_library_interface else None
     if linker_info.supports_distributed_thinlto and opts.enable_distributed_thinlto:
         if not linker_info.lto_mode == LtoMode("thin"):
@@ -199,7 +182,6 @@ def cxx_link_into(
                 output,
                 opts,
                 linker_map,
-                gc_sections_output,
                 dwp_tool_available,
                 is_result_executable,
             )
@@ -210,7 +192,6 @@ def cxx_link_into(
         return CxxLinkResult(
             linked_object = exe,
             linker_map_data = linker_map_data,
-            gc_sections_data = gc_sections_data,
             link_execution_preference_info = LinkExecutionPreferenceInfo(
                 preference = opts.link_execution_preference,
             ),
@@ -234,12 +215,6 @@ def cxx_link_into(
         else:
             links_with_linker_map = opts.links
 
-        # Add gc-sections output args if enabled
-        if gc_sections_output != None and add_linker_outputs:
-            links_with_extra_args = links_with_linker_map + [gc_sections_args(cxx_toolchain_info, gc_sections_output.as_output())]
-        else:
-            links_with_extra_args = links_with_linker_map
-
         all_link_args = cmd_args(link_cmd_parts.linker_flags)
         if add_linker_outputs:
             all_link_args.add(get_output_flags(linker_info.type, output))
@@ -260,7 +235,7 @@ def cxx_link_into(
             ctx,
             ctx.actions,
             cxx_toolchain_info,
-            links_with_extra_args,
+            links_with_linker_map,
             output_short_path = output.short_path,
             link_ordering = opts.link_ordering,
         )
@@ -475,7 +450,6 @@ def cxx_link_into(
     return CxxLinkResult(
         linked_object = linked_object,
         linker_map_data = linker_map_data,
-        gc_sections_data = gc_sections_data,
         link_execution_preference_info = link_execution_preference_info,
         sanitizer_runtime_files = sanitizer_runtime_args.sanitizer_runtime_files,
         extra_outputs = extra_linker_outputs.providers,
@@ -578,7 +552,6 @@ def _anon_cxx_link(
             external_debug_info = external_debug_info,
         ),
         linker_map_data = None,
-        gc_sections_data = None,
         link_execution_preference_info = LinkExecutionPreferenceInfo(
             preference = LinkExecutionPreference("any"),
         ),
