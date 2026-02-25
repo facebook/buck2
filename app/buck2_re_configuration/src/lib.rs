@@ -457,6 +457,8 @@ pub struct Buck2OssReConfiguration {
     pub grpc_keepalive_timeout_secs: Option<u64>,
     /// Whether to send HTTP/2 pings when connection is idle.
     pub grpc_keepalive_while_idle: Option<bool>,
+    /// Maximum retries for network requests.
+    pub max_retries: usize,
 }
 
 #[derive(Clone, Debug, Default, Allocative)]
@@ -574,6 +576,12 @@ impl Buck2OssReConfiguration {
                 section: BUCK2_RE_CLIENT_CFG_SECTION,
                 property: "grpc_keepalive_while_idle",
             })?,
+            max_retries: legacy_config
+                .parse(BuckconfigKeyRef {
+                    section: BUCK2_RE_CLIENT_CFG_SECTION,
+                    property: "max_retries",
+                })?
+                .unwrap_or(0),
         })
     }
 }

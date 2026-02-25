@@ -246,6 +246,8 @@ pub struct RERuntimeOpts {
     max_concurrent_uploads_per_action: Option<usize>,
     /// Time that digests are assumed to live in CAS after being touched.
     cas_ttl_secs: i64,
+    /// Maximum retries for network requests.
+    max_retries: usize,
 }
 
 struct InstanceName(Option<String>);
@@ -440,6 +442,7 @@ impl REClientBuilder {
                 // NOTE: This is an arbitrary number because RBE does not return information
                 // on the TTL of the remote blob.
                 cas_ttl_secs: opts.cas_ttl_secs.unwrap_or(60),
+                max_retries: opts.max_retries,
             },
             grpc_clients,
             capabilities,
@@ -931,6 +934,7 @@ impl REClient {
         request: DownloadRequest,
     ) -> anyhow::Result<DownloadResponse> {
         download_impl(
+            &self.runtime_opts,
             &self.instance_name,
             request,
             self.bystream_compressor,
@@ -1260,11 +1264,12 @@ fn convert_t_action_result2(t_action_result: TActionResult2) -> anyhow::Result<A
 }
 
 async fn download_impl<Byt, BytRet, Cas>(
+    opts: &RERuntimeOpts,
     instance_name: &InstanceName,
     request: DownloadRequest,
     bystream_compressor: Option<Compressor>,
     max_total_batch_size: usize,
-    cas_f: impl Fn(BatchReadBlobsRequest) -> Cas,
+    cas_f: impl Clone + Fn(BatchReadBlobsRequest) -> Cas,
     bystream_fut: impl Fn(ReadRequest) -> Byt + Sync + Send + Copy,
 ) -> anyhow::Result<DownloadResponse>
 where
@@ -1378,9 +1383,10 @@ where
 
     let mut batched_blobs_response = HashMap::new();
     for read_blob_req in requests {
-        let resp = cas_f(read_blob_req)
+        let resp = batch_read_blobs(opts, read_blob_req, cas_f.clone())
             .await
             .context("Failed to make BatchReadBlobs request")?;
+
         for r in resp.responses.into_iter() {
             let digest = tdigest_from(r.digest.context("Response digest not found.")?);
             check_status(r.status.unwrap_or_default())?;
@@ -1468,6 +1474,36 @@ where
         directories: None,
         local_cache_stats: Default::default(),
     })
+}
+
+async fn batch_read_blobs<Cas>(
+    opts: &RERuntimeOpts,
+    read_blobs_request: BatchReadBlobsRequest,
+    cas_f: impl Clone + Fn(BatchReadBlobsRequest) -> Cas,
+) -> anyhow::Result<BatchReadBlobsResponse>
+where
+    Cas: Future<Output = anyhow::Result<BatchReadBlobsResponse>>,
+{
+    for i in 1..=opts.max_retries + 1 {
+        // TODO: Hopefully this isn't too expensive? Can we take a reference to the request
+        // instead?
+        match cas_f(read_blobs_request.clone()).await {
+            Ok(resp) => {
+                return Ok(resp);
+            }
+            Err(e) => {
+                tracing::debug!(
+                    request = ?read_blobs_request,
+                    "Failed to make BatchReadBlobs request, retrying after sleeping {} seconds: {}",
+                    i,
+                    e
+                );
+                tokio::time::sleep(Duration::from_secs(i as u64)).await;
+            }
+        }
+    }
+
+    cas_f(read_blobs_request).await
 }
 
 async fn upload_impl<Byt, Cas>(
@@ -1815,6 +1851,14 @@ mod tests {
 
     use super::*;
 
+    fn test_re_runtime_opts() -> RERuntimeOpts {
+        RERuntimeOpts {
+            use_fbcode_metadata: false,
+            max_concurrent_uploads_per_action: None,
+            max_retries: 0,
+        }
+    }
+
     #[tokio::test]
     async fn test_download_named() -> anyhow::Result<()> {
         let work = tempfile::tempdir()?;
@@ -1878,6 +1922,7 @@ mod tests {
         };
 
         download_impl(
+            &test_re_runtime_opts(),
             &InstanceName(None),
             req,
             None,
@@ -1985,6 +2030,7 @@ mod tests {
         };
 
         download_impl(
+            &test_re_runtime_opts(),
             &InstanceName(None),
             req,
             None,
@@ -2067,6 +2113,7 @@ mod tests {
         };
 
         let res = download_impl(
+            &test_re_runtime_opts(),
             &InstanceName(None),
             req,
             None,
@@ -2154,6 +2201,7 @@ mod tests {
         let counter = AtomicU16::new(0);
 
         let res = download_impl(
+            &test_re_runtime_opts(),
             &InstanceName(None),
             req,
             None,
@@ -2223,6 +2271,7 @@ mod tests {
         };
 
         let res = download_impl(
+            &test_re_runtime_opts(),
             &InstanceName(None),
             req,
             None,
@@ -2279,6 +2328,7 @@ mod tests {
         let res = BatchReadBlobsResponse { responses: vec![] };
 
         let res = download_impl(
+            &test_re_runtime_opts(),
             &InstanceName(None),
             req,
             None,
@@ -2318,6 +2368,7 @@ mod tests {
         };
 
         download_impl(
+            &test_re_runtime_opts(),
             &InstanceName(Some("instance".to_owned())),
             req,
             None,
