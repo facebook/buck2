@@ -1350,8 +1350,13 @@ class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
           }
 
           // Check if a FIR declaration is private (should be stripped from metadata)
+          // Note: Private nested classes (FirRegularClass) are kept — they're needed because
+          // the containing class's bytecode and @Metadata reference them. Stripping them
+          // from metadata while keeping bytecode references causes inconsistencies.
           private fun isPrivateFirDeclaration(decl: FirDeclaration): Boolean {
             if (decl !is FirMemberDeclaration) return false
+            // Keep nested classes — they need to stay in metadata to match bytecode
+            if (decl is FirRegularClass) return false
 
             val visibility = decl.status.visibility
             return visibility == Visibilities.Private ||
@@ -2331,6 +2336,13 @@ class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
         if (declaration is IrConstructor) return@removeAll false
         // Keep companion objects (may contain public members)
         if ((declaration as? IrClass)?.isCompanion == true) return@removeAll false
+
+        // Keep nested/inner classes even if private. They generate separate .class files
+        // referenced via the InnerClasses attribute, constant pool entries, and Kotlin
+        // @Metadata. Stripping the class but keeping these references causes javac to fail
+        // with "class file not found" errors. K1 Kosabi keeps them as stubs — their private
+        // members are stripped recursively and method bodies are stubbed by the visitor.
+        if (declaration is IrClass && this is IrClass) return@removeAll false
 
         // Keep backing field/property of inline/value classes (required even if private)
         if (declaration.isInlineClassBackingMember(inlineClassBackingFieldName))
