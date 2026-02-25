@@ -70,7 +70,6 @@ def build_package(
     go_list_out = go_list(actions, go_toolchain, pkg_name, srcs, package_root, build_tags, cgo_enabled, with_tests = with_tests)
 
     test_go_files_argsfile = actions.declare_output(paths.basename(pkg_name) + "_test_go_files.go_package_argsfile", has_content_based_path = True)
-    coverage_vars_argsfile = actions.declare_output(paths.basename(pkg_name) + "_coverage_vars.go_package_argsfile", has_content_based_path = True)
 
     all_pkgs = merge_pkgs([
         pkgs,
@@ -95,7 +94,6 @@ def build_package(
         go_stdlib_value = go_stdlib.dynamic_value,
         go_list_out = go_list_out,
         cgo_gen_dir = cgo_gen_dir.as_output(),
-        coverage_vars_argsfile = coverage_vars_argsfile.as_output(),
         out_a = out_a.as_output(),
         out_shared_a = out_shared_a.as_output(),
         out_shared_x = out_shared_x.as_output(),
@@ -107,7 +105,6 @@ def build_package(
         pkg_shared = out_shared_a,
         export_file = out_x,
         export_file_shared = out_shared_x,
-        coverage_vars = cmd_args(coverage_vars_argsfile, format = "@{}"),
         test_go_files = cmd_args(test_go_files_argsfile, format = "@{}", hidden = srcs),
     ), GoPackageInfo(
         build_out = out_x,
@@ -137,7 +134,6 @@ def _build_package_action_impl(
         go_list_out: ArtifactValue,
         go_stdlib_value: ResolvedDynamicValue,
         cgo_gen_dir: OutputArtifact,
-        coverage_vars_argsfile: OutputArtifact,
         out_a: OutputArtifact,
         out_shared_a: OutputArtifact,
         out_shared_x: OutputArtifact,
@@ -151,7 +147,7 @@ def _build_package_action_impl(
     if len(go_list.x_test_go_files) > 0:
         fail("External tests are not supported, remove suffix '_test' from package declaration '{}': {}", go_list.name, target_label)
 
-    covered_go_files, covered_cgo_files, coverage_vars_out, coveragecfg = cover_srcs(
+    covered_go_files, covered_cgo_files, coveragecfg = cover_srcs(
         actions = actions,
         go_toolchain = go_toolchain,
         pkg_name = go_list.name,
@@ -160,7 +156,6 @@ def _build_package_action_impl(
         cgo_files = go_list.cgo_files,
         coverage_mode = coverage_mode,
     )
-    actions.write(coverage_vars_argsfile, coverage_vars_out)
 
     # A go package can can contain CGo or Go ASM files, but not both.
     # If CGo and ASM files are present, we process ASM files together with C files with CxxToolchain.
@@ -274,7 +269,6 @@ _build_package_action = dynamic_actions(
         "go_stdlib_value": dynattrs.dynamic_value(),  # GoStdlibDynamicValue
         # Outputs
         "cgo_gen_dir": dynattrs.output(),
-        "coverage_vars_argsfile": dynattrs.output(),
         "out_a": dynattrs.output(),
         "out_shared_a": dynattrs.output(),
         "out_shared_x": dynattrs.output(),

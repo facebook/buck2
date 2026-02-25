@@ -33,7 +33,7 @@ def _gen_test_main(
         ctx: AnalysisContext,
         pkg_name: str,
         coverage_mode: [GoCoverageMode, None],
-        coverage_vars: dict[str, cmd_args],
+        cover_packagages: list[str],  # packages those are included for coverage
         test_go_files: cmd_args) -> Artifact:
     """
     Generate a `main.go` which calls tests from the given sources.
@@ -48,8 +48,8 @@ def _gen_test_main(
     cmd.append(cmd_args(pkg_name, format = "--import-path={}"))
     if coverage_mode != None:
         cmd.extend(["--cover-mode", coverage_mode.value])
-    for _, vars in coverage_vars.items():
-        cmd.append(vars)
+    for pkg in cover_packagages:
+        cmd.extend(["--cover-pkgs", pkg])
     cmd.append(test_go_files)
     ctx.actions.run(cmd_args(cmd), category = "go_test_main_gen")
     return output
@@ -79,7 +79,6 @@ def go_test_impl(ctx: AnalysisContext) -> list[Provider]:
     # with the Go cover tool.
     coverage_mode = GoCoverageMode(ctx.attrs._coverage_mode) if ctx.attrs._coverage_mode else None
     cgo_build_context = get_cgo_build_context(ctx)
-    coverage_vars = {}
     pkgs = {}
 
     # Compile all tests into a package.
@@ -101,20 +100,21 @@ def go_test_impl(ctx: AnalysisContext) -> list[Provider]:
         cgo_enabled = cgo_enabled,
     )
 
+    cover_packagages = []
     if coverage_mode != None:
-        coverage_vars[pkg_name] = tests.coverage_vars
+        cover_packagages.append(pkg_name)
 
         # Get all packages that are linked to the test (i.e. the entire dependency tree)
         for name, pkg in get_inherited_compile_pkgs(deps).items():
             if ctx.label != None and is_subpackage_of(name, ctx.label.package):
-                coverage_vars[name] = pkg.coverage_vars
+                cover_packagages.append(name)
                 pkgs[name] = pkg
 
     pkgs[pkg_name] = tests
 
     # Generate a 'main.go' file (test runner) which runs the actual tests from the package above.
     # Build the it as a separate package (<foo>.test) - which imports and invokes the test package.
-    gen_main = _gen_test_main(ctx, pkg_name, coverage_mode, coverage_vars, tests.test_go_files)
+    gen_main = _gen_test_main(ctx, pkg_name, coverage_mode, cover_packagages, tests.test_go_files)
     main, _ = build_package(
         ctx = ctx,
         pkg_name = pkg_name + ".test",

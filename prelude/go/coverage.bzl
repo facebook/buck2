@@ -21,12 +21,12 @@ def cover_srcs(
         pkg_import_path: str,
         go_files: list[Artifact],
         cgo_files: list[Artifact],
-        coverage_mode: GoCoverageMode | None) -> (list[Artifact], list[Artifact], cmd_args | str, Artifact | None):
+        coverage_mode: GoCoverageMode | None) -> (list[Artifact], list[Artifact], Artifact | None):
     if coverage_mode == None:
-        return go_files, cgo_files, "", None
+        return go_files, cgo_files, None
 
     if len(go_files) + len(cgo_files) == 0:
-        return go_files, cgo_files, "", None
+        return go_files, cgo_files, None
 
     env = get_toolchain_env_vars(go_toolchain)
 
@@ -73,6 +73,4 @@ def cover_srcs(
 
     actions.run(cover_cmd, env = env, category = "go_cover", identifier = pkg_import_path)
 
-    coverage_vars_out = cmd_args("--cover-pkgs", pkg_import_path)
-
-    return [instrum_vars_file] + instrum_go_files, instrum_cgo_files, coverage_vars_out, out_config_file
+    return [instrum_vars_file] + instrum_go_files, instrum_cgo_files, out_config_file
