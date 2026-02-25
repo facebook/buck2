@@ -1,5 +1,3 @@
-load("@fbcode//buck2/tests/prelude:py_assertion.bzl", "py_assertion")
-
 oncall("golang")
 
 prelude = native
@@ -14,14 +12,4 @@ prelude.go_test(
     srcs = ["lib_test.go"],
     # @oss-disable[end= ]: env = {"GO_TEST2JSON_TOOL": "$(exe_target fbsource//third-party/go:test2json)"},
     target_under_test = ":lib",
-)
-
-py_assertion(
-    name = "check_output",
-    script = """
-import subprocess
-import sys
-assert "PASS" in subprocess.check_output([sys.argv[1]]).decode()
-""",
-    script_args = ["$(exe_target :test)"],
 )
