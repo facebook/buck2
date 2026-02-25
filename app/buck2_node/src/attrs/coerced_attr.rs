@@ -668,11 +668,25 @@ impl CoercedAttr {
             // Compare with first match and emit soft error if they differ
             match first_match {
                 Some(first) if first != v => {
+                    let first_key = &resolved_entries[0].0;
+                    let most_specific_key = resolved_entries
+                        .iter()
+                        .find(|(_, _, attr)| std::ptr::eq(*attr, v))
+                        .map(|(k, _, _)| k);
+                    let all_matched_keys: String = resolved_entries
+                        .iter()
+                        .map(|(k, _, _)| format!("  `{}`", k))
+                        .join("\n");
                     let _unused = soft_error!(
                         "select_first_match_differs",
                         buck2_error!(
                             buck2_error::ErrorTag::Input,
-                            "First matching select key has different value than most specific match: {}",
+                            "First matching select key `{}` has different value than most specific match `{}`.\n\
+                            All matched keys:\n{}\n\
+                            Select expression: {}",
+                            first_key,
+                            most_specific_key.map_or("<unknown>".to_owned(), |k| k.to_string()),
+                            all_matched_keys,
                             select.as_display_no_ctx()
                         ),
                         quiet: true,
