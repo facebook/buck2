@@ -32,25 +32,32 @@ enum CgroupFileError {
 /// Represents an open handle to one of the standard kernel-supplied files in the cgroup
 pub(crate) struct CgroupFile(Arc<OwnedFd>, FileNameBuf);
 
+#[derive(Clone, Copy)]
+pub(crate) enum CgroupFileMode {
+    ReadOnly,
+    ReadWrite,
+    WriteOnly,
+}
+
 impl CgroupFile {
     pub async fn open(
         d: Arc<OwnedFd>,
         name: FileNameBuf,
-        write: bool,
+        mode: CgroupFileMode,
     ) -> buck2_error::Result<Self> {
-        tokio::task::spawn_blocking(move || Self::sync_open(&d, name, write)).await?
+        tokio::task::spawn_blocking(move || Self::sync_open(&d, name, mode)).await?
     }
 
     pub(crate) fn sync_open(
         d: &OwnedFd,
         name: FileNameBuf,
-        write: bool,
+        mode: CgroupFileMode,
     ) -> buck2_error::Result<Self> {
         let flags = OFlag::O_CLOEXEC
-            | if write {
-                OFlag::O_RDWR
-            } else {
-                OFlag::O_RDONLY
+            | match mode {
+                CgroupFileMode::ReadOnly => OFlag::O_RDONLY,
+                CgroupFileMode::ReadWrite => OFlag::O_RDWR,
+                CgroupFileMode::WriteOnly => OFlag::O_WRONLY,
             };
         let file = nix::fcntl::openat(
             d,

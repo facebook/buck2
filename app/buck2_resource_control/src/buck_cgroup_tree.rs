@@ -21,6 +21,7 @@ use crate::cgroup::CgroupLeaf;
 use crate::cgroup::CgroupMinimal;
 use crate::cgroup::EffectiveResourceConstraints;
 use crate::cgroup_files::CgroupFile;
+use crate::cgroup_files::CgroupFileMode;
 use crate::path::CgroupPathBuf;
 
 #[derive(buck2_error::Error)]
@@ -84,7 +85,7 @@ impl PreppedBuckCgroups {
         let daemon_procs = CgroupFile::sync_open(
             daemon_cgroup.dir_fd(),
             FileNameBuf::unchecked_new("cgroup.procs"),
-            true,
+            CgroupFileMode::ReadWrite,
         )?;
         daemon_procs.sync_write(b"0")?;
 

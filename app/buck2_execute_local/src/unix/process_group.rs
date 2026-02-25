@@ -110,6 +110,10 @@ impl ProcessGroupImpl {
         loop {
             tokio::select! {
                 res = &mut child => {
+                    // Kill any remaining PIDs in the cgroup that outlived the main process.
+                    if let Some(cgroup) = self.cgroup.as_ref() {
+                        cgroup.kill_remaining_pids().await.map_err(|e| io::Error::other(format!("{:#}", e)))?;
+                    }
                     break res;
                 },
                 Some(freeze_op) = freeze_rx.next() => {
@@ -132,7 +136,10 @@ impl ProcessGroupImpl {
         self.inner.id()
     }
 
-    // On unix we use killpg to kill the whole process tree
+    // Kill the process tree. Uses process-group-based signaling (killpg or
+    // graceful SIGTERM+SIGKILL), and when a cgroup is available, also kills any
+    // remaining processes via cgroup.kill to catch children that escaped the
+    // process group.
     pub(crate) async fn kill(
         &self,
         graceful_shutdown_timeout_s: Option<u32>,
@@ -143,16 +150,25 @@ impl ProcessGroupImpl {
             .and_then(|id| id.try_into().ok())
             .ok_or_else(|| internal_error!("PID does not fit a i32"))?;
 
+        // Always use process-group-based signaling first.
         if let Some(graceful_shutdown_timeout_s) = graceful_shutdown_timeout_s {
             try_terminate_process_gracefully(
                 pid,
                 Duration::from_secs(graceful_shutdown_timeout_s as u64),
             )
             .await
-            .with_buck_error_context(|| format!("Failed to terminate process {pid} gracefully"))
+            .with_buck_error_context(|| format!("Failed to terminate process {pid} gracefully"))?;
         } else {
             signal::killpg(Pid::from_raw(pid), Signal::SIGKILL)
-                .with_buck_error_context(|| format!("Failed to kill process {pid}"))
+                .with_buck_error_context(|| format!("Failed to kill process {pid}"))?;
         }
+
+        // When a cgroup is available, also kill any remaining processes that may
+        // have escaped the process group.
+        if let Some(cgroup) = self.cgroup.as_ref() {
+            cgroup.kill_remaining_pids().await?;
+        }
+
+        Ok(())
     }
 }

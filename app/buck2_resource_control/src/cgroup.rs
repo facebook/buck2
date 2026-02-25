@@ -25,6 +25,7 @@ use nix::fcntl::OFlag;
 use nix::sys::stat::Mode;
 
 use crate::cgroup_files::CgroupFile;
+use crate::cgroup_files::CgroupFileMode;
 use crate::cgroup_files::MemoryStat;
 use crate::path::CgroupPath;
 use crate::path::CgroupPathBuf;
@@ -132,7 +133,7 @@ impl<M: MemoryMonitoring, K: CgroupKind> Cgroup<M, K> {
         let controllers_file = CgroupFile::open(
             self.dir.dupe(),
             FileNameBuf::unchecked_new("cgroup.controllers"),
-            false,
+            CgroupFileMode::ReadOnly,
         )
         .await?;
         let controllers = controllers_file.read_to_string().await?;
@@ -149,7 +150,7 @@ impl<M: MemoryMonitoring, K: CgroupKind> Cgroup<M, K> {
         CgroupFile::open(
             self.dir.dupe(),
             FileNameBuf::unchecked_new("memory.high"),
-            true,
+            CgroupFileMode::ReadWrite,
         )
         .await?
         .write(memory_high.to_owned())
@@ -161,7 +162,7 @@ impl<M: MemoryMonitoring, K: CgroupKind> Cgroup<M, K> {
         CgroupFile::open(
             self.dir.dupe(),
             FileNameBuf::unchecked_new("memory.max"),
-            true,
+            CgroupFileMode::ReadWrite,
         )
         .await?
         .write(memory_max.to_owned())
@@ -177,7 +178,7 @@ impl<M: MemoryMonitoring, K: CgroupKind> Cgroup<M, K> {
         CgroupFile::open(
             self.dir.dupe(),
             FileNameBuf::unchecked_new("memory.oom.group"),
-            true,
+            CgroupFileMode::ReadWrite,
         )
         .await?
         .write("1")
@@ -186,7 +187,12 @@ impl<M: MemoryMonitoring, K: CgroupKind> Cgroup<M, K> {
 
     async fn read_resource_constraints(&self) -> buck2_error::Result<EffectiveResourceConstraints> {
         let read = |f| async move {
-            let f = CgroupFile::open(self.dir.dupe(), FileNameBuf::unchecked_new(f), false).await?;
+            let f = CgroupFile::open(
+                self.dir.dupe(),
+                FileNameBuf::unchecked_new(f),
+                CgroupFileMode::ReadOnly,
+            )
+            .await?;
             buck2_error::Ok(f.read_max_or_int().await?)
         };
         let (memory_high, memory_max, memory_swap_high, memory_swap_max) = tokio::try_join!(
@@ -245,11 +251,30 @@ impl<M: MemoryMonitoring, K: CgroupKind> Cgroup<M, K> {
         CgroupFile::open(
             self.dir.dupe(),
             FileNameBuf::unchecked_new("pids.current"),
-            false,
+            CgroupFileMode::ReadOnly,
         )
         .await?
         .read_int()
         .await
+    }
+
+    /// Kill all remaining processes in the cgroup via the kernel's `cgroup.kill` interface.
+    ///
+    /// Writing "1" to `cgroup.kill` causes the kernel to send SIGKILL to every process
+    /// in the cgroup atomically. This avoids PID reuse races entirely since the kernel
+    /// handles the kill internally without any userspace read-then-kill window.
+    ///
+    /// This is used to clean up any processes that outlived the main action process
+    /// (e.g. daemonized children that escaped the process group kill).
+    pub async fn kill_remaining_pids(&self) -> buck2_error::Result<()> {
+        let f = CgroupFile::open(
+            self.dir.dupe(),
+            FileNameBuf::unchecked_new("cgroup.kill"),
+            CgroupFileMode::WriteOnly,
+        )
+        .await?;
+
+        f.write("1").await
     }
 }
 
@@ -289,7 +314,7 @@ impl Cgroup<NoMemoryMonitoring, CgroupKindUndecided> {
                     CgroupFile::open(
                         self.dir.dupe(),
                         FileNameBuf::unchecked_new("cgroup.procs"),
-                        true,
+                        CgroupFileMode::ReadWrite,
                     )
                     .await?,
                 ),
@@ -308,7 +333,7 @@ impl Cgroup<NoMemoryMonitoring, CgroupKindUndecided> {
         let subtree_control = CgroupFile::open(
             self.dir.dupe(),
             FileNameBuf::unchecked_new("cgroup.subtree_control"),
-            true,
+            CgroupFileMode::ReadWrite,
         )
         .await?;
         for controller in &*enabled_controllers.0 {
@@ -485,7 +510,14 @@ impl<K: CgroupKind> Cgroup<NoMemoryMonitoring, K> {
     ) -> buck2_error::Result<Cgroup<WithMemoryMonitoring, K>> {
         let open = |f| {
             let d = &self.dir;
-            async move { CgroupFile::open(d.dupe(), FileNameBuf::unchecked_new(f), false).await }
+            async move {
+                CgroupFile::open(
+                    d.dupe(),
+                    FileNameBuf::unchecked_new(f),
+                    CgroupFileMode::ReadOnly,
+                )
+                .await
+            }
         };
         let (memory_stat, memory_current, memory_swap_current, memory_pressure) = tokio::try_join!(
             open("memory.stat"),
@@ -600,7 +632,7 @@ impl<M: MemoryMonitoring, K: CgroupKind> Cgroup<M, K> {
         let f = CgroupFile::open(
             self.dir.dupe(),
             FileNameBuf::unchecked_new("cgroup.freeze"),
-            true,
+            CgroupFileMode::ReadWrite,
         )
         .await?;
         f.write(b"1").await?;
@@ -728,6 +760,7 @@ impl Cgroup<NoMemoryMonitoring, CgroupKindInternal> {
 
 #[cfg(test)]
 mod tests {
+    use std::os::unix::process::ExitStatusExt;
     use std::time::Duration;
 
     use buck2_fs::fs_util::uncategorized as fs_util;
@@ -738,6 +771,7 @@ mod tests {
     use crate::cgroup::Cgroup;
     use crate::cgroup::MemoryPressureHandle;
     use crate::cgroup_files::CgroupFile;
+    use crate::cgroup_files::CgroupFileMode;
 
     #[tokio::test]
     async fn self_test_harness() {
@@ -799,7 +833,7 @@ mod tests {
         CgroupFile::open(
             subg1.dir.dupe(),
             FileNameBuf::unchecked_new("memory.high"),
-            true,
+            CgroupFileMode::ReadWrite,
         )
         .await
         .unwrap()
@@ -809,7 +843,7 @@ mod tests {
         CgroupFile::open(
             subg1.dir.dupe(),
             FileNameBuf::unchecked_new("memory.max"),
-            true,
+            CgroupFileMode::ReadWrite,
         )
         .await
         .unwrap()
@@ -824,7 +858,7 @@ mod tests {
         CgroupFile::open(
             subg2.dir.dupe(),
             FileNameBuf::unchecked_new("memory.high"),
-            true,
+            CgroupFileMode::ReadWrite,
         )
         .await
         .unwrap()
@@ -899,5 +933,32 @@ mod tests {
 
         child.kill().unwrap();
         child.wait().unwrap();
+    }
+
+    #[tokio::test]
+    async fn test_kill_remaining_pids() {
+        let Some(cgroup) = Cgroup::create_leaf_for_test().await else {
+            return;
+        };
+
+        // Empty cgroup should have no PIDs
+        assert_eq!(cgroup.read_pid_count().await.unwrap(), 0);
+
+        // Spawn a long-running process into the cgroup
+        let mut cmd = background_command("sleep");
+        cmd.arg("300");
+        cgroup.setup_command(&mut cmd);
+        let mut child = cmd.spawn().unwrap();
+
+        assert_eq!(cgroup.read_pid_count().await.unwrap(), 1);
+
+        cgroup.kill_remaining_pids().await.unwrap();
+
+        // Verify the process was killed by SIGKILL (signal 9) from cgroup.kill.
+        // sleep 300 wouldn't exit on its own and we never called child.kill(),
+        // so this confirms kill_remaining_pids actually worked.
+        let status = child.wait().unwrap();
+        assert!(!status.success());
+        assert_eq!(status.signal(), Some(9));
     }
 }
