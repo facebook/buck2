@@ -142,7 +142,7 @@ stop() ->
     true = erlang:monitor_node(Node, true),
     %% kill node
     %% elp:ignore W0014
-    _Pid = erlang:spawn(Node, fun() -> erlang:halt() end),
+    _Pid = erlang:spawn(Node, fun erlang:halt/0),
     %% wait for node to come down
     receive
         {nodedown, Node} -> ok

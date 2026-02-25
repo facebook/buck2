@@ -154,9 +154,7 @@ parse_arguments(Args) ->
     % that will log it in its own log.
     debug_print("CT executor called with ~tp~n", [Args]),
     ParsedArgs = lists:map(
-        fun(StrArgs) ->
-            buck_ct_parser:parse_str(StrArgs)
-        end,
+        fun buck_ct_parser:parse_str/1,
         Args
     ),
     debug_print("Parsed arguments ~tp~n", [ParsedArgs]),
