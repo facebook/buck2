@@ -12,8 +12,7 @@
 # well-formatted (and then delete this TODO)
 
 load(":common.bzl", "buck", "prelude_rule")
-
-FrameworkVersion = ["net35", "net40", "net45", "net46"]
+load(":dotnet_common.bzl", "dotnet_common")
 
 csharp_library = prelude_rule(
     name = "csharp_library",
@@ -57,30 +56,14 @@ csharp_library = prelude_rule(
                  the dll exactly. When this is not set, the dll will be named after
                  the short name of the target.
             """),
-            "srcs": attrs.list(attrs.source(), default = [], doc = """
-                The collection of source files to compile.
-            """),
-            "resources": attrs.dict(key = attrs.string(), value = attrs.source(), sorted = False, default = {}, doc = """
-                Resources that should be embedded within the built DLL. The format
-                 is the name of the resource once mapped into the DLL as the key, and
-                 the value being the resource that should be merged. This allows
-                 non-unique keys to be identified quickly.
-            """),
-            "framework_ver": attrs.enum(FrameworkVersion, doc = """
-                The version of the .Net framework that this library targets. This is
-                 one of 'net35', 'net40', 'net45' and 'net46'.
-            """),
-            "deps": attrs.list(attrs.one_of(attrs.dep(), attrs.string()), default = [], doc = """
-                The set of targets or system-provided assemblies to rely on. Any
-                 values that are targets must be either csharp\\_library or `prebuilt_dotnet_library`
-                 instances.
-            """),
-            "compiler_flags": attrs.list(attrs.string(), default = [], doc = """
-                The set of additional compiler flags to pass to the compiler.
-            """),
-            "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
-            "add_hermetic_arguments": attrs.bool(default = True),
         } |
+        dotnet_common.srcs_arg() |
+        dotnet_common.resources_arg() |
+        dotnet_common.framework_ver_arg() |
+        dotnet_common.deps_arg() |
+        dotnet_common.compiler_flags_arg() |
+        dotnet_common.default_host_platform_arg() |
+        dotnet_common.add_hermetic_arguments_arg() |
         buck.licenses_arg() |
         buck.labels_arg() |
         buck.contacts_arg()
@@ -120,8 +103,8 @@ prebuilt_dotnet_library = prelude_rule(
             "assembly": attrs.source(doc = """
                 The path to the DLL that this rule provides.
             """),
-            "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
         } |
+        dotnet_common.default_host_platform_arg() |
         buck.licenses_arg() |
         buck.labels_arg() |
         buck.contacts_arg()
