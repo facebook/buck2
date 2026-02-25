@@ -31,6 +31,14 @@ load(
 load("@prelude//cxx:debug.bzl", "SplitDebugMode")
 load("@prelude//cxx:dwp.bzl", "dwp", "dwp_available")
 load(
+    "@prelude//cxx:link.bzl",
+    "cxx_link_shared_library",
+)
+load(
+    "@prelude//cxx:link_types.bzl",
+    "link_options",
+)
+load(
     "@prelude//cxx:linker.bzl",
     "get_import_library",
     "get_output_flags",
@@ -41,13 +49,20 @@ load(
     "TransformationSpecContext",  # @unused Used as a type
 )
 load(
+    "@prelude//linking:execution_preference.bzl",
+    "LinkExecutionPreference",
+)
+load(
     "@prelude//linking:link_info.bzl",
     "LibOutputStyle",  # @unused Used as a type
     "LinkArgs",
+    "LinkInfo",  # @unused Used as a type
     "LinkInfos",  # @unused Used as a type
     "LinkStrategy",  # @unused Used as a type
+    "LinkedObject",  # @unused Used as a type
     "create_merged_link_info",
     "get_link_args_for_strategy",
+    "set_link_info_link_whole",
 )
 load(
     "@prelude//linking:shared_libraries.bzl",
@@ -1693,3 +1708,46 @@ def _inherited_link_args(
         )
 
     return inherited_link_args
+
+def rust_link_shared(
+        ctx: AnalysisContext,
+        compile_ctx: CompileContext,
+        dep_link_style: LinkStrategy,
+        static_lib: LinkInfo) -> LinkedObject:
+    inherited_link_args = _inherited_link_args(
+        ctx,
+        compile_ctx,
+        dep_link_style,
+        rust_cxx_link_group_info = None,
+        transformation_spec_context = None,
+    )
+    link_args = [
+        LinkArgs(flags = compile_ctx.linker_pre_args),
+        # Need link whole because otherwise the linker doesn't include anything at all (normally
+        # you'd be passing in `.o`s but that's not really an option)
+        #
+        # FIXME(JakobDegen): Normally, this is where rustc would include the `symbols.o` and the
+        # linker version file/deffile to make sure the right things get linked in and remain
+        # visible. However, we don't have those, which might not be great in the case of `symbols.o`
+        # and will certainly break things if we try this on Windows.
+        #
+        # Principally, it would actually be pretty easy to get us access to those. When building the
+        # `pic_archive`, we could just pass `--crate-type=dylib` to rustc anyway and use the linker
+        # extraction tricks to pull out the files we need (in addition to the object files) to then
+        # be consumed here. The only problem is that rustc is 50-100% slower to do dylib builds
+        # vs equivalent rlib builds, even without the linking. So until that's fixed we can't really
+        # use it.
+        LinkArgs(infos = [set_link_info_link_whole(static_lib)]),
+        inherited_link_args,
+    ]
+
+    return cxx_link_shared_library(
+        ctx = ctx,
+        output = "shared/" + compile_ctx.soname,
+        opts = link_options(
+            links = link_args,
+            link_execution_preference = LinkExecutionPreference("any"),
+            category_suffix = "rust_shared",
+        ),
+        name = compile_ctx.soname,
+    ).linked_object

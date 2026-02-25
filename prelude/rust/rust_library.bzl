@@ -78,6 +78,7 @@ load(
     "generate_rustdoc_coverage",
     "generate_rustdoc_test",
     "rust_compile",
+    "rust_link_shared",
 )
 load(
     ":build_params.bzl",
@@ -214,18 +215,33 @@ def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
                 )
             param_subtargets[params].update(subtargets_to_add)
 
-    rust_artifacts = _rust_artifacts(
-        ctx = ctx,
-        compile_ctx = compile_ctx,
-        lang_style_param = lang_style_param,
-        param_metadata_outputs = param_metadata_outputs,
-    )
-
     link_infos, linked_object = _link_infos(
         ctx = ctx,
         compile_ctx = compile_ctx,
         lang_style_param = lang_style_param,
         param_artifact = param_output,
+    )
+
+    if toolchain_info.advanced_unstable_linking and \
+       (LibOutputStyle("shared_lib") in get_output_styles_for_linkage(Linkage(ctx.attrs.preferred_linkage))) and \
+       not ctx.attrs.proc_macro:
+        # Rely on iteration order having produced this first but that's probably ok
+        linked_object = rust_link_shared(
+            ctx,
+            compile_ctx,
+            dep_link_style = LinkStrategy("shared"),
+            static_lib = link_infos[LibOutputStyle("pic_archive")].default,
+        )
+        link_infos[LibOutputStyle("shared_lib")] = _make_shared_lib_link_infos(
+            ctx,
+            linked_object,
+        )
+
+    rust_artifacts = _rust_artifacts(
+        ctx = ctx,
+        compile_ctx = compile_ctx,
+        lang_style_param = lang_style_param,
+        param_metadata_outputs = param_metadata_outputs,
     )
 
     # For doctests, we need to know two things to know how to link them. The
@@ -491,6 +507,11 @@ def _build_params_for_styles(
             continue
 
         for lib_output_style in output_styles:
+            if ctx.attrs._rust_toolchain[RustToolchainInfo].advanced_unstable_linking and \
+               linkage_lang == LinkageLang("rust") and \
+               lib_output_style == LibOutputStyle("shared_lib"):
+                # This gets linked directly instead of using rustc
+                continue
             params = build_params(
                 rule = RuleType("library"),
                 proc_macro = ctx.attrs.proc_macro,
@@ -506,6 +527,23 @@ def _build_params_for_styles(
             style_param[(linkage_lang, lib_output_style)] = params
 
     return (param_lang, style_param)
+
+def _make_shared_lib_link_infos(
+        ctx: AnalysisContext,
+        linked_object: LinkedObject) -> LinkInfos:
+    exported_shlib = linked_object.output
+
+    # Link against import library on Windows.
+    if linked_object.import_library:
+        exported_shlib = linked_object.import_library
+
+    return LinkInfos(
+        default = LinkInfo(
+            linkables = [SharedLibLinkable(lib = exported_shlib)],
+            pre_flags = ctx.attrs.exported_linker_flags,
+            post_flags = ctx.attrs.exported_post_linker_flags,
+        ),
+    )
 
 def _link_infos(
         ctx: AnalysisContext,
@@ -524,6 +562,9 @@ def _link_infos(
     link_infos = {}
     linked_object = None
     for output_style in output_styles:
+        if output_style == LibOutputStyle("shared_lib") and advanced_unstable_linking:
+            # Skip it here, we're going to handle it separately above
+            continue
         params = lang_style_param[(lang, output_style)]
         lib = param_artifact[params]
         external_debug_infos_to_bundle = []
@@ -554,18 +595,10 @@ def _link_infos(
                 pdb = lib.link_output.pdb,
                 dwp = lib.link_output.dwp_output,
             )
-            exported_shlib = lib.output
 
-            # Link against import library on Windows.
-            if lib.link_output.import_library:
-                exported_shlib = lib.link_output.import_library
-
-            link_infos[output_style] = LinkInfos(
-                default = LinkInfo(
-                    linkables = [SharedLibLinkable(lib = exported_shlib)],
-                    pre_flags = ctx.attrs.exported_linker_flags,
-                    post_flags = ctx.attrs.exported_post_linker_flags,
-                ),
+            link_infos[output_style] = _make_shared_lib_link_infos(
+                ctx,
+                linked_object,
             )
         else:
             link_whole = ctx.attrs.link_whole or False
@@ -602,7 +635,13 @@ def _rust_artifacts(
 
     rust_artifacts = {}
     for link_strategy in LinkStrategy:
-        params = lang_style_param[(LinkageLang("rust"), get_lib_output_style(link_strategy, preferred_linkage, pic_behavior))]
+        lib_output_style = get_lib_output_style(link_strategy, preferred_linkage, pic_behavior)
+        if ctx.attrs._rust_toolchain[RustToolchainInfo].advanced_unstable_linking:
+            # Unfortunately for the purpose of downstream Rust we still need metadata for this,
+            # despite not having built the shared lib via rustc; we reuse the metadata from
+            # the pic_archive case, which is functionally equivalent
+            lib_output_style = LibOutputStyle("pic_archive")
+        params = lang_style_param[(LinkageLang("rust"), lib_output_style)]
         rust_artifacts[link_strategy] = _handle_rust_artifact(ctx, compile_ctx.dep_ctx, link_strategy, param_metadata_outputs[params])
     return rust_artifacts
 
