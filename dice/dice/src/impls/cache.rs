@@ -47,8 +47,8 @@ struct DiceCompletedTask {
 /// Reference to the task in the cache.
 pub(crate) enum DiceTaskRef<'a> {
     Computed(DiceComputedValue),
-    Occupied(dashmap::mapref::entry::OccupiedEntry<'a, DiceKey, DiceTask, FxBuildHasher>),
-    Vacant(dashmap::mapref::entry::VacantEntry<'a, DiceKey, DiceTask, FxBuildHasher>),
+    Occupied(dashmap::mapref::entry::OccupiedEntry<'a, DiceKey, DiceTask>),
+    Vacant(dashmap::mapref::entry::VacantEntry<'a, DiceKey, DiceTask>),
     TransactionCancelled,
 }
 

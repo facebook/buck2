@@ -11,7 +11,7 @@ anyhow = "1.0.65"
 anymap3 = "1.0.1"
 async-trait = "0.1.24"
 cmp_any = { workspace = true }
-dashmap = "5.5.3"
+dashmap = "6.1.0"
 derivative = { workspace = true }
 derive_more = { version = "1.0.0", features = ["full"] }
 dice_error = { path = "../dice_error" }
