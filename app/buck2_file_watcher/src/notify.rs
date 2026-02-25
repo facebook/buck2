@@ -283,8 +283,10 @@ impl NotifyFileWatcher {
         &self,
         mut dice: DiceTransactionUpdater,
     ) -> buck2_error::Result<(buck2_data::FileWatcherStats, DiceTransactionUpdater)> {
-        let mut guard = self.data.lock().unwrap();
-        let old = mem::replace(&mut *guard, Ok(NotifyFileData::new()));
+        let old = {
+            let mut guard = self.data.lock().unwrap();
+            mem::replace(&mut *guard, Ok(NotifyFileData::new()))
+        };
         let (stats, changes) = old?.sync();
         if let Some(changes) = changes {
             changes.write_to_dice(&mut dice)?;
