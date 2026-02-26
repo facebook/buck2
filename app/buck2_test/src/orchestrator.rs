@@ -2015,16 +2015,18 @@ async fn resolve_output_root(
     test_target: &ConfiguredProvidersLabel,
     prefix: TestExecutionPrefix,
 ) -> Result<ForwardRelativePathBuf, buck2_error::Error> {
+    let resolver = dice.get_buck_out_path().await?;
     let output_root = match prefix {
-        TestExecutionPrefix::Listing => {
-            let resolver = dice.get_buck_out_path().await?;
-            resolver
-                .resolve_test_discovery(test_target)?
-                .into_forward_relative_path_buf()
-        }
-        TestExecutionPrefix::Testing(prefix) => prefix.join(ForwardRelativePathBuf::unchecked_new(
-            Uuid::new_v4().to_string(),
-        )),
+        TestExecutionPrefix::Listing => resolver
+            .resolve_test_discovery(test_target)?
+            .into_forward_relative_path_buf(),
+        TestExecutionPrefix::Testing(prefix) => ForwardRelativePathBuf::concat([
+            resolver.root().as_forward_relative_path(),
+            ForwardRelativePath::new("test").unwrap(),
+            &prefix.join(ForwardRelativePathBuf::unchecked_new(
+                Uuid::new_v4().to_string(),
+            )),
+        ]),
     };
     Ok(output_root)
 }
