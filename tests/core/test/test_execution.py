@@ -225,3 +225,34 @@ async def test_remote_test_execution_not_cached_with_no_remote_cache(
     assert second_test_runs[0]["reproducer"]["executor"] == "Re", (
         "Expected test to run remotely, not be cached!"
     )
+
+
+@buck_test()
+async def test_remote_test_execution_not_cached_with_disable_flag(
+    buck: Buck,
+) -> None:
+    args = [
+        "-c",
+        "test.local_enabled=false",
+        "-c",
+        "test.remote_enabled=true",
+        "-c",
+        "buck2.use_deterministic_test_execution_paths=true",
+        "//:cacheable_test",
+        "--",
+        "--disable-test-execution-caching",
+    ]
+
+    await buck.test(*args)
+
+    await buck.test(*args)
+    second_what_ran = await read_what_ran(buck)
+    second_test_runs = [
+        entry for entry in second_what_ran if entry["reason"] == "test.run"
+    ]
+    assert len(second_test_runs) == 1, (
+        f"Expected exactly one test.run entry, got {len(second_test_runs)}"
+    )
+    assert second_test_runs[0]["reproducer"]["executor"] == "Re", (
+        "Expected test to run remotely, not be cached!"
+    )
