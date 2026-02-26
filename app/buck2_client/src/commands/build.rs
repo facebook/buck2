@@ -379,6 +379,7 @@ pub(crate) fn print_build_succeeded(
     extra: Option<&str>,
 ) -> buck2_error::Result<()> {
     if ctx.verbosity.print_success_message() {
+        #[cfg(fbcode_build)]
         print_build_rating(console, ctx)?;
         console.print_success_no_newline("BUILD SUCCEEDED")?;
         console.print_stderr(extra.unwrap_or_default())?;
@@ -390,6 +391,7 @@ pub(crate) fn print_build_failed(console: &FinalConsole) -> buck2_error::Result<
     console.print_error("BUILD FAILED")
 }
 
+#[cfg(fbcode_build)]
 fn print_build_rating(
     console: &FinalConsole,
     ctx: &ClientCommandContext<'_>,

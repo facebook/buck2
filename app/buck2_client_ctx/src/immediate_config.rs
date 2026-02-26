@@ -17,6 +17,7 @@ use buck2_common::init::DaemonStartupConfig;
 use buck2_common::invocation_roots::InvocationRoots;
 use buck2_common::invocation_roots::find_invocation_roots;
 use buck2_common::legacy_configs::cells::BuckConfigBasedCells;
+#[cfg(fbcode_build)]
 use buck2_common::legacy_configs::key::BuckconfigKeyRef;
 use buck2_core::buck2_env;
 use buck2_core::cells::CellAliasResolver;
@@ -38,6 +39,7 @@ struct ImmediateConfig {
     cell_resolver: CellResolver,
     cwd_cell_alias_resolver: CellAliasResolver,
     daemon_startup_config: DaemonStartupConfig,
+    #[cfg(fbcode_build)]
     show_sentiment: bool,
 }
 
@@ -61,6 +63,7 @@ impl ImmediateConfig {
             cwd_cell_alias_resolver,
             daemon_startup_config: DaemonStartupConfig::new(&cells.root_config)
                 .buck_error_context("Error loading daemon startup config")?,
+            #[cfg(fbcode_build)]
             show_sentiment: cells
                 .root_config
                 .get(BuckconfigKeyRef {
@@ -79,6 +82,7 @@ struct ImmediateConfigContextData {
     cwd_cell_alias_resolver: CellAliasResolver,
     daemon_startup_config: DaemonStartupConfig,
     project_filesystem: ProjectRoot,
+    #[cfg(fbcode_build)]
     show_sentiment: bool,
 }
 
@@ -114,6 +118,7 @@ impl<'a> ImmediateConfigContext<'a> {
         Ok(&self.data()?.daemon_startup_config)
     }
 
+    #[cfg(fbcode_build)]
     pub fn show_sentiment(&self) -> bool {
         self.data().map(|d| d.show_sentiment).unwrap_or(false)
     }
@@ -186,6 +191,7 @@ impl<'a> ImmediateConfigContext<'a> {
                     cwd_cell_alias_resolver: cfg.cwd_cell_alias_resolver,
                     daemon_startup_config,
                     project_filesystem: roots.project_root,
+                    #[cfg(fbcode_build)]
                     show_sentiment: cfg.show_sentiment,
                 })
             })
