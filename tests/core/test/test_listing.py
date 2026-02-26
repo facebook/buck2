@@ -24,6 +24,21 @@ class TestDiscovery(Enum):
 
 
 @buck_test()
+async def test_discovery_output_dir(buck: Buck) -> None:
+    args = [
+        "//:ok",
+    ]
+    await run_test_and_check_discovery_presence(buck, TestDiscovery.EXECUTED, args)
+
+    # TODO(ianc) We shouldn't add `buck-out/v2/test/` twice
+    discovery_output_path = (
+        buck.cwd / "buck-out" / "v2" / "test" / "buck-out" / "v2" / "test" / "discovery"
+    ).resolve()
+
+    assert discovery_output_path.exists()
+
+
+@buck_test()
 async def test_discovery_cached_on_dice(buck: Buck) -> None:
     args = [
         "//:ok",
