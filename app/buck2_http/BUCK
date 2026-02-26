@@ -28,7 +28,7 @@ rust_library(
         "fbsource//third-party/rust:hyper-util",
         "fbsource//third-party/rust:ipnetwork",
         "fbsource//third-party/rust:pin-project",
-        "fbsource//third-party/rust:rustls-0-23",
+        "fbsource//third-party/rust:rustls",
         "fbsource//third-party/rust:tokio",
         "fbsource//third-party/rust:tokio-rustls",
         "fbsource//third-party/rust:tokio-util",

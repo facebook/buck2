@@ -7,7 +7,7 @@ rust_library(
     srcs = glob(["src/**/*.rs"]),
     test_env = {"TEST_CERT_LOCATIONS": "$(source test/testdata)"},
     deps = [
-        "fbsource//third-party/rust:rustls-0-23",
+        "fbsource//third-party/rust:rustls",
         "fbsource//third-party/rust:rustls-native-certs",
         "fbsource//third-party/rust:rustls-pki-types",
         "fbsource//third-party/rust:tokio",
