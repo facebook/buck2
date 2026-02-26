@@ -183,6 +183,7 @@ message ExecuteRequest2 {
   TestExecutable test_executable = 8;
   ExecutorConfigOverride executor_override = 9;
   repeated LocalResourceType required_local_resources = 10;
+  bool disable_test_execution_caching = 11;
 }
 
 message PrepareForLocalExecutionRequest {

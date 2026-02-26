@@ -346,6 +346,7 @@ pub struct ExecuteRequest2 {
     pub host_sharing_requirements: HostSharingRequirements,
     pub executor_override: Option<ExecutorConfigOverride>,
     pub required_local_resources: RequiredLocalResources,
+    pub disable_test_execution_caching: bool,
 }
 
 #[derive(Debug, Clone)]

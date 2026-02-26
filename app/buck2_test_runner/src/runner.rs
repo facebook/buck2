@@ -198,6 +198,7 @@ impl Buck2TestRunner {
                 pre_create_dirs,
                 executor_override,
                 RequiredLocalResources { resources: vec![] },
+                false,
             )
             .await
     }

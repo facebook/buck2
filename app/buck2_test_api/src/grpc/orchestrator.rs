@@ -149,6 +149,7 @@ impl TestOrchestratorClient {
         pre_create_dirs: Vec<DeclaredOutput>,
         executor_override: Option<ExecutorConfigOverride>,
         required_local_resources: RequiredLocalResources,
+        disable_test_execution_caching: bool,
     ) -> buck2_error::Result<ExecuteResponse> {
         let test_executable = TestExecutable {
             stage: ui_prints,
@@ -164,6 +165,7 @@ impl TestOrchestratorClient {
             host_sharing_requirements,
             executor_override,
             required_local_resources,
+            disable_test_execution_caching,
         };
 
         let req: buck2_test_proto::ExecuteRequest2 = req
@@ -345,6 +347,7 @@ where
                 host_sharing_requirements,
                 executor_override,
                 required_local_resources,
+                disable_test_execution_caching,
             } = request
                 .into_inner()
                 .try_into()
@@ -370,6 +373,7 @@ where
                     pre_create_dirs,
                     executor_override,
                     required_local_resources,
+                    disable_test_execution_caching,
                 )
                 .await
                 .buck_error_context("Execution failed")?;

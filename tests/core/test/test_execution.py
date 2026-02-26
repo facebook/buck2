@@ -132,3 +132,36 @@ async def test_remote_test_execution_cached(buck: Buck) -> None:
     assert len(second_test_runs) == 1, (
         f"Expected exactly one cached test.run entry, got {len(second_test_runs)}"
     )
+
+
+@buck_test()
+async def test_remote_test_execution_not_cached_for_stress_runs(buck: Buck) -> None:
+    args = [
+        "-c",
+        "test.local_enabled=false",
+        "-c",
+        "test.remote_enabled=true",
+        "-c",
+        "buck2.use_deterministic_test_execution_paths=true",
+        "//:cacheable_test",
+        "--",
+        "--stress-runs",
+        "2",
+    ]
+
+    await buck.test(*args)
+
+    await buck.test(*args)
+    what_ran = await read_what_ran(buck)
+    test_runs = [entry for entry in what_ran if entry["reason"] == "test.run"]
+    assert len(test_runs) == 2, (
+        f"Expected exactly 2 test.run entries for stress runs, got {len(test_runs)}"
+    )
+
+    # Stress runs disable caching — even on the second invocation, both runs
+    # should execute remotely rather than hitting the cache.
+    for entry in test_runs:
+        executor = entry.get("reproducer", {}).get("executor", "")
+        assert executor == "Re", (
+            f"Expected Re executor for stress runs, got: {executor}"
+        )

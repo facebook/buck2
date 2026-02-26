@@ -264,6 +264,7 @@ impl<'a> BuckTestOrchestrator<'a> {
         pre_create_dirs: Vec<DeclaredOutput>,
         executor_override: Option<ExecutorConfigOverride>,
         required_local_resources: RequiredLocalResources,
+        disable_test_execution_caching: bool,
     ) -> Result<ExecutionResult2, ExecuteError> {
         Self::require_alive(self.liveliness_observer.dupe()).await?;
 
@@ -294,6 +295,7 @@ impl<'a> BuckTestOrchestrator<'a> {
                 options: self.session.options(),
                 timeout,
                 host_sharing_requirements: host_sharing_requirements.into(),
+                disable_test_execution_caching,
             },
             self.liveliness_observer.dupe(),
         )
@@ -389,9 +391,12 @@ impl<'a> BuckTestOrchestrator<'a> {
             prefix,
             timeout,
             host_sharing_requirements,
+            disable_test_execution_caching,
         } = key;
         let fs = dice.get_artifact_fs().await?;
         let test_info = Self::get_test_info(dice, &test_target).await?;
+        let effective_test_execution_caching =
+            test_info.supports_test_execution_caching() && !disable_test_execution_caching;
         let test_executor = Self::get_test_executor(
             dice,
             &test_target,
@@ -399,7 +404,7 @@ impl<'a> BuckTestOrchestrator<'a> {
             executor_override,
             &fs,
             &stage,
-            test_info.supports_test_execution_caching(),
+            effective_test_execution_caching,
         )
         .await?;
         let test_executable_expanded = Self::expand_test_executable(
@@ -488,7 +493,7 @@ impl<'a> BuckTestOrchestrator<'a> {
             execution_request,
             liveliness_observer.dupe(),
             test_executor.re_cache_enabled(),
-            test_info.supports_test_execution_caching(),
+            effective_test_execution_caching,
         )
         .boxed()
         .await?;
@@ -544,6 +549,7 @@ struct TestExecutionKey {
     prefix: TestExecutionPrefix,
     timeout: Duration,
     host_sharing_requirements: Arc<HostSharingRequirements>,
+    disable_test_execution_caching: bool,
 }
 
 #[derive(Clone, Dupe, Debug, Eq, Hash, PartialEq, Allocative)]
@@ -711,6 +717,7 @@ impl TestOrchestrator for BuckTestOrchestrator<'_> {
         pre_create_dirs: Vec<DeclaredOutput>,
         executor_override: Option<ExecutorConfigOverride>,
         required_local_resources: RequiredLocalResources,
+        disable_test_execution_caching: bool,
     ) -> buck2_error::Result<ExecuteResponse> {
         let res = BuckTestOrchestrator::execute2(
             self,
@@ -723,6 +730,7 @@ impl TestOrchestrator for BuckTestOrchestrator<'_> {
             pre_create_dirs,
             executor_override,
             required_local_resources,
+            disable_test_execution_caching,
         )
         .await;
 

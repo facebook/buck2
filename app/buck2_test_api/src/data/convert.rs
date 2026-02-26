@@ -727,6 +727,7 @@ impl TryFrom<buck2_test_proto::ExecuteRequest2> for ExecuteRequest2 {
             host_sharing_requirements,
             executor_override,
             required_local_resources,
+            disable_test_execution_caching,
         } = s;
 
         let test_executable = test_executable
@@ -756,6 +757,7 @@ impl TryFrom<buck2_test_proto::ExecuteRequest2> for ExecuteRequest2 {
             host_sharing_requirements,
             executor_override,
             required_local_resources,
+            disable_test_execution_caching,
         })
     }
 }
@@ -782,6 +784,7 @@ impl TryInto<buck2_test_proto::ExecuteRequest2> for ExecuteRequest2 {
                 .required_local_resources
                 .resources
                 .into_map(|r| r.into()),
+            disable_test_execution_caching: self.disable_test_execution_caching,
         })
     }
 }
@@ -1313,6 +1316,7 @@ mod tests {
                 name: "foo".to_owned(),
             }),
             required_local_resources: RequiredLocalResources { resources: vec![] },
+            disable_test_execution_caching: true,
         };
         assert_roundtrips::<buck2_test_proto::ExecuteRequest2, ExecuteRequest2>(&request);
     }
