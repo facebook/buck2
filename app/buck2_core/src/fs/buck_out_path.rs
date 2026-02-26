@@ -399,7 +399,7 @@ impl BuckOutPathResolver {
         &self,
         label: &ConfiguredProvidersLabel,
     ) -> buck2_error::Result<ProjectRelativePathBuf> {
-        self.resolve_test_path(&ForwardRelativePath::unchecked_new("test_discovery"), label)
+        self.resolve_test_path(&ForwardRelativePath::unchecked_new("test/discovery"), label)
     }
 
     fn resolve_test_path(
@@ -820,7 +820,7 @@ mod tests {
         let providers = ProvidersName::Default.push(ProviderName::new_unchecked("bar/baz".into()));
         let providers_label = ConfiguredProvidersLabel::new(cfg_target, providers);
         let result = path_resolver.resolve_test_discovery(&providers_label)?;
-        let expected_result = Regex::new("buck-out/test_discovery/foo/[0-9a-f]{16}/bar\\+baz")?;
+        let expected_result = Regex::new("buck-out/test/discovery/foo/[0-9a-f]{16}/bar\\+baz")?;
         assert!(expected_result.is_match(result.as_str()));
         Ok(())
     }
