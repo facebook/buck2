@@ -12,6 +12,7 @@ use std::marker::PhantomData;
 use std::sync::Arc;
 
 use async_trait::async_trait;
+use buck2_artifact::actions::key::ActionKey;
 use buck2_build_api::actions::query::ActionQueryNode;
 use buck2_build_api::analysis::calculation::RuleAnalysisCalculation;
 use buck2_build_api::query::bxl::BxlAqueryFunctions;
@@ -299,6 +300,24 @@ impl BxlAqueryFunctions for BxlAqueryFunctionsImpl {
                 QueryValue::TargetSet(s) => Ok(s.clone()),
                 _ => unreachable!("all_actions should always return target set"),
             }
+        })
+        .await
+    }
+
+    async fn get_action_nodes(
+        &self,
+        dice: &mut DiceComputations<'_>,
+        action_keys: Vec<ActionKey>,
+    ) -> buck2_error::Result<TargetSet<ActionQueryNode>> {
+        dice.with_linear_recompute(|dice| async move {
+            let delegate = self.aquery_delegate(&dice).await?;
+            let mut result = TargetSet::new();
+            let nodes = buck2_util::future::try_join_all(
+                action_keys.iter().map(|key| delegate.get_action_node(&key)),
+            )
+            .await?;
+            result.extend(nodes);
+            Ok(result)
         })
         .await
     }
