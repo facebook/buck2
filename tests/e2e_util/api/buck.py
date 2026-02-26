@@ -7,6 +7,7 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
+# pyre-strict
 
 import os
 import uuid
@@ -328,7 +329,7 @@ class Buck(Executable):
 
     def ctargets(
         self,
-        *argv,
+        *argv: str,
         input: Optional[bytes] = None,
         rel_cwd: Optional[Path] = None,
         env: Optional[Dict[str, str]] = None,
@@ -831,23 +832,37 @@ class Buck(Executable):
 
         cmd_to_run = self.construct_buck_command(cmd, *args)
 
-        args = argv
+        args_tuple: Tuple[str, ...] = argv
         result_kwargs = result_kwargs or {}
+        _buck_build_id: str = buck_build_id
+        _invocation_record_path: Optional[Path] = invocation_record_path
 
-        def make_result(proc, stdout, stderr):
+        # pyre-ignore[2]: subprocess.Process is not generic in Pyre
+        def make_result(proc: subprocess.Process, stdout: str, stderr: str) -> R:
             base = BuckResult(
                 proc,
                 stdout,
                 stderr,
-                buck_build_id,
-                invocation_record_path,
-                buck_args=" ".join(args),
+                _buck_build_id,
+                _invocation_record_path,
+                buck_args=" ".join(args_tuple),
             )
             if result_type is BuckResult:
-                return base
-            return result_type(base, **result_kwargs)
+                return base  # type: ignore[return-value]
+            return result_type(base, **result_kwargs)  # type: ignore[return-value]
 
-        def make_exception(cmd_to_run, working_dir, env, proc, stdout, stderr):
+        _buck_build_id2: str = buck_build_id
+        _invocation_record_path2: Optional[Path] = invocation_record_path
+
+        # pyre-ignore[2]: subprocess.Process is not generic in Pyre
+        def make_exception(
+            cmd_to_run: str,
+            working_dir: Path,
+            env: Dict[str, str],
+            proc: subprocess.Process,
+            stdout: str,
+            stderr: str,
+        ) -> BuckException:
             return BuckException(
                 cmd_to_run,
                 working_dir,
@@ -855,8 +870,8 @@ class Buck(Executable):
                 proc,
                 stdout,
                 stderr,
-                buck_build_id,
-                invocation_record_path,
+                _buck_build_id2,
+                _invocation_record_path2,
             )
 
         stderr = subprocess.PIPE if intercept_stderr else None
@@ -907,8 +922,8 @@ class Buck(Executable):
         env: Optional[Dict[str, str]] = None,
         input: Optional[bytes] = None,
         stdin: Optional[int] = None,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
+        stdout: int = subprocess.PIPE,
+        stderr: int = subprocess.PIPE,
     ) -> Process[Result, Exception]:
         raise NotImplementedError("Buck does not use execute.")
 
