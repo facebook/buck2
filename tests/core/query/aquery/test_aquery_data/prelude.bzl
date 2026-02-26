@@ -9,6 +9,7 @@
 def _test(ctx: AnalysisContext):
     dep = ctx.actions.write("dep", "")
     default = ctx.actions.copy_file("default", dep)
+    other_default = ctx.actions.copy_file("other_default", dep)
     other = ctx.actions.write("other", "")
 
     sub_default = ctx.actions.write("sub_default", "")
@@ -18,7 +19,7 @@ def _test(ctx: AnalysisContext):
     ctx.actions.write("unused", "")
 
     return [DefaultInfo(
-        default_outputs = [default],
+        default_outputs = [default, other_default],
         other_outputs = [other],
         sub_targets = {
             "sub": [
