@@ -18,6 +18,9 @@ use std::collections::HashMap;
 use std::collections::HashSet;
 use std::ffi::OsStr;
 use std::fmt::Display;
+use std::hash::DefaultHasher;
+use std::hash::Hash;
+use std::hash::Hasher;
 use std::ops::ControlFlow;
 use std::ops::DerefMut;
 use std::sync::Arc;
@@ -53,6 +56,8 @@ use buck2_build_signals::env::NodeDuration;
 use buck2_build_signals::env::WaitingData;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::events::HasEvents;
+use buck2_common::legacy_configs::dice::HasLegacyConfigs;
+use buck2_common::legacy_configs::key::BuckconfigKeyRef;
 use buck2_common::liveliness_observer::LivelinessObserver;
 use buck2_common::local_resource_state::LocalResourceState;
 use buck2_core::cells::cell_root_path::CellRootPathBuf;
@@ -405,6 +410,7 @@ impl<'a> BuckTestOrchestrator<'a> {
             Cow::Borrowed(&pre_create_dirs),
             &test_executor.executor().executor_fs(),
             prefix,
+            &stage,
             options,
         )
         .boxed()
@@ -855,6 +861,7 @@ impl TestOrchestrator for BuckTestOrchestrator<'_> {
             Cow::Owned(pre_create_dirs),
             &test_executor.executor().executor_fs(),
             TestExecutionPrefix::new(&stage, &self.session),
+            &stage,
             self.session.options(),
         )
         .await?;
@@ -1409,9 +1416,10 @@ impl BuckTestOrchestrator<'_> {
         pre_create_dirs: Cow<'a, [DeclaredOutput]>,
         executor_fs: &ExecutorFs<'_>,
         prefix: TestExecutionPrefix,
+        stage: &TestStage,
         opts: TestSessionOptions,
     ) -> buck2_error::Result<ExpandedTestExecutable> {
-        let output_root = resolve_output_root(dice, test_target, prefix).await?;
+        let output_root = resolve_output_root(dice, test_target, prefix, stage).await?;
 
         let mut declared_outputs = IndexMap::<BuckOutTestPath, OutputCreationBehavior>::new();
 
@@ -2015,19 +2023,60 @@ async fn resolve_output_root(
     dice: &mut DiceComputations<'_>,
     test_target: &ConfiguredProvidersLabel,
     prefix: TestExecutionPrefix,
+    stage: &TestStage,
 ) -> Result<ForwardRelativePathBuf, buck2_error::Error> {
     let resolver = dice.get_buck_out_path().await?;
-    let output_root = match prefix {
-        TestExecutionPrefix::Listing => resolver
+
+    let use_deterministic_paths = {
+        let cell_resolver = dice.get_cell_resolver().await?;
+        dice.parse_legacy_config_property::<bool>(
+            cell_resolver.root_cell(),
+            BuckconfigKeyRef {
+                section: "buck2",
+                property: "use_deterministic_test_execution_paths",
+            },
+        )
+        .await?
+        .unwrap_or(false)
+    };
+
+    let output_root = match stage {
+        TestStage::Listing { .. } => resolver
             .resolve_test_discovery(test_target)?
             .into_forward_relative_path_buf(),
-        TestExecutionPrefix::Testing(prefix) => ForwardRelativePathBuf::concat([
-            resolver.root().as_forward_relative_path(),
-            ForwardRelativePath::new("test").unwrap(),
-            &prefix.join(ForwardRelativePathBuf::unchecked_new(
-                Uuid::new_v4().to_string(),
-            )),
-        ]),
+        TestStage::Testing {
+            testcases,
+            variant,
+            repeat_count,
+            ..
+        } if use_deterministic_paths => {
+            let mut hasher = DefaultHasher::new();
+            variant.hash(&mut hasher);
+            repeat_count.hash(&mut hasher);
+            testcases.hash(&mut hasher);
+            let extra_info_hashed = format!("{:016x}", hasher.finish());
+
+            resolver
+                .resolve_test_execution(
+                    test_target,
+                    ForwardRelativePath::unchecked_new(&extra_info_hashed),
+                )?
+                .into_forward_relative_path_buf()
+        }
+        TestStage::Testing { .. } => {
+            let TestExecutionPrefix::Testing(prefix) = prefix else {
+                return Err(internal_error!(
+                    "Expected TestExecutionPrefix::Testing for TestStage::Testing"
+                ));
+            };
+            ForwardRelativePathBuf::concat([
+                resolver.root().as_forward_relative_path(),
+                ForwardRelativePath::new("test").unwrap(),
+                &prefix.join(ForwardRelativePathBuf::unchecked_new(
+                    Uuid::new_v4().to_string(),
+                )),
+            ])
+        }
     };
     Ok(output_root)
 }
