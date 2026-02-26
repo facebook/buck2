@@ -1,6 +1,6 @@
 # This file is @generated, regenerate by re-running test with `-- --env BUCK2_UPDATE_GOLDEN=1` appended to the test command
 
-buck audit config
+Read and display buckconfig values.
 
 Usage: buck2 audit config [OPTIONS] [SPECS]...
 
@@ -12,22 +12,28 @@ Arguments:
 
 Options:
       --cell <CELL>
-
+          Query config for a specific cell (default: the cell of the current working directory)
 
       --all-cells
-          Produce information for all cells that Buck2 knows about
+          Produce information for all cells
 
       --output-format <OUTPUT_FORMAT>
+          Output format
+
           [possible values: simple, json]
 
       --json
-
+          Output in JSON format (shorthand for `--output-format=json`)
 
       --location <LOCATION_STYLE>
+          Show where config values are defined
+
           [default: none]
           [possible values: none, direct, extended]
 
       --value <VALUE_STYLE>
+          Show resolved values, raw (pre-substitution) values, or both
+
           [default: resolved]
           [possible values: resolved, raw, both]
 

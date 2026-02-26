@@ -89,21 +89,25 @@ impl FromStr for ValueStyle {
 }
 
 #[derive(Debug, clap::Parser, serde::Serialize, serde::Deserialize)]
-#[clap(name = "audit-config", about = "buck audit config")]
+#[clap(name = "audit-config", about = "Read and display buckconfig values.")]
 pub struct AuditConfigCommand {
+    /// Query config for a specific cell (default: the cell of the current working directory).
     #[clap(long = "cell")]
     pub cell: Option<String>,
 
-    /// Produce information for all cells that Buck2 knows about.
+    /// Produce information for all cells.
     #[clap(long, conflicts_with = "cell")]
     pub all_cells: bool,
 
+    /// Output format.
     #[clap(long, alias = "style", ignore_case = true, value_enum)]
     pub output_format: Option<OutputFormat>,
 
+    /// Output in JSON format (shorthand for `--output-format=json`).
     #[clap(long)]
     pub json: bool,
 
+    /// Show where config values are defined.
     #[clap(
         long = "location",
         default_value = "none",
@@ -112,6 +116,7 @@ pub struct AuditConfigCommand {
     )]
     pub location_style: LocationStyle,
 
+    /// Show resolved values, raw (pre-substitution) values, or both.
     #[clap(
         long = "value",
         default_value = "resolved",

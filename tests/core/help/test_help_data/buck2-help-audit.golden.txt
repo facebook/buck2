@@ -12,7 +12,7 @@ Commands:
                                      compatibility with buck1.
                                      We will replace this command with something that can audit the
                                      entire `TemplatePlaceholderInfo` in the future.
-  config                         buck audit config
+  config                         Read and display buckconfig values.
   configurations                 prints the constraints for configuration IDs
   includes                       list build file extensions imported at parse time.
   prelude                        print the interpreter prelude to stdout
