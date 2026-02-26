@@ -25,7 +25,13 @@ def _simple_test_impl(ctx):
             command = ["fbpython", "-c", script],
             use_project_relative_paths = True,
             type = "lionhead",
+            supports_test_execution_caching = ctx.attrs.supports_test_execution_caching,
         ),
     ]
 
-simple_test = rule(attrs = {}, impl = _simple_test_impl)
+simple_test = rule(
+    attrs = {
+        "supports_test_execution_caching": attrs.bool(default = False),
+    },
+    impl = _simple_test_impl,
+)

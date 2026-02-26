@@ -105,3 +105,30 @@ async def test_stress_runs_have_different_action_digests(buck: Buck) -> None:
     assert digests[0] != digests[1], (
         f"Stress run action digests should differ but were both: {digests[0]}"
     )
+
+
+@buck_test()
+async def test_remote_test_execution_cached(buck: Buck) -> None:
+    args = [
+        "-c",
+        "test.local_enabled=false",
+        "-c",
+        "test.remote_enabled=true",
+        "-c",
+        "buck2.use_deterministic_test_execution_paths=true",
+        "//:cacheable_test",
+    ]
+
+    await buck.test(*args)
+
+    await buck.test(*args)
+    second_what_ran = await read_what_ran(buck, "--emit-cache-queries")
+    second_test_runs = [
+        entry
+        for entry in second_what_ran
+        if entry["reason"] == "test.run"
+        and entry.get("reproducer", {}).get("executor") == "Cache"
+    ]
+    assert len(second_test_runs) == 1, (
+        f"Expected exactly one cached test.run entry, got {len(second_test_runs)}"
+    )
