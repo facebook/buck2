@@ -173,10 +173,12 @@ impl TryFrom<buck2_test_proto::TestStage> for TestStage {
                 suite,
                 testcases,
                 variant,
+                repeat_count,
             }) => Self::Testing {
                 suite,
                 testcases,
                 variant,
+                repeat_count: repeat_count.map(|v| v as usize),
             },
         };
 
@@ -197,10 +199,12 @@ impl TryInto<buck2_test_proto::TestStage> for TestStage {
                 suite,
                 testcases,
                 variant,
+                repeat_count,
             } => Item::Testing(Testing {
                 suite,
                 testcases,
                 variant,
+                repeat_count: repeat_count.map(|v| v as u64),
             }),
         };
 

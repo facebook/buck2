@@ -233,6 +233,7 @@ impl TestOrchestratorClient {
                     suite,
                     testcases: tests,
                     variant: None,
+                    repeat_count: None,
                 }),
             })
             .await?;

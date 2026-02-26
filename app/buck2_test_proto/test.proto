@@ -22,6 +22,8 @@ message Testing {
   string suite = 1;
   repeated string testcases = 2;
   optional string variant = 3;
+  // Unique id for tests being run multiple times, e.g. for stress runs.
+  optional uint64 repeat_count = 4;
 }
 
 message TestStage {

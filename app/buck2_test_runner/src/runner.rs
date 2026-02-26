@@ -129,6 +129,7 @@ impl Buck2TestRunner {
             suite: spec.target.target,
             testcases: Vec::new(),
             variant: None,
+            repeat_count: None,
         };
 
         let config_args = self.config.test_arg.iter().map(|arg| ArgValue {

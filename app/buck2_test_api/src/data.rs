@@ -67,6 +67,8 @@ pub enum TestStage {
         // Allows differentiating between otherwise identical suites, e.g. a different
         // way of running the same tests that may require more memory.
         variant: Option<String>,
+        // Unique id for tests being run multiple times, e.g. for stress runs.
+        repeat_count: Option<usize>,
     },
 }
 

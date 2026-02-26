@@ -505,6 +505,7 @@ impl<'a> BuckTestOrchestrator<'a> {
                     suite,
                     testcases,
                     variant,
+                    ..
                 } => {
                     signals.test_execution(
                         test_target.target().dupe(),
@@ -2485,6 +2486,7 @@ mod tests {
             suite: "test_suite".to_owned(),
             testcases: vec!["test1".to_owned(), "test2".to_owned()],
             variant: None,
+            repeat_count: None,
         };
         assert_eq!(create_action_key_suffix(&stage), "test1 test2");
     }
@@ -2495,6 +2497,7 @@ mod tests {
             suite: "test_suite".to_owned(),
             testcases: vec!["test1".to_owned(), "test2".to_owned()],
             variant: Some("variant1".to_owned()),
+            repeat_count: None,
         };
         assert_eq!(create_action_key_suffix(&stage), "variant1 test1 test2");
     }
@@ -2506,6 +2509,7 @@ mod tests {
             suite: "test_suite".to_owned(),
             testcases: vec![long_testcase],
             variant: None,
+            repeat_count: None,
         };
         let result = create_action_key_suffix(&stage);
         assert_eq!(result.len(), MAX_SUFFIX_LEN);
