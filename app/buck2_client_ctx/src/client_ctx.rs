@@ -279,6 +279,13 @@ impl<'a> ClientCommandContext<'a> {
         })
     }
 
+    pub fn client_id(&self) -> Option<&str> {
+        self.client_metadata
+            .iter()
+            .find(|m| m.key == "id")
+            .map(|m| m.value.as_str())
+    }
+
     pub fn log_download_method(&self) -> buck2_error::Result<LogDownloadMethod> {
         Ok(self
             .immediate_config

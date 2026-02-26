@@ -17,6 +17,7 @@ use buck2_common::init::DaemonStartupConfig;
 use buck2_common::invocation_roots::InvocationRoots;
 use buck2_common::invocation_roots::find_invocation_roots;
 use buck2_common::legacy_configs::cells::BuckConfigBasedCells;
+use buck2_common::legacy_configs::key::BuckconfigKeyRef;
 use buck2_core::buck2_env;
 use buck2_core::cells::CellAliasResolver;
 use buck2_core::cells::CellResolver;
@@ -37,6 +38,7 @@ struct ImmediateConfig {
     cell_resolver: CellResolver,
     cwd_cell_alias_resolver: CellAliasResolver,
     daemon_startup_config: DaemonStartupConfig,
+    show_sentiment: bool,
 }
 
 impl ImmediateConfig {
@@ -59,6 +61,13 @@ impl ImmediateConfig {
             cwd_cell_alias_resolver,
             daemon_startup_config: DaemonStartupConfig::new(&cells.root_config)
                 .buck_error_context("Error loading daemon startup config")?,
+            show_sentiment: cells
+                .root_config
+                .get(BuckconfigKeyRef {
+                    section: "experiments",
+                    property: "sentiment",
+                })
+                .is_some_and(|v| v == "true"),
         })
     }
 }
@@ -70,6 +79,7 @@ struct ImmediateConfigContextData {
     cwd_cell_alias_resolver: CellAliasResolver,
     daemon_startup_config: DaemonStartupConfig,
     project_filesystem: ProjectRoot,
+    show_sentiment: bool,
 }
 
 pub struct ImmediateConfigContext<'a> {
@@ -102,6 +112,10 @@ impl<'a> ImmediateConfigContext<'a> {
 
     pub fn daemon_startup_config(&self) -> buck2_error::Result<&DaemonStartupConfig> {
         Ok(&self.data()?.daemon_startup_config)
+    }
+
+    pub fn show_sentiment(&self) -> bool {
+        self.data().map(|d| d.show_sentiment).unwrap_or(false)
     }
 
     /// Resolves a cell path (i.e., contains `//`) into an absolute path. The cell path must have
@@ -172,6 +186,7 @@ impl<'a> ImmediateConfigContext<'a> {
                     cwd_cell_alias_resolver: cfg.cwd_cell_alias_resolver,
                     daemon_startup_config,
                     project_filesystem: roots.project_root,
+                    show_sentiment: cfg.show_sentiment,
                 })
             })
             .buck_error_context("Error creating cell resolver")

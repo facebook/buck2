@@ -76,4 +76,8 @@ impl FinalConsole {
     pub fn print_stderr(&self, message: &str) -> buck2_error::Result<()> {
         crate::eprintln!("{}", message)
     }
+
+    pub fn is_tty(&self) -> bool {
+        self.is_tty
+    }
 }

@@ -43,9 +43,26 @@ use buck2_core::buck2_env;
 use buck2_error::BuckErrorContext;
 use buck2_error::buck2_error;
 use dupe::Dupe;
+use superconsole::style::Color;
+use superconsole::style::ContentStyle;
+use superconsole::style::StyledContent;
 
 use crate::commands::build::out::copy_to_out;
 use crate::print::PrintOutputs;
+
+macro_rules! colored {
+    ($color:expr, $text:expr) => {
+        StyledContent::new(
+            ContentStyle {
+                foreground_color: Some($color),
+                background_color: None,
+                underline_color: None,
+                attributes: Default::default(),
+            },
+            $text,
+        )
+    };
+}
 
 mod out;
 
@@ -362,6 +379,7 @@ pub(crate) fn print_build_succeeded(
     extra: Option<&str>,
 ) -> buck2_error::Result<()> {
     if ctx.verbosity.print_success_message() {
+        print_build_rating(console, ctx)?;
         console.print_success_no_newline("BUILD SUCCEEDED")?;
         console.print_stderr(extra.unwrap_or_default())?;
     }
@@ -370,6 +388,32 @@ pub(crate) fn print_build_succeeded(
 
 pub(crate) fn print_build_failed(console: &FinalConsole) -> buck2_error::Result<()> {
     console.print_error("BUILD FAILED")
+}
+
+fn print_build_rating(
+    console: &FinalConsole,
+    ctx: &ClientCommandContext<'_>,
+) -> buck2_error::Result<()> {
+    // Only show rating prompt to humans, not AI
+    if !console.is_tty() {
+        return Ok(());
+    }
+
+    // Gated by the cpe_buck_sentiment GK via [experiments] sentiment buckconfig
+    if !ctx.immediate_config.show_sentiment() {
+        return Ok(());
+    }
+
+    let trace_id = &ctx.trace_id;
+    let rate = "\u{2B50} Rate this build speed:";
+    let url = format!("https://www.internalfb.com/buck2/{}?modal=true", trace_id);
+    let good = colored!(Color::Yellow, "Good \u{1f44d}");
+    let bad = colored!(Color::Yellow, "Bad \u{1f44e}");
+    console.print_stderr(&format!(
+        "{} \x1b]8;;{}&sentiment=SATISFIED\x1b\\{}\x1b]8;;\x1b\\ or \x1b]8;;{}&sentiment=DISSATISFIED\x1b\\{}\x1b]8;;\x1b\\",
+        rate, url, good, url, bad,
+    ))?;
+    Ok(())
 }
 
 pub(crate) fn print_outputs(
