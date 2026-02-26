@@ -8,7 +8,7 @@ rust_library(
     deps = [
         "fbsource//third-party/rust:async-trait",
         "fbsource//third-party/rust:chrono",
-        "fbsource//third-party/rust:dashmap-6",
+        "fbsource//third-party/rust:dashmap",
         "fbsource//third-party/rust:derive_more",
         "fbsource//third-party/rust:either",
         "fbsource//third-party/rust:futures",

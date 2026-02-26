@@ -8,7 +8,7 @@ rust_library(
     crate_root = "src/lib.rs",
     deps = [
         "fbsource//third-party/rust:anyhow",
-        "fbsource//third-party/rust:dashmap-6",
+        "fbsource//third-party/rust:dashmap",
         "fbsource//third-party/rust:futures-intrusive",
         "//buck2/allocative/allocative:allocative",
         "//buck2/starlark-rust/starlark_map:starlark_map",

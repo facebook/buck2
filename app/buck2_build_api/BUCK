@@ -15,7 +15,7 @@ rust_library(
         "fbsource//third-party/rust:base64",
         "fbsource//third-party/rust:blake3",
         "fbsource//third-party/rust:console",
-        "fbsource//third-party/rust:dashmap-6",
+        "fbsource//third-party/rust:dashmap",
         "fbsource//third-party/rust:derivative",
         "fbsource//third-party/rust:derive_more",
         "fbsource//third-party/rust:either",
