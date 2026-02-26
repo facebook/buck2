@@ -6,7 +6,7 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
-# @oss-disable[end= ]: load("@prelude//apple/meta_only:apple_extra_error_categories.bzl", "APPLE_CXX_FLAG_MESSAGES", "APPLE_CXX_STDERR_CATEGORIES", "APPLE_META_STDERR_ERROR_CATEGORIES", "SWIFT_STDERR_CATEGORIES")
+# @oss-disable[end= ]: load("@prelude//apple/meta_only:apple_extra_error_categories.bzl", "APPLE_CXX_FLAG_MESSAGES", "APPLE_CXX_STDERR_CATEGORIES", "APPLE_META_STDERR_ERROR_CATEGORIES", "SWIFT_CATEGORY_REMEDIATION", "SWIFT_STDERR_CATEGORIES")
 load("@prelude//apple/swift:swift_toolchain.bzl", "get_swift_toolchain_info")
 load("@prelude//cxx:cxx_context.bzl", "get_cxx_toolchain_info")
 load("@prelude//error_handler:error_enricher_types.bzl", "ErrorEnricher")
@@ -14,6 +14,7 @@ load("@prelude//error_handler:error_enricher_types.bzl", "ErrorEnricher")
 APPLE_CXX_FLAG_MESSAGES = {} # @oss-enable
 APPLE_CXX_STDERR_CATEGORIES = [] # @oss-enable
 APPLE_META_STDERR_ERROR_CATEGORIES = [] # @oss-enable
+SWIFT_CATEGORY_REMEDIATION = {} # @oss-enable
 SWIFT_STDERR_CATEGORIES = [] # @oss-enable
 
 _APPLE_STDERR_ERROR_CATEGORIES = [
@@ -156,11 +157,16 @@ def swift_error_handler(ctx: ActionErrorCtx) -> list[ActionSubError]:
 
             # Swift serializes the category in the form:
             # SendableClosureCaptures@https://docs.swift.org/compiler/documentation/diagnostics/sendable-closure-captures
-            if "@" in error_json.get("category", ""):
+            category = error_json.get("category", "")
+            if "@" in category:
                 # Convert to markdown links for phabricator
                 components = error_json["category"].split("@")
                 message += " [{}]({})".format(components[0], components[1])
                 subcategory = components[0].lower()
+                if components[0] in SWIFT_CATEGORY_REMEDIATION:
+                    remediation = SWIFT_CATEGORY_REMEDIATION[components[0]]
+            elif category in SWIFT_CATEGORY_REMEDIATION:
+                remediation = SWIFT_CATEGORY_REMEDIATION[category]
             else:
                 # With no category in the error itself we categorise based on
                 # the message content.
@@ -173,7 +179,6 @@ def swift_error_handler(ctx: ActionErrorCtx) -> list[ActionSubError]:
                     subcategory = custom_category.category
                     if custom_category.message:
                         remediation = custom_category.message
-
             errors.append(
                 ctx.new_sub_error(
                     category = "swift_" + severity,
