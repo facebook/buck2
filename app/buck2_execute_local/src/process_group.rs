@@ -84,7 +84,7 @@ impl ProcessGroup {
     pub(crate) async fn wait(
         &mut self,
         freeze_rx: impl ActionFreezeEventReceiver,
-    ) -> io::Result<ExitStatus> {
+    ) -> buck2_error::Result<ExitStatus> {
         self.inner.wait(freeze_rx).await
     }
 

@@ -20,7 +20,6 @@ use buck2_error::BuckErrorContext;
 use buck2_error::internal_error;
 use buck2_resource_control::ActionFreezeEventReceiver;
 use buck2_resource_control::path::CgroupPathBuf;
-use tokio::io;
 use tokio::process::ChildStderr;
 use tokio::process::ChildStdout;
 use winapi::um::processthreadsapi;
@@ -122,7 +121,7 @@ impl ProcessGroupImpl {
     pub(crate) async fn wait(
         &mut self,
         _freeze_rx: impl ActionFreezeEventReceiver,
-    ) -> io::Result<ExitStatus> {
+    ) -> buck2_error::Result<ExitStatus> {
         match &mut self.child {
             FusedChild::Done(exit) => Ok(*exit),
             FusedChild::Child(child) => {
@@ -135,7 +134,7 @@ impl ProcessGroupImpl {
                     self.child = FusedChild::Done(exit);
                 }
 
-                ret
+                ret.map_err(Into::into)
             }
         }
     }

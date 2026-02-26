@@ -28,7 +28,6 @@ use futures::pin_mut;
 use nix::sys::signal;
 use nix::sys::signal::Signal;
 use nix::unistd::Pid;
-use tokio::io;
 use tokio::pin;
 use tokio::process::Child;
 use tokio::process::ChildStderr;
@@ -102,7 +101,7 @@ impl ProcessGroupImpl {
     pub(crate) async fn wait(
         &mut self,
         freeze_rx: impl ActionFreezeEventReceiver,
-    ) -> io::Result<ExitStatus> {
+    ) -> buck2_error::Result<ExitStatus> {
         let child = self.inner.wait();
         pin!(child);
         pin_mut!(freeze_rx);
@@ -112,9 +111,9 @@ impl ProcessGroupImpl {
                 res = &mut child => {
                     // Kill any remaining PIDs in the cgroup that outlived the main process.
                     if let Some(cgroup) = self.cgroup.as_ref() {
-                        cgroup.kill_remaining_pids().await.map_err(|e| io::Error::other(format!("{:#}", e)))?;
+                        cgroup.kill_remaining_pids().await?;
                     }
-                    break res;
+                    break Ok(res?);
                 },
                 Some(freeze_op) = freeze_rx.next() => {
                     match freeze_op {
