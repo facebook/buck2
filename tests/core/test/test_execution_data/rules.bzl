@@ -19,6 +19,9 @@ def _simple_test_impl(ctx):
         ["touch", out.as_output()],
         category = "touch",
     )
+    env = {}
+    if ctx.attrs.seed:
+        env["SEED"] = ctx.attrs.seed
     return [
         DefaultInfo(out),
         ExternalRunnerTestInfo(
@@ -26,11 +29,13 @@ def _simple_test_impl(ctx):
             use_project_relative_paths = True,
             type = "lionhead",
             supports_test_execution_caching = ctx.attrs.supports_test_execution_caching,
+            env = env,
         ),
     ]
 
 simple_test = rule(
     attrs = {
+        "seed": attrs.string(default = ""),
         "supports_test_execution_caching": attrs.bool(default = False),
     },
     impl = _simple_test_impl,

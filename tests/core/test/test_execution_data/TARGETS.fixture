@@ -4,5 +4,6 @@ simple_test(name = "test")
 
 simple_test(
     name = "cacheable_test",
+    seed = read_config("test", "seed", ""),
     supports_test_execution_caching = True,
 )

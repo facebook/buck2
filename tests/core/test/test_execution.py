@@ -10,7 +10,7 @@
 
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.buck_workspace import buck_test
-from buck2.tests.e2e_util.helper.utils import read_what_ran
+from buck2.tests.e2e_util.helper.utils import random_string, read_what_ran
 
 
 @buck_test()
@@ -165,3 +165,63 @@ async def test_remote_test_execution_not_cached_for_stress_runs(buck: Buck) -> N
         assert executor == "Re", (
             f"Expected Re executor for stress runs, got: {executor}"
         )
+
+
+@buck_test()
+async def test_local_test_execution_not_cached(buck: Buck) -> None:
+    seed = random_string()
+    args = [
+        "-c",
+        "test.local_enabled=true",
+        "-c",
+        "test.remote_enabled=false",
+        "-c",
+        "buck2.use_deterministic_test_execution_paths=true",
+        "-c",
+        f"test.seed={seed}",
+        "//:cacheable_test",
+    ]
+
+    await buck.test(*args)
+
+    await buck.test(*args)
+    second_what_ran = await read_what_ran(buck)
+    second_test_runs = [
+        entry for entry in second_what_ran if entry["reason"] == "test.run"
+    ]
+    assert len(second_test_runs) == 1, (
+        f"Expected exactly one test.run entry, got {len(second_test_runs)}"
+    )
+    assert second_test_runs[0]["reproducer"]["executor"] == "Local", (
+        "Expected test to run locally, not be cached!"
+    )
+
+
+@buck_test()
+async def test_remote_test_execution_not_cached_with_no_remote_cache(
+    buck: Buck,
+) -> None:
+    args = [
+        "-c",
+        "test.local_enabled=false",
+        "-c",
+        "test.remote_enabled=true",
+        "-c",
+        "buck2.use_deterministic_test_execution_paths=true",
+        "--no-remote-cache",
+        "//:cacheable_test",
+    ]
+
+    await buck.test(*args)
+
+    await buck.test(*args)
+    second_what_ran = await read_what_ran(buck)
+    second_test_runs = [
+        entry for entry in second_what_ran if entry["reason"] == "test.run"
+    ]
+    assert len(second_test_runs) == 1, (
+        f"Expected exactly one test.run entry, got {len(second_test_runs)}"
+    )
+    assert second_test_runs[0]["reproducer"]["executor"] == "Re", (
+        "Expected test to run remotely, not be cached!"
+    )
