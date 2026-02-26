@@ -24,6 +24,7 @@ static BUCK2_RE_CLIENT_CFG_SECTION: &str = "buck2_re_client";
 pub trait RemoteExecutionStaticMetadataImpl: Sized {
     fn from_legacy_config(legacy_config: &LegacyBuckConfig) -> buck2_error::Result<Self>;
     fn cas_semaphore_size(&self) -> usize;
+    fn exec_semaphore_size(&self) -> usize;
 }
 
 #[derive(Clone, Debug, Allocative)]
@@ -382,6 +383,10 @@ mod fbcode {
         fn cas_semaphore_size(&self) -> usize {
             self.cas_connection_count as usize * 30
         }
+
+        fn exec_semaphore_size(&self) -> usize {
+            self.execution_concurrency_limit as usize
+        }
     }
 }
 
@@ -403,6 +408,10 @@ mod not_fbcode {
         fn cas_semaphore_size(&self) -> usize {
             // FIXME: make this configurable?
             1024
+        }
+
+        fn exec_semaphore_size(&self) -> usize {
+            self.0.execution_concurrency_limit.unwrap_or(400)
         }
     }
 }
@@ -457,6 +466,8 @@ pub struct Buck2OssReConfiguration {
     pub grpc_keepalive_timeout_secs: Option<u64>,
     /// Whether to send HTTP/2 pings when connection is idle.
     pub grpc_keepalive_while_idle: Option<bool>,
+    /// Maximum number of concurrent execution requests.
+    pub execution_concurrency_limit: Option<usize>,
 }
 
 #[derive(Clone, Debug, Default, Allocative)]
@@ -573,6 +584,10 @@ impl Buck2OssReConfiguration {
             grpc_keepalive_while_idle: legacy_config.parse(BuckconfigKeyRef {
                 section: BUCK2_RE_CLIENT_CFG_SECTION,
                 property: "grpc_keepalive_while_idle",
+            })?,
+            execution_concurrency_limit: legacy_config.parse(BuckconfigKeyRef {
+                section: BUCK2_RE_CLIENT_CFG_SECTION,
+                property: "execution_concurrency_limit",
             })?,
         })
     }
