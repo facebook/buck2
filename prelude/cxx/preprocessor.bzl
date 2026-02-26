@@ -79,6 +79,10 @@ CPreprocessor = record(
     modulemap_artifact = field([Artifact, None], None),
     # Header units to load transitively and supporting args.
     header_units = field(list[HeaderUnit], []),
+    # Raw include directory strings from public_include_directories attr.
+    raw_include_dirs = field(list[str], []),
+    # Raw include directory strings from public_system_include_directories attr.
+    raw_system_include_dirs = field(list[str], []),
 )
 
 # Methods for transitive_sets must be declared prior to their use.
@@ -296,6 +300,8 @@ def cxx_exported_preprocessor_info(
         system_include_dirs = SystemIncludeDirs(compiler_type = compiler_type, include_dirs = system_include_dirs),
         modular_args = modular_args,
         header_units = header_units,
+        raw_include_dirs = ctx.attrs.public_include_directories,
+        raw_system_include_dirs = ctx.attrs.public_system_include_directories,
     )
 
 def get_exported_preprocessor_args(ctx: AnalysisContext, headers: dict[str, Artifact], style: HeaderStyle, compiler_type: str, raw_headers: list[Artifact], extra_preprocessors: list[CPreprocessor]) -> CPreprocessorArgs:
