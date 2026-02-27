@@ -359,9 +359,9 @@ fn stringifies_for_command_line() -> buck2_error::Result<()> {
                 a3 = bound_artifact("//foo:bar", "baz/quz.cpp")
                 a4 = source_artifact("foo/bar", "baz/file2")
 
-                assert_eq_ignore_hash("buck-out/v2/gen/root/<HASH>/foo/__bar__/baz/quz.h", stringify_for_cli(a1))
+                assert_eq_ignore_hash("buck-out/v2/art/root/<HASH>/foo/__bar__/baz/quz.h", stringify_for_cli(a1))
                 assert_eq("foo/bar/baz/file1", stringify_for_cli(a2))
-                assert_eq_ignore_hash("buck-out/v2/gen/root/<HASH>/foo/__bar__/baz/quz.cpp", stringify_for_cli(a3))
+                assert_eq_ignore_hash("buck-out/v2/art/root/<HASH>/foo/__bar__/baz/quz.cpp", stringify_for_cli(a3))
                 assert_eq("foo/bar/baz/file2", stringify_for_cli(a4))
             "#
         ))

@@ -40,7 +40,7 @@ def assert_path_exists(path: str) -> None:
 
 def assert_buck_out_paths_materialized(buck_cwd: Path, paths: list[str]) -> None:
     for path in paths:
-        if re.match(r"buck-out\/.+\/{gen,offline-cache}/.+\/.+\/.+", path) is not None:
+        if re.match(r"buck-out\/.+\/{art,offline-cache}/.+\/.+\/.+", path) is not None:
             assert_path_exists(os.path.join(buck_cwd, path))
 
 
@@ -262,7 +262,7 @@ async def test_fake_offline_http_archive_uses_offline_cache(buck: Buck) -> None:
     http_download_path = result.get_build_report().output_for_target(target)
     # This is hacky, but there's no other good way to discover the offline-cache path.
     offline_cache_path = (
-        Path(str(http_download_path).replace("/gen/", "/offline-cache/")).parent
+        Path(str(http_download_path).replace("/art/", "/offline-cache/")).parent
         / "download"
     )
     assert not offline_cache_path.exists(), (
@@ -348,7 +348,7 @@ async def test_fake_offline_cas_artifact_uses_offline_cache(buck: Buck) -> None:
     cas_download_path = result.get_build_report().output_for_target(target)
     # This is hacky, but there's no other good way to discover the offline-cache path.
     offline_cache_path = (
-        Path(str(cas_download_path).replace("/gen/", "/offline-cache/")).parent / "tree"
+        Path(str(cas_download_path).replace("/art/", "/offline-cache/")).parent / "tree"
     )
     assert not offline_cache_path.exists(), (
         "offline cache path should not exist before manifest export"
@@ -493,7 +493,7 @@ async def test_run_action_with_allow_offline_output_cache(buck: Buck) -> None:
 
     # Compute offline cache path (hacky but same as other tests)
     offline_cache_path = (
-        Path(str(output_path).replace("/gen/", "/offline-cache/")).parent / "out.txt"
+        Path(str(output_path).replace("/art/", "/offline-cache/")).parent / "out.txt"
     )
     assert not offline_cache_path.exists(), (
         "offline cache path should not exist before manifest export"
@@ -586,7 +586,7 @@ async def test_genrule_with_allow_offline_output_cache(buck: Buck) -> None:
 
     # Compute offline cache path
     offline_cache_path = (
-        Path(str(output_path).replace("/gen/", "/offline-cache/")).parent / "output.txt"
+        Path(str(output_path).replace("/art/", "/offline-cache/")).parent / "output.txt"
     )
     assert not offline_cache_path.exists(), (
         "offline cache path should not exist before manifest export"

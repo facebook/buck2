@@ -17,23 +17,23 @@ from buck2.tests.e2e_util.buck_workspace import buck_test
 async def test_clean_stale_bxl(buck: Buck) -> None:
     await buck.bxl("//clean_stale/build.bxl:build_test")
 
-    gen_files = [path.name for path in (buck.cwd / "buck-out/v2/gen").glob("**/*")]
-    assert "out.json" in gen_files
+    art_files = [path.name for path in (buck.cwd / "buck-out/v2/art").glob("**/*")]
+    assert "out.json" in art_files
 
-    # Check that artifacts written to gen by bxl are not deleted
+    # Check that artifacts written to art by bxl are not deleted
     await buck.clean("--stale")
-    gen_files = [path.name for path in (buck.cwd / "buck-out/v2/gen").glob("**/*")]
-    assert "out.json" in gen_files
+    art_files = [path.name for path in (buck.cwd / "buck-out/v2/art").glob("**/*")]
+    assert "out.json" in art_files
 
-    # Force clean of tracked artifacts, check that gen is deleted but not bxl
+    # Force clean of tracked artifacts, check that art is deleted but not bxl
     await buck.kill()
     await buck.clean("--stale=0s")
 
-    gen_files = [path.name for path in (buck.cwd / "buck-out/v2/gen").glob("**/*")]
-    assert "out.json" not in gen_files
+    art_files = [path.name for path in (buck.cwd / "buck-out/v2/art").glob("**/*")]
+    assert "out.json" not in art_files
 
-    # TODO these should probably be tracked and cleaned too (write to gen instead?)
-    gen_bxl_files = [
-        path.name for path in (buck.cwd / "buck-out/v2/gen-bxl").glob("**/*")
+    # TODO these should probably be tracked and cleaned too (write to art instead?)
+    art_bxl_files = [
+        path.name for path in (buck.cwd / "buck-out/v2/art-bxl").glob("**/*")
     ]
-    assert "foo_out" in gen_bxl_files
+    assert "foo_out" in art_bxl_files

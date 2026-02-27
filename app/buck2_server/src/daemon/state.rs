@@ -32,7 +32,6 @@ use buck2_common::sqlite::sqlite_db::SqliteDb;
 use buck2_common::sqlite::sqlite_db::SqliteIdentity;
 use buck2_core::buck2_env;
 use buck2_core::cells::name::CellName;
-use buck2_core::configuration::data::init_deconflict_content_based_paths_rollout;
 use buck2_core::execution_types::execution::init_apply_exec_modifiers;
 use buck2_core::facebook_only;
 use buck2_core::fs::project::ProjectRoot;
@@ -676,13 +675,6 @@ impl DaemonState {
                 format!("has-cgroup:{}", memory_tracker.is_some()),
             ];
             let system_warning_config = SystemWarningConfig::from_config(root_config)?;
-
-            // TODO(jtbraun): Modifies action digest, remove after confirming bvb works fine.
-            let deconflict_content_based_paths_rollout = root_config.parse(BuckconfigKeyRef {
-                section: "buck2",
-                property: "deconflict_content_based_paths_rollout",
-            })?;
-            init_deconflict_content_based_paths_rollout(deconflict_content_based_paths_rollout)?;
 
             // TODO(nero): Modifies action digest: gates applying cfg_constructor modifiers to exec_deps. Remove after confirming bvb works fine.
             let apply_exec_modifiers = root_config.parse(BuckconfigKeyRef {

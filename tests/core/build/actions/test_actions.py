@@ -90,7 +90,7 @@ async def test_symlink_dir(buck: Buck) -> None:
     dest3 = output / "subdir" / "dir1" / "dir1_1" / "file1.txt.suffix"
     dest4 = output / "subdir" / "dep.txt.suffix"
 
-    # Example subdir: buck-out/v2/gen/root/a59b783ba97fcd85891ddb2e62fbfebb/symlinked_dir/__out__/out/dir1/dir1_1
+    # Example subdir: buck-out/v2/art/root/a59b783ba97fcd85891ddb2e62fbfebb/symlinked_dir/__out__/out/dir1/dir1_1
     expected_link1 = "../" * 10 + "symlinked_dir/dir1/dir1_1/file1.txt"
     expected_link2 = "../../__dep__/dep.txt"
     expected_link3 = "../" * 11 + "symlinked_dir/dir1/dir1_1/file1.txt"

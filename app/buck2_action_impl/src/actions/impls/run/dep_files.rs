@@ -1557,7 +1557,7 @@ impl ConcreteDepFiles {
 
         let mut before_content_hash_parts = vec![];
         let mut path_iter = path.as_ref().iter();
-        // Paths always begin with "buck-out/<ISOLATION_DIR>/gen/<CELL>", so
+        // Paths always begin with "buck-out/<ISOLATION_DIR>/<gen or art, etc.>/<CELL>", so
         // we can skip the first 4 segments.
         for _ in 0..4 {
             if let Some(segment) = path_iter.next() {

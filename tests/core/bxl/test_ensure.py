@@ -28,7 +28,7 @@ def _replace_hash(s: str) -> str:
     return re.sub(r"\b[0-9a-f]{16}\b", "<HASH>", s)
 
 
-BUCK_OUT_ROOT_REL_PATH = "buck-out/v2/gen/root"
+BUCK_OUT_ROOT_REL_PATH = "buck-out/v2/art/root"
 
 
 @buck_test()

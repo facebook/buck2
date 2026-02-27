@@ -3,7 +3,7 @@
 {
   "error_category": "USER",
   "failures": {
-    "root//fail_action:fail_error_handler_output_not_written": "Action failed: root//fail_action:fail_error_handler_output_not_written (<unspecified>) (fail_error_handler_output_not_written)\nRemote command returned non-zero exit code 1\nRemote action, reproduce with: `frecli cas download-action <DIGEST>`\nStdout: <empty>\nStderr:\n  File \"/re_cwd/fail_action/fail_compile.py\", line 9\n    does not compile\nIndentationError: unexpected indent\nCould not produce error diagnostics:\nOutput 'buck-out/v2/gen/root/<HASH>/fail_action/__fail_error_handler_output_not_written__/output' defined for error handler does not exist. This is likely due to file not being created, please ensure the action would produce an output\n"
+    "root//fail_action:fail_error_handler_output_not_written": "Action failed: root//fail_action:fail_error_handler_output_not_written (<unspecified>) (fail_error_handler_output_not_written)\nRemote command returned non-zero exit code 1\nRemote action, reproduce with: `frecli cas download-action <DIGEST>`\nStdout: <empty>\nStderr:\n  File \"/re_cwd/fail_action/fail_compile.py\", line 9\n    does not compile\nIndentationError: unexpected indent\nCould not produce error diagnostics:\nOutput 'buck-out/v2/art/root/<HASH>/fail_action/__fail_error_handler_output_not_written__/output' defined for error handler does not exist. This is likely due to file not being created, please ensure the action would produce an output\n"
   },
   "results": {
     "root//fail_action:fail_error_handler_output_not_written": {
@@ -51,8 +51,8 @@
   "strings": {
     "<STRING_HASH>": "",
     "<STRING_HASH>": "  File \"/re_cwd/fail_action/fail_compile.py\", line 9\n    does not compile\nIndentationError: unexpected indent\n",
-    "<STRING_HASH>": "Action failed: root//fail_action:fail_error_handler_output_not_written (<unspecified>) (fail_error_handler_output_not_written)\nRemote command returned non-zero exit code 1\nRemote action, reproduce with: `frecli cas download-action <DIGEST>`\nStdout: <empty>\nStderr:\n  File \"/re_cwd/fail_action/fail_compile.py\", line 9\n    does not compile\nIndentationError: unexpected indent\nCould not produce error diagnostics:\nOutput 'buck-out/v2/gen/root/<HASH>/fail_action/__fail_error_handler_output_not_written__/output' defined for error handler does not exist. This is likely due to file not being created, please ensure the action would produce an output\n",
-    "<STRING_HASH>": "Output 'buck-out/v2/gen/root/<HASH>/fail_action/__fail_error_handler_output_not_written__/output' defined for error handler does not exist. This is likely due to file not being created, please ensure the action would produce an output",
+    "<STRING_HASH>": "Action failed: root//fail_action:fail_error_handler_output_not_written (<unspecified>) (fail_error_handler_output_not_written)\nRemote command returned non-zero exit code 1\nRemote action, reproduce with: `frecli cas download-action <DIGEST>`\nStdout: <empty>\nStderr:\n  File \"/re_cwd/fail_action/fail_compile.py\", line 9\n    does not compile\nIndentationError: unexpected indent\nCould not produce error diagnostics:\nOutput 'buck-out/v2/art/root/<HASH>/fail_action/__fail_error_handler_output_not_written__/output' defined for error handler does not exist. This is likely due to file not being created, please ensure the action would produce an output\n",
+    "<STRING_HASH>": "Output 'buck-out/v2/art/root/<HASH>/fail_action/__fail_error_handler_output_not_written__/output' defined for error handler does not exist. This is likely due to file not being created, please ensure the action would produce an output",
     "<STRING_HASH>": "Remote command returned non-zero exit code 1"
   },
   "success": false,

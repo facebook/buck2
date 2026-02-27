@@ -20,13 +20,15 @@ from buck2.tests.e2e_util.helper.utils import read_what_ran
 # https://fb.workplace.com/groups/buck2eng/permalink/3452581371706005/
 # Changes should instead be deployed by:
 #   1: Create a new buck2 flag and hide the changes behind it (Ex. D59503359)
-#   2: Wait for bvb that contains #1 to land
+#   2: Wait for bvb that contains #1 to land. To be safe, wait for a second to land
+#      as well so you're guaranteed that the first bump can no longer be
+#      fast-reverted.
 #   3: Activate the flag via .buckconfig (Ex. D59648609)
 #       3.1: Fix/followup on any CI failures caused by cache invalidation
 #   4: Observe for a couple of days to ensure that there are no issues
 #   5. Remove the code associated with the config flag but NOT the config itself,
 #      this way this test wouldn't need to be changed at all (Ex. D59864942)
-#   6: Wait for bvb that contains #5 to land
+#   6: Wait for bvb that contains #5 to land. Optionally wait for a second as above.
 #   7: Remove the config flag (Ex. D59988979)
 @buck_test(inplace=True)
 async def test_action_digest(buck: Buck) -> None:

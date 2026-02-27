@@ -45,7 +45,7 @@ pub(crate) struct BuckOutPathTypeCommon {
     /// Content hash within the `buck-out` path, if present.
     pub(crate) content_hash: Option<String>,
     /// The path starting from cell to the artifact, without the configuration hash. For example, in
-    /// `buck-out/v2/gen/cell/<CONFIG_HASH>/path/to/__target_name__/target`, it would be `cell/path/to/__target_name__/target`.
+    /// `buck-out/v2/art/cell/<CONFIG_HASH>/path/to/__target_name__/target`, it would be `cell/path/to/__target_name__/target`.
     pub(crate) raw_path_to_output: ForwardRelativePathBuf,
 }
 
@@ -132,7 +132,7 @@ struct BuckOutPathData {
     content_hash: Option<String>,
     anon_hash: Option<String>,
     /// The path starting from cell to the artifact, without the configuration hash. For example, in
-    /// `buck-out/v2/gen/cell/<CONFIG_HASH>/path/to/__target_name__/target`, it would be `cell/path/to/__target_name__/target`.
+    /// `buck-out/v2/art/cell/<CONFIG_HASH>/path/to/__target_name__/target`, it would be `cell/path/to/__target_name__/target`.
     raw_path_to_output: ForwardRelativePathBuf,
 }
 
@@ -413,7 +413,7 @@ impl BuckOutPathParser {
                             common_attrs,
                         })
                     }
-                    "gen-anon" | "art-anon" => {
+                    "art-anon" => {
                         let buck_out_path_data =
                             get_cell_path(&mut iter, &self.cell_resolver, part.as_str())?;
                         let target_label =
@@ -433,7 +433,7 @@ impl BuckOutPathParser {
                             common_attrs,
                         })
                     }
-                    "gen-bxl" | "art-bxl" => {
+                    "art-bxl" => {
                         let buck_out_path_data =
                             get_cell_path(&mut iter, &self.cell_resolver, part.as_str())?;
                         let bxl_function_label =
@@ -539,9 +539,9 @@ mod tests {
 
         let malformed_path1 = "does/not/start/with/buck-out/blah/blah";
         let malformed_path2 = "buck-out/v2/invalid_buck_prefix/blah/blah/blah/blah";
-        let malformed_path3 = "buck-out/v2/gen/bar/no/target/name/found";
-        let malformed_path4 = "buck-out/v2/gen/bar/path/to/target/__but_no_artifacts__";
-        let buck1_path = ".some-isolation-buck-out/gen/bar/path/to/target/__foo__/bar";
+        let malformed_path3 = "buck-out/v2/art/bar/no/target/name/found";
+        let malformed_path4 = "buck-out/v2/art/bar/path/to/target/__but_no_artifacts__";
+        let buck1_path = ".some-isolation-buck-out/art/bar/path/to/target/__foo__/bar";
 
         let res = buck_out_parser.parse(malformed_path1);
         assert!(
@@ -564,13 +564,13 @@ mod tests {
         assert!(res.err().unwrap().to_string().contains("buck1"));
 
         let cell_does_not_exist =
-            "buck-out/v2/gen/nonexistent_cell/cfg_hash/path/to/target/__target_name__/output";
+            "buck-out/v2/art/nonexistent_cell/cfg_hash/path/to/target/__target_name__/output";
 
         let res = buck_out_parser.parse(cell_does_not_exist);
         assert!(res.err().unwrap().to_string().contains("Malformed"));
 
         let no_artifacts_after_target_name =
-            &format!("buck-out/v2/gen/bar/{config_hash}/path/to/target/__target_name__");
+            &format!("buck-out/v2/art/bar/{config_hash}/path/to/target/__target_name__");
         let res = buck_out_parser.parse(no_artifacts_after_target_name);
         assert!(res.err().unwrap().to_string().contains("Malformed"));
 
@@ -583,7 +583,7 @@ mod tests {
             get_test_data();
 
         let rule_path = format!(
-            "buck-out/v2/gen/bar/{expected_config_hash}/path/to/target/__target_name__/output"
+            "buck-out/v2/art/bar/{expected_config_hash}/path/to/target/__target_name__/output"
         );
 
         let res = buck_out_parser.parse(&rule_path)?;
@@ -620,7 +620,7 @@ mod tests {
 
         let content_based_hash = "0123456789abcdef";
         let rule_path = format!(
-            "buck-out/v2/gen/bar/path/to/target/__target_name__/{content_based_hash}/output"
+            "buck-out/v2/art/bar/path/to/target/__target_name__/{content_based_hash}/output"
         );
 
         let res = buck_out_parser.parse(&rule_path)?;
@@ -660,7 +660,7 @@ mod tests {
             get_test_data();
 
         let rule_path_target_label_with_slashes = format!(
-            "buck-out/v2/gen/bar/{expected_config_hash}/path/to/target/__target_name_start/target_name_end__/output"
+            "buck-out/v2/art/bar/{expected_config_hash}/path/to/target/__target_name_start/target_name_end__/output"
         );
 
         let res = buck_out_parser.parse(&rule_path_target_label_with_slashes)?;
@@ -701,7 +701,7 @@ mod tests {
             get_test_data();
 
         let rule_path_with_equal_sign = format!(
-            "buck-out/v2/gen/bar/{expected_config_hash}/path/to/target/__target_name_eqsb_out__/output"
+            "buck-out/v2/art/bar/{expected_config_hash}/path/to/target/__target_name_eqsb_out__/output"
         );
 
         let res = buck_out_parser.parse(&rule_path_with_equal_sign)?;
@@ -839,7 +839,7 @@ mod tests {
             get_test_data();
 
         let anon_path = format!(
-            "buck-out/v2/gen-anon/bar/{expected_config_hash}/path/to/target/anon_hash/__target_name__/output"
+            "buck-out/v2/art-anon/bar/{expected_config_hash}/path/to/target/anon_hash/__target_name__/output"
         );
 
         let res = buck_out_parser.parse(&anon_path)?;
@@ -874,7 +874,7 @@ mod tests {
         let content_based_hash = "0123456789abcdef";
 
         let anon_path = format!(
-            "buck-out/v2/gen-anon/bar/path/to/target/anon_hash/__target_name__/{content_based_hash}/output"
+            "buck-out/v2/art-anon/bar/path/to/target/anon_hash/__target_name__/{content_based_hash}/output"
         );
 
         let res = buck_out_parser.parse(&anon_path)?;
@@ -910,7 +910,7 @@ mod tests {
         let (buck_out_parser, expected_config_hash, _, _) = get_test_data();
 
         let path = format!(
-            "buck-out/v2/gen-bxl/bar/{expected_config_hash}/path/to/function.bxl/__function_name__/output"
+            "buck-out/v2/art-bxl/bar/{expected_config_hash}/path/to/function.bxl/__function_name__/output"
         );
 
         let res = buck_out_parser.parse(&path)?;
@@ -950,7 +950,7 @@ mod tests {
         let content_based_hash = "0123456789abcdef";
 
         let path = format!(
-            "buck-out/v2/gen-bxl/bar/path/to/function.bxl/__function_name__/{content_based_hash}/output"
+            "buck-out/v2/art-bxl/bar/path/to/function.bxl/__function_name__/{content_based_hash}/output"
         );
 
         let res = buck_out_parser.parse(&path)?;
@@ -993,7 +993,7 @@ mod tests {
         let (buck_out_parser, expected_config_hash, _, _) = get_test_data();
 
         let target_path =
-            format!("buck-out/v2/gen/bar/{expected_config_hash}/__target_name__/output");
+            format!("buck-out/v2/art/bar/{expected_config_hash}/__target_name__/output");
 
         let BuckOutPathType::RuleOutput {
             path, target_label, ..

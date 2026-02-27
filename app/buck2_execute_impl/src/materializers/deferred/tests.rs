@@ -1081,7 +1081,7 @@ mod state_machine {
         }).await
     }
 
-    const SAMPLE_BUCK_OUT_PATH: &str = "buck-out/v2/gen/foo/bar";
+    const SAMPLE_BUCK_OUT_PATH: &str = "buck-out/v2/art/foo/bar";
 
     #[tokio::test]
     async fn test_clean_stale() -> buck2_error::Result<()> {

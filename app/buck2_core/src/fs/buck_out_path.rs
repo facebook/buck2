@@ -23,7 +23,6 @@ use itertools::Itertools;
 use crate::category::CategoryRef;
 use crate::cells::external::ExternalCellOrigin;
 use crate::cells::paths::CellRelativePath;
-use crate::configuration::data::DECONFLICT_CONTENT_BASED_PATHS_ROLLOUT;
 use crate::content_hash::ContentBasedPathHash;
 use crate::deferred::base_deferred_key::BaseDeferredKey;
 use crate::deferred::key::DeferredHolderKey;
@@ -271,17 +270,7 @@ impl BuckOutPathResolver {
         content_hash: Option<&ContentBasedPathHash>,
     ) -> buck2_error::Result<ProjectRelativePathBuf> {
         self.prefixed_path_for_owner(
-            ForwardRelativePath::unchecked_new(
-                // we hit the uninitialized path in the unit tests
-                if *DECONFLICT_CONTENT_BASED_PATHS_ROLLOUT
-                    .get()
-                    .unwrap_or(&false)
-                {
-                    "art"
-                } else {
-                    "gen"
-                },
-            ),
+            ForwardRelativePath::unchecked_new("art"),
             path.owner().owner(),
             path.dynamic_actions_action_key()
                 .as_ref()
@@ -300,17 +289,7 @@ impl BuckOutPathResolver {
         path: &BuildArtifactPath,
     ) -> buck2_error::Result<ProjectRelativePathBuf> {
         self.prefixed_path_for_owner(
-            ForwardRelativePath::unchecked_new(
-                // we hit the uninitialized path in the unit tests
-                if *DECONFLICT_CONTENT_BASED_PATHS_ROLLOUT
-                    .get()
-                    .unwrap_or(&false)
-                {
-                    "art"
-                } else {
-                    "gen"
-                },
-            ),
+            ForwardRelativePath::unchecked_new("art"),
             path.owner().owner(),
             path.dynamic_actions_action_key()
                 .as_ref()
@@ -589,7 +568,7 @@ mod tests {
         )?;
 
         let expected_gen_path = Regex::new(
-            "base/buck-out/v2/gen/foo/[0-9a-f]{16}/baz-package/__target-name__/faz.file",
+            "base/buck-out/v2/art/foo/[0-9a-f]{16}/baz-package/__target-name__/faz.file",
         )?;
         assert!(
             expected_gen_path.is_match(resolved_gen_path.as_str()),
@@ -606,7 +585,7 @@ mod tests {
         )?;
 
         let expected_gen_content_based_path = Regex::new(
-            "base/buck-out/v2/gen/foo/baz-package/__target-name__/0000000000000000/faz.file",
+            "base/buck-out/v2/art/foo/baz-package/__target-name__/0000000000000000/faz.file",
         )?;
         assert!(
             expected_gen_content_based_path.is_match(resolved_gen_content_based_path.as_str()),
@@ -656,7 +635,7 @@ mod tests {
         )?;
 
         let expected_gen_path: Regex =
-            Regex::new("buck-out/gen/foo/[0-9a-f]{16}/baz-package/__target-name__/quux")?;
+            Regex::new("buck-out/art/foo/[0-9a-f]{16}/baz-package/__target-name__/quux")?;
         assert!(
             expected_gen_path.is_match(resolved_gen_path.as_str()),
             "{expected_gen_path}.is_match({resolved_gen_path})"
@@ -673,7 +652,7 @@ mod tests {
         let resolved_gen_path = path_resolver.resolve_gen(&path, None)?;
 
         let expected_gen_path = Regex::new(
-            "buck-out/gen/foo/[0-9a-f]{16}/baz-package/__target-name__/__action___17__/quux",
+            "buck-out/art/foo/[0-9a-f]{16}/baz-package/__target-name__/__action___17__/quux",
         )?;
         assert!(
             expected_gen_path.is_match(resolved_gen_path.as_str()),
@@ -694,7 +673,7 @@ mod tests {
         )?;
 
         let expected_gen_content_based_path = Regex::new(
-            "buck-out/gen/foo/baz-package/__target-name__/__action___17__/0000000000000000/quux",
+            "buck-out/art/foo/baz-package/__target-name__/__action___17__/0000000000000000/quux",
         )?;
         assert!(
             expected_gen_content_based_path.is_match(resolved_gen_content_based_path.as_str()),

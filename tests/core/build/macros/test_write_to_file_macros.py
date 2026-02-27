@@ -38,7 +38,7 @@ async def test_xxx(buck: Buck) -> None:
 
     # Out contents is:
     # ```
-    # @buck-out/v2/gen/root/6dd044292ff31ae1/__test_rule__/__macros/1e0e364a22c69340e6f02604520fdeb7674264c0/0.macro
+    # @buck-out/v2/art/root/6dd044292ff31ae1/__test_rule__/__macros/1e0e364a22c69340e6f02604520fdeb7674264c0/0.macro
     # @../__macros/1e0e364a22c69340e6f02604520fdeb7674264c0/1.macro
     # @../__macros/1e0e364a22c69340e6f02604520fdeb7674264c0/2.macro
     # @../__macros/1e0e364a22c69340e6f02604520fdeb7674264c0/3.macro
@@ -53,7 +53,7 @@ async def test_xxx(buck: Buck) -> None:
     d = d.replace("\\", "/")
 
     assert (
-        "@buck-out/v2/gen/root/<HASH>/__test_rule__/__macros/<HASH>/0.macro"
+        "@buck-out/v2/art/root/<HASH>/__test_rule__/__macros/<HASH>/0.macro"
         == _normalize_path(a)
     )
     assert "@../__macros/<HASH>/1.macro" == _normalize_path(b)
@@ -64,14 +64,14 @@ async def test_xxx(buck: Buck) -> None:
     a_x = _find_file(buck_out, "0.macro")
     with open(a_x) as f:
         a_contents = _normalize_path(f.read())
-        assert "buck-out/v2/gen/root/<HASH>/__write_file__/write_file.txt" == a_contents
+        assert "buck-out/v2/art/root/<HASH>/__write_file__/write_file.txt" == a_contents
 
     # TODO(nga): contents of `{1,2,3}.macro` should be identical.
 
     b_x = _find_file(buck_out, "1.macro")
     with open(b_x) as f:
         b_contents = _normalize_path(f.read())
-        assert "buck-out/v2/gen/root/<HASH>/__write_file__/write_file.txt" == b_contents
+        assert "buck-out/v2/art/root/<HASH>/__write_file__/write_file.txt" == b_contents
 
     c_x = _find_file(buck_out, "2.macro")
     with open(c_x) as f:

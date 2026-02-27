@@ -150,7 +150,7 @@ async def test_clean_stale_artifact_dir(buck: Buck) -> None:
     output_parent = output_1.parent
     while not output_parent.exists():
         output_parent = output_parent.parent
-    assert output_parent.parts[-3:] == ("buck-out", "v2", "gen")
+    assert output_parent.parts[-3:] == ("buck-out", "v2", "art")
 
 
 @buck_test()

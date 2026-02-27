@@ -77,11 +77,11 @@ fn stringifies_correctly() -> buck2_error::Result<()> {
 
             assert_eq("string1", stringify_cli_arg(arg2))
             assert_eq("foo/bar/baz.h", stringify_cli_arg(arg3))
-            assert_eq_ignore_hash("buck-out/v2/gen/root/<HASH>/__dep1__/dir/baz.h", stringify_cli_arg(arg4))
+            assert_eq_ignore_hash("buck-out/v2/art/root/<HASH>/__dep1__/dir/baz.h", stringify_cli_arg(arg4))
             assert_eq_ignore_hash("root//foo:bar[baz] (<testing>#<HASH>)", stringify_cli_arg(arg5))
             assert_eq("string2", stringify_cli_arg(arg7))
             assert_eq("foo/bar/quz.h", stringify_cli_arg(arg8))
-            assert_eq_ignore_hash("buck-out/v2/gen/root/<HASH>/__dep2__/dir/quz.h", stringify_cli_arg(arg9))
+            assert_eq_ignore_hash("buck-out/v2/art/root/<HASH>/__dep2__/dir/quz.h", stringify_cli_arg(arg9))
             assert_eq_ignore_hash("root//foo:bar[quz] (<testing>#<HASH>)", stringify_cli_arg(arg10))
         "#
     ))?;
@@ -182,12 +182,12 @@ fn command_line_builder() -> buck2_error::Result<()> {
                 "b2 s1",
                 "b2 s2",
                 "foo/bar1/baz.h",
-                "buck-out/v2/gen/root/<HASH>/__dep1__/dir/baz.h",
+                "buck-out/v2/art/root/<HASH>/__dep1__/dir/baz.h",
                 "b3 s1",
                 "b3 s2",
                 "root//foo:bar[baz] (<testing>#<HASH>)",
                 "foo/bar2/baz.h",
-                "buck-out/v2/gen/root/<HASH>/__dep2__/dir/baz.h",
+                "buck-out/v2/art/root/<HASH>/__dep2__/dir/baz.h",
             ]
             b2_args_expected = [
                 "b2 s1",
@@ -558,7 +558,7 @@ fn test_ignore_artifacts() -> buck2_error::Result<()> {
             assert_eq(make_inputs([]), cli.inputs)
             assert_eq([], cli.outputs)
 
-            assert_eq_ignore_hash(["buck-out/v2/gen/root/<HASH>/__dep2__/dir/quz.h"], get_args(cli))
+            assert_eq_ignore_hash(["buck-out/v2/art/root/<HASH>/__dep2__/dir/quz.h"], get_args(cli))
         "#
     ))?;
     Ok(())

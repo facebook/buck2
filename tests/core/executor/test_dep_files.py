@@ -416,7 +416,7 @@ async def test_dep_file_hit_identical_action(buck: Buck) -> None:
 @buck_test(data_dir="dep_files", skip_for_os=["darwin", "windows"])
 @env(
     "BUCK2_TEST_TOMBSTONED_DIGESTS",
-    "151ed6387904e98814958f9489711af7883db5ed:78",
+    "e537c6611d7e2ba1c9b71248f7a0ca506e5a0f9a:78",
 )
 async def test_dep_files_ignore_missing_digests(buck: Buck, tmp_path: Path) -> None:
     await buck.build("app:app")
