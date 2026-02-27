@@ -45,12 +45,14 @@ use crate::values::typing::type_compiled::type_matcher_factory::TypeMatcherFacto
 
 /// Allocate runtime type matcher, either in starlark heap or in malloc.
 pub trait TypeMatcherAlloc: Sized {
+    /// Allocation result.
     type Result;
 
     // When the `pagable` feature is enabled, we explicitly require `TypeMatcherRegistered`,
     // although it is reuqired by TypeMatcher.
     // It can produce better error messages. Generic matchers that not impls TypeMatcherRegistered
     // will have concrete type in the error messages.
+    /// Allocate a type matcher.
     #[cfg(feature = "pagable")]
     fn alloc<
         T: TypeMatcher + crate::values::typing::type_compiled::matcher::TypeMatcherRegistered,
@@ -59,15 +61,19 @@ pub trait TypeMatcherAlloc: Sized {
         matcher: T,
     ) -> Self::Result;
 
+    /// Allocate a type matcher.
     #[cfg(not(feature = "pagable"))]
     fn alloc<T: TypeMatcher>(self, matcher: T) -> Self::Result;
 
+    /// Allocate a matcher for a custom type.
     fn custom(self, custom: &TyCustom) -> Self::Result;
 
+    /// Allocate from a [`TypeMatcherFactory`].
     fn from_type_matcher_factory(self, factory: &TypeMatcherFactory) -> Self::Result;
 
     // Now the utilities.
 
+    /// Panics; this type cannot appear in type expressions.
     fn unreachable_cannot_appear_in_type_expr(self) -> ! {
         // TODO(nga): replace panic with error.
         unreachable!("type cannot appear in type expressions")
