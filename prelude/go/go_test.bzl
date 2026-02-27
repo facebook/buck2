@@ -94,7 +94,6 @@ def go_test_impl(ctx: AnalysisContext) -> list[Provider]:
         compiler_flags = ctx.attrs.compiler_flags,
         build_tags = ctx.attrs._build_tags,
         coverage_mode = coverage_mode,
-        embedcfg = ctx.attrs.embedcfg,
         embed_srcs = ctx.attrs.embed_srcs,
         with_tests = True,
         cgo_enabled = cgo_enabled,

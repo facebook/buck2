@@ -39,7 +39,6 @@ def build_package(
         embed_srcs: list[Artifact] = [],
         cgo_enabled: bool = False,
         coverage_mode: GoCoverageMode | None = None,
-        embedcfg: Artifact | None = None,
         with_tests: bool = False,
         cgo_gen_dir_name: str = "cgo_gen") -> (GoPkg, GoPackageInfo):
     actions = ctx.actions
@@ -87,7 +86,6 @@ def build_package(
         compiler_flags = compiler_flags,
         assembler_flags = assembler_flags,
         coverage_mode = coverage_mode,
-        embedcfg = embedcfg,
         embed_srcs = embed_srcs,
         with_tests = with_tests,
         go_toolchain = go_toolchain,
@@ -127,7 +125,6 @@ def _build_package_action_impl(
         compiler_flags: list[str],
         assembler_flags: list[str],
         coverage_mode: None | GoCoverageMode,
-        embedcfg: Artifact | None,
         embed_srcs: list[Artifact],
         with_tests: bool,
         go_toolchain: GoToolchainInfo,
@@ -185,11 +182,8 @@ def _build_package_action_impl(
 
     symabis = _symabis(actions, go_toolchain, pkg_name, main, s_files, go_list.h_files, assembler_flags)
 
-    # todo(michaelpo): Keep it here to give OSS users some time to migrate.
-    # Remove embed_files attr from _compile() together with embedcfg.
-    if embedcfg == None:
-        embed_patterns = [] + go_list.embed_patterns + (go_list.test_embed_patterns if with_tests else [])
-        embedcfg = _embedcfg(actions, go_toolchain, pkg_name, package_root, embed_srcs, embed_patterns)
+    embed_patterns = [] + go_list.embed_patterns + (go_list.test_embed_patterns if with_tests else [])
+    embedcfg = _embedcfg(actions, go_toolchain, pkg_name, package_root, embed_srcs, embed_patterns)
 
     # Use -complete flag when compiling Go code only
     complete_flag = len(go_list.cgo_files) + len(s_files) + len(c_files) == 0
@@ -225,7 +219,6 @@ def _build_package_action_impl(
             complete = complete_flag,
             coveragecfg = coveragecfg,
             embedcfg = embedcfg,
-            embed_files = srcs,  # pass all srcs for simplicity
             symabis = symabis,
             gen_asmhdr = len(s_files) > 0,
         )
@@ -259,7 +252,6 @@ _build_package_action = dynamic_actions(
         "compiler_flags": dynattrs.value(list[str]),
         "assembler_flags": dynattrs.value(list[str]),
         "coverage_mode": dynattrs.value(GoCoverageMode | None),
-        "embedcfg": dynattrs.value(Artifact | None),
         "embed_srcs": dynattrs.value(list[Artifact]),
         "with_tests": dynattrs.value(bool),
         "go_toolchain": dynattrs.value(GoToolchainInfo),
@@ -292,7 +284,6 @@ def _compile(
         complete: bool,
         coveragecfg: Artifact | None = None,
         embedcfg: Artifact | None = None,
-        embed_files: list[Artifact] = [],
         symabis: Artifact | None = None,
         gen_asmhdr: bool = False) -> (Artifact, Artifact, Artifact | None):
     env = get_toolchain_env_vars(go_toolchain)
@@ -335,7 +326,6 @@ def _compile(
             ["-complete"] if complete else [],
             cmd_args(srcs_argsfile, format = "@{}", hidden = go_srcs),
         ],
-        hidden = embed_files,  #  files and directories should be available for embedding
     )
 
     identifier = paths.basename(pkg_name)

@@ -72,7 +72,6 @@ def go_exported_library_impl(ctx: AnalysisContext) -> list[Provider]:
         deps = ctx.attrs.deps,
         compiler_flags = ctx.attrs.compiler_flags,
         build_tags = ctx.attrs._build_tags,
-        embedcfg = ctx.attrs.embedcfg,
         embed_srcs = ctx.attrs.embed_srcs,
         cgo_enabled = cgo_enabled,
     )

@@ -74,7 +74,6 @@ go_binary = prelude_rule(
         go_common.linker_flags_arg() |
         go_common.external_linker_flags_arg() |
         go_common.embed_srcs_arg() |
-        go_common.embedcfg_arg() |
         {
             "build_mode": attrs.option(attrs.enum(BuildMode), doc = """
                 Determines the build mode (equivalent of `-buildmode`). Can be
@@ -175,7 +174,6 @@ go_exported_library = prelude_rule(
         go_common.build_tags_arg() |
         go_common.generate_exported_header() |
         go_common.embed_srcs_arg() |
-        go_common.embedcfg_arg() |
         {
             "resources": attrs.list(attrs.source(), default = [], doc = """
                 Static files to be symlinked into the working directory of the test. You can access these in your
@@ -222,7 +220,6 @@ go_library = prelude_rule(
         go_common.compiler_flags_arg() |
         go_common.assembler_flags_arg() |
         go_common.embed_srcs_arg() |
-        go_common.embedcfg_arg() |
         go_common.package_root_arg() |
         go_common.override_cgo_enabled_arg() |
         cxx_common.headers_arg() |
@@ -336,7 +333,6 @@ go_test = prelude_rule(
         go_common.linker_flags_arg() |
         go_common.external_linker_flags_arg() |
         go_common.embed_srcs_arg() |
-        go_common.embedcfg_arg() |
         go_common.package_root_arg() |
         go_common.cgo_enabled_arg() |
         go_common.build_tags_arg() |

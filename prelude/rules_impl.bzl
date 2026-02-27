@@ -378,7 +378,6 @@ control how the dependencies of this library are linked, use `link_style` instea
 
 _go_extra_attributes = {
     "go_binary": {
-        "embedcfg": attrs.option(attrs.source(allow_directory = False), default = None),
         "resources": attrs.list(attrs.one_of(attrs.dep(), attrs.source(allow_directory = True)), default = []),
         "_build_info": BUILD_INFO_ATTR,
         "_build_tags": build_tags_attr,
@@ -392,7 +391,6 @@ _go_extra_attributes = {
         "_go_bootstrap_toolchain": toolchains_common.go_bootstrap(),
     },
     "go_exported_library": {
-        "embedcfg": attrs.option(attrs.source(allow_directory = False), default = None),
         "_build_info": BUILD_INFO_ATTR,
         "_build_tags": build_tags_attr,
         "_cxx_toolchain": toolchains_common.cxx(),
@@ -401,7 +399,6 @@ _go_extra_attributes = {
         "_go_toolchain": toolchains_common.go(),
     },
     "go_library": {
-        "embedcfg": attrs.option(attrs.source(allow_directory = False), default = None),
         "_build_tags": build_tags_attr,
         "_cgo_enabled": cgo_enabled_attr,
         "_coverage_mode": coverage_mode_attr,
@@ -419,7 +416,6 @@ _go_extra_attributes = {
     },
     "go_test": {
         "coverage_mode": attrs.option(attrs.enum(GoCoverageMode.values()), default = None),
-        "embedcfg": attrs.option(attrs.source(allow_directory = False), default = None),
         "resources": attrs.list(attrs.source(allow_directory = True), default = []),
         "_build_info": BUILD_INFO_ATTR,
         "_build_tags": build_tags_attr,

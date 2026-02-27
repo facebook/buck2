@@ -104,33 +104,6 @@ def _embed_srcs_arg():
 """),
     }
 
-def _embedcfg_arg():
-    return {
-        "embedcfg": attrs.option(attrs.source(), default = None, doc = """
-    The embedcfg.json file used by compiler to embed files defined by `//go:embed` directive.
-     This generation of this file is included in the `go` toolkit.
-     For example:
-
-    ```
-    //go:embed *.txt
-    var fs embed.FS
-    ```
-    If the folder contains two files (file1.txt and file2.txt), the embedcfg.json is:
-
-    ```
-    {
-        "Patterns": {
-            "*.txt": ["file1.txt","file2.txt"]
-        },
-        "Files": {
-            "file1.txt": "",
-     "file2.txt": ""
-     }
-    }
-    ```
-"""),
-    }
-
 def _cgo_enabled_arg():
     return {
         "cgo_enabled": attrs.option(attrs.bool(), default = None, doc = """
@@ -186,7 +159,6 @@ go_common = struct(
     assembler_flags_arg = _assembler_flags_arg,
     linker_flags_arg = _linker_flags_arg,
     external_linker_flags_arg = _external_linker_flags_arg,
-    embedcfg_arg = _embedcfg_arg,
     embed_srcs_arg = _embed_srcs_arg,
     cgo_enabled_arg = _cgo_enabled_arg,
     override_cgo_enabled_arg = _override_cgo_enabled_arg,
