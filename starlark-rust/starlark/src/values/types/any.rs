@@ -75,6 +75,7 @@ use starlark_derive::starlark_value;
 
 use crate as starlark;
 use crate::any::ProvidesStaticType;
+use crate::pagable::vtable_register::VtableRegistered;
 use crate::values::AllocValue;
 use crate::values::FrozenHeap;
 use crate::values::FrozenRef;
@@ -138,3 +139,6 @@ impl FrozenHeap {
             .map(|r| &r.0)
     }
 }
+
+// TODO(nero): Better handle VtableRegistered for StarlarkAny
+unsafe impl<T: Debug + Send + Sync + 'static> VtableRegistered for StarlarkAny<T> {}

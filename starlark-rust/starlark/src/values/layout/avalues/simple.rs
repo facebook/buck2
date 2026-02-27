@@ -85,6 +85,24 @@ impl<'v, T: StarlarkValue<'v> + HeapSendable<'v> + HeapSyncable<'v>> AValue<'v>
 }
 
 impl FrozenHeap {
+    #[cfg(feature = "pagable")]
+    pub(crate) fn alloc_simple_typed_static<
+        T: StarlarkValue<'static>
+            + HeapSendable<'static>
+            + HeapSyncable<'static>
+            + Send
+            + Sync
+            + crate::pagable::vtable_register::VtableRegistered,
+    >(
+        &self,
+        val: T,
+    ) -> FrozenValueTyped<'static, T> {
+        // SAFETY: Not.
+        let this: &'static FrozenHeap = unsafe { cast::ptr_lifetime(self) };
+        this.alloc_raw(simple(val))
+    }
+
+    #[cfg(not(feature = "pagable"))]
     pub(crate) fn alloc_simple_typed_static<
         T: StarlarkValue<'static> + HeapSendable<'static> + HeapSyncable<'static> + Send + Sync,
     >(
