@@ -21,8 +21,8 @@ GoPackageInfo = provider(
         "build_out": provider_field(Artifact),
         "cgo_gen_dir": provider_field(Artifact),
         "go_list_out": provider_field(Artifact),
-        "package_name": provider_field(str),
         "package_root": provider_field(str),
+        "pkg_import_path": provider_field(str),
         # Full list of package source files
         # including generated and files of the package under test
         "srcs": provider_field(list[Artifact]),

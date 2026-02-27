@@ -150,7 +150,7 @@ def _driver(ctx):
                 # @unsorted-dict-items
                 package = {
                     "ID": _target_id(td.target),
-                    "PkgPath": td.go_package_info.package_name,
+                    "PkgPath": td.go_package_info.pkg_import_path,
                     "GoFiles": go_files,
                     "CompiledGoFiles": go_files,
                     "Errors": [PackageError(Msg = go_list_error.message)],
@@ -186,7 +186,7 @@ def _make_protocol_package(load_mode: LoadMode, go_list_out: GoListOut, td: Targ
     package = {"ID": _target_id(td.target)}
     if load_mode.need_name:
         package["Name"] = go_list_out.name
-        package["PkgPath"] = td.go_package_info.package_name
+        package["PkgPath"] = td.go_package_info.pkg_import_path
 
     if load_mode.need_files:
         # todo: handle invalid Go files

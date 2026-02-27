@@ -50,14 +50,14 @@ load(":toolchain.bzl", "GoToolchainInfo", "evaluate_cgo_enabled", "get_toolchain
 
 def go_library_impl(ctx: AnalysisContext) -> list[Provider]:
     cxx_toolchain_available = CxxToolchainInfo in ctx.attrs._cxx_toolchain
-    pkg_name = go_attr_pkg_name(ctx)
+    pkg_import_path = go_attr_pkg_name(ctx)
 
     coverage_mode = GoCoverageMode(ctx.attrs._coverage_mode) if ctx.attrs._coverage_mode else None
     cgo_build_context = get_cgo_build_context(ctx)
 
     pkg, pkg_info = build_package(
         ctx = ctx,
-        pkg_name = pkg_name,
+        pkg_import_path = pkg_import_path,
         main = False,
         srcs = ctx.attrs.srcs + ctx.attrs.headers,
         package_root = ctx.attrs.package_root,
@@ -71,9 +71,9 @@ def go_library_impl(ctx: AnalysisContext) -> list[Provider]:
         cgo_enabled = evaluate_cgo_enabled(cxx_toolchain_available, ctx.attrs._cgo_enabled, ctx.attrs.override_cgo_enabled),
     )
 
-    default_output = _combine_package(ctx, pkg_name, pkg.pkg, pkg.export_file)
+    default_output = _combine_package(ctx, pkg_import_path, pkg.pkg, pkg.export_file)
     pkgs = {
-        pkg_name: pkg,
+        pkg_import_path: pkg,
     }
 
     own_exported_preprocessors = [cgo_exported_preprocessor(ctx, pkg_info)] if ctx.attrs.generate_exported_header else []
@@ -88,7 +88,7 @@ def go_library_impl(ctx: AnalysisContext) -> list[Provider]:
         GoTestInfo(
             deps = ctx.attrs.deps,
             srcs = ctx.attrs.srcs,
-            pkg_name = pkg_name,
+            pkg_import_path = pkg_import_path,
         ),
         create_merged_link_info_for_propagation(ctx, filter(None, [d.get(MergedLinkInfo) for d in ctx.attrs.deps])),
         merge_shared_libraries(
@@ -123,11 +123,11 @@ def _get_empty_link_infos() -> dict[LibOutputStyle, LinkInfos]:
     return infos
 
 # The combined package is convinient for debugging purposes, but for actual builds we use separate objects.
-def _combine_package(ctx: AnalysisContext, pkg_name: str, a_file: Artifact, x_file: Artifact) -> Artifact:
+def _combine_package(ctx: AnalysisContext, pkg_import_path: str, a_file: Artifact, x_file: Artifact) -> Artifact:
     go_toolchain = ctx.attrs._go_toolchain[GoToolchainInfo]
     env = get_toolchain_env_vars(go_toolchain)
 
-    pkg_file = ctx.actions.declare_output(paths.basename(pkg_name) + "-combined.a", has_content_based_path = True)
+    pkg_file = ctx.actions.declare_output(paths.basename(pkg_import_path) + "-combined.a", has_content_based_path = True)
 
     pack_cmd = [
         go_toolchain.packer,
@@ -137,7 +137,7 @@ def _combine_package(ctx: AnalysisContext, pkg_name: str, a_file: Artifact, x_fi
         x_file,
     ]
 
-    identifier = paths.basename(pkg_name) + "-combined"
+    identifier = paths.basename(pkg_import_path) + "-combined"
     ctx.actions.run(pack_cmd, env = env, category = "go_pack", identifier = identifier)
 
     return pkg_file

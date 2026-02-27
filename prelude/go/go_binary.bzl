@@ -27,13 +27,13 @@ load(":toolchain.bzl", "evaluate_cgo_enabled")
 
 def go_binary_impl(ctx: AnalysisContext) -> list[Provider]:
     cxx_toolchain_available = CxxToolchainInfo in ctx.attrs._cxx_toolchain
-    pkg_name = go_attr_pkg_name(ctx)
+    pkg_import_path = go_attr_pkg_name(ctx)
     cgo_enabled = evaluate_cgo_enabled(cxx_toolchain_available, ctx.attrs.cgo_enabled)
     cgo_build_context = get_cgo_build_context(ctx)
 
     lib, pkg_info = build_package(
         ctx = ctx,
-        pkg_name = pkg_name,
+        pkg_import_path = pkg_import_path,
         main = True,
         srcs = ctx.attrs.srcs + ctx.attrs.headers,
         package_root = ctx.attrs.package_root,
@@ -85,7 +85,7 @@ def go_binary_impl(ctx: AnalysisContext) -> list[Provider]:
         GoTestInfo(
             deps = ctx.attrs.deps,
             srcs = ctx.attrs.srcs,
-            pkg_name = pkg_name,
+            pkg_import_path = pkg_import_path,
         ),
         pkg_info,
     ]

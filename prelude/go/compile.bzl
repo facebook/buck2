@@ -25,7 +25,7 @@ GoTestInfo = provider(
     fields = {
         "deps": provider_field(typing.Any, default = None),  # [Dependency]
         "srcs": provider_field(typing.Any, default = None),  # ["source"]
-        "pkg_name": provider_field(typing.Any, default = None),  # str
+        "pkg_import_path": provider_field(typing.Any, default = None),  # str
     },
 )
 

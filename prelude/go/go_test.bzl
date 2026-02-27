@@ -31,7 +31,7 @@ load(":toolchain.bzl", "evaluate_cgo_enabled")
 
 def _gen_test_main(
         ctx: AnalysisContext,
-        pkg_name: str,
+        pkg_import_path: str,
         coverage_mode: [GoCoverageMode, None],
         cover_packagages: list[str],  # packages those are included for coverage
         test_go_files: cmd_args) -> Artifact:
@@ -45,7 +45,7 @@ def _gen_test_main(
     # if ctx.attrs.coverage_mode:
     # cmd.append(cmd_args(ctx.attrs.coverage_mode, format = "--cover-mode={}"))
     cmd.append(cmd_args(output.as_output(), format = "--output={}"))
-    cmd.append(cmd_args(pkg_name, format = "--import-path={}"))
+    cmd.append(cmd_args(pkg_import_path, format = "--import-path={}"))
     if coverage_mode != None:
         cmd.extend(["--cover-mode", coverage_mode.value])
     for pkg in cover_packagages:
@@ -54,26 +54,26 @@ def _gen_test_main(
     ctx.actions.run(cmd_args(cmd), category = "go_test_main_gen")
     return output
 
-def is_subpackage_of(other_pkg_name: str, pkg_name: str) -> bool:
-    return pkg_name == other_pkg_name or other_pkg_name.startswith(pkg_name + "/")
+def is_subpackage_of(other_pkg_import_path: str, pkg_import_path: str) -> bool:
+    return pkg_import_path == other_pkg_import_path or other_pkg_import_path.startswith(pkg_import_path + "/")
 
 def go_test_impl(ctx: AnalysisContext) -> list[Provider]:
     cxx_toolchain_available = CxxToolchainInfo in ctx.attrs._cxx_toolchain
-    pkg_name = go_attr_pkg_name(ctx)
+    pkg_import_path = go_attr_pkg_name(ctx)
     cgo_enabled = evaluate_cgo_enabled(cxx_toolchain_available, ctx.attrs.cgo_enabled)
 
     deps = ctx.attrs.deps
     srcs = ctx.attrs.srcs
 
-    # Copy the srcs, deps and pkg_name from the target library when set. The
+    # Copy the srcs, deps and pkg_import_path from the target library when set. The
     # library code gets compiled together with the tests.
     if ctx.attrs.target_under_test:
         lib = ctx.attrs.target_under_test[GoTestInfo]
         srcs += lib.srcs
         deps += lib.deps
 
-        # TODO: should we assert that pkg_name != None here?
-        pkg_name = lib.pkg_name
+        # TODO: should we assert that pkg_import_path != None here?
+        pkg_import_path = lib.pkg_import_path
 
     # If coverage is enabled for this test, we need to preprocess the sources
     # with the Go cover tool.
@@ -84,7 +84,7 @@ def go_test_impl(ctx: AnalysisContext) -> list[Provider]:
     # Compile all tests into a package.
     tests, tests_pkg_info = build_package(
         ctx = ctx,
-        pkg_name = pkg_name,
+        pkg_import_path = pkg_import_path,
         main = False,
         srcs = srcs,
         package_root = ctx.attrs.package_root,
@@ -101,22 +101,22 @@ def go_test_impl(ctx: AnalysisContext) -> list[Provider]:
 
     cover_packagages = []
     if coverage_mode != None:
-        cover_packagages.append(pkg_name)
+        cover_packagages.append(pkg_import_path)
 
         # Get all packages that are linked to the test (i.e. the entire dependency tree)
-        for name, pkg in get_inherited_compile_pkgs(deps).items():
-            if ctx.label != None and is_subpackage_of(name, ctx.label.package):
-                cover_packagages.append(name)
-                pkgs[name] = pkg
+        for import_path, pkg in get_inherited_compile_pkgs(deps).items():
+            if ctx.label != None and is_subpackage_of(import_path, ctx.label.package):
+                cover_packagages.append(import_path)
+                pkgs[import_path] = pkg
 
-    pkgs[pkg_name] = tests
+    pkgs[pkg_import_path] = tests
 
     # Generate a 'main.go' file (test runner) which runs the actual tests from the package above.
     # Build the it as a separate package (<foo>.test) - which imports and invokes the test package.
-    gen_main = _gen_test_main(ctx, pkg_name, coverage_mode, cover_packagages, tests.test_go_files)
+    gen_main = _gen_test_main(ctx, pkg_import_path, coverage_mode, cover_packagages, tests.test_go_files)
     main, _ = build_package(
         ctx = ctx,
-        pkg_name = pkg_name + ".test",
+        pkg_import_path = pkg_import_path + ".test",
         main = True,
         srcs = [gen_main],
         package_root = "",
