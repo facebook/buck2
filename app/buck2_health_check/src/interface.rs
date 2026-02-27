@@ -27,7 +27,7 @@ pub enum HealthCheckType {
 /// Trait to generalize a buck2 health check.
 /// Refer https://fburl.com/buck_health_checks for details on adding a new health check.
 #[async_trait::async_trait]
-pub(crate) trait HealthCheck: Send + Sync {
+pub trait HealthCheck: Send + Sync {
     /// Returns an optional report when invoked at every `snapshot` event.
     /// Return value is interpreted as follows:
     /// `None`: Health check cannot run. e.g. not applicable for this command/target
@@ -46,7 +46,7 @@ pub(crate) trait HealthCheck: Send + Sync {
 
 /// Trait to generalize a health check service e.g. in-process, out-of-process over gRPC.
 #[async_trait::async_trait]
-pub(crate) trait HealthCheckService: Sync + Send {
+pub trait HealthCheckService: Sync + Send {
     /// Update the context for the health check service.
     async fn update_context(&mut self, event: HealthCheckContextEvent) -> buck2_error::Result<()>;
 
@@ -60,7 +60,7 @@ pub(crate) trait HealthCheckService: Sync + Send {
 /// A subset of the client data that is relevant for health checks.
 /// This is intentionally kept as a small set to avoid serialization costs.
 #[derive(Default)]
-pub(crate) struct HealthCheckContext {
+pub struct HealthCheckContext {
     /// Data from the command start.
     /// Example use: Run a check only on a subset of commands.
     pub command_data: Option<buck2_data::command_start::Data>,
