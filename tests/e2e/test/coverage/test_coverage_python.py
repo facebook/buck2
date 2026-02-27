@@ -237,3 +237,20 @@ async def test_python_coverage_filtering_by_file_on_ligen_cpp_dep(
     assert set(result) == {file_to_collect_coverage}, (
         f"Only {file_to_collect_coverage} should have coverage, instead got coverage for {str(result)}"
     )
+
+
+@buck_test(inplace=True)
+async def test_python_selective_coverage_in_arvr(buck: Buck, tmp_path: Path) -> None:
+    file_to_collect_coverage = "arvr/projects/tcc_playground/python_unittest/lib/add.py"
+    result = await collect_coverage_for(
+        buck,
+        tmp_path,
+        target="fbsource//arvr/projects/tcc_playground/python_unittest:test_example",
+        folder_filter=[],
+        file_filter=[file_to_collect_coverage],
+        mode="@fbsource//arvr/mode/platform010/opt",
+    )
+
+    assert set(result) == {file_to_collect_coverage}, (
+        f"Only {file_to_collect_coverage} should have coverage, instead got coverage for {str(result)}"
+    )
