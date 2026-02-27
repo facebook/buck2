@@ -139,7 +139,11 @@ def make_compile_importcfg(
         provided_pkgs.add(name_)
 
     if len(provided_pkgs) != len(required_pkgs):
-        fail("required Go dependencies were not provided: {}".format(required_pkgs.difference(provided_pkgs)))
+        message = "cannot find package(s) (is your BUCK target missing deps?)\n"
+        for imp in required_pkgs.difference(provided_pkgs):
+            message += "  - " + imp + "\n"
+
+        fail(message)
 
     importcfg = actions.declare_output("{}.importcfg".format("shared" if shared else "non_shared"), has_content_based_path = True)
     actions.write(importcfg, content)
