@@ -34,10 +34,10 @@ def mockingbird_mock_impl(ctx: AnalysisContext) -> list[Provider]:
             fail("excluded_srcs should only specify Swift files. Other source files, such as {}, do not need to be included.".format(src_name))
 
     (json_project_description, src_dirs) = _get_mockingbird_json_project_description(info = mockingbird_info, included_srcs = included_srcs, excluded_srcs = excluded_srcs, dep_names = dep_names)
-    json_project_description_output = ctx.actions.declare_output("mockingbird_project.json")
+    json_project_description_output = ctx.actions.declare_output("mockingbird_project.json", has_content_based_path = True)
     ctx.actions.write_json(json_project_description_output.as_output(), json_project_description)
 
-    mockingbird_source = ctx.actions.declare_output(mockingbird_info.name + "Mocks.generated.swift", dir = False)
+    mockingbird_source = ctx.actions.declare_output(mockingbird_info.name + "Mocks.generated.swift", dir = False, has_content_based_path = True)
     cmd = cmd_args(
         hidden = src_dirs,
     )
