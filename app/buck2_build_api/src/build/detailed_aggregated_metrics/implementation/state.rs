@@ -13,6 +13,7 @@ use std::time::Instant;
 
 use buck2_artifact::actions::key::ActionKey;
 use buck2_core::deferred::key::DeferredHolderKey;
+use buck2_core::soft_error;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_error::internal_error;
 use dupe::Dupe;
@@ -122,14 +123,23 @@ impl DetailedAggregatedMetricsStateTracker {
                         &analysis_nodes,
                     );
 
-                    // Compute per-target action graph sketch if requested
+                    // Compute per-target action graph sketch if requested.
+                    // Use soft_error to log errors without failing the build.
                     let per_target_sketch = if compute_sketches {
                         match compute_action_graph_sketch(
                             spec.outputs.iter().map(|(artifact, _)| artifact),
                             &analysis_nodes,
                         ) {
                             Ok((_complete, sketch)) if !sketch.is_empty() => Some(sketch),
-                            _ => None,
+                            Ok(_) => None,
+                            Err(e) => {
+                                let _ignored = soft_error!(
+                                    "action_graph_sketch_computation_error",
+                                    e,
+                                    quiet: true
+                                );
+                                None
+                            }
                         }
                     } else {
                         None
