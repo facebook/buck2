@@ -27,5 +27,5 @@ buck2_wrapper_common = { workspace = true }
 [target.'cfg(unix)'.dependencies]
 nix = { workspace = true }
 
-[lints.rust]
-unexpected_cfgs = { level = "warn", check-cfg = ["cfg(buck_build)", "cfg(fbcode_build)"] }
+[lints]
+workspace = true

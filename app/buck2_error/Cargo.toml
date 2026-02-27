@@ -51,5 +51,5 @@ starlark_syntax = { workspace = true }
 [target.'cfg(unix)'.dependencies]
 nix = { workspace = true }
 
-[lints.rust]
-unexpected_cfgs = { level = "warn", check-cfg = ["cfg(fbcode_build)"] }
+[lints]
+workspace = true
