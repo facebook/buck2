@@ -118,14 +118,9 @@ impl IoRequest for GitFetchIoRequest {
         })?;
 
         run_git(&path, |c| {
-            c.arg("remote")
-                .arg("add")
-                .arg("origin")
-                .arg(self.setup.git_origin.as_ref());
-        })?;
-
-        run_git(&path, |c| {
-            c.arg("fetch").arg("origin").arg(self.setup.commit.as_ref());
+            c.arg("fetch")
+                .arg(self.setup.git_origin.as_ref())
+                .arg(self.setup.commit.as_ref());
         })?;
 
         run_git(&path, |c| {
