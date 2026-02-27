@@ -37,7 +37,6 @@ GoPkg = record(
     # but we need to produce both to avoid running compilation twice.
     export_file = field(Artifact),
     export_file_shared = field(Artifact),
-    test_go_files = field(cmd_args),
 )
 
 StdPkg = record(

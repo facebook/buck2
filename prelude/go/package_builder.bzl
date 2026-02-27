@@ -40,7 +40,7 @@ def build_package_wrapper(
         cgo_enabled: bool = False,
         coverage_mode: GoCoverageMode | None = None,
         with_tests: bool = False,
-        cgo_gen_dir_name: str = "cgo_gen") -> (GoPkg, GoPackageInfo):
+        cgo_gen_dir_name: str = "cgo_gen") -> (GoPkg, GoPackageInfo, Artifact):
     actions = ctx.actions
     target_label = ctx.label
     go_toolchain = ctx.attrs._go_toolchain[GoToolchainInfo]
@@ -103,7 +103,6 @@ def build_package_wrapper(
         pkg_shared = out_shared_a,
         export_file = out_x,
         export_file_shared = out_shared_x,
-        test_go_files = cmd_args(test_go_files_argsfile, format = "@{}", hidden = srcs),
     ), GoPackageInfo(
         build_out = out_x,
         cgo_gen_dir = cgo_gen_dir,
@@ -111,7 +110,7 @@ def build_package_wrapper(
         package_root = package_root,
         go_list_out = go_list_out,
         srcs = srcs,
-    )
+    ), test_go_files_argsfile.with_associated_artifacts(srcs)
 
 def _build_package_action_impl(
         actions: AnalysisActions,

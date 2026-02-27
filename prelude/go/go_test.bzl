@@ -34,7 +34,7 @@ def _gen_test_main(
         pkg_import_path: str,
         coverage_mode: [GoCoverageMode, None],
         cover_packagages: list[str],  # packages those are included for coverage
-        test_go_files: cmd_args) -> Artifact:
+        test_go_files_argsfile: Artifact) -> Artifact:
     """
     Generate a `main.go` which calls tests from the given sources.
     """
@@ -50,7 +50,7 @@ def _gen_test_main(
         cmd.extend(["--cover-mode", coverage_mode.value])
     for pkg in cover_packagages:
         cmd.extend(["--cover-pkgs", pkg])
-    cmd.append(test_go_files)
+    cmd.append(cmd_args(test_go_files_argsfile, format = "@{}"))
     ctx.actions.run(cmd_args(cmd), category = "go_test_main_gen")
     return output
 
@@ -82,7 +82,7 @@ def go_test_impl(ctx: AnalysisContext) -> list[Provider]:
     pkgs = {}
 
     # Compile all tests into a package.
-    tests, tests_pkg_info = build_package_wrapper(
+    tests, tests_pkg_info, test_go_files_argsfile = build_package_wrapper(
         ctx = ctx,
         pkg_import_path = pkg_import_path,
         main = False,
@@ -113,8 +113,8 @@ def go_test_impl(ctx: AnalysisContext) -> list[Provider]:
 
     # Generate a 'main.go' file (test runner) which runs the actual tests from the package above.
     # Build the it as a separate package (<foo>.test) - which imports and invokes the test package.
-    gen_main = _gen_test_main(ctx, pkg_import_path, coverage_mode, cover_packagages, tests.test_go_files)
-    main, _ = build_package_wrapper(
+    gen_main = _gen_test_main(ctx, pkg_import_path, coverage_mode, cover_packagages, test_go_files_argsfile)
+    main, _, _ = build_package_wrapper(
         ctx = ctx,
         pkg_import_path = pkg_import_path + ".test",
         main = True,

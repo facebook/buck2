@@ -55,7 +55,7 @@ def go_library_impl(ctx: AnalysisContext) -> list[Provider]:
     coverage_mode = GoCoverageMode(ctx.attrs._coverage_mode) if ctx.attrs._coverage_mode else None
     cgo_build_context = get_cgo_build_context(ctx)
 
-    pkg, pkg_info = build_package_wrapper(
+    pkg, pkg_info, _ = build_package_wrapper(
         ctx = ctx,
         pkg_import_path = pkg_import_path,
         main = False,
