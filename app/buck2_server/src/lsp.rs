@@ -16,9 +16,11 @@ use std::thread;
 
 use buck2_build_api::actions::artifact::get_artifact_fs::GetArtifactFs;
 use buck2_cli_proto::*;
+use buck2_common::buildfiles::HasBuildfiles;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::file_ops::dice::DiceFileComputations;
 use buck2_common::package_listing::dice::DicePackageListingResolver;
+use buck2_core::build_file_path::BuildFilePath;
 use buck2_core::bxl::BxlFilePath;
 use buck2_core::bzl::ImportPath;
 use buck2_core::cells::CellResolver;
@@ -26,6 +28,7 @@ use buck2_core::cells::build_file_cell::BuildFileCell;
 use buck2_core::cells::cell_path::CellPathRef;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
+use buck2_core::package::PackageLabel;
 use buck2_core::package::package_relative_path::PackageRelativePath;
 use buck2_core::package::source_path::SourcePath;
 use buck2_core::pattern::pattern::ParsedPattern;
@@ -42,7 +45,9 @@ use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_interpreter::allow_relative_paths::HasAllowRelativePaths;
 use buck2_interpreter::load_module::InterpreterCalculation;
 use buck2_interpreter::paths::module::OwnedStarlarkModulePath;
+use buck2_interpreter::paths::package::PackageFilePath;
 use buck2_interpreter::paths::path::OwnedStarlarkPath;
+use buck2_interpreter::paths::path::StarlarkPath;
 use buck2_interpreter::prelude_path::prelude_path;
 use buck2_interpreter_for_build::interpreter::dice_calculation_delegate::HasCalculationDelegate;
 use buck2_interpreter_for_build::interpreter::global_interpreter_state::HasGlobalInterpreterState;
@@ -64,10 +69,14 @@ use lsp_server::Message;
 use lsp_types::Url;
 use starlark::analysis::find_call_name::AstModuleFindCallName;
 use starlark::codemap::Span;
+use starlark::docs::DocItem;
+use starlark::docs::DocMember;
 use starlark::docs::DocModule;
+use starlark::docs::DocString;
 use starlark::docs::markdown::render_doc_item_no_link;
 use starlark::errors::EvalMessage;
 use starlark::syntax::AstModule;
+use starlark::typing::Ty;
 use starlark_lsp::error::eval_message_to_lsp_diagnostic;
 use starlark_lsp::server::LspContext;
 use starlark_lsp::server::LspEvalResult;
@@ -91,9 +100,6 @@ enum ResolveLoadError {
 struct DocsCacheManager {
     docs_cache: Mutex<DocsCache>,
     fs: ProjectRoot,
-    /// Used for checking if the DocsCache need refreshing. We need to refresh the DocsCache
-    /// if the previous dice version does not match the current one.
-    valid_at: DiceEquality,
 }
 
 impl DocsCacheManager {
@@ -101,7 +107,6 @@ impl DocsCacheManager {
         Ok(Self {
             docs_cache: Mutex::new(Self::new_docs_cache(&fs, &mut dice_ctx).await?),
             fs,
-            valid_at: dice_ctx.equality_token(),
         })
     }
 
@@ -112,19 +117,12 @@ impl DocsCacheManager {
         let mut docs_cache = self.docs_cache.lock().await;
 
         let fs = &self.fs;
-        match self.is_reusable(&current_dice_ctx) {
-            true => (),
-            false => {
-                let new_docs_cache = Self::new_docs_cache(fs, &mut current_dice_ctx).await?;
-                *docs_cache = new_docs_cache
-            }
-        };
+        if !docs_cache.is_reusable(&current_dice_ctx) {
+            let new_docs_cache = Self::new_docs_cache(fs, &mut current_dice_ctx).await?;
+            *docs_cache = new_docs_cache;
+        }
 
         Ok(docs_cache)
-    }
-
-    fn is_reusable(&self, dice_ctx: &DiceTransaction) -> bool {
-        dice_ctx.equivalent(&self.valid_at)
     }
 
     async fn new_docs_cache(
@@ -134,16 +132,19 @@ impl DocsCacheManager {
         let mut builtin_docs = Vec::new();
 
         let cell_resolver = dice_ctx.get_cell_resolver().await?;
-        builtin_docs.push((None, get_builtin_globals_docs(dice_ctx).await?));
+        builtin_docs.push((None, get_builtin_globals_docs(dice_ctx).await?.clone()));
 
         let builtin_names = builtin_docs
             .iter()
             .flat_map(|(_, d)| d.members.keys().map(|s| s.as_str()))
             .collect();
-        if let Some((import_path, docs)) = get_prelude_docs(dice_ctx, &builtin_names).await? {
+
+        // Do not ? the error here. It's prelude. It's allowed to have type errors.
+        if let Ok(Some((import_path, docs))) = get_prelude_docs(dice_ctx, &builtin_names).await {
             builtin_docs.push((Some(import_path), docs));
         }
-        DocsCache::new(&builtin_docs, fs, &cell_resolver).await
+        let equality_token = dice_ctx.equality_token();
+        DocsCache::new(equality_token, &builtin_docs, fs, &cell_resolver).await
     }
 }
 
@@ -192,6 +193,13 @@ struct DocsCache {
     global_urls: HashMap<String, LspUrl>,
     /// Mapping of starlark: urls to a synthesized starlark representation.
     native_starlark_files: HashMap<LspUrl, String>,
+    /// A DocModule for all the globals, without prelude symbols.
+    builtin_docs: DocModule,
+    /// A DocModule for build files specifically, with prelude symbols.
+    buildfile_docs: DocModule,
+    /// Used for checking if the DocsCache need refreshing. We need to refresh the DocsCache
+    /// if the previous dice version does not match the current one.
+    valid_at: Option<DiceEquality>,
 }
 
 #[derive(buck2_error::Error, Debug)]
@@ -219,12 +227,19 @@ impl DocsCache {
             .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Lsp))
     }
 
+    fn is_reusable(&self, dice_ctx: &DiceTransaction) -> bool {
+        self.valid_at
+            .as_ref()
+            .is_some_and(|valid_at| dice_ctx.equivalent(valid_at))
+    }
+
     async fn new(
+        equality_token: DiceEquality,
         builtin_symbols: &[(Option<ImportPath>, DocModule)],
         fs: &ProjectRoot,
         cell_resolver: &CellResolver,
     ) -> buck2_error::Result<Self> {
-        Self::new_with_lookup(builtin_symbols, |location| async {
+        Self::new_with_lookup(Some(equality_token), builtin_symbols, |location| async {
             Self::get_prelude_uri(location, fs, cell_resolver).await
         })
         .await
@@ -235,6 +250,7 @@ impl DocsCache {
         F: Fn(&'a ImportPath) -> Fut + 'a,
         Fut: Future<Output = buck2_error::Result<LspUrl>>,
     >(
+        equality_token: Option<DiceEquality>,
         builtin_symbols: &'a [(Option<ImportPath>, DocModule)],
         location_lookup: F,
     ) -> buck2_error::Result<Self> {
@@ -254,13 +270,36 @@ impl DocsCache {
         };
 
         let mut native_starlark_files = HashMap::new();
+
+        let mut builtin_docs = DocModule::default();
+        let mut buildfile_docs = DocModule::default();
+
         for (import_path, docs) in builtin_symbols {
             match import_path {
                 Some(l) => {
                     let url = location_lookup(l).await?;
-                    for (sym, _) in &docs.members {
+                    for (sym, mem) in &docs.members {
                         insert_global(sym.clone(), url.clone())?;
+                        // Only for buildfiles, as this is a prelude symbol
+                        buildfile_docs.members.insert(sym.clone(), mem.clone());
                     }
+                    let native_member =
+                        DocItem::Member(DocMember::Property(starlark::docs::DocProperty {
+                            docs: Some(DocString {
+                                summary: format!("The prelude, defined in {l}"),
+                                details: None,
+                                examples: None,
+                            }),
+                            typ: Ty::any(),
+                        }));
+                    builtin_docs
+                        .members
+                        .insert("native".to_owned(), native_member.clone());
+                    // Also, overwrite the one in buildfile_docs. The documentation for native
+                    // is so big it crashes some editors.
+                    buildfile_docs
+                        .members
+                        .insert("native".to_owned(), native_member);
                 }
                 None => {
                     for (sym, mem) in &docs.members {
@@ -281,6 +320,8 @@ impl DocsCache {
                         assert!(prev.is_none());
 
                         insert_global(sym.clone(), url)?;
+                        builtin_docs.members.insert(sym.clone(), mem.clone());
+                        buildfile_docs.members.insert(sym.clone(), mem.clone());
                     }
                 }
             };
@@ -288,6 +329,9 @@ impl DocsCache {
         Ok(Self {
             global_urls,
             native_starlark_files,
+            builtin_docs,
+            buildfile_docs,
+            valid_at: equality_token,
         })
     }
 
@@ -353,29 +397,50 @@ impl<'a> BuckLspContext<'a> {
             .await?
     }
 
-    async fn import_path(&self, path: &Path) -> buck2_error::Result<OwnedStarlarkModulePath> {
+    async fn import_path(&self, path: &Path) -> buck2_error::Result<OwnedStarlarkPath> {
         let abs_path = AbsPath::new(path)?;
         let relative_path = self.fs.relativize_any(abs_path)?;
-        let cell_resolver = self
-            .with_dice_ctx(|mut dice_ctx| async move { dice_ctx.get_cell_resolver().await })
-            .await?;
-        let cell_path = cell_resolver.get_cell_path(&relative_path);
+        self.with_dice_ctx(|mut dice_ctx| async move {
+            let cell_resolver = dice_ctx.get_cell_resolver().await?;
 
-        match path.extension() {
-            Some(e) if e == "bxl" => Ok(OwnedStarlarkModulePath::BxlFile(BxlFilePath::new(
-                cell_path,
-            )?)),
-            _ => {
-                // Instantiating a BuildFileCell off of the path of the file being originally evaluated.
-                // Unlike the build commands and such, there is no meaningful "build file cell" versus
-                // the cell of the file being currently evaluated.
-                let bfc = BuildFileCell::new(cell_path.cell());
+            let cell_path = cell_resolver.get_cell_path(&relative_path);
+            let buildfile_names = dice_ctx.get_buildfiles(cell_path.cell()).await?;
 
-                Ok(OwnedStarlarkModulePath::LoadFile(
-                    ImportPath::new_hack_for_lsp(cell_path, bfc)?,
-                ))
+            if path.extension().is_some_and(|e| e == "bxl") {
+                return Ok(OwnedStarlarkPath::BxlFile(BxlFilePath::new(cell_path)?));
             }
-        }
+
+            let file_name = path.file_name().and_then(|x| x.to_str());
+            let matching_buildfile_name = buildfile_names
+                .iter()
+                .find(|name| file_name.is_some_and(|f| f == name.as_str()));
+
+            if let Some(buildfile_name) = matching_buildfile_name {
+                let parent = cell_path
+                    .as_ref()
+                    .parent()
+                    .expect("It has a filename, therefore it has a parent dir");
+                let package_label = PackageLabel::from_cell_path(parent)?;
+                return Ok(OwnedStarlarkPath::BuildFile(BuildFilePath::new(
+                    package_label,
+                    buildfile_name.clone(),
+                )));
+            }
+
+            if let Some(pfp) = PackageFilePath::from_file_path(cell_path.as_ref()) {
+                return Ok(OwnedStarlarkPath::PackageFile(pfp));
+            }
+
+            // Instantiating a BuildFileCell off of the path of the file being originally evaluated.
+            // Unlike the build commands and such, there is no meaningful "build file cell" versus
+            // the cell of the file being currently evaluated.
+            let bfc = BuildFileCell::new(cell_path.cell());
+
+            Ok(OwnedStarlarkPath::LoadFile(ImportPath::new_hack_for_lsp(
+                cell_path, bfc,
+            )?))
+        })
+        .await
     }
 
     async fn starlark_import_path(
@@ -407,6 +472,21 @@ impl<'a> BuckLspContext<'a> {
         }
     }
 
+    async fn import_path_from_url(&self, uri: &LspUrl) -> buck2_error::Result<OwnedStarlarkPath> {
+        match uri {
+            LspUrl::File(path) => self.import_path(path).await,
+            LspUrl::Starlark(path) => self
+                .starlark_import_path(path)
+                .await
+                .map(|mod_path| mod_path.into_starlark_path()),
+            LspUrl::Other(_) => Err(BuckLspContextError::WrongScheme(
+                "file:// or starlark:".to_owned(),
+                uri.clone(),
+            )
+            .into()),
+        }
+    }
+
     async fn parse_file_with_contents(&self, uri: &LspUrl, content: String) -> LspEvalResult {
         match self
             .parse_file_from_contents_and_handle_diagnostic(uri, content)
@@ -428,24 +508,15 @@ impl<'a> BuckLspContext<'a> {
         uri: &LspUrl,
         content: String,
     ) -> buck2_error::Result<LspEvalResult> {
-        let import_path: OwnedStarlarkModulePath = match uri {
-            LspUrl::File(path) => self.import_path(path).await,
-            LspUrl::Starlark(path) => self.starlark_import_path(path).await,
-            LspUrl::Other(_) => Err(BuckLspContextError::WrongScheme(
-                "file:// or starlark:".to_owned(),
-                uri.clone(),
-            )
-            .into()),
-        }?;
+        let import_path = self.import_path_from_url(uri).await?;
 
         self.with_dice_ctx(|mut dice_ctx| async move {
             let calculator = dice_ctx
-                .get_interpreter_calculator(import_path.clone().into_starlark_path())
+                .get_interpreter_calculator(import_path.clone())
                 .await?;
 
-            let module_path = import_path.borrow();
-            let path = module_path.starlark_path();
-            let parse_result = calculator.prepare_eval_with_content(path, content)?;
+            let parse_result =
+                calculator.prepare_eval_with_content(import_path.borrow(), content)?;
             match parse_result {
                 Ok(ParseData(ast, _)) => Ok(LspEvalResult {
                     diagnostics: Vec::new(),
@@ -586,18 +657,16 @@ impl LspContext for BuckLspContext<'_> {
                 match current_file {
                     LspUrl::File(current_file) => {
                         let current_import_path = self.import_path(current_file).await?;
-                        let borrowed_current_import_path = current_import_path.borrow();
+                        let current_import_path = &current_import_path;
                         let url = self
                             .with_dice_ctx(|mut dice_ctx| async move {
                                 let calculator = dice_ctx
-                                    .get_interpreter_calculator(OwnedStarlarkPath::new(
-                                        borrowed_current_import_path.starlark_path(),
-                                    ))
+                                    .get_interpreter_calculator(current_import_path.clone())
                                     .await?;
 
-                                let starlark_file = borrowed_current_import_path.starlark_path();
-                                let loaded_import_path =
-                                    calculator.resolve_load(starlark_file, path).await?;
+                                let loaded_import_path = calculator
+                                    .resolve_load(current_import_path.borrow(), path)
+                                    .await?;
                                 let relative_path = dice_ctx
                                     .get_cell_resolver()
                                     .await?
@@ -642,7 +711,8 @@ impl LspContext for BuckLspContext<'_> {
                 }
                 .map_err(buck2_error::Error::from)?;
 
-                let current_package = import_path.path();
+                let current_package = import_path.borrow().path();
+                let current_package_ref = current_package.as_ref().as_ref();
 
                 // Right now we swallow the errors up as they can happen for a lot of reasons that are
                 // perfectly recoverable (e.g. an invalid cell is specified, we can't list an invalid
@@ -651,12 +721,13 @@ impl LspContext for BuckLspContext<'_> {
                 // buck2_error::Error sort of obscures the root causes, so we just have
                 // to assume if it failed, it's fine, and we can maybe try the next thing.
                 if let Ok(Some(string_literal)) = self
-                    .parse_target_from_string(current_package, literal)
+                    .parse_target_from_string(current_package_ref, literal)
                     .await
                 {
                     Ok(Some(string_literal))
-                } else if let Ok(Some(string_literal)) =
-                    self.parse_file_from_string(current_package, literal).await
+                } else if let Ok(Some(string_literal)) = self
+                    .parse_file_from_string(current_package_ref, literal)
+                    .await
                 {
                     Ok(Some(string_literal))
                 } else {
@@ -677,7 +748,7 @@ impl LspContext for BuckLspContext<'_> {
                         self.with_dice_ctx(|mut dice_ctx| async move {
                             DiceFileComputations::read_file_if_exists(
                                 &mut dice_ctx,
-                                path.borrow().path().as_ref(),
+                                path.borrow().path().as_ref().as_ref(),
                             )
                             .await
                         })
@@ -727,8 +798,32 @@ impl LspContext for BuckLspContext<'_> {
         Err("Not yet implemented, render_as_load".to_owned())
     }
 
-    fn get_environment(&self, _uri: &LspUrl) -> DocModule {
-        DocModule::default()
+    fn get_environment(&self, url: &LspUrl) -> DocModule {
+        let dispatcher = self.server_ctx.events().dupe();
+        self.runtime
+            .block_on(with_dispatcher_async(dispatcher, async {
+                let Ok(import_path) = self.import_path_from_url(url).await else {
+                    return Ok(DocModule::default());
+                };
+
+                // TODO: investigate whether this performs badly when editing the prelude
+                // cell itself. We are recomputing the prelude cell docs whether they are
+                // needed or not. Right here, we know whether the current file is in the prelude
+                // and we can behave differently in that case.
+                let docs_cache = self
+                    .with_dice_ctx(|dice_ctx| async move {
+                        self.docs_cache_manager.get_cache(dice_ctx).await
+                    })
+                    .await?;
+
+                let docs = match import_path.borrow() {
+                    StarlarkPath::BuildFile(_) => docs_cache.buildfile_docs.clone(),
+                    _ => docs_cache.builtin_docs.clone(),
+                };
+
+                buck2_error::Ok(docs)
+            }))
+            .unwrap_or_default()
     }
 }
 
@@ -958,8 +1053,8 @@ mod tests {
             }
         }
 
-        let cache =
-            runtime.block_on(async { DocsCache::new_with_lookup(&docs, lookup_function).await })?;
+        let cache = runtime
+            .block_on(async { DocsCache::new_with_lookup(None, &docs, lookup_function).await })?;
 
         assert_eq!(
             &LspUrl::try_from(
