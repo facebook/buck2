@@ -197,7 +197,7 @@ def _build_package_action_impl(
         imports = set([] + go_list.imports + (go_list.test_imports if with_tests else []))
         importcfg = make_compile_importcfg(
             actions = actions,
-            stdlib = go_stdlib_value,
+            stdlib_deps = go_stdlib_value.pkgs,
             deps = deps_pkgs,
             imports = imports,
             has_cgo_files = len(go_list.cgo_files) > 0,

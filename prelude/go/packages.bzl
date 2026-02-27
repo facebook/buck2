@@ -99,7 +99,7 @@ def export_files(pkgs: dict[str, GoPkg], shared: bool) -> dict[str, Artifact]:
 
 def make_compile_importcfg(
         actions: AnalysisActions,
-        stdlib: GoStdlibDynamicValue,
+        stdlib_deps: dict[str, StdPkg],
         deps: dict[str, GoPkg],
         imports: set[str],
         has_cgo_files: bool,
@@ -128,7 +128,7 @@ def make_compile_importcfg(
         a_files.append(pkg_)
         provided_pkgs.add(name_)
 
-    for name_, pkg_ in stdlib.pkgs.items():
+    for name_, pkg_ in stdlib_deps.items():
         # skip packages not used by the current package
         if name_ not in required_pkgs:
             continue
@@ -148,7 +148,7 @@ def make_compile_importcfg(
 
 def make_link_importcfg(
         actions: AnalysisActions,
-        stdlib: GoStdlibDynamicValue,
+        stdlib_deps: dict[str, StdPkg],
         deps: dict[str, GoPkg],
         shared: bool) -> Artifact:
     content, a_files = [], []
@@ -156,7 +156,7 @@ def make_link_importcfg(
         content.append(cmd_args("packagefile ", name_, "=", pkg_, delimiter = "", hidden = [pkg_]))
         a_files.append(pkg_)
 
-    for name_, pkg_ in stdlib.pkgs.items():
+    for name_, pkg_ in stdlib_deps.items():
         a_file = pkg_.a_file_shared if shared else pkg_.a_file
         content.append(cmd_args("packagefile ", name_, "=", a_file, delimiter = "", hidden = [a_file]))
         a_files.append(a_file)
