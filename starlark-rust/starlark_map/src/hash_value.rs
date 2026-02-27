@@ -20,7 +20,7 @@ use std::hash::Hash;
 
 use allocative::Allocative;
 use dupe::Dupe;
-#[cfg(feature = "pagable")]
+#[cfg(feature = "pagable_dep")]
 use pagable::Pagable;
 use serde::Deserialize;
 use serde::Serialize;
@@ -41,7 +41,7 @@ use crate::mix_u32::mix_u32;
     Serialize,
     Deserialize
 )]
-#[cfg_attr(feature = "pagable", derive(Pagable))]
+#[cfg_attr(feature = "pagable_dep", derive(Pagable))]
 pub struct StarlarkHashValue(u32);
 
 impl StarlarkHashValue {

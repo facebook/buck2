@@ -22,7 +22,7 @@ use std::slice;
 use std::vec;
 
 use allocative::Allocative;
-#[cfg(feature = "pagable")]
+#[cfg(feature = "pagable_dep")]
 use pagable::Pagable;
 use serde::Deserialize;
 use serde::Serialize;
@@ -41,7 +41,7 @@ use serde::Serialize;
     Serialize,
     Deserialize
 )]
-#[cfg_attr(feature = "pagable", derive(Pagable))]
+#[cfg_attr(feature = "pagable_dep", derive(Pagable))]
 pub struct SortedVec<T> {
     vec: Vec<T>,
 }

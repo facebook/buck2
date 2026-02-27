@@ -12,7 +12,10 @@ version = "0.13.0"
 
 [features]
 default = []
-pagable = ["dep:pagable", "dep:pagable_derive"]
+# Controls whether to depend on the pagable crate.
+# This is independent from the `pagable` feature in starlark,
+# which controls pagable serialization/deserialization support for starlark values.
+pagable_dep = ["dep:pagable", "dep:pagable_derive"]
 
 [dependencies]
 allocative = { workspace = true, features = ["hashbrown"] }

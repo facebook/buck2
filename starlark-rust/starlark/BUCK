@@ -3,8 +3,9 @@ load("@fbsource//tools/build_defs:rust_library.bzl", "rust_library")
 
 oncall("build_infra")
 
-# Constraint for pagable serialization/deserialization support.
-# Buck2 internal targets set this to "enabled" by package modifier.
+# Constraint controlling the "pagable" Cargo feature of the starlark crate.
+# When enabled, pagable serialization/deserialization support for starlark values is enabled.
+# Buck2 internal targets set this to "enabled" via package modifier in buck2/PACKAGE.
 # External consumers get "disabled" by default.
 constraint(
     name = "pagable",
@@ -35,6 +36,9 @@ buck_filegroup(
 rust_library(
     name = "starlark",
     srcs = glob(["src/**/*.rs"]),
+    # Controls pagable serialization/deserialization support for starlark values.
+    # This is independent from the "pagable_dep" feature in starlark_map,
+    # which controls whether starlark_map depends on the pagable crate.
     features = select({
         ":pagable[enabled]": ["pagable"],
         "DEFAULT": [],

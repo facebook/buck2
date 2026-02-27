@@ -27,7 +27,7 @@ use std::marker::PhantomData;
 
 use allocative::Allocative;
 use equivalent::Equivalent;
-#[cfg(feature = "pagable")]
+#[cfg(feature = "pagable_dep")]
 use pagable::Pagable;
 use serde::Deserialize;
 use serde::Serialize;
@@ -42,7 +42,7 @@ pub use crate::small_set::iter::IterMutUnchecked;
 
 /// An memory-efficient set with deterministic order, based on [`SmallMap`].
 #[derive(Clone, Allocative)]
-#[cfg_attr(feature = "pagable", derive(Pagable))]
+#[cfg_attr(feature = "pagable_dep", derive(Pagable))]
 pub struct SmallSet<T>(SmallMap<T, ()>);
 
 impl<T> Default for SmallSet<T> {

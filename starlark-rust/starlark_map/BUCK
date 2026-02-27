@@ -5,10 +5,10 @@ oncall("build_infra")
 rust_library(
     name = "starlark_map",
     srcs = glob(["src/**/*.rs"]),
-    features = select({
-        "//buck2/starlark-rust/starlark:pagable[enabled]": ["pagable"],
-        "DEFAULT": [],
-    }),
+    # Controls whether to depend on the pagable crate.
+    # This is independent from the "pagable" constraint on the starlark crate,
+    # which controls pagable serialization/deserialization support for starlark values.
+    features = ["pagable_dep"],
     metadata = {
         "buck.cfg_modifiers": [
             # @oss-disable[end= ]: "ovr_config//rust:panic_unwind",

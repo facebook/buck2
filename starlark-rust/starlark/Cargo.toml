@@ -17,7 +17,6 @@ version = "0.13.0"
 
 [features]
 default = []
-# Enable pagable serialization support, requiring TypeMatcherRegistered for all TypeMatcher impls.
 pagable = []
 
 [dependencies]

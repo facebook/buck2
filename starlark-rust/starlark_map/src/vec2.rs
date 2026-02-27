@@ -35,9 +35,9 @@ use std::slice;
 
 use allocative::Allocative;
 use allocative::Visitor;
-#[cfg(feature = "pagable")]
+#[cfg(feature = "pagable_dep")]
 use pagable::PagableDeserialize;
-#[cfg(feature = "pagable")]
+#[cfg(feature = "pagable_dep")]
 use pagable::PagableSerialize;
 use serde::Deserialize;
 use serde::Serialize;
@@ -112,7 +112,7 @@ pub struct Vec2<A, B> {
 unsafe impl<A: Send, B: Send> Send for Vec2<A, B> {}
 unsafe impl<A: Sync, B: Sync> Sync for Vec2<A, B> {}
 
-#[cfg(feature = "pagable")]
+#[cfg(feature = "pagable_dep")]
 impl<A: PagableSerialize, B: PagableSerialize> PagableSerialize for Vec2<A, B> {
     fn pagable_serialize(
         &self,
@@ -126,7 +126,7 @@ impl<A: PagableSerialize, B: PagableSerialize> PagableSerialize for Vec2<A, B> {
     }
 }
 
-#[cfg(feature = "pagable")]
+#[cfg(feature = "pagable_dep")]
 impl<'de, A: PagableDeserialize<'de>, B: PagableDeserialize<'de>> PagableDeserialize<'de>
     for Vec2<A, B>
 {

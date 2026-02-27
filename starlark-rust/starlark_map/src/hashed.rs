@@ -24,7 +24,7 @@ use std::ops::Deref;
 use allocative::Allocative;
 use dupe::Dupe;
 use equivalent::Equivalent;
-#[cfg(feature = "pagable")]
+#[cfg(feature = "pagable_dep")]
 use pagable::Pagable;
 use serde::Deserialize;
 use serde::Serialize;
@@ -44,8 +44,8 @@ use crate::hash_value::StarlarkHashValue;
     Serialize,
     Deserialize
 )]
-#[cfg_attr(feature = "pagable", derive(Pagable))]
-#[cfg_attr(feature = "pagable", pagable(bound = "K: Pagable + 'static"))]
+#[cfg_attr(feature = "pagable_dep", derive(Pagable))]
+#[cfg_attr(feature = "pagable_dep", pagable(bound = "K: Pagable + 'static"))]
 pub struct Hashed<K> {
     hash: StarlarkHashValue,
     key: K,

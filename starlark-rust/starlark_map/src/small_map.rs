@@ -30,11 +30,11 @@ use std::mem;
 use allocative::Allocative;
 use equivalent::Equivalent;
 use hashbrown::HashTable;
-#[cfg(feature = "pagable")]
+#[cfg(feature = "pagable_dep")]
 use pagable::Pagable;
-#[cfg(feature = "pagable")]
+#[cfg(feature = "pagable_dep")]
 use pagable::PagableDeserialize;
-#[cfg(feature = "pagable")]
+#[cfg(feature = "pagable_dep")]
 use pagable::PagableSerialize;
 use serde::Deserialize;
 use serde::Serialize;
@@ -1052,7 +1052,7 @@ macro_rules! smallmap {
     };
 }
 
-#[cfg(feature = "pagable")]
+#[cfg(feature = "pagable_dep")]
 impl<K: Pagable, V: Pagable> PagableSerialize for SmallMap<K, V> {
     fn pagable_serialize(
         &self,
@@ -1062,7 +1062,7 @@ impl<K: Pagable, V: Pagable> PagableSerialize for SmallMap<K, V> {
     }
 }
 
-#[cfg(feature = "pagable")]
+#[cfg(feature = "pagable_dep")]
 impl<'de, K: Pagable, V: Pagable> PagableDeserialize<'de> for SmallMap<K, V> {
     fn pagable_deserialize<D: pagable::PagableDeserializer<'de> + ?Sized>(
         deserializer: &mut D,
