@@ -11,6 +11,7 @@ rust_library(
     deps = [
         "fbsource//third-party/rust:anyhow",
         "fbsource//third-party/rust:async-compression",
+        "fbsource//third-party/rust:dashmap",
         "fbsource//third-party/rust:futures",
         "fbsource//third-party/rust:http",
         "fbsource//third-party/rust:hyper",
