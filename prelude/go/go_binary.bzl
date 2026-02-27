@@ -21,7 +21,7 @@ load(
 load(":cgo_builder.bzl", "get_cgo_build_context")
 load(":compile.bzl", "GoTestInfo")
 load(":link.bzl", "GoBuildMode", "link")
-load(":package_builder.bzl", "build_package")
+load(":package_builder.bzl", "build_package_wrapper")
 load(":packages.bzl", "go_attr_pkg_name")
 load(":toolchain.bzl", "evaluate_cgo_enabled")
 
@@ -31,7 +31,7 @@ def go_binary_impl(ctx: AnalysisContext) -> list[Provider]:
     cgo_enabled = evaluate_cgo_enabled(cxx_toolchain_available, ctx.attrs.cgo_enabled)
     cgo_build_context = get_cgo_build_context(ctx)
 
-    lib, pkg_info = build_package(
+    lib, pkg_info = build_package_wrapper(
         ctx = ctx,
         pkg_import_path = pkg_import_path,
         main = True,

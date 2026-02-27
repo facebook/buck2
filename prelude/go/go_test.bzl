@@ -25,7 +25,7 @@ load(":cgo_builder.bzl", "get_cgo_build_context")
 load(":compile.bzl", "GoTestInfo", "get_inherited_compile_pkgs")
 load(":coverage.bzl", "GoCoverageMode")
 load(":link.bzl", "GoBuildMode", "link")
-load(":package_builder.bzl", "build_package")
+load(":package_builder.bzl", "build_package_wrapper")
 load(":packages.bzl", "go_attr_pkg_name")
 load(":toolchain.bzl", "evaluate_cgo_enabled")
 
@@ -82,7 +82,7 @@ def go_test_impl(ctx: AnalysisContext) -> list[Provider]:
     pkgs = {}
 
     # Compile all tests into a package.
-    tests, tests_pkg_info = build_package(
+    tests, tests_pkg_info = build_package_wrapper(
         ctx = ctx,
         pkg_import_path = pkg_import_path,
         main = False,
@@ -114,7 +114,7 @@ def go_test_impl(ctx: AnalysisContext) -> list[Provider]:
     # Generate a 'main.go' file (test runner) which runs the actual tests from the package above.
     # Build the it as a separate package (<foo>.test) - which imports and invokes the test package.
     gen_main = _gen_test_main(ctx, pkg_import_path, coverage_mode, cover_packagages, tests.test_go_files)
-    main, _ = build_package(
+    main, _ = build_package_wrapper(
         ctx = ctx,
         pkg_import_path = pkg_import_path + ".test",
         main = True,
