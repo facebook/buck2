@@ -769,6 +769,12 @@ public final class ApkBuilder implements IArchiveBuilder {
         && // image index file
         !"package.html".equalsIgnoreCase(fileName)
         && // Javadoc
-        !"overview.html".equalsIgnoreCase(fileName); // Javadoc
+        !"overview.html".equalsIgnoreCase(fileName)
+        && // License files
+        !"LICENSE".equalsIgnoreCase(fileName)
+        && !"LICENSE.txt".equalsIgnoreCase(fileName)
+        && // Notice files
+        !"NOTICE".equalsIgnoreCase(fileName)
+        && !"NOTICE.txt".equalsIgnoreCase(fileName);
   }
 }
