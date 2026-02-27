@@ -112,6 +112,30 @@ impl FrozenHeap {
     /// Simple value is any starlark value which:
     /// * bound by `'static` lifetime (in particular, it cannot contain references to other `Value`s)
     /// * is not special builtin (e.g. `None`)
+    ///
+    /// When `pagable` feature is enabled, this also requires [`VtableRegistered`]
+    /// to ensure the type can be deserialized.
+    #[cfg(feature = "pagable")]
+    pub fn alloc_simple<
+        T: StarlarkValue<'static>
+            + HeapSendable<'static>
+            + HeapSyncable<'static>
+            + Send
+            + Sync
+            + crate::pagable::vtable_register::VtableRegistered,
+    >(
+        &self,
+        val: T,
+    ) -> FrozenValue {
+        self.alloc_simple_typed_static(val).to_frozen_value()
+    }
+
+    /// Allocate a simple [`StarlarkValue`] on this heap.
+    ///
+    /// Simple value is any starlark value which:
+    /// * bound by `'static` lifetime (in particular, it cannot contain references to other `Value`s)
+    /// * is not special builtin (e.g. `None`)
+    #[cfg(not(feature = "pagable"))]
     pub fn alloc_simple<
         T: StarlarkValue<'static> + HeapSendable<'static> + HeapSyncable<'static> + Send + Sync,
     >(

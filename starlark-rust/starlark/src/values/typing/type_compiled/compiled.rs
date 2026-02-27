@@ -126,6 +126,13 @@ pub struct TypeCompiledImplAsStarlarkValue<T: 'static> {
     ty: Ty,
 }
 
+// SAFETY: TypeMatcherRegistered is only implemented for types that are registered
+// via #[type_matcher] or register_type_matcher!, which ensures vtable registration.
+unsafe impl<T: crate::values::typing::type_compiled::matcher::TypeMatcherRegistered>
+    crate::pagable::vtable_register::VtableRegistered for TypeCompiledImplAsStarlarkValue<T>
+{
+}
+
 impl<T> TypeCompiledImplAsStarlarkValue<T>
 where
     TypeCompiledImplAsStarlarkValue<T>: StarlarkValue<'static>,

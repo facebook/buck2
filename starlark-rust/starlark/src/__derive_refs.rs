@@ -34,6 +34,7 @@ pub mod parse_args;
 pub mod sig;
 
 // Re-exports for vtable registration macro.
+pub use crate::pagable::vtable_register::VtableRegistered;
 #[cfg(feature = "pagable")]
 pub use crate::pagable::vtable_registry::DeserTypeId;
 #[cfg(feature = "pagable")]

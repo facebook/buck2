@@ -39,6 +39,7 @@ use starlark::codemap::FileSpan;
 use starlark::environment::FrozenModule;
 use starlark::environment::Module;
 use starlark::eval::Evaluator;
+use starlark::register_simple_vtable_entry;
 use starlark::values::DynStarlark;
 use starlark::values::Freeze;
 use starlark::values::FreezeError;
@@ -621,6 +622,8 @@ pub struct RecordedAnalysisValues {
     analysis_storage: Option<OwnedFrozenValueTyped<StarlarkAnyComplex<FrozenAnalysisValueStorage>>>,
     actions: RecordedActions,
 }
+
+register_simple_vtable_entry!(StarlarkAnyComplex<FrozenAnalysisValueStorage>);
 
 impl RecordedAnalysisValues {
     /// Creates a minimal RecordedAnalysisValues for testing action lookups only.

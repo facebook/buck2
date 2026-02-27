@@ -5,7 +5,10 @@ oncall("build_infra")
 rust_library(
     name = "starlark_map",
     srcs = glob(["src/**/*.rs"]),
-    features = ["pagable"],
+    features = select({
+        "//buck2/starlark-rust/starlark:pagable[enabled]": ["pagable"],
+        "DEFAULT": [],
+    }),
     metadata = {
         "buck.cfg_modifiers": [
             # @oss-disable[end= ]: "ovr_config//rust:panic_unwind",

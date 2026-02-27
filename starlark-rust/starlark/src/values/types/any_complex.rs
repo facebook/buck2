@@ -28,6 +28,7 @@ use starlark_derive::starlark_value;
 
 use crate as starlark;
 use crate::any::ProvidesStaticType;
+use crate::pagable::vtable_register::VtableRegistered;
 use crate::values::AllocValue;
 use crate::values::Freeze;
 use crate::values::Heap;
@@ -105,6 +106,9 @@ where
         heap.alloc_complex(self)
     }
 }
+
+// TODO(nero): Better handle StarlarkAnyComplex registration.
+unsafe impl<T> VtableRegistered for StarlarkAnyComplex<T> {}
 
 #[cfg(test)]
 mod tests {

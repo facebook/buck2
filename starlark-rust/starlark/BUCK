@@ -3,6 +3,20 @@ load("@fbsource//tools/build_defs:rust_library.bzl", "rust_library")
 
 oncall("build_infra")
 
+# Constraint for pagable serialization/deserialization support.
+# Buck2 internal targets set this to "enabled" by package modifier.
+# External consumers get "disabled" by default.
+constraint(
+    name = "pagable",
+    default = "disabled",
+    execution_modifier = True,
+    values = [
+        "enabled",
+        "disabled",
+    ],
+    visibility = ["PUBLIC"],
+)
+
 alias(
     name = "starlark-bin",
     actual = "//buck2/starlark-rust/starlark_bin:starlark_bin",
@@ -21,7 +35,10 @@ buck_filegroup(
 rust_library(
     name = "starlark",
     srcs = glob(["src/**/*.rs"]),
-    features = ["pagable"],
+    features = select({
+        ":pagable[enabled]": ["pagable"],
+        "DEFAULT": [],
+    }),
     rustc_flags = [
         "--cfg=rust_nightly",
     ],
