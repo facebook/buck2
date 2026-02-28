@@ -21,6 +21,7 @@ use buck2_common::init::LogDownloadMethod;
 use buck2_common::invocation_paths::InvocationPaths;
 use buck2_common::invocation_paths_result::InvocationPathsResult;
 use buck2_core::error::buck2_hard_error_env;
+use buck2_core::error::buck2_show_soft_errors_env;
 use buck2_error::BuckErrorContext;
 use buck2_event_observer::verbosity::Verbosity;
 use buck2_fs::paths::file_name::FileNameBuf;
@@ -266,6 +267,7 @@ impl<'a> ClientCommandContext<'a> {
             sanitized_argv: Vec::new(),
             argfiles: Vec::new(),
             buck2_hard_error: buck2_hard_error_env()?.unwrap_or_default().to_owned(),
+            buck2_show_soft_errors: buck2_show_soft_errors_env()?.unwrap_or_default().to_owned(),
             command_name: command_name.to_owned(),
             client_metadata: self
                 .client_metadata

@@ -35,6 +35,76 @@ pub fn buck2_hard_error_env() -> buck2_error::Result<Option<&'static str>> {
     buck2_env!("BUCK2_HARD_ERROR")
 }
 
+#[derive(Debug, PartialEq, Eq)]
+enum ShowSoftErrorConfig {
+    Disabled,
+    All,
+    Selected(SmallSet<String>),
+}
+
+impl ShowSoftErrorConfig {
+    fn should_show(&self, category: &str) -> bool {
+        match self {
+            Self::Disabled => false,
+            Self::All => true,
+            Self::Selected(s) => s.contains(category),
+        }
+    }
+}
+
+impl ShowSoftErrorConfig {
+    fn parse(s: &str) -> Self {
+        if s.is_empty() {
+            return Self::Disabled;
+        }
+        let val = s.to_lowercase();
+        if val == "true" || val == "1" {
+            return Self::All;
+        }
+        if let Some(categories) = val.strip_prefix("only=") {
+            return Self::Selected(categories.split(',').map(|c| c.trim().to_owned()).collect());
+        }
+        Self::Disabled
+    }
+}
+
+static SHOW_SOFT_ERROR_CONFIG: ShowSoftErrorConfigHolder = ShowSoftErrorConfigHolder {
+    config: ArcSwapOption::const_empty(),
+};
+
+struct ShowSoftErrorConfigHolder {
+    config: ArcSwapOption<ShowSoftErrorConfig>,
+}
+
+impl ShowSoftErrorConfigHolder {
+    fn reload(&self, var_value: &str) {
+        let config = ShowSoftErrorConfig::parse(var_value);
+        if let Some(old_config) = &*self.config.load() {
+            if **old_config == config {
+                return;
+            }
+        }
+        self.config.store(Some(Arc::new(config)));
+    }
+}
+
+pub fn buck2_show_soft_errors_env() -> buck2_error::Result<Option<&'static str>> {
+    buck2_env!("BUCK2_SHOW_SOFT_ERRORS")
+}
+
+/// Reload the show soft error config from the client-provided value.
+/// Called on every command, mirroring `reload_hard_error_config`.
+pub fn reload_show_soft_error_config(var_value: &str) {
+    SHOW_SOFT_ERROR_CONFIG.reload(var_value);
+}
+
+fn should_show_soft_error(category: &str) -> bool {
+    match SHOW_SOFT_ERROR_CONFIG.config.load_full() {
+        Some(config) => config.should_show(category),
+        None => false,
+    }
+}
+
 static HARD_ERROR_CONFIG: HardErrorConfigHolder = HardErrorConfigHolder {
     config: ArcSwapOption::const_empty(),
 };
@@ -198,6 +268,11 @@ pub fn handle_soft_error(
     once.call_once(|| {
         ALL_SOFT_ERROR_COUNTERS.lock().unwrap().push(count);
     });
+
+    let mut options = options;
+    if options.quiet && should_show_soft_error(category) {
+        options.quiet = false;
+    }
 
     // We want to limit each error to appearing at most 10 times in a build (no point spamming people)
     if count.fetch_add(1, Ordering::SeqCst) < 10 {

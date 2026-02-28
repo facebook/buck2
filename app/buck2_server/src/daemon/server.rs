@@ -41,6 +41,7 @@ use buck2_common::memory;
 use buck2_common::sqlite::sqlite_db::SqliteIdentity;
 use buck2_core::buck2_env;
 use buck2_core::error::reload_hard_error_config;
+use buck2_core::error::reload_show_soft_error_config;
 use buck2_core::error::reset_soft_error_counters;
 use buck2_core::fs::project::ProjectRoot;
 use buck2_core::logging::LogConfigurationReloadHandle;
@@ -438,6 +439,7 @@ impl BuckdServer {
         reset_soft_error_counters();
 
         reload_hard_error_config(&client_ctx.buck2_hard_error)?;
+        reload_show_soft_error_config(&client_ctx.buck2_show_soft_errors);
 
         OneshotCommandOptions::pre_run(&opts, self)?;
 

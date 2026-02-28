@@ -154,6 +154,9 @@ message ClientContext {
   /// Contents of `BUCK2_HARD_ERROR` environment variable.
   string buck2_hard_error = 20;
 
+  /// Contents of `BUCK2_SHOW_SOFT_ERRORS` environment variable.
+  string buck2_show_soft_errors = 26;
+
   enum PreemptibleWhen {
     /// Default
     NEVER = 0;
