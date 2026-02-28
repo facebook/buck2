@@ -201,6 +201,14 @@ def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
                     incremental_enabled = ctx.attrs.incremental_enabled,
                 ),
                 MetadataKind("fast"): meta_fast,
+                MetadataKind("miri"): rust_compile(
+                    ctx = ctx,
+                    compile_ctx = compile_ctx,
+                    emit = Emit("miri"),
+                    params = params,
+                    default_roots = _DEFAULT_ROOTS,
+                    incremental_enabled = ctx.attrs.incremental_enabled,
+                ),
             }
 
             subtargets_to_add = {}

@@ -73,6 +73,12 @@ rust_toolchain_attrs = {
     "rustdoc": provider_field(RunInfo | None, default = None),
     # Clippy (linter) version of the compiler
     "clippy_driver": provider_field(RunInfo | None, default = None),
+    # The Miri driver binary
+    "miri_driver": provider_field(RunInfo | None, default = None),
+    # Pre-built Miri sysroot (std compiled with -Zalways-encode-mir)
+    "miri_sysroot_path": provider_field(Artifact | None, default = None),
+    # Default Miri flags (e.g. ["-Zmiri-disable-isolation"])
+    "miri_flags": provider_field(list[typing.Any], default = []),
     # The default edition to use, if not specified.
     "default_edition": provider_field(str | None, default = None),
     # Lints
