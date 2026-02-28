@@ -69,5 +69,5 @@ dice_futures = { workspace = true }
 assert_matches = { workspace = true }
 prost-types = { workspace = true }
 
-[lints.rust]
-unexpected_cfgs = { level = "warn", check-cfg = ["cfg(fbcode_build)"] }
+[lints]
+workspace = true

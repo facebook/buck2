@@ -27,7 +27,7 @@ relative-path = { workspace = true }
 sequence_trie = { workspace = true }
 serde = { workspace = true }
 smallvec = { workspace = true }
-starlark_map = { workspace = true, features = ["pagable"] }
+starlark_map = { workspace = true, features = ["pagable_dep"] }
 static_assertions = { workspace = true }
 strong_hash = { workspace = true }
 tempfile = { workspace = true }
@@ -58,5 +58,5 @@ assert_matches = { workspace = true }
 serde_json = { workspace = true }
 test-case = { workspace = true }
 
-[lints.rust]
-unexpected_cfgs = { level = "warn", check-cfg = ["cfg(fbcode_build)"] }
+[lints]
+workspace = true

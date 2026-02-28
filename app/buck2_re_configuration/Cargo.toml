@@ -12,5 +12,5 @@ buck2_common = { workspace = true }
 buck2_core = { workspace = true }
 buck2_error = { workspace = true }
 
-[lints.rust]
-unexpected_cfgs = { level = "warn", check-cfg = ["cfg(fbcode_build)"] }
+[lints]
+workspace = true

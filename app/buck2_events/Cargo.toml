@@ -35,5 +35,5 @@ buck2_wrapper_common = { workspace = true }
 [target."cfg(windows)".dependencies]
 winver = "1"
 
-[lints.rust]
-unexpected_cfgs = { level = "warn", check-cfg = ["cfg(fbcode_build)"] }
+[lints]
+workspace = true
