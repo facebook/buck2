@@ -173,6 +173,7 @@ fn unpack_target_compatible_with_attr(
 
     struct AttrConfigurationContextToResolveCompatibleWith<'c> {
         resolved_cfg: &'c MatchedConfigurationSettingKeysWithCfg,
+        label: TargetLabel,
     }
 
     impl AttrConfigurationContext for AttrConfigurationContextToResolveCompatibleWith<'_> {
@@ -182,6 +183,10 @@ fn unpack_target_compatible_with_attr(
 
         fn cfg(&self) -> ConfigurationNoExec {
             self.resolved_cfg.cfg().dupe()
+        }
+
+        fn target_label(&self) -> Option<&TargetLabel> {
+            Some(&self.label)
         }
 
         fn base_exec_cfg(&self) -> buck2_error::Result<ConfigurationNoExec> {
@@ -215,7 +220,10 @@ fn unpack_target_compatible_with_attr(
     }
 
     let attr = attr
-        .configure(&AttrConfigurationContextToResolveCompatibleWith { resolved_cfg })
+        .configure(&AttrConfigurationContextToResolveCompatibleWith {
+            resolved_cfg,
+            label: target_node.label().dupe(),
+        })
         .with_buck_error_context(|| format!("Error configuring attribute `{}`", attr.name))?;
 
     match attr.value.unpack_list() {
@@ -570,6 +578,7 @@ async fn resolve_transition_attrs<'a>(
         matched_cfg_keys: &'c MatchedConfigurationSettingKeysWithCfg,
         toolchain_cfg: ConfigurationWithExec,
         platform_cfgs: &'c OrderedMap<TargetLabel, ConfigurationData>,
+        label: TargetLabel,
     }
 
     impl AttrConfigurationContext for AttrConfigurationContextToResolveTransitionAttrs<'_> {
@@ -579,6 +588,10 @@ async fn resolve_transition_attrs<'a>(
 
         fn cfg(&self) -> ConfigurationNoExec {
             self.matched_cfg_keys.cfg().dupe()
+        }
+
+        fn target_label(&self) -> Option<&TargetLabel> {
+            Some(&self.label)
         }
 
         fn base_exec_cfg(&self) -> buck2_error::Result<ConfigurationNoExec> {
@@ -613,6 +626,7 @@ async fn resolve_transition_attrs<'a>(
         toolchain_cfg: matched_cfg_keys
             .cfg()
             .make_toolchain(&ConfigurationNoExec::unbound_exec()),
+        label: target_node.label().dupe(),
     };
     let mut result = OrderedMap::default();
     for tr in transitions {
@@ -742,6 +756,7 @@ async fn compute_configured_target_node_no_transition(
         &unspecified_resolution,
         &resolved_transitions,
         &platform_cfgs,
+        Some(target_label.unconfigured().dupe()),
     );
     let (gathered_deps, mut errors_and_incompats) = gather_deps(
         partial_target_label,

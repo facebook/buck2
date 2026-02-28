@@ -671,6 +671,7 @@ impl<'a> ConfiguredTargetNodeRef<'a> {
             &self.0.get().execution_platform_resolution,
             &self.0.get().resolved_transition_configurations,
             &self.0.get().platform_cfgs,
+            Some(self.0.get().label.key().unconfigured().dupe()),
         )
     }
 

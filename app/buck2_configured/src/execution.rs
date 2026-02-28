@@ -236,6 +236,7 @@ impl ToolchainExecutionPlatformCompatibilityKey {
             &unspecified_resolution,
             &resolved_transitions,
             &platform_cfgs,
+            Some(self.target.unconfigured().dupe()),
         );
         let (gathered_deps, errors_and_incompats) =
             gather_deps(&self.target, node.as_ref(), &cfg_ctx, ctx).await?;
@@ -323,6 +324,7 @@ pub(crate) async fn get_execution_platform_toolchain_dep(
             &unspecified_resolution,
             &resolved_transitions,
             &platform_cfgs,
+            Some(target_label.unconfigured().dupe()),
         );
         let (gathered_deps, errors_and_incompats) =
             gather_deps(target_label, target_node, &cfg_ctx, ctx).await?;

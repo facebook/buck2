@@ -41,6 +41,13 @@ pub trait AttrConfigurationContext {
 
     fn cfg(&self) -> ConfigurationNoExec;
 
+    /// The target label whose attributes are being configured.
+    /// Used for diagnostics (select_first_match_differs soft error message).
+    // TODO(nero): clean this when we migrate to the first select match
+    fn target_label(&self) -> Option<&TargetLabel> {
+        None
+    }
+
     fn base_exec_cfg(&self) -> buck2_error::Result<ConfigurationNoExec>;
 
     /// Must be equal to `(cfg, Some(exec_cfg))`.
@@ -111,6 +118,7 @@ pub struct AttrConfigurationContextImpl<'b> {
     /// The execution platform resolution, which contains per-exec_dep configurations
     /// when in the Resolved state.
     execution_platform_resolution: &'b ExecutionPlatformResolution,
+    label: Option<TargetLabel>,
 }
 
 impl<'b> AttrConfigurationContextImpl<'b> {
@@ -119,6 +127,7 @@ impl<'b> AttrConfigurationContextImpl<'b> {
         execution_platform_resolution: &'b ExecutionPlatformResolution,
         resolved_transitions: &'b OrderedMap<Arc<TransitionId>, Arc<TransitionApplied>>,
         platform_cfgs: &'b OrderedMap<TargetLabel, ConfigurationData>,
+        label: Option<TargetLabel>,
     ) -> AttrConfigurationContextImpl<'b> {
         let exec_cfg = execution_platform_resolution.base_cfg();
         AttrConfigurationContextImpl {
@@ -127,6 +136,7 @@ impl<'b> AttrConfigurationContextImpl<'b> {
             resolved_transitions,
             platform_cfgs,
             execution_platform_resolution,
+            label,
         }
     }
 }
@@ -138,6 +148,10 @@ impl AttrConfigurationContext for AttrConfigurationContextImpl<'_> {
 
     fn cfg(&self) -> ConfigurationNoExec {
         self.resolved_cfg.cfg().dupe()
+    }
+
+    fn target_label(&self) -> Option<&TargetLabel> {
+        self.label.as_ref()
     }
 
     fn base_exec_cfg(&self) -> buck2_error::Result<ConfigurationNoExec> {

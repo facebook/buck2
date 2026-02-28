@@ -677,13 +677,18 @@ impl CoercedAttr {
                         .iter()
                         .map(|(k, _, _)| format!("  `{}`", k))
                         .join("\n");
+                    let target_info = ctx
+                        .target_label()
+                        .map_or("<unknown>".to_owned(), |l| l.to_string());
                     let _unused = soft_error!(
                         "select_first_match_differs",
                         buck2_error!(
                             buck2_error::ErrorTag::Input,
-                            "First matching select key `{}` has different value than most specific match `{}`.\n\
+                            "Target `{}`:\n\
+                            First matching select key `{}` has different value than most specific match `{}`.\n\
                             All matched keys:\n{}\n\
                             Select expression: {}",
+                            target_info,
                             first_key,
                             most_specific_key.map_or("<unknown>".to_owned(), |k| k.to_string()),
                             all_matched_keys,
