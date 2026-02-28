@@ -34,7 +34,8 @@ def set_cfg_modifiers(
         # Now check the old bzl file for `set_cfg_modifiers` in case it is invoked through that one.
         frame2 = call_stack_frame(2)
         if not (frame2 and frame1.module_path.endswith("fbcode/buck2/cfg/experimental/set_cfg_modifiers.bzl") and _is_buck_tree_file(frame2.module_path)):
-            fail("set_cfg_modifiers is only allowed to be used from a PACKAGE or BUCK_TREE file, not a bzl file.")
+            if not "third-party-buck" in frame2.module_path:
+                fail("set_cfg_modifiers is only allowed to be used from a PACKAGE or BUCK_TREE file, not a bzl file.")
 
     cfg_modifiers = cfg_modifiers or []
     extra_cfg_modifiers_per_rule = extra_cfg_modifiers_per_rule or {}
