@@ -34,7 +34,7 @@ impl<'a> CoercedAttrFull<'a> {
             attr: self.attr,
             value: self
                 .value
-                .configure(self.attr.coercer(), ctx)
+                .configure(self.attr.coercer(), ctx, Some(self.name))
                 .with_buck_error_context(|| format!("configuring attr `{}`", self.name))?,
         })
     }

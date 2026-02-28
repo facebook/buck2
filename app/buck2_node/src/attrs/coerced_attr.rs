@@ -654,6 +654,7 @@ impl CoercedAttr {
     fn select<'a>(
         ctx: &dyn AttrConfigurationContext,
         select: &'a CoercedSelector,
+        attr_name: Option<&str>,
     ) -> buck2_error::Result<&'a CoercedAttr> {
         let CoercedSelector { entries, default } = select;
         let matched_cfg_keys = ctx.matched_cfg_keys();
@@ -680,15 +681,18 @@ impl CoercedAttr {
                     let target_info = ctx
                         .target_label()
                         .map_or("<unknown>".to_owned(), |l| l.to_string());
+                    let attr_info = attr_name.unwrap_or("<unknown>");
                     let _unused = soft_error!(
                         "select_first_match_differs",
                         buck2_error!(
                             buck2_error::ErrorTag::Input,
-                            "Target `{}`:\n\
+                            "Target `{}` (configuration `{}`), attribute `{}`:\n\
                             First matching select key `{}` has different value than most specific match `{}`.\n\
                             All matched keys:\n{}\n\
                             Select expression: {}",
                             target_info,
+                            ctx.cfg().cfg(),
+                            attr_info,
                             first_key,
                             most_specific_key.map_or("<unknown>".to_owned(), |k| k.to_string()),
                             all_matched_keys,
@@ -721,22 +725,27 @@ impl CoercedAttr {
         &self,
         ty: &AttrType,
         ctx: &dyn AttrConfigurationContext,
+        // TODO(nero): Remove this parameter after we migrate to first select match.
+        // Attribute name, used for soft error message of select_first_match_differs
+        attr_name: Option<&str>,
     ) -> buck2_error::Result<ConfiguredAttr> {
-        self.configure_inner(ty, ctx).tag(ErrorTag::ConfigureAttr)
+        self.configure_inner(ty, ctx, attr_name)
+            .tag(ErrorTag::ConfigureAttr)
     }
 
     fn configure_inner(
         &self,
         ty: &AttrType,
         ctx: &dyn AttrConfigurationContext,
+        attr_name: Option<&str>,
     ) -> buck2_error::Result<ConfiguredAttr> {
         Ok(match CoercedAttrWithType::pack(self, ty)? {
             CoercedAttrWithType::Selector(select, t) => {
-                Self::select(ctx, select)?.configure(t, ctx)?
+                Self::select(ctx, select, attr_name)?.configure(t, ctx, attr_name)?
             }
             CoercedAttrWithType::Concat(items, t) => {
                 let singleton = items.len() == 1;
-                let mut it = items.iter().map(|item| item.configure(t, ctx));
+                let mut it = items.iter().map(|item| item.configure(t, ctx, attr_name));
                 let first = it
                     .next()
                     .ok_or_else(|| internal_error!("concat with no items"))??;
@@ -753,18 +762,18 @@ impl CoercedAttr {
                 ));
             }
             CoercedAttrWithType::AnyList(list) => ConfiguredAttr::List(ListLiteral(
-                list.try_map(|v| v.configure(AttrType::any_ref(), ctx))?
+                list.try_map(|v| v.configure(AttrType::any_ref(), ctx, attr_name))?
                     .into(),
             )),
             CoercedAttrWithType::AnyTuple(tuple) => ConfiguredAttr::Tuple(TupleLiteral(
                 tuple
-                    .try_map(|v| v.configure(AttrType::any_ref(), ctx))?
+                    .try_map(|v| v.configure(AttrType::any_ref(), ctx, attr_name))?
                     .into(),
             )),
             CoercedAttrWithType::AnyDict(dict) => ConfiguredAttr::Dict(DictLiteral(
                 dict.try_map(|(k, v)| {
-                    let k2 = k.configure(AttrType::any_ref(), ctx)?;
-                    let v2 = v.configure(AttrType::any_ref(), ctx)?;
+                    let k2 = k.configure(AttrType::any_ref(), ctx, attr_name)?;
+                    let v2 = v.configure(AttrType::any_ref(), ctx, attr_name)?;
                     buck2_error::Ok((k2, v2))
                 })?
                 .into(),
@@ -775,7 +784,8 @@ impl CoercedAttr {
             CoercedAttrWithType::String(v, _t) => ConfiguredAttr::String(v.dupe()),
             CoercedAttrWithType::EnumVariant(v, _t) => ConfiguredAttr::EnumVariant(v.dupe()),
             CoercedAttrWithType::List(list, t) => ConfiguredAttr::List(ListLiteral(
-                list.try_map(|v| v.configure(&t.inner, ctx))?.into(),
+                list.try_map(|v| v.configure(&t.inner, ctx, attr_name))?
+                    .into(),
             )),
             CoercedAttrWithType::Tuple(list, t) => {
                 if list.len() != t.xs.len() {
@@ -784,23 +794,23 @@ impl CoercedAttr {
                 ConfiguredAttr::Tuple(TupleLiteral(
                     list.iter()
                         .zip(&t.xs)
-                        .map(|(v, vt)| v.configure(vt, ctx))
+                        .map(|(v, vt)| v.configure(vt, ctx, attr_name))
                         .collect::<buck2_error::Result<_>>()?,
                 ))
             }
             CoercedAttrWithType::Dict(dict, t) => ConfiguredAttr::Dict(DictLiteral(
                 dict.try_map(|(k, v)| {
-                    let k2 = k.configure(&t.key, ctx)?;
-                    let v2 = v.configure(&t.value, ctx)?;
+                    let k2 = k.configure(&t.key, ctx, attr_name)?;
+                    let v2 = v.configure(&t.value, ctx, attr_name)?;
                     buck2_error::Ok((k2, v2))
                 })?
                 .into(),
             )),
             CoercedAttrWithType::None => ConfiguredAttr::None,
-            CoercedAttrWithType::Some(attr, t) => attr.configure(&t.inner, ctx)?,
+            CoercedAttrWithType::Some(attr, t) => attr.configure(&t.inner, ctx, attr_name)?,
             CoercedAttrWithType::OneOf(l, i, t) => {
                 let item_ty = &t.xs[i as usize];
-                let configured = l.configure(item_ty, ctx)?;
+                let configured = l.configure(item_ty, ctx, attr_name)?;
                 ConfiguredAttr::OneOf(Box::new(configured), i)
             }
             CoercedAttrWithType::Visibility(v, _) => ConfiguredAttr::Visibility(v.clone()),
