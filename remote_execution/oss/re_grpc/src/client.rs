@@ -744,7 +744,7 @@ impl REClient {
 
         let request = GExecuteRequest {
             instance_name: self.instance_name.as_str().to_owned(),
-            skip_cache_lookup: false,
+            skip_cache_lookup: execute_request.skip_cache_lookup,
             execution_policy: Some(ExecutionPolicy {
                 priority: execute_request
                     .execution_policy
