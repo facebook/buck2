@@ -16,6 +16,7 @@ import com.android.ddmlib.CollectingOutputReceiver;
 import com.android.ddmlib.IDevice;
 import com.android.ddmlib.ShellCommandUnresponsiveException;
 import com.android.ddmlib.TimeoutException;
+import com.facebook.buck.android.exopackage.AdbUtils;
 import com.google.common.annotations.VisibleForTesting;
 import java.io.IOException;
 import java.net.InetAddress;
@@ -25,7 +26,7 @@ import java.nio.file.Paths;
 
 public class DeviceRunner {
 
-  private static final long ADB_CONNECT_TIMEOUT_MS = 5000;
+  private static final long ADB_CONNECT_TIMEOUT_MS = 30000;
   private static final long ADB_CONNECT_TIME_STEP_MS = ADB_CONNECT_TIMEOUT_MS / 10;
   private static final String ADB_PATH = "ADB_PATH";
   private static final String PWD = "PWD";
@@ -163,9 +164,7 @@ public class DeviceRunner {
   }
 
   @Nullable
-  private IDevice getDevice(String serial) throws InterruptedException {
-    AndroidDebugBridge adb = getADB();
-
+  private IDevice findDeviceInBridge(AndroidDebugBridge adb, String serial) {
     IDevice[] allDevices = adb.getDevices();
     for (IDevice device : allDevices) {
       if (device.getSerialNumber().equals(serial)) {
@@ -173,6 +172,61 @@ public class DeviceRunner {
       }
     }
     return null;
+  }
+
+  /**
+   * Returns true if the serial looks like a TCP-connected device (host:port format), which is
+   * typical for emulators connected via {@code adb connect}.
+   */
+  private static boolean isTcpDevice(String serial) {
+    return serial != null && serial.contains(":");
+  }
+
+  /**
+   * Runs {@code adb connect <serial>} to ensure the ADB server managed by ddmlib knows about a
+   * TCP-connected device (e.g., an emulator). This is necessary because the ddmlib bridge may
+   * connect to a different ADB server instance than the one that originally had the device
+   * connected.
+   */
+  private void connectTcpDevice(String serial) {
+    try {
+      AdbUtils adbUtils = new AdbUtils(getAdbPath(), 0);
+      String result = adbUtils.executeAdbCommand("connect " + serial, null, true);
+      System.err.println("adb connect " + serial + ": " + result.trim());
+    } catch (Exception e) {
+      System.err.println("Failed to run adb connect " + serial + ": " + e.getMessage());
+    }
+  }
+
+  @Nullable
+  private IDevice getDevice(String serial) throws InterruptedException {
+    AndroidDebugBridge adb = getADB();
+
+    IDevice device = findDeviceInBridge(adb, serial);
+    if (device != null) {
+      return device;
+    }
+
+    // For TCP-connected devices (e.g., emulators at host:port), the ddmlib bridge may be
+    // connected to an ADB server that doesn't know about this device. Run "adb connect" to
+    // register the device with the ADB server, then wait for ddmlib to pick it up.
+    if (isTcpDevice(serial)) {
+      System.err.println("Device " + serial + " not found via ddmlib, attempting adb connect...");
+      connectTcpDevice(serial);
+
+      // Wait for ddmlib to discover the newly-connected device
+      long start = System.currentTimeMillis();
+      while (device == null) {
+        long timeLeft = start + ADB_CONNECT_TIMEOUT_MS - System.currentTimeMillis();
+        if (timeLeft <= 0) {
+          break;
+        }
+        Thread.sleep(ADB_CONNECT_TIME_STEP_MS);
+        device = findDeviceInBridge(adb, serial);
+      }
+    }
+
+    return device;
   }
 
   @Nullable

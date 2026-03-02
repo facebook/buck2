@@ -781,10 +781,7 @@ public class InstrumentationTestRunner extends DeviceRunner {
 
     try {
       RemoteAndroidTestRunner runner =
-          new RemoteAndroidTestRunner(
-              this.packageName,
-              this.testRunner,
-              getAndroidDevice(deviceArgs.autoRunOnConnectedDevice, deviceArgs.deviceSerial));
+          new RemoteAndroidTestRunner(this.packageName, this.testRunner, this.device);
 
       for (Map.Entry<String, String> entry : this.extraInstrumentationArguments.entrySet()) {
         runner.addInstrumentationArg(
