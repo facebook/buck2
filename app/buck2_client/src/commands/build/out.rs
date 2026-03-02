@@ -538,7 +538,8 @@ mod tests {
         Ok(())
     }
 
-    #[cfg(unix)]
+    #[cfg(fbcode_build)] // @oss-enable
+    // @oss-disable: #[cfg(unix)]
     mod unix {
 
         use assert_matches::assert_matches;

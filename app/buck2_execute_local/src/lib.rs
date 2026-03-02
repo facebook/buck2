@@ -273,9 +273,9 @@ where
         let stdout = InterruptibleAsyncRead::<_, Drainer<_>>::new(stdout);
         let stderr = InterruptibleAsyncRead::<_, Drainer<_>>::new(stderr);
         let stdout = FramedRead::new(stdout, BytesCodec::new())
-            .map(|data| Ok(StdioEvent::Stdout(data?.freeze())));
+            .map(|data: Result<bytes::BytesMut, std::io::Error>| Ok(StdioEvent::Stdout(data?.freeze())));
         let stderr = FramedRead::new(stderr, BytesCodec::new())
-            .map(|data| Ok(StdioEvent::Stderr(data?.freeze())));
+            .map(|data: Result<bytes::BytesMut, std::io::Error>| Ok(StdioEvent::Stderr(data?.freeze())));
 
         futures::stream::select(stdout, stderr).left_stream()
     } else {
@@ -472,6 +472,7 @@ mod tests {
     use std::str::FromStr;
     use std::sync::Arc;
     use std::sync::Mutex;
+    #[cfg(fbcode_build)]
     use std::time::Instant;
 
     use assert_matches::assert_matches;
@@ -557,6 +558,7 @@ mod tests {
         Ok(())
     }
 
+    #[cfg(fbcode_build)]
     #[tokio::test]
     async fn test_gather_output_timeout() -> buck2_error::Result<()> {
         let now = Instant::now();
@@ -590,7 +592,8 @@ mod tests {
         Ok(())
     }
 
-    #[cfg(unix)]
+    #[cfg(fbcode_build)] // @oss-enable
+    // @oss-disable: #[cfg(unix)]
     #[tokio::test]
     async fn test_spawn_retry_txt_busy() -> buck2_error::Result<()> {
         use tokio::fs::OpenOptions;
@@ -626,6 +629,7 @@ mod tests {
         Ok(())
     }
 
+    #[cfg(fbcode_build)]
     #[tokio::test]
     async fn test_spawn_retry_other_error() -> buck2_error::Result<()> {
         let tempdir = tempfile::tempdir()?;

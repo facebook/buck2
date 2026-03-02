@@ -17,7 +17,7 @@ load("@prelude//toolchains:haskell.bzl", "system_haskell_toolchain")
 load("@prelude//toolchains:java.bzl", "java_test_toolchain", "javacd_toolchain", "system_java_bootstrap_toolchain", "system_java_lib", "system_java_tool", "system_prebuilt_jar_bootstrap_toolchain")
 load("@prelude//toolchains:kotlin.bzl", "kotlincd_toolchain", "system_kotlin_bootstrap_toolchain")
 load("@prelude//toolchains:ocaml.bzl", "system_ocaml_toolchain")
-load("@prelude//toolchains:python.bzl", "remote_python_toolchain")
+load("@prelude//toolchains:python.bzl", "python_wheel_toolchain", "remote_python_toolchain")
 load("@prelude//toolchains:remote_test_execution.bzl", "remote_test_execution_toolchain")
 load("@prelude//toolchains:rust.bzl", "system_rust_toolchain")
 load("@prelude//toolchains:zip_file.bzl", "zip_file_toolchain")
@@ -226,6 +226,25 @@ def system_demo_toolchains():
 
     remote_python_toolchain(
         name = "python",
+        visibility = ["PUBLIC"],
+    )
+
+    python_wheel_toolchain(
+        name = "python_wheel",
+        platform = select({
+            "prelude//os:linux": select({
+                "prelude//cpu:arm64": "linux_aarch64",
+                "prelude//cpu:x86_64": "linux_x86_64",
+            }),
+            "prelude//os:macos": select({
+                "prelude//cpu:arm64": "macosx_11_0_arm64",
+                "prelude//cpu:x86_64": "macosx_10_9_x86_64",
+            }),
+            "prelude//os:windows": select({
+                "prelude//cpu:arm64": "win_arm64",
+                "prelude//cpu:x86_64": "win_amd64",
+            }),
+        }),
         visibility = ["PUBLIC"],
     )
 

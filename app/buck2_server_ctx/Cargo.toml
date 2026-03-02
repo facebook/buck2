@@ -46,3 +46,6 @@ starlark_map = { workspace = true }
 assert_matches = { workspace = true }
 derivative = { workspace = true }
 tokio = { workspace = true }
+
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ["cfg(fbcode_build)"] }

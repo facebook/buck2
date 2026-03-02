@@ -1,0 +1,36 @@
+load("@prelude//utils:source_listing.bzl", "source_listing")
+
+oncall("build_infra")
+
+source_listing()
+
+# Build mode constraints for OSS
+
+constraint_setting(
+    name = "build_mode",
+    visibility = ["PUBLIC"],
+)
+
+constraint_value(
+    name = "static",
+    constraint_setting = ":build_mode",
+    visibility = ["PUBLIC"],
+)
+
+constraint_value(
+    name = "static_pic",
+    constraint_setting = ":build_mode",
+    visibility = ["PUBLIC"],
+)
+
+constraint_value(
+    name = "opt",
+    constraint_setting = ":build_mode",
+    visibility = ["PUBLIC"],
+)
+
+constraint_value(
+    name = "dev",
+    constraint_setting = ":build_mode",
+    visibility = ["PUBLIC"],
+)

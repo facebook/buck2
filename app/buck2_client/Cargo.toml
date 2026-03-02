@@ -52,3 +52,6 @@ buck2_wrapper_common = { workspace = true }
 [dev-dependencies]
 assert_matches = { workspace = true }
 tempfile = { workspace = true }
+
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ["cfg(fbcode_build)"] }

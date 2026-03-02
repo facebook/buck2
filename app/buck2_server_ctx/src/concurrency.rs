@@ -817,11 +817,15 @@ mod tests {
     use buck2_common::legacy_configs::dice::SetLegacyConfigs;
     use buck2_core::fs::project::ProjectRootTemp;
     use buck2_core::is_open_source;
+    #[cfg(fbcode_build)]
     use buck2_events::BuckEvent;
+    #[cfg(fbcode_build)]
     use buck2_events::create_source_sink_pair;
     use buck2_events::daemon_id::DaemonId;
     use buck2_events::sink::null::NullEventSink;
+    #[cfg(fbcode_build)]
     use buck2_events::source::ChannelEventSource;
+    #[cfg(fbcode_build)]
     use buck2_events::span::SpanId;
     use derivative::Derivative;
     use dice::DetectCycles;
@@ -1624,6 +1628,7 @@ mod tests {
         Ok(())
     }
 
+    #[cfg(fbcode_build)]
     async fn wait_for_event<F>(
         source: &mut ChannelEventSource,
         matcher: Box<F>,
@@ -1648,6 +1653,7 @@ mod tests {
         .buck_error_context("Time out waiting for matching buck event")
     }
 
+    #[cfg(fbcode_build)]
     async fn wait_for_exclusive_span_start(
         source: &mut ChannelEventSource,
         cmd: Option<&str>,
@@ -1673,6 +1679,7 @@ mod tests {
         .span_id())
     }
 
+    #[cfg(fbcode_build)]
     async fn wait_for_exclusive_span_end(
         source: &mut ChannelEventSource,
         span_id: Option<SpanId>,
@@ -1693,6 +1700,7 @@ mod tests {
         .await
     }
 
+    #[cfg(fbcode_build)]
     #[tokio::test]
     async fn exclusive_command_lock() -> buck2_error::Result<()> {
         let dice = make_default_dice().await;
