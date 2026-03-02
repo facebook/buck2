@@ -31,7 +31,6 @@ NativeLinkStrategy = enum(
 PackageStyle = enum(
     "inplace",
     "standalone",
-    "inplace_lite",
     # Similar to inplace, but generate copies instead of symlinks
     "outplace",
 )

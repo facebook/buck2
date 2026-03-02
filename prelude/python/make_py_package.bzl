@@ -456,7 +456,7 @@ def _make_py_package_impl(
         allow_cache_upload: bool) -> PexProviders:
     name = "{}{}".format(ctx.attrs.name, output_suffix)
     standalone = package_style == PackageStyle("standalone")
-    inplace = package_style in [PackageStyle("inplace"), PackageStyle("inplace_lite")]
+    inplace = package_style == PackageStyle("inplace")
 
     runtime_files = []
     sub_targets = {}
@@ -855,9 +855,6 @@ def _pex_bootstrap_args(
 
     cmd.add(["--main-runner", toolchain.main_runner])
 
-    # Package style `inplace_lite` cannot be used with shared libraries
-    if package_style == PackageStyle("inplace_lite") and not shared_libraries:
-        cmd.add("--use-lite")
     cmd.add(output.as_output())
 
     if package_style == PackageStyle("standalone") and not zip_safe:
