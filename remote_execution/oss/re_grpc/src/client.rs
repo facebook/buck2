@@ -1637,7 +1637,7 @@ where
                         // These should be small files, so no need to use a buffered reader.
                         let mut fin = tokio::fs::File::open(&file.name)
                             .await
-                            .with_context(|| format!("Opening {} for writing failed", file.name))?;
+                            .with_context(|| format!("Opening {} for reading failed", file.name))?;
                         let mut data = vec![];
                         fin.read_to_end(&mut data).await?;
 
