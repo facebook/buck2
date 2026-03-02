@@ -474,6 +474,18 @@ impl BuckdServer {
             enable_stable_revision_check: system_warning_config.enable_stable_revision_check,
             enable_health_check_process_isolation: system_warning_config
                 .enable_health_check_process_isolation,
+            daemon_cgroup_path: {
+                #[cfg(unix)]
+                {
+                    data.memory_tracker
+                        .as_ref()
+                        .map(|mt| mt.cgroup_tree.allprocs().path().to_string())
+                }
+                #[cfg(not(unix))]
+                {
+                    None
+                }
+            },
         });
 
         // Fire off a snapshot before we start doing anything else. We use the metrics emitted here

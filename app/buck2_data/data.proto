@@ -3085,6 +3085,7 @@ message SystemInfo {
   optional string optin_vpn_check_targets_regex = 8;
   optional bool enable_stable_revision_check = 9;
   optional bool enable_health_check_process_isolation = 10;
+  optional string daemon_cgroup_path = 11;
 }
 
 message CpuCounter {
