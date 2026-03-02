@@ -31,22 +31,17 @@ GoPackageInfo = provider(
 
 GoPkg = record(
     # We have to produce allways shared (PIC) and non-shared (non-PIC) archives
-    pkg = field(Artifact),
-    pkg_shared = field(Artifact),
+    archive_file = field(Artifact),
+    archive_file_shared = field(Artifact),
     # The content of export_file and export_file_shared is likely to be the same
     # but we need to produce both to avoid running compilation twice.
     export_file = field(Artifact),
     export_file_shared = field(Artifact),
 )
 
-StdPkg = record(
-    a_file = field(Artifact),
-    a_file_shared = field(Artifact),
-)
-
 GoStdlibDynamicValue = provider(
     fields = {
-        "pkgs": provider_field(dict[str, StdPkg]),
+        "pkgs": provider_field(dict[str, GoPkg]),
     },
 )
 
@@ -83,7 +78,7 @@ def pkg_artifacts(pkgs: dict[str, GoPkg], shared: bool) -> dict[str, Artifact]:
     Return a map package name to a `shared` or `static` package artifact.
     """
     return {
-        name: pkg.pkg_shared if shared else pkg.pkg
+        name: pkg.archive_file_shared if shared else pkg.archive_file
         for name, pkg in pkgs.items()
     }
 
@@ -98,7 +93,7 @@ def export_files(pkgs: dict[str, GoPkg], shared: bool) -> dict[str, Artifact]:
 
 def make_compile_importcfg(
         actions: AnalysisActions,
-        stdlib_deps: dict[str, StdPkg],
+        stdlib_deps: dict[str, GoPkg],
         deps: dict[str, GoPkg],
         imports: set[str],
         has_cgo_files: bool,
@@ -127,14 +122,13 @@ def make_compile_importcfg(
         a_files.append(pkg_)
         provided_pkgs.add(name_)
 
-    for name_, pkg_ in stdlib_deps.items():
+    for name_, pkg_ in export_files(stdlib_deps, shared).items():
         # skip packages not used by the current package
         if name_ not in required_pkgs:
             continue
 
-        a_file = pkg_.a_file_shared if shared else pkg_.a_file
-        content.append(cmd_args("packagefile ", name_, "=", a_file, delimiter = "", hidden = [a_file]))
-        a_files.append(a_file)
+        content.append(cmd_args("packagefile ", name_, "=", pkg_, delimiter = "", hidden = [pkg_]))
+        a_files.append(pkg_)
         provided_pkgs.add(name_)
 
     if len(provided_pkgs) != len(required_pkgs):
@@ -151,7 +145,7 @@ def make_compile_importcfg(
 
 def make_link_importcfg(
         actions: AnalysisActions,
-        stdlib_deps: dict[str, StdPkg],
+        stdlib_deps: dict[str, GoPkg],
         deps: dict[str, GoPkg],
         shared: bool) -> Artifact:
     content, a_files = [], []
@@ -159,10 +153,9 @@ def make_link_importcfg(
         content.append(cmd_args("packagefile ", name_, "=", pkg_, delimiter = "", hidden = [pkg_]))
         a_files.append(pkg_)
 
-    for name_, pkg_ in stdlib_deps.items():
-        a_file = pkg_.a_file_shared if shared else pkg_.a_file
-        content.append(cmd_args("packagefile ", name_, "=", a_file, delimiter = "", hidden = [a_file]))
-        a_files.append(a_file)
+    for name_, pkg_ in pkg_artifacts(stdlib_deps, shared).items():
+        content.append(cmd_args("packagefile ", name_, "=", pkg_, delimiter = "", hidden = [pkg_]))
+        a_files.append(pkg_)
 
     importcfg = actions.declare_output("{}.importcfg".format("shared" if shared else "non_shared"), has_content_based_path = True)
     actions.write(importcfg, content)

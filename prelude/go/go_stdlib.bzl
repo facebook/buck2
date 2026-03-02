@@ -8,7 +8,7 @@
 
 load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxToolchainInfo")
 load("@prelude//cxx:target_sdk_version.bzl", "get_target_sdk_version_flags")
-load(":packages.bzl", "GoStdlib", "GoStdlibDynamicValue", "StdPkg")
+load(":packages.bzl", "GoPkg", "GoStdlib", "GoStdlibDynamicValue")
 load(":toolchain.bzl", "GoToolchainInfo", "evaluate_cgo_enabled", "get_toolchain_env_vars")
 
 def go_stdlib_impl(ctx: AnalysisContext) -> list[Provider]:
@@ -118,9 +118,13 @@ def _produce_dynamic_value_impl(actions: AnalysisActions, go_list_stdlib_out: Ar
         if import_path in ["unsafe", "builtin"]:
             continue  # skip fake packages
 
-        pkgs[import_path] = StdPkg(
-            a_file = pkgdir.project(import_path + ".a"),
-            a_file_shared = pkgdir_shared.project(import_path + ".a"),
+        pkgs[import_path] = GoPkg(
+            archive_file = pkgdir.project(import_path + ".a"),
+            archive_file_shared = pkgdir_shared.project(import_path + ".a"),
+            # export files are exactly the same as archive files, on purpose
+            # as `go build` doesn't support splitting them.
+            export_file = pkgdir.project(import_path + ".a"),
+            export_file_shared = pkgdir_shared.project(import_path + ".a"),
         )
 
     return [

@@ -277,7 +277,7 @@ def _link_impl(
     go_stdlib_value = go_stdlib_value.providers[GoStdlibDynamicValue]
 
     importcfg = make_link_importcfg(actions, go_stdlib_value.pkgs, deps_pkgs, shared)
-    main_pkg_o = main_pkg.pkg_shared if shared else main_pkg.pkg
+    main_pkg_o = main_pkg.archive_file_shared if shared else main_pkg.archive_file
 
     cmd = [
         link_args,

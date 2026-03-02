@@ -21,7 +21,7 @@ load(
 )
 load(":go_error_handler.bzl", "go_build_error_handler")
 load(":go_list.bzl", "go_list", "parse_go_list_out")
-load(":packages.bzl", "GoPackageInfo", "GoPkg", "GoStdlib", "GoStdlibDynamicValue", "StdPkg", "make_compile_importcfg", "merge_pkgs")
+load(":packages.bzl", "GoPackageInfo", "GoPkg", "GoStdlib", "GoStdlibDynamicValue", "make_compile_importcfg", "merge_pkgs")
 load(":toolchain.bzl", "GoToolchainInfo", "get_toolchain_env_vars")
 
 def build_package_wrapper(
@@ -99,8 +99,8 @@ def build_package_wrapper(
         test_go_files_argsfile = test_go_files_argsfile.as_output(),
     ))
     return GoPkg(
-        pkg = out_a,
-        pkg_shared = out_shared_a,
+        archive_file = out_a,
+        archive_file_shared = out_shared_a,
         export_file = out_x,
         export_file_shared = out_shared_x,
     ), GoPackageInfo(
@@ -240,7 +240,7 @@ BuildPackageParams = record(
     cgo_cppflags = field(list[str]),
     coverage_mode = field(GoCoverageMode | None),
     deps = field(dict[str, GoPkg]),
-    stdlib_deps = field(dict[str, StdPkg]),
+    stdlib_deps = field(dict[str, GoPkg]),
 )
 BuildPackageResult = record(
     a_file = field(Artifact),

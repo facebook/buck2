@@ -71,7 +71,7 @@ def go_library_impl(ctx: AnalysisContext) -> list[Provider]:
         cgo_enabled = evaluate_cgo_enabled(cxx_toolchain_available, ctx.attrs._cgo_enabled, ctx.attrs.override_cgo_enabled),
     )
 
-    default_output = _combine_package(ctx, pkg_import_path, pkg.pkg, pkg.export_file)
+    default_output = _combine_package(ctx, pkg_import_path, pkg.archive_file, pkg.export_file)
     pkgs = {
         pkg_import_path: pkg,
     }
