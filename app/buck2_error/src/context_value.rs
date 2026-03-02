@@ -134,7 +134,7 @@ impl std::fmt::Display for StarlarkContext {
             self.error_msg.as_str(),
             false,
         );
-        write!(f, "{}\n{}", self.call_stack, span)
+        write!(f, "{}\n{}", span, self.call_stack)
     }
 }
 

@@ -82,11 +82,7 @@ Error evaluating expression:
 
 Caused by:
     0: Error evaluating build file: `root//:TARGETS.fixture`
-    1: Traceback (most recent call last):
-         * TARGETS.fixture:51, in <module>
-             error_rule(
-       
-       error: Error coercing attribute `data` of `root//:foo2`
+    1: error: Error coercing attribute `data` of `root//:foo2`
          --> TARGETS.fixture:51:1
           |
        51 | / error_rule(
@@ -95,6 +91,10 @@ Caused by:
        54 | | )
           | |_^
           |
+       Traceback (most recent call last):
+         * TARGETS.fixture:51, in <module>
+             error_rule(
+       
     2: Error coercing attribute `data` of type `attrs.string()`
     3: Error coercing "bad use"
     4: Expected `str`, but got `SelectFail (repr: "bad use")`
