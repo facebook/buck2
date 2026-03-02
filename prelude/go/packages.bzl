@@ -93,7 +93,6 @@ def export_files(pkgs: dict[str, GoPkg], shared: bool) -> dict[str, Artifact]:
 
 def make_compile_importcfg(
         actions: AnalysisActions,
-        stdlib_deps: dict[str, GoPkg],
         deps: dict[str, GoPkg],
         imports: set[str],
         has_cgo_files: bool,
@@ -122,15 +121,6 @@ def make_compile_importcfg(
         a_files.append(pkg_)
         provided_pkgs.add(name_)
 
-    for name_, pkg_ in export_files(stdlib_deps, shared).items():
-        # skip packages not used by the current package
-        if name_ not in required_pkgs:
-            continue
-
-        content.append(cmd_args("packagefile ", name_, "=", pkg_, delimiter = "", hidden = [pkg_]))
-        a_files.append(pkg_)
-        provided_pkgs.add(name_)
-
     if len(provided_pkgs) != len(required_pkgs):
         message = "cannot find package(s) (is your BUCK target missing deps?)\n"
         for imp in required_pkgs.difference(provided_pkgs):
@@ -145,15 +135,10 @@ def make_compile_importcfg(
 
 def make_link_importcfg(
         actions: AnalysisActions,
-        stdlib_deps: dict[str, GoPkg],
         deps: dict[str, GoPkg],
         shared: bool) -> Artifact:
     content, a_files = [], []
     for name_, pkg_ in pkg_artifacts(deps, shared).items():
-        content.append(cmd_args("packagefile ", name_, "=", pkg_, delimiter = "", hidden = [pkg_]))
-        a_files.append(pkg_)
-
-    for name_, pkg_ in pkg_artifacts(stdlib_deps, shared).items():
         content.append(cmd_args("packagefile ", name_, "=", pkg_, delimiter = "", hidden = [pkg_]))
         a_files.append(pkg_)
 

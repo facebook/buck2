@@ -276,7 +276,8 @@ def _link_impl(
         out: OutputArtifact) -> list[Provider]:
     go_stdlib_value = go_stdlib_value.providers[GoStdlibDynamicValue]
 
-    importcfg = make_link_importcfg(actions, go_stdlib_value.pkgs, deps_pkgs, shared)
+    deps = merge_pkgs([go_stdlib_value.pkgs, deps_pkgs])
+    importcfg = make_link_importcfg(actions, deps, shared)
     main_pkg_o = main_pkg.archive_file_shared if shared else main_pkg.archive_file
 
     cmd = [

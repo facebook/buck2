@@ -172,8 +172,7 @@ def _build_package_action_impl(
             cgo_cflags = go_list.cgo_cflags,
             cgo_cppflags = go_list.cgo_cppflags,
             coverage_mode = coverage_mode,
-            deps = deps_pkgs,
-            stdlib_deps = go_stdlib_value.pkgs,
+            deps = merge_pkgs([go_stdlib_value.pkgs, deps_pkgs]),
         ),
     )
 
@@ -240,7 +239,6 @@ BuildPackageParams = record(
     cgo_cppflags = field(list[str]),
     coverage_mode = field(GoCoverageMode | None),
     deps = field(dict[str, GoPkg]),
-    stdlib_deps = field(dict[str, GoPkg]),
 )
 BuildPackageResult = record(
     a_file = field(Artifact),
@@ -302,7 +300,6 @@ def build_package(
 
         importcfg = make_compile_importcfg(
             actions = actions,
-            stdlib_deps = params.stdlib_deps,
             deps = params.deps,
             imports = params.imports,
             has_cgo_files = len(params.cgo_files) > 0,
