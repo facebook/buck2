@@ -439,7 +439,7 @@ impl REClientBuilder {
                 max_concurrent_uploads_per_action: opts.max_concurrent_uploads_per_action,
                 // NOTE: This is an arbitrary number because RBE does not return information
                 // on the TTL of the remote blob.
-                cas_ttl_secs: opts.cas_ttl_secs.unwrap_or(60),
+                cas_ttl_secs: opts.cas_ttl_secs.unwrap_or(3 * 60 * 60),
             },
             grpc_clients,
             capabilities,
