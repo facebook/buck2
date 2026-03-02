@@ -106,7 +106,7 @@ def _driver(ctx):
         )
 
         if target.rule_type in importable_go_rules:
-            import_table[go_package_info.package_name] = _target_id(target)
+            import_table[go_package_info.pkg_import_path] = _target_id(target)
 
         artifacts_to_build.append(go_package_info.go_list_out)
 
