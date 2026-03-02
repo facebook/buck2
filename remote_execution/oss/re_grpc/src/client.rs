@@ -1529,7 +1529,7 @@ where
         let mut upload_segments = Vec::new();
         let mut buf = vec![0; max_total_batch_size];
         loop {
-            let n_read = reader.read(&mut buf).await.unwrap();
+            let n_read = reader.read(&mut buf).await?;
             if n_read == 0 {
                 break;
             }
