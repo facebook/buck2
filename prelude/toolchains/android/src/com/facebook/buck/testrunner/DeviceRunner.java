@@ -10,12 +10,8 @@
 
 package com.facebook.buck.testrunner;
 
-import com.android.ddmlib.AdbCommandRejectedException;
 import com.android.ddmlib.AndroidDebugBridge;
-import com.android.ddmlib.CollectingOutputReceiver;
 import com.android.ddmlib.IDevice;
-import com.android.ddmlib.ShellCommandUnresponsiveException;
-import com.android.ddmlib.TimeoutException;
 import com.facebook.buck.android.exopackage.AdbUtils;
 import com.google.common.annotations.VisibleForTesting;
 import java.io.IOException;
@@ -111,16 +107,6 @@ public class DeviceRunner {
 
     Path inputPath = Paths.get(input.substring(1));
     return new String(Files.readAllBytes(inputPath));
-  }
-
-  protected String executeAdbShellCommand(String command, IDevice device)
-      throws TimeoutException,
-          AdbCommandRejectedException,
-          ShellCommandUnresponsiveException,
-          IOException {
-    CollectingOutputReceiver receiver = new CollectingOutputReceiver();
-    device.executeShellCommand(command, receiver);
-    return receiver.getOutput();
   }
 
   @Nullable
