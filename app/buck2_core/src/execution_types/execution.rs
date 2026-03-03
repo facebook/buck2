@@ -14,7 +14,6 @@ use allocative::Allocative;
 use dupe::Dupe;
 use indent_write::indentable::Indentable;
 use itertools::Itertools;
-use once_cell::sync::Lazy;
 use once_cell::sync::OnceCell;
 use pagable::Pagable;
 use starlark_map::ordered_map::OrderedMap;
@@ -362,16 +361,6 @@ impl ExecutionPlatformResolution {
         match self.base() {
             Some(base) => base.executor_config(),
             None => Err(ExecutionPlatformError::NoCompatiblePlatform(Arc::new(Vec::new())).into()),
-        }
-    }
-
-    /// Get the per-exec_dep configurations.
-    /// Returns an empty map for Unspecified state.
-    pub fn exec_dep_cfgs(&self) -> &OrderedMap<TargetLabel, ConfigurationData> {
-        static EMPTY: Lazy<OrderedMap<TargetLabel, ConfigurationData>> = Lazy::new(OrderedMap::new);
-        match self {
-            Self::Unspecified => &EMPTY,
-            Self::Resolved { exec_dep_cfgs, .. } => exec_dep_cfgs,
         }
     }
 
