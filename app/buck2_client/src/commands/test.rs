@@ -258,6 +258,10 @@ impl StreamingCommand for TestCommand {
             .failed
             .as_ref()
             .ok_or_else(|| internal_error!("Missing `failed`"))?;
+        let timeout = statuses
+            .timed_out
+            .as_ref()
+            .ok_or_else(|| internal_error!("Missing `timed_out`"))?;
         let fatals = statuses
             .fatals
             .as_ref()
@@ -291,6 +295,7 @@ impl StreamingCommand for TestCommand {
         let columns = [
             TestCounterColumn::PASS,
             TestCounterColumn::FAIL,
+            TestCounterColumn::TIMEOUT,
             TestCounterColumn::FATAL,
             TestCounterColumn::SKIP,
             TestCounterColumn::OMIT,
@@ -305,11 +310,13 @@ impl StreamingCommand for TestCommand {
 
         print_error_counter(&console, listing_failed, "LISTINGS FAILED", "⚠")?;
         print_error_counter(&console, failed, "TESTS FAILED", "✗")?;
+        print_error_counter(&console, timeout, "TESTS TIMED OUT", "⏱")?;
         print_error_counter(&console, fatals, "TESTS FATALS", "⚠")?;
         print_error_counter(&console, infra_failure, "TESTS Infra Failed", "🛠")?;
 
         if passed.count
             + failed.count
+            + timeout.count
             + fatals.count
             + skipped.count
             + omitted.count

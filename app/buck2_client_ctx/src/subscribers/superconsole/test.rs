@@ -76,11 +76,11 @@ impl TestCounterColumn {
         get_from_test_state: |test_state| test_state.omitted,
         get_from_test_statues: |test_statuses| &test_statuses.omitted,
     };
-    const TIMEOUT: TestCounterColumn = TestCounterColumn {
+    pub const TIMEOUT: TestCounterColumn = TestCounterColumn {
         label: "Timeout",
         color: Some(Color::Yellow),
         get_from_test_state: |test_state| test_state.timeout,
-        get_from_test_statues: |_test_statuses| &None,
+        get_from_test_statues: |test_statuses| &test_statuses.timed_out,
     };
 
     pub const INFRA_FAILURE: TestCounterColumn = TestCounterColumn {

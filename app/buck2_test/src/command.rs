@@ -195,6 +195,7 @@ struct TestStatuses {
     skipped: CounterWithExamples,
     omitted: CounterWithExamples,
     failed: CounterWithExamples,
+    timed_out: CounterWithExamples,
     infra_failure: CounterWithExamples,
     fatals: CounterWithExamples,
     listing_success: CounterWithExamples,
@@ -208,7 +209,7 @@ impl TestStatuses {
             TestStatus::SKIP => self.skipped.add(&result.name),
             TestStatus::OMITTED => self.omitted.add(&result.name),
             TestStatus::FATAL => self.fatals.add(&result.name),
-            TestStatus::TIMEOUT => self.failed.add(&result.name),
+            TestStatus::TIMEOUT => self.timed_out.add(&result.name),
             TestStatus::INFRA_FAILURE => self.infra_failure.add(&result.name),
             TestStatus::UNKNOWN => {}
             TestStatus::RERUN => {}
@@ -237,6 +238,9 @@ enum TestError {
     Fatal,
     #[error("Infra Failure error encountered during test execution")]
     InfraFailure,
+    #[error("Test execution completed but some tests timed out")]
+    #[buck2(tag = Input)]
+    TestTimeout,
 }
 
 #[derive(Debug, buck2_error_derive::Error)]
@@ -346,6 +350,13 @@ fn test_executor_errors(
         if omitted.count > 0 {
             errors.push(buck2_data::ErrorReport::from(
                 &TestError::TestOmitted.into(),
+            ));
+        }
+    }
+    if let Some(timed_out) = &test_statuses.timed_out {
+        if timed_out.count > 0 {
+            errors.push(buck2_data::ErrorReport::from(
+                &TestError::TestTimeout.into(),
             ));
         }
     }
@@ -575,6 +586,13 @@ async fn test(
                 .executor_report
                 .statuses
                 .listing_failed
+                .into_cli_proto_counter(),
+        ),
+        timed_out: Some(
+            test_outcome
+                .executor_report
+                .statuses
+                .timed_out
                 .into_cli_proto_counter(),
         ),
         build_errors: build_errors_count,

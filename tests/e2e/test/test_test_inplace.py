@@ -762,7 +762,7 @@ async def test_cancellation_on_re(buck: Buck) -> None:
 
 @buck_test(inplace=True, skip_for_os=["windows"])
 async def test_timeout_local(buck: Buck) -> None:
-    await expect_failure(
+    result = await expect_failure(
         buck.test(
             "fbcode//buck2/tests/targets/rules/python/test:timeout",
             "--local-only",
@@ -774,11 +774,14 @@ async def test_timeout_local(buck: Buck) -> None:
         ),
         stderr_regex="Timeout: fbcode//buck2/tests/targets/rules/python/test:timeout",
     )
+    # TODO(charlieevans): remove is_deployed_buck2 gate once buck is bumped
+    if not is_deployed_buck2():
+        assert "1 TESTS TIMED OUT" in result.stderr
 
 
 @buck_test(inplace=True, skip_for_os=["windows"])
 async def test_timeout_re(buck: Buck) -> None:
-    await expect_failure(
+    result = await expect_failure(
         buck.test(
             "fbcode//buck2/tests/targets/rules/python/test:timeout",
             "--unstable-allow-all-tests-on-re",
@@ -791,6 +794,33 @@ async def test_timeout_re(buck: Buck) -> None:
         ),
         stderr_regex="Timeout: fbcode//buck2/tests/targets/rules/python/test:timeout",
     )
+    # TODO(charlieevans): remove is_deployed_buck2 gate once buck is bumped
+    if not is_deployed_buck2():
+        assert "1 TESTS TIMED OUT" in result.stderr
+
+
+# TODO(charlieevans): remove is_deployed_buck2 gate once buck is bumped
+if not is_deployed_buck2():
+
+    @buck_test(inplace=True, skip_for_os=["windows"])
+    async def test_timeout_and_failure_local(buck: Buck) -> None:
+        result = await expect_failure(
+            buck.test(
+                "fbcode//buck2/tests/targets/rules/python/test:timeout_and_fail",
+                "--local-only",
+                "--no-remote-cache",
+                "--",
+                "--env",
+                "SLOW_DURATION=60",
+                "--timeout=5",
+            ),
+            stderr_regex="1 TESTS FAILED.*1 TESTS TIMED OUT",
+        )
+        stderr = remove_ansi_escape_sequences(result.stderr)
+        assert (
+            "Tests finished: Pass 0. Fail 1. Timeout 1. Fatal 0. Skip 0. Omit 0. Infra Failure 0. Build failure 0"
+            in stderr
+        )
 
 
 if not is_deployed_buck2():
