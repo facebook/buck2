@@ -1,4 +1,4 @@
-load("//defs.bzl", "execution_platforms", "suite", "toolchain")
+load("//defs.bzl", "suite", "toolchain")
 
 suite(
     name = "top",
