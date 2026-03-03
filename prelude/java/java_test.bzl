@@ -186,6 +186,7 @@ def build_junit_test(
         use_project_relative_paths = not run_from_cell_root,
         default_executor = re_executor,
         executor_overrides = executor_overrides,
+        supports_test_execution_caching = ctx.attrs.supports_test_execution_caching,
     )
     return test_info
 

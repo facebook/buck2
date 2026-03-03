@@ -1330,6 +1330,7 @@ robolectric_test = prelude_rule(
             "source_only_abi_deps": attrs.list(attrs.dep(), default = []),
             "srcs": attrs.list(attrs.source(), default = []),
             "std_err_log_level": attrs.option(attrs.one_of(attrs.enum(LogLevel), attrs.int()), default = None),
+            "supports_test_execution_caching": attrs.bool(default = False),
             "std_out_log_level": attrs.option(attrs.one_of(attrs.enum(LogLevel), attrs.int()), default = None),
             "target": attrs.option(attrs.string(), default = None),
             "test_case_timeout_ms": attrs.option(attrs.int(), default = None),

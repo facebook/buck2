@@ -254,6 +254,7 @@ kotlin_test = prelude_rule(
             "source": attrs.option(attrs.string(), default = None),
             "source_abi_verification_mode": attrs.option(attrs.enum(SourceAbiVerificationMode), default = None),
             "source_only_abi_deps": attrs.list(attrs.dep(), default = []),
+            "supports_test_execution_caching": attrs.bool(default = False),
             "target": attrs.option(attrs.string(), default = None),
             "test_case_timeout_ms": attrs.option(attrs.int(), default = None),
             "unbundled_resources_root": attrs.option(attrs.source(allow_directory = True), default = None),
