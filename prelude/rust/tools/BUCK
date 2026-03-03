@@ -119,3 +119,23 @@ prelude.export_file(
     name = "attrs.bzl",
     visibility = ["PUBLIC"],
 )
+
+# Type checking target for Python tool scripts
+prelude.python_library(
+    name = "scripts-typing",
+    srcs = [
+        "buildscript_run.py",
+        "cd_run.py",
+        "deferred_link_action.py",
+        "extract_link_action.py",
+        "failure_filter_action.py",
+        "redirect_stdout.py",
+        "rustc_action.py",
+        "rustdoc_coverage.py",
+        "rustdoc_test_with_resources.py",
+        "shared_libraries_symlink_tree.py",
+        "symlink_only_dir_entry.py",
+        "transitive_dependency_symlinks.py",
+    ],
+    typing = True,
+)

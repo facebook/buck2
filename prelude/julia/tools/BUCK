@@ -11,3 +11,12 @@ prelude.python_bootstrap_binary(
     main = "parse_julia_cmd.py",
     visibility = ["PUBLIC"],
 )
+
+# Type checking target for Python tool scripts
+prelude.python_library(
+    name = "scripts-typing",
+    srcs = [
+        "parse_julia_cmd.py",
+    ],
+    typing = True,
+)

@@ -81,3 +81,21 @@ prelude.python_bootstrap_binary(
     main = "create_jdk_system_image.py",
     visibility = ["PUBLIC"],
 )
+
+# Type checking target for Python tool scripts
+prelude.python_library(
+    name = "scripts-typing",
+    srcs = [
+        "combine_native_library_dirs.py",
+        "consolidate_class_names.py",
+        "create_jdk_system_image.py",
+        "duplicate_class_checker.py",
+        "filter_dex.py",
+        "filter_extra_resources.py",
+        "filter_prebuilt_native_library_dir.py",
+        "merge_sequence.py",
+        "native_libs_as_assets_metadata.py",
+        "unpack_aar.py",
+    ],
+    typing = True,
+)

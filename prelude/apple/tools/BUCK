@@ -115,3 +115,24 @@ export_file(
     name = "empty.c",
     visibility = ["PUBLIC"],
 )
+
+# Type checking target for Python tool scripts
+python_library(
+    name = "scripts-typing",
+    srcs = [
+        "dry_codesign_tool.py",
+        "framework_sanitizer.py",
+        "ipa_package_maker.py",
+        "make_modulemap.py",
+        "make_swift_comp_db.py",
+        "make_swift_interface.py",
+        "make_vfsoverlay.py",
+        "plistlib_utils.py",
+        "split_arch_combine_dsym_bundles_tool.py",
+        "spm_packager.py",
+        "static_archive_linker.py",
+        "swift_exec.py",
+        "xcframework_maker.py",
+    ],
+    typing = True,
+)
