@@ -35,7 +35,7 @@ where
                 }
                 let retryable = is_retryable(&err, retry_not_found);
 
-                if retryable == Retryable::NO {
+                if retryable == Retryable::No {
                     return Err(err);
                 }
 
@@ -46,13 +46,13 @@ where
                 } else {
                     // Try tonic::Status
                     if let Some(status) = err.downcast_ref::<tonic::Status>() {
-                         status.message()
+                        status.message()
                     } else {
                         "unknown error"
                     }
                 };
 
-                if retryable == Retryable::WAIT {
+                if retryable == Retryable::Wait {
                     warn!("Retrying request after error: {}. Attempt {}/{} (waiting {:?})", msg, retries, max_retries, delay);
                     tokio::time::sleep(delay).await;
 
@@ -70,39 +70,39 @@ where
 
 #[derive(PartialEq)]
 enum Retryable {
-    IMMEDIATELY,
-    WAIT,
-    NO,
+    Immediately,
+    Wait,
+    No,
 }
 
 fn is_retryable(err: &anyhow::Error, retry_not_found: bool) -> Retryable {
     for cause in err.chain() {
         if let Some(re_err) = cause.downcast_ref::<REClientError>() {
             return match re_err.code {
-                TCode::DEADLINE_EXCEEDED => Retryable::IMMEDIATELY,
+                TCode::DEADLINE_EXCEEDED => Retryable::Immediately,
                 TCode::UNKNOWN
                 | TCode::CANCELLED
                 | TCode::ABORTED
                 | TCode::INTERNAL
                 | TCode::UNAVAILABLE
-                | TCode::RESOURCE_EXHAUSTED => Retryable::WAIT,
-                TCode::NOT_FOUND if retry_not_found => Retryable::WAIT,
-                _ => Retryable::NO
+                | TCode::RESOURCE_EXHAUSTED => Retryable::Wait,
+                TCode::NOT_FOUND if retry_not_found => Retryable::Wait,
+                _ => Retryable::No,
             };
         }
         if let Some(status) = cause.downcast_ref::<tonic::Status>() {
             return match status.code() {
-                tonic::Code::DeadlineExceeded => Retryable::IMMEDIATELY,
+                tonic::Code::DeadlineExceeded => Retryable::Immediately,
                 tonic::Code::Unknown
                 | tonic::Code::Cancelled
                 | tonic::Code::Aborted
                 | tonic::Code::Internal
                 | tonic::Code::Unavailable
-                | tonic::Code::ResourceExhausted => Retryable::WAIT,
-                tonic::Code::NotFound if retry_not_found => Retryable::WAIT,
-                _ => Retryable::NO
+                | tonic::Code::ResourceExhausted => Retryable::Wait,
+                tonic::Code::NotFound if retry_not_found => Retryable::Wait,
+                _ => Retryable::No,
             };
         }
     }
-    Retryable::NO
+    Retryable::No
 }

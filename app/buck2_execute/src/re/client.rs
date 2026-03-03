@@ -501,9 +501,7 @@ fn re_platform(x: &RE::Platform) -> remote_execution::TPlatform {
         properties: x.properties.map(|x| remote_execution::TProperty {
             name: x.name.clone(),
             value: x.value.clone(),
-            ..Default::default()
         }),
-        ..Default::default()
     }
 }
 
