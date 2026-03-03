@@ -313,19 +313,6 @@ impl ExecutionPlatformResolution {
         }
     }
 
-    /// Create a new complete resolution with exec_dep_cfgs.
-    /// Use this when you have the full exec_dep configuration mapping.
-    pub fn new_with_exec_dep_cfgs(
-        platform: Option<ExecutionPlatform>,
-        skipped: Vec<(String, ExecutionPlatformIncompatibleReason)>,
-        exec_dep_cfgs: OrderedMap<TargetLabel, ConfigurationData>,
-    ) -> Self {
-        Self::Resolved {
-            base: ExecutionPlatformResolutionBase::new(platform, skipped),
-            exec_dep_cfgs: Arc::new(exec_dep_cfgs),
-        }
-    }
-
     /// Get the base resolution data, if available.
     fn base(&self) -> Option<&ExecutionPlatformResolutionBase> {
         match self {
