@@ -16,6 +16,7 @@ import com.facebook.buck.core.filesystems.RelPath
 import com.facebook.buck.core.util.log.Logger
 import com.facebook.buck.jvm.core.BuildTargetValue
 import com.facebook.buck.jvm.kotlin.cd.analytics.KotlinCDLoggingContext
+import com.facebook.buck.jvm.kotlin.cd.analytics.SourceTokenCounter
 import com.facebook.buck.jvm.kotlin.kotlinc.Kotlinc
 import com.facebook.buck.jvm.kotlin.kotlinc.incremental.KotlincMode
 import com.facebook.buck.util.ClassLoaderCache
@@ -133,6 +134,18 @@ class BuildToolsKotlinc : Kotlinc {
               "Total count of $extension files: $count",
           )
         }
+
+    try {
+      val tokenCounts = SourceTokenCounter.countTokens(expandedSources, ruleCellRoot.path)
+      kotlinCDLoggingContext.numKotlinTokens = tokenCounts.kotlinTokens
+      kotlinCDLoggingContext.numJavaTokens = tokenCounts.javaTokens
+    } catch (e: Exception) {
+      // Token counting is best-effort telemetry; don't fail the build
+      kotlinCDLoggingContext.addExtras(
+          BuildToolsKotlinc::class.java.simpleName,
+          "Token counting failed: ${e.message}",
+      )
+    }
 
     val resolvedExpandedSources =
         expandedSources.map { path -> ruleCellRoot.resolve(path).toString() }

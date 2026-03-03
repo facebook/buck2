@@ -165,15 +165,42 @@ internal class KotlinCDLoggerAnalyticsTest {
     verify(kotlinCDLogger, times(1)).log(expectedEntry)
   }
 
+  @Test
+  fun `when token counts are set, they are logged`() {
+    val kotlinCDAnalytics = createFakeKotlinCDAnalytics()
+    val expectedEntry =
+        createExpectedKotlinCDLogEntry(numKotlinTokens = 1000L, numJavaTokens = 500L)
+
+    kotlinCDAnalytics.log(
+        createKotlinCDLoggingContext(numKotlinTokens = 1000L, numJavaTokens = 500L)
+    )
+
+    verify(kotlinCDLogger, times(1)).log(expectedEntry)
+  }
+
+  @Test
+  fun `when token counts are zero, they are not logged`() {
+    val kotlinCDAnalytics = createFakeKotlinCDAnalytics()
+    val expectedEntry = createExpectedKotlinCDLogEntry()
+
+    kotlinCDAnalytics.log(createKotlinCDLoggingContext(numKotlinTokens = 0L, numJavaTokens = 0L))
+
+    verify(kotlinCDLogger, times(1)).log(expectedEntry)
+  }
+
   private fun createKotlinCDLoggingContext(
       step: StepParam = StepParam.KOTLINC,
       languageVersion: String = DEFAULT_LANGUAGE_VERSION,
       kotlincMode: ModeParam? =
           ModeParam.Incremental(ClasspathChangesParam.NO_CHANGES, emptySet(), emptySet()),
       extras: Map<String, List<String>> = mapOf(),
+      numKotlinTokens: Long = 0L,
+      numJavaTokens: Long = 0L,
   ): KotlinCDLoggingContext {
     val context = KotlinCDLoggingContext(step, LanguageVersion(languageVersion), kotlincMode)
     extras.forEach { (key, extras) -> extras.forEach { item -> context.addExtras(key, item) } }
+    context.numKotlinTokens = numKotlinTokens
+    context.numJavaTokens = numJavaTokens
     return context
   }
 
@@ -198,6 +225,8 @@ internal class KotlinCDLoggerAnalyticsTest {
       extras: String? = null,
       modifiedFiles: Set<String> = emptySet(),
       removedFiles: Set<String> = emptySet(),
+      numKotlinTokens: Long? = null,
+      numJavaTokens: Long? = null,
   ) =
       KotlinCDLogEntry(
           time = Instant.now(clock).epochSecond,
@@ -216,6 +245,8 @@ internal class KotlinCDLoggerAnalyticsTest {
           extras = extras,
           addedAndModifiedFiles = modifiedFiles,
           removedFiles = removedFiles,
+          numKotlinTokens = numKotlinTokens,
+          numJavaTokens = numJavaTokens,
       )
 
   companion object TestParams {

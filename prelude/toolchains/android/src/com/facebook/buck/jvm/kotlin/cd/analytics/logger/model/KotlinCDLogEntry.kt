@@ -27,4 +27,6 @@ data class KotlinCDLogEntry(
     val extras: String?,
     val addedAndModifiedFiles: Set<String>?,
     val removedFiles: Set<String>?,
+    val numKotlinTokens: Long? = null,
+    val numJavaTokens: Long? = null,
 )
