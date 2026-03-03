@@ -18,6 +18,7 @@ use buck2_error::BuckErrorContext;
 use buck2_error::internal_error;
 use buck2_resource_control::ActionFreezeEvent;
 use buck2_resource_control::ActionFreezeEventReceiver;
+use buck2_resource_control::OrphanProcessInfo;
 use buck2_resource_control::cgroup::Cgroup;
 use buck2_resource_control::cgroup::CgroupKindLeaf;
 use buck2_resource_control::cgroup::CgroupMinimal;
@@ -101,7 +102,7 @@ impl ProcessGroupImpl {
     pub(crate) async fn wait(
         &mut self,
         freeze_rx: impl ActionFreezeEventReceiver,
-    ) -> buck2_error::Result<ExitStatus> {
+    ) -> buck2_error::Result<(ExitStatus, Vec<OrphanProcessInfo>)> {
         let child = self.inner.wait();
         pin!(child);
         pin_mut!(freeze_rx);
@@ -110,10 +111,12 @@ impl ProcessGroupImpl {
             tokio::select! {
                 res = &mut child => {
                     // Kill any remaining PIDs in the cgroup that outlived the main process.
-                    if let Some(cgroup) = self.cgroup.as_ref() {
-                        cgroup.kill_remaining_pids().await?;
-                    }
-                    break Ok(res?);
+                    let orphans = if let Some(cgroup) = self.cgroup.as_ref() {
+                        cgroup.kill_remaining_pids().await?
+                    } else {
+                        Vec::new()
+                    };
+                    break Ok((res?, orphans));
                 },
                 Some(freeze_op) = freeze_rx.next() => {
                     match freeze_op {
@@ -136,9 +139,7 @@ impl ProcessGroupImpl {
     }
 
     // Kill the process tree. Uses process-group-based signaling (killpg or
-    // graceful SIGTERM+SIGKILL), and when a cgroup is available, also kills any
-    // remaining processes via cgroup.kill to catch children that escaped the
-    // process group.
+    // graceful SIGTERM+SIGKILL).
     pub(crate) async fn kill(
         &self,
         graceful_shutdown_timeout_s: Option<u32>,
@@ -160,12 +161,6 @@ impl ProcessGroupImpl {
         } else {
             signal::killpg(Pid::from_raw(pid), Signal::SIGKILL)
                 .with_buck_error_context(|| format!("Failed to kill process {pid}"))?;
-        }
-
-        // When a cgroup is available, also kill any remaining processes that may
-        // have escaped the process group.
-        if let Some(cgroup) = self.cgroup.as_ref() {
-            cgroup.kill_remaining_pids().await?;
         }
 
         Ok(())

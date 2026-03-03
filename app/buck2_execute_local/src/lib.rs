@@ -28,6 +28,7 @@ use buck2_fs::fs_util;
 use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_fs::paths::abs_path::AbsPath;
 use buck2_resource_control::ActionFreezeEventReceiver;
+use buck2_resource_control::OrphanProcessInfo;
 use buck2_resource_control::action_scene::ActionCgroupResult;
 use buck2_resource_control::path::CgroupPathBuf;
 use bytes::Bytes;
@@ -98,7 +99,7 @@ impl From<DecodedStatus> for GatherOutputStatus {
 pub enum CommandEvent {
     Stdout(Bytes),
     Stderr(Bytes),
-    Exit(GatherOutputStatus),
+    Exit(GatherOutputStatus, Vec<OrphanProcessInfo>),
 }
 
 enum StdioEvent {
@@ -127,7 +128,7 @@ pub struct StdRedirectPaths {
 /// Before sending any events, it will send the cgroup path if cgroup pools are enabled.
 #[pin_project]
 struct CommandEventStream<Status, Stdio> {
-    exit: Option<buck2_error::Result<GatherOutputStatus>>,
+    exit: Option<buck2_error::Result<(GatherOutputStatus, Vec<OrphanProcessInfo>)>>,
 
     done: bool,
 
@@ -155,7 +156,7 @@ where
 
 impl<Status, Stdio> Stream for CommandEventStream<Status, Stdio>
 where
-    Status: Future<Output = buck2_error::Result<GatherOutputStatus>>,
+    Status: Future<Output = buck2_error::Result<(GatherOutputStatus, Vec<OrphanProcessInfo>)>>,
     Stdio: Stream<Item = buck2_error::Result<StdioEvent>> + InterruptNotifiable,
 {
     type Item = buck2_error::Result<CommandEvent>;
@@ -184,7 +185,9 @@ where
         // we report we're pending, because we'll have polled it already earlier.
         if let Some(exit) = this.exit.take() {
             *this.done = true;
-            return Poll::Ready(Some(exit.map(CommandEvent::Exit)));
+            return Poll::Ready(Some(
+                exit.map(|(status, orphans)| CommandEvent::Exit(status, orphans)),
+            ));
         }
 
         Poll::Pending
@@ -247,9 +250,10 @@ where
     let mut process_group = match process_details {
         Ok(process_group) => process_group,
         Err(e) => {
-            let event = Ok(CommandEvent::Exit(GatherOutputStatus::SpawnFailed(
-                e.to_string(),
-            )));
+            let event = Ok(CommandEvent::Exit(
+                GatherOutputStatus::SpawnFailed(e.to_string()),
+                Vec::new(),
+            ));
             return Ok(futures::stream::once(futures::future::ready(event)).left_stream());
         }
     };
@@ -284,7 +288,7 @@ where
 
     let status = async move {
         enum Outcome {
-            Finished(ExitStatus),
+            Finished(ExitStatus, Vec<OrphanProcessInfo>),
             Cancelled(GatherOutputStatus),
         }
 
@@ -296,13 +300,18 @@ where
             futures::pin_mut!(cancellation);
 
             buck2_error::Ok(match futures::future::select(status, cancellation).await {
-                futures::future::Either::Left((status, _)) => Outcome::Finished(status?),
+                futures::future::Either::Left((result, _)) => {
+                    let (status, orphans) = result?;
+                    Outcome::Finished(status, orphans)
+                }
                 futures::future::Either::Right((res, _)) => Outcome::Cancelled(res?),
             })
         };
 
-        Ok(match execute.await? {
-            Outcome::Finished(status) => decoder.decode_status(status).await?.into(),
+        let (gather_output_status, orphans) = match execute.await? {
+            Outcome::Finished(status, orphans) => {
+                (decoder.decode_status(status).await?.into(), orphans)
+            }
             Outcome::Cancelled(res) => {
                 kill_process
                     .kill(&mut process_group)
@@ -316,14 +325,16 @@ where
 
                 // We just killed the child, so this should finish immediately. We should still call
                 // this to release any process.
-                process_group
+                let (_status, orphans) = process_group
                     .wait(futures::stream::pending())
                     .await
                     .buck_error_context("Failed to await child after kill")?;
 
-                res
+                (res, orphans)
             }
-        })
+        };
+
+        Ok((gather_output_status, orphans))
     };
 
     Ok(CommandEventStream::new(status, stdio).right_stream())
@@ -334,6 +345,7 @@ pub struct CommandResult {
     pub stdout: Vec<u8>,
     pub stderr: Vec<u8>,
     pub cgroup_result: Option<ActionCgroupResult>,
+    pub orphan_processes: Vec<OrphanProcessInfo>,
 }
 
 pub async fn decode_command_event_stream<S>(stream: S) -> buck2_error::Result<CommandResult>
@@ -349,13 +361,14 @@ where
         match event {
             CommandEvent::Stdout(bytes) => stdout.extend(&bytes),
             CommandEvent::Stderr(bytes) => stderr.extend(&bytes),
-            CommandEvent::Exit(exit) => {
+            CommandEvent::Exit(exit, orphan_processes) => {
                 return Ok(CommandResult {
                     status: exit,
                     stdout,
                     stderr,
                     // Filled in later
                     cgroup_result: None,
+                    orphan_processes,
                 });
             }
         }
@@ -620,7 +633,7 @@ mod tests {
         })
         .await?;
 
-        let status = process_group.wait(futures::stream::pending()).await?;
+        let (status, _orphans) = process_group.wait(futures::stream::pending()).await?;
         assert_eq!(status.code(), Some(0));
 
         Ok(())

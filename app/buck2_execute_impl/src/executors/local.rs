@@ -194,7 +194,7 @@ impl LocalExecutor {
         async move {
             let working_directory = self.root.join_cow(working_directory);
 
-            match &self.forkserver {
+            let result = match &self.forkserver {
                 #[cfg(unix)]
                 ForkserverAccess::Client(forkserver) => {
                     unix::exec_via_forkserver(
@@ -244,7 +244,22 @@ impl LocalExecutor {
                     decode_command_event_stream(stream).await
                 }
                 .with_buck_error_context(|| format!("Failed to gather output from command: {exe}")),
+            }?;
+
+            if !result.orphan_processes.is_empty() {
+                buck2_events::dispatch::instant_event(buck2_data::OrphanProcessesKilled {
+                    orphan_processes: result
+                        .orphan_processes
+                        .iter()
+                        .map(|o| buck2_data::orphan_processes_killed::OrphanProcess {
+                            pid: o.pid,
+                            comm: o.comm.clone(),
+                        })
+                        .collect(),
+                });
             }
+
+            buck2_error::Ok(result)
         }
     }
 
@@ -688,6 +703,7 @@ impl LocalExecutor {
             stdout,
             stderr,
             cgroup_result,
+            ..
         } = res;
 
         let std_streams = CommandStdStreams::Local { stdout, stderr };

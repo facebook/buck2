@@ -650,6 +650,7 @@ impl WorkerHandle {
             stdout,
             stderr,
             cgroup_result: None,
+            orphan_processes: Vec::new(),
         }
     }
 }

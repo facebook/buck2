@@ -84,7 +84,7 @@ impl ProcessGroup {
     pub(crate) async fn wait(
         &mut self,
         freeze_rx: impl ActionFreezeEventReceiver,
-    ) -> buck2_error::Result<ExitStatus> {
+    ) -> buck2_error::Result<(ExitStatus, Vec<buck2_resource_control::OrphanProcessInfo>)> {
         self.inner.wait(freeze_rx).await
     }
 
@@ -126,11 +126,11 @@ mod tests {
         let id = child.id().expect("missing id");
         assert!(id > 0);
 
-        let status = child.wait(futures::stream::pending()).await?;
+        let (status, _orphans) = child.wait(futures::stream::pending()).await?;
         assert_eq!(status.code(), Some(2));
 
         // test that the `.wait()` method is fused like tokio
-        let status = child.wait(futures::stream::pending()).await?;
+        let (status, _orphans) = child.wait(futures::stream::pending()).await?;
         assert_eq!(status.code(), Some(2));
 
         // Can't get id after process has exited

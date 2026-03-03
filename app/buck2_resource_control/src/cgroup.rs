@@ -18,12 +18,15 @@ use std::sync::Arc;
 use std::time::Duration;
 use std::time::Instant;
 
+use buck2_fs::fs_util;
+use buck2_fs::paths::abs_path::AbsPath;
 use buck2_fs::paths::file_name::FileName;
 use buck2_fs::paths::file_name::FileNameBuf;
 use dupe::Dupe;
 use nix::fcntl::OFlag;
 use nix::sys::stat::Mode;
 
+use crate::OrphanProcessInfo;
 use crate::cgroup_files::CgroupFile;
 use crate::cgroup_files::CgroupFileMode;
 use crate::cgroup_files::MemoryStat;
@@ -258,23 +261,45 @@ impl<M: MemoryMonitoring, K: CgroupKind> Cgroup<M, K> {
         .await
     }
 
-    /// Kill all remaining processes in the cgroup via the kernel's `cgroup.kill` interface.
+    /// Kill all remaining processes in the cgroup and return information about what was killed.
     ///
-    /// Writing "1" to `cgroup.kill` causes the kernel to send SIGKILL to every process
-    /// in the cgroup atomically. This avoids PID reuse races entirely since the kernel
-    /// handles the kill internally without any userspace read-then-kill window.
-    ///
-    /// This is used to clean up any processes that outlived the main action process
-    /// (e.g. daemonized children that escaped the process group kill).
-    pub async fn kill_remaining_pids(&self) -> buck2_error::Result<()> {
+    /// The kill behavior is "race free," ie no risk of racing against forks or whatever. However, the output reporting is not race free.
+    pub async fn kill_remaining_pids(&self) -> buck2_error::Result<Vec<OrphanProcessInfo>> {
+        let procs = CgroupFile::open(
+            self.dir.dupe(),
+            FileNameBuf::unchecked_new("cgroup.procs"),
+            CgroupFileMode::ReadOnly,
+        )
+        .await?;
+        let procs_content = procs.read_to_string().await?;
+        let pids: Vec<u32> = procs_content
+            .lines()
+            .filter(|l| !l.is_empty())
+            .filter_map(|l| l.parse().ok())
+            .collect();
+
+        let orphans: Vec<OrphanProcessInfo> = pids
+            .into_iter()
+            .map(|pid| {
+                let comm =
+                    fs_util::read_to_string(AbsPath::new(&format!("/proc/{}/comm", pid)).unwrap())
+                        .map(|s| s.trim().to_owned())
+                        .unwrap_or_default();
+                OrphanProcessInfo { pid, comm }
+            })
+            .collect();
+
         let f = CgroupFile::open(
             self.dir.dupe(),
             FileNameBuf::unchecked_new("cgroup.kill"),
             CgroupFileMode::WriteOnly,
         )
         .await?;
+        // TODO: Is there something we ought to be doing to ensure this is
+        // "completed" before reusing the cgroup?
+        f.write("1").await?;
 
-        f.write("1").await
+        Ok(orphans)
     }
 }
 
@@ -952,7 +977,10 @@ mod tests {
 
         assert_eq!(cgroup.read_pid_count().await.unwrap(), 1);
 
-        cgroup.kill_remaining_pids().await.unwrap();
+        let orphans = cgroup.kill_remaining_pids().await.unwrap();
+        assert!(!orphans.is_empty(), "Should have found orphan processes");
+        assert_eq!(orphans[0].pid, child.id());
+        assert_eq!(orphans[0].comm, "sleep");
 
         // Verify the process was killed by SIGKILL (signal 9) from cgroup.kill.
         // sleep 300 wouldn't exit on its own and we never called child.kill(),
@@ -960,5 +988,8 @@ mod tests {
         let status = child.wait().unwrap();
         assert!(!status.success());
         assert_eq!(status.signal(), Some(9));
+
+        // Killing again should report no remaining PIDs.
+        assert!(cgroup.kill_remaining_pids().await.unwrap().is_empty());
     }
 }

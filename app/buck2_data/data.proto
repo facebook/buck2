@@ -326,6 +326,9 @@ message InstantEvent {
 
     // Command preemption was detected
     CommandPreempted command_preempted = 55;
+
+    // Orphan processes were killed via cgroup after action completed
+    OrphanProcessesKilled orphan_processes_killed = 56;
   }
 }
 
@@ -3106,6 +3109,17 @@ enum NetworkKind {
   WI_FI = 0;
   ETHERNET = 1;
   UNKNOWN_NET_KIND = 2;
+}
+
+// Logged as an instant event when cgroup-based cleanup kills orphan processes
+// that outlived the main action process.
+message OrphanProcessesKilled {
+  message OrphanProcess {
+    uint32 pid = 1;
+    // Process name from /proc/<pid>/comm
+    string comm = 2;
+  }
+  repeated OrphanProcess orphan_processes = 1;
 }
 
 message NetworkInterfaceStats {

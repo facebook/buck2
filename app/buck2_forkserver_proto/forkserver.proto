@@ -82,6 +82,12 @@ message CommandEvent {
     CancelEvent cancel = 6;
     SpawnFailedEvent spawn_failed = 7;
   }
+  repeated OrphanProcess orphan_processes = 9;
+}
+
+message OrphanProcess {
+  uint32 pid = 1;
+  string comm = 2;
 }
 
 // Like `buck.data.CommandExecutionStats`, but without memory information

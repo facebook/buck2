@@ -121,9 +121,9 @@ impl ProcessGroupImpl {
     pub(crate) async fn wait(
         &mut self,
         _freeze_rx: impl ActionFreezeEventReceiver,
-    ) -> buck2_error::Result<ExitStatus> {
+    ) -> buck2_error::Result<(ExitStatus, Vec<buck2_resource_control::OrphanProcessInfo>)> {
         match &mut self.child {
-            FusedChild::Done(exit) => Ok(*exit),
+            FusedChild::Done(exit) => Ok((*exit, Vec::new())),
             FusedChild::Child(child) => {
                 // Ensure stdin is closed so the child isn't stuck waiting on
                 // input while the parent is waiting for it to exit.
@@ -134,7 +134,7 @@ impl ProcessGroupImpl {
                     self.child = FusedChild::Done(exit);
                 }
 
-                ret.map_err(Into::into)
+                ret.map(|status| (status, Vec::new())).map_err(Into::into)
             }
         }
     }
