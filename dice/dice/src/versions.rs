@@ -66,7 +66,7 @@ mod introspection {
     use crate::versions::VersionNumber;
 
     impl VersionNumber {
-        pub fn to_introspectable(&self) -> crate::introspection::graph::VersionNumber {
+        pub fn to_introspectable(self) -> crate::introspection::graph::VersionNumber {
             crate::introspection::graph::VersionNumber(self.0)
         }
     }

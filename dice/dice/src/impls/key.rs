@@ -189,7 +189,7 @@ impl<'a> DiceKeyErasedRef<'a> {
         }
     }
 
-    fn to_owned(&self) -> DiceKeyErased {
+    fn to_owned(self) -> DiceKeyErased {
         match self {
             DiceKeyErasedRef::Key(k) => DiceKeyErased::Key(k.clone_arc()),
             DiceKeyErasedRef::Projection(p) => DiceKeyErased::Projection(p.to_owned()),
@@ -450,7 +450,7 @@ pub(crate) struct ProjectionWithBaseRef<'a> {
 }
 
 impl ProjectionWithBaseRef<'_> {
-    fn to_owned(&self) -> ProjectionWithBase {
+    fn to_owned(self) -> ProjectionWithBase {
         ProjectionWithBase {
             base: self.base,
             proj: self.proj.clone_arc(),

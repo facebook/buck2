@@ -220,8 +220,8 @@ impl DiceTaskState {
                 }
             },
             DiceTaskState::Sync => match target {
-                TargetState::Ready => Some(target.into_dice_task_state()),
-                TargetState::Terminated => Some(target.into_dice_task_state()),
+                target @ TargetState::Ready => Some(target.into_dice_task_state()),
+                target @ TargetState::Terminated => Some(target.into_dice_task_state()),
                 _ => None,
             },
             DiceTaskState::Ready => None,
@@ -270,7 +270,7 @@ enum TargetState {
 }
 
 impl TargetState {
-    fn into_dice_task_state_with_proj(&self, proj: IsProjecting) -> DiceTaskState {
+    fn into_dice_task_state_with_proj(self, proj: IsProjecting) -> DiceTaskState {
         match self {
             TargetState::InitialLookup => DiceTaskState::InitialLookup(proj),
             TargetState::CheckingDeps => DiceTaskState::CheckingDeps(proj),
@@ -281,7 +281,7 @@ impl TargetState {
         }
     }
 
-    fn into_dice_task_state(&self) -> DiceTaskState {
+    fn into_dice_task_state(self) -> DiceTaskState {
         match self {
             TargetState::Sync => DiceTaskState::Sync,
             TargetState::Ready => DiceTaskState::Ready,
