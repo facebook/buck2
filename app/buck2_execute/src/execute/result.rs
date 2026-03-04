@@ -261,7 +261,7 @@ impl CommandExecutionResult {
     pub fn calc_output_size_bytes(&self) -> u64 {
         self.outputs
             .values()
-            .map(|v| v.calc_output_count_and_bytes().bytes)
+            .map(|v| v.calc_output_count_and_bytes(false).bytes)
             .sum()
     }
 

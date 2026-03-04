@@ -145,7 +145,7 @@ impl ArtifactMetadata {
                 let metadata = if compact {
                     DirectoryMetadata::Compact {
                         fingerprint: dir.fingerprint().dupe(),
-                        total_size: entry.calc_output_count_and_bytes().bytes,
+                        total_size: entry.calc_output_count_and_bytes(false).bytes,
                     }
                 } else {
                     DirectoryMetadata::Full(dir.dupe())

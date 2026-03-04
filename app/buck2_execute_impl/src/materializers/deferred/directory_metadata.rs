@@ -46,7 +46,7 @@ impl DirectoryMetadata {
             DirectoryMetadata::Compact { total_size, .. } => *total_size,
             DirectoryMetadata::Full(dir) => {
                 DirectoryEntry::Dir(dir.dupe())
-                    .calc_output_count_and_bytes()
+                    .calc_output_count_and_bytes(false)
                     .bytes
             }
         }

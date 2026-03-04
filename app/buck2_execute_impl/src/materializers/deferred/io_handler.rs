@@ -287,7 +287,7 @@ impl DefaultIoHandler {
                 self.io_executor
                     .execute_io_inline(|| {
                         for a in copied_artifacts {
-                            let count_and_bytes = a.dest_entry.calc_output_count_and_bytes();
+                            let count_and_bytes = a.dest_entry.calc_output_count_and_bytes(false);
                             stat.file_count += count_and_bytes.count;
                             stat.total_bytes += count_and_bytes.bytes;
 

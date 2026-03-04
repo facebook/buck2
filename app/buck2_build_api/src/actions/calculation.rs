@@ -277,7 +277,7 @@ async fn build_action_inner(
     let mut waiting_data = None;
     let error_diagnostics = match execute_result {
         Ok((outputs, meta)) => {
-            output_size = outputs.calc_output_count_and_bytes().bytes;
+            output_size = outputs.calc_output_count_and_bytes(false).bytes;
             action_result = Ok(outputs);
             execution_kind = Some(meta.execution_kind.as_enum());
             wall_time = Some(meta.timing.wall_time);

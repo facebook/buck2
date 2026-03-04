@@ -98,11 +98,11 @@ use crate::artifact_groups::ArtifactGroupValues;
 pub struct ActionOutputs(Arc<ActionOutputsData>);
 
 impl OutputSize for ActionOutputs {
-    fn calc_output_count_and_bytes(&self) -> OutputCountAndBytes {
+    fn calc_output_count_and_bytes(&self, include_symlinks: bool) -> OutputCountAndBytes {
         let mut total_count = 0;
         let mut total_bytes = 0;
         for v in self.values() {
-            let count_and_bytes = v.calc_output_count_and_bytes();
+            let count_and_bytes = v.calc_output_count_and_bytes(include_symlinks);
             total_count += count_and_bytes.count;
             total_bytes += count_and_bytes.bytes;
         }
