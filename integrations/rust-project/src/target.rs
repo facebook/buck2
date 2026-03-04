@@ -154,9 +154,13 @@ impl TargetInfo {
     }
 
     pub(crate) fn display_name(&self) -> String {
-        if self.name.chars().all(|c| c.is_ascii_digit() || c == '.') {
-            // For target of the form foo:1.2.3, the buck name is 1.2.3 but
-            // that's not useful for a display name.
+        if self
+            .name
+            .chars()
+            .all(|c| c.is_ascii_digit() || c == '.' || c == '_')
+        {
+            // For targets of the form foo:1.2.3 or foo:_1.2.3, the buck
+            // name (1.2.3 or _1.2.3 respectively) isn't useful as a display name.
             self.crate_name()
         } else {
             self.name
@@ -302,6 +306,32 @@ mod tests {
         let info = TargetInfo {
             name: "1.2.3".to_owned(),
             label: "//third-party/foo:1.2.3".to_owned(),
+            kind: Kind::Library,
+            edition: None,
+            srcs: vec![],
+            mapped_srcs: FxHashMap::default(),
+            crate_name: Some("foo".to_owned()),
+            crate_dynamic: None,
+            crate_root: PathBuf::default(),
+            deps: vec![],
+            test_deps: vec![],
+            named_deps: FxHashMap::default(),
+            proc_macro: None,
+            features: vec![],
+            env: FxHashMap::default(),
+            source_folder: PathBuf::from("/tmp"),
+            project_relative_buildfile: PathBuf::from("third-party/BUCK"),
+            in_workspace: false,
+            rustc_flags: vec![],
+        };
+        assert_eq!(info.display_name(), "foo");
+    }
+
+    #[test]
+    fn test_display_name_version_with_underscore() {
+        let info = TargetInfo {
+            name: "_1.2.3".to_owned(),
+            label: "//third-party/foo:_1.2.3".to_owned(),
             kind: Kind::Library,
             edition: None,
             srcs: vec![],
