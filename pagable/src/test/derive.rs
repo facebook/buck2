@@ -41,6 +41,12 @@ mod inner {
     #[derive(crate::PagablePanic)]
     pub(super) struct TestPanic<T>(T);
 
+    #[derive(crate::Pagable, Clone, Eq, PartialEq, Debug)]
+    pub(super) struct WithStaticStr {
+        name: crate::StaticStr,
+        value: i32,
+    }
+
     #[cfg(test)]
     mod tests {
         use std::collections::HashMap;
@@ -95,6 +101,27 @@ mod inner {
             let t2 = WithDiscard::pagable_deserialize(&mut deserializer)?;
             assert_eq!(t2.discard, "");
             assert_eq!(t2.keep, "keep");
+            Ok(())
+        }
+
+        #[test]
+        fn test_static_str_in_struct() -> crate::Result<()> {
+            // Register and create the test string const
+            crate::static_str!(TEST_NAME = "test_static_str_value");
+
+            let original = WithStaticStr {
+                name: TEST_NAME,
+                value: 42,
+            };
+
+            let mut serializer = TestingSerializer::new();
+            original.pagable_serialize(&mut serializer)?;
+            let bytes = serializer.finish();
+
+            let mut deserializer = TestingDeserializer::new(&bytes);
+            let restored = WithStaticStr::pagable_deserialize(&mut deserializer)?;
+
+            assert_eq!(original, restored);
             Ok(())
         }
 

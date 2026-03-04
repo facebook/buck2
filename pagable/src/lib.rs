@@ -39,6 +39,7 @@ pub mod testing;
 pub mod traits;
 pub mod typetag;
 
+pub use impls::StaticStr;
 pub use storage::data::DataKey;
 pub use storage::data::OptionalDataKey;
 pub use traits::Pagable;
@@ -55,7 +56,12 @@ pub type Result<O> = anyhow::Result<O>;
 pub type Error = anyhow::Error;
 
 pub mod __internal {
+    pub use std::cell::Cell;
+
     pub use anyhow;
     pub use inventory;
     pub use serde;
+
+    // Re-export StaticStrEntry for the static_str! macro
+    pub use crate::impls::static_str::StaticStrEntry;
 }

@@ -14,8 +14,10 @@ mod serde;
 mod std;
 mod tuples;
 
+pub mod static_str;
 use num_bigint::BigInt;
 use relative_path::RelativePathBuf;
+pub use static_str::StaticStr;
 
 use crate::__internal::serde::Deserialize;
 use crate::__internal::serde::Serializer;
