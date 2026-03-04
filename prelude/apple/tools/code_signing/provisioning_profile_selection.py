@@ -234,16 +234,6 @@ def select_best_provisioning_profile(
 
     for profile in provisioning_profiles:
         app_id = profile.get_app_id()
-        if maybe_team_id_constraint and maybe_team_id_constraint != app_id.team_id:
-            log_mismatched_profile(
-                TeamIdMismatch(
-                    profile=profile,
-                    team_id=app_id.team_id,
-                    team_id_constraint=maybe_team_id_constraint,
-                )
-            )
-            continue
-
         bundle_id = app_id.bundle_id
         current_match_length = _bundle_match_length(
             info_plist_metadata.bundle_id, bundle_id
@@ -254,6 +244,16 @@ def select_best_provisioning_profile(
                     profile=profile,
                     bundle_id=app_id.bundle_id,
                     bundle_id_constraint=info_plist_metadata.bundle_id,
+                )
+            )
+            continue
+
+        if maybe_team_id_constraint and maybe_team_id_constraint != app_id.team_id:
+            log_mismatched_profile(
+                TeamIdMismatch(
+                    profile=profile,
+                    team_id=app_id.team_id,
+                    team_id_constraint=maybe_team_id_constraint,
                 )
             )
             continue
