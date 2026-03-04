@@ -208,7 +208,10 @@ impl DaemonCommand {
         // NOTE: Do not create any threads before this point.
         //   Daemonize does not preserve threads.
 
-        daemon_lower_priority(self.skip_macos_qos)?;
+        daemon_lower_priority(
+            self.skip_macos_qos,
+            self.daemon_startup_config.macos_qos_class.as_deref(),
+        )?;
 
         // TODO(nga): this breaks relative paths in `--no-buckd`.
         //   `--no-buckd` should capture correct directories earlier.

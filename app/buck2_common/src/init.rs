@@ -501,6 +501,7 @@ pub struct DaemonStartupConfig {
     pub log_download_method: LogDownloadMethod,
     pub health_check_config: HealthCheckConfig,
     pub retained_event_logs: usize,
+    pub macos_qos_class: Option<String>,
 }
 
 impl DaemonStartupConfig {
@@ -583,6 +584,30 @@ impl DaemonStartupConfig {
                 })
                 .and_then(|s| s.parse::<usize>().ok())
                 .unwrap_or(DEFAULT_RETAINED_EVENT_LOGS),
+            macos_qos_class: {
+                let from_config = config
+                    .get(BuckconfigKeyRef {
+                        section: "buck2",
+                        property: "macos_qos_class",
+                    })
+                    .map(ToOwned::to_owned);
+                if buck2_env!("BUCK2_DISABLE_MACOS_QOS", bool)? {
+                    buck2_core::soft_error!(
+                        "disable_macos_qos_env_var",
+                        buck2_error::buck2_error!(
+                            buck2_error::ErrorTag::Input,
+                            "BUCK2_DISABLE_MACOS_QOS is deprecated. \
+                             Use `[buck2] macos_qos_class = skip_lowering` in buckconfig instead. \
+                             This will be the default very soon."
+                        ),
+                        deprecation: true,
+                        quiet: false
+                    )?;
+                    Some(from_config.unwrap_or_else(|| "skip_lowering".to_owned()))
+                } else {
+                    from_config
+                }
+            },
         })
     }
 
@@ -612,6 +637,7 @@ impl DaemonStartupConfig {
             },
             health_check_config: HealthCheckConfig::default(),
             retained_event_logs: DEFAULT_RETAINED_EVENT_LOGS,
+            macos_qos_class: None,
         }
     }
 }
