@@ -50,6 +50,29 @@ public class FilteredDirectoryCopier {
     }
   }
 
+  public static void copyDirsParallel(
+      AbsPath projectRoot,
+      DirectoryStream.Filter<? super Path> ignoreFilter,
+      Map<Path, Path> sourcesToDestinations,
+      Predicate<Path> pred)
+      throws IOException {
+    sourcesToDestinations.entrySet().parallelStream()
+        .forEach(e -> copyDirExcWrapper(projectRoot, ignoreFilter, e.getKey(), e.getValue(), pred));
+  }
+
+  private static void copyDirExcWrapper(
+      AbsPath projectRoot,
+      DirectoryStream.Filter<? super Path> ignoreFilter,
+      Path srcDir,
+      Path destDir,
+      Predicate<Path> pred) {
+    try {
+      copyDir(projectRoot, ignoreFilter, srcDir, destDir, pred);
+    } catch (IOException e) {
+      throw new RuntimeException(e);
+    }
+  }
+
   private static void copyDir(
       AbsPath projectRoot,
       DirectoryStream.Filter<? super Path> ignoreFilter,

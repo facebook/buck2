@@ -151,7 +151,7 @@ public class FilterResourcesExecutableMain {
     timed(
         "Copying & filtering resources",
         () -> {
-          FilteredDirectoryCopier.copyDirs(
+          FilteredDirectoryCopier.copyDirsParallel(
               root,
               ProjectFilesystemUtils.getIgnoreFilter(root, true, NON_ASSET_FILENAMES_MATCHERS),
               inResDirToOutResDirMap,
@@ -169,7 +169,7 @@ public class FilterResourcesExecutableMain {
             ImmutableBiMap<Path, Path> voltronInResDirToOutResDirMap =
                 Objects.requireNonNull(rawVoltronMap.get("res_dir_map"));
 
-            FilteredDirectoryCopier.copyDirs(
+            FilteredDirectoryCopier.copyDirsParallel(
                 root,
                 ProjectFilesystemUtils.getEmptyIgnoreFilter(),
                 voltronInResDirToOutResDirMap,
