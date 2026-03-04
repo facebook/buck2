@@ -30,7 +30,9 @@ use dupe::IterDupedExt;
 use dupe::OptionDupedExt;
 use futures::FutureExt;
 use indexmap::IndexMap;
+use pagable::Pagable;
 use pagable::StaticStr;
+use pagable::pagable_typetag;
 
 use crate::analysis::environment::ConfiguredGraphQueryEnvironmentDelegate;
 use crate::analysis::environment::get_from_template_placeholder_info;
@@ -64,8 +66,9 @@ impl ConfiguredGraphQueryEnvironmentDelegate for AnalysisConfiguredGraphQueryDel
         template_name: StaticStr,
         targets: TargetSet<ConfiguredGraphNodeRef>,
     ) -> buck2_error::Result<TargetSet<ConfiguredGraphNodeRef>> {
-        #[derive(Clone, Dupe, Display, Debug, Eq, Hash, PartialEq, Allocative)]
+        #[derive(Clone, Dupe, Display, Debug, Eq, Hash, PartialEq, Allocative, Pagable)]
         #[display("template_placeholder_info_query({})", template_name)]
+        #[pagable_typetag(dice::DiceKeyDyn)]
         struct TemplatePlaceholderInfoQueryKey {
             template_name: StaticStr,
             // Use `ConfiguredTargetLabel` instead of `ConfiguredGraphNodeRef` here because `ConfiguredGraphNodeRef`

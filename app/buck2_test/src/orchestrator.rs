@@ -166,6 +166,8 @@ use indexmap::IndexMap;
 use indexmap::IndexSet;
 use indexmap::indexset;
 use itertools::Itertools;
+use pagable::Pagable;
+use pagable::pagable_typetag;
 use sorted_vector_map::SortedVectorMap;
 use starlark::values::OwnedFrozenValueTyped;
 use uuid::Uuid;
@@ -536,7 +538,8 @@ impl<'a> BuckTestOrchestrator<'a> {
     }
 }
 
-#[derive(Clone, Dupe, Debug, Eq, Hash, PartialEq, Allocative)]
+#[derive(Clone, Dupe, Debug, Eq, Hash, PartialEq, Allocative, Pagable)]
+#[pagable_typetag(dice::DiceKeyDyn)]
 struct TestExecutionKey {
     test_target: ConfiguredProvidersLabel,
     cmd: Arc<Vec<ArgValue>>,
@@ -552,7 +555,7 @@ struct TestExecutionKey {
     disable_test_execution_caching: bool,
 }
 
-#[derive(Clone, Dupe, Debug, Eq, Hash, PartialEq, Allocative)]
+#[derive(Clone, Dupe, Debug, Eq, Hash, PartialEq, Allocative, Pagable)]
 enum TestExecutionPrefix {
     Listing,
     Testing(Arc<ForwardRelativePathBuf>),

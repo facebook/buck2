@@ -832,6 +832,8 @@ mod tests {
     use dupe::Dupe;
     use futures::pin_mut;
     use futures::poll;
+    use pagable::Pagable;
+    use pagable::pagable_typetag;
     use parking_lot::Mutex;
     use tokio::sync::Barrier;
     use tokio::sync::RwLock;
@@ -871,7 +873,8 @@ mod tests {
         }
     }
 
-    #[derive(Clone, Dupe, Display, Debug, Hash, Eq, PartialEq, Allocative)]
+    #[derive(Clone, Dupe, Display, Debug, Hash, Eq, PartialEq, Allocative, Pagable)]
+    #[pagable_typetag(dice::DiceKeyDyn)]
     struct K;
 
     #[async_trait]
@@ -1496,11 +1499,13 @@ mod tests {
         Ok(())
     }
 
-    #[derive(Clone, Dupe, Derivative, Allocative, Display)]
+    #[derive(Clone, Dupe, Derivative, Allocative, Display, Pagable)]
     #[derivative(Hash, Eq, PartialEq, Debug)]
     #[display("CleanupTestKey")]
+    #[pagable_typetag(dice::DiceKeyDyn)]
     struct CleanupTestKey {
         #[derivative(Debug = "ignore", Hash = "ignore", PartialEq = "ignore")]
+        #[pagable(discard = "Arc::new(Mutex::new(()))")]
         is_executing: Arc<Mutex<()>>,
     }
 

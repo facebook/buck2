@@ -20,6 +20,8 @@ use dice::DiceComputations;
 use dice::Key;
 use dice_futures::cancellation::CancellationContext;
 use indoc::indoc;
+use pagable::Pagable;
+use pagable::pagable_typetag;
 use starlark::environment::Globals;
 use starlark::syntax::AstModule;
 
@@ -37,7 +39,17 @@ enum CheckStarlarkStackSizeError {
 pub(crate) async fn check_starlark_stack_size(
     ctx: &mut DiceComputations<'_>,
 ) -> buck2_error::Result<()> {
-    #[derive(Debug, derive_more::Display, Clone, Allocative, Eq, PartialEq, Hash)]
+    #[derive(
+        Debug,
+        derive_more::Display,
+        Clone,
+        Allocative,
+        Eq,
+        PartialEq,
+        Hash,
+        Pagable
+    )]
+    #[pagable_typetag(dice::DiceKeyDyn)]
     struct StarlarkStackSizeChecker;
 
     #[async_trait]

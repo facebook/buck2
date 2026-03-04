@@ -11,6 +11,7 @@ async-trait = { workspace = true }
 derivative = { workspace = true }
 derive_more = { workspace = true }
 futures = { workspace = true }
+pagable = { workspace = true }
 prost-types = { workspace = true }
 tokio = { workspace = true }
 tonic = { workspace = true }

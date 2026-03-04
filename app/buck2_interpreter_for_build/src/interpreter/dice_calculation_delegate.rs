@@ -51,6 +51,8 @@ use dice::Key;
 use dice_futures::cancellation::CancellationContext;
 use dupe::Dupe;
 use futures::FutureExt;
+use pagable::Pagable;
+use pagable::pagable_typetag;
 use starlark::codemap::FileSpan;
 use starlark::environment::Module;
 use starlark::syntax::AstModule;
@@ -105,8 +107,9 @@ impl<'c, 'd> HasCalculationDelegate<'c, 'd> for DiceComputations<'d> {
         &'c mut self,
         path: OwnedStarlarkPath,
     ) -> buck2_error::Result<DiceCalculationDelegate<'c, 'd>> {
-        #[derive(Clone, Display, Debug, Eq, Hash, PartialEq, Allocative)]
+        #[derive(Clone, Display, Debug, Eq, Hash, PartialEq, Allocative, Pagable)]
         #[display("{}@{}", _0, _1)]
+        #[pagable_typetag(dice::DiceKeyDyn)]
         struct InterpreterConfigForDirKey(CellPath, BuildFileCell);
 
         #[async_trait]
@@ -391,7 +394,8 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
         //
         // Here we put the package file check behind an additional dice key so that we don't recompute on irrelevant
         // changes to the directory contents.
-        #[derive(Debug, Display, Clone, Allocative, Eq, PartialEq, Hash)]
+        #[derive(Debug, Display, Clone, Allocative, Eq, PartialEq, Hash, Pagable)]
+        #[pagable_typetag(dice::DiceKeyDyn)]
         struct PackageFileLookupKey(PackageLabel);
 
         #[async_trait]
@@ -487,7 +491,8 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
         &mut self,
         path: PackageLabel,
     ) -> buck2_error::Result<SuperPackage> {
-        #[derive(Debug, Display, Clone, Allocative, Eq, PartialEq, Hash)]
+        #[derive(Debug, Display, Clone, Allocative, Eq, PartialEq, Hash, Pagable)]
+        #[pagable_typetag(dice::DiceKeyDyn)]
         struct PackageFileKey(PackageLabel);
 
         #[async_trait]
@@ -674,8 +679,11 @@ mod keys {
     use allocative::Allocative;
     use buck2_interpreter::paths::module::OwnedStarlarkModulePath;
     use derive_more::Display;
+    use pagable::Pagable;
+    use pagable::pagable_typetag;
 
-    #[derive(Clone, Display, Debug, Eq, Hash, PartialEq, Allocative)]
+    #[derive(Clone, Display, Debug, Eq, Hash, PartialEq, Allocative, Pagable)]
+    #[pagable_typetag(dice::DiceKeyDyn)]
     pub struct EvalImportKey(pub OwnedStarlarkModulePath);
 }
 

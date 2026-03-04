@@ -20,6 +20,8 @@ use buck2_interpreter::load_module::InterpreterCalculation;
 use dice::DiceComputations;
 use dice::Key;
 use either::Either;
+use pagable::Pagable;
+use pagable::pagable_typetag;
 use ref_cast::RefCast;
 use starlark::values::FrozenStringValue;
 use starlark::values::OwnedFrozenValueTyped;
@@ -126,10 +128,12 @@ impl FetchTransition for DiceComputations<'_> {
     Clone,
     derive_more::Display,
     allocative::Allocative,
-    ref_cast::RefCast
+    ref_cast::RefCast,
+    Pagable
 )]
 #[display("{}", _0)]
 #[repr(transparent)]
+#[pagable_typetag(dice::DiceKeyDyn)]
 struct TransitionAttrsKey(TransitionId);
 
 #[async_trait]

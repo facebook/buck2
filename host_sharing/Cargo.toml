@@ -11,4 +11,5 @@ allocative = { workspace = true }
 anyhow = { workspace = true }
 dashmap = { workspace = true }
 futures-intrusive = { workspace = true }
-starlark_map = { workspace = true }
+pagable = { workspace = true }
+starlark_map = { workspace = true, features = ["pagable"] }

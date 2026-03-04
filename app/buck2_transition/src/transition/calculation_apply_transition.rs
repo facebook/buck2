@@ -40,6 +40,8 @@ use dice_futures::cancellation::CancellationContext;
 use dupe::Dupe;
 use dupe::OptionDupedExt;
 use itertools::Itertools;
+use pagable::Pagable;
+use pagable::pagable_typetag;
 use starlark::eval::Evaluator;
 use starlark::values::UnpackValue;
 use starlark::values::Value;
@@ -245,8 +247,9 @@ impl TransitionCalculation for TransitionCalculationImpl {
         cfg: &ConfigurationData,
         transition_id: &TransitionId,
     ) -> buck2_error::Result<Arc<TransitionApplied>> {
-        #[derive(Debug, Eq, PartialEq, Hash, Clone, Display, Allocative)]
+        #[derive(Debug, Eq, PartialEq, Hash, Clone, Display, Allocative, Pagable)]
         #[display("{} ({}){}", transition_id, cfg, self.fmt_attrs())]
+        #[pagable_typetag(dice::DiceKeyDyn)]
         struct TransitionKey {
             cfg: ConfigurationData,
             transition_id: TransitionId,

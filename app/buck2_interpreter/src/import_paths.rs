@@ -26,6 +26,7 @@ use dice::Key;
 use dice_futures::cancellation::CancellationContext;
 use dupe::Dupe;
 use pagable::Pagable;
+use pagable::pagable_typetag;
 
 use crate::package_imports::PackageImplicitImports;
 
@@ -94,8 +95,18 @@ impl HasImportPaths for DiceComputations<'_> {
         &mut self,
         cell_name: BuildFileCell,
     ) -> buck2_error::Result<Arc<ImplicitImportPaths>> {
-        #[derive(Debug, Eq, PartialEq, Hash, Clone, derive_more::Display, Allocative)]
+        #[derive(
+            Debug,
+            Eq,
+            PartialEq,
+            Hash,
+            Clone,
+            derive_more::Display,
+            Allocative,
+            Pagable
+        )]
         #[display("{}", cell_name)]
+        #[pagable_typetag(dice::DiceKeyDyn)]
         struct ImportPathsKey {
             cell_name: BuildFileCell,
         }

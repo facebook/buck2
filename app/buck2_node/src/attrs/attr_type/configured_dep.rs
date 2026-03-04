@@ -71,7 +71,16 @@ pub struct UnconfiguredExplicitConfiguredDep {
 
 /// Represents the value of an `attrs.configured_dep()`
 /// in its configured form.
-#[derive(derive_more::Display, Hash, PartialEq, Eq, Debug, Clone, Allocative)]
+#[derive(
+    derive_more::Display,
+    Hash,
+    PartialEq,
+    Eq,
+    Debug,
+    Clone,
+    Allocative,
+    Pagable
+)]
 #[display("{}", label)]
 pub struct ConfiguredExplicitConfiguredDep {
     pub attr_type: ExplicitConfiguredDepAttrType,

@@ -21,6 +21,7 @@ use buck2_core::target::label::label::TargetLabel;
 use buck2_error::buck2_error;
 use buck2_error::internal_error;
 use buck2_util::arc_str::ArcStr;
+use pagable::Pagable;
 use serde::Serialize;
 use serde::Serializer;
 use starlark_map::ordered_map::OrderedMap;
@@ -53,7 +54,7 @@ use crate::metadata::map::MetadataMap;
 use crate::visibility::VisibilitySpecification;
 use crate::visibility::WithinViewSpecification;
 
-#[derive(Eq, PartialEq, Hash, Clone, Allocative, Debug)]
+#[derive(Eq, PartialEq, Hash, Clone, Allocative, Debug, Pagable)]
 pub enum ConfiguredAttr {
     Bool(BoolLiteral),
     Int(i64),

@@ -21,8 +21,11 @@ use buck2_test_api::data::ConfiguredTargetHandle;
 use chrono::Local;
 use dashmap::DashMap;
 use dupe::Dupe;
+use pagable::Pagable;
 
-#[derive(Debug, Clone, Copy, Dupe, Default, Allocative, PartialEq, Hash, Eq)]
+#[derive(
+    Debug, Clone, Copy, Dupe, Default, Allocative, PartialEq, Hash, Eq, Pagable
+)]
 pub struct TestSessionOptions {
     /// Whether this session should allow things to run on RE.
     pub allow_re: bool,

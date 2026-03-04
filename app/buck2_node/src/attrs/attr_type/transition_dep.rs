@@ -64,7 +64,7 @@ impl TransitionDepAttrType {
     }
 }
 
-#[derive(Hash, PartialEq, Eq, Debug, Clone, Allocative)]
+#[derive(Hash, PartialEq, Eq, Debug, Clone, Allocative, Pagable)]
 pub struct ConfiguredTransitionDep {
     pub dep: ConfiguredProvidersLabel,
     pub required_providers: ProviderIdSet,

@@ -23,6 +23,8 @@ use dice::CancellationContext;
 use dice::DiceComputations;
 use dice::Key;
 use dupe::Dupe;
+use pagable::Pagable;
+use pagable::pagable_typetag;
 
 use crate::cached_validation_result::CachedValidationResult;
 use crate::validator_api::parse_validation_result;
@@ -39,8 +41,9 @@ enum ParseValidationResultError {
 /// 1) Building the validation result artifact.
 /// 2) Materializing it.
 /// 3) Reading and parsing it to produce result which could be cached in DICE.
-#[derive(Clone, Display, Dupe, Debug, Eq, PartialEq, Hash, Allocative)]
+#[derive(Clone, Display, Dupe, Debug, Eq, PartialEq, Hash, Allocative, Pagable)]
 #[repr(transparent)]
+#[pagable_typetag(dice::DiceKeyDyn)]
 pub(crate) struct SingleValidationKey(pub ActionKey);
 
 #[async_trait]

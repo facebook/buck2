@@ -28,6 +28,8 @@ use dice::ProjectionKey;
 use dice_futures::cancellation::CancellationContext;
 use dupe::Dupe;
 use itertools::Itertools;
+use pagable::Pagable;
+use pagable::pagable_typetag;
 use ref_cast::RefCast;
 use regex::Regex;
 use starlark::eval::ProfileMode;
@@ -93,9 +95,11 @@ enum StarlarkProfilerConfigurationResolved {
     Eq,
     PartialEq,
     Hash,
-    Allocative
+    Allocative,
+    Pagable
 )]
 #[display("{:?}", self)]
+#[pagable_typetag(dice::DiceKeyDyn)]
 struct StarlarkProfilerConfigurationResolvedKey;
 
 #[async_trait]
@@ -269,9 +273,11 @@ impl ProjectionKey for StarlarkProfileModeForKind {
     Eq,
     PartialEq,
     Hash,
-    Allocative
+    Allocative,
+    Pagable
 )]
 #[display("{:?}", self)]
+#[pagable_typetag(dice::DiceKeyDyn)]
 pub struct StarlarkProfilerConfigurationKey;
 
 impl InjectedKey for StarlarkProfilerConfigurationKey {

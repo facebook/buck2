@@ -15,6 +15,7 @@ use dice::DiceTransactionUpdater;
 use dice::InjectedKey;
 use dupe::Dupe;
 use pagable::Pagable;
+use pagable::pagable_typetag;
 
 #[derive(Debug, Clone, Dupe, Eq, PartialEq, Allocative, Pagable)]
 struct StarlarkTypesValue {
@@ -31,9 +32,11 @@ struct StarlarkTypesValue {
     Eq,
     PartialEq,
     Hash,
-    Allocative
+    Allocative,
+    Pagable
 )]
 #[display("{:?}", self)]
+#[pagable_typetag(dice::DiceKeyDyn)]
 struct StarlarkTypesKey;
 
 impl InjectedKey for StarlarkTypesKey {

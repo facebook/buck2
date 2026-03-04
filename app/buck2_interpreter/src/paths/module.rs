@@ -20,6 +20,7 @@ use buck2_core::cells::cell_path::CellPathRef;
 use buck2_core::cells::name::CellName;
 use dupe::Dupe;
 use gazebo::variants::UnpackVariants;
+use pagable::Pagable;
 use starlark::collections::Equivalent;
 use strong_hash::StrongHash;
 
@@ -99,7 +100,7 @@ impl<'a> StarlarkModulePath<'a> {
     }
 }
 
-#[derive(Clone, derive_more::Display, Debug, Eq, PartialEq, Allocative)]
+#[derive(Clone, derive_more::Display, Debug, Eq, PartialEq, Allocative, Pagable)]
 #[display("{}", self.borrow())]
 pub enum OwnedStarlarkModulePath {
     LoadFile(ImportPath),

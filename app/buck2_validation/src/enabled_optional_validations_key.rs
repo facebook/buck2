@@ -16,9 +16,11 @@ use derive_more::Display;
 use dice::DiceTransactionUpdater;
 use dice::InjectedKey;
 use dupe::Dupe;
+use pagable::Pagable;
+use pagable::pagable_typetag;
 
-#[derive(Display, Debug, Hash, Eq, Clone, Dupe, PartialEq, Allocative)]
-
+#[derive(Display, Debug, Hash, Eq, Clone, Dupe, PartialEq, Allocative, Pagable)]
+#[pagable_typetag(dice::DiceKeyDyn)]
 // DICE key that corresponds to optional validations that are enabled via command line flag.
 pub(crate) struct EnabledOptionalValidationsKey;
 

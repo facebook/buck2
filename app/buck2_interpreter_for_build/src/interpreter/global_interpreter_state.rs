@@ -19,6 +19,8 @@ use dice::DiceComputations;
 use dice::Key;
 use dice_futures::cancellation::CancellationContext;
 use dupe::Dupe;
+use pagable::Pagable;
+use pagable::pagable_typetag;
 use starlark::environment::Globals;
 
 use crate::interpreter::configuror::BuildInterpreterConfiguror;
@@ -101,9 +103,11 @@ impl HasGlobalInterpreterState for DiceComputations<'_> {
             Eq,
             Hash,
             PartialEq,
-            Allocative
+            Allocative,
+            Pagable
         )]
         #[display("{:?}", self)]
+        #[pagable_typetag(dice::DiceKeyDyn)]
         struct GisKey();
 
         #[async_trait]

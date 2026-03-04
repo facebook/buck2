@@ -9,6 +9,7 @@ rust_library(
         "fbsource//third-party/rust:assert_matches",
         "fbsource//third-party/rust:derivative",
         "fbsource//third-party/rust:tokio",
+        "//buck2/pagable:pagable",
     ],
     deps = [
         "fbsource//third-party/rust:async-condvar-fair",
