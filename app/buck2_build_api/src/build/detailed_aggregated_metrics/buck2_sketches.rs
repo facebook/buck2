@@ -20,9 +20,12 @@ use buck2_interpreter::dice::starlark_provider::StarlarkEvalKind;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use dice::CancellationContext;
 use dice::DiceComputations;
+use dice::DiceKeyDyn;
 use dice::Key;
 use dupe::Dupe;
 use fxhash::FxHashSet;
+use pagable::Pagable;
+use pagable::pagable_typetag;
 use starlark::values::FrozenHeapRef;
 
 use crate::analysis::calculation::RuleAnalysisCalculation;
@@ -116,9 +119,11 @@ fn compute_configured_graph_sketch_impl<'a>(
     Eq,
     Hash,
     PartialEq,
-    Allocative
+    Allocative,
+    Pagable
 )]
 #[display("AnalysisGraphPropertiesKey({})", label)]
+#[pagable_typetag(DiceKeyDyn)]
 pub(crate) struct AnalysisGraphPropertiesKey {
     pub label: ConfiguredTargetLabel,
 }

@@ -57,6 +57,8 @@ use dice::DiceComputations;
 use dice::Key;
 use dupe::Dupe;
 use itertools::Itertools;
+use pagable::Pagable;
+use pagable::pagable_typetag;
 use starlark_map::ordered_map::OrderedMap;
 
 use crate::configuration::get_matched_cfg_keys;
@@ -195,12 +197,13 @@ impl ExecutionPlatformConstraints {
     }
 }
 
-#[derive(Clone, Display, Debug, Dupe, Eq, Hash, PartialEq, Allocative)]
+#[derive(Clone, Display, Debug, Dupe, Eq, Hash, PartialEq, Allocative, Pagable)]
 #[display(
         "ToolchainExecutionPlatformCompatibilityKey({}, {})",
         target,
         exec_platform.id()
     )]
+#[pagable_typetag(dice::DiceKeyDyn)]
 pub(crate) struct ToolchainExecutionPlatformCompatibilityKey {
     target: TargetConfiguredTargetLabel,
     exec_platform: ExecutionPlatform,
@@ -657,7 +660,8 @@ async fn resolve_execution_platform_from_constraints(
     }
 }
 
-#[derive(Clone, Dupe, Debug, Eq, Hash, PartialEq, Allocative)]
+#[derive(Clone, Dupe, Debug, Eq, Hash, PartialEq, Allocative, Pagable)]
+#[pagable_typetag(dice::DiceKeyDyn)]
 pub(crate) struct ExecutionPlatformResolutionKey {
     /// Determining a compatible execution platform requires checking the target and toolchain's
     /// exec_compatible_with. This in turn requires a ResolvedConfiguration, which resolves the
@@ -728,8 +732,9 @@ impl Key for ExecutionPlatformResolutionKey {
     }
 }
 
-#[derive(Clone, Dupe, Display, Debug, Eq, Hash, PartialEq, Allocative)]
+#[derive(Clone, Dupe, Display, Debug, Eq, Hash, PartialEq, Allocative, Pagable)]
 #[display("ExecutionPlatforms")]
+#[pagable_typetag(dice::DiceKeyDyn)]
 pub struct ExecutionPlatformsKey;
 
 #[async_trait]

@@ -13,12 +13,13 @@ use buck2_core::deferred::key::DeferredHolderKey;
 use derive_more::Display;
 use dice::DiceComputations;
 use dupe::Dupe;
+use pagable::Pagable;
 use starlark::values::OwnedFrozenValueTyped;
 
 use crate::deferred::calculation::lookup_deferred_holder;
 use crate::interpreter::rule_defs::transitive_set::FrozenTransitiveSet;
 
-#[derive(Hash, Eq, PartialEq, Clone, Dupe, Display, Debug, Allocative)]
+#[derive(Hash, Eq, PartialEq, Clone, Dupe, Display, Debug, Allocative, Pagable)]
 #[display("{:?}", self)]
 pub struct TransitiveSetKey(DeferredHolderKey, TransitiveSetIndex);
 
@@ -36,7 +37,9 @@ impl TransitiveSetKey {
     }
 }
 
-#[derive(Hash, Eq, PartialEq, Clone, Dupe, Copy, Display, Debug, Allocative)]
+#[derive(
+    Hash, Eq, PartialEq, Clone, Dupe, Copy, Display, Debug, Allocative, Pagable
+)]
 #[display("{:?}", self)]
 /// Index for the transitive set data in the analysis result
 pub struct TransitiveSetIndex(pub(crate) u32);

@@ -25,6 +25,7 @@ use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use cmp_any::PartialEqAny;
 use dupe::Dupe;
 use pagable::Pagable;
+use pagable::pagable_typetag;
 use pagable::typetag::PagableTagged;
 use static_assertions::assert_eq_size;
 use strong_hash::StrongHash;
@@ -37,7 +38,7 @@ use crate::global_cfg_options::GlobalCfgOptions;
 use crate::target::configured_target_label::ConfiguredTargetLabel;
 use crate::target::name::EQ_SIGN_SUBST;
 
-#[pagable::pagable_typetag]
+#[pagable_typetag]
 pub trait BaseDeferredKeyDyn:
     PagableTagged + Debug + Display + Any + Allocative + Send + Sync + 'static
 {

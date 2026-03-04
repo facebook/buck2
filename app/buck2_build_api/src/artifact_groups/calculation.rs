@@ -50,6 +50,8 @@ use dupe::Dupe;
 use futures::Future;
 use futures::FutureExt;
 use itertools::Itertools;
+use pagable::Pagable;
+use pagable::pagable_typetag;
 use ref_cast::RefCast;
 use smallvec::SmallVec;
 use sorted_vector_map::SortedVectorMap;
@@ -294,8 +296,9 @@ async fn dir_artifact_value(
     // `DirArtifactValueKey` is an intermediate DICE key to prevent that -  every `BuildKey` using
     // that directory now only depends on one `DirArtifactValueKey`, and that `DirArtifactValueKey`
     // depends on the `PathMetadataKey` of every member of the directory.
-    #[derive(Clone, Dupe, Display, Debug, Eq, Hash, PartialEq, Allocative)]
+    #[derive(Clone, Dupe, Display, Debug, Eq, Hash, PartialEq, Allocative, Pagable)]
     #[display("dir_artifact_value({})", _0)]
+    #[pagable_typetag(dice::DiceKeyDyn)]
     struct DirArtifactValueKey(Arc<CellPath>);
 
     #[async_trait]
@@ -480,8 +483,11 @@ enum ProjectedArtifactError {
     MissingInProjectedArtifact(ForwardRelativePathBuf, BaseArtifactKind),
 }
 
-#[derive(Clone, Dupe, Eq, PartialEq, Hash, Display, Debug, Allocative, RefCast)]
+#[derive(
+    Clone, Dupe, Eq, PartialEq, Hash, Display, Debug, Allocative, RefCast, Pagable
+)]
 #[repr(transparent)]
+#[pagable_typetag(dice::DiceKeyDyn)]
 pub struct EnsureProjectedArtifactKey(pub(crate) ArtifactKind);
 
 #[async_trait]
@@ -544,8 +550,11 @@ impl Key for EnsureProjectedArtifactKey {
     }
 }
 
-#[derive(Clone, Dupe, Eq, PartialEq, Hash, Display, Debug, Allocative, RefCast)]
+#[derive(
+    Clone, Dupe, Eq, PartialEq, Hash, Display, Debug, Allocative, RefCast, Pagable
+)]
 #[repr(transparent)]
+#[pagable_typetag(dice::DiceKeyDyn)]
 pub struct EnsureTransitiveSetProjectionKey(pub TransitiveSetProjectionKey);
 
 #[async_trait]

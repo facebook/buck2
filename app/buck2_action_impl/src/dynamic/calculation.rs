@@ -30,6 +30,8 @@ use dice::Demand;
 use dice::DiceComputations;
 use dice::Key;
 use dupe::Dupe;
+use pagable::Pagable;
+use pagable::pagable_typetag;
 
 use crate::dynamic::deferred::prepare_and_execute_lambda;
 use crate::dynamic::storage::FrozenDynamicLambdaParamsStorageImpl;
@@ -59,8 +61,10 @@ pub(crate) fn init_dynamic_lambda_calculation() {
     Allocative,
     Hash,
     Eq,
-    PartialEq
+    PartialEq,
+    Pagable
 )]
+#[pagable_typetag(dice::DiceKeyDyn)]
 pub struct DynamicLambdaDiceKey(DynamicLambdaResultsKey);
 
 #[async_trait]

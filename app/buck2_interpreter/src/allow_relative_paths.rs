@@ -26,6 +26,8 @@ use buck2_core::cells::paths::CellRelativePathBuf;
 use dice::DiceComputations;
 use dice::Key;
 use dice_futures::cancellation::CancellationContext;
+use pagable::Pagable;
+use pagable::pagable_typetag;
 
 #[derive(buck2_error::Error, Debug)]
 #[buck2(input)]
@@ -54,8 +56,18 @@ impl HasAllowRelativePaths for DiceComputations<'_> {
         &mut self,
         cell_path: CellPath,
     ) -> buck2_error::Result<Arc<CellPathWithAllowedRelativeDir>> {
-        #[derive(Debug, Eq, PartialEq, Hash, Clone, derive_more::Display, Allocative)]
+        #[derive(
+            Debug,
+            Eq,
+            PartialEq,
+            Hash,
+            Clone,
+            derive_more::Display,
+            Allocative,
+            Pagable
+        )]
         #[display("{}", cell_path)]
+        #[pagable_typetag(dice::DiceKeyDyn)]
         struct AllowRelativePathsKey {
             cell_path: CellPath,
         }

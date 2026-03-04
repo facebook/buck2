@@ -26,6 +26,8 @@ use dice::DiceComputations;
 use dice::Key;
 use dice_futures::cancellation::CancellationContext;
 use dupe::Dupe;
+use pagable::Pagable;
+use pagable::pagable_typetag;
 use ref_cast::RefCast;
 
 use crate::legacy_configs::dice::HasLegacyConfigs;
@@ -95,8 +97,9 @@ impl CellPackageBoundaryExceptions {
     }
 }
 
-#[derive(Hash, Eq, PartialEq, Clone, Dupe, Display, Debug, Allocative)]
+#[derive(Hash, Eq, PartialEq, Clone, Dupe, Display, Debug, Allocative, Pagable)]
 #[display("{:?}", self)]
+#[pagable_typetag(dice::DiceKeyDyn)]
 struct CellPackageBoundaryExceptionsKey(CellName);
 
 #[async_trait]
@@ -150,8 +153,11 @@ impl HasPackageBoundaryExceptions for DiceComputations<'_> {
         &mut self,
         path: CellPathRef<'async_trait>,
     ) -> buck2_error::Result<Option<Arc<CellPath>>> {
-        #[derive(Hash, Eq, PartialEq, Clone, Display, Debug, RefCast, Allocative)]
+        #[derive(
+            Hash, Eq, PartialEq, Clone, Display, Debug, RefCast, Allocative, Pagable
+        )]
         #[repr(transparent)]
+        #[pagable_typetag(dice::DiceKeyDyn)]
         struct PackageBoundaryExceptionKey(CellPath);
 
         #[async_trait]

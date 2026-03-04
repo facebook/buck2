@@ -38,6 +38,8 @@ use dice::Key;
 use dice_futures::cancellation::CancellationContext;
 use dupe::Dupe;
 use futures::FutureExt;
+use pagable::Pagable;
+use pagable::pagable_typetag;
 use ref_cast::RefCast;
 use starlark_map::ordered_map::OrderedMap;
 use starlark_map::unordered_map::UnorderedMap;
@@ -113,21 +115,23 @@ async fn configuration_matches(
     Ok(true)
 }
 
-#[derive(Clone, Display, Debug, Eq, Hash, PartialEq, Allocative)]
+#[derive(Clone, Display, Debug, Eq, Hash, PartialEq, Allocative, Pagable)]
 #[display("ConfigurationNode({}, {})", cfg_target, target_cfg)]
+#[pagable_typetag(dice::DiceKeyDyn)]
 struct ConfigurationNodeKey {
     target_cfg: ConfigurationData,
     target_cell: CellNameForConfigurationResolution,
     cfg_target: ConfigurationSettingKey,
 }
 
-#[derive(Clone, Display, Debug, Eq, Hash, PartialEq, Allocative)]
+#[derive(Clone, Display, Debug, Eq, Hash, PartialEq, Allocative, Pagable)]
 #[display(
     "ResolvedConfigurationKey(target_cfg: {}, cell: {}, configuration_deps size {})",
     target_cfg,
     target_cell,
     configuration_deps.len()
 )]
+#[pagable_typetag(dice::DiceKeyDyn)]
 struct MatchedConfigurationSettingKeysKey {
     target_cfg: ConfigurationData,
     target_cell: CellNameForConfigurationResolution,
@@ -296,7 +300,17 @@ pub(crate) async fn get_platform_configuration(
     ctx: &mut DiceComputations<'_>,
     target: &TargetLabel,
 ) -> buck2_error::Result<ConfigurationData> {
-    #[derive(derive_more::Display, Debug, Eq, Hash, PartialEq, Clone, Allocative)]
+    #[derive(
+        derive_more::Display,
+        Debug,
+        Eq,
+        Hash,
+        PartialEq,
+        Clone,
+        Allocative,
+        Pagable
+    )]
+    #[pagable_typetag(dice::DiceKeyDyn)]
     struct PlatformConfigurationKey(TargetLabel);
 
     #[async_trait]

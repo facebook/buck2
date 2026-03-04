@@ -44,12 +44,15 @@ mod keys {
     use buck2_core::cells::name::CellName;
     use derive_more::Display;
     use dupe::Dupe;
+    use pagable::Pagable;
+    use pagable::pagable_typetag;
 
     use crate::file_ops::delegate::FileOpsDelegateWithIgnores;
     use crate::file_ops::dice::CheckIgnores;
 
-    #[derive(Clone, Dupe, Display, Debug, Eq, Hash, PartialEq, Allocative)]
+    #[derive(Clone, Dupe, Display, Debug, Eq, Hash, PartialEq, Allocative, Pagable)]
     #[display("{:?}", self)]
+    #[pagable_typetag(dice::DiceKeyDyn)]
     pub(crate) struct FileOpsKey {
         pub cell: CellName,
         pub check_ignores: CheckIgnores,

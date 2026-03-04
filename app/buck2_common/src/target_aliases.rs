@@ -18,6 +18,8 @@ use dice_futures::cancellation::CancellationContext;
 use dupe::Dupe;
 use indexmap::IndexSet;
 use itertools::Itertools;
+use pagable::Pagable;
+use pagable::pagable_typetag;
 
 use crate::dice::cells::HasCellResolver;
 use crate::legacy_configs::configs::LegacyBuckConfig;
@@ -133,7 +135,8 @@ pub trait HasTargetAliasResolver {
     -> buck2_error::Result<BuckConfigTargetAliasResolver>;
 }
 
-#[derive(Debug, Display, Hash, PartialEq, Eq, Clone, Allocative)]
+#[derive(Debug, Display, Hash, PartialEq, Eq, Clone, Allocative, Pagable)]
+#[pagable_typetag(dice::DiceKeyDyn)]
 struct TargetAliasResolverKey();
 
 #[async_trait]

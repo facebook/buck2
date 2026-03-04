@@ -27,6 +27,8 @@ use dice::Key;
 use dice_futures::cancellation::CancellationContext;
 use dupe::Dupe;
 use futures::future::BoxFuture;
+use pagable::Pagable;
+use pagable::pagable_typetag;
 
 use crate::buildfiles::HasBuildfiles;
 use crate::file_ops::delegate::get_delegated_file_ops;
@@ -146,7 +148,9 @@ impl DiceFileComputations {
     }
 }
 
-#[derive(Debug, Display, Clone, Dupe, Copy, PartialEq, Eq, Hash, Allocative)]
+#[derive(
+    Debug, Display, Clone, Dupe, Copy, PartialEq, Eq, Hash, Allocative, Pagable
+)]
 pub(crate) enum CheckIgnores {
     Yes,
     No,
@@ -281,7 +285,8 @@ impl ReadFileProxy {
     }
 }
 
-#[derive(Clone, Dupe, Display, Debug, Eq, Hash, PartialEq, Allocative)]
+#[derive(Clone, Dupe, Display, Debug, Eq, Hash, PartialEq, Allocative, Pagable)]
+#[pagable_typetag(dice::DiceKeyDyn)]
 struct ReadFileKey(Arc<CellPath>);
 
 #[async_trait]
@@ -307,8 +312,9 @@ impl Key for ReadFileKey {
     }
 }
 
-#[derive(Clone, Display, Debug, Eq, Hash, PartialEq, Allocative)]
+#[derive(Clone, Display, Debug, Eq, Hash, PartialEq, Allocative, Pagable)]
 #[display("{}", path)]
+#[pagable_typetag(dice::DiceKeyDyn)]
 struct ReadDirKey {
     path: CellPath,
     check_ignores: CheckIgnores,
@@ -338,8 +344,9 @@ impl Key for ReadDirKey {
     }
 }
 
-#[derive(Clone, Display, Allocative, Debug, Eq, Hash, PartialEq)]
+#[derive(Clone, Display, Allocative, Debug, Eq, Hash, PartialEq, Pagable)]
 #[display("{}", _0)]
+#[pagable_typetag(dice::DiceKeyDyn)]
 struct ExistsMatchingExactCaseKey(CellPath);
 
 #[async_trait]
@@ -368,7 +375,8 @@ impl Key for ExistsMatchingExactCaseKey {
     }
 }
 
-#[derive(Clone, Display, Debug, Eq, Hash, PartialEq, Allocative)]
+#[derive(Clone, Display, Debug, Eq, Hash, PartialEq, Allocative, Pagable)]
+#[pagable_typetag(dice::DiceKeyDyn)]
 struct PathMetadataKey(CellPath);
 
 #[async_trait]

@@ -24,6 +24,8 @@ use dice::InjectedKey;
 use dice::InvalidationSourcePriority;
 use dice::Key;
 use dupe::Dupe;
+use pagable::Pagable;
+use pagable::pagable_typetag;
 
 use crate::legacy_configs::cells::BuckConfigBasedCells;
 use crate::legacy_configs::dice::HasLegacyConfigs;
@@ -51,8 +53,9 @@ pub trait SetCellResolver {
     fn set_none_cell_resolver(&mut self) -> buck2_error::Result<()>;
 }
 
-#[derive(Clone, Dupe, Display, Debug, Eq, Hash, PartialEq, Allocative)]
+#[derive(Clone, Dupe, Display, Debug, Eq, Hash, PartialEq, Allocative, Pagable)]
 #[display("{:?}", self)]
+#[pagable_typetag(dice::DiceKeyDyn)]
 struct CellResolverKey;
 
 impl InjectedKey for CellResolverKey {
@@ -100,7 +103,8 @@ impl HasCellResolver for DiceComputations<'_> {
 }
 
 /// Only used for cell alias resolvers parsed within dice, currently those for external cells
-#[derive(Clone, Dupe, Display, Debug, Eq, Hash, PartialEq, Allocative)]
+#[derive(Clone, Dupe, Display, Debug, Eq, Hash, PartialEq, Allocative, Pagable)]
+#[pagable_typetag(dice::DiceKeyDyn)]
 struct CellAliasResolverKey(CellName);
 
 #[async_trait]

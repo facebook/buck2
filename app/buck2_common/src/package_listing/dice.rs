@@ -19,6 +19,8 @@ use dice::DiceComputations;
 use dice::Key;
 use dice_futures::cancellation::CancellationContext;
 use dupe::Dupe;
+use pagable::Pagable;
+use pagable::pagable_typetag;
 use smallvec::SmallVec;
 
 use crate::package_listing::interpreter::InterpreterPackageListingResolver;
@@ -33,8 +35,10 @@ use crate::package_listing::resolver::PackageListingResolver;
     Eq,
     Hash,
     PartialEq,
-    Allocative
+    Allocative,
+    Pagable
 )]
+#[pagable_typetag(dice::DiceKeyDyn)]
 pub struct PackageListingKey(pub PackageLabel);
 
 pub struct PackageListingKeyActivationData {

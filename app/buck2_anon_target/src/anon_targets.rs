@@ -78,6 +78,7 @@ use dice_futures::cancellation::CancellationContext;
 use dupe::Dupe;
 use futures::FutureExt;
 use futures::future::BoxFuture;
+use pagable::Pagable;
 use starlark::any::AnyLifetime;
 use starlark::any::ProvidesStaticType;
 use starlark::codemap::FileSpan;
@@ -127,7 +128,12 @@ pub enum AnonTargetsError {
     QueryMacroNotSupported,
 }
 
-#[derive(Hash, Eq, PartialEq, Clone, Dupe, Debug, Display, Trace, Allocative)]
+use pagable::pagable_typetag;
+
+#[derive(
+    Hash, Eq, PartialEq, Clone, Dupe, Debug, Display, Trace, Allocative, Pagable
+)]
+#[pagable_typetag(dice::DiceKeyDyn)]
 pub(crate) struct AnonTargetKey(pub(crate) Arc<AnonTarget>);
 
 #[async_trait]

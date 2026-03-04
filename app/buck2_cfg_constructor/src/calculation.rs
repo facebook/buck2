@@ -31,6 +31,8 @@ use dice::DiceComputations;
 use dice::Key;
 use dupe::Dupe;
 use dupe::OptionDupedExt;
+use pagable::Pagable;
+use pagable::pagable_typetag;
 
 #[derive(Debug, buck2_error::Error)]
 #[buck2(tag = Input)]
@@ -56,7 +58,8 @@ async fn get_cfg_constructor_uncached(
 async fn get_cfg_constructor(
     ctx: &mut DiceComputations<'_>,
 ) -> buck2_error::Result<Option<Arc<dyn CfgConstructorImpl>>> {
-    #[derive(Clone, Dupe, Display, Debug, Eq, Hash, PartialEq, Allocative)]
+    #[derive(Clone, Dupe, Display, Debug, Eq, Hash, PartialEq, Allocative, Pagable)]
+    #[pagable_typetag(dice::DiceKeyDyn)]
     struct GetCfgConstructorKey;
 
     #[async_trait]
@@ -91,8 +94,9 @@ impl CfgConstructorCalculationImpl for CfgConstructorCalculationInstance {
         rule_type: &RuleType,
         configuring_exec_dep: bool,
     ) -> buck2_error::Result<ConfigurationData> {
-        #[derive(Clone, Display, Dupe, Debug, Eq, Hash, PartialEq, Allocative)]
+        #[derive(Clone, Display, Dupe, Debug, Eq, Hash, PartialEq, Allocative, Pagable)]
         #[display("CfgConstructorInvocationKey")]
+        #[pagable_typetag(dice::DiceKeyDyn)]
         struct CfgConstructorInvocationKey {
             package_cfg_modifiers: Option<MetadataValue>,
             target_cfg_modifiers: Option<MetadataValue>,

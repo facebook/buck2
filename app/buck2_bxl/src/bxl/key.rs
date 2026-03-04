@@ -52,7 +52,8 @@ use crate::bxl::starlark_defs::context::actions::BxlExecutionResolution;
     Ord,
     PartialOrd,
     Allocative,
-    strong_hash::StrongHash
+    strong_hash::StrongHash,
+    Pagable
 )]
 pub(crate) struct BxlKey(Arc<BxlKeyData>);
 

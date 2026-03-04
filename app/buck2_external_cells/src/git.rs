@@ -56,6 +56,8 @@ use dice::CancellationContext;
 use dice::DiceComputations;
 use dice::Key;
 use dupe::Dupe;
+use pagable::Pagable;
+use pagable::pagable_typetag;
 use tokio::sync::Semaphore;
 
 #[derive(buck2_error::Error, Debug)]
@@ -371,9 +373,11 @@ pub(crate) async fn get_file_ops_delegate(
         PartialEq,
         Eq,
         Hash,
-        allocative::Allocative
+        allocative::Allocative,
+        Pagable
     )]
     #[display("({}, {})", _0, _1)]
+    #[pagable_typetag(dice::DiceKeyDyn)]
     struct GitFileOpsDelegateKey(CellName, GitCellSetup);
 
     #[async_trait::async_trait]

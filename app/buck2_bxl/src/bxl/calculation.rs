@@ -87,9 +87,12 @@ mod internal {
     use allocative::Allocative;
     use derive_more::Display;
     use dupe::Dupe;
+    use pagable::Pagable;
+    use pagable::pagable_typetag;
 
     use crate::bxl::key::BxlKey;
 
-    #[derive(Clone, Dupe, Display, Debug, Eq, Hash, PartialEq, Allocative)]
+    #[derive(Clone, Dupe, Display, Debug, Eq, Hash, PartialEq, Allocative, Pagable)]
+    #[pagable_typetag(dice::DiceKeyDyn)]
     pub(crate) struct BxlComputeKey(pub(crate) BxlKey);
 }

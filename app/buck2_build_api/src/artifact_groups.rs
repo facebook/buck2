@@ -184,7 +184,17 @@ pub enum ResolvedArtifactGroupBuildSignalsKey {
     BuildKey(BuildKey),
 }
 
-#[derive(Clone, Debug, Display, Dupe, PartialEq, Eq, Hash, Allocative)]
+#[derive(
+    Clone,
+    Debug,
+    Display,
+    Dupe,
+    PartialEq,
+    Eq,
+    Hash,
+    Allocative,
+    pagable::Pagable
+)]
 #[display("TransitiveSetProjection({}, {})", key, projection)]
 pub struct TransitiveSetProjectionKey {
     pub key: TransitiveSetKey,

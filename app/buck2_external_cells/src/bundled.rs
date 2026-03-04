@@ -62,6 +62,8 @@ use dice::CancellationContext;
 use dice::DiceComputations;
 use dice::Key;
 use dupe::Dupe;
+use pagable::Pagable;
+use pagable::pagable_typetag;
 
 fn load_nano_prelude() -> buck2_error::Result<BundledCell> {
     let path = env::var("NANO_PRELUDE")
@@ -423,8 +425,10 @@ pub(crate) async fn get_file_ops_delegate(
         PartialEq,
         Eq,
         Hash,
-        allocative::Allocative
+        allocative::Allocative,
+        Pagable
     )]
+    #[pagable_typetag(dice::DiceKeyDyn)]
     struct BundledFileOpsDelegateKey(CellName);
 
     #[async_trait::async_trait]

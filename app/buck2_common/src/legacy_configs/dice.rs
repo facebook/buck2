@@ -31,6 +31,7 @@ use dice::ProjectionKey;
 use dice_futures::cancellation::CancellationContext;
 use dupe::Dupe;
 use pagable::Pagable;
+use pagable::pagable_typetag;
 
 use crate::dice::cells::HasCellResolver;
 use crate::legacy_configs::cells::BuckConfigBasedCells;
@@ -164,8 +165,9 @@ pub trait SetLegacyConfigs {
     fn set_none_legacy_config_external_data(&mut self) -> buck2_error::Result<()>;
 }
 
-#[derive(Clone, Dupe, Display, Debug, Eq, Hash, PartialEq, Allocative)]
+#[derive(Clone, Dupe, Display, Debug, Eq, Hash, PartialEq, Allocative, Pagable)]
 #[display("{:?}", self)]
+#[pagable_typetag(dice::DiceKeyDyn)]
 struct LegacyExternalBuckConfigDataKey;
 
 impl InjectedKey for LegacyExternalBuckConfigDataKey {
@@ -178,6 +180,7 @@ impl InjectedKey for LegacyExternalBuckConfigDataKey {
 
 #[derive(Clone, Display, Debug, Hash, Eq, PartialEq, Allocative, Pagable)]
 #[display("LegacyBuckConfigForCellKey({})", self.cell_name)]
+#[pagable_typetag(dice::DiceKeyDyn)]
 struct LegacyBuckConfigForCellKey {
     cell_name: CellName,
 }

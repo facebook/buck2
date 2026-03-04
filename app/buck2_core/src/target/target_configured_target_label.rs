@@ -33,7 +33,8 @@ use crate::target::label::label::TargetLabel;
     PartialEq,
     Ord,
     PartialOrd,
-    allocative::Allocative
+    allocative::Allocative,
+    pagable::Pagable
 )]
 pub struct TargetConfiguredTargetLabel(ConfiguredTargetLabel);
 

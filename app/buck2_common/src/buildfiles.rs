@@ -18,6 +18,8 @@ use dice::DiceComputations;
 use dice::Key;
 use gazebo::prelude::SliceExt as _;
 use gazebo::prelude::VecExt as _;
+use pagable::Pagable;
+use pagable::pagable_typetag;
 
 use crate::legacy_configs::dice::HasLegacyConfigs;
 use crate::legacy_configs::key::BuckconfigKeyRef;
@@ -81,9 +83,11 @@ pub trait HasBuildfiles {
     Hash,
     Eq,
     PartialEq,
-    allocative::Allocative
+    allocative::Allocative,
+    Pagable
 )]
 #[display("BuildfilesKey({})", self.0)]
+#[pagable_typetag(dice::DiceKeyDyn)]
 struct BuildfilesKey(CellName);
 
 #[async_trait::async_trait]

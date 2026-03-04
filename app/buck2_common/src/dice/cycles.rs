@@ -24,6 +24,8 @@ use dice::UserCycleDetector;
 use dice::UserCycleDetectorGuard;
 use dice_futures::cancellation::CancellationContext;
 use futures::Future;
+use pagable::Pagable;
+use pagable::pagable_typetag;
 use tracing::debug;
 
 /// Additional requirement for a CycleDescriptor to be used for defining a Dice UserCycleDetector through
@@ -103,8 +105,9 @@ impl<D: CycleAdapterDescriptor> CycleGuard<D> {
 /// This is used to ensure we don't cache an error from the cycle detector (the cycle detector allows
 /// flow of data that is potentially not tracked by dice, and while we may be able to identify those
 /// and fix them it'll still be fragile and its best to just make sure they aren't cached).
-#[derive(Allocative, Debug, Display, Clone, PartialEq, Eq, Hash)]
+#[derive(Allocative, Debug, Display, Clone, PartialEq, Eq, Hash, Pagable)]
 #[display("poisoned_due_to_detected_cycle")]
+#[pagable_typetag(dice::DiceKeyDyn)]
 struct PoisonedDueToDetectedCycleKey;
 
 #[async_trait]
@@ -214,13 +217,26 @@ mod tests {
     use dice::Key;
     use dice::UserCycleDetector;
     use dice::UserCycleDetectorGuard;
+    use pagable::Pagable;
+    use pagable::pagable_typetag;
 
     use crate::dice::cycles::PairDiceCycleDetector;
 
     #[test]
     fn pair_cycle_detector() {
-        #[derive(Allocative, Debug, derive_more::Display, Clone, PartialEq, Eq, Hash)]
+        #[derive(
+            Allocative,
+            Debug,
+            derive_more::Display,
+            Clone,
+            PartialEq,
+            Eq,
+            Hash,
+            Pagable
+        )]
+        #[pagable_typetag(dice::DiceKeyDyn)]
         struct K;
+
         #[async_trait]
         impl Key for K {
             type Value = ();

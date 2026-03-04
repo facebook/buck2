@@ -38,6 +38,7 @@ use futures::future::Either;
 use futures::stream::FuturesUnordered;
 use futures::stream::StreamExt;
 use itertools::Itertools;
+use pagable::Pagable;
 use starlark::collections::SmallSet;
 use tokio::sync::Mutex;
 use tokio::sync::mpsc::UnboundedReceiver;
@@ -738,7 +739,7 @@ pub struct ProviderArtifacts {
 }
 
 // what type of artifacts to build based on the provider it came from
-#[derive(Default, Allocative, Debug, Clone, Dupe, Eq, PartialEq, Hash)]
+#[derive(Default, Allocative, Debug, Clone, Dupe, Eq, PartialEq, Hash, Pagable)]
 pub struct ProvidersToBuild {
     pub default: bool,
     pub default_other: bool,

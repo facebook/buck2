@@ -49,6 +49,8 @@ use futures::FutureExt;
 use futures::future::BoxFuture;
 use futures::future::{self};
 use indexmap::IndexMap;
+use pagable::Pagable;
+use pagable::pagable_typetag;
 use ref_cast::RefCast;
 use smallvec::SmallVec;
 use starlark::environment::Module;
@@ -649,8 +651,11 @@ impl ActionCalculation {
     }
 }
 
-#[derive(Clone, Dupe, Display, Debug, Eq, PartialEq, Hash, Allocative, RefCast)]
+#[derive(
+    Clone, Dupe, Display, Debug, Eq, PartialEq, Hash, Allocative, RefCast, Pagable
+)]
 #[repr(transparent)]
+#[pagable_typetag(dice::DiceKeyDyn)]
 pub struct BuildKey(pub ActionKey);
 
 #[async_trait]

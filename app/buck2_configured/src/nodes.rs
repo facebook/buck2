@@ -85,7 +85,9 @@ use dice_futures::cancellation::CancellationContext;
 use dupe::Dupe;
 use futures::FutureExt;
 use itertools::Itertools;
+use pagable::Pagable;
 use pagable::StaticStr;
+use pagable::pagable_typetag;
 use starlark_map::ordered_map::OrderedMap;
 use starlark_map::small_map::SmallMap;
 use starlark_map::small_set::SmallSet;
@@ -1061,7 +1063,8 @@ async fn compute_configured_forward_target_node(
     }
 }
 
-#[derive(Clone, Dupe, Display, Debug, Eq, Hash, PartialEq, Allocative)]
+#[derive(Clone, Dupe, Display, Debug, Eq, Hash, PartialEq, Allocative, Pagable)]
+#[pagable_typetag(dice::DiceKeyDyn)]
 pub struct ConfiguredTargetNodeKey(pub ConfiguredTargetLabel);
 
 struct ConfiguredTargetNodeCalculationInstance;
@@ -1273,8 +1276,9 @@ async fn check_target_enabled_for_config(
     section: StaticStr,
     property: StaticStr,
 ) -> buck2_error::Result<bool> {
-    #[derive(Clone, Dupe, Display, Debug, Eq, Hash, PartialEq, Allocative)]
+    #[derive(Clone, Dupe, Display, Debug, Eq, Hash, PartialEq, Allocative, Pagable)]
     #[display("ConfigPatternCalculation({section}, {property})")]
+    #[pagable_typetag(dice::DiceKeyDyn)]
     struct ConfigPatternCalculation {
         section: StaticStr,
         property: StaticStr,
@@ -1322,7 +1326,10 @@ async fn check_target_enabled_for_config(
     }
 
     let patterns = ctx
-        .compute(&ConfigPatternCalculation { section, property })
+        .compute(&ConfigPatternCalculation {
+            section: section.into(),
+            property: property.into(),
+        })
         .await??;
     for pattern in patterns.iter() {
         if pattern.matches(target_label) {
@@ -1337,7 +1344,8 @@ async fn get_dep_only_incompatible_custom_soft_error(
     ctx: &mut DiceComputations<'_>,
     target_label: &TargetLabel,
 ) -> buck2_error::Result<Option<Vec<ArcStr>>> {
-    #[derive(Clone, Dupe, Display, Debug, Eq, Hash, PartialEq, Allocative)]
+    #[derive(Clone, Dupe, Display, Debug, Eq, Hash, PartialEq, Allocative, Pagable)]
+    #[pagable_typetag(dice::DiceKeyDyn)]
     struct GetDepOnlyIncompatibleInfo;
 
     #[async_trait]

@@ -23,6 +23,8 @@ use dice::DiceComputations;
 use dice::Key;
 use dupe::Dupe;
 use futures::FutureExt;
+use pagable::Pagable;
+use pagable::pagable_typetag;
 
 use crate::build::detailed_aggregated_metrics::buck2_sketches::AnalysisGraphPropertiesKey;
 use crate::build::detailed_aggregated_metrics::buck2_sketches::compute_configured_graph_sketch;
@@ -120,13 +122,15 @@ pub struct GraphPropertiesValues {
     Eq,
     Hash,
     PartialEq,
-    Allocative
+    Allocative,
+    Pagable
 )]
 #[display(
     "GraphPropertiesKey: {}, configured_graph_sketch={}",
     label,
     configured_graph_sketch
 )]
+#[pagable_typetag(dice::DiceKeyDyn)]
 struct ConfiguredGraphPropertiesKey {
     label: ConfiguredTargetLabel,
     configured_graph_sketch: bool,
