@@ -363,35 +363,6 @@ def rust_protobuf_library(
         crate_name,
     )
 
-def rust_protobuf_library_prost_0134(
-        name,
-        srcs,
-        build_script,
-        protos = None,  # Pass a list of files. They'll be placed in the cwd. Prefer using proto_srcs.
-        deps = None,
-        test_deps = None,
-        doctests = True,
-        build_env = None,
-        proto_srcs = None,
-        crate_name = None):
-    # Use a proto_srcs() target, path is exposed as BUCK_PROTO_SRCS.
-    _rust_protobuf_library(
-        name,
-        srcs,
-        build_script,
-        "buck2_protoc_dev-tonic-0-12-3",
-        "prost-0-13-4",
-        "prost-types-0-13-4",
-        "tonic-0-12-3",
-        protos,
-        deps,
-        test_deps,
-        doctests,
-        build_env,
-        proto_srcs,
-        crate_name,
-    )
-
 def _rust_protobuf_library(
         name,
         srcs,

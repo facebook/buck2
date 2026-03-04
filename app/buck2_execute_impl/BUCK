@@ -48,7 +48,7 @@ rust_library(
         "//buck2/app/buck2_http:buck2_http",
         "//buck2/app/buck2_resource_control:buck2_resource_control",
         "//buck2/app/buck2_util:buck2_util",
-        "//buck2/app/buck2_worker_proto:buck2_worker_proto_modern_prost",
+        "//buck2/app/buck2_worker_proto:buck2_worker_proto",
         "//buck2/app/buck2_wrapper_common:buck2_wrapper_common",
         "//buck2/dice/dice_futures:dice_futures",
         "//buck2/gazebo/dupe:dupe",

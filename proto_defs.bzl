@@ -25,10 +25,10 @@ def rust_protobuf_library(
         srcs,
         build_script,
         "buck2_protoc_dev",
-        "0.12",
+        "0.13",
         protos,
         [
-            "fbsource//third-party/rust:tonic-0-10",
+            "fbsource//third-party/rust:tonic-0-12",
         ] + (deps or []),
         test_deps,
         doctests,
@@ -41,40 +41,6 @@ def rust_protobuf_library(
     alias(
         name = name,
         actual = ":" + name + "_prost",
-    )
-
-def rust_protobuf_library_prost_0134(
-        name,
-        srcs,
-        build_script,
-        protos = None,  # Pass a list of files. Thye'll be placed in the cwd. Prefer using proto_srcs.
-        deps = None,
-        test_deps = None,
-        doctests = True,
-        build_env = None,
-        proto_srcs = None,  # Use a proto_srcs() target, path is exposed as BUCK_PROTO_SRCS.
-        crate_name = None):
-    _rust_protobuf_library(
-        name,
-        srcs,
-        build_script,
-        "buck2_protoc_dev-tonic-0-12-3",
-        "0.13",
-        protos,
-        [
-            "fbsource//third-party/rust:tonic-0-12",
-        ] + (deps or []),
-        test_deps,
-        doctests,
-        build_env,
-        proto_srcs,
-        crate_name,
-    )
-
-    # Set up an alias to the default version of prost to avoid breaking callers
-    alias(
-        name = name,
-        actual = ":" + name + "_prost-0-13-4",
     )
 
 def _rust_protobuf_library(
@@ -91,8 +57,7 @@ def _rust_protobuf_library(
         proto_srcs,
         crate_name):
     versioned_prost_target = {
-        "0.12": "prost",
-        "0.13": "prost-0-13-4",
+        "0.13": "prost",
     }[prost_version]
     build_name = name + "-build" + "-" + versioned_prost_target
     proto_name = name + "-proto" + "-" + versioned_prost_target
@@ -125,7 +90,6 @@ def _rust_protobuf_library(
     )
 
     new_deps = [{
-        "0.12": "fbsource//third-party/rust:prost-0-12",
         "0.13": "fbsource//third-party/rust:prost-0-13",
     }[prost_version]] + (deps or [])
 
