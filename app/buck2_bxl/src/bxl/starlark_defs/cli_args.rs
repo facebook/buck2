@@ -47,6 +47,7 @@ use futures::future::BoxFuture;
 use gazebo::variants::VariantName;
 use itertools::Itertools;
 use num_bigint::BigInt;
+use pagable::Pagable;
 use serde::Serialize;
 use starlark::any::ProvidesStaticType;
 use starlark::environment::GlobalsBuilder;
@@ -183,7 +184,8 @@ impl CliArgs {
     PartialOrd,
     Allocative,
     Serialize,
-    strong_hash::StrongHash
+    strong_hash::StrongHash,
+    Pagable
 )]
 pub(crate) enum JsonCliArgValueData {
     None,
@@ -266,7 +268,8 @@ impl JsonCliArgValueData {
     Ord,
     PartialOrd,
     Allocative,
-    strong_hash::StrongHash
+    strong_hash::StrongHash,
+    Pagable
 )]
 pub(crate) enum CliArgValue {
     Bool(bool),

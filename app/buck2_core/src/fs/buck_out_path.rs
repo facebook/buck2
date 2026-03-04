@@ -19,6 +19,7 @@ use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use derive_more::Display;
 use dupe::Dupe;
 use itertools::Itertools;
+use pagable::Pagable;
 
 use crate::category::CategoryRef;
 use crate::cells::external::ExternalCellOrigin;
@@ -42,7 +43,8 @@ use crate::provider::label::ProvidersName;
     Hash,
     Eq,
     PartialEq,
-    strong_hash::StrongHash
+    strong_hash::StrongHash,
+    Pagable
 )]
 #[derive(Default)]
 pub enum BuckOutPathKind {
@@ -62,7 +64,8 @@ pub enum BuckOutPathKind {
     Hash,
     Eq,
     PartialEq,
-    strong_hash::StrongHash
+    strong_hash::StrongHash,
+    Pagable
 )]
 #[display("({})/{}", owner, path.as_str())]
 struct BuildArtifactPathData {
@@ -90,7 +93,8 @@ struct BuildArtifactPathData {
     PartialEq,
     Eq,
     Allocative,
-    strong_hash::StrongHash
+    strong_hash::StrongHash,
+    Pagable
 )]
 pub struct BuildArtifactPath(Arc<BuildArtifactPathData>);
 

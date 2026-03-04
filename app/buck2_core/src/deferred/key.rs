@@ -12,6 +12,7 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use dupe::Dupe;
+use pagable::Pagable;
 use smallvec::SmallVec;
 use static_assertions::assert_eq_size;
 
@@ -34,7 +35,8 @@ use crate::target::configured_target_label::ConfiguredTargetLabel;
     derive_more::Display,
     Debug,
     Allocative,
-    strong_hash::StrongHash
+    strong_hash::StrongHash,
+    Pagable
 )]
 
 pub enum DeferredHolderKey {

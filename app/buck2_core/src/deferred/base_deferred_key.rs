@@ -24,6 +24,8 @@ use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use cmp_any::PartialEqAny;
 use dupe::Dupe;
+use pagable::Pagable;
+use pagable::typetag::PagableTagged;
 use static_assertions::assert_eq_size;
 use strong_hash::StrongHash;
 
@@ -35,7 +37,10 @@ use crate::global_cfg_options::GlobalCfgOptions;
 use crate::target::configured_target_label::ConfiguredTargetLabel;
 use crate::target::name::EQ_SIGN_SUBST;
 
-pub trait BaseDeferredKeyDyn: Debug + Display + Any + Allocative + Send + Sync + 'static {
+#[pagable::pagable_typetag]
+pub trait BaseDeferredKeyDyn:
+    PagableTagged + Debug + Display + Any + Allocative + Send + Sync + 'static
+{
     fn eq_token(&self) -> PartialEqAny<'_>;
     fn hash(&self) -> u64;
     fn strong_hash(&self) -> u64;
@@ -56,7 +61,7 @@ pub trait BaseDeferredKeyDyn: Debug + Display + Any + Allocative + Send + Sync +
     fn global_cfg_options(&self) -> Option<GlobalCfgOptions>;
 }
 
-#[derive(Debug, derive_more::Display, Dupe, Clone, Allocative)]
+#[derive(Debug, derive_more::Display, Dupe, Clone, Allocative, Pagable)]
 pub struct BaseDeferredKeyBxl(pub Arc<dyn BaseDeferredKeyDyn>);
 
 impl PartialEq for BaseDeferredKeyBxl {
@@ -72,7 +77,7 @@ pub enum PathResolutionError {
     ContentBasedPathWithNoContentHash(ForwardRelativePathBuf),
 }
 
-#[derive(Debug, derive_more::Display, Dupe, Clone, Allocative)]
+#[derive(Debug, derive_more::Display, Dupe, Clone, Allocative, Pagable)]
 pub enum BaseDeferredKey {
     TargetLabel(ConfiguredTargetLabel),
     AnonTarget(Arc<dyn BaseDeferredKeyDyn>),

@@ -19,6 +19,7 @@ use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_core::deferred::base_deferred_key::BaseDeferredKey;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use dupe::Dupe;
+use pagable::Pagable;
 use starlark::codemap::FileSpan;
 
 #[derive(Debug, buck2_error::Error)]
@@ -85,7 +86,8 @@ pub struct PromiseArtifact {
     Hash,
     Eq,
     PartialEq,
-    strong_hash::StrongHash
+    strong_hash::StrongHash,
+    Pagable
 )]
 pub struct PromiseArtifactId {
     owner: BaseDeferredKey,
@@ -214,7 +216,16 @@ impl Eq for PromiseArtifact {}
 // When passing promise artifacts into anon targets, we will coerce them into this type.
 // During resolve, we look up the analysis of the target that produced the promise artifact,
 // assert short paths, and produce a new `StarlarkPromiseArtifact` with the `OnceLock` resolved.
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Allocative, strong_hash::StrongHash)]
+#[derive(
+    Debug,
+    Clone,
+    PartialEq,
+    Eq,
+    Hash,
+    Allocative,
+    strong_hash::StrongHash,
+    Pagable
+)]
 pub struct PromiseArtifactAttr {
     pub id: PromiseArtifactId,
     pub short_path: Option<ForwardRelativePathBuf>,

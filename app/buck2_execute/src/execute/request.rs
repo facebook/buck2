@@ -37,6 +37,7 @@ use gazebo::variants::UnpackVariants;
 use host_sharing::host_sharing::HostSharingRequirements;
 use indexmap::IndexSet;
 use itertools::Itertools;
+use pagable::Pagable;
 use prost::Message;
 use remote_execution as RE;
 use sorted_vector_map::SortedVectorMap;
@@ -729,7 +730,8 @@ impl CommandExecutionRequest {
     Allocative,
     Ord,
     PartialOrd,
-    strong_hash::StrongHash
+    strong_hash::StrongHash,
+    Pagable
 )]
 pub enum OutputType {
     /// We don't know - used to represent legacy code that doesn't yet declare the output type properly.

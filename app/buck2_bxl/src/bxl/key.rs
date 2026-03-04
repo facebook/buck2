@@ -34,6 +34,8 @@ use buck2_interpreter::dice::starlark_provider::StarlarkEvalKind;
 use buck2_util::strong_hasher::Blake3StrongHasher;
 use cmp_any::PartialEqAny;
 use dupe::Dupe;
+use pagable::Pagable;
+use pagable::pagable_typetag;
 use starlark_map::ordered_map::OrderedMap;
 
 use crate::bxl::starlark_defs::cli_args::CliArgValue;
@@ -127,7 +129,8 @@ impl BxlKey {
     Ord,
     PartialOrd,
     Allocative,
-    strong_hash::StrongHash
+    strong_hash::StrongHash,
+    Pagable
 )]
 #[display("{}", spec)]
 struct BxlKeyData {
@@ -161,7 +164,8 @@ impl BxlKeyData {
     Hash,
     PartialEq,
     Allocative,
-    strong_hash::StrongHash
+    strong_hash::StrongHash,
+    Pagable
 )]
 #[display("{}", key)]
 pub(crate) struct BxlDynamicKeyData {
@@ -188,6 +192,7 @@ impl BxlDynamicKey {
     }
 }
 
+#[pagable_typetag]
 impl BaseDeferredKeyDyn for BxlDynamicKeyData {
     fn eq_token(&self) -> PartialEqAny<'_> {
         PartialEqAny::new(self)

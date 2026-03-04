@@ -20,6 +20,7 @@ cmp_any = { workspace = true }
 dice = { workspace = true }
 dupe = { workspace = true }
 gazebo = { workspace = true }
+pagable = { workspace = true }
 starlark = { workspace = true }
 starlark_map = { workspace = true }
 strong_hash = { workspace = true }

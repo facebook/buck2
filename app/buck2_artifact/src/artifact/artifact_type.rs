@@ -35,6 +35,7 @@ use derive_more::From;
 use dupe::Dupe;
 use either::Either;
 use gazebo::cell::ARef;
+use pagable::Pagable;
 use starlark::values::Heap;
 use starlark::values::ProvidesStaticType;
 use starlark::values::Trace;
@@ -59,7 +60,8 @@ use crate::artifact::source_artifact::SourceArtifact;
     PartialEq,
     Eq,
     Hash,
-    strong_hash::StrongHash
+    strong_hash::StrongHash,
+    Pagable
 )]
 pub struct Artifact(Arc<ArtifactData>);
 
@@ -72,7 +74,8 @@ pub struct Artifact(Arc<ArtifactData>);
     Hash,
     Eq,
     PartialEq,
-    strong_hash::StrongHash
+    strong_hash::StrongHash,
+    Pagable
 )]
 #[display("{}", data)]
 struct ArtifactData {
@@ -268,7 +271,8 @@ impl ArtifactDyn for Artifact {
     Hash,
     From,
     Allocative,
-    strong_hash::StrongHash
+    strong_hash::StrongHash,
+    Pagable
 )]
 pub enum BaseArtifactKind {
     Source(SourceArtifact),
@@ -285,7 +289,8 @@ assert_eq_size!(BaseArtifactKind, [usize; 6]);
     Eq,
     Hash,
     Allocative,
-    strong_hash::StrongHash
+    strong_hash::StrongHash,
+    Pagable
 )]
 pub struct ArtifactKind {
     pub base: BaseArtifactKind,

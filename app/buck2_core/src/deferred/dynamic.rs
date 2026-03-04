@@ -12,6 +12,7 @@ use std::fmt::Write;
 
 use allocative::Allocative;
 use dupe::Dupe;
+use pagable::Pagable;
 
 use crate::deferred::base_deferred_key::BaseDeferredKey;
 use crate::deferred::key::DeferredHolderKey;
@@ -29,7 +30,8 @@ use crate::fs::dynamic_actions_action_key::DynamicActionsActionKey;
     derive_more::Display,
     Debug,
     Allocative,
-    strong_hash::StrongHash
+    strong_hash::StrongHash,
+    Pagable
 )]
 #[display("{_0}_{_1}")]
 pub struct DynamicLambdaResultsKey(DeferredHolderKey, DynamicLambdaIndex);
@@ -71,7 +73,8 @@ impl DynamicLambdaResultsKey {
     Copy,
     derive_more::Display,
     Allocative,
-    strong_hash::StrongHash
+    strong_hash::StrongHash,
+    Pagable
 )]
 pub struct DynamicLambdaIndex(u32);
 

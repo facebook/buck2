@@ -327,7 +327,9 @@ pub type ConfiguredStringWithMacrosPart = StringWithMacrosPart<ConfiguredProvide
 
 pub type UnconfiguredStringWithMacros = StringWithMacros<ProvidersLabel>;
 
-#[derive(Debug, Eq, PartialEq, Hash, Clone, Allocative, Display, StrongHash)]
+#[derive(
+    Debug, Eq, PartialEq, Hash, Clone, Allocative, Display, StrongHash, Pagable
+)]
 #[display("{}", string_with_macros)]
 pub struct ConfiguredStringWithMacros {
     pub string_with_macros: StringWithMacros<ConfiguredProvidersLabel>,

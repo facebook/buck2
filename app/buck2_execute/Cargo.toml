@@ -42,6 +42,7 @@ dupe = { workspace = true }
 fbinit = { workspace = true }
 gazebo = { workspace = true }
 host_sharing = { workspace = true }
+pagable = { workspace = true }
 remote_execution = { workspace = true }
 sorted_vector_map = { workspace = true }
 starlark_map = { workspace = true }

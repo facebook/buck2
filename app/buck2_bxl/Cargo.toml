@@ -25,6 +25,7 @@ gazebo = { workspace = true }
 indexmap = { workspace = true }
 itertools = { workspace = true }
 num-bigint = { workspace = true }
+pagable = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 starlark = { workspace = true }

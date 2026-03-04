@@ -46,6 +46,8 @@ use buck2_util::strong_hasher::Blake3StrongHasher;
 use cmp_any::PartialEqAny;
 use dupe::Dupe;
 use fxhash::FxHasher;
+use pagable::Pagable;
+use pagable::pagable_typetag;
 use starlark::collections::SmallMap;
 use starlark::environment::Module;
 use starlark::eval::Evaluator;
@@ -61,7 +63,7 @@ use crate::anon_target_attr::AnonTargetAttr;
 use crate::anon_target_attr_resolve::AnonTargetAttrResolution;
 use crate::anon_target_attr_resolve::AnonTargetAttrResolutionContext;
 
-#[derive(Eq, PartialEq, Clone, Debug, Allocative)]
+#[derive(Eq, PartialEq, Clone, Debug, Allocative, Pagable)]
 pub(crate) struct AnonTarget {
     /// Not necessarily a "real" target label that actually exists, but could be.
     name: TargetLabel,
@@ -81,7 +83,7 @@ pub(crate) struct AnonTarget {
     hash: u64,
 }
 
-#[derive(Hash, Eq, PartialEq, Clone, Debug, Allocative, StrongHash)]
+#[derive(Hash, Eq, PartialEq, Clone, Debug, Allocative, StrongHash, Pagable)]
 pub(crate) enum AnonTargetVariant {
     Bzl,
     Bxl(GlobalCfgOptions),
@@ -257,6 +259,7 @@ impl AnonTargetDyn for AnonTarget {
     }
 }
 
+#[pagable_typetag]
 impl BaseDeferredKeyDyn for AnonTarget {
     fn eq_token(&self) -> PartialEqAny<'_> {
         PartialEqAny::new(self)

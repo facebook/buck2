@@ -33,13 +33,23 @@ use buck2_node::attrs::json::ToJsonWithContext;
 use buck2_node::attrs::serialize::AttrSerializeWithContext;
 use dupe::Dupe;
 use gazebo::prelude::SliceExt;
+use pagable::Pagable;
 use serde::Serialize;
 use serde::Serializer;
 use serde_json::to_value;
 
 use crate::anon_target_attr_resolve::AnonTargetAttrTraversal;
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Allocative, strong_hash::StrongHash)]
+#[derive(
+    Debug,
+    Clone,
+    PartialEq,
+    Eq,
+    Hash,
+    Allocative,
+    strong_hash::StrongHash,
+    Pagable
+)]
 pub enum AnonTargetAttr {
     Bool(BoolLiteral),
     Int(i64),

@@ -12,6 +12,7 @@ use allocative::Allocative;
 use buck2_util::arc_str::ArcS;
 use derive_more::Display;
 use dupe::Dupe;
+use pagable::Pagable;
 
 use crate::cells::cell_path::CellPath;
 use crate::package::PackageLabel;
@@ -28,7 +29,8 @@ use crate::package::package_relative_path::PackageRelativePath;
     Ord,
     PartialOrd,
     Allocative,
-    strong_hash::StrongHash
+    strong_hash::StrongHash,
+    Pagable
 )]
 #[display("{}", self.as_ref())]
 pub struct SourcePath {

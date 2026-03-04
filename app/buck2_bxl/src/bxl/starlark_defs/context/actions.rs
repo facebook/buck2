@@ -38,6 +38,7 @@ use dice::DiceComputations;
 use dupe::Dupe;
 use futures::FutureExt;
 use gazebo::prelude::SliceExt;
+use pagable::Pagable;
 use starlark::any::ProvidesStaticType;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
@@ -131,7 +132,7 @@ pub(crate) async fn resolve_bxl_execution_platform(
     })
 }
 
-#[derive(Clone, Debug, Eq, PartialEq, Hash, Allocative)]
+#[derive(Clone, Debug, Eq, PartialEq, Hash, Allocative, Pagable)]
 pub(crate) struct BxlExecutionResolution {
     pub(crate) resolved_execution: ExecutionPlatformResolution,
     pub(crate) exec_deps_configured: Vec<ConfiguredProvidersLabel>,

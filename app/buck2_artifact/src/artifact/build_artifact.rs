@@ -16,6 +16,7 @@ use buck2_execute::execute::request::OutputType;
 use derivative::Derivative;
 use derive_more::Display;
 use dupe::Dupe;
+use pagable::Pagable;
 use static_assertions::assert_eq_size;
 
 use crate::actions::key::ActionKey;
@@ -31,7 +32,8 @@ use crate::actions::key::ActionKey;
     Display,
     Derivative,
     Allocative,
-    strong_hash::StrongHash
+    strong_hash::StrongHash,
+    Pagable
 )]
 #[display("`{}`, action: {}", path, key)]
 pub struct BuildArtifact {

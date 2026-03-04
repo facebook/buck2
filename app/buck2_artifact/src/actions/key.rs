@@ -15,6 +15,7 @@ use buck2_core::deferred::base_deferred_key::BaseDeferredKey;
 use buck2_core::deferred::key::DeferredHolderKey;
 use buck2_data::ToProtoMessage;
 use dupe::Dupe;
+use pagable::Pagable;
 use static_assertions::assert_eq_size;
 
 /// A key to look up an 'Action' from the 'ActionAnalysisResult'.
@@ -29,7 +30,8 @@ use static_assertions::assert_eq_size;
     derive_more::Display,
     starlark::values::Trace,
     Allocative,
-    strong_hash::StrongHash
+    strong_hash::StrongHash,
+    Pagable
 )]
 #[display("(target: `{parent}`, id: `{id}`)")]
 pub struct ActionKey {
@@ -50,7 +52,8 @@ assert_eq_size!(ActionKey, [usize; 4]);
     Copy,
     derive_more::Display,
     Allocative,
-    strong_hash::StrongHash
+    strong_hash::StrongHash,
+    Pagable
 )]
 pub struct ActionIndex(pub u32);
 impl ActionIndex {
