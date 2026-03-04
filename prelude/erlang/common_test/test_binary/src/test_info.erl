@@ -2,7 +2,7 @@
 -module(test_info).
 -compile(warn_missing_spec_all).
 
--export([load_from_file/1, write_to_file/2]).
+-export([load_from_file/1, write_to_file/2, try_make_path_relative/1]).
 -include_lib("common/include/buck_ct_records.hrl").
 
 -type test_info() :: #test_info{}.
@@ -95,6 +95,8 @@ make_path_absolute(Path) ->
         RepoRoot -> filename:join(RepoRoot, Path)
     end.
 
+%% Length guard: lists:split/2 throws badarg (not a non-matching tuple)
+%% when Path has fewer components than BaseDir.
 -spec try_make_path_relative(file:filename_all()) -> file:filename_all().
 try_make_path_relative(Path) ->
     case filename:pathtype(Path) of
