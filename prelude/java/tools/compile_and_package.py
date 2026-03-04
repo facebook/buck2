@@ -241,7 +241,12 @@ def _run_javac(
 
         p = subprocess.run(javac_cmd, stderr=subprocess.PIPE, text=True)
         if p.returncode != 0:
-            print(utils.pretty_exception_j(p.stderr), file=sys.stderr)
+            print(
+                f"javac command failed with exit code {p.returncode}. javac_tool={javac_tool}",
+                file=sys.stderr,
+            )
+            if p.stderr:
+                print(utils.pretty_exception_j(p.stderr), file=sys.stderr)
             sys.exit(p.returncode)
 
         return javac_output
