@@ -166,6 +166,16 @@ def interpret_provisioning_profile_diagnostics(
     header = f"Failed to find provisioning profile in directory `{provisioning_profiles_dir}` that is suitable for code signing. Here is the best guess for how to fix it:\n\n⚠️  "
     footer = f"\n\nFor more info about running on an iOS device read {META_IOS_BUILD_AND_RUN_ON_DEVICE_LINK}."
     if log_file_path:
+        non_bundle_id_mismatches = [
+            f"`{mismatch.profile.file_path.name}`: {mismatch.log_message()}"
+            for mismatch in diagnostics
+            if not isinstance(mismatch, BundleIdMismatch)
+        ]
+        if non_bundle_id_mismatches:
+            provisioning_profile_errors = "\n\n".join(non_bundle_id_mismatches)
+            footer += f" Mismatched profiles:\n\n{provisioning_profile_errors}\n"
+        else:
+            footer += f" All mismatches were due to Bundle ID `{bundle_id}` not matching any provisioning profile.\n"
         footer += (
             f" Full list of mismatched profiles can be found at `{log_file_path}`.\n"
         )
