@@ -125,7 +125,7 @@ def get_build_config_fields(lines: list[str]) -> list[BuildConfigField]:
     return [_get_build_config_field(line) for line in lines]
 
 def _get_build_config_field(line: str) -> BuildConfigField:
-    type_and_name, value = [x.strip() for x in line.split("=")]
+    type_and_name, value = [x.strip() for x in line.split("=", 1)]
     field_type, name = type_and_name.split()
     return BuildConfigField(type = field_type, name = name, value = value)
 
