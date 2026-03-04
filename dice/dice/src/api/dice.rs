@@ -58,8 +58,9 @@
 //!     impl<'compute, 'd> MyComputation<'compute, 'd> {
 //!         // declaring a computation function
 //!         pub async fn compute_a(&mut self, a: usize, s: String) -> Arc<String> {
-//!             #[derive(Clone, Display, Debug, Eq, Hash, PartialEq, Allocative)]
+//!             #[derive(Clone, Display, Debug, Eq, Hash, PartialEq, Allocative, Pagable)]
 //!             #[display("{:?}", self)]
+//!             #[pagable_typetag(DiceKeyDyn)]
 //!             struct ComputeA(usize, String);
 //!
 //!             #[async_trait]
@@ -86,8 +87,9 @@
 //!         }
 //!     }
 //!
-//!     #[derive(Clone, Display, Debug, Eq, Hash, PartialEq, Allocative)]
+//!     #[derive(Clone, Display, Debug, Eq, Hash, PartialEq, Allocative, Pagable)]
 //!     #[display("{:?}", self)]
+//!     #[pagable_typetag(DiceKeyDyn)]
 //!     struct ComputeB(usize);
 //!
 //!     #[async_trait]

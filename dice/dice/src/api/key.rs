@@ -16,6 +16,8 @@ use allocative::Allocative;
 use async_trait::async_trait;
 use dice_futures::cancellation::CancellationContext;
 use dupe::Dupe;
+use pagable::Pagable;
+use pagable::PagableTagged;
 
 use crate::Demand;
 use crate::api::computations::DiceComputations;
@@ -32,7 +34,9 @@ use crate::introspection::graph::short_type_name;
 /// The result also needs to be cloned whenever it is requested from DICE.
 /// Cloning therefore should be cheap.
 #[async_trait]
-pub trait Key: Allocative + Debug + Display + Clone + Eq + Hash + Send + Sync + 'static {
+pub trait Key:
+    Allocative + Debug + Display + Clone + Eq + Hash + Send + Sync + Pagable + PagableTagged + 'static
+{
     type Value: Allocative + Dupe + Send + Sync + 'static;
 
     /// Provides a short informative name for this key type.

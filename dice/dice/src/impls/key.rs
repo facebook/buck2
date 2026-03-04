@@ -21,6 +21,7 @@ use derive_more::Display;
 use dice_futures::cancellation::CancellationContext;
 use dupe::Dupe;
 use fxhash::FxHasher;
+use pagable::PagableTagged;
 use pagable::pagable_typetag;
 
 use crate::Demand;
@@ -278,7 +279,7 @@ impl Display for CowDiceKeyHashed<'_> {
 
 #[pagable_typetag]
 #[async_trait]
-pub trait DiceKeyDyn: Allocative + Display + Send + Sync + 'static {
+pub trait DiceKeyDyn: Allocative + Display + Send + Sync + PagableTagged + 'static {
     async fn compute(
         &self,
         ctx: &mut DiceComputations,

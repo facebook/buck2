@@ -16,6 +16,7 @@ use allocative::Allocative;
 use async_trait::async_trait;
 use dice_futures::cancellation::CancellationContext;
 use dupe::Dupe;
+use pagable::Pagable;
 use pagable::typetag::PagableTagged;
 
 use crate::InvalidationSourcePriority;
@@ -33,7 +34,7 @@ use crate::api::storage_type::StorageType;
 /// require a `panic!` implementation in `compute` function, both of which are
 /// horrible and breaks semantics of traits.
 pub trait InjectedKey:
-    Allocative + Clone + Debug + Display + Send + Sync + Eq + Hash + PagableTagged + 'static
+    Allocative + Clone + Debug + Display + Send + Sync + Eq + Hash + Pagable + PagableTagged + 'static
 {
     type Value: Allocative + Dupe + Send + Sync + 'static;
 
