@@ -85,6 +85,7 @@ use dice_futures::cancellation::CancellationContext;
 use dupe::Dupe;
 use futures::FutureExt;
 use itertools::Itertools;
+use pagable::StaticStr;
 use starlark_map::ordered_map::OrderedMap;
 use starlark_map::small_map::SmallMap;
 use starlark_map::small_set::SmallSet;
@@ -1237,6 +1238,12 @@ impl ConfiguredTargetNodeCalculationImpl for ConfiguredTargetNodeCalculationInst
     }
 }
 
+pagable::static_str!(SECTION_BUCK2 = "buck2");
+pagable::static_str!(PROPERTY_ERROR_ON_DEP_ONLY_INCOMPATIBLE = "error_on_dep_only_incompatible");
+pagable::static_str!(
+    PROPERTY_ERROR_ON_DEP_ONLY_INCOMPATIBLE_EXCLUDED = "error_on_dep_only_incompatible_excluded"
+);
+
 async fn check_error_on_incompatible_dep(
     ctx: &mut DiceComputations<'_>,
     target_label: &TargetLabel,
@@ -1244,28 +1251,33 @@ async fn check_error_on_incompatible_dep(
     if check_target_enabled_for_config(
         ctx,
         target_label,
-        "buck2",
-        "error_on_dep_only_incompatible_excluded",
+        SECTION_BUCK2,
+        PROPERTY_ERROR_ON_DEP_ONLY_INCOMPATIBLE_EXCLUDED,
     )
     .await?
     {
         return Ok(false);
     }
-    check_target_enabled_for_config(ctx, target_label, "buck2", "error_on_dep_only_incompatible")
-        .await
+    check_target_enabled_for_config(
+        ctx,
+        target_label,
+        SECTION_BUCK2,
+        PROPERTY_ERROR_ON_DEP_ONLY_INCOMPATIBLE,
+    )
+    .await
 }
 
 async fn check_target_enabled_for_config(
     ctx: &mut DiceComputations<'_>,
     target_label: &TargetLabel,
-    section: &'static str,
-    property: &'static str,
+    section: StaticStr,
+    property: StaticStr,
 ) -> buck2_error::Result<bool> {
     #[derive(Clone, Dupe, Display, Debug, Eq, Hash, PartialEq, Allocative)]
     #[display("ConfigPatternCalculation({section}, {property})")]
     struct ConfigPatternCalculation {
-        section: &'static str,
-        property: &'static str,
+        section: StaticStr,
+        property: StaticStr,
     }
 
     #[async_trait]
@@ -1284,8 +1296,8 @@ async fn check_target_enabled_for_config(
             let patterns: Vec<String> = root_conf
                 .view(ctx)
                 .parse_list(BuckconfigKeyRef {
-                    section: self.section,
-                    property: self.property,
+                    section: &self.section,
+                    property: &self.property,
                 })?
                 .unwrap_or_default();
 

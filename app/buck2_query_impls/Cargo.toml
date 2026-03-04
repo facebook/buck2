@@ -23,6 +23,7 @@ allocative = { workspace = true }
 dice = { workspace = true }
 dupe = { workspace = true }
 gazebo = { workspace = true }
+pagable = { workspace = true }
 starlark = { workspace = true }
 
 buck2_artifact = { workspace = true }

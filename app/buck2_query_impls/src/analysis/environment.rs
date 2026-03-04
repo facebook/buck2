@@ -61,6 +61,7 @@ use dupe::Dupe;
 use dupe::IterDupedExt;
 use futures::FutureExt;
 use indexmap::IndexMap;
+use pagable::StaticStr;
 use starlark::values::UnpackValue;
 
 #[derive(Debug, buck2_error::Error)]
@@ -80,7 +81,7 @@ pub(crate) trait ConfiguredGraphQueryEnvironmentDelegate: Send + Sync {
 
     async fn get_targets_from_template_placeholder_info(
         &self,
-        template_name: &'static str,
+        template_name: StaticStr,
         targets: TargetSet<ConfiguredGraphNodeRef>,
     ) -> buck2_error::Result<TargetSet<ConfiguredGraphNodeRef>>;
 }
@@ -88,6 +89,12 @@ pub(crate) trait ConfiguredGraphQueryEnvironmentDelegate: Send + Sync {
 pub(crate) struct ConfiguredGraphQueryEnvironment<'a> {
     delegate: &'a dyn ConfiguredGraphQueryEnvironmentDelegate,
 }
+
+pagable::static_str!(TEMPLATE_FIRST_ORDER_CLASSPATH = "first_order_classpath");
+pagable::static_str!(
+    TEMPLATE_CLASSPATH_INCLUDING_TARGETS_WITH_NO_OUTPUT =
+        "classpath_including_targets_with_no_output"
+);
 
 #[derive(Debug)]
 struct ConfiguredGraphFunctions<'a>(PhantomData<&'a ()>);
@@ -109,9 +116,9 @@ impl<'a> ConfiguredGraphFunctions<'a> {
         }
 
         let template_name = if run_first_order_classpath {
-            "first_order_classpath"
+            TEMPLATE_FIRST_ORDER_CLASSPATH
         } else {
-            "classpath_including_targets_with_no_output"
+            TEMPLATE_CLASSPATH_INCLUDING_TARGETS_WITH_NO_OUTPUT
         };
 
         let targets = env
@@ -171,7 +178,7 @@ impl<'a> ConfiguredGraphQueryEnvironment<'a> {
 
     async fn get_targets_from_template_placeholder_info(
         &self,
-        template_name: &'static str,
+        template_name: StaticStr,
         targets: TargetSet<ConfiguredGraphNodeRef>,
     ) -> buck2_error::Result<TargetSet<ConfiguredGraphNodeRef>> {
         self.delegate
@@ -336,7 +343,7 @@ async fn get_template_info_provider_artifacts(
 
 pub(crate) async fn get_from_template_placeholder_info(
     ctx: &mut DiceComputations<'_>,
-    template_name: &'static str,
+    template_name: StaticStr,
     targets: impl IntoIterator<Item = ConfiguredTargetLabel>,
 ) -> buck2_error::Result<IndexMap<ConfiguredTargetLabel, Artifact>> {
     let mut label_to_artifact: IndexMap<ConfiguredTargetLabel, Artifact> = IndexMap::new();
@@ -362,7 +369,7 @@ pub(crate) async fn get_from_template_placeholder_info(
         .try_compute_join(targets, |ctx, target| {
             async move {
                 let artifacts =
-                    get_template_info_provider_artifacts(ctx, &target, template_name).await?;
+                    get_template_info_provider_artifacts(ctx, &target, *template_name).await?;
                 buck2_error::Ok(
                     artifacts
                         .into_iter()
@@ -388,7 +395,7 @@ pub(crate) async fn get_from_template_placeholder_info(
                 if let Some(owner) = artifact.owner() {
                     let target_label = owner.unpack_target_label().ok_or_else(|| {
                         AnalysisQueryError::NonTargetBoundArtifact(
-                            template_name.to_owned(),
+                            (*template_name).to_owned(),
                             target.dupe(),
                             artifact.dupe(),
                         )

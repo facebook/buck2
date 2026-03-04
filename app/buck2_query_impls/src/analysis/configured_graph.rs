@@ -30,6 +30,7 @@ use dupe::IterDupedExt;
 use dupe::OptionDupedExt;
 use futures::FutureExt;
 use indexmap::IndexMap;
+use pagable::StaticStr;
 
 use crate::analysis::environment::ConfiguredGraphQueryEnvironmentDelegate;
 use crate::analysis::environment::get_from_template_placeholder_info;
@@ -60,13 +61,13 @@ impl ConfiguredGraphQueryEnvironmentDelegate for AnalysisConfiguredGraphQueryDel
 
     async fn get_targets_from_template_placeholder_info(
         &self,
-        template_name: &'static str,
+        template_name: StaticStr,
         targets: TargetSet<ConfiguredGraphNodeRef>,
     ) -> buck2_error::Result<TargetSet<ConfiguredGraphNodeRef>> {
         #[derive(Clone, Dupe, Display, Debug, Eq, Hash, PartialEq, Allocative)]
         #[display("template_placeholder_info_query({})", template_name)]
         struct TemplatePlaceholderInfoQueryKey {
-            template_name: &'static str,
+            template_name: StaticStr,
             // Use `ConfiguredTargetLabel` instead of `ConfiguredGraphNodeRef` here because `ConfiguredGraphNodeRef`
             // only computes Hash and PartialEq based on the label. If we use `ConfiguredGraphNodeRef` directly we
             // may cache stale ConfiguredTargetNodes and end up with a bug like T133069783.
