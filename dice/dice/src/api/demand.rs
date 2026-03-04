@@ -90,15 +90,28 @@ mod tests {
     use allocative::Allocative;
     use async_trait::async_trait;
     use dice_futures::cancellation::CancellationContext;
+    use pagable::Pagable;
+    use pagable::pagable_typetag;
 
     use crate::Demand;
     use crate::DiceComputations;
+    use crate::DiceKeyDyn;
     use crate::DynKey;
     use crate::Key;
 
     #[test]
     fn test_request() {
-        #[derive(derive_more::Display, Eq, PartialEq, Hash, Allocative, Clone, Debug)]
+        #[derive(
+            derive_more::Display,
+            Eq,
+            PartialEq,
+            Hash,
+            Allocative,
+            Clone,
+            Debug,
+            Pagable
+        )]
+        #[pagable_typetag(DiceKeyDyn)]
         struct MKey(u32);
 
         #[async_trait]

@@ -16,10 +16,13 @@ use dice::DetectCycles;
 use dice::Dice;
 use dice::DiceComputations;
 use dice::DiceData;
+use dice::DiceKeyDyn;
 use dice::Key;
 use dice::UserComputationData;
 use dice_futures::cancellation::CancellationContext;
 use dupe::Dupe;
+use pagable::Pagable;
+use pagable::pagable_typetag;
 use parking_lot::Mutex;
 
 #[derive(Debug, PartialEq)]
@@ -38,8 +41,10 @@ enum KeyType {
     Eq,
     PartialEq,
     Hash,
-    Allocative
+    Allocative,
+    Pagable
 )]
+#[pagable_typetag(DiceKeyDyn)]
 struct IsOpaque;
 /// Key which computes the opaque value, but does not read it.
 #[derive(
@@ -51,8 +56,10 @@ struct IsOpaque;
     Eq,
     PartialEq,
     Hash,
-    Allocative
+    Allocative,
+    Pagable
 )]
+#[pagable_typetag(DiceKeyDyn)]
 struct DoesNotReadOpaque;
 
 /// Record computations, for test.

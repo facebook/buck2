@@ -16,14 +16,19 @@ use derive_more::Display;
 use dice::DetectCycles;
 use dice::Dice;
 use dice::DiceComputations;
+use dice::DiceKeyDyn;
 use dice::InjectedKey;
 use dice::Key;
 use dice_futures::cancellation::CancellationContext;
+use pagable::Pagable;
+use pagable::PagableTagged;
+use pagable::pagable_typetag;
 
 #[tokio::test]
 async fn test_a_multiversion_bug() {
-    #[derive(Allocative, Clone, Debug, Display, Eq, PartialEq, Hash)]
+    #[derive(Allocative, Clone, Debug, Display, Eq, PartialEq, Hash, Pagable)]
     #[display("{:?}", self)]
+    #[pagable_typetag(DiceKeyDyn)]
     struct Leaf;
 
     #[async_trait]
@@ -35,12 +40,17 @@ async fn test_a_multiversion_bug() {
         }
     }
 
-    #[derive(Allocative, Clone, Copy, Debug, Display, Eq, PartialEq, Hash)]
+    #[derive(Allocative, Clone, Copy, Debug, Display, Eq, PartialEq, Hash, Pagable)]
     enum Derived {
         #[display("Derived::Top")]
         Top,
         #[display("Derived::Mid")]
         Mid,
+    }
+    impl PagableTagged for Derived {
+        fn pagable_type_tag(&self) -> &'static str {
+            "Derived"
+        }
     }
 
     #[async_trait]

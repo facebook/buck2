@@ -18,16 +18,20 @@ use derive_more::Display;
 use dice_futures::cancellation::CancellationContext;
 use dupe::Dupe;
 use futures::FutureExt;
+use pagable::Pagable;
+use pagable::pagable_typetag;
 use tokio::sync::oneshot;
 
+use crate::DiceKeyDyn;
 use crate::api::computations::DiceComputations;
 use crate::api::cycles::DetectCycles;
 use crate::api::injected::InjectedKey;
 use crate::api::key::Key;
 use crate::impls::dice::Dice;
 
-#[derive(Clone, Dupe, Debug, Display, Eq, Hash, PartialEq, Allocative)]
+#[derive(Clone, Dupe, Debug, Display, Eq, Hash, PartialEq, Allocative, Pagable)]
 #[display("{}", self.0)]
+#[pagable_typetag(DiceKeyDyn)]
 struct Injected(i32);
 
 #[async_trait]
@@ -39,8 +43,9 @@ impl InjectedKey for Injected {
     }
 }
 
-#[derive(Clone, Dupe, Debug, Display, Eq, Hash, PartialEq, Allocative)]
+#[derive(Clone, Dupe, Debug, Display, Eq, Hash, PartialEq, Allocative, Pagable)]
 #[display("SpawnedKey")]
+#[pagable_typetag(DiceKeyDyn)]
 struct SpawnedKey;
 
 #[async_trait]
@@ -83,8 +88,9 @@ async fn spawned_basic() -> anyhow::Result<()> {
 async fn spawned_tracks_deps() -> anyhow::Result<()> {
     static COMPUTE_COUNT: AtomicUsize = AtomicUsize::new(0);
 
-    #[derive(Clone, Dupe, Debug, Display, Eq, Hash, PartialEq, Allocative)]
+    #[derive(Clone, Dupe, Debug, Display, Eq, Hash, PartialEq, Allocative, Pagable)]
     #[display("CountingKey")]
+    #[pagable_typetag(DiceKeyDyn)]
     struct CountingKey;
 
     #[async_trait]
@@ -140,8 +146,9 @@ async fn spawned_tracks_deps() -> anyhow::Result<()> {
 /// Test multiple spawned tasks
 #[tokio::test]
 async fn spawned_multiple() -> anyhow::Result<()> {
-    #[derive(Clone, Dupe, Debug, Display, Eq, Hash, PartialEq, Allocative)]
+    #[derive(Clone, Dupe, Debug, Display, Eq, Hash, PartialEq, Allocative, Pagable)]
     #[display("MultiSpawnKey")]
+    #[pagable_typetag(DiceKeyDyn)]
     struct MultiSpawnKey;
 
     #[async_trait]

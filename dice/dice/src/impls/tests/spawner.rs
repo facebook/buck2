@@ -20,8 +20,11 @@ use dice_futures::cancellation::CancellationContext;
 use dice_futures::spawner::Spawner;
 use dupe::Dupe;
 use futures::future::BoxFuture;
+use pagable::Pagable;
+use pagable::pagable_typetag;
 use tokio::task::JoinHandle;
 
+use crate::DiceKeyDyn;
 use crate::api::computations::DiceComputations;
 use crate::api::cycles::DetectCycles;
 use crate::api::key::Key;
@@ -42,7 +45,8 @@ impl<S> Spawner<S> for MySpawner {
     }
 }
 
-#[derive(Allocative, Clone, Debug, Display, Eq, PartialEq, Hash)]
+#[derive(Allocative, Clone, Debug, Display, Eq, PartialEq, Hash, Pagable)]
+#[pagable_typetag(DiceKeyDyn)]
 struct K;
 
 #[async_trait]

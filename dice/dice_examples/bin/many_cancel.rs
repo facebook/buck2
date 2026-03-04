@@ -61,6 +61,7 @@ use dice::DetectCycles;
 use dice::Dice;
 use dice::DiceComputations;
 use dice::DiceData;
+use dice::DiceKeyDyn;
 use dice::GlobalStats;
 use dice::InjectedKey;
 use dice::Key;
@@ -68,6 +69,8 @@ use dice::UserComputationData;
 use dice_futures::cancellation::CancellationContext;
 use dupe::Dupe;
 use futures::FutureExt;
+use pagable::Pagable;
+use pagable::pagable_typetag;
 use tokio::sync::Semaphore;
 
 struct Latches {
@@ -118,8 +121,9 @@ impl Latches {
     }
 }
 
-#[derive(Clone, Display, Debug, Dupe, Eq, Hash, PartialEq, Allocative)]
+#[derive(Clone, Display, Debug, Dupe, Eq, Hash, PartialEq, Allocative, Pagable)]
 #[display("TopKey({})", _0)]
+#[pagable_typetag(DiceKeyDyn)]
 pub struct TopKey(u32);
 
 #[async_trait]
@@ -163,8 +167,9 @@ impl Key for TopKey {
     }
 }
 
-#[derive(Clone, Display, Debug, Dupe, Eq, Hash, PartialEq, Allocative)]
+#[derive(Clone, Display, Debug, Dupe, Eq, Hash, PartialEq, Allocative, Pagable)]
 #[display("BottomKey({})", _0)]
+#[pagable_typetag(DiceKeyDyn)]
 pub struct BottomKey(u32);
 
 #[async_trait]
@@ -194,8 +199,9 @@ impl Key for BottomKey {
     }
 }
 
-#[derive(Clone, Display, Debug, Dupe, Eq, Hash, PartialEq, Allocative)]
+#[derive(Clone, Display, Debug, Dupe, Eq, Hash, PartialEq, Allocative, Pagable)]
 #[display("DenseKey({})", _0)]
+#[pagable_typetag(DiceKeyDyn)]
 pub struct DenseKey(u32);
 
 #[async_trait]
@@ -229,8 +235,9 @@ impl Key for DenseKey {
     }
 }
 
-#[derive(Clone, Display, Debug, Dupe, Eq, Hash, PartialEq, Allocative)]
+#[derive(Clone, Display, Debug, Dupe, Eq, Hash, PartialEq, Allocative, Pagable)]
 #[display("Leaf")]
+#[pagable_typetag(DiceKeyDyn)]
 pub struct Leaf;
 
 impl InjectedKey for Leaf {
@@ -241,8 +248,9 @@ impl InjectedKey for Leaf {
     }
 }
 
-#[derive(Clone, Display, Debug, Dupe, Eq, Hash, PartialEq, Allocative)]
+#[derive(Clone, Display, Debug, Dupe, Eq, Hash, PartialEq, Allocative, Pagable)]
 #[display("ConfigKey")]
+#[pagable_typetag(DiceKeyDyn)]
 pub struct ConfigKey;
 
 impl InjectedKey for ConfigKey {

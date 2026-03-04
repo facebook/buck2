@@ -192,8 +192,11 @@ mod tests {
     use dice_futures::spawner::TokioSpawner;
     use dupe::Dupe;
     use futures::FutureExt;
+    use pagable::Pagable;
+    use pagable::pagable_typetag;
     use tokio::sync::Semaphore;
 
+    use crate::DiceKeyDyn;
     use crate::api::computations::DiceComputations;
     use crate::api::key::InvalidationSourcePriority;
     use crate::api::key::Key;
@@ -465,7 +468,8 @@ mod tests {
         assert_eq!(core.get_tasks_pending_cancellation().len(), 2);
     }
 
-    #[derive(Allocative, Clone, Debug, Display, Eq, PartialEq, Hash)]
+    #[derive(Allocative, Clone, Debug, Display, Eq, PartialEq, Hash, Pagable)]
+    #[pagable_typetag(DiceKeyDyn)]
     struct K;
 
     #[async_trait]

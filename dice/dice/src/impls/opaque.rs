@@ -53,9 +53,12 @@ mod tests {
     use async_trait::async_trait;
     use derive_more::Display;
     use dice_futures::cancellation::CancellationContext;
+    use pagable::Pagable;
+    use pagable::pagable_typetag;
 
     use crate::Dice;
     use crate::DiceComputations;
+    use crate::DiceKeyDyn;
     use crate::HashSet;
     use crate::api::data::DiceData;
     use crate::api::key::Key;
@@ -67,7 +70,8 @@ mod tests {
     use crate::impls::value::MaybeValidDiceValue;
     use crate::impls::value::TrackedInvalidationPaths;
 
-    #[derive(Allocative, Clone, Hash, Eq, PartialEq, Debug, Display)]
+    #[derive(Allocative, Clone, Hash, Eq, PartialEq, Debug, Display, Pagable)]
+    #[pagable_typetag(DiceKeyDyn)]
     struct K;
 
     #[async_trait]

@@ -19,8 +19,11 @@ use dice_futures::cancellation::CancellationContext;
 use dupe::Dupe;
 use futures::FutureExt;
 use futures::future::join3;
+use pagable::PagablePanic;
+use pagable::pagable_typetag;
 use tokio::sync::Mutex;
 
+use crate::DiceKeyDyn;
 use crate::api::computations::DiceComputations;
 use crate::api::data::DiceData;
 use crate::api::key::Key;
@@ -28,8 +31,9 @@ use crate::impls::dice::Dice;
 
 #[tokio::test]
 async fn concurrent_identical_requests_are_deduped() -> anyhow::Result<()> {
-    #[derive(Allocative, Clone, Debug, Display)]
+    #[derive(Allocative, Clone, Debug, Display, PagablePanic)]
     #[display("{:?}", self)]
+    #[pagable_typetag(DiceKeyDyn)]
     struct ComputeOnce(#[allocative(skip)] Arc<Mutex<u8>>);
 
     impl PartialEq for ComputeOnce {
@@ -93,8 +97,9 @@ async fn concurrent_identical_requests_are_deduped() -> anyhow::Result<()> {
 fn different_requests_are_spawned_in_parallel() -> anyhow::Result<()> {
     let n_thread = 10usize;
 
-    #[derive(Allocative, Clone, Debug, Display)]
+    #[derive(Allocative, Clone, Debug, Display, PagablePanic)]
     #[display("{:?}", self)]
+    #[pagable_typetag(DiceKeyDyn)]
     // purposely use a sync barrier to see that our compute is spawned
     struct ComputeParallel(#[allocative(skip)] Arc<std::sync::Barrier>);
 

@@ -21,6 +21,7 @@ use allocative::Allocative;
 use async_trait::async_trait;
 use derive_more::Display;
 use dice::DiceComputations;
+use dice::DiceKeyDyn;
 use dice::DiceTransactionUpdater;
 use dice::InjectedKey;
 use dice::Key;
@@ -29,8 +30,10 @@ use dupe::Dupe;
 use futures::FutureExt;
 use futures::future;
 use futures::future::BoxFuture;
+use pagable::Pagable;
+use pagable::pagable_typetag;
 
-#[derive(Clone, Dupe, PartialEq, Eq, Hash, Display, Debug, Allocative)]
+#[derive(Clone, Dupe, PartialEq, Eq, Hash, Display, Debug, Allocative, Pagable)]
 #[display("Var({})", _0)]
 pub struct Var(pub Arc<String>);
 
@@ -126,8 +129,9 @@ impl MathEquations for DiceTransactionUpdater {
     }
 }
 
-#[derive(Clone, Display, Debug, Dupe, Eq, Hash, PartialEq, Allocative)]
+#[derive(Clone, Display, Debug, Dupe, Eq, Hash, PartialEq, Allocative, Pagable)]
 #[display("Eval({})", _0)]
+#[pagable_typetag(DiceKeyDyn)]
 pub struct EvalVar(pub Var);
 #[async_trait]
 impl Key for EvalVar {
@@ -188,8 +192,9 @@ async fn lookup_unit(ctx: &mut DiceComputations<'_>, var: &Var) -> anyhow::Resul
     Ok(ctx.compute(&LookupVar(var.clone())).await?)
 }
 
-#[derive(Clone, Dupe, Display, Debug, Eq, Hash, PartialEq, Allocative)]
+#[derive(Clone, Dupe, Display, Debug, Eq, Hash, PartialEq, Allocative, Pagable)]
 #[display("Lookup({})", _0)]
+#[pagable_typetag(DiceKeyDyn)]
 struct LookupVar(Var);
 impl InjectedKey for LookupVar {
     type Value = Arc<Equation>;

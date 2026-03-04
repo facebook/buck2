@@ -17,6 +17,7 @@ use crossbeam::queue::SegQueue;
 use derivative::Derivative;
 use derive_more::Display;
 use dice::DiceComputations;
+use dice::DiceKeyDyn;
 use dice::DiceTransactionUpdater;
 use dice::InjectedKey;
 use dice::Key;
@@ -25,10 +26,13 @@ use dupe::Dupe;
 use futures::FutureExt;
 use futures::future;
 use futures::future::BoxFuture;
+use pagable::Pagable;
+use pagable::PagablePanic;
+use pagable::pagable_typetag;
 use serde::Deserialize;
 use serde::Serialize;
 
-#[derive(Clone, Copy, PartialEq, Eq, Hash, Display, Debug, Allocative)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Display, Debug, Allocative, Pagable)]
 #[derive(Serialize, Deserialize)]
 #[display("key{}", _0)]
 #[serde(transparent)]
@@ -74,8 +78,9 @@ async fn lookup_unit(ctx: &mut DiceComputations<'_>, var: Var) -> anyhow::Result
     Ok(ctx.compute(&LookupVar(var)).await?)
 }
 
-#[derive(Clone, Display, Debug, Eq, Hash, PartialEq, Allocative)]
+#[derive(Clone, Display, Debug, Eq, Hash, PartialEq, Allocative, Pagable)]
 #[display("Lookup({})", _0)]
+#[pagable_typetag(DiceKeyDyn)]
 struct LookupVar(Var);
 impl InjectedKey for LookupVar {
     type Value = Arc<Expr>;
@@ -158,9 +163,10 @@ impl FuzzState {
     }
 }
 
-#[derive(Derivative, Clone, Display, Allocative)]
+#[derive(Derivative, Clone, Display, Allocative, PagablePanic)]
 #[derivative(Hash, Debug)]
 #[display("Eval({})", key)]
+#[pagable_typetag(DiceKeyDyn)]
 pub struct EvalVar {
     key: Var,
     #[derivative(Debug = "ignore", Hash = "ignore")]

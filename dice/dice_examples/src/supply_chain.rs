@@ -27,6 +27,7 @@ use allocative::Allocative;
 use async_trait::async_trait;
 use derive_more::Display;
 use dice::DiceComputations;
+use dice::DiceKeyDyn;
 use dice::DiceTransactionUpdater;
 use dice::InjectedKey;
 use dice::Key;
@@ -39,9 +40,11 @@ use futures::future::BoxFuture;
 use futures::future::join_all;
 use futures::stream::FuturesUnordered;
 use gazebo::prelude::*;
+use pagable::Pagable;
+use pagable::pagable_typetag;
 use ref_cast::RefCast;
 
-#[derive(Display, Debug, Hash, Eq, Clone, PartialEq, Dupe, Allocative)]
+#[derive(Display, Debug, Hash, Eq, Clone, PartialEq, Dupe, Allocative, Pagable)]
 pub enum Resource {
     Wood,
     Plank,
@@ -214,8 +217,9 @@ async fn lookup_company_resource_cost(
     company: &LookupCompany,
     resource: &Resource,
 ) -> Result<Option<u16>, Arc<anyhow::Error>> {
-    #[derive(Display, Debug, Hash, Eq, Clone, Dupe, PartialEq, Allocative)]
+    #[derive(Display, Debug, Hash, Eq, Clone, Dupe, PartialEq, Allocative, Pagable)]
     #[display("{:?}", self)]
+    #[pagable_typetag(DiceKeyDyn)]
     struct LookupCompanyResourceCost(LookupCompany, Resource);
     #[async_trait]
     impl Key for LookupCompanyResourceCost {
@@ -279,8 +283,11 @@ impl Cost for DiceComputations<'_> {
         &mut self,
         resource: &Resource,
     ) -> Result<Option<u16>, Arc<anyhow::Error>> {
-        #[derive(Display, Debug, Hash, Eq, Dupe, Clone, PartialEq, RefCast, Allocative)]
+        #[derive(
+            Display, Debug, Hash, Eq, Dupe, Clone, PartialEq, RefCast, Allocative, Pagable
+        )]
         #[repr(transparent)]
+        #[pagable_typetag(DiceKeyDyn)]
         struct LookupResourceCost(Resource);
         #[async_trait]
         impl Key for LookupResourceCost {
@@ -350,8 +357,11 @@ impl CostUpdater for DiceTransactionUpdater {
     }
 }
 
-#[derive(Display, Debug, Hash, Eq, Clone, Dupe, PartialEq, RefCast, Allocative)]
+#[derive(
+    Display, Debug, Hash, Eq, Clone, Dupe, PartialEq, RefCast, Allocative, Pagable
+)]
 #[repr(transparent)]
+#[pagable_typetag(DiceKeyDyn)]
 pub struct LookupCompany(pub Arc<String>);
 impl InjectedKey for LookupCompany {
     type Value = Arc<Company>;
@@ -361,8 +371,11 @@ impl InjectedKey for LookupCompany {
     }
 }
 
-#[derive(Display, Debug, Hash, Eq, Dupe, Clone, PartialEq, RefCast, Allocative)]
+#[derive(
+    Display, Debug, Hash, Eq, Dupe, Clone, PartialEq, RefCast, Allocative, Pagable
+)]
 #[repr(transparent)]
+#[pagable_typetag(DiceKeyDyn)]
 pub struct LookupResource(pub Resource);
 impl InjectedKey for LookupResource {
     type Value = Arc<Vec<LookupCompany>>;

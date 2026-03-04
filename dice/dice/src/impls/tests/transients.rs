@@ -18,7 +18,10 @@ use derivative::Derivative;
 use derive_more::Display;
 use dice_futures::cancellation::CancellationContext;
 use dupe::Dupe;
+use pagable::PagablePanic;
+use pagable::pagable_typetag;
 
+use crate::DiceKeyDyn;
 use crate::api::computations::DiceComputations;
 use crate::api::cycles::DetectCycles;
 use crate::api::key::Key;
@@ -26,9 +29,10 @@ use crate::impls::dice::Dice;
 
 #[tokio::test]
 async fn invalid_results_are_not_cached() -> anyhow::Result<()> {
-    #[derive(Clone, Dupe, Debug, Display, Derivative, Allocative)]
+    #[derive(Clone, Dupe, Debug, Display, Derivative, Allocative, PagablePanic)]
     #[derivative(Hash, PartialEq, Eq)]
     #[display("{:?}", self)]
+    #[pagable_typetag(DiceKeyDyn)]
     struct AlwaysTransient(#[derivative(PartialEq = "ignore", Hash = "ignore")] Arc<AtomicBool>);
 
     #[async_trait]
@@ -90,9 +94,10 @@ async fn invalid_results_are_not_cached() -> anyhow::Result<()> {
 
 #[tokio::test]
 async fn demo_with_transient() -> anyhow::Result<()> {
-    #[derive(Clone, Dupe, Debug, Display, Derivative, Allocative)]
+    #[derive(Clone, Dupe, Debug, Display, Derivative, Allocative, PagablePanic)]
     #[derivative(Hash, PartialEq, Eq)]
     #[display("{:?}", self)]
+    #[pagable_typetag(DiceKeyDyn)]
     struct MaybeTransient(
         usize,
         #[derivative(PartialEq = "ignore", Hash = "ignore")] Arc<AtomicBool>,

@@ -19,15 +19,22 @@ use dice::DiceComputations;
 use dice::Key;
 use dice_futures::cancellation::CancellationContext;
 use futures::future::FutureExt;
+use pagable::Pagable;
+use pagable::PagableTagged;
 
 #[tokio::test]
 async fn test_linear_recompute_tracks_deps() {
-    #[derive(Allocative, Clone, Copy, Debug, Display, Eq, PartialEq, Hash)]
+    #[derive(Allocative, Clone, Copy, Debug, Display, Eq, PartialEq, Hash, Pagable)]
     enum K {
         #[display("K::Top")]
         Top,
         #[display("K::Mid({})", _0)]
         Mid(u32),
+    }
+    impl PagableTagged for K {
+        fn pagable_type_tag(&self) -> &'static str {
+            "K"
+        }
     }
 
     #[async_trait]

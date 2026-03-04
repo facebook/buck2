@@ -25,7 +25,10 @@
 //!     use dice::{Key, InjectedKey, DiceComputations, DiceDataBuilder, DiceData, DiceTransactionUpdater};
 //!     use std::sync::Arc;
 //!     use allocative::Allocative;
-//! use dice_futures::cancellation::CancellationContext;
+//!     use dice_futures::cancellation::CancellationContext;
+//!     use dice::DiceKeyDyn;
+//!     use pagable::Pagable;
+//!     use pagable::pagable_typetag;
 //!
 //!     /// A configuration computation that consists of values that are pre-computed outside of DICE
 //!     pub struct InjectConfigs<'compute, 'd>(&'compute mut DiceComputations<'d>);
@@ -36,7 +39,8 @@
 //!         }
 //!     }
 //!
-//!     #[derive(Clone, Debug, Display, Eq, Hash, PartialEq, Allocative)]
+//!     #[derive(Clone, Debug, Display, Eq, Hash, PartialEq, Allocative, Pagable)]
+//!     #[pagable_typetag(DiceKeyDyn)]
 //!     #[display("{:?}", self)]
 //!     struct ConfigKey;
 //!
@@ -226,6 +230,7 @@ pub use crate::api::user_data::UserCycleDetectorGuard;
 pub use crate::impls::dice::Dice;
 pub use crate::impls::dice::DiceDataBuilder;
 pub use crate::impls::key::DiceKeyDyn;
+pub use crate::impls::value::DiceValueDyn;
 pub use crate::introspection::serialize_dense_graph;
 pub use crate::introspection::serialize_graph;
 pub use crate::stats::GlobalStats;

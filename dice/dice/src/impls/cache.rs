@@ -194,7 +194,10 @@ mod tests {
     use dice_futures::spawner::TokioSpawner;
     use dupe::Dupe;
     use futures::FutureExt;
+    use pagable::Pagable;
+    use pagable::pagable_typetag;
 
+    use crate::DiceKeyDyn;
     use crate::api::computations::DiceComputations;
     use crate::api::key::Key;
     use crate::arc::Arc;
@@ -211,7 +214,8 @@ mod tests {
     use crate::impls::value::TrackedInvalidationPaths;
     use crate::versions::VersionRanges;
 
-    #[derive(Allocative, Clone, Debug, Display, Eq, PartialEq, Hash)]
+    #[derive(Allocative, Clone, Debug, Display, Eq, PartialEq, Hash, Pagable)]
+    #[pagable_typetag(DiceKeyDyn)]
     struct K;
 
     #[async_trait]

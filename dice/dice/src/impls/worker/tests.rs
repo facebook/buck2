@@ -33,11 +33,15 @@ use futures::pin_mut;
 use gazebo::prelude::SliceExt;
 use gazebo::variants::VariantName;
 use itertools::Either;
+use pagable::Pagable;
+use pagable::PagablePanic;
+use pagable::pagable_typetag;
 use tokio::sync::Mutex;
 use tokio::sync::Notify;
 use tokio::sync::Semaphore;
 
 use crate::DetectCycles;
+use crate::DiceKeyDyn;
 use crate::api::computations::DiceComputations;
 use crate::api::data::DiceData;
 use crate::api::key::InvalidationSourcePriority;
@@ -75,7 +79,8 @@ use crate::versions::VersionNumber;
 use crate::versions::VersionRange;
 use crate::versions::VersionRanges;
 
-#[derive(Allocative, Clone, Dupe, Debug, Display, PartialEq, Eq, Hash)]
+#[derive(Allocative, Clone, Dupe, Debug, Display, PartialEq, Eq, Hash, Pagable)]
+#[pagable_typetag(DiceKeyDyn)]
 struct K;
 
 #[async_trait]
@@ -95,8 +100,9 @@ impl Key for K {
     }
 }
 
-#[derive(Allocative, Clone, Debug, Display)]
+#[derive(Allocative, Clone, Debug, Display, PagablePanic)]
 #[display("{:?}", self)]
+#[pagable_typetag(DiceKeyDyn)]
 struct IsRan(Arc<AtomicBool>);
 
 #[async_trait]
@@ -126,7 +132,8 @@ impl Hash for IsRan {
     fn hash<H: Hasher>(&self, _state: &mut H) {}
 }
 
-#[derive(Allocative, Clone, Dupe, Debug, Display, PartialEq, Eq, Hash)]
+#[derive(Allocative, Clone, Dupe, Debug, Display, PartialEq, Eq, Hash, Pagable)]
+#[pagable_typetag(DiceKeyDyn)]
 struct Finish;
 
 #[async_trait]
@@ -260,8 +267,9 @@ async fn when_equal_return_same_instance() -> anyhow::Result<()> {
         }
     }
 
-    #[derive(Allocative, Clone, Debug, Display)]
+    #[derive(Allocative, Clone, Debug, Display, PagablePanic)]
     #[display("{:?}", self)]
+    #[pagable_typetag(DiceKeyDyn)]
     struct InstanceEqualKey(Arc<AtomicUsize>);
 
     #[async_trait]
@@ -410,7 +418,8 @@ async fn spawn_with_previously_cancelled_task_that_cancelled() {
     let cycles = UserCycleDetectorData::testing_new();
     let events_dispatcher = DiceEventDispatcher::new(std::sync::Arc::new(NoOpTracker), dice.dupe());
 
-    #[derive(Allocative, Clone, Dupe, Debug, Display, PartialEq, Eq, Hash)]
+    #[derive(Allocative, Clone, Dupe, Debug, Display, PartialEq, Eq, Hash, Pagable)]
+    #[pagable_typetag(DiceKeyDyn)]
     struct CancellableNeverFinish;
 
     #[async_trait]
@@ -478,7 +487,8 @@ async fn spawn_with_previously_cancelled_task_that_finished() {
     let cycles = UserCycleDetectorData::testing_new();
     let events_dispatcher = DiceEventDispatcher::new(std::sync::Arc::new(NoOpTracker), dice.dupe());
 
-    #[derive(Allocative, Clone, Dupe, Debug, Display, PartialEq, Eq, Hash)]
+    #[derive(Allocative, Clone, Dupe, Debug, Display, PartialEq, Eq, Hash, Pagable)]
+    #[pagable_typetag(DiceKeyDyn)]
     struct Finish;
 
     #[async_trait]
@@ -573,9 +583,10 @@ async fn mismatch_epoch_results_in_cancelled_result() {
 
 #[tokio::test]
 async fn spawn_with_previously_cancelled_task_nested_cancelled() -> anyhow::Result<()> {
-    #[derive(Allocative, Clone, Debug, Display)]
+    #[derive(Allocative, Clone, Debug, Display, PagablePanic)]
     #[display("{:?}", self)]
     #[allocative(skip)]
+    #[pagable_typetag(DiceKeyDyn)]
     struct DontRunTwice {
         is_started: Arc<Notify>,
         exclusive: Arc<Mutex<bool>>,
@@ -719,8 +730,9 @@ async fn spawn_with_previously_cancelled_task_nested_cancelled() -> anyhow::Resu
 #[tokio::test]
 async fn test_values_gets_resurrect_if_deps_dont_change_regardless_of_equality()
 -> anyhow::Result<()> {
-    #[derive(Allocative, Clone, Debug, Display)]
+    #[derive(Allocative, Clone, Debug, Display, Pagable)]
     #[display("{:?}", self)]
+    #[pagable_typetag(DiceKeyDyn)]
     struct NeverEqual;
 
     #[async_trait]
@@ -1172,8 +1184,9 @@ async fn _run_cancellation_caching_test(
         cancel_poller_type: CancelPollerType,
     }
 
-    #[derive(Allocative, Clone, Dupe, Debug, Display)]
+    #[derive(Allocative, Clone, Dupe, Debug, Display, PagablePanic)]
     #[display("DelayOrCancelsSynchronously<{}>", name)]
+    #[pagable_typetag(DiceKeyDyn)]
     struct DelayOrCancelsSynchronously {
         name: &'static str,
         // N.B. The Arcs here are used to share state among keys that are stored
@@ -1446,7 +1459,8 @@ struct Data {
     compute_behavior: Vec<std::sync::Mutex<ComputeBehavior>>,
 }
 
-#[derive(Allocative, Clone, Dupe, Debug)]
+#[derive(Allocative, Clone, Dupe, Debug, PagablePanic)]
+#[pagable_typetag(DiceKeyDyn)]
 struct SPKey {
     #[allocative(skip)]
     data: Arc<Data>,

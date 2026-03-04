@@ -22,6 +22,7 @@ use dice::DetectCycles;
 use dice::Dice;
 use dice::DiceComputations;
 use dice::DiceData;
+use dice::DiceKeyDyn;
 use dice::DiceProjectionComputations;
 use dice::InjectedKey;
 use dice::Key;
@@ -29,6 +30,9 @@ use dice::ProjectionKey;
 use dice::UserComputationData;
 use dice_futures::cancellation::CancellationContext;
 use dupe::Dupe;
+use pagable::Pagable;
+use pagable::PagablePanic;
+use pagable::pagable_typetag;
 use parking_lot::Mutex;
 
 /// We have three keys in this test:
@@ -56,8 +60,18 @@ struct GlobalConfig {
 }
 
 /// "Evaluate" a file.
-#[derive(Debug, derive_more::Display, Clone, Hash, PartialEq, Eq, Allocative)]
+#[derive(
+    Debug,
+    derive_more::Display,
+    Clone,
+    Hash,
+    PartialEq,
+    Eq,
+    Allocative,
+    Pagable
+)]
 #[display("{}", name)]
+#[pagable_typetag(DiceKeyDyn)]
 struct FileKey {
     name: String,
 }
@@ -115,9 +129,11 @@ impl Key for FileKey {
     Hash,
     PartialEq,
     Eq,
-    Allocative
+    Allocative,
+    Pagable
 )]
 #[display("{:?}", self)]
+#[pagable_typetag(DiceKeyDyn)]
 struct ConfigKey;
 
 #[async_trait]
@@ -330,7 +346,8 @@ async fn projection_sync_and_then_recompute_incremental_reuses_key() -> anyhow::
         fn hash<H: Hasher>(&self, _state: &mut H) {}
     }
 
-    #[derive(Allocative, Clone, Debug, Display)]
+    #[derive(Allocative, Clone, Debug, Display, Pagable)]
+    #[pagable_typetag(DiceKeyDyn)]
     struct BaseKey;
 
     #[async_trait]
@@ -351,8 +368,9 @@ async fn projection_sync_and_then_recompute_incremental_reuses_key() -> anyhow::
         fn hash<H: Hasher>(&self, _state: &mut H) {}
     }
 
-    #[derive(Allocative, Clone, Debug, Display)]
+    #[derive(Allocative, Clone, Debug, Display, PagablePanic)]
     #[display("{:?}", self)]
+    #[pagable_typetag(DiceKeyDyn)]
     struct DependsOnProjection(Arc<AtomicBool>);
 
     #[async_trait]

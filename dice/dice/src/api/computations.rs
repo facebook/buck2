@@ -19,6 +19,8 @@ use dice_futures::owning_future::OwningFuture;
 use dupe::Dupe;
 use futures::FutureExt;
 use futures::future::BoxFuture;
+use pagable::Pagable;
+use pagable::pagable_typetag;
 
 use crate::DiceKeyTrackedInvalidationPaths;
 use crate::ProjectionKey;
@@ -30,6 +32,7 @@ use crate::api::user_data::UserComputationData;
 use crate::ctx::DiceComputationsImpl;
 use crate::ctx::LinearRecomputeDiceComputationsImpl;
 use crate::impls::ctx::ModernDiceComputationsData;
+use crate::impls::key::DiceKeyDyn;
 
 /// The context for computations to register themselves, and request for additional dependencies.
 /// The dependencies accessed are tracked for caching via the `DiceCtx`.
@@ -432,13 +435,15 @@ impl DiceComputationsData {
 #[allow(unused, clippy::diverging_sub_expression)]
 fn _assert_dice_compute_future_sizes() {
     let ctx: DiceComputations = panic!();
-    #[derive(Allocative, Debug, Clone, PartialEq, Eq, Hash)]
+    #[derive(Allocative, Debug, Clone, PartialEq, Eq, Hash, Pagable)]
+    #[pagable_typetag(DiceKeyDyn)]
     struct K(u64);
     impl std::fmt::Display for K {
         fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
             panic!()
         }
     }
+
     #[async_trait]
     impl Key for K {
         type Value = Arc<String>;

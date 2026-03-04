@@ -22,9 +22,13 @@ use async_trait::async_trait;
 use derive_more::Display;
 use dice_futures::cancellation::CancellationContext;
 use dupe::Dupe;
+use pagable::Pagable;
+use pagable::PagablePanic;
+use pagable::pagable_typetag;
 use tempfile::NamedTempFile;
 
 use crate::Dice;
+use crate::DiceKeyDyn;
 use crate::api::computations::DiceComputations;
 use crate::api::cycles::DetectCycles;
 use crate::api::injected::InjectedKey;
@@ -37,8 +41,9 @@ enum Encoding {
     Ascii,
 }
 
-#[derive(Clone, Dupe, Debug, Display, Eq, Hash, PartialEq, Allocative)]
+#[derive(Clone, Dupe, Debug, Display, Eq, Hash, PartialEq, Allocative, Pagable)]
 #[display("{:?}", self)]
+#[pagable_typetag(DiceKeyDyn)]
 struct EncodingConfig();
 
 impl InjectedKey for EncodingConfig {
@@ -82,8 +87,9 @@ impl SetEncodings for DiceTransactionUpdater {
 
 struct Filesystem<'c, 'd>(&'c mut DiceComputations<'d>);
 
-#[derive(Clone, Display, Debug, Eq, Hash, PartialEq, Allocative)]
+#[derive(Clone, Display, Debug, Eq, Hash, PartialEq, Allocative, PagablePanic)]
 #[display("File({})", _0.display())]
+#[pagable_typetag(DiceKeyDyn)]
 struct File(PathBuf);
 
 #[async_trait]

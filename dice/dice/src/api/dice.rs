@@ -26,6 +26,9 @@
 //!     use std::sync::Arc;
 //!     use allocative::Allocative;
 //!     use dice_futures::cancellation::CancellationContext;
+//!     use dice::DiceKeyDyn;
+//!     use pagable::Pagable;
+//!     use pagable::pagable_typetag;
 //!
 //!     /// A configuration computation that consists of values that are pre-computed outside of DICE
 //!     pub struct InjectConfigs<'compute, 'd>(&'compute mut DiceComputations<'d>);
@@ -36,8 +39,9 @@
 //!         }
 //!     }
 //!
-//!     #[derive(Clone, Debug, Display, Eq, Hash, PartialEq, Allocative)]
+//!     #[derive(Clone, Debug, Display, Eq, Hash, PartialEq, Allocative, Pagable)]
 //!     #[display("{:?}", self)]
+//!     #[pagable_typetag(DiceKeyDyn)]
 //!     struct ConfigKey;
 //!
 //!     #[async_trait]

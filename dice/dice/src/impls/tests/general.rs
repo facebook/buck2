@@ -23,10 +23,14 @@ use dice_error::DiceErrorImpl;
 use dice_futures::cancellation::CancellationContext;
 use dupe::Dupe;
 use futures::FutureExt;
+use pagable::Pagable;
+use pagable::PagablePanic;
+use pagable::pagable_typetag;
 use tokio::sync::oneshot;
 
 use crate::Dice;
 use crate::DiceData;
+use crate::DiceKeyDyn;
 use crate::DynKey;
 use crate::UserCycleDetector;
 use crate::UserCycleDetectorGuard;
@@ -37,8 +41,9 @@ use crate::api::key::Key;
 use crate::api::user_data::UserComputationData;
 use crate::versions::VersionNumber;
 
-#[derive(Clone, Dupe, Debug, Display, Eq, Hash, PartialEq, Allocative)]
+#[derive(Clone, Dupe, Debug, Display, Eq, Hash, PartialEq, Allocative, Pagable)]
 #[display("{:?}", self)]
+#[pagable_typetag(DiceKeyDyn)]
 struct Foo(i32);
 
 #[async_trait]
@@ -50,10 +55,11 @@ impl InjectedKey for Foo {
     }
 }
 
-#[derive(Clone, Dupe, Debug, Derivative, Allocative, Display)]
+#[derive(Clone, Dupe, Debug, Derivative, Allocative, Display, PagablePanic)]
 #[derivative(PartialEq, Eq, Hash)]
 #[display("{:?}", self)]
 #[allocative(skip)]
+#[pagable_typetag(DiceKeyDyn)]
 struct KeyThatRuns {
     #[derivative(Hash = "ignore", PartialEq = "ignore")]
     barrier1: Arc<tokio::sync::Semaphore>,
@@ -143,9 +149,10 @@ fn dice_computations_are_parallel() {
         .unwrap();
     let barrier = Arc::new(Barrier::new(n_thread));
 
-    #[derive(Clone, Debug, Display, Derivative, Allocative)]
+    #[derive(Clone, Debug, Display, Derivative, Allocative, PagablePanic)]
     #[derivative(Hash, PartialEq, Eq)]
     #[display("{:?}", self)]
+    #[pagable_typetag(DiceKeyDyn)]
     struct Blocking {
         index: usize,
         #[derivative(PartialEq = "ignore", Hash = "ignore")]
@@ -205,8 +212,9 @@ fn dice_computations_are_parallel() {
 async fn different_data_per_compute_ctx() {
     struct U(usize);
 
-    #[derive(Clone, Dupe, Debug, Display, PartialEq, Eq, Hash, Allocative)]
+    #[derive(Clone, Dupe, Debug, Display, PartialEq, Eq, Hash, Allocative, Pagable)]
     #[display("{:?}", self)]
+    #[pagable_typetag(DiceKeyDyn)]
     struct DataRequest(u8);
     #[async_trait]
     impl Key for DataRequest {
@@ -250,7 +258,8 @@ async fn different_data_per_compute_ctx() {
 
 #[test]
 fn invalid_update() {
-    #[derive(Clone, Dupe, Debug, Display, PartialEq, Eq, Hash, Allocative)]
+    #[derive(Clone, Dupe, Debug, Display, PartialEq, Eq, Hash, Allocative, Pagable)]
+    #[pagable_typetag(DiceKeyDyn)]
     struct Invalid;
 
     #[async_trait]
@@ -280,8 +289,11 @@ fn invalid_update() {
     assert!(updater.changed_to([(Invalid, ())]).is_err());
 }
 
-#[derive(Clone, Copy, Dupe, Display, Debug, Eq, PartialEq, Hash, Allocative)]
+#[derive(
+    Clone, Copy, Dupe, Display, Debug, Eq, PartialEq, Hash, Allocative, Pagable
+)]
 #[display("{:?}", self)]
+#[pagable_typetag(DiceKeyDyn)]
 struct Fib(u8);
 
 #[async_trait]
@@ -450,10 +462,11 @@ async fn dropping_request_future_cancels_execution() {
         }
     }
 
-    #[derive(Clone, Dupe, Debug, Derivative, Allocative, Display)]
+    #[derive(Clone, Dupe, Debug, Derivative, Allocative, Display, PagablePanic)]
     #[derivative(PartialEq, Eq, Hash)]
     #[display("{:?}", self)]
     #[allocative(skip)]
+    #[pagable_typetag(DiceKeyDyn)]
     struct KeyThatShouldntRun {
         #[derivative(Hash = "ignore", PartialEq = "ignore")]
         barrier1: Arc<tokio::sync::Barrier>,
@@ -560,8 +573,11 @@ async fn user_cycle_detector_is_present_modern() -> anyhow::Result<()> {
 }
 
 async fn user_cycle_detector_is_present(dice: Arc<Dice>) -> anyhow::Result<()> {
-    #[derive(Clone, Copy, Dupe, Display, Debug, Eq, PartialEq, Hash, Allocative)]
+    #[derive(
+        Clone, Copy, Dupe, Display, Debug, Eq, PartialEq, Hash, Allocative, Pagable
+    )]
     #[display("{:?}", self)]
+    #[pagable_typetag(DiceKeyDyn)]
     struct AccessCycleGuardKey;
 
     #[async_trait]

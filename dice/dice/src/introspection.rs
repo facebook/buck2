@@ -27,7 +27,10 @@ mod tests {
     use derive_more::Display;
     use dice_futures::cancellation::CancellationContext;
     use dupe::Dupe;
+    use pagable::Pagable;
+    use pagable::pagable_typetag;
 
+    use crate::DiceKeyDyn;
     use crate::HashMap;
     use crate::api::computations::DiceComputations;
     use crate::api::cycles::DetectCycles;
@@ -36,8 +39,9 @@ mod tests {
     use crate::introspection::graph::SerializedGraphNodeForKey;
     use crate::introspection::serialize_graph;
 
-    #[derive(Clone, Dupe, Display, Debug, Eq, Hash, PartialEq, Allocative)]
+    #[derive(Clone, Dupe, Display, Debug, Eq, Hash, PartialEq, Allocative, Pagable)]
     #[display("{:?}", self)]
+    #[pagable_typetag(DiceKeyDyn)]
     struct KeyA(usize);
 
     #[async_trait]
@@ -61,8 +65,9 @@ mod tests {
         }
     }
 
-    #[derive(Clone, Dupe, Display, Debug, Eq, Hash, PartialEq, Allocative)]
+    #[derive(Clone, Dupe, Display, Debug, Eq, Hash, PartialEq, Allocative, Pagable)]
     #[display("{:?}", self)]
+    #[pagable_typetag(DiceKeyDyn)]
     struct KeyB;
 
     #[async_trait]

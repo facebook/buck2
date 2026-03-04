@@ -16,11 +16,14 @@ use async_trait::async_trait;
 use derive_more::Display;
 use dice_futures::cancellation::CancellationContext;
 use dupe::Dupe;
+use pagable::Pagable;
+use pagable::pagable_typetag;
 
 use crate::Dice;
 use crate::DiceDataBuilder;
 use crate::DiceEvent;
 use crate::DiceEventListener;
+use crate::DiceKeyDyn;
 use crate::InjectedKey;
 use crate::api::computations::DiceComputations;
 use crate::api::cycles::DetectCycles;
@@ -38,8 +41,9 @@ impl DiceEventListener for Tracker {
     }
 }
 
-#[derive(Clone, Dupe, Debug, Display, Eq, Hash, PartialEq, Allocative)]
+#[derive(Clone, Dupe, Debug, Display, Eq, Hash, PartialEq, Allocative, Pagable)]
 #[display("{:?}", self)]
+#[pagable_typetag(DiceKeyDyn)]
 struct Injected;
 
 #[async_trait]
@@ -51,8 +55,9 @@ impl InjectedKey for Injected {
     }
 }
 
-#[derive(Clone, Dupe, Debug, Display, PartialEq, Eq, Hash, Allocative)]
+#[derive(Clone, Dupe, Debug, Display, PartialEq, Eq, Hash, Allocative, Pagable)]
 #[display("{:?}", self)]
+#[pagable_typetag(DiceKeyDyn)]
 struct Stage0;
 
 #[async_trait]
@@ -72,8 +77,9 @@ impl Key for Stage0 {
     }
 }
 
-#[derive(Clone, Dupe, Debug, Display, PartialEq, Eq, Hash, Allocative)]
+#[derive(Clone, Dupe, Debug, Display, PartialEq, Eq, Hash, Allocative, Pagable)]
 #[display("{:?}", self)]
+#[pagable_typetag(DiceKeyDyn)]
 struct Stage1;
 
 #[async_trait]

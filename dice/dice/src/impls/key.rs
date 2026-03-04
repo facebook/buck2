@@ -564,7 +564,10 @@ mod tests {
     use derive_more::Display;
     use dice_futures::cancellation::CancellationContext;
     use dupe::Dupe;
+    use pagable::Pagable;
+    use pagable::pagable_typetag;
 
+    use crate::DiceKeyDyn;
     use crate::api::computations::DiceComputations;
     use crate::api::key::Key;
     use crate::api::projection::DiceProjectionComputations;
@@ -574,7 +577,8 @@ mod tests {
 
     #[test]
     fn downcast_key_does_not_increase_refs() {
-        #[derive(Allocative, Debug, Display, Clone, Dupe, Eq, PartialEq, Hash)]
+        #[derive(Allocative, Debug, Display, Clone, Dupe, Eq, PartialEq, Hash, Pagable)]
+        #[pagable_typetag(DiceKeyDyn)]
         struct TestK;
 
         #[async_trait::async_trait]

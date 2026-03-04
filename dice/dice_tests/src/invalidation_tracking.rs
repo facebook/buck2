@@ -17,6 +17,7 @@ use derive_more::Display;
 use dice::DetectCycles;
 use dice::Dice;
 use dice::DiceComputations;
+use dice::DiceKeyDyn;
 use dice::DiceKeyTrackedInvalidationPaths;
 use dice::DiceTrackedInvalidationPath;
 use dice::InjectedKey;
@@ -27,17 +28,23 @@ use dupe::Dupe;
 use futures::future::FutureExt;
 use gazebo::prelude::*;
 use gazebo::variants::VariantName;
+use pagable::Pagable;
+use pagable::pagable_typetag;
 
-#[derive(Allocative, Clone, Copy, Debug, Display, Eq, PartialEq, Hash)]
+#[derive(Allocative, Clone, Copy, Debug, Display, Eq, PartialEq, Hash, Pagable)]
+#[pagable_typetag(DiceKeyDyn)]
 struct NormalInjected(u32);
 
-#[derive(Allocative, Clone, Copy, Debug, Display, Eq, PartialEq, Hash)]
+#[derive(Allocative, Clone, Copy, Debug, Display, Eq, PartialEq, Hash, Pagable)]
+#[pagable_typetag(DiceKeyDyn)]
 struct HighInjected(u32);
 
-#[derive(Allocative, Clone, Copy, Debug, Display, Eq, PartialEq, Hash)]
+#[derive(Allocative, Clone, Copy, Debug, Display, Eq, PartialEq, Hash, Pagable)]
+#[pagable_typetag(DiceKeyDyn)]
 struct NormalChanged(u32);
 
-#[derive(Allocative, Clone, Copy, Debug, Display, Eq, PartialEq, Hash)]
+#[derive(Allocative, Clone, Copy, Debug, Display, Eq, PartialEq, Hash, Pagable)]
+#[pagable_typetag(DiceKeyDyn)]
 struct HighChanged(u32);
 
 impl InjectedKey for NormalInjected {
@@ -205,7 +212,8 @@ fn test_compute_tracks_invalidations() -> anyhow::Result<()> {
             updater.commit().await;
         }
 
-        #[derive(Allocative, Clone, Copy, Debug, Display, Eq, PartialEq, Hash)]
+        #[derive(Allocative, Clone, Copy, Debug, Display, Eq, PartialEq, Hash, Pagable)]
+        #[pagable_typetag(DiceKeyDyn)]
         struct Top(u32);
 
         #[async_trait]
@@ -325,7 +333,8 @@ fn test_compute_tracks_invalidations_over_versions() -> anyhow::Result<()> {
             builder.build(DetectCycles::Enabled)
         };
 
-        #[derive(Allocative, Clone, Copy, Debug, Display, Eq, PartialEq, Hash)]
+        #[derive(Allocative, Clone, Copy, Debug, Display, Eq, PartialEq, Hash, Pagable)]
+        #[pagable_typetag(DiceKeyDyn)]
         struct Top(u32);
 
         #[async_trait]

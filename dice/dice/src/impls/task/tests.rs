@@ -24,12 +24,15 @@ use dupe::Dupe;
 use futures::FutureExt;
 use futures::pin_mut;
 use futures::poll;
+use pagable::Pagable;
+use pagable::pagable_typetag;
 use tokio::sync::Barrier;
 use tokio::sync::Mutex;
 use tokio::sync::Notify;
 use tokio::sync::Semaphore;
 use tokio::sync::oneshot;
 
+use crate::DiceKeyDyn;
 use crate::api::computations::DiceComputations;
 use crate::api::key::Key;
 use crate::arc::Arc;
@@ -45,7 +48,8 @@ use crate::impls::value::MaybeValidDiceValue;
 use crate::impls::value::TrackedInvalidationPaths;
 use crate::versions::VersionRanges;
 
-#[derive(Allocative, Clone, Debug, Display, Eq, PartialEq, Hash)]
+#[derive(Allocative, Clone, Dupe, Debug, Display, Eq, PartialEq, Hash, Pagable)]
+#[pagable_typetag(DiceKeyDyn)]
 struct K;
 
 #[async_trait]

@@ -20,13 +20,17 @@ use derive_more::Display;
 use dice::DetectCycles;
 use dice::Dice;
 use dice::DiceComputations;
+use dice::DiceKeyDyn;
 use dice::DiceProjectionComputations;
 use dice::Key;
 use dice::ProjectionKey;
 use dice_futures::cancellation::CancellationContext;
 use dupe::Dupe;
+use pagable::Pagable;
+use pagable::pagable_typetag;
 
-#[derive(Allocative, Clone, Debug, Display, Eq, PartialEq, Hash)]
+#[derive(Allocative, Clone, Debug, Display, Eq, PartialEq, Hash, Pagable)]
+#[pagable_typetag(DiceKeyDyn)]
 struct BaseK;
 
 #[async_trait]
