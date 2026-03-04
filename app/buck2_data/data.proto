@@ -3089,6 +3089,7 @@ message SystemInfo {
   optional bool enable_stable_revision_check = 9;
   optional bool enable_health_check_process_isolation = 10;
   optional string daemon_cgroup_path = 11;
+  optional string allprocs_cgroup_path = 12;
 }
 
 message CpuCounter {

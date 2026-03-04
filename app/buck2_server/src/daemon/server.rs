@@ -479,6 +479,18 @@ impl BuckdServer {
                 {
                     data.memory_tracker
                         .as_ref()
+                        .map(|mt| mt.cgroup_tree.daemon().path().to_string())
+                }
+                #[cfg(not(unix))]
+                {
+                    None
+                }
+            },
+            allprocs_cgroup_path: {
+                #[cfg(unix)]
+                {
+                    data.memory_tracker
+                        .as_ref()
                         .map(|mt| mt.cgroup_tree.allprocs().path().to_string())
                 }
                 #[cfg(not(unix))]
