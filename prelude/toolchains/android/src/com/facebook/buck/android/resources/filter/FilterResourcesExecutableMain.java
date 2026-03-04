@@ -216,14 +216,15 @@ public class FilterResourcesExecutableMain {
       timed(
           "Writing string files list",
           () -> {
-            ImmutableList<Path> allStringFiles =
-                GetStringsFiles.getFiles(
-                    root,
-                    ProjectFilesystemUtils.getEmptyIgnoreFilter(),
-                    inResDirToOutResDirMap.keySet().asList());
             Files.write(
                 Paths.get(stringFilesListOutput),
-                allStringFiles.stream().map(Path::toString).collect(Collectors.toList()));
+                (Iterable<String>)
+                    GetStringsFiles.getFilesAsStream(
+                                root,
+                                ProjectFilesystemUtils.getEmptyIgnoreFilter(),
+                                inResDirToOutResDirMap.keySet().asList())
+                            .map(Path::toString)
+                        ::iterator);
           });
     }
 

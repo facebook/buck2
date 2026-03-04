@@ -21,6 +21,7 @@ import java.nio.file.DirectoryStream;
 import java.nio.file.Path;
 import java.util.function.Predicate;
 import java.util.regex.Pattern;
+import java.util.stream.Stream;
 
 /**
  * Generates a list of strings.xml files
@@ -54,5 +55,36 @@ public class GetStringsFiles {
     }
 
     return stringFilesBuilder.build();
+  }
+
+  public static Stream<Path> getFilesAsStream(
+      AbsPath root, DirectoryStream.Filter<? super Path> ignoreFilter, ImmutableList<Path> resDirs)
+      throws IOException {
+    Predicate<Path> isStringsFile =
+        pathRelativeToProjectRoot -> {
+          String filePath = PathFormatter.pathWithUnixSeparators(pathRelativeToProjectRoot);
+          return STRINGS_FILE_PATH.matcher(filePath).matches();
+        };
+
+    return resDirs.stream()
+        .flatMap(resDir -> getFilesUnderPathExcWrapper(root, resDir, isStringsFile, ignoreFilter));
+  }
+
+  private static Stream<Path> getFilesUnderPathExcWrapper(
+      AbsPath root,
+      Path resDir,
+      Predicate<Path> isStringsFile,
+      DirectoryStream.Filter<? super Path> ignoreFilter) {
+    try {
+      return ProjectFilesystemUtils.getFilesUnderPath(
+          root,
+          resDir,
+          isStringsFile,
+          ProjectFilesystemUtils.getDefaultVisitOptions(),
+          ignoreFilter)
+          .stream();
+    } catch (IOException e) {
+      throw new RuntimeException(e);
+    }
   }
 }
