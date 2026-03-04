@@ -10,6 +10,7 @@
 
 package com.facebook.buck.testrunner;
 
+import com.android.ddmlib.AndroidDebugBridge;
 import com.android.ddmlib.IDevice;
 import com.android.ddmlib.MultiLineReceiver;
 import com.android.ddmlib.testrunner.ITestRunListener;
@@ -82,6 +83,9 @@ public class InstrumentationTestRunner extends DeviceRunner {
       "TEST_RESULT_APP_SCOPED_ARTIFACT_ANNOTATIONS_DIR";
   private static final String FORWARDABLE_ENV_PREFIX = "AIT_";
 
+  private static final long ADB_CONNECT_TIMEOUT_MS = 30000;
+  private static final long ADB_CONNECT_TIME_STEP_MS = ADB_CONNECT_TIMEOUT_MS / 10;
+
   /** Env var to enable per-test timeout enforcement. */
   static final String PER_TEST_TIMEOUT_ENABLED_ENV = "ANDROID_PER_TEST_TIMEOUT_ENABLED";
 
@@ -135,7 +139,6 @@ public class InstrumentationTestRunner extends DeviceRunner {
   private final CrashAnalyzer crashAnalyzer = new CrashAnalyzer();
   private List<ReportLayer> reportLayers = new ArrayList<>();
 
-  private IDevice device = null;
   protected final AndroidDevice androidDevice;
   protected final AdbUtils adbUtils;
   private volatile boolean testRunFailed = false;
@@ -472,10 +475,6 @@ public class InstrumentationTestRunner extends DeviceRunner {
     return packageName;
   }
 
-  public IDevice getDevice() {
-    return this.device;
-  }
-
   public boolean hasTestRunFailed() {
     return this.testRunFailed;
   }
@@ -579,6 +578,47 @@ public class InstrumentationTestRunner extends DeviceRunner {
         device = devices.get(0);
       }
     } else if (deviceSerial != null) {
+      // For TCP-connected devices (e.g., emulators at host:port), ensure the ADB server
+      // knows about the device before we proceed. ADB servers don't auto-discover TCP
+      // devices — "adb connect" must be called first.
+      if (isTcpDevice(deviceSerial)) {
+        boolean found = false;
+        for (AndroidDevice d : this.adbUtils.getDevices()) {
+          if (d.getSerialNumber().equals(deviceSerial)) {
+            found = true;
+            break;
+          }
+        }
+        if (!found) {
+          System.err.println("Device " + deviceSerial + " not found, attempting adb connect...");
+          connectTcpDevice(deviceSerial);
+          long start = System.currentTimeMillis();
+          while (!found) {
+            long timeLeft = start + ADB_CONNECT_TIMEOUT_MS - System.currentTimeMillis();
+            if (timeLeft <= 0) {
+              break;
+            }
+            try {
+              Thread.sleep(ADB_CONNECT_TIME_STEP_MS);
+            } catch (InterruptedException e) {
+              Thread.currentThread().interrupt();
+              break;
+            }
+            for (AndroidDevice d : this.adbUtils.getDevices()) {
+              if (d.getSerialNumber().equals(deviceSerial)) {
+                found = true;
+                break;
+              }
+            }
+          }
+          if (!found) {
+            System.err.println(
+                "Warning: Device "
+                    + deviceSerial
+                    + " not found after adb connect, proceeding anyway");
+          }
+        }
+      }
       device = new AndroidDeviceImpl(deviceSerial, this.adbUtils);
     }
 
@@ -589,10 +629,72 @@ public class InstrumentationTestRunner extends DeviceRunner {
     return device;
   }
 
+  /**
+   * Resolves a ddmlib {@link IDevice} for the given serial number. This is needed solely because
+   * {@link RemoteAndroidTestRunner} requires an {@link IDevice} to execute {@code am instrument}.
+   * All other device interactions use {@link AndroidDevice} via {@link AdbUtils}.
+   */
+  protected IDevice resolveIDevice(String serial) throws InterruptedException {
+    AndroidDebugBridge.initIfNeeded(/* clientSupport */ false);
+    AndroidDebugBridge adb = AndroidDebugBridge.createBridge(getAdbPath(), false);
+    if (adb == null) {
+      System.err.println("Failed to connect to adb. Make sure adb server is running.");
+      System.exit(1);
+      return null;
+    }
+
+    long start = System.currentTimeMillis();
+    while (!adb.isConnected() || !adb.hasInitialDeviceList()) {
+      long timeLeft = start + ADB_CONNECT_TIMEOUT_MS - System.currentTimeMillis();
+      if (timeLeft <= 0) {
+        break;
+      }
+      Thread.sleep(ADB_CONNECT_TIME_STEP_MS);
+    }
+
+    if (!adb.isConnected() || !adb.hasInitialDeviceList()) {
+      System.err.println("Unable to set up adb.");
+      System.exit(1);
+      return null;
+    }
+
+    for (IDevice device : adb.getDevices()) {
+      if (device.getSerialNumber().equals(serial)) {
+        return device;
+      }
+    }
+
+    System.err.printf("Unable to find device with serial %s via ddmlib%n", serial);
+    System.exit(1);
+    return null;
+  }
+
+  /**
+   * Returns true if the serial looks like a TCP-connected device (host:port format), which is
+   * typical for emulators connected via {@code adb connect}.
+   */
+  private static boolean isTcpDevice(String serial) {
+    return serial != null && serial.contains(":");
+  }
+
+  /**
+   * Runs {@code adb connect <serial>} to ensure the ADB server knows about a TCP-connected device
+   * (e.g., an emulator).
+   */
+  private void connectTcpDevice(String serial) {
+    try {
+      String result = adbUtils.executeAdbCommand("connect " + serial, null, true);
+      System.err.println("adb connect " + serial + ": " + result.trim());
+    } catch (Exception e) {
+      System.err.println("Failed to run adb connect " + serial + ": " + e.getMessage());
+    }
+  }
+
   @SuppressWarnings({"PMD.BlacklistedSystemGetenv", "PMD.BlacklistedDefaultProcessMethod"})
   public void run() throws Throwable {
-    IDevice device = getAndroidDevice(deviceArgs.autoRunOnConnectedDevice, deviceArgs.deviceSerial);
-    this.device = device;
+    // Resolve a ddmlib IDevice solely for RemoteAndroidTestRunner compatibility.
+    // All other device interactions use this.androidDevice (AdbUtils-based).
+    IDevice iDevice = resolveIDevice(androidDevice.getSerialNumber());
 
     if (this.instrumentationApkPath != null) {
       if (this.apkUnderTestPath != null) {
@@ -781,7 +883,7 @@ public class InstrumentationTestRunner extends DeviceRunner {
 
     try {
       RemoteAndroidTestRunner runner =
-          new RemoteAndroidTestRunner(this.packageName, this.testRunner, this.device);
+          new RemoteAndroidTestRunner(this.packageName, this.testRunner, iDevice);
 
       for (Map.Entry<String, String> entry : this.extraInstrumentationArguments.entrySet()) {
         runner.addInstrumentationArg(

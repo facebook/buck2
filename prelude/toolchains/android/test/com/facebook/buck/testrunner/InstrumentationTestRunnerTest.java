@@ -714,8 +714,7 @@ public class InstrumentationTestRunnerTest {
             argsParser.extraApksToInstall,
             argsParser.userId) {
           @Override
-          protected IDevice getAndroidDevice(
-              boolean autoRunOnConnectedDevice, String deviceSerial) {
+          protected IDevice resolveIDevice(String serial) {
             return device;
           }
 
@@ -840,8 +839,7 @@ public class InstrumentationTestRunnerTest {
             argsParser.extraApksToInstall,
             argsParser.userId) {
           @Override
-          protected IDevice getAndroidDevice(
-              boolean autoRunOnConnectedDevice, String deviceSerial) {
+          protected IDevice resolveIDevice(String serial) {
             return device;
           }
 
@@ -1099,7 +1097,7 @@ public class InstrumentationTestRunnerTest {
         argsParser.extraApksToInstall,
         argsParser.userId) {
       @Override
-      protected IDevice getAndroidDevice(boolean autoRunOnConnectedDevice, String deviceSerial) {
+      protected IDevice resolveIDevice(String serial) {
         return device;
       }
 
@@ -1230,8 +1228,7 @@ public class InstrumentationTestRunnerTest {
             argsParser.extraApksToInstall,
             argsParser.userId) {
           @Override
-          protected IDevice getAndroidDevice(
-              boolean autoRunOnConnectedDevice, String deviceSerial) {
+          protected IDevice resolveIDevice(String serial) {
             // Return IDevice only for RemoteAndroidTestRunner compatibility
             return device;
           }
@@ -1419,8 +1416,7 @@ public class InstrumentationTestRunnerTest {
           }
 
           @Override
-          protected IDevice getAndroidDevice(
-              boolean autoRunOnConnectedDevice, String deviceSerial) {
+          protected IDevice resolveIDevice(String serial) {
             // Return IDevice only for RemoteAndroidTestRunner compatibility
             return device;
           }
