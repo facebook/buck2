@@ -155,6 +155,7 @@ pub struct BuildProgressPhaseStats {
     pub loads: BuildProgressPhaseStatsItem,
     pub analyses: BuildProgressPhaseStatsItem,
     pub actions: BuildProgressPhaseStatsItem,
+    pub validations: BuildProgressPhaseStatsItem,
 }
 
 #[derive(Default, Clone, Copy)]
@@ -164,12 +165,13 @@ struct TrackedActionSpan {
 }
 
 #[derive(Default)]
-
 struct TrackedLoadSpan {}
 
 #[derive(Default)]
-
 struct TrackedAnalysisSpan {}
+
+#[derive(Default)]
+struct TrackedValidationSpan {}
 
 #[derive(Default)]
 pub struct BuildProgressStateTracker {
@@ -178,6 +180,7 @@ pub struct BuildProgressStateTracker {
     loads: SpanMap<TrackedLoadSpan>,
     analyses: SpanMap<TrackedAnalysisSpan>,
     actions: SpanMap<TrackedActionSpan>,
+    validations: SpanMap<TrackedValidationSpan>,
 }
 
 impl BuildProgressStateTracker {
@@ -224,6 +227,11 @@ impl BuildProgressStateTracker {
                 if let Some(states) = snapshot.key_states.get("BuildKey") {
                     self.actions.min_started = states.started as u64;
                     self.actions.min_finished = states.finished as u64;
+                }
+
+                if let Some(states) = snapshot.key_states.get("SingleValidationKey") {
+                    self.validations.min_started = states.started as u64;
+                    self.validations.min_finished = states.finished as u64;
                 }
             }
             UnpackedBuckEvent::SpanEnd(
@@ -401,6 +409,7 @@ impl BuildProgressStateTracker {
             loads: self.loads.get_stats(),
             analyses: self.analyses.get_stats(),
             actions: self.actions.get_stats(),
+            validations: self.validations.get_stats(),
         }
     }
 
