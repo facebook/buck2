@@ -27,6 +27,7 @@ load(
     "@prelude//tests:re_utils.bzl",
     "get_re_executors_from_props",
 )
+load("@prelude//tests:test_listing.bzl", "TestListingInfo")
 load("@prelude//utils:argfile.bzl", "at_argfile")
 load("@prelude//utils:expect.bzl", "expect")
 
@@ -166,7 +167,8 @@ def build_junit_test(
             transitive_class_to_src_map = cmd_args(transitive_class_to_src_map, relative_to = ctx.label.cell_root)
         env["JACOCO_CLASSNAME_SOURCE_MAP"] = transitive_class_to_src_map
 
-    list_tests = java_test_toolchain.list_tests
+    list_tests_info = ctx.attrs._java_test_toolchain[TestListingInfo]
+    list_tests = list_tests_info.list_tests
     if list_tests != None and "tpx:supports_static_listing=true" in ctx.attrs.labels and "tpx:supports_static_listing=false" not in ctx.attrs.labels:
         list_tests_command = cmd_args([
             list_tests[RunInfo],

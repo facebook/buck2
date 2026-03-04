@@ -28,6 +28,7 @@ load("@prelude//python:toolchain.bzl", "PythonPlatformInfo", "PythonToolchainInf
 load("@prelude//python_bootstrap:python_bootstrap.bzl", "PythonBootstrapToolchainInfo")
 load("@prelude//rust:rust_toolchain.bzl", "RustToolchainInfo")
 load("@prelude//tests:remote_test_execution_toolchain.bzl", "RemoteTestExecutionToolchainInfo")
+load("@prelude//tests:test_listing.bzl", "TestListingInfo")
 load("@prelude//tests:test_toolchain.bzl", "TestToolchainInfo")
 load("@prelude//zip_file:zip_file_toolchain.bzl", "ZipFileToolchainInfo")
 
@@ -69,7 +70,7 @@ def _java_for_host_test_toolchain():
     return _toolchain("java_for_host_test", [JavaToolchainInfo, JavaPlatformInfo])
 
 def _java_test_toolchain():
-    return _toolchain("java_test", [JavaTestToolchainInfo])
+    return _toolchain("java_test", [JavaTestToolchainInfo, TestListingInfo])
 
 def _kotlin_toolchain():
     return _toolchain("kotlin", [KotlinToolchainInfo])
