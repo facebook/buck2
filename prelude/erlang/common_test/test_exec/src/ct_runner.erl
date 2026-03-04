@@ -415,7 +415,10 @@ try_setup_dotslash_cache(FakeHomeDir) ->
                     RealHomeDirParts = filename:split(RealHomeDir),
                     RealDotslashCacheDirParts = filename:split(RealDotslashCacheDir),
 
-                    case lists:split(length(RealHomeDirParts), RealDotslashCacheDirParts) of
+                    case
+                        length(RealDotslashCacheDirParts) >= length(RealHomeDirParts) andalso
+                            lists:split(length(RealHomeDirParts), RealDotslashCacheDirParts)
+                    of
                         {RealHomeDirParts, GenDotslashCacheDirParts} ->
                             FakeHomeDotslashCacheDir = filename:join([FakeHomeDir | GenDotslashCacheDirParts]),
                             ok = filelib:ensure_path(filename:dirname(FakeHomeDotslashCacheDir)),
