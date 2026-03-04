@@ -288,7 +288,7 @@ impl Debug for DiceComputedValue {
     }
 }
 
-pub(crate) trait DiceValueDyn: Allocative + Any + Send + Sync + 'static {
+pub trait DiceValueDyn: Allocative + Any + Send + Sync + 'static {
     fn value_as_any(&self) -> &dyn Any;
     /// Panics if called with incompatible values.
     fn equality(&self, other: &dyn DiceValueDyn) -> bool;

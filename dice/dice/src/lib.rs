@@ -225,6 +225,7 @@ pub use crate::api::user_data::UserCycleDetector;
 pub use crate::api::user_data::UserCycleDetectorGuard;
 pub use crate::impls::dice::Dice;
 pub use crate::impls::dice::DiceDataBuilder;
+pub use crate::impls::key::DiceKeyDyn;
 pub use crate::introspection::serialize_dense_graph;
 pub use crate::introspection::serialize_graph;
 pub use crate::stats::GlobalStats;
