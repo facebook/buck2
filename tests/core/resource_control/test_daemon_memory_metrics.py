@@ -13,6 +13,7 @@ import typing
 
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.buck_workspace import buck_test
+from buck2.tests.e2e_util.helper.utils import filter_events
 
 
 @buck_test(skip_for_os=["darwin", "windows"], disable_daemon_cgroup=False)
@@ -39,6 +40,18 @@ async def test_metrics_cgroup_resource_control(buck: Buck) -> None:
         snapshot["allprocs_cgroup"]["kernel"]
         >= snapshot["forkserver_actions_cgroup"]["kernel"]
     )
+
+
+@buck_test(
+    skip_for_os=["darwin", "windows"],
+)
+async def test_cgroup_path_tag(buck: Buck) -> None:
+    await buck.targets(":")
+    events = await filter_events(buck, "Event", "data", "Instant", "data", "SystemInfo")
+    assert len(events) >= 1
+    path = events[0]["daemon_cgroup_slice_path"]
+    assert path is not None
+    assert path.startswith("/sys/fs/cgroup/")
 
 
 # Placeholder for tests to be listed successfully on non-Linux platforms.

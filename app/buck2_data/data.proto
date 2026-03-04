@@ -3090,6 +3090,7 @@ message SystemInfo {
   optional bool enable_health_check_process_isolation = 10;
   optional string daemon_cgroup_path = 11;
   optional string allprocs_cgroup_path = 12;
+  optional string daemon_cgroup_slice_path = 13;
 }
 
 message CpuCounter {

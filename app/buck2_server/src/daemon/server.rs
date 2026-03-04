@@ -498,6 +498,22 @@ impl BuckdServer {
                     None
                 }
             },
+            daemon_cgroup_slice_path: {
+                #[cfg(unix)]
+                {
+                    std::fs::read_to_string("/proc/self/cgroup")
+                        .ok()
+                        .and_then(|s| {
+                            s.lines()
+                                .find_map(|l| l.strip_prefix("0::"))
+                                .map(|p| format!("/sys/fs/cgroup{}", p))
+                        })
+                }
+                #[cfg(not(unix))]
+                {
+                    None
+                }
+            },
         });
 
         // Fire off a snapshot before we start doing anything else. We use the metrics emitted here
