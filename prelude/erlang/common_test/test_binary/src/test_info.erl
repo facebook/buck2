@@ -111,7 +111,7 @@ try_make_path_relative(Path) ->
                 end,
             BaseDirParts = filename:split(BaseDir),
             PathParts = filename:split(Path),
-            case lists:split(length(BaseDirParts), PathParts) of
+            case length(PathParts) >= length(BaseDirParts) andalso lists:split(length(BaseDirParts), PathParts) of
                 {BaseDirParts, RelativeParts} -> filename:join(RelativeParts);
                 _ -> Path
             end
