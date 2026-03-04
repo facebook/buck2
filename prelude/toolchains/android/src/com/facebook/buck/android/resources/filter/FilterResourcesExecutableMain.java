@@ -148,66 +148,96 @@ public class FilterResourcesExecutableMain {
             notFilteredStringDirs,
             allowlistedLocalesDirs);
 
-    FilteredDirectoryCopier.copyDirs(
-        root,
-        ProjectFilesystemUtils.getIgnoreFilter(root, true, NON_ASSET_FILENAMES_MATCHERS),
-        inResDirToOutResDirMap,
-        filteringPredicate);
+    timed(
+        "Copying & filtering resources",
+        () -> {
+          FilteredDirectoryCopier.copyDirs(
+              root,
+              ProjectFilesystemUtils.getIgnoreFilter(root, true, NON_ASSET_FILENAMES_MATCHERS),
+              inResDirToOutResDirMap,
+              filteringPredicate);
+        });
 
     if (voltronInResDirToOutResDirMapPath != null) {
-      Map<String, ImmutableBiMap<Path, Path>> rawVoltronMap =
-          ObjectMappers.READER.readValue(
-              ObjectMappers.createParser(Paths.get(voltronInResDirToOutResDirMapPath)),
-              new TypeReference<Map<String, ImmutableBiMap<Path, Path>>>() {});
-      ImmutableBiMap<Path, Path> voltronInResDirToOutResDirMap =
-          Objects.requireNonNull(rawVoltronMap.get("res_dir_map"));
+      timed(
+          "Copying & filtering voltron resources",
+          () -> {
+            Map<String, ImmutableBiMap<Path, Path>> rawVoltronMap =
+                ObjectMappers.READER.readValue(
+                    ObjectMappers.createParser(Paths.get(voltronInResDirToOutResDirMapPath)),
+                    new TypeReference<Map<String, ImmutableBiMap<Path, Path>>>() {});
+            ImmutableBiMap<Path, Path> voltronInResDirToOutResDirMap =
+                Objects.requireNonNull(rawVoltronMap.get("res_dir_map"));
 
-      FilteredDirectoryCopier.copyDirs(
-          root,
-          ProjectFilesystemUtils.getEmptyIgnoreFilter(),
-          voltronInResDirToOutResDirMap,
-          FilteringPredicate.getVoltronLanguagePackPredicate());
+            FilteredDirectoryCopier.copyDirs(
+                root,
+                ProjectFilesystemUtils.getEmptyIgnoreFilter(),
+                voltronInResDirToOutResDirMap,
+                FilteringPredicate.getVoltronLanguagePackPredicate());
+          });
     }
 
     if (postFilterResourcesCmd != null) {
-      Preconditions.checkState(
-          postFilterResourcesCmdOverrideSymbols != null,
-          "Must specify an override symbols file if a post-filter-resources-cmd is specified!");
-      ImmutableList.Builder<String> postFilterResourcesCmdList = ImmutableList.builder();
-      postFilterResourcesCmdList
-          .addAll(Arrays.stream(postFilterResourcesCmd.split("\\s+")).collect(Collectors.toList()))
-          .add(inResDirToOutResDirMapPath)
-          .add(postFilterResourcesCmdOverrideSymbols);
-      Process postFilterResourcesProcess =
-          new ProcessBuilder().command(postFilterResourcesCmdList.build()).start();
-      try {
-        int exitCode = postFilterResourcesProcess.waitFor();
-        if (exitCode != 0) {
-          String error =
-              new String(
-                  Objects.requireNonNull(postFilterResourcesProcess.getErrorStream())
-                      .readAllBytes());
-          throw new RuntimeException("post_filter_resources_cmd failed with error: " + error);
-        }
-      } catch (InterruptedException e) {
-        throw new RuntimeException(e);
-      }
+      timed(
+          "Running post-filter-resources command",
+          () -> {
+            Preconditions.checkState(
+                postFilterResourcesCmdOverrideSymbols != null,
+                "Must specify an override symbols file if a post-filter-resources-cmd is"
+                    + " specified!");
+            ImmutableList.Builder<String> postFilterResourcesCmdList = ImmutableList.builder();
+            postFilterResourcesCmdList
+                .addAll(
+                    Arrays.stream(postFilterResourcesCmd.split("\\s+"))
+                        .collect(Collectors.toList()))
+                .add(inResDirToOutResDirMapPath)
+                .add(postFilterResourcesCmdOverrideSymbols);
+            Process postFilterResourcesProcess =
+                new ProcessBuilder().command(postFilterResourcesCmdList.build()).start();
+            try {
+              int exitCode = postFilterResourcesProcess.waitFor();
+              if (exitCode != 0) {
+                String error =
+                    new String(
+                        Objects.requireNonNull(postFilterResourcesProcess.getErrorStream())
+                            .readAllBytes());
+                throw new RuntimeException("post_filter_resources_cmd failed with error: " + error);
+              }
+            } catch (InterruptedException e) {
+              throw new RuntimeException(e);
+            }
+          });
     }
 
     // We need to output a list of all the string files if and only if we are doing
     // strings-as-assets filtering.
     Preconditions.checkState(enableStringsAsAssetsFiltering == (stringFilesListOutput != null));
     if (stringFilesListOutput != null) {
-      ImmutableList<Path> allStringFiles =
-          GetStringsFiles.getFiles(
-              root,
-              ProjectFilesystemUtils.getEmptyIgnoreFilter(),
-              inResDirToOutResDirMap.keySet().asList());
-      Files.write(
-          Paths.get(stringFilesListOutput),
-          allStringFiles.stream().map(Path::toString).collect(Collectors.toList()));
+      timed(
+          "Writing string files list",
+          () -> {
+            ImmutableList<Path> allStringFiles =
+                GetStringsFiles.getFiles(
+                    root,
+                    ProjectFilesystemUtils.getEmptyIgnoreFilter(),
+                    inResDirToOutResDirMap.keySet().asList());
+            Files.write(
+                Paths.get(stringFilesListOutput),
+                allStringFiles.stream().map(Path::toString).collect(Collectors.toList()));
+          });
     }
 
     System.exit(0);
+  }
+
+  private static <E extends Exception> void timed(String name, ThrowingRunnable<E> runnable)
+      throws E {
+    long start = System.currentTimeMillis();
+    try {
+      runnable.run();
+    } finally {
+      long end = System.currentTimeMillis();
+      System.err.println(name + " took " + (end - start) + "ms");
+    }
   }
 }
