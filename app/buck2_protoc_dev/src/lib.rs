@@ -85,11 +85,11 @@ unsafe fn maybe_set_protoc_include() {
 }
 
 pub struct Builder {
-    tonic: tonic_build::Builder,
+    tonic: tonic_prost_build::Builder,
 }
 
 pub fn configure() -> Builder {
-    let tonic = tonic_build::configure();
+    let tonic = tonic_prost_build::configure();
     // We want to use optional everywhere
     let tonic = tonic.protoc_arg("--experimental_allow_proto3_optional");
 
@@ -155,7 +155,6 @@ impl Builder {
             println!("cargo:rerun-if-changed={}", proto_file.as_ref().display());
         }
 
-        #[allow(deprecated)] // The recommended replacement is not available yet
-        tonic.compile(protos, includes)
+        tonic.compile_protos(protos, includes)
     }
 }

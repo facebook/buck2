@@ -15,7 +15,7 @@ rust_protobuf_library(
     ],
     deps = [
         "fbsource//third-party/rust:bytes",
-        "fbsource//third-party/rust:prost-types-0-13",
+        "fbsource//third-party/rust:prost-types",
         "fbsource//third-party/rust:serde",
         "fbsource//third-party/rust:tokio-util",
         "//buck2/allocative/allocative:allocative",

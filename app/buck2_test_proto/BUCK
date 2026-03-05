@@ -9,7 +9,7 @@ rust_protobuf_library(
     build_script = "build.rs",
     proto_srcs = ":buck2_test_proto.proto",
     deps = [
-        "fbsource//third-party/rust:prost-types-0-13",
+        "fbsource//third-party/rust:prost-types",
         "//buck2/app/buck2_data:buck2_data",
         "//buck2/app/buck2_host_sharing_proto:buck2_host_sharing_proto",
     ],

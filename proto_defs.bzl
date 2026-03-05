@@ -25,10 +25,11 @@ def rust_protobuf_library(
         srcs,
         build_script,
         "buck2_protoc_dev",
-        "0.13",
+        "0.14",
         protos,
         [
-            "fbsource//third-party/rust:tonic-0-12",
+            "fbsource//third-party/rust:tonic",
+            "fbsource//third-party/rust:tonic-prost",
         ] + (deps or []),
         test_deps,
         doctests,
@@ -57,10 +58,10 @@ def _rust_protobuf_library(
         proto_srcs,
         crate_name):
     versioned_prost_target = {
-        "0.13": "prost",
+        "0.14": "prost",
     }[prost_version]
-    build_name = name + "-build" + "-" + versioned_prost_target
-    proto_name = name + "-proto" + "-" + versioned_prost_target
+    build_name = name + "-build-" + versioned_prost_target
+    proto_name = name + "-proto-" + versioned_prost_target
 
     buck_rust_binary(
         name = build_name,
@@ -90,7 +91,7 @@ def _rust_protobuf_library(
     )
 
     new_deps = [{
-        "0.13": "fbsource//third-party/rust:prost-0-13",
+        "0.14": "fbsource//third-party/rust:prost",
     }[prost_version]] + (deps or [])
 
     rust_library(
@@ -112,6 +113,7 @@ def _rust_protobuf_library(
         ],
         deps = new_deps,
         test_deps = test_deps,
+        rustc_flags = ["-Aunused-crate-dependencies"],
     )
 
 ProtoSrcsInfo = provider(fields = ["srcs"])

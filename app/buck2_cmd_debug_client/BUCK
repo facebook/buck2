@@ -17,7 +17,7 @@ rust_library(
         "fbsource//third-party/rust:form_urlencoded",
         "fbsource//third-party/rust:futures",
         "fbsource//third-party/rust:humantime",
-        "fbsource//third-party/rust:prost-0-13",
+        "fbsource//third-party/rust:prost",
         "fbsource//third-party/rust:serde",
         "fbsource//third-party/rust:serde_json",
         "fbsource//third-party/rust:tempfile",

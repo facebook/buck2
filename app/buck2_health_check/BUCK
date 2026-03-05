@@ -14,9 +14,9 @@ rust_library(
     deps = [
         "fbsource//third-party/rust:async-trait",
         "fbsource//third-party/rust:futures",
-        "fbsource//third-party/rust:prost-types-0-13",
+        "fbsource//third-party/rust:prost-types",
         "fbsource//third-party/rust:tokio",
-        "fbsource//third-party/rust:tonic-0-12",
+        "fbsource//third-party/rust:tonic",
         "fbsource//third-party/rust:tracing",
         "//buck2/app/buck2_common:buck2_common",
         "//buck2/app/buck2_core:buck2_core",

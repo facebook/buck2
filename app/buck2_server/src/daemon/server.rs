@@ -104,7 +104,7 @@ use tonic::Request;
 use tonic::Response;
 use tonic::Status;
 use tonic::service::Interceptor;
-use tonic::service::interceptor;
+use tonic::service::InterceptorLayer;
 use tonic::transport::Server;
 
 use crate::active_commands::ActiveCommand;
@@ -337,7 +337,9 @@ impl BuckdServer {
 
         let shutdown = server_shutdown_signal(command_receiver, shutdown_receiver)?;
         let server = Server::builder()
-            .layer(interceptor(BuckCheckAuthTokenInterceptor { auth_token }))
+            .layer(InterceptorLayer::new(BuckCheckAuthTokenInterceptor {
+                auth_token,
+            }))
             .add_service(
                 DaemonApiServer::new(api_server)
                     .max_encoding_message_size(usize::MAX)
