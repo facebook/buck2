@@ -1519,8 +1519,19 @@ impl ExistingFutures {
 pub(super) trait TestingDeferredMaterializerCommandProcessor<T> {
     fn testing_has_artifact(&mut self, path: ProjectRelativePathBuf) -> bool;
     fn testing_declare_existing(&mut self, path: &ProjectRelativePath, value: ArtifactValue);
+    fn testing_declare_existing_full(&mut self, path: &ProjectRelativePath, value: ArtifactValue);
 
     fn testing_process_one_low_priority_command(&mut self, command: LowPriorityMaterializerCommand);
+
+    fn testing_get_artifact_entries_for_materialized_paths(
+        &mut self,
+        paths: Vec<ProjectRelativePathBuf>,
+    ) -> Vec<
+        Option<(
+            ProjectRelativePathBuf,
+            ActionDirectoryEntry<ActionSharedDirectory>,
+        )>,
+    >;
 
     fn testing_declare(&mut self, path: &ProjectRelativePath, value: ArtifactValue);
 
@@ -1547,11 +1558,27 @@ impl<T: IoHandler> TestingDeferredMaterializerCommandProcessor<T>
         self.declare_existing(path, value, false)
     }
 
+    fn testing_declare_existing_full(&mut self, path: &ProjectRelativePath, value: ArtifactValue) {
+        self.declare_existing(path, value, true)
+    }
+
     fn testing_process_one_low_priority_command(
         &mut self,
         command: LowPriorityMaterializerCommand,
     ) {
         self.process_one_low_priority_command(command)
+    }
+
+    fn testing_get_artifact_entries_for_materialized_paths(
+        &mut self,
+        paths: Vec<ProjectRelativePathBuf>,
+    ) -> Vec<
+        Option<(
+            ProjectRelativePathBuf,
+            ActionDirectoryEntry<ActionSharedDirectory>,
+        )>,
+    > {
+        self.get_artifact_entries_for_materialized_paths(paths)
     }
 
     fn testing_declare(&mut self, path: &ProjectRelativePath, value: ArtifactValue) {

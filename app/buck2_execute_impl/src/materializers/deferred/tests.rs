@@ -1305,4 +1305,84 @@ mod state_machine {
         })
         .await
     }
+
+    #[tokio::test]
+    async fn test_get_artifact_entries_for_materialized_paths() -> buck2_error::Result<()> {
+        ignore_stack_overflow_checks_for_future(async {
+            let (mut dm, _) = make_processor(Default::default());
+            let digest_config = dm.io.digest_config();
+
+            // Path not in tree
+            let unknown_path = make_path("not/in/tree");
+            let result =
+                dm.testing_get_artifact_entries_for_materialized_paths(vec![unknown_path.clone()]);
+            assert_eq!(result.len(), 1);
+            assert!(result[0].is_none());
+
+            let declared_file_path = make_path("declared/file");
+            let file_value = ArtifactValue::file(digest_config.empty_file());
+            dm.testing_declare(&declared_file_path, file_value.dupe());
+            let result = dm.testing_get_artifact_entries_for_materialized_paths(vec![
+                declared_file_path.clone(),
+            ]);
+            assert_eq!(result.len(), 1);
+            let (returned_path, returned_entry) = result[0].clone().unwrap();
+            assert_eq!(returned_path, declared_file_path);
+            assert_eq!(&returned_entry, file_value.entry());
+
+            let declared_dir_path = make_path("declared/dir");
+            let dir_value = ArtifactValue::dir(digest_config.empty_directory());
+            dm.testing_declare(&declared_dir_path, dir_value.dupe());
+            let result = dm.testing_get_artifact_entries_for_materialized_paths(vec![
+                declared_dir_path.clone(),
+            ]);
+            assert_eq!(result.len(), 1);
+            let (returned_path, returned_entry) = result[0].clone().unwrap();
+            assert_eq!(returned_path, declared_dir_path);
+            assert_eq!(&returned_entry, dir_value.entry());
+
+            let materialized_file_path = make_path("materialized/file");
+            let file_value = ArtifactValue::file(digest_config.empty_file());
+            dm.testing_declare_existing(&materialized_file_path, file_value.dupe());
+            let result = dm.testing_get_artifact_entries_for_materialized_paths(vec![
+                materialized_file_path.clone(),
+            ]);
+            assert_eq!(result.len(), 1);
+            let (returned_path, returned_entry) = result[0].clone().unwrap();
+            assert_eq!(returned_path, materialized_file_path);
+            assert_eq!(&returned_entry, file_value.entry());
+
+            let compact_dir_path = make_path("materialized/compact_dir");
+            let dir_value = ArtifactValue::dir(digest_config.empty_directory());
+            dm.testing_declare_existing(&compact_dir_path, dir_value.dupe());
+            let result = dm.testing_get_artifact_entries_for_materialized_paths(vec![
+                compact_dir_path.clone(),
+            ]);
+            assert_eq!(result.len(), 1);
+            assert!(result[0].is_none());
+
+            let full_dir_path = make_path("materialized/full_dir");
+            let dir_value = ArtifactValue::dir(digest_config.empty_directory());
+            dm.testing_declare_existing_full(&full_dir_path, dir_value.dupe());
+            let result =
+                dm.testing_get_artifact_entries_for_materialized_paths(vec![full_dir_path.clone()]);
+            assert_eq!(result.len(), 1);
+            let (returned_path, returned_entry) = result[0].clone().unwrap();
+            assert_eq!(returned_path, full_dir_path);
+            assert!(matches!(returned_entry, ActionDirectoryEntry::Dir(_)));
+
+            // Subpath of an artifact via projected artifact; returns None
+            let parent_path = make_path("parent/artifact");
+            let parent_value = ArtifactValue::dir(digest_config.empty_directory());
+            dm.testing_declare(&parent_path, parent_value);
+            let subpath = make_path("parent/artifact/child");
+            let result =
+                dm.testing_get_artifact_entries_for_materialized_paths(vec![subpath.clone()]);
+            assert_eq!(result.len(), 1);
+            assert!(result[0].is_none());
+
+            Ok(())
+        })
+        .await
+    }
 }
