@@ -25,6 +25,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.Supplier;
 import java.util.stream.IntStream;
+import javax.annotation.Nullable;
 
 /**
  * A Package consists of a header: ResTable_header u16 chunk_type u16 header_size u32 chunk_size u32
@@ -47,6 +48,7 @@ public class ResTablePackage extends ResChunk {
   private final StringPool types;
   private final StringPool keys;
   private final List<ResTableTypeSpec> typeSpecs;
+  private final @Nullable ResTableTypeSpec[] typeSpecByType;
 
   public void reassignIds(ReferenceMapper refMapping) {
     for (ResTableTypeSpec spec : typeSpecs) {
@@ -181,6 +183,20 @@ public class ResTablePackage extends ResChunk {
     this.keys = keys;
     this.typeSpecs = typeSpecs;
 
+    // Build O(1) lookup array indexed by type id (only when optimizations are enabled).
+    if (ResourceProcessingConfig.areOptimizationsEnabled()) {
+      int maxType = 0;
+      for (ResTableTypeSpec spec : typeSpecs) {
+        maxType = Math.max(maxType, spec.getResourceType());
+      }
+      this.typeSpecByType = new ResTableTypeSpec[maxType + 1];
+      for (ResTableTypeSpec spec : typeSpecs) {
+        typeSpecByType[spec.getResourceType()] = spec;
+      }
+    } else {
+      this.typeSpecByType = null;
+    }
+
     name =
         MoreSuppliers.memoize(
             () -> {
@@ -212,9 +228,18 @@ public class ResTablePackage extends ResChunk {
   }
 
   public ResTableTypeSpec getTypeSpec(int type) {
-    for (ResTableTypeSpec spec : typeSpecs) {
-      if (spec.getResourceType() == type) {
-        return spec;
+    if (typeSpecByType != null) {
+      if (type >= 0 && type < typeSpecByType.length) {
+        ResTableTypeSpec spec = typeSpecByType[type];
+        if (spec != null) {
+          return spec;
+        }
+      }
+    } else {
+      for (ResTableTypeSpec spec : typeSpecs) {
+        if (spec.getResourceType() == type) {
+          return spec;
+        }
       }
     }
     throw new IllegalArgumentException();
