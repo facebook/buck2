@@ -91,21 +91,36 @@ def export_files(pkgs: dict[str, GoPkg], shared: bool) -> dict[str, Artifact]:
         for name, pkg in pkgs.items()
     }
 
+# Keep in sync with: https://github.com/golang/go/blob/go1.26.0/src/cmd/go/internal/load/pkg.go#L1718C5
+_cgo_syscall_exclude = set([
+    "runtime/cgo",
+    "runtime/race",
+    "runtime/msan",
+    "runtime/asan",
+])
+
+def implicit_imports(pkg_name: str, pkg_import_path: str, standard: bool, has_cgo_files: bool, coverage_enabled: bool) -> set[str]:
+    imports = set([])
+    if has_cgo_files:
+        if not standard or pkg_import_path != "runtime/cgo":
+            imports.add("runtime/cgo")
+
+        if not standard or pkg_import_path not in _cgo_syscall_exclude:
+            imports.add("syscall")
+
+    if pkg_name == "main":
+        if coverage_enabled:
+            imports.add("runtime/coverage")
+
+    return imports
+
 def make_compile_importcfg(
         actions: AnalysisActions,
         pkg_import_path: str,
         deps: dict[str, GoPkg],
         imports: set[str],
-        has_cgo_files: bool,
-        coverage_enabled: bool,
         shared: bool) -> Artifact:
     required_pkgs = set(imports)  # copy set to avoid modifying it
-    if has_cgo_files:
-        required_pkgs.add("runtime/cgo")
-        required_pkgs.add("syscall")
-
-    if coverage_enabled:
-        required_pkgs.add("runtime/coverage")
 
     # remove fake packages, build system should never try to provide them
     required_pkgs -= set(["unsafe", "builtin", "C"])

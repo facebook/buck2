@@ -21,7 +21,7 @@ load(
 )
 load(":go_error_handler.bzl", "go_build_error_handler")
 load(":go_list.bzl", "GoListOut", "go_list", "parse_go_list_out")
-load(":packages.bzl", "GoPackageInfo", "GoPkg", "GoStdlib", "GoStdlibDynamicValue", "make_compile_importcfg", "merge_pkgs")
+load(":packages.bzl", "GoPackageInfo", "GoPkg", "GoStdlib", "GoStdlibDynamicValue", "implicit_imports", "make_compile_importcfg", "merge_pkgs")
 load(":toolchain.bzl", "GoToolchainInfo", "get_toolchain_env_vars")
 
 def build_package_wrapper(
@@ -306,13 +306,19 @@ def build_package(
         suffix = "_shared" if shared else "_non-shared"  # suffix to make artifacts unique
         go_files_to_compile = covered_go_files + transformed_cgo_files
 
+        required_imports = go_list.imports | implicit_imports(
+            pkg_name = go_list.pkg_name,
+            pkg_import_path = params.pkg_import_path,
+            standard = False,
+            has_cgo_files = len(go_list.cgo_files) > 0,
+            coverage_enabled = params.coverage_mode != None,
+        )
+
         importcfg = make_compile_importcfg(
             actions = actions,
             pkg_import_path = params.pkg_import_path,
             deps = params.deps,
-            imports = go_list.imports,
-            has_cgo_files = len(go_list.cgo_files) > 0,
-            coverage_enabled = params.coverage_mode != None,
+            imports = required_imports,
             shared = shared,
         )
         go_x_file, go_a_file, asmhdr = _compile(
