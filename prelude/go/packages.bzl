@@ -93,6 +93,7 @@ def export_files(pkgs: dict[str, GoPkg], shared: bool) -> dict[str, Artifact]:
 
 def make_compile_importcfg(
         actions: AnalysisActions,
+        pkg_import_path: str,
         deps: dict[str, GoPkg],
         imports: set[str],
         has_cgo_files: bool,
@@ -122,7 +123,7 @@ def make_compile_importcfg(
         provided_pkgs.add(name_)
 
     if len(provided_pkgs) != len(required_pkgs):
-        message = "cannot find package(s) (is your BUCK target missing deps?)\n"
+        message = "cannot find package(s) when building '{}' (is your BUCK target missing deps?)\n".format(pkg_import_path)
         for imp in required_pkgs.difference(provided_pkgs):
             message += "  - " + imp + "\n"
 

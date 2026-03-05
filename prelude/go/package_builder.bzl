@@ -308,6 +308,7 @@ def build_package(
 
         importcfg = make_compile_importcfg(
             actions = actions,
+            pkg_import_path = params.pkg_import_path,
             deps = params.deps,
             imports = go_list.imports,
             has_cgo_files = len(go_list.cgo_files) > 0,
