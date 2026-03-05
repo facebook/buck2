@@ -593,6 +593,19 @@ async def test_expect_eligible_for_dedupe_ineligible_input(buck: Buck) -> None:
 
 
 @buck_test()
+async def test_expect_eligible_for_dedupe_ineligible_input_for_execution_platform(
+    buck: Buck,
+) -> None:
+    buck.build(
+        "root//:not_eligible_for_dedupe",
+        "--target-platforms",
+        "root//platforms:default",
+        "-c",
+        "test.expect_eligible_for_dedupe=true",
+    )
+
+
+@buck_test()
 async def test_expect_eligible_for_dedupe_ineligible_output(buck: Buck) -> None:
     await expect_failure(
         buck.build(

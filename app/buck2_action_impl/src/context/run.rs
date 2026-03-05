@@ -626,6 +626,7 @@ pub(crate) fn analysis_actions_methods_run(methods: &mut MethodsBuilder) {
                     .into());
                 }
             }
+            let execution_platform = &this.state()?.actions.execution_platform.dupe();
             let deferred_holder_key = &this.state()?.analysis_value_storage.self_key;
             let target_platform = if let BaseDeferredKey::TargetLabel(configured_label) =
                 deferred_holder_key.owner()
@@ -635,14 +636,22 @@ pub(crate) fn analysis_actions_methods_run(methods: &mut MethodsBuilder) {
                 None
             };
 
-            for i in artifacts.inputs.iter() {
-                if !i.is_eligible_for_dedupe(target_platform) {
-                    return Err(buck2_error::Error::from(
-                        RunActionError::ExpectEligibleForDedupeWithIneligibleInput {
-                            input: i.dupe(),
-                        },
-                    )
-                    .into());
+            if Some(
+                execution_platform
+                    .platform()
+                    .expect("Can't run action without an execution platform")
+                    .cfg(),
+            ) != target_platform
+            {
+                for i in artifacts.inputs.iter() {
+                    if !i.is_eligible_for_dedupe(target_platform) {
+                        return Err(buck2_error::Error::from(
+                            RunActionError::ExpectEligibleForDedupeWithIneligibleInput {
+                                input: i.dupe(),
+                            },
+                        )
+                        .into());
+                    }
                 }
             }
         }
