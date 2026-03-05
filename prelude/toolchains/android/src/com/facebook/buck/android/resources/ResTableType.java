@@ -41,6 +41,23 @@ public class ResTableType extends ResChunk {
   private static final int CONFIG_OFFSET = 20;
   private static final int FLAG_COMPLEX = 0x1;
 
+  // Offsets within a resource entry (Res_ENTRY header + value)
+  private static final int ENTRY_FLAGS_OFFSET = 2;
+  private static final int ENTRY_KEY_OFFSET = 4;
+  // Simple entry: value fields follow the 8-byte Res_ENTRY header
+  private static final int SIMPLE_VALUE_SIZE_OFFSET = 8;
+  private static final int SIMPLE_VALUE_TYPE_OFFSET = 11;
+  private static final int SIMPLE_VALUE_DATA_OFFSET = 12;
+  // Complex (bag) entry: parent ref and map count follow the 8-byte header
+  private static final int COMPLEX_PARENT_OFFSET = 8;
+  private static final int COMPLEX_COUNT_OFFSET = 12;
+  private static final int COMPLEX_ENTRIES_START_OFFSET = 16;
+  // Map entry offsets (relative to the entry base, not the map entry itself)
+  private static final int MAP_ENTRY_NAME_OFFSET = 16;
+  private static final int MAP_ENTRY_VALUE_SIZE_OFFSET = 20;
+  private static final int MAP_ENTRY_VALUE_TYPE_OFFSET = 23;
+  private static final int MAP_ENTRY_VALUE_DATA_OFFSET = 24;
+
   public static final int ATTRIBUTE_NAME_REF_OFFSET = 0;
   public static final int ATTRIBUTE_SIZE_OFFSET = 4;
   public static final int ATTRIBUTE_TYPE_OFFSET = 7;
@@ -82,11 +99,11 @@ public class ResTableType extends ResChunk {
 
   private int getEntrySizeAtOffset(int offset) {
     int size = entryData.getShort(offset);
-    int flags = entryData.getShort(offset + 2);
+    int flags = entryData.getShort(offset + ENTRY_FLAGS_OFFSET);
     if ((flags & FLAG_COMPLEX) == 0) {
       return size + entryData.getShort(offset + size);
     } else {
-      int count = entryData.getInt(offset + 12);
+      int count = entryData.getInt(offset + COMPLEX_COUNT_OFFSET);
       for (int i = 0; i < count; i++) {
         size += 4 + entryData.getShort(offset + size + 4);
       }
@@ -157,8 +174,8 @@ public class ResTableType extends ResChunk {
       int offset = getEntryValueOffset(entryIdx);
       if (offset != -1) {
         int size = entryData.getShort(offset);
-        int flags = entryData.getShort(offset + 2);
-        int refId = entryData.getInt(offset + 4);
+        int flags = entryData.getShort(offset + ENTRY_FLAGS_OFFSET);
+        int refId = entryData.getInt(offset + ENTRY_KEY_OFFSET);
         Preconditions.checkState(size > 0);
         // Some of the formatting of this line is shared between maps/non-maps.
         out.format(
@@ -170,26 +187,26 @@ public class ResTableType extends ResChunk {
             resPackage.getKeys().getString(refId));
         if ((flags & FLAG_COMPLEX) != 0) {
           out.format(" <bag>\n");
-          int parent = entryData.getInt(offset + 8);
-          int count = entryData.getInt(offset + 12);
+          int parent = entryData.getInt(offset + COMPLEX_PARENT_OFFSET);
+          int count = entryData.getInt(offset + COMPLEX_COUNT_OFFSET);
           out.format(
               "          Parent=0x%08x(Resolved=0x%08x), Count=%d\n",
               parent, parent == 0 ? 0x7F000000 : parent, count);
           int entryOffset = offset;
           for (int attrIdx = 0; attrIdx < count; attrIdx++) {
-            int name = entryData.getInt(entryOffset + 16);
-            int vsize = entryData.getShort(entryOffset + 20);
-            int type = entryData.get(entryOffset + 23);
-            int data = entryData.getInt(entryOffset + 24);
+            int name = entryData.getInt(entryOffset + MAP_ENTRY_NAME_OFFSET);
+            int vsize = entryData.getShort(entryOffset + MAP_ENTRY_VALUE_SIZE_OFFSET);
+            int type = entryData.get(entryOffset + MAP_ENTRY_VALUE_TYPE_OFFSET);
+            int data = entryData.getInt(entryOffset + MAP_ENTRY_VALUE_DATA_OFFSET);
             String dataString = formatTypeForDump(strings, type, data);
             out.format("          #%d (Key=0x%08x): %s\n", attrIdx, name, dataString);
             entryOffset += 4 + vsize;
           }
         } else {
-          int vsize = entryData.getShort(offset + 8);
+          int vsize = entryData.getShort(offset + SIMPLE_VALUE_SIZE_OFFSET);
           // empty(offset + 10)
-          int type = entryData.get(offset + 11);
-          int data = entryData.getInt(offset + 12);
+          int type = entryData.get(offset + SIMPLE_VALUE_TYPE_OFFSET);
+          int data = entryData.getInt(offset + SIMPLE_VALUE_DATA_OFFSET);
           out.format(" t=0x%02x d=0x%08x (s=0x%04x r=0x00)\n", type, data, vsize);
           String dataString = formatTypeForDump(strings, type, data);
           out.format("          %s\n", dataString);
@@ -325,7 +342,7 @@ public class ResTableType extends ResChunk {
     if (offset == -1) {
       return -1;
     }
-    return entryData.getInt(offset + 4);
+    return entryData.getInt(offset + ENTRY_KEY_OFFSET);
   }
 
   public int getEntryValueOffset(int i) {
@@ -340,7 +357,7 @@ public class ResTableType extends ResChunk {
     for (int i = 0; i < entryCount; i++) {
       int offset = getEntryValueOffset(i);
       if (offset != -1) {
-        transformEntryDataOffset(entryData, offset + 4, visitor);
+        transformEntryDataOffset(entryData, offset + ENTRY_KEY_OFFSET, visitor);
       }
     }
   }
@@ -357,7 +374,7 @@ public class ResTableType extends ResChunk {
     for (int i = 0; i < entryCount; i++) {
       int offset = getEntryValueOffset(i);
       if (offset != -1) {
-        visitEntryDataOffset(entryData, offset + 4, visitor);
+        visitEntryDataOffset(entryData, offset + ENTRY_KEY_OFFSET, visitor);
       }
     }
   }
@@ -371,26 +388,26 @@ public class ResTableType extends ResChunk {
   }
 
   private void processStringReferencesAt(RefHandler handler, int offset) {
-    int flags = entryData.getShort(offset + 2);
+    int flags = entryData.getShort(offset + ENTRY_FLAGS_OFFSET);
     if ((flags & FLAG_COMPLEX) != 0) {
-      int count = entryData.getInt(offset + 12);
+      int count = entryData.getInt(offset + COMPLEX_COUNT_OFFSET);
       int entryOffset = offset;
       for (int j = 0; j < count; j++) {
-        int name = entryData.getInt(entryOffset + 16);
+        int name = entryData.getInt(entryOffset + MAP_ENTRY_NAME_OFFSET);
         if ((name >> 24) == ResTablePackage.APP_PACKAGE_ID) {
           Preconditions.checkState(((name >> 16) & 0xFF) != 0);
         }
-        int vsize = entryData.getShort(entryOffset + 20);
-        int type = entryData.get(entryOffset + 23);
+        int vsize = entryData.getShort(entryOffset + MAP_ENTRY_VALUE_SIZE_OFFSET);
+        int type = entryData.get(entryOffset + MAP_ENTRY_VALUE_TYPE_OFFSET);
         if (type == RES_STRING) {
-          handler.process(entryData, entryOffset + 24);
+          handler.process(entryData, entryOffset + MAP_ENTRY_VALUE_DATA_OFFSET);
         }
         entryOffset += 4 + vsize;
       }
     } else {
-      int type = entryData.get(offset + 11);
+      int type = entryData.get(offset + SIMPLE_VALUE_TYPE_OFFSET);
       if (type == RES_STRING) {
-        handler.process(entryData, offset + 12);
+        handler.process(entryData, offset + SIMPLE_VALUE_DATA_OFFSET);
       }
     }
   }
@@ -457,14 +474,14 @@ public class ResTableType extends ResChunk {
   }
 
   private void processReferencesAt(RefHandler handler, int offset, boolean sortAttrs) {
-    int flags = entryData.getShort(offset + 2);
+    int flags = entryData.getShort(offset + ENTRY_FLAGS_OFFSET);
     if ((flags & FLAG_COMPLEX) != 0) {
-      int parent = entryData.getInt(offset + 8);
+      int parent = entryData.getInt(offset + COMPLEX_PARENT_OFFSET);
       if (parent != 0) {
-        handler.process(entryData, offset + 8);
+        handler.process(entryData, offset + COMPLEX_PARENT_OFFSET);
       }
-      int count = entryData.getInt(offset + 12);
-      int entryStart = offset + 16;
+      int count = entryData.getInt(offset + COMPLEX_COUNT_OFFSET);
+      int entryStart = offset + COMPLEX_ENTRIES_START_OFFSET;
       int entryOffset = entryStart;
       for (int j = 0; j < count; j++) {
         handler.process(entryData, entryOffset + ATTRIBUTE_NAME_REF_OFFSET);
@@ -481,9 +498,9 @@ public class ResTableType extends ResChunk {
         sortAttributesAt(entryData, count, entryStart);
       }
     } else {
-      int type = entryData.get(offset + 11);
+      int type = entryData.get(offset + SIMPLE_VALUE_TYPE_OFFSET);
       if (type == RES_REFERENCE || type == RES_ATTRIBUTE) {
-        handler.process(entryData, offset + 12);
+        handler.process(entryData, offset + SIMPLE_VALUE_DATA_OFFSET);
       } else if (type == RES_DYNAMIC_REFERENCE || type == RES_DYNAMIC_ATTRIBUTE) {
         throw new UnsupportedOperationException();
       }
