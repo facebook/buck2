@@ -31,7 +31,9 @@ def _use_some_memory_args(buck: Buck) -> list[str]:
 
 @buck_test(skip_for_os=["windows", "darwin"], disable_daemon_cgroup=False)
 async def test_memory_reporting_disabled(buck: Buck) -> None:
-    env = {"BUCK2_TEST_RESOURCE_CONTROL_CONFIG": '{"status":"Off"}'}
+    env = {
+        "BUCK2_TEST_RESOURCE_CONTROL_CONFIG": '{"status":"Off","init":"Systemd","memory_max":null,"memory_high":null,"memory_max_per_action":null,"memory_high_per_action":null,"memory_high_actions":null,"memory_max_actions":null,"enable_suspension":false,"preferred_action_suspend_strategy":"KillAndRetry"}'
+    }
 
     await buck.build(
         *_use_some_memory_args(buck),
