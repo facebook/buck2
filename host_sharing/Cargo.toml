@@ -12,4 +12,4 @@ anyhow = { workspace = true }
 dashmap = { workspace = true }
 futures-intrusive = { workspace = true }
 pagable = { workspace = true }
-starlark_map = { workspace = true, features = ["pagable"] }
+starlark_map = { workspace = true, features = ["pagable_dep"] }

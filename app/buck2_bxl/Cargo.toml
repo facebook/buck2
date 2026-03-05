@@ -29,7 +29,7 @@ pagable = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 starlark = { workspace = true }
-starlark_map = { workspace = true, features = ["pagable"] }
+starlark_map = { workspace = true, features = ["pagable_dep"] }
 strong_hash = { workspace = true }
 tokio = { workspace = true }
 
