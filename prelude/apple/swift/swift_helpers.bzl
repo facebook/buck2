@@ -32,6 +32,21 @@ CompileWithArgsFileCmdOutput = record(
     error_deserializer = field(RunInfo | None),
 )
 
+ENFORCED_CATEGORIES = [
+    "swiftmodule_compile_with_explicit_mods",
+    "swiftmodule_compile",
+    "swift_compile_with_explicit_mods",
+    "swift_compile",
+]
+
+def _get_should_expect_eligible_for_dedupe(ctx: AnalysisContext, category: str) -> bool:
+    uses_content_based_paths = get_uses_content_based_paths(ctx)
+    toolchain = get_swift_toolchain_info(ctx)
+
+    expect_eligible_for_dedupe = toolchain.enforce_dedupe_eligibility and uses_content_based_paths and category in ENFORCED_CATEGORIES
+
+    return expect_eligible_for_dedupe
+
 def compile_with_argsfile_cmd(
         ctx: AnalysisContext,
         category: str,
@@ -194,6 +209,7 @@ def compile_with_argsfile(
         artifact_tag = artifact_tag,
     )
 
+    expect_eligible_for_dedupe = _get_should_expect_eligible_for_dedupe(ctx, category)
     ctx.actions.run(
         cmd_output.cmd,
         allow_cache_upload = allow_cache_upload,
@@ -208,6 +224,7 @@ def compile_with_argsfile(
         prefer_local = prefer_local,
         unique_input_inodes = True,
         weight = num_threads,
+        expect_eligible_for_dedupe = expect_eligible_for_dedupe,
     )
 
     argsfile = CompileArgsfile(
