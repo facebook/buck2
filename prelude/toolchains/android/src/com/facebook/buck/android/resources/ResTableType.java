@@ -346,14 +346,31 @@ public class ResTableType extends ResChunk {
   }
 
   public void visitKeyReferences(RefVisitor visitor) {
-    transformKeyReferences(
-        i -> {
-          visitor.visit(i);
-          return i;
-        });
+    if (!ResourceProcessingConfig.areOptimizationsEnabled()) {
+      transformKeyReferences(
+          i -> {
+            visitor.visit(i);
+            return i;
+          });
+      return;
+    }
+    for (int i = 0; i < entryCount; i++) {
+      int offset = getEntryValueOffset(i);
+      if (offset != -1) {
+        visitEntryDataOffset(entryData, offset + 4, visitor);
+      }
+    }
   }
 
   private void transformStringReferencesAt(RefTransformer visitor, int offset) {
+    processStringReferencesAt(transformHandler(visitor), offset);
+  }
+
+  private void visitStringReferencesAt(RefVisitor visitor, int offset) {
+    processStringReferencesAt(visitHandler(visitor), offset);
+  }
+
+  private void processStringReferencesAt(RefHandler handler, int offset) {
     int flags = entryData.getShort(offset + 2);
     if ((flags & FLAG_COMPLEX) != 0) {
       int count = entryData.getInt(offset + 12);
@@ -366,14 +383,14 @@ public class ResTableType extends ResChunk {
         int vsize = entryData.getShort(entryOffset + 20);
         int type = entryData.get(entryOffset + 23);
         if (type == RES_STRING) {
-          transformEntryDataOffset(entryData, entryOffset + 24, visitor);
+          handler.process(entryData, entryOffset + 24);
         }
         entryOffset += 4 + vsize;
       }
     } else {
       int type = entryData.get(offset + 11);
       if (type == RES_STRING) {
-        transformEntryDataOffset(entryData, offset + 12, visitor);
+        handler.process(entryData, offset + 12);
       }
     }
   }
@@ -397,52 +414,76 @@ public class ResTableType extends ResChunk {
   }
 
   public void visitStringReferences(RefVisitor visitor) {
-    transformStringReferences(
-        i -> {
-          visitor.visit(i);
-          return i;
-        });
+    if (!ResourceProcessingConfig.areOptimizationsEnabled()) {
+      transformStringReferences(
+          i -> {
+            visitor.visit(i);
+            return i;
+          });
+      return;
+    }
+    for (int i = 0; i < entryCount; i++) {
+      int offset = getEntryValueOffset(i);
+      if (offset != -1) {
+        visitStringReferencesAt(visitor, offset);
+      }
+    }
   }
 
   public void visitStringReferences(int[] idsToVisit, RefVisitor visitor) {
-    transformStringReferences(
-        idsToVisit,
-        i -> {
-          visitor.visit(i);
-          return i;
-        });
+    if (!ResourceProcessingConfig.areOptimizationsEnabled()) {
+      transformStringReferences(
+          idsToVisit,
+          i -> {
+            visitor.visit(i);
+            return i;
+          });
+      return;
+    }
+    for (int i : idsToVisit) {
+      int offset = getEntryValueOffset(i);
+      if (offset != -1) {
+        visitStringReferencesAt(visitor, offset);
+      }
+    }
   }
 
   private void transformReferencesAt(RefTransformer visitor, int offset) {
+    processReferencesAt(transformHandler(visitor), offset, true);
+  }
+
+  private void visitReferencesAt(RefVisitor visitor, int offset) {
+    processReferencesAt(visitHandler(visitor), offset, false);
+  }
+
+  private void processReferencesAt(RefHandler handler, int offset, boolean sortAttrs) {
     int flags = entryData.getShort(offset + 2);
     if ((flags & FLAG_COMPLEX) != 0) {
       int parent = entryData.getInt(offset + 8);
       if (parent != 0) {
-        // An attribute map can derive from another. If it does, visit that parent.
-        transformEntryDataOffset(entryData, offset + 8, visitor);
+        handler.process(entryData, offset + 8);
       }
       int count = entryData.getInt(offset + 12);
       int entryStart = offset + 16;
       int entryOffset = entryStart;
       for (int j = 0; j < count; j++) {
-        // Visit the name attribute reference.
-        transformEntryDataOffset(entryData, entryOffset + ATTRIBUTE_NAME_REF_OFFSET, visitor);
+        handler.process(entryData, entryOffset + ATTRIBUTE_NAME_REF_OFFSET);
         int type = entryData.get(entryOffset + ATTRIBUTE_TYPE_OFFSET);
         if (type == RES_REFERENCE || type == RES_ATTRIBUTE) {
-          // Visit the value if it's a reference.
-          transformEntryDataOffset(entryData, entryOffset + ATTRIBUTE_DATA_OFFSET, visitor);
+          handler.process(entryData, entryOffset + ATTRIBUTE_DATA_OFFSET);
         } else if (type == RES_DYNAMIC_REFERENCE || type == RES_DYNAMIC_ATTRIBUTE) {
           throw new UnsupportedOperationException();
         }
         int size = entryData.getShort(entryOffset + ATTRIBUTE_SIZE_OFFSET);
         entryOffset += 4 + size;
       }
-      sortAttributesAt(entryData, count, entryStart);
+      if (sortAttrs) {
+        sortAttributesAt(entryData, count, entryStart);
+      }
     } else {
       int type = entryData.get(offset + 11);
       if (type == RES_REFERENCE || type == RES_ATTRIBUTE) {
-        // Visit the value if it's a reference.
-        transformEntryDataOffset(entryData, offset + 12, visitor);
+        handler.process(entryData, offset + 12);
       } else if (type == RES_DYNAMIC_REFERENCE || type == RES_DYNAMIC_ATTRIBUTE) {
         throw new UnsupportedOperationException();
       }
@@ -502,12 +543,21 @@ public class ResTableType extends ResChunk {
   }
 
   public void visitReferences(int[] ids, RefVisitor visitor) {
-    transformReferences(
-        ids,
-        i -> {
-          visitor.visit(i);
-          return i;
-        });
+    if (!ResourceProcessingConfig.areOptimizationsEnabled()) {
+      transformReferences(
+          ids,
+          i -> {
+            visitor.visit(i);
+            return i;
+          });
+      return;
+    }
+    for (int i : ids) {
+      int offset = getEntryValueOffset(i);
+      if (offset != -1) {
+        visitReferencesAt(visitor, offset);
+      }
+    }
   }
 
   public void reassignIds(ReferenceMapper refMapping) {
