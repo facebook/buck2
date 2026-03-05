@@ -16,7 +16,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
 import java.nio.ByteBuffer;
 import java.text.DecimalFormat;
-import java.util.stream.Stream;
+import java.util.Arrays;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -521,24 +521,40 @@ public class ResTableType extends ResChunk {
 
       @Override
       public int compareTo(AttrRef other) {
-        return resId - other.resId;
+        return Integer.compare(resId, other.resId);
       }
     }
-    Stream.Builder<AttrRef> builder = Stream.builder();
-    int entryOffset = attrStart;
-    for (int j = 0; j < attrCount; j++) {
-      AttrRef ref = new AttrRef(entryOffset);
-      builder.add(ref);
-      entryOffset += ref.size;
-    }
 
-    byte[] newData = new byte[entryOffset - attrStart];
-    ByteBuffer newBuf = wrap(newData);
-    builder
-        .build()
-        .sorted()
-        .forEachOrdered(ref -> newBuf.put(slice(entryData, ref.offset, ref.size)));
-    slice(entryData, attrStart).put(newData);
+    if (ResourceProcessingConfig.areOptimizationsEnabled()) {
+      AttrRef[] refs = new AttrRef[attrCount];
+      int entryOffset = attrStart;
+      for (int j = 0; j < attrCount; j++) {
+        refs[j] = new AttrRef(entryOffset);
+        entryOffset += refs[j].size;
+      }
+      Arrays.sort(refs);
+      byte[] newData = new byte[entryOffset - attrStart];
+      ByteBuffer newBuf = wrap(newData);
+      for (AttrRef ref : refs) {
+        newBuf.put(slice(entryData, ref.offset, ref.size));
+      }
+      slice(entryData, attrStart).put(newData);
+    } else {
+      java.util.stream.Stream.Builder<AttrRef> builder = java.util.stream.Stream.builder();
+      int entryOffset = attrStart;
+      for (int j = 0; j < attrCount; j++) {
+        AttrRef ref = new AttrRef(entryOffset);
+        builder.add(ref);
+        entryOffset += ref.size;
+      }
+      byte[] newData = new byte[entryOffset - attrStart];
+      ByteBuffer newBuf = wrap(newData);
+      builder
+          .build()
+          .sorted()
+          .forEachOrdered(ref -> newBuf.put(slice(entryData, ref.offset, ref.size)));
+      slice(entryData, attrStart).put(newData);
+    }
   }
 
   public void transformReferences(RefTransformer visitor) {

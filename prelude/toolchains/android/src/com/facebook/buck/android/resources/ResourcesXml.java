@@ -15,10 +15,10 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import java.io.PrintStream;
 import java.nio.ByteBuffer;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
-import java.util.stream.IntStream;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -208,18 +208,33 @@ public class ResourcesXml extends ResChunk {
 
       @Override
       public int compareTo(AttrRef other) {
-        return resId - other.resId;
+        return Integer.compare(resId, other.resId);
       }
     }
 
-    byte[] newData = new byte[ATTRIBUTE_SIZE * attrCount];
-    ByteBuffer newBuf = wrap(newData);
-    int finalAttrStart = attrStart;
-    IntStream.range(0, attrCount)
-        .mapToObj(i -> new AttrRef(finalAttrStart + ATTRIBUTE_SIZE * i))
-        .sorted()
-        .forEachOrdered(ref -> newBuf.put(slice(nodeBuf, ref.offset, ATTRIBUTE_SIZE)));
-    slice(nodeBuf, attrStart).put(newData);
+    if (ResourceProcessingConfig.areOptimizationsEnabled()) {
+      AttrRef[] refs = new AttrRef[attrCount];
+      for (int i = 0; i < attrCount; i++) {
+        refs[i] = new AttrRef(attrStart + ATTRIBUTE_SIZE * i);
+      }
+      Arrays.sort(refs);
+      byte[] newData = new byte[ATTRIBUTE_SIZE * attrCount];
+      ByteBuffer newBuf = wrap(newData);
+      for (AttrRef ref : refs) {
+        newBuf.put(slice(nodeBuf, ref.offset, ATTRIBUTE_SIZE));
+      }
+      slice(nodeBuf, attrStart).put(newData);
+    } else {
+      byte[] newData = new byte[ATTRIBUTE_SIZE * attrCount];
+      ByteBuffer newBuf = wrap(newData);
+      int finalAttrStart = attrStart;
+      int finalAttrCount = attrCount;
+      java.util.stream.IntStream.range(0, finalAttrCount)
+          .mapToObj(i -> new AttrRef(finalAttrStart + ATTRIBUTE_SIZE * i))
+          .sorted()
+          .forEachOrdered(ref -> newBuf.put(slice(nodeBuf, ref.offset, ATTRIBUTE_SIZE)));
+      slice(nodeBuf, attrStart).put(newData);
+    }
   }
 
   public void visitReferences(RefVisitor visitor) {
