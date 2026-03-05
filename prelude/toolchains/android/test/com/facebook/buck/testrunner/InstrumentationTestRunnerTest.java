@@ -25,6 +25,7 @@ import com.facebook.buck.testrunner.reportlayer.TombstonesReportLayer;
 import com.facebook.buck.testrunner.reportlayer.VideoRecordingReportLayer;
 import com.facebook.buck.testutil.TemporaryPaths;
 import com.google.common.collect.ImmutableSet;
+import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
@@ -192,7 +193,7 @@ public class InstrumentationTestRunnerTest {
     Assert.assertTrue(Files.exists(breadcrumbsTraAnnotation));
 
     Assert.assertEquals(
-        "{\"type\": {\"generic_text_log\": {}}, \"description\": \"Breadcrumbs\"}",
+        "{\"type\": {\"formatted_log\": {\"log_source\": 5}}, \"description\": \"Breadcrumbs\"}",
         Files.readString(breadcrumbsTraAnnotation));
   }
 
@@ -216,7 +217,7 @@ public class InstrumentationTestRunnerTest {
 
     Map<Path, byte[]> files = new HashMap<>();
     files.put(
-        Paths.get("/storage/emulated/0/Android/data/com.example.test/files/test-video-record.mp4"),
+        Paths.get("/sdcard/test_result/video_recordings/test-video-record.mp4"),
         "test-video-record.mp4".getBytes());
     InstrumentationTestRunner runner =
         createInstrumentationTestRunnerWithDevice(files, env, "--record-video");
@@ -1392,12 +1393,12 @@ public class InstrumentationTestRunnerTest {
 
               @Override
               public InputStream getInputStream() {
-                return null;
+                return new ByteArrayInputStream(new byte[0]);
               }
 
               @Override
               public InputStream getErrorStream() {
-                return null;
+                return new ByteArrayInputStream(new byte[0]);
               }
 
               @Override

@@ -16,7 +16,6 @@ import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
-import java.lang.ProcessBuilder.Redirect;
 import java.nio.file.Path;
 import java.util.regex.Pattern;
 
@@ -77,9 +76,9 @@ public class VideoRecordingReportLayer extends ReportLayer {
       String remoteScriptPath =
           String.format("%s/%s", this.getVideoRecordingStoragePath(), VIDEO_RECORDING_SCRIPT_NAME);
       this.runner.pushFileWithSyncService(scriptFile.getAbsolutePath(), remoteScriptPath);
-      // start recording process
-      String[] command = new String[] {"adb", "shell", "sh", remoteScriptPath};
-      return new ProcessBuilder(command).redirectOutput(Redirect.PIPE).start();
+      // start recording process via runner.exec() so it can be mocked in tests
+      String command = String.format("adb shell sh %s", remoteScriptPath);
+      return this.runner.exec(command);
     } catch (Exception e) {
       System.err.printf("Failed to start video recording process with error: %s\n", e);
       return null;
