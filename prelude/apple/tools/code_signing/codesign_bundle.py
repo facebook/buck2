@@ -90,10 +90,12 @@ class CodesignedPath:
 def _verify_entitlements(
     entitlements_path: Optional[Path],
     profile_path: Path,
+    platform: ApplePlatform,
 ) -> None:
     result = verify_entitlements(
         entitlements_path,
         profile_path,
+        platform=platform,
     )
     if result == 1:
         sys.exit(1)
@@ -239,7 +241,7 @@ def signing_context_with_profile_selection(
 
     profile_path = selected_profile_info.profile.file_path
     # @oss-disable[end= ]: if should_verify_entitlements:
-        # @oss-disable[end= ]: _verify_entitlements(entitlements_path, profile_path)
+        # @oss-disable[end= ]: _verify_entitlements(entitlements_path, profile_path, platform)
 
     return SigningContextWithProfileSelection(
         info_plist_source,
