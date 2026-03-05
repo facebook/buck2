@@ -139,5 +139,8 @@
     "dependencies": {
         "@vscode/vsce": "^3.5.0",
         "vscode-languageclient": "^9.0.1"
+    },
+    "overrides": {
+        "minimatch": ">=3.1.3"
     }
 }
