@@ -34,5 +34,5 @@ dupe = { workspace = true }
 
 superconsole = { version = "0.2.0", path = "../../superconsole" }
 
-[lints.rust]
-unexpected_cfgs = { level = "warn", check-cfg = ["cfg(buck_build)"] }
+[lints]
+workspace = true

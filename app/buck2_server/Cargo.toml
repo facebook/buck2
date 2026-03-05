@@ -88,5 +88,5 @@ assert_matches = { workspace = true }
 buck2_util = { workspace = true }
 indoc = { workspace = true }
 
-[lints.rust]
-unexpected_cfgs = { level = "warn", check-cfg = ["cfg(fbcode_build)"] }
+[lints]
+workspace = true

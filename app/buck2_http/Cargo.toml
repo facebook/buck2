@@ -39,5 +39,5 @@ httptest = { workspace = true }
 [target.'cfg(unix)'.dev-dependencies]
 tempfile = { workspace = true }
 
-[lints.rust]
-unexpected_cfgs = { level = "warn", check-cfg = ["cfg(fbcode_build)"] }
+[lints]
+workspace = true
