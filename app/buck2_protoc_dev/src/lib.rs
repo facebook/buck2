@@ -136,11 +136,10 @@ impl Builder {
         self
     }
 
-    pub fn compile(
-        self,
-        protos: &[impl AsRef<Path>],
-        includes: &[impl AsRef<Path>],
-    ) -> io::Result<()> {
+    pub fn compile<P>(self, protos: &[P], includes: &[P]) -> io::Result<()>
+    where
+        P: AsRef<Path>,
+    {
         let Self { mut tonic } = self;
 
         // Buck likes to set $OUT in a genrule, while Cargo likes to set $OUT_DIR.
