@@ -912,10 +912,10 @@ async def test_failed_tests_has_error_category(buck: Buck) -> None:
         ),
         stderr_regex="1 TESTS FAILED",
     )
-
     record = res.invocation_record()
     errors = record["errors"]
 
     assert len(errors) == 1
     assert errors[0]["category"] == "USER"
-    assert "TestExecutor" in errors[0]["category_key"]
+    if not is_deployed_buck2():
+        assert errors[0]["category_key"] == "TEST_FAILED"

@@ -189,6 +189,12 @@ fn tag_metadata(tag: ErrorTag) -> TagMetadata {
         ErrorTag::RePermissionDenied => rank!(environment),
         ErrorTag::ReUserBadCerts => rank!(environment),
         ErrorTag::EPerm => rank!(environment),
+        // Test runner reported test failure exit code and no test failures.
+        ErrorTag::TestStatusUnknown => rank!(environment),
+        // Test runner returned exit code 1. This can include input errors (CLI arg parse errors)
+        ErrorTag::TestRunnerInternal => rank!(environment),
+        // Test runner hit infra errors during test execution
+        ErrorTag::TestInfraFailure => rank!(environment),
 
         // Tier 0 errors
         ErrorTag::ServerJemallocAssert => rank!(tier0),
@@ -300,6 +306,7 @@ fn tag_metadata(tag: ErrorTag) -> TagMetadata {
         ErrorTag::TestOrchestrator => rank!(tier0),
         ErrorTag::TestStatusInvalid => rank!(tier0),
         ErrorTag::TestStatus => rank!(tier0),
+        ErrorTag::TestRunnerUnknownExitCode => rank!(tier0),
 
         ErrorTag::CleanOutputs => rank!(tier0),
         ErrorTag::Sapling => rank!(tier0),
@@ -411,11 +418,16 @@ fn tag_metadata(tag: ErrorTag) -> TagMetadata {
         ErrorTag::StarlarkNativeInput => rank!(input),
         ErrorTag::Visibility => rank!(input),
         ErrorTag::TestDeadlineExpired => rank!(input),
+        ErrorTag::TestListingFailed => rank!(input),
+        ErrorTag::TestFailed => rank!(input),
+        ErrorTag::TestTimeout => rank!(input),
         ErrorTag::Unimplemented => rank!(input),
         ErrorTag::InstallerInput => rank!(input).hidden(),
         ErrorTag::BuildDeadlineExpired => rank!(input),
         ErrorTag::EventLogIndexOutOfBounds => rank!(input),
         ErrorTag::ReUserQuota => rank!(input),
+        // Test runner hit fatal errors during test execution
+        ErrorTag::TestFatal => rank!(input),
 
         ErrorTag::Input => rank!(input).hidden(),
 
