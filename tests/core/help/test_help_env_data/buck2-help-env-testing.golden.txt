@@ -26,6 +26,7 @@ BUCK2_RE_DOWNLOAD_CONCURRENCY           usize                 256
 BUCK2_RUNTIME_THREADS                   usize
 BUCK2_SCRIBE_CATEGORY                   String
 BUCK2_SELF_TEST_TIMEOUT_S               u64
+BUCK2_SHOW_SOFT_ERRORS                  String
 BUCK2_TERMINATE_AFTER                   u64
 BUCK2_TESTING_INACTIVITY_TIMEOUT        bool                  false
 BUCK2_TEST_BLOCK_ON_UPLOAD              bool                  false
