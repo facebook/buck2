@@ -1435,7 +1435,56 @@ impl RemoteExecutionClientImpl {
                 ..Default::default()
             },
             #[cfg(fbcode_build)]
-            gang: if re_gang_workers.is_empty() {
+            gang: if let Some(gang) = meta_internal_extra_params.gang.as_ref() {
+                let properties: Vec<_> = gang
+                    .capabilities
+                    .iter()
+                    .map(|(k, v)| remote_execution::TProperty {
+                        name: k.clone(),
+                        value: v.clone(),
+                        ..Default::default()
+                    })
+                    .collect();
+
+                let member_spec = remote_execution::GangMember {
+                    host_runtime_requirements: THostRuntimeRequirements {
+                        platform: remote_execution::TPlatform {
+                            properties,
+                            ..Default::default()
+                        },
+                        ..Default::default()
+                    },
+                    ..Default::default()
+                };
+
+                let locality = gang.locality.map(|l| {
+                    use buck2_core::execution_types::executor_config::ReGangLocality;
+                    match l {
+                        ReGangLocality::Unspecified => {
+                            remote_execution::LocalityConstraint::UNSPECIFIED
+                        }
+                        ReGangLocality::Region => remote_execution::LocalityConstraint::REGION,
+                        ReGangLocality::Datacenter => {
+                            remote_execution::LocalityConstraint::DATACENTER
+                        }
+                        ReGangLocality::NetworkDomain => {
+                            remote_execution::LocalityConstraint::NETWORK_DOMAIN
+                        }
+                    }
+                });
+
+                Some(remote_execution::GangSpecification {
+                    workers_spec: remote_execution::GangWorkersSpec::constrained_spec(
+                        remote_execution::ConstrainedGangSpec {
+                            num_workers: gang.num_of_workers,
+                            member_spec,
+                            locality,
+                            ..Default::default()
+                        },
+                    ),
+                    ..Default::default()
+                })
+            } else if re_gang_workers.is_empty() {
                 None
             } else {
                 let mut gang_members = Vec::with_capacity(re_gang_workers.len());

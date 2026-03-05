@@ -114,6 +114,81 @@ impl ReGangWorker {
     }
 }
 
+/// Locality constraint for gang scheduling.
+/// Determines how gang workers should be co-located.
+#[derive(Debug, Eq, PartialEq, Clone, Copy, Hash, Allocative, Pagable)]
+pub enum ReGangLocality {
+    /// Workers can be in any location
+    Unspecified,
+    /// Workers must be in the same region
+    Region,
+    /// Workers must be in the same datacenter
+    Datacenter,
+    /// Workers must be in the same network domain
+    NetworkDomain,
+}
+
+#[derive(Debug, buck2_error::Error)]
+#[buck2(input)]
+enum ReGangLocalityErrors {
+    #[error("Invalid locality value `{0}`. Expected one of: region, datacenter, network_domain")]
+    InvalidLocality(String),
+}
+
+impl ReGangLocality {
+    pub fn parse(s: &str) -> buck2_error::Result<ReGangLocality> {
+        match s.to_lowercase().as_str() {
+            "region" => Ok(ReGangLocality::Region),
+            "datacenter" => Ok(ReGangLocality::Datacenter),
+            "network_domain" => Ok(ReGangLocality::NetworkDomain),
+            _ => Err(ReGangLocalityErrors::InvalidLocality(s.to_owned()).into()),
+        }
+    }
+}
+
+/// Describes a constrained gang for Remote Execution.
+/// All workers in the gang will have the same capabilities specification.
+#[derive(Debug, Eq, PartialEq, Clone, Hash, Allocative, Pagable)]
+pub struct ReGang {
+    /// The platform capabilities required for all gang workers
+    pub capabilities: SortedMap<String, String>,
+    /// Number of workers in the gang
+    pub num_of_workers: i32,
+    /// Optional locality constraint for gang scheduling
+    pub locality: Option<ReGangLocality>,
+}
+
+#[derive(Debug, buck2_error::Error)]
+#[buck2(input)]
+enum ReGangErrors {
+    #[error("RE gang requires `{0}` to be set")]
+    MissingField(&'static str),
+    #[error("RE gang `num_of_workers` must be positive, got `{0}`")]
+    InvalidNumOfWorkers(i32),
+}
+
+impl ReGang {
+    pub fn parse(
+        capabilities: SortedMap<String, String>,
+        num_of_workers: i32,
+        locality: Option<ReGangLocality>,
+    ) -> buck2_error::Result<ReGang> {
+        if num_of_workers <= 0 {
+            return Err(ReGangErrors::InvalidNumOfWorkers(num_of_workers).into());
+        }
+
+        if capabilities.is_empty() {
+            return Err(ReGangErrors::MissingField("capabilities").into());
+        }
+
+        Ok(ReGang {
+            capabilities,
+            num_of_workers,
+            locality,
+        })
+    }
+}
+
 impl RemoteExecutorDependency {
     pub fn parse(dep_map: SmallMap<&str, &str>) -> buck2_error::Result<RemoteExecutorDependency> {
         fn username() -> Option<String> {
@@ -415,6 +490,7 @@ pub struct RemoteExecutionPolicy {
 pub struct MetaInternalExtraParams {
     pub remote_execution_policy: RemoteExecutionPolicy,
     pub remote_execution_caf_fbpkgs: Vec<RemoteExecutorCafFbpkg>,
+    pub gang: Option<ReGang>,
 }
 
 #[cfg(test)]
