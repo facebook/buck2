@@ -12,7 +12,7 @@ Transforms both OS and SDK constraints.
 Only sanity check for source configuration is done.
 """
 
-load("@prelude//transitions:utils.bzl", "filtered_platform_constraints", "get_constraint_value")
+load("@prelude//transitions:utils.bzl", "transition_utils")
 load("@prelude//utils:expect.bzl", "expect")
 
 def _watch_transition_impl(platform: PlatformInfo, refs: struct) -> PlatformInfo:
@@ -21,10 +21,10 @@ def _watch_transition_impl(platform: PlatformInfo, refs: struct) -> PlatformInfo
     #  - If the old OS constraint was iOS or watchOS, set the new constraint to be always watchOS.
     #  - If the old SDK constraint was iOS, replace with the equivalent watchOS constraint.
     #  - Return a new platform with the updated constraints.
-    updated_constraints = filtered_platform_constraints(platform, [refs.os[ConstraintSettingInfo].label, refs.sdk[ConstraintSettingInfo].label])
+    updated_constraints = transition_utils.filtered_platform_constraints(platform, [refs.os[ConstraintSettingInfo].label, refs.sdk[ConstraintSettingInfo].label])
 
     # Update OS constraint
-    old_os = get_constraint_value(platform, refs.os[ConstraintSettingInfo])
+    old_os = transition_utils.get_constraint_value(platform, refs.os[ConstraintSettingInfo])
     watchos = refs.watchos[ConstraintValueInfo]
     ios = refs.ios[ConstraintValueInfo]
     if old_os != None:
@@ -32,7 +32,7 @@ def _watch_transition_impl(platform: PlatformInfo, refs: struct) -> PlatformInfo
     updated_constraints[refs.os[ConstraintSettingInfo].label] = watchos
 
     # Update SDK constraint
-    old_sdk = get_constraint_value(platform, refs.sdk[ConstraintSettingInfo])
+    old_sdk = transition_utils.get_constraint_value(platform, refs.sdk[ConstraintSettingInfo])
     watchos_device_sdk = refs.watchos_device_sdk[ConstraintValueInfo]
     watchos_simulator_sdk = refs.watchos_simulator_sdk[ConstraintValueInfo]
     ios_device_sdk = refs.ios_device_sdk[ConstraintValueInfo]
