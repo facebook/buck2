@@ -33,7 +33,6 @@ use buck2_client_ctx::stdio::eprint_line;
 use buck2_client_ctx::streaming::StreamingCommand;
 use buck2_client_ctx::subscribers::superconsole::test::TestCounterColumn;
 use buck2_client_ctx::subscribers::superconsole::test::span_from_build_failure_count;
-use buck2_data::ErrorReport;
 use buck2_error::BuckErrorContext;
 use buck2_error::ExitCode;
 use buck2_error::internal_error;
@@ -424,10 +423,9 @@ impl StreamingCommand for TestCommand {
         } else {
             let mut errors = response.errors;
             // Create an error if executor returned non-zero exit code.
+            // Error is for tagging and categorization only, not shown to user.
             if let Some(error) = test_executor_error(response.executor_exit_code, &statuses) {
-                let error: ErrorReport = (&error).into();
-                console.print_error(&error.message)?;
-                errors.push(error);
+                errors.push((&error).into());
             }
             // If exit code is set in response, it should be used and not derived from command errors.
             let exit_code = if let Ok(code) = response.executor_exit_code.try_into() {
