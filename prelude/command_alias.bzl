@@ -99,7 +99,8 @@ def command_alias(
         base: RunInfo | dict[str, RunInfo],
         args: cmd_args,
         env: dict[str, ArgLike],
-        labels: list[str]) -> CommandAliasOutput:
+        labels: list[str],
+        has_content_based_path: bool = False) -> CommandAliasOutput:
     if path == "":
         fail("Path cannot be empty string")
 
@@ -116,9 +117,9 @@ def command_alias(
         windows_trampoline_path = "__command_alias_trampoline.bat"
 
     if target_os.script == ScriptLanguage("sh"):
-        trampoline, hidden = _command_alias_write_trampoline_unix(actions, unix_trampoline_path, base, args, env)
+        trampoline, hidden = _command_alias_write_trampoline_unix(actions, unix_trampoline_path, base, args, env, has_content_based_path)
     elif target_os.script == ScriptLanguage("bat"):
-        trampoline, hidden = _command_alias_write_trampoline_windows(actions, windows_trampoline_path, base, args, env, labels)
+        trampoline, hidden = _command_alias_write_trampoline_windows(actions, windows_trampoline_path, base, args, env, labels, has_content_based_path)
     else:
         fail("Unsupported script language: {}".format(target_os.script))
 
@@ -141,7 +142,8 @@ def _command_alias_write_trampoline_unix(
         path: str,
         base: RunInfo | dict[str, RunInfo],
         args: cmd_args,
-        env: dict[str, ArgLike]) -> (Artifact, cmd_args):
+        env: dict[str, ArgLike],
+        has_content_based_path: bool) -> (Artifact, cmd_args):
     trampoline_args = cmd_args()
     trampoline_args.add("#!/usr/bin/env bash")
     trampoline_args.add("set -euo pipefail")
@@ -193,7 +195,7 @@ done
 
     trampoline_args.add('exec "${R_ARGS[@]}" "$@"')
 
-    trampoline = actions.declare_output(path)
+    trampoline = actions.declare_output(path, has_content_based_path = has_content_based_path)
     trampoline_args = cmd_args(
         trampoline_args,
         relative_to = (trampoline, 1),
@@ -204,6 +206,7 @@ done
         trampoline_args,
         allow_args = True,
         is_executable = True,
+        has_content_based_path = has_content_based_path,
     )
 
     return trampoline, trampoline_args
@@ -214,7 +217,8 @@ def _command_alias_write_trampoline_windows(
         base: RunInfo,
         args: cmd_args,
         env: dict[str, ArgLike],
-        labels: list[str]) -> (Artifact, cmd_args):
+        labels: list[str],
+        has_content_based_path: bool) -> (Artifact, cmd_args):
     trampoline_args = cmd_args()
     trampoline_args.add("@echo off")
 
@@ -238,7 +242,7 @@ def _command_alias_write_trampoline_windows(
 
     trampoline_args.add(cmd)
 
-    trampoline = actions.declare_output(path)
+    trampoline = actions.declare_output(path, has_content_based_path = has_content_based_path)
     trampoline_args = cmd_args(
         trampoline_args,
         relative_to = (trampoline, 1),
@@ -249,6 +253,7 @@ def _command_alias_write_trampoline_windows(
         trampoline_args,
         allow_args = True,
         is_executable = True,
+        has_content_based_path = has_content_based_path,
     )
 
     return trampoline, trampoline_args
