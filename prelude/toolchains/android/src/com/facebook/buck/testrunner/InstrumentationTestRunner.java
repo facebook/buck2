@@ -140,7 +140,6 @@ public class InstrumentationTestRunner extends DeviceRunner {
   private List<ReportLayer> reportLayers = new ArrayList<>();
 
   protected final AndroidDevice androidDevice;
-  protected final AdbUtils adbUtils;
   private volatile boolean testRunFailed = false;
 
   /**
@@ -236,7 +235,6 @@ public class InstrumentationTestRunner extends DeviceRunner {
     this.preTestSetupScript = preTestSetupScript;
     this.apexesToInstall = apexesToInstall;
     this.userId = userId;
-    this.adbUtils = new AdbUtils(getAdbPath(), 0);
     this.androidDevice = initializeAndroidDevice();
   }
 
