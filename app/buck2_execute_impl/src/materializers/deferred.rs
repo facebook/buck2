@@ -574,6 +574,7 @@ impl<T: IoHandler + Allocative> Materializer for DeferredMaterializerAccessor<T>
     async fn get_artifact_entries_for_materialized_paths(
         &self,
         paths: Vec<ProjectRelativePathBuf>,
+        fetch_projected_artifact_entries: bool,
     ) -> buck2_error::Result<
         Vec<
             Option<(
@@ -584,10 +585,13 @@ impl<T: IoHandler + Allocative> Materializer for DeferredMaterializerAccessor<T>
     > {
         let (sender, recv) = oneshot::channel();
 
-        self.command_sender
-            .send(MaterializerCommand::GetArtifactEntriesForMaterializedPaths(
-                paths, sender,
-            ))?;
+        self.command_sender.send(
+            MaterializerCommand::GetArtifactEntriesForMaterializedPaths {
+                paths,
+                fetch_projected_artifact_entries,
+                sender,
+            },
+        )?;
 
         let result = recv.await.buck_error_context(
             "Receiving \"artifact entries for materialized paths\" future from command thread.",

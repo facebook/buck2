@@ -1385,4 +1385,62 @@ mod state_machine {
         })
         .await
     }
+
+    #[tokio::test]
+    async fn test_get_artifact_entries_for_projected_paths() -> buck2_error::Result<()> {
+        ignore_stack_overflow_checks_for_future(async {
+            let (mut dm, _) = make_processor(Default::default());
+            let digest_config = dm.io.digest_config();
+
+            // Build a non-empty directory artifact with internal structure:
+            //   child/file.txt
+            //   child/subdir/nested.txt
+            //   top_file.txt
+            let mut builder = ActionDirectoryBuilder::empty();
+            insert_file(
+                &mut builder,
+                ProjectRelativePathBuf::unchecked_new("child/file.txt".to_owned()),
+                FileMetadata::empty(digest_config.cas_digest_config()),
+            )?;
+            insert_file(
+                &mut builder,
+                ProjectRelativePathBuf::unchecked_new("child/subdir/nested.txt".to_owned()),
+                FileMetadata::empty(digest_config.cas_digest_config()),
+            )?;
+            insert_file(
+                &mut builder,
+                ProjectRelativePathBuf::unchecked_new("top_file.txt".to_owned()),
+                FileMetadata::empty(digest_config.cas_digest_config()),
+            )?;
+            let shared_dir = builder
+                .fingerprint(digest_config.as_directory_serializer())
+                .shared(&*INTERNER);
+            let dir_value = ArtifactValue::dir(shared_dir);
+
+            let artifact_root = make_path("parent/artifact");
+            dm.testing_declare(&artifact_root, dir_value);
+
+            let file_subpath = make_path("parent/artifact/child/file.txt");
+            let result = dm.testing_get_projected_artifact_entries(vec![file_subpath.clone()]);
+            assert_eq!(result.len(), 1);
+            let (returned_path, returned_entry) = result[0].clone().unwrap();
+            assert_eq!(returned_path, file_subpath);
+            assert!(matches!(returned_entry, ActionDirectoryEntry::Leaf(_)));
+
+            let subdir_path = make_path("parent/artifact/child/subdir");
+            let result = dm.testing_get_projected_artifact_entries(vec![subdir_path.clone()]);
+            assert_eq!(result.len(), 1);
+            let (returned_path, returned_entry) = result[0].clone().unwrap();
+            assert_eq!(returned_path, subdir_path);
+            assert!(matches!(returned_entry, ActionDirectoryEntry::Dir(_)));
+
+            let nonexistent = make_path("parent/artifact/does_not_exist.txt");
+            let result = dm.testing_get_projected_artifact_entries(vec![nonexistent.clone()]);
+            assert_eq!(result.len(), 1);
+            assert!(result[0].is_none());
+
+            Ok(())
+        })
+        .await
+    }
 }

@@ -299,11 +299,16 @@ pub trait Materializer: Allocative + Send + Sync + 'static {
     /// Given a list of `paths`, returns a list of corresponding artifact entries only if all the following conditions are met:
     ///   - There is an artifact at the given path (either declared or materialized).
     ///   - The materializer state contains sufficient information about the artifact.
-    ///   - The path refers to the root of the artifact (not a subpath).
+    ///   - The path refers to the root of the artifact (not a subpath), unless `fetch_projected_artifact_entries` is true.
     /// If any of these conditions are not satisfied for a given path, `None` is returned for that path.
+    ///
+    /// When `fetch_projected_artifact_entries` is true, if the path is a subpath of a known artifact
+    /// (e.g., a projected path like "src/subdir/file.txt" where "src" is the artifact root),
+    /// the function will traverse the directory structure to find and return the entry for the subpath.
     async fn get_artifact_entries_for_materialized_paths(
         &self,
         paths: Vec<ProjectRelativePathBuf>,
+        fetch_projected_artifact_entries: bool,
     ) -> buck2_error::Result<
         Vec<
             Option<(

@@ -1179,7 +1179,7 @@ impl RunAction {
         };
         let entries = ctx
             .materializer()
-            .get_artifact_entries_for_materialized_paths(output_paths)
+            .get_artifact_entries_for_materialized_paths(output_paths, false)
             .await?;
         // Only proceed with incremental outputs if every output is present
         Ok(entries
