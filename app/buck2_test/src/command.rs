@@ -241,6 +241,8 @@ enum TestError {
     #[error("Test execution completed but some tests timed out")]
     #[buck2(tag = Input)]
     TestTimeout,
+    #[error("Test Executor Failed with exit code {0}")]
+    UnexpectedExitCode(i32),
 }
 
 #[derive(Debug, buck2_error_derive::Error)]
@@ -307,66 +309,52 @@ impl ServerCommandTemplate for TestServerCommand {
     }
 }
 
-fn test_executor_errors(
+fn test_executor_error(
     executor_exit_code: i32,
     test_statuses: &buck2_cli_proto::test_response::TestStatuses,
-) -> Vec<buck2_data::ErrorReport> {
+) -> Option<buck2_error::Error> {
+    if executor_exit_code == 0 {
+        return None;
+    }
     // FIXME: These errors should be derived from exit code only
-    let mut errors = Vec::new();
-    if let Some(failed) = &test_statuses.failed {
-        if failed.count > 0 {
-            errors.push(buck2_data::ErrorReport::from(&TestError::TestFailed.into()));
-        }
+    if let Some(fatal) = &test_statuses.fatals
+        && fatal.count > 0
+    {
+        return Some(TestError::Fatal.into());
     }
-    if let Some(infra_failure) = &test_statuses.infra_failure {
-        if infra_failure.count > 0 {
-            errors.push(buck2_data::ErrorReport::from(
-                &TestError::InfraFailure.into(),
-            ));
-        }
+    if let Some(infra_failure) = &test_statuses.infra_failure
+        && infra_failure.count > 0
+    {
+        return Some(TestError::InfraFailure.into());
     }
-    if let Some(fatal) = &test_statuses.fatals {
-        if fatal.count > 0 {
-            errors.push(buck2_data::ErrorReport::from(&TestError::Fatal.into()));
-        }
+    if let Some(listing_failed) = &test_statuses.listing_failed
+        && listing_failed.count > 0
+    {
+        return Some(TestError::ListingFailed.into());
     }
-    if let Some(listing_failed) = &test_statuses.listing_failed {
-        if listing_failed.count > 0 {
-            errors.push(buck2_data::ErrorReport::from(
-                &TestError::ListingFailed.into(),
-            ));
-        }
+    if let Some(failed) = &test_statuses.failed
+        && failed.count > 0
+    {
+        return Some(TestError::TestFailed.into());
     }
     // If a test was skipped due to condition not being met a non-zero exit code will be returned,
     // this doesn't seem quite right, but for now just tag it with TestSkipped to track occurrence.
-    if let Some(skipped) = &test_statuses.skipped {
-        if skipped.count > 0 {
-            errors.push(buck2_data::ErrorReport::from(
-                &TestError::TestSkipped.into(),
-            ));
-        }
+    if let Some(skipped) = &test_statuses.skipped
+        && skipped.count > 0
+    {
+        return Some(TestError::TestSkipped.into());
     }
-    if let Some(omitted) = &test_statuses.omitted {
-        if omitted.count > 0 {
-            errors.push(buck2_data::ErrorReport::from(
-                &TestError::TestOmitted.into(),
-            ));
-        }
+    if let Some(timed_out) = &test_statuses.timed_out
+        && timed_out.count > 0
+    {
+        return Some(TestError::TestTimeout.into());
     }
-    if let Some(timed_out) = &test_statuses.timed_out {
-        if timed_out.count > 0 {
-            errors.push(buck2_data::ErrorReport::from(
-                &TestError::TestTimeout.into(),
-            ));
-        }
+    if let Some(omitted) = &test_statuses.omitted
+        && omitted.count > 0
+    {
+        return Some(TestError::TestOmitted.into());
     }
-    if errors.is_empty() {
-        errors.push(buck2_data::ErrorReport::from(&buck2_error::buck2_error!(
-            buck2_error::ErrorTag::TestExecutor,
-            "Test Executor Failed with exit code {executor_exit_code}"
-        )))
-    }
-    errors
+    Some(TestError::UnexpectedExitCode(executor_exit_code).into())
 }
 
 async fn test(
@@ -634,10 +622,8 @@ async fn test(
         // only use executor exit code if there were no errors in buck
         None
     };
-
-    if executor_exit_code != 0 {
-        let test_executor_errors = test_executor_errors(executor_exit_code, &test_statuses);
-        errors.extend(test_executor_errors);
+    if let Some(e) = test_executor_error(executor_exit_code, &test_statuses) {
+        errors.push((&e).into());
     }
 
     Ok(TestResponse {
