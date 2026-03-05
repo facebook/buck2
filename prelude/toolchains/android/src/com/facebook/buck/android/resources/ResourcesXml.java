@@ -48,7 +48,9 @@ import org.jetbrains.annotations.Nullable;
  */
 @Nullsafe(Nullsafe.Mode.LOCAL)
 public class ResourcesXml extends ResChunk {
-  private static final boolean DEBUG = true;
+  private static boolean debugEnabled() {
+    return !ResourceProcessingConfig.areOptimizationsEnabled();
+  }
 
   public static final int HEADER_SIZE = 8;
 
@@ -125,7 +127,7 @@ public class ResourcesXml extends ResChunk {
         int extOffset = offset + nodeHeaderSize;
         int attrStart = extOffset + nodeBuf.getShort(extOffset + 8);
         Preconditions.checkState(attrStart == extOffset + 20);
-        if (DEBUG) {
+        if (debugEnabled()) {
           int attrSize = nodeBuf.getShort(extOffset + 10);
           Preconditions.checkState(attrSize == ATTRIBUTE_SIZE);
         }

@@ -111,9 +111,15 @@ public class UsedResourcesFinder {
         int k = id & 0xFFFF;
         Set<Integer> processedIdsForType =
             Objects.requireNonNull(processedIds.computeIfAbsent(type, v -> new TreeSet<>()));
-        if (!processedIdsForType.contains(k)) {
-          processedIdsForType.add(k);
-          Objects.requireNonNull(idsToProcess.computeIfAbsent(type, v -> new TreeSet<>())).add(k);
+        if (ResourceProcessingConfig.areOptimizationsEnabled()) {
+          if (processedIdsForType.add(k)) {
+            Objects.requireNonNull(idsToProcess.computeIfAbsent(type, v -> new TreeSet<>())).add(k);
+          }
+        } else {
+          if (!processedIdsForType.contains(k)) {
+            processedIdsForType.add(k);
+            Objects.requireNonNull(idsToProcess.computeIfAbsent(type, v -> new TreeSet<>())).add(k);
+          }
         }
       }
     }

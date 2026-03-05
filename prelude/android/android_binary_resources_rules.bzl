@@ -19,8 +19,11 @@ load(
     "@prelude//java:java_providers.bzl",
     "JavaPackagingDep",  # @unused Used as type
 )
+load("@prelude//utils:buckconfig.bzl", "read_bool")
 load("@prelude//utils:expect.bzl", "expect")
 load("@prelude//utils:utils.bzl", "flatten")
+
+_optimized_resource_processing = read_bool("android", "optimized_resource_processing", default = False, root_cell = True)
 
 _FilteredResourcesOutput = record(
     resource_infos = list[AndroidResourceInfo],
@@ -128,7 +131,7 @@ def get_android_binary_resources_info(
                 exo_resources_hash.as_output(),
                 "--zipalign-tool",
                 android_toolchain.zipalign[RunInfo],
-            ]),
+            ] + (["--optimized-processing"] if _optimized_resource_processing else [])),
             category = "write_exo_resources",
             allow_cache_upload = True,
         )
@@ -597,6 +600,9 @@ def _merge_assets(
             merged_assets_output_hash = None
 
         merge_assets_cmd.add("--binary-type", "aab" if is_bundle_build else "apk")
+
+        if _optimized_resource_processing:
+            merge_assets_cmd.add("--optimized-processing")
 
         return merge_assets_cmd, merged_assets_output_hash
 

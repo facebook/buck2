@@ -11,6 +11,9 @@ load("@prelude//android:android_toolchain.bzl", "AndroidToolchainInfo")
 load("@prelude//java:java_library.bzl", "compile_to_jar")
 load("@prelude//java:java_providers.bzl", "JavaLibraryInfo", "single_library_compiling_deps")
 load("@prelude//utils:argfile.bzl", "argfile")
+load("@prelude//utils:buckconfig.bzl", "read_bool")
+
+_optimized_resource_processing = read_bool("android", "optimized_resource_processing", default = False, root_cell = True)
 
 RDotJavaSourceCode = record(
     r_dot_java_source_code_dir = Artifact,
@@ -170,6 +173,9 @@ def _generate_r_dot_java_source_code(
     if referenced_resources_lists:
         referenced_resources_file = argfile(actions = ctx.actions, name = "referenced_resources_lists", args = referenced_resources_lists, has_content_based_path = True)
         merge_resources_cmd.add(["--referenced-resources-lists", referenced_resources_file])
+
+    if _optimized_resource_processing:
+        merge_resources_cmd.add("--optimized-processing")
 
     ctx.actions.run(merge_resources_cmd, category = "r_dot_java_merge_resources", identifier = identifier)
 

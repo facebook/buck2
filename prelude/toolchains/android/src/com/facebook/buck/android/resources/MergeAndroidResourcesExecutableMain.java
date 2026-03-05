@@ -78,11 +78,15 @@ public class MergeAndroidResourcesExecutableMain {
   @Option(name = "--referenced-resources-lists")
   private @Nullable String referencedResourcesLists = null;
 
+  @Option(name = "--optimized-processing", usage = "enable optimized resource processing")
+  private boolean optimizedProcessing = false;
+
   public static void main(String[] args) throws IOException {
     MergeAndroidResourcesExecutableMain main = new MergeAndroidResourcesExecutableMain();
     CmdLineParser parser = new CmdLineParser(main);
     try {
       parser.parseArgument(args);
+      ResourceProcessingConfig.setOptimizationsEnabled(main.optimizedProcessing);
       main.run();
       System.exit(0);
     } catch (CmdLineException e) {

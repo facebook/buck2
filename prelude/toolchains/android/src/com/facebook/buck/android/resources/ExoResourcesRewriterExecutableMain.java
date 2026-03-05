@@ -54,11 +54,15 @@ public class ExoResourcesRewriterExecutableMain {
   // NULLSAFE_FIXME[Field Not Initialized]
   private String zipalignTool;
 
+  @Option(name = "--optimized-processing", usage = "enable optimized resource processing")
+  private boolean optimizedProcessing = false;
+
   public static void main(String[] args) throws IOException {
     ExoResourcesRewriterExecutableMain main = new ExoResourcesRewriterExecutableMain();
     CmdLineParser parser = new CmdLineParser(main);
     try {
       parser.parseArgument(args);
+      ResourceProcessingConfig.setOptimizationsEnabled(main.optimizedProcessing);
       main.run();
       System.exit(0);
     } catch (CmdLineException e) {

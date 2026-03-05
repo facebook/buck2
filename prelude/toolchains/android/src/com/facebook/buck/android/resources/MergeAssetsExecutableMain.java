@@ -70,11 +70,15 @@ public class MergeAssetsExecutableMain {
   @Option(name = "--binary-type", usage = "either 'apk' or 'aab'")
   private @Nullable String binaryType = null;
 
+  @Option(name = "--optimized-processing", usage = "enable optimized resource processing")
+  private boolean optimizedProcessing = false;
+
   public static void main(String[] args) throws IOException {
     MergeAssetsExecutableMain main = new MergeAssetsExecutableMain();
     CmdLineParser parser = new CmdLineParser(main);
     try {
       parser.parseArgument(args);
+      ResourceProcessingConfig.setOptimizationsEnabled(main.optimizedProcessing);
       main.run();
       System.exit(0);
     } catch (CmdLineException e) {
