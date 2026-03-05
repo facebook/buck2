@@ -22,6 +22,7 @@ import com.google.common.hash.HashCode;
 import com.google.common.hash.Hashing;
 import com.google.common.io.ByteSource;
 import com.google.common.io.Files;
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.FileVisitOption;
@@ -35,6 +36,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.regex.Pattern;
+import java.util.zip.CRC32;
 import java.util.zip.Deflater;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
@@ -236,24 +238,38 @@ public class MergeAssetsUtils {
     for (Map.Entry<Path, Path> assetPaths : assets.entrySet()) {
       Path packagingPathForAsset = assetPaths.getKey();
       Path fullPathToAsset = assetPaths.getValue();
-      ByteSource assetSource = Files.asByteSource(fullPathToAsset.toFile());
-      HashCode assetCrc32 = assetSource.hash(Hashing.crc32());
-      String apkPath = assetPaths.getKey().toString();
       int compression =
           isNoCompress(packagingPathForAsset.toString(), allNoCompressExtensions, noCompressPattern)
               ? 0
               : Deflater.BEST_COMPRESSION;
-      try (InputStream assetStream = assetSource.openStream()) {
-        output.addEntry(
-            assetStream,
-            assetSource.size(),
-            // CRC32s are only 32 bits, but setCrc() takes a
-            // long.  Avoid sign-extension here during the
-            // conversion to long by masking off the high 32 bits.
-            assetCrc32.asInt() & 0xFFFFFFFFL,
-            assetsZipRoot.resolve(packagingPathForAsset).toString(),
-            compression,
-            false);
+      if (ResourceProcessingConfig.areOptimizationsEnabled()) {
+        byte[] assetBytes = java.nio.file.Files.readAllBytes(fullPathToAsset);
+        CRC32 crc32 = new CRC32();
+        crc32.update(assetBytes);
+        try (InputStream assetStream = new ByteArrayInputStream(assetBytes)) {
+          output.addEntry(
+              assetStream,
+              assetBytes.length,
+              crc32.getValue(),
+              assetsZipRoot.resolve(packagingPathForAsset).toString(),
+              compression,
+              false);
+        }
+      } else {
+        ByteSource assetSource = Files.asByteSource(fullPathToAsset.toFile());
+        HashCode assetCrc32 = assetSource.hash(Hashing.crc32());
+        try (InputStream assetStream = assetSource.openStream()) {
+          output.addEntry(
+              assetStream,
+              assetSource.size(),
+              // CRC32s are only 32 bits, but setCrc() takes a
+              // long.  Avoid sign-extension here during the
+              // conversion to long by masking off the high 32 bits.
+              assetCrc32.asInt() & 0xFFFFFFFFL,
+              assetsZipRoot.resolve(packagingPathForAsset).toString(),
+              compression,
+              false);
+        }
       }
     }
   }
