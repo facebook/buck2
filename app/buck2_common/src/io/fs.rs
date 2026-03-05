@@ -294,7 +294,7 @@ impl ExactPathMetadata {
             Some(meta) if meta.file_type().is_symlink() => {
                 let dest = fs_util::read_link(&curr.abspath).categorize_input()?;
 
-                let out = if dest.is_absolute() {
+                let out = if dest.has_root() {
                     ExactPathSymlinkMetadata::ExternalSymlink(dest)
                 } else {
                     // Remove the symlink name.
