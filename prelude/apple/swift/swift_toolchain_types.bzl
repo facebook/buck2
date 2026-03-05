@@ -27,6 +27,7 @@ SwiftToolchainInfo = provider(fields = {
     "architecture": provider_field(str),
     "compiler": provider_field(cmd_args),
     "compiler_flags": provider_field(list[ArgLike]),
+    "enforce_dedupe_eligibility": provider_field(bool, default = False),
     "mk_swift_comp_db": provider_field(RunInfo),
     "mk_swift_interface": provider_field(cmd_args),
     "object_format": provider_field(SwiftObjectFormat),

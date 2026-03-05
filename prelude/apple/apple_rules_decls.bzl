@@ -1243,6 +1243,7 @@ swift_toolchain = prelude_rule(
         buck.licenses_arg() |
         {
             "architecture": attrs.string(),
+            "enforce_dedupe_eligibility": attrs.bool(default = False),
             "make_swift_comp_db": attrs.default_only(attrs.exec_dep(providers = [RunInfo], default = "prelude//apple/tools:make_swift_comp_db")),
             "make_swift_interface": attrs.default_only(attrs.exec_dep(providers = [RunInfo], default = "prelude//apple/tools:make_swift_interface")),
             "object_format": attrs.enum(SwiftObjectFormat.values(), default = "object"),
