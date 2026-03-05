@@ -247,6 +247,11 @@ mod tests {
         assert!(TargetName::new("foo bar").is_err());
         assert!(TargetName::new("foo?bar").is_err());
         assert!(TargetName::new("foo_eqsb_bar").is_err());
+        // Parentheses must be rejected; split_cfg relies on this invariant
+        // to avoid brace-matching when splitting configuration predicates.
+        assert!(TargetName::new("foo(bar)").is_err());
+        assert!(TargetName::new("foo(").is_err());
+        assert!(TargetName::new("foo)").is_err());
 
         if let Err(e) = TargetName::new("target[label]") {
             let msg = format!("{e:#}");

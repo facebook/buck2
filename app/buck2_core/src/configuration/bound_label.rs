@@ -77,3 +77,32 @@ impl BoundConfigurationLabel {
         &self.0
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_valid_label() {
+        assert!(BoundConfigurationLabel::new("cfg:linux-x86_64".to_owned()).is_ok());
+    }
+
+    #[test]
+    fn test_rejects_parentheses() {
+        // Parentheses must be rejected; split_cfg relies on this invariant
+        // to avoid brace-matching when splitting configuration predicates.
+        assert!(BoundConfigurationLabel::new("foo(bar)".to_owned()).is_err());
+        assert!(BoundConfigurationLabel::new("foo(".to_owned()).is_err());
+        assert!(BoundConfigurationLabel::new("foo)".to_owned()).is_err());
+    }
+
+    #[test]
+    fn test_rejects_empty() {
+        assert!(BoundConfigurationLabel::new(String::new()).is_err());
+    }
+
+    #[test]
+    fn test_rejects_whitespace() {
+        assert!(BoundConfigurationLabel::new("foo bar".to_owned()).is_err());
+    }
+}

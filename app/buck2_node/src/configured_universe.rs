@@ -324,6 +324,7 @@ mod tests {
                         ConfiguredProvidersPatternExtra {
                             providers: providers_name(),
                             cfg,
+                            exec_cfg: ConfigurationPredicate::Any,
                         },
                     )])),
                 )]),

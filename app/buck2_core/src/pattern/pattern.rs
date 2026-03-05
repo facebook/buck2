@@ -864,43 +864,69 @@ fn lex_configuration_predicate(pattern: &str) -> buck2_error::Result<Configurati
     }
 }
 
-/// Split target pattern and configuration preserving parentheses for better diagnostics.
-fn split_cfg(s: &str) -> Option<(&str, &str)> {
-    // Fast path.
-    if !s.contains(' ') {
+/// Split target pattern and configuration predicate(s).
+///
+/// Configuration predicates appear as parenthesized suffixes: `target (cfg)`.
+/// `ConfiguredTargetLabel::fmt` can also produce two groups for toolchain deps:
+/// `target (cfg) (exec_cfg)`. This function handles both forms.
+///
+/// Since parentheses are disallowed in both target names (`TargetName::verify`)
+/// and configuration labels (`BoundConfigurationLabel::new`, which is also the
+/// validation path for labels produced by config transitions via
+/// `ConfigurationData::from_platform`), there cannot be nested parentheses in
+/// valid patterns. We simply find the last `(` preceded by a space, split
+/// there, and then check if the remainder also ends with a parenthesized
+/// group (the cfg, with the already-split group being exec_cfg).
+///
+/// Returns `(target, cfg, Option<exec_cfg>)` where cfg and exec_cfg include
+/// the surrounding parentheses.
+fn split_cfg(s: &str) -> Option<(&str, &str, Option<&str>)> {
+    // Configuration predicates are parenthesized and must be at the end of the string.
+    if !s.ends_with(')') {
         return None;
     }
 
-    let mut braces: u32 = 0;
-    for (i, c) in s.char_indices() {
-        match c {
-            '(' => braces += 1,
-            ')' => match braces.checked_sub(1) {
-                Some(b) => braces = b,
-                None => {
-                    // Pattern is invalid, let parser fail elsewhere.
-                    return None;
-                }
-            },
-            ' ' if braces == 0 => return Some((&s[..i], &s[i + 1..])),
-            _ => {}
+    // Parentheses are disallowed in target names and configuration labels,
+    // so there are no nested parens to worry about. Just find the last '('.
+    let i = s.rfind('(')?;
+    if i == 0 || s.as_bytes()[i - 1] != b' ' {
+        return None;
+    }
+
+    let last_group = &s[i..];
+    let remainder = &s[..i - 1];
+
+    // Check if the remainder also ends with a parenthesized group preceded by
+    // a space. This handles the `target (cfg) (exec_cfg)` format produced by
+    // ConfiguredTargetLabel::fmt for toolchain deps.
+    if remainder.ends_with(')') {
+        if let Some(j) = remainder.rfind('(') {
+            if j > 0 && remainder.as_bytes()[j - 1] == b' ' {
+                return Some((&remainder[..j - 1], &remainder[j..], Some(last_group)));
+            }
         }
     }
-    None
+
+    Some((remainder, last_group, None))
 }
 
 pub fn lex_configured_providers_pattern(
     pattern: &str,
     strip_package_trailing_slash: bool,
 ) -> buck2_error::Result<PatternParts<'_, ConfiguredProvidersPatternExtra>> {
-    let (provider_pattern, cfg) = match split_cfg(pattern) {
-        Some((providers, cfg)) => {
+    let (provider_pattern, cfg, exec_cfg) = match split_cfg(pattern) {
+        Some((providers, cfg, exec_cfg)) => {
             let provider_pattern = lex_provider_pattern(providers, strip_package_trailing_slash)?;
             let cfg = lex_configuration_predicate(cfg)?;
-            (provider_pattern, cfg)
+            let exec_cfg = match exec_cfg {
+                Some(e) => lex_configuration_predicate(e)?,
+                None => ConfigurationPredicate::Any,
+            };
+            (provider_pattern, cfg, exec_cfg)
         }
         None => (
             lex_provider_pattern(pattern, strip_package_trailing_slash)?,
+            ConfigurationPredicate::Any,
             ConfigurationPredicate::Any,
         ),
     };
@@ -925,7 +951,11 @@ pub fn lex_configured_providers_pattern(
     }
 
     provider_pattern.try_map(|ProvidersPatternExtra { providers }| {
-        Ok(ConfiguredProvidersPatternExtra { providers, cfg })
+        Ok(ConfiguredProvidersPatternExtra {
+            providers,
+            cfg,
+            exec_cfg,
+        })
     })
 }
 
@@ -1331,7 +1361,11 @@ mod tests {
     ) -> ParsedPattern<ConfiguredProvidersPatternExtra> {
         mk_providers(cell, path, target, providers)
             .try_map(|ProvidersPatternExtra { providers }| {
-                Ok(ConfiguredProvidersPatternExtra { providers, cfg })
+                Ok(ConfiguredProvidersPatternExtra {
+                    providers,
+                    cfg,
+                    exec_cfg: ConfigurationPredicate::Any,
+                })
             })
             .unwrap()
     }
@@ -2557,5 +2591,60 @@ mod tests {
         );
 
         Ok(())
+    }
+
+    #[test]
+    fn test_split_cfg_with_spaces_in_path() {
+        use super::split_cfg;
+
+        // Paths with spaces should not be split.
+        assert_eq!(
+            split_cfg("//fbobjc/Xcode Templates/File Templates/foo/..."),
+            None,
+        );
+        assert_eq!(split_cfg("//path/dir name/sub dir/..."), None,);
+
+        // Paths with spaces and parentheses mid-path should not be split.
+        assert_eq!(split_cfg("//path/dir (stuff)/foo/..."), None,);
+        assert_eq!(split_cfg("//path/dir(v2)/foo/..."), None,);
+
+        // Target ending with parentheses but no space should not be split.
+        assert_eq!(split_cfg("//path:target(v2)"), None,);
+
+        // No spaces at all should not be split.
+        assert_eq!(split_cfg("//path/to:target"), None,);
+
+        // Configuration suffix should still be split correctly.
+        assert_eq!(
+            split_cfg("//pkg:target (cfg:platform#abc123)"),
+            Some(("//pkg:target", "(cfg:platform#abc123)", None)),
+        );
+        assert_eq!(
+            split_cfg("//pkg:target (<unbound>)"),
+            Some(("//pkg:target", "(<unbound>)", None)),
+        );
+
+        // Space in path with configuration suffix at end.
+        assert_eq!(
+            split_cfg("//path/Xcode Templates/foo:target (cfg:platform)"),
+            Some(("//path/Xcode Templates/foo:target", "(cfg:platform)", None)),
+        );
+
+        // ConfiguredTargetLabel::fmt produces two groups for toolchain deps:
+        // `target (cfg) (exec_cfg)`. Both are split out.
+        assert_eq!(
+            split_cfg("//pkg:target (cfg1) (cfg2)"),
+            Some(("//pkg:target", "(cfg1)", Some("(cfg2)"))),
+        );
+
+        // Two groups with spaces in path.
+        assert_eq!(
+            split_cfg("//path/Xcode Templates/foo:target (cfg) (exec_cfg)"),
+            Some((
+                "//path/Xcode Templates/foo:target",
+                "(cfg)",
+                Some("(exec_cfg)")
+            )),
+        );
     }
 }
