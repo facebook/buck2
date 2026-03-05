@@ -33,10 +33,9 @@ use buck2_client_ctx::stdio::eprint_line;
 use buck2_client_ctx::streaming::StreamingCommand;
 use buck2_client_ctx::subscribers::superconsole::test::TestCounterColumn;
 use buck2_client_ctx::subscribers::superconsole::test::span_from_build_failure_count;
+use buck2_data::ErrorReport;
 use buck2_error::BuckErrorContext;
-use buck2_error::ErrorTag;
 use buck2_error::ExitCode;
-use buck2_error::buck2_error;
 use buck2_error::internal_error;
 use buck2_fs::error::IoResultExt;
 use buck2_fs::fs_util;
@@ -197,6 +196,80 @@ If include patterns are present, regardless of whether exclude patterns are pres
     common_opts: CommonCommandOptions,
 }
 
+#[derive(Debug, buck2_error::Error)]
+#[buck2(tag = TestExecutor)]
+enum TestError {
+    #[error("Test execution completed but the tests failed")]
+    #[buck2(tag = Input)]
+    TestFailed,
+    #[error("Test execution completed but tests were skipped")]
+    #[buck2(tag = Input)]
+    TestSkipped,
+    #[error("Tests were filtered out and not run")]
+    #[buck2(tag = Input)]
+    TestOmitted,
+    #[error("Test listing failed")]
+    #[buck2(tag = Input)]
+    ListingFailed,
+    #[error("Fatal error encountered during test execution")]
+    Fatal,
+    #[error("Infra Failure error encountered during test execution")]
+    InfraFailure,
+    #[error("Test execution completed but some tests timed out")]
+    #[buck2(tag = Input)]
+    TestTimeout,
+    #[error("Test Executor Failed with exit code {0}")]
+    UnexpectedExitCode(i32),
+}
+
+fn test_executor_error(
+    executor_exit_code: i32,
+    test_statuses: &buck2_cli_proto::test_response::TestStatuses,
+) -> Option<buck2_error::Error> {
+    if executor_exit_code == 0 {
+        return None;
+    }
+    // FIXME: These errors should be derived from exit code only
+    if let Some(fatal) = &test_statuses.fatals
+        && fatal.count > 0
+    {
+        return Some(TestError::Fatal.into());
+    }
+    if let Some(infra_failure) = &test_statuses.infra_failure
+        && infra_failure.count > 0
+    {
+        return Some(TestError::InfraFailure.into());
+    }
+    if let Some(listing_failed) = &test_statuses.listing_failed
+        && listing_failed.count > 0
+    {
+        return Some(TestError::ListingFailed.into());
+    }
+    if let Some(failed) = &test_statuses.failed
+        && failed.count > 0
+    {
+        return Some(TestError::TestFailed.into());
+    }
+    // If a test was skipped due to condition not being met a non-zero exit code will be returned,
+    // this doesn't seem quite right, but for now just tag it with TestSkipped to track occurrence.
+    if let Some(skipped) = &test_statuses.skipped
+        && skipped.count > 0
+    {
+        return Some(TestError::TestSkipped.into());
+    }
+    if let Some(timed_out) = &test_statuses.timed_out
+        && timed_out.count > 0
+    {
+        return Some(TestError::TestTimeout.into());
+    }
+    if let Some(omitted) = &test_statuses.omitted
+        && omitted.count > 0
+    {
+        return Some(TestError::TestOmitted.into());
+    }
+    Some(TestError::UnexpectedExitCode(executor_exit_code).into())
+}
+
 #[async_trait(?Send)]
 impl StreamingCommand for TestCommand {
     const COMMAND_NAME: &'static str = "test";
@@ -345,9 +418,19 @@ impl StreamingCommand for TestCommand {
             buck2_client_ctx::println!("{}", build_report)?;
         }
 
-        let exit_result = if let Some(exit_code) = response.exit_code {
+        let exit_result = if !response.errors.is_empty() {
+            // If we had build errors return their exit code.
+            ExitResult::from_command_result_errors(response.errors)
+        } else {
+            let mut errors = response.errors;
+            // Create an error if executor returned non-zero exit code.
+            if let Some(error) = test_executor_error(response.executor_exit_code, &statuses) {
+                let error: ErrorReport = (&error).into();
+                console.print_error(&error.message)?;
+                errors.push(error);
+            }
             // If exit code is set in response, it should be used and not derived from command errors.
-            let exit_code = if let Ok(code) = exit_code.try_into() {
+            let exit_code = if let Ok(code) = response.executor_exit_code.try_into() {
                 match code {
                     0 => ExitCode::Success,
                     _ => ExitCode::TestRunner(code),
@@ -356,18 +439,7 @@ impl StreamingCommand for TestCommand {
                 // The exit code isn't an allowable value, so just switch to generic failure
                 ExitCode::UnknownFailure
             };
-            ExitResult::status_with_emitted_errors(exit_code, response.errors)
-        } else if !response.errors.is_empty() {
-            // If we had build errors return their exit code.
-            ExitResult::from_command_result_errors(response.errors)
-        } else {
-            // But if we had no build errors, and Tpx did not provide an exit code, then that's
-            // going to be an error.
-            buck2_error!(
-                ErrorTag::TestExecutor,
-                "Test executor did not provide an exit code"
-            )
-            .into()
+            ExitResult::status_with_emitted_errors(exit_code, errors)
         };
 
         match self.test_executor_stdout {

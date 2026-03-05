@@ -646,7 +646,7 @@ message CounterWithExamples {
 
 message TestResponse {
   reserved 101;
-  optional int32 exit_code = 1;
+  int32 executor_exit_code = 1;
   optional string serialized_build_report = 100;
   repeated buck.data.ErrorReport errors = 102;
   message TestStatuses {

@@ -219,32 +219,6 @@ impl TestStatuses {
     }
 }
 
-#[derive(Debug, buck2_error::Error)]
-#[buck2(tag = TestExecutor)]
-enum TestError {
-    #[error("Test execution completed but the tests failed")]
-    #[buck2(tag = Input)]
-    TestFailed,
-    #[error("Test execution completed but tests were skipped")]
-    #[buck2(tag = Input)]
-    TestSkipped,
-    #[error("Tests were filtered out and not run")]
-    #[buck2(tag = Input)]
-    TestOmitted,
-    #[error("Test listing failed")]
-    #[buck2(tag = Input)]
-    ListingFailed,
-    #[error("Fatal error encountered during test execution")]
-    Fatal,
-    #[error("Infra Failure error encountered during test execution")]
-    InfraFailure,
-    #[error("Test execution completed but some tests timed out")]
-    #[buck2(tag = Input)]
-    TestTimeout,
-    #[error("Test Executor Failed with exit code {0}")]
-    UnexpectedExitCode(i32),
-}
-
 #[derive(Debug, buck2_error_derive::Error)]
 #[buck2(tag = TestDeadlineExpired)]
 #[error("This test run exceeded the deadline that was provided")]
@@ -307,54 +281,6 @@ impl ServerCommandTemplate for TestServerCommand {
     ) -> buck2_error::Result<Self::Response> {
         test(server_ctx, ctx, &self.req).await
     }
-}
-
-fn test_executor_error(
-    executor_exit_code: i32,
-    test_statuses: &buck2_cli_proto::test_response::TestStatuses,
-) -> Option<buck2_error::Error> {
-    if executor_exit_code == 0 {
-        return None;
-    }
-    // FIXME: These errors should be derived from exit code only
-    if let Some(fatal) = &test_statuses.fatals
-        && fatal.count > 0
-    {
-        return Some(TestError::Fatal.into());
-    }
-    if let Some(infra_failure) = &test_statuses.infra_failure
-        && infra_failure.count > 0
-    {
-        return Some(TestError::InfraFailure.into());
-    }
-    if let Some(listing_failed) = &test_statuses.listing_failed
-        && listing_failed.count > 0
-    {
-        return Some(TestError::ListingFailed.into());
-    }
-    if let Some(failed) = &test_statuses.failed
-        && failed.count > 0
-    {
-        return Some(TestError::TestFailed.into());
-    }
-    // If a test was skipped due to condition not being met a non-zero exit code will be returned,
-    // this doesn't seem quite right, but for now just tag it with TestSkipped to track occurrence.
-    if let Some(skipped) = &test_statuses.skipped
-        && skipped.count > 0
-    {
-        return Some(TestError::TestSkipped.into());
-    }
-    if let Some(timed_out) = &test_statuses.timed_out
-        && timed_out.count > 0
-    {
-        return Some(TestError::TestTimeout.into());
-    }
-    if let Some(omitted) = &test_statuses.omitted
-        && omitted.count > 0
-    {
-        return Some(TestError::TestOmitted.into());
-    }
-    Some(TestError::UnexpectedExitCode(executor_exit_code).into())
 }
 
 async fn test(
@@ -615,20 +541,9 @@ async fn test(
             .push(get_target_rule_type_name(&mut ctx, configured.target()).await?);
     }
 
-    let mut errors = test_outcome.errors;
-    let exit_code_override = if errors.is_empty() {
-        Some(executor_exit_code)
-    } else {
-        // only use executor exit code if there were no errors in buck
-        None
-    };
-    if let Some(e) = test_executor_error(executor_exit_code, &test_statuses) {
-        errors.push((&e).into());
-    }
-
     Ok(TestResponse {
-        exit_code: exit_code_override,
-        errors,
+        executor_exit_code,
+        errors: test_outcome.errors,
         test_statuses: Some(test_statuses),
         executor_stdout: test_outcome.executor_stdout,
         executor_stderr: test_outcome.executor_stderr,
