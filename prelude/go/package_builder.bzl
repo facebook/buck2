@@ -20,7 +20,7 @@ load(
     "cover_srcs",
 )
 load(":go_error_handler.bzl", "go_build_error_handler")
-load(":go_list.bzl", "go_list", "parse_go_list_out")
+load(":go_list.bzl", "GoListOut", "go_list", "parse_go_list_out")
 load(":packages.bzl", "GoPackageInfo", "GoPkg", "GoStdlib", "GoStdlibDynamicValue", "make_compile_importcfg", "merge_pkgs")
 load(":toolchain.bzl", "GoToolchainInfo", "get_toolchain_env_vars")
 
@@ -144,33 +144,20 @@ def _build_package_action_impl(
         fail("External tests are not supported, remove suffix '_test' from package declaration '{}': {}", go_list.name, target_label)
 
     go_stdlib_value = go_stdlib_value.providers[GoStdlibDynamicValue]
-    imports = set([] + go_list.imports + (go_list.test_imports if with_tests else []))
-    embed_patterns = [] + go_list.embed_patterns + (go_list.test_embed_patterns if with_tests else [])
-    go_files = [] + go_list.go_files + (go_list.test_go_files if with_tests else [])
 
     result = build_package(
         actions = actions,
         target_label = target_label,
         go_toolchain = go_toolchain,
         cgo_build_context = cgo_build_context,
+        go_list = go_list_for_build(go_list, with_tests),
         params = BuildPackageParams(
             main = main,
-            pkg_name = go_list.name,
             pkg_import_path = pkg_import_path,
             package_root = package_root,
-            go_files = go_files,
-            cgo_files = go_list.cgo_files,
-            s_files = go_list.s_files,
-            h_files = go_list.h_files,
-            c_files = go_list.c_files,
-            cxx_files = go_list.cxx_files,
-            imports = imports,
-            embed_patterns = embed_patterns,
             embed_srcs = embed_srcs,
             compiler_flags = compiler_flags,
             assembler_flags = assembler_flags,
-            cgo_cflags = go_list.cgo_cflags,
-            cgo_cppflags = go_list.cgo_cppflags,
             coverage_mode = coverage_mode,
             deps = merge_pkgs([go_stdlib_value.pkgs, deps_pkgs]),
         ),
@@ -219,24 +206,44 @@ _build_package_action = dynamic_actions(
     },
 )
 
-BuildPackageParams = record(
-    main = field(bool),
+BuildPackageGoList = record(
     pkg_name = field(str),
-    pkg_import_path = field(str),
-    package_root = field(str),
     go_files = field(list[Artifact]),
     cgo_files = field(list[Artifact]),
     s_files = field(list[Artifact]),
     h_files = field(list[Artifact]),
-    c_files = field(list[Artifact]),
-    cxx_files = field(list[Artifact]),
+    c_cxx_files = field(list[Artifact]),
     imports = field(set[str]),
     embed_patterns = field(list[str]),
+    cgo_cflags = field(list[str]),
+    cgo_cppflags = field(list[str]),
+)
+
+def go_list_for_build(go_list_out: GoListOut, with_tests: bool) -> BuildPackageGoList:
+    imports = set(go_list_out.imports + (go_list_out.test_imports if with_tests else []))
+    embed_patterns = go_list_out.embed_patterns + (go_list_out.test_embed_patterns if with_tests else [])
+    go_files = go_list_out.go_files + (go_list_out.test_go_files if with_tests else [])
+    c_cxx_files = go_list_out.c_files + go_list_out.cxx_files
+    return BuildPackageGoList(
+        pkg_name = go_list_out.name,
+        go_files = go_files,
+        cgo_files = go_list_out.cgo_files,
+        s_files = go_list_out.s_files,
+        h_files = go_list_out.h_files,
+        c_cxx_files = c_cxx_files,
+        imports = imports,
+        embed_patterns = embed_patterns,
+        cgo_cflags = go_list_out.cgo_cflags,
+        cgo_cppflags = go_list_out.cgo_cppflags,
+    )
+
+BuildPackageParams = record(
+    main = field(bool),
+    pkg_import_path = field(str),
+    package_root = field(str),
     embed_srcs = field(list[Artifact]),
     compiler_flags = field(list[str]),
     assembler_flags = field(list[str]),
-    cgo_cflags = field(list[str]),
-    cgo_cppflags = field(list[str]),
     coverage_mode = field(GoCoverageMode | None),
     deps = field(dict[str, GoPkg]),
 )
@@ -253,24 +260,25 @@ def build_package(
         target_label: Label,
         go_toolchain: GoToolchainInfo,
         cgo_build_context: CGoBuildContext | None,
+        go_list: BuildPackageGoList,
         params: BuildPackageParams) -> BuildPackageResult:
     covered_go_files, covered_cgo_files, coveragecfg = cover_srcs(
         actions = actions,
         go_toolchain = go_toolchain,
-        pkg_name = params.pkg_name,
+        pkg_name = go_list.pkg_name,
         pkg_import_path = params.pkg_import_path,
-        go_files = params.go_files,
-        cgo_files = params.cgo_files,
+        go_files = go_list.go_files,
+        cgo_files = go_list.cgo_files,
         coverage_mode = params.coverage_mode,
     )
 
     # A go package can can contain CGo or Go ASM files, but not both.
     # If CGo and ASM files are present, we process ASM files together with C files with CxxToolchain.
     # The `go build` command does additional check here and throws an error if both CGo and Go-ASM files are present.
-    c_files = params.c_files + params.cxx_files
-    s_files = params.s_files
-    if len(params.cgo_files) > 0:
-        c_files += s_files
+    c_cxx_files = [] + go_list.c_cxx_files
+    s_files = go_list.s_files
+    if len(go_list.cgo_files) > 0:
+        c_cxx_files += s_files
         s_files = []
 
     # Generate CGO and C sources.
@@ -280,19 +288,19 @@ def build_package(
         go_toolchain_info = go_toolchain,
         cgo_build_context = cgo_build_context,
         cgo_files = covered_cgo_files,
-        h_files = params.h_files,
-        c_files = c_files,
-        c_flags = params.cgo_cflags,
-        cpp_flags = params.cgo_cppflags,
+        h_files = go_list.h_files,
+        c_files = c_cxx_files,
+        c_flags = go_list.cgo_cflags,
+        cpp_flags = go_list.cgo_cppflags,
         anon_targets_allowed = False,
     )
 
-    symabis = _symabis(actions, go_toolchain, params.pkg_import_path, params.main, s_files, params.h_files, params.assembler_flags)
+    symabis = _symabis(actions, go_toolchain, params.pkg_import_path, params.main, s_files, go_list.h_files, params.assembler_flags)
 
-    embedcfg = _embedcfg(actions, go_toolchain, params.pkg_import_path, params.package_root, params.embed_srcs, params.embed_patterns)
+    embedcfg = _embedcfg(actions, go_toolchain, params.pkg_import_path, params.package_root, params.embed_srcs, go_list.embed_patterns)
 
     # Use -complete flag when compiling Go code only
-    complete_flag = len(params.cgo_files) + len(s_files) + len(c_files) == 0
+    complete_flag = len(go_list.cgo_files) + len(s_files) + len(c_cxx_files) == 0
 
     def build_variant(shared: bool) -> (Artifact, Artifact):
         suffix = "_shared" if shared else "_non-shared"  # suffix to make artifacts unique
@@ -301,8 +309,8 @@ def build_package(
         importcfg = make_compile_importcfg(
             actions = actions,
             deps = params.deps,
-            imports = params.imports,
-            has_cgo_files = len(params.cgo_files) > 0,
+            imports = go_list.imports,
+            has_cgo_files = len(go_list.cgo_files) > 0,
             coverage_enabled = params.coverage_mode != None,
             shared = shared,
         )
@@ -325,7 +333,7 @@ def build_package(
             gen_asmhdr = len(s_files) > 0,
         )
 
-        asm_o_files = _asssembly(actions, go_toolchain, params.pkg_import_path, params.main, s_files, params.h_files, asmhdr, params.assembler_flags, shared, suffix)
+        asm_o_files = _asssembly(actions, go_toolchain, params.pkg_import_path, params.main, s_files, go_list.h_files, asmhdr, params.assembler_flags, shared, suffix)
 
         return go_x_file, _pack(actions, go_toolchain, params.pkg_import_path, go_a_file, cgo_o_files + asm_o_files, suffix)
 
