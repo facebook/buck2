@@ -739,14 +739,14 @@ async fn handle_install_request(
                     // 3. buck2 reads tcp port from file and use it to connect to the installer app. (`connect_to_installer` function)
                     let tcp_port = get_random_tcp_port()?;
 
-                    let mut installer_run_args: Vec<String> = initial_installer_run_args.to_vec();
-
-                    installer_run_args.extend(vec![
+                    let mut installer_run_args: Vec<String> = vec![
                         "--tcp-port".to_owned(),
                         tcp_port.to_string(),
                         "--log-path".to_owned(),
                         log_path_string.to_owned(),
-                    ]);
+                    ];
+
+                    installer_run_args.extend(initial_installer_run_args.to_vec());
 
                     build_launch_installer(
                         ctx,

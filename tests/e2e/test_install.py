@@ -186,6 +186,18 @@ if linux_only():
             "fbcode//buck2/tests/targets/rules/install:installer_server_requires_forwarded_params",
         )
 
+    @buck_test(inplace=True)
+    async def test_install_extra_args_ordered_after_builtin_args(
+        buck: Buck,
+    ) -> None:
+        await buck.install(
+            "-r",
+            "fbcode//buck2/tests/targets/rules/install:installer_validates_extra_args_order",
+            "--",
+            "--",
+            "--expected-extra-arg",
+        )
+
 
 @buck_test(inplace=True, write_invocation_record=True)
 async def test_fail_to_build_installer(buck: Buck) -> None:

@@ -147,7 +147,7 @@ impl StreamingCommand for InstallCommand {
     ) -> ExitResult {
         let context = ctx.client_context(matches, &self)?;
 
-        let mut extra_run_args: Vec<String> = self.extra_run_args.clone();
+        let mut extra_run_args: Vec<String> = vec![];
         if self.android_install_opts.run {
             extra_run_args.push("-r".to_owned());
         }
@@ -181,6 +181,11 @@ impl StreamingCommand for InstallCommand {
         if self.android_install_opts.keep {
             extra_run_args.push("-k".to_owned());
         }
+
+        // Add the additional run args passed to buck.
+        // They are added last to allow for `buck install -- --some-installer-arg -- --arbitrary-app-arg1 --another-app-arg`
+        // as otherwise we'll add the above installer options *after* the installer extra args `--` separator.
+        extra_run_args.extend(self.extra_run_args.clone());
 
         let response = buckd
             .with_flushing()
