@@ -26,6 +26,7 @@ use dupe::Dupe;
 use fxhash::FxHashSet;
 use pagable::Pagable;
 use pagable::pagable_typetag;
+use starlark::values::FrozenHeapName;
 use starlark::values::FrozenHeapRef;
 
 use crate::analysis::calculation::RuleAnalysisCalculation;
@@ -169,6 +170,7 @@ fn gather_heap_graph_sketch_impl(
         let Some(name) = item.name() else {
             continue;
         };
+        let FrozenHeapName::User(name) = name;
         let name = name.downcast_ref::<StarlarkEvalKind>().unwrap();
         sketcher.sketch_weighted(name, item.allocated_bytes() as u64);
         queue.extend(item.refs().filter(|f| visited.insert(*f)));

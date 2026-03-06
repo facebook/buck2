@@ -56,6 +56,7 @@ use pagable::pagable_typetag;
 use starlark::codemap::FileSpan;
 use starlark::environment::Module;
 use starlark::syntax::AstModule;
+use starlark::values::FrozenHeapName;
 
 use crate::interpreter::buckconfig::ConfigsOnDiceViewForStarlark;
 use crate::interpreter::cell_info::InterpreterCellInfo;
@@ -286,8 +287,8 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
         let frozen = Module::with_temp_heap(|module| {
             module.set("value", module.heap().alloc(value));
             module
-                .freeze_named(Box::new(StarlarkEvalKind::Load(Arc::new(
-                    OwnedStarlarkModulePath::new(starlark_file),
+                .freeze_named(FrozenHeapName::User(Box::new(StarlarkEvalKind::Load(
+                    Arc::new(OwnedStarlarkModulePath::new(starlark_file)),
                 ))))
                 .map_err(from_freeze_error)
         })?;
@@ -315,8 +316,8 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
         let frozen = Module::with_temp_heap(|module| {
             module.set("value", module.heap().alloc(json_value));
             module
-                .freeze_named(Box::new(StarlarkEvalKind::Load(Arc::new(
-                    OwnedStarlarkModulePath::new(starlark_file),
+                .freeze_named(FrozenHeapName::User(Box::new(StarlarkEvalKind::Load(
+                    Arc::new(OwnedStarlarkModulePath::new(starlark_file)),
                 ))))
                 .map_err(from_freeze_error)
         })?;

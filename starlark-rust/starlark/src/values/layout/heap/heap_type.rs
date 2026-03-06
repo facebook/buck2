@@ -216,7 +216,12 @@ pub struct FrozenHeap {
     str_interner: RefCell<FrozenStringValueInterner>,
 }
 
-pub type FrozenHeapName = Box<dyn Any + Send + Sync + 'static>;
+/// Name/identifier for a frozen heap, used for heap graph tracking and metrics.
+#[derive(Debug)]
+pub enum FrozenHeapName {
+    /// For user/downstream code.
+    User(Box<dyn Any + Send + Sync + 'static>),
+}
 
 /// `FrozenHeap` when it is no longer modified and can be share between threads.
 /// Although, `arena` is not safe to share between threads, but at least `refs` is.

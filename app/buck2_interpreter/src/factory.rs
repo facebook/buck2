@@ -19,6 +19,7 @@ use dupe::Dupe;
 use starlark::environment::FrozenModule;
 use starlark::environment::Module;
 use starlark::eval::Evaluator;
+use starlark::values::FrozenHeapName;
 
 use crate::dice::starlark_debug::HasStarlarkDebugger;
 use crate::dice::starlark_provider::CancellationPoller;
@@ -84,7 +85,7 @@ impl FinishedStarlarkEvaluation {
     )> {
         let frozen = env
             .0
-            .freeze_named(Box::new(self.eval_kind.dupe()))
+            .freeze_named(FrozenHeapName::User(Box::new(self.eval_kind.dupe())))
             .map_err(from_freeze_error)?;
         let (token, profile_data) = self.finish_impl(Some(&frozen))?;
         Ok((token, frozen, profile_data))

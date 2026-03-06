@@ -59,6 +59,7 @@ pub use crate::values::layout::avalues::static_::AllocStaticSimple;
 pub use crate::values::layout::complex::ValueTypedComplex;
 pub use crate::values::layout::freezer::Freezer;
 pub use crate::values::layout::heap::heap_type::FrozenHeap;
+pub use crate::values::layout::heap::heap_type::FrozenHeapName;
 pub use crate::values::layout::heap::heap_type::FrozenHeapRef;
 pub use crate::values::layout::heap::heap_type::Heap;
 pub use crate::values::layout::heap::heap_type::Tracer;
