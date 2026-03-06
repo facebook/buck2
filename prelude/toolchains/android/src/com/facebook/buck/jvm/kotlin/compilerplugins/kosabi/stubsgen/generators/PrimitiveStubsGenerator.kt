@@ -56,11 +56,11 @@ private fun isJavaSdk(pkg: String): Boolean =
 
 private fun String.isSdkImport(): Boolean = isKotlinSdk(this) || isJavaSdk(this)
 
-public fun FullTypeQualifier.isSdkQualifier(): Boolean =
+fun FullTypeQualifier.isSdkQualifier(): Boolean =
     isKotlinSdk(segments.first()) || isJavaSdk(segments.first())
 
 // Types that don't require imports (auto-imported)
-public fun FullTypeQualifier.isAutoImported(): Boolean {
+fun FullTypeQualifier.isAutoImported(): Boolean {
   val pkgStr = pkgAsString()
   // java.lang.* types are auto-imported
   return pkgStr == JAVA_LANG_PREFIX || pkgStr.startsWith("$JAVA_LANG_PREFIX.")
