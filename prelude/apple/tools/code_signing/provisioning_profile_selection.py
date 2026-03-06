@@ -147,7 +147,7 @@ def _make_multiple_matching_profiles_message(
 ) -> str:
     messages = [f"Found MULTIPLE matching profiles: {len(profiles)}"]
     messages += [
-        f"    Matching Profile = UUID:{profile.uuid}, file path: {profile.file_path}"
+        f"    Matching Profile = UUID:{profile.uuid}, creation date: {profile.creation_date}, file path: {profile.file_path}"
         for profile in profiles
     ]
 

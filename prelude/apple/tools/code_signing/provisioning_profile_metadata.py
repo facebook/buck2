@@ -14,7 +14,7 @@ import hashlib
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional
 
 from apple.tools.plistlib_utils import detect_format_and_loads
 
@@ -32,6 +32,8 @@ class ProvisioningProfileMetadata:
     # Let's agree they are uppercased
     developer_certificate_fingerprints: frozenset[str]
     entitlements: dict[str, Any]
+    # Naïve object with ignored timezone (same as expiration_date)
+    creation_date: Optional[datetime] = None
 
     _mergeable_entitlements_keys: frozenset[str] = frozenset(
         [
@@ -83,6 +85,7 @@ class ProvisioningProfileMetadata:
                 developer_certificate_fingerprints
             ),
             entitlements=root["Entitlements"],
+            creation_date=root.get("CreationDate"),
         )
 
     def __hash__(self) -> int:
