@@ -751,6 +751,10 @@ def _make_py_package_live(
     runtime_files.append(state)
     sub_targets["state"] = [DefaultInfo(default_output = state)]
 
+    allow_cache_upload = None
+    if ctx.attrs._exec_os_type[OsLookup].os == Os("windows"):
+        allow_cache_upload = False
+
     if ctx.attrs.use_rust_make_par_incremental:
         cmd.add(["--incremental"])
         ctx.actions.run(
@@ -760,9 +764,10 @@ def _make_py_package_live(
             category = "par",
             identifier = "make_live_par_incremental{}".format(output_suffix),
             no_outputs_cleanup = True,
+            allow_cache_upload = allow_cache_upload,
         )
     else:
-        ctx.actions.run(cmd, category = "par", identifier = "make_live_par{}".format(output_suffix), prefer_local = False)
+        ctx.actions.run(cmd, category = "par", identifier = "make_live_par{}".format(output_suffix), prefer_local = False, allow_cache_upload = allow_cache_upload)
 
     hidden_resources = pex_modules.manifests.hidden_resources(False)
     sub_targets["link-tree"] = [DefaultInfo(
