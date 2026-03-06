@@ -10,19 +10,41 @@
 
 use allocative::Allocative;
 use buck2_core::cells::paths::CellRelativePath;
-use buck2_error::conversion::from_any_with_tag;
+use buck2_error::internal_error;
 use globset::Candidate;
 use globset::GlobSetBuilder;
 use once_cell::sync::Lazy;
+use pagable::PagableDeserialize;
+use pagable::PagableDeserializer;
+use pagable::PagableSerialize;
+use pagable::PagableSerializer;
 use regex::Regex;
 
 #[derive(Debug, Clone, Allocative)]
 pub struct IgnoreSet {
     #[allocative(skip)]
     globset: globset::GlobSet,
-    // We keep patterns so that error messages can refer to the specific pattern that was matched.
+    // Patterns that were added to the globset. Storing this seprately to support ser/de and
+    // so that error messages can refer to the specific pattern that was matched.
     // This should be in the same order as the strings were added to the GlobSet to match the indices returned from it.
     patterns: Vec<String>,
+}
+
+impl PagableSerialize for IgnoreSet {
+    fn pagable_serialize(&self, serializer: &mut dyn PagableSerializer) -> pagable::Result<()> {
+        self.patterns.pagable_serialize(serializer)
+    }
+}
+
+impl<'de> PagableDeserialize<'de> for IgnoreSet {
+    fn pagable_deserialize<D: PagableDeserializer<'de> + ?Sized>(
+        deserializer: &mut D,
+    ) -> pagable::Result<Self> {
+        let patterns = Vec::<String>::pagable_deserialize(deserializer)?;
+        let globset = Self::build_globset(&patterns)
+            .map_err(|e| pagable::Error::new(e).context("rebuilding IgnoreSet globset"))?;
+        Ok(Self { globset, patterns })
+    }
 }
 
 impl PartialEq for IgnoreSet {
@@ -56,7 +78,6 @@ impl IgnoreSet {
         // `**/*.ext`: an extension filter. These can all be merged into one hashset lookup.
         // `**/*x*x*`: just some general glob on the filename alone, can merge these into one GlobSet that just needs to check against the filename.
         // `some/prefix/**`: a directory prefix. These can all be merged into one trie lookup.
-        let mut patterns_builder = GlobSetBuilder::new();
         let mut patterns = Vec::new();
         let buck_out = if root_cell { Some("buck-out") } else { None };
         for val in buck_out.into_iter().chain(spec.split(',')) {
@@ -66,31 +87,34 @@ impl IgnoreSet {
             }
 
             let val = val.trim_end_matches('/');
-
-            static GLOB_CHARS: Lazy<Regex> = Lazy::new(|| Regex::new(r"[*?{\[]").unwrap());
-
-            if GLOB_CHARS.is_match(val) {
-                patterns_builder.add(
-                    globset::GlobBuilder::new(val)
-                        .literal_separator(true)
-                        .build()
-                        .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?,
-                );
-            } else {
-                patterns_builder.add(
-                    globset::Glob::new(&format!("{{{val},{val}/**}}"))
-                        .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?,
-                );
-            }
             patterns.push(val.to_owned());
         }
 
-        Ok(Self {
-            globset: patterns_builder
-                .build()
-                .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?,
-            patterns,
-        })
+        let globset = Self::build_globset(&patterns).map_err(|e| internal_error!("{}", e))?;
+
+        Ok(Self { globset, patterns })
+    }
+
+    /// Build a `GlobSet` from the given patterns.
+    ///
+    /// Glob-containing patterns use `literal_separator(true)`, while plain
+    /// directory names are turned into `{name,name/**}` matchers.
+    fn build_globset(patterns: &[String]) -> Result<globset::GlobSet, globset::Error> {
+        static GLOB_CHARS: Lazy<Regex> = Lazy::new(|| Regex::new(r"[*?{\[]").unwrap());
+
+        let mut builder = GlobSetBuilder::new();
+        for val in patterns {
+            if GLOB_CHARS.is_match(val) {
+                builder.add(
+                    globset::GlobBuilder::new(val)
+                        .literal_separator(true)
+                        .build()?,
+                );
+            } else {
+                builder.add(globset::Glob::new(&format!("{{{val},{val}/**}}"))?);
+            }
+        }
+        builder.build()
     }
 
     /// Returns a pattern that matches the candidate if there is one.
