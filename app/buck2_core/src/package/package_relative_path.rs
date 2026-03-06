@@ -21,6 +21,11 @@ use buck2_fs::paths::forward_rel_path::ForwardRelativePathIter;
 use buck2_util::arc_str::ArcS;
 use buck2_util::arc_str::StringInside;
 use gazebo::transmute;
+use pagable::Pagable;
+use pagable::PagableBoxDeserialize;
+use pagable::PagableDeserialize;
+use pagable::PagableDeserializer;
+use pagable::PagableSerialize;
 use ref_cast::RefCast;
 use relative_path::RelativePath;
 use relative_path::RelativePathBuf;
@@ -41,7 +46,8 @@ use crate::package::quoted_display;
     Ord,
     RefCast,
     Allocative,
-    strong_hash::StrongHash
+    strong_hash::StrongHash,
+    PagableSerialize
 )]
 #[derivative(Debug)]
 #[repr(transparent)]
@@ -49,6 +55,16 @@ pub struct PackageRelativePath(
     // Note we transmute between `PackageRelativePath` and `ForwardRelativePath`.
     #[derivative(Debug(format_with = "quoted_display"))] ForwardRelativePath,
 );
+
+impl<'de> PagableBoxDeserialize<'de> for PackageRelativePath {
+    fn deserialize_box<D: PagableDeserializer<'de> + ?Sized>(
+        deserializer: &mut D,
+    ) -> pagable::Result<Box<Self>> {
+        let owned =
+            <PackageRelativePathBuf as PagableDeserialize>::pagable_deserialize(deserializer)?;
+        Ok(owned.into_box())
+    }
+}
 
 /// The owned version of 'PackageRelativePath'
 #[derive(
@@ -62,7 +78,8 @@ pub struct PackageRelativePath(
     Ord,
     Allocative,
     Serialize,
-    Deserialize
+    Deserialize,
+    Pagable
 )]
 #[derivative(Debug)]
 pub struct PackageRelativePathBuf(

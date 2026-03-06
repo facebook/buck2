@@ -17,6 +17,14 @@ use std::str;
 
 use allocative::Allocative;
 use dupe::Dupe;
+use pagable::PagableDeserialize;
+use pagable::PagableDeserializer;
+use pagable::PagableSerialize;
+use pagable::PagableSerializer;
+use pagable::arc_erase::ArcErase;
+use pagable::arc_erase::ArcEraseType;
+use pagable::arc_erase::StdArcEraseType;
+use pagable::arc_erase::deserialize_arc;
 use serde::Deserialize;
 use serde::Serialize;
 use static_assertions::assert_eq_size;
@@ -56,6 +64,50 @@ unsafe impl ArcStrLenStrategy for ThinArcStrProperties {
 )]
 pub struct ThinArcStr {
     base: ArcStrBase<ThinArcStrProperties>,
+}
+
+impl ArcErase for ThinArcStr {
+    type Weak = ();
+
+    fn dupe_strong(&self) -> Self {
+        self.dupe()
+    }
+
+    fn erase_type() -> impl ArcEraseType {
+        StdArcEraseType::<Self>::new()
+    }
+
+    fn identity(&self) -> usize {
+        self.base.addr()
+    }
+
+    fn downgrade(&self) -> Option<Self::Weak> {
+        None
+    }
+
+    fn serialize_inner(&self, ser: &mut dyn PagableSerializer) -> pagable::Result<()> {
+        Ok(Serialize::serialize(&self, ser.serde())?)
+    }
+
+    fn deserialize_inner<'de, D: PagableDeserializer<'de> + ?Sized>(
+        deser: &mut D,
+    ) -> pagable::Result<Self> {
+        Ok(Self::deserialize(deser.serde())?)
+    }
+}
+
+impl PagableSerialize for ThinArcStr {
+    fn pagable_serialize(&self, serializer: &mut dyn PagableSerializer) -> pagable::Result<()> {
+        serializer.serialize_arc(self)
+    }
+}
+
+impl<'de> PagableDeserialize<'de> for ThinArcStr {
+    fn pagable_deserialize<D: PagableDeserializer<'de> + ?Sized>(
+        deserializer: &mut D,
+    ) -> pagable::Result<Self> {
+        deserialize_arc::<Self, _>(deserializer)
+    }
 }
 
 assert_eq_size!(ThinArcStr, usize);
