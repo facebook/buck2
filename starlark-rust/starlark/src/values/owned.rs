@@ -34,7 +34,6 @@ use crate::values::FrozenValueTyped;
 use crate::values::OwnedRefFrozenRef;
 use crate::values::StarlarkValue;
 use crate::values::Value;
-use crate::values::none::NoneType;
 use crate::values::owned_frozen_ref::OwnedFrozenRef;
 use crate::values::type_repr::StarlarkTypeRepr;
 
@@ -57,12 +56,6 @@ pub struct OwnedFrozenValue {
     owner: FrozenHeapRef,
     // Invariant: this FrozenValue must be kept alive by the `owner` field.
     value: FrozenValue,
-}
-
-impl Default for OwnedFrozenValue {
-    fn default() -> Self {
-        OwnedFrozenValue::alloc(NoneType)
-    }
 }
 
 impl Display for OwnedFrozenValue {
@@ -102,14 +95,6 @@ impl OwnedFrozenValue {
     /// ```
     pub unsafe fn new(owner: FrozenHeapRef, value: FrozenValue) -> Self {
         Self { owner, value }
-    }
-
-    /// Create an [`OwnedFrozenValue`] in a new heap.
-    pub fn alloc(x: impl AllocFrozenValue) -> Self {
-        let heap = FrozenHeap::new();
-        let val = heap.alloc(x);
-        // Safe because we just created the value on the heap
-        unsafe { Self::new(heap.into_ref(), val) }
     }
 
     /// Unpack the boolean contained in the underlying value, or [`None`] if it is not a boolean.
