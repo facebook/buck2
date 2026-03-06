@@ -285,7 +285,11 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
         // patternlint-disable-next-line buck2-no-starlark-module: We expect these to be small + simple
         let frozen = Module::with_temp_heap(|module| {
             module.set("value", module.heap().alloc(value));
-            module.freeze().map_err(from_freeze_error)
+            module
+                .freeze_named(Box::new(StarlarkEvalKind::Load(Arc::new(
+                    OwnedStarlarkModulePath::new(starlark_file),
+                ))))
+                .map_err(from_freeze_error)
         })?;
         Ok(LoadedModule::new(
             OwnedStarlarkModulePath::new(starlark_file),
@@ -310,7 +314,11 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
         // patternlint-disable-next-line buck2-no-starlark-module: We expect these to be small + simple
         let frozen = Module::with_temp_heap(|module| {
             module.set("value", module.heap().alloc(json_value));
-            module.freeze().map_err(from_freeze_error)
+            module
+                .freeze_named(Box::new(StarlarkEvalKind::Load(Arc::new(
+                    OwnedStarlarkModulePath::new(starlark_file),
+                ))))
+                .map_err(from_freeze_error)
         })?;
         Ok(LoadedModule::new(
             OwnedStarlarkModulePath::new(starlark_file),
