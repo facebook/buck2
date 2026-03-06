@@ -36,7 +36,7 @@ def _toolchain(lang: str, providers: list[typing.Any]) -> Attr:
     return attrs.toolchain_dep(default = "toolchains//:" + lang, providers = providers)
 
 def _android_toolchain():
-    return _toolchain("android", [AndroidToolchainInfo, AndroidPlatformInfo])
+    return _toolchain("android", [AndroidToolchainInfo, AndroidPlatformInfo, TestListingInfo])
 
 def _csharp_toolchain():
     return _toolchain("csharp", [CSharpToolchainInfo])

@@ -20,6 +20,7 @@ load(
     "traverse_shared_library_info",
 )
 load("@prelude//test:inject_test_run_info.bzl", "inject_test_run_info")
+load("@prelude//tests:test_listing.bzl", "TestListingInfo")
 load("@prelude//utils:argfile.bzl", "at_argfile")
 load("@prelude//utils:expect.bzl", "expect")
 
@@ -142,6 +143,18 @@ def android_instrumentation_test_impl(ctx: AnalysisContext):
             apk_info.apk,
         ],
     )
+
+    listing_info = ctx.attrs._android_toolchain[TestListingInfo]
+
+    list_tests = listing_info.list_tests
+    if list_tests != None and "tpx:supports_static_listing=true" in ctx.attrs.labels and "tpx:supports_static_listing=false" not in ctx.attrs.labels:
+        list_tests_command = cmd_args([
+            list_tests[RunInfo],
+            "list-tests",
+            "--sources-file",
+            ctx.actions.write("source_files.txt", ctx.attrs.srcs, with_inputs = True),
+        ])
+        env["TPX_LIST_TESTS_COMMAND"] = list_tests_command
 
     labels = ctx.attrs.labels
     if read_root_config("test", "use_tpx_standard_output") == "true":
