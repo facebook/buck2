@@ -323,7 +323,7 @@ tokio-rustls = { version = "0.26" }
 tokio-stream = { version = "0.1.17", features = ["fs", "io-util", "net", "sync", "time", "signal"] }
 tokio-util = { version = "0.7.15", features = ["full"] }
 toml = "0.9.11"
-tonic = { version = "0.14.5", features = ["tls-ring"] }
+tonic = { version = "0.14.5", features = ["tls-native-roots", "tls-ring", "tls-webpki-roots"] }
 tonic-build = { version = "0.14.5" }
 tonic-prost = { version = "0.14.5" }
 tonic-prost-build = { version = "0.14.5" }
