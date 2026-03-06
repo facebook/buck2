@@ -31,6 +31,7 @@ use buck2_fs::paths::abs_path::AbsPath;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
 use dice::DiceComputations;
 use dupe::Dupe;
+use pagable::Pagable;
 
 use crate::dice::cells::HasCellResolver;
 use crate::dice::data::HasIoProvider;
@@ -57,7 +58,7 @@ use crate::legacy_configs::path::ProjectConfigSource;
 
 /// Buckconfigs can partially be loaded from within dice. However, some parts of what makes up the
 /// buckconfig comes from outside the buildgraph, and this type represents those parts.
-#[derive(Clone, PartialEq, Eq, Allocative)]
+#[derive(Clone, PartialEq, Eq, Allocative, Pagable)]
 pub struct ExternalBuckconfigData {
     // The result of parsing the buckconfigs coming from either global (e.g. /etc/buckconfig.d) or
     // user (e.g. ~/.buckconfig.d or $home_dir/.buckconfig.local) files/dirs outside of the repo
@@ -68,7 +69,7 @@ pub struct ExternalBuckconfigData {
     args: Vec<ResolvedLegacyConfigArg>,
 }
 
-#[derive(PartialEq, Eq, Allocative, Clone)]
+#[derive(PartialEq, Eq, Allocative, Clone, Pagable)]
 pub struct ExternalPathBuckconfigData {
     pub(crate) parse_state: LegacyConfigParser,
     pub(crate) origin_path: ConfigPath,

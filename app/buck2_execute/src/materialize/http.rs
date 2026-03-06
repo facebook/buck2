@@ -36,6 +36,7 @@ use dupe::Dupe;
 use futures::StreamExt;
 use futures::stream::Stream;
 use hyper::Response;
+use pagable::Pagable;
 use sha1::Digest;
 use sha1::Sha1;
 use sha2::Sha256;
@@ -43,7 +44,7 @@ use smallvec::SmallVec;
 
 use crate::digest_config::DigestConfig;
 
-#[derive(Debug, Clone, Dupe, Allocative)]
+#[derive(Debug, Clone, Dupe, Allocative, Pagable)]
 pub enum Checksum {
     Sha1(Arc<str>),
     Sha256(Arc<str>),

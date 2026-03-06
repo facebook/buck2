@@ -19,6 +19,7 @@ use std::str::FromStr;
 
 use allocative::Allocative;
 use derive_more::Display;
+use pagable::Pagable;
 use ref_cast::RefCast;
 use relative_path::RelativePath;
 use serde::Deserialize;
@@ -46,7 +47,7 @@ pub struct AbsNormPath(AbsPath);
 
 /// The owned version of [`AbsNormPath`].
 #[derive(
-    Clone, Display, Debug, Hash, PartialEq, Eq, Ord, PartialOrd, Allocative
+    Clone, Display, Debug, Hash, PartialEq, Eq, Ord, PartialOrd, Allocative, Pagable
 )]
 #[display("{}", _0.display())]
 pub struct AbsNormPathBuf(AbsPathBuf);

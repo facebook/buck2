@@ -21,6 +21,7 @@ use futures::FutureExt;
 use futures::future::BoxFuture;
 use itertools::Itertools;
 use once_cell::sync::Lazy;
+use pagable::Pagable;
 use regex::Regex;
 use starlark_map::sorted_map::SortedMap;
 
@@ -67,7 +68,7 @@ fn format_cycle(cycle: &[(String, String)]) -> String {
         .join(" -> ")
 }
 
-#[derive(Debug, Default, Clone, PartialEq, Eq, Allocative)]
+#[derive(Debug, Default, Clone, PartialEq, Eq, Allocative, Pagable)]
 struct SectionBuilder {
     values: BTreeMap<String, ConfigValue>,
 }
@@ -83,7 +84,7 @@ impl SectionBuilder {
 /// Represents the state associated with a buckconfig that is being parsed right now.
 ///
 /// A buckconfig will generally be parsed by combining multiple command args and files
-#[derive(Debug, Clone, PartialEq, Eq, Allocative)]
+#[derive(Debug, Clone, PartialEq, Eq, Allocative, Pagable)]
 pub(crate) struct LegacyConfigParser {
     values: BTreeMap<String, SectionBuilder>,
 }

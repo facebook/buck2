@@ -33,6 +33,7 @@ use buck2_core::pattern::pattern::ParsedPattern;
 use buck2_core::pattern::pattern_type::TargetPatternExtra;
 use buck2_core::target::label::label::TargetLabel;
 use buck2_error::BuckErrorContext;
+use pagable::Pagable;
 
 #[derive(Debug, buck2_error::Error)]
 #[buck2(tag = Input)]
@@ -51,7 +52,7 @@ enum DetectorSpecParseError {
     UnsupportedKind(String),
 }
 
-#[derive(Debug, Eq, PartialEq, Allocative)]
+#[derive(Debug, Eq, PartialEq, Allocative, Pagable)]
 pub struct TargetPlatformDetector {
     detectors: Vec<(CellPath, TargetLabel)>,
 }

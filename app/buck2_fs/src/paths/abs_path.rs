@@ -18,6 +18,7 @@ use std::str::FromStr;
 
 use allocative::Allocative;
 use derive_more::Display;
+use pagable::Pagable;
 use ref_cast::RefCast;
 
 use crate::cwd;
@@ -45,7 +46,8 @@ pub struct AbsPath(Path);
     Allocative,
     Display,
     serde::Serialize,
-    serde::Deserialize
+    serde::Deserialize,
+    Pagable
 )]
 #[display("{}", _0.display())]
 pub struct AbsPathBuf(PathBuf);

@@ -17,6 +17,7 @@ use buck2_core::target::label::label::TargetLabel;
 use buck2_core::target::name::TargetNameRef;
 use buck2_util::indent::indent;
 use dupe::Dupe;
+use pagable::Pagable;
 use starlark_map::ordered_set;
 use starlark_map::ordered_set::OrderedSet;
 
@@ -47,7 +48,7 @@ impl TargetsMapRecordError {
     }
 }
 
-#[derive(Debug, Clone, Dupe, Allocative)]
+#[derive(Debug, Clone, Dupe, Allocative, Pagable)]
 struct NameIndexed(TargetNode);
 
 impl PartialEq for NameIndexed {
@@ -71,7 +72,7 @@ impl Borrow<TargetNameRef> for NameIndexed {
 }
 
 /// Map of target -> details of those targets within a build file.
-#[derive(Debug, Clone, Allocative)]
+#[derive(Debug, Clone, Allocative, Pagable)]
 pub struct TargetsMap {
     map: OrderedSet<NameIndexed>,
 }

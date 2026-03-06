@@ -17,6 +17,7 @@ use dupe::IterDupedExt;
 use fancy_regex::Regex;
 use fancy_regex::RegexBuilder;
 use indexmap::IndexSet;
+use pagable::Pagable;
 
 use crate::query::environment::QueryTarget;
 use crate::query::syntax::simple::eval::file_set::FileNode;
@@ -24,7 +25,7 @@ use crate::query::syntax::simple::eval::file_set::FileSet;
 use crate::query::syntax::simple::eval::label_indexed;
 use crate::query::syntax::simple::eval::label_indexed::LabelIndexedSet;
 
-#[derive(Debug, Eq, PartialEq, Clone, Allocative)]
+#[derive(Debug, Eq, PartialEq, Clone, Allocative, Pagable)]
 pub struct TargetSet<T: QueryTarget> {
     targets: LabelIndexedSet<T>,
 }

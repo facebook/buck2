@@ -17,6 +17,7 @@ use buck2_interpreter::plugins::PLUGIN_KIND_FROM_VALUE;
 use derive_more::Display;
 use dupe::Dupe;
 use either::Either;
+use pagable::Pagable;
 use starlark::environment::GlobalsBuilder;
 use starlark::eval::Evaluator;
 use starlark::starlark_module;
@@ -41,7 +42,7 @@ use starlark::values::type_repr::StarlarkTypeRepr;
 
 use crate::interpreter::build_context::BuildContext;
 
-#[derive(Debug, derive_more::Display, Allocative)]
+#[derive(Debug, derive_more::Display, Allocative, Pagable)]
 enum InnerStarlarkPluginKind {
     #[display("<plugin_kind <unbound>>")]
     Unbound(CellPath),

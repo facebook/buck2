@@ -68,7 +68,7 @@ use crate::visibility::VisibilitySpecification;
 /// the attribute names and it doesn't store an entry for something that has a default value. All
 /// that information is contained in the AttributeSpec. This means that to access an attribute we
 /// need to look at both the attrs held by the TargetNode and the information in the AttributeSpec.
-#[derive(Debug, Clone, Eq, PartialEq, Hash, Allocative)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, Allocative, Pagable)]
 pub struct TargetNode(triomphe::Arc<TargetNodeData>);
 
 impl Dupe for TargetNode {}
@@ -111,7 +111,7 @@ impl fmt::Display for RuleKind {
     }
 }
 
-#[derive(Debug, Eq, PartialEq, Hash, Allocative)]
+#[derive(Debug, Eq, PartialEq, Hash, Allocative, Pagable)]
 pub struct TargetNodeData {
     /// Rule type for this target.
     pub rule: Arc<Rule>,
@@ -130,6 +130,7 @@ pub struct TargetNodeData {
     deps_cache: CoercedDeps,
 
     /// Call stack for the target.
+    #[pagable(discard = "None")]
     call_stack: Option<StarlarkCallStack>,
 
     /// Config modifiers set in the package this target belongs to

@@ -12,6 +12,7 @@ use std::cmp::min;
 
 use allocative::Allocative;
 use buck2_error::internal_error;
+use pagable::Pagable;
 
 #[derive(Debug, buck2_error::Error)]
 #[buck2(input)]
@@ -30,7 +31,8 @@ enum ContentBasedPathHashError {
     Allocative,
     derive_more::Display,
     Ord,
-    PartialOrd
+    PartialOrd,
+    Pagable
 )]
 pub enum ContentBasedPathHash {
     Specified(String),

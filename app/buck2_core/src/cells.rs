@@ -102,6 +102,7 @@ use dupe::OptionDupedExt;
 use gazebo::prelude::*;
 use instance::CellInstance;
 use itertools::Itertools;
+use pagable::Pagable;
 use sequence_trie::SequenceTrie;
 
 use crate::cells::alias::CellAlias;
@@ -140,7 +141,7 @@ enum CellError {
 /// A 'CellAliasResolver' is unique to a 'CellInstance'.
 /// It is responsible for resolving all 'CellAlias' encountered within the
 /// 'CellInstance' into the global canonical 'CellName's
-#[derive(Clone, Dupe, Debug, PartialEq, Eq, Allocative)]
+#[derive(Clone, Dupe, Debug, PartialEq, Eq, Allocative, Pagable)]
 pub struct CellAliasResolver {
     /// Current cell name.
     current: CellName,
@@ -210,10 +211,10 @@ impl CellAliasResolver {
 
 /// Resolves 'CellName's into 'CellInstance's.
 // TODO(bobyf) we need to check if cells changed
-#[derive(Clone, Dupe, PartialEq, Eq, Debug, Allocative)]
+#[derive(Clone, Dupe, PartialEq, Eq, Debug, Allocative, Pagable)]
 pub struct CellResolver(Arc<CellResolverInternals>);
 
-#[derive(PartialEq, Eq, Debug, Allocative)]
+#[derive(PartialEq, Eq, Debug, Allocative, Pagable)]
 struct CellResolverInternals {
     cells: HashMap<CellName, CellInstance>,
     #[allocative(visit = crate::cells::sequence_trie_allocative::visit_sequence_trie)]

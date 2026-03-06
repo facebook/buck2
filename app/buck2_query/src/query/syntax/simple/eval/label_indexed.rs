@@ -13,6 +13,7 @@ use std::hash::Hash;
 use allocative::Allocative;
 use dupe::Clone_;
 use dupe::Dupe;
+use pagable::Pagable;
 use starlark_map::Equivalent;
 use starlark_map::Hashed;
 use starlark_map::ordered_set::OrderedSet;
@@ -20,7 +21,7 @@ use starlark_map::small_set;
 
 use crate::query::graph::node::LabeledNode;
 
-#[derive(Debug, Clone, Dupe, Allocative)]
+#[derive(Debug, Clone, Dupe, Allocative, Pagable)]
 pub struct LabelIndexed<T: LabeledNode>(pub T);
 
 impl<T: LabeledNode> PartialEq for LabelIndexed<T> {
@@ -68,7 +69,7 @@ impl<'a, T: LabeledNode> Hash for LabelIndexer<'a, T> {
 
 /// This is a Set that contains `LabeledNode`s, but for all trait operation like `Eq`, `Ord` all
 /// operate only on the `NodeRef` of the `LabeledNode`.
-#[derive(Debug, Clone, Eq, PartialEq, Hash, Allocative)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, Allocative, Pagable)]
 pub struct LabelIndexedSet<T: LabeledNode> {
     nodes: OrderedSet<LabelIndexed<T>>,
 }

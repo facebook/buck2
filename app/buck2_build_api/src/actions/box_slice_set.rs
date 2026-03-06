@@ -13,9 +13,10 @@ use std::vec;
 
 use allocative::Allocative;
 use indexmap::IndexSet;
+use pagable::Pagable;
 
 /// It is a boxed slice, where all elements are unique.
-#[derive(Debug, Allocative)]
+#[derive(Debug, Allocative, Pagable)]
 pub struct BoxSliceSet<T>(Box<[T]>);
 
 impl<T> BoxSliceSet<T> {

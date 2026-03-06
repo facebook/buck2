@@ -16,17 +16,18 @@ use buck2_fs::paths::file_name::FileName;
 use buck2_fs::paths::file_name::FileNameBuf;
 use buck2_util::arc_str::ArcS;
 use dupe::Dupe;
+use pagable::Pagable;
 use starlark_map::sorted_set::SortedSet;
 use starlark_map::sorted_vec::SortedVec;
 
 use crate::package_listing::file_listing::PackageFileListing;
 
-#[derive(Clone, Dupe, Eq, PartialEq, Debug, Allocative)]
+#[derive(Clone, Dupe, Eq, PartialEq, Debug, Allocative, Pagable)]
 pub struct PackageListing {
     listing: Arc<PackageListingData>,
 }
 
-#[derive(Eq, PartialEq, Debug, Allocative)]
+#[derive(Eq, PartialEq, Debug, Allocative, Pagable)]
 struct PackageListingData {
     files: PackageFileListing,
     directories: SortedSet<ArcS<PackageRelativePath>>,

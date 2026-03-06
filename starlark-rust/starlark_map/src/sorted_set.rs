@@ -20,6 +20,8 @@
 use std::hash::Hash;
 
 use allocative::Allocative;
+#[cfg(feature = "pagable_dep")]
+use pagable::Pagable;
 use serde::Deserialize;
 use serde::Serialize;
 
@@ -42,6 +44,7 @@ use crate::sorted_vec::SortedVec;
     Serialize,
     Deserialize
 )]
+#[cfg_attr(feature = "pagable_dep", derive(Pagable))]
 pub struct SortedSet<T: Eq + Hash> {
     inner: OrderedSet<T>,
 }

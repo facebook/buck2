@@ -38,6 +38,7 @@ use buck2_util::arc_str::ArcStr;
 use dupe::Dupe;
 use either::Either;
 use once_cell::sync::Lazy;
+use pagable::Pagable;
 use starlark_map::Hashed;
 use starlark_map::ordered_map::OrderedMap;
 
@@ -81,12 +82,12 @@ use crate::rule_type::StarlarkRuleType;
 /// in the node, instead the node just stores the base TargetNode and a configuration for
 /// resolving the attributes. This saves memory, but users should try avoid repeatedly
 /// requesting the same information.
-#[derive(Debug, Clone, Eq, PartialEq, Hash, Allocative)]
+#[derive(Debug, Clone, Eq, PartialEq, Hash, Allocative, Pagable)]
 pub struct ConfiguredTargetNode(triomphe::Arc<Hashed<ConfiguredTargetNodeData>>);
 
 impl Dupe for ConfiguredTargetNode {}
 
-#[derive(Debug, Eq, PartialEq, Hash, Allocative)]
+#[derive(Debug, Eq, PartialEq, Hash, Allocative, Pagable)]
 enum TargetNodeOrForward {
     TargetNode(TargetNode),
     // Coerced attr is always a dependency.
@@ -178,7 +179,7 @@ impl TargetNodeOrForward {
 //  1. we iterate over and configure the attributes multiple times, that could be improved in a bunch of ways
 //  2. we store the same resolvedconfiguration probably in a bunch of nodes, that could be made smaller or shared
 //  3. deps could probably be approximated a diff against the targetnode's deps
-#[derive(Eq, PartialEq, Hash, Allocative)]
+#[derive(Eq, PartialEq, Hash, Allocative, Pagable)]
 struct ConfiguredTargetNodeData {
     label: Hashed<ConfiguredTargetLabel>,
     target_node: TargetNodeOrForward,
@@ -557,7 +558,7 @@ impl ConfiguredTargetNode {
 
 /// The representation of the deps for a ConfiguredTargetNode. Provides the operations we require
 /// (iteration, eq, and hash), but guarantees those aren't recursive of the dep nodes' data.
-#[derive(Allocative)]
+#[derive(Allocative, Pagable)]
 struct ConfiguredTargetNodeDeps {
     /// Number of deps, excluding exec deps. Used as an index to retrieve exec_deps
     deps_count: usize,

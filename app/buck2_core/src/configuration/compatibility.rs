@@ -48,7 +48,7 @@ enum CompatibilityErrors {
 /// with the target platform. The main place this comes up is that targets provided on the
 /// cli may be incompatible with the default or requested platform, and we want to skip
 /// building those rather than have it be an error.
-#[derive(Clone, Dupe, Debug, Eq, PartialEq, Hash, Allocative)]
+#[derive(Clone, Dupe, Debug, Eq, PartialEq, Hash, Allocative, Pagable)]
 pub enum MaybeCompatible<T> {
     Incompatible(Arc<IncompatiblePlatformReason>),
     Compatible(T),

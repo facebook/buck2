@@ -43,6 +43,7 @@ use either::Either;
 use gazebo::variants::VariantName;
 use indexmap::IndexMap;
 use internment::ArcIntern;
+use pagable::Pagable;
 use ref_cast::RefCast;
 use serde::Serialize;
 use starlark::values::Heap;
@@ -54,7 +55,7 @@ use crate::artifact_groups::TransitiveSetProjectionKey;
 use crate::interpreter::rule_defs::cmd_args::ArtifactPathMapper;
 use crate::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValue;
 
-#[derive(Debug, derive_more::Display, RefCast, Serialize, Allocative)]
+#[derive(Debug, derive_more::Display, RefCast, Serialize, Allocative, Pagable)]
 #[repr(transparent)]
 #[serde(transparent)]
 pub struct OwnedActionAttr(pub String);

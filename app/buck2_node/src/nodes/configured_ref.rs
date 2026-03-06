@@ -19,6 +19,7 @@ use buck2_query::query::environment::QueryTarget;
 use buck2_query::query::graph::node::LabeledNode;
 use buck2_query::query::graph::node::NodeKey;
 use dupe::Dupe;
+use pagable::Pagable;
 use ref_cast::RefCast;
 
 use crate::attrs::attr_type::any_matches::AnyMatches;
@@ -27,7 +28,7 @@ use crate::attrs::inspect_options::AttrInspectOptions;
 use crate::nodes::configured::ConfiguredTargetNode;
 
 /// `ConfiguredTargetNode` as both `LabeledNode` and `NodeLabel` and also `QueryTarget`.
-#[derive(Debug, Dupe, Clone, RefCast, Allocative)]
+#[derive(Debug, Dupe, Clone, RefCast, Allocative, Pagable)]
 #[repr(C)]
 pub struct ConfiguredGraphNodeRef(ConfiguredTargetNode);
 

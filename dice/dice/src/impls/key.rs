@@ -610,7 +610,7 @@ mod tests {
         // no extra copies
         assert_eq!(Arc::strong_count(&downcast), 1);
 
-        #[derive(Allocative, Debug, Display, Clone, Dupe, Eq, PartialEq, Hash)]
+        #[derive(Allocative, Debug, Display, Clone, Dupe, Eq, PartialEq, Hash, Pagable)]
         struct TestProj;
 
         impl ProjectionKey for TestProj {

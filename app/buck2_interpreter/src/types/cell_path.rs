@@ -13,6 +13,7 @@ use std::hash::Hash;
 use allocative::Allocative;
 use buck2_core::cells::cell_path::CellPath;
 use derive_more::Display;
+use pagable::Pagable;
 use serde::Serialize;
 use serde::Serializer;
 use starlark::any::ProvidesStaticType;
@@ -29,7 +30,7 @@ use starlark::values::ValueLike;
 use starlark::values::starlark_value;
 use starlark::values::starlark_value_as_type::StarlarkValueAsType;
 
-#[derive(Debug, PartialEq, Display, ProvidesStaticType, Allocative)]
+#[derive(Debug, PartialEq, Display, ProvidesStaticType, Allocative, Pagable)]
 pub struct StarlarkCellPath(pub CellPath);
 
 starlark_simple_value!(StarlarkCellPath);

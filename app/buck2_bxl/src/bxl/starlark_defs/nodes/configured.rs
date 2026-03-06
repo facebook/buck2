@@ -57,6 +57,7 @@ use derivative::Derivative;
 use derive_more::Display;
 use dupe::Dupe;
 use futures::FutureExt;
+use pagable::Pagable;
 use serde::Serialize;
 use serde::Serializer;
 use starlark::any::ProvidesStaticType;
@@ -746,7 +747,7 @@ fn configured_target_node_value_methods(builder: &mut MethodsBuilder) {
     }
 }
 
-#[derive(Debug, Clone, ProvidesStaticType, Allocative)]
+#[derive(Debug, Clone, ProvidesStaticType, Allocative, Pagable)]
 #[repr(C)]
 pub(crate) struct StarlarkConfiguredAttr(ConfiguredAttr, PackageLabel);
 

@@ -107,7 +107,7 @@ struct IncompatibleExecutorPreferences {
     b: ExecutorPreference,
 }
 
-#[derive(Copy, Clone, Dupe, Display, Debug, Allocative)]
+#[derive(Copy, Clone, Dupe, Display, Debug, Allocative, Pagable)]
 pub enum ExecutorPreference {
     Default,
     /// Fails when executed by a remote-only executor

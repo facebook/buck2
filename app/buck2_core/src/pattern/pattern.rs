@@ -530,7 +530,7 @@ impl<T: PatternType> ParsedPatternWithModifiers<T> {
     }
 }
 
-#[derive(Clone, Debug, Hash, Eq, PartialEq, Allocative)]
+#[derive(Clone, Debug, Hash, Eq, PartialEq, Allocative, Pagable)]
 pub enum ParsedPatternPredicate<T: PatternType> {
     Any,
     AnyOf(Vec<ParsedPattern<T>>),

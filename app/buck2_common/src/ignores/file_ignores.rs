@@ -12,6 +12,7 @@ use allocative::Allocative;
 use buck2_core::cells::name::CellName;
 use buck2_core::cells::nested::NestedCells;
 use buck2_core::cells::unchecked_cell_rel_path::UncheckedCellRelativePath;
+use pagable::Pagable;
 
 use crate::ignores::ignore_set::IgnoreSet;
 
@@ -75,7 +76,7 @@ impl FileIgnoreResult {
 }
 
 /// Ignores files based on configured ignore patterns and cell paths.
-#[derive(PartialEq, Eq, Allocative, Debug)]
+#[derive(PartialEq, Eq, Allocative, Debug, Pagable)]
 pub struct CellFileIgnores {
     ignores: IgnoreSet,
     cell_ignores: NestedCells,

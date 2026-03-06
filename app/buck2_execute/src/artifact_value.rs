@@ -18,12 +18,13 @@ use buck2_common::file_ops::metadata::FileMetadata;
 use buck2_core::content_hash::ContentBasedPathHash;
 use buck2_util::strong_hasher::Blake3StrongHasher;
 use dupe::Dupe;
+use pagable::Pagable;
 
 use crate::directory::ActionDirectoryEntry;
 use crate::directory::ActionDirectoryMember;
 use crate::directory::ActionSharedDirectory;
 
-#[derive(Clone, Dupe, Debug, PartialEq, Eq, Allocative)]
+#[derive(Clone, Dupe, Debug, PartialEq, Eq, Allocative, Pagable)]
 pub enum UnderlyingContentBasedPathHash {
     Inferred,
     Explicit(Arc<ContentBasedPathHash>),

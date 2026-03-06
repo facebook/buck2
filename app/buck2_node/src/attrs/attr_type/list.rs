@@ -46,6 +46,7 @@ impl ListAttrType {
 #[derive(
     Debug, Clone, Eq, PartialEq, Hash, Allocative, Default, Pagable, StrongHash
 )]
+#[pagable(bound = "C: Eq + Pagable")]
 pub struct ListLiteral<C: Eq>(pub ArcSlice<C>);
 
 impl<C: Eq> Deref for ListLiteral<C> {

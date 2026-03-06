@@ -14,8 +14,9 @@ use buck2_core::cells::CellResolver;
 use buck2_core::cells::cell_path::CellPath;
 use buck2_core::cells::name::CellName;
 use buck2_core::cells::paths::CellRelativePathBuf;
+use pagable::Pagable;
 
-#[derive(Debug, derive_more::Display, Clone, Eq, PartialEq, Allocative)]
+#[derive(Debug, derive_more::Display, Clone, Eq, PartialEq, Allocative, Pagable)]
 pub struct PreludePath(ImportPath);
 
 impl PreludePath {

@@ -16,10 +16,11 @@ use allocative::Allocative;
 use buck2_error::buck2_error;
 use derive_more::Display;
 use dupe::Dupe;
+use pagable::Pagable;
 
 use crate::cells::name::CellName;
 
-#[derive(Debug, Clone, Dupe, Allocative, PartialEq, Eq)]
+#[derive(Debug, Clone, Dupe, Allocative, PartialEq, Eq, Pagable)]
 pub enum ExternalCellOrigin {
     Bundled(CellName),
     Git(GitCellSetup),

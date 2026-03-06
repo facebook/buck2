@@ -15,6 +15,7 @@ use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_error::BuckErrorContext;
 use buck2_fs::paths::abs_path::AbsPath;
 use buck2_fs::paths::abs_path::AbsPathBuf;
+use pagable::Pagable;
 
 use crate::legacy_configs::configs::ConfigArgumentParseError;
 use crate::legacy_configs::configs::ConfigSectionAndKey;
@@ -25,7 +26,7 @@ use crate::legacy_configs::file_ops::ConfigPath;
 use crate::legacy_configs::parser::LegacyConfigParser;
 
 /// Representation of a processed config arg, namely after file path resolution has been performed.
-#[derive(Debug, Clone, PartialEq, Eq, allocative::Allocative)]
+#[derive(Debug, Clone, PartialEq, Eq, allocative::Allocative, Pagable)]
 pub(crate) enum ResolvedLegacyConfigArg {
     /// A single config key-value pair (in `a.b=c` format).
     Flag(ResolvedConfigFlag),
@@ -33,7 +34,7 @@ pub(crate) enum ResolvedLegacyConfigArg {
     File(ResolvedConfigFile),
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, allocative::Allocative)]
+#[derive(Clone, Debug, PartialEq, Eq, allocative::Allocative, Pagable)]
 pub(crate) enum ResolvedConfigFile {
     /// If the config file is project relative, the path of the file
     Project(ProjectRelativePathBuf),
@@ -41,14 +42,14 @@ pub(crate) enum ResolvedConfigFile {
     Global(ExternalConfigFile),
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, allocative::Allocative)]
+#[derive(Clone, Debug, PartialEq, Eq, allocative::Allocative, Pagable)]
 pub(crate) struct ExternalConfigFile {
     pub(crate) parser: LegacyConfigParser,
     // The origin path of the config file
     origin_path: AbsPathBuf,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, allocative::Allocative)]
+#[derive(Clone, Debug, PartialEq, Eq, allocative::Allocative, Pagable)]
 pub(crate) struct ResolvedConfigFlag {
     pub(crate) section: String,
     pub(crate) key: String,

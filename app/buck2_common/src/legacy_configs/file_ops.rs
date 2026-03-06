@@ -27,12 +27,22 @@ use dice::DiceComputations;
 use dupe::Dupe;
 use futures::FutureExt;
 use futures::future::BoxFuture;
+use pagable::Pagable;
 
 use crate::file_ops::dice::DiceFileComputations;
 use crate::file_ops::metadata::FileType;
 use crate::file_ops::metadata::RawPathMetadata;
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Allocative, derive_more::Display)]
+#[derive(
+    Debug,
+    Clone,
+    PartialEq,
+    Eq,
+    Hash,
+    Allocative,
+    derive_more::Display,
+    Pagable
+)]
 pub enum ConfigPath {
     #[display("{}", _0)]
     Project(ProjectRelativePathBuf),

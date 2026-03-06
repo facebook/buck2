@@ -31,6 +31,7 @@ use buck2_node::visibility::WithinViewSpecification;
 use derive_more::From;
 use dupe::Dupe;
 use gazebo::prelude::SliceExt;
+use pagable::Pagable;
 use serde::Serialize;
 use starlark::__derive_refs::serde::Serializer;
 use starlark::any::ProvidesStaticType;
@@ -52,7 +53,7 @@ use crate::bxl::select::StarlarkSelectConcat;
 use crate::bxl::select::StarlarkSelectDict;
 use crate::interpreter::rule_defs::artifact::starlark_artifact::StarlarkArtifact;
 
-#[derive(Debug, ProvidesStaticType, From, Allocative)]
+#[derive(Debug, ProvidesStaticType, From, Allocative, Pagable)]
 pub struct StarlarkCoercedAttr(pub CoercedAttr, pub PackageLabel);
 
 starlark_simple_value!(StarlarkCoercedAttr);
