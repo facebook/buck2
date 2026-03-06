@@ -9,6 +9,7 @@ source_listing()
 fb_native.java_test(
     name = "model",
     srcs = glob(["*.java"]),
+    test_type = "junit",
     vm_args = OPEN_JDK_COMPILER_ARGS,
     deps = [
         "prelude//toolchains/android/src/com/facebook/buck/jvm/java/abi/source/api:api",
