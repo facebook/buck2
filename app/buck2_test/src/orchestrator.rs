@@ -1740,6 +1740,7 @@ impl BuckTestOrchestrator<'_> {
             CommandExecutionRequest::new(vec![], cmd, paths, Default::default());
         execution_request =
             execution_request.with_timeout(provider.setup_timeout().unwrap_or(default_timeout));
+        execution_request = execution_request.with_skip_resource_control();
         Ok(PreparedLocalResourceSetupContext {
             target: target.dupe(),
             execution_request,

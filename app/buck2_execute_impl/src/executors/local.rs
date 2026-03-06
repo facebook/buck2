@@ -406,28 +406,29 @@ impl LocalExecutor {
         ),
         CommandExecutionResult,
     > {
-        let (cgroup_session, mut start_future) = if worker.is_some() {
-            (None, None)
-        } else {
-            let command_type = if request.is_test() {
-                CommandType::Test
+        let (cgroup_session, mut start_future) =
+            if worker.is_some() || request.skip_resource_control() {
+                (None, None)
             } else {
-                CommandType::Build
+                let command_type = if request.is_test() {
+                    CommandType::Test
+                } else {
+                    CommandType::Build
+                };
+                let disable_kill_and_retry_suspend = !request.outputs_cleanup;
+                match ActionCgroupSession::maybe_create(
+                    self.memory_tracker.dupe(),
+                    command_type,
+                    Some(action_digest.to_string()),
+                    disable_kill_and_retry_suspend,
+                )
+                .await
+                {
+                    Ok(Some((session, start_future))) => (Some(session), Some(start_future)),
+                    Ok(None) => (None, None),
+                    Err(e) => return Err(manager.error("initializing_resource_control", e)),
+                }
             };
-            let disable_kill_and_retry_suspend = !request.outputs_cleanup;
-            match ActionCgroupSession::maybe_create(
-                self.memory_tracker.dupe(),
-                command_type,
-                Some(action_digest.to_string()),
-                disable_kill_and_retry_suspend,
-            )
-            .await
-            {
-                Ok(Some((session, start_future))) => (Some(session), Some(start_future)),
-                Ok(None) => (None, None),
-                Err(e) => return Err(manager.error("initializing_resource_control", e)),
-            }
-        };
 
         let liveliness_observer: Arc<dyn LivelinessObserver> = Arc::new(liveliness_observer);
 

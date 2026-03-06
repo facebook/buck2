@@ -400,6 +400,10 @@ pub struct CommandExecutionRequest {
     run_action_key: Option<String>,
 
     is_test: bool,
+    /// Whether to skip resource control (cgroup) for this command.
+    /// Set for local resource setup commands whose backgrounded processes
+    /// must survive after the setup script exits.
+    skip_resource_control: bool,
 }
 
 impl CommandExecutionRequest {
@@ -436,6 +440,7 @@ impl CommandExecutionRequest {
             outputs_for_error_handler: Vec::new(),
             run_action_key: None,
             is_test: false,
+            skip_resource_control: false,
         }
     }
 
@@ -715,6 +720,15 @@ impl CommandExecutionRequest {
 
     pub fn is_test(&self) -> bool {
         self.is_test
+    }
+
+    pub fn with_skip_resource_control(mut self) -> Self {
+        self.skip_resource_control = true;
+        self
+    }
+
+    pub fn skip_resource_control(&self) -> bool {
+        self.skip_resource_control
     }
 }
 
