@@ -36,15 +36,11 @@ CxxRuntimeType = ["dynamic", "static"]
 
 CxxSourceType = ["c", "cxx", "cxx_thinlink", "objc", "objcxx", "cuda", "hip", "swift", "c_cpp_output", "cxx_cpp_output", "objc_cpp_output", "objcxx_cpp_output", "cuda_cpp_output", "hip_cpp_output", "assembler_with_cpp", "assembler", "asm_with_cpp", "asm", "pcm"]
 
-ForkMode = ["none", "per_test"]
-
 HeadersAsRawHeadersMode = ["required", "preferred", "disabled"]
 
 IncludeType = ["local", "system", "raw"]
 
 LinkableDepType = ["static", "static_pic", "shared"]
-
-LogLevel = ["off", "severe", "warning", "info", "config", "fine", "finer", "finest", "all"]
 
 OnDuplicateEntry = ["fail", "overwrite", "append"]
 
@@ -138,26 +134,6 @@ def _run_test_separately_arg(run_test_separately_type):
         "run_test_separately": run_test_separately_type,
     }
 
-def _fork_mode():
-    return {
-        "fork_mode": attrs.enum(ForkMode, default = "none", doc = """
-    Controls whether tests will all be run in the same process or a process will be
-     started for each set of tests in a class.
-
-     (This is mainly useful when porting Java tests to Buck from Apache Ant which
-     allows JUnit tasks to set a `fork="yes"` property. It should not be
-     used for new tests since it encourages tests to not cleanup after themselves and
-     increases the tests' computational resources and running time.)
-
-
-    `none`
-    All tests will run in the same process.
-    `per_test`
-    A process will be started for each test class in which all tests of that test class
-     will run.
-"""),
-    }
-
 def _test_rule_timeout_ms():
     return {
         "test_rule_timeout_ms": attrs.option(attrs.int(), default = None, doc = """
@@ -228,7 +204,6 @@ buck = struct(
     tests_apple_arg = _tests_apple_arg,
     test_label_arg = _test_label_arg,
     run_test_separately_arg = _run_test_separately_arg,
-    fork_mode = _fork_mode,
     test_rule_timeout_ms = _test_rule_timeout_ms,
     target_os_type_arg = _target_os_type_arg,
     allow_cache_upload_arg = _allow_cache_upload_arg,

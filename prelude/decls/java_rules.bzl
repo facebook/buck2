@@ -14,7 +14,7 @@
 load("@prelude//:attrs_validators.bzl", "validation_common")
 load("@prelude//decls:test_common.bzl", "test_common")
 load("@prelude//transitions:constraint_overrides.bzl", "constraint_overrides")
-load(":common.bzl", "AbiGenerationMode", "LogLevel", "SourceAbiVerificationMode", "TestType", "buck", "prelude_rule")
+load(":common.bzl", "AbiGenerationMode", "SourceAbiVerificationMode", "TestType", "buck", "prelude_rule")
 load(":jvm_common.bzl", "jvm_common")
 load(":re_test_common.bzl", "re_test_common")
 
@@ -380,18 +380,9 @@ java_test = prelude_rule(
             """),
         } |
         buck.run_test_separately_arg(run_test_separately_type = attrs.bool(default = False)) |
-        buck.fork_mode() |
         re_test_common.test_args() |
         buck.test_rule_timeout_ms() |
         {
-            "std_out_log_level": attrs.option(attrs.one_of(attrs.enum(LogLevel), attrs.int()), default = None, doc = """
-                Log level for messages from the source under test that buck will output to
-                 std out.
-                 Value must be a valid `java.util.logging.Level` value.
-            """),
-            "std_err_log_level": attrs.option(attrs.one_of(attrs.enum(LogLevel), attrs.int()), default = None, doc = """
-                Same as `std_out_log_level`, but for std err.
-            """),
             "use_cxx_libraries": attrs.option(attrs.bool(), default = None, doc = """
                 Whether or not to build and link against `cxx_library()` dependencies when testing.
             """),
