@@ -165,7 +165,6 @@ load(
     "cxx_attr_dep_metadata",
     "cxx_attr_deps",
     "cxx_attr_exported_deps",
-    "cxx_attr_link_strategy",
     "cxx_attr_link_style",
     "cxx_attr_linker_flags_all",
     "cxx_attr_preferred_linkage",
@@ -394,6 +393,15 @@ def valid_pch_clanguage(val: typing.Any) -> bool:
     if not val:
         return False
     return val in [ext.value for ext in CxxExtension]
+
+# FIXME(JakobDegen): This is used in place of `cxx_attr_link_style` in some places in a way that
+# makes no sense to me and is not really in keeping with the rest of this API. But we rely on it.
+# If you can justify it, replace with a comment.
+def _link_strategy_for_some_shared_links(attrs: typing.Any) -> LinkStrategy:
+    value = attrs.link_style if attrs.link_style != None else "shared"
+    if value == "static":
+        value = "static_pic"
+    return LinkStrategy(value)
 
 def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams) -> _CxxLibraryParameterizedOutput:
     """
@@ -1057,7 +1065,7 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
                     ctx = ctx,
                     default_soname = _soname(ctx, impl_params),
                     preferred_linkage = preferred_linkage,
-                    default_link_strategy = cxx_attr_link_strategy(ctx.attrs),
+                    default_link_strategy = _link_strategy_for_some_shared_links(ctx.attrs),
                     deps = non_exported_deps,
                     exported_deps = exported_deps,
                     # If we don't have link input for this link style, we pass in `None` so
@@ -1211,7 +1219,7 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
                             ctx = ctx,
                             default_soname = _soname(ctx, impl_params),
                             preferred_linkage = linkage,
-                            default_link_strategy = cxx_attr_link_strategy(ctx.attrs),
+                            default_link_strategy = _link_strategy_for_some_shared_links(ctx.attrs),
                             deps = non_exported_deps,
                             exported_deps = exported_deps,
                             include_in_android_mergemap = getattr(ctx.attrs, "include_in_android_merge_map_output", True) and default_output != None,
@@ -1868,7 +1876,7 @@ def _get_shared_library_links(
         deps = dedupe(flatten([non_exported_deps, exported_deps]))
         deps_merged_link_infos = cxx_inherited_link_info(deps)
 
-        link_strategy = cxx_attr_link_strategy(ctx.attrs)
+        link_strategy = _link_strategy_for_some_shared_links(ctx.attrs)
 
         # We cannot support deriving link execution preference off the included links, as we've already
         # lost the information on what is in the link.
