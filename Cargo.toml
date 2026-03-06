@@ -263,10 +263,10 @@ postcard = { version = "1.0.8", features = ["use-crc", "use-std"] }
 pretty_assertions = "1.2.1"
 probminhash = { git = "https://github.com/krallin/probminhash", rev = "3d6b7a5315305c2893a7a04e0de9e23b305992c5", default-features = false } # WAITING_FOR_PR https://github.com/jean-pierreBoth/probminhash/pull/4
 proc-macro2 = "1.0.106"
-prost = "0.13.4"
-prost-build = "0.13.4"
-prost-derive = "0.13.4"
-prost-types = "0.13.4"
+prost = "0.14.3"
+prost-build = "0.14.3"
+prost-derive = "0.14.3"
+prost-types = "0.14.3"
 protoc-bin-vendored = "3.0.0"
 psutil = "3.2"
 quick-xml = { version = "0.37", features = ["overlapped-lists", "serialize"] }
@@ -282,7 +282,7 @@ regex = "1.12.2"
 relative-path = { version = "1.7.0", features = ["serde"] }
 rusqlite = { version = "0.37.0", features = ["bundled"] }
 rustc-hash = { version = "2.1.1" }
-rustls = { package = "rustls", version = "0.23.29", features = ["aws-lc-rs"], default-features = false }
+rustls = { package = "rustls", version = "0.23.29", features = ["aws-lc-rs", "ring"], default-features = false }
 rustls-native-certs = { version = "0.8.1" }
 rustls-pemfile = { package = "rustls-pemfile", version = "1.0.0" }
 rustls-pki-types = { version = "1.0", features = ["alloc", "std"] }
@@ -323,9 +323,11 @@ tokio-rustls = { version = "0.26" }
 tokio-stream = { version = "0.1.17", features = ["fs", "io-util", "net", "sync", "time", "signal"] }
 tokio-util = { version = "0.7.15", features = ["full"] }
 toml = "0.9.11"
-tonic = { version = "0.12.3", features = ["tls", "tls-webpki-roots"] }
-tonic-build = { version = "0.12.3", features = ["prost", "cleanup-markdown"] }
-tower = "0.4"
+tonic = { version = "0.14.5", features = ["tls-ring"] }
+tonic-build = { version = "0.14.5" }
+tonic-prost = { version = "0.14.5" }
+tonic-prost-build = { version = "0.14.5" }
+tower = { version = "0.4", features = ["util"] }
 tower-layer = "0.3.1"
 tower-service = "0.3.3"
 tracing = "0.1.41"

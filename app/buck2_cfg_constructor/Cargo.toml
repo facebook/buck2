@@ -13,6 +13,7 @@ derive_more = { workspace = true }
 dice = { workspace = true }
 dupe = { workspace = true }
 futures = { workspace = true }
+pagable = { workspace = true }
 starlark = { workspace = true }
 
 buck2_build_api = { workspace = true }

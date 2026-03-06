@@ -11,6 +11,7 @@ derive_more = { workspace = true }
 prost = { workspace = true }
 serde = { workspace = true }
 tonic = { workspace = true }
+tonic-prost = { workspace = true }
 
 [build-dependencies]
 buck2_protoc_dev = { workspace = true }

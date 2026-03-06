@@ -18,6 +18,7 @@ dice_error = { workspace = true }
 dupe = { workspace = true }
 either = { workspace = true }
 futures = { workspace = true }
+pagable = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 

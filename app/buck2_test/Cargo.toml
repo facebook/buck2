@@ -27,6 +27,7 @@ allocative = { workspace = true }
 dice = { workspace = true }
 dupe = { workspace = true }
 host_sharing = { workspace = true }
+pagable = { workspace = true }
 remote_execution = { workspace = true }
 sorted_vector_map = { workspace = true }
 starlark = { workspace = true }

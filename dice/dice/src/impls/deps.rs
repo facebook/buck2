@@ -253,7 +253,7 @@ mod tests {
     impl<'a, T: Iterator<Item = SeriesParallelDepsIteratorItem<'a>>> DisplaySPDeps<'a, T> {
         fn debug_string(self) -> String {
             SeriesNodeDisplay(self.0)
-                .to_lines()
+                .as_lines()
                 .into_iter()
                 .map(|v| v.trim().to_owned())
                 .join("\n")
@@ -262,7 +262,7 @@ mod tests {
 
     struct SeriesNodeDisplay<'a, T: Iterator<Item = SeriesParallelDepsIteratorItem<'a>>>(T);
     impl<'a, T: Iterator<Item = SeriesParallelDepsIteratorItem<'a>>> SeriesNodeDisplay<'a, T> {
-        fn to_lines(&mut self) -> Vec<String> {
+        fn as_lines(&mut self) -> Vec<String> {
             let mut lines = Vec::new();
             lines.push("S".to_owned());
             for item in self.0.by_ref() {
@@ -270,7 +270,7 @@ mod tests {
                 match item {
                     SeriesParallelDepsIteratorItem::Key(k) => lines.push(format!("K({})", k.index)),
                     SeriesParallelDepsIteratorItem::Parallel(p) => {
-                        lines.extend(ParallelNodeDisplay(p).to_lines())
+                        lines.extend(ParallelNodeDisplay(p).as_lines())
                     }
                 }
             }
@@ -282,12 +282,12 @@ mod tests {
 
     struct ParallelNodeDisplay<'a>(ParallelNodeIterator<'a>);
     impl ParallelNodeDisplay<'_> {
-        fn to_lines(&mut self) -> Vec<String> {
+        fn as_lines(&mut self) -> Vec<String> {
             let mut inner_lines = Vec::new();
             let mut inner_widths = Vec::new();
             let mut longest = 0;
             for item in self.0.by_ref() {
-                let lines = SeriesNodeDisplay(item).to_lines();
+                let lines = SeriesNodeDisplay(item).as_lines();
                 let width = lines.iter().map(|v| v.len()).max().unwrap_or(1);
                 longest = std::cmp::max(longest, lines.len());
                 inner_lines.push(lines);

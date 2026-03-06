@@ -10,6 +10,7 @@ version = "0.1.0"
 buck2_error = { workspace = true }
 prost = { workspace = true }
 tonic = { workspace = true }
+tonic-prost = { workspace = true }
 tracing = { workspace = true }
 
 [build-dependencies]

@@ -12,6 +12,7 @@ gazebo = { workspace = true }
 prost = { workspace = true }
 prost-types = { workspace = true }
 tonic = { workspace = true }
+tonic-prost = { workspace = true }
 
 buck2_data = { workspace = true }
 

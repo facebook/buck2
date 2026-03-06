@@ -14,6 +14,7 @@ prost-types = { workspace = true }
 serde = { workspace = true }
 tokio-util = { workspace = true }
 tonic = { workspace = true }
+tonic-prost = { workspace = true }
 
 buck2_core = { workspace = true }
 buck2_data = { workspace = true }
