@@ -332,7 +332,6 @@ def standard_java_test(
         name,
         run_test_separately = False,
         vm_args = None,
-        fork_mode = "none",
         labels = None,
         with_test_data = False,
         **kwargs):
@@ -345,7 +344,6 @@ def standard_java_test(
             resources = native.glob(["testdata/**"]) if with_test_data else [],
             vm_args = vm_args,
             run_test_separately = run_test_separately,
-            fork_mode = fork_mode,
             labels = (labels or []) + ["buck2_run_from_cell_root"],
             **kwargs
         )
