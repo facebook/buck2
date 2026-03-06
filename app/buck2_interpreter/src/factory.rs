@@ -84,7 +84,7 @@ impl FinishedStarlarkEvaluation {
     )> {
         let frozen = env
             .0
-            .freeze_and_name(Box::new(self.eval_kind.dupe()))
+            .freeze_named(Box::new(self.eval_kind.dupe()))
             .map_err(from_freeze_error)?;
         let (token, profile_data) = self.finish_impl(Some(&frozen))?;
         Ok((token, frozen, profile_data))

@@ -431,8 +431,9 @@ impl<'v> Module<'v> {
 
     /// Freeze the environment and assign a name to the contained frozen heap.
     ///
-    /// See `FrozenHeapRef::name` for more details.
-    pub fn freeze_and_name(self, name: FrozenHeapName) -> FreezeResult<FrozenModule> {
+    /// The `name` identifies the contained frozen heap and should be unique.
+    /// See [`FrozenHeapRef::name`] for more details.
+    pub fn freeze_named(self, name: FrozenHeapName) -> FreezeResult<FrozenModule> {
         self.freeze_impl(Some(name))
     }
 

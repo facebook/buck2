@@ -311,7 +311,7 @@ impl FrozenHeapRef {
     /// Get the name of this heap.
     ///
     /// Names can be assigned when finalizing frozen heaps; in practice, this is done when freezing
-    /// modules, see `Module::freeze_and_name`.
+    /// modules, see [`Module::freeze_named`].
     ///
     /// The name is intentionally made available here and not at a higher point like the module
     /// level so that it can be inspected even when traversing the dependency graph of frozen heaps.
@@ -331,10 +331,13 @@ impl FrozenHeap {
         Self::default()
     }
 
-    /// `into_ref` but also assign a name
+    /// After all values have been allocated, convert the [`FrozenHeap`] into a
+    /// named [`FrozenHeapRef`] which can be [`clone`](Clone::clone)d, shared between threads,
+    /// and ensures the underlying values allocated on the [`FrozenHeap`] remain valid.
     ///
-    /// See `FrozenHeapRef::name` for more details.
-    pub fn name_and_into_ref(self, name: FrozenHeapName) -> FrozenHeapRef {
+    /// The `name` identifies this heap and should be unique across heaps.
+    /// See [`FrozenHeapRef::name`] for more details.
+    pub fn into_ref_named(self, name: FrozenHeapName) -> FrozenHeapRef {
         self.into_ref_impl(Some(name))
     }
 
