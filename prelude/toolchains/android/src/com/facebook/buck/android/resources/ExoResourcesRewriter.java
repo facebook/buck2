@@ -287,9 +287,18 @@ public class ExoResourcesRewriter {
                       Ordering.natural(), ZipEntry::getName, e -> e));
       this.entryContents = new HashMap<>();
       this.xmlEntries = new HashMap<>();
-      this.resourceTable =
-          MoreSuppliers.memoize(
-              () -> ResourceTable.get(ResChunk.wrap(getContent("resources.arsc"))));
+      if (ResourceProcessingConfig.areOptimizationsEnabled()) {
+        // Read raw bytes eagerly to avoid circular dependency with getContent(), which
+        // calls resourceTable.get().serialize() for resources.arsc in the optimized path.
+        byte[] arscBytes = readEntryBytes("resources.arsc");
+        entryContents.put("resources.arsc", arscBytes);
+        this.resourceTable =
+            MoreSuppliers.memoize(() -> ResourceTable.get(ResChunk.wrap(arscBytes)));
+      } else {
+        this.resourceTable =
+            MoreSuppliers.memoize(
+                () -> ResourceTable.get(ResChunk.wrap(getContent("resources.arsc"))));
+      }
     }
 
     @Override
@@ -332,11 +341,30 @@ public class ExoResourcesRewriter {
           .collect(ImmutableList.toImmutableList());
     }
 
+    /**
+     * Gets the content for an entry. When optimizations are enabled, transformed entries (arsc,
+     * XML) are serialized from in-memory objects and pass-through entries are read directly from
+     * the zip. When disabled, all entries are cached in memory (original behavior).
+     */
     byte[] getContent(String path) {
-      return entryContents.computeIfAbsent(path, this::extractContent);
+      if (ResourceProcessingConfig.areOptimizationsEnabled()) {
+        // In the optimized path, serialize() is called on each invocation rather than caching,
+        // because getContent() is only called once per entry during zip writing. Avoiding the
+        // cache reduces peak memory by not holding all entry bytes simultaneously.
+        if (path.equals("resources.arsc")) {
+          return resourceTable.get().serialize();
+        }
+        ResourcesXml xml = xmlEntries.get(path);
+        if (xml != null) {
+          return xml.serialize();
+        }
+        return readEntryBytes(path);
+      } else {
+        return entryContents.computeIfAbsent(path, this::readEntryBytes);
+      }
     }
 
-    private byte[] extractContent(String path) {
+    private byte[] readEntryBytes(String path) {
       try {
         return ByteStreams.toByteArray(
             Objects.requireNonNull(
@@ -348,7 +376,15 @@ public class ExoResourcesRewriter {
 
     private ResourcesXml extractXml(String path) {
       try {
-        return ResourcesXml.get(ResChunk.wrap(getContent(path)));
+        // In the optimized path, skip the entryContents cache because the raw bytes are only
+        // needed here to construct the ResourcesXml object. The XML is then accessed via
+        // xmlEntries, and getContent() serializes from the in-memory object. Caching the raw
+        // bytes would waste memory since they're not reused.
+        byte[] bytes =
+            ResourceProcessingConfig.areOptimizationsEnabled()
+                ? readEntryBytes(path)
+                : entryContents.computeIfAbsent(path, this::readEntryBytes);
+        return ResourcesXml.get(ResChunk.wrap(bytes));
       } catch (Exception e) {
         throw new RuntimeException("When extracting " + path, e);
       }
