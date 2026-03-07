@@ -63,15 +63,22 @@ class EntryAccounting {
 
   public EntryAccounting(ZipEntry entry, long currentOffset) {
     this.entry = entry;
-    this.method = Method.detect(entry.getMethod());
     this.offset = currentOffset;
+
+    if (entry instanceof CustomZipEntry && ((CustomZipEntry) entry).isRawCopy()) {
+      this.method = Method.RAW_COPY;
+    } else {
+      this.method = Method.detect(entry.getMethod());
+    }
 
     if (entry.getTime() == -1) {
       entry.setTime(System.currentTimeMillis());
     }
 
     if (entry instanceof CustomZipEntry) {
-      deflater.setCompressionLevel(((CustomZipEntry) entry).getCompressionLevel());
+      if (method != Method.RAW_COPY) {
+        deflater.setCompressionLevel(((CustomZipEntry) entry).getCompressionLevel());
+      }
       externalAttributes = ((CustomZipEntry) entry).getExternalAttributes();
     }
   }
@@ -256,13 +263,20 @@ class EntryAccounting {
     if (len == 0) {
       return;
     }
-    updateCrc(b, off, len);
 
-    if (method == Method.STORE) {
+    if (method == Method.RAW_COPY) {
+      // Raw copy: write pre-compressed bytes directly, skip CRC and deflation.
       out.write(b, off, len);
       length += len;
-    } else if (method == Method.DEFLATE) {
-      deflater.write(out, b, off, len);
+    } else {
+      updateCrc(b, off, len);
+
+      if (method == Method.STORE) {
+        out.write(b, off, len);
+        length += len;
+      } else if (method == Method.DEFLATE) {
+        deflater.write(out, b, off, len);
+      }
     }
   }
 
@@ -283,6 +297,14 @@ class EntryAccounting {
       entry.setSize(deflater.getBytesRead());
       entry.setCompressedSize(deflater.getBytesWritten());
       entry.setCrc(calculateCrc());
+    } else if (method == Method.RAW_COPY) {
+      // Raw copy: sizes and CRC are already set on the entry by the caller.
+      // Verify the number of compressed bytes written matches compressedSize.
+      checkState(
+          entry.getCompressedSize() == length,
+          "Number of raw bytes written (%s) differs from compressedSize (%s).",
+          length,
+          entry.getCompressedSize());
     }
 
     // write the data descriptor if required
@@ -296,6 +318,7 @@ class EntryAccounting {
 
   private boolean requiresDataDescriptor() {
     return method == Method.DEFLATE;
+    // RAW_COPY does not need a data descriptor — CRC and sizes are known upfront.
   }
 
   private void updateCrc(byte[] b, int off, int len) {
@@ -309,6 +332,7 @@ class EntryAccounting {
   private enum Method {
     DEFLATE(20, 8),
     STORE(10, 0),
+    RAW_COPY(20, 8),
     ;
 
     private final int requiredVersion;

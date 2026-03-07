@@ -152,4 +152,76 @@ public class ExoResourcesRewriterTest {
 
     assertEquals(expectedOutput, Files.readString(tmp.getRoot().resolve(outputRTxt).getPath()));
   }
+
+  private ZipInspector baselinePrimaryInspector;
+  private ZipInspector optPrimaryInspector;
+  private ZipInspector baselineExoInspector;
+  private ZipInspector optExoInspector;
+
+  private void runBaselineAndOptimizedRewrites() throws IOException {
+    if (baselinePrimaryInspector != null) {
+      return; // Already ran
+    }
+
+    // Run without optimizations (baseline)
+    ResourceProcessingConfig.setOptimizationsEnabled(false);
+    AbsPath baselinePrimary = tmp.getRoot().resolve("baseline_primary.apk");
+    AbsPath baselineExo = tmp.getRoot().resolve("baseline_exo.apk");
+    ExoResourcesRewriter.rewriteResources(
+        tmp.getRoot(),
+        tmp.getRoot().relativize(apkPath),
+        tmp.getRoot().relativize(baselinePrimary),
+        baselineExo.getPath());
+
+    // Run with optimizations (uses raw pass-through for unmodified entries)
+    ResourceProcessingConfig.setOptimizationsEnabled(true);
+    AbsPath optPrimary = tmp.getRoot().resolve("opt_primary.apk");
+    AbsPath optExo = tmp.getRoot().resolve("opt_exo.apk");
+    try {
+      ExoResourcesRewriter.rewriteResources(
+          tmp.getRoot(),
+          tmp.getRoot().relativize(apkPath),
+          tmp.getRoot().relativize(optPrimary),
+          optExo.getPath());
+    } finally {
+      ResourceProcessingConfig.setOptimizationsEnabled(false);
+    }
+
+    baselinePrimaryInspector = new ZipInspector(baselinePrimary);
+    optPrimaryInspector = new ZipInspector(optPrimary);
+    baselineExoInspector = new ZipInspector(baselineExo);
+    optExoInspector = new ZipInspector(optExo);
+  }
+
+  @Test
+  public void testOptimizedPrimaryApkHasSameEntries() throws IOException {
+    runBaselineAndOptimizedRewrites();
+    assertEquals(
+        baselinePrimaryInspector.getZipFileEntries(), optPrimaryInspector.getZipFileEntries());
+  }
+
+  @Test
+  public void testOptimizedPrimaryResourcesArscIsIdentical() throws IOException {
+    runBaselineAndOptimizedRewrites();
+    assertArrayEquals(
+        baselinePrimaryInspector.getFileContents("resources.arsc"),
+        optPrimaryInspector.getFileContents("resources.arsc"));
+  }
+
+  @Test
+  public void testOptimizedExoApkHasSameEntries() throws IOException {
+    runBaselineAndOptimizedRewrites();
+    assertEquals(baselineExoInspector.getZipFileEntries(), optExoInspector.getZipFileEntries());
+  }
+
+  @Test
+  public void testOptimizedExoEntriesHaveIdenticalContent() throws IOException {
+    runBaselineAndOptimizedRewrites();
+    for (String entry : baselineExoInspector.getZipFileEntries()) {
+      assertArrayEquals(
+          "Decompressed content mismatch for entry: " + entry,
+          baselineExoInspector.getFileContents(entry),
+          optExoInspector.getFileContents(entry));
+    }
+  }
 }

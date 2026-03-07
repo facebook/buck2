@@ -60,6 +60,24 @@ public class ResourcesZipBuilder implements Closeable {
     }
   }
 
+  /**
+   * Adds a pre-compressed entry to the zip without decompressing or re-compressing. The raw
+   * compressed bytes are written directly to the output.
+   */
+  public void addRawEntry(
+      InputStream compressedData,
+      long compressedSize,
+      long uncompressedSize,
+      long crc,
+      int method,
+      String name)
+      throws IOException {
+    builder.addRawEntry(compressedData, compressedSize, uncompressedSize, crc, method, name);
+    if (name.equals(ANDROID_MANIFEST_XML)) {
+      needsManifest = false;
+    }
+  }
+
   @Override
   public void close() throws IOException {
     if (needsManifest) {

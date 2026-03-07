@@ -62,6 +62,30 @@ public class DeterministicZipBuilder implements Closeable {
     output.closeEntry();
   }
 
+  /**
+   * Adds a pre-compressed entry to the zip. The data is written directly without decompression or
+   * re-compression. The caller must provide the original entry's CRC, uncompressed size, compressed
+   * size, and compression method.
+   */
+  public void addRawEntry(
+      InputStream compressedData,
+      long compressedSize,
+      long uncompressedSize,
+      long crc,
+      int method,
+      String name)
+      throws IOException {
+    CustomZipEntry outputEntry = new CustomZipEntry(Paths.get(name));
+    outputEntry.setMethod(method);
+    outputEntry.setCrc(crc);
+    outputEntry.setSize(uncompressedSize);
+    outputEntry.setCompressedSize(compressedSize);
+    outputEntry.setRawCopy(true);
+    output.putNextEntry(outputEntry);
+    ByteStreams.copy(compressedData, output);
+    output.closeEntry();
+  }
+
   @Override
   public void close() throws IOException {
     output.close();
