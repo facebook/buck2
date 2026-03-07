@@ -160,7 +160,7 @@ enum RuleError {
     )]
     IsConfigurationAndToolchain,
     #[error("`rule` can only be declared in bzl files")]
-    RuleNonInBzl,
+    RuleNotInBzl,
     #[error("Cannot specify `cfg` and `supports_incoming_transition` at the same time")]
     CfgAndSupportsIncomingTransition,
     #[error("{0} rules do not support incoming transitions")]
@@ -196,7 +196,7 @@ impl<'v> StarlarkRuleCallable<'v> {
                 BzlOrBxlPath::Bxl(bxl_path.clone())
             }
             (PerFileTypeContext::Bxl(_), RuleImpl::BuildRule(_)) => {
-                return Err(RuleError::RuleNonInBzl.into());
+                return Err(RuleError::RuleNotInBzl.into());
             }
             // TODO(nero): add error for it
             (_, _) => unreachable!(
