@@ -210,7 +210,7 @@ class EntryAccounting {
         ByteIo.writeInt(stream, ZipConstants.ZIP64_MAGICVAL);
         ByteIo.writeInt(stream, ZipConstants.ZIP64_MAGICVAL);
       } else {
-        ByteIo.writeInt(stream, entry.getSize());
+        ByteIo.writeInt(stream, entry.getCompressedSize());
         ByteIo.writeInt(stream, entry.getSize());
       }
     }
@@ -223,7 +223,7 @@ class EntryAccounting {
       ByteIo.writeShort(stream, ZipConstants.ZIP64_EXTID);
       ByteIo.writeShort(stream, 16);
       ByteIo.writeLong(stream, entry.getSize());
-      ByteIo.writeLong(stream, entry.getSize());
+      ByteIo.writeLong(stream, entry.getCompressedSize());
     }
 
     return stream.getCount();
