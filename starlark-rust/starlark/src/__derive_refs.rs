@@ -33,6 +33,8 @@ pub mod param_spec;
 pub mod parse_args;
 pub mod sig;
 
+// Re-export for const_frozen_string! and static_starlark_value! macro registry.
+pub use crate::pagable::StaticValueEntry;
 // Re-exports for vtable registration macro.
 pub use crate::pagable::vtable_register::VtableRegistered;
 #[cfg(feature = "pagable")]

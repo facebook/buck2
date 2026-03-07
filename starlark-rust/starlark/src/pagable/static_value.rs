@@ -21,7 +21,9 @@
 //! like empty string and single ASCII characters) to their identifiers.
 
 mod get_static_value_id;
+mod registry;
 mod static_string;
 
 #[allow(unused_imports)]
 pub(crate) use get_static_value_id::get_static_value_id;
+pub use registry::StaticValueEntry;
