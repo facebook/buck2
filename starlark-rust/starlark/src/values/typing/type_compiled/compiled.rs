@@ -38,6 +38,7 @@ use crate::coerce::Coerce;
 use crate::environment::Methods;
 use crate::environment::MethodsBuilder;
 use crate::environment::MethodsStatic;
+use crate::pagable::static_value::TypeCompiledStaticRegistered;
 use crate::pagable::static_value::static_type_compiled;
 use crate::private::Private;
 use crate::typing::Ty;
@@ -143,7 +144,10 @@ where
     pub(crate) const fn alloc_static(
         imp: T,
         ty: Ty,
-    ) -> AllocStaticSimple<TypeCompiledImplAsStarlarkValue<T>> {
+    ) -> AllocStaticSimple<TypeCompiledImplAsStarlarkValue<T>>
+    where
+        T: TypeCompiledStaticRegistered,
+    {
         AllocStaticSimple::alloc(TypeCompiledImplAsStarlarkValue {
             type_compiled_impl: imp,
             ty,
