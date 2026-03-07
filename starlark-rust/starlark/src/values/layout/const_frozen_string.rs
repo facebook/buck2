@@ -16,6 +16,9 @@
  */
 
 /// Create a [`FrozenStringValue`](crate::values::FrozenStringValue).
+///
+/// Multi-char strings created by this macro are automatically registered
+/// for pagable serialization using the inventory crate.
 #[macro_export]
 macro_rules! const_frozen_string {
     ($s:expr) => {{
@@ -33,6 +36,16 @@ macro_rules! const_frozen_string {
             };
             static X: $crate::values::StarlarkStrNRepr<N> =
                 $crate::values::StarlarkStrNRepr::new(if UNREACHABLE { "xx" } else { $s });
+
+            // Register for pagable serialization (only for multi-char strings).
+            $crate::__derive_refs::inventory::submit! {
+                $crate::__derive_refs::StaticValueEntry::new(
+                    file!(),
+                    line!(),
+                    || X.erase().to_frozen_value()
+                )
+            }
+
             if UNREACHABLE {
                 unreachable!()
             } else {

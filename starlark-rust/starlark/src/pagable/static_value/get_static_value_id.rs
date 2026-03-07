@@ -20,8 +20,11 @@
 //! This module provides the main entry point for checking if a FrozenValue
 //! is a static value and retrieving its identifier.
 
+use std::collections::HashMap;
 use std::hash::Hasher;
+use std::sync::LazyLock;
 
+use super::registry::StaticValueEntry;
 use super::static_string::STATIC_STRING_ADDR_TO_ID;
 use crate::values::FrozenValue;
 
@@ -58,6 +61,28 @@ pub(crate) fn hash_empty_string() -> StaticValueId {
     StaticValueId::new(hasher.finish())
 }
 
+/// Compute a deterministic `StaticValueId` from a (file, line) pair.
+pub(crate) fn hash_file_line(file: &str, line: u32) -> StaticValueId {
+    let mut hasher = starlark_map::StarlarkHasher::new();
+    hasher.write(file.as_bytes());
+    hasher.write_u32(line);
+    StaticValueId::new(hasher.finish())
+}
+
+/// Static map from inventory-registered static value addresses to their IDs.
+///
+/// This map is lazily initialized at runtime from inventory-registered entries.
+/// It contains mappings for multi-char strings created by `const_frozen_string!`.
+static INVENTORY_ADDR_TO_ID: LazyLock<HashMap<usize, StaticValueId>> = LazyLock::new(|| {
+    inventory::iter::<StaticValueEntry>()
+        .map(|e| {
+            let addr = (e.get_value)().ptr_value().ptr_value_untagged();
+            let id = hash_file_line(e.file, e.line);
+            (addr, id)
+        })
+        .collect()
+});
+
 /// Check if a FrozenValue points to a static value.
 ///
 /// Returns `Some(StaticValueId)` if the value is a registered static value,
@@ -76,7 +101,10 @@ pub(crate) fn get_static_value_id(fv: FrozenValue) -> Option<StaticValueId> {
         return Some(*id);
     }
 
-    // TODO(nero): Add checks for other static values here
+    // Check inventory-registered values (const_frozen_string!, static_starlark_value!, etc.)
+    if let Some(id) = INVENTORY_ADDR_TO_ID.get(&addr) {
+        return Some(*id);
+    }
 
     None
 }
@@ -102,11 +130,10 @@ mod tests {
     }
 
     #[test]
-    fn test_multi_char_string_not_static() {
+    fn test_multi_char_string_is_registered() {
         let s = const_frozen_string!("hello");
         let id = get_static_value_id(s.to_frozen_value());
-        // Multi-char strings are not in the static string registry
-        assert_eq!(id, None);
+        assert!(id.is_some(), "const_frozen_string! should be registered");
     }
 
     #[test]
