@@ -24,7 +24,9 @@ mod get_static_value_id;
 mod registry;
 mod static_starlark_value;
 mod static_string;
+mod static_type_compiled;
 
 #[allow(unused_imports)]
 pub(crate) use get_static_value_id::get_static_value_id;
 pub use registry::StaticValueEntry;
+pub(crate) use static_type_compiled::static_type_compiled;

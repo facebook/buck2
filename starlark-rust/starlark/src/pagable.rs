@@ -36,7 +36,7 @@ pub(crate) mod vtable_registry;
 
 pub(crate) mod vtable_register;
 
-mod static_value;
+pub(crate) mod static_value;
 pub use static_value::StaticValueEntry;
 #[allow(unused_imports)]
 pub(crate) use static_value::get_static_value_id;

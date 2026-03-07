@@ -38,6 +38,7 @@ use crate::coerce::Coerce;
 use crate::environment::Methods;
 use crate::environment::MethodsBuilder;
 use crate::environment::MethodsStatic;
+use crate::pagable::static_value::static_type_compiled;
 use crate::private::Private;
 use crate::typing::Ty;
 use crate::values::AllocStaticSimple;
@@ -61,7 +62,9 @@ use crate::values::type_repr::StarlarkTypeRepr;
 use crate::values::types::tuple::value::Tuple;
 use crate::values::typing::type_compiled::factory::TypeCompiledFactory;
 use crate::values::typing::type_compiled::matcher::TypeMatcher;
-use crate::values::typing::type_compiled::matchers::IsAny;
+
+// Static type-compiled value for `typing.Any`.
+static_type_compiled!(TYPE_COMPILED_ANY: IsAny, Ty::any());
 
 #[derive(Debug, Error)]
 enum TypingError {
@@ -485,10 +488,7 @@ impl TypeCompiled<FrozenValue> {
 
     /// `typing.Any`.
     pub fn any() -> TypeCompiled<FrozenValue> {
-        static ANYTHING: AllocStaticSimple<TypeCompiledImplAsStarlarkValue<IsAny>> =
-            TypeCompiledImplAsStarlarkValue::alloc_static(IsAny, Ty::any());
-
-        TypeCompiled::unchecked_new(ANYTHING.to_frozen_value())
+        TypeCompiled::unchecked_new(TYPE_COMPILED_ANY.to_frozen_value())
     }
 }
 

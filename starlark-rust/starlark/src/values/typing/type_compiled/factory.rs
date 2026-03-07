@@ -15,14 +15,13 @@
  * limitations under the License.
  */
 
+use crate::pagable::static_value::static_type_compiled;
 use crate::typing::Ty;
 use crate::typing::custom::TyCustom;
-use crate::values::AllocStaticSimple;
 use crate::values::Heap;
 use crate::values::Value;
 use crate::values::typing::type_compiled::alloc::TypeMatcherAlloc;
 use crate::values::typing::type_compiled::compiled::TypeCompiled;
-use crate::values::typing::type_compiled::compiled::TypeCompiledImplAsStarlarkValue;
 use crate::values::typing::type_compiled::matcher::TypeMatcher;
 use crate::values::typing::type_compiled::matchers::IsAny;
 use crate::values::typing::type_compiled::matchers::IsBool;
@@ -30,6 +29,12 @@ use crate::values::typing::type_compiled::matchers::IsInt;
 use crate::values::typing::type_compiled::matchers::IsNone;
 use crate::values::typing::type_compiled::matchers::IsStr;
 use crate::values::typing::type_compiled::type_matcher_factory::TypeMatcherFactory;
+
+// Static type-compiled values for common types.
+static_type_compiled!(TYPE_COMPILED_NONE: IsNone, Ty::none());
+static_type_compiled!(TYPE_COMPILED_BOOL: IsBool, Ty::bool());
+static_type_compiled!(TYPE_COMPILED_INT: IsInt, Ty::int());
+static_type_compiled!(TYPE_COMPILED_STRING: IsStr, Ty::string());
 
 /// Allocate a `Ty` with a `TypeMatcher` in starlark heap as `TypeCompiled`.
 pub struct TypeCompiledFactory<'a, 'v> {
@@ -62,10 +67,7 @@ impl<'a, 'v> TypeMatcherAlloc for TypeCompiledFactory<'a, 'v> {
 
     fn none(self) -> TypeCompiled<Value<'v>> {
         if self.ty == &Ty::none() {
-            static IS_NONE: AllocStaticSimple<TypeCompiledImplAsStarlarkValue<IsNone>> =
-                TypeCompiledImplAsStarlarkValue::alloc_static(IsNone, Ty::none());
-
-            TypeCompiled::unchecked_new(IS_NONE.to_frozen_value().to_value())
+            TypeCompiled::unchecked_new(TYPE_COMPILED_NONE.to_frozen_value().to_value())
         } else {
             self.alloc(IsNone)
         }
@@ -73,10 +75,7 @@ impl<'a, 'v> TypeMatcherAlloc for TypeCompiledFactory<'a, 'v> {
 
     fn bool(self) -> TypeCompiled<Value<'v>> {
         if self.ty == &Ty::bool() {
-            static IS_BOOL: AllocStaticSimple<TypeCompiledImplAsStarlarkValue<IsBool>> =
-                TypeCompiledImplAsStarlarkValue::alloc_static(IsBool, Ty::bool());
-
-            TypeCompiled::unchecked_new(IS_BOOL.to_frozen_value().to_value())
+            TypeCompiled::unchecked_new(TYPE_COMPILED_BOOL.to_frozen_value().to_value())
         } else {
             self.alloc(IsBool)
         }
@@ -84,10 +83,7 @@ impl<'a, 'v> TypeMatcherAlloc for TypeCompiledFactory<'a, 'v> {
 
     fn int(self) -> TypeCompiled<Value<'v>> {
         if self.ty == &Ty::int() {
-            static IS_INT: AllocStaticSimple<TypeCompiledImplAsStarlarkValue<IsInt>> =
-                TypeCompiledImplAsStarlarkValue::alloc_static(IsInt, Ty::int());
-
-            TypeCompiled::unchecked_new(IS_INT.to_frozen_value().to_value())
+            TypeCompiled::unchecked_new(TYPE_COMPILED_INT.to_frozen_value().to_value())
         } else {
             self.alloc(IsInt)
         }
@@ -95,10 +91,7 @@ impl<'a, 'v> TypeMatcherAlloc for TypeCompiledFactory<'a, 'v> {
 
     fn str(self) -> TypeCompiled<Value<'v>> {
         if self.ty == &Ty::string() {
-            static IS_STRING: AllocStaticSimple<TypeCompiledImplAsStarlarkValue<IsStr>> =
-                TypeCompiledImplAsStarlarkValue::alloc_static(IsStr, Ty::string());
-
-            TypeCompiled::unchecked_new(IS_STRING.to_frozen_value().to_value())
+            TypeCompiled::unchecked_new(TYPE_COMPILED_STRING.to_frozen_value().to_value())
         } else {
             self.alloc(IsStr)
         }
