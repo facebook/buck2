@@ -141,7 +141,7 @@ public class ExoResourcesRewriter {
       // Write the full (rearranged) resources to the exo resources.
       try (ResourcesZipBuilder zipBuilder = new ResourcesZipBuilder(exoResources)) {
         for (ZipEntry entry : apkZip.getEntries()) {
-          addEntryOptimized(zipBuilder, apkZip, entry, Deflater.BEST_COMPRESSION);
+          addEntryOptimized(zipBuilder, apkZip, entry, getCompressionLevel());
         }
       }
       // Then, slice out the resources needed for the primary apk.
@@ -158,11 +158,11 @@ public class ExoResourcesRewriter {
             primaryResourceTable.serialize(),
             apkZip.getEntry("resources.arsc").getMethod() == ZipEntry.STORED
                 ? 0
-                : Deflater.BEST_COMPRESSION,
+                : getCompressionLevel(),
             false);
         for (String path : closure.files.stream().sorted().collect(Collectors.toList())) {
           ZipEntry entry = apkZip.getEntry(path);
-          addEntryOptimized(zipBuilder, apkZip, entry, Deflater.BEST_COMPRESSION);
+          addEntryOptimized(zipBuilder, apkZip, entry, getCompressionLevel());
         }
       }
       return resMapping;
@@ -241,6 +241,17 @@ public class ExoResourcesRewriter {
     } catch (IOException e) {
       throw new RuntimeException(e);
     }
+  }
+
+  /** JDK's Deflater uses level 6 internally when DEFAULT_COMPRESSION (-1) is specified. */
+  private static final int OPTIMIZED_COMPRESSION_LEVEL = 6;
+
+  private static int getCompressionLevel() {
+    // DEFAULT_COMPRESSION (-1) is not accepted by CustomZipEntry.setCompressionLevel(),
+    // so we use the JDK's actual default level (6) for optimized builds.
+    return ResourceProcessingConfig.areOptimizationsEnabled()
+        ? OPTIMIZED_COMPRESSION_LEVEL
+        : Deflater.BEST_COMPRESSION;
   }
 
   private static void addEntry(
