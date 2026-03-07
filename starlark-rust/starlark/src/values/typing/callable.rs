@@ -32,12 +32,12 @@ use starlark_derive::starlark_value;
 
 use crate as starlark;
 use crate::private::Private;
+use crate::static_starlark_value;
 use crate::typing::ParamSpec;
 use crate::typing::Ty;
 use crate::typing::TyBasic;
 use crate::typing::callable::TyCallable;
 use crate::values::AllocFrozenValue;
-use crate::values::AllocStaticSimple;
 use crate::values::AllocValue;
 use crate::values::Freeze;
 use crate::values::FreezeResult;
@@ -93,11 +93,10 @@ impl<'v> StarlarkValue<'v> for TypingCallable {
     }
 }
 
+static_starlark_value!(CALLABLE: TypingCallable = TypingCallable);
+
 impl AllocFrozenValue for TypingCallable {
     fn alloc_frozen_value(self, _heap: &FrozenHeap) -> FrozenValue {
-        static CALLABLE: AllocStaticSimple<TypingCallable> =
-            AllocStaticSimple::alloc(TypingCallable);
-
         CALLABLE.to_frozen_value()
     }
 }

@@ -23,9 +23,9 @@ use starlark_derive::ProvidesStaticType;
 use starlark_derive::starlark_value;
 
 use crate as starlark;
+use crate::static_starlark_value;
 use crate::typing::Ty;
 use crate::values::AllocFrozenValue;
-use crate::values::AllocStaticSimple;
 use crate::values::FrozenHeap;
 use crate::values::FrozenValue;
 use crate::values::StarlarkValue;
@@ -63,11 +63,11 @@ impl<'v> StarlarkValue<'v> for TypingIterable {
     // TODO(nga): support `[]`.
 }
 
+static_starlark_value!(ITERABLE: TypingIterable = TypingIterable);
+
 impl AllocFrozenValue for TypingIterable {
     fn alloc_frozen_value(self, _heap: &FrozenHeap) -> FrozenValue {
-        static ANY: AllocStaticSimple<TypingIterable> = AllocStaticSimple::alloc(TypingIterable);
-
-        ANY.to_frozen_value()
+        ITERABLE.to_frozen_value()
     }
 }
 

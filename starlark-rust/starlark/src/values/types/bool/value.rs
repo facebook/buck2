@@ -29,6 +29,7 @@ use starlark_map::StarlarkHasher;
 use crate as starlark;
 use crate::__derive_refs::serde::Serialize;
 use crate::private::Private;
+use crate::static_starlark_value;
 use crate::typing::Ty;
 use crate::values::AllocStaticSimple;
 use crate::values::StarlarkValue;
@@ -53,10 +54,13 @@ impl Display for StarlarkBool {
     }
 }
 
-pub(crate) static VALUE_FALSE_TRUE: [AllocStaticSimple<StarlarkBool>; 2] = [
-    AllocStaticSimple::alloc(StarlarkBool(false)),
-    AllocStaticSimple::alloc(StarlarkBool(true)),
-];
+// Define individual boolean values with registration
+static_starlark_value!(pub(crate) VALUE_FALSE: StarlarkBool = StarlarkBool(false));
+static_starlark_value!(pub(crate) VALUE_TRUE: StarlarkBool = StarlarkBool(true));
+
+// Array of references for efficient boolean lookup by index
+pub(crate) static VALUE_FALSE_TRUE: [&'static AllocStaticSimple<StarlarkBool>; 2] =
+    [&VALUE_FALSE, &VALUE_TRUE];
 
 /// Define the bool type
 #[starlark_value(type = BOOL_TYPE)]

@@ -42,9 +42,9 @@ use crate::environment::MethodsStatic;
 use crate::hint::likely;
 use crate::hint::unlikely;
 use crate::private::Private;
+use crate::static_starlark_value;
 use crate::typing::Ty;
 use crate::values::AllocFrozenValue;
-use crate::values::AllocStaticSimple;
 use crate::values::AllocValue;
 use crate::values::FrozenHeap;
 use crate::values::FrozenStringValue;
@@ -98,8 +98,7 @@ pub(crate) type FrozenList = ListGen<FrozenListData>;
 
 pub(crate) type List<'v> = ListGen<ListData<'v>>;
 
-pub(crate) static VALUE_EMPTY_FROZEN_LIST: AllocStaticSimple<ListGen<FrozenListData>> =
-    AllocStaticSimple::alloc(unsafe { ListGen(FrozenListData::new(0)) });
+static_starlark_value!(pub(crate) VALUE_EMPTY_FROZEN_LIST: ListGen<FrozenListData> = unsafe { ListGen(FrozenListData::new(0)) });
 
 impl ListGen<FrozenListData> {
     pub(crate) fn offset_of_content() -> usize {

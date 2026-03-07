@@ -72,7 +72,8 @@ pub(crate) fn hash_file_line(file: &str, line: u32) -> StaticValueId {
 /// Static map from inventory-registered static value addresses to their IDs.
 ///
 /// This map is lazily initialized at runtime from inventory-registered entries.
-/// It contains mappings for multi-char strings created by `const_frozen_string!`.
+/// It contains mappings for values registered via `const_frozen_string!`,
+/// `static_starlark_value!`, or manual `inventory::submit!`.
 static INVENTORY_ADDR_TO_ID: LazyLock<HashMap<usize, StaticValueId>> = LazyLock::new(|| {
     inventory::iter::<StaticValueEntry>()
         .map(|e| {
@@ -174,5 +175,42 @@ mod tests {
         let id1 = get_static_value_id(a1.to_frozen_value());
         let id2 = get_static_value_id(a2.to_frozen_value());
         assert_eq!(id1, id2, "same value should produce same ID");
+    }
+
+    #[test]
+    fn test_singleton_none_is_registered() {
+        let none_val = FrozenValue::new_none();
+        let id = get_static_value_id(none_val);
+        assert!(id.is_some(), "None should be registered");
+    }
+
+    #[test]
+    fn test_singleton_bools_are_registered() {
+        let false_val = FrozenValue::new_bool(false);
+        let true_val = FrozenValue::new_bool(true);
+        let false_id = get_static_value_id(false_val);
+        let true_id = get_static_value_id(true_val);
+        assert!(false_id.is_some(), "false should be registered");
+        assert!(true_id.is_some(), "true should be registered");
+        assert_ne!(
+            false_id, true_id,
+            "true and false should have different IDs"
+        );
+    }
+
+    #[test]
+    fn test_singleton_empty_tuple_is_registered() {
+        let empty_tuple = FrozenValue::new_empty_tuple();
+        let id = get_static_value_id(empty_tuple);
+        assert!(id.is_some(), "empty tuple should be registered");
+    }
+
+    #[test]
+    fn test_singleton_empty_array_is_registered() {
+        use crate::values::types::array::VALUE_EMPTY_ARRAY;
+
+        let empty_array = VALUE_EMPTY_ARRAY.unpack().to_frozen_value();
+        let id = get_static_value_id(empty_array);
+        assert!(id.is_some(), "empty array should be registered");
     }
 }

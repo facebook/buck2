@@ -22,6 +22,7 @@
 
 mod get_static_value_id;
 mod registry;
+mod static_starlark_value;
 mod static_string;
 
 #[allow(unused_imports)]

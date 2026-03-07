@@ -87,6 +87,15 @@ unsafe impl Sync for ValueEmptyArray {}
 pub(crate) static VALUE_EMPTY_ARRAY: ValueEmptyArray =
     ValueEmptyArray(AllocStaticSimple::alloc(unsafe { Array::new(0, 0) }));
 
+// Manual registration for pagable serialization (can't use macro due to wrapper struct)
+inventory::submit! {
+    crate::__derive_refs::StaticValueEntry::new(
+        file!(),
+        line!(),
+        || VALUE_EMPTY_ARRAY.0.to_frozen_value()
+    )
+}
+
 impl ValueEmptyArray {
     pub(crate) fn unpack<'v>(&'static self) -> FrozenValueTyped<'v, Array<'v>> {
         // SAFETY: `Array` is normally (correctly) invariant in `'v`, but for empty arrays it

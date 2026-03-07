@@ -20,9 +20,9 @@ use starlark_derive::NoSerialize;
 use starlark_derive::ProvidesStaticType;
 
 use crate as starlark;
+use crate::static_starlark_value;
 use crate::typing::Ty;
 use crate::values::AllocFrozenValue;
-use crate::values::AllocStaticSimple;
 use crate::values::FrozenHeap;
 use crate::values::FrozenValue;
 use crate::values::StarlarkValue;
@@ -45,10 +45,10 @@ impl<'v> StarlarkValue<'v> for TypingAny {
     }
 }
 
+static_starlark_value!(ANY: TypingAny = TypingAny);
+
 impl AllocFrozenValue for TypingAny {
     fn alloc_frozen_value(self, _heap: &FrozenHeap) -> FrozenValue {
-        static ANY: AllocStaticSimple<TypingAny> = AllocStaticSimple::alloc(TypingAny);
-
         ANY.to_frozen_value()
     }
 }

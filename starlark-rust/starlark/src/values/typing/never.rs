@@ -37,9 +37,9 @@ use starlark_derive::NoSerialize;
 use starlark_derive::ProvidesStaticType;
 
 use crate as starlark;
+use crate::static_starlark_value;
 use crate::typing::Ty;
 use crate::values::AllocFrozenValue;
-use crate::values::AllocStaticSimple;
 use crate::values::AllocValue;
 use crate::values::FrozenHeap;
 use crate::values::FrozenValue;
@@ -64,10 +64,10 @@ impl<'v> StarlarkValue<'v> for TypingNever {
     }
 }
 
+static_starlark_value!(NEVER: TypingNever = TypingNever);
+
 impl AllocFrozenValue for TypingNever {
     fn alloc_frozen_value(self, _heap: &FrozenHeap) -> FrozenValue {
-        static NEVER: AllocStaticSimple<TypingNever> = AllocStaticSimple::alloc(TypingNever);
-
         NEVER.to_frozen_value()
     }
 }

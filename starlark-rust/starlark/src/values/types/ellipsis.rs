@@ -21,8 +21,8 @@ use starlark_derive::ProvidesStaticType;
 use starlark_derive::starlark_value;
 
 use crate as starlark;
+use crate::static_starlark_value;
 use crate::values::AllocFrozenValue;
-use crate::values::AllocStaticSimple;
 use crate::values::FrozenHeap;
 use crate::values::FrozenValue;
 use crate::values::StarlarkValue;
@@ -37,7 +37,7 @@ use crate::values::StarlarkValue;
 #[display("Ellipsis")]
 pub(crate) struct Ellipsis;
 
-pub(crate) static VALUE_ELLIPSIS: AllocStaticSimple<Ellipsis> = AllocStaticSimple::alloc(Ellipsis);
+static_starlark_value!(pub(crate) VALUE_ELLIPSIS: Ellipsis = Ellipsis);
 
 #[starlark_value(type = "ellipsis")]
 impl<'v> StarlarkValue<'v> for Ellipsis {}

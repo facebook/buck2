@@ -34,8 +34,8 @@ use crate::coerce::Coerce;
 use crate::coerce::coerce;
 use crate::collections::StarlarkHasher;
 use crate::private::Private;
+use crate::static_starlark_value;
 use crate::typing::Ty;
-use crate::values::AllocStaticSimple;
 use crate::values::FrozenValue;
 use crate::values::Heap;
 use crate::values::StarlarkValue;
@@ -94,8 +94,7 @@ impl<V: ValueLifetimeless> TupleGen<V> {
     }
 }
 
-pub(crate) static VALUE_EMPTY_TUPLE: AllocStaticSimple<FrozenTuple> =
-    AllocStaticSimple::alloc(unsafe { FrozenTuple::new(0) });
+static_starlark_value!(pub(crate) VALUE_EMPTY_TUPLE: FrozenTuple = unsafe { FrozenTuple::new(0) });
 
 /// Runtime type of unfrozen tuple.
 pub(crate) type Tuple<'v> = TupleGen<Value<'v>>;
