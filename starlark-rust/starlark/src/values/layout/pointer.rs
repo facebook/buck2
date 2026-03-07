@@ -94,6 +94,13 @@ impl RawPointer {
         self.0.get()
     }
 
+    /// Get the pointer value with tag bits stripped.
+    /// Returns the raw address suitable for comparison with header addresses.
+    #[inline]
+    pub(crate) fn ptr_value_untagged(self) -> usize {
+        self.0.get() & !TAG_MASK
+    }
+
     #[inline]
     pub(crate) fn tags(self) -> PointerTags {
         PointerTags::from_pointer(self)

@@ -1,0 +1,151 @@
+/*
+ * Copyright 2026 The Starlark in Rust Authors.
+ * Copyright (c) Facebook, Inc. and its affiliates.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+//! Lookup function for static value identifiers.
+//!
+//! This module provides the main entry point for checking if a FrozenValue
+//! is a static value and retrieving its identifier.
+
+use std::hash::Hasher;
+
+use super::static_string::STATIC_STRING_ADDR_TO_ID;
+use crate::values::FrozenValue;
+
+/// A unique identifier for a statically-allocated Starlark value.
+///
+/// This is a hash-based ID computed from deterministic keys
+/// (e.g., synthetic keys for short strings, or `(file, line)` for
+/// inventory-registered values).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub(crate) struct StaticValueId(u64);
+
+impl StaticValueId {
+    /// Create a `StaticValueId` from a raw u64 hash.
+    #[inline]
+    pub(crate) fn new(hash: u64) -> Self {
+        Self(hash)
+    }
+}
+
+/// Compute a deterministic `StaticValueId` for a single ASCII char string.
+///
+/// `byte` is the ASCII byte value (0x00..0x7F).
+pub(crate) fn hash_short_string(byte: u8) -> StaticValueId {
+    let mut hasher = starlark_map::StarlarkHasher::new();
+    hasher.write(b"__short_string__");
+    hasher.write_u8(byte);
+    StaticValueId::new(hasher.finish())
+}
+
+/// Compute a deterministic `StaticValueId` for the empty string.
+pub(crate) fn hash_empty_string() -> StaticValueId {
+    let mut hasher = starlark_map::StarlarkHasher::new();
+    hasher.write(b"__empty_string__");
+    StaticValueId::new(hasher.finish())
+}
+
+/// Check if a FrozenValue points to a static value.
+///
+/// Returns `Some(StaticValueId)` if the value is a registered static value,
+/// `None` otherwise.
+#[allow(dead_code)]
+pub(crate) fn get_static_value_id(fv: FrozenValue) -> Option<StaticValueId> {
+    // Only check for pointer values, not inline integers
+    if fv.ptr_value().is_int() {
+        return None;
+    }
+
+    let addr = fv.ptr_value().ptr_value_untagged();
+
+    // Check static strings (empty string and single ASCII characters)
+    if let Some(id) = STATIC_STRING_ADDR_TO_ID.get(&addr) {
+        return Some(*id);
+    }
+
+    // TODO(nero): Add checks for other static values here
+
+    None
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::const_frozen_string;
+    use crate::values::layout::static_string::constant_string;
+
+    #[test]
+    fn test_empty_string_has_id() {
+        let empty = constant_string("").unwrap();
+        let id = get_static_value_id(empty.to_frozen_value());
+        assert!(id.is_some(), "empty string should be registered");
+    }
+
+    #[test]
+    fn test_single_char_has_id() {
+        let a = constant_string("a").unwrap();
+        let id = get_static_value_id(a.to_frozen_value());
+        assert!(id.is_some(), "'a' should be registered");
+    }
+
+    #[test]
+    fn test_multi_char_string_not_static() {
+        let s = const_frozen_string!("hello");
+        let id = get_static_value_id(s.to_frozen_value());
+        // Multi-char strings are not in the static string registry
+        assert_eq!(id, None);
+    }
+
+    #[test]
+    fn test_all_ascii_chars_registered() {
+        for i in 0u8..128 {
+            let bytes = [i];
+            let s = std::str::from_utf8(&bytes).unwrap();
+            let fv = constant_string(s).unwrap();
+            let id = get_static_value_id(fv.to_frozen_value());
+            assert!(id.is_some(), "ASCII char {} should be registered", i);
+        }
+    }
+
+    #[test]
+    fn test_all_short_string_ids_unique() {
+        let mut ids = std::collections::HashSet::new();
+        // empty string
+        let empty = constant_string("").unwrap();
+        ids.insert(get_static_value_id(empty.to_frozen_value()).unwrap());
+        // all 128 ASCII chars
+        for i in 0u8..128 {
+            let bytes = [i];
+            let s = std::str::from_utf8(&bytes).unwrap();
+            let fv = constant_string(s).unwrap();
+            ids.insert(get_static_value_id(fv.to_frozen_value()).unwrap());
+        }
+        assert_eq!(
+            ids.len(),
+            129,
+            "all 129 short strings should have unique IDs"
+        );
+    }
+
+    #[test]
+    fn test_determinism() {
+        let a1 = constant_string("a").unwrap();
+        let a2 = constant_string("a").unwrap();
+        let id1 = get_static_value_id(a1.to_frozen_value());
+        let id2 = get_static_value_id(a2.to_frozen_value());
+        assert_eq!(id1, id2, "same value should produce same ID");
+    }
+}

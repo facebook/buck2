@@ -35,3 +35,5 @@ pub(crate) mod error;
 pub(crate) mod vtable_registry;
 
 pub(crate) mod vtable_register;
+
+pub(crate) mod static_value;
