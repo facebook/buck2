@@ -36,9 +36,9 @@ use starlark::environment::GlobalsBuilder;
 use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
 use starlark::environment::MethodsStatic;
+use starlark::static_starlark_value;
 use starlark::typing::Ty;
 use starlark::values::AllocFrozenValue;
-use starlark::values::AllocStaticSimple;
 use starlark::values::AllocValue;
 use starlark::values::Freeze;
 use starlark::values::FreezeResult;
@@ -133,12 +133,12 @@ unsafe impl<From: Coerce<To> + ValueLifetimeless, To: ValueLifetimeless>
 {
 }
 
+static_starlark_value!(EMPTY_PROVIDER_COLLECTION: FrozenProviderCollection = FrozenProviderCollection {
+    providers: SmallMap::new(),
+});
+
 fn empty_provider_collection_value() -> FrozenValueTyped<'static, FrozenProviderCollection> {
-    static EMPTY: AllocStaticSimple<FrozenProviderCollection> =
-        AllocStaticSimple::alloc(FrozenProviderCollection {
-            providers: SmallMap::new(),
-        });
-    EMPTY.unpack()
+    EMPTY_PROVIDER_COLLECTION.unpack()
 }
 
 impl<'v> AllocValue<'v> for ProviderCollectionGen<Value<'v>> {

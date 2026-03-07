@@ -13,8 +13,8 @@ use derive_more::Display;
 use starlark::any::ProvidesStaticType;
 use starlark::environment::GlobalsBuilder;
 use starlark::starlark_module;
+use starlark::static_starlark_value;
 use starlark::values::AllocFrozenValue;
-use starlark::values::AllocStaticSimple;
 use starlark::values::AllocValue;
 use starlark::values::FrozenHeap;
 use starlark::values::FrozenValue;
@@ -31,10 +31,10 @@ pub struct StarlarkProjectRoot;
 #[starlark_value(type = "ProjectRoot", StarlarkTypeRepr, UnpackValue)]
 impl<'v> StarlarkValue<'v> for StarlarkProjectRoot {}
 
+static_starlark_value!(STARLARK_PROJECT_ROOT: StarlarkProjectRoot = StarlarkProjectRoot);
+
 fn instance() -> FrozenValue {
-    static INSTANCE: AllocStaticSimple<StarlarkProjectRoot> =
-        AllocStaticSimple::alloc(StarlarkProjectRoot);
-    INSTANCE.to_frozen_value()
+    STARLARK_PROJECT_ROOT.to_frozen_value()
 }
 
 impl<'v> AllocValue<'v> for StarlarkProjectRoot {

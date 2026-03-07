@@ -12,7 +12,7 @@ use allocative::Allocative;
 use derive_more::Display;
 use dupe::Dupe;
 use starlark::any::ProvidesStaticType;
-use starlark::values::AllocStaticSimple;
+use starlark::static_starlark_value;
 use starlark::values::AllocValue;
 use starlark::values::Heap;
 use starlark::values::NoSerialize;
@@ -38,10 +38,10 @@ pub struct OpaqueMetadata;
 #[starlark_value(type = "OpaqueMetadata")]
 impl<'v> StarlarkValue<'v> for OpaqueMetadata {}
 
+static_starlark_value!(OPAQUE_METADATA: OpaqueMetadata = OpaqueMetadata);
+
 impl<'v> AllocValue<'v> for OpaqueMetadata {
     fn alloc_value(self, _heap: Heap<'v>) -> Value<'v> {
-        static INSTANCE: AllocStaticSimple<OpaqueMetadata> =
-            AllocStaticSimple::alloc(OpaqueMetadata);
-        INSTANCE.to_frozen_value().to_value()
+        OPAQUE_METADATA.to_frozen_value().to_value()
     }
 }

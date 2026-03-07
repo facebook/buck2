@@ -39,8 +39,8 @@ use starlark::environment::Methods;
 use starlark::environment::MethodsBuilder;
 use starlark::environment::MethodsStatic;
 use starlark::eval::Arguments;
+use starlark::static_starlark_value;
 use starlark::typing::Ty;
-use starlark::values::AllocStaticSimple;
 use starlark::values::AllocValue;
 use starlark::values::Demand;
 use starlark::values::Freeze;
@@ -405,6 +405,12 @@ pub struct FrozenStarlarkCmdArgs {
     options: FrozenCommandLineOptions,
 }
 
+static_starlark_value!(EMPTY_FROZEN_CMD_ARGS: FrozenStarlarkCmdArgs = FrozenStarlarkCmdArgs {
+    items: ThinBoxSliceFrozenValue::empty(),
+    hidden: ThinBoxSliceFrozenValue::empty(),
+    options: FrozenCommandLineOptions::empty(),
+});
+
 impl Serialize for FrozenStarlarkCmdArgs {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -559,13 +565,7 @@ impl<'v> StarlarkValue<'v> for StarlarkCmdArgs<'v> {
             options,
         } = &*self.0.borrow();
         if items.is_empty() && hidden.is_empty() && options.is_none() {
-            static EMPTY: AllocStaticSimple<FrozenStarlarkCmdArgs> =
-                AllocStaticSimple::alloc(FrozenStarlarkCmdArgs {
-                    items: ThinBoxSliceFrozenValue::empty(),
-                    hidden: ThinBoxSliceFrozenValue::empty(),
-                    options: FrozenCommandLineOptions::empty(),
-                });
-            Some(Ok(EMPTY.unpack().to_frozen_value()))
+            Some(Ok(EMPTY_FROZEN_CMD_ARGS.unpack().to_frozen_value()))
         } else {
             None
         }
