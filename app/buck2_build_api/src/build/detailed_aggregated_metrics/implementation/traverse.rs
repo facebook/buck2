@@ -50,7 +50,7 @@ impl std::hash::Hash for ResolvedTransitiveSetProjection {
     }
 }
 
-/// Once we look up a transitive set by key once, we have a reference ot the tset itself. That tset contains direct
+/// Once we look up a transitive set by key once, we have a reference to the tset itself. That tset contains direct
 /// references to its children, so we can use that to look up the children rather than needing to look up through
 /// the key again.
 #[derive(Clone, Dupe, Debug)]
