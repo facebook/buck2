@@ -25,6 +25,9 @@ def _match(matcher: str | BuckRegex, lowercase_stderr: str) -> bool:
     else:
         fail("Unknown matcher type: {}", type(matcher))
 
+# Not applied automatically by the prelude; add them in your toolchain if you want them
+#
+# FIXME(JakobDegen): Change that?
 def cxx_generic_error_handler(ctx: ActionErrorCtx) -> list[ActionSubError]:
     structured_error = ctx.parse_with_errorformat(
         category = "cxx_compiler_error",

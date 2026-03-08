@@ -7,7 +7,6 @@
 # above-listed licenses.
 
 load("@prelude//cxx:cxx_apple_linker_flags.bzl", "apple_extra_darwin_linker_flags", "apple_format_target_triple", "is_valid_apple_platform_name")
-load("@prelude//cxx:cxx_error_handler.bzl", "cxx_generic_error_handler")
 load("@prelude//cxx:debug.bzl", "SplitDebugMode")
 
 LinkerType = enum("gnu", "darwin", "windows", "wasm")
@@ -345,28 +344,6 @@ def cxx_toolchain_infos(
             **{k: getattr(cxx_compiler_info, k, None) for k in _compiler_fields}
         )
 
-    # TODO(minglunli): Should probably dedup from Buck2 side instead
-    def cxx_combined_error_handler(ctx: ActionErrorCtx) -> list[ActionSubError]:
-        errors = []
-        error_set = set()
-
-        # cxx specific error handler is called if it's defined
-        if cxx_error_handler != None:
-            specific_errors = cxx_error_handler(ctx)
-            for err in specific_errors:
-                # TDOO(nero): Impllment hash for ActionSubError, so no need to convert to string
-                err_str = str(err)
-                if err_str not in error_set:
-                    errors.append(err)
-                    error_set.add(err_str)
-
-        for generic in cxx_generic_error_handler(ctx):
-            err_str = str(generic)
-            if err_str not in error_set:
-                errors.append(generic)
-                error_set.add(err_str)
-        return errors
-
     toolchain_info = CxxToolchainInfo(
         as_compiler_info = as_compiler_info,
         asm_compiler_info = asm_compiler_info,
@@ -405,7 +382,7 @@ def cxx_toolchain_infos(
         minimum_os_version = minimum_os_version,
         use_dep_files = use_dep_files,
         use_distributed_thinlto = use_distributed_thinlto,
-        cxx_error_handler = cxx_combined_error_handler,
+        cxx_error_handler = cxx_error_handler,
         supported_compile_flavors = supported_compile_flavors,
     )
 
