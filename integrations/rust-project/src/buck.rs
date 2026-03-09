@@ -189,7 +189,7 @@ pub(crate) fn to_project_json(
             root_module,
             edition,
             deps,
-            is_workspace_member: info.in_workspace,
+            is_workspace_member: info.is_workspace_member(),
             source: Some(Source {
                 include_dirs,
                 exclude_dirs: vec![],
