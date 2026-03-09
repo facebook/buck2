@@ -225,4 +225,7 @@ def build_cgo(
 
     compiled_objects = c_compile_cmds.pic.objects
 
-    return go_gen_srcs, compiled_objects, gen_dir
+    # Mark objects as requiring external linking since we're not currently supporting internal linking for CGo packages.
+    dynimportfail = actions.write("dynimportfail", "", has_content_based_path = True)
+
+    return go_gen_srcs, [dynimportfail] + compiled_objects, gen_dir
