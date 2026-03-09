@@ -15,6 +15,7 @@ use std::num::ParseIntError;
 use buck2_common::init::ResourceControlConfig;
 use buck2_common::init::ResourceControlInit;
 use buck2_common::init::ResourceControlStatus;
+use buck2_core::soft_error;
 use buck2_fs::paths::abs_norm_path::AbsNormPath;
 use buck2_util::process;
 use buck2_util::process::async_background_command;
@@ -107,7 +108,15 @@ pub async fn create_daemon_spawn_command(
                 (ResourceControlStatus::Off, _) => unreachable!("Checked above"),
                 (_, Ok(s)) => s,
                 (ResourceControlStatus::Required, Err(e)) => return Err(e),
-                (ResourceControlStatus::IfAvailable, Err(_)) => DaemonSpawner::None,
+                (ResourceControlStatus::IfAvailable, Err(e)) => {
+                    soft_error!(
+                        "daemon_spawner_resource_control_unavailable",
+                        e,
+                        quiet: true
+                    )
+                    .ok();
+                    DaemonSpawner::None
+                }
             }
         }
     };
