@@ -43,6 +43,8 @@ enum SystemdNotAvailableReason {
     SystemctlCommandNotFound,
     #[error("Resource control with systemd is only supported on Linux.")]
     UnsupportedPlatform,
+    #[error("systemd-run --user probe failed (exit code {code}): {stderr}")]
+    SystemdRunUserProbeFailure { code: String, stderr: String },
 }
 
 enum DaemonSpawner {
@@ -192,18 +194,45 @@ async fn systemd_check_available() -> buck2_error::Result<()> {
     {
         Ok(output) => {
             if output.status.success() {
-                validate_systemd_version(&output.stdout).map_err(|e| e.into())
+                validate_systemd_version(&output.stdout)?;
             } else {
-                Err(SystemdNotAvailableReason::SystemctlCommandReturnedNonZero(
+                return Err(SystemdNotAvailableReason::SystemctlCommandReturnedNonZero(
                     String::from_utf8_lossy(&output.stderr).to_string(),
                 )
-                .into())
+                .into());
             }
         }
         Err(e) => match e.kind() {
-            ErrorKind::NotFound => Err(SystemdNotAvailableReason::SystemctlCommandNotFound.into()),
-            _ => Err(SystemdNotAvailableReason::SystemctlCommandLaunchFailed(e).into()),
+            ErrorKind::NotFound => {
+                return Err(SystemdNotAvailableReason::SystemctlCommandNotFound.into());
+            }
+            _ => return Err(SystemdNotAvailableReason::SystemctlCommandLaunchFailed(e).into()),
         },
+    }
+
+    // Verify that `systemd-run --user` can actually connect to the user's
+    // systemd instance. `systemctl --version` only checks that systemd is
+    // installed, but `systemd-run --user` needs a D-Bus session bus
+    // ($DBUS_SESSION_BUS_ADDRESS or $XDG_RUNTIME_DIR) to talk to the user's
+    // systemd. In sandboxed environments (e.g. VS Code 3p extension sandbox)
+    // these env vars are stripped, causing `systemd-run --user` to fail at
+    // runtime. This probe catches that upfront so `if_available` can fall back.
+    match async_background_command("systemd-run")
+        .args(["--user", "--scope", "--quiet", "--", "/bin/true"])
+        .output()
+        .await
+    {
+        Ok(output) if output.status.success() => Ok(()),
+        Ok(output) => {
+            let code = output
+                .status
+                .code()
+                .map(|c| c.to_string())
+                .unwrap_or("unknown".to_owned());
+            let stderr = String::from_utf8_lossy(&output.stderr).trim().to_owned();
+            Err(SystemdNotAvailableReason::SystemdRunUserProbeFailure { code, stderr }.into())
+        }
+        Err(e) => Err(SystemdNotAvailableReason::SystemctlCommandLaunchFailed(e).into()),
     }
 }
 
