@@ -30,7 +30,6 @@ use starlark_syntax::codemap::Span;
 use starlark_syntax::codemap::Spanned;
 
 use crate as starlark;
-use crate::__derive_refs::components::NativeCallableComponents;
 use crate::eval::compiler::small_vec_1::SmallVec1;
 use crate::typing::ParamSpec;
 use crate::typing::TypingOracleCtx;
@@ -488,20 +487,6 @@ impl Ty {
         match oracle.intersects(self, other) {
             Ok(ok) => Ok(ok),
             Err(e) => Err(e.into_error()),
-        }
-    }
-
-    pub(crate) fn from_native_callable_components(
-        comp: &NativeCallableComponents,
-        as_type: Option<Ty>,
-    ) -> starlark::Result<Self> {
-        let result = comp.return_type.clone();
-
-        let params = comp.param_spec.param_spec();
-
-        match as_type {
-            None => Ok(Ty::function(params, result)),
-            Some(type_attr) => Ok(Ty::ctor_function(type_attr, params, result)),
         }
     }
 

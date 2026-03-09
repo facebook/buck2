@@ -308,13 +308,8 @@ impl GlobalsBuilder {
                 name: name.to_owned(),
                 speculative_exec_safe: components.speculative_exec_safe,
                 as_type: as_type.as_ref().map(|x| x.0.dupe()),
-                ty: ty.unwrap_or_else(|| {
-                    Ty::from_native_callable_components(
-                        &components,
-                        as_type.as_ref().map(|x| x.0.dupe()),
-                    )
-                    .unwrap() // TODO(nga): do not unwrap.
-                }),
+                ty: ty
+                    .unwrap_or_else(|| components.make_type(as_type.as_ref().map(|x| x.0.dupe()))),
                 docs: components.into_docs(as_type),
                 special_builtin_function,
             },

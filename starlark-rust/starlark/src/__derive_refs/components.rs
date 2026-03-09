@@ -80,4 +80,15 @@ impl NativeCallableComponents {
             None => DocItem::Member(DocMember::Function(func_docs)),
         }
     }
+
+    pub(crate) fn make_type(&self, as_type: Option<Ty>) -> Ty {
+        let result = self.return_type.clone();
+
+        let params = self.param_spec.param_spec();
+
+        match as_type {
+            None => Ty::function(params, result),
+            Some(type_attr) => Ty::ctor_function(type_attr, params, result),
+        }
+    }
 }
