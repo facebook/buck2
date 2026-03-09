@@ -102,7 +102,15 @@ pub(crate) enum Kind {
 #[derive(Debug, Clone, Deserialize, PartialEq, Eq)]
 pub(crate) struct TargetInfo {
     pub(crate) name: String,
+    /// The target identifier, e.g. `fbcode//buck2/integrations/rust-project:rust-project`.
+    ///
+    /// See also <https://buck2.build/docs/concepts/labels/>
     pub(crate) label: String,
+    /// A list of tags, e.g. ["xplat", "split-dwarf"]
+    ///
+    /// This is generic metadata about the target.
+    pub(crate) labels: Vec<String>,
+
     pub(crate) kind: Kind,
     pub(crate) edition: Option<Edition>,
     pub(crate) srcs: Vec<PathBuf>,
@@ -276,6 +284,7 @@ mod tests {
         let info = TargetInfo {
             name: "bar".to_owned(),
             label: "bar".to_owned(),
+            labels: vec![],
             kind: Kind::Library,
             edition: None,
             srcs: vec![],
@@ -306,6 +315,7 @@ mod tests {
         let info = TargetInfo {
             name: "1.2.3".to_owned(),
             label: "//third-party/foo:1.2.3".to_owned(),
+            labels: vec![],
             kind: Kind::Library,
             edition: None,
             srcs: vec![],
@@ -332,6 +342,7 @@ mod tests {
         let info = TargetInfo {
             name: "_1.2.3".to_owned(),
             label: "//third-party/foo:_1.2.3".to_owned(),
+            labels: vec![],
             kind: Kind::Library,
             edition: None,
             srcs: vec![],
@@ -358,6 +369,7 @@ mod tests {
         let info = TargetInfo {
             name: "my_crate-unittest".to_owned(),
             label: "//foo:my_crate-unittest".to_owned(),
+            labels: vec![],
             kind: Kind::Test,
             edition: None,
             srcs: vec![],

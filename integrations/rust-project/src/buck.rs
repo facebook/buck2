@@ -1110,6 +1110,7 @@ fn merge_tests_no_cycles() {
         TargetInfo {
             name: "foo".to_owned(),
             label: "foo".to_owned(),
+            labels: vec![],
             kind: Kind::Library,
             edition: None,
             srcs: vec![],
@@ -1135,6 +1136,7 @@ fn merge_tests_no_cycles() {
         TargetInfo {
             name: "foo-unittest".to_owned(),
             label: "foo-unittest".to_owned(),
+            labels: vec![],
             kind: Kind::Test,
             edition: None,
             srcs: vec![],
@@ -1169,6 +1171,7 @@ fn merge_target_multiple_tests_no_cycles() {
         TargetInfo {
             name: "foo".to_owned(),
             label: "foo".to_owned(),
+            labels: vec![],
             kind: Kind::Library,
             edition: None,
             srcs: vec![],
@@ -1197,6 +1200,7 @@ fn merge_target_multiple_tests_no_cycles() {
         TargetInfo {
             name: "foo@rust".to_owned(),
             label: "foo@rust".to_owned(),
+            labels: vec![],
             kind: Kind::Library,
             edition: None,
             srcs: vec![],
@@ -1225,6 +1229,7 @@ fn merge_target_multiple_tests_no_cycles() {
         TargetInfo {
             name: "foo_test".to_owned(),
             label: "foo_test".to_owned(),
+            labels: vec![],
             kind: Kind::Test,
             edition: None,
             srcs: vec![],
@@ -1253,6 +1258,7 @@ fn merge_target_multiple_tests_no_cycles() {
         TargetInfo {
             name: "foo@rust-unittest".to_owned(),
             label: "foo@rust-unittest".to_owned(),
+            labels: vec![],
             kind: Kind::Test,
             edition: None,
             srcs: vec![],
@@ -1298,6 +1304,7 @@ fn integration_tests_preserved() {
         TargetInfo {
             name: "foo".to_owned(),
             label: "foo".to_owned(),
+            labels: vec![],
             kind: Kind::Library,
             edition: None,
             srcs: vec![],
@@ -1323,6 +1330,7 @@ fn integration_tests_preserved() {
         TargetInfo {
             name: "foo-integration-test".to_owned(),
             label: "foo-integration-test".to_owned(),
+            labels: vec![],
             kind: Kind::Test,
             edition: None,
             srcs: vec![],
@@ -1355,6 +1363,7 @@ fn named_deps_underscores() {
         TargetInfo {
             name: "bar".to_owned(),
             label: "bar".to_owned(),
+            labels: vec![],
             kind: Kind::Library,
             edition: None,
             srcs: vec![],
@@ -1381,6 +1390,7 @@ fn named_deps_underscores() {
     let info = TargetInfo {
         name: "foo".to_owned(),
         label: "foo".to_owned(),
+        labels: vec![],
         kind: Kind::Library,
         edition: None,
         srcs: vec![],
