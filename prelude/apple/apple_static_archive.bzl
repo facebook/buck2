@@ -11,6 +11,7 @@ load("@prelude//:validation_deps.bzl", "get_validation_deps_outputs")
 load("@prelude//apple:apple_library.bzl", "AppleLibraryForDistributionInfo")
 load("@prelude//apple:apple_library_types.bzl", "AppleLibraryInfo")
 load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolchainInfo", "AppleToolsInfo")
+load("@prelude//cxx:cxx_context.bzl", "get_cxx_toolchain_info")
 load("@prelude//linking:link_info.bzl", "LinkStrategy", "get_link_args_for_strategy", "unpack_link_args")
 load("@prelude//linking:linkables.bzl", "linkables")
 load("@prelude//utils:arglike.bzl", "ArgLike")
@@ -96,7 +97,9 @@ def _get_static_link_args(ctx: AnalysisContext) -> list[ArgLike]:
     args = dedupe(args)
 
     transitive_link_args = get_link_args_for_strategy(
-        ctx,
+        ctx.actions,
+        ctx.label,
+        get_cxx_toolchain_info(ctx).linker_info,
         [x.merged_link_info for x in linkables(ctx.attrs.deps)],
         LinkStrategy("static"),
         prefer_stripped = False,

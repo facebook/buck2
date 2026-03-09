@@ -8,6 +8,7 @@
 
 load("@prelude//:paths.bzl", "paths")
 load("@prelude//apple/swift:swift_compilation.bzl", "extract_swiftmodule_linkables", "get_swiftmodule_linker_flags")
+load("@prelude//cxx:cxx_context.bzl", "get_cxx_toolchain_info")
 load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxToolchainInfo", "LinkerType")
 load(
     "@prelude//cxx:transformation_spec.bzl",
@@ -169,7 +170,9 @@ def apple_build_link_args_with_deduped_flags(
         link_info = None
 
     return get_link_args_for_strategy(
-        ctx,
+        ctx.actions,
+        ctx.label,
+        get_cxx_toolchain_info(ctx).linker_info,
         deps_merged_link_infos,
         link_strategy,
         prefer_stripped,

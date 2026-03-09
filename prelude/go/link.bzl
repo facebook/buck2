@@ -186,7 +186,9 @@ def link(
 
         # Gather external link args from deps.
         ext_links = get_link_args_for_strategy(
-            ctx,
+            ctx.actions,
+            ctx.label,
+            cxx_toolchain.linker_info,
             cxx_inherited_link_info(deps),
             to_link_strategy(link_style),
             prefer_stripped = False,

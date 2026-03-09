@@ -1134,7 +1134,9 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
             # deps. This case is a bit different as we are effectively trying to get the args for how this library
             # would be represented on a dependent's link line and so it is appropriate to use our own merged_native_link_info.
             link_args = get_link_args_for_strategy(
-                ctx,
+                ctx.actions,
+                ctx.label,
+                get_cxx_toolchain_info(ctx).linker_info,
                 [merged_native_link_info],
                 link_strategy,
                 prefer_stripped = False,

@@ -324,7 +324,9 @@ def generate_rustdoc_test(
         [
             LinkArgs(flags = executable_args.extra_link_args),
             get_link_args_for_strategy(
-                ctx,
+                ctx.actions,
+                ctx.label,
+                compile_ctx.cxx_toolchain_info.linker_info,
                 # Since we pass the rlib in and treat it as a dependency to the rustdoc test harness,
                 # we need to ensure that the rlib's link info is added to the linker, otherwise we may
                 # end up with missing symbols that are defined within the crate.

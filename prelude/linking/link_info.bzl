@@ -11,9 +11,9 @@ load(
     "ArtifactTSet",
     "make_artifact_tset",
 )
-load("@prelude//cxx:cxx_context.bzl", "get_cxx_toolchain_info")
 load(
     "@prelude//cxx:cxx_toolchain_types.bzl",
+    "LinkerInfo",
     "LinkerType",
     "PicBehavior",
 )
@@ -813,7 +813,9 @@ def map_to_link_infos(links: list[LinkArgs]) -> list[LinkInfo]:
     return res
 
 def get_link_args_for_strategy(
-        ctx: AnalysisContext,
+        actions: AnalysisActions,
+        label: Label,
+        linker_info: LinkerInfo,
         deps_merged_link_infos: list[MergedLinkInfo],
         link_strategy: LinkStrategy,
         prefer_stripped: bool,
@@ -826,15 +828,15 @@ def get_link_args_for_strategy(
     infos_kwargs = {}
     if additional_link_info:
         infos_kwargs = {"value": LinkInfos(default = additional_link_info, stripped = additional_link_info)}
-    infos = ctx.actions.tset(
+    infos = actions.tset(
         LinkInfosTSet,
         children = filter(None, [x._infos.get(link_strategy) for x in deps_merged_link_infos]),
         **infos_kwargs
     )
 
     external_debug_info = make_artifact_tset(
-        actions = ctx.actions,
-        label = ctx.label,
+        actions = actions,
+        label = label,
         children = filter(
             None,
             [x._external_debug_info.get(link_strategy) for x in deps_merged_link_infos] + ([additional_link_info.external_debug_info] if additional_link_info else []),
@@ -842,7 +844,7 @@ def get_link_args_for_strategy(
     )
 
     if transformation_spec_context and not transformation_spec_context.provider.is_empty:
-        link_ordering = get_cxx_toolchain_info(ctx).linker_info.link_ordering or "preorder"
+        link_ordering = linker_info.link_ordering or "preorder"
         flattened_results = []
         for link_infos in infos.traverse(ordering = link_ordering):
             link_info = get_link_info_for_transformation(

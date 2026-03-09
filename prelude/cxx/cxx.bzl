@@ -503,7 +503,9 @@ def _create_prebuilt_library_outputs(
                         # TODO(T110378118): As per v1, we always link against "shared"
                         # dependencies when building a shaerd library.
                         shared_link_args = get_link_args_for_strategy(
-                            ctx,
+                            ctx.actions,
+                            ctx.label,
+                            linker_info,
                             inherited_exported_link,
                             LinkStrategy("shared"),
                             prefer_stripped = False,

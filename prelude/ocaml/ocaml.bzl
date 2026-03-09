@@ -751,7 +751,9 @@ def ocaml_binary_impl(ctx: AnalysisContext) -> list[Provider]:
         ctx.actions,
         cxx_toolchain,
         [get_link_args_for_strategy(
-            ctx,
+            ctx.actions,
+            ctx.label,
+            cxx_toolchain.linker_info,
             dep_link_infos,
             LinkStrategy("static_pic"),
             prefer_stripped = False,
@@ -850,7 +852,9 @@ def ocaml_object_impl(ctx: AnalysisContext) -> list[Provider]:
         ctx.actions,
         cxx_toolchain,
         [get_link_args_for_strategy(
-            ctx,
+            ctx.actions,
+            ctx.label,
+            cxx_toolchain.linker_info,
             dep_link_infos,
             LinkStrategy("static_pic"),
             prefer_stripped = False,
@@ -956,7 +960,9 @@ def ocaml_shared_impl(ctx: AnalysisContext) -> list[Provider]:
         ctx.actions,
         cxx_toolchain,
         [get_link_args_for_strategy(
-            ctx,
+            ctx.actions,
+            ctx.label,
+            cxx_toolchain.linker_info,
             dep_link_infos,
             LinkStrategy("static_pic"),
             prefer_stripped = False,
