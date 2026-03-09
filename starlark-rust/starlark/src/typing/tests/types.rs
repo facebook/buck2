@@ -17,6 +17,7 @@
 
 //! Type-related operations.
 
+use crate::assert::Assert;
 use crate::typing::tests::TypeCheck;
 
 #[test]
@@ -52,5 +53,51 @@ def test():
     # This test should work even if `t` is global. There's a bug in test framework somewhere.
     t = int | str
 "#,
+    );
+}
+
+#[test]
+fn test_function_as_type_parameterize() {
+    let a = Assert::new();
+    a.fail(
+        r#"
+def f(x: str[int]):
+    pass
+"#,
+        "[] can only be applied to list function in type expression",
+    );
+}
+
+#[test]
+fn test_list_parametrize() {
+    let a = Assert::new();
+    a.pass(
+        r#"
+def f(x: list[str]) -> list[str]:
+    return x
+"#,
+    );
+}
+
+#[test]
+fn test_set_parametrize() {
+    let a = Assert::new();
+    a.pass(
+        r#"
+def f(x: set[int]) -> set[int]:
+    return x
+"#,
+    );
+}
+
+#[test]
+fn test_list_too_many_type_params() {
+    let a = Assert::new();
+    a.fail(
+        r#"
+def f(x: list[str, int]):
+    pass
+"#,
+        "[,] can only be applied to dict or tuple functions in type expression",
     );
 }
