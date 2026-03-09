@@ -55,7 +55,6 @@ use crate::values::Value;
 use crate::values::ValueError;
 use crate::values::ValueLifetimeless;
 use crate::values::ValueLike;
-use crate::values::type_repr::StarlarkTypeRepr;
 use crate::values::types::ellipsis::Ellipsis;
 use crate::values::typing::type_compiled::compiled::TypeCompiled;
 
@@ -67,17 +66,6 @@ enum FunctionError {
 
 /// Return value of `type(any function)`.
 pub const FUNCTION_TYPE: &str = "function";
-
-/// Marker trait for function types.
-pub(crate) enum StarlarkFunction {}
-
-impl StarlarkTypeRepr for StarlarkFunction {
-    type Canonical = Self;
-
-    fn starlark_type_repr() -> Ty {
-        Ty::any_callable()
-    }
-}
 
 #[derive(Debug, Allocative, Clone, Copy, Dupe)]
 #[doc(hidden)]
