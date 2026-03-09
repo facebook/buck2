@@ -139,7 +139,6 @@ buck_java_library(
         "prelude//toolchains/android/test/com/facebook/buck/testrunner:testrunner",
     ],
     deps = [
-        "prelude//toolchains/android/third-party:ddmlib",
         ":instrumentation",
     ],
 )
