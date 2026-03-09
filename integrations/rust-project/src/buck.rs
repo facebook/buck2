@@ -171,6 +171,22 @@ pub(crate) fn to_project_json(
             include_dirs.push(parent.to_owned());
         }
 
+        // If an include directory ends with __srcs, use its parent directory.
+        // Buck generates __srcs directories that mirror the source layout,
+        // and rust-analyzer should resolve to the real source directory.
+        include_dirs = include_dirs
+            .into_iter()
+            .map(|p| {
+                if p.file_name()
+                    .is_some_and(|name| name.to_string_lossy().ends_with("__srcs"))
+                {
+                    p.parent().unwrap_or(&p).to_owned()
+                } else {
+                    p
+                }
+            })
+            .collect();
+
         include_dirs = remove_duplicates_preserve_order(include_dirs);
 
         let build = if include_all_buildfiles || info.in_workspace {
