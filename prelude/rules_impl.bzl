@@ -37,13 +37,10 @@ load("@prelude//decls:android_rules.bzl", "android_rules")
 load("@prelude//decls:common.bzl", "IncludeType", "buck")
 load("@prelude//decls:core_rules.bzl", "core_rules")
 load("@prelude//decls:cxx_rules.bzl", "BUILD_INFO_ATTR", "cxx_rules")
-load("@prelude//decls:d_rules.bzl", "d_rules")
 load("@prelude//decls:dotnet_rules.bzl", "dotnet_rules")
 load("@prelude//decls:erlang_rules.bzl", "erlang_rules")
 load("@prelude//decls:git_rules.bzl", "git_rules")
 load("@prelude//decls:go_rules.bzl", "go_rules")
-load("@prelude//decls:groovy_rules.bzl", "groovy_rules")
-load("@prelude//decls:halide_rules.bzl", "halide_rules")
 load("@prelude//decls:haskell_rules.bzl", "haskell_rules")
 load("@prelude//decls:java_rules.bzl", "java_rules")
 load("@prelude//decls:js_rules.bzl", "js_rules")
@@ -53,7 +50,6 @@ load("@prelude//decls:ocaml_rules.bzl", "ocaml_rules")
 load("@prelude//decls:python_rules.bzl", "python_rules")
 load("@prelude//decls:re_test_common.bzl", "re_test_common")
 load("@prelude//decls:rust_rules.bzl", "rust_rules")
-load("@prelude//decls:scala_rules.bzl", "scala_rules")
 load("@prelude//decls:shell_rules.bzl", "shell_rules")
 load("@prelude//decls:third_party_common.bzl", "third_party_common")
 load("@prelude//decls:toolchains_common.bzl", "toolchains_common")
@@ -103,13 +99,10 @@ load("@prelude//zip_file:zip_file.bzl", _zip_file_extra_attributes = "extra_attr
 _ANDROID_RULES_KEY = "android"
 _CORE_RULES_KEY = "core"
 _CXX_RULES_KEY = "cxx"
-_D_RULES_KEY = "d"
 _DOTNET_RULES_KEY = ".NET"
 _ERLANG_RULES_KEY = "erlang"
 _GIT_RULES_KEY = "git"
 _GO_RULES_KEY = "go"
-_GROOVY_RULES_KEY = "groovy"
-_HALIDE_RULES_KEY = "halide"
 _HASKELL_RULES_KEY = "haskell"
 _APPLE_RULES_KEY = "apple"
 _JAVA_RULES_KEY = "java"
@@ -119,7 +112,6 @@ _LUA_RULES_KEY = "lua"
 _OCAML_RULES_KEY = "ocaml"
 _PYTHON_RULES_KEY = "python"
 _RUST_RULES_KEY = "rust"
-_SCALA_RULES_KEY = "scala"
 _SHELL_RULES_KEY = "shell"
 _UNCATEGORIZED_RULES_KEY = "uncategorized"
 
@@ -130,13 +122,10 @@ categorized_rule_decl_records = {
     _ANDROID_RULES_KEY: android_rules,
     _CORE_RULES_KEY: core_rules,
     _CXX_RULES_KEY: cxx_rules,
-    _D_RULES_KEY: d_rules,
     _DOTNET_RULES_KEY: dotnet_rules,
     _ERLANG_RULES_KEY: erlang_rules,
     _GIT_RULES_KEY: git_rules,
     _GO_RULES_KEY: go_rules,
-    _GROOVY_RULES_KEY: groovy_rules,
-    _HALIDE_RULES_KEY: halide_rules,
     _HASKELL_RULES_KEY: haskell_rules,
     _APPLE_RULES_KEY: apple_rules,
     _JAVA_RULES_KEY: java_rules,
@@ -146,7 +135,6 @@ categorized_rule_decl_records = {
     _OCAML_RULES_KEY: ocaml_rules,
     _PYTHON_RULES_KEY: python_rules,
     _RUST_RULES_KEY: rust_rules,
-    _SCALA_RULES_KEY: scala_rules,
     _SHELL_RULES_KEY: shell_rules,
     _UNCATEGORIZED_RULES_KEY: uncategorized_rules,
 }
@@ -428,15 +416,6 @@ _go_extra_attributes = {
     },
 }
 
-_groovy_extra_attributes = {
-    "groovy_library": {
-        "resources_root": attrs.option(attrs.string(), default = None),
-    },
-    "groovy_test": {
-        "resources_root": attrs.option(attrs.string(), default = None),
-    },
-}
-
 _haskell_extra_attributes = {
     "haskell_binary": {
         "auto_link_groups": attrs.bool(default = False),
@@ -522,7 +501,6 @@ categorized_extra_attributes = {
     _CXX_RULES_KEY: cxx_extra_attributes,
     _DOTNET_RULES_KEY: _dotnet_extra_attributes,
     _GO_RULES_KEY: _go_extra_attributes,
-    _GROOVY_RULES_KEY: _groovy_extra_attributes,
     _HASKELL_RULES_KEY: _haskell_extra_attributes,
     _APPLE_RULES_KEY: _apple_extra_attributes,
     _JAVA_RULES_KEY: _java_extra_attributes,
