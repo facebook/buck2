@@ -393,7 +393,7 @@ pub fn worker_command_as_fallback_to_string(command: &buck2_data::WorkerCommand)
 pub fn command_to_string<'a>(command: impl Into<Command<'a>>) -> String {
     // TODO: the `env` command and `shlex` quoting below is POSIX-specific. How can we best support windows?
     let command = command.into();
-    let mut cmd = "env --chdir=\"$(buck2 root --kind project)\" --".to_owned();
+    let mut cmd = "env -C \"$(buck2 root --kind project)\" --".to_owned();
 
     for entry in command.env.iter() {
         cmd.push(' ');
