@@ -28,21 +28,10 @@ load(
     "cxx_merge_cpreprocessors",
 )
 load("@prelude//cxx:target_sdk_version.bzl", "get_target_sdk_version_flags")
-load(
-    "@prelude//linking:link_info.bzl",
-    "LinkStyle",
-)
 load("@prelude//linking:types.bzl", "Linkage")
 load("@prelude//os_lookup:defs.bzl", "OsLookup")
 load("@prelude//utils:cmd_script.bzl", "cmd_script")
 load(":toolchain.bzl", "GoToolchainInfo", "get_toolchain_env_vars")
-
-# A map of expected linkages for provided link style
-_LINKAGE_FOR_LINK_STYLE = {
-    LinkStyle("static"): Linkage("static"),
-    LinkStyle("static_pic"): Linkage("static"),
-    LinkStyle("shared"): Linkage("shared"),
-}
 
 CGoToolOut = record(
     cgo_gotypes = field(Artifact),  # _cgo_gotypes.go
@@ -64,7 +53,6 @@ CGoBuildContext = record(
     headers_layout = field(CxxHeadersLayout),
     cxx_compiler_flags = field(list[typing.Any]),
     cxx_preprocessor_flags = field(list[typing.Any]),
-    link_style = field(str),
 
     # Deps info
     inherited_preprocessor_infos = field(list[CPreprocessorInfo]),
@@ -86,7 +74,6 @@ def get_cgo_build_context(ctx: AnalysisContext) -> CGoBuildContext | None:
         headers_layout = cxx_get_regular_cxx_headers_layout(ctx),
         cxx_compiler_flags = ctx.attrs.cxx_compiler_flags,
         cxx_preprocessor_flags = ctx.attrs.cxx_preprocessor_flags,
-        link_style = ctx.attrs.link_style or "static",
         inherited_preprocessor_infos = cxx_inherited_preprocessor_infos(ctx.attrs.deps),
         _cxx_toolchain = ctx.attrs._cxx_toolchain,
     )
@@ -213,8 +200,6 @@ def build_cgo(
         ).include_path,
     ]))
 
-    linkage = _LINKAGE_FOR_LINK_STYLE[LinkStyle(cgo_build_context.link_style)]
-
     # Compile C++ sources into object files.
     c_compile_cmds = cxx_compile_srcs(
         actions,
@@ -234,7 +219,7 @@ def build_cgo(
         [own_pre, cgo_headers_pre],
         cgo_build_context.inherited_preprocessor_infos,
         [],
-        linkage,
+        Linkage("any"),
         False,  # add_coverage_instrumentation_compiler_flags
     )
 
