@@ -49,10 +49,19 @@ use crate::commands::build::print_build_succeeded;
 
 /// Build and run the selected target.
 ///
+/// Use `--` to separate arguments to the target from arguments to buck2:
+///
+/// buck2 run //my/target -- --arg1 --arg2
+///
 /// The Build ID for the underlying build execution is made available to the target in
 /// the `BUCK_RUN_BUILD_ID` environment variable.
 #[derive(Debug, clap::Parser)]
-#[clap(name = "run", trailing_var_arg = true)]
+// FIXME(JakobDegen): Remove usage override once soft error is removed
+#[clap(
+    name = "run",
+    trailing_var_arg = true,
+    override_usage = "buck2 run [OPTIONS] <TARGET> [-- <TARGET_ARGS>...]"
+)]
 pub struct RunCommand {
     #[clap(
         long = "command-args-file",
