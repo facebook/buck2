@@ -12,6 +12,7 @@ use std::collections::HashMap;
 use std::collections::hash_map::DefaultHasher;
 use std::hash::Hash;
 use std::hash::Hasher;
+use std::io::Read;
 use std::net::Ipv4Addr;
 use std::net::SocketAddr;
 use std::net::TcpListener;
@@ -712,13 +713,16 @@ async fn handle_install_request(
 ) -> buck2_error::Result<()> {
     let (files_tx, files_rx) = mpsc::unbounded_channel();
 
-    let log_filename = format!(
-        "installer_{}_{}.log",
-        get_timestamp_as_string()?,
-        calculate_hash(&install_request_data.installer_label.target().name())
-    );
+    let timestamp = get_timestamp_as_string()?;
+    let target_hash = calculate_hash(&install_request_data.installer_label.target().name());
+    let log_filename = format!("installer_{}_{}.log", timestamp, target_hash);
     let log_path = install_log_dir.join(FileName::unchecked_new(&log_filename));
     let log_path_string = log_path.to_string();
+
+    let stderr_log_filename = format!("installer_stderr_{}_{}.log", timestamp, target_hash);
+    let stderr_log_path = install_log_dir.join(FileName::unchecked_new(&stderr_log_filename));
+    let stderr_log_path_string = stderr_log_path.to_string();
+
     let (artifacts_ready, install_result) = ctx
         .try_compute2(
             |ctx| {
@@ -753,13 +757,17 @@ async fn handle_install_request(
                         &install_request_data.installer_label,
                         &installer_run_args,
                         installer_debug,
+                        &stderr_log_path_string,
                     )
                     .await?;
                     let artifact_fs = ctx.get_artifact_fs().await?;
 
                     let installer =
                         ConnectedInstaller::connect(tcp_port, artifact_fs, install_request_data)
-                            .await?;
+                            .await
+                            .map_err(|e| {
+                                append_installer_stderr_context(e, &stderr_log_path_string)
+                            })?;
 
                     buck2_error::Ok(installer.install(files_rx).await)
                 }
@@ -834,6 +842,7 @@ async fn build_launch_installer(
     providers_label: &ConfiguredProvidersLabel,
     installer_run_args: &[String],
     installer_log_console: bool,
+    stderr_log_path: &str,
 ) -> buck2_error::Result<()> {
     let frozen_providers = ctx
         .get_providers(providers_label)
@@ -884,12 +893,21 @@ async fn build_launch_installer(
             &ArtifactPathMapperImpl::from(&ensured_inputs),
         )?;
 
+        let stderr = if installer_log_console {
+            Stdio::inherit()
+        } else {
+            match std::fs::File::create(stderr_log_path) {
+                Ok(file) => Stdio::from(file),
+                Err(_) => Stdio::null(),
+            }
+        };
+
         let build_id: &str = &get_dispatcher().trace_id().to_string();
         background_command(&run_args[0])
             .args(&run_args[1..])
             .args(installer_run_args)
             .env("BUCK2_UUID", build_id)
-            .stderr(get_stdio(installer_log_console)?)
+            .stderr(stderr)
             .spawn()
             .buck_error_context("Failed to spawn installer")?;
 
@@ -899,11 +917,31 @@ async fn build_launch_installer(
     }
 }
 
-fn get_stdio(log_installer_console: bool) -> buck2_error::Result<Stdio> {
-    if log_installer_console {
-        Ok(Stdio::inherit())
-    } else {
-        Ok(Stdio::null())
+fn append_installer_stderr_context(
+    err: buck2_error::Error,
+    stderr_log_path: &str,
+) -> buck2_error::Error {
+    const MAX_STDERR_BYTES: usize = 4096;
+    match std::fs::File::open(stderr_log_path) {
+        Ok(mut file) => {
+            let mut buf = vec![0u8; MAX_STDERR_BYTES];
+            match file.read(&mut buf) {
+                Ok(n) if n > 0 => {
+                    let output = String::from_utf8_lossy(&buf[..n]);
+                    let trimmed = output.trim();
+                    if trimmed.is_empty() {
+                        err
+                    } else {
+                        err.context(format!(
+                            "Installer stderr output:\n{trimmed}\n\n\
+                             Hint: use `--installer-debug` for full output"
+                        ))
+                    }
+                }
+                _ => err,
+            }
+        }
+        Err(_) => err,
     }
 }
 
