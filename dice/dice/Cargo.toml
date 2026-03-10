@@ -5,6 +5,10 @@ name = "dice"
 repository = { workspace = true }
 version = "0.1.0"
 
+[features]
+default = ["pagable"]
+pagable = ["dep:pagable"]
+
 [dependencies]
 allocative = { workspace = true }
 anyhow = "1.0.65"
@@ -24,7 +28,7 @@ indoc = { workspace = true }
 itertools = "0.14.0"
 lock_free_hashtable = { workspace = true }
 lock_free_vec = { workspace = true }
-pagable = { workspace = true }
+pagable = { workspace = true, optional = true }
 parking_lot = { version = "0.12.1", features = ["send_guard"] }
 ref-cast = { workspace = true }
 scopeguard = { workspace = true }

@@ -8,6 +8,7 @@ rust_library(
         ["src/**/*.rs"],
     ),
     crate_root = "src/lib.rs",
+    features = ["pagable"],
     test_deps = [
         "fbsource//third-party/rust:assert_matches",
         "fbsource//third-party/rust:bincode",

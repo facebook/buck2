@@ -21,8 +21,15 @@ use derive_more::Display;
 use dice_futures::cancellation::CancellationContext;
 use dupe::Dupe;
 use fxhash::FxHasher;
+#[cfg(feature = "pagable")]
 use pagable::PagableTagged;
+#[cfg(feature = "pagable")]
 use pagable::pagable_typetag;
+
+#[cfg(not(feature = "pagable"))]
+pub trait PagableTagged {}
+#[cfg(not(feature = "pagable"))]
+impl<T> PagableTagged for T {}
 
 use crate::Demand;
 use crate::api::computations::DiceComputations;
@@ -277,7 +284,7 @@ impl Display for CowDiceKeyHashed<'_> {
     }
 }
 
-#[pagable_typetag]
+#[cfg_attr(feature = "pagable", pagable_typetag)]
 #[async_trait]
 pub trait DiceKeyDyn: Allocative + Display + Send + Sync + PagableTagged + 'static {
     async fn compute(
