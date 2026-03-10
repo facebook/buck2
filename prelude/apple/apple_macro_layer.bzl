@@ -180,28 +180,8 @@ def apple_universal_executable_macro_impl(apple_universal_executable_rule = None
         **kwargs
     )
 
-# TODO: T197775809 Rename `target_sdk_version` to `minimum_os_version`
-def _move_attribute_value(old_name, new_name, kwargs):
-    # `None` values can appear due to passing default/named args
-    old_value = kwargs.pop(old_name, None)
-    if old_value == None:
-        return
-
-    new_value = kwargs.get(new_name, None)
-    if new_value != None and old_value != new_value:
-        fail("Cannot specify both `{old_name}={old_value}` and `{new_name}={new_value}`".format(
-            old_name = old_name,
-            old_value = old_value,
-            new_name = new_name,
-            new_value = new_value,
-        ))
-    kwargs[new_name] = old_value
-
 def _transform_propagated_target_sdk_version_to_minimum_os_version(kwargs):
-    # During the transition periods, allow either `minimum_os_version` or
-    # `propagated_target_sdk_version` to be used on targets.
-    # Under the hood, `minimum_os_version` is the actual field on rules.
-    #
-    # At the end of the transition, `propagated_target_sdk_version` BUCK + macro usages will be renamed
-    # to `minimum_os_version` and this transformer removed.
-    _move_attribute_value("propagated_target_sdk_version", "minimum_os_version", kwargs)
+    # TODO: T197775809 Rename `target_sdk_version` to `minimum_os_version`
+    value = kwargs.pop("propagated_target_sdk_version", None)
+    if value != None:
+        fail("`propagated_target_sdk_version` attribute is not supported, use `minimum_os_version` instead")
