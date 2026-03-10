@@ -104,7 +104,7 @@ async fn query_action_cache_and_download_result(
             action_digest: digest.to_string(),
             cache_type: cache_type.to_proto().into(),
         },
-        re_client.action_cache(digest.dupe()),
+        re_client.action_cache(digest.dupe(), &command.prepared_action.platform),
     )
     .await;
 

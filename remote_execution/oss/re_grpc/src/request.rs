@@ -15,6 +15,7 @@ use crate::response::TActionResult2;
 #[derive(Default)]
 pub struct ActionResultRequest {
     pub digest: TDigest,
+    pub platform: Option<TPlatform>,
     pub _dot_dot: (),
 }
 
@@ -158,5 +159,6 @@ pub struct THostRuntimeRequirements {
 pub struct WriteActionResultRequest {
     pub action_digest: TDigest,
     pub action_result: TActionResult2,
+    pub platform: Option<TPlatform>,
     pub _dot_dot: (),
 }

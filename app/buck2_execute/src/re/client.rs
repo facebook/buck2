@@ -230,10 +230,14 @@ impl RemoteExecutionClient {
         &self,
         action_digest: ActionDigest,
         use_case: RemoteExecutorUseCase,
+        platform: &RE::Platform,
     ) -> buck2_error::Result<Option<ActionResultResponse>> {
         self.data
             .action_cache
-            .op(self.data.client.action_cache(action_digest, use_case))
+            .op(self
+                .data
+                .client
+                .action_cache(action_digest, use_case, platform))
             .await
     }
 
@@ -968,6 +972,7 @@ impl RemoteExecutionClientImpl {
         &self,
         action_digest: ActionDigest,
         use_case: RemoteExecutorUseCase,
+        platform: &RE::Platform,
     ) -> buck2_error::Result<Option<ActionResultResponse>> {
         if let Some(m) = &*INDUCED_CACHE_MISSES {
             if m.get(&action_digest.to_string())
@@ -986,6 +991,7 @@ impl RemoteExecutionClientImpl {
                     use_case.metadata(None),
                     ActionResultRequest {
                         digest: action_digest.to_re(),
+                        platform: Some(re_platform(platform)),
                         ..Default::default()
                     },
                 )
@@ -1782,6 +1788,7 @@ impl RemoteExecutionClientImpl {
                     WriteActionResultRequest {
                         action_digest: digest.to_re(),
                         action_result: result,
+                        platform: Some(re_platform(platform)),
                         ..Default::default()
                     },
                 )
