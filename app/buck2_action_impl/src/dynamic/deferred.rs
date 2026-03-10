@@ -423,7 +423,7 @@ pub(crate) async fn prepare_and_execute_lambda(
             })?;
             res
         },
-        buck2_data::DeferredEvaluationEnd {},
+        buck2_data::DynamicLambdaEnd {},
     )
     .await
 }

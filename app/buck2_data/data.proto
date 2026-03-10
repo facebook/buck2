@@ -131,7 +131,7 @@ message SpanEndEvent {
     DiceCleanupEnd dice_cleanup = 73;
     ExclusiveCommandWaitEnd exclusive_command_wait = 74;
     DeferredPreparationStageEnd deferred_preparation_stage = 75;
-    DeferredEvaluationEnd deferred_evaluation = 76;
+    DynamicLambdaEnd deferred_evaluation = 76;
     BxlExecutionEnd bxl_execution = 77;
     BxlDiceInvocationEnd bxl_dice_invocation = 78;
     ReUploadEnd re_upload = 79;
@@ -3039,7 +3039,7 @@ message DynamicLambdaOwner {
   }
 }
 
-message DeferredEvaluationEnd {}
+message DynamicLambdaEnd {}
 
 // Wraps the RE upload stage of execution to report useful data on network
 // traffic.
