@@ -191,6 +191,7 @@ extra_attributes = {
         "_exec_os_type": buck.exec_os_type_arg(),
         "_java_test_toolchain": toolchains_common.java_for_host_test(),
         "_java_toolchain": toolchains_common.java_for_android(),
+        "_test_srcs": attrs.list(attrs.source(allow_directory = True), default = []),
     },
     "android_library": {
         "abi_generation_mode": attrs.option(attrs.enum(AbiGenerationMode), default = None),

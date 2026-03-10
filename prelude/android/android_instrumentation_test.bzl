@@ -152,7 +152,7 @@ def android_instrumentation_test_impl(ctx: AnalysisContext):
             list_tests[RunInfo],
             "list-tests",
             "--sources-file",
-            ctx.actions.write("source_files.txt", ctx.attrs.srcs, with_inputs = True),
+            ctx.actions.write("source_files.txt", ctx.attrs._test_srcs, with_inputs = True),
         ])
         env["TPX_LIST_TESTS_COMMAND"] = list_tests_command
 
