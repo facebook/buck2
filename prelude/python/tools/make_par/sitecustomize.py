@@ -191,6 +191,7 @@ def __patch_subprocess() -> None:
 
     @wraps(std_popen_init)
     # pyre-fixme[2]: Parameter must be annotated.
+    # pyre-fixme[53]: Captured variable `std_popen_init` is not annotated.
     def _patched_popen_init(self, args, *a, **kwargs) -> None:
         env = kwargs.get("env", None)
         if _should_restore_env(args, env):
