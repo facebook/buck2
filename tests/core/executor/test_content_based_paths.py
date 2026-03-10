@@ -541,6 +541,16 @@ async def test_resolve_promise_artifact(
 
 
 @buck_test()
+async def test_run_with_anon_non_cbp_dep_eligible_for_dedupe(buck: Buck) -> None:
+    await buck.build(
+        "root//:run_with_anon_non_cbp_dep",
+        "--target-platforms",
+        "root//:p_default",
+    )
+    assert await is_eligible_for_action_dedup(buck) == ELIGIBLE_FOR_DEDUPE
+
+
+@buck_test()
 async def test_not_eligible_for_dedupe(buck: Buck) -> None:
     await buck.build(
         "root//:not_eligible_for_dedupe",

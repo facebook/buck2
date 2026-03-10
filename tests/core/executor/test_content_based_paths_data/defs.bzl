@@ -544,6 +544,65 @@ resolve_promise_artifact = rule(impl = _resolve_promise_artifact_impl, attrs = {
     "assert_promised_artifact_has_content_based_path": attrs.bool(),
 })
 
+AnonNonCbpInfo = provider(fields = ["artifact"])
+
+def _anon_non_cbp_impl(ctx: AnalysisContext) -> list[Provider]:
+    out = ctx.actions.write("out", "anon_content")
+    return [DefaultInfo(), AnonNonCbpInfo(artifact = out)]
+
+_anon_non_cbp = anon_rule(
+    impl = _anon_non_cbp_impl,
+    attrs = {},
+    artifact_promise_mappings = {
+        "out": lambda x: x[AnonNonCbpInfo].artifact,
+    },
+)
+
+def _anon_non_cbp_wrapper_impl(ctx):
+    anon = ctx.actions.anon_target(_anon_non_cbp, {})
+    anon_artifact = anon.artifact("out")
+    return [DefaultInfo(), AnonNonCbpInfo(artifact = anon_artifact)]
+
+anon_non_cbp_wrapper = rule(
+    impl = _anon_non_cbp_wrapper_impl,
+    attrs = {},
+)
+
+def _run_with_anon_non_cbp_dep_impl(ctx):
+    anon_artifact = ctx.attrs.dep[AnonNonCbpInfo].artifact
+
+    # Content-based script
+    script = ctx.actions.declare_output("script.py", has_content_based_path = True)
+    script = ctx.actions.write(
+        script,
+        [
+            "import sys",
+            "with open(sys.argv[1], 'w') as f:",
+            "  f.write(sys.argv[2])",
+        ],
+    )
+
+    # Content-based output
+    out = ctx.actions.declare_output("out", has_content_based_path = True)
+    args = cmd_args(["fbpython", script, out.as_output(), "hello world"])
+    args.add(cmd_args(hidden = anon_artifact))
+
+    ctx.actions.run(
+        args,
+        category = "test_run",
+        expect_eligible_for_dedupe = True,
+        prefer_remote = True,
+    )
+
+    return [DefaultInfo(default_output = out)]
+
+run_with_anon_non_cbp_dep = rule(
+    impl = _run_with_anon_non_cbp_dep_impl,
+    attrs = {
+        "dep": attrs.dep(),
+    },
+)
+
 def _not_eligible_for_dedupe_impl(ctx) -> list[Provider]:
     script = ctx.actions.write(
         "script.py",

@@ -1,5 +1,6 @@
 load(
     ":defs.bzl",
+    "anon_non_cbp_wrapper",
     "argsfile_with_incorrectly_declared_output",
     "cas_artifact_with_content_based_path",
     "copied_dir",
@@ -13,6 +14,7 @@ load(
     "incremental_action",
     "not_eligible_for_dedupe",
     "resolve_promise_artifact",
+    "run_with_anon_non_cbp_dep",
     "run_with_content_based_path",
     "sets_inconsistent_params",
     "slow_running_local_action_with_content_based_path",
@@ -170,6 +172,15 @@ resolve_promise_artifact(
     name = "resolve_promise_artifact",
     artifact_has_content_based_path = read_config("test", "artifact_has_content_based_path", "false") == "true",
     assert_promised_artifact_has_content_based_path = read_config("test", "assert_promised_artifact_has_content_based_path", "false") == "true",
+)
+
+anon_non_cbp_wrapper(
+    name = "anon_non_cbp_wrapper",
+)
+
+run_with_anon_non_cbp_dep(
+    name = "run_with_anon_non_cbp_dep",
+    dep = ":anon_non_cbp_wrapper",
 )
 
 not_eligible_for_dedupe(
