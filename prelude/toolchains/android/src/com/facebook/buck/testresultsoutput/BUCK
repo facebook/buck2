@@ -23,6 +23,7 @@ buck_java_library(
         "prelude//toolchains/android/src/com/facebook/buck/testrunner:junit",
         "prelude//toolchains/android/test/com/facebook/buck/testresultsoutput:testresultsoutput",
         "prelude//toolchains/android/test/com/facebook/buck/testrunner:testrunner",
+        "prelude//toolchains/android/test/com/facebook/buck/testrunner:tpx_timeout_buffer_manager_test",
     ],
     deps = [
         "prelude//toolchains/android/third-party:jackson-core",

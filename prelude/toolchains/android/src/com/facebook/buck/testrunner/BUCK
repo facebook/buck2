@@ -50,7 +50,9 @@ buck_kotlin_library(
         "SkipTestCondition.java",
         "StandardOutputRecorder.java",
         "TestRecorder.java",
+        "ThreadDumpUtils.kt",
         "TpxStandardOutputTestListener.java",
+        "TpxTimeoutBufferManager.kt",
     ],
     resources = glob(["META-INF/**/*"]),
     resources_root = ".",
@@ -60,9 +62,11 @@ buck_kotlin_library(
     target = "11", # @oss-enable
     tests = [
         "prelude//toolchains/android/test/com/facebook/buck/testrunner:testrunner",
+        "prelude//toolchains/android/test/com/facebook/buck/testrunner:tpx_timeout_buffer_manager_test",
     ],
     visibility = [
         "prelude//toolchains/android/test/com/facebook/buck/testrunner:testrunner",
+        "prelude//toolchains/android/test/com/facebook/buck/testrunner:tpx_timeout_buffer_manager_test",
     ],
     # IMPORTANT! This library limits itself to types that are available in both the JDK and Android
     # Java API. The objective is to limit the set of files added to the ClassLoader that runs the

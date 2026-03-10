@@ -1,4 +1,4 @@
-load("@prelude//toolchains/android/tools:build_rules.bzl", "standard_java_test")
+load("@prelude//toolchains/android/tools:build_rules.bzl", "buck_kotlin_test", "standard_java_test")
 load("@prelude//utils:source_listing.bzl", "source_listing")
 
 oncall("android_devxx")
@@ -50,5 +50,15 @@ standard_java_test(
         "prelude//toolchains/android/third-party:okhttp",
         "prelude//toolchains/android/third-party:okio",
         "prelude//toolchains/android/third-party:tools-sdk-common",
+    ],
+)
+
+buck_kotlin_test(
+    name = "tpx_timeout_buffer_manager_test",
+    srcs = ["TpxTimeoutBufferManagerTest.kt"],
+    deps = [
+        "prelude//toolchains/android/src/com/facebook/buck/testresultsoutput:testresultsoutput",
+        "prelude//toolchains/android/src/com/facebook/buck/testrunner:junit",
+        "prelude//toolchains/android/third-party:junit",
     ],
 )

@@ -30,11 +30,12 @@ import org.junit.runner.notification.RunListener
  *
  * Note: This listener assumes it's being used only for Robolectric tests with TPX output enabled.
  */
-class RobolectricTimeoutEnforcingRunListener(
-    private val testResultsOutputSender: TestResultsOutputSender
+class RobolectricTimeoutEnforcingRunListener
+@JvmOverloads
+constructor(
+    private val testResultsOutputSender: TestResultsOutputSender,
+    private val watchdogExecutor: ScheduledExecutorService = Executors.newScheduledThreadPool(1),
 ) : RunListener() {
-
-  private val watchdogExecutor: ScheduledExecutorService = Executors.newScheduledThreadPool(1)
   private val activeTimeouts: MutableMap<Description, TestExecution> = ConcurrentHashMap()
 
   override fun testStarted(description: Description) {
@@ -90,20 +91,10 @@ class RobolectricTimeoutEnforcingRunListener(
 
     writeTimeoutEvent(description, execution.startTime, timeoutMs)
 
-    printThreadDump()
+    ThreadDumpUtils.print()
 
     // This is necessary because Robolectric tests may not respond to thread interruption
     System.exit(1)
-  }
-
-  /** Prints a thread dump to help diagnose what the test was doing when it timed out. */
-  private fun printThreadDump() {
-    System.err.println("\n=== Thread Dump ===")
-    Thread.getAllStackTraces().forEach { (thread, stackTrace) ->
-      System.err.println("Thread: ${thread.name} (${thread.state})")
-      stackTrace.forEach { element -> System.err.println("  at $element") }
-      System.err.println()
-    }
   }
 
   /** Writes a timeout event to the TPX output file. */
