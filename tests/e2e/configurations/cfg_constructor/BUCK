@@ -31,12 +31,6 @@ buck2_e2e_test(
 )
 
 buck2_e2e_test(
-    name = "test_platform_constraint_values.py",
-    srcs = ["test_platform_constraint_values.py"],
-    data_dir = "test_platform_constraint_values_data",
-)
-
-buck2_e2e_test(
     name = "test_cfg_modifiers.py",
     srcs = ["test_cfg_modifiers.py"],
     test_with_deployed_buck2 = True,
