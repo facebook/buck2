@@ -1,0 +1,50 @@
+load(":rules.bzl", "config_setting", "constraint_setting", "constraint_value", "platform")
+
+constraint_setting(
+    name = "os",
+)
+
+constraint_value(
+    name = "linux",
+    constraint_setting = ":os",
+)
+
+constraint_value(
+    name = "windows",
+    constraint_setting = ":os",
+)
+
+constraint_setting(
+    name = "cpu",
+)
+
+constraint_value(
+    name = "x86_64",
+    constraint_setting = ":cpu",
+)
+
+# Valid platform with non-conflicting constraint_values
+platform(
+    name = "valid_platform",
+    constraint_values = [
+        ":linux",
+        ":x86_64",
+    ],
+)
+
+# Invalid platform with conflicting constraint_values for same constraint_setting
+platform(
+    name = "conflicting_platform",
+    constraint_values = [
+        ":linux",
+        ":windows",
+    ],
+)
+
+# config_setting should still work (uses strict=False default)
+config_setting(
+    name = "config_setting_example",
+    constraint_values = [
+        ":linux",
+    ],
+)

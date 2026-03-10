@@ -135,20 +135,23 @@ def constraint_impl(ctx):
     ]
 
 def platform_impl(ctx):
+    # Check for duplicates within the platform's own constraint_values attribute.
+    # This catches bugs where the same constraint_setting has multiple values in the
+    # same constraint_values list (which is always a mistake).
+    # Note: Overriding constraints from deps is intentional behavior that allows
+    # platforms to specialize constraints from their dependencies.
+    constraint_values_info = util.constraint_values_to_configuration(
+        ctx.attrs.constraint_values,
+        fail_on_duplicates = True,
+    )
     subinfos = (
         [dep[PlatformInfo].configuration for dep in ctx.attrs.deps] +
-        [util.constraint_values_to_configuration(ctx.attrs.constraint_values)]
+        [constraint_values_info]
     )
     return [
         DefaultInfo(),
         PlatformInfo(
             label = str(ctx.label.raw_target()),
-            # TODO(nga): current behavior is the last constraint value for constraint setting wins.
-            #   This allows overriding constraint values from dependencies, and moreover,
-            #   it allows overriding constraint values from constraint values listed
-            #   in the same `constraint_values` attribute earlier.
-            #   If this is intentional, state it explicitly.
-            #   Otherwise, fix it.
             configuration = util.configuration_info_union(subinfos),
         ),
     ]
