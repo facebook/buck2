@@ -350,6 +350,12 @@ impl FromStr for ResourceControlInit {
 /// suspension only if your bug fix is actually included in the version of buck in use
 const RESOURCE_CONTROL_ALGO_VERSION: u32 = 4;
 
+/// The current version of the daemon cgroup wrapping logic. Incrementing this to `N + 1` and
+/// setting `buck2_resource_control.status_if_min_daemon_cgroup_version` buckconfig to `N + 1`
+/// enables daemon cgroup wrapping (status = if_available) only if the bug fix is included in the
+/// version of buck in use.
+const DAEMON_CGROUP_VERSION: u32 = 1;
+
 impl ResourceControlConfig {
     pub fn from_config(config: &LegacyBuckConfig) -> buck2_error::Result<Self> {
         if let Some(env_conf) = buck2_env!(
@@ -364,6 +370,18 @@ impl ResourceControlConfig {
                     property: "status",
                 })?
                 .unwrap_or(ResourceControlStatus::Off);
+            let status_if_min_daemon_cgroup_version: Option<u32> =
+                config.parse(BuckconfigKeyRef {
+                    section: "buck2_resource_control",
+                    property: "status_if_min_daemon_cgroup_version",
+                })?;
+            let status = if status_if_min_daemon_cgroup_version
+                .is_some_and(|min_version| DAEMON_CGROUP_VERSION >= min_version)
+            {
+                ResourceControlStatus::IfAvailable
+            } else {
+                status
+            };
             let init = config
                 .parse(BuckconfigKeyRef {
                     section: "buck2_resource_control",
