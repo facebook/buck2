@@ -143,12 +143,15 @@ impl ExecutionPlatformConstraints {
         let exec_compatible_with: Arc<[_]> = if let Some(a) =
             node.known_attr_or_none(EXEC_COMPATIBLE_WITH_ATTRIBUTE.id, AttrInspectOptions::All)
         {
-            let configured_attr = a.configure(cfg_ctx).with_buck_error_context(|| {
-                format!(
-                    "Error configuring attribute `{}` to resolve execution platform",
-                    EXEC_COMPATIBLE_WITH_ATTRIBUTE.name
-                )
-            })?;
+            let configured_attr = a
+                .configure(cfg_ctx)
+                .with_buck_error_context(|| {
+                    format!(
+                        "Error configuring attribute `{}` to resolve execution platform",
+                        EXEC_COMPATIBLE_WITH_ATTRIBUTE.name
+                    )
+                })
+                .require_compatible()?;
             ConfiguredTargetNode::attr_as_target_compatible_with(configured_attr.value)
                 .map(|label| {
                     label.with_buck_error_context(|| {

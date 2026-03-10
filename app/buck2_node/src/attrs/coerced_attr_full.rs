@@ -8,6 +8,7 @@
  * above-listed licenses.
  */
 
+use buck2_core::configuration::compatibility::ResultMaybeCompatible;
 use buck2_core::package::PackageLabel;
 use buck2_error::BuckErrorContext;
 
@@ -28,15 +29,15 @@ impl<'a> CoercedAttrFull<'a> {
     pub fn configure(
         &self,
         ctx: &dyn AttrConfigurationContext,
-    ) -> buck2_error::Result<ConfiguredAttrFull<'a>> {
-        Ok(ConfiguredAttrFull {
-            name: self.name,
-            attr: self.attr,
-            value: self
-                .value
-                .configure(self.attr.coercer(), ctx, Some(self.name))
-                .with_buck_error_context(|| format!("configuring attr `{}`", self.name))?,
-        })
+    ) -> ResultMaybeCompatible<ConfiguredAttrFull<'a>> {
+        self.value
+            .configure(self.attr.coercer(), ctx, Some(self.name))
+            .map(|v| ConfiguredAttrFull {
+                name: self.name,
+                attr: self.attr,
+                value: v,
+            })
+            .with_buck_error_context(|| format!("configuring attr `{}`", self.name))
     }
 
     pub fn traverse(

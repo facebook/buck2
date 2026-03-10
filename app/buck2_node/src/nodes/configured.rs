@@ -742,14 +742,14 @@ impl<'a> ConfiguredTargetNodeRef<'a> {
     ) -> impl Iterator<Item = ConfiguredAttrFull<'a>> + 'a {
         self.0.get().target_node.attrs(opts).map(move |a| {
             a.configure(&self.attr_configuration_context())
-                .expect("checked attr configuration in constructor")
+                .expect_compatible("checked attr configuration in constructor")
         })
     }
 
     pub fn get(self, attr: &str, opts: AttrInspectOptions) -> Option<ConfiguredAttrFull<'a>> {
         self.0.get().target_node.attr_or_none(attr, opts).map(|v| {
             v.configure(&self.attr_configuration_context())
-                .expect("checked attr configuration in constructor")
+                .expect_compatible("checked attr configuration in constructor")
         })
     }
 

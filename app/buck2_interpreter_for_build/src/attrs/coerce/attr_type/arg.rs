@@ -298,7 +298,9 @@ mod tests {
             );
 
             let coerced = attr.coerce(AttrIsConfigurable::Yes, &coercion_ctx(), value)?;
-            let configured = coerced.configure(&attr, &configuration_ctx(), None)?;
+            let configured = coerced
+                .configure(&attr, &configuration_ctx(), None)
+                .require_compatible()?;
             assert_eq!(
                 format!(
                     r#""$(exe root//:foo ({})) $(location root//:bar ({}))""#,

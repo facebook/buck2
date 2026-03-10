@@ -228,7 +228,8 @@ fn unpack_target_compatible_with_attr(
             resolved_cfg,
             label: target_node.label().dupe(),
         })
-        .with_buck_error_context(|| format!("Error configuring attribute `{}`", attr.name))?;
+        .with_buck_error_context(|| format!("Error configuring attribute `{}`", attr.name))
+        .require_compatible()?;
 
     match attr.value.unpack_list() {
         Some(values) => {
@@ -504,8 +505,9 @@ pub(crate) async fn gather_deps(
 
     let mut traversal = Traversal::default();
     for a in target_node.attrs(AttrInspectOptions::All) {
-        let configured_attr = a.configure(attr_cfg_ctx)?;
-        configured_attr.traverse(target_node.label().pkg(), &mut traversal)?;
+        a.configure(attr_cfg_ctx)?
+            .traverse(target_node.label().pkg(), &mut traversal)
+            .with_buck_error_context(|| format!("traversing attribute `{}`", a.name))?;
     }
 
     let dep_results = ctx
@@ -571,13 +573,13 @@ pub(crate) async fn gather_deps(
 }
 
 /// Resolves configured attributes of target node needed to compute transitions
-async fn resolve_transition_attrs<'a>(
+async fn resolve_transition_input_attrs<'a>(
     transitions: impl Iterator<Item = &TransitionId>,
     target_node: &'a TargetNode,
     matched_cfg_keys: &MatchedConfigurationSettingKeysWithCfg,
     platform_cfgs: &OrderedMap<TargetLabel, ConfigurationData>,
     ctx: &mut DiceComputations<'_>,
-) -> buck2_error::Result<OrderedMap<&'a str, Arc<ConfiguredAttr>>> {
+) -> ResultMaybeCompatible<OrderedMap<&'a str, Arc<ConfiguredAttr>>> {
     struct AttrConfigurationContextToResolveTransitionAttrs<'c> {
         matched_cfg_keys: &'c MatchedConfigurationSettingKeysWithCfg,
         toolchain_cfg: ConfigurationWithExec,
@@ -618,6 +620,8 @@ async fn resolve_transition_attrs<'a>(
         fn resolved_transitions(
             &self,
         ) -> buck2_error::Result<&OrderedMap<Arc<TransitionId>, Arc<TransitionApplied>>> {
+            // TODO(cjhopman): Why is this an internal error? Doesn't it indicate an error in the
+            // rule or the target definition? Do we enforce it somewhere else as an input error?
             Err(internal_error!(
                 "resolved_transitions() can't be used before transition execution."
             ))
@@ -650,18 +654,19 @@ async fn resolve_transition_attrs<'a>(
                     if let Some(old_val) =
                         result.insert(configured_attr.name, Arc::new(configured_attr.value))
                     {
-                        return Err(internal_error!(
+                        return internal_error!(
                             "Found duplicated value `{}` for attr `{}` on target `{}`",
                             &old_val.as_display_no_ctx(),
                             attr,
                             target_node.label()
-                        ));
+                        )
+                        .into();
                     }
                 }
             }
         }
     }
-    Ok(result)
+    ResultMaybeCompatible::Compatible(result)
 }
 
 /// Verifies if configured node's attributes are equal to the same attributes configured with pre-transition configuration.
@@ -732,7 +737,7 @@ async fn compute_configured_target_node_no_transition(
     let platform_cfgs = compute_platform_cfgs(ctx, target_node.as_ref()).await?;
 
     let mut resolved_transitions = OrderedMap::new();
-    let attrs = resolve_transition_attrs(
+    let attrs = resolve_transition_input_attrs(
         target_node.transition_deps().map(|(_, tr)| tr.as_ref()),
         &target_node,
         &resolved_configuration,
@@ -762,6 +767,7 @@ async fn compute_configured_target_node_no_transition(
         &platform_cfgs,
         Some(target_label.unconfigured().dupe()),
     );
+
     let (gathered_deps, mut errors_and_incompats) = gather_deps(
         partial_target_label,
         target_node.as_ref(),
@@ -988,7 +994,7 @@ async fn compute_configured_forward_target_node(
         format!("Error resolving configuration deps of `{target_label_before_transition}`")
     })?;
 
-    let attrs = resolve_transition_attrs(
+    let attrs = resolve_transition_input_attrs(
         iter::once(transition_id),
         target_node,
         &matched_cfg_keys,

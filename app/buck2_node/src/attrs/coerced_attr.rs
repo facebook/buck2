@@ -15,6 +15,7 @@ use std::hash::Hash;
 use std::ops::Deref;
 
 use allocative::Allocative;
+use buck2_core::configuration::compatibility::ResultMaybeCompatible;
 use buck2_core::configuration::config_setting::ConfigSettingData;
 use buck2_core::package::PackageLabel;
 use buck2_core::package::source_path::SourcePathRef;
@@ -23,7 +24,6 @@ use buck2_core::provider::label::ProvidersLabel;
 use buck2_core::soft_error;
 use buck2_core::target::label::label::TargetLabel;
 use buck2_data::error::ErrorTag;
-use buck2_error::BuckErrorContext;
 use buck2_error::buck2_error;
 use buck2_error::internal_error;
 use buck2_util::arc_str::ArcSlice;
@@ -721,6 +721,10 @@ impl CoercedAttr {
     /// This handles the resolution of the select() conditions and delegates to
     /// the actual attr type for handling any appropriate configuration-time
     /// processing.
+    ///
+    /// Returns `ResultMaybeCompatible::Incompatible` if a select resolves to an
+    /// incompatible branch, indicating the target is not compatible with the
+    /// current configuration.
     pub fn configure(
         &self,
         ty: &AttrType,
@@ -728,7 +732,7 @@ impl CoercedAttr {
         // TODO(nero): Remove this parameter after we migrate to first select match.
         // Attribute name, used for soft error message of select_first_match_differs
         attr_name: Option<&str>,
-    ) -> buck2_error::Result<ConfiguredAttr> {
+    ) -> ResultMaybeCompatible<ConfiguredAttr> {
         self.configure_inner(ty, ctx, attr_name)
             .tag(ErrorTag::ConfigureAttr)
     }
@@ -738,45 +742,56 @@ impl CoercedAttr {
         ty: &AttrType,
         ctx: &dyn AttrConfigurationContext,
         attr_name: Option<&str>,
-    ) -> buck2_error::Result<ConfiguredAttr> {
-        Ok(match CoercedAttrWithType::pack(self, ty)? {
+    ) -> ResultMaybeCompatible<ConfiguredAttr> {
+        let configured = match CoercedAttrWithType::pack(self, ty)? {
             CoercedAttrWithType::Selector(select, t) => {
                 Self::select(ctx, select, attr_name)?.configure(t, ctx, attr_name)?
             }
             CoercedAttrWithType::Concat(items, t) => {
                 let singleton = items.len() == 1;
-                let mut it = items.iter().map(|item| item.configure(t, ctx, attr_name));
-                let first = it
+                let mut configured = Vec::with_capacity(items.len());
+                for item in items {
+                    configured.push(item.configure(t, ctx, attr_name)?);
+                }
+                let mut iter = configured.into_iter();
+                let first = iter
                     .next()
-                    .ok_or_else(|| internal_error!("concat with no items"))??;
+                    .ok_or_else(|| internal_error!("concat with no items"))?;
                 if singleton {
                     first
                 } else {
-                    first.concat(t, &mut it)?
+                    first.concat(t, &mut iter.map(Ok))?
                 }
             }
             CoercedAttrWithType::SelectFail(message, _) => {
-                return Err(buck2_error!(
+                return buck2_error!(
                     buck2_error::ErrorTag::Input,
                     "select resolved to select_fail(): {message}"
-                ));
+                )
+                .into();
             }
             CoercedAttrWithType::AnyList(list) => ConfiguredAttr::List(ListLiteral(
-                list.try_map(|v| v.configure(AttrType::any_ref(), ctx, attr_name))?
+                list.iter()
+                    .map(|v| v.configure(AttrType::any_ref(), ctx, attr_name))
+                    .collect::<ResultMaybeCompatible<Vec<_>>>()?
                     .into(),
             )),
             CoercedAttrWithType::AnyTuple(tuple) => ConfiguredAttr::Tuple(TupleLiteral(
                 tuple
-                    .try_map(|v| v.configure(AttrType::any_ref(), ctx, attr_name))?
+                    .iter()
+                    .map(|v| v.configure(AttrType::any_ref(), ctx, attr_name))
+                    .collect::<ResultMaybeCompatible<Vec<_>>>()?
                     .into(),
             )),
             CoercedAttrWithType::AnyDict(dict) => ConfiguredAttr::Dict(DictLiteral(
-                dict.try_map(|(k, v)| {
-                    let k2 = k.configure(AttrType::any_ref(), ctx, attr_name)?;
-                    let v2 = v.configure(AttrType::any_ref(), ctx, attr_name)?;
-                    buck2_error::Ok((k2, v2))
-                })?
-                .into(),
+                dict.iter()
+                    .map(|(k, v)| {
+                        let k2 = k.configure(AttrType::any_ref(), ctx, attr_name)?;
+                        let v2 = v.configure(AttrType::any_ref(), ctx, attr_name)?;
+                        ResultMaybeCompatible::Compatible((k2, v2))
+                    })
+                    .collect::<ResultMaybeCompatible<Vec<_>>>()?
+                    .into(),
             )),
 
             CoercedAttrWithType::Bool(v, _t) => ConfiguredAttr::Bool(v),
@@ -784,27 +799,31 @@ impl CoercedAttr {
             CoercedAttrWithType::String(v, _t) => ConfiguredAttr::String(v.dupe()),
             CoercedAttrWithType::EnumVariant(v, _t) => ConfiguredAttr::EnumVariant(v.dupe()),
             CoercedAttrWithType::List(list, t) => ConfiguredAttr::List(ListLiteral(
-                list.try_map(|v| v.configure(&t.inner, ctx, attr_name))?
+                list.iter()
+                    .map(|v| v.configure(&t.inner, ctx, attr_name))
+                    .collect::<ResultMaybeCompatible<Vec<_>>>()?
                     .into(),
             )),
             CoercedAttrWithType::Tuple(list, t) => {
                 if list.len() != t.xs.len() {
-                    return Err(internal_error!("Inconsistent number of elements in tuple"));
+                    return internal_error!("Inconsistent number of elements in tuple").into();
                 }
                 ConfiguredAttr::Tuple(TupleLiteral(
                     list.iter()
                         .zip(&t.xs)
                         .map(|(v, vt)| v.configure(vt, ctx, attr_name))
-                        .collect::<buck2_error::Result<_>>()?,
+                        .collect::<ResultMaybeCompatible<_>>()?,
                 ))
             }
             CoercedAttrWithType::Dict(dict, t) => ConfiguredAttr::Dict(DictLiteral(
-                dict.try_map(|(k, v)| {
-                    let k2 = k.configure(&t.key, ctx, attr_name)?;
-                    let v2 = v.configure(&t.value, ctx, attr_name)?;
-                    buck2_error::Ok((k2, v2))
-                })?
-                .into(),
+                dict.iter()
+                    .map(|(k, v)| {
+                        let k2 = k.configure(&t.key, ctx, attr_name)?;
+                        let v2 = v.configure(&t.value, ctx, attr_name)?;
+                        ResultMaybeCompatible::Compatible((k2, v2))
+                    })
+                    .collect::<ResultMaybeCompatible<Vec<_>>>()?
+                    .into(),
             )),
             CoercedAttrWithType::None => ConfiguredAttr::None,
             CoercedAttrWithType::Some(attr, t) => attr.configure(&t.inner, ctx, attr_name)?,
@@ -841,7 +860,8 @@ impl CoercedAttr {
             CoercedAttrWithType::SourceFile(s, _) => ConfiguredAttr::SourceFile(s.clone()),
             CoercedAttrWithType::Metadata(m, _) => ConfiguredAttr::Metadata(m.clone()),
             CoercedAttrWithType::TargetModifiers(m, _) => ConfiguredAttr::TargetModifiers(m.dupe()),
-        })
+        };
+        ResultMaybeCompatible::Compatible(configured)
     }
 
     /// Checks if this attr matches the filter. For selectors and container-like things, will return true if any
