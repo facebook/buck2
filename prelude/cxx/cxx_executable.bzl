@@ -81,17 +81,20 @@ load(
 )
 load(
     "@prelude//linking:linkable_graph.bzl",
+    "LinkableGraph",  # @unused Used as a type
     "create_linkable_graph",
     "get_linkable_graph_node_map_func",
     "reduce_linkable_graph",
 )
 load(
     "@prelude//linking:linkables.bzl",
+    "LinkableProviders",  # @unused Used as a type
     "linkables",
 )
 load(
     "@prelude//linking:shared_libraries.bzl",
     "SharedLibrary",  # @unused Used as a type
+    "SharedLibraryInfo",  # @unused Used as a type
     "merge_shared_libraries",
     "traverse_shared_library_info",
 )
@@ -634,30 +637,15 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
         dep_links = LinkArgs(infos = filtered_links)
         sub_targets[LINK_GROUP_MAP_DATABASE_SUB_TARGET] = [get_link_group_map_json(ctx, filtered_targets)]
 
-    # Only setup a shared library symlink tree when shared linkage or link_groups is used
     gnu_use_link_groups = cxx_is_gnu(ctx) and len(link_group_mappings) > 0
-    shlib_deps = []
-    if link_strategy == LinkStrategy("shared") or gnu_use_link_groups:
-        shlib_deps = (
-            [d.shared_library_info for d in link_deps] +
-            [d.shared_library_info for d in impl_params.extra_link_roots]
-        )
-    elif impl_params.runtime_dependency_handling == RuntimeDependencyHandling("symlink"):
-        for linkable_node in linkable_graph.nodes.traverse():
-            if linkable_node.linkable == None:
-                continue
-            preferred_linkage = linkable_node.linkable.preferred_linkage
-            output_style = get_lib_output_style(link_strategy, preferred_linkage, PicBehavior("supported"))
-            if output_style == LibOutputStyle("shared_lib") and not linkable_node.linkable.stub:
-                shlib_deps.append(merge_shared_libraries(ctx.actions, node = linkable_node.linkable.shared_libs))
-    elif impl_params.runtime_dependency_handling == RuntimeDependencyHandling("symlink_single_level_only"):
-        for d in link_deps + impl_params.extra_link_roots:
-            if d.linkable_graph == None:
-                continue
-            preferred_linkage = d.linkable_graph.nodes.value.linkable.preferred_linkage
-            output_style = get_lib_output_style(link_strategy, preferred_linkage, PicBehavior("supported"))
-            if output_style == LibOutputStyle("shared_lib"):
-                shlib_deps.append(d.shared_library_info)
+    shlib_deps = _get_shared_library_symlink_deps(
+        ctx,
+        gnu_use_link_groups,
+        impl_params,
+        link_strategy,
+        link_deps,
+        linkable_graph,
+    )
 
     shlib_info = merge_shared_libraries(ctx.actions, deps = shlib_deps)
 
@@ -1000,6 +988,43 @@ _CxxLinkExecutableResult = record(
     # Extra output providers produced by extra_linker_outputs_factory
     extra_outputs = dict[str, list[DefaultInfo]],
 )
+
+def _get_shared_library_symlink_deps(
+        ctx: AnalysisContext,
+        gnu_use_link_groups: bool,
+        impl_params: CxxRuleConstructorParams,
+        link_strategy: LinkStrategy,
+        link_deps: list[LinkableProviders],
+        linkable_graph: LinkableGraph) -> list[SharedLibraryInfo]:
+    """
+    Determine which shared library deps need a symlink tree alongside the executable.
+    """
+
+    # Only setup a shared library symlink tree when shared linkage or link_groups is used
+    shlib_deps = []
+    if link_strategy == LinkStrategy("shared") or gnu_use_link_groups:
+        shlib_deps = (
+            [d.shared_library_info for d in link_deps] +
+            [d.shared_library_info for d in impl_params.extra_link_roots]
+        )
+    elif impl_params.runtime_dependency_handling == RuntimeDependencyHandling("symlink"):
+        for linkable_node in linkable_graph.nodes.traverse():
+            if linkable_node.linkable == None:
+                continue
+            preferred_linkage = linkable_node.linkable.preferred_linkage
+            output_style = get_lib_output_style(link_strategy, preferred_linkage, PicBehavior("supported"))
+            if output_style == LibOutputStyle("shared_lib") and not linkable_node.linkable.stub:
+                shlib_deps.append(merge_shared_libraries(ctx.actions, node = linkable_node.linkable.shared_libs))
+    elif impl_params.runtime_dependency_handling == RuntimeDependencyHandling("symlink_single_level_only"):
+        for d in link_deps + impl_params.extra_link_roots:
+            if d.linkable_graph == None:
+                continue
+            preferred_linkage = d.linkable_graph.nodes.value.linkable.preferred_linkage
+            output_style = get_lib_output_style(link_strategy, preferred_linkage, PicBehavior("supported"))
+            if output_style == LibOutputStyle("shared_lib"):
+                shlib_deps.append(d.shared_library_info)
+
+    return shlib_deps
 
 def _link_into_executable(
         ctx: AnalysisContext,
