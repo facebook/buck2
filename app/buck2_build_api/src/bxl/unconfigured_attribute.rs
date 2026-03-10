@@ -20,6 +20,7 @@ use buck2_error::starlark_error::from_starlark_with_options;
 use buck2_interpreter::types::configured_providers_label::StarlarkConfiguredProvidersLabel;
 use buck2_interpreter::types::configured_providers_label::StarlarkProvidersLabel;
 use buck2_interpreter::types::select_fail::StarlarkSelectFail;
+use buck2_interpreter::types::select_incompatible::StarlarkSelectIncompatible;
 use buck2_interpreter::types::target_label::StarlarkTargetLabel;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::display::AttrDisplayWithContext;
@@ -205,6 +206,10 @@ impl CoercedAttrExt for CoercedAttr {
             CoercedAttr::SelectFail(message) => {
                 let select_fail = StarlarkSelectFail::new(heap.alloc_str(message));
                 heap.alloc(select_fail)
+            }
+            CoercedAttr::SelectIncompatible(message) => {
+                let select_incompatible = StarlarkSelectIncompatible::new(heap.alloc_str(message));
+                heap.alloc(select_incompatible)
             }
             CoercedAttr::Concat(c) => heap.alloc(StarlarkSelectConcat::new(c.clone(), pkg.dupe())),
         })

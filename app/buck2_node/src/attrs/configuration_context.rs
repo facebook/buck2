@@ -10,6 +10,8 @@
 
 use std::sync::Arc;
 
+use buck2_core::configuration::compatibility::IncompatiblePlatformReason;
+use buck2_core::configuration::compatibility::IncompatiblePlatformReasonCause;
 use buck2_core::configuration::data::ConfigurationData;
 use buck2_core::configuration::pair::ConfigurationNoExec;
 use buck2_core::configuration::pair::ConfigurationWithExec;
@@ -18,6 +20,7 @@ use buck2_core::configuration::transition::id::TransitionId;
 use buck2_core::execution_types::execution::ExecutionPlatformResolution;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_core::provider::label::ProvidersLabel;
+use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_core::target::label::label::TargetLabel;
 use buck2_error::internal_error;
 use dupe::Dupe;
@@ -60,6 +63,12 @@ pub trait AttrConfigurationContext {
     fn resolved_transitions(
         &self,
     ) -> buck2_error::Result<&OrderedMap<Arc<TransitionId>, Arc<TransitionApplied>>>;
+
+    /// Constructs an `IncompatiblePlatformReason` for this target from the given cause.
+    fn incompatible_platform_reason(
+        &self,
+        cause: IncompatiblePlatformReasonCause,
+    ) -> Arc<IncompatiblePlatformReason>;
 
     fn configure_target(&self, label: &ProvidersLabel) -> ConfiguredProvidersLabel {
         label.configure_pair(self.cfg().cfg_pair().dupe())
@@ -110,6 +119,7 @@ pub trait AttrConfigurationContext {
 }
 
 pub struct AttrConfigurationContextImpl<'b> {
+    configured_target_label: ConfiguredTargetLabel,
     resolved_cfg: &'b MatchedConfigurationSettingKeysWithCfg,
     /// Must be equal to `(cfg, Some(exec_cfg))`.
     toolchain_cfg: ConfigurationWithExec,
@@ -123,6 +133,7 @@ pub struct AttrConfigurationContextImpl<'b> {
 
 impl<'b> AttrConfigurationContextImpl<'b> {
     pub fn new(
+        configured_target_label: ConfiguredTargetLabel,
         resolved_cfg: &'b MatchedConfigurationSettingKeysWithCfg,
         execution_platform_resolution: &'b ExecutionPlatformResolution,
         resolved_transitions: &'b OrderedMap<Arc<TransitionId>, Arc<TransitionApplied>>,
@@ -131,6 +142,7 @@ impl<'b> AttrConfigurationContextImpl<'b> {
     ) -> AttrConfigurationContextImpl<'b> {
         let exec_cfg = execution_platform_resolution.base_cfg();
         AttrConfigurationContextImpl {
+            configured_target_label,
             resolved_cfg,
             toolchain_cfg: resolved_cfg.cfg().make_toolchain(&exec_cfg),
             resolved_transitions,
@@ -152,6 +164,16 @@ impl AttrConfigurationContext for AttrConfigurationContextImpl<'_> {
 
     fn target_label(&self) -> Option<&TargetLabel> {
         self.label.as_ref()
+    }
+
+    fn incompatible_platform_reason(
+        &self,
+        cause: IncompatiblePlatformReasonCause,
+    ) -> Arc<IncompatiblePlatformReason> {
+        Arc::new(IncompatiblePlatformReason {
+            target: self.configured_target_label.dupe(),
+            cause,
+        })
     }
 
     fn base_exec_cfg(&self) -> buck2_error::Result<ConfigurationNoExec> {

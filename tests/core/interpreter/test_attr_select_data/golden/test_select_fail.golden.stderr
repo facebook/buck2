@@ -61,7 +61,8 @@ $ buck uquery root//:foo -v0 --output-format=json -B
           "message": "fail message"
         }
       }
-    }
+    },
+    "deps": []
   }
 }
 

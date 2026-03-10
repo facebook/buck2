@@ -1052,3 +1052,23 @@ fn test_user_placeholders() -> buck2_error::Result<()> {
         Ok(())
     })
 }
+
+#[test]
+fn test_select_incompatible_configure() -> buck2_error::Result<()> {
+    let attr = AttrType::string();
+    let coerced = buck2_node::attrs::coerced_attr::CoercedAttr::SelectIncompatible(
+        buck2_util::arc_str::ArcStr::from("not supported on this platform"),
+    );
+    let result = coerced.configure(&attr, &configuration_ctx(), None);
+    assert!(
+        !result.is_compatible(),
+        "select_incompatible should produce Incompatible result"
+    );
+    let err = result.require_compatible().unwrap_err();
+    assert!(
+        err.to_string().contains("not supported on this platform"),
+        "Error message should contain the select_incompatible message, got: {}",
+        err
+    );
+    Ok(())
+}

@@ -13,6 +13,7 @@
 use buck2_error::BuckErrorContext;
 use buck2_error::internal_error;
 use buck2_interpreter::types::select_fail::StarlarkSelectFail;
+use buck2_interpreter::types::select_incompatible::StarlarkSelectIncompatible;
 use buck2_node::attrs::attr_type::AttrType;
 use buck2_node::attrs::coerced_attr::CoercedAttr;
 use buck2_node::attrs::coerced_attr::CoercedConcat;
@@ -101,6 +102,12 @@ impl CoercedAttrExr for CoercedAttr {
                                         {
                                             CoercedAttr::SelectFail(
                                                 ctx.intern_str(select_fail.as_str()),
+                                            )
+                                        } else if let Some(select_incompatible) =
+                                            StarlarkSelectIncompatible::from_value(v)
+                                        {
+                                            CoercedAttr::SelectIncompatible(
+                                                ctx.intern_str(select_incompatible.as_str()),
                                             )
                                         } else {
                                             return Err(e);

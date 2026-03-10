@@ -11,6 +11,8 @@
 use std::collections::BTreeMap;
 use std::sync::Arc;
 
+use buck2_core::configuration::compatibility::IncompatiblePlatformReason;
+use buck2_core::configuration::compatibility::IncompatiblePlatformReasonCause;
 use buck2_core::configuration::config_setting::ConfigSettingData;
 use buck2_core::configuration::data::ConfigurationData;
 use buck2_core::configuration::data::ConfigurationDataData;
@@ -18,6 +20,7 @@ use buck2_core::configuration::pair::ConfigurationNoExec;
 use buck2_core::configuration::pair::ConfigurationWithExec;
 use buck2_core::configuration::transition::applied::TransitionApplied;
 use buck2_core::configuration::transition::id::TransitionId;
+use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_core::target::label::label::TargetLabel;
 use dupe::Dupe;
 use starlark_map::ordered_map::OrderedMap;
@@ -33,6 +36,7 @@ pub fn configuration_ctx() -> impl AttrConfigurationContext {
         ConfigurationData,
         ConfigurationData,
         MatchedConfigurationSettingKeys,
+        ConfiguredTargetLabel,
     );
     impl AttrConfigurationContext for TestAttrConfigurationContext {
         fn cfg(&self) -> ConfigurationNoExec {
@@ -60,10 +64,21 @@ pub fn configuration_ctx() -> impl AttrConfigurationContext {
         ) -> buck2_error::Result<&OrderedMap<Arc<TransitionId>, Arc<TransitionApplied>>> {
             panic!("not used in tests")
         }
+
+        fn incompatible_platform_reason(
+            &self,
+            cause: IncompatiblePlatformReasonCause,
+        ) -> Arc<IncompatiblePlatformReason> {
+            Arc::new(IncompatiblePlatformReason {
+                target: self.3.dupe(),
+                cause,
+            })
+        }
     }
 
+    let cfg = ConfigurationData::testing_new();
     TestAttrConfigurationContext(
-        ConfigurationData::testing_new(),
+        cfg.dupe(),
         ConfigurationData::from_platform(
             "cfg_for//:testing_exec".to_owned(),
             ConfigurationDataData {
@@ -88,5 +103,6 @@ pub fn configuration_ctx() -> impl AttrConfigurationContext {
                 ConfigurationNode::new(None),
             ),
         ])),
+        TargetLabel::testing_parse("root//:test_target").configure(cfg),
     )
 }

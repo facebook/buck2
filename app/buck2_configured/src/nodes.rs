@@ -165,6 +165,7 @@ enum PluginDepError {
 }
 
 fn unpack_target_compatible_with_attr(
+    target_label: &ConfiguredTargetLabel,
     target_node: TargetNodeRef,
     resolved_cfg: &MatchedConfigurationSettingKeysWithCfg,
     attr_id: AttributeId,
@@ -176,6 +177,7 @@ fn unpack_target_compatible_with_attr(
     };
 
     struct AttrConfigurationContextToResolveCompatibleWith<'c> {
+        target_label: &'c ConfiguredTargetLabel,
         resolved_cfg: &'c MatchedConfigurationSettingKeysWithCfg,
         label: TargetLabel,
     }
@@ -221,12 +223,23 @@ fn unpack_target_compatible_with_attr(
                 LEGACY_TARGET_COMPATIBLE_WITH_ATTRIBUTE.name
             ))
         }
+
+        fn incompatible_platform_reason(
+            &self,
+            cause: IncompatiblePlatformReasonCause,
+        ) -> Arc<IncompatiblePlatformReason> {
+            Arc::new(IncompatiblePlatformReason {
+                target: self.target_label.dupe(),
+                cause,
+            })
+        }
     }
 
     let attr = attr
         .configure(&AttrConfigurationContextToResolveCompatibleWith {
             resolved_cfg,
             label: target_node.label().dupe(),
+            target_label,
         })
         .with_buck_error_context(|| format!("Error configuring attribute `{}`", attr.name))
         .require_compatible()?;
@@ -253,11 +266,13 @@ fn check_compatible(
     resolved_cfg: &MatchedConfigurationSettingKeysWithCfg,
 ) -> buck2_error::Result<MaybeCompatible<()>> {
     let target_compatible_with = unpack_target_compatible_with_attr(
+        target_label,
         target_node,
         resolved_cfg,
         TARGET_COMPATIBLE_WITH_ATTRIBUTE.id,
     )?;
     let legacy_compatible_with = unpack_target_compatible_with_attr(
+        target_label,
         target_node,
         resolved_cfg,
         LEGACY_TARGET_COMPATIBLE_WITH_ATTRIBUTE.id,
@@ -574,6 +589,7 @@ pub(crate) async fn gather_deps(
 
 /// Resolves configured attributes of target node needed to compute transitions
 async fn resolve_transition_input_attrs<'a>(
+    target_label: &ConfiguredTargetLabel,
     transitions: impl Iterator<Item = &TransitionId>,
     target_node: &'a TargetNode,
     matched_cfg_keys: &MatchedConfigurationSettingKeysWithCfg,
@@ -581,6 +597,7 @@ async fn resolve_transition_input_attrs<'a>(
     ctx: &mut DiceComputations<'_>,
 ) -> ResultMaybeCompatible<OrderedMap<&'a str, Arc<ConfiguredAttr>>> {
     struct AttrConfigurationContextToResolveTransitionAttrs<'c> {
+        target_label: &'c ConfiguredTargetLabel,
         matched_cfg_keys: &'c MatchedConfigurationSettingKeysWithCfg,
         toolchain_cfg: ConfigurationWithExec,
         platform_cfgs: &'c OrderedMap<TargetLabel, ConfigurationData>,
@@ -626,9 +643,20 @@ async fn resolve_transition_input_attrs<'a>(
                 "resolved_transitions() can't be used before transition execution."
             ))
         }
+
+        fn incompatible_platform_reason(
+            &self,
+            cause: IncompatiblePlatformReasonCause,
+        ) -> Arc<IncompatiblePlatformReason> {
+            Arc::new(IncompatiblePlatformReason {
+                target: self.target_label.dupe(),
+                cause,
+            })
+        }
     }
 
     let cfg_ctx = AttrConfigurationContextToResolveTransitionAttrs {
+        target_label,
         matched_cfg_keys,
         platform_cfgs,
         toolchain_cfg: matched_cfg_keys
@@ -738,6 +766,7 @@ async fn compute_configured_target_node_no_transition(
 
     let mut resolved_transitions = OrderedMap::new();
     let attrs = resolve_transition_input_attrs(
+        target_label,
         target_node.transition_deps().map(|(_, tr)| tr.as_ref()),
         &target_node,
         &resolved_configuration,
@@ -758,6 +787,7 @@ async fn compute_configured_target_node_no_transition(
     // configured so that we don't need to support propagate configuration errors on attr access.
     let unspecified_resolution = ExecutionPlatformResolution::unspecified();
     let attr_cfg_ctx = AttrConfigurationContextImpl::new(
+        target_label.dupe(),
         &resolved_configuration,
         // We have not yet done exec platform resolution so for now we just use `unspecified`
         // here. We only use this when collecting exec deps and toolchain deps. In both of those
@@ -995,6 +1025,7 @@ async fn compute_configured_forward_target_node(
     })?;
 
     let attrs = resolve_transition_input_attrs(
+        target_label_before_transition,
         iter::once(transition_id),
         target_node,
         &matched_cfg_keys,

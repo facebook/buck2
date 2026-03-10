@@ -239,6 +239,7 @@ impl ToolchainExecutionPlatformCompatibilityKey {
         let resolved_transitions = OrderedMap::new();
         let unspecified_resolution = ExecutionPlatformResolution::unspecified();
         let cfg_ctx = AttrConfigurationContextImpl::new(
+            self.target.inner().dupe(),
             &matched_cfg_keys,
             &unspecified_resolution,
             &resolved_transitions,
@@ -327,6 +328,7 @@ pub(crate) async fn get_execution_platform_toolchain_dep(
         let resolved_transitions = OrderedMap::new();
         let unspecified_resolution = ExecutionPlatformResolution::unspecified();
         let cfg_ctx = AttrConfigurationContextImpl::new(
+            target_label.inner().dupe(),
             &matched_cfg_keys,
             &unspecified_resolution,
             &resolved_transitions,

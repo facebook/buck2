@@ -664,7 +664,8 @@ impl JsonReportFormat {
         );
 
         let cause_str = match &reason.cause {
-            IncompatiblePlatformReasonCause::UnsatisfiedConfig(_) => "ValidIncompatible",
+            IncompatiblePlatformReasonCause::UnsatisfiedConfig(_)
+            | IncompatiblePlatformReasonCause::SelectIncompatible(_) => "ValidIncompatible",
             IncompatiblePlatformReasonCause::Dependency(_) => "InvalidIncompatible",
         };
         self.json_format.writer.entry_item(

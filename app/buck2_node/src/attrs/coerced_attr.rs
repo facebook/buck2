@@ -15,6 +15,7 @@ use std::hash::Hash;
 use std::ops::Deref;
 
 use allocative::Allocative;
+use buck2_core::configuration::compatibility::IncompatiblePlatformReasonCause;
 use buck2_core::configuration::compatibility::ResultMaybeCompatible;
 use buck2_core::configuration::config_setting::ConfigSettingData;
 use buck2_core::package::PackageLabel;
@@ -233,6 +234,19 @@ impl CoercedSelector {
             ),
         ])))
     }
+
+    fn incompatible_to_json(message: &ArcStr) -> Result<serde_json::Value, buck2_error::Error> {
+        Ok(serde_json::Value::Object(serde_json::Map::from_iter([
+            (
+                "__type".to_owned(),
+                serde_json::Value::String("select_incompatible".to_owned()),
+            ),
+            (
+                "message".to_owned(),
+                serde_json::Value::String(message.to_string()),
+            ),
+        ])))
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Allocative, Pagable)]
@@ -293,6 +307,7 @@ impl AttrSerializeWithContext for CoercedConcat {
 pub enum CoercedAttr {
     Selector(Box<CoercedSelector>),
     SelectFail(ArcStr),
+    SelectIncompatible(ArcStr),
     Concat(CoercedConcat),
 
     Bool(BoolLiteral),
@@ -343,6 +358,7 @@ impl AttrDisplayWithContext for CoercedAttr {
         match self {
             CoercedAttr::Selector(s) => s.fmt(ctx, f),
             CoercedAttr::SelectFail(s) => write!(f, "select_fail(\"{}\")", &s),
+            CoercedAttr::SelectIncompatible(s) => write!(f, "select_incompatible(\"{}\")", &s),
             CoercedAttr::Concat(c) => c.fmt(ctx, f),
             CoercedAttr::Bool(v) => {
                 write!(f, "{v}")
@@ -400,6 +416,9 @@ impl CoercedAttr {
             CoercedAttr::Selector(s) => s.to_json(ctx),
             CoercedAttr::SelectFail(string_literal) => {
                 CoercedSelector::fail_to_json(string_literal)
+            }
+            CoercedAttr::SelectIncompatible(string_literal) => {
+                CoercedSelector::incompatible_to_json(string_literal)
             }
             CoercedAttr::Concat(c) => c.to_json(ctx),
             CoercedAttr::Bool(v) => Ok(to_value(v)?),
@@ -465,6 +484,7 @@ impl CoercedAttr {
                 Ok(())
             }
             CoercedAttrWithType::SelectFail(..) => Ok(()),
+            CoercedAttrWithType::SelectIncompatible(..) => Ok(()),
 
             CoercedAttrWithType::None => Ok(()),
             CoercedAttrWithType::Some(attr, t) => attr.traverse(&t.inner, pkg, traversal),
@@ -723,8 +743,8 @@ impl CoercedAttr {
     /// processing.
     ///
     /// Returns `ResultMaybeCompatible::Incompatible` if a select resolves to an
-    /// incompatible branch, indicating the target is not compatible with the
-    /// current configuration.
+    /// incompatible branch (from a select_incompatible()), indicating the target is not compatible
+    /// with the current configuration.
     pub fn configure(
         &self,
         ty: &AttrType,
@@ -769,6 +789,11 @@ impl CoercedAttr {
                     "select resolved to select_fail(): {message}"
                 )
                 .into();
+            }
+            CoercedAttrWithType::SelectIncompatible(message, _) => {
+                return ResultMaybeCompatible::Incompatible(ctx.incompatible_platform_reason(
+                    IncompatiblePlatformReasonCause::SelectIncompatible(message.dupe()),
+                ));
             }
             CoercedAttrWithType::AnyList(list) => ConfiguredAttr::List(ListLiteral(
                 list.iter()
@@ -888,6 +913,7 @@ impl CoercedAttr {
                 Ok(false)
             }
             CoercedAttr::SelectFail(_) => Ok(false),
+            CoercedAttr::SelectIncompatible(_) => Ok(false),
             CoercedAttr::String(v) | CoercedAttr::EnumVariant(v) => filter(v),
             CoercedAttr::List(vals) => vals.any_matches(filter),
             CoercedAttr::Tuple(vals) => vals.any_matches(filter),

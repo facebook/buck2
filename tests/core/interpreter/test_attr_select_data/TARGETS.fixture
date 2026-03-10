@@ -64,3 +64,40 @@ error_rule(
     name = "select_test_ignores",
     data = fail() if select_test(select({"DEFAULT": select_fail("")}), lambda x: True) else "success",
 )
+
+# select_incompatible targets: when the selected branch is select_incompatible(),
+# the target should be skipped as incompatible rather than erroring.
+error_rule(
+    name = "incompat_foo",
+    data = select({
+        "//:constraint1": "constraint1",
+        "//:constraint2": select_incompatible("not supported on constraint2"),
+        "DEFAULT": select_incompatible("default incompatible message"),
+    }),
+)
+
+error_rule(
+    name = "incompat_foo2",
+    data = select_incompatible("bad use") if read_root_config("user", "check_bad_coercion_incompatible") != None else "",
+)
+
+# select_map ignores select_incompatible values (would fail at load time otherwise)
+error_rule(
+    name = "select_map_ignores_incompatible",
+    data = select_map(select({"DEFAULT": select_incompatible("")}), lambda x: fail()),
+)
+
+# select_test ignores select_incompatible values (would fail at load time otherwise)
+error_rule(
+    name = "select_test_ignores_incompatible",
+    data = fail() if select_test(select({"DEFAULT": select_incompatible("")}), lambda x: True) else "success",
+)
+
+# A compatible target that depends on an incompatible target.
+# When incompat_foo is incompatible, this target should also be incompatible
+# (dep-only incompatibility propagation).
+error_rule(
+    name = "depends_on_incompat",
+    data = "compatible",
+    deps = [":incompat_foo"],
+)

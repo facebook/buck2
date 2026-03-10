@@ -12,5 +12,6 @@ error_rule = rule(
     impl = _impl,
     attrs = {
         "data": attrs.string(),
+        "deps": attrs.list(attrs.dep(), default = []),
     },
 )

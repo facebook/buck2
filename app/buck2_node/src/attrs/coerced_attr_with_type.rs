@@ -78,6 +78,7 @@ pub enum CoercedAttrWithType<'a, 't> {
     Selector(&'a CoercedSelector, &'t AttrType),
     Concat(&'a [CoercedAttr], &'t AttrType),
     SelectFail(&'a ArcStr, &'t AttrType),
+    SelectIncompatible(&'a ArcStr, &'t AttrType),
 
     Some(&'a CoercedAttr, &'t OptionAttrType),
     None,
@@ -125,6 +126,9 @@ impl<'a, 't> CoercedAttrWithType<'a, 't> {
             (CoercedAttr::Selector(s), _) => Ok(CoercedAttrWithType::Selector(s, ty)),
             (CoercedAttr::Concat(c), _) => Ok(CoercedAttrWithType::Concat(&c.0, ty)),
             (CoercedAttr::SelectFail(c), _) => Ok(CoercedAttrWithType::SelectFail(&c, ty)),
+            (CoercedAttr::SelectIncompatible(c), _) => {
+                Ok(CoercedAttrWithType::SelectIncompatible(&c, ty))
+            }
 
             (CoercedAttr::None, _) => Ok(CoercedAttrWithType::None),
             (attr, AttrTypeInner::Option(t)) => Ok(CoercedAttrWithType::Some(attr, t)),
@@ -224,9 +228,10 @@ impl<'a, 't> CoercedAttrWithType<'a, 't> {
     #[inline]
     fn pack_any(attr: &'a CoercedAttr) -> buck2_error::Result<CoercedAttrWithType<'a, 't>> {
         match attr {
-            CoercedAttr::Selector(_) | CoercedAttr::Concat(_) | CoercedAttr::SelectFail(_) => {
-                Err(CoercedAttrWithTypeError::Select.into())
-            }
+            CoercedAttr::Selector(_)
+            | CoercedAttr::Concat(_)
+            | CoercedAttr::SelectFail(_)
+            | CoercedAttr::SelectIncompatible(_) => Err(CoercedAttrWithTypeError::Select.into()),
             CoercedAttr::Bool(b) => Ok(CoercedAttrWithType::Bool(*b, BoolAttrType)),
             CoercedAttr::Int(i) => Ok(CoercedAttrWithType::Int(*i, IntAttrType)),
             CoercedAttr::String(s) => Ok(CoercedAttrWithType::String(s, StringAttrType)),

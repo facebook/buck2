@@ -33,6 +33,9 @@
 ## select\_fail
 # Example
 # Fail with a custom message if the build is configured for iOS but the feature is not supported
+## select\_incompatible
+# Example
+# Mark the target as incompatible when building for iOS
 ## select\_map
 ## select\_test
 ## set\_cfg\_constructor
