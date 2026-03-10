@@ -59,7 +59,7 @@ static_starlark_value!(pub(crate) VALUE_FALSE: StarlarkBool = StarlarkBool(false
 static_starlark_value!(pub(crate) VALUE_TRUE: StarlarkBool = StarlarkBool(true));
 
 // Array of references for efficient boolean lookup by index
-pub(crate) static VALUE_FALSE_TRUE: [&'static AllocStaticSimple<StarlarkBool>; 2] =
+pub(crate) static VALUE_FALSE_TRUE: [&AllocStaticSimple<StarlarkBool>; 2] =
     [&VALUE_FALSE, &VALUE_TRUE];
 
 /// Define the bool type
