@@ -27,6 +27,8 @@ import java.lang.reflect.Modifier;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.logging.Level;
 import javax.annotation.Nullable;
 import junit.framework.TestCase;
@@ -92,6 +94,17 @@ public final class JUnitRunner extends BaseRunner {
     Optional<TestResultsOutputSender> testResultsOutputSender =
         TestResultsOutputSender.fromDefaultEnvName();
 
+    // Shared watchdog executor for timeout enforcement (per-test and target-level)
+    ScheduledExecutorService watchdogExecutor = Executors.newScheduledThreadPool(1);
+
+    // Proactive timeout: capture thread dump before RE's SIGKILL
+    TpxTimeoutBufferManager tpxTimeoutBufferManager = null;
+    if (testResultsOutputSender.isPresent()
+        && "true".equals(System.getProperty("android.proactive.timeout.enabled"))) {
+      tpxTimeoutBufferManager =
+          TpxTimeoutBufferManager.create(testResultsOutputSender.get(), watchdogExecutor);
+    }
+
     for (String className : testClassNames) {
       Class<?> testClass = Class.forName(className);
       Class<?>[] testClasses;
@@ -118,7 +131,8 @@ public final class JUnitRunner extends BaseRunner {
           if (isRobolectricTest(suite)
               && "true".equals(System.getProperty("android.per.test.timeout.enabled"))) {
             RobolectricTimeoutEnforcingRunListener timeoutListener =
-                new RobolectricTimeoutEnforcingRunListener(testResultsOutputSender.get());
+                new RobolectricTimeoutEnforcingRunListener(
+                    testResultsOutputSender.get(), watchdogExecutor);
             jUnitCore.addListener(timeoutListener);
           }
         } else {
@@ -153,6 +167,11 @@ public final class JUnitRunner extends BaseRunner {
                     className, stackTraceToString(result.failure));
                 System.exit(1);
               });
+    }
+
+    // All test classes completed normally — mark as completed so shutdown hook is a no-op
+    if (tpxTimeoutBufferManager != null) {
+      tpxTimeoutBufferManager.markCompleted();
     }
   }
 
