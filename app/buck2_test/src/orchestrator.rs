@@ -1407,7 +1407,7 @@ impl BuckTestOrchestrator<'_> {
         // since this will get cached in DICE.
         let node = dice
             .get_configured_target_node(test_target.target())
-            .await?
+            .await
             .require_compatible()?;
 
         let resolved_executor_override = match executor_override {

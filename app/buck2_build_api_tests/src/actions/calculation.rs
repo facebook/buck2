@@ -59,6 +59,7 @@ use buck2_core::cells::cell_root_path::CellRootPathBuf;
 use buck2_core::cells::name::CellName;
 use buck2_core::cells::paths::CellRelativePathBuf;
 use buck2_core::configuration::compatibility::MaybeCompatible;
+use buck2_core::configuration::compatibility::ResultMaybeCompatible;
 use buck2_core::configuration::data::ConfigurationData;
 use buck2_core::deferred::base_deferred_key::BaseDeferredKey;
 use buck2_core::deferred::key::DeferredHolderKey;
@@ -169,14 +170,12 @@ fn mock_analysis_for_action_resolution(
 
     dice_builder.mock_and_return(
         configured_node_key,
-        Ok(MaybeCompatible::Compatible(
-            ConfiguredTargetNode::testing_new(
-                configured_target_label,
-                "foo_lib",
-                ExecutionPlatformResolution::new_for_testing(None, Vec::new()),
-                vec![],
-                None,
-            ),
+        ResultMaybeCompatible::Compatible(ConfiguredTargetNode::testing_new(
+            configured_target_label,
+            "foo_lib",
+            ExecutionPlatformResolution::new_for_testing(None, Vec::new()),
+            vec![],
+            None,
         )),
     )
 }

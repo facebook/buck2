@@ -9,7 +9,7 @@
  */
 
 use async_trait::async_trait;
-use buck2_core::configuration::compatibility::MaybeCompatible;
+use buck2_core::configuration::compatibility::ResultMaybeCompatible;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_util::late_binding::LateBinding;
 use dice::DiceComputations;
@@ -24,7 +24,7 @@ pub trait ConfiguredTargetNodeCalculationImpl: Send + Sync + 'static {
         ctx: &mut DiceComputations<'_>,
         target: &ConfiguredTargetLabel,
         check_dependency_incompatibility: bool,
-    ) -> buck2_error::Result<MaybeCompatible<ConfiguredTargetNode>>;
+    ) -> ResultMaybeCompatible<ConfiguredTargetNode>;
 }
 
 pub static CONFIGURED_TARGET_NODE_CALCULATION: LateBinding<
@@ -37,7 +37,7 @@ pub trait ConfiguredTargetNodeCalculation {
     async fn get_configured_target_node(
         &mut self,
         target: &ConfiguredTargetLabel,
-    ) -> buck2_error::Result<MaybeCompatible<ConfiguredTargetNode>>;
+    ) -> ResultMaybeCompatible<ConfiguredTargetNode>;
 
     /// Same as `get_configured_target_node` except it doesn't error/soft-error on
     /// configured target that is transitively incompatible. This should only be used
@@ -47,7 +47,7 @@ pub trait ConfiguredTargetNodeCalculation {
     async fn get_internal_configured_target_node(
         &mut self,
         target: &ConfiguredTargetLabel,
-    ) -> buck2_error::Result<MaybeCompatible<ConfiguredTargetNode>>;
+    ) -> ResultMaybeCompatible<ConfiguredTargetNode>;
 }
 
 #[async_trait]
@@ -55,7 +55,7 @@ impl ConfiguredTargetNodeCalculation for DiceComputations<'_> {
     async fn get_configured_target_node(
         &mut self,
         target: &ConfiguredTargetLabel,
-    ) -> buck2_error::Result<MaybeCompatible<ConfiguredTargetNode>> {
+    ) -> ResultMaybeCompatible<ConfiguredTargetNode> {
         CONFIGURED_TARGET_NODE_CALCULATION
             .get()?
             .get_configured_target_node(self, target, true)
@@ -65,7 +65,7 @@ impl ConfiguredTargetNodeCalculation for DiceComputations<'_> {
     async fn get_internal_configured_target_node(
         &mut self,
         target: &ConfiguredTargetLabel,
-    ) -> buck2_error::Result<MaybeCompatible<ConfiguredTargetNode>> {
+    ) -> ResultMaybeCompatible<ConfiguredTargetNode> {
         CONFIGURED_TARGET_NODE_CALCULATION
             .get()?
             .get_configured_target_node(self, target, false)

@@ -36,11 +36,10 @@ impl AsyncNodeLookup<ConfiguredTargetNode> for ConfiguredTargetNodeLookup<'_, '_
         &self,
         label: &ConfiguredTargetLabel,
     ) -> buck2_error::Result<ConfiguredTargetNode> {
-        Ok(self
-            .0
+        self.0
             .get()
             .get_configured_target_node(label)
-            .await?
-            .require_compatible()?)
+            .await
+            .require_compatible()
     }
 }

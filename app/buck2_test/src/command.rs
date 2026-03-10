@@ -50,7 +50,7 @@ use buck2_common::pattern::resolve::ResolveTargetPatterns;
 use buck2_common::pattern::resolve::ResolvedPattern;
 use buck2_core::cells::CellResolver;
 use buck2_core::cells::name::CellName;
-use buck2_core::configuration::compatibility::MaybeCompatible;
+use buck2_core::configuration::compatibility::ResultMaybeCompatible;
 use buck2_core::global_cfg_options::GlobalCfgOptions;
 use buck2_core::package::PackageLabelWithModifiers;
 use buck2_core::pattern::pattern::Modifiers;
@@ -1081,16 +1081,8 @@ impl<'a, 'e> TestDriver<'a, 'e> {
                 .get_configured_target_node(label.target())
                 .await
             {
-                Ok(node) => node,
-                Err(e) => {
-                    return ControlFlow::Break(create_and_map_configured_build_error(
-                        label, e, modifiers,
-                    ));
-                }
-            };
-
-            let node = match node {
-                MaybeCompatible::Incompatible(reason) => {
+                ResultMaybeCompatible::Compatible(node) => node,
+                ResultMaybeCompatible::Incompatible(reason) => {
                     if skippable {
                         //TODO: add aggregated error message
                         tracing::debug!("{}", reason.skipping_message(label.target()));
@@ -1103,7 +1095,11 @@ impl<'a, 'e> TestDriver<'a, 'e> {
                         ));
                     }
                 }
-                MaybeCompatible::Compatible(node) => node,
+                ResultMaybeCompatible::Err(e) => {
+                    return ControlFlow::Break(create_and_map_configured_build_error(
+                        label, e, modifiers,
+                    ));
+                }
             };
 
             let oncall = node.oncall().map(|s| s.to_owned());

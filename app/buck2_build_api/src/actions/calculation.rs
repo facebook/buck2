@@ -768,7 +768,7 @@ pub async fn get_target_rule_type_name(
 ) -> buck2_error::Result<String> {
     Ok(ctx
         .get_configured_target_node(label)
-        .await?
+        .await
         .require_compatible()?
         .underlying_rule_type()
         .name()

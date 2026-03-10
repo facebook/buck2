@@ -225,7 +225,12 @@ impl<'v> TargetListExpr<'v, ConfiguredTargetNode> {
         dice: &mut DiceComputations<'_>,
     ) -> buck2_error::Result<Vec<MaybeCompatible<ConfiguredTargetNode>>> {
         dice.compute_join(self.iter(), |ctx, node_or_ref| {
-            async move { ctx.get_configured_target_node(node_or_ref.node_ref()).await }.boxed()
+            async move {
+                ctx.get_configured_target_node(node_or_ref.node_ref())
+                    .await
+                    .ok()
+            }
+            .boxed()
         })
         .await
         .into_iter()
@@ -240,7 +245,8 @@ impl<'v> TargetListExpr<'v, ConfiguredTargetNode> {
         Ok(match &self {
             Self::One(node_or_ref) => Some(
                 dice.get_configured_target_node(node_or_ref.node_ref())
-                    .await?,
+                    .await
+                    .ok()?,
             ),
             _ => None,
         })
@@ -388,7 +394,7 @@ impl<'v> TargetListExpr<'v, ConfiguredTargetNode> {
                         // check if we can get a maybe compatible configured target node successfully here to make
                         // sure keep_going works. We will try to get the node later, but due to how complex this
                         // code is, it's much easier to just call it once here as a sanity check.
-                        match dice.get_configured_target_node(&label).await {
+                        match dice.get_configured_target_node(&label).await.ok() {
                             Ok(_) => Ok(TargetListExpr::One(TargetExpr::Label(Cow::Owned(label)))),
                             Err(e) => Err(e),
                         }
@@ -420,9 +426,11 @@ impl<'v> TargetListExpr<'v, ConfiguredTargetNode> {
                 .await?;
 
                 let maybe_compatible: Vec<_> = if keep_going {
-                    maybe_compatible_iter.filter_map(|r| r.ok()).collect()
+                    maybe_compatible_iter.filter_map(|r| r.ok().ok()).collect()
                 } else {
-                    maybe_compatible_iter.collect::<buck2_error::Result<_>>()?
+                    maybe_compatible_iter
+                        .map(|r| r.ok())
+                        .collect::<buck2_error::Result<_>>()?
                 };
 
                 let result = filter_incompatible(maybe_compatible, ctx)?;
@@ -626,7 +634,7 @@ async fn unpack_string_literal(
             let label = dice
                 .get_configured_target(&TargetLabel::new(pkg, name.as_ref()), global_cfg_options)
                 .await?;
-            let compatible_node = dice.get_configured_target_node(&label).await?;
+            let compatible_node = dice.get_configured_target_node(&label).await.ok()?;
             compatible_node
                 .require_compatible()
                 .map(SingleOrCompatibleConfiguredTargets::Single)
@@ -643,7 +651,9 @@ async fn unpack_string_literal(
             )
             .await?;
 
-            let maybe_compatible = maybe_compatible_iter.collect::<buck2_error::Result<_>>()?;
+            let maybe_compatible = maybe_compatible_iter
+                .map(|r| r.ok())
+                .collect::<buck2_error::Result<_>>()?;
             Ok(SingleOrCompatibleConfiguredTargets::Compatibles(
                 maybe_compatible,
             ))
@@ -685,7 +695,7 @@ impl OwnedTargetNodeOrTargetLabel {
             .get_configured_target(self.label(), global_cfg_options)
             .await?;
         dice.get_configured_target_node(&configured_label)
-            .await?
+            .await
             .require_compatible()
     }
 
@@ -742,7 +752,7 @@ impl OwnedConfiguredTargetNodeArg {
                 Ok(SingleOrCompatibleConfiguredTargets::Single(node.0.dupe()))
             }
             OwnedConfiguredTargetNodeArg::ConfiguredTargetLabel(label) => {
-                let compatible = dice.get_configured_target_node(label.label()).await?;
+                let compatible = dice.get_configured_target_node(label.label()).await.ok()?;
                 compatible
                     .require_compatible()
                     .map(SingleOrCompatibleConfiguredTargets::Single)

@@ -93,7 +93,7 @@ impl ConfiguredGraphQueryEnvironmentDelegate for AnalysisConfiguredGraphQueryDel
                                 ctx.try_compute_join(self.targets.iter(), |ctx, target| {
                                     async move {
                                         ctx.get_configured_target_node(target)
-                                            .await?
+                                            .await
                                             .require_compatible()
                                     }
                                     .boxed()

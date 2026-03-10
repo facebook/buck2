@@ -16,7 +16,11 @@ use std::hash::Hash;
 use std::sync::Arc;
 
 use allocative::Allocative;
+use buck2_error::BuckErrorContext;
+use buck2_error::ContextValue;
+use buck2_error::TypedContext;
 use dupe::Dupe;
+use itertools::Either;
 use pagable::Pagable;
 use strong_hash::StrongHash;
 
@@ -65,6 +69,14 @@ impl<T> MaybeCompatible<T> {
         }
     }
 
+    /// Unwraps the compatible value, panicking with the given message if incompatible.
+    pub fn expect_compatible(self, message: &'static str) -> T {
+        match self {
+            MaybeCompatible::Incompatible(reason) => panic!("{}: {}", message, reason),
+            MaybeCompatible::Compatible(result) => result,
+        }
+    }
+
     pub fn is_compatible(&self) -> bool {
         matches!(self, Self::Compatible(..))
     }
@@ -83,6 +95,230 @@ impl<T> MaybeCompatible<T> {
         match self {
             MaybeCompatible::Incompatible(e) => Ok(MaybeCompatible::Incompatible(e)),
             MaybeCompatible::Compatible(t) => Ok(MaybeCompatible::Compatible(func(t)?)),
+        }
+    }
+
+    /// Convert to `ResultMaybeCompatible`, lifting both variants.
+    pub fn to_result_maybe_compatible(self) -> ResultMaybeCompatible<T> {
+        match self {
+            MaybeCompatible::Compatible(t) => ResultMaybeCompatible::Compatible(t),
+            MaybeCompatible::Incompatible(e) => ResultMaybeCompatible::Incompatible(e),
+        }
+    }
+}
+
+/// This replaces the common pattern of `Result<MaybeCompatible<T>>` with an enum that
+/// will propagate either the Err or Incompatible case with `?`. This just makes code
+/// a bit simpler in the common case where we just want to propagate up the incompatibility.
+///
+/// Use `ok()` to convert back to `Result<MaybeCompatible<T>>` when the caller needs to
+/// handle incompatibility explicitly, and `require_compatible()` to convert to
+/// `Result<T>` when incompatibility should be treated as an error.
+#[derive(Clone, Dupe, Debug, Allocative)]
+pub enum ResultMaybeCompatible<T> {
+    Compatible(T),
+    Incompatible(Arc<IncompatiblePlatformReason>),
+    Err(buck2_error::Error),
+}
+
+impl<T> From<buck2_error::Error> for ResultMaybeCompatible<T> {
+    fn from(value: buck2_error::Error) -> Self {
+        Self::Err(value)
+    }
+}
+
+impl<T> ResultMaybeCompatible<T> {
+    pub fn is_compatible(&self) -> bool {
+        matches!(self, Self::Compatible(..))
+    }
+
+    pub fn map<U>(self, func: impl FnOnce(T) -> U) -> ResultMaybeCompatible<U> {
+        match self {
+            Self::Compatible(t) => ResultMaybeCompatible::Compatible(func(t)),
+            Self::Incompatible(e) => ResultMaybeCompatible::Incompatible(e),
+            Self::Err(e) => ResultMaybeCompatible::Err(e),
+        }
+    }
+
+    pub fn map_err(
+        self,
+        func: impl FnOnce(buck2_error::Error) -> buck2_error::Error,
+    ) -> ResultMaybeCompatible<T> {
+        match self {
+            Self::Compatible(t) => ResultMaybeCompatible::Compatible(t),
+            Self::Incompatible(e) => ResultMaybeCompatible::Incompatible(e),
+            Self::Err(e) => ResultMaybeCompatible::Err(func(e)),
+        }
+    }
+
+    pub fn try_map<U>(
+        self,
+        func: impl FnOnce(T) -> Result<U, buck2_error::Error>,
+    ) -> ResultMaybeCompatible<U> {
+        match self {
+            Self::Compatible(t) => ResultMaybeCompatible::Compatible(func(t)?),
+            Self::Incompatible(e) => ResultMaybeCompatible::Incompatible(e),
+            Self::Err(e) => ResultMaybeCompatible::Err(e),
+        }
+    }
+
+    /// Unwraps the compatible value, panicking if incompatible or error.
+    pub fn expect_compatible(self, message: &'static str) -> T {
+        match self {
+            ResultMaybeCompatible::Incompatible(reason) => panic!("{message}: {reason}"),
+            ResultMaybeCompatible::Compatible(result) => result,
+            ResultMaybeCompatible::Err(error) => panic!("{message}: {error:?}"),
+        }
+    }
+
+    #[track_caller]
+    pub fn internal_error(self, message: &str) -> ResultMaybeCompatible<T> {
+        self.with_internal_error(|| message.to_owned())
+    }
+
+    #[track_caller]
+    pub fn with_internal_error<F>(self, f: F) -> ResultMaybeCompatible<T>
+    where
+        F: FnOnce() -> String,
+    {
+        match self {
+            Self::Compatible(v) => ResultMaybeCompatible::Compatible(v),
+            Self::Incompatible(v) => ResultMaybeCompatible::Incompatible(v),
+            Self::Err(e) => {
+                buck2_error::Result::<!>::Err(e.into()).with_internal_error(f)?;
+            }
+        }
+    }
+
+    #[track_caller]
+    pub fn buck_error_context<C: Into<ContextValue>>(self, context: C) -> ResultMaybeCompatible<T> {
+        match self {
+            Self::Err(e) => ResultMaybeCompatible::Err(e.context(context)),
+            Self::Compatible(v) => ResultMaybeCompatible::Compatible(v),
+            Self::Incompatible(v) => ResultMaybeCompatible::Incompatible(v),
+        }
+    }
+
+    #[track_caller]
+    pub fn tag(self, tag: buck2_error::ErrorTag) -> ResultMaybeCompatible<T> {
+        match self {
+            Self::Err(e) => ResultMaybeCompatible::Err(e.tag(vec![tag])),
+            Self::Compatible(v) => ResultMaybeCompatible::Compatible(v),
+            Self::Incompatible(v) => ResultMaybeCompatible::Incompatible(v),
+        }
+    }
+
+    #[track_caller]
+    pub fn with_buck_error_context<C, F>(self, f: F) -> ResultMaybeCompatible<T>
+    where
+        C: Into<ContextValue>,
+        F: FnOnce() -> C,
+    {
+        match self {
+            Self::Err(e) => ResultMaybeCompatible::Err(e.context(f())),
+            Self::Compatible(v) => ResultMaybeCompatible::Compatible(v),
+            Self::Incompatible(v) => ResultMaybeCompatible::Incompatible(v),
+        }
+    }
+
+    #[track_caller]
+    pub fn compute_context<
+        TC: TypedContext,
+        C1: Into<ContextValue>,
+        C2: Into<ContextValue>,
+        F: FnOnce(Arc<TC>) -> C1,
+        F2: FnOnce() -> C2,
+    >(
+        self,
+        map_context: F,
+        new_context: F2,
+    ) -> ResultMaybeCompatible<T> {
+        match self {
+            Self::Err(e) => Self::Err(e.compute_context(map_context, new_context)),
+            v => v,
+        }
+    }
+
+    /// Convert incompatibility to an error. Returns `Ok(t)` for `Compatible(t)`,
+    /// and `Err(...)` for both `Incompatible` and `Err`.
+    pub fn require_compatible(self) -> Result<T, buck2_error::Error> {
+        match self {
+            ResultMaybeCompatible::Compatible(t) => Ok(t),
+            ResultMaybeCompatible::Incompatible(reason) => Err(reason.to_err()),
+            ResultMaybeCompatible::Err(e) => Err(e),
+        }
+    }
+
+    /// Convert to `Result<MaybeCompatible<T>>`, separating the error case from
+    /// the compatible/incompatible cases.
+    pub fn ok(self) -> Result<MaybeCompatible<T>, buck2_error::Error> {
+        match self {
+            ResultMaybeCompatible::Compatible(t) => Ok(MaybeCompatible::Compatible(t)),
+            ResultMaybeCompatible::Incompatible(reason) => {
+                Ok(MaybeCompatible::Incompatible(reason))
+            }
+            ResultMaybeCompatible::Err(e) => Err(e),
+        }
+    }
+}
+
+impl<T> std::ops::FromResidual<ResultMaybeCompatible<std::convert::Infallible>>
+    for ResultMaybeCompatible<T>
+{
+    fn from_residual(residual: ResultMaybeCompatible<std::convert::Infallible>) -> Self {
+        match residual {
+            ResultMaybeCompatible::Compatible(_) => unreachable!(),
+            ResultMaybeCompatible::Incompatible(i) => ResultMaybeCompatible::Incompatible(i),
+            ResultMaybeCompatible::Err(e) => ResultMaybeCompatible::Err(e.into()),
+        }
+    }
+}
+
+impl<T, E: Into<buck2_error::Error>> std::ops::FromResidual<Result<std::convert::Infallible, E>>
+    for ResultMaybeCompatible<T>
+{
+    fn from_residual(residual: Result<std::convert::Infallible, E>) -> Self {
+        match residual {
+            Ok(_) => unreachable!(),
+            Err(e) => ResultMaybeCompatible::Err(e.into()),
+        }
+    }
+}
+
+impl<T> std::ops::Try for ResultMaybeCompatible<T> {
+    type Output = T;
+
+    type Residual = ResultMaybeCompatible<std::convert::Infallible>;
+
+    fn from_output(output: Self::Output) -> Self {
+        Self::Compatible(output)
+    }
+
+    fn branch(self) -> std::ops::ControlFlow<Self::Residual, Self::Output> {
+        match self {
+            Self::Compatible(t) => std::ops::ControlFlow::Continue(t),
+            Self::Incompatible(i) => {
+                std::ops::ControlFlow::Break(ResultMaybeCompatible::Incompatible(i))
+            }
+            Self::Err(e) => std::ops::ControlFlow::Break(ResultMaybeCompatible::Err(e)),
+        }
+    }
+}
+
+impl<A, V: FromIterator<A>> FromIterator<ResultMaybeCompatible<A>> for ResultMaybeCompatible<V> {
+    fn from_iter<T: IntoIterator<Item = ResultMaybeCompatible<A>>>(iter: T) -> Self {
+        match iter
+            .into_iter()
+            .map(|v| match v {
+                ResultMaybeCompatible::Compatible(v) => Ok(v),
+                ResultMaybeCompatible::Incompatible(v) => Err(Either::Left(v)),
+                ResultMaybeCompatible::Err(v) => Err(Either::Right(v)),
+            })
+            .collect::<Result<V, _>>()
+        {
+            Ok(v) => ResultMaybeCompatible::Compatible(v),
+            Err(Either::Left(v)) => ResultMaybeCompatible::Incompatible(v),
+            Err(Either::Right(v)) => ResultMaybeCompatible::Err(v),
         }
     }
 }

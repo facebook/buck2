@@ -12,7 +12,7 @@ use std::fmt;
 
 use allocative::Allocative;
 use async_trait::async_trait;
-use buck2_core::configuration::compatibility::MaybeCompatible;
+use buck2_core::configuration::compatibility::ResultMaybeCompatible;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_interpreter::dice::starlark_provider::StarlarkEvalKind;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
@@ -138,7 +138,7 @@ struct ConfiguredGraphPropertiesKey {
 
 #[async_trait]
 impl Key for ConfiguredGraphPropertiesKey {
-    type Value = buck2_error::Result<MaybeCompatible<ConfiguredGraphPropertiesValues>>;
+    type Value = ResultMaybeCompatible<ConfiguredGraphPropertiesValues>;
 
     async fn compute(
         &self,
@@ -146,14 +146,18 @@ impl Key for ConfiguredGraphPropertiesKey {
         _cancellation: &CancellationContext,
     ) -> Self::Value {
         let configured_node = ctx.get_configured_target_node(&self.label).await?;
-        Ok(configured_node.map(|configured_node| {
-            compute_configured_graph_sketch(configured_node, self.configured_graph_sketch)
-        }))
+        ResultMaybeCompatible::Compatible(compute_configured_graph_sketch(
+            configured_node,
+            self.configured_graph_sketch,
+        ))
     }
 
     fn equality(a: &Self::Value, b: &Self::Value) -> bool {
         match (a, b) {
-            (Ok(a), Ok(b)) => a == b,
+            (ResultMaybeCompatible::Compatible(a), ResultMaybeCompatible::Compatible(b)) => a == b,
+            (ResultMaybeCompatible::Incompatible(a), ResultMaybeCompatible::Incompatible(b)) => {
+                a == b
+            }
             _ => false,
         }
     }
@@ -165,9 +169,9 @@ pub async fn get_graph_properties(
     label: &ConfiguredTargetLabel,
     configured_graph_sketch: bool,
     retained_analysis_memory_sketch: bool,
-) -> buck2_error::Result<MaybeCompatible<GraphPropertiesValues>> {
+) -> ResultMaybeCompatible<GraphPropertiesValues> {
     let (conf, analysis) = ctx
-        .try_compute2(
+        .compute2(
             |ctx| {
                 async {
                     ctx.compute(&ConfiguredGraphPropertiesKey {
@@ -181,24 +185,25 @@ pub async fn get_graph_properties(
             |ctx| {
                 async {
                     if retained_analysis_memory_sketch {
-                        Ok(Some(
-                            ctx.compute(&AnalysisGraphPropertiesKey {
+                        let sketch = ctx
+                            .compute(&AnalysisGraphPropertiesKey {
                                 label: label.dupe(),
                             })
-                            .await??,
-                        ))
+                            .await??
+                            .to_result_maybe_compatible()?;
+                        ResultMaybeCompatible::Compatible(Some(sketch))
                     } else {
-                        Ok(None)
+                        ResultMaybeCompatible::Compatible(None)
                     }
                 }
                 .boxed()
             },
         )
-        .await?;
-    Ok(conf.map(|conf| GraphPropertiesValues {
-        configured: conf,
-        retained_analysis_memory_sketch: analysis.map(|a| a.require_compatible().unwrap()),
-    }))
+        .await;
+    ResultMaybeCompatible::Compatible(GraphPropertiesValues {
+        configured: conf?,
+        retained_analysis_memory_sketch: analysis?,
+    })
 }
 
 /// Returns the total graph size for all dependencies of a target without caching the result on the DICE graph.

@@ -318,7 +318,7 @@ impl CqueryDelegate for DiceQueryDelegate<'_, '_> {
             .ctx
             .get()
             .get_configured_target_node(target)
-            .await?
+            .await
             .require_compatible()?)
     }
 
@@ -327,7 +327,11 @@ impl CqueryDelegate for DiceQueryDelegate<'_, '_> {
         target: &TargetLabel,
     ) -> buck2_error::Result<MaybeCompatible<ConfiguredTargetNode>> {
         let target = self.ctx.get().get_default_configured_target(target).await?;
-        self.ctx.get().get_configured_target_node(&target).await
+        self.ctx
+            .get()
+            .get_configured_target_node(&target)
+            .await
+            .ok()
     }
 
     fn ctx(&self) -> DiceComputations<'_> {

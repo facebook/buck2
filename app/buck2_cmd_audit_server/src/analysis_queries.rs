@@ -61,9 +61,11 @@ impl ServerAuditSubcommand for AuditAnalysisQueriesCommand {
                                     .get_configured_target(&mut ctx, &label, None)
                                     .await?
                                 {
-                                    let node =
-                                        ctx.get_configured_target_node(&configured_target).await?;
-                                    let node = node.require_compatible()?;
+                                    let node = ctx
+                                        .get_configured_target_node(&configured_target)
+                                        .await
+                                        .require_compatible()?;
+
                                     let query_results =
                                         resolve_queries(&mut ctx, node.as_ref()).await?;
                                     writeln!(stdout, "{label}:")?;

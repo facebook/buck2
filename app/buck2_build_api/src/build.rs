@@ -539,7 +539,7 @@ async fn build_configured_label_inner<'a>(
     let node = ctx
         .get()
         .get_configured_target_node(providers_label.target())
-        .await?
+        .await
         .require_compatible()?;
 
     ctx.get().top_level_target(TopLevelTargetSpec {
@@ -721,7 +721,8 @@ async fn build_configured_label_inner<'a>(
                 .should_compute_configured_graph_sketch(),
             opts.graph_properties.retained_analysis_memory_sketch,
         )
-        .await;
+        .await
+        .ok();
 
         event_consumer.consume_configured(ConfiguredBuildEvent {
             label: providers_label,

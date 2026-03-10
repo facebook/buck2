@@ -18,6 +18,7 @@
 #![feature(once_cell_try)]
 #![feature(try_blocks)]
 #![feature(used_with_arg)]
+#![feature(try_trait_v2)]
 
 // Re-export these because we don't want to make people add a dependency on this crate everywhere
 pub use buck2_env::env;

@@ -281,7 +281,7 @@ impl Error {
         self.tags_unsorted().any(|t| t == tag)
     }
 
-    pub(crate) fn compute_context<
+    pub fn compute_context<
         TC: TypedContext,
         C1: Into<ContextValue>,
         C2: Into<ContextValue>,

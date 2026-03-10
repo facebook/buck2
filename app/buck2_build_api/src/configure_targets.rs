@@ -11,7 +11,7 @@
 use std::sync::Arc;
 
 use buck2_core::configuration::compatibility::IncompatiblePlatformReason;
-use buck2_core::configuration::compatibility::MaybeCompatible;
+use buck2_core::configuration::compatibility::ResultMaybeCompatible;
 use buck2_core::global_cfg_options::GlobalCfgOptions;
 use buck2_core::package::PackageLabelWithModifiers;
 use buck2_core::pattern::pattern::ModifiersError;
@@ -36,7 +36,7 @@ use futures::FutureExt;
 // - When keep_going = false: Returns Err(e) immediately on first error
 // - When keep_going = true: Returns Ok((..., errors)) with all errors collected in Vec
 fn split_compatible_incompatible(
-    targets: impl IntoIterator<Item = buck2_error::Result<MaybeCompatible<ConfiguredTargetNode>>>,
+    targets: impl IntoIterator<Item = ResultMaybeCompatible<ConfiguredTargetNode>>,
     keep_going: bool,
 ) -> buck2_error::Result<(
     TargetSet<ConfiguredTargetNode>,
@@ -49,13 +49,13 @@ fn split_compatible_incompatible(
 
     for res in targets {
         match res {
-            Ok(MaybeCompatible::Incompatible(reason)) => {
+            ResultMaybeCompatible::Incompatible(reason) => {
                 incompatible_targets.push(reason);
             }
-            Ok(MaybeCompatible::Compatible(target)) => {
+            ResultMaybeCompatible::Compatible(target) => {
                 target_set.insert(target);
             }
-            Err(e) => {
+            ResultMaybeCompatible::Err(e) => {
                 if keep_going {
                     errors.push(e);
                 } else {
@@ -80,7 +80,7 @@ pub async fn get_maybe_compatible_targets<T>(
     global_cfg_options: &GlobalCfgOptions,
     keep_going: bool,
 ) -> buck2_error::Result<(
-    impl Iterator<Item = buck2_error::Result<MaybeCompatible<ConfiguredTargetNode>>> + use<T>,
+    impl Iterator<Item = ResultMaybeCompatible<ConfiguredTargetNode>> + use<T>,
     Vec<ErrorWithPackageLabel>,
 )>
 where
@@ -129,7 +129,7 @@ where
                             let target = ctx
                                 .get_configured_target(target.label(), &duped_cfg_options)
                                 .await?;
-                            buck2_error::Ok(ctx.get_configured_target_node(&target).await?)
+                            ctx.get_configured_target_node(&target).await
                         }
                         .boxed()
                     })

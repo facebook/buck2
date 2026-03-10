@@ -19,6 +19,7 @@ use buck2_build_api::interpreter::rule_defs::provider::builtin::execution_platfo
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::legacy_configs::dice::HasLegacyConfigs;
 use buck2_core::configuration::compatibility::MaybeCompatible;
+use buck2_core::configuration::compatibility::ResultMaybeCompatible;
 use buck2_core::configuration::data::ConfigurationData;
 use buck2_core::configuration::pair::ConfigurationNoExec;
 use buck2_core::execution_types::execution::APPLY_EXEC_MODIFIERS;
@@ -242,12 +243,12 @@ impl ToolchainExecutionPlatformCompatibilityKey {
             Some(self.target.unconfigured().dupe()),
         );
         let (gathered_deps, errors_and_incompats) =
-            gather_deps(&self.target, node.as_ref(), &cfg_ctx, ctx).await?;
-        if let Some(ret) = errors_and_incompats.finalize() {
-            // Statically assert that we hit one of the `?`s
-            enum Void {}
-            let _: Void = ret?.require_compatible()?;
-        }
+            gather_deps(&self.target, node.as_ref(), &cfg_ctx, ctx)
+                .await
+                .require_compatible()?;
+
+        let _ = errors_and_incompats.finalize().require_compatible()?;
+
         let constraints =
             ExecutionPlatformConstraints::new(node.as_ref(), &gathered_deps, &cfg_ctx)?;
 
@@ -330,10 +331,16 @@ pub(crate) async fn get_execution_platform_toolchain_dep(
             Some(target_label.unconfigured().dupe()),
         );
         let (gathered_deps, errors_and_incompats) =
-            gather_deps(target_label, target_node, &cfg_ctx, ctx).await?;
-        if let Some(ret) = errors_and_incompats.finalize() {
-            return ret;
-        }
+            gather_deps(target_label, target_node, &cfg_ctx, ctx)
+                .await
+                .require_compatible()?;
+        match errors_and_incompats.finalize() {
+            ResultMaybeCompatible::Compatible(_) => {}
+            ResultMaybeCompatible::Incompatible(reason) => {
+                return Ok(MaybeCompatible::Incompatible(reason));
+            }
+            ResultMaybeCompatible::Err(e) => return Err(e),
+        };
         Ok(MaybeCompatible::Compatible(
             resolve_execution_platform(
                 ctx,
@@ -452,7 +459,7 @@ pub(crate) async fn configure_exec_dep_with_modifiers(
     ctx: &mut DiceComputations<'_>,
     exec_dep: &TargetLabel,
     execution_platform_cfg: &ConfigurationData,
-) -> buck2_error::Result<MaybeCompatible<ConfiguredTargetNode>> {
+) -> ResultMaybeCompatible<ConfiguredTargetNode> {
     if !*APPLY_EXEC_MODIFIERS.get().unwrap_or(&false) {
         let cfg_pair = ConfigurationNoExec::new(execution_platform_cfg.dupe());
         return ctx
@@ -553,15 +560,14 @@ async fn check_execution_platform(
         .compute_join(exec_deps.iter(), |ctx, dep| {
             Box::pin(async move {
                 let cfg = exec_platform.cfg().dupe();
-                let result = configure_exec_dep_with_modifiers(ctx, dep, &cfg).await;
-                match result {
-                    Ok(MaybeCompatible::Compatible(_)) => Ok(None),
-                    Ok(MaybeCompatible::Incompatible(reason)) => Ok(Some(reason)),
-                    Err(e) => Err(e.context(format!(
-                        "Error checking compatibility of `{}` with `{}`",
-                        dep, cfg
-                    ))),
-                }
+                configure_exec_dep_with_modifiers(ctx, dep, &cfg)
+                    .await
+                    .map_err(|e| {
+                        e.context(format!(
+                            "Error checking compatibility of `{}` with `{}`",
+                            dep, cfg
+                        ))
+                    })
             })
         })
         .await;
@@ -569,15 +575,16 @@ async fn check_execution_platform(
     let mut errs = Vec::new();
     for result in dep_results {
         match result {
-            Ok(None) => (),
-            Ok(Some(reason)) => {
+            ResultMaybeCompatible::Compatible(..) => (),
+
+            ResultMaybeCompatible::Incompatible(reason) => {
                 return Ok(Err(
                     ExecutionPlatformIncompatibleReason::ExecutionDependencyIncompatible(
                         reason.dupe(),
                     ),
                 ));
             }
-            Err(e) => errs.push(e),
+            ResultMaybeCompatible::Err(e) => errs.push(e),
         };
     }
 

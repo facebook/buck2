@@ -177,8 +177,9 @@ async fn test_get_node() -> buck2_error::Result<()> {
 
     let node = computations
         .get_configured_target_node(&label1.configure(cfg.dupe()))
-        .await?;
-    let node = node.require_compatible()?;
+        .await
+        .require_compatible()?;
+
     let node_attrs: SmallMap<_, _> = node
         .attrs(AttrInspectOptions::All)
         .filter_map(|a| {
@@ -193,8 +194,9 @@ async fn test_get_node() -> buck2_error::Result<()> {
 
     let node = computations
         .get_configured_target_node(&label2.configure(cfg.dupe()))
-        .await?;
-    let node = node.require_compatible()?;
+        .await
+        .require_compatible()?;
+
     let node_attrs: SmallMap<_, _> = node
         .attrs(AttrInspectOptions::All)
         .filter_map(|a| {

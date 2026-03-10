@@ -263,7 +263,7 @@ async fn get_analysis_result_inner(
     cancellation: &CancellationContext,
 ) -> buck2_error::Result<MaybeCompatible<AnalysisResult>> {
     let configured_node: MaybeCompatible<ConfiguredTargetNode> =
-        ctx.get_configured_target_node(target).await?;
+        ctx.get_configured_target_node(target).await.ok()?;
     let configured_node: ConfiguredTargetNode = match configured_node {
         MaybeCompatible::Incompatible(reason) => {
             return Ok(MaybeCompatible::Incompatible(reason));
@@ -423,7 +423,7 @@ pub async fn profile_analysis(
             async move {
                 let node = ctx
                     .get_configured_target_node(target)
-                    .await?
+                    .await
                     .require_compatible()?;
                 buck2_error::Ok(node)
             }
