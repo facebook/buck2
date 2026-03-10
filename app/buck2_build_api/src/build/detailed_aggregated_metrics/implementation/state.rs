@@ -113,6 +113,7 @@ impl DetailedAggregatedMetricsStateTracker {
             .enumerate()
             .map(|(idx, spec)| {
                 let analysis_nodes = self.analysis_nodes.dupe();
+                let rule_type_name = spec.target.rule_type().name().to_owned();
                 tokio::task::spawn_blocking(move || {
                     let mut target_graph = FxHashSet::default();
                     traverse_target_graph(&spec.target, |target| {
@@ -148,6 +149,7 @@ impl DetailedAggregatedMetricsStateTracker {
                     (
                         idx,
                         spec.label,
+                        rule_type_name,
                         target_graph,
                         action_graph_result,
                         per_target_sketch,
@@ -169,7 +171,9 @@ impl DetailedAggregatedMetricsStateTracker {
             None
         };
 
-        for (idx, label, target_graph, action_graph_result, per_target_sketch) in results {
+        for (idx, label, rule_type_name, target_graph, action_graph_result, per_target_sketch) in
+            results
+        {
             for target in target_graph {
                 target_mappings.insert(target, idx);
             }
@@ -182,6 +186,7 @@ impl DetailedAggregatedMetricsStateTracker {
 
             agg_data.push(TopLevelTargetAggregatedData::new(
                 label,
+                rule_type_name,
                 if action_graph_complete {
                     Some(action_graph.len())
                 } else {

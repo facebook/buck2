@@ -674,6 +674,8 @@ message TopLevelTargetMetrics {
   optional uint64 remote_max_memory_peak_bytes = 6;
   // Max value for peak memory usage across all local actions.
   optional uint64 local_max_memory_peak_bytes = 7;
+  // Name of the rule type for this top-level target.
+  string target_rule_type_name = 8;
 }
 
 // Aggregated metrics across all targets in a build.

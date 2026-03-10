@@ -107,6 +107,7 @@ impl ToProtoMessage for AggregatedBuildMetrics {
 
 pub struct TopLevelTargetAggregatedData {
     pub target: ConfiguredProvidersLabel,
+    pub target_rule_type_name: String,
     pub action_graph_size: Option<u64>,
     pub metrics: AggregatedBuildMetrics,
     pub amortized_metrics: AggregatedBuildMetrics,
@@ -125,11 +126,13 @@ pub enum BuiltWhen {
 impl TopLevelTargetAggregatedData {
     pub fn new(
         target: ConfiguredProvidersLabel,
+        target_rule_type_name: String,
         action_graph_size: Option<usize>,
         action_graph_sketch: Option<MergeableGraphSketch<ActionKey>>,
     ) -> Self {
         Self {
             target,
+            target_rule_type_name,
             action_graph_size: action_graph_size.map(|v| v as u64),
             metrics: AggregatedBuildMetrics::default(),
             amortized_metrics: AggregatedBuildMetrics::default(),
@@ -192,6 +195,7 @@ impl ToProtoMessage for TopLevelTargetAggregatedData {
                 ProvidersName::Default => None,
                 v => Some(v.to_string()),
             },
+            target_rule_type_name: self.target_rule_type_name.clone(),
             action_graph_size: self.action_graph_size,
             metrics: Some(self.metrics.as_proto()),
             amortized_metrics: Some(self.amortized_metrics.as_proto()),
