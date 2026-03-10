@@ -850,21 +850,24 @@ impl DiceCommandUpdater<'_, '_> {
                 section: "buck2",
                 property: "materializer_fast_rollout_unconstrained_override",
             })?;
-            let materializer_fast_rollout_cfg = root_config.parse(BuckconfigKeyRef {
-                section: "buck2",
-                property: "materializer_fast_rollout",
-            })?;
+            let materializer_fast_rollout_cfg: Option<RolloutPercentage> =
+                root_config.parse(BuckconfigKeyRef {
+                    section: "buck2",
+                    property: "materializer_fast_rollout_v2",
+                })?;
 
-            let materializer_fast_enabled = materializer_fast_rollout_cfg.unwrap_or(false);
+            let materializer_fast_enabled = materializer_fast_rollout_cfg
+                .unwrap_or(RolloutPercentage::never())
+                .roll();
             let spawn = spawn_cfg.unwrap_or(materializer_fast_enabled);
             let unconstrained = unconstrained_cfg.unwrap_or(materializer_fast_enabled);
 
             let tag = if spawn_cfg.is_some() || unconstrained_cfg.is_some() {
                 "materializer_fast_rollout=custom"
             } else if materializer_fast_enabled {
-                "materializer_fast_rollout=enabled"
+                "materializer_fast_rollout=rollout_enabled"
             } else {
-                "materializer_fast_rollout=disabled"
+                "materializer_fast_rollout=rollout_disabled"
             };
 
             (
