@@ -16,6 +16,7 @@ use buck2_common::external_symlink::ExternalSymlink;
 use buck2_common::file_ops::metadata::FileDigest;
 use buck2_common::file_ops::metadata::FileMetadata;
 use buck2_core::content_hash::ContentBasedPathHash;
+use buck2_directory::directory::entry::DirectoryEntry;
 use buck2_util::strong_hasher::Blake3StrongHasher;
 use dupe::Dupe;
 use pagable::Pagable;
@@ -109,6 +110,14 @@ impl ArtifactValue {
             ActionDirectoryEntry::Leaf(ActionDirectoryMember::Symlink(..)) => None,
             ActionDirectoryEntry::Leaf(ActionDirectoryMember::ExternalSymlink(..)) => None,
         }
+    }
+
+    /// Size of this artifact (and its dependencies) in bytes.
+    pub fn size(&self) -> u64 {
+        (match &self.entry {
+            DirectoryEntry::Dir(d) => d.size(),
+            DirectoryEntry::Leaf(m) => m.size(),
+        } + self.deps.as_ref().map_or(0, |d| d.size()))
     }
 
     pub fn with_content_based_path_hash(

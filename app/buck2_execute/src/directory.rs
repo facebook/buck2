@@ -76,6 +76,16 @@ pub enum ActionDirectoryMember {
     ExternalSymlink(Arc<ExternalSymlink>),
 }
 
+impl ActionDirectoryMember {
+    pub fn size(&self) -> u64 {
+        match self {
+            ActionDirectoryMember::File(f) => f.digest.size(),
+            ActionDirectoryMember::Symlink(_) => 0,
+            ActionDirectoryMember::ExternalSymlink(_) => 0,
+        }
+    }
+}
+
 pub type ActionDirectoryEntry<D> = DirectoryEntry<D, ActionDirectoryMember>;
 
 pub type ActionImmutableDirectory = ImmutableDirectory<ActionDirectoryMember, TrackedFileDigest>;
@@ -233,11 +243,7 @@ impl DirectoryDigester<ActionDirectoryMember, TrackedFileDigest> for ReDirectory
     }
 
     fn leaf_size(&self, leaf: &ActionDirectoryMember) -> u64 {
-        match leaf {
-            ActionDirectoryMember::File(f) => f.digest.size(),
-            ActionDirectoryMember::Symlink(_) => 0,
-            ActionDirectoryMember::ExternalSymlink(_) => 0,
-        }
+        leaf.size()
     }
 }
 

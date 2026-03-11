@@ -3057,6 +3057,7 @@ message DynamicLambdaStart {
     BxlFunctionKey bxl_key = 2;
     AnonTarget anon_target = 3;
   }
+  uint64 dynamic_inputs_bytes = 4;
 }
 
 message DynamicLambdaOwner {

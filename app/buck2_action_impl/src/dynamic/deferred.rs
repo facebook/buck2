@@ -369,15 +369,19 @@ pub(crate) async fn prepare_and_execute_lambda(
     // the grand scheme of things that's probably not a huge deal.
     let all_artifact_group_values =
         ensure_artifacts_built(&lambda.as_ref().static_fields.artifact_values, ctx).await?;
-    let ensured_artifacts = all_artifact_group_values
+    let ensured_artifacts: IndexMap<_, _> = all_artifact_group_values
         .iter()
         .flat_map(|x| x.iter())
         .map(|(a, v)| (a, v))
         .collect();
+    // Note: This may be an overapproximation because some of the deps could be overlapping, but
+    // really these things shouldn't have deps anyway.
+    let dynamic_inputs_bytes = ensured_artifacts.values().map(|v| v.size()).sum::<u64>();
 
     span_async_simple(
         buck2_data::DynamicLambdaStart {
             owner: Some(self_holder_key.owner().to_proto().into()),
+            dynamic_inputs_bytes,
         },
         async move {
             waiting_data.start_waiting_category_now(WaitingCategory::MaterializingInputs);
