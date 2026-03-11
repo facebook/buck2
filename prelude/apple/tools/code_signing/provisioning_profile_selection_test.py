@@ -631,3 +631,29 @@ class TestSelection(unittest.TestCase):
             diagnostic_info,
             "Expected entitlement item key `com.apple.security.hardened-process.enhanced-security-version` with value `1` not found in provisioning profile.",
         )
+
+    def test_no_check_certificates_skips_identity_matching(self):
+        info_plist = InfoPlistMetadata("com.company.application", None, False)
+        profile = ProvisioningProfileMetadata(
+            Path("/foo"),
+            "00000000-0000-0000-0000-000000000000",
+            datetime.max,
+            {"iOS"},
+            {"some_fingerprint"},
+            {"application-identifier": "AAAAAAAAAA.com.company.application"},
+        )
+        # Empty identities list - would fail without no_check_certificates
+        selected, _ = select_best_provisioning_profile(
+            info_plist,
+            [],
+            [profile],
+            {},
+            ApplePlatform.ios_device,
+            False,
+            None,
+            True,
+        )
+        self.assertIsNotNone(selected)
+        self.assertEqual(selected.profile, profile)
+        self.assertEqual(selected.identity.fingerprint, "some_fingerprint")
+        self.assertEqual(selected.identity.subject_common_name, "Unknown")

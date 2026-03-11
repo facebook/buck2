@@ -133,8 +133,14 @@ def _select_provisioning_profile(
     read_provisioning_profile_command_factory = (
         _default_read_provisioning_profile_command_factory
     )
-    identities = list_codesign_identities.list_codesign_identities()
-    _log_codesign_identities(list_codesign_identities, identities)
+    if no_check_certificates:
+        identities = []
+        _LOGGER.info(
+            "no_check_certificates is set to True, so we will ignore codesign identities"
+        )
+    else:
+        identities = list_codesign_identities.list_codesign_identities()
+        _log_codesign_identities(list_codesign_identities, identities)
     _LOGGER.info(
         f"Fast provisioning profile parsing enabled: {should_use_fast_provisioning_profile_parsing}"
     )
