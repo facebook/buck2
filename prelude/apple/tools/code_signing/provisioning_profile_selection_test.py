@@ -50,13 +50,13 @@ class TestSelection(unittest.TestCase):
             {"application-identifier": "ABCDEFGHIJ.com.company.application"},
         )
         selected, diagnostic_info = select_best_provisioning_profile(
-            info_plist,
-            [identity],
-            [expired_provisioning_profile],
-            {},
-            ApplePlatform.ios_device,
-            False,
-            None,
+            info_plist_metadata=info_plist,
+            code_signing_identities=[identity],
+            provisioning_profiles=[expired_provisioning_profile],
+            entitlements={},
+            platform=ApplePlatform.ios_device,
+            strict_search=False,
+            provisioning_profile_filter=None,
         )
         self.assertIsNone(selected)
         self.verify_diagnostic_info_candidate_profile(
@@ -67,13 +67,13 @@ class TestSelection(unittest.TestCase):
         fresh_provisioning_profiles = copy.copy(expired_provisioning_profile)
         fresh_provisioning_profiles.expiration_date = datetime.max
         selected, _ = select_best_provisioning_profile(
-            info_plist,
-            [identity],
-            [fresh_provisioning_profiles],
-            {},
-            ApplePlatform.ios_device,
-            False,
-            None,
+            info_plist_metadata=info_plist,
+            code_signing_identities=[identity],
+            provisioning_profiles=[fresh_provisioning_profiles],
+            entitlements={},
+            platform=ApplePlatform.ios_device,
+            strict_search=False,
+            provisioning_profile_filter=None,
         )
         self.assertIsNotNone(selected)
 
@@ -107,13 +107,13 @@ class TestSelection(unittest.TestCase):
         selection_failed = False
         try:
             _, _ = select_best_provisioning_profile(
-                info_plist,
-                [identity],
-                profiles,
-                {"keychain-access-groups": ["AAAAAAAAAA.*"]},
-                ApplePlatform.ios_device,
-                True,
-                None,
+                info_plist_metadata=info_plist,
+                code_signing_identities=[identity],
+                provisioning_profiles=profiles,
+                entitlements={"keychain-access-groups": ["AAAAAAAAAA.*"]},
+                platform=ApplePlatform.ios_device,
+                strict_search=True,
+                provisioning_profile_filter=None,
             )
         except Exception:
             selection_failed = True
@@ -159,13 +159,13 @@ class TestSelection(unittest.TestCase):
         selection_failed = False
         try:
             _, _ = select_best_provisioning_profile(
-                info_plist,
-                [identity],
-                profiles,
-                {"keychain-access-groups": ["AAAAAAAAAA.*"]},
-                ApplePlatform.ios_device,
-                True,
-                None,
+                info_plist_metadata=info_plist,
+                code_signing_identities=[identity],
+                provisioning_profiles=profiles,
+                entitlements={"keychain-access-groups": ["AAAAAAAAAA.*"]},
+                platform=ApplePlatform.ios_device,
+                strict_search=True,
+                provisioning_profile_filter=None,
             )
         except Exception:
             selection_failed = True
@@ -174,13 +174,13 @@ class TestSelection(unittest.TestCase):
         self.assertTrue(selection_failed)
 
         selected_profile_info, _ = select_best_provisioning_profile(
-            info_plist,
-            [identity],
-            profiles,
-            {"keychain-access-groups": ["AAAAAAAAAA.*"]},
-            ApplePlatform.ios_device,
-            True,
-            ".+second",
+            info_plist_metadata=info_plist,
+            code_signing_identities=[identity],
+            provisioning_profiles=profiles,
+            entitlements={"keychain-access-groups": ["AAAAAAAAAA.*"]},
+            platform=ApplePlatform.ios_device,
+            strict_search=True,
+            provisioning_profile_filter=".+second",
         )
         # Check the middle profile got chosen (i.e., not first or last)
         self.assertEqual(selected_profile_info.profile, second)
@@ -222,13 +222,13 @@ class TestSelection(unittest.TestCase):
         ]
 
         selected_profile_info, _ = select_best_provisioning_profile(
-            info_plist,
-            [identity],
-            profiles,
-            {"keychain-access-groups": ["AAAAAAAAAA.*"]},
-            ApplePlatform.ios_device,
-            False,
-            None,
+            info_plist_metadata=info_plist,
+            code_signing_identities=[identity],
+            provisioning_profiles=profiles,
+            entitlements={"keychain-access-groups": ["AAAAAAAAAA.*"]},
+            platform=ApplePlatform.ios_device,
+            strict_search=False,
+            provisioning_profile_filter=None,
         )
 
         # Check that we selected the profile with the latest expiration date
@@ -261,13 +261,13 @@ class TestSelection(unittest.TestCase):
             ),
         ]
         selected, _ = select_best_provisioning_profile(
-            info_plist,
-            [identity],
-            profiles,
-            {"keychain-access-groups": ["AAAAAAAAAA.*"]},
-            ApplePlatform.ios_device,
-            False,
-            None,
+            info_plist_metadata=info_plist,
+            code_signing_identities=[identity],
+            provisioning_profiles=profiles,
+            entitlements={"keychain-access-groups": ["AAAAAAAAAA.*"]},
+            platform=ApplePlatform.ios_device,
+            strict_search=False,
+            provisioning_profile_filter=None,
         )
         self.assertEqual(selected, SelectedProvisioningProfileInfo(expected, identity))
 
@@ -308,45 +308,45 @@ class TestSelection(unittest.TestCase):
             unexpected,
         ]
         selected, _ = select_best_provisioning_profile(
-            info_plist,
-            [identity],
-            profiles,
-            {
+            info_plist_metadata=info_plist,
+            code_signing_identities=[identity],
+            provisioning_profiles=profiles,
+            entitlements={
                 "keychain-access-groups": ["AAAAAAAAAA.*"],
                 "aps-environment": "production",
                 "com.apple.security.application-groups": ["foo", "bar"],
             },
-            ApplePlatform.ios_device,
-            False,
-            None,
+            platform=ApplePlatform.ios_device,
+            strict_search=False,
+            provisioning_profile_filter=None,
         )
         self.assertEqual(selected, SelectedProvisioningProfileInfo(expected, identity))
 
         selected, _ = select_best_provisioning_profile(
-            info_plist,
-            [identity],
-            profiles,
-            {
+            info_plist_metadata=info_plist,
+            code_signing_identities=[identity],
+            provisioning_profiles=profiles,
+            entitlements={
                 "aps-environment": "production",
                 "com.apple.security.application-groups": ["foo", "bar"],
             },
-            ApplePlatform.ios_device,
-            False,
-            None,
+            platform=ApplePlatform.ios_device,
+            strict_search=False,
+            provisioning_profile_filter=None,
         )
         self.assertEqual(selected, SelectedProvisioningProfileInfo(expected, identity))
 
         selected, diagnostic_info = select_best_provisioning_profile(
-            info_plist,
-            [identity],
-            [unexpected],
-            {
+            info_plist_metadata=info_plist,
+            code_signing_identities=[identity],
+            provisioning_profiles=[unexpected],
+            entitlements={
                 "aps-environment": "production",
                 "com.apple.security.application-groups": ["foo", "xxx"],
             },
-            ApplePlatform.ios_device,
-            False,
-            None,
+            platform=ApplePlatform.ios_device,
+            strict_search=False,
+            provisioning_profile_filter=None,
         )
         self.assertIsNone(selected)
         self.verify_diagnostic_info_candidate_profile(
@@ -387,25 +387,25 @@ class TestSelection(unittest.TestCase):
 
         profiles = [expected, unexpected]
         selected, _ = select_best_provisioning_profile(
-            info_plist,
-            [valid_identity],
-            profiles,
-            {},
-            ApplePlatform.ios_device,
-            False,
-            None,
+            info_plist_metadata=info_plist,
+            code_signing_identities=[valid_identity],
+            provisioning_profiles=profiles,
+            entitlements={},
+            platform=ApplePlatform.ios_device,
+            strict_search=False,
+            provisioning_profile_filter=None,
         )
         self.assertEqual(
             selected, SelectedProvisioningProfileInfo(expected, valid_identity)
         )
         selected, diagnostic_info = select_best_provisioning_profile(
-            info_plist,
-            [valid_identity],
-            [unexpected],
-            {},
-            ApplePlatform.ios_device,
-            False,
-            None,
+            info_plist_metadata=info_plist,
+            code_signing_identities=[valid_identity],
+            provisioning_profiles=[unexpected],
+            entitlements={},
+            platform=ApplePlatform.ios_device,
+            strict_search=False,
+            provisioning_profile_filter=None,
         )
         self.assertIsNone(selected)
         self.verify_diagnostic_info_candidate_profile(
@@ -443,24 +443,24 @@ class TestSelection(unittest.TestCase):
             ),
         ]
         selected, _ = select_best_provisioning_profile(
-            info_plist,
-            [identity],
-            profiles,
-            {},
-            ApplePlatform.ios_device,
-            False,
-            None,
+            info_plist_metadata=info_plist,
+            code_signing_identities=[identity],
+            provisioning_profiles=profiles,
+            entitlements={},
+            platform=ApplePlatform.ios_device,
+            strict_search=False,
+            provisioning_profile_filter=None,
         )
         self.assertEqual(selected, SelectedProvisioningProfileInfo(expected, identity))
 
         selected, _ = select_best_provisioning_profile(
-            info_plist,
-            [identity],
-            reversed(profiles),
-            {},
-            ApplePlatform.ios_device,
-            False,
-            None,
+            info_plist_metadata=info_plist,
+            code_signing_identities=[identity],
+            provisioning_profiles=reversed(profiles),
+            entitlements={},
+            platform=ApplePlatform.ios_device,
+            strict_search=False,
+            provisioning_profile_filter=None,
         )
         self.assertEqual(selected, SelectedProvisioningProfileInfo(expected, identity))
 
@@ -481,13 +481,13 @@ class TestSelection(unittest.TestCase):
             },
         )
         selected, _ = select_best_provisioning_profile(
-            info_plist,
-            [identity],
-            [expected],
-            None,
-            ApplePlatform.ios_device,
-            False,
-            None,
+            info_plist_metadata=info_plist,
+            code_signing_identities=[identity],
+            provisioning_profiles=[expected],
+            entitlements=None,
+            platform=ApplePlatform.ios_device,
+            strict_search=False,
+            provisioning_profile_filter=None,
         )
         self.assertEqual(selected, SelectedProvisioningProfileInfo(expected, identity))
 
@@ -510,18 +510,18 @@ class TestSelection(unittest.TestCase):
             },
         )
         selected, _ = select_best_provisioning_profile(
-            info_plist,
-            [identity],
-            [profile],
-            {
+            info_plist_metadata=info_plist,
+            code_signing_identities=[identity],
+            provisioning_profiles=[profile],
+            entitlements={
                 # Force included key, even if not present in the profile
                 "application-identifier": "AAAAAAAAAA.com.facebook.BuckApp",
                 "keychain-access-groups": ["AAAAAAAAAA.*"],
                 "aps-environment": "production",
             },
-            ApplePlatform.ios_device,
-            False,
-            None,
+            platform=ApplePlatform.ios_device,
+            strict_search=False,
+            provisioning_profile_filter=None,
         )
         self.assertIsNotNone(selected)
 
@@ -544,17 +544,17 @@ class TestSelection(unittest.TestCase):
             },
         )
         selected, diagnostic_info = select_best_provisioning_profile(
-            info_plist,
-            [identity],
-            [profile],
-            {
+            info_plist_metadata=info_plist,
+            code_signing_identities=[identity],
+            provisioning_profiles=[profile],
+            entitlements={
                 "keychain-access-groups": ["AAAAAAAAAA.*"],
                 "aps-environment": "production",
                 "com.made.up.entitlement": "buck",
             },
-            ApplePlatform.ios_device,
-            False,
-            None,
+            platform=ApplePlatform.ios_device,
+            strict_search=False,
+            provisioning_profile_filter=None,
         )
         self.assertIsNone(selected)
         self.verify_diagnostic_info_candidate_profile(
@@ -583,16 +583,16 @@ class TestSelection(unittest.TestCase):
             },
         )
         selected, _ = select_best_provisioning_profile(
-            info_plist,
-            [identity],
-            [profile],
-            {
+            info_plist_metadata=info_plist,
+            code_signing_identities=[identity],
+            provisioning_profiles=[profile],
+            entitlements={
                 "com.apple.security.hardened-process.enhanced-security-version": "1",
                 "com.apple.security.hardened-process.platform-restrictions": "2",
             },
-            ApplePlatform.ios_device,
-            False,
-            None,
+            platform=ApplePlatform.ios_device,
+            strict_search=False,
+            provisioning_profile_filter=None,
         )
         self.assertEqual(selected, SelectedProvisioningProfileInfo(profile, identity))
 
@@ -615,16 +615,16 @@ class TestSelection(unittest.TestCase):
             },
         )
         selected, diagnostic_info = select_best_provisioning_profile(
-            info_plist,
-            [identity],
-            [profile],
-            {
+            info_plist_metadata=info_plist,
+            code_signing_identities=[identity],
+            provisioning_profiles=[profile],
+            entitlements={
                 "com.apple.security.hardened-process.enhanced-security-version": "1",
                 "com.apple.security.hardened-process.platform-restrictions": "2",
             },
-            ApplePlatform.ios_device,
-            False,
-            None,
+            platform=ApplePlatform.ios_device,
+            strict_search=False,
+            provisioning_profile_filter=None,
         )
         self.assertIsNone(selected)
         self.verify_diagnostic_info_candidate_profile(
@@ -644,14 +644,14 @@ class TestSelection(unittest.TestCase):
         )
         # Empty identities list - would fail without no_check_certificates
         selected, _ = select_best_provisioning_profile(
-            info_plist,
-            [],
-            [profile],
-            {},
-            ApplePlatform.ios_device,
-            False,
-            None,
-            True,
+            info_plist_metadata=info_plist,
+            code_signing_identities=[],
+            provisioning_profiles=[profile],
+            entitlements={},
+            platform=ApplePlatform.ios_device,
+            strict_search=False,
+            provisioning_profile_filter=None,
+            no_check_certificates=True,
         )
         self.assertIsNotNone(selected)
         self.assertEqual(selected.profile, profile)
