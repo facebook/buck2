@@ -132,7 +132,7 @@ impl Materializer for NoDiskMaterializer {
     async fn get_artifact_entries_for_materialized_paths(
         &self,
         paths: Vec<ProjectRelativePathBuf>,
-        _fetch_projected_artifact_entries: bool,
+        _fetch_root_artifact_entries_for_subpaths: bool,
     ) -> buck2_error::Result<
         Vec<
             Option<(

@@ -296,19 +296,21 @@ pub trait Materializer: Allocative + Send + Sync + 'static {
     /// time.
     fn add_snapshot_stats(&self, _snapshot: &mut buck2_data::Snapshot) {}
 
-    /// Given a list of `paths`, returns a list of corresponding artifact entries only if all the following conditions are met:
-    ///   - There is an artifact at the given path (either declared or materialized).
-    ///   - The materializer state contains sufficient information about the artifact.
-    ///   - The path refers to the root of the artifact (not a subpath), unless `fetch_projected_artifact_entries` is true.
-    /// If any of these conditions are not satisfied for a given path, `None` is returned for that path.
+    /// Returns artifact entries for the given `paths`.
     ///
-    /// When `fetch_projected_artifact_entries` is true, if the path is a subpath of a known artifact
-    /// (e.g., a projected path like "src/subdir/file.txt" where "src" is the artifact root),
-    /// the function will traverse the directory structure to find and return the entry for the subpath.
+    /// If `fetch_root_artifact_entries_for_subpaths` is false, only returns entries
+    /// for paths that exactly match a known artifact root.
+    ///
+    /// If true, also matches paths that are subpaths of a known artifact root,
+    /// returning the root artifact's entry (not the subpath's). The subpath need
+    /// not actually exist within the artifact's directory structure.
+    ///
+    /// Returns `None` for any path that doesn't match a known artifact, or whose
+    /// materializer state lacks sufficient metadata (e.g., compact directory metadata).
     async fn get_artifact_entries_for_materialized_paths(
         &self,
         paths: Vec<ProjectRelativePathBuf>,
-        fetch_projected_artifact_entries: bool,
+        fetch_root_artifact_entries_for_subpaths: bool,
     ) -> buck2_error::Result<
         Vec<
             Option<(

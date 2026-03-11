@@ -1420,24 +1420,32 @@ mod state_machine {
             let artifact_root = make_path("parent/artifact");
             dm.testing_declare(&artifact_root, dir_value);
 
+            // Subpath of a file within artifact - returns the base artifact entry (Dir), not the projected file
             let file_subpath = make_path("parent/artifact/child/file.txt");
-            let result = dm.testing_get_projected_artifact_entries(vec![file_subpath.clone()]);
+            let result =
+                dm.testing_get_root_artifact_entries_for_subpaths(vec![file_subpath.clone()]);
             assert_eq!(result.len(), 1);
             let (returned_path, returned_entry) = result[0].clone().unwrap();
             assert_eq!(returned_path, file_subpath);
-            assert!(matches!(returned_entry, ActionDirectoryEntry::Leaf(_)));
+            assert!(matches!(returned_entry, ActionDirectoryEntry::Dir(_)));
 
+            // Subpath of a subdirectory within artifact - returns the base artifact entry (Dir)
             let subdir_path = make_path("parent/artifact/child/subdir");
-            let result = dm.testing_get_projected_artifact_entries(vec![subdir_path.clone()]);
+            let result =
+                dm.testing_get_root_artifact_entries_for_subpaths(vec![subdir_path.clone()]);
             assert_eq!(result.len(), 1);
             let (returned_path, returned_entry) = result[0].clone().unwrap();
             assert_eq!(returned_path, subdir_path);
             assert!(matches!(returned_entry, ActionDirectoryEntry::Dir(_)));
 
+            // Nonexistent subpath within artifact - still returns the base artifact entry (Dir)
             let nonexistent = make_path("parent/artifact/does_not_exist.txt");
-            let result = dm.testing_get_projected_artifact_entries(vec![nonexistent.clone()]);
+            let result =
+                dm.testing_get_root_artifact_entries_for_subpaths(vec![nonexistent.clone()]);
             assert_eq!(result.len(), 1);
-            assert!(result[0].is_none());
+            let (returned_path, returned_entry) = result[0].clone().unwrap();
+            assert_eq!(returned_path, nonexistent);
+            assert!(matches!(returned_entry, ActionDirectoryEntry::Dir(_)));
 
             Ok(())
         })

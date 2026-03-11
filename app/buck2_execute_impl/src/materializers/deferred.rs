@@ -574,7 +574,7 @@ impl<T: IoHandler + Allocative> Materializer for DeferredMaterializerAccessor<T>
     async fn get_artifact_entries_for_materialized_paths(
         &self,
         paths: Vec<ProjectRelativePathBuf>,
-        fetch_projected_artifact_entries: bool,
+        fetch_root_artifact_entries_for_subpaths: bool,
     ) -> buck2_error::Result<
         Vec<
             Option<(
@@ -588,7 +588,7 @@ impl<T: IoHandler + Allocative> Materializer for DeferredMaterializerAccessor<T>
         self.command_sender.send(
             MaterializerCommand::GetArtifactEntriesForMaterializedPaths {
                 paths,
-                fetch_projected_artifact_entries,
+                fetch_root_artifact_entries_for_subpaths,
                 sender,
             },
         )?;

@@ -20,9 +20,7 @@ use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_core::soft_error;
 use buck2_data::error::ErrorTag;
-use buck2_directory::directory::directory::Directory;
 use buck2_directory::directory::entry::DirectoryEntry;
-use buck2_directory::directory::find::find;
 use buck2_error::BuckErrorContext;
 use buck2_error::buck2_error;
 use buck2_events::dispatch::EventDispatcher;
@@ -31,7 +29,6 @@ use buck2_events::dispatch::with_dispatcher_async;
 use buck2_events::span::SpanId;
 use buck2_execute::artifact_value::ArtifactValue;
 use buck2_execute::directory::ActionDirectoryEntry;
-use buck2_execute::directory::ActionDirectoryMember;
 use buck2_execute::directory::ActionSharedDirectory;
 use buck2_execute::materialize::materializer::ArtifactNotMaterializedReason;
 use buck2_execute::materialize::materializer::DeclareArtifactPayload;
@@ -183,7 +180,7 @@ pub(super) enum MaterializerCommand<T: 'static> {
 
     GetArtifactEntriesForMaterializedPaths {
         paths: Vec<ProjectRelativePathBuf>,
-        fetch_projected_artifact_entries: bool,
+        fetch_root_artifact_entries_for_subpaths: bool,
         sender: oneshot::Sender<
             Vec<
                 Option<(
@@ -233,12 +230,12 @@ impl<T> std::fmt::Debug for MaterializerCommand<T> {
             MaterializerCommand::Abort => write!(f, "Abort"),
             MaterializerCommand::GetArtifactEntriesForMaterializedPaths {
                 paths,
-                fetch_projected_artifact_entries,
+                fetch_root_artifact_entries_for_subpaths,
                 sender: _,
             } => {
                 write!(
                     f,
-                    "GetArtifactEntriesForMaterializedPaths({paths:?}, {fetch_projected_artifact_entries}, _)",
+                    "GetArtifactEntriesForMaterializedPaths({paths:?}, {fetch_root_artifact_entries_for_subpaths}, _)",
                 )
             }
         }
@@ -664,13 +661,13 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
             MaterializerCommand::Abort => unreachable!(),
             MaterializerCommand::GetArtifactEntriesForMaterializedPaths {
                 paths,
-                fetch_projected_artifact_entries,
+                fetch_root_artifact_entries_for_subpaths,
                 sender,
             } => {
                 sender
                     .send(self.get_artifact_entries_for_materialized_paths(
                         paths,
-                        fetch_projected_artifact_entries,
+                        fetch_root_artifact_entries_for_subpaths,
                     ))
                     .ok();
             }
@@ -1075,7 +1072,7 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
     fn get_artifact_entries_for_materialized_paths(
         &mut self,
         paths: Vec<ProjectRelativePathBuf>,
-        fetch_projected_artifact_entries: bool,
+        fetch_root_artifact_entries_for_subpaths: bool,
     ) -> Vec<
         Option<(
             ProjectRelativePathBuf,
@@ -1104,31 +1101,9 @@ impl<T: IoHandler> DeferredMaterializerCommandProcessor<T> {
                     ArtifactMaterializationStage::Declared { entry, .. } => Some(entry.dupe()),
                 }?;
 
-                if root_path == p {
-                    // Path exactly matches artifact root
+                if root_path == p || fetch_root_artifact_entries_for_subpaths {
+                    // Path exactly matches artifact root, or we are fetching base entries for projected paths
                     Some((p, base_entry))
-                } else if fetch_projected_artifact_entries {
-                    // Path is a subpath - need to traverse into the directory
-                    let suffix = p.strip_prefix(root_path).ok()?;
-                    match &base_entry {
-                        DirectoryEntry::Dir(dir) => {
-                            let found = find(dir.as_ref(), suffix).ok()??;
-                            let owned_entry = found
-                                .map_dir(|d: &ActionSharedDirectory| d.dupe())
-                                .map_leaf(|l: &ActionDirectoryMember| l.dupe());
-                            Some((p, owned_entry))
-                        }
-                        DirectoryEntry::Leaf(_) => {
-                            let _ignored = soft_error!(
-                                "materializer_traverse_into_leaf",
-                                buck2_error!(
-                                    ErrorTag::InternalError,
-                                    "Cannot traverse into a leaf"
-                                )
-                            );
-                            None
-                        }
-                    }
                 } else {
                     // Not at root and not fetching projected entries
                     None
@@ -1578,7 +1553,7 @@ pub(super) trait TestingDeferredMaterializerCommandProcessor<T> {
         )>,
     >;
 
-    fn testing_get_projected_artifact_entries(
+    fn testing_get_root_artifact_entries_for_subpaths(
         &mut self,
         paths: Vec<ProjectRelativePathBuf>,
     ) -> Vec<
@@ -1636,7 +1611,7 @@ impl<T: IoHandler> TestingDeferredMaterializerCommandProcessor<T>
         self.get_artifact_entries_for_materialized_paths(paths, false)
     }
 
-    fn testing_get_projected_artifact_entries(
+    fn testing_get_root_artifact_entries_for_subpaths(
         &mut self,
         paths: Vec<ProjectRelativePathBuf>,
     ) -> Vec<
