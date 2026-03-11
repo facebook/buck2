@@ -15,6 +15,7 @@ def _audit_output_action_exists_impl(ctx):
     action = ctx.audit().output(buck_out)
 
     asserts.equals(action.owner(), target.label)
+    asserts.equals(actions.outputs()[0].basename, "with_output.txt")
 
 audit_output_action_exists = bxl_main(
     impl = _audit_output_action_exists_impl,

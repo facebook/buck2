@@ -12,9 +12,11 @@ use std::convert::Infallible;
 use std::sync::Arc;
 
 use allocative::Allocative;
+use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_build_api::actions::RegisteredAction;
 use buck2_build_api::actions::query::ActionQueryNode;
 use buck2_build_api::actions::query::OwnedActionAttr;
+use buck2_build_api::interpreter::rule_defs::artifact::starlark_artifact::StarlarkArtifact;
 use buck2_core::deferred::base_deferred_key::BaseDeferredKey;
 use buck2_error::buck2_error;
 use buck2_interpreter::types::target_label::StarlarkConfiguredTargetLabel;
@@ -49,7 +51,7 @@ pub(crate) struct StarlarkAction(pub(crate) Arc<RegisteredAction>);
 
 starlark_simple_value!(StarlarkAction);
 
-#[starlark_value(type = "action")]
+#[starlark_value(type = "bxl.Action")]
 impl<'v> StarlarkValue<'v> for StarlarkAction {
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
@@ -67,7 +69,7 @@ impl<'a> UnpackValue<'a> for StarlarkAction {
     }
 }
 
-/// Methods for an action.
+/// Methods for an action obtained from [`bxl.AuditContext.output()`](../AuditContext#output).
 #[starlark_module]
 fn action_methods(builder: &mut MethodsBuilder) {
     /// Gets the owning configured target label for an action.
@@ -89,6 +91,17 @@ fn action_methods(builder: &mut MethodsBuilder) {
             )
             .into()),
         }
+    }
+
+    /// Gets the artifacts built by this action.
+    fn outputs<'v>(this: StarlarkAction) -> starlark::Result<Vec<StarlarkArtifact>> {
+        Ok(this
+            .0
+            .action()
+            .outputs()
+            .iter()
+            .map(|a| StarlarkArtifact::new(Artifact::from(a.clone())))
+            .collect())
     }
 }
 
