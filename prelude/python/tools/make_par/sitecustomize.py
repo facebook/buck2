@@ -202,10 +202,45 @@ def __patch_subprocess() -> None:
     subprocess.Popen.__init__ = _patched_popen_init
 
 
+def __patch_os_exec() -> None:
+    _orig_execv = os.execv
+    _orig_execve = os.execve
+
+    # pyre-fixme[2]: Parameter must be annotated.
+    def _should_restore_env(path, env) -> bool:
+        return (
+            isinstance(path, str)
+            and path == sys.executable
+            and "PYTHONPATH" not in env
+            and "PYTHONHOME" not in env
+        )
+
+    # pyre-fixme[53]: Captured variable `_orig_execve` is not annotated.
+    # pyre-fixme[2]: Parameter must be annotated.
+    def _patched_execv(path: str, args) -> None:
+        if _should_restore_env(path, os.environ):
+            # Use execve with a modified env copy instead of mutating os.environ.
+            # If execve failed, the process would continue with corrupted env.
+            _orig_execve(path, args, _build_child_env(None))
+        else:
+            _orig_execv(path, args)
+
+    # pyre-fixme[53]: Captured variable `_orig_execve` is not annotated.
+    # pyre-fixme[2]: Parameter must be annotated.
+    def _patched_execve(path: str, args, env: dict[str, str]) -> None:
+        if _should_restore_env(path, env):
+            env = _build_child_env(env)
+        _orig_execve(path, args, env)
+
+    os.execv = _patched_execv  # type: ignore[assignment]
+    os.execve = _patched_execve  # type: ignore[assignment]
+
+
 def __clear_env(
     patch_spawn: bool = True,
     patch_ctypes: bool = True,
     patch_subprocess: bool = True,
+    patch_exec: bool = True,
 ) -> None:
     saved_env = {}
 
@@ -253,6 +288,9 @@ def __clear_env(
 
     if patch_subprocess:
         __patch_subprocess()
+
+    if patch_exec:
+        __patch_os_exec()
 
 
 def __startup__() -> None:
