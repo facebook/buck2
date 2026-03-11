@@ -159,6 +159,7 @@ fn process_status(status: StatusResponse) -> buck2_error::Result<serde_json::Val
         "supports_vpnless": status.supports_vpnless.unwrap_or_default(),
         "http2": status.http2,
         "io_provider": status.io_provider,
+        "allprocs_cgroup_path": status.allprocs_cgroup_path,
     });
 
     if let Some(tokio_runtime_metrics) = status.tokio_runtime_metrics {

@@ -82,6 +82,7 @@ message StatusResponse {
   optional bool valid_buck_out_mount = 15;
   optional string io_provider = 16;
   optional TokioRuntimeMetrics tokio_runtime_metrics = 17;
+  optional string allprocs_cgroup_path = 18;
 }
 
 message TokioRuntimeMetrics {

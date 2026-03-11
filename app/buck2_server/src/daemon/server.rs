@@ -989,8 +989,10 @@ impl DaemonApi for BuckdServer {
 
             let uptime = Instant::now() - self.0.start_instant;
 
+            let process_info = self.0.process_info.clone();
+
             let mut base = StatusResponse {
-                process_info: Some(self.0.process_info.clone()),
+                process_info: Some(process_info),
                 start_time: Some(self.0.start_time),
                 uptime: Some(uptime.try_into()?),
                 snapshot,
@@ -1007,6 +1009,20 @@ impl DaemonApi for BuckdServer {
                 valid_working_directory: Some(valid_working_directory),
                 valid_buck_out_mount: Some(valid_buck_out_mount),
                 io_provider: Some(io_provider),
+                allprocs_cgroup_path: {
+                    #[cfg(unix)]
+                    {
+                        daemon_state
+                            .data()
+                            .memory_tracker
+                            .as_ref()
+                            .map(|mt| mt.cgroup_tree.allprocs().path().to_string())
+                    }
+                    #[cfg(not(unix))]
+                    {
+                        None
+                    }
+                },
                 ..Default::default()
             };
 
