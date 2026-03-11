@@ -494,6 +494,7 @@ impl BxlServerCommand {
                 &ctx.bxl_label,
                 &ensured_artifact_errors,
                 None,
+                None,
             )?
         } else {
             None

@@ -50,10 +50,16 @@ pub struct PerBuildEvents {
     pub top_level_targets: Vec<TopLevelTargetSpec>,
 }
 
+pub struct ActionGraphSketchResult {
+    pub per_target_sketches: Vec<(
+        ConfiguredProvidersLabel,
+        Option<MergeableGraphSketch<ActionKey>>,
+    )>,
+}
+
 pub struct DetailedAggregatedMetrics {
     pub top_level_target_metrics: Vec<TopLevelTargetAggregatedData>,
     pub all_targets_build_metrics: AllTargetsAggregatedData,
-    pub action_graph_sketch: Option<MergeableGraphSketch<ActionKey>>,
 }
 
 impl ToProtoMessage for DetailedAggregatedMetrics {
@@ -113,8 +119,6 @@ pub struct TopLevelTargetAggregatedData {
     pub amortized_metrics: AggregatedBuildMetrics,
     pub remote_max_memory_peak_bytes: u64,
     pub local_max_memory_peak_bytes: u64,
-    /// Per-target action graph sketch for similarity comparison
-    pub action_graph_sketch: Option<MergeableGraphSketch<ActionKey>>,
 }
 
 #[derive(Clone, Copy, Dupe)]
@@ -128,7 +132,6 @@ impl TopLevelTargetAggregatedData {
         target: ConfiguredProvidersLabel,
         target_rule_type_name: String,
         action_graph_size: Option<usize>,
-        action_graph_sketch: Option<MergeableGraphSketch<ActionKey>>,
     ) -> Self {
         Self {
             target,
@@ -138,7 +141,6 @@ impl TopLevelTargetAggregatedData {
             amortized_metrics: AggregatedBuildMetrics::default(),
             remote_max_memory_peak_bytes: 0,
             local_max_memory_peak_bytes: 0,
-            action_graph_sketch,
         }
     }
 

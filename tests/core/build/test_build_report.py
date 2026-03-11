@@ -11,11 +11,25 @@
 
 import json
 from pathlib import Path
+from typing import Any
 
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.buck_workspace import buck_test
 from buck2.tests.e2e_util.helper.golden import golden
 from buck2.tests.e2e_util.helper.utils import replace_digest, replace_hash
+
+
+def _sanitize_timing_fields(obj: Any) -> None:
+    """Replace timing-dependent fields with a placeholder to avoid flaky tests."""
+    if isinstance(obj, dict):
+        for key in list(obj.keys()):
+            if key == "compute_time_ms":
+                obj[key] = "<COMPUTE_TIME_MS>"
+            else:
+                _sanitize_timing_fields(obj[key])
+    elif isinstance(obj, list):
+        for item in obj:
+            _sanitize_timing_fields(item)
 
 
 def build_report_test(name: str, command: list[str]) -> None:
@@ -27,6 +41,7 @@ def build_report_test(name: str, command: list[str]) -> None:
             report = json.loads(file.read())
         del report["trace_id"]
         del report["project_root"]
+        _sanitize_timing_fields(report)
 
         # Build report errors can change based on minor test changes such as
         # 1. Adding a target in TARGETS.fixture
@@ -109,6 +124,17 @@ build_report_test(
 )
 
 build_report_test(
+    "test_build_report_format_action_graph_sketch",
+    [
+        "//:rule1",
+        "//:dir1",
+        "//subdir:rule",
+        "-c",
+        "buck2.log_action_graph_sketch=true",
+    ],
+)
+
+build_report_test(
     "test_build_report_format_all_sketches",
     [
         "//:rule1",
@@ -120,6 +146,8 @@ build_report_test(
         "buck2.log_configured_graph_sketch=true",
         "-c",
         "buck2.log_total_configured_graph_sketch=true",
+        "-c",
+        "buck2.log_action_graph_sketch=true",
     ],
 )
 
@@ -214,6 +242,7 @@ def streaming_build_report_test(name: str, command: list[str]) -> None:
 
         del report["trace_id"]
         del report["project_root"]
+        _sanitize_timing_fields(report)
 
         # Build report errors can change based on minor test changes such as
         # 1. Adding a target in TARGETS.fixture

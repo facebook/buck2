@@ -10,7 +10,6 @@
 
 use std::future::Future;
 
-use buck2_artifact::actions::key::ActionKey;
 use buck2_core::deferred::key::DeferredHolderKey;
 use buck2_data::ComputeDetailedAggregatedMetricsEnd;
 use buck2_data::ComputeDetailedAggregatedMetricsStart;
@@ -23,11 +22,10 @@ use dice::UserComputationData;
 use crate::build::detailed_aggregated_metrics::events::DetailedAggregatedMetricsEventHandler;
 use crate::build::detailed_aggregated_metrics::events::DetailedAggregatedMetricsPerBuildEventsHolder;
 use crate::build::detailed_aggregated_metrics::types::ActionExecutionMetrics;
+use crate::build::detailed_aggregated_metrics::types::ActionGraphSketchResult;
 use crate::build::detailed_aggregated_metrics::types::DetailedAggregatedMetrics;
 use crate::build::detailed_aggregated_metrics::types::PerBuildEvents;
 use crate::build::detailed_aggregated_metrics::types::TopLevelTargetSpec;
-use crate::build::graph_properties::GraphPropertiesOptions;
-use crate::build::sketch_impl::MergeableGraphSketch;
 use crate::deferred::calculation::DeferredHolder;
 
 pub trait HasDetailedAggregatedMetrics {
@@ -43,12 +41,11 @@ pub trait HasDetailedAggregatedMetrics {
     fn compute_detailed_metrics(
         &self,
         events: PerBuildEvents,
-        graph_properties: GraphPropertiesOptions,
     ) -> impl Future<Output = buck2_error::Result<DetailedAggregatedMetrics>> + Send;
     fn compute_action_graph_sketch(
         &self,
         events: &PerBuildEvents,
-    ) -> impl Future<Output = buck2_error::Result<Option<MergeableGraphSketch<ActionKey>>>> + Send;
+    ) -> impl Future<Output = buck2_error::Result<ActionGraphSketchResult>> + Send;
 }
 
 impl HasDetailedAggregatedMetrics for DiceComputations<'_> {
@@ -90,7 +87,6 @@ impl HasDetailedAggregatedMetrics for DiceComputations<'_> {
     async fn compute_detailed_metrics(
         &self,
         events: PerBuildEvents,
-        graph_properties: GraphPropertiesOptions,
     ) -> buck2_error::Result<DetailedAggregatedMetrics> {
         span_async_simple(
             ComputeDetailedAggregatedMetricsStart {},
@@ -100,7 +96,7 @@ impl HasDetailedAggregatedMetrics for DiceComputations<'_> {
                     .ok_or_else(|| {
                         internal_error!("should have had a detailed aggreged metrics event holder")
                     })?
-                    .compute_metrics(events, graph_properties)
+                    .compute_metrics(events)
                     .await
             },
             ComputeDetailedAggregatedMetricsEnd {},
@@ -111,14 +107,16 @@ impl HasDetailedAggregatedMetrics for DiceComputations<'_> {
     async fn compute_action_graph_sketch(
         &self,
         events: &PerBuildEvents,
-    ) -> buck2_error::Result<Option<MergeableGraphSketch<ActionKey>>> {
+    ) -> buck2_error::Result<ActionGraphSketchResult> {
         let handler = get_detailed_aggregated_metrics_event_handler(self)?;
         match handler.as_ref() {
             Some(h) => {
                 h.compute_action_graph_sketch(events.top_level_targets.clone())
                     .await
             }
-            None => Ok(None),
+            None => Ok(ActionGraphSketchResult {
+                per_target_sketches: Vec::new(),
+            }),
         }
     }
 }

@@ -74,6 +74,7 @@ use crate::build::ConfiguredBuildTargetResult;
 use crate::build::action_error::ActionErrorBuildOptions;
 use crate::build::action_error::BuildReportActionError;
 use crate::build::action_error::MAX_ERROR_CONTENT_BYTES;
+use crate::build::detailed_aggregated_metrics::types::ActionGraphSketchResult;
 use crate::build::detailed_aggregated_metrics::types::AllTargetsAggregatedData;
 use crate::build::detailed_aggregated_metrics::types::DetailedAggregatedMetrics;
 use crate::build::detailed_aggregated_metrics::types::TopLevelTargetAggregatedData;
@@ -109,8 +110,6 @@ pub struct BuildReport {
     build_metrics: Option<AllTargetsBuildMetrics>,
     #[serde(skip_serializing_if = "Option::is_none")]
     total_configured_graph_sketch: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    action_graph_sketch: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     error_category: Option<String>,
 }
@@ -349,6 +348,7 @@ impl<'a> BuildReportCollector<'a> {
         configured_to_pattern_modifiers: &HashMap<ConfiguredProvidersLabel, BTreeSet<Modifiers>>,
         other_errors: &BTreeMap<Option<ProvidersLabel>, Vec<buck2_error::Error>>,
         detailed_metrics: Option<DetailedAggregatedMetrics>,
+        action_graph_sketch_result: Option<ActionGraphSketchResult>,
         graph_properties_opts: GraphPropertiesOptions,
     ) -> Result<BuildReport, BuildReportGenerationError> {
         let mut this = Self::new(
@@ -380,10 +380,14 @@ impl<'a> BuildReportCollector<'a> {
                     top_level_metrics.target.clone(),
                     Self::convert_per_target_metrics(top_level_metrics).into(),
                 );
-                if let Some(sketch) = &top_level_metrics.action_graph_sketch {
+            }
+        }
+        if let Some(sketch_result) = action_graph_sketch_result.as_ref() {
+            for (label, sketch) in &sketch_result.per_target_sketches {
+                if let Some(sketch) = sketch {
                     if !sketch.is_empty() {
                         action_graph_sketches_by_configured
-                            .insert(top_level_metrics.target.clone(), sketch.serialize());
+                            .insert(label.clone(), sketch.serialize());
                     }
                 }
             }
@@ -494,6 +498,7 @@ impl<'a> BuildReportCollector<'a> {
         bxl_label: &BxlFunctionLabel,
         errors: &[buck2_error::Error],
         detailed_metrics: Option<DetailedAggregatedMetrics>,
+        _action_graph_sketch_result: Option<ActionGraphSketchResult>,
         graph_properties_opts: GraphPropertiesOptions,
     ) -> Result<BuildReport, BuildReportGenerationError> {
         let mut this = Self::new(
@@ -549,12 +554,6 @@ impl<'a> BuildReportCollector<'a> {
             .total_configured_graph_sketch
             .map(|sketcher| sketcher.into_mergeable_graph_sketch().serialize());
 
-        let action_graph_sketch = detailed_metrics
-            .as_ref()
-            .and_then(|m| m.action_graph_sketch.as_ref())
-            .filter(|sketch| !sketch.is_empty())
-            .map(|sketch| sketch.serialize());
-
         // Determine error category using existing Buck2 error classification
         let error_category = if let Some(best_error_report) = best_error(&all_error_reports) {
             Some(best_error_report.category().to_string())
@@ -577,7 +576,6 @@ impl<'a> BuildReportCollector<'a> {
             build_metrics: detailed_metrics
                 .map(|m| Self::convert_all_target_build_metrics(&m.all_targets_build_metrics)),
             total_configured_graph_sketch,
-            action_graph_sketch,
             error_category,
         })
     }
@@ -1081,6 +1079,7 @@ pub fn write_build_report(
     configured_to_pattern_modifiers: &HashMap<ConfiguredProvidersLabel, BTreeSet<Modifiers>>,
     other_errors: &BTreeMap<Option<ProvidersLabel>, Vec<buck2_error::Error>>,
     detailed_metrics: Option<DetailedAggregatedMetrics>,
+    action_graph_sketch_result: Option<ActionGraphSketchResult>,
 ) -> Result<Option<String>, buck2_error::Error> {
     let build_report = BuildReportCollector::convert(
         trace_id,
@@ -1097,6 +1096,7 @@ pub fn write_build_report(
         configured_to_pattern_modifiers,
         other_errors,
         detailed_metrics,
+        action_graph_sketch_result,
         opts.graph_properties_opts,
     )?;
 
@@ -1118,6 +1118,7 @@ pub fn write_bxl_build_report(
     bxl_label: &BxlFunctionLabel,
     errors: &[buck2_error::Error],
     detailed_metrics: Option<DetailedAggregatedMetrics>,
+    action_graph_sketch_result: Option<ActionGraphSketchResult>,
 ) -> Result<Option<String>, buck2_error::Error> {
     let build_report = BuildReportCollector::convert_bxl(
         trace_id,
@@ -1133,6 +1134,7 @@ pub fn write_bxl_build_report(
         bxl_label,
         errors,
         detailed_metrics,
+        action_graph_sketch_result,
         opts.graph_properties_opts,
     )?;
 
@@ -1155,6 +1157,7 @@ pub fn stream_build_report(
     configured_to_pattern_modifiers: &HashMap<ConfiguredProvidersLabel, BTreeSet<Modifiers>>,
     other_errors: &BTreeMap<Option<ProvidersLabel>, Vec<buck2_error::Error>>,
     detailed_metrics: Option<DetailedAggregatedMetrics>,
+    action_graph_sketch_result: Option<ActionGraphSketchResult>,
 ) -> buck2_error::Result<()> {
     let build_report = BuildReportCollector::convert(
         trace_id,
@@ -1171,6 +1174,7 @@ pub fn stream_build_report(
         configured_to_pattern_modifiers,
         other_errors,
         detailed_metrics,
+        action_graph_sketch_result,
         opts.graph_properties_opts,
     )?;
 

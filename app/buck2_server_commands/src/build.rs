@@ -25,6 +25,7 @@ use buck2_build_api::build::build_report::initialize_streaming_build_report;
 use buck2_build_api::build::build_report::stream_build_report;
 use buck2_build_api::build::build_report::write_build_report;
 use buck2_build_api::build::detailed_aggregated_metrics::dice::HasDetailedAggregatedMetrics;
+use buck2_build_api::build::detailed_aggregated_metrics::types::ActionGraphSketchResult;
 use buck2_build_api::build::detailed_aggregated_metrics::types::DetailedAggregatedMetrics;
 use buck2_build_api::build::graph_properties::GraphPropertiesOptions;
 use buck2_build_api::materialize::MaterializationAndUploadContext;
@@ -350,9 +351,9 @@ async fn build(
     };
 
     // Compute action graph sketch independently if requested (doesn't require detailed_metrics)
-    let action_graph_sketch = if graph_properties.action_graph_sketch {
+    let action_graph_sketch_result = if graph_properties.action_graph_sketch {
         if let Some(ref events) = events {
-            ctx.compute_action_graph_sketch(events).await?
+            Some(ctx.compute_action_graph_sketch(events).await?)
         } else {
             None
         }
@@ -360,19 +361,10 @@ async fn build(
         None
     };
 
-    let detailed_metrics = if want_detailed_metrics || graph_properties.action_graph_sketch {
-        let events = events
-            .expect("events should be Some when detailed metrics or action_graph_sketch is needed");
-        let mut metrics = ctx
-            .compute_detailed_metrics(events, graph_properties)
-            .await?;
-        // If action_graph_sketch was already computed above, use that instead of recomputing
-        if action_graph_sketch.is_some() {
-            metrics.action_graph_sketch = action_graph_sketch;
-        }
-        if want_detailed_metrics {
-            instant_event(metrics.as_proto());
-        }
+    let detailed_metrics = if want_detailed_metrics {
+        let events = events.expect("events should be Some when detailed metrics is needed");
+        let metrics = ctx.compute_detailed_metrics(events).await?;
+        instant_event(metrics.as_proto());
         Some(metrics)
     } else {
         None
@@ -390,6 +382,7 @@ async fn build(
         request,
         build_result,
         detailed_metrics,
+        action_graph_sketch_result,
         graph_properties,
     )
     .await
@@ -402,6 +395,7 @@ async fn process_streaming_build_result(
     build_result: BuildTargetResult,
     detailed_metrics: Option<DetailedAggregatedMetrics>,
     graph_properties_opts: GraphPropertiesOptions,
+    action_graph_sketch_result: Option<ActionGraphSketchResult>,
 ) -> buck2_error::Result<()> {
     let build_opts = expect_build_opts(request);
     let fs = server_ctx.project_root();
@@ -423,6 +417,7 @@ async fn process_streaming_build_result(
         &build_result.configured_to_pattern_modifiers,
         &build_result.other_errors,
         detailed_metrics,
+        action_graph_sketch_result,
     )?;
 
     Ok(())
@@ -479,6 +474,7 @@ async fn maybe_stream_build_reports(
                             streaming_result,
                             None, // no detailed metrics for streaming build reports to avoid the computation/copy
                             graph_properties,
+                            None, // no action graph sketch for streaming build reports to avoid the computation/copy
                         ).await?;
                 }
                 return result;
@@ -494,6 +490,7 @@ async fn maybe_stream_build_reports(
                             result,
                             None, // no detailed metrics for streaming build reports to avoid the computation/copy
                             graph_properties,
+                            None, // no action graph sketch for streaming build reports to avoid the computation/copy
                         ).await?;
                     }
                     None => {
@@ -511,6 +508,7 @@ async fn process_build_result(
     request: &buck2_cli_proto::BuildRequest,
     build_result: BuildTargetResult,
     detailed_metrics: Option<DetailedAggregatedMetrics>,
+    action_graph_sketch_result: Option<ActionGraphSketchResult>,
     graph_properties_opts: GraphPropertiesOptions,
 ) -> buck2_error::Result<buck2_cli_proto::BuildResponse> {
     let fs = server_ctx.project_root();
@@ -547,6 +545,7 @@ async fn process_build_result(
             &build_result.configured_to_pattern_modifiers,
             &build_result.other_errors,
             detailed_metrics,
+            action_graph_sketch_result,
         )?
     } else {
         None

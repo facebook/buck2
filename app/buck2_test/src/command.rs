@@ -530,6 +530,7 @@ async fn test(
                 .configured_to_pattern_modifiers,
             &test_outcome.build_target_result.other_errors,
             None,
+            None,
         )?
     } else {
         None
