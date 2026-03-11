@@ -167,3 +167,15 @@ async def test_bxl_action_deps_0(buck: Buck) -> None:
 async def test_bxl_action_deps(buck: Buck) -> None:
     """Test that you can isolate the deps of one action by itself"""
     await buck.bxl("//:aquery.bxl:action_deps")
+
+
+@buck_test()
+async def test_bxl_atarget_set(buck: Buck) -> None:
+    """Test bxl.atarget_set() creates a target set from ActionQueryNodes"""
+    await buck.bxl("//:aquery.bxl:atarget_set_test")
+
+
+@buck_test()
+async def test_bxl_analysis_label(buck: Buck) -> None:
+    """Test analysis.label() returns the configured providers label"""
+    await buck.bxl("//:aquery.bxl:analysis_label_test")
