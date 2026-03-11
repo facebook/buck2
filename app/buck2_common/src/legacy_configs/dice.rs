@@ -154,6 +154,15 @@ pub trait HasLegacyConfigs {
     where
         buck2_error::Error: From<<T as FromStr>::Err>,
         T: Send + Sync + 'static;
+
+    async fn parse_legacy_config_list_property<T: FromStr>(
+        &mut self,
+        cell_name: CellName,
+        key: BuckconfigKeyRef<'_>,
+    ) -> buck2_error::Result<Option<Vec<T>>>
+    where
+        buck2_error::Error: From<<T as FromStr>::Err>,
+        T: Send + Sync + 'static;
 }
 
 pub trait SetLegacyConfigs {
@@ -357,6 +366,23 @@ impl HasLegacyConfigs for DiceComputations<'_> {
         T: Send + Sync + 'static,
     {
         LegacyBuckConfig::parse_value(
+            key,
+            self.get_legacy_config_property(cell_name, key)
+                .await?
+                .as_deref(),
+        )
+    }
+
+    async fn parse_legacy_config_list_property<T: FromStr>(
+        &mut self,
+        cell_name: CellName,
+        key: BuckconfigKeyRef<'_>,
+    ) -> buck2_error::Result<Option<Vec<T>>>
+    where
+        buck2_error::Error: From<<T as FromStr>::Err>,
+        T: Send + Sync + 'static,
+    {
+        LegacyBuckConfig::parse_list_value(
             key,
             self.get_legacy_config_property(cell_name, key)
                 .await?
