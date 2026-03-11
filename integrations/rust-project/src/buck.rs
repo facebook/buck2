@@ -718,13 +718,19 @@ impl Buck {
             .join(",");
         command.args(["--target-universe", &universe_arg]);
 
-        match deserialize_output::<Vec<Target>>(command.output(), &command) {
-            Ok(targets) => targets,
-            Err(e) => {
-                tracing::warn!("Failed to query sysroot targets: {e:?}");
-                vec![Target::new(sysroot_package)]
-            }
-        }
+        let mut sysroot_targets =
+            match deserialize_output::<Vec<Target>>(command.output(), &command) {
+                Ok(targets) => targets,
+                Err(e) => {
+                    tracing::warn!("Failed to query sysroot targets: {e:?}");
+                    vec![Target::new(sysroot_package)]
+                }
+            };
+
+        sysroot_targets.sort();
+        sysroot_targets.dedup();
+
+        sysroot_targets
     }
 
     /// Given a list of targets, for all targets that are aliases, return the targets
