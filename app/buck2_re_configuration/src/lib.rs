@@ -468,6 +468,8 @@ pub struct Buck2OssReConfiguration {
     pub grpc_keepalive_while_idle: Option<bool>,
     /// Maximum number of concurrent execution requests.
     pub execution_concurrency_limit: Option<usize>,
+    /// Maximum retries for network requests.
+    pub max_retries: usize,
 }
 
 #[derive(Clone, Debug, Default, Allocative)]
@@ -589,6 +591,12 @@ impl Buck2OssReConfiguration {
                 section: BUCK2_RE_CLIENT_CFG_SECTION,
                 property: "execution_concurrency_limit",
             })?,
+            max_retries: legacy_config
+                .parse(BuckconfigKeyRef {
+                    section: BUCK2_RE_CLIENT_CFG_SECTION,
+                    property: "max_retries",
+                })?
+                .unwrap_or(0),
         })
     }
 }
