@@ -570,6 +570,18 @@ message TestRequest {
   // Whether `RunInfo` providers for targets matching `target_patterns`
   // should be built instead of only `ExternalTestInfo` providers.
   bool build_run_info = 16;
+
+  enum TestOutputMode {
+    // Show output from all tests (default).
+    ALL = 0;
+    // Only show output from failed tests.
+    ERRORS = 1;
+    // Show no test output, only the summary.
+    NONE = 2;
+  }
+
+  // Controls how much test output is displayed.
+  TestOutputMode test_output_mode = 17;
 }
 
 message BxlRequest {
