@@ -216,10 +216,19 @@ def _build_default_boot_scripts(
             "no_dot_erlang.boot",
         ])
 
-    return {
+    result = {
         paths.join("releases", ctx.attrs.version, file): scripts_dir.project(file)
         for file in boot_files
     }
+
+    # Also place boot files in bin/ so erl can find them at ROOTDIR/bin/.
+    # When erl runs from bundled ERTS (erts-VSN/bin/erl), it resolves ROOTDIR
+    # to the release root and looks for boot files in ROOTDIR/bin/.
+    if ctx.attrs.include_erts:
+        result[paths.join("bin", "no_dot_erlang.boot")] = scripts_dir.project("no_dot_erlang.boot")
+        result[paths.join("bin", "start.boot")] = scripts_dir.project("start.boot")
+
+    return result
 
 def _build_custom_boot_scripts(
         ctx: AnalysisContext,
