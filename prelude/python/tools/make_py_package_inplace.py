@@ -115,11 +115,6 @@ def parse_args() -> argparse.Namespace:
         help="The link tree directory to use at runtime",
     )
     parser.add_argument(
-        "--use-lite",
-        help="Whether to use the lite template",
-        action="store_true",
-    )
-    parser.add_argument(
         "output",
         type=Path,
         help="Where to write the bootstrapper script to",
@@ -158,12 +153,7 @@ def parse_args() -> argparse.Namespace:
 def write_bootstrapper(args: argparse.Namespace) -> None:
     """Write the .pex bootstrapper script using a template"""
 
-    template = (
-        args.template_lite
-        if (args.use_lite and not args.runtime_env)
-        else args.template
-    )
-    with open(template, "r", encoding="utf8") as fin:
+    with open(args.template, "r", encoding="utf8") as fin:
         data = fin.read()
 
     # Because this can be invoked from other directories, find the relative path
