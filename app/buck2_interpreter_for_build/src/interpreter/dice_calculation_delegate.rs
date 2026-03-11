@@ -640,15 +640,20 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
                         format!("Error evaluating build file: `{}`", build_file_path)
                     });
                 let error = result_with_stats.as_ref().err().map(|e| format!("{e:#}"));
-                let (starlark_peak_allocated_bytes, cpu_instruction_count, target_count) =
-                    match &result_with_stats {
-                        Ok((_, rs)) => (
-                            Some(rs.starlark_peak_allocated_bytes),
-                            rs.cpu_instruction_count,
-                            Some(rs.result.targets().len() as u64),
-                        ),
-                        Err(_) => (None, None, None),
-                    };
+                let (
+                    starlark_peak_allocated_bytes,
+                    cpu_instruction_count,
+                    starlark_tick_count,
+                    target_count,
+                ) = match &result_with_stats {
+                    Ok((_, rs)) => (
+                        Some(rs.starlark_peak_allocated_bytes),
+                        rs.cpu_instruction_count,
+                        Some(rs.starlark_tick_count),
+                        Some(rs.result.targets().len() as u64),
+                    ),
+                    Err(_) => (None, None, None, None),
+                };
 
                 (
                     result_with_stats,
@@ -659,6 +664,7 @@ impl<'c, 'd: 'c> DiceCalculationDelegate<'c, 'd> {
                         starlark_peak_allocated_bytes,
                         cpu_instruction_count,
                         error,
+                        starlark_tick_count,
                     },
                 )
             })?;

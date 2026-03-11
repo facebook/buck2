@@ -382,6 +382,8 @@ pub struct EvaluationResultWithStats {
     pub starlark_peak_allocated_bytes: u64,
     /// Instruction count during evaluation of `BUCK` file.
     pub cpu_instruction_count: Option<u64>,
+    /// Starlark tick count (function calls + loop backedges) during evaluation.
+    pub starlark_tick_count: u64,
 }
 
 #[derive(Debug)]

@@ -272,6 +272,7 @@ struct EvalResult {
     starlark_peak_allocated_byte_limit: OnceCell<Option<u64>>,
     is_profiling_enabled: bool,
     cpu_instruction_count: Option<u64>,
+    starlark_tick_count: u64,
 }
 
 impl InterpreterForDir {
@@ -511,8 +512,8 @@ impl InterpreterForDir {
         );
 
         let print = EventDispatcherPrintHandler(get_dispatcher());
-        let (finished_eval, (cpu_instruction_count, is_profiling_enabled)) = eval_provider
-            .with_evaluator(
+        let (finished_eval, (cpu_instruction_count, starlark_tick_count, is_profiling_enabled)) =
+            eval_provider.with_evaluator(
                 env,
                 cancellation.into(),
                 |eval, is_profiling_enabled_by_provider| {
@@ -533,7 +534,12 @@ impl InterpreterForDir {
                         Ok(_) => {
                             let cpu_instruction_count =
                                 instruction_counter.and_then(|c| c.collect().ok());
-                            Ok((cpu_instruction_count, is_profiling_enabled_by_provider))
+                            let starlark_tick_count = eval.get_total_tick_count();
+                            Ok((
+                                cpu_instruction_count,
+                                starlark_tick_count,
+                                is_profiling_enabled_by_provider,
+                            ))
                         }
                         Err(p) => Err(p.into()),
                     }
@@ -546,6 +552,7 @@ impl InterpreterForDir {
                 is_profiling_enabled,
                 starlark_peak_allocated_byte_limit: extra.starlark_peak_allocated_byte_limit,
                 cpu_instruction_count,
+                starlark_tick_count,
             },
         ))
     }
@@ -736,6 +743,7 @@ impl InterpreterForDir {
                             result: EvaluationResult::from(internals),
                             starlark_peak_allocated_bytes,
                             cpu_instruction_count: eval_result.cpu_instruction_count,
+                            starlark_tick_count: eval_result.starlark_tick_count,
                         },
                     ),
                 ))

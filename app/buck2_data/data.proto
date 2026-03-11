@@ -1383,6 +1383,8 @@ message LoadBuildFileEnd {
   optional uint64 cpu_instruction_count = 5;
   // Number of targets
   optional uint64 target_count = 6;
+  // Number of Starlark ticks during evaluation of BUCK file.
+  optional uint64 starlark_tick_count = 7;
 }
 
 message SharedTaskStart {

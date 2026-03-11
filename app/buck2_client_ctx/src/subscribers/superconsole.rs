@@ -1093,6 +1093,7 @@ mod tests {
                     starlark_peak_allocated_bytes: Some(0),
                     cpu_instruction_count: None,
                     target_count: Some(10),
+                    starlark_tick_count: None,
                 })),
                 stats: None,
                 duration: None,
