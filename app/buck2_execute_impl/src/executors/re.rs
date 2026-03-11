@@ -228,7 +228,7 @@ impl ReExecutor {
 
         let response = match execute_response {
             Ok(ExecuteResponseOrCancelled::Response(result)) => result,
-            Ok(ExecuteResponseOrCancelled::Cancelled(cancelled, queue_stats)) => {
+            Ok(ExecuteResponseOrCancelled::Cancelled(cancelled, queue_stats, _)) => {
                 let reason = cancelled
                     .reason
                     .map(|reason| match reason {

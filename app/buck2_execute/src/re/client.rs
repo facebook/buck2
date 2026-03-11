@@ -32,6 +32,8 @@ use buck2_error::BuckErrorContext;
 use buck2_error::buck2_error;
 use buck2_error::conversion::from_any_with_tag;
 use buck2_error::internal_error;
+use buck2_events::dispatch::get_dispatcher;
+use buck2_events::schedule_type::SandcastleScheduleType;
 use buck2_fs::error::IoResultExt;
 use buck2_fs::fs_util;
 use buck2_fs::paths::abs_norm_path::AbsNormPath;
@@ -96,6 +98,7 @@ use crate::knobs::ExecutorGlobalKnobs;
 use crate::materialize::materializer::Materializer;
 use crate::re::action_identity::ReActionIdentity;
 use crate::re::convert::platform_to_proto;
+use crate::re::digest_sampler::should_sample_action_digest;
 use crate::re::error::RemoteExecutionError;
 use crate::re::error::test_re_error;
 use crate::re::error::with_error_handler;
@@ -103,6 +106,7 @@ use crate::re::manager::RemoteExecutionConfig;
 use crate::re::metadata::RemoteExecutionMetadataExt;
 use crate::re::queue_stats::QueueStats;
 use crate::re::remote_action_result::ExecuteResponseWithQueueStats;
+use crate::re::remote_action_result::RemoteActionResult;
 use crate::re::stats::LocalCacheRemoteExecutionClientStats;
 use crate::re::stats::LocalCacheStats;
 use crate::re::stats::OpStats;
@@ -141,11 +145,16 @@ pub struct RemoteExecutionClient {
     data: Arc<RemoteExecutionClientData>,
 }
 
+pub enum ExecutionStarted {
+    Yes,
+    No,
+}
+
 // The large one is the actual default case
 #[allow(clippy::large_enum_variant)]
 pub enum ExecuteResponseOrCancelled {
     Response(ExecuteResponseWithQueueStats),
-    Cancelled(Cancelled, QueueStats),
+    Cancelled(Cancelled, QueueStats, ExecutionStarted),
 }
 
 #[derive(Allocative)]
@@ -535,6 +544,32 @@ fn anticipated_queue_duration(
         return Ok(Some(Duration::from_millis(est)));
     }
     Ok(None)
+}
+
+fn trace_action_digest(
+    digest: &ActionDigest,
+    ttl_secs: Option<i64>,
+    use_case: RemoteExecutorUseCase,
+    event: buck2_data::action_digest_trace::ActionDigestTraceEvent,
+    event_subtype: Option<&'static str>,
+) {
+    if let Some(weight) = should_sample_action_digest(digest) {
+        let dispatcher = get_dispatcher();
+        let metadata = buck2_events::metadata::collect(dispatcher.daemon_id());
+        let schedule_type = SandcastleScheduleType::new()
+            .ok()
+            .and_then(|s| s.as_str().map(|s| s.to_owned()));
+        dispatcher.instant_event(buck2_data::ActionDigestTrace {
+            metadata,
+            action_digest: digest.to_string(),
+            event: event as i32,
+            event_subtype: event_subtype.map(|s| s.to_owned()),
+            ttl_secs: ttl_secs.filter(|t| *t >= 0).map(|t| t as u64),
+            re_use_case: use_case.as_str().to_owned(),
+            weight,
+            schedule_type,
+        });
+    }
 }
 
 // Debugging tool: A set of action digests to pretend that we got cache misses on regardless of the
@@ -999,13 +1034,25 @@ impl RemoteExecutionClientImpl {
         )
         .await;
 
-        match res {
-            Ok(r) => Ok(Some(r)),
+        let res = match res {
+            Ok(r) => Some(r),
             Err(e) => match e.find_typed_context::<RemoteExecutionError>() {
-                Some(re_err) if re_err.code == TCode::NOT_FOUND => Ok(None),
-                _ => Err(e),
+                Some(re_err) if re_err.code == TCode::NOT_FOUND => None,
+                _ => return Err(e),
             },
-        }
+        };
+        trace_action_digest(
+            &action_digest,
+            res.as_ref().map(|r| r.ttl),
+            use_case,
+            if res.is_some() {
+                buck2_data::action_digest_trace::ActionDigestTraceEvent::CacheHit
+            } else {
+                buck2_data::action_digest_trace::ActionDigestTraceEvent::CacheMiss
+            },
+            None,
+        );
+        Ok(res)
     }
 
     async fn upload_files_and_directories(
@@ -1296,6 +1343,7 @@ impl RemoteExecutionClientImpl {
         let action_digest_str = action_digest.to_string();
         let mut queue_stats = QueueStats::default();
         let mut exe_stage = Stage::QUEUED;
+        let mut execution_started = ExecutionStarted::No;
         let mut operation_metadata = None;
 
         let re_fallback_on_estimated_queue_time_exceeds = knobs
@@ -1326,7 +1374,11 @@ impl RemoteExecutionClientImpl {
             let progress_response = match progress_response {
                 ResponseOrStateChange::Present(r) => r,
                 ResponseOrStateChange::Cancelled(c) => {
-                    return Ok(ExecuteResponseOrCancelled::Cancelled(c, queue_stats));
+                    return Ok(ExecuteResponseOrCancelled::Cancelled(
+                        c,
+                        queue_stats,
+                        execution_started,
+                    ));
                 }
             };
 
@@ -1342,6 +1394,9 @@ impl RemoteExecutionClientImpl {
 
             // Change the stage
             exe_stage = progress_response.stage;
+            if exe_stage == Stage::EXECUTING {
+                execution_started = ExecutionStarted::Yes;
+            }
             operation_metadata = Some(progress_response.metadata);
         }
     }
@@ -1549,6 +1604,30 @@ impl RemoteExecutionClientImpl {
 
         if let Some(induced_cache_miss) = induced_cache_miss {
             induced_cache_miss.store(true, std::sync::atomic::Ordering::Relaxed);
+        }
+
+        // Emit event for remote executions with cache writes enabled.
+        //
+        // Cancelling an execution request from the RE client causes it to be cancelled on the
+        // server side if and only if it had not yet started executing - if it had started
+        // executing, it'll run to completion and be written to the cache, so treat it mostly like
+        // a completed execution.
+        let trace = match &res {
+            Ok(ExecuteResponseOrCancelled::Response(r)) => Some((Some(r.ttl()), "completed")),
+            Ok(ExecuteResponseOrCancelled::Cancelled(_, _, ExecutionStarted::Yes)) => {
+                Some((None, "cancelled-after-execution-started"))
+            }
+            Ok(ExecuteResponseOrCancelled::Cancelled(_, _, ExecutionStarted::No)) => None,
+            Err(_) => None,
+        };
+        if let Some((ttl, subtype)) = trace {
+            trace_action_digest(
+                &action_digest,
+                ttl,
+                use_case,
+                buck2_data::action_digest_trace::ActionDigestTraceEvent::RemoteExecution,
+                Some(subtype),
+            );
         }
 
         res
@@ -1771,7 +1850,7 @@ impl RemoteExecutionClientImpl {
     ) -> buck2_error::Result<WriteActionResultResponse> {
         let attributes =
             BTreeMap::from([("write_type".to_owned(), write_type.as_str().to_owned())]);
-        with_error_handler(
+        let response = with_error_handler(
             "write_action_result",
             self.get_session_id(),
             self.client()
@@ -1794,7 +1873,17 @@ impl RemoteExecutionClientImpl {
                 )
                 .await,
         )
-        .await
+        .await?;
+
+        trace_action_digest(
+            &digest,
+            Some(response.ttl_seconds),
+            use_case,
+            buck2_data::action_digest_trace::ActionDigestTraceEvent::CacheUpload,
+            Some(write_type.as_str()),
+        );
+
+        Ok(response)
     }
 }
 

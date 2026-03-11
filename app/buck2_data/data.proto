@@ -329,6 +329,9 @@ message InstantEvent {
 
     // Orphan processes were killed via cgroup after action completed
     OrphanProcessesKilled orphan_processes_killed = 56;
+
+    // Action digest tracing event
+    ActionDigestTrace action_digest_trace = 57;
   }
 }
 
@@ -2030,6 +2033,29 @@ message ReBeforeAction {
 
 message ReAfterAction {
   string action_digest = 1;
+}
+
+// Event that traces operations on a subset of action digests
+message ActionDigestTrace {
+  enum ActionDigestTraceEvent {
+    UNKNOWN = 0;
+    CACHE_HIT = 1;
+    CACHE_MISS = 2;
+    REMOTE_EXECUTION = 3;
+    CACHE_UPLOAD = 4;
+  }
+
+  // Command level metadata
+  map<string, string> metadata = 1;
+  string action_digest = 2;
+  ActionDigestTraceEvent event = 3;
+  optional string event_subtype = 4;
+  optional uint64 ttl_secs = 5;
+  string re_use_case = 6;
+  // Inverse sampling rate
+  uint64 weight = 7;
+  // Schedule type (e.g., "diff", "continuous")
+  optional string schedule_type = 8;
 }
 
 message LocalStage {

@@ -227,6 +227,7 @@ impl RemoteEventSink {
                     Some(Data::ConfigurationCreated(..)) => true,
                     Some(Data::DetailedAggregatedMetrics(..)) => true,
                     Some(Data::ResourceControlEvent(..)) => true,
+                    Some(Data::ActionDigestTrace(..)) => true,
                     None => false,
                     _ => false,
                 }
