@@ -8,6 +8,10 @@
 
 load("@prelude//:prelude.bzl", "native")
 load(
+    "@prelude//python:python_wheel_toolchain.bzl",
+    "PythonWheelToolchainInfo",
+)
+load(
     "@prelude//python:toolchain.bzl",
     "PythonPlatformInfo",
     "PythonToolchainInfo",
@@ -15,6 +19,26 @@ load(
 load(
     "@prelude//python_bootstrap:python_bootstrap.bzl",
     "PythonBootstrapToolchainInfo",
+)
+
+def _system_python_wheel_toolchain_impl(ctx):
+    return [
+        DefaultInfo(),
+        PythonWheelToolchainInfo(
+            abi = ctx.attrs.abi,
+            platform = ctx.attrs.platform,
+            python = ctx.attrs.python,
+        ),
+    ]
+
+system_python_wheel_toolchain = rule(
+    impl = _system_python_wheel_toolchain_impl,
+    attrs = {
+        "abi": attrs.string(default = "none"),
+        "platform": attrs.string(default = "linux_x86_64"),
+        "python": attrs.string(default = "py3"),
+    },
+    is_toolchain_rule = True,
 )
 
 _INTERPRETER = select({
