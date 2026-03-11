@@ -122,6 +122,12 @@ impl ArtifactGroupValues {
         TransitiveSetIterator::new(self)
     }
 
+    pub fn iter_many<'a>(
+        values: impl IntoIterator<Item = &'a Self>,
+    ) -> impl Iterator<Item = &'a (Artifact, ArtifactValue)> {
+        TransitiveSetIterator::new_many(values)
+    }
+
     pub fn shallow_equals(&self, other: &Self) -> bool {
         let this = &self.0;
         let other = &other.0;
@@ -200,6 +206,25 @@ where
         };
         ret.enqueue_children(container.children());
         ret
+    }
+
+    fn new_many(containers: impl IntoIterator<Item = &'a C>) -> Self {
+        let mut ret = Self {
+            values: &[],
+            queue: Vec::new(),
+            seen: HashSet::new(),
+        };
+        ret.enqueue_roots(containers);
+        ret
+    }
+
+    fn enqueue_roots(&mut self, roots: impl IntoIterator<Item = &'a C>) {
+        let roots = roots.into_iter().collect::<Vec<_>>();
+        for t in roots.into_iter().rev() {
+            if self.seen.insert(t.identity()) {
+                self.queue.push(t);
+            }
+        }
     }
 
     fn enqueue_children(&mut self, transitive: &'a [C]) {
@@ -344,5 +369,19 @@ mod tests {
             let s2 = builder().value(&a1).chain(&v2).build();
             assert!(!s1.shallow_equals(&s2));
         }
+    }
+
+    #[test]
+    fn test_iter_many_dedups_shared_children() {
+        let a1 = artifact("a1");
+        let a2 = artifact("a2");
+        let a3 = artifact("a3");
+
+        let shared = builder().value(&a2).build();
+        let r1 = builder().value(&a1).chain(&shared).build();
+        let r2 = builder().value(&a3).chain(&shared).build();
+
+        let all = ArtifactGroupValues::iter_many([&r1, &r2]).collect::<Vec<_>>();
+        assert_eq!(all, vec![&a1, &a2, &a3]);
     }
 }
