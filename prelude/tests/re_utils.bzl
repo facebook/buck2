@@ -82,6 +82,7 @@ def get_re_executors_from_props(ctx: AnalysisContext) -> ([CommandExecutorConfig
     remote_cache_enabled = re_props_copy.pop("remote_cache_enabled", None)
     re_dependencies = re_props_copy.pop("dependencies", [])
     re_gang_workers = re_props_copy.pop("gang_workers", [])
+    re_gang = re_props_copy.pop("gang", None)
     local_enabled = re_props_copy.pop("local_enabled", False)
     local_listing_enabled = re_props_copy.pop("local_listing_enabled", None)
     re_resource_units = re_props_copy.pop("resource_units", None)
@@ -90,6 +91,12 @@ def get_re_executors_from_props(ctx: AnalysisContext) -> ([CommandExecutorConfig
     if re_props_copy:
         unexpected_props = ", ".join(re_props_copy.keys())
         fail("found unexpected re props: " + unexpected_props)
+
+    meta_internal_extra_params = None
+    if re_gang != None:
+        meta_internal_extra_params = {
+            "remote_execution_gang": re_gang,
+        }
 
     default_executor = CommandExecutorConfig(
         local_enabled = local_enabled,
@@ -101,6 +108,7 @@ def get_re_executors_from_props(ctx: AnalysisContext) -> ([CommandExecutorConfig
         remote_execution_gang_workers = re_gang_workers,
         remote_execution_resource_units = re_resource_units,
         remote_execution_dynamic_image = re_dynamic_image,
+        meta_internal_extra_params = meta_internal_extra_params,
     )
 
     listing_executor = default_executor
