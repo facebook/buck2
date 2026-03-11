@@ -23,6 +23,7 @@ use rustc_hash::FxHashMap;
 use rustc_hash::FxHashSet;
 use serde::Deserialize;
 use tracing::Level;
+use tracing::debug;
 use tracing::enabled;
 use tracing::info;
 use tracing::instrument;
@@ -856,7 +857,12 @@ impl Buck {
         let out: FxHashMap<PathBuf, Vec<Target>> = deserialize_output(command.output(), &command)?;
 
         for (k, v) in out.iter() {
-            info!("Found {} with {} targets", k.display(), v.len());
+            debug!(
+                "Found {} with {} target{}",
+                k.display(),
+                v.len(),
+                if v.len() == 1 { "" } else { "s" }
+            );
         }
 
         Ok(out)
