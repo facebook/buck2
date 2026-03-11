@@ -45,9 +45,7 @@ async def test_ctargets_json(buck: Buck) -> None:
     output["buck.inputs"]
     output["buck.package"]
     output["name"]
-    assert (
-        _replace_hash(output["default_target_platform"]) == "root//:p (root//:p#<HASH>)"
-    )
+    assert output["default_target_platform"] == "root//:p"
     output["visibility"]
     output["within_view"]
 
@@ -71,10 +69,7 @@ async def test_ctargets_multi_json(buck: Buck) -> None:
 
         name = output["name"]
         if name == "chocolate":
-            assert (
-                _replace_hash(output["default_target_platform"])
-                == "root//:p (root//:p#<HASH>)"
-            )
+            assert output["default_target_platform"] == "root//:p"
 
         output["visibility"]
         output["within_view"]
@@ -86,9 +81,9 @@ async def test_ctargets_output_attribute(buck: Buck) -> None:
         "root//:chocolate", "--output-attribute=default_*", "--output-attribute=name"
     )
 
-    [output] = json.loads(_replace_hash(result.stdout))
+    [output] = json.loads(result.stdout)
 
     assert {
         "name": "chocolate",
-        "default_target_platform": "root//:p (root//:p#<HASH>)",
+        "default_target_platform": "root//:p",
     } == output

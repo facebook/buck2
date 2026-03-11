@@ -211,7 +211,7 @@ impl TargetNode {
         ) {
             Some(v) => match v.value {
                 CoercedAttr::None => None,
-                CoercedAttr::Label(t) => Some(t.target()),
+                CoercedAttr::ConfigurationDep(t) => Some(t.target()),
                 CoercedAttr::Selector(_) | CoercedAttr::Concat(_) => {
                     unreachable!("coercer verified attribute is not configurable")
                 }

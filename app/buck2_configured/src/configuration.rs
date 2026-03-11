@@ -386,6 +386,7 @@ pub(crate) async fn get_matched_cfg_keys_for_node(
                 ConfigurationDepKind::SelectKey => true,
                 ConfigurationDepKind::ConfiguredDepPlatform => false,
                 ConfigurationDepKind::Transition => false,
+                ConfigurationDepKind::DefaultTargetPlatform => false,
             }
             .then_some(d)
         })

@@ -279,7 +279,7 @@ async def test_attributes(buck: Buck) -> None:
             "buck.package": "root//bin:TARGETS.fixture",
             "buck.tree_modifiers": ["cfg//os:linux"],
             "buck.type": "_foo_binary",
-            "buck.configuration_deps": ["root//bin:my_config"],
+            "buck.configuration_deps": ["root//bin:my_platform", "root//bin:my_config"],
             "buck.oncall": None,
             "deps": ["root//lib:lib1", "root//lib:lib2", "root//lib:lib3"],
             "srcs": ["root//bin/TARGETS.fixture"],
@@ -289,7 +289,7 @@ async def test_attributes(buck: Buck) -> None:
             "buck.package": "root//lib:TARGETS.fixture",
             "buck.tree_modifiers": ["cfg//os:linux"],
             "buck.type": "_foo_genrule",
-            "buck.configuration_deps": [],
+            "buck.configuration_deps": ["root//platforms:platform1"],
             "buck.oncall": None,
         },
     } == attrs_json_out

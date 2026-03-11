@@ -49,7 +49,9 @@ pub(crate) const DEFAULT_TARGET_PLATFORM_ATTRIBUTE: InternalAttribute = Internal
         Attribute::new(
             Some(Arc::new(CoercedAttr::None)),
             "specifies the default target platform, used when no platforms are specified on the command line",
-            AttrType::option(AttrType::label()),
+            AttrType::option(AttrType::configuration_dep(
+                ConfigurationDepKind::DefaultTargetPlatform,
+            )),
         )
     },
     is_configurable: AttrIsConfigurable::No,

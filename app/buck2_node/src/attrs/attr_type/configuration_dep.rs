@@ -23,6 +23,7 @@ pub enum ConfigurationDepKind {
     CompatibilityAttribute,
     ConfiguredDepPlatform,
     Transition,
+    DefaultTargetPlatform,
 }
 
 /// A configuration dep attribute accepts a target as a value. This is different from
