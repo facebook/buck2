@@ -50,8 +50,6 @@ enum TypesError {
     ModuleVariableNotSet(String),
     #[error("Type payload not set (internal error)")]
     TypePayloadNotSet,
-    #[error("[] can only be applied to list function in type expression")]
-    TypeIndexOnNonList,
     #[error("[,] can only be applied to dict or tuple functions in type expression")]
     TypeIndexOnNonDictOrTuple,
 }
@@ -168,15 +166,6 @@ impl<'v> Compiler<'v, '_, '_, '_> {
             TypeExprUnpackP::Path(path) => self.eval_path(path),
             TypeExprUnpackP::Index(a, i) => {
                 let a = self.eval_ident_in_type_expr(a)?;
-                if !a.ptr_eq(Constants::get().fn_list.0.to_value())
-                    && !a.ptr_eq(Constants::get().fn_set.0.to_value())
-                {
-                    return Err(EvalException::new_anyhow(
-                        TypesError::TypeIndexOnNonList.into(),
-                        expr.span,
-                        &self.codemap,
-                    ));
-                }
                 let i = self.eval_expr_as_type(*i)?;
                 a.get_ref()
                     .at(i.to_inner(), self.eval.heap())

@@ -96,11 +96,9 @@ pub trait TyCustomImpl: Debug + Display + Hash + Ord + Allocative + Send + Sync 
         let _ignore = (x, y);
         true
     }
-    /// Additional types that this type intersects with.
     fn intersects_with(&self, _other: &TyBasic) -> bool {
         false
     }
-
     /// Create runtime type matcher for values.
     fn matcher<T: TypeMatcherAlloc>(&self, factory: T) -> T::Result;
 }

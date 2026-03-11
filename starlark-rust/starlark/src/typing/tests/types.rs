@@ -19,6 +19,7 @@
 
 use crate::assert::Assert;
 use crate::typing::tests::TypeCheck;
+use crate::typing::tests::register_typecheck_globals;
 
 #[test]
 fn test_type_alias() {
@@ -64,7 +65,20 @@ fn test_function_as_type_parameterize() {
 def f(x: str[int]):
     pass
 "#,
-        "[] can only be applied to list function in type expression",
+        "not supported",
+    );
+}
+
+#[test]
+fn test_starlark_value_as_type_unsupported_param() {
+    let mut a = Assert::new();
+    a.globals_add(register_typecheck_globals);
+    a.fail(
+        r#"
+def f(x: MyCustomType[int]):
+    pass
+"#,
+        "does not support type parameters",
     );
 }
 

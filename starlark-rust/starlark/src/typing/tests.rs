@@ -18,8 +18,12 @@
 use std::collections::HashMap;
 use std::fmt::Write;
 
+use allocative::Allocative;
 use dupe::Dupe;
+use starlark_derive::NoSerialize;
+use starlark_derive::ProvidesStaticType;
 use starlark_derive::starlark_module;
+use starlark_derive::starlark_value;
 use starlark_map::small_map::SmallMap;
 use starlark_syntax::golden_test_template::golden_test_template;
 
@@ -39,9 +43,13 @@ use crate::typing::Ty;
 use crate::typing::callable_param::ParamIsRequired;
 use crate::typing::interface::Interface;
 use crate::util::ArcStr;
+use crate::values::AllocValue;
+use crate::values::Heap;
+use crate::values::StarlarkValue;
 use crate::values::Value;
 use crate::values::ValueOfUnchecked;
 use crate::values::none::NoneType;
+use crate::values::types::starlark_value_as_type::StarlarkValueAsType;
 use crate::values::typing::StarlarkCallable;
 use crate::values::typing::StarlarkCallableParamSpec;
 use crate::values::typing::StarlarkIter;
@@ -59,6 +67,26 @@ struct TypeCheck {
     loads: HashMap<String, (Interface, FrozenModule)>,
 }
 
+/// A simple custom type for testing `StarlarkValueAsType` parameterization errors.
+#[derive(
+    derive_more::Display,
+    Debug,
+    NoSerialize,
+    Allocative,
+    ProvidesStaticType
+)]
+#[display("MyType")]
+struct MyCustomType;
+
+#[starlark_value(type = "my_custom_type")]
+impl<'v> StarlarkValue<'v> for MyCustomType {}
+
+impl<'v> AllocValue<'v> for MyCustomType {
+    fn alloc_value(self, heap: Heap<'v>) -> Value<'v> {
+        heap.alloc_simple(self)
+    }
+}
+
 struct NamedXy;
 
 impl StarlarkCallableParamSpec for NamedXy {
@@ -73,6 +101,8 @@ impl StarlarkCallableParamSpec for NamedXy {
 
 #[starlark_module]
 fn register_typecheck_globals(globals: &mut GlobalsBuilder) {
+    const MyCustomType: StarlarkValueAsType<MyCustomType> = StarlarkValueAsType::new();
+
     fn accepts_iterable<'v>(
         #[starlark(require = pos)] xs: ValueOfUnchecked<'v, StarlarkIter<Value<'v>>>,
     ) -> anyhow::Result<NoneType> {

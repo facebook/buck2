@@ -57,6 +57,14 @@ impl<'v> StarlarkValue<'v> for StarlarkValueAsTypeStarlarkValue {
         Some((self.0)())
     }
 
+    fn at(&self, _index: Value<'v>, _heap: Heap<'v>) -> crate::Result<Value<'v>> {
+        let base_ty = (self.0)();
+        Err(crate::Error::new_other(anyhow::anyhow!(
+            "Type `{}` does not support type parameters",
+            base_ty,
+        )))
+    }
+
     fn documentation(&self) -> DocItem {
         (self.1)()
     }
@@ -261,6 +269,38 @@ def h(x: CompilerArgs): pass
 noop(h)(1)
             "#,
             r#"Value `1` of type `int` does not match the type annotation"#,
+        );
+    }
+
+    #[test]
+    fn test_unsupported_param_on_custom_type() {
+        let mut a = Assert::new();
+        a.globals_add(compiler_args_globals);
+        a.fail(
+            r#"
+def f(x: CompilerArgs[int]): pass
+"#,
+            "does not support type parameters",
+        );
+    }
+
+    #[test]
+    fn test_supported_param_list() {
+        let a = Assert::new();
+        a.pass(
+            r#"
+def f(x: list[str]): pass
+"#,
+        );
+    }
+
+    #[test]
+    fn test_supported_param_dict() {
+        let a = Assert::new();
+        a.pass(
+            r#"
+def f(x: dict[str, int]): pass
+"#,
         );
     }
 }
