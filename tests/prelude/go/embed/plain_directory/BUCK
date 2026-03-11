@@ -10,6 +10,16 @@ prelude.go_binary(
     embed_srcs = glob(["templates/**"]),
 )
 
+prelude.go_test(
+    name = "test",
+    srcs = [
+        "main.go",
+        "main_test.go",
+    ],
+    embed_srcs = glob(["templates/**"]),
+    # @oss-disable[end= ]: env = {"GO_TEST2JSON_TOOL": "$(exe_target fbsource//third-party/go:test2json)"},
+)
+
 py_assertion(
     name = "check_output",
     script = """
