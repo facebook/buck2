@@ -39,10 +39,12 @@ use crate::values::typing::type_compiled::alloc::TypeMatcherAlloc;
 pub trait TyCustomFunctionImpl:
     Debug + Eq + Ord + Hash + Allocative + Send + Sync + 'static
 {
+    /// Whether this function acts as a type constructor (e.g., for `|` syntax).
     fn is_type(&self) -> bool {
         false
     }
 
+    /// Type-check a call expression, returning the result type.
     fn validate_call(
         &self,
         span: Span,
@@ -50,8 +52,10 @@ pub trait TyCustomFunctionImpl:
         oracle: TypingOracleCtx,
     ) -> Result<Ty, TypingOrInternalError>;
 
+    /// The callable signature (parameter types and return type).
     fn as_callable(&self) -> TyCallable;
 
+    /// Underlying `TyFunction`, if this is a regular function.
     fn as_function(&self) -> Option<&TyFunction> {
         None
     }

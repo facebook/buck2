@@ -52,7 +52,9 @@ use crate::values::typing::type_compiled::matcher::TypeMatcherBoxAlloc;
 
 /// Custom type implementation. [`Display`] must implement the representation of the type.
 pub trait TyCustomImpl: Debug + Display + Hash + Ord + Allocative + Send + Sync + 'static {
+    /// The type name used for display and error messages.
     fn as_name(&self) -> Option<&str>;
+    /// Type-check a call expression, returning the result type.
     fn validate_call(
         &self,
         span: Span,
@@ -65,9 +67,11 @@ pub trait TyCustomImpl: Debug + Display + Hash + Ord + Allocative + Send + Sync 
     fn as_callable(&self) -> Option<TyCallable> {
         None
     }
+    /// Underlying `TyFunction`, if this type wraps one.
     fn as_function(&self) -> Option<&TyFunction> {
         None
     }
+    /// Result type of `self <op> rhs`.
     fn bin_op(
         &self,
         bin_op: TypingBinOp,
@@ -77,9 +81,11 @@ pub trait TyCustomImpl: Debug + Display + Hash + Ord + Allocative + Send + Sync 
         let _unused = (bin_op, rhs, ctx);
         Err(TypingNoContextOrInternalError::Typing)
     }
+    /// Element type when iterating (`for x in self`).
     fn iter_item(&self) -> Result<Ty, TypingNoContextError> {
         Err(TypingNoContextError)
     }
+    /// Result type of `self[item]`.
     fn index(
         &self,
         item: &TyBasic,
@@ -88,14 +94,18 @@ pub trait TyCustomImpl: Debug + Display + Hash + Ord + Allocative + Send + Sync 
         let _unused = (item, ctx);
         Err(TypingNoContextOrInternalError::Typing)
     }
+    /// Type of `self.attr`.
     fn attribute(&self, attr: &str) -> Result<Ty, TypingNoContextError>;
+    /// Merge `x | other` into a single custom type, or fail.
     fn union2(x: Arc<Self>, other: Arc<Self>) -> Result<Arc<Self>, (Arc<Self>, Arc<Self>)> {
         if x == other { Ok(x) } else { Err((x, other)) }
     }
+    /// Whether `x` and `y` could represent overlapping values.
     fn intersects(x: &Self, y: &Self) -> bool {
         let _ignore = (x, y);
         true
     }
+    /// Additional types that this type intersects with.
     fn intersects_with(&self, _other: &TyBasic) -> bool {
         false
     }

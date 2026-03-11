@@ -109,6 +109,7 @@ pub trait TypeMatcherAlloc: Sized {
         self.alloc(IsStr)
     }
 
+    /// Match a union type.
     fn ty(self, ty: &Ty) -> Self::Result {
         match ty.iter_union() {
             [] => self.never(),
@@ -153,6 +154,7 @@ pub trait TypeMatcherAlloc: Sized {
         }
     }
 
+    /// Match a single basic type.
     fn ty_basic(self, ty: &TyBasic) -> Self::Result {
         match ty {
             TyBasic::Any => self.any(),
@@ -168,6 +170,7 @@ pub trait TypeMatcherAlloc: Sized {
         }
     }
 
+    /// `callable`.
     fn callable(self) -> Self::Result {
         self.alloc(IsCallable)
     }
@@ -307,6 +310,7 @@ pub trait TypeMatcherAlloc: Sized {
         }
     }
 
+    /// `set[Item]`.
     fn set_of(self, item: &Ty) -> Self::Result {
         if item.is_any() {
             self.set()
