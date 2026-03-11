@@ -391,9 +391,15 @@ def test(package_args: list[str]) -> None:
         extra_args = ["--jobs", str(os.cpu_count() // 2)]
     # Hour should be enough for all tests to run
     timeout_sec = 60 * 60
-    run(["cargo", "test", "--lib", *extra_args, *package_args], timeout=timeout_sec)
+    run(
+        ["cargo", "test", "--lib", *extra_args, *package_args],
+        timeout=timeout_sec,
+    )
     print_running("cargo test --doc")
-    run(["cargo", "test", "--doc", *extra_args, *package_args], timeout=timeout_sec)
+    run(
+        ["cargo", "test", "--doc", *extra_args, *package_args],
+        timeout=timeout_sec,
+    )
 
 
 def main() -> None:
@@ -447,6 +453,12 @@ def main() -> None:
         help="Perform rustdoc generation only. Do not run lints or tests.",
     )
     parser.add_argument(
+        "--test-only",
+        action="store_true",
+        default=False,
+        help="Run tests only. Do not run formatting, lints, or rustdoc.",
+    )
+    parser.add_argument(
         "--exclude",
         action="append",
         help="Packages excluded from linting.",
@@ -475,16 +487,21 @@ def main() -> None:
         package_args.extend([f"--exclude={p.rstrip('/')}" for p in args.exclude])
 
     if package_args == [] and not (
-        args.lint_rust_only or args.rustfmt_only or args.rustdoc_only
+        args.lint_rust_only or args.rustfmt_only or args.rustdoc_only or args.test_only
     ):
         with timing():
             starlark_linter(args.buck2, args.git)
 
-    if not (args.rustfmt_only or args.lint_starlark_only or args.rustdoc_only):
+    if not (
+        args.rustfmt_only
+        or args.lint_starlark_only
+        or args.rustdoc_only
+        or args.test_only
+    ):
         with timing():
             clippy(package_args, args.clippy_fix)
 
-    if not (args.lint_starlark_only or args.rustdoc_only):
+    if not (args.lint_starlark_only or args.rustdoc_only or args.test_only):
         with timing():
             rustfmt(buck2_dir, args.ci, args.git)
 
@@ -493,6 +510,7 @@ def main() -> None:
         or args.lint_rust_only
         or args.lint_starlark_only
         or args.rustfmt_only
+        or args.test_only
     ):
         with timing():
             rustdoc(package_args)

@@ -24,6 +24,7 @@ allocative = { workspace = true }
 dice = { workspace = true }
 dupe = { workspace = true }
 gazebo = { workspace = true }
+pagable = { workspace = true }
 
 # Please do not add dependency on `buck2_build_api`.
 buck2_build_signals = { workspace = true }
