@@ -64,8 +64,9 @@ public class AndroidInstallerMain {
 
   private void run(AndroidCommandLineOptions options) throws IOException, InterruptedException {
     AndroidInstallerManager androidInstallerManager = new AndroidInstallerManager(options);
-    /** Starts the GRPC Server */
-    InstallerServer server = new InstallerServer(androidInstallerManager, options.getTcpPort());
+    InstallerServer server =
+        new InstallerServer(
+            androidInstallerManager, options.getTcpPort(), options.getInstallTimeoutSeconds());
     server.run();
   }
 }

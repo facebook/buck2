@@ -67,10 +67,6 @@ import java.util.stream.Collectors;
  */
 public class InstallerService extends InstallerGrpc.InstallerImplBase {
 
-  // TODO: make configurable or pass from buck2 w/ install info data.
-  private static final long INSTALL_MAX_WAIT_TIME = 10;
-  private static final TimeUnit INSTALL_TIMEOUT_UNIT = TimeUnit.MINUTES;
-
   private static final ThreadPoolExecutor THREAD_POOL =
       new ThreadPoolExecutor(
           0,
@@ -87,10 +83,14 @@ public class InstallerService extends InstallerGrpc.InstallerImplBase {
   private final InstallCommand installer;
   private final SettableFuture<Void> installFinished;
   private final Map<InstallId, Map<String, Optional<Path>>> installIdToFilesMap = new HashMap<>();
+  private final long installTimeoutSeconds;
 
-  public InstallerService(InstallCommand installer, SettableFuture<Void> installFinished) {
+  public InstallerService(
+      InstallCommand installer, SettableFuture<Void> installFinished, long installTimeoutSeconds) {
     this.installer = installer;
     this.installFinished = installFinished;
+    this.installTimeoutSeconds = installTimeoutSeconds;
+    LOG.info("Install timeout configured to " + this.installTimeoutSeconds + "s");
   }
 
   @Override
@@ -215,7 +215,7 @@ public class InstallerService extends InstallerGrpc.InstallerImplBase {
     }
 
     // wait for all install futures
-    boolean allCompleted = latch.await(INSTALL_MAX_WAIT_TIME, INSTALL_TIMEOUT_UNIT);
+    boolean allCompleted = latch.await(installTimeoutSeconds, TimeUnit.SECONDS);
     if (!allCompleted) {
       // cancel futures
       futureList.forEach(f -> f.cancel(true));
@@ -224,9 +224,7 @@ public class InstallerService extends InstallerGrpc.InstallerImplBase {
           List.of(),
           Optional.of(
               new InstallError(
-                  "Timeout of "
-                      + INSTALL_TIMEOUT_UNIT.toSeconds(INSTALL_MAX_WAIT_TIME)
-                      + "s has been exceeded. Install failed.",
+                  "Timeout of " + installTimeoutSeconds + "s has been exceeded. Install failed.",
                   InfraTimeoutErrorTag.INSTANCE)));
     } else {
       InstallResult allFilesReady = installer.allFilesReady(installId);
