@@ -38,6 +38,7 @@ async def is_eligible_for_action_dedup(buck: Buck) -> bool:
 ELIGIBLE_FOR_DEDUPE = 0
 INELIGIBLE_INPUT = 1
 INELIGIBLE_OUTPUT = 2
+EXECUTION_PLATFORM_UNKNOWN_ELIGIBILITY = 3
 
 EXPECTED_INELIGIBLE_FOR_DEDUPE = 1
 UNKNOWN_ELIGIBILITY = 2
@@ -629,6 +630,30 @@ async def test_expect_eligible_for_dedupe_ineligible_output(buck: Buck) -> None:
         ),
         stderr_regex="Action is marked with `expect_eligible_for_dedupe` but output `out` is not content-based",
     )
+
+
+@buck_test()
+async def test_execution_platform_returns_unknown_eligibility(buck: Buck) -> None:
+    # When an action's owner is configured for an execution platform (i.e. via
+    # exec_dep), eligible_for_dedupe should return EXECUTION_PLATFORM_UNKNOWN_ELIGIBILITY
+    await buck.build(
+        "root//:uses_exec_dep",
+        "--target-platforms",
+        "root//:p_default",
+    )
+
+    eligible_for_dedupe_events = await filter_events(
+        buck,
+        "Event",
+        "data",
+        "SpanEnd",
+        "data",
+        "ActionExecution",
+        "eligible_for_dedupe",
+    )
+
+    # The exec dep (non_content_based_exec_dep) has two actions configured
+    assert eligible_for_dedupe_events.count(EXECUTION_PLATFORM_UNKNOWN_ELIGIBILITY) == 2
 
 
 @buck_test()

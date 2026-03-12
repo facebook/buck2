@@ -451,16 +451,19 @@ fn is_action_eligible_for_dedupe(
     action: &Arc<RegisteredAction>,
     inputs: &IndexMap<ArtifactGroup, ArtifactGroupValues>,
 ) -> buck2_data::EligibleForDedupe {
-    if !action.all_outputs_are_content_based() {
-        return buck2_data::EligibleForDedupe::IneligibleOutput;
-    }
-
     let target_platform =
         if let BaseDeferredKey::TargetLabel(configured_label) = action.key().owner() {
+            if configured_label.cfg().is_bound_execution_platform() {
+                return buck2_data::EligibleForDedupe::ExecutionPlatformUnknownEligibility;
+            }
             Some(configured_label.cfg())
         } else {
             None
         };
+
+    if !action.all_outputs_are_content_based() {
+        return buck2_data::EligibleForDedupe::IneligibleOutput;
+    }
 
     for (ag, _agv) in inputs.iter() {
         if !ag.is_eligible_for_dedupe(target_platform) {

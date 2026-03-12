@@ -655,3 +655,49 @@ failing_run_with_content_based_path = rule(
     attrs = {
     },
 )
+
+def _non_content_based_exec_dep_impl(ctx):
+    script = ctx.actions.write(
+        "script.py",
+        [
+            "import sys",
+            "with open(sys.argv[1], 'w') as f:",
+            "  f.write('hello world')",
+        ],
+    )
+    out = ctx.actions.declare_output("out")
+    ctx.actions.run(
+        cmd_args(["fbpython", script, out.as_output()]),
+        category = "test_exec_dep",
+    )
+    return [DefaultInfo(default_output = out)]
+
+non_content_based_exec_dep = rule(
+    impl = _non_content_based_exec_dep_impl,
+    attrs = {},
+)
+
+def _uses_exec_dep_impl(ctx):
+    dep_out = ctx.attrs.exec_dep[DefaultInfo].default_outputs[0]
+    script = ctx.actions.write(
+        "script.py",
+        [
+            "import shutil",
+            "import sys",
+            "shutil.copyfile(sys.argv[1], sys.argv[2])",
+        ],
+        has_content_based_path = True,
+    )
+    out = ctx.actions.declare_output("out", has_content_based_path = True)
+    ctx.actions.run(
+        cmd_args(["fbpython", script, dep_out, out.as_output()]),
+        category = "test_uses_exec_dep",
+    )
+    return [DefaultInfo(default_output = out)]
+
+uses_exec_dep = rule(
+    impl = _uses_exec_dep_impl,
+    attrs = {
+        "exec_dep": attrs.exec_dep(),
+    },
+)

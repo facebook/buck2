@@ -12,6 +12,7 @@ load(
     "failing_validation_with_content_based_path",
     "ignores_content_based_artifact",
     "incremental_action",
+    "non_content_based_exec_dep",
     "not_eligible_for_dedupe",
     "resolve_promise_artifact",
     "run_with_anon_non_cbp_dep",
@@ -22,6 +23,7 @@ load(
     "symlink_and_copy",
     "symlinked_dir",
     "use_projection_with_content_based_path",
+    "uses_exec_dep",
     "uses_relative_to",
     "write_json_with_content_based_path",
     "write_macro_with_content_based_path",
@@ -212,4 +214,13 @@ constraint_setting(
 constraint_value(
     name = "cat",
     constraint_setting = ":animal",
+)
+
+non_content_based_exec_dep(
+    name = "non_content_based_exec_dep",
+)
+
+uses_exec_dep(
+    name = "uses_exec_dep",
+    exec_dep = ":non_content_based_exec_dep",
 )

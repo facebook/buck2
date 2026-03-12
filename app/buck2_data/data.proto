@@ -1764,6 +1764,7 @@ enum EligibleForDedupe {
   ELIGIBLE = 0;
   INELIGIBLE_INPUT = 1;
   INELIGIBLE_OUTPUT = 2;
+  EXECUTION_PLATFORM_UNKNOWN_ELIGIBILITY = 3;
 }
 
 enum ExpectedEligibleForDedupe {
