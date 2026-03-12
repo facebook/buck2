@@ -501,15 +501,13 @@ impl<'v> TransitiveSet<'v> {
             .collect::<Result<Box<[_]>, _>>()?;
 
         struct InputVisitor {
-            target_platform: Option<ConfigurationData>,
             path_resolution_may_require_artifact_value: bool,
             is_eligible_for_dedupe: bool,
         }
 
         impl InputVisitor {
-            fn new(target_platform: Option<ConfigurationData>) -> Self {
+            fn new() -> Self {
                 Self {
-                    target_platform,
                     path_resolution_may_require_artifact_value: false,
                     is_eligible_for_dedupe: true,
                 }
@@ -523,8 +521,7 @@ impl<'v> TransitiveSet<'v> {
                 }
 
                 if self.is_eligible_for_dedupe {
-                    self.is_eligible_for_dedupe =
-                        input.is_eligible_for_dedupe(self.target_platform.as_ref());
+                    self.is_eligible_for_dedupe = input.is_eligible_for_dedupe();
                 }
             }
 
@@ -537,13 +534,6 @@ impl<'v> TransitiveSet<'v> {
 
             fn visit_frozen_output(&mut self, _artifact: Artifact, _tags: Vec<&ArtifactTag>) {}
         }
-
-        let owner = key.holder_key().owner();
-        let target_platform = if let BaseDeferredKey::TargetLabel(configured_label) = owner {
-            Some(configured_label.cfg().dupe())
-        } else {
-            None
-        };
 
         let (
             projection_path_resolution_may_require_artifact_value,
@@ -563,7 +553,7 @@ impl<'v> TransitiveSet<'v> {
                         .get(idx)
                         .ok_or_else(|| internal_error!("Invalid projection id"))?;
 
-                    let mut visitor = InputVisitor::new(target_platform.dupe());
+                    let mut visitor = InputVisitor::new();
                     match spec.kind {
                         TransitiveSetProjectionKind::Args => {
                             TransitiveSetArgsProjection::as_command_line(*projection)?
@@ -596,19 +586,12 @@ impl<'v> TransitiveSet<'v> {
                             .get(idx)
                             .ok_or_else(|| internal_error!("Invalid projection id"))?
                     {
-                        let target_platform_ref = match target_platform {
-                            Some(ref target_platform) => target_platform,
-                            None => {
-                                is_eligible_for_dedupe = false;
-                                continue;
-                            }
-                        };
                         let is_child_eligible_for_dedupe = child
                             .key
                             .holder_key()
                             .owner()
                             .configured_label()
-                            .is_some_and(|l| l.cfg() != target_platform_ref);
+                            .is_some_and(|l| l.cfg().is_bound_execution_platform());
                         if !is_child_eligible_for_dedupe {
                             is_eligible_for_dedupe = false;
                         }
