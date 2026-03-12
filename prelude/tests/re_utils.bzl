@@ -58,9 +58,15 @@ def maybe_add_run_as_bundle_label(ctx: AnalysisContext, labels: list[str]) -> No
     if re_arg.default_run_as_bundle or read_config("tpx", "force_run_as_bundle") == "True":
         labels.extend(["run_as_bundle"])
 
-def get_re_executors_from_props(ctx: AnalysisContext) -> ([CommandExecutorConfig, None], dict[str, CommandExecutorConfig]):
+def get_re_executors_from_props(ctx: AnalysisContext, dynamic_image_override: [dict, None] = None) -> ([CommandExecutorConfig, None], dict[str, CommandExecutorConfig]):
     """
     Convert the `remote_execution` properties param into `CommandExecutorConfig` objects to use with test providers.
+
+    Args:
+        ctx: The analysis context.
+        dynamic_image_override: If provided, overrides the `remote_execution_dynamic_image`
+            from `remote_execution` props. Use this to inject a resolved snapshotted fbpkg
+            image (with pinned uuid) at analysis time.
 
     Returns (default_executor, executor_overrides).
     """
@@ -88,6 +94,8 @@ def get_re_executors_from_props(ctx: AnalysisContext) -> ([CommandExecutorConfig
     re_resource_units = re_props_copy.pop("resource_units", None)
     re_listing_resource_units = re_props_copy.pop("listing_resource_units", re_resource_units)
     re_dynamic_image = re_props_copy.pop("remote_execution_dynamic_image", None)
+    if dynamic_image_override != None:
+        re_dynamic_image = dynamic_image_override
     if re_props_copy:
         unexpected_props = ", ".join(re_props_copy.keys())
         fail("found unexpected re props: " + unexpected_props)
