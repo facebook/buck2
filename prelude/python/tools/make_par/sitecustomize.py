@@ -109,15 +109,22 @@ def _resolve_path_entries(path: list[str], dirs_only: bool = False) -> list[str]
                 entry = os.readlink(entry)
             except OSError:
                 pass
+        elif entry.startswith("/dev/fd/"):
+            # On macOS, /dev/fd/N is not a symlink (it has dup() semantics),
+            # so os.readlink doesn't work.  Resolve to the original PAR path
+            # via the FB_PAR_FILENAME environment variable.
+            par_filename = os.environ.get("FB_PAR_FILENAME", "")
+            if par_filename:
+                entry = par_filename
         if not dirs_only or os.path.isdir(entry):
             resolved.append(entry)
     return resolved
 
 
 def __patch_spawn_preparation_data() -> None:
-    # Only needed for fastzip PARs, which use /proc/self/fd/<N> paths in
-    # sys.path. Other PAR styles (e.g. xar) use real filesystem paths and
-    # don't need this patch.
+    # Only needed for fastzip PARs, which use /proc/self/fd/<N> (Linux) or
+    # /dev/fd/<N> (macOS) paths in sys.path. Other PAR styles (e.g. xar) use
+    # real filesystem paths and don't need this patch.
     #
     # We must also avoid importing multiprocessing.spawn during sitecustomize
     # for xar PARs: importing it captures sys.executable in a module-level
@@ -125,7 +132,7 @@ def __patch_spawn_preparation_data() -> None:
     # fix up sys.executable later in __run_xar_main__.py. Importing too early
     # would cause multiprocessing to spawn subprocesses (e.g. the resource
     # tracker) with the wrong executable, crashing them.
-    if not any(entry.startswith("/proc/self/fd/") for entry in sys.path):
+    if not any(entry.startswith(("/proc/self/fd/", "/dev/fd/")) for entry in sys.path):
         return
 
     import multiprocessing.spawn as mp_spawn
