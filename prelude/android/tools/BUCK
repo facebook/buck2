@@ -37,6 +37,18 @@ prelude.python_bootstrap_binary(
 )
 
 prelude.python_bootstrap_binary(
+    name = "sort_pre_dexed_files",
+    main = "sort_pre_dexed_files.py",
+    visibility = ["PUBLIC"],
+)
+
+prelude.python_library(
+    name = "sort_pre_dexed_files_lib",
+    srcs = ["sort_pre_dexed_files.py"],
+    visibility = ["PUBLIC"],
+)
+
+prelude.python_bootstrap_binary(
     name = "combine_native_library_dirs",
     main = "combine_native_library_dirs.py",
     visibility = ["PUBLIC"],
@@ -95,6 +107,7 @@ prelude.python_library(
         "filter_prebuilt_native_library_dir.py",
         "merge_sequence.py",
         "native_libs_as_assets_metadata.py",
+        "sort_pre_dexed_files.py",
         "unpack_aar.py",
     ],
     typing = True,
