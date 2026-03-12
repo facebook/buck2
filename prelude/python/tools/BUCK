@@ -49,11 +49,6 @@ prelude.python_bootstrap_binary(
 )
 
 prelude.export_file(
-    name = "run_inplace_lite.py.in",
-    src = "run_inplace_lite.py.in",
-)
-
-prelude.export_file(
     name = "run_inplace.py.in",
     src = "run_inplace.py.in",
 )
@@ -63,8 +58,6 @@ prelude.command_alias(
     args = [
         "--template",
         "$(location :run_inplace.py.in)",
-        "--template-lite",
-        "$(location :run_inplace_lite.py.in)",
     ],
     exe = ":make_py_package_inplace.py",
     visibility = ["PUBLIC"],

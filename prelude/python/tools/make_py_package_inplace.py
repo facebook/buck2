@@ -21,7 +21,7 @@ This script:
 A full usage might be something like this:
 
 $ cat template.in
-(see prelude/python/run_inplace_lite.py.in)
+(see prelude/python/run_inplace.py.in)
 $ ./make_py_package_inplace.py  \\
     --template prelude/python/run_inplace.py.in \\
     # These two args create the hashbang for the bootstrapper script \\
@@ -58,13 +58,6 @@ def parse_args() -> argparse.Namespace:
         type=Path,
         help="The template file for the .pex bootstrapper script",
     )
-    parser.add_argument(
-        "--template-lite",
-        required=True,
-        type=Path,
-        help="The template file for the .pex bootstrapper script, if it's simple",
-    )
-
     parser.add_argument(
         "--preload",
         type=Path,

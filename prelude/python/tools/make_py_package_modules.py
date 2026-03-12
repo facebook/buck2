@@ -35,7 +35,7 @@ $ ls third-party/baz.whl__extracted
 baz/tp_foo.py
 baz/tp_bar.py
 $ cat template.in
-(see prelude/python/run_inplace_lite.py.in)
+(see prelude/python/run_inplace.py.in)
 $ ./make_py_package_inplace.py  \\
     --template prelude/python/run_inplace.py.in \\
     --module-srcs=@srcs \\
