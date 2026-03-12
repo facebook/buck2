@@ -26,3 +26,9 @@ async def test_within_view_outside_view(buck: Buck) -> None:
         buck.targets("//b/..."),
         stderr_regex="Target's `within_view` attribute does not allow dependency `prelude//a:a`",
     )
+
+
+@buck_test()
+async def test_within_view_default_outofview(buck: Buck) -> None:
+    res = await buck.targets("//default/...", "--json-lines")
+    assert res.get_target_list() == ["prelude//default:a"]
