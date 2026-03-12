@@ -254,7 +254,7 @@ def _get_test_info(ctx: AnalysisContext, xctest_bundle: Artifact, test_host_app_
     if test_device_type == AppleTestDeviceType("default"):
         # determine the device type from the sdk and platform
         sdk_name = get_apple_sdk_name(ctx)
-        test_device_type = get_default_test_device(sdk = sdk_name, platform = ctx.attrs.default_target_platform.name)
+        test_device_type = get_default_test_device(sdk = sdk_name, platform = ctx.attrs.default_target_platform)
     labels.append(tpx_label_for_test_device_type(test_device_type))
 
     remote_execution_properties = None # @oss-enable
