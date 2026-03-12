@@ -171,6 +171,9 @@ async def test_action_suspend_stress_test(
 
 
 @buck_test(skip_for_os=["darwin", "windows"], disable_daemon_cgroup=False)
+@pytest.mark.skip(
+    reason="Action suspension not triggering in CI, same as test_action_suspend"
+)
 @pytest.mark.parametrize("kill_and_retry", [True, False])
 async def test_suspend_one_of_two(
     buck: Buck,
