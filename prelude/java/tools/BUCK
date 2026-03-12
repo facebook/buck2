@@ -80,3 +80,13 @@ prelude.python_library(
     ],
     typing = True,
 )
+
+prelude.python_test(
+    name = "test_fat_jar",
+    srcs = [
+        "fat_jar.py",
+        "tests/test_fat_jar.py",
+        "utils.py",
+    ],
+    base_module = "",
+)
