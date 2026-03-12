@@ -16,6 +16,7 @@ derivative = "2.1.1"
 derive_more = { version = "1.0.0", features = ["full"] }
 futures = "0.3"
 itertools = "0.14.0"
+pagable = { workspace = true }
 parking_lot = { version = "0.12.1", features = ["send_guard"] }
 quickcheck = "1.0"
 serde = { version = "1.0", features = ["derive"] }
