@@ -98,12 +98,13 @@ fn call_transition_function<'v>(
     let new_platforms = eval
         .eval_function(impl_, &[], &args)
         .map_err(buck2_error::Error::from)?;
+    let is_exec_platform = conf.is_bound_execution_platform();
     if transition.is_split() {
         match UnpackDictEntries::<&str, &PlatformInfo>::unpack_value(new_platforms)? {
             Some(dict) => {
                 let mut split = OrderedMap::new();
                 for (k, v) in dict.entries {
-                    let prev = split.insert(k.to_owned(), v.to_configuration()?);
+                    let prev = split.insert(k.to_owned(), v.to_configuration(is_exec_platform)?);
                     assert!(prev.is_none());
                 }
                 Ok(TransitionApplied::Split(SortedMap::from(split)))
@@ -112,7 +113,9 @@ fn call_transition_function<'v>(
         }
     } else {
         match <&PlatformInfo>::unpack_value_err(new_platforms) {
-            Ok(platform) => Ok(TransitionApplied::Single(platform.to_configuration()?)),
+            Ok(platform) => Ok(TransitionApplied::Single(
+                platform.to_configuration(is_exec_platform)?,
+            )),
             Err(_) => Err(ApplyTransitionError::NonSplitTransitionMustReturnPlatformInfo.into()),
         }
     }

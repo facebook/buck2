@@ -149,7 +149,7 @@ async fn compute_platform_configuration_no_label_check(
         .provider_collection()
         .builtin_provider::<FrozenPlatformInfo>()
         .ok_or_else(|| ConfigurationError::MissingPlatformInfo(target.dupe()))?
-        .to_configuration()
+        .to_configuration(false)
 }
 
 /// Basically, evaluate `platform()` rule.

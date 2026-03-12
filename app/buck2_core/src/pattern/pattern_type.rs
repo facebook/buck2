@@ -363,12 +363,18 @@ mod tests {
         // Possible configurations.
         let unbound = ConfigurationData::unbound();
         let unspecified = ConfigurationData::unspecified();
-        let foo =
-            ConfigurationData::from_platform("<foo>".to_owned(), ConfigurationDataData::empty())
-                .unwrap();
-        let bar =
-            ConfigurationData::from_platform("<bar>".to_owned(), ConfigurationDataData::empty())
-                .unwrap();
+        let foo = ConfigurationData::from_platform(
+            "<foo>".to_owned(),
+            ConfigurationDataData::empty(),
+            false,
+        )
+        .unwrap();
+        let bar = ConfigurationData::from_platform(
+            "<bar>".to_owned(),
+            ConfigurationDataData::empty(),
+            false,
+        )
+        .unwrap();
 
         // Possible matchers.
         let catch_all = ConfiguredProvidersPatternExtra {
