@@ -56,3 +56,27 @@ async def test_within_view_default_outofview_withnoneselect(buck: Buck) -> None:
     # assert res.get_target_list() == [
     #     "prelude//default_withnone/select:target",
     # ]
+
+
+@buck_test()
+async def test_within_view_default_outofview_withdefault(buck: Buck) -> None:
+    await expect_failure(
+        buck.targets("//default_withvalue/value/...", "--json-lines"),
+        stderr_regex="Target's `within_view` attribute does not allow dependency `prelude//a:a`",
+    )
+    # targets = get_target_list(res.stdout)
+    # assert targets == [
+    #     "prelude//default_withvalue/value:target",
+    # ]
+
+
+@buck_test()
+async def test_within_view_default_outofview_withdefaultselect(buck: Buck) -> None:
+    await expect_failure(
+        buck.targets("//default_withvalue/select/...", "--json-lines"),
+        stderr_regex="Target's `within_view` attribute does not allow dependency `prelude//a:a`",
+    )
+    # targets = get_target_list(res.stdout)
+    # assert targets == [
+    #     "prelude//default_withvalue/select:target",
+    # ]
