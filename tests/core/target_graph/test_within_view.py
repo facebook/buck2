@@ -32,3 +32,27 @@ async def test_within_view_outside_view(buck: Buck) -> None:
 async def test_within_view_default_outofview(buck: Buck) -> None:
     res = await buck.targets("//default/...", "--json-lines")
     assert res.get_target_list() == ["prelude//default:a"]
+
+
+@buck_test()
+async def test_within_view_default_outofview_withnone(buck: Buck) -> None:
+    # A None value for a defaulted attribute doesn't actually store a coerced attribute value, so the default value isn't checked for within_view
+    res = await buck.targets("//default_withnone/none/...", "--json-lines")
+    assert res.get_target_list() == [
+        "prelude//default_withnone/none:target",
+    ]
+
+
+@buck_test()
+async def test_within_view_default_outofview_withnoneselect(buck: Buck) -> None:
+    # Unlike test_within_view_default_outofview_withnone, this DOES store a
+    # coerced selector for the attribute, which is then traversed (in which only
+    # the None branch is found), which in turn ?must be defaulted somewhere?,
+    # and then fails the within_view check
+    await expect_failure(
+        buck.targets("//default_withnone/select/...", "--json-lines"),
+        stderr_regex="Target's `within_view` attribute does not allow dependency `prelude//a:a`",
+    )
+    # assert res.get_target_list() == [
+    #     "prelude//default_withnone/select:target",
+    # ]
