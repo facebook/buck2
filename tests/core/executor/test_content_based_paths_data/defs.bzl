@@ -669,6 +669,8 @@ def _non_content_based_exec_dep_impl(ctx):
     ctx.actions.run(
         cmd_args(["fbpython", script, out.as_output()]),
         category = "test_exec_dep",
+        # This is ignored for exec deps
+        expect_eligible_for_dedupe = True,
     )
     return [DefaultInfo(default_output = out)]
 

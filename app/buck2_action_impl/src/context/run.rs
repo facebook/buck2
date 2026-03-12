@@ -615,7 +615,23 @@ pub(crate) fn analysis_actions_methods_run(methods: &mut MethodsBuilder) {
             timeout,
         };
 
-        if expect_eligible_for_dedupe.into_option().unwrap_or(false) {
+        let expect_eligible_for_dedupe = expect_eligible_for_dedupe.into_option().unwrap_or(false);
+        let verify_eligibility = if expect_eligible_for_dedupe {
+            let deferred_holder_key = &this.state()?.analysis_value_storage.self_key;
+            let is_bound_execution_platform =
+                if let BaseDeferredKey::TargetLabel(configured_label) = deferred_holder_key.owner()
+                {
+                    configured_label.cfg().is_bound_execution_platform()
+                } else {
+                    false
+                };
+            // We can't accurately calculate eligibility for dedupe when building for the execution platform,
+            // so ignore expected eligibility in that case.
+            !is_bound_execution_platform
+        } else {
+            false
+        };
+        if verify_eligibility {
             for o in artifacts.declared_outputs.iter() {
                 if !o.has_content_based_path() {
                     return Err(buck2_error::Error::from(
@@ -626,32 +642,15 @@ pub(crate) fn analysis_actions_methods_run(methods: &mut MethodsBuilder) {
                     .into());
                 }
             }
-            let execution_platform = &this.state()?.actions.execution_platform.dupe();
-            let deferred_holder_key = &this.state()?.analysis_value_storage.self_key;
-            let target_platform = if let BaseDeferredKey::TargetLabel(configured_label) =
-                deferred_holder_key.owner()
-            {
-                Some(configured_label.cfg())
-            } else {
-                None
-            };
 
-            if Some(
-                execution_platform
-                    .platform()
-                    .expect("Can't run action without an execution platform")
-                    .cfg(),
-            ) != target_platform
-            {
-                for i in artifacts.inputs.iter() {
-                    if !i.is_eligible_for_dedupe() {
-                        return Err(buck2_error::Error::from(
-                            RunActionError::ExpectEligibleForDedupeWithIneligibleInput {
-                                input: i.dupe(),
-                            },
-                        )
-                        .into());
-                    }
+            for i in artifacts.inputs.iter() {
+                if !i.is_eligible_for_dedupe() {
+                    return Err(buck2_error::Error::from(
+                        RunActionError::ExpectEligibleForDedupeWithIneligibleInput {
+                            input: i.dupe(),
+                        },
+                    )
+                    .into());
                 }
             }
         }
