@@ -2944,7 +2944,7 @@ message ErrorReport {
   message SourceLocation {
     string path = 1;
     optional string type_name = 2;
-    optional uint32 source_line = 3;
+    uint32 source_line = 3;
   }
   message StringTag {
     string tag = 1;

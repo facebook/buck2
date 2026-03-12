@@ -37,7 +37,8 @@ impl From<ActionError> for buck2_error::Error {
 
         let mut tags = vec![];
         let mut string_tags = vec![];
-        let mut source_location = SourceLocation::new(std::file!()).with_type_name("ActionError");
+        let mut source_location =
+            SourceLocation::new(std::file!(), std::line!()).with_type_name("ActionError");
         match &this.execute_error {
             ExecuteError::CommandExecutionError { error, .. } => {
                 if let Some(err) = error {

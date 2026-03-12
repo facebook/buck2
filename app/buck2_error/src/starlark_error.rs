@@ -158,7 +158,8 @@ fn from_starlark_impl(
         starlark_syntax::ErrorKind::Native(_) => "StarlarkError::Native",
         _ => "StarlarkError",
     };
-    let source_location = SourceLocation::new(std::file!()).with_type_name(variant_name);
+    let source_location =
+        SourceLocation::new(std::file!(), std::line!()).with_type_name(variant_name);
     let description = if skip_stacktrace {
         format!("{}", e.without_diagnostic())
     } else {

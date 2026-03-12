@@ -23,8 +23,8 @@ where
     T: Into<anyhow::Error>,
 {
     let anyhow: anyhow::Error = e.into();
-    let source_location =
-        crate::source_location::SourceLocation::new(std::panic::Location::caller().file());
+    let caller = std::panic::Location::caller();
+    let source_location = crate::source_location::SourceLocation::new(caller.file(), caller.line());
     from_any_with_tag_and_source_location(anyhow.as_ref(), source_location, tag)
 }
 

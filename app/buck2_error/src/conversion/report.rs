@@ -33,7 +33,7 @@ impl From<ErrorReport> for crate::Error {
             value
                 .source_location
                 .map(|s| s.into())
-                .unwrap_or(SourceLocation::new(file!())),
+                .unwrap_or(SourceLocation::new(file!(), line!())),
             None,
         )
         .tag(tags);

@@ -134,7 +134,7 @@ mod tests {
             crate::Error::new(
                 "".to_owned(),
                 crate::ErrorTag::Input,
-                SourceLocation::new(file!()),
+                SourceLocation::new(file!(), line!()),
                 None,
             )
         }

@@ -167,7 +167,7 @@ impl Error {
                 // If type name available, include it and exclude source location.
                 Some(type_name.to_owned())
             } else {
-                Some(self.source_location().to_string())
+                Some(self.source_location().category_str())
             };
 
             (

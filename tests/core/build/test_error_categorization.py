@@ -40,8 +40,8 @@ async def test_action_error(buck: Buck) -> None:
     assert error["category"] == "USER"
     # This test is unfortunately liable to break as a result of refactorings, since this is not
     # stable. Feel free to delete it if it becomes a problem.
-    assert (
-        error["source_location"] == "buck2_build_api/src/actions/error.rs::ActionError"
+    assert error["source_location"].startswith(
+        "buck2_build_api/src/actions/error.rs::ActionError::"
     )
 
 
@@ -77,7 +77,7 @@ async def test_attr_coercion(buck: Buck) -> None:
     )
     error = res.invocation_record().single_error()
     # Just make sure there's some kind of error metadata
-    assert "StarlarkError::Value" in error["source_location"]
+    assert "StarlarkError::Value::" in error["source_location"]
 
 
 @buck_test(write_invocation_record=True)
@@ -89,9 +89,8 @@ async def test_buck2_fail(buck: Buck) -> None:
     error = res.invocation_record().single_error()
     # Just make sure that despite there being no context on the error, we still report the right
     # metadata
-    assert (
-        error["source_location"]
-        == "buck2_interpreter_for_build/src/interpreter/functions/internals.rs::BuckFail"
+    assert error["source_location"].startswith(
+        "buck2_interpreter_for_build/src/interpreter/functions/internals.rs::BuckFail::"
     )
 
 
@@ -102,7 +101,7 @@ async def test_starlark_fail_error_categorization(buck: Buck) -> None:
         stderr_regex="evaluating build file: `root//starlark_fail:TARGETS.fixture`",
     )
     error = res.invocation_record().single_error()
-    assert error["source_location"].endswith("StarlarkError::Fail")
+    assert "StarlarkError::Fail::" in error["source_location"]
     assert error["source_area"] == "BUCK2"
     assert error["category"] == "USER"
 
@@ -114,7 +113,7 @@ async def test_starlark_parse_error_categorization(buck: Buck) -> None:
         stderr_regex=".*Parse error:.*",
     )
     error = res.invocation_record().single_error()
-    assert error["source_location"].endswith("StarlarkError::Parser")
+    assert "StarlarkError::Parser::" in error["source_location"]
     assert error["tags"] == ["STARLARK_PARSER"]
     assert error["source_area"] == "BUCK2"
     assert error["category"] == "USER"
@@ -127,7 +126,7 @@ async def test_starlark_scope_error_categorization(buck: Buck) -> None:
         stderr_regex="evaluating build file: .* not found",
     )
     error = res.invocation_record().single_error()
-    assert error["source_location"].endswith("StarlarkError::Scope")
+    assert "StarlarkError::Scope::" in error["source_location"]
     assert error["tags"] == ["STARLARK_SCOPE"]
     assert error["source_area"] == "BUCK2"
     assert error["category"] == "USER"
