@@ -198,6 +198,37 @@ impl<'a> Graph<'a> {
         }
         Ok(())
     }
+
+    fn traverse(
+        &self,
+        roots: impl IntoIterator<Item = Key>,
+        mut visit: impl FnMut(&Self, &Node, &mut TraversalState) -> buck2_error::Result<()>,
+    ) -> buck2_error::Result<bool> {
+        let mut state = TraversalState::new();
+        let mut complete = true;
+
+        for root in roots {
+            state.enqueue(root);
+        }
+
+        while let Some(item) = state.pop() {
+            let node = self.lookup_node(item)?;
+            complete = complete && !node.is_missing();
+            visit(self, &node, &mut state)?;
+        }
+
+        Ok(complete)
+    }
+
+    fn root_keys<'b>(
+        &self,
+        root_artifacts: impl IntoIterator<Item = &'b ArtifactGroup>,
+    ) -> buck2_error::Result<Vec<Key>> {
+        root_artifacts
+            .into_iter()
+            .filter_map(|a| self.lookup_artifact(a).transpose())
+            .collect()
+    }
 }
 
 struct TraversalState {
@@ -229,29 +260,19 @@ pub fn traverse_partial_action_graph<'a>(
     root_artifacts: impl IntoIterator<Item = &'a ArtifactGroup>,
     state: &fxhash::FxHashMap<DeferredHolderKey, DeferredHolder>,
 ) -> buck2_error::Result<(bool, fxhash::FxHashSet<ActionKey>)> {
-    let mut traversal_state = TraversalState::new();
+    let graph = Graph(state);
+    let roots = graph.root_keys(root_artifacts)?;
     let mut actions = fxhash::FxHashSet::default();
 
-    let graph = Graph(state);
-
-    let mut complete = true;
-
-    for artifact in root_artifacts.into_iter() {
-        if let Some(v) = graph.lookup_artifact(artifact)? {
-            traversal_state.enqueue(v)
-        }
-    }
-
-    while let Some(item) = traversal_state.pop() {
-        let node = graph.lookup_node(item)?;
-        // It's required that we add this on visiting an action node rather than an action key. dynamic outputs produces action keys that point
-        // to other action keys, and we don't want to add those.
-        if let Node::Action(action) = &node {
+    let complete = graph.traverse(roots, |graph, node, state| {
+        // It's required that we add this on visiting an action node rather than an action key.
+        // dynamic outputs produces action keys that point to other action keys,
+        // and we don't want to add those.
+        if let Node::Action(action) = node {
             actions.insert(action.key().dupe());
         }
-        graph.visit_deps(&node, |dep| traversal_state.enqueue(dep))?;
-        complete = complete && !node.is_missing();
-    }
+        graph.visit_deps(node, |dep| state.enqueue(dep))
+    })?;
 
     Ok((complete, actions))
 }
