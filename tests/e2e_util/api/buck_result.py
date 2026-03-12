@@ -249,10 +249,23 @@ LOG_COMPUTE_KEY = "build_api::actions::calculation: compute"
 
 
 class TargetsResult(BuckResult):
-    """Represents a Buck process  of a targets command that has finished running"""
+    """Represents a Buck process of a targets command that has finished running"""
 
     def __init__(self, base: BuckResult) -> None:
         self.__dict__.update(base.__dict__)
+
+    def get_target_list(self) -> List[str]:
+        """
+        Returns a list of sorted target labels
+        """
+        assert "--json-lines" in self.buck_args, (
+            "Must add --json-lines arg to get targets"
+        )
+        targets = []
+        for line in self.stdout.splitlines():
+            js = json.loads(line)
+            targets.append(js["buck.package"] + ":" + js["name"])
+        return sorted(targets)
 
     def get_target_to_build_output(self) -> Dict[str, str]:
         """
@@ -275,7 +288,7 @@ class TargetsResult(BuckResult):
 
 
 class BuildResult(BuckResult):
-    """Represents a Buck process  of a build command that has finished running"""
+    """Represents a Buck process of a build command that has finished running"""
 
     def __init__(self, base: BuckResult) -> None:
         self.__dict__.update(base.__dict__)

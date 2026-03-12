@@ -16,7 +16,13 @@ from buck2.tests.e2e_util.buck_workspace import buck_test
 
 @buck_test()
 async def test_within_view(buck: Buck) -> None:
+    res = await buck.targets("//a/...", "--json-lines")
+    assert res.get_target_list() == ["prelude//a:a"]
+
+
+@buck_test()
+async def test_within_view_outside_view(buck: Buck) -> None:
     await expect_failure(
-        buck.targets("//..."),
+        buck.targets("//b/..."),
         stderr_regex="Target's `within_view` attribute does not allow dependency `prelude//a:a`",
     )
