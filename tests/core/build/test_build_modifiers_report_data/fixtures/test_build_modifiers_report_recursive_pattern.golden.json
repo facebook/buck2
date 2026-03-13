@@ -139,6 +139,7 @@
                 "stdout_content": "<STRING_HASH>"
               },
               "cause_index": 0,
+              "error_category": "USER",
               "error_tags": [
                 "ACTION_COMMAND_FAILURE",
                 "ANY_ACTION_EXECUTION"

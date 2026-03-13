@@ -203,6 +203,10 @@ Error {
     # that the error is associated to as determined by Buck2 internally. This is meant to classify errors
     # more precisely, helping developers better understand the nature of the error.
     error_tags: list[str],
+
+
+    # Error category for the error. One of "USER", "INFRA", "ENVIRONMENT".
+    error_category: str,
 }
 
 ActionError {

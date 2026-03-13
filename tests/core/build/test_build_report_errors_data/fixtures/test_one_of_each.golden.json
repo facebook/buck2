@@ -31,6 +31,7 @@
                 "stdout_content": "<STRING_HASH>"
               },
               "cause_index": 0,
+              "error_category": "USER",
               "error_tags": [
                 "ACTION_COMMAND_FAILURE",
                 "ANY_ACTION_EXECUTION"
@@ -57,6 +58,7 @@
             {
               "action_error": null,
               "cause_index": 1,
+              "error_category": "USER",
               "error_tags": [
                 "ANALYSIS",
                 "STARLARK_FAIL"
@@ -82,6 +84,7 @@
         {
           "action_error": null,
           "cause_index": 2,
+          "error_category": "USER",
           "error_tags": [
             "ANALYSIS",
             "MISSING_TARGET"
@@ -100,6 +103,7 @@
         {
           "action_error": null,
           "cause_index": 3,
+          "error_category": "USER",
           "error_tags": [
             "STARLARK_FAIL"
           ],
@@ -117,6 +121,7 @@
         {
           "action_error": null,
           "cause_index": 4,
+          "error_category": "USER",
           "error_tags": [
             "MISSING_TARGET"
           ],

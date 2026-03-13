@@ -237,6 +237,7 @@ struct BuildReportError {
     /// For example, two targets in different packages may have the same cause (evaluation of
     /// common bzl file), but error stack will be different.
     cause_index: usize,
+    error_category: String,
 }
 
 #[derive(Derivative, Serialize, Eq, PartialEq, Hash, Clone)]
@@ -837,6 +838,7 @@ impl<'a> BuildReportCollector<'a> {
             message: String,
             error_tags: Vec<String>,
             action_error: Option<BuildReportActionError>,
+            error_category: String,
         }
 
         let mut temp = Vec::with_capacity(errors.len());
@@ -845,6 +847,7 @@ impl<'a> BuildReportCollector<'a> {
             // This is to make sure that we can be deterministic
             let root = e.root_id();
             let error_report: ErrorReport = e.into();
+            let error_category = error_report.category().to_string();
             let message = if let Some(telemetry_message) = error_report.telemetry_message {
                 telemetry_message
             } else {
@@ -877,6 +880,7 @@ impl<'a> BuildReportCollector<'a> {
                         },
                     )
                 }),
+                error_category,
             });
         }
         // Sort the errors. This sort *almost* guarantees full determinism, but unfortunately
@@ -925,6 +929,7 @@ impl<'a> BuildReportCollector<'a> {
                 action_error: info.action_error,
                 error_tags: info.error_tags,
                 cause_index,
+                error_category: info.error_category,
             });
         }
 

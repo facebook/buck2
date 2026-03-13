@@ -14,6 +14,7 @@
             {
               "action_error": null,
               "cause_index": 0,
+              "error_category": "USER",
               "error_tags": [
                 "ANALYSIS",
                 "STARLARK_FAIL"
