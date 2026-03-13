@@ -41,10 +41,11 @@ async def test_orphan_pids_killed(buck: Buck) -> None:
         f"Expected at least one orphan process, got: {orphan_processes}"
     )
 
-    # The orphan should be the 'setsid' process that escaped the process group
+    # The orphan should be either 'setsid' or 'sleep' that escaped the process group.
+    # setsid execs into sleep, so depending on timing we might see either one.
     comms = [p["comm"] for p in orphan_processes]
-    assert any("setsid" in c for c in comms), (
-        f"Expected to find a 'setsid' orphan process, got comms: {comms}"
+    assert any("setsid" in c or "sleep" in c for c in comms), (
+        f"Expected to find a 'setsid' or 'sleep' orphan process, got comms: {comms}"
     )
 
 
