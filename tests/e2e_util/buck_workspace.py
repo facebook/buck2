@@ -134,7 +134,12 @@ async def buck_fixture(  # noqa C901 : "too complex"
     # Temp dir needed for EdenFS, will only be created if necessary
     eden_dir = base_dir / "eden"
 
+    orig_stdout = sys.stdout
     try:
+        # Redirect stdout to stderr during the test so that `print` statements
+        # show up in the test failure output by default for debugging.
+        sys.stdout = sys.stderr
+
         if marker.setup_eden:
             assert not marker.inplace, (
                 "EdenFS for e2e tests is not supported for inplace tests"
@@ -229,6 +234,8 @@ async def buck_fixture(  # noqa C901 : "too complex"
             else:
                 await buck.clean()
     finally:
+        sys.stdout = orig_stdout
+
         if keep_temp:
             print(f"Not deleting temporary directory at {base_dir}", file=sys.stderr)
         else:
