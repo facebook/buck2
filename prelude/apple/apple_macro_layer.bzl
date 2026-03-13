@@ -90,7 +90,6 @@ def apple_macro_layer_set_bool_override_attrs_from_config(overrides: list[AppleB
     return attribs
 
 def apple_test_macro_impl(apple_test_rule, apple_resource_bundle_rule, **kwargs):
-    _transform_propagated_target_sdk_version_to_minimum_os_version(kwargs)
     kwargs.update(apple_bundle_config())
     kwargs.update(apple_macro_layer_set_bool_override_attrs_from_config(_APPLE_TEST_LOCAL_EXECUTION_OVERRIDES))
 
@@ -109,7 +108,6 @@ def apple_xcuitest_macro_impl(apple_xcuitest_rule, **kwargs):
     )
 
 def apple_bundle_macro_impl(apple_bundle_rule, apple_resource_bundle_rule, **kwargs):
-    _transform_propagated_target_sdk_version_to_minimum_os_version(kwargs)
     info_plist_substitutions = kwargs.get("info_plist_substitutions")
     kwargs.update(apple_bundle_config())
     codesign_entitlements = selects.apply(info_plist_substitutions, parse_codesign_entitlements)
@@ -121,7 +119,6 @@ def apple_bundle_macro_impl(apple_bundle_rule, apple_resource_bundle_rule, **kwa
     )
 
 def apple_library_macro_impl(apple_library_rule = None, **kwargs):
-    _transform_propagated_target_sdk_version_to_minimum_os_version(kwargs)
     kwargs.update(apple_macro_layer_set_bool_override_attrs_from_config(_APPLE_LIBRARY_LOCAL_EXECUTION_OVERRIDES))
     kwargs.update(apple_macro_layer_set_bool_override_attrs_from_config([APPLE_STRIPPED_DEFAULT]))
     apple_library_rule(**kwargs)
@@ -147,7 +144,6 @@ def prebuilt_apple_framework_macro_impl(prebuilt_apple_framework_rule = None, **
     prebuilt_apple_framework_rule(**kwargs)
 
 def apple_binary_macro_impl(apple_binary_rule = None, apple_universal_executable = None, **kwargs):
-    _transform_propagated_target_sdk_version_to_minimum_os_version(kwargs)
     kwargs.update(apple_macro_layer_set_bool_override_attrs_from_config(_APPLE_BINARY_EXECUTION_OVERRIDES))
     kwargs.update(apple_macro_layer_set_bool_override_attrs_from_config([APPLE_STRIPPED_DEFAULT]))
 
@@ -179,9 +175,3 @@ def apple_universal_executable_macro_impl(apple_universal_executable_rule = None
     apple_universal_executable_rule(
         **kwargs
     )
-
-def _transform_propagated_target_sdk_version_to_minimum_os_version(kwargs):
-    # TODO: T197775809 Rename `target_sdk_version` to `minimum_os_version`
-    value = kwargs.pop("propagated_target_sdk_version", None)
-    if value != None:
-        fail("`propagated_target_sdk_version` attribute is not supported, use `minimum_os_version` instead")
