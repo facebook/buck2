@@ -188,11 +188,10 @@ def __patch_subprocess() -> None:
         return bool(
             args
             and isinstance(args, (list, tuple))
-            and isinstance(args[0], str)
-            # We use == (equality) rather than is (identity) so that
-            # string copies of sys.executable (e.g. exe = str(sys.executable))
-            # also trigger env restoration.
-            and args[0] == sys.executable
+            # We use is for a few reasons:
+            # 1) It's super conservative, you must literally be passing sys.executable
+            # 2) We don't need to worry about checking the type if you're passing a path
+            and args[0] is sys.executable
             and (env is None or "PYTHONPATH" not in env)
             and (env is None or "PYTHONHOME" not in env)
         )
