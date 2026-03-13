@@ -161,7 +161,7 @@ def _receive_command_reply(worker, message_id) -> int:
     reply = _read_from_stream(worker.stdout)
     if not reply:
         raise RuntimeError(
-            f"Failed to receive reply from worker, stderr:\n\n{worker.stderr.read()}"
+            f"Failed to receive reply from worker opened with args: {worker.args}\nstderr:\n{worker.stderr.read()}"
         )
     assert START_MESSAGE_PREFIX == reply[0]
     reply_data = json.loads(reply[1:])
