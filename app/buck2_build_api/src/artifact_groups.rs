@@ -19,7 +19,6 @@ use std::sync::Arc;
 use allocative::Allocative;
 pub use artifact_group_values::ArtifactGroupValues;
 use buck2_artifact::artifact::artifact_type::Artifact;
-use buck2_core::configuration::data::ConfigurationData;
 use buck2_core::deferred::base_deferred_key::BaseDeferredKey;
 use derive_more::Display;
 use dice::DiceComputations;

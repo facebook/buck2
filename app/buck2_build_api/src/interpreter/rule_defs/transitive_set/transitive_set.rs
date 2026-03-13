@@ -15,8 +15,6 @@ use std::sync::Arc;
 use allocative::Allocative;
 use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_artifact::artifact::artifact_type::OutputArtifact;
-use buck2_core::configuration::data::ConfigurationData;
-use buck2_core::deferred::base_deferred_key::BaseDeferredKey;
 use buck2_error::BuckErrorContext;
 use buck2_error::internal_error;
 use display_container::display_pair;
