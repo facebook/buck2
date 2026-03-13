@@ -148,44 +148,17 @@ def __patch_spawn_preparation_data() -> None:
     mp_spawn.get_preparation_data = get_preparation_data
 
 
-def _build_child_env(env: dict[str, str] | None) -> dict[str, str]:
-    """Build an env dict with PYTHONPATH/PYTHONHOME restored for child processes.
-
-    If env is None, starts from a copy of os.environ.
-    """
-    if env is None:
-        env = os.environ.copy()
-    else:
-        env = dict(env)
-    # Resolve /proc/self/fd/<N> paths (used by fastzip PARs) to real
-    # filesystem paths so the child process can find modules (including
-    # sitecustomize.py which clears PYTHONHOME).
-    # dirs_only=True filters out .par zip files from PYTHONPATH to
-    # avoid RecursionError during early Python init (zipimport's
-    # _read_directory triggers a lazy `import struct` cycle).
-    resolved = _resolve_path_entries(sys.path, dirs_only=True)
-    env["PYTHONPATH"] = os.path.pathsep.join(resolved)
-    # Only set PYTHONHOME if the child will find sitecustomize.py
-    # (which clears it). Otherwise PYTHONHOME leaks and the child
-    # uses the PAR's prefix for stdlib, causing hangs.
-    if any(os.path.isfile(os.path.join(d, "sitecustomize.py")) for d in resolved):
-        env["PYTHONHOME"] = sys.prefix
-    return env
-
-
-def __patch_subprocess() -> None:
+def __patch_subprocess_run() -> None:
     import subprocess
     from functools import wraps
 
-    std_popen_init = subprocess.Popen.__init__
+    std_run = subprocess.run
 
-    def _should_restore_env(
-        # pyre-fixme[2]: Parameter must be annotated.
-        args,
-        # pyre-fixme[2]: Parameter must be annotated.
-        env,
-    ) -> bool:
-        return bool(
+    @wraps(std_run)
+    # pyre-fixme[2]: Parameter must be annotated.
+    # pyre-fixme[53]: Captured variable `std_run` is not annotated.
+    def _patched_run(args, env=None, **kwargs) -> subprocess.CompletedProcess[str]:
+        if (
             args
             and isinstance(args, (list, tuple))
             # We use is for a few reasons:
@@ -194,24 +167,35 @@ def __patch_subprocess() -> None:
             and args[0] is sys.executable
             and (env is None or "PYTHONPATH" not in env)
             and (env is None or "PYTHONHOME" not in env)
-        )
+        ):
+            # make subprocess.run work with par files when invoking sys.executable
+            if env is None:
+                env = os.environ.copy()
+            # Resolve /proc/self/fd/<N> paths (used by fastzip PARs) to real
+            # filesystem paths so the child process can find modules (including
+            # sitecustomize.py which clears PYTHONHOME).
+            # dirs_only=True filters out .par zip files from PYTHONPATH to
+            # avoid RecursionError during early Python init (zipimport's
+            # _read_directory triggers a lazy `import struct` cycle).
+            resolved = _resolve_path_entries(sys.path, dirs_only=True)
+            env["PYTHONPATH"] = os.path.pathsep.join(resolved)
+            # Only set PYTHONHOME if the child will find sitecustomize.py
+            # (which clears it). Otherwise PYTHONHOME leaks and the child
+            # uses the PAR's prefix for stdlib, causing hangs.
+            if any(
+                os.path.isfile(os.path.join(d, "sitecustomize.py")) for d in resolved
+            ):
+                env["PYTHONHOME"] = sys.prefix
 
-    @wraps(std_popen_init)
-    # pyre-fixme[2]: Parameter must be annotated.
-    # pyre-fixme[53]: Captured variable `std_popen_init` is not annotated.
-    def _patched_popen_init(self, args, *a, **kwargs) -> None:
-        env = kwargs.get("env", None)
-        if _should_restore_env(args, env):
-            kwargs["env"] = _build_child_env(env)
-        return std_popen_init(self, args, *a, **kwargs)
+        return std_run(args, env=env, **kwargs)
 
-    subprocess.Popen.__init__ = _patched_popen_init
+    subprocess.run = _patched_run
 
 
 def __clear_env(
     patch_spawn: bool = True,
     patch_ctypes: bool = True,
-    patch_subprocess: bool = True,
+    patch_subprocess_run: bool = True,
 ) -> None:
     saved_env = {}
 
@@ -257,8 +241,8 @@ def __clear_env(
     if patch_ctypes:
         __patch_ctypes(saved_env)
 
-    if patch_subprocess:
-        __patch_subprocess()
+    if patch_subprocess_run:
+        __patch_subprocess_run()
 
 
 def __startup__() -> None:
