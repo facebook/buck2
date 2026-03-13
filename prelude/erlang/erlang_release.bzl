@@ -221,12 +221,17 @@ def _build_default_boot_scripts(
         for file in boot_files
     }
 
-    # Also place boot files in bin/ so erl can find them at ROOTDIR/bin/.
+    # Place OTP's boot files in bin/ so erl can find them at ROOTDIR/bin/.
     # When erl runs from bundled ERTS (erts-VSN/bin/erl), it resolves ROOTDIR
-    # to the release root and looks for boot files in ROOTDIR/bin/.
+    # to the release root and looks for bin/<name>.boot for boot files.
+    # These are extracted once per toolchain (not per release) and contain only
+    # kernel+stdlib, so that:
+    #   - `erl` bare gives a clean shell (uses bin/start.boot)
+    #   - `erl -boot no_dot_erlang` works for ectl and other tools
+    # mini_start explicitly uses releases/VERSION/start.boot for service startup.
     if ctx.attrs.include_erts:
-        result[paths.join("bin", "no_dot_erlang.boot")] = scripts_dir.project("no_dot_erlang.boot")
-        result[paths.join("bin", "start.boot")] = scripts_dir.project("start.boot")
+        result[paths.join("bin", "start.boot")] = toolchain.erts_toolchain_info.otp_start_boot
+        result[paths.join("bin", "no_dot_erlang.boot")] = toolchain.erts_toolchain_info.otp_no_dot_erlang_boot
 
     return result
 

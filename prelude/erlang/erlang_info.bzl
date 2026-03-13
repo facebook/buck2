@@ -131,6 +131,8 @@ ErtsToolchainInfo = provider(
     fields = {
         "applications": provider_field(list[ErtsToolchainApplicationInfo]),
         "erts_version": provider_field(str),
+        "otp_no_dot_erlang_boot": provider_field(Artifact),
+        "otp_start_boot": provider_field(Artifact),
         "output": provider_field(Artifact),
     },
 )

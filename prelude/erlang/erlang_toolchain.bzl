@@ -122,9 +122,28 @@ def _erlang_toolchain_impl(ctx: AnalysisContext) -> list[Provider]:
         )
         for application in ctx.attrs.applications
     ]
+
+    # extract OTP boot files for include_erts releases (bin/start.boot, bin/no_dot_erlang.boot)
+    otp_start_boot = ctx.actions.declare_output("otp_start_boot")
+    ctx.actions.run(
+        cmd_args(extract_from_otp, "bin/start.boot", otp_start_boot.as_output()),
+        identifier = ctx.attrs.name + "_start_boot",
+        category = "extract_otp_boot",
+        env = env,
+    )
+    otp_no_dot_erlang_boot = ctx.actions.declare_output("otp_no_dot_erlang_boot")
+    ctx.actions.run(
+        cmd_args(extract_from_otp, "bin/no_dot_erlang.boot", otp_no_dot_erlang_boot.as_output()),
+        identifier = ctx.attrs.name + "_no_dot_erlang_boot",
+        category = "extract_otp_boot",
+        env = env,
+    )
+
     erts_toolchain_info = ErtsToolchainInfo(
         applications = erts_toolchain_application_info_list,
         erts_version = ctx.attrs.erts_version,
+        otp_start_boot = otp_start_boot,
+        otp_no_dot_erlang_boot = otp_no_dot_erlang_boot,
         output = ctx.actions.declare_output("erts-{}".format(ctx.attrs.erts_version), dir = True),
     )
     ctx.actions.run(
