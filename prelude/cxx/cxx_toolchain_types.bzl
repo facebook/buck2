@@ -214,6 +214,20 @@ PicBehavior = enum(
     "not_supported",
 )
 
+# Additional behavior for how to handle runtime dependencies
+RuntimeDependencyHandling = enum(
+    # Do no additional handling (alias for "no_symlink" - hopefully we can remove this one)
+    "none",
+    # Do no additional handling
+    "no_symlink",
+    # Always include runtime dependencies in a symlink tree, regardless
+    # of whether shared linkage is used or not. Only include first level deps.
+    "symlink_single_level_only",
+    # Always include runtime dependencies in a symlink tree, regardless
+    # of whether shared linkage is used or not. Include transitive deps.
+    "symlink",
+)
+
 # TODO(T110378094): We should consider if we can change this from a hardcoded
 # list of compiler_info to something more general. We could maybe do a list of
 # compiler_info where each one also declares what extensions it supports.
@@ -256,6 +270,7 @@ CxxToolchainInfo = provider(
         "raw_headers_as_headers_mode": provider_field(typing.Any, default = None),
         "rc_compiler_info": provider_field(typing.Any, default = None),
         "remap_cwd": provider_field(bool, default = False),
+        "runtime_dependency_handling": provider_field(RuntimeDependencyHandling),
         "split_debug_mode": provider_field(typing.Any, default = None),
         "strip_flags_info": provider_field(typing.Any, default = None),
         "supported_compile_flavors": provider_field(typing.Any, default = []),
@@ -322,7 +337,8 @@ def cxx_toolchain_infos(
         supported_compile_flavors = ["pic"],
         objc_compiler_info = None,
         objcxx_compiler_info = None,
-        cxx_error_handler = None):
+        cxx_error_handler = None,
+        runtime_dependency_handling = RuntimeDependencyHandling("none")):
     """
     Creates the collection of cxx-toolchain Infos for a cxx toolchain.
 
@@ -377,6 +393,7 @@ def cxx_toolchain_infos(
         raw_headers_as_headers_mode = raw_headers_as_headers_mode,
         rc_compiler_info = rc_compiler_info,
         remap_cwd = remap_cwd,
+        runtime_dependency_handling = runtime_dependency_handling,
         split_debug_mode = split_debug_mode,
         strip_flags_info = strip_flags_info,
         minimum_os_version = minimum_os_version,

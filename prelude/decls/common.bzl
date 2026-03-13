@@ -11,6 +11,8 @@
 # the generated docs, and so those should be verified to be accurate and
 # well-formatted (and then delete this TODO)
 
+load("@prelude//cxx:cxx_toolchain_types.bzl", _RuntimeDependencyHandling = "RuntimeDependencyHandling")
+
 def validate_uri(_s):
     return True
 
@@ -52,7 +54,7 @@ TestType = ["junit", "junit5", "testng"]
 
 UnusedDependenciesAction = ["unknown", "fail", "warn", "ignore", "unrecognized"]
 
-RuntimeDependencyHandling = ["none", "symlink_single_level_only", "symlink"]
+RuntimeDependencyHandling = _RuntimeDependencyHandling.values()
 
 def _name_arg(name_type):
     return {

@@ -21,14 +21,14 @@ load(
     "CudaCompileStyle",
 )
 load("@prelude//cxx:cxx_sources.bzl", "get_srcs_with_flags")
+load(
+    "@prelude//cxx:cxx_toolchain_types.bzl",
+    "RuntimeDependencyHandling",
+)
 load("@prelude//cxx:cxx_utility.bzl", "cxx_attrs_get_allow_cache_upload", "cxx_attrs_use_fbcc_rust_wrapper")
 load(
     "@prelude//cxx:link_groups_types.bzl",
     "LinkGroupInfo",  # @unused Used as a type
-)
-load(
-    "@prelude//cxx:runtime_dependency_handling.bzl",
-    "cxx_attr_runtime_dependency_handling",
 )
 # @oss-disable[end= ]: load("@prelude//cxx/meta_only:linker_outputs.bzl", "get_extra_linker_output_flags", "get_extra_linker_outputs")
 load("@prelude//linking:execution_preference.bzl", "LinkExecutionPreference")
@@ -320,7 +320,7 @@ def cxx_binary_impl(ctx: AnalysisContext) -> list[Provider]:
         preprocessor_flags = ctx.attrs.preprocessor_flags,
         lang_preprocessor_flags = ctx.attrs.lang_preprocessor_flags,
         use_header_units = _get_use_header_units_mode(ctx.attrs.use_header_units),
-        runtime_dependency_handling = cxx_attr_runtime_dependency_handling(ctx),
+        runtime_dependency_handling = RuntimeDependencyHandling(ctx.attrs.runtime_dependency_handling) if ctx.attrs.runtime_dependency_handling else get_cxx_toolchain_info(ctx).runtime_dependency_handling,
         error_handler = get_cxx_toolchain_info(ctx).cxx_error_handler,
         extra_dwp_flags = ctx.attrs.extra_dwp_flags,
         use_fbcc_rust_wrapper = cxx_attrs_use_fbcc_rust_wrapper(ctx.attrs),
@@ -974,7 +974,7 @@ def cxx_test_impl(ctx: AnalysisContext) -> list[Provider]:
         preprocessor_flags = ctx.attrs.preprocessor_flags,
         lang_preprocessor_flags = ctx.attrs.lang_preprocessor_flags,
         use_header_units = _get_use_header_units_mode(ctx.attrs.use_header_units),
-        runtime_dependency_handling = cxx_attr_runtime_dependency_handling(ctx),
+        runtime_dependency_handling = RuntimeDependencyHandling(ctx.attrs.runtime_dependency_handling) if ctx.attrs.runtime_dependency_handling else get_cxx_toolchain_info(ctx).runtime_dependency_handling,
         error_handler = get_cxx_toolchain_info(ctx).cxx_error_handler,
         extra_dwp_flags = ctx.attrs.extra_dwp_flags,
         use_fbcc_rust_wrapper = cxx_attrs_use_fbcc_rust_wrapper(ctx.attrs),

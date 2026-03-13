@@ -12,12 +12,12 @@ load(
     "CudaCompileStyle",
 )
 load(
-    "@prelude//cxx:link_groups_types.bzl",
-    "LinkGroupInfo",  # @unused Used as a type
+    "@prelude//cxx:cxx_toolchain_types.bzl",
+    "RuntimeDependencyHandling",  # @unused Used as a type
 )
 load(
-    "@prelude//cxx:runtime_dependency_handling.bzl",
-    "RuntimeDependencyHandling",  # @unused Used as a type
+    "@prelude//cxx:link_groups_types.bzl",
+    "LinkGroupInfo",  # @unused Used as a type
 )
 load(
     "@prelude//linking:link_info.bzl",

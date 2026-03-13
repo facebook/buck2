@@ -34,15 +34,12 @@ load(
 load(
     "@prelude//cxx:cxx_toolchain_types.bzl",
     "PicBehavior",
+    "RuntimeDependencyHandling",
 )
 load(
     "@prelude//cxx:link_groups_types.bzl",
     "LinkGroupsDebugLinkInfo",
     "LinkGroupsDebugLinkableItem",
-)
-load(
-    "@prelude//cxx:runtime_dependency_handling.bzl",
-    "RuntimeDependencyHandling",
 )
 load("@prelude//cxx:transformation_spec.bzl", "TransformationKind", "build_transformation_spec_context")
 load(
