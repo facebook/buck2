@@ -332,12 +332,15 @@ async fn build_action_inner(
                 outputs,
             );
 
+            let infra_error = check_infra_error_patterns(last_command.as_ref());
+
             let e = ActionError::new(
                 e,
                 action_name.clone(),
                 action_key.clone(),
                 last_command.clone(),
                 error_diagnostics.clone(),
+                infra_error,
             );
 
             error = Some(e.as_proto_field());
@@ -468,6 +471,19 @@ fn is_action_eligible_for_dedupe(
     }
 
     buck2_data::EligibleForDedupe::Eligible
+}
+
+/// Check if the last command's stderr contains known infrastructure error patterns.
+fn check_infra_error_patterns(last_command: Option<&buck2_data::CommandExecution>) -> bool {
+    let stderr = last_command
+        .and_then(|c| c.details.as_ref())
+        .map(|d| d.cmd_stderr.as_str())
+        .unwrap_or("");
+
+    const INFRA_PATTERNS: &[&str] = &["transport endpoint is not connected"];
+
+    let stderr_lower = stderr.to_lowercase();
+    INFRA_PATTERNS.iter().any(|p| stderr_lower.contains(p))
 }
 
 // Attempt to run the error handler if one was specified. Returns either the error diagnostics, or

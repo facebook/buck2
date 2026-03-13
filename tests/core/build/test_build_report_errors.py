@@ -93,6 +93,11 @@ if not running_on_windows() and not running_on_mac():
     )
 
     build_report_test(
+        "test_action_fail_infra",
+        ["//fail_action:fail_infra"],
+    )
+
+    build_report_test(
         "test_action_fail_one_with_error_handler",
         ["//fail_action:fail_one_with_error_handler"],
     )
