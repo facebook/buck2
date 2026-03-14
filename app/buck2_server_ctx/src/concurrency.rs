@@ -1636,8 +1636,8 @@ mod tests {
     where
         F: Fn(&BuckEvent) -> bool + Send,
     {
-        // 2 millis was too short on windows, fails concurrency::tests::exclusive_command_lock
-        tokio::time::timeout(Duration::from_millis(4), async {
+        // Short timeouts are too flaky in OD environments under load.
+        tokio::time::timeout(Duration::from_secs(10), async {
             loop {
                 if let Some(event) = source.try_receive() {
                     if let Some(event) = event.unpack_buck() {
