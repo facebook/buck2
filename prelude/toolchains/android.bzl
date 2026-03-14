@@ -85,6 +85,7 @@ def system_android_toolchain(
     # @oss-disable[end= ]: kwargs["gatorade_mergemap_tool"] = "prelude//android/tools/meta_only:gatorade_mergemap_tool"
     kwargs["generate_build_config"] = "prelude//toolchains/android/src/com/facebook/buck/android/build_config:generate_build_config_binary"
     kwargs["generate_manifest"] = "prelude//toolchains/android/src/com/facebook/buck/android/manifest:generate_manifest_binary"
+    kwargs["sort_pre_dexed_files"] = "prelude//android/tools:sort_pre_dexed_files"
     kwargs["installer"] = "prelude//toolchains/android/src/com/facebook/buck/installer/android:android_installer"
     kwargs["instrumentation_test_can_run_locally"] = True
     kwargs["collect_perfetto"] = False
@@ -192,6 +193,7 @@ def system_android_toolchain_rule_impl(ctx):
             secondary_dex_weight_limit = ctx.attrs.secondary_dex_weight_limit,
             set_application_id_to_specified_package = ctx.attrs.set_application_id_to_specified_package,
             should_run_sanity_check_for_placeholders = ctx.attrs.should_run_sanity_check_for_placeholders,
+            sort_pre_dexed_files = ctx.attrs.sort_pre_dexed_files,
             unpack_aar = ctx.attrs.unpack_aar,
             zipalign = ctx.attrs.zipalign,
         ),
@@ -251,6 +253,7 @@ system_android_toolchain_rule = rule(
         "secondary_dex_weight_limit": attrs.int(),
         "set_application_id_to_specified_package": attrs.bool(),
         "should_run_sanity_check_for_placeholders": attrs.bool(),
+        "sort_pre_dexed_files": attrs.option(attrs.dep(providers = [RunInfo]), default = None),
         "unpack_aar": attrs.dep(providers = [RunInfo]),
         "zipalign": attrs.dep(providers = [RunInfo]),
     },

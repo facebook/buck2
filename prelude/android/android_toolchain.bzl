@@ -68,6 +68,7 @@ AndroidToolchainInfo = provider(
         "secondary_dex_weight_limit": provider_field(typing.Any, default = None),
         "set_application_id_to_specified_package": provider_field(typing.Any, default = None),
         "should_run_sanity_check_for_placeholders": provider_field(typing.Any, default = None),
+        "sort_pre_dexed_files": provider_field(typing.Any, default = None),
         "unpack_aar": provider_field(typing.Any, default = None),
         "zipalign": provider_field(typing.Any, default = None),
     },

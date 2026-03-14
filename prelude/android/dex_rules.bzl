@@ -496,10 +496,59 @@ def merge_to_split_dex(
             ),
         )
 
-    input_artifacts = [
-        input.weight_estimate_and_filtered_class_names_file
-        for input in pre_dexed_libs_with_class_names_and_weight_estimates_files
-    ] + ([apk_module_graph_file] if apk_module_graph_file else [])
+    # Create lib metadata mapping: identifier -> owner target label
+    # This is used by the sort tool to determine which module each lib belongs to.
+    # Gated behind [android].use_sort_pre_dexed_files_tool buckconfig flag (default: false).
+    use_sort_tool = read_root_config("android", "use_sort_pre_dexed_files_tool", "false").lower() == "true"
+    sort_pre_dexed_files_tool = getattr(android_toolchain, "sort_pre_dexed_files", None) if use_sort_tool else None
+    dex_plan_file = None
+
+    if sort_pre_dexed_files_tool:
+        lib_metadata = {}
+        for lib in pre_dexed_libs:
+            if lib.dex:
+                lib_metadata[lib.identifier] = str(lib.dex.owner.raw_target())
+        lib_metadata_file = ctx.actions.write_json("pre_dexed_libs_metadata.json", lib_metadata)
+
+        # Run the sort_pre_dexed_files tool to produce a dex plan.
+        # This replaces _sort_pre_dexed_files() which previously ran inside the lambda,
+        # taking ~3-4 seconds in the Starlark interpreter. The Python tool completes in ~50ms.
+        filter_dex_output_files = [
+            input.weight_estimate_and_filtered_class_names_file
+            for input in pre_dexed_libs_with_class_names_and_weight_estimates_files
+        ]
+        dex_plan_file = ctx.actions.declare_output("dex_plan.json")
+        sort_cmd = cmd_args([
+            sort_pre_dexed_files_tool[RunInfo],
+            "--lib-metadata",
+            lib_metadata_file,
+            "--weight-limit",
+            str(split_dex_merge_config.secondary_dex_weight_limit_bytes),
+            "--output",
+            dex_plan_file.as_output(),
+        ])
+        sort_cmd.add("--filter-dex-outputs")
+        sort_cmd.add(filter_dex_output_files)
+        if apk_module_graph_file:
+            sort_cmd.add("--module-graph")
+            sort_cmd.add(apk_module_graph_file)
+        if enable_bootstrap_dexes:
+            sort_cmd.add("--enable-bootstrap-dexes")
+        ctx.actions.run(
+            sort_cmd,
+            category = "sort_pre_dexed_files",
+            allow_cache_upload = True,
+        )
+
+    if dex_plan_file:
+        input_artifacts = [dex_plan_file]
+        if apk_module_graph_file:
+            input_artifacts.append(apk_module_graph_file)
+    else:
+        input_artifacts = [
+            input.weight_estimate_and_filtered_class_names_file
+            for input in pre_dexed_libs_with_class_names_and_weight_estimates_files
+        ] + ([apk_module_graph_file] if apk_module_graph_file else [])
     primary_dex_artifact_list = ctx.actions.declare_output("pre_dexed_artifacts_for_primary_dex.txt")
     primary_dex_output = ctx.actions.declare_output("classes.dex")
     primary_dex_class_names_list = ctx.actions.declare_output("primary_dex_class_names_list.txt")
@@ -512,17 +561,64 @@ def merge_to_split_dex(
     outputs = [primary_dex_output, primary_dex_artifact_list, primary_dex_class_names_list, root_module_bootstrap_dexes_dir, root_module_secondary_dexes_dir, non_root_module_secondary_dexes_dir]
 
     def merge_pre_dexed_libs(ctx: AnalysisContext, artifacts, outputs):
+        # We still need the module graph info for metadata.txt generation (module deps)
+        # and for the fallback path.
         apk_module_graph_info = get_apk_module_graph_info(ctx, apk_module_graph_file, artifacts) if apk_module_graph_file else get_root_module_only_apk_module_graph_info()
         module_to_canary_class_name_function = apk_module_graph_info.module_to_canary_class_name_function
-        sorted_pre_dexed_inputs = _sort_pre_dexed_files(
-            ctx,
-            artifacts,
-            pre_dexed_libs_with_class_names_and_weight_estimates_files,
-            split_dex_merge_config,
-            enable_bootstrap_dexes,
-            get_module_from_target = apk_module_graph_info.target_to_module_mapping_function,
-            module_to_canary_class_name_function = module_to_canary_class_name_function,
-        )
+
+        if dex_plan_file:
+            # Fast path: read the pre-computed dex plan (produced by sort_pre_dexed_files tool).
+            plan = artifacts[dex_plan_file].read_json()
+
+            # Build a lookup from identifier to DexLibraryInfo for resolving dex artifacts.
+            libs_by_id = {}
+            for batch in pre_dexed_libs_with_class_names_and_weight_estimates_files:
+                for lib in batch.libs:
+                    libs_by_id[lib.identifier] = lib
+
+            def resolve_plan_groups(groups):
+                resolved = []
+                class_names_list = []
+                for group in groups:
+                    inputs_for_group = []
+                    for lib_id in group["lib_ids"]:
+                        inputs_for_group.append(DexInputWithSpecifiedClasses(
+                            lib = libs_by_id[lib_id],
+                            dex_class_names = [],  # class names come from the plan
+                        ))
+                    resolved.append(inputs_for_group)
+                    class_names_list.append(group["class_names"])
+                return resolved, class_names_list
+
+            sorted_pre_dexed_inputs = []
+            plan_class_names = {}
+            for module_plan in plan["modules"]:
+                module = module_plan["module"]
+                primary_groups, primary_class_names_list = resolve_plan_groups(module_plan["primary_groups"])
+                secondary_groups, secondary_class_names_list = resolve_plan_groups(module_plan["secondary_groups"])
+
+                sorted_pre_dexed_inputs.append(_SortedPreDexedInputs(
+                    module = module,
+                    primary_dex_inputs = primary_groups,
+                    secondary_dex_inputs = secondary_groups,
+                ))
+
+                for i, class_names in enumerate(primary_class_names_list):
+                    plan_class_names[("primary", module, i)] = class_names
+                for i, class_names in enumerate(secondary_class_names_list):
+                    plan_class_names[("secondary", module, i)] = class_names
+        else:
+            # Fallback path: sort in Starlark (old behavior)
+            sorted_pre_dexed_inputs = _sort_pre_dexed_files(
+                ctx,
+                artifacts,
+                pre_dexed_libs_with_class_names_and_weight_estimates_files,
+                split_dex_merge_config,
+                enable_bootstrap_dexes,
+                get_module_from_target = apk_module_graph_info.target_to_module_mapping_function,
+                module_to_canary_class_name_function = module_to_canary_class_name_function,
+            )
+            plan_class_names = None
 
         root_module_secondary_dexes_for_symlinking = {}
         root_module_bootstrap_dexes_for_symlinking = {}
@@ -541,9 +637,13 @@ def merge_to_split_dex(
             pre_dexed_artifacts = [primary_dex_input.lib.dex for primary_dex_input in primary_dex_inputs if primary_dex_input.lib.dex]
             if pre_dexed_artifacts:
                 expect(is_root_module(module), "module {} should not have a primary dex!".format(module))
+                if plan_class_names:
+                    primary_class_names = plan_class_names[("primary", module, 0)]
+                else:
+                    primary_class_names = flatten([primary_dex_input.dex_class_names for primary_dex_input in primary_dex_inputs])
                 ctx.actions.write(
                     outputs[primary_dex_class_names_list].as_output(),
-                    flatten([primary_dex_input.dex_class_names for primary_dex_input in primary_dex_inputs]),
+                    primary_class_names,
                 )
 
                 _merge_dexes(
@@ -557,11 +657,15 @@ def merge_to_split_dex(
                 base_apk_dex_files_count += 1
 
                 # If primary dex classes were spread to many based on weight, merge additional dex files here.
-                for bootstrap_dex_input_list in additional_base_apk_dex_inputs:
+                for (bootstrap_idx, bootstrap_dex_input_list) in enumerate(additional_base_apk_dex_inputs):
                     this_dex_number = base_apk_dex_files_count + 1
+                    if plan_class_names:
+                        bootstrap_class_names = plan_class_names[("primary", module, bootstrap_idx + 1)]
+                    else:
+                        bootstrap_class_names = flatten([bootstrap_dex_input.dex_class_names for bootstrap_dex_input in bootstrap_dex_input_list])
                     bootstrap_dex_class_list = ctx.actions.write(
                         "class_list_for_bootstrap_dex_{}.txt".format(this_dex_number),
-                        flatten([bootstrap_dex_input.dex_class_names for bootstrap_dex_input in bootstrap_dex_input_list]),
+                        bootstrap_class_names,
                     )
 
                     # Figure out the name of this file and prepare its location for symlinking in final output dir.
@@ -610,11 +714,31 @@ def merge_to_split_dex(
 
                 this_dex_number = i + (base_apk_dex_files_count + 1 if is_root_module(module) else 2)
                 secondary_dex_artifact_list = ctx.actions.declare_output("pre_dexed_artifacts_for_secondary_dex_{}_for_module_{}.txt".format(this_dex_number, module))
-                secondary_dex_class_list = ctx.actions.write(
-                    "class_list_for_secondary_dex_{}_for_module_{}.txt".format(this_dex_number, module),
-                    flatten([secondary_dex_input.dex_class_names for secondary_dex_input in secondary_dex_inputs[i]]),
-                )
-                pre_dexed_artifacts = [secondary_dex_input.lib.dex for secondary_dex_input in secondary_dex_inputs[i] if secondary_dex_input.lib.dex]
+
+                if plan_class_names:
+                    # Fast path: class names from pre-computed plan, add canary class
+                    canary_dex_input = _create_canary_class(
+                        ctx,
+                        i + 1,
+                        module,
+                        module_to_canary_class_name_function,
+                        ctx.attrs._dex_toolchain[DexToolchainInfo],
+                    )
+                    all_class_names = canary_dex_input.dex_class_names + plan_class_names[("secondary", module, i)]
+                    secondary_dex_class_list = ctx.actions.write(
+                        "class_list_for_secondary_dex_{}_for_module_{}.txt".format(this_dex_number, module),
+                        all_class_names,
+                    )
+                    pre_dexed_artifacts = [canary_dex_input.lib.dex] if canary_dex_input.lib.dex else []
+                    pre_dexed_artifacts.extend([dex_input.lib.dex for dex_input in secondary_dex_inputs[i] if dex_input.lib.dex])
+                else:
+                    # Fallback path: class names from sorted inputs (includes canary from _sort_pre_dexed_files)
+                    secondary_dex_class_list = ctx.actions.write(
+                        "class_list_for_secondary_dex_{}_for_module_{}.txt".format(this_dex_number, module),
+                        flatten([secondary_dex_input.dex_class_names for secondary_dex_input in secondary_dex_inputs[i]]),
+                    )
+                    pre_dexed_artifacts = [secondary_dex_input.lib.dex for secondary_dex_input in secondary_dex_inputs[i] if secondary_dex_input.lib.dex]
+
                 _merge_dexes(
                     ctx.actions,
                     android_toolchain,
