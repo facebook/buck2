@@ -113,7 +113,8 @@ def _live_par_generated_files(
         build_args: list[ArgLike],
         main: EntryPoint,
         preload_libraries: ArgLike,
-        output_suffix: str) -> list[(Artifact, str)]:
+        output_suffix: str,
+        linktree_suffix: str = "#link-tree") -> list[(Artifact, str)]:
     artifacts = []
     artifacts.append((python_internal_tools.run_lpar_main, "__run_lpar_main__.py"))
 
@@ -144,6 +145,7 @@ def _live_par_generated_files(
 
     gen_bootstrap.add(preload_libraries)
 
+    gen_bootstrap.add(["--linktree-suffix", linktree_suffix])
     gen_bootstrap.add(["--bootstrap-output", lpar_bootstrap.as_output()])
     gen_bootstrap.add(["--output", output.as_output()])
     ctx.actions.run(gen_bootstrap, category = "par", identifier = "lpar_gen_bootstrap{}".format(output_suffix))
