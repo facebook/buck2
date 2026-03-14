@@ -32,5 +32,12 @@ sorted_vector_map = { workspace = true }
 static_assertions = { workspace = true }
 strong_hash = { workspace = true }
 take_mut = { workspace = true }
-tokio = { workspace = true }
+tokio = { workspace = true, optional = true }
 triomphe = { workspace = true }
+
+[features]
+default = []
+tokio = ["dep:tokio"]
+
+[dev-dependencies]
+tokio = { workspace = true }

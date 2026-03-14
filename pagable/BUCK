@@ -8,6 +8,10 @@ rust_library(
         ["src/**/*.rs"],
     ),
     crate_root = "src/lib.rs",
+    features = select({
+        "DEFAULT": ["tokio"],
+        # @oss-disable[end= ]: "ovr_config//runtime/constraints:wasm": [],
+    }),
     deps = [
         "fbsource//third-party/rust:anyhow",
         "fbsource//third-party/rust:async-trait",

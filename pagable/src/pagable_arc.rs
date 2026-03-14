@@ -374,6 +374,7 @@ impl<T: Pagable> PagableArc<T> {
     /// # Errors
     ///
     /// Returns an error if deserialization from storage fails.
+    #[cfg(any(feature = "tokio", test))]
     pub fn pin_sync(&self) -> crate::Result<PinnedPagableArc<T>>
     where
         T: Pagable,
@@ -812,6 +813,7 @@ impl<T: Pagable> PagableArcInner<T> {
 
     /// Ensures data is pinned, blocking if deserialization is needed.
     /// Adds one to pinned_count on success.
+    #[cfg(any(feature = "tokio", test))]
     fn alloc_pinned_blocking(&self) -> anyhow::Result<()>
     where
         T: Pagable,
@@ -974,8 +976,17 @@ impl<T: Pagable> ArcErase for PagableArc<T> {
     }
 
     fn serialize_inner(&self, ser: &mut dyn PagableSerializer) -> anyhow::Result<()> {
-        let strong = self.pin_sync()?;
-        <T as PagableSerialize>::pagable_serialize(&strong, ser)
+        #[cfg(any(feature = "tokio", test))]
+        {
+            let strong = self.pin_sync()?;
+            <T as PagableSerialize>::pagable_serialize(&strong, ser)
+        }
+        #[cfg(not(any(feature = "tokio", test)))]
+        {
+            Err(anyhow::anyhow!(
+                "Cannot serialize PagableArc without tokio feature"
+            ))
+        }
     }
 
     fn deserialize_inner<'de, D: PagableDeserializer<'de> + ?Sized>(
