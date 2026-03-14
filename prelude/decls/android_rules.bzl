@@ -700,6 +700,7 @@ android_library = prelude_rule(
                 jvm_common.k2() |
                 jvm_common.kotlin_compiler_plugins() |
                 jvm_common.incremental() |
+                jvm_common.skip_classpath_removal_rebuild() |
                 jvm_common.kotlincd_content_based_paths() |
                 jvm_common.javac() |
                 jvm_common.enable_used_classes() |

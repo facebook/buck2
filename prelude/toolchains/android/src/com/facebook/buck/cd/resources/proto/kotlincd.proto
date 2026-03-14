@@ -58,6 +58,13 @@ message KotlinExtraParams {
   bool shouldKsp2RunIncrementally = 26;
   bool shouldKosabiJvmAbiGenUseK2 = 27;
   string kotlinClassesDir = 28;
+  // When true, skip forcing a full rebuild when classpath entries are removed.
+  // This trades correctness for build speed: the Kotlin incremental compiler
+  // does not reliably detect removed classpath entries (see S618697,
+  // D90383250). Use only for targets where build speed regression from forced
+  // rebuilds is unacceptable and the risk of incorrect incremental builds is
+  // accepted.
+  bool skipClasspathRemovalRebuild = 29;
 }
 
 message PluginParams {

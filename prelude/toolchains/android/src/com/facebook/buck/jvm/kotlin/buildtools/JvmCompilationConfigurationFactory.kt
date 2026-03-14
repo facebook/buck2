@@ -82,11 +82,15 @@ internal class JvmCompilationConfigurationFactory(
                         }
                         is ClasspathChanges.HasRemovals -> {
                           // Force non-incremental mode when classpath entries are removed.
-                          // The Kotlin compiler's incremental compilation doesn't reliably detect
-                          // that existing compiled code references classes from removed
+                          // The Kotlin compiler's incremental compilation doesn't reliably
+                          // detect that existing compiled code references classes from removed
                           // dependencies.
                           // See:
                           // https://fb.workplace.com/groups/2222954841208728/permalink/4171196826470000/
+                          //
+                          // Note: When skip_classpath_removal_rebuild is set, the removal
+                          // detection is skipped entirely in ClasspathChangesFactory, so this
+                          // branch is not reached.
                           LOG.info(
                               "Non-incremental compilation will be performed: classpath removal detected"
                           )

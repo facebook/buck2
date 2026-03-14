@@ -41,7 +41,7 @@ public class ClasspathChangesFactoryTest {
     SnapshotsActionMetadata snapshotsActionMetadata = new SnapshotsActionMetadata(actionMetadata);
 
     ClasspathChanges classpathChanges =
-        ClasspathChangesFactory.create(snapshotsActionMetadata, ImmutableList.of());
+        ClasspathChangesFactory.create(snapshotsActionMetadata, ImmutableList.of(), false);
 
     assertTrue(classpathChanges instanceof ClasspathChanges.ToBeComputedByIncrementalCompiler);
   }
@@ -63,7 +63,7 @@ public class ClasspathChangesFactoryTest {
     SnapshotsActionMetadata snapshotsActionMetadata = new SnapshotsActionMetadata(actionMetadata);
 
     ClasspathChanges classpathChanges =
-        ClasspathChangesFactory.create(snapshotsActionMetadata, ImmutableList.of());
+        ClasspathChangesFactory.create(snapshotsActionMetadata, ImmutableList.of(), false);
 
     assertTrue(classpathChanges instanceof ClasspathChanges.HasRemovals);
   }
@@ -83,7 +83,7 @@ public class ClasspathChangesFactoryTest {
     SnapshotsActionMetadata snapshotsActionMetadata = new SnapshotsActionMetadata(actionMetadata);
 
     ClasspathChanges classpathChanges =
-        ClasspathChangesFactory.create(snapshotsActionMetadata, ImmutableList.of());
+        ClasspathChangesFactory.create(snapshotsActionMetadata, ImmutableList.of(), false);
 
     assertTrue(classpathChanges instanceof ClasspathChanges.ToBeComputedByIncrementalCompiler);
   }
@@ -103,7 +103,7 @@ public class ClasspathChangesFactoryTest {
     SnapshotsActionMetadata snapshotsActionMetadata = new SnapshotsActionMetadata(actionMetadata);
 
     ClasspathChanges classpathChanges =
-        ClasspathChangesFactory.create(snapshotsActionMetadata, ImmutableList.of());
+        ClasspathChangesFactory.create(snapshotsActionMetadata, ImmutableList.of(), false);
 
     assertTrue(classpathChanges instanceof ClasspathChanges.ToBeComputedByIncrementalCompiler);
   }
@@ -123,7 +123,7 @@ public class ClasspathChangesFactoryTest {
     SnapshotsActionMetadata snapshotsActionMetadata = new SnapshotsActionMetadata(actionMetadata);
 
     ClasspathChanges classpathChanges =
-        ClasspathChangesFactory.create(snapshotsActionMetadata, ImmutableList.of());
+        ClasspathChangesFactory.create(snapshotsActionMetadata, ImmutableList.of(), false);
 
     assertTrue(classpathChanges instanceof ClasspathChanges.NoChanges);
   }
@@ -137,7 +137,7 @@ public class ClasspathChangesFactoryTest {
     SnapshotsActionMetadata snapshotsActionMetadata = new SnapshotsActionMetadata(actionMetadata);
 
     ClasspathChanges classpathChanges =
-        ClasspathChangesFactory.create(snapshotsActionMetadata, ImmutableList.of());
+        ClasspathChangesFactory.create(snapshotsActionMetadata, ImmutableList.of(), false);
 
     assertTrue(classpathChanges instanceof ClasspathChanges.NoChanges);
   }
@@ -160,7 +160,7 @@ public class ClasspathChangesFactoryTest {
     SnapshotsActionMetadata snapshotsActionMetadata = new SnapshotsActionMetadata(actionMetadata);
 
     ClasspathChanges classpathChanges =
-        ClasspathChangesFactory.create(snapshotsActionMetadata, ImmutableList.of());
+        ClasspathChangesFactory.create(snapshotsActionMetadata, ImmutableList.of(), false);
 
     assertTrue(classpathChanges instanceof ClasspathChanges.NoChanges);
   }
@@ -179,7 +179,7 @@ public class ClasspathChangesFactoryTest {
     SnapshotsActionMetadata snapshotsActionMetadata = new SnapshotsActionMetadata(actionMetadata);
 
     ClasspathChanges classpathChanges =
-        ClasspathChangesFactory.create(snapshotsActionMetadata, ImmutableList.of());
+        ClasspathChangesFactory.create(snapshotsActionMetadata, ImmutableList.of(), false);
 
     assertTrue(classpathChanges instanceof ClasspathChanges.ToBeComputedByIncrementalCompiler);
   }
@@ -195,7 +195,7 @@ public class ClasspathChangesFactoryTest {
     SnapshotsActionMetadata snapshotsActionMetadata = new SnapshotsActionMetadata(actionMetadata);
 
     ClasspathChanges classpathChanges =
-        ClasspathChangesFactory.create(snapshotsActionMetadata, ImmutableList.of());
+        ClasspathChangesFactory.create(snapshotsActionMetadata, ImmutableList.of(), false);
 
     assertTrue(classpathChanges instanceof ClasspathChanges.HasRemovals);
   }
@@ -221,7 +221,7 @@ public class ClasspathChangesFactoryTest {
     SnapshotsActionMetadata snapshotsActionMetadata = new SnapshotsActionMetadata(actionMetadata);
 
     ClasspathChanges classpathChanges =
-        ClasspathChangesFactory.create(snapshotsActionMetadata, ImmutableList.of());
+        ClasspathChangesFactory.create(snapshotsActionMetadata, ImmutableList.of(), false);
 
     assertTrue(classpathChanges instanceof ClasspathChanges.NoChanges);
   }
@@ -247,7 +247,7 @@ public class ClasspathChangesFactoryTest {
     SnapshotsActionMetadata snapshotsActionMetadata = new SnapshotsActionMetadata(actionMetadata);
 
     ClasspathChanges classpathChanges =
-        ClasspathChangesFactory.create(snapshotsActionMetadata, ImmutableList.of());
+        ClasspathChangesFactory.create(snapshotsActionMetadata, ImmutableList.of(), false);
 
     assertTrue(classpathChanges instanceof ClasspathChanges.NoChanges);
   }
@@ -270,13 +270,36 @@ public class ClasspathChangesFactoryTest {
     ImmutableList<AbsPath> classpathSnapshots = ImmutableList.of(snapshot1, snapshot2);
 
     ClasspathChanges classpathChanges =
-        ClasspathChangesFactory.create(snapshotsActionMetadata, classpathSnapshots);
+        ClasspathChangesFactory.create(snapshotsActionMetadata, classpathSnapshots, false);
 
     assertTrue(classpathChanges instanceof ClasspathChanges.ToBeComputedByIncrementalCompiler);
     ClasspathChanges.ToBeComputedByIncrementalCompiler incrementalChanges =
         (ClasspathChanges.ToBeComputedByIncrementalCompiler) classpathChanges;
     assertTrue(incrementalChanges.getClasspathSnapshotFiles().contains(snapshot1.toFile()));
     assertTrue(incrementalChanges.getClasspathSnapshotFiles().contains(snapshot2.toFile()));
+  }
+
+  @Test
+  public void
+      when_snapshotFileIsRemovedAndSkipClasspathRemovalRebuildIsSet_then_ToBeComputedByIncrementalCompiler() {
+    Path snapshotFile1 = Paths.get("lib/test1.bin");
+    Path snapshotFile2 = Paths.get("lib/test2.bin");
+    Path removedSnapshotFile = Paths.get("lib/removed.bin");
+    Path metadataFile = Paths.get("metadata.json");
+    Map<Path, String> previousDigest = new HashMap<>();
+    previousDigest.put(snapshotFile1, "snapshot1-digest");
+    previousDigest.put(snapshotFile2, "snapshot2-digest");
+    previousDigest.put(removedSnapshotFile, "removed-snapshot-digest");
+    Map<Path, String> currentDigest = new HashMap<>();
+    currentDigest.put(snapshotFile1, "snapshot1-digest");
+    currentDigest.put(snapshotFile2, "snapshot2-digest");
+    ActionMetadata actionMetadata = new ActionMetadata(metadataFile, previousDigest, currentDigest);
+    SnapshotsActionMetadata snapshotsActionMetadata = new SnapshotsActionMetadata(actionMetadata);
+
+    ClasspathChanges classpathChanges =
+        ClasspathChangesFactory.create(snapshotsActionMetadata, ImmutableList.of(), true);
+
+    assertTrue(classpathChanges instanceof ClasspathChanges.ToBeComputedByIncrementalCompiler);
   }
 
   @Test
@@ -298,7 +321,7 @@ public class ClasspathChangesFactoryTest {
     ImmutableList<AbsPath> classpathSnapshots = ImmutableList.of(snapshot1, snapshot2);
 
     ClasspathChanges classpathChanges =
-        ClasspathChangesFactory.create(snapshotsActionMetadata, classpathSnapshots);
+        ClasspathChangesFactory.create(snapshotsActionMetadata, classpathSnapshots, false);
 
     assertTrue(classpathChanges instanceof ClasspathChanges.NoChanges);
     ClasspathChanges.NoChanges noChanges = (ClasspathChanges.NoChanges) classpathChanges;

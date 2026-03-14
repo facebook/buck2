@@ -157,6 +157,19 @@ def _incremental():
         ),
     }
 
+def _skip_classpath_removal_rebuild():
+    return {
+        "skip_classpath_removal_rebuild": attrs.bool(
+            default = False,
+            doc = """
+                When true, skip forcing a full rebuild when classpath entries are
+                removed. The Kotlin incremental compiler does not reliably detect
+                removed classpath entries (see S618697, D90383250). This trades
+                correctness for build speed.
+            """,
+        ),
+    }
+
 def _enable_used_classes():
     return {
         "enable_used_classes": attrs.bool(default = True, doc = """
@@ -306,6 +319,7 @@ jvm_common = struct(
     required_for_source_only_abi = _required_for_source_only_abi,
     k2 = _k2,
     incremental = _incremental,
+    skip_classpath_removal_rebuild = _skip_classpath_removal_rebuild,
     plugins = _plugins,
     kotlin_compiler_plugins = _kotlin_compiler_plugins,
     annotation_processors = _annotation_processors,
