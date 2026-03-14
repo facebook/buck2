@@ -1502,7 +1502,7 @@ def _get_compile_base(toolchain: CxxToolchainInfo, compiler_info: typing.Any, us
     """
     compiler = compiler_info.compiler_with_wrapper if compiler_info.compiler_with_wrapper and use_wrapper else compiler_info.compiler
 
-    if toolchain.remap_cwd and compiler_info.compiler_type in ["clang", "clang_windows", "clang_cl"]:
+    if toolchain.remap_cwd and compiler_info.compiler_type in ["clang", "clang_windows", "clang_cl", "gcc"]:
         return cmd_args(toolchain.internal_tools.remap_cwd, compiler)
     else:
         return cmd_args(compiler)
