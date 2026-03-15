@@ -1,6 +1,5 @@
 # Gazebo - a library of Rust utilities
 
-[![Support Ukraine](https://img.shields.io/badge/Support-Ukraine-FFD500?style=flat&labelColor=005BBB)](https://opensource.fb.com/support-ukraine)
 [![GitHub link](https://img.shields.io/badge/GitHub-facebookincubator%2Fgazebo-blue.svg)](https://github.com/facebookincubator/gazebo)
 [![crates.io version](https://img.shields.io/crates/v/gazebo.svg)](https://crates.io/crates/gazebo)
 [![docs.rs availability](https://img.shields.io/docsrs/gazebo?label=docs.rs)](https://docs.rs/gazebo/)

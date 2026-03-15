@@ -1,6 +1,5 @@
 # Starlark in Rust
 
-[![Support Ukraine](https://img.shields.io/badge/Support-Ukraine-FFD500?style=flat&labelColor=005BBB)](https://opensource.fb.com/support-ukraine)
 [![GitHub link](https://img.shields.io/badge/GitHub-facebook%2Fstarlark--rust-blue.svg)](https://github.com/facebook/starlark-rust)
 [![crates.io version](https://img.shields.io/crates/v/starlark.svg)](https://crates.io/crates/starlark)
 [![docs.rs availability](https://img.shields.io/docsrs/starlark?label=docs.rs)](https://docs.rs/starlark/)
