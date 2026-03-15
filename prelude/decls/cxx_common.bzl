@@ -322,9 +322,8 @@ def _version_arg():
 def _runtime_dependency_handling_arg():
     return {
         "runtime_dependency_handling": attrs.option(attrs.enum(RuntimeDependencyHandling), default = None, doc = """
-    Controls how shared library dependencies are handled at runtime. By default the `none` behaviour
-    is used. In the future this behaviour will be named `no_symlink`. Both behaviours opt out of
-    symlink creation. If `symlink` is specified then shared library dependencies with
+    Controls how shared library dependencies are handled at runtime. By default the `no_symlink` behaviour
+    is used, which opts out of symlink creation. If `symlink` is specified then shared library dependencies with
     `preferred_linkage = "shared"` are automatically detected and included in a symlink tree
     alongside the executable. Set to `symlink_single_level_only` to only include first-level runtime
     dependencies in a symlink tree.

@@ -216,8 +216,6 @@ PicBehavior = enum(
 
 # Additional behavior for how to handle runtime dependencies
 RuntimeDependencyHandling = enum(
-    # Do no additional handling (alias for "no_symlink" - hopefully we can remove this one)
-    "none",
     # Do no additional handling
     "no_symlink",
     # Always include runtime dependencies in a symlink tree, regardless
@@ -338,7 +336,7 @@ def cxx_toolchain_infos(
         objc_compiler_info = None,
         objcxx_compiler_info = None,
         cxx_error_handler = None,
-        runtime_dependency_handling = RuntimeDependencyHandling("none")):
+        runtime_dependency_handling = RuntimeDependencyHandling("no_symlink")):
     """
     Creates the collection of cxx-toolchain Infos for a cxx toolchain.
 

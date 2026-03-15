@@ -225,7 +225,7 @@ def _cxx_toolchain_from_cxx_tools_info(ctx: AnalysisContext, cxx_tools_info: Cxx
             pic_behavior = pic_behavior,
             llvm_link = llvm_link,
             use_dep_files = True,
-            runtime_dependency_handling = RuntimeDependencyHandling("none"),
+            runtime_dependency_handling = RuntimeDependencyHandling("no_symlink"),
         ),
         CxxPlatformInfo(name = target_name),
     ]

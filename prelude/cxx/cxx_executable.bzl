@@ -1004,7 +1004,11 @@ def _get_shared_library_symlink_deps(
             [d.shared_library_info for d in link_deps] +
             [d.shared_library_info for d in impl_params.extra_link_roots]
         )
+    elif impl_params.runtime_dependency_handling == RuntimeDependencyHandling("no_symlink"):
+        # Do not create a shared library symlink tree alongside the executable.
+        pass
     elif impl_params.runtime_dependency_handling == RuntimeDependencyHandling("symlink"):
+        # Include all transitive runtime shared library deps in a symlink tree.
         for linkable_node in linkable_graph.nodes.traverse():
             if linkable_node.linkable == None:
                 continue
@@ -1013,6 +1017,7 @@ def _get_shared_library_symlink_deps(
             if output_style == LibOutputStyle("shared_lib") and not linkable_node.linkable.stub:
                 shlib_deps.append(merge_shared_libraries(ctx.actions, node = linkable_node.linkable.shared_libs))
     elif impl_params.runtime_dependency_handling == RuntimeDependencyHandling("symlink_single_level_only"):
+        # Include only first-level (direct) runtime shared library deps in a symlink tree.
         for d in link_deps + impl_params.extra_link_roots:
             if d.linkable_graph == None:
                 continue
