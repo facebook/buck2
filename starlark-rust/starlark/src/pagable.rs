@@ -56,9 +56,13 @@ pub use static_value::StaticValueEntry;
 #[allow(unused_imports)]
 pub(crate) use static_value::get_static_value_id;
 
+pub(crate) mod starlark_deserialize;
+pub(crate) mod starlark_deserialize_context;
 pub(crate) mod starlark_serialize;
 pub(crate) mod starlark_serialize_context;
 
 // Re-export public types
+pub use starlark_deserialize::StarlarkDeserialize;
+pub use starlark_deserialize::StarlarkDeserializeContext;
 pub use starlark_serialize::StarlarkSerialize;
 pub use starlark_serialize::StarlarkSerializeContext;
