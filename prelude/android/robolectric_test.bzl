@@ -105,14 +105,11 @@ def robolectric_test_impl(ctx: AnalysisContext) -> list[Provider]:
         java_providers.java_global_code_info,
     ]
 
-    if ctx.attrs.used_as_dependency_deprecated_do_not_use:
-        providers.append(java_providers.java_library_info)
-    else:
-        java_library_without_compiling_deps = JavaLibraryInfo(
-            compiling_deps = None,
-            library_output = java_providers.java_library_info.library_output,
-            output_for_classpath_macro = java_providers.java_library_info.output_for_classpath_macro,
-        )
-        providers.append(java_library_without_compiling_deps)
+    java_library_without_compiling_deps = JavaLibraryInfo(
+        compiling_deps = None,
+        library_output = java_providers.java_library_info.library_output,
+        output_for_classpath_macro = java_providers.java_library_info.output_for_classpath_macro,
+    )
+    providers.append(java_library_without_compiling_deps)
 
     return providers
