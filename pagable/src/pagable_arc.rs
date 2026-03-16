@@ -731,7 +731,14 @@ impl<T> PagableArcInnerState<T> {
     }
 }
 
+// On 64-bit platforms, all fields (including AtomicU64) are usize-aligned so
+// the struct packs into 8 usizes.  On 32-bit targets (e.g. wasm32), fixed-size
+// fields like AtomicU64 stay 8 bytes while usize shrinks to 4, so the struct
+// occupies 12 usizes instead.
+#[cfg(target_pointer_width = "64")]
 static_assertions::assert_eq_size!(PagableArcInner<[usize; 4]>, [usize; 8]);
+#[cfg(target_pointer_width = "32")]
+static_assertions::assert_eq_size!(PagableArcInner<[usize; 4]>, [usize; 12]);
 
 impl<T: Pagable> PagableArcInner<T> {
     pub fn new_paged_out(key: &DataKey, storage: PagableStorageHandle) -> Self {
