@@ -968,10 +968,8 @@ public class InstrumentationTestRunner extends DeviceRunner {
       listeners.add(trimLineListener);
       listeners.add(buckXmlListener);
 
-      // Add timeout enforcement listener if enabled
-      if ("true".equals(System.getenv(PER_TEST_TIMEOUT_ENABLED_ENV))) {
-        listeners.add(new InstrumentationTimeoutEnforcingRunListener(buckXmlListener));
-      }
+      // Determine the result listener for timeout enforcement.
+      ITestRunListener resultListener = buckXmlListener;
 
       Optional<TestResultsOutputSender> testResultsOutputSender =
           TestResultsOutputSender.fromDefaultEnvName();
@@ -980,6 +978,11 @@ public class InstrumentationTestRunner extends DeviceRunner {
             new InstrumentationTpxStandardOutputTestListener(
                 testResultsOutputSender.get(), androidDevice, adbUtils);
         listeners.add(tpxListener);
+        resultListener = tpxListener;
+      }
+
+      if ("true".equals(System.getenv(PER_TEST_TIMEOUT_ENABLED_ENV))) {
+        listeners.add(new InstrumentationTimeoutEnforcingRunListener(resultListener));
       }
 
       if (this.userId != null) {
