@@ -18,13 +18,12 @@ load("@prelude//os_lookup:defs.bzl", "Os", "OsLookup")
 load("@prelude//rust/tools:attrs.bzl", "RustInternalToolsInfo")
 load("@prelude//utils:cmd_script.bzl", "cmd_script")
 load(":build_params.bzl", "BuildParams", "CrateType", "Emit", "ProfileMode")
+load(
+    ":crate_name.bzl",
+    "CrateName",  # @unused Used as a type
+)
 load(":rust_toolchain.bzl", "PanicRuntime", "RustExplicitSysrootDeps", "RustToolchainInfo")
 load(":sources.bzl", "symlinked_srcs")
-
-CrateName = record(
-    simple = field(str | ResolvedStringWithMacros),
-    dynamic = field(Artifact | None),
-)
 
 # Struct for sharing common args between rustc and rustdoc
 # (rustdoc just relays bunch of the same args to rustc when trying to gen docs)

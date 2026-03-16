@@ -96,8 +96,11 @@ load(
 )
 load(
     ":context.bzl",
-    "CrateName",  # @unused Used as a type
     "DepCollectionContext",  # @unused Used as a type
+)
+load(
+    ":crate_name.bzl",
+    "CrateName",  # @unused Used as a type
 )
 load(":rust_toolchain.bzl", "PanicRuntime", "RustToolchainInfo")
 

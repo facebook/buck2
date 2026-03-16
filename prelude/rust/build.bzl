@@ -94,9 +94,12 @@ load(
     ":context.bzl",
     "CommonArgsInfo",
     "CompileContext",
-    "CrateName",  # @unused Used as a type
     "DepCollectionContext",
     "output_filename",
+)
+load(
+    ":crate_name.bzl",
+    "CrateName",  # @unused Used as a type
 )
 load(
     ":extern.bzl",
