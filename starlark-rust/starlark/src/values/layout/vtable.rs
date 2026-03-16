@@ -38,6 +38,7 @@ use crate::environment::Methods;
 use crate::eval::Arguments;
 use crate::eval::Evaluator;
 use crate::pagable::DeserTypeId;
+use crate::pagable::starlark_deserialize::StarlarkDeserializeContext;
 use crate::pagable::starlark_serialize::StarlarkSerializeContext;
 use crate::private::Private;
 use crate::typing::Ty;
@@ -140,6 +141,10 @@ pub struct AValueVTable {
     heap_copy: for<'v> fn(StarlarkValueRawPtr, &Tracer<'v>) -> Value<'v>,
     starlark_serialize:
         fn(StarlarkValueRawPtr, &mut dyn StarlarkSerializeContext) -> crate::Result<()>,
+    starlark_deserialize: for<'de> fn(
+        StarlarkValueRawPtr,
+        &mut dyn StarlarkDeserializeContext<'de>,
+    ) -> crate::Result<()>,
 
     // `StarlarkValue` supertraits.
     display: unsafe fn(StarlarkValueRawPtr) -> *const dyn Display,
@@ -190,6 +195,7 @@ impl AValueVTable {
             heap_freeze: |_, _| panic!("BlackHole"),
             heap_copy: |_, _| panic!("BlackHole"),
             starlark_serialize: |_, _| panic!("BlackHole"),
+            starlark_deserialize: |_, _| panic!("BlackHole"),
             type_name: "BlackHole",
             type_as_allocative_key: BLACKHOLE_ALLOCATIVE_KEY,
             deser_type_id: BLACKHOLE_DESER_TYPE_ID,
@@ -241,6 +247,10 @@ impl AValueVTable {
                 let p = AValueRepr::from_payload_ptr_mut(p.value_ptr::<T::StarlarkValue>())
                     as *const AValueRepr<T::StarlarkValue>;
                 T::starlark_serialize(p, ctx)
+            },
+            starlark_deserialize: |p, ctx| unsafe {
+                let p = AValueRepr::from_payload_ptr_mut(p.value_ptr::<T::StarlarkValue>());
+                T::starlark_deserialize(p, ctx)
             },
             static_type_of_value: GetTypeId::<T::StarlarkValue>::TYPE_ID,
             starlark_type_id: GetTypeId::<T::StarlarkValue>::STARLARK_TYPE_ID,
@@ -359,6 +369,14 @@ impl<'v> AValueDyn<'v> {
         ctx: &mut dyn StarlarkSerializeContext,
     ) -> crate::Result<()> {
         (self.vtable.starlark_serialize)(self.value, ctx)
+    }
+
+    #[expect(dead_code)]
+    pub(crate) fn starlark_deserialize(
+        self,
+        ctx: &mut dyn StarlarkDeserializeContext<'_>,
+    ) -> crate::Result<()> {
+        (self.vtable.starlark_deserialize)(self.value, ctx)
     }
 
     #[inline]

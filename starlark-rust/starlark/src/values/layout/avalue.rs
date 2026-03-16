@@ -25,6 +25,7 @@ use derive_more::Display;
 
 use crate as starlark;
 use crate::any::ProvidesStaticType;
+use crate::pagable::starlark_deserialize::StarlarkDeserializeContext;
 use crate::pagable::starlark_serialize::StarlarkSerializeContext;
 use crate::values::FreezeResult;
 use crate::values::Freezer;
@@ -107,6 +108,20 @@ pub(crate) trait AValue<'v>: Sized + 'v {
         Err(crate::Error::new_kind(crate::ErrorKind::Other(
             anyhow::anyhow!(
                 "Type `{}` does not support starlark serialization",
+                Self::StarlarkValue::TYPE
+            ),
+        )))
+    }
+
+    /// Deserialize this value into pre-allocated memory using the provided context.
+    /// Default implementation returns an error — override for types that support deserialization.
+    fn starlark_deserialize(
+        _me: *mut AValueRepr<Self::StarlarkValue>,
+        _ctx: &mut dyn StarlarkDeserializeContext<'_>,
+    ) -> crate::Result<()> {
+        Err(crate::Error::new_kind(crate::ErrorKind::Other(
+            anyhow::anyhow!(
+                "Type `{}` does not support starlark deserialization",
                 Self::StarlarkValue::TYPE
             ),
         )))
