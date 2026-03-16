@@ -80,9 +80,7 @@ def __patch_ctypes(saved_env: dict[str, str]) -> None:
 def __patch_spawn(var_names: list[str], saved_env: dict[str, str]) -> None:
     std_spawn = mp_util.spawnv_passfds
 
-    # pyre-fixme[53]: Captured variable `std_spawn` is not annotated.
-    # pyre-fixme[53]: Captured variable `saved_env` is not annotated.
-    # pyre-fixme[53]: Captured variable `var_names` is not annotated.
+    # pyre-fixme[53]: Captured variable is not annotated.
     # pyre-fixme[2]: Parameter must be annotated.
     def spawnv_passfds(path, args, passfds) -> None | int:
         with lock:
@@ -148,11 +146,16 @@ def __patch_spawn_preparation_data() -> None:
     mp_spawn.get_preparation_data = get_preparation_data
 
 
-def __patch_subprocess_run() -> None:
+def __patch_subprocess_run(saved_env: dict[str, str]) -> None:
     import subprocess
     from functools import wraps
 
     std_run = subprocess.run
+
+    if sys.platform == "darwin":
+        _lib_path_vars = ("DYLD_LIBRARY_PATH", "DYLD_INSERT_LIBRARIES")
+    else:
+        _lib_path_vars = ("LD_LIBRARY_PATH", "LD_PRELOAD")
 
     @wraps(std_run)
     # pyre-fixme[2]: Parameter must be annotated.
@@ -186,6 +189,11 @@ def __patch_subprocess_run() -> None:
                 os.path.isfile(os.path.join(d, "sitecustomize.py")) for d in resolved
             ):
                 env["PYTHONHOME"] = sys.prefix
+            # Restore library path env vars so the child process can find
+            # bundled native libraries (e.g. libpython, libX11).
+            for var in _lib_path_vars:
+                if var not in env and var in saved_env:
+                    env[var] = saved_env[var]
 
         return std_run(args, env=env, **kwargs)
 
@@ -283,7 +291,7 @@ def __clear_env(
         __patch_spawn(var_names, saved_env)
         __patch_spawn_preparation_data()
         __patch_ctypes(saved_env)
-        __patch_subprocess_run()
+        __patch_subprocess_run(saved_env)
         __patch_resource_tracker_fork()
 
 
