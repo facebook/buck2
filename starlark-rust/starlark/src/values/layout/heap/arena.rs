@@ -330,34 +330,68 @@ impl<A: ArenaAllocator> Arena<A> {
         ChunkIter { chunk }
     }
 
-    // Iterate over the values in the heap in the order they
-    // were added.
-    fn for_each_ordered<'a>(&'a mut self, mut f: impl FnMut(ArenaVisitEvent<'a>)) {
-        // We get the chunks from most newest to oldest as per the bumpalo spec.
+    /// Iterate over values in a single bump allocator in allocation order.
+    fn for_each_bump_ordered<'a>(bump: &'a A, mut f: impl FnMut(&'a AValueOrForward)) {
+        // We get the chunks from newest to oldest as per the bumpalo spec.
         // And within each chunk, the values are filled newest to oldest.
         // So need to do two sets of reversing.
-        for bump in [&mut self.drop, &mut self.non_drop] {
-            f(ArenaVisitEvent::EnterBump);
-            let chunks = unsafe { bump.iter_allocated_chunks_rev().collect::<Vec<_>>() };
-            // Use a single buffer to reduce allocations, but clear it after use
-            let mut buffer = Vec::new();
-            for chunk in chunks.iter().rev() {
-                match A::CHUNK_ALLOCATION_DIRECTION {
-                    ChunkAllocationDirection::Down => {
-                        buffer.extend(Arena::<A>::iter_chunk(chunk));
-                        for x in buffer.iter().rev() {
-                            f(ArenaVisitEvent::Value(x));
-                        }
-                        buffer.clear();
+        let chunks = unsafe { bump.iter_allocated_chunks_rev().collect::<Vec<_>>() };
+        let mut buffer = Vec::new();
+        for chunk in chunks.iter().rev() {
+            match A::CHUNK_ALLOCATION_DIRECTION {
+                ChunkAllocationDirection::Down => {
+                    buffer.extend(Arena::<A>::iter_chunk(chunk));
+                    for x in buffer.iter().rev() {
+                        f(x);
                     }
-                    ChunkAllocationDirection::Up => {
-                        for x in Arena::<A>::iter_chunk(chunk) {
-                            f(ArenaVisitEvent::Value(x));
-                        }
+                    buffer.clear();
+                }
+                ChunkAllocationDirection::Up => {
+                    for x in Arena::<A>::iter_chunk(chunk) {
+                        f(x);
                     }
                 }
             }
         }
+    }
+
+    // Iterate over the values in the heap in the order they
+    // were added.
+    fn for_each_ordered<'a>(&'a mut self, mut f: impl FnMut(ArenaVisitEvent<'a>)) {
+        for bump in [&self.drop, &self.non_drop] {
+            f(ArenaVisitEvent::EnterBump);
+            Self::for_each_bump_ordered(bump, |x| f(ArenaVisitEvent::Value(x)));
+        }
+    }
+
+    /// Collect live value headers from the `drop` bump in allocation order.
+    /// Forward pointers (from GC) are skipped.
+    #[expect(
+        dead_code,
+        reason = "used by FrozenFrozenHeap serialization in later diffs"
+    )]
+    pub(crate) fn collect_drop_headers_ordered(&self) -> Vec<&AValueHeader> {
+        Self::collect_bump_headers_ordered(&self.drop)
+    }
+
+    /// Collect live value headers from the `non_drop` bump in allocation order.
+    /// Forward pointers (from GC) are skipped.
+    #[expect(
+        dead_code,
+        reason = "used by FrozenFrozenHeap serialization in later diffs"
+    )]
+    pub(crate) fn collect_undrop_headers_ordered(&self) -> Vec<&AValueHeader> {
+        Self::collect_bump_headers_ordered(&self.non_drop)
+    }
+
+    fn collect_bump_headers_ordered(bump: &A) -> Vec<&AValueHeader> {
+        let mut headers = Vec::new();
+        Self::for_each_bump_ordered(bump, |value| {
+            if let Some(header) = value.unpack_header() {
+                headers.push(header);
+            }
+        });
+        headers
     }
 
     pub(crate) unsafe fn visit_arena<'v>(
