@@ -41,7 +41,7 @@ load(
     "get_reindeer_platforms",
 )
 load(
-    ":context.bzl",
+    ":dep_context.bzl",
     "DepCollectionContext",
 )
 load(

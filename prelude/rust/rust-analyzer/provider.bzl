@@ -10,11 +10,14 @@ load("@prelude//rust:build.bzl", "crate_root", "process_env")
 load(
     "@prelude//rust:context.bzl",
     "CompileContext",  # @unused Used as a type
-    "DepCollectionContext",  # @unused Used as a type
 )
 load(
     "@prelude//rust:crate_name.bzl",
     "CrateName",  # @unused Used as a type
+)
+load(
+    "@prelude//rust:dep_context.bzl",
+    "DepCollectionContext",  # @unused Used as a type
 )
 load("@prelude//rust:link_info.bzl", "attr_crate", "get_available_proc_macros", "resolve_rust_deps")
 

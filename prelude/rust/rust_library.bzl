@@ -93,8 +93,11 @@ load(
 load(
     ":context.bzl",
     "CompileContext",  # @unused Used as a type
-    "DepCollectionContext",
     "compile_context",
+)
+load(
+    ":dep_context.bzl",
+    "DepCollectionContext",
 )
 load(
     ":link_info.bzl",

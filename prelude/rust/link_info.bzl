@@ -95,12 +95,12 @@ load(
     "MetadataKind",  # @unused Used as a type
 )
 load(
-    ":context.bzl",
-    "DepCollectionContext",  # @unused Used as a type
-)
-load(
     ":crate_name.bzl",
     "CrateName",  # @unused Used as a type
+)
+load(
+    ":dep_context.bzl",
+    "DepCollectionContext",  # @unused Used as a type
 )
 load(":rust_toolchain.bzl", "PanicRuntime", "RustToolchainInfo")
 

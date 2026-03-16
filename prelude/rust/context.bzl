@@ -22,7 +22,8 @@ load(
     ":crate_name.bzl",
     "CrateName",  # @unused Used as a type
 )
-load(":rust_toolchain.bzl", "PanicRuntime", "RustExplicitSysrootDeps", "RustToolchainInfo")
+load(":dep_context.bzl", "DepCollectionContext")
+load(":rust_toolchain.bzl", "RustToolchainInfo")
 load(":sources.bzl", "symlinked_srcs")
 
 # Struct for sharing common args between rustc and rustdoc
@@ -35,20 +36,6 @@ CommonArgsInfo = record(
     params = field(BuildParams),
     emit = field(Emit),
     crate_map = field(list[(CrateName, Label)]),
-)
-
-# Information that determines how dependencies should be collected
-DepCollectionContext = record(
-    advanced_unstable_linking = field(bool),
-    include_doc_deps = field(bool),
-    # Is the target a proc-macro target? This is ignored if `include_doc_deps`
-    # is set, since doc tests in proc macro crates are not built with
-    # `--extern proc_macro`
-    is_proc_macro = field(bool),
-    # From the toolchain, if available
-    explicit_sysroot_deps = field(RustExplicitSysrootDeps | None),
-    # Only needed if `advanced_unstable_linking` is set
-    panic_runtime = field(PanicRuntime),
 )
 
 # Compile info which is reusable between multiple compilation command performed
