@@ -157,8 +157,12 @@ def _cargo_buildscript_impl(ctx: AnalysisContext) -> list[Provider]:
         env["CARGO_FEATURE_{}".format(upper_feature)] = "1"
 
     for flag in toolchain_info.rustc_flags:
+        if isinstance(flag, ResolvedStringWithMacros):
+            flag = str(flag)[1:-1]
         if flag.startswith("-Copt-level="):
-            env["OPT_LEVEL"] = flag.removeprefix("-Copt-level=")
+            opt_level = flag.removeprefix("-Copt-level=")
+            if opt_level.isdigit():
+                env["OPT_LEVEL"] = opt_level
 
     # Environment variables specified in the target's attributes get priority
     # over all the above.
