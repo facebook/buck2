@@ -376,7 +376,7 @@ def generate_rustdoc_test(
     rustdoc_cmd = cmd_args(
         [cmd_args("--env=", k, "=", v, delimiter = "") for k, v in plain_env.items()],
         [cmd_args("--path-env=", k, "=", v, delimiter = "") for k, v in path_env.items()],
-        cmd_args(toolchain_info.remap_paths_to, format = "--remap-paths-to={}"),
+        ["--remap-paths-to={}".format(toolchain_info.remap_paths_to)] if toolchain_info.remap_paths_to else [],
         toolchain_info.rustdoc,
         "--rustc-action-separator",
         "--test",
@@ -1463,7 +1463,7 @@ def _rustc_invoke(
         cmd_args(diag_json.as_output(), format = "--diag-json={}"),
         cmd_args(diag_txt.as_output(), format = "--diag-txt={}"),
         ["--remap-cwd-prefix=."] if not toolchain_info.nightly_features else [],
-        cmd_args(toolchain_info.remap_paths_to, format = "--remap-paths-to={}"),
+        ["--remap-paths-to={}".format(toolchain_info.remap_paths_to)] if toolchain_info.remap_paths_to else [],
         "--buck-target={}".format(ctx.label.raw_target()),
         hidden = [toolchain_info.compiler, compile_ctx.symlinked_srcs],
     )
