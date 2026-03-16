@@ -37,6 +37,7 @@ use crate::docs::DocItem;
 use crate::environment::Methods;
 use crate::eval::Arguments;
 use crate::eval::Evaluator;
+use crate::pagable::DeserTypeId;
 use crate::pagable::starlark_serialize::StarlarkSerializeContext;
 use crate::private::Private;
 use crate::typing::Ty;
@@ -124,6 +125,11 @@ pub struct AValueVTable {
     // `StarlarkValue`
     pub(crate) starlark_value: StarlarkValueVTable,
 
+    /// Deserialization type identifier
+    /// Used for vtable lookup during deserialization.
+    #[expect(dead_code, reason = "will be read when deserialization is wired up")]
+    pub(crate) deser_type_id: DeserTypeId,
+
     // `Drop`
     drop_in_place: fn(StarlarkValueRawPtr),
 
@@ -156,12 +162,23 @@ impl<'v, T: StarlarkValue<'v>> GetAllocativeKey<'v, T> {
     const ALLOCATIVE_KEY: allocative::Key = allocative::Key::new(T::TYPE);
 }
 
+/// Helper struct to compute [`DeserTypeId`] as an associated const
+/// for a generic `StarlarkValue` type parameter.
+/// Used in `AValueVTable::new()` which is a `const fn`.
+struct GetDeserTypeId<'v, T: StarlarkValue<'v>>(PhantomData<&'v T>);
+
+impl<'v, T: StarlarkValue<'v>> GetDeserTypeId<'v, T> {
+    const DESER_TYPE_ID: DeserTypeId = DeserTypeId::of::<T>();
+}
+
 impl AValueVTable {
     pub(crate) fn new_black_hole() -> &'static AValueVTable {
         const BLACKHOLE_ALLOCATIVE_KEY: allocative::Key = allocative::Key::new("BlackHole");
         const BLACKHOLE_TYPE_ID: ConstTypeId = ConstTypeId::of::<BlackHole>();
         const BLACKHOLE_STARLARK_TYPE_ID: StarlarkTypeId =
             StarlarkTypeId::from_type_id(BLACKHOLE_TYPE_ID);
+        const BLACKHOLE_DESER_TYPE_ID: DeserTypeId = DeserTypeId::of::<BlackHole>();
+
         &AValueVTable {
             drop_in_place: |_| {},
 
@@ -175,6 +192,7 @@ impl AValueVTable {
             starlark_serialize: |_, _| panic!("BlackHole"),
             type_name: "BlackHole",
             type_as_allocative_key: BLACKHOLE_ALLOCATIVE_KEY,
+            deser_type_id: BLACKHOLE_DESER_TYPE_ID,
 
             display: |this| {
                 let this = unsafe { &*this.value_ptr::<BlackHole>() };
@@ -228,6 +246,7 @@ impl AValueVTable {
             starlark_type_id: GetTypeId::<T::StarlarkValue>::STARLARK_TYPE_ID,
             type_name: T::StarlarkValue::TYPE,
             type_as_allocative_key: GetAllocativeKey::<T::StarlarkValue>::ALLOCATIVE_KEY,
+            deser_type_id: GetDeserTypeId::<T::StarlarkValue>::DESER_TYPE_ID,
             display: |this| unsafe {
                 let this = this.value_ptr::<T::StarlarkValue>();
                 let display = this as *const dyn Display;

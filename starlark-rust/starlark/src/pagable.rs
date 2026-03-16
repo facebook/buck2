@@ -34,6 +34,21 @@ pub(crate) mod error;
 #[cfg(feature = "pagable")]
 pub(crate) mod vtable_registry;
 
+#[cfg(feature = "pagable")]
+pub(crate) use vtable_registry::DeserTypeId;
+
+/// Stub `DeserTypeId` when the `pagable` feature is disabled.
+#[cfg(not(feature = "pagable"))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub(crate) struct DeserTypeId;
+
+#[cfg(not(feature = "pagable"))]
+impl DeserTypeId {
+    pub const fn of<T: ?Sized>() -> Self {
+        DeserTypeId
+    }
+}
+
 pub(crate) mod vtable_register;
 
 pub(crate) mod static_value;
