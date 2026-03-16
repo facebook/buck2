@@ -112,7 +112,6 @@ class Args(NamedTuple):
     env: Optional[list[tuple[str, str]]]
     path_env: Optional[list[tuple[str, str]]]
     remap_cwd_prefix: Optional[str]
-    remap_paths_to: Optional[str]
     crate_map: Optional[list[tuple[str, str]]]
     buck_target: Optional[str]
     failure_filter: Optional[IO[bytes]]
@@ -152,10 +151,6 @@ def arg_parse() -> Args:
     parser.add_argument(
         "--remap-cwd-prefix",
         help="Remap paths under the current working directory to this path prefix",
-    )
-    parser.add_argument(
-        "--remap-paths-to",
-        help="Prefix remapped paths with the provided path, and unmap them again before printing diagnostics",
     )
     parser.add_argument(
         "--crate-map",
@@ -253,11 +248,6 @@ async def handle_output(  # noqa: C901
 
         if line is None or line == b"":
             break
-
-        # Strip remap prefix from paths in diagnostics so users still get
-        # regular relative paths
-        if args.remap_paths_to:
-            line = line.replace(args.remap_paths_to.encode(), b"")
 
         try:
             diag = json.loads(line)
