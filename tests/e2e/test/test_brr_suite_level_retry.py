@@ -11,6 +11,7 @@
 import json
 import re
 from pathlib import Path
+from typing import cast
 
 from buck2.tests.e2e_util.api.buck import Buck
 from buck2.tests.e2e_util.api.buck_result import BuckException
@@ -20,6 +21,23 @@ from buck2.tests.e2e_util.buck_workspace import buck_test, get_mode_from_platfor
 def remove_ansi_escape_sequences(ansi_str: str) -> str:
     ansi_escape = re.compile(r"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])")
     return ansi_escape.sub("", ansi_str)
+
+
+def read_brr_report(path: Path) -> dict[str, object]:
+    """Read a JSONL BRR report file and merge all lines into a single dict.
+
+    TPX writes one JSON object per line (one per acked failure). This helper
+    parses every line and collects all test_names into a single combined dict
+    so callers can inspect the aggregate report.
+    """
+    lines = [json.loads(line) for line in path.read_text().splitlines() if line.strip()]
+    assert lines, f"BRR report file is empty: {path}"
+    merged = dict(lines[0])
+    all_test_names: list[str] = []
+    for line in lines:
+        all_test_names.extend(line.get("test_names", []))
+    merged["test_names"] = all_test_names
+    return merged
 
 
 PYTHON_TEST_TARGET: str = "fbcode//buck2/tests/targets/rules/python/test:test"
@@ -116,8 +134,8 @@ async def test_brr_roundtrip_run_as_bundle_failure(buck: Buck, tmp_path: Path) -
 
     # Step 2: Verify the report was written and contains a "- main" entry.
     assert report_file.exists(), "Failure report was not written"
-    report = json.loads(report_file.read_text())
-    test_names = report.get("test_names", [])
+    report = read_brr_report(report_file)
+    test_names = cast(list[str], report.get("test_names", []))
     has_main = any(name.endswith("- main") for name in test_names)
     assert has_main, f"Expected a '- main' entry in test_names, got: {test_names}"
 
@@ -141,8 +159,8 @@ async def test_brr_roundtrip_run_as_bundle_failure(buck: Buck, tmp_path: Path) -
     # Step 4: The retry must reproduce the failure.  Verify by
     # checking the retry report file rather than parsing stderr.
     assert retry_report_file.exists(), "Retry failure report was not written"
-    retry_report = json.loads(retry_report_file.read_text())
-    retry_test_names = retry_report.get("test_names", [])
+    retry_report = read_brr_report(retry_report_file)
+    retry_test_names = cast(list[str], retry_report.get("test_names", []))
     retry_has_main = any(name.endswith("- main") for name in retry_test_names)
     assert retry_has_main, (
         f"Expected a '- main' entry in retry report test_names, got: {retry_test_names}"
@@ -187,8 +205,8 @@ async def test_brr_roundtrip_listing_failure(buck: Buck, tmp_path: Path) -> None
 
     # Step 2: Verify the report was written and contains a "- main" entry.
     assert report_file.exists(), "Failure report was not written"
-    report = json.loads(report_file.read_text())
-    test_names = report.get("test_names", [])
+    report = read_brr_report(report_file)
+    test_names = cast(list[str], report.get("test_names", []))
     has_main = any(name.endswith("- main") for name in test_names)
     assert has_main, f"Expected a '- main' entry in test_names, got: {test_names}"
 
@@ -212,8 +230,8 @@ async def test_brr_roundtrip_listing_failure(buck: Buck, tmp_path: Path) -> None
     # Step 4: The retry must reproduce the listing failure.  Verify by
     # checking the retry report file rather than parsing stderr.
     assert retry_report_file.exists(), "Retry failure report was not written"
-    retry_report = json.loads(retry_report_file.read_text())
-    retry_test_names = retry_report.get("test_names", [])
+    retry_report = read_brr_report(retry_report_file)
+    retry_test_names = cast(list[str], retry_report.get("test_names", []))
     retry_has_main = any(name.endswith("- main") for name in retry_test_names)
     assert retry_has_main, (
         f"Expected a '- main' entry in retry report test_names, got: {retry_test_names}"
@@ -257,8 +275,8 @@ async def test_brr_transient_listing_failure_runs_tests(
 
     # Step 2: Verify the report has "- main".
     assert report_file.exists(), "Failure report was not written"
-    report = json.loads(report_file.read_text())
-    test_names = report.get("test_names", [])
+    report = read_brr_report(report_file)
+    test_names = cast(list[str], report.get("test_names", []))
     has_main = any(name.endswith("- main") for name in test_names)
     assert has_main, f"Expected '- main' in test_names, got: {test_names}"
 
