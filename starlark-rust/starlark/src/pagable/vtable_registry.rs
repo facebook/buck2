@@ -40,6 +40,15 @@ use crate::values::layout::vtable::AValueVTable;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct DeserTypeId(pub &'static str);
 
+impl pagable::PagableSerialize for DeserTypeId {
+    fn pagable_serialize(
+        &self,
+        serializer: &mut dyn pagable::PagableSerializer,
+    ) -> pagable::Result<()> {
+        self.0.pagable_serialize(serializer)
+    }
+}
+
 impl DeserTypeId {
     /// Create a `DeserTypeId` for a type.
     #[inline]
