@@ -25,6 +25,7 @@ use derive_more::Display;
 
 use crate as starlark;
 use crate::any::ProvidesStaticType;
+use crate::pagable::starlark_serialize::StarlarkSerializeContext;
 use crate::values::FreezeResult;
 use crate::values::Freezer;
 use crate::values::FrozenValue;
@@ -96,6 +97,20 @@ pub(crate) trait AValue<'v>: Sized + 'v {
 
     unsafe fn heap_copy(me: *mut AValueRepr<Self::StarlarkValue>, tracer: &Tracer<'v>)
     -> Value<'v>;
+
+    /// Serialize this value using the provided context.
+    /// Default implementation returns an error — override for types that support serialization.
+    fn starlark_serialize(
+        _me: *const AValueRepr<Self::StarlarkValue>,
+        _ctx: &mut dyn StarlarkSerializeContext,
+    ) -> crate::Result<()> {
+        Err(crate::Error::new_kind(crate::ErrorKind::Other(
+            anyhow::anyhow!(
+                "Type `{}` does not support starlark serialization",
+                Self::StarlarkValue::TYPE
+            ),
+        )))
+    }
 }
 
 /// A value with extended (`AValue`) vtable methods.

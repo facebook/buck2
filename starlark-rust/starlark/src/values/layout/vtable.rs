@@ -37,6 +37,7 @@ use crate::docs::DocItem;
 use crate::environment::Methods;
 use crate::eval::Arguments;
 use crate::eval::Evaluator;
+use crate::pagable::starlark_serialize::StarlarkSerializeContext;
 use crate::private::Private;
 use crate::typing::Ty;
 use crate::values::FreezeResult;
@@ -131,6 +132,8 @@ pub struct AValueVTable {
     memory_size: fn(StarlarkValueRawPtr) -> ValueAllocSize,
     heap_freeze: fn(StarlarkValueRawPtr, &Freezer) -> FreezeResult<FrozenValue>,
     heap_copy: for<'v> fn(StarlarkValueRawPtr, &Tracer<'v>) -> Value<'v>,
+    starlark_serialize:
+        fn(StarlarkValueRawPtr, &mut dyn StarlarkSerializeContext) -> crate::Result<()>,
 
     // `StarlarkValue` supertraits.
     display: unsafe fn(StarlarkValueRawPtr) -> *const dyn Display,
@@ -169,6 +172,7 @@ impl AValueVTable {
 
             heap_freeze: |_, _| panic!("BlackHole"),
             heap_copy: |_, _| panic!("BlackHole"),
+            starlark_serialize: |_, _| panic!("BlackHole"),
             type_name: "BlackHole",
             type_as_allocative_key: BLACKHOLE_ALLOCATIVE_KEY,
 
@@ -214,6 +218,11 @@ impl AValueVTable {
                 let p = &mut *AValueRepr::from_payload_ptr_mut(p.value_ptr::<T::StarlarkValue>());
                 let value = T::heap_copy(p, transmute!(&Tracer, &Tracer, tracer));
                 transmute!(Value, Value, value)
+            },
+            starlark_serialize: |p, ctx| unsafe {
+                let p = AValueRepr::from_payload_ptr_mut(p.value_ptr::<T::StarlarkValue>())
+                    as *const AValueRepr<T::StarlarkValue>;
+                T::starlark_serialize(p, ctx)
             },
             static_type_of_value: GetTypeId::<T::StarlarkValue>::TYPE_ID,
             starlark_type_id: GetTypeId::<T::StarlarkValue>::STARLARK_TYPE_ID,
@@ -323,6 +332,14 @@ impl<'v> AValueDyn<'v> {
     #[inline]
     pub(crate) unsafe fn heap_copy(self, tracer: &Tracer<'v>) -> Value<'v> {
         (self.vtable.heap_copy)(self.value, tracer)
+    }
+
+    #[expect(dead_code, reason = "will be used when serialization is wired up")]
+    pub(crate) fn starlark_serialize(
+        self,
+        ctx: &mut dyn StarlarkSerializeContext,
+    ) -> crate::Result<()> {
+        (self.vtable.starlark_serialize)(self.value, ctx)
     }
 
     #[inline]
