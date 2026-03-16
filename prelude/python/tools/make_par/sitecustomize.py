@@ -96,7 +96,7 @@ def __patch_spawn(var_names: list[str], saved_env: dict[str, str]) -> None:
                         os.environ[var] = saved_val
                 return std_spawn(path, args, passfds)
             finally:
-                __clear_env(False)
+                __clear_env(apply_monkeypatching=False)
 
     mp_util.spawnv_passfds = spawnv_passfds
 
@@ -192,10 +192,55 @@ def __patch_subprocess_run() -> None:
     subprocess.run = _patched_run
 
 
+def __patch_resource_tracker_fork() -> None:
+    """
+    Fix deadlock between multiprocessing resource tracker and forked children.
+
+    SEV: S630420
+    Upstream Python issue: https://github.com/python/cpython/issues/88887
+
+    Problem: Python 3.12 added ResourceTracker.__del__ which calls waitpid() on
+    the tracker subprocess during shutdown. The tracker subprocess exits when it
+    sees EOF on its pipe. However, if a child process was forked (e.g., by
+    jetter's get_temp_dir), it inherits the tracker's pipe FD. The parent's
+    close() doesn't produce EOF because the child still holds the FD open.
+    Result: waitpid() blocks forever → DEADLOCK.
+
+    Fix: Register an after_in_child callback that closes the inherited tracker
+    pipe FD and resets tracker state. This ensures:
+    1. The child doesn't keep the tracker pipe alive
+    2. If the child later uses multiprocessing, it starts a fresh tracker
+    """
+    # only relevant for Linux
+    if sys.platform != "linux":
+        return
+
+    def _reset_tracker_in_child() -> None:
+        # Check sys.modules instead of importing to avoid pulling in
+        # multiprocessing for processes that never use it
+        rt_mod = sys.modules.get("multiprocessing.resource_tracker")
+        if rt_mod is None:
+            return
+        tracker = getattr(rt_mod, "_resource_tracker", None)
+        if tracker is None:
+            return
+        fd = getattr(tracker, "_fd", None)
+        if fd is not None:
+            try:
+                # Close the inherited pipe FD so the tracker can see EOF
+                os.close(fd)
+            except OSError:
+                # FD may already be closed in some edge cases
+                pass
+            # Reset state so child starts fresh tracker if it uses multiprocessing
+            tracker._fd = None
+            tracker._pid = None
+
+    os.register_at_fork(after_in_child=_reset_tracker_in_child)
+
+
 def __clear_env(
-    patch_spawn: bool = True,
-    patch_ctypes: bool = True,
-    patch_subprocess_run: bool = True,
+    apply_monkeypatching: bool = True,
 ) -> None:
     saved_env = {}
 
@@ -234,15 +279,12 @@ def __clear_env(
         if val is not None:
             os.environ[var] = val
 
-    if patch_spawn:
+    if apply_monkeypatching:
         __patch_spawn(var_names, saved_env)
         __patch_spawn_preparation_data()
-
-    if patch_ctypes:
         __patch_ctypes(saved_env)
-
-    if patch_subprocess_run:
         __patch_subprocess_run()
+        __patch_resource_tracker_fork()
 
 
 def __startup__() -> None:
