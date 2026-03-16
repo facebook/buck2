@@ -146,6 +146,8 @@ rust_toolchain_attrs = {
     "rust_error_handler": provider_field(typing.Any, default = None),
     # LLVM remarks filter (e.g., "all", "inline") - used with -Cremark flag
     "remarks": provider_field(str | None, default = None),
+    # If set, remapped paths will be prepended with this prefix. Similar to how rustc bootstrap maps to /rustc/<hash>/...
+    "remap_paths_to": provider_field(str | None, default = None),
 }
 
 RustToolchainInfo = provider(fields = rust_toolchain_attrs)

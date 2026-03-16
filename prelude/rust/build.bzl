@@ -376,6 +376,7 @@ def generate_rustdoc_test(
     rustdoc_cmd = cmd_args(
         [cmd_args("--env=", k, "=", v, delimiter = "") for k, v in plain_env.items()],
         [cmd_args("--path-env=", k, "=", v, delimiter = "") for k, v in path_env.items()],
+        cmd_args(toolchain_info.remap_paths_to, format = "--remap-paths-to={}"),
         toolchain_info.rustdoc,
         "--rustc-action-separator",
         "--test",
@@ -393,7 +394,7 @@ def generate_rustdoc_test(
         cmd_args("--test-runtool-arg=--resources=", resources, delimiter = ""),
         "--color=always",
         "--test-args=--color=always",
-        cmd_args("--remap-path-prefix=", compile_ctx.symlinked_srcs, compile_ctx.path_sep, "=", compile_ctx.symlinked_srcs.owner.path, compile_ctx.path_sep, delimiter = ""),
+        cmd_args("--remap-path-prefix=", compile_ctx.symlinked_srcs, compile_ctx.path_sep, "=", compile_ctx.toolchain_info.remap_paths_to or "", compile_ctx.symlinked_srcs.owner.path, compile_ctx.path_sep, delimiter = ""),
         hidden = [
             compile_ctx.symlinked_srcs,
             link_args_output.hidden,
@@ -460,7 +461,7 @@ def rust_compile(
         # Report unused --extern crates in the notification stream.
         ["--json=unused-externs-silent", "-Wunused-crate-dependencies"] if toolchain_info.report_unused_deps else [],
         common_args.args,
-        cmd_args("--remap-path-prefix=", compile_ctx.symlinked_srcs, compile_ctx.path_sep, "=", compile_ctx.symlinked_srcs.owner.path, compile_ctx.path_sep, delimiter = ""),
+        cmd_args("--remap-path-prefix=", compile_ctx.symlinked_srcs, compile_ctx.path_sep, "=", compile_ctx.toolchain_info.remap_paths_to or "", compile_ctx.symlinked_srcs.owner.path, compile_ctx.path_sep, delimiter = ""),
         ["-Zremap-cwd-prefix=."] if toolchain_info.nightly_features else [],
         extra_flags,
     )
@@ -1462,6 +1463,7 @@ def _rustc_invoke(
         cmd_args(diag_json.as_output(), format = "--diag-json={}"),
         cmd_args(diag_txt.as_output(), format = "--diag-txt={}"),
         ["--remap-cwd-prefix=."] if not toolchain_info.nightly_features else [],
+        cmd_args(toolchain_info.remap_paths_to, format = "--remap-paths-to={}"),
         "--buck-target={}".format(ctx.label.raw_target()),
         hidden = [toolchain_info.compiler, compile_ctx.symlinked_srcs],
     )
