@@ -52,6 +52,7 @@ def _go_toolchain_impl(ctx):
             race = ctx.attrs.race,
             fuzz = ctx.attrs.fuzz,
             version = go_distr.version,
+            use_native_stdlib = True,
         ),
     ]
 

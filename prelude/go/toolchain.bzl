@@ -51,6 +51,7 @@ GoToolchainInfo = provider(
         "race": provider_field(bool, default = False),
         "fuzz": provider_field(bool, default = False),
         "version": provider_field(GoVersion | None),
+        "use_native_stdlib": provider_field(bool),
     },
 )
 

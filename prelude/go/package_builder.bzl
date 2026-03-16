@@ -153,6 +153,7 @@ def _build_package_action_impl(
         go_list = go_list_for_build(go_list, with_tests),
         params = BuildPackageParams(
             main = main,
+            standard = False,
             pkg_import_path = pkg_import_path,
             package_root = package_root,
             embed_srcs = embed_srcs,
@@ -160,6 +161,7 @@ def _build_package_action_impl(
             assembler_flags = assembler_flags,
             coverage_mode = coverage_mode,
             deps = merge_pkgs([go_stdlib_value.pkgs, deps_pkgs]),
+            import_map = None,
         ),
     )
 
@@ -213,6 +215,7 @@ BuildPackageGoList = record(
     s_files = field(list[Artifact]),
     h_files = field(list[Artifact]),
     c_cxx_files = field(list[Artifact]),
+    syso_files = field(list[Artifact]),
     imports = field(set[str]),
     embed_patterns = field(list[str]),
     cgo_cflags = field(list[str]),
@@ -231,6 +234,7 @@ def go_list_for_build(go_list_out: GoListOut, with_tests: bool) -> BuildPackageG
         s_files = go_list_out.s_files,
         h_files = go_list_out.h_files,
         c_cxx_files = c_cxx_files,
+        syso_files = go_list_out.syso_files,
         imports = imports,
         embed_patterns = embed_patterns,
         cgo_cflags = go_list_out.cgo_cflags,
@@ -239,6 +243,7 @@ def go_list_for_build(go_list_out: GoListOut, with_tests: bool) -> BuildPackageG
 
 BuildPackageParams = record(
     main = field(bool),
+    standard = field(bool),
     pkg_import_path = field(str),
     package_root = field(str),
     embed_srcs = field(list[Artifact]),
@@ -246,6 +251,12 @@ BuildPackageParams = record(
     assembler_flags = field(list[str]),
     coverage_mode = field(GoCoverageMode | None),
     deps = field(dict[str, GoPkg]),
+    # Importmap is used when the import path we use in the code different
+    # from the actual import path our dependency has.
+    # For now, it's only used for stdlib's deps.
+    # - key: import path in current package's source code
+    # - value: actual import path of a dependency
+    import_map = field(dict[str, str] | None),
 )
 BuildPackageResult = record(
     a_file = field(Artifact),
@@ -254,6 +265,21 @@ BuildPackageResult = record(
     x_file_shared = field(Artifact),
     cgo_gen_dir = field(Artifact),
 )
+
+# Packages with forward declarations resolved at runtime.
+# Keep in sync with https://github.com/golang/go/blob/go1.26.0/src/cmd/go/internal/work/gc.go#L90
+_incomplete_pkgs_allow_list = set([
+    "bytes",
+    "internal/poll",
+    "net",
+    "os",
+    "runtime/metrics",
+    "runtime/pprof",
+    "runtime/trace",
+    "sync",
+    "syscall",
+    "time",
+])
 
 def build_package(
         actions: AnalysisActions,
@@ -278,8 +304,19 @@ def build_package(
     c_cxx_files = [] + go_list.c_cxx_files
     s_files = go_list.s_files
     if len(go_list.cgo_files) > 0:
-        c_cxx_files += s_files
-        s_files = []
+        # the only exception when we have both types of ASM files is "runtime/cgo"
+        if params.standard and params.pkg_import_path == "runtime/cgo":
+            go_s_files = []
+            for s_file in s_files:
+                if paths.basename(s_file.short_path).startswith("gcc_"):
+                    c_cxx_files.append(s_file)
+                else:
+                    go_s_files.append(s_file)
+
+            s_files = go_s_files
+        else:
+            c_cxx_files += s_files
+            s_files = []
 
     # Generate CGO and C sources.
     transformed_cgo_files, cgo_o_files, cgo_gen_dir = build_cgo(
@@ -287,6 +324,8 @@ def build_package(
         target_label = target_label,
         go_toolchain_info = go_toolchain,
         cgo_build_context = cgo_build_context,
+        pkg_import_path = params.pkg_import_path,
+        standard = params.standard,
         cgo_files = covered_cgo_files,
         h_files = go_list.h_files,
         c_files = c_cxx_files,
@@ -300,7 +339,9 @@ def build_package(
     embedcfg = _embedcfg(actions, go_toolchain, params.pkg_import_path, params.package_root, params.embed_srcs, go_list.embed_patterns)
 
     # Use -complete flag when compiling Go code only
-    complete_flag = len(go_list.cgo_files) + len(s_files) + len(c_cxx_files) == 0
+    complete_flag = len(go_list.cgo_files) + len(s_files) + len(c_cxx_files) + len(go_list.syso_files) == 0
+    if params.standard and params.pkg_import_path in _incomplete_pkgs_allow_list:
+        complete_flag = False
 
     def build_variant(shared: bool) -> (Artifact, Artifact):
         build_variant_id = "shared" if shared else "non-shared"  # use  tomake artifacts and actions unique
@@ -309,7 +350,7 @@ def build_package(
         required_imports = go_list.imports | implicit_imports(
             pkg_name = go_list.pkg_name,
             pkg_import_path = params.pkg_import_path,
-            standard = False,
+            standard = params.standard,
             has_cgo_files = len(go_list.cgo_files) > 0,
             coverage_enabled = params.coverage_mode != None,
         )
@@ -319,6 +360,7 @@ def build_package(
             pkg_import_path = params.pkg_import_path,
             deps = params.deps,
             imports = required_imports,
+            import_map = params.import_map,
             shared = shared,
         )
         go_x_file, go_a_file, asmhdr = _compile(
@@ -334,6 +376,7 @@ def build_package(
             asan = go_toolchain.asan,
             build_variant_id = build_variant_id,
             complete = complete_flag,
+            standard = params.standard,
             coveragecfg = coveragecfg,
             embedcfg = embedcfg,
             symabis = symabis,
@@ -342,7 +385,7 @@ def build_package(
 
         asm_o_files = _asssembly(actions, go_toolchain, params.pkg_import_path, params.main, s_files, go_list.h_files, asmhdr, params.assembler_flags, shared, build_variant_id)
 
-        return go_x_file, _pack(actions, go_toolchain, params.pkg_import_path, go_a_file, cgo_o_files + asm_o_files, build_variant_id)
+        return go_x_file, _pack(actions, go_toolchain, params.pkg_import_path, go_a_file, cgo_o_files + asm_o_files + go_list.syso_files, build_variant_id)
 
     non_shared_x, non_shared_a = build_variant(shared = False)
 
@@ -355,6 +398,22 @@ def build_package(
         x_file_shared = shared_x,
         cgo_gen_dir = cgo_gen_dir,
     )
+
+# Keep in sync with https://github.com/golang/go/blob/go1.26.0/src/cmd/go/internal/test/test.go#L941
+_libfuzzer_exclude_list = set([
+    "context",
+    "internal/fuzz",
+    "internal/godebug",
+    "internal/runtime/maps",
+    "internal/sync",
+    "reflect",
+    "runtime",
+    "sync",
+    "sync/atomic",
+    "syscall",
+    "testing",
+    "time",
+])
 
 def _compile(
         actions: AnalysisActions,
@@ -369,6 +428,7 @@ def _compile(
         asan: bool,
         build_variant_id: str,
         complete: bool,
+        standard: bool,
         coveragecfg: Artifact | None = None,
         embedcfg: Artifact | None = None,
         symabis: Artifact | None = None,
@@ -404,13 +464,14 @@ def _compile(
             ["-linkobj", out_a.as_output()],
             ["-race"] if race else [],
             ["-asan"] if asan else [],
-            ["-d=libfuzzer"] if go_toolchain.fuzz else [],
+            ["-d=libfuzzer"] if go_toolchain.fuzz and (not standard or pkg_import_path not in _libfuzzer_exclude_list) else [],
             ["-shared"] if shared else [],
             ["-coveragecfg", coveragecfg] if coveragecfg else [],
             ["-embedcfg", embedcfg] if embedcfg else [],
             ["-symabis", symabis] if symabis else [],
             ["-asmhdr", asmhdr.as_output()] if asmhdr else [],
             ["-complete"] if complete else [],
+            ["-std"] if standard else [],
             cmd_args(srcs_argsfile, format = "@{}", hidden = go_srcs),
         ],
     )

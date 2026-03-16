@@ -8,10 +8,19 @@
 
 load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxToolchainInfo")
 load("@prelude//cxx:target_sdk_version.bzl", "get_target_sdk_version_flags")
+load(":go_native_stdlib.bzl", "go_native_stdlib")
 load(":packages.bzl", "GoPkg", "GoStdlib", "GoStdlibDynamicValue")
 load(":toolchain.bzl", "GoToolchainInfo", "evaluate_cgo_enabled", "get_toolchain_env_vars")
 
 def go_stdlib_impl(ctx: AnalysisContext) -> list[Provider]:
+    go_toolchain = ctx.attrs._go_toolchain[GoToolchainInfo]
+
+    if go_toolchain.use_native_stdlib:
+        return go_native_stdlib(ctx)
+    else:
+        return go_build_stdlib(ctx)
+
+def go_build_stdlib(ctx: AnalysisContext) -> list[Provider]:
     go_toolchain = ctx.attrs._go_toolchain[GoToolchainInfo]
     cxx_toolchain_available = CxxToolchainInfo in ctx.attrs._cxx_toolchain
     cgo_enabled = evaluate_cgo_enabled(cxx_toolchain_available, cxx_toolchain_available, ctx.attrs._cgo_enabled)

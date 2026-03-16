@@ -78,10 +78,19 @@ def get_cgo_build_context(ctx: AnalysisContext) -> CGoBuildContext | None:
         _cxx_toolchain = ctx.attrs._cxx_toolchain,
     )
 
+_syscall_import_exclude_list = set([
+    "runtime/asan",
+    "runtime/cgo",
+    "runtime/race",
+    "runtime/msan",
+])
+
 def _cgo(
         actions: AnalysisActions,
         go_toolchain: GoToolchainInfo,
         cgo_build_context: CGoBuildContext,
+        pkg_import_path: str,
+        standard: bool,
         srcs: list[Artifact],
         own_pre: list[CPreprocessor],
         cgo_c_flags: list[str],
@@ -93,12 +102,17 @@ def _cgo(
 
     # Return a `cmd_args` to use as the generated sources.
 
+    unimport_runtime_cgo = standard and pkg_import_path == "runtime/cgo"
+    unimport_syscall = standard and pkg_import_path in _syscall_import_exclude_list
+
     cmd = cmd_args(
         go_toolchain.go_wrapper,
         ["--go", go_toolchain.cgo],
         "--",
         cmd_args(gen_dir.as_output(), format = "-objdir={}"),
         ["-trimpath", "%cwd%"],
+        ["-import_runtime_cgo=false"] if unimport_runtime_cgo else [],
+        ["-import_syscall=false"] if unimport_syscall else [],
         "--",
         cgo_c_flags + cgo_cpp_flags,
         cgo_build_context.cxx_compiler_flags,
@@ -108,7 +122,7 @@ def _cgo(
     env = get_toolchain_env_vars(go_toolchain)
     env["CC"] = _cxx_wrapper(actions, go_toolchain, cgo_build_context, own_pre)
 
-    actions.run(cmd, env = env, category = "cgo")
+    actions.run(cmd, env = env, category = "go_cgo", identifier = pkg_import_path)
 
     return project_go_and_c_files(srcs, gen_dir), gen_dir
 
@@ -162,6 +176,8 @@ def build_cgo(
         target_label: Label,
         go_toolchain_info: GoToolchainInfo,
         cgo_build_context: CGoBuildContext | None,
+        pkg_import_path: str,
+        standard: bool,
         cgo_files: list[Artifact],
         h_files: list[Artifact],
         c_files: list[Artifact],
@@ -183,7 +199,7 @@ def build_cgo(
     own_pre = _own_pre(actions, cgo_build_context, h_files)
 
     # Separate sources into C++ and GO sources.
-    cgo_tool_out, gen_dir = _cgo(actions, go_toolchain_info, cgo_build_context, cgo_files, [own_pre], c_flags, cpp_flags)
+    cgo_tool_out, gen_dir = _cgo(actions, go_toolchain_info, cgo_build_context, pkg_import_path, standard, cgo_files, [own_pre], c_flags, cpp_flags)
     go_gen_srcs = [cgo_tool_out.cgo_gotypes] + cgo_tool_out.cgo1_go_files
     c_gen_headers = [cgo_tool_out.cgo_export_h]
     c_gen_srcs = [cgo_tool_out.cgo_export_c] + cgo_tool_out.cgo2_c_files

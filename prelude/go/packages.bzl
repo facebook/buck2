@@ -119,6 +119,7 @@ def make_compile_importcfg(
         pkg_import_path: str,
         deps: dict[str, GoPkg],
         imports: set[str],
+        import_map: dict[str, str] | None,
         shared: bool) -> Artifact:
     required_pkgs = set(imports)  # copy set to avoid modifying it
 
@@ -143,6 +144,19 @@ def make_compile_importcfg(
             message += "  - " + imp + "\n"
 
         fail(message)
+
+    if import_map:
+        # add import map entries
+        for import_as, import_path in import_map.items():
+            content.append(cmd_args("importmap ", import_as, "=", import_path, delimiter = ""))
+
+        unused_importmap_entries = set(import_map.values()).difference(provided_pkgs)
+        if len(unused_importmap_entries) > 0:
+            message = "found importmap entries for non-existent dependencies:\n"
+            for imp in unused_importmap_entries:
+                message += "  - " + imp + "\n"
+
+            fail(message)
 
     importcfg = actions.declare_output("{}.importcfg".format("shared" if shared else "non_shared"), has_content_based_path = True)
     actions.write(importcfg, content)

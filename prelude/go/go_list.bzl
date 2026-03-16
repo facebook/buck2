@@ -24,6 +24,7 @@ GoListOut = record(
     cxx_files = field(list[Artifact], default = []),
     cgo_files = field(list[Artifact], default = []),
     s_files = field(list[Artifact], default = []),
+    syso_files = field(list[Artifact], default = []),
     test_go_files = field(list[Artifact], default = []),
     x_test_go_files = field(list[Artifact], default = []),
     ignored_go_files = field(list[Artifact], default = []),
@@ -67,7 +68,7 @@ def go_list(actions: AnalysisActions, go_toolchain: GoToolchainInfo, pkg_import_
 
 def parse_go_list_out(srcs: list[Artifact], package_root: str, go_list_out: ArtifactValue) -> GoListOut:
     go_list = go_list_out.read_json()
-    go_files, cgo_files, h_files, c_files, cxx_files, s_files, test_go_files, x_test_go_files, ignored_go_files, ignored_other_files = [], [], [], [], [], [], [], [], [], []
+    go_files, cgo_files, h_files, c_files, cxx_files, s_files, syso_files, test_go_files, x_test_go_files, ignored_go_files, ignored_other_files = [], [], [], [], [], [], [], [], [], [], []
 
     for src in srcs:
         # remove package_root prefix from src artifact path to match `go list` output format
@@ -84,6 +85,8 @@ def parse_go_list_out(srcs: list[Artifact], package_root: str, go_list_out: Arti
             cxx_files.append(src)
         if src_path in go_list.get("SFiles", []):
             s_files.append(src)
+        if src_path in go_list.get("SysoFiles", []):
+            syso_files.append(src)
         if src_path in go_list.get("TestGoFiles", []):
             test_go_files.append(src)
         if src_path in go_list.get("XTestGoFiles", []):
@@ -112,6 +115,7 @@ def parse_go_list_out(srcs: list[Artifact], package_root: str, go_list_out: Arti
         cxx_files = cxx_files,
         cgo_files = cgo_files,
         s_files = s_files,
+        syso_files = syso_files,
         test_go_files = test_go_files,
         x_test_go_files = x_test_go_files,
         cgo_cflags = cgo_cflags,
