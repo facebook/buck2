@@ -207,7 +207,9 @@ impl NodeKey {
             .into(),
 
             NodeKey::EnsureProjectedArtifactKey(..) => self.into_generic_entry(),
-            NodeKey::EnsureTransitiveSetProjectionKey(..) => self.into_generic_entry(),
+            NodeKey::EnsureTransitiveSetProjectionKey(_key) => {
+                buck2_data::critical_path_entry2::EnsureTransitiveSetProjection {}.into()
+            }
             NodeKey::Dyn(_, ref d) => match d.critical_path_entry_proto() {
                 Some(entry) => entry,
                 None => self.into_generic_entry(),

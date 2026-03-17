@@ -1046,6 +1046,13 @@ impl<'a> CriticalPathEntryDisplay<'a> {
                 };
                 ("test-listing", name, None, None, None)
             }
+            Entry::EnsureTransitiveSetProjection(..) => (
+                "ensure-transitive-set-projection",
+                String::new(),
+                None,
+                None,
+                None,
+            ),
         };
 
         Ok(Some(CriticalPathEntryDisplay {

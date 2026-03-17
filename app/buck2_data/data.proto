@@ -597,6 +597,8 @@ message CriticalPathEntry2 {
     string package = 1;
   }
 
+  message EnsureTransitiveSetProjection {}
+
   repeated uint64 span_ids = 1;
 
   // The duration we used to compute the critical path. This tracks total
@@ -641,6 +643,7 @@ message CriticalPathEntry2 {
     TestListing test_listing = 108;
     Waiting waiting = 109;
     DynamicAnalysis dynamic_analysis = 110;
+    EnsureTransitiveSetProjection ensure_transitive_set_projection = 111;
   }
 }
 
