@@ -34,6 +34,7 @@ use dupe::Dupe;
 use gazebo::prelude::*;
 use indexmap::IndexSet;
 use indexmap::indexset;
+use pagable::Pagable;
 use starlark::values::OwnedFrozenValue;
 
 #[derive(Debug, buck2_error::Error)]
@@ -45,7 +46,7 @@ enum CopyActionValidationError {
     UnsupportedInput(ArtifactGroup),
 }
 
-#[derive(Debug, Allocative)]
+#[derive(Debug, Allocative, Pagable)]
 pub(crate) enum CopyMode {
     Copy {
         // Override the destination executable bit to +x (true) or -x (false)
@@ -77,7 +78,7 @@ impl UnregisteredAction for UnregisteredCopyAction {
     }
 }
 
-#[derive(Debug, Allocative)]
+#[derive(Debug, Allocative, Pagable)]
 struct CopyAction {
     copy: CopyMode,
     inputs: BoxSliceSet<ArtifactGroup>,

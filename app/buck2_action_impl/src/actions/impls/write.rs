@@ -43,6 +43,7 @@ use dupe::Dupe;
 use indexmap::IndexMap;
 use indexmap::IndexSet;
 use indexmap::indexmap;
+use pagable::Pagable;
 use starlark::values::OwnedFrozenValue;
 use starlark::values::UnpackValue;
 
@@ -100,7 +101,7 @@ impl<'v> CommandLineArtifactVisitor<'v> for CommandLineContentBasedInputVisitor 
     }
 }
 
-#[derive(Allocative, Debug)]
+#[derive(Allocative, Debug, Pagable)]
 pub(crate) struct UnregisteredWriteAction {
     pub(crate) is_executable: bool,
     pub(crate) absolute: bool,
@@ -122,7 +123,7 @@ impl UnregisteredAction for UnregisteredWriteAction {
     }
 }
 
-#[derive(Debug, Allocative)]
+#[derive(Debug, Allocative, Pagable)]
 struct WriteAction {
     contents: OwnedFrozenValue, // StarlarkCmdArgs
     output: BuildArtifact,

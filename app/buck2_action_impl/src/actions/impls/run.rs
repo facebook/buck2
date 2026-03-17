@@ -99,6 +99,7 @@ use indexmap::IndexMap;
 use indexmap::IndexSet;
 use indexmap::indexmap;
 use itertools::Itertools;
+use pagable::Pagable;
 use serde_json::json;
 use sorted_vector_map::SortedVectorMap;
 use starlark::collections::SmallSet;
@@ -139,7 +140,7 @@ pub(crate) mod audit_dep_files;
 pub(crate) mod dep_files;
 mod metadata;
 
-#[derive(Debug, Allocative)]
+#[derive(Debug, Allocative, Pagable)]
 pub(crate) struct MetadataParameter {
     /// Name of the environment variable which is set to contain
     /// resolved path of the metadata file when requested by user.
@@ -232,7 +233,7 @@ pub(crate) fn new_executor_preference(
     }
 }
 
-#[derive(Debug, Allocative)]
+#[derive(Debug, Allocative, Pagable)]
 pub(crate) struct UnregisteredRunAction {
     pub(crate) executor_preference: ExecutorPreference,
     pub(crate) always_print_stderr: bool,
@@ -379,7 +380,7 @@ struct UnpackedRunActionValues<'v> {
     remote_worker: Option<UnpackedWorkerValues<'v>>,
 }
 
-#[derive(Debug, Allocative)]
+#[derive(Debug, Allocative, Pagable)]
 pub(crate) struct RunAction {
     inner: UnregisteredRunAction,
     starlark_values: OwnedFrozenValueTyped<FrozenStarlarkRunActionValues>,

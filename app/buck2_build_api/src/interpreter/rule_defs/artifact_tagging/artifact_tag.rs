@@ -16,6 +16,7 @@ use std::sync::atomic::Ordering;
 use allocative::Allocative;
 use dupe::Dupe;
 use either::Either;
+use pagable::PagablePanic;
 use starlark::any::ProvidesStaticType;
 use starlark::collections::StarlarkHasher;
 use starlark::environment::GlobalsBuilder;
@@ -52,7 +53,8 @@ use crate::interpreter::rule_defs::cmd_args::value_as::ValueAsCommandLineLike;
     Trace,
     ProvidesStaticType,
     NoSerialize,
-    Allocative
+    Allocative,
+    PagablePanic
 )]
 pub struct ArtifactTag {
     identity: u64,

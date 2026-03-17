@@ -122,7 +122,7 @@ fn main() -> io::Result<()> {
         )
         .type_attribute(
             "buck.data.ActionKind",
-            "#[derive(::gazebo::variants::VariantName)]",
+            "#[derive(::gazebo::variants::VariantName, ::pagable::Pagable)]",
         )
         .type_attribute(
             "buck.data.MaterializationMethod",

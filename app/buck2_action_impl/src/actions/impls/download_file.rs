@@ -44,6 +44,7 @@ use buck2_execute::materialize::materializer::HttpDownloadInfo;
 use buck2_http::HttpClient;
 use dupe::Dupe;
 use indexmap::IndexSet;
+use pagable::Pagable;
 use starlark::values::OwnedFrozenValue;
 
 use crate::actions::impls::offline;
@@ -59,7 +60,7 @@ enum DownloadFileActionError {
     ContentBasedPathWithoutMetadata(BuildArtifactPath),
 }
 
-#[derive(Debug, Allocative)]
+#[derive(Debug, Allocative, Pagable)]
 pub(crate) struct UnregisteredDownloadFileAction {
     checksum: Checksum,
     size_bytes: Option<u64>,
@@ -97,7 +98,7 @@ impl UnregisteredAction for UnregisteredDownloadFileAction {
     }
 }
 
-#[derive(Debug, Allocative)]
+#[derive(Debug, Allocative, Pagable)]
 struct DownloadFileAction {
     outputs: Box<[BuildArtifact]>,
     inner: UnregisteredDownloadFileAction,

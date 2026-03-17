@@ -82,6 +82,7 @@ use derive_more::Display;
 use dupe::Dupe;
 use futures::StreamExt;
 use once_cell::sync::Lazy;
+use pagable::Pagable;
 use parking_lot::MappedMutexGuard;
 use parking_lot::Mutex;
 use parking_lot::MutexGuard;
@@ -258,7 +259,7 @@ impl DepFileState {
 
 /// The set of dep files declared by a RunAction, matching tags to their labels. We enforce at
 /// creation time that tags and labels are both unique.
-#[derive(Debug, Allocative)]
+#[derive(Debug, Allocative, Pagable)]
 pub(crate) struct RunActionDepFiles {
     pub(crate) labels: OrderedMap<ArtifactTag, Arc<str>>,
 }

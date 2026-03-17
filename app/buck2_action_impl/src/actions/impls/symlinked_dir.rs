@@ -39,6 +39,7 @@ use dupe::Dupe;
 use gazebo::prelude::*;
 use indexmap::IndexSet;
 use itertools::Itertools;
+use pagable::Pagable;
 use starlark::values::OwnedFrozenValue;
 use starlark::values::ValueError;
 use starlark::values::dict::UnpackDictEntries;
@@ -177,7 +178,7 @@ impl UnregisteredAction for UnregisteredSymlinkedDirAction {
     }
 }
 
-#[derive(Debug, Allocative)]
+#[derive(Debug, Allocative, Pagable)]
 struct SymlinkedDirAction {
     copy: CopyMode,
     args: Vec<(ArtifactGroup, Box<ForwardRelativePath>)>,

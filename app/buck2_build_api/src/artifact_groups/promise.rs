@@ -20,6 +20,7 @@ use buck2_core::deferred::base_deferred_key::BaseDeferredKey;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use dupe::Dupe;
 use pagable::Pagable;
+use pagable::PagablePanic;
 use starlark::codemap::FileSpan;
 
 #[derive(Debug, buck2_error::Error)]
@@ -72,7 +73,7 @@ fn maybe_declared_at(location: &Option<FileSpan>) -> String {
 /// that declares the promise is running, the promise may not yet be resolved. In that case, operations that require
 /// the underlying artifact will fail. Once that analysis is complete, all promises will be resolved and this will
 /// have a reference to the fully resolved artifact.
-#[derive(Clone, Debug, Dupe, Allocative)]
+#[derive(Clone, Debug, Dupe, Allocative, PagablePanic)]
 pub struct PromiseArtifact {
     artifact: Arc<OnceLock<Artifact>>,
     pub id: PromiseArtifactId,

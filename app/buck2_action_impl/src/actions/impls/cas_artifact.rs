@@ -47,6 +47,7 @@ use chrono::TimeZone;
 use chrono::Utc;
 use dupe::Dupe;
 use indexmap::IndexSet;
+use pagable::Pagable;
 use remote_execution as RE;
 use starlark::values::OwnedFrozenValue;
 
@@ -73,13 +74,13 @@ enum CasArtifactActionExecutionError {
     },
 }
 
-#[derive(Debug, Allocative, Clone, Dupe, Copy)]
+#[derive(Debug, Allocative, Clone, Dupe, Copy, Pagable)]
 pub(crate) enum DirectoryKind {
     Directory,
     Tree,
 }
 
-#[derive(Debug, Allocative)]
+#[derive(Debug, Allocative, Pagable)]
 pub(crate) enum ArtifactKind {
     Directory(DirectoryKind),
     File,
@@ -90,13 +91,14 @@ pub(crate) enum ArtifactKind {
 /// provide an minimum expiration timestamp when you add this to force users to think about the TTL
 /// of the artifacts they are referencing (though admittedly this was also an issue in
 /// download_file).
-#[derive(Debug, Allocative)]
+#[derive(Debug, Allocative, Pagable)]
 pub(crate) struct UnregisteredCasArtifactAction {
     pub(crate) digest: FileDigest,
     pub(crate) re_use_case: RemoteExecutorUseCase,
     /// We require the caller to declare when this digest will expire. The intention is to force
     /// callers to pay some modicum of attention to when their digests expire.
     #[allocative(skip)]
+    #[pagable(flatten_serde)]
     pub(crate) expires_after: DateTime<Utc>,
     pub(crate) executable: bool,
     pub(crate) kind: ArtifactKind,
@@ -113,7 +115,7 @@ impl UnregisteredAction for UnregisteredCasArtifactAction {
     }
 }
 
-#[derive(Debug, Allocative)]
+#[derive(Debug, Allocative, Pagable)]
 struct CasArtifactAction {
     output: BuildArtifact,
     inner: UnregisteredCasArtifactAction,

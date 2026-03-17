@@ -42,13 +42,14 @@ use buck2_execute::materialize::materializer::WriteRequest;
 use buck2_fs::paths::RelativePathBuf;
 use dupe::Dupe;
 use indexmap::IndexSet;
+use pagable::Pagable;
 use starlark::values::OwnedFrozenValue;
 use starlark::values::UnpackValue;
 
 use crate::actions::impls::run::DepFilesPlaceholderArtifactPathMapper;
 use crate::actions::impls::write::CommandLineContentBasedInputVisitor;
 
-#[derive(Debug, Allocative)]
+#[derive(Debug, Allocative, Pagable)]
 pub(crate) struct UnregisteredWriteMacrosToFileAction {
     identifier: String,
     use_dep_files_placeholder_for_content_based_paths: bool,
@@ -94,7 +95,7 @@ enum WriteMacrosActionValidationError {
     InconsistentNumberOfMacroArtifacts,
 }
 
-#[derive(Debug, Allocative)]
+#[derive(Debug, Allocative, Pagable)]
 struct WriteMacrosToFileAction {
     contents: OwnedFrozenValue, // StarlarkCmdArgs
     outputs: Box<[BuildArtifact]>,

@@ -31,6 +31,7 @@ use buck2_execute::execute::request::OutputType;
 use derivative::Derivative;
 use dupe::Dupe;
 use indexmap::IndexSet;
+use pagable::Pagable;
 use sorted_vector_map::sorted_vector_map;
 use starlark::values::OwnedFrozenValue;
 
@@ -64,7 +65,7 @@ impl SimpleUnregisteredAction {
 }
 
 /// The action created by SimpleUnregisteredAction, or directly.
-#[derive(Derivative, Allocative)]
+#[derive(Derivative, Allocative, Pagable)]
 #[derivative(Debug)]
 pub(crate) struct SimpleAction {
     inputs: BoxSliceSet<ArtifactGroup>,

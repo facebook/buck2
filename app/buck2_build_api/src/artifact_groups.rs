@@ -24,6 +24,7 @@ use derive_more::Display;
 use dice::DiceComputations;
 use dupe::Dupe;
 use gazebo::variants::UnpackVariants;
+use pagable::Pagable;
 use static_assertions::assert_eq_size;
 
 use self::calculation::EnsureTransitiveSetProjectionKey;
@@ -32,7 +33,7 @@ use crate::artifact_groups::deferred::TransitiveSetKey;
 use crate::artifact_groups::promise::PromiseArtifact;
 use crate::deferred::calculation::GET_PROMISED_ARTIFACT;
 
-#[derive(Clone, Debug, Display, Dupe, PartialEq, Eq, Hash, Allocative)]
+#[derive(Clone, Debug, Display, Dupe, PartialEq, Eq, Hash, Allocative, Pagable)]
 #[display("{} {}", promise_artifact, has_content_based_path)]
 pub struct PromiseArtifactWrapper {
     pub promise_artifact: PromiseArtifact,
@@ -48,7 +49,7 @@ impl PromiseArtifactWrapper {
     }
 }
 
-#[derive(Clone, Debug, Display, Dupe, PartialEq, Eq, Hash, Allocative)]
+#[derive(Clone, Debug, Display, Dupe, PartialEq, Eq, Hash, Allocative, Pagable)]
 #[display("{} {}", key, path_resolution_may_require_artifact_value)]
 pub struct TransitiveSetProjectionWrapper {
     pub key: TransitiveSetProjectionKey,
@@ -81,7 +82,8 @@ impl TransitiveSetProjectionWrapper {
     Eq,
     Hash,
     UnpackVariants,
-    Allocative
+    Allocative,
+    Pagable
 )]
 pub enum ArtifactGroup {
     Artifact(Artifact),

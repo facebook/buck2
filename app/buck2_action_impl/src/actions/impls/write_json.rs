@@ -47,6 +47,7 @@ use dupe::Dupe;
 use indexmap::IndexMap;
 use indexmap::IndexSet;
 use indexmap::indexmap;
+use pagable::Pagable;
 use starlark::any::ProvidesStaticType;
 use starlark::coerce::Coerce;
 use starlark::environment::GlobalsBuilder;
@@ -78,7 +79,7 @@ enum WriteJsonActionValidationError {
     TooManyOutputs,
 }
 
-#[derive(Allocative, Debug)]
+#[derive(Allocative, Debug, Pagable)]
 pub(crate) struct UnregisteredWriteJsonAction {
     pretty: bool,
     absolute: bool,
@@ -119,7 +120,7 @@ impl UnregisteredAction for UnregisteredWriteJsonAction {
     }
 }
 
-#[derive(Debug, Allocative)]
+#[derive(Debug, Allocative, Pagable)]
 struct WriteJsonAction {
     contents: OwnedFrozenValue, // JSON value
     output: BuildArtifact,
