@@ -22,7 +22,6 @@ use buck2_core::configuration::compatibility::MaybeCompatible;
 use buck2_core::configuration::compatibility::ResultMaybeCompatible;
 use buck2_core::configuration::data::ConfigurationData;
 use buck2_core::configuration::pair::ConfigurationNoExec;
-use buck2_core::execution_types::execution::APPLY_EXEC_MODIFIERS;
 use buck2_core::execution_types::execution::ExecutionPlatform;
 use buck2_core::execution_types::execution::ExecutionPlatformError;
 use buck2_core::execution_types::execution::ExecutionPlatformIncompatibleReason;
@@ -465,13 +464,6 @@ pub(crate) async fn configure_exec_dep_with_modifiers(
     exec_dep: &TargetLabel,
     execution_platform_cfg: &ConfigurationData,
 ) -> ResultMaybeCompatible<ConfiguredTargetNode> {
-    if !*APPLY_EXEC_MODIFIERS.get().unwrap_or(&false) {
-        let cfg_pair = ConfigurationNoExec::new(execution_platform_cfg.dupe());
-        return ctx
-            .get_internal_configured_target_node(&exec_dep.configure_pair_no_exec(cfg_pair))
-            .await;
-    }
-
     let (node, super_package) = ctx.get_target_node_with_super_package(exec_dep).await?;
 
     if !execution_platform_cfg.is_bound() {

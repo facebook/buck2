@@ -14,7 +14,6 @@ use allocative::Allocative;
 use dupe::Dupe;
 use indent_write::indentable::Indentable;
 use itertools::Itertools;
-use once_cell::sync::OnceCell;
 use pagable::Pagable;
 use starlark_map::ordered_map::OrderedMap;
 
@@ -26,22 +25,6 @@ use crate::execution_types::executor_config::CommandExecutorConfig;
 use crate::provider::label::ProvidersLabel;
 use crate::target::configured_target_label::ConfiguredTargetLabel;
 use crate::target::label::label::TargetLabel;
-
-/// Whether to apply execution modifiers to exec_deps.
-/// This flag gates the behavior of applying cfg_constructor modifiers to exec_deps,
-/// which affects action digests. Default is false.
-pub static APPLY_EXEC_MODIFIERS: OnceCell<bool> = OnceCell::new();
-
-pub fn init_apply_exec_modifiers(value: Option<bool>) -> buck2_error::Result<()> {
-    let value = value.unwrap_or(false);
-    APPLY_EXEC_MODIFIERS.set(value).map_err(|_| {
-        buck2_error::buck2_error!(
-            buck2_error::ErrorTag::Tier0,
-            "APPLY_EXEC_MODIFIERS is already initialized"
-        )
-    })?;
-    Ok(())
-}
 
 /// An execution platform is used for the execution deps of a target, those dependencies that
 /// need to be invoked as part of a build action or otherwise need to be configured against the
@@ -366,9 +349,6 @@ impl ExecutionPlatformResolution {
     /// If the target is not found in `Resolved` state, this indicates a bug where the
     /// exec_dep was not collected during dependency gathering.
     pub fn cfg_for_exec_dep(&self, target: &TargetLabel) -> buck2_error::Result<ConfigurationData> {
-        if !*APPLY_EXEC_MODIFIERS.get().unwrap_or(&false) {
-            return Ok(self.base_cfg().cfg().dupe());
-        }
         match self {
             Self::Unspecified => {
                 // During gather_deps, we use the base cfg as a placeholder.
