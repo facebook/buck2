@@ -14,47 +14,12 @@ from buck2.tests.e2e_util.helper.utils import random_string, read_what_ran
 
 
 @buck_test()
-async def test_unstable_action_digest(buck: Buck) -> None:
-    args = [
-        "-c",
-        "test.local_enabled=false",
-        "-c",
-        "test.remote_enabled=true",
-        "//:test",
-    ]
-
-    await buck.test(*args)
-    first_what_ran = await read_what_ran(buck)
-    first_digests = [
-        entry["reproducer"]["details"]["digest"]
-        for entry in first_what_ran
-        if entry["reason"] == "test.run"
-    ]
-    assert len(first_digests) == 1, "Expected one test.run entry"
-
-    await buck.test(*args)
-    second_what_ran = await read_what_ran(buck)
-    second_digests = [
-        entry["reproducer"]["details"]["digest"]
-        for entry in second_what_ran
-        if entry["reason"] == "test.run"
-    ]
-    assert len(second_digests) == 1, "Expected one test.run entry"
-
-    assert first_digests[0] != second_digests[0], (
-        f"Test action digests do not differ between runs: {first_digests[0]}"
-    )
-
-
-@buck_test()
 async def test_stable_action_digest_with_deterministic_paths(buck: Buck) -> None:
     args = [
         "-c",
         "test.local_enabled=false",
         "-c",
         "test.remote_enabled=true",
-        "-c",
-        "buck2.use_deterministic_test_execution_paths=true",
         "//:test",
     ]
 
@@ -88,8 +53,6 @@ async def test_stress_runs_have_different_action_digests(buck: Buck) -> None:
         "test.local_enabled=false",
         "-c",
         "test.remote_enabled=true",
-        "-c",
-        "buck2.use_deterministic_test_execution_paths=true",
         "//:test",
         "--",
         "--stress-runs",
@@ -114,8 +77,6 @@ async def test_remote_test_execution_cached(buck: Buck) -> None:
         "test.local_enabled=false",
         "-c",
         "test.remote_enabled=true",
-        "-c",
-        "buck2.use_deterministic_test_execution_paths=true",
         "//:cacheable_test",
     ]
 
@@ -141,8 +102,6 @@ async def test_remote_test_execution_not_cached_for_stress_runs(buck: Buck) -> N
         "test.local_enabled=false",
         "-c",
         "test.remote_enabled=true",
-        "-c",
-        "buck2.use_deterministic_test_execution_paths=true",
         "//:cacheable_test",
         "--",
         "--stress-runs",
@@ -176,8 +135,6 @@ async def test_local_test_execution_not_cached(buck: Buck) -> None:
         "-c",
         "test.remote_enabled=false",
         "-c",
-        "buck2.use_deterministic_test_execution_paths=true",
-        "-c",
         f"test.seed={seed}",
         "//:cacheable_test",
     ]
@@ -206,8 +163,6 @@ async def test_remote_test_execution_not_cached_with_no_remote_cache(
         "test.local_enabled=false",
         "-c",
         "test.remote_enabled=true",
-        "-c",
-        "buck2.use_deterministic_test_execution_paths=true",
         "--no-remote-cache",
         "//:cacheable_test",
     ]
@@ -236,8 +191,6 @@ async def test_remote_test_execution_not_cached_with_disable_flag(
         "test.local_enabled=false",
         "-c",
         "test.remote_enabled=true",
-        "-c",
-        "buck2.use_deterministic_test_execution_paths=true",
         "//:cacheable_test",
         "--",
         "--disable-test-execution-caching",

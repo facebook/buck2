@@ -22,7 +22,6 @@ rust_library(
         "fbsource//third-party/rust:serde_json",
         "fbsource//third-party/rust:tokio",
         "fbsource//third-party/rust:tracing",
-        "fbsource//third-party/rust:uuid",
         "//buck2/allocative/allocative:allocative",
         "//buck2/app/buck2_build_api:buck2_build_api",
         "//buck2/app/buck2_build_signals:buck2_build_signals",

@@ -56,8 +56,6 @@ use buck2_build_signals::env::NodeDuration;
 use buck2_build_signals::env::WaitingData;
 use buck2_common::dice::cells::HasCellResolver;
 use buck2_common::events::HasEvents;
-use buck2_common::legacy_configs::dice::HasLegacyConfigs;
-use buck2_common::legacy_configs::key::BuckconfigKeyRef;
 use buck2_common::liveliness_observer::LivelinessObserver;
 use buck2_common::local_resource_state::LocalResourceState;
 use buck2_core::cells::cell_root_path::CellRootPathBuf;
@@ -170,7 +168,6 @@ use pagable::Pagable;
 use pagable::pagable_typetag;
 use sorted_vector_map::SortedVectorMap;
 use starlark::values::OwnedFrozenValueTyped;
-use uuid::Uuid;
 
 use crate::local_resource_api::LocalResourcesSetupResult;
 use crate::local_resource_registry::HasLocalResourceRegistry;
@@ -390,7 +387,7 @@ impl<'a> BuckTestOrchestrator<'a> {
             pre_create_dirs,
             stage,
             options,
-            prefix,
+            prefix: _,
             timeout,
             host_sharing_requirements,
             disable_test_execution_caching,
@@ -417,7 +414,6 @@ impl<'a> BuckTestOrchestrator<'a> {
             Cow::Borrowed(&env),
             Cow::Borrowed(&pre_create_dirs),
             &test_executor.executor().executor_fs(),
-            prefix,
             &stage,
             options,
         )
@@ -874,7 +870,6 @@ impl TestOrchestrator for BuckTestOrchestrator<'_> {
             Cow::Owned(env),
             Cow::Owned(pre_create_dirs),
             &test_executor.executor().executor_fs(),
-            TestExecutionPrefix::new(&stage, &self.session),
             &stage,
             self.session.options(),
         )
@@ -1465,11 +1460,10 @@ impl BuckTestOrchestrator<'_> {
         env: Cow<'a, SortedVectorMap<String, ArgValue>>,
         pre_create_dirs: Cow<'a, [DeclaredOutput]>,
         executor_fs: &ExecutorFs<'_>,
-        prefix: TestExecutionPrefix,
         stage: &TestStage,
         opts: TestSessionOptions,
     ) -> buck2_error::Result<ExpandedTestExecutable> {
-        let output_root = resolve_output_root(dice, test_target, prefix, stage).await?;
+        let output_root = resolve_output_root(dice, test_target, stage).await?;
 
         let mut declared_outputs = IndexMap::<BuckOutTestPath, OutputCreationBehavior>::new();
 
@@ -2073,23 +2067,9 @@ impl<'a> Execute2RequestExpander<'a> {
 async fn resolve_output_root(
     dice: &mut DiceComputations<'_>,
     test_target: &ConfiguredProvidersLabel,
-    prefix: TestExecutionPrefix,
     stage: &TestStage,
 ) -> Result<ForwardRelativePathBuf, buck2_error::Error> {
     let resolver = dice.get_buck_out_path().await?;
-
-    let use_deterministic_paths = {
-        let cell_resolver = dice.get_cell_resolver().await?;
-        dice.parse_legacy_config_property::<bool>(
-            cell_resolver.root_cell(),
-            BuckconfigKeyRef {
-                section: "buck2",
-                property: "use_deterministic_test_execution_paths",
-            },
-        )
-        .await?
-        .unwrap_or(false)
-    };
 
     let output_root = match stage {
         TestStage::Listing { .. } => resolver
@@ -2100,7 +2080,7 @@ async fn resolve_output_root(
             variant,
             repeat_count,
             ..
-        } if use_deterministic_paths => {
+        } => {
             let mut hasher = DefaultHasher::new();
             variant.hash(&mut hasher);
             repeat_count.hash(&mut hasher);
@@ -2113,20 +2093,6 @@ async fn resolve_output_root(
                     ForwardRelativePath::unchecked_new(&extra_info_hashed),
                 )?
                 .into_forward_relative_path_buf()
-        }
-        TestStage::Testing { .. } => {
-            let TestExecutionPrefix::Testing(prefix) = prefix else {
-                return Err(internal_error!(
-                    "Expected TestExecutionPrefix::Testing for TestStage::Testing"
-                ));
-            };
-            ForwardRelativePathBuf::concat([
-                resolver.root().as_forward_relative_path(),
-                ForwardRelativePath::new("test").unwrap(),
-                &prefix.join(ForwardRelativePathBuf::unchecked_new(
-                    Uuid::new_v4().to_string(),
-                )),
-            ])
         }
     };
     Ok(output_root)

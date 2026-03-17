@@ -136,8 +136,6 @@ async def test_cpp_stress_runs_deterministic_paths(buck: Buck) -> None:
     res = await buck.test(
         "fbcode//buck2/tests/targets/rules/cxx:cpp_test_pass",
         mode,
-        "-c",
-        "buck2.use_deterministic_test_execution_paths=true",
         "--",
         "--stress-runs=10",
     )
