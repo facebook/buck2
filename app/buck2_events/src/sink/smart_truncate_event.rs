@@ -87,8 +87,8 @@ fn truncate_invocation_record(invocation_record: &mut buck2_data::InvocationReco
         }
     }
 
-    const MAX_ERROR_REPORT_BYTS: usize = 512 * 1024;
-    let max_per_report = MAX_ERROR_REPORT_BYTS / invocation_record.errors.len().max(1);
+    const MAX_ERROR_REPORT_BYTES: usize = 512 * 1024;
+    let max_per_report = MAX_ERROR_REPORT_BYTES / invocation_record.errors.len().max(1);
     for error in &mut invocation_record.errors {
         error.message = truncate(&error.message, max_per_report / 2);
         if let Some(telemetry_message) = &mut error.telemetry_message {

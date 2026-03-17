@@ -59,8 +59,7 @@ impl DigestConfig {
     }
 
     pub fn empty_file(&self) -> FileMetadata {
-        // TODO: This should be a field on the DigestConfig, obviously.
-        FileMetadata::empty(self.cas_digest_config())
+        self.inner.empty_file.dupe()
     }
 
     pub fn as_directory_serializer(&self) -> &ReDirectorySerializer {
@@ -84,6 +83,8 @@ struct DigestConfigInner {
     cas_digest_config: CasDigestConfig,
     #[derivative(PartialEq = "ignore", Hash = "ignore")]
     empty_directory: ActionSharedDirectory,
+    #[derivative(PartialEq = "ignore", Hash = "ignore")]
+    empty_file: FileMetadata,
 }
 
 impl DigestConfigInner {
@@ -91,10 +92,12 @@ impl DigestConfigInner {
         let empty_directory = ActionDirectoryBuilder::empty()
             .fingerprint(&ReDirectorySerializer { cas_digest_config })
             .shared(&*INTERNER);
+        let empty_file = FileMetadata::empty(cas_digest_config);
 
         Self {
             cas_digest_config,
             empty_directory,
+            empty_file,
         }
     }
 }
