@@ -27,6 +27,7 @@ use crate::typing::arc_ty::ArcTy;
 use crate::typing::callable::TyCallable;
 use crate::typing::custom::TyCustom;
 use crate::typing::custom::TyCustomImpl;
+use crate::typing::error::TypingNoContextOrInternalError;
 use crate::typing::starlark_value::TyStarlarkValue;
 use crate::typing::tuple::TyTuple;
 use crate::typing::ty::TypeRenderConfig;
@@ -152,6 +153,19 @@ impl TyBasic {
     /// Type is a list, with specified or unspecified member types.
     pub(crate) fn is_list(&self) -> bool {
         self.as_name() == Some("list")
+    }
+
+    /// Apply a type parameter to this basic type.
+    /// For custom types, delegates to `TyCustomImpl::parametrize`.
+    /// For built-in parameterized types (list, set), applies directly.
+    /// Dict requires two type parameters and must use a separate path.
+    pub(crate) fn parametrize(&self, arg: &Ty) -> Result<Ty, TypingNoContextOrInternalError> {
+        match self {
+            TyBasic::Custom(c) => c.parametrize(arg),
+            TyBasic::List(_) => Ok(Ty::list(arg.clone())),
+            TyBasic::Set(_) => Ok(Ty::set(arg.clone())),
+            _ => Err(TypingNoContextOrInternalError::Typing),
+        }
     }
 
     pub(crate) fn fmt_with_config(

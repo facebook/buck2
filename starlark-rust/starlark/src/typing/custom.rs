@@ -81,6 +81,16 @@ pub trait TyCustomImpl: Debug + Display + Hash + Ord + Allocative + Send + Sync 
         let _unused = (bin_op, rhs, ctx);
         Err(TypingNoContextOrInternalError::Typing)
     }
+    /// Result type of `lhs <op> self` (reverse binary operation).
+    fn rbin_op(
+        &self,
+        bin_op: TypingBinOp,
+        lhs: &TyBasic,
+        ctx: &TypingOracleCtx,
+    ) -> Result<Ty, TypingNoContextOrInternalError> {
+        let _unused = (bin_op, lhs, ctx);
+        Err(TypingNoContextOrInternalError::Typing)
+    }
     /// Element type when iterating (`for x in self`).
     fn iter_item(&self) -> Result<Ty, TypingNoContextError> {
         Err(TypingNoContextError)
@@ -111,6 +121,11 @@ pub trait TyCustomImpl: Debug + Display + Hash + Ord + Allocative + Send + Sync 
     }
     /// Create runtime type matcher for values.
     fn matcher<T: TypeMatcherAlloc>(&self, factory: T) -> T::Result;
+
+    /// Apply a type parameter to this custom type (e.g., `MyType[T]`).
+    fn parametrize(&self, _arg: &Ty) -> Result<Ty, TypingNoContextOrInternalError> {
+        Err(TypingNoContextOrInternalError::Typing)
+    }
 }
 
 pub(crate) trait TyCustomDyn: Debug + Display + Allocative + Send + Sync + 'static {
@@ -143,6 +158,12 @@ pub(crate) trait TyCustomDyn: Debug + Display + Allocative + Send + Sync + 'stat
         rhs: &TyBasic,
         ctx: &TypingOracleCtx,
     ) -> Result<Ty, TypingNoContextOrInternalError>;
+    fn rbin_op_dyn(
+        &self,
+        bin_op: TypingBinOp,
+        lhs: &TyBasic,
+        ctx: &TypingOracleCtx,
+    ) -> Result<Ty, TypingNoContextOrInternalError>;
     fn union2_dyn(
         self: Arc<Self>,
         other: Arc<dyn TyCustomDyn>,
@@ -155,6 +176,7 @@ pub(crate) trait TyCustomDyn: Debug + Display + Allocative + Send + Sync + 'stat
     ) -> TypeCompiled<Value<'v>>;
 
     fn matcher_box_dyn(&self) -> TypeMatcherBox;
+    fn parametrize_dyn(&self, arg: &Ty) -> Result<Ty, TypingNoContextOrInternalError>;
 }
 
 impl<T: TyCustomImpl> TyCustomDyn for T {
@@ -230,6 +252,15 @@ impl<T: TyCustomImpl> TyCustomDyn for T {
         self.bin_op(bin_op, rhs, ctx)
     }
 
+    fn rbin_op_dyn(
+        &self,
+        bin_op: TypingBinOp,
+        lhs: &TyBasic,
+        ctx: &TypingOracleCtx,
+    ) -> Result<Ty, TypingNoContextOrInternalError> {
+        self.rbin_op(bin_op, lhs, ctx)
+    }
+
     fn union2_dyn(
         self: Arc<Self>,
         other: Arc<dyn TyCustomDyn>,
@@ -262,6 +293,10 @@ impl<T: TyCustomImpl> TyCustomDyn for T {
     fn matcher_box_dyn(&self) -> TypeMatcherBox {
         self.matcher(TypeMatcherBoxAlloc)
     }
+
+    fn parametrize_dyn(&self, arg: &Ty) -> Result<Ty, TypingNoContextOrInternalError> {
+        self.parametrize(arg)
+    }
 }
 
 #[derive(Debug, derive_more::Display, Allocative, Clone, Dupe)]
@@ -279,6 +314,10 @@ impl TyCustom {
 
     pub(crate) fn as_name(&self) -> Option<&str> {
         self.0.as_name_dyn()
+    }
+
+    pub(crate) fn parametrize(&self, arg: &Ty) -> Result<Ty, TypingNoContextOrInternalError> {
+        self.0.parametrize_dyn(arg)
     }
 
     pub(crate) fn union2(x: TyCustom, y: TyCustom) -> Result<TyCustom, (TyCustom, TyCustom)> {

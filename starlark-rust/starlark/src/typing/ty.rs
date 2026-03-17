@@ -40,6 +40,7 @@ use crate::typing::callable::TyCallable;
 use crate::typing::custom::TyCustom;
 use crate::typing::custom::TyCustomImpl;
 use crate::typing::error::TypingNoContextError;
+use crate::typing::error::TypingNoContextOrInternalError;
 use crate::typing::function::TyCustomFunction;
 use crate::typing::function::TyCustomFunctionImpl;
 use crate::typing::function::TyFunction;
@@ -365,6 +366,17 @@ impl Ty {
         &self.alternatives
     }
 
+    /// Apply a type parameter to this type, e.g. `list[str]` or `Select[int]`.
+    /// For union types, tries each alternative and returns the first success.
+    pub(crate) fn parametrize(&self, arg: &Ty) -> Result<Ty, TypingNoContextOrInternalError> {
+        for basic in self.iter_union() {
+            if let Ok(ty) = basic.parametrize(arg) {
+                return Ok(ty);
+            }
+        }
+        Err(TypingNoContextOrInternalError::Typing)
+    }
+
     /// Apply typechecking operation for each alternative.
     ///
     /// If at least one was successful, return the union of all successful results.
@@ -481,7 +493,8 @@ impl Ty {
         ok
     }
 
-    pub(crate) fn check_intersects(&self, other: &Ty) -> crate::Result<bool> {
+    /// Check whether two types could have overlapping values.
+    pub fn check_intersects(&self, other: &Ty) -> crate::Result<bool> {
         let oracle = TypingOracleCtx {
             codemap: CodeMap::empty_static(),
         };

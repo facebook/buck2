@@ -594,11 +594,19 @@ impl<'a, 'v> GlobalTypesBuilder<'a, 'v> {
                 let i = self.from_type_expr_impl(i)?;
                 match self.expr_ident(a)?.value {
                     Some(a) => {
-                        // Built-in generic types (list, set) are special-cased because they
-                        // are functions, not types, so they lack eval_type(). Their
-                        // parameterization is handled directly via Ty constructors.
-                        if a.ptr_eq(Constants::get().fn_list.0.to_value()) {
-                            Ok(Ty::list(i))
+                        if let Some(base_ty) = a.get_ref().eval_type() {
+                            // For types with eval_type(), use Ty::parametrize to resolve
+                            // the parameterized type through the static type system.
+                            match base_ty.parametrize(&i) {
+                                Ok(ty) => Ok(ty),
+                                Err(_) => {
+                                    self.approximations.push(Approximation::new(
+                                        "Type parameterization failed",
+                                        x,
+                                    ));
+                                    Ok(Ty::any())
+                                }
+                            }
                         } else {
                             let i_compiled = TypeCompiled::from_ty(&i, self.heap);
                             match a.get_ref().at(i_compiled.to_inner(), self.heap) {

@@ -679,6 +679,7 @@ impl<'a> TypingOracleCtx<'a> {
                 }
                 _ => Ok(TyStarlarkValue::tuple().rbin_op(bin_op, lhs)?),
             },
+            TyBasic::Custom(rhs) => Ok(rhs.0.rbin_op_dyn(bin_op, lhs, self)?),
             _ => Err(TypingNoContextOrInternalError::Typing),
         }
     }
