@@ -12,6 +12,7 @@ use std::time::Duration;
 use std::time::Instant;
 
 use buck2_build_signals::env::WaitingCategory;
+use buck2_core::soft_error;
 use buck2_util::time_span::TimeSpan;
 use gazebo::variants::VariantName;
 
@@ -186,6 +187,31 @@ impl CriticalPathProtoEnhancer {
         entry: buck2_data::CriticalPathEntry2,
     ) {
         let entry_start = time_span.start();
+        if let Some(overlap) = self.last_entry_end.checked_duration_since(entry_start)
+            && overlap > Duration::ZERO
+        {
+            let _ignored = soft_error!(
+                "critical_path_entry_overlap",
+                buck2_error::buck2_error!(
+                    buck2_error::ErrorTag::Tier0,
+                    "Critical path nodes had overlapping time spans (overlap duration {}us). \
+                    This indicates that the work of the latter node does not actually \
+                    depend on the work of the previous node. This leads to incorrect critical \
+                    path calculations and double counting of time.
+
+                    Previous node:
+                    {:?}
+                    Current node:
+                    {:?}",
+                    overlap.as_micros(),
+                    self.entries.last(),
+                    entry
+                )
+                .into(),
+                quiet: true
+            );
+        }
+
         let missing_duration = entry_start.saturating_duration_since(self.last_entry_end);
         if missing_duration.as_millis() > 0 {
             self.entries.push(
