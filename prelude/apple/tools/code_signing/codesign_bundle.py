@@ -118,7 +118,7 @@ def _log_codesign_identities(
             )
 
 
-def _select_provisioning_profile(
+def _select_best_provisioning_profile(
     info_plist_metadata: InfoPlistMetadata,
     provisioning_profiles_dir: Path,
     entitlements_path: Optional[Path],
@@ -232,7 +232,7 @@ def signing_context_with_profile_selection(
 ) -> SigningContextWithProfileSelection:
     with open(info_plist_source, mode="rb") as info_plist_file:
         info_plist_metadata = InfoPlistMetadata.from_file(info_plist_file)
-    selected_profile_info = _select_provisioning_profile(
+    selected_profile_info = _select_best_provisioning_profile(
         info_plist_metadata=info_plist_metadata,
         provisioning_profiles_dir=provisioning_profiles_dir,
         entitlements_path=entitlements_path,
