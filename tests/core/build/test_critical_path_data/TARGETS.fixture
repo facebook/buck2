@@ -14,3 +14,6 @@ dynamic_cp2(name = "check_dynamic_input", dep = ":step_1")
 
 seed_val = read_config("test", "seed", "42")
 simple_test(name = "long_running_test", seed = seed_val)
+
+tset_write(name = "tset_leaf")
+tset_write(name = "tset_top", deps = [":tset_leaf"])

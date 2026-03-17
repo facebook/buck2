@@ -24,18 +24,23 @@ use dice::DiceComputations;
 use dice::DiceComputationsData;
 use dupe::Dupe;
 
+use crate::artifact_groups::ArtifactGroup;
 use crate::build_signals::HasBuildSignals;
 
 #[async_trait]
 pub trait ArtifactMaterializer {
-    /// called to materialized the final set of requested artifacts for the build of a target.
-    /// This method will render events in superconsole
+    /// Called to materialize the final set of requested artifacts for the build of a target.
+    /// This method will render events in superconsole.
+    ///
+    /// `requested_group` is the top-level `ArtifactGroup` that this artifact belongs to,
+    /// used to record correct critical path dependencies (e.g. tset ensure vs individual action).
     async fn try_materialize_requested_artifact(
         &self,
         artifact: &BuildArtifact,
         waiting_data: WaitingData,
         required: bool,
         path: ProjectRelativePathBuf,
+        requested_group: &ArtifactGroup,
     ) -> buck2_error::Result<()>;
 }
 
@@ -47,6 +52,7 @@ impl ArtifactMaterializer for DiceComputationsData {
         waiting_data: WaitingData,
         required: bool,
         path: ProjectRelativePathBuf,
+        requested_group: &ArtifactGroup,
     ) -> buck2_error::Result<()> {
         let materializer = self.per_transaction_data().get_materializer();
         let start_event = buck2_data::MaterializeRequestedArtifactStart {
@@ -71,6 +77,7 @@ impl ArtifactMaterializer for DiceComputationsData {
 
                     signals.final_materialization(
                         artifact.dupe(),
+                        requested_group.dupe(),
                         NodeDuration {
                             user: duration,
                             total: TimeSpan::from_start_and_duration(now, duration),
@@ -99,9 +106,16 @@ impl ArtifactMaterializer for DiceComputations<'_> {
         waiting_data: WaitingData,
         required: bool,
         path: ProjectRelativePathBuf,
+        requested_group: &ArtifactGroup,
     ) -> buck2_error::Result<()> {
         self.data()
-            .try_materialize_requested_artifact(artifact, waiting_data, required, path)
+            .try_materialize_requested_artifact(
+                artifact,
+                waiting_data,
+                required,
+                path,
+                requested_group,
+            )
             .await
     }
 }

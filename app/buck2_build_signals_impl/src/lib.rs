@@ -29,6 +29,7 @@ use buck2_build_api::actions::calculation::ActionExtraData;
 use buck2_build_api::actions::calculation::ActionWithExtraData;
 use buck2_build_api::actions::calculation::BuildKey;
 use buck2_build_api::actions::calculation::BuildKeyActivationData;
+use buck2_build_api::artifact_groups::ArtifactGroup;
 use buck2_build_api::artifact_groups::ResolvedArtifactGroupBuildSignalsKey;
 use buck2_build_api::artifact_groups::calculation::EnsureProjectedArtifactKey;
 use buck2_build_api::artifact_groups::calculation::EnsureTransitiveSetProjectionKey;
@@ -64,6 +65,7 @@ use dupe::Dupe;
 use gazebo::prelude::SliceExt;
 use gazebo::variants::VariantName;
 use itertools::Itertools;
+use ref_cast::RefCast;
 use smallvec::SmallVec;
 use static_assertions::assert_eq_size;
 use tokio::sync::mpsc::UnboundedReceiver;
@@ -264,6 +266,7 @@ struct TopLevelTargetSignal {
 
 struct FinalMaterializationSignal {
     pub(crate) artifact: BuildArtifact,
+    pub(crate) from_group: ArtifactGroup,
     pub(crate) duration: NodeDuration,
     pub(crate) span_id: Option<SpanId>,
     pub(crate) waiting_data: WaitingData,
@@ -323,6 +326,7 @@ impl BuildSignals for BuildSignalSender {
     fn final_materialization(
         &self,
         artifact: BuildArtifact,
+        from_group: ArtifactGroup,
         duration: NodeDuration,
         span_id: Option<SpanId>,
         waiting_data: WaitingData,
@@ -333,6 +337,7 @@ impl BuildSignals for BuildSignalSender {
                 duration,
                 span_id,
                 waiting_data,
+                from_group,
             },
         ));
     }
@@ -679,7 +684,14 @@ where
     }
 
     fn process_final_materialization(&mut self, materialization: FinalMaterializationSignal) {
-        let dep = NodeKey::BuildKey(BuildKey(materialization.artifact.key().dupe()));
+        let dep = match &materialization.from_group {
+            ArtifactGroup::TransitiveSetProjection(key) => {
+                NodeKey::EnsureTransitiveSetProjectionKey(
+                    EnsureTransitiveSetProjectionKey::ref_cast(&key.key).clone(),
+                )
+            }
+            _ => NodeKey::BuildKey(BuildKey(materialization.artifact.key().dupe())),
+        };
 
         self.backend.process_node(
             NodeKey::FinalMaterialization(materialization.artifact),

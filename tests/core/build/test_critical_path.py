@@ -400,3 +400,66 @@ async def test_critical_path_test_entries(buck: Buck) -> None:
         == "root//:long_running_test"
     )
     assert test_execution_action["duration_us"] > 100000  # 100ms
+
+
+# Test that FinalMaterialization for artifacts reached via a transitive set projection
+# depends on EnsureTransitiveSetProjectionKey in the critical path graph, not just BuildKey.
+#
+# The bug: when materializing artifacts from a tset projection, the critical path was
+# recording a dependency on the BuildKey (the action that produced the artifact) instead
+# of the EnsureTransitiveSetProjectionKey (which ensures the tset that contains the artifact).
+# This matters because ensuring the tset transitively depends on the actions, and the
+# critical path should reflect that the materialization waited on the tset, not just
+# the individual action.
+#
+# Note: if an optimization is made to materialize tset artifacts individually (without
+# going through EnsureTransitiveSetProjectionKey), the critical path dependency should
+# still not be just BuildKey -- it should include the analysis that produces the tset.
+@buck_test()
+async def test_critical_path_tset_final_materialization(buck: Buck) -> None:
+    with open(buck.cwd / ".buckconfig", "a") as f:
+        f.write("[buck2]\n")
+        f.write("critical_path_backend2 = logging\n")
+
+    await buck.build("//:tset_top", "--no-remote-cache")
+    events = await filter_events(
+        buck,
+        "Event",
+        "data",
+        "Instant",
+        "data",
+        "UnstableE2eData",
+    )
+
+    events = [
+        json.loads(ev["data"])
+        for ev in events
+        if ev["key"] == "critical_path_logging_node"
+    ]
+
+    # Find FinalMaterialization nodes
+    final_mat_nodes = [
+        ev for ev in events if ev["key"].startswith("FinalMaterialization(")
+    ]
+
+    assert len(final_mat_nodes) > 0, "Expected at least one FinalMaterialization node"
+
+    # Find the FinalMaterialization node for tset_leaf's artifact.
+    # tset_leaf's output is only reachable through the tset projection (it's not
+    # a direct default_output of tset_top), so its FinalMaterialization must
+    # reflect the tset dependency.
+    tset_leaf_mat = [ev for ev in final_mat_nodes if "tset_leaf" in ev["key"]]
+    assert len(tset_leaf_mat) == 1, (
+        f"Expected exactly one FinalMaterialization for tset_leaf, got {len(tset_leaf_mat)}"
+    )
+
+    # The dependency should be EnsureTransitiveSetProjectionKey, not BuildKey.
+    # With the bug, this would be BuildKey (the write action for tset_leaf).
+    # With the fix, this correctly points to the tset ensure step.
+    tset_leaf_deps = tset_leaf_mat[0]["deps"]
+    assert any(
+        dep.startswith("EnsureTransitiveSetProjectionKey(") for dep in tset_leaf_deps
+    ), (
+        "Expected FinalMaterialization for tset_leaf to depend on "
+        "EnsureTransitiveSetProjectionKey, but got deps: " + str(tset_leaf_deps)
+    )

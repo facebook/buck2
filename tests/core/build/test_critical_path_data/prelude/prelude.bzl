@@ -94,3 +94,26 @@ simple_test = rule(
     impl = _simple_test_impl,
     attrs = {"seed": attrs.string()},
 )
+
+def _proj_identity(v):
+    return v
+
+TSetForTest = transitive_set(args_projections = {"identity": _proj_identity})
+
+TSetForTestInfo = provider(fields = ["tset"])
+
+def _tset_write(ctx: AnalysisContext) -> list[Provider]:
+    out = ctx.actions.write("out", str(ctx.label.name))
+    children = [d[TSetForTestInfo].tset for d in ctx.attrs.deps]
+    tset = ctx.actions.tset(TSetForTest, value = out, children = children)
+    return [
+        TSetForTestInfo(tset = tset),
+        DefaultInfo(
+            default_output = out,
+            other_outputs = [tset.project_as_args("identity")],
+        ),
+    ]
+
+tset_write = rule(impl = _tset_write, attrs = {
+    "deps": attrs.list(attrs.dep(providers = [TSetForTestInfo]), default = []),
+})

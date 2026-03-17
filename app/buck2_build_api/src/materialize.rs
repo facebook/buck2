@@ -173,6 +173,7 @@ async fn materialize_artifact_group(
                     let artifact = artifact.dupe();
                     let value = value.dupe();
                     let shared_data = shared_data.dupe();
+                    let artifact_group = artifact_group.dupe();
 
                     async move {
                         let (data, artifact_fs, materializer) = &*shared_data;
@@ -208,6 +209,7 @@ async fn materialize_artifact_group(
                             waiting_data,
                             force,
                             configuration_hash_path,
+                            &artifact_group,
                         )
                         .await
                         .buck_error_context("Failed to materialize artifacts")?;

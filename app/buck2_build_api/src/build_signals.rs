@@ -22,6 +22,7 @@ use dice::ActivationTracker;
 use dice::UserComputationData;
 use dupe::Dupe;
 
+use crate::artifact_groups::ArtifactGroup;
 use crate::artifact_groups::ResolvedArtifactGroupBuildSignalsKey;
 
 pub static CREATE_BUILD_SIGNALS: LateBinding<
@@ -47,9 +48,15 @@ pub trait BuildSignals: Send + Sync + 'static {
         artifacts: Vec<ResolvedArtifactGroupBuildSignalsKey>,
     );
 
+    /// Record a final materialization event for the critical path.
+    ///
+    /// `from_group` is the top-level `ArtifactGroup` that triggered this materialization.
+    /// When the group is a transitive set projection, the critical path dependency is
+    /// recorded against the tset ensure step rather than the individual build action.
     fn final_materialization(
         &self,
         artifact: BuildArtifact,
+        from_group: ArtifactGroup,
         duration: NodeDuration,
         span_id: Option<SpanId>,
         waiting_data: WaitingData,
