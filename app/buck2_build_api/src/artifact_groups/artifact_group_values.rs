@@ -26,11 +26,12 @@ use buck2_execute::directory::INTERNER;
 use buck2_execute::directory::LazyActionDirectoryBuilder;
 use buck2_execute::directory::insert_artifact_lazy;
 use dupe::Dupe;
+use pagable::PagablePanic;
 use smallvec::SmallVec;
 use smallvec::smallvec;
 
 /// The [`ArtifactValue`]s for an [`crate::artifact_groups::ArtifactGroup`].
-#[derive(Clone, Dupe, Allocative)]
+#[derive(Clone, Dupe, Allocative, PagablePanic)]
 pub struct ArtifactGroupValues(pub(super) Arc<ArtifactGroupValuesData>);
 
 impl ArtifactGroupValues {

@@ -20,6 +20,7 @@ use dice::Key;
 use dice_futures::cancellation::CancellationContext;
 use dupe::Dupe;
 use pagable::Pagable;
+use pagable::PagablePanic;
 use pagable::pagable_typetag;
 use starlark::environment::Globals;
 
@@ -92,7 +93,7 @@ impl HasGlobalInterpreterState for DiceComputations<'_> {
     async fn get_global_interpreter_state(
         &mut self,
     ) -> buck2_error::Result<Arc<GlobalInterpreterState>> {
-        #[derive(Clone, Dupe, Allocative)]
+        #[derive(Clone, Dupe, Allocative, PagablePanic)]
         struct GisValue(Arc<GlobalInterpreterState>);
 
         #[derive(

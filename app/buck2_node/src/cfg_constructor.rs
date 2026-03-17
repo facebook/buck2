@@ -19,6 +19,10 @@ use buck2_core::configuration::data::ConfigurationData;
 use buck2_util::late_binding::LateBinding;
 use dice::DiceComputations;
 use dice_futures::cancellation::CancellationContext;
+use pagable::PagableBoxDeserialize;
+use pagable::PagableDeserializer;
+use pagable::PagableSerialize;
+use pagable::PagableSerializer;
 
 use crate::metadata::key::MetadataKeyRef;
 use crate::metadata::value::MetadataValue;
@@ -74,4 +78,18 @@ pub trait CfgConstructorCalculationImpl: Send + Sync + 'static {
         rule_name: &RuleType,
         configuring_exec_dep: bool,
     ) -> buck2_error::Result<ConfigurationData>;
+}
+
+impl PagableSerialize for dyn CfgConstructorImpl {
+    fn pagable_serialize(&self, _serializer: &mut dyn PagableSerializer) -> pagable::Result<()> {
+        unimplemented!()
+    }
+}
+
+impl<'de> PagableBoxDeserialize<'de> for dyn CfgConstructorImpl {
+    fn deserialize_box<D: PagableDeserializer<'de> + ?Sized>(
+        _deserializer: &mut D,
+    ) -> pagable::Result<Box<Self>> {
+        unimplemented!()
+    }
 }

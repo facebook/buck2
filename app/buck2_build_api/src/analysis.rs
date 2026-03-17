@@ -15,6 +15,7 @@ use std::sync::Arc;
 use buck2_artifact::artifact::artifact_type::Artifact;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_interpreter::starlark_profiler::data::StarlarkProfileDataAndStats;
+use pagable::PagablePanic;
 
 use crate::analysis::registry::RecordedAnalysisValues;
 use crate::artifact_groups::promise::PromiseArtifactId;
@@ -34,7 +35,7 @@ use crate::interpreter::rule_defs::provider::collection::FrozenProviderCollectio
 use crate::interpreter::rule_defs::provider::collection::FrozenProviderCollectionValueRef;
 use crate::validation::transitive_validations::TransitiveValidations;
 
-#[derive(Debug, Clone, Dupe, Allocative)]
+#[derive(Debug, Clone, Dupe, Allocative, PagablePanic)]
 pub struct AnalysisResult {
     analysis_values: Arc<RecordedAnalysisValues>,
     /// Profiling data after running analysis, for this analysis only, without dependencies.

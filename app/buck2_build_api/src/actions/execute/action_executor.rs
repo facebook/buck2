@@ -77,6 +77,7 @@ use indexmap::IndexMap;
 use indexmap::IndexSet;
 use indexmap::indexmap;
 use itertools::Itertools;
+use pagable::PagablePanic;
 use remote_execution::TActionResult2;
 
 use crate::actions::ActionExecutionCtx;
@@ -94,7 +95,7 @@ use crate::artifact_groups::ArtifactGroup;
 use crate::artifact_groups::ArtifactGroupValues;
 
 /// This is the result of the action as exposed to other things in the dice computation.
-#[derive(Clone, Dupe, Debug, PartialEq, Eq, Allocative)]
+#[derive(Clone, Dupe, Debug, PartialEq, Eq, Allocative, PagablePanic)]
 pub struct ActionOutputs(Arc<ActionOutputsData>);
 
 impl OutputSize for ActionOutputs {

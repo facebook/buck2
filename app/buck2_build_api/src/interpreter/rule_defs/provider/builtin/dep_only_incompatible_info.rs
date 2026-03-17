@@ -19,6 +19,7 @@ use buck2_core::pattern::pattern_type::TargetPatternExtra;
 use buck2_core::target::label::label::TargetLabel;
 use buck2_util::arc_str::ArcStr;
 use dupe::Dupe;
+use pagable::PagablePanic;
 use starlark::any::ProvidesStaticType;
 use starlark::collections::SmallMap;
 use starlark::environment::GlobalsBuilder;
@@ -101,7 +102,7 @@ fn dep_only_incompatible_info_creator(globals: &mut GlobalsBuilder) {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Allocative)]
+#[derive(Debug, Clone, PartialEq, Eq, Allocative, PagablePanic)]
 pub struct DepOnlyIncompatibleRolloutPatterns {
     target_patterns: Box<[ParsedPattern<TargetPatternExtra>]>,
     exclusions: Box<[ParsedPattern<TargetPatternExtra>]>,

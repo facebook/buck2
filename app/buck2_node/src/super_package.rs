@@ -12,6 +12,7 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use dupe::Dupe;
+use pagable::PagablePanic;
 
 use crate::cfg_constructor::CfgConstructorImpl;
 use crate::metadata::key::MetadataKeyRef;
@@ -61,7 +62,7 @@ impl SuperPackageData {
 
 /// Contents of a `PACKAGE` file merged with contents of containing `PACKAGE` files.
 /// This object exists even for non-existent `PACKAGE` files.
-#[derive(Debug, Allocative, Clone, Dupe)]
+#[derive(Debug, Allocative, Clone, Dupe, PagablePanic)]
 pub struct SuperPackage(Arc<SuperPackageData>);
 
 impl SuperPackage {

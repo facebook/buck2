@@ -25,6 +25,7 @@ use buck2_interpreter::paths::module::StarlarkModulePath;
 use buck2_interpreter::prelude_path::PreludePath;
 use buck2_node::super_package::SuperPackage;
 use dupe::Dupe;
+use pagable::PagablePanic;
 use starlark::environment::GlobalsBuilder;
 
 use crate::attrs::coerce::ctx::BuildAttrCoercionContext;
@@ -56,7 +57,7 @@ impl PartialEq for AdditionalGlobalsFn {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Allocative)]
+#[derive(Clone, Debug, PartialEq, Allocative, PagablePanic)]
 pub struct BuildInterpreterConfiguror {
     /// Path to prelude import (typically `prelude//:prelude.bzl`).
     ///

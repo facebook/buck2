@@ -29,6 +29,7 @@ use dice_futures::cancellation::CancellationContext;
 use dupe::Dupe;
 use itertools::Itertools;
 use pagable::Pagable;
+use pagable::PagablePanic;
 use pagable::pagable_typetag;
 use ref_cast::RefCast;
 use regex::Regex;
@@ -38,7 +39,7 @@ use crate::dice::starlark_provider::StarlarkEvalKind;
 use crate::starlark_profiler::mode::StarlarkProfileMode;
 
 /// Global profiling configuration.
-#[derive(PartialEq, Eq, Clone, Debug, Allocative)]
+#[derive(PartialEq, Eq, Clone, Debug, Allocative, PagablePanic)]
 #[derive(Default)]
 pub enum StarlarkProfilerConfiguration {
     /// No profiling.
@@ -77,7 +78,7 @@ impl PartialEq for ProfileRegex {
     }
 }
 
-#[derive(PartialEq, Eq, Clone, Debug, Allocative)]
+#[derive(PartialEq, Eq, Clone, Debug, Allocative, PagablePanic)]
 enum StarlarkProfilerConfigurationResolved {
     None,
     ProfileLastLoading(ProfileMode, PackagePredicate),

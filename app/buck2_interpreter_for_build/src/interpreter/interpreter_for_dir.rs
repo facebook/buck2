@@ -58,6 +58,7 @@ use buck2_util::per_thread_instruction_counter::PerThreadInstructionCounter;
 use dice::CancellationContext;
 use dupe::Dupe;
 use gazebo::prelude::*;
+use pagable::PagablePanic;
 use starlark::codemap::FileSpan;
 use starlark::environment::FrozenModule;
 use starlark::syntax::AstModule;
@@ -144,7 +145,7 @@ pub fn get_starlark_warning_link() -> &'static str {
 /// The Interpreter is responsible for parsing files to an AST and then
 /// evaluating that AST. The Interpreter doesn't maintain state or cache results
 /// of parsing or loading imports.
-#[derive(Allocative)]
+#[derive(Allocative, PagablePanic)]
 pub(crate) struct InterpreterForDir {
     /// Non-cell-specific information.
     global_state: Arc<GlobalInterpreterState>,

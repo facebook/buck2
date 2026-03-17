@@ -17,6 +17,7 @@ use buck2_error::conversion::from_any_with_tag;
 use derivative::Derivative;
 use dupe::Dupe;
 use either::Either;
+use pagable::PagablePanic;
 use starlark::codemap::FileSpan;
 use starlark::environment::FrozenModule;
 use starlark::eval::FileLoader;
@@ -70,7 +71,7 @@ impl ModuleDeps {
     }
 }
 
-#[derive(Clone, Dupe, Allocative, Debug)]
+#[derive(Clone, Dupe, Allocative, Debug, PagablePanic)]
 pub struct LoadedModule(Arc<LoadedModuleData>);
 
 #[derive(Derivative, Allocative)]

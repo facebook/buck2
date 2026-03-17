@@ -16,6 +16,7 @@ use base64::write::EncoderWriter;
 use buck2_util::strong_hasher::Blake3StrongHasher;
 use derivative::Derivative;
 use dupe::Dupe;
+use pagable::PagablePanic;
 use ref_cast::RefCast;
 use setsketch::SetSketchParams;
 use setsketch::SetSketcher;
@@ -34,7 +35,7 @@ pub(crate) trait Sketcher<T> {
 /// so by holding directly onto the `SetSketcher` type.
 /// (2) It implements Dupe, Hash, and Eq. Hash and Eq are implemented by precomputing and holding
 /// onto a signature of the sketch.
-#[derive(Clone, Dupe, Derivative, Allocative)]
+#[derive(Clone, Dupe, Derivative, Allocative, PagablePanic)]
 #[derivative(Debug)]
 pub struct MergeableGraphSketch<T: StrongHash> {
     version: SketchVersion,

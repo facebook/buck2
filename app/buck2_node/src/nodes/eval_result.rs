@@ -26,6 +26,7 @@ use buck2_core::target::name::TargetNameRef;
 use dupe::Dupe;
 use gazebo::prelude::*;
 use itertools::Itertools;
+use pagable::PagablePanic;
 
 use crate::attrs::coerced_attr::CoercedAttr;
 use crate::attrs::inspect_options::AttrInspectOptions;
@@ -247,7 +248,7 @@ impl MissingTargets {
 }
 
 /// An EvaluationResult contains the list of targets resulting from evaluating a build file.
-#[derive(Debug, Allocative)]
+#[derive(Debug, Allocative, PagablePanic)]
 pub struct EvaluationResult {
     /// The buildfile path that corresponds to this result.
     /// unlike a .bzl file, a build file (BUCK, TARGETS, etc) will only be loaded in

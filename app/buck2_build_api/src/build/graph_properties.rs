@@ -24,6 +24,7 @@ use dice::Key;
 use dupe::Dupe;
 use futures::FutureExt;
 use pagable::Pagable;
+use pagable::PagablePanic;
 use pagable::pagable_typetag;
 
 use crate::build::detailed_aggregated_metrics::buck2_sketches::AnalysisGraphPropertiesKey;
@@ -102,7 +103,7 @@ impl GraphPropertiesOptions {
     }
 }
 
-#[derive(Clone, Dupe, Debug, Eq, PartialEq, Allocative)]
+#[derive(Clone, Dupe, Debug, Eq, PartialEq, Allocative, PagablePanic)]
 pub struct ConfiguredGraphPropertiesValues {
     pub configured_graph_size: u64,
     pub configured_graph_sketch: Option<MergeableGraphSketch<ConfiguredTargetLabel>>,
