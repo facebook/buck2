@@ -10,6 +10,7 @@ allocative = { workspace = true }
 buck2_host_sharing_proto = { workspace = true }
 derive_more = { workspace = true }
 hex = { workspace = true }
+pagable = { workspace = true }
 prost = { workspace = true }
 prost-types = { workspace = true }
 serde = { workspace = true }
