@@ -25,6 +25,8 @@ use derivative::Derivative;
 use dice::DiceComputations;
 use dice::UserComputationData;
 use dupe::Dupe;
+use pagable::Pagable;
+use pagable::pagable_typetag;
 
 use crate::dice::data::HasIoProvider;
 use crate::file_ops::delegate::FileOpsDelegate;
@@ -35,7 +37,7 @@ use crate::file_ops::metadata::RawPathMetadata;
 /// A `FileOpsDelegate` implementation that calls out to the `IoProvider` to read files.
 ///
 /// This is used for everything except 1) tests, and 2) external cells.
-#[derive(Clone, Dupe, Derivative, Allocative)]
+#[derive(Clone, Dupe, Derivative, Allocative, Pagable)]
 #[derivative(PartialEq)]
 pub(super) struct IoFileOpsDelegate {
     pub(super) cells: CellResolver,
@@ -53,6 +55,7 @@ impl IoFileOpsDelegate {
     }
 }
 
+#[pagable_typetag]
 #[async_trait]
 impl FileOpsDelegate for IoFileOpsDelegate {
     async fn read_file_if_exists(

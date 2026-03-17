@@ -21,6 +21,9 @@ use dice::DiceComputations;
 use dice::Key;
 use dice_futures::cancellation::CancellationContext;
 use dupe::Dupe;
+use pagable::Pagable;
+use pagable::pagable_typetag;
+use pagable::typetag::PagableTagged;
 
 use crate::dice::cells::HasCellResolver;
 use crate::external_cells::EXTERNAL_CELLS_IMPL;
@@ -62,8 +65,9 @@ mod keys {
     pub(crate) struct FileOpsValue(#[allocative(skip)] pub FileOpsDelegateWithIgnores);
 }
 
+#[pagable_typetag]
 #[async_trait]
-pub trait FileOpsDelegate: Send + Sync {
+pub trait FileOpsDelegate: PagableTagged + Send + Sync {
     async fn read_file_if_exists(
         &self,
         ctx: &mut DiceComputations<'_>,
@@ -157,7 +161,7 @@ pub(crate) async fn get_delegated_file_ops(
         .0)
 }
 
-#[derive(Clone, Dupe)]
+#[derive(Clone, Dupe, Pagable)]
 pub struct FileOpsDelegateWithIgnores {
     ignores: Option<Arc<CellFileIgnores>>,
     delegate: Arc<dyn FileOpsDelegate>,

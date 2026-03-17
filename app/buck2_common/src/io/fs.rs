@@ -29,6 +29,7 @@ use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use compact_str::CompactString;
 use dupe::Dupe;
 use once_cell::sync::Lazy;
+use pagable::Pagable;
 use tokio::sync::Semaphore;
 
 use crate::cas_digest::CasDigestConfig;
@@ -43,7 +44,7 @@ use crate::file_ops::metadata::Symlink;
 use crate::file_ops::metadata::TrackedFileDigest;
 use crate::io::IoProvider;
 
-#[derive(Clone, Dupe, Allocative)]
+#[derive(Clone, Dupe, Allocative, Pagable)]
 pub struct FsIoProvider {
     fs: ProjectRoot,
     cas_digest_config: CasDigestConfig,

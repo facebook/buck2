@@ -24,6 +24,7 @@ use buck2_fs::paths::abs_norm_path::AbsNormPath;
 use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
 use dupe::Dupe;
+use pagable::Pagable;
 use ref_cast::RefCast;
 use relative_path::RelativePathBuf;
 
@@ -40,7 +41,15 @@ enum ProjectRootError {
 /// directory (cwd). The root path is the project root as defined in this
 /// library. The cwd will be the directory from which the command was invoked,
 /// which is within the project root and hence relativized against it.
-#[derive(Clone, Debug, Dupe, PartialEq, derive_more::Display, Allocative)]
+#[derive(
+    Clone,
+    Debug,
+    Dupe,
+    PartialEq,
+    derive_more::Display,
+    Allocative,
+    Pagable
+)]
 #[display("{root}")]
 pub struct ProjectRoot {
     root: Arc<AbsNormPathBuf>,

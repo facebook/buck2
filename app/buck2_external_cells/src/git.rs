@@ -274,7 +274,7 @@ async fn download_and_materialize(
     res
 }
 
-#[derive(allocative::Allocative)]
+#[derive(allocative::Allocative, Pagable)]
 pub(crate) struct GitFileOpsDelegate {
     buck_out_resolver: BuckOutPathResolver,
     cell: CellName,
@@ -295,6 +295,7 @@ impl GitFileOpsDelegate {
     }
 }
 
+#[pagable_typetag]
 #[async_trait::async_trait]
 impl FileOpsDelegate for GitFileOpsDelegate {
     async fn read_file_if_exists(

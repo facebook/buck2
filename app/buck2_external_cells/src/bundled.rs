@@ -63,6 +63,7 @@ use dice::DiceComputations;
 use dice::Key;
 use dupe::Dupe;
 use pagable::Pagable;
+use pagable::PagablePanic;
 use pagable::pagable_typetag;
 
 fn load_nano_prelude() -> buck2_error::Result<BundledCell> {
@@ -216,7 +217,7 @@ impl DirectoryDigester<ContentsAndMetadata, BundledDirectoryDigest> for BundledD
     }
 }
 
-#[derive(allocative::Allocative)]
+#[derive(allocative::Allocative, PagablePanic)]
 pub(crate) struct BundledFileOpsDelegate {
     dir: ImmutableDirectory<ContentsAndMetadata, BundledDirectoryDigest>,
 }
@@ -320,6 +321,7 @@ impl BundledFileOpsDelegate {
     }
 }
 
+#[pagable_typetag]
 #[async_trait::async_trait]
 impl FileOpsDelegate for BundledFileOpsDelegate {
     async fn read_file_if_exists(

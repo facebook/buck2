@@ -24,6 +24,8 @@ use dice::DiceComputations;
 use dice::testing::DiceBuilder;
 use dupe::Dupe;
 use itertools::Itertools;
+use pagable::PagablePanic;
+use pagable::pagable_typetag;
 
 use crate::cas_digest::CasDigestConfig;
 use crate::external_symlink::ExternalSymlink;
@@ -237,8 +239,10 @@ impl FileOps for TestFileOps {
     }
 }
 
+#[derive(PagablePanic)]
 pub struct TestCellFileOps(CellName, TestFileOps);
 
+#[pagable_typetag]
 #[async_trait]
 impl FileOpsDelegate for TestCellFileOps {
     async fn read_file_if_exists(
