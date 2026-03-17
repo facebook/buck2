@@ -8,8 +8,6 @@
  * above-listed licenses.
  */
 
-#![allow(clippy::drop_non_drop)] // FIXME?
-
 use std::collections::BTreeMap;
 use std::fmt::Display;
 use std::fmt::Formatter;

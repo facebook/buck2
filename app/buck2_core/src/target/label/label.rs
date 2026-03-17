@@ -119,8 +119,6 @@ impl PartialOrd for TargetLabel {
 
 impl TargetLabel {
     pub fn new(pkg: PackageLabel, name: &TargetNameRef) -> Self {
-        // TODO(nga): unnecessary to take `TargetName` by value.
-
         // Hash should be stable because it is used to generate the configuration hash.
         let key = &(pkg.dupe(), &name);
         let mut hasher = BuckHasher::default();
