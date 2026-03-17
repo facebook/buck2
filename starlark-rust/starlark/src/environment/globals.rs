@@ -50,6 +50,7 @@ use crate::values::types::function::NativeFunction;
 
 /// The global values available during execution.
 #[derive(Clone, Dupe, Debug, Allocative)]
+#[cfg_attr(feature = "pagable_dep", derive(pagable::PagablePanic))]
 pub struct Globals(Arc<GlobalsData>);
 
 type GlobalValue = MaybeDocHiddenValue<'static, FrozenValue>;

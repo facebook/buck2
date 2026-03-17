@@ -82,6 +82,7 @@ impl Display for Approximation {
 #[derive(
     Debug, Clone, Dupe, PartialEq, Eq, Hash, PartialOrd, Ord, Allocative, Trace
 )]
+#[cfg_attr(feature = "pagable_dep", derive(pagable::PagablePanic))]
 pub struct Ty {
     /// A series of alternative types.
     ///

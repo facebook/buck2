@@ -36,12 +36,14 @@ buck_filegroup(
 rust_library(
     name = "starlark",
     srcs = glob(["src/**/*.rs"]),
-    # Controls pagable serialization/deserialization support for starlark values.
-    # This is independent from the "pagable_dep" feature in starlark_map,
-    # which controls whether starlark_map depends on the pagable crate.
+    # `pagable` controls type registration for starlark values which shouldn't be enforced everywhere.
+    # `pagable_dep` controls whether to depend on pagable at all, used for OSS because to support stable rustc.
     features = select({
-        ":pagable[enabled]": ["pagable"],
-        "DEFAULT": [],
+        ":pagable[enabled]": [
+            "pagable",
+            "pagable_dep",
+        ],
+        "DEFAULT": ["pagable_dep"],
     }),
     rustc_flags = [
         "--cfg=rust_nightly",

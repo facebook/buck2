@@ -48,6 +48,7 @@ use crate::values::type_repr::StarlarkTypeRepr;
 /// Store value annotated with type, but do not check the type.
 #[derive(Clone_, Copy_, Dupe_, Allocative)]
 #[allocative(bound = "")]
+#[cfg_attr(feature = "pagable_dep", derive(pagable::PagablePanic))]
 pub struct ValueOfUncheckedGeneric<V: ValueLifetimeless, T: StarlarkTypeRepr>(
     V,
     PhantomData<fn() -> T>,
