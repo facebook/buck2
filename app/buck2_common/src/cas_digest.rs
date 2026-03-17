@@ -165,12 +165,13 @@ impl std::str::FromStr for DigestAlgorithmFamily {
 }
 
 /// An actual digest algorithm you can use to hash data.
-#[derive(Debug, Eq, PartialEq, Copy, Clone, Dupe, Hash, Allocative)]
+#[derive(Debug, Eq, PartialEq, Copy, Clone, Dupe, Hash, Allocative, Pagable)]
 pub enum DigestAlgorithm {
     Sha1,
     Sha256,
     Blake3,
-    Blake3Keyed { key: &'static [u8; 32] },
+    Blake3Keyed,
+    Blake3KeyedTest,
 }
 
 impl DigestAlgorithm {
@@ -179,7 +180,7 @@ impl DigestAlgorithm {
             Self::Sha1 => DigestAlgorithmFamily::Sha1,
             Self::Sha256 => DigestAlgorithmFamily::Sha256,
             Self::Blake3 => DigestAlgorithmFamily::Blake3,
-            Self::Blake3Keyed { .. } => DigestAlgorithmFamily::Blake3Keyed,
+            Self::Blake3Keyed | Self::Blake3KeyedTest => DigestAlgorithmFamily::Blake3Keyed,
         }
     }
 }
@@ -243,7 +244,7 @@ impl CasDigestConfig {
     pub fn allows_blake3_keyed(self) -> bool {
         matches!(
             self.inner.digest256,
-            Some(DigestAlgorithm::Blake3Keyed { .. })
+            Some(DigestAlgorithm::Blake3Keyed | DigestAlgorithm::Blake3KeyedTest)
         )
     }
 
@@ -314,7 +315,7 @@ impl CasDigestConfigInner {
                 DigestAlgorithm::Sha1 => &mut digest160,
                 DigestAlgorithm::Sha256 => &mut digest256,
                 DigestAlgorithm::Blake3 => &mut digest256,
-                DigestAlgorithm::Blake3Keyed { .. } => &mut digest256,
+                DigestAlgorithm::Blake3Keyed | DigestAlgorithm::Blake3KeyedTest => &mut digest256,
             };
 
             if let Some(slot) = &slot {
@@ -482,8 +483,21 @@ impl CasDigestData {
             DigestAlgorithm::Sha1 => DigesterVariant::Sha1(Sha1::new()),
             DigestAlgorithm::Sha256 => DigesterVariant::Sha256(Sha256::new()),
             DigestAlgorithm::Blake3 => DigesterVariant::Blake3(Box::new(blake3::Hasher::new())),
-            DigestAlgorithm::Blake3Keyed { key } => {
-                DigesterVariant::Blake3Keyed(Box::new(blake3::Hasher::new_keyed(key)))
+            DigestAlgorithm::Blake3Keyed => {
+                #[cfg(fbcode_build)]
+                {
+                    DigesterVariant::Blake3Keyed(Box::new(blake3::Hasher::new_keyed(
+                        blake3_constants::BLAKE3_HASH_KEY,
+                    )))
+                }
+                #[cfg(not(fbcode_build))]
+                {
+                    panic!("Blake3Keyed is not supported in the open source build")
+                }
+            }
+            DigestAlgorithm::Blake3KeyedTest => {
+                static TEST_KEY: [u8; 32] = [0; 32];
+                DigesterVariant::Blake3Keyed(Box::new(blake3::Hasher::new_keyed(&TEST_KEY)))
             }
         };
 
@@ -600,7 +614,9 @@ impl<Kind: CasDigestKind> CasDigest<Kind> {
             DigestAlgorithm::Sha1 => RawDigest::parse_sha1(data.as_bytes()),
             DigestAlgorithm::Sha256 => RawDigest::parse_sha256(data.as_bytes()),
             DigestAlgorithm::Blake3 => RawDigest::parse_blake3(data.as_bytes()),
-            DigestAlgorithm::Blake3Keyed { .. } => RawDigest::parse_blake3_keyed(data.as_bytes()),
+            DigestAlgorithm::Blake3Keyed | DigestAlgorithm::Blake3KeyedTest => {
+                RawDigest::parse_blake3_keyed(data.as_bytes())
+            }
         }?;
 
         Ok((digest, algo))
@@ -918,8 +934,7 @@ pub mod testing {
 
     pub fn blake3_keyed() -> CasDigestConfig {
         static CONFIG: Lazy<CasDigestConfigInner> = Lazy::new(|| {
-            CasDigestConfigInner::new(vec![DigestAlgorithm::Blake3Keyed { key: &[0; 32] }], None)
-                .unwrap()
+            CasDigestConfigInner::new(vec![DigestAlgorithm::Blake3KeyedTest], None).unwrap()
         });
         CasDigestConfig { inner: &CONFIG }
     }

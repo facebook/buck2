@@ -921,8 +921,7 @@ fn convert_algorithm_kind(kind: DigestAlgorithmFamily) -> buck2_error::Result<Di
         DigestAlgorithmFamily::Blake3Keyed => {
             #[cfg(fbcode_build)]
             {
-                let key = blake3_constants::BLAKE3_HASH_KEY;
-                DigestAlgorithm::Blake3Keyed { key }
+                DigestAlgorithm::Blake3Keyed
             }
 
             #[cfg(not(fbcode_build))]
