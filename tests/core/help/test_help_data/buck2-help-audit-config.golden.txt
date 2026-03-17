@@ -20,7 +20,7 @@ Options:
       --output-format <OUTPUT_FORMAT>
           Output format
 
-          [possible values: simple, json]
+          [possible values: simple, inline_section, json]
 
       --json
           Output in JSON format (shorthand for `--output-format=json`)

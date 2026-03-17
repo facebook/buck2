@@ -72,21 +72,28 @@ fn print_location(
 
 fn print_value(
     writer: &mut impl Write,
+    inline_section: Option<&str>,
     key: &str,
     value: &LegacyBuckConfigValue,
     style: ValueStyle,
 ) -> buck2_error::Result<()> {
+    let (prefix, sep) = match inline_section {
+        Some(section) => (section, "."),
+        None => ("    ", ""),
+    };
     match style {
         ValueStyle::Resolved => {
-            writeln!(writer, "    {} = {}", key, value.as_str())?;
+            writeln!(writer, "{}{}{} = {}", prefix, sep, key, value.as_str())?;
         }
         ValueStyle::Raw => {
-            writeln!(writer, "    {} = {}", key, value.raw_value())?;
+            writeln!(writer, "{}{}{} = {}", prefix, sep, key, value.raw_value())?;
         }
         ValueStyle::Both => {
             writeln!(
                 writer,
-                "    {} = {}\n        (raw {})",
+                "{}{}{} = {}\n        (raw {})",
+                prefix,
+                sep,
                 key,
                 value.as_str(),
                 value.raw_value()
@@ -200,6 +207,7 @@ struct SimpleCellConfigRenderer<'a> {
     render_cell_headers: bool,
     value_style: ValueStyle,
     location_style: LocationStyle,
+    inline_section: bool,
 }
 
 impl CellConfigRenderer for SimpleCellConfigRenderer<'_> {
@@ -212,7 +220,9 @@ impl CellConfigRenderer for SimpleCellConfigRenderer<'_> {
     }
 
     fn render_section_header(&mut self, section: &str) -> buck2_error::Result<()> {
-        writeln!(&mut self.stdout, "[{section}]")?;
+        if !self.inline_section {
+            writeln!(&mut self.stdout, "[{section}]")?;
+        }
 
         Ok(())
     }
@@ -221,11 +231,22 @@ impl CellConfigRenderer for SimpleCellConfigRenderer<'_> {
         &mut self,
         _spec: &str,
         _cell: CellName,
-        _section: &str,
+        section: &str,
         key: &str,
         value: LegacyBuckConfigValue<'_>,
     ) -> buck2_error::Result<()> {
-        print_value(&mut self.stdout, key, &value, self.value_style)?;
+        let inline_section = if self.inline_section {
+            Some(section)
+        } else {
+            None
+        };
+        print_value(
+            &mut self.stdout,
+            inline_section,
+            key,
+            &value,
+            self.value_style,
+        )?;
         print_location(&mut self.stdout, &value, self.location_style)?;
 
         Ok(())
@@ -328,6 +349,14 @@ impl ServerAuditSubcommand for AuditConfigCommand {
                         render_cell_headers: self.all_cells,
                         value_style: self.value_style,
                         location_style: self.location_style,
+                        inline_section: false,
+                    }),
+                    OutputFormat::InlineSection => Box::new(SimpleCellConfigRenderer {
+                        stdout,
+                        render_cell_headers: self.all_cells,
+                        value_style: self.value_style,
+                        location_style: self.location_style,
+                        inline_section: true,
                     }),
                     OutputFormat::Json => Box::new(JsonCellConfigRenderer {
                         stdout,

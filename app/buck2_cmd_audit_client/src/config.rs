@@ -31,6 +31,7 @@ use crate::AuditSubcommand;
 #[clap(rename_all = "snake_case")]
 pub enum OutputFormat {
     Simple,
+    InlineSection,
     Json,
 }
 
@@ -100,11 +101,17 @@ pub struct AuditConfigCommand {
     pub all_cells: bool,
 
     /// Output format.
-    #[clap(long, alias = "style", ignore_case = true, value_enum)]
+    #[clap(
+        long,
+        alias = "style",
+        ignore_case = true,
+        value_enum,
+        conflicts_with = "json"
+    )]
     pub output_format: Option<OutputFormat>,
 
     /// Output in JSON format (shorthand for `--output-format=json`).
-    #[clap(long)]
+    #[clap(long, conflicts_with = "output_format")]
     pub json: bool,
 
     /// Show where config values are defined.
