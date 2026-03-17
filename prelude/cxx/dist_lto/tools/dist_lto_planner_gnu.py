@@ -36,6 +36,7 @@ import os
 import os.path
 import subprocess
 import sys
+import traceback
 from typing import List
 
 
@@ -409,4 +410,9 @@ def main(argv):
             write_post_flags(idx)
 
 
-sys.exit(main(sys.argv))
+if __name__ == "__main__":
+    try:
+        sys.exit(main(sys.argv))
+    except subprocess.CalledProcessError as e:
+        traceback.print_exc()
+        sys.exit(e.returncode)

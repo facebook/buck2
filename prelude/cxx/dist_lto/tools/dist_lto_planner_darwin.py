@@ -27,6 +27,7 @@ import os.path
 import subprocess
 import sys
 import tempfile
+import traceback
 from dataclasses import dataclass
 from enum import Enum
 from typing import Optional
@@ -322,4 +323,9 @@ def main(argv):
         )
 
 
-sys.exit(main(sys.argv))
+if __name__ == "__main__":
+    try:
+        sys.exit(main(sys.argv))
+    except subprocess.CalledProcessError as e:
+        traceback.print_exc()
+        sys.exit(e.returncode)

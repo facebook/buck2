@@ -21,6 +21,7 @@ import argparse
 import os
 import subprocess
 import sys
+import traceback
 from typing import List
 
 EXIT_SUCCESS, EXIT_FAILURE = 0, 1
@@ -284,4 +285,8 @@ def main(argv: List[str]) -> int:
 
 
 if __name__ == "__main__":
-    sys.exit(main(sys.argv))
+    try:
+        sys.exit(main(sys.argv))
+    except subprocess.CalledProcessError as e:
+        traceback.print_exc()
+        sys.exit(e.returncode)
