@@ -42,6 +42,7 @@ use buck2_execute::directory::INTERNER;
 use buck2_execute::directory::extract_artifact_value;
 use buck2_execute::directory::insert_artifact;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
+use buck2_util::time_span::TimeSpan;
 use derive_more::Display;
 use dice::DiceComputations;
 use dice::Key;
@@ -550,6 +551,12 @@ impl Key for EnsureProjectedArtifactKey {
     }
 }
 
+/// Activation data for [`EnsureTransitiveSetProjectionKey`] DICE evaluations,
+/// used to record duration in the critical path graph.
+pub struct EnsureTransitiveSetProjectionKeyActivationData {
+    pub time_span: TimeSpan,
+}
+
 #[derive(
     Clone, Dupe, Eq, PartialEq, Hash, Display, Debug, Allocative, RefCast, Pagable
 )]
@@ -616,11 +623,15 @@ impl Key for EnsureTransitiveSetProjectionKey {
         // At this point we're holding a lot of data and want to ensure that we don't hold that across any
         // .await, so move into a little sync closure and call that
         (move || {
+            let time_span = TimeSpan::start_now();
             let digest_config = ctx.global_data().get_digest_config();
 
             let values = ArtifactGroupValues::new(values, children, &artifact_fs, digest_config)
                 .buck_error_context("Failed to construct ArtifactGroupValues")?;
 
+            ctx.store_evaluation_data(EnsureTransitiveSetProjectionKeyActivationData {
+                time_span: time_span.end_now(),
+            })?;
             Ok(values)
         })()
     }

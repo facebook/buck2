@@ -33,6 +33,7 @@ use buck2_build_api::artifact_groups::ArtifactGroup;
 use buck2_build_api::artifact_groups::ResolvedArtifactGroupBuildSignalsKey;
 use buck2_build_api::artifact_groups::calculation::EnsureProjectedArtifactKey;
 use buck2_build_api::artifact_groups::calculation::EnsureTransitiveSetProjectionKey;
+use buck2_build_api::artifact_groups::calculation::EnsureTransitiveSetProjectionKeyActivationData;
 use buck2_build_api::build_signals::BuildSignals;
 use buck2_build_api::build_signals::BuildSignalsInstaller;
 use buck2_build_api::build_signals::CREATE_BUILD_SIGNALS;
@@ -472,6 +473,14 @@ impl ActivationTracker for BuildSignalSender {
                     queue: None,
                 };
                 signal.spans = spans;
+            } else if let Some(EnsureTransitiveSetProjectionKeyActivationData { time_span }) =
+                downcast_and_take(&mut activation_data)
+            {
+                signal.duration = NodeDuration {
+                    user: time_span.duration(),
+                    total: time_span,
+                    queue: None,
+                };
             }
         }
 
