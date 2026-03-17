@@ -420,6 +420,8 @@ def _filter_pre_dexed_libs(
         [lib.class_names for lib in pre_dexed_libs],
         "--weight-estimates",
         [lib.weight_estimate for lib in pre_dexed_libs],
+        "--ref-counts",
+        [lib.ref_count for lib in pre_dexed_libs],
         "--output",
         weight_estimate_and_filtered_class_names_file.as_output(),
     ])

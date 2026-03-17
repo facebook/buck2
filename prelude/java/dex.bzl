@@ -24,6 +24,11 @@ DexLibraryInfo = provider(
         # a DEX file. The units for this estimate are not important, as long as they are consistent
         # with those used when determining how secondary DEX files should be packed.
         "weight_estimate": provider_field(typing.Any, default = None),  # ["artifact", None]
+        # a file containing the exact method_ids_size, field_ids_size, and type_ids_size
+        # from the DEX header. Format: "<method_ref_count> <field_ref_count> <type_ref_count>"
+        # (single line). These are the actual counts that the 64K DEX limits apply to,
+        # unlike weight_estimate which is a byte-size proxy.
+        "ref_count": provider_field(typing.Any, default = None),  # ["artifact", None]
     },
 )
 
@@ -63,6 +68,9 @@ def get_dex_produced_from_java_library(
     class_names_file = ctx.actions.declare_output(prefix + "_class_names.txt", has_content_based_path = True)
     d8_cmd.add(["--class-names-path", class_names_file.as_output()])
 
+    ref_count_file = ctx.actions.declare_output(prefix + "_ref_count.txt", has_content_based_path = True)
+    d8_cmd.add(["--ref-count-path", ref_count_file.as_output()])
+
     min_sdk_version = getattr(ctx.attrs, "_dex_min_sdk_version", None) or getattr(ctx.attrs, "min_sdk_version", None)
     if min_sdk_version:
         d8_cmd.add(["--min-sdk-version", str(min_sdk_version)])
@@ -81,4 +89,5 @@ def get_dex_produced_from_java_library(
         class_names = class_names_file,
         referenced_resources = referenced_resources_file,
         weight_estimate = weight_estimate_file,
+        ref_count = ref_count_file,
     )

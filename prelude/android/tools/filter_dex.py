@@ -105,6 +105,13 @@ def _parse_args():
         help="a path to a weight estimate",
     )
     parser.add_argument(
+        "--ref-counts",
+        type=pathlib.Path,
+        required=True,
+        nargs="+",
+        help="a path to a ref count file (format: '<method_count> <field_count> <type_count>')",
+    )
+    parser.add_argument(
         "--output",
         type=pathlib.Path,
         required=True,
@@ -112,6 +119,18 @@ def _parse_args():
     )
 
     return parser.parse_args()
+
+
+def _parse_ref_counts(ref_count_path):
+    """Parse a ref count file containing '<method_count> <field_count> <type_count>'."""
+    with open(ref_count_path) as ref_count_file:
+        parts = ref_count_file.read().strip().split()
+        if len(parts) != 3:
+            raise ValueError(
+                f"Expected 3 values (method field type) in ref count file "
+                f"{ref_count_path}, got {len(parts)}: {parts!r}"
+            )
+        return parts[0], parts[1], parts[2]
 
 
 def main():
@@ -126,6 +145,7 @@ def main():
     dex_target_identifiers = args.dex_target_identifiers
     class_names_paths = args.class_names
     weight_estimate_paths = args.weight_estimates
+    ref_count_paths = args.ref_counts
     output = args.output
 
     assert len(dex_target_identifiers) == len(class_names_paths), (
@@ -136,12 +156,20 @@ def main():
         "Must provide same number of weight estimate files as dex target identifiers!"
     )
 
+    assert len(dex_target_identifiers) == len(ref_count_paths), (
+        "Must provide same number of ref count files as dex target identifiers!"
+    )
+
     json_output = {}
     for i in range(len(dex_target_identifiers)):
         dex_target_name = dex_target_identifiers[i]
         weight_estimate_path = weight_estimate_paths[i]
         with open(weight_estimate_path) as weight_estimate_file:
             weight_estimate = weight_estimate_file.read().strip()
+
+        method_ref_count, field_ref_count, type_ref_count = _parse_ref_counts(
+            ref_count_paths[i]
+        )
 
         class_names_path = class_names_paths[i]
         with open(class_names_path) as class_names_file:
@@ -159,6 +187,9 @@ def main():
             "primary_dex_class_names": primary_dex_class_names,
             "secondary_dex_class_names": secondary_dex_class_names,
             "weight_estimate": weight_estimate,
+            "method_ref_count": method_ref_count,
+            "field_ref_count": field_ref_count,
+            "type_ref_count": type_ref_count,
         }
 
     with open(output, "w") as output_file:
