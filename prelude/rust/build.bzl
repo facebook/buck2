@@ -1192,6 +1192,7 @@ def _compute_common_args(
         split_debuginfo_flags,
         compile_ctx.sysroot_args,
         ["-Cpanic=abort", "-Zpanic-abort-tests=yes"] if toolchain_info.panic_runtime == PanicRuntime("abort") else [],
+        ["-Zsanitizer={}".format(toolchain_info.sanitizer.value)] if toolchain_info.sanitizer else [],
         _rustc_flags(toolchain_info.rustc_flags, toolchain_info),
         # `rustc_check_flags` is specifically interpreted as flags that are used
         # only on the metadata-fast graph.

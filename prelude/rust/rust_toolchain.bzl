@@ -30,6 +30,8 @@ RustExplicitSysrootDeps = record(
 
 PanicRuntime = enum("unwind", "abort", "none")
 
+RustSanitizer = enum("address", "cfi", "hwaddress", "kcfi", "leak", "memory", "memtag", "safestack", "shadow-call-stack", "thread")
+
 # FIXME(JakobDegen): These all have default values for historical reasons. Some of them certainly
 # should, but some of them probably shouldn't?
 # @unsorted-dict-items
@@ -146,6 +148,9 @@ rust_toolchain_attrs = {
     "rust_error_handler": provider_field(typing.Any, default = None),
     # LLVM remarks filter (e.g., "all", "inline") - used with -Cremark flag
     "remarks": provider_field(str | None, default = None),
+    # Sanitizer to enable via -Zsanitizer=<value> (e.g., "address", "thread", "memory", "leak", "cfi", "hwaddress")
+    # See https://doc.rust-lang.org/beta/unstable-book/compiler-flags/sanitizer.html
+    "sanitizer": provider_field(RustSanitizer | None, default = None),
 }
 
 RustToolchainInfo = provider(fields = rust_toolchain_attrs)
