@@ -72,7 +72,6 @@ def _system_go_toolchain_impl(ctx):
             assembler_flags = [],
             compiler_flags = [],
             version = None,  # we are unable to run `go version` during analysis time
-            use_native_stdlib = True,
         ),
     ]
 

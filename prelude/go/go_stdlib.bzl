@@ -6,145 +6,214 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
+load("@prelude//cxx:cxx_context.bzl", "get_opt_cxx_toolchain_info")
 load("@prelude//cxx:cxx_toolchain_types.bzl", "CxxToolchainInfo")
+load("@prelude//cxx:headers.bzl", "CxxHeadersLayout", "CxxHeadersNaming")
 load("@prelude//cxx:target_sdk_version.bzl", "get_target_sdk_version_flags")
-load(":go_native_stdlib.bzl", "go_native_stdlib")
-load(":packages.bzl", "GoPkg", "GoStdlib", "GoStdlibDynamicValue")
-load(":toolchain.bzl", "GoToolchainInfo", "evaluate_cgo_enabled", "get_toolchain_env_vars")
+load("@prelude//os_lookup:defs.bzl", "OsLookup")
+load("@prelude//utils:graph_utils.bzl", "post_order_traversal")
+load(
+    ":cgo_builder.bzl",
+    "CGoBuildContext",  # @Unused used as type
+)
+load(":go_list_stdlib.bzl", "go_list_stdlib", "parse_go_list_stdlib_out")
+load(":package_builder.bzl", "BuildPackageGoList", "BuildPackageParams", "build_package", "go_list_for_build")
+load(":packages.bzl", "GoPkg", "GoStdlib", "GoStdlibDynamicValue", "implicit_imports")
+load(":toolchain.bzl", "GoToolchainInfo", "evaluate_cgo_enabled")
 
 def go_stdlib_impl(ctx: AnalysisContext) -> list[Provider]:
     go_toolchain = ctx.attrs._go_toolchain[GoToolchainInfo]
 
-    if go_toolchain.use_native_stdlib:
-        return go_native_stdlib(ctx)
-    else:
-        return go_build_stdlib(ctx)
-
-def go_build_stdlib(ctx: AnalysisContext) -> list[Provider]:
-    go_toolchain = ctx.attrs._go_toolchain[GoToolchainInfo]
     cxx_toolchain_available = CxxToolchainInfo in ctx.attrs._cxx_toolchain
     cgo_enabled = evaluate_cgo_enabled(cxx_toolchain_available, cxx_toolchain_available, ctx.attrs._cgo_enabled)
-    build_tags = [] + go_toolchain.build_tags
-    linker_flags = [] + go_toolchain.linker_flags
-    assembler_flags = [] + go_toolchain.assembler_flags
-    compiler_flags = [] + go_toolchain.compiler_flags
-    compiler_flags += ["-buildid="]  # Make builds reproducible.
 
-    if go_toolchain.asan:
-        compiler_flags += ["-asan"]
-        build_tags += ["asan"]
+    go_list_stdlib_out = go_list_stdlib(ctx.actions, go_toolchain, cgo_enabled)
 
-    if go_toolchain.fuzz:
-        # Note this will cover all packages including skipped https://fburl.com/etm81gfr
-        compiler_flags += ["-d=libfuzzer"]
-        # I've discovered a weird thing, runtime/libfuzzer* files are never used by `go build`
-        # and we get "relocation target ... not defined error if include them",
-        # so for now I assume this is broken.
-        # build_tags += ["libfuzzer"]
+    pkgdir = ctx.actions.declare_output("pkgdir", dir = True)
 
-    env = get_toolchain_env_vars(go_toolchain)
-    env["GODEBUG"] = "installgoroot=all"
-    env["CGO_ENABLED"] = "1" if cgo_enabled else "0"
-
-    if go_toolchain.env_go_root != None:
-        env["GOROOT"] = go_toolchain.env_go_root
-
-    if cgo_enabled:
-        cxx_toolchain = ctx.attrs._cxx_toolchain[CxxToolchainInfo]
-        c_compiler = cxx_toolchain.c_compiler_info
-        cflags = cmd_args(c_compiler.compiler_flags, delimiter = "\t", absolute_prefix = "%cwd%/")
-        cflags.add(cmd_args(get_target_sdk_version_flags(ctx), delimiter = "\t"))
-        cflags.add(cmd_args(go_toolchain.cxx_compiler_flags, delimiter = "\t"))
-        env["CC"] = cmd_args(c_compiler.compiler, delimiter = "\t", absolute_prefix = "%cwd%/")
-        env["CGO_CFLAGS"] = cflags
-        env["CGO_CPPFLAGS"] = cmd_args(c_compiler.preprocessor_flags, delimiter = "\t", absolute_prefix = "%cwd%/")
-
-    stdlib_pkgdir = ctx.actions.declare_output("stdlib_pkgdir", dir = True, has_content_based_path = True)
-    stdlib_pkgdir_shared = ctx.actions.declare_output("stdlib_pkgdir_shared", dir = True, has_content_based_path = True)
-
-    def build_variant(out: Artifact, shared: bool) -> cmd_args:
-        local_assembler_flags = [] + assembler_flags
-        local_compiler_flags = [] + compiler_flags
-        if shared:
-            local_assembler_flags += ["-shared"]
-            local_compiler_flags += ["-shared"]
-        return cmd_args([
-            go_toolchain.go_wrapper,
-            ["--go", go_toolchain.go],
-            "--use-tmp-workdir",  # cd to a tmp dir to avoid interference with procject's go.mod
-            "install",
-            cmd_args(out.as_output(), format = "-pkgdir=%cwd%/{}"),
-            cmd_args(["-asmflags=", cmd_args(local_assembler_flags, delimiter = " ")], delimiter = "") if local_assembler_flags else [],
-            cmd_args(["-gcflags=", cmd_args(local_compiler_flags, delimiter = " ")], delimiter = "") if local_compiler_flags else [],
-            cmd_args(["-ldflags=", cmd_args(linker_flags, delimiter = " ")], delimiter = "") if linker_flags else [],
-            ["-tags", ",".join(build_tags)] if build_tags else [],
-            ["-race"] if go_toolchain.race else [],
-            "std",
-        ])
-
-    ctx.actions.run(build_variant(stdlib_pkgdir, False), env = env, category = "go_build_stdlib", identifier = "go_build_stdlib")
-    ctx.actions.run(build_variant(stdlib_pkgdir_shared, True), env = env, category = "go_build_stdlib", identifier = "go_build_stdlib_shared")
-
-    go_list_stdlib_out = ctx.actions.declare_output("go_list_stdlib.txt", has_content_based_path = True)
-
-    ctx.actions.run(
-        [
-            go_toolchain.go_wrapper,
-            ["--go", go_toolchain.go],
-            ["--output", go_list_stdlib_out.as_output()],
-            "--convert-json-stream",
-            "list",
-            "-json=GoFiles,CgoFiles,ImportPath",
-            ["-tags", ",".join(build_tags)] if build_tags else [],
-            ["-race"] if go_toolchain.race else [],
-            "std",
-        ],
-        env = env,
-        category = "go_list_stdlib",
-        identifier = "go_list_stdlib",
-    )
-
-    go_stdlib_value = ctx.actions.dynamic_output_new(_produce_dynamic_value(
+    go_stdlib_value = ctx.actions.dynamic_output_new(_build_stdlib(
+        goroot = go_toolchain.env_go_root,
         go_list_stdlib_out = go_list_stdlib_out,
-        pkgdir = stdlib_pkgdir,
-        pkgdir_shared = stdlib_pkgdir_shared,
+        target_label = ctx.label,
+        go_toolchain = go_toolchain,
+        cgo_build_context = get_cgo_build_context(ctx),
+        pkgdir = pkgdir.as_output(),
     ))
 
     return [
-        DefaultInfo(default_output = stdlib_pkgdir),
+        DefaultInfo(default_output = pkgdir),
         GoStdlib(dynamic_value = go_stdlib_value),
     ]
 
-def _produce_dynamic_value_impl(actions: AnalysisActions, go_list_stdlib_out: ArtifactValue, pkgdir: Artifact, pkgdir_shared: Artifact) -> list[Provider]:
-    _ignore = (actions,)  # buildifier: disable=unused-variable
-
-    pkgs = {}
+def _build_stdlib_impl(actions: AnalysisActions, target_label: Label, go_toolchain: GoToolchainInfo, cgo_build_context: None | CGoBuildContext, go_list_stdlib_out: ArtifactValue, goroot: Artifact, pkgdir: OutputArtifact) -> list[Provider]:
+    # First pass: parse all packages and collect their imports
+    parsed_libs = {}  # import_path -> StdGoListOut
     for lib in go_list_stdlib_out.read_json():
-        if "GoFiles" not in lib and "CgoFiles" not in lib:
-            continue  # skip test packages
+        lib = parse_go_list_stdlib_out(goroot, lib)
+        if len(lib.go_list.go_files) == 0 and len(lib.go_list.cgo_files) == 0:
+            continue  # skip test only packages
 
-        import_path = lib["ImportPath"]
-        if import_path in ["unsafe", "builtin"]:
+        if lib.import_path in ["unsafe", "builtin"]:
             continue  # skip fake packages
 
-        pkgs[import_path] = GoPkg(
-            archive_file = pkgdir.project(import_path + ".a"),
-            archive_file_shared = pkgdir_shared.project(import_path + ".a"),
-            # export files are exactly the same as archive files, on purpose
-            # as `go build` doesn't support splitting them.
-            export_file = pkgdir.project(import_path + ".a"),
-            export_file_shared = pkgdir_shared.project(import_path + ".a"),
+        parsed_libs[lib.import_path] = lib
+
+    # Build dependency graph: import_path -> [imports that are also in stdlib]
+    dep_graph = {}
+    for import_path, lib in parsed_libs.items():
+        dep_graph[import_path] = []
+
+        all_imports = set(lib.go_list.imports) | implicit_imports(
+            pkg_name = lib.go_list.name,
+            pkg_import_path = import_path,
+            standard = True,
+            has_cgo_files = len(lib.go_list.cgo_files) > 0,
+            coverage_enabled = False,  # makes sense only for "main" packages
         )
+        for imp in all_imports:
+            if imp in parsed_libs:
+                dep_graph[import_path].append(imp)
+
+    # Topological sort: post_order_traversal returns leaves (no deps) first,
+    # giving us the correct build order (dependencies before dependents)
+    build_order = post_order_traversal(dep_graph)
+
+    # Second pass: build packages in dependency order
+    pkgs = {}
+    for import_path in build_order:
+        lib = parsed_libs[import_path]
+
+        pkgs[lib.import_path] = _build_stdlib_package_wrapper(
+            actions = actions,
+            target_label = target_label,
+            go_toolchain = go_toolchain,
+            cgo_build_context = cgo_build_context,
+            go_list = go_list_for_build(lib.go_list, False),
+            params = BuildPackageParams(
+                main = False,
+                standard = True,
+                pkg_import_path = lib.import_path,
+                package_root = goroot.short_path + "/src/" + lib.import_path,
+                embed_srcs = lib.embed_files,
+                compiler_flags = [],
+                assembler_flags = [],
+                coverage_mode = None,  # we can switch-on stdlib coverage later if needed
+                deps = pkgs,
+                import_map = lib.import_map,
+            ),
+        )
+
+    # We use pkgdir artifact testing (and currently for mockgen), but not for compilation/linking
+    actions.copied_dir(
+        pkgdir,
+        {path + ".a": pkg.archive_file for path, pkg in pkgs.items()} |
+        {path + ".x": pkg.export_file for path, pkg in pkgs.items()},
+    )
 
     return [
         GoStdlibDynamicValue(pkgs = pkgs),
     ]
 
-_produce_dynamic_value = dynamic_actions(
-    impl = _produce_dynamic_value_impl,
+_build_stdlib = dynamic_actions(
+    impl = _build_stdlib_impl,
     attrs = {
+        "cgo_build_context": dynattrs.value(None | CGoBuildContext),
         "go_list_stdlib_out": dynattrs.artifact_value(),
-        "pkgdir": dynattrs.value(Artifact),
-        "pkgdir_shared": dynattrs.value(Artifact),
+        "go_toolchain": dynattrs.value(GoToolchainInfo),
+        "goroot": dynattrs.value(Artifact),
+        "pkgdir": dynattrs.output(),
+        "target_label": dynattrs.value(Label),
     },
 )
+
+def _build_stdlib_package_wrapper(
+        actions: AnalysisActions,
+        target_label: Label,
+        go_toolchain: GoToolchainInfo,
+        cgo_build_context: None | CGoBuildContext,
+        go_list: BuildPackageGoList,
+        params: BuildPackageParams) -> GoPkg:
+    out_a = actions.declare_output(params.pkg_import_path + "_non-shared.a", has_content_based_path = True)
+    out_x = actions.declare_output(params.pkg_import_path + "_non-shared.x", has_content_based_path = True)
+
+    out_a_shared = actions.declare_output(params.pkg_import_path + "_shared.a", has_content_based_path = True)
+    out_x_shared = actions.declare_output(params.pkg_import_path + "_shared.x", has_content_based_path = True)
+
+    actions.dynamic_output_new(_build_stdlib_package(
+        target_label = target_label,
+        go_toolchain = go_toolchain,
+        cgo_build_context = cgo_build_context,
+        go_list = go_list,
+        params = params,
+        out_a = out_a.as_output(),
+        out_x = out_x.as_output(),
+        out_a_shared = out_a_shared.as_output(),
+        out_x_shared = out_x_shared.as_output(),
+    ))
+
+    return GoPkg(
+        archive_file = out_a,
+        archive_file_shared = out_a_shared,
+        export_file = out_x,
+        export_file_shared = out_x_shared,
+    )
+
+def _build_stdlib_package_impl(
+        actions: AnalysisActions,
+        target_label: Label,
+        go_toolchain: GoToolchainInfo,
+        cgo_build_context: None | CGoBuildContext,
+        go_list: BuildPackageGoList,
+        params: BuildPackageParams,
+        out_a: OutputArtifact,
+        out_x: OutputArtifact,
+        out_a_shared: OutputArtifact,
+        out_x_shared: OutputArtifact) -> list[Provider]:
+    result = build_package(
+        actions = actions,
+        target_label = target_label,
+        go_toolchain = go_toolchain,
+        cgo_build_context = cgo_build_context,
+        go_list = go_list,
+        params = params,
+    )
+    actions.copy_file(out_a, result.a_file)
+    actions.copy_file(out_x, result.x_file)
+    actions.copy_file(out_a_shared, result.a_file_shared)
+    actions.copy_file(out_x_shared, result.x_file_shared)
+    return []
+
+_build_stdlib_package = dynamic_actions(
+    impl = _build_stdlib_package_impl,
+    # @unsorted-dict-items
+    attrs = {
+        # Inputs
+        "target_label": dynattrs.value(Label),
+        "go_toolchain": dynattrs.value(GoToolchainInfo),
+        "cgo_build_context": dynattrs.value(None | CGoBuildContext),
+        "go_list": dynattrs.value(BuildPackageGoList),
+        "params": dynattrs.value(BuildPackageParams),
+        # Outputs
+        "out_a": dynattrs.output(),
+        "out_x": dynattrs.output(),
+        "out_a_shared": dynattrs.output(),
+        "out_x_shared": dynattrs.output(),
+    },
+)
+
+def get_cgo_build_context(ctx: AnalysisContext) -> CGoBuildContext | None:
+    cxx_toolchain_info = get_opt_cxx_toolchain_info(ctx)
+    if cxx_toolchain_info == None:
+        return None
+
+    return CGoBuildContext(
+        cxx_toolchain_info = cxx_toolchain_info,
+        target_sdk_version_flags = get_target_sdk_version_flags(ctx),
+        exec_os_type = ctx.attrs._exec_os_type[OsLookup],
+        header_namespace = "",
+        headers_layout = CxxHeadersLayout(namespace = "", naming = CxxHeadersNaming("regular")),
+        cxx_compiler_flags = [],
+        cxx_preprocessor_flags = [],
+        inherited_preprocessor_infos = [],
+        _cxx_toolchain = ctx.attrs._cxx_toolchain,
+    )
