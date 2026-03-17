@@ -60,3 +60,14 @@ prelude.go_bootstrap_binary(
         "PUBLIC",
     ],
 )
+
+prelude.go_bootstrap_binary(
+    name = "copy_goroot",
+    srcs = ["copy_goroot.go"],
+    build_args = [
+        "copy_goroot.go",
+    ],
+    visibility = [
+        "PUBLIC",
+    ],
+)

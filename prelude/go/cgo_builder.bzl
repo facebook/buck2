@@ -163,8 +163,8 @@ def _cxx_wrapper(actions: AnalysisActions, go_toolchain: GoToolchainInfo, cgo_bu
     )
 
 # build CPreprocessor similar as cxx_private_preprocessor_info does, but with our filtered headers
-def _own_pre(actions: AnalysisActions, cgo_build_context: CGoBuildContext, h_files: list[Artifact]) -> CPreprocessor:
-    header_map = {paths.join(cgo_build_context.header_namespace, h.short_path): h for h in h_files}
+def _own_pre(actions: AnalysisActions, cgo_build_context: CGoBuildContext, package_root: str, h_files: list[Artifact]) -> CPreprocessor:
+    header_map = {paths.join(cgo_build_context.header_namespace, paths.relativize(h.short_path, package_root)): h for h in h_files}
     header_root = prepare_headers(actions, cgo_build_context.cxx_toolchain_info, header_map, "h_files-private-headers", uses_content_based_paths = True)
 
     return CPreprocessor(
@@ -177,6 +177,7 @@ def build_cgo(
         go_toolchain_info: GoToolchainInfo,
         cgo_build_context: CGoBuildContext | None,
         pkg_import_path: str,
+        package_root: str,
         standard: bool,
         cgo_files: list[Artifact],
         h_files: list[Artifact],
@@ -196,7 +197,7 @@ def build_cgo(
         fail("cgo_build_context is None. This is likely because C++ toolchain is not available for the current target platform, but CGo files provided.")
 
     # Gather preprocessor inputs.
-    own_pre = _own_pre(actions, cgo_build_context, h_files)
+    own_pre = _own_pre(actions, cgo_build_context, package_root, h_files)
 
     # Separate sources into C++ and GO sources.
     cgo_tool_out, gen_dir = _cgo(actions, go_toolchain_info, cgo_build_context, pkg_import_path, standard, cgo_files, [own_pre], c_flags, cpp_flags)

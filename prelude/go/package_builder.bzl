@@ -325,6 +325,7 @@ def build_package(
         go_toolchain_info = go_toolchain,
         cgo_build_context = cgo_build_context,
         pkg_import_path = params.pkg_import_path,
+        package_root = params.package_root,
         standard = params.standard,
         cgo_files = covered_cgo_files,
         h_files = go_list.h_files,
