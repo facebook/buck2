@@ -289,7 +289,6 @@ impl<'a> BuckTestOrchestrator<'a> {
                 executor_override: executor_override.map(Arc::new),
                 required_local_resources: Arc::new(required_local_resources),
                 pre_create_dirs: pre_create_dirs.dupe(),
-                prefix: TestExecutionPrefix::new(&stage, &self.session),
                 stage: Arc::new(stage),
                 options: self.session.options(),
                 timeout,
@@ -387,7 +386,6 @@ impl<'a> BuckTestOrchestrator<'a> {
             pre_create_dirs,
             stage,
             options,
-            prefix: _,
             timeout,
             host_sharing_requirements,
             disable_test_execution_caching,
@@ -545,34 +543,9 @@ struct TestExecutionKey {
     pre_create_dirs: Arc<Vec<DeclaredOutput>>,
     stage: Arc<TestStage>,
     options: TestSessionOptions,
-    prefix: TestExecutionPrefix,
     timeout: Duration,
     host_sharing_requirements: Arc<HostSharingRequirements>,
     disable_test_execution_caching: bool,
-}
-
-#[derive(Clone, Dupe, Debug, Eq, Hash, PartialEq, Allocative, Pagable)]
-enum TestExecutionPrefix {
-    Listing,
-    Testing(Arc<ForwardRelativePathBuf>),
-}
-
-impl TestExecutionPrefix {
-    fn new(stage: &TestStage, session: &TestSession) -> Self {
-        match stage {
-            TestStage::Listing { .. } => TestExecutionPrefix::Listing,
-            TestStage::Testing { .. } => TestExecutionPrefix::Testing(session.prefix().dupe()),
-        }
-    }
-}
-
-impl Display for TestExecutionPrefix {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            TestExecutionPrefix::Listing => write!(f, "Listing"),
-            TestExecutionPrefix::Testing(prefix) => write!(f, "Testing({prefix})"),
-        }
-    }
 }
 
 #[async_trait]
@@ -669,10 +642,9 @@ impl Display for TestExecutionKey {
         fmt_container(f, "pre_create_dirs = [", "], ", self.pre_create_dirs.iter())?;
         write!(
             f,
-            "stage = {}, options = {}, prefix = {}, timeout = {}, host_sharing_requirements = {}",
+            "stage = {}, options = {}, timeout = {}, host_sharing_requirements = {}",
             self.stage,
             self.options,
-            self.prefix,
             self.timeout.as_millis(),
             self.host_sharing_requirements
         )
