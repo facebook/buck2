@@ -17,7 +17,7 @@ from .info_plist_metadata import InfoPlistMetadata
 from .provisioning_profile_diagnostics import IProvisioningProfileDiagnostics
 from .provisioning_profile_metadata import ProvisioningProfileMetadata
 from .provisioning_profile_selection import (
-    select_best_provisioning_profile,
+    select_best_provisioning_profile_core,
     SelectedProvisioningProfileInfo,
 )
 
@@ -49,7 +49,7 @@ class TestSelection(unittest.TestCase):
             {identity.fingerprint},
             {"application-identifier": "ABCDEFGHIJ.com.company.application"},
         )
-        selected, diagnostic_info = select_best_provisioning_profile(
+        selected, diagnostic_info = select_best_provisioning_profile_core(
             info_plist_metadata=info_plist,
             code_signing_identities=[identity],
             provisioning_profiles=[expired_provisioning_profile],
@@ -66,7 +66,7 @@ class TestSelection(unittest.TestCase):
 
         fresh_provisioning_profiles = copy.copy(expired_provisioning_profile)
         fresh_provisioning_profiles.expiration_date = datetime.max
-        selected, _ = select_best_provisioning_profile(
+        selected, _ = select_best_provisioning_profile_core(
             info_plist_metadata=info_plist,
             code_signing_identities=[identity],
             provisioning_profiles=[fresh_provisioning_profiles],
@@ -106,7 +106,7 @@ class TestSelection(unittest.TestCase):
 
         selection_failed = False
         try:
-            _, _ = select_best_provisioning_profile(
+            _, _ = select_best_provisioning_profile_core(
                 info_plist_metadata=info_plist,
                 code_signing_identities=[identity],
                 provisioning_profiles=profiles,
@@ -158,7 +158,7 @@ class TestSelection(unittest.TestCase):
 
         selection_failed = False
         try:
-            _, _ = select_best_provisioning_profile(
+            _, _ = select_best_provisioning_profile_core(
                 info_plist_metadata=info_plist,
                 code_signing_identities=[identity],
                 provisioning_profiles=profiles,
@@ -173,7 +173,7 @@ class TestSelection(unittest.TestCase):
         # Check selection fails without preference
         self.assertTrue(selection_failed)
 
-        selected_profile_info, _ = select_best_provisioning_profile(
+        selected_profile_info, _ = select_best_provisioning_profile_core(
             info_plist_metadata=info_plist,
             code_signing_identities=[identity],
             provisioning_profiles=profiles,
@@ -221,7 +221,7 @@ class TestSelection(unittest.TestCase):
             third,
         ]
 
-        selected_profile_info, _ = select_best_provisioning_profile(
+        selected_profile_info, _ = select_best_provisioning_profile_core(
             info_plist_metadata=info_plist,
             code_signing_identities=[identity],
             provisioning_profiles=profiles,
@@ -260,7 +260,7 @@ class TestSelection(unittest.TestCase):
                 {"application-identifier": "BBBBBBBBBB.com.company.application"},
             ),
         ]
-        selected, _ = select_best_provisioning_profile(
+        selected, _ = select_best_provisioning_profile_core(
             info_plist_metadata=info_plist,
             code_signing_identities=[identity],
             provisioning_profiles=profiles,
@@ -307,7 +307,7 @@ class TestSelection(unittest.TestCase):
             expected,
             unexpected,
         ]
-        selected, _ = select_best_provisioning_profile(
+        selected, _ = select_best_provisioning_profile_core(
             info_plist_metadata=info_plist,
             code_signing_identities=[identity],
             provisioning_profiles=profiles,
@@ -322,7 +322,7 @@ class TestSelection(unittest.TestCase):
         )
         self.assertEqual(selected, SelectedProvisioningProfileInfo(expected, identity))
 
-        selected, _ = select_best_provisioning_profile(
+        selected, _ = select_best_provisioning_profile_core(
             info_plist_metadata=info_plist,
             code_signing_identities=[identity],
             provisioning_profiles=profiles,
@@ -336,7 +336,7 @@ class TestSelection(unittest.TestCase):
         )
         self.assertEqual(selected, SelectedProvisioningProfileInfo(expected, identity))
 
-        selected, diagnostic_info = select_best_provisioning_profile(
+        selected, diagnostic_info = select_best_provisioning_profile_core(
             info_plist_metadata=info_plist,
             code_signing_identities=[identity],
             provisioning_profiles=[unexpected],
@@ -386,7 +386,7 @@ class TestSelection(unittest.TestCase):
         )
 
         profiles = [expected, unexpected]
-        selected, _ = select_best_provisioning_profile(
+        selected, _ = select_best_provisioning_profile_core(
             info_plist_metadata=info_plist,
             code_signing_identities=[valid_identity],
             provisioning_profiles=profiles,
@@ -398,7 +398,7 @@ class TestSelection(unittest.TestCase):
         self.assertEqual(
             selected, SelectedProvisioningProfileInfo(expected, valid_identity)
         )
-        selected, diagnostic_info = select_best_provisioning_profile(
+        selected, diagnostic_info = select_best_provisioning_profile_core(
             info_plist_metadata=info_plist,
             code_signing_identities=[valid_identity],
             provisioning_profiles=[unexpected],
@@ -442,7 +442,7 @@ class TestSelection(unittest.TestCase):
                 },
             ),
         ]
-        selected, _ = select_best_provisioning_profile(
+        selected, _ = select_best_provisioning_profile_core(
             info_plist_metadata=info_plist,
             code_signing_identities=[identity],
             provisioning_profiles=profiles,
@@ -453,7 +453,7 @@ class TestSelection(unittest.TestCase):
         )
         self.assertEqual(selected, SelectedProvisioningProfileInfo(expected, identity))
 
-        selected, _ = select_best_provisioning_profile(
+        selected, _ = select_best_provisioning_profile_core(
             info_plist_metadata=info_plist,
             code_signing_identities=[identity],
             provisioning_profiles=reversed(profiles),
@@ -480,7 +480,7 @@ class TestSelection(unittest.TestCase):
                 "application-identifier": "BBBBBBBBBB.*",
             },
         )
-        selected, _ = select_best_provisioning_profile(
+        selected, _ = select_best_provisioning_profile_core(
             info_plist_metadata=info_plist,
             code_signing_identities=[identity],
             provisioning_profiles=[expected],
@@ -509,7 +509,7 @@ class TestSelection(unittest.TestCase):
                 "aps-environment": "production",
             },
         )
-        selected, _ = select_best_provisioning_profile(
+        selected, _ = select_best_provisioning_profile_core(
             info_plist_metadata=info_plist,
             code_signing_identities=[identity],
             provisioning_profiles=[profile],
@@ -543,7 +543,7 @@ class TestSelection(unittest.TestCase):
                 "aps-environment": "production",
             },
         )
-        selected, diagnostic_info = select_best_provisioning_profile(
+        selected, diagnostic_info = select_best_provisioning_profile_core(
             info_plist_metadata=info_plist,
             code_signing_identities=[identity],
             provisioning_profiles=[profile],
@@ -582,7 +582,7 @@ class TestSelection(unittest.TestCase):
                 "com.apple.security.hardened-process.platform-restrictions": "*",
             },
         )
-        selected, _ = select_best_provisioning_profile(
+        selected, _ = select_best_provisioning_profile_core(
             info_plist_metadata=info_plist,
             code_signing_identities=[identity],
             provisioning_profiles=[profile],
@@ -614,7 +614,7 @@ class TestSelection(unittest.TestCase):
                 "aps-environment": "production",
             },
         )
-        selected, diagnostic_info = select_best_provisioning_profile(
+        selected, diagnostic_info = select_best_provisioning_profile_core(
             info_plist_metadata=info_plist,
             code_signing_identities=[identity],
             provisioning_profiles=[profile],
@@ -643,7 +643,7 @@ class TestSelection(unittest.TestCase):
             {"application-identifier": "AAAAAAAAAA.com.company.application"},
         )
         # Empty identities list - would fail without no_check_certificates
-        selected, _ = select_best_provisioning_profile(
+        selected, _ = select_best_provisioning_profile_core(
             info_plist_metadata=info_plist,
             code_signing_identities=[],
             provisioning_profiles=[profile],

@@ -190,7 +190,8 @@ def _filter_matching_selected_provisioning_profile_infos(
 
 
 # See `ProvisioningProfileStore::getBestProvisioningProfile` in `ProvisioningProfileStore.java` for Buck v1 equivalent
-def select_best_provisioning_profile(
+# This function operates on data types only without performing any IO or process invocation.
+def select_best_provisioning_profile_core(
     info_plist_metadata: InfoPlistMetadata,
     code_signing_identities: list[CodeSigningIdentity],
     provisioning_profiles: list[ProvisioningProfileMetadata],

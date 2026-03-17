@@ -52,7 +52,7 @@ from .provisioning_profile_diagnostics import (
 from .provisioning_profile_metadata import ProvisioningProfileMetadata
 from .provisioning_profile_selection import (
     CodeSignProvisioningError,
-    select_best_provisioning_profile,
+    select_best_provisioning_profile_core,
     SelectedProvisioningProfileInfo,
 )
 from .read_provisioning_profile_command_factory import (
@@ -167,7 +167,7 @@ def _select_provisioning_profile(
             )
         )
     entitlements = _read_entitlements_file(entitlements_path)
-    selected_profile_info, mismatches = select_best_provisioning_profile(
+    selected_profile_info, mismatches = select_best_provisioning_profile_core(
         info_plist_metadata,
         identities,
         provisioning_profiles,
