@@ -51,6 +51,7 @@ dupe = { workspace = true }
 gazebo = { workspace = true }
 pagable = { workspace = true }
 starlark_map = { workspace = true }
+static_interner = { workspace = true }
 
 buck2_cli_proto = { workspace = true }
 buck2_core = { workspace = true }
