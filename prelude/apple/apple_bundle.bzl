@@ -293,11 +293,12 @@ def _maybe_scrub_selected_debug_paths_file(ctx: AnalysisContext, package_names: 
     return selective_debugging_info.scrub_selected_debug_paths_file(ctx, package_names, SELECTED_DEBUG_PATH_FILE_NAME)
 
 def _get_selected_debug_targets_part(ctx: AnalysisContext, agg_debug_info: AggregatedAppleDebugInfo) -> [AppleBundlePart, None]:
-    # Only app bundle need this, and this file is searched by FBReport at the bundle root
+    # Only app bundles need this. This file is searched by FBReport via
+    # METAGetFocusedDebugPaths() which uses NSBundle URLForResource:
     if ctx.attrs.extension == "app" and agg_debug_info.debug_info.filtered_map:
         package_names = [label.package for label in agg_debug_info.debug_info.filtered_map.keys()]
         output = _maybe_scrub_selected_debug_paths_file(ctx, package_names)
-        return AppleBundlePart(source = output, destination = AppleBundleDestination("bundleroot"), new_name = SELECTED_DEBUG_PATH_FILE_NAME)
+        return AppleBundlePart(source = output, destination = AppleBundleDestination("resources"), new_name = SELECTED_DEBUG_PATH_FILE_NAME)
     else:
         return None
 
