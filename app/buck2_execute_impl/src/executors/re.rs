@@ -57,6 +57,7 @@ use futures::FutureExt;
 use indexmap::IndexMap;
 use remote_execution as RE;
 use remote_execution::TCode;
+use remote_execution::TCodeReasonGroup;
 use tracing::info;
 
 use crate::incremental_actions_helper::save_content_based_incremental_state;
@@ -252,7 +253,21 @@ impl ReExecutor {
                     },
                 ));
             }
-            Err(e) => return ControlFlow::Break(manager.error("remote_call_error", e)),
+            Err(e) => {
+                if is_re_queue_full(&e) {
+                    return ControlFlow::Break(manager.cancel(
+                        CommandExecutionKind::Remote {
+                            details: remote_details,
+                            queue_time: Duration::ZERO,
+                            materialized_inputs_for_failed: None,
+                            materialized_outputs_for_failed_actions: None,
+                        },
+                        CommandCancellationReason::ReQueueTimeout,
+                        CommandExecutionMetadata::empty(TimeSpan::empty_now()),
+                    ));
+                }
+                return ControlFlow::Break(manager.error("remote_call_error", e));
+            }
         };
 
         let execution_kind = response.execution_kind(remote_details);
@@ -531,4 +546,24 @@ fn is_timeout_error(err: &remote_execution::TStatus) -> bool {
         let _ignored = err;
         false
     }
+}
+
+fn is_re_queue_full(e: &buck2_error::Error) -> bool {
+    #[cfg(all(fbcode_build, target_os = "linux"))]
+    let enabled = justknobs::eval(
+        "buck2/remote_execution:re_queue_full_as_cancelled",
+        None,
+        None,
+    )
+    .unwrap_or(false);
+
+    #[cfg(not(all(fbcode_build, target_os = "linux")))]
+    let enabled = true;
+
+    if !enabled {
+        return false;
+    }
+
+    e.find_typed_context::<RemoteExecutionError>()
+        .is_some_and(|re_err| re_err.group == TCodeReasonGroup::USER_QUEUE_FULL)
 }
