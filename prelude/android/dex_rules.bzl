@@ -881,6 +881,23 @@ def _sort_pre_dexed_files(
         module_to_canary_class_name_function: typing.Callable) -> list[_SortedPreDexedInputs]:
     sorted_pre_dexed_inputs_map = {}
 
+    # DEX 64K limit enforcement.
+    #
+    # Each DEX file is limited to 65536 method_ids, field_ids, and type_ids.
+    # Per-library ref counts from the DEX header are summed as a conservative
+    # upper bound — the actual merged DEX has fewer refs because shared
+    # dependencies are deduplicated. For example, merging two libs:
+    #
+    #   LibA: methods=9  fields=3  types=9
+    #   LibB: methods=10 fields=3  types=10
+    #   Sum:  methods=19 fields=6  types=19
+    #   Merged DEX:  methods=17 fields=6  types=13  (shared types deduped)
+    #
+    # The merge step uses _DEX_MERGE_OPTIONS = ["--no-desugar", "--no-optimize"],
+    # so D8 performs a pure mechanical merge with no synthetic generation.
+    # Merged refs are always <= sum of input refs, never more.
+    DEX_REF_LIMIT = 65536
+
     # Tracking for when to spill over to another dex file based on weight estimate.
     # Note that depending on given options, primary dex classes may be spread over N dex files
     # (when minSdkVerion is high enough).
@@ -888,6 +905,14 @@ def _sort_pre_dexed_files(
     current_primary_dex_inputs_map = {}
     current_secondary_dex_size_map = {}
     current_secondary_dex_inputs_map = {}
+
+    # Tracking for ref-count-based splitting (DEX header counts).
+    current_primary_dex_method_refs_map = {}
+    current_primary_dex_field_refs_map = {}
+    current_primary_dex_type_refs_map = {}
+    current_secondary_dex_method_refs_map = {}
+    current_secondary_dex_field_refs_map = {}
+    current_secondary_dex_type_refs_map = {}
 
     def assign_pre_dexed_classes_to_secondary_dex(
             dest: list[list[DexInputWithSpecifiedClasses]],
@@ -898,14 +923,38 @@ def _sort_pre_dexed_files(
             current_dex_size_map: dict[str, int],  # module to size
             current_dex_inputs_map: dict[str, list[DexInputWithSpecifiedClasses]],  # module to dex file that is being built up
             emit_canaries: bool,
-            dex_weight_limit_bytes: int | None):
+            dex_weight_limit_bytes: int | None,
+            method_ref_count: int,
+            field_ref_count: int,
+            type_ref_count: int,
+            current_dex_method_refs_map: dict[str, int],
+            current_dex_field_refs_map: dict[str, int],
+            current_dex_type_refs_map: dict[str, int]):
         if len(dex_class_names) == 0:
             return
 
         current_dex_size = current_dex_size_map.get(module, 0)
+        should_start_new_dex = False
+
+        # Check weight-based limit (existing behavior)
         if dex_weight_limit_bytes != None and current_dex_size + weight_estimate > dex_weight_limit_bytes:
+            should_start_new_dex = True
+
+        # Check ref-count-based limits (DEX 64K limits for methods, fields, and types)
+        current_methods = current_dex_method_refs_map.get(module, 0)
+        current_fields = current_dex_field_refs_map.get(module, 0)
+        current_types = current_dex_type_refs_map.get(module, 0)
+        if (current_methods + method_ref_count > DEX_REF_LIMIT or
+            current_fields + field_ref_count > DEX_REF_LIMIT or
+            current_types + type_ref_count > DEX_REF_LIMIT):
+            should_start_new_dex = True
+
+        if should_start_new_dex:
             current_dex_size = 0
             current_dex_inputs_map[module] = []
+            current_dex_method_refs_map[module] = 0
+            current_dex_field_refs_map[module] = 0
+            current_dex_type_refs_map[module] = 0
 
         current_dex_inputs = current_dex_inputs_map.setdefault(module, [])
         if len(current_dex_inputs) == 0:
@@ -921,6 +970,9 @@ def _sort_pre_dexed_files(
             dest.append(current_dex_inputs)
 
         current_dex_size_map[module] = current_dex_size + weight_estimate
+        current_dex_method_refs_map[module] = current_dex_method_refs_map.get(module, 0) + method_ref_count
+        current_dex_field_refs_map[module] = current_dex_field_refs_map.get(module, 0) + field_ref_count
+        current_dex_type_refs_map[module] = current_dex_type_refs_map.get(module, 0) + type_ref_count
         current_dex_inputs.append(
             DexInputWithSpecifiedClasses(lib = lib, dex_class_names = dex_class_names),
         )
@@ -934,23 +986,43 @@ def _sort_pre_dexed_files(
             current_dex_size_map: dict[str, int],
             current_dex_inputs_map: dict[str, list[DexInputWithSpecifiedClasses]],
             emit_canaries: bool,
-            dex_weight_limit_bytes: int | None):
+            dex_weight_limit_bytes: int | None,
+            method_ref_count: int,
+            field_ref_count: int,
+            type_ref_count: int,
+            current_dex_method_refs_map: dict[str, int],
+            current_dex_field_refs_map: dict[str, int],
+            current_dex_type_refs_map: dict[str, int]):
         if len(dex_class_names) == 0:
             return
 
+        should_start_new_dex = False
         if dex_weight_limit_bytes != None and weight_estimate > dex_weight_limit_bytes:
-            # Given library is beyond the configured weight; subdivide it into
+            should_start_new_dex = True
+        if method_ref_count > DEX_REF_LIMIT or field_ref_count > DEX_REF_LIMIT or type_ref_count > DEX_REF_LIMIT:
+            should_start_new_dex = True
+
+        if should_start_new_dex:
+            # Given library is beyond the configured weight or ref limit; subdivide it into
             # many dex files to lessen the likelihood of overflowing a dex.
             num_classes = len(dex_class_names)
-            chunks = weight_estimate / dex_weight_limit_bytes
+            if dex_weight_limit_bytes != None and weight_estimate > dex_weight_limit_bytes:
+                chunks = weight_estimate / dex_weight_limit_bytes
+            else:
+                # Subdivide based on ref counts: use the more constrained dimension
+                max_refs = max(method_ref_count, field_ref_count, type_ref_count)
+                chunks = max_refs / DEX_REF_LIMIT
             chunk_size = max(1, int(num_classes // chunks))
             for start_index in range(0, num_classes, chunk_size):
                 end_index = min(start_index + chunk_size, num_classes)
                 chunked_dex_class_names = dex_class_names[start_index:end_index]
 
-                # Note: the original weight_estimate will be reused for the
-                # chunk since individual class sizes are not exposed
-                # (be pessimistic).
+                # Note: the original weight_estimate and ref counts will be reused for the
+                # chunk since individual class sizes are not exposed.
+                # For ref counts, this means each chunk carries the full-lib counts,
+                # so each chunk will unconditionally spill to its own dex file.
+                # This is correct (never under-splits) but may produce more dex files
+                # than strictly necessary for very large libraries.
                 assign_pre_dexed_classes_to_secondary_dex(
                     dest,
                     module,
@@ -961,6 +1033,12 @@ def _sort_pre_dexed_files(
                     current_dex_inputs_map,
                     emit_canaries,
                     dex_weight_limit_bytes,
+                    method_ref_count,
+                    field_ref_count,
+                    type_ref_count,
+                    current_dex_method_refs_map,
+                    current_dex_field_refs_map,
+                    current_dex_type_refs_map,
                 )
         else:
             # No need to further divide
@@ -974,6 +1052,12 @@ def _sort_pre_dexed_files(
                 current_dex_inputs_map,
                 emit_canaries,
                 dex_weight_limit_bytes,
+                method_ref_count,
+                field_ref_count,
+                type_ref_count,
+                current_dex_method_refs_map,
+                current_dex_field_refs_map,
+                current_dex_type_refs_map,
             )
 
     for pre_dexed_libs_with_class_names_and_weight_estimates in pre_dexed_libs_with_class_names_and_weight_estimates_files:
@@ -984,6 +1068,12 @@ def _sort_pre_dexed_files(
             primary_dex_class_names = pre_dexed_lib_info["primary_dex_class_names"]
             secondary_dex_class_names = pre_dexed_lib_info["secondary_dex_class_names"]
             weight_estimate = int(pre_dexed_lib_info["weight_estimate"])
+
+            # Exact DEX ref counts from the header. Zero is valid for resource-only
+            # AARs (no code), which don't consume any 64K ref slots.
+            lib_method_refs = int(pre_dexed_lib_info["method_ref_count"])
+            lib_field_refs = int(pre_dexed_lib_info["field_ref_count"])
+            lib_type_refs = int(pre_dexed_lib_info["type_ref_count"])
 
             module_pre_dexed_inputs = sorted_pre_dexed_inputs_map.setdefault(module, _SortedPreDexedInputs(
                 module = module,
@@ -1018,6 +1108,12 @@ def _sort_pre_dexed_files(
                 current_primary_dex_inputs_map,
                 False,
                 split_dex_merge_config.secondary_dex_weight_limit_bytes if enable_bootstrap_dexes else None,
+                lib_method_refs,
+                lib_field_refs,
+                lib_type_refs,
+                current_primary_dex_method_refs_map,
+                current_primary_dex_field_refs_map,
+                current_primary_dex_type_refs_map,
             )
 
             # Organize secondary dex classes into logical dex file(s)
@@ -1031,6 +1127,12 @@ def _sort_pre_dexed_files(
                 current_secondary_dex_inputs_map,
                 True,
                 split_dex_merge_config.secondary_dex_weight_limit_bytes,
+                lib_method_refs,
+                lib_field_refs,
+                lib_type_refs,
+                current_secondary_dex_method_refs_map,
+                current_secondary_dex_field_refs_map,
+                current_secondary_dex_type_refs_map,
             )
 
     return sorted_pre_dexed_inputs_map.values()
