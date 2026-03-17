@@ -9,11 +9,12 @@
  */
 
 use allocative::Allocative;
+use pagable::Pagable;
 
 use crate::cells::cell_path::CellPath;
 use crate::package::PackageLabel;
 
-#[derive(Clone, Debug, Eq, PartialEq, Allocative)]
+#[derive(Clone, Debug, Eq, PartialEq, Allocative, Pagable)]
 pub enum PackagePattern {
     Package(PackageLabel),
     Recursive(CellPath),
@@ -30,7 +31,7 @@ impl PackagePattern {
     }
 }
 
-#[derive(Clone, Debug, Eq, PartialEq, Allocative)]
+#[derive(Clone, Debug, Eq, PartialEq, Allocative, Pagable)]
 pub enum PackagePredicate {
     Any,
     AnyOf(Vec<PackagePattern>),

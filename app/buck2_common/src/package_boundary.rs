@@ -36,7 +36,7 @@ use crate::legacy_configs::key::BuckconfigKeyRef;
 #[derive(PartialEq, Allocative)]
 pub struct PackageBoundaryExceptions(HashMap<CellName, CellPackageBoundaryExceptions>);
 
-#[derive(PartialEq, Allocative)]
+#[derive(PartialEq, Allocative, Pagable)]
 struct CellPackageBoundaryExceptions {
     // The reason we avoid a trie is that there's not a convenient `TrieSet` implementation to use,
     // and tries will likely have worse performance because most exception paths are very short.

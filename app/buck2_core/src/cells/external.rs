@@ -35,7 +35,7 @@ pub enum ExternalCellOrigin {
     PartialEq,
     Eq,
     Hash,
-    pagable::Pagable
+    Pagable
 )]
 #[display("git({}, {})", git_origin, commit)]
 pub struct GitCellSetup {
@@ -54,17 +54,7 @@ impl fmt::Display for ExternalCellOrigin {
     }
 }
 
-#[derive(
-    Debug,
-    Display,
-    Eq,
-    PartialEq,
-    Clone,
-    Dupe,
-    Hash,
-    Allocative,
-    pagable::Pagable
-)]
+#[derive(Debug, Display, Eq, PartialEq, Clone, Dupe, Hash, Allocative, Pagable)]
 pub enum GitObjectFormat {
     #[display("sha1")]
     Sha1,

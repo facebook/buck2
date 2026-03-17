@@ -52,7 +52,7 @@ fn derive_pagable_panic_impl(
     let deserialize_body = quote_spanned! {input.span()=>
         #[allow(unused)]
         impl #de_impl_generics pagable::PagableDeserialize<'de> for #name #type_generics #where_clause {
-            fn pagable_deserialize<D: pagable::PagableDeserializer<'de> + ?Sized>(deserializer: &mut D) -> pagable::Result<Self> {
+            fn pagable_deserialize<De: pagable::PagableDeserializer<'de> + ?Sized>(deserializer: &mut De) -> pagable::Result<Self> {
                 unimplemented!()
             }
         }

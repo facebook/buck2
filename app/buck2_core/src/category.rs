@@ -18,10 +18,20 @@
 use allocative::Allocative;
 use dupe::Dupe;
 use once_cell::sync::Lazy;
+use pagable::Pagable;
 use regex::Regex;
 
 /// A category, representing a family of actions.
-#[derive(Clone, Debug, PartialEq, Eq, Hash, Allocative, derive_more::Display)]
+#[derive(
+    Clone,
+    Debug,
+    PartialEq,
+    Eq,
+    Hash,
+    Allocative,
+    derive_more::Display,
+    Pagable
+)]
 pub struct Category(String);
 
 #[derive(Debug, Clone, Copy, Dupe, PartialEq, Eq, Hash, derive_more::Display)]

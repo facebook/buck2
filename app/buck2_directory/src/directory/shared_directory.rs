@@ -18,6 +18,7 @@ use derivative::Derivative;
 use derive_more::Display;
 use dupe::Clone_;
 use dupe::Dupe_;
+use pagable::PagablePanic;
 
 use crate::directory::builder::DirectoryBuilder;
 use crate::directory::dashmap_directory_interner::DashMapDirectoryInterner;
@@ -54,7 +55,7 @@ where
     }
 }
 
-#[derive(Derivative, Clone_, Dupe_, Display, Allocative)]
+#[derive(Derivative, Clone_, Dupe_, Display, Allocative, PagablePanic)]
 #[derivative(Debug(bound = "L: ::std::fmt::Debug"))]
 #[display("{}", self.inner)]
 pub struct SharedDirectory<L, H>

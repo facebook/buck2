@@ -235,7 +235,7 @@ impl Key for LegacyBuckConfigForCellKey {
 /// increasing the size of the value returned from that computation. Instead, we'll use a different
 /// projection key to extract just the error from the cell computation, and compute that when
 /// constructing the `OpaqueLegacyBuckConfigOnDice`.
-#[derive(Debug, Display, Hash, Eq, PartialEq, Clone, Allocative)]
+#[derive(Debug, Display, Hash, Eq, PartialEq, Clone, Allocative, Pagable)]
 struct LegacyBuckConfigErrorKey();
 
 impl ProjectionKey for LegacyBuckConfigErrorKey {
@@ -255,7 +255,7 @@ impl ProjectionKey for LegacyBuckConfigErrorKey {
     }
 }
 
-#[derive(Debug, Display, Hash, Eq, PartialEq, Clone, Allocative)]
+#[derive(Debug, Display, Hash, Eq, PartialEq, Clone, Allocative, Pagable)]
 #[display("{}.{}", section, property)]
 struct LegacyBuckConfigPropertyProjectionKey {
     section: String,

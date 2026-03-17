@@ -38,7 +38,7 @@ enum AliasResolutionError {
     AliasCycle(Vec<String>, String),
 }
 
-#[derive(Dupe, Clone, Allocative)]
+#[derive(Debug, Dupe, Clone, Allocative, Pagable)]
 pub struct BuckConfigTargetAliasResolver {
     config: LegacyBuckConfig,
 }

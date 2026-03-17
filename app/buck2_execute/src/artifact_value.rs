@@ -41,7 +41,7 @@ pub enum UnderlyingContentBasedPathHash {
 /// to available. Therefore, when this represents a symlink, or a directory
 /// with symlinks pointing outside such directory, we must also store the value
 /// of the artifacts pointed to by those symlinks. That's the `deps` attribute.
-#[derive(Clone, Debug, Dupe, PartialEq, Eq, Allocative)]
+#[derive(Clone, Debug, Dupe, PartialEq, Eq, Allocative, Pagable)]
 pub struct ArtifactValue {
     /// The information about the artifact i.e. digest + is_executable if this
     /// is a file, the file tree if this is a directory, and so on.

@@ -55,6 +55,7 @@ use chrono::Utc;
 use derive_more::Display;
 use dupe::Dupe;
 use once_cell::sync::Lazy;
+use pagable::Pagable;
 use ref_cast::RefCast;
 use remote_execution as RE;
 use starlark_map::small_map::SmallMap;
@@ -69,7 +70,7 @@ use crate::re::manager::ManagedRemoteExecutionClient;
 pub static INTERNER: Lazy<DashMapDirectoryInterner<ActionDirectoryMember, TrackedFileDigest>> =
     Lazy::new(DashMapDirectoryInterner::new);
 
-#[derive(Clone, Debug, Dupe, PartialEq, Eq, Display, Allocative)]
+#[derive(Clone, Debug, Dupe, PartialEq, Eq, Display, Allocative, Pagable)]
 pub enum ActionDirectoryMember {
     File(FileMetadata),
     Symlink(Arc<Symlink>),

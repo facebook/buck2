@@ -10,6 +10,7 @@
 
 use allocative::Allocative;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
+use pagable::Pagable;
 use relative_path::Component;
 use relative_path::RelativePath;
 use relative_path::RelativePathBuf;
@@ -30,7 +31,9 @@ enum RelativeImportParseError {
     InvalidCurrentPathWhenFileRelativeImport(String),
 }
 
-#[derive(Debug, Hash, Eq, PartialEq, PartialOrd, Ord, Allocative, Clone)]
+#[derive(
+    Debug, Hash, Eq, PartialEq, PartialOrd, Ord, Allocative, Clone, Pagable
+)]
 pub struct CellPathWithAllowedRelativeDir {
     current_dir: CellPath,
     allowed_relative_dir: Option<CellPath>,
