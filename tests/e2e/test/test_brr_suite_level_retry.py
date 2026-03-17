@@ -308,3 +308,122 @@ async def test_brr_transient_listing_failure_runs_tests(
         "not silently skip the suite"
     )
     assert "Pass" in stderr
+
+
+@buck_test(inplace=True, skip_for_os=["darwin", "windows"])
+async def test_brr_listing_only_roundtrip(buck: Buck, tmp_path: Path) -> None:
+    """
+    End-to-end BRR roundtrip with --list-only: a listing failure produces a
+    report with '- listing', and feeding that report back via
+    --base-rev-retry-with-input-file with --list-only reproduces the listing
+    failure without executing any tests.
+    """
+    mode = get_mode_from_platform()
+    report_file = tmp_path / "report.json"
+    retry_report_file = tmp_path / "retry_report.json"
+
+    # Step 1: Run the broken listing target and save the failure report.
+    try:
+        await buck.test(
+            BROKEN_LISTING_TARGET,
+            mode,
+            "--",
+            "--env",
+            "TPX_PLAYGROUND_FATAL=1",
+            "--save-failures-for-retry-in-file",
+            str(report_file),
+        )
+        raise AssertionError("Expected BuckException from broken listing target")
+    except BuckException:
+        pass
+
+    # Step 2: Verify the report contains a "- listing" entry.
+    assert report_file.exists(), "Failure report was not written"
+    report = read_brr_report(report_file)
+    test_names = cast(list[str], report.get("test_names", []))
+    has_listing = any(name.endswith("- listing") for name in test_names)
+    assert has_listing, f"Expected a '- listing' entry in test_names, got: {test_names}"
+
+    # Step 3: Feed the report back with --list-only (simulating Citadel
+    # passing --list-only for a listing-only BRR). Listing still fails
+    # because TPX_PLAYGROUND_FATAL is set.
+    try:
+        await buck.test(
+            BROKEN_LISTING_TARGET,
+            mode,
+            "--",
+            "--env",
+            "TPX_PLAYGROUND_FATAL=1",
+            "--list-only",
+            "--base-rev-retry-with-input-file",
+            str(report_file),
+            "--save-failures-for-retry-in-file",
+            str(retry_report_file),
+        )
+    except BuckException:
+        pass
+
+    # Step 4: The retry must reproduce the listing failure with --list-only.
+    assert retry_report_file.exists(), "Retry failure report was not written"
+    retry_report = read_brr_report(retry_report_file)
+    retry_test_names = cast(list[str], retry_report.get("test_names", []))
+    retry_has_listing = any(name.endswith("- listing") for name in retry_test_names)
+    assert retry_has_listing, (
+        f"Expected a '- listing' entry in retry report test_names, got: {retry_test_names}"
+    )
+
+
+@buck_test(inplace=True, skip_for_os=["darwin", "windows"])
+async def test_brr_listing_only_transient_failure(buck: Buck, tmp_path: Path) -> None:
+    """
+    Transient listing failure with --list-only: listing fails in the original
+    run, but succeeds on the BRR retry with --list-only. No tests should
+    execute (--list-only suppresses execution even when listing succeeds).
+    """
+    mode = get_mode_from_platform()
+    report_file = tmp_path / "report.json"
+
+    # Step 1: Run with TPX_PLAYGROUND_FATAL=1 to make listing crash.
+    try:
+        await buck.test(
+            BROKEN_LISTING_TARGET,
+            mode,
+            "--",
+            "--env",
+            "TPX_PLAYGROUND_FATAL=1",
+            "--save-failures-for-retry-in-file",
+            str(report_file),
+        )
+        raise AssertionError("Expected BuckException from broken listing target")
+    except BuckException:
+        pass
+
+    # Step 2: Verify the report has "- listing".
+    assert report_file.exists(), "Failure report was not written"
+    report = read_brr_report(report_file)
+    test_names = cast(list[str], report.get("test_names", []))
+    has_listing = any(name.endswith("- listing") for name in test_names)
+    assert has_listing, f"Expected '- listing' in test_names, got: {test_names}"
+
+    # Step 3: Feed the report back with --list-only WITHOUT
+    # TPX_PLAYGROUND_FATAL — listing succeeds this time, but --list-only
+    # should suppress test execution.
+    try:
+        result = await buck.test(
+            BROKEN_LISTING_TARGET,
+            mode,
+            "--",
+            "--list-only",
+            "--base-rev-retry-with-input-file",
+            str(report_file),
+        )
+        stderr = result.stderr
+    except BuckException as e:
+        stderr = e.stderr
+
+    # Step 4: --list-only must suppress execution even when listing succeeds.
+    stderr = remove_ansi_escape_sequences(stderr)
+    assert "NO TESTS RAN" in stderr, (
+        "BRR retry with --list-only should not execute tests, "
+        "but 'NO TESTS RAN' not found in stderr"
+    )
