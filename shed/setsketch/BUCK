@@ -10,6 +10,7 @@ rust_library(
         "fbsource//third-party/rust:fnv",
     ],
     deps = [
+        "fbsource//third-party/rust:base64",
         "fbsource//third-party/rust:rand",
         "fbsource//third-party/rust:rand_distr",
         "fbsource//third-party/rust:rand_xoshiro",
@@ -22,7 +23,6 @@ rust_binary(
     crate_root = "bin/sketch_size.rs",
     deps = [
         "fbsource//third-party/rust:anyhow",
-        "fbsource//third-party/rust:base64",
         ":setsketch",
     ],
 )

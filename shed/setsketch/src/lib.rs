@@ -12,5 +12,6 @@ mod fyshuffle;
 mod sketch;
 
 pub use sketch::SetSketch;
+pub use sketch::SetSketchDecodeError;
 pub use sketch::SetSketchParams;
 pub use sketch::SetSketcher;

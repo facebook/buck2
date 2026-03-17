@@ -13,35 +13,7 @@ use std::io::BufRead;
 
 use anyhow::Context;
 use anyhow::bail;
-use base64::Engine;
 use setsketch::SetSketch;
-use setsketch::SetSketchParams;
-
-fn decode_sketch(sketch_str: &str) -> anyhow::Result<SetSketch> {
-    let sketch_str = sketch_str.trim();
-
-    // Decode base64
-    let bytes = base64::engine::general_purpose::STANDARD_NO_PAD
-        .decode(sketch_str)
-        .context("Failed to decode base64")?;
-
-    // Convert bytes to u16 registers (native endian)
-    if bytes.len() % 2 != 0 {
-        bail!(
-            "Invalid sketch data: byte count {} must be even",
-            bytes.len()
-        );
-    }
-
-    let registers: Vec<u16> = bytes
-        .chunks_exact(2)
-        .map(|chunk| u16::from_ne_bytes([chunk[0], chunk[1]]))
-        .collect();
-
-    // Create sketch
-    let params = SetSketchParams::recommended();
-    Ok(SetSketch::from_registers(params, registers))
-}
 
 fn main() -> anyhow::Result<()> {
     let stdin = io::stdin();
@@ -54,8 +26,11 @@ fn main() -> anyhow::Result<()> {
     // Decode all sketches
     let mut sketches: Vec<SetSketch> = Vec::new();
     for line in &lines {
-        if !line.trim().is_empty() {
-            sketches.push(decode_sketch(line)?);
+        let trimmed = line.trim();
+        if !trimmed.is_empty() {
+            let sketch = SetSketch::from_base64_maybe_versioned(trimmed)
+                .context("Failed to decode sketch")?;
+            sketches.push(sketch);
         }
     }
 

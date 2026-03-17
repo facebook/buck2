@@ -12,13 +12,13 @@
 // (https://github.com/jean-pierreBoth/probminhash).
 
 //! implementation of the paper :
-//! *SetSkectch : filling the gap between MinHash and HyperLogLog*  
+//! *SetSkectch : filling the gap between MinHash and HyperLogLog*
 //! See  <https://arxiv.org/abs/2101.00314> or <https://vldb.org/pvldb/vol14/p2244-ertl.pdf>.
 //!
 //! We implement Setsketch1 algorithm which supposes that the size of the data set
 //! to sketch is large compared to the size of sketch.
 //! The purpose of this implementation is to provide Local Sensitive sketching of a set
-//! adapted to the Jaccard distance with some precaution, see function [get_jaccard_bounds](SetSketchParams::get_jaccard_bounds).   
+//! adapted to the Jaccard distance with some precaution, see function [get_jaccard_bounds](SetSketchParams::get_jaccard_bounds).
 //! Moreover the sketches produced are mergeable see function [merge](SetSketcher::merge).
 //!
 //! The cardinal of the set can be estimated with the basic (unoptimized) function [get_cardinal_stats](SetSketcher::get_cardinal_stats)
@@ -32,6 +32,7 @@ use std::ops::Deref;
 use std::ops::DerefMut;
 use std::sync::LazyLock;
 
+use base64::Engine;
 use rand::Rng;
 use rand_distr::Exp1;
 use rand_distr::StandardUniform;
@@ -90,7 +91,7 @@ type I = u16;
 ///
 /// This cannot be used to sketch any new values (but can be merged). In exchange, it doesn't
 /// require a `T` or a hasher, unlike `SetSketcher`.
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct SetSketch {
     params: &'static SetSketchParams,
     k_vec: Vec<I>,
@@ -118,7 +119,7 @@ impl SetSketch {
         self.params
     }
 
-    /// The function returns an approximation of the cardinality of the sketched set.  
+    /// The function returns an approximation of the cardinality of the sketched set.
     ///
     /// It is a relatively cpu costly function (the computed logs are not cached in the SetSketcher
     /// structure) that involves log and exp calls on the whole sketch vector.
@@ -162,10 +163,123 @@ impl SetSketch {
     pub fn get_registers(&self) -> &[I] {
         &self.k_vec
     }
+
+    /// Decode a base64-encoded sketch string into a `SetSketch`.
+    ///
+    /// The string is expected to be a base64-encoded sequence of native-endian
+    /// `u16` register values. Both padded and unpadded base64 are accepted.
+    pub fn from_base64(base64_str: &str) -> Result<Self, SetSketchDecodeError> {
+        let params = SetSketchParams::recommended();
+        let bytes = base64::engine::general_purpose::STANDARD_NO_PAD
+            .decode(base64_str.trim())
+            .map_err(SetSketchDecodeError::Base64)?;
+
+        if bytes.len() % 2 != 0 {
+            return Err(SetSketchDecodeError::OddByteCount(bytes.len()));
+        }
+
+        let registers: Vec<I> = bytes
+            .chunks_exact(2)
+            .map(|chunk| I::from_ne_bytes([chunk[0], chunk[1]]))
+            .collect();
+
+        if registers.len() != params.m {
+            return Err(SetSketchDecodeError::WrongRegisterCount {
+                expected: params.m,
+                actual: registers.len(),
+            });
+        }
+
+        Ok(Self {
+            params,
+            k_vec: registers,
+        })
+    }
+
+    /// Decode a versioned, base64-encoded sketch string into a `SetSketch`.
+    ///
+    /// The input format is `"<version>:<base64_data>"` (e.g. `"v1:AAAA..."`).  The version
+    /// prefix is returned alongside the decoded sketch so callers can act on it if needed.
+    pub fn from_base64_versioned(
+        versioned_str: &str,
+    ) -> Result<(&str, Self), SetSketchDecodeError> {
+        let (version, base64_str) = versioned_str
+            .split_once(':')
+            .ok_or(SetSketchDecodeError::MissingVersionPrefix)?;
+        let sketch = Self::from_base64(base64_str)?;
+        Ok((version, sketch))
+    }
+
+    /// Like [`from_base64_versioned`](Self::from_base64_versioned), but discards the version
+    /// prefix and returns only the decoded sketch.
+    pub fn decode_base64_versioned(versioned_str: &str) -> Result<Self, SetSketchDecodeError> {
+        let (_version, sketch) = Self::from_base64_versioned(versioned_str)?;
+        Ok(sketch)
+    }
+
+    /// Decode a base64-encoded sketch that may or may not have a version prefix.
+    ///
+    /// If the string contains a `':'`, the portion before it is treated as a version prefix
+    /// and stripped.  Otherwise the entire string is decoded as raw base64.
+    pub fn from_base64_maybe_versioned(s: &str) -> Result<Self, SetSketchDecodeError> {
+        match s.split_once(':') {
+            Some((_version, base64_str)) => Self::from_base64(base64_str),
+            None => Self::from_base64(s),
+        }
+    }
+
+    /// Convenience constructor that pairs [`from_registers`](Self::from_registers) with
+    /// [`SetSketchParams::recommended`].
+    pub fn from_recommended_registers(registers: Vec<I>) -> Self {
+        Self::from_registers(SetSketchParams::recommended(), registers)
+    }
+
+    /// Returns the cardinality estimate as an `i64`, truncating toward zero.
+    pub fn get_size_approx(&self) -> i64 {
+        self.cardinality() as i64
+    }
+}
+
+/// Errors that can occur when decoding a `SetSketch` from base64.
+#[derive(Debug)]
+pub enum SetSketchDecodeError {
+    Base64(base64::DecodeError),
+    OddByteCount(usize),
+    WrongRegisterCount { expected: usize, actual: usize },
+    MissingVersionPrefix,
+}
+
+impl std::fmt::Display for SetSketchDecodeError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Base64(e) => write!(f, "base64 decode error: {}", e),
+            Self::OddByteCount(n) => {
+                write!(f, "invalid sketch data: byte count {} must be even", n)
+            }
+            Self::WrongRegisterCount { expected, actual } => {
+                write!(
+                    f,
+                    "wrong number of registers: expected {}, got {}",
+                    expected, actual
+                )
+            }
+            Self::MissingVersionPrefix => {
+                write!(f, "expected versioned format \"<version>:<base64_data>\"")
+            }
+        }
+    }
+}
+
+impl std::error::Error for SetSketchDecodeError {}
+
+impl Default for SetSketch {
+    fn default() -> Self {
+        Self::new(SetSketchParams::recommended())
+    }
 }
 
 /// This structure implements Setsketch1 algorithm
-///   
+///
 /// The default parameters ensure capacity to represent a set up to 10^28 elements.
 pub struct SetSketcher<T, H: Hasher + Default> {
     data: SetSketch,
