@@ -53,6 +53,7 @@
     }
   },
   "overrides": {
-    "tar": ">=7.5.10"
+    "tar": ">=7.5.10",
+    "@tootallnate/once": ">=3.0.1"
   }
 }
