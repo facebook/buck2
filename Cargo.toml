@@ -157,7 +157,7 @@ bytemuck = { version = "1.24", features = ["const_zeroed", "derive", "min_const_
 byteorder = "1.5"
 bytes = "1.11.1"
 bytesize = "2.0"
-chrono = "0.4.41"
+chrono = { version = "0.4.41", features = ["serde"] }
 clap = { version = "4.5.42", features = ["derive", "env", "string"] }
 clap_complete = "4.5.55"
 common-path = "1.0.0"

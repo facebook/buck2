@@ -245,7 +245,7 @@ impl Equivalent<Value<'_>> for FrozenValue {
 /// when working directly with [`FrozenValue`]s. See the type [`OwnedFrozenValue`](crate::values::OwnedFrozenValue)
 /// for a little bit more safety.
 #[derive(Clone, Copy, Dupe, ProvidesStaticType, Allocative)]
-#[cfg_attr(feature = "pagable_dep", derive(pagable::PagablePanic))]
+#[derive(pagable::PagablePanic)]
 // One possible change: moving from Blackhole during GC
 pub struct FrozenValue(
     #[allocative(skip)] // Because it is owned by the heap.

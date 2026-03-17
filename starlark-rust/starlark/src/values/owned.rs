@@ -52,7 +52,7 @@ enum OwnedError {
 /// is strongly discouraged. See the other methods which unpack the code, access it as a
 /// [`Value`] (which has a suitable lifetime) or add references to other heaps.
 #[derive(Debug, Clone, Dupe, Allocative)]
-#[cfg_attr(feature = "pagable_dep", derive(pagable::PagablePanic))]
+#[derive(pagable::PagablePanic)]
 pub struct OwnedFrozenValue {
     owner: FrozenHeapRef,
     // Invariant: this FrozenValue must be kept alive by the `owner` field.
@@ -199,7 +199,7 @@ impl OwnedFrozenValue {
 
 /// Same as [`OwnedFrozenValue`] but it is known to contain `T`.
 #[derive(Debug, Clone_, Dupe_, Allocative)]
-#[cfg_attr(feature = "pagable_dep", derive(pagable::PagablePanic))]
+#[derive(pagable::PagablePanic)]
 pub struct OwnedFrozenValueTyped<T: StarlarkValue<'static>> {
     owner: FrozenHeapRef,
     value: FrozenValueTyped<'static, T>,

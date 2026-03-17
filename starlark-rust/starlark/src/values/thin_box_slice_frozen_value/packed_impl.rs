@@ -112,7 +112,7 @@ unsafe impl Sync for PackedImpl where FrozenValue: Sync {}
 /// Specifically, this type uses bit packing and other tricks so that it is only
 /// 8 bytes in size, while being allocation free for lengths zero and one. It
 /// depends on the lower bit of a FrozenPointer always being unset.
-#[cfg_attr(feature = "pagable_dep", derive(pagable::PagablePanic))]
+#[derive(pagable::PagablePanic)]
 pub struct ThinBoxSliceFrozenValue<'v>(PackedImpl, PhantomData<&'v ()>);
 
 impl<'v> ThinBoxSliceFrozenValue<'v> {

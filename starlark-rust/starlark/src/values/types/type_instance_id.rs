@@ -28,7 +28,7 @@ use crate as starlark;
 #[derive(
     Debug, Copy, Clone, Dupe, Hash, Eq, PartialEq, Ord, PartialOrd, Allocative, Freeze
 )]
-#[cfg_attr(feature = "pagable_dep", derive(pagable::PagablePanic))]
+#[derive(pagable::PagablePanic)]
 pub struct TypeInstanceId(u64);
 
 impl TypeInstanceId {

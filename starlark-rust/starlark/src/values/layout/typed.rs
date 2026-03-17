@@ -77,7 +77,7 @@ pub struct ValueTyped<'v, T: StarlarkValue<'v>>(Value<'v>, marker::PhantomData<T
 /// [`FrozenValue`] wrapper which asserts contained value is of type `<T>`.
 #[derive(Copy_, Clone_, Dupe_, ProvidesStaticType, Allocative)]
 #[allocative(skip)] // Heap owns the value.
-#[cfg_attr(feature = "pagable_dep", derive(pagable::PagablePanic))]
+#[derive(pagable::PagablePanic)]
 #[repr(transparent)]
 pub struct FrozenValueTyped<'v, T: StarlarkValue<'v>>(FrozenValue, marker::PhantomData<&'v T>);
 

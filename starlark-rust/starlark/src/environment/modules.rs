@@ -77,7 +77,7 @@ enum ModuleError {
 /// these values after the [`FrozenModule`] has been released unless you obtain a reference
 /// to the frozen heap.
 #[derive(Debug, Clone, Dupe, Allocative)]
-#[cfg_attr(feature = "pagable_dep", derive(pagable::PagablePanic))]
+#[derive(pagable::PagablePanic)]
 // We store the two elements separately since the FrozenHeapRef contains
 // a copy of the FrozenModuleData inside it.
 // Two Arc's should still be plenty cheap enough to qualify for `Dupe`.
