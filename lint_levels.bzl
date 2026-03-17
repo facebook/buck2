@@ -9,7 +9,6 @@
 # buildifier: keep sorted
 CLIPPY_ALLOW = [
     "clippy::arc_with_non_send_sync",  # Needs triage, see 'dashmap_directory_interner.rs:39:20' (`DashMap` is not `Send` or `Sync`)
-    "clippy::await_holding_lock",  # FIXME new in Rust 1.74
     "clippy::bool_assert_comparison",  # Sometimes more clear to write it this way
     "clippy::bool_to_int_with_if",  # Using if branches to return 1 or 0 is valid, but this complains that we should use `int::from`, which is arguably less clear
     "clippy::cognitive_complexity",  # This is an arbitrary linter
