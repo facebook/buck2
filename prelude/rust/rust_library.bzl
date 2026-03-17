@@ -95,10 +95,7 @@ load(
     "CompileContext",  # @unused Used as a type
     "compile_context",
 )
-load(
-    ":dep_context.bzl",
-    "DepCollectionContext",
-)
+load(":dep_context.bzl", "DepCollectionContext")
 load(
     ":link_info.bzl",
     "DEFAULT_STATIC_LIB_OUTPUT_STYLE",
@@ -135,6 +132,11 @@ load(":proc_macro_alias.bzl", "rust_proc_macro_alias")
 load(":profile.bzl", "make_profile_providers")
 load(":resources.bzl", "rust_attr_resources")
 load(":rust_toolchain.bzl", "RustToolchainInfo")
+load(
+    ":sources.bzl",
+    "RustSources",
+    "RustSourcesTSet",
+)
 load(":targets.bzl", "targets")
 
 _DEFAULT_ROOTS = ["lib.rs"]
@@ -430,6 +432,7 @@ def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
         check_artifacts = output_as_diag_subtargets(diag_artifacts[incr_enabled], clippy_artifacts[incr_enabled]),
         expand = expand.output,
         sources = compile_ctx.symlinked_srcs,
+        transitive_srcs = compile_ctx.transitive_srcs,
         rustdoc_coverage = rustdoc_coverage,
         named_deps_names = write_named_deps_names(ctx, compile_ctx),
         profiles = profiles,
@@ -704,6 +707,7 @@ def _default_providers(
         check_artifacts: dict[str, Artifact | None],
         expand: Artifact,
         sources: Artifact,
+        transitive_srcs: RustSourcesTSet,
         rustdoc_coverage: Artifact,
         named_deps_names: Artifact | None,
         profiles: list[Provider]) -> list[Provider]:
@@ -767,6 +771,10 @@ def _default_providers(
     providers.append(DefaultInfo(
         default_output = check_artifacts["check"],
         sub_targets = sub_targets,
+    ))
+
+    providers.append(RustSources(
+        tset = transitive_srcs,
     ))
 
     return providers

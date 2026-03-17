@@ -125,12 +125,18 @@ load(
     "inherited_merged_link_infos",
     "inherited_shared_libs",
     "normalize_crate",
+    "resolve_deps",
     "resolve_rust_deps",
     "strategy_info",
 )
 load(":outputs.bzl", "RustcCompileOutput", "RustcLinkOutput", "RustcOutput")
 load(":resources.bzl", "rust_attr_resources")
 load(":rust_toolchain.bzl", "PanicRuntime", "RustToolchainInfo")
+load(
+    ":sources.bzl",
+    "RustSources",
+    "RustSourcesTSet",
+)
 
 def generate_rustdoc(
         ctx: AnalysisContext,
@@ -274,6 +280,15 @@ def generate_rustdoc_test(
         explicit_sysroot_deps = compile_ctx.dep_ctx.explicit_sysroot_deps,
         panic_runtime = compile_ctx.dep_ctx.panic_runtime,
     )
+    transitive_srcs = ctx.actions.tset(
+        RustSourcesTSet,
+        value = compile_ctx.symlinked_srcs,
+        children = [
+            d.dep[RustSources].tset
+            for d in resolve_deps(ctx, doc_dep_ctx)
+            if RustSources in d.dep
+        ],
+    )
 
     resources = create_resource_db(
         ctx = ctx,
@@ -398,7 +413,7 @@ def generate_rustdoc_test(
         "--test-args=--color=always",
         cmd_args("--remap-path-prefix=", compile_ctx.symlinked_srcs, compile_ctx.path_sep, "=", compile_ctx.symlinked_srcs.owner.path, compile_ctx.path_sep, delimiter = ""),
         hidden = [
-            compile_ctx.symlinked_srcs,
+            transitive_srcs.project_as_args("artifacts"),
             link_args_output.hidden,
             executable_args.runtime_files,
         ],
@@ -1062,6 +1077,10 @@ def _compute_common_args(
         is_rustdoc_test = is_rustdoc_test,
     )
 
+    dep_args.add(cmd_args(
+        hidden = compile_ctx.transitive_srcs.project_as_args("artifacts") if compile_ctx else [],
+    ))
+
     # Add dep_argsfiles to dep_args becuase rustc_action supports nested @argfiles
     dep_args.add(dep_argsfiles)
 
@@ -1466,7 +1485,7 @@ def _rustc_invoke(
         cmd_args(diag_txt.as_output(), format = "--diag-txt={}"),
         ["--remap-cwd-prefix=."] if not toolchain_info.nightly_features else [],
         "--buck-target={}".format(ctx.label.raw_target()),
-        hidden = [toolchain_info.compiler, compile_ctx.symlinked_srcs],
+        hidden = [toolchain_info.compiler, compile_ctx.transitive_srcs.project_as_args("artifacts")],
     )
 
     for k, v in crate_map:

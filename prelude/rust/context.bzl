@@ -23,8 +23,17 @@ load(
     "CrateName",  # @unused Used as a type
 )
 load(":dep_context.bzl", "DepCollectionContext")
+load(
+    ":link_info.bzl",
+    "resolve_deps",
+)
 load(":rust_toolchain.bzl", "RustToolchainInfo")
-load(":sources.bzl", "symlinked_srcs")
+load(
+    ":sources.bzl",
+    "RustSources",
+    "RustSourcesTSet",
+    "symlinked_srcs",
+)
 
 # Struct for sharing common args between rustc and rustdoc
 # (rustdoc just relays bunch of the same args to rustc when trying to gen docs)
@@ -63,6 +72,8 @@ CompileContext = record(
     soname = field(str | None),
     # Symlink root containing all sources.
     symlinked_srcs = field(Artifact),
+    # All sources of transitive Rust dependencies, not including doc dependencies.
+    transitive_srcs = field(RustSourcesTSet),
     # Linker args to pass the linker wrapper to rustc.
     sysroot_args = field(cmd_args),
     toolchain_info = field(RustToolchainInfo),
@@ -74,6 +85,8 @@ def compile_context(ctx: AnalysisContext, binary: bool = False) -> CompileContex
     internal_tools_info = ctx.attrs._rust_internal_tools_toolchain[RustInternalToolsInfo]
     cxx_toolchain_info = get_cxx_toolchain_info(ctx)
 
+    srcs = symlinked_srcs(ctx)
+
     linker_with_pre_args, linker_pre_args = _linker(ctx, cxx_toolchain_info.linker_info, binary = binary)
     clippy_wrapper = _clippy_wrapper(ctx, toolchain_info)
 
@@ -83,6 +96,16 @@ def compile_context(ctx: AnalysisContext, binary: bool = False) -> CompileContex
         is_proc_macro = getattr(ctx.attrs, "proc_macro", False),
         explicit_sysroot_deps = toolchain_info.explicit_sysroot_deps,
         panic_runtime = toolchain_info.panic_runtime,
+    )
+
+    transitive_srcs = ctx.actions.tset(
+        RustSourcesTSet,
+        value = srcs,
+        children = [
+            d.dep[RustSources].tset
+            for d in resolve_deps(ctx, dep_ctx)
+            if RustSources in d.dep
+        ],
     )
 
     # When we pass explicit sysroot deps, we need to override the default
@@ -115,7 +138,8 @@ def compile_context(ctx: AnalysisContext, binary: bool = False) -> CompileContex
         linker_pre_args = linker_pre_args,
         path_sep = path_sep,
         soname = _attr_soname(ctx),
-        symlinked_srcs = symlinked_srcs(ctx),
+        symlinked_srcs = srcs,
+        transitive_srcs = transitive_srcs,
         sysroot_args = sysroot_args,
         toolchain_info = toolchain_info,
         transitive_dependency_dirs = set(),

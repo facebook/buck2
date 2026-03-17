@@ -40,10 +40,7 @@ load(
     "get_reindeer_platform_names",
     "get_reindeer_platforms",
 )
-load(
-    ":dep_context.bzl",
-    "DepCollectionContext",
-)
+load(":dep_context.bzl", "DepCollectionContext")
 load(
     ":link_info.bzl",
     "DEFAULT_STATIC_LINK_STRATEGY",

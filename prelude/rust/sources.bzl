@@ -6,7 +6,21 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
-RustSources = provider(fields = {})
+def _get_artifacts(sources: Artifact) -> list[Artifact]:
+    return [sources]
+
+RustSourcesTSet = transitive_set(
+    args_projections = {
+        "artifacts": _get_artifacts,
+    },
+)
+
+# Sources of all transitive Rust dependencies. This is required for compilation in order to
+# guarantee consistent crate hashes between local and remote actions.
+# See https://github.com/rust-lang/rust/issues/153898
+RustSources = provider(fields = {
+    "tset": RustSourcesTSet,
+})
 
 def srcs_arg():
     return {
@@ -105,9 +119,15 @@ def symlinked_srcs(ctx: AnalysisContext) -> Artifact:
     return ctx.actions.symlinked_dir("__srcs", srcs)
 
 def _rust_filegroup_impl(ctx: AnalysisContext) -> list[Provider]:
+    srcs = symlinked_srcs(ctx)
+    tset = ctx.actions.tset(
+        RustSourcesTSet,
+        value = srcs,
+        children = [],
+    )
     return [
-        DefaultInfo(default_output = symlinked_srcs(ctx)),
-        RustSources(),
+        DefaultInfo(default_output = srcs),
+        RustSources(tset = tset),
     ]
 
 rust_filegroup = rule(
