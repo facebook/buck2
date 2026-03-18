@@ -240,23 +240,18 @@ async def test_brr_roundtrip_listing_failure(buck: Buck, tmp_path: Path) -> None
 
 
 @buck_test(inplace=True, skip_for_os=["darwin", "windows"])
-async def test_brr_transient_listing_failure_runs_tests(
+async def test_brr_transient_listing_failure_suppresses_execution(
     buck: Buck, tmp_path: Path
 ) -> None:
     """
-    Transient listing failure: listing fails in the original run (producing
-    '- main' in the BRR file), but succeeds on the retry. The fix in
-    get_filter() converts '- main' to a prefix matcher so individual test
-    cases from the suite pass through the filter and actually run, producing
-    a result for the originally-failed test.
-
-    Without the fix, RegexFilter::exact(["target - main"]) would not match
-    any discovered test cases, causing NO TESTS RAN and no result produced
-    for the failed test.
+    Transient listing failure with per-target listing-only BRR: listing fails
+    in the original run (producing '- listing' and '- main' in the BRR file),
+    but succeeds on the retry. TPX detects the '- listing' entries and
+    suppresses execution for that target via ListOnlyDiscovery::for_targets(),
+    so no tests run even though listing succeeds.
     """
     mode = get_mode_from_platform()
     report_file = tmp_path / "report.json"
-    retry_report_file = tmp_path / "retry_report.json"
 
     # Step 1: Run with TPX_PLAYGROUND_FATAL=1 to make listing crash.
     try:
@@ -273,16 +268,18 @@ async def test_brr_transient_listing_failure_runs_tests(
     except BuckException:
         pass
 
-    # Step 2: Verify the report has "- main".
+    # Step 2: Verify the report has both "- listing" and "- main".
     assert report_file.exists(), "Failure report was not written"
     report = read_brr_report(report_file)
     test_names = cast(list[str], report.get("test_names", []))
+    has_listing = any(name.endswith("- listing") for name in test_names)
     has_main = any(name.endswith("- main") for name in test_names)
+    assert has_listing, f"Expected '- listing' in test_names, got: {test_names}"
     assert has_main, f"Expected '- main' in test_names, got: {test_names}"
 
     # Step 3: Feed the report back WITHOUT TPX_PLAYGROUND_FATAL — listing
-    # succeeds this time. The BRR filter must let tests through so that
-    # a result is produced for the originally-failed test.
+    # succeeds this time. TPX detects the '- listing' entries and suppresses
+    # execution for the target via ListOnlyDiscovery::for_targets().
     try:
         result = await buck.test(
             BROKEN_LISTING_TARGET,
@@ -290,24 +287,18 @@ async def test_brr_transient_listing_failure_runs_tests(
             "--",
             "--base-rev-retry-with-input-file",
             str(report_file),
-            "--save-failures-for-retry-in-file",
-            str(retry_report_file),
         )
         stderr = result.stderr
     except BuckException as e:
         stderr = e.stderr
 
-    # Step 4: The retry must have produced a result — not "NO TESTS RAN".
-    # What matters is that the suite was not silently dropped by the filter.
-    # Since listing succeeds on retry, the tests run and pass (they are
-    # simple stubs), so we verify tests passed rather than checking for a
-    # failure report — there are no failures to report.
+    # Step 4: Execution is suppressed for listing-only targets. Listing
+    # runs (and succeeds), but no tests execute.
     stderr = remove_ansi_escape_sequences(stderr)
-    assert "NO TESTS RAN" not in stderr, (
-        "BRR retry with transient listing failure should produce results, "
-        "not silently skip the suite"
+    assert "NO TESTS RAN" in stderr, (
+        "BRR retry with listing-only target should suppress execution, "
+        "but 'NO TESTS RAN' not found in stderr"
     )
-    assert "Pass" in stderr
 
 
 @buck_test(inplace=True, skip_for_os=["darwin", "windows"])
