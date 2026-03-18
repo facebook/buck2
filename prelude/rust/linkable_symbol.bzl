@@ -51,17 +51,23 @@ applies to all of the following situations:
 
 load("@prelude//rust:link_info.bzl", "RustLinkInfo") # @oss-enable
 load("@prelude//prelude.bzl", prelude = "native") # @oss-enable
-# @oss-disable[end= ]: load("@fbcode//buck2/facebook:autodeps_hacks.bzl", "RustLinkInfo", "prelude")
+load("@prelude//rust:sources.bzl", "RustSources") # @oss-enable
+# @oss-disable[end= ]: load("@fbcode//buck2/facebook:autodeps_hacks.bzl", "RustLinkInfo", "RustSources", "prelude")
 
-def _remove_rust_link_info_impl(ctx: AnalysisContext) -> list[Provider]:
+def _remove_rust_providers_impl(ctx: AnalysisContext) -> list[Provider]:
     out = []
     for p in ctx.attrs.base.providers:
-        if not isinstance(p, RustLinkInfo):
+        # Remove RustLinkInfo so the dep is treated as a C++ dep rather than
+        # a Rust dep, avoiding the need to build @symbol during type checking.
+        # Remove RustSources so the @symbol's transitive sources (which include
+        # the potentially slow genrule content) are not pulled into downstream
+        # compile actions as hidden inputs.
+        if not isinstance(p, RustLinkInfo) and not isinstance(p, RustSources):
             out.append(p)
     return out
 
-_remove_rust_link_info = rule(
-    impl = _remove_rust_link_info_impl,
+_remove_rust_providers = rule(
+    impl = _remove_rust_providers_impl,
     attrs = {
         "base": attrs.dep(),
         "labels": attrs.list(attrs.string()),
@@ -122,10 +128,10 @@ def rust_linkable_symbol(
         visibility = [],
     )
 
-    # Alias the Rust library with a rule that just removes the `RustLinkInfo`.
+    # Alias the Rust library with a rule that removes the `RustLinkInfo` and `RustSources`.
     # This causes the dependent library to be treated more like a C++ dep than a
     # Rust dep, and thereby not be needed during type checking.
-    _remove_rust_link_info(
+    _remove_rust_providers(
         name = "{}@link".format(name),
         base = ":{}@symbol".format(name),
         labels = ["generated"],

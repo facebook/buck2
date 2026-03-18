@@ -26,6 +26,7 @@ load("@prelude//python:toolchain.bzl", _python = "python")
 load("@prelude//rust:link_info.bzl", "RustLinkInfo")
 load("@prelude//rust:rust_common.bzl", "rust_common_macro_wrapper")
 load("@prelude//rust:rust_library.bzl", "rust_library_macro_wrapper")
+load("@prelude//rust:sources.bzl", "RustSources")
 load("@prelude//rust:with_workspace.bzl", "with_rust_workspace")
 load("@prelude//user:all.bzl", _user_rules = "rules")
 load("@prelude//utils:buckconfig.bzl", _read_config = "read_config_with_logging", _read_root_config = "read_root_config_with_logging", log_buckconfigs = "LOG_BUCKCONFIGS")
@@ -568,6 +569,7 @@ __shimmed_native__.update({"cxx": _cxx, "python": _python})
 __shimmed_native__.update({
     "__internal_autodeps_hacks__": struct(
         rust_link_info = RustLinkInfo,
+        rust_sources = RustSources,
     ),
 })
 
