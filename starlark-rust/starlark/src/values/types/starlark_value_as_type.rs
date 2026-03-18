@@ -46,9 +46,8 @@ use crate::values::type_repr::StarlarkTypeRepr;
 use crate::values::typing::TypeType;
 use crate::values::typing::ty::AbstractType;
 
-/// Internal type for representing a Starlark type usable in type expressions.
 #[derive(Debug, NoSerialize, Allocative, ProvidesStaticType)]
-pub struct StarlarkValueAsTypeStarlarkValue(fn() -> Ty, fn() -> DocItem);
+struct StarlarkValueAsTypeStarlarkValue(fn() -> Ty, fn() -> DocItem);
 
 #[starlark_value(type = "type")]
 impl<'v> StarlarkValue<'v> for StarlarkValueAsTypeStarlarkValue {

@@ -27,10 +27,3 @@ pub struct TyCallArgs<'a> {
     pub(crate) args: Option<Spanned<Ty>>,
     pub(crate) kwargs: Option<Spanned<Ty>>,
 }
-
-impl<'a> TyCallArgs<'a> {
-    /// Positional arguments.
-    pub fn pos(&self) -> &[Spanned<Ty>] {
-        &self.pos
-    }
-}

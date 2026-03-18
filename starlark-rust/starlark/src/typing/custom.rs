@@ -272,11 +272,6 @@ impl TyCustom {
         Self(Arc::new(ty))
     }
 
-    /// Access the underlying `dyn Any` for downcasting.
-    pub fn as_any(&self) -> &dyn Any {
-        self.0.as_any()
-    }
-
     pub(crate) fn as_name(&self) -> Option<&str> {
         self.0.as_name_dyn()
     }

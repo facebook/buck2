@@ -253,8 +253,7 @@ impl<'a> TypingOracleCtx<'a> {
         Ok(())
     }
 
-    /// Type-check `fun(args)` and return the result type.
-    pub fn validate_fn_call(
+    pub(crate) fn validate_fn_call(
         &self,
         span: Span,
         fun: &TyCallable,
