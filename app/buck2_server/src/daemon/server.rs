@@ -238,6 +238,7 @@ pub(crate) struct BuckdServerData {
 pub struct BuckdServer(Arc<BuckdServerData>);
 
 impl BuckdServer {
+    #[tracing::instrument(name = "daemon_listener", skip_all)]
     pub async fn run(
         fb: fbinit::FacebookInit,
         log_reload_handle: Arc<dyn LogConfigurationReloadHandle>,
@@ -346,6 +347,15 @@ impl BuckdServer {
                     .max_decoding_message_size(usize::MAX),
             )
             .serve_with_incoming_shutdown(listener, shutdown);
+
+        tracing::info!("Starting server");
+        if let Some(sleep_secs) = buck2_env!(
+            "BUCK2_TEST_INIT_DATA_SLEEP_SECS",
+            type = u64,
+            applicability = testing
+        )? {
+            tokio::time::sleep(Duration::from_secs(sleep_secs)).await;
+        }
 
         server.await?;
 

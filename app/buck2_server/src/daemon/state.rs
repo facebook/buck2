@@ -84,6 +84,7 @@ use host_sharing::NamedSemaphores;
 use remote::ScribeConfig;
 use tokio::runtime::Handle;
 use tokio::sync::Mutex;
+use tracing::Instrument;
 
 use crate::active_commands::ActiveCommandDropGuard;
 use crate::ctx::BaseServerCommandContext;
@@ -229,7 +230,6 @@ impl DaemonStatePanicDiceDump for DaemonStateData {
 }
 
 impl DaemonState {
-    #[tracing::instrument(name = "daemon_listener", skip_all)]
     pub(crate) async fn new(
         fb: fbinit::FacebookInit,
         paths: InvocationPaths,
@@ -292,7 +292,7 @@ impl DaemonState {
         }
 
         let daemon_state_data_rt = rt.clone();
-        rt.spawn(async move {
+        let init_fut = async move {
             let fs = paths.project_root().clone();
 
             tracing::info!("Reading config...");
@@ -329,6 +329,7 @@ impl DaemonState {
                 section: "buck2",
                 property: "event_log_message_batch_size",
             })?;
+            tracing::info!("Initializing scribe sink...");
             let scribe_sink = Self::init_scribe_sink(
                 fb,
                 ScribeConfig {
@@ -497,6 +498,7 @@ impl DaemonState {
                 })?
                 .unwrap_or(cfg!(any(target_os = "macos", target_os = "windows")));
 
+            tracing::info!("Creating materializer...");
             let (io, _, (materializer_db, materializer_state), incremental_db_state) =
                 futures::future::try_join4(
                     create_io_provider(
@@ -575,6 +577,7 @@ impl DaemonState {
                 daemon_dispatcher.dupe(),
             )?;
 
+            tracing::info!("Creating memory tracker...");
             let memory_tracker = memory_tracker::create_memory_tracker(
                 cgroup_tree,
                 &init_ctx.daemon_startup_config.resource_control,
@@ -584,6 +587,7 @@ impl DaemonState {
 
             // Create this after the materializer because it'll want to write to buck-out, and an Eden
             // materializer would create buck-out now.
+            tracing::info!("Launching forkserver...");
             let forkserver = maybe_launch_forkserver(
                 root_config,
                 &paths.forkserver_state_dir(),
@@ -591,10 +595,12 @@ impl DaemonState {
             )
             .await?;
 
+            tracing::info!("Constructing DICE...");
             let dice = init_ctx
                 .construct_dice(io.dupe(), digest_config, root_config)
                 .await?;
 
+            tracing::info!("Creating file watcher...");
             let file_watcher = <dyn FileWatcher>::new(
                 fb,
                 paths.project_root(),
@@ -705,8 +711,9 @@ impl DaemonState {
                 daemon_id: daemon_id.dupe(),
                 named_semaphores_for_run_actions: Arc::new(NamedSemaphores::new()),
             }))
-        })
-        .await?
+        };
+        let daemon_listener_span = tracing::Span::current();
+        rt.spawn(init_fut.instrument(daemon_listener_span)).await?
     }
 
     fn create_materializer(

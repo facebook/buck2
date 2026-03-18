@@ -20,6 +20,7 @@ from buck2.tests.e2e_util.asserts import expect_failure
 from buck2.tests.e2e_util.buck_workspace import buck_test, env
 from buck2.tests.e2e_util.helper.golden import (
     golden,
+    sanitize_daemon_stderr,
     sanitize_stacktrace,
     sanitize_stderr,
 )
@@ -406,6 +407,21 @@ async def test_action_error_has_categorization(buck: Buck) -> None:
     error = res.invocation_record().single_error()
     assert "ACTION_COMMAND_FAILURE" in error["tags"]
     assert error["category_key"] == "ACTION_COMMAND_FAILURE:FirstError"
+
+
+@buck_test(write_invocation_record=True, skip_for_os=["windows"])
+@env("BUCK2_TEST_INIT_DATA_SLEEP_SECS", "120")
+@env("BUCKD_STARTUP_INIT_TIMEOUT", "5")
+async def test_init_data_timeout(buck: Buck) -> None:
+    res = await expect_failure(buck.targets(":"))
+    record = res.invocation_record()
+    error = record.single_error()
+
+    assert error["category_key"] == "CLIENT_STARTUP_TIMEOUT"
+    golden(
+        output=sanitize_daemon_stderr(res.stderr),
+        rel_path="fixtures/test_init_timeout.golden.txt",
+    )
 
 
 @buck_test(

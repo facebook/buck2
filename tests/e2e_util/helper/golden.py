@@ -187,6 +187,33 @@ def sanitize_stderr(s: str) -> str:
     return sanitize_hashes(s)
 
 
+def sanitize_daemon_stderr(s: str) -> str:
+    """Sanitize daemon tracing output embedded in error messages.
+
+    Daemon stderr uses tracing-subscriber format with ANSI codes and
+    timestamps like '2026-03-11T21:36:35.686733Z'.
+    """
+    # Strip ANSI escape codes
+    s = re.sub(r"\x1b\[[0-9;]*m", "", s)
+    # Sanitize daemon tracing timestamps (ISO 8601 with fractional seconds)
+    s = re.sub(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d+Z", "<DAEMON_TIMESTAMP>", s)
+    # Sanitize PIDs
+    s = re.sub(r"PID: \d+", "PID: <PID>", s)
+    # Sanitize endpoint ports
+    s = re.sub(r"Endpoint: tcp:\d+", "Endpoint: tcp:<PORT>", s)
+    # Sanitize version strings
+    s = re.sub(r"Version: \S+", "Version: <VERSION>", s)
+    # Sanitize scratch paths
+    s = re.sub(r"/data/users/\S+", "<SCRATCH_PATH>", s)
+    # Sanitize timed out duration
+    s = re.sub(r"timed out after [\d.]+s", "timed out after <DURATION>", s)
+    # Strip lines with env override logging (these vary by environment)
+    s = re.sub(r"^.*Env override found.*\n", "", s, flags=re.MULTILINE)
+    # Strip trailing whitespace on each line
+    s = re.sub(r" +$", "", s, flags=re.MULTILINE)
+    return sanitize_stderr(s)
+
+
 def sanitize_stacktrace(s: str) -> str:
     s = sanitize_stderr(s)
     return "\n".join(

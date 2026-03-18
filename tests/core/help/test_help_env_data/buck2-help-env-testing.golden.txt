@@ -46,6 +46,7 @@ BUCK2_TEST_FAKE_SYSTEM_TOTAL_MEMORY      u64
 BUCK2_TEST_FORCE_CACHE_UPLOAD            bool                  false
 BUCK2_TEST_FORCE_DECLARE_MISMATCH        bool                  false
 BUCK2_TEST_INIT_DAEMON_ERROR             bool                  false
+BUCK2_TEST_INIT_DATA_SLEEP_SECS          u64
 BUCK2_TEST_INJECTED_MISSING_DIGESTS      Vec<FileDigest>
 BUCK2_TEST_MANIFOLD_CHUNK_BYTES          u64
 BUCK2_TEST_MANIFOLD_TTL_S                u64

@@ -445,8 +445,6 @@ impl DaemonCommand {
                 )
             })?;
 
-            tracing::info!("Initialization complete, running the server.");
-
             select! {
                 res = buckd_server => {
                     tracing::warn!("server shutdown");
