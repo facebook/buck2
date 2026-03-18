@@ -194,6 +194,8 @@ fn tag_metadata(tag: ErrorTag) -> TagMetadata {
         ErrorTag::RePermissionDenied => rank!(environment),
         ErrorTag::ReUserBadCerts => rank!(environment),
         ErrorTag::EPerm => rank!(environment),
+        ErrorTag::IoPermissionDenied => rank!(environment),
+        ErrorTag::IoStorageFull => rank!(environment),
         // Test runner reported test failure exit code and no test failures.
         ErrorTag::TestStatusUnknown => rank!(environment),
         // Test runner returned exit code 1. This can include input errors (CLI arg parse errors)
@@ -360,7 +362,6 @@ fn tag_metadata(tag: ErrorTag) -> TagMetadata {
         ErrorTag::IoEdenNetworkTls => rank!(tier0),
         ErrorTag::IoEdenNetworkUncategorized => rank!(tier0),
         ErrorTag::IoEdenUncategorized => rank!(tier0),
-        ErrorTag::IoBlockingExecutor => rank!(tier0),
         ErrorTag::WatchmanClient => rank!(tier0),
         ErrorTag::WatchmanTimeout => rank!(tier0),
         ErrorTag::WatchmanConnectionError => rank!(tier0),
@@ -409,8 +410,6 @@ fn tag_metadata(tag: ErrorTag) -> TagMetadata {
         ErrorTag::TargetIncompatible => rank!(input),
         ErrorTag::IoEdenCheckoutInProgress => rank!(input), // User switching branches during Eden operation
         ErrorTag::IoExecutableFileBusy => rank!(input),
-        ErrorTag::IoStorageFull => rank!(input),
-        ErrorTag::IoPermissionDenied => rank!(input),
         ErrorTag::IoEdenMountDoesNotExist => rank!(input),
         ErrorTag::IoEdenFileNotFound => rank!(input), // user likely specified non-existing path
         ErrorTag::MissingTarget => rank!(input),
@@ -465,6 +464,7 @@ fn tag_metadata(tag: ErrorTag) -> TagMetadata {
         ErrorTag::CleanInterrupt => rank!(unspecified),
         ErrorTag::Tpx => rank!(unspecified),
         ErrorTag::TestExecutor => rank!(unspecified),
+        ErrorTag::IoBlockingExecutor => rank!(unspecified),
         ErrorTag::Http => rank!(unspecified),
         ErrorTag::DownloadFileHeadRequest => rank!(unspecified),
         ErrorTag::StarlarkError => rank!(unspecified),
