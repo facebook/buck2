@@ -25,12 +25,13 @@ use starlark::values::FreezeResult;
 use starlark::values::Freezer;
 use starlark::values::FrozenValue;
 use starlark::values::NoSerialize;
-use starlark::values::OwnedFrozenRef;
 use starlark::values::OwnedFrozenValue;
+use starlark::values::OwnedFrozenValueTyped;
 use starlark::values::StarlarkValue;
 use starlark::values::Trace;
 use starlark::values::Tracer;
 use starlark::values::Value;
+use starlark::values::any_complex::StarlarkAnyComplex;
 use starlark::values::starlark_value;
 use starlark_map::small_map::SmallMap;
 
@@ -136,9 +137,36 @@ impl<'v> PackageFileExtra<'v> {
 impl FrozenPackageFileExtra {
     pub(crate) fn get(
         module: &FrozenModule,
-    ) -> buck2_error::Result<Option<OwnedFrozenRef<FrozenPackageFileExtra>>> {
-        Ok(FrozenInterpreterExtraValue::get(module)?
-            .into_owned_frozen_ref()
-            .try_map_option(|x| x.value.package_extra.as_ref()))
+    ) -> buck2_error::Result<Option<OwnedFrozenPackageFileExtra>> {
+        Ok(OwnedFrozenPackageFileExtra::new(
+            FrozenInterpreterExtraValue::get(module)?,
+        ))
+    }
+}
+
+/// Holds the `OwnedFrozenValueTyped` for the interpreter extra value,
+/// with the guarantee that `package_extra` is `Some`.
+pub(crate) struct OwnedFrozenPackageFileExtra(
+    OwnedFrozenValueTyped<StarlarkAnyComplex<FrozenInterpreterExtraValue>>,
+);
+
+impl OwnedFrozenPackageFileExtra {
+    fn new(
+        extra: OwnedFrozenValueTyped<StarlarkAnyComplex<FrozenInterpreterExtraValue>>,
+    ) -> Option<Self> {
+        if extra.as_ref().value.package_extra.is_some() {
+            Some(OwnedFrozenPackageFileExtra(extra))
+        } else {
+            None
+        }
+    }
+
+    pub(crate) fn package_extra(&self) -> &FrozenPackageFileExtra {
+        // SAFETY: guaranteed `Some` by constructor.
+        self.0.as_ref().value.package_extra.as_ref().unwrap()
+    }
+
+    pub(crate) fn owner(&self) -> &starlark::values::FrozenHeapRef {
+        self.0.owner()
     }
 }

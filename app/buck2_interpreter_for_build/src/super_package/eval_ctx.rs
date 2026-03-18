@@ -17,12 +17,11 @@ use buck2_node::super_package::SuperPackage;
 use buck2_node::visibility::VisibilitySpecification;
 use buck2_node::visibility::WithinViewSpecification;
 use dupe::Dupe;
-use starlark::values::OwnedFrozenRef;
 use starlark::values::OwnedFrozenValue;
 use starlark_map::small_map::SmallMap;
 
-use crate::interpreter::package_file_extra::FrozenPackageFileExtra;
 use crate::interpreter::package_file_extra::MAKE_CFG_CONSTRUCTOR;
+use crate::interpreter::package_file_extra::OwnedFrozenPackageFileExtra;
 use crate::super_package::package_value::OwnedFrozenStarlarkPackageValue;
 use crate::super_package::package_value::SuperPackageValuesImpl;
 
@@ -45,12 +44,13 @@ pub struct PackageFileEvalCtx {
 
 impl PackageFileEvalCtx {
     fn cfg_constructor(
-        extra: Option<&OwnedFrozenRef<FrozenPackageFileExtra>>,
+        extra: Option<&OwnedFrozenPackageFileExtra>,
     ) -> buck2_error::Result<Option<Arc<dyn CfgConstructorImpl>>> {
         let Some(extra) = extra else {
             return Ok(None);
         };
-        let Some(cfg_constructor) = extra.as_ref().cfg_constructor else {
+        let package_extra = extra.package_extra();
+        let Some(cfg_constructor) = package_extra.cfg_constructor else {
             return Ok(None);
         };
         let cfg_constructor = unsafe {
@@ -63,18 +63,19 @@ impl PackageFileEvalCtx {
 
     pub(crate) fn build_super_package(
         self,
-        extra: Option<OwnedFrozenRef<FrozenPackageFileExtra>>,
+        extra: Option<OwnedFrozenPackageFileExtra>,
     ) -> buck2_error::Result<SuperPackage> {
         let cfg_constructor = Self::cfg_constructor(extra.as_ref())?;
 
         let package_values = match &extra {
             None => SmallMap::new(),
-            Some(package_values) => {
-                let mut values = SmallMap::with_capacity(package_values.package_values.len());
-                for (name, value) in &package_values.package_values {
+            Some(extra) => {
+                let package_extra = extra.package_extra();
+                let mut values = SmallMap::with_capacity(package_extra.package_values.len());
+                for (name, value) in &package_extra.package_values {
                     let value = unsafe {
                         // SAFETY: using the same heap.
-                        OwnedFrozenStarlarkPackageValue::new(package_values.owner().dupe(), *value)
+                        OwnedFrozenStarlarkPackageValue::new(extra.owner().dupe(), *value)
                     };
                     values.insert(name.clone(), value);
                 }

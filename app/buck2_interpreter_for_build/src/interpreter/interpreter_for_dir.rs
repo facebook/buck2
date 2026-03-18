@@ -62,7 +62,6 @@ use pagable::PagablePanic;
 use starlark::codemap::FileSpan;
 use starlark::environment::FrozenModule;
 use starlark::syntax::AstModule;
-use starlark::values::OwnedFrozenRef;
 use starlark::values::any_complex::StarlarkAnyComplex;
 
 use crate::interpreter::buckconfig::BuckConfigsViewForStarlark;
@@ -642,20 +641,19 @@ impl InterpreterForDir {
 
             let per_file_context = eval_result.additional;
 
-            let (token, extra): (_, Option<OwnedFrozenRef<FrozenPackageFileExtra>>) =
-                if InterpreterExtraValue::get(&env)?
-                    .package_extra
-                    .get()
-                    .is_some()
-                {
-                    // Only freeze if there's something to freeze, otherwise we will needlessly freeze
-                    // globals. TODO(nga): add API to only freeze extra.
-                    let (token, frozen, _) = finished_eval.freeze_and_finish(env)?;
-                    (token, FrozenPackageFileExtra::get(&frozen)?)
-                } else {
-                    let (token, _) = finished_eval.finish()?;
-                    (token, None)
-                };
+            let (token, extra) = if InterpreterExtraValue::get(&env)?
+                .package_extra
+                .get()
+                .is_some()
+            {
+                // Only freeze if there's something to freeze, otherwise we will needlessly freeze
+                // globals. TODO(nga): add API to only freeze extra.
+                let (token, frozen, _) = finished_eval.freeze_and_finish(env)?;
+                (token, FrozenPackageFileExtra::get(&frozen)?)
+            } else {
+                let (token, _) = finished_eval.finish()?;
+                (token, None)
+            };
 
             let package_file_eval_ctx = per_file_context.into_package_file()?;
 
