@@ -404,7 +404,6 @@ impl<'a> ServerCommandContext<'a> {
             default_allow_cache_upload: false,
             action_paths_interner: None,
             deduplicate_get_digests_ttl_calls: false,
-            re_outputs_required: false,
         };
 
         let concurrency = self
@@ -781,13 +780,6 @@ impl DiceCommandUpdater<'_, '_> {
             .parse::<bool>(BuckconfigKeyRef {
                 section: "buck2",
                 property: "deduplicate_get_digests_ttl_calls",
-            })?
-            .unwrap_or(false);
-
-        run_action_knobs.re_outputs_required |= root_config
-            .parse::<bool>(BuckconfigKeyRef {
-                section: "buck2",
-                property: "re_outputs_required",
             })?
             .unwrap_or(false);
 

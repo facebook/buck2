@@ -1053,8 +1053,7 @@ impl RunAction {
             self.command_execution_request(ctx, prepared_run_action, host_sharing_requirements)?;
 
         // Prepare the action, check the action cache, fully check the local dep file cache if needed, then execute the command
-        let re_outputs_required = ctx.run_action_knobs().re_outputs_required;
-        let prepared_action = ctx.prepare_action(&req, re_outputs_required)?;
+        let prepared_action = ctx.prepare_action(&req, true)?;
         waiting_data.start_waiting_category_now(WaitingCategory::CheckingCaches);
         let manager = ctx.command_execution_manager(waiting_data);
 
@@ -1140,8 +1139,7 @@ impl RunAction {
                             digest_config,
                             ctx.run_action_knobs().action_paths_interner.as_ref(),
                         )?;
-                        let override_prepared_action =
-                            ctx.prepare_action(&override_req, re_outputs_required)?;
+                        let override_prepared_action = ctx.prepare_action(&override_req, true)?;
                         (override_req, override_prepared_action)
                     } else {
                         (req, prepared_action)
