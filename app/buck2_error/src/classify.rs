@@ -219,6 +219,7 @@ fn tag_metadata(tag: ErrorTag) -> TagMetadata {
         ErrorTag::ClientStartupTimeout => rank!(tier0),
         ErrorTag::DaemonLaunchFailed => rank!(tier0),
         ErrorTag::DaemonStartupFailed => rank!(tier0),
+        ErrorTag::ExitStatusUnknown => rank!(tier0),
         ErrorTag::DaemonNestedConstraintsMismatch => rank!(tier0),
         ErrorTag::DaemonConstraintsWrongAfterStart => rank!(tier0),
         ErrorTag::DaemonDirCleanupFailed => rank!(tier0),
@@ -474,6 +475,7 @@ fn tag_metadata(tag: ErrorTag) -> TagMetadata {
         ErrorTag::Tonic => rank!(unspecified),
         ErrorTag::Thrift => rank!(unspecified),
         ErrorTag::MissingInternalPath => rank!(unspecified),
+        ErrorTag::ExitStatus => rank!(unspecified),
         // Build phases
         ErrorTag::DaemonStateInitFailed => rank!(unspecified),
         ErrorTag::DaemonConnect => rank!(unspecified),

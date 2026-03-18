@@ -499,14 +499,11 @@ impl<'a> BuckdLifecycle<'a> {
             Err(error) => Err(BuckdConnectError::BuckDaemonLaunchFailed { error }.into()),
             Ok((status, stdout, stderr)) => {
                 if !status.success() {
-                    let code = status
-                        .code()
-                        .map(|c| c.to_string())
-                        .unwrap_or("unknown".to_owned());
+                    let exit_status_error = buck2_error::Error::from(status);
                     Err(BuckdConnectError::BuckDaemonStartupFailed {
-                        code,
                         stdout: String::from_utf8_lossy(&stdout).to_string(),
                         stderr: String::from_utf8_lossy(&stderr).to_string(),
+                        exit_status_error,
                     }
                     .into())
                 } else {
@@ -1042,14 +1039,13 @@ pub fn get_daemon_exe() -> buck2_error::Result<PathBuf> {
 #[allow(clippy::large_enum_variant)]
 #[buck2(tag = DaemonConnect)]
 enum BuckdConnectError {
-    #[error(
-        "buck daemon startup failed with exit code {code}\nstdout:\n{stdout}\nstderr:\n{stderr}"
-    )]
+    #[error("buck daemon startup failed\nstdout:\n{stdout}\nstderr:\n{stderr}")]
     #[buck2(tag = DaemonStartupFailed)]
     BuckDaemonStartupFailed {
-        code: String,
         stdout: String,
         stderr: String,
+        #[source]
+        exit_status_error: buck2_error::Error,
     },
     #[error("Failed to launch Buck2 daemon: {error:#}")]
     #[buck2(tag = DaemonLaunchFailed)]

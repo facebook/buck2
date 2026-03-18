@@ -359,6 +359,19 @@ async def test_daemon_startup_error(buck: Buck) -> None:
     )
 
 
+@buck_test(skip_for_os=["windows"], write_invocation_record=True)
+@env("BUCK2_TEST_DAEMON_STARTUP_SIGNAL", "true")
+async def test_daemon_startup_signal(buck: Buck) -> None:
+    res = await expect_failure(buck.targets(":"))
+    error = res.invocation_record().single_error()
+    assert error["category_key"] == "DAEMON_STARTUP_FAILED:SIGTERM"
+
+    golden(
+        output=sanitize_daemon_stderr(res.stderr),
+        rel_path="fixtures/test_daemon_startup_signal.golden.txt",
+    )
+
+
 @buck_test(
     setup_eden=True,
     extra_buck_config={

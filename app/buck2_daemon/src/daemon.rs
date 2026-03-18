@@ -229,6 +229,17 @@ impl DaemonCommand {
         let span = tracing::info_span!("daemon_listener");
         let span_guard = span.enter();
 
+        if buck2_env!(
+            "BUCK2_TEST_DAEMON_STARTUP_SIGNAL",
+            bool,
+            applicability = testing
+        )? {
+            #[cfg(unix)]
+            unsafe {
+                libc::raise(libc::SIGTERM);
+            }
+        }
+
         let daemon_dir = paths.daemon_dir()?;
         let pid_path = daemon_dir.buckd_pid();
         let stdout_path = daemon_dir.buckd_stdout();
