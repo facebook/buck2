@@ -258,8 +258,12 @@ mod tests {
         let loader = InterpreterFileLoader::new(loaded_modules(), resolver());
         match loader.load(&path) {
             Ok(_) => panic!("Expected load failure for {path}"),
-            Err(_) => {
-                // TODO: verify the error is correct
+            Err(e) => {
+                let msg = e.to_string();
+                assert!(
+                    msg.contains(&path),
+                    "Error should reference the failed path: {msg}"
+                );
             }
         }
         Ok(())
@@ -276,8 +280,17 @@ mod tests {
         let loader = InterpreterFileLoader::new(loaded_modules, resolver);
         match loader.load(&path) {
             Ok(_) => panic!("Expected load failure for {path}"),
-            Err(_) => {
-                // TODO: verify the error is correct
+            Err(e) => {
+                let msg = e.to_string();
+                assert!(
+                    msg.contains("Should have had an env"),
+                    "Error should indicate missing module: {msg}"
+                );
+                let id_str = id.to_string();
+                assert!(
+                    msg.contains(&id_str),
+                    "Error should reference the missing module {id_str}: {msg}"
+                );
             }
         }
         Ok(())
