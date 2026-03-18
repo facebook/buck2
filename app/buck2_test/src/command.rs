@@ -8,6 +8,7 @@
  * above-listed licenses.
  */
 
+use std::collections::BTreeMap;
 use std::collections::HashSet;
 use std::ops::ControlFlow;
 use std::path::PathBuf;
@@ -74,6 +75,8 @@ use buck2_fs::fs_util;
 use buck2_fs::paths::abs_path::AbsPathBuf;
 use buck2_interpreter::extra::InterpreterHostPlatform;
 use buck2_interpreter_for_build::interpreter::context::HasInterpreterContext;
+use buck2_node::attrs::coerced_attr::CoercedAttr;
+use buck2_node::attrs::inspect_options::AttrInspectOptions;
 use buck2_node::load_patterns::MissingTargetBehavior;
 use buck2_node::nodes::configured_frontend::ConfiguredTargetNodeCalculation;
 use buck2_node::nodes::frontend::TargetGraphCalculation;
@@ -1002,8 +1005,33 @@ impl<'a, 'e> TestDriver<'a, 'e> {
                     }
                 }
 
+                // remove redundant aliases
+                let filtered_targets : BTreeMap<_, _>= targets
+                    .iter()
+                    .filter(|((_target_name, providers_pattern), target_node)| {
+                        if target_node.rule_type().name() != "alias" {
+                            return true; // keep non-aliases
+                        }
+                        let actual = match target_node.attr_or_none("actual", AttrInspectOptions::All) {
+                            Some(a) => a,
+                            None => return true, // keep if no actual
+                        };
+                        match actual.value {
+                            CoercedAttr::Label(label)
+                            | CoercedAttr::Dep(label)
+                            | CoercedAttr::SourceLabel(label) => {
+                                // keep if actual is in a different package or the map doesn't contain actual
+                                !(label.target().pkg() == package
+                                    && targets.contains_key(&(label.target().name().to_owned(), providers_pattern.clone())))
+                            }
+                            _ => true, // keep for other attr kinds
+                        }
+                    })
+                    .map(|(k, v)| (k.clone(), v.clone()))
+                    .collect();
+
                 let labels =
-                    targets
+                    filtered_targets
                         .into_iter()
                         .map(|((target_name, providers_pattern), target_node)| {
                             (
