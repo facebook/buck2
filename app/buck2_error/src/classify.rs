@@ -195,6 +195,8 @@ fn tag_metadata(tag: ErrorTag) -> TagMetadata {
         ErrorTag::TestRunnerInternal => rank!(environment),
         // Test runner hit infra errors during test execution
         ErrorTag::TestInfraFailure => rank!(environment),
+        ErrorTag::ThriftTimeout => rank!(environment),
+        ErrorTag::ThriftLoadshedding => rank!(environment),
 
         // Tier 0 errors
         ErrorTag::ServerJemallocAssert => rank!(tier0),
@@ -463,6 +465,7 @@ fn tag_metadata(tag: ErrorTag) -> TagMetadata {
         ErrorTag::BuildSketchError => rank!(unspecified),
         ErrorTag::Tokio => rank!(unspecified),
         ErrorTag::Tonic => rank!(unspecified),
+        ErrorTag::Thrift => rank!(unspecified),
         ErrorTag::MissingInternalPath => rank!(unspecified),
         // Build phases
         ErrorTag::DaemonStateInitFailed => rank!(unspecified),

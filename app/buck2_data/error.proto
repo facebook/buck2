@@ -421,6 +421,10 @@ enum ErrorTag {
   STRING_CONVERSION = 9016;
   CSTRING_NUL = 9023;
 
+  THRIFT = 10000;
+  THRIFT_TIMEOUT = 10001;
+  THRIFT_LOADSHEDDING = 10002;
+
   // errno.h values 9100 + errno
   // codes from: https://en.wikipedia.org/wiki/Errno.h
   // (underscore in names is to not break C codegen)
