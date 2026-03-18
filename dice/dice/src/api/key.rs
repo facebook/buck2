@@ -17,6 +17,7 @@ use async_trait::async_trait;
 use dice_futures::cancellation::CancellationContext;
 use dupe::Dupe;
 use pagable::Pagable;
+use pagable::PagableSerializer;
 use pagable::PagableTagged;
 
 use crate::Demand;
@@ -81,6 +82,139 @@ pub trait Key:
 
     fn invalidation_source_priority() -> InvalidationSourcePriority {
         InvalidationSourcePriority::Normal
+    }
+
+    fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
+        TodoValueSerialize::new()
+    }
+}
+
+pub trait ValueSerialize {
+    type Value: Allocative + Dupe + Send + Sync + 'static;
+    fn pagable_serialize_value(
+        &self,
+        v: &Self::Value,
+        ser: &mut dyn PagableSerializer,
+    ) -> Option<pagable::Result<()>>;
+
+    fn pagable_deserialize_value<'de, D: pagable::PagableDeserializer<'de> + ?Sized>(
+        &self,
+        deser: &mut D,
+    ) -> pagable::Result<Self::Value>;
+}
+
+pub struct TodoValueSerialize<V>(std::marker::PhantomData<V>);
+impl<V> TodoValueSerialize<V> {
+    pub fn new() -> Self {
+        Self(std::marker::PhantomData)
+    }
+}
+
+impl<V: Allocative + Dupe + Send + Sync + 'static> ValueSerialize for TodoValueSerialize<V> {
+    type Value = V;
+
+    fn pagable_serialize_value(
+        &self,
+        _v: &Self::Value,
+        _ser: &mut dyn PagableSerializer,
+    ) -> Option<pagable::Result<()>> {
+        unimplemented!()
+    }
+
+    fn pagable_deserialize_value<'de, D: pagable::PagableDeserializer<'de> + ?Sized>(
+        &self,
+        _deser: &mut D,
+    ) -> pagable::Result<Self::Value> {
+        unimplemented!()
+    }
+}
+
+pub struct NoValueSerialize<V>(std::marker::PhantomData<V>);
+impl<V> NoValueSerialize<V> {
+    pub fn new() -> Self {
+        Self(std::marker::PhantomData)
+    }
+}
+
+impl<V: Allocative + Dupe + Send + Sync + 'static> ValueSerialize for NoValueSerialize<V> {
+    type Value = V;
+
+    fn pagable_serialize_value(
+        &self,
+        _v: &Self::Value,
+        _ser: &mut dyn PagableSerializer,
+    ) -> Option<pagable::Result<()>> {
+        None
+    }
+
+    fn pagable_deserialize_value<'de, D: pagable::PagableDeserializer<'de> + ?Sized>(
+        &self,
+        _deser: &mut D,
+    ) -> pagable::Result<Self::Value> {
+        unimplemented!()
+    }
+}
+
+pub struct OkPagableValueSerialize<V>(std::marker::PhantomData<V>);
+
+impl<V> OkPagableValueSerialize<V> {
+    pub fn new() -> Self {
+        Self(std::marker::PhantomData)
+    }
+}
+
+impl<
+    V: Pagable + Allocative + Dupe + Send + Sync + 'static,
+    E: Allocative + Dupe + Send + Sync + 'static,
+> ValueSerialize for OkPagableValueSerialize<Result<V, E>>
+{
+    type Value = Result<V, E>;
+
+    fn pagable_serialize_value(
+        &self,
+        v: &Self::Value,
+        ser: &mut dyn PagableSerializer,
+    ) -> Option<pagable::Result<()>> {
+        match v {
+            Ok(v) => Some(v.pagable_serialize(ser)),
+            Err(_) => None,
+        }
+    }
+
+    fn pagable_deserialize_value<'de, D: pagable::PagableDeserializer<'de> + ?Sized>(
+        &self,
+        deser: &mut D,
+    ) -> pagable::Result<Self::Value> {
+        Ok(Ok(V::pagable_deserialize(deser)?))
+    }
+}
+
+pub struct PagableValueSerialize<V>(std::marker::PhantomData<V>);
+
+impl<V> PagableValueSerialize<V> {
+    pub fn new() -> Self {
+        Self(std::marker::PhantomData)
+    }
+}
+
+impl<V: Pagable + Allocative + Dupe + Send + Sync + 'static> ValueSerialize
+    for PagableValueSerialize<V>
+{
+    type Value = V;
+
+    fn pagable_serialize_value(
+        &self,
+        v: &Self::Value,
+        ser: &mut dyn PagableSerializer,
+    ) -> Option<pagable::Result<()>> {
+        Some(v.pagable_serialize(ser))
+    }
+
+    fn pagable_deserialize_value<'de, D: pagable::PagableDeserializer<'de> + ?Sized>(
+        &self,
+        deser: &mut D,
+    ) -> pagable::Result<Self::Value> {
+        V::pagable_deserialize(deser)
     }
 }
 

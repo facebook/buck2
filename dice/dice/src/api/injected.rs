@@ -20,8 +20,10 @@ use pagable::Pagable;
 use pagable::typetag::PagableTagged;
 
 use crate::InvalidationSourcePriority;
+use crate::TodoValueSerialize;
 use crate::api::computations::DiceComputations;
 use crate::api::key::Key;
+use crate::api::key::ValueSerialize;
 use crate::api::storage_type::StorageType;
 
 /// Specialized version of `Key` above. This type of Key is never computed. It
@@ -42,6 +44,10 @@ pub trait InjectedKey:
 
     fn invalidation_source_priority() -> InvalidationSourcePriority {
         InvalidationSourcePriority::Normal
+    }
+
+    fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
+        TodoValueSerialize::new()
     }
 }
 
@@ -74,5 +80,9 @@ where
 
     fn invalidation_source_priority() -> InvalidationSourcePriority {
         K::invalidation_source_priority()
+    }
+
+    fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
+        <K as InjectedKey>::value_serialize()
     }
 }
