@@ -163,6 +163,8 @@ enum ErrorTag {
   MISSING_INPUT_PATH = 32;
   // Path not found for buck or system path not provided by user
   MISSING_INTERNAL_PATH = 33;
+  // NotADirectory for path found in input or source
+  INPUT_PATH_NOT_A_DIRECTORY = 34;
 
   ACTION_MISMATCHED_OUTPUTS = 601;
   ACTION_MISSING_OUTPUTS = 602;
@@ -194,6 +196,7 @@ enum ErrorTag {
   // The nature of the failure, designed after (but not identical to) Rust's
   // `io::ErrorKind`
   IO_NOT_FOUND = 1020;
+  IO_NOT_A_DIRECTORY = 1031;
   IO_PERMISSION_DENIED = 1021;
   IO_BROKEN_PIPE = 1022;
   IO_STORAGE_FULL = 1023;

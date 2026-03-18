@@ -121,6 +121,11 @@ impl IoError {
                     None => {}
                 }
             }
+            if e.kind() == io::ErrorKind::NotADirectory {
+                if self.is_input_path == Some(true) {
+                    tags.push(ErrorTag::InputPathNotADirectory);
+                }
+            }
         }
 
         tags.extend(self.tags);

@@ -19,6 +19,7 @@ const ERROR_SHARING_VIOLATION: i32 = 32;
 pub(crate) fn io_error_kind_to_error_tag(kind: io::ErrorKind) -> ErrorTag {
     match kind {
         io::ErrorKind::NotFound => ErrorTag::IoNotFound,
+        io::ErrorKind::NotADirectory => ErrorTag::IoNotADirectory,
         io::ErrorKind::PermissionDenied => ErrorTag::IoPermissionDenied,
         io::ErrorKind::TimedOut => ErrorTag::IoTimeout,
         io::ErrorKind::ExecutableFileBusy => ErrorTag::IoExecutableFileBusy,

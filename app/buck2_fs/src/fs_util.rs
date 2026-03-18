@@ -1557,6 +1557,23 @@ mod tests {
         Ok(())
     }
 
+    #[cfg(unix)]
+    #[test]
+    fn read_dir_on_file_tags_not_a_directory() -> buck2_error::Result<()> {
+        let tempdir = tempfile::tempdir()?;
+        let canonical = tempdir.path().canonicalize()?;
+        let root = AbsNormPath::new(&canonical)?;
+        let file_path = root.join(ForwardRelativePath::unchecked_new("a_file"));
+        fs_util::write(&file_path, b"content")?;
+        let file_path = AbsNormPath::new(&file_path)?;
+        let err = crate::fs_util::read_dir(file_path)
+            .categorize_input()
+            .err()
+            .expect("Error expected");
+        assert!(err.has_tag(ErrorTag::InputPathNotADirectory));
+        Ok(())
+    }
+
     #[test]
     fn test_io_error_tag() -> buck2_error::Result<()> {
         let fail_fn = || -> io::Result<File> {
