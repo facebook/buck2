@@ -86,7 +86,7 @@ def create_jar_artifact_kotlincd(
         optional_dirs: list[OutputArtifact] = [],
         jar_postprocessor: [RunInfo, None] = None,
         debug_port: [int, None] = None,
-        should_kosabi_jvm_abi_gen_use_k2: bool | None = False,
+        should_kosabi_jvm_abi_gen_use_k2: bool | None = True,
         skip_classpath_removal_rebuild: bool = False,
         enable_depfiles: [bool, None] = True) -> (JavaCompileOutputs, Artifact):
     resources_map = get_resources_map(
@@ -305,7 +305,7 @@ def _encode_kotlin_extra_params(
         incremental_state_dir: Artifact | None,
         language_version: str,
         kotlin_classes: Artifact,
-        should_kosabi_jvm_abi_gen_use_k2: bool | None = False,
+        should_kosabi_jvm_abi_gen_use_k2: bool | None = True,
         skip_classpath_removal_rebuild: bool = False):
     kosabiPluginOptionsMap = {}
     is_source_only_abi = actual_abi_generation_mode == AbiGenerationMode("source_only")

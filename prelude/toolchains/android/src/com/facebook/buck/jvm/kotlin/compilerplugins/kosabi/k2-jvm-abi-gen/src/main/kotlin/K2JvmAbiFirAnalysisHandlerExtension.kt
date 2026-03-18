@@ -199,10 +199,6 @@ data object JvmAbiGenPlugin : GeneratedDeclarationKey()
 class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
     FirAnalysisHandlerExtension() {
 
-  // Store missing IR classes detected from first FIR run.
-  // This must be class-level because each FIR run creates a new session.
-  private val detectedMissingIrClasses = mutableSetOf<ClassId>()
-
   override fun isApplicable(configuration: CompilerConfiguration): Boolean {
     return true
   }
@@ -243,8 +239,8 @@ class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
               configuration.kotlinSourceRoots,
           )
 
-      // Run FIR frontend once
-      val initialAnalysisResults =
+      // Run FIR frontend to analyze source files
+      val analysisResults =
           runFrontendForKosabi(
               projectEnvironment,
               updatedConfiguration,
@@ -252,26 +248,13 @@ class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
               module,
           )
 
-      // Detect missing transitive dependencies by checking if all supertypes can be resolved
-      val missingTypes = collectMissingTypesFromFir(initialAnalysisResults)
-
-      // If there are missing types, store them class-level and re-run FIR frontend
-      val analysisResults =
-          if (missingTypes.isNotEmpty()) {
-            // Store in class-level field so it survives session recreation
-            detectedMissingIrClasses.addAll(missingTypes)
-
-            // Re-run frontend - pass the missing types explicitly
-            runFrontendForKosabi(
-                projectEnvironment,
-                updatedConfiguration,
-                sourceFiles,
-                module,
-                detectedMissingIrClasses,
-            )
-          } else {
-            initialAnalysisResults
-          }
+      // Detect missing transitive dependencies by checking if all supertypes can be resolved.
+      // If any are found, strip their supertype references from FIR to prevent crashes
+      // during FIR-to-IR fake override building.
+      val missingTypes = collectMissingTypesFromFir(analysisResults)
+      if (missingTypes.isNotEmpty()) {
+        stripUnresolvableSupertypesFromFir(analysisResults, missingTypes)
+      }
 
       runBackendForKosabi(
           messageCollector,
@@ -329,11 +312,12 @@ class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
     }
 
     override fun visitRegularClass(regularClass: FirRegularClass) {
-      // Check if all supertypes can be resolved, including their supertypes
+      // Check if all supertypes can be resolved, including their supertypes.
+      // Use isFromDependencyChain=true because if a source class's supertype can't be
+      // resolved anywhere (not in deps, not in sources), it's a missing transitive
+      // dependency that will crash FIR-to-IR fake override building.
       for (superTypeRef in regularClass.superTypeRefs) {
-        // Start with isFromDependencyChain=false - we're in a source class
-        // Once we resolve a dependency class, we'll set it to true
-        checkTypeResolvableRecursively(superTypeRef.coneType, isFromDependencyChain = false)
+        checkTypeResolvableRecursively(superTypeRef.coneType, isFromDependencyChain = true)
       }
       // Visit nested declarations (but not bodies)
       for (declaration in regularClass.declarations) {
@@ -399,6 +383,25 @@ class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
         isFromDependencyChain: Boolean = false,
     ) {
       when (type) {
+        is org.jetbrains.kotlin.fir.types.ConeErrorType -> {
+          // FIR couldn't resolve this type - it represents a missing dependency.
+          // ConeErrorType extends ConeClassLikeType, so we must check it first.
+          // Extract the original class ID and add to missing types unconditionally,
+          // since an error type always indicates something is unresolvable.
+          try {
+            val classId = type.lookupTag.classId
+            if (
+                !classId.isLocal &&
+                    !classId.packageFqName.asString().startsWith("kotlin") &&
+                    !classId.packageFqName.asString().startsWith("java")
+            ) {
+              missingTypes.add(classId)
+            }
+          } catch (_: Exception) {
+            // If we can't extract the classId from the error type, skip it.
+            // The error will surface later during FIR-to-IR conversion.
+          }
+        }
         is org.jetbrains.kotlin.fir.types.ConeClassLikeType -> {
           val classId = type.lookupTag.classId
 
@@ -431,7 +434,11 @@ class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
               // Cannot be resolved at all
               if (isFromDependencyChain) {
                 // This class is in the supertype chain of a dependency or source class
-                // but cannot be resolved - it's a missing transitive dependency
+                // but cannot be resolved - it's a missing transitive dependency.
+                // This includes nested/inner classes that FIR's symbol provider cannot
+                // resolve by ClassId even when present in dependency JARs. We add ALL
+                // unresolvable classes so their supertype references get stripped from
+                // FIR before FIR-to-IR conversion (which would also fail to find them).
                 missingTypes.add(classId)
               }
               return
@@ -498,6 +505,93 @@ class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
     }
   }
 
+  // Strip supertypes that reference missing transitive dependencies from FIR classes.
+  // This walks source FIR classes and follows their supertype chains into dependency
+  // classes, removing any supertype reference whose ClassId is in the missing set.
+  // This is done BEFORE FIR-to-IR conversion to prevent crashes during fake override
+  // building (Fir2IrDeclarationStorage.findContainingIrClassSymbol).
+  @OptIn(SymbolInternals::class)
+  private fun stripUnresolvableSupertypesFromFir(
+      analysisResults: FirResult,
+      missingTypes: Set<ClassId>,
+  ) {
+    val visited = mutableSetOf<ClassId>()
+
+    fun stripFromClassRecursively(firClass: FirRegularClass, session: FirSession) {
+      val classId = firClass.symbol.classId
+      if (classId in visited) return
+      visited.add(classId)
+
+      // Strip supertypes that reference missing types
+      val toRemove =
+          firClass.superTypeRefs.filter { typeRef ->
+            val coneType =
+                (typeRef as? FirResolvedTypeRef)?.coneType as? ConeClassLikeType
+                    ?: return@filter false
+            coneType.lookupTag.classId in missingTypes
+          }
+      if (toRemove.isNotEmpty()) {
+        val filtered = firClass.superTypeRefs - toRemove.toSet()
+        try {
+          // Works for standard FirRegularClass (Kotlin classes from bytecode or source)
+          firClass.replaceSuperTypeRefs(filtered)
+        } catch (_: IllegalStateException) {
+          // FirJavaClass doesn't support replaceSuperTypeRefs because superTypeRefs
+          // is a lazy delegate. Use reflection to replace the lazy delegate's value.
+          try {
+            val delegateField = firClass.javaClass.getDeclaredField("superTypeRefs\$delegate")
+            delegateField.isAccessible = true
+            delegateField.set(firClass, lazyOf(filtered))
+          } catch (_: Exception) {
+            // If reflection fails, skip - the error will surface during FIR-to-IR
+          }
+        }
+      }
+
+      // Recursively process remaining supertypes' FIR classes (including dependency classes)
+      for (superTypeRef in firClass.superTypeRefs) {
+        val coneType =
+            (superTypeRef as? FirResolvedTypeRef)?.coneType as? ConeClassLikeType ?: continue
+        val superClassId = coneType.lookupTag.classId
+        if (
+            superClassId.packageFqName.asString().startsWith("kotlin") ||
+                superClassId.packageFqName.asString().startsWith("java")
+        ) {
+          continue
+        }
+        val superSymbol =
+            session.symbolProvider.getClassLikeSymbolByClassId(superClassId) ?: continue
+        val superClass = superSymbol.fir as? FirRegularClass ?: continue
+        stripFromClassRecursively(superClass, session)
+      }
+    }
+
+    for (output in analysisResults.outputs) {
+      val session = output.session
+
+      for (firFile in output.fir) {
+        firFile.accept(
+            object : FirDefaultVisitorVoid() {
+              override fun visitElement(element: FirElement) {}
+
+              override fun visitFile(file: org.jetbrains.kotlin.fir.declarations.FirFile) {
+                for (declaration in file.declarations) {
+                  declaration.accept(this)
+                }
+              }
+
+              override fun visitRegularClass(regularClass: FirRegularClass) {
+                stripFromClassRecursively(regularClass, session)
+                for (declaration in regularClass.declarations) {
+                  declaration.accept(this)
+                }
+              }
+            }
+        )
+      }
+    }
+  }
+
   fun convertAnalyzedFirToIr(
       configuration: CompilerConfiguration,
       targetId: TargetId,
@@ -509,27 +603,18 @@ class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
     val extensions = JvmFir2IrExtensions(configuration, JvmIrDeserializerImpl())
     // Include Parcelize IR extension to generate CREATOR field for @Parcelize classes.
     //
-    // KNOWN LIMITATION: Parcelize crashes on @WriteWith<CustomParceler> when the parceler comes
-    // from source-only-abi deps (missing override chain info). See T219106236.
-    //
-    // CURRENT WORKAROUND: Targets with custom parcelers need required_for_source_only_abi = True.
-    //
-    // RECOMMENDED LONG-TERM FIX: Replicate Parcelize generation inside K2 Kosabi (like K1 does):
-    // - Don't run Parcelize IR extension at all
-    // - Detect @Parcelize classes in IR after FIR-to-IR conversion
-    // - Generate CREATOR field and method stubs ourselves
-    // This avoids the @WriteWith issue entirely because we don't try to resolve parceler methods.
-    //
-    // WHY K1 DOESN'T HAVE THIS PROBLEM:
-    // K1 Kosabi uses ClassBuilderMode.ABI with KotlinCodegenFacade.compileCorrectFiles().
-    // In this mode, Parcelize generates declarations during codegen with method bodies
-    // automatically stubbed - no need to resolve custom parceler methods.
+    // KNOWN LIMITATION: Parcelize crashes on @WriteWith<CustomParceler> / @TypeParceler when
+    // the parceler comes from source-only-abi deps (missing override chain info). See T219106236.
+    // We wrap the extension to catch these crashes and skip the problematic classes.
     val registeredIrExtensions = IrGenerationExtension.getInstances(project)
     val abiSafeIrExtensions =
-        registeredIrExtensions.filter { extension ->
-          extension.javaClass.name.contains("parcelize", ignoreCase = true)
-        }
+        registeredIrExtensions
+            .filter { extension ->
+              extension.javaClass.name.contains("parcelize", ignoreCase = true)
+            }
+            .map { extension -> SafeParcelizeIrExtensionWrapper(extension) }
     val allIrExtensions = abiSafeIrExtensions + NonAbiDeclarationsStrippingIrExtension(sourceFiles)
+
     val (moduleFragment, components, pluginContext, irActualizedResult, _, symbolTable) =
         analysisResults.convertToIrAndActualizeForJvm(
             extensions,
@@ -1890,6 +1975,23 @@ class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
     }
   }
 
+  // Wraps the Parcelize IR extension to catch NPEs caused by @WriteWith/@TypeParceler
+  // custom parcelers that can't be resolved in source-only-abi mode (T219106236).
+  // When Parcelize crashes, we skip that class — it won't have CREATOR/writeToParcel
+  // generated, but the ABI jar will still compile. The real (non-ABI) compilation
+  // will generate these correctly since it has the full classpath.
+  private class SafeParcelizeIrExtensionWrapper(private val delegate: IrGenerationExtension) :
+      IrGenerationExtension {
+    override fun generate(moduleFragment: IrModuleFragment, pluginContext: IrPluginContext) {
+      try {
+        delegate.generate(moduleFragment, pluginContext)
+      } catch (_: NullPointerException) {
+        // Parcelize NPE on @WriteWith/@TypeParceler with custom parcelers from
+        // source-only-abi deps. Skip Parcelize generation for this module.
+      }
+    }
+  }
+
   private class NonAbiDeclarationsStrippingIrExtension(private val sourceFiles: List<KtFile>) :
       IrGenerationExtension {
 
@@ -2824,7 +2926,6 @@ class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
       configuration: CompilerConfiguration,
       sources: List<KtFile>,
       module: Module,
-      missingIrClasses: Set<ClassId> = emptySet(),
   ): FirResult {
     return compileSourceFilesToAnalyzedFirViaPsi(
         sources,
@@ -2833,7 +2934,6 @@ class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
         true,
         environment,
         configuration,
-        missingIrClasses,
     )!!
   }
 
@@ -2844,7 +2944,6 @@ class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
       ignoreErrors: Boolean = false,
       projectEnvironment: VfsBasedProjectEnvironment,
       configuration: CompilerConfiguration,
-      missingIrClasses: Set<ClassId> = emptySet(),
   ): FirResult? {
 
     val sourceScope =
@@ -2881,8 +2980,6 @@ class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
         sessionsWithSources.map { (session, sources) ->
           val missingConstants = collectMissingConstantsFromSourceFiles(sources, session)
           session.jvmAbiGenService.state.missingConstants.putAll(missingConstants)
-          // Add missing IR classes detected from previous FIR run
-          session.jvmAbiGenService.state.missingIrClasses.addAll(missingIrClasses)
           // Skip checkers - ABI generation only needs resolved types, and third-party
           // plugin checkers (like Litho K2) crash on unresolved references from stubs.
           val firFiles = session.buildFirFromKtFiles(sources)
@@ -3089,8 +3186,7 @@ class MissingConstantDeclarationGenerationExtension(
 
   override fun getTopLevelClassIds(): Set<ClassId> {
     val missingConstants = session.jvmAbiGenService.state.missingConstants
-    val missingIrClasses = session.jvmAbiGenService.state.missingIrClasses
-    return missingConstants.keys.toSet() + missingIrClasses
+    return missingConstants.keys.toSet()
   }
 
   override fun getTopLevelCallableIds(): Set<CallableId> {
@@ -3104,29 +3200,19 @@ class MissingConstantDeclarationGenerationExtension(
 
   override fun generateTopLevelClassLikeDeclaration(classId: ClassId): FirClassLikeSymbol<*>? {
     val missingConstants = session.jvmAbiGenService.state.missingConstants
-    val missingIrClasses = session.jvmAbiGenService.state.missingIrClasses
 
-    // Generate if this class has missing constants or is a missing IR class
-    val hasMissingConstants = classId in missingConstants
-    val isMissingIrClass = classId in missingIrClasses
-
-    if (!hasMissingConstants && !isMissingIrClass) {
+    if (classId !in missingConstants) {
       return null
     }
 
-    // For missing IR classes (transitive dependencies), generate an open class
-    // so it can appear in supertype chains. For missing constants, generate objects.
-    val classKind = if (isMissingIrClass) ClassKind.CLASS else ClassKind.OBJECT
-    val modality = if (isMissingIrClass) Modality.OPEN else Modality.FINAL
-
-    val createdClass = createTopLevelClass(classId, JvmAbiGenPlugin, classKind)
+    val createdClass = createTopLevelClass(classId, JvmAbiGenPlugin, ClassKind.OBJECT)
     createdClass.replaceStatus(
         FirResolvedDeclarationStatusImpl(
                 Visibilities.Public,
-                modality,
+                Modality.FINAL,
                 EffectiveVisibility.Public,
             )
-            .apply { isStatic = !isMissingIrClass }
+            .apply { isStatic = true }
     )
     return createdClass.symbol
   }
@@ -3282,11 +3368,9 @@ class MissingConstantDeclarationGenerationExtension(
 
   override fun hasPackage(packageFqName: FqName): Boolean {
     val missingConstants = session.jvmAbiGenService.state.missingConstants
-    val missingIrClasses = session.jvmAbiGenService.state.missingIrClasses
 
     // Return true for any package that contains classes we're generating
-    return missingConstants.keys.any { classId -> classId.packageFqName == packageFqName } ||
-        missingIrClasses.any { classId -> classId.packageFqName == packageFqName }
+    return missingConstants.keys.any { classId -> classId.packageFqName == packageFqName }
   }
 
   private fun generateConstantProperty(
@@ -3335,7 +3419,6 @@ class JvmAbiGenService(session: FirSession, state: AbiGenState) :
 
 class AbiGenState {
   val missingConstants: MutableMap<ClassId, Set<String>> = mutableMapOf()
-  val missingIrClasses: MutableSet<ClassId> = mutableSetOf()
   // Track methods from internal interfaces that need to be generated for classes
   // Key: owning class's ClassId, Value: List of interface method details
   val internalInterfaceMethods: MutableMap<ClassId, MutableList<InterfaceMethodInfo>> =

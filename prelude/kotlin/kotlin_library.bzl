@@ -541,7 +541,7 @@ def build_kotlin_library(
                 incremental = ctx.attrs.incremental,
                 uses_content_based_paths = ctx.attrs.uses_content_based_paths_for_kotlincd,
                 bootclasspath_snapshot_entries = bootclasspath_jar_snapshots_for_kotlinc,
-                should_kosabi_jvm_abi_gen_use_k2 = getattr(ctx.attrs, "should_kosabi_jvm_abi_gen_use_k2", False),
+                should_kosabi_jvm_abi_gen_use_k2 = True if getattr(ctx.attrs, "should_kosabi_jvm_abi_gen_use_k2", None) == None else ctx.attrs.should_kosabi_jvm_abi_gen_use_k2,
                 skip_classpath_removal_rebuild = getattr(ctx.attrs, "skip_classpath_removal_rebuild", False),
                 **common_kotlincd_kwargs
             )
