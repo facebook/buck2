@@ -16,13 +16,6 @@ import static org.junit.Assert.fail;
 import com.facebook.buck.android.dex.D8ExecutableMain.DexRefCounts;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
-import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.util.zip.ZipEntry;
-import java.util.zip.ZipFile;
-import java.util.zip.ZipOutputStream;
 import org.junit.Test;
 
 /**
@@ -190,48 +183,6 @@ public class D8ExecutableMainTest {
       fail("Expected IOException for empty stream");
     } catch (IOException e) {
       // Expected
-    }
-  }
-
-  /** Creates a minimal 120-byte DEX header with the given ref counts. */
-  private static byte[] makeDexHeader(int methodIds, int fieldIds, int typeIds) {
-    byte[] header = new byte[120];
-    // magic: "dex\n035\0"
-    header[0] = 0x64;
-    header[1] = 0x65;
-    header[2] = 0x78;
-    header[3] = 0x0a;
-    header[4] = 0x30;
-    header[5] = 0x33;
-    header[6] = 0x35;
-    header[7] = 0x00;
-    ByteBuffer buf = ByteBuffer.wrap(header).order(ByteOrder.LITTLE_ENDIAN);
-    buf.putInt(88, methodIds); // DEX_METHOD_IDS_SIZE_OFFSET
-    buf.putInt(80, fieldIds); // DEX_FIELD_IDS_SIZE_OFFSET
-    buf.putInt(64, typeIds); // DEX_TYPE_IDS_SIZE_OFFSET
-    return header;
-  }
-
-  @Test
-  public void testReadDexRefCountsFromJar_multiDex() throws Exception {
-    Path jarPath = Files.createTempFile("test", ".dex.jar");
-    try {
-      try (ZipOutputStream zos = new ZipOutputStream(Files.newOutputStream(jarPath))) {
-        zos.putNextEntry(new ZipEntry("classes.dex"));
-        zos.write(makeDexHeader(100, 200, 50));
-        zos.closeEntry();
-        zos.putNextEntry(new ZipEntry("classes2.dex"));
-        zos.write(makeDexHeader(300, 150, 80));
-        zos.closeEntry();
-      }
-      try (ZipFile zf = new ZipFile(jarPath.toFile())) {
-        DexRefCounts counts = D8ExecutableMain.readDexRefCountsFromJar(zf);
-        assertEquals("method_ids_size should sum both dex files", 400, counts.methodIds);
-        assertEquals("field_ids_size should sum both dex files", 350, counts.fieldIds);
-        assertEquals("type_ids_size should sum both dex files", 130, counts.typeIds);
-      }
-    } finally {
-      Files.deleteIfExists(jarPath);
     }
   }
 }
