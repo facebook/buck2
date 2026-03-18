@@ -1526,10 +1526,8 @@ mod tests {
         ) -> Self::Value {
             let _guard = self.is_executing.lock();
 
-            // TODO: use critical_section as it's simpler, but this stack doesn't have it and
-            // this works equally well here :)
             cancellation
-                .with_structured_cancellation(|_obs| tokio::time::sleep(Duration::from_secs(1)))
+                .critical_section(|| tokio::time::sleep(Duration::from_secs(1)))
                 .await;
         }
 
