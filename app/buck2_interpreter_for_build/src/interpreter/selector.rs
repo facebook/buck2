@@ -10,7 +10,6 @@
 
 use std::fmt;
 use std::fmt::Display;
-use std::sync::Arc;
 
 use allocative::Allocative;
 use buck2_error::BuckErrorContext;
@@ -26,20 +25,6 @@ use starlark::environment::MethodsStatic;
 use starlark::eval::Evaluator;
 use starlark::starlark_complex_value;
 use starlark::starlark_module;
-use starlark::typing::ParamIsRequired;
-use starlark::typing::ParamSpec;
-use starlark::typing::Ty;
-use starlark::typing::TyBasic;
-use starlark::typing::TyCallArgs;
-use starlark::typing::TyCallable;
-use starlark::typing::TyCustomFunctionImpl;
-use starlark::typing::TyCustomImpl;
-use starlark::typing::TyStarlarkValue;
-use starlark::typing::TypingBinOp;
-use starlark::typing::TypingNoContextError;
-use starlark::typing::TypingNoContextOrInternalError;
-use starlark::typing::TypingOrInternalError;
-use starlark::typing::TypingOracleCtx;
 use starlark::values::Freeze;
 use starlark::values::FreezeResult;
 use starlark::values::Freezer;
@@ -63,7 +48,6 @@ use starlark::values::dict::DictType;
 use starlark::values::none::NoneOr;
 use starlark::values::starlark_value;
 use starlark::values::starlark_value_as_type::StarlarkValueAsType;
-use starlark::values::typing::TypeMatcherAlloc;
 
 /// Representation of `select()` in Starlark.
 #[derive(Debug, ProvidesStaticType, NoSerialize, Allocative)] // TODO selector should probably support serializing
@@ -290,10 +274,6 @@ impl<'v, V: ValueLike<'v>> StarlarkValue<'v> for StarlarkSelectorGen<V>
 where
     Self: ProvidesStaticType<'v> + StarlarkSelectorBase<'v, Item = V>,
 {
-    fn get_type_starlark_repr() -> Ty {
-        Ty::custom(TySelect { inner: Ty::any() })
-    }
-
     fn to_bool(&self) -> bool {
         true
     }
@@ -329,177 +309,10 @@ where
     }
 }
 
-// ============================================================================
-// Type system support for Select[T]
-// ============================================================================
-
-/// Custom type representing `Select[T]` in the type system.
-///
-/// This type carries the inner type parameter `T` so that `Select[str]` and
-/// `Select[int]` are distinct types. The type checker uses this to validate
-/// that values inside `select()` expressions match the expected type parameter.
-#[derive(Debug, Clone, Hash, Eq, PartialEq, Ord, PartialOrd, Allocative)]
-struct TySelect {
-    /// The inner type parameter (e.g., `str` in `Select[str]`).
-    inner: Ty,
-}
-
-impl Display for TySelect {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "Select[{}]", self.inner)
-    }
-}
-
-impl TyCustomImpl for TySelect {
-    fn as_name(&self) -> Option<&str> {
-        Some("Select")
-    }
-
-    fn attribute(&self, _attr: &str) -> Result<Ty, TypingNoContextError> {
-        Err(TypingNoContextError)
-    }
-
-    fn bin_op(
-        &self,
-        bin_op: TypingBinOp,
-        rhs: &TyBasic,
-        _ctx: &TypingOracleCtx,
-    ) -> Result<Ty, TypingNoContextOrInternalError> {
-        if bin_op != TypingBinOp::Add {
-            return Err(TypingNoContextOrInternalError::Typing);
-        }
-        // Select[T] + Select[U] -> Select[T | U]
-        // Select[T] + any -> Select[T]
-        match rhs {
-            TyBasic::Custom(c) => {
-                if let Some(other) = c.as_any().downcast_ref::<TySelect>() {
-                    Ok(Ty::custom(TySelect {
-                        inner: Ty::union2(self.inner.clone(), other.inner.clone()),
-                    }))
-                } else {
-                    Ok(Ty::custom(self.clone()))
-                }
-            }
-            _ => {
-                // Select[T] + non-select value -> Select[T]
-                Ok(Ty::custom(self.clone()))
-            }
-        }
-    }
-
-    fn rbin_op(
-        &self,
-        bin_op: TypingBinOp,
-        _lhs: &TyBasic,
-        _ctx: &TypingOracleCtx,
-    ) -> Result<Ty, TypingNoContextOrInternalError> {
-        if bin_op != TypingBinOp::Add {
-            return Err(TypingNoContextOrInternalError::Typing);
-        }
-        // any + Select[T] -> Select[T]
-        Ok(Ty::custom(self.clone()))
-    }
-
-    fn intersects(x: &Self, y: &Self) -> bool {
-        // Select[T] intersects Select[U] iff T and U could overlap.
-        x.inner.check_intersects(&y.inner).unwrap_or(true)
-    }
-
-    fn intersects_with(&self, _other: &TyBasic) -> bool {
-        // Select[T] is a distinct container type that never intersects with
-        // plain T values. A str is never a Select[str].
-        false
-    }
-
-    fn matcher<T: TypeMatcherAlloc>(&self, factory: T) -> T::Result {
-        // At runtime, Select[T] matches any Select value regardless of T.
-        let sv = TyStarlarkValue::new::<FrozenStarlarkSelector>();
-        sv.matcher(factory)
-    }
-
-    fn union2(x: Arc<Self>, other: Arc<Self>) -> Result<Arc<Self>, (Arc<Self>, Arc<Self>)> {
-        // Merge Select[T] | Select[U] -> Select[T | U]
-        Ok(Arc::new(TySelect {
-            inner: Ty::union2(x.inner.clone(), other.inner.clone()),
-        }))
-    }
-
-    fn parametrize(&self, arg: &Ty) -> Result<Ty, TypingNoContextOrInternalError> {
-        Ok(Ty::custom(TySelect { inner: arg.clone() }))
-    }
-}
-
-/// Construct a `Select[T]` type from the inner type parameter.
-fn ty_select(inner: Ty) -> Ty {
-    Ty::custom(TySelect { inner })
-}
-
-/// Custom function type for the `select()` built-in function.
-///
-/// This enables the type checker to infer `Select[T]` from the dictionary
-/// values passed to `select()`. For example, `select({"DEFAULT": "hello"})`
-/// is inferred as `Select[str]`.
-#[derive(Clone, Debug, Eq, PartialEq, Hash, Ord, PartialOrd, Allocative)]
-struct SelectFunctionType;
-
-impl TyCustomFunctionImpl for SelectFunctionType {
-    fn as_callable(&self) -> TyCallable {
-        TyCallable::new(
-            ParamSpec::new_parts(
-                [(ParamIsRequired::Yes, Ty::dict(Ty::string(), Ty::any()))], // pos_only
-                [],                                                          // pos_or_named
-                None,                                                        // args
-                [],                                                          // named_only
-                None,                                                        // kwargs
-            )
-            .expect("valid param spec"),
-            Ty::custom(TySelect { inner: Ty::any() }),
-        )
-    }
-
-    fn validate_call(
-        &self,
-        span: starlark::codemap::Span,
-        args: &TyCallArgs,
-        oracle: TypingOracleCtx,
-    ) -> Result<Ty, TypingOrInternalError> {
-        // First validate the basic call signature.
-        oracle.validate_fn_call(span, &self.as_callable(), args)?;
-
-        // Extract the value type from the dict argument.
-        if let Some(arg) = args.pos().first() {
-            // The argument is dict[str, T]. Extract T from the dict type.
-            let value_ty = extract_dict_value_type(&arg.node);
-            return Ok(ty_select(value_ty));
-        }
-
-        // Fall back to Select[any] if we can't infer the value type.
-        Ok(ty_select(Ty::any()))
-    }
-}
-
-/// Extract the value type from a dict type.
-/// For `dict[str, T]`, returns `T`. For unions of dicts, folds all value types.
-/// For non-dict types, returns `Ty::any()`.
-fn extract_dict_value_type(ty: &Ty) -> Ty {
-    let mut value_types = Vec::new();
-    for basic in ty.iter_union() {
-        if let TyBasic::Dict(_k, v) = basic {
-            value_types.push((**v).clone());
-        }
-    }
-    if value_types.is_empty() {
-        Ty::any()
-    } else {
-        Ty::unions(value_types)
-    }
-}
-
 #[starlark_module]
 pub fn register_select(globals: &mut GlobalsBuilder) {
     const Select: StarlarkValueAsType<StarlarkSelector> = StarlarkValueAsType::new();
 
-    #[starlark(ty_custom_function = SelectFunctionType)]
     fn select<'v>(
         #[starlark(require = pos)] d: ValueOf<'v, DictType<StringValue<'v>, Value<'v>>>,
     ) -> starlark::Result<StarlarkSelector<'v>> {

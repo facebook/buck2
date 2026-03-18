@@ -43,6 +43,7 @@ impl PartialEq<BuiltinFn> for FrozenValue {
 pub(crate) struct Constants {
     pub(crate) fn_len: BuiltinFn,
     pub(crate) fn_type: BuiltinFn,
+    pub(crate) fn_list: BuiltinFn,
     pub(crate) fn_dict: BuiltinFn,
     pub(crate) fn_tuple: BuiltinFn,
     pub(crate) fn_isinstance: BuiltinFn,
@@ -57,6 +58,7 @@ impl Constants {
             Constants {
                 fn_len: BuiltinFn(g.get_frozen("len").unwrap()),
                 fn_type: BuiltinFn(g.get_frozen("type").unwrap()),
+                fn_list: BuiltinFn(g.get_frozen("list").unwrap()),
                 fn_dict: BuiltinFn(g.get_frozen("dict").unwrap()),
                 fn_tuple: BuiltinFn(g.get_frozen("tuple").unwrap()),
                 fn_isinstance: BuiltinFn(g.get_frozen("isinstance").unwrap()),

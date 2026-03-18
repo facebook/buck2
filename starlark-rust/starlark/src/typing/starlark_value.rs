@@ -316,7 +316,7 @@ impl TyStarlarkValue {
     }
 
     /// Convert to runtime type matcher.
-    pub fn matcher<T: TypeMatcherAlloc>(self, matcher: T) -> T::Result {
+    pub(crate) fn matcher<T: TypeMatcherAlloc>(self, matcher: T) -> T::Result {
         self.self_check();
 
         // First handle special cases that can match faster than default matcher.
