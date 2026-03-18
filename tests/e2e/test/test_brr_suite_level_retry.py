@@ -418,3 +418,59 @@ async def test_brr_listing_only_transient_failure(buck: Buck, tmp_path: Path) ->
         "BRR retry with --list-only should not execute tests, "
         "but 'NO TESTS RAN' not found in stderr"
     )
+
+
+@buck_test(inplace=True, skip_for_os=["darwin", "windows"])
+async def test_brr_per_target_listing_only(buck: Buck, tmp_path: Path) -> None:
+    """
+    Per-target listing-only BRR: when the BRR input file contains '- listing'
+    entries, TPX automatically suppresses execution for those targets without
+    needing --list-only. This tests the ListOnlyDiscovery::for_targets() path.
+    """
+    mode = get_mode_from_platform()
+    report_file = tmp_path / "report.json"
+
+    # Step 1: Run with TPX_PLAYGROUND_FATAL=1 to make listing crash.
+    try:
+        await buck.test(
+            BROKEN_LISTING_TARGET,
+            mode,
+            "--",
+            "--env",
+            "TPX_PLAYGROUND_FATAL=1",
+            "--save-failures-for-retry-in-file",
+            str(report_file),
+        )
+        raise AssertionError("Expected BuckException from broken listing target")
+    except BuckException:
+        pass
+
+    # Step 2: Verify the report has "- listing".
+    assert report_file.exists(), "Failure report was not written"
+    report = read_brr_report(report_file)
+    test_names = cast(list[str], report.get("test_names", []))
+    has_listing = any(name.endswith("- listing") for name in test_names)
+    assert has_listing, f"Expected '- listing' in test_names, got: {test_names}"
+
+    # Step 3: Feed the report back WITHOUT --list-only and WITHOUT
+    # TPX_PLAYGROUND_FATAL — listing succeeds, but TPX should automatically
+    # suppress execution because the BRR file has '- listing' entries.
+    try:
+        result = await buck.test(
+            BROKEN_LISTING_TARGET,
+            mode,
+            "--",
+            "--base-rev-retry-with-input-file",
+            str(report_file),
+        )
+        stderr = result.stderr
+    except BuckException as e:
+        stderr = e.stderr
+
+    # Step 4: TPX must suppress execution for listing-only targets even
+    # without --list-only, via ListOnlyDiscovery::for_targets().
+    stderr = remove_ansi_escape_sequences(stderr)
+    assert "NO TESTS RAN" in stderr, (
+        "BRR retry should suppress execution for listing-only targets, "
+        "but 'NO TESTS RAN' not found in stderr"
+    )
