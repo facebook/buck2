@@ -350,8 +350,7 @@ pub fn transitive_validations(
     let provider_collection = provider_collection.to_owned();
     let info = provider_collection
         .value
-        .maybe_map(|c| c.as_ref().builtin_provider_value::<FrozenValidationInfo>())
-        .map(|v| v.into_owned_frozen_ref());
+        .maybe_map(|c| c.as_ref().builtin_provider_value::<FrozenValidationInfo>());
     if info.is_some() || deps.len() > 1 {
         Some(TransitiveValidations(Arc::new(TransitiveValidationsData {
             info,
