@@ -306,13 +306,11 @@ impl<'v, V: ValueLike<'v>> CommandLineArgLike<'v> for StarlarkOutputArtifactGen<
         _artifact_path_mapping: &dyn ArtifactPathMapper,
     ) -> buck2_error::Result<()> {
         match self.unpack() {
-            Either::Left(_) => {
-                // TODO: proper error message
-                Err(buck2_error::buck2_error!(
-                    buck2_error::ErrorTag::Tier0,
-                    "proper error here; we should not be adding mutable starlark objects to clis"
-                ))
-            }
+            Either::Left(_) => Err(buck2_error::internal_error!(
+                "Cannot add an unfrozen output artifact to a command line. \
+                     Output artifacts must be declared and bound to an action \
+                     before they can be used in command lines"
+            )),
             Either::Right(v) => {
                 // We do not need to use the ArtifactPathMapper here as output artifacts are always
                 // resolved to a known path since their content hash is not yet available.

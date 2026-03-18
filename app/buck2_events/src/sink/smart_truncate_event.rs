@@ -64,7 +64,7 @@ fn truncate_invocation_record(invocation_record: &mut buck2_data::InvocationReco
     }
     if let Some(ref mut resolved_target_patterns) = invocation_record.parsed_target_patterns {
         truncate_target_patterns(&mut resolved_target_patterns.target_patterns);
-        // Clear `unresolved_traget_patterns` to save bandwidth. It has less information
+        // Clear `unresolved_target_patterns` to save bandwidth. It has less information
         // than `resolved` one does, and will never be used if `resolved` one is available.
         if let Some(ref mut command_end) = invocation_record.command_end {
             truncate_command_end(command_end, true);
