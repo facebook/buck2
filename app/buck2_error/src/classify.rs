@@ -197,6 +197,8 @@ fn tag_metadata(tag: ErrorTag) -> TagMetadata {
         ErrorTag::TestInfraFailure => rank!(environment),
         ErrorTag::ThriftTimeout => rank!(environment),
         ErrorTag::ThriftLoadshedding => rank!(environment),
+        // Often caused by eden loadshedding
+        ErrorTag::IoInputOutputError => rank!(environment),
 
         // Tier 0 errors
         ErrorTag::ServerJemallocAssert => rank!(tier0),
@@ -449,7 +451,6 @@ fn tag_metadata(tag: ErrorTag) -> TagMetadata {
         ErrorTag::IoWindowsSharingViolation => rank!(unspecified),
         ErrorTag::IoNotFound => rank!(unspecified),
         ErrorTag::IoNotADirectory => rank!(unspecified),
-        ErrorTag::IoInputOutputError => rank!(unspecified),
         ErrorTag::IoSource => rank!(unspecified),
         ErrorTag::IoSystem => rank!(unspecified),
         ErrorTag::IoEden => rank!(unspecified).generic(false),
