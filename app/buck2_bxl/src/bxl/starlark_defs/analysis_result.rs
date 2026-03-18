@@ -15,6 +15,7 @@ use buck2_build_api::analysis::AnalysisResult;
 use buck2_build_api::interpreter::rule_defs::provider::collection::FrozenProviderCollection;
 use buck2_build_api::interpreter::rule_defs::provider::dependency::Dependency;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
+use buck2_interpreter::types::configured_providers_label::StarlarkConfiguredProvidersLabel;
 use dupe::Dupe;
 use starlark::any::ProvidesStaticType;
 use starlark::environment::Methods;
@@ -98,6 +99,22 @@ fn starlark_analysis_result_methods(builder: &mut MethodsBuilder) {
                 .value()
                 .value_typed())
         }
+    }
+
+    /// Gets the configured providers label for this analysis result.
+    ///
+    /// Sample usage:
+    /// ```python
+    /// def _impl_label(ctx):
+    ///     actions = ctx.aquery().all_actions("//target")
+    ///     for node in actions:
+    ///         if analysis := node.analysis():
+    ///             ctx.output.print(analysis.label())
+    /// ```
+    fn label<'v>(
+        this: &StarlarkAnalysisResult,
+    ) -> starlark::Result<StarlarkConfiguredProvidersLabel> {
+        Ok(StarlarkConfiguredProvidersLabel::new(this.label.dupe()))
     }
 
     /// Converts the analysis result into a `Dependency`. Currently, you can only get a `Dependency` without any

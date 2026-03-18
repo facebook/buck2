@@ -9,6 +9,7 @@
  */
 
 use allocative::Allocative;
+use buck2_artifact::actions::key::ActionKey;
 use buck2_build_api::actions::query::ActionQueryNode;
 use buck2_build_api::query::bxl::BxlAqueryFunctions;
 use buck2_build_api::query::bxl::NEW_BXL_AQUERY_FUNCTIONS;
@@ -46,6 +47,7 @@ use starlark::values::type_repr::StarlarkTypeRepr;
 
 use crate::bxl::starlark_defs::context::BxlContext;
 use crate::bxl::starlark_defs::context::ErrorPrinter;
+use crate::bxl::starlark_defs::nodes::action::StarlarkAction;
 use crate::bxl::starlark_defs::nodes::action::StarlarkActionQueryNode;
 use crate::bxl::starlark_defs::providers_expr::AnyProvidersExprArg;
 use crate::bxl::starlark_defs::providers_expr::ProvidersExpr;
@@ -122,6 +124,7 @@ enum UnpackActionNodes<'v> {
     ActionQueryNodesSet(&'v StarlarkTargetSet<ActionQueryNode>),
     ConfiguredProviders(AnyProvidersExprArg<'v>),
     ConfiguredTargets(ConfiguredTargetListExprArg<'v>),
+    StarlarkActions(UnpackList<StarlarkAction>),
 }
 
 // Aquery operates on `ActionQueryNode`s. Under the hood, the target set of action query nodes is obtained
@@ -140,6 +143,14 @@ async fn unpack_action_nodes<'v>(
             return Ok(action_nodes.into_iter().map(|v| v.0).collect());
         }
         UnpackActionNodes::ActionQueryNodesSet(action_nodes) => return Ok(action_nodes.0.clone()),
+        UnpackActionNodes::StarlarkActions(actions) => {
+            let action_keys: Vec<ActionKey> = actions
+                .into_iter()
+                .map(|starlark_action| starlark_action.0.key().dupe())
+                .collect();
+
+            return aquery_env.get_action_nodes(dice, action_keys).await;
+        }
         UnpackActionNodes::ConfiguredProviders(arg) => {
             ProvidersExpr::<ConfiguredProvidersLabel>::unpack(
                 arg,
@@ -182,6 +193,11 @@ async fn unpack_action_nodes<'v>(
 ///
 /// Query results are `target_set`s of `action_query_node`s, which supports iteration,
 /// indexing, `len()`, set addition/subtraction, and `equals()`.
+///
+/// Actions can be specified as:
+/// - Target expressions (configured targets/providers)
+/// - Existing action query nodes or target sets
+/// - `bxl.Action` objects (obtained from `ctx.audit().output()`)
 #[starlark_module]
 fn aquery_methods(builder: &mut MethodsBuilder) {
     /// The deps query for finding the transitive closure of dependencies.
