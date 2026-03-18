@@ -81,6 +81,10 @@ pub(crate) async fn eval_bxl_for_dynamic_output<'v>(
     let dynamic_key =
         BxlDynamicKey::from_base_deferred_key_dyn_impl_err(base_deferred_key.clone())?;
     let key = dynamic_key.key();
+    // FIXME(JakobDegen): Audit that this string is user-friendly.
+    // Currently uses BxlKey's Display, which formats as "{bxl_path}:{name}"
+    // (e.g. "cell//path/to/file.bxl:function_name").
+    let eval_kind = StarlarkEvalKind::BxlDynamic(Arc::new(key.to_string()));
     let dynamic_data = DynamicBxlContextData {
         exec_deps: dynamic_key
             .0
@@ -130,8 +134,6 @@ pub(crate) async fn eval_bxl_for_dynamic_output<'v>(
         scope_and_collect_with_dice(dice_ctx, |dice_ctx, s| {
             s.spawn_cancellable(
                 limited_executor.execute(async move {
-                    // FIXME(JakobDegen): "foo"? Really?
-                    let eval_kind = StarlarkEvalKind::BxlDynamic(Arc::new("foo".to_owned()));
                     let eval_provider = StarlarkEvaluatorProvider::new(dice_ctx, eval_kind).await?;
                     tokio::task::block_in_place(|| eval_ctx.do_eval(eval_provider, dice_ctx))
                 }),
