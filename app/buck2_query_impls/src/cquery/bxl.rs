@@ -160,7 +160,7 @@ impl BxlCqueryFunctions for BxlCqueryFunctionsImpl {
         &self,
         dice: &mut DiceComputations<'_>,
         targets: &TargetSet<ConfiguredTargetNode>,
-        deps: Option<i32>,
+        depth: Option<i32>,
         captured_expr: Option<&CapturedExpr>,
     ) -> buck2_error::Result<TargetSet<ConfiguredTargetNode>> {
         Ok(dice
@@ -172,7 +172,7 @@ impl BxlCqueryFunctions for BxlCqueryFunctionsImpl {
                             .await?,
                         &DefaultQueryFunctionsModule::new(),
                         targets,
-                        deps,
+                        depth,
                         captured_expr,
                     )
                     .await

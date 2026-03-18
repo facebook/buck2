@@ -139,7 +139,7 @@ impl BxlAqueryFunctions for BxlAqueryFunctionsImpl {
         &self,
         dice: &mut DiceComputations<'_>,
         targets: &TargetSet<ActionQueryNode>,
-        deps: Option<i32>,
+        depth: Option<i32>,
         captured_expr: Option<&CapturedExpr>,
     ) -> buck2_error::Result<TargetSet<ActionQueryNode>> {
         Ok(dice
@@ -149,7 +149,7 @@ impl BxlAqueryFunctions for BxlAqueryFunctionsImpl {
                         &self.aquery_env(&self.aquery_delegate(&dice).await?).await?,
                         &DefaultQueryFunctionsModule::new(),
                         targets,
-                        deps,
+                        depth,
                         captured_expr,
                     )
                     .await

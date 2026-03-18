@@ -119,7 +119,7 @@ impl BxlUqueryFunctions for BxlUqueryFunctionsImpl {
         &self,
         dice: &mut DiceComputations<'_>,
         targets: &TargetSet<TargetNode>,
-        deps: Option<i32>,
+        depth: Option<i32>,
         captured_expr: Option<&CapturedExpr>,
     ) -> buck2_error::Result<TargetSet<TargetNode>> {
         Ok(dice
@@ -129,7 +129,7 @@ impl BxlUqueryFunctions for BxlUqueryFunctionsImpl {
                         &self.uquery_env(&self.uquery_delegate(&dice).await?).await?,
                         &DefaultQueryFunctionsModule::new(),
                         targets,
-                        deps,
+                        depth,
                         captured_expr,
                     )
                     .await

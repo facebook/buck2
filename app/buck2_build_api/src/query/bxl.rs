@@ -55,7 +55,7 @@ pub trait BxlCqueryFunctions: Send {
         &self,
         dice: &mut DiceComputations<'_>,
         targets: &TargetSet<ConfiguredTargetNode>,
-        deps: Option<i32>,
+        depth: Option<i32>,
         captured_expr: Option<&CapturedExpr>,
     ) -> buck2_error::Result<TargetSet<ConfiguredTargetNode>>;
     async fn rdeps(
@@ -98,7 +98,7 @@ pub trait BxlUqueryFunctions: Send {
         &self,
         dice: &mut DiceComputations<'_>,
         targets: &TargetSet<TargetNode>,
-        deps: Option<i32>,
+        depth: Option<i32>,
         captured_expr: Option<&CapturedExpr>,
     ) -> buck2_error::Result<TargetSet<TargetNode>>;
     async fn rdeps(
@@ -146,7 +146,7 @@ pub trait BxlAqueryFunctions: Send {
         &self,
         dice: &mut DiceComputations<'_>,
         targets: &TargetSet<ActionQueryNode>,
-        deps: Option<i32>,
+        depth: Option<i32>,
         captured_expr: Option<&CapturedExpr>,
     ) -> buck2_error::Result<TargetSet<ActionQueryNode>>;
     async fn rdeps(
