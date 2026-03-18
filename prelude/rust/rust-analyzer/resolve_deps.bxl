@@ -352,6 +352,24 @@ def resolve_targets_impl(ctx: bxl.Context) -> None:
     ctx.output.ensure_multiple(artifacts)
     ctx.output.print(ctx.output.ensure(artifact).abs_path())
 
+def _short_version(version: str) -> str:
+    """Return the short version string used in target names.
+
+    Uses the leftmost non-zero semver component as the compatibility boundary:
+    - >=1.0.0: major only (e.g. "3")
+    - 0.y.z where y >= 1: major.minor (e.g. "0.2")
+    - 0.0.z: full version (e.g. "0.0.3")
+    """
+    parts = version.split(".")
+    if len(parts) < 3:
+        return version
+    major, minor, _patch = parts[0], parts[1], parts[2]
+    if major != "0":
+        return major
+    if minor != "0":
+        return "{}.{}".format(major, minor)
+    return version
+
 def _resolve_vendor_rust_libraries(ctx: bxl.Context, targets: bxl.UnconfiguredTargetSet) -> bxl.UnconfiguredTargetSet:
     """Rust files in third-party/rust/vendor/ are owned by rust_filegroup targets,
     but a rust_filegroup is just a set of files, without any information about
@@ -361,10 +379,12 @@ def _resolve_vendor_rust_libraries(ctx: bxl.Context, targets: bxl.UnconfiguredTa
 
     file: third-party/rust/vendor/nix-0.30.1/src/fcntl.rs
     owner: fbsource//third-party/rust/vendor/nix-0.30.1:srcs
-    library: fbsource//third-party/rust/vendor/nix:0.30.1
+    library: fbsource//third-party/rust/vendor/nix:0.30
 
     Look up the relevant rust_library by taking advantage of the fact that
-    target names follow a predictable pattern.
+    target names follow a predictable pattern. Target names use the short
+    version: major-only for >=1.0.0, major.minor for 0.y.z, full semver
+    for 0.0.z.
 
     """
     filegroups = ctx.uquery().kind("^rust_filegroup$", targets)
@@ -384,8 +404,9 @@ def _resolve_vendor_rust_libraries(ctx: bxl.Context, targets: bxl.UnconfiguredTa
             continue
         crate_name, version = parts
 
-        # E.g. fbsource//third-party/rust/vendor/nix:0.30.1
-        lib_target_str = "{}//third-party/rust/vendor/{}:{}".format(fg.label.cell, crate_name, version)
+        # E.g. fbsource//third-party/rust/vendor/nix:0.30
+        short_ver = _short_version(version)
+        lib_target_str = "{}//third-party/rust/vendor/{}:{}".format(fg.label.cell, crate_name, short_ver)
 
         # Since we're using string conventions to find the library, defensively
         # check that the target actually exists.
