@@ -458,12 +458,12 @@ def _convert_python_library_to_executable(
                 "deps": list(native_deps.values()),
                 "name": "python_linking:" + ctx.attrs.name,
                 "package_style": package_style,
-                "python_toolchain": ctx.attrs._python_toolchain,
                 "rpath": ctx.attrs.name,
                 "static_extension_utils": ctx.attrs.static_extension_utils,
                 "transformation_spec": ctx.attrs.transformation_spec,
                 "_cxx_toolchain": ctx.attrs._cxx_toolchain,
                 "_python_internal_tools": ctx.attrs._python_internal_tools,
+                "_python_toolchain": ctx.attrs._python_toolchain,
             }
             implicit_attrs = {
                 a: getattr(ctx.attrs, a)

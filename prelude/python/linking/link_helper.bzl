@@ -66,7 +66,7 @@ python_implicit_attrs = {
 }
 
 def _process_native_linking_rule_impl(ctx):
-    python_toolchain = ctx.attrs.python_toolchain[PythonToolchainInfo]
+    python_toolchain = ctx.attrs._python_toolchain[PythonToolchainInfo]
     python_internal_tools = ctx.attrs._python_internal_tools[PythonInternalToolsInfo]
     raw_deps = ctx.attrs.deps
     shared_libs, extensions, link_args, extra, extra_artifacts, linker_map_data = process_native_linking(
@@ -91,7 +91,6 @@ process_native_linking_rule = rule(
     attrs = {
         "deps": attrs.list(attrs.dep()),  # Note: cxx-only deps here
         "package_style": attrs.any(),
-        "python_toolchain": attrs.dep(),
         "rpath": attrs.string(),
         "static_extension_utils": attrs.source(),
         "transformation_spec": attrs.option(
@@ -101,5 +100,6 @@ process_native_linking_rule = rule(
         "use_anon_target_for_analysis": attrs.bool(default = True),
         "_cxx_toolchain": attrs.dep(),
         "_python_internal_tools": attrs.dep(),
+        "_python_toolchain": attrs.dep(),
     } | cxx_implicit_attrs | python_implicit_attrs,
 )
