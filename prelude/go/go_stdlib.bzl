@@ -29,7 +29,7 @@ def go_stdlib_impl(ctx: AnalysisContext) -> list[Provider]:
 
     go_list_stdlib_out = go_list_stdlib(ctx.actions, go_toolchain, cgo_enabled)
 
-    pkgdir = ctx.actions.declare_output("pkgdir", dir = True)
+    pkgdir = ctx.actions.declare_output("pkgdir", dir = True, has_content_based_path = True)
 
     go_stdlib_value = ctx.actions.dynamic_output_new(_build_stdlib(
         goroot = go_toolchain.env_go_root,
