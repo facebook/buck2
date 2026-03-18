@@ -24,7 +24,10 @@ use dice::DiceProjectionComputations;
 use dice::DiceTransactionUpdater;
 use dice::InjectedKey;
 use dice::Key;
+use dice::OkPagableValueSerialize;
+use dice::PagableValueSerialize;
 use dice::ProjectionKey;
+use dice::ValueSerialize;
 use dice_futures::cancellation::CancellationContext;
 use dupe::Dupe;
 use itertools::Itertools;
@@ -186,6 +189,10 @@ impl Key for StarlarkProfilerConfigurationResolvedKey {
             _ => false,
         }
     }
+
+    fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
+        OkPagableValueSerialize::<Self::Value>::new()
+    }
 }
 
 #[derive(
@@ -205,6 +212,10 @@ impl ProjectionKey for StarlarkProfileModeForKind {
     type DeriveFromKey = StarlarkProfilerConfigurationResolvedKey;
 
     type Value = buck2_error::Result<StarlarkProfileMode>;
+
+    fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
+        OkPagableValueSerialize::<Self::Value>::new()
+    }
 
     fn compute(
         &self,
@@ -286,6 +297,10 @@ impl InjectedKey for StarlarkProfilerConfigurationKey {
 
     fn equality(x: &Self::Value, y: &Self::Value) -> bool {
         x == y
+    }
+
+    fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
+        PagableValueSerialize::<Self::Value>::new()
     }
 }
 

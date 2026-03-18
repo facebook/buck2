@@ -24,6 +24,9 @@ use dice::DiceComputations;
 use dice::DiceTransactionUpdater;
 use dice::InvalidationSourcePriority;
 use dice::Key;
+use dice::OkPagableValueSerialize;
+use dice::TodoValueSerialize;
+use dice::ValueSerialize;
 use dice_futures::cancellation::CancellationContext;
 use dupe::Dupe;
 use futures::future::BoxFuture;
@@ -310,6 +313,10 @@ impl Key for ReadFileKey {
     fn invalidation_source_priority() -> InvalidationSourcePriority {
         InvalidationSourcePriority::High
     }
+
+    fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
+        TodoValueSerialize::<Self::Value>::new()
+    }
 }
 
 #[derive(Clone, Display, Debug, Eq, Hash, PartialEq, Allocative, Pagable)]
@@ -342,6 +349,10 @@ impl Key for ReadDirKey {
     fn validity(x: &Self::Value) -> bool {
         x.is_ok()
     }
+
+    fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
+        OkPagableValueSerialize::<Self::Value>::new()
+    }
 }
 
 #[derive(Clone, Display, Allocative, Debug, Eq, Hash, PartialEq, Pagable)]
@@ -372,6 +383,10 @@ impl Key for ExistsMatchingExactCaseKey {
 
     fn validity(x: &Self::Value) -> bool {
         x.is_ok()
+    }
+
+    fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
+        OkPagableValueSerialize::<Self::Value>::new()
     }
 }
 
@@ -416,6 +431,10 @@ impl Key for PathMetadataKey {
 
     fn invalidation_source_priority() -> InvalidationSourcePriority {
         InvalidationSourcePriority::High
+    }
+
+    fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
+        OkPagableValueSerialize::<Self::Value>::new()
     }
 }
 

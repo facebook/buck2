@@ -36,6 +36,8 @@ use buck2_node::attrs::display::AttrDisplayWithContextExt;
 use derive_more::Display;
 use dice::DiceComputations;
 use dice::Key;
+use dice::OkPagableValueSerialize;
+use dice::ValueSerialize;
 use dice_futures::cancellation::CancellationContext;
 use dupe::Dupe;
 use dupe::OptionDupedExt;
@@ -316,6 +318,10 @@ impl TransitionCalculation for TransitionCalculationImpl {
                 } else {
                     false
                 }
+            }
+
+            fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
+                OkPagableValueSerialize::<Self::Value>::new()
             }
         }
 

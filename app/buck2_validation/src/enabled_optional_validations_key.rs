@@ -15,6 +15,8 @@ use allocative::Allocative;
 use derive_more::Display;
 use dice::DiceTransactionUpdater;
 use dice::InjectedKey;
+use dice::PagableValueSerialize;
+use dice::ValueSerialize;
 use dupe::Dupe;
 use pagable::Pagable;
 use pagable::pagable_typetag;
@@ -36,6 +38,10 @@ impl InjectedKey for EnabledOptionalValidationsKey {
 
     fn equality(x: &Self::Value, y: &Self::Value) -> bool {
         x == y
+    }
+
+    fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
+        PagableValueSerialize::<Self::Value>::new()
     }
 }
 

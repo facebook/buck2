@@ -24,6 +24,8 @@ use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use derive_more::Display;
 use dice::DiceComputations;
 use dice::Key;
+use dice::OkPagableValueSerialize;
+use dice::ValueSerialize;
 use dice_futures::cancellation::CancellationContext;
 use dupe::Dupe;
 use pagable::Pagable;
@@ -137,6 +139,10 @@ impl Key for CellPackageBoundaryExceptionsKey {
             _ => false,
         }
     }
+
+    fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
+        OkPagableValueSerialize::<Self::Value>::new()
+    }
 }
 
 #[async_trait]
@@ -189,6 +195,10 @@ impl HasPackageBoundaryExceptions for DiceComputations<'_> {
                     (Ok(x), Ok(y)) => x == y,
                     _ => false,
                 }
+            }
+
+            fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
+                OkPagableValueSerialize::<Self::Value>::new()
             }
         }
 

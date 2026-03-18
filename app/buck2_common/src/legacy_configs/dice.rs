@@ -26,8 +26,11 @@ use dice::DiceProjectionComputations;
 use dice::DiceTransactionUpdater;
 use dice::InjectedKey;
 use dice::Key;
+use dice::OkPagableValueSerialize;
 use dice::OpaqueValue;
+use dice::PagableValueSerialize;
 use dice::ProjectionKey;
+use dice::ValueSerialize;
 use dice_futures::cancellation::CancellationContext;
 use dupe::Dupe;
 use pagable::Pagable;
@@ -185,6 +188,10 @@ impl InjectedKey for LegacyExternalBuckConfigDataKey {
     fn equality(x: &Self::Value, y: &Self::Value) -> bool {
         x == y
     }
+
+    fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
+        PagableValueSerialize::<Self::Value>::new()
+    }
 }
 
 #[derive(Clone, Display, Debug, Hash, Eq, PartialEq, Allocative, Pagable)]
@@ -226,6 +233,10 @@ impl Key for LegacyBuckConfigForCellKey {
             _ => false,
         }
     }
+
+    fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
+        OkPagableValueSerialize::<Self::Value>::new()
+    }
 }
 
 /// The computation `LegacyBuckConfigForCellKey` computation might encounter an error.
@@ -252,6 +263,32 @@ impl ProjectionKey for LegacyBuckConfigErrorKey {
 
     fn equality(x: &Self::Value, y: &Self::Value) -> bool {
         x.is_none() && y.is_none()
+    }
+
+    fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
+        struct T;
+        impl ValueSerialize for T {
+            type Value = <LegacyBuckConfigErrorKey as ProjectionKey>::Value;
+
+            fn pagable_serialize_value(
+                &self,
+                v: &Self::Value,
+                _ser: &mut dyn pagable::PagableSerializer,
+            ) -> Option<pagable::Result<()>> {
+                match v {
+                    Some(_) => unimplemented!(),
+                    None => Some(Ok(())),
+                }
+            }
+
+            fn pagable_deserialize_value<'de, D: pagable::PagableDeserializer<'de> + ?Sized>(
+                &self,
+                _deser: &mut D,
+            ) -> pagable::Result<Self::Value> {
+                Ok(None)
+            }
+        }
+        T
     }
 }
 
@@ -283,6 +320,10 @@ impl ProjectionKey for LegacyBuckConfigPropertyProjectionKey {
 
     fn equality(x: &Self::Value, y: &Self::Value) -> bool {
         x == y
+    }
+
+    fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
+        PagableValueSerialize::<Self::Value>::new()
     }
 }
 

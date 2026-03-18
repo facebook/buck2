@@ -43,6 +43,8 @@ use derive_more::Display;
 use dice::DiceComputations;
 use dice::DiceTrackedInvalidationPath;
 use dice::Key;
+use dice::OkPagableValueSerialize;
+use dice::ValueSerialize;
 use dice_futures::cancellation::CancellationContext;
 use dupe::Dupe;
 use futures::FutureExt;
@@ -698,6 +700,10 @@ impl Key for BuildKey {
         // are too many unknowns that may cause more harm than good if we cached errors.
         // So, don't cache it for now, until someday we decide to really need to.
         x.is_ok()
+    }
+
+    fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
+        OkPagableValueSerialize::<Self::Value>::new()
     }
 }
 

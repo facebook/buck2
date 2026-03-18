@@ -21,6 +21,8 @@ use buck2_util::commas::commas;
 use dice::CancellationContext;
 use dice::DiceComputations;
 use dice::Key;
+use dice::TodoValueSerialize;
+use dice::ValueSerialize;
 use dupe::Dupe;
 use futures::FutureExt;
 use pagable::Pagable;
@@ -161,6 +163,10 @@ impl Key for ConfiguredGraphPropertiesKey {
             }
             _ => false,
         }
+    }
+
+    fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
+        TodoValueSerialize::<Self::Value>::new()
     }
 }
 

@@ -22,6 +22,8 @@ use dice::CancellationContext;
 use dice::DiceComputations;
 use dice::DiceKeyDyn;
 use dice::Key;
+use dice::OkPagableValueSerialize;
+use dice::ValueSerialize;
 use dupe::Dupe;
 use fxhash::FxHashSet;
 use pagable::Pagable;
@@ -154,6 +156,10 @@ impl Key for AnalysisGraphPropertiesKey {
             (Ok(a), Ok(b)) => a == b,
             _ => false,
         }
+    }
+
+    fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
+        OkPagableValueSerialize::<Self::Value>::new()
     }
 }
 

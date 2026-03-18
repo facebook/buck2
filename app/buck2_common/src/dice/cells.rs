@@ -23,6 +23,9 @@ use dice::DiceTransactionUpdater;
 use dice::InjectedKey;
 use dice::InvalidationSourcePriority;
 use dice::Key;
+use dice::OkPagableValueSerialize;
+use dice::PagableValueSerialize;
+use dice::ValueSerialize;
 use dupe::Dupe;
 use pagable::Pagable;
 use pagable::pagable_typetag;
@@ -71,6 +74,10 @@ impl InjectedKey for CellResolverKey {
 
     fn invalidation_source_priority() -> InvalidationSourcePriority {
         InvalidationSourcePriority::Ignored
+    }
+
+    fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
+        PagableValueSerialize::<Self::Value>::new()
     }
 }
 
@@ -135,6 +142,10 @@ impl Key for CellAliasResolverKey {
             (Ok(x), Ok(y)) => x == y,
             (_, _) => false,
         }
+    }
+
+    fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
+        OkPagableValueSerialize::<Self::Value>::new()
     }
 }
 

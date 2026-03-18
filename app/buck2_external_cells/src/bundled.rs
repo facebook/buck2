@@ -61,6 +61,8 @@ use cmp_any::PartialEqAny;
 use dice::CancellationContext;
 use dice::DiceComputations;
 use dice::Key;
+use dice::OkPagableValueSerialize;
+use dice::ValueSerialize;
 use dupe::Dupe;
 use pagable::Pagable;
 use pagable::PagablePanic;
@@ -451,6 +453,10 @@ pub(crate) async fn get_file_ops_delegate(
         fn equality(_x: &Self::Value, _y: &Self::Value) -> bool {
             // No need for non-trivial equality, because this has no deps and is never recomputed
             false
+        }
+
+        fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
+            OkPagableValueSerialize::<Self::Value>::new()
         }
     }
 

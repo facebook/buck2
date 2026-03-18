@@ -55,6 +55,8 @@ use derive_more::Display;
 use futures::future::FutureExt;
 use dice::DiceComputations;
 use dice::Key;
+use dice::OkPagableValueSerialize;
+use dice::ValueSerialize;
 use dupe::Dupe;
 use itertools::Itertools;
 use pagable::Pagable;
@@ -286,6 +288,10 @@ impl Key for ToolchainExecutionPlatformCompatibilityKey {
             (Ok(x), Ok(y)) => x == y,
             _ => false,
         }
+    }
+
+    fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
+        OkPagableValueSerialize::<Self::Value>::new()
     }
 }
 
@@ -734,6 +740,10 @@ impl Key for ExecutionPlatformResolutionKey {
             _ => false,
         }
     }
+
+    fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
+        OkPagableValueSerialize::<Self::Value>::new()
+    }
 }
 
 #[derive(Clone, Dupe, Display, Debug, Eq, Hash, PartialEq, Allocative, Pagable)]
@@ -755,6 +765,10 @@ impl Key for ExecutionPlatformsKey {
     fn equality(_: &Self::Value, _: &Self::Value) -> bool {
         // TODO(cjhopman) should these be comparable for caching
         false
+    }
+
+    fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
+        OkPagableValueSerialize::<Self::Value>::new()
     }
 }
 

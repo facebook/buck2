@@ -56,6 +56,8 @@ use buck2_util::time_span::TimeSpan;
 use dice::CancellationContext;
 use dice::DiceComputations;
 use dice::Key;
+use dice::OkPagableValueSerialize;
+use dice::ValueSerialize;
 use dupe::Dupe;
 use dupe::IterDupedExt;
 use futures::FutureExt;
@@ -112,6 +114,10 @@ impl Key for AnalysisKey {
         // analysis result is not comparable
         // TODO consider if we want analysis result to be eq
         false
+    }
+
+    fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
+        OkPagableValueSerialize::<Self::Value>::new()
     }
 }
 

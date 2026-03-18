@@ -16,6 +16,8 @@ use buck2_fs::paths::file_name::FileNameBuf;
 use dice::CancellationContext;
 use dice::DiceComputations;
 use dice::Key;
+use dice::OkPagableValueSerialize;
+use dice::ValueSerialize;
 use gazebo::prelude::SliceExt as _;
 use gazebo::prelude::VecExt as _;
 use pagable::Pagable;
@@ -108,6 +110,10 @@ impl Key for BuildfilesKey {
             (Ok(x), Ok(y)) => x == y,
             _ => false,
         }
+    }
+
+    fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
+        OkPagableValueSerialize::<Self::Value>::new()
     }
 }
 

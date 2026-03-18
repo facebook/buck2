@@ -13,6 +13,8 @@ use async_trait::async_trait;
 use dice::DiceComputations;
 use dice::DiceTransactionUpdater;
 use dice::InjectedKey;
+use dice::PagableValueSerialize;
+use dice::ValueSerialize;
 use dupe::Dupe;
 use pagable::Pagable;
 use pagable::pagable_typetag;
@@ -44,6 +46,10 @@ impl InjectedKey for StarlarkTypesKey {
 
     fn equality(x: &StarlarkTypesValue, y: &StarlarkTypesValue) -> bool {
         x == y
+    }
+
+    fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
+        PagableValueSerialize::<Self::Value>::new()
     }
 }
 

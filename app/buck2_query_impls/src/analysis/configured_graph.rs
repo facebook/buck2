@@ -24,6 +24,8 @@ use derive_more::Display;
 use dice::DiceComputations;
 use dice::Key;
 use dice::LinearRecomputeDiceComputations;
+use dice::OkPagableValueSerialize;
+use dice::ValueSerialize;
 use dice_futures::cancellation::CancellationContext;
 use dupe::Dupe;
 use dupe::IterDupedExt;
@@ -128,6 +130,10 @@ impl ConfiguredGraphQueryEnvironmentDelegate for AnalysisConfiguredGraphQueryDel
             fn equality(_: &Self::Value, _: &Self::Value) -> bool {
                 // result is not comparable
                 false
+            }
+
+            fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
+                OkPagableValueSerialize::<Self::Value>::new()
             }
         }
 

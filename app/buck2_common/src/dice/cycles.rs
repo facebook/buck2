@@ -20,8 +20,10 @@ use derive_more::Display;
 use dice::DiceComputations;
 use dice::DynKey;
 use dice::Key;
+use dice::NoValueSerialize;
 use dice::UserCycleDetector;
 use dice::UserCycleDetectorGuard;
+use dice::ValueSerialize;
 use dice_futures::cancellation::CancellationContext;
 use futures::Future;
 use pagable::Pagable;
@@ -128,6 +130,10 @@ impl Key for PoisonedDueToDetectedCycleKey {
     fn validity(_x: &Self::Value) -> bool {
         false
     }
+
+    fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
+        NoValueSerialize::<Self::Value>::new()
+    }
 }
 
 impl<D: CycleAdapterDescriptor> CycleDetectorAdapter<D> {
@@ -215,8 +221,10 @@ mod tests {
     use dice::DiceComputations;
     use dice::DynKey;
     use dice::Key;
+    use dice::PagableValueSerialize;
     use dice::UserCycleDetector;
     use dice::UserCycleDetectorGuard;
+    use dice::ValueSerialize;
     use pagable::Pagable;
     use pagable::pagable_typetag;
 
@@ -251,6 +259,10 @@ mod tests {
 
             fn equality(_x: &Self::Value, _y: &Self::Value) -> bool {
                 false
+            }
+
+            fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
+                PagableValueSerialize::<Self::Value>::new()
             }
         }
 

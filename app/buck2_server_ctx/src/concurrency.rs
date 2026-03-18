@@ -828,6 +828,8 @@ mod tests {
     use dice::DiceComputations;
     use dice::InjectedKey;
     use dice::Key;
+    use dice::PagableValueSerialize;
+    use dice::ValueSerialize;
     use dice_futures::cancellation::CancellationContext;
     use dupe::Dupe;
     use futures::pin_mut;
@@ -883,6 +885,10 @@ mod tests {
 
         fn equality(_x: &Self::Value, _y: &Self::Value) -> bool {
             false
+        }
+
+        fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
+            PagableValueSerialize::<Self::Value>::new()
         }
     }
 
@@ -1529,6 +1535,10 @@ mod tests {
 
         fn equality(_me: &Self::Value, _other: &Self::Value) -> bool {
             true
+        }
+
+        fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
+            PagableValueSerialize::<Self::Value>::new()
         }
     }
 

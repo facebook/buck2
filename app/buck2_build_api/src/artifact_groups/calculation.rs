@@ -46,6 +46,8 @@ use buck2_util::time_span::TimeSpan;
 use derive_more::Display;
 use dice::DiceComputations;
 use dice::Key;
+use dice::OkPagableValueSerialize;
+use dice::ValueSerialize;
 use dice_futures::cancellation::CancellationContext;
 use dupe::Dupe;
 use futures::Future;
@@ -384,6 +386,10 @@ async fn dir_artifact_value(
                 _ => false,
             }
         }
+
+        fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
+            OkPagableValueSerialize::<Self::Value>::new()
+        }
     }
 
     ctx.compute(&DirArtifactValueKey(cell_path)).await?
@@ -549,6 +555,10 @@ impl Key for EnsureProjectedArtifactKey {
             _ => false,
         }
     }
+
+    fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
+        OkPagableValueSerialize::<Self::Value>::new()
+    }
 }
 
 /// Activation data for [`EnsureTransitiveSetProjectionKey`] DICE evaluations,
@@ -641,5 +651,9 @@ impl Key for EnsureTransitiveSetProjectionKey {
             (Ok(x), Ok(y)) => x.shallow_equals(y),
             _ => false,
         }
+    }
+
+    fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
+        OkPagableValueSerialize::<Self::Value>::new()
     }
 }

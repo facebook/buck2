@@ -150,6 +150,8 @@ use derive_more::From;
 use dice::DiceComputations;
 use dice::DiceTransaction;
 use dice::Key;
+use dice::NoValueSerialize;
+use dice::ValueSerialize;
 use dice_futures::cancellation::CancellationContext;
 use display_container::fmt_container;
 use display_container::fmt_keyed_container;
@@ -582,6 +584,10 @@ impl Key for TestExecutionKey {
         // We don't want to cache any failed listings
         x.as_ref()
             .is_ok_and(|f| f.status == ExecutionStatus::Finished { exitcode: 0 })
+    }
+
+    fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
+        NoValueSerialize::<Self::Value>::new()
     }
 }
 

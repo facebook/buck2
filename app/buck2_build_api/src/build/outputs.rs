@@ -18,6 +18,8 @@ use derive_more::Display;
 use dice::CancellationContext;
 use dice::DiceComputations;
 use dice::Key;
+use dice::OkPagableValueSerialize;
+use dice::ValueSerialize;
 use pagable::Pagable;
 use pagable::pagable_typetag;
 
@@ -104,6 +106,10 @@ pub async fn get_outputs_for_top_level_target(
 
         fn equality(_x: &Self::Value, _y: &Self::Value) -> bool {
             false
+        }
+
+        fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
+            OkPagableValueSerialize::<Self::Value>::new()
         }
     }
     ctx.compute(&TopLevelTargetOutputsKey(

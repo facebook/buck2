@@ -82,6 +82,9 @@ use derive_more::Display;
 use dice::Demand;
 use dice::DiceComputations;
 use dice::Key;
+use dice::NoValueSerialize;
+use dice::OkPagableValueSerialize;
+use dice::ValueSerialize;
 use dice_futures::cancellation::CancellationContext;
 use dupe::Dupe;
 use futures::FutureExt;
@@ -1227,6 +1230,10 @@ impl Key for ConfiguredTargetNodeKey {
     fn provide<'a>(&'a self, demand: &mut Demand<'a>) {
         demand.provide_value_with(|| BuildSignalsNodeKey::new(self.dupe()))
     }
+
+    fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
+        NoValueSerialize::<Self::Value>::new()
+    }
 }
 
 impl BuildSignalsNodeKeyImpl for ConfiguredTargetNodeKey {
@@ -1363,6 +1370,10 @@ async fn check_target_enabled_for_config(
                 _ => false,
             }
         }
+
+        fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
+            OkPagableValueSerialize::<Self::Value>::new()
+        }
     }
 
     let patterns = ctx
@@ -1428,6 +1439,10 @@ async fn get_dep_only_incompatible_custom_soft_error(
                 (Ok(x), Ok(y)) => x == y,
                 _ => false,
             }
+        }
+
+        fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
+            OkPagableValueSerialize::<Self::Value>::new()
         }
     }
 
