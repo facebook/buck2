@@ -45,9 +45,9 @@ pub(super) struct IoFileOpsDelegate {
 }
 
 impl IoFileOpsDelegate {
-    fn resolve(&self, path: &CellRelativePath) -> ProjectRelativePathBuf {
-        let cell_root = self.cells.get(self.cell).unwrap().path();
-        cell_root.as_project_relative_path().join(path)
+    fn resolve(&self, path: &CellRelativePath) -> buck2_error::Result<ProjectRelativePathBuf> {
+        let cell_root = self.cells.get(self.cell)?.path();
+        Ok(cell_root.as_project_relative_path().join(path))
     }
 
     fn get_cell_path(&self, path: &ProjectRelativePath) -> CellPath {
@@ -64,7 +64,7 @@ impl FileOpsDelegate for IoFileOpsDelegate {
         path: &'async_trait CellRelativePath,
     ) -> buck2_error::Result<ReadFileProxy> {
         Ok(ReadFileProxy::new_with_captures(
-            (self.resolve(path), ctx.global_data().get_io_provider()),
+            (self.resolve(path)?, ctx.global_data().get_io_provider()),
             |(project_path, io)| async move { io.read_file_if_exists(project_path).await },
         ))
     }
@@ -74,7 +74,7 @@ impl FileOpsDelegate for IoFileOpsDelegate {
         ctx: &mut DiceComputations<'_>,
         path: &'async_trait CellRelativePath,
     ) -> buck2_error::Result<Arc<[RawDirEntry]>> {
-        let project_path = self.resolve(path);
+        let project_path = self.resolve(path)?;
         let read_dir_cache = ctx
             .per_transaction_data()
             .data
@@ -103,7 +103,7 @@ impl FileOpsDelegate for IoFileOpsDelegate {
         ctx: &mut DiceComputations<'_>,
         path: &'async_trait CellRelativePath,
     ) -> buck2_error::Result<Option<RawPathMetadata>> {
-        let project_path = self.resolve(path);
+        let project_path = self.resolve(path)?;
 
         let res = ctx
             .global_data()
