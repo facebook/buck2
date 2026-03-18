@@ -204,6 +204,8 @@ fn tag_metadata(tag: ErrorTag) -> TagMetadata {
         ErrorTag::ThriftLoadshedding => rank!(environment),
         // Often caused by eden loadshedding
         ErrorTag::IoInputOutputError => rank!(environment),
+        ErrorTag::IoBadAddress => rank!(environment),
+        ErrorTag::IoStaleNfsHandle => rank!(environment),
 
         // Tier 0 errors
         ErrorTag::ServerJemallocAssert => rank!(tier0),

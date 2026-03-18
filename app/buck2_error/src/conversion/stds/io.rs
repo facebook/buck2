@@ -20,6 +20,10 @@ const ERROR_INTERNAL_ERROR: i32 = 1359;
 const ERROR_PRIVILEGE_NOT_HELD: i32 = 1314;
 const ERROR_NO_SYSTEM_RESOURCES: i32 = 1450;
 
+// https://github.com/apple/darwin-xnu/blob/main/bsd/sys/errno.h#L200
+// "Stale NFS file handle (os error 70)"
+const ERROR_STALE_NFS_HANDLE: i32 = 70;
+
 pub(crate) fn io_error_kind_to_error_tag(kind: io::ErrorKind) -> ErrorTag {
     match kind {
         io::ErrorKind::NotFound => ErrorTag::IoNotFound,
@@ -41,6 +45,7 @@ fn raw_os_error_tag(code: i32) -> Option<ErrorTag> {
         libc::ENOTCONN => Some(ErrorTag::IoNotConnected),
         libc::ECONNABORTED => Some(ErrorTag::IoConnectionAborted),
         libc::EIO => Some(ErrorTag::IoInputOutputError),
+        libc::EFAULT => Some(ErrorTag::IoBadAddress),
         _ => None,
     };
     if tag.is_some() {
@@ -56,6 +61,11 @@ fn raw_os_error_tag(code: i32) -> Option<ErrorTag> {
             ERROR_INTERNAL_ERROR => Some(ErrorTag::IoWindowsInternalError),
             ERROR_PRIVILEGE_NOT_HELD => Some(ErrorTag::IoWindowsPrivilegeNotHeld),
             ERROR_NO_SYSTEM_RESOURCES => Some(ErrorTag::IoWindowsNoSystemResources),
+            _ => None,
+        }
+    } else if cfg!(macos) {
+        match code {
+            ERROR_STALE_NFS_HANDLE => Some(ErrorTag::IoStaleNfsHandle),
             _ => None,
         }
     } else {
