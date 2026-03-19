@@ -33,6 +33,7 @@ _SUPPORTED_IOS_PLATFORMS = [
 ]
 
 _SUPPORTED_APPLETV_PLATFORMS = [
+    appletv_platforms.APPLETVOS_ARM64,
     appletv_platforms.APPLETVSIMULATOR_ARM64,
 ]
 
