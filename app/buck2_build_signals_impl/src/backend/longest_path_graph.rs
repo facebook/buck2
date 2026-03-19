@@ -8,6 +8,7 @@
  * above-listed licenses.
  */
 
+use std::collections::HashMap;
 use std::time::Duration;
 
 use buck2_analysis::analysis::calculation::AnalysisKey;
@@ -15,6 +16,7 @@ use buck2_build_signals::env::CriticalPathBackendName;
 use buck2_build_signals::env::NodeDuration;
 use buck2_build_signals::env::WaitingData;
 use buck2_build_signals::error::CriticalPathError;
+use buck2_build_signals::node_key::BuildSignalsNodeKey;
 use buck2_core::soft_error;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_critical_path::AddEdgesError;
@@ -30,6 +32,7 @@ use buck2_events::span::SpanId;
 use dupe::Dupe;
 use smallvec::SmallVec;
 
+use crate::AnalysisFinishNodeKey;
 use crate::BuildInfo;
 use crate::DetailedCriticalPath;
 use crate::DetailedCriticalPathEntry;
@@ -111,21 +114,41 @@ impl BuildListenerBackend for LongestPathGraphBackend {
         })
     }
 
-    fn finish(self) -> Result<BuildInfo, CriticalPathError> {
+    fn finish(
+        self,
+        anon_target_discovery_edges: HashMap<NodeKey, NodeKey>,
+    ) -> Result<BuildInfo, CriticalPathError> {
         let (graph, keys, data) = {
             let (graph, keys, data) = self.builder?.finish();
 
             let mut first_analysis = graph.allocate_vertex_data(OptionalVertexId::none());
             let mut n = 0;
 
+            // Add discovery edges for top-level targets: artifact nodes depend on the
+            // top-level analysis that first discovered them. The top-level command
+            // doesn't know about any actions until the top-level analysis has finished.
             for top_level_target in &self.top_level_targets {
                 // This is a bit wasteful, but transient and the volume is small.
-                let analysis = NodeKey::AnalysisKey(AnalysisKey(top_level_target.target.dupe()));
+                let analysis_key =
+                    NodeKey::AnalysisKey(AnalysisKey(top_level_target.target.dupe()));
                 let artifacts = &top_level_target.artifacts;
 
-                let analysis = match keys.get(&analysis) {
+                // If the analysis was split due to anon targets, prefer the finish key
+                // (Part 2) since that represents the full completion of analysis.
+                let finish_key = NodeKey::Dyn(
+                    "AnalysisFinishKey",
+                    BuildSignalsNodeKey::new(AnalysisFinishNodeKey {
+                        target: top_level_target.target.dupe(),
+                        target_rule_type_name: None,
+                    }),
+                );
+
+                let analysis = match keys.get(&finish_key) {
                     Some(k) => k,
-                    None => continue, // Nothing depends on this,
+                    None => match keys.get(&analysis_key) {
+                        Some(k) => k,
+                        None => continue, // Nothing depends on this,
+                    },
                 };
 
                 let mut queue = Vec::new();
@@ -166,6 +189,23 @@ impl BuildListenerBackend for LongestPathGraphBackend {
                         queue.extend(graph.iter_edges(i));
                         n += 1;
                     }
+                }
+            }
+
+            // Add discovery edges for anon targets: each anon target node depends on
+            // the analysis Part 1 that first discovered it.
+            for (anon_target_key, discovering_analysis_key) in &anon_target_discovery_edges {
+                let anon_vertex = match keys.get(anon_target_key) {
+                    Some(v) => v,
+                    None => continue,
+                };
+                let analysis_vertex = match keys.get(discovering_analysis_key) {
+                    Some(v) => v,
+                    None => continue,
+                };
+                if !first_analysis[anon_vertex].is_some() {
+                    first_analysis[anon_vertex] = analysis_vertex.into();
+                    n += 1;
                 }
             }
 
