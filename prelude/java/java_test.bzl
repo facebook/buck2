@@ -133,7 +133,7 @@ def build_junit_test(
         class_names = ctx.attrs.test_class_names_file
     else:
         expect(tests_java_library_info.library_output != None, "Built test library has no output, likely due to missing srcs")
-        class_names = ctx.actions.declare_output("class_names")
+        class_names = ctx.actions.declare_output("class_names", has_content_based_path = False)
         list_class_names_cmd = cmd_args([
             java_test_toolchain.list_class_names[RunInfo],
             "--jar",

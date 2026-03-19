@@ -28,7 +28,7 @@ def stamp_build_info(ctx: AnalysisContext, obj: Artifact, stamped_output: Artifa
         stem, ext = paths.split_extension(obj.short_path)
         if not stamped_output:
             name = stem.removesuffix(PRE_STAMPED_SUFFIX) if stem.endswith(PRE_STAMPED_SUFFIX) else stem + "-stamped"
-            stamped_output = ctx.actions.declare_output(name + ext)
+            stamped_output = ctx.actions.declare_output(name + ext, has_content_based_path = False)
 
         # This can be run remotely, but it's often cheaper to do this locally for large
         # binaries, especially on CI using limited hybrid

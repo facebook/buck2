@@ -94,7 +94,7 @@ _ManifestInfo = record(
 
 def _process_manifest(ctx, kind, info_tset, link_group_info):
     """Process a single manifest kind (plugin or socket), returning a _ManifestInfo record."""
-    argsfile = ctx.actions.declare_output("xplugins/{}_{}_usage_info.argsfile".format(ctx.attrs.name, kind))
+    argsfile = ctx.actions.declare_output("xplugins/{}_{}_usage_info.argsfile".format(ctx.attrs.name, kind), has_content_based_path = False)
     manifests = info_tset.project_as_args("artifacts")
 
     if link_group_info:

@@ -20,7 +20,7 @@ def apple_static_archive_impl(ctx: AnalysisContext) -> list[Provider]:
     libtool = ctx.attrs._apple_toolchain[AppleToolchainInfo].libtool
     static_archive_linker = ctx.attrs._apple_tools[AppleToolsInfo].static_archive_linker
     archive_name = ctx.attrs.name if ctx.attrs.archive_name == None else ctx.attrs.archive_name
-    output = ctx.actions.declare_output(archive_name)
+    output = ctx.actions.declare_output(archive_name, has_content_based_path = False)
 
     link_args = _get_static_link_args(ctx)
     validation_deps_outputs = get_validation_deps_outputs(ctx)

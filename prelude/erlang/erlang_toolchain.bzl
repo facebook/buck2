@@ -124,14 +124,14 @@ def _erlang_toolchain_impl(ctx: AnalysisContext) -> list[Provider]:
     ]
 
     # extract OTP boot files for include_erts releases (bin/start.boot, bin/no_dot_erlang.boot)
-    otp_start_boot = ctx.actions.declare_output("otp_start_boot")
+    otp_start_boot = ctx.actions.declare_output("otp_start_boot", has_content_based_path = False)
     ctx.actions.run(
         cmd_args(extract_from_otp, "bin/start.boot", otp_start_boot.as_output()),
         identifier = ctx.attrs.name + "_start_boot",
         category = "extract_otp_boot",
         env = env,
     )
-    otp_no_dot_erlang_boot = ctx.actions.declare_output("otp_no_dot_erlang_boot")
+    otp_no_dot_erlang_boot = ctx.actions.declare_output("otp_no_dot_erlang_boot", has_content_based_path = False)
     ctx.actions.run(
         cmd_args(extract_from_otp, "bin/no_dot_erlang.boot", otp_no_dot_erlang_boot.as_output()),
         identifier = ctx.attrs.name + "_no_dot_erlang_boot",
@@ -144,7 +144,7 @@ def _erlang_toolchain_impl(ctx: AnalysisContext) -> list[Provider]:
         erts_version = ctx.attrs.erts_version,
         otp_start_boot = otp_start_boot,
         otp_no_dot_erlang_boot = otp_no_dot_erlang_boot,
-        output = ctx.actions.declare_output("erts-{}".format(ctx.attrs.erts_version), dir = True),
+        output = ctx.actions.declare_output("erts-{}".format(ctx.attrs.erts_version), dir = True, has_content_based_path = False),
     )
     ctx.actions.run(
         cmd_args(extract_from_otp, "erts-{}".format("*" if ctx.attrs.erts_version == "dynamic" else ctx.attrs.erts_version), erts_toolchain_info.output.as_output()),
@@ -212,7 +212,7 @@ def _gen_parse_transform_beam(
         )
 
     # build beam
-    output = ctx.actions.declare_output(name, name + ".beam")
+    output = ctx.actions.declare_output(name, name + ".beam", has_content_based_path = False)
     _compile_toolchain_module(ctx, env, src, output.as_output(), erlc)
 
     return output, resource_dir
@@ -235,7 +235,7 @@ default_toolchain_script_args_post = cmd_args("-s", "erlang", "halt", "--")
 
 def _gen_toolchain_script(ctx: AnalysisContext, env: dict[str, str], script: Artifact, tools: Tools, utility_modules: Artifact) -> Tool:
     name = strip_extension(script.basename)
-    out = ctx.actions.declare_output(name, name + ".beam")
+    out = ctx.actions.declare_output(name, name + ".beam", has_content_based_path = False)
     _compile_toolchain_module(ctx, env, script, out.as_output(), tools.erlc)
     eval = cmd_args(name, ":main(init:get_plain_arguments())", delimiter = "")
     return cmd_args(
@@ -285,7 +285,7 @@ def _gen_util_beams(
         output = ctx.actions.declare_output(paths.join(
             "__build",
             paths.replace_extension(src.basename, ".beam"),
-        ))
+        ), has_content_based_path = False)
         _compile_toolchain_module(ctx, env, src, output.as_output(), erlc)
         beams.append(output)
 

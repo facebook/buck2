@@ -118,7 +118,7 @@ def _live_par_generated_files(
     artifacts = []
     artifacts.append((python_internal_tools.run_lpar_main, "__run_lpar_main__.py"))
 
-    lpar_bootstrap = ctx.actions.declare_output("_bootstrap.sh{}".format(output_suffix))
+    lpar_bootstrap = ctx.actions.declare_output("_bootstrap.sh{}".format(output_suffix), has_content_based_path = False)
     gen_bootstrap = cmd_args(python_toolchain.gen_lpar_bootstrap[RunInfo])
 
     # Add passthrough args
@@ -203,7 +203,7 @@ def _fail_at_build_time(
         python_internal_tools: PythonInternalToolsInfo,
         msg: str) -> PexProviders:
     error_message = ctx.actions.write("__error_message", msg)
-    dummy_output = ctx.actions.declare_output("__dummy_output")
+    dummy_output = ctx.actions.declare_output("__dummy_output", has_content_based_path = False)
     cmd = cmd_args([
         python_internal_tools.fail_with_message,
         error_message,
@@ -517,7 +517,7 @@ def _make_py_package_impl(
                 "Python toolchain does not provide make_py_package_standalone",
             )
     else:
-        symlink_tree_path = ctx.actions.declare_output("{}#link-tree".format(name), dir = True)
+        symlink_tree_path = ctx.actions.declare_output("{}#link-tree".format(name), dir = True, has_content_based_path = False)
 
     modules_args = _pex_modules_args(
         ctx,
@@ -532,7 +532,7 @@ def _make_py_package_impl(
         output_suffix,
     )
 
-    output = ctx.actions.declare_output("{}{}".format(name, ctx.attrs.extension or python_toolchain.pex_extension))
+    output = ctx.actions.declare_output("{}{}".format(name, ctx.attrs.extension or python_toolchain.pex_extension), has_content_based_path = False)
 
     bootstrap_args = _pex_bootstrap_args(
         python_toolchain,
@@ -670,10 +670,10 @@ def _make_py_package_live(
     sub_targets = {}
     name = "{}{}".format(ctx.attrs.name, output_suffix)
 
-    symlink_tree_path = ctx.actions.declare_output("{}#link-tree".format(name), dir = True)
+    symlink_tree_path = ctx.actions.declare_output("{}#link-tree".format(name), dir = True, has_content_based_path = False)
     runtime_files = [symlink_tree_path]
 
-    output = ctx.actions.declare_output("{}{}".format(name, ctx.attrs.extension or python_toolchain.pex_extension))
+    output = ctx.actions.declare_output("{}{}".format(name, ctx.attrs.extension or python_toolchain.pex_extension), has_content_based_path = False)
 
     generated_files = []
     generated_files.extend(common_generated_files)
@@ -789,7 +789,7 @@ def _make_py_package_live(
     cmd.add(cmd_args(generated_manifest.without_associated_artifacts(), format = "--generated={}"))
     runtime_files.append(generated_manifest)
 
-    state = ctx.actions.declare_output("{}-state.json".format(name))
+    state = ctx.actions.declare_output("{}-state.json".format(name), has_content_based_path = False)
     cmd.add(cmd_args(state.as_output(), format = "--state={}"))
     runtime_files.append(state)
     sub_targets["state"] = [DefaultInfo(default_output = state)]
@@ -1301,7 +1301,7 @@ def _generate_manifest_module(
 
     if manifest_module_entries == None:
         return None
-    module = ctx.actions.declare_output("manifest/__manifest__.py")
+    module = ctx.actions.declare_output("manifest/__manifest__.py", has_content_based_path = False)
     entries_json = ctx.actions.write_json("manifest/entries.json", manifest_module_entries)
     src_manifests_path = ctx.actions.write(
         "__module_manifests.txt",
@@ -1316,7 +1316,7 @@ def _generate_manifest_module(
     )
     ctx.actions.run(cmd, category = "par", identifier = "manifest-module")
 
-    json_entries_output = ctx.actions.declare_output("manifest/__manifest__.json")
+    json_entries_output = ctx.actions.declare_output("manifest/__manifest__.json", has_content_based_path = False)
     ctx.actions.copy_file(json_entries_output.as_output(), entries_json)
 
     src_manifest = ctx.actions.write_json(

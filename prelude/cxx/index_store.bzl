@@ -52,7 +52,7 @@ def merge_index_store(
         if len(index_stores) == 1:
             return index_stores[0]
 
-    merged_index_store = actions.declare_output(merge_output_dir_name)
+    merged_index_store = actions.declare_output(merge_output_dir_name, has_content_based_path = False)
 
     cmd = cmd_args([merge_index_store_tool])
     cmd.add(["--dest", merged_index_store.as_output()])

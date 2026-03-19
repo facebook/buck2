@@ -59,7 +59,7 @@ def android_aar_impl(ctx: AnalysisContext) -> list[Provider]:
     ) for library_output in android_binary_native_library_info.generated_java_code])
 
     jars = [dep.jar for dep in java_packaging_deps if dep.jar]
-    classes_jar = ctx.actions.declare_output("classes.jar")
+    classes_jar = ctx.actions.declare_output("classes.jar", has_content_based_path = False)
     java_toolchain = ctx.attrs._java_toolchain[JavaToolchainInfo]
     classes_jar_cmd = cmd_args([
         java_toolchain.jar_builder,
@@ -83,7 +83,7 @@ def android_aar_impl(ctx: AnalysisContext) -> list[Provider]:
     sub_targets = {}
     dependency_sources_jars = [dep.sources_jar for dep in java_packaging_deps if dep.sources_jar]
     if dependency_sources_jars:
-        combined_sources_jar = ctx.actions.declare_output("sources.jar")
+        combined_sources_jar = ctx.actions.declare_output("sources.jar", has_content_based_path = False)
         java_toolchain = ctx.attrs._java_toolchain[JavaToolchainInfo]
         combined_sources_jar_cmd = cmd_args([
             java_toolchain.jar_builder,
@@ -113,7 +113,7 @@ def android_aar_impl(ctx: AnalysisContext) -> list[Provider]:
     if resource_infos:
         res_dirs = [resource_info.res for resource_info in resource_infos if resource_info.res]
         if ctx.attrs.package_resources and res_dirs:
-            merged_resource_sources_dir = ctx.actions.declare_output("merged_resource_sources_dir/res", dir = True)
+            merged_resource_sources_dir = ctx.actions.declare_output("merged_resource_sources_dir/res", dir = True, has_content_based_path = False)
             merge_resource_sources_cmd = cmd_args([
                 android_toolchain.merge_android_resource_sources[RunInfo],
                 "--resource-paths",
@@ -139,7 +139,7 @@ def android_aar_impl(ctx: AnalysisContext) -> list[Provider]:
 
     entries_file = ctx.actions.write("entries.txt", entries)
 
-    aar = ctx.actions.declare_output("{}.aar".format(ctx.label.name))
+    aar = ctx.actions.declare_output("{}.aar".format(ctx.label.name), has_content_based_path = False)
     create_aar_cmd = cmd_args(
         [
             android_toolchain.aar_builder,

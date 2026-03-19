@@ -337,7 +337,7 @@ def resolve_targets_impl(ctx: bxl.Context) -> None:
         expanded_targets = targets
         resolved_deps = gather_unconfigured_deps(ctx, targets)
 
-    artifact = actions.declare_output("resolve_targets.json")
+    artifact = actions.declare_output("resolve_targets.json", has_content_based_path = False)
     artifacts = actions.write_json(
         artifact,
         ExpandedAndResolved(

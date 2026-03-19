@@ -776,7 +776,7 @@ def _compile_object(
     )
 
 def _compile_modularization_dependency_graph(ctx: AnalysisContext, toolchain: SwiftToolchainInfo, shared_flags: cmd_args, srcs: list[CxxSrcWithFlags]) -> Artifact:
-    modularization_dependecy_graph_output = ctx.actions.declare_output("__modularization_dependency_graph__/swift_{}.dot".format(get_module_name(ctx)))
+    modularization_dependecy_graph_output = ctx.actions.declare_output("__modularization_dependency_graph__/swift_{}.dot".format(get_module_name(ctx)), has_content_based_path = False)
     cmd = cmd_args(
         "-emit-modularization-dependency-dot-graph",
         modularization_dependecy_graph_output.as_output(),
@@ -838,7 +838,7 @@ def _compile_index_store(
     # We solve this by declaring a directory as the buck output, and telling swiftc that
     # we want all our .o files there. Our target will then succeed whether or not we
     # create a .o file.
-    objects_dir = ctx.actions.declare_output("__indexstore__/objects", dir = True)
+    objects_dir = ctx.actions.declare_output("__indexstore__/objects", dir = True, has_content_based_path = False)
 
     sh_cmd = cmd_args([
         "mkdir",
@@ -861,7 +861,7 @@ def _compile_index_store(
             "object": cmd_args(objects_dir, format = "{}/" + src.file.basename + ".o", delimiter = ""),
         }
 
-    index_store_output = ctx.actions.declare_output("__indexstore__/swift_{}".format(module_name), dir = True)
+    index_store_output = ctx.actions.declare_output("__indexstore__/swift_{}".format(module_name), dir = True, has_content_based_path = False)
     additional_flags = cmd_args(([] if _INDEX_SYSTEM_MODULES else ["-index-ignore-system-modules"]) + [
         "-index-store-path",
         index_store_output.as_output(),
@@ -1467,7 +1467,7 @@ def _create_compilation_database(
     mk_comp_db = swift_toolchain.mk_swift_comp_db
 
     identifier = module_name + ".swift_comp_db.json"
-    cdb_artifact = ctx.actions.declare_output(identifier)
+    cdb_artifact = ctx.actions.declare_output(identifier, has_content_based_path = False)
 
     srcs_args = cmd_args([s.file for s in srcs])
 

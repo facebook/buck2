@@ -42,7 +42,7 @@ def get_test_frameworks_bundle_parts(ctx: AnalysisContext, swift_support_needed:
 
 def _get_object_from_platform_path(ctx: AnalysisContext, platform_relative_path: str) -> AppleBundlePart:
     toolchain = ctx.attrs._apple_toolchain[AppleToolchainInfo]
-    copied_framework = ctx.actions.declare_output(paths.basename(platform_relative_path))
+    copied_framework = ctx.actions.declare_output(paths.basename(platform_relative_path), has_content_based_path = False)
 
     # We have to copy because:
     # 1) Platform path might be a string (e.g. for Xcode toolchains)

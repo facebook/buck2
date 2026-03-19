@@ -35,7 +35,7 @@ def check_for_duplicate_classes_for_pre_dexed_libs(
 
     if num_items == 0:
         # No class names to check, just create empty validation output
-        validation_output = ctx.actions.declare_output("validation_output.txt")
+        validation_output = ctx.actions.declare_output("validation_output.txt", has_content_based_path = False)
         ctx.actions.write(validation_output, "No duplicate class names found")
         return validation_output
 
@@ -59,8 +59,8 @@ def check_for_duplicate_classes_for_pre_dexed_libs(
         consolidated_files.append(consolidated_file)
 
     # Run duplicate class checker on consolidated files
-    validation_output = ctx.actions.declare_output("validation_output.txt")
-    consolidated_files_list = ctx.actions.declare_output("consolidated_files_list.txt")
+    validation_output = ctx.actions.declare_output("validation_output.txt", has_content_based_path = False)
+    consolidated_files_list = ctx.actions.declare_output("consolidated_files_list.txt", has_content_based_path = False)
     ctx.actions.write(
         consolidated_files_list,
         consolidated_files,
@@ -90,11 +90,13 @@ def _consolidate_class_names_batch(
     """Consolidate a batch of class name files into a single JSON file."""
     input_mapping_file = ctx.actions.declare_output(
         "consolidate_batch_{}_input.json".format(batch_num),
+        has_content_based_path = False,
     )
     ctx.actions.write_json(input_mapping_file, target_name_to_class_name_mapping)
 
     consolidated_output = ctx.actions.declare_output(
         "consolidated_class_names_batch_{}.json".format(batch_num),
+        has_content_based_path = False,
     )
 
     ctx.actions.run(
@@ -115,8 +117,8 @@ def _consolidate_class_names_batch(
 def check_for_duplicate_classes_for_non_pre_dexed_jars(
         ctx: AnalysisContext,
         jar_to_owning_target_mapping: dict[Artifact, TargetLabel]) -> Artifact:
-    validation_output = ctx.actions.declare_output("validation_output.txt")
-    jar_to_owning_target_map_file = ctx.actions.declare_output("jar_to_owning_target_map_file.txt")
+    validation_output = ctx.actions.declare_output("validation_output.txt", has_content_based_path = False)
+    jar_to_owning_target_map_file = ctx.actions.declare_output("jar_to_owning_target_map_file.txt", has_content_based_path = False)
     ctx.actions.write_json(
         jar_to_owning_target_map_file,
         jar_to_owning_target_mapping,

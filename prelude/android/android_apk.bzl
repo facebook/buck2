@@ -141,7 +141,7 @@ def build_apk(
         compress_resources_dot_arsc: bool = False,
         validation_deps_outputs: [list[Artifact], None] = None,
         packaging_options: dict | None = None) -> Artifact:
-    output_apk = actions.declare_output("{}.apk".format(output_filename))
+    output_apk = actions.declare_output("{}.apk".format(output_filename), has_content_based_path = False)
 
     apk_builder_args = cmd_args(
         android_toolchain.apk_builder[RunInfo],

@@ -149,8 +149,8 @@ def unarchive(
         # Tar excludes files using globs, but we take regexes, so we need to
         # apply our regexes onto the file listing and produce an exclusion list
         # that just has strings.
-        exclusions = ctx.actions.declare_output(output_name + "_exclusions")
-        contents = ctx.actions.declare_output(output_name + "_contents")
+        exclusions = ctx.actions.declare_output(output_name + "_exclusions", has_content_based_path = False)
+        contents = ctx.actions.declare_output(output_name + "_contents", has_content_based_path = False)
         tar_script, _ = ctx.actions.write(
             "{}_listing.{}".format(output_name, ext),
             [cmd_args(
@@ -189,7 +189,7 @@ def unarchive(
     unarchive_cmd, needs_strip_prefix = _unarchive_cmd(ext_type, exec_is_windows, archive, strip_prefix)
 
     output = ctx.actions.declare_output(output_name, dir = True, has_content_based_path = has_content_based_path)
-    script_output = ctx.actions.declare_output(output_name + "_tmp", dir = True) if needs_strip_prefix else output
+    script_output = ctx.actions.declare_output(output_name + "_tmp", dir = True, has_content_based_path = False) if needs_strip_prefix else output
 
     script, _ = ctx.actions.write(
         "{}_unpack.{}".format(output_name, ext),

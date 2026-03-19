@@ -79,7 +79,7 @@ def dwp(
         local_only: bool = False,
         from_exe = True) -> Artifact:
     # gdb/lldb expect to find a file named $file.dwp next to $file.
-    output = ctx.actions.declare_output(obj.short_path + name_suffix + ".dwp")
+    output = ctx.actions.declare_output(obj.short_path + name_suffix + ".dwp", has_content_based_path = False)
     run_dwp_action(
         ctx,
         toolchain,

@@ -229,12 +229,12 @@ def cxx_gnu_dist_link(
                 add_linkable(idx, linkable)
                 for obj in linkable.objects:
                     name = name_for_obj(link_name, obj)
-                    bc_output = ctx.actions.declare_output(name + ".thinlto.bc")
-                    plan_output = ctx.actions.declare_output(name + ".opt.plan")
-                    opt_output = ctx.actions.declare_output(name + ".opt.o")
+                    bc_output = ctx.actions.declare_output(name + ".thinlto.bc", has_content_based_path = False)
+                    plan_output = ctx.actions.declare_output(name + ".opt.plan", has_content_based_path = False)
+                    opt_output = ctx.actions.declare_output(name + ".opt.o", has_content_based_path = False)
                     external_debug_info = None
                     if split_debug_mode == SplitDebugMode("split"):
-                        external_debug_info = ctx.actions.declare_output(name + ".opt.dwo")
+                        external_debug_info = ctx.actions.declare_output(name + ".opt.dwo", has_content_based_path = False)
                     elif split_debug_mode == SplitDebugMode("single"):
                         external_debug_info = opt_output
 
@@ -260,15 +260,15 @@ def cxx_gnu_dist_link(
                 # actions on the objects that the manifest reports.
 
                 name = name_for_obj(link_name, linkable.archive.artifact)
-                archive_manifest = ctx.actions.declare_output("%s/%s/manifest.json" % (prepare_cat, name))
-                archive_objects = ctx.actions.declare_output("%s/%s/objects" % (prepare_cat, name), dir = True)
-                archive_opt_objects = ctx.actions.declare_output("%s/%s/opt_objects" % (prepare_cat, name), dir = True)
-                archive_indexes = ctx.actions.declare_output("%s/%s/indexes" % (prepare_cat, name), dir = True)
-                archive_plan = ctx.actions.declare_output("%s/%s/plan.json" % (prepare_cat, name))
-                archive_opt_manifest = ctx.actions.declare_output("%s/%s/opt_objects.manifest" % (prepare_cat, name))
+                archive_manifest = ctx.actions.declare_output("%s/%s/manifest.json" % (prepare_cat, name), has_content_based_path = False)
+                archive_objects = ctx.actions.declare_output("%s/%s/objects" % (prepare_cat, name), dir = True, has_content_based_path = False)
+                archive_opt_objects = ctx.actions.declare_output("%s/%s/opt_objects" % (prepare_cat, name), dir = True, has_content_based_path = False)
+                archive_indexes = ctx.actions.declare_output("%s/%s/indexes" % (prepare_cat, name), dir = True, has_content_based_path = False)
+                archive_plan = ctx.actions.declare_output("%s/%s/plan.json" % (prepare_cat, name), has_content_based_path = False)
+                archive_opt_manifest = ctx.actions.declare_output("%s/%s/opt_objects.manifest" % (prepare_cat, name), has_content_based_path = False)
                 archive_dwo_dir = None
                 if split_debug_mode == SplitDebugMode("split"):
-                    archive_dwo_dir = ctx.actions.declare_output("%s/%s/dwo" % (prepare_cat, name), dir = True)
+                    archive_dwo_dir = ctx.actions.declare_output("%s/%s/dwo" % (prepare_cat, name), dir = True, has_content_based_path = False)
                 prepare_args = cmd_args([
                     lto_prepare,
                     "--manifest-out",
@@ -307,11 +307,11 @@ def cxx_gnu_dist_link(
                 add_linkable(idx, linkable)
                 index_link_data.append(None)
 
-    index_argsfile_out = ctx.actions.declare_output(output.short_path + ".thinlto_index_argsfile")
-    final_link_index = ctx.actions.declare_output(output.short_path + ".final_link_index")
-    pre_flags_argsfile = ctx.actions.declare_output(output.short_path + ".thinlto_pre_flags_argsfile")
-    linkables_argsfile = ctx.actions.declare_output(output.short_path + ".thinlto_linkables_argsfile")
-    post_flags_argsfile = ctx.actions.declare_output(output.short_path + ".thinlto_post_flags_argsfile")
+    index_argsfile_out = ctx.actions.declare_output(output.short_path + ".thinlto_index_argsfile", has_content_based_path = False)
+    final_link_index = ctx.actions.declare_output(output.short_path + ".final_link_index", has_content_based_path = False)
+    pre_flags_argsfile = ctx.actions.declare_output(output.short_path + ".thinlto_pre_flags_argsfile", has_content_based_path = False)
+    linkables_argsfile = ctx.actions.declare_output(output.short_path + ".thinlto_linkables_argsfile", has_content_based_path = False)
+    post_flags_argsfile = ctx.actions.declare_output(output.short_path + ".thinlto_post_flags_argsfile", has_content_based_path = False)
 
     def dynamic_plan(link_plan: Artifact, index_argsfile_out: Artifact, final_link_index: Artifact, pre_flags_argsfile: Artifact, linkables_argsfile: Artifact, post_flags_argsfile: Artifact) -> None:
         def plan(ctx: AnalysisContext, artifacts, outputs):
@@ -421,7 +421,7 @@ def cxx_gnu_dist_link(
             )
 
             index_cat = make_cat("thin_lto_index")
-            index_file_out = ctx.actions.declare_output(make_id(index_cat) + "/index")
+            index_file_out = ctx.actions.declare_output(make_id(index_cat) + "/index", has_content_based_path = False)
             index_out_dir = cmd_args(index_file_out.as_output(), parent = 1)
 
             index_cmd_parts = cxx_link_cmd_parts(cxx_toolchain, executable_link)
@@ -506,7 +506,7 @@ def cxx_gnu_dist_link(
         plan_outputs.extend([link_plan.as_output(), index_argsfile_out.as_output(), final_link_index.as_output(), pre_flags_argsfile.as_output(), linkables_argsfile.as_output(), post_flags_argsfile.as_output()])
         ctx.actions.dynamic_output(dynamic = plan_inputs, inputs = [], outputs = plan_outputs, f = plan)
 
-    link_plan_out = ctx.actions.declare_output(output.short_path + ".link-plan.json")
+    link_plan_out = ctx.actions.declare_output(output.short_path + ".link-plan.json", has_content_based_path = False)
     dynamic_plan(link_plan = link_plan_out, index_argsfile_out = index_argsfile_out, final_link_index = final_link_index, pre_flags_argsfile = pre_flags_argsfile, linkables_argsfile = linkables_argsfile, post_flags_argsfile = post_flags_argsfile)
 
     def prepare_opt_flags(link_infos: list[LinkInfo]) -> cmd_args:
@@ -526,7 +526,7 @@ def cxx_gnu_dist_link(
     # Create an argsfile and dump all the flags to be processed later by lto_opt.
     # These flags are common to all opt actions, we don't need an argfile for each action, one
     # for the entire link unit will do.
-    opt_argsfile = ctx.actions.declare_output(output.short_path + ".lto_opt_argsfile")
+    opt_argsfile = ctx.actions.declare_output(output.short_path + ".lto_opt_argsfile", has_content_based_path = False)
     ctx.actions.write(opt_argsfile.as_output(), opt_common_flags, allow_args = True)
 
     # We declare a separate dynamic_output for every object file. It would
@@ -602,7 +602,7 @@ def cxx_gnu_dist_link(
                 base_dir = plan_json["base_dir"]
                 source_path = paths.relativize(entry["path"], base_dir)
                 if not entry["is_bc"]:
-                    opt_object = ctx.actions.declare_output("%s/%s" % (make_cat("thin_lto_opt_copy"), source_path))
+                    opt_object = ctx.actions.declare_output("%s/%s" % (make_cat("thin_lto_opt_copy"), source_path), has_content_based_path = False)
                     output_manifest.add(opt_object)
                     copy_cmd = cmd_args([
                         lto_copy,
@@ -615,7 +615,7 @@ def cxx_gnu_dist_link(
                     output_dir[source_path] = opt_object
                     continue
 
-                opt_object = ctx.actions.declare_output("%s/%s" % (make_cat("thin_lto_opt_archive"), source_path))
+                opt_object = ctx.actions.declare_output("%s/%s" % (make_cat("thin_lto_opt_archive"), source_path), has_content_based_path = False)
                 output_manifest.add(opt_object)
                 output_dir[source_path] = opt_object
 
@@ -631,7 +631,7 @@ def cxx_gnu_dist_link(
                 elif split_debug_mode == SplitDebugMode("split"):
                     opt_cmd.add("--split-dwarf=split")
                     dwo_path = source_path.removesuffix(".o") + ".dwo"
-                    dwo_output = ctx.actions.declare_output("%s/%s" % (make_cat("thin_lto_opt_archive"), dwo_path))
+                    dwo_output = ctx.actions.declare_output("%s/%s" % (make_cat("thin_lto_opt_archive"), dwo_path), has_content_based_path = False)
                     dwo_dir[dwo_path] = dwo_output
                     opt_cmd.add("--dwo", dwo_output.as_output())
 
@@ -757,7 +757,7 @@ def cxx_gnu_dist_link(
         split_debug_output = None
 
     if dwp_tool_available:
-        dwp_output = ctx.actions.declare_output(output.short_path.removesuffix("-wrapper") + ".dwp")
+        dwp_output = ctx.actions.declare_output(output.short_path.removesuffix("-wrapper") + ".dwp", has_content_based_path = False)
 
         def dynamic_run_dwp_action(ctx: AnalysisContext, artifacts, outputs):
             plan = artifacts[link_plan_out].read_json()

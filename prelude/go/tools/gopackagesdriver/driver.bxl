@@ -128,7 +128,7 @@ def _driver(ctx):
     ctx.output.ensure_multiple([a for a in artifacts_to_ensure if build_results[a].is_ok()])
 
     actions = ctx.bxl_actions().actions
-    dynamic_out = actions.declare_output("dynamic_out.json")
+    dynamic_out = actions.declare_output("dynamic_out.json", has_content_based_path = False)
 
     # We have to create a closure to use `dynamic_output` to read `go list` output
     def produce_result_json(ctx, artifacts, outputs):

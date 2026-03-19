@@ -164,7 +164,7 @@ def generate_rustdoc(
     )
 
     subdir = common_args.subdir + "-rustdoc"
-    output = ctx.actions.declare_output(subdir)
+    output = ctx.actions.declare_output(subdir, has_content_based_path = False)
 
     plain_env, path_env = process_env(compile_ctx, toolchain_info.rustdoc_env | ctx.attrs.env)
     plain_env["RUSTDOC_BUCK_TARGET"] = cmd_args(str(ctx.label.raw_target()))
@@ -227,7 +227,7 @@ def generate_rustdoc_coverage(
     )
 
     file = common_args.subdir + "-rustdoc-coverage"
-    output = ctx.actions.declare_output(file)
+    output = ctx.actions.declare_output(file, has_content_based_path = False)
 
     plain_env, path_env = process_env(compile_ctx, ctx.attrs.env)
     plain_env["RUSTDOC_BUCK_TARGET"] = cmd_args(str(ctx.label.raw_target()))
@@ -631,8 +631,8 @@ def rust_compile(
         dwp_inputs.append(link_args_output.link_args)
 
         if deferred_link_enabled:
-            out_argsfile = ctx.actions.declare_output(common_args.subdir + "/extracted-link-args.args")
-            out_artifacts_dir = ctx.actions.declare_output(common_args.subdir + "/extracted-link-artifacts", dir = True)
+            out_argsfile = ctx.actions.declare_output(common_args.subdir + "/extracted-link-args.args", has_content_based_path = False)
+            out_artifacts_dir = ctx.actions.declare_output(common_args.subdir + "/extracted-link-artifacts", dir = True, has_content_based_path = False)
             linker_cmd = cmd_args(
                 compile_ctx.internal_tools_info.extract_link_action,
                 cmd_args(out_argsfile.as_output(), format = "--out_argsfile={}"),
@@ -855,7 +855,7 @@ def symlinked_dirs(
         cwd: Artifact | None) -> cmd_args:
     name = "{}-symlinked_dirs".format(prefix)
 
-    transitive_dependency_dir = ctx.actions.declare_output(name, dir = True)
+    transitive_dependency_dir = ctx.actions.declare_output(name, dir = True, has_content_based_path = False)
 
     artifacts = transitive_deps.project_as_json("artifacts")
 
@@ -863,7 +863,7 @@ def symlinked_dirs(
     # because there can be a lot of them. This avoids running out of command
     # line length, particularly on Windows.
     artifacts_json = ctx.actions.write_json(
-        ctx.actions.declare_output("{}-symlinked_dirs.json".format(prefix)),
+        ctx.actions.declare_output("{}-symlinked_dirs.json".format(prefix), has_content_based_path = False),
         artifacts,
         pretty = True,
     )
@@ -1384,7 +1384,7 @@ def _rustc_emit(
         filename = subdir + "/" + output_filename(compile_ctx, simple_crate, emit, params, extra_hash)
         crate_name_and_extra_for_profile = simple_crate + extra_hash
 
-        emit_output = ctx.actions.declare_output(filename)
+        emit_output = ctx.actions.declare_output(filename, has_content_based_path = False)
 
     if emit == Emit("expand"):
         emit_env["RUSTC_BOOTSTRAP"] = "1"
@@ -1434,11 +1434,11 @@ def _rustc_emit(
         # Strip file extension from directory name.
         base, _ext = paths.split_extension(output_filename(compile_ctx, simple_crate, emit, params))
         extra_dir = subdir + "/extras/" + base
-        extra_out = ctx.actions.declare_output(extra_dir, dir = True)
+        extra_out = ctx.actions.declare_output(extra_dir, dir = True, has_content_based_path = False)
         emit_args.add(cmd_args(extra_out.as_output(), format = "--out-dir={}"))
 
         if incremental_enabled:
-            incremental_out = ctx.actions.declare_output("{}/extras/incremental".format(subdir))
+            incremental_out = ctx.actions.declare_output("{}/extras/incremental".format(subdir), has_content_based_path = False)
             incremental_cmd = cmd_args(incremental_out.as_output(), format = "-Cincremental={}")
             emit_args.add(incremental_cmd)
 
@@ -1446,7 +1446,7 @@ def _rustc_emit(
             emit_args.add("-Zllvm-time-trace=yes")
             profile_out = extra_out.project(crate_name_and_extra_for_profile + ".llvm_timings.json")
         elif profile_mode == ProfileMode("self-profile"):
-            self_profile = ctx.actions.declare_output("{}/extra/self-profile".format(subdir), dir = True)
+            self_profile = ctx.actions.declare_output("{}/extra/self-profile".format(subdir), dir = True, has_content_based_path = False)
             emit_args.add("-Zself-profile-events=default,args")
             emit_args.add(cmd_args("-Zself-profile=", self_profile.as_output(), delimiter = ""))
             profile_out = self_profile
@@ -1498,8 +1498,8 @@ def _rustc_invoke(
 
     # Save diagnostic outputs
     diag = "clippy" if is_clippy else "diag"
-    diag_json = ctx.actions.declare_output("{}-{}.json".format(prefix, diag))
-    diag_txt = ctx.actions.declare_output("{}-{}.txt".format(prefix, diag))
+    diag_json = ctx.actions.declare_output("{}-{}.json".format(prefix, diag), has_content_based_path = False)
+    diag_txt = ctx.actions.declare_output("{}-{}.txt".format(prefix, diag), has_content_based_path = False)
 
     compile_cmd = cmd_args(
         cmd_args(diag_json.as_output(), format = "--diag-json={}"),
@@ -1519,7 +1519,7 @@ def _rustc_invoke(
     build_status = None
     if infallible_diagnostics:
         # Build status for fail filter
-        build_status = ctx.actions.declare_output("{}_build_status-{}.json".format(prefix, diag))
+        build_status = ctx.actions.declare_output("{}_build_status-{}.json".format(prefix, diag), has_content_based_path = False)
         compile_cmd.add(cmd_args(build_status.as_output(), format = "--failure-filter={}"))
         for out in required_outputs:
             compile_cmd.add("--required-output", out.short_path, out.as_output())

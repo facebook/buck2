@@ -143,11 +143,11 @@ def _rust_binary_common(
     if enable_late_build_info_stamping:
         allow_cache_upload = True
         unstamped_name = output_filename(compile_ctx, simple_crate, Emit("link"), params, "-unstamped")
-        predeclared_output = ctx.actions.declare_output(unstamped_name)
-        final_output = ctx.actions.declare_output(name)
+        predeclared_output = ctx.actions.declare_output(unstamped_name, has_content_based_path = False)
+        final_output = ctx.actions.declare_output(name, has_content_based_path = False)
     else:
         # If not using late build info stamping, then the output will be stamped eagerly in rust_compile
-        predeclared_output = ctx.actions.declare_output(name)
+        predeclared_output = ctx.actions.declare_output(name, has_content_based_path = False)
         final_output = predeclared_output
 
     build_graph_info = new_build_graph_info(ctx, cxx_deps)

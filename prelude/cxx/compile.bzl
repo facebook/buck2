@@ -383,6 +383,7 @@ def _prepare_cxx_compilation(
         diagnostics = actions.declare_output(
             "__diagnostics__",
             "{}.diag.txt".format(short_path),
+            has_content_based_path = False,
         )
 
     # Declare index store upfront using factory.declare() if available

@@ -305,7 +305,7 @@ def gen_shared_libs_action(
     to the corresponding shlibs.
     """
 
-    output = actions.declare_output(out, dir = dir)
+    output = actions.declare_output(out, dir = dir, has_content_based_path = False)
 
     def func(actions, artifacts, output):
         def resolve_soname(soname):
@@ -394,7 +394,7 @@ def extract_soname_from_shlib(
     """
     Extract the SONAME from a shared library into a file.
     """
-    soname = actions.declare_output(name)
+    soname = actions.declare_output(name, has_content_based_path = False)
     cmd = cmd_args(
         "sh",
         "-c",

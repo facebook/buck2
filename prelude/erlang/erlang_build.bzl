@@ -159,7 +159,7 @@ def _merged_deps_file(
 
     name = "{}-private".format(name) if is_private else name
 
-    merged_file = ctx.actions.declare_output(_DEP_FILES_DIR, "{}.merged.dep".format(name))
+    merged_file = ctx.actions.declare_output(_DEP_FILES_DIR, "{}.merged.dep".format(name), has_content_based_path = False)
     deps_files_json = ctx.actions.write_json(merged_file.short_path + ".json", deps_files, with_inputs = True)
 
     cmd = cmd_args(toolchain.dependency_merger, merged_file.as_output(), deps_files_json)
@@ -192,7 +192,7 @@ def _generate_beam_artifacts(
     beam_mapping = {}
     for erl in src_artifacts:
         module = module_name(erl)
-        beam_mapping[module] = ctx.actions.declare_output(ebin, "{}.beam".format(module))
+        beam_mapping[module] = ctx.actions.declare_output(ebin, "{}.beam".format(module), has_content_based_path = False)
 
     # detect conflicts
     for key in beam_mapping:
@@ -226,7 +226,7 @@ def _get_deps_files(
     return {src.basename: _get_deps_file(ctx, toolchain, src) for src in srcs}
 
 def _get_deps_file(ctx: AnalysisContext, toolchain: Toolchain, src: Artifact) -> Artifact:
-    dependency_json = ctx.actions.declare_output(_DEP_FILES_DIR, "{}.dep".format(src.short_path))
+    dependency_json = ctx.actions.declare_output(_DEP_FILES_DIR, "{}.dep".format(src.short_path), has_content_based_path = False)
 
     _run_with_env(
         ctx,
@@ -243,7 +243,7 @@ def _build_xyrl(
         xyrl: Artifact,
         custom_include_opt: str) -> Artifact:
     """Generate an erl file out of an xrl or yrl input file."""
-    output = ctx.actions.declare_output(_GENERATED_DIR, "{}.erl".format(module_name(xyrl)))
+    output = ctx.actions.declare_output(_GENERATED_DIR, "{}.erl".format(module_name(xyrl)), has_content_based_path = False)
     erlc = toolchain.otp_binaries.erlc
     custom_include = getattr(ctx.attrs, custom_include_opt, None)
     cmd = cmd_args(erlc)
@@ -271,7 +271,7 @@ def _build_erl(
         output: Artifact) -> None:
     """Compile erl files into beams."""
 
-    final_dep_file = ctx.actions.declare_output(_DEP_FILES_DIR, "{}.final.dep".format(src.short_path))
+    final_dep_file = ctx.actions.declare_output(_DEP_FILES_DIR, "{}.final.dep".format(src.short_path), has_content_based_path = False)
     initial_dep_file = beam_deps_files[src.basename]
     _run_with_env(
         ctx,

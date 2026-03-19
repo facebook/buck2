@@ -17,7 +17,7 @@ def csharp_library_impl(ctx: AnalysisContext) -> list[Provider]:
     dll_name = "{}.dll".format(ctx.attrs.name) if not ctx.attrs.dll_name else ctx.attrs.dll_name
 
     # Declare that this rule will produce a dll.
-    library = ctx.actions.declare_output(dll_name)
+    library = ctx.actions.declare_output(dll_name, has_content_based_path = False)
 
     # Create a command invoking a wrapper script that calls csc.exe to compile the .dll.
     cmd = [toolchain.csc]

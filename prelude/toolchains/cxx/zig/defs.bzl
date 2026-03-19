@@ -173,7 +173,7 @@ ZigDistributionInfo = provider(
 )
 
 def _zig_distribution_impl(ctx: AnalysisContext) -> list[Provider]:
-    dst = ctx.actions.declare_output("zig")
+    dst = ctx.actions.declare_output("zig", has_content_based_path = False)
     path_tpl = "{}/" + ctx.attrs.prefix + "/zig" + ctx.attrs.suffix
     src = cmd_args(ctx.attrs.dist[DefaultInfo].default_outputs[0], format = path_tpl)
     ctx.actions.run(
@@ -223,11 +223,11 @@ def _http_archive_impl(ctx: AnalysisContext) -> list[Provider]:
         fail("Unknown archive type in URL '{}'".format(url))
 
     # Download archive.
-    archive = ctx.actions.declare_output("archive." + ext)
+    archive = ctx.actions.declare_output("archive." + ext, has_content_based_path = False)
     ctx.actions.download_file(archive.as_output(), url, sha256 = ctx.attrs.sha256)
 
     # Unpack archive to output directory.
-    output = ctx.actions.declare_output(ctx.label.name)
+    output = ctx.actions.declare_output(ctx.label.name, has_content_based_path = False)
     script, _ = ctx.actions.write(
         "unpack.sh",
         [

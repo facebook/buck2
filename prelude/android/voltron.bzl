@@ -171,7 +171,7 @@ def _get_base_cmd_and_output(
     }
     application_module_configs_file = actions.write_json("application_module_configs.json", application_module_configs_map)
     application_module_dependencies_file = actions.write_json("application_module_dependencies.json", application_module_dependencies or {})
-    output = actions.declare_output("apk_module_metadata.txt")
+    output = actions.declare_output("apk_module_metadata.txt", has_content_based_path = False)
 
     cmd = cmd_args([
         android_toolchain.apk_module_graph[RunInfo],

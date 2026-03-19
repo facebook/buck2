@@ -57,7 +57,7 @@ def _analyze_artifacts(
     label_to_analysis = {}
     for label, inputs in label_to_artifacts.items():
         for input in inputs:
-            output = ctx.actions.declare_output("{}_{}.json".format(key, input.identifier))
+            output = ctx.actions.declare_output("{}_{}.json".format(key, input.identifier), has_content_based_path = False)
             ctx.actions.run(
                 cmd_args([
                     analysis_tool,
@@ -84,7 +84,7 @@ def _reduce_analysis_artifacts(
         with_inputs = True,
     )
 
-    output = ctx.actions.declare_output("{}.json".format(key))
+    output = ctx.actions.declare_output("{}.json".format(key), has_content_based_path = False)
     ctx.actions.run(
         cmd_args([
             reducer_tool,

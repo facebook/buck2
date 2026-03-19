@@ -62,7 +62,7 @@ def robolectric_test_impl(ctx: AnalysisContext) -> list[Provider]:
 
     # Robolectric looks for a file named /com/android/tools/test_config.properties on the classpath
     test_config_symlinked_dir = ctx.actions.symlinked_dir("test_config_symlinked_dir", {"com/android/tools/test_config.properties": test_config_properties_file})
-    test_config_properties_jar = ctx.actions.declare_output("test_config_properties.jar")
+    test_config_properties_jar = ctx.actions.declare_output("test_config_properties.jar", has_content_based_path = False)
     jar_cmd = cmd_args([
         ctx.attrs._java_toolchain[JavaToolchainInfo].jar,
         "-cfM",  # -c: create new archive, -f: specify the file name, -M: do not create a manifest

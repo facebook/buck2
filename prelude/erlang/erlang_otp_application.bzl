@@ -97,12 +97,12 @@ def _erlang_otp_application_impl(ctx: AnalysisContext) -> list[Provider]:
         # This allows the analysis phase to succeed even if the app doesn't exist
         # The actual error will happen during extraction if the app is truly missing
         wildcard = paths.join("lib", ctx.attrs.name + "-*")
-        app_dir = ctx.actions.declare_output(ctx.attrs.name, dir = True)
+        app_dir = ctx.actions.declare_output(ctx.attrs.name, dir = True, has_content_based_path = False)
         version = "dynamic"
     else:
         # Explicit version found - use versioned directory
         wildcard = paths.join("lib", ctx.attrs.name + "-" + version)
-        app_dir = ctx.actions.declare_output(ctx.attrs.name + "-" + version, dir = True)
+        app_dir = ctx.actions.declare_output(ctx.attrs.name + "-" + version, dir = True, has_content_based_path = False)
 
     erlang_build.utils.run_with_env(
         ctx,

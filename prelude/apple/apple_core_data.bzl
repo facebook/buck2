@@ -45,7 +45,7 @@ def compile_apple_core_data(ctx: AnalysisContext, specs: list[AppleCoreDataSpec]
     if len(specs) == 0:
         return None
 
-    output = ctx.actions.declare_output("AppleCoreDataCompiled")
+    output = ctx.actions.declare_output("AppleCoreDataCompiled", has_content_based_path = False)
 
     # Aggregate all the coredata momc and mapc commands together
     tool_commands = []

@@ -127,7 +127,7 @@ def apple_test_impl(ctx: AnalysisContext) -> [list[Provider], Promise]:
         # Locate the temporary binary that is bundled into the xctest in a binaries directory. When Xcode loads the test out of the target's output dir,
         # it will utilize a binary with the test name from the output dir instead of the xctest bundle. Which then results in paths to test resources
         # being incorrect. Locating the temporary binary elsewhere works around this issue.
-        test_binary_output = ctx.actions.declare_output("__binaries__", get_product_name(ctx))
+        test_binary_output = ctx.actions.declare_output("__binaries__", get_product_name(ctx), has_content_based_path = False)
 
         # Rename in order to generate dSYM with correct binary name (dsymutil doesn't provide a way to control binary name in output dSYM bundle).
         test_binary = ctx.actions.copy_file(test_binary_output, cxx_library_output.default_output.default)
@@ -306,7 +306,7 @@ def _get_test_host_app_bundle(ctx: AnalysisContext) -> Artifact | None:
     if ctx.attrs.test_host_app:
         # Copy the test host app bundle into test's output directory
         original_bundle = ctx.attrs.test_host_app[AppleBundleInfo].bundle
-        test_host_app_bundle = ctx.actions.declare_output(original_bundle.basename)
+        test_host_app_bundle = ctx.actions.declare_output(original_bundle.basename, has_content_based_path = False)
         ctx.actions.copy_file(test_host_app_bundle, original_bundle)
         return test_host_app_bundle
 
@@ -329,7 +329,7 @@ def _get_ui_test_target_app_bundle(ctx: AnalysisContext) -> Artifact | None:
     if ctx.attrs.ui_test_target_app:
         # Copy the ui test target app bundle into test's output directory
         original_bundle = ctx.attrs.ui_test_target_app[AppleBundleInfo].bundle
-        ui_test_target_app_bundle = ctx.actions.declare_output(original_bundle.basename)
+        ui_test_target_app_bundle = ctx.actions.declare_output(original_bundle.basename, has_content_based_path = False)
         ctx.actions.copy_file(ui_test_target_app_bundle, original_bundle)
         return ui_test_target_app_bundle
 

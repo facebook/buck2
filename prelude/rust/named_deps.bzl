@@ -19,7 +19,7 @@ def write_named_deps_names(
     if not is_list(ctx.attrs.named_deps):
         return None
 
-    named_deps_names = ctx.actions.declare_output("named_deps")
+    named_deps_names = ctx.actions.declare_output("named_deps", has_content_based_path = False)
     ctx.actions.run(
         cmd_args(
             compile_ctx.internal_tools_info.rustc_action,

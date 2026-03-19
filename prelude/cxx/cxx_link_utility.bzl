@@ -126,7 +126,7 @@ def make_link_args(
     pdb_artifact = None
     if linker_info.is_pdb_generated and output_short_path != None:
         pdb_filename = paths.replace_extension(output_short_path, ".pdb")
-        pdb_artifact = actions.declare_output(pdb_filename)
+        pdb_artifact = actions.declare_output(pdb_filename, has_content_based_path = False)
         hidden.append(pdb_artifact.as_output())
 
     if linker_type == LinkerType("darwin"):

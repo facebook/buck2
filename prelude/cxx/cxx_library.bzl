@@ -443,7 +443,7 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
         basename = "{}{}".format(pch_artifact.basename, pch_clanguage)
         path = paths.join(pch_header.namespace, pch_header.name)
 
-        pch_wrapper = ctx.actions.declare_output("pch_wrapper.cpp")
+        pch_wrapper = ctx.actions.declare_output("pch_wrapper.cpp", has_content_based_path = False)
         ctx.actions.write(pch_wrapper, '#include "{}"'.format(path))
 
         ctx.attrs.headers.append(pch_artifact)
@@ -593,7 +593,7 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
 
         clang_traces_args = clang_traces_tset.project_as_args("clang_traces")
         all_traces = ctx.actions.write(
-            ctx.actions.declare_output("recursive_clang_traces.txt"),
+            ctx.actions.declare_output("recursive_clang_traces.txt", has_content_based_path = False),
             clang_traces_args,
         )
 
@@ -621,7 +621,7 @@ def cxx_library_parameterized(ctx: AnalysisContext, impl_params: CxxRuleConstruc
 
         pic_clang_traces_args = pic_clang_traces_tset.project_as_args("clang_traces")
         all_pic_traces = ctx.actions.write(
-            ctx.actions.declare_output("recursive_pic_clang_traces.txt"),
+            ctx.actions.declare_output("recursive_pic_clang_traces.txt", has_content_based_path = False),
             pic_clang_traces_args,
         )
 

@@ -58,7 +58,7 @@ def _create_batched_type_check(
         input_config,
         with_inputs = True,
     )
-    output_file = ctx.actions.declare_output("type_check_result{}.json".format(file_suffix))
+    output_file = ctx.actions.declare_output("type_check_result{}.json".format(file_suffix), has_content_based_path = False)
     cmd = cmd_args(
         executable,
         input_file,
@@ -126,7 +126,7 @@ def _create_sharded_type_check(
             input_config,
             with_inputs = True,
         )
-        output_file = ctx.actions.declare_output(output_file_name)
+        output_file = ctx.actions.declare_output(output_file_name, has_content_based_path = False)
         output_files.append(output_file)
 
         cmd = cmd_args(

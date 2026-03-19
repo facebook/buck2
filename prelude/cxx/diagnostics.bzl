@@ -20,7 +20,7 @@ def check_sub_target(
     else:
         toolchain = get_cxx_toolchain_info(ctx)
         concatenate_diagnostics_tool = toolchain.internal_tools.concatenate_diagnostics
-        all_diagnostics = ctx.actions.declare_output("diagnostics.txt")
+        all_diagnostics = ctx.actions.declare_output("diagnostics.txt", has_content_based_path = False)
         ctx.actions.run(
             [
                 concatenate_diagnostics_tool,

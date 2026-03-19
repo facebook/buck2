@@ -20,7 +20,7 @@ def _llvm_stats_outputs_factory(output_path: str) -> typing.Callable:
     """Factory for relinker LLVM stats outputs."""
 
     def factory(ctx: AnalysisContext) -> ExtraLinkerOutputs:
-        stats_file = ctx.actions.declare_output(output_path + ".stats")
+        stats_file = ctx.actions.declare_output(output_path + ".stats", has_content_based_path = False)
         return ExtraLinkerOutputs(
             artifacts = {"llvm-stats": stats_file},
             providers = {"llvm-stats": [DefaultInfo(default_output = stats_file)]},

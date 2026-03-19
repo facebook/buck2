@@ -119,7 +119,7 @@ def materialize_compiler_settings_file(target_node, actions, cxx_toolchain_info,
 
     # Use a different filename suffix for toolchain attrs to avoid conflicts with regular target attrs
     attrs_outfile = actions.write_json(get_project_file_path(target_node.label, ".toolchain.attrs.json"), attrs, pretty = True)
-    out = actions.declare_output(get_project_file_path(target_node.label, ".compiler_settings.json"))
+    out = actions.declare_output(get_project_file_path(target_node.label, ".compiler_settings.json"), has_content_based_path = False)
 
     def f(ctx, artifacts, outputs, attrs_outfile = attrs_outfile, out = out, target = target_node):
         attrs_input = artifacts[attrs_outfile].read_json()

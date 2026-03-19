@@ -192,7 +192,7 @@ def _build_default_boot_scripts(
 
     spec_file = ctx.actions.write_json(paths.join(erlang_build.utils.BUILD_DIR, "boot_script_spec.json"), data, with_inputs = True)
 
-    scripts_dir = ctx.actions.declare_output(erlang_build.utils.BUILD_DIR, "scripts", dir = True)
+    scripts_dir = ctx.actions.declare_output(erlang_build.utils.BUILD_DIR, "scripts", dir = True, has_content_based_path = False)
 
     erlang_build.utils.run_with_env(
         ctx,
@@ -242,9 +242,9 @@ def _build_custom_boot_scripts(
         script_name: str,
         builder: cmd_args,
         lib_dir: Artifact) -> dict[str, Artifact]:
-    boot_script = ctx.actions.declare_output(paths.join(erlang_build.utils.BUILD_DIR, "bootscripts", script_name))
+    boot_script = ctx.actions.declare_output(paths.join(erlang_build.utils.BUILD_DIR, "bootscripts", script_name), has_content_based_path = False)
     raw_script_name = paths.replace_extension(script_name, ".script")
-    raw_script = ctx.actions.declare_output(paths.join(erlang_build.utils.BUILD_DIR, "bootscripts", raw_script_name))
+    raw_script = ctx.actions.declare_output(paths.join(erlang_build.utils.BUILD_DIR, "bootscripts", raw_script_name), has_content_based_path = False)
 
     erlang_build.utils.run_with_env(
         ctx,
@@ -286,6 +286,7 @@ def _build_release_variables(ctx: AnalysisContext, toolchain: Toolchain) -> dict
     release_variables = ctx.actions.declare_output(
         erlang_build.utils.BUILD_DIR,
         "release_variables",
+        has_content_based_path = False,
     )
 
     spec_file = ctx.actions.write_json(

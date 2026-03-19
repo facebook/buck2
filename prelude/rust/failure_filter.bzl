@@ -25,7 +25,7 @@ def failure_filter(
     if predeclared_output:
         output = predeclared_output
     else:
-        output = ctx.actions.declare_output("out/" + required.short_path)
+        output = ctx.actions.declare_output("out/" + required.short_path, has_content_based_path = False)
 
     cmd = cmd_args(
         failure_filter_action,

@@ -736,8 +736,8 @@ def run_action_shlib_symlink_tree(
     Returns:
       A pair of artifacts that it creates.  The 1st is the shared library symlink tree.  The 2nd is the dwp symlink tree.
     """
-    shared_libs_symlink_tree = actions.declare_output(shared_libs_symlink_tree_name_arg)
-    dwp_symlink_tree = actions.declare_output(dwp_symlink_tree_name_arg)
+    shared_libs_symlink_tree = actions.declare_output(shared_libs_symlink_tree_name_arg, has_content_based_path = False)
+    dwp_symlink_tree = actions.declare_output(dwp_symlink_tree_name_arg, has_content_based_path = False)
 
     shared_library_info_json = actions.write_json(
         "shared_library_info.json",

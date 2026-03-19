@@ -17,27 +17,27 @@ def _android_sdk_tools_impl(ctx):
 
     sub_targets["adb"] = [RunInfo(args = ["{}/build-tools/platform-tools/adb".format(ctx.attrs.android_sdk_path)])]
 
-    android_jar = ctx.actions.declare_output("android.jar")
+    android_jar = ctx.actions.declare_output("android.jar", has_content_based_path = False)
     ctx.actions.run(cmd_args(["ln", "-s", "{}/platforms/{}/android.jar".format(ctx.attrs.android_sdk_path, ctx.attrs.compile_sdk_version), android_jar.as_output()]), category = "android_jar_symlink")
     sub_targets["android.jar"] = [DefaultInfo(default_output = android_jar)]
 
-    core_for_system_modules_jar = ctx.actions.declare_output("core-for-system-modules.jar")
+    core_for_system_modules_jar = ctx.actions.declare_output("core-for-system-modules.jar", has_content_based_path = False)
     ctx.actions.run(cmd_args(["ln", "-s", "{}/platforms/{}/core-for-system-modules.jar".format(ctx.attrs.android_sdk_path, ctx.attrs.compile_sdk_version), core_for_system_modules_jar.as_output()]), category = "core_for_system_modules_jar_symlink")
     sub_targets["core-for-system-modules.jar"] = [DefaultInfo(default_output = core_for_system_modules_jar)]
 
-    framework_aidl_file = ctx.actions.declare_output("framework.aidl")
+    framework_aidl_file = ctx.actions.declare_output("framework.aidl", has_content_based_path = False)
     ctx.actions.run(cmd_args(["ln", "-s", "{}/platforms/{}/framework.aidl".format(ctx.attrs.android_sdk_path, ctx.attrs.compile_sdk_version), framework_aidl_file.as_output()]), category = "framework_aidl_symlink")
     sub_targets["framework.aidl"] = [DefaultInfo(default_output = framework_aidl_file)]
 
-    optimized_proguard_config = ctx.actions.declare_output("proguard-android-optimize.txt")
+    optimized_proguard_config = ctx.actions.declare_output("proguard-android-optimize.txt", has_content_based_path = False)
     ctx.actions.run(cmd_args(["ln", "-s", "{}/platforms/tools/proguard/proguard-android-optimize.txt".format(ctx.attrs.android_sdk_path), optimized_proguard_config.as_output()]), category = "optimized_proguard_config_symlink")
     sub_targets["optimized_proguard_config"] = [DefaultInfo(default_output = optimized_proguard_config)]
 
-    proguard_config = ctx.actions.declare_output("proguard-android.txt")
+    proguard_config = ctx.actions.declare_output("proguard-android.txt", has_content_based_path = False)
     ctx.actions.run(cmd_args(["ln", "-s", "{}/platforms/tools/proguard/proguard-android.txt".format(ctx.attrs.android_sdk_path), proguard_config.as_output()]), category = "proguard_config_symlink")
     sub_targets["proguard_config"] = [DefaultInfo(default_output = proguard_config)]
 
-    proguard_jar = ctx.actions.declare_output("proguard.jar")
+    proguard_jar = ctx.actions.declare_output("proguard.jar", has_content_based_path = False)
     ctx.actions.run(cmd_args(["ln", "-s", "{}/platforms/tools/proguard/lib/proguard.jar".format(ctx.attrs.android_sdk_path), proguard_jar.as_output()]), category = "proguard_jar_symlink")
     sub_targets["proguard.jar"] = [DefaultInfo(default_output = proguard_jar)]
 

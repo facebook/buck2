@@ -704,7 +704,7 @@ def build_java_library(
         not java_toolchain.is_bootstrap_toolchain and
         not ctx.attrs._is_building_android_binary
     ):
-        gwt_output = ctx.actions.declare_output("gwt_module/{}.jar".format(ctx.label.name))
+        gwt_output = ctx.actions.declare_output("gwt_module/{}.jar".format(ctx.label.name), has_content_based_path = False)
         entries = []
 
         if srcs or resources:
@@ -812,7 +812,7 @@ def _semanticdb_subtarget(ctx: AnalysisContext, extra_sub_targets: dict, java_to
     if not sourceroot or not semanticdb_javac_plugin:
         return extra_sub_targets
     sourceroot_args = cmd_args(sourceroot, format = "-sourceroot:{}")
-    semanticdb_output = ctx.actions.declare_output("semanticdb", dir = True)
+    semanticdb_output = ctx.actions.declare_output("semanticdb", dir = True, has_content_based_path = False)
     targetroot_args = cmd_args(semanticdb_output.as_output(), format = "-targetroot:{}")
     semanticdb_plugin_params = create_plugin_params(
         ctx,

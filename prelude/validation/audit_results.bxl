@@ -128,7 +128,7 @@ def _dump_failures_impl(ctx: bxl.Context):
             input.setdefault(target, {})[spec.name] = spec.validation_result
 
     actions = ctx.bxl_actions().actions
-    out = actions.declare_output("results.json")
+    out = actions.declare_output("results.json", has_content_based_path = False)
     actions.dynamic_output_new(
         _find_and_dump_failures(
             target_to_results = input,

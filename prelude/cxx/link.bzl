@@ -153,7 +153,7 @@ def cxx_link_into(
     is_result_executable = result_type.value == "executable"
 
     if linker_info.generate_linker_maps and linker_supports_linker_maps(linker_info.type):
-        linker_map = ctx.actions.declare_output(output.short_path + "-LinkMap.txt")
+        linker_map = ctx.actions.declare_output(output.short_path + "-LinkMap.txt", has_content_based_path = False)
         linker_map_data = CxxLinkerMapData(
             map = linker_map,
             binary = output,
@@ -163,7 +163,7 @@ def cxx_link_into(
         linker_map_data = None
 
     if linker_info.generate_gc_sections and linker_info.type == LinkerType("gnu"):
-        gc_sections_output = ctx.actions.declare_output(output.short_path + "-gc-sections.json")
+        gc_sections_output = ctx.actions.declare_output(output.short_path + "-gc-sections.json", has_content_based_path = False)
         gc_sections_data = CxxGcSectionsData(
             gc_sections = gc_sections_output,
             binary = output,
@@ -172,7 +172,7 @@ def cxx_link_into(
         gc_sections_output = None
         gc_sections_data = None
 
-    shared_library_interface = ctx.actions.declare_output(output.short_path + ".tbd") if opts.produce_shared_library_interface else None
+    shared_library_interface = ctx.actions.declare_output(output.short_path + ".tbd", has_content_based_path = False) if opts.produce_shared_library_interface else None
     if linker_info.supports_distributed_thinlto and opts.enable_distributed_thinlto:
         if not linker_info.lto_mode == LtoMode("thin"):
             fail("Cannot use distributed thinlto if the cxx toolchain doesn't use thin-lto lto_mode")
@@ -601,7 +601,7 @@ def _cxx_link(
         )
     return cxx_link_into(
         ctx = ctx,
-        output = ctx.actions.declare_output(output),
+        output = ctx.actions.declare_output(output, has_content_based_path = False),
         result_type = result_type,
         opts = opts,
     )

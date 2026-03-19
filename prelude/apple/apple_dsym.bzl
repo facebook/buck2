@@ -23,7 +23,7 @@ def get_apple_dsym(ctx: AnalysisContext, executable: Artifact, debug_info: list[
 # - oso_prefix
 def get_apple_dsym_ext(ctx: AnalysisContext, executable: [ArgLike, Artifact], debug_info: list[ArgLike], action_identifier: str, output_path: str) -> Artifact:
     dsymutil = ctx.attrs._apple_toolchain[AppleToolchainInfo].dsymutil
-    output = ctx.actions.declare_output(output_path, dir = True)
+    output = ctx.actions.declare_output(output_path, dir = True, has_content_based_path = False)
     cmd = cmd_args(
         [
             dsymutil,

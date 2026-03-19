@@ -159,7 +159,7 @@ def apple_selective_debugging_impl(ctx: AnalysisContext) -> list[Provider]:
                 sorted(set(filter(lambda p: p in packages, package_names))),
             )
 
-        output = inner_ctx.actions.declare_output(output_name)
+        output = inner_ctx.actions.declare_output(output_name, has_content_based_path = False)
         inner_ctx.actions.dynamic_output(
             dynamic = [targets_json_file],
             inputs = [],
@@ -178,7 +178,7 @@ def apple_selective_debugging_impl(ctx: AnalysisContext) -> list[Provider]:
             identifier: None | str = None) -> Artifact:
         inner_cmd = cmd_args(cmd)
         subdir = "{}/".format(identifier) if identifier else ""
-        output = inner_ctx.actions.declare_output("debug_scrubbed/{}{}".format(subdir, executable.short_path))
+        output = inner_ctx.actions.declare_output("debug_scrubbed/{}{}".format(subdir, executable.short_path), has_content_based_path = False)
 
         action_execution_properties = get_action_execution_attributes(executable_link_execution_preference)
 
@@ -271,7 +271,7 @@ def apple_selective_debugging_impl(ctx: AnalysisContext) -> list[Provider]:
                     pretty = True,
                 )
 
-            metadata_output = inner_ctx.actions.declare_output("selective_metadata_with_targets_file.json")
+            metadata_output = inner_ctx.actions.declare_output("selective_metadata_with_targets_file.json", has_content_based_path = False)
             inner_ctx.actions.dynamic_output(
                 dynamic = [targets_json_file],
                 inputs = [],

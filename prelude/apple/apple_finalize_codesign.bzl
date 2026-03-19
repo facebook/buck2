@@ -20,7 +20,7 @@ load(
 def _apple_finalize_bundle_impl(ctx):
     original_bundle = ctx.attrs.bundle
     bundle_artifact = original_bundle[DefaultInfo].default_outputs[0]
-    finalized_bundle = ctx.actions.declare_output(bundle_artifact.basename)
+    finalized_bundle = ctx.actions.declare_output(bundle_artifact.basename, has_content_based_path = False)
 
     cmd = cmd_args([
         ctx.attrs.finalizer[RunInfo],

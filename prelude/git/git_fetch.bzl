@@ -31,12 +31,12 @@ def git_fetch_impl(ctx: AnalysisContext) -> list[Provider]:
     else:
         fail("Invalid git_fetch `object_format`: Must be one of sha1 or sha256: {}".format(object_format))
 
-    git_dir = ctx.actions.declare_output(".git", dir = True)
+    git_dir = ctx.actions.declare_output(".git", dir = True, has_content_based_path = False)
 
     short_path = ctx.attrs.name.removesuffix(".git")
     if not short_path:
         short_path = "work-tree"
-    work_tree = ctx.actions.declare_output(short_path, dir = True)
+    work_tree = ctx.actions.declare_output(short_path, dir = True, has_content_based_path = False)
 
     cmd = [
         ctx.attrs._git_fetch_tool[RunInfo],

@@ -266,7 +266,7 @@ def _write_test_info_file(
         "test_suite": test_suite,
         "trampolines": inner_trampolines,
     }
-    test_info_file = ctx.actions.declare_output("tests_info")
+    test_info_file = ctx.actions.declare_output("tests_info", has_content_based_path = False)
     return ctx.actions.write_json(test_info_file, tests_info, with_inputs = True)
 
 def _build_resource_dir(ctx: AnalysisContext, resources: list, target_dir: str) -> [Artifact, None]:

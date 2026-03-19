@@ -14,7 +14,7 @@ def do_merge(
     actions = bxl_actions.actions
 
     merger_input = actions.write_json("merge_input.json", built_sourcedbs)
-    merger_output = actions.declare_output("merged_db.json")
+    merger_output = actions.declare_output("merged_db.json", has_content_based_path = False)
 
     dependency_key = bxl_actions.exec_deps.keys()[0]
 

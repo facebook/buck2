@@ -28,7 +28,7 @@ RestrictedMergeOperations = enum("copy")
 
 def process_info_plist(ctx: AnalysisContext, override_input: Artifact | None) -> AppleBundlePart:
     input = _preprocess_info_plist(ctx)
-    output = ctx.actions.declare_output("Info.plist")
+    output = ctx.actions.declare_output("Info.plist", has_content_based_path = False)
     additional_keys = _additional_keys_as_json_file(ctx)
     override_keys = _override_keys_as_json_file(ctx)
     process_plist(
@@ -51,7 +51,7 @@ def _get_plist_run_options() -> dict[str, bool]:
 
 def _preprocess_info_plist(ctx: AnalysisContext) -> Artifact:
     input = ctx.attrs.info_plist
-    output = ctx.actions.declare_output("PreprocessedInfo.plist")
+    output = ctx.actions.declare_output("PreprocessedInfo.plist", has_content_based_path = False)
     substitutions_json = _plist_substitutions_as_json_file(ctx)
     apple_tools = ctx.attrs._apple_tools[AppleToolsInfo]
     processor = apple_tools.info_plist_processor
@@ -178,7 +178,7 @@ def apple_info_plist_impl(ctx: AnalysisContext) -> list[Provider]:
     processor = apple_tools.info_plist_processor
 
     input_plist = ctx.attrs.src
-    output_plist = ctx.actions.declare_output("Info.plist")
+    output_plist = ctx.actions.declare_output("Info.plist", has_content_based_path = False)
 
     # Basic plist processing command
     command = cmd_args([

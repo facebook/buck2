@@ -98,7 +98,7 @@ def create_third_party_build_root(
     )
     cmd.add(cmd_args(argsfile, format = "@{}", hidden = [s.lib.output for s in shared_libs]))
 
-    out = ctx.actions.declare_output(out, dir = True)
+    out = ctx.actions.declare_output(out, dir = True, has_content_based_path = False)
     cmd.add(out.as_output())
 
     ctx.actions.run(cmd, category = "third_party_build_root")

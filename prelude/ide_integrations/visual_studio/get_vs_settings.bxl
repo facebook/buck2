@@ -267,7 +267,7 @@ def _main(bxl_ctx):
     attrs = get_attrs(target_node, bxl_ctx)
     toolchain = get_cxx_toolchain(target_node, bxl_ctx)
     attrs_artifact = actions.write_json(get_project_file_path(target_node.label, ".attrs.json"), attrs, pretty = True)
-    vs_settings_artifact = actions.declare_output(get_project_file_path(target_node.label, ".vs_settings.json"))
+    vs_settings_artifact = actions.declare_output(get_project_file_path(target_node.label, ".vs_settings.json"), has_content_based_path = False)
 
     def f(ctx, artifacts, outputs, cli_args = bxl_ctx.cli_args, root = bxl_ctx.root()):
         attrs = artifacts[attrs_artifact].read_json()

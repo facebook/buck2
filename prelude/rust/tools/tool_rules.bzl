@@ -12,7 +12,7 @@ load("@prelude//rust:rust_toolchain.bzl", "RustToolchainInfo")
 def _get_rustc_cfg_impl(ctx: AnalysisContext) -> list[Provider]:
     toolchain_info = ctx.attrs._rust_toolchain[RustToolchainInfo]
 
-    out = ctx.actions.declare_output("rustc.cfg")
+    out = ctx.actions.declare_output("rustc.cfg", has_content_based_path = False)
 
     cmd = [
         toolchain_info.compiler,
@@ -45,7 +45,7 @@ get_rustc_cfg = rule(
 def _get_rustc_host_tuple_impl(ctx: AnalysisContext) -> list[Provider]:
     toolchain_info = ctx.attrs._rust_toolchain[RustToolchainInfo]
 
-    out = ctx.actions.declare_output("rustc.host_tuple")
+    out = ctx.actions.declare_output("rustc.host_tuple", has_content_based_path = False)
 
     cmd = [
         toolchain_info.compiler,

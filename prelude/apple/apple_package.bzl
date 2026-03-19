@@ -21,7 +21,7 @@ load(
 
 def apple_package_impl(ctx: AnalysisContext) -> list[Provider]:
     package_name = ctx.attrs.package_name if ctx.attrs.package_name else ctx.attrs.bundle.label.name
-    package = ctx.actions.declare_output("{}.{}".format(package_name, ctx.attrs.ext))
+    package = ctx.actions.declare_output("{}.{}".format(package_name, ctx.attrs.ext), has_content_based_path = False)
 
     contents = (
         ctx.attrs.bundle[DefaultInfo].default_outputs[0] if ctx.attrs.packager else _get_ipa_contents(ctx)
@@ -113,7 +113,7 @@ def _get_prepackaged_validators_outputs(ctx: AnalysisContext, prepackaged_conten
             validator = validator
             validator_args = []
 
-        output = ctx.actions.declare_output(validator.label.name + "_{}".format(idx))
+        output = ctx.actions.declare_output(validator.label.name + "_{}".format(idx), has_content_based_path = False)
         outputs.append(output)
 
         ctx.actions.run(

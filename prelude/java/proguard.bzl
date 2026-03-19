@@ -156,6 +156,7 @@ def get_proguard_output(
     else:
         input_jars_to_output_jars = {input_jar: ctx.actions.declare_output(
             "proguard_output_jars/{}_{}_obfuscated.jar".format(input_jar.short_path, i),
+            has_content_based_path = False,
         ) for i, input_jar in enumerate(input_jars.keys())}
         mapping = ctx.actions.declare_output("proguard/mapping.txt", has_content_based_path = True)
         configuration = ctx.actions.declare_output("proguard/configuration.txt", has_content_based_path = True)

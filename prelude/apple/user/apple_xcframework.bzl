@@ -39,7 +39,7 @@ def apple_xcframework_impl(ctx: AnalysisContext) -> list[Provider]:
     apple_tools = ctx.attrs._apple_tools[AppleToolsInfo]
     framework_name = _get_framework_name(ctx)
 
-    xcframework_dir = ctx.actions.declare_output(framework_name + ".xcframework", dir = True)
+    xcframework_dir = ctx.actions.declare_output(framework_name + ".xcframework", dir = True, has_content_based_path = False)
     xcframework_command = cmd_args([
         apple_tools.xcframework_maker,
         "--output-path",

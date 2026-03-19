@@ -101,7 +101,7 @@ def create_compilation_database(
     for src_compile_cmd in src_compile_cmds:
         cdb_path = _comp_database_entry_path(identifier, src_compile_cmd.src.short_path)
         if cdb_path not in entries:
-            entry = actions.declare_output(cdb_path)
+            entry = actions.declare_output(cdb_path, has_content_based_path = False)
 
             # Add all inputs the command uses to runtime files.
             other_outputs.append(entry)
@@ -111,7 +111,7 @@ def create_compilation_database(
             entries[cdb_path] = entry.as_output()
 
     # Merge all entries into the actual compilation DB.
-    db = actions.declare_output(paths.join(identifier, "compile_commands.json"))
+    db = actions.declare_output(paths.join(identifier, "compile_commands.json"), has_content_based_path = False)
 
     # We don't have any dynamic inputs here and use dynamic action purely as an optimization
     # so we don't occupy memory in analysis graph until we actually need compilation database.

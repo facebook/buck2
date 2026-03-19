@@ -20,10 +20,10 @@ _GWT_COMPILER_CLASS = "com.google.gwt.dev.Compiler"
 def gwt_binary_impl(ctx: AnalysisContext) -> list[Provider]:
     expect(ctx.attrs.local_workers > 0, "local workers must be greater than zero")
 
-    output = ctx.actions.declare_output("{}.zip".format(ctx.label.name))
+    output = ctx.actions.declare_output("{}.zip".format(ctx.label.name), has_content_based_path = False)
 
     # Write deploy files to separate directory so that the generated .zip is smaller
-    deploy_output = ctx.actions.declare_output("deploy")
+    deploy_output = ctx.actions.declare_output("deploy", has_content_based_path = False)
 
     module_deps_classpath = [dep.gwt_module for dep in get_all_java_packaging_deps(ctx, ctx.attrs.module_deps) if dep.gwt_module]
     compiling_deps_tset = derive_compiling_deps(ctx.actions, None, ctx.attrs.deps)

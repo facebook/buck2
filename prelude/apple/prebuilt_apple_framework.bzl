@@ -289,7 +289,7 @@ def _compile_swiftinterface(
 
 def _sanitize_framework_for_app_distribution(ctx: AnalysisContext, framework_directory_artifact: Artifact) -> list[Provider]:
     framework_name = to_framework_name(framework_directory_artifact.basename)
-    bundle_for_app_distribution = ctx.actions.declare_output(framework_name + ".framework", dir = True)
+    bundle_for_app_distribution = ctx.actions.declare_output(framework_name + ".framework", dir = True, has_content_based_path = False)
 
     apple_tools = ctx.attrs._apple_tools[AppleToolsInfo]
     framework_sanitize_command = cmd_args([

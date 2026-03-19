@@ -28,8 +28,8 @@ HaskellHaddockInfo = provider(
 def haskell_haddock_lib(ctx: AnalysisContext, pkgname: str) -> Provider:
     haskell_toolchain = ctx.attrs._haskell_toolchain[HaskellToolchainInfo]
 
-    iface = ctx.actions.declare_output("haddock-interface")
-    odir = ctx.actions.declare_output("haddock-html", dir = True)
+    iface = ctx.actions.declare_output("haddock-interface", has_content_based_path = False)
+    odir = ctx.actions.declare_output("haddock-html", dir = True, has_content_based_path = False)
 
     link_style = cxx_toolchain_link_style(ctx)
     args = compile_args(
@@ -84,7 +84,7 @@ def haskell_haddock_lib(ctx: AnalysisContext, pkgname: str) -> Provider:
 
     # Buck2 requires that the output artifacts are always produced, but Haddock only
     # creates them if it needs to, so we need a wrapper script to mkdir the outputs.
-    script = ctx.actions.declare_output("haddock-script")
+    script = ctx.actions.declare_output("haddock-script", has_content_based_path = False)
     script_args = cmd_args([
         "mkdir",
         "-p",
@@ -112,7 +112,7 @@ def haskell_haddock_lib(ctx: AnalysisContext, pkgname: str) -> Provider:
 def haskell_haddock_impl(ctx: AnalysisContext) -> list[Provider]:
     haskell_toolchain = ctx.attrs._haskell_toolchain[HaskellToolchainInfo]
 
-    out = ctx.actions.declare_output("haddock-html", dir = True)
+    out = ctx.actions.declare_output("haddock-html", dir = True, has_content_based_path = False)
 
     cmd = cmd_args(haskell_toolchain.haddock)
 
@@ -132,7 +132,7 @@ def haskell_haddock_impl(ctx: AnalysisContext) -> list[Provider]:
 
     cmd.add(ctx.attrs.haddock_flags)
 
-    script = ctx.actions.declare_output("haddock-script")
+    script = ctx.actions.declare_output("haddock-script", has_content_based_path = False)
     script_args = cmd_args([
         "#!/bin/sh",
         "set -ueo pipefail",

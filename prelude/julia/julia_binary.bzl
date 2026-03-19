@@ -127,7 +127,7 @@ def build_julia_command(ctx):
 
     # prepare a json file to hold all the data the python preprocessor needs to
     # execute the julia interpreter.
-    json_info_file = ctx.actions.declare_output("artifacts/Overrides.json")
+    json_info_file = ctx.actions.declare_output("artifacts/Overrides.json", has_content_based_path = False)
 
     json_info_dict = {
         "env": julia_toolchain.env,

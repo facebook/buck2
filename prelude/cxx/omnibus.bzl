@@ -366,7 +366,7 @@ def _extract_global_symbols_from_link_args(
     # TODO(T110378137): This is ported from D24065414, but it might make sense
     # to explicitly tell Buck about the global symbols, rather than us trying to
     # extract it from linker flags (which is brittle).
-    output = ctx.actions.declare_output(name)
+    output = ctx.actions.declare_output(name, has_content_based_path = False)
 
     # We intentionally drop the artifacts referenced in the args when generating
     # the argsfile -- we just want to parse out symbol name flags and don't need

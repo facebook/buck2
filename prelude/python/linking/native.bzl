@@ -382,7 +382,7 @@ def process_native_linking(
     inherited_preprocessor_info = cxx_inherited_preprocessor_infos(executable_deps)
 
     # Generate an additional C file as input
-    static_extension_info_out = ctx.actions.declare_output("static_extension_info.cpp")
+    static_extension_info_out = ctx.actions.declare_output("static_extension_info.cpp", has_content_based_path = False)
     argfile = at_argfile(
         actions = ctx.actions,
         name = "generate_static_extension_info.argsfile",

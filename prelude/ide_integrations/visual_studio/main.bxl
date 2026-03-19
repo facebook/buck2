@@ -169,9 +169,9 @@ def _main(bxl_ctx):
 
         # Create the output artifacts. Contents will be written into these in the lambda function
         if dep.label.raw_target() in deps_with_vcxproj:
-            vcxproj_artifact = actions.declare_output(get_project_file_path(dep.label, ".vcxproj"))
+            vcxproj_artifact = actions.declare_output(get_project_file_path(dep.label, ".vcxproj"), has_content_based_path = False)
             vcxproj_artifact_dict[dep.label] = vcxproj_artifact
-            filters_artifact = actions.declare_output(get_project_file_path(dep.label, ".vcxproj.filters"))
+            filters_artifact = actions.declare_output(get_project_file_path(dep.label, ".vcxproj.filters"), has_content_based_path = False)
             filters_artifact_dict[dep.label] = filters_artifact
 
         # This vs_settings is generated OUTSIDE of dynamic output and has unresolved macros
@@ -250,7 +250,7 @@ def _main(bxl_ctx):
         bxl_ctx.cli_args.startup_target or startup_target_fallback,
         bxl_ctx,
     )
-    sln_artifact = actions.declare_output(sln_path)
+    sln_artifact = actions.declare_output(sln_path, has_content_based_path = False)
     actions.write(sln_artifact, sln_content)
 
     ensured_outputs = bxl_ctx.output.ensure_multiple(vcxproj_artifact_dict.values() + filters_artifact_dict.values() + [sln_artifact])

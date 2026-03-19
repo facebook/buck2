@@ -85,9 +85,9 @@ def android_instrumentation_test_impl(ctx: AnalysisContext):
                 ],
             )
 
-    target_package_file = ctx.actions.declare_output("target_package_file")
-    package_file = ctx.actions.declare_output("package_file")
-    test_runner_file = ctx.actions.declare_output("test_runner_file")
+    target_package_file = ctx.actions.declare_output("target_package_file", has_content_based_path = False)
+    package_file = ctx.actions.declare_output("package_file", has_content_based_path = False)
+    test_runner_file = ctx.actions.declare_output("test_runner_file", has_content_based_path = False)
     manifest_utils_cmd = cmd_args(ctx.attrs._android_toolchain[AndroidToolchainInfo].manifest_utils[RunInfo])
     manifest_utils_cmd.add([
         "--manifest-path",

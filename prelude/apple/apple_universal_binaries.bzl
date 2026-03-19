@@ -32,7 +32,7 @@ def lipo_binary_artifacts(
         binary_name: [str, None],
         lipo: RunInfo,
         identifier: str) -> Artifact:
-    binary_output = ctx.actions.declare_output("UniversalBinary" if binary_name == None else binary_name, dir = False)
+    binary_output = ctx.actions.declare_output("UniversalBinary" if binary_name == None else binary_name, dir = False, has_content_based_path = False)
     lipo_cmd = [lipo] + binaries
 
     lipo_cmd.extend(["-create", "-output", binary_output.as_output()])
@@ -82,7 +82,7 @@ def create_universal_binary(
 
     dsym_output = None
     if split_arch_dsym and contains_full_debuggable_info:
-        dsym_output = ctx.actions.declare_output("UniversalBinary.dSYM" if dsym_bundle_name == None else dsym_bundle_name, dir = True)
+        dsym_output = ctx.actions.declare_output("UniversalBinary.dSYM" if dsym_bundle_name == None else dsym_bundle_name, dir = True, has_content_based_path = False)
         dsym_combine_cmd = [ctx.attrs._apple_tools[AppleToolsInfo].split_arch_combine_dsym_bundles_tool]
 
         for (arch, binary) in binary_deps.items():

@@ -19,7 +19,7 @@ def _build_dependencies_file(
         transform_profile: str,
         flavors: list[str],
         transitive_js_library_outputs: TransitiveSetArgsProjection) -> Artifact:
-    dependencies_file = ctx.actions.declare_output("{}/dependencies_file", transform_profile)
+    dependencies_file = ctx.actions.declare_output("{}/dependencies_file", transform_profile, has_content_based_path = False)
 
     extra_data_args = cmd_args(
         ctx.attrs.extra_json if ctx.attrs.extra_json else "{}",
@@ -58,10 +58,10 @@ def _build_js_bundle(
         transitive_js_library_outputs: TransitiveSetArgsProjection,
         dependencies_file: Artifact) -> JsBundleInfo:
     base_dir = transform_profile
-    assets_dir = ctx.actions.declare_output("{}/assets_dir".format(base_dir))
-    bundle_dir_output = ctx.actions.declare_output("{}/js".format(base_dir), dir = True)
-    misc_dir_path = ctx.actions.declare_output("{}/misc_dir_path".format(base_dir))
-    source_map = ctx.actions.declare_output("{}/source_map".format(base_dir))
+    assets_dir = ctx.actions.declare_output("{}/assets_dir".format(base_dir), has_content_based_path = False)
+    bundle_dir_output = ctx.actions.declare_output("{}/js".format(base_dir), dir = True, has_content_based_path = False)
+    misc_dir_path = ctx.actions.declare_output("{}/misc_dir_path".format(base_dir), has_content_based_path = False)
+    source_map = ctx.actions.declare_output("{}/source_map".format(base_dir), has_content_based_path = False)
 
     extra_data_args = cmd_args(
         ctx.attrs.extra_json if ctx.attrs.extra_json else "{}",

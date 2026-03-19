@@ -293,7 +293,7 @@ def _compute_pex_providers(
 
     # Run lazy import analysis using the existing dbg-db.json only if the attribute is enabled
     if getattr(ctx.attrs, "lazy_imports_analyzer", None):
-        lazy_import_analysis_output = ctx.actions.declare_output("safer_lazy_imports/lazy-import-analysis.json")
+        lazy_import_analysis_output = ctx.actions.declare_output("safer_lazy_imports/lazy-import-analysis.json", has_content_based_path = False)
         run_lazy_imports_analyzer(ctx, dbg_source_db.other_outputs, lazy_import_analysis_output, dbg_source_db_output)
         if lazy_import_analysis_output:
             extra_artifacts["safer_lazy_imports/lazy-import-analysis.json"] = lazy_import_analysis_output

@@ -301,7 +301,7 @@ def _write_syms_file(
     Take a list of objects and append a suffix to all  defined symbols.
     """
     nm = cxx_toolchain.binary_utilities_info.nm
-    symbols_file = ctx.actions.declare_output(name)
+    symbols_file = ctx.actions.declare_output(name, has_content_based_path = False)
 
     objects_argsfile = ctx.actions.write(name + ".py_objects_argsfile", objects)
     objects_args = cmd_args(objects_argsfile, hidden = objects)
@@ -376,7 +376,7 @@ def suffix_symbols(
     for obj in objects:
         base, name = paths.split_extension(obj.short_path)
         updated_name = "_".join([base, suffix, name])
-        artifact = ctx.actions.declare_output(updated_name)
+        artifact = ctx.actions.declare_output(updated_name, has_content_based_path = False)
 
         script_env = {
             "OBJCOPY": objcopy,

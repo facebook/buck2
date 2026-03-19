@@ -41,7 +41,7 @@ def _create_fat_jar(
         append_jar: [Artifact, None] = None) -> list[Artifact]:
     java_toolchain = ctx.attrs._java_toolchain[JavaToolchainInfo]
     extension = "sh" if _generate_script(generate_wrapper, native_libs) else "jar"
-    output = ctx.actions.declare_output("{}{}.{}".format(name_prefix, ctx.label.name, extension))
+    output = ctx.actions.declare_output("{}{}.{}".format(name_prefix, ctx.label.name, extension), has_content_based_path = False)
 
     args = [
         java_toolchain.fat_jar[RunInfo],
@@ -104,7 +104,7 @@ def _create_fat_jar(
 
     outputs = [output]
     if generate_wrapper:
-        classpath_args_output = ctx.actions.declare_output("classpath_args")
+        classpath_args_output = ctx.actions.declare_output("classpath_args", has_content_based_path = False)
         args += [
             "--generate_wrapper",
             "--classpath_args_output",

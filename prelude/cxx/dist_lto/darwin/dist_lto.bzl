@@ -647,7 +647,7 @@ def generate_shared_library_interface(
     interface_generation_linker_args.add(dynamic_libraries)
     output_as_string = cmd_args(output, ignore_artifacts = True)
     interface_generation_linker_args.add("-o", output_as_string)
-    interface_generation_linker_argsfile = ctx.actions.declare_output(output.basename + ".shared_library_interface_generation_argsfile")
+    interface_generation_linker_argsfile = ctx.actions.declare_output(output.basename + ".shared_library_interface_generation_argsfile", has_content_based_path = False)
     interface_generation_linker_argsfile, _ = ctx.actions.write(
         interface_generation_linker_argsfile,
         interface_generation_linker_args,

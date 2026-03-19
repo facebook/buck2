@@ -50,9 +50,9 @@ def prebuilt_python_library_impl(ctx: AnalysisContext) -> list[Provider]:
     providers = []
 
     # Extract prebuilt wheel and wrap in python library provider.
-    entry_points = ctx.actions.declare_output("entry_points.manifest")
-    entry_points_dir = ctx.actions.declare_output("__entry_points__", dir = True)
-    extracted_src = ctx.actions.declare_output("{}_extracted".format(ctx.label.name), dir = True)
+    entry_points = ctx.actions.declare_output("entry_points.manifest", has_content_based_path = False)
+    entry_points_dir = ctx.actions.declare_output("__entry_points__", dir = True, has_content_based_path = False)
+    extracted_src = ctx.actions.declare_output("{}_extracted".format(ctx.label.name), dir = True, has_content_based_path = False)
     cmd = cmd_args(
         ctx.attrs._extract[RunInfo],
         ctx.attrs.binary_src,
@@ -67,7 +67,7 @@ def prebuilt_python_library_impl(ctx: AnalysisContext) -> list[Provider]:
         cmd.add("--strip-soabi-tags")
     inferred_cxx_header_dirs = None
     if ctx.attrs.infer_cxx_header_dirs:
-        inferred_cxx_header_dirs = ctx.actions.declare_output("__cxx_header_dirs__.txt")
+        inferred_cxx_header_dirs = ctx.actions.declare_output("__cxx_header_dirs__.txt", has_content_based_path = False)
         cmd.add(
             "--cxx-header-dirs",
             inferred_cxx_header_dirs.as_output(),
@@ -176,7 +176,7 @@ def prebuilt_python_library_impl(ctx: AnalysisContext) -> list[Provider]:
                 ),
             )
     if inferred_cxx_header_dirs != None:
-        pp_argsfile = ctx.actions.declare_output("__cxx_header_dirs__.py_cxx_header_argsfile")
+        pp_argsfile = ctx.actions.declare_output("__cxx_header_dirs__.py_cxx_header_argsfile", has_content_based_path = False)
 
         def write_argsfile(actions, header_dirs, output):
             lines = []

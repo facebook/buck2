@@ -78,8 +78,8 @@ def get_modularization_dependency_graph_output_map(
     output_objects = []
     for src in srcs:
         file_name = src.file.basename
-        object_file_artifact = ctx.actions.declare_output("__swift_modularization___/objects/" + file_name + ".o")
-        modularization_dependency_graph_artifact = ctx.actions.declare_output("__swift_modularization___/dependency_graphs/" + file_name + ".modularizationdependencygraph")
+        object_file_artifact = ctx.actions.declare_output("__swift_modularization___/objects/" + file_name + ".o", has_content_based_path = False)
+        modularization_dependency_graph_artifact = ctx.actions.declare_output("__swift_modularization___/dependency_graphs/" + file_name + ".modularizationdependencygraph", has_content_based_path = False)
         output_file_map[src.file] = {
             "modularization-dependency-graph": modularization_dependency_graph_artifact,
             "object": object_file_artifact,

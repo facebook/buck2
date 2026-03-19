@@ -33,7 +33,7 @@ def _bundle(ctx: AnalysisContext, name: str, args: cmd_args, prefer_local: bool)
     if llvm_link == None:
         fail("Bitcode generation not supported when no LLVM linker, the `cxx_toolchain` has no `llvm_link`.")
 
-    bundle_output = ctx.actions.declare_output(name)
+    bundle_output = ctx.actions.declare_output(name, has_content_based_path = False)
 
     command = at_argfile(
         actions = ctx.actions,

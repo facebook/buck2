@@ -23,7 +23,7 @@ def apple_resource_bundle_impl(ctx: AnalysisContext) -> list[Provider]:
 
     all_resources = _extract_all_resources(resource_output)
     all_resources_json = {"resources": all_resources}
-    all_resources_json_file = ctx.actions.declare_output("resources.json")
+    all_resources_json_file = ctx.actions.declare_output("resources.json", has_content_based_path = False)
     all_resources_json_cmd_args = ctx.actions.write_json(
         all_resources_json_file,
         all_resources_json,

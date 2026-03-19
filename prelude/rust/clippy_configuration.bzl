@@ -25,7 +25,7 @@ def _clippy_configuration_impl(ctx: AnalysisContext) -> list[Provider]:
     else:
         toml_merge_tool = ctx.attrs.toml_merge_tool
 
-        clippy_toml = ctx.actions.declare_output("clippy.toml")
+        clippy_toml = ctx.actions.declare_output("clippy.toml", has_content_based_path = False)
         ctx.actions.run([
             toml_merge_tool[RunInfo],
             cmd_args(clippy_toml.as_output(), format = "--output={}"),

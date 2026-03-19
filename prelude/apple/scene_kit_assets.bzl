@@ -42,7 +42,7 @@ def compile_scene_kit_assets(ctx: AnalysisContext, specs: list[SceneKitAssetsSpe
     if len(specs) == 0:
         return None
 
-    output = ctx.actions.declare_output("SceneKitAssetsCompiled")
+    output = ctx.actions.declare_output("SceneKitAssetsCompiled", has_content_based_path = False)
 
     copy_scene_kit_assets_cmds = []
     for spec in specs:

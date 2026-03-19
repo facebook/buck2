@@ -460,7 +460,7 @@ def _make_package(
     ]
     pkg_conf = ctx.actions.write("pkg-" + artifact_suffix + ".conf", conf)
 
-    db = ctx.actions.declare_output("db-" + artifact_suffix)
+    db = ctx.actions.declare_output("db-" + artifact_suffix, has_content_based_path = False)
 
     # While the list of hlis is unique, there may be multiple packages in the same db.
     # Cutting down the GHC_PACKAGE_PATH significantly speeds up GHC.
@@ -573,7 +573,7 @@ def _build_haskell_lib(
     objfiles = _srcs_to_objfiles(ctx, compiled.objects, osuf)
 
     if link_style == LinkStyle("shared"):
-        lib = ctx.actions.declare_output(lib_short_path)
+        lib = ctx.actions.declare_output(lib_short_path, has_content_based_path = False)
         link = cmd_args(
             [haskell_toolchain.linker] +
             [haskell_toolchain.linker_flags] +
@@ -958,7 +958,7 @@ def haskell_binary_impl(ctx: AnalysisContext) -> list[Provider]:
 
     haskell_toolchain = ctx.attrs._haskell_toolchain[HaskellToolchainInfo]
 
-    output = ctx.actions.declare_output(ctx.attrs.name)
+    output = ctx.actions.declare_output(ctx.attrs.name, has_content_based_path = False)
     link = cmd_args(
         [haskell_toolchain.compiler] +
         ["-o", output.as_output()] +

@@ -75,6 +75,7 @@ def package_validators_decorator(
         )
         final_output = ctx.actions.declare_output(
             final_filename + extension,
+            has_content_based_path = False,
         )
         ctx.actions.run(
             cmd_args(
@@ -104,7 +105,7 @@ def _get_package_validation_outputs(
     for idx, validator in enumerate(package_validators):
         validator, validator_args = validator
 
-        output = actions.declare_output(validator.label.name + "_package_validator_{}".format(idx))
+        output = actions.declare_output(validator.label.name + "_package_validator_{}".format(idx), has_content_based_path = False)
         outputs.append(output)
 
         actions.run(

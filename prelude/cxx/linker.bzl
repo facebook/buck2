@@ -266,7 +266,7 @@ def get_import_library(
         linker_type: LinkerType,
         output_short_path: str) -> (Artifact | None, list[ArgLike]):
     if linker_type == LinkerType("windows"):
-        import_library = ctx.actions.declare_output(output_short_path + ".imp.lib")
+        import_library = ctx.actions.declare_output(output_short_path + ".imp.lib", has_content_based_path = False)
         return import_library, [cmd_args(import_library.as_output(), format = "/IMPLIB:{}")]
     else:
         return None, []
@@ -318,7 +318,7 @@ def get_dumpbin_providers(
         ctx: AnalysisContext,
         binary: Artifact,
         dumpbin_toolchain_path: Artifact) -> list[Provider]:
-    dumpbin_headers_out = ctx.actions.declare_output(binary.short_path + ".dumpbin_headers")
+    dumpbin_headers_out = ctx.actions.declare_output(binary.short_path + ".dumpbin_headers", has_content_based_path = False)
     ctx.actions.run(
         cmd_args(
             cmd_args(dumpbin_toolchain_path, format = "{}/dumpbin.exe"),

@@ -14,7 +14,7 @@ def derive_universal_apk(
         android_toolchain: AndroidToolchainInfo,
         app_bundle: Artifact,
         keystore: [KeystoreInfo, None]) -> Artifact:
-    output_apk = ctx.actions.declare_output("universal.apk")
+    output_apk = ctx.actions.declare_output("universal.apk", has_content_based_path = False)
 
     bundle_apks_builder_args = cmd_args([
         android_toolchain.bundle_apks_builder[RunInfo],

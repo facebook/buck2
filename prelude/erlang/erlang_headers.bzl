@@ -13,7 +13,7 @@ load(":erlang_toolchain.bzl", "get_toolchain")
 def _erlang_headers(ctx: AnalysisContext) -> list[Provider]:
     toolchain = get_toolchain(ctx)
 
-    output = ctx.actions.declare_output("include")
+    output = ctx.actions.declare_output("include", has_content_based_path = False)
     wildcard = paths.join("erts-*", "include")
     erlang_build.utils.run_with_env(
         ctx,

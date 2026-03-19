@@ -187,7 +187,7 @@ def _clippy_wrapper(
 
     if ctx.attrs._exec_os_type[OsLookup].os == Os("windows"):
         wrapper_file, _ = ctx.actions.write(
-            ctx.actions.declare_output("__clippy_driver_wrapper.bat"),
+            ctx.actions.declare_output("__clippy_driver_wrapper.bat", has_content_based_path = False),
             [
                 "@echo off",
                 "set __CLIPPY_INTERNAL_TESTS=true",
@@ -199,7 +199,7 @@ def _clippy_wrapper(
         )
     else:
         wrapper_file, _ = ctx.actions.write(
-            ctx.actions.declare_output("__clippy_driver_wrapper.sh"),
+            ctx.actions.declare_output("__clippy_driver_wrapper.sh", has_content_based_path = False),
             [
                 "#!/usr/bin/env bash",
                 # Force clippy to be clippy: https://github.com/rust-lang/rust-clippy/blob/e405c68b3c1265daa9a091ed9b4b5c5a38c0c0ba/src/driver.rs#L334

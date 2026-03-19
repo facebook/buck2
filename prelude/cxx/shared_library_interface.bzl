@@ -23,7 +23,7 @@ def _shared_library_interface(
     linker_info = get_cxx_toolchain_info(ctx).linker_info
     args = cmd_args(linker_info.mk_shlib_intf[RunInfo])
     args.add(shared_lib)
-    output = ctx.actions.declare_output(output)
+    output = ctx.actions.declare_output(output, has_content_based_path = False)
     args.add(output.as_output())
     ctx.actions.run(
         args,
@@ -95,8 +95,8 @@ def shared_library_interface_from_linkables(
     The interface is derived from the linker inputs (ie. object files, archives, etc).
     """
 
-    shared_library_interface = ctx.actions.declare_output(shared_lib.short_path + ".tbd")
-    shared_library_interface_from_linkable_generation_filelist = ctx.actions.declare_output(shared_lib.short_path + ".tbd-generation-filelist")
+    shared_library_interface = ctx.actions.declare_output(shared_lib.short_path + ".tbd", has_content_based_path = False)
+    shared_library_interface_from_linkable_generation_filelist = ctx.actions.declare_output(shared_lib.short_path + ".tbd-generation-filelist", has_content_based_path = False)
     interface_generation_cmd_hidden_deps = cmd_args()
 
     input_files = cmd_args()

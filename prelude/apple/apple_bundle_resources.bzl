@@ -157,7 +157,7 @@ def _copy_privacy_manifest_if_needed(ctx: AnalysisContext) -> list[AppleBundlePa
     if privacy_manifest.short_path.split("/", 1)[-1] == "PrivacyInfo.xcprivacy":
         artifact = privacy_manifest
     else:
-        output = ctx.actions.declare_output("PrivacyInfo.xcprivacy")
+        output = ctx.actions.declare_output("PrivacyInfo.xcprivacy", has_content_based_path = False)
         artifact = ctx.actions.copy_file(output.as_output(), privacy_manifest)
     return [AppleBundlePart(source = artifact, destination = AppleBundleDestination("resources"))]
 
@@ -210,7 +210,7 @@ def _copy_swift_library_evolution_support(ctx: AnalysisContext) -> list[AppleBun
     if len(swiftmodule_files) == 0 or module_name == None:
         return []
 
-    framework_module_dir = ctx.actions.declare_output(module_name + "framework.swiftmodule", dir = True)
+    framework_module_dir = ctx.actions.declare_output(module_name + "framework.swiftmodule", dir = True, has_content_based_path = False)
     ctx.actions.copied_dir(framework_module_dir.as_output(), swiftmodule_files)
     return [AppleBundlePart(source = framework_module_dir, destination = AppleBundleDestination("modules"), new_name = module_name + ".swiftmodule")]
 
@@ -540,7 +540,7 @@ def _process_apple_resource_file_if_needed(
     basename = paths.basename(file.short_path)
     output_is_contents_dir = False
     if basename.endswith(".plist") or basename.endswith(".stringsdict"):
-        processed = ctx.actions.declare_output(paths.join(output_dir, file.short_path))
+        processed = ctx.actions.declare_output(paths.join(output_dir, file.short_path), has_content_based_path = False)
         process_plist(
             ctx = ctx,
             input = file,
@@ -550,11 +550,11 @@ def _process_apple_resource_file_if_needed(
     elif basename.endswith(".storyboard"):
         if destination_relative_path:
             destination_relative_path = paths.replace_extension(destination_relative_path, ".storyboardc")
-        compiled = ctx.actions.declare_output(paths.join(output_dir, paths.replace_extension(file.short_path, ".storyboardc")), dir = True)
+        compiled = ctx.actions.declare_output(paths.join(output_dir, paths.replace_extension(file.short_path, ".storyboardc")), dir = True, has_content_based_path = False)
         if get_is_watch_bundle(ctx):
             output_is_contents_dir = True
             _compile_ui_resource(ctx = ctx, raw_file = file, output = compiled.as_output(), target_device = "watch")
-            processed = ctx.actions.declare_output(paths.join(output_dir, paths.replace_extension(file.short_path, "_linked_storyboard")), dir = True)
+            processed = ctx.actions.declare_output(paths.join(output_dir, paths.replace_extension(file.short_path, "_linked_storyboard")), dir = True, has_content_based_path = False)
             _link_ui_resource(ctx = ctx, raw_file = compiled, output = processed.as_output(), target_device = "watch", output_is_dir = True)
         else:
             processed = compiled
@@ -562,7 +562,7 @@ def _process_apple_resource_file_if_needed(
     elif basename.endswith(".xib"):
         if destination_relative_path:
             destination_relative_path = paths.replace_extension(destination_relative_path, ".nib")
-        processed = ctx.actions.declare_output(paths.join(output_dir, paths.replace_extension(file.short_path, ".nib")))
+        processed = ctx.actions.declare_output(paths.join(output_dir, paths.replace_extension(file.short_path, ".nib")), has_content_based_path = False)
         _compile_ui_resource(ctx, file, processed.as_output())
     else:
         processed = file

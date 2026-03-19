@@ -224,7 +224,7 @@ def _declare_index_store(actions: AnalysisActions, src_compile_cmd: CxxSrcCompil
         identifier = identifier + "_" + str(src_compile_cmd.index)
     filename_base = identifier
 
-    index_store = actions.declare_output(paths.join("__indexstore__", filename_base, "index_store"), dir = True)
+    index_store = actions.declare_output(paths.join("__indexstore__", filename_base, "index_store"), dir = True, has_content_based_path = False)
     return DeclaredIndexStore(
         output = index_store,
         filename_base = filename_base,
@@ -316,7 +316,7 @@ def _make_mockingbird_library_info_provider(ctx: AnalysisContext) -> list[Mockin
         exported_dep_names.append(info.name)
         children.append(info.tset)
 
-    mockingbird_srcs_folder = ctx.actions.declare_output("mockingbird_srcs_" + ctx.attrs.name, dir = True)
+    mockingbird_srcs_folder = ctx.actions.declare_output("mockingbird_srcs_" + ctx.attrs.name, dir = True, has_content_based_path = False)
 
     ctx.actions.symlinked_dir(
         mockingbird_srcs_folder,
@@ -459,7 +459,7 @@ def apple_library_rule_constructor_params_and_swift_providers(ctx: AnalysisConte
 
     # Always provide a valid JSON object, so that tooling can depend on its existance
     modulemap_info_json = {"modulemap": exported_pre.modulemap_artifact} if (exported_pre and exported_pre.modulemap_artifact) else {}
-    modulemap_info_json_file = ctx.actions.declare_output("modulemap-info.json")
+    modulemap_info_json_file = ctx.actions.declare_output("modulemap-info.json", has_content_based_path = False)
     modulemap_info_json_cmd_args = ctx.actions.write_json(modulemap_info_json_file, modulemap_info_json, with_inputs = True, pretty = True)
     modulemap_info_providers = [DefaultInfo(default_output = modulemap_info_json_file, other_outputs = [modulemap_info_json_cmd_args])]
 

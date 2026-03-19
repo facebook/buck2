@@ -98,7 +98,7 @@ def create_manifest_for_source_dir(
     Generate a source manifest for the given directory of sources from the given
     rule.
     """
-    manifest = ctx.actions.declare_output(param + ".manifest")
+    manifest = ctx.actions.declare_output(param + ".manifest", has_content_based_path = False)
     cmd = cmd_args(ctx.attrs._create_manifest_for_source_dir[RunInfo])
     cmd.add("--origin={}".format(ctx.label.raw_target()))
     cmd.add(cmd_args(manifest.as_output(), format = "--output={}"))

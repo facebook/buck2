@@ -47,8 +47,8 @@ def compile_apple_asset_catalog(ctx: AnalysisContext, specs: list[AppleAssetCata
     single_spec = _merge_asset_catalog_specs(ctx, specs)
     if len(single_spec.dirs) == 0:
         return None
-    plist = ctx.actions.declare_output("AssetCatalog.plist")
-    catalog = ctx.actions.declare_output("AssetCatalogCompiled", dir = True)
+    plist = ctx.actions.declare_output("AssetCatalog.plist", has_content_based_path = False)
+    catalog = ctx.actions.declare_output("AssetCatalogCompiled", dir = True, has_content_based_path = False)
     processing_options = get_bundle_resource_processing_options(ctx)
     compilation_options = get_apple_asset_catalogs_compilation_options(ctx)
     command = _get_actool_command(ctx, single_spec, catalog.as_output(), plist.as_output(), compilation_options)

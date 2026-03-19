@@ -62,9 +62,9 @@ def generate_android_manifest(
 
     generate_manifest_cmd.add(["--placeholder-entries-list", placeholder_entries_file])
 
-    output = ctx.actions.declare_output("{}/AndroidManifest.xml".format(module_name))
-    merge_report = ctx.actions.declare_output("{}/merge-report.txt".format(module_name))
-    preprocess_log = ctx.actions.declare_output("{}/preprocess-log.txt".format(module_name))
+    output = ctx.actions.declare_output("{}/AndroidManifest.xml".format(module_name), has_content_based_path = False)
+    merge_report = ctx.actions.declare_output("{}/merge-report.txt".format(module_name), has_content_based_path = False)
+    preprocess_log = ctx.actions.declare_output("{}/preprocess-log.txt".format(module_name), has_content_based_path = False)
     generate_manifest_cmd.add([
         "--output",
         output.as_output(),

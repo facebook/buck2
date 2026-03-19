@@ -334,7 +334,7 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
 
         clang_traces_args = clang_traces_tset.project_as_args("clang_traces")
         all_traces = ctx.actions.write(
-            ctx.actions.declare_output("recursive_clang_traces.txt"),
+            ctx.actions.declare_output("recursive_clang_traces.txt", has_content_based_path = False),
             clang_traces_args,
         )
 
@@ -1039,7 +1039,7 @@ def _link_into_executable(
         output_name = executable_name
     else:
         output_name = "{}{}".format(executable_name if executable_name else get_cxx_executable_product_name(ctx), "." + binary_extension if binary_extension else "")
-    output = ctx.actions.declare_output(output_name)
+    output = ctx.actions.declare_output(output_name, has_content_based_path = False)
     executable_args = executable_shared_lib_arguments(
         ctx,
         get_cxx_toolchain_info(ctx),

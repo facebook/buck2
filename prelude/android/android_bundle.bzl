@@ -95,7 +95,7 @@ def build_bundle(
         bundle_config: Artifact | None,
         validation_deps_outputs: [list[Artifact], None] = None,
         packaging_options: dict | None = None) -> Artifact:
-    output_bundle = actions.declare_output("{}.aab".format(output_filename))
+    output_bundle = actions.declare_output("{}.aab".format(output_filename), has_content_based_path = False)
 
     bundle_builder_args = cmd_args(
         android_toolchain.bundle_builder[RunInfo],

@@ -190,7 +190,7 @@ def _impl(ctx: AnalysisContext) -> list[Provider]:
 
         # Run the patchelf -- this will just copy if it turns out the given
         # path isn't and ELF file.
-        out = ctx.actions.declare_output(paths.join("__patched__", dst))
+        out = ctx.actions.declare_output(paths.join("__patched__", dst), has_content_based_path = False)
         cmd = cmd_args(
             ctx.attrs._patchelf[RunInfo],
             "--output",
@@ -452,7 +452,7 @@ def _impl(ctx: AnalysisContext) -> list[Provider]:
     ]
 
     # Action to create wheel.
-    wheel = ctx.actions.declare_output("{}.whl".format("-".join(name_parts)))
+    wheel = ctx.actions.declare_output("{}.whl".format("-".join(name_parts)), has_content_based_path = False)
     whl_cmd = _whl_cmd(
         ctx = ctx,
         output = wheel,
@@ -479,7 +479,7 @@ def _impl(ctx: AnalysisContext) -> list[Provider]:
                 hidden = [a for (a, _) in manifest.artifacts],
             ),
         )
-    link_tree = ctx.actions.declare_output("__editable__/tree.d", dir = True)
+    link_tree = ctx.actions.declare_output("__editable__/tree.d", dir = True, has_content_based_path = False)
     link_tree_cmd = cmd_args(
         ctx.attrs._create_link_tree[RunInfo],
         cmd_args(link_tree.as_output(), format = "--output={}"),
@@ -488,7 +488,7 @@ def _impl(ctx: AnalysisContext) -> list[Provider]:
     ctx.actions.run(link_tree_cmd, category = "link_tree")
 
     # Create <dist>.pth to put in the wheel and points to the symlink tree.
-    pth = ctx.actions.declare_output("__editable__/{}.pth".format(dist))
+    pth = ctx.actions.declare_output("__editable__/{}.pth".format(dist), has_content_based_path = False)
     pth_cmd = cmd_args(
         "sh",
         "-c",
@@ -504,7 +504,7 @@ def _impl(ctx: AnalysisContext) -> list[Provider]:
     ctx.actions.run(pth_cmd, category = "pth", local_only = True)
 
     # Action to create editable wheel.
-    ewheel = ctx.actions.declare_output("__editable__/{}.whl".format("-".join(name_parts)))
+    ewheel = ctx.actions.declare_output("__editable__/{}.whl".format("-".join(name_parts)), has_content_based_path = False)
     ewhl_cmd = _whl_cmd(
         ctx = ctx,
         output = ewheel,

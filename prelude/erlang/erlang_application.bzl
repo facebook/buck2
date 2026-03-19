@@ -222,7 +222,7 @@ def _generate_app_file(
     _check_application_dependencies(ctx)
 
     app_file_name = name + ".app"
-    output = ctx.actions.declare_output(erlang_build.utils.BUILD_DIR, app_file_name)
+    output = ctx.actions.declare_output(erlang_build.utils.BUILD_DIR, app_file_name, has_content_based_path = False)
     app_info_file = _app_info_content(ctx, name, srcs)
 
     erlang_build.utils.run_with_env(
@@ -255,7 +255,7 @@ def _app_info_content(
         name: str,
         srcs: list[Artifact]) -> Artifact:
     """build an app_info.json file that contains the meta information for building the .app file"""
-    app_info = ctx.actions.declare_output(erlang_build.utils.BUILD_DIR, "app_info.json")
+    app_info = ctx.actions.declare_output(erlang_build.utils.BUILD_DIR, "app_info.json", has_content_based_path = False)
 
     data = {
         "applications": [
