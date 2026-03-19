@@ -505,6 +505,13 @@ def apple_library_rule_constructor_params_and_swift_providers(ctx: AnalysisConte
     # Always provide the subtarget, so that clients don't need to handle conditional existence
     subtargets["swift.check"] = [DefaultInfo(default_output = swift_compile.typecheck_file if swift_compile else None)]
 
+    swift_sources_list = ctx.actions.write(
+        "swift-sources.txt",
+        [s.file for s in swift_srcs],
+        with_inputs = True,
+    )
+    subtargets["swift-sources"] = [DefaultInfo(default_output = swift_sources_list)]
+
     link_group_info = get_link_group_info(ctx)
     xplugins_usage_info = get_xplugins_usage_info(ctx)
     if xplugins_usage_info:
