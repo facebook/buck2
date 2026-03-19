@@ -234,15 +234,14 @@ def __patch_resource_tracker_fork() -> None:
             return
         fd = getattr(tracker, "_fd", None)
         if fd is not None:
-            try:
-                # Close the inherited pipe FD so the tracker can see EOF
-                os.close(fd)
-            except OSError:
-                # FD may already be closed in some edge cases
-                pass
-            # Reset state so child starts fresh tracker if it uses multiprocessing
+            # Reset state before closing to avoid TOCTOU race where another
+            # thread could see the stale _fd between close() and reset
             tracker._fd = None
             tracker._pid = None
+            try:
+                os.close(fd)
+            except OSError:
+                pass
 
     os.register_at_fork(after_in_child=_reset_tracker_in_child)
 
