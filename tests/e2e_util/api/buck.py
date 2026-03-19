@@ -837,7 +837,6 @@ class Buck(Executable):
         _buck_build_id: str = buck_build_id
         _invocation_record_path: Optional[Path] = invocation_record_path
 
-        # pyre-ignore[2]: subprocess.Process is not generic in Pyre
         def make_result(proc: subprocess.Process, stdout: str, stderr: str) -> R:
             base = BuckResult(
                 proc,
@@ -854,7 +853,6 @@ class Buck(Executable):
         _buck_build_id2: str = buck_build_id
         _invocation_record_path2: Optional[Path] = invocation_record_path
 
-        # pyre-ignore[2]: subprocess.Process is not generic in Pyre
         def make_exception(
             cmd_to_run: str,
             working_dir: Path,
