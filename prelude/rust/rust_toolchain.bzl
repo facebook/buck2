@@ -151,6 +151,11 @@ rust_toolchain_attrs = {
     # Sanitizer to enable via -Zsanitizer=<value> (e.g., "address", "thread", "memory", "leak", "cfi", "hwaddress")
     # See https://doc.rust-lang.org/beta/unstable-book/compiler-flags/sanitizer.html
     "sanitizer": provider_field(RustSanitizer | None, default = None),
+    # Substrings that are restricted in target-level rustc_flags. Each entry is
+    # checked via a contains() match against every flag. For example, specifying
+    # "target-feature" will block both "-Ctarget-feature=..." and the split
+    # form "-C" followed by "target-feature=...".
+    "restricted_rustc_flags": provider_field(list[typing.Any], default = []),
 }
 
 RustToolchainInfo = provider(fields = rust_toolchain_attrs)

@@ -920,6 +920,23 @@ def _lint_flags(compile_ctx: CompileContext, infallible_diagnostics: bool, is_cl
         _lintify("W", is_clippy, toolchain_info.warn_lints),
     )
 
+def _check_restricted_rustc_flags(
+        flags: list[str | ResolvedStringWithMacros | Artifact],
+        toolchain_info: RustToolchainInfo):
+    if not toolchain_info.restricted_rustc_flags:
+        return
+    for flag in flags:
+        if isinstance(flag, str):
+            for restricted in toolchain_info.restricted_rustc_flags:
+                if restricted in flag:
+                    fail(
+                        "rustc flag `{}` is not allowed on individual targets ".format(flag) +
+                        "(matched restricted pattern `{}`). ".format(restricted) +
+                        "This flag must be set in the Rust toolchain, not on individual targets, " +
+                        "to ensure consistent compilation across the build graph. " +
+                        "If you have a legitimate need, set `uses_restricted_rustc_flags = True` on your target.",
+                    )
+
 def _rustc_flags(
         flags: list[str | ResolvedStringWithMacros | Artifact],
         toolchain_info: RustToolchainInfo) -> list[str | ResolvedStringWithMacros | Artifact]:
@@ -1177,6 +1194,9 @@ def _compute_common_args(
         SplitDebugMode("single"): ["-Csplit-debuginfo=unpacked"],
         SplitDebugMode("split"): ["-Csplit-debuginfo=unpacked"],
     }[compile_ctx.cxx_toolchain_info.split_debug_mode or SplitDebugMode("none")]
+
+    if not getattr(ctx.attrs, "uses_restricted_rustc_flags", False):
+        _check_restricted_rustc_flags(ctx.attrs.rustc_flags, toolchain_info)
 
     args = cmd_args(
         cmd_args(compile_ctx.symlinked_srcs, compile_ctx.path_sep, root, delimiter = ""),
