@@ -74,7 +74,7 @@ pub trait EventSubscriber: Send {
     fn handle_exit_result(&mut self, _result: &ExitResult) {}
 
     /// Perform final clean up before exiting, upload logs etc.
-    async fn finalize(&mut self) -> buck2_error::Result<()> {
+    async fn finalize(self: Box<Self>) -> buck2_error::Result<()> {
         Ok(())
     }
 }

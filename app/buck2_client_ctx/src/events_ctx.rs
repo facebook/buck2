@@ -568,41 +568,42 @@ impl EventsCtx {
         .await
     }
 
-    pub async fn finalize(&mut self) -> Vec<String> {
+    pub async fn finalize(self) -> Vec<String> {
         let mut errors = Vec::new();
 
-        async fn finalize(subscriber: &mut dyn EventSubscriber, errors: &mut Vec<String>) {
+        async fn finalize(subscriber: Box<dyn EventSubscriber>, errors: &mut Vec<String>) {
             let start = Instant::now();
+            let name = subscriber.name().to_owned();
             let res = subscriber.finalize().await;
             let elapsed = Instant::now() - start;
             if elapsed > Duration::from_millis(1000) {
-                tracing::warn!("Finalizing \'{}\' took {:?}", subscriber.name(), elapsed);
+                tracing::warn!("Finalizing \'{}\' took {:?}", name, elapsed);
             } else {
-                tracing::info!("Finalizing \'{}\' took {:?}", subscriber.name(), elapsed);
+                tracing::info!("Finalizing \'{}\' took {:?}", name, elapsed);
             };
 
             if let Err(e) = res {
                 errors.push(format!(
                     "{:?}",
-                    e.context(format!("\'{}\' failed to finalize", subscriber.name()))
+                    e.context(format!("\'{}\' failed to finalize", name))
                 ));
             }
         }
 
-        for subscriber in &mut self.subscribers {
-            finalize(subscriber.as_mut(), &mut errors).await;
+        for subscriber in self.subscribers.into_iter() {
+            finalize(subscriber, &mut errors).await;
         }
 
         if self.log_invocation_record
-            && let Some(recorder) = self.recorder.as_mut()
+            && let Some(recorder) = self.recorder
         {
-            finalize(recorder.as_mut(), &mut errors).await;
+            finalize(recorder, &mut errors).await;
         }
         errors
     }
 
     pub fn finalize_events(
-        &mut self,
+        mut self,
         trace_id: TraceId,
         result: ExitResult,
         runtime: &Runtime,

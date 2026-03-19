@@ -73,7 +73,7 @@ impl EventSubscriber for ReLog {
         Ok(())
     }
 
-    async fn finalize(&mut self) -> buck2_error::Result<()> {
+    async fn finalize(mut self: Box<Self>) -> buck2_error::Result<()> {
         self.log_upload().await
     }
 }

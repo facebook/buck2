@@ -2458,7 +2458,7 @@ impl EventSubscriber for InvocationRecorder {
         self.has_end_of_stream = true;
     }
 
-    async fn finalize(&mut self) -> buck2_error::Result<()> {
+    async fn finalize(mut self: Box<Self>) -> buck2_error::Result<()> {
         // Can't set this before the daemon forks.
         // Typically initialized already unless the command failed early.
         let fb = buck2_common::fbinit::get_or_init_fbcode_globals();
