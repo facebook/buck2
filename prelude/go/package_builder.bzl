@@ -39,7 +39,7 @@ GoSourceInputs = record(
     package_root = field(str | None, None),
 )
 
-def build_package_wrapper(
+def declare_package_build(
         ctx: AnalysisContext,
         pkg_import_path: str,
         main: bool,

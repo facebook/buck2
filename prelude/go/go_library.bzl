@@ -44,7 +44,7 @@ load(":cgo_builder.bzl", "get_cgo_build_context")
 load(":compile.bzl", "GoPkgCompileInfo", "GoTestInfo")
 load(":coverage.bzl", "GoCoverageMode")
 load(":link.bzl", "GoPkgLinkInfo", "get_inherited_link_pkgs")
-load(":package_builder.bzl", "GoBuildConfig", "GoSourceInputs", "build_package_wrapper")
+load(":package_builder.bzl", "GoBuildConfig", "GoSourceInputs", "declare_package_build")
 load(":packages.bzl", "cgo_exported_preprocessor", "go_attr_pkg_name", "merge_pkgs")
 load(":toolchain.bzl", "GoToolchainInfo", "evaluate_cgo_enabled", "get_toolchain_env_vars")
 
@@ -55,7 +55,7 @@ def go_library_impl(ctx: AnalysisContext) -> list[Provider]:
     coverage_mode = GoCoverageMode(ctx.attrs._coverage_mode) if ctx.attrs._coverage_mode else None
     cgo_build_context = get_cgo_build_context(ctx)
 
-    pkg, pkg_info, _ = build_package_wrapper(
+    pkg, pkg_info, _ = declare_package_build(
         ctx = ctx,
         pkg_import_path = pkg_import_path,
         main = False,

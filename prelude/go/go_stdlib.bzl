@@ -83,7 +83,7 @@ def _build_stdlib_impl(actions: AnalysisActions, target_label: Label, go_toolcha
     for import_path in build_order:
         lib = parsed_libs[import_path]
 
-        pkgs[lib.import_path] = _build_stdlib_package_wrapper(
+        pkgs[lib.import_path] = _declare_stdlib_package_build(
             actions = actions,
             target_label = target_label,
             go_toolchain = go_toolchain,
@@ -126,7 +126,7 @@ _build_stdlib = dynamic_actions(
     },
 )
 
-def _build_stdlib_package_wrapper(
+def _declare_stdlib_package_build(
         actions: AnalysisActions,
         target_label: Label,
         go_toolchain: GoToolchainInfo,
