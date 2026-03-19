@@ -17,22 +17,6 @@ syntax = "proto3";
 // elsewhere.
 package buck.data.error;
 
-// TODO(ctolliday) remove this
-enum ErrorTier {
-  // Same as above
-  UNUSED_DEFAULT_CATEGORY = 0;
-  // Unexpected errors in buck2 or core dependencies.
-  // It should be possible to eliminate these, in theory.
-  TIER0_TIER = 1;
-  // Errors that may be triggered by issues with the host,
-  // resource limits, non-explicit dependencies or potentially
-  // ambiguous input errors.
-  // These can be tracked but not eliminated.
-  ENVIRONMENT_TIER = 3;
-  // Expected errors in inputs explicitly tracked by buck.
-  INPUT_TIER = 2;
-}
-
 // Error types are - by design - restricted to being set exactly once at the
 // error definition site. While they are useful, that means that they are enough
 // on their own to represent all the error metadata we want. Until we figure out

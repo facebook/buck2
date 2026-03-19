@@ -2990,8 +2990,7 @@ message ErrorReport {
 // of this protobuf definition outside of buck2. Currently used in the
 // invocation record and nowhere else.
 message ProcessedErrorReport {
-  reserved 2;
-  optional buck.data.error.ErrorTier tier = 1;
+  reserved 1, 2;
   string message = 3;
   optional string telemetry_message = 4;
   optional string source_location = 5;

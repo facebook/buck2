@@ -82,7 +82,7 @@ message ErrorDetail {
   repeated string tags = 3;
 }
 
-// Should be kept in sync with buck2_error::ErrorTier.
+// Error category for installer errors.
 enum ErrorCategory {
   ERROR_CATEGORY_UNSPECIFIED = 0;
   // Unexpected errors in installer. AKA Infra error.

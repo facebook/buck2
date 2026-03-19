@@ -2358,7 +2358,6 @@ fn process_error_report(error: buck2_data::ErrorReport) -> buck2_data::Processed
     let tags = tags.chain(string_tags).collect();
 
     buck2_data::ProcessedErrorReport {
-        tier: None,
         message: strip_ansi_codes(&error.message).to_string(),
         telemetry_message: error
             .telemetry_message
