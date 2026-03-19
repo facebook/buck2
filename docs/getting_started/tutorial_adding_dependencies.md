@@ -34,15 +34,13 @@ Our goal is to understand how Buck2 manages dependencies.
 <FbInternalOnly>
 
 Navigate to the directory that contains your `greeter_bin` folder, i.e.
-`<FBSOURCE>/fbcode/scripts/<unixname>/buck2_lab`.
+`<FBSOURCE>/fbcode/scripts/$USER/buck2_lab`.
 
 In your fbsource root,
 
 ```bash
-cd fbcode/scripts/<unixname>/buck2_lab
+cd fbcode/scripts/$USER/buck2_lab
 ```
-
-Replace `<unixname>` with your unixname.
 
 </FbInternalOnly>
 
@@ -145,7 +143,7 @@ You will see an output like this:
 ```
 ...
 BUILD SUCCEEDED
-fbcode//scripts/<unixname>/buck2_lab/greeter_lib:library /.../greeter_lib/__library__/out/LPPMD/liblibrary-1527a50c.rmeta
+fbcode//scripts/$USER/buck2_lab/greeter_lib:library /.../greeter_lib/__library__/out/LPPMD/liblibrary-1527a50c.rmeta
 ```
 
 </FbInternalOnly>
@@ -197,11 +195,9 @@ rust_binary(
     name = "main",
     srcs = ["src/main.rs"],
     # Add the dep to our library
-    deps = ["fbcode//scripts/<unixname>/buck2_lab/greeter_lib:library"],
+    deps = ["fbcode//scripts/$USER/buck2_lab/greeter_lib:library"],
 )
 ```
-
-Replace `<unixname>` with your unixname.
 
 </FbInternalOnly>
 
@@ -219,14 +215,14 @@ rust_binary(
 </OssOnly>
 
 export const TARGET_NAME = isInternal() ?
-<code>fbcode//scripts/&lt;unixname&gt;/buck2_lab/greeter_lib:library</code> :
+<code>fbcode//scripts/$USER/buck2_lab/greeter_lib:library</code> :
 <code>root//buck2_lab/greeter_lib:library</code>;
 
 You can also use `buck2 targets :` command in `greeter_lib` folder to get the
 full target name of the library.
 
 - { isInternal() ? <code>deps =
-  ["fbcode//scripts/&lt;unixname&gt;/buck2_lab/greeter_lib:library"]</code> :
+  ["fbcode//scripts/$USER/buck2_lab/greeter_lib:library"]</code> :
   <code>deps = ["root//buck2_lab/greeter_lib:library"]</code> }: This is the
   crucial new part!
   - `deps` declares dependencies for this target. It accepts a list of targets.
@@ -235,7 +231,7 @@ full target name of the library.
 
 Now, let's build and run our binary application, with dependencies {
 isInternal() ?
-<code>fbcode//scripts/&lt;unixname&gt;/buck2_lab/greeter_lib:library</code> :
+<code>fbcode//scripts/$USER/buck2_lab/greeter_lib:library</code> :
 <code>root//buck2_lab/greeter_lib:library</code> }.
 
 1. Run the binary:
@@ -243,7 +239,7 @@ isInternal() ?
 <FbInternalOnly>
 
 ```bash
-buck2 run fbcode//scripts/<unixname>/buck2_lab/greeter_bin:main
+buck2 run fbcode//scripts/$USER/buck2_lab/greeter_bin:main
 ```
 
 </FbInternalOnly>
@@ -365,7 +361,7 @@ Let's try to run `main`:
 <FbInternalOnly>
 
 ```bash
-buck2 run fbcode//scripts/<unixname>/buck2_lab/greeter_bin:main
+buck2 run fbcode//scripts/$USER/buck2_lab/greeter_bin:main
 ```
 
 </FbInternalOnly>
@@ -384,7 +380,7 @@ You will encounter a compile-time error like this:
 
 ```
 error[E0433]: failed to resolve: use of unresolved module or unlinked crate `logging_lib`
- --> fbcode/scripts/<unixname>/buck2_lab/greeter_bin/src/main.rs:4:5
+ --> fbcode/scripts/$USER/buck2_lab/greeter_bin/src/main.rs:4:5
   |
 4 |     logging_lib::info("Starting...");
   |     ^^^^^^^^^^^ use of unresolved module or unlinked crate `logging_lib`
@@ -393,7 +389,7 @@ error[E0433]: failed to resolve: use of unresolved module or unlinked crate `log
 
 
 error[E0433]: failed to resolve: use of unresolved module or unlinked crate `logging_lib`
- --> fbcode/scripts/<unixname>/buck2_lab/greeter_bin/src/main.rs:9:5
+ --> fbcode/scripts/$USER/buck2_lab/greeter_bin/src/main.rs:9:5
   |
 9 |     logging_lib::info("Exit.");
   |     ^^^^^^^^^^^ use of unresolved module or unlinked crate `logging_lib`
@@ -434,7 +430,7 @@ rust_binary(
     name = "main",
     srcs = ["src/main.rs"],
     deps = [
-        "fbcode//scripts/<unixname>/buck2_lab/greeter_lib:library",
+        "fbcode//scripts/$USER/buck2_lab/greeter_lib:library",
         "fbcode//buck2/docs/buck2_lab/logging_lib:logging_lib",  # Add this line
     ],
 )
@@ -462,7 +458,7 @@ rust_binary(
 <FbInternalOnly>
 
 ```bash
-buck2 run fbcode//scripts/<unixname>/buck2_lab/greeter_bin:main
+buck2 run fbcode//scripts/$USER/buck2_lab/greeter_bin:main
 ```
 
 </FbInternalOnly>

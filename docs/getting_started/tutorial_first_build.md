@@ -39,16 +39,14 @@ We will only use a few basics of Rust.
 <FbInternalOnly>
 
 First, we need a place for our project files. We will put it in
-`fbcode/scripts/<unixname>/buck2_lab`
+`fbcode/scripts/$USER/buck2_lab`
 
 1. Create a new directory. In fbsource root
 
 ```bash
-mkdir -p fbcode/scripts/<unixname>/buck2_lab
-cd fbcode/scripts/<unixname>/buck2_lab
+mkdir -p fbcode/scripts/$USER/buck2_lab
+cd fbcode/scripts/$USER/buck2_lab
 ```
-
-Replace `<unixname>` with your unixname.
 
 </FbInternalOnly>
 
@@ -89,7 +87,7 @@ Our project structure should look like this:
 <FbInternalOnly>
 
 ```
-fbcode/scripts/<unixname>/buck2_lab
+fbcode/scripts/$USER/buck2_lab
 └── greeter_bin
     └── src
 ```
@@ -190,10 +188,8 @@ With our Rust code and BUCK file in place, let's build the application!
 2. Run the following command:
 
 ```bash
-buck2 build fbcode//scripts/<unixname>/buck2_lab/greeter_bin:main --show-output
+buck2 build fbcode//scripts/$USER/buck2_lab/greeter_bin:main --show-output
 ```
-
-Replace `<unixname>` with your unixname.
 
 </FbInternalOnly>
 
@@ -220,7 +216,7 @@ buck2 build :main --show-output
 ```
 ...
 BUILD SUCCEEDED
-fbcode//scripts/<unixname>/buck2_lab/greeter_bin:main buck-out/v2/gen/fbcode/c32808b9d4f0fdd0/scripts/<unixname>/buck2_lab/greeter_bin/__main__/main
+fbcode//scripts/$USER/buck2_lab/greeter_bin:main buck-out/v2/gen/fbcode/c32808b9d4f0fdd0/scripts/$USER/buck2_lab/greeter_bin/__main__/main
 ```
 
 </FbInternalOnly>
@@ -236,7 +232,7 @@ root//buck2_lab/greeter_bin:main /.../buck2_lab/buck-out/v2/gen/root/200212f73ef
 </OssOnly>
 
 export const TARGET_NAME = isInternal() ?
-<code>fbcode//scripts/&lt;unixname&gt;/buck2_lab/greeter_bin:main</code> :
+<code>fbcode//scripts/$USER/buck2_lab/greeter_bin:main</code> :
 <code>root//buck2_lab/greeter_bin:main</code>;
 
 - `BUILD SUCCEEDED` indicates that Buck2 successfully built our target.
@@ -258,10 +254,8 @@ Since our target is a runnable target, we can run it by `buck2 run`
 1. In your terminal (still in the fbsource root directory), execute:
 
 ```bash
-buck2 run fbcode//scripts/<unixname>/buck2_lab/greeter_bin:main
+buck2 run fbcode//scripts/$USER/buck2_lab/greeter_bin:main
 ```
-
-Replace `<unixname>` with your unixname.
 
 </FbInternalOnly>
 
@@ -298,10 +292,8 @@ targets you've defined.
    run:
 
 ```bash
-buck2 targets fbcode//scripts/<unixname>/buck2_lab/greeter_bin:
+buck2 targets fbcode//scripts/$USER/buck2_lab/greeter_bin:
 ```
-
-Replace `<unixname>` with your unixname.
 
 </FbInternalOnly>
 
@@ -323,7 +315,7 @@ This will show all the targets we defined,
 <FbInternalOnly>
 
 ```
-fbcode//scripts/<unixname>/buck2_lab/greeter_bin:main
+fbcode//scripts/$USER/buck2_lab/greeter_bin:main
 ... other targets might be listed here ...
 ```
 
