@@ -40,22 +40,17 @@ OBJECTS_SUBTARGET = "objects"
 
 # The dependencies
 def cxx_attr_deps(ctx: AnalysisContext) -> list[Dependency]:
-    deps = list(ctx.attrs.deps)
+    deps = ctx.attrs.deps
 
     deps_query_attr = getattr(ctx.attrs, "deps_query", None)
     if deps_query_attr:
-        deps.extend(deps_query_attr)
+        return deps + deps_query_attr
 
+    # Avoid making a copy of deps if deps_query is not set.
     return deps
 
 def cxx_attr_exported_deps(ctx: AnalysisContext) -> list[Dependency]:
-    exported_deps = []
-
-    exported_deps_attr = getattr(ctx.attrs, "exported_deps", None)
-    if exported_deps_attr:
-        exported_deps.extend(exported_deps_attr)
-
-    return exported_deps
+    return getattr(ctx.attrs, "exported_deps", [])
 
 def cxx_attr_linker_flags_all(ctx: AnalysisContext) -> LinkerFlags:
     flags = cxx_attr_linker_flags(ctx)
@@ -66,22 +61,12 @@ def cxx_attr_linker_flags_all(ctx: AnalysisContext) -> LinkerFlags:
 
     post_flags = getattr(ctx.attrs, "post_linker_flags", [])
 
-    exported_flags = cxx_attr_exported_linker_flags(ctx)
-    exported_post_flags = cxx_attr_exported_post_linker_flags(ctx)
     return LinkerFlags(
         flags = flags,
         post_flags = post_flags,
-        exported_flags = exported_flags,
-        exported_post_flags = exported_post_flags,
+        exported_flags = ctx.attrs.exported_linker_flags,
+        exported_post_flags = ctx.attrs.exported_post_linker_flags,
     )
-
-def cxx_attr_exported_linker_flags(ctx: AnalysisContext) -> list[typing.Any]:
-    exported_linker_flags = list(ctx.attrs.exported_linker_flags)
-    return exported_linker_flags
-
-def cxx_attr_exported_post_linker_flags(ctx: AnalysisContext) -> list[typing.Any]:
-    exported_post_linker_flags = list(ctx.attrs.exported_post_linker_flags)
-    return exported_post_linker_flags
 
 def cxx_inherited_link_info(first_order_deps: list[Dependency]) -> list[MergedLinkInfo]:
     """

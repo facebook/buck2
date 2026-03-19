@@ -35,7 +35,6 @@ load("@prelude//apple/swift:swift_types.bzl", "FrameworkImplicitSearchPathInfo",
 load("@prelude//cxx:cxx_context.bzl", "get_cxx_toolchain_info")
 load(
     "@prelude//cxx:cxx_library_utility.bzl",
-    "cxx_attr_exported_linker_flags",
     "cxx_attr_preferred_linkage",
     "cxx_platform_supported",
 )
@@ -132,7 +131,7 @@ def prebuilt_apple_framework_impl(ctx: AnalysisContext) -> [list[Provider], Prom
             link = LinkInfo(
                 name = framework_name,
                 linkables = [linkable],
-                pre_flags = [cxx_attr_exported_linker_flags(ctx)],
+                pre_flags = [ctx.attrs.exported_linker_flags],
             )
             link_info = LinkInfos(default = link)
 
