@@ -91,6 +91,61 @@ There is no technical difference between toolchains defined in the prelude
 compared to custom one, just like there is nothing special about languages
 supported by the prelude.
 
+### Exposing execution dependencies from a toolchain
+
+Toolchains typically expose their tools (compilers, linters, etc.) as
+`attrs.exec_dep()` attributes. This lets Buck2 configure them for the execution
+platform and include them in
+[execution platform resolution](configurations.md#toolchain-deps). Here is an
+example:
+
+```python
+FooToolchainInfo = provider(fields = {
+    "compiler": provider_field(RunInfo),
+    "linter": provider_field(RunInfo),
+    "compiler_flags": provider_field(list[str]),
+})
+
+def _foo_toolchain_impl(ctx: AnalysisContext) -> list[Provider]:
+    return [
+        DefaultInfo(),
+        FooToolchainInfo(
+            compiler = ctx.attrs.compiler[RunInfo],
+            linter = ctx.attrs.linter[RunInfo],
+            compiler_flags = ctx.attrs.compiler_flags,
+        ),
+    ]
+
+foo_toolchain = rule(
+    impl = _foo_toolchain_impl,
+    is_toolchain_rule = True,
+    attrs = {
+        "compiler": attrs.exec_dep(providers = [RunInfo]),
+        "linter": attrs.exec_dep(providers = [RunInfo]),
+        "compiler_flags": attrs.list(attrs.string(), default = []),
+    },
+)
+```
+
+This toolchain can then be instantiated in `toolchains//TARGETS`:
+
+```python
+foo_toolchain(
+    name = "foo",
+    compiler = "//tools:foo_compiler",
+    linter = "//tools:foo_linter",
+    compiler_flags = ["-O2", "-Wall"],
+    visibility = ["PUBLIC"],
+)
+```
+
+A working example of this pattern can be found in
+`tests/targets/toolchain_deps/` in the Buck2 repository.
+
+The [Accessing a toolchain in a build rule
+implementation](#accessing-a-toolchain-in-a-build-rule-implementation) section
+below shows how a build rule would consume this toolchain.
+
 ## Accessing a toolchain in a build rule implementation
 
 Before going any further, note that using a toolchain is often unnecessary. It

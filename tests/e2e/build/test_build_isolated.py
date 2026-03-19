@@ -345,6 +345,18 @@ async def test_toolchain_deps(buck: Buck) -> None:
     assert python_and_asic == "python_release_windows\nasic\n"
     assert python_only == "python_release_linux\n"
 
+    # Test foo_binary: a target that consumes a toolchain exposing multiple exec_deps
+    # (compiler + linter). This validates the pattern documented in
+    # docs/rule_authors/writing_toolchains.md "Exposing execution dependencies".
+    foo_result = await buck.build("root//tests:foo_hello")
+    foo_output = (
+        foo_result.get_build_report()
+        .output_for_target("root//tests:foo_hello")
+        .read_text()
+    )
+    assert "compiled[-O2 -Wall]:" in foo_output
+    assert "hello world" in foo_output
+
     await buck.build("root//...", "--target-platforms=root//config:platform_windows")
 
     # Check we get the toolchain dependencies in uquery and cquery
