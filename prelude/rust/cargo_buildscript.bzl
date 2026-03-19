@@ -304,6 +304,7 @@ def _cargo_buildscript_impl(ctx: AnalysisContext) -> list[Provider]:
         ],
     )
     deps_link = deps_tset.project_as_args("default")
+    sanitizer_flags = ["-fno-sanitize=all"]
     env["LD"] = _make_cc_shim(
         ctx = ctx,
         name = "__ld_shim",
@@ -311,6 +312,7 @@ def _cargo_buildscript_impl(ctx: AnalysisContext) -> list[Provider]:
             cxx_toolchain_info.linker_info.linker,
             cxx_toolchain_info.linker_info.linker_flags or [],
             rust_toolchain_info.linker_flags,
+            sanitizer_flags,
         ),
     )
     env["CC"] = _make_cc_shim(
@@ -322,6 +324,7 @@ def _cargo_buildscript_impl(ctx: AnalysisContext) -> list[Provider]:
             cxx_toolchain_info.c_compiler_info.compiler_flags,
             deps_preprocessor_flags,
             deps_link,
+            sanitizer_flags,
             ctx.attrs.cxx_flags,
             ["--target={}".format(target_triple)] if target_triple else [],
         ),
@@ -335,6 +338,7 @@ def _cargo_buildscript_impl(ctx: AnalysisContext) -> list[Provider]:
             cxx_toolchain_info.cxx_compiler_info.compiler_flags,
             deps_preprocessor_flags,
             deps_link,
+            sanitizer_flags,
             ctx.attrs.cxx_flags,
             ["--target={}".format(target_triple)] if target_triple else [],
         ),
