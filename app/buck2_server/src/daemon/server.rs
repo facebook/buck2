@@ -266,11 +266,10 @@ impl BuckdServer {
         fs_util::create_dir_all(paths.buck_out_path())
             .buck_error_context("Error creating buck_out_path")?;
 
-        // TODO(scottcao): make this not optional
         let cwd = {
             let dir = WorkingDirectory::open(paths.buck_out_path())?;
             dir.chdir_and_promise_it_will_not_change()?;
-            Some(dir)
+            dir
         };
 
         let cgroup_tree = if let Some(prepped_cgroups) = prepped_cgroups {

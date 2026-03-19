@@ -109,8 +109,8 @@ pub struct DaemonState {
     /// This holds the main data shared across different commands.
     pub(crate) data: Arc<DaemonStateData>,
 
-    /// Our working directory, if we did set one.
-    working_directory: Option<WorkingDirectory>,
+    /// Our working directory.
+    working_directory: WorkingDirectory,
 }
 
 /// DaemonStateData is the main shared data across all commands. It's lazily initialized on
@@ -236,7 +236,7 @@ impl DaemonState {
         init_ctx: BuckdServerInitPreferences,
         rt: &Handle,
         materializations: MaterializationMethod,
-        working_directory: Option<WorkingDirectory>,
+        working_directory: WorkingDirectory,
         cgroup_tree: Option<BuckCgroupTree>,
         daemon_id: DaemonId,
     ) -> Result<Self, buck2_error::Error> {
@@ -832,28 +832,26 @@ impl DaemonState {
     }
 
     pub fn validate_cwd(&self) -> buck2_error::Result<()> {
-        if let Some(working_directory) = &self.working_directory {
-            let res = working_directory.is_stale().and_then(|stale| {
-                if stale {
-                    Err(buck2_error!(
-                        buck2_error::ErrorTag::Environment,
-                        "Buck appears to be running in a stale working directory. \
-                         This will likely lead to failed or slow builds. \
-                         To remediate, restart Buck2."
-                    ))
-                } else {
-                    Ok(())
-                }
-            });
+        let res = self.working_directory.is_stale().and_then(|stale| {
+            if stale {
+                Err(buck2_error!(
+                    buck2_error::ErrorTag::Environment,
+                    "Buck appears to be running in a stale working directory. \
+                     This will likely lead to failed or slow builds. \
+                     To remediate, restart Buck2."
+                ))
+            } else {
+                Ok(())
+            }
+        });
 
-            tag_result!(
-                "stale_cwd",
-                res,
-                quiet: true,
-                daemon_in_memory_state_is_corrupted: true,
-                task: false
-            )?;
-        }
+        tag_result!(
+            "stale_cwd",
+            res,
+            quiet: true,
+            daemon_in_memory_state_is_corrupted: true,
+            task: false
+        )?;
 
         Ok(())
     }
