@@ -417,6 +417,20 @@ impl<Env: QueryEnvironment> DefaultQueryFunctionsModule<Env> {
             .into())
     }
 
+    /// Find the dependencies of the targets in the given target universe.
+    ///
+    /// The first parameter `targets` is a specific target or target pattern. It specifies the targets to find dependencies for.
+    /// The second argument `depth` is an optional integer literal specifying an upper bound on the depth of the search. A value of one (1) specifies that buck query should return only direct dependencies. If the depth parameter is omitted, the search is unbounded.
+    /// The third argument `captured_expr` is an optional expression that can be used to filter the results.
+    ///
+    /// The returned values include the nodes from the `targets` argument itself.
+    ///
+    /// For example following uquery:
+    ///
+    /// ```text
+    /// $ buck2 uquery "deps(//buck2:buck2, 1)"
+    /// ```
+    /// returns all targets that `//buck2:buck2` depends on directly.    
     async fn deps(
         &self,
         evaluator: &QueryEvaluator<'_, Env>,
