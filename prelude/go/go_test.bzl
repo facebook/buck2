@@ -25,7 +25,7 @@ load(":cgo_builder.bzl", "get_cgo_build_context")
 load(":compile.bzl", "GoTestInfo")
 load(":coverage.bzl", "GoCoverageMode")
 load(":link.bzl", "GoBuildMode", "get_inherited_link_pkgs", "link")
-load(":package_builder.bzl", "build_package_wrapper")
+load(":package_builder.bzl", "GoBuildConfig", "GoSourceInputs", "build_package_wrapper")
 load(":packages.bzl", "go_attr_pkg_name")
 load(":toolchain.bzl", "evaluate_cgo_enabled")
 
@@ -87,17 +87,21 @@ def go_test_impl(ctx: AnalysisContext) -> list[Provider]:
         ctx = ctx,
         pkg_import_path = pkg_import_path,
         main = False,
-        srcs = srcs,
-        package_root = ctx.attrs.package_root,
+        sources = GoSourceInputs(
+            srcs = srcs,
+            embed_srcs = ctx.attrs.embed_srcs,
+            package_root = ctx.attrs.package_root,
+        ),
         cgo_build_context = cgo_build_context,
-        deps = deps,
+        config = GoBuildConfig(
+            compiler_flags = ctx.attrs.compiler_flags,
+            build_tags = ctx.attrs._build_tags,
+            coverage_mode = coverage_mode,
+            with_tests = True,
+            cgo_enabled = cgo_enabled,
+        ),
         pkgs = pkgs,
-        compiler_flags = ctx.attrs.compiler_flags,
-        build_tags = ctx.attrs._build_tags,
-        coverage_mode = coverage_mode,
-        embed_srcs = ctx.attrs.embed_srcs,
-        with_tests = True,
-        cgo_enabled = cgo_enabled,
+        deps = deps,
     )
 
     cover_packagages = []
@@ -117,13 +121,16 @@ def go_test_impl(ctx: AnalysisContext) -> list[Provider]:
         ctx = ctx,
         pkg_import_path = pkg_import_path + ".test",
         main = True,
-        srcs = [gen_main],
-        package_root = "",
+        sources = GoSourceInputs(
+            srcs = [gen_main],
+            package_root = "",
+        ),
         cgo_build_context = None,
+        config = GoBuildConfig(
+            cgo_enabled = cgo_enabled,
+        ),
         pkgs = pkgs,
-        coverage_mode = None,
         cgo_gen_dir_name = "cgo_gen_test_main",
-        cgo_enabled = cgo_enabled,
     )
 
     # Link the above into a Go binary.

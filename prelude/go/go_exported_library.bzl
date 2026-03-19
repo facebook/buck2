@@ -52,7 +52,7 @@ load(
 load(":cgo_builder.bzl", "get_cgo_build_context")
 load(":compile.bzl", "GoTestInfo")
 load(":link.bzl", "GoBuildMode", "link")
-load(":package_builder.bzl", "build_package_wrapper")
+load(":package_builder.bzl", "GoBuildConfig", "GoSourceInputs", "build_package_wrapper")
 load(":packages.bzl", "cgo_exported_preprocessor", "go_attr_pkg_name")
 load(":toolchain.bzl", "evaluate_cgo_enabled")
 
@@ -66,14 +66,18 @@ def go_exported_library_impl(ctx: AnalysisContext) -> list[Provider]:
         ctx = ctx,
         pkg_import_path = pkg_import_path,
         main = True,
-        srcs = ctx.attrs.srcs,
-        package_root = ctx.attrs.package_root,
+        sources = GoSourceInputs(
+            srcs = ctx.attrs.srcs,
+            embed_srcs = ctx.attrs.embed_srcs,
+            package_root = ctx.attrs.package_root,
+        ),
         cgo_build_context = cgo_build_context,
+        config = GoBuildConfig(
+            compiler_flags = ctx.attrs.compiler_flags,
+            build_tags = ctx.attrs._build_tags,
+            cgo_enabled = cgo_enabled,
+        ),
         deps = ctx.attrs.deps,
-        compiler_flags = ctx.attrs.compiler_flags,
-        build_tags = ctx.attrs._build_tags,
-        embed_srcs = ctx.attrs.embed_srcs,
-        cgo_enabled = cgo_enabled,
     )
 
     def link_variant(build_mode: GoBuildMode):

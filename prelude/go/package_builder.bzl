@@ -24,22 +24,30 @@ load(":go_list.bzl", "GoListOut", "go_list", "parse_go_list_out")
 load(":packages.bzl", "GoPackageInfo", "GoPkg", "GoStdlib", "GoStdlibDynamicValue", "implicit_imports", "make_compile_importcfg", "merge_pkgs")
 load(":toolchain.bzl", "GoToolchainInfo", "get_toolchain_env_vars")
 
+GoBuildConfig = record(
+    compiler_flags = field(list[str], []),
+    assembler_flags = field(list[str], []),
+    build_tags = field(list[str], []),
+    coverage_mode = field(GoCoverageMode | None, None),
+    cgo_enabled = field(bool, False),
+    with_tests = field(bool, False),
+)
+
+GoSourceInputs = record(
+    srcs = field(list[Artifact]),
+    embed_srcs = field(list[Artifact], []),
+    package_root = field(str | None, None),
+)
+
 def build_package_wrapper(
         ctx: AnalysisContext,
         pkg_import_path: str,
         main: bool,
-        srcs: list[Artifact],
-        package_root: str | None,
+        sources: GoSourceInputs,
         cgo_build_context: CGoBuildContext | None,
+        config: GoBuildConfig,
         pkgs: dict[str, GoPkg] = {},
         deps: list[Dependency] = [],
-        compiler_flags: list[str] = [],
-        assembler_flags: list[str] = [],
-        build_tags: list[str] = [],
-        embed_srcs: list[Artifact] = [],
-        cgo_enabled: bool = False,
-        coverage_mode: GoCoverageMode | None = None,
-        with_tests: bool = False,
         cgo_gen_dir_name: str = "cgo_gen") -> (GoPkg, GoPackageInfo, Artifact):
     actions = ctx.actions
     target_label = ctx.label
@@ -51,7 +59,7 @@ def build_package_wrapper(
     if race and asan:
         fail("`race=True` and `asan=True` are mutually exclusive")
 
-    if race and coverage_mode not in [None, GoCoverageMode("atomic")]:
+    if race and config.coverage_mode not in [None, GoCoverageMode("atomic")]:
         fail("`coverage_mode` must be `atomic` when `race=True`")
 
     out_x = actions.declare_output(paths.basename(pkg_import_path) + "_non-shared.x", has_content_based_path = True)
@@ -62,11 +70,11 @@ def build_package_wrapper(
 
     cgo_gen_dir = actions.declare_output(cgo_gen_dir_name, dir = True, has_content_based_path = True)
 
-    srcs = dedupe_by_value(srcs)
+    srcs = dedupe_by_value(sources.srcs)
 
-    package_root = package_root if package_root != None else infer_package_root(srcs)
+    package_root = sources.package_root if sources.package_root != None else infer_package_root(srcs)
 
-    go_list_out = go_list(actions, go_toolchain, pkg_import_path, srcs, package_root, build_tags, cgo_enabled, with_tests = with_tests)
+    go_list_out = go_list(actions, go_toolchain, pkg_import_path, srcs, package_root, config.build_tags, config.cgo_enabled, with_tests = config.with_tests)
 
     test_go_files_argsfile = actions.declare_output(paths.basename(pkg_import_path) + "_test_go_files.go_package_argsfile", has_content_based_path = True)
 
@@ -79,15 +87,14 @@ def build_package_wrapper(
         target_label = target_label,
         pkg_import_path = pkg_import_path,
         main = main,
-        srcs = srcs,
-        package_root = package_root,
+        sources = GoSourceInputs(
+            srcs = srcs,
+            embed_srcs = sources.embed_srcs,
+            package_root = package_root,
+        ),
         cgo_build_context = cgo_build_context,
+        config = config,
         deps_pkgs = all_pkgs,
-        compiler_flags = compiler_flags,
-        assembler_flags = assembler_flags,
-        coverage_mode = coverage_mode,
-        embed_srcs = embed_srcs,
-        with_tests = with_tests,
         go_toolchain = go_toolchain,
         go_stdlib_value = go_stdlib.dynamic_value,
         go_list_out = go_list_out,
@@ -117,15 +124,10 @@ def _build_package_action_impl(
         target_label: Label,
         pkg_import_path: str,
         main: bool,
-        srcs: list[Artifact],
-        package_root: None | str,
+        sources: GoSourceInputs,
         cgo_build_context: None | CGoBuildContext,
+        config: GoBuildConfig,
         deps_pkgs: dict[str, GoPkg],
-        compiler_flags: list[str],
-        assembler_flags: list[str],
-        coverage_mode: None | GoCoverageMode,
-        embed_srcs: list[Artifact],
-        with_tests: bool,
         go_toolchain: GoToolchainInfo,
         go_list_out: ArtifactValue,
         go_stdlib_value: ResolvedDynamicValue,
@@ -135,7 +137,7 @@ def _build_package_action_impl(
         out_shared_x: OutputArtifact,
         out_x: OutputArtifact,
         test_go_files_argsfile: OutputArtifact):
-    go_list = parse_go_list_out(srcs, package_root, go_list_out)
+    go_list = parse_go_list_out(sources.srcs, sources.package_root, go_list_out)
 
     if go_list.error != None:
         fail("Invalid go package: {}", go_list.error.err)
@@ -150,22 +152,22 @@ def _build_package_action_impl(
         target_label = target_label,
         go_toolchain = go_toolchain,
         cgo_build_context = cgo_build_context,
-        go_list = go_list_for_build(go_list, with_tests),
+        go_list = go_list_for_build(go_list, config.with_tests),
         params = BuildPackageParams(
             main = main,
             standard = False,
             pkg_import_path = pkg_import_path,
-            package_root = package_root,
-            embed_srcs = embed_srcs,
-            compiler_flags = compiler_flags,
-            assembler_flags = assembler_flags,
-            coverage_mode = coverage_mode,
+            package_root = sources.package_root,
+            embed_srcs = sources.embed_srcs,
+            compiler_flags = config.compiler_flags,
+            assembler_flags = config.assembler_flags,
+            coverage_mode = config.coverage_mode,
             deps = merge_pkgs([go_stdlib_value.pkgs, deps_pkgs]),
             import_map = None,
         ),
     )
 
-    actions.write(test_go_files_argsfile, cmd_args((go_list.test_go_files if with_tests else []), ""))
+    actions.write(test_go_files_argsfile, cmd_args((go_list.test_go_files if config.with_tests else []), ""))
     actions.copy_dir(cgo_gen_dir, result.cgo_gen_dir)
 
     actions.copy_file(out_x, result.x_file)
@@ -184,15 +186,10 @@ _build_package_action = dynamic_actions(
         "target_label": dynattrs.value(Label),
         "pkg_import_path": dynattrs.value(str),
         "main": dynattrs.value(bool),
-        "srcs": dynattrs.value(list[Artifact]),
-        "package_root": dynattrs.value(str | None),
+        "sources": dynattrs.value(GoSourceInputs),
         "cgo_build_context": dynattrs.value(CGoBuildContext | None),
+        "config": dynattrs.value(GoBuildConfig),
         "deps_pkgs": dynattrs.value(dict[str, GoPkg]),
-        "compiler_flags": dynattrs.value(list[str]),
-        "assembler_flags": dynattrs.value(list[str]),
-        "coverage_mode": dynattrs.value(GoCoverageMode | None),
-        "embed_srcs": dynattrs.value(list[Artifact]),
-        "with_tests": dynattrs.value(bool),
         "go_toolchain": dynattrs.value(GoToolchainInfo),
         # Readable Artifacts
         "go_list_out": dynattrs.artifact_value(),

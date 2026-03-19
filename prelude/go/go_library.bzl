@@ -44,7 +44,7 @@ load(":cgo_builder.bzl", "get_cgo_build_context")
 load(":compile.bzl", "GoPkgCompileInfo", "GoTestInfo")
 load(":coverage.bzl", "GoCoverageMode")
 load(":link.bzl", "GoPkgLinkInfo", "get_inherited_link_pkgs")
-load(":package_builder.bzl", "build_package_wrapper")
+load(":package_builder.bzl", "GoBuildConfig", "GoSourceInputs", "build_package_wrapper")
 load(":packages.bzl", "cgo_exported_preprocessor", "go_attr_pkg_name", "merge_pkgs")
 load(":toolchain.bzl", "GoToolchainInfo", "evaluate_cgo_enabled", "get_toolchain_env_vars")
 
@@ -59,16 +59,20 @@ def go_library_impl(ctx: AnalysisContext) -> list[Provider]:
         ctx = ctx,
         pkg_import_path = pkg_import_path,
         main = False,
-        srcs = ctx.attrs.srcs + ctx.attrs.headers,
-        package_root = ctx.attrs.package_root,
+        sources = GoSourceInputs(
+            srcs = ctx.attrs.srcs + ctx.attrs.headers,
+            embed_srcs = ctx.attrs.embed_srcs,
+            package_root = ctx.attrs.package_root,
+        ),
         cgo_build_context = cgo_build_context,
+        config = GoBuildConfig(
+            compiler_flags = ctx.attrs.compiler_flags,
+            assembler_flags = ctx.attrs.assembler_flags,
+            build_tags = ctx.attrs._build_tags,
+            coverage_mode = coverage_mode,
+            cgo_enabled = evaluate_cgo_enabled(cxx_toolchain_available, ctx.attrs._cgo_enabled, ctx.attrs.override_cgo_enabled),
+        ),
         deps = ctx.attrs.deps,
-        compiler_flags = ctx.attrs.compiler_flags,
-        assembler_flags = ctx.attrs.assembler_flags,
-        build_tags = ctx.attrs._build_tags,
-        coverage_mode = coverage_mode,
-        embed_srcs = ctx.attrs.embed_srcs,
-        cgo_enabled = evaluate_cgo_enabled(cxx_toolchain_available, ctx.attrs._cgo_enabled, ctx.attrs.override_cgo_enabled),
     )
 
     default_output = _combine_package(ctx, pkg_import_path, pkg.archive_file, pkg.export_file)
