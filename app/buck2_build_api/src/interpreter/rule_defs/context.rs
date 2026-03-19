@@ -13,6 +13,7 @@ use std::cell::RefMut;
 use std::convert::Infallible;
 use std::fmt;
 use std::fmt::Formatter;
+use std::sync::OnceLock;
 
 use allocative::Allocative;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
@@ -55,6 +56,25 @@ use crate::analysis::anon_promises_dyn::RunAnonPromisesAccessor;
 use crate::analysis::registry::AnalysisRegistry;
 use crate::deferred::calculation::GET_PROMISED_ARTIFACT;
 use crate::interpreter::rule_defs::plugins::AnalysisPlugins;
+
+/// Whether `declare_output` defaults `has_content_based_path` to `true`.
+/// Controlled by `[buck2] declare_output_has_content_based_path_default` buckconfig.
+pub static DECLARE_OUTPUT_HAS_CONTENT_BASED_PATH_DEFAULT: OnceLock<bool> = OnceLock::new();
+
+pub fn init_declare_output_has_content_based_path_default(
+    value: Option<bool>,
+) -> buck2_error::Result<()> {
+    let value = value.unwrap_or(false);
+    DECLARE_OUTPUT_HAS_CONTENT_BASED_PATH_DEFAULT
+        .set(value)
+        .map_err(|_| {
+            buck2_error::buck2_error!(
+                buck2_error::ErrorTag::Tier0,
+                "DECLARE_OUTPUT_HAS_CONTENT_BASED_PATH_DEFAULT is already initialized"
+            )
+        })?;
+    Ok(())
+}
 
 /// Functions to allow users to interact with the Actions registry.
 ///

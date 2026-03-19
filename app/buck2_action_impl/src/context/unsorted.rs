@@ -52,7 +52,7 @@ pub(crate) fn analysis_actions_methods_unsorted(builder: &mut MethodsBuilder) {
         #[starlark(require = pos)] prefix: &str,
         #[starlark(require = pos)] filename: Option<&str>,
         #[starlark(require = named, default = false)] dir: bool,
-        #[starlark(require = named, default = false)] has_content_based_path: bool,
+        #[starlark(require = named)] has_content_based_path: Option<bool>,
         eval: &mut Evaluator<'v, '_, '_>,
     ) -> starlark::Result<StarlarkDeclaredArtifact<'v>> {
         // We take either one or two positional arguments, namely (filename) or (prefix, filename).
@@ -68,6 +68,11 @@ pub(crate) fn analysis_actions_methods_unsorted(builder: &mut MethodsBuilder) {
         } else {
             OutputType::FileOrDirectory
         };
+        let has_content_based_path = has_content_based_path.unwrap_or(
+            *buck2_build_api::interpreter::rule_defs::context::DECLARE_OUTPUT_HAS_CONTENT_BASED_PATH_DEFAULT
+                .get()
+                .unwrap_or(&false),
+        );
         let path_resolution_method = if has_content_based_path {
             BuckOutPathKind::ContentHash
         } else {
