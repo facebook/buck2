@@ -17,6 +17,7 @@ def _select_platform():
     return select({
         "DEFAULT": select({
             "DEFAULT": "android",
+            "config//os/constraints:appletvos": "ios",
             "config//os/constraints:iphoneos": "ios",
             "config//os/constraints:macos": "macos",
             "config//os/constraints:windows": "windows",
