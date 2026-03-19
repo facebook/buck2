@@ -226,6 +226,15 @@ def main() -> None:  # noqa: C901
             target = f.read().strip()
             env["TARGET"] = target
 
+    if os.sep in env.get("LD", ""):
+        env["LD"] = os.path.abspath(env["LD"])
+    if os.sep in env.get("CC", ""):
+        env["CC"] = os.path.abspath(env["CC"])
+    if os.sep in env.get("CXX", ""):
+        env["CXX"] = os.path.abspath(env["CXX"])
+    if os.sep in env.get("AR", ""):
+        env["AR"] = os.path.abspath(env["AR"])
+
     ensure_rustc_available(
         env=env,
         cwd=cwd,

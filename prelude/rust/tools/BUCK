@@ -71,6 +71,12 @@ constraint_setting(
 )
 
 prelude.python_bootstrap_binary(
+    name = "from_any_dir",
+    main = "from_any_dir.py",
+    visibility = ["PUBLIC"],
+)
+
+prelude.python_bootstrap_binary(
     name = "rustdoc_coverage",
     main = "rustdoc_coverage.py",
     visibility = ["PUBLIC"],
