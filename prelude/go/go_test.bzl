@@ -22,9 +22,9 @@ load(
     "value_or",
 )
 load(":cgo_builder.bzl", "get_cgo_build_context")
-load(":compile.bzl", "GoTestInfo", "get_inherited_compile_pkgs")
+load(":compile.bzl", "GoTestInfo")
 load(":coverage.bzl", "GoCoverageMode")
-load(":link.bzl", "GoBuildMode", "link")
+load(":link.bzl", "GoBuildMode", "get_inherited_link_pkgs", "link")
 load(":package_builder.bzl", "build_package_wrapper")
 load(":packages.bzl", "go_attr_pkg_name")
 load(":toolchain.bzl", "evaluate_cgo_enabled")
@@ -38,18 +38,19 @@ def _gen_test_main(
     """
     Generate a `main.go` which calls tests from the given sources.
     """
+    cover_pkgs_argsfile = ctx.actions.declare_output("cover_pkgs_argsfile", has_content_based_path = True)
+    ctx.actions.write(cover_pkgs_argsfile, [["--cover-pkgs", pkg] for pkg in cover_packagages])
+
     output = ctx.actions.declare_output("main.go", has_content_based_path = True)
     cmd = []
     cmd.append(ctx.attrs._testmaingen[RunInfo])
 
     # if ctx.attrs.coverage_mode:
-    # cmd.append(cmd_args(ctx.attrs.coverage_mode, format = "--cover-mode={}"))
     cmd.append(cmd_args(output.as_output(), format = "--output={}"))
     cmd.append(cmd_args(pkg_import_path, format = "--import-path={}"))
     if coverage_mode != None:
         cmd.extend(["--cover-mode", coverage_mode.value])
-    for pkg in cover_packagages:
-        cmd.extend(["--cover-pkgs", pkg])
+    cmd.append(cmd_args(cover_pkgs_argsfile, format = "@{}"))
     cmd.append(cmd_args(test_go_files_argsfile, format = "@{}"))
     ctx.actions.run(cmd_args(cmd), category = "go_test_main_gen")
     return output
@@ -104,10 +105,8 @@ def go_test_impl(ctx: AnalysisContext) -> list[Provider]:
         cover_packagages.append(pkg_import_path)
 
         # Get all packages that are linked to the test (i.e. the entire dependency tree)
-        for import_path, pkg in get_inherited_compile_pkgs(deps).items():
-            if ctx.label != None and is_subpackage_of(import_path, ctx.label.package):
-                cover_packagages.append(import_path)
-                pkgs[import_path] = pkg
+        for import_path in get_inherited_link_pkgs(deps):
+            cover_packagages.append(import_path)
 
     pkgs[pkg_import_path] = tests
 
