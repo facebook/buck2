@@ -17,7 +17,7 @@ def _impl(ctx: AnalysisContext) -> list[Provider]:
         data_rel_path = "includes/" + path + "/__data"
 
         # In the future, this can be extended to additionally compress the data
-        exec_bit = ctx.actions.declare_output("processed/" + path + "/__exec_bit.txt")
+        exec_bit = ctx.actions.declare_output("processed/" + path + "/__exec_bit.txt", has_content_based_path = False)
         ctx.actions.run(
             cmd_args(
                 ctx.attrs._processor[RunInfo],
