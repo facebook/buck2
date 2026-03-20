@@ -223,6 +223,7 @@ export const sidebars: SidebarsConfig = {
         'rule_authors/test_execution',
         'rule_authors/optimization',
         isInternal() ? 'rule_authors/rule_writing_tips' : null,
+        'rule_authors/persistent_workers',
         'rule_authors/incremental_actions',
         'rule_authors/load',
         'rule_authors/alias',
