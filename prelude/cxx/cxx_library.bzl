@@ -169,7 +169,6 @@ load(
     "cxx_attr_linker_flags_all",
     "cxx_attr_preferred_linkage",
     "cxx_attr_resources",
-    "cxx_can_generate_shlib_interface_from_linkables",
     "cxx_inherited_link_info",
     "cxx_is_gnu",
     "cxx_platform_supported",
@@ -221,7 +220,6 @@ load(
     ":linker.bzl",
     "get_default_shared_library_name",
     "get_ignore_undefined_symbols_flags",
-    "get_shared_library_install_name",
     "get_shared_library_name",
     "get_shared_library_name_for_param",
     "sandbox_exported_linker_flags",
@@ -244,7 +242,6 @@ load(
 load(
     ":shared_library_interface.bzl",
     "shared_library_interface",
-    "shared_library_interface_from_linkables",
 )
 
 # A possible output of a `cxx_library`. This could be an archive or a shared library. Generally for an archive
@@ -2213,21 +2210,6 @@ def _shared_library(
             ctx = ctx,
             shared_lib = exported_shlib,
         )
-    elif effective_shlib_interfaces_mode == ShlibInterfacesMode("stub_from_object_files"):
-        if cxx_can_generate_shlib_interface_from_linkables(ctx):
-            is_extension_safe = False
-            for flag in ctx.attrs.linker_flags:
-                flag = str(flag)
-                if "-fapplication-extension" in flag:
-                    is_extension_safe = True
-                    break
-            exported_shlib = shared_library_interface_from_linkables(
-                ctx = ctx,
-                link_args = links,
-                shared_lib = exported_shlib,
-                install_name = get_shared_library_install_name(linker_type = linker_info.type, soname = soname),
-                extension_safe = is_extension_safe,
-            )
     elif effective_shlib_interfaces_mode == ShlibInterfacesMode("defined_only"):
         link_info = LinkInfo(
             pre_flags = link_info.pre_flags,

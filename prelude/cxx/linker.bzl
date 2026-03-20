@@ -162,9 +162,6 @@ def get_shared_library_name_linker_flags(linker_type: LinkerType, soname: str, f
         for f in shared_library_name_linker_flags_format
     ]
 
-def get_shared_library_install_name(linker_type: LinkerType, soname: str) -> str:
-    return LINKERS[linker_type].shared_library_install_name_format.format(soname)
-
 def get_shared_library_flags(linker_type: LinkerType, flag_overrides: [SharedLibraryFlagOverrides, None] = None) -> list[ArgLike]:
     """
     Arguments to pass to the linker to link a shared library.
