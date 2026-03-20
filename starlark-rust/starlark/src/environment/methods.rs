@@ -36,6 +36,7 @@ use crate::values::function::NativeAttribute;
 use crate::values::function::NativeMeth;
 use crate::values::function::NativeMethFn;
 use crate::values::function::NativeMethod;
+use crate::values::layout::heap::heap_type::FrozenHeapName;
 use crate::values::types::unbound::UnboundValue;
 
 /// Methods of an object.
@@ -46,6 +47,20 @@ pub struct Methods {
     heap: FrozenHeapRef,
     members: SymbolMap<UnboundValue>,
     docstring: Option<String>,
+}
+
+/// Heap name for a [`Methods`] object, used for heap graph tracking.
+#[derive(Debug, Clone, Copy)]
+pub struct MethodFrozenHeapName {
+    /// A name identifying this methods heap (e.g. type name like "dict",
+    /// or a module path like "starlark::values::types::dict::methods::dict_methods").
+    pub name: &'static str,
+}
+
+impl std::fmt::Display for MethodFrozenHeapName {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "methods({})", self.name)
+    }
 }
 
 /// Used to build a [`Methods`] value.
@@ -61,6 +76,8 @@ pub struct MethodsBuilder {
     /// combined with each other, but having the main documentation for the object on the methods
     /// instead of on the object type directly is extraordinarily confusing.
     docstring: Option<String>,
+    /// Heap name for identification in heap graph tracking.
+    heap_name: Option<MethodFrozenHeapName>,
 }
 
 impl Methods {
@@ -137,13 +154,17 @@ impl MethodsBuilder {
             heap: FrozenHeap::new(),
             members: SymbolMap::new(),
             docstring: None,
+            heap_name: None,
         }
     }
 
     /// Called at the end to build a [`Methods`].
     pub fn build(self) -> Methods {
+        let heap = self
+            .heap
+            .into_ref_impl(self.heap_name.map(FrozenHeapName::Method));
         Methods {
-            heap: self.heap.into_ref(),
+            heap,
             members: self.members,
             docstring: self.docstring,
         }
@@ -264,16 +285,69 @@ impl MethodsStatic {
         Self(OnceCell::new())
     }
 
+    /// Populate the globals with a builder function, naming the heap using type `T`.
+    ///
+    /// Uses `std::any::type_name::<T>()` to derive a name for the Methods heap.
+    ///
+    /// # Warning
+    ///
+    /// `type_name` is not guaranteed by the Rust standard to produce unique
+    /// names across different types. In practice, callers typically pass
+    /// `Self::Canonical` (via `#[starlark_value]`), which resolves to a
+    /// distinct concrete type per `StarlarkValue` implementation, making
+    /// collisions unlikely.
+    ///
+    /// Typically called with `Self::Canonical` in `#[starlark_value]` as the type parameter:
+    ///
+    /// ```ignore
+    /// fn get_methods() -> Option<&'static Methods> {
+    ///     static RES: MethodsStatic = MethodsStatic::new();
+    ///     RES.methods_for_type::<Self::Canonical>(my_methods)
+    /// }
+    /// ```
+    pub fn methods_for_type<T>(
+        &'static self,
+        x: impl FnOnce(&mut MethodsBuilder),
+    ) -> Option<&'static Methods> {
+        let type_name = std::any::type_name::<T>();
+        Some(self.0.get_or_init(|| {
+            let mut builder = MethodsBuilder::new();
+            builder.heap_name = Some(MethodFrozenHeapName { name: type_name });
+            x(&mut builder);
+            builder.build()
+        }))
+    }
+
     /// Populate the globals with a builder function. Always returns `Some`, but using this API
     /// to be a better fit for [`StarlarkValue.get_methods`](crate::values::StarlarkValue::get_methods).
+    ///
+    /// Prefer [`methods_for_type`](Self::methods_for_type) when heap naming is needed for pagable
+    /// serialization.
     pub fn methods(&'static self, x: impl FnOnce(&mut MethodsBuilder)) -> Option<&'static Methods> {
-        Some(self.0.get_or_init(|| MethodsBuilder::new().with(x).build()))
+        Some(self.0.get_or_init(|| {
+            let mut builder = MethodsBuilder::new();
+            x(&mut builder);
+            builder.build()
+        }))
     }
 
     /// Copy all the methods in this [`MethodsBuilder`] into a new one. All variables will
     /// only be allocated once (ensuring things like function comparison works properly).
-    pub fn populate(&'static self, x: impl FnOnce(&mut MethodsBuilder), out: &mut MethodsBuilder) {
-        let methods = self.methods(x).unwrap();
+    ///
+    /// `name` is a unique identifier for the inner heap (typically
+    /// `concat!(module_path!(), "::", stringify!(fn_name))` from the macro expansion site).
+    pub fn populate(
+        &'static self,
+        name: &'static str,
+        x: impl FnOnce(&mut MethodsBuilder),
+        out: &mut MethodsBuilder,
+    ) {
+        let methods = self.0.get_or_init(|| {
+            let mut builder = MethodsBuilder::new();
+            builder.heap_name = Some(MethodFrozenHeapName { name });
+            x(&mut builder);
+            builder.build()
+        });
         for (name, value) in methods.members.iter() {
             out.members.insert(name.as_str(), value.clone());
         }

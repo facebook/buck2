@@ -174,9 +174,11 @@ fn gather_heap_graph_sketch_impl(
         let Some(name) = item.name() else {
             continue;
         };
-        let FrozenHeapName::User(name) = name;
-        let name = name.downcast_ref::<StarlarkEvalKind>().unwrap();
-        sketcher.sketch_weighted(name, item.allocated_bytes() as u64);
+        if let FrozenHeapName::User(user_name) = name {
+            if let Some(eval_kind) = user_name.downcast_ref::<StarlarkEvalKind>() {
+                sketcher.sketch_weighted(eval_kind, item.allocated_bytes() as u64);
+            }
+        }
         queue.extend(item.refs().filter(|f| visited.insert(*f)));
     }
 }
