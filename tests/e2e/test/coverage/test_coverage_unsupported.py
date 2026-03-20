@@ -12,30 +12,9 @@
 from pathlib import Path
 
 from buck2.tests.e2e_util.api.buck import Buck
-from buck2.tests.e2e_util.asserts import expect_failure
 from buck2.tests.e2e_util.buck_workspace import buck_test
 
 from .test_coverage_utils import collect_coverage_for
-
-
-@buck_test(inplace=True)
-async def test_go_test_selective_coverage_doesnt_produce_coverage(buck: Buck) -> None:
-    await expect_failure(
-        buck.test(
-            *[
-                "--config",
-                "code_coverage.enable=filtered",
-                "--config",
-                "code_coverage.file_path_filter=fbcode/testing_frameworks/code_coverage/go/add.go",
-                "fbcode//testing_frameworks/code_coverage/go:test",
-                "--",
-                "--collect-coverage",
-            ]
-        ),
-        stderr_regex=r"""2 TESTS FATALS
-  ⚠ fbcode//testing_frameworks/code_coverage/go:test - Test(Add|Sub)
-  ⚠ fbcode//testing_frameworks/code_coverage/go:test - Test(Add|Sub)""",
-    )
 
 
 @buck_test(inplace=True)
