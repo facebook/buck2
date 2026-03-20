@@ -504,6 +504,7 @@ impl<'a> ConnectedInstaller<'a> {
             let install_info_request = tonic::Request::new(InstallInfoRequest {
                 install_id: install_id.to_owned(),
                 files: files_map,
+                file_names: Vec::new(),
             });
 
             let response_result =

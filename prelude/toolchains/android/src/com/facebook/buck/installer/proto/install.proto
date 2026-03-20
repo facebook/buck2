@@ -39,6 +39,11 @@ service Installer {
 message InstallInfoRequest {
   string install_id = 1;
   map<string, string> files = 2;
+  // Set of file names to expect. When populated, the receiver should use this
+  // instead of the `files` map. The actual paths are delivered later via
+  // FileReady requests. This supports content-based output paths where paths
+  // are not known until after the build.
+  repeated string file_names = 3;
 }
 
 message InstallResponse {
