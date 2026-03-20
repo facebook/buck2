@@ -69,6 +69,7 @@ def go_library_impl(ctx: AnalysisContext) -> list[Provider]:
             compiler_flags = ctx.attrs.compiler_flags,
             assembler_flags = ctx.attrs.assembler_flags,
             build_tags = ctx.attrs._build_tags,
+            coverage_enabled = ctx.attrs.coverage_enabled,
             coverage_mode = coverage_mode,
             cgo_enabled = evaluate_cgo_enabled(cxx_toolchain_available, ctx.attrs._cgo_enabled, ctx.attrs.override_cgo_enabled),
         ),
@@ -93,6 +94,7 @@ def go_library_impl(ctx: AnalysisContext) -> list[Provider]:
             deps = ctx.attrs.deps,
             srcs = ctx.attrs.srcs,
             pkg_import_path = pkg_import_path,
+            coverage_enabled = ctx.attrs.coverage_enabled,
         ),
         create_merged_link_info_for_propagation(ctx, filter(None, [d.get(MergedLinkInfo) for d in ctx.attrs.deps])),
         merge_shared_libraries(

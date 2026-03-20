@@ -21,8 +21,9 @@ def cover_srcs(
         pkg_import_path: str,
         go_files: list[Artifact],
         cgo_files: list[Artifact],
+        coverage_enabled: bool,
         coverage_mode: GoCoverageMode | None) -> (list[Artifact], list[Artifact], Artifact | None):
-    if coverage_mode == None:
+    if not coverage_enabled or coverage_mode == None:
         return go_files, cgo_files, None
 
     if len(go_files) + len(cgo_files) == 0:

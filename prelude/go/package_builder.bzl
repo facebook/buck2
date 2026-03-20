@@ -28,6 +28,7 @@ GoBuildConfig = record(
     compiler_flags = field(list[str], []),
     assembler_flags = field(list[str], []),
     build_tags = field(list[str], []),
+    coverage_enabled = field(bool, False),
     coverage_mode = field(GoCoverageMode | None, None),
     cgo_enabled = field(bool, False),
     with_tests = field(bool, False),
@@ -110,6 +111,7 @@ def declare_package_build(
         archive_file_shared = out_shared_a,
         export_file = out_x,
         export_file_shared = out_shared_x,
+        coverage_enabled = config.coverage_enabled,
     ), GoPackageInfo(
         build_out = out_x,
         cgo_gen_dir = cgo_gen_dir,
@@ -161,6 +163,7 @@ def _build_package_action_impl(
             embed_srcs = sources.embed_srcs,
             compiler_flags = config.compiler_flags,
             assembler_flags = config.assembler_flags,
+            coverage_enabled = config.coverage_enabled,
             coverage_mode = config.coverage_mode,
             deps = merge_pkgs([go_stdlib_value.pkgs, deps_pkgs]),
             import_map = None,
@@ -246,6 +249,7 @@ BuildPackageParams = record(
     embed_srcs = field(list[Artifact]),
     compiler_flags = field(list[str]),
     assembler_flags = field(list[str]),
+    coverage_enabled = field(bool),
     coverage_mode = field(GoCoverageMode | None),
     deps = field(dict[str, GoPkg]),
     # Importmap is used when the import path we use in the code different
@@ -292,6 +296,7 @@ def build_package(
         pkg_import_path = params.pkg_import_path,
         go_files = go_list.go_files,
         cgo_files = go_list.cgo_files,
+        coverage_enabled = params.coverage_enabled,
         coverage_mode = params.coverage_mode,
     )
 
@@ -350,7 +355,7 @@ def build_package(
             pkg_import_path = params.pkg_import_path,
             standard = params.standard,
             has_cgo_files = len(go_list.cgo_files) > 0,
-            coverage_enabled = params.coverage_mode != None,
+            coverage_enabled = params.coverage_enabled,
         )
 
         importcfg = make_compile_importcfg(

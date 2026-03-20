@@ -83,6 +83,7 @@ go_binary = prelude_rule(
         go_common.package_root_arg() |
         go_common.cgo_enabled_arg() |
         go_common.build_tags_arg() |
+        go_common.coverage_enabled_arg() |
         cxx_common.headers_arg() |
         cxx_common.header_namespace_arg() |
         go_common.cxx_preprocessor_flags_arg() |
@@ -173,6 +174,7 @@ go_exported_library = prelude_rule(
         go_common.cgo_enabled_arg() |
         go_common.build_tags_arg() |
         go_common.generate_exported_header() |
+        go_common.coverage_enabled_arg() |
         go_common.embed_srcs_arg() |
         {
             "resources": attrs.list(attrs.source(), default = [], doc = """
@@ -228,6 +230,7 @@ go_library = prelude_rule(
         go_common.cxx_compiler_flags_arg() |
         go_common.external_linker_flags_arg() |
         go_common.link_style_arg() |
+        go_common.coverage_enabled_arg() |
         go_common.generate_exported_header() |
         {
             "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
@@ -321,6 +324,7 @@ go_test = prelude_rule(
         } |
         go_common.deps_arg() |
         go_common.link_style_arg() |
+        go_common.coverage_enabled_arg() |
         go_common.link_mode_arg() |
         {
             "build_mode": attrs.option(attrs.enum(BuildMode), doc = """

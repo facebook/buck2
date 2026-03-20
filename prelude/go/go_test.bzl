@@ -65,6 +65,7 @@ def go_test_impl(ctx: AnalysisContext) -> list[Provider]:
 
     deps = ctx.attrs.deps
     srcs = ctx.attrs.srcs
+    coverage_enabled = ctx.attrs.coverage_enabled
 
     # Copy the srcs, deps and pkg_import_path from the target library when set. The
     # library code gets compiled together with the tests.
@@ -75,6 +76,7 @@ def go_test_impl(ctx: AnalysisContext) -> list[Provider]:
 
         # TODO: should we assert that pkg_import_path != None here?
         pkg_import_path = lib.pkg_import_path
+        coverage_enabled = coverage_enabled or lib.coverage_enabled
 
     # If coverage is enabled for this test, we need to preprocess the sources
     # with the Go cover tool.
@@ -96,6 +98,7 @@ def go_test_impl(ctx: AnalysisContext) -> list[Provider]:
         config = GoBuildConfig(
             compiler_flags = ctx.attrs.compiler_flags,
             build_tags = ctx.attrs._build_tags,
+            coverage_enabled = coverage_enabled,
             coverage_mode = coverage_mode,
             with_tests = True,
             cgo_enabled = cgo_enabled,
@@ -105,11 +108,15 @@ def go_test_impl(ctx: AnalysisContext) -> list[Provider]:
     )
 
     cover_packages = []
-    if coverage_mode != None:
+
+    # Cover the test package itself
+    if coverage_enabled:
         cover_packages.append(pkg_import_path)
 
-        # Get all packages that are linked to the test (i.e. the entire dependency tree)
-        for import_path in get_inherited_link_pkgs(deps):
+    # Get all packages that are linked to the test (i.e. the entire dependency tree)
+    for import_path, pkg in get_inherited_link_pkgs(deps).items():
+        if pkg.coverage_enabled:
+            # Cover dependencies with coverage enabled
             cover_packages.append(import_path)
 
     pkgs[pkg_import_path] = tests

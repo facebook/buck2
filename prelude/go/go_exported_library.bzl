@@ -141,6 +141,7 @@ def go_exported_library_impl(ctx: AnalysisContext) -> list[Provider]:
             deps = ctx.attrs.deps,
             srcs = ctx.attrs.srcs,
             pkg_import_path = pkg_import_path,
+            coverage_enabled = ctx.attrs.coverage_enabled,
         ),
         create_merged_link_info(
             ctx,

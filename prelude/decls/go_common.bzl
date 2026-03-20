@@ -148,6 +148,13 @@ def _generate_exported_header():
 """),
     }
 
+def _coverage_enabled():
+    return {
+        "coverage_enabled": attrs.bool(default = True, doc = """
+    Enable test code coverage collection for this target.
+"""),
+    }
+
 go_common = struct(
     deps_arg = _deps_arg,
     srcs_arg = _srcs_arg,
@@ -166,4 +173,5 @@ go_common = struct(
     cxx_compiler_flags_arg = _cxx_compiler_flags_arg,
     cxx_preprocessor_flags_arg = _cxx_preprocessor_flags_arg,
     generate_exported_header = _generate_exported_header,
+    coverage_enabled_arg = _coverage_enabled,
 )

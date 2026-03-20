@@ -37,6 +37,7 @@ GoPkg = record(
     # but we need to produce both to avoid running compilation twice.
     export_file = field(Artifact),
     export_file_shared = field(Artifact),
+    coverage_enabled = field(bool),
 )
 
 GoStdlibDynamicValue = provider(

@@ -97,6 +97,7 @@ def _build_stdlib_impl(actions: AnalysisActions, target_label: Label, go_toolcha
                 embed_srcs = lib.embed_files,
                 compiler_flags = [],
                 assembler_flags = [],
+                coverage_enabled = False,
                 coverage_mode = None,  # we can switch-on stdlib coverage later if needed
                 deps = pkgs,
                 import_map = lib.import_map,
@@ -156,6 +157,7 @@ def _declare_stdlib_package_build(
         archive_file_shared = out_a_shared,
         export_file = out_x,
         export_file_shared = out_x_shared,
+        coverage_enabled = params.coverage_enabled,
     )
 
 def _build_stdlib_package_impl(
