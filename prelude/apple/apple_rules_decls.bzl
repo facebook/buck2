@@ -17,6 +17,7 @@ load("@prelude//apple:apple_common.bzl", "apple_common")
 load("@prelude//apple:apple_info_plist.bzl", "MergeOperations", "RestrictedMergeOperations", "UpdateOperations", "apple_info_plist_impl")
 load("@prelude//apple:apple_metal_library.bzl", "apple_metal_library_impl")
 load("@prelude//apple:apple_platforms.bzl", "APPLE_PLATFORMS_KEY")
+load("@prelude//apple:apple_provisioning_profile_sources.bzl", "apple_provisioning_profile_sources_impl")
 load("@prelude//apple:apple_resource_dedupe_alias.bzl", "apple_resource_dedupe_alias_impl")
 load("@prelude//apple:apple_resource_types.bzl", "AppleResourceDestination")
 load("@prelude//apple:apple_rules_impl_utility.bzl", "AppleFrameworkBundleModuleMapType", "apple_bundle_extra_attrs", "apple_test_extra_attrs", "get_apple_info_plist_build_system_identification_attrs")
@@ -1335,6 +1336,16 @@ apple_universal_executable = prelude_rule(
     ),
 )
 
+apple_provisioning_profile_sources = prelude_rule(
+    name = "apple_provisioning_profile_sources",
+    impl = apple_provisioning_profile_sources_impl,
+    examples = None,
+    further = None,
+    attrs = {
+        "sources": attrs.list(attrs.dep(), default = []),
+    },
+)
+
 apple_simulators = prelude_rule(
     name = "apple_simulators",
     impl = apple_simulators_impl,
@@ -1597,6 +1608,7 @@ apple_rules = struct(
     apple_metal_library = apple_metal_library,
     apple_package = apple_package,
     apple_ipa_package = apple_ipa_package,
+    apple_provisioning_profile_sources = apple_provisioning_profile_sources,
     apple_resource = apple_resource,
     apple_test = apple_test,
     apple_toolchain = apple_toolchain,
