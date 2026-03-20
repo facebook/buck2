@@ -15,6 +15,10 @@ load(
 GraphQLInfo = provider(
     fields = {
         "config_name": provider_field(str),
+        "enforce_colocation": provider_field(bool),
+        "header_path_prefix": provider_field(str | None),
+        "is_subconfig": provider_field(bool),
+        "is_test_target": provider_field(bool),
         "srcs": provider_field(list[Artifact]),
         "target": provider_field(Label),
     },
