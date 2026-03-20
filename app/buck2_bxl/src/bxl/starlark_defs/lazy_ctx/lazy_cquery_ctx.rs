@@ -60,7 +60,7 @@ starlark_simple_value!(StarlarkLazyCqueryCtx);
 impl<'v> StarlarkValue<'v> for StarlarkLazyCqueryCtx {
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods(lazy_cquery_methods)
+        RES.methods_for_type::<Self::Canonical>(lazy_cquery_methods)
     }
 }
 

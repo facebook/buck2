@@ -284,7 +284,7 @@ starlark_simple_value!(StarlarkConfiguredTargetNode);
 impl<'v> StarlarkValue<'v> for StarlarkConfiguredTargetNode {
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods(configured_target_node_value_methods)
+        RES.methods_for_type::<Self::Canonical>(configured_target_node_value_methods)
     }
 }
 
@@ -784,7 +784,7 @@ starlark_simple_value!(StarlarkConfiguredAttr);
 impl<'v> StarlarkValue<'v> for StarlarkConfiguredAttr {
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods(configured_attr_methods)
+        RES.methods_for_type::<Self::Canonical>(configured_attr_methods)
     }
 }
 
@@ -878,7 +878,7 @@ pub(crate) struct StarlarkLazyAttrs<'v> {
 impl<'v> StarlarkValue<'v> for StarlarkLazyAttrs<'v> {
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods(lazy_attrs_methods)
+        RES.methods_for_type::<Self::Canonical>(lazy_attrs_methods)
     }
 }
 
@@ -968,7 +968,7 @@ pub(crate) struct StarlarkLazyResolvedAttrs<'v> {
 impl<'v> StarlarkValue<'v> for StarlarkLazyResolvedAttrs<'v> {
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods(lazy_resolved_attrs_methods)
+        RES.methods_for_type::<Self::Canonical>(lazy_resolved_attrs_methods)
     }
 }
 

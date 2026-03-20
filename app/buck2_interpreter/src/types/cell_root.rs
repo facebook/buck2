@@ -48,7 +48,7 @@ starlark_simple_value!(CellRoot);
 impl<'v> StarlarkValue<'v> for CellRoot {
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods(cell_root_methods)
+        RES.methods_for_type::<Self::Canonical>(cell_root_methods)
     }
 }
 

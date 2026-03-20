@@ -272,7 +272,7 @@ impl MethodsBuilder {
 ///     ...
 ///     fn get_methods(&self) -> Option<&'static Globals> {
 ///         static RES: GlobalsStatic = GlobalsStatic::new();
-///         RES.methods(module_creator)
+///         RES.methods_for_type::<Self::Canonical>(module_creator)
 ///     }
 ///     ...
 /// }
@@ -381,7 +381,7 @@ mod tests {
         impl<'v> StarlarkValue<'v> for Magic {
             fn get_methods() -> Option<&'static Methods> {
                 static RES: MethodsStatic = MethodsStatic::new();
-                RES.methods(|x| {
+                RES.methods_for_type::<Self::Canonical>(|x| {
                     x.set_attribute("my_type", "magic", None);
                     x.set_attribute("my_value", 42, None);
                 })

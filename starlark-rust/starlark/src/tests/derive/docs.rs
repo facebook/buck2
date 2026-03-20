@@ -62,7 +62,7 @@ impl<'v> StarlarkValue<'v> for TestExample {
         Self: Sized,
     {
         static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods(object_docs_1)
+        RES.methods_for_type::<Self::Canonical>(object_docs_1)
     }
 }
 
@@ -103,7 +103,7 @@ where
         Self: Sized,
     {
         static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods(object_docs_1)
+        RES.methods_for_type::<Self::Canonical>(object_docs_1)
     }
 }
 

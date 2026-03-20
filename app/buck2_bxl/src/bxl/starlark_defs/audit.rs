@@ -68,7 +68,7 @@ pub(crate) struct StarlarkAuditCtx<'v> {
 impl<'v> StarlarkValue<'v> for StarlarkAuditCtx<'v> {
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods(audit_methods)
+        RES.methods_for_type::<Self::Canonical>(audit_methods)
     }
 }
 

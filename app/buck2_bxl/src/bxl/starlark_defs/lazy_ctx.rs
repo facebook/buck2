@@ -85,7 +85,7 @@ impl<'v> StarlarkLazyCtx<'v> {
 impl<'v> StarlarkValue<'v> for StarlarkLazyCtx<'v> {
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods(lazy_ctx_methods)
+        RES.methods_for_type::<Self::Canonical>(lazy_ctx_methods)
     }
 }
 

@@ -136,7 +136,7 @@ where
 {
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods(validation_spec_methods)
+        RES.methods_for_type::<Self::Canonical>(validation_spec_methods)
     }
 }
 

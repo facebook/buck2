@@ -122,7 +122,7 @@ starlark_simple_value!(StarlarkSelectDict);
 impl<'v> StarlarkValue<'v> for StarlarkSelectDict {
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods(select_dict_methods)
+        RES.methods_for_type::<Self::Canonical>(select_dict_methods)
     }
 }
 
@@ -264,7 +264,7 @@ starlark_simple_value!(StarlarkSelectConcat);
 impl<'v> StarlarkValue<'v> for StarlarkSelectConcat {
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods(select_concat_methods)
+        RES.methods_for_type::<Self::Canonical>(select_concat_methods)
     }
 
     fn length(&self) -> starlark::Result<i32> {

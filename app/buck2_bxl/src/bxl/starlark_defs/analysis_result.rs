@@ -67,7 +67,7 @@ starlark_simple_value!(StarlarkAnalysisResult);
 impl<'v> StarlarkValue<'v> for StarlarkAnalysisResult {
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods(starlark_analysis_result_methods)
+        RES.methods_for_type::<Self::Canonical>(starlark_analysis_result_methods)
     }
 }
 

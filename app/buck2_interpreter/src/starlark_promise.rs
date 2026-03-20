@@ -307,7 +307,7 @@ impl<'v> UnpackValue<'v> for &'v StarlarkPromise<'v> {
 impl<'v> StarlarkValue<'v> for StarlarkPromise<'v> {
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods(promise_methods)
+        RES.methods_for_type::<Self::Canonical>(promise_methods)
     }
 }
 

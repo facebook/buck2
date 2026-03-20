@@ -211,7 +211,7 @@ mod tests {
         impl<'v> StarlarkValue<'v> for Bool2 {
             fn get_methods() -> Option<&'static Methods> {
                 static RES: MethodsStatic = MethodsStatic::new();
-                RES.methods(methods)
+                RES.methods_for_type::<Self::Canonical>(methods)
             }
 
             fn equals(&self, other: Value<'v>) -> crate::Result<bool> {

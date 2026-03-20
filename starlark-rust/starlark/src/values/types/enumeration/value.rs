@@ -122,7 +122,7 @@ where
         Self: Sized,
     {
         static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods(enum_value_methods)
+        RES.methods_for_type::<Self::Canonical>(enum_value_methods)
     }
 
     fn typechecker_ty(&self) -> Option<Ty> {

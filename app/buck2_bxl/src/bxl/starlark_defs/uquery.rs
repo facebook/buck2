@@ -71,7 +71,7 @@ pub(crate) struct StarlarkUQueryCtx<'v> {
 impl<'v> StarlarkValue<'v> for StarlarkUQueryCtx<'v> {
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods(uquery_methods)
+        RES.methods_for_type::<Self::Canonical>(uquery_methods)
     }
 }
 

@@ -48,7 +48,7 @@ impl Serialize for StarlarkCellPath {
 impl<'v> StarlarkValue<'v> for StarlarkCellPath {
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods(cell_path_methods)
+        RES.methods_for_type::<Self::Canonical>(cell_path_methods)
     }
 
     fn equals(&self, other: Value<'v>) -> starlark::Result<bool> {

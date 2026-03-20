@@ -138,7 +138,7 @@ where
 
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods(dependency_methods)
+        RES.methods_for_type::<Self::Canonical>(dependency_methods)
     }
 
     fn at(&self, index: Value<'v>, heap: Heap<'v>) -> starlark::Result<Value<'v>> {

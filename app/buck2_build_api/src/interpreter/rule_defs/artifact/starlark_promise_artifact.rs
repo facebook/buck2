@@ -307,7 +307,7 @@ impl<'v> StarlarkValue<'v> for StarlarkPromiseArtifact {
 
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods(artifact_methods)
+        RES.methods_for_type::<Self::Canonical>(artifact_methods)
     }
 
     fn equals(&self, other: Value<'v>) -> starlark::Result<bool> {

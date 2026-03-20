@@ -141,7 +141,7 @@ where
 {
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods(artifact_group_methods)
+        RES.methods_for_type::<Self::Canonical>(artifact_group_methods)
     }
 
     fn write_hash(&self, hasher: &mut StarlarkHasher) -> starlark::Result<()> {
@@ -291,7 +291,7 @@ where
 {
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods(ensured_artifact_methods)
+        RES.methods_for_type::<Self::Canonical>(ensured_artifact_methods)
     }
 
     fn write_hash(&self, hasher: &mut StarlarkHasher) -> starlark::Result<()> {

@@ -85,6 +85,6 @@ starlark_simple_value!(StarlarkInstant);
 impl<'v> StarlarkValue<'v> for StarlarkInstant {
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods(starlark_instant_methods)
+        RES.methods_for_type::<Self::Canonical>(starlark_instant_methods)
     }
 }

@@ -225,7 +225,7 @@ where
 {
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods(|b| {
+        RES.methods_for_type::<Self::Canonical>(|b| {
             any_artifact_methods(b);
             output_artifact_methods(b);
         })

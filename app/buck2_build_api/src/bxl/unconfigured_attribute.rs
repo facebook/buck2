@@ -91,7 +91,7 @@ impl Serialize for StarlarkCoercedAttr {
 impl<'v> StarlarkValue<'v> for StarlarkCoercedAttr {
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods(coerced_attr_methods)
+        RES.methods_for_type::<Self::Canonical>(coerced_attr_methods)
     }
 }
 

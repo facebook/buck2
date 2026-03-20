@@ -163,7 +163,7 @@ impl<'v> AnalysisActions<'v> {
 impl<'v> StarlarkValue<'v> for AnalysisActions<'v> {
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods(|builder| {
+        RES.methods_for_type::<Self::Canonical>(|builder| {
             (ANALYSIS_ACTIONS_METHODS_ACTIONS.get().unwrap())(builder);
             (ANALYSIS_ACTIONS_METHODS_ANON_TARGET.get().unwrap())(builder);
         })
@@ -279,7 +279,7 @@ impl<'v> AnalysisContext<'v> {
 impl<'v> StarlarkValue<'v> for AnalysisContext<'v> {
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods(analysis_context_methods)
+        RES.methods_for_type::<Self::Canonical>(analysis_context_methods)
     }
 }
 

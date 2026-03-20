@@ -305,7 +305,7 @@ where
     // used to provide the type documentation here
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods(selector_methods)
+        RES.methods_for_type::<Self::Canonical>(selector_methods)
     }
 }
 

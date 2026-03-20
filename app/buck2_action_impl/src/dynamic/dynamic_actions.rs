@@ -53,7 +53,7 @@ impl<'v> StarlarkValue<'v> for StarlarkDynamicActions<'v> {
     // Used to add type documentation to the generated documentation
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods(dynamic_actions_methods)
+        RES.methods_for_type::<Self::Canonical>(dynamic_actions_methods)
     }
 }
 

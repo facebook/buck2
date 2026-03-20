@@ -499,7 +499,7 @@ impl<'v> ErrorPrinter for BxlContext<'v> {
 impl<'v> StarlarkValue<'v> for BxlContext<'v> {
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods(methods::bxl_context_methods)
+        RES.methods_for_type::<Self::Canonical>(methods::bxl_context_methods)
     }
 }
 

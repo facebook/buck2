@@ -96,7 +96,7 @@ impl<'v> AllocValue<'v> for StarlarkActionErrorContext<'v> {
 impl<'v> StarlarkValue<'v> for StarlarkActionErrorContext<'v> {
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods(action_error_context_methods)
+        RES.methods_for_type::<Self::Canonical>(action_error_context_methods)
     }
 }
 
@@ -405,7 +405,7 @@ impl<'v> AllocValue<'v> for StarlarkActionSubError {
 impl<'v> StarlarkValue<'v> for StarlarkActionSubError {
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods(action_sub_error_methods)
+        RES.methods_for_type::<Self::Canonical>(action_sub_error_methods)
     }
 
     fn set_attr(&self, attribute: &str, new_value: Value<'v>) -> starlark::Result<()> {

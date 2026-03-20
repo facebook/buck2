@@ -57,7 +57,7 @@ fn methods(builder: &mut MethodsBuilder) {
 impl<'v> StarlarkValue<'v> for Applaud {
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods(methods)
+        RES.methods_for_type::<Self::Canonical>(methods)
     }
 }
 

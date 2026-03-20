@@ -339,7 +339,7 @@ impl StarlarkLazy {
 impl<'v> StarlarkValue<'v> for StarlarkLazy {
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods(lazy_operation_methods)
+        RES.methods_for_type::<Self::Canonical>(lazy_operation_methods)
     }
 }
 

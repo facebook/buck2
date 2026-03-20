@@ -68,7 +68,7 @@ starlark_simple_value!(StarlarkError);
 impl<'v> StarlarkValue<'v> for StarlarkError {
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods(error_methods)
+        RES.methods_for_type::<Self::Canonical>(error_methods)
     }
 }
 
@@ -127,7 +127,7 @@ where
         Self: Sized,
     {
         static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods(result_methods)
+        RES.methods_for_type::<Self::Canonical>(result_methods)
     }
 }
 

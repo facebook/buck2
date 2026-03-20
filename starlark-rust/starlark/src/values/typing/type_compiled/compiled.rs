@@ -205,7 +205,7 @@ where
         Self: Sized,
     {
         static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods(type_compiled_methods)
+        RES.methods_for_type::<Self::Canonical>(type_compiled_methods)
     }
 }
 

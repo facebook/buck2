@@ -563,7 +563,7 @@ impl StarlarkOutputStream {
 impl<'v> StarlarkValue<'v> for StarlarkOutputStream {
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods(output_stream_methods)
+        RES.methods_for_type::<Self::Canonical>(output_stream_methods)
     }
 }
 

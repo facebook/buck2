@@ -407,7 +407,7 @@ where
         Self: Sized,
     {
         static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods(provider_collection_methods)
+        RES.methods_for_type::<Self::Canonical>(provider_collection_methods)
     }
 }
 

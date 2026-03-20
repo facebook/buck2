@@ -77,7 +77,7 @@ where
 {
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods(tagged_value_methods)
+        RES.methods_for_type::<Self::Canonical>(tagged_value_methods)
     }
 }
 

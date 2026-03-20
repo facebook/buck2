@@ -309,7 +309,7 @@ where
 
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods(enum_type_methods)
+        RES.methods_for_type::<Self::Canonical>(enum_type_methods)
     }
 
     fn eval_type(&self) -> Option<Ty> {

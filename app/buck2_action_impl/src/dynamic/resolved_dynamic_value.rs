@@ -45,7 +45,7 @@ where
 {
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods(resolved_dynamic_value_methods)
+        RES.methods_for_type::<Self::Canonical>(resolved_dynamic_value_methods)
     }
 }
 

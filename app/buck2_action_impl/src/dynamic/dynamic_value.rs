@@ -57,7 +57,7 @@ impl<'v> StarlarkValue<'v> for StarlarkDynamicValue {
     // used for docs of `DynamicValue`
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods(dynamic_value_methods)
+        RES.methods_for_type::<Self::Canonical>(dynamic_value_methods)
     }
 }
 

@@ -165,7 +165,7 @@ impl<'v> StarlarkValue<'v> for StarlarkFileSet {
 
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods(register_file_set)
+        RES.methods_for_type::<Self::Canonical>(register_file_set)
     }
 }
 
@@ -198,7 +198,7 @@ starlark_simple_value!(StarlarkFileNode);
 impl<'v> StarlarkValue<'v> for StarlarkFileNode {
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods(file_node_methods)
+        RES.methods_for_type::<Self::Canonical>(file_node_methods)
     }
 }
 

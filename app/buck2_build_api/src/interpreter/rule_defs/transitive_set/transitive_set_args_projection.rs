@@ -211,7 +211,7 @@ where
 {
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods(transitive_set_args_projection_methods)
+        RES.methods_for_type::<Self::Canonical>(transitive_set_args_projection_methods)
     }
 
     fn provide(&'v self, demand: &mut Demand<'_, 'v>) {

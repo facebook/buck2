@@ -102,7 +102,7 @@ impl<'v> StarlarkValue<'v> for CliArgs {
     // Used to add type documentation to the generated documentation
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods(starlark_attribute_methods)
+        RES.methods_for_type::<Self::Canonical>(starlark_attribute_methods)
     }
 }
 

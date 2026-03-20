@@ -273,7 +273,7 @@ async fn alloc_deps<'v>(
 impl<'v> StarlarkValue<'v> for BxlActions<'v> {
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods(bxl_actions_methods)
+        RES.methods_for_type::<Self::Canonical>(bxl_actions_methods)
     }
 }
 

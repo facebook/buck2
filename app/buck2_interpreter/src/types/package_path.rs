@@ -65,7 +65,7 @@ impl StarlarkPackagePath {
 impl<'v> StarlarkValue<'v> for StarlarkPackagePath {
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods(package_path_methods)
+        RES.methods_for_type::<Self::Canonical>(package_path_methods)
     }
 
     fn write_hash(&self, hasher: &mut StarlarkHasher) -> starlark::Result<()> {

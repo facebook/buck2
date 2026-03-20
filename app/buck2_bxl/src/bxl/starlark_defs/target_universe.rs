@@ -63,7 +63,7 @@ pub(crate) struct StarlarkTargetUniverse<'v> {
 impl<'v> StarlarkValue<'v> for StarlarkTargetUniverse<'v> {
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods(target_universe_methods)
+        RES.methods_for_type::<Self::Canonical>(target_universe_methods)
     }
 }
 

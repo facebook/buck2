@@ -83,7 +83,7 @@ impl StarlarkTargetLabel {
 impl<'v> StarlarkValue<'v> for StarlarkTargetLabel {
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods(label_methods)
+        RES.methods_for_type::<Self::Canonical>(label_methods)
     }
 
     fn write_hash(&self, hasher: &mut StarlarkHasher) -> starlark::Result<()> {
@@ -201,7 +201,7 @@ impl StarlarkConfiguredTargetLabel {
 impl<'v> StarlarkValue<'v> for StarlarkConfiguredTargetLabel {
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods(configured_label_methods)
+        RES.methods_for_type::<Self::Canonical>(configured_label_methods)
     }
 
     fn write_hash(&self, hasher: &mut StarlarkHasher) -> starlark::Result<()> {

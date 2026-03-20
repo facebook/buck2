@@ -30,7 +30,7 @@ starlark_simple_value!(StarlarkConfiguration);
 impl<'v> StarlarkValue<'v> for StarlarkConfiguration {
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods(configuration_methods)
+        RES.methods_for_type::<Self::Canonical>(configuration_methods)
     }
 }
 

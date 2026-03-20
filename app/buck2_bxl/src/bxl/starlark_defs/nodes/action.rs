@@ -53,7 +53,7 @@ starlark_simple_value!(StarlarkAction);
 impl<'v> StarlarkValue<'v> for StarlarkAction {
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods(action_methods)
+        RES.methods_for_type::<Self::Canonical>(action_methods)
     }
 }
 
@@ -103,7 +103,7 @@ starlark_simple_value!(StarlarkActionQueryNode);
 impl<'v> StarlarkValue<'v> for StarlarkActionQueryNode {
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods(action_query_node_value_methods)
+        RES.methods_for_type::<Self::Canonical>(action_query_node_value_methods)
     }
 }
 
@@ -176,7 +176,7 @@ starlark_simple_value!(StarlarkActionAttr);
 impl<'v> StarlarkValue<'v> for StarlarkActionAttr {
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods(action_attr_methods)
+        RES.methods_for_type::<Self::Canonical>(action_attr_methods)
     }
 }
 

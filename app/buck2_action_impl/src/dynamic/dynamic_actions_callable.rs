@@ -163,7 +163,7 @@ impl<'v> StarlarkValue<'v> for DynamicActionsCallable<'v> {
     // used for docs of `DynamicActionCallable`
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods(dynamic_action_callable_methods)
+        RES.methods_for_type::<Self::Canonical>(dynamic_action_callable_methods)
     }
 }
 

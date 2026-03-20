@@ -382,7 +382,7 @@ impl ProviderCodegen {
                         static RES: starlark::environment::MethodsStatic =
                             starlark::environment::MethodsStatic::new();
 
-                        RES.methods(|x| {
+                        RES.methods_for_type::<Self::Canonical>(|x| {
                             #provider_methods_func_name(x);
                         })
                     }

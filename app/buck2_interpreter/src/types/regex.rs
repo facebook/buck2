@@ -63,7 +63,7 @@ impl StarlarkBuckRegex {
 impl<'v> StarlarkValue<'v> for StarlarkBuckRegex {
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods(regex_methods)
+        RES.methods_for_type::<Self::Canonical>(regex_methods)
     }
 
     fn typechecker_ty(&self) -> Option<Ty> {

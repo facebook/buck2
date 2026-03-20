@@ -93,7 +93,7 @@ impl<'v> BxlFilesystem<'v> {
 impl<'v> StarlarkValue<'v> for BxlFilesystem<'v> {
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods(fs_operations)
+        RES.methods_for_type::<Self::Canonical>(fs_operations)
     }
 }
 

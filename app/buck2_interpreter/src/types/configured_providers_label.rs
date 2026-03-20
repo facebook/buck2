@@ -88,7 +88,7 @@ where
 {
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods(configured_label_methods)
+        RES.methods_for_type::<Self::Canonical>(configured_label_methods)
     }
 
     fn equals(&self, other: Value<'v>) -> starlark::Result<bool> {
@@ -238,7 +238,7 @@ where
 {
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods(label_methods)
+        RES.methods_for_type::<Self::Canonical>(label_methods)
     }
 
     fn equals(&self, other: Value<'v>) -> starlark::Result<bool> {

@@ -164,7 +164,7 @@ struct Obj;
 impl<'v> StarlarkValue<'v> for Obj {
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods(object)
+        RES.methods_for_type::<Self::Canonical>(object)
     }
 }
 

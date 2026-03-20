@@ -277,7 +277,7 @@ where
         Self: Sized,
     {
         static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods(record_type_methods)
+        RES.methods_for_type::<Self::Canonical>(record_type_methods)
     }
 
     fn eval_type(&self) -> Option<Ty> {

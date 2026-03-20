@@ -109,7 +109,7 @@ impl Display for StarlarkAnonTarget<'_> {
 impl<'v> StarlarkValue<'v> for StarlarkAnonTarget<'v> {
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods(anon_target_methods)
+        RES.methods_for_type::<Self::Canonical>(anon_target_methods)
     }
 }
 
@@ -204,7 +204,7 @@ impl Display for StarlarkAnonTargets<'_> {
 impl<'v> StarlarkValue<'v> for StarlarkAnonTargets<'v> {
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods(anon_targets_methods)
+        RES.methods_for_type::<Self::Canonical>(anon_targets_methods)
     }
 }
 

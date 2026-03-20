@@ -551,7 +551,7 @@ impl<'v> StarlarkCmdArgs<'v> {
 impl<'v> StarlarkValue<'v> for StarlarkCmdArgs<'v> {
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods(cmd_args_methods)
+        RES.methods_for_type::<Self::Canonical>(cmd_args_methods)
     }
 
     fn provide(&'v self, demand: &mut Demand<'_, 'v>) {
@@ -580,7 +580,7 @@ impl<'v> StarlarkValue<'v> for FrozenStarlarkCmdArgs {
         // We return the same methods for frozen command lines, even though some of them fail,
         // so the methods remain consistent during freezing
         static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods(cmd_args_methods)
+        RES.methods_for_type::<Self::Canonical>(cmd_args_methods)
     }
 
     fn provide(&'v self, demand: &mut Demand<'_, 'v>) {
@@ -1114,7 +1114,7 @@ impl Display for StarlarkCommandLineInputs {
 impl<'v> StarlarkValue<'v> for StarlarkCommandLineInputs {
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods(command_line_inputs_methods)
+        RES.methods_for_type::<Self::Canonical>(command_line_inputs_methods)
     }
 
     fn length(&self) -> starlark::Result<i32> {

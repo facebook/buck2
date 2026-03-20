@@ -54,7 +54,7 @@ struct StackFrame {
 impl<'v> StarlarkValue<'v> for StackFrame {
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods(stack_frame_methods)
+        RES.methods_for_type::<Self::Canonical>(stack_frame_methods)
     }
 }
 

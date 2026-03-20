@@ -51,7 +51,7 @@ pub struct StarlarkDigestConfig {
 impl<'v> StarlarkValue<'v> for StarlarkDigestConfig {
     fn get_methods() -> Option<&'static Methods> {
         static RES: MethodsStatic = MethodsStatic::new();
-        RES.methods(digest_config_methods)
+        RES.methods_for_type::<Self::Canonical>(digest_config_methods)
     }
 }
 
