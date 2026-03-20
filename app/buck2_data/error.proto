@@ -117,6 +117,7 @@ enum ErrorTag {
   SERVER_SIGBUS = 403;
   // Server disconnect with no error but memory pressure was detected.
   SERVER_MEMORY_PRESSURE = 401;
+  DAEMON_OOM_KILLED = 404;
   // Jemalloc assertion failure.
   SERVER_JEMALLOC_ASSERT = 15;
   // Server transport errors. Eg. Channel not open

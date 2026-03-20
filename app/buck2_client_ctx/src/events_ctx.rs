@@ -169,7 +169,23 @@ impl<'a> DaemonEventsCtx<'a> {
                 Ok(next) => next,
                 Err(e) => {
                     self.inner.handle_events(events, shutdown).await?;
-                    return Err(e).buck_error_context("Buck daemon event bus encountered an error, the root cause (if available) is displayed above this message.").tag(ErrorTag::ClientGrpcStream);
+                    let is_oom = match self.inner.recorder.as_ref() {
+                        Some(r) => r.is_daemon_oom_killed().await?,
+                        None => false,
+                    };
+                    return if is_oom {
+                        Err(e)
+                            .buck_error_context(
+                                "Buck2 daemon was killed by an OOM killer due to high memory pressure. \
+                                Common causes are large or numerous build or test targets or \
+                                too many Buck2 daemons running simultaneously.")
+                            .tag(ErrorTag::ClientGrpcStream)
+                            .tag(ErrorTag::DaemonOomKilled)
+                    } else {
+                        Err(e)
+                            .buck_error_context("Buck daemon event bus encountered an error, the root cause (if available) is displayed above this message.")
+                            .tag(ErrorTag::ClientGrpcStream)
+                    };
                 }
             };
             match next {

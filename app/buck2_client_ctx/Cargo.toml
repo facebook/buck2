@@ -41,6 +41,7 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 shlex = { workspace = true }
 strum = { workspace = true }
+superconsole = { version = "0.2.0", path = "../../superconsole" }
 sysinfo = { workspace = true }
 take_mut = { workspace = true }
 termwiz = { workspace = true }
@@ -49,8 +50,6 @@ tokio-stream = { workspace = true }
 tokio-util = { workspace = true }
 tonic = { workspace = true }
 tracing = { workspace = true }
-
-superconsole = { version = "0.2.0", path = "../../superconsole" }
 
 # Please do not add dependency on `buck2_build_api`.
 buck2_build_info = { workspace = true }

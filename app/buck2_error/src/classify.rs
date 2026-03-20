@@ -169,6 +169,7 @@ fn tag_metadata(tag: ErrorTag) -> TagMetadata {
         ErrorTag::WatchmanCheckoutInProgress => rank!(environment),
         ErrorTag::ServerTransportError => rank!(environment),
         ErrorTag::ServerMemoryPressure => rank!(environment),
+        ErrorTag::DaemonOomKilled => rank!(environment).exit_code(ExitCode::FatalOom),
         // Note: This is only true internally due to buckwrapper
         ErrorTag::NoBuckRoot => rank!(environment),
         ErrorTag::InstallerEnvironment => rank!(environment).hidden(),
