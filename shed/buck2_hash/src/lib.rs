@@ -28,6 +28,22 @@
 //! let mut set: BuckHashSet<i32> = BuckHashSet::default();
 //! set.insert(42);
 //! ```
+//!
+//! For ordered collections that preserve insertion order, use [`BuckIndexMap`]
+//! and [`BuckIndexSet`]:
+//!
+//! ```
+//! use buck2_hash::BuckIndexMap;
+//! use buck2_hash::BuckIndexSet;
+//!
+//! let mut map: BuckIndexMap<String, i32> = BuckIndexMap::default();
+//! map.insert("first".to_string(), 1);
+//! map.insert("second".to_string(), 2);
+//! // Iteration order is guaranteed: "first", then "second"
+//!
+//! let mut set: BuckIndexSet<i32> = BuckIndexSet::default();
+//! set.insert(42);
+//! ```
 
 use std::hash::BuildHasher;
 use std::hash::Hasher;
@@ -136,6 +152,82 @@ pub type BuckHashMap<K, V> = std::collections::HashMap<K, V, BuckHasherBuilder>;
 /// internal use cases where security is not a concern.
 pub type BuckHashSet<K> = std::collections::HashSet<K, BuckHasherBuilder>;
 
+/// An [`IndexMap`](indexmap::IndexMap) using the default hasher.
+///
+/// This is a type alias for `indexmap::IndexMap` that preserves insertion order.
+/// Unlike [`BuckHashMap`], iteration order is guaranteed to match insertion order.
+///
+/// This abstraction allows the hasher implementation to be changed centrally
+/// in a future commit.
+pub type BuckIndexMap<K, V> = indexmap::IndexMap<K, V>;
+
+/// An [`IndexSet`](indexmap::IndexSet) using the default hasher.
+///
+/// This is a type alias for `indexmap::IndexSet` that preserves insertion order.
+/// Unlike [`BuckHashSet`], iteration order is guaranteed to match insertion order.
+///
+/// This abstraction allows the hasher implementation to be changed centrally
+/// in a future commit.
+pub type BuckIndexSet<K> = indexmap::IndexSet<K>;
+
+/// Creates a [`BuckIndexMap`] from a list of key-value pairs.
+///
+/// This macro mirrors the `indexmap!` macro from the `indexmap` crate but uses
+/// whatever hasher [`BuckIndexMap`] is configured to use, allowing the hasher
+/// to be changed centrally.
+///
+/// # Example
+///
+/// ```
+/// use buck2_hash::buck_indexmap;
+///
+/// let map = buck_indexmap! {
+///     "a" => 1,
+///     "b" => 2,
+/// };
+/// assert_eq!(map["a"], 1);
+/// assert_eq!(map["b"], 2);
+/// ```
+#[macro_export]
+macro_rules! buck_indexmap {
+    () => {
+        $crate::BuckIndexMap::default()
+    };
+    ($($key:expr => $value:expr),+ $(,)?) => {{
+        let mut map = $crate::BuckIndexMap::default();
+        $(map.insert($key, $value);)+
+        map
+    }};
+}
+
+/// Creates a [`BuckIndexSet`] from a list of values.
+///
+/// This macro mirrors the `indexset!` macro from the `indexmap` crate but uses
+/// whatever hasher [`BuckIndexSet`] is configured to use, allowing the hasher
+/// to be changed centrally.
+///
+/// # Example
+///
+/// ```
+/// use buck2_hash::buck_indexset;
+///
+/// let set = buck_indexset![1, 2, 3];
+/// assert!(set.contains(&1));
+/// assert!(set.contains(&2));
+/// assert!(set.contains(&3));
+/// ```
+#[macro_export]
+macro_rules! buck_indexset {
+    () => {
+        $crate::BuckIndexSet::default()
+    };
+    ($($value:expr),+ $(,)?) => {{
+        let mut set = $crate::BuckIndexSet::default();
+        $(set.insert($value);)+
+        set
+    }};
+}
+
 #[cfg(test)]
 mod tests {
     use std::hash::Hash;
@@ -185,6 +277,42 @@ mod tests {
         assert!(set.contains(&1));
         assert!(set.contains(&2));
         assert!(!set.contains(&3));
+    }
+
+    #[test]
+    fn test_buck_index_map() {
+        let mut map: BuckIndexMap<String, i32> = BuckIndexMap::default();
+        map.insert("first".to_owned(), 1);
+        map.insert("second".to_owned(), 2);
+        map.insert("third".to_owned(), 3);
+
+        assert_eq!(map.get("first"), Some(&1));
+        assert_eq!(map.get("second"), Some(&2));
+        assert_eq!(map.get("third"), Some(&3));
+        assert_eq!(map.get("fourth"), None);
+
+        // Verify insertion order is preserved
+        let keys: Vec<_> = map.keys().collect();
+        assert_eq!(keys, vec!["first", "second", "third"]);
+    }
+
+    #[test]
+    fn test_buck_index_set() {
+        let mut set: BuckIndexSet<i32> = BuckIndexSet::default();
+        set.insert(3);
+        set.insert(1);
+        set.insert(2);
+        set.insert(1); // duplicate
+
+        assert_eq!(set.len(), 3);
+        assert!(set.contains(&1));
+        assert!(set.contains(&2));
+        assert!(set.contains(&3));
+        assert!(!set.contains(&4));
+
+        // Verify insertion order is preserved
+        let values: Vec<_> = set.iter().copied().collect();
+        assert_eq!(values, vec![3, 1, 2]);
     }
 
     #[test]

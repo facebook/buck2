@@ -14,3 +14,4 @@ version = "0.1.0"
 [dependencies]
 dupe = { workspace = true }
 fxhash = { workspace = true }
+indexmap = { workspace = true }
