@@ -107,15 +107,28 @@ public class InstallerService extends InstallerGrpc.InstallerImplBase {
 
   private InstallResponse handleInstallRequest(InstallInfoRequest request) {
     InstallId installId = InstallId.of(request.getInstallId());
-    Map<String, String> filesMap = request.getFilesMap();
-    LOG.info(
-        String.format(
-            "Received install id: %s to files map request info: %s",
-            installId.getValue(), filesMap));
+    // Prefer file_names (set of names) over files map (name -> path).
+    // file_names is used for content-based paths where paths aren't known upfront.
+    Set<String> fileNames;
+    List<String> fileNamesList = request.getFileNamesList();
+    if (!fileNamesList.isEmpty()) {
+      fileNames = new HashSet<>(fileNamesList);
+      LOG.info(
+          String.format(
+              "Received install id: %s with %d file names",
+              installId.getValue(), fileNames.size()));
+    } else {
+      Map<String, String> filesMap = request.getFilesMap();
+      fileNames = filesMap.keySet();
+      LOG.info(
+          String.format(
+              "Received install id: %s to files map request info: %s",
+              installId.getValue(), filesMap));
+    }
     synchronized (installIdToFilesMap) {
       installIdToFilesMap.put(
           installId,
-          filesMap.keySet().stream()
+          fileNames.stream()
               .collect(Collectors.toMap(Function.identity(), ignore -> Optional.empty())));
     }
     return InstallResponse.newBuilder().setInstallId(installId.getValue()).build();
