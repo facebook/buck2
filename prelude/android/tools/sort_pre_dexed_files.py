@@ -35,6 +35,18 @@ from typing import Optional, TypedDict
 
 ROOT_MODULE: str = "dex"
 
+# DEX 64K limit enforcement.
+#
+# Each DEX file is limited to 65536 method_ids, field_ids, and type_ids.
+# Per-library ref counts from the DEX header are summed as a conservative
+# upper bound — the actual merged DEX has fewer refs because shared
+# dependencies are deduplicated.
+#
+# The merge step uses ["--no-desugar", "--no-optimize"], so D8 performs a
+# pure mechanical merge with no synthetic generation. Merged refs are
+# always <= sum of input refs, never more.
+DEX_REF_LIMIT: int = 65536
+
 # Type aliases for the data structures used throughout.
 # A single entry in a dex group: {"id": <lib_id>, "class_names": [<class>, ...]}
 DexEntry = dict[str, object]
@@ -48,6 +60,9 @@ class FilterDexInfo(TypedDict):
     primary_dex_class_names: list[str]
     secondary_dex_class_names: list[str]
     weight_estimate: str
+    method_ref_count: str
+    field_ref_count: str
+    type_ref_count: str
 
 
 # Filter dex data: identifier -> filter info
@@ -152,17 +167,44 @@ def _assign_to_dex(
     current_size_map: dict[str, int],
     current_inputs_map: dict[str, DexGroup],
     dex_weight_limit: Optional[int],
+    method_ref_count: int,
+    field_ref_count: int,
+    type_ref_count: int,
+    current_method_refs_map: dict[str, int],
+    current_field_refs_map: dict[str, int],
+    current_type_refs_map: dict[str, int],
 ) -> None:
-    """Assign a lib's classes to a dex group, starting a new group if weight limit exceeded."""
+    """Assign a lib's classes to a dex group, starting a new group if limits exceeded."""
     if len(dex_class_names) == 0:
         return
 
     current_size = current_size_map.get(module, 0)
-    if (
-        dex_weight_limit is not None
-        and current_size + weight_estimate > dex_weight_limit
-    ):
+    current_method_refs = current_method_refs_map.get(module, 0)
+    current_field_refs = current_field_refs_map.get(module, 0)
+    current_type_refs = current_type_refs_map.get(module, 0)
+
+    should_start_new_dex = False
+    if dex_weight_limit is not None:
+        if current_size + weight_estimate > dex_weight_limit:
+            should_start_new_dex = True
+        if current_method_refs + method_ref_count > DEX_REF_LIMIT:
+            should_start_new_dex = True
+        if current_field_refs + field_ref_count > DEX_REF_LIMIT:
+            should_start_new_dex = True
+        if current_type_refs + type_ref_count > DEX_REF_LIMIT:
+            should_start_new_dex = True
+
+    # Guard: only split when dex_weight_limit is not None.
+    # For primary dex without bootstrap, dex_weight_limit is None.
+    # Extra primary groups become bootstrap dexes in assets/
+    # (dex_rules.bzl primary_dex_inputs[1:]), without bootstrap
+    # classloader -> ClassNotFoundException, metadata numbering
+    # wrong -> mismatched filenames.
+    if should_start_new_dex:
         current_size = 0
+        current_method_refs = 0
+        current_field_refs = 0
+        current_type_refs = 0
         current_inputs_map[module] = []
 
     current_inputs = current_inputs_map.setdefault(module, [])
@@ -170,6 +212,9 @@ def _assign_to_dex(
         dest.append(current_inputs)
 
     current_size_map[module] = current_size + weight_estimate
+    current_method_refs_map[module] = current_method_refs + method_ref_count
+    current_field_refs_map[module] = current_field_refs + field_ref_count
+    current_type_refs_map[module] = current_type_refs + type_ref_count
     current_inputs.append({"id": lib_id, "class_names": dex_class_names})
 
 
@@ -182,14 +227,36 @@ def _organize_lib(
     current_size_map: dict[str, int],
     current_inputs_map: dict[str, DexGroup],
     dex_weight_limit: Optional[int],
+    method_ref_count: int,
+    field_ref_count: int,
+    type_ref_count: int,
+    current_method_refs_map: dict[str, int],
+    current_field_refs_map: dict[str, int],
+    current_type_refs_map: dict[str, int],
 ) -> None:
-    """Organize a lib into dex groups, chunking classes if weight exceeds the limit."""
+    """Organize a lib into dex groups, chunking classes if weight or ref counts exceed limits."""
     if len(dex_class_names) == 0:
         return
 
-    if dex_weight_limit is not None and weight_estimate > dex_weight_limit:
+    is_oversized = False
+    if dex_weight_limit is not None:
+        if weight_estimate > dex_weight_limit:
+            is_oversized = True
+        if method_ref_count > DEX_REF_LIMIT:
+            is_oversized = True
+        if field_ref_count > DEX_REF_LIMIT:
+            is_oversized = True
+        if type_ref_count > DEX_REF_LIMIT:
+            is_oversized = True
+
+    if is_oversized:
         num_classes = len(dex_class_names)
-        chunks = weight_estimate / dex_weight_limit
+        chunks = max(
+            weight_estimate / dex_weight_limit if dex_weight_limit else 1,
+            method_ref_count / DEX_REF_LIMIT if method_ref_count > DEX_REF_LIMIT else 1,
+            field_ref_count / DEX_REF_LIMIT if field_ref_count > DEX_REF_LIMIT else 1,
+            type_ref_count / DEX_REF_LIMIT if type_ref_count > DEX_REF_LIMIT else 1,
+        )
         chunk_size = max(1, int(num_classes // chunks))
         for start_index in range(0, num_classes, chunk_size):
             end_index = min(start_index + chunk_size, num_classes)
@@ -203,6 +270,12 @@ def _organize_lib(
                 current_size_map,
                 current_inputs_map,
                 dex_weight_limit,
+                method_ref_count,
+                field_ref_count,
+                type_ref_count,
+                current_method_refs_map,
+                current_field_refs_map,
+                current_type_refs_map,
             )
     else:
         _assign_to_dex(
@@ -214,6 +287,12 @@ def _organize_lib(
             current_size_map,
             current_inputs_map,
             dex_weight_limit,
+            method_ref_count,
+            field_ref_count,
+            type_ref_count,
+            current_method_refs_map,
+            current_field_refs_map,
+            current_type_refs_map,
         )
 
 
@@ -237,6 +316,13 @@ def _sort_pre_dexed_files(
     current_secondary_dex_size: dict[str, int] = {}
     current_secondary_dex_inputs: dict[str, DexGroup] = {}
 
+    current_primary_method_refs: dict[str, int] = {}
+    current_primary_field_refs: dict[str, int] = {}
+    current_primary_type_refs: dict[str, int] = {}
+    current_secondary_method_refs: dict[str, int] = {}
+    current_secondary_field_refs: dict[str, int] = {}
+    current_secondary_type_refs: dict[str, int] = {}
+
     # Process libs in the same order as the original Starlark code, which iterates
     # pre_dexed_libs in order. lib_metadata preserves this order (written from
     # pre_dexed_libs iteration). We iterate lib_metadata keys and look up filter data.
@@ -256,6 +342,9 @@ def _sort_pre_dexed_files(
         primary_dex_class_names: list[str] = filter_info["primary_dex_class_names"]
         secondary_dex_class_names: list[str] = filter_info["secondary_dex_class_names"]
         weight_estimate = int(filter_info["weight_estimate"])
+        lib_method_refs = int(filter_info["method_ref_count"])
+        lib_field_refs = int(filter_info["field_ref_count"])
+        lib_type_refs = int(filter_info["type_ref_count"])
 
         module_inputs = sorted_inputs[module]
 
@@ -276,6 +365,12 @@ def _sort_pre_dexed_files(
             current_primary_dex_size,
             current_primary_dex_inputs,
             weight_limit if enable_bootstrap_dexes else None,
+            lib_method_refs,
+            lib_field_refs,
+            lib_type_refs,
+            current_primary_method_refs,
+            current_primary_field_refs,
+            current_primary_type_refs,
         )
 
         # Organize secondary dex classes
@@ -288,6 +383,12 @@ def _sort_pre_dexed_files(
             current_secondary_dex_size,
             current_secondary_dex_inputs,
             weight_limit,
+            lib_method_refs,
+            lib_field_refs,
+            lib_type_refs,
+            current_secondary_method_refs,
+            current_secondary_field_refs,
+            current_secondary_type_refs,
         )
 
     return sorted_inputs

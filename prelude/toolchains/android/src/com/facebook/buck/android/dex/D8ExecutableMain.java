@@ -303,24 +303,19 @@ public class D8ExecutableMain {
         int fieldRefCount = 0;
         int typeRefCount = 0;
 
-        // For pre-dex (intermediate) mode, the output is a .dex.jar containing classes.dex.
+        // For pre-dex (intermediate) mode, the output is a .dex.jar containing one or
+        // more .dex files (classes.dex, classes2.dex, ...).  We sum ref counts across
+        // all .dex entries so that the conservative upper bound covers multi-dex jars.
         // For merge mode, the output is a bare .dex file.
         // Some libraries produce empty .dex.jar files (no Java classes, e.g. resource-only
         // AARs). In that case, writing "0 0 0" is correct -- the library contributes no
         // method/field/type refs to any dex file.
         if (outputPath.toString().endsWith(DEX_JAR_SUFFIX)) {
           try (ZipFile dexJar = new ZipFile(outputPath.toFile())) {
-            ZipEntry classesDex = dexJar.getEntry("classes.dex");
-            if (classesDex != null) {
-              try (InputStream is = dexJar.getInputStream(classesDex)) {
-                DexRefCounts counts = readDexRefCounts(is);
-                methodRefCount = counts.methodIds;
-                fieldRefCount = counts.fieldIds;
-                typeRefCount = counts.typeIds;
-              }
-            }
-            // classesDex == null means the jar has no classes (empty/resource-only).
-            // Ref counts stay at 0, which is correct.
+            DexRefCounts jarCounts = readDexRefCountsFromJar(dexJar);
+            methodRefCount = jarCounts.methodIds;
+            fieldRefCount = jarCounts.fieldIds;
+            typeRefCount = jarCounts.typeIds;
           }
         } else if (outputPath.toString().endsWith(".dex")) {
           if (!outputPath.toFile().exists()) {
@@ -439,6 +434,26 @@ public class D8ExecutableMain {
         buf.getInt(DEX_METHOD_IDS_SIZE_OFFSET),
         buf.getInt(DEX_FIELD_IDS_SIZE_OFFSET),
         buf.getInt(DEX_TYPE_IDS_SIZE_OFFSET));
+  }
+
+  /** Reads and sums ref counts across all .dex entries in a .dex.jar (handles multi-dex). */
+  static DexRefCounts readDexRefCountsFromJar(ZipFile dexJar) throws IOException {
+    int methodRefCount = 0;
+    int fieldRefCount = 0;
+    int typeRefCount = 0;
+    Enumeration<? extends ZipEntry> entries = dexJar.entries();
+    while (entries.hasMoreElements()) {
+      ZipEntry entry = entries.nextElement();
+      if (entry.getName().endsWith(".dex")) {
+        try (InputStream is = dexJar.getInputStream(entry)) {
+          DexRefCounts counts = readDexRefCounts(is);
+          methodRefCount += counts.methodIds;
+          fieldRefCount += counts.fieldIds;
+          typeRefCount += counts.typeIds;
+        }
+      }
+    }
+    return new DexRefCounts(methodRefCount, fieldRefCount, typeRefCount);
   }
 
   private Set<D8Options> getD8Options() {

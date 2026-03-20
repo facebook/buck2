@@ -39,9 +39,25 @@ _TOOL_MODULE_PATH = os.path.join(
 
 _DEFAULT_WEIGHT_LIMIT = 12 * 1024 * 1024  # 12 MiB, matches Buck default
 
+_DEFAULT_REF_COUNTS = {
+    "method_ref_count": "0",
+    "field_ref_count": "0",
+    "type_ref_count": "0",
+}
+
+
+def _add_default_ref_counts(filter_data):
+    """Add default zero ref counts to any filter_data entries missing them."""
+    for info in filter_data.values():
+        for key, default_val in _DEFAULT_REF_COUNTS.items():
+            if key not in info:
+                info[key] = default_val
+    return filter_data
+
 
 def _sort(filter_data, lib_metadata, target_to_module=None, **kwargs):
     """Convenience wrapper with defaults for _sort_pre_dexed_files."""
+    _add_default_ref_counts(filter_data)
     return _sort_pre_dexed_files(
         filter_data,
         lib_metadata,
@@ -272,6 +288,98 @@ class SortPreDexedFilesTest(unittest.TestCase):
         self.assertNotIn("feature1", result)
         self.assertEqual(len(result["dex"]["secondary_groups"]), 1)
 
+    # --- Ref-count-based splitting ---
+
+    def test_ref_count_splits_secondary_groups(self):
+        """When cumulative method ref count exceeds DEX_REF_LIMIT (65536),
+        subsequent libs should spill into a new secondary dex group, even
+        if weight is well under the weight limit."""
+        filter_data = {
+            "lib1": {
+                "primary_dex_class_names": [],
+                "secondary_dex_class_names": ["com.A"],
+                "weight_estimate": "100",
+                "method_ref_count": "40000",
+                "field_ref_count": "0",
+                "type_ref_count": "0",
+            },
+            "lib2": {
+                "primary_dex_class_names": [],
+                "secondary_dex_class_names": ["com.B"],
+                "weight_estimate": "100",
+                "method_ref_count": "40000",
+                "field_ref_count": "0",
+                "type_ref_count": "0",
+            },
+        }
+        result = _sort(
+            filter_data,
+            {"lib1": "//apps:lib1", "lib2": "//apps:lib2"},
+            weight_limit=_DEFAULT_WEIGHT_LIMIT,
+        )
+
+        # 40000 + 40000 = 80000 > 65536 -> splits into 2 secondary groups
+        self.assertEqual(len(result["dex"]["secondary_groups"]), 2)
+
+    def test_high_ref_counts_do_not_split_primary_without_bootstrap(self):
+        """Without enable_bootstrap_dexes, primary dex groups must NOT be
+        split even when ref counts exceed the limit. Splitting primary
+        without the bootstrap classloader causes ClassNotFoundException."""
+        filter_data = {
+            "lib1": {
+                "primary_dex_class_names": ["com.A"],
+                "secondary_dex_class_names": [],
+                "weight_estimate": "100",
+                "method_ref_count": "40000",
+                "field_ref_count": "0",
+                "type_ref_count": "0",
+            },
+            "lib2": {
+                "primary_dex_class_names": ["com.B"],
+                "secondary_dex_class_names": [],
+                "weight_estimate": "100",
+                "method_ref_count": "40000",
+                "field_ref_count": "0",
+                "type_ref_count": "0",
+            },
+        }
+        result = _sort(
+            filter_data,
+            {"lib1": "//apps:lib1", "lib2": "//apps:lib2"},
+            weight_limit=_DEFAULT_WEIGHT_LIMIT,
+            enable_bootstrap_dexes=False,
+        )
+
+        # Without bootstrap, primary must stay in a single group
+        self.assertEqual(len(result["dex"]["primary_groups"]), 1)
+
+    def test_large_lib_chunked_by_ref_count(self):
+        """A single lib whose method ref count exceeds DEX_REF_LIMIT should
+        have its classes chunked across multiple groups, similar to
+        weight-based chunking."""
+        classes = ["com.Class{}".format(i) for i in range(10)]
+        filter_data = {
+            "lib1": {
+                "primary_dex_class_names": [],
+                "secondary_dex_class_names": classes,
+                "weight_estimate": "100",
+                "method_ref_count": "200000",
+                "field_ref_count": "0",
+                "type_ref_count": "0",
+            },
+        }
+        result = _sort(
+            filter_data, {"lib1": "//apps:lib1"}, weight_limit=_DEFAULT_WEIGHT_LIMIT
+        )
+
+        # 200000 > 65536 -> classes chunked across multiple groups
+        self.assertGreater(len(result["dex"]["secondary_groups"]), 1)
+        all_classes = []
+        for group in result["dex"]["secondary_groups"]:
+            for entry in group:
+                all_classes.extend(entry["class_names"])
+        self.assertCountEqual(all_classes, classes)
+
     # --- Ordering and skipping ---
 
     def test_iteration_order_follows_lib_metadata_keys(self):
@@ -446,6 +554,7 @@ class EndToEndToolTest(unittest.TestCase):
         # Write filter_dex outputs
         filter_paths = []
         for i, data in enumerate(filter_data_files):
+            _add_default_ref_counts(data)
             path = os.path.join(tmpdir, "filter_output_{}.json".format(i))
             with open(path, "w") as f:
                 json.dump(data, f)

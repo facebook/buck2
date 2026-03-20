@@ -16,6 +16,13 @@ import static org.junit.Assert.fail;
 import com.facebook.buck.android.dex.D8ExecutableMain.DexRefCounts;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipFile;
+import java.util.zip.ZipOutputStream;
 import org.junit.Test;
 
 /**
@@ -183,6 +190,60 @@ public class D8ExecutableMainTest {
       fail("Expected IOException for empty stream");
     } catch (IOException e) {
       // Expected
+    }
+  }
+
+  /**
+   * Builds a minimal 120-byte DEX header with the given ref counts. The header has valid magic,
+   * endian tag, and the specified method/field/type ID sizes at their canonical offsets.
+   */
+  private static byte[] makeDexHeader(int methodIds, int fieldIds, int typeIds) {
+    ByteBuffer buf = ByteBuffer.allocate(120).order(ByteOrder.LITTLE_ENDIAN);
+    // magic: "dex\n035\0"
+    buf.put(new byte[] {0x64, 0x65, 0x78, 0x0a, 0x30, 0x33, 0x35, 0x00});
+    // Fill up to offset 64 (type_ids_size) with zeros (checksum, signature, etc.)
+    buf.position(64);
+    buf.putInt(typeIds); // type_ids_size at offset 64
+    buf.putInt(0); // type_ids_off at offset 68
+    buf.putInt(0); // proto_ids_size at offset 72
+    buf.putInt(0); // proto_ids_off at offset 76
+    buf.putInt(fieldIds); // field_ids_size at offset 80
+    buf.putInt(0); // field_ids_off at offset 84
+    buf.putInt(methodIds); // method_ids_size at offset 88
+    buf.putInt(0); // method_ids_off at offset 92
+    // Fill remaining bytes to reach 120
+    buf.position(120);
+    return buf.array();
+  }
+
+  @Test
+  public void testReadDexRefCountsFromJar_multiDex() throws Exception {
+    // Create a temporary .dex.jar with two .dex entries
+    Path jarPath = Files.createTempFile("test", ".dex.jar");
+    try {
+      try (ZipOutputStream zos = new ZipOutputStream(Files.newOutputStream(jarPath))) {
+        zos.putNextEntry(new ZipEntry("classes.dex"));
+        zos.write(makeDexHeader(100, 200, 300));
+        zos.closeEntry();
+
+        zos.putNextEntry(new ZipEntry("classes2.dex"));
+        zos.write(makeDexHeader(40, 50, 60));
+        zos.closeEntry();
+
+        // Non-dex entry should be ignored
+        zos.putNextEntry(new ZipEntry("META-INF/MANIFEST.MF"));
+        zos.write("Manifest-Version: 1.0\n".getBytes());
+        zos.closeEntry();
+      }
+
+      try (ZipFile dexJar = new ZipFile(jarPath.toFile())) {
+        DexRefCounts counts = D8ExecutableMain.readDexRefCountsFromJar(dexJar);
+        assertEquals("method_ids_size sum", 140, counts.methodIds);
+        assertEquals("field_ids_size sum", 250, counts.fieldIds);
+        assertEquals("type_ids_size sum", 360, counts.typeIds);
+      }
+    } finally {
+      Files.deleteIfExists(jarPath);
     }
   }
 }
