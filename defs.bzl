@@ -71,3 +71,43 @@ def buck2_bundle(buck2, buck2_client, buck2_health_check, tpx, **kwargs):
         default_target_platform = cxx_platform.target_platform,
         **kwargs
     )
+
+def _pagable_transition_impl(platform: PlatformInfo, refs: struct) -> PlatformInfo:
+    val = refs.val[ConstraintValueInfo]
+    new_cfg = ConfigurationInfo(
+        constraints = platform.configuration.constraints | {val.setting.label: val},
+        values = platform.configuration.values,
+    )
+    return PlatformInfo(
+        label = platform.label,
+        configuration = new_cfg,
+    )
+
+_pagable_transition = transition(
+    impl = _pagable_transition_impl,
+    refs = {
+        "val": translate_target("//buck2/starlark-rust/starlark:pagable[enabled]"),
+    },
+)
+
+def _pagable_alias_impl(ctx: AnalysisContext) -> list[Provider]:
+    return ctx.attrs.actual.providers
+
+_pagable_transition_alias = rule(
+    impl = _pagable_alias_impl,
+    attrs = {
+        "actual": attrs.dep(),
+        "labels": attrs.list(attrs.string(), default = []),
+    },
+    cfg = _pagable_transition,
+)
+
+def pagable_transition_alias(name: str, actual, labels):
+    platform = platform_utils.get_cxx_platform_for_base_path(native.package_name())
+    default_target_platform = platform.target_platform
+    _pagable_transition_alias(
+        name = name,
+        actual = actual,
+        labels = labels,
+        default_target_platform = default_target_platform,
+    )
