@@ -398,11 +398,6 @@ impl<'v> DictLike<'v> for FrozenDictData {
     }
 }
 
-pub(crate) fn dict_methods() -> Option<&'static Methods> {
-    static RES: MethodsStatic = MethodsStatic::new();
-    RES.methods(crate::values::types::dict::methods::dict_methods)
-}
-
 // Register vtable for FrozenDict (special type not handled by #[starlark_value] macro, because V is not ValueLike).
 register_avalue_simple_frozen!(FrozenDict);
 
@@ -414,7 +409,8 @@ where
     type Canonical = FrozenDict;
 
     fn get_methods() -> Option<&'static Methods> {
-        dict_methods()
+        static RES: MethodsStatic = MethodsStatic::new();
+        RES.methods_for_type::<Self::Canonical>(crate::values::types::dict::methods::dict_methods)
     }
 
     fn collect_repr(&self, r: &mut String) {

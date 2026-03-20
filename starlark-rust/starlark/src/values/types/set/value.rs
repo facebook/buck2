@@ -139,11 +139,6 @@ impl<'v> Freeze for MutableSet<'v> {
     }
 }
 
-pub(crate) fn set_methods() -> Option<&'static Methods> {
-    static RES: MethodsStatic = MethodsStatic::new();
-    RES.methods(methods::set_methods)
-}
-
 trait SetLike<'v>: Debug + Allocative {
     type ContentRef<'a>: Deref<Target = SmallSet<Value<'v>>>
     where
@@ -238,7 +233,8 @@ where
     }
 
     fn get_methods() -> Option<&'static Methods> {
-        set_methods()
+        static RES: MethodsStatic = MethodsStatic::new();
+        RES.methods_for_type::<Self::Canonical>(methods::set_methods)
     }
 
     unsafe fn iterate(&self, me: Value<'v>, _heap: Heap<'v>) -> crate::Result<Value<'v>> {

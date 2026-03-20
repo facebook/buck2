@@ -23,13 +23,14 @@ use crate::environment::Methods;
 use crate::eval::Arguments;
 use crate::eval::Evaluator;
 use crate::values::FrozenValueTyped;
+use crate::values::StarlarkValue;
 use crate::values::Value;
-use crate::values::dict::value::dict_methods;
+use crate::values::dict::value::FrozenDict;
 use crate::values::function::NativeMeth;
 use crate::values::function::NativeMethod;
-use crate::values::list::value::list_methods;
-use crate::values::set::value::set_methods;
-use crate::values::string::str_type::str_methods;
+use crate::values::list::value::FrozenList;
+use crate::values::set::value::FrozenSet;
+use crate::values::string::StarlarkStr;
 
 /// Method and a `Methods` container which declares it.
 #[derive(Clone, Copy, Dupe)]
@@ -91,10 +92,10 @@ impl KnownMethods {
         }
 
         // We don't need to add all the methods, only the most common ones. This is fine.
-        add_methods(&mut methods, list_methods());
-        add_methods(&mut methods, dict_methods());
-        add_methods(&mut methods, set_methods());
-        add_methods(&mut methods, str_methods());
+        add_methods(&mut methods, FrozenList::get_methods());
+        add_methods(&mut methods, FrozenDict::get_methods());
+        add_methods(&mut methods, FrozenSet::get_methods());
+        add_methods(&mut methods, StarlarkStr::get_methods());
 
         KnownMethods { methods }
     }

@@ -227,11 +227,6 @@ impl Display for StarlarkStr {
     }
 }
 
-pub(crate) fn str_methods() -> Option<&'static Methods> {
-    static RES: MethodsStatic = MethodsStatic::new();
-    RES.methods(crate::values::types::string::methods::string_methods)
-}
-
 #[starlark_value(type = STRING_TYPE)]
 impl<'v> StarlarkValue<'v> for StarlarkStr {
     fn is_special(_: Private) -> bool
@@ -242,7 +237,10 @@ impl<'v> StarlarkValue<'v> for StarlarkStr {
     }
 
     fn get_methods() -> Option<&'static Methods> {
-        str_methods()
+        static RES: MethodsStatic = MethodsStatic::new();
+        RES.methods_for_type::<Self::Canonical>(
+            crate::values::types::string::methods::string_methods,
+        )
     }
 
     fn collect_repr(&self, buffer: &mut String) {
