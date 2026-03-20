@@ -33,13 +33,13 @@ def _gen_test_main(
         ctx: AnalysisContext,
         pkg_import_path: str,
         coverage_mode: [GoCoverageMode, None],
-        cover_packagages: list[str],  # packages those are included for coverage
+        cover_packages: list[str],  # packages those are included for coverage
         test_go_files_argsfile: Artifact) -> Artifact:
     """
     Generate a `main.go` which calls tests from the given sources.
     """
     cover_pkgs_argsfile = ctx.actions.declare_output("cover_pkgs_argsfile", has_content_based_path = True)
-    ctx.actions.write(cover_pkgs_argsfile, [["--cover-pkgs", pkg] for pkg in cover_packagages])
+    ctx.actions.write(cover_pkgs_argsfile, [["--cover-pkgs", pkg] for pkg in cover_packages])
 
     output = ctx.actions.declare_output("main.go", has_content_based_path = True)
     cmd = []
@@ -104,19 +104,19 @@ def go_test_impl(ctx: AnalysisContext) -> list[Provider]:
         deps = deps,
     )
 
-    cover_packagages = []
+    cover_packages = []
     if coverage_mode != None:
-        cover_packagages.append(pkg_import_path)
+        cover_packages.append(pkg_import_path)
 
         # Get all packages that are linked to the test (i.e. the entire dependency tree)
         for import_path in get_inherited_link_pkgs(deps):
-            cover_packagages.append(import_path)
+            cover_packages.append(import_path)
 
     pkgs[pkg_import_path] = tests
 
     # Generate a 'main.go' file (test runner) which runs the actual tests from the package above.
     # Build the it as a separate package (<foo>.test) - which imports and invokes the test package.
-    gen_main = _gen_test_main(ctx, pkg_import_path, coverage_mode, cover_packagages, test_go_files_argsfile)
+    gen_main = _gen_test_main(ctx, pkg_import_path, coverage_mode, cover_packages, test_go_files_argsfile)
     main, _, _ = declare_package_build(
         ctx = ctx,
         pkg_import_path = pkg_import_path + ".test",
