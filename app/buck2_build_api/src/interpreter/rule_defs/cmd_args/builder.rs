@@ -153,7 +153,7 @@ mod tests {
     use buck2_core::fs::project::ProjectRoot;
     use buck2_core::fs::project_rel_path::ProjectRelativePath;
     use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
-    use fxhash::FxHashMap;
+    use buck2_hash::BuckHashMap;
 
     use super::*;
     use crate::interpreter::rule_defs::cmd_args::traits::CommandLineArgLike;
@@ -176,7 +176,7 @@ mod tests {
         let mut cli = Vec::<String>::new();
         let mut ctx = DefaultCommandLineContext::new(&executor_fs);
 
-        "foo".add_to_command_line(&mut cli, &mut ctx, &FxHashMap::default())?;
+        "foo".add_to_command_line(&mut cli, &mut ctx, &BuckHashMap::default())?;
 
         assert_eq!(&["foo".to_owned()], cli.as_slice());
         Ok(())

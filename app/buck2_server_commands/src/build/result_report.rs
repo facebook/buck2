@@ -32,8 +32,8 @@ use buck2_core::pattern::pattern::Modifiers;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_execute::artifact::artifact_dyn::ArtifactDyn;
 use buck2_execute::artifact::fs::ExecutorFs;
+use buck2_hash::BuckHashMap;
 use dupe::Dupe;
-use fxhash::FxHashMap;
 use starlark_map::small_map::SmallMap;
 
 mod proto {
@@ -123,7 +123,7 @@ impl<'a> ResultReporter<'a> {
             .iter()
             .filter_map(|output| output.as_ref().ok());
 
-        let mut artifact_path_mapping = FxHashMap::default();
+        let mut artifact_path_mapping = BuckHashMap::default();
 
         // NOTE: We use an SmallMap here to preserve the order the rule author wrote, all
         // the while avoiding duplicates.
@@ -279,13 +279,13 @@ impl<'a> ResultReporter<'a> {
 }
 
 struct ErrorCountingArtifactPathMapperImpl<'a> {
-    pub map: FxHashMap<&'a Artifact, ContentBasedPathHash>,
+    pub map: BuckHashMap<&'a Artifact, ContentBasedPathHash>,
     pub content_based_paths_with_no_hash: Cell<usize>,
     pub scratch_content_based_path_hash: ContentBasedPathHash,
 }
 
 impl<'a> ErrorCountingArtifactPathMapperImpl<'a> {
-    pub fn new(map: FxHashMap<&'a Artifact, ContentBasedPathHash>) -> Self {
+    pub fn new(map: BuckHashMap<&'a Artifact, ContentBasedPathHash>) -> Self {
         Self {
             map,
             content_based_paths_with_no_hash: Cell::new(0),

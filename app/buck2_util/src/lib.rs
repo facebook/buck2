@@ -19,7 +19,6 @@ pub mod commas;
 pub mod cycle_detector;
 pub mod future;
 pub mod golden_test_helper;
-pub mod hash;
 pub mod indent;
 pub mod late_binding;
 pub mod network_speed_average;

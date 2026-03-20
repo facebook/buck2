@@ -1,0 +1,16 @@
+[package]
+description = """
+Hash function abstractions for buck2.
+
+This crate provides a level of indirection for hash function implementations
+used throughout buck2. It currently uses fxhash::FxHasher64 for performance.
+"""
+edition = "2024"
+license = { workspace = true }
+name = "buck2_hash"
+repository = { workspace = true }
+version = "0.1.0"
+
+[dependencies]
+dupe = { workspace = true }
+fxhash = { workspace = true }

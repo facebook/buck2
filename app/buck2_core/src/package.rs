@@ -49,7 +49,7 @@ use std::hash::Hasher;
 use allocative::Allocative;
 pub(crate) use buck2_fs::paths::fmt::quoted_display;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
-use buck2_util::hash::BuckHasher;
+use buck2_hash::BuckHasher;
 use derive_more::Display;
 use dupe::Dupe;
 use equivalent::Equivalent;

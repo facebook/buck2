@@ -14,6 +14,7 @@ allocative = { workspace = true }
 anyhow = "1.0.65"
 anymap3 = "1.0.1"
 async-trait = "0.1.24"
+buck2_hash = { workspace = true }
 cmp_any = { workspace = true }
 dashmap = "6.1.0"
 derivative = { workspace = true }
@@ -22,7 +23,6 @@ dice_error = { path = "../dice_error" }
 dice_futures = { path = "../dice_futures" }
 dupe = { workspace = true }
 futures = "0.3"
-fxhash = "0.2.1"
 gazebo = { workspace = true }
 indoc = { workspace = true }
 itertools = "0.14.0"

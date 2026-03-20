@@ -13,7 +13,6 @@ rust_library(
         "fbsource//third-party/rust:dashmap",
         "fbsource//third-party/rust:derive_more",
         "fbsource//third-party/rust:futures",
-        "fbsource//third-party/rust:fxhash",
         "fbsource//third-party/rust:indexmap",
         "fbsource//third-party/rust:itertools",
         "fbsource//third-party/rust:once_cell",
@@ -50,6 +49,7 @@ rust_library(
         "//buck2/host_sharing:host_sharing",
         "//buck2/pagable:pagable",
         "//buck2/remote_execution:remote_execution",
+        "//buck2/shed/buck2_hash:buck2_hash",
         "//buck2/starlark-rust/starlark:starlark",
         "//common/rust/shed/sorted_vector_map:sorted_vector_map",
     ] + select({

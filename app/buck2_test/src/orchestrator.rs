@@ -123,6 +123,7 @@ use buck2_execute_impl::executors::local::materialize_inputs;
 use buck2_execute_impl::executors::local::prep_scratch_path;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
+use buck2_hash::BuckHashMap;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use buck2_node::nodes::configured_frontend::ConfiguredTargetNodeCalculation;
 use buck2_resource_control::HasResourceControl;
@@ -160,7 +161,6 @@ use futures::FutureExt;
 use futures::channel::mpsc::UnboundedSender;
 use futures::stream::FuturesUnordered;
 use futures::stream::StreamExt;
-use fxhash::FxHashMap;
 use host_sharing::HostSharingRequirements;
 use indexmap::IndexMap;
 use indexmap::IndexSet;
@@ -1680,7 +1680,7 @@ impl BuckTestOrchestrator<'_> {
             })
             .await?;
 
-        let artifact_path_mapping: FxHashMap<_, _> = inputs
+        let artifact_path_mapping: BuckHashMap<_, _> = inputs
             .iter()
             .flat_map(|v| v.iter())
             .map(|(a, v)| (a, v.content_based_path_hash()))

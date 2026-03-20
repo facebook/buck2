@@ -14,7 +14,7 @@ pub mod events;
 mod implementation;
 pub mod types;
 
-pub type FxMultiMap<K, V> = multimap::MultiMap<K, V, fxhash::FxBuildHasher>;
+pub type FxMultiMap<K, V> = multimap::MultiMap<K, V, buck2_hash::BuckHasherBuilder>;
 
 pub mod testing {
     pub use super::implementation::traverse::traverse_partial_action_graph;

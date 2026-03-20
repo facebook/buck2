@@ -8,14 +8,13 @@
  * above-listed licenses.
  */
 
-use std::collections::HashSet;
-
 use allocative::Allocative;
 use async_trait::async_trait;
 use buck2_artifact::actions::key::ActionKey;
 use buck2_core::configuration::compatibility::MaybeCompatible;
 use buck2_core::deferred::key::DeferredHolderKey;
 use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
+use buck2_hash::BuckHashSet;
 use buck2_interpreter::dice::starlark_provider::StarlarkEvalKind;
 use buck2_node::nodes::configured::ConfiguredTargetNode;
 use dice::CancellationContext;
@@ -25,7 +24,6 @@ use dice::Key;
 use dice::OkPagableValueSerialize;
 use dice::ValueSerialize;
 use dupe::Dupe;
-use fxhash::FxHashSet;
 use pagable::Pagable;
 use pagable::pagable_typetag;
 use starlark::values::FrozenHeapName;
@@ -50,7 +48,7 @@ use crate::deferred::calculation::DeferredHolder;
 /// failed analysis or dynamic nodes).
 pub fn compute_action_graph_sketch<'a>(
     root_artifacts: impl IntoIterator<Item = &'a ArtifactGroup>,
-    state: &fxhash::FxHashMap<DeferredHolderKey, DeferredHolder>,
+    state: &buck2_hash::BuckHashMap<DeferredHolderKey, DeferredHolder>,
 ) -> buck2_error::Result<(bool, MergeableGraphSketch<ActionKey>)> {
     let mut sketcher = DEFAULT_SKETCH_VERSION.create_sketcher();
     let complete = compute_action_graph_sketch_impl(root_artifacts, state, &mut sketcher)?;
@@ -60,7 +58,7 @@ pub fn compute_action_graph_sketch<'a>(
 /// Private implementation that accepts any Sketcher for testing.
 fn compute_action_graph_sketch_impl<'a>(
     root_artifacts: impl IntoIterator<Item = &'a ArtifactGroup>,
-    state: &fxhash::FxHashMap<DeferredHolderKey, DeferredHolder>,
+    state: &buck2_hash::BuckHashMap<DeferredHolderKey, DeferredHolder>,
     sketcher: &mut impl Sketcher<ActionKey>,
 ) -> buck2_error::Result<bool> {
     let (complete, actions) =
@@ -98,7 +96,7 @@ fn compute_configured_graph_sketch_impl<'a>(
     sketcher: &mut impl Sketcher<ConfiguredTargetLabel>,
 ) -> usize {
     let mut queue = vec![node];
-    let mut visited: HashSet<_, fxhash::FxBuildHasher> = HashSet::default();
+    let mut visited: BuckHashSet<_> = BuckHashSet::default();
     visited.insert(node);
 
     while let Some(item) = queue.pop() {
@@ -168,7 +166,7 @@ fn gather_heap_graph_sketch_impl(
     root: &FrozenHeapRef,
     sketcher: &mut impl Sketcher<StarlarkEvalKind>,
 ) {
-    let mut visited = FxHashSet::default();
+    let mut visited = BuckHashSet::default();
     visited.insert(root);
     let mut queue = vec![root];
 
@@ -215,8 +213,9 @@ mod tests {
     use buck2_core::fs::buck_out_path::BuildArtifactPath;
     use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
     use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
+    use buck2_hash::BuckHashMap;
+    use buck2_hash::BuckHashSet;
     use dupe::Dupe;
-    use fxhash::FxHashSet;
     use indexmap::IndexSet;
 
     use crate::actions::Action;
@@ -353,7 +352,7 @@ mod tests {
 
     #[test]
     fn test_action_graph_sketch_impl_empty() {
-        let state = fxhash::FxHashMap::default();
+        let state = BuckHashMap::default();
         let mut mock_sketcher: MockSketcher<ActionKey> = MockSketcher::new();
 
         let complete = super::compute_action_graph_sketch_impl(
@@ -377,7 +376,7 @@ mod tests {
         let artifact_group = ArtifactGroup::Artifact(output.into());
 
         // Empty state - the action is not registered
-        let state = fxhash::FxHashMap::default();
+        let state = BuckHashMap::default();
 
         let mut mock_sketcher: MockSketcher<ActionKey> = MockSketcher::new();
         let complete =
@@ -430,7 +429,7 @@ mod tests {
             None,
         ));
 
-        let mut state = fxhash::FxHashMap::default();
+        let mut state = BuckHashMap::default();
         state.insert(holder_key, holder);
 
         let mut mock_sketcher: MockSketcher<ActionKey> = MockSketcher::new();
@@ -441,7 +440,7 @@ mod tests {
         assert!(complete);
         // Diamond has 4 unique actions - action0 should only be sketched once
         assert_eq!(mock_sketcher.items.len(), 4);
-        let sketched: FxHashSet<_> = mock_sketcher.items.into_iter().collect();
+        let sketched: BuckHashSet<_> = mock_sketcher.items.into_iter().collect();
         assert!(sketched.contains(&action_key0));
         assert!(sketched.contains(&action_key1));
         assert!(sketched.contains(&action_key2));

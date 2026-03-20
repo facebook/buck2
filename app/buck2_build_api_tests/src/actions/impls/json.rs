@@ -19,9 +19,9 @@ use buck2_build_api::interpreter::rule_defs::artifact_tagging::ArtifactTag;
 use buck2_build_api::interpreter::rule_defs::cmd_args::CommandLineArtifactVisitor;
 use buck2_error::BuckErrorContext;
 use buck2_error::internal_error;
+use buck2_hash::BuckHashMap;
 use buck2_interpreter_for_build::interpreter::testing::Tester;
 use dupe::Dupe;
-use fxhash::FxHashMap;
 use indoc::indoc;
 use starlark::environment::GlobalsBuilder;
 use starlark::starlark_module;
@@ -83,7 +83,7 @@ fn test_tagging() -> buck2_error::Result<()> {
                 value: JsonUnpack::unpack_value_err(tagged)?,
                 fs: None,
                 absolute: false,
-                artifact_path_mapping: &FxHashMap::default(),
+                artifact_path_mapping: &BuckHashMap::default(),
             })
             .map_err(buck2_error::Error::from)?;
 
@@ -91,7 +91,7 @@ fn test_tagging() -> buck2_error::Result<()> {
                 value: JsonUnpack::unpack_value_err(value)?,
                 fs: None,
                 absolute: false,
-                artifact_path_mapping: &FxHashMap::default(),
+                artifact_path_mapping: &BuckHashMap::default(),
             })
             .map_err(buck2_error::Error::from)?;
 

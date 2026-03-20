@@ -14,7 +14,7 @@ use allocative::Allocative;
 use buck2_core::configuration::transition::id::TransitionId;
 use buck2_core::plugins::PluginKind;
 #[allow(unused_imports)]
-use buck2_util::hash::BuckHasher;
+use buck2_hash::BuckHasher;
 use pagable::Pagable;
 use static_interner::interner;
 

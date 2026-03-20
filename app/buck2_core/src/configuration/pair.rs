@@ -9,7 +9,7 @@
  */
 
 use allocative::Allocative;
-use buck2_util::hash::BuckHasher;
+use buck2_hash::BuckHasher;
 use dupe::Dupe;
 use once_cell::sync::Lazy;
 use pagable::Pagable;

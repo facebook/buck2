@@ -13,7 +13,7 @@ use std::sync::Weak;
 
 use allocative::Allocative;
 use buck2_core::directory_digest::DirectoryDigest;
-use buck2_util::hash::BuckHasherBuilder;
+use buck2_hash::BuckHasherBuilder;
 use dashmap::DashMap;
 use dashmap::mapref::entry::Entry;
 use dupe::Clone_;

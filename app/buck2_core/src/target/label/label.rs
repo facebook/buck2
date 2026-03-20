@@ -19,7 +19,7 @@ use std::str;
 use allocative::Allocative;
 use buck2_data::ToProtoMessage;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
-use buck2_util::hash::BuckHasher;
+use buck2_hash::BuckHasher;
 use dupe::Dupe;
 use lock_free_hashtable::atomic_value::AtomicValue;
 use pagable::Pagable;

@@ -76,7 +76,7 @@ impl Node {
     }
 }
 
-struct Graph<'a>(&'a fxhash::FxHashMap<DeferredHolderKey, DeferredHolder>);
+struct Graph<'a>(&'a buck2_hash::BuckHashMap<DeferredHolderKey, DeferredHolder>);
 
 impl<'a> Graph<'a> {
     pub(crate) fn lookup_deferred(
@@ -232,14 +232,14 @@ impl<'a> Graph<'a> {
 }
 
 struct TraversalState {
-    visited: fxhash::FxHashSet<Key>,
+    visited: buck2_hash::BuckHashSet<Key>,
     queue: Vec<Key>,
 }
 
 impl TraversalState {
     fn new() -> Self {
         Self {
-            visited: fxhash::FxHashSet::default(),
+            visited: buck2_hash::BuckHashSet::default(),
             queue: Vec::new(),
         }
     }
@@ -258,11 +258,12 @@ impl TraversalState {
 
 pub fn traverse_partial_action_graph<'a>(
     root_artifacts: impl IntoIterator<Item = &'a ArtifactGroup>,
-    state: &fxhash::FxHashMap<DeferredHolderKey, DeferredHolder>,
-) -> buck2_error::Result<(bool, fxhash::FxHashSet<ActionKey>)> {
+    state: &buck2_hash::BuckHashMap<DeferredHolderKey, DeferredHolder>,
+) -> buck2_error::Result<(bool, buck2_hash::BuckHashSet<ActionKey>)> {
+    let mut actions = buck2_hash::BuckHashSet::default();
+
     let graph = Graph(state);
     let roots = graph.root_keys(root_artifacts)?;
-    let mut actions = fxhash::FxHashSet::default();
 
     let complete = graph.traverse(roots, |graph, node, state| {
         // It's required that we add this on visiting an action node rather than an action key.
@@ -281,7 +282,7 @@ pub fn traverse_target_graph(
     root: &ConfiguredTargetNode,
     mut visitor: impl FnMut(&ConfiguredTargetLabel),
 ) {
-    let mut visited = fxhash::FxHashSet::default();
+    let mut visited = buck2_hash::BuckHashSet::default();
     let mut queue = Vec::new();
     visited.insert(root.label());
     queue.push(root);

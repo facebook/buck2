@@ -79,7 +79,10 @@ mod tests {
             }
         }
 
-        fn add_to_state(self, state: &mut fxhash::FxHashMap<DeferredHolderKey, DeferredHolder>) {
+        fn add_to_state(
+            self,
+            state: &mut buck2_hash::BuckHashMap<DeferredHolderKey, DeferredHolder>,
+        ) {
             let (key, holder) = self.build();
             state.insert(key, holder);
         }
@@ -215,14 +218,14 @@ mod tests {
     }
 
     #[track_caller]
-    fn assert_set_eq(actions: fxhash::FxHashSet<ActionKey>, expected: Vec<ActionKey>) {
-        let expected_set: fxhash::FxHashSet<_> = expected.into_iter().collect();
+    fn assert_set_eq(actions: buck2_hash::BuckHashSet<ActionKey>, expected: Vec<ActionKey>) {
+        let expected_set: buck2_hash::BuckHashSet<_> = expected.into_iter().collect();
         assert_eq!(actions, expected_set)
     }
 
     #[test]
     fn test_empty_graph() -> buck2_error::Result<()> {
-        let state = fxhash::FxHashMap::default();
+        let state = buck2_hash::BuckHashMap::default();
         let (complete, actions) = traverse_partial_action_graph(Vec::new(), &state)?;
         assert!(complete);
         assert!(actions.is_empty());
@@ -231,7 +234,7 @@ mod tests {
 
     #[test]
     fn test_single_action() -> buck2_error::Result<()> {
-        let mut state = fxhash::FxHashMap::default();
+        let mut state = buck2_hash::BuckHashMap::default();
 
         let mut builder = Builder::for_analysis(create_target("root//:lib").dupe());
         let (output, action_key) =
@@ -247,7 +250,7 @@ mod tests {
 
     #[test]
     fn test_diamond() -> buck2_error::Result<()> {
-        let mut state = fxhash::FxHashMap::default();
+        let mut state = buck2_hash::BuckHashMap::default();
 
         let mut builder1 = Builder::for_analysis(create_target("root//:lib").dupe());
         let mut builder2 = Builder::for_analysis(create_target("root//:bin"));
@@ -282,7 +285,7 @@ mod tests {
         // cycles can't actually occur in the action graph, but there may be bugs or races in our
         // state tracking that leads to us traversing an invalid graph. This test just ensures that
         // we still terminate if we encounter a cycle.
-        let mut state = fxhash::FxHashMap::default();
+        let mut state = buck2_hash::BuckHashMap::default();
 
         let mut builder1 = Builder::for_analysis(create_target("root//:lib").dupe());
 
@@ -306,7 +309,7 @@ mod tests {
     #[should_panic(expected = "assertion `left == right` failed")] // We don't currently actually have the ability to traverse this edge.
     fn test_dynamic_input() {
         fn go() -> buck2_error::Result<()> {
-            let mut state = fxhash::FxHashMap::default();
+            let mut state = buck2_hash::BuckHashMap::default();
 
             let mut builder1 = Builder::for_analysis(create_target("root//:lib").dupe());
 
@@ -335,7 +338,7 @@ mod tests {
     /// Checks that we can traverse a graph where some parts are missing.
     #[test]
     fn test_dynamic_node_analysis_missing() -> buck2_error::Result<()> {
-        let mut state = fxhash::FxHashMap::default();
+        let mut state = buck2_hash::BuckHashMap::default();
 
         let mut builder1 = Builder::for_analysis(create_target("root//:lib").dupe());
 
@@ -362,7 +365,7 @@ mod tests {
     /*
     #[test]
     fn test_tset() -> buck2_error::Result<()> {
-        let mut state = fxhash::FxHashMap::default();
+        let mut state = buck2_hash::BuckHashMap::default();
 
         let mut builder1 = Builder::for_analysis(create_target("root//:lib").dupe());
 

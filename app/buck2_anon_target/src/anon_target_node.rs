@@ -40,12 +40,12 @@ use buck2_core::target::label::label::TargetLabel;
 use buck2_data::ToProtoMessage;
 use buck2_data::action_key_owner::BaseDeferredKeyProto;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
+use buck2_hash::BuckHasher;
 use buck2_interpreter::dice::starlark_provider::StarlarkEvalKind;
 use buck2_node::rule_type::StarlarkRuleType;
 use buck2_util::strong_hasher::Blake3StrongHasher;
 use cmp_any::PartialEqAny;
 use dupe::Dupe;
-use fxhash::FxHasher;
 use pagable::Pagable;
 use pagable::pagable_typetag;
 use starlark::collections::SmallMap;
@@ -123,7 +123,7 @@ impl AnonTarget {
         exec_cfg: ConfigurationNoExec,
         variant: AnonTargetVariant,
     ) -> Self {
-        let mut full_hash = FxHasher::default();
+        let mut full_hash = BuckHasher::default();
         rule_type.hash(&mut full_hash);
         name.hash(&mut full_hash);
         attrs.hash(&mut full_hash);

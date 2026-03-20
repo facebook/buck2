@@ -15,9 +15,9 @@ use std::hash::Hasher;
 use std::marker;
 use std::sync::Arc;
 
+use buck2_hash::BuckHasher;
 use buck2_util::arc_str::ArcSlice;
 use buck2_util::arc_str::ArcStr;
-use buck2_util::hash::BuckHasher;
 use dupe::Dupe;
 use hashbrown::HashTable;
 

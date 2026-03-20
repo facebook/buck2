@@ -14,10 +14,10 @@ use std::sync::atomic::AtomicBool;
 use std::sync::atomic::Ordering;
 
 use allocative::Allocative;
+use buck2_hash::BuckHasherBuilder;
 use dashmap::DashMap;
 use dice_error::result::CancellationReason;
 use dupe::Dupe;
-use fxhash::FxBuildHasher;
 use lock_free_hashtable::sharded::ShardedLockFreeRawTable;
 
 use crate::arc::Arc;
@@ -29,7 +29,7 @@ use crate::impls::value::DiceComputedValue;
 struct Data {
     completed: ShardedLockFreeRawTable<Arc<DiceCompletedTask>, 64>,
     /// Completed tasks lazily moved into `completed` from this map.
-    storage: DashMap<DiceKey, DiceTask, FxBuildHasher>,
+    storage: DashMap<DiceKey, DiceTask, BuckHasherBuilder>,
     is_cancelled: AtomicBool,
 }
 

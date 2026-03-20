@@ -13,10 +13,10 @@ use std::hash::Hash;
 use std::hash::Hasher;
 use std::mem;
 
-use fxhash::FxHasher;
+use buck2_hash::BuckHasher;
 
 pub(crate) fn key_hash<K: Hash + 'static>(key: &K) -> u64 {
-    let mut hasher = FxHasher::default();
+    let mut hasher = BuckHasher::default();
     if mem::size_of::<K>() == 0 {
         // Hashing `TypeId` unconditionally measurably slows down hashing.
         TypeId::of::<K>().hash(&mut hasher);

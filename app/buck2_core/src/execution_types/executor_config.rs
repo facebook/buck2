@@ -16,7 +16,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use allocative::Allocative;
-use buck2_util::hash::BuckHasher;
+use buck2_hash::BuckHasher;
 use derive_more::Display;
 use dupe::Dupe;
 use itertools::Itertools;

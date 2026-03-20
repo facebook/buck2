@@ -27,6 +27,7 @@ use buck2_core::package::PackageLabel;
 use buck2_core::plugins::PluginKindSet;
 use buck2_execute::artifact::fs::ExecutorFs;
 use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
+use buck2_hash::BuckHashMap;
 use buck2_interpreter_for_build::attrs::coerce::attr_type::AttrTypeExt;
 use buck2_interpreter_for_build::attrs::coerce::testing::coercion_ctx;
 use buck2_interpreter_for_build::attrs::coerce::testing::coercion_ctx_listing;
@@ -42,7 +43,6 @@ use buck2_node::attrs::fmt_context::AttrFmtContext;
 use buck2_node::attrs::testing::configuration_ctx;
 use buck2_node::provider_id_set::ProviderIdSet;
 use dupe::Dupe;
-use fxhash::FxHashMap;
 use gazebo::prelude::*;
 use indoc::indoc;
 use starlark::environment::GlobalsBuilder;
@@ -1003,7 +1003,7 @@ fn test_user_placeholders() -> buck2_error::Result<()> {
                     ValueAsCommandLineLike::unpack_value_err(v)
                         .unwrap()
                         .0
-                        .add_to_command_line(&mut cli, &mut ctx, &FxHashMap::default())
+                        .add_to_command_line(&mut cli, &mut ctx, &BuckHashMap::default())
                         .unwrap();
                     cli.join(" ")
                 })

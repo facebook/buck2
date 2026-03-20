@@ -24,11 +24,11 @@ use buck2_error::BuckErrorContext;
 use buck2_execute::artifact::artifact_dyn::ArtifactDyn;
 use buck2_execute::artifact::fs::ExecutorFs;
 use buck2_fs::paths::RelativePathBuf;
+use buck2_hash::BuckHashMap;
 use buck2_interpreter::types::cell_root::CellRoot;
 use buck2_interpreter::types::configured_providers_label::StarlarkConfiguredProvidersLabel;
 use buck2_interpreter::types::project_root::StarlarkProjectRoot;
 use buck2_interpreter::types::target_label::StarlarkTargetLabel;
-use fxhash::FxHashMap;
 use indexmap::IndexSet;
 use starlark::any::ProvidesStaticType;
 use starlark::typing::Ty;
@@ -136,14 +136,14 @@ pub trait ArtifactPathMapper {
     fn get(&self, artifact: &Artifact) -> Option<&ContentBasedPathHash>;
 }
 
-impl ArtifactPathMapper for FxHashMap<&Artifact, ContentBasedPathHash> {
+impl ArtifactPathMapper for BuckHashMap<&Artifact, ContentBasedPathHash> {
     fn get(&self, artifact: &Artifact) -> Option<&ContentBasedPathHash> {
         self.get(artifact)
     }
 }
 
 pub struct ArtifactPathMapperImpl<'a> {
-    pub map: FxHashMap<&'a Artifact, ContentBasedPathHash>,
+    pub map: BuckHashMap<&'a Artifact, ContentBasedPathHash>,
 }
 
 impl<'a> From<&'a Vec<(ArtifactGroup, ArtifactGroupValues)>> for ArtifactPathMapperImpl<'a> {

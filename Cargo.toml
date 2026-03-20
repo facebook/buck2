@@ -123,6 +123,7 @@ members = [
     "starlark-rust/starlark_map",
     "starlark-rust/starlark_syntax",
     "shed/setsketch",
+    "shed/buck2_hash",
     "shed/static_interner",
     "shed/lock_free_hashtable",
     "shed/lock_free_vec",
@@ -355,6 +356,7 @@ sorted_vector_map.version = "0.2"
 allocative.features = ["anyhow", "bumpalo", "dashmap", "either", "futures", "hashbrown", "indexmap", "num-bigint", "once_cell", "parking_lot", "prost-types", "relative-path", "serde_json", "slab", "smallvec", "compact_str", "sorted_vector_map", "tokio", "triomphe"]
 allocative.path = "allocative/allocative"
 allocative.version = "0.3.1"
+buck2_hash = { path = "shed/buck2_hash" }
 cmp_any = { path = "gazebo/cmp_any" }
 dice = { path = "dice/dice" }
 dice_error = { path = "dice/dice_error" }

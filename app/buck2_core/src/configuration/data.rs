@@ -14,7 +14,7 @@ use std::hash::Hasher;
 
 use allocative::Allocative;
 use buck2_data::ToProtoMessage;
-use buck2_util::hash::BuckHasher;
+use buck2_hash::BuckHasher;
 use buck2_util::strong_hasher::Blake3StrongHasher;
 use dupe::Dupe;
 use equivalent::Equivalent;

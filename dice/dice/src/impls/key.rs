@@ -16,11 +16,11 @@ use std::sync::Arc;
 
 use allocative::Allocative;
 use async_trait::async_trait;
+use buck2_hash::BuckHasher;
 use cmp_any::PartialEqAny;
 use derive_more::Display;
 use dice_futures::cancellation::CancellationContext;
 use dupe::Dupe;
-use fxhash::FxHasher;
 #[cfg(feature = "pagable")]
 use pagable::PagableTagged;
 #[cfg(feature = "pagable")]
@@ -430,7 +430,7 @@ impl ProjectionWithBase {
     }
 
     fn hash(&self) -> u64 {
-        let mut hasher = FxHasher::default();
+        let mut hasher = BuckHasher::default();
 
         self.base.hash(&mut hasher);
         self.proj.hash().hash(&mut hasher);
@@ -468,7 +468,7 @@ impl ProjectionWithBaseRef<'_> {
     }
 
     fn hash(&self) -> u64 {
-        let mut hasher = FxHasher::default();
+        let mut hasher = BuckHasher::default();
 
         self.base.hash(&mut hasher);
         self.proj.hash().hash(&mut hasher);
