@@ -7,7 +7,7 @@ import { FbInternalOnly } from 'docusaurus-plugin-internaldocs-fb/internal';
 
 <FbInternalOnly>
 
-## Internal Meta User
+<h2>Internal Meta User</h2>
 
 For Internal Meta Users, Buck2 is already configured and available for you.
 Simply cloning the

@@ -558,7 +558,7 @@ buck-out,it has the following characteristics:
 - Buck-out can grow very big and consumes your disk space, you can run buck
   clean or [buck clean --stale](../../users/commands/clean/) as the remedy
 
-## Buck UI
+<h2>Buck UI</h2>
 
 Buck is mostly a command line tool but buck team does offer a
 [web-based UI](../../users/build_observability/observability/#buck2s-web-ui) for

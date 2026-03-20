@@ -285,8 +285,8 @@ pub(crate) fn register_dynamic_actions(globals: &mut GlobalsBuilder) {
     /// and the result of calling it can be passed to `ctx.actions.dynamic_output_new`.
     ///
     /// Be aware that the context argument of the called impl function differs between
-    /// [`dynamic_actions`](../#dynamic_actions) where it is [`actions: AnalysisActions`](../build/AnalysisActions)
-    /// and [`bxl.dynamic_actions`](../../bxl/#dynamic_actions)
+    /// [`dynamic_actions`](../build/#dynamic_actions) where it is [`actions: AnalysisActions`](../build/AnalysisActions)
+    /// and [`bxl.dynamic_actions`](#dynamic_actions)
     /// where it is [`bxl_ctx: bxl.Context`](../bxl/Context).
     fn dynamic_actions<'v>(
         #[starlark(require = named)] r#impl: StarlarkCallableChecked<

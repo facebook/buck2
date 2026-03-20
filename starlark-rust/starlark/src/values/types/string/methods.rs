@@ -250,7 +250,7 @@ pub(crate) fn string_methods(builder: &mut MethodsBuilder) {
     /// If either or both of `start` or `end` are specified,
     /// they specify a subrange of S to which the search should be restricted.
     /// They are interpreted according to Skylark's [indexing
-    /// conventions](#indexing).
+    /// conventions](https://github.com/bazelbuild/starlark/blob/master/spec.md#indexing).
     ///
     /// If no occurrence is found, `found` returns -1.
     ///

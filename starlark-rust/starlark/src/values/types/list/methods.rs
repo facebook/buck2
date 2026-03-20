@@ -128,7 +128,7 @@ pub(crate) fn list_methods(builder: &mut MethodsBuilder) {
     /// list L that is inspected.  If provided and not `None`, they must be list
     /// indices of type `int`. If an index is negative, `len(L)` is effectively
     /// added to it, then if the index is outside the range `[0:len(L)]`, the
-    /// nearest value within that range is used; see [Indexing](#indexing).
+    /// nearest value within that range is used; see [Indexing](https://github.com/bazelbuild/starlark/blob/master/spec.md#indexing).
     ///
     /// `index` fails if `x` is not found in L, or if `start` or `end`
     /// is not a valid index (`int` or `None`).

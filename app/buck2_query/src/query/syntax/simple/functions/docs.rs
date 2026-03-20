@@ -153,19 +153,16 @@ impl QueryEnvironmentDescription {
 
 fn render_arg_type_markdown(v: QueryArgType, options: &MarkdownOptions) -> String {
     let anchor = if options.links_enabled {
-        &format!(
-            "<a class=\"anchorWithStickyNavbar\" name=\"{}\"></a>",
-            v.internal_link_id()
-        )
+        &format!("{{#{}}}", v.internal_link_id())
     } else {
         ""
     };
-    let mut rendered = format!("- *{}*{}: ", v.repr(), anchor);
+    let mut rendered = format!("### *{}*{}\n\n", v.repr(), anchor);
     if let Some(short_description) = v.short_description(options) {
         rendered.push_str(short_description.as_ref());
     }
     if let Some(description) = v.description() {
-        rendered.push_str(&format!("\n\n  {description}"));
+        rendered.push_str(&format!("\n\n{description}"));
     }
     rendered
 }
