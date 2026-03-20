@@ -77,61 +77,14 @@ def __patch_ctypes(saved_env: dict[str, str]) -> None:
     ctypes_util.find_library = lambda name: _patched_find_library(name)
 
 
-def _write_proxy_sitecustomize() -> None:
-    """Write a proxy sitecustomize.py to the unpack dir for child processes.
-
-    Only needed for fastzip PARs where sitecustomize.py lives inside the zip
-    and can't be found via PYTHONPATH (zip can't be in PYTHONPATH due to
-    RecursionError risk in zipimport).
-    """
-    unpack_dir = os.environ.get("FB_PAR_UNZIP_LOCATION")
-    par_filename = os.environ.get("FB_PAR_FILENAME")
-    if not unpack_dir or not par_filename:
-        return
-    if not any(entry.startswith(("/proc/self/fd/", "/dev/fd/")) for entry in sys.path):
-        return  # Not a fastzip PAR — real sitecustomize is findable
-
-    proxy_path = os.path.join(unpack_dir, "sitecustomize.py")
-    if os.path.exists(proxy_path):
-        return  # Already written
-
-    proxy_code = """\
-import os as _os, sys as _sys
-_par = _os.environ.get("FB_PAR_FILENAME", "")
-if _par and _os.path.isfile(_par) and _par not in _sys.path:
-    _sys.path.insert(0, _par)
-    # Find and execute the real sitecustomize from the PAR without manipulating
-    # sys.modules, which can cause import machinery issues.
-    from importlib.machinery import PathFinder
-    from importlib.util import module_from_spec
-    _spec = PathFinder.find_spec("sitecustomize", path=[_par])
-    if _spec and _spec.loader:
-        _mod = module_from_spec(_spec)
-        _spec.loader.exec_module(_mod)
-"""
-    try:
-        with open(proxy_path, "w") as f:
-            f.write(proxy_code)
-    except OSError:
-        pass  # Best effort
-
-
 def __patch_spawn(var_names: list[str], saved_env: dict[str, str]) -> None:
     std_spawn = mp_util.spawnv_passfds
-
-    # Compute resolved PYTHONPATH once at patch time (not per-spawn).
-    # dirs_only=True filters out zip files to avoid RecursionError from
-    # zipimport's lazy `import struct` cycle.
-    resolved_pythonpath = os.path.pathsep.join(
-        _resolve_path_entries(sys.path, dirs_only=True)
-    )
 
     # pyre-fixme[53]: Captured variable is not annotated.
     # pyre-fixme[2]: Parameter must be annotated.
     def spawnv_passfds(path, args, passfds) -> None | int:
         with lock:
             try:
-                _write_proxy_sitecustomize()
                 for var in var_names:
                     val = os.environ.get(var, None)
                     if val is not None:
@@ -139,17 +92,6 @@ def __patch_spawn(var_names: list[str], saved_env: dict[str, str]) -> None:
                     saved_val = saved_env.get(var, None)
                     if saved_val is not None:
                         os.environ[var] = saved_val
-
-                # Ensure PYTHONPATH includes resolved sys.path dirs so the
-                # child interpreter finds sitecustomize.py during Py_Initialize.
-                existing = os.environ.get("PYTHONPATH", "")
-                if existing:
-                    os.environ["PYTHONPATH"] = (
-                        existing + os.path.pathsep + resolved_pythonpath
-                    )
-                else:
-                    os.environ["PYTHONPATH"] = resolved_pythonpath
-
                 return std_spawn(path, args, passfds)
             finally:
                 __clear_env(apply_monkeypatching=False)
@@ -240,9 +182,6 @@ def __patch_subprocess_run(saved_env: dict[str, str]) -> None:
             # _read_directory triggers a lazy `import struct` cycle).
             resolved = _resolve_path_entries(sys.path, dirs_only=True)
             env["PYTHONPATH"] = os.path.pathsep.join(resolved)
-            # Ensure the proxy sitecustomize.py exists in the unpack dir
-            # so the child interpreter can find it via PYTHONPATH.
-            _write_proxy_sitecustomize()
             # Only set PYTHONHOME if the child will find sitecustomize.py
             # (which clears it). Otherwise PYTHONHOME leaks and the child
             # uses the PAR's prefix for stdlib, causing hangs.
