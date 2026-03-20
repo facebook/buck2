@@ -80,8 +80,6 @@ LinkerProviderType = ["darwin", "gnu", "windows", "unknown", "wasm"]
 
 PicType = ["pic", "pdc"]
 
-SharedLibraryInterfaceParamsType = ["disabled", "enabled", "defined_only"]
-
 cxx_binary = prelude_rule(
     name = "cxx_binary",
     docs = """
@@ -1046,7 +1044,6 @@ cxx_toolchain = prelude_rule(
             "shared_dep_runtime_ld_flags": attrs.list(attrs.arg(), default = []),
             "shared_library_extension": attrs.string(default = ""),
             "shared_library_interface_flags": attrs.list(attrs.string(), default = []),
-            "shared_library_interface_type": attrs.enum(SharedLibraryInterfaceParamsType),
             "shared_library_versioned_extension_format": attrs.string(default = ""),
             "static_dep_runtime_ld_flags": attrs.list(attrs.arg(), default = []),
             "static_library_extension": attrs.string(default = ""),
