@@ -146,12 +146,6 @@ pub(crate) enum InstallError {
     #[error("Timed out after {timeout:?} waiting for installer to {action}")]
     #[buck2(environment)]
     RequestTimeout { timeout: Duration, action: String },
-
-    #[error(
-        "Tried to use an artifact {artifact} with a content-based path for install, not currently supported!"
-    )]
-    #[buck2(input)]
-    ContentBasedPath { artifact: Artifact },
 }
 
 async fn get_installer_log_directory(
@@ -481,30 +475,16 @@ impl<'a> ConnectedInstaller<'a> {
 
     async fn send_install_info(&mut self) -> buck2_error::Result<()> {
         for (installed_target, install_files) in &self.install_request_data.installed_targets {
-            let mut files_map = HashMap::new();
-            // TODO(T219919866): Support content-based paths by not passing the path to the installer until
-            // the artifact is built.
-            for (file_name, artifact) in install_files {
-                if artifact.path_resolution_requires_artifact_value() {
-                    return Err(InstallError::ContentBasedPath {
-                        artifact: artifact.clone(),
-                    }
-                    .into());
-                }
-                let artifact_path = &self
-                    .artifact_fs
-                    .fs()
-                    .resolve(&artifact.resolve_path(&self.artifact_fs, None)?);
-                files_map
-                    .entry((*file_name).to_owned())
-                    .or_insert_with(|| artifact_path.to_string());
-            }
+            let file_names: Vec<String> = install_files
+                .keys()
+                .map(|name| (*name).to_owned())
+                .collect();
 
             let install_id = install_id(installed_target);
             let install_info_request = tonic::Request::new(InstallInfoRequest {
                 install_id: install_id.to_owned(),
-                files: files_map,
-                file_names: Vec::new(),
+                files: HashMap::new(),
+                file_names,
             });
 
             let response_result =
