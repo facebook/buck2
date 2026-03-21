@@ -12,6 +12,7 @@ repository = { workspace = true }
 version = "0.1.0"
 
 [dependencies]
+dashmap = { workspace = true }
 dupe = { workspace = true }
 fxhash = { workspace = true }
 indexmap = { workspace = true }

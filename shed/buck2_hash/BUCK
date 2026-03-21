@@ -6,6 +6,7 @@ rust_library(
     name = "buck2_hash",
     srcs = glob(["src/**/*.rs"]),
     deps = [
+        "fbsource//third-party/rust:dashmap",
         "fbsource//third-party/rust:fxhash",
         "fbsource//third-party/rust:indexmap",
         "//buck2/gazebo/dupe:dupe",

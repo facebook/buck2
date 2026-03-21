@@ -228,6 +228,42 @@ macro_rules! buck_indexset {
     }};
 }
 
+/// A [`DashMap`](dashmap::DashMap) using the default hasher.
+///
+/// This is a type alias for `dashmap::DashMap` that provides concurrent access.
+/// This abstraction allows the hasher implementation to be changed centrally
+/// in a future commit.
+pub type BuckDashMap<K, V> = dashmap::DashMap<K, V>;
+
+/// A [`DashSet`](dashmap::DashSet) using the default hasher.
+///
+/// This is a type alias for `dashmap::DashSet` that provides concurrent access.
+/// This abstraction allows the hasher implementation to be changed centrally
+/// in a future commit.
+pub type BuckDashSet<K> = dashmap::DashSet<K>;
+
+/// A [`HashMap`](std::collections::HashMap) using the standard library's default hasher.
+///
+/// This is a type alias for `std::collections::HashMap` with the default `RandomState`
+/// hasher. Unlike [`BuckHashMap`] which uses `FxHasher`, this type preserves the
+/// standard library's secure hashing behavior.
+///
+/// This abstraction allows the hasher implementation to be changed centrally
+/// in a future commit, enabling runtime selection between the original hasher
+/// and a faster alternative.
+pub type StdBuckHashMap<K, V> = std::collections::HashMap<K, V>;
+
+/// A [`HashSet`](std::collections::HashSet) using the standard library's default hasher.
+///
+/// This is a type alias for `std::collections::HashSet` with the default `RandomState`
+/// hasher. Unlike [`BuckHashSet`] which uses `FxHasher`, this type preserves the
+/// standard library's secure hashing behavior.
+///
+/// This abstraction allows the hasher implementation to be changed centrally
+/// in a future commit, enabling runtime selection between the original hasher
+/// and a faster alternative.
+pub type StdBuckHashSet<K> = std::collections::HashSet<K>;
+
 #[cfg(test)]
 mod tests {
     use std::hash::Hash;
