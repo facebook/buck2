@@ -468,6 +468,12 @@ pub struct Buck2OssReConfiguration {
     pub grpc_keepalive_while_idle: Option<bool>,
     /// Maximum number of concurrent execution requests.
     pub execution_concurrency_limit: Option<usize>,
+    /// Minimum number of HTTP/2 connections per host in the connection pool.
+    pub min_connections: Option<usize>,
+    /// Maximum number of HTTP/2 connections per host in the connection pool.
+    pub max_connections: Option<usize>,
+    /// Maximum concurrent streams per connection.
+    pub max_concurrency_per_connection: Option<usize>,
 }
 
 #[derive(Clone, Debug, Default, Allocative)]
@@ -588,6 +594,18 @@ impl Buck2OssReConfiguration {
             execution_concurrency_limit: legacy_config.parse(BuckconfigKeyRef {
                 section: BUCK2_RE_CLIENT_CFG_SECTION,
                 property: "execution_concurrency_limit",
+            })?,
+            min_connections: legacy_config.parse(BuckconfigKeyRef {
+                section: BUCK2_RE_CLIENT_CFG_SECTION,
+                property: "min_connections",
+            })?,
+            max_connections: legacy_config.parse(BuckconfigKeyRef {
+                section: BUCK2_RE_CLIENT_CFG_SECTION,
+                property: "max_connections",
+            })?,
+            max_concurrency_per_connection: legacy_config.parse(BuckconfigKeyRef {
+                section: BUCK2_RE_CLIENT_CFG_SECTION,
+                property: "max_concurrency_per_connection",
             })?,
         })
     }
