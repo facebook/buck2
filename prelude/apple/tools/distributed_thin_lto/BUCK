@@ -11,6 +11,7 @@ cxx_binary(
     ],
     compiler_flags = [
         "-Wno-deprecated-declarations",
+        "-O2",
     ],
     linker_flags = [
         "-lc",
