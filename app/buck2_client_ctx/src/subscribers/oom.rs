@@ -25,25 +25,26 @@ static OOMD_KILL_RE: Lazy<Regex> =
 static SYSTEMD_OOMD_KILL_RE: Lazy<Regex> =
     Lazy::new(|| Regex::new(r"Killed (\S+) due to memory pressure for ").unwrap());
 
-pub(super) async fn check_daemon_oom_killed(
-    buck2_cgroup_path: &str,
+pub(crate) async fn check_daemon_oom_killed(
+    cgroup_path_of_buck2_daemon: &str,
     since: SystemTime,
 ) -> buck2_error::Result<bool> {
-    let buck2_cgroup_path = match buck2_cgroup_path.strip_prefix("/sys/fs/cgroup/") {
-        Some(rel) => rel,
-        None => {
-            let _unused = soft_error!(
-                "oom_cgroup_path_unexpected_prefix",
-                buck2_error::buck2_error!(
-                    buck2_error::ErrorTag::Environment,
-                    "cgroup path does not start with /sys/fs/cgroup/: {}",
-                    buck2_cgroup_path
-                ),
-                quiet: true
-            );
-            return Ok(false);
-        }
-    };
+    let cgroup_path_of_buck2_daemon =
+        match cgroup_path_of_buck2_daemon.strip_prefix("/sys/fs/cgroup/") {
+            Some(rel) => rel,
+            None => {
+                let _unused = soft_error!(
+                    "oom_cgroup_path_unexpected_prefix",
+                    buck2_error::buck2_error!(
+                        buck2_error::ErrorTag::Environment,
+                        "cgroup path does not start with /sys/fs/cgroup/: {}",
+                        cgroup_path_of_buck2_daemon
+                    ),
+                    quiet: true
+                );
+                return Ok(false);
+            }
+        };
 
     // Check kernel OOM killer messages in dmesg.
     // The kernel writes these synchronously when OOM killing, so they are
@@ -105,7 +106,7 @@ pub(super) async fn check_daemon_oom_killed(
         tracing::debug!("dmesg last entry: {}", last_line);
     }
     for line in &reversed_lines {
-        if dmesg_line_matches_oom_kill_cgroup(line, buck2_cgroup_path) {
+        if dmesg_line_matches_oom_kill_cgroup(line, cgroup_path_of_buck2_daemon) {
             return Ok(true);
         }
     }

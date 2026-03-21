@@ -244,6 +244,8 @@ impl<T: StreamingCommand> BuckSubcommand for T {
                 }
             };
 
+            events_ctx.cgroup_path_of_buck2_daemon = buckd.cgroup_path_of_buck2_daemon.clone();
+
             let command_result = self
                 .exec_impl(&mut buckd, matches, &mut ctx, events_ctx)
                 .await;

@@ -129,8 +129,8 @@ impl RageCommand {
         let info = BuckdProcessInfo::load(&daemon_dir);
 
         let buckd = match &info {
-            Ok(info) => async { info.create_channel().await?.upgrade().await }.boxed(),
-            Err(e) => futures::future::ready(Err(e.dupe())).boxed(),
+            Ok(info) => async { info.create_channel().await?.upgrade().await }.boxed_local(),
+            Err(e) => futures::future::ready(Err(e.dupe())).boxed_local(),
         }
         .shared();
 

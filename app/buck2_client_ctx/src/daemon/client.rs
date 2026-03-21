@@ -60,6 +60,7 @@ enum LifecycleError {
 /// The connector wraps all buckd calls with flushing.
 pub struct BuckdClientConnector {
     client: BuckdClient,
+    pub cgroup_path_of_buck2_daemon: Option<String>,
 }
 
 impl BuckdClientConnector {

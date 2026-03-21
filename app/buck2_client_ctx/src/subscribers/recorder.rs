@@ -498,18 +498,8 @@ impl InvocationRecorder {
         }
     }
 
-    pub(crate) async fn is_daemon_oom_killed(&self) -> buck2_error::Result<bool> {
-        #[cfg(target_os = "linux")]
-        {
-            match self.system_info.allprocs_cgroup_path.as_deref() {
-                Some(path) => super::oom::check_daemon_oom_killed(path, self.start_time).await,
-                None => Ok(false),
-            }
-        }
-        #[cfg(not(target_os = "linux"))]
-        {
-            Ok(false)
-        }
+    pub(crate) fn start_time(&self) -> SystemTime {
+        self.start_time
     }
 
     pub fn update_for_client_ctx(

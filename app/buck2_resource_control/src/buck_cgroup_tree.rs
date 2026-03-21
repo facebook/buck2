@@ -57,6 +57,17 @@ fn parse_procfs_cgroup_output(out: &str) -> buck2_error::Result<CgroupPathBuf> {
     Ok(CgroupPathBuf::new_in_cgroup_fs(AbsNormPath::new(cgroup)?))
 }
 
+/// Read the cgroup path of the buck2 daemon process based on its pid from the client side
+pub fn read_cgroup_path_of_buck2_daemon(daemon_pid: i64) -> buck2_error::Result<Option<String>> {
+    let path = format!("/proc/{}/cgroup", daemon_pid);
+    let procfs_out = match std::fs::read_to_string(&path) {
+        Ok(s) => s,
+        Err(_) => return Ok(None),
+    };
+    let cgroup_path = parse_procfs_cgroup_output(&procfs_out)?;
+    Ok(Some(cgroup_path.to_string()))
+}
+
 pub struct PreppedBuckCgroups {
     allprocs: CgroupMinimal,
     daemon: CgroupMinimal,

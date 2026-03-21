@@ -585,12 +585,27 @@ impl BootstrapBuckdClient {
     }
 
     pub fn to_connector(self) -> BuckdClientConnector {
+        let cgroup_path_of_buck2_daemon = {
+            #[cfg(target_os = "linux")]
+            {
+                buck2_resource_control::buck_cgroup_tree::read_cgroup_path_of_buck2_daemon(
+                    self.info.pid,
+                )
+                .ok()
+                .flatten()
+            }
+            #[cfg(not(target_os = "linux"))]
+            {
+                None
+            }
+        };
         BuckdClientConnector {
             client: BuckdClient {
                 daemon_dir: self.daemon_dir,
                 client: self.client,
                 constraints: self.constraints,
             },
+            cgroup_path_of_buck2_daemon,
         }
     }
 

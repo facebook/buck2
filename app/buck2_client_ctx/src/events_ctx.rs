@@ -169,10 +169,7 @@ impl<'a> DaemonEventsCtx<'a> {
                 Ok(next) => next,
                 Err(e) => {
                     self.inner.handle_events(events, shutdown).await?;
-                    let is_oom = match self.inner.recorder.as_ref() {
-                        Some(r) => r.is_daemon_oom_killed().await?,
-                        None => false,
-                    };
+                    let is_oom = self.inner.is_daemon_oom_killed().await?;
                     return if is_oom {
                         Err(e)
                             .buck_error_context(
@@ -434,6 +431,11 @@ pub struct EventsCtx {
     pub command_report_path: Option<AbsPathBuf>,
     // Internal commands triggered by other commands should not log an invocation record.
     pub log_invocation_record: bool,
+    // This is the daemon process's cgroup path read from /proc/{pid}/cgroup by the client,
+    // which is always available. This differs from `daemon_cgroup_path` in buck2_resource_control
+    // which is a child cgroup created under the root cgroup (i.e. {root}/daemon) and is only
+    // available when daemon cgroup mode is enabled.
+    pub cgroup_path_of_buck2_daemon: Option<String>,
 }
 
 impl EventsCtx {
@@ -448,6 +450,27 @@ impl EventsCtx {
             buck_log_dir: None,
             command_report_path: None,
             log_invocation_record: true,
+            cgroup_path_of_buck2_daemon: None,
+        }
+    }
+
+    pub(crate) async fn is_daemon_oom_killed(&self) -> buck2_error::Result<bool> {
+        #[cfg(target_os = "linux")]
+        {
+            let start_time = match self.recorder.as_ref() {
+                Some(r) => r.start_time(),
+                None => return Ok(false),
+            };
+            match self.cgroup_path_of_buck2_daemon.as_deref() {
+                Some(path) => {
+                    crate::subscribers::oom::check_daemon_oom_killed(path, start_time).await
+                }
+                None => Ok(false),
+            }
+        }
+        #[cfg(not(target_os = "linux"))]
+        {
+            Ok(false)
         }
     }
 
