@@ -696,11 +696,13 @@ message UnstableCrashRequest {
   enum CrashType {
     PANIC = 0;
     ABORT = 2;
+    OOM = 3;
   }
   CrashType crash_type = 1;
+  // Number of bytes to allocate to trigger OOM killing (only used with OOM
+  // crash type).
+  uint64 bytes = 2;
 }
-
-message UnstableCrashResponse {}
 
 message CommandResult {
   reserved 10;

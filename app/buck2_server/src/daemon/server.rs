@@ -1313,11 +1313,9 @@ impl DaemonApi for BuckdServer {
         &self,
         req: Request<UnstableCrashRequest>,
     ) -> Result<Response<CommandResult>, Status> {
-        self.oneshot(
-            req,
-            DefaultCommandOptions,
-            move |req| async move { crash(req) },
-        )
+        self.oneshot(req, DefaultCommandOptions, move |req| async move {
+            crash(req).await
+        })
         .await
     }
 
