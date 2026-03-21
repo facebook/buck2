@@ -115,6 +115,10 @@ def _library_name(library: str) -> str:
     return paths.split_extension(name[3:])[0]
 
 def _expand_sdk_framework_paths(ctx: AnalysisContext, unresolved_framework_paths: set[str]) -> list[cmd_args]:
+    # When _apple_toolchain is not available (e.g., cxx_library used as apple_library swap),
+    # we cannot expand $PLATFORM_DIR or $SDKROOT paths. Skip those paths gracefully.
+    if not hasattr(ctx.attrs, "_apple_toolchain"):
+        return [cmd_args(p) for p in unresolved_framework_paths if not p.startswith("$")]
     return [_expand_sdk_framework_path(ctx, unresolved_framework_path) for unresolved_framework_path in unresolved_framework_paths]
 
 def _expand_sdk_framework_path(ctx: AnalysisContext, framework_path: str) -> cmd_args:
