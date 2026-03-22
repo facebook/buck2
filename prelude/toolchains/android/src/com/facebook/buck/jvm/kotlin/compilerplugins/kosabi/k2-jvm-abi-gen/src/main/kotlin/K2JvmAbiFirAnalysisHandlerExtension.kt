@@ -248,6 +248,12 @@ class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
               module,
           )
 
+      // Collect class usage from the resolved FIR tree for dep file tracking.
+      // The DependencyTracker compiler plugin's FIR checkers don't run in kosabi's
+      // inner session (separate project, checkers skipped), so we walk the FIR tree
+      // directly to extract classpath class references.
+      KosabiClassUsageCollector().collectAndDump(analysisResults, configuration)
+
       // Detect missing transitive dependencies by checking if all supertypes can be resolved.
       // If any are found, strip their supertype references from FIR to prevent crashes
       // during FIR-to-IR fake override building.
