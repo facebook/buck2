@@ -27,6 +27,7 @@ pub(crate) struct EventSenderState {
     memory_reading: MemoryReading,
     last_scheduled_event_time: Option<Instant>,
     txs: Vec<mpsc::UnboundedSender<ResourceControlEventMostly>>,
+    tags: Vec<String>,
 }
 
 impl EventSenderState {
@@ -44,6 +45,7 @@ impl EventSenderState {
                 time_collected: SystemTime::now(),
             },
             txs: Vec::new(),
+            tags: Vec::new(),
         }
     }
 
@@ -60,6 +62,10 @@ impl EventSenderState {
 
     pub(crate) fn update_estimated_memory_cap(&mut self, estimated_memory_cap: u64) {
         self.estimated_memory_cap = estimated_memory_cap;
+    }
+
+    pub(crate) fn set_tags(&mut self, tags: Vec<String>) {
+        self.tags = tags;
     }
 
     pub(crate) fn maybe_send_scheduled_event(
@@ -118,6 +124,7 @@ impl EventSenderState {
             action_cgroup_memory_peak: cgroup.map(|cgroup| cgroup.memory_peak),
             action_cgroup_swap_current: cgroup.map(|cgroup| cgroup.swap_current),
             action_cgroup_swap_peak: cgroup.map(|cgroup| cgroup.swap_peak),
+            tags: self.tags.clone(),
         }
     }
 }
@@ -139,6 +146,7 @@ pub(crate) struct ResourceControlEventMostly {
     action_cgroup_memory_peak: Option<u64>,
     action_cgroup_swap_current: Option<u64>,
     action_cgroup_swap_peak: Option<u64>,
+    tags: Vec<String>,
 }
 
 impl ResourceControlEventMostly {
@@ -177,6 +185,8 @@ impl ResourceControlEventMostly {
                 memory_swap_max: None,
                 memory_swap_high: None,
             }),
+
+            tags: self.tags,
         }
     }
 }

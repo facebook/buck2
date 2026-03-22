@@ -294,6 +294,16 @@ impl Scheduler {
             .memory_high
             .or(effective_resource_constraints.memory_max)
             .unwrap_or(system_memory_max);
+        let mut tags = Vec::new();
+        if enable_suspension {
+            tags.push("suspension:enabled".to_owned());
+        } else {
+            tags.push("suspension:disabled".to_owned());
+        }
+
+        let mut event_sender_state = EventSenderState::new(daemon_id, estimated_memory_cap);
+        event_sender_state.set_tags(tags);
+
         Self {
             enable_suspension,
             experimental_algo_variant,
@@ -305,7 +315,7 @@ impl Scheduler {
             estimated_memory_cap,
             allprocs_memory_current: Timeseries::new(Duration::from_secs(60), now, 0.0),
             allprocs_memory_pressure: Timeseries::new(Duration::from_secs(60), now, 0.0),
-            event_sender_state: EventSenderState::new(daemon_id, estimated_memory_cap),
+            event_sender_state,
             next_scene_id: SceneId(0),
         }
     }

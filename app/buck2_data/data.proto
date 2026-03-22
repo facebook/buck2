@@ -800,6 +800,10 @@ message ResourceControlEvent {
 
   // Ancestor cgroup constraints that may limit Buck2 processes
   optional AncestorCgroupConstraints ancestor_cgroup_constraints = 14;
+
+  // Arbitrary tags for categorizing events (e.g. experimental algorithm
+  // variant)
+  repeated string tags = 19;
 }
 
 // Memory constraints inherited from ancestor cgroups in the hierarchy.
