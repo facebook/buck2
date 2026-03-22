@@ -248,6 +248,7 @@ pub struct ResourceControlConfig {
     pub memory_max_actions: Option<String>,
     /// Enable suspension when memory pressure is high.
     pub enable_suspension: bool,
+    pub suspension_experimental_algo_variant: Option<u8>,
     pub preferred_action_suspend_strategy: ActionSuspendStrategy,
 }
 
@@ -424,6 +425,10 @@ impl ResourceControlConfig {
             let enable_suspension = enable_suspension.unwrap_or(false)
                 || enable_suspension_if_min_algo_version
                     .is_some_and(|min_version| RESOURCE_CONTROL_ALGO_VERSION >= min_version);
+            let suspension_experimental_algo_variant = config.parse(BuckconfigKeyRef {
+                section: "buck2_resource_control",
+                property: "suspension_experimental_algo_variant",
+            })?;
             let preferred_action_suspend_strategy = config
                 .parse(BuckconfigKeyRef {
                     section: "buck2_resource_control",
@@ -440,6 +445,7 @@ impl ResourceControlConfig {
                 memory_high_actions,
                 memory_max_actions,
                 enable_suspension,
+                suspension_experimental_algo_variant,
                 preferred_action_suspend_strategy,
             })
         }

@@ -108,6 +108,19 @@ impl SceneId {
 #[derive(Debug, Clone, Copy, Dupe, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub(crate) struct SceneIdRef(u64);
 
+/// Configuration for experimental variations to this algorithm
+///
+/// This type is optimized for making it easy to inject and test changes. However, it should not be
+/// used for any settings that will be available permanently - if some configurability in here
+/// should be made permanent, it should be graduated to a proper config elsewhere.
+struct ExperimentalAlgoVariant {}
+
+impl ExperimentalAlgoVariant {
+    fn new(_config: Option<u8>) -> Self {
+        Self {}
+    }
+}
+
 /// A scene is the unit of work that the scheduler manages.
 ///
 /// You should typically think of this as an action, but in principle it might be anything that buck
@@ -144,6 +157,8 @@ enum CurrentIntent {
 
 pub(crate) struct Scheduler {
     enable_suspension: bool,
+    #[allow(unused)]
+    experimental_algo_variant: ExperimentalAlgoVariant,
     preferred_action_suspend_strategy: ActionSuspendStrategy,
     /// Currently running and suspended scenes
     ///
@@ -208,6 +223,9 @@ impl Scheduler {
 
         Self::new(
             enable_suspension,
+            ExperimentalAlgoVariant::new(
+                resource_control_config.suspension_experimental_algo_variant,
+            ),
             resource_control_config.preferred_action_suspend_strategy,
             effective_resource_constraints,
             system_memory_max,
@@ -216,8 +234,9 @@ impl Scheduler {
         )
     }
 
-    pub(crate) fn new(
+    fn new(
         enable_suspension: bool,
+        experimental_algo_variant: ExperimentalAlgoVariant,
         preferred_action_suspend_strategy: ActionSuspendStrategy,
         effective_resource_constraints: EffectiveResourceConstraints,
         system_memory_max: u64,
@@ -230,6 +249,7 @@ impl Scheduler {
             .unwrap_or(system_memory_max);
         Self {
             enable_suspension,
+            experimental_algo_variant,
             preferred_action_suspend_strategy,
             running_scenes: Vec::new(),
             suspended_scenes: VecDeque::new(),
@@ -247,6 +267,7 @@ impl Scheduler {
     pub(crate) fn testing_new(now: Instant) -> Self {
         Self::new(
             true,
+            ExperimentalAlgoVariant::new(None),
             ActionSuspendStrategy::KillAndRetry,
             EffectiveResourceConstraints::default(),
             1_000_000, // System memory max
