@@ -245,10 +245,10 @@ async def test_brr_transient_listing_failure_suppresses_execution(
 ) -> None:
     """
     Transient listing failure with per-target listing-only BRR: listing fails
-    in the original run (producing '- listing' and '- main' in the BRR file),
-    but succeeds on the retry. TPX detects the '- listing' entries and
-    suppresses execution for that target via ListOnlyDiscovery::for_targets(),
-    so no tests run even though listing succeeds.
+    in the original run (producing '- listing' in the BRR file), but succeeds
+    on the retry. TPX detects the '- listing' entries and suppresses execution
+    for that target via ListOnlyDiscovery::for_targets(), so no tests run even
+    though listing succeeds.
     """
     mode = get_mode_from_platform()
     report_file = tmp_path / "report.json"
@@ -261,6 +261,8 @@ async def test_brr_transient_listing_failure_suppresses_execution(
             "--",
             "--env",
             "TPX_PLAYGROUND_FATAL=1",
+            "--experiment",
+            "kill_main_test_for_isolated_mode",
             "--save-failures-for-retry-in-file",
             str(report_file),
         )
@@ -268,14 +270,12 @@ async def test_brr_transient_listing_failure_suppresses_execution(
     except BuckException:
         pass
 
-    # Step 2: Verify the report has both "- listing" and "- main".
+    # Step 2: Verify the report has "- listing".
     assert report_file.exists(), "Failure report was not written"
     report = read_brr_report(report_file)
     test_names = cast(list[str], report.get("test_names", []))
     has_listing = any(name.endswith("- listing") for name in test_names)
-    has_main = any(name.endswith("- main") for name in test_names)
     assert has_listing, f"Expected '- listing' in test_names, got: {test_names}"
-    assert has_main, f"Expected '- main' in test_names, got: {test_names}"
 
     # Step 3: Feed the report back WITHOUT TPX_PLAYGROUND_FATAL — listing
     # succeeds this time. TPX detects the '- listing' entries and suppresses
@@ -285,6 +285,8 @@ async def test_brr_transient_listing_failure_suppresses_execution(
             BROKEN_LISTING_TARGET,
             mode,
             "--",
+            "--experiment",
+            "kill_main_test_for_isolated_mode",
             "--base-rev-retry-with-input-file",
             str(report_file),
         )
