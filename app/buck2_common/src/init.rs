@@ -349,7 +349,7 @@ impl FromStr for ResourceControlInit {
 /// algo that fixes a bug. Incrementing this to `N + 1` and setting the
 /// `buck2_resource_control.enable_suspension_if_min_algo_version` buckconfig to `N + 1` enables
 /// suspension only if your bug fix is actually included in the version of buck in use
-const RESOURCE_CONTROL_ALGO_VERSION: u32 = 4;
+const RESOURCE_CONTROL_ALGO_VERSION: u32 = 5;
 
 /// The current version of the daemon cgroup wrapping logic. Incrementing this to `N + 1` and
 /// setting `buck2_resource_control.status_if_min_daemon_cgroup_version` buckconfig to `N + 1`

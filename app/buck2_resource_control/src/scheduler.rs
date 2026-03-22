@@ -113,11 +113,59 @@ pub(crate) struct SceneIdRef(u64);
 /// This type is optimized for making it easy to inject and test changes. However, it should not be
 /// used for any settings that will be available permanently - if some configurability in here
 /// should be made permanent, it should be graduated to a proper config elsewhere.
-struct ExperimentalAlgoVariant {}
+struct ExperimentalAlgoVariant {
+    oomd_threshold: f64,
+    future_pressure_mode: FuturePressureMode,
+    kill_timing_mode: KillTimingMode,
+}
+
+#[derive(Clone, Copy)]
+enum FuturePressureMode {
+    /// `min((100 + current) / 2, current * 1.5)` - the original formula
+    Original,
+    /// `current` - no inflation, assume pressure stays where it is
+    NoInflation,
+}
+
+#[derive(Clone, Copy)]
+enum KillTimingMode {
+    /// Spread kills evenly from now to predicted OOM: `interval = time / scenes`
+    SpreadAll,
+    /// Spread kills across half the scenes: `interval = time / ceil(scenes / 2)`
+    SpreadHalf,
+    /// Fixed 3-second kill cadence, only start killing when close to OOM
+    AnchoredCadence,
+}
 
 impl ExperimentalAlgoVariant {
-    fn new(_config: Option<u8>) -> Self {
-        Self {}
+    fn new(config: Option<u8>) -> Self {
+        match config {
+            // Control: current algorithm
+            None | Some(0) => Self {
+                oomd_threshold: 40.0,
+                future_pressure_mode: FuturePressureMode::Original,
+                kill_timing_mode: KillTimingMode::SpreadAll,
+            },
+            // Variant 1: fix OOMd threshold only
+            Some(1) => Self {
+                oomd_threshold: 60.0,
+                future_pressure_mode: FuturePressureMode::Original,
+                kill_timing_mode: KillTimingMode::SpreadAll,
+            },
+            // Variant 2: fix threshold + slower kill cadence
+            Some(2) => Self {
+                oomd_threshold: 60.0,
+                future_pressure_mode: FuturePressureMode::Original,
+                kill_timing_mode: KillTimingMode::SpreadHalf,
+            },
+            // Variant 3: maximally optimistic
+            Some(3) => Self {
+                oomd_threshold: 60.0,
+                future_pressure_mode: FuturePressureMode::NoInflation,
+                kill_timing_mode: KillTimingMode::AnchoredCadence,
+            },
+            Some(v) => panic!("Unknown experimental algo variant: {}", v),
+        }
     }
 }
 
@@ -157,7 +205,6 @@ enum CurrentIntent {
 
 pub(crate) struct Scheduler {
     enable_suspension: bool,
-    #[allow(unused)]
     experimental_algo_variant: ExperimentalAlgoVariant,
     preferred_action_suspend_strategy: ActionSuspendStrategy,
     /// Currently running and suspended scenes
@@ -265,9 +312,14 @@ impl Scheduler {
 
     #[cfg(test)]
     pub(crate) fn testing_new(now: Instant) -> Self {
+        Self::testing_new_with_variant(now, Some(1))
+    }
+
+    #[cfg(test)]
+    pub(crate) fn testing_new_with_variant(now: Instant, variant: Option<u8>) -> Self {
         Self::new(
             true,
-            ExperimentalAlgoVariant::new(None),
+            ExperimentalAlgoVariant::new(variant),
             ActionSuspendStrategy::KillAndRetry,
             EffectiveResourceConstraints::default(),
             1_000_000, // System memory max
@@ -474,10 +526,8 @@ impl Scheduler {
             // To understand how we make this decision, let's first review what oomd does: It monitors
             // the memory pressure average over the last 60 seconds and kills if that exceeds some
             // configured threshold. So our job is to stay under that.
-            //
-            // These are common values (and what we appear to use in prod in at least some places).
             const PRESUMED_OOMD_LOOKBACK: Duration = Duration::from_secs(60);
-            const PRESUMED_OOMD_THRESHOLD: f64 = 40.0;
+            let oomd_threshold = self.experimental_algo_variant.oomd_threshold;
             // We do this by first predicting what we think our pressure in the future will be.
             //
             // Start with our pressure in the recent past
@@ -485,11 +535,15 @@ impl Scheduler {
                 .allprocs_memory_pressure
                 .average_over_last(Duration::from_secs(10));
             // And take an educated guess about how much it's likely to increase.
-            let estimated_future_pressure = f64::min(
-                // Halfway between current value and max
-                (100.0 + approx_current_pressure) / 2.0,
-                approx_current_pressure * 1.5,
-            );
+            let estimated_future_pressure =
+                match self.experimental_algo_variant.future_pressure_mode {
+                    FuturePressureMode::Original => f64::min(
+                        // Halfway between current value and max
+                        (100.0 + approx_current_pressure) / 2.0,
+                        approx_current_pressure * 1.5,
+                    ),
+                    FuturePressureMode::NoInflation => approx_current_pressure,
+                };
             // We now ask: If our pressure were to suddenly jump to this level and remain there
             // indefinitely, how long would we have until we get OOM killed?
             let Some(estimated_point_of_oom_kill) = self
@@ -498,7 +552,7 @@ impl Scheduler {
                     estimated_future_pressure
                 })
                 .filter(|(_, expected_average_pressure)| {
-                    *expected_average_pressure > PRESUMED_OOMD_THRESHOLD
+                    *expected_average_pressure > oomd_threshold
                 })
                 .map(|x| x.0)
                 .next()
@@ -507,9 +561,27 @@ impl Scheduler {
                 return;
             };
             let estimated_time_till_oom_kill = estimated_point_of_oom_kill - now;
-            // Finally, choose the kill frequency that corresponds to giving us enough time to kill
-            // all the open scenes at regular intervals between now and then
-            estimated_time_till_oom_kill.div_f64(self.running_scenes.len() as f64)
+            // Choose the kill frequency based on the configured timing mode
+            match self.experimental_algo_variant.kill_timing_mode {
+                KillTimingMode::SpreadAll => {
+                    // Spread kills evenly from now to predicted OOM
+                    estimated_time_till_oom_kill.div_f64(self.running_scenes.len() as f64)
+                }
+                KillTimingMode::SpreadHalf => {
+                    // Spread kills across half the scenes (rounded up)
+                    let divisor = self.running_scenes.len().div_ceil(2);
+                    estimated_time_till_oom_kill.div_f64(divisor as f64)
+                }
+                KillTimingMode::AnchoredCadence => {
+                    // Fixed 3-second cadence, but only start killing when close to OOM
+                    let cadence = Duration::from_secs(3);
+                    let danger_zone = cadence * self.running_scenes.len() as u32;
+                    if estimated_time_till_oom_kill > danger_zone {
+                        return;
+                    }
+                    cadence
+                }
+            }
         };
 
         if now - self.last_correction_time < this_kill_interval {
@@ -735,6 +807,11 @@ mod tests {
             (Scheduler::testing_new(now), Self(now))
         }
 
+        fn new_with_variant(variant: Option<u8>) -> (Scheduler, Self) {
+            let now = Instant::now();
+            (Scheduler::testing_new_with_variant(now, variant), Self(now))
+        }
+
         fn secs(&self, n: u64) -> Instant {
             self.0 + Duration::from_secs(n)
         }
@@ -801,11 +878,12 @@ mod tests {
     async fn test_freeze() -> buck2_error::Result<()> {
         let (mut scheduler, timeline) = TestTimeline::new();
 
-        // First create 60 seconds of pressure
+        // First create 60 seconds of pressure. 80 is high enough that even with threshold=60,
+        // the predicted time-to-OOM is short enough to trigger a kill within the test's timeline.
         let memory_reading = MemoryReading {
             allprocs_memory_current: 10000,
             allprocs_swap_current: 0,
-            allprocs_memory_pressure: 50.0,
+            allprocs_memory_pressure: 80.0,
             daemon_memory_current: 8000,
             daemon_swap_current: 0,
             time_collected: SystemTime::now(),
@@ -881,7 +959,24 @@ mod tests {
         durations_and_levels: &[(u64, f64)],
         expect_kill: bool,
     ) {
-        let (mut scheduler, timeline) = TestTimeline::new();
+        multi_pressure_level_test_with_variant(
+            pre_start_durations_and_levels,
+            durations_and_levels,
+            expect_kill,
+            None, // uses default variant (variant 1)
+        )
+    }
+
+    fn multi_pressure_level_test_with_variant(
+        pre_start_durations_and_levels: &[(u64, f64)],
+        durations_and_levels: &[(u64, f64)],
+        expect_kill: bool,
+        variant: Option<u8>,
+    ) {
+        let (mut scheduler, timeline) = match variant {
+            Some(v) => TestTimeline::new_with_variant(Some(v)),
+            None => TestTimeline::new(),
+        };
 
         let mut past = 0;
         for (duration, level) in pre_start_durations_and_levels.iter().copied() {
@@ -976,7 +1071,55 @@ mod tests {
 
     #[test]
     fn test_doesnt_indefinitely_sit_below_threshold() {
-        // Make sure the scheduler doesn't let pressure just sit right below the OOM threshold
-        two_pressure_level_test(39.0, 50, true);
+        // Make sure the scheduler doesn't let pressure just sit right below the OOM threshold.
+        // With threshold=60, future estimate at pressure=50 is min(75, 75) = 75 > 60, so kills.
+        two_pressure_level_test(50.0, 50, true);
+    }
+
+    /// Demonstrate that the control (threshold=40) kills at moderate pressure where variant 1
+    /// (threshold=60) does not. Pressure=35 has future estimate min(67.5, 52.5) = 52.5, which
+    /// exceeds 40 (control kills) but not 60 (variant 1 does not kill).
+    #[test]
+    fn test_threshold_difference() {
+        let scenario = &[(60, 0.0), (60, 35.0)];
+        // Control (threshold=40): kills
+        multi_pressure_level_test_with_variant(&[], scenario, true, Some(0));
+        // Variant 1 (threshold=60): does not kill
+        multi_pressure_level_test_with_variant(&[], scenario, false, Some(1));
+    }
+
+    /// Demonstrate that variant 2 (SpreadHalf) kills later than variant 1 (SpreadAll) at the
+    /// same pressure. With 2 running scenes, SpreadHalf divides by ceil(2/2)=1 instead of 2,
+    /// doubling the kill interval.
+    #[test]
+    fn test_spread_half_kills_later() {
+        // At pressure=60, future estimate = min(80, 90) = 80 > 60. Both variants predict OOM,
+        // but variant 2 spaces kills further apart.
+        let scenario = &[(60, 0.0), (20, 60.0)];
+        // Variant 1 (SpreadAll): kills within 20 seconds
+        multi_pressure_level_test_with_variant(&[], scenario, true, Some(1));
+        // Variant 2 (SpreadHalf): does not kill within 20 seconds
+        multi_pressure_level_test_with_variant(&[], scenario, false, Some(2));
+    }
+
+    /// Demonstrate that variant 3 (maximally optimistic: no inflation + anchored cadence) waits
+    /// much longer than variant 1 before killing. At pressure=50, variant 1 inflates to 75 and
+    /// kills early, while variant 3 uses 50 as-is and only kills close to the OOM deadline.
+    #[test]
+    fn test_maximally_optimistic_waits_longer() {
+        // Pressure=50 sustained for 30 seconds after 60 seconds of calm
+        let scenario = &[(60, 0.0), (30, 50.0)];
+        // Variant 1: kills (inflated future pressure 75 > 60, spread evenly)
+        multi_pressure_level_test_with_variant(&[], scenario, true, Some(1));
+        // Variant 3: does not kill within 30 seconds (no inflation, anchored cadence waits
+        // until close to OOM)
+        multi_pressure_level_test_with_variant(&[], scenario, false, Some(3));
+    }
+
+    /// Variant 3 does still eventually kill when pressure is very high and sustained.
+    #[test]
+    fn test_maximally_optimistic_still_kills() {
+        let scenario = &[(60, 0.0), (60, 80.0)];
+        multi_pressure_level_test_with_variant(&[], scenario, true, Some(3));
     }
 }
