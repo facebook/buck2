@@ -255,6 +255,8 @@ pub(crate) struct Scheduler {
     allprocs_memory_pressure: Timeseries,
 
     event_sender_state: EventSenderState,
+    /// Tags that are always present on every event (set at init time)
+    base_tags: Vec<String>,
     next_scene_id: SceneId,
 }
 
@@ -294,15 +296,15 @@ impl Scheduler {
             .memory_high
             .or(effective_resource_constraints.memory_max)
             .unwrap_or(system_memory_max);
-        let mut tags = Vec::new();
+        let mut base_tags = Vec::new();
         if enable_suspension {
-            tags.push("suspension:enabled".to_owned());
+            base_tags.push("suspension:enabled".to_owned());
         } else {
-            tags.push("suspension:disabled".to_owned());
+            base_tags.push("suspension:disabled".to_owned());
         }
 
         let mut event_sender_state = EventSenderState::new(daemon_id, estimated_memory_cap);
-        event_sender_state.set_tags(tags);
+        event_sender_state.set_tags(base_tags.clone());
 
         Self {
             enable_suspension,
@@ -316,6 +318,7 @@ impl Scheduler {
             allprocs_memory_current: Timeseries::new(Duration::from_secs(60), now, 0.0),
             allprocs_memory_pressure: Timeseries::new(Duration::from_secs(60), now, 0.0),
             event_sender_state,
+            base_tags,
             next_scene_id: SceneId(0),
         }
     }
@@ -502,6 +505,22 @@ impl Scheduler {
         match self.current_intent {
             CurrentIntent::Decrease => self.maybe_decrease_running_count(now),
             CurrentIntent::Increase => self.maybe_increase_running_count(now),
+        }
+
+        // Update dynamic tags based on current state
+        {
+            // The real OOMd threshold is 60% avg60. If we observe avg60 exceeding this and
+            // we're still alive, that's useful data - it means OOMd didn't kill us when our
+            // model predicted it would.
+            const REAL_OOMD_THRESHOLD: f64 = 60.0;
+            let avg60 = self
+                .allprocs_memory_pressure
+                .average_over_last(Duration::from_secs(60));
+            let mut tags = self.base_tags.clone();
+            if avg60 > REAL_OOMD_THRESHOLD {
+                tags.push("expected_oom_kill".to_owned());
+            }
+            self.event_sender_state.set_tags(tags);
         }
 
         // Report resource control events every 10 seconds normally, but every second during times
