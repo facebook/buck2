@@ -94,7 +94,7 @@ impl AttributeExt for Attribute {
         };
         Ok(StarlarkAttribute::new(Attribute::new(
             default, doc, coercer,
-        )))
+        )?))
     }
 }
 
@@ -239,7 +239,7 @@ fn attr_module(registry: &mut GlobalsBuilder) {
             coerced_default.map(Arc::new),
             doc,
             coercer,
-        )))
+        )?))
     }
 
     fn configured_dep<'v>(
@@ -279,7 +279,7 @@ fn attr_module(registry: &mut GlobalsBuilder) {
             coerced_default.map(Arc::new),
             doc,
             coercer,
-        )))
+        )?))
     }
 
     /// Takes a target label from the user and registers it as a plugin dependency.
@@ -578,7 +578,7 @@ fn attr_module(registry: &mut GlobalsBuilder) {
             Some(Arc::new(AnyAttrType::empty_list())),
             doc,
             coercer,
-        )))
+        )?))
     }
 
     /// Takes a source file from the user, supplies an artifact to the rule.

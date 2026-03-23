@@ -352,7 +352,7 @@ mod tests {
     fn test_srcs_count() {
         let data = gen_data(vec![(
             "srcs",
-            Attribute::new(None, "", AttrType::list(AttrType::source(false))),
+            Attribute::new_const(None, "", AttrType::list(AttrType::source(false))),
             CoercedAttr::List(ListLiteral(ArcSlice::new([
                 CoercedAttr::SourceFile(CoercedPath::File(
                     PackageRelativePath::new("foo/bar").unwrap().to_arc(),

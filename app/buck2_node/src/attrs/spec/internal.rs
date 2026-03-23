@@ -38,7 +38,7 @@ pub struct InternalAttribute {
 pub const NAME_ATTRIBUTE: InternalAttribute = InternalAttribute {
     id: AttributeId(0),
     name: "name",
-    attr: || Attribute::new(None, "name of the target", AttrType::string()),
+    attr: || Attribute::new_const(None, "name of the target", AttrType::string()),
     is_configurable: AttrIsConfigurable::No,
 };
 
@@ -46,7 +46,7 @@ pub(crate) const DEFAULT_TARGET_PLATFORM_ATTRIBUTE: InternalAttribute = Internal
     id: AttributeId(1),
     name: "default_target_platform",
     attr: || {
-        Attribute::new(
+        Attribute::new_const(
             Some(Arc::new(CoercedAttr::None)),
             "specifies the default target platform, used when no platforms are specified on the command line",
             AttrType::option(AttrType::configuration_dep(
@@ -64,7 +64,7 @@ pub const TARGET_COMPATIBLE_WITH_ATTRIBUTE: InternalAttribute = InternalAttribut
     id: AttributeId(2),
     name: "target_compatible_with",
     attr: || {
-        Attribute::new(
+        Attribute::new_const(
             Some(Arc::new(AnyAttrType::empty_list())),
             "a list of constraints that are required to be satisfied for this target to be compatible with a configuration",
             AttrType::list(AttrType::configuration_dep(
@@ -79,7 +79,7 @@ pub const LEGACY_TARGET_COMPATIBLE_WITH_ATTRIBUTE: InternalAttribute = InternalA
     id: AttributeId(3),
     name: "compatible_with",
     attr: || {
-        Attribute::new(
+        Attribute::new_const(
             Some(Arc::new(AnyAttrType::empty_list())),
             "a list of constraints that are required to be satisfied for this target to be compatible with a configuration",
             AttrType::list(AttrType::configuration_dep(
@@ -94,7 +94,7 @@ pub const EXEC_COMPATIBLE_WITH_ATTRIBUTE: InternalAttribute = InternalAttribute 
     id: AttributeId(4),
     name: "exec_compatible_with",
     attr: || {
-        Attribute::new(
+        Attribute::new_const(
             Some(Arc::new(AnyAttrType::empty_list())),
             "a list of constraints that are required to be satisfied for this target to be compatible with an execution platform",
             AttrType::list(AttrType::configuration_dep(
@@ -109,7 +109,7 @@ pub const VISIBILITY_ATTRIBUTE: InternalAttribute = InternalAttribute {
     id: AttributeId(5),
     name: "visibility",
     attr: || {
-        Attribute::new(
+        Attribute::new_const(
             Some(Arc::new(CoercedAttr::Visibility(
                 VisibilitySpecification::DEFAULT,
             ))),
@@ -125,7 +125,7 @@ pub const WITHIN_VIEW_ATTRIBUTE: InternalAttribute = InternalAttribute {
     id: AttributeId(6),
     name: "within_view",
     attr: || {
-        Attribute::new(
+        Attribute::new_const(
             Some(Arc::new(CoercedAttr::WithinView(
                 WithinViewSpecification::PUBLIC,
             ))),
@@ -140,7 +140,7 @@ pub(crate) const METADATA_ATTRIBUTE: InternalAttribute = InternalAttribute {
     id: AttributeId(7),
     name: "metadata",
     attr: || {
-        Attribute::new(
+        Attribute::new_const(
             Some(Arc::new(CoercedAttr::Metadata(MetadataMap::default()))),
             "a key-value map of metadata associated with this target",
             AttrType::metadata(),
@@ -153,7 +153,7 @@ pub(crate) const TESTS_ATTRIBUTE: InternalAttribute = InternalAttribute {
     id: AttributeId(8),
     name: "tests",
     attr: || {
-        Attribute::new(
+        Attribute::new_const(
             Some(Arc::new(AnyAttrType::empty_list())),
             "a list of targets that provide tests for this one",
             AttrType::list(AttrType::label()),
@@ -166,7 +166,7 @@ pub(crate) const TARGET_MODIFIERS_ATTRIBUTE: InternalAttribute = InternalAttribu
     id: AttributeId(9),
     name: "modifiers",
     attr: || {
-        Attribute::new(
+        Attribute::new_const(
             Some(Arc::new(CoercedAttr::TargetModifiers(
                 TargetModifiersValue::new(serde_json::Value::Array(vec![])),
             ))),
@@ -199,7 +199,7 @@ pub struct OptionalInternalAttribute {
 pub const INCOMING_TRANSITION_ATTRIBUTE: OptionalInternalAttribute = OptionalInternalAttribute {
     name: "incoming_transition",
     attr: || {
-        Attribute::new(
+        Attribute::new_const(
             Some(Arc::new(CoercedAttr::None)),
             "specifies the incoming transition to apply to this target",
             AttrType::option(AttrType::configuration_dep(

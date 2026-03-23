@@ -74,12 +74,12 @@ async fn test_get_node() -> buck2_error::Result<()> {
     let attrs1 = vec![
         (
             "bool_field",
-            Attribute::new(None, "", AttrType::bool()),
+            Attribute::new(None, "", AttrType::bool())?,
             CoercedAttr::Bool(BoolLiteral(false)),
         ),
         (
             "another_field",
-            Attribute::new(None, "", AttrType::string()),
+            Attribute::new(None, "", AttrType::string())?,
             CoercedAttr::String(StringLiteral("some_string".into())),
         ),
         (
@@ -88,7 +88,7 @@ async fn test_get_node() -> buck2_error::Result<()> {
                 None,
                 "",
                 AttrType::list(AttrType::dep(ProviderIdSet::EMPTY, PluginKindSet::EMPTY)),
-            ),
+            )?,
             CoercedAttr::List(ListLiteral(ArcSlice::new([CoercedAttr::Dep(
                 ProvidersLabel::new(label2.dupe(), ProvidersName::Default),
             )]))),
@@ -100,12 +100,12 @@ async fn test_get_node() -> buck2_error::Result<()> {
     let attrs2 = vec![
         (
             "bool_field",
-            Attribute::new(None, "", AttrType::bool()),
+            Attribute::new(None, "", AttrType::bool())?,
             CoercedAttr::Bool(BoolLiteral(true)),
         ),
         (
             "another_field",
-            Attribute::new(None, "", AttrType::string()),
+            Attribute::new(None, "", AttrType::string())?,
             CoercedAttr::String(StringLiteral("another_string".into())),
         ),
         (
@@ -114,7 +114,7 @@ async fn test_get_node() -> buck2_error::Result<()> {
                 None,
                 "",
                 AttrType::list(AttrType::dep(ProviderIdSet::EMPTY, PluginKindSet::EMPTY)),
-            ),
+            )?,
             AnyAttrType::empty_list(),
         ),
     ];

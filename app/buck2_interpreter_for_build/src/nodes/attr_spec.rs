@@ -118,6 +118,8 @@ impl AttributeSpecExt for AttributeSpec {
 
         let target_label = TargetLabelRef::new(internals.buildfile_path().package(), name);
 
+        let mut default_allowed_deps = HashMap::new();
+
         for (attr_name, attr_idx, attribute) in indices {
             let configurable = attr_is_configurable(attr_name);
 
@@ -157,6 +159,7 @@ impl AttributeSpecExt for AttributeSpec {
                 match coerced {
                     CoercedValue::Custom(v) => {
                         attr_values.push_sorted(attr_idx, v);
+                        default_allowed_deps.insert(attr_name, attribute.default_allowed_deps());
                     }
                     CoercedValue::Default => {}
                 }
@@ -182,11 +185,13 @@ impl AttributeSpecExt for AttributeSpec {
                 _ => return Err(internal_error!("`within_view` coerced incorrectly")),
             };
             for a in self.attrs(&attr_values, AttrInspectOptions::DefinedOnly) {
+                let default_deps = default_allowed_deps.get(&a.name).copied().flatten();
                 check_within_view(
                     a.value,
                     internals.buildfile_path().package(),
                     a.attr.coercer(),
                     within_view,
+                    default_deps,
                 )
                 .with_buck_error_context(|| {
                     format!(
