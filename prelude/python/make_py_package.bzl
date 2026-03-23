@@ -445,6 +445,7 @@ def _make_py_package_wrapper(
             python_toolchain,
             python_internal_tools,
             output_suffix,
+            False,
         )
     return _make_py_package_impl(
         ctx,
@@ -635,7 +636,8 @@ def _make_py_package_live(
         common_generated_files: list[(Artifact, str)],
         python_toolchain: PythonToolchainInfo,
         python_internal_tools: PythonInternalToolsInfo,
-        output_suffix: str) -> PexProviders:
+        output_suffix: str,
+        copy: bool) -> PexProviders:
     """
     Bundle contents of par into symlink dir
     * generated_files
@@ -789,25 +791,34 @@ def _make_py_package_live(
     cmd.add(cmd_args(generated_manifest.without_associated_artifacts(), format = "--generated={}"))
     runtime_files.append(generated_manifest)
 
-    state = ctx.actions.declare_output("{}-state.json".format(name), has_content_based_path = False)
-    cmd.add(cmd_args(state.as_output(), format = "--state={}"))
-    runtime_files.append(state)
-    sub_targets["state"] = [DefaultInfo(default_output = state)]
-
     allow_cache_upload = None
     if ctx.attrs._exec_os_type[OsLookup].os == Os("windows"):
         allow_cache_upload = False
 
-    cmd.add(["--incremental"])
-    ctx.actions.run(
-        cmd,
-        metadata_env_var = "ACTION_METADATA",
-        metadata_path = "action_metadata-{}.json".format(name),
-        category = "par",
-        identifier = "make_live_par_incremental{}".format(output_suffix),
-        no_outputs_cleanup = True,
-        allow_cache_upload = allow_cache_upload,
-    )
+    if copy:
+        cmd.add("--copy")
+        ctx.actions.run(
+            cmd,
+            category = "par",
+            identifier = "make_outplace_par{}".format(output_suffix),
+            allow_cache_upload = allow_cache_upload,
+        )
+    else:
+        state = ctx.actions.declare_output("{}-state.json".format(name), has_content_based_path = False)
+        cmd.add(cmd_args(state.as_output(), format = "--state={}"))
+        runtime_files.append(state)
+        sub_targets["state"] = [DefaultInfo(default_output = state)]
+
+        cmd.add(["--incremental"])
+        ctx.actions.run(
+            cmd,
+            metadata_env_var = "ACTION_METADATA",
+            metadata_path = "action_metadata-{}.json".format(name),
+            category = "par",
+            identifier = "make_live_par_incremental{}".format(output_suffix),
+            no_outputs_cleanup = True,
+            allow_cache_upload = allow_cache_upload,
+        )
 
     hidden_resources = pex_modules.manifests.hidden_resources(False)
     sub_targets["link-tree"] = [DefaultInfo(
