@@ -19,6 +19,7 @@
 
 mod iter;
 
+use std::collections::hash_map::DefaultHasher;
 use std::fmt;
 use std::fmt::Debug;
 use std::hash::Hash;
@@ -32,6 +33,7 @@ use pagable::Pagable;
 use serde::Deserialize;
 use serde::Serialize;
 
+use crate::StarlarkHashValue;
 use crate::hashed::Hashed;
 use crate::small_map::SmallMap;
 pub use crate::small_set::iter::IntoIter;
@@ -430,6 +432,18 @@ impl<T> SmallSet<T> {
         T: Hash,
     {
         self.0.hash_ordered(state)
+    }
+
+    /// Consume the set and wrap it in a [`Hashed`], pre-computing the hash
+    /// from all elements in iteration order.
+    pub fn hashed(self) -> Hashed<Self>
+    where
+        T: Hash,
+    {
+        let mut hasher = DefaultHasher::new();
+        self.hash_ordered(&mut hasher);
+        let hash = StarlarkHashValue::new_unchecked(hasher.finish() as u32);
+        Hashed::new_unchecked(hash, self)
     }
 
     /// Reverse the iteration order of the set.
