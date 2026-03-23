@@ -117,7 +117,7 @@ def aapt2_compile(
     )
     aapt2_command.extend(["-o", aapt2_output.as_output()])
 
-    ctx.actions.run(cmd_args(aapt2_command), category = "aapt2_compile", identifier = identifier)
+    ctx.actions.run(cmd_args(aapt2_command), category = "aapt2_compile", identifier = identifier, allow_cache_upload = True)
 
     return aapt2_output
 

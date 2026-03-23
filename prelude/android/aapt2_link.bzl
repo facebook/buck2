@@ -138,7 +138,7 @@ def get_aapt2_link(
 
         aapt2_command.add(additional_aapt2_params)
 
-        ctx.actions.run(aapt2_command, category = "aapt2_link", identifier = identifier, error_handler = aapt_link_error_handler)
+        ctx.actions.run(aapt2_command, category = "aapt2_link", identifier = identifier, allow_cache_upload = True, error_handler = aapt_link_error_handler)
 
         # The normal resource filtering apparatus is super slow, because it extracts the whole apk,
         # strips files out of it, then repackages it.
@@ -153,7 +153,7 @@ def get_aapt2_link(
             filter_resources_cmd.add(cmd_args(resources_apk, format = "--input-apk={}"))
             filter_resources_cmd.add(cmd_args(filtered_resources_apk.as_output(), format = "--output-apk={}"))
             filter_resources_cmd.add(cmd_args(extra_filtered_resources, format = "--extra-filtered-resources={}"))
-            ctx.actions.run(filter_resources_cmd, category = "aapt2_filter_resources", identifier = identifier)
+            ctx.actions.run(filter_resources_cmd, category = "aapt2_filter_resources", identifier = identifier, allow_cache_upload = True)
             primary_resources_apk = filtered_resources_apk
         else:
             primary_resources_apk = resources_apk
@@ -184,7 +184,7 @@ def get_module_manifest_in_proto_format(
     aapt2_command.add(["-I", primary_resources_apk])
     aapt2_command.add("--proto-format")
 
-    ctx.actions.run(aapt2_command, category = "aapt2_link", identifier = module_name, error_handler = aapt_link_error_handler)
+    ctx.actions.run(aapt2_command, category = "aapt2_link", identifier = module_name, allow_cache_upload = True, error_handler = aapt_link_error_handler)
 
     proto_manifest_dir = ctx.actions.declare_output("{}/proto_format_manifest".format(module_name), has_content_based_path = False)
     proto_manifest = proto_manifest_dir.project("AndroidManifest.xml")
@@ -192,6 +192,7 @@ def get_module_manifest_in_proto_format(
         cmd_args(["unzip", resources_apk, "AndroidManifest.xml", "-d", proto_manifest_dir.as_output()]),
         category = "unzip_proto_format_manifest",
         identifier = module_name,
+        allow_cache_upload = True,
     )
 
     return proto_manifest
