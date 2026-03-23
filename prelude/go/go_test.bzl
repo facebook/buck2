@@ -183,7 +183,7 @@ def go_test_impl(ctx: AnalysisContext) -> list[Provider]:
     ) + [
         DefaultInfo(
             default_output = bin,
-            other_outputs = [gen_main] + runtime_files + external_debug_info,
+            other_outputs = [gen_main] + runtime_files + external_debug_info + copied_resources,
         ),
         tests_pkg_info,
     ]
