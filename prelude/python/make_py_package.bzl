@@ -798,19 +798,16 @@ def _make_py_package_live(
     if ctx.attrs._exec_os_type[OsLookup].os == Os("windows"):
         allow_cache_upload = False
 
-    if ctx.attrs.use_rust_make_par_incremental:
-        cmd.add(["--incremental"])
-        ctx.actions.run(
-            cmd,
-            metadata_env_var = "ACTION_METADATA",
-            metadata_path = "action_metadata-{}.json".format(name),
-            category = "par",
-            identifier = "make_live_par_incremental{}".format(output_suffix),
-            no_outputs_cleanup = True,
-            allow_cache_upload = allow_cache_upload,
-        )
-    else:
-        ctx.actions.run(cmd, category = "par", identifier = "make_live_par{}".format(output_suffix), prefer_local = False, allow_cache_upload = allow_cache_upload)
+    cmd.add(["--incremental"])
+    ctx.actions.run(
+        cmd,
+        metadata_env_var = "ACTION_METADATA",
+        metadata_path = "action_metadata-{}.json".format(name),
+        category = "par",
+        identifier = "make_live_par_incremental{}".format(output_suffix),
+        no_outputs_cleanup = True,
+        allow_cache_upload = allow_cache_upload,
+    )
 
     hidden_resources = pex_modules.manifests.hidden_resources(False)
     sub_targets["link-tree"] = [DefaultInfo(
