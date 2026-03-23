@@ -105,6 +105,11 @@ if linux_only():
         assert error["category"] == "INFRA"
         assert "INSTALLER_TAG" in error["category_key"]
 
+        # Verify unified error context includes both stderr output and log location
+        assert "Installer stderr output:" in error["message"]
+        assert "Installer error: Mocking failing to install" in error["message"]
+        assert "See installer logs at:" in error["message"]
+
         install_duration_ms = record["install_duration_us"] / 1000
 
         assert install_duration_ms > 0

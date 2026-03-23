@@ -722,7 +722,7 @@ async fn handle_install_request(
     let stderr_log_path = install_log_dir.join(FileName::unchecked_new(&stderr_log_filename));
     let stderr_log_path_string = stderr_log_path.to_string();
 
-    let (artifacts_ready, install_result) = ctx
+    let compute_result = ctx
         .try_compute2(
             |ctx| {
                 async move {
@@ -767,57 +767,63 @@ async fn handle_install_request(
                         install_request_data,
                         initial_installer_run_args,
                     )
-                    .await
-                    .map_err(|e| append_installer_stderr_context(e, &stderr_log_path_string))?;
+                    .await?;
 
                     buck2_error::Ok(installer.install(files_rx).await)
                 }
                 .boxed()
             },
         )
-        .await?;
+        .await;
 
-    let InstallResult {
-        installer_ready,
-        installer_finished,
-        device_metadata,
-        result,
-    } = install_result;
+    let (install_duration, device_metadata, mut result) = match compute_result {
+        Ok((artifacts_ready, install_result)) => {
+            let InstallResult {
+                installer_ready,
+                installer_finished,
+                device_metadata,
+                result,
+            } = install_result;
 
-    let device_metadata: Vec<buck2_data::DeviceMetadata> = device_metadata
-        .lock()
-        .await
-        .iter()
-        .map(|metadata| buck2_data::DeviceMetadata {
-            entry: metadata
-                .entry
+            let device_metadata: Vec<buck2_data::DeviceMetadata> = device_metadata
+                .lock()
+                .await
                 .iter()
-                .map(|e| buck2_data::device_metadata::Entry {
-                    key: e.key.clone(),
-                    value: e.value.clone(),
+                .map(|metadata| buck2_data::DeviceMetadata {
+                    entry: metadata
+                        .entry
+                        .iter()
+                        .map(|e| buck2_data::device_metadata::Entry {
+                            key: e.key.clone(),
+                            value: e.value.clone(),
+                        })
+                        .collect(),
                 })
-                .collect(),
-        })
-        .collect();
-    let build_finished = std::cmp::max(installer_ready, artifacts_ready);
-    let install_duration = installer_finished - build_finished;
+                .collect();
+            let build_finished = std::cmp::max(installer_ready, artifacts_ready);
+            let install_duration = installer_finished - build_finished;
+
+            (Some(install_duration), device_metadata, result)
+        }
+        Err(e) => (None, Vec::new(), Err(e)),
+    };
 
     let mut log_url = None;
-
-    let result = match upload_installer_logs(&log_path).await {
+    let log_location = match upload_installer_logs(&log_path).await {
         Ok(url) => {
-            let result = result.map_err(|err| err.context(format!("See installer logs at: {url}")));
-            log_url = Some(url);
-            result
+            log_url = Some(url.clone());
+            url
         }
         Err(err) => {
             let _unused = soft_error!("installer_log_upload_failed", err.clone());
-            result.map_err(|err| err.context(format!("See installer logs at: {log_path}")))
+            log_path.to_string()
         }
     };
 
+    result = result.map_err(|err| append_installer_context(err, &stderr_log_path, &log_location));
+
     get_dispatcher().instant_event(buck2_data::InstallFinished {
-        duration: install_duration.try_into().ok(),
+        duration: install_duration.and_then(|d| d.try_into().ok()),
         device_metadata,
         log_url,
     });
@@ -918,12 +924,13 @@ async fn build_launch_installer(
     }
 }
 
-fn append_installer_stderr_context(
+fn append_installer_context(
     err: buck2_error::Error,
-    stderr_log_path: &str,
+    stderr_log_path: &AbsNormPathBuf,
+    log_location: &str,
 ) -> buck2_error::Error {
-    const MAX_STDERR_BYTES: usize = 4096;
-    match std::fs::File::open(stderr_log_path) {
+    const MAX_STDERR_BYTES: usize = 16384;
+    let stderr_context = match std::fs::File::open(stderr_log_path.as_path()) {
         Ok(mut file) => {
             let mut buf = vec![0u8; MAX_STDERR_BYTES];
             match file.read(&mut buf) {
@@ -931,19 +938,27 @@ fn append_installer_stderr_context(
                     let output = String::from_utf8_lossy(&buf[..n]);
                     let trimmed = output.trim();
                     if trimmed.is_empty() {
-                        err
+                        None
                     } else {
-                        err.context(format!(
+                        Some(format!(
                             "Installer stderr output:\n{trimmed}\n\n\
                              Hint: use `--installer-debug` for full output"
                         ))
                     }
                 }
-                _ => err,
+                _ => None,
             }
         }
-        Err(_) => err,
+        Err(_) => None,
+    };
+
+    let mut context_parts = Vec::new();
+    if let Some(stderr) = stderr_context {
+        context_parts.push(stderr);
     }
+    context_parts.push(format!("See installer logs at: {log_location}"));
+
+    err.context(context_parts.join("\n"))
 }
 
 #[derive(Debug)]
