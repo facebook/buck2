@@ -30,6 +30,13 @@ use crate::attrs::configuration_context::AttrConfigurationContext;
 use crate::attrs::configured_traversal::ConfiguredAttrTraversal;
 use crate::attrs::traversal::CoercedAttrTraversal;
 
+#[derive(Debug, buck2_error::Error)]
+#[buck2(input)]
+enum StringMacroTraversalError {
+    #[error("Expected a package when traversing string macro: `{0}`.")]
+    NoPackageForSource(String),
+}
+
 /// The kind of dependency for a macro like `$(location ...)` or `$(exe ...)`.
 #[derive(
     Debug, Eq, PartialEq, Hash, Clone, Copy, Dupe, Allocative, Pagable, StrongHash
@@ -134,7 +141,7 @@ impl StringWithMacros<ProvidersLabel> {
     pub(crate) fn traverse<'a>(
         &'a self,
         traversal: &mut dyn CoercedAttrTraversal<'a>,
-        pkg: PackageLabel,
+        pkg: Option<PackageLabel>,
     ) -> buck2_error::Result<()> {
         match self {
             Self::StringPart(..) => {}
@@ -281,7 +288,7 @@ impl MacroBase<ProvidersLabel> {
     pub fn traverse<'a>(
         &'a self,
         traversal: &mut dyn CoercedAttrTraversal<'a>,
-        pkg: PackageLabel,
+        pkg: Option<PackageLabel>,
     ) -> buck2_error::Result<()> {
         match self {
             MacroBase::UserKeyedPlaceholder(box (_, l, _)) => traversal.dep(l),
@@ -307,6 +314,9 @@ impl MacroBase<ProvidersLabel> {
             } => traversal.dep(label),
             MacroBase::Query(query) => query.traverse(traversal),
             MacroBase::Source(path) => {
+                let pkg = pkg.ok_or_else(|| {
+                    StringMacroTraversalError::NoPackageForSource(path.path().to_string())
+                })?;
                 for x in path.inputs() {
                     traversal.input(SourcePathRef::new(pkg.dupe(), x))?;
                 }

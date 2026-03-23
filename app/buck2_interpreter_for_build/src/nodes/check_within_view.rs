@@ -105,7 +105,7 @@ pub(crate) fn check_within_view(
 
     attr.traverse(
         attr_type,
-        pkg.dupe(),
+        Some(pkg),
         &mut WithinViewCheckTraversal { pkg, within_view },
     )
 }

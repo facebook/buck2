@@ -463,7 +463,7 @@ impl CoercedAttr {
     pub fn traverse<'a>(
         &'a self,
         t: &AttrType,
-        pkg: PackageLabel,
+        pkg: Option<PackageLabel>,
         traversal: &mut dyn CoercedAttrTraversal<'a>,
     ) -> buck2_error::Result<()> {
         match CoercedAttrWithType::pack(self, t)? {
@@ -562,6 +562,12 @@ impl CoercedAttr {
             CoercedAttrWithType::Arg(arg, _t) => arg.traverse(traversal, pkg),
             CoercedAttrWithType::Query(query, _t) => query.traverse(traversal),
             CoercedAttrWithType::SourceFile(source, _t) => {
+                let pkg = pkg.ok_or_else(|| {
+                    buck2_error::internal_error!(
+                        "Expected a package when traversing coerced source attribute: `{}`.",
+                        source.path()
+                    )
+                })?;
                 for x in source.inputs() {
                     traversal.input(SourcePathRef::new(pkg, x))?;
                 }

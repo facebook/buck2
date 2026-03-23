@@ -46,7 +46,7 @@ impl<'a> CoercedAttrFull<'a> {
         traversal: &mut dyn CoercedAttrTraversal<'a>,
     ) -> buck2_error::Result<()> {
         self.value
-            .traverse(self.attr.coercer(), pkg, traversal)
+            .traverse(self.attr.coercer(), Some(pkg), traversal)
             .with_buck_error_context(|| format!("traversing attribute `{}`", self.name))
     }
 }
