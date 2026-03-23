@@ -9,7 +9,6 @@
  */
 
 use std::collections::HashMap;
-use std::collections::hash_map::DefaultHasher;
 use std::hash::Hash;
 use std::hash::Hasher;
 use std::io::Read;
@@ -80,6 +79,7 @@ use buck2_fs::fs_util;
 use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_fs::paths::file_name::FileName;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
+use buck2_hash::BuckDefaultHasher;
 use buck2_install_proto::DeviceMetadata;
 use buck2_install_proto::FileReadyRequest;
 use buck2_install_proto::InstallInfoRequest;
@@ -396,7 +396,7 @@ fn get_timestamp_as_string() -> buck2_error::Result<String> {
 }
 
 fn calculate_hash<T: Hash>(t: &T) -> u64 {
-    let mut s = DefaultHasher::new();
+    let mut s = BuckDefaultHasher::new();
     t.hash(&mut s);
     s.finish()
 }

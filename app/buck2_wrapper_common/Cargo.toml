@@ -21,6 +21,7 @@ sysinfo = { workspace = true }
 uuid = { workspace = true }
 
 buck2_error = { workspace = true }
+buck2_hash = { workspace = true }
 
 [target.'cfg(unix)'.dependencies]
 nix = { workspace = true }

@@ -8,6 +8,7 @@ version = "0.1.0"
 
 [dependencies]
 allocative = { workspace = true }
+buck2_hash = { workspace = true }
 dupe = { workspace = true }
 equivalent = { workspace = true }
 lock_free_hashtable = { workspace = true }
