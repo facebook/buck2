@@ -11,6 +11,6 @@
 # * Update `../monarch/rust-toolchain` (one instance)
 # * Update `../scripts/allencwang/cluster/six_agent/rust-toolchain` (one instance)
 
-# @rustc_version: rustc 1.93.0-nightly (b33119ffd 2025-12-04)
-channel = "nightly-2025-12-05"
+# @rustc_version: rustc 1.94.0-nightly (fe98ddcfc 2026-01-17)
+channel = "nightly-2026-01-18"
 components = ["llvm-tools-preview", "rust-src"]
