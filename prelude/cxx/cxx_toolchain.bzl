@@ -186,6 +186,7 @@ def cxx_toolchain_impl(ctx):
         type = linker_type,
         use_archiver_flags = ctx.attrs.use_archiver_flags,
         supports_content_based_paths_for_archiving = ctx.attrs.supports_content_based_paths_for_archiving,
+        supports_shared_libraries = ctx.attrs.supports_shared_libraries,
     )
 
     utilities_info = BinaryUtilitiesInfo(
@@ -319,6 +320,7 @@ def cxx_toolchain_extra_attributes(is_toolchain_rule):
         "supports_content_based_paths": attrs.bool(default = False),
         "supports_content_based_paths_for_archiving": attrs.bool(default = False),
         "supports_distributed_thinlto": attrs.bool(default = False),
+        "supports_shared_libraries": attrs.bool(default = True),
         "supports_two_phase_compilation": attrs.bool(default = False),
         "thin_lto_double_codegen_enabled": attrs.bool(default = False),
         "thin_lto_premerger_enabled": attrs.bool(default = False),

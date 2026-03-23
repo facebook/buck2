@@ -86,6 +86,7 @@ LinkerInfo = provider(
         # Flags to use to "sandbox" exported library linker flags.
         "push_pop_state_flags": provider_field(typing.Any, default = None),
         "supports_content_based_paths_for_archiving": provider_field(bool, default = False),
+        "supports_shared_libraries": provider_field(bool, default = True),
     },
 )
 

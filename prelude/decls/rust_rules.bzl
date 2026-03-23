@@ -15,7 +15,7 @@ load("@prelude//rust:clippy_configuration.bzl", "ClippyConfiguration")
 load("@prelude//rust:link_info.bzl", "RustProcMacroPlugin")
 load("@prelude//rust:rust_binary.bzl", "rust_binary_impl", "rust_test_impl")
 load("@prelude//rust:rust_library.bzl", "rust_library_impl")
-load(":common.bzl", "buck", "prelude_rule")
+load(":common.bzl", "RuntimeDependencyHandling", "buck", "prelude_rule")
 load(":native_common.bzl", "native_common")
 load(":re_test_common.bzl", "re_test_common")
 load(":rust_common.bzl", "rust_common", "rust_target_dep")
@@ -58,6 +58,13 @@ _RUST_EXECUTABLE_ATTRIBUTES = {
     "link_group_min_binary_node_count": attrs.option(attrs.int(), default = None),
     "rpath": attrs.bool(default = False, doc = """
               Set the "rpath" in the executable when using a shared link style.
+          """),
+    "runtime_dependency_handling": attrs.option(attrs.enum(RuntimeDependencyHandling), default = None, doc = """
+              Controls how shared library dependencies are handled at runtime. If not set,
+              falls back to the CXX toolchain default. If ``symlink`` is specified then shared
+              library dependencies with ``preferred_linkage = "shared"`` are automatically
+              detected and included in a symlink tree alongside the executable. If ``no_symlink``
+              is specified then shared library dependencies are not included in the symlink tree.
           """),
     "_build_info": BUILD_INFO_ATTR,
 }

@@ -1745,6 +1745,14 @@ def _form_library_outputs(
                     metadata = cxx_attr_dep_metadata(ctx),
                 )
         else:  # shared
+            # Bare-metal toolchains don't support shared libraries (ld lacks -shared).
+            # Provide the pic_archive as fallback to satisfy the linkable graph.
+            if not get_cxx_toolchain_info(ctx).linker_info.supports_shared_libraries:
+                if preferred_linkage == Linkage("shared"):
+                    fail("{}: cannot build shared library for a toolchain that does not support shared libraries".format(ctx.label))
+                link_infos[output_style] = link_infos[LibOutputStyle("pic_archive")]
+                continue
+
             # If requested (by build_empty_so), we still generate a shared library even if there's no source objects.
             # This could be useful because it can still point to dependencies.
             # i.e. a rust_python_extension is an empty .so depending on a rust shared object

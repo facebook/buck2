@@ -230,17 +230,25 @@ def rust_library_impl(ctx: AnalysisContext) -> list[Provider]:
     if toolchain_info.advanced_unstable_linking and \
        (LibOutputStyle("shared_lib") in get_output_styles_for_linkage(Linkage(ctx.attrs.preferred_linkage))) and \
        not ctx.attrs.proc_macro:
-        # Rely on iteration order having produced this first but that's probably ok
-        linked_object = rust_link_shared(
-            ctx,
-            compile_ctx,
-            dep_link_style = LinkStrategy("shared"),
-            static_lib = link_infos[LibOutputStyle("pic_archive")].default,
-        )
-        link_infos[LibOutputStyle("shared_lib")] = _make_shared_lib_link_infos(
-            ctx,
-            linked_object,
-        )
+        if not compile_ctx.cxx_toolchain_info.linker_info.supports_shared_libraries:
+            if ctx.attrs.preferred_linkage == "shared":
+                fail("{}: cannot build shared library for a toolchain that does not support shared libraries".format(ctx.label))
+
+            # Bare-metal toolchains don't support shared libraries (ld lacks -shared).
+            # Provide the static archive as fallback to satisfy the linkable graph.
+            link_infos[LibOutputStyle("shared_lib")] = link_infos[LibOutputStyle("pic_archive")]
+        else:
+            # Rely on iteration order having produced this first but that's probably ok
+            linked_object = rust_link_shared(
+                ctx,
+                compile_ctx,
+                dep_link_style = LinkStrategy("shared"),
+                static_lib = link_infos[LibOutputStyle("pic_archive")].default,
+            )
+            link_infos[LibOutputStyle("shared_lib")] = _make_shared_lib_link_infos(
+                ctx,
+                linked_object,
+            )
 
     rust_artifacts = _rust_artifacts(
         ctx = ctx,

@@ -21,6 +21,11 @@ load(
     "cxx_attr_deps",
 )
 load("@prelude//cxx:cxx_link_utility.bzl", "executable_shared_lib_arguments")
+load(
+    "@prelude//cxx:cxx_toolchain_types.bzl",
+    "PicBehavior",
+    "RuntimeDependencyHandling",
+)
 load("@prelude//cxx:cxx_utility.bzl", "cxx_attrs_get_allow_cache_upload")
 load(
     "@prelude//cxx:link_groups.bzl",
@@ -39,8 +44,14 @@ load(
 )
 load(
     "@prelude//linking:link_info.bzl",
+    "LibOutputStyle",
     "LinkStrategy",
+    "get_lib_output_style",
     "process_link_strategy_for_pic_behavior",
+)
+load(
+    "@prelude//linking:linkable_graph.bzl",
+    "create_linkable_graph",
 )
 load(
     "@prelude//linking:shared_libraries.bzl",
@@ -85,6 +96,7 @@ load(
     "DEFAULT_STATIC_LINK_STRATEGY",
     "attr_simple_crate_for_filenames",
     "inherited_external_debug_info",
+    "inherited_linkable_graphs",
     "inherited_rust_cxx_link_group_info",
     "inherited_shared_libs",
 )
@@ -92,6 +104,17 @@ load(":named_deps.bzl", "write_named_deps_names")
 load(":outputs.bzl", "RustcExtraOutputsInfo", "output_as_diag_subtargets")
 load(":profile.bzl", "make_profile_providers")
 load(":resources.bzl", "rust_attr_resources")
+
+def _get_runtime_dependency_handling(ctx: AnalysisContext, compile_ctx: CompileContext) -> RuntimeDependencyHandling:
+    """Read runtime_dependency_handling from attribute, falling back to CXX toolchain default."""
+    if ctx.attrs.runtime_dependency_handling:
+        return RuntimeDependencyHandling(ctx.attrs.runtime_dependency_handling)
+
+    # Toolchains that don't support shared libraries (e.g. WASM, bare-metal)
+    # cannot create symlink trees, so skip runtime dependency handling.
+    if not compile_ctx.cxx_toolchain_info.linker_info.supports_shared_libraries:
+        return RuntimeDependencyHandling("no_symlink")
+    return compile_ctx.cxx_toolchain_info.runtime_dependency_handling
 
 def _strategy_params(
         ctx: AnalysisContext,
@@ -174,9 +197,27 @@ def _rust_binary_common(
         targets_consumed_by_link_groups = {}
         filtered_targets = []
 
+    runtime_dep_handling = _get_runtime_dependency_handling(ctx, compile_ctx)
+
     shlib_deps = []
     if link_strategy == LinkStrategy("shared") or rust_cxx_link_group_info != None:
         shlib_deps = inherited_shared_libs(ctx, compile_ctx.dep_ctx)
+    elif runtime_dep_handling == RuntimeDependencyHandling("symlink"):
+        # Include all transitive runtime shared library deps in a symlink tree.
+        # Only collect libs that would actually be built as shared libraries
+        # given the current link strategy, matching cxx_binary behavior.
+        linkable_graphs_tset = inherited_linkable_graphs(ctx, compile_ctx.dep_ctx)
+        all_graphs = []
+        for graphs in linkable_graphs_tset.traverse():
+            all_graphs.extend(graphs)
+        linkable_graph = create_linkable_graph(ctx, deps = all_graphs)
+        for linkable_node in linkable_graph.nodes.traverse():
+            if linkable_node.linkable == None:
+                continue
+            preferred_linkage = linkable_node.linkable.preferred_linkage
+            output_style = get_lib_output_style(link_strategy, preferred_linkage, PicBehavior("supported"))
+            if output_style == LibOutputStyle("shared_lib") and not linkable_node.linkable.stub:
+                shlib_deps.append(merge_shared_libraries(ctx.actions, node = linkable_node.linkable.shared_libs))
 
     shlib_info = merge_shared_libraries(ctx.actions, deps = shlib_deps)
 
