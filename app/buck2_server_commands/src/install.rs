@@ -367,6 +367,22 @@ async fn collect_install_request_data<'a>(
     Ok(request_data_vec)
 }
 
+/// Parses `--install-timeout <seconds>` from the installer run args.
+/// Returns the parsed value or the default (300s) if not found.
+fn parse_install_timeout(installer_run_args: &[String]) -> u64 {
+    let mut iter = installer_run_args.iter();
+    while let Some(arg) = iter.next() {
+        if arg == "--install-timeout" {
+            if let Some(value) = iter.next() {
+                if let Ok(seconds) = value.parse::<u64>() {
+                    return seconds;
+                }
+            }
+        }
+    }
+    300
+}
+
 fn get_random_tcp_port() -> buck2_error::Result<u16> {
     let bind_address = std::net::Ipv4Addr::LOCALHOST.into();
     let socket_addr = SocketAddr::new(bind_address, 0);
@@ -407,13 +423,15 @@ impl<'a> ConnectedInstaller<'a> {
         tcp_port: u16,
         artifact_fs: ArtifactFs,
         install_request_data: &'a InstallRequestData<'a>,
+        installer_run_args: &[String],
     ) -> buck2_error::Result<Self> {
         let initial_delay = Duration::from_millis(100);
         let max_delay = Duration::from_millis(500);
         let timeout =
             Duration::from_secs(buck2_env!("BUCK2_INSTALLER_TIMEOUT_S", type=u64)?.unwrap_or(120));
         let send_timeout = Duration::from_secs(
-            buck2_env!("BUCK2_INSTALLER_SEND_TIMEOUT_S", type=u64)?.unwrap_or(300),
+            buck2_env!("BUCK2_INSTALLER_SEND_TIMEOUT_S", type=u64)?
+                .unwrap_or_else(|| parse_install_timeout(installer_run_args)),
         );
 
         let client: buck2_error::Result<InstallerClient<Channel>> = span_async_simple(
@@ -743,12 +761,14 @@ async fn handle_install_request(
                     .await?;
                     let artifact_fs = ctx.get_artifact_fs().await?;
 
-                    let installer =
-                        ConnectedInstaller::connect(tcp_port, artifact_fs, install_request_data)
-                            .await
-                            .map_err(|e| {
-                                append_installer_stderr_context(e, &stderr_log_path_string)
-                            })?;
+                    let installer = ConnectedInstaller::connect(
+                        tcp_port,
+                        artifact_fs,
+                        install_request_data,
+                        initial_installer_run_args,
+                    )
+                    .await
+                    .map_err(|e| append_installer_stderr_context(e, &stderr_log_path_string))?;
 
                     buck2_error::Ok(installer.install(files_rx).await)
                 }
@@ -998,4 +1018,46 @@ async fn build_files(
     )
     .await?;
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_parse_install_timeout_with_value() {
+        let args: Vec<String> = vec!["--install-timeout".to_owned(), "900".to_owned()];
+        assert_eq!(parse_install_timeout(&args), 900);
+    }
+
+    #[test]
+    fn test_parse_install_timeout_default() {
+        let args: Vec<String> = vec![];
+        assert_eq!(parse_install_timeout(&args), 300);
+    }
+
+    #[test]
+    fn test_parse_install_timeout_among_other_args() {
+        let args: Vec<String> = vec![
+            "-r".to_owned(),
+            "-s".to_owned(),
+            "emulator-5554".to_owned(),
+            "--install-timeout".to_owned(),
+            "1200".to_owned(),
+            "--some-other-flag".to_owned(),
+        ];
+        assert_eq!(parse_install_timeout(&args), 1200);
+    }
+
+    #[test]
+    fn test_parse_install_timeout_missing_value() {
+        let args: Vec<String> = vec!["--install-timeout".to_owned()];
+        assert_eq!(parse_install_timeout(&args), 300);
+    }
+
+    #[test]
+    fn test_parse_install_timeout_invalid_value() {
+        let args: Vec<String> = vec!["--install-timeout".to_owned(), "not_a_number".to_owned()];
+        assert_eq!(parse_install_timeout(&args), 300);
+    }
 }
