@@ -190,6 +190,7 @@ async fn build_action_no_redirect(
         execution_kind: action_execution_data.extra_data.execution_kind,
         output_size_bytes: action_execution_data.extra_data.output_size,
         memory_peak: action_execution_data.memory_peak,
+        re_platform_name: action_execution_data.extra_data.re_platform_name.clone(),
     };
     ctx.store_evaluation_data(BuildKeyActivationData {
         action_with_extra_data: ActionWithExtraData {
@@ -401,6 +402,12 @@ async fn build_action_inner(
 
     let execution_kind = execution_kind.unwrap_or(buck2_data::ActionExecutionKind::NotSet);
 
+    let re_platform_name = command_reports
+        .last()
+        .and_then(|r| r.status.execution_kind())
+        .and_then(|k| k.re_platform_name())
+        .map(|s| s.to_owned());
+
     (
         ActionExecutionData {
             action_result,
@@ -414,6 +421,7 @@ async fn build_action_inner(
                 invalidation_info,
                 execution_time_ms: get_execution_time_ms(&commands),
                 output_size,
+                re_platform_name,
             },
             waiting_data: waiting_data.unwrap_or_default(),
         },
@@ -607,6 +615,8 @@ pub struct ActionExtraData {
     pub target_rule_type_name: Option<String>,
     pub action_digest: Option<String>,
     pub invalidation_info: Option<buck2_data::CommandInvalidationInfo>,
+    /// RE platform name if the action ran remotely.
+    pub re_platform_name: Option<String>,
 }
 
 struct ActionExecutionData {

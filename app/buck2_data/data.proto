@@ -695,6 +695,8 @@ message TopLevelTargetMetrics {
   optional uint64 local_max_memory_peak_bytes = 7;
   // Name of the rule type for this top-level target.
   string target_rule_type_name = 8;
+  // Distinct RE platform names used by actions for this target.
+  repeated string re_platform_names = 9;
 }
 
 // Aggregated metrics across all targets in a build.

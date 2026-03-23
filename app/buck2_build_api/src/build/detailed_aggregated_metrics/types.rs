@@ -30,6 +30,8 @@ pub struct ActionExecutionMetrics {
     pub execution_kind: buck2_data::ActionExecutionKind,
     pub output_size_bytes: u64,
     pub memory_peak: Option<u64>,
+    /// RE platform name if this action ran remotely (e.g. "linux-remote-execution").
+    pub re_platform_name: Option<String>,
 }
 
 pub struct AnalysisMetrics {
@@ -119,6 +121,8 @@ pub struct TopLevelTargetAggregatedData {
     pub amortized_metrics: AggregatedBuildMetrics,
     pub remote_max_memory_peak_bytes: u64,
     pub local_max_memory_peak_bytes: u64,
+    /// Distinct RE platform names used by actions for this target.
+    pub re_platform_names: Vec<String>,
 }
 
 #[derive(Clone, Copy, Dupe)]
@@ -141,6 +145,7 @@ impl TopLevelTargetAggregatedData {
             amortized_metrics: AggregatedBuildMetrics::default(),
             remote_max_memory_peak_bytes: 0,
             local_max_memory_peak_bytes: 0,
+            re_platform_names: Vec::new(),
         }
     }
 
@@ -153,6 +158,12 @@ impl TopLevelTargetAggregatedData {
         let factor = 1.0 / (factor as f64);
         self.metrics.aggregate_execution(1.0, ev, when);
         self.amortized_metrics.aggregate_execution(factor, ev, when);
+
+        if let Some(ref platform_name) = ev.re_platform_name {
+            if !self.re_platform_names.contains(platform_name) {
+                self.re_platform_names.push(platform_name.clone());
+            }
+        }
     }
 
     pub fn aggregate_analysis_event(&mut self, factor: usize, ev: &AnalysisMetrics) {
@@ -203,6 +214,7 @@ impl ToProtoMessage for TopLevelTargetAggregatedData {
             amortized_metrics: Some(self.amortized_metrics.as_proto()),
             remote_max_memory_peak_bytes: Some(self.remote_max_memory_peak_bytes),
             local_max_memory_peak_bytes: Some(self.local_max_memory_peak_bytes),
+            re_platform_names: self.re_platform_names.to_vec(),
         }
     }
 }
