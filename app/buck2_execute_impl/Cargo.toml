@@ -47,6 +47,7 @@ buck2_events = { workspace = true }
 buck2_execute = { workspace = true }
 buck2_execute_local = { workspace = true }
 buck2_fs = { workspace = true }
+buck2_hash = { workspace = true }
 buck2_http = { workspace = true }
 buck2_resource_control = { workspace = true }
 buck2_util = { workspace = true }

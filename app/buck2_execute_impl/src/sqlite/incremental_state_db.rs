@@ -22,9 +22,9 @@ use buck2_core::soft_error;
 use buck2_execute::execute::blocking::BlockingExecutor;
 use buck2_fs::paths::abs_norm_path::AbsNormPath;
 use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
+use buck2_hash::BuckDashMap;
 use chrono::DateTime;
 use chrono::Utc;
-use dashmap::DashMap;
 use dupe::Dupe;
 
 use crate::incremental_actions_helper::IncrementalPathMap;
@@ -40,7 +40,7 @@ use crate::sqlite::tables::incremental_state_table::IncrementalStateSqliteTable;
 /// buckconfig in the project root's .buckconfig.
 pub const INCREMENTAL_DB_SCHEMA_VERSION: u64 = 0;
 
-pub(crate) type IncrementalState = DashMap<String, Arc<IncrementalPathMap>>;
+pub(crate) type IncrementalState = BuckDashMap<String, Arc<IncrementalPathMap>>;
 
 pub struct IncrementalDbState {
     pub db: Option<IncrementalStateSqliteDb>,
@@ -51,7 +51,7 @@ impl IncrementalDbState {
     pub fn db_disabled() -> Self {
         Self {
             db: None,
-            state: DashMap::new(),
+            state: BuckDashMap::default(),
         }
     }
 }
@@ -227,7 +227,7 @@ impl IncrementalStateSqliteDb {
 
                 Ok(IncrementalDbState {
                     db: Some(db),
-                    state: DashMap::new(),
+                    state: BuckDashMap::default(),
                 })
             }
         }

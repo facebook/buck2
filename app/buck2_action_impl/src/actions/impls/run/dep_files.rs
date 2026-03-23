@@ -77,7 +77,7 @@ use buck2_fs::paths::file_name::FileName;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePathNormalizer;
-use dashmap::DashMap;
+use buck2_hash::BuckDashMap;
 use derive_more::Display;
 use dupe::Dupe;
 use futures::StreamExt;
@@ -92,7 +92,7 @@ use tracing::instrument;
 use crate::actions::impls::run::RunActionKey;
 
 #[allocative::root]
-static DEP_FILES: Lazy<DashMap<RunActionKey, Arc<DepFileState>>> = Lazy::new(DashMap::new);
+static DEP_FILES: Lazy<BuckDashMap<RunActionKey, Arc<DepFileState>>> = Lazy::new(BuckDashMap::new);
 
 /// When this is set, we retain directories after fingerprinting, so that we can output them later
 /// for debugging via `buck2 audit dep-files`.

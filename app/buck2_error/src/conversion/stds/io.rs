@@ -63,7 +63,7 @@ fn raw_os_error_tag(code: i32) -> Option<ErrorTag> {
             ERROR_NO_SYSTEM_RESOURCES => Some(ErrorTag::IoWindowsNoSystemResources),
             _ => None,
         }
-    } else if cfg!(macos) {
+    } else if cfg!(target_os = "macos") {
         match code {
             ERROR_STALE_NFS_HANDLE => Some(ErrorTag::IoStaleNfsHandle),
             _ => None,

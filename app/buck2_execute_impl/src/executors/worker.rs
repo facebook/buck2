@@ -38,6 +38,7 @@ use buck2_fs::error::IoResultExt;
 use buck2_fs::fs_util;
 use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_fs::paths::file_name::FileName;
+use buck2_hash::BuckDashMap;
 use buck2_util::time_span::TimeSpan;
 use buck2_worker_proto::ExecuteCommand;
 use buck2_worker_proto::ExecuteCommandStream;
@@ -46,7 +47,6 @@ use buck2_worker_proto::ExecuteResponseStream;
 use buck2_worker_proto::execute_command::EnvironmentEntry;
 use buck2_worker_proto::worker_client;
 use buck2_worker_proto::worker_streaming_client;
-use dashmap::DashMap;
 use dupe::Dupe;
 use futures::FutureExt;
 use futures::future::BoxFuture;
@@ -436,7 +436,7 @@ enum WorkerClient {
         ids: Arc<AtomicU64>,
         stream: UnboundedSender<ExecuteCommandStream>,
         stream_closed_observer: Arc<dyn LivelinessObserver>,
-        waiters: Arc<DashMap<u64, tokio::sync::oneshot::Sender<ExecuteResponseStream>>>,
+        waiters: Arc<BuckDashMap<u64, tokio::sync::oneshot::Sender<ExecuteResponseStream>>>,
     },
 }
 
@@ -457,7 +457,7 @@ impl WorkerClient {
         let stream = client
             .execute_stream(tonic::Request::new(UnboundedReceiverStream::new(rx)))
             .await?;
-        let waiters: Arc<DashMap<u64, tokio::sync::oneshot::Sender<ExecuteResponseStream>>> =
+        let waiters: Arc<BuckDashMap<u64, tokio::sync::oneshot::Sender<ExecuteResponseStream>>> =
             Default::default();
         let (stream_closed_observer, stream_closed_guard) = LivelinessGuard::create();
         {

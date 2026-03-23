@@ -13,7 +13,7 @@ use buck2_core::fs::project::ProjectRoot;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_fs::paths::abs_norm_path::AbsNormPathBuf;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
-use dashmap::DashSet;
+use buck2_hash::BuckDashSet;
 
 use crate::file_ops::metadata::RawDirEntry;
 use crate::file_ops::metadata::RawPathMetadata;
@@ -28,19 +28,19 @@ pub struct Symlink {
 
 #[derive(Allocative)]
 pub struct Trace {
-    pub project_entries: DashSet<ProjectRelativePathBuf>,
-    pub buck_out_entries: DashSet<ProjectRelativePathBuf>,
-    pub external_entries: DashSet<AbsNormPathBuf>,
-    pub symlinks: DashSet<Symlink>,
+    pub project_entries: BuckDashSet<ProjectRelativePathBuf>,
+    pub buck_out_entries: BuckDashSet<ProjectRelativePathBuf>,
+    pub external_entries: BuckDashSet<AbsNormPathBuf>,
+    pub symlinks: BuckDashSet<Symlink>,
 }
 
 impl Trace {
     pub fn new() -> Self {
         Self {
-            project_entries: DashSet::new(),
-            buck_out_entries: DashSet::new(),
-            external_entries: DashSet::new(),
-            symlinks: DashSet::new(),
+            project_entries: BuckDashSet::default(),
+            buck_out_entries: BuckDashSet::default(),
+            external_entries: BuckDashSet::default(),
+            symlinks: BuckDashSet::default(),
         }
     }
 

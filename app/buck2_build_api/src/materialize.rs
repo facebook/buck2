@@ -29,7 +29,7 @@ use buck2_execute::digest_config::HasDigestConfig;
 use buck2_execute::directory::ActionDirectoryBuilder;
 use buck2_execute::execute::blobs::ActionBlobs;
 use buck2_execute::materialize::materializer::HasMaterializer;
-use dashmap::DashSet;
+use buck2_hash::BuckDashSet;
 use dice::DiceComputations;
 use dice::DiceComputationsData;
 use dice::UserComputationData;
@@ -99,7 +99,7 @@ pub async fn materialize_and_upload_artifact_group(
     ctx: &mut DiceComputations<'_>,
     artifact_group: &ArtifactGroup,
     contexts: MaterializationAndUploadContext,
-    queue_tracker: &Arc<DashSet<BuildArtifact>>,
+    queue_tracker: &Arc<BuckDashSet<BuildArtifact>>,
 ) -> buck2_error::Result<ArtifactGroupValues> {
     let config = ctx
         .per_transaction_data()
@@ -141,7 +141,7 @@ async fn materialize_artifact_group(
     should_spawn: bool,
     artifact_group: &ArtifactGroup,
     materialization_context: MaterializationContext,
-    queue_tracker: &Arc<DashSet<BuildArtifact>>,
+    queue_tracker: &Arc<BuckDashSet<BuildArtifact>>,
 ) -> buck2_error::Result<ArtifactGroupValues> {
     let values = ctx.ensure_artifact_group(artifact_group).await?;
 
@@ -335,21 +335,22 @@ impl From<(Materializations, Uploads)> for MaterializationAndUploadContext {
 /// This map contains all the artifacts that we enqueued for materialization. This ensures
 /// we don't enqueue the same thing more than once. Should be shared across work done
 /// in a single DICE transaction.
-pub struct MaterializationQueueTrackerHolder(Arc<DashSet<BuildArtifact>>);
+pub struct MaterializationQueueTrackerHolder(Arc<BuckDashSet<BuildArtifact>>);
 
 pub trait HasMaterializationQueueTracker {
     fn init_materialization_queue_tracker(&mut self);
 
-    fn get_materialization_queue_tracker(&self) -> Arc<DashSet<BuildArtifact>>;
+    fn get_materialization_queue_tracker(&self) -> Arc<BuckDashSet<BuildArtifact>>;
 }
 
 impl HasMaterializationQueueTracker for UserComputationData {
     fn init_materialization_queue_tracker(&mut self) {
-        self.data
-            .set(MaterializationQueueTrackerHolder(Arc::new(DashSet::new())));
+        self.data.set(MaterializationQueueTrackerHolder(Arc::new(
+            BuckDashSet::default(),
+        )));
     }
 
-    fn get_materialization_queue_tracker(&self) -> Arc<DashSet<BuildArtifact>> {
+    fn get_materialization_queue_tracker(&self) -> Arc<BuckDashSet<BuildArtifact>> {
         self.data
             .get::<MaterializationQueueTrackerHolder>()
             .expect("MaterializationQueueTracker should be set")

@@ -19,8 +19,8 @@ use buck2_core::cells::paths::CellRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_error::BuckErrorContext;
+use buck2_hash::BuckDashMap;
 use cmp_any::PartialEqAny;
-use dashmap::DashMap;
 use derivative::Derivative;
 use dice::DiceComputations;
 use dice::UserComputationData;
@@ -136,7 +136,7 @@ impl FileOpsDelegate for IoFileOpsDelegate {
     }
 }
 
-struct ReadDirCache(DashMap<ProjectRelativePathBuf, Arc<[RawDirEntry]>>);
+struct ReadDirCache(BuckDashMap<ProjectRelativePathBuf, Arc<[RawDirEntry]>>);
 
 pub fn initialize_read_dir_cache(data: &mut UserComputationData) {
     data.data.set(ReadDirCache(Default::default()));

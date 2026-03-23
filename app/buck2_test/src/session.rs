@@ -15,8 +15,8 @@ use std::sync::atomic::Ordering;
 use allocative::Allocative;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_error::internal_error;
+use buck2_hash::BuckDashMap;
 use buck2_test_api::data::ConfiguredTargetHandle;
-use dashmap::DashMap;
 use dupe::Dupe;
 use pagable::Pagable;
 
@@ -46,7 +46,7 @@ pub struct TestSession {
     next_id: AtomicU64,
     /// A mapping of ConfiguredTargetHandle (which Tpx can use with) to the underlying provider in
     /// Buck2.
-    labels: DashMap<ConfiguredTargetHandle, ConfiguredProvidersLabel>,
+    labels: BuckDashMap<ConfiguredTargetHandle, ConfiguredProvidersLabel>,
     /// Options overriding the behavior of tests executed in this session. This is primarily
     /// intended for unstable or debugging features.
     options: TestSessionOptions,
@@ -56,7 +56,7 @@ impl TestSession {
     pub fn new(options: TestSessionOptions) -> Self {
         Self {
             next_id: AtomicU64::new(0),
-            labels: DashMap::new(),
+            labels: BuckDashMap::default(),
             options,
         }
     }

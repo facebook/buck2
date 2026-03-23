@@ -14,7 +14,7 @@ use std::sync::Arc;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_error::BuckErrorContext;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
-use dashmap::DashMap;
+use buck2_hash::BuckDashMap;
 use once_cell::sync::Lazy;
 use parking_lot::Mutex;
 use rusqlite::Connection;
@@ -67,7 +67,7 @@ fn convert_incremental_state_to_sqlite_entries<'a>(
 fn convert_sqlite_entries_to_incremental_state(
     entries: Vec<SqliteEntry>,
 ) -> buck2_error::Result<IncrementalState> {
-    let incremental_state: DashMap<String, Arc<IncrementalPathMap>> = DashMap::new();
+    let incremental_state: BuckDashMap<String, Arc<IncrementalPathMap>> = BuckDashMap::default();
 
     for entry in entries {
         let run_action_key = entry.run_action_key.to_string();

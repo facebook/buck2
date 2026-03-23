@@ -19,7 +19,7 @@ use buck2_execute::digest_config::DigestConfig;
 use buck2_execute::re::client::ActionCacheWriteType;
 use buck2_execute::re::error::RemoteExecutionError;
 use buck2_execute::re::manager::ManagedRemoteExecutionClient;
-use dashmap::DashMap;
+use buck2_hash::BuckDashMap;
 use dupe::Dupe;
 use remote_execution::TCode;
 
@@ -40,13 +40,13 @@ struct CacheValue {
 pub struct ActionCacheUploadPermissionChecker {
     /// Permission check does not depend on RE use case,
     /// but since we use these to upload, it is safer to cache the result by them.
-    has_permission_to_upload_to_cache: DashMap<CacheKey, Arc<CacheValue>>,
+    has_permission_to_upload_to_cache: BuckDashMap<CacheKey, Arc<CacheValue>>,
 }
 
 impl ActionCacheUploadPermissionChecker {
     pub fn new() -> ActionCacheUploadPermissionChecker {
         ActionCacheUploadPermissionChecker {
-            has_permission_to_upload_to_cache: DashMap::new(),
+            has_permission_to_upload_to_cache: BuckDashMap::default(),
         }
     }
 

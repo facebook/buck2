@@ -31,9 +31,9 @@ use buck2_core::configuration::compatibility::MaybeCompatible;
 use buck2_core::fs::artifact_path_resolver::ArtifactFs;
 use buck2_core::pattern::pattern::ParsedPattern;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
+use buck2_hash::BuckDashMap;
 use buck2_node::target_calculation::ConfiguredTargetCalculation;
 use buck2_query::query::syntax::simple::eval::set::TargetSet;
-use dashmap::DashMap;
 use dashmap::mapref::entry::Entry;
 use dice::DiceComputations;
 use dupe::Dupe;
@@ -62,13 +62,13 @@ enum ActionQueryError {
 
 /// A simple concurrent map with a `get_or_compute()` function
 struct NodeCache<K: Hash + Eq + PartialEq + Dupe, V: Dupe> {
-    map: DashMap<K, Shared<oneshot::Receiver<V>>>,
+    map: BuckDashMap<K, Shared<oneshot::Receiver<V>>>,
 }
 
 impl<K: Hash + Eq + PartialEq + Dupe, V: Dupe> NodeCache<K, V> {
     fn new() -> Self {
         Self {
-            map: DashMap::new(),
+            map: BuckDashMap::default(),
         }
     }
 
@@ -130,8 +130,13 @@ struct DiceAqueryNodesCache {
 impl DiceAqueryNodesCache {
     fn new() -> Self {
         Self {
-            action_nodes: Arc::new(NodeCache::new()),
-            tset_nodes: Arc::new(NodeCache::new()),
+            action_nodes: Arc::new(
+                NodeCache::<ActionKey, buck2_error::Result<ActionQueryNode>>::new(),
+            ),
+            tset_nodes: Arc::new(NodeCache::<
+                TransitiveSetProjectionKey,
+                buck2_error::Result<SetProjectionInputs>,
+            >::new()),
         }
     }
 }

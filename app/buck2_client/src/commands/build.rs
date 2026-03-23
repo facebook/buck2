@@ -43,13 +43,17 @@ use buck2_core::buck2_env;
 use buck2_error::BuckErrorContext;
 use buck2_error::buck2_error;
 use dupe::Dupe;
+#[cfg(fbcode_build)]
 use superconsole::style::Color;
+#[cfg(fbcode_build)]
 use superconsole::style::ContentStyle;
+#[cfg(fbcode_build)]
 use superconsole::style::StyledContent;
 
 use crate::commands::build::out::copy_to_out;
 use crate::print::PrintOutputs;
 
+#[cfg(fbcode_build)]
 macro_rules! colored {
     ($color:expr, $text:expr) => {
         StyledContent::new(
