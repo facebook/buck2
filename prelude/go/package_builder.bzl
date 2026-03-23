@@ -355,7 +355,8 @@ def build_package(
             pkg_import_path = params.pkg_import_path,
             standard = params.standard,
             has_cgo_files = len(go_list.cgo_files) > 0,
-            coverage_instrumented = params.coverage_enabled and params.coverage_mode != None,
+            coverage_enabled = params.coverage_enabled,
+            coverage_mode = params.coverage_mode,
         )
 
         importcfg = make_compile_importcfg(

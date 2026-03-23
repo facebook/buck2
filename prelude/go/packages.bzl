@@ -14,6 +14,10 @@ load(
     "CPreprocessorArgs",
 )
 load("@prelude//utils:utils.bzl", "value_or")
+load(
+    ":coverage.bzl",
+    "GoCoverageMode",  # @Unused used as type
+)
 
 # Information about a package for GOPACKAGESDRIVER
 GoPackageInfo = provider(
@@ -100,7 +104,7 @@ _cgo_syscall_exclude = set([
     "runtime/asan",
 ])
 
-def implicit_imports(pkg_name: str, pkg_import_path: str, standard: bool, has_cgo_files: bool, coverage_instrumented: bool) -> set[str]:
+def implicit_imports(pkg_name: str, pkg_import_path: str, standard: bool, has_cgo_files: bool, coverage_enabled: bool, coverage_mode: GoCoverageMode | None) -> set[str]:
     imports = set([])
     if has_cgo_files:
         if not standard or pkg_import_path != "runtime/cgo":
@@ -110,8 +114,11 @@ def implicit_imports(pkg_name: str, pkg_import_path: str, standard: bool, has_cg
             imports.add("syscall")
 
     if pkg_name == "main":
-        if coverage_instrumented:
+        if coverage_enabled and coverage_mode != None:
             imports.add("runtime/coverage")
+
+    if coverage_enabled and coverage_mode == GoCoverageMode("atomic"):
+        imports.add("sync/atomic")
 
     return imports
 

@@ -68,7 +68,8 @@ def _build_stdlib_impl(actions: AnalysisActions, target_label: Label, go_toolcha
             pkg_import_path = import_path,
             standard = True,
             has_cgo_files = len(lib.go_list.cgo_files) > 0,
-            coverage_instrumented = False,
+            coverage_enabled = False,
+            coverage_mode = None,
         )
         for imp in all_imports:
             if imp in parsed_libs:
