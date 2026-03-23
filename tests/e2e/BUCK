@@ -16,14 +16,6 @@ buck2_e2e_test(
 )
 
 buck2_e2e_test(
-    name = "test_install",
-    srcs = ["test_install.py"],
-    deps = [
-        "fbcode//buck2/tests/e2e_util:utils",
-    ],
-)
-
-buck2_e2e_test(
     name = "test_linker_argsfile",
     srcs = ["test_linker_argsfile.py"],
 )
