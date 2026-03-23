@@ -873,4 +873,96 @@ mod tests {
 
         Ok(())
     }
+
+    fn source(flag: RepresentativeConfigFlagSource) -> RepresentativeConfigFlag {
+        RepresentativeConfigFlag { source: Some(flag) }
+    }
+
+    #[test]
+    fn test_by_source_inline_flags() -> buck2_error::Result<()> {
+        let mut argv = ExpandedArgvBuilder::new();
+        argv.push("-c".to_owned());
+        argv.push("section.key=val".to_owned());
+        argv.push("-m".to_owned());
+        argv.push("//mod:bar".to_owned());
+        argv.push("--config-file".to_owned());
+        argv.push("//cfg.bcfg".to_owned());
+        argv.push("--target-platforms=ovr//p:linux".to_owned());
+
+        let argv = argv.build();
+        let clap = clap::ArgMatches::default();
+        let matches = BuckArgMatches::from_clap(&clap, &argv);
+        let flags = matches.get_representative_config_flags_by_source();
+
+        assert_eq!(
+            flags,
+            vec![
+                source(RepresentativeConfigFlagSource::ConfigFlag(
+                    "section.key=val".to_owned()
+                )),
+                source(RepresentativeConfigFlagSource::Modifier(
+                    "//mod:bar".to_owned()
+                )),
+                source(RepresentativeConfigFlagSource::ConfigFile(
+                    "//cfg.bcfg".to_owned()
+                )),
+                source(RepresentativeConfigFlagSource::TargetPlatforms(
+                    "ovr//p:linux".to_owned()
+                )),
+            ]
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn test_by_source_argfile_collapsing() -> buck2_error::Result<()> {
+        let project_argfile = |path: &str| ArgFilePath::Project(CellPath::testing_new(path));
+        let external_root = ProjectRootTemp::new().unwrap();
+        let external_root = external_root.path();
+        let external_argfile = |path: &str| {
+            ArgFilePath::External(
+                external_root
+                    .root()
+                    .join(ForwardRelativePathBuf::new(path.to_owned()).unwrap()),
+            )
+        };
+
+        let mut argv = ExpandedArgvBuilder::new();
+        argv.push("-c".to_owned());
+        argv.push("inline.key=val".to_owned());
+
+        argv.argfile_scope(
+            ArgFileKind::Path(project_argfile("root//mode/dev")),
+            |argv| {
+                argv.push("-c=from.mode=1".to_owned());
+                argv.push("-m".to_owned());
+                argv.push("//mod:x".to_owned());
+            },
+        );
+
+        argv.argfile_scope(ArgFileKind::Path(external_argfile("ext/mode")), |argv| {
+            argv.push("-c=external.key=val".to_owned());
+        });
+
+        let argv = argv.build();
+        let clap = clap::ArgMatches::default();
+        let matches = BuckArgMatches::from_clap(&clap, &argv);
+        let flags = matches.get_representative_config_flags_by_source();
+
+        assert_eq!(
+            flags,
+            vec![
+                source(RepresentativeConfigFlagSource::ConfigFlag(
+                    "inline.key=val".to_owned()
+                )),
+                source(RepresentativeConfigFlagSource::ModeFile(
+                    "@root//mode/dev".to_owned()
+                )),
+                source(RepresentativeConfigFlagSource::ConfigFlag(
+                    "external.key=val".to_owned()
+                )),
+            ]
+        );
+        Ok(())
+    }
 }
