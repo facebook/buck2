@@ -24,6 +24,7 @@ use allocative::Visitor;
 use parking_lot::RwLock;
 
 use crate::atomic_value::AtomicValue;
+use crate::fixed_cap;
 use crate::fixed_cap::FixedCapTable;
 pub use crate::fixed_cap::Iter;
 
@@ -237,6 +238,51 @@ impl<T: AtomicValue> LockFreeRawTable<T> {
     }
 }
 
+/// Consuming iterator over entries in a `LockFreeRawTable`.
+pub struct IntoIter<T: AtomicValue> {
+    /// Previous tables are kept alive for memory deallocation. Their entries are
+    /// duplicates of entries in the current table and must NOT be dropped as owned values.
+    /// `FixedCapTable` does not drop entries on `Drop` (by design), so keeping
+    /// prev tables alive only frees their slot arrays.
+    _prev: Option<Box<CurrentTable<T>>>,
+    iter: fixed_cap::IntoIter<T>,
+}
+
+impl<T: AtomicValue> Iterator for IntoIter<T> {
+    type Item = T;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.iter.next()
+    }
+}
+
+impl<T: AtomicValue> IntoIterator for LockFreeRawTable<T> {
+    type Item = T;
+    type IntoIter = IntoIter<T>;
+
+    /// Consume the table and return a consuming iterator over entries.
+    ///
+    /// Only the current (most recent) table owns entries. Previous tables store
+    /// duplicate raw pointers to the same entries, so we must NOT drop entries
+    /// from them — they just free their slot arrays when the `_prev` chain drops.
+    fn into_iter(mut self) -> IntoIter<T> {
+        // Take the pointer and replace with null so `Drop` doesn't double-free.
+        let current_ptr = mem::replace(self.current.get_mut(), ptr::null_mut());
+        if current_ptr.is_null() {
+            return IntoIter {
+                _prev: None,
+                iter: fixed_cap::IntoIter::empty(),
+            };
+        }
+        let current = unsafe { Box::from_raw(current_ptr) };
+        let CurrentTable { _prev, table } = *current;
+        IntoIter {
+            _prev,
+            iter: table.into_iter(),
+        }
+    }
+}
+
 impl<T: AtomicValue + Allocative> Allocative for LockFreeRawTable<T> {
     fn visit<'a, 'b: 'a>(&self, visitor: &'a mut Visitor<'b>) {
         let mut visitor = visitor.enter_self_sized::<Self>();
@@ -330,6 +376,25 @@ mod tests {
         let p = RawPtr(p);
         let r = t.insert(hash(p.0), p, |a, b| a == b, hash).0;
         assert_eq!(p.0, r);
+    }
+
+    #[test]
+    fn test_into_iter() {
+        let t = LockFreeRawTable::new();
+        for i in 0..10 {
+            t.insert(hash(i), Box::new(i), |a, b| a == b, hash_fn);
+        }
+
+        let mut collect: Vec<u32> = t.into_iter().map(|b| *b).collect();
+        collect.sort_unstable();
+        assert_eq!((0..10).collect::<Vec<_>>(), collect);
+    }
+
+    #[test]
+    fn test_into_iter_empty() {
+        let t = LockFreeRawTable::<Box<u32>>::new();
+        let collect: Vec<Box<u32>> = t.into_iter().collect();
+        assert!(collect.is_empty());
     }
 
     #[test]

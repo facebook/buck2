@@ -15,6 +15,7 @@ use std::marker;
 use allocative::Allocative;
 
 use crate::atomic_value::AtomicValue;
+use crate::raw;
 use crate::raw::LockFreeRawTable;
 
 /// Lock-free hashtable sharded by key hash.
@@ -127,6 +128,37 @@ impl<'a, T: AtomicValue + 'a, const SHARDS: usize> Iterator for Iter<'a, T, SHAR
     }
 }
 
+impl<T: AtomicValue, const SHARDS: usize> IntoIterator for ShardedLockFreeRawTable<T, SHARDS> {
+    type Item = T;
+    type IntoIter = IntoIter<T, SHARDS>;
+
+    fn into_iter(self) -> IntoIter<T, SHARDS> {
+        let mut shards = self.shards.into_iter();
+        // SAFETY: SHARDS is guaranteed >= 1 by the power-of-two const assertion.
+        let current = shards.next().expect("SHARDS >= 1").into_iter();
+        IntoIter { shards, current }
+    }
+}
+
+/// Consuming iterator over all entries in a sharded raw table.
+pub struct IntoIter<T: AtomicValue, const SHARDS: usize> {
+    shards: std::array::IntoIter<LockFreeRawTable<T>, SHARDS>,
+    current: raw::IntoIter<T>,
+}
+
+impl<T: AtomicValue, const SHARDS: usize> Iterator for IntoIter<T, SHARDS> {
+    type Item = T;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        loop {
+            if let Some(next) = self.current.next() {
+                return Some(next);
+            }
+            self.current = self.shards.next()?.into_iter();
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::collections::HashSet;
@@ -174,5 +206,17 @@ mod tests {
         let mut collect = Vec::from_iter(collect);
         collect.sort_unstable();
         assert_eq!(expected, collect);
+    }
+
+    #[test]
+    fn test_into_iter() {
+        let table = ShardedLockFreeRawTable::<Box<u32>, 8>::new();
+        for i in 0..10 {
+            table.insert(hash(i), Box::new(i), |a, b| a == b, hash_fn);
+        }
+
+        let mut collect: Vec<u32> = table.into_iter().map(|b| *b).collect();
+        collect.sort_unstable();
+        assert_eq!((0..10).collect::<Vec<_>>(), collect);
     }
 }
