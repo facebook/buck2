@@ -110,13 +110,13 @@ def go_test_impl(ctx: AnalysisContext) -> list[Provider]:
     cover_packages = []
 
     # Cover the test package itself
-    if coverage_enabled:
+    if tests.coverage_instrumented:
         cover_packages.append(pkg_import_path)
 
     # Get all packages that are linked to the test (i.e. the entire dependency tree)
     for import_path, pkg in get_inherited_link_pkgs(deps).items():
-        if pkg.coverage_enabled:
-            # Cover dependencies with coverage enabled
+        if pkg.coverage_instrumented:
+            # Cover dependencies with coverage instrumented
             cover_packages.append(import_path)
 
     pkgs[pkg_import_path] = tests

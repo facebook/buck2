@@ -68,7 +68,7 @@ def _build_stdlib_impl(actions: AnalysisActions, target_label: Label, go_toolcha
             pkg_import_path = import_path,
             standard = True,
             has_cgo_files = len(lib.go_list.cgo_files) > 0,
-            coverage_enabled = False,  # makes sense only for "main" packages
+            coverage_instrumented = False,
         )
         for imp in all_imports:
             if imp in parsed_libs:
@@ -157,7 +157,7 @@ def _declare_stdlib_package_build(
         archive_file_shared = out_a_shared,
         export_file = out_x,
         export_file_shared = out_x_shared,
-        coverage_enabled = params.coverage_enabled,
+        coverage_instrumented = params.coverage_enabled and params.coverage_mode != None,
     )
 
 def _build_stdlib_package_impl(

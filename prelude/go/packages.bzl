@@ -37,7 +37,7 @@ GoPkg = record(
     # but we need to produce both to avoid running compilation twice.
     export_file = field(Artifact),
     export_file_shared = field(Artifact),
-    coverage_enabled = field(bool),
+    coverage_instrumented = field(bool),
 )
 
 GoStdlibDynamicValue = provider(
@@ -100,7 +100,7 @@ _cgo_syscall_exclude = set([
     "runtime/asan",
 ])
 
-def implicit_imports(pkg_name: str, pkg_import_path: str, standard: bool, has_cgo_files: bool, coverage_enabled: bool) -> set[str]:
+def implicit_imports(pkg_name: str, pkg_import_path: str, standard: bool, has_cgo_files: bool, coverage_instrumented: bool) -> set[str]:
     imports = set([])
     if has_cgo_files:
         if not standard or pkg_import_path != "runtime/cgo":
@@ -110,7 +110,7 @@ def implicit_imports(pkg_name: str, pkg_import_path: str, standard: bool, has_cg
             imports.add("syscall")
 
     if pkg_name == "main":
-        if coverage_enabled:
+        if coverage_instrumented:
             imports.add("runtime/coverage")
 
     return imports

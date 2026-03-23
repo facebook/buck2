@@ -111,7 +111,7 @@ def declare_package_build(
         archive_file_shared = out_shared_a,
         export_file = out_x,
         export_file_shared = out_shared_x,
-        coverage_enabled = config.coverage_enabled,
+        coverage_instrumented = config.coverage_enabled and config.coverage_mode != None,
     ), GoPackageInfo(
         build_out = out_x,
         cgo_gen_dir = cgo_gen_dir,
@@ -355,7 +355,7 @@ def build_package(
             pkg_import_path = params.pkg_import_path,
             standard = params.standard,
             has_cgo_files = len(go_list.cgo_files) > 0,
-            coverage_enabled = params.coverage_enabled,
+            coverage_instrumented = params.coverage_enabled and params.coverage_mode != None,
         )
 
         importcfg = make_compile_importcfg(
