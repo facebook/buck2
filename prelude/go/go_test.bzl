@@ -45,11 +45,14 @@ def _gen_test_main(
     cmd = []
     cmd.append(ctx.attrs._testmaingen[RunInfo])
 
-    # if ctx.attrs.coverage_mode:
     cmd.append(cmd_args(output.as_output(), format = "--output={}"))
     cmd.append(cmd_args(pkg_import_path, format = "--import-path={}"))
-    if coverage_mode != None:
+
+    # --cover-mode controls whether the generated test main is instrumented for coverage collection.
+    # There is no reason to do this when no packages were instrumented for coverage.
+    if coverage_mode != None and len(cover_packages) != 0:
         cmd.extend(["--cover-mode", coverage_mode.value])
+
     cmd.append(cmd_args(cover_pkgs_argsfile, format = "@{}"))
     cmd.append(cmd_args(test_go_files_argsfile, format = "@{}"))
     ctx.actions.run(cmd_args(cmd), category = "go_test_main_gen")
