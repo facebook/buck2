@@ -45,8 +45,9 @@ internal class ClassUsageMergerTest {
     val prevClassUsageMap: ClassUsageMap = classUsageMapBase
 
     val innerMap: MutableSet<Path> = mutableSetOf(Paths.get("C.class"))
-    val currentClassUsageMap =
-        classUsageMapBase.apply { toMutableMap()[Paths.get("new-class-abi.jar")] = innerMap }
+    val currentClassUsageMap = classUsageMapBase.apply {
+      toMutableMap()[Paths.get("new-class-abi.jar")] = innerMap
+    }
 
     val mergedMap: ClassUsageMap = mergeClassUsageMaps(prevClassUsageMap, currentClassUsageMap)
 
@@ -56,10 +57,9 @@ internal class ClassUsageMergerTest {
   @Test
   fun `when inner addition is made then new class is included in merged inner map`() {
     val prevClassUsageMap: ClassUsageMap = classUsageMapBase
-    val currentClassUsageMap: ClassUsageMap =
-        classUsageMapBase.apply {
-          toMutableMap()[Paths.get("class-abi.jar")] = setOf(Paths.get("C.class"))
-        }
+    val currentClassUsageMap: ClassUsageMap = classUsageMapBase.apply {
+      toMutableMap()[Paths.get("class-abi.jar")] = setOf(Paths.get("C.class"))
+    }
 
     val mergedMap: ClassUsageMap = mergeClassUsageMaps(prevClassUsageMap, currentClassUsageMap)
 
@@ -69,8 +69,9 @@ internal class ClassUsageMergerTest {
   @Test
   fun `when outer deletion is made then deleted class usage is still included in merged map`() {
     val prevClassUsageMap: ClassUsageMap = classUsageMapBase
-    val currentClassUsageMap: ClassUsageMap =
-        classUsageMapBase.apply { toMutableMap().remove(Paths.get("class-abi.jar")) }
+    val currentClassUsageMap: ClassUsageMap = classUsageMapBase.apply {
+      toMutableMap().remove(Paths.get("class-abi.jar"))
+    }
 
     val mergedMap: ClassUsageMap = mergeClassUsageMaps(prevClassUsageMap, currentClassUsageMap)
 

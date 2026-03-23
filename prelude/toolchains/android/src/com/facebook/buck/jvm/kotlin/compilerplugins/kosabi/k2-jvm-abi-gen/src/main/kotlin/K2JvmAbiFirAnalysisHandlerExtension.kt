@@ -939,14 +939,13 @@ class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
 
               // Only remove @Throws annotations that have error types in their exception class
               // arguments
-              val toRemove =
-                  annotations.filter { annotation ->
-                    hasErrorTypeInThrowsAnnotation(
-                        annotation,
-                        THROWS_FQ_NAME,
-                        THROWS_KOTLIN_FQ_NAME,
-                    )
-                  }
+              val toRemove = annotations.filter { annotation ->
+                hasErrorTypeInThrowsAnnotation(
+                    annotation,
+                    THROWS_FQ_NAME,
+                    THROWS_KOTLIN_FQ_NAME,
+                )
+              }
 
               if (toRemove.isNotEmpty()) {
                 annotations.removeAll(toRemove)
@@ -1087,8 +1086,9 @@ class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
                   listField.get(annotationsWrapper) as? MutableList<FirAnnotation> ?: return
 
               // Remove any annotation that has error expressions in its arguments
-              val toRemove =
-                  annotations.filter { annotation -> hasErrorExpressionInFirAnnotation(annotation) }
+              val toRemove = annotations.filter { annotation ->
+                hasErrorExpressionInFirAnnotation(annotation)
+              }
 
               if (toRemove.isNotEmpty()) {
                 annotations.removeAll(toRemove)
@@ -1501,8 +1501,9 @@ class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
                   }
 
               // Find supertypes that reference PRIVATE classes (not internal)
-              val toRemove =
-                  superTypeRefs.filter { typeRef -> isPrivateSupertype(typeRef, firClass) }
+              val toRemove = superTypeRefs.filter { typeRef ->
+                isPrivateSupertype(typeRef, firClass)
+              }
 
               // Collect the ClassIds of stripped supertypes for fake override conversion
               for (typeRef in toRemove) {
@@ -1834,8 +1835,9 @@ class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
         val annotations =
             annotationsField.get(declaration) as? MutableList<FirAnnotationCall> ?: return
 
-        val toRemove =
-            annotations.filter { annotation -> hasErrorExpressionInAnnotation(annotation) }
+        val toRemove = annotations.filter { annotation ->
+          hasErrorExpressionInAnnotation(annotation)
+        }
 
         if (toRemove.isNotEmpty()) {
           annotations.removeAll(toRemove)
@@ -2982,16 +2984,15 @@ class K2JvmAbiFirAnalysisHandlerExtension(private val outputPath: String) :
             configuration,
         )
 
-    val outputs =
-        sessionsWithSources.map { (session, sources) ->
-          val missingConstants = collectMissingConstantsFromSourceFiles(sources, session)
-          session.jvmAbiGenService.state.missingConstants.putAll(missingConstants)
-          // Skip checkers - ABI generation only needs resolved types, and third-party
-          // plugin checkers (like Litho K2) crash on unresolved references from stubs.
-          val firFiles = session.buildFirFromKtFiles(sources)
-          val (scopeSession, fir) = session.runResolution(firFiles)
-          ModuleCompilerAnalyzedOutput(session, scopeSession, fir)
-        }
+    val outputs = sessionsWithSources.map { (session, sources) ->
+      val missingConstants = collectMissingConstantsFromSourceFiles(sources, session)
+      session.jvmAbiGenService.state.missingConstants.putAll(missingConstants)
+      // Skip checkers - ABI generation only needs resolved types, and third-party
+      // plugin checkers (like Litho K2) crash on unresolved references from stubs.
+      val firFiles = session.buildFirFromKtFiles(sources)
+      val (scopeSession, fir) = session.runResolution(firFiles)
+      ModuleCompilerAnalyzedOutput(session, scopeSession, fir)
+    }
 
     return FirResult(outputs)
   }

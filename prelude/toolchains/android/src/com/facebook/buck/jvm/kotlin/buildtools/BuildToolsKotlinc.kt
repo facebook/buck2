@@ -147,8 +147,9 @@ class BuildToolsKotlinc : Kotlinc {
       )
     }
 
-    val resolvedExpandedSources =
-        expandedSources.map { path -> ruleCellRoot.resolve(path).toString() }
+    val resolvedExpandedSources = expandedSources.map { path ->
+      ruleCellRoot.resolve(path).toString()
+    }
 
     val isMultiPlatform = options.contains("-Xmulti-platform")
 
@@ -197,8 +198,9 @@ class BuildToolsKotlinc : Kotlinc {
                 val resolvedSourceOption =
                     unresolvedSources.split(",").map { fragmentSourcePath ->
                       val (fragmentName, fragmentPath) = fragmentSourcePath.split(":")
-                      val fragmentSourceAbsPath =
-                          allSources.firstOrNull { it.endsWith(fragmentPath) }
+                      val fragmentSourceAbsPath = allSources.firstOrNull {
+                        it.endsWith(fragmentPath)
+                      }
 
                       if (fragmentSourceAbsPath == null) {
                         throw RuntimeException("Invalid fragment source path: $fragmentSourcePath")

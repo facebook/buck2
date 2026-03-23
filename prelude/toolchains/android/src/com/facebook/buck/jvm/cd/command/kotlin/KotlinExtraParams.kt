@@ -48,14 +48,17 @@ data class KotlinExtraParams(
   val shouldActionRunIncrementally: Boolean =
       shouldKotlincRunIncrementally || shouldKsp2RunIncrementally
 
-  val kotlincWorkingDir: Optional<AbsPath> =
-      incrementalStateDir.map { dir: AbsPath -> dir.resolve(KOTLINC_WORKING_DIR) }
+  val kotlincWorkingDir: Optional<AbsPath> = incrementalStateDir.map { dir: AbsPath ->
+    dir.resolve(KOTLINC_WORKING_DIR)
+  }
 
-  val ksp2CachesDir: Optional<AbsPath> =
-      incrementalStateDir.map { dir: AbsPath -> dir.resolve(KSP2_CACHES_DIR) }
+  val ksp2CachesDir: Optional<AbsPath> = incrementalStateDir.map { dir: AbsPath ->
+    dir.resolve(KSP2_CACHES_DIR)
+  }
 
-  val jvmAbiGenWorkingDir: Optional<AbsPath> =
-      incrementalStateDir.map { dir: AbsPath -> dir.resolve(KOTLINC_JVM_ABI_GEN_WORKING_DIR) }
+  val jvmAbiGenWorkingDir: Optional<AbsPath> = incrementalStateDir.map { dir: AbsPath ->
+    dir.resolve(KOTLINC_JVM_ABI_GEN_WORKING_DIR)
+  }
 
   val languageVersion: LanguageVersion = LanguageVersion(languageVersionString)
 

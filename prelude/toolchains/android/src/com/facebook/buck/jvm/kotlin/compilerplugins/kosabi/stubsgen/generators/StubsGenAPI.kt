@@ -55,8 +55,9 @@ open class StubsGenAPI(
     val additionalSrcStubsContext = GenerationContext(knownSources, classPaths, lightweight = true)
     val additionalSrcStubs =
         generateStubs(configureAdditionalSourcesGenerators(), additionalSrcStubsContext)
-    val additionalRenderedSrcStubs: List<RenderedKStub> =
-        additionalSrcStubs.map { RenderedKStub(it, it.render()) }
+    val additionalRenderedSrcStubs: List<RenderedKStub> = additionalSrcStubs.map {
+      RenderedKStub(it, it.render())
+    }
     val additionalSrcs = additionalRenderedSrcStubs.map { generateFakeKtFile(project, it) }
 
     val stubsGenerators: List<StubsGenerator> =
