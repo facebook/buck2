@@ -8,11 +8,12 @@
 
 # pyre-strict
 
+import copy
 import os
 import plistlib
 import tempfile
 from pathlib import Path
-from typing import Optional
+from typing import Dict, Optional
 
 from apple.tools.info_plist_processor.process import process as process_info_plist
 
@@ -25,6 +26,7 @@ def prepare_code_signing_entitlements(
     bundle_id: str,
     profile: ProvisioningProfileMetadata,
     tmp_dir: str,
+    entitlements_suffixed_key_map: Optional[Dict[str, str]] = None,
 ) -> Path:
     fd, output_path = tempfile.mkstemp(dir=tmp_dir)
     with os.fdopen(fd, mode="wb") as output:
@@ -42,4 +44,20 @@ def prepare_code_signing_entitlements(
             entitlements["application-identifier"] = app_id
             entitlements["keychain-access-groups"] = [app_id]
             plistlib.dump(entitlements, output, fmt=plistlib.FMT_XML)
+
+    if entitlements_suffixed_key_map:
+        with open(output_path, "rb") as f:
+            entitlements = plistlib.load(f)
+        original = copy.deepcopy(entitlements)
+        for key, suffix in entitlements_suffixed_key_map.items():
+            if key in entitlements:
+                value = entitlements[key]
+                if isinstance(value, str):
+                    entitlements[key] = value + suffix
+                elif isinstance(value, list):
+                    entitlements[key] = [v + suffix for v in value]
+        if entitlements != original:
+            with open(output_path, "wb") as f:
+                plistlib.dump(entitlements, f, fmt=plistlib.FMT_XML)
+
     return Path(output_path)

@@ -297,6 +297,7 @@ def codesign_bundle(
     codesign_tool: Optional[Path] = None,
     codesign_configuration: Optional[CodesignConfiguration] = None,
     codesign_manifest_path: Optional[Path] = None,
+    entitlements_suffixed_key_map: Optional[Dict[str, str]] = None,
 ) -> None:
     codesign_on_copy_paths = sorted(
         codesign_on_copy_paths,
@@ -316,6 +317,7 @@ def codesign_bundle(
                     platform=platform,
                     signing_context=selection_profile_context,
                     tmp_dir=tmp_dir,
+                    entitlements_suffixed_key_map=entitlements_suffixed_key_map,
                 )
             )
             selected_identity_fingerprint = (
@@ -390,6 +392,7 @@ def _prepare_entitlements_and_info_plist(
     platform: ApplePlatform,
     signing_context: SigningContextWithProfileSelection,
     tmp_dir: str,
+    entitlements_suffixed_key_map: Optional[Dict[str, str]] = None,
 ) -> CodesignedPath:
     info_plist_metadata = signing_context.info_plist_metadata
     selected_profile = signing_context.selected_profile_info.profile
@@ -398,6 +401,7 @@ def _prepare_entitlements_and_info_plist(
         info_plist_metadata.bundle_id,
         selected_profile,
         tmp_dir,
+        entitlements_suffixed_key_map=entitlements_suffixed_key_map,
     )
     prepared_info_plist_path = prepare_info_plist(
         signing_context.info_plist_source,

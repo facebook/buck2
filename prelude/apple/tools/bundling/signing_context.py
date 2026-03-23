@@ -7,6 +7,7 @@
 # above-listed licenses.
 
 import argparse
+import json
 import shlex
 from pathlib import Path
 from typing import Optional, Union
@@ -84,6 +85,13 @@ def add_args_for_signing_context(parser: argparse.ArgumentParser):
         type=Path,
         required=False,
         help="Path to file with entitlements to be used during code signing. If it's not provided the minimal entitlements are going to be generated.",
+    )
+    parser.add_argument(
+        "--entitlements-suffixed-key-map",
+        type=json.loads,
+        required=False,
+        default={},
+        help="JSON map of entitlement key to suffix to append to its values.",
     )
     parser.add_argument(
         "--info-plist-source",

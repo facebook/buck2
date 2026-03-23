@@ -46,6 +46,180 @@ class Test(unittest.TestCase):
                     },
                 )
 
+    def test_suffix_applied_to_auto_generated_entitlements(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            profile = ProvisioningProfileMetadata(
+                Path("/foo"),
+                "00000000-0000-0000-0000-000000000000",
+                datetime.max,
+                {"iOS"},
+                {},
+                {
+                    "application-identifier": "ABCDEFGHIJ.*",
+                    "com.apple.developer.aps-environment": "development",
+                },
+            )
+            result = prepare_code_signing_entitlements(
+                None,
+                "com.company.application",
+                profile,
+                tmp_dir,
+                entitlements_suffixed_key_map={"keychain-access-groups": ".suffix"},
+            )
+            with open(result, mode="rb") as result_file:
+                self.assertEqual(
+                    plistlib.load(result_file),
+                    {
+                        "application-identifier": "ABCDEFGHIJ.com.company.application",
+                        "com.apple.developer.aps-environment": "development",
+                        "keychain-access-groups": [
+                            "ABCDEFGHIJ.com.company.application.suffix"
+                        ],
+                    },
+                )
+
+    def test_suffix_applied_to_user_provided_entitlements(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            entitlements = {
+                "foo": "bar",
+                "keychain-access-groups": ["group1", "group2"],
+            }
+            entitlements_path = os.path.join(tmp_dir, "Entitlements.plist")
+            with open(entitlements_path, mode="wb") as entitlements_file:
+                plistlib.dump(entitlements, entitlements_file, fmt=plistlib.FMT_XML)
+            profile = ProvisioningProfileMetadata(
+                Path("/foo"),
+                "00000000-0000-0000-0000-000000000000",
+                datetime.max,
+                {"iOS"},
+                {},
+                {
+                    "application-identifier": "ABCDEFGHIJ.com.company.application",
+                    "com.apple.developer.aps-environment": "development",
+                    "should.be.ignored": "dummy",
+                },
+            )
+            result = prepare_code_signing_entitlements(
+                entitlements_path,
+                "com.company.application",
+                profile,
+                tmp_dir,
+                entitlements_suffixed_key_map={"keychain-access-groups": ".mysuffix"},
+            )
+            with open(result, "rb") as result_file:
+                self.assertEqual(
+                    plistlib.load(result_file),
+                    {
+                        "foo": "bar",
+                        "application-identifier": "ABCDEFGHIJ.com.company.application",
+                        "com.apple.developer.aps-environment": "development",
+                        "keychain-access-groups": [
+                            "group1.mysuffix",
+                            "group2.mysuffix",
+                        ],
+                    },
+                )
+
+    def test_no_modification_when_suffix_is_none(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            profile = ProvisioningProfileMetadata(
+                Path("/foo"),
+                "00000000-0000-0000-0000-000000000000",
+                datetime.max,
+                {"iOS"},
+                {},
+                {
+                    "application-identifier": "ABCDEFGHIJ.*",
+                    "com.apple.developer.aps-environment": "development",
+                },
+            )
+            result = prepare_code_signing_entitlements(
+                None,
+                "com.company.application",
+                profile,
+                tmp_dir,
+                entitlements_suffixed_key_map={},
+            )
+            with open(result, mode="rb") as result_file:
+                self.assertEqual(
+                    plistlib.load(result_file),
+                    {
+                        "application-identifier": "ABCDEFGHIJ.com.company.application",
+                        "com.apple.developer.aps-environment": "development",
+                        "keychain-access-groups": [
+                            "ABCDEFGHIJ.com.company.application"
+                        ],
+                    },
+                )
+
+    def test_no_modification_when_keychain_access_groups_absent(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            entitlements = {"foo": "bar"}
+            entitlements_path = os.path.join(tmp_dir, "Entitlements.plist")
+            with open(entitlements_path, mode="wb") as entitlements_file:
+                plistlib.dump(entitlements, entitlements_file, fmt=plistlib.FMT_XML)
+            profile = ProvisioningProfileMetadata(
+                Path("/foo"),
+                "00000000-0000-0000-0000-000000000000",
+                datetime.max,
+                {"iOS"},
+                {},
+                {
+                    "application-identifier": "ABCDEFGHIJ.com.company.application",
+                },
+            )
+            result = prepare_code_signing_entitlements(
+                entitlements_path,
+                "com.company.application",
+                profile,
+                tmp_dir,
+                entitlements_suffixed_key_map={"keychain-access-groups": ".suffix"},
+            )
+            with open(result, "rb") as result_file:
+                self.assertEqual(
+                    plistlib.load(result_file),
+                    {
+                        "foo": "bar",
+                        "application-identifier": "ABCDEFGHIJ.com.company.application",
+                    },
+                )
+
+    def test_suffix_applied_to_string_entitlement_value(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            entitlements = {
+                "com.apple.developer.ubiquity-kvstore-identifier": "ABCDEFGHIJ.com.company.application",
+            }
+            entitlements_path = os.path.join(tmp_dir, "Entitlements.plist")
+            with open(entitlements_path, mode="wb") as entitlements_file:
+                plistlib.dump(entitlements, entitlements_file, fmt=plistlib.FMT_XML)
+            profile = ProvisioningProfileMetadata(
+                Path("/foo"),
+                "00000000-0000-0000-0000-000000000000",
+                datetime.max,
+                {"iOS"},
+                {},
+                {
+                    "application-identifier": "ABCDEFGHIJ.com.company.application",
+                },
+            )
+            result = prepare_code_signing_entitlements(
+                entitlements_path,
+                "com.company.application",
+                profile,
+                tmp_dir,
+                entitlements_suffixed_key_map={
+                    "com.apple.developer.ubiquity-kvstore-identifier": ".mysuffix"
+                },
+            )
+            with open(result, "rb") as result_file:
+                self.assertEqual(
+                    plistlib.load(result_file),
+                    {
+                        "application-identifier": "ABCDEFGHIJ.com.company.application",
+                        "com.apple.developer.ubiquity-kvstore-identifier": "ABCDEFGHIJ.com.company.application.mysuffix",
+                    },
+                )
+
     def test_entitlements_enriched_by_profile(self):
         with tempfile.TemporaryDirectory() as tmp_dir:
             entitlements = {"foo": "bar"}

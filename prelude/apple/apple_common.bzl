@@ -365,6 +365,16 @@ def _uses_modules_arg():
 def _xcode_product_type_arg():
     return {"xcode_product_type": attrs.option(attrs.string(), default = None)}
 
+def _entitlements_suffixed_key_map_arg():
+    return {
+        "entitlements_suffixed_key_map": attrs.dict(key = attrs.string(), value = attrs.string(), sorted = False, default = {}, doc = """
+    A map of entitlement key to suffix string. For each entry, the corresponding value(s) in the
+     entitlements plist will have the suffix appended. Values can be a single string or a list of
+     strings; both are handled. For example, `{"keychain-access-groups": ".suffix"}` will append
+     `.suffix` to every value under the `keychain-access-groups` key.
+"""),
+    }
+
 apple_common = struct(
     headers_arg = _headers_arg,
     exported_headers_arg = _exported_headers_arg,
@@ -419,4 +429,5 @@ apple_common = struct(
     uses_cxx_explicit_modules_arg = _uses_cxx_explicit_modules_arg,
     uses_modules_arg = _uses_modules_arg,
     xcode_product_type_arg = _xcode_product_type_arg,
+    entitlements_suffixed_key_map_arg = _entitlements_suffixed_key_map_arg,
 )

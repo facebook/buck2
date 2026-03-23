@@ -254,4 +254,5 @@ def apple_bundle_extra_attrs():
         "_codesign_entitlements": attrs.option(attrs.source(), default = None),
     } | apple_common.debug_artifacts_validators_arg()
     attribs.update(_apple_bundle_like_common_attrs())
+    attribs.update(apple_common.entitlements_suffixed_key_map_arg())
     return attribs

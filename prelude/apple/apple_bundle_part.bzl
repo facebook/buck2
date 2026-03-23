@@ -181,6 +181,8 @@ def assemble_bundle(
                 codesign_args.append("--embed-provisioning-profile-when-signing-ad-hoc")
 
         codesign_args += get_entitlements_codesign_args(ctx, codesign_type)
+        if getattr(ctx.attrs, "entitlements_suffixed_key_map", None):
+            codesign_args += ["--entitlements-suffixed-key-map", json.encode(ctx.attrs.entitlements_suffixed_key_map)]
         codesign_bundle_extra_args += _get_extra_codesign_args(ctx)
 
         info_plist_args = [
