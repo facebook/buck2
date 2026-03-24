@@ -101,10 +101,6 @@ class TpxTimeoutBufferManagerTest {
         "Expected TIMEOUT status (status=1) in output",
         output.contains("\"status\":1"),
     )
-    Assert.assertTrue(
-        "Expected stacktrace field in output",
-        output.contains("\"stacktrace\""),
-    )
   }
 
   /**

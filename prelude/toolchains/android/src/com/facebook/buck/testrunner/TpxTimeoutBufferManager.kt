@@ -63,17 +63,22 @@ private constructor(
     val threadDump = ThreadDumpUtils.capture()
     val now = System.currentTimeMillis()
 
-    // Report run failure with TIMEOUT status. TPX overwrites the details field with its own
-    // timeout message, but includes stderr — so the thread dump reaches the output via stderr.
+    // Report run failure with TIMEOUT status.
     try {
-      sender.sendRunFailure(RunFailureStatus.TIMEOUT, now, "Test target timed out", threadDump)
+      sender.sendRunFailure(RunFailureStatus.TIMEOUT, now, "Test target timed out", null)
     } catch (e: Exception) {
       System.err.println("Failed to report run failure: ${e.message}")
     }
 
-    // Print thread dump to stderr for log visibility
-    System.err.println("\n=== Thread Dump at Timeout ===")
-    System.err.println(threadDump)
+    // Write thread dump directly to fd 2, bypassing StandardOutputRecorder which may have
+    // intercepted System.err. TPX includes process stderr in the timeout message on the main
+    // test, so this is how the thread dump reaches the diagnostics page.
+    java.io.FileOutputStream(java.io.FileDescriptor.err).use { fos ->
+      val realStderr = java.io.PrintStream(fos)
+      realStderr.println("\n=== Thread Dump at Timeout ===")
+      realStderr.println(threadDump)
+      realStderr.flush()
+    }
 
     scheduler?.shutdown()
   }
