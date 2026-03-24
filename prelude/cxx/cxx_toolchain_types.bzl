@@ -265,6 +265,7 @@ CxxToolchainInfo = provider(
         "objc_compiler_info": provider_field([ObjcCompilerInfo, None], default = None),
         "objcxx_compiler_info": provider_field([ObjcxxCompilerInfo, None], default = None),
         "object_format": provider_field(typing.Any, default = None),
+        "pass_plugin": provider_field([Artifact, None], default = None),
         "pic_behavior": provider_field(typing.Any, default = None),
         "raw_headers_as_headers_mode": provider_field(typing.Any, default = None),
         "rc_compiler_info": provider_field(typing.Any, default = None),
@@ -337,6 +338,7 @@ def cxx_toolchain_infos(
         objc_compiler_info = None,
         objcxx_compiler_info = None,
         cxx_error_handler = None,
+        pass_plugin = None,
         runtime_dependency_handling = RuntimeDependencyHandling("no_symlink")):
     """
     Creates the collection of cxx-toolchain Infos for a cxx toolchain.
@@ -387,6 +389,7 @@ def cxx_toolchain_infos(
         objc_compiler_info = objc_compiler_info,
         objcxx_compiler_info = objcxx_compiler_info,
         object_format = object_format,
+        pass_plugin = pass_plugin,
         compiler_flavor_flags = compiler_flavor_flags,
         pic_behavior = pic_behavior,
         raw_headers_as_headers_mode = raw_headers_as_headers_mode,

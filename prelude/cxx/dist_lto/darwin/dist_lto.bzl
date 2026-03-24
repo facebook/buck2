@@ -754,6 +754,8 @@ def cxx_darwin_dist_link(
 
     def prepare_opt_flags(link_infos: list[LinkInfo]) -> cmd_args:
         opt_flags = cmd_args(cxx_toolchain.linker_info.dist_thin_lto_codegen_flags)
+        if cxx_toolchain.pass_plugin:
+            opt_flags.add(cmd_args(cxx_toolchain.pass_plugin, format = "-fpass-plugin={}"))
         opt_flags.add(get_target_sdk_version_flags(ctx))
         for link in link_infos:
             opt_flags.add(link.dist_thin_lto_codegen_flags)
