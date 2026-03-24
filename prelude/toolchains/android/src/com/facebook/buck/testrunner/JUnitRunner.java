@@ -220,8 +220,6 @@ public final class JUnitRunner extends BaseRunner {
 
   private static Class<?>[] collectTestClasses(Class<?> testClass) {
     ArrayList<Class<?>> classes = new ArrayList<>();
-    // Get all nested classes
-    Class<?>[] declaredClasses = testClass.getDeclaredClasses();
     for (Class<?> cls : testClass.getDeclaredClasses()) {
       int modifiers = cls.getModifiers();
       if (!Modifier.isStatic(modifiers)) {
