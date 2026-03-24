@@ -28,12 +28,14 @@ use starlark_derive::starlark_value;
 
 use crate as starlark;
 use crate::eval::runtime::slots::LocalSlotId;
+use crate::singleton_heap_name;
 use crate::starlark_simple_value;
 use crate::values::FrozenHeap;
 use crate::values::FrozenHeapRef;
 use crate::values::FrozenValueTyped;
 use crate::values::ProvidesStaticType;
 use crate::values::StarlarkValue;
+use crate::values::layout::heap::heap_type::FrozenHeapName;
 
 /// Local slot id as `FrozenValue`. This object only using during compilation
 /// and never appears in the executed program.
@@ -70,7 +72,10 @@ pub(crate) fn local_as_value(
                 local: LocalSlotId(i as u32),
             })
         });
-        (heap.into_ref(), locals)
+        (
+            heap.into_ref_named(FrozenHeapName::Singleton(singleton_heap_name!())),
+            locals,
+        )
     });
     LOCALS.1.get(local.0 as usize).copied()
 }

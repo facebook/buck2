@@ -225,6 +225,8 @@ pub enum FrozenHeapName {
     Method(MethodFrozenHeapName),
     /// For the global starlark environment heap.
     Global(GlobalFrozenHeapName),
+    /// For starlark singleton heaps
+    Singleton(SingletonFrozenHeapName),
     /// For user/downstream code.
     User(Box<dyn Any + Send + Sync + 'static>),
 }
