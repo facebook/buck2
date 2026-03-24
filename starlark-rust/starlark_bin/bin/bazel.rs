@@ -49,6 +49,7 @@ use starlark::errors::EvalMessage;
 use starlark::eval::Evaluator;
 use starlark::syntax::AstModule;
 use starlark::syntax::Dialect;
+use starlark::values::FrozenHeapName;
 use starlark_lsp::completion::StringCompletionResult;
 use starlark_lsp::completion::StringCompletionType;
 use starlark_lsp::error::eval_message_to_lsp_diagnostic;
@@ -194,7 +195,9 @@ impl<'v> BazelContext<'v> {
                         let module = AstModule::parse_file(x, &dialect).into_anyhow_result()?;
                         eval.eval_module(module, &globals).into_anyhow_result()?;
                     }
-                    Ok::<_, anyhow::Error>(env.freeze()?)
+                    Ok::<_, anyhow::Error>(env.freeze_named(FrozenHeapName::User(Box::new(
+                        x.to_string_lossy().into_owned(),
+                    )))?)
                 })
             })
             .collect::<anyhow::Result<_>>()?;

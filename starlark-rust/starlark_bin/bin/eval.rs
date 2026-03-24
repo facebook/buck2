@@ -36,6 +36,7 @@ use starlark::eval::Evaluator;
 use starlark::eval::FileLoader;
 use starlark::syntax::AstModule;
 use starlark::syntax::Dialect;
+use starlark::values::FrozenHeapName;
 use starlark_lsp::error::eval_message_to_lsp_diagnostic;
 use starlark_lsp::server::LspContext;
 use starlark_lsp::server::LspEvalResult;
@@ -154,7 +155,9 @@ impl<'v> Context<'v> {
                 let module = AstModule::parse_file(path, &self.dialect).into_anyhow_result()?;
                 eval.eval_module(module, &self.globals)?;
             }
-            Ok::<_, starlark::Error>(env.freeze()?)
+            Ok::<_, starlark::Error>(env.freeze_named(FrozenHeapName::User(Box::new(
+                path.to_string_lossy().into_owned(),
+            )))?)
         })
     }
 
