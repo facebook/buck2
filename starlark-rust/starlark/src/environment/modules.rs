@@ -44,6 +44,7 @@ use crate::environment::slots::MutableSlots;
 use crate::errors::did_you_mean::did_you_mean;
 use crate::eval::ProfileData;
 use crate::eval::runtime::profile::heap::RetainedHeapProfileMode;
+use crate::singleton_heap_name;
 use crate::values::Freeze;
 use crate::values::FreezeResult;
 use crate::values::Freezer;
@@ -150,7 +151,7 @@ impl FrozenModule {
                 module.set_docstring(String::from(docstring));
             }
 
-            module.freeze()
+            module.freeze_named(FrozenHeapName::Singleton(singleton_heap_name!()))
         })
     }
 
