@@ -220,7 +220,7 @@
 //! ## Enable the `load` statement
 //!
 //! You can have Starlark load files imported by the user.
-//! That requires that the loaded modules are first frozen with [`Module.freeze`](environment::Module::freeze).
+//! That requires that the loaded modules are first frozen with [`Module.freeze_named`](environment::Module::freeze_named).
 //! There is no requirement that the files are on disk, but that would be a common pattern.
 //!
 //! ```
@@ -232,6 +232,7 @@
 //! use starlark::eval::ReturnFileLoader;
 //! use starlark::syntax::AstModule;
 //! use starlark::syntax::Dialect;
+//! use starlark::values::FrozenHeapName;
 //!
 //! // Get the file contents (for the demo), in reality use `AstModule::parse_file`.
 //! fn get_source(file: &str) -> &str {
@@ -269,7 +270,8 @@
 //!         }
 //!         // After creating a module we freeze it, preventing further mutation.
 //!         // It can now be used as the input for other Starlark modules.
-//!         Ok(module.freeze()?)
+//!         // Each frozen module is given a name to identify its heap.
+//!         Ok(module.freeze_named(FrozenHeapName::User(Box::new(file.to_owned())))?)
 //!     })
 //! }
 //!

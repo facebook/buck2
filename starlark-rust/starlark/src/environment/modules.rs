@@ -427,6 +427,10 @@ impl<'v> Module<'v> {
     }
 
     /// Freeze the environment, all its value will become immutable afterwards.
+    ///
+    /// When the `pagable` feature is enabled, this method is hidden to enforce
+    /// that all heaps are named. Use [`freeze_named`](Self::freeze_named) instead.
+    #[cfg(not(feature = "pagable"))]
     pub fn freeze(self) -> FreezeResult<FrozenModule> {
         self.freeze_impl(None)
     }

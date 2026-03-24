@@ -409,6 +409,10 @@ impl FrozenHeap {
     /// After all values have been allocated, convert the [`FrozenHeap`] into a
     /// [`FrozenHeapRef`] which can be [`clone`](Clone::clone)d, shared between threads,
     /// and ensures the underlying values allocated on the [`FrozenHeap`] remain valid.
+    ///
+    /// When the `pagable` feature is enabled, this method is hidden to enforce
+    /// that all heaps are named. Use [`into_ref_named`](Self::into_ref_named) instead.
+    #[cfg(not(feature = "pagable"))]
     pub fn into_ref(self) -> FrozenHeapRef {
         self.into_ref_impl(None)
     }
