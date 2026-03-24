@@ -673,7 +673,7 @@ def _make_py_package_live(
     name = "{}{}".format(ctx.attrs.name, output_suffix)
 
     symlink_tree_path = ctx.actions.declare_output("{}#link-tree".format(name), dir = True, has_content_based_path = False)
-    runtime_files = [symlink_tree_path]
+    runtime_files = []
 
     output = ctx.actions.declare_output("{}{}".format(name, ctx.attrs.extension or python_toolchain.pex_extension), has_content_based_path = False)
 
@@ -796,7 +796,7 @@ def _make_py_package_live(
         allow_cache_upload = False
 
     if copy:
-        cmd.add("--copy")
+        cmd.add(cmd_args("--copy", hidden = runtime_files))
         ctx.actions.run(
             cmd,
             category = "par",
@@ -820,6 +820,7 @@ def _make_py_package_live(
             allow_cache_upload = allow_cache_upload,
         )
 
+    runtime_files.append(symlink_tree_path)
     hidden_resources = pex_modules.manifests.hidden_resources(False)
     sub_targets["link-tree"] = [DefaultInfo(
         default_output = symlink_tree_path,
