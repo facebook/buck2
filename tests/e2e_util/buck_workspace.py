@@ -379,12 +379,12 @@ def _setup_eden(
     )
 
 
-def _cleanup_eden(
+def eden_remove(
     eden_dir: Path,
     project_dir: Path,
     env: Dict[str, str],
 ) -> None:
-    # Remove the Eden mount created for the test
+    """Remove an Eden checkout mount."""
     subprocess.run(
         _eden_base_cmd(eden_dir)
         + [
@@ -396,6 +396,14 @@ def _cleanup_eden(
         stderr=sys.stderr,
         env=env,
     )
+
+
+def _cleanup_eden(
+    eden_dir: Path,
+    project_dir: Path,
+    env: Dict[str, str],
+) -> None:
+    eden_remove(eden_dir, project_dir, env)
 
     subprocess.run(
         _eden_base_cmd(eden_dir)
