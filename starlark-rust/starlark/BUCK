@@ -48,7 +48,10 @@ rust_library(
     }),
     rustc_flags = [
         "--cfg=rust_nightly",
-    ],
+    ] + select({
+        ":pagable[enabled]": ["--cfg=starlark_require_heap_names"],
+        "DEFAULT": [],
+    }),
     test_deps = [
         "fbsource//third-party/rust:rand",
         # This is a hack to build `:testcases` when invoking a test.

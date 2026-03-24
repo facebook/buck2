@@ -323,6 +323,10 @@ impl MethodsStatic {
     ///
     /// Prefer [`methods_for_type`](Self::methods_for_type) when heap naming is needed for pagable
     /// serialization.
+    ///
+    /// Hidden when `starlark_require_heap_names` cfg is set, to enforce that all method heaps
+    /// have names. Use [`methods_named`](Self::methods_named) directly in that case.
+    #[cfg(not(starlark_require_heap_names))]
     pub fn methods(&'static self, x: impl FnOnce(&mut MethodsBuilder)) -> Option<&'static Methods> {
         Some(self.0.get_or_init(|| {
             let mut builder = MethodsBuilder::new();

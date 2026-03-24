@@ -61,4 +61,4 @@ rustyline = "14.0"
 rand = { version = "0.9", features = ["small_rng"] }
 
 [lints.rust]
-unexpected_cfgs = { level = "warn", check-cfg = ["cfg(rust_nightly)", "cfg(feature, values(\"pagable\", \"pagable_dep\"))"] }
+unexpected_cfgs = { level = "warn", check-cfg = ["cfg(rust_nightly)", "cfg(starlark_require_heap_names)", "cfg(feature, values(\"pagable\", \"pagable_dep\"))"] }
