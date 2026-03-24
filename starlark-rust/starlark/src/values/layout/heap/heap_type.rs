@@ -229,6 +229,47 @@ pub enum FrozenHeapName {
     User(Box<dyn Any + Send + Sync + 'static>),
 }
 
+/// A frozen heap name derived from source location, for singleton heaps.
+///
+/// This type can only be created via the [`singleton_heap_name!`](crate::singleton_heap_name)
+/// macro, which captures `file!()`, `line!()`, and `column!()` at the call site.
+/// This ensures each name is unique and stable across process runs.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct SingletonFrozenHeapName {
+    file: &'static str,
+    line: u32,
+    col: u32,
+}
+
+impl SingletonFrozenHeapName {
+    /// Internal constructor. Do not call directly; use [`singleton_heap_name!`](crate::singleton_heap_name).
+    #[doc(hidden)]
+    pub const fn _new(file: &'static str, line: u32, col: u32) -> Self {
+        Self { file, line, col }
+    }
+}
+
+impl std::fmt::Display for SingletonFrozenHeapName {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}:{}:{}", self.file, self.line, self.col)
+    }
+}
+
+/// Create a [`SingletonFrozenHeapName`] capturing the current source location.
+///
+/// Each call site produces a unique, stable name based on `file!()`, `line!()`, `column!()`.
+///
+/// ```
+/// use starlark::singleton_heap_name;
+/// let name = singleton_heap_name!();
+/// ```
+#[macro_export]
+macro_rules! singleton_heap_name {
+    () => {
+        $crate::values::SingletonFrozenHeapName::_new(file!(), line!(), column!())
+    };
+}
+
 /// `FrozenHeap` when it is no longer modified and can be share between threads.
 /// Although, `arena` is not safe to share between threads, but at least `refs` is.
 #[derive(Allocative)]
