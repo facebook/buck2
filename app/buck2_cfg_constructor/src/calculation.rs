@@ -16,6 +16,7 @@ use buck2_common::dice::cells::HasCellResolver;
 use buck2_core::cells::paths::CellRelativePath;
 use buck2_core::configuration::data::ConfigurationData;
 use buck2_core::package::PackageLabel;
+use buck2_core::soft_error;
 use buck2_core::target::label::label::TargetLabel;
 use buck2_error::internal_error;
 use buck2_interpreter_for_build::interpreter::package_file_calculation::EvalPackageFile;
@@ -39,10 +40,11 @@ use pagable::pagable_typetag;
 #[derive(Debug, buck2_error::Error)]
 #[buck2(tag = Input)]
 enum CalculationCfgConstructorError {
-    #[error(
-        "Usage of both `modifiers` attribute and modifiers in metadata is not allowed for target `{0}`"
-    )]
-    TargetModifiersAttrAndMetadataNotAllowed(TargetLabel),
+    // TODO: Clean up once metadata modifiers are deleted
+    #[error("Expected metadata modifiers to be an array for target `{0}`, got: {1}")]
+    MetadataModifiersNotArray(TargetLabel, serde_json::Value),
+    #[error("Expected attribute modifiers to be an array for target `{0}`, got: {1}")]
+    AttributeModifiersNotArray(TargetLabel, serde_json::Value),
 }
 
 pub struct CfgConstructorCalculationInstance;
@@ -162,19 +164,50 @@ impl CfgConstructorCalculationImpl for CfgConstructorCalculationInstance {
             .map(MetadataValue::new);
 
         let metadata_modifiers = target.metadata()?.and_then(|m| m.get(modifier_key));
-        let target_modifiers = target.target_modifiers()?;
+        let target_modifiers = target.target_modifiers()?.filter(|t| !t.is_empty());
         let target_cfg_modifiers = match (metadata_modifiers, target_modifiers) {
-            (None, Some(t)) if !t.is_empty() => Some(MetadataValue(t.as_json())),
-            (Some(_), Some(t)) if !t.is_empty() => {
-                return Err(
-                    CalculationCfgConstructorError::TargetModifiersAttrAndMetadataNotAllowed(
-                        target.label().dupe(),
-                    )
-                    .into(),
-                );
+            (None, Some(t)) => Some(MetadataValue(t.as_json())),
+            (Some(m), Some(t)) => {
+                // Transitional: merge metadata modifiers and attribute modifiers
+                // to allow incremental migration from metadata-based to first-class modifiers.
+                // Metadata modifiers come first, then attribute modifiers.
+                soft_error!(
+                    "cfg_modifiers_both_metadata_and_attr",
+                    buck2_error::buck2_error!(
+                        buck2_error::ErrorTag::Input,
+                        "Target `{}` uses both `modifiers` attribute and modifiers in metadata. \
+                         Migrate metadata modifiers to the `modifiers` attribute.",
+                        target.label(),
+                    ),
+                    quiet: true,
+                )
+                .ok();
+                let mut merged = match m.as_json() {
+                    serde_json::Value::Array(arr) => arr.clone(),
+                    other => {
+                        return Err(CalculationCfgConstructorError::MetadataModifiersNotArray(
+                            target.label().dupe(),
+                            other.clone(),
+                        )
+                        .into());
+                    }
+                };
+                match Arc::unwrap_or_clone(t.as_json()) {
+                    serde_json::Value::Array(target_arr) => {
+                        merged.extend(target_arr);
+                    }
+                    other => {
+                        return Err(CalculationCfgConstructorError::AttributeModifiersNotArray(
+                            target.label().dupe(),
+                            other,
+                        )
+                        .into());
+                    }
+                }
+                Some(MetadataValue::new(serde_json::Value::Array(merged)))
             }
-            (Some(m), _) => Some(m.dupe()),
-            _ => None,
+            (Some(m), None) => Some(m.dupe()),
+            (None, None) => None,
         };
 
         // If there are no PACKAGE/target/cli modifiers, return the original configuration without computing DICE call
