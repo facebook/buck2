@@ -9,7 +9,7 @@
 load("@fbcode//buck2/tests:buck_e2e.bzl", "buck2_e2e_test")
 load("@fbcode_macros//build_defs:export_files.bzl", "export_file")
 
-def bxl_test(src, name = None, labels = None, buck_args: list[str] | None = None, bxl_args: list[str] | None = None, **kwargs):
+def bxl_test(src, name = None, labels = None, buck_args: list[str] | None = None, bxl_args: list[str] | None = None, env: dict[str, str] | None = None, **kwargs):
     """
     Creates a test target from a buck2 bxl script. BXL script must use "test" as entry
     point.
@@ -23,6 +23,9 @@ def bxl_test(src, name = None, labels = None, buck_args: list[str] | None = None
             Ex. buck_args = ["--config", "build.use_limited_hybrid=false"]
         bxl_args: Arguments to `buck2 bxl` invocation after `--`. These are
             arguments to bxl script specifically.
+        env: Additional environment variables to pass to the test. These are
+            merged with the internally-constructed env, with user-provided
+            values taking precedence.
     """
 
     if ":" in src:
@@ -42,20 +45,22 @@ def bxl_test(src, name = None, labels = None, buck_args: list[str] | None = None
     if not name:
         name = src
 
-    env = {
+    merged_env = {
         "BXL_MAIN": bxl_main,
         # This env var is used to properly declare a dep on the src file.
         # I didn't use `resources` or `deps` because attaching to an env var makes debugging easier if needed.
         "_BXL_SRC": "$(location :{})".format(export_file_name),
     }
     if bxl_args:
-        env["BXL_ARGS"] = " ".join(bxl_args)
+        merged_env["BXL_ARGS"] = " ".join(bxl_args)
     if buck_args:
-        env["BUCK_ARGS"] = " ".join(buck_args)
+        merged_env["BUCK_ARGS"] = " ".join(buck_args)
+    if env:
+        merged_env.update(env)
 
     buck2_e2e_test(
         name = name,
-        env = env,
+        env = merged_env,
         srcs = {"fbcode//buck2/tests/e2e_util:test_bxl_template.py": "test_bxl_template.py"},
         labels = ["bxl_test"] + (labels if labels else []),
         test_with_compiled_buck2 = False,
