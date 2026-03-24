@@ -26,7 +26,9 @@ use buck2_common::invocation_paths::InvocationPaths;
 use buck2_common::memory;
 use buck2_core::buck2_env;
 use buck2_core::logging::LogConfigurationReloadHandle;
+use buck2_core::soft_error;
 use buck2_error::BuckErrorContext;
+use buck2_error::buck2_error;
 use buck2_error::conversion::clap::buck_error_clap_parser;
 use buck2_events::daemon_id::DaemonId;
 use buck2_events::daemon_id::set_daemon_id_for_panics;
@@ -402,6 +404,7 @@ impl DaemonCommand {
                 hard_shutdown_sender: hard_shutdown_sender.clone(),
             });
             let daemon_dir = paths.daemon_dir()?;
+            let project_root = paths.project_root().root().as_path().to_path_buf();
 
             listener.set_nonblocking(true)?;
             let listener = tokio::net::TcpListener::from_std(listener)?;
@@ -448,10 +451,11 @@ impl DaemonCommand {
 
             let checker_interval_seconds = self.checker_interval_seconds;
 
-            thread_spawn("check-daemon-dir", move || {
-                Self::check_daemon_dir_thread(
+            thread_spawn("check-daemon-dirs", move || {
+                Self::check_daemon_dirs_thread(
                     checker_interval_seconds,
                     daemon_dir,
+                    project_root,
                     hard_shutdown_sender,
                 )
             })?;
@@ -472,18 +476,23 @@ impl DaemonCommand {
 
     /// We start a dedicated thread to periodically check that the files in the daemon
     /// dir still reflect that we are the current buckd and verify that when you connect
-    /// to the server it is our server.
+    /// to the server it is our server. Also checks that the project root (working
+    /// directory) is still accessible.
     /// It gets a dedicated thread so that if somehow the main runtime gets all jammed up,
     /// this will still run (and presumably connecting to the server or our request would
     /// then fail and we'd do a hard shutdown).
-    fn check_daemon_dir_thread(
+    fn check_daemon_dirs_thread(
         checker_interval_seconds: u64,
         daemon_dir: DaemonDir,
+        project_root: PathBuf,
         hard_shutdown_sender: UnboundedSender<String>,
     ) {
         let this_rt = Builder::new_current_thread().enable_all().build().unwrap();
 
         this_rt.block_on(async move {
+            let mut inaccessible_count: u64 = 0;
+            let mut returned_count: u64 = 0;
+
             loop {
                 tokio::time::sleep(Duration::from_secs(checker_interval_seconds)).await;
                 match verify_current_daemon(&daemon_dir) {
@@ -501,6 +510,59 @@ impl DaemonCommand {
                             .unbounded_send("Daemon verification failed".to_owned());
                     }
                 };
+
+                // Check if the working directory has gone stale. This is increasingly
+                // important as people use more temporary checkouts.
+                //
+                // We log soft errors to track:
+                // 1. How often the working directory actually becomes inaccessible in practice.
+                // 2. Whether the error is recoverable based on our current detection methods.
+                //
+                // This data will help us determine how to turn this into an immediate
+                // daemon shutdown.
+                let dir_check: buck2_error::Result<()> = std::fs::metadata(&project_root)
+                    .map(|_| ())
+                    .map_err(buck2_error::Error::from);
+                match dir_check {
+                    Err(e) => {
+                        if inaccessible_count == returned_count {
+                            inaccessible_count += 1;
+                            let err = e.context(format!(
+                                "Working directory is no longer accessible \
+                                 (inaccessible_count={}, returned_count={})",
+                                inaccessible_count, returned_count
+                            ));
+                            let _ignored = buck2_client_ctx::eprintln!("{:#}", err);
+                            if inaccessible_count == 1 {
+                                let _ignored = soft_error!("daemon_working_dir_inaccessible_first", err, quiet: false);
+                            } else {
+                                let _ignored = soft_error!("daemon_working_dir_inaccessible_again", err, quiet: false);
+                            }
+                        }
+                        // TODO: hard shutdown when working directory is inaccessible
+                    }
+                    Ok(_) => {
+                        if inaccessible_count > returned_count {
+                            returned_count += 1;
+                            let msg = format!(
+                                "Working directory accessibility returned \
+                                 (inaccessible_count={}, returned_count={})",
+                                inaccessible_count, returned_count,
+                            );
+                            let _ignored = buck2_client_ctx::eprintln!("{}", msg);
+                            let err = buck2_error!(
+                                buck2_error::ErrorTag::Environment,
+                                "{}",
+                                msg
+                            );
+                            if returned_count == 1 {
+                                let _ignored = soft_error!("daemon_working_dir_returned_first", err, quiet: false);
+                            } else {
+                                let _ignored = soft_error!("daemon_working_dir_returned_again", err, quiet: false);
+                            }
+                        }
+                    }
+                }
             }
         })
     }
