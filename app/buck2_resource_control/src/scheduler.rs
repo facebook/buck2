@@ -269,12 +269,21 @@ impl Scheduler {
         now: Instant,
     ) -> Self {
         let enable_suspension = resource_control_config.enable_suspension;
+        let experimental_algo_variant = if enable_suspension {
+            ExperimentalAlgoVariant::new(
+                resource_control_config.experimental_suspension_algo_variant,
+            )
+        } else {
+            // If suspension is disabled don't compute the variant - this is somewhat important,
+            // because suspension might have been disabled because of a algo version mismatch, in
+            // which case it may be the case that the variant that was passed makes no sense to this
+            // version of buck
+            ExperimentalAlgoVariant::new(None)
+        };
 
         Self::new(
             enable_suspension,
-            ExperimentalAlgoVariant::new(
-                resource_control_config.suspension_experimental_algo_variant,
-            ),
+            experimental_algo_variant,
             resource_control_config.preferred_action_suspend_strategy,
             effective_resource_constraints,
             system_memory_max,
