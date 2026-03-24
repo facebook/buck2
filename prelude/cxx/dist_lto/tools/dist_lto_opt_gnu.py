@@ -203,6 +203,35 @@ def _cleanup_flags(clang_opt_flags: List[str]) -> List[str]:
     return clean_output
 
 
+# Flags that fbcc consumes and does NOT pass through to the compiler.
+# See fbcode/tools/build/buck/wrappers/fbcc.py for the full list.
+_FBCC_CONSUMED_PREFIXES = (
+    "--log-fbcc",
+    "--fbcc-create-external-debug-info=",
+    "--show-flags",
+)
+
+
+def _fbcc_prefix_end(opt_args: List[str]) -> int:
+    """Return the slice end for the fbcc prefix within opt_args.
+
+    opt_args layout:
+        ['--', <fbcc>, '--cc=<compiler>', <optional fbcc-consumed args>, ...]
+
+    Only args that fbcc *consumes* (strips before invoking the compiler)
+    belong in the prefix.  Pass-through args like ``--target=`` must be
+    excluded: they are already folded into cc1 flags by ``_cleanup_flags``
+    and including them in ``fbcc_cmd`` would place them before ``-cc1``,
+    which prevents clang from entering cc1 mode.
+    """
+    end = 3  # ['--', fbcc, '--cc=...']
+    while end < len(opt_args) and any(
+        opt_args[end].startswith(p) for p in _FBCC_CONSUMED_PREFIXES
+    ):
+        end += 1
+    return end
+
+
 def main(argv: List[str]) -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--out", help="The output native object file.")
@@ -247,18 +276,20 @@ def main(argv: List[str]) -> int:
     #   1. a spliter "--", it's not used anywhere;
     #   2. the fbcc wrapper script path
     #   3. the "--cc" arg pointing to the compiler we use
-    #   4. (optional) the "--log-fbcc" arg indicating whether we want to log the compiler invocation
+    #   4. (optional) fbcc-consumed args like "--log-fbcc"
+    #   5. (optional) pass-through args like "--target=" (from buckified toolchains)
     # EXAMPLE: ['--', 'buck-out/v2/gen/fbcode/8e3db19fe005003a/tools/build/buck/wrappers/__fbcc__/fbcc', '--cc=fbcode/third-party-buck/platform010/build/llvm-fb/<ver>/bin/clang++', '--log-fbcc=False', '--target=x86_64-redhat-linux-gnu', ...]
     clang_cc1_flags = _cleanup_flags(args.opt_args[2:] + clang_opt_flags)
     if clang_cc1_flags is None:
         return EXIT_FAILURE
 
     # Determine the end of fbcc-specific prefix args (fbcc path, --cc=, and
-    # optionally --log-fbcc). All remaining opt_args are compiler flags that
-    # have already been folded into clang_cc1_flags via _cleanup_flags above.
-    fbcc_prefix_end = 3  # ['--', fbcc, '--cc=...']
-    if len(args.opt_args) > 3 and args.opt_args[3].startswith("--log-fbcc"):
-        fbcc_prefix_end = 4
+    # optionally args that fbcc consumes like --log-fbcc).
+    # Only fbcc-consumed args belong in the prefix; pass-through args like
+    # --target= are already folded into clang_cc1_flags by _cleanup_flags
+    # and must NOT appear in fbcc_cmd where they would precede -cc1 and
+    # prevent clang from entering cc1 mode.
+    fbcc_prefix_end = _fbcc_prefix_end(args.opt_args)
     fbcc_cmd = args.opt_args[1:fbcc_prefix_end] + clang_cc1_flags
 
     if args.debug:

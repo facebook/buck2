@@ -9,7 +9,7 @@
 
 import unittest
 
-from cxx.dist_lto.tools.dist_lto_opt_gnu import _filter_flags
+from cxx.dist_lto.tools.dist_lto_opt_gnu import _fbcc_prefix_end, _filter_flags
 
 
 class TestDistLtoOpt(unittest.TestCase):
@@ -46,6 +46,63 @@ class TestDistLtoOpt(unittest.TestCase):
                 "-fPIC",
             ],
         )
+
+    def test_fbcc_prefix_end_tp2_with_log_fbcc(self):
+        """TP2 toolchain: --log-fbcc is consumed by fbcc and included in prefix."""
+        opt_args = [
+            "--",
+            "buck-out/fbcc",
+            "--cc=fbcode/third-party-buck/platform010/build/llvm-fb/19/bin/clang++",
+            "--log-fbcc=False",
+            "--target=x86_64-redhat-linux-gnu",
+            "-nostdinc",
+        ]
+        self.assertEqual(_fbcc_prefix_end(opt_args), 4)
+
+    def test_fbcc_prefix_end_buckified_no_log_fbcc(self):
+        """Buckified toolchain: --target is NOT consumed by fbcc and must be
+        excluded from prefix to avoid breaking -cc1 mode."""
+        opt_args = [
+            "--",
+            "buck-out/fbcc",
+            "--cc=buck-out/v2/art/fbsource/third-party/llvm-fb/19/__build/bin/clang++__/out/clang++",
+            "--target=x86_64-redhat-linux-gnu",
+            "-nostdinc",
+            "-nostdinc++",
+        ]
+        self.assertEqual(_fbcc_prefix_end(opt_args), 3)
+
+    def test_fbcc_prefix_end_minimal(self):
+        """Minimal case: only --cc= present."""
+        opt_args = [
+            "--",
+            "buck-out/fbcc",
+            "--cc=some/clang++",
+        ]
+        self.assertEqual(_fbcc_prefix_end(opt_args), 3)
+
+    def test_fbcc_prefix_end_with_fbcc_debug_info(self):
+        """--fbcc-create-external-debug-info is consumed by fbcc."""
+        opt_args = [
+            "--",
+            "buck-out/fbcc",
+            "--cc=some/clang++",
+            "--fbcc-create-external-debug-info=/tmp/foo.dwo",
+            "--target=x86_64-redhat-linux-gnu",
+        ]
+        self.assertEqual(_fbcc_prefix_end(opt_args), 4)
+
+    def test_fbcc_prefix_end_multiple_consumed_flags(self):
+        """Multiple fbcc-consumed flags in a row."""
+        opt_args = [
+            "--",
+            "buck-out/fbcc",
+            "--cc=some/clang++",
+            "--log-fbcc=True",
+            "--fbcc-create-external-debug-info=/tmp/foo.dwo",
+            "--target=x86_64-redhat-linux-gnu",
+        ]
+        self.assertEqual(_fbcc_prefix_end(opt_args), 5)
 
     def test_filter_flags_hhvm_case_rev_0f8618f31(self):
         inputs = [
