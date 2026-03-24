@@ -28,8 +28,10 @@ use clap::Parser;
 use starlark::environment::Globals;
 use starlark::environment::Module;
 use starlark::eval::Evaluator;
+use starlark::singleton_heap_name;
 use starlark::syntax::AstModule;
 use starlark::syntax::Dialect;
+use starlark::values::FrozenHeapName;
 use starlark_syntax::syntax::ast::AssignP;
 use starlark_syntax::syntax::ast::AssignTargetP;
 use starlark_syntax::syntax::ast::AstExprP;
@@ -261,7 +263,9 @@ fn main() {
             if args.freeze {
                 println!("\n--- Freeze Phase ---");
                 let freeze_start = Instant::now();
-                let frozen = module.freeze().expect("freeze should succeed");
+                let frozen = module
+                    .freeze_named(FrozenHeapName::Singleton(singleton_heap_name!()))
+                    .expect("freeze should succeed");
                 let freeze_time = freeze_start.elapsed();
 
                 let frozen_heap_bytes = frozen.frozen_heap().allocated_bytes();
