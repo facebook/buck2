@@ -12,7 +12,7 @@ use starlark::values::FrozenHeapName;
 
 /// Testing sentinel for buck2 test code.
 /// Used as `FrozenHeapName::User(Box::new(Buck2TestHeapName))`.
-#[derive(Debug)]
+#[derive(Debug, Hash)]
 pub struct Buck2TestHeapName;
 
 impl Buck2TestHeapName {

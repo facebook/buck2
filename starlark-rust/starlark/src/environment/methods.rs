@@ -50,7 +50,7 @@ pub struct Methods {
 }
 
 /// Heap name for a [`Methods`] object, used for heap graph tracking.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
 pub struct MethodFrozenHeapName {
     /// A name identifying this methods heap (e.g. type name like "dict",
     /// or a module path like "starlark::values::types::dict::methods::dict_methods").

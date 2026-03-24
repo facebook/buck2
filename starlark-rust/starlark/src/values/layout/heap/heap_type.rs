@@ -218,6 +218,25 @@ pub struct FrozenHeap {
     str_interner: RefCell<FrozenStringValueInterner>,
 }
 
+/// Object-safe trait for user-defined heap names that supports hashing and downcasting.
+///
+/// Automatically implemented for any type that is `Hash + Any + Send + Sync + Debug`.
+pub trait UserHeapName: Any + Send + Sync + Debug + 'static {
+    /// Hash this value through a trait object.
+    fn dyn_hash(&self, state: &mut dyn Hasher);
+    /// Downcast support.
+    fn as_any(&self) -> &dyn Any;
+}
+
+impl<T: Hash + Any + Send + Sync + Debug + 'static> UserHeapName for T {
+    fn dyn_hash(&self, mut state: &mut dyn Hasher) {
+        self.hash(&mut state);
+    }
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+}
+
 /// Name/identifier for a frozen heap, used for heap graph tracking and metrics.
 #[derive(Debug)]
 pub enum FrozenHeapName {
@@ -228,12 +247,24 @@ pub enum FrozenHeapName {
     /// For starlark singleton heaps
     Singleton(SingletonFrozenHeapName),
     /// For user/downstream code.
-    User(Box<dyn Any + Send + Sync + 'static>),
+    User(Box<dyn UserHeapName>),
+}
+
+impl Hash for FrozenHeapName {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        std::mem::discriminant(self).hash(state);
+        match self {
+            FrozenHeapName::Method(m) => m.hash(state),
+            FrozenHeapName::Global(g) => g.hash(state),
+            FrozenHeapName::Singleton(s) => s.hash(state),
+            FrozenHeapName::User(b) => b.dyn_hash(state),
+        }
+    }
 }
 
 /// Testing sentinel for starlark crate's own tests.
 /// Used as `FrozenHeapName::User(Box::new(StarlarkTestHeapName))`.
-#[derive(Debug)]
+#[derive(Debug, Hash)]
 pub(crate) struct StarlarkTestHeapName;
 
 impl StarlarkTestHeapName {

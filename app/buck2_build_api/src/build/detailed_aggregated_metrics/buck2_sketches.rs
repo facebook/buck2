@@ -175,7 +175,7 @@ fn gather_heap_graph_sketch_impl(
             continue;
         };
         if let FrozenHeapName::User(user_name) = name {
-            if let Some(eval_kind) = user_name.downcast_ref::<StarlarkEvalKind>() {
+            if let Some(eval_kind) = user_name.as_any().downcast_ref::<StarlarkEvalKind>() {
                 sketcher.sketch_weighted(eval_kind, item.allocated_bytes() as u64);
             }
         }
