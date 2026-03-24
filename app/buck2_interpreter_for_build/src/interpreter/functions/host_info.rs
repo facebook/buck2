@@ -15,9 +15,11 @@ use buck2_interpreter::extra::xcode::XcodeVersionInfo;
 use derivative::Derivative;
 use starlark::environment::GlobalsBuilder;
 use starlark::eval::Evaluator;
+use starlark::singleton_heap_name;
 use starlark::starlark_module;
 use starlark::values::AllocFrozenValue;
 use starlark::values::FrozenHeap;
+use starlark::values::FrozenHeapName;
 use starlark::values::FrozenValue;
 use starlark::values::OwnedFrozenValue;
 use starlark::values::ValueOfUnchecked;
@@ -104,7 +106,12 @@ fn new_host_info(
     );
 
     // Safe because the value info was allocated into the heap
-    unsafe { OwnedFrozenValue::new(heap.into_ref(), info) }
+    unsafe {
+        OwnedFrozenValue::new(
+            heap.into_ref_named(FrozenHeapName::Singleton(singleton_heap_name!())),
+            info,
+        )
+    }
 }
 
 #[starlark_module]
