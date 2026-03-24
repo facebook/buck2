@@ -41,6 +41,7 @@ use starlark_map::small_set::SmallSet;
 use crate::cast;
 use crate::cast::transmute;
 use crate::collections::StarlarkHashValue;
+use crate::environment::GlobalFrozenHeapName;
 use crate::environment::MethodFrozenHeapName;
 use crate::eval::runtime::profile::instant::ProfilerInstant;
 use crate::values::AllocFrozenValue;
@@ -222,6 +223,8 @@ pub struct FrozenHeap {
 pub enum FrozenHeapName {
     /// For starlark Methods heaps.
     Method(MethodFrozenHeapName),
+    /// For the global starlark environment heap.
+    Global(GlobalFrozenHeapName),
     /// For user/downstream code.
     User(Box<dyn Any + Send + Sync + 'static>),
 }

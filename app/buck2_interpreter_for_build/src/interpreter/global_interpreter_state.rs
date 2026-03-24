@@ -24,6 +24,7 @@ use dupe::Dupe;
 use pagable::Pagable;
 use pagable::PagablePanic;
 use pagable::pagable_typetag;
+use starlark::environment::GlobalFrozenHeapName;
 use starlark::environment::Globals;
 
 use crate::interpreter::configuror::BuildInterpreterConfiguror;
@@ -63,7 +64,9 @@ impl GlobalInterpreterState {
                     (additional_globals.0)(g);
                 }
             })
-            .build();
+            .build_named(GlobalFrozenHeapName {
+                name: concat!(module_path!(), "::global_env"),
+            });
 
         Ok(Self {
             cell_resolver,

@@ -44,6 +44,7 @@ use crate::values::OwnedFrozenValue;
 use crate::values::function::NativeFunc;
 use crate::values::function::NativeFuncFn;
 use crate::values::function::SpecialBuiltinFunction;
+use crate::values::layout::heap::heap_type::FrozenHeapName;
 use crate::values::namespace::FrozenNamespace;
 use crate::values::namespace::value::MaybeDocHiddenValue;
 use crate::values::types::function::NativeFunction;
@@ -61,6 +62,19 @@ struct GlobalsData {
     variables: SymbolMap<GlobalValue>,
     variable_names: Vec<FrozenStringValue>,
     docstring: Option<String>,
+}
+
+/// Heap name for a [`Globals`] object, used for heap graph tracking.
+#[derive(Debug, Clone, Copy, Hash)]
+pub struct GlobalFrozenHeapName {
+    /// A name identifying this globals heap.
+    pub name: &'static str,
+}
+
+impl std::fmt::Display for GlobalFrozenHeapName {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "globals({})", self.name)
+    }
 }
 
 /// Used to build a [`Globals`] value.
@@ -252,14 +266,24 @@ impl GlobalsBuilder {
 
     /// Called at the end to build a [`Globals`].
     pub fn build(self) -> Globals {
+        self.build_impl(None)
+    }
+
+    /// Called at the end to build a [`Globals`] with a named heap.
+    pub fn build_named(self, name: GlobalFrozenHeapName) -> Globals {
+        self.build_impl(Some(name))
+    }
+
+    fn build_impl(self, name: Option<GlobalFrozenHeapName>) -> Globals {
         let mut variable_names: Vec<_> = self
             .variables
             .keys()
             .map(|x| self.heap.alloc_str_intern(x.as_str()))
             .collect();
         variable_names.sort();
+        let heap = self.heap.into_ref_impl(name.map(FrozenHeapName::Global));
         Globals(Arc::new(GlobalsData {
-            heap: self.heap.into_ref(),
+            heap,
             variables: self.variables,
             variable_names,
             docstring: self.docstring,
@@ -347,14 +371,26 @@ impl GlobalsStatic {
         Self(OnceCell::new())
     }
 
-    fn globals(&'static self, x: impl FnOnce(&mut GlobalsBuilder)) -> &'static Globals {
-        self.0.get_or_init(|| GlobalsBuilder::new().with(x).build())
+    fn globals(
+        &'static self,
+        name: &'static str,
+        x: impl FnOnce(&mut GlobalsBuilder),
+    ) -> &'static Globals {
+        self.0.get_or_init(|| {
+            GlobalsBuilder::new()
+                .with(x)
+                .build_named(GlobalFrozenHeapName { name })
+        })
     }
 
     /// Get a function out of the object. Requires that the function passed only set a single
     /// value. If populated via a `#[starlark_module]`, that means a single function in it.
-    pub fn function(&'static self, x: impl FnOnce(&mut GlobalsBuilder)) -> FrozenValue {
-        let globals = self.globals(x);
+    pub fn function(
+        &'static self,
+        name: &'static str,
+        x: impl FnOnce(&mut GlobalsBuilder),
+    ) -> FrozenValue {
+        let globals = self.globals(name, x);
         assert!(
             globals.0.variables.len() == 1,
             "GlobalsBuilder.function must have exactly 1 member, you had {}",
@@ -369,13 +405,16 @@ impl GlobalsStatic {
 
     /// Move all the globals in this [`GlobalsBuilder`] into a new one. All variables will
     /// only be allocated once (ensuring things like function comparison works properly).
+    ///
+    /// `name` is a unique identifier for the inner cache heap (typically
+    /// `concat!(module_path!(), "::", stringify!(fn_name))` from the macro expansion site).
     pub fn populate(
         &'static self,
-        _name: &'static str, // TODO(nero): support passing in name for global here.
+        name: &'static str,
         x: impl FnOnce(&mut GlobalsBuilder),
         out: &mut GlobalsBuilder,
     ) {
-        let globals = self.globals(x);
+        let globals = self.globals(name, x);
         for (name, value) in globals.0.variables.iter() {
             out.set_inner(name.as_str(), value.value, value.doc_hidden)
         }

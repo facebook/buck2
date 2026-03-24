@@ -510,7 +510,7 @@ impl ProviderCodegen {
                         static RES: starlark::environment::GlobalsStatic =
                             starlark::environment::GlobalsStatic::new();
                         starlark::values::ValueLike::invoke(
-                            RES.function(#create_func), args, eval)
+                            RES.function(concat!(module_path!(), "::", stringify!(#create_func)), #create_func), args, eval)
                     }
 
                     fn provide(&'v self, demand: &mut starlark::values::Demand<'_, 'v>) {
