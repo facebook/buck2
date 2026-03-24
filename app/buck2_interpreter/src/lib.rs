@@ -40,4 +40,5 @@ pub mod soft_error;
 pub mod starlark_debug;
 pub mod starlark_profiler;
 pub mod starlark_promise;
+pub mod testing;
 pub mod types;

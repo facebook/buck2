@@ -44,6 +44,7 @@ use crate::values::AllocValue;
 use crate::values::Heap;
 use crate::values::OwnedFrozenValue;
 use crate::values::Value;
+use crate::values::layout::heap::heap_type::StarlarkTestHeapName;
 use crate::values::none::NoneType;
 use crate::values::structs::AllocStruct;
 use crate::values::tuple::UnpackTuple;
@@ -67,7 +68,8 @@ static ASSERTS_STAR: Lazy<FrozenModule> = Lazy::new(|| {
             "freeze",
             asserts.get_attr("freeze", m.heap()).unwrap().unwrap(),
         );
-        m.freeze().unwrap()
+        m.freeze_named(StarlarkTestHeapName::frozen_heap_name())
+            .unwrap()
     })
 });
 
@@ -404,7 +406,7 @@ impl<'a> Assert<'a> {
             .with_gc(|gc| {
                 Module::with_temp_heap(|module| {
                     self.execute_unwrap("module", &format!("{name}.bzl"), program, &module, gc);
-                    module.freeze()
+                    module.freeze_named(StarlarkTestHeapName::frozen_heap_name())
                 })
             })
             .expect("error freezing module");
@@ -498,7 +500,7 @@ impl<'a> Assert<'a> {
             Module::with_temp_heap(|env| {
                 let res = self.execute_unwrap("pass", "assert.bzl", program, &env, gc);
                 env.set("_", res);
-                env.freeze()
+                env.freeze_named(StarlarkTestHeapName::frozen_heap_name())
                     .expect("error freezing module")
                     .get("_")
                     .unwrap()
@@ -512,7 +514,8 @@ impl<'a> Assert<'a> {
         self.with_gc(|gc| {
             Module::with_temp_heap(|env| {
                 self.execute_unwrap("pass", "assert.bzl", program, &env, gc);
-                env.freeze().expect("error freezing module")
+                env.freeze_named(StarlarkTestHeapName::frozen_heap_name())
+                    .expect("error freezing module")
             })
         })
     }

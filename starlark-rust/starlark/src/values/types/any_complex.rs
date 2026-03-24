@@ -126,6 +126,7 @@ mod tests {
     use crate::values::FrozenValue;
     use crate::values::StringValue;
     use crate::values::Value;
+    use crate::values::layout::heap::heap_type::StarlarkTestHeapName;
     use crate::values::list::AllocList;
     use crate::values::types::any_complex::StarlarkAnyComplex;
 
@@ -170,7 +171,7 @@ mod tests {
 
             module.set_extra_value(data);
 
-            let module = module.freeze()?;
+            let module = module.freeze_named(StarlarkTestHeapName::frozen_heap_name())?;
 
             let data = module.extra_value().unwrap();
             assert_eq!(

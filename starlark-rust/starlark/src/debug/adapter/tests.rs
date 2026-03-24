@@ -45,6 +45,7 @@ mod t {
     use crate::syntax::AstModule;
     use crate::syntax::Dialect;
     use crate::values::OwnedFrozenValue;
+    use crate::values::layout::heap::heap_type::StarlarkTestHeapName;
     use crate::wasm::is_wasm;
 
     #[derive(Debug)]
@@ -181,7 +182,7 @@ mod t {
 
             env.set("_", res);
             Ok(env
-                .freeze()
+                .freeze_named(StarlarkTestHeapName::frozen_heap_name())
                 .expect("error freezing module")
                 .get("_")
                 .unwrap())

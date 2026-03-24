@@ -22,6 +22,7 @@ use buck2_core::configuration::data::ConfigurationData;
 use buck2_core::execution_types::execution::ExecutionPlatformResolution;
 use buck2_core::provider::label::ConfiguredProvidersLabel;
 use buck2_error::internal_error;
+use buck2_interpreter::testing::Buck2TestHeapName;
 use buck2_interpreter::types::provider::callable::ValueAsProviderCallableLike;
 use buck2_interpreter_for_build::attrs::coerce;
 use buck2_interpreter_for_build::attrs::coerce::testing;
@@ -131,7 +132,7 @@ pub(crate) fn resolution_ctx_with_providers<'v>(
                  "#
                 );
                 testing::to_value(&provider_env, &globals, provider_content);
-                provider_env.freeze()
+                provider_env.freeze_named(Buck2TestHeapName::frozen_heap_name())
             })
             .expect("provider should freeze successfully");
             let foo_info = frozen_provider_env.get("FooInfo").unwrap();
@@ -143,7 +144,7 @@ pub(crate) fn resolution_ctx_with_providers<'v>(
                 env.set("FooInfo", env.heap().access_owned_frozen_value(&foo_info));
                 env.set("BarInfo", env.heap().access_owned_frozen_value(&bar_info));
                 Self::eval(&env, &globals);
-                env.freeze()
+                env.freeze_named(Buck2TestHeapName::frozen_heap_name())
             })
             .expect("should freeze successfully");
             let label_and_result = |label, var_name| {

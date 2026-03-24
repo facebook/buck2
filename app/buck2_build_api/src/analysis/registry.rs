@@ -29,6 +29,7 @@ use buck2_error::internal_error;
 use buck2_execute::execute::request::OutputType;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePath;
 use buck2_fs::paths::forward_rel_path::ForwardRelativePathBuf;
+use buck2_interpreter::testing::Buck2TestHeapName;
 use buck2_util::thin_box::ThinBoxSlice;
 use derivative::Derivative;
 use dupe::Dupe;
@@ -672,9 +673,14 @@ impl RecordedAnalysisValues {
         Self {
             self_key,
             analysis_storage: Some(
-                unsafe { OwnedFrozenValue::new(heap.into_ref(), value) }
-                    .downcast()
-                    .unwrap(),
+                unsafe {
+                    OwnedFrozenValue::new(
+                        heap.into_ref_named(Buck2TestHeapName::frozen_heap_name()),
+                        value,
+                    )
+                }
+                .downcast()
+                .unwrap(),
             ),
             actions,
         }

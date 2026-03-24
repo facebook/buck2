@@ -22,6 +22,7 @@ use buck2_build_api::interpreter::rule_defs::transitive_set::transitive_set_defi
 use buck2_core::deferred::key::DeferredHolderKey;
 use buck2_error::internal_error;
 use buck2_interpreter::from_freeze::from_freeze_error;
+use buck2_interpreter::testing::Buck2TestHeapName;
 use indoc::indoc;
 use starlark::environment::GlobalsBuilder;
 use starlark::environment::Module;
@@ -76,7 +77,7 @@ pub(crate) fn new_transitive_set(
         buck2_interpreter_for_build::attrs::coerce::testing::to_value(&env, &globals, code);
 
         let frozen = env
-            .freeze()
+            .freeze_named(Buck2TestHeapName::frozen_heap_name())
             .freeze_error_context("Freeze failed")
             .map_err(from_freeze_error)?;
 
@@ -91,7 +92,9 @@ pub(crate) fn new_transitive_set(
 
             env2.set_extra_value(ret);
 
-            let frozen = env2.freeze().map_err(from_freeze_error)?;
+            let frozen = env2
+                .freeze_named(Buck2TestHeapName::frozen_heap_name())
+                .map_err(from_freeze_error)?;
 
             frozen
                 .owned_extra_value()

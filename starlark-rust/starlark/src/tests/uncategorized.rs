@@ -47,6 +47,7 @@ use crate::values::StarlarkValue;
 use crate::values::Trace;
 use crate::values::UnpackValue;
 use crate::values::Value;
+use crate::values::layout::heap::heap_type::StarlarkTestHeapName;
 use crate::values::list_or_tuple::UnpackListOrTuple;
 use crate::values::none::NoneType;
 
@@ -551,7 +552,7 @@ fn test_module_visibility_preserved_by_evaluator() -> crate::Result<()> {
             // This mutates the original module named `import`
             let _: Value = eval.eval_module(ast, &globals)?;
         }
-        let frozen_import = import.freeze()?;
+        let frozen_import = import.freeze_named(StarlarkTestHeapName::frozen_heap_name())?;
 
         Module::with_temp_heap(|m_uses_public| {
             m_uses_public.import_public_symbols(&frozen_import);

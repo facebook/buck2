@@ -231,6 +231,17 @@ pub enum FrozenHeapName {
     User(Box<dyn Any + Send + Sync + 'static>),
 }
 
+/// Testing sentinel for starlark crate's own tests.
+/// Used as `FrozenHeapName::User(Box::new(StarlarkTestHeapName))`.
+#[derive(Debug)]
+pub(crate) struct StarlarkTestHeapName;
+
+impl StarlarkTestHeapName {
+    pub(crate) fn frozen_heap_name() -> FrozenHeapName {
+        FrozenHeapName::User(Box::new(Self))
+    }
+}
+
 /// A frozen heap name derived from source location, for singleton heaps.
 ///
 /// This type can only be created via the [`singleton_heap_name!`](crate::singleton_heap_name)

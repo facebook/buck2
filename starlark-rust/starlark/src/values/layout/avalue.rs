@@ -214,6 +214,7 @@ mod tests {
     use crate::values::UnpackValue;
     use crate::values::Value;
     use crate::values::dict::AllocDict;
+    use crate::values::layout::heap::heap_type::StarlarkTestHeapName;
     use crate::values::types::list::value::ListData;
 
     #[test]
@@ -225,7 +226,7 @@ mod tests {
                 .unwrap()
                 .push(tuple, module.heap());
             module.set("t", tuple);
-            module.freeze()?;
+            module.freeze_named(StarlarkTestHeapName::frozen_heap_name())?;
             crate::Result::Ok(())
         })
         .unwrap();
@@ -244,7 +245,7 @@ mod tests {
 
             module.set_extra_value(module.heap().alloc((d0, d1)));
 
-            let module = module.freeze()?;
+            let module = module.freeze_named(StarlarkTestHeapName::frozen_heap_name())?;
             let (d0, d1) =
                 <(Value, Value)>::unpack_value_err(module.extra_value().unwrap().to_value())
                     .unwrap();

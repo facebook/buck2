@@ -48,6 +48,7 @@ use crate::values::Heap;
 use crate::values::StarlarkValue;
 use crate::values::Value;
 use crate::values::ValueOfUnchecked;
+use crate::values::layout::heap::heap_type::StarlarkTestHeapName;
 use crate::values::none::NoneType;
 use crate::values::types::starlark_value_as_type::StarlarkValueAsType;
 use crate::values::typing::StarlarkCallable;
@@ -227,7 +228,7 @@ impl TypeCheck {
                 // Help borrow checker.
                 drop(eval);
 
-                module.freeze()
+                module.freeze_named(StarlarkTestHeapName::frozen_heap_name())
             })
             .unwrap()
         };

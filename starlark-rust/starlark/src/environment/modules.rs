@@ -611,6 +611,7 @@ mod tests {
     use crate::eval::runtime::profile::mode::ProfileMode;
     use crate::syntax::AstModule;
     use crate::syntax::Dialect;
+    use crate::values::layout::heap::heap_type::StarlarkTestHeapName;
     use crate::values::list::ListRef;
 
     #[test]
@@ -637,7 +638,7 @@ x = f(1)
                 )
                 .unwrap();
             }
-            let module = module.freeze()?;
+            let module = module.freeze_named(StarlarkTestHeapName::frozen_heap_name())?;
             let heap_summary = module.heap_profile().unwrap().gen_csv().unwrap();
             // Smoke test.
             assert!(heap_summary.contains("\"x.star.f\""), "{heap_summary:?}");

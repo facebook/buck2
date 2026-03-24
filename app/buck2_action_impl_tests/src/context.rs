@@ -19,6 +19,7 @@ use buck2_core::target::label::label::TargetLabel;
 use buck2_execute::digest_config::DigestConfig;
 use buck2_interpreter::file_type::StarlarkFileType;
 use buck2_interpreter::from_freeze::from_freeze_error;
+use buck2_interpreter::testing::Buck2TestHeapName;
 use dupe::Dupe;
 use indoc::indoc;
 use maplit::hashmap;
@@ -57,7 +58,9 @@ fn run_ctx_test(
             .unwrap();
             eval.eval_module(ast, &globals).unwrap();
         };
-        let frozen_func_mod = func_mod.freeze().map_err(from_freeze_error)?;
+        let frozen_func_mod = func_mod
+            .freeze_named(Buck2TestHeapName::frozen_heap_name())
+            .map_err(from_freeze_error)?;
         let test_function = frozen_func_mod.get("test").unwrap();
 
         let modules = hashmap!["func_mod" => &frozen_func_mod];

@@ -28,6 +28,7 @@ use crate::eval::Evaluator;
 use crate::eval::ProfileData;
 use crate::eval::ProfileMode;
 use crate::eval::runtime::profile::data::ProfileDataImpl;
+use crate::values::layout::heap::heap_type::StarlarkTestHeapName;
 
 fn test_profile_golden_for_mode(mode: ProfileMode) {
     Module::with_temp_heap(|module| {
@@ -68,7 +69,9 @@ R = test()
         let mut profile_data = match mode {
             ProfileMode::HeapSummaryRetained | ProfileMode::HeapFlameRetained => {
                 drop(eval);
-                let module = module.freeze().unwrap();
+                let module = module
+                    .freeze_named(StarlarkTestHeapName::frozen_heap_name())
+                    .unwrap();
                 module.heap_profile().unwrap()
             }
             _ => eval.gen_profile().unwrap(),
