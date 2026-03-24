@@ -342,6 +342,8 @@ def cxx_binary_impl(ctx: AnalysisContext) -> list[Provider]:
         extra_providers.append(CxxSanitizerRuntimeInfo(runtime_files = output.sanitizer_runtime_files))
     if output.validation_specs:
         extra_providers.append(ValidationInfo(validations = output.validation_specs))
+    if output.xplugins_debug_artifacts_info:
+        extra_providers.append(output.xplugins_debug_artifacts_info)
 
     if get_cxx_toolchain_info(ctx).gcno_files and output.gcno_files:
         extra_providers.append(GcnoFilesInfo(gcno_files = output.gcno_files))

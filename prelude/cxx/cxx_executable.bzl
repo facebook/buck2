@@ -107,6 +107,12 @@ load(
     "flatten_dict",
     "map_val",
 )
+load("@prelude//xplugins:debug_artifacts.bzl", "xplugins_get_debug_artifacts_info")
+load(
+    "@prelude//xplugins:types.bzl",
+    "XPluginsDebugArtifactsInfo",
+)
+load("@prelude//xplugins:utils.bzl", "get_xplugins_usage_info", "get_xplugins_usage_subtargets")
 load(
     ":argsfiles.bzl",
     "ARGSFILES_SUBTARGET",
@@ -237,6 +243,7 @@ CxxExecutableOutput = record(
     index_stores = field(list[Artifact], []),
     validation_specs = field(list[ValidationSpec], []),
     gcno_files = field(list[Artifact], []),
+    xplugins_debug_artifacts_info = field(XPluginsDebugArtifactsInfo | None, None),
 )
 
 def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, is_cxx_test: bool = False) -> CxxExecutableOutput:
@@ -936,6 +943,13 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
 
     sub_targets.update(link_result.extra_outputs)
 
+    # Propagate xplugins providers
+    xplugins_usage_info = get_xplugins_usage_info(ctx.actions, cxx_deps)
+    if xplugins_usage_info:
+        sub_targets.update(get_xplugins_usage_subtargets(ctx, xplugins_usage_info, link_group_info))
+
+    xplugins_debug_artifacts_info = xplugins_get_debug_artifacts_info(ctx, cxx_deps)
+
     return CxxExecutableOutput(
         binary = binary.output,
         unstripped_binary = binary.unstripped_output,
@@ -963,6 +977,7 @@ def cxx_executable(ctx: AnalysisContext, impl_params: CxxRuleConstructorParams, 
         diagnostics = all_diagnostics,
         validation_specs = get_attrs_validation_specs(ctx),
         gcno_files = dedupe(gcno_files),
+        xplugins_debug_artifacts_info = xplugins_debug_artifacts_info,
     )
 
 _CxxLinkExecutableResult = record(

@@ -70,8 +70,6 @@ load(
 load("@prelude//utils:arglike.bzl", "ArgLike")
 load("@prelude//utils:expect.bzl", "expect")
 load("@prelude//utils:utils.bzl", "map_val")
-load("@prelude//xplugins:debug_artifacts.bzl", "xplugins_get_debug_artifacts_info")
-load("@prelude//xplugins:utils.bzl", "get_xplugins_usage_info", "get_xplugins_usage_subtargets")
 load(":apple_bundle_types.bzl", "AppleBundleLinkerMapInfo", "AppleMinDeploymentVersionInfo")
 load(":apple_bundle_utility.bzl", "get_bundle_infos_from_graph", "merge_bundle_linker_maps_info")
 load(":apple_code_signing_types.bzl", "AppleEntitlementsInfo")
@@ -140,11 +138,7 @@ def apple_binary_impl(ctx: AnalysisContext) -> [list[Provider], Promise]:
                     other_outputs = [swift_compile.compilation_database.other_outputs] if swift_compile else [],
                 ),
             ],
-        } | get_xplugins_usage_subtargets(
-            ctx,
-            usage_info = get_xplugins_usage_info(ctx),
-            link_group_info = link_group_info,
-        )
+        }
 
         validation_deps_outputs = get_validation_deps_outputs(ctx)
         stripped = get_apple_stripped_attr_value_with_default_fallback(ctx)
@@ -277,9 +271,8 @@ def apple_binary_impl(ctx: AnalysisContext) -> [list[Provider], Promise]:
             index_store_info,
         ] + [resource_graph] + min_version_providers + link_command_providers + sanitizer_runtime_providers + validation_providers + diagnostics_providers
 
-        xplugins_debug_artifacts_info = xplugins_get_debug_artifacts_info(ctx, all_deps)
-        if xplugins_debug_artifacts_info:
-            providers.append(xplugins_debug_artifacts_info)
+        if cxx_output.xplugins_debug_artifacts_info:
+            providers.append(cxx_output.xplugins_debug_artifacts_info)
 
         return providers
 

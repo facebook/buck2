@@ -6,7 +6,6 @@
 # of this source tree. You may select, at your option, one of the
 # above-listed licenses.
 
-load("@prelude//cxx:cxx_library_utility.bzl", "cxx_attr_deps", "cxx_attr_exported_deps")
 load("@prelude//cxx:link_groups_types.bzl", "LinkGroupInfo")
 load("@prelude//utils:arglike.bzl", "ArgLike")
 load(
@@ -17,30 +16,18 @@ load(
     "XPluginsUsageInfoSet",
 )
 
-def get_xplugins_usage_info(ctx: AnalysisContext) -> XPluginsUsageInfo | None:
-    plugin_manifests = []
-    socket_manifests = []
-    usage_infos = []
-    for d in cxx_attr_deps(ctx):
-        if XPluginsPluginUsageInfo in d:
-            plugin_manifests.append(d[XPluginsPluginUsageInfo])
-        if XPluginsSocketUsageInfo in d:
-            socket_manifests.append(d[XPluginsSocketUsageInfo])
-        if XPluginsUsageInfo in d:
-            usage_infos.append(d[XPluginsUsageInfo])
-
-    # Collect the XPluginsUsageInfo from exported_deps too
-    for d in cxx_attr_exported_deps(ctx):
-        if XPluginsUsageInfo in d:
-            usage_infos.append(d[XPluginsUsageInfo])
+def get_xplugins_usage_info(actions: AnalysisActions, all_deps: list[Dependency]) -> XPluginsUsageInfo | None:
+    plugin_manifests = [d[XPluginsPluginUsageInfo] for d in all_deps if XPluginsPluginUsageInfo in d]
+    socket_manifests = [d[XPluginsSocketUsageInfo] for d in all_deps if XPluginsSocketUsageInfo in d]
+    usage_infos = [d[XPluginsUsageInfo] for d in all_deps if XPluginsUsageInfo in d]
 
     if plugin_manifests or socket_manifests or usage_infos:
-        plugin_info_tset = ctx.actions.tset(
+        plugin_info_tset = actions.tset(
             XPluginsUsageInfoSet,
             value = plugin_manifests,
             children = [u.plugin_info_tset for u in usage_infos],
         )
-        socket_info_tset = ctx.actions.tset(
+        socket_info_tset = actions.tset(
             XPluginsUsageInfoSet,
             value = socket_manifests,
             children = [u.socket_info_tset for u in usage_infos],

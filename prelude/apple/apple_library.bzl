@@ -101,8 +101,6 @@ load(
 )
 load("@prelude//utils:arglike.bzl", "ArgLike")
 load("@prelude//utils:expect.bzl", "expect")
-load("@prelude//xplugins:debug_artifacts.bzl", "xplugins_get_debug_artifacts_info")
-load("@prelude//xplugins:utils.bzl", "get_xplugins_usage_info", "get_xplugins_usage_subtargets")
 load(":apple_bundle_types.bzl", "AppleBundleLinkerMapInfo", "AppleMinDeploymentVersionInfo")
 load(":apple_error_handler.bzl", "apple_build_error_handler", "cxx_error_deserializer", "cxx_error_handler")
 load(":apple_frameworks.bzl", "get_framework_search_path_flags")
@@ -514,21 +512,6 @@ def apple_library_rule_constructor_params_and_swift_providers(ctx: AnalysisConte
     subtargets["swift-sources"] = [DefaultInfo(default_output = swift_sources_list)]
 
     link_group_info = get_link_group_info(ctx)
-    xplugins_usage_info = get_xplugins_usage_info(ctx)
-    if xplugins_usage_info:
-        extra_apple_providers.append(xplugins_usage_info)
-        subtargets |= get_xplugins_usage_subtargets(
-            ctx,
-            usage_info = xplugins_usage_info,
-            link_group_info = link_group_info,
-        )
-
-    xplugins_debug_info = xplugins_get_debug_artifacts_info(
-        ctx,
-        cxx_attr_deps(ctx) + cxx_attr_exported_deps(ctx),
-    )
-    if xplugins_debug_info:
-        extra_apple_providers.append(xplugins_debug_info)
 
     return CxxRuleConstructorParams(
         rule_type = params.rule_type,
