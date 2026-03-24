@@ -214,12 +214,16 @@ async def test_build_report_contains_per_target_build_metrics(
         assert rule1_metrics["metrics"]["declared_actions"] == 2
         assert rule1_metrics["amortized_metrics"]["declared_actions"] == 1
 
+        # re_platform_names should be absent for local-only actions (skip_serializing_if empty)
+        assert "re_platform_names" not in rule1_metrics
+
         rule2_metrics = report["results"]["root//:rule2"]["configured"][
             "<unspecified>"
         ]["build_metrics"]
         assert rule2_metrics["action_graph_size"] == 1
         assert rule2_metrics["metrics"]["declared_actions"] == 4
         assert rule2_metrics["amortized_metrics"]["declared_actions"] == 3
+        assert "re_platform_names" not in rule2_metrics
         assert report["build_metrics"]
 
 
@@ -369,3 +373,24 @@ async def test_streaming_build_report_overwrites_existing_file(
             assert "success" in report_data
             assert "results" in report_data
             assert "project_root" in report_data
+
+
+@buck_test(data_dir="re_platform_names")
+async def test_build_report_re_platform_names(buck: Buck, tmp_path: Path) -> None:
+    report = tmp_path / "build-report.json"
+
+    await buck.build(
+        "//:run_action",
+        "-c",
+        "buck2.detailed_aggregated_metrics=true",
+        "--build-report",
+        str(report),
+    )
+
+    with open(report) as file:
+        report_data = json.load(file)
+        metrics = report_data["results"]["root//:run_action"]["configured"][
+            "<unspecified>"
+        ]["build_metrics"]
+        assert "re_platform_names" in metrics
+        assert "linux-remote-execution" in metrics["re_platform_names"]

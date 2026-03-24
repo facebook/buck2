@@ -176,6 +176,9 @@ pub(crate) struct TargetBuildMetrics {
     pub remote_max_memory_peak_bytes: u64,
     /// Max value for peak memory usage across all local actions.
     pub local_max_memory_peak_bytes: u64,
+    /// Distinct RE platform names used by actions for this target.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub re_platform_names: Vec<String>,
 }
 
 /// DO NOT UPDATE WITHOUT UPDATING `docs/users/build_observability/build_report.md`!
@@ -602,6 +605,7 @@ impl<'a> BuildReportCollector<'a> {
             amortized_metrics: Self::convert_aggregated_build_metrics(&metrics.amortized_metrics),
             remote_max_memory_peak_bytes: metrics.remote_max_memory_peak_bytes,
             local_max_memory_peak_bytes: metrics.local_max_memory_peak_bytes,
+            re_platform_names: metrics.re_platform_names.to_vec(),
         }
     }
 

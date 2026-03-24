@@ -169,6 +169,11 @@ TargetBuildMetrics {
 
     # Max value for peak memory usage across all local actions.
     local_max_memory_peak_bytes: Optional[u64]
+
+    # The distinct set of RE platform names used by actions for this target
+    # (e.g. "linux-remote-execution", "gpu-remote-execution").
+    # Omitted when empty (no remote actions).
+    re_platform_names: Optional[List[str]]
 }
 
 AggregatedBuildMetrics {
