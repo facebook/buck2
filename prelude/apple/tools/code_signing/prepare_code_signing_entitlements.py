@@ -13,11 +13,41 @@ import os
 import plistlib
 import tempfile
 from pathlib import Path
-from typing import Dict, Optional
+from typing import Dict, List, Optional
 
 from apple.tools.info_plist_processor.process import process as process_info_plist
 
 from .provisioning_profile_metadata import ProvisioningProfileMetadata
+
+
+def _postprocess_entitlements(
+    output_path: str,
+    entitlements_suffixed_key_map: Optional[Dict[str, str]] = None,
+    entitlements_removed_keys: Optional[List[str]] = None,
+) -> None:
+    if not entitlements_suffixed_key_map and not entitlements_removed_keys:
+        return
+
+    with open(output_path, "rb") as f:
+        entitlements = plistlib.load(f)
+    original = copy.deepcopy(entitlements)
+
+    if entitlements_suffixed_key_map:
+        for key, suffix in entitlements_suffixed_key_map.items():
+            if key in entitlements:
+                value = entitlements[key]
+                if isinstance(value, str):
+                    entitlements[key] = value + suffix
+                elif isinstance(value, list):
+                    entitlements[key] = [v + suffix for v in value]
+
+    if entitlements_removed_keys:
+        for key in entitlements_removed_keys:
+            entitlements.pop(key, None)
+
+    if entitlements != original:
+        with open(output_path, "wb") as f:
+            plistlib.dump(entitlements, f, fmt=plistlib.FMT_XML)
 
 
 # Buck v1 corresponding code is in `ProvisioningProfileCopyStep::execute` in `ProvisioningProfileCopyStep.java`
@@ -27,6 +57,7 @@ def prepare_code_signing_entitlements(
     profile: ProvisioningProfileMetadata,
     tmp_dir: str,
     entitlements_suffixed_key_map: Optional[Dict[str, str]] = None,
+    entitlements_removed_keys: Optional[List[str]] = None,
 ) -> Path:
     fd, output_path = tempfile.mkstemp(dir=tmp_dir)
     with os.fdopen(fd, mode="wb") as output:
@@ -45,19 +76,10 @@ def prepare_code_signing_entitlements(
             entitlements["keychain-access-groups"] = [app_id]
             plistlib.dump(entitlements, output, fmt=plistlib.FMT_XML)
 
-    if entitlements_suffixed_key_map:
-        with open(output_path, "rb") as f:
-            entitlements = plistlib.load(f)
-        original = copy.deepcopy(entitlements)
-        for key, suffix in entitlements_suffixed_key_map.items():
-            if key in entitlements:
-                value = entitlements[key]
-                if isinstance(value, str):
-                    entitlements[key] = value + suffix
-                elif isinstance(value, list):
-                    entitlements[key] = [v + suffix for v in value]
-        if entitlements != original:
-            with open(output_path, "wb") as f:
-                plistlib.dump(entitlements, f, fmt=plistlib.FMT_XML)
+    _postprocess_entitlements(
+        output_path,
+        entitlements_suffixed_key_map=entitlements_suffixed_key_map,
+        entitlements_removed_keys=entitlements_removed_keys,
+    )
 
     return Path(output_path)

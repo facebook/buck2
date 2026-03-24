@@ -94,6 +94,13 @@ def add_args_for_signing_context(parser: argparse.ArgumentParser):
         help="JSON map of entitlement key to suffix to append to its values.",
     )
     parser.add_argument(
+        "--entitlements-removed-keys",
+        type=json.loads,
+        required=False,
+        default=[],
+        help="JSON list of entitlement keys to remove from the entitlements.",
+    )
+    parser.add_argument(
         "--info-plist-source",
         metavar="</prepared/Info.plist>",
         type=Path,

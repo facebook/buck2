@@ -220,6 +220,77 @@ class Test(unittest.TestCase):
                     },
                 )
 
+    def test_removed_keys_removes_existing_keys(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            entitlements = {
+                "foo": "bar",
+                "keychain-access-groups": ["group1", "group2"],
+                "com.apple.developer.icloud-services": ["CloudDocuments"],
+            }
+            entitlements_path = os.path.join(tmp_dir, "Entitlements.plist")
+            with open(entitlements_path, mode="wb") as entitlements_file:
+                plistlib.dump(entitlements, entitlements_file, fmt=plistlib.FMT_XML)
+            profile = ProvisioningProfileMetadata(
+                Path("/foo"),
+                "00000000-0000-0000-0000-000000000000",
+                datetime.max,
+                {"iOS"},
+                {},
+                {
+                    "application-identifier": "ABCDEFGHIJ.com.company.application",
+                },
+            )
+            result = prepare_code_signing_entitlements(
+                entitlements_path,
+                "com.company.application",
+                profile,
+                tmp_dir,
+                entitlements_removed_keys=["com.apple.developer.icloud-services"],
+            )
+            with open(result, "rb") as result_file:
+                self.assertEqual(
+                    plistlib.load(result_file),
+                    {
+                        "foo": "bar",
+                        "application-identifier": "ABCDEFGHIJ.com.company.application",
+                        "keychain-access-groups": ["group1", "group2"],
+                    },
+                )
+
+    def test_removed_keys_no_modification_when_key_absent(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            entitlements = {
+                "foo": "bar",
+            }
+            entitlements_path = os.path.join(tmp_dir, "Entitlements.plist")
+            with open(entitlements_path, mode="wb") as entitlements_file:
+                plistlib.dump(entitlements, entitlements_file, fmt=plistlib.FMT_XML)
+            profile = ProvisioningProfileMetadata(
+                Path("/foo"),
+                "00000000-0000-0000-0000-000000000000",
+                datetime.max,
+                {"iOS"},
+                {},
+                {
+                    "application-identifier": "ABCDEFGHIJ.com.company.application",
+                },
+            )
+            result = prepare_code_signing_entitlements(
+                entitlements_path,
+                "com.company.application",
+                profile,
+                tmp_dir,
+                entitlements_removed_keys=["nonexistent-key"],
+            )
+            with open(result, "rb") as result_file:
+                self.assertEqual(
+                    plistlib.load(result_file),
+                    {
+                        "foo": "bar",
+                        "application-identifier": "ABCDEFGHIJ.com.company.application",
+                    },
+                )
+
     def test_entitlements_enriched_by_profile(self):
         with tempfile.TemporaryDirectory() as tmp_dir:
             entitlements = {"foo": "bar"}

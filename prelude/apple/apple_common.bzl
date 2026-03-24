@@ -375,6 +375,16 @@ def _entitlements_suffixed_key_map_arg():
 """),
     }
 
+def _entitlements_removed_keys_arg():
+    return {
+        "entitlements_removed_keys": attrs.list(attrs.string(), default = [], doc = """
+    A list of entitlement keys to remove from the entitlements plist. Any key present in this list
+     will be deleted from the final entitlements before code signing. For example,
+     `["com.apple.developer.icloud-services"]` will remove the `com.apple.developer.icloud-services`
+     key from the entitlements.
+"""),
+    }
+
 apple_common = struct(
     headers_arg = _headers_arg,
     exported_headers_arg = _exported_headers_arg,
@@ -430,4 +440,5 @@ apple_common = struct(
     uses_modules_arg = _uses_modules_arg,
     xcode_product_type_arg = _xcode_product_type_arg,
     entitlements_suffixed_key_map_arg = _entitlements_suffixed_key_map_arg,
+    entitlements_removed_keys_arg = _entitlements_removed_keys_arg,
 )

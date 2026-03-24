@@ -382,6 +382,7 @@ def _main() -> None:
             codesign_configuration=args.codesign_configuration,
             codesign_manifest_path=args.codesign_manifest,
             entitlements_suffixed_key_map=args.entitlements_suffixed_key_map,
+            entitlements_removed_keys=args.entitlements_removed_keys,
         )
     elif args.codesign_manifest:
         # Always write the codesign manifest file, even when unsigned
