@@ -7,6 +7,9 @@ rust_library(
     srcs = glob(
         ["src/**/*.rs"],
     ),
+    test_deps = [
+        # @oss-disable[end= ]: "//common/rust/environment:environment",
+    ],
     test_env = {
         "PREP_CGROUP_SCRIPT": "$(location fbcode//buck2/shed/cgroups:prep_cgroup)",
         "USE_SOME_MEMORY_BIN": "$(location //buck2/shed/cgroups/use_some_memory:use_some_memory)",
