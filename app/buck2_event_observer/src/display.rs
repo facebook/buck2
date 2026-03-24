@@ -973,24 +973,7 @@ impl<'a> CriticalPathEntryDisplay<'a> {
                     Some(Target::StandardTarget(t)) => display_configured_target_label(t, opts)?,
                     None => "unknown".to_owned(),
                 };
-                let kind = match analysis.part {
-                    Some(1) => "analysis[part1]",
-                    Some(2) => "analysis[part2]",
-                    _ => "analysis",
-                };
-                (kind, name, None, None, None)
-            }
-            Entry::AnonAnalysis(anon_analysis) => {
-                let name = match &anon_analysis.anon_target {
-                    Some(t) => display_anon_target(t)?,
-                    None => "unknown".to_owned(),
-                };
-                let kind = match anon_analysis.part {
-                    Some(1) => "anon_analysis[part1]",
-                    Some(2) => "anon_analysis[part2]",
-                    _ => "anon_analysis",
-                };
-                (kind, name, None, None, None)
+                ("analysis", name, None, None, None)
             }
             Entry::DynamicAnalysis(analysis) => {
                 use buck2_data::critical_path_entry2::dynamic_analysis::Target;

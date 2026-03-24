@@ -282,119 +282,99 @@ async fn get_analysis_result_inner(
 
     let configured_node = configured_node.as_ref();
 
-    let ((res, now, split_instants), spans): ((buck2_error::Result<_>, _, _), _) =
-        match configured_node.rule_type() {
-            RuleType::Starlark(func) => {
-                let (dep_analysis, query_results) = ctx
-                    .try_compute2(
-                        |ctx| get_dep_analysis(configured_node, ctx).boxed(),
-                        |ctx| resolve_queries(ctx, configured_node).boxed(),
-                    )
-                    .await?;
+    let ((res, now), spans): ((buck2_error::Result<_>, _), _) = match configured_node.rule_type() {
+        RuleType::Starlark(func) => {
+            let (dep_analysis, query_results) = ctx
+                .try_compute2(
+                    |ctx| get_dep_analysis(configured_node, ctx).boxed(),
+                    |ctx| resolve_queries(ctx, configured_node).boxed(),
+                )
+                .await?;
 
-                let now = std::time::Instant::now();
-                let (res, spans) = async_record_root_spans(async {
-                    let rule_spec = get_rule_spec(ctx, func).await?;
-                    let start_event = buck2_data::AnalysisStart {
-                        target: Some(target.as_proto().into()),
-                        rule: func.to_string(),
+            let now = TimeSpan::start_now();
+            let (res, spans) = async_record_root_spans(async {
+                let rule_spec = get_rule_spec(ctx, func).await?;
+                let start_event = buck2_data::AnalysisStart {
+                    target: Some(target.as_proto().into()),
+                    rule: func.to_string(),
+                };
+
+                span_async(start_event, async {
+                    let mut profile = None;
+                    let mut declared_artifacts = None;
+                    let mut declared_actions = None;
+
+                    let result: buck2_error::Result<_> = try {
+                        let result = span_async_simple(
+                            buck2_data::AnalysisStageStart {
+                                stage: Some(buck2_data::analysis_stage_start::Stage::EvaluateRule(
+                                    (),
+                                )),
+                            },
+                            run_analysis(
+                                ctx,
+                                target,
+                                dep_analysis,
+                                query_results,
+                                configured_node.execution_platform_resolution(),
+                                &rule_spec,
+                                configured_node,
+                                cancellation,
+                            ),
+                            buck2_data::AnalysisStageEnd {},
+                        )
+                        .await?;
+
+                        profile = Some(make_analysis_profile(&result)?);
+                        declared_artifacts = Some(result.num_declared_artifacts);
+                        declared_actions = Some(result.num_declared_actions);
+
+                        MaybeCompatible::Compatible(result)
                     };
 
-                    let (result, split_instants) = span_async(start_event, async {
-                        let mut profile = None;
-                        let mut declared_artifacts = None;
-                        let mut declared_actions = None;
-                        let mut split_instants = None;
-
-                        let result: buck2_error::Result<_> = try {
-                            let (result, split) = span_async_simple(
-                                buck2_data::AnalysisStageStart {
-                                    stage: Some(
-                                        buck2_data::analysis_stage_start::Stage::EvaluateRule(()),
-                                    ),
-                                },
-                                run_analysis(
-                                    ctx,
-                                    target,
-                                    dep_analysis,
-                                    query_results,
-                                    configured_node.execution_platform_resolution(),
-                                    &rule_spec,
-                                    configured_node,
-                                    cancellation,
-                                ),
-                                buck2_data::AnalysisStageEnd {},
-                            )
-                            .await?;
-
-                            split_instants = split;
-                            profile = Some(make_analysis_profile(&result)?);
-                            declared_artifacts = Some(result.num_declared_artifacts);
-                            declared_actions = Some(result.num_declared_actions);
-
-                            MaybeCompatible::Compatible(result)
-                        };
-
-                        (
-                            (result, split_instants),
-                            buck2_data::AnalysisEnd {
-                                target: Some(target.as_proto().into()),
-                                rule: func.to_string(),
-                                profile,
-                                declared_actions,
-                                declared_artifacts,
-                            },
-                        )
-                    })
-                    .await;
-
-                    buck2_error::Ok((result, split_instants))
+                    (
+                        result,
+                        buck2_data::AnalysisEnd {
+                            target: Some(target.as_proto().into()),
+                            rule: func.to_string(),
+                            profile,
+                            declared_actions,
+                            declared_artifacts,
+                        },
+                    )
                 })
-                .await;
+                .await
+            })
+            .await;
 
-                match res {
-                    Ok((result, split)) => ((result, now, split), spans),
-                    Err(e) => ((Err(e), now, None), spans),
+            ((res, now), spans)
+        }
+        RuleType::Forward => {
+            let mut dep_analysis = get_dep_analysis(configured_node, ctx).await?;
+            let now = TimeSpan::start_now();
+            let (res, spans) = record_root_spans(|| {
+                let one_dep_analysis = dep_analysis
+                    .pop()
+                    .ok_or_else(|| internal_error!("Forward node analysis produced no results"))?;
+                if !dep_analysis.is_empty() {
+                    return Err(internal_error!(
+                        "Forward node analysis produced more than one result"
+                    ));
                 }
-            }
-            RuleType::Forward => {
-                let mut dep_analysis = get_dep_analysis(configured_node, ctx).await?;
-                let now = std::time::Instant::now();
-                let (res, spans) = record_root_spans(|| {
-                    let one_dep_analysis = dep_analysis.pop().ok_or_else(|| {
-                        internal_error!("Forward node analysis produced no results")
-                    })?;
-                    if !dep_analysis.is_empty() {
-                        return Err(internal_error!(
-                            "Forward node analysis produced more than one result"
-                        ));
-                    }
-                    Ok(MaybeCompatible::Compatible(one_dep_analysis.1))
-                });
+                Ok(MaybeCompatible::Compatible(one_dep_analysis.1))
+            });
 
-                ((res, now, None), spans)
-            }
-        };
-
-    let analysis_end = std::time::Instant::now();
-    let (time_span, anon_target_split) = match split_instants {
-        Some(split) => (
-            TimeSpan::new_saturating(now, split.pre_promises),
-            Some(AnonTargetSplitData {
-                part2_time_span: TimeSpan::new_saturating(split.post_promises, analysis_end),
-            }),
-        ),
-        None => (TimeSpan::new_saturating(now, analysis_end), None),
+            ((res, now), spans)
+        }
     };
 
     ctx.store_evaluation_data(AnalysisKeyActivationData {
         waiting_data: WaitingData::new(),
-        time_span,
+        time_span: now.end_now(),
         spans,
         analysis_with_extra_data: AnalysisWithExtraData {
             target_rule_type_name: Some(target_rule_type_name),
         },
-        anon_target_split,
     })?;
 
     res
@@ -486,21 +466,6 @@ pub struct AnalysisKeyActivationData {
     pub time_span: TimeSpan,
     pub spans: SmallVec<[SpanId; 1]>,
     pub analysis_with_extra_data: AnalysisWithExtraData,
-    /// If this analysis resolved anon targets, contains timing data for the
-    /// post-anon-targets portion. When present, `time_span` represents only
-    /// the pre-anon-targets portion (part 1).
-    pub anon_target_split: Option<AnonTargetSplitData>,
-}
-
-/// Timing data for the portion of analysis after anon target resolution.
-pub struct AnonTargetSplitData {
-    pub part2_time_span: TimeSpan,
-}
-
-/// Timestamps captured around `run_promises()` for splitting analysis nodes.
-pub struct AnalysisSplitInstants {
-    pub pre_promises: std::time::Instant,
-    pub post_promises: std::time::Instant,
 }
 
 #[derive(Clone)]

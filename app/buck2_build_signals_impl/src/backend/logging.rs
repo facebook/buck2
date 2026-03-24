@@ -8,8 +8,6 @@
  * above-listed licenses.
  */
 
-use std::collections::HashMap;
-
 use buck2_build_signals::env::CriticalPathBackendName;
 use buck2_build_signals::env::NodeDuration;
 use buck2_build_signals::env::WaitingData;
@@ -90,10 +88,7 @@ impl BuildListenerBackend for LoggingBackend {
     ) {
     }
 
-    fn finish(
-        self,
-        _anon_target_discovery_edges: HashMap<NodeKey, NodeKey>,
-    ) -> Result<BuildInfo, CriticalPathError> {
+    fn finish(self) -> Result<BuildInfo, CriticalPathError> {
         Ok(BuildInfo {
             critical_path: DetailedCriticalPath::empty(),
             slowest_path: DetailedCriticalPath::empty(),

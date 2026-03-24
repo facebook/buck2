@@ -10,7 +10,6 @@
 
 use std::collections::HashMap;
 use std::sync::Arc;
-use std::time::Instant;
 
 use buck2_build_api::analysis::AnalysisResult;
 use buck2_build_api::analysis::anon_promises_dyn::RunAnonPromisesAccessorPair;
@@ -58,7 +57,6 @@ use starlark::values::ValueTyped;
 use starlark::values::ValueTypedComplex;
 use starlark_map::small_map::SmallMap;
 
-use crate::analysis::calculation::AnalysisSplitInstants;
 use crate::analysis::plugins::plugins_to_starlark_value;
 use crate::attrs::resolve::ctx::AnalysisQueryResult;
 use crate::attrs::resolve::ctx::AttrResolutionContext;
@@ -203,7 +201,7 @@ pub(crate) async fn run_analysis<'a>(
     rule_spec: &'a dyn RuleSpec,
     node: ConfiguredTargetNodeRef<'a>,
     cancellation: &CancellationContext,
-) -> buck2_error::Result<(AnalysisResult, Option<AnalysisSplitInstants>)> {
+) -> buck2_error::Result<AnalysisResult> {
     let analysis_env = AnalysisEnv {
         rule_spec,
         deps: results,
@@ -233,9 +231,7 @@ fn run_analysis_with_env<'a, 'd: 'a>(
     dice: &'a mut DiceComputations<'d>,
     analysis_env: AnalysisEnv<'a>,
     node: ConfiguredTargetNodeRef<'a>,
-) -> impl Future<Output = buck2_error::Result<(AnalysisResult, Option<AnalysisSplitInstants>)>>
-+ 'a
-+ Captures<'d> {
+) -> impl Future<Output = buck2_error::Result<AnalysisResult>> + 'a + Captures<'d> {
     let fut = async move { run_analysis_with_env_underlying(dice, analysis_env, node).await };
     unsafe { UnsafeSendFuture::new_encapsulates_starlark(fut) }
 }
@@ -244,7 +240,7 @@ async fn run_analysis_with_env_underlying(
     dice: &mut DiceComputations<'_>,
     analysis_env: AnalysisEnv<'_>,
     node: ConfiguredTargetNodeRef<'_>,
-) -> buck2_error::Result<(AnalysisResult, Option<AnalysisSplitInstants>)> {
+) -> buck2_error::Result<AnalysisResult> {
     BuckStarlarkModule::with_profiling_async(async move |env| {
         let print = EventDispatcherPrintHandler(get_dispatcher());
 
@@ -302,21 +298,9 @@ async fn run_analysis_with_env_underlying(
             Ok((ctx, list_res))
         })?;
 
-        let pre_promises = Instant::now();
-        let resolved_any = ctx
-            .actions
+        ctx.actions
             .run_promises(&mut RunAnonPromisesAccessorPair(&mut reentrant_eval, dice))
             .await?;
-        let post_promises = Instant::now();
-
-        let split_instants = if resolved_any {
-            Some(AnalysisSplitInstants {
-                pre_promises,
-                post_promises,
-            })
-        } else {
-            None
-        };
 
         // Pull the ctx object back out, and steal ctx.action's state back
         let analysis_registry = ctx.take_state();
@@ -346,16 +330,13 @@ async fn run_analysis_with_env_underlying(
 
         Ok((
             token,
-            (
-                AnalysisResult::new(
-                    recorded_values,
-                    profile_data,
-                    HashMap::new(),
-                    declared_actions,
-                    declared_artifacts,
-                    validations,
-                ),
-                split_instants,
+            AnalysisResult::new(
+                recorded_values,
+                profile_data,
+                HashMap::new(),
+                declared_actions,
+                declared_artifacts,
+                validations,
             ),
         ))
     })

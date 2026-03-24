@@ -107,17 +107,15 @@ impl<'v> AnalysisActions<'v> {
     pub async fn run_promises<'a, 'e: 'a>(
         &self,
         accessor: &mut dyn RunAnonPromisesAccessor<'v, 'a, 'e>,
-    ) -> buck2_error::Result<bool>
+    ) -> buck2_error::Result<()>
     where
         'v: 'a,
     {
         // We need to loop here because running the promises evaluates promise.map, which might produce more promises.
         // We keep going until there are no promises left.
-        let mut resolved_any = false;
         loop {
             let promises = self.state()?.take_promises();
             if let Some(promises) = promises {
-                resolved_any = true;
                 promises.run_promises(accessor).await?;
             } else {
                 break;
@@ -128,7 +126,7 @@ impl<'v> AnalysisActions<'v> {
             .with_dice(|dice| self.assert_short_paths_and_resolve(dice).boxed_local())
             .await?;
 
-        Ok(resolved_any)
+        Ok(())
     }
 
     // Called after `run_promises()` to assert short paths and resolve consumer's promise artifacts.

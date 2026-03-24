@@ -46,7 +46,6 @@ use buck2_build_signals::env::NodeDuration;
 use buck2_build_signals::env::WaitingData;
 use buck2_build_signals::error::CriticalPathError;
 use buck2_build_signals::node_key::BuildSignalsNodeKey;
-use buck2_build_signals::node_key::BuildSignalsNodeKeyImpl;
 use buck2_common::package_listing::dice::PackageListingKey;
 use buck2_common::package_listing::dice::PackageListingKeyActivationData;
 use buck2_core::package::PackageLabel;
@@ -186,10 +185,6 @@ impl NodeKey {
                     NodeExtraData::Analysis(node_data) => node_data.target_rule_type_name.clone(),
                     _ => None,
                 },
-                part: match &extra_data {
-                    NodeExtraData::Analysis(node_data) => node_data.part,
-                    _ => None,
-                },
             }
             .into(),
 
@@ -217,20 +212,7 @@ impl NodeKey {
                 buck2_data::critical_path_entry2::EnsureTransitiveSetProjection {}.into()
             }
             NodeKey::Dyn(_, ref d) => match d.critical_path_entry_proto() {
-                Some(mut entry) => {
-                    // For Dyn keys that produce AnonAnalysis entries and have been
-                    // split, inject the part number from the analysis extra_data.
-                    if let (
-                        buck2_data::critical_path_entry2::Entry::AnonAnalysis(anon),
-                        NodeExtraData::Analysis(node_data),
-                    ) = (&mut entry, extra_data)
-                    {
-                        if anon.part.is_none() {
-                            anon.part = node_data.part;
-                        }
-                    }
-                    entry
-                }
+                Some(entry) => entry,
                 None => self.into_generic_entry(),
             },
             NodeKey::TestExecution(t) => buck2_data::critical_path_entry2::TestExecution {
@@ -323,51 +305,11 @@ pub(crate) struct Evaluation {
 
     /// Node-type-specific extra data (action data for BuildKey, load result for InterpreterResultsKey, etc.).
     extra_data: NodeExtraData,
-
-    /// If this is Part 2 of a split analysis, contains info about the discovering
-    /// analysis Part 1 and the anon targets that were discovered.
-    split_discovery: Option<SplitDiscoveryData>,
 }
 
 #[derive(Clone)]
 pub(crate) struct BuildSignalSender {
     sender: UnboundedSender<BuildSignal>,
-}
-
-impl BuildSignalSender {
-    /// Create a finish NodeKey for Part 2 of a split analysis.
-    fn make_finish_key(part1_key: &NodeKey, analysis_data: &AnalysisNodeData) -> NodeKey {
-        match part1_key {
-            NodeKey::AnalysisKey(key) => NodeKey::Dyn(
-                "AnalysisFinishKey",
-                BuildSignalsNodeKey::new(AnalysisFinishNodeKey {
-                    target: key.0.dupe(),
-                    target_rule_type_name: analysis_data.target_rule_type_name.clone(),
-                }),
-            ),
-            NodeKey::Dyn(name, dyn_key) if *name == "AnonTargetKey" => {
-                // Extract the anon target proto from the Part 1 key's critical path entry.
-                let anon_target_proto = dyn_key
-                    .critical_path_entry_proto()
-                    .and_then(|entry| match entry {
-                        buck2_data::critical_path_entry2::Entry::AnonAnalysis(a) => a.anon_target,
-                        _ => None,
-                    })
-                    .unwrap_or_default();
-                NodeKey::Dyn(
-                    "AnonTargetFinishKey",
-                    BuildSignalsNodeKey::new(AnonTargetFinishNodeKey {
-                        display_name: format!("{}", dyn_key),
-                        anon_target_proto,
-                    }),
-                )
-            }
-            _ => {
-                // Shouldn't happen - only AnalysisKey and AnonTargetKey can be split
-                part1_key.dupe()
-            }
-        }
-    }
 }
 
 impl BuildSignals for BuildSignalSender {
@@ -464,7 +406,6 @@ impl ActivationTracker for BuildSignalSender {
             dep_keys: deps.into_iter().filter_map(NodeKey::from_dyn_key).collect(),
             spans: Default::default(),
             waiting_data: WaitingData::new(),
-            split_discovery: None,
         };
 
         /// Given an Option containing an Any, take it if and only if it contains a T.
@@ -497,70 +438,17 @@ impl ActivationTracker for BuildSignalSender {
                 spans,
                 analysis_with_extra_data,
                 waiting_data,
-                anon_target_split,
             }) = downcast_and_take(&mut activation_data)
             {
-                let analysis_node_data =
-                    AnalysisNodeData::from_extra_data(analysis_with_extra_data);
-
-                if let Some(split) = anon_target_split {
-                    // Split this analysis into Part 1 (before anon targets) and Part 2 (after).
-                    // Partition deps into anon target deps and other deps.
-                    let (anon_deps, other_deps): (Vec<_>, Vec<_>) =
-                        signal.dep_keys.drain(..).partition(
-                            |k| matches!(k, NodeKey::Dyn(_, key) if key.kind() == "anon_target"),
-                        );
-
-                    // Part 1: the main key with pre-anon-target duration and non-anon deps
-                    signal.duration = NodeDuration {
-                        user: time_span.duration(),
-                        total: time_span,
-                        queue: None,
-                    };
-                    signal.dep_keys = other_deps;
-                    signal.spans = spans;
-                    signal.extra_data =
-                        NodeExtraData::Analysis(analysis_node_data.clone().with_part(Some(1)));
-                    signal.waiting_data = waiting_data;
-
-                    let part1_key = signal.key.dupe();
-
-                    // Send Part 1
-                    let _ignored = self.sender.send(BuildSignal::Evaluation(signal));
-
-                    // Part 2: finish key with post-anon-target duration
-                    let finish_key = Self::make_finish_key(&part1_key, &analysis_node_data);
-                    let part2_deps: Vec<NodeKey> = std::iter::once(part1_key.dupe())
-                        .chain(anon_deps.iter().cloned())
-                        .collect();
-
-                    let part2_signal = Evaluation {
-                        key: finish_key,
-                        duration: NodeDuration {
-                            user: split.part2_time_span.duration(),
-                            total: split.part2_time_span,
-                            queue: None,
-                        },
-                        dep_keys: part2_deps,
-                        spans: Default::default(),
-                        extra_data: NodeExtraData::Analysis(analysis_node_data.with_part(Some(2))),
-                        waiting_data: WaitingData::new(),
-                        split_discovery: Some(SplitDiscoveryData {
-                            discovering_analysis: part1_key,
-                            anon_targets: anon_deps,
-                        }),
-                    };
-                    let _ignored = self.sender.send(BuildSignal::Evaluation(part2_signal));
-                    return;
-                }
-
                 signal.duration = NodeDuration {
                     user: time_span.duration(),
                     total: time_span,
                     queue: None,
                 };
                 signal.spans = spans;
-                signal.extra_data = NodeExtraData::Analysis(analysis_node_data);
+                signal.extra_data = NodeExtraData::Analysis(AnalysisNodeData::from_extra_data(
+                    analysis_with_extra_data,
+                ));
                 signal.waiting_data = waiting_data;
             } else if let Some(InterpreterResultsKeyActivationData {
                 time_span,
@@ -663,13 +551,6 @@ struct BuildSignalReceiver<T> {
     // shows up, we'll give it a dependency on said first PackageLabel that had an edge to it, which
     // is how we discovered its existence.
     first_edge_to_load: HashMap<PackageLabel, PackageLabel>,
-    // Maps an anon target NodeKey to the first analysis Part 1 NodeKey that discovered it.
-    // Used to add discovery edges in finish().
-    first_analysis_for_anon_target: HashMap<NodeKey, NodeKey>,
-    // Maps a Part 1 key (e.g. AnalysisKey) to its finish key (Part 2) for split analyses.
-    // When a node depends on a split analysis, the dep should point to the finish key
-    // (representing full completion) rather than the Part 1 key.
-    split_analysis_finish_keys: HashMap<NodeKey, NodeKey>,
     backend: T,
 
     // TODO(rajneeshl): When Test listing and execution are on DICE, we can remove this and use
@@ -686,8 +567,6 @@ where
             receiver: UnboundedReceiverStream::new(receiver),
             backend,
             first_edge_to_load: HashMap::new(),
-            first_analysis_for_anon_target: HashMap::new(),
-            split_analysis_finish_keys: HashMap::new(),
             test_listing_keys: HashMap::new(),
         }
     }
@@ -719,7 +598,7 @@ where
             num_nodes,
             num_edges,
             top_level_targets,
-        } = self.backend.finish(self.first_analysis_for_anon_target)?;
+        } = self.backend.finish()?;
 
         let critical_path2 = critical_path.into_critical_path_proto(&ctx.early_command_timing, now);
 
@@ -752,31 +631,6 @@ where
     /// underlying backend.
     fn process_evaluation(&mut self, mut evaluation: Evaluation) {
         self.enrich_load(&mut evaluation);
-
-        // Remap deps that point to Part 1 of a split analysis to the finish key (Part 2),
-        // since nodes depending on a split analysis can only proceed after it fully completes.
-        // This must happen before recording new split mappings below, so that the Part 2
-        // node's own dep on Part 1 is not incorrectly remapped to itself.
-        for dep_key in &mut evaluation.dep_keys {
-            if let Some(finish_key) = self.split_analysis_finish_keys.get(dep_key) {
-                *dep_key = finish_key.dupe();
-            }
-        }
-
-        // Track discovery edges for anon target splits
-        if let Some(discovery) = &evaluation.split_discovery {
-            // Record the mapping from Part 1 key to the finish key (Part 2).
-            // Other nodes that depend on this analysis via DICE will have the Part 1
-            // key in their deps, but should depend on the finish key instead.
-            self.split_analysis_finish_keys
-                .insert(discovery.discovering_analysis.dupe(), evaluation.key.dupe());
-
-            for anon_key in &discovery.anon_targets {
-                self.first_analysis_for_anon_target
-                    .entry(anon_key.dupe())
-                    .or_insert_with(|| discovery.discovering_analysis.dupe());
-            }
-        }
 
         self.backend.process_node(
             evaluation.key,
@@ -827,6 +681,7 @@ where
         }
     }
 
+    // TODO: We would need something similar with anon targets.
     fn process_top_level_target(&mut self, top_level: TopLevelTargetSignal) {
         self.backend.process_top_level_target(
             top_level.label,
@@ -1074,128 +929,17 @@ impl ActionNodeData {
 #[derive(Clone)]
 struct AnalysisNodeData {
     target_rule_type_name: Option<String>,
-    /// When analysis is split due to anon targets: None = whole, Some(1) = part 1, Some(2) = part 2
-    part: Option<u32>,
 }
 
 impl AnalysisNodeData {
     fn from_extra_data(data: AnalysisWithExtraData) -> Self {
         Self {
             target_rule_type_name: data.target_rule_type_name,
-            part: None,
         }
-    }
-
-    fn with_part(self, part: Option<u32>) -> Self {
-        Self { part, ..self }
     }
 }
 
 assert_eq_size!(NodeData, [usize; 20]);
-
-/// Finish key for the second part of a split analysis (regular target).
-/// Used when analysis is split due to anon target dependencies.
-#[derive(Debug, Clone)]
-struct AnalysisFinishNodeKey {
-    target: ConfiguredTargetLabel,
-    target_rule_type_name: Option<String>,
-}
-
-impl PartialEq for AnalysisFinishNodeKey {
-    fn eq(&self, other: &Self) -> bool {
-        self.target == other.target
-    }
-}
-
-impl Eq for AnalysisFinishNodeKey {}
-
-impl Hash for AnalysisFinishNodeKey {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.target.hash(state);
-    }
-}
-
-impl fmt::Display for AnalysisFinishNodeKey {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "AnalysisFinish({})", self.target)
-    }
-}
-
-impl BuildSignalsNodeKeyImpl for AnalysisFinishNodeKey {
-    fn critical_path_entry_proto(&self) -> Option<buck2_data::critical_path_entry2::Entry> {
-        Some(
-            buck2_data::critical_path_entry2::Analysis {
-                target: Some(
-                    buck2_data::critical_path_entry2::analysis::Target::StandardTarget(
-                        self.target.as_proto(),
-                    ),
-                ),
-                target_rule_type_name: self.target_rule_type_name.clone(),
-                part: Some(2),
-            }
-            .into(),
-        )
-    }
-
-    fn kind(&self) -> &'static str {
-        "analysis_finish"
-    }
-}
-
-/// Finish key for the second part of a split anon target analysis.
-/// Used when anon target analysis is split due to inner anon target dependencies.
-#[derive(Debug, Clone)]
-struct AnonTargetFinishNodeKey {
-    /// Display name for identity/hashing
-    display_name: String,
-    /// Proto for the critical path entry
-    anon_target_proto: buck2_data::AnonTarget,
-}
-
-impl PartialEq for AnonTargetFinishNodeKey {
-    fn eq(&self, other: &Self) -> bool {
-        self.display_name == other.display_name
-    }
-}
-
-impl Eq for AnonTargetFinishNodeKey {}
-
-impl Hash for AnonTargetFinishNodeKey {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.display_name.hash(state);
-    }
-}
-
-impl fmt::Display for AnonTargetFinishNodeKey {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "AnonTargetFinish({})", self.display_name)
-    }
-}
-
-impl BuildSignalsNodeKeyImpl for AnonTargetFinishNodeKey {
-    fn critical_path_entry_proto(&self) -> Option<buck2_data::critical_path_entry2::Entry> {
-        Some(
-            buck2_data::critical_path_entry2::AnonAnalysis {
-                anon_target: Some(self.anon_target_proto.clone()),
-                part: Some(2),
-            }
-            .into(),
-        )
-    }
-
-    fn kind(&self) -> &'static str {
-        "anon_target_finish"
-    }
-}
-
-/// Data attached to a Part 2 evaluation to track which anon targets were discovered
-/// by which analysis Part 1.
-struct SplitDiscoveryData {
-    /// The analysis Part 1 node that discovered the anon targets.
-    discovering_analysis: NodeKey,
-    /// The anon target node keys that were discovered.
-    anon_targets: Vec<NodeKey>,
-}
 
 fn create_build_signals() -> (BuildSignalsInstaller, Box<dyn DeferredBuildSignals>) {
     let (sender, receiver) = tokio::sync::mpsc::unbounded_channel();

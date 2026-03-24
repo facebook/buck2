@@ -386,9 +386,7 @@ pub(crate) fn run_anon_target_promises<'v, 'a, 'e>(
     // with disadvantages, basically that it does not respect the "safety" of the standard
     // `via_dice` thing. Concretely, that means it doesn't respect cancellations and fails to report
     // a proper span for dice access.
-    tokio::runtime::Handle::current()
-        .block_on(actions.run_promises(&mut accessor))
-        .map(|_| ())
+    tokio::runtime::Handle::current().block_on(actions.run_promises(&mut accessor))
 }
 
 pub(crate) fn init_eval_bxl_for_anon_target() {

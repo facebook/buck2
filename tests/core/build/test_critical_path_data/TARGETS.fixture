@@ -17,6 +17,3 @@ simple_test(name = "long_running_test", seed = seed_val)
 
 tset_write(name = "tset_leaf")
 tset_write(name = "tset_top", deps = [":tset_leaf"])
-
-# Anon target test: uses_anon creates an anon target and then uses its output
-uses_anon(name = "anon_step")

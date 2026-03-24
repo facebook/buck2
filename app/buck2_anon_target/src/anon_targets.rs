@@ -11,14 +11,9 @@
 use std::fmt::Debug;
 use std::mem;
 use std::sync::Arc;
-use std::time::Instant;
 
 use allocative::Allocative;
 use async_trait::async_trait;
-use buck2_analysis::analysis::calculation::AnalysisKeyActivationData;
-use buck2_analysis::analysis::calculation::AnalysisSplitInstants;
-use buck2_analysis::analysis::calculation::AnalysisWithExtraData;
-use buck2_analysis::analysis::calculation::AnonTargetSplitData;
 use buck2_analysis::analysis::calculation::get_rule_spec;
 use buck2_analysis::analysis::env::RuleSpec;
 use buck2_analysis::analysis::env::transitive_validations;
@@ -41,9 +36,6 @@ use buck2_build_api::deferred::calculation::GET_PROMISED_ARTIFACT;
 use buck2_build_api::interpreter::rule_defs::context::AnalysisContext;
 use buck2_build_api::interpreter::rule_defs::plugins::AnalysisPlugins;
 use buck2_build_api::interpreter::rule_defs::provider::collection::ProviderCollection;
-use buck2_build_signals::env::WaitingData;
-use buck2_build_signals::node_key::BuildSignalsNodeKey;
-use buck2_build_signals::node_key::BuildSignalsNodeKeyImpl;
 use buck2_configured::execution::find_execution_platform_by_configuration;
 use buck2_core::cells::name::CellName;
 use buck2_core::cells::paths::CellRelativePath;
@@ -62,7 +54,6 @@ use buck2_core::target::name::TargetNameRef;
 use buck2_core::unsafe_send_future::UnsafeSendFuture;
 use buck2_error::BuckErrorContext;
 use buck2_error::internal_error;
-use buck2_events::dispatch::async_record_root_spans;
 use buck2_events::dispatch::get_dispatcher;
 use buck2_events::dispatch::span_async;
 use buck2_execute::digest_config::HasDigestConfig;
@@ -80,9 +71,7 @@ use buck2_node::attrs::spec::internal::is_internal_attr;
 use buck2_node::bzl_or_bxl_path::BzlOrBxlPath;
 use buck2_node::rule_type::StarlarkRuleType;
 use buck2_util::arc_str::ArcStr;
-use buck2_util::time_span::TimeSpan;
 use derive_more::Display;
-use dice::Demand;
 use dice::DiceComputations;
 use dice::Key;
 use dice::OkPagableValueSerialize;
@@ -160,35 +149,7 @@ impl Key for AnonTargetKey {
     ) -> Self::Value {
         let deferred_key = DeferredHolderKey::Base(BaseDeferredKey::AnonTarget(self.0.dupe()));
         ctx.analysis_started(&deferred_key)?;
-
-        let analysis_start = Instant::now();
-        let (res, split_instants, spans) = {
-            let (r, spans) = async_record_root_spans(self.run_analysis(ctx, cancellation)).await;
-            let (result, split) = r?;
-            (result, split, spans)
-        };
-        let analysis_end = Instant::now();
-
-        let (time_span, anon_target_split) = match split_instants {
-            Some(split) => (
-                TimeSpan::new_saturating(analysis_start, split.pre_promises),
-                Some(AnonTargetSplitData {
-                    part2_time_span: TimeSpan::new_saturating(split.post_promises, analysis_end),
-                }),
-            ),
-            None => (TimeSpan::new_saturating(analysis_start, analysis_end), None),
-        };
-
-        ctx.store_evaluation_data(AnalysisKeyActivationData {
-            waiting_data: WaitingData::new(),
-            time_span,
-            spans,
-            analysis_with_extra_data: AnalysisWithExtraData {
-                target_rule_type_name: None,
-            },
-            anon_target_split,
-        })?;
-
+        let res = self.run_analysis(ctx, cancellation).await?;
         ctx.analysis_complete(&deferred_key, &DeferredHolder::Analysis(res.dupe()))?;
         Ok(res)
     }
@@ -199,26 +160,6 @@ impl Key for AnonTargetKey {
 
     fn value_serialize() -> impl ValueSerialize<Value = Self::Value> {
         OkPagableValueSerialize::<Self::Value>::new()
-    }
-
-    fn provide<'a>(&'a self, demand: &mut Demand<'a>) {
-        demand.provide_value_with(|| BuildSignalsNodeKey::new(self.dupe()));
-    }
-}
-
-impl BuildSignalsNodeKeyImpl for AnonTargetKey {
-    fn critical_path_entry_proto(&self) -> Option<buck2_data::critical_path_entry2::Entry> {
-        Some(
-            buck2_data::critical_path_entry2::AnonAnalysis {
-                anon_target: Some(self.0.as_proto()),
-                part: None,
-            }
-            .into(),
-        )
-    }
-
-    fn kind(&self) -> &'static str {
-        "anon_target"
     }
 }
 
@@ -410,7 +351,7 @@ impl AnonTargetKey {
         &'a self,
         dice: &'a mut DiceComputations<'_>,
         cancellation: &'a CancellationContext,
-    ) -> BoxFuture<'a, buck2_error::Result<(AnalysisResult, Option<AnalysisSplitInstants>)>> {
+    ) -> BoxFuture<'a, buck2_error::Result<AnalysisResult>> {
         let fut = async move { self.run_analysis_impl(dice, cancellation).await };
         Box::pin(unsafe { UnsafeSendFuture::new_encapsulates_starlark(fut) })
     }
@@ -419,7 +360,7 @@ impl AnonTargetKey {
         &self,
         dice: &mut DiceComputations<'_>,
         cancellation: &CancellationContext,
-    ) -> buck2_error::Result<(AnalysisResult, Option<AnalysisSplitInstants>)> {
+    ) -> buck2_error::Result<AnalysisResult> {
         let dependents = AnonTargetDependents::get_dependents(self)?;
         let dependents_analyses = dependents.get_analysis_results(dice).await?;
 
@@ -442,7 +383,7 @@ impl AnonTargetKey {
                 rule: self.0.rule_type().to_string(),
             },
             async move {
-                let res = match (&self.0.rule_type().path, self.0.anon_target_type()) {
+                match (&self.0.rule_type().path, self.0.anon_target_type()) {
                     (BzlOrBxlPath::Bxl(_), AnonTargetVariant::Bxl(global_cfg_options)) => {
                         cancellation
                             .with_structured_cancellation(|observer| {
@@ -457,7 +398,6 @@ impl AnonTargetKey {
                                 .boxed_local()
                             })
                             .await
-                            .map(|r| (r, None))
                     }
                     (BzlOrBxlPath::Bzl(_), AnonTargetVariant::Bzl) => {
                         self.eval_for_bzl(dice, dependents_analyses, exec_resolution, cancellation)
@@ -475,16 +415,18 @@ impl AnonTargetKey {
                             import_path
                         ))
                     }
-                };
+                }
+            }
+            .map(|res| {
                 let end = buck2_data::AnalysisEnd {
                     target: Some(self.0.as_proto().into()),
                     rule: self.0.rule_type().to_string(),
                     profile: None, // Not implemented for anon targets
-                    declared_actions: res.as_ref().ok().map(|(v, _)| v.num_declared_actions),
-                    declared_artifacts: res.as_ref().ok().map(|(v, _)| v.num_declared_artifacts),
+                    declared_actions: res.as_ref().ok().map(|v| v.num_declared_actions),
+                    declared_artifacts: res.as_ref().ok().map(|v| v.num_declared_artifacts),
                 };
                 (res, end)
-            },
+            }),
         )
         .await
     }
@@ -495,7 +437,7 @@ impl AnonTargetKey {
         dependents_analyses: AnonTargetDependentAnalysisResults<'_>,
         exec_resolution: ExecutionPlatformResolution,
         cancellation: &CancellationContext,
-    ) -> buck2_error::Result<(AnalysisResult, Option<AnalysisSplitInstants>)> {
+    ) -> buck2_error::Result<AnalysisResult> {
         let validations_from_deps = dependents_analyses.validations();
         let rule_impl = get_rule_spec(dice, self.0.rule_type()).await?;
 
@@ -538,22 +480,9 @@ impl AnonTargetKey {
                 Ok((ctx, list_res))
             })?;
 
-            let pre_promises = Instant::now();
-            let resolved_any = ctx
-                .actions
+            ctx.actions
                 .run_promises(&mut RunAnonPromisesAccessorPair(&mut reentrant_eval, dice))
                 .await?;
-            let post_promises = Instant::now();
-
-            let split_instants = if resolved_any {
-                Some(AnalysisSplitInstants {
-                    pre_promises,
-                    post_promises,
-                })
-            } else {
-                None
-            };
-
             let res_typed = ProviderCollection::try_from_value(list_res)?;
             let res = env.heap().alloc(res_typed);
 
@@ -587,16 +516,13 @@ impl AnonTargetKey {
 
             Ok((
                 token,
-                (
-                    AnalysisResult::new(
-                        recorded_values,
-                        None,
-                        fulfilled_artifact_mappings,
-                        num_declared_actions,
-                        num_declared_artifacts,
-                        validations,
-                    ),
-                    split_instants,
+                AnalysisResult::new(
+                    recorded_values,
+                    None,
+                    fulfilled_artifact_mappings,
+                    num_declared_actions,
+                    num_declared_artifacts,
+                    validations,
                 ),
             ))
         })
