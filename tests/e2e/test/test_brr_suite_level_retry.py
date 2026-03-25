@@ -178,9 +178,9 @@ async def test_brr_roundtrip_listing_failure(buck: Buck, tmp_path: Path) -> None
     """
     End-to-end BRR roundtrip: a test whose listing fails (os._exit(1) at
     import time with supports_static_listing=False) produces a report with
-    '- main', and feeding that report back via
+    only '- listing' (not '- main'), and feeding that report back via
     --base-rev-retry-with-input-file reproduces the listing failure (the
-    retry report also contains '- main').
+    retry report also contains '- listing').
     """
     mode = get_mode_from_platform()
     report_file = tmp_path / "report.json"
@@ -203,12 +203,18 @@ async def test_brr_roundtrip_listing_failure(buck: Buck, tmp_path: Path) -> None
     except BuckException:
         pass
 
-    # Step 2: Verify the report was written and contains a "- main" entry.
+    # Step 2: Verify the report was written and contains a "- listing" entry.
+    # Listing failures only produce "- listing" in the BRR file (not "- main"),
+    # since "- listing" is the authoritative signal for listing health.
     assert report_file.exists(), "Failure report was not written"
     report = read_brr_report(report_file)
     test_names = cast(list[str], report.get("test_names", []))
+    has_listing = any(name.endswith("- listing") for name in test_names)
+    assert has_listing, f"Expected a '- listing' entry in test_names, got: {test_names}"
     has_main = any(name.endswith("- main") for name in test_names)
-    assert has_main, f"Expected a '- main' entry in test_names, got: {test_names}"
+    assert not has_main, (
+        f"Expected no '- main' entry in test_names (listing failures only produce '- listing'), got: {test_names}"
+    )
 
     # Step 3: Feed the report back as a BRR retry input, saving the retry
     # output to a second report file so we can inspect it directly.
@@ -232,9 +238,9 @@ async def test_brr_roundtrip_listing_failure(buck: Buck, tmp_path: Path) -> None
     assert retry_report_file.exists(), "Retry failure report was not written"
     retry_report = read_brr_report(retry_report_file)
     retry_test_names = cast(list[str], retry_report.get("test_names", []))
-    retry_has_main = any(name.endswith("- main") for name in retry_test_names)
-    assert retry_has_main, (
-        f"Expected a '- main' entry in retry report test_names, got: {retry_test_names}"
+    retry_has_listing = any(name.endswith("- listing") for name in retry_test_names)
+    assert retry_has_listing, (
+        f"Expected a '- listing' entry in retry report test_names, got: {retry_test_names}"
     )
     print(retry_report)
 
