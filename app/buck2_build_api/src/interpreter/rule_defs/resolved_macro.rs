@@ -325,9 +325,12 @@ impl<'v> CommandLineArgLike<'v> for ResolvedStringWithMacros {
 #[starlark_value(type = "ResolvedStringWithMacros")]
 impl<'v> StarlarkValue<'v> for ResolvedStringWithMacros {
     fn equals(&self, other: Value<'v>) -> starlark::Result<bool> {
-        match ResolvedStringWithMacros::from_value(other) {
-            None => Ok(false),
-            Some(other) => Ok(*self == *other),
+        if let Some(other) = ResolvedStringWithMacros::from_value(other) {
+            Ok(*self == *other)
+        } else if let Some(s) = other.unpack_str() {
+            Ok(self.downcast_str() == Some(s))
+        } else {
+            Ok(false)
         }
     }
 
@@ -340,4 +343,70 @@ impl<'v> StarlarkValue<'v> for ResolvedStringWithMacros {
 pub(crate) fn register_string_with_macros(globals: &mut GlobalsBuilder) {
     const ResolvedStringWithMacros: StarlarkValueAsType<ResolvedStringWithMacros> =
         StarlarkValueAsType::new();
+}
+
+#[cfg(test)]
+mod tests {
+    use starlark::values::Heap;
+    use starlark::values::StarlarkValue;
+
+    use super::*;
+
+    fn make_string_resolved(s: &str) -> ResolvedStringWithMacros {
+        ResolvedStringWithMacros::new(
+            vec![ResolvedStringWithMacrosPart::String(ArcStr::from(s))],
+            None,
+        )
+    }
+
+    #[test]
+    fn test_equals_matching_string() {
+        let resolved = make_string_resolved("-matching-flag");
+        Heap::temp(|heap| {
+            let str_val = heap.alloc_str("-matching-flag").to_value();
+            assert_eq!(resolved.equals(str_val).unwrap(), true);
+        });
+    }
+
+    #[test]
+    fn test_equals_non_matching_string() {
+        let resolved = make_string_resolved("-resolved-flag");
+        Heap::temp(|heap| {
+            let str_val = heap.alloc_str("-str-flag").to_value();
+            assert_eq!(resolved.equals(str_val).unwrap(), false);
+        });
+    }
+
+    #[test]
+    fn test_equals_resolved_string_vs_resolved_string() {
+        let resolved = make_string_resolved("-resolved-flag");
+        Heap::temp(|heap| {
+            let other_val = heap.alloc_simple(make_string_resolved("-resolved-flag"));
+            assert_eq!(resolved.equals(other_val).unwrap(), true);
+        });
+    }
+
+    #[test]
+    fn test_equals_resolved_string_vs_non_string_value() {
+        let resolved = make_string_resolved("-Wno-error");
+        Heap::temp(|heap| {
+            let int_val = heap.alloc(42);
+            assert_eq!(resolved.equals(int_val).unwrap(), false);
+        });
+    }
+
+    #[test]
+    fn test_equals_resolved_macro_vs_non_string_value() {
+        let resolved = ResolvedStringWithMacros::new(
+            vec![ResolvedStringWithMacrosPart::Macro(
+                false,
+                ResolvedMacro::Query(ResolvedQueryMacro::Targets(Default::default())),
+            )],
+            None,
+        );
+        Heap::temp(|heap| {
+            let int_val = heap.alloc(42);
+            assert_eq!(resolved.equals(int_val).unwrap(), false);
+        });
+    }
 }
