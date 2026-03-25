@@ -125,6 +125,13 @@ def _cxx_toolchain_override(ctx):
     pdb_expected = linker_type == LinkerType("windows") and pdb_expected
     shlib_interfaces = ShlibInterfacesMode(ctx.attrs.shared_library_interface_mode) if ctx.attrs.shared_library_interface_mode else None
     sanitizer_runtime_files = flatten([runtime_file[DefaultInfo].default_outputs for runtime_file in ctx.attrs.sanitizer_runtime_files]) if ctx.attrs.sanitizer_runtime_files != None else None
+    linker_flags = _pick(ctx.attrs.linker_flags, base_linker_info.linker_flags)
+    if ctx.attrs.resource_dir != None:
+        resource_dir = ctx.attrs.resource_dir[DefaultInfo].default_outputs[0]
+        linker_flags = cmd_args(
+            linker_flags,
+            cmd_args(resource_dir, format = "-resource-dir={}"),
+        )
     linker_info = LinkerInfo(
         archiver = _pick_bin(ctx.attrs.archiver, base_linker_info.archiver),
         archiver_flags = value_or(ctx.attrs.archiver_flags, base_linker_info.archiver_flags),
@@ -147,7 +154,7 @@ def _cxx_toolchain_override(ctx):
         link_weight = value_or(ctx.attrs.link_weight, base_linker_info.link_weight),
         link_ordering = base_linker_info.link_ordering,
         linker = _pick_bin(ctx.attrs.linker, base_linker_info.linker),
-        linker_flags = _pick(ctx.attrs.linker_flags, base_linker_info.linker_flags),
+        linker_flags = linker_flags,
         post_linker_flags = _pick(ctx.attrs.post_linker_flags, base_linker_info.post_linker_flags),
         link_metadata_flag = _pick(ctx.attrs.link_metadata_flag, base_linker_info.link_metadata_flag),
         lto_mode = value_or(map_val(LtoMode, ctx.attrs.lto_mode), base_linker_info.lto_mode),
@@ -291,6 +298,7 @@ cxx_toolchain_override_registration_spec = RuleRegistrationSpec(
         "platform_name": attrs.option(attrs.string(), default = None),
         "post_linker_flags": attrs.option(attrs.list(attrs.arg()), default = None),
         "ranlib": attrs.option(attrs.exec_dep(providers = [RunInfo]), default = None),
+        "resource_dir": attrs.option(attrs.dep(), default = None),
         "sanitizer_runtime_enabled": attrs.bool(default = False),
         "sanitizer_runtime_files": attrs.option(attrs.set(attrs.dep(), sorted = True, default = []), default = None),  # Use `attrs.dep()` as it's not a tool, always propagate target platform
         "shared_library_interface_mode": attrs.option(attrs.enum(ShlibInterfacesMode.values()), default = None),
