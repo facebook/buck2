@@ -454,6 +454,7 @@ impl<'v> Module<'v> {
             extra_value,
             heap_profile_on_freeze,
         } = self;
+        #[cfg(not(target_arch = "wasm32"))]
         let start = Instant::now();
         // This is when we do the GC/freeze, using the module slots as roots
         // Note that we even freeze anonymous slots, since they are accessed by
@@ -492,7 +493,10 @@ impl<'v> Module<'v> {
             heap: frozen_heap.into_ref_impl(name),
             module: frozen_module_ref,
             extra_value,
+            #[cfg(not(target_arch = "wasm32"))]
             eval_duration: start.elapsed() + eval_duration.get(),
+            #[cfg(target_arch = "wasm32")]
+            eval_duration: eval_duration.get(),
         })
     }
 
