@@ -57,8 +57,9 @@ assert_eq_size!(DepAttrType, [usize; 3]);
 
 #[derive(Clone, Debug, Eq, PartialEq, Hash, Allocative, Pagable, StrongHash)]
 pub struct DepAttr<T: ProvidersLabelMaybeConfigured + AttrLike> {
-    // FIXME(JakobDegen): Storing this on every dep - and then having to box this value as a result
-    // - is a pretty sad waste of memory
+    // NOTE: This stores DepAttrType per dep, but ConfiguredAttr (where DepAttr
+    // is used) is transient—created on demand and destroyed immediately after
+    // use. Sharing via Arc or removing it won't reduce retained memory.
     pub attr_type: DepAttrType,
     pub label: T,
 }
