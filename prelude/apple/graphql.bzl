@@ -38,7 +38,7 @@ GraphQLCodegenInput = provider(
 def _graphql_info_provider(label: Label, deps: list[Dependency]) -> list[Provider]:
     return [dep[GraphQLInfo] for dep in deps if GraphQLInfo in dep and dep[GraphQLInfo].target == label]
 
-def _graphql_codegen_sets(deps: list[Dependency]) -> list[ArtifactTSet]:
+def graphql_codegen_sets(deps: list[Dependency]) -> list[ArtifactTSet]:
     return [dep[GraphQLCodegenInput].artifacts for dep in deps if GraphQLCodegenInput in dep]
 
 def graphql_providers(ctx: AnalysisContext) -> list[Provider]:
@@ -47,7 +47,7 @@ def graphql_providers(ctx: AnalysisContext) -> list[Provider]:
     if len(providers) > 1:
         fail("Multiple GraphQLInfo providers found in deps of {}".format(ctx.label.raw_target()))
 
-    output_sets = _graphql_codegen_sets(deps) + _graphql_codegen_sets(cxx_attr_exported_deps(ctx))
+    output_sets = graphql_codegen_sets(deps) + graphql_codegen_sets(cxx_attr_exported_deps(ctx))
     if output_sets:
         providers.append(
             GraphQLCodegenInput(
