@@ -418,8 +418,6 @@ fn tag_metadata(tag: ErrorTag) -> TagMetadata {
         ErrorTag::ActionMissingOutputs => rank!(input),
         ErrorTag::ActionWrongOutputType => rank!(input),
         ErrorTag::ActionCommandFailure => rank!(input),
-        // TODO(derekavery): Change to environment error once finished with CI changes to properly handle retries for infra errors
-        ErrorTag::ActionCommandInfraFailure => rank!(environment).exit_code(ExitCode::UserError),
         ErrorTag::ProjectMissingPath => rank!(input),
         ErrorTag::ArtifactMissingFilename => rank!(input),
         ErrorTag::MissingInputPath => rank!(input),
@@ -477,6 +475,7 @@ fn tag_metadata(tag: ErrorTag) -> TagMetadata {
         ErrorTag::Thrift => rank!(unspecified),
         ErrorTag::MissingInternalPath => rank!(unspecified),
         ErrorTag::ExitStatus => rank!(unspecified),
+        ErrorTag::ActionCommandInfraFailure => rank!(unspecified),
         // Build phases
         ErrorTag::DaemonStateInitFailed => rank!(unspecified),
         ErrorTag::DaemonConnect => rank!(unspecified),

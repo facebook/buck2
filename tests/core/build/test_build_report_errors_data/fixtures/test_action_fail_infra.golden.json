@@ -30,7 +30,8 @@
               "error_category": "ENVIRONMENT",
               "error_tags": [
                 "ACTION_COMMAND_INFRA_FAILURE",
-                "ANY_ACTION_EXECUTION"
+                "ANY_ACTION_EXECUTION",
+                "IO_NOT_CONNECTED"
               ],
               "message_content": "<STRING_HASH>"
             }
