@@ -7,6 +7,11 @@
 # above-listed licenses.
 
 load(
+    "@prelude//:artifact_tset.bzl",
+    "ArtifactTSet",
+    "make_artifact_tset",
+)
+load(
     "@prelude//cxx:cxx_library_utility.bzl",
     "cxx_attr_deps",
     "cxx_attr_exported_deps",
@@ -24,13 +29,30 @@ GraphQLInfo = provider(
     },
 )
 
+GraphQLCodegenInput = provider(
+    fields = {
+        "artifacts": provider_field(ArtifactTSet),
+    },
+)
+
+def _graphql_info_provider(label: Label, deps: list[Dependency]) -> list[Provider]:
+    return [dep[GraphQLInfo] for dep in deps if GraphQLInfo in dep and dep[GraphQLInfo].target == label]
+
+def _graphql_codegen_sets(deps: list[Dependency]) -> list[ArtifactTSet]:
+    return [dep[GraphQLCodegenInput].artifacts for dep in deps if GraphQLCodegenInput in dep]
+
 def graphql_providers(ctx: AnalysisContext) -> list[Provider]:
-    all_deps = cxx_attr_deps(ctx) + cxx_attr_exported_deps(ctx)
+    deps = cxx_attr_deps(ctx)
+    providers = _graphql_info_provider(ctx.label, deps)
+    if len(providers) > 1:
+        fail("Multiple GraphQLInfo providers found in deps of {}".format(ctx.label.raw_target()))
 
-    for dep in all_deps:
-        # We only want to propagate the provider from our direct
-        # graphql_codegen() dep, not from any of the other library deps.
-        if GraphQLInfo in dep and dep[GraphQLInfo].target == ctx.label:
-            return [dep[GraphQLInfo]]
+    output_sets = _graphql_codegen_sets(deps) + _graphql_codegen_sets(cxx_attr_exported_deps(ctx))
+    if output_sets:
+        providers.append(
+            GraphQLCodegenInput(
+                artifacts = make_artifact_tset(actions = ctx.actions, children = output_sets),
+            ),
+        )
 
-    return []
+    return providers
