@@ -164,6 +164,51 @@ impl SetSketch {
         &self.k_vec
     }
 
+    /// Computes a fast approximant of the proportion of the elements in `self` not found in
+    /// `other`, returned as a confidence interval `(low, high)`.
+    ///
+    /// Uses only a prefix of registers, making the comparison O(1) — fast enough to run over a
+    /// large candidate set as a first-pass filter before computing exact overlaps with
+    /// [`SetSketch::absolute_overlap`].
+    ///
+    /// **Important:** This method relies on the locality-sensitive property of the sketch
+    /// registers (i.e. that the register value for an element is independent of which set it
+    /// belongs to). It must **not** be used with non-locality-sensitive weighting schemes.
+    pub fn approx_proportion_not_included(&self, other: &SetSketch) -> (f64, f64) {
+        // Implementation notes:
+        //
+        // Elements across the two sets fall into three categories: unique to `self` (proportion
+        // `p_a`), unique to `other` (`p_b`), or in the intersection (`p_i`), with
+        // `p_a + p_b + p_i = 1`.
+        //
+        // For each register, the stored value is the max hash over all sketched elements.
+        // Because hashes are independent, the "winning" element falls into each subset with
+        // probability proportional to its size:
+        //   `Pr(S > O) = p_a,  Pr(S < O) = p_b,  Pr(S == O) = p_i`
+        // where S and O are register values from `self` and `other` respectively.
+        //
+        // Counting `S > O` and `S == O` occurrences over a register prefix gives a Bernoulli
+        // estimate of `p_a` and `p_i`. The desired return value is `p_a / (p_a + p_i)`,
+        // wrapped in a Wilson confidence interval.
+        const PREFIX_SIZE: usize = 48;
+
+        let mut p_a = 0usize;
+        let mut p_i = 0usize;
+        for i in 0..PREFIX_SIZE {
+            if self.k_vec[i] == other.k_vec[i] {
+                p_i += 1;
+            }
+            if self.k_vec[i] > other.k_vec[i] {
+                p_a += 1;
+            }
+        }
+        static CONF_INTERVALS: LazyLock<[[(f64, f64); PREFIX_SIZE + 1]; PREFIX_SIZE + 1]> =
+            LazyLock::new(|| {
+                std::array::from_fn(|i| std::array::from_fn(|j| wilson_confidence_interval(i, j)))
+            });
+        CONF_INTERVALS[p_a][p_i]
+    }
+
     /// Decode a base64-encoded sketch string into a `SetSketch`.
     ///
     /// The string is expected to be a base64-encoded sequence of native-endian
@@ -271,6 +316,28 @@ impl std::fmt::Display for SetSketchDecodeError {
 }
 
 impl std::error::Error for SetSketchDecodeError {}
+
+/// For a set of Bernoulli samples with `s` successes and `f` failures, returns a confidence
+/// interval for the underlying Bernoulli parameter.
+///
+/// This uses the Wilson confidence interval which is ~good enough most of the time; importantly it
+/// does return reasonable results for `s==0`, `f==0`, or small `s+f`.
+fn wilson_confidence_interval(s: usize, f: usize) -> (f64, f64) {
+    // Desired z-score; 1.96 gives a 95% confidence interval
+    const Z: f64 = 1.96;
+
+    let s = s as f64;
+    let f = f as f64;
+    let n = s + f;
+    if n == 0. {
+        return (0.0, 1.0);
+    }
+
+    let zsq = Z * Z;
+    let mid = (s + zsq / 2.) / (n + zsq);
+    let wid = Z / (n + zsq) * (s * f / n + zsq / 4.).sqrt();
+    (mid - wid, mid + wid)
+}
 
 impl Default for SetSketch {
     fn default() -> Self {
@@ -626,5 +693,30 @@ mod tests {
         let expected_matches = a.params.m * 2 / 3;
         assert!(matches > expected_matches - 100);
         assert!(matches < expected_matches + 100);
+    }
+
+    #[test]
+    fn test_approx_proportion_not_included() {
+        let a_vals: Vec<usize> = (0..100).collect();
+        let b_vals: Vec<usize> = (70..150).collect();
+
+        let mut a = usize_sketcher();
+        for v in &a_vals {
+            a.sketch(v);
+        }
+        let mut b = usize_sketcher();
+        for v in &b_vals {
+            b.sketch(v);
+        }
+
+        check_cardinality_is_about(&a, 100);
+        check_cardinality_is_about(&b, 80);
+
+        let merged = a.clone().union(&b);
+        check_cardinality_is_about(&merged, 150);
+
+        let (low, high) = a.approx_proportion_not_included(&b);
+        assert!(low > 0.5, "low bound {low} should be > 0.5");
+        assert!(high < 0.9, "high bound {high} should be < 0.9");
     }
 }
