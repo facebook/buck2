@@ -350,6 +350,9 @@ def _swift_module_skip_function_bodies_arg():
 def _swift_package_name_arg():
     return {"swift_package_name": attrs.option(attrs.string(), default = None)}
 
+def _skip_private_swiftinterface_arg():
+    return {"skip_private_swiftinterface": attrs.bool(default = False)}
+
 def _thin_lto_arg():
     return {"thin_lto": attrs.bool(default = False)}
 
@@ -434,6 +437,7 @@ apple_common = struct(
     stripped_default_arg = _stripped_default_arg,
     swift_module_skip_function_bodies_arg = _swift_module_skip_function_bodies_arg,
     swift_package_name_arg = _swift_package_name_arg,
+    skip_private_swiftinterface_arg = _skip_private_swiftinterface_arg,
     thin_lto_arg = _thin_lto_arg,
     use_submodules_arg = _use_submodules_arg,
     uses_cxx_explicit_modules_arg = _uses_cxx_explicit_modules_arg,

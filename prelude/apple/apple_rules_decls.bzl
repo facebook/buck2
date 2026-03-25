@@ -122,6 +122,7 @@ def apple_bundle_base_attrs():
             apple_common.product_name_arg() |
             apple_common.resource_group_arg() |
             apple_common.xcode_product_type_arg() |
+            apple_common.skip_private_swiftinterface_arg() |
             {
                 "extension": attrs.one_of(attrs.enum(AppleBundleExtension), attrs.string()),
                 "incremental_bundling_enabled": attrs.option(attrs.bool(), default = None),
@@ -510,6 +511,7 @@ apple_bundle = prelude_rule(
         apple_common.codesign_identity_arg() |
         apple_common.resource_group_arg() |
         apple_common.xcode_product_type_arg() |
+        apple_common.skip_private_swiftinterface_arg() |
         {
             "ibtool_flags": attrs.option(attrs.list(attrs.string()), default = None, doc = """
                 List of flags to be passed to ibtool during interface builder file compilation.
@@ -1535,7 +1537,8 @@ apple_resource_bundle = prelude_rule(
         apple_common.apple_tools_arg() |
         apple_common.asset_catalogs_compilation_options_arg() |
         apple_common.info_plist_substitutions_arg() |
-        apple_common.enforce_minimum_os_plist_key()
+        apple_common.enforce_minimum_os_plist_key() |
+        apple_common.skip_private_swiftinterface_arg()
     ),
 )
 

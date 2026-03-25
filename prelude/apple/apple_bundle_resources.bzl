@@ -200,8 +200,11 @@ def _copy_swift_library_evolution_support(ctx: AnalysisContext) -> list[AppleBun
         if apple_library_for_distribution_info.swiftinterface != None:
             swiftmodule_files.update({
                 apple_library_for_distribution_info.target_triple + ".swiftinterface": apple_library_for_distribution_info.swiftinterface,
-                apple_library_for_distribution_info.target_triple + ".private.swiftinterface": apple_library_for_distribution_info.private_swiftinterface,
             })
+            if not getattr(ctx.attrs, "skip_private_swiftinterface", False):
+                swiftmodule_files.update({
+                    apple_library_for_distribution_info.target_triple + ".private.swiftinterface": apple_library_for_distribution_info.private_swiftinterface,
+                })
         if apple_library_for_distribution_info.swiftdoc != None:
             swiftmodule_files.update({
                 apple_library_for_distribution_info.target_triple + ".swiftdoc": apple_library_for_distribution_info.swiftdoc,
