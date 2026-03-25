@@ -13,8 +13,10 @@ package com.facebook.buck.testrunner;
 import com.facebook.buck.testresultsoutput.TestResultsOutputEvent.TestStatus;
 import com.facebook.buck.testresultsoutput.TestResultsOutputSender;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 /**
  * TpxStandardOutputTestListener sends test results to the TPX standard output format. Meant to be
@@ -24,6 +26,7 @@ public class TpxStandardOutputTestListener {
   private final TestResultsOutputSender sender;
 
   private Map<String, TestIdentifierStatus> testIdentifierStatuses = new HashMap<>();
+  private Set<String> finishedTests = new HashSet<>();
 
   private class TestIdentifierStatus {
     private long startTime;
@@ -41,6 +44,11 @@ public class TpxStandardOutputTestListener {
 
     public void setSkipped(String trace) {
       this.status = TestStatus.SKIP;
+      this.trace = trace;
+    }
+
+    public void setOmitted(String trace) {
+      this.status = TestStatus.OMIT;
       this.trace = trace;
     }
   }
@@ -75,6 +83,9 @@ public class TpxStandardOutputTestListener {
    * @param test identifies the test
    */
   public void testStarted(String identifier) {
+    if (testIdentifierStatuses.containsKey(identifier)) {
+      return;
+    }
     long startedTime = System.currentTimeMillis();
     registerTest(identifier, startedTime);
     sendTestStart(identifier, startedTime);
@@ -124,7 +135,7 @@ public class TpxStandardOutputTestListener {
       throw new IllegalStateException("testIgnored called without testStarted");
     }
 
-    status.setSkipped(
+    status.setOmitted(
         "Test ignored, generally because the test method is annotated with org.junit.Ignore");
   }
 
@@ -153,10 +164,14 @@ public class TpxStandardOutputTestListener {
    */
   public void testFinished(String identifier) {
     long endedTime = System.currentTimeMillis();
-    TestIdentifierStatus testIdentifierStatus = testIdentifierStatuses.get(identifier);
+    TestIdentifierStatus testIdentifierStatus = testIdentifierStatuses.remove(identifier);
     if (testIdentifierStatus == null) {
-      throw new IllegalStateException("testEnded called without testStarted");
+      if (finishedTests.contains(identifier)) {
+        return;
+      }
+      throw new IllegalStateException("testEnded called without testStarted for: " + identifier);
     }
+    finishedTests.add(identifier);
 
     long duration = endedTime - testIdentifierStatus.startTime;
     TestStatus resultStatus = TestStatus.PASS;
