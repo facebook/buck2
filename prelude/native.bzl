@@ -191,6 +191,8 @@ def _android_aar_macro_stub(
     )
 
 def _convert_kotlin_compiler_plugins(kotlin_compiler_plugins):
+    if type(kotlin_compiler_plugins) == type(select({})):
+        return native.select_map(kotlin_compiler_plugins, _convert_kotlin_compiler_plugins)
     if type(kotlin_compiler_plugins) == type({}):
         return [
             (key, value)
