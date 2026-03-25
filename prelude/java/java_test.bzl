@@ -129,20 +129,27 @@ def build_junit_test(
     if ctx.attrs.test_case_timeout_ms:
         cmd.extend(["--default-test-timeout", str(ctx.attrs.test_case_timeout_ms)])
 
+    if ctx.attrs.test_class_names_file and getattr(ctx.attrs, "discover_all_test_classes", False):
+        fail("Cannot set both test_class_names_file and discover_all_test_classes")
+
     if ctx.attrs.test_class_names_file:
         class_names = ctx.attrs.test_class_names_file
     else:
         expect(tests_java_library_info.library_output != None, "Built test library has no output, likely due to missing srcs")
         class_names = ctx.actions.declare_output("class_names", has_content_based_path = False)
-        list_class_names_cmd = cmd_args([
+        discover_all = getattr(ctx.attrs, "discover_all_test_classes", False)
+        list_class_names_args = [
             java_test_toolchain.list_class_names[RunInfo],
             "--jar",
             tests_java_library_info.library_output.full_library,
             "--sources",
-            ctx.actions.write("sources.txt", ctx.attrs.srcs),
+            ctx.actions.write("sources.txt", [] if discover_all else ctx.attrs.srcs),
             "--output",
             class_names.as_output(),
-        ], hidden = ctx.attrs.srcs)
+        ]
+        if discover_all:
+            list_class_names_args.append("--discover-all")
+        list_class_names_cmd = cmd_args(list_class_names_args, hidden = ctx.attrs.srcs)
         ctx.actions.run(list_class_names_cmd, category = "list_class_names")
 
     cmd.extend(["--test-class-names-file", class_names])

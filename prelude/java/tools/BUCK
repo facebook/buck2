@@ -90,3 +90,12 @@ prelude.python_test(
     ],
     base_module = "",
 )
+
+prelude.python_test(
+    name = "test_list_class_names",
+    srcs = [
+        "list_class_names.py",
+        "tests/test_list_class_names.py",
+    ],
+    base_module = "",
+)

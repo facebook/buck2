@@ -254,6 +254,7 @@ extra_attributes = {
     "robolectric_test": {
         "abi_generation_mode": attrs.option(attrs.enum(AbiGenerationMode), default = None),
         "android_optional_jars": attrs.option(attrs.list(attrs.dep()), default = None),
+        "discover_all_test_classes": attrs.bool(default = False),
         "java_agents": attrs.list(attrs.source(), default = []),
         "resources_root": attrs.option(attrs.string(), default = None),
         "robolectric_runtime_dependencies": attrs.list(attrs.source(), default = []),

@@ -85,6 +85,7 @@ extra_attributes = {
     },
     "java_test": {
         "abi_generation_mode": attrs.option(attrs.enum(AbiGenerationMode), default = None),
+        "discover_all_test_classes": attrs.bool(default = False),
         "java_agents": attrs.list(attrs.source(), default = []),
         "resources_root": attrs.option(attrs.string(), default = None),
         "test_class_names_file": attrs.option(attrs.source(), default = None),
