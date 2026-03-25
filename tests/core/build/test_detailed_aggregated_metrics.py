@@ -89,6 +89,56 @@ async def test_incomplete_graph(buck: Buck) -> None:
 
 
 @buck_test()
+async def test_wall_clock_completion(buck: Buck) -> None:
+    await buck.build("//:foo4", "-c", "buck2.detailed_aggregated_metrics=true")
+    message = await get_detailed_metrics(buck)
+    assert message is not None
+    _all_targets_metrics, per_target_metrics = parse_metrics(message)
+    wall_clock = per_target_metrics["root//:foo4"]["wall_clock_completion_ms"]
+    assert wall_clock is not None
+    assert wall_clock > 0
+
+
+@buck_test()
+async def test_wall_clock_completion_on_timeout(buck: Buck) -> None:
+    await expect_failure(
+        buck.build(
+            "//:slow",
+            "-c",
+            "buck2.detailed_aggregated_metrics=true",
+            "--overall-timeout",
+            "1s",
+        ),
+        stderr_regex="Build timed out",
+    )
+    message = await get_detailed_metrics(buck)
+    assert message is not None
+    _all_targets_metrics, per_target_metrics = parse_metrics(message)
+    wall_clock = per_target_metrics["root//:slow"]["wall_clock_completion_ms"]
+    assert wall_clock is not None
+    assert wall_clock > 0
+
+
+@buck_test()
+async def test_wall_clock_completion_on_failure(buck: Buck) -> None:
+    await expect_failure(
+        buck.build(
+            "//:foo4",
+            "-c",
+            "buck2.detailed_aggregated_metrics=true",
+            "-c",
+            "user.dyn_input_good=0",
+        )
+    )
+    message = await get_detailed_metrics(buck)
+    assert message is not None
+    _all_targets_metrics, per_target_metrics = parse_metrics(message)
+    wall_clock = per_target_metrics["root//:foo4"]["wall_clock_completion_ms"]
+    assert wall_clock is not None
+    assert wall_clock > 0
+
+
+@buck_test()
 async def test_amortization(buck: Buck) -> None:
     await buck.build(
         "//:foo4", "//:foo5", "-c", "buck2.detailed_aggregated_metrics=true"

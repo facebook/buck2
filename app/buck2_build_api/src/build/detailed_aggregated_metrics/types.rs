@@ -123,6 +123,12 @@ pub struct TopLevelTargetAggregatedData {
     pub local_max_memory_peak_bytes: u64,
     /// Distinct RE platform names used by actions for this target.
     pub re_platform_names: Vec<String>,
+    /// Wall-clock time in milliseconds from the start of the build at which
+    /// this top-level target succeeded, failed, or timed out.
+    /// The exact point at which the build is deemed to have start is set in the
+    /// Buck2 daemon, so use this to compare durations but don't add it to a
+    /// start timestamp to produce an end timestamp.
+    pub wall_clock_completion_ms: Option<u64>,
 }
 
 #[derive(Clone, Copy, Dupe)]
@@ -146,6 +152,7 @@ impl TopLevelTargetAggregatedData {
             remote_max_memory_peak_bytes: 0,
             local_max_memory_peak_bytes: 0,
             re_platform_names: Vec::new(),
+            wall_clock_completion_ms: None,
         }
     }
 
@@ -215,6 +222,7 @@ impl ToProtoMessage for TopLevelTargetAggregatedData {
             remote_max_memory_peak_bytes: Some(self.remote_max_memory_peak_bytes),
             local_max_memory_peak_bytes: Some(self.local_max_memory_peak_bytes),
             re_platform_names: self.re_platform_names.to_vec(),
+            wall_clock_completion_ms: self.wall_clock_completion_ms,
         }
     }
 }

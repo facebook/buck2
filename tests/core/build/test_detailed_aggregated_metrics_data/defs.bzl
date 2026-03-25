@@ -53,3 +53,15 @@ my_rule = rule(impl = _impl, attrs = {
     "dyn_input_good": attrs.bool(),
     "input": attrs.source(),
 })
+
+def _slow_impl(ctx: AnalysisContext) -> list[Provider]:
+    out = ctx.actions.declare_output("out")
+    ctx.actions.run(
+        ["fbpython", ctx.attrs.src, out.as_output()],
+        category = "slow",
+    )
+    return [DefaultInfo(out)]
+
+slow_actions = rule(impl = _slow_impl, attrs = {
+    "src": attrs.source(),
+})

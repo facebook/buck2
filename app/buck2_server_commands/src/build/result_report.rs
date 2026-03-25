@@ -85,8 +85,13 @@ impl<'a> ResultReporter<'a> {
         for (k, v) in &build_result.configured {
             // We omit skipped targets here.
             let Some(v) = v else { continue };
-            non_action_errors.extend(v.errors.iter().cloned());
-            action_errors.extend(v.outputs.iter().filter_map(|x| x.as_ref().err()).cloned());
+            non_action_errors.extend(v.errors.iter().map(|t| t.inner.clone()));
+            action_errors.extend(
+                v.outputs
+                    .iter()
+                    .filter_map(|x| x.inner.as_ref().err())
+                    .cloned(),
+            );
 
             out.collect_result(k, v, build_result.configured_to_pattern_modifiers.get(k))?;
         }
@@ -121,7 +126,7 @@ impl<'a> ResultReporter<'a> {
         let outputs = result
             .outputs
             .iter()
-            .filter_map(|output| output.as_ref().ok());
+            .filter_map(|output| output.inner.as_ref().ok());
 
         let mut artifact_path_mapping = BuckHashMap::default();
 

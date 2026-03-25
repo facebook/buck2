@@ -912,7 +912,7 @@ fn get_artifacts_from_bxl_build_result(
             .outputs
             .iter()
             .filter_map(|built| {
-                built.as_ref().ok().map(|artifacts| {
+                built.inner.as_ref().ok().map(|artifacts| {
                     artifacts
                         .values
                         .iter()

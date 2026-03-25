@@ -745,7 +745,7 @@ impl<'a> BuildReportCollector<'a> {
         for (label, result) in results {
             let provider_name: Arc<str> = report_providers_name(label).into();
 
-            result.outputs.iter().for_each(|res| match res {
+            result.outputs.iter().for_each(|timed| match &timed.inner {
                 Ok(artifacts) => {
                     if artifacts.provider_type == BuildProviderType::Default {
                         for (artifact, value) in artifacts.values.iter() {
@@ -776,7 +776,7 @@ impl<'a> BuildReportCollector<'a> {
                 }
             });
 
-            errors.extend(result.errors.iter().cloned());
+            errors.extend(result.errors.iter().map(|t| t.inner.clone()));
             // Collect result errors into all_error_reports for global error categorization
             all_error_reports.extend(errors.iter().map(ErrorReport::from));
 

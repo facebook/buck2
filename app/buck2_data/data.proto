@@ -684,6 +684,12 @@ message TopLevelTargetMetrics {
   string target_rule_type_name = 8;
   // Distinct RE platform names used by actions for this target.
   repeated string re_platform_names = 9;
+  // Wall-clock time in milliseconds from the start of the build at which this
+  // top-level target succeeded, failed, or timed out.
+  // The exact point in time at which the build is deemed to have started is set
+  // in the Buck2 daemon, so use this to compare durations but don't add it to a
+  // start timestamp to produce an end timestamp.
+  optional uint64 wall_clock_completion_ms = 10;
 }
 
 // Aggregated metrics across all targets in a build.

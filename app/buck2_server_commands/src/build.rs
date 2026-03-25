@@ -9,6 +9,7 @@
  */
 
 use std::sync::Arc;
+use std::time::Instant;
 
 use async_trait::async_trait;
 use buck2_build_api::actions::artifact::get_artifact_fs::GetArtifactFs;
@@ -302,6 +303,7 @@ async fn build(
         None
     };
 
+    let build_start = Instant::now();
     let cloned_ctx = ctx.clone(); // build_future does a mutable borrow on the context, so we clone it first
     let build_future = ctx.with_linear_recompute(|ctx| async move {
         build_targets(
@@ -316,6 +318,7 @@ async fn build(
             graph_properties.dupe(),
             timeout_observer.as_ref(),
             build_command_streaming_build_result_tx,
+            build_start,
         )
         .await
     });
@@ -363,7 +366,13 @@ async fn build(
 
     let detailed_metrics = if want_detailed_metrics {
         let events = events.expect("events should be Some when detailed metrics is needed");
-        let metrics = ctx.compute_detailed_metrics(events).await?;
+        let mut metrics = ctx.compute_detailed_metrics(events).await?;
+        for target_metric in &mut metrics.top_level_target_metrics {
+            if let Some(Some(result)) = build_result.configured.get(&target_metric.target) {
+                target_metric.wall_clock_completion_ms =
+                    result.wall_clock_completion().map(|d| d.as_millis() as u64);
+            }
+        }
         instant_event(metrics.as_proto());
         Some(metrics)
     } else {
@@ -555,7 +564,7 @@ async fn process_build_result(
     for v in build_result.configured.into_values() {
         // We omit skipped targets here.
         let Some(v) = v else { continue };
-        let mut outputs = v.outputs.into_iter().filter_map(Result::ok);
+        let mut outputs = v.outputs.into_iter().filter_map(|t| t.inner.ok());
         provider_artifacts.extend(&mut outputs);
     }
 
@@ -617,8 +626,10 @@ async fn build_targets(
     graph_properties: GraphPropertiesOptions,
     timeout_observer: Option<&Arc<dyn LivelinessObserver>>,
     streaming_build_result_tx: Option<UnboundedSender<BuildTargetResult>>,
+    build_start: Instant,
 ) -> buck2_error::Result<BuildTargetResult> {
-    let (builder, consumer) = AsyncBuildTargetResultBuilder::new(streaming_build_result_tx);
+    let (builder, consumer) =
+        AsyncBuildTargetResultBuilder::new(streaming_build_result_tx, build_start);
     let fut = match target_resolution_config {
         TargetResolutionConfig::Default(global_cfg_options) => {
             let spec = spec.convert_pattern().buck_error_context(

@@ -713,7 +713,7 @@ async fn test_targets(
                     .buck_error_context("Failed to release local resources")?;
 
                 // Process the build errors we've collected.
-                let mut builder = BuildTargetResultBuilder::new(None);
+                let mut builder = BuildTargetResultBuilder::new(None, std::time::Instant::now());
                 for event in driver.error_events {
                     builder.event(event)?;
                 }
@@ -1290,7 +1290,8 @@ async fn build_target_result(
     }
 
     let materialization_and_upload = MaterializationAndUploadContext::skip();
-    let (result_builder, consumer) = AsyncBuildTargetResultBuilder::new(None);
+    let (result_builder, consumer) =
+        AsyncBuildTargetResultBuilder::new(None, std::time::Instant::now());
     consumer.consume(BuildEvent::new_configured(
         label.dupe(),
         ConfiguredBuildEventVariant::MapModifiers { modifiers },
@@ -1369,8 +1370,13 @@ fn convert_error(build_result: &BuildTargetResult) -> Vec<buck2_error::Error> {
     errors.extend(build_result.other_errors.values().flatten().duped());
 
     for v in build_result.configured.values().flatten() {
-        errors.extend(v.errors.iter().duped());
-        errors.extend(v.outputs.iter().filter_map(|x| x.as_ref().err()).duped());
+        errors.extend(v.errors.iter().map(|t| t.inner.dupe()));
+        errors.extend(
+            v.outputs
+                .iter()
+                .filter_map(|x| x.inner.as_ref().err())
+                .duped(),
+        );
     }
 
     errors

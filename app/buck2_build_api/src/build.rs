@@ -16,6 +16,8 @@ use std::fmt::Formatter;
 use std::future::Future;
 use std::pin::pin;
 use std::sync::Arc;
+use std::time::Duration;
+use std::time::Instant;
 
 use allocative::Allocative;
 use buck2_common::liveliness_observer::LivelinessObserver;
@@ -81,13 +83,41 @@ pub enum BuildProviderType {
     Test,
 }
 
+/// An output or error paired with the wall-clock elapsed time from build start
+/// at which it was produced.
+#[derive(Clone, Debug)]
+pub struct Timed<T> {
+    pub inner: T,
+    pub elapsed: Duration,
+}
+
+// Duration has no heap allocations, so Allocative is trivially empty.
+impl<T: Allocative> Allocative for Timed<T> {
+    fn visit<'a, 'b: 'a>(&self, visitor: &'a mut allocative::Visitor<'b>) {
+        self.inner.visit(visitor);
+    }
+}
+
 #[derive(Clone, Debug, Allocative)]
 pub struct ConfiguredBuildTargetResultGen<T> {
-    pub outputs: Vec<T>,
+    pub outputs: Vec<Timed<T>>,
     pub provider_collection: Option<FrozenProviderCollectionValue>,
     pub target_rule_type_name: Option<String>,
     pub graph_properties: Option<buck2_error::Result<MaybeCompatible<GraphPropertiesValues>>>,
-    pub errors: Vec<buck2_error::Error>,
+    pub errors: Vec<Timed<buck2_error::Error>>,
+}
+
+impl<T> ConfiguredBuildTargetResultGen<T> {
+    /// Wall-clock time from build start at which this target completed (or
+    /// timed out), defined as the max elapsed time across all outputs and
+    /// errors.
+    pub fn wall_clock_completion(&self) -> Option<Duration> {
+        self.outputs
+            .iter()
+            .map(|o| o.elapsed)
+            .chain(self.errors.iter().map(|e| e.elapsed))
+            .max()
+    }
 }
 
 pub type ConfiguredBuildTargetResult =
@@ -106,6 +136,7 @@ pub struct AsyncBuildTargetResultBuilder {
 impl AsyncBuildTargetResultBuilder {
     pub fn new(
         mut streaming_build_result_tx: Option<UnboundedSender<BuildTargetResult>>,
+        build_start: Instant,
     ) -> (Self, impl BuildEventConsumer + Clone) {
         let (event_tx, event_rx) = tokio::sync::mpsc::unbounded_channel();
         #[derive(Clone)]
@@ -122,7 +153,10 @@ impl AsyncBuildTargetResultBuilder {
         (
             Self {
                 event_rx,
-                builder: BuildTargetResultBuilder::new(streaming_build_result_tx.take()),
+                builder: BuildTargetResultBuilder::new(
+                    streaming_build_result_tx.take(),
+                    build_start,
+                ),
             },
             EventConsumer { event_tx },
         )
@@ -177,10 +211,14 @@ pub struct BuildTargetResultBuilder {
     build_failed: bool,
     incompatible_targets: SmallSet<ConfiguredTargetLabel>,
     streaming_build_result_tx: Option<UnboundedSender<BuildTargetResult>>,
+    build_start: Instant,
 }
 
 impl BuildTargetResultBuilder {
-    pub fn new(mut streaming_build_result_tx: Option<UnboundedSender<BuildTargetResult>>) -> Self {
+    pub fn new(
+        mut streaming_build_result_tx: Option<UnboundedSender<BuildTargetResult>>,
+        build_start: Instant,
+    ) -> Self {
         Self {
             res: HashMap::new(),
             configured_to_pattern_modifiers: HashMap::new(),
@@ -188,6 +226,7 @@ impl BuildTargetResultBuilder {
             incompatible_targets: SmallSet::new(),
             build_failed: false,
             streaming_build_result_tx: streaming_build_result_tx.take(),
+            build_start,
         }
     }
 
@@ -201,6 +240,7 @@ impl BuildTargetResultBuilder {
                 return Ok(FailFastState::Continue);
             }
         };
+        let elapsed = Instant::now() - self.build_start;
         match variant {
             ConfiguredBuildEventVariant::SkippedIncompatible => {
                 self.incompatible_targets.insert(label.target().dupe());
@@ -235,7 +275,7 @@ impl BuildTargetResultBuilder {
                     match execution_variant {
                         ConfiguredBuildEventExecutionVariant::Validation { result } => {
                             if let Err(e) = result {
-                                results.errors.push(e);
+                                results.errors.push(Timed { inner: e, elapsed });
                                 true
                             } else {
                                 false
@@ -243,7 +283,10 @@ impl BuildTargetResultBuilder {
                         }
                         ConfiguredBuildEventExecutionVariant::BuildOutput { index, output } => {
                             let is_err = output.is_err();
-                            results.outputs.push((index, output));
+                            results.outputs.push(Timed {
+                                inner: (index, output),
+                                elapsed,
+                            });
                             // update the streaming build result
                             if let Some(tx) = &self.streaming_build_result_tx.clone() {
                                 let result = self.build();
@@ -267,11 +310,14 @@ impl BuildTargetResultBuilder {
                      .graph_properties = Some(graph_properties);
             }
             ConfiguredBuildEventVariant::Timeout => {
-                self.res.get_mut(&label)
+                let results = self.res.get_mut(&label)
                      .ok_or_else(|| internal_error!("ConfiguredBuildEventVariant::Timeout before ConfiguredBuildEventVariant::Prepared for {label}"))?
                      .as_mut()
-                     .ok_or_else(|| internal_error!("ConfiguredBuildEventVariant::Timeout for a skipped target: `{label}`"))?
-                     .errors.push(buck2_error::Error::from(BuildDeadlineExpired));
+                     .ok_or_else(|| internal_error!("ConfiguredBuildEventVariant::Timeout for a skipped target: `{label}`"))?;
+                results.errors.push(Timed {
+                    inner: buck2_error::Error::from(BuildDeadlineExpired),
+                    elapsed,
+                });
                 // TODO(cjhopman): Why don't we break here?
                 self.build_failed = true;
             }
@@ -289,7 +335,10 @@ impl BuildTargetResultBuilder {
                     .as_mut()
                     .unwrap()
                     .errors
-                    .push(err);
+                    .push(Timed {
+                        inner: err,
+                        elapsed,
+                    });
                 return Ok(FailFastState::Breakpoint);
             }
         }
@@ -315,32 +364,45 @@ impl BuildTargetResultBuilder {
             .iter()
             .map(|(label, result)| {
                 let result = result.as_ref().map(|result| {
-                    let ConfiguredBuildTargetResultGen {
-                        outputs,
-                        provider_collection,
-                        target_rule_type_name,
-                        graph_properties,
-                        errors,
-                    } = result;
+                    // TODO: This whole building thing needs quite a bit of
+                    // refactoring. We might request the same targets multiple
+                    // times here, but since we know that ConfiguredTargetLabel
+                    // -> Output is going to be deterministic, we just dedupe
+                    // them using the index, keeping the min elapsed time (this
+                    // is somewhat arbitrary but the outputs are all secretly
+                    // the "same" output anyway, and keeping the min elapsed
+                    // time ensures we don't report a time then update it to
+                    // "later" in another call).
+                    let mut indexed: Vec<_> = result
+                        .outputs
+                        .iter()
+                        .map(|timed| {
+                            let (index, output) = &timed.inner;
+                            (*index, output.clone(), timed.elapsed)
+                        })
+                        .collect();
+                    indexed.sort_unstable_by_key(|(index, _, _)| *index);
 
-                    // No need for a stable sort: the indices are unique (see below).
-                    let mut cloned_outputs = outputs.clone();
-                    cloned_outputs.sort_unstable_by_key(|(index, _outputs)| *index);
+                    let outputs: Vec<_> = indexed
+                        .into_iter()
+                        .chunk_by(|(index, _, _)| *index)
+                        .into_iter()
+                        .map(|(_index, group)| {
+                            let (_, output, elapsed) =
+                                group.min_by_key(|(_, _, elapsed)| *elapsed).unwrap();
+                            Timed {
+                                inner: output.clone(),
+                                elapsed,
+                            }
+                        })
+                        .collect();
 
-                    // TODO: This whole building thing needs quite a bit of refactoring. We might
-                    // request the same targets multiple times here, but since we know that
-                    // ConfiguredTargetLabel -> Output is going to be deterministic, we just dedupe
-                    // them using the index.
                     ConfiguredBuildTargetResult {
-                        outputs: cloned_outputs
-                            .into_iter()
-                            .unique_by(|(index, _outputs)| *index)
-                            .map(|(_index, outputs)| outputs)
-                            .collect(),
-                        provider_collection: provider_collection.clone(),
-                        target_rule_type_name: target_rule_type_name.clone(),
-                        graph_properties: graph_properties.clone(),
-                        errors: errors.clone(),
+                        outputs,
+                        provider_collection: result.provider_collection.clone(),
+                        target_rule_type_name: result.target_rule_type_name.clone(),
+                        graph_properties: result.graph_properties.clone(),
+                        errors: result.errors.clone(),
                     }
                 });
 
