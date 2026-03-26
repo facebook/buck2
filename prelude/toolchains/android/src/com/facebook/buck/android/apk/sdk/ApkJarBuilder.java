@@ -58,7 +58,7 @@ public class ApkJarBuilder {
           "META-INF/services/kotlinx.coroutines.CoroutineExceptionHandler",
           "META-INF/androidx.compose.ui_ui.version");
   @Nullable private JarOutputStream mOutputJar;
-  private byte[] mBuffer = new byte[4096];
+  private byte[] mBuffer = new byte[256 * 1024];
   private boolean mPackageMetaInfVersionFiles;
 
   /**
