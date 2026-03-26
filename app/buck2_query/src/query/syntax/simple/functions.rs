@@ -78,6 +78,7 @@ impl<F: QueryFunctions> QueryFunctionsVisitLiterals for F {
             expr: &Expr<'q>,
         ) -> Result<(), QueryError> {
             match expr {
+                Expr::None => Ok(()),
                 Expr::Function {
                     function_name,
                     args,

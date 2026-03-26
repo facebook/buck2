@@ -35,11 +35,23 @@ pub enum QueryError {
         max: usize,
         actual: usize,
     },
-    #[error("too few args. function `{function}` requires at least {min} args, got {actual}")]
+    #[error(
+        "too few args. function `{function}` requires at least {min} args, got {actual}. Missing at least arg `{next_arg_name}`."
+    )]
     TooFewArgs {
         function: String,
+        next_arg_name: String,
         min: usize,
         actual: usize,
+    },
+    #[error(
+        "None is not a valid value for function `{function}` argument [{arg_idx}] `{arg_name}: {arg_type}`"
+    )]
+    NoneNotAccepted {
+        function: String,
+        arg_name: String,
+        arg_idx: String,
+        arg_type: String,
     },
     #[error("function `{0}` is not implemented yet")]
     FunctionUnimplemented(&'static str),

@@ -139,6 +139,7 @@ pub trait QueryFunction<Env: QueryEnvironment>: Send + Sync {
     ) -> Result<QueryValue<Env::Target>, QueryError>;
 
     fn arg_type(&self, idx: usize) -> Result<QueryArgType, QueryError>;
+    fn arg_name(&self, idx: usize) -> Result<&'static str, QueryError>;
 }
 
 #[async_trait]
@@ -323,17 +324,34 @@ impl<'a, Env: QueryEnvironment, A: QueryFunctionArg<'a, Env>> QueryFunctionArg<'
 
 // Helper for buck_query_proc_macro implementations. Evaluates an arg at an index and tries to convert it to the QueryFunctionArg type, providing decent errors on failures.
 pub async fn eval_arg<'a, Env: QueryEnvironment, A: QueryFunctionArg<'a, Env>>(
-    func_name: &str,
+    func: &impl QueryFunction<Env>,
     evaluator: &QueryEvaluator<'a, Env>,
     args: &'a [Spanned<Expr<'a>>],
     idx: usize,
 ) -> Result<A, QueryError> {
     match args.get(idx) {
-        Some(v) => A::eval(evaluator, v).await,
+        Some(v) => {
+            if let Expr::None = v.value {
+                match A::accept_none() {
+                    Some(v) => Ok(v),
+                    None => Err(QueryError::NoneNotAccepted {
+                        function: func.name().to_owned(),
+                        arg_idx: idx.to_string(),
+                        arg_name: func.arg_name(idx)?.to_owned(),
+                        arg_type: A::ARG_TYPE.rendered_reference(&MarkdownOptions {
+                            links_enabled: false,
+                        }),
+                    }),
+                }
+            } else {
+                A::eval(evaluator, v).await
+            }
+        }
         None => match A::accept_none() {
             Some(v) => Ok(v),
             None => Err(QueryError::TooFewArgs {
-                function: func_name.to_owned(),
+                function: func.name().to_owned(),
+                next_arg_name: func.arg_name(idx)?.to_owned(),
                 min: idx + 1,
                 actual: args.len(),
             }),

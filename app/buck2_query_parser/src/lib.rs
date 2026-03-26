@@ -21,7 +21,8 @@
 //! ```text
 //! # note that set's args are space-separated, not comma-separated and so cannot be treated as a function
 //! EXPR ::=
-//!          WORD
+//!          NONE
+//!        | WORD
 //!        | INTEGER
 //!        | '(' EXPR ')'
 //!        | 'set(' WORD * ')'
@@ -116,6 +117,7 @@ pub type SpannedExpr<'a> = Spanned<Expr<'a>>;
 
 #[derive(Debug, VariantName)]
 pub enum Expr<'a> {
+    None,
     // doesn't need to be Span since the Expr itself is always a SpannedExpr.
     String(&'a str),
     Integer(u64),
@@ -131,6 +133,7 @@ pub enum Expr<'a> {
 impl Display for Expr<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
+            Expr::None => write!(f, "None")?,
             Expr::String(word) => {
                 let quote = if word.contains('\'') { '"' } else { '\'' };
                 // The grammar shouldn't allow a word that contains both quote-types, but
@@ -187,6 +190,7 @@ impl Display for Expr<'_> {
     }
 }
 
+const NONE: &str = "None";
 const INTERSECT: &str = "^";
 const EXCEPT: &str = "-";
 const UNION: &str = "+";
@@ -325,8 +329,17 @@ fn trailing_infix(input: Span) -> NomResult<Vec<(BinaryOp, SpannedExpr)>, ()> {
 /// Tries to parse an Expr::Word
 fn expr_word<'a, E: NomParseError<'a>>(input: Span<'a>) -> NomResult<'a, SpannedExpr<'a>, E> {
     spanned(|input| {
-        let (remaining, word) = word(input)?;
-        Ok((remaining, Expr::String(word.fragment())))
+        let (remaining, (quoted, word)) = maybe_quoted_word(input)?;
+
+        let word = word.fragment();
+        Ok((
+            remaining,
+            if !quoted && word == NONE {
+                Expr::None
+            } else {
+                Expr::String(word)
+            },
+        ))
     })
     .parse(input)
 }
@@ -358,20 +371,43 @@ fn expr_int<'a, E: NomParseError<'a>>(input: Span<'a>) -> NomResult<'a, SpannedE
 }
 
 fn word<'a, E: NomParseError<'a>>(input: Span<'a>) -> NomResult<'a, Span<'a>, E> {
+    maybe_quoted_word(input).map(|(remaining, (_unquoted, x))| (remaining, x))
+}
+
+fn maybe_quoted_word<'a, E: NomParseError<'a>>(
+    input: Span<'a>,
+) -> NomResult<'a, (bool, Span<'a>), E> {
+    fn quoted<'a, E: NomParseError<'a>>(
+        is_quoted: bool,
+        //impl Fn(Span<'a>) -> NomResult<'a, Span<'a>, E>,
+        mut inner: impl nom::Parser<Span<'a>, Output = Span<'a>, Error = E>,
+    ) -> impl FnMut(Span<'a>) -> NomResult<'a, (bool, Span<'a>), E> {
+        move |input| {
+            let (remaining, value) = inner.parse(input)?;
+            Ok((remaining, (is_quoted, value)))
+        }
+    }
+
     fn non_quoted_word<'a, E: NomParseError<'a>>(input: Span<'a>) -> NomResult<'a, Span<'a>, E> {
         recognize(many1(alt((alphanumeric1, is_a("*/@.-_:$#%"))))).parse(input)
     }
 
     alt((
-        preceded(
-            char('\''),
-            cut(terminated(take_till(|c| c == '\''), char('\''))),
+        quoted(
+            true,
+            preceded(
+                char('\''),
+                cut(terminated(take_till(|c| c == '\''), char('\''))),
+            ),
         ),
-        preceded(
-            char('"'),
-            cut(terminated(take_till(|c| c == '"'), char('"'))),
+        quoted(
+            true,
+            preceded(
+                char('"'),
+                cut(terminated(take_till(|c| c == '"'), char('"'))),
+            ),
         ),
-        non_quoted_word,
+        quoted(false, non_quoted_word),
     ))
     .parse(input)
 }
@@ -449,11 +485,19 @@ fn expr_function<'a, E: NomParseError<'a>>(input: Span<'a>) -> NomResult<'a, Spa
     }
 
     spanned(|input| {
+        // N.B. this can parse None() as a function call, rather than an Expr::None followed by an open paren (error). It will still be an error when there is no `None` function...
+        let orig_input = input;
         let (input, function_name) = recognize(pair(
             alt((alpha1, tag("_"))),
             many0(alt((alphanumeric1, tag("_")))),
         ))
         .parse(input)?;
+        if function_name.fragment() == NONE {
+            return Err(nom::Err::Error(nom::error::make_error(
+                orig_input,
+                ErrorKind::Tag,
+            )));
+        }
         let (input, _) = char('(').parse(input)?;
         cut(move |input| {
             let (input, args) = terminated(function_args, char(')')).parse(input)?;

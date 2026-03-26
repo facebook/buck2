@@ -55,6 +55,7 @@ impl<'e, Env: QueryEnvironment> QueryEvaluator<'e, Env> {
         // the function impls there to work across bxl and here, but not sure if that's worth the
         // complexity or not.
         match expr {
+            Expr::None => Ok(QueryValue::None),
             Expr::String(word) => Ok(QueryValue::String((*word).to_owned())),
             Expr::Integer(value) => Ok(QueryValue::Integer(*value)),
             Expr::Function {

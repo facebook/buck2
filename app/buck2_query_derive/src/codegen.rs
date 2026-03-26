@@ -170,13 +170,14 @@ fn gen_for_method(parsed: &Parsed, method: &Method) -> syn::Result<MethodCodegen
     let mut describe_args = Vec::new();
     let mut pass_args = Vec::new();
     let mut arg_type_match = Vec::new();
+    let mut arg_name_match = Vec::new();
     for (i, arg) in value_args.iter().enumerate() {
         let arg_type = &arg.ty;
         let as_arg_type = quote! {<#arg_type as QueryFunctionArg<'_, #env_ident>>};
         let arg_name = arg.name.to_string();
         arg_type_match.push(quote_spanned!(arg.span => #i => Ok(#as_arg_type::ARG_TYPE)));
-        pass_args
-            .push(quote_spanned!(arg.span => eval_arg(self.name(), evaluator, args, #i).await?));
+        arg_name_match.push(quote_spanned!(arg.span => #i => Ok(#arg_name)));
+        pass_args.push(quote_spanned!(arg.span => eval_arg(self, evaluator, args, #i).await?));
         describe_args.push(quote_spanned!(arg.span => ArgDescription {
             name: #arg_name.to_owned(),
             repr_format: #as_arg_type::describe_format(),
@@ -277,6 +278,17 @@ fn gen_for_method(parsed: &Parsed, method: &Method) -> syn::Result<MethodCodegen
                     fn arg_type(&self, idx: usize) -> Result<QueryArgType, QueryError> {
                         match idx {
                             #(#arg_type_match,)*
+                            v => Err(QueryError::TooManyArgs {
+                                function: self.name().to_owned(),
+                                max: #max_args,
+                                actual: idx + 1,
+                            })
+                        }
+                    }
+
+                    fn arg_name(&self, idx: usize) -> Result<&'static str, QueryError> {
+                        match idx {
+                            #(#arg_name_match,)*
                             v => Err(QueryError::TooManyArgs {
                                 function: self.name().to_owned(),
                                 max: #max_args,

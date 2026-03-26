@@ -40,6 +40,7 @@ impl<T: QueryTarget> QueryEvaluationResult<T> {
 /// Used as a value in query evaluation, may appear in arguments to functions, results of functions etc.
 #[derive(Debug, VariantName, Eq, PartialEq)]
 pub enum QueryValue<T: QueryTarget> {
+    None,
     String(String),
     Integer(u64),
     TargetSet(TargetSet<T>),

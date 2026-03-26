@@ -41,7 +41,7 @@ async def test_uquery_none(buck: Buck) -> None:
 
     await expect_failure(
         buck.uquery("""None"""),
-        stderr_regex="Invalid target pattern `None` is not allowed",
+        stderr_regex="expected value of type `targets`, got `None`:",
     )
 
     result = await buck.uquery(""":none""")
@@ -63,6 +63,7 @@ async def test_uquery_none(buck: Buck) -> None:
 
     await expect_failure(
         buck.uquery("""set(None)"""),
+        # stderr_regex="expected value of type `targets`, got `None`:",
         stderr_regex="Invalid target pattern `None` is not allowed",
     )
 
@@ -83,14 +84,20 @@ async def test_uquery_none(buck: Buck) -> None:
 
     await expect_failure(
         buck.uquery("""filter('', None)"""),
-        stderr_regex="Invalid target pattern `None` is not allowed",
+        stderr_regex=re.escape(
+            "None is not a valid value for function `filter` argument [1] `set: *target or file expression*`"
+        ),
     )
 
     result = await buck.uquery("""filter(none, :none)""")
     assert result.stdout == "root//:none\n"
 
-    result = await buck.uquery("""filter(None, :None)""")
-    assert result.stdout == "root//:None\n"
+    await expect_failure(
+        buck.uquery("""filter(None, :None)"""),
+        stderr_regex=re.escape(
+            "None is not a valid value for function `filter` argument [0] `regex: *string*`"
+        ),
+    )
 
     result = await buck.uquery("""filter('none', :none)""")
     assert result.stdout == "root//:none\n"
@@ -101,8 +108,12 @@ async def test_uquery_none(buck: Buck) -> None:
     result = await buck.uquery("""filter(none, ':none')""")
     assert result.stdout == "root//:none\n"
 
-    result = await buck.uquery("""filter(None, ':None')""")
-    assert result.stdout == "root//:None\n"
+    await expect_failure(
+        buck.uquery("""filter(None, ':None')"""),
+        stderr_regex=re.escape(
+            "None is not a valid value for function `filter` argument [0] `regex: *string*`"
+        ),
+    )
 
     result = await buck.uquery("""filter('none', ':none')""")
     assert result.stdout == "root//:none\n"
@@ -116,7 +127,7 @@ async def test_uquery_none(buck: Buck) -> None:
     )
     await expect_failure(
         buck.uquery("""None()"""),
-        stderr_regex="unknown function `None`:",
+        stderr_regex="in Eof",
     )
 
 
