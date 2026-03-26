@@ -157,7 +157,7 @@ def android_instrumentation_test_impl(ctx: AnalysisContext):
         env["TPX_LIST_TESTS_COMMAND"] = list_tests_command
 
     labels = ctx.attrs.labels
-    if read_root_config("test", "use_tpx_standard_output") == "true":
+    if "tpx:supports-test-result-output-spec" not in labels:
         labels.append("tpx:supports-test-result-output-spec")
 
     test_info = ExternalRunnerTestInfo(
