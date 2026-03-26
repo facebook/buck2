@@ -198,7 +198,7 @@ def build_apk(
             else:
                 fail("Only 'excluded_resources' and 'uncompressed_files' are supported in packaging_options right now!")
 
-    actions.run(apk_builder_args, category = "apk_build")
+    actions.run(apk_builder_args, category = "apk_build", allow_cache_upload = True)
 
     return output_apk
 
