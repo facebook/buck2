@@ -104,7 +104,7 @@ public class InstrumentationTestRunnerForClout extends InstrumentationTestRunner
             argsParser.clearPackageData,
             argsParser.disableAnimations,
             argsParser.preTestSetupScript,
-            argsParser.extraApksToInstall,
+            argsParser.apexesToInstall,
             argsParser.userId);
     if (argsParser.recordVideo) {
       runner.addReportLayer(new VideoRecordingReportLayer(runner));
