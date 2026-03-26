@@ -24,6 +24,7 @@ use crate::query::syntax::simple::eval::evaluator::QueryEvaluator;
 use crate::query::syntax::simple::eval::set::TargetSet;
 use crate::query::syntax::simple::eval::values::QueryEvaluationValue;
 use crate::query::syntax::simple::eval::values::QueryValue;
+use crate::query::syntax::simple::eval::values::QueryValueDepth;
 use crate::query::syntax::simple::functions::AugmentedQueryFunctions;
 use crate::query::syntax::simple::functions::QueryFunctions;
 use crate::query::syntax::simple::functions::helpers::CapturedExpr;
@@ -139,7 +140,7 @@ impl<'a, Env: QueryEnvironment> DepsFunction<Env> {
         env: &Env,
         functions: &dyn QueryFunctions<Env = Env>,
         targets: &TargetSet<Env::Target>,
-        depth: Option<i32>,
+        depth: QueryValueDepth,
         captured_expr: Option<&CapturedExpr<'_>>,
     ) -> buck2_error::Result<TargetSet<Env::Target>> {
         let filter = self.make_filter(env, functions, captured_expr);
@@ -156,7 +157,7 @@ impl<'a, Env: QueryEnvironment> DepsFunction<Env> {
         functions: &dyn QueryFunctions<Env = Env>,
         universe: &TargetSet<Env::Target>,
         from: &TargetSet<Env::Target>,
-        depth: Option<i32>,
+        depth: QueryValueDepth,
         captured_expr: Option<&CapturedExpr<'_>>,
     ) -> buck2_error::Result<TargetSet<Env::Target>> {
         let filter = self.make_filter(env, functions, captured_expr);

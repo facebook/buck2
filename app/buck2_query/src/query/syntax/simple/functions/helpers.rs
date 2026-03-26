@@ -27,6 +27,7 @@ use crate::query::syntax::simple::eval::evaluator::QueryEvaluator;
 use crate::query::syntax::simple::eval::file_set::FileSet;
 use crate::query::syntax::simple::eval::set::TargetSet;
 use crate::query::syntax::simple::eval::values::QueryValue;
+use crate::query::syntax::simple::eval::values::QueryValueDepth;
 use crate::query::syntax::simple::eval::values::QueryValueSet;
 
 mod _scoped_allow {
@@ -273,6 +274,28 @@ impl<'a, Env: QueryEnvironment> QueryFunctionArg<'a, Env> for FileSet {
             QueryValue::FileSet(t) => Ok(t),
             _ => Err(QueryError::InvalidType {
                 expected: "target_set",
+                actual: val.variant_name(),
+            }),
+        }
+    }
+}
+
+/// Used to specify the depth of some graph traversals. None maps to unbounded,
+/// and u64 is clamped to a u32 and converted such that large values
+/// automatically become unbounded (see `QueryValueDepth`).
+#[async_trait]
+impl<'a, Env: QueryEnvironment> QueryFunctionArg<'a, Env> for QueryValueDepth {
+    const ARG_TYPE: QueryArgType = QueryArgType::Integer;
+
+    fn accept_none() -> Option<Self> {
+        Some(QueryValueDepth::Unbounded)
+    }
+
+    async fn accept(_env: &Env, val: QueryValue<Env::Target>) -> Result<Self, QueryError> {
+        match val {
+            QueryValue::Integer(v) => Ok((v.clamp(0, u32::MAX as u64) as u32).into()),
+            _ => Err(QueryError::InvalidType {
+                expected: "uint",
                 actual: val.variant_name(),
             }),
         }

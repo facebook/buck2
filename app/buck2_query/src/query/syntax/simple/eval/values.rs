@@ -12,6 +12,7 @@
 
 use std::iter;
 
+use allocative::Allocative;
 use buck2_query_parser::spanned::Spanned;
 use gazebo::variants::VariantName;
 use itertools::Either;
@@ -52,6 +53,66 @@ pub enum QueryValue<T: QueryTarget> {
 pub enum QueryValueSet<T: QueryTarget> {
     TargetSet(TargetSet<T>),
     FileSet(FileSet),
+}
+
+/// Used as a value in query evaluation where the depth of the graph traversal is specified.
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Default, Allocative)]
+pub enum QueryValueDepth {
+    #[default]
+    Unbounded,
+    Bounded(u32),
+}
+
+impl QueryValueDepth {
+    #[inline]
+    pub fn is_unbounded(&self) -> bool {
+        match self {
+            QueryValueDepth::Unbounded => true,
+            QueryValueDepth::Bounded(_) => false,
+        }
+    }
+
+    #[inline]
+    pub fn bound(&self) -> Option<u32> {
+        match self {
+            QueryValueDepth::Unbounded => None,
+            QueryValueDepth::Bounded(bound) => Some(*bound),
+        }
+    }
+}
+
+impl From<u32> for QueryValueDepth {
+    fn from(v: u32) -> Self {
+        // For unbounded traversals, buck1 recommends specifying a large value. We'll accept either a negative (like -1) or
+        // a large value as unbounded. We can't just call it optional because args are positional only in the query syntax
+        // and so to specify a filter you need to specify a depth.
+        if (0..1_000_000_000).contains(&v) {
+            QueryValueDepth::Bounded(v)
+        } else {
+            QueryValueDepth::Unbounded
+        }
+    }
+}
+
+impl From<Option<u32>> for QueryValueDepth {
+    fn from(v: Option<u32>) -> Self {
+        match v {
+            None => QueryValueDepth::Unbounded,
+            Some(v) => v.into(),
+        }
+    }
+}
+
+impl From<Option<i32>> for QueryValueDepth {
+    fn from(v: Option<i32>) -> Self {
+        match v {
+            None => QueryValueDepth::Unbounded,
+            Some(v) => {
+                // Historically we treated all negative values as large u32 values in the `From<u32>` implementation.
+                (v as u32).into()
+            }
+        }
+    }
 }
 
 /// Used as the final result of evaluating a query. A literal at the top-level is treated specially and so this has

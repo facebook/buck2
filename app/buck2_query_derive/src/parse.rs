@@ -348,7 +348,7 @@ mod tests {
                     &self,
                     evaluator: &QueryEvaluator<'_, Env>,
                     targets: TargetSet<Env::Target>,
-                    depth: Option<u64>,
+                    depth: QueryValueDepth,
                     captured_expr: Option<CapturedExpr<'_>>,
                 ) -> QueryFuncResult<Env> {
                     DepsFunction::<Env> {
@@ -397,7 +397,7 @@ mod tests {
         assert_eq!(&expected, &args.first().unwrap().ty);
         let expected: Type = parse_quote!(TargetSet<Env::Target>);
         assert_eq!(&expected, &args.get(1).unwrap().ty);
-        let expected: Type = parse_quote!(Option<u64>);
+        let expected: Type = parse_quote!(QueryValueDepth);
         assert_eq!(&expected, &args.get(2).unwrap().ty);
         let expected: Type = parse_quote!(Option<CapturedExpr<'_>>);
         assert_eq!(&expected, &args.get(3).unwrap().ty);

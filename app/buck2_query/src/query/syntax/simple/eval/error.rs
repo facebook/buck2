@@ -58,7 +58,7 @@ pub enum QueryError {
     #[error("Argument `{1}` to `{0}` is not yet supported in buck2")]
     ArgNotYetSupported(String, String),
     #[error("Invalid traversal depth `{0}`")]
-    InvalidDepth(i32),
+    InvalidDepth(u32),
     #[error("File literal `{1}` not within the project root `{}`", .0)]
     FileLiteralNotInProject(ProjectRoot, String),
     #[error("query function {0} not available in this context")]

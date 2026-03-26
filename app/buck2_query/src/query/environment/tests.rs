@@ -383,7 +383,7 @@ async fn test_paths_with_cycles_present() -> buck2_error::Result<()> {
     assert_eq!(path, env.set("1,2,3,4,5")?);
 
     let path = env
-        .rdeps(&env.set("1")?, &env.set("3")?, Some(2), None)
+        .rdeps(&env.set("1")?, &env.set("3")?, Some(2).into(), None)
         .await?;
     assert_eq!(path, env.set("4,1,2,3")?);
 
@@ -402,32 +402,32 @@ async fn test_rdeps() -> buck2_error::Result<()> {
     let env = env.build();
 
     let path = env
-        .rdeps(&env.set("1")?, &env.set("6")?, Some(0), None)
+        .rdeps(&env.set("1")?, &env.set("6")?, Some(0).into(), None)
         .await?;
     assert_eq!(path, env.set("6")?);
 
     let path = env
-        .rdeps(&env.set("1")?, &env.set("6")?, Some(1), None)
+        .rdeps(&env.set("1")?, &env.set("6")?, Some(1).into(), None)
         .await?;
     assert_eq!(path, env.set("3,6")?);
 
     let path = env
-        .rdeps(&env.set("1")?, &env.set("6")?, Some(2), None)
+        .rdeps(&env.set("1")?, &env.set("6")?, Some(2).into(), None)
         .await?;
     assert_eq!(path, env.set("1,2,3,6")?);
 
     let path = env
-        .rdeps(&env.set("1")?, &env.set("6")?, Some(3), None)
+        .rdeps(&env.set("1")?, &env.set("6")?, Some(3).into(), None)
         .await?;
     assert_eq!(path, env.set("1,2,3,6")?);
 
     let path = env
-        .rdeps(&env.set("1")?, &env.set("6")?, Some(4), None)
+        .rdeps(&env.set("1")?, &env.set("6")?, Some(4).into(), None)
         .await?;
     assert_eq!(path, env.set("1,2,3,6")?);
 
     let path = env
-        .rdeps(&env.set("1")?, &env.set("6")?, None, None)
+        .rdeps(&env.set("1")?, &env.set("6")?, None::<u32>.into(), None)
         .await?;
     assert_eq!(path, env.set("1,2,3,6")?);
 

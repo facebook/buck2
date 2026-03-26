@@ -27,6 +27,7 @@ use buck2_core::target::configured_target_label::ConfiguredTargetLabel;
 use buck2_query::query::syntax::simple::eval::file_set::FileSet;
 use buck2_query::query::syntax::simple::eval::set::TargetSet;
 use buck2_query::query::syntax::simple::eval::values::QueryValue;
+use buck2_query::query::syntax::simple::eval::values::QueryValueDepth;
 use buck2_query::query::syntax::simple::functions::DefaultQueryFunctions;
 use buck2_query::query::syntax::simple::functions::DefaultQueryFunctionsModule;
 use buck2_query::query::syntax::simple::functions::helpers::CapturedExpr;
@@ -139,7 +140,7 @@ impl BxlAqueryFunctions for BxlAqueryFunctionsImpl {
         &self,
         dice: &mut DiceComputations<'_>,
         targets: &TargetSet<ActionQueryNode>,
-        depth: Option<i32>,
+        depth: QueryValueDepth,
         captured_expr: Option<&CapturedExpr>,
     ) -> buck2_error::Result<TargetSet<ActionQueryNode>> {
         Ok(dice
@@ -161,7 +162,7 @@ impl BxlAqueryFunctions for BxlAqueryFunctionsImpl {
         dice: &mut DiceComputations<'_>,
         universe: &TargetSet<ActionQueryNode>,
         targets: &TargetSet<ActionQueryNode>,
-        depth: Option<i32>,
+        depth: QueryValueDepth,
         captured_expr: Option<&CapturedExpr>,
     ) -> buck2_error::Result<TargetSet<ActionQueryNode>> {
         Ok(dice

@@ -21,6 +21,7 @@ use buck2_core::global_cfg_options::GlobalCfgOptions;
 use buck2_node::nodes::unconfigured::TargetNode;
 use buck2_query::query::syntax::simple::eval::file_set::FileSet;
 use buck2_query::query::syntax::simple::eval::set::TargetSet;
+use buck2_query::query::syntax::simple::eval::values::QueryValueDepth;
 use buck2_query::query::syntax::simple::functions::DefaultQueryFunctions;
 use buck2_query::query::syntax::simple::functions::DefaultQueryFunctionsModule;
 use buck2_query::query::syntax::simple::functions::helpers::CapturedExpr;
@@ -119,7 +120,7 @@ impl BxlUqueryFunctions for BxlUqueryFunctionsImpl {
         &self,
         dice: &mut DiceComputations<'_>,
         targets: &TargetSet<TargetNode>,
-        depth: Option<i32>,
+        depth: QueryValueDepth,
         captured_expr: Option<&CapturedExpr>,
     ) -> buck2_error::Result<TargetSet<TargetNode>> {
         Ok(dice
@@ -141,7 +142,7 @@ impl BxlUqueryFunctions for BxlUqueryFunctionsImpl {
         dice: &mut DiceComputations<'_>,
         universe: &TargetSet<TargetNode>,
         targets: &TargetSet<TargetNode>,
-        depth: Option<i32>,
+        depth: QueryValueDepth,
         captured_expr: Option<&CapturedExpr>,
     ) -> buck2_error::Result<TargetSet<TargetNode>> {
         Ok(dice

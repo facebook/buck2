@@ -210,7 +210,7 @@ fn aquery_methods(builder: &mut MethodsBuilder) {
                             .deps(
                                 dice,
                                 &universe,
-                                depth.into_option(),
+                                depth.into_option().into(),
                                 filter
                                     .as_ref()
                                     .map(|span| CapturedExpr { expr: span })

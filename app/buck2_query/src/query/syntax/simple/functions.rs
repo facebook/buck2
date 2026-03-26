@@ -28,6 +28,7 @@ use crate::query::syntax::simple::eval::file_set::FileSet;
 use crate::query::syntax::simple::eval::set::TargetSet;
 use crate::query::syntax::simple::eval::values::QueryResult;
 use crate::query::syntax::simple::eval::values::QueryValue;
+use crate::query::syntax::simple::eval::values::QueryValueDepth;
 use crate::query::syntax::simple::eval::values::QueryValueSet;
 use crate::query::syntax::simple::functions::deps::DepsFunction;
 use crate::query::syntax::simple::functions::docs::ModuleDescription;
@@ -436,7 +437,7 @@ impl<Env: QueryEnvironment> DefaultQueryFunctionsModule<Env> {
         &self,
         evaluator: &QueryEvaluator<'_, Env>,
         targets: TargetSet<Env::Target>,
-        depth: Option<u64>,
+        depth: QueryValueDepth,
         captured_expr: Option<CapturedExpr<'_>>,
     ) -> QueryFuncResult<Env> {
         Ok(self
@@ -445,7 +446,7 @@ impl<Env: QueryEnvironment> DefaultQueryFunctionsModule<Env> {
                 evaluator.env(),
                 evaluator.functions(),
                 &targets,
-                depth.map(|v| v as i32),
+                depth,
                 captured_expr.as_ref(),
             )
             .await?
@@ -579,7 +580,7 @@ impl<Env: QueryEnvironment> DefaultQueryFunctionsModule<Env> {
         evaluator: &QueryEvaluator<'_, Env>,
         universe: TargetSet<Env::Target>,
         targets: TargetSet<Env::Target>,
-        depth: Option<u64>,
+        depth: QueryValueDepth,
         captured_expr: Option<CapturedExpr<'_>>,
     ) -> QueryFuncResult<Env> {
         Ok(self
@@ -589,7 +590,7 @@ impl<Env: QueryEnvironment> DefaultQueryFunctionsModule<Env> {
                 evaluator.functions(),
                 &universe,
                 &targets,
-                depth.map(|v| v as i32),
+                depth,
                 captured_expr.as_ref(),
             )
             .await?
@@ -833,7 +834,7 @@ impl<Env: QueryEnvironment> DefaultQueryFunctions<Env> {
         env: &Env,
         functions: &dyn QueryFunctions<Env = Env>,
         targets: &TargetSet<Env::Target>,
-        depth: Option<i32>,
+        depth: QueryValueDepth,
         captured_expr: Option<&CapturedExpr<'_>>,
     ) -> buck2_error::Result<TargetSet<Env::Target>> {
         DepsFunction::<Env> {
@@ -890,7 +891,7 @@ impl<Env: QueryEnvironment> DefaultQueryFunctions<Env> {
         functions: &dyn QueryFunctions<Env = Env>,
         universe: &TargetSet<Env::Target>,
         targets: &TargetSet<Env::Target>,
-        depth: Option<i32>,
+        depth: QueryValueDepth,
         captured_expr: Option<&CapturedExpr<'_>>,
     ) -> buck2_error::Result<TargetSet<Env::Target>> {
         DepsFunction::<Env> {

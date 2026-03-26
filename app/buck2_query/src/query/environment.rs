@@ -32,6 +32,7 @@ use crate::query::graph::successors::GraphSuccessors;
 use crate::query::syntax::simple::eval::error::QueryError;
 use crate::query::syntax::simple::eval::file_set::FileSet;
 use crate::query::syntax::simple::eval::set::TargetSet;
+use crate::query::syntax::simple::eval::values::QueryValueDepth;
 use crate::query::traversal::AsyncNodeLookup;
 use crate::query::traversal::ChildVisitor;
 mod tests;
@@ -191,7 +192,8 @@ pub trait QueryEnvironment: Send + Sync {
         to: &TargetSet<Self::Target>,
         filter: Option<&dyn TraversalFilter<Self::Target>>,
     ) -> buck2_error::Result<TargetSet<Self::Target>> {
-        self.rdeps(from, to, None, filter).await
+        self.rdeps(from, to, QueryValueDepth::Unbounded, filter)
+            .await
     }
 
     async fn somepath(
@@ -238,7 +240,7 @@ pub trait QueryEnvironment: Send + Sync {
         &self,
         universe: &TargetSet<Self::Target>,
         from: &TargetSet<Self::Target>,
-        depth: Option<i32>,
+        depth: QueryValueDepth,
         filter: Option<&dyn TraversalFilter<Self::Target>>,
     ) -> buck2_error::Result<TargetSet<Self::Target>> {
         let graph = Graph::build_stable_dfs(
@@ -260,20 +262,17 @@ pub trait QueryEnvironment: Send + Sync {
         let roots_in_universe = from.filter(|t| Ok(graph.get(t.node_key()).is_some()))?;
 
         match depth {
-            // For unbounded traversals, buck1 recommends specifying a large value. We'll accept either a negative (like -1) or
-            // a large value as unbounded. We can't just call it optional because args are positional only in the query syntax
-            // and so to specify a filter you need to specify a depth.
-            Some(v) if (0..1_000_000_000).contains(&v) => {
+            QueryValueDepth::Bounded(depth) => {
                 let graph = graph.take_max_depth(
                     roots_in_universe.iter().map(|t| t.node_key().clone()),
-                    v as u32,
+                    depth,
                 );
                 graph.depth_first_postorder_traversal(
                     roots_in_universe.iter().map(|t| t.node_key().clone()),
                     |t| visit(t.clone()),
                 )?;
             }
-            _ => {
+            QueryValueDepth::Unbounded => {
                 graph.depth_first_postorder_traversal(
                     roots_in_universe.iter().map(|t| t.node_key().clone()),
                     |t| visit(t.clone()),
@@ -366,7 +365,7 @@ pub trait QueryEnvironment: Send + Sync {
     async fn deps(
         &self,
         targets: &TargetSet<Self::Target>,
-        depth: Option<i32>,
+        depth: QueryValueDepth,
         filter: Option<&dyn TraversalFilter<Self::Target>>,
     ) -> buck2_error::Result<TargetSet<Self::Target>> {
         deps(self, targets, depth, filter).await
@@ -383,7 +382,7 @@ pub trait QueryEnvironment: Send + Sync {
 pub async fn deps<Env: QueryEnvironment + ?Sized>(
     env: &Env,
     targets: &TargetSet<Env::Target>,
-    depth: Option<i32>,
+    depth: QueryValueDepth,
     filter: Option<&dyn TraversalFilter<Env::Target>>,
 ) -> buck2_error::Result<TargetSet<Env::Target>> {
     let mut deps = TargetSet::new();
@@ -395,14 +394,11 @@ pub async fn deps<Env: QueryEnvironment + ?Sized>(
     };
 
     match depth {
-        // For unbounded traversals, buck1 recommends specifying a large value. We'll accept either a negative (like -1) or
-        // a large value as unbounded. We can't just call it optional because args are positional only in the query syntax
-        // and so to specify a filter you need to specify a depth.
-        Some(v) if (0..1_000_000_000).contains(&v) => {
+        QueryValueDepth::Bounded(v) => {
             env.depth_limited_traversal(targets, visitor, visit, v as u32)
                 .await?;
         }
-        _ => {
+        QueryValueDepth::Unbounded => {
             env.dfs_postorder(targets, visitor, visit).await?;
         }
     }

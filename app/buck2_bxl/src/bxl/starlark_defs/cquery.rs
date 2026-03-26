@@ -372,7 +372,7 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
                             .deps(
                                 dice,
                                 &targets,
-                                depth.into_option(),
+                                depth.into_option().into(),
                                 filter.as_ref().map(|expr| CapturedExpr { expr }).as_ref(),
                             )
                             .await
@@ -517,7 +517,7 @@ fn cquery_methods(builder: &mut MethodsBuilder) {
                                 dice,
                                 &universe,
                                 &targets,
-                                depth,
+                                depth.into(),
                                 filter.as_ref().map(|expr| CapturedExpr { expr }).as_ref(),
                             )
                             .await

@@ -171,7 +171,7 @@ fn lazy_uquery_methods(builder: &mut MethodsBuilder) {
         #[starlark(require = named, default = NoneOr::None)] filter: NoneOr<&'v str>,
     ) -> starlark::Result<StarlarkLazy> {
         let universe = OwnedTargetListExprArg::from_ref(&universe);
-        let depth = depth.into_option();
+        let depth = depth.into_option().into();
         let filter = filter.into_option().map(|s| s.to_owned());
         let op = LazyUqueryOperation::Deps {
             universe,
@@ -196,7 +196,7 @@ fn lazy_uquery_methods(builder: &mut MethodsBuilder) {
     ) -> starlark::Result<StarlarkLazy> {
         let universe = OwnedTargetListExprArg::from_ref(&universe);
         let from = OwnedTargetListExprArg::from_ref(&from);
-        let depth = depth.into_option();
+        let depth = depth.into_option().into();
         let filter = filter.into_option().map(|s| s.to_owned());
         let op = LazyUqueryOperation::Rdeps {
             universe,

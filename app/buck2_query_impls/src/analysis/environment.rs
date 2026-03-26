@@ -47,6 +47,7 @@ use buck2_query::query::syntax::simple::eval::error::QueryError;
 use buck2_query::query::syntax::simple::eval::file_set::FileSet;
 use buck2_query::query::syntax::simple::eval::set::TargetSet;
 use buck2_query::query::syntax::simple::eval::values::QueryValue;
+use buck2_query::query::syntax::simple::eval::values::QueryValueDepth;
 use buck2_query::query::syntax::simple::functions::DefaultQueryFunctionsModule;
 use buck2_query::query::syntax::simple::functions::QueryFunctions;
 use buck2_query::query::syntax::simple::functions::helpers::QueryBinaryOp;
@@ -104,11 +105,11 @@ impl<'a> ConfiguredGraphFunctions<'a> {
         &self,
         env: &ConfiguredGraphQueryEnvironment<'a>,
         targets: TargetSet<ConfiguredGraphNodeRef>,
-        depth: Option<u64>,
+        depth: QueryValueDepth,
     ) -> Result<QueryValue<ConfiguredGraphNodeRef>, QueryError> {
         // if depth param is provided and it is not equal to 1, then it's not supported
         let mut run_first_order_classpath = false;
-        if let Some(depth_int) = depth.map(|v| v as i32) {
+        if let Some(depth_int) = depth.bound() {
             run_first_order_classpath = depth_int == 1;
             if !run_first_order_classpath {
                 return Err(QueryError::InvalidDepth(depth_int));
@@ -268,10 +269,10 @@ impl QueryEnvironment for ConfiguredGraphQueryEnvironment<'_> {
     async fn deps(
         &self,
         targets: &TargetSet<Self::Target>,
-        depth: Option<i32>,
+        depth: QueryValueDepth,
         filter: Option<&dyn TraversalFilter<Self::Target>>,
     ) -> buck2_error::Result<TargetSet<Self::Target>> {
-        if depth.is_none() && filter.is_none() {
+        if depth.is_unbounded() && filter.is_none() {
             // TODO(nga): fast lookup with depth too.
             let mut deps: TargetSet<Self::Target> = TargetSet::new();
             dfs_postorder::<ConfiguredTargetNodeRefNode>(
