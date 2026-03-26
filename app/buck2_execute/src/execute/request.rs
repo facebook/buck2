@@ -26,6 +26,7 @@ use buck2_core::fs::buck_out_path::BuildArtifactPath;
 use buck2_core::fs::project_rel_path::ProjectRelativePath;
 use buck2_core::fs::project_rel_path::ProjectRelativePathBuf;
 use buck2_core::soft_error;
+pub use buck2_data::NetworkAccess;
 use buck2_directory::directory::dashmap_directory_interner::DashMapDirectoryInterner;
 use buck2_directory::directory::directory::Directory;
 use buck2_directory::directory::directory_iterator::DirectoryIterator;
@@ -404,6 +405,8 @@ pub struct CommandExecutionRequest {
     /// Set for local resource setup commands whose backgrounded processes
     /// must survive after the setup script exits.
     skip_resource_control: bool,
+
+    network_access: Option<NetworkAccess>,
 }
 
 impl CommandExecutionRequest {
@@ -441,6 +444,7 @@ impl CommandExecutionRequest {
             run_action_key: None,
             is_test: false,
             skip_resource_control: false,
+            network_access: None,
         }
     }
 
@@ -729,6 +733,15 @@ impl CommandExecutionRequest {
 
     pub fn skip_resource_control(&self) -> bool {
         self.skip_resource_control
+    }
+
+    pub fn with_network_access(mut self, v: Option<NetworkAccess>) -> Self {
+        self.network_access = v;
+        self
+    }
+
+    pub fn network_access(&self) -> Option<NetworkAccess> {
+        self.network_access
     }
 }
 

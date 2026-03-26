@@ -105,6 +105,7 @@ use buck2_execute::execute::request::CommandExecutionOutput;
 use buck2_execute::execute::request::CommandExecutionPaths;
 use buck2_execute::execute::request::CommandExecutionRequest;
 use buck2_execute::execute::request::ExecutorPreference;
+use buck2_execute::execute::request::NetworkAccess;
 use buck2_execute::execute::request::OutputCreationBehavior;
 use buck2_execute::execute::request::WorkerId;
 use buck2_execute::execute::request::WorkerSpec;
@@ -396,6 +397,7 @@ impl<'a> BuckTestOrchestrator<'a> {
         let test_info = Self::get_test_info(dice, &test_target).await?;
         let effective_test_execution_caching =
             test_info.supports_test_execution_caching() && !disable_test_execution_caching;
+        let network_access = test_info.network_access();
         let test_executor = Self::get_test_executor(
             dice,
             &test_target,
@@ -479,6 +481,7 @@ impl<'a> BuckTestOrchestrator<'a> {
             worker,
             test_executor.re_dynamic_image(),
             test_executor.meta_internal_extra_params(),
+            network_access,
         )
         .boxed()
         .await?;
@@ -794,6 +797,7 @@ impl TestOrchestrator for BuckTestOrchestrator<'_> {
         let fs = self.dice.clone().get_artifact_fs().await?;
 
         let test_info = Self::get_test_info(self.dice.dupe().deref_mut(), &test_target).await?;
+        let network_access = test_info.network_access();
 
         // In contrast from actual test execution we do not check if local execution is possible.
         // We leave that decision to actual local execution runner that requests local execution preparation.
@@ -878,6 +882,7 @@ impl TestOrchestrator for BuckTestOrchestrator<'_> {
             worker,
             test_executor.re_dynamic_image(),
             test_executor.meta_internal_extra_params(),
+            network_access,
         )
         .await?;
 
@@ -1523,6 +1528,7 @@ impl BuckTestOrchestrator<'_> {
         worker: Option<WorkerSpec>,
         re_dynamic_image: Option<RemoteExecutorCustomImage>,
         meta_internal_extra_params: MetaInternalExtraParams,
+        network_access: Option<NetworkAccess>,
     ) -> buck2_error::Result<CommandExecutionRequest> {
         let inputs = ensured_inputs
             .into_iter()
@@ -1565,6 +1571,7 @@ impl BuckTestOrchestrator<'_> {
             .with_remote_execution_custom_image(re_dynamic_image)
             .with_meta_internal_extra_params(meta_internal_extra_params)
             .with_required_local_resources(required_local_resources)?
+            .with_network_access(network_access)
             .with_is_test();
         if let Some(timeout) = timeout {
             request = request.with_timeout(timeout)

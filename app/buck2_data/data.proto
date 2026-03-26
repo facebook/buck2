@@ -3159,6 +3159,12 @@ enum NetworkKind {
   UNKNOWN_NET_KIND = 2;
 }
 
+// Network access policy for command execution.
+enum NetworkAccess {
+  NETWORK_ACCESS_ALL = 0;
+  NETWORK_ACCESS_NONE = 1;
+}
+
 // Logged as an instant event when cgroup-based cleanup kills orphan processes
 // that outlived the main action process.
 message OrphanProcessesKilled {

@@ -8,6 +8,7 @@
 ## ExternalRunnerTestInfo.executor\_overrides
 ## ExternalRunnerTestInfo.labels
 ## ExternalRunnerTestInfo.local\_resources
+## ExternalRunnerTestInfo.network\_access
 ## ExternalRunnerTestInfo.required\_local\_resources
 ## ExternalRunnerTestInfo.run\_from\_project\_root
 ## ExternalRunnerTestInfo.supports\_test\_execution\_caching
