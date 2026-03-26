@@ -26,3 +26,4 @@ pub mod stdout_stderr_forwarder;
 pub mod subscriber;
 pub mod superconsole;
 pub(crate) mod system_warning;
+pub(crate) mod test_id_writer;

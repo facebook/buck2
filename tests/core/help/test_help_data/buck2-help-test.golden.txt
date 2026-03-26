@@ -228,6 +228,9 @@ Target Configuration Options:
 
           For example: `5m 10s`, `500s`.
 
+      --write-test-id <PATH>
+          Write the test session ID into this file
+
 Buckconfig Options:
   -c, --config <SECTION.OPTION=VALUE>
           List of config options

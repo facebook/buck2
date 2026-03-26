@@ -191,6 +191,10 @@ If include patterns are present, regardless of whether exclude patterns are pres
     #[clap(flatten)]
     timeout_options: CommonTimeoutOptions,
 
+    /// Write the test session ID into this file
+    #[clap(long, value_name = "PATH")]
+    write_test_id: Option<PathArg>,
+
     #[clap(flatten)]
     common_opts: CommonCommandOptions,
 }
@@ -507,5 +511,9 @@ impl StreamingCommand for TestCommand {
 
     fn starlark_opts(&self) -> &CommonStarlarkOptions {
         &self.common_opts.starlark_opts
+    }
+
+    fn write_test_id(&self) -> &Option<PathArg> {
+        &self.write_test_id
     }
 }

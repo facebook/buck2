@@ -45,6 +45,7 @@ use crate::subscribers::re_log::ReLog;
 use crate::subscribers::subscriber::EventSubscriber;
 use crate::subscribers::superconsole::timekeeper::RealtimeClock;
 use crate::subscribers::superconsole::timekeeper::Timekeeper;
+use crate::subscribers::test_id_writer::TestIdWriter;
 
 const HEALTH_CHECK_CHANNEL_SIZE: usize = 100;
 
@@ -114,6 +115,9 @@ fn update_events_ctx<T: StreamingCommand>(
     }
     if let Some(build_id_writer) = get_build_id_writer(cmd.event_log_opts(), ctx) {
         subscribers.push(build_id_writer)
+    }
+    if let Some(test_id_writer) = get_test_id_writer(cmd, ctx) {
+        subscribers.push(test_id_writer)
     }
     if let Some(build_graph_stats) = get_build_graph_stats(cmd, ctx) {
         subscribers.push(build_graph_stats)
@@ -199,6 +203,11 @@ pub trait StreamingCommand: Sized + Send + Sync {
 
     /// Currently only for BxlCommand.
     fn user_event_log(&self) -> &Option<PathArg> {
+        &None
+    }
+
+    /// Path to write test session ID. Currently only for TestCommand.
+    fn write_test_id(&self) -> &Option<PathArg> {
         &None
     }
 }
@@ -317,6 +326,19 @@ fn get_build_id_writer(
 ) -> Option<Box<dyn EventSubscriber>> {
     if let Some(file_loc) = opts.write_build_id.as_ref() {
         Some(Box::new(BuildIdWriter::new(
+            file_loc.resolve(&ctx.working_dir),
+        )))
+    } else {
+        None
+    }
+}
+
+fn get_test_id_writer<T: StreamingCommand>(
+    cmd: &T,
+    ctx: &ClientCommandContext,
+) -> Option<Box<dyn EventSubscriber>> {
+    if let Some(file_loc) = cmd.write_test_id().as_ref() {
+        Some(Box::new(TestIdWriter::new(
             file_loc.resolve(&ctx.working_dir),
         )))
     } else {
