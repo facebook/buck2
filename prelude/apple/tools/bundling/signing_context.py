@@ -54,7 +54,8 @@ def add_args_for_signing_context(parser: argparse.ArgumentParser):
         metavar="</provisioning/profiles/directory>",
         type=Path,
         required=False,
-        help="Required if non-ad-hoc code signing is requested. Path to directory with provisioning profile files.",
+        action="append",
+        help="Required if non-ad-hoc code signing is requested. Path to directory with provisioning profile files. Can be specified multiple times.",
     )
     parser.add_argument(
         "--embed-provisioning-profile-when-signing-ad-hoc",
@@ -168,7 +169,7 @@ def signing_context_and_selected_identity_from_args(
                 profile_selection_context = signing_context_with_profile_selection(
                     info_plist_source=args.info_plist_source,
                     info_plist_destination=args.info_plist_destination,
-                    provisioning_profiles_dir=args.profiles_dir,
+                    provisioning_profiles_dir=args.profiles_dir[0],
                     entitlements_path=args.entitlements,
                     platform=args.platform,
                     list_codesign_identities=AdHocListCodesignIdentities(
@@ -196,7 +197,7 @@ def signing_context_and_selected_identity_from_args(
             signing_context = signing_context_with_profile_selection(
                 info_plist_source=args.info_plist_source,
                 info_plist_destination=args.info_plist_destination,
-                provisioning_profiles_dir=args.profiles_dir,
+                provisioning_profiles_dir=args.profiles_dir[0],
                 entitlements_path=args.entitlements,
                 platform=args.platform,
                 list_codesign_identities=list_codesign_identities,

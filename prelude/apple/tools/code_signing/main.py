@@ -77,7 +77,8 @@ class Arguments(Tap):
             metavar="</provisioning/profiles/directory>",
             type=pathlib.Path,
             required=False,
-            help="Path to directory with provisioning profile files. Required if code signing is not ad-hoc.",
+            action="append",
+            help="Path to directory with provisioning profile files. Required if code signing is not ad-hoc. Can be specified multiple times.",
         )
         self.add_argument(
             "--ad-hoc",
@@ -162,7 +163,7 @@ def _main() -> None:
             assert args.profiles_dir, (
                 "Path to directory with provisioning profile files should be set when signing is not ad-hoc."
             )
-            non_optional_profiles_dir = args.profiles_dir
+            non_optional_profiles_dir = args.profiles_dir[0]
             signing_context = signing_context_with_profile_selection(
                 info_plist_source=args.bundle_path / args.info_plist,
                 info_plist_destination=args.info_plist,
