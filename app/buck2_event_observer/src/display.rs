@@ -649,12 +649,27 @@ fn strip_trailing_newline(stream_contents: &str) -> &str {
     }
 }
 
+/// Controls whether stdout/stderr stream contents are included in action error
+/// formatting.
+#[derive(Copy, Clone, Debug)]
+pub enum ActionErrorOutputFormat {
+    /// Include stdout/stderr stream contents in the output.
+    IncludeOutputStreams,
+    /// Exclude stdout/stderr stream contents (metadata only).
+    ExcludeOutputStreams,
+    /// Exclude stdout/stderr and append a substitute message (e.g. output limit exceeded).
+    SubstituteOutputStreams(&'static str),
+}
+
 impl ActionErrorDisplay<'_> {
     /// Format the error message in a way that is suitable for use with the build report
     ///
     /// The output may include terminal colors that need to be sanitized.
     pub fn simple_format_for_build_report(&self) -> String {
-        let s = self.simple_format_inner(None::<&'static mut dyn for<'x> FnMut(&'x str) -> String>);
+        let s = self.simple_format_inner(
+            None::<&'static mut dyn for<'x> FnMut(&'x str) -> String>,
+            ActionErrorOutputFormat::IncludeOutputStreams,
+        );
         sanitize_output_colors(s.as_bytes())
     }
 
@@ -664,13 +679,15 @@ impl ActionErrorDisplay<'_> {
     pub fn simple_format_with_timestamps(
         &self,
         with_timestamps: impl FnMut(&str) -> String,
+        output_format: ActionErrorOutputFormat,
     ) -> String {
-        self.simple_format_inner(Some(with_timestamps))
+        self.simple_format_inner(Some(with_timestamps), output_format)
     }
 
     fn simple_format_inner(
         &self,
         mut with_timestamps: Option<impl FnMut(&str) -> String>,
+        output_format: ActionErrorOutputFormat,
     ) -> String {
         let mut s = String::new();
         macro_rules! append {
@@ -726,6 +743,15 @@ impl ActionErrorDisplay<'_> {
             };
         }
 
+        match output_format {
+            ActionErrorOutputFormat::IncludeOutputStreams => {}
+            ActionErrorOutputFormat::ExcludeOutputStreams => return s,
+            ActionErrorOutputFormat::SubstituteOutputStreams(msg) => {
+                append!("{msg}");
+                return s;
+            }
+        }
+
         let mut append_stream = |name, contents: &str| {
             if contents.is_empty() {
                 append!("{name}: <empty>");
@@ -773,6 +799,14 @@ impl ActionErrorDisplay<'_> {
             };
         }
         s
+    }
+
+    /// Returns an estimate of the stdout/stderr byte count in this error.
+    pub fn output_stream_byte_count(&self) -> usize {
+        let Some(command) = &self.command else {
+            return 0;
+        };
+        command.cmd_stdout.len() + command.cmd_stderr.len()
     }
 }
 

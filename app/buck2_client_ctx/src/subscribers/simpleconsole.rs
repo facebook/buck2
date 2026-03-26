@@ -43,6 +43,8 @@ use superconsole::SuperConsole;
 use tokio::sync::mpsc::Receiver;
 use tokio::sync::mpsc::error::TryRecvError;
 
+use crate::subscribers::console_output_limit::ConsoleOutputLimit;
+use crate::subscribers::console_output_limit::EmitResult;
 use crate::subscribers::emit_event::emit_event_if_relevant;
 use crate::subscribers::subscriber::EventSubscriber;
 use crate::subscribers::superconsole::io::io_in_flight_non_zero_counters;
@@ -160,6 +162,7 @@ pub struct SimpleConsole<E> {
     last_print_time: Instant,
     last_shown_snapshot_ts: Option<SystemTime>,
     health_check_reports_receiver: Option<Receiver<Vec<DisplayReport>>>,
+    pub(crate) output_limit: ConsoleOutputLimit,
 }
 
 impl<E> SimpleConsole<E>
@@ -182,6 +185,7 @@ where
             last_print_time: Instant::now(),
             last_shown_snapshot_ts: None,
             health_check_reports_receiver,
+            output_limit: ConsoleOutputLimit::new(),
         }
     }
 
@@ -201,6 +205,7 @@ where
             last_print_time: Instant::now(),
             last_shown_snapshot_ts: None,
             health_check_reports_receiver,
+            output_limit: ConsoleOutputLimit::new(),
         }
     }
 
@@ -297,8 +302,20 @@ where
     }
 
     fn print_action_error(&mut self, error: &buck2_data::ActionError) -> buck2_error::Result<()> {
-        let display = display::display_action_error(error, TargetDisplayOptions::for_log())?;
-        let message = display.simple_format_with_timestamps(with_timestamps);
+        let error_display = display::display_action_error(error, TargetDisplayOptions::for_log())?;
+        let stream_bytes = error_display.output_stream_byte_count();
+
+        // Always print metadata (action ID, reason, command).
+        // Gate stdout/stderr through the output limit.
+        let output_format = match self.output_limit.emit(stream_bytes) {
+            EmitResult::Emit => display::ActionErrorOutputFormat::IncludeOutputStreams,
+            EmitResult::Exceeded(msg) => {
+                display::ActionErrorOutputFormat::SubstituteOutputStreams(msg)
+            }
+            EmitResult::Skipped => display::ActionErrorOutputFormat::ExcludeOutputStreams,
+        };
+
+        let message = error_display.simple_format_with_timestamps(with_timestamps, output_format);
         if self.tty_mode == TtyMode::Disabled {
             // patternlint-disable-next-line buck2-cli-simpleconsole-echo
             crate::eprintln!("{}", display::sanitize_output_colors(message.as_bytes()))?;
@@ -306,6 +323,7 @@ where
             // patternlint-disable-next-line buck2-cli-simpleconsole-echo
             crate::eprintln!("{}", message)?;
         }
+
         self.notify_printed();
         Ok(())
     }
@@ -505,19 +523,27 @@ where
             let incomplete = self.observer().spans().roots_ongoing();
             echo!("{} / {}: {}", complete, complete + incomplete, action_id)?;
             if let Some(stderr) = stderr {
-                // TODO(nmj): Factor out behavior here so that handling ttymode isn't ad hoc.  i.e. write a method that formats text based on tty mode
-                match self.tty_mode {
-                    TtyMode::Enabled => {
-                        // Add the extra control character so that users' stderr messages can't
-                        // mess up the terminal
-                        echo!("stderr:{}\x1b[0m", stderr)?;
+                match self.output_limit.emit(stderr.len()) {
+                    EmitResult::Emit => {
+                        // TODO(nmj): Factor out behavior here so that handling ttymode isn't ad hoc.  i.e. write a method that formats text based on tty mode
+                        match self.tty_mode {
+                            TtyMode::Enabled => {
+                                // Add the extra control character so that users' stderr messages can't
+                                // mess up the terminal
+                                echo!("stderr:{}\x1b[0m", stderr)?;
+                            }
+                            TtyMode::Disabled => {
+                                echo!(
+                                    "stderr:\n{}",
+                                    display::sanitize_output_colors(stderr.as_bytes())
+                                )?;
+                            }
+                        }
                     }
-                    TtyMode::Disabled => {
-                        echo!(
-                            "stderr:\n{}",
-                            display::sanitize_output_colors(stderr.as_bytes())
-                        )?;
+                    EmitResult::Exceeded(msg) => {
+                        echo!("{}", msg)?;
                     }
+                    EmitResult::Skipped => {}
                 }
             }
             self.notify_printed();
@@ -565,8 +591,15 @@ where
                 writeln!(buffer, "{}", line.to_unstyled())
                     .map_err(|e| from_any_with_tag(e, buck2_error::ErrorTag::Tier0))?;
             }
-            //Printing the test output in multiple lines. It makes easier for the user to read.
-            echo!("{}", buffer)?;
+            match self.output_limit.emit(buffer.len()) {
+                EmitResult::Emit => {
+                    echo!("{}", buffer)?;
+                }
+                EmitResult::Exceeded(msg) => {
+                    echo!("{}", msg)?;
+                }
+                EmitResult::Skipped => {}
+            }
         }
 
         Ok(())

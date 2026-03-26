@@ -48,6 +48,7 @@ use superconsole::style::Stylize;
 use tokio::sync::mpsc::Receiver;
 
 use crate::console_interaction_stream::SuperConsoleToggle;
+use crate::subscribers::console_output_limit::EmitResult;
 use crate::subscribers::emit_event::emit_event_if_relevant;
 use crate::subscribers::simpleconsole::SimpleConsole;
 use crate::subscribers::subscriber::EventSubscriber;
@@ -575,26 +576,33 @@ impl StatefulSuperConsoleImpl {
         }
 
         if let Some(stderr) = display::success_stderr(action, self.verbosity)? {
-            let mut lines = vec![];
-            let display_platform = self.state.config.display_platform;
-            let action_id = StyledContent::new(
-                ContentStyle {
-                    attributes: Attribute::Bold.into(),
-                    ..Default::default()
-                },
-                format!(
-                    "stderr for {}:",
-                    display::display_action_identity(
-                        action.key.as_ref(),
-                        action.name.as_ref(),
-                        TargetDisplayOptions::for_console(display_platform),
-                    )?
-                ),
-            );
-            lines.push(Line::from_iter([Span::new_styled_lossy(action_id)]));
-            lines.extend(Lines::from_colored_multiline_string(stderr));
-
-            self.super_console.emit(Lines(lines));
+            match self.state.simple_console.output_limit.emit(stderr.len()) {
+                EmitResult::Emit => {
+                    let mut lines = vec![];
+                    let display_platform = self.state.config.display_platform;
+                    let action_id = StyledContent::new(
+                        ContentStyle {
+                            attributes: Attribute::Bold.into(),
+                            ..Default::default()
+                        },
+                        format!(
+                            "stderr for {}:",
+                            display::display_action_identity(
+                                action.key.as_ref(),
+                                action.name.as_ref(),
+                                TargetDisplayOptions::for_console(display_platform),
+                            )?
+                        ),
+                    );
+                    lines.push(Line::from_iter([Span::new_styled_lossy(action_id)]));
+                    lines.extend(Lines::from_colored_multiline_string(stderr));
+                    self.super_console.emit(Lines(lines));
+                }
+                EmitResult::Exceeded(msg) => {
+                    self.super_console.emit(Lines(vec![Line::sanitized(msg)]));
+                }
+                EmitResult::Skipped => {}
+            }
         }
 
         Ok(())
@@ -607,15 +615,30 @@ impl StatefulSuperConsoleImpl {
         let mut lines = vec![];
         let display_platform = self.state.config.display_platform;
 
+        let error_display = display::display_action_error(
+            error,
+            TargetDisplayOptions::for_console(display_platform),
+        )?;
+
+        let stream_bytes = error_display.output_stream_byte_count();
+        let output_format = match self.state.simple_console.output_limit.emit(stream_bytes) {
+            EmitResult::Emit => display::ActionErrorOutputFormat::IncludeOutputStreams,
+            EmitResult::Exceeded(msg) => {
+                display::ActionErrorOutputFormat::SubstituteOutputStreams(msg)
+            }
+            EmitResult::Skipped => display::ActionErrorOutputFormat::ExcludeOutputStreams,
+        };
+        let include_output_streams = matches!(
+            output_format,
+            display::ActionErrorOutputFormat::IncludeOutputStreams
+        );
+
         let display::ActionErrorDisplay {
             action_id,
             reason,
             command,
             error_diagnostics,
-        } = display::display_action_error(
-            error,
-            TargetDisplayOptions::for_console(display_platform),
-        )?;
+        } = error_display;
 
         lines.push(Line::from_iter([Span::new_styled_lossy(
             StyledContent::new(
@@ -635,31 +658,37 @@ impl StatefulSuperConsoleImpl {
         );
 
         if let Some(command) = command {
-            lines_for_command_details(command, self.verbosity, &mut lines);
+            lines_for_command_details(command, self.verbosity, include_output_streams, &mut lines);
         }
 
-        if let Some(error_diagnostics) = error_diagnostics {
-            match error_diagnostics.data.as_ref().unwrap() {
-                buck2_data::action_error_diagnostics::Data::SubErrors(sub_errors) => {
-                    let sub_errors = &sub_errors.sub_errors;
-                    if !sub_errors.is_empty() {
-                        for sub_error in sub_errors {
-                            // Display errors based on show_in_stderr flag is true
-                            if sub_error.show_in_stderr {
-                                if let Some(display_msg) = sub_error.display() {
-                                    lines.push(Line::from_iter([Span::new_styled_lossy(
-                                        display_msg.with(Color::DarkCyan),
-                                    )]))
+        if include_output_streams {
+            if let Some(error_diagnostics) = error_diagnostics {
+                match error_diagnostics.data.as_ref().unwrap() {
+                    buck2_data::action_error_diagnostics::Data::SubErrors(sub_errors) => {
+                        let sub_errors = &sub_errors.sub_errors;
+                        if !sub_errors.is_empty() {
+                            for sub_error in sub_errors {
+                                // Display errors based on show_in_stderr flag is true
+                                if sub_error.show_in_stderr {
+                                    if let Some(display_msg) = sub_error.display() {
+                                        lines.push(Line::from_iter([Span::new_styled_lossy(
+                                            display_msg.with(Color::DarkCyan),
+                                        )]))
+                                    }
                                 }
                             }
                         }
                     }
-                }
-                buck2_data::action_error_diagnostics::Data::HandlerInvocationError(error) => {
-                    let colored_error = error.clone().with(Color::DarkRed).to_string();
-                    lines.extend(Lines::from_colored_multiline_string(&colored_error));
-                }
-            };
+                    buck2_data::action_error_diagnostics::Data::HandlerInvocationError(error) => {
+                        let colored_error = error.clone().with(Color::DarkRed).to_string();
+                        lines.extend(Lines::from_colored_multiline_string(&colored_error));
+                    }
+                };
+            }
+        }
+
+        if let display::ActionErrorOutputFormat::SubstituteOutputStreams(msg) = output_format {
+            lines.push(Line::sanitized(msg));
         }
 
         self.super_console.emit(Lines(lines));
@@ -672,7 +701,16 @@ impl StatefulSuperConsoleImpl {
         result: &buck2_data::TestResult,
     ) -> buck2_error::Result<()> {
         if let Some(msg) = display::format_test_result(result, self.verbosity)? {
-            self.super_console.emit(msg);
+            let byte_count: usize = msg.0.iter().map(|line| line.len()).sum();
+            match self.state.simple_console.output_limit.emit(byte_count) {
+                EmitResult::Emit => {
+                    self.super_console.emit(msg);
+                }
+                EmitResult::Exceeded(msg) => {
+                    self.super_console.emit(Lines(vec![Line::sanitized(msg)]));
+                }
+                EmitResult::Skipped => {}
+            }
         }
 
         Ok(())
@@ -883,6 +921,7 @@ impl EventSubscriber for StatefulSuperConsole {
 fn lines_for_command_details(
     command_failed: &CommandExecutionDetails,
     verbosity: Verbosity,
+    include_output_streams: bool,
     lines: &mut Vec<Line>,
 ) {
     if let Some(command_kind) = command_failed.command_kind.as_ref() {
@@ -961,6 +1000,10 @@ fn lines_for_command_details(
                 ))]));
             }
         };
+    }
+
+    if !include_output_streams {
+        return;
     }
 
     lines.push(Line::from_iter([Span::new_styled_lossy(

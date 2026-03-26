@@ -9,5 +9,8 @@ buck2_core_tests(
                 "FIXTURES": "$(location //buck2/tests/core/console/fixtures:fixtures)",
             },
         },
+        "test_console_output_limit": {
+            "use_compiled_buck2_client_and_tpx": True,
+        },
     },
 )
