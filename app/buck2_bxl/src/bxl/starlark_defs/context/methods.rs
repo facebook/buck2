@@ -282,8 +282,7 @@ pub(crate) fn bxl_context_methods(builder: &mut MethodsBuilder) {
     ///     - a list of the two options above.
     ///
     /// Also takes in an optional `target_platform` param to configure the nodes with, and a `keep_going`
-    /// flag to skip any loading or configuration errors. Note that `keep_going` currently can only be used
-    /// if the input labels is a single target pattern as a string literal.
+    /// flag to skip any loading or configuration errors.
     ///
     /// The default modifiers used to configure the target nodes are empty. If you want to use the
     /// modifiers from the cli, you can pass `ctx.modifiers` to the argument `modifiers` of this function.
@@ -302,23 +301,15 @@ pub(crate) fn bxl_context_methods(builder: &mut MethodsBuilder) {
         Ok(this.via_dice(eval, |ctx| {
             ctx.via(|ctx| {
                 async move {
-                    let target_expr = if keep_going {
-                        TargetListExpr::<'v, ConfiguredTargetNode>::unpack_keep_going(
-                            labels,
-                            &global_cfg_options,
-                            &this,
-                            ctx,
-                        )
-                        .await?
-                    } else {
-                        TargetListExpr::<'v, ConfiguredTargetNode>::unpack_allow_unconfigured(
-                            labels,
-                            &global_cfg_options,
-                            &this,
-                            ctx,
-                        )
-                        .await?
-                    };
+                    let target_expr = TargetListExpr::<'v, ConfiguredTargetNode>::unpack_opt(
+                        labels,
+                        &global_cfg_options,
+                        &this,
+                        ctx,
+                        true, // allow_unconfigured
+                        keep_going,
+                    )
+                    .await?;
 
                     let maybe_compatible_set = target_expr.get(ctx).await?;
 

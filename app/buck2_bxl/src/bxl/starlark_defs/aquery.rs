@@ -159,6 +159,7 @@ async fn unpack_action_nodes<'v>(
                 &this.ctx,
                 dice,
                 true,
+                false,
             )
             .await?
             .as_provider_labels()
