@@ -89,16 +89,20 @@ constructor(
   private fun handleTimeout(description: Description, timeoutMs: Long) {
     val execution = activeTimeouts[description] ?: return
 
-    writeTimeoutEvent(description, execution.startTime, timeoutMs)
-
-    ThreadDumpUtils.print()
+    val threadDump = ThreadDumpUtils.capture()
+    writeTimeoutEvent(description, execution.startTime, timeoutMs, threadDump)
 
     // This is necessary because Robolectric tests may not respond to thread interruption
     System.exit(1)
   }
 
   /** Writes a timeout event to the TPX output file. */
-  private fun writeTimeoutEvent(description: Description, startTime: Long, timeoutMs: Long) {
+  private fun writeTimeoutEvent(
+      description: Description,
+      startTime: Long,
+      timeoutMs: Long,
+      threadDump: String,
+  ) {
     try {
       val testName = "${description.methodName} (${description.className})"
       val endedTime = System.currentTimeMillis()
@@ -107,7 +111,8 @@ constructor(
       val timeoutMessage =
           "Test timed out after ${timeoutMs}ms. " +
               "If your test needs to run longer than ${timeoutMs / 1000} seconds, add the tpx long_running or glacial tag in the labels section of the BUCK target. " +
-              "See https://fb.workplace.com/groups/android.testing.fyi/permalink/2679204925789466/ for more details"
+              "See https://fb.workplace.com/groups/android.testing.fyi/permalink/2679204925789466/ for more details" +
+              "\n\n=== Thread Dump ===\n$threadDump"
 
       // Write finish event with failure
       testResultsOutputSender.sendTestFinish(
