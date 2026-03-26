@@ -21,6 +21,9 @@ use buck2_util::arc_str::ArcStr;
 use dupe::Dupe;
 use starlark::any::ProvidesStaticType;
 use starlark::environment::GlobalsBuilder;
+use starlark::environment::Methods;
+use starlark::environment::MethodsBuilder;
+use starlark::environment::MethodsStatic;
 use starlark::values::Demand;
 use starlark::values::FrozenRef;
 use starlark::values::NoSerialize;
@@ -324,6 +327,11 @@ impl<'v> CommandLineArgLike<'v> for ResolvedStringWithMacros {
 
 #[starlark_value(type = "ResolvedStringWithMacros")]
 impl<'v> StarlarkValue<'v> for ResolvedStringWithMacros {
+    fn get_methods() -> Option<&'static Methods> {
+        static RES: MethodsStatic = MethodsStatic::new();
+        RES.methods_for_type::<Self::Canonical>(resolved_string_with_macros_methods)
+    }
+
     fn equals(&self, other: Value<'v>) -> starlark::Result<bool> {
         if let Some(other) = ResolvedStringWithMacros::from_value(other) {
             Ok(*self == *other)
@@ -340,6 +348,19 @@ impl<'v> StarlarkValue<'v> for ResolvedStringWithMacros {
 }
 
 #[starlark_module]
+fn resolved_string_with_macros_methods(builder: &mut MethodsBuilder) {
+    fn startswith(
+        this: &ResolvedStringWithMacros,
+        #[starlark(require = pos)] prefix: &str,
+    ) -> starlark::Result<bool> {
+        match this.parts.first() {
+            Some(ResolvedStringWithMacrosPart::String(s)) => Ok(s.starts_with(prefix)),
+            _ => Ok(false),
+        }
+    }
+}
+
+#[starlark_module]
 pub(crate) fn register_string_with_macros(globals: &mut GlobalsBuilder) {
     const ResolvedStringWithMacros: StarlarkValueAsType<ResolvedStringWithMacros> =
         StarlarkValueAsType::new();
@@ -347,6 +368,7 @@ pub(crate) fn register_string_with_macros(globals: &mut GlobalsBuilder) {
 
 #[cfg(test)]
 mod tests {
+
     use starlark::values::Heap;
     use starlark::values::StarlarkValue;
 
