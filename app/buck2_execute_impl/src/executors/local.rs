@@ -63,6 +63,7 @@ use buck2_execute::execute::request::CommandExecutionOutput;
 use buck2_execute::execute::request::CommandExecutionOutputRef;
 use buck2_execute::execute::request::CommandExecutionRequest;
 use buck2_execute::execute::request::ExecutorPreference;
+use buck2_execute::execute::request::NetworkAccess;
 use buck2_execute::execute::result::CommandExecutionMetadata;
 use buck2_execute::execute::result::CommandExecutionResult;
 use buck2_execute::knobs::ExecutorGlobalKnobs;
@@ -190,6 +191,7 @@ impl LocalExecutor {
         disable_miniperf: bool,
         cgroup: Option<CgroupPathBuf>,
         freeze_rx: impl ActionFreezeEventReceiver,
+        network_access: Option<NetworkAccess>,
     ) -> impl futures::future::Future<Output = buck2_error::Result<CommandResult>> + Send + 'a {
         async move {
             let working_directory = self.root.join_cow(working_directory);
@@ -209,6 +211,7 @@ impl LocalExecutor {
                         self.knobs.enable_miniperf && !disable_miniperf,
                         cgroup,
                         freeze_rx,
+                        network_access,
                     )
                     .await
                 }
@@ -368,6 +371,7 @@ impl LocalExecutor {
                         request.disable_miniperf(),
                         cgroup,
                         freeze_rx,
+                        request.network_access(),
                     )
                     .await
                 };
@@ -1667,6 +1671,7 @@ mod unix {
         enable_miniperf: bool,
         cgroup_path: Option<CgroupPathBuf>,
         freeze_rx: impl ActionFreezeEventReceiver,
+        network_access: Option<NetworkAccess>,
     ) -> buck2_error::Result<CommandResult> {
         let exe = exe.as_ref();
 
@@ -1685,6 +1690,7 @@ mod unix {
             std_redirects: None,
             graceful_shutdown_timeout_s: None,
             command_cgroup: cgroup_path.map(|p| p.to_string()),
+            network_access: network_access.map(|n| n.into()),
         };
         apply_local_execution_environment(&mut req, working_directory, env, env_inheritance);
         forkserver
@@ -1814,6 +1820,7 @@ mod tests {
                 false,
                 None,
                 futures::stream::pending(),
+                None,
             )
             .await?;
         assert_matches!(status, GatherOutputStatus::Finished { exit_code, .. } if exit_code == 0);
@@ -1851,6 +1858,7 @@ mod tests {
                 false,
                 None,
                 futures::stream::pending(),
+                None,
             )
             .await?;
         assert_matches!(status, GatherOutputStatus::TimedOut ( duration ) if duration == Duration::from_secs(1));
@@ -1877,6 +1885,7 @@ mod tests {
                 false,
                 None,
                 futures::stream::pending(),
+                None,
             )
             .await?;
         assert_matches!(status, GatherOutputStatus::Finished { exit_code, .. } if exit_code == 0);
