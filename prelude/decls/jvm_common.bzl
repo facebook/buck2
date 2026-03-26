@@ -274,7 +274,7 @@ def _annotation_processors():
 
 def _content_based_path_attr():
     return attrs.bool(default = select({
-        "DEFAULT": True,
+        "DEFAULT": False,
         # @oss-disable[end= ]: "config//build_mode/constraints:whatsapp": True,
         # @oss-disable[end= ]: "config//build_mode:arvr_mode": True,
         # @oss-disable[end= ]: "config//os/constraints:android": True,
@@ -284,7 +284,7 @@ def _content_based_path_attr():
 
 def _kotlincd_content_based_paths():
     return {
-        "uses_content_based_paths_for_kotlincd": attrs.bool(default = True),
+        "uses_content_based_paths_for_kotlincd": _content_based_path_attr(),
     }
 
 def _classic_java_content_based_paths():
