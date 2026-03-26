@@ -9,7 +9,14 @@
 load("@prelude//:resources.bzl", "gather_resources")
 load("@prelude//android:aapt2_link.bzl", "get_aapt2_link", "get_module_manifest_in_proto_format")
 load("@prelude//android:android_manifest.bzl", "generate_android_manifest")
-load("@prelude//android:android_providers.bzl", "AndroidBinaryResourcesInfo", "AndroidPackageableInfo", "AndroidResourceInfo", "ExopackageResourcesInfo")
+load(
+    "@prelude//android:android_providers.bzl",
+    "AndroidBinaryResourcesInfo",
+    "AndroidPackageableInfo",
+    "AndroidResourceInfo",
+    "ExopackageResourcesInfo",
+    "ManifestTSet",  # @unused Used as type
+)
 load("@prelude//android:android_resource.bzl", "aapt2_compile")
 load("@prelude//android:android_toolchain.bzl", "AndroidToolchainInfo")
 load("@prelude//android:r_dot_java.bzl", "generate_r_dot_javas")
@@ -61,7 +68,7 @@ def get_android_binary_resources_info(
     )
     resource_infos = filtered_resources_output.resource_infos
 
-    android_manifest = get_manifest(ctx, android_packageable_info, manifest_entries, should_replace_application_id_placeholders = True)
+    android_manifest = get_manifest(ctx, android_packageable_info.manifests, manifest_entries, should_replace_application_id_placeholders = True)
 
     non_proto_format_aapt2_link_info, proto_format_aapt2_link_info = get_aapt2_link(
         ctx,
@@ -442,7 +449,7 @@ def _maybe_package_strings_as_assets(
 
 def get_manifest(
         ctx: AnalysisContext,
-        android_packageable_info: AndroidPackageableInfo,
+        manifests: [ManifestTSet, list[Artifact], None],
         manifest_entries: dict,
         should_replace_application_id_placeholders: bool) -> Artifact:
     android_toolchain = ctx.attrs._android_toolchain[AndroidToolchainInfo]
@@ -464,7 +471,7 @@ def get_manifest(
             android_toolchain.generate_manifest[RunInfo],
             manifest_skeleton,
             ROOT_MODULE,
-            android_packageable_info.manifests,
+            manifests,
             manifest_entries.get("placeholders", {}),
         )
 

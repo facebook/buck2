@@ -9,7 +9,7 @@
 load("@prelude//android:android_binary.bzl", "get_build_config_java_libraries")
 load("@prelude//android:android_binary_native_library_rules.bzl", "get_android_binary_native_library_info")
 load("@prelude//android:android_binary_resources_rules.bzl", "get_cxx_resources", "get_manifest")
-load("@prelude//android:android_providers.bzl", "AndroidResourceInfo", "ExportedAndroidResourceInfo", "merge_android_packageable_info")
+load("@prelude//android:android_providers.bzl", "AndroidResourceInfo", "ExportedAndroidResourceInfo", "get_all_android_packageable_targets", "merge_android_packageable_info")
 load("@prelude//android:android_resource.bzl", "get_text_symbols")
 load("@prelude//android:android_toolchain.bzl", "AndroidToolchainInfo")
 load("@prelude//android:configuration.bzl", "get_deps_by_platform")
@@ -30,7 +30,10 @@ def android_aar_impl(ctx: AnalysisContext) -> list[Provider]:
     java_packaging_deps = [packaging_dep for packaging_dep in get_all_java_packaging_deps(ctx, deps) if not excluded_java_packaging_deps_targets.contains(packaging_dep.label.raw_target())]
     android_packageable_info = merge_android_packageable_info(ctx.label, ctx.actions, deps)
 
-    android_manifest = get_manifest(ctx, android_packageable_info, ctx.attrs.manifest_entries, should_replace_application_id_placeholders = False)
+    excluded_android_packageable_targets = set(get_all_android_packageable_targets(ctx.attrs.excluded_java_deps))
+    manifest_infos = android_packageable_info.manifests.traverse(ordering = "topological") if android_packageable_info.manifests else []
+    manifests = [manifest_info.manifest for manifest_info in manifest_infos if not excluded_android_packageable_targets.contains(manifest_info.target_label)]
+    android_manifest = get_manifest(ctx, manifests, ctx.attrs.manifest_entries, should_replace_application_id_placeholders = False)
 
     if ctx.attrs.include_build_config_class:
         build_config_infos = list(android_packageable_info.build_config_infos.traverse()) if android_packageable_info.build_config_infos else []
