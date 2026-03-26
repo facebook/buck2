@@ -16,11 +16,11 @@ SWIFT_EXTENSION = ".swift"
 
 SWIFTMODULE_EXTENSION = ".swiftmodule"
 
-SwiftCompilationModes = ["wmo", "incremental", "auto"]
+SwiftCompilationModes = ("wmo", "incremental", "auto")
 
 SwiftMacroPlugin = plugins.kind()
 
-SwiftVersion = ["5", "6"]
+SwiftVersion = ("5", "6")
 
 SwiftDependencyInfo = provider(fields = {
     "debug_info_tset": provider_field(ArtifactTSet),

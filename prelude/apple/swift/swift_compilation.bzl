@@ -19,7 +19,7 @@ load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolchainInfo")
 load("@prelude//apple:apple_utility.bzl", "get_disable_pch_validation_flags", "get_module_name")
 load("@prelude//apple:modulemap.bzl", "create_modulemap")
 load("@prelude//apple/swift:swift_helpers.bzl", "compile_with_argsfile", "compile_with_argsfile_cmd", "uses_explicit_modules")
-load("@prelude//apple/swift:swift_types.bzl", "SWIFTMODULE_EXTENSION", "SWIFT_EXTENSION", "SwiftDependencyInfo", "SwiftMacroPlugin", "SwiftVersion", "get_implicit_framework_search_path_providers")
+load("@prelude//apple/swift:swift_types.bzl", "SWIFTMODULE_EXTENSION", "SWIFT_EXTENSION", "SwiftDependencyInfo", "SwiftMacroPlugin", "get_implicit_framework_search_path_providers")
 load("@prelude//cxx:argsfiles.bzl", "CompileArgsfile", "CompileArgsfiles")
 load("@prelude//cxx:cxx_context.bzl", "get_cxx_platform_info", "get_cxx_toolchain_info")
 load(
@@ -273,8 +273,7 @@ def get_swift_cxx_flags(ctx: AnalysisContext) -> list[str]:
     if ctx.attrs.enable_cxx_interop:
         gather += ["-cxx-interoperability-mode=default"]
 
-    if ctx.attrs.swift_version != None:
-        gather += ["-swift-version", ctx.attrs.swift_version]
+    gather += ["-swift-version", ctx.attrs.swift_version]
 
     return gather
 
@@ -1025,7 +1024,9 @@ def _get_shared_flags(
 
     cmd.add(get_sdk_flags(ctx))
     cmd.add(_get_target_flags(ctx))
-    cmd.add([
+    cmd.add(
+        "-swift-version",
+        ctx.attrs.swift_version,
         # Always use color, consistent with clang.
         "-color-diagnostics",
         # Unset the working directory in the debug information.
@@ -1043,7 +1044,7 @@ def _get_shared_flags(
         # you cannot nest sandbox actions.
         # https://github.com/swiftlang/swift/pull/70079
         "-disable-sandbox",
-    ])
+    )
 
     if parse_as_library:
         cmd.add([
@@ -1085,16 +1086,6 @@ def _get_shared_flags(
             toolchain.resource_dir,
         ])
 
-    if ctx.attrs.swift_version:
-        cmd.add(["-swift-version", ctx.attrs.swift_version])
-        swift_version = ctx.attrs.swift_version
-    else:
-        # Swift compiler defaults to 5 and therefore so do we
-        # use the version 5 for upcoming features passed to tools
-        # like the ide-tool for swift-interface generation below
-        # include/swift/Basic/LangOptions.h?lines=175-176
-        swift_version = SwiftVersion[0]  # "5"
-
     if ctx.attrs.enable_cxx_interop:
         cmd.add(["-cxx-interoperability-mode=default"])
 
@@ -1111,8 +1102,8 @@ def _get_shared_flags(
             "-no-serialize-debugging-options",
         ])
 
-    upcoming_features = toolchain.swift_upcoming_features[swift_version]
-    experimental_features = toolchain.swift_experimental_features[swift_version]
+    upcoming_features = toolchain.swift_upcoming_features[ctx.attrs.swift_version]
+    experimental_features = toolchain.swift_experimental_features[ctx.attrs.swift_version]
 
     for feature in upcoming_features:
         cmd.add([
