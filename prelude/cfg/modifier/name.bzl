@@ -37,8 +37,18 @@ NAMED_CONSTRAINT_SETTINGS = {
 _CFG_PREFIX = "cfg:"
 _EMPTY_CFG_NAME = _CFG_PREFIX + "<empty>"
 
-def cfg_name(cfg: ConfigurationInfo) -> str:
-    """Derives a reasonable name for a ConfigurationInfo"""
+_EXEC_CFG_PREFIX = "exec_cfg:"
+
+def cfg_name(cfg: ConfigurationInfo, legacy_platform: PlatformInfo | None = None, configuring_exec_dep: bool = False) -> str:
+    """Derives a reasonable name for a ConfigurationInfo.
+
+    For exec deps, uses the execution platform's label prefixed with
+    "exec_cfg:" since exec platform configs have constraints not in
+    NAMED_CONSTRAINT_SETTINGS.
+    """
+
+    if configuring_exec_dep and legacy_platform:
+        return _EXEC_CFG_PREFIX + legacy_platform.label
 
     name_list = []
     constraints = {str(key): value for key, value in cfg.constraints.items()}
