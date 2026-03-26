@@ -159,6 +159,9 @@ def android_instrumentation_test_impl(ctx: AnalysisContext):
     labels = ctx.attrs.labels
     if "tpx:supports-test-result-output-spec" not in labels:
         labels.append("tpx:supports-test-result-output-spec")
+    if read_root_config("test", "use_error_sub_result_reporting") == "true":
+        if "tpx:enable-error-sub-result-reporting" not in labels:
+            labels.append("tpx:enable-error-sub-result-reporting")
 
     test_info = ExternalRunnerTestInfo(
         type = "android_instrumentation",
