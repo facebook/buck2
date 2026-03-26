@@ -243,10 +243,17 @@ impl TestOrchestratorClient {
         Ok(())
     }
 
-    pub async fn report_test_session(&self, session_info: String) -> buck2_error::Result<()> {
+    pub async fn report_test_session(
+        &self,
+        session_info: String,
+        test_session_id: Option<String>,
+    ) -> buck2_error::Result<()> {
         self.test_orchestrator_client
             .clone()
-            .report_test_session(ReportTestSessionRequest { session_info })
+            .report_test_session(ReportTestSessionRequest {
+                session_info,
+                test_session_id,
+            })
             .await?;
 
         Ok(())
@@ -481,10 +488,13 @@ where
         request: tonic::Request<ReportTestSessionRequest>,
     ) -> Result<tonic::Response<Empty>, tonic::Status> {
         to_tonic(async move {
-            let ReportTestSessionRequest { session_info } = request.into_inner();
+            let ReportTestSessionRequest {
+                session_info,
+                test_session_id,
+            } = request.into_inner();
 
             self.inner
-                .report_test_session(session_info)
+                .report_test_session(session_info, test_session_id)
                 .await
                 .buck_error_context("Failed to report test session summary")?;
 

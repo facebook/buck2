@@ -87,7 +87,11 @@ pub trait TestOrchestrator: Send + Sync {
     ) -> buck2_error::Result<()>;
 
     /// report a summary about the current test executor
-    async fn report_test_session(&self, session_info: String) -> buck2_error::Result<()>;
+    async fn report_test_session(
+        &self,
+        session_info: String,
+        test_session_id: Option<String>,
+    ) -> buck2_error::Result<()>;
 
     /// report that all tests are done and provide the exit code that this test executor wants to
     /// return for the test command, no more executions

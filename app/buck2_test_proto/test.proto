@@ -109,6 +109,7 @@ message ReportTestsDiscoveredRequest {
 message ReportTestSessionRequest {
   reserved 2;
   string session_info = 3;
+  optional string test_session_id = 4;
 }
 
 message EndOfTestResultsRequest {

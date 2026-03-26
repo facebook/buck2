@@ -1260,6 +1260,7 @@ mod tests {
             trace_id: TraceId::null(),
             test_session: Some(buck2_data::TestSessionInfo {
                 info: (0..100).map(|_| "a").collect(),
+                test_session_id: None,
             }),
             legacy_dice: false,
         };

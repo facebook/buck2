@@ -1104,6 +1104,7 @@ message TestResult {
 message TestSessionInfo {
   // Usually this contains a test link, like in Tpx
   string info = 2;
+  optional string test_session_id = 3;
 }
 
 // We report all of the tests for a particular target simultaneously

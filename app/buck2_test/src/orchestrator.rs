@@ -764,10 +764,15 @@ impl TestOrchestrator for BuckTestOrchestrator<'_> {
         Ok(())
     }
 
-    async fn report_test_session(&self, session_info: String) -> buck2_error::Result<()> {
+    async fn report_test_session(
+        &self,
+        session_info: String,
+        test_session_id: Option<String>,
+    ) -> buck2_error::Result<()> {
         self.events.instant_event(TestDiscovery {
             data: Some(buck2_data::test_discovery::Data::Session(TestSessionInfo {
                 info: session_info,
+                test_session_id,
             })),
         });
 

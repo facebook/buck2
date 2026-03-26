@@ -43,7 +43,7 @@ impl Component for SessionInfoComponent<'_> {
             headers.push(Line::unstyled("Build ID:")?);
             ids.push(Span::new_unstyled(&self.session_info.trace_id)?);
         }
-        if let Some(buck2_data::TestSessionInfo { info }) = &self.session_info.test_session {
+        if let Some(buck2_data::TestSessionInfo { info, .. }) = &self.session_info.test_session {
             headers.push(Line::unstyled("Test UI:")?);
             ids.push(Span::new_unstyled(info)?);
         }
