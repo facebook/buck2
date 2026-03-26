@@ -150,7 +150,6 @@ kotlin_library = prelude_rule(
         buck.licenses_arg() |
         buck.contacts_arg() |
         jvm_common.plugins() |
-        jvm_common.should_kosabi_jvm_abi_gen_use_k2() |
         validation_common.attrs_validators_arg()
     ),
 )

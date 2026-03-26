@@ -739,7 +739,6 @@ android_library = prelude_rule(
             ) |
             jvm_common.plugins() |
             validation_common.attrs_validators_arg() |
-            jvm_common.should_kosabi_jvm_abi_gen_use_k2() |
             validation_common.validation_specs_arg() |
             buck.licenses_arg() |
             buck.labels_arg() |

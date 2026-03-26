@@ -86,7 +86,6 @@ def create_jar_artifact_kotlincd(
         optional_dirs: list[OutputArtifact] = [],
         jar_postprocessor: [RunInfo, None] = None,
         debug_port: [int, None] = None,
-        should_kosabi_jvm_abi_gen_use_k2: bool | None = True,
         skip_classpath_removal_rebuild: bool = False,
         enable_depfiles: [bool, None] = True) -> (JavaCompileOutputs, Artifact):
     resources_map = get_resources_map(
@@ -241,7 +240,6 @@ def create_jar_artifact_kotlincd(
             should_ksp2_run_incrementally = False,
             incremental_state_dir = None,
             language_version = language_version,
-            should_kosabi_jvm_abi_gen_use_k2 = should_kosabi_jvm_abi_gen_use_k2,
         )
 
         # kotlincd does not support source abi
@@ -305,7 +303,6 @@ def _encode_kotlin_extra_params(
         incremental_state_dir: Artifact | None,
         language_version: str,
         kotlin_classes: Artifact,
-        should_kosabi_jvm_abi_gen_use_k2: bool | None = True,
         skip_classpath_removal_rebuild: bool = False):
     kosabiPluginOptionsMap = {}
     is_source_only_abi = actual_abi_generation_mode == AbiGenerationMode("source_only")
@@ -328,9 +325,6 @@ def _encode_kotlin_extra_params(
     if kotlin_toolchain.kosabi_jvm_abi_gen_k2_plugin != None:
         kosabiPluginOptionsMap["kosabi_jvm_abi_gen_k2_plugin"] = kotlin_toolchain.kosabi_jvm_abi_gen_k2_plugin
 
-    if kotlin_toolchain.kosabi_jvm_abi_gen_k2_plugin == None and should_kosabi_jvm_abi_gen_use_k2 and is_source_only_abi:
-        fail("Kosabi jvm abi gen k2 plugin is not supported")
-
     return struct(
         extraClassPaths = bootclasspath_entries,
         extraClassPathSnapshots = bootclasspath_snapshot_entries,
@@ -352,7 +346,7 @@ def _encode_kotlin_extra_params(
         shouldKsp2RunIncrementally = should_ksp2_run_incrementally,
         incrementalStateDir = incremental_state_dir.as_output() if incremental_state_dir else None,
         languageVersion = language_version,
-        shouldKosabiJvmAbiGenUseK2 = should_kosabi_jvm_abi_gen_use_k2 == True,
+        shouldKosabiJvmAbiGenUseK2 = True,
         kotlinClassesDir = kotlin_classes.as_output(),
         skipClasspathRemovalRebuild = skip_classpath_removal_rebuild,
     )

@@ -302,11 +302,6 @@ def _javac():
             """),
     }
 
-def _should_kosabi_jvm_abi_gen_use_k2():
-    return {
-        "should_kosabi_jvm_abi_gen_use_k2": attrs.option(attrs.bool(), default = None),
-    }
-
 jvm_common = struct(
     test_env = _test_env,
     resources_arg = _resources_arg,
@@ -326,7 +321,6 @@ jvm_common = struct(
     javac = _javac,
     enable_used_classes = _enable_used_classes,
     multi_release_jar = _multi_release_jar,
-    should_kosabi_jvm_abi_gen_use_k2 = _should_kosabi_jvm_abi_gen_use_k2,
     classic_java_content_based_paths = _classic_java_content_based_paths,
     kotlincd_content_based_paths = _kotlincd_content_based_paths,
     content_based_path_attr = _content_based_path_attr,
