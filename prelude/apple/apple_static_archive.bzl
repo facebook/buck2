@@ -12,7 +12,7 @@ load("@prelude//apple:apple_library.bzl", "AppleLibraryForDistributionInfo")
 load("@prelude//apple:apple_library_types.bzl", "AppleLibraryInfo")
 load("@prelude//apple:apple_toolchain_types.bzl", "AppleToolchainInfo", "AppleToolsInfo")
 load("@prelude//cxx:cxx_context.bzl", "get_cxx_toolchain_info")
-load("@prelude//linking:link_info.bzl", "LinkStrategy", "get_link_args_for_strategy", "unpack_link_args")
+load("@prelude//linking:link_info.bzl", "LinkStrategy", "get_link_args_for_strategy", "unpack_link_args_object_files_and_lazy_archives_only")
 load("@prelude//linking:linkables.bzl", "linkables")
 load("@prelude//utils:arglike.bzl", "ArgLike")
 
@@ -105,6 +105,6 @@ def _get_static_link_args(ctx: AnalysisContext) -> list[ArgLike]:
         prefer_stripped = False,
         transformation_spec_context = None,
     )
-    args.append(unpack_link_args(transitive_link_args))
+    args.append(unpack_link_args_object_files_and_lazy_archives_only(transitive_link_args))
 
     return args
