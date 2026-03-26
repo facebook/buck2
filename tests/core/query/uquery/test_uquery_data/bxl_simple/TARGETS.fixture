@@ -39,3 +39,13 @@ foo_basic_print(
     name = "print",
     visibility = ["PUBLIC"],
 )
+
+foo_binary(
+    name = "none",
+    visibility = ["PUBLIC"],
+)
+
+foo_binary(
+    name = "None",
+    visibility = ["PUBLIC"],
+)

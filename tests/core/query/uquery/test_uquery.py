@@ -33,6 +33,94 @@ def _replace_hash(s: str) -> str:
 
 
 @buck_test(data_dir="bxl_simple")
+async def test_uquery_none(buck: Buck) -> None:
+    await expect_failure(
+        buck.uquery("""none"""),
+        stderr_regex="Invalid target pattern `none` is not allowed",
+    )
+
+    await expect_failure(
+        buck.uquery("""None"""),
+        stderr_regex="Invalid target pattern `None` is not allowed",
+    )
+
+    result = await buck.uquery(""":none""")
+    assert result.stdout == "root//:none\n"
+
+    result = await buck.uquery(""":None""")
+    assert result.stdout == "root//:None\n"
+
+    result = await buck.uquery("""':none'""")
+    assert result.stdout == "root//:none\n"
+
+    result = await buck.uquery("""':None'""")
+    assert result.stdout == "root//:None\n"
+
+    await expect_failure(
+        buck.uquery("""set(none)"""),
+        stderr_regex="Invalid target pattern `none` is not allowed",
+    )
+
+    await expect_failure(
+        buck.uquery("""set(None)"""),
+        stderr_regex="Invalid target pattern `None` is not allowed",
+    )
+
+    await expect_failure(
+        buck.uquery("""set('none')"""),
+        stderr_regex="Invalid target pattern `none` is not allowed",
+    )
+
+    await expect_failure(
+        buck.uquery("""set('None')"""),
+        stderr_regex="Invalid target pattern `None` is not allowed",
+    )
+
+    await expect_failure(
+        buck.uquery("""filter('', none)"""),
+        stderr_regex="Invalid target pattern `none` is not allowed",
+    )
+
+    await expect_failure(
+        buck.uquery("""filter('', None)"""),
+        stderr_regex="Invalid target pattern `None` is not allowed",
+    )
+
+    result = await buck.uquery("""filter(none, :none)""")
+    assert result.stdout == "root//:none\n"
+
+    result = await buck.uquery("""filter(None, :None)""")
+    assert result.stdout == "root//:None\n"
+
+    result = await buck.uquery("""filter('none', :none)""")
+    assert result.stdout == "root//:none\n"
+
+    result = await buck.uquery("""filter('None', :None)""")
+    assert result.stdout == "root//:None\n"
+
+    result = await buck.uquery("""filter(none, ':none')""")
+    assert result.stdout == "root//:none\n"
+
+    result = await buck.uquery("""filter(None, ':None')""")
+    assert result.stdout == "root//:None\n"
+
+    result = await buck.uquery("""filter('none', ':none')""")
+    assert result.stdout == "root//:none\n"
+
+    result = await buck.uquery("""filter('None', ':None')""")
+    assert result.stdout == "root//:None\n"
+
+    await expect_failure(
+        buck.uquery("""none()"""),
+        stderr_regex="unknown function `none`:",
+    )
+    await expect_failure(
+        buck.uquery("""None()"""),
+        stderr_regex="unknown function `None`:",
+    )
+
+
+@buck_test(data_dir="bxl_simple")
 async def test_uquery_inputs(buck: Buck) -> None:
     result = await buck.uquery("""inputs(set(root//bin:the_binary //lib:file1))""")
     assert result.stdout == "bin/TARGETS.fixture\n"
