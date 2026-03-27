@@ -130,13 +130,18 @@ public class TpxStandardOutputTestListener {
    * @param test identifies the test
    */
   public void testIgnored(String identifier) {
+    String reason =
+        "Test ignored, generally because the test method is annotated with org.junit.Ignore";
     TestIdentifierStatus status = testIdentifierStatuses.get(identifier);
     if (status == null) {
-      throw new IllegalStateException("testIgnored called without testStarted");
+      // Android instrumentation and JUnit may call testIgnored() without testStarted()
+      // for DISABLED_ prefixed tests and @Ignore annotated tests. Synthesize a complete
+      // start/finish sequence rather than crashing the entire test run.
+      testOmitted(identifier, reason);
+      return;
     }
 
-    status.setOmitted(
-        "Test ignored, generally because the test method is annotated with org.junit.Ignore");
+    status.setOmitted(reason);
   }
 
   /**
