@@ -107,14 +107,11 @@ android_library(), android_resource(), cxx_library(), groovy_library(), java_lib
     )), default = None, doc = ""),
     "native_library_merge_sequence_blocklist": attrs.option(attrs.list(attrs.regex()), default = None, doc = ""),
     "native_library_pick_first": attrs.list(attrs.string(), default = [], doc = ""),
-    "no_auto_add_overlay_resources": attrs.bool(default = False, doc = ""),
-    "no_auto_version_resources": attrs.bool(default = False, doc = ""),
     "no_dx": attrs.list(attrs.dep(), default = [], doc = """List of dependency targets whose Java code should be excluded from the DEX files in the final APK. \
 The classes from these targets will not be dexed, but their other resources will still be included. \
 This might be useful to resolve duplicate class errors when multiple dependencies provide the same class. \
 See [this document](https://www.internalfb.com/intern/staticdocs/confucius/docs/notes/dev/projects/android/resolving_duplicate_classes_with_no_dx/) \
 for how to resolve duplicate classes using this attribute."""),
-    "no_version_transitions_resources": attrs.bool(default = False, doc = ""),
     "optimization_passes": attrs.int(default = 1, doc = ""),
     "package_asset_libraries": attrs.bool(default = False, doc = ""),
     "package_type": attrs.enum(PackageType, default = "debug", doc = "Determines whether ProGuard will be used when packaging the APK. Acceptable values for package_type are 'debug' and 'release'. The default value is 'debug', which indicates that ProGuard should not be used."),

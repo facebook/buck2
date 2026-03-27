@@ -32,9 +32,6 @@ def get_aapt2_link(
         android_manifest: Artifact,
         manifest_entries: dict,
         includes_vector_drawables: bool,
-        no_auto_version: bool,
-        no_version_transitions: bool,
-        no_auto_add_overlay: bool,
         no_resource_removal: bool,
         should_keep_raw_values: bool,
         package_id_offset: int,
@@ -78,12 +75,7 @@ def get_aapt2_link(
 
         if includes_vector_drawables:
             aapt2_command.add("--no-version-vectors")
-        if no_auto_version:
-            aapt2_command.add("--no-auto-version")
-        if no_version_transitions:
-            aapt2_command.add("--no-version-transitions")
-        if not no_auto_add_overlay:
-            aapt2_command.add("--auto-add-overlay")
+        aapt2_command.add("--auto-add-overlay")
         if use_proto_format:
             aapt2_command.add("--proto-format")
         if no_resource_removal:
