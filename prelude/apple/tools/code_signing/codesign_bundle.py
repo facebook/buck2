@@ -299,6 +299,7 @@ def codesign_bundle(
     codesign_manifest_path: Optional[Path] = None,
     entitlements_suffixed_key_map: Optional[Dict[str, str]] = None,
     entitlements_removed_keys: Optional[List[str]] = None,
+    prepared_entitlements_output_path: Optional[Path] = None,
 ) -> None:
     codesign_on_copy_paths = sorted(
         codesign_on_copy_paths,
@@ -387,6 +388,15 @@ def codesign_bundle(
                     )
                 )
                 json.dump(codesign_manifest, codesign_manifest_file, indent=4)
+
+        if (
+            prepared_entitlements_output_path
+            and bundle_path_with_prepared_entitlements.entitlements
+        ):
+            shutil.copy2(
+                bundle_path_with_prepared_entitlements.entitlements,
+                prepared_entitlements_output_path,
+            )
 
 
 def _prepare_entitlements_and_info_plist(

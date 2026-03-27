@@ -16,6 +16,7 @@ import os
 import pstats
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 from typing import Dict, List, Optional
 
@@ -355,6 +356,9 @@ def _main() -> None:
     else:
         swift_stdlib_paths = []
 
+    prepared_entitlements_path: Optional[Path] = None
+    telemetry_tmp_dir: Optional[tempfile.TemporaryDirectory[str]] = None
+
     if args.codesign:
         # Vendored frameworks/bundles could already be pre-signed, in which case,
         # re-signing them requires modifying them. On RE, the umask is such that
@@ -383,6 +387,12 @@ def _main() -> None:
             for path in swift_stdlib_paths
         ]
 
+        if args.bundle_telemetry_logger:
+            telemetry_tmp_dir = tempfile.TemporaryDirectory()
+            prepared_entitlements_path = (
+                Path(telemetry_tmp_dir.name) / "prepared_entitlements.plist"
+            )
+
         codesign_bundle(
             bundle_path=bundle_path,
             signing_context=signing_context,
@@ -393,6 +403,7 @@ def _main() -> None:
             codesign_manifest_path=args.codesign_manifest,
             entitlements_suffixed_key_map=args.entitlements_suffixed_key_map,
             entitlements_removed_keys=args.entitlements_removed_keys,
+            prepared_entitlements_output_path=prepared_entitlements_path,
         )
     elif args.codesign_manifest:
         # Always write the codesign manifest file, even when unsigned
@@ -437,9 +448,12 @@ def _main() -> None:
             logger_path=args.bundle_telemetry_logger,
             bundle_path=args.output,
             info_plist=info_plist_in_bundle,
-            entitlements=args.entitlements,
+            entitlements=prepared_entitlements_path,
             selected_provisioning_profile=selected_profile_path,
         )
+
+    if telemetry_tmp_dir is not None:
+        telemetry_tmp_dir.cleanup()
 
 
 def _get_selected_profile_path(
