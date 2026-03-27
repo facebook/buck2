@@ -76,18 +76,17 @@ _CONTENT_HASH_PLACEHOLDER: str = "/output_artifacts/"
 def create_pyc_hash_dict(args: argparse.Namespace) -> Dict[str, str]:
     """Construct a map of bytecode artifact path prefixes to content hashes."""
     pyc_hash_dict: Dict[str, str] = {}
-    if args.bytecode_artifacts:
-        pattern = re.compile(
-            r"(.*)/([a-fA-F0-9]{16})/(?:bytecode_CHECKED_HASH|bytecode_UNCHECKED_HASH)"
-        )
-        for bytecode_artifact in args.bytecode_artifacts:
-            with open(bytecode_artifact) as f:
-                for line in f:
-                    match = pattern.search(line)
-                    if match:
-                        prefix = match.group(1)
-                        content_hash = match.group(2)
-                        pyc_hash_dict[prefix] = content_hash
+    pattern = re.compile(
+        r"(.*)/([a-fA-F0-9]{16})/(?:bytecode_CHECKED_HASH|bytecode_UNCHECKED_HASH)"
+    )
+    for bytecode_artifact in args.bytecode_artifacts:
+        with open(bytecode_artifact) as f:
+            for line in f:
+                match = pattern.search(line)
+                if match:
+                    prefix = match.group(1)
+                    content_hash = match.group(2)
+                    pyc_hash_dict[prefix] = content_hash
     return pyc_hash_dict
 
 
