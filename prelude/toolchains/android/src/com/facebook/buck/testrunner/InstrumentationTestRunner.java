@@ -265,7 +265,7 @@ public class InstrumentationTestRunner extends DeviceRunner {
     Map<String, String> extraDirsToPull = new HashMap<String, String>();
     Map<String, String> logExtractors = new HashMap<String, String>();
     String preTestSetupScript = null;
-    List<String> apexesToInstall = new ArrayList<>();
+    List<String> extraApksToInstall = new ArrayList<>();
     @Nullable Integer userId = null;
 
     @SuppressWarnings("PMD.BlacklistedSystemGetenv")
@@ -460,9 +460,9 @@ public class InstrumentationTestRunner extends DeviceRunner {
         this.preTestSetupScript = preTestSetupEnv;
       }
 
-      String apexesToInstallEnv = System.getenv(APEXES_TO_INSTALL);
-      if (apexesToInstallEnv != null) {
-        this.apexesToInstall = Arrays.asList(apexesToInstallEnv.split(","));
+      String extraApksToInstall = System.getenv(APEXES_TO_INSTALL);
+      if (extraApksToInstall != null) {
+        this.extraApksToInstall = Arrays.asList(extraApksToInstall.split(","));
       }
 
       deviceArgs = getDeviceArgs(args);
@@ -509,7 +509,7 @@ public class InstrumentationTestRunner extends DeviceRunner {
             argsParser.clearPackageData,
             argsParser.disableAnimations,
             argsParser.preTestSetupScript,
-            argsParser.apexesToInstall,
+            argsParser.extraApksToInstall,
             argsParser.userId);
     if (argsParser.recordVideo) {
       runner.addReportLayer(new VideoRecordingReportLayer(runner));
