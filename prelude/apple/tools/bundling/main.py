@@ -14,14 +14,17 @@ import json
 import logging
 import os
 import pstats
+import subprocess
 import sys
 from pathlib import Path
 from typing import Dict, List, Optional
 
 from apple.tools.code_signing.codesign_bundle import (
+    AdhocSigningContext,
     codesign_bundle,
     CodesignConfiguration,
     CodesignedPath,
+    SigningContextWithProfileSelection,
     write_empty_codesign_manifest,
 )
 from apple.tools.re_compatibility_utils.writable import make_dir_recursively_writable
@@ -192,6 +195,13 @@ def _args_parser() -> argparse.ArgumentParser:
         "--verify-entitlements",
         action="store_true",
         help="Verify that the bundle's entitlements match the provisioning profile",
+    )
+    parser.add_argument(
+        "--bundle-telemetry-logger",
+        metavar="<path/to/logger>",
+        type=Path,
+        required=False,
+        help="Path to bundle telemetry logger tool. If provided, will be invoked after bundle assembly completes.",
     )
 
     add_args_for_signing_context(parser)
@@ -415,6 +425,64 @@ def _main() -> None:
             sortby = pstats.SortKey.CUMULATIVE
             ps = pstats.Stats(pr, stream=s).sort_stats(sortby)
             ps.print_stats()
+
+    if args.bundle_telemetry_logger:
+        selected_profile_path = _get_selected_profile_path(signing_context)
+        info_plist_in_bundle = (
+            (args.output / args.info_plist_destination)
+            if args.info_plist_destination
+            else None
+        )
+        _run_bundle_telemetry_logger(
+            logger_path=args.bundle_telemetry_logger,
+            bundle_path=args.output,
+            info_plist=info_plist_in_bundle,
+            entitlements=args.entitlements,
+            selected_provisioning_profile=selected_profile_path,
+        )
+
+
+def _get_selected_profile_path(
+    signing_context: Optional[object],
+) -> Optional[Path]:
+    if signing_context is None:
+        return None
+
+    signing_context_with_profile: Optional[SigningContextWithProfileSelection] = None
+    if isinstance(signing_context, SigningContextWithProfileSelection):
+        signing_context_with_profile = signing_context
+    if isinstance(signing_context, AdhocSigningContext):
+        signing_context_with_profile = signing_context.profile_selection_context
+
+    return (
+        signing_context_with_profile.selected_profile_info.profile.file_path
+        if signing_context_with_profile
+        else None
+    )
+
+
+def _run_bundle_telemetry_logger(
+    logger_path: Path,
+    bundle_path: Path,
+    info_plist: Optional[Path],
+    entitlements: Optional[Path],
+    selected_provisioning_profile: Optional[Path],
+) -> None:
+    cmd: List[str] = [str(logger_path), "--bundle", str(bundle_path)]
+    if info_plist:
+        cmd.extend(["--info-plist", str(info_plist)])
+    if entitlements:
+        cmd.extend(["--entitlements", str(entitlements)])
+    if selected_provisioning_profile:
+        cmd.extend(["--provisioning-profile", str(selected_provisioning_profile)])
+    try:
+        subprocess.run(cmd, check=False)
+    except Exception:
+        # Telemetry is best-effort, never fail the build
+        logging.getLogger(__name__).debug(
+            "Failed to run bundle telemetry logger",
+            exc_info=True,
+        )
 
 
 def _incremental_context(

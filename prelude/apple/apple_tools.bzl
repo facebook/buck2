@@ -28,5 +28,6 @@ def apple_tools_impl(ctx: AnalysisContext) -> list[Provider]:
             framework_sanitizer = ctx.attrs.framework_sanitizer[RunInfo],
             static_archive_linker = ctx.attrs.static_archive_linker[RunInfo],
             spm_packager = ctx.attrs.spm_packager[RunInfo],
+            bundle_telemetry_logger = ctx.attrs.bundle_telemetry_logger[RunInfo] if ctx.attrs.bundle_telemetry_logger else None,
         ),
     ]

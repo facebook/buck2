@@ -68,5 +68,6 @@ AppleToolsInfo = provider(
         "xcframework_maker": provider_field(RunInfo),
         "static_archive_linker": provider_field(RunInfo),
         "spm_packager": provider_field(RunInfo),
+        "bundle_telemetry_logger": provider_field(RunInfo | None, default = None),
     },
 )

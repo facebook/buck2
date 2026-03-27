@@ -293,6 +293,10 @@ def assemble_bundle(
         command.add("--versioned-if-macos")
     command.add(codesign_configuration_args)
 
+    bundle_telemetry_logger = tools.bundle_telemetry_logger
+    if bundle_telemetry_logger:
+        command.add("--bundle-telemetry-logger", bundle_telemetry_logger)
+
     command_json = ctx.actions.declare_output("bundling_command.json", has_content_based_path = False)
     command_json_cmd_args = ctx.actions.write_json(command_json, command, with_inputs = True, pretty = True)
     subtargets["command"] = [DefaultInfo(default_output = command_json, other_outputs = [command_json_cmd_args])]
