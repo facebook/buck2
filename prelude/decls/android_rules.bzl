@@ -17,7 +17,7 @@ load("@prelude//decls:test_common.bzl", "test_common")
 load("@prelude//transitions:constraint_overrides.bzl", "constraint_overrides")
 load("@prelude//utils:clear_platform.bzl", "clear_platform_transition")
 load(":android_common.bzl", "android_common")
-load(":common.bzl", "AbiGenerationMode", "AnnotationProcessingTool", "OnDuplicateEntry", "SourceAbiVerificationMode", "TestType", "buck", "prelude_rule")
+load(":common.bzl", "AbiGenerationMode", "AnnotationProcessingTool", "SourceAbiVerificationMode", "TestType", "buck", "prelude_rule")
 load(":core_rules.bzl", "TargetCpuType")
 load(":genrule_common.bzl", "genrule_common")
 load(":jvm_common.bzl", "jvm_common")
@@ -1361,26 +1361,6 @@ robolectric_test = prelude_rule(
     ),
 )
 
-supermodule_target_graph = prelude_rule(
-    name = "supermodule_target_graph",
-    docs = "",
-    examples = None,
-    further = None,
-    attrs = (
-        # @unsorted-dict-items
-        {
-            "default_host_platform": attrs.option(attrs.configuration_label(), default = None),
-            "deps": attrs.set(attrs.dep(), sorted = True, default = []),
-            "label_pattern": attrs.option(attrs.regex(), default = None),
-            "on_duplicate_entry": attrs.enum(OnDuplicateEntry, default = "overwrite"),
-            "out": attrs.string(default = ""),
-        } |
-        buck.licenses_arg() |
-        buck.labels_arg() |
-        buck.contacts_arg()
-    ),
-)
-
 android_rules = struct(
     android_aar = android_aar,
     android_app_modularity = android_app_modularity,
@@ -1400,5 +1380,4 @@ android_rules = struct(
     ndk_library = ndk_library,
     prebuilt_native_library = prebuilt_native_library,
     robolectric_test = robolectric_test,
-    supermodule_target_graph = supermodule_target_graph,
 )
