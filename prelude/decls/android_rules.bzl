@@ -808,20 +808,6 @@ android_manifest = prelude_rule(
     ),
 )
 
-android_platform = prelude_rule(
-    name = "android_platform",
-    docs = "",
-    examples = None,
-    further = None,
-    attrs = (
-        # @unsorted-dict-items
-        {
-            "base_platform": attrs.configuration_label(),
-            "native_platforms": attrs.dict(key = attrs.enum(TargetCpuType), value = attrs.configuration_label(), sorted = False, default = {}),
-        }
-    ),
-)
-
 android_prebuilt_aar = prelude_rule(
     name = "android_prebuilt_aar",
     docs = """
@@ -1371,7 +1357,6 @@ android_rules = struct(
     android_instrumentation_test = android_instrumentation_test,
     android_library = android_library,
     android_manifest = android_manifest,
-    android_platform = android_platform,
     android_prebuilt_aar = android_prebuilt_aar,
     android_resource = android_resource,
     apk_genrule = apk_genrule,
