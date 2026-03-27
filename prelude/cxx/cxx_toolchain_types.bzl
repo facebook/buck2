@@ -250,6 +250,7 @@ CxxToolchainInfo = provider(
         "cvtres_compiler_info": provider_field(typing.Any, default = None),
         "cxx_compiler_info": provider_field(typing.Any, default = None),
         "cxx_error_handler": provider_field(typing.Any, default = None),
+        "default_deps": provider_field(list[Dependency], default = []),
         "dumpbin_toolchain_path": provider_field(typing.Any, default = None),
         "gcno_files": provider_field(typing.Any, default = None),
         "header_mode": provider_field(typing.Any, default = None),
@@ -339,6 +340,7 @@ def cxx_toolchain_infos(
         objcxx_compiler_info = None,
         cxx_error_handler = None,
         pass_plugin = None,
+        default_deps = [],
         runtime_dependency_handling = RuntimeDependencyHandling("no_symlink")):
     """
     Creates the collection of cxx-toolchain Infos for a cxx toolchain.
@@ -403,6 +405,7 @@ def cxx_toolchain_infos(
         use_distributed_thinlto = use_distributed_thinlto,
         cxx_error_handler = cxx_error_handler,
         supported_compile_flavors = supported_compile_flavors,
+        default_deps = default_deps,
     )
 
     ldflags_shared_extra = None

@@ -251,6 +251,7 @@ def cxx_toolchain_impl(ctx):
         minimum_os_version = ctx.attrs.minimum_os_version,
         # TODO(T138705365): Turn on dep files by default
         use_dep_files = value_or(ctx.attrs.use_dep_files, _get_default_use_dep_files(platform_name)),
+        default_deps = ctx.attrs.default_deps,
     )
 
 def cxx_toolchain_extra_attributes(is_toolchain_rule):
@@ -277,6 +278,7 @@ def cxx_toolchain_extra_attributes(is_toolchain_rule):
         "custom_tools": attrs.dict(key = attrs.string(), value = dep_type(providers = [RunInfo]), default = {}),
         "cvtres_compiler": attrs.option(dep_type(providers = [RunInfo]), default = None),
         "cxx_compiler": dep_type(providers = [RunInfo]),
+        "default_deps": attrs.list(dep_type(), default = []),
         "dwp": attrs.option(dep_type(providers = [RunInfo]), default = None),
         "gcno_files": attrs.bool(default = False),
         "generate_gc_sections": attrs.bool(default = False),
