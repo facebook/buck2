@@ -15,7 +15,6 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
-	"slices"
 	"strings"
 	"sync"
 )
@@ -65,8 +64,11 @@ func main() {
 			semaphore <- struct{}{}
 			defer func() { <-semaphore }()
 
-			tags := slices.Concat([]string{p.GoOS, p.GoArch}, cfg.DefaultTags)
-			pkgChan, errChan := queryGoList(thirdPartyDir, rootModuleName, fmt.Sprintf("-tags=%s", strings.Join(tags, ",")))
+			var extraArgs []string
+			if len(cfg.DefaultTags) > 0 {
+				extraArgs = []string{fmt.Sprintf("-tags=%s", strings.Join(cfg.DefaultTags, ","))}
+			}
+			pkgChan, errChan := queryGoList(thirdPartyDir, rootModuleName, p.GoOS, p.GoArch, extraArgs...)
 			pkgCount := 0
 			for pkg := range pkgChan {
 				pkgCount++
