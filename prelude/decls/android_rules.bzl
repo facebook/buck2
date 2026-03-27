@@ -70,7 +70,6 @@ Note: If you set this parameter, you must setup your NDK, otherwise Buck build w
 From the transitive closure of these dependencies, the outputs of rules of the following type will be included in the APK: \
 android_library(), android_resource(), cxx_library(), groovy_library(), java_library(), java_binary(), prebuilt_jar(), ndk_library(), prebuilt_native_library()."""),
     "dex_compression": attrs.option(attrs.enum(DexStore), default = None, doc = ""),
-    "dex_group_lib_limit": attrs.int(default = 0, doc = ""),
     "disable_pre_dex": attrs.bool(default = False, doc = ""),
     "duplicate_class_checker_enabled": attrs.bool(default = False, doc = ""),
     "duplicate_resource_behavior": attrs.enum(DuplicateResourceBehaviour, default = "allow_by_default", doc = "If set to 'ban_by_default', duplicate resource definitions with the same type and name will cause the build to fail, unless they are excluded by allowed_duplicate_resource_types or duplicate_resource_whitelist. If set to 'allow_by_default' (the default), no duplicate resource checks will be performed. They can still be enabled on individual types by using banned_duplicate_resource_types."),
