@@ -510,6 +510,7 @@ python_library = prelude_rule(
             "_cxx_toolchain": toolchains_common.cxx(),
             "_python_internal_tools": python_common.internal_tools_arg(),
             "_python_toolchain": toolchains_common.python(),
+            "supports_pyc_content_based_paths": attrs.bool(default = False),
         } |
         buck.licenses_arg() |
         buck.contacts_arg() |
