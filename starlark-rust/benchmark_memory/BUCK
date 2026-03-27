@@ -10,8 +10,12 @@ buck_rust_binary(
     crate_root = "src/main.rs",
     deps = [
         "fbsource//third-party/rust:clap",
-        "fbsource//third-party/rust:libc",
         "//buck2/starlark-rust/starlark:starlark",
         "//buck2/starlark-rust/starlark_syntax:starlark_syntax",
-    ],
+    ] + select({
+        "DEFAULT": [],
+        "ovr_config//os:linux": [
+            "fbsource//third-party/rust:libc",
+        ],
+    }),
 )
